@@ -397,6 +397,7 @@ static partial class Program
         h.SearchVersion = Search.Version;
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));
         PutNotices(h, now);
+        PutWhy(h, now); // Votes.cs: the Dislike popups that are open
         if (Pending is { } c)
         {
             h.ChangeMap = Clip(Label(c.Map), 40);

@@ -50,7 +50,8 @@ so the setting stays as it is.
    keyboard.
 3. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
 4. A map change: the news line says who picked what, and the banner counts down.
-5. **The Fun tab**: the fun settings, the one in force lit.
+5. **The Fun tab**: the fun settings, the one in force lit, and the grenade drops above Big grenades.
+6. **Dislike** a map: the popup at the left lists the reasons, and takes a click while TAB is held or the window is open.
 
 ## Visibility
 

@@ -27,8 +27,10 @@ public static class Hud
     /// up) does the same one level up: it keeps every panel of v3_1_0, and what it adds waits for a click on one of its own buttons
     /// (HudView.NewIds32, HudView.NewButtons32). So one plugin drives a game holding any of the three.</summary>
     /// Over Strike 2 (2026-11-01; v3_2_0 never shipped) is content v4_0_0, the same way: every panel of v3_1_0 kept, what it adds gated as
-    /// v3_2_0's was (NewIds32), and its version checked against the server's by the layout itself (HudVote.cs).
-    public const string Content = "v4_0_0";
+    /// v3_2_0's was (NewIds32), and its version checked against the server's by the layout itself (HudVote.cs). Content v4_1_0 keeps every
+    /// panel of v4_0_0 and adds the popup that asks why a player disliked a map, and the Fun page's row for the grenade drops, whose buttons
+    /// moved there from the Game page: nothing is sent to their panels (HudView.NewButtons41), so no game has to prove it holds them.
+    public const string Content = "v4_1_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -58,6 +60,7 @@ public static class Hud
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
         if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a downvote's reason, with or without its map (the chat's !down big, !down 12 big)
+        if (verb == DownReasons.PopupVerb) return DownReasons.Find(arg) != null; // a click on the popup's reason (HudVote.WhyClick)
         return verb is "!map" or "!up" or "!down" or "!toobig" or "!ads" or "!cancel" && IsMapArg(arg);
     }
 
@@ -103,12 +106,12 @@ public static class Hud
             new("I'm done", "End your own map: the queue moves on"),
             new("Vote to skip", "Someone else's map: a majority of the others skips it")]),
         new("Voting", [
-            new("Like  ·  Dislike", "On the map that is on - the same again undoes it"),
+            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the same again undoes it"),
             new("Too big", "A dislike: only 1 random pick in 100 is a too-big map"),
             new("Maps  ·  arrows", "Vote on any map's card: up likes it, down dislikes it"),
             new("Sort  ·  Votes", "The most liked maps first")]),
         new("Game", [
-            new("Grenade drops", "On or off, for everyone"),
+            new("Fun  ·  Grenade drops", "On or off, for everyone"),
             new("Match length", "10 or 60 minutes, from the next match"),
             new("New maps", "Always the new maps, Half a coin flip, Never the original list"),
             new("Restart", "Reboot a stuck server - click twice to confirm")]),
@@ -241,6 +244,7 @@ public sealed class HudState
     public string News = "";                            // the news line everybody sees (a pick, a skip vote, the queue moving, a crash)...
     public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left
+    public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Votes.cs)
     public string PrevLabel = "", PrevArg = "";         // the map before this one, for the queue page's Previous button
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
     public string NewMaps = "";                         // new maps in random picks: always, half or never; empty from an older bridge
@@ -274,6 +278,8 @@ public sealed class HudState
         foreach (var (account, (text, secs)) in Notes)
             if (text != "" && secs > 0)
                 s.Append("note\t").Append(account.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(secs.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(text, 140)).Append('\n');
+        foreach (var (account, (map, secs)) in Why)
+            if (secs > 0) Line("why", account, secs, map);    // an older plugin skips it
         if (PrevArg != "") Line("prev", PrevArg, PrevLabel);
         if (SearchVersion > 0) Line("srch", SearchVersion);
         if (NewMaps != "") Line("newmaps", NewMaps);         // an older plugin skips the lines it does not know
@@ -315,6 +321,7 @@ public sealed class HudState
                 case "tab": s.TabMode = Str(f, 1); break;
                 case "news": (s.NewsFor, s.News) = (Int(f, 1), Str(f, 2)); break;
                 case "note" when Long(f, 1) >= 0 && Int(f, 2) > 0: s.Notes[Long(f, 1)] = (Str(f, 3), Int(f, 2)); break;
+                case "why" when Long(f, 1) >= 0 && Int(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), Int(f, 2)); break;
                 case "prev": (s.PrevArg, s.PrevLabel) = (Str(f, 1), Str(f, 2)); break;
                 case "srch": s.SearchVersion = Long(f, 1); break;
                 case "newmaps": s.NewMaps = Str(f, 1); break;
@@ -373,6 +380,10 @@ public static class HudView
     /// Sent only to a player whose game has clicked one of NewButtons32, like NewIds one level down.</summary>
     public static readonly HashSet<string> NewIds32 = NewPanels32();
 
+    /// <summary>The buttons content v4_1_0 added: the popup's reasons. They need nothing sent to them; a click on one proves that player's game
+    /// holds v4_1_0, and so everything before it. (The grenade drops' buttons moved to the Fun page and are no proof: every content has them.)</summary>
+    public static readonly string[] NewButtons41 = [.. Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton)];
+
     static HashSet<string> NewPanels32()
     {
         var ids = new HashSet<string> { "gg_b_ads", HudMenu.FunNote, HudBrowser.OursButton }; // the Our maps chip gets its "on" class
@@ -388,8 +399,8 @@ public static class HudView
     /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
     public static int LevelOf(string id) => NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
 
-    /// <summary>The content a button proves a game holds: 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
+    /// <summary>The content a button proves a game holds: 41, 32, 31, or 0 for a button every game has.</summary>
+    public static int LevelOfButton(string id) => NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
 
     static HashSet<string> NewPanels()
     {
@@ -582,8 +593,10 @@ public static class HudView
     {
         var mine = s.MyVotes.GetValueOrDefault(account);
         var (_, _, command) = Action(s, account);
+        var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4_1_0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
         return [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null), (Screen, "holder", s.Holders.Contains(account)),
-            (Screen, "note", NoteOf(s, account) != ""), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote)];
+            (Screen, "note", NoteOf(s, account) != ""), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote),
+            (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
     }
 
     /// <summary>A click, as the plugin receives it: the action it asks the bridge for, or null for the buttons that only work the window.

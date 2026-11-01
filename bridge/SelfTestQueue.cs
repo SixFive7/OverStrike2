@@ -79,6 +79,7 @@ static partial class Program
                 StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; rconDown = false; HoldUntil = default; EmptySince = null; NewsItems.Clear(); NewsSent = default; NewsFirst = default; NewsLast = default;
                 statusMap = null; statusSpawn = 1; ResetCrashWatch(); WatchStop(); ClearNotices(); RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
                 Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; // Selection.cs
+                WhyOpen.Clear(); // Votes.cs
                 timers.Clear(); Quiet();
                 if (File.Exists(MaintenanceFile)) File.Delete(MaintenanceFile);
                 InMaintenance();

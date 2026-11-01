@@ -12,6 +12,8 @@ rolled at random when nobody asks. Everything is in the menu; the chat commands 
 - **A chat command for every action**, listed by `!help`. The words players know from other servers work too (`!map`, `!rtv`),
   and the reply teaches the server's own: `You typed !map 12 - ran !play 12`. A vote is a card's number in chat, and a click on a
   card shows in chat as that command, so menu users learn the chat way.
+- **A dislike says why.** A popup asks, a click or `!down big` answers: too big, ads, too small, broken, runs badly. Too big and
+  ads steer the dice, and every reason is kept with the vote.
 - **Sixteen fun settings** anybody can switch until the map changes, each with its own word (`!gravity low`): low gravity,
   bunny hopping, friendly fire, Laser guns, Vampire and more. Grenades drop where players die, and players who fall behind get a
   catch-up boost.

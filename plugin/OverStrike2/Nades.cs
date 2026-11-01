@@ -78,9 +78,8 @@ sealed class Nades(BasePlugin plugin, ILogger log)
         return carried;
     }
 
-    /// <summary>Grenade drops on or off for everyone. Since 2026-10-21 nobody types it (chat commands are gone): the HUD's Game page asks
-    /// for it - GunGameWelcome runs it as the server, naming who clicked, and says so on the HUD's news line. A server command without the
-    /// css_ prefix, so no chat trigger reaches it.</summary>
+    /// <summary>Grenade drops on or off for everyone. The HUD's Fun page and the chat command !nades ask for it (HudScreen.cs, which runs it
+    /// as the server, naming who asked, and says so on the HUD's news line). A server command without the css_ prefix, so no chat trigger reaches it.</summary>
     [ConsoleCommand("gg_nades", "Grenade drops on death: gg_nades on|off [who]")]
     [CommandHelper(minArgs: 0, usage: "[on|off] [who]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnNadesCommand(CCSPlayerController? player, CommandInfo command)

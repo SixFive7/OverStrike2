@@ -124,7 +124,7 @@ static partial class Program
                 StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; HoldUntil = default; EmptySince = null;
                 NewsItems.Clear(); NewsSent = default; NewsFirst = default; NewsLast = default;
                 ResetCrashWatch(); WatchStop(); ClearNotices(); RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
-                Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default;
+                Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; WhyOpen.Clear();
                 Ballot = null; VoteHeld = false; ModeBeforeChange = null; ModeProbing = false; ModeProbeEnabled = false; ModeProbeAt = default; ModeResetRetryAt = default; ModeMaps.Clear();
                 VoteCapable = () => true;
                 timers.Clear(); sent.Clear(); (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0)); ModeVerifyDue = false; ModeReloads = 0;

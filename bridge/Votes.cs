@@ -45,12 +45,14 @@ static partial class Program
     /// takes it back; another one replaces it. One vote per SteamID per map. A too-big vote (TooBigVote, Selection.cs) is that player's
     /// dislike - every tally and weight counts it as a downvote - and it also marks the map too big; an ads vote (AdsVote) is a dislike
     /// too, and keeps the map out of random picks altogether. Named: !down with its reason (DownReasons): the vote is that, whatever it
-    /// was; the same reason again changes nothing, and never takes the vote back.</summary>
+    /// was; the same reason again changes nothing, and never takes the vote back. Without a map a reason goes to the map the player's
+    /// popup is asking about, if it is open.</summary>
     static void Vote(string by, string id, string arg, int value, bool named = false)
     {
         var word = value > 0 ? "!up" : value == TooBigVote ? "!toobig" : value == AdsVote ? "!ads" : "!down";
         MapInfo? map;
-        if (arg == "")
+        if (arg == "" && named && WhyOpen.TryGetValue(id, out var asked)) map = asked.Map;
+        else if (arg == "")
         {
             map = S.Map;
             if (AnnouncePending) { Tell(id, "The next map is still loading - vote once it is on, or on a card in the menu"); return; } // S.Map is already the map on its way
@@ -65,14 +67,23 @@ static partial class Program
             if (hits.Count > 1) { Tell(id, Choice(hits, word)); return; }
             map = hits[0];
         }
+        CastVote(by, id, map, value, named);
+    }
+
+    /// <summary>The vote on a map that is settled: kept, told, and the popup opened or closed. A Dislike that stands without a reason opens the popup;
+    /// any other vote on that map closes it, as a map change does.</summary>
+    static void CastVote(string by, string id, MapInfo map, int value, bool named)
+    {
         var key = Key(map);
         if (!Votes.TryGetValue(key, out var mine)) Votes[key] = mine = new();
         var old = mine.GetValueOrDefault(id);
-        if (named && old == value) { Tell(id, $"{Label(map)}: your vote says {DownReasons.Of(value)?.Short ?? "down"} already"); return; }
+        if (WhyOpen.TryGetValue(id, out var open) && Key(open.Map) == key) WhyOpen.Remove(id);
+        if (named && old == value) { Tell(id, $"Your vote on {Label(map)}: {DownReasons.Of(value)?.Label}, already"); return; }
         if (old == value) mine.Remove(id); else mine[id] = value;
         if (mine.Count == 0) Votes.Remove(key);
         SaveVotes();
         if (value < 0 && old != value) Log($"vote: {by} {id} on {Label(map)}: {DownReasons.Of(value)?.Label}"); // the reason is kept per vote: votes.json's value
+        if (value == DownReasons.Plain && !named && old != value) WhyOpen[id] = new WhyAsked(map, Now().AddSeconds(DownReasons.PopupSeconds));
         var (up, down) = Tally(key);
         var marks = string.Join(", ", new[] { TooBigVotes(key) is > 0 and var big ? $"{big} too big" : "", AdsVotes(key) is > 0 and var ads ? $"{ads} ads" : "" }.Where(x => x != ""));
         var tally = $"now +{up} -{down}{(marks != "" ? $" ({marks})" : "")}";
@@ -88,6 +99,31 @@ static partial class Program
     }
 
     const int PlainVoteLabel = 34; // a plain downvote's note names the map in this much, so "Why? ..." always fits the note line
+
+    /// <summary>The map a player's popup asks about, and until when it stands.</summary>
+    sealed record WhyAsked(MapInfo Map, DateTime Until);
+
+    static readonly Dictionary<string, WhyAsked> WhyOpen = new(); // SteamID -> the Dislike still waiting for its reason; in memory: a lost one stays "I did not like the map"
+
+    /// <summary>A click on a reason in the popup (DownReasons.PopupVerb): the vote it asks about takes that reason. Too late (it is gone), nothing changes:
+    /// the vote stays what it was.</summary>
+    static void PopupReason(string by, string id, string word)
+    {
+        if (DownReasons.Find(word) is not { } reason) return;
+        if (!WhyOpen.TryGetValue(id, out var asked)) { Tell(id, $"That question has passed - !down {reason.Word} still sets it"); return; }
+        CastVote(by, id, asked.Map, reason.Value, named: true);
+    }
+
+    /// <summary>Every tick's reading of the open popups, into the live state: each one's map and seconds left. One past its time goes after a short grace,
+    /// so that a click on its way still lands; its vote stays "I did not like the map".</summary>
+    static void PutWhy(HudState h, DateTime now)
+    {
+        foreach (var (id, asked) in WhyOpen.ToList())
+        {
+            if (now >= asked.Until.AddSeconds(DownReasons.PopupGraceSeconds)) { WhyOpen.Remove(id); continue; }
+            if (now < asked.Until && AccountId(id) is > 0 and var account) h.Why[account] = (Clip(Label(asked.Map), 40), (int)Math.Ceiling((asked.Until - now).TotalSeconds));
+        }
+    }
 
     /// <summary>The health page's line about the downvotes' reasons.</summary>
     static string ReasonHealth() => "down votes: " + string.Join(", ", DownReasons.All.Select(r => $"{Votes.Values.Sum(v => v.Values.Count(x => x == r.Value))} {r.Short}"));

@@ -255,6 +255,64 @@ static partial class Program
         Check($"The plain downvote's note fits the note line with a long name and a long tally ({fullNote.Length} of {NoticeLength})", fullNote.Length <= NoticeLength);
         Votes = new();
 
+        // ---- the popup: a plain Dislike opens it, a reason, its time or a map change closes it; the vote counted all along ----
+        Fresh();
+        Join(alice); Join(bob);
+        var askOn = small[72];
+        var askCard = small[73];
+        var askOther = small[74];
+        (S.Map, S.LogName, AnnouncePending) = (askOn, askOn.Name, false);
+        HudState Live() => HudState.Decode(BuildHud(Now()).Encode())!;
+        bool Cls(HudState s, long a, string c) => HudView.PlayerClasses(s, a).Single(x => x.Class == c).On;
+        Talk(alice, "!down");
+        var asking = Live();
+        Check($"A plain Dislike counts at once, and that player's popup asks about that map for {DownReasons.PopupSeconds} s; nobody else's opens; the line under it is not running yet",
+            Votes[Key(askOn)][aliceId] == DownReasons.Plain && asking.Why[1001] == (Clip(Label(askOn), 40), (int)DownReasons.PopupSeconds) && !asking.Why.ContainsKey(1002)
+            && Cls(asking, 1001, "why") && !Cls(asking, 1001, "why-run") && !Cls(asking, 1002, "why"));
+        Run(2);
+        Check("...two seconds on the line runs, and the seconds count down", Live().Why[1001].For == (int)DownReasons.PopupSeconds - 2 && Cls(Live(), 1001, "why") && Cls(Live(), 1001, "why-run"));
+        Quiet();
+        Check("A click on a reason updates that vote: no second vote, and the popup closes", HudAct($"{aliceId}\tAlice\t{DownReasons.PopupVerb} big") && Votes[Key(askOn)][aliceId] == TooBigVote
+            && Votes[Key(askOn)].Count == 1 && Tally(Key(askOn)) == (0, 1) && TooBig(askOn) && !Live().Why.ContainsKey(1001) && !Cls(Live(), 1001, "why") && Said("to too big"));
+        Quiet(); Talk(alice, "!down");
+        Check("Dislike on a reason goes back to the plain one, and asks again", Votes[Key(askOn)][aliceId] == DownReasons.Plain && Live().Why.ContainsKey(1001));
+        Quiet(); Talk(alice, "!down ads");
+        Check("While it is open the same words set the reason, with no second vote, and close it", Votes[Key(askOn)][aliceId] == AdsVote && Votes[Key(askOn)].Count == 1 && !Live().Why.ContainsKey(1001));
+        Talk(alice, "!down"); Quiet(); Talk(alice, "!down");
+        Check("...a Dislike taken back closes it too", !Votes.ContainsKey(Key(askOn)) && !Live().Why.ContainsKey(1001) && Said("took back"));
+        Talk(alice, $"!down {askCard.Rank}");
+        var onCard = Live();
+        Check("A card's down arrow asks about that card's map, not the map that is on", onCard.Why[1001].Map == Clip(Label(askCard), 40) && Votes[Key(askCard)][aliceId] == DownReasons.Plain && !Votes.ContainsKey(Key(askOn)));
+        Quiet(); Talk(alice, $"!down {askOther.Rank} big");
+        Check("...a reason that names another map goes there and leaves the question open", Votes[Key(askOther)][aliceId] == TooBigVote && Live().Why[1001].Map == Clip(Label(askCard), 40));
+        Quiet(); Talk(alice, "!down big");
+        Check("...and the words with no map go to the map it asks about", Votes[Key(askCard)][aliceId] == TooBigVote && !Votes.ContainsKey(Key(askOn)) && !Live().Why.ContainsKey(1001));
+        Talk(alice, $"!down {askCard.Rank}"); Talk(alice, $"!up {askCard.Rank}");
+        Check("...any other vote on that map closes it", Votes[Key(askCard)][aliceId] == 1 && !Live().Why.ContainsKey(1001));
+        var noAsk = new[] { "!up", "!toobig", "!ads", "!down small", $"!down {askOther.Rank} slow" };
+        var asked = false;
+        foreach (var said in noAsk) { Talk(bob, said); asked |= Live().Why.ContainsKey(1002); }
+        Check($"No popup when a reason is given, or for any other vote: {string.Join(", ", noAsk)}", !asked);
+        Votes = new();
+        Talk(alice, "!down"); Run(DownReasons.PopupSeconds + 0.5);
+        Check("Its time up, it leaves the screen, and the vote stays 'I did not like the map'", !Live().Why.ContainsKey(1001) && Votes[Key(askOn)][aliceId] == DownReasons.Plain);
+        HudAct($"{aliceId}\tAlice\t{DownReasons.PopupVerb} slow");
+        Check("...a click already on its way still lands", Votes[Key(askOn)][aliceId] == HudCatalog.SlowVote);
+        Votes = new();
+        Talk(alice, "!down"); Run(DownReasons.PopupSeconds + DownReasons.PopupGraceSeconds + 1); Quiet();
+        HudAct($"{aliceId}\tAlice\t{DownReasons.PopupVerb} big");
+        Check("...a later one changes nothing, says so, and names the words that still work", Votes[Key(askOn)][aliceId] == DownReasons.Plain && Said("That question has passed") && Said("!down big"));
+        Check("A click may say !reason with a reason, and nothing else", new[] { "!reason big", "!reason meh", "!reason slow" }.All(Hud.IsAction) && new[] { "!reason", "!reason x", "!reason big 12", "!reason 12", "!reason BIG" }.All(x => !Hud.IsAction(x)));
+        Talk(alice, "!toobig"); Talk(alice, "!down");
+        var carried = Live();
+        var whyLine = BuildHud(Now()).Encode().Split('\n').Single(l => l.StartsWith("why\t"));
+        Check("The live state's line for it: an older plugin skips a line it does not know, and an expired question is not sent",
+            whyLine.Split('\t').Length == 4 && whyLine.StartsWith("why\t1001\t") && carried.Why.Count == 1 && !new HudState { Why = new() { [1] = ("x", 0) } }.Encode().Contains("why\t")
+            && HudState.Decode(HudState.Magic + "\nwhy\tx\t3\tm\nwhy\t5\t0\tm\nwhy\t6\t3\tm\n")!.Why.Keys.SequenceEqual([6L]));
+        OnMapStart("some_other_map");
+        Check("A map change closes it: nothing on screen survives one, and the vote stays", !Live().Why.ContainsKey(1001) && Votes[Key(askOn)][aliceId] == DownReasons.Plain);
+        Votes = new();
+
         // ---- the setting: anybody switches it, for everybody, and the news line says who ----
         Fresh();
         Join(alice); Join(bob);

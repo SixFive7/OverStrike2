@@ -23,8 +23,8 @@ verdicts.
 ## The menu and the commands
 
 The HUD's window is the whole interface: every map with its picture, size and votes, a search over names, tags and Workshop ids
-on an on-screen keyboard, any Workshop map by its id, the queue, the game settings, the fun settings, help, the rules and how it
-all works. Holding **TAB** shows a board beside the scoreboard - Like, Dislike, Next and the queue - that takes the mouse while
+on an on-screen keyboard, any Workshop map by its id, the queue, the game settings, the fun settings and the grenade drops, help, the
+rules and how it all works. Holding **TAB** shows a board beside the scoreboard - Like, Dislike, Next and the queue - that takes the mouse while
 TAB is down; TAB + E opens the full window.
 
 A chat line that starts with `!` or `/` is a command too, and does exactly what the matching click does (the same action, the
@@ -138,7 +138,8 @@ per player per map. **Too big** is a dislike that also marks the map too big (1 
 keeps the map out of random picks for good (it shows adverts or sends players to another server). Votes live in
 `STATE_DIR/votes.json`; a file that does not parse is moved aside, never overwritten.
 
-**A dislike keeps its reason**, as the vote's value in `votes.json` (`DownReasons`). A plain Dislike counts at once as the first one:
+**A dislike keeps its reason**, as the vote's value in `votes.json` (`DownReasons`). Any plain Dislike - the board's button, a card's arrow,
+`!down`, `!down <number>`, its aliases - counts at once as the first one, and that player gets a popup listing them for 15 s:
 
 | Word | Reason | Value | What it does |
 |---|---|---|---|
@@ -149,10 +150,15 @@ keeps the map out of random picks for good (it shows adverts or sends players to
 | `broken` | Map is broken | -5 | A dislike |
 | `slow` | Runs badly | -6 | A dislike |
 
+Choosing a reason updates that vote. With no choice the vote stays as it is; the plain dislike is what is kept and logged. The popup
+takes no mouse of its own, so it never stops anybody playing: it stands at the left, clear of the window and the scoreboard, and a click
+needs the cursor the player already has - the window's, or TAB's. A map change, or another vote by that player on that map, closes it.
+
 Chat steers it directly: `!down big` on the map that is on, `!down <number> <reason>` on any map (`!down 12 big`), a new vote with its
-reason if there was none. A reason replaces the one before and never takes the vote back; the same one again changes nothing.
-Plain `!down` keeps the toggle: on a reason it goes back to the plain dislike, on the plain dislike it takes the vote back. The
-health page counts the votes per reason.
+reason if there was none, and no popup. While a popup is open `!down big` sets the reason of the vote it asks about, without a second
+vote. A reason replaces the one before and never takes the vote back; the same one again changes nothing. Plain `!down` keeps the
+toggle: on a reason it goes back to the plain dislike, on the plain dislike it takes the vote back. The health page counts the votes
+per reason. A game holding an older HUD has no popup: the player's note names the words instead, and every player's does.
 
 ### Keeping the rules in sync
 

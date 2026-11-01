@@ -14,13 +14,21 @@ using System.Globalization;
 /// <summary>Why a player down-voted a map (the owner's decision of 2026-11-01): one vote per player per map, whose value in votes.json says
 /// why - every one of them that player's dislike wherever a vote counts. A plain Dislike is "I did not like the map". Too big and Ads
 /// have their own effects (Selection.cs); the rest are kept and count as a dislike, nothing more. Chat steers it directly: !down big,
-/// !down 12 big. The same words on /act set the reason and never take the vote back; plain !down keeps its old toggle.</summary>
+/// !down 12 big. The same words on /act set the reason and never take the vote back; plain !down keeps its old toggle. A plain !down also
+/// opens the popup that lists the reasons (Votes.cs, HudVote.WhyWords) for PopupSeconds: choosing one, or typing its word, updates that vote.</summary>
 public static class DownReasons
 {
     /// <summary>A reason: the word chat uses, the vote's value, what the popup says, and how a note names it.</summary>
     public sealed record Reason(string Word, int Value, string Label, string Short);
 
     public const int Plain = -1; // votes.json's plain downvote, since long before there were reasons
+
+    /// <summary>How long the popup stands, and how long after that a click on its way still counts. The drain line runs a second shorter (HudView.PlayerClasses;
+    /// the stylesheet's .why-run).</summary>
+    public const double PopupSeconds = 15, PopupGraceSeconds = 2;
+
+    /// <summary>The click on a reason in the popup, on /act: "!reason big". It updates the vote the popup asks about, and nothing else; once the popup is gone it does nothing.</summary>
+    public const string PopupVerb = "!reason";
 
     public static readonly Reason[] All =
     [
@@ -72,8 +80,8 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number, for the version check: v4_0_0 is 40. The classes go from FirstLevel to LastLevel.</summary>
-    public const int ContentLevel = 40, FirstLevel = 31, LastLevel = 49;
+    /// <summary>The server's content as a number, for the version check: v4_1_0 is 41. The classes go from FirstLevel to LastLevel.</summary>
+    public const int ContentLevel = 41, FirstLevel = 31, LastLevel = 49;
 
     /// <summary>The dialog variables on gg_global that the newer layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
@@ -156,6 +164,24 @@ public static class HudVote
             var entry = o == null || o.Source == VoteSource.Random || catalog == null ? null : catalog.Maps.FirstOrDefault(m => m.Key == o.Key);
             return ($"{HudMenu.Card(k)}_thumb", entry != null ? HudThumbs.Classes(entry) : Array.Empty<string>());
         }).ToList();
+
+    /// <summary>The dialog variable on gg_screen that content v4_1_0's popup inherits, for each player: the map it asks about. The reasons' words are
+    /// oswhy1 ... on gg_global, the same for everybody, and their chat words oswhyw1 ...; nothing is sent to the popup's own panels.</summary>
+    public const string WhyVar = "oswhy";
+
+    /// <summary>The popup's buttons, one per reason, in DownReasons' order: k from 1.</summary>
+    public static string WhyButton(int k) => $"gg_why_{k.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>The popup's fixed words, as the dialog variables on gg_global that its labels inherit.</summary>
+    public static List<(string Name, string Text)> WhyWords() =>
+        DownReasons.All.SelectMany((r, i) => new[] { ($"{WhyVar}{i + 1}", r.Label), ($"{WhyVar}w{i + 1}", r.Word) }).ToList();
+
+    /// <summary>A click on a reason in the popup as the reason it names, or null for any other button.</summary>
+    public static DownReasons.Reason? WhyClick(string buttonId) =>
+        buttonId.StartsWith("gg_why_", StringComparison.Ordinal) && int.TryParse(buttonId[7..], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= DownReasons.All.Length ? DownReasons.All[k - 1] : null;
+
+    /// <summary>The grenade drops' state, on gg_global (content v4_1_0's Fun page lights the choice that is on; an older game has no rule for it).</summary>
+    public static List<(string Id, string Class, bool On)> NadesClasses(bool? on) => [(HudView.Global, "nd-on", on == true), (HudView.Global, "nd-off", on == false)];
 
     /// <summary>What a card click says for everybody in chat, under that player's name (the owner's decision of 2026-11-01): the command a
     /// typed vote would be, so that menu users learn the chat way.</summary>

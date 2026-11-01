@@ -1048,7 +1048,7 @@ GUIDE_TOP = """\
         <section class="gd-group">
           <h3>Voting</h3>
           <dl>
-            <div><dt><b class="gd-b">Like</b> <b class="gd-b">Dislike</b></dt><dd>On the map that is on &ndash; the same again undoes it</dd></div>
+            <div><dt><b class="gd-b">Like</b> <b class="gd-b">Dislike</b></dt><dd>On the map that is on &ndash; Dislike asks why; the same again undoes it <span class="gd-also gd-line">its reason is kept with the vote: too big, ads, too small, broken, runs badly; in chat !down big</span></dd></div>
             <div><dt><b class="gd-b">Too big</b></dt><dd>A dislike: only 1 random pick in 100 is a too-big map <span class="gd-also gd-line">beside Like and Dislike, and Big on every map card; it marks the map too big</span></dd></div>
             <div><dt><b class="gd-b">Ads</b></dt><dd>A dislike for ads or a server redirect: never a random pick <span class="gd-also gd-line">beside Too big, and on every map card; anybody can still pick the map</span></dd></div>
             <div><dt><b class="gd-b">Maps</b><span class="gd-sep">&rsaquo;</span>arrows</dt><dd>Vote on any map&rsquo;s card: up likes it, down dislikes it</dd></div>
@@ -1058,7 +1058,7 @@ GUIDE_TOP = """\
         <section class="gd-group">
           <h3>Game</h3>
           <dl>
-            <div><dt><b class="gd-b">Grenade drops</b></dt><dd>On or off, for everyone <span class="gd-also gd-line">back on after 10 minutes with nobody on</span></dd></div>
+            <div><dt><b class="gd-b">Fun</b><span class="gd-sep">&rsaquo;</span><b class="gd-b">Grenade drops</b></dt><dd>On or off, for everyone <span class="gd-also gd-line">back on after 10 minutes with nobody on</span></dd></div>
             <div><dt><b class="gd-b">Match length</b></dt><dd>10 or 60 minutes, from the next match</dd></div>
             <div><dt><b class="gd-b">New maps</b></dt><dd>Always the new maps, Half a coin flip, Never the original list <span class="gd-also gd-line">where random picks come from, for everyone: the new maps are #1017 and up, the original list #1&ndash;#1016</span></dd></div>
             <div><dt><b class="gd-b">Restart</b></dt><dd>Reboot a stuck server &ndash; click twice to confirm <span class="gd-also gd-line">the whole server, not the match</span></dd></div>

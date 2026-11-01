@@ -410,7 +410,7 @@ sealed class HudScreen
         Forget(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
-            foreach (var cls in new[] { "win", "win-in", "draining", "toast-1", "toast-2", "toast-in" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
+            foreach (var cls in new[] { "win", "win-in", "draining", "toast-1", "toast-2", "toast-in", "why", "why-run" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
                 entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
             entity!.SetInputCaptureEnabled(p, false);
             playerDirty = true;
@@ -421,9 +421,9 @@ sealed class HudScreen
     /// <summary>Send this slot everything again. What its cards' pictures have on is kept, through a new player in the slot too: those
     /// classes may still be on in the client, and the next maps page switches off whatever it does not want (only a new entity starts
     /// clean).</summary>
-    void Forget(int slot) { playerTexts.Remove(slot); playerClasses.Remove(slot); }
+    void Forget(int slot) { playerTexts.Remove(slot); playerClasses.Remove(slot); playerVars.Remove(slot); }
 
-    void ForgetAll() { globalTexts.Clear(); globalClasses.Clear(); globalVars.Clear(); playerTexts.Clear(); playerClasses.Clear(); thumbs.Clear(); }
+    void ForgetAll() { globalTexts.Clear(); globalClasses.Clear(); globalVars.Clear(); playerTexts.Clear(); playerClasses.Clear(); playerVars.Clear(); thumbs.Clear(); }
 
     // ---- clicks ----
 
@@ -440,9 +440,17 @@ sealed class HudScreen
         {
             content[who] = proves;
             log.LogInformation("GunGameWelcome HUD: {Name} [U:1:{Account}] clicked {Button} - their game has content {Content}; its new panels get words from now on",
-                player.PlayerName, who, buttonId, proves >= 32 ? Hud.Content : "v3_1_0");
+                player.PlayerName, who, buttonId, proves >= 41 ? Hud.Content : proves >= 32 ? "v4_0_0" : "v3_1_0");
         }
         if (wasChecked && buttonId == HudView.ButtonAct) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
+        if (HudVote.WhyClick(buttonId) is { } reason)
+        {
+            // The popup's reason (content v4_1_0), under whichever cursor this player has: the window's or TAB's. The bridge knows which vote it is about.
+            Act(player, who, $"{DownReasons.PopupVerb} {reason.Word}");
+            if (slots.WindowOpen(player.Slot)) slots.Click(player.Slot, buttonId, now);
+            Server.NextFrame(Frame);
+            return;
+        }
         if (buttonId == HudMenu.BoardOpen && !slots.WindowOpen(player.Slot)) { tab.Release(player.Slot); Menu(player); return; } // the board's button: the window keeps the cursor
         if (buttonId is HudView.BoardUp or HudView.BoardDown or HudView.BoardNext or HudView.BoardBig or HudView.BoardAds) // the board's own buttons, under the TAB cursor
         {
@@ -478,6 +486,7 @@ sealed class HudScreen
             // GunGameNades owns the toggle (gg_nades, a server command since chat commands went): run it, and say who switched it on the
             // news line. A frame later, like everything a click starts: it hands every living player a grenade.
             var onOff = buttonId == HudMenu.NadesOn ? "on" : "off";
+            if (NadesOn?.Invoke() == (buttonId == HudMenu.NadesOn)) { LocalNote(player.Slot, $"Grenade drops: {onOff} already"); Server.NextFrame(Frame); return; }
             var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
             Server.NextFrame(() => { Server.ExecuteCommand($"gg_nades {onOff} \"{name}\""); Notice($"{name} switched grenade drops {onOff}", 8); });
             return;
@@ -910,6 +919,8 @@ sealed class HudScreen
         foreach (var (id, cls, on) in HudVote.ModeClasses(mode.Id)) Class(id, cls, on);
         Var(HudView.Global, HudVote.VersionVar, Hud.Content);
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
+        foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words (content v4_1_0)
+        foreach (var (id, cls, on) in HudVote.NadesClasses(NadesOn?.Invoke())) Class(id, cls, on); // the Fun page's grenade drops, lit
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
         foreach (var p in humans)
         {
@@ -921,6 +932,7 @@ sealed class HudScreen
             foreach (var (id, text2) in HudView.PlayerTexts(shown, account, p.PlayerName, view.Toast == 2))
                 Text(id, checking && id == "gg_btn_act_text" ? HudCheck.ActText : checking && id == "gg_btn_act_sub" ? HudCheck.ActSub : ownNote && id == "gg_note_text" ? note.Text : text2, p);
             foreach (var (id, cls, on) in HudView.PlayerClasses(shown, account)) Class(id, cls, (on || (ownNote && cls == "note")) && !(checking && cls == "act-off"), p);
+            if (shown.Why.TryGetValue(account, out var asked)) Var(HudView.Screen, HudVote.WhyVar, asked.Map, p); // the map the popup asks about: its label inherits it
             Class(HudView.Screen, "win", view.Window, p);
             Class(HudView.Screen, "win-in", view.WindowIn, p);
             Class(HudView.Screen, "draining", view.Draining, p);
@@ -1057,6 +1069,19 @@ sealed class HudScreen
         entity!.SetDialogVariableString(id, name, Hud.Plain(text));
         globalVars[(id, name)] = text;
         globalDirty = true;
+    }
+
+    readonly Dictionary<int, Dictionary<(string, string), string>> playerVars = new();
+
+    /// <summary>The same for one player alone (the map content v4_1_0's popup asks about, on gg_screen).</summary>
+    void Var(string id, string name, string text, CCSPlayerController player)
+    {
+        var mine = playerVars.TryGetValue(player.Slot, out var v) ? v : playerVars[player.Slot] = new();
+        if (mine.TryGetValue((id, name), out var had) && had == text) return;
+        if (!Spend()) return;
+        entity!.SetDialogVariableStringForPlayer(player, id, name, Hud.Plain(text));
+        mine[(id, name)] = text;
+        playerDirty = true;
     }
 
     void Text(string id, string text, CCSPlayerController? player = null)

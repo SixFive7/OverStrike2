@@ -471,6 +471,7 @@ static partial class Program
             S.LogName = null; // attribution starts over below
         }
         AllReloading(now); MatchEndUntil = default; // fresh map: everyone reconnects into it
+        WhyOpen.Clear(); // Votes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
         if (!ours) { ModeProbing = true; VoteHeld = false; } // ...and any map start nobody asked for has the server say which mode it is in
         else { ModeBeforeChange = null; ModeVerifyDue = true; } // the change landed: SyncMode checks the mode it came up in
@@ -545,6 +546,7 @@ static partial class Program
         else if (cmd == "!cancel") Cancel(name, steamId, arg);
         else if (cmd == "!up") Vote(name, steamId, arg, +1);
         else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Vote(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Votes.cs: with its reason, if it names one
+        else if (cmd == DownReasons.PopupVerb) PopupReason(name, steamId, arg); // Votes.cs: a click on a reason in the popup
         else if (cmd == "!toobig") Vote(name, steamId, arg, TooBigVote); // Selection.cs: a dislike that also marks the map too big
         else if (cmd == "!ads") Vote(name, steamId, arg, AdsVote);       // Selection.cs: a dislike that also keeps the map out of random picks
         else if (cmd == "!newmaps") SetNewMaps(name, steamId, arg);       // Selection.cs: always, half or never

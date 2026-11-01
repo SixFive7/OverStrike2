@@ -3247,9 +3247,9 @@ Label
 	animation-iteration-count: infinite;
 }
 
-/* ---- the Fun page: twelve rows of up to three choices across the whole window - the live column steps aside. Its height:
-   14 + 8 px of padding, the note's line and 8 px, and twelve rows of 44 + 3 px - well inside the 633 px the pages have
-   (--selftest's estimate: 613). A row that does nothing at the moment (Instakill and Grenades while friendly fire is off) is dimmed. ---- */
+/* ---- the Fun page: seventeen rows of up to three choices across the whole window - the live column steps aside. Its height:
+   14 + 8 px of padding, the note's line and 8 px, and nine rows of 62 + 2 px in its longer column - inside the 633 px the pages have
+   (--selftest's estimate: 625). A row that does nothing at the moment (Instakill and Grenades while friendly fire is off) is dimmed. ---- */
 
 .gg-screen.page-fun .gg-page-fun
 {
@@ -3309,16 +3309,42 @@ Label
 	padding-left: 14px;
 }
 
-/* A row: its title and its choices on one line, its words under them across the column (Over Strike 2: sixteen rows, eight a column). */
+/* A row: its title and its choices on one line, its words under them across the column (content v4_1_0: seventeen rows, nine in the right column). */
 .gg-frow
 {
 	visibility: collapse;
 	width: 100%;
-	height: 66px;
+	height: 62px;
 	flow-children: down;
-	margin-bottom: 4px;
+	margin-bottom: 2px;
 	padding-left: 12px;
 	border-left: 3px solid #E9B44C59;
+}
+
+/* Content v4_1_0: the grenade drops, moved here from the Game page. Its words are the layout's and its state gg_global's, so it needs no proof that
+   the game has this content; in another game mode .gg-set-nades hides it, below. */
+.gg-frow-nades
+{
+	visibility: visible;
+}
+
+.gg-nadeb
+{
+	width: 96px;
+	height: 32px;
+	vertical-align: center;
+}
+
+.gg-global.nd-on #gg_set_nades_on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+.gg-global.nd-off #gg_set_nades_off
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
 }
 
 .gg-screen.c32 .gg-frow.used
@@ -3502,7 +3528,146 @@ Label
 	visibility: collapse;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_0_0 - level 40. At a join (vjoin) a server above it (svge41) or below it (svlt40)
+/* Content v4_1_0: why the dislike. The reasons of a Dislike, for 15 s (DownReasons.PopupSeconds), for its player alone. At the left, clear of the 1240 px
+   window and the scoreboard on a 16:9 screen, below the radar and above the chat. It takes no mouse of its own (HudView.PlayerClasses, the bridge's
+   Votes.cs): a click needs the cursor the player already has, so it never stops anybody playing; the words come as dialog variables its labels inherit. */
+.gg-why
+{
+	visibility: collapse;
+	width: 280px;
+	horizontal-align: left;
+	vertical-align: top;
+	margin-left: 18px;
+	margin-top: 300px;
+	flow-children: down;
+	padding: 12px 14px 10px 14px;
+	background-color: gg-card;
+	border-left: 3px solid gg-gold;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+	world-blur: gg-blur;
+}
+
+.gg-screen.why .gg-why
+{
+	visibility: visible;
+}
+
+.AspectRatio16x10 .gg-why
+{
+	margin-left: 6px;
+	ui-scale: 92%;
+}
+
+.AspectRatio4x3 .gg-why
+{
+	margin-left: 2px;
+	ui-scale: 80%;
+}
+
+.gg-why-title
+{
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 18px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-why-map
+{
+	width: 100%;
+	margin-bottom: 8px;
+	font-size: 13px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-whyb
+{
+	width: 100%;
+	height: 30px;
+	margin-bottom: 3px;
+	padding: 0px 8px;
+	flow-children: right;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF0A;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-whyb:hover
+{
+	border: 1px solid #FFFFFF59;
+	background-color: #FFFFFF17;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-whyb:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-whyb-text
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-whyb-word
+{
+	vertical-align: center;
+	margin-left: 8px;
+	font-size: 11px;
+	font-weight: bold;
+	color: gg-gold;
+}
+
+.gg-why-hint
+{
+	width: 100%;
+	margin-top: 5px;
+	font-size: 11px;
+	color: gg-faint;
+}
+
+.gg-why-track
+{
+	width: 100%;
+	height: 3px;
+	margin-top: 6px;
+	border-radius: 2px;
+	background-color: #FFFFFF14;
+}
+
+.gg-why-fill
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 2px;
+	background-color: gg-gold;
+	transform-origin: 0% 50%;
+	transform: scaleX( 1 );
+	transition-property: transform;
+	transition-duration: 0s;
+}
+
+/* One second after it opens (HudView.PlayerClasses), so a second Dislike's popup starts the line again. */
+.gg-screen.why-run .gg-why-fill
+{
+	transform: scaleX( 0 );
+	transition-property: transform;
+	transition-duration: 14s;
+	transition-timing-function: linear;
+}
+
+/* The HUD version check (HudVote.cs): this layout is v4_1_0 - level 41. At a join (vjoin) a server above it (svge42) or below it (svlt41)
    says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
 .gg-ver
 {
@@ -3539,12 +3704,12 @@ Label
 	text-align: center;
 }
 
-.gg-global.svge41 .gg-screen.vjoin .gg-ver-old
+.gg-global.svge42 .gg-screen.vjoin .gg-ver-old
 {
 	visibility: visible;
 }
 
-.gg-global.svlt40 .gg-screen.vjoin .gg-ver-new
+.gg-global.svlt41 .gg-screen.vjoin .gg-ver-new
 {
 	visibility: visible;
 }

@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4_0_0 (custom_hud_layout, CS2 update of 2026-08-24).
+  Over Strike 2 - the in-game HUD, content v4_1_0 (custom_hud_layout, CS2 update of 2026-08-24).
 
   Structure and style only: every word that can change comes from the GunGameWelcome plugin as a dialog variable ({s:text} on a
   labelled panel; the words live in bridge/Hud.cs), and every state (window open, page, card, votes) is a class the plugin
@@ -34,6 +34,12 @@
   row for two Help groups (gg_c3_5, gg_c4_5). The same rule as v3_1_0's, one level up: a panel new here (HudView.NewIds32) is sent
   nothing until that player's game has clicked a button only this content has (HudView.NewButtons32), and stays collapsed until then
   (the c32 class on gg_screen). The restart button's fast blink while armed is a stylesheet rule on a class v3_0_0 has.
+
+  Content v4_1_0 (2026-11-01), the same path once more: every panel v4_0_0 had, plus the popup that asks why a player disliked a map (gg_why_1
+  ... gg_why_6) above everything, and the grenade drops' row moved from the Game page to the Fun page under its own button ids. Unlike the
+  contents before it, what it adds needs no proof from the game and nothing is sent to its panels: its state is classes on gg_screen and
+  gg_global (why, why-run, nd-on, nd-off), its words dialog variables on those two that its labels inherit ({s:oswhy}, {s:oswhy1} ...).
+  An older game has no rule and no label for any of that, and goes on as it was.
 
   Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m8_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's
   number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity).
@@ -595,16 +601,8 @@
 								</Panel>
 							</Panel>
 
-							<!-- Game: grenades, match length, the restart for a stuck server -->
+							<!-- Game: match length, where random picks come from, the restart for a stuck server -->
 							<Panel class="gg-page gg-page-game">
-								<Panel class="gg-set gg-set-nades">
-									<Panel class="gg-set-head"><Panel class="gg-rule-mark" /><Label class="gg-set-title" text="Grenade drops" /></Panel>
-									<Label class="gg-set-sub" text="A grenade for every player at each spawn. Switches it for everyone; the news line says who did." />
-									<Panel class="gg-set-btns">
-										<Button id="gg_set_nades_on" class="gg-setb"><Label class="gg-setb-text" text="On" /></Button>
-										<Button id="gg_set_nades_off" class="gg-setb"><Label class="gg-setb-text" text="Off" /></Button>
-									</Panel>
-								</Panel>
 								<Panel class="gg-set gg-set-time">
 									<Panel class="gg-set-head"><Panel class="gg-rule-mark" /><Label class="gg-set-title" text="Match length" /></Panel>
 									<Label id="gg_set_time_now" class="gg-set-sub" text="{s:text}" />
@@ -752,7 +750,8 @@
 							</Panel>
 
 							<!-- Over Strike 2 (content v4_0_0; v3_2_0 never shipped). Fun: settings anybody switches for everybody until the map changes (Fun.cs),
-							     across the whole window, sixteen rows in two columns: a row is its title and up to three choices, its words under them -->
+							     across the whole window, sixteen rows in two columns: a row is its title and up to three choices, its words under them.
+							     Content v4_1_0: a seventeenth above Big grenades, the grenade drops, in fixed words: gg_global's nd-on or nd-off lights its button -->
 							<Panel class="gg-page gg-page-fun">
 								<Label id="gg_fun_note" class="gg-fun-note" text="{s:text}" />
 								<Panel class="gg-fcols">
@@ -848,6 +847,14 @@
 												<Button id="gg_f10_3" class="gg-setb gg-funb"><Label id="gg_f10_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f10_txt" class="gg-frow-txt" text="{s:text}" />
+										</Panel>
+										<Panel class="gg-frow gg-frow-nades gg-set-nades">
+											<Panel class="gg-frow-top">
+												<Label class="gg-frow-title" text="Grenade drops" />
+												<Button id="gg_set_nades_on" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="On" /></Button>
+												<Button id="gg_set_nades_off" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="Off" /></Button>
+											</Panel>
+											<Label class="gg-frow-txt" text="A grenade for every player at each spawn. Stays as you set it when the map changes" />
 										</Panel>
 										<Panel id="gg_f11" class="gg-frow">
 											<Panel class="gg-frow-top">
@@ -958,7 +965,7 @@
 
 					<Panel class="gg-win-foot">
 						<Label id="gg_f_site" class="gg-foot-site" text="{s:text}" />
-						<Label class="gg-foot-ver" text="HUD v4_0_0  ·  server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4_1_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -966,7 +973,22 @@
 					</Panel>
 				</Panel>
 
-				<!-- Last, so they draw above the dim layer and the window. 4. The news: what just happened, for everybody (a pick, a skip vote, the queue moving, a crash, a restart) -->
+				<!-- Last, so they draw above the dim layer and the window. Content v4_1_0: why the dislike - the reasons of a Dislike, for its player (why on gg_screen),
+				     at the left, clear of the window and the scoreboard. It takes no mouse of its own: a click needs the cursor the player already has, the window's or TAB's -->
+				<Panel class="gg-why" hittest="false">
+					<Label class="gg-why-title" text="Why the dislike?" />
+					<Label class="gg-why-map" text="{s:oswhy}" />
+					<Button id="gg_why_1" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy1}" /><Label class="gg-whyb-word" text="{s:oswhyw1}" /></Button>
+					<Button id="gg_why_2" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy2}" /><Label class="gg-whyb-word" text="{s:oswhyw2}" /></Button>
+					<Button id="gg_why_3" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy3}" /><Label class="gg-whyb-word" text="{s:oswhyw3}" /></Button>
+					<Button id="gg_why_4" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy4}" /><Label class="gg-whyb-word" text="{s:oswhyw4}" /></Button>
+					<Button id="gg_why_5" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy5}" /><Label class="gg-whyb-word" text="{s:oswhyw5}" /></Button>
+					<Button id="gg_why_6" class="gg-whyb"><Label class="gg-whyb-text" text="{s:oswhy6}" /><Label class="gg-whyb-word" text="{s:oswhyw6}" /></Button>
+					<Label class="gg-why-hint" text="Hold TAB and click, or type !down and its word" />
+					<Panel class="gg-why-track"><Panel class="gg-why-fill" /></Panel>
+				</Panel>
+
+				<!-- 4. The news: what just happened, for everybody (a pick, a skip vote, the queue moving, a crash, a restart) -->
 				<Panel class="gg-news" hittest="false">
 					<Panel class="gg-news-mark" />
 					<Label id="gg_news_text" class="gg-news-text" text="{s:text}" />
@@ -974,10 +996,10 @@
 
 				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
 				<!-- Over Strike 2: the HUD version check at a join (vjoin) - gg_global's classes say how the server's version compares with this
-				     layout's own, v4_0_0 (level 40): svge41 the server is newer, svlt40 older; the same version shows nothing -->
+				     layout's own, v4_1_0 (level 41): svge42 the server is newer, svlt41 older; the same version shows nothing -->
 				<Panel class="gg-ver" hittest="false">
-					<Label class="gg-ver-old" text="Your HUD is v4_0_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
-					<Label class="gg-ver-new" text="Your HUD is v4_0_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
+					<Label class="gg-ver-old" text="Your HUD is v4_1_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
+					<Label class="gg-ver-new" text="Your HUD is v4_1_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
 				</Panel>
 				<Panel class="gg-note" hittest="false">
 					<Label id="gg_note_text" class="gg-note-text" text="{s:text}" />

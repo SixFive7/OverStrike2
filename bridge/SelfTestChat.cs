@@ -184,7 +184,8 @@ static partial class Program
             var row = ChatCommands.All.Where(c => !Regex.IsMatch(section, $@"^\| `{Regex.Escape(c.Word)}[ `][^\n]*\| {string.Join(" ", c.Aliases.Select(a => Regex.Escape($"`{a}`")))}[ ,|]", RegexOptions.Multiline)).Select(c => c.Word).ToList();
             Check($"...each alias on its own primary's row, in the table's order{(row.Count > 0 ? ": not " + string.Join(" ", row) : "")}", row.Count == 0);
             Check("...and it says the rules: what ran, the context words, the fun words, the vote's bare number, the printed card click, the reasons",
-                section.Contains("You typed !map 12 - ran !play 12") && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label)));
+                section.Contains("You typed !map 12 - ran !play 12") && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label))
+                && doc.Contains($"popup listing them for {DownReasons.PopupSeconds} s"));
         }
         if (File.Exists(readmeFile))
         {
