@@ -332,7 +332,7 @@ checked as well.
 | `bridge/sizes.json` | Each map's measured walking area and size class, for the too-big rule. |
 | `bridge/search.json` | The menu's search text per map: title, Workshop id and tags, built by `bridge/search-index.py` from the site's rows. |
 | `bridge/ours.json` | The server's own maps. |
-| `plugin/OverStrike2/` | The plugin; `blocked*.txt` the block lists, `convars.txt` every game convar of the current build. |
+| `plugin/OverStrike2/` | The plugin; `blocked*.txt` the block lists, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |
 | `hud/` | The HUD addon ([`hud/PUBLISH.md`](../hud/PUBLISH.md)); `thumbs.py` makes the map pictures, which are never committed. |
 | `maps/` | Our own maps' generators and their Workshop publisher ([`maps/README.md`](../maps/README.md)). |
 | `server/` | The install hook, the mode cfgs, the restart watcher and the Workshop sync, with their tests. |
