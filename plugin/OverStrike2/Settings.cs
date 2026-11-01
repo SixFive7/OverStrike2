@@ -21,7 +21,8 @@ namespace OverStrike2;
 /// maps nothing is restored. On every load the engine runs server.cfg and the Arms Race cfgs again, so whatever those files name is set
 /// again by the engine and is left to it here.
 ///
-/// What it manages: every convar of convars.txt (the game convars, flagged FCVAR_GAMEDLL - "sv" in cvarlist) that the engine cfgs do not
+/// What it manages: every game convar (flagged FCVAR_GAMEDLL - "sv" in cvarlist), those of convars.txt and those only the running build has
+/// (ConVarNames.cs), that the engine cfgs do not
 /// name and that is not on <see cref="Never"/>. Their wanted value (the baseline) is taken when the first map of the server process ends:
 /// the boot map (CS2_STARTMAP, ar_shoots, which runs no commands of its own), once the command line, the cfgs and the engine's own load-time
 /// settings have all run - think_limit 0, for one, is set by the engine during every load, after OnMapStart. When the plugin is loaded
@@ -76,8 +77,8 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     readonly Dictionary<string, Managed> extra = new(StringComparer.OrdinalIgnoreCase); // blocked or fun convars outside the managed set (cfg-named, not game convars)
     readonly HashSet<string> cfgNames = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> stubborn = new(StringComparer.OrdinalIgnoreCase); // refused a put-back once: reported, not retried noisily
-    int listed, notFound, notGame, leftToCfg, leftAlone, alsoWatched;
-    string baselineFrom = "", map = "", lastRestore = "none yet";
+    int listed, fromBuild, notFound, notGame, leftToCfg, leftAlone, alsoWatched;
+    string baselineFrom = "", map = "", lastRestore = "none yet", listFrom = "not read yet";
     bool baselinePending;           // loaded at a server start: the baseline is taken when the first map ends
     bool endSeenSinceStart = true;  // the first start after a load restores nothing
     string mode = "on";             // on | dryrun | off (mapreset_mode)
@@ -162,10 +163,10 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => Block("round start"), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
         plugin.AddTimer(BlockEvery, () => Block(null), TimerFlags.REPEAT);
-        log.LogInformation("MapSettingsReset {Version}: {Managed} settings watched ({Listed} game convars listed: {Cfg} left to the engine cfgs, " +
+        log.LogInformation("MapSettingsReset {Version}: {Managed} settings watched ({Listed} game convars listed and {FromBuild} only this build has: {Cfg} left to the engine cfgs, " +
             "{Alone} never touched, {NotGame} not game convars, {NotFound} unknown to this build; plus {Also} engine convars maps set); {Blocked}; " +
             "{Fun} fun settings ({FunVars} convars); baseline {From}.",
-            ModuleVersion, managed.Count, listed, leftToCfg, leftAlone, notGame, notFound, alsoWatched, blockedFrom, Fun.Settings.Length, Fun.AllConVars.Count(), baselineFrom);
+            ModuleVersion, managed.Count, listed, fromBuild, leftToCfg, leftAlone, notGame, notFound, alsoWatched, blockedFrom, Fun.Settings.Length, Fun.AllConVars.Count(), baselineFrom);
     }
 
     // ---- what is managed ----------------------------------------------------------------------------------------------------
@@ -195,38 +196,57 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
     }
 
-    /// <summary>Finds every listed convar; each one's baseline is provisionally its live value.</summary>
+    /// <summary>Finds every game convar: the embedded list's, then those only this build has (ConVarNames.cs: anything wrong there leaves
+    /// the list as it is, and it says so here). Each one's baseline is provisionally its live value.</summary>
     void BuildManagedSet()
     {
         managed.Clear();
-        listed = notFound = notGame = leftToCfg = leftAlone = alsoWatched = 0;
-        using var stream = GetType().Assembly.GetManifestResourceStream("convars.txt");
-        if (stream == null) { log.LogError("MapSettingsReset: convars.txt is not embedded; nothing is watched"); return; }
-        using var reader = new StreamReader(stream);
-        string? name;
-        while ((name = reader.ReadLine()) != null)
-        {
-            name = name.Trim();
-            if (name.Length == 0) continue;
-            listed++;
-            if (Never.Contains(name) || NeverPrefix.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase))) { leftAlone++; continue; }
-            if (cfgNames.Contains(name)) { leftToCfg++; continue; }
-            ConVar? cv;
-            try { cv = ConVar.Find(name); } catch { cv = null; }
-            if (cv == null) { notFound++; continue; }
-            try
-            {
-                if (!cv.Flags.HasFlag(ConVarFlags.FCVAR_GAMEDLL)) { notGame++; continue; }
-                managed[name] = new Managed(cv, cv.StringValue);
-            }
-            catch { notFound++; }
-        }
+        listed = fromBuild = notFound = notGame = leftToCfg = leftAlone = alsoWatched = 0;
+        var list = ReadList();
+        foreach (var name in list) { listed++; Manage(name); }
+        var clock = Stopwatch.StartNew();
+        var found = ConVarNames.Ask(() => File.OpenRead(ConVarNames.BinaryPath(Server.GameDirectory, OperatingSystem.IsWindows())), list, AskEngine);
+        foreach (var name in found.New) { fromBuild++; Manage(name); }
+        listFrom = found.Describe(clock.ElapsedMilliseconds);
+        log.Log(found.Refused == null ? LogLevel.Information : LogLevel.Warning, "MapSettingsReset: the list: {List}", listFrom);
         foreach (var more in Also)
         {
             if (managed.ContainsKey(more) || cfgNames.Contains(more) || Never.Contains(more)) continue;
             try { if (ConVar.Find(more) is { } cv) { managed[more] = new Managed(cv, cv.StringValue); alsoWatched++; } } catch { }
         }
         BuildExtra();
+    }
+
+    /// <summary>The names of convars.txt, embedded in the DLL.</summary>
+    List<string> ReadList()
+    {
+        using var stream = GetType().Assembly.GetManifestResourceStream("convars.txt");
+        if (stream == null) { log.LogError("MapSettingsReset: convars.txt is not embedded; only what this build's game DLL names is watched"); return []; }
+        using var reader = new StreamReader(stream);
+        return ConVarNames.ParseList(reader);
+    }
+
+    /// <summary>One name into the managed set, if it is a game convar this plugin may watch.</summary>
+    void Manage(string name)
+    {
+        if (Never.Contains(name) || NeverPrefix.Any(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase))) { leftAlone++; return; }
+        if (cfgNames.Contains(name)) { leftToCfg++; return; }
+        ConVar? cv;
+        try { cv = ConVar.Find(name); } catch { cv = null; }
+        if (cv == null) { notFound++; return; }
+        try
+        {
+            if (!cv.Flags.HasFlag(ConVarFlags.FCVAR_GAMEDLL)) { notGame++; return; }
+            managed[name] = new Managed(cv, cv.StringValue);
+        }
+        catch { notFound++; }
+    }
+
+    /// <summary>What the engine says about a string of the game DLL. Most are no convar: not found.</summary>
+    static ConVarNames.Answer? AskEngine(string name)
+    {
+        try { return ConVar.Find(name) is { } cv ? new ConVarNames.Answer((ulong)cv.Flags, (short)cv.Type) : null; }
+        catch { return null; }
     }
 
     /// <summary>The blocked and the fun convars that the managed set leaves out (named by an engine cfg, or not game convars): found
@@ -575,6 +595,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     {
         var diffs = Differences();
         command.ReplyToCommand($"mapreset: {ModuleVersion}, mode {mode}, {managed.Count} watched (+{extra.Count} for the block and the fun page), baseline {baselineFrom}");
+        command.ReplyToCommand($"mapreset: the list: {listFrom}");
         command.ReplyToCommand($"mapreset: last: {lastRestore}");
         command.ReplyToCommand(diffs.Count == 0 ? "mapreset: nothing differs from the baseline"
             : $"mapreset: {diffs.Count} differ: " + string.Join(", ", diffs.Select(d => $"{d.Name} {d.Now} (baseline {d.Want})")));

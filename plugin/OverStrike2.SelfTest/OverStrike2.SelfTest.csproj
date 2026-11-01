@@ -17,6 +17,10 @@
          CounterStrikeSharp type, so this project needs neither the NuGet package nor a game server: `dotnet run` is
          the whole test suite. Everything else in the plugin only exists once a CS2 server has loaded it. -->
     <Compile Include="..\OverStrike2\ArmsRaceLoadout.cs" Link="ArmsRaceLoadout.cs" />
+    <!-- The same for the settings module's question to the running build: no CounterStrikeSharp type in it, the engine is faked. The real
+         list comes along, to hold the question's rules to it. -->
+    <Compile Include="..\OverStrike2\ConVarNames.cs" Link="ConVarNames.cs" />
+    <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
   </ItemGroup>
 
 </Project>

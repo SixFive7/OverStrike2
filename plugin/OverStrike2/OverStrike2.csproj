@@ -40,8 +40,10 @@
     <Compile Include="..\CatchUp\CatchUpModule.cs" Link="CatchUp\CatchUpModule.cs" />
     <None Include="..\CatchUp\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The names of every game convar (FCVAR_GAMEDLL, "sv" in cvarlist) on CS2 1.41.9.1/14191, and the same 1,555 on 1.41.9.2/14192
-         (regenerated 2026-10-24: no name added or gone): the only way to know them, since CounterStrikeSharp can find a convar by name
-         but cannot list them. Regenerate after a CS2 update (README "Settings"). -->
+         (regenerated 2026-10-24) and on 1.41.9.4/14194 (2026-11-01; no name added or gone). The floor of the settings module's list: at every
+         start it also asks the running build for the game convars this list lacks (ConVarNames.cs), and it falls back on this list alone if
+         that fails. A CS2 update therefore needs no new list; to refresh it anyway, run cvarlist over RCON, read the reply to its end
+         (its last line gives the count) and keep the name of every line whose second column is not cmd and whose flags column has sv, sorted. -->
     <EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />
     <!-- The block list is a config file beside the DLL (deploy both): editing it needs no rebuild, "mapreset_block reload" reads it. -->
     <None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />
