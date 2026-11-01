@@ -123,7 +123,7 @@ static partial class Program
         var count = VotePresent(b, now);
         Log($"vote: round {round} open for {MapVote.Seconds} s, {count} present ({MapVote.Needed(count)} to decide early), {b.Choices.Count} vote(s) cast by the queue: "
             + string.Join(" | ", b.Options.Select(o => $"{o.N}. {OptionLabel(o)} ({o.Source.ToString().ToLowerInvariant()}, {o.Mode.Id}, {b.Choices.Values.Count(n => n == o.N)})")));
-        Announce($"Match over - vote for the next map: {MapVote.Seconds} s, or until {MapVote.Needed(count)} of {count} agree", MapVote.Seconds);
+        Announce($"Match over - vote for the next map: {MapVote.Seconds} s, or until {MapVote.Needed(count)} of {count} agree. Click a card, or type its number in chat", MapVote.Seconds);
         BallotTick(now); // the queue's votes alone may be a majority already
         return true;
     }

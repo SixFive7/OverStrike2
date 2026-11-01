@@ -192,6 +192,69 @@ static partial class Program
         Check("Players can still pick a map marked ads: a pick is a pick", Pending is { } picked && picked.Map == cardMap && Said("Alice picked"));
         Votes = new();
 
+        // ---- a downvote's reason (DownReasons, the owner's decision of 2026-11-01): chat steers it directly, and it is kept per vote ----
+        Fresh();
+        Join(alice); Join(bob);
+        var whyOn = small[70];
+        var whyKey = Key(whyOn);
+        (S.Map, S.LogName, AnnouncePending) = (whyOn, whyOn.Name, false);
+        const string aliceId = "[U:1:1001]", bobId = "[U:1:1002]";
+        Check("The reasons: the plain one first, then too big and ads, each value a downvote the codecs carry; words plain, no number among them",
+            DownReasons.All[0] is { Word: "meh", Value: DownReasons.Plain, Label: "I did not like the map" } && DownReasons.All[1].Value == TooBigVote && DownReasons.All[1].Label == "Map too big"
+            && DownReasons.All[2].Value == AdsVote && DownReasons.All[2].Label == "Shows ads or sends players away"
+            && DownReasons.All.Select(r => r.Value).Distinct().Count() == DownReasons.All.Length && DownReasons.All.All(r => r.Value < 0 && HudCatalog.Carried(r.Value) == r.Value)
+            && DownReasons.All.All(r => r.Word.All(char.IsAsciiLetterLower) && !Hud.IsMapArg(r.Word)) && DownReasons.Words == "big, ads, small, broken or slow");
+        Quiet(); Talk(alice, "!down");
+        Check("A plain !down counts at once as 'I did not like the map', and its note says how to give a reason",
+            Votes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1) && Said("You downvoted") && Said("Why? !down big, ads, small, broken or slow"));
+        Quiet(); Talk(alice, "!down big");
+        Check("!down big: that vote, now too big, as !toobig leaves it - no second vote", Votes[whyKey][aliceId] == TooBigVote && Votes[whyKey].Count == 1 && TooBig(whyOn) && TooBigVotes(whyKey) == 1 && Said("changed your vote") && Said("to too big"));
+        Quiet(); Talk(alice, "!down big");
+        Check("...the same reason again changes nothing: a reason never takes the vote back", Votes[whyKey][aliceId] == TooBigVote && Tally(whyKey) == (0, 1) && Said("already") && !Said("took back"));
+        Quiet(); Talk(alice, "!down ads");
+        Check("!down ads: as !ads leaves it - out of random picks, and no longer too big", Votes[whyKey][aliceId] == AdsVote && AdsVotes(whyKey) == 1 && !TooBig(whyOn) && Tally(whyKey) == (0, 1) && Said("to ads"));
+        foreach (var r in DownReasons.All.Where(r => r.Value < AdsVote))
+        {
+            Quiet(); Talk(alice, $"!down {r.Word}");
+            Check($"!down {r.Word}: kept with the vote, a dislike and nothing more ({r.Label})",
+                Votes[whyKey][aliceId] == r.Value && Tally(whyKey) == (0, 1) && !TooBig(whyOn) && AdsVotes(whyKey) == 0 && Math.Abs(Weight(whyOn) - Weight(new MapInfo(whyOn.Rank, 1, "unvoted", 1)) * 0.25) < 1e-9 && Said($"to {r.Short}"));
+        }
+        Quiet(); Talk(alice, "!down meh");
+        Check("!down meh puts a reason back to the plain one", Votes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1));
+        Quiet(); Talk(alice, "!down");
+        Check("...and a plain !down on a plain downvote still takes it back", !Votes.ContainsKey(whyKey) && Said("You took back your downvote"));
+        var whyCard = small[71];
+        Quiet(); Talk(bob, $"!down {whyCard.Rank} big");
+        Check("!down <number> big: a vote on that map with its reason at once, in !toobig's words", Votes[Key(whyCard)][bobId] == TooBigVote && Said($"You marked {Label(whyCard)} too big") && !Said("Why?"));
+        Quiet(); Talk(bob, $"!down {whyCard.Rank} slow");
+        Check("...and another reason changes it", Votes[Key(whyCard)][bobId] == HudCatalog.SlowVote && Votes[Key(whyCard)].Count == 1 && Said("to runs badly"));
+        Quiet(); Talk(bob, "!down small");
+        Check("!down small with no vote yet: a new vote with that reason, and no question", Votes[whyKey][bobId] == HudCatalog.SmallVote && Said($"You disliked {Label(whyOn)}: too small") && !Said("Why?"));
+        var whyCatalog = HudCatalog.Decode(BuildCatalog().Encode())!;
+        var whyState = HudState.Decode(BuildHud(Now()).Encode())!;
+        Check("The catalog and the live state carry the reason; the board says it; the card lights Dislike; an older plugin's sign reads a dislike",
+            whyCatalog.MyVote(1002, Key(whyCard)) == HudCatalog.SlowVote && whyState.MyVotes[1002] == HudCatalog.SmallVote && whyState.Down == 1
+            && HudView.PlayerTexts(whyState, 1002, "Bob", false).Single(x => x.Id == "gg_b_you").Text == "You disliked this map: too small"
+            && HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-down").On && !HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-big").On
+            && Math.Sign(whyState.MyVotes[1002]) == -1);
+        var whySaved = Votes[Key(whyCard)][bobId];
+        LoadVotes();
+        Check("The reason is in votes.json: it reads back with the vote", Votes[Key(whyCard)][bobId] == whySaved && HealthText().Contains("down votes: ") && HealthText().Contains("1 too small") && HealthText().Contains("1 runs badly"));
+        Check("A click may say a reason, with or without its map, and nothing like it that is free-form",
+            new[] { "!down big", "!down ads", "!down meh", "!down 12 big", "!down 3084291314 slow", "!down ar_baggage small" }.All(Hud.IsAction)
+            && new[] { "!down bad", "!down big 12", "!down 12 13", "!down 12 big x", "!down aim", "!up big", "!toobig big", "!down BIG", "!down  big", "!down big;quit" }.All(x => !Hud.IsAction(x))
+            && HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} ads") && Votes[Key(whyCard)][aliceId] == AdsVote && !HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} rubbish"));
+        Check("What chat may say after !down, as the bridge takes it: a map, a reason, or both in either order",
+            DownReasons.Normal("") == "" && DownReasons.Normal("12") == "12" && DownReasons.Normal("big") == "big" && DownReasons.Normal("12 big") == "12 big" && DownReasons.Normal("big 12") == "12 big"
+            && DownReasons.Normal("rubbish") == null && DownReasons.Normal("12 13") == null && DownReasons.Split("12 big") is ("12", { Word: "big" }) && DownReasons.Split("big") is ("", { Word: "big" }) && DownReasons.Split("12") is ("12", null) && DownReasons.Split("") is ("", null));
+        var chatDown = ChatCommands.Parse("!thumbsdown ads 12");
+        Check("In chat: !down big, !down 12 big and any alias become the click the bridge takes; a word it does not know gets the usage line",
+            ChatCommands.Parse("!down big") is { Kind: ChatCommands.Kind.Bridge, Arg: "!down big" } && ChatCommands.Parse("!down 12 big") is { Arg: "!down 12 big" } && chatDown is { Kind: ChatCommands.Kind.Bridge, Arg: "!down 12 ads" }
+            && ChatCommands.Parse("!down rubbish") is { Kind: ChatCommands.Kind.Usage, Name: "!down" } && Hud.IsAction(chatDown.Arg) && ChatCommands.UsageOf("!down").Contains(DownReasons.Words));
+        var fullNote = $"You downvoted {Clip(new string('w', 64), PlainVoteLabel)}, now +99 -99 (99 too big, 99 ads). Why? !down {DownReasons.Words}";
+        Check($"The plain downvote's note fits the note line with a long name and a long tally ({fullNote.Length} of {NoticeLength})", fullNote.Length <= NoticeLength);
+        Votes = new();
+
         // ---- the setting: anybody switches it, for everybody, and the news line says who ----
         Fresh();
         Join(alice); Join(bob);

@@ -44,8 +44,9 @@ static partial class Program
     /// <summary>!up / !down / !toobig / !ads [map]: vote on the map that is on, or on any map by rank, name, id or URL. The same vote again
     /// takes it back; another one replaces it. One vote per SteamID per map. A too-big vote (TooBigVote, Selection.cs) is that player's
     /// dislike - every tally and weight counts it as a downvote - and it also marks the map too big; an ads vote (AdsVote) is a dislike
-    /// too, and keeps the map out of random picks altogether.</summary>
-    static void Vote(string by, string id, string arg, int value)
+    /// too, and keeps the map out of random picks altogether. Named: !down with its reason (DownReasons): the vote is that, whatever it
+    /// was; the same reason again changes nothing, and never takes the vote back.</summary>
+    static void Vote(string by, string id, string arg, int value, bool named = false)
     {
         var word = value > 0 ? "!up" : value == TooBigVote ? "!toobig" : value == AdsVote ? "!ads" : "!down";
         MapInfo? map;
@@ -67,20 +68,29 @@ static partial class Program
         var key = Key(map);
         if (!Votes.TryGetValue(key, out var mine)) Votes[key] = mine = new();
         var old = mine.GetValueOrDefault(id);
+        if (named && old == value) { Tell(id, $"{Label(map)}: your vote says {DownReasons.Of(value)?.Short ?? "down"} already"); return; }
         if (old == value) mine.Remove(id); else mine[id] = value;
         if (mine.Count == 0) Votes.Remove(key);
         SaveVotes();
+        if (value < 0 && old != value) Log($"vote: {by} {id} on {Label(map)}: {DownReasons.Of(value)?.Label}"); // the reason is kept per vote: votes.json's value
         var (up, down) = Tally(key);
         var marks = string.Join(", ", new[] { TooBigVotes(key) is > 0 and var big ? $"{big} too big" : "", AdsVotes(key) is > 0 and var ads ? $"{ads} ads" : "" }.Where(x => x != ""));
         var tally = $"now +{up} -{down}{(marks != "" ? $" ({marks})" : "")}";
         static string Noun(int v) => v > 0 ? "upvote" : v == TooBigVote ? "too-big vote" : v == AdsVote ? "ads vote" : "downvote";
-        static string To(int v) => v > 0 ? "up" : v == TooBigVote ? "too big" : v == AdsVote ? "ads" : "down";
+        static string To(int v) => v > 0 ? "up" : DownReasons.Of(v)?.Short ?? "down";
         Tell(id, old == value ? $"You took back your {Noun(value)} on {Label(map)}, {tally}"
             : old != 0 ? $"You changed your vote on {Label(map)} to {To(value)}, {tally}"
             : value == TooBigVote ? $"You marked {Label(map)} too big (a dislike; random picks take it 1 time in {Math.Round(1 / TooBigChance)}), {tally}"
             : value == AdsVote ? $"You marked {Label(map)}: ads (a dislike; never a random pick), {tally}"
-            : $"You {(value > 0 ? "upvoted" : "downvoted")} {Label(map)}, {tally}");
+            : value == DownReasons.Plain ? $"You downvoted {Clip(Label(map), PlainVoteLabel)}, {tally}. Why? !down {DownReasons.Words}"
+            : value < 0 ? $"You disliked {Label(map)}: {To(value)}, {tally}"
+            : $"You upvoted {Label(map)}, {tally}");
     }
+
+    const int PlainVoteLabel = 34; // a plain downvote's note names the map in this much, so "Why? ..." always fits the note line
+
+    /// <summary>The health page's line about the downvotes' reasons.</summary>
+    static string ReasonHealth() => "down votes: " + string.Join(", ", DownReasons.All.Select(r => $"{Votes.Values.Sum(v => v.Values.Count(x => x == r.Value))} {r.Short}"));
 
     /// <summary>The map a vote key stands for: a listed or official map, else an unlisted workshop id.</summary>
     static MapInfo MapOf(string key) => Maps.Concat(Officials).FirstOrDefault(m => Key(m) == key)

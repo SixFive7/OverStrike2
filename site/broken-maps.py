@@ -20,8 +20,7 @@ joining, the in-game menu in the five groups of the HUD's Help page (bridge/Hud.
 --selftest finds on this page word for word; the page may say more, never something else), the fair queue, how voting
 counts and when the dice roll, and - since 2026-10-24, the owner's 5a - the menu's whole How it works page (Hud.How), word for
 word, with every number on it one of the bridge's constants (docs/reference.md "Keeping the rules in sync": a rule change
-changes Hud.cs, this guide and the code together, and the bridge's --selftest fails until all three agree). Since 2026-10-21
-the menu is the server's whole interface: there are no chat commands. It is stamped over the
+changes Hud.cs, this guide and the code together, and the bridge's --selftest fails until all three agree). It is stamped over the
 builder's masthead: the <h1> moves into a hero beside the Join box, the "Where to type it" and "Joining" cards go
 (their content is in the guide and the standfirst now), and the standfirst stops promising an instant switch. It lives
 here rather than in the builder's template so that editing the manual is one re-run of this script on repo files: the
@@ -230,8 +229,8 @@ class Row:
 
 def cmd_lines(rank, wid):
     """A map row's copy button, exactly as the page builder writes it. Asserted on every row on the way in, so a
-    pack row that loses it can have it back byte for byte. Since 2026-10-21 it hands over the map's Workshop ID: the
-    chat commands are gone, and an ID pasted into the game chat opens the in-game menu on that map (rank is unused)."""
+    pack row that loses it can have it back byte for byte. Since 2026-10-21 it hands over the map's Workshop ID: an ID
+    pasted into the game chat opens the in-game menu on that map (rank is unused)."""
     return [f'  <button class="cmd" type="button" data-chat="{wid}" data-console="host_workshop_map {wid}" '
             'title="Copy, then paste into the game chat: the menu opens on this map">',
             f'    <code class="chat">{wid}</code>',
@@ -1129,7 +1128,7 @@ GUIDE_TOP = """\
           <h3>Weights and votes</h3>
           <ul>
             <li>Inside that group, Workshop rank gives up to 3x, each Like doubles a map's odds (up to 5 Likes), each Dislike or Too big quarters them.</li>
-            <li>One vote per player per map, kept: Like, Dislike, Too big or Ads. The same button again takes it back.</li>
+            <li>One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The same button again takes it back.</li>
             <li>Nothing else counts: a map's download size never makes it more or less likely.</li>
           </ul>
         </section>

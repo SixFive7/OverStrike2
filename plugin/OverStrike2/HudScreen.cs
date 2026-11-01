@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Extensions;
 using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.Utils;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 
@@ -122,7 +123,7 @@ sealed class HudScreen
         var count = 0;
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
-                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun) })
+                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
@@ -456,7 +457,12 @@ sealed class HudScreen
         if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
         {
             // The vote is on the Maps page's cards (HudVote.cs): a card's Play is a vote; the browser's own controls wait for the vote's end.
-            if (HudVote.Click(vote, buttonId) is { } cast) Act(player, account, cast);
+            if (HudVote.Click(vote, buttonId) is { } cast)
+            {
+                var was = vote.ChoiceOf(account);
+                Act(player, account, cast);
+                if (MapVote.ParseClick(cast) is { } picked && picked.Option != was) SayForAll(player, HudVote.ChatWords(picked.Option)); // so menu users learn the chat way
+            }
             Server.NextFrame(Frame);
             return;
         }
@@ -502,6 +508,15 @@ sealed class HudScreen
         var command = HudView.Command(buttonId, state, account) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search);
         if (command != null) Act(player, account, command);
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
+    }
+
+    /// <summary>A line for everybody that reads like this player's own chat line, in CS2's own format (Cstrike_Chat_All: " [ALL] name: text"):
+    /// what a click on a ballot card says, as if they had typed the command. A frame later, like everything a click starts.</summary>
+    void SayForAll(CCSPlayerController player, string words)
+    {
+        var colour = player.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist ? ChatColors.ForTeam(player.Team) : ChatColors.Default;
+        var line = $" {colour}[ALL] {Hud.Clean(player.PlayerName, 32).Replace('%', ' ')}{ChatColors.Default}: {words}";
+        Server.NextFrame(() => Server.PrintToChatAll(line));
     }
 
     /// <summary>Ask the bridge for what a click stands for; without a line to it, the player's note says so.</summary>
@@ -679,8 +694,11 @@ sealed class HudScreen
 
     readonly Dictionary<long, (DateTime At, string Note)> chatAsked = new(); // account -> a chat command's time, and the note seen before it
 
+    /// <summary>The end-of-match vote is open: a bare number in chat is a vote (ChatCommands.Parse).</summary>
+    public bool VoteOpen => vote is { Open: true, Round: > 0 };
+
     /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat - the bridge's note for that
-    /// player is echoed there once it comes (EchoNotes), for a player whose game shows no HUD.</summary>
+    /// player is echoed there once it comes (EchoNotes), for a player whose game shows no HUD. An alias's reply first teaches the primary.</summary>
     public void Chat(CCSPlayerController player, ChatCommands.Parsed cmd)
     {
         var account = Account(player);
@@ -691,6 +709,7 @@ sealed class HudScreen
             chatAsked[account] = (now, state?.Notes.TryGetValue(account, out var n) == true ? n.Text : "");
             Act(player, account, command);
         }
+        if (ChatCommands.Teach(cmd) is { } taught) Say(taught);
         switch (cmd.Kind)
         {
             case ChatCommands.Kind.Bridge:
@@ -698,8 +717,17 @@ sealed class HudScreen
                 if (action == null) { Say("Next: nothing to do while a map change is under way"); return; }
                 Bridge(action);
                 return;
+            case ChatCommands.Kind.Top:
+                var sorted = Browser(player.Slot);
+                sorted.Find("");
+                (sorted.Sort, sorted.Descending) = (HudBrowser.SortBy.Votes, false);
+                ShowFor(account, cmd.Arg);
+                return;
             case ChatCommands.Kind.Page:
-                Say(ShowFor(account, cmd.Arg));
+                ShowFor(account, cmd.Arg);
+                if (cmd.Arg == "Fun") foreach (var line in ChatCommands.FunLines(mode.ArmsRace)) Say(line);
+                else if (cmd.Typed == "") Say($"The menu is open on {cmd.Arg}");
+                if (ContentOf(player) < HudVote.PageLevel(cmd.Arg)) Say(HudVote.PageHint(cmd.Arg)); // its words wait for a click on a button only that content has
                 return;
             case ChatCommands.Kind.Find:
                 Menu(player, cmd.Arg);
@@ -720,6 +748,7 @@ sealed class HudScreen
                 return;
             case ChatCommands.Kind.Nades:
                 if (!mode.ArmsRace) { Say($"Grenade drops are Arms Race's own - not in {mode.Name}"); return; }
+                if (NadesOn?.Invoke() == (cmd.Arg == "on")) { Say($"Grenade drops: {cmd.Arg} already"); return; }
                 var who = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
                 Server.ExecuteCommand($"gg_nades {cmd.Arg} \"{who}\"");
                 Notice($"{who} switched grenade drops {cmd.Arg}", 8);
@@ -1002,6 +1031,9 @@ sealed class HudScreen
 
     /// <summary>Where the fun page's values come from: the settings module (convars and its effects); without it, the engine's convars.</summary>
     public Func<string, string?>? FunSource { get; set; }
+
+    /// <summary>The grenade drops as the grenades module has them.</summary>
+    public Func<bool>? NadesOn { get; set; }
 
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
     string? FunValue(string name)

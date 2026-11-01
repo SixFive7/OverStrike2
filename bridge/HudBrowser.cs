@@ -34,8 +34,12 @@ public sealed class HudCatalog
     /// random pick (players can still pick it). Ads on an entry: the ads votes on it.</summary>
     public const int AdsVote = -3;
 
+    /// <summary>The other reasons a downvote can give (DownReasons, the owner's decision of 2026-11-01), carried the same way: each a dislike and
+    /// nothing more, kept per vote.</summary>
+    public const int SmallVote = -4, BrokenVote = -5, SlowVote = -6;
+
     /// <summary>A vote value as the codecs carry it: like, dislike, or one of the special downvotes; anything else by its sign.</summary>
-    public static int Carried(long value) => value is TooBigVote or AdsVote ? (int)value : Math.Sign(value);
+    public static int Carried(long value) => value is >= SlowVote and <= TooBigVote ? (int)value : Math.Sign(value);
 
     public long Version;
     public List<Entry> Maps = new();

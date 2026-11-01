@@ -146,6 +146,7 @@ static partial class Program
             $"crash watch: spawn {(SpawnSeen?.ToString() ?? "not read yet")}, {S.Crashes.Count} map(s) with crashes",
             $"search: {Search.Count} maps indexed, version {Search.Version}",
             SelectionHealth(),
+            ReasonHealth(),
             ModeHealth(),
             VoteHealth(),
             $"maintenance {(MaintenanceOn ? "on" : "off")}") + "\n";
@@ -543,7 +544,7 @@ static partial class Program
         else if (cmd == "!skip") Skip(name, steamId);
         else if (cmd == "!cancel") Cancel(name, steamId, arg);
         else if (cmd == "!up") Vote(name, steamId, arg, +1);
-        else if (cmd == "!down") Vote(name, steamId, arg, -1);
+        else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Vote(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Votes.cs: with its reason, if it names one
         else if (cmd == "!toobig") Vote(name, steamId, arg, TooBigVote); // Selection.cs: a dislike that also marks the map too big
         else if (cmd == "!ads") Vote(name, steamId, arg, AdsVote);       // Selection.cs: a dislike that also keeps the map out of random picks
         else if (cmd == "!newmaps") SetNewMaps(name, steamId, arg);       // Selection.cs: always, half or never
@@ -1177,6 +1178,7 @@ static partial class Program
         HudSelfTest(Check);
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
+        ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         TabSelfTest(Check);
         GuiSelfTest(Check);

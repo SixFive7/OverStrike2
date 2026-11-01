@@ -9,8 +9,12 @@ rolled at random when nobody asks. Everything is in the menu; the chat commands 
 - **An in-game menu**, a CS2-style window drawn by a Workshop addon: every map with its picture, size and votes, full-text
   search on an on-screen keyboard, any Workshop map by its id, the queue, the game settings, help, rules and how it all works.
   Hold TAB for a live board beside the scoreboard - vote, skip, see what is next - with the mouse.
-- **Sixteen fun settings** anybody can switch until the map changes: low gravity, bunny hopping, friendly fire, Laser guns,
-  Vampire and more. Grenades drop where players die, and players who fall behind get a catch-up boost.
+- **A chat command for every action**, listed by `!help`. The words players know from other servers work too (`!map`, `!rtv`),
+  and the reply teaches the server's own: `You typed !map 12 - ran !play 12`. A vote is a card's number in chat, and a click on a
+  card shows in chat as that command, so menu users learn the chat way.
+- **Sixteen fun settings** anybody can switch until the map changes, each with its own word (`!gravity low`): low gravity,
+  bunny hopping, friendly fire, Laser guns, Vampire and more. Grenades drop where players die, and players who fall behind get a
+  catch-up boost.
 - **A fair queue.** A pick replaces a random map at once and otherwise waits its turn: least play time first, a map several
   players want first, only players who are on the server. A majority of the others can vote a map off.
 - **A vote at every match's end.** Five maps and Random on the menu's cards for a minute: the queued requests (their

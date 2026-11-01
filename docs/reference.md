@@ -28,10 +28,51 @@ all works. Holding **TAB** shows a board beside the scoreboard - Like, Dislike, 
 TAB is down; TAB + E opens the full window.
 
 A chat line that starts with `!` or `/` is a command too, and does exactly what the matching click does (the same action, the
-same refusals and confirmations): `!play <number, name or id>`, `!find <words>`, `!maps`, `!next`, `!random`, `!back`,
-`!queue`, `!cancel [number]`, `!done`, `!skip`, `!like`, `!dislike`, `!toobig`, `!ads`, `!vote <1-6>`,
-`!fun [setting] [choice]`, `!nades on|off`, `!time 10|60`, `!newmaps always|half|never`, `!restart`, `!menu`, `!help`,
-`!rules`, `!how`. A pasted Workshop link or id opens that item's card.
+same refusals and confirmations). A line stays visible as the player's normal chat line; only a `/` line is hidden, which is
+CounterStrikeSharp's own silent trigger. A pasted Workshop link or id opens that item's card.
+
+One table in the code (`ChatCommands.All`), which `--selftest` holds this one to. `!help` lists the first column only. An alias runs
+the action, and its private reply teaches the primary by showing what ran: `You typed !map 12 - ran !play 12`.
+
+| Command | What it does | Aliases |
+|---|---|---|
+| `!play <number, name or Workshop ID>` | Play a map now, or queue it | `!map` `!p` `!nominate` `!load` `!go`, and `!pick` |
+| `!find <words>` | Search the maps: the menu opens on the matches | `!search` `!s` `!lookup`, and `!maps <words>` |
+| `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` (sorted by votes) |
+| `!next` | The board's Next: a random map, I'm done on your own, a skip vote on another's | `!n` `!rtv` `!change` `!skipmap`, and `!new` with no argument |
+| `!random` | A random map, while nobody holds this one | `!roll` `!dice` `!rand` `!any` `!shuffle` |
+| `!back` | Back to the last map | `!previous` `!prev` `!last` `!undo` `!again` |
+| `!q` | Open the queue | `!queue` `!upcoming` `!whatsnext` `!lineup` `!order` |
+| `!cancel [number]` | Drop your request for that map, or all of them | `!unqueue` `!remove` `!drop` `!withdraw` `!uq` |
+| `!done` | End your own map: the queue moves on | `!finish` `!end` `!release` `!letgo` `!over` |
+| `!skip` | Vote to skip someone else's map | `!voteskip` `!vs` `!boo` |
+| `!up [number]` | Like the map that is on, or that map | `!like` `!+` `!good` `!love` `!thumbsup` |
+| `!down [number] [reason]` | Dislike it, and why (see Voting) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` |
+| `!toobig [number]` | Too big: only 1 random pick in 100 | `!big` `!huge` `!toolarge` `!size` `!xl` |
+| `!ads [number]` | It shows ads or sends players away: never a random pick | `!ad` `!spam` `!advert` `!report` `!scam` |
+| `!vote <1-6>` | Your choice in the vote at a match's end | `!v` `!mv` `!choose`, and `!pick` while a vote is open |
+| `!fun` | The Fun page, and each setting's own word | `!set` `!settings` `!toggle` `!mode` |
+| `!nades <on\|off>` | Grenade drops on or off | `!grenades` `!nade` `!he` `!drops` `!boom` |
+| `!time <10\|60>` | Match length in minutes, from the next match | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
+| `!newmaps <always\|half\|never>` | New maps in random picks | `!fresh` `!pool` `!mix` `!newmap`, and `!new` with an argument |
+| `!restart` | Restart a stuck server - twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
+| `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
+| `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
+| `!rules` | The rules | `!rule` `!r` `!fair` `!howto` `!policy` |
+| `!how` | How it works: every chance in map picks | `!howitworks` `!odds` `!chances` `!why` `!explain` |
+
+Three words depend on what follows them, by rule, and nothing else is two things: `!pick` is a vote while a vote is open and a
+number was given, otherwise it plays; `!new` with an argument is `!newmaps`, without one `!next`; `!maps` (and its aliases) with
+words is `!find`.
+
+**Each fun setting is a word of its own**, with the setting's id and its choices: `!gravity low`, `!vampire on`, `!bhop turbo`. A bare `!fun`
+opens the Fun page and writes the words in chat, for the settings the page shows in the game mode that is on. `!fun gravity low`
+still works and teaches the short word. `!nades` is both: `on` and `off` are the grenade drops, `normal`, `big` and `huge` the
+blast of the grenades (Big grenades); `!fun nades on` and `!fun nades big` work too.
+
+**A vote in chat.** While the end-of-match vote is open a bare number from 1 to 6 counts as a vote, like `!vote 3`, and the line
+still shows as typed. A click on a card prints the same thing for everybody, as `[ALL] <name>: !vote 3` in the player's team's
+colour, so that menu users learn the chat way. Every card shows its number.
 
 The actions the menu sends the bridge (`/act`) are a closed list (`Hud.IsAction`): nothing typed or clicked reaches the server
 console.
@@ -66,7 +107,8 @@ the players present has chosen one option. The ballot holds up to five maps plus
 3. maps of the server's own mode, rolled like every random pick;
 4. Random.
 
-The winner plays; a queued map that loses stays queued. The game modes are switched by the plugin (`os_mode
+A player votes by clicking a card's **Vote**, or in chat with its number (`3`, or `!vote 3`). The winner plays; a queued map that
+loses stays queued. The game modes are switched by the plugin (`os_mode
 armsrace|deathmatch|wingman`), each with its own server cfg (`server/gamemode_*_server.cfg`) and block list
 (`plugin/OverStrike2/blocked*.txt`).
 
@@ -95,6 +137,22 @@ their defaults.
 per player per map. **Too big** is a dislike that also marks the map too big (1 random pick in 100); **Ads** is a dislike that
 keeps the map out of random picks for good (it shows adverts or sends players to another server). Votes live in
 `STATE_DIR/votes.json`; a file that does not parse is moved aside, never overwritten.
+
+**A dislike keeps its reason**, as the vote's value in `votes.json` (`DownReasons`). A plain Dislike counts at once as the first one:
+
+| Word | Reason | Value | What it does |
+|---|---|---|---|
+| `meh` | I did not like the map | -1 | A dislike |
+| `big` | Map too big | -2 | As **Too big** |
+| `ads` | Shows ads or sends players away | -3 | As **Ads** |
+| `small` | Map too small | -4 | A dislike |
+| `broken` | Map is broken | -5 | A dislike |
+| `slow` | Runs badly | -6 | A dislike |
+
+Chat steers it directly: `!down big` on the map that is on, `!down <number> <reason>` on any map (`!down 12 big`), a new vote with its
+reason if there was none. A reason replaces the one before and never takes the vote back; the same one again changes nothing.
+Plain `!down` keeps the toggle: on a reason it goes back to the plain dislike, on the plain dislike it takes the vote back. The
+health page counts the votes per reason.
 
 ### Keeping the rules in sync
 

@@ -27,6 +27,9 @@ sealed class Nades(BasePlugin plugin, ILogger log)
 
     bool enabled = true;
 
+    /// <summary>The grenade drops as gg_nades left them, for the menu and the chat command.</summary>
+    public bool Enabled => enabled;
+
     /// <summary>The grenade drops are Arms Race's (#27 c: players buy in Deathmatch and Wingman): off in another mode, whatever gg_nades says.</summary>
     public bool ModeAllows { get; set; } = true;
 

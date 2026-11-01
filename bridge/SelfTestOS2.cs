@@ -106,7 +106,7 @@ static partial class Program
         string T(string id) => cardsNow.Texts.Single(x => x.Id == id).Text;
         bool On(string id, string cls) => cardsNow.Classes.Single(x => x.Id == id && x.Class == cls).On;
         Check("The vote on the cards: option k on card k with its mode and votes, the player's own vote lit, the queued one tagged, the cards after the options empty",
-            T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes").StartsWith("1 vote") && T("gg_m1_votes").Contains("Alice") && T("gg_m2_rank") == "Deathmatch" && T("gg_m3_name").StartsWith("Random")
+            T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes").StartsWith("1 vote") && T("gg_m1_votes").Contains("Alice") && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name").StartsWith("Random")
             && On("gg_m1", "confirm") && !On("gg_m2", "confirm") && On("gg_m1", "queued") && !On("gg_m4", "used") && On("gg_m3", "used") && T("gg_m1_play_text") == "Your vote"
             && T("gg_m_count").Contains("42 s") && cardsNow.Classes.Any(x => x.Id == HudView.Screen && x.Class == "voting" && x.On));
         Check("The vote's click: a card's Play is !mv <round> <option> while the vote is open, which the bridge takes; nothing else is a vote",

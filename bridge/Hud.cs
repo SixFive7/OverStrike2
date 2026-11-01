@@ -57,9 +57,13 @@ public static class Hud
         var space = command.IndexOf(' ');
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
-        var mapArg = arg.Length is > 0 and <= WorkshopCard.MaxIdDigits && arg.All(char.IsAsciiDigit) || arg.Length is > 3 and <= 32 && arg.StartsWith("ar_") && arg.All(ch => ch == '_' || char.IsAsciiLetterLower(ch));
-        return verb is "!map" or "!up" or "!down" or "!toobig" or "!ads" or "!cancel" && mapArg;
+        if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a downvote's reason, with or without its map (the chat's !down big, !down 12 big)
+        return verb is "!map" or "!up" or "!down" or "!toobig" or "!ads" or "!cancel" && IsMapArg(arg);
     }
+
+    /// <summary>What names a map on /act: a rank or a Workshop id, or an official map's name - never a name search.</summary>
+    public static bool IsMapArg(string arg) => arg.Length is > 0 and <= WorkshopCard.MaxIdDigits && arg.All(char.IsAsciiDigit)
+        || arg.Length is > 3 and <= 32 && arg.StartsWith("ar_") && arg.All(ch => ch == '_' || char.IsAsciiLetterLower(ch));
 
     /// <summary>The site's address as players read it (no scheme): configuration, never code - the bridge's SITE_URL, which the bridge
     /// sets here at its start and hands the plugin in the live state ("site" line); empty until known, and the words then leave it out.</summary>
@@ -151,7 +155,7 @@ public static class Hud
             "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other."]),
         new("Weights and votes", [
             "Inside that group, Workshop rank gives up to 3x, each Like doubles a map's odds (up to 5 Likes), each Dislike or Too big quarters them.",
-            "One vote per player per map, kept: Like, Dislike, Too big or Ads. The same button again takes it back.",
+            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The same button again takes it back.",
             "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
@@ -565,7 +569,7 @@ public static class HudView
             ("gg_w_hello", $"Welcome, {Hud.Clean(name, 32)}"),
             ("gg_t_eyebrow", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : "Now playing"),
             ("gg_b_you", mine > 0 ? "You liked this map" : mine == HudCatalog.TooBigVote ? "You marked this map too big" : mine == HudCatalog.AdsVote ? "You marked this map: ads"
-                : mine < 0 ? "You disliked this map" : "Click to vote"),
+                : mine < DownReasons.Plain && DownReasons.Of(mine) is { } why ? $"You disliked this map: {why.Short}" : mine < 0 ? "You disliked this map" : "Click to vote"),
             ("gg_btn_act_text", text),
             ("gg_btn_act_sub", sub),
             ("gg_b_next_text", text),

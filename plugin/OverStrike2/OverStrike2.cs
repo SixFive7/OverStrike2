@@ -20,7 +20,7 @@ namespace OverStrike2;
 /// (Hud.ChatOff) - and a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "4.1.1";
+    public const string Version = "4.2.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the grenade drops, the map settings and the fun page, the game modes";
@@ -70,7 +70,7 @@ public class OverStrike2Plugin : BasePlugin
             hud?.SetMode(mode);
             Logger.LogInformation("Over Strike 2: {Mode} - grenade drops {Nades}, catch-up {CatchUp}", mode.Name, mode.ArmsRace ? "as set" : "off", mode.ArmsRace ? "on" : "off");
         };
-        if (hud != null) hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects included
+        if (hud != null) { hud.FunSource = settings.FunValue; hud.NadesOn = () => nades.Enabled; } // the fun page shows the settings module's values, its effects included
         Logger.LogInformation("Over Strike 2 {Version}: {Mode}, {Command} from the bridge, the menu on TAB and the chat commands.", ModuleVersion,
             hud != null ? $"HUD (Workshop addon {addon})" : $"centre panel for {Guide.ShowSeconds} s ({Hud.AddonVariable} is empty)", Guide.Command);
     }
@@ -130,9 +130,10 @@ public class OverStrike2Plugin : BasePlugin
         command.ReplyToCommand($"{Guide.Shown} to {player.PlayerName}{(first ? " (first time)" : "")}");
     }
 
-    /// <summary>A player's chat line. Chat is theirs: nothing typed is a command any more. A line that looks like one (it starts with !
-    /// or /) gets one private hint per player per server process - "This server uses the menu: press TAB" - and a Workshop link or id
-    /// opens that item in the menu, which is the one thing worth pasting: the keyboard cannot paste.</summary>
+    /// <summary>A player's chat line. It always shows as they typed it: the plugin only reads it (a / line is CounterStrikeSharp's silent trigger,
+    /// which hides it). A line that starts with ! or / is a chat command, a bare number a vote while one is open, and a Workshop link or id
+    /// opens that item in the menu, which is the one thing worth pasting: the keyboard cannot paste. With the HUD off a command gets one
+    /// private hint per player per server process instead: "This server uses the menu: press TAB".</summary>
     HookResult OnSay(CCSPlayerController? player, CommandInfo info)
     {
         if (player is not { IsValid: true, IsBot: false }) return HookResult.Continue;
@@ -140,7 +141,7 @@ public class OverStrike2Plugin : BasePlugin
         var who = player;
         // The chat commands are back (ChatCommands.cs; the owner, 2026-11-01): a line that starts with ! or / does what the menu's click
         // would, a frame later (not inside the player's own chat message: HudScreen's summary); a Workshop link or id opens its card.
-        var command = ChatCommands.Parse(text);
+        var command = ChatCommands.Parse(text, hud?.VoteOpen == true);
         if (hud != null && command.Kind != ChatCommands.Kind.None)
             Server.NextFrame(() => { if (who.IsValid) hud.Chat(who, command); });
         else if (hud != null && WorkshopCard.IdInChat(text) is { } id)
