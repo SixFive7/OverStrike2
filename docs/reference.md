@@ -244,7 +244,9 @@ The plugin's modules:
 
 - **The HUD host** draws the window and the board from the bridge's live state, sends clicks back, shows the welcome on a real
   join, and runs the **HUD check** (a player whose game has not loaded the HUD is warned, and with enforcement disconnected)
-  and the **version check** (the window says when the player's HUD is older or newer than the server's).
+  and the **version check** (the window says when the player's HUD is older or newer than the server's). What a newer HUD content
+  added gets its words only for a game that has shown it holds that content: a click on a button only it has, or a chat command
+  that opens such a page (`!fun`, `!how`, `!help`), so those pages have their rows at once.
 - **Grenade drops** give every player one HE grenade after spawning; the engine drops it where they die.
 - **Map settings**: whatever a map changes in the game's settings is put back when it ends; the game-changers no map may set at
   all (no spread, radar off, a mode switch, cheats - `blocked.txt`) are put back within a second.
