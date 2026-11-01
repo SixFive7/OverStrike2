@@ -161,12 +161,11 @@ public static class HudVote
     /// typed vote would be, so that menu users learn the chat way.</summary>
     public static string ChatWords(int option) => $"!vote {option.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The content a page's words need (HudView.NewIds, NewIds32): a game that has not shown it holds it gets the page empty until it
-    /// clicks a button only that content has, such as the page's own tab. 0: every game has them.</summary>
-    public static int PageLevel(string page) => page switch { "How" => 31, "Fun" => 32, _ => 0 };
-
-    /// <summary>What chat says when a command opens such a page for such a game.</summary>
-    public static string PageHint(string page) => $"Click the {(page == "How" ? "How it works" : page)} tab once to load this page";
+    /// <summary>The content a page's words need (HudView.NewIds, NewIds32). A game gets them once it has shown it holds that content: by a click on a
+    /// button only that content has, such as the page's own tab - or by its player asking for the page in chat (the owner: !fun opens the GUI, rows
+    /// and all). Asking counts as the click, for this player alone: the published HUD has these pages, and a game too old to have them
+    /// shows a page without rows either way. 0: every game has them.</summary>
+    public static int PageLevel(string page) => page switch { "How" => 31, "Fun" or "Help" => 32, _ => 0 };
 
     /// <summary>A click on card k's Play while the vote is open: !mv &lt;round&gt; &lt;k&gt;; null for anything else (the card's arrows do nothing then).</summary>
     public static string? Click(VoteState v, string buttonId)

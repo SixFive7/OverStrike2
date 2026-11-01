@@ -172,11 +172,12 @@ static partial class Program
             T("gg_m2_rank") == "2  ·  Deathmatch" && T("gg_m3_rank") == "3  ·  Random" && T("gg_m1_play_text") == "Your vote" && T("gg_m2_play_text") == "Vote 2" && T("gg_pg_text").Contains("type its number")
             && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "gg_pg_text").Text.Contains("type its number in chat"));
 
-        // ---- a chat line a command opens on a page its game has to prove: where it says so ----
-        Check("A command that opens How or Fun tells a game that has not shown that content to click the tab: the page's words wait for that",
-            HudVote.PageLevel("How") == HudView.LevelOf("gg_h1_title") && HudVote.PageLevel("Fun") == HudView.LevelOf(HudMenu.FunRow(1)) && HudVote.PageLevel("Maps") == 0
-            && HudVote.PageHint("How").Contains("How it works tab") && HudVote.PageHint("Fun").Contains("Fun tab")
-            && HudView.LevelOfButton(HudView.TabHow) == HudVote.PageLevel("How") && HudView.LevelOfButton(HudView.TabFun) == HudVote.PageLevel("Fun"));
+        // ---- a command that opens a page with a newer content's words asks for them: !fun has its rows at once ----
+        Check("A command that opens How, Fun or Help asks for the words of the page, as a click on its tab would prove: the level it asks for is what those panels need; the other pages need none",
+            HudVote.PageLevel("How") == HudView.LevelOf("gg_h1_title") && HudVote.PageLevel("Fun") == HudView.LevelOf(HudMenu.FunRow(1)) && HudVote.PageLevel("Help") == HudView.LevelOf($"gg_c{Hud.HelpMore[0].Group + 1}_5_txt")
+            && new[] { "Maps", "Queue", "Start", "Rules", "Game" }.All(p => HudVote.PageLevel(p) == 0)
+            && HudView.LevelOfButton(HudView.TabHow) == HudVote.PageLevel("How") && HudView.LevelOfButton(HudView.TabFun) == HudVote.PageLevel("Fun")
+            && ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!how") is { Kind: ChatCommands.Kind.Page, Arg: "How" } && ChatCommands.Parse("!help") is { Kind: ChatCommands.Kind.Commands, Arg: "Help" });
 
         // ---- the words are the same wherever they are said ----
         const string referenceFile = "../docs/reference.md", readmeFile = "../README.md";

@@ -724,10 +724,10 @@ sealed class HudScreen
                 ShowFor(account, cmd.Arg);
                 return;
             case ChatCommands.Kind.Page:
+                AskedForPage(player, account, cmd.Arg);
                 ShowFor(account, cmd.Arg);
                 if (cmd.Arg == "Fun") foreach (var line in ChatCommands.FunLines(mode.ArmsRace)) Say(line);
                 else if (cmd.Typed == "") Say($"The menu is open on {cmd.Arg}");
-                if (ContentOf(player) < HudVote.PageLevel(cmd.Arg)) Say(HudVote.PageHint(cmd.Arg)); // its words wait for a click on a button only that content has
                 return;
             case ChatCommands.Kind.Find:
                 Menu(player, cmd.Arg);
@@ -762,6 +762,7 @@ sealed class HudScreen
                 return;
             case ChatCommands.Kind.Commands:
                 foreach (var line in ChatCommands.HelpLines()) Say(line);
+                AskedForPage(player, account, "Help");
                 ShowFor(account, "Help");
                 return;
             case ChatCommands.Kind.Usage:
@@ -771,6 +772,15 @@ sealed class HudScreen
                 Say(ChatCommands.UnknownLine(cmd.Name));
                 return;
         }
+    }
+
+    /// <summary>A chat command that opens a page asks for its words too (HudVote.PageLevel): as good as a click on its tab, so the page has its rows at once.</summary>
+    void AskedForPage(CCSPlayerController player, long account, string page)
+    {
+        var needs = HudVote.PageLevel(page);
+        if (account <= 0 || needs <= content.GetValueOrDefault(account)) return;
+        content[account] = needs;
+        log.LogInformation("GunGameWelcome HUD: {Name} [U:1:{Account}] asked for the {Page} page in chat - its words go to their game from now on", player.PlayerName, account, page);
     }
 
     /// <summary>!play &lt;map&gt;: a number is a map's rank (its !map); a Workshop id no listed map has opens its card (the menu's download);
