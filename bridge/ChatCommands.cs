@@ -161,6 +161,10 @@ public static class ChatCommands
 
     static string ChoiceWords(Fun.Setting s) => string.Join('|', s.Choices.Select(c => c.Id));
 
+    /// <summary>The bridge's note for a player, as chat says it: a confirmation asks a click of a menu user, and of a typist the same line again
+    /// (a broken map's Play, Previous, the restart: the bridge counts both alike).</summary>
+    public static string InChat(string note) => note.Replace("Click Play again", "Type it again").Replace("Click Previous again", "Type it again").Replace("Click Restart again", "Type it again");
+
     /// <summary>The reply that teaches the primary by showing what was executed, or null when the player typed the primary.</summary>
     public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Hud.Clean(p.Typed, 44)} - ran {Hud.Clean(p.Ran, 50)}";
 
