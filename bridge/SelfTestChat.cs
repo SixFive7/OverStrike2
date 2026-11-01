@@ -88,6 +88,13 @@ static partial class Program
             && ChatCommands.Parse("!spam dust") is { Kind: ChatCommands.Kind.Usage, Name: "!ads" } && ChatCommands.Parse("!map") is { Kind: ChatCommands.Kind.Usage, Name: "!play", Typed: "" }
             && ChatCommands.UsageOf(ChatCommands.Parse("!map").Name).StartsWith("!play <number"));
 
+        var broken = new MapInfo(12, 1, "aim_x", 1);
+        Check("Chat: a confirmation's note says to type the line again, as a second click and a second line count alike: the restart (and its aliases), a broken map's Play and Previous; every other note is left alone",
+            ChatCommands.InChat(PickConfirmNote(broken, "is on the broken list")) == $"{Label(broken)} is on the broken list. Type it again within {PickConfirmSeconds} s to play it anyway."
+            && ChatCommands.InChat(PickConfirmNote(broken, "is on the broken list", "Previous")).Contains("Type it again within")
+            && ChatCommands.InChat("A restart kicks everyone for about a minute. Click Restart again within 30 s to confirm") == "A restart kicks everyone for about a minute. Type it again within 30 s to confirm"
+            && ChatCommands.InChat("You upvoted #1 x, now +1 -0") == "You upvoted #1 x, now +1 -0");
+
         // ---- the owner's context rules ----
         Check("Chat: !pick is a vote while a vote is open and a number was given, otherwise play",
             ChatCommands.Parse("!pick 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Ran: "!vote 3", Typed: "!pick 3" }

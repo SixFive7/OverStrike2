@@ -800,7 +800,7 @@ sealed class HudScreen
             if ((now - at).TotalSeconds > 5) { chatAsked.Remove(account); continue; }
             if (!state.Notes.TryGetValue(account, out var note) || note.Text == before || note.Text == "") continue;
             chatAsked.Remove(account);
-            if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is { } p) p.PrintToChat(" " + Hud.Clean(note.Text, 140));
+            if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is { } p) p.PrintToChat(" " + Hud.Clean(ChatCommands.InChat(note.Text), 140));
         }
     }
 
