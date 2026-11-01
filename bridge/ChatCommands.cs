@@ -168,9 +168,13 @@ public static class ChatCommands
     /// <summary>The reply that teaches the primary by showing what was executed, or null when the player typed the primary.</summary>
     public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Hud.Clean(p.Typed, 44)} - ran {Hud.Clean(p.Ran, 50)}";
 
-    /// <summary>The list in chat, a few lines of at most LineMax characters: each group's primaries.</summary>
     public const int LineMax = 120;
 
+    /// <summary>What a line can hold when the command also opens the window: chat stands at the left and the window covers it from 340 px in, at
+    /// about 7.2 px a character on a 1920x1080 screen (seen in a real client, 2026-11-01).</summary>
+    public const int BesideWindow = 46;
+
+    /// <summary>The list in chat: each group's primaries, a line that fits beside the window the command opens. A command typed alone says what it needs.</summary>
     public static List<string> HelpLines()
     {
         var lines = new List<string>();
@@ -179,27 +183,26 @@ public static class ChatCommands
             var line = $"{g.Key}:";
             foreach (var c in g)
             {
-                var add = $" {c.Word}{(c.Args != "" ? " " + c.Args.Split(' ')[0] : "")}";
-                if (line.Length + add.Length > LineMax) { lines.Add(line); line = $"{g.Key}:"; }
-                line += add;
+                if (line.Length + 1 + c.Word.Length > BesideWindow) { lines.Add(line); line = $"{g.Key}:"; }
+                line += " " + c.Word;
             }
             lines.Add(line);
         }
         return lines;
     }
 
-    /// <summary>What a bare !fun writes in chat beside the page: each setting's own word and its choices. What the page leaves out in another
-    /// game mode (friendly fire's three, the grenade drops) it leaves out too.</summary>
+    /// <summary>What a bare !fun writes in chat beside the page, in lines that fit beside it: each setting's own word with a choice the page shows. What the
+    /// page leaves out in another game mode (friendly fire's three, the grenade drops) it leaves out too.</summary>
     public static List<string> FunLines(bool armsRace)
     {
-        var lines = new List<string> { "The Fun page is open. Each setting has its own word, for everybody until the map changes:" };
+        var lines = new List<string> { "Every setting here has its own word:" };
         var line = "";
         foreach (var s in Fun.Settings.Where(s => armsRace || !Fun.ArmsRaceOnly(s)))
-        {
-            var add = $"!{s.Id} {(armsRace && s.Id == "nades" ? "on|off|" : "")}{ChoiceWords(s)}";
-            if (line.Length + 2 + add.Length > LineMax) { lines.Add(line); line = ""; }
-            line += (line == "" ? "" : "  ") + add;
-        }
+            foreach (var add in (armsRace && s.Id == "nades" ? new[] { "!nades off" } : []).Append($"!{s.Id} {s.Choices[1].Id}"))
+            {
+                if (line.Length + 2 + add.Length > BesideWindow) { lines.Add(line); line = ""; }
+                line += (line == "" ? "" : "  ") + add;
+            }
         if (line != "") lines.Add(line);
         return lines;
     }
