@@ -1,0 +1,2977 @@
+#!/usr/bin/env python3
+"""workshop-sync.py - the nightly Workshop sync of the CS2 server: new Arms Race, Deathmatch and Wingman maps.
+
+The main process of the `sync` service in deploy/compose.example.yml (its own container, the game server's own image), bind-
+mounted read-only at /home/steam/cs2-workshop-sync.py (source of truth: server/ in this repo, like update-watch.py).
+Python 3.9 compatible. Every path, address, id and limit below comes from the environment (see CONFIG); the code holds
+no infrastructure detail, so it can be published as it is.
+
+ONE RUN A NIGHT, inside the nightly window (SYNC_AT 03:30 to SYNC_END 06:45), only while nobody plays:
+  0. WAIT FOR THE PREFETCH. The restart watcher's nightly prefetch (update-watch.py) runs from 03:30 in the game server's
+     own engine; this run starts only once the watcher has stamped tonight's prefetch as done (its state.json,
+     prefetch_day), so the two never fetch from Steam at the same time. Not done by SYNC_PREFETCH_WAIT_UNTIL (05:15): the
+     run goes on with the API steps only, and tonight's downloads and tests wait for the next night.
+  1. FIND NEW MAPS. IPublishedFileService/QueryFiles (api.steampowered.com, the owner's Web API key - the only call that
+     needs one: without it the API answers 403, checked 2026-11-01): app 730, any of the tags SYNC_TAGS (Armsrace,
+     Deathmatch, Wingman), newest first, 100 a page, the cursor from page to page, and it stops at the first page that
+     holds nothing it has never seen. No key file: one log line, and the step is skipped; everything else runs.
+  2. CHECK THE MAPS WE LIST. ISteamRemoteStorage/GetPublishedFileDetails (no key), 100 ids a call: every map on
+     maps.json and on the mode lists, and every candidate before its download. The verdicts (ok, or gone: result not 1,
+     hidden, banned) are handed to the bridge exactly as its own daily Workshop check hands them (POST /removed), so a map
+     that is gone is blocked at once; a map updated since we last saw it is downloaded and tested again, after the new ones.
+  3. DOWNLOAD with SteamCMD's anonymous login - never the owner's account, which is logged in nowhere - into this
+     container's own staging folder: one SteamCMD session a night, one item at a time, SYNC_DOWNLOAD_PAUSE between.
+  4. SCAN AND LOAD-TEST. The scan reads each download's VPKs: a map, a model pack, an empty upload or a CS:GO-era one,
+     and the commands its entity lump and cfg files carry (connect <ip>, `say connect ...`, gambling promo codes). The
+     maps then load, one by one, in a TEST COPY OF THE SERVER: a second CS2 engine in this container, started from a
+     read-only view of the game server's own install (a disposable tree of links, the engine's few files copied, no
+     plugins), with its own port, RCON password, join password and Workshop folder (the staging folder), its own
+     anonymous game-server logon, no log push and no access to anything the game server uses. Each map in the mode its
+     tags name (Arms Race first, then Deathmatch, then Wingman). PASS: a level of its own loads, A2S reports it and the
+     engine holds it SYNC_HOLD_SECONDS with two bots. FAIL: the error map, a crash, a freeze (A2S silent 45 s), a stock
+     map instead of its own (a stub), no level of its own in time, or the bots thrown off. Up to 3 loads a map.
+  5. PUBLISH into the bridge's /data (the bridge reads its files again by itself about 10 s after they change, and this
+     run asks it to at once with POST /reload): the Arms Race passes appended to maps.json (and search.json), the
+     Deathmatch and Wingman passes in maps-deathmatch.json and maps-wingman.json (the maps.json entry shape, rank 1..N by popularity), the crashers, the maps with ads and the non-maps
+     on broken.json with their reasons (not its "removed" seed, which the repo pins). Previous copies are kept under
+     <state>/backups/. Then THE MORNING MAIL to the owner: what was found, tested, published and skipped, the limits'
+     counters, and any stop.
+
+SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
+  * The owner's Steam account is never logged in anywhere: SteamCMD and the test engine log on anonymously.
+  * No steamcommunity.com request at all: only api.steampowered.com (the Web API) and Steam's own clients.
+  * One request at a time: every Web API call goes through one function, in one thread, at least SYNC_API_GAP_SECONDS
+    (2 s, never less) after the previous one, with an honest User-Agent naming this tool.
+  * HTTP 429 or 403 (401 too) stops every API step for the rest of the night at once; so do 3 server errors (5xx) in a
+    row, 5 in a night, or 5 network failures. The stop is written to the ledger, so a restart cannot resume it, and the
+    mail says so. SteamCMD: a rate-limit or access-denied answer, or 3 failed downloads in a row, end the downloads.
+  * HARD CAPS, persistent (<state>/api-ledger.json, written and flushed BEFORE each call, so a crash never loses one):
+    at most 10,000 Web API calls in any rolling 24 hours (10 % of Valve's 100,000 a day per key; the configuration can
+    only lower it) and SYNC_API_NIGHT_CAP (500) a night. Downloads: at most 50 items and 3 GB a night (again only
+    lower). An unreadable ledger means no calls at all.
+  * Only while nobody plays: A2S of the game server must show 0 humans (an unanswered query counts as somebody), before
+    every download, every test load and the publish; the run pauses while anyone is on and goes on when they leave.
+  * The test engine never touches the game server: read-only install, its own folders, no plugins, `log off`, no log
+    address (checked over RCON before the first load), and it stops by SYNC_END, before the 07:00 daily restart. A
+    game update during a test (steam.inf changes) ends the tests for the night.
+
+FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, disposable)
+  <state>/state.json        every item seen (its verdict, attempts, the details we know), the update baseline of the
+                            listed maps, the last run. Readable.
+  <state>/api-ledger.json   the Web API calls of the last 24 h, the count per night, the night's stop.
+  <state>/reports/<day>.json and .txt   the night's full result and the mail text.
+  <state>/backups/<day>/    the bridge's files as they were before this night's publish.
+  <state>/running.json      present while a run is going: its phase (for anyone about to touch the server).
+  <state>/run-now           create it (any content, or JSON with lower limits) to start a run at once, outside the window.
+  <work>/staging/           SteamCMD's install dir: steamapps/workshop is the test engine's Workshop folder.
+  <work>/farm/              the test engine's disposable game tree, rebuilt before every test session.
+
+CONFIG (environment of the sync service; defaults in brackets)
+  SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_AT [03:30], SYNC_END [06:45], SYNC_AFTER_PREFETCH [1],
+  SYNC_PREFETCH_WAIT_UNTIL [05:15], SYNC_TAGS [Armsrace,Deathmatch,Wingman], SYNC_EXCLUDE_IDS (never candidates: the
+  warm-up item, the HUD items), SYNC_EXCLUDE_CREATORS (Workshop authors whose items are listed by hand), SYNC_CHANGED_SINCE [2026-10-25] (a listed map updated after it counts as changed at the
+  first check), SYNC_MODE_BACKFILL [0] (1: listed Arms Race maps that carry a mode's tag join that mode's list too,
+  which this sync never loaded; off, a mode list holds only maps this sync load-tested itself),
+  SYNC_API_NIGHT_CAP [500], SYNC_API_DAY_CAP [10000], SYNC_API_GAP_SECONDS [2], SYNC_MAX_PAGES [200],
+  SYNC_DOWNLOAD_MAX [50], SYNC_DOWNLOAD_MAX_MB [3072], SYNC_DOWNLOAD_PAUSE [10], SYNC_HOLD_SECONDS [20],
+  SYNC_TEST_PORT [27215], SYNC_ENGINE_STARTS_MAX [25], SYNC_STATE_DIR, SYNC_WORK_DIR, SYNC_GAME_DIR,
+  SYNC_BRIDGE_DATA, SYNC_BRIDGE_URL, SYNC_BRIDGE_SECRET, SYNC_GAME_HOST, SYNC_GAME_PORT, SYNC_WATCHER_STATE,
+  SYNC_CFG_DIR, STEAM_WEBAPI_KEY_FILE, SYNC_SMTP_HOST, SYNC_SMTP_PORT [25], SYNC_MAIL_FROM, SYNC_MAIL_TO, TZ.
+
+    python3 workshop-sync.py              the service: wait for the window (or run-now), one run a night
+    python3 workshop-sync.py --once       one run now, then exit (the same rules, the window ignored)
+    python3 workshop-sync.py --status     print the ledger's counters and the state's totals
+    python3 workshop-sync.py --export     what it has published, as entries a republish from the repo can merge
+"""
+
+import calendar
+import email.utils
+import html
+import json
+import os
+import re
+import secrets
+import select
+import shutil
+import signal
+import smtplib
+import socket
+import struct
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover - Python < 3.9
+    ZoneInfo = None
+
+VERSION = "1"
+USER_AGENT = "cs2-workshop-sync/%s (nightly Workshop sync of a private CS2 server; server/workshop-sync.py)" % VERSION
+
+# ------------------------------------------------------------------------------------------------
+# The owner's hard limits (2026-11-01). The environment may lower them, never raise them.
+# ------------------------------------------------------------------------------------------------
+HARD_API_DAY_CAP = 10000          # 10 % of Valve's 100,000 Web API calls a day per key, over any rolling 24 hours
+HARD_API_GAP = 2.0                # seconds between two Web API calls, at least
+HARD_DOWNLOAD_MAX = 50            # Workshop downloads a night
+HARD_DOWNLOAD_BYTES = 3 << 30     # 3 GB a night
+API_5XX_ROW = 3                   # server errors in a row that stop the night's API steps
+API_5XX_NIGHT = 5                 # server errors in a night that stop them
+API_NETFAIL_NIGHT = 5             # network failures (timeouts, resets) in a night that stop them
+API_RETRY_WAIT = (30, 90)         # a failed call is tried again after these pauses, then given up
+DAY = 86400
+
+QUERY_URL = "https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/"
+DETAILS_URL = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"
+DETAILS_BATCH = 100
+
+MODES = (  # (id, Workshop tag, game_type, game_mode, the list file beside maps.json)
+    ("armsrace", "Armsrace", 1, 0, "maps.json"),
+    ("deathmatch", "Deathmatch", 1, 2, "maps-deathmatch.json"),
+    ("wingman", "Wingman", 0, 2, "maps-wingman.json"),
+)
+
+
+# ------------------------------------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------------------------------------
+
+def env_int(name, default, low, high):
+    raw = os.environ.get(name, "")
+    try:
+        value = int(raw) if raw.strip() else default
+    except ValueError:
+        value = default
+    return max(low, min(high, value))
+
+
+def env_float(name, default, low, high):
+    raw = os.environ.get(name, "")
+    try:
+        value = float(raw) if raw.strip() else default
+    except ValueError:
+        value = default
+    return max(low, min(high, value))
+
+
+def env_flag(name, default):
+    raw = (os.environ.get(name) or "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def env_hhmm(name, default):
+    raw = (os.environ.get(name) or "").strip()
+    m = re.match(r"^(\d{1,2}):(\d{2})$", raw)
+    if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
+        return int(m.group(1)), int(m.group(2))
+    return default
+
+
+class Config(object):
+    def __init__(self, env=None):
+        if env is not None:
+            os.environ.update(env)
+        self.enabled = env_flag("SYNC_ENABLED", True)
+        self.publish = env_flag("SYNC_PUBLISH", True)
+        self.start = env_hhmm("SYNC_AT", (3, 30))
+        self.end = env_hhmm("SYNC_END", (6, 45))
+        self.after_prefetch = env_flag("SYNC_AFTER_PREFETCH", True)
+        self.prefetch_wait_until = env_hhmm("SYNC_PREFETCH_WAIT_UNTIL", (5, 15))
+        self.tags = [t.strip() for t in (os.environ.get("SYNC_TAGS") or "Armsrace,Deathmatch,Wingman").split(",") if t.strip()]
+        self.exclude = set(x for x in re.split(r"[,\s]+", os.environ.get("SYNC_EXCLUDE_IDS") or "") if x.isdigit())
+        self.exclude_creators = set(x for x in re.split(r"[,\s]+", os.environ.get("SYNC_EXCLUDE_CREATORS") or "") if x.isdigit())
+        self.changed_since = os.environ.get("SYNC_CHANGED_SINCE") or "2026-10-25"
+        self.mode_backfill = env_flag("SYNC_MODE_BACKFILL", False)
+        self.api_day_cap = env_int("SYNC_API_DAY_CAP", HARD_API_DAY_CAP, 0, HARD_API_DAY_CAP)
+        self.api_night_cap = env_int("SYNC_API_NIGHT_CAP", 500, 0, self.api_day_cap)
+        self.api_gap = env_float("SYNC_API_GAP_SECONDS", HARD_API_GAP, HARD_API_GAP, 600.0)
+        self.max_pages = env_int("SYNC_MAX_PAGES", 200, 1, 2000)
+        self.download_max = env_int("SYNC_DOWNLOAD_MAX", HARD_DOWNLOAD_MAX, 0, HARD_DOWNLOAD_MAX)
+        self.download_bytes = env_int("SYNC_DOWNLOAD_MAX_MB", HARD_DOWNLOAD_BYTES >> 20, 0, HARD_DOWNLOAD_BYTES >> 20) << 20
+        self.download_pause = env_float("SYNC_DOWNLOAD_PAUSE", 10.0, 2.0, 600.0)
+        self.hold = env_int("SYNC_HOLD_SECONDS", 20, 5, 300)
+        self.test_port = env_int("SYNC_TEST_PORT", 27215, 1024, 65535)
+        self.engine_starts_max = env_int("SYNC_ENGINE_STARTS_MAX", 25, 1, 200)
+        self.state_dir = os.environ.get("SYNC_STATE_DIR") or "/home/steam/sync-state"
+        self.work_dir = os.environ.get("SYNC_WORK_DIR") or "/home/steam/workshop-sync"
+        self.game_dir = os.environ.get("SYNC_GAME_DIR") or "/home/steam/cs2-dedicated"
+        self.bridge_data = os.environ.get("SYNC_BRIDGE_DATA") or "/home/steam/bridge-data"
+        self.bridge_url = (os.environ.get("SYNC_BRIDGE_URL") or "").rstrip("/")
+        self.bridge_secret = os.environ.get("SYNC_BRIDGE_SECRET") or ""
+        self.game_host = os.environ.get("SYNC_GAME_HOST") or ""
+        self.game_port = env_int("SYNC_GAME_PORT", 27015, 1, 65535)
+        self.watcher_state = os.environ.get("SYNC_WATCHER_STATE") or os.path.join(self.game_dir, "update-watch", "state.json")
+        self.cfg_dir = os.environ.get("SYNC_CFG_DIR") or ""
+        self.key_file = os.environ.get("STEAM_WEBAPI_KEY_FILE") or "/run/secrets/steam-webapi-key.txt"
+        self.smtp_host = os.environ.get("SYNC_SMTP_HOST") or ""
+        self.smtp_port = env_int("SYNC_SMTP_PORT", 25, 1, 65535)
+        self.mail_from = os.environ.get("SYNC_MAIL_FROM") or ""
+        self.mail_to = [a.strip() for a in (os.environ.get("SYNC_MAIL_TO") or "").split(",") if a.strip()]
+        self.tzname = os.environ.get("TZ") or "UTC"
+        self.steamcmd = os.environ.get("SYNC_STEAMCMD") or "/home/steam/steamcmd/steamcmd.sh"
+
+    def lower(self, overrides):
+        """run-now may only lower a limit for its run, never raise one."""
+        for key, attr in (("api_night_cap", "api_night_cap"), ("download_max", "download_max"), ("max_pages", "max_pages")):
+            if isinstance(overrides.get(key), int) and overrides[key] >= 0:
+                setattr(self, attr, min(getattr(self, attr), overrides[key]))
+        if isinstance(overrides.get("download_max_mb"), int) and overrides["download_max_mb"] >= 0:
+            self.download_bytes = min(self.download_bytes, overrides["download_max_mb"] << 20)
+        if overrides.get("publish") is False:
+            self.publish = False
+        if overrides.get("discover") is False:
+            self.key_file = ""
+        if isinstance(overrides.get("only_ids"), list):
+            self.only_ids = [str(x) for x in overrides["only_ids"] if str(x).isdigit()]
+
+
+# ------------------------------------------------------------------------------------------------
+# Small helpers: time, logging, JSON files
+# ------------------------------------------------------------------------------------------------
+
+def tz_of(name):
+    if ZoneInfo is not None:
+        try:
+            return ZoneInfo(name)
+        except Exception:
+            return None
+    return None
+
+
+class Clock(object):
+    """Local time for the window and the night's name; injectable for the tests."""
+
+    def __init__(self, tzname, now=None):
+        self.tz = tz_of(tzname)
+        self._now = now or time.time
+
+    def now(self):
+        return self._now()
+
+    def local(self, ts=None):
+        ts = self.now() if ts is None else ts
+        return datetime.fromtimestamp(ts, self.tz) if self.tz else datetime.fromtimestamp(ts)
+
+    def day(self, ts=None):
+        return self.local(ts).strftime("%Y-%m-%d")
+
+    def at(self, hhmm, ts=None):
+        """Today's hh:mm (local) as a Unix time."""
+        d = self.local(ts).replace(hour=hhmm[0], minute=hhmm[1], second=0, microsecond=0)
+        return d.timestamp()
+
+    def in_window(self, start, end, ts=None):
+        ts = self.now() if ts is None else ts
+        return self.at(start, ts) <= ts < self.at(end, ts)
+
+
+LOG_FILE = [None]
+
+
+def log(message):
+    line = "%s workshop-sync: %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), message)
+    print(line, flush=True)
+    path = LOG_FILE[0]
+    if path:
+        try:
+            if os.path.exists(path) and os.path.getsize(path) > (10 << 20):
+                os.replace(path, path + ".1")
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+        except OSError:
+            pass
+
+
+def read_json(path, default=None):
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return default
+
+
+def write_atomic(path, text, mode=0o666):
+    """Write beside the target, flush to disk, then rename over it: a reader sees the old file or the new one."""
+    folder = os.path.dirname(os.path.abspath(path))
+    tmp = os.path.join(folder, ".%s.tmp-%d" % (os.path.basename(path), os.getpid()))
+    data = text.encode("utf-8") if isinstance(text, str) else text
+    with open(tmp, "wb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        os.chmod(tmp, mode)
+    except OSError:
+        pass
+    os.replace(tmp, path)
+
+
+def dumps(obj, indent=1):
+    return json.dumps(obj, indent=indent, ensure_ascii=False) + "\n"
+
+
+def hms(seconds):
+    seconds = int(max(0, seconds))
+    return "%dh%02dm" % (seconds // 3600, seconds % 3600 // 60) if seconds >= 3600 else (
+        "%dm%02ds" % (seconds // 60, seconds % 60) if seconds >= 60 else "%ds" % seconds)
+
+
+def mb(nbytes):
+    return "%.1f GB" % (nbytes / 1073741824.0) if nbytes >= 1073741824 else "%.0f MB" % (nbytes / 1048576.0)
+
+
+# Text as the site's build cleans it (site/build-1000.py): no control characters, no bidi overrides.
+CTRL_RX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
+BIDI_RX = re.compile("[‪-‮⁦-⁩]")
+WS_RX = re.compile(r"\s+")
+BBCODE_RX = re.compile(r"\[/?[a-zA-Z0-9\*]+(?:=[^\]]*)?\]")
+IMG_RX = re.compile(r"\[img\].*?\[/img\]", re.I | re.S)
+TAG_RX = re.compile(r"<[^>]+>")
+
+
+def clean(value, limit=None):
+    text = CTRL_RX.sub(" ", str(value if value is not None else ""))
+    text = BIDI_RX.sub("", text)
+    text = WS_RX.sub(" ", text).strip()
+    if limit and len(text) > limit:
+        cut = text[:limit].rstrip()
+        space = cut.rfind(" ")
+        if space > limit * 0.6:
+            cut = cut[:space].rstrip()
+        text = cut.rstrip(",;:.-") + "…"
+    return text
+
+
+def clean_description(raw):
+    text = IMG_RX.sub(" ", raw or "")
+    text = BBCODE_RX.sub(" ", text)
+    text = TAG_RX.sub(" ", text)
+    return clean(html.unescape(text))
+
+
+def size_mb(nbytes):
+    """maps.json's sizeMb: whole MB, rounded half up, never 0 (the bridge would announce '(0 MB)')."""
+    return max(1, int(int(nbytes or 0) / 1048576.0 + 0.5))
+
+
+def item_name(item):
+    return clean(html.unescape(item.get("title") or "")) or "Workshop item %s" % item.get("publishedfileid")
+
+
+def item_tags(item):
+    return [str(t.get("tag")) for t in (item.get("tags") or []) if isinstance(t, dict) and t.get("tag")]
+
+
+def workshop_verdict(item):
+    """ok | removed | hidden | banned, as the bridge's daily check (bridge/Workshop.cs) reads the same reply."""
+    if not item or int(item.get("result") or 0) != 1:
+        return "removed"
+    if item.get("banned"):
+        return "banned"
+    if int(item.get("visibility") or 0) != 0:
+        return "hidden"
+    return "ok"
+
+
+# ------------------------------------------------------------------------------------------------
+# The Web API: one door, the ledger, the stop rules
+# ------------------------------------------------------------------------------------------------
+
+class StopNight(Exception):
+    """A limit or a refusal: no more Web API calls tonight."""
+
+
+class ApiError(Exception):
+    """One call failed and was given up; the night goes on."""
+
+
+class ApiRefused(ApiError):
+    """A 4xx other than 401/403/429: asking again would get the same answer, so it is not retried."""
+
+
+class ApiLedger(object):
+    """Every Web API call this tool makes, persisted BEFORE it is sent. Rolling 24 h cap, per-night cap, the night's stop."""
+
+    def __init__(self, path, day_cap, night_cap, clock):
+        self.path, self.day_cap, self.night_cap, self.clock = path, min(day_cap, HARD_API_DAY_CAP), night_cap, clock
+        self.data = None
+        self.broken = None
+
+    def load(self):
+        if not os.path.exists(self.path):
+            self.data = {"schema": 1, "calls": [], "nights": {}, "stops": {}}
+            return
+        data = read_json(self.path, None)
+        if not isinstance(data, dict) or not isinstance(data.get("calls"), list) or not isinstance(data.get("nights"), dict):
+            self.broken = "%s does not parse - no Web API call until it is fixed or deleted" % self.path
+            self.data = None
+            return
+        data.setdefault("stops", {})
+        self.data = data
+
+    def save(self):
+        write_atomic(self.path, json.dumps(self.data, separators=(",", ":")) + "\n", mode=0o644)
+
+    def prune(self, now):
+        self.data["calls"] = [c for c in self.data["calls"] if isinstance(c, list) and c and now - float(c[0]) < DAY]
+        nights = sorted(self.data["nights"])
+        for old in nights[:-14]:
+            del self.data["nights"][old]
+        for old in sorted(self.data["stops"])[:-14]:
+            del self.data["stops"][old]
+
+    def last_24h(self, now=None):
+        now = self.clock.now() if now is None else now
+        return sum(1 for c in (self.data or {}).get("calls", []) if now - float(c[0]) < DAY)
+
+    def tonight(self, night):
+        return int((self.data or {}).get("nights", {}).get(night, 0))
+
+    def stopped(self, night):
+        return (self.data or {}).get("stops", {}).get(night)
+
+    def stop(self, night, why):
+        if self.data is None:
+            return
+        if not self.data["stops"].get(night):
+            self.data["stops"][night] = why
+            self.save()
+
+    def reserve(self, night, api):
+        """Count a call before it is made. Raises StopNight when a cap or tonight's stop says no."""
+        if self.data is None:
+            raise StopNight(self.broken or "the API ledger is not loaded")
+        now = self.clock.now()
+        self.prune(now)
+        if self.stopped(night):
+            raise StopNight("stopped earlier tonight: %s" % self.stopped(night))
+        if self.last_24h(now) >= self.day_cap:
+            raise StopNight("the cap of %d Web API calls in 24 hours is reached" % self.day_cap)
+        if self.tonight(night) >= self.night_cap:
+            raise StopNight("tonight's cap of %d Web API calls is reached" % self.night_cap)
+        self.data["calls"].append([round(now, 3), api, None])
+        self.data["nights"][night] = self.tonight(night) + 1
+        self.save()
+        return len(self.data["calls"]) - 1
+
+    def settle(self, index, status):
+        try:
+            self.data["calls"][index][2] = status
+            self.save()
+        except (IndexError, TypeError, OSError):
+            pass
+
+
+class SteamApi(object):
+    """The only way this tool talks to api.steampowered.com: one call at a time, at least `gap` seconds apart."""
+
+    def __init__(self, ledger, night, gap, key=None, opener=None, sleep=time.sleep, monotonic=time.monotonic):
+        self.ledger, self.night, self.gap, self.key = ledger, night, max(HARD_API_GAP, gap), key
+        self.opener = opener or urllib.request.urlopen
+        self.sleep, self.monotonic = sleep, monotonic
+        self.last = None
+        self.errors_5xx_row = 0
+        self.errors_5xx = 0
+        self.netfails = 0
+        self.calls = 0
+        self.by_api = {}
+        self.stop_reason = None
+
+    def redact(self, text):
+        text = str(text)
+        return text.replace(self.key, "<key>") if self.key else text
+
+    def _stop(self, why):
+        self.stop_reason = why
+        self.ledger.stop(self.night, why)
+        raise StopNight(why)
+
+    def _wait_gap(self):
+        if self.last is not None:
+            wait = self.gap - (self.monotonic() - self.last)
+            if wait > 0:
+                self.sleep(wait)
+
+    def call(self, api, url, data=None, params=None):
+        """One logical request: up to len(API_RETRY_WAIT) + 1 sends, every one through the ledger."""
+        attempts = 0
+        while True:
+            attempts += 1
+            try:
+                return self._send(api, url, data, params)
+            except ApiRefused:
+                raise
+            except ApiError as error:
+                if attempts > len(API_RETRY_WAIT):
+                    raise
+                log("Web API %s failed (%s) - trying again in %d s" % (api, self.redact(error), API_RETRY_WAIT[attempts - 1]))
+                self.sleep(API_RETRY_WAIT[attempts - 1])
+
+    def _send(self, api, url, data, params):
+        if self.stop_reason:
+            raise StopNight(self.stop_reason)
+        self._wait_gap()
+        index = self.ledger.reserve(self.night, api)
+        query = dict(params or {})
+        if api == "QueryFiles":
+            if not self.key:
+                raise StopNight("no Web API key")
+            query["key"] = self.key
+        full = url + ("?" + urllib.parse.urlencode(query, doseq=True) if query else "")
+        body = urllib.parse.urlencode(data, doseq=True).encode() if data is not None else None
+        request = urllib.request.Request(full, data=body, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        if body is not None:
+            request.add_header("Content-Type", "application/x-www-form-urlencoded")
+        self.last = self.monotonic()
+        self.calls += 1
+        self.by_api[api] = self.by_api.get(api, 0) + 1
+        status = None
+        try:
+            try:
+                response = self.opener(request, timeout=30)
+                try:
+                    status = getattr(response, "status", 200)
+                    raw = response.read()
+                finally:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
+            finally:
+                self.last = self.monotonic()      # the gap runs from the END of this call: never two requests closer
+        except urllib.error.HTTPError as error:
+            status = error.code
+            self.ledger.settle(index, status)
+            if status in (401, 403, 429):
+                self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for tonight" % (status, api))
+            if 500 <= status < 600:
+                self.errors_5xx_row += 1
+                self.errors_5xx += 1
+                if self.errors_5xx_row >= API_5XX_ROW or self.errors_5xx >= API_5XX_NIGHT:
+                    self._stop("Steam's Web API answered %d server errors (%d in a row, the last HTTP %d to %s) - every API "
+                               "step stops for tonight" % (self.errors_5xx, self.errors_5xx_row, status, api))
+                raise ApiError("HTTP %d" % status)
+            raise ApiRefused("HTTP %d" % status)
+        except (urllib.error.URLError, socket.timeout, ConnectionError, OSError) as error:
+            self.ledger.settle(index, "net")
+            self.netfails += 1
+            if self.netfails >= API_NETFAIL_NIGHT:
+                self._stop("%d network failures talking to the Web API (the last: %s) - every API step stops for tonight"
+                           % (self.netfails, self.redact(error)))
+            raise ApiError("network: %s" % self.redact(error))
+        self.ledger.settle(index, status)
+        if status == 429 or status == 403 or status == 401:
+            self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for tonight" % (status, api))
+        self.errors_5xx_row = 0
+        try:
+            return json.loads(raw.decode("utf-8", "replace"))
+        except ValueError:
+            raise ApiError("the answer to %s is not JSON" % api)
+
+    def query_files(self, tags, cursor, per_page):
+        params = [("query_type", 1), ("cursor", cursor), ("numperpage", per_page), ("appid", 730),
+                  ("filetype", 0), ("match_all_tags", "false"), ("return_tags", "true"), ("return_metadata", "true"),
+                  ("return_short_description", "false"), ("strip_description_bbcode", "true")]
+        params += [("requiredtags[%d]" % i, t) for i, t in enumerate(tags)]
+        reply = self.call("QueryFiles", QUERY_URL, params=params)
+        response = (reply or {}).get("response") or {}
+        items = [i for i in (response.get("publishedfiledetails") or []) if isinstance(i, dict)]
+        return items, response.get("next_cursor") or "", int(response.get("total") or 0)
+
+    def details(self, ids):
+        form = [("itemcount", len(ids))] + [("publishedfileids[%d]" % i, w) for i, w in enumerate(ids)]
+        reply = self.call("GetPublishedFileDetails", DETAILS_URL, data=form)
+        out = {}
+        for item in ((reply or {}).get("response") or {}).get("publishedfiledetails") or []:
+            wid = str(item.get("publishedfileid") or "")
+            if wid.isdigit():
+                out[wid] = item
+        return out
+
+
+def read_key(path):
+    """The Web API key from its secret file, or None. Never logged: only whether there is one."""
+    if not path:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            key = handle.read().strip()
+    except OSError:
+        return None
+    return key if re.match(r"^[0-9A-Fa-f]{32}$", key) else None
+
+
+# ------------------------------------------------------------------------------------------------
+# What we know: the bridge's files and this tool's own state
+# ------------------------------------------------------------------------------------------------
+
+def bridge_files(cfg):
+    """The bridge's data as it is now: {"maps": [...], "broken": {...}, "modes": {mode: [...]}, "search": {...}, "raw": {}}.
+    Raises ValueError when maps.json or broken.json does not parse: then nothing is published and nothing is assumed."""
+    out = {"raw": {}}
+    path = os.path.join(cfg.bridge_data, "maps.json")
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    out["raw"]["maps.json"] = raw
+    maps = json.loads(raw.decode("utf-8"))
+    if not isinstance(maps, list) or not maps:
+        raise ValueError("%s holds no map list" % path)
+    out["maps"] = maps
+    path = os.path.join(cfg.bridge_data, "broken.json")
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    out["raw"]["broken.json"] = raw
+    broken = json.loads(raw.decode("utf-8"))
+    if not isinstance(broken, dict):
+        raise ValueError("%s is not the object form" % path)
+    out["broken"] = broken
+    out["modes"] = {}
+    for mode, _tag, _gt, _gm, name in MODES[1:]:
+        path = os.path.join(cfg.bridge_data, name)
+        if os.path.exists(path):
+            with open(path, "rb") as handle:
+                raw = handle.read()
+            out["raw"][name] = raw
+            data = json.loads(raw.decode("utf-8"))
+            if not isinstance(data, list):
+                raise ValueError("%s is not a list" % path)
+            out["modes"][mode] = data
+        else:
+            out["modes"][mode] = []
+    path = os.path.join(cfg.bridge_data, "search.json")
+    search = read_json(path, None)
+    out["search"] = search if isinstance(search, dict) else None
+    if out["search"] is not None:
+        with open(path, "rb") as handle:
+            out["raw"]["search.json"] = handle.read()
+    return out
+
+
+def broken_ids(broken):
+    out = {}
+    for section in ("maps", "packs", "removed", "blocked"):
+        for entry in broken.get(section) or []:
+            wid = str(entry.get("id") if isinstance(entry, dict) else entry)
+            if wid.isdigit():
+                out.setdefault(wid, section)
+    return out
+
+
+def known_ids(files, cfg):
+    """Every id with a verdict of ours already: listed (any mode), on broken.json, or excluded by configuration."""
+    known = {}
+    for m in files["maps"]:
+        if isinstance(m, dict) and str(m.get("id", "")).isdigit():
+            known[str(m["id"])] = "listed"
+    for mode, entries in files["modes"].items():
+        for m in entries:
+            if isinstance(m, dict) and str(m.get("id", "")).isdigit():
+                known.setdefault(str(m["id"]), "listed:" + mode)
+    for wid, section in broken_ids(files["broken"]).items():
+        known.setdefault(wid, "broken:" + section)
+    for wid in cfg.exclude:
+        known.setdefault(wid, "excluded")
+    return known
+
+
+class State(object):
+    """<state>/state.json: the items this tool has seen and what it decided, the update baseline, the last run."""
+
+    def __init__(self, path):
+        self.path = path
+        self.data = {"schema": 1, "items": {}, "baseline": {}, "last_run_day": "", "runs": []}
+
+    def load(self):
+        data = read_json(self.path, None)
+        if data is None and os.path.exists(self.path):
+            raise ValueError("%s does not parse - fix or delete it" % self.path)
+        if isinstance(data, dict):
+            data.setdefault("items", {})
+            data.setdefault("baseline", {})
+            data.setdefault("runs", [])
+            data.setdefault("last_run_day", "")
+            self.data = data
+        return self
+
+    def save(self):
+        self.data["runs"] = self.data["runs"][-60:]
+        write_atomic(self.path, json.dumps(self.data, ensure_ascii=False, separators=(",", ":")) + "\n", mode=0o644)
+
+    def item(self, wid):
+        return self.data["items"].get(str(wid))
+
+    def remember(self, item, night, why):
+        """Record a Workshop item we were shown (discovery, or a changed listed map), keeping what we decided before."""
+        wid = str(item.get("publishedfileid"))
+        rec = self.data["items"].setdefault(wid, {"first": night, "status": "queued", "why": why, "attempts": 0, "tests": 0})
+        rec.update({"title": item_name(item), "tags": item_tags(item), "size": int(item.get("file_size") or 0),
+                    "created": int(item.get("time_created") or 0), "updated": int(item.get("time_updated") or 0),
+                    "subs": int(item.get("subscriptions") or 0), "lifetime": int(item.get("lifetime_subscriptions") or 0),
+                    "filename": item.get("filename") or "", "app": int(item.get("consumer_appid") or 0),
+                    "creator": str(item.get("creator") or ""),
+                    "ws": workshop_verdict(dict(item, result=item.get("result", 1))), "preview": item.get("preview_url") or "",
+                    "description": clean_description(item.get("file_description") or "")[:300]})
+        if why == "changed" and rec.get("status") in ("published", "pass"):
+            rec["status"] = "queued"
+            rec["why"] = "changed"
+        return rec
+
+
+# ------------------------------------------------------------------------------------------------
+# 1. Discovery and 2. the check
+# ------------------------------------------------------------------------------------------------
+
+def discover(api, cfg, known, state, night, deadline, now=time.time):
+    """QueryFiles newest first; stops at the first page with nothing this tool has never seen (or a cap, or the clock).
+    Returns {"pages", "seen", "new": [ids], "total", "stop"}."""
+    out = {"pages": 0, "seen": 0, "new": [], "total": None, "stop": None}
+    cursor = "*"
+    while out["pages"] < cfg.max_pages:
+        if now() >= deadline:
+            out["stop"] = "the night's deadline"
+            break
+        items, next_cursor, total = api.query_files(cfg.tags, cursor, DETAILS_BATCH)
+        out["pages"] += 1
+        out["total"] = total
+        out["seen"] += len(items)
+        fresh = []
+        for item in items:
+            wid = str(item.get("publishedfileid") or "")
+            if not wid.isdigit() or wid in known or state.item(wid) is not None:
+                continue
+            if str(item.get("creator") or "") in cfg.exclude_creators:
+                continue                       # listed by hand (SYNC_EXCLUDE_CREATORS): never a candidate, never "new"
+            state.remember(item, night, "new")
+            fresh.append(wid)
+        out["new"] += fresh
+        if not items:
+            out["stop"] = "an empty page"
+            break
+        if not fresh:
+            out["stop"] = "page %d held nothing new" % out["pages"]
+            break
+        if not next_cursor or next_cursor == cursor:
+            out["stop"] = "the last page"
+            break
+        cursor = next_cursor
+    else:
+        out["stop"] = "SYNC_MAX_PAGES (%d)" % cfg.max_pages
+    return out
+
+
+def check(api, ids, deadline, now=time.time):
+    """GetPublishedFileDetails for `ids`, 100 a call. Returns ({id: item}, ids not asked because of the clock)."""
+    got, left = {}, []
+    for start in range(0, len(ids), DETAILS_BATCH):
+        batch = ids[start:start + DETAILS_BATCH]
+        if now() >= deadline:
+            left += ids[start:]
+            break
+        try:
+            got.update(api.details(batch))
+        except ApiError as error:
+            log("details of %d ids failed for good (%s) - they are left out tonight" % (len(batch), error))
+            left += batch
+    return got, left
+
+
+def changed_since_epoch(day):
+    try:
+        return calendar.timegm(time.strptime(day, "%Y-%m-%d"))
+    except ValueError:
+        return 0
+
+
+def judge_listed(details, listed, state, cfg, night):
+    """The step 2 verdicts for the listed maps: {"removed": [(id, verdict)], "changed": [ids], "back": [ids], "missing": n,
+    "suspicious": bool}. Updates the baseline for every map that is unchanged."""
+    removed, changed, missing = [], [], 0
+    epoch = changed_since_epoch(cfg.changed_since)
+    base = state.data["baseline"]
+    for wid in listed:
+        item = details.get(wid)
+        if item is None:
+            missing += 1
+            continue
+        verdict = workshop_verdict(item)
+        if verdict != "ok":
+            removed.append((wid, verdict))
+            continue
+        updated = int(item.get("time_updated") or 0)
+        known = base.get(wid)
+        if known is None:
+            if updated > epoch:
+                changed.append(wid)
+            else:
+                base[wid] = updated
+        elif updated > int(known):
+            changed.append(wid)
+    asked = len(listed) - missing
+    suspicious = asked >= 50 and len(removed) > asked // 10
+    return {"removed": removed, "changed": changed, "missing": missing, "suspicious": suspicious}
+
+
+# ------------------------------------------------------------------------------------------------
+# 3. Downloads: one anonymous SteamCMD session, one item at a time
+# ------------------------------------------------------------------------------------------------
+
+KV_TOKEN = re.compile(r'"((?:[^"\\]|\\.)*)"|([{}])')
+
+
+def kv_parse(text):
+    """Valve KeyValues text (an .acf) -> nested lists of [key, value-or-list]; raises ValueError on anything odd."""
+    stack, cur, key = [], [], None
+    for m in KV_TOKEN.finditer(text):
+        if m.group(2) == "{":
+            if key is None:
+                raise ValueError("block without a key")
+            child = []
+            cur.append([key, child])
+            stack.append(cur)
+            cur, key = child, None
+        elif m.group(2) == "}":
+            if not stack or key is not None:
+                raise ValueError("unbalanced block")
+            cur = stack.pop()
+        elif key is None:
+            key = m.group(1)
+        else:
+            cur.append([key, m.group(1)])
+            key = None
+    if stack or key is not None:
+        raise ValueError("truncated")
+    return cur
+
+
+def kv_dump(kv, depth=0):
+    out = []
+    for key, value in kv:
+        if isinstance(value, list):
+            out.append('%s"%s"\n%s{\n%s%s}\n' % ("\t" * depth, key, "\t" * depth, kv_dump(value, depth + 1), "\t" * depth))
+        else:
+            out.append('%s"%s"\t\t"%s"\n' % ("\t" * depth, key, value))
+    return "".join(out)
+
+
+def kv_get(kv, key):
+    for k, v in kv or []:
+        if k == key:
+            return v
+    return None
+
+
+def acf_items(path):
+    """{id: timeupdated} of a workshop acf; {} when there is none."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            kv = kv_parse(handle.read())
+    except (OSError, ValueError):
+        return {}
+    installed = kv_get(kv_get(kv, "AppWorkshop") or [], "WorkshopItemsInstalled") or []
+    out = {}
+    for wid, body in installed:
+        if isinstance(body, list):
+            try:
+                out[wid] = int(kv_get(body, "timeupdated") or 0)
+            except ValueError:
+                out[wid] = 0
+    return out
+
+
+def acf_forget(path, ids):
+    """Drop `ids` from a workshop acf (both sections), parsed back and checked before an atomic replace."""
+    with open(path, "r", encoding="utf-8") as handle:
+        text = handle.read()
+    kv = kv_parse(text)
+    aw = kv_get(kv, "AppWorkshop")
+    if aw is None:
+        raise ValueError("no AppWorkshop block")
+    drop = set(str(i) for i in ids)
+    for section in ("WorkshopItemsInstalled", "WorkshopItemDetails"):
+        body = kv_get(aw, section)
+        if isinstance(body, list):
+            body[:] = [e for e in body if e[0] not in drop]
+    new = kv_dump(kv)
+    if kv_parse(new) != kv:
+        raise ValueError("the edited acf does not parse back")
+    write_atomic(path, new, mode=0o644)
+
+
+def folder_bytes(path):
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+            except OSError:
+                pass
+    return total
+
+
+SUCCESS_RX = re.compile(r'Success\. Downloaded item (\d+) to "[^"]*" \((\d+) bytes\)')
+FAILURE_RX = re.compile(r"ERROR! Download item (\d+) failed \(([^)]*)\)")
+LOGIN_FAIL_RX = re.compile(r"FAILED (?:to log ?in|login)|Login Failure|Rate Limit Exceeded|Invalid Password|No Connection", re.I)
+STEAMCMD_STOP_RX = re.compile(r"rate limit|limit exceeded|access denied|too many", re.I)
+ANSI_RX = re.compile(r"\x1b\[[0-9;]*m")
+
+
+class SteamCmd(object):
+    """One interactive SteamCMD process, logged in anonymously, fed one command at a time through its stdin."""
+
+    def __init__(self, exe, install_dir, log_path, home=None):
+        self.exe, self.install_dir, self.log_path, self.home = exe, install_dir, log_path, home
+        self.proc = None
+        self.buffer = b""
+
+    def _log(self, data):
+        try:
+            if os.path.exists(self.log_path) and os.path.getsize(self.log_path) > (20 << 20):
+                os.replace(self.log_path, self.log_path + ".1")
+            with open(self.log_path, "ab") as handle:
+                handle.write(data)
+        except OSError:
+            pass
+
+    def _read_until(self, rx, timeout):
+        """Bytes up to and including the first match of `rx`, or None (timeout / the process ended)."""
+        end = time.time() + timeout
+        fd = self.proc.stdout.fileno()
+        while True:
+            m = rx.search(ANSI_RX.sub("", self.buffer.decode("utf-8", "replace")))
+            if m:
+                text = ANSI_RX.sub("", self.buffer.decode("utf-8", "replace"))
+                self.buffer = b""
+                return text
+            left = end - time.time()
+            if left <= 0:
+                return None
+            ready, _, _ = select.select([fd], [], [], min(1.0, left))
+            if ready:
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    return None
+                self._log(chunk)
+                self.buffer += chunk
+
+    def start(self, timeout=240):
+        os.makedirs(self.install_dir, exist_ok=True)
+        env = dict(os.environ)
+        if self.home:
+            env["HOME"] = self.home
+        self._log(("\n==== %s SteamCMD session (anonymous)\n" % time.strftime("%Y-%m-%d %H:%M:%S")).encode())
+        self.proc = subprocess.Popen([self.exe, "+force_install_dir", self.install_dir, "+login", "anonymous"],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd="/tmp",
+                                     env=env, bufsize=0, start_new_session=True)
+        text = self._read_until(re.compile(r"Steam>|" + LOGIN_FAIL_RX.pattern, re.I), timeout)
+        if text is None:
+            self.stop()
+            return False, "no Steam> prompt within %d s" % timeout
+        bad = LOGIN_FAIL_RX.search(text)
+        if bad or "Connecting anonymously to Steam Public...OK" not in text.replace("\n", ""):
+            reason = bad.group(0) if bad else "the anonymous login did not answer OK"
+            self.stop()
+            return False, reason
+        return True, "logged in anonymously"
+
+    def download(self, wid, timeout=900):
+        """(ok, reason, bytes) for one `workshop_download_item 730 <wid>`."""
+        if self.proc is None or self.proc.poll() is not None:
+            return False, "SteamCMD is not running", 0
+        try:
+            self.proc.stdin.write(("workshop_download_item 730 %s\n" % wid).encode())
+            self.proc.stdin.flush()
+        except OSError as error:
+            return False, "SteamCMD's stdin: %s" % error, 0
+        rx = re.compile(r"Success\. Downloaded item %s to \"[^\"]*\" \(\d+ bytes\)|ERROR! Download item %s failed \([^)]*\)"
+                        % (wid, wid))
+        text = self._read_until(rx, timeout)
+        if text is None:
+            return False, "no result within %s" % hms(timeout), 0
+        ok = SUCCESS_RX.search(text)
+        if ok and ok.group(1) == str(wid):
+            return True, "OK", int(ok.group(2))
+        bad = FAILURE_RX.search(text)
+        return False, (bad.group(2) if bad else "unknown answer"), 0
+
+    def stop(self):
+        if self.proc is None:
+            return
+        try:
+            if self.proc.poll() is None:
+                self.proc.stdin.write(b"quit\n")
+                self.proc.stdin.flush()
+                self.proc.wait(30)
+        except Exception:
+            pass
+        if self.proc.poll() is None:
+            try:
+                os.killpg(self.proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            try:
+                self.proc.wait(10)
+            except Exception:
+                pass
+        self.proc = None
+
+
+class DownloadBudget(object):
+    """The night's download caps, persisted in state.json's "downloads" (so a restart of the service cannot reset them)."""
+
+    def __init__(self, state, night, max_items, max_bytes):
+        self.book = state.data.setdefault("downloads", {})
+        for old in sorted(self.book)[:-14]:
+            del self.book[old]
+        self.night = self.book.setdefault(night, {"items": 0, "bytes": 0})
+        self.max_items, self.max_bytes = min(max_items, HARD_DOWNLOAD_MAX), min(max_bytes, HARD_DOWNLOAD_BYTES)
+
+    def allows(self, size):
+        if self.night["items"] >= self.max_items:
+            return False, "tonight's cap of %d downloads is reached" % self.max_items
+        if self.night["bytes"] + max(0, size) > self.max_bytes:
+            return False, "%s would pass tonight's cap of %s (%s used)" % (mb(size), mb(self.max_bytes), mb(self.night["bytes"]))
+        return True, ""
+
+    def spend(self, nbytes):
+        self.night["items"] += 1
+        self.night["bytes"] += max(0, int(nbytes))
+
+    def bytes_left(self):
+        return self.max_bytes - self.night["bytes"]
+
+    def spend_bytes(self, nbytes):
+        """The test engine's own copy of an item SteamCMD already fetched: volume, not another item."""
+        self.night["bytes"] += max(0, int(nbytes))
+        self.night["engine"] = self.night.get("engine", 0) + 1
+
+
+# ------------------------------------------------------------------------------------------------
+# 4a. The scan: what a download holds, and the commands its map carries
+# ------------------------------------------------------------------------------------------------
+
+VPK_SIG = 0x55AA1234
+
+
+def _cstr(buf, pos):
+    end = buf.index(b"\x00", pos)
+    return buf[pos:end].decode("utf-8", "replace"), end + 1
+
+
+def vpk_tree(buf):
+    """[(path, archive_index, offset, length, preload, data_start)] of a VPK v1/v2 directory held in `buf` (its head)."""
+    if len(buf) < 12:
+        return []
+    sig, ver, tree = struct.unpack("<III", buf[:12])
+    if sig != VPK_SIG or ver not in (1, 2):
+        return []
+    pos = 28 if ver == 2 else 12
+    data_start = pos + tree
+    out = []
+    try:
+        while True:
+            ext, pos = _cstr(buf, pos)
+            if not ext:
+                break
+            while True:
+                folder, pos = _cstr(buf, pos)
+                if not folder:
+                    break
+                while True:
+                    name, pos = _cstr(buf, pos)
+                    if not name:
+                        break
+                    _crc, pre, arch, off, length, _term = struct.unpack("<IHHIIH", buf[pos:pos + 18])
+                    pos += 18
+                    preload = buf[pos:pos + pre]
+                    pos += pre
+                    path = ("%s/%s.%s" % (folder, name, ext)) if folder.strip() else "%s.%s" % (name, ext)
+                    out.append((path, arch, off, length, preload, data_start))
+    except (ValueError, struct.error, IndexError):
+        pass
+    return out
+
+
+class Vpk(object):
+    """A VPK on disk (a _dir.vpk with its _NNN.vpk archives, or a single .vpk), or one held in memory."""
+
+    def __init__(self, path=None, data=None):
+        self.path, self.data = path, data
+        if data is None:
+            with open(path, "rb") as handle:
+                head = handle.read(12)
+                if len(head) < 12:
+                    self.entries = []
+                    return
+                sig, ver, tree = struct.unpack("<III", head)
+                if sig != VPK_SIG or ver not in (1, 2) or tree > (256 << 20):
+                    self.entries = []
+                    return
+                handle.seek(0)
+                self.entries = vpk_tree(handle.read((28 if ver == 2 else 12) + tree))
+        else:
+            self.entries = vpk_tree(data)
+
+    def read(self, entry, limit=64 << 20):
+        _path, arch, off, length, preload, data_start = entry
+        if length > limit:
+            return None
+        if self.data is not None:
+            return preload + self.data[data_start + off:data_start + off + length] if arch == 0x7FFF else None
+        if arch == 0x7FFF:
+            target, at = self.path, data_start + off
+        else:
+            target, at = re.sub(r"_dir\.vpk$", "_%03d.vpk" % arch, self.path), off
+        try:
+            with open(target, "rb") as handle:
+                handle.seek(at)
+                return preload + handle.read(length)
+        except OSError:
+            return None
+
+
+def item_vpks(folder):
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return [], []
+    trees = [n for n in names if n.endswith("_dir.vpk")] or [
+        n for n in names if n.endswith(".vpk") and not re.search(r"_\d{3}\.vpk$", n)]
+    return names, trees
+
+
+def lz4_block(src, limit):
+    """Decompress one raw LZ4 block (no frame header) into at most `limit` bytes."""
+    dst = bytearray()
+    i, n = 0, len(src)
+    while i < n:
+        token = src[i]
+        i += 1
+        lit = token >> 4
+        if lit == 15:
+            while True:
+                b = src[i]
+                i += 1
+                lit += b
+                if b != 255:
+                    break
+        dst += src[i:i + lit]
+        i += lit
+        if i >= n:
+            break
+        off = src[i] | (src[i + 1] << 8)
+        i += 2
+        if off == 0 or off > len(dst):
+            raise ValueError("bad LZ4 offset")
+        ml = token & 15
+        if ml == 15:
+            while True:
+                b = src[i]
+                i += 1
+                ml += b
+                if b != 255:
+                    break
+        ml += 4
+        start = len(dst) - off
+        if ml <= off:
+            dst += dst[start:start + ml]
+        else:
+            for k in range(ml):
+                dst.append(dst[start + k])
+        if len(dst) > limit:
+            raise ValueError("LZ4 output over its stated size")
+    return bytes(dst)
+
+
+def kv3_strings(resource):
+    """The text a compiled Source 2 resource (an entity lump, .vents_c) carries: the string table of its KV3 DATA block,
+    decompressed when it is KV3 v5 with LZ4 (the format CS2's compiler writes, checked 2026-11-01), else its raw bytes."""
+    try:
+        block_offset, block_count = struct.unpack("<II", resource[8:16])
+        pos = 8 + block_offset
+        data = None
+        for _ in range(min(block_count, 32)):
+            kind = resource[pos:pos + 4]
+            offset, size = struct.unpack("<II", resource[pos + 4:pos + 12])
+            if kind == b"DATA":
+                data = resource[pos + 4 + offset:pos + 4 + offset + size]
+            pos += 12
+        if data is None or len(data) < 120:
+            return resource
+        if data[:4] == b"\x053VK" and struct.unpack("<I", data[20:24])[0] == 1:
+            u1, c1 = struct.unpack("<II", data[72:80])
+            return lz4_block(data[120:120 + c1], u1 + 16)
+        return data
+    except (struct.error, ValueError, IndexError):
+        return resource
+
+
+IP_RX = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?"
+CONNECT_RX = re.compile(r'^\s*"?connect\s+' + IP_RX, re.I)
+SAY_CONNECT_RX = re.compile(r'^\s*"?(say|say_team)\b.*\bconnect\b\s*"?\s*' + IP_RX, re.I)
+AD_RX = re.compile(r"clash\.gg|\bpromo ?code\b|use code\b|deposit bonus|free cases", re.I)
+CLIENT_RX = re.compile(r"\b(bind|alias)\b[^;]*\bconnect\s+" + IP_RX, re.I)
+TEXT_RX = re.compile(rb"[\x20-\x7e\x80-\xff\t]{4,}")
+
+
+def commands_in(text_bytes):
+    out = []
+    for m in TEXT_RX.finditer(text_bytes):
+        s = m.group(0).decode("utf-8", "replace")
+        for part in re.split(r"[;\n]", s):
+            part = part.strip()
+            if part:
+                out.append(part)
+    return out
+
+
+def advert_of(commands, has_clientcommand):
+    """(category, sample) by the 2026-10-24 rules (ads_scan.py / ads_final.py), or (None, None):
+    'gambling ad'      a gambling or case-site promotion
+    'chat advert'      `say ... connect <ip>`: everybody reads it in chat
+    'client connect'   a `connect <ip>` the players' own game is made to run (point_clientcommand, a bind or an alias)
+    'server connect'   only a server-side `connect <ip>`, which CS2 refuses for Workshop maps: nobody sees it; not listed."""
+    found = {}
+    for c in commands:
+        if AD_RX.search(c):
+            found.setdefault("gambling ad", c)
+        elif SAY_CONNECT_RX.search(c):
+            found.setdefault("chat advert", c)
+        elif CONNECT_RX.search(c) or CLIENT_RX.search(c):
+            # a bind or an alias to connect, or a bare connect, reaches a player only through a client-command entity;
+            # run on the server it does nothing (validated 2026-11-01 against the 2026-10-24 scan: 82 of 82 adverts alike)
+            found.setdefault("client connect" if has_clientcommand else "server connect", c)
+    for category in ("gambling ad", "chat advert", "client connect", "server connect"):
+        if category in found:
+            return category, found[category][:160]
+    return None, None
+
+
+def scan_item(folder):
+    """What one Workshop download holds. verdict: map | pack | empty | legacy | unknown, maps (the level names in it),
+    models, files, bytes, advert (category, sample) and the cfg/entity commands that made it, or none."""
+    res = {"verdict": "unknown", "maps": [], "models": 0, "files": 0, "bytes": folder_bytes(folder), "names": [],
+           "advert": None, "advert_sample": None}
+    names, trees = item_vpks(folder)
+    res["names"] = names[:30]
+    if not trees:
+        if names and all(n.endswith("_legacy.bin") or n in ("publish_data.txt",) for n in names) and any(
+                n.endswith("_legacy.bin") for n in names):
+            res["verdict"] = "legacy"
+        return res
+    commands, clientcommand, seen = [], False, False
+    for tree in trees:
+        try:
+            vpk = Vpk(os.path.join(folder, tree))
+        except OSError:
+            continue
+        for entry in vpk.entries:
+            seen = True
+            res["files"] += 1
+            low = entry[0].lower()
+            if low.startswith("maps/") and low.endswith(".vpk") and low.count("/") == 1:
+                res["maps"].append(entry[0][5:-4])
+                inner_bytes = vpk.read(entry, limit=1 << 30)
+                if not inner_bytes:
+                    continue
+                inner = Vpk(data=inner_bytes)
+                for ie in inner.entries:
+                    il = ie[0].lower()
+                    if il.endswith(".vents_c") or il.endswith(".cfg"):
+                        raw = inner.read(ie, limit=32 << 20)
+                        if raw:
+                            text = kv3_strings(raw) if il.endswith(".vents_c") else raw
+                            clientcommand = clientcommand or b"point_clientcommand" in text or b"point_broadcastclientcommand" in text
+                            commands += commands_in(text)
+            elif low.endswith(".vmdl_c"):
+                res["models"] += 1
+            elif low.endswith(".cfg"):
+                raw = vpk.read(entry, limit=4 << 20)
+                if raw:
+                    commands += commands_in(raw)
+    if seen:
+        res["verdict"] = "map" if res["maps"] else ("pack" if res["models"] else "empty")
+    res["advert"], res["advert_sample"] = advert_of(commands, clientcommand)
+    return res
+
+
+# ------------------------------------------------------------------------------------------------
+# A2S and RCON
+# ------------------------------------------------------------------------------------------------
+
+def a2s(host, port, timeout=2.0):
+    """A2S_INFO -> {"map", "players", "bots", "humans"} or None (no answer, which is never read as 'empty')."""
+    query = b"\xff\xff\xff\xffTSource Engine Query\x00"
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.settimeout(timeout)
+        sock.sendto(query, (host, port))
+        data = sock.recv(4096)
+        if data[4:5] == b"A":
+            sock.sendto(query + data[5:9], (host, port))
+            data = sock.recv(4096)
+        if data[4:5] != b"I":
+            return None
+        pos, fields = 6, []
+        for _ in range(4):
+            end = data.index(b"\x00", pos)
+            fields.append(data[pos:end].decode("utf-8", "replace"))
+            pos = end + 1
+        players, bots = data[pos + 2], data[pos + 4]
+        return {"map": fields[1], "players": players, "bots": bots, "humans": max(0, players - bots)}
+    except (OSError, ValueError, IndexError):
+        return None
+    finally:
+        sock.close()
+
+
+def rcon(host, port, password, command, timeout=6.0, collect=0.0):
+    """One command on a fresh connection: its reply text, or None when RCON cannot be reached or refuses the password."""
+    sock = None
+    try:
+        sock = socket.create_connection((host, port), timeout)
+        sock.settimeout(timeout)
+
+        def send(rid, kind, body):
+            raw = body.encode("utf-8")
+            sock.sendall(struct.pack("<iii", 10 + len(raw), rid, kind) + raw + b"\x00\x00")
+
+        def recv():
+            head = b""
+            while len(head) < 4:
+                chunk = sock.recv(4 - len(head))
+                if not chunk:
+                    return None
+                head += chunk
+            size = struct.unpack("<i", head)[0]
+            if size < 10 or size > (1 << 20):
+                return None
+            buf = b""
+            while len(buf) < size:
+                chunk = sock.recv(size - len(buf))
+                if not chunk:
+                    return None
+                buf += chunk
+            return struct.unpack("<i", buf[:4])[0], struct.unpack("<i", buf[4:8])[0], buf[8:-2].decode("utf-8", "replace")
+
+        send(1, 3, password)
+        while True:
+            pkt = recv()
+            if pkt is None:
+                return None
+            if pkt[1] == 2:
+                if pkt[0] == -1:
+                    return None
+                break
+        send(7, 2, command)
+        pkt = recv()
+        out = "" if pkt is None else pkt[2]
+        if collect > 0:
+            end = time.time() + collect
+            sock.settimeout(0.5)
+            while time.time() < end:
+                try:
+                    pkt = recv()
+                except OSError:
+                    break
+                if pkt is None:
+                    break
+                out += pkt[2]
+        return out
+    except OSError:
+        return None
+    finally:
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+
+def humans_on(cfg):
+    """Humans on the game server by A2S, asked twice 2 s apart when the first answer is not 0. None = no answer."""
+    if not cfg.game_host:
+        return 0
+    first = a2s(cfg.game_host, cfg.game_port)
+    if first is not None and first["humans"] == 0:
+        return 0
+    time.sleep(2)
+    second = a2s(cfg.game_host, cfg.game_port)
+    if second is None:
+        return None if first is None else first["humans"]
+    return second["humans"]
+
+
+class Tail(object):
+    def __init__(self, path):
+        self.path, self.buffer = path, b""
+        try:
+            self.position = os.path.getsize(path)
+        except OSError:
+            self.position = 0
+
+    def lines(self):
+        try:
+            size = os.path.getsize(self.path)
+        except OSError:
+            return []
+        if size < self.position:
+            self.position, self.buffer = 0, b""
+        if size == self.position:
+            return []
+        with open(self.path, "rb") as handle:
+            handle.seek(self.position)
+            data = handle.read(min(size - self.position, 8 << 20))
+        self.position += len(data)
+        parts = (self.buffer + data).split(b"\n")
+        self.buffer = parts.pop()
+        return [p.decode("utf-8", "replace").rstrip("\r") for p in parts]
+
+
+# ------------------------------------------------------------------------------------------------
+# 4b. The test copy of the server: a second engine from a read-only view of the game server's install
+# ------------------------------------------------------------------------------------------------
+
+def patch_version(game_dir):
+    try:
+        with open(os.path.join(game_dir, "game", "csgo", "steam.inf"), "r", encoding="utf-8", errors="replace") as handle:
+            m = re.search(r"^PatchVersion=(\S+)", handle.read(), re.M)
+            return m.group(1) if m else None
+    except OSError:
+        return None
+
+
+TEST_SERVER_CFG = """// Written by workshop-sync.py for its test engine on every start. Not the game server's server.cfg: no log address.
+hostname "workshop sync test"
+sv_cheats 0
+sv_hibernate_when_empty 0
+sv_lan 0
+log off
+"""
+
+
+def build_farm(game_dir, work_dir, cfg_dir=None):
+    """<work>/farm/game: links to every file and folder of <game_dir>/game, except what the test engine must own -
+    the engine's own folder bin/linuxsteamrt64 (its files copied: the engine finds its root and its Workshop folder
+    from where its executable is), csgo/cfg (copied, server.cfg replaced, every log address removed), csgo/gameinfo.gi
+    (copied without the Metamod search path: no plugins), the engine's log files. Returns a line for the log."""
+    t0 = time.time()
+    src = os.path.join(game_dir, "game")
+    farm_root = os.path.join(work_dir, "farm")
+    dst = os.path.join(farm_root, "game")
+    stage = os.path.join(work_dir, "staging")
+    if os.path.lexists(farm_root):
+        shutil.rmtree(farm_root)
+    os.makedirs(os.path.join(dst, "bin", "linuxsteamrt64"))
+    os.makedirs(os.path.join(stage, "steamapps", "workshop"), exist_ok=True)
+    for name in os.listdir(src):
+        if name not in ("bin", "csgo"):
+            if name == "cs2.sh":
+                shutil.copy2(os.path.join(src, name), os.path.join(dst, name))
+            else:
+                os.symlink(os.path.join(src, name), os.path.join(dst, name))
+    for name in os.listdir(os.path.join(src, "bin")):
+        if name != "linuxsteamrt64":
+            os.symlink(os.path.join(src, "bin", name), os.path.join(dst, "bin", name))
+    copied = 0
+    engine_src = os.path.join(src, "bin", "linuxsteamrt64")
+    for name in os.listdir(engine_src):
+        path = os.path.join(engine_src, name)
+        if name in ("steamapps", "steam_appid.txt") or name.endswith(".log") or os.path.islink(path) or not os.path.isfile(path):
+            continue
+        shutil.copy2(path, os.path.join(dst, "bin", "linuxsteamrt64", name))
+        copied += 1
+    os.symlink(os.path.join(stage, "steamapps"), os.path.join(dst, "bin", "linuxsteamrt64", "steamapps"))
+    csgo_src, csgo_dst = os.path.join(src, "csgo"), os.path.join(dst, "csgo")
+    os.makedirs(csgo_dst)
+    own = {"addons", "cfg", "gameinfo.gi", "console.log", "console.log.1", "backup_round00.txt", "rpt", "save", "logs"}
+    for name in os.listdir(csgo_src):
+        if name not in own and not name.startswith("backup_round"):
+            os.symlink(os.path.join(csgo_src, name), os.path.join(csgo_dst, name))
+    shutil.copytree(os.path.join(csgo_src, "cfg"), os.path.join(csgo_dst, "cfg"), symlinks=False)
+    if cfg_dir and os.path.isdir(cfg_dir):
+        for name in os.listdir(cfg_dir):
+            if name.endswith(".cfg") and os.path.isfile(os.path.join(cfg_dir, name)):
+                shutil.copy2(os.path.join(cfg_dir, name), os.path.join(csgo_dst, "cfg", name))
+    scrubbed = 0
+    for root, _dirs, files in os.walk(os.path.join(csgo_dst, "cfg")):
+        for name in files:
+            path = os.path.join(root, name)
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                    text = handle.read()
+            except OSError:
+                continue
+            if "logaddress" in text.lower():
+                keep = "\n".join(l for l in text.split("\n") if "logaddress" not in l.lower())
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(keep)
+                scrubbed += 1
+    with open(os.path.join(csgo_dst, "cfg", "server.cfg"), "w", encoding="utf-8") as handle:
+        handle.write(TEST_SERVER_CFG)
+    with open(os.path.join(csgo_src, "gameinfo.gi"), "r", encoding="utf-8", errors="replace") as handle:
+        gameinfo = handle.read()
+    vanilla = "\n".join(l for l in gameinfo.split("\n") if "csgo/addons/metamod" not in l)
+    with open(os.path.join(csgo_dst, "gameinfo.gi"), "w", encoding="utf-8") as handle:
+        handle.write(vanilla)
+    return ("test tree built in %.1f s: %d engine files copied, the plugins' search path %s, log addresses removed from %d "
+            "cfg file(s)" % (time.time() - t0, copied, "removed" if vanilla != gameinfo else "absent", scrubbed))
+
+
+def kill_stale_engines(farm_root):
+    """Kill any engine still running from the test tree (a run that died without stopping it): it would hold the port,
+    and the tree is about to be rebuilt under it. Matched on its executable's path, read from /proc. Returns the count."""
+    killed = 0
+    prefix = os.path.join(farm_root, "")
+    for pid in os.listdir("/proc") if os.path.isdir("/proc") else []:
+        if not pid.isdigit() or int(pid) == os.getpid():
+            continue
+        try:
+            exe = os.readlink("/proc/%s/exe" % pid)
+        except OSError:
+            continue
+        if exe.startswith(prefix):
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+                killed += 1
+            except OSError:
+                pass
+    if killed:
+        time.sleep(2)
+    return killed
+
+
+DOWNLOADING_RX = re.compile(r"Downloading (\d+) \([^/]*/\s*([\d.]+)\s*(KB|MB|GB)\)")
+
+
+class TestEngine(object):
+    """The test copy: one engine process at a time, started from the farm on its own port with its own passwords."""
+
+    MODE_ARGS = {"armsrace": ("1", "0", "mg_armsrace", "ar_shoots")}
+
+    def __init__(self, cfg, work_dir, home):
+        self.cfg, self.work_dir, self.home = cfg, work_dir, home
+        self.farm = os.path.join(work_dir, "farm", "game")
+        self.console = os.path.join(self.farm, "csgo", "console.log")
+        self.port = cfg.test_port
+        self.password = secrets.token_hex(16)
+        self.proc = None
+        self.starts = 0
+        self.tail = None
+
+    def rcon(self, command, collect=0.0):
+        return rcon("127.0.0.1", self.port, self.password, command, collect=collect)
+
+    def a2s(self):
+        return a2s("127.0.0.1", self.port)
+
+    def alive(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def start(self, timeout=180):
+        """Start a fresh engine and wait until A2S answers on its start map and RCON works. (ok, why)."""
+        self.stop()
+        if self.starts >= self.cfg.engine_starts_max:
+            return False, "tonight's cap of %d test-engine starts is reached" % self.cfg.engine_starts_max
+        self.starts += 1
+        sdk = os.path.join(self.home, ".steam", "sdk64")
+        os.makedirs(sdk, exist_ok=True)
+        link = os.path.join(sdk, "steamclient.so")
+        client = os.path.join(os.path.dirname(self.cfg.steamcmd), "linux64", "steamclient.so")
+        if not os.path.lexists(link) and os.path.exists(client):
+            os.symlink(client, link)
+        try:
+            os.remove(self.console)
+        except OSError:
+            pass
+        gt, gm, group, start_map = self.MODE_ARGS["armsrace"]
+        args = ["./cs2.sh", "-dedicated", "-ip", "0.0.0.0", "-port", str(self.port), "-console", "-usercon", "-condebug",
+                "-maxplayers", "10", "+game_type", gt, "+game_mode", gm, "+mapgroup", group, "+map", start_map,
+                "+rcon_password", self.password, "+sv_password", secrets.token_hex(12), "+sv_lan", "0", "+tv_enable", "0"]
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("CS2_", "SYNC_", "STEAM_WEBAPI"))}
+        env["HOME"] = self.home
+        stdout_log = os.path.join(self.work_dir, "engine-stdout.log")
+        try:
+            if os.path.getsize(stdout_log) > (10 << 20):
+                os.replace(stdout_log, stdout_log + ".1")
+        except OSError:
+            pass
+        out = open(stdout_log, "ab")
+        try:
+            self.proc = subprocess.Popen(["bash", "-c", 'ulimit -c 0; exec "$@"', "engine"] + args, cwd=self.farm,
+                                         stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env,
+                                         start_new_session=True)
+        finally:
+            out.close()
+        end = time.time() + timeout
+        while time.time() < end:
+            time.sleep(2)
+            if not self.alive():
+                return False, "the test engine exited during its start (code %s)" % self.proc.returncode
+            info = self.a2s()
+            if info is not None and info["map"] == start_map and self.rcon("echo ok") is not None:
+                self.tail = Tail(self.console)
+                listing = self.rcon("logaddress_list_http") or ""
+                if re.search(r"https?://", listing):
+                    self.stop()
+                    return False, "the test engine has a log address (%s) - it must never push anything" % listing.strip()[:80]
+                return True, "test engine up in %.0f s (start %d tonight)" % (timeout - (end - time.time()), self.starts)
+        self.stop()
+        return False, "the test engine did not answer within %d s" % timeout
+
+    def stop(self):
+        if self.proc is None:
+            return
+        if self.alive():
+            self.rcon("quit")
+            for _ in range(15):
+                if not self.alive():
+                    break
+                time.sleep(1)
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            if not self.alive():
+                break
+            try:
+                os.killpg(self.proc.pid, sig)
+            except OSError:
+                pass
+            for _ in range(10):
+                if not self.alive():
+                    break
+                time.sleep(1)
+        try:
+            self.proc.wait(5)
+        except Exception:
+            pass
+        self.proc = None
+
+
+LEVEL_RX = re.compile(r"Level loading started for '([^']*)'")
+KICK_RX = re.compile(r"kick|Dropped .* from server|was banned", re.I)
+NOISE_RX = re.compile(r"rcon from|bot_kick|bot_quota|Unknown command|ReplicateConVar|sv_kick_ban_duration|sv_vote_issue_kick|"
+                      r"sv_vote_kick_ban|autokick", re.I)
+CHAT_RX = re.compile(r"\[All Chat\]\[[^\]]*\]:\s*(.*)$|DISALLOWED WORKSHOP COMMANDS:\s*(.*)$")
+
+
+def a2s_is(a2s_map, level):
+    """A2S cuts map names at 31 characters: equal, or A2S's name is a 31+-character prefix of the level."""
+    a, l = (a2s_map or "").lower(), (level or "").lower()
+    return a == l or (len(a) >= 31 and l.startswith(a))
+
+
+def mode_of(tags):
+    for mode, tag, gt, gm, _name in MODES:
+        if tag in tags:
+            return mode, gt, gm
+    return MODES[0][0], MODES[0][2], MODES[0][3]
+
+
+def test_load(engine, wid, levels, tags, hold, stop_check):
+    """One test load of an item that is in the staging folder. Returns a record with verdict pass | errormap | crash |
+    freeze | rejected | kick | abort (somebody came on the game server: not counted)."""
+    mode, gt, gm = mode_of(tags)
+    rec = {"id": wid, "mode": mode, "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    levels = [l.lower() for l in levels]
+    engine.tail.lines()
+    t0 = time.time()
+    engine.rcon("game_type %d; game_mode %d; host_workshop_map %s" % (gt, gm, wid))
+    level, seen, mounted, silent, foreign_since, lines = None, [], None, None, None, []
+    chat = []
+    limit = 150
+    while time.time() - t0 < limit:
+        time.sleep(1)
+        new = engine.tail.lines()
+        lines += new
+        for line in new:
+            d = DOWNLOADING_RX.search(line)
+            if d and d.group(1) == str(wid):
+                # the engine's own Steam client fetches a newer copy than SteamCMD's: counted against the night's cap
+                size = float(d.group(2)) * {"KB": 1 << 10, "MB": 1 << 20, "GB": 1 << 30}[d.group(3)]
+                rec["engine_download"] = max(int(size), rec.get("engine_download", 0))
+                limit = 300
+            if mounted is None and ("Mounting addon '%s'" % wid) in line:
+                mounted = len(seen)
+            m = LEVEL_RX.search(line)
+            if m:
+                seen.append(m.group(1))
+                if level is None and (m.group(1).lower() in levels or m.group(1) == "error"):
+                    level = m.group(1)
+            c = CHAT_RX.search(line)
+            if c:
+                chat.append((c.group(1) or c.group(2) or "").strip()[:200])
+        rec["levels_seen"] = seen[:6]
+        if level == "error" or any("Error map!" in l for l in new):
+            rec.update(verdict="errormap", reason="the engine loaded its error map: nothing in the item it can load")
+            return rec
+        if not engine.alive():
+            rec.update(verdict="crash", reason="the test engine went down while loading it")
+            return rec
+        info = engine.a2s()
+        if info is None:
+            silent = silent or time.time()
+            if time.time() - silent > 45:
+                rec.update(verdict="freeze", reason="A2S silent for 45 s while loading it")
+                return rec
+            continue
+        silent = None
+        if stop_check():
+            rec.update(verdict="abort", reason="somebody came on the game server")
+            return rec
+        if level and a2s_is(info["map"], level):
+            rec["load_s"] = round(time.time() - t0, 1)
+            rec["level"] = level
+            break
+        other = [x for x in seen[mounted:] if x.lower() not in levels and x != "error"] if mounted is not None else []
+        if other and level is None and a2s_is(info["map"], other[-1]):
+            foreign_since = foreign_since or time.time()
+            if time.time() - foreign_since >= 15:
+                rec.update(verdict="rejected", level=other[-1],
+                           reason="the addon mounts, but the engine loads %s, not a map of its own (%s)" % (
+                               other[-1], ", ".join(levels[:3]) or "none in its VPK"))
+                return rec
+        else:
+            foreign_since = None
+    else:
+        rec.update(verdict="rejected", reason="no level of its own (%s) within %d s; levels seen %s" % (
+            ", ".join(levels[:3]) or "none in its VPK", limit, ", ".join(seen[:4]) or "none"))
+        return rec
+    engine.rcon("bot_join_after_player 0; bot_quota_mode normal; bot_quota 2")
+    bots, end = [], time.time() + hold
+    while time.time() < end:
+        time.sleep(2)
+        new = engine.tail.lines()
+        lines += new
+        for line in new:
+            c = CHAT_RX.search(line)
+            if c:
+                chat.append((c.group(1) or c.group(2) or "").strip()[:200])
+        if not engine.alive():
+            rec.update(verdict="crash", reason="the test engine went down %d s into the map" % (hold - (end - time.time())))
+            return rec
+        info = engine.a2s()
+        if info is None:
+            silent = silent or time.time()
+            if time.time() - silent > 45:
+                rec.update(verdict="freeze", reason="A2S silent for 45 s on the map")
+                return rec
+            continue
+        silent = None
+        bots.append(info["bots"])
+        if stop_check():
+            rec.update(verdict="abort", reason="somebody came on the game server")
+            return rec
+    engine.rcon("bot_quota 0")
+    kicks = [l.strip()[:160] for l in lines if KICK_RX.search(l) and not NOISE_RX.search(l)]
+    rec["bots"] = bots[-1] if bots else 0
+    rec["chat"] = chat[:8]
+    if kicks and bots and max(bots) > 0 and bots[-1] == 0:
+        rec.update(verdict="kick", reason="the bots were thrown off the server (%s)" % kicks[0][:100])
+        return rec
+    rec.update(verdict="pass", reason="loads as %s in %.0f s and held %d s (bots %d)" % (rec["level"], rec["load_s"], hold,
+                                                                                      rec["bots"]))
+    return rec
+
+
+# ------------------------------------------------------------------------------------------------
+# Verdicts: from the scan and the test loads to what is published
+# ------------------------------------------------------------------------------------------------
+
+ADVERT_REASON = {"gambling ad": "posts a gambling ad", "chat advert": "advertises another server",
+                 "client connect": "sends players to another server"}
+ADVERT_EVIDENCE = {
+    "gambling ad": "posts a gambling ad - a case-site promo code in the map (scan of the map, %s)",
+    "chat advert": "advertises another server - the map tells everyone in chat to connect to it (scan of the map, %s)",
+    "client connect": "sends players to another server - the map makes their game run a connect command (scan of the map, %s)",
+}
+
+
+def final_verdict(rec, night):
+    """The item's outcome once its scan and its loads are in: (kind, detail) where kind is one of
+    pass | advert | crasher | kick | nonmap | pending. detail: a dict with what the publish step writes."""
+    scan = rec.get("scan") or {}
+    loads = [l for l in rec.get("loads") or [] if l.get("verdict") != "abort"]
+    sv = scan.get("verdict")
+    if sv in ("pack", "empty", "legacy", "unknown"):
+        kind = {"pack": "pack", "empty": "empty", "legacy": "legacy", "unknown": "stub"}[sv]
+        detail = {
+            "pack": "no maps/<name>.vpk in its VPK, only %s compiled models - an asset pack (workshop sync %s)" % (scan.get("models"), night),
+            "empty": "no map and no models in its VPK (%s files) - nothing the engine can load (workshop sync %s)" % (scan.get("files"), night),
+            "legacy": "a CS:GO-era upload: it holds only %s and no CS2 VPK - CS2 cannot load it (workshop sync %s)" % (
+                ", ".join(scan.get("names") or [])[:120], night),
+            "stub": "no readable VPK index (%s) - nothing the engine can load (workshop sync %s)" % (
+                ", ".join(scan.get("names") or [])[:120], night),
+        }[kind]
+        return "nonmap", {"kind": kind, "detail": detail}
+    if not loads:
+        return "pending", {}
+    verdicts = [l["verdict"] for l in loads]
+    if "pass" in verdicts:
+        first = loads[verdicts.index("pass")]
+        if scan.get("advert") in ADVERT_REASON:
+            return "advert", {"reason": ADVERT_REASON[scan["advert"]], "sample": scan.get("advert_sample"),
+                              "evidence": ADVERT_EVIDENCE[scan["advert"]] % night}
+        chat = [c for l in loads for c in l.get("chat") or [] if AD_RX.search(c) or SAY_CONNECT_RX.search("say " + c)]
+        if chat:
+            return "advert", {"reason": "advertises another server" if not AD_RX.search(chat[0]) else "posts a gambling ad",
+                              "sample": chat[0], "evidence": "showed an advert in chat on a test load: %s (workshop sync %s)"
+                              % (chat[0][:80], night)}
+        return "pass", {"level": first.get("level"), "mode": first.get("mode"), "load_s": first.get("load_s"),
+                        "flaky": verdicts.index("pass") > 0, "before": verdicts[:verdicts.index("pass")]}
+    if "kick" in verdicts:
+        return "kick", {"evidence": "threw the bots off the server on a test load (workshop sync %s)" % night}
+    if len(loads) < 3:
+        return "pending", {}
+    down = verdicts.count("crash") + verdicts.count("freeze")
+    if down:
+        how = "all %d" % down if down == len(verdicts) else "%d of %d" % (down, len(verdicts))
+        if verdicts.count("crash") and not verdicts.count("freeze"):
+            text = "crashes the server while loading - it went down on %s test loads (%s)" % (how, night)
+        elif verdicts.count("freeze") and not verdicts.count("crash"):
+            text = "freezes the server while loading - it stopped answering for 45 s on %s test loads (%s)" % (how, night)
+        else:
+            text = "crashes or freezes the server while loading - on %s test loads (%s)" % (how, night)
+        return "crasher", {"crashes": down, "evidence": text}
+    if all(v == "errormap" for v in verdicts):
+        return "nonmap", {"kind": "stub" if scan.get("maps") else "empty",
+                          "detail": "the engine finds no map in it - it loaded the error map on all 3 test loads (workshop sync %s)" % night}
+    level = next((l.get("level") for l in loads if l.get("level")), "")
+    return "nonmap", {"kind": "stub", "detail": "never loads a level of its own%s - %s on its 3 test loads (workshop sync %s)" % (
+        (" (the engine loads %s)" % level) if level else "", "/".join(verdicts), night)}
+
+
+def search_blob(name, wid, tags, description):
+    """The search text the site's build gives a map (build-1000.py's search_blob, no author): lowercased words."""
+    parts = clean(name).lower().split()
+    parts.append(str(wid))
+    for tag in tags:
+        parts.extend(clean(tag).lower().split())
+    parts.extend(clean(description).lower()[:800].split())
+    return " ".join(p for p in parts if p)
+
+
+def popularity_key(rec):
+    return (-int(rec.get("subs") or 0), -int(rec.get("lifetime") or 0), int(rec.get("id") or 0))
+
+
+BACKLOG_TURNS = ("deathmatch", "wingman", "armsrace")
+
+
+def order_backlog(items, wids):
+    """The backlog, most subscribed first PER MODE, the modes taking turns (Deathmatch, Wingman, Arms Race): each mode's
+    best maps come first, and an item tagged for several modes is taken once, in the first turn that reaches it."""
+    def key(w):
+        return popularity_key(dict(items[w], id=w))
+    per = {}
+    for mode, tag, _gt, _gm, _f in MODES:
+        per[mode] = sorted([w for w in wids if tag in (items[w].get("tags") or [])], key=key)
+    out, taken, at = [], set(), dict((m, 0) for m in BACKLOG_TURNS)
+    while True:
+        moved = False
+        for mode in BACKLOG_TURNS:
+            lst = per[mode]
+            while at[mode] < len(lst) and lst[at[mode]] in taken:
+                at[mode] += 1
+            if at[mode] < len(lst):
+                taken.add(lst[at[mode]])
+                out.append(lst[at[mode]])
+                at[mode] += 1
+                moved = True
+        if not moved:
+            break
+    return out + sorted([w for w in wids if w not in taken], key=key)
+
+
+def backlog_stats(items, wids, cfg):
+    """How much is waiting and how long it takes at tonight's caps: {"items", "bytes", "by_mode", "nights"}. A night takes
+    at most SYNC_DOWNLOAD_MAX items, and SteamCMD only while twice an item's size still fits the night's volume."""
+    by_mode = {}
+    for mode, tag, _gt, _gm, _f in MODES:
+        by_mode[mode] = sum(1 for w in wids if tag in (items[w].get("tags") or []))
+    total = sum(int(items[w].get("size") or 0) for w in wids)
+    per_night_items = max(1, cfg.download_max)
+    per_night_bytes = max(1, cfg.download_bytes // 2)
+    nights = max(-(-len(wids) // per_night_items), -(-total // per_night_bytes)) if wids else 0
+    return {"items": len(wids), "bytes": total, "by_mode": by_mode, "nights": nights,
+            "per_night": [cfg.download_max, cfg.download_bytes]}
+
+
+def merge_problems(name, old_raw, new_text):
+    """[] when the new text of a bridge file is the live one plus additions only: the publish never rewrites what is there
+    (maps.json and broken.json's lists keep every old entry, in place; search.json every old text; a mode list every id)."""
+    if old_raw is None:
+        return []
+    try:
+        old = json.loads(old_raw.decode("utf-8") if isinstance(old_raw, bytes) else old_raw)
+        new = json.loads(new_text)
+    except ValueError as error:
+        return ["%s: does not parse (%s)" % (name, error)]
+    problems = []
+    if name == "maps.json":
+        if new[:len(old)] != old:
+            problems.append("maps.json: an existing entry changed or moved")
+        ids = [str(e.get("id")) for e in new if isinstance(e, dict)]
+        ranks = [e.get("rank") for e in new if isinstance(e, dict)]
+        if len(set(ids)) != len(ids) or len(set(ranks)) != len(ranks):
+            problems.append("maps.json: an id or a rank is there twice")
+    elif name == "broken.json":
+        for k, v in old.items():
+            if isinstance(v, list):
+                if (new.get(k) or [])[:len(v)] != v:
+                    problems.append("broken.json: the %s list lost or changed an entry" % k)
+            elif new.get(k) != v:
+                problems.append("broken.json: %s changed" % k)
+    elif name == "search.json":
+        if any(new.get(k) != v for k, v in old.items()):
+            problems.append("search.json: an existing text changed")
+    else:
+        def keys(lst):
+            return set(str(e.get("id") or "official:%s" % e.get("name")) for e in lst if isinstance(e, dict))
+        if not keys(old) <= keys(new):
+            problems.append("%s: a map left the list" % name)
+    return problems
+
+
+def plan_publish(files, state, night, outcomes, removed_now, mode_backfill, listed_details):
+    """What tonight's publish writes. Pure: returns ({file name: new text}, summary dict); nothing is written here.
+    outcomes: [(id, kind, detail, record)] of tonight's decided items. removed_now: [(id, verdict)] of listed maps."""
+    maps = list(files["maps"])
+    broken = json.loads(json.dumps(files["broken"]))
+    listed = {str(m["id"]): m for m in maps if isinstance(m, dict) and str(m.get("id", "")).isdigit()}
+    on = broken_ids(broken)
+    summary = {"listed": [], "modes": {}, "broken": [], "packs": [], "removed": [], "advert": [], "back": []}
+    out = {}
+    # -- broken.json: crashers, kicks and adverts under "maps"; non-maps under "packs"; removed listed maps under "removed"
+    for wid, kind, detail, rec in outcomes:
+        name = clean(rec.get("title") or "") or "Workshop item %s" % wid
+        rank = listed[wid]["rank"] if wid in listed else None
+        if kind in ("crasher", "kick", "advert") and on.get(wid) not in ("maps", "packs", "blocked"):
+            entry = {"id": int(wid), "rank": rank, "name": name, "crashes": int(detail.get("crashes") or 0),
+                     "evidence": detail["evidence"]}
+            if kind == "advert":
+                entry["reason"] = detail["reason"]
+                summary["advert"].append((wid, name, detail["reason"], detail.get("sample")))
+            elif kind == "kick":
+                entry["reason"] = "throws players off the server"
+            broken.setdefault("maps", []).append(entry)
+            on[wid] = "maps"
+            summary["broken"].append((wid, name, kind, detail["evidence"]))
+        elif kind == "nonmap" and on.get(wid) not in ("maps", "packs", "blocked") and wid not in listed:
+            broken.setdefault("packs", []).append({
+                "id": int(wid), "name": name, "kind": detail["kind"], "evidence": "confirmed by test", "phrase": None,
+                "detail": detail["detail"], "list": "sync", "formerRank": None, "spareRank": None,
+                "preview": rec.get("preview") or "", "description": clean(rec.get("description") or "", 200)})
+            on[wid] = "packs"
+            summary["packs"].append((wid, name, detail["kind"], detail["detail"]))
+        elif kind == "nonmap" and wid in listed and on.get(wid) not in ("maps", "packs", "blocked"):
+            # a listed map whose update turned it into a non-map: gate it like a crasher (a pick asks to confirm)
+            broken.setdefault("maps", []).append({"id": int(wid), "rank": rank, "name": listed[wid].get("name") or name,
+                                                  "crashes": 0, "evidence": detail["detail"], "reason": "is no longer a playable map"})
+            on[wid] = "maps"
+            summary["broken"].append((wid, name, "nonmap", detail["detail"]))
+    # removed listed maps are NOT added to broken.json's "removed" seed (the repo pins that seed, SelfTestQueue.cs): they are
+    # reported to the bridge's own Workshop check instead (POST /removed, Night.report_removed), which blocks them at once
+    for wid, verdict in removed_now:
+        if wid in listed:
+            summary["removed"].append((wid, listed[wid]["rank"], listed[wid].get("name") or "", verdict))
+    if broken != files["broken"]:
+        out["broken.json"] = dumps(broken, indent=2)
+    # -- maps.json: the Arms Race passes that are new, appended in popularity order (a number, once given, keeps its map)
+    new_ar = [(wid, rec) for wid, kind, detail, rec in outcomes
+              if kind == "pass" and wid not in listed and on.get(wid) is None and "Armsrace" in (rec.get("tags") or [])]
+    new_ar.sort(key=lambda p: popularity_key(dict(p[1], id=p[0])))
+    rank = max([int(m.get("rank") or 0) for m in maps] or [0])
+    search = dict(files["search"]) if files.get("search") is not None else None
+    for wid, rec in new_ar:
+        rank += 1
+        entry = {"rank": rank, "id": int(wid), "name": clean(rec.get("title") or "") or "Workshop item %s" % wid,
+                 "sizeMb": size_mb(rec.get("size"))}
+        maps.append(entry)
+        listed[wid] = entry
+        summary["listed"].append((wid, rank, entry["name"], entry["sizeMb"]))
+        if search is not None:
+            search[wid] = search_blob(entry["name"], wid, rec.get("tags") or [], rec.get("description") or "")
+    if new_ar:
+        out["maps.json"] = dumps(maps, indent=1)
+        if search is not None:
+            out["search.json"] = dumps(search, indent=0)
+    # -- the mode lists: the maps.json entry shape, rank 1..N by popularity, never shrinking
+    for mode, tag, _gt, _gm, fname in MODES[1:]:
+        current = files["modes"].get(mode) or []
+        entries = {}
+        for e in current:
+            if isinstance(e, dict) and str(e.get("id", "")).isdigit():
+                entries[str(e["id"])] = dict(e)
+            elif isinstance(e, dict) and e.get("official"):
+                entries["official:" + str(e.get("name"))] = dict(e)
+        pop = {}
+        for wid, kind, detail, rec in outcomes:
+            if kind == "pass" and tag in (rec.get("tags") or []) and on.get(wid) is None and wid not in entries:
+                entries[wid] = {"id": int(wid), "name": clean(rec.get("title") or "") or "Workshop item %s" % wid,
+                                "sizeMb": size_mb(rec.get("size"))}
+                pop[wid] = rec
+                summary["modes"].setdefault(mode, []).append((wid, entries[wid]["name"]))
+        if mode_backfill:
+            for wid, m in listed.items():
+                item = listed_details.get(wid)
+                if item is None or wid in entries or on.get(wid) is not None or workshop_verdict(item) != "ok":
+                    continue
+                if tag in item_tags(item):
+                    entries[wid] = {"id": int(wid), "name": m.get("name") or item_name(item), "sizeMb": int(m.get("sizeMb") or 0)}
+                    pop[wid] = {"subs": item.get("subscriptions"), "lifetime": item.get("lifetime_subscriptions")}
+                    summary.setdefault("backfill", {}).setdefault(mode, 0)
+                    summary["backfill"][mode] += 1
+        for wid in list(entries):
+            if wid.isdigit() and wid not in pop:
+                item = listed_details.get(wid) or {}
+                old = state.item(wid) or {}
+                pop[wid] = {"subs": item.get("subscriptions", old.get("subs")), "lifetime": item.get("lifetime_subscriptions",
+                                                                                                   old.get("lifetime"))}
+        ids = [w for w in entries if w.isdigit()]
+        ids.sort(key=lambda w: (-int(pop[w].get("subs") or 0), -int(pop[w].get("lifetime") or 0), int(w)))
+        new_list = [{"rank": k + 1, "id": int(w), "name": entries[w]["name"], "sizeMb": int(entries[w].get("sizeMb") or 0)}
+                    for k, w in enumerate(ids)]
+        new_list += [entries[k] for k in entries if not k.isdigit()]
+        if current and len(new_list) < len(current):
+            new_list = current            # never shrink (the bridge refuses a list that drops below half anyway)
+        if new_list != current and new_list:
+            out[fname] = dumps(new_list, indent=1)
+            summary["modes"].setdefault(mode, summary["modes"].get(mode, []))
+            summary.setdefault("mode_totals", {})[mode] = len(new_list)
+    return out, summary
+
+
+# ------------------------------------------------------------------------------------------------
+# 5b. The morning mail
+# ------------------------------------------------------------------------------------------------
+
+def send_mail(cfg, subject, body):
+    """Plain-text mail through the SMTP relay the server's other mailers use (STARTTLS when it is offered).
+    Returns None when sent, else the reason."""
+    if not (cfg.smtp_host and cfg.mail_from and cfg.mail_to):
+        return "no SMTP host, sender or recipient configured"
+    msg = ("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMessage-ID: %s\r\nMIME-Version: 1.0\r\n"
+           "Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\nX-Mailer: %s\r\n\r\n%s\r\n") % (
+        cfg.mail_from, ", ".join(cfg.mail_to), subject, email.utils.formatdate(localtime=True),
+        email.utils.make_msgid("workshop-sync"), USER_AGENT, body.replace("\n", "\r\n"))
+    sender = email.utils.parseaddr(cfg.mail_from)[1] or cfg.mail_from
+    last = None
+    for tls in (True, False):
+        try:
+            with smtplib.SMTP(cfg.smtp_host, cfg.smtp_port, timeout=60) as smtp:
+                smtp.ehlo()
+                if tls and smtp.has_extn("starttls"):
+                    smtp.starttls()
+                    smtp.ehlo()
+                elif tls:
+                    tls = False
+                smtp.sendmail(sender, cfg.mail_to, msg.encode("utf-8"))
+            return None
+        except (smtplib.SMTPException, OSError) as error:
+            last = "%s: %s" % (type(error).__name__, error)
+            if not tls:
+                break
+    return last
+
+
+def mail_text(r, cfg):
+    """The morning summary, from the night's report `r`."""
+    L = []
+    w = L.append
+    stop = r.get("api_stop")
+    head = []
+    pub = r.get("published") or {}
+    if pub.get("listed"):
+        head.append("%d new Arms Race map%s listed" % (len(pub["listed"]), "" if len(pub["listed"]) == 1 else "s"))
+    for mode in ("deathmatch", "wingman"):
+        n = len((pub.get("modes") or {}).get(mode) or [])
+        if n:
+            head.append("%d new %s map%s" % (n, mode.capitalize(), "" if n == 1 else "s"))
+    nb = len(pub.get("broken") or []) + len(pub.get("packs") or [])
+    if nb:
+        head.append("%d on broken.json" % nb)
+    if pub.get("removed"):
+        head.append("%d gone from the Workshop" % len(pub["removed"]))
+    subject = "%s Workshop sync %s%s: %s%s" % (cfg_name(cfg), r["night"], " (manual run)" if r.get("manual") else "",
+                                             ", ".join(head) or "nothing new", " - STOPPED: %s" % short_stop(stop) if stop else "")
+    w("%s - the nightly Workshop sync, night of %s (%s to %s)." % (cfg_name(cfg), r["night"], r.get("started_hm", "?"),
+                                                                     r.get("ended_hm", "?")))
+    w("")
+    if stop:
+        w("STOPPED: %s" % stop)
+        w("Every Web API step stopped for the rest of the night at that moment (the owner's rule: any 429, 403 or burst of")
+        w("server errors). The next night starts again from the ledger's counts.")
+        w("")
+    for line in r.get("notes") or []:
+        w("NOTE: %s" % line)
+    if r.get("notes"):
+        w("")
+    d = r.get("discovery") or {}
+    w("1. Find new maps (IPublishedFileService/QueryFiles, the Web API key):")
+    if d.get("skipped"):
+        w("   skipped: %s" % d["skipped"])
+    else:
+        w("   %d page(s), %d item(s) seen, %d new (%s); the Workshop holds %s items with these tags." % (
+            d.get("pages", 0), d.get("seen", 0), len(d.get("new") or []), d.get("stop") or "-", d.get("total") or "?"))
+    c = r.get("check") or {}
+    w("2. Check the listed maps (ISteamRemoteStorage/GetPublishedFileDetails, no key):")
+    if c.get("skipped"):
+        w("   skipped: %s" % c["skipped"])
+    else:
+        w("   %d id(s) asked in %d call(s): %d gone from the Workshop, %d changed since last seen%s." % (
+            c.get("asked", 0), c.get("calls", 0), len(c.get("removed") or []), len(c.get("changed") or []),
+            ", %d not answered" % c["left"] if c.get("left") else ""))
+        if c.get("suspicious"):
+            w("   NOT BELIEVED: more than 10%% of the maps came back gone - nothing was marked removed tonight.")
+    dl = r.get("downloads") or {}
+    w("3. Downloads (SteamCMD, anonymous login):")
+    if dl.get("skipped"):
+        w("   skipped: %s" % dl["skipped"])
+    else:
+        w("   %d downloaded (%s), %d failed%s; %d still queued for later nights." % (
+            dl.get("ok", 0), mb(dl.get("bytes", 0)), len(dl.get("failed") or []),
+            " (%s)" % "; ".join("%s: %s" % f for f in dl["failed"][:5]) if dl.get("failed") else "", dl.get("queued_left", 0)))
+        if dl.get("stop"):
+            w("   stopped: %s" % dl["stop"])
+    t = r.get("tests") or {}
+    w("4. Scan and load test (a test copy of the server, no plugins, its own anonymous logon):")
+    if t.get("skipped"):
+        w("   skipped: %s" % t["skipped"])
+    for row in t.get("rows") or []:
+        w("   %s" % row)
+    if t.get("stop"):
+        w("   stopped: %s" % t["stop"])
+    w("5. Published into the bridge's data:")
+    if pub.get("skipped"):
+        w("   skipped: %s" % pub["skipped"])
+    elif not pub.get("files") and not pub.get("verdicts"):
+        w("   nothing to publish.")
+    else:
+        for wid, rank, name, size in pub.get("listed") or []:
+            w("   maps.json  #%d %s (%s, %d MB)" % (rank, name, wid, size))
+        for mode, rows in sorted((pub.get("modes") or {}).items()):
+            for wid, name in rows:
+                w("   %s  %s (%s)" % ({"deathmatch": "maps-deathmatch.json", "wingman": "maps-wingman.json"}[mode], name, wid))
+        for mode, n in sorted((pub.get("backfill") or {}).items()):
+            w("   %s: %d listed Arms Race map(s) that carry the %s tag" % (
+                {"deathmatch": "maps-deathmatch.json", "wingman": "maps-wingman.json"}[mode], n, mode.capitalize()))
+        for wid, name, kind, evidence in pub.get("broken") or []:
+            w("   broken.json maps   %s (%s): %s" % (name, wid, evidence))
+        for wid, name, kind, detail in pub.get("packs") or []:
+            w("   broken.json packs  %s (%s): %s" % (name, wid, kind))
+        for wid, rank, name, verdict in pub.get("removed") or []:
+            w("   gone from the Workshop  #%s %s (%s): %s" % (rank, name, wid, verdict))
+        if pub.get("verdicts"):
+            w("   the check's verdicts, handed to the bridge (POST /removed): %s" % pub["verdicts"])
+        w("   files: %s; bridge: %s" % (", ".join(pub.get("files") or []), pub.get("reload") or "not asked"))
+        if pub.get("listed"):
+            w("   The new maps have no size class yet (sizes.json is measured on the PC) and no picture until the next HUD")
+            w("   content update.")
+    lim = r.get("limits") or {}
+    w("")
+    w("Limits: Web API calls tonight %s of %s, last 24 h %s of %s (10%% of Valve's 100,000), at least %.0f s apart;"
+      % (lim.get("api_night"), lim.get("api_night_cap"), lim.get("api_24h"), lim.get("api_day_cap"), lim.get("api_gap", 2)))
+    w("downloads %s of %s, %s of %s%s; test-engine starts %s of %s." % (
+        lim.get("dl_items"), lim.get("dl_max"), mb(lim.get("dl_bytes") or 0), mb(lim.get("dl_max_bytes") or 0),
+        " (with %d copies the test engine fetched itself)" % lim["dl_engine"] if lim.get("dl_engine") else "",
+        lim.get("engine_starts"), lim.get("engine_starts_max")))
+    bl = r.get("backlog") or {}
+    if bl.get("items"):
+        eta = r.get("backlog_until") or ""
+        w("Backlog: %d item(s) waiting, %s (Deathmatch %d, Wingman %d, Arms Race %d - one item can carry several tags), taken"
+          % (bl["items"], mb(bl.get("bytes") or 0), bl["by_mode"].get("deathmatch", 0), bl["by_mode"].get("wingman", 0),
+             bl["by_mode"].get("armsrace", 0)))
+        w("most subscribed first per mode, the modes in turn. At %d downloads and %s a night that is about %d more night(s)%s."
+          % (bl["per_night"][0], mb(bl["per_night"][1]), bl["nights"], eta))
+        w("The pace is set by those download caps, not by the Web API (%s calls tonight of the %s allowed; the ceiling is 10,000"
+          % (lim.get("api_night"), lim.get("api_night_cap")))
+        w("a day, 10% of Valve's 100,000). Raising the download caps is the owner's call: the code allows at most 50 / 3 GB now.")
+    if r.get("waited"):
+        w("Waited: %s." % "; ".join(r["waited"]))
+    if r.get("errors"):
+        w("")
+        for e in r["errors"]:
+            w("ERROR: %s" % e)
+    w("")
+    w("The full report: %s" % r.get("report_path", "?"))
+    return subject, "\n".join(L)
+
+
+def short_stop(text):
+    m = re.search(r"HTTP \d+|server errors|network failures|cap of [\d,]+", text or "")
+    return m.group(0) if m else (text or "")[:60]
+
+
+def cfg_name(cfg):
+    return os.environ.get("SYNC_SERVER_NAME") or "CS2 server"
+
+
+# ------------------------------------------------------------------------------------------------
+# The night
+# ------------------------------------------------------------------------------------------------
+
+class Night(object):
+    def __init__(self, cfg, clock, manual=False):
+        self.cfg, self.clock, self.manual = cfg, clock, manual
+        self.night = clock.day()
+        self.t0 = clock.now()
+        os.makedirs(cfg.state_dir, exist_ok=True)
+        os.makedirs(os.path.join(cfg.state_dir, "reports"), exist_ok=True)
+        os.makedirs(cfg.work_dir, exist_ok=True)
+        LOG_FILE[0] = os.path.join(cfg.state_dir, "sync.log")
+        self.deadline = self._deadline()
+        self.report = {"night": self.night, "manual": manual, "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                       "started_hm": clock.local().strftime("%H:%M"), "notes": [], "errors": [], "waited": []}
+        self.ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, cfg.api_night_cap, clock)
+        self.state = State(os.path.join(cfg.state_dir, "state.json"))
+        self.engine = None
+        self.verdicts = []          # tonight's (id, ok|removed|hidden|banned) of every listed map the check answered
+        self.backlog = None
+
+    def _deadline(self):
+        if not self.manual or self.clock.in_window(self.cfg.start, self.cfg.end):
+            return self.clock.at(self.cfg.end)
+        end = self.clock.now() + 3 * 3600
+        restart = env_hhmm("SYNC_DAILY_RESTART", (7, 0))
+        for day in (0, 1):
+            at = self.clock.at(restart, self.clock.now() + day * DAY)
+            if self.clock.now() < at < end:
+                end = at - 900
+        return end
+
+    def phase(self, name):
+        self.report["phase"] = name
+        log("phase: %s" % name)
+        try:
+            write_atomic(os.path.join(self.cfg.state_dir, "running.json"), dumps(
+                {"night": self.night, "phase": name, "since": time.strftime("%Y-%m-%dT%H:%M:%S"), "pid": os.getpid(),
+                 "deadline": time.strftime("%H:%M", time.localtime(self.deadline))}), mode=0o644)
+        except OSError:
+            pass
+
+    def left(self):
+        return self.deadline - self.clock.now()
+
+    def wait_for_nobody(self, what, margin=0):
+        """True once the game server shows 0 humans (by A2S); False if the deadline comes first."""
+        t = self.clock.now()
+        said = False
+        while True:
+            h = humans_on(self.cfg)
+            if h == 0 and not os.path.exists(os.path.join(self.cfg.bridge_data, "maintenance")):
+                if said:
+                    self.report["waited"].append("%s for %s (somebody on the server, or the maintenance flag)" % (
+                        what, hms(self.clock.now() - t)))
+                return True
+            if not said:
+                log("%s: waiting - %s" % (what, "the game server does not answer A2S" if h is None else (
+                    "%d human(s) on the game server" % h if h else "the bridge's maintenance flag is set")))
+                said = True
+            if self.left() <= margin + 60:
+                self.report["waited"].append("%s: gave up at the deadline (%s)" % (what, "nobody answered" if h is None else
+                                                                                    "%s human(s)" % h))
+                return False
+            time.sleep(60)
+
+    def wait_for_prefetch(self):
+        if not (self.cfg.after_prefetch and self.clock.in_window(self.cfg.start, self.cfg.end)):
+            return True
+        until = self.clock.at(self.cfg.prefetch_wait_until)
+        t = self.clock.now()
+        said = False
+        while True:
+            st = read_json(self.cfg.watcher_state, {}) or {}
+            if st.get("prefetch_day") == self.night:
+                if said:
+                    self.report["waited"].append("the watcher's prefetch for %s" % hms(self.clock.now() - t))
+                return True
+            if self.clock.now() >= until:
+                self.report["notes"].append("the restart watcher's prefetch was not done by %02d:%02d (its prefetch_day: %s) - "
+                                            "tonight's downloads and tests wait for the next night" % (
+                                                self.cfg.prefetch_wait_until + (st.get("prefetch_day") or "none",)))
+                return False
+            if not said:
+                log("waiting for the restart watcher's prefetch to finish (prefetch_day %s, until %02d:%02d)" % (
+                    (st.get("prefetch_day") or "none",) + self.cfg.prefetch_wait_until))
+                said = True
+            time.sleep(60)
+
+    # -- the steps ----------------------------------------------------------------------------------------------
+    def run(self):
+        self.phase("start")
+        try:
+            self.ledger.load()
+            self.state.load()
+        except (ValueError, OSError) as error:
+            self.report["errors"].append(str(error))
+            self.finish()
+            return self.report
+        if self.ledger.broken:
+            self.report["errors"].append(self.ledger.broken)
+        try:
+            files = bridge_files(self.cfg)
+        except (OSError, ValueError) as error:
+            self.report["errors"].append("the bridge's data cannot be read (%s) - nothing done tonight" % error)
+            self.finish()
+            return self.report
+        known = known_ids(files, self.cfg)
+        listed = [str(m["id"]) for m in files["maps"] if isinstance(m, dict) and str(m.get("id", "")).isdigit()]
+        for mode in files["modes"]:
+            listed += [str(m["id"]) for m in files["modes"][mode] if isinstance(m, dict) and str(m.get("id", "")).isdigit()
+                       and str(m["id"]) not in listed]
+        log("start: %d listed map(s), %d id(s) known, %d item(s) in the state, deadline %s%s" % (
+            len(listed), len(known), len(self.state.data["items"]), time.strftime("%H:%M", time.localtime(self.deadline)),
+            " (manual run)" if self.manual else ""))
+        prefetch_done = self.wait_for_prefetch()
+        key = read_key(self.cfg.key_file)
+        api = SteamApi(self.ledger, self.night, self.cfg.api_gap, key=key)
+        # 1. discovery
+        self.phase("discovery")
+        if key is None:
+            log("discovery skipped: no Steam Web API key in %s - the other steps run" % (self.cfg.key_file or "(not configured)"))
+            self.report["discovery"] = {"skipped": "no Web API key in the secret file"}
+        else:
+            try:
+                d = discover(api, self.cfg, known, self.state, self.night, self.deadline - 1800, now=self.clock.now)
+                self.report["discovery"] = d
+                log("discovery: %d page(s), %d seen, %d new (%s)" % (d["pages"], d["seen"], len(d["new"]), d["stop"]))
+            except StopNight as stop:
+                self.report["discovery"] = {"skipped": str(stop)}
+                log("discovery stopped: %s" % stop)
+            except ApiError as error:
+                self.report["discovery"] = {"skipped": "failed: %s" % error}
+            self.state.save()
+        # 2. the check: the listed maps, then the head of the download queue
+        self.phase("check")
+        queue_head = self.queue(known, {})[:max(2 * self.cfg.download_max, 0)]
+        ids = list(dict.fromkeys(listed + queue_head))
+        details, left, chk = {}, [], {"asked": len(ids)}
+        try:
+            details, left = check(api, ids, self.deadline - 1500, now=self.clock.now)
+            chk["calls"] = api.by_api.get("GetPublishedFileDetails", 0)
+            chk["left"] = len(left)
+        except StopNight as stop:
+            chk["skipped"] = str(stop)
+            log("check stopped: %s" % stop)
+        judged = judge_listed(details, listed, self.state, self.cfg, self.night) if details else {
+            "removed": [], "changed": [], "missing": len(listed), "suspicious": False}
+        seeded = set(str(e.get("id") if isinstance(e, dict) else e) for e in files["broken"].get("removed") or [])
+        removed_now = [] if judged["suspicious"] else [(w, v) for w, v in judged["removed"] if w not in seeded]
+        chk.update(removed=removed_now, changed=judged["changed"], suspicious=judged["suspicious"])
+        if not judged["suspicious"]:
+            self.verdicts = [(w, workshop_verdict(details[w])) for w in listed if w in details]
+        self.report["check"] = chk
+        for wid in judged["changed"]:
+            if wid in details:
+                self.state.remember(details[wid], self.night, "changed")
+        for wid in queue_head:
+            if wid in details:
+                self.state.remember(details[wid], self.night, (self.state.item(wid) or {}).get("why") or "new")
+        self.state.save()
+        log("check: %d asked, %d gone (%d not in broken.json's seed), %d changed%s" % (
+            len(ids), len(judged["removed"]), len(removed_now), len(judged["changed"]),
+            " - NOT BELIEVED (over 10%)" if judged["suspicious"] else ""))
+        if api.stop_reason:
+            self.report["api_stop"] = api.stop_reason
+        # 3. downloads
+        outcomes = []
+        if not prefetch_done:
+            self.report["downloads"] = {"skipped": "the watcher's prefetch was still running"}
+            self.report["tests"] = {"skipped": "the watcher's prefetch was still running"}
+        else:
+            self.phase("downloads")
+            self.download(known, details)
+            # 4. scan + tests
+            self.phase("tests")
+            outcomes = self.scan_and_test()
+        # 5. publish: tonight's verdicts and any earlier one that could not be published then
+        self.phase("publish")
+        tonight = set(w for w, _k, _d, _r in outcomes)
+        for wid, rec in self.state.data["items"].items():
+            if wid not in tonight and rec.get("verdict") and rec.get("status") == "tested":
+                outcomes.append((wid, rec["verdict"], rec.get("detail") or {}, rec))
+        self.publish(files, outcomes, removed_now, details)
+        self.cleanup_staging()
+        self.finish()
+        return self.report
+
+    def queue(self, known, details):
+        """The download queue, best first: items created in the last 14 days (newest first), then listed maps changed
+        since we last saw them, then everything else we have seen (most subscribed first)."""
+        items = self.state.data["items"]
+        only = getattr(self.cfg, "only_ids", None)
+        now = self.clock.now()
+        fresh, changed, backlog = [], [], []
+        for wid, rec in items.items():
+            if rec.get("status") not in ("queued", "retry"):
+                continue
+            if only is not None and wid not in only:
+                continue
+            if wid in known and rec.get("why") != "changed":
+                rec["status"] = "known"
+                continue
+            if rec.get("ws") != "ok" or rec.get("app") not in (0, 730):
+                continue
+            if rec.get("creator") and rec["creator"] in self.cfg.exclude_creators:
+                rec["status"] = "skipped"
+                rec["evidence"] = "listed by hand (its author is in SYNC_EXCLUDE_CREATORS)"
+                continue
+            if rec.get("filename"):
+                rec["status"] = "skipped"
+                rec["evidence"] = "a CS:GO-era upload (its Workshop file is %s): no CS2 map, not downloaded" % rec["filename"][:60]
+                continue
+            if not set(rec.get("tags") or []) & set(self.cfg.tags):
+                continue
+            if rec.get("why") == "changed":
+                changed.append(wid)
+            elif now - int(rec.get("created") or 0) < 14 * DAY:
+                fresh.append(wid)
+            else:
+                backlog.append(wid)
+        fresh.sort(key=lambda w: -int(items[w].get("created") or 0))
+        changed.sort(key=lambda w: popularity_key(dict(items[w], id=w)))
+        self.backlog = backlog_stats(items, backlog, self.cfg)
+        return fresh + changed + order_backlog(items, backlog)
+
+    def staged(self, wid):
+        return os.path.isdir(os.path.join(self.cfg.work_dir, "staging", "steamapps", "workshop", "content", "730", wid))
+
+    def download(self, known, details):
+        cfg = self.cfg
+        budget = DownloadBudget(self.state, self.night, cfg.download_max, cfg.download_bytes)
+        dl = {"ok": 0, "bytes": 0, "failed": [], "skipped_big": []}
+        self.report["downloads"] = dl
+        queue = [w for w in self.queue(known, details) if not self.staged(w)]
+        todo = []
+        for wid in queue:
+            rec = self.state.item(wid)
+            if int(rec.get("size") or 0) > budget.max_bytes:
+                rec["status"] = "skipped"
+                rec["evidence"] = "%s: more than a whole night's download cap (%s)" % (mb(rec["size"]), mb(budget.max_bytes))
+                dl["skipped_big"].append(wid)
+                continue
+            todo.append(wid)
+        if not todo:
+            dl["queued_left"] = 0
+            self.limits(budget)
+            return
+        ok, why = budget.allows(0)
+        if not ok:
+            dl["skipped"] = why
+            dl["queued_left"] = len(todo)
+            self.limits(budget)
+            return
+        steam = SteamCmd(cfg.steamcmd, os.path.join(cfg.work_dir, "staging"), os.path.join(cfg.work_dir, "steamcmd.log"),
+                         home=os.environ.get("HOME"))
+        started = False
+        row, done = 0, set()
+        try:
+            for wid in todo:
+                rec = self.state.item(wid)
+                # twice its size: room is kept for the test engine's own copy, which Steam sometimes insists on
+                ok, why = budget.allows(2 * int(rec.get("size") or 0))
+                if not ok:
+                    if "downloads is reached" in why:
+                        dl["stop"] = why
+                        break
+                    continue                       # this one is too big for what is left tonight; a smaller one may fit
+                if self.left() < 1800:
+                    dl["stop"] = "the night's deadline (30 minutes are kept for the tests)"
+                    break
+                if not self.wait_for_nobody("downloads", margin=1800):
+                    dl["stop"] = "somebody was on the server until the deadline"
+                    break
+                if not started:
+                    started, why = steam.start()
+                    if not started:
+                        dl["stop"] = "SteamCMD did not log in anonymously: %s" % why
+                        self.report["errors"].append(dl["stop"])
+                        break
+                    log("SteamCMD: %s" % why)
+                t = time.time()
+                good, reason, nbytes = steam.download(wid)
+                rec["attempts"] = int(rec.get("attempts") or 0) + 1
+                if good and self.staged(wid):
+                    on_disk = folder_bytes(os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "content", "730", wid))
+                    budget.spend(max(nbytes, on_disk))
+                    dl["ok"] += 1
+                    dl["bytes"] += max(nbytes, on_disk)
+                    rec["status"] = "downloaded"
+                    rec["downloaded"] = self.night
+                    rec["loads"] = [] if rec.get("why") == "changed" else rec.get("loads") or []
+                    for stale in ("scan", "verdict", "decided", "detail"):
+                        rec.pop(stale, None)
+                    row = 0
+                    log("downloaded %s %s (%s) in %.0f s" % (wid, rec.get("title", "")[:40], mb(max(nbytes, on_disk)), time.time() - t))
+                else:
+                    dl["failed"].append((wid, reason))
+                    row += 1
+                    rec["status"] = "retry" if rec["attempts"] < 3 else "failed"
+                    rec["evidence"] = "SteamCMD could not download it (%s), %d of 3 tries" % (reason, rec["attempts"])
+                    log("download of %s failed: %s" % (wid, reason))
+                    if STEAMCMD_STOP_RX.search(reason):
+                        dl["stop"] = "SteamCMD answered '%s' - no more downloads tonight" % reason
+                        break
+                    if row >= 3:
+                        dl["stop"] = "3 downloads in a row failed - no more tonight"
+                        break
+                    if "not running" in reason or "stdin" in reason or "no result" in reason:
+                        dl["stop"] = "SteamCMD stopped answering (%s)" % reason
+                        break
+                done.add(wid)
+                self.state.save()
+                time.sleep(cfg.download_pause)
+        finally:
+            steam.stop()
+            self.state.save()
+        dl["queued_left"] = len([w for w in todo if w not in done])
+        self.limits(budget)
+
+    def limits(self, budget=None):
+        budget = budget or DownloadBudget(self.state, self.night, self.cfg.download_max, self.cfg.download_bytes)
+        self.report["limits"] = {
+            "api_night": self.ledger.tonight(self.night), "api_night_cap": self.cfg.api_night_cap,
+            "api_24h": self.ledger.last_24h() if self.ledger.data else None, "api_day_cap": self.ledger.day_cap,
+            "api_gap": self.cfg.api_gap, "dl_items": budget.night["items"], "dl_max": budget.max_items,
+            "dl_bytes": budget.night["bytes"], "dl_max_bytes": budget.max_bytes, "dl_engine": budget.night.get("engine", 0),
+            "engine_starts": self.engine.starts if self.engine else 0, "engine_starts_max": self.cfg.engine_starts_max}
+
+    def scan_and_test(self):
+        """Scan every staged item that has no verdict, then load the maps among them on the test engine.
+        Returns [(id, kind, detail, record)] of the items decided tonight."""
+        cfg = self.cfg
+        t = {"rows": []}
+        self.report["tests"] = t
+        content = os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "content", "730")
+        staged = sorted(os.listdir(content)) if os.path.isdir(content) else []
+        work = []
+        for wid in staged:
+            rec = self.state.item(wid)
+            if rec is None or rec.get("status") not in ("downloaded", "tested"):
+                continue
+            if "scan" not in rec:
+                try:
+                    rec["scan"] = scan_item(os.path.join(content, wid))
+                except Exception as error:  # a malformed upload must not end the night
+                    rec["scan"] = {"verdict": "unknown", "names": [], "error": repr(error)[:200]}
+            work.append(wid)
+        self.state.save()
+        outcomes = []
+        to_load = []
+        for wid in work:
+            rec = self.state.item(wid)
+            kind, detail = final_verdict(rec, self.night)
+            if kind == "nonmap":
+                outcomes.append((wid, kind, detail, rec))
+            elif kind == "pending":
+                to_load.append(wid)
+            else:
+                outcomes.append((wid, kind, detail, rec))
+        if to_load:
+            version = patch_version(cfg.game_dir)
+            if not self.wait_for_nobody("tests", margin=600):
+                t["stop"] = "somebody was on the server until the deadline"
+            else:
+                stale = kill_stale_engines(os.path.join(cfg.work_dir, "farm"))
+                if stale:
+                    log("killed %d test engine(s) left running from an earlier run" % stale)
+                try:
+                    log(build_farm(cfg.game_dir, cfg.work_dir, cfg.cfg_dir))
+                except OSError as error:
+                    t["stop"] = "the test tree could not be built: %s" % error
+                    self.report["errors"].append(t["stop"])
+                    to_load = []
+                self.engine = TestEngine(cfg, cfg.work_dir, os.environ.get("HOME") or "/home/steam")
+                budget = DownloadBudget(self.state, self.night, cfg.download_max, cfg.download_bytes)
+                need_start = True
+                try:
+                    for wid in to_load:
+                        rec = self.state.item(wid)
+                        if budget.bytes_left() < int(rec.get("size") or 0):
+                            t.setdefault("waiting", []).append(wid)
+                            continue                  # its test could make the engine fetch it again: past tonight's cap
+                        while True:
+                            kind, detail = final_verdict(rec, self.night)
+                            if kind != "pending":
+                                break
+                            if self.left() < 300:
+                                t["stop"] = "the night's deadline"
+                                break
+                            if budget.bytes_left() < int(rec.get("size") or 0):
+                                t.setdefault("waiting", []).append(wid)
+                                break
+                            if patch_version(cfg.game_dir) != version:
+                                t["stop"] = "the game was updated during the tests (steam.inf %s -> %s)" % (
+                                    version, patch_version(cfg.game_dir))
+                                break
+                            if not self.wait_for_nobody("tests", margin=300):
+                                t["stop"] = "somebody was on the server until the deadline"
+                                break
+                            if need_start or not self.engine.alive():
+                                ok, why = self.engine.start()
+                                log(why)
+                                if not ok:
+                                    t["stop"] = why
+                                    break
+                                need_start = False
+                            levels = (rec.get("scan") or {}).get("maps") or []
+                            load = test_load(self.engine, wid, levels, rec.get("tags") or [], cfg.hold,
+                                             lambda: (humans_on(cfg) or 0) > 0)
+                            rec.setdefault("loads", []).append(load)
+                            rec["tests"] = int(rec.get("tests") or 0) + 1
+                            rec["status"] = "tested"
+                            if load.get("engine_download"):
+                                budget.spend_bytes(load["engine_download"])
+                                try:                      # what the engine loaded is its own copy: scan that one
+                                    rec["scan"] = scan_item(os.path.join(content, wid))
+                                except Exception as error:
+                                    rec["scan"]["rescan_error"] = repr(error)[:200]
+                                log("%s: the test engine fetched its own copy (%s) - scanned again" % (
+                                    wid, mb(load["engine_download"])))
+                            self.state.save()
+                            log("%s load %d: %s - %s" % (wid, len(rec["loads"]), load["verdict"], load["reason"]))
+                            if load["verdict"] in ("errormap", "crash", "freeze"):
+                                need_start = True          # a fresh engine: the old one is down or stuck on the error map
+                            if load["verdict"] == "abort":
+                                break
+                        if t.get("stop"):
+                            break
+                        kind, detail = final_verdict(rec, self.night)
+                        if kind != "pending":
+                            outcomes.append((wid, kind, detail, rec))
+                finally:
+                    self.engine.stop()
+        for wid, kind, detail, rec in outcomes:
+            rec["verdict"] = kind
+            rec["decided"] = self.night
+            rec["detail"] = {k: v for k, v in detail.items() if k in ("kind", "detail", "evidence", "reason", "level", "mode",
+                                                                      "crashes", "sample")}
+            title = (rec.get("title") or "")[:48]
+            if kind == "pass":
+                t["rows"].append("PASS     %s (%s) - %s, loads as %s in %ss" % (title, wid, detail.get("mode"), detail.get("level"),
+                                                                              detail.get("load_s")))
+            elif kind == "nonmap":
+                t["rows"].append("NON-MAP  %s (%s) - %s" % (title, wid, detail.get("detail", "")[:110]))
+            elif kind == "advert":
+                t["rows"].append("ADVERT   %s (%s) - %s: %s" % (title, wid, detail.get("reason"), (detail.get("sample") or "")[:80]))
+            else:
+                t["rows"].append("%-8s %s (%s) - %s" % (kind.upper(), title, wid, detail.get("evidence", "")[:110]))
+        pending = [w for w in work if (self.state.item(w) or {}).get("verdict") is None]
+        if pending:
+            t["rows"].append("waiting for the next night: %d staged item(s) without a verdict" % len(pending))
+        self.limits()
+        self.state.save()
+        return outcomes
+
+    def publish(self, files, outcomes, removed_now, details):
+        cfg = self.cfg
+        pub = {}
+        self.report["published"] = pub
+        try:
+            files = bridge_files(cfg)           # read again: anything may have changed during the night
+        except (OSError, ValueError) as error:
+            pub["skipped"] = "the bridge's data cannot be read (%s)" % error
+            return
+        texts, summary = plan_publish(files, self.state, self.night, outcomes, removed_now, cfg.mode_backfill, details)
+        pub.update(summary)
+        verdicts = self.verdicts
+        if not texts and not verdicts:
+            self.mark_published(outcomes, files)
+            return
+        if not cfg.publish:
+            pub["skipped"] = "SYNC_PUBLISH is off (would write %s%s)" % (", ".join(sorted(texts)) or "no file",
+                                                                       ", and report %d verdicts" % len(verdicts) if verdicts else "")
+            return
+        if not self.wait_for_nobody("publish"):
+            pub["skipped"] = "somebody was on the server until the deadline - the results wait for the next night"
+            return
+        if verdicts:
+            pub["verdicts"] = self.report_verdicts(verdicts)
+            log("Workshop verdicts of %d listed map(s) to the bridge: %s" % (len(verdicts), pub["verdicts"]))
+        if not texts:
+            self.mark_published(outcomes, files)
+            return
+        # the live files once more, right before writing: what is planned must be them plus additions, nothing else
+        try:
+            live = bridge_files(cfg)
+        except (OSError, ValueError) as error:
+            pub["skipped"] = "the bridge's data cannot be read (%s)" % error
+            return
+        if any(live["raw"].get(n) != files["raw"].get(n) for n in set(live["raw"]) | set(files["raw"])):
+            texts, summary = plan_publish(live, self.state, self.night, outcomes, removed_now, cfg.mode_backfill, details)
+            pub.update(summary)
+            files = live
+            log("publish: the bridge's data changed while it was planned - planned again on the live files")
+        problems = [p for n in texts for p in merge_problems(n, files["raw"].get(n), texts[n])]
+        if problems:
+            pub["skipped"] = "NOT written - the result would not be the live files plus additions: %s" % "; ".join(problems)
+            self.report["errors"].append(pub["skipped"])
+            return
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        backup = os.path.join(cfg.state_dir, "backups", stamp)
+        os.makedirs(backup, exist_ok=True)
+        for name, raw in files["raw"].items():
+            with open(os.path.join(backup, name), "wb") as handle:
+                handle.write(raw)
+        written = []
+
+        def write_one(name):
+            path = os.path.join(cfg.bridge_data, name)
+            now_raw = None
+            if os.path.exists(path):
+                with open(path, "rb") as handle:
+                    now_raw = handle.read()
+            if now_raw != files["raw"].get(name):
+                self.report["errors"].append("%s changed on the share a moment before it was written - left alone" % name)
+                return
+            write_atomic(path, texts[name])
+            with open(path, "rb") as handle:
+                back = handle.read()
+            if back != texts[name].encode("utf-8"):
+                self.report["errors"].append("%s does not read back as written" % name)
+            elif merge_problems(name, files["raw"].get(name), back.decode("utf-8")):
+                self.report["errors"].append("%s: the written file is not the old one plus additions" % name)
+            written.append(name)
+        for name in ("broken.json", "maps.json", "maps-deathmatch.json", "maps-wingman.json"):
+            if name in texts:
+                write_one(name)
+        pub["reload"] = self.reload()
+        # search.json AFTER the reload: POST /reload does not read search.json yet marks it as read (Reload.cs, ReloadAll,
+        # 2026-11-01), so written before it the new texts would wait for the next change; written now, the bridge's own
+        # watch reads it about 10 s later
+        if "search.json" in texts:
+            write_one("search.json")
+        pub["files"] = written
+        pub["backup"] = backup
+        log("published %s; bridge: %s" % (", ".join(written), pub["reload"]))
+        self.mark_published(outcomes, bridge_files(cfg))
+
+    def report_verdicts(self, verdicts):
+        """Tonight's check of the listed maps, handed to the bridge exactly as GunGameWelcome's daily Workshop check hands
+        its own (POST /removed/<secret>, Workshop.cs): the bridge keeps them in /data/removed.json, blocks a map that is gone
+        at once (and unblocks one that came back), and applies its own rule - more than 10% of 50+ gone is not believed."""
+        if not (self.cfg.bridge_url and self.cfg.bridge_secret):
+            return "not reported (no SYNC_BRIDGE_URL / SYNC_BRIDGE_SECRET); the bridge's own daily check finds them"
+        body = "gg-removed\t1\n" + "".join("%s\t%s\n" % (wid, v) for wid, v in verdicts)
+        try:
+            request = urllib.request.Request("%s/removed/%s" % (self.cfg.bridge_url, self.cfg.bridge_secret),
+                                             data=body.encode("utf-8"), method="POST",
+                                             headers={"User-Agent": USER_AGENT, "Content-Type": "text/plain; charset=utf-8"})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                return response.read().decode("utf-8", "replace").strip()[:300] or "HTTP %d" % response.status
+        except (urllib.error.URLError, OSError) as error:
+            return "the report failed (%s); the bridge's own daily check finds them" % error
+
+    def mark_published(self, outcomes, files):
+        listed = {str(m.get("id")) for m in files["maps"] if isinstance(m, dict)}
+        for mode in files["modes"]:
+            listed |= {str(m.get("id")) for m in files["modes"][mode] if isinstance(m, dict)}
+        on = broken_ids(files["broken"])
+        for wid, kind, detail, rec in outcomes:
+            if wid in listed or wid in on:
+                rec["status"] = "published"
+            elif kind == "pass" and rec.get("why") == "changed":
+                rec["status"] = "published"
+            if kind == "pass":
+                self.state.data["baseline"][wid] = int(rec.get("updated") or 0)
+        self.state.save()
+
+    def reload(self):
+        if not (self.cfg.bridge_url and self.cfg.bridge_secret):
+            return "not asked (no SYNC_BRIDGE_URL / SYNC_BRIDGE_SECRET): it reads the files again within about 10 s"
+        try:
+            request = urllib.request.Request("%s/reload/%s" % (self.cfg.bridge_url, self.cfg.bridge_secret), data=b"",
+                                             method="POST", headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                text = response.read().decode("utf-8", "replace")
+            return " | ".join(l.strip() for l in text.splitlines() if l.strip())[:600] or "HTTP %d" % response.status
+        except (urllib.error.URLError, OSError) as error:
+            return "the reload request failed (%s): the bridge reads the files again by itself within about 10 s" % error
+
+    def cleanup_staging(self):
+        """Forget the staged downloads that have a verdict (their folders and their acf entries); keep the rest."""
+        root = os.path.join(self.cfg.work_dir, "staging", "steamapps", "workshop")
+        content = os.path.join(root, "content", "730")
+        if not os.path.isdir(content):
+            return
+        done = [w for w in os.listdir(content) if (self.state.item(w) or {}).get("verdict")]
+        if not done:
+            return
+        acf = os.path.join(root, "appworkshop_730.acf")
+        try:
+            if os.path.exists(acf):
+                acf_forget(acf, done)
+        except (OSError, ValueError) as error:
+            log("staging: the acf was not edited (%s) - the folders stay" % error)
+            return
+        for wid in done:
+            shutil.rmtree(os.path.join(content, wid), ignore_errors=True)
+        log("staging: %d decided item(s) removed" % len(done))
+
+    def finish(self):
+        try:
+            self.queue({}, {})          # the backlog as it is at the end of the night, for the mail
+            self.report["backlog"] = self.backlog
+            if self.backlog and self.backlog.get("nights"):
+                until = self.clock.local(self.clock.now() + self.backlog["nights"] * DAY).strftime("%Y-%m-%d")
+                self.report["backlog_until"] = " (until about %s)" % until
+        except Exception as error:
+            log("backlog not counted: %r" % error)
+        self.report["ended"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        self.report["ended_hm"] = self.clock.local().strftime("%H:%M")
+        if "limits" not in self.report:
+            try:
+                self.limits()
+            except Exception:
+                pass
+        if self.ledger.data is not None and self.ledger.stopped(self.night):
+            self.report["api_stop"] = self.ledger.stopped(self.night)
+        path = os.path.join(self.cfg.state_dir, "reports", "%s%s.json" % (self.night, "-manual-%s" % time.strftime("%H%M")
+                                                                          if self.manual else ""))
+        self.report["report_path"] = path
+        subject, body = mail_text(self.report, self.cfg)
+        self.report["mail_subject"] = subject
+        try:
+            write_atomic(path, dumps(self.report, indent=1), mode=0o644)
+            write_atomic(path[:-5] + ".txt", subject + "\n\n" + body + "\n", mode=0o644)
+        except OSError as error:
+            log("report not written: %s" % error)
+        why = send_mail(self.cfg, subject, body)
+        self.report["mail"] = "sent" if why is None else "NOT sent: %s" % why
+        log("mail %s: %s" % (self.report["mail"], subject))
+        try:                                    # again, now with the mail's outcome in it
+            write_atomic(path, dumps(self.report, indent=1), mode=0o644)
+        except OSError:
+            pass
+        if not self.manual:
+            self.state.data["last_run_day"] = self.night
+        self.state.data["runs"].append({"night": self.night, "manual": self.manual, "ended": self.report["ended"],
+                                        "subject": subject, "mail": self.report["mail"]})
+        try:
+            self.state.save()
+        except OSError as error:
+            log("state not saved: %s" % error)
+        try:
+            os.remove(os.path.join(self.cfg.state_dir, "running.json"))
+        except OSError:
+            pass
+
+
+# ------------------------------------------------------------------------------------------------
+# The service
+# ------------------------------------------------------------------------------------------------
+
+STOPPING = []
+
+
+def on_signal(signum, _frame):
+    STOPPING.append(signum)
+    raise SystemExit(0)
+
+
+def status(cfg):
+    clock = Clock(cfg.tzname)
+    ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, cfg.api_night_cap, clock)
+    ledger.load()
+    st = State(os.path.join(cfg.state_dir, "state.json")).load()
+    counts = {}
+    for rec in st.data["items"].values():
+        counts[rec.get("status")] = counts.get(rec.get("status"), 0) + 1
+    print(json.dumps({"api_last_24h": ledger.last_24h() if ledger.data else None, "api_tonight": ledger.tonight(clock.day()),
+                      "api_stop_tonight": ledger.stopped(clock.day()) if ledger.data else None,
+                      "items": counts, "last_run_day": st.data.get("last_run_day"),
+                      "key": "present" if read_key(cfg.key_file) else "absent"}, indent=1))
+
+
+def export(cfg):
+    """--export: what this sync has published, as entries a republish from the repo can merge (the site's entries shape:
+    id, rank, name, subscriptions, lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and
+    state.json. The server's data is ahead of the repo after a night that published; this is the way back."""
+    st = State(os.path.join(cfg.state_dir, "state.json")).load()
+    files = bridge_files(cfg)
+    out = {"generated": time.strftime("%Y-%m-%dT%H:%M:%S"), "maps.json": [], "modes": {}, "broken.json": []}
+    mine = {w for w, r in st.data["items"].items() if r.get("status") == "published"}
+
+    def entry(m, rec):
+        return {"id": int(m["id"]), "rank": m.get("rank"), "name": m.get("name"), "sizeMb": m.get("sizeMb"),
+                "subscriptions": rec.get("subs"), "lifetime": rec.get("lifetime"),
+                "updated": time.strftime("%Y-%m-%d", time.gmtime(int(rec.get("updated") or 0))),
+                "tags": rec.get("tags") or [], "description": rec.get("description") or "", "preview": rec.get("preview") or ""}
+    for m in files["maps"]:
+        if isinstance(m, dict) and str(m.get("id")) in mine:
+            out["maps.json"].append(entry(m, st.item(m["id"])))
+    for mode, entries in files["modes"].items():
+        out["modes"][mode] = [entry(m, st.item(m["id"]) or {}) for m in entries if isinstance(m, dict) and str(m.get("id")) in mine]
+    for section in ("maps", "packs"):
+        for e in files["broken"].get(section) or []:
+            if isinstance(e, dict) and str(e.get("id")) in mine:
+                out["broken.json"].append(dict(e, section=section))
+    print(json.dumps(out, ensure_ascii=False, indent=1))
+
+
+def main(argv):
+    cfg = Config()
+    if "--status" in argv:
+        status(cfg)
+        return 0
+    if "--export" in argv:
+        export(cfg)
+        return 0
+    signal.signal(signal.SIGTERM, on_signal)
+    clock = Clock(cfg.tzname)
+    os.makedirs(cfg.state_dir, exist_ok=True)
+    LOG_FILE[0] = os.path.join(cfg.state_dir, "sync.log")
+    if "--once" in argv:
+        rest = argv[argv.index("--once") + 1:]
+        if rest:
+            try:
+                cfg.lower(json.loads(rest[0]))
+            except ValueError:
+                print("--once takes an optional JSON object of lower limits, e.g. '{\"download_max\": 3}'")
+                return 2
+        Night(cfg, clock, manual=True).run()
+        return 0
+    log("service start (version %s): window %02d:%02d-%02d:%02d, %s, Web API key %s, caps: %d calls a night, %d in 24 h, "
+        "%d downloads / %s a night" % ((VERSION,) + cfg.start + cfg.end + (
+            "enabled" if cfg.enabled else "DISABLED (SYNC_ENABLED=0)", "present" if read_key(cfg.key_file) else "absent",
+            cfg.api_night_cap, cfg.api_day_cap, cfg.download_max, mb(cfg.download_bytes))))
+    while True:
+        trigger = os.path.join(cfg.state_dir, "run-now")
+        if os.path.exists(trigger):
+            overrides = read_json(trigger, {}) or {}
+            try:
+                os.remove(trigger)
+            except OSError:
+                pass
+            run_cfg = Config()
+            run_cfg.lower(overrides if isinstance(overrides, dict) else {})
+            log("run-now: a manual run (%s)" % (json.dumps(overrides) if overrides else "no overrides"))
+            try:
+                Night(run_cfg, clock, manual=True).run()
+            except Exception as error:  # the service must outlive any one run
+                log("the manual run failed: %r" % error)
+        elif cfg.enabled and clock.in_window(cfg.start, cfg.end):
+            st = read_json(os.path.join(cfg.state_dir, "state.json"), {}) or {}
+            if st.get("last_run_day") != clock.day():
+                try:
+                    Night(Config(), clock).run()
+                except Exception as error:
+                    log("tonight's run failed: %r" % error)
+                    st = read_json(os.path.join(cfg.state_dir, "state.json"), {}) or {}
+                    st["last_run_day"] = clock.day()
+                    try:
+                        write_atomic(os.path.join(cfg.state_dir, "state.json"), json.dumps(st) + "\n", mode=0o644)
+                    except OSError:
+                        pass
+        time.sleep(30)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

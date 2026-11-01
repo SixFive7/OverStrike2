@@ -1,0 +1,125 @@
+# Over Strike 2 - an example compose file: the Counter-Strike 2 game server and the bridge.
+#
+# Copy it outside this repository, replace every <...> and keep your copy private: it holds the RCON password and the log
+# secret. Paths on the left of a volume are the host's. The game server is joedwards32/cs2 (SteamCMD, anonymous download of
+# app 730); server/pre.sh installs Metamod:Source, CounterStrikeSharp and MultiAddonManager into it before every start.
+
+services:
+
+  cs2:
+    image: docker.io/joedwards32/cs2
+    restart: always
+    stop_grace_period: 1m
+    ports:
+      - 27015:27015/udp # game traffic and server queries; RCON stays inside: only the bridge uses it
+    volumes:
+      - <game dir>:/home/steam/cs2-dedicated # the SteamCMD install (~35 GB) and the Workshop map cache
+      - <game dir>/steam-depotcache:/home/steam/Steam/depotcache # the Steam client's verified Workshop manifests, kept across recreates (create it first, owned by uid 1000)
+      - <config dir>/gamemode_armsrace_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_armsrace_server.cfg:ro # server/: each mode's overrides, run after Valve's mode cfg on every map load
+      - <config dir>/gamemode_deathmatch_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_deathmatch_server.cfg:ro # server/
+      - <config dir>/gamemode_competitive2v2_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive2v2_server.cfg:ro # server/ (Wingman)
+      - <config dir>/pre.sh:/home/steam/cs2-dedicated/pre.sh:ro # server/: the install hook the image runs before every start
+      - <config dir>/update-watch.py:/home/steam/cs2-update-watch.py:ro # server/: the restart watcher pre.sh starts
+      - <plugins dir>:/home/steam/cs2-plugins:ro # one folder per plugin: OverStrike2/OverStrike2.dll and blocked.txt
+      - <data dir>:/home/steam/bridge-data:ro # the bridge's data, read by the watcher's nightly prefetch (CS2_BRIDGE_DATA)
+    environment:
+      TZ: Etc/UTC # the daily restart and the prefetch use local time
+      SRCDS_TOKEN: "" # a Game Server Login Token lists the server publicly; empty runs unlisted (direct connects work)
+      CS2_SERVERNAME: Over Strike 2
+      CS2_RCONPW: <rcon password>
+      CS2_PW: ""
+      CS2_MAXPLAYERS: 10
+      CS2_GAMETYPE: 1 # gun game
+      CS2_GAMEMODE: 0 # Arms Race
+      CS2_MAPGROUP: mg_armsrace
+      CS2_STARTMAP: ar_shoots # always boot to a stock map, so a crash on a Workshop map never restarts into the same crash
+      CS2_SERVER_HIBERNATE: 0
+      CS2_LAN: 0
+      CS2_LOG: "on"
+      CS2_LOG_HTTP_URL: http://bridge:8080/log/<log secret> # every log line to the bridge (the plugin finds the bridge through this too)
+      CS2_LOG_FILE: 0
+      CS2_LOG_ECHO: 1 # log events in the console too: the watcher reads match ends there
+      CS2_ADDITIONAL_ARGS: -condebug # the console in console.log, for the watcher
+      TV_ENABLE: 0
+      TV_DELAY: "" # empty on purpose: with a value the image appends a line to every gamemode cfg, and one of Valve's has no final newline
+      CS2_PLUGINS: 1 # 0 runs vanilla after a game update breaks Metamod or CounterStrikeSharp, until the pins in pre.sh are bumped
+      GUNGAME_HUD_ADDON: "3823993566" # the HUD addon's Workshop id; empty: a simple text panel instead of the menu
+      CS2_AUTOUPDATE: 1 # restart for a new game build, between matches
+      CS2_RESTART_AT: "07:00" # daily restart, between matches; "off" disables it
+      CS2_FREEZE_RECOVERY: 1 # kill a frozen engine so Docker restarts it
+      CS2_FREEZE_GRACE_SECONDS: 10
+      CS2_WARMUP: 1 # after every start, download a throwaway item so the Steam client's re-check runs before players need it
+      CS2_WARMUP_ITEM: "3736209605" # a small Workshop map that is not on the list
+      CS2_PREFETCH_AT: "03:30" # nightly prefetch of missing and updated maps while nobody is on; "off" disables it
+      CS2_PREFETCH_MINUTES: 195
+      CS2_PREFETCH_RESTART: 1 # a fresh engine process before the prefetch, only at 0 players
+      GUNGAME_GRENADE_WIN: 0 # leave 0: CS2 does not end an Arms Race match on a last-level grenade kill
+
+  bridge:
+    image: localhost/overstrike2-bridge # built and loaded by deploy/bridge.py (or: build: <path to this repository>/bridge); "localhost/": never fetched from a public registry
+    pull_policy: never # the image exists only in this Docker
+    restart: always
+    depends_on:
+      - cs2
+    stop_grace_period: 10s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "<uid>:<gid>" # any non-root user that owns <data dir>
+    volumes:
+      - <data dir>:/data # state.json, votes.json, and the data files: maps.json, broken.json, sizes.json, search.json
+    environment:
+      TZ: Etc/UTC
+      RCON_HOST: cs2
+      RCON_PORT: 27015
+      RCON_PASSWORD: <rcon password>
+      LOG_SECRET: <log secret>
+      MAPS_FILE: /data/maps.json # the list on the data volume: a new list is a file copy, read again within seconds
+      BROKEN_FILE: /data/broken.json
+      CHANGE_DELAY_SECONDS: 8
+      CHANGE_COOLDOWN_SECONDS: 0
+      RANDOM_ON_MATCH_END: 1
+      RANDOM_ON_START: 1
+      START_MAP: ar_shoots # the same as CS2_STARTMAP
+      GUIDE_ON_JOIN: 1
+      HUD_TAB: "down" # the board takes the mouse while TAB is held
+      HUD_CHECK: dryrun # warn players whose game has not loaded the HUD; enforcement begins at the first real click on a release
+      RESTART_COOLDOWN_SECONDS: 300
+      SITE_URL: https://<your site>
+
+  sync: # optional: the nightly Workshop sync finds, downloads, scans and load-tests new maps and lists the ones that pass
+    image: docker.io/joedwards32/cs2 # the game server's own image: its SteamCMD, its Python, the libraries a test engine needs
+    entrypoint:
+      - python3
+      - -u
+      - /home/steam/cs2-workshop-sync.py
+    init: true # SteamCMD and the test engine are child processes
+    restart: always
+    stop_grace_period: 1m
+    volumes:
+      - <game dir>:/home/steam/cs2-dedicated:ro # the game server's install, read-only: the test engine runs from links into it
+      - <game dir>/workshop-sync:/home/steam/workshop-sync # staging downloads and the test engine's tree (create it first, owned by uid 1000)
+      - <config dir>/workshop-sync.py:/home/steam/cs2-workshop-sync.py:ro # server/
+      - <sync state dir>:/home/steam/sync-state # the Web API ledger, the state, the nightly reports and backups (writable by uid 1000)
+      - <secrets dir>:/run/secrets:ro # steam-webapi-key.txt: your Steam Web API key; without it the discovery step is skipped
+      - <data dir>:/home/steam/bridge-data # the bridge's data, read-write: the sync publishes the map lists there
+      - <config dir>/gamemode_armsrace_server.cfg:/home/steam/sync-cfg/gamemode_armsrace_server.cfg:ro # test loads use the server's own overrides
+    environment:
+      TZ: Etc/UTC
+      SYNC_ENABLED: 1
+      SYNC_PUBLISH: 1 # 0: every step runs, nothing is written into the bridge's data
+      SYNC_AT: "03:30" # the nightly window; the run waits for the restart watcher's prefetch first
+      SYNC_END: "06:45"
+      SYNC_TAGS: Armsrace,Deathmatch,Wingman
+      SYNC_EXCLUDE_IDS: "3736209605,3823993566" # never candidates: the warm-up item and the HUD item
+      SYNC_EXCLUDE_CREATORS: "<SteamID64s>" # Workshop authors whose items you list by hand (your own maps)
+      SYNC_GAME_HOST: cs2 # downloads, tests and publishing happen only while this server shows 0 humans
+      SYNC_BRIDGE_URL: http://bridge:8080
+      SYNC_BRIDGE_SECRET: <log secret>
+      SYNC_CFG_DIR: /home/steam/sync-cfg
+      SYNC_SERVER_NAME: Over Strike 2
+      SYNC_SMTP_HOST: "" # optional: an SMTP relay for the morning summary mail
+      SYNC_MAIL_FROM: ""
+      SYNC_MAIL_TO: ""

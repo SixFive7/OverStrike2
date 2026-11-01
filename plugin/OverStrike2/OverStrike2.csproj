@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Over Strike 2: the server's one CounterStrikeSharp plugin since 2026-11-01 - the successor of GunGameWelcome (the HUD, the guide,
+       the daily Workshop check), with GunGameNades (the grenade drops) and MapSettingsReset (a map's settings put back, the
+       game-changers block, the fun page's changes) folded in as modules, so the fun page's effects, the block's notices and the game
+       mode are one plugin's state. The folder name, the DLL name and the plugin's name are the same: OverStrike2. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- CounterStrikeSharp 1.0.379 marks the ConVar class obsolete in favour of ConVar<T> (#935); it still works, unchanged. The settings
+         module finds and writes the game's own convars by name through it, so the warning is off until the move to ConVar<T>. -->
+    <NoWarn>$(NoWarn);CS0618</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pinned to the CounterStrikeSharp release installed by server/pre.sh. 1.0.376 is the first that keeps per-player HUD text after
+         a join (#1434). -->
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.379" />
+    <!-- The logic and the words live with the bridge, which tests them in its selftest; compiled in here as source. -->
+    <Compile Include="..\..\bridge\Guide.cs" Link="Guide.cs" />
+    <Compile Include="..\..\bridge\Hud.cs" Link="Hud.cs" />
+    <Compile Include="..\..\bridge\HudBrowser.cs" Link="HudBrowser.cs" />
+    <Compile Include="..\..\bridge\HudThumbList.cs" Link="HudThumbList.cs" />
+    <Compile Include="..\..\bridge\HudCheck.cs" Link="HudCheck.cs" />
+    <Compile Include="..\..\bridge\HudTab.cs" Link="HudTab.cs" />
+    <Compile Include="..\..\bridge\Workshop.cs" Link="Workshop.cs" />
+    <Compile Include="..\..\bridge\HudSearch.cs" Link="HudSearch.cs" />
+    <Compile Include="..\..\bridge\HudWorkshop.cs" Link="HudWorkshop.cs" />
+    <Compile Include="..\..\bridge\Fun.cs" Link="Fun.cs" />
+    <Compile Include="..\..\bridge\BlockList.cs" Link="BlockList.cs" />
+    <Compile Include="..\..\bridge\MapVote.cs" Link="MapVote.cs" />
+    <Compile Include="..\..\bridge\Modes.cs" Link="Modes.cs" />
+    <Compile Include="..\..\bridge\HudVote.cs" Link="HudVote.cs" />
+    <Compile Include="..\..\bridge\ChatCommands.cs" Link="ChatCommands.cs" />
+    <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
+    <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
+    <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />
+    <Compile Include="..\CatchUp\CatchUpModule.cs" Link="CatchUp\CatchUpModule.cs" />
+    <None Include="..\CatchUp\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The names of every game convar (FCVAR_GAMEDLL, "sv" in cvarlist) on CS2 1.41.9.1/14191, and the same 1,555 on 1.41.9.2/14192
+         (regenerated 2026-10-24: no name added or gone): the only way to know them, since CounterStrikeSharp can find a convar by name
+         but cannot list them. Regenerate after a CS2 update (README "Settings"). -->
+    <EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />
+    <!-- The block list is a config file beside the DLL (deploy both): editing it needs no rebuild, "mapreset_block reload" reads it. -->
+    <None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The other modes' block lists (#27 c), read at a map start in that mode; a missing one blocks nothing in it, so deploy them too. -->
+    <None Include="blocked-deathmatch.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="blocked-wingman.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- hud/ is the Workshop addon (Panorama layout and stylesheet) and its publisher, a separate program: not part of the plugin. -->
+    <Compile Remove="hud\**" />
+    <None Remove="hud\**" />
+  </ItemGroup>
+
+</Project>

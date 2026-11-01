@@ -1,0 +1,78 @@
+{
+  "Enabled": true,
+  "Tiers": [
+    {
+      "MinBehind": 2,
+      "Health": 0.20,
+      "DamageTaken": -0.10,
+      "DamageDealt": 0.10,
+      "Lifesteal": 0.10,
+      "RegenPerSecond": 0.02,
+      "RegenDelaySeconds": 5,
+      "SecondChance": false,
+      "ExtraSpawnProtectionSeconds": 0,
+      "InfiniteAmmo": false,
+      "OneHitKnifeAndTaser": false
+    },
+    {
+      "MinBehind": 4,
+      "Health": 0.40,
+      "DamageTaken": -0.20,
+      "DamageDealt": 0.20,
+      "Lifesteal": 0.20,
+      "RegenPerSecond": 0.04,
+      "RegenDelaySeconds": 4,
+      "SecondChance": true,
+      "ExtraSpawnProtectionSeconds": 2,
+      "InfiniteAmmo": false,
+      "OneHitKnifeAndTaser": false
+    },
+    {
+      "MinBehind": 7,
+      "Health": 0.75,
+      "DamageTaken": -0.30,
+      "DamageDealt": 0.30,
+      "Lifesteal": 0.30,
+      "RegenPerSecond": 0.06,
+      "RegenDelaySeconds": 3,
+      "SecondChance": true,
+      "ExtraSpawnProtectionSeconds": 3,
+      "InfiniteAmmo": true,
+      "OneHitKnifeAndTaser": true
+    }
+  ],
+  "Bounty": {
+    "MinLead": 2,
+    "StepKills": 2,
+    "PerStep": 0.10,
+    "Max": 0.30
+  },
+  "Balance": {
+    "MaxDuelFactor": 3.0,
+    "ScoreboardCap": true,
+    "LifestealCounts": true,
+    "RoundTo": 0.05
+  },
+  "Progress": {
+    "KillsPerLevel": 2,
+    "KnifeKillLevelsUp": true,
+    "KnifeDeathDemotes": true,
+    "TaserDeathCostsKill": true,
+    "SuicideDemotes": true,
+    "LastLevelOnlyKnife": true
+  },
+  "Message": {
+    "ToBoosted": true,
+    "ToLeader": true,
+    "Seconds": 2,
+    "DelaySeconds": 0.25,
+    "FirstSpawnDelaySeconds": 3.0,
+    "TaglineGapSeconds": 0.25,
+    "LineWidth": 28,
+    "MaxLines": 5
+  },
+  "Effects": {
+    "ApplyDelaySeconds": 0.1,
+    "RegenTickSeconds": 0.5
+  }
+}

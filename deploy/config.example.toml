@@ -1,0 +1,34 @@
+# Over Strike 2 - the deployment's private config. Copy this file to .private/config.toml (gitignored) or anywhere outside
+# the repository and point OVERSTRIKE2_CONFIG at it; fill in your values there. Never commit the filled copy: it names your
+# hosts, shares and containers. A value "env:NAME" is read from the environment variable NAME (use it for credentials).
+
+[site]
+url = "https://overstrike.example.com"   # the site players are pointed at (the bridge's SITE_URL)
+connect = "play.example.com"              # what the site tells players to type after "connect" (host or host:port)
+dir = ""                                  # where the site is served from: a local path or a share (index.html, more.html, img/)
+img = ""                                  # the served thumbnails folder, if not <dir>/img
+
+[docker]
+api = "https://docker.example.com:2376"   # a Docker Engine API base URL - the daemon's, or a proxy that forwards it
+tls_verify = true                         # false only for a self-signed certificate you trust
+[docker.headers]                          # extra request headers a proxy wants, e.g. an API key
+# X-API-Key = "env:OVERSTRIKE2_DOCKER_API_KEY"
+
+[build]
+engine = "wslc"                           # the local image builder: "wslc" (WSL containers) or "docker"
+network_host = false                      # build-remote only: run the build steps in the host's network
+
+[bridge]
+image = "localhost/overstrike2-bridge"    # the image on the server; "localhost/" so that no pull can ever fetch it from a public registry
+container = "bridge"                      # the bridge's container name
+game_container = "cs2"                    # the game server's container name (health checks run from inside it)
+data_dir = ""                             # the bridge's /data on the server (a share or a path): maps.json, broken.json, ...
+
+[server]
+address = "play.example.com:27015"        # the game server's query address: is anybody playing?
+plugins_dir = ""                          # the folder the game server copies plugins from (one folder per plugin)
+config_dir = ""                           # where pre.sh, gamemode_armsrace_server.cfg and update-watch.py are deployed ("" = not from here)
+lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
+
+[workshop]
+cs2_dir = ""                              # the local "Counter-Strike Global Offensive" folder ("" = found through Steam)

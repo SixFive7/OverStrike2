@@ -1,0 +1,6 @@
+#!/bin/sh
+# Over Strike 2: scan what is staged before it becomes a commit (tools/scan/scan.py: gitleaks, the public rules and the
+# private denylist). A finding stops the commit: fix its cause. Never bypass this with --no-verify.
+root=$(git rev-parse --show-toplevel) || exit 1
+py=$(command -v python || command -v python3 || command -v py) || { echo "pre-commit: Python not found - the scan cannot run" >&2; exit 1; }
+exec "$py" -I "$root/tools/scan/scan.py" --staged

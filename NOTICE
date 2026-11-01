@@ -1,0 +1,54 @@
+Over Strike 2
+Copyright 2026 The Over Strike 2 Authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The CounterStrikeSharp plugin in plugin/, together with the bridge sources it compiles in (the files that
+plugin/OverStrike2/OverStrike2.csproj includes from bridge/), is also available under the MIT License (see LICENSE-MIT), at
+your option. CounterStrikeSharp is licensed under the GNU General Public License 3.0 with an exception that permits plugins
+built against its published .NET packages to be licensed under the MIT License.
+
+Counter-Strike 2, the Steam Workshop and the CS2 Workshop Tools are Valve's. This project is not affiliated with or endorsed
+by Valve. It includes no game files: the builds read what they need (the Workshop Tools, and the underwater post-processing
+gg_vinceville ships, from ar_pool_day's map package) from a local Counter-Strike 2 installation. The HUD's knife icon
+(hud/images/knife.png) is derived from the game's own HUD art and is therefore not included; supply your own.
+
+Map titles, ids and tags in bridge/*.json and site/ are the Steam Workshop's, written by each map's author; their
+descriptions are not part of this repository, and neither are the pictures of other authors' maps.
+
+-------------------------------------------------------------------------------------------------------------------------------
+Third-party code
+
+hud/build.ps1 is adapted from CS2UIKit's kit/build.ps1 (https://github.com/nvmxre/cs2-ui-kit), used under the MIT License:
+
+    MIT License
+
+    Copyright (c) 2026 PROJECT ZERO
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+-------------------------------------------------------------------------------------------------------------------------------
+Used, not included (each under its own license; downloaded or referenced at build or run time)
+
+- Metamod:Source - https://github.com/alliedmodders/metamod-source (installed by server/pre.sh)
+- CounterStrikeSharp - https://github.com/roflmuffin/CounterStrikeSharp (installed by server/pre.sh; the plugin builds against
+  its CounterStrikeSharp.API package)
+- MultiAddonManager - https://github.com/Source2ZE/MultiAddonManager (installed by server/pre.sh)
+- The joedwards32/cs2 container image - https://github.com/joedwards32/CS2
+- The .NET SDK and runtime-deps container images - https://github.com/dotnet/dotnet-docker

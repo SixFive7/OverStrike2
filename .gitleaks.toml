@@ -1,0 +1,10 @@
+# gitleaks for Over Strike 2: the default rules. tools/scan/scan.py runs it with this file; the project's own rules (addresses,
+# paths, Steam ids, compiled game files, the private denylist) are in scan.py itself.
+title = "Over Strike 2"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Made-up values in the self-tests (reviewed): the Workshop sync's test Web API key"
+regexes = ['''0123456789ABCDEF0123456789ABCDEF''']

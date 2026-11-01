@@ -1,0 +1,36 @@
+# Our own maps
+
+Three Arms Race maps, each generated from a script: the geometry, the props, the spawns and the breakable glass are all code.
+Each folder holds `generate.py` (writes the Hammer map source into the CS2 Workshop Tools' content folder), `build.py`
+(generates, then compiles, lights and packs the map with the Workshop Tools), `preview.py` (renders the Workshop preview from
+the generated layout), `workshop.json` (the Workshop item's title, description and tags) and `workshop_id.txt` (the item).
+
+| Map | Workshop item | What it is |
+|---|---|---|
+| `gg_glasspire` | 3831189574 | A square glass tower around an open atrium: four floors and a roof deck joined by ramps that spiral up the outer walls, 292 panes of breakable glass. |
+| `gg_moonglass` | 3831231522 | A moon base under a faceted glass dome: modules, bridges and tunnels, most of it glass that breaks. |
+| `gg_vinceville` | 3831242232 | Small houses scattered over a big grassy field, with trees, ponds deep enough to swim in, and a sewer under the field that links every house. |
+
+## Building
+
+On Windows, with Counter-Strike 2 and its Workshop Tools installed (Python 3.12+, numpy and Pillow for the generators and the
+previews):
+
+```powershell
+python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Global Offensive'>, or CS2_DIR, or Steam's default folder
+```
+
+The maps use only the game's own materials and models, by reference. Where a map needs one of the game's files in its addon
+(gg_vinceville's underwater look, from `ar_pool_day`'s map package), the generator reads it from the local installation at
+build time and writes it into the build output, never into this repository.
+
+## Publishing
+
+```powershell
+powershell -File maps\publisher\publish.ps1 -Map gg_glasspire -Query        # read-only: the item as Steam has it
+powershell -File maps\publisher\publish.ps1 -Map gg_glasspire -Update -Note "What changed" -UserApprovedUpdate
+```
+
+A new version of a map item waits in Valve's moderation queue like the HUD's: update only with the owner's go, while nobody
+plays. The description names the placeholder site, which the publisher fills in from `SITE_URL` (refusing to upload without
+it); `python deploy\workshop.py map ...` passes the site from the private config.

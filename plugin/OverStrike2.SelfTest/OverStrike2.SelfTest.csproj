@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>OverStrike2.SelfTest</AssemblyName>
+    <RootNamespace>OverStrike2.SelfTest</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- The decisions under test, compiled in source rather than referenced. ArmsRaceLoadout deliberately mentions no
+         CounterStrikeSharp type, so this project needs neither the NuGet package nor a game server: `dotnet run` is
+         the whole test suite. Everything else in the plugin only exists once a CS2 server has loaded it. -->
+    <Compile Include="..\OverStrike2\ArmsRaceLoadout.cs" Link="ArmsRaceLoadout.cs" />
+  </ItemGroup>
+
+</Project>

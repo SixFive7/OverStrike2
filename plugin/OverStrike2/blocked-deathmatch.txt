@@ -1,0 +1,48 @@
+// MapSettingsReset: the game-changers no map may set, in Deathmatch (#27 c, 2026-11-01). The same 30 convars as Arms Race's blocked.txt,
+// each with the value Deathmatch keeps: Valve's gamemode_deathmatch.cfg plus server/gamemode_deathmatch_server.cfg. The plugin uses
+// this file while the mode is Deathmatch (os_mode deathmatch; bridge/Modes.cs, docs/reference.md). A player's choice on the fun page is
+// never blocked, and the movement settings bhop and surf maps need are on no list (the bridge's --selftest checks all three files).
+//
+// Format as blocked.txt: one convar per line, its value, then // and why.
+
+// ---- the mode and cheats ----
+game_type 1                        // Deathmatch is game type 1 (gungame)...
+game_mode 2                        // ...mode 2 (deathmatch); a map that switches it would carry the switch into the next map
+sv_cheats 0                        // cheats off: a map turning them on lets every player use cheat commands
+
+// ---- shooting ----
+weapon_accuracy_nospread 0         // no spread off: a map would make every gun a laser
+weapon_air_spread_scale 1          // CS2's own jumping inaccuracy
+sv_infinite_ammo 2                 // Valve's Deathmatch: endless reserve ammo, reloads as usual
+
+// ---- damage and who is an enemy ----
+mp_damage_headshot_only 0          // every hit counts, not only headshots
+mp_damage_scale_ct_body 1          // the damage scales stay CS2's own
+mp_damage_scale_ct_head 1          // ...CT head
+mp_damage_scale_t_body 1           // ...T body
+mp_damage_scale_t_head 1           // ...T head
+mp_teammates_are_enemies 1         // Valve's Deathmatch is free-for-all: everybody is an enemy
+mp_free_armor 2                    // Valve's Deathmatch: armour and helmet at every spawn
+sv_hegrenade_radius_multiplier 1   // the grenade blast radius stays CS2's own
+
+// ---- what a player sees ----
+sv_disable_radar 0                 // the radar stays on
+
+// ---- how a match runs and ends ----
+mp_ignore_round_win_conditions 0   // the round, and with it the match, ends when its time is up
+mp_respawn_on_death_ct 1           // Deathmatch respawns everybody...
+mp_respawn_on_death_t 1            // ...on both sides
+mp_timelimit 2                     // Valve's Deathmatch value; the 10-minute round (mp_roundtime 10) ends the match
+mp_match_end_restart 1             // the server replays the map after a match, and the bridge's vote picks the next one
+mp_match_end_changelevel 0         // a changelevel at the match end would go past the bridge's vote and queue
+mp_warmup_pausetimer 0             // a warmup that never ends would keep the match from starting
+sv_allow_votes 0                   // no F1/F2 votes: the bridge's end-of-match vote is the vote
+bot_quota 0                        // no bots: Valve's Deathmatch fills to 10, and this server runs none (README: CounterStrikeSharp #1446)
+bot_quota_mode normal              // Valve's fill_with_minimum adds a bot even at bot_quota 0 (seen live)
+
+// ---- weapons ----
+mp_weapons_allow_map_placed 0      // Valve's Deathmatch: guns lying on the map stay out of reach
+mp_death_drop_gun 0                // Valve's Deathmatch: the dead drop nothing
+mp_death_drop_grenade 0            // ...not even a grenade
+mp_buy_anywhere 1                  // Valve's Deathmatch: the buy menu works anywhere...
+mp_buytime 0                       // ...during the spawn protection only (mp_buy_during_immunity), free of charge

@@ -1,0 +1,17 @@
+{
+  "fields": "The server's own maps: the ones its owner made or publishes - the HUD's Our maps filter and card tag, the site's Our maps section (Ours.cs, site/broken-maps.py). Data: adding one is its id here and its entry on maps.json, no HUD rebuild. Deployed beside maps.json.",
+  "maps": [
+    {
+      "id": 3831189574,
+      "name": "gg_glasspire"
+    },
+    {
+      "id": 3831231522,
+      "name": "gg_moonglass"
+    },
+    {
+      "id": 3831242232,
+      "name": "gg_vinceville"
+    }
+  ]
+}

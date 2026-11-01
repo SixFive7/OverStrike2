@@ -1,0 +1,48 @@
+// MapSettingsReset: the game-changers no map may set, in Wingman (#27 c, 2026-11-01). The same 30 convars as Arms Race's blocked.txt,
+// each with the value Wingman keeps: Valve's gamemode_competitive2v2.cfg plus server/gamemode_competitive2v2_server.cfg. The plugin
+// uses this file while the mode is Wingman (os_mode wingman; bridge/Modes.cs, docs/reference.md). A player's choice on the fun page is
+// never blocked, and the movement settings bhop and surf maps need are on no list (the bridge's --selftest checks all three files).
+//
+// Format as blocked.txt: one convar per line, its value, then // and why.
+
+// ---- the mode and cheats ----
+game_type 0                        // Wingman is game type 0 (classic)...
+game_mode 2                        // ...mode 2 (scrimcomp2v2); a map that switches it would carry the switch into the next map
+sv_cheats 0                        // cheats off: a map turning them on lets every player use cheat commands
+
+// ---- shooting ----
+weapon_accuracy_nospread 0         // no spread off: a map would make every gun a laser
+weapon_air_spread_scale 1          // CS2's own jumping inaccuracy
+sv_infinite_ammo 0                 // Valve's Wingman: ammo runs out, as in competitive
+
+// ---- damage and who is an enemy ----
+mp_damage_headshot_only 0          // every hit counts, not only headshots
+mp_damage_scale_ct_body 1          // the damage scales stay CS2's own
+mp_damage_scale_ct_head 1          // ...CT head
+mp_damage_scale_t_body 1           // ...T body
+mp_damage_scale_t_head 1           // ...T head
+mp_teammates_are_enemies 0         // two teams of two: a map (or a Deathmatch before it) must not make it free-for-all
+mp_free_armor 0                    // Valve's Wingman: armour is bought
+sv_hegrenade_radius_multiplier 1   // the grenade blast radius stays CS2's own
+
+// ---- what a player sees ----
+sv_disable_radar 0                 // the radar stays on
+
+// ---- how a match runs and ends ----
+mp_ignore_round_win_conditions 0   // rounds end by their win conditions: a map would make a round, and the match, endless
+mp_respawn_on_death_ct 0           // Wingman rounds: the dead wait for the next round...
+mp_respawn_on_death_t 0            // ...on both sides
+mp_timelimit 0                     // the rounds end the match (mp_maxrounds), not a clock
+mp_match_end_restart 1             // the server replays the map after a match, and the bridge's vote picks the next one
+mp_match_end_changelevel 0         // a changelevel at the match end would go past the bridge's vote and queue
+mp_warmup_pausetimer 0             // a warmup that never ends would keep the match from starting
+sv_allow_votes 0                   // no F1/F2 votes (Valve's Wingman allows them): the bridge's end-of-match vote is the vote
+bot_quota 0                        // no bots: Valve's Wingman adds one, and this server runs none (README: CounterStrikeSharp #1446)
+bot_quota_mode normal              // Valve's competitive mode fills the teams with bots
+
+// ---- weapons ----
+mp_weapons_allow_map_placed 1      // Valve's Wingman: guns on the map can be picked up
+mp_death_drop_gun 1                // Valve's Wingman: the dead drop their gun
+mp_death_drop_grenade 3            // Valve's Wingman: ...and their grenades
+mp_buy_anywhere 0                  // buying in the buy zone only...
+mp_buytime 20                      // ...for Valve's 20 s at a round's start

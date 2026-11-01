@@ -1,0 +1,3564 @@
+/*
+  Over Strike 2 - the in-game HUD's stylesheet (Panorama CSS, compiled to gungame_hud.vcss_c with the CS2 Workshop Tools).
+
+  Panorama is not the web: layout is flow-children and fill-parent-flow, things are hidden with visibility: collapse, and only
+  opacity and transform animate (transitions on them, or @keyframes on opacity; keyframes on transform never run in a custom HUD).
+  Visibility cannot animate, so everything that fades does it in two classes the plugin sets a moment apart: visible first, then
+  "in" (see HudSlots in bridge/Hud.cs).
+
+  Rules kept because breaking them makes CS2 drop the whole layout in silence (CS2UIKit's docs/GOTCHAS.md): every @keyframes name
+  quoted; no comma selectors - one selector per rule, even where that repeats a block; pictures only as background-image.
+
+  Look: CS2's own HUD language - dark frosted panels (world-blur), Stratum2, small letter-spaced labels - with one accent, the gold of
+  the golden knife, close to the game's own T colour and the site's.
+*/
+
+@define gg-gold: #E9B44C;
+@define gg-gold-hi: #FFD47E;
+@define gg-gold-deep: #B97C22;
+@define gg-text: #F1EDE5;
+@define gg-dim: #A9B1B9;
+@define gg-faint: #76818B;   /* 4.5:1 on the darkest panel (it was #6F7A84, 4.0:1) */
+@define gg-line: #FFFFFF14;
+@define gg-up: #7BD88F;
+@define gg-down: #F07C6B;
+@define gg-blur: gaussian( 6, 6, 2 );
+@define gg-card: gradient( linear, 0% 0%, 0% 100%, from( #12171DF2 ), to( #0A0D11F4 ) );
+@define gg-shadow: #000000a6 0px 12px 36px 0px;
+
+/* ---- the frame ---------------------------------------------------------------------------------------------------- */
+
+.gg-root
+{
+	width: 100%;
+	height: 100%;
+}
+
+.gg-global
+{
+	width: 100%;
+	height: 100%;
+}
+
+.gg-screen
+{
+	width: 100%;
+	height: 100%;
+}
+
+/* Every label's defaults. A bare type selector on purpose: `.gg-root Label` (one class + a type, 0,1,1) outranked every one-class
+   rule (0,1,0) and flattened the whole HUD to 15px off-white in game (2026-10-04 screenshots; found by the v3_0_0 mock review).
+   This stylesheet applies only to this layout's panels, so the bare selector touches nothing of CS2's own HUD. */
+Label
+{
+	font-family: Stratum2, 'Arial Unicode MS';
+	font-size: 15px;
+	color: gg-text;
+}
+
+/* ---- shared pieces ------------------------------------------------------------------------------------------------ */
+
+.gg-eyebrow
+{
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-label
+{
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-faint;
+	margin-top: 16px;
+	margin-bottom: 6px;
+}
+
+.gg-map
+{
+	width: 100%;
+	font-size: 22px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-by
+{
+	width: 100%;
+	font-size: 13px;
+	color: gg-dim;
+	margin-top: 3px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-status
+{
+	width: 100%;
+	font-size: 13px;
+	color: gg-dim;
+	margin-top: 10px;
+}
+
+.gg-cmd
+{
+	font-family: Stratum2 Mono, 'Arial Unicode MS';
+	color: gg-gold-hi;
+}
+
+.gg-knife
+{
+	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/knife.vtex" );
+	background-size: contain;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.gg-knife-small
+{
+	width: 28px;
+	height: 14px;
+	vertical-align: center;
+	wash-color: gg-gold;
+}
+
+/* A pulsing dot: "this is live". Keyframes on opacity are the one kind that runs in a custom HUD. */
+@keyframes 'gg-pulse'
+{
+	0% { opacity: 1; }
+	50% { opacity: 0.25; }
+	100% { opacity: 1; }
+}
+
+.gg-live-dot
+{
+	width: 7px;
+	height: 7px;
+	vertical-align: center;
+	border-radius: 50%;
+	background-color: #FF5A4E;
+	box-shadow: #FF5A4E99 0px 0px 6px 1px;
+	animation-name: gg-pulse;
+	animation-duration: 1.6s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+/* While the next map loads the dot turns gold: everyone is about to reconnect. */
+.gg-global.loading .gg-live-dot
+{
+	background-color: gg-gold;
+	box-shadow: #E9B44C99 0px 0px 6px 1px;
+}
+
+/* Up and down chevrons, drawn with two borders of a turned square: no font is trusted with arrows. */
+.gg-chev
+{
+	width: 8px;
+	height: 8px;
+	vertical-align: center;
+	margin-top: 4px;
+	border-top: 2px solid gg-up;
+	border-left: 2px solid gg-up;
+	transform: rotateZ( 45deg );
+}
+
+.gg-chev-down
+{
+	margin-top: -4px;
+	border-top: 2px solid gg-down;
+	border-left: 2px solid gg-down;
+	transform: rotateZ( 225deg );
+}
+
+/* Lists: up next, most liked. Rows the plugin does not mark "used" collapse. */
+.gg-list
+{
+	width: 100%;
+	flow-children: down;
+}
+
+.gg-row
+{
+	visibility: collapse;
+	width: 100%;
+	height: 23px;
+	flow-children: right;
+}
+
+.gg-row.used
+{
+	visibility: visible;
+}
+
+.gg-row-num
+{
+	width: 20px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 12px;
+	color: gg-gold;
+}
+
+.gg-row-map
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 14px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-row-side
+{
+	max-width: 140px;
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-dim;
+	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-row-score
+{
+	font-weight: bold;
+	color: gg-up;
+}
+
+.gg-empty
+{
+	visibility: collapse;
+	width: 100%;
+	font-size: 13px;
+	color: gg-faint;
+}
+
+.gg-empty.used
+{
+	visibility: visible;
+}
+
+/* ---- 1. the board, beside the scoreboard while TAB is held -------------------------------------------------------- */
+
+.gg-board
+{
+	visibility: collapse;
+	width: 392px;
+	horizontal-align: right;
+	vertical-align: center;
+	margin-right: 28px;
+	flow-children: down;
+	padding: 16px 18px 14px 18px;
+	background-color: gg-card;
+	border-left: 3px solid gg-gold;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+	world-blur: gg-blur;
+}
+
+/* HUD_SCOREBOARD_VISIBLE is the client's own class on the HUD root while the scoreboard is up: no server round trip. */
+.HUD_SCOREBOARD_VISIBLE .gg-global.ready .gg-board
+{
+	visibility: visible;
+}
+
+.HUD_SCOREBOARD_VISIBLE .gg-global.ready .gg-screen.win .gg-board
+{
+	visibility: collapse;
+}
+
+/* The scoreboard is ~870 px wide in the middle; narrower screens leave less room beside it. */
+.AspectRatio16x10 .gg-board
+{
+	margin-right: 12px;
+	ui-scale: 92%;
+}
+
+.AspectRatio4x3 .gg-board
+{
+	margin-right: 4px;
+	ui-scale: 70%;
+}
+
+.gg-board-head
+{
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 2px;
+}
+
+.gg-board-title
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 8px;
+	vertical-align: center;
+}
+
+.gg-votes
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 10px;
+}
+
+.gg-chip
+{
+	height: 26px;
+	flow-children: right;
+	padding: 0px 10px;
+	margin-right: 6px;
+	border-radius: 3px;
+	background-color: #FFFFFF0D;
+	border: 1px solid #FFFFFF14;
+}
+
+.gg-chip-num
+{
+	margin-left: 8px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 15px;
+}
+
+.gg-chip-up .gg-chip-num
+{
+	color: gg-up;
+}
+
+.gg-chip-down .gg-chip-num
+{
+	color: gg-down;
+}
+
+.gg-you
+{
+	margin-left: 6px;
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-faint;
+}
+
+.gg-screen.voted-up .gg-chip-up
+{
+	background-color: #7BD88F24;
+	border: 1px solid #7BD88F80;
+}
+
+.gg-screen.voted-down .gg-chip-down
+{
+	background-color: #F07C6B24;
+	border: 1px solid #F07C6B80;
+}
+
+.gg-screen.voted-up .gg-you
+{
+	color: gg-up;
+}
+
+.gg-screen.voted-down .gg-you
+{
+	color: gg-down;
+}
+
+.gg-board-foot
+{
+	width: 100%;
+	flow-children: down;
+	margin-top: 14px;
+	padding-top: 10px;
+	border-top: 1px solid gg-line;
+}
+
+.gg-foot-cmds
+{
+	font-family: Stratum2 Mono, 'Arial Unicode MS';
+	font-size: 11px;
+	color: gg-dim;
+}
+
+.gg-foot-site
+{
+	margin-top: 4px;
+	font-size: 12px;
+	color: gg-faint;
+}
+
+/* ---- 2. the card: now playing, welcome back ------------------------------------------------------------------------ */
+
+.gg-toast
+{
+	visibility: collapse;
+	width: 420px;
+	height: 104px;
+	horizontal-align: left;
+	vertical-align: top;
+	margin-left: 24px;
+	margin-top: 430px;     /* under CS2's radar and the place name below it (down to y ~410 at 1080p); it sat on them at 300 */
+	flow-children: right;
+	background-color: gg-card;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+	world-blur: gg-blur;
+	opacity: 0;
+	transform: translateX( -28px );
+	transition-property: opacity, transform;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.gg-screen.toast-1 .gg-toast
+{
+	visibility: visible;
+}
+
+.gg-screen.toast-2 .gg-toast
+{
+	visibility: visible;
+}
+
+.gg-screen.toast-in .gg-toast
+{
+	opacity: 1;
+	transform: translateX( 0px );
+}
+
+.gg-toast-mark
+{
+	width: 72px;
+	height: 100%;
+	border-radius: 4px 0px 0px 4px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F4C868 ), to( gg-gold-deep ) );
+}
+
+.gg-knife-toast
+{
+	width: 62px;
+	height: 31px;
+	horizontal-align: center;
+	vertical-align: center;
+	wash-color: #1A1408;
+	transform: rotateZ( -38deg );
+}
+
+.gg-toast-body
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+	padding: 12px 16px 0px 16px;
+}
+
+.gg-toast-map
+{
+	width: 100%;
+	margin-top: 4px;
+	font-size: 21px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-toast-hint
+{
+	width: 100%;
+	margin-top: 6px;
+	font-size: 12px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---- 3. the banner: a map change counting down --------------------------------------------------------------------- */
+
+.gg-banner
+{
+	visibility: collapse;
+	width: 560px;
+	height: 76px;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 160px;
+	flow-children: right;
+	padding: 0px 0px 0px 20px;
+	background-color: gg-card;
+	border-top: 2px solid gg-gold;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+	world-blur: gg-blur;
+}
+
+.gg-global.changing .gg-banner
+{
+	visibility: visible;
+}
+
+.gg-screen.win .gg-banner
+{
+	visibility: collapse;
+}
+
+.gg-banner-text
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+	padding-top: 10px;
+}
+
+.gg-banner-map
+{
+	width: 100%;
+	margin-top: 2px;
+	font-size: 20px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-banner-count
+{
+	width: 76px;
+	height: 100%;
+	border-radius: 0px 4px 4px 0px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F4C868 ), to( gg-gold-deep ) );
+}
+
+.gg-banner-secs
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 34px;
+	color: #1A1408;
+}
+
+/* ---- 4. the window -------------------------------------------------------------------------------------------------- */
+
+.gg-dim
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+	background-color: #05070A80;
+	opacity: 0;
+	transition-property: opacity;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.gg-screen.win .gg-dim
+{
+	visibility: visible;
+}
+
+.gg-screen.win-in .gg-dim
+{
+	opacity: 1;
+}
+
+.gg-win
+{
+	visibility: collapse;
+	width: 1240px;
+	height: 820px;
+	horizontal-align: center;
+	vertical-align: center;
+	flow-children: down;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #141A21F4 ), to( #0A0D11F7 ) );
+	background-image: url( "s2r://panorama/images/backgrounds/bluedots_large_png.vtex" );
+	background-size: 360px 360px;
+	background-img-opacity: 0.03;
+	border: 1px solid #FFFFFF12;
+	border-radius: 5px;
+	box-shadow: #000000b3 0px 24px 72px 0px;
+	world-blur: gg-blur;
+	opacity: 0;
+	transform: translateY( 22px ) scale3d( 0.985, 0.985, 1 );
+	transition-property: opacity, transform;
+	transition-duration: 0.25s;
+	transition-timing-function: ease-out;
+}
+
+.gg-screen.win .gg-win
+{
+	visibility: visible;
+	sound: "UIPanorama.submenu_dropdown_select";
+}
+
+.gg-screen.win-in .gg-win
+{
+	opacity: 1;
+	transform: none;
+}
+
+.gg-win-rule
+{
+	width: 100%;
+	height: 3px;
+	border-radius: 5px 5px 0px 0px;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), color-stop( 0.5, gg-gold-hi ), to( gg-gold-deep ) );
+	box-shadow: #E9B44C66 0px 0px 14px 0px;
+}
+
+/* -- head -- */
+
+.gg-win-head
+{
+	width: 100%;
+	height: 92px;
+	flow-children: right;
+	padding: 0px 24px 0px 32px;
+}
+
+.gg-emblem
+{
+	width: 60px;
+	height: 60px;
+	vertical-align: center;
+	border-radius: 5px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F6D27E ), to( gg-gold-deep ) );
+	box-shadow: #E9B44C40 0px 0px 18px 0px;
+}
+
+.gg-knife-emblem
+{
+	width: 64px;
+	height: 32px;
+	horizontal-align: center;
+	vertical-align: center;
+	wash-color: #1A1408;
+	transform: rotateZ( -38deg );
+}
+
+.gg-titles
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	flow-children: down;
+	margin-left: 18px;
+}
+
+.gg-title
+{
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 34px;
+	letter-spacing: 3px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+	text-shadow: 0px 2px 6px 1 #00000080;
+}
+
+.gg-subtitle
+{
+	flow-children: right;
+	margin-top: 1px;
+}
+
+.gg-sub
+{
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-sub-dot
+{
+	margin: 0px 10px;
+	color: gg-faint;
+}
+
+.gg-close
+{
+	width: 42px;
+	height: 42px;
+	vertical-align: center;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-close:hover
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C1F;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-close:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-x
+{
+	width: 18px;
+	height: 2px;
+	horizontal-align: center;
+	vertical-align: center;
+	background-color: gg-dim;
+}
+
+.gg-x-a
+{
+	transform: rotateZ( 45deg );
+}
+
+.gg-x-b
+{
+	transform: rotateZ( -45deg );
+}
+
+.gg-close:hover .gg-x
+{
+	background-color: #FFFFFF;
+}
+
+/* -- tabs -- */
+
+.gg-tabs
+{
+	width: 100%;
+	height: 48px;
+	flow-children: right;
+	padding: 0px 18px;
+	border-bottom: 1px solid gg-line;
+}
+
+.gg-tab
+{
+	height: 100%;
+	padding: 0px 16px;
+	border-bottom: 2px solid #00000000;
+}
+
+.gg-tab:hover
+{
+	sound: "UIPanorama.submenu_rollover";
+}
+
+.gg-tab-text
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-tab:hover .gg-tab-text
+{
+	color: gg-text;
+}
+
+.gg-screen.page-start #gg_tab_start
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-help #gg_tab_help
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-rules #gg_tab_rules
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-start #gg_tab_start .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-help #gg_tab_help .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-rules #gg_tab_rules .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-maps #gg_tab_maps
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-maps #gg_tab_maps .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-queue #gg_tab_queue
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-queue #gg_tab_queue .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-game #gg_tab_game
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-game #gg_tab_game .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+/* -- body: the pages on the left, the live column on the right -- */
+
+.gg-win-body
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: right;
+}
+
+.gg-pages
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/knife.vtex" );
+	background-size: 520px 260px;
+	background-position: 112% 118%;
+	background-repeat: no-repeat;
+	background-img-opacity: 0.035;
+}
+
+.gg-page
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+	padding: 26px 34px 20px 34px;
+}
+
+.gg-screen.page-start .gg-page-start
+{
+	visibility: visible;
+}
+
+.gg-screen.page-help .gg-page-help
+{
+	visibility: visible;
+}
+
+.gg-screen.page-rules .gg-page-rules
+{
+	visibility: visible;
+}
+
+.gg-screen.page-maps .gg-page-maps
+{
+	visibility: visible;
+}
+
+.gg-screen.page-queue .gg-page-queue
+{
+	visibility: visible;
+}
+
+.gg-screen.page-game .gg-page-game
+{
+	visibility: visible;
+}
+
+/* The map browser takes the whole width: the live column steps aside while it is open. */
+.gg-screen.page-maps .gg-live
+{
+	visibility: collapse;
+}
+
+/* start */
+
+.gg-page-start
+{
+	flow-children: down;
+}
+
+.gg-hello
+{
+	font-size: 13px;
+	letter-spacing: 3px;
+}
+
+.gg-headline
+{
+	margin-top: 8px;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 46px;
+	color: #FFFFFF;
+	text-shadow: 0px 2px 8px 1 #00000080;
+}
+
+.gg-lede
+{
+	width: 660px;
+	margin-top: 8px;
+	font-size: 17px;
+	line-height: 25px;
+	color: gg-dim;
+}
+
+.gg-steps
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 36px;
+}
+
+.gg-step
+{
+	width: 238px;
+	height: 176px;
+	margin-right: 14px;
+	flow-children: down;
+	padding: 16px 16px 14px 16px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF12;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0C ), to( #FFFFFF04 ) );
+}
+
+.gg-step-head
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-step-num
+{
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 2px solid gg-gold;
+}
+
+.gg-step-num Label
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 14px;
+	color: gg-gold;
+}
+
+.gg-step-title
+{
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 15px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-step-cmd
+{
+	margin-top: 18px;
+	padding: 5px 10px;
+	border-radius: 3px;
+	border: 1px solid #E9B44C40;
+	background-color: #E9B44C14;
+	font-size: 18px;
+}
+
+.gg-step-txt
+{
+	width: 100%;
+	margin-top: 14px;
+	font-size: 14px;
+	line-height: 20px;
+	color: gg-dim;
+}
+
+.gg-hint
+{
+	margin-top: 36px;
+	padding-left: 12px;
+	border-left: 2px solid #E9B44C80;
+	font-size: 14px;
+	color: gg-dim;
+}
+
+/* help: five groups, a gutter for the group's name, then where to click and what it does */
+
+.gg-page-help
+{
+	flow-children: down;
+	padding-top: 14px;
+}
+
+.gg-group
+{
+	width: 100%;
+	flow-children: right;
+	padding: 6px 0px 7px 0px;
+	border-bottom: 1px solid gg-line;
+}
+
+.gg-group-last
+{
+	border-bottom: 0px solid #00000000;
+}
+
+.gg-group-name
+{
+	width: 92px;
+	margin-top: 3px;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-group-rows
+{
+	width: fill-parent-flow( 1 );
+	flow-children: down;
+}
+
+.gg-crow
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: right;
+	padding: 2px 0px;
+}
+
+.gg-crow.used
+{
+	visibility: visible;
+}
+
+.gg-crow-cmd
+{
+	width: 214px;
+	font-size: 15px;
+}
+
+.gg-crow-txt
+{
+	width: fill-parent-flow( 1 );
+	font-size: 14px;
+	line-height: 19px;
+	color: gg-dim;
+}
+
+/* rules: three sections in two columns */
+
+.gg-page-rules
+{
+	flow-children: right;
+}
+
+.gg-rules-col
+{
+	width: 330px;
+	height: 100%;
+	flow-children: down;
+	margin-right: 28px;
+}
+
+.gg-rules-col-wide
+{
+	width: fill-parent-flow( 1 );
+	margin-right: 0px;
+}
+
+.gg-rule
+{
+	width: 100%;
+	flow-children: down;
+	margin-bottom: 34px;
+}
+
+.gg-rule-head
+{
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 10px;
+}
+
+.gg-rule-mark
+{
+	width: 4px;
+	height: 22px;
+	border-radius: 2px;
+	background-color: gg-gold;
+}
+
+.gg-rule-title
+{
+	margin-left: 12px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 22px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-rline
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 11px;
+}
+
+.gg-rline.used
+{
+	visibility: visible;
+}
+
+.gg-bullet
+{
+	width: 6px;
+	height: 6px;
+	margin: 9px 12px 0px 4px;
+	border-radius: 50%;
+	background-color: gg-gold;
+}
+
+.gg-rline-txt
+{
+	width: fill-parent-flow( 1 );
+	font-size: 16px;
+	line-height: 24px;
+	color: gg-text;
+}
+
+/* -- the live column -- */
+
+.gg-live
+{
+	width: 420px;
+	height: 100%;
+	flow-children: down;
+	padding: 20px 26px 16px 26px;
+	border-left: 1px solid gg-line;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF08 ), to( #FFFFFF02 ) );
+}
+
+.gg-live-head
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-live-head .gg-label
+{
+	width: fill-parent-flow( 1 );
+	margin-top: 0px;
+	margin-bottom: 4px;
+}
+
+.gg-map-big
+{
+	font-size: 26px;
+}
+
+.gg-vote-buttons
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 14px;
+}
+
+.gg-vote
+{
+	width: fill-parent-flow( 1 );
+	height: 46px;
+	flow-children: right;
+	padding: 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF0A;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-vote-up
+{
+	margin-right: 10px;
+}
+
+.gg-vote:hover
+{
+	background-color: #FFFFFF17;
+	border: 1px solid #FFFFFF40;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-vote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-vote-word
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 12px;
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-vote-num
+{
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 20px;
+}
+
+.gg-vote-up .gg-vote-num
+{
+	color: gg-up;
+}
+
+.gg-vote-down .gg-vote-num
+{
+	color: gg-down;
+}
+
+.gg-screen.voted-up .gg-vote-up
+{
+	background-color: #7BD88F26;
+	border: 1px solid #7BD88FB3;
+}
+
+.gg-screen.voted-down .gg-vote-down
+{
+	background-color: #F07C6B26;
+	border: 1px solid #F07C6BB3;
+}
+
+.gg-screen.voted-up .gg-vote-up .gg-vote-word
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.voted-down .gg-vote-down .gg-vote-word
+{
+	color: #FFFFFF;
+}
+
+.gg-act
+{
+	width: 100%;
+	height: 56px;
+	flow-children: down;
+	margin-top: 12px;
+	padding: 8px 14px 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C80;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C2E ), to( #E9B44C0F ) );
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-act:hover
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C4D ), to( #E9B44C1A ) );
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-act:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-act-text
+{
+	font-size: 15px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-act-sub
+{
+	margin-top: 2px;
+	font-size: 12px;
+	color: gg-dim;
+}
+
+/* Nothing to click while a change is under way. */
+.gg-screen.act-off .gg-act
+{
+	opacity: 0.45;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+}
+
+.gg-screen.act-off .gg-act-text
+{
+	color: gg-dim;
+}
+
+/* The holder's button says "I'm done": a touch warmer, it is their map. */
+.gg-screen.holder .gg-act
+{
+	border: 1px solid gg-gold-hi;
+}
+
+/* -- foot -- */
+
+.gg-win-foot
+{
+	width: 100%;
+	height: 44px;
+	flow-children: right;
+	padding: 0px 34px 0px 34px;
+	border-top: 1px solid gg-line;
+}
+
+.gg-win-foot .gg-foot-site
+{
+	width: fill-parent-flow( 1 );
+	margin-top: 0px;
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-drain
+{
+	vertical-align: center;
+	flow-children: right;
+}
+
+.gg-drain-word
+{
+	margin-right: 12px;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-drain-track
+{
+	width: 160px;
+	height: 3px;
+	vertical-align: center;
+	border-radius: 2px;
+	background-color: #FFFFFF14;
+}
+
+/* The idle close, drawn: a gold line that empties over 30 s (HudSlots.IdleCloseSeconds) and refills on every click. */
+.gg-drain-fill
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 2px;
+	background-color: gg-gold;
+	transform-origin: 0% 50%;
+	transform: scaleX( 1 );
+	transition-property: transform;
+	transition-duration: 0s;
+}
+
+.gg-screen.draining .gg-drain-fill
+{
+	transform: scaleX( 0 );
+	transition-property: transform;
+	transition-duration: 30s;
+	transition-timing-function: linear;
+}
+
+/* ---- the menu's map browser (page-maps): a toolbar of sorts and filters, eight cards, pages ---------------------------- */
+
+.gg-page-maps
+{
+	flow-children: down;
+	padding: 14px 34px 10px 34px;
+}
+
+.gg-mbar
+{
+	width: 100%;
+	height: 34px;
+	flow-children: right;
+	margin-bottom: 8px;
+}
+
+.gg-mbar-filters
+{
+	margin-bottom: 14px;
+}
+
+.gg-mbar-label
+{
+	width: 46px;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-mbar-fill
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+}
+
+.gg-mbar-sep
+{
+	width: 1px;
+	height: 20px;
+	vertical-align: center;
+	margin: 0px 12px 0px 4px;
+	background-color: #FFFFFF1F;
+}
+
+/* sort: one segmented control */
+.gg-seg
+{
+	height: 100%;
+	flow-children: right;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+}
+
+.gg-seg-btn
+{
+	height: 100%;
+	flow-children: right;
+	padding: 0px 16px;
+	border-right: 1px solid #FFFFFF12;
+	transition-property: background-color;
+	transition-duration: 0.12s;
+}
+
+.gg-seg-btn:hover
+{
+	background-color: #FFFFFF12;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-seg-btn:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-seg-text
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-seg-btn.on
+{
+	background-color: #E9B44C24;
+}
+
+.gg-seg-btn.on .gg-seg-text
+{
+	color: gg-gold-hi;
+}
+
+/* The direction mark: shown on the sort that is on, turned round when it runs the other way. */
+.gg-seg-dir
+{
+	visibility: collapse;
+	width: 6px;
+	height: 6px;
+	vertical-align: center;
+	margin: -3px 0px 0px 9px;
+	border-right: 2px solid gg-gold-hi;
+	border-bottom: 2px solid gg-gold-hi;
+	transform: rotateZ( 45deg );
+}
+
+.gg-seg-btn.on .gg-seg-dir
+{
+	visibility: visible;
+}
+
+.gg-seg-btn.desc .gg-seg-dir
+{
+	margin-top: 4px;
+	transform: rotateZ( 225deg );
+}
+
+/* filters: the site's size chips, liked by me, official */
+.gg-chipb
+{
+	height: 28px;
+	vertical-align: center;
+	flow-children: right;
+	margin-right: 6px;
+	padding: 0px 12px;
+	border-radius: 14px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-chipb:hover
+{
+	border: 1px solid #FFFFFF59;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-chipb:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-chipb-text
+{
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-chipb.on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-chipb.on .gg-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.gg-chipb-liked .gg-chev
+{
+	margin: 4px 8px 0px 0px;
+}
+
+.gg-mcount
+{
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	letter-spacing: 1px;
+	color: gg-dim;
+}
+
+/* search: what !find set, and a cross to drop it; the hint while there is none */
+.gg-search
+{
+	height: 100%;
+	flow-children: right;
+	padding: 0px 6px 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF12;
+}
+
+.gg-search.used
+{
+	border: 1px solid #E9B44C80;
+	background-color: #E9B44C14;
+}
+
+.gg-search-label
+{
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-faint;
+}
+
+.gg-search.used .gg-search-label
+{
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-search-text
+{
+	visibility: collapse;
+	max-width: 260px;
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 14px;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-search.used .gg-search-text
+{
+	visibility: visible;
+}
+
+.gg-search-clear
+{
+	visibility: collapse;
+	width: 26px;
+	height: 26px;
+	margin-left: 8px;
+	vertical-align: center;
+	border-radius: 3px;
+}
+
+.gg-search.used .gg-search-clear
+{
+	visibility: visible;
+}
+
+.gg-search-clear:hover
+{
+	background-color: #FFFFFF14;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-search-clear .gg-x
+{
+	width: 12px;
+}
+
+/* the cards: four in a row, two rows */
+.gg-grid
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: down;
+}
+
+.gg-grid-row
+{
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 12px;
+}
+
+.gg-mcard
+{
+	visibility: collapse;
+	width: 280px;
+	height: 228px;
+	margin-right: 12px;
+	flow-children: down;
+	border-radius: 5px;
+	border: 1px solid #FFFFFF14;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0D ), to( #FFFFFF05 ) );
+	transition-property: border, background-color;
+	transition-duration: 0.12s;
+}
+
+.gg-mcard.used
+{
+	visibility: visible;
+}
+
+.gg-mcard:hover
+{
+	border: 1px solid #FFFFFF33;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF14 ), to( #FFFFFF08 ) );
+}
+
+.gg-mcard.now
+{
+	border: 1px solid gg-gold;
+	box-shadow: #E9B44C33 0px 0px 14px 0px;
+}
+
+/* The picture: the two classes the plugin sets on it (th and tl, the map's picture number) pick its rule in gungame_hud_thumbs.css. */
+.gg-mthumb
+{
+	width: 100%;
+	height: 132px;
+	border-radius: 5px 5px 0px 0px;
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #1C2530 ), to( #0D1218 ) );
+	background-size: cover;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.gg-mthumb-shade
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 5px 5px 0px 0px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.35, #00000000 ), color-stop( 0.7, #00000000 ), to( #000000B3 ) );
+}
+
+.gg-mrank
+{
+	margin: 8px 0px 0px 8px;
+	padding: 2px 8px;
+	border-radius: 3px;
+	background-color: #000000B3;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: #FFFFFF;
+}
+
+.gg-mcard.official .gg-mrank
+{
+	font-family: Stratum2, 'Arial Unicode MS';
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-mtags
+{
+	horizontal-align: right;
+	flow-children: down;
+	margin: 8px 8px 0px 0px;
+}
+
+.gg-mtag
+{
+	visibility: collapse;
+	horizontal-align: right;
+	margin-bottom: 4px;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+}
+
+.gg-mtag-now
+{
+	background-color: gg-gold;
+	color: #14100A;
+}
+
+.gg-mtag-queued
+{
+	background-color: #7BD88FE6;
+	color: #0C1A10;
+}
+
+.gg-mcard.now .gg-mtag-now
+{
+	visibility: visible;
+}
+
+.gg-mcard.queued .gg-mtag-queued
+{
+	visibility: visible;
+}
+
+/* A broken or crashed map says so across the bottom of its picture. */
+.gg-mwarn
+{
+	visibility: collapse;
+	width: 100%;
+	vertical-align: bottom;
+	padding: 4px 10px;
+	font-size: 12px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-mcard.crashed .gg-mwarn
+{
+	visibility: visible;
+	background-color: #C9831ED9;
+}
+
+.gg-mcard.broken .gg-mwarn
+{
+	visibility: visible;
+	background-color: #C2412FE6;
+}
+
+.gg-mbody
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: down;
+	padding: 8px 12px 8px 12px;
+}
+
+.gg-mname
+{
+	width: 100%;
+	height: 21px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-mmeta
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 2px;
+}
+
+.gg-msize
+{
+	width: fill-parent-flow( 1 );
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-mvotes
+{
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-mcard.liked .gg-mvotes
+{
+	color: gg-up;
+}
+
+.gg-mcard.disliked .gg-mvotes
+{
+	color: gg-down;
+}
+
+.gg-macts
+{
+	width: 100%;
+	height: 30px;
+	flow-children: right;
+	margin-top: 9px;
+}
+
+.gg-mplay
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	border-radius: 3px;
+	border: 1px solid #E9B44C80;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C2E ), to( #E9B44C12 ) );
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-mplay:hover
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C52 ), to( #E9B44C1F ) );
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-mplay:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-mplay-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-mcard.risky .gg-mplay
+{
+	border: 1px solid #C9831EB3;
+	background-color: #C9831E1F;
+}
+
+.gg-mcard.risky .gg-mplay-text
+{
+	color: #F2B45A;
+}
+
+.gg-mcard.confirm .gg-mplay
+{
+	border: 1px solid #F07C6B;
+	background-color: #C2412F59;
+}
+
+.gg-mcard.confirm .gg-mplay-text
+{
+	color: #FFFFFF;
+}
+
+.gg-mcard.now .gg-mplay
+{
+	opacity: 0.5;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
+}
+
+.gg-mcard.now .gg-mplay-text
+{
+	color: gg-dim;
+}
+
+.gg-mvote
+{
+	width: 34px;
+	height: 100%;
+	margin-left: 6px;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-mvote:hover
+{
+	border: 1px solid #FFFFFF4D;
+	background-color: #FFFFFF17;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-mvote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-mvote .gg-chev
+{
+	horizontal-align: center;
+}
+
+.gg-mcard.liked .gg-mvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.gg-mcard.disliked .gg-mvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.gg-mempty
+{
+	visibility: collapse;
+	horizontal-align: center;
+	margin-top: 120px;
+	font-size: 16px;
+	color: gg-dim;
+}
+
+.gg-mempty.used
+{
+	visibility: visible;
+}
+
+/* pages */
+.gg-pager
+{
+	horizontal-align: center;
+	height: 34px;
+	flow-children: right;
+}
+
+.gg-pgb
+{
+	height: 100%;
+	margin: 0px 4px;
+	padding: 0px 16px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border, opacity;
+	transition-duration: 0.12s;
+}
+
+.gg-pgb:hover
+{
+	border: 1px solid #FFFFFF59;
+	background-color: #FFFFFF14;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-pgb:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-pgb.off
+{
+	opacity: 0.3;
+}
+
+.gg-pgb-text
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-pgtext
+{
+	min-width: 180px;
+	vertical-align: center;
+	margin: 0px 14px;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 14px;
+	letter-spacing: 1px;
+	text-align: center;
+	color: gg-text;
+}
+
+/* ---- the queue page -------------------------------------------------------------------------------------------------- */
+
+.gg-page-queue
+{
+	flow-children: down;
+}
+
+.gg-qhead
+{
+	width: 100%;
+	height: 34px;
+	flow-children: right;
+	margin-bottom: 10px;
+}
+
+.gg-qmine
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 15px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-qcancelall
+{
+	height: 100%;
+	padding: 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #F07C6B80;
+	background-color: #F07C6B14;
+}
+
+.gg-qcancelall:hover
+{
+	border: 1px solid #F07C6B;
+	background-color: #F07C6B2E;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-qcancelall.off
+{
+	visibility: collapse;
+}
+
+.gg-qlist
+{
+	width: 100%;
+	flow-children: down;
+}
+
+.gg-qrow
+{
+	visibility: collapse;
+	width: 100%;
+	height: 44px;
+	flow-children: right;
+	margin-bottom: 4px;
+	padding: 0px 12px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF0F;
+	background-color: #FFFFFF06;
+}
+
+.gg-qrow.used
+{
+	visibility: visible;
+}
+
+.gg-qrow.mine
+{
+	border: 1px solid #E9B44C66;
+	background-color: #E9B44C12;
+}
+
+.gg-qpos
+{
+	width: 34px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 18px;
+	color: gg-gold;
+}
+
+.gg-qmain
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	flow-children: down;
+}
+
+.gg-qmap
+{
+	width: 100%;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-qwho
+{
+	font-size: 12px;
+	color: gg-dim;
+}
+
+.gg-qyours
+{
+	visibility: collapse;
+	vertical-align: center;
+	margin-right: 10px;
+	padding: 2px 8px;
+	border-radius: 3px;
+	background-color: gg-gold;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #14100A;
+}
+
+.gg-qrow.mine .gg-qyours
+{
+	visibility: visible;
+}
+
+.gg-qcancel
+{
+	visibility: collapse;
+	height: 28px;
+	vertical-align: center;
+	padding: 0px 12px;
+	border-radius: 3px;
+	border: 1px solid #F07C6B80;
+	background-color: #F07C6B14;
+}
+
+.gg-qrow.mine .gg-qcancel
+{
+	visibility: visible;
+}
+
+.gg-qcancel:hover
+{
+	border: 1px solid #F07C6B;
+	background-color: #F07C6B2E;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-qcancel-text
+{
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #F6A497;
+}
+
+.gg-qempty
+{
+	margin-top: 24px;
+	font-size: 16px;
+}
+
+/* ---- the game page -------------------------------------------------------------------------------------------------- */
+
+.gg-page-game
+{
+	flow-children: down;
+}
+
+.gg-set
+{
+	width: 100%;
+	flow-children: down;
+	margin-bottom: 26px;
+}
+
+.gg-set-head
+{
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 6px;
+}
+
+.gg-set-title
+{
+	margin-left: 12px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 22px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-rule-mark-red
+{
+	background-color: gg-down;
+}
+
+.gg-set-sub
+{
+	margin-left: 16px;
+	font-size: 14px;
+	color: gg-dim;
+}
+
+.gg-set-btns
+{
+	flow-children: right;
+	margin: 12px 0px 0px 16px;
+}
+
+.gg-setb
+{
+	width: 160px;
+	height: 40px;
+	margin-right: 10px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF0A;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-setb:hover
+{
+	border: 1px solid #FFFFFF59;
+	background-color: #FFFFFF17;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-setb:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-setb.on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+.gg-setb-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-text;
+}
+
+.gg-restart
+{
+	width: 440px;
+	height: 62px;
+	flow-children: down;
+	margin: 12px 0px 0px 16px;
+	padding: 10px 16px 0px 16px;
+	border-radius: 4px;
+	border: 1px solid #F07C6B66;
+	background-color: #F07C6B0F;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-restart:hover
+{
+	border: 1px solid #F07C6B;
+	background-color: #F07C6B24;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-restart:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-restart.armed
+{
+	border: 1px solid #FF8A75;
+	background-color: #C2412F66;
+	box-shadow: #F07C6B59 0px 0px 16px 0px;
+}
+
+.gg-restart-text
+{
+	font-size: 15px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: #F6A497;
+}
+
+.gg-restart.armed .gg-restart-text
+{
+	color: #FFFFFF;
+}
+
+.gg-restart-sub
+{
+	margin-top: 2px;
+	font-size: 12px;
+	color: gg-dim;
+}
+
+/* ---- the board's way in: a button below it (a click from the scoreboard may not reach a custom HUD; !gg always does) ---- */
+
+.gg-board-open
+{
+	width: 100%;
+	height: 36px;
+	flow-children: right;
+	margin-top: 10px;
+	padding: 0px 12px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C80;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C33 ), to( #E9B44C0F ) );
+}
+
+.gg-board-open:hover
+{
+	border: 1px solid gg-gold-hi;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-board-open-text
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-board-open-key
+{
+	vertical-align: center;
+	padding: 2px 8px;
+	border-radius: 3px;
+	background-color: #00000066;
+	font-size: 13px;
+	color: #FFFFFF;
+}
+
+
+/* ==== release v3_0_0 (2026-10-21): the HUD is the whole interface ================================================== */
+
+/* ---- the board as a click action panel: the vote buttons are the window's own (.gg-vote), Next is .gg-act ---------- */
+
+.gg-board .gg-vote-buttons
+{
+	margin-top: 12px;
+}
+
+.gg-board .gg-vote
+{
+	height: 40px;
+}
+
+.gg-board .gg-you
+{
+	margin-left: 0px;
+	margin-top: 6px;
+}
+
+.gg-bqueue
+{
+	width: 100%;
+	font-size: 13px;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---- the news line: everybody's, top centre - under the banner while one counts down, above the window when it is open ---- */
+
+.gg-news
+{
+	visibility: collapse;
+	max-width: 900px;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 160px;
+	flow-children: right;
+	padding: 10px 18px 10px 12px;
+	background-color: gg-card;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+	world-blur: gg-blur;
+}
+
+.gg-global.news .gg-news
+{
+	visibility: visible;
+}
+
+.gg-global.changing .gg-news
+{
+	margin-top: 246px;
+}
+
+.gg-screen.win .gg-news
+{
+	margin-top: 84px;
+}
+
+.gg-news-mark
+{
+	width: 4px;
+	height: 100%;
+	margin-right: 12px;
+	border-radius: 2px;
+	background-color: gg-gold;
+}
+
+.gg-news-text
+{
+	max-width: 860px;
+	vertical-align: center;
+	font-size: 16px;
+	color: #FFFFFF;
+}
+
+.gg-screen.win .gg-news-text
+{
+	white-space: nowrap;   /* above the open window there is room for one line */
+	text-overflow: ellipsis;
+}
+
+/* ---- the note: one player's own, bottom centre, under the window when it is open ---------------------------------------- */
+
+.gg-note
+{
+	visibility: collapse;
+	max-width: 760px;
+	horizontal-align: center;
+	vertical-align: bottom;
+	margin-bottom: 200px;
+	padding: 10px 18px;
+	background-color: #1A1206F0;
+	border: 1px solid #E9B44C99;
+	border-radius: 4px;
+	box-shadow: gg-shadow;
+}
+
+.gg-screen.note .gg-note
+{
+	visibility: visible;
+}
+
+.gg-screen.win .gg-note
+{
+	max-width: 1200px;     /* as wide as the window above it: a long note stays one line instead of growing up under the window */
+	margin-bottom: 84px;   /* clear of CS2's own health and ammo row (y 997-1058 at 1080p) and 5 px under the window */
+}
+
+.gg-screen.win .gg-note-text
+{
+	max-width: 1164px;
+}
+
+.gg-note-text
+{
+	max-width: 724px;
+	font-size: 15px;
+	color: gg-gold-hi;
+}
+
+/* ---- the search box: one button that opens the keyboard, and the clear button ------------------------------------------ */
+
+.gg-search-open
+{
+	height: 100%;
+	flow-children: right;
+	padding: 0px 4px 0px 0px;
+}
+
+.gg-search-key
+{
+	vertical-align: center;
+	margin-right: 10px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-screen.kbd .gg-search
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C1F;
+}
+
+.gg-screen.kbd .gg-search-text
+{
+	visibility: visible;
+}
+
+/* ---- the keyboard: four rows of keys between the toolbar and the cards; while it is open, one row of cards ------------- */
+
+.gg-kbd
+{
+	visibility: collapse;
+	horizontal-align: center;
+	flow-children: down;
+	margin-bottom: 12px;
+	padding: 10px 12px 4px 12px;
+	background-color: #00000059;
+	border-radius: 4px;
+}
+
+.gg-screen.kbd .gg-kbd
+{
+	visibility: visible;
+}
+
+.gg-screen.kbd .gg-grid-row2
+{
+	visibility: collapse;
+}
+
+.gg-kbd-row
+{
+	horizontal-align: center;
+	flow-children: right;
+	margin-bottom: 6px;
+}
+
+.gg-key
+{
+	width: 76px;
+	height: 40px;
+	margin: 0px 3px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF0F;
+	transition-property: background-color, border;
+	transition-duration: 0.08s;
+}
+
+.gg-key:hover
+{
+	background-color: #FFFFFF24;
+	border: 1px solid #FFFFFF59;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-key:active
+{
+	background-color: #E9B44C40;
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-key-wide
+{
+	width: 120px;
+}
+
+.gg-key-space
+{
+	width: 200px;
+}
+
+.gg-key-done
+{
+	width: 200px;
+	border: 1px solid #E9B44C99;
+	background-color: #E9B44C24;
+}
+
+.gg-key-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+/* ---- the card for a Workshop id that is not on the list -------------------------------------------------------------------- */
+
+.gg-ws
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 12px;
+	padding: 14px 16px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF0A;
+}
+
+.gg-ws.used
+{
+	visibility: visible;
+}
+
+.gg-ws.ready
+{
+	border: 1px solid #E9B44C99;
+}
+
+.gg-ws.refused
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B14;
+}
+
+.gg-ws.failed
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B14;
+}
+
+.gg-ws.installed
+{
+	border: 1px solid #7BD88FB3;
+}
+
+.gg-ws.requested
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F14;
+}
+
+.gg-ws-body
+{
+	width: fill-parent-flow( 1 );
+	flow-children: down;
+}
+
+.gg-ws-title
+{
+	margin-top: 4px;
+	font-size: 20px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-ws-info
+{
+	margin-top: 2px;
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-ws-status
+{
+	margin-top: 8px;
+	font-size: 14px;
+	color: gg-text;
+}
+
+.gg-ws-bar
+{
+	visibility: collapse;
+	width: 100%;
+	height: 6px;
+	margin-top: 8px;
+	border-radius: 3px;
+	background-color: #FFFFFF14;
+}
+
+.gg-ws.downloading .gg-ws-bar
+{
+	visibility: visible;
+}
+
+.gg-ws.installed .gg-ws-bar
+{
+	visibility: visible;
+}
+
+.gg-ws-fill
+{
+	width: 0%;
+	height: 100%;
+	border-radius: 3px;
+	background-color: gg-gold;
+}
+
+.gg-ws-bar.p1 .gg-ws-fill
+{
+	width: 10%;
+}
+
+.gg-ws-bar.p2 .gg-ws-fill
+{
+	width: 20%;
+}
+
+.gg-ws-bar.p3 .gg-ws-fill
+{
+	width: 30%;
+}
+
+.gg-ws-bar.p4 .gg-ws-fill
+{
+	width: 40%;
+}
+
+.gg-ws-bar.p5 .gg-ws-fill
+{
+	width: 50%;
+}
+
+.gg-ws-bar.p6 .gg-ws-fill
+{
+	width: 60%;
+}
+
+.gg-ws-bar.p7 .gg-ws-fill
+{
+	width: 70%;
+}
+
+.gg-ws-bar.p8 .gg-ws-fill
+{
+	width: 80%;
+}
+
+.gg-ws-bar.p9 .gg-ws-fill
+{
+	width: 90%;
+}
+
+.gg-ws-bar.p10 .gg-ws-fill
+{
+	width: 100%;
+	background-color: gg-up;
+}
+
+.gg-ws-play
+{
+	width: 220px;
+	height: 46px;
+	margin-left: 16px;
+	vertical-align: center;
+	border-radius: 4px;
+	border: 1px solid #E9B44CB3;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C40 ), to( #E9B44C14 ) );
+}
+
+.gg-ws-play:hover
+{
+	border: 1px solid gg-gold-hi;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-ws-play.off
+{
+	opacity: 0.4;
+}
+
+.gg-ws-play-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+/* ---- the queue page's Previous button ---------------------------------------------------------------------------------- */
+
+.gg-qprev
+{
+	height: 100%;
+	margin-right: 10px;
+	padding: 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C80;
+	background-color: #E9B44C14;
+}
+
+.gg-qprev.off
+{
+	opacity: 0.4;
+}
+
+.gg-qprev-text
+{
+	max-width: 330px;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-ws.checking
+{
+	border: 1px solid #FFFFFF33;
+}
+
+.gg-ws.waiting
+{
+	border: 1px solid #E9B44C66;
+}
+
+.gg-ws-bar.p0 .gg-ws-fill
+{
+	width: 0%;
+}
+
+/* ==== content v3_1_0 (2026-10-22), on the same path: the too-big vote, the new-maps setting, How it works ======================= */
+/* A panel new here gets words from the plugin only once the player's game has clicked a button that only this content has
+   (HudView.NewIds): a game that still holds the v3_0_0 content must never be sent a panel it lacks. Until then those panels stay
+   collapsed - .c31 on gg_screen says their words are coming. Every other new state is a class on a panel v3_0_0 has too (gg_global,
+   gg_screen, the cards), which an older game simply has no rule for. */
+
+/* ---- the board: Too big, a slim row under Like and Dislike ---- */
+
+.gg-bigvote
+{
+	width: 100%;
+	height: 30px;
+	margin-top: 8px;
+	flow-children: right;
+	padding: 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF0A;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-bigvote:hover
+{
+	background-color: #FFFFFF17;
+	border: 1px solid #FFFFFF40;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-bigvote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-bigvote .gg-vote-word
+{
+	margin-left: 0px;
+	font-size: 12px;
+}
+
+.gg-bigvote .gg-vote-num
+{
+	visibility: collapse;
+	font-size: 16px;
+	color: gg-down;
+}
+
+.gg-screen.c31 .gg-bigvote .gg-vote-num
+{
+	visibility: visible;
+}
+
+.gg-screen.voted-big .gg-bigvote
+{
+	background-color: #F07C6B26;
+	border: 1px solid #F07C6BB3;
+}
+
+.gg-screen.voted-big .gg-bigvote .gg-vote-word
+{
+	color: #FFFFFF;
+}
+
+/* ---- the cards: a third vote button, and a Too big tag on the picture of a map that is too big ---- */
+
+.gg-mvote
+{
+	width: 30px;
+	margin-left: 5px;
+}
+
+.gg-mplay-text
+{
+	font-size: 11px;
+	letter-spacing: 1px;
+}
+
+.gg-mbig-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-mcard.bigvoted .gg-mbig
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.gg-mcard.bigvoted .gg-mbig-text
+{
+	color: #FFFFFF;
+}
+
+.gg-mtag-big
+{
+	background-color: #F07C6BE6;
+	color: #1A0C0A;
+}
+
+.gg-mcard.big .gg-mtag-big
+{
+	visibility: visible;
+}
+
+/* ---- the game page: four settings now ---- */
+
+.gg-set
+{
+	margin-bottom: 18px;
+}
+
+.gg-set-new-now
+{
+	visibility: collapse;
+}
+
+.gg-screen.c31 .gg-set-new-now
+{
+	visibility: visible;
+}
+
+.gg-global.nm-always #gg_set_new_always
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+.gg-global.nm-half #gg_set_new_half
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+.gg-global.nm-never #gg_set_new_never
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+/* ---- How it works: five sections across the whole window ---- */
+
+.gg-screen.page-how .gg-page-how
+{
+	visibility: visible;
+}
+
+.gg-screen.page-how .gg-live
+{
+	visibility: collapse;
+}
+
+.gg-screen.page-how #gg_tab_how
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-how #gg_tab_how .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-page-how
+{
+	flow-children: down;
+	padding: 22px 34px 14px 34px;
+}
+
+.gg-how
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: down;
+	margin-bottom: 12px;
+}
+
+.gg-screen.c31 .gg-how
+{
+	visibility: visible;
+}
+
+.gg-how .gg-rule-head
+{
+	margin-bottom: 6px;
+}
+
+.gg-hline
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 4px;
+}
+
+.gg-hline.used
+{
+	visibility: visible;
+}
+
+.gg-hline .gg-bullet
+{
+	margin: 8px 12px 0px 4px;
+}
+
+.gg-hline-txt
+{
+	width: fill-parent-flow( 1 );
+	font-size: 15px;
+	line-height: 21px;
+	color: gg-text;
+}
+
+/* ==== content v3_2_0 (2026-10-24), on the same path again: the Ads vote, the Fun page, two more Help rows, the restart button's blink ==== */
+/* The same rule as v3_1_0's, one level up: a panel new here gets words from the plugin only once the player's game has clicked a button
+   that only this content has (HudView.NewIds32), and stays collapsed until then - .c32 on gg_screen says its words are coming. The rest
+   is classes on panels the older contents have too (gg_screen, the cards, the restart button), which they simply have no rule for. */
+
+/* ---- the board: Too big and Ads side by side under Like and Dislike ---- */
+
+.gg-bigrow
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 8px;
+}
+
+.gg-bigrow .gg-bigvote
+{
+	width: fill-parent-flow( 1 );
+	margin-top: 0px;
+}
+
+.gg-adsvote
+{
+	width: fill-parent-flow( 1 );
+	height: 30px;
+	margin-left: 8px;
+	flow-children: right;
+	padding: 0px 14px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF0A;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-adsvote:hover
+{
+	background-color: #FFFFFF17;
+	border: 1px solid #FFFFFF40;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-adsvote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-adsvote .gg-vote-word
+{
+	margin-left: 0px;
+	font-size: 12px;
+}
+
+.gg-adsvote .gg-vote-num
+{
+	visibility: collapse;
+	font-size: 16px;
+	color: #C79BFF;
+}
+
+.gg-screen.c32 .gg-adsvote .gg-vote-num
+{
+	visibility: visible;
+}
+
+.gg-screen.voted-ads .gg-adsvote
+{
+	background-color: #A66BFF26;
+	border: 1px solid #B98CFFB3;
+}
+
+.gg-screen.voted-ads .gg-adsvote .gg-vote-word
+{
+	color: #FFFFFF;
+}
+
+/* ---- the cards: an Ads button beside Big (four small buttons now, so a little narrower), an Ads tag on the picture ---- */
+
+.gg-mvote
+{
+	width: 26px;
+	margin-left: 4px;
+}
+
+.gg-mplay-text
+{
+	font-size: 10px;
+	letter-spacing: 0.5px;
+}
+
+.gg-mads-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 0.5px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-mcard.adsvoted .gg-mads
+{
+	border: 1px solid #B98CFFB3;
+	background-color: #A66BFF2E;
+}
+
+.gg-mcard.adsvoted .gg-mads-text
+{
+	color: #FFFFFF;
+}
+
+.gg-mtag-ads
+{
+	background-color: #B98CFFE6;
+	color: #150A22;
+}
+
+.gg-mcard.ads .gg-mtag-ads
+{
+	visibility: visible;
+}
+
+/* ---- Help: a fifth row for Voting (Ads) and Game (Fun), and a little less space per row so the page keeps inside the window ---- */
+
+.gg-group
+{
+	padding: 4px 0px 5px 0px;
+}
+
+.gg-crow
+{
+	padding: 1px 0px;
+}
+
+.gg-crow.gg-crow-c32
+{
+	visibility: collapse;
+}
+
+.gg-screen.c32 .gg-crow-c32.used
+{
+	visibility: visible;
+}
+
+/* ---- the restart button: a fast blink while it waits for its second click (the owner's 14a); the words count the seconds down ---- */
+
+@keyframes 'gg-blink'
+{
+	0% { opacity: 1; }
+	50% { opacity: 0.3; }
+	100% { opacity: 1; }
+}
+
+.gg-restart.armed
+{
+	animation-name: gg-blink;
+	animation-duration: 0.3s;
+	animation-timing-function: linear;
+	animation-iteration-count: infinite;
+}
+
+/* ---- the Fun page: twelve rows of up to three choices across the whole window - the live column steps aside. Its height:
+   14 + 8 px of padding, the note's line and 8 px, and twelve rows of 44 + 3 px - well inside the 633 px the pages have
+   (--selftest's estimate: 613). A row that does nothing at the moment (Instakill and Grenades while friendly fire is off) is dimmed. ---- */
+
+.gg-screen.page-fun .gg-page-fun
+{
+	visibility: visible;
+}
+
+.gg-screen.page-fun .gg-live
+{
+	visibility: collapse;
+}
+
+.gg-screen.page-fun #gg_tab_fun
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-fun #gg_tab_fun .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-page-fun
+{
+	flow-children: down;
+	padding: 14px 34px 8px 34px;
+}
+
+.gg-fun-note
+{
+	visibility: collapse;
+	margin-bottom: 8px;
+	font-size: 14px;
+	color: gg-dim;
+}
+
+.gg-screen.c32 .gg-fun-note
+{
+	visibility: visible;
+}
+
+.gg-fcols
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-fcol
+{
+	width: 50%;
+	flow-children: down;
+	padding-right: 14px;
+}
+
+.gg-fcol-right
+{
+	padding-right: 0px;
+	padding-left: 14px;
+}
+
+/* A row: its title and its choices on one line, its words under them across the column (Over Strike 2: sixteen rows, eight a column). */
+.gg-frow
+{
+	visibility: collapse;
+	width: 100%;
+	height: 66px;
+	flow-children: down;
+	margin-bottom: 4px;
+	padding-left: 12px;
+	border-left: 3px solid #E9B44C59;
+}
+
+.gg-screen.c32 .gg-frow.used
+{
+	visibility: visible;
+}
+
+.gg-frow.idle
+{
+	opacity: 0.5;
+}
+
+.gg-frow-top
+{
+	width: 100%;
+	height: 36px;
+	flow-children: right;
+}
+
+.gg-frow-title
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 18px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-frow-txt
+{
+	width: 100%;
+	margin-top: 2px;
+	font-size: 13px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-funb
+{
+	visibility: collapse;
+	width: 96px;
+	height: 32px;
+	vertical-align: center;
+}
+
+.gg-funb.used
+{
+	visibility: visible;
+}
+
+.gg-funb.on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+
+/* ---- Over Strike 2 (content v4_0_0 - v3_2_0 never shipped): our maps and the vote and the version check and the mode ---------------- */
+
+/* Our maps: the chip beside Official and the tag on a card's picture (ours.json). */
+.gg-mtag-ours
+{
+	visibility: collapse;
+}
+
+.gg-mtag-next
+{
+	visibility: collapse;
+}
+
+.gg-mcard.ours .gg-mtag-ours
+{
+	visibility: visible;
+	background-color: #3F8CFFD9;
+}
+
+/* The end-of-match vote on the Maps page (voting on gg_screen): the cards are the ballot and the browser's own controls step aside. */
+.gg-vote-title
+{
+	visibility: collapse;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 26px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+	margin-bottom: 6px;
+}
+
+.gg-screen.voting .gg-vote-title
+{
+	visibility: visible;
+}
+
+/* The sort and search row gives its height to the vote's title, so the two rows of cards keep theirs; the filters row keeps the count. */
+.gg-screen.voting .gg-page-maps .gg-mbar
+{
+	height: 0px;
+	margin-bottom: 0px;
+}
+
+.gg-screen.voting .gg-page-maps .gg-mbar-filters
+{
+	height: 34px;
+	margin-bottom: 8px;
+}
+
+.gg-screen.voting .gg-mbar .gg-seg
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mbar .gg-search
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mbar .gg-mbar-label
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mbar .gg-mbar-sep
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mbar .gg-chipb
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mvote
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-pgb
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mtag-now
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mcard.now .gg-mtag-next
+{
+	visibility: visible;
+	background-color: gg-gold;
+	color: #000000;
+}
+
+.gg-screen.voting .gg-mcard.confirm
+{
+	border: 2px solid gg-gold;
+}
+
+/* The grenade drops are Arms Race's own too (#27 c): Deathmatch and Wingman players buy theirs. */
+.gg-global.mode-deathmatch .gg-set-nades
+{
+	visibility: collapse;
+}
+
+.gg-global.mode-wingman .gg-set-nades
+{
+	visibility: collapse;
+}
+
+/* The match length is Arms Race's own (#27 c): Deathmatch runs Valve's 10 minutes and Wingman rounds. */
+.gg-global.mode-deathmatch .gg-set-time
+{
+	visibility: collapse;
+}
+
+.gg-global.mode-wingman .gg-set-time
+{
+	visibility: collapse;
+}
+
+/* The HUD version check (HudVote.cs): this layout is v4_0_0 - level 40. At a join (vjoin) a server above it (svge41) or below it (svlt40)
+   says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
+.gg-ver
+{
+	width: 760px;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 120px;
+	flow-children: down;
+}
+
+.gg-ver-old
+{
+	visibility: collapse;
+	width: 100%;
+	padding: 10px 16px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+	background-color: #B3261ED9;
+	border-radius: 4px;
+	text-align: center;
+}
+
+.gg-ver-new
+{
+	visibility: collapse;
+	width: 100%;
+	padding: 10px 16px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+	background-color: #8A5A00D9;
+	border-radius: 4px;
+	text-align: center;
+}
+
+.gg-global.svge41 .gg-screen.vjoin .gg-ver-old
+{
+	visibility: visible;
+}
+
+.gg-global.svlt40 .gg-screen.vjoin .gg-ver-new
+{
+	visibility: visible;
+}
+
+.gg-screen.vold .gg-note
+{
+	visibility: collapse;
+}
+
+.gg-foot-ver
+{
+	margin-left: 18px;
+	margin-right: 18px;
+	font-size: 11px;
+	color: gg-faint;
+	vertical-align: center;
+}
