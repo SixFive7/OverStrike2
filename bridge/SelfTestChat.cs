@@ -141,19 +141,20 @@ static partial class Program
             && ChatCommands.Parse("!fun nonsense on") is { Kind: ChatCommands.Kind.Usage, Name: "!fun" } && ChatCommands.Parse("!fun gravity") is { Kind: ChatCommands.Kind.Usage, Name: "!gravity" });
         var arms = ChatCommands.FunLines(true);
         var other = ChatCommands.FunLines(false);
-        var armsWords = Regex.Matches(string.Join(" ", arms), @"!(\S+) (\S+)").ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
-        Check($"Chat: a bare !fun's {arms.Count} lines fit chat and list every setting's word with its choices: {string.Join("  ", arms.Skip(1).Take(1))} ...",
-            arms.All(l => l.Length <= ChatCommands.LineMax) && other.All(l => l.Length <= ChatCommands.LineMax) && armsWords.Count == Fun.Settings.Length
-            && Fun.Settings.All(s => armsWords.TryGetValue(s.Id, out var w) && s.Choices.All(c => w.Split('|').Contains(c.Id))) && armsWords["nades"].StartsWith("on|off|"));
+        var armsWords = Regex.Matches(string.Join(" ", arms), @"!(\S+) (\S+)").Select(m => (Word: m.Groups[1].Value, Choice: m.Groups[2].Value)).ToList();
+        Check($"Chat: a bare !fun's {arms.Count} lines fit beside the window it opens ({ChatCommands.BesideWindow} characters) and name every setting's word, each with a choice that runs: {string.Join("  ", arms.Skip(1).Take(1))} ...",
+            arms.All(l => l.Length <= ChatCommands.BesideWindow) && other.All(l => l.Length <= ChatCommands.BesideWindow) && Fun.Settings.All(s => armsWords.Any(w => w.Word == s.Id))
+            && armsWords.All(w => ChatCommands.Parse($"!{w.Word} {w.Choice}").Kind is ChatCommands.Kind.Fun or ChatCommands.Kind.Nades) && armsWords.Contains(("nades", "off")) && armsWords.Contains(("nades", "big")));
         Check("Chat: outside Arms Race they leave out what the page leaves out - friendly fire's three and the grenade drops, not the blast",
-            string.Join(" ", other) is var o2 && !o2.Contains("!ff ") && !o2.Contains("!instakill") && !o2.Contains("!ffnades") && o2.Contains("!nades normal|big|huge") && !o2.Contains("!nades on"));
+            string.Join(" ", other) is var o2 && !o2.Contains("!ff ") && !o2.Contains("!instakill") && !o2.Contains("!ffnades") && o2.Contains("!nades big") && !o2.Contains("!nades off"));
         var everyWord = ChatCommands.All.Select(c => c.Words + " " + c.Args).Concat(arms).Concat(Hud.Help.SelectMany(g => g.Rows).Select(r => r.Words)).ToList();
         Check("Chat: nothing teaches !fun <setting> <choice>: the short word is no alias of it, and every word a command's own line names runs",
             !everyWord.Any(w => Regex.IsMatch(w, @"!fun \w")) && ChatCommands.All.SelectMany(c => Regex.Matches(c.Words, @"![a-z]+ ?[a-z]*").Select(m => m.Value.Trim())).All(w => ChatCommands.Parse(w).Kind is not (ChatCommands.Kind.Unknown or ChatCommands.Kind.Usage)));
 
         // ---- !help lists primaries only ----
         var listed = ChatCommands.HelpLines().SelectMany(l => Regex.Matches(l, @"!\S+").Select(m => m.Value)).ToList();
-        Check($"Chat: !help's {ChatCommands.HelpLines().Count} lines list the {listed.Count} primaries, no alias", listed.Order().SequenceEqual(primaries.Order()));
+        Check($"Chat: !help's {ChatCommands.HelpLines().Count} lines list the {listed.Count} primaries, no alias, and fit beside the window it opens ({ChatCommands.BesideWindow} characters)",
+            listed.Order().SequenceEqual(primaries.Order()) && ChatCommands.HelpLines().All(l => l.Length <= ChatCommands.BesideWindow));
 
         // ---- a bare number is a vote, while a vote is open ----
         Check($"Chat: while a vote is open a bare number 1 to {MapVote.MaxOptions} is a vote, with no reply about aliases; without a vote it is plain chat; a Workshop id is never one",

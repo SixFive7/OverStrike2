@@ -524,7 +524,7 @@ sealed class HudScreen
     void SayForAll(CCSPlayerController player, string words)
     {
         var colour = player.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist ? ChatColors.ForTeam(player.Team) : ChatColors.Default;
-        var line = $" {colour}[ALL] {Hud.Clean(player.PlayerName, 32).Replace('%', ' ')}{ChatColors.Default}: {words}";
+        var line = $" [ALL] {colour}{Hud.Clean(player.PlayerName, 32).Replace('%', ' ')}{ChatColors.Default}: {words}";
         Server.NextFrame(() => Server.PrintToChatAll(line));
     }
 
@@ -939,6 +939,7 @@ sealed class HudScreen
             // Being checked: the gold button says "Click to play" and is shown even while a map change hides its usual action.
             var checking = checkMode != HudCheck.Mode.Off && gate.Checking(p.Slot);
             var ownNote = localNotes.TryGetValue(p.Slot, out var note) && now < note.Until;
+            if (ownNote && ContentOf(p) >= 32 && note.Text == Hud.Clean(HudVote.OldHudNote, 140)) { localNotes.Remove(p.Slot); ownNote = false; } // a click or a chat command proved the content (vold is off from then on): the join's note for an older HUD goes with it
             foreach (var (id, text2) in HudView.PlayerTexts(shown, account, p.PlayerName, view.Toast == 2))
                 Text(id, checking && id == "gg_btn_act_text" ? HudCheck.ActText : checking && id == "gg_btn_act_sub" ? HudCheck.ActSub : ownNote && id == "gg_note_text" ? note.Text : text2, p);
             foreach (var (id, cls, on) in HudView.PlayerClasses(shown, account)) Class(id, cls, (on || (ownNote && cls == "note")) && !(checking && cls == "act-off"), p);
