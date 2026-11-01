@@ -67,17 +67,27 @@ static partial class Program
         int gameType = 1, gameMode = 0, statusHumans = 0;
         var onOfficial = true;            // the fake server's map: official (the boot map) or a Workshop map
         (int, int) snapshot = (1, 0);     // what CS2 saved when it last went from an official map to a Workshop map
+        var fakePlugin = false;           // the plugin on the fake server too: it answers os_mode (Settings.SetMode), and its block has the told values back in the convars at once
+        Modes.Mode? fakeTold = null, fakeLoaded = Modes.ArmsRace, fakeLoadsAs = null; // what os_mode said last; the mode the map on loaded in (the convars at its start); a load that ignores its convars
         Send = command =>
         {
             sent.Add(command);
             foreach (var part in command.Split(';'))
                 switch (part.Trim().Split(' '))
                 {
+                    case ["os_mode", var id]: fakeTold = Modes.Find(id); break;
                     case ["game_type", var t]: gameType = int.Parse(t); break;
                     case ["game_mode", var g]: gameMode = int.Parse(g); break;
-                    case ["host_workshop_map", _]: if (onOfficial) snapshot = (gameType, gameMode); onOfficial = false; break; // official -> Workshop: CS2 saves every convar
-                    case ["changelevel", _]: if (!onOfficial) (gameType, gameMode) = snapshot; onOfficial = true; break;      // Workshop -> official: ...and restores them
+                    case ["host_workshop_map", _]: if (onOfficial) snapshot = (gameType, gameMode); onOfficial = false; fakeLoaded = fakeLoadsAs ?? Modes.FromConVars(gameType, gameMode); break; // official -> Workshop: CS2 saves every convar
+                    case ["changelevel", _]: if (!onOfficial) (gameType, gameMode) = snapshot; onOfficial = true; fakeLoaded = fakeLoadsAs ?? Modes.FromConVars(gameType, gameMode); break;      // Workshop -> official: ...and restores them
                 }
+            if (fakePlugin && fakeTold is { } toldNow)
+            {
+                (gameType, gameMode) = (toldNow.GameType, toldNow.GameMode);
+                if (command == Modes.SyncLine(toldNow))
+                    return fakeLoaded == toldNow ? $"os_mode: mode {toldNow.Id}: on already"
+                        : $"os_mode: mode {toldNow.Id}: game_type {toldNow.GameType}, game_mode {toldNow.GameMode} kept; its block list and features at the next map start";
+            }
             return command == "game_type" ? $"game_type = {gameType}" : command == "game_mode" ? $"game_mode = {gameMode}"
                 : command == "status" ? $"hostname : test\nspawn    : 2\nplayers  : {statusHumans} humans, 0 bots (0 max)\n#end" : "";
         };
@@ -128,6 +138,7 @@ static partial class Program
                 Ballot = null; VoteHeld = false; ModeBeforeChange = null; ModeProbing = false; ModeProbeEnabled = false; ModeProbeAt = default; ModeResetRetryAt = default; ModeMaps.Clear();
                 VoteCapable = () => true;
                 timers.Clear(); sent.Clear(); (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0)); ModeVerifyDue = false; ModeReloads = 0;
+                (fakePlugin, fakeTold, fakeLoaded, fakeLoadsAs) = (false, null, Modes.ArmsRace, null);
                 if (File.Exists(MaintenanceFile)) File.Delete(MaintenanceFile);
                 InMaintenance();
                 clock = clock.AddHours(1);
@@ -394,6 +405,49 @@ static partial class Program
             Run(2);
             Check("The second load lands, the mode is right, and nothing loads a third time", !AnnouncePending && S.Map == dmo && sent.Contains("game_type") && !sent.Any(c => c.StartsWith("changelevel")));
             Check("...and it is still the vote's map, held by the vote", VoteHeld && S.PickedBy == "the vote");
+
+            // ---- the same with the plugin on, as on the live server: its block has the told values back in the convars before the bridge asks,
+            // so only its reply to os_mode tells (seen on 2026-11-01: cs_office told Deathmatch stayed in Arms Race, with no second load) ----
+            const string settingsFile = "../plugin/OverStrike2/Settings.cs";
+            Check("The plugin's reply to os_mode has the words the bridge looks for when a map did not load in the told mode (Settings.SetMode)",
+                !File.Exists(settingsFile) || File.ReadAllText(settingsFile).Contains($"kept; its block list and features {ModeNotLoadedWords}\"", StringComparison.Ordinal));
+            Fresh();
+            fakePlugin = true;
+            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            Ask(alice, m[2]); Land(); Settle();
+            Check("With the plugin: an Arms Race Workshop map says on already and loads once", ModeReloads == 0 && fakeLoaded == Modes.ArmsRace && sent.Count(c => c.StartsWith("host_workshop_map")) == 1);
+            MatchEnd();
+            var dmpn = OptOf(o => o.Mode == Modes.Deathmatch);
+            var dmp = Opt(dmpn).Map!;
+            Click(alice, dmpn); Click(bob, dmpn);
+            Run(ChangeDelay);
+            Check("With the plugin: CS2 restored Arms Race under the Deathmatch official map, and the convars read Deathmatch again", fakeLoaded == Modes.ArmsRace && (gameType, gameMode) == (1, 2) && S.Mode == "deathmatch");
+            sent.Clear();
+            Land();
+            Check($"...the plugin's reply alone has it load once more in Deathmatch ({string.Join(" | ", sent)})",
+                sent.Contains("os_mode deathmatch") && sent.IndexOf($"changelevel {dmp.Name}") == sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1 && sent.Contains($"changelevel {dmp.Name}")
+                && AnnouncePending && Said($"{Label(dmp)} loads once more, in Deathmatch") && ModeReloads == 1 && S.Mode == "deathmatch");
+            sent.Clear(); Run(1);
+            Line($"Loading map \"{dmp.Name}\""); Line("Started:  \"\"");
+            Run(2);
+            Check("...the second load is in Deathmatch: the plugin says on already, and nothing loads a third time",
+                fakeLoaded == Modes.Deathmatch && !AnnouncePending && S.Map == dmp && sent.Contains("os_mode deathmatch") && !sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 1);
+            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            Settle(); MatchEnd();
+            var wgn = OptOf(o => o.Mode == Modes.Wingman);
+            var wgm = Opt(wgn).Map!;
+            Click(alice, wgn); Click(bob, wgn);
+            Run(ChangeDelay);
+            sent.Clear();
+            Land();
+            Check("Official to official in another mode restores nothing: the plugin says on already, and it loads once",
+                wgm.Official && fakeLoaded == Modes.Wingman && S.Mode == "wingman" && S.Map == wgm && sent.Contains("os_mode wingman") && !sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 0 && !AnnouncePending);
+            Fresh();
+            fakePlugin = true; fakeLoadsAs = Modes.Deathmatch;
+            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            Ask(alice, m[2]); Land();
+            Check("A Workshop map the plugin says came up in another mode is left as it is: one load, and the mode as told",
+                sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !AnnouncePending);
 
             // ---- the defaults: Arms Race after a restart, and after 10 minutes with nobody on ----
             Fresh();

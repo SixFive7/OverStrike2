@@ -6,8 +6,8 @@
 //    put on a random Arms Race map. A bridge that starts, and every map start the bridge did not ask for, reads game_type and game_mode
 //    over RCON instead of guessing.
 //  - A map carries its mode (MapInfo.Mode, "" = Arms Race). FireChange sends Modes.PrepareLine (os_mode, game_type, game_mode) and then
-//    the map command; after every map start the bridge sends os_mode again, for a plugin that reloaded. A change that never loads gives
-//    the old mode back (the load timeout in Tick).
+//    the map command; after every map start the bridge sends os_mode again, for a plugin that reloaded, and the reply says whether the map
+//    loaded in that mode (SyncMode). A change that never loads gives the old mode back (the load timeout in Tick).
 //  - The pools: Arms Race is maps.json (MAPS_FILE) as it always was. Deathmatch and Wingman are Valve's official maps for the mode plus
 //    the Workshop maps of maps-<mode>.json beside maps.json (the nightly sync's output, same entry shape as maps.json; docs/reference.md).
 //    Missing or empty, a mode has its official maps only. Read again when it changes, like maps.json (Reload.cs).
@@ -98,24 +98,36 @@ static partial class Program
     static bool ModeVerifyDue; // the bridge's own change just landed: check that the server came up in the mode it was told
     static int ModeReloads;    // loads again of the change now on, to put its mode right (one at most)
 
+    /// <summary>The words of the plugin's reply to os_mode (Settings.SetMode; --selftest holds the two together) when the map that is on did
+    /// not load in the mode it is told: that mode's block list and features wait for the next map start.</summary>
+    const string ModeNotLoadedWords = "at the next map start";
+
     /// <summary>After every map start: tell the plugin the mode again (it may have reloaded since it was told) - and after the bridge's own
     /// change, check the mode it came up in. A changelevel from a Workshop map to an official one restores every convar CS2 saved when the
     /// server last went from an official map to a Workshop map, game_type and game_mode included (measured live on 2026-11-01: de_dust2
     /// told Deathmatch came up in Arms Race; `map` does the same), so an official map of another mode can come up in the old mode. Then it
-    /// loads once more - official to official, which restores nothing. A Workshop map is not loaded again: nothing restores there.</summary>
+    /// loads once more - official to official, which restores nothing. A Workshop map is not loaded again: nothing restores there.
+    /// The plugin's reply is what tells. It read the mode at the map start, and the convars cannot say any more by now: its block, which
+    /// looks every second, has put the told values back before this runs, 1.5 s after the start (cs_office told Deathmatch stayed in Arms
+    /// Race on 2026-11-01 with both convars reading Deathmatch). The convars still count, for a plugin that does not answer.</summary>
     static void SyncMode()
     {
-        Log($"{Modes.SyncLine(CurrentMode)} -> {Send(Modes.SyncLine(CurrentMode)) ?? "(rcon failed)"}");
+        var told = Send(Modes.SyncLine(CurrentMode));
+        Log($"{Modes.SyncLine(CurrentMode)} -> {told ?? "(rcon failed)"}");
         if (!ModeVerifyDue) return;
         ModeVerifyDue = false;
-        if (ProbeConVars() is not { } cv) { Log("mode: RCON did not say which mode the map came up in"); return; }
+        var notLoaded = told?.Contains(ModeNotLoadedWords, StringComparison.Ordinal) == true;
+        var cv = ProbeConVars();
+        if (cv == null && !notLoaded) { Log("mode: RCON did not say which mode the map came up in"); return; }
         var want = CurrentMode;
-        if ((cv.Type, cv.Mode) == (want.GameType, want.GameMode)) return;
-        var came = Modes.FromConVars(cv.Type, cv.Mode)?.Name ?? $"game_type {cv.Type}, game_mode {cv.Mode}";
+        var differ = cv is { } read && read != (want.GameType, want.GameMode);
+        if (!differ && !notLoaded) return;
+        var on = differ ? Modes.FromConVars(cv!.Value.Type, cv.Value.Mode) : null; // what the convars say, when they still differ
+        var came = !differ ? "another mode, the plugin says" : on?.Name ?? $"game_type {cv!.Value.Type}, game_mode {cv.Value.Mode}";
         if (S.Map is not { Official: true } map || ModeReloads > 0 || Pending != null || AnnouncePending)
         {
             Log($"mode: {CurrentLabel()} came up in {came}, not {want.Name} - left as it is");
-            if (Modes.FromConVars(cv.Type, cv.Mode) is { } on) { S.Mode = on.Id; Save(); }
+            if (on != null) { S.Mode = on.Id; Save(); }
             return;
         }
         ModeReloads++;
