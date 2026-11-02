@@ -106,21 +106,28 @@ def api_with(led, clock, answers, key=KEY, gap=2.0):
 
 # ---- configuration: the owner's limits can only be lowered ------------------------------------------------------
 os.environ.update({"SYNC_API_DAY_CAP": "20000", "SYNC_API_NIGHT_CAP": "99999", "SYNC_API_GAP_SECONDS": "0.5",
-                   "SYNC_DOWNLOAD_MAX": "80", "SYNC_DOWNLOAD_MAX_MB": "10000"})
+                   "SYNC_DOWNLOAD_MAX": "8000", "SYNC_DOWNLOAD_MAX_MB": "999999", "SYNC_DOWNLOAD_PAUSE": "0.1"})
 c = m.Config()
 check("config: a day cap above 10,000 is clamped to 10,000", c.api_day_cap == 10000)
 check("config: the night cap never exceeds the day cap", c.api_night_cap == 10000)
 check("config: the gap never drops under 2 s", c.api_gap == 2.0)
-check("config: downloads at most 50 a night", c.download_max == 50)
-check("config: downloads at most 3 GB a night", c.download_bytes == 3 << 30)
-for k in ("SYNC_API_DAY_CAP", "SYNC_API_NIGHT_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB"):
+check("config: downloads at most 1,500 a day", c.download_max == 1500)
+check("config: downloads at most 150 GB a day", c.download_bytes == 150 << 30)
+check("config: the pause between downloads never drops under 2 s", c.download_pause == 2.0)
+for k in ("SYNC_API_DAY_CAP", "SYNC_API_NIGHT_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB", "SYNC_DOWNLOAD_PAUSE"):
     del os.environ[k]
 c = m.Config()
-check("config: defaults are 500 calls a night, 10,000 in 24 h, 2 s, 50 downloads, 3 GB",
-      (c.api_night_cap, c.api_day_cap, c.api_gap, c.download_max, c.download_bytes) == (500, 10000, 2.0, 50, 3 << 30))
+check("config: defaults are 500 calls a night, 10,000 in 24 h, 2 s, 1,500 downloads, 150 GB",
+      (c.api_night_cap, c.api_day_cap, c.api_gap, c.download_max, c.download_bytes) == (500, 10000, 2.0, 1500, 150 << 30))
+check("config: no day window unless both ends are set", c.day_start is None and c.day_end is None)
+os.environ["SYNC_DAY_AT"] = "07:15"
+check("config: one end alone is no window", m.Config().day_start is None)
+os.environ["SYNC_DAY_END"] = "18:00"
+check("config: the day's window", (m.Config().day_start, m.Config().day_end) == ((7, 15), (18, 0)))
+del os.environ["SYNC_DAY_AT"], os.environ["SYNC_DAY_END"]
 c.lower({"api_night_cap": 50, "download_max": 5, "download_max_mb": 200, "publish": False})
 check("config: run-now lowers a run's limits", (c.api_night_cap, c.download_max, c.download_bytes, c.publish) == (50, 5, 200 << 20, False))
-c.lower({"api_night_cap": 5000, "download_max": 500})
+c.lower({"api_night_cap": 5000, "download_max": 1000})
 check("config: run-now cannot raise them", (c.api_night_cap, c.download_max) == (50, 5))
 check("ledger: the hard day cap cannot be raised by a caller", m.ApiLedger("x", 50000, 10, FakeClock(0)).day_cap == 10000)
 
@@ -325,7 +332,7 @@ for w in listed[:10]:
 j = m.judge_listed(det, listed, st, cfg, "2026-11-02")
 check("check: over 10% of 50+ gone is not believed (the bridge's own rule)", j["suspicious"])
 
-# ---- downloads: 50 items and 3 GB a night, persisted ---------------------------------------------------------------
+# ---- downloads: the day's items and volume, persisted ---------------------------------------------------------------
 st = m.State(os.path.join(ROOT, "st3.json"))
 b = m.DownloadBudget(st, "2026-11-01", 50, 3 << 30)
 ok_count = 0
@@ -340,8 +347,17 @@ check("downloads: the count survives a restart", not b2.allows(1)[0])
 b3 = m.DownloadBudget(st2, "2026-11-02", 50, 3 << 30)
 b3.spend(3 << 30)
 check("downloads: 3 GB a night", not b3.allows(1)[0] and "3.0 GB" in b3.allows(1)[1])
-check("downloads: a caller cannot raise the caps", m.DownloadBudget(st2, "x", 500, 10 << 30).max_items == 50
-      and m.DownloadBudget(st2, "y", 500, 10 << 30).max_bytes == 3 << 30)
+check("downloads: a caller cannot raise the caps", m.DownloadBudget(st2, "x", 5000, 500 << 30).max_items == 1500
+      and m.DownloadBudget(st2, "y", 5000, 500 << 30).max_bytes == 150 << 30)
+b4 = m.DownloadBudget(st2, "z", 50, 3 << 30)
+b4.refuse_for_today("Rate Limit Exceeded")
+st2.save()
+st5 = m.State(os.path.join(ROOT, "st3.json")).load()
+check("downloads: a rate limit ends the day's downloads, also for a later run that day",
+      not m.DownloadBudget(st5, "z", 50, 3 << 30).allows(0)[0] and "Rate Limit Exceeded" in m.DownloadBudget(st5, "z", 50, 3 << 30).allows(0)[1])
+check("downloads: the next day starts clean", m.DownloadBudget(st5, "zz", 50, 3 << 30).allows(0)[0])
+check("downloads: what stops them", m.STEAMCMD_STOP_RX.search("Rate Limit Exceeded") and m.STEAMCMD_STOP_RX.search("Too many requests")
+      and not m.STEAMCMD_STOP_RX.search("Access Denied") and m.ACCESS_DENIED_RX.search("Access Denied"))
 
 # ---- the scan: adverts by the rules of 2026-10-24 -------------------------------------------------------------------
 cmds = m.commands_in(b'say "Hey guys! Want to open some free cases? Use code PICHET on Clash.gg for 3 FREE cases"\x00m_x')
@@ -529,6 +545,15 @@ dm2 = json.loads(texts2["maps-deathmatch.json"])
 check("publish: backfill adds a listed map that carries the tag, keeps the old entries and the official one",
       [e.get("id") for e in dm2 if e.get("id")] == [111, 7] and dm2[-1] == {"name": "de_dust2", "official": True})
 check("publish: nothing to write when nothing changed", m.plan_publish(files2, st, N, [], [], False, {})[0] == {})
+check("publish: search.json gets the mode lists' new maps too, whatever their mode", "903" in json.loads(texts["search.json"]) and "nice" in json.loads(texts["search.json"])["903"]
+      and "wingman" in json.loads(texts["search.json"])["903"])
+st.data["items"]["7"] = {"title": "q old", "tags": ["Deathmatch"], "description": "red walls"}
+files3 = dict(files2, search={"111": "a 111", "222": "b 222"})
+texts3, _ = m.plan_publish(files3, st, N, [], [], False, {})
+check("publish: a map on a mode list before search.json covered it gets its text from the state, the other texts stay, an official entry gets none",
+      json.loads(texts3["search.json"]) == {"111": "a 111", "222": "b 222", "7": "q 7 deathmatch red walls"} and list(texts3) == ["search.json"])
+files3["search"] = json.loads(texts3["search.json"])
+check("publish: ...and then there is nothing to write", m.plan_publish(files3, st, N, [], [], False, {})[0] == {})
 
 # ---- the mail ------------------------------------------------------------------------------------------------------
 r = {"night": N, "manual": False, "api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for tonight",
@@ -538,23 +563,61 @@ subject, body = m.mail_text(r, m.Config())
 check("mail: a stop is in the subject and the body", "STOPPED: HTTP 429" in subject and "STOPPED: Steam's Web API answered HTTP 429" in body)
 check("mail: the limits are reported", "Web API calls tonight 3 of 500, last 24 h 3 of 10000" in body)
 
-# ---- the backlog: most subscribed first per mode, the modes in turn; its size and ETA in the mail ------------------
+# ---- the backlog: strictly most subscribed first, whatever the mode; its size and estimate in the mail -----------------
 items = {"1": {"tags": ["Deathmatch"], "subs": 100, "size": 10 << 20}, "2": {"tags": ["Deathmatch"], "subs": 90, "size": 10 << 20},
          "3": {"tags": ["Wingman"], "subs": 5, "size": 10 << 20}, "4": {"tags": ["Armsrace", "Deathmatch"], "subs": 50, "size": 10 << 20},
          "5": {"tags": ["Wingman", "Deathmatch"], "subs": 95, "size": 10 << 20}, "6": {"tags": ["Armsrace"], "subs": 1, "size": 10 << 20}}
 o = m.order_backlog(items, list(items))
-check("backlog: Deathmatch's best, then Wingman's best, then Arms Race's best, in turn", o[:3] == ["1", "5", "4"])
-check("backlog: an item tagged twice is taken once", sorted(o) == sorted(items) and len(o) == 6)
-check("backlog: Wingman's next best comes in its own turn, before Deathmatch's third", o.index("3") < o.index("2") or o[3] == "2")
+check("backlog: strictly by subscribers across the modes", o == ["1", "5", "2", "4", "3", "6"])
 c = m.Config()
 bs = m.backlog_stats(items, list(items), c)
 check("backlog: counted per mode", bs["items"] == 6 and bs["by_mode"] == {"armsrace": 2, "deathmatch": 4, "wingman": 2})
 c.download_max = 2
-check("backlog: the ETA is set by the slower cap (6 items at 2 a night: 3 nights)", m.backlog_stats(items, list(items), c)["nights"] == 3)
+check("backlog: the estimate is set by the slowest bound (6 items at 2 a day: 3 days)", m.backlog_stats(items, list(items), c)["days"] == 3)
+c = m.Config()
+c.download_bytes = 20 << 20
+check("backlog: real bytes count, nothing halved (60 MB at 20 MB a day: 3 days)", m.backlog_stats(items, list(items), c)["days"] == 3)
+c = m.Config()
+big = {str(i): {"tags": ["Wingman"], "subs": 1, "size": 100 << 20} for i in range(5255)}
+night_only = m.backlog_stats(big, list(big), c)
+check("backlog: the night's window alone, about 2.9 h at 31 s a map: 339 maps a day, 16 days for the backlog of 2026-11-01",
+      night_only["hours"] == 2.9 and night_only["days"] == 16)
+c.day_start, c.day_end = (7, 15), (18, 0)
+both = m.backlog_stats(big, list(big), c)
+check("backlog: with the day's window, 13.7 h at 31 s a map stops at the 1,500 cap: 4 days", both["hours"] == 13.7 and both["days"] == 4)
+check("backlog: a pace measured counts", m.backlog_stats(big, list(big), c, pace=60.0)["days"] == 7)
 r2 = dict(r, api_stop=None, backlog=bs, backlog_until=" (until about 2026-11-04)")
 subject2, body2 = m.mail_text(r2, m.Config())
-check("mail: the backlog's size, per mode, and its ETA", "Backlog: 6 item(s) waiting" in body2 and "Deathmatch 4, Wingman 2, Arms Race 2" in body2
-      and "until about 2026-11-04" in body2)
+check("mail: the backlog's size, per mode, and its estimate", "Backlog: 6 item(s) waiting" in body2 and "Deathmatch 4, Wingman 2, Arms Race 2" in body2
+      and "until about 2026-11-04" in body2 and "strictly by subscribers" in body2)
+rows = ["PASS     map%d (%d) - wingman, loads as x in 1s" % (i, i) for i in range(60)] + ["CRASHER  bad (1) - crashes the server"]
+r3 = dict(r, api_stop=None, tests={"rows": rows}, published={"modes": {"wingman": [(str(i), "m") for i in range(60)]}, "files": ["maps-wingman.json"]})
+subject3, body3 = m.mail_text(r3, m.Config())
+check("mail: a long run gives counts, what did not pass, a taste of what did", "60 PASS, 1 CRASHER." in body3 and "CRASHER  bad (1)" in body3
+      and "and 50 more passes" in body3 and "map30 " not in body3)
+check("mail: a long mode list is counted", "maps-wingman.json  60 new maps" in body3)
+check("mail: a day run says so", "(day run)" in m.mail_text(dict(r, day_run=True), m.Config())[0])
+# the publish steps of a run add up
+mp = m.merge_published({"listed": [("1", 1, "a", 5)], "modes": {"wingman": [("2", "b")]}, "files": ["maps.json"], "reload": "x"},
+                       {"listed": [("3", 2, "c", 5)], "modes": {"wingman": [("4", "d")], "deathmatch": [("5", "e")]}, "files": ["maps.json", "search.json"], "reload": "y"})
+check("publish: a run's batches add up", [x[0] for x in mp["listed"]] == ["1", "3"] and [x[0] for x in mp["modes"]["wingman"]] == ["2", "4"]
+      and mp["files"] == ["maps.json", "search.json"] and mp["reload"] == "y" and list(mp["modes"]["deathmatch"]) == [("5", "e")])
+check("service: a backlog waits while anything is queued or staged without a verdict",
+      m.backlog_waits({"items": {"1": {"status": "queued"}}}) and m.backlog_waits({"items": {"1": {"status": "tested"}}})
+      and not m.backlog_waits({"items": {"1": {"status": "tested", "verdict": "pass"}, "2": {"status": "published"}}}))
+# nobody on: a map change shows 0 for a moment, so once somebody was seen it takes the quiet minutes
+real_humans = m.humans_on
+seen = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+m.humans_on = lambda cfg: seen.pop(0)
+fc = FakeClock(1793500000.0)
+waits = []
+nq = m.Night(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
+check("wait: somebody on now means waiting, and 0 humans alone is not enough for the next 10 minutes", nq.wait_for_nobody("x") and len(waits) == 10)
+seen[:] = [0]
+waits[:] = []
+nq2 = m.Night(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
+check("wait: nobody seen this run: at once", nq2.wait_for_nobody("x") and waits == [])
+m.humans_on = real_humans
 
 # ---- the merge check: a publish only ever adds to the live files ---------------------------------------------------
 old = json.dumps([{"rank": 1, "id": 5, "name": "a", "sizeMb": 1}])
@@ -650,6 +713,159 @@ check("night: the report and the mail text are written, the mail reports why it 
       rep_txt and nt.report["mail"].startswith("NOT sent: no SMTP host"))
 srv.shutdown()
 del os.environ["SYNC_BRIDGE_URL"], os.environ["SYNC_BRIDGE_SECRET"]
+
+# ---- a whole run in batches, on stand-ins for SteamCMD and the test engine -----------------------------------------------
+class FakeSteam(object):
+    logins = 0
+    answers = {}
+    asked = []
+
+    def __init__(self, exe, install_dir, log_path, home=None):
+        self.install_dir = install_dir
+
+    def start(self):
+        FakeSteam.logins += 1
+        return True, "logged in anonymously"
+
+    def download(self, wid):
+        FakeSteam.asked.append(wid)
+        if wid in FakeSteam.answers:
+            return False, FakeSteam.answers[wid], 0
+        folder = os.path.join(self.install_dir, "steamapps", "workshop", "content", "730", wid)
+        os.makedirs(folder, exist_ok=True)
+        open(os.path.join(folder, wid + "_dir.vpk"), "w").write("x")
+        return True, "OK", 1000
+
+    def stop(self):
+        pass
+
+
+class FakeEngine(object):
+    def __init__(self, cfg, work_dir, home):
+        self.starts, self.up, self.stops = 0, False, 0
+
+    def alive(self):
+        return self.up
+
+    def start(self):
+        self.starts += 1
+        self.up = True
+        return True, "test engine up"
+
+    def stop(self):
+        self.up = False
+        self.stops += 1
+
+
+real = {k: getattr(m, k) for k in ("SteamCmd", "TestEngine", "scan_item", "build_farm", "kill_stale_engines", "test_load", "humans_on", "read_key", "check", "patch_version")}
+m.SteamCmd, m.TestEngine = FakeSteam, FakeEngine
+m.scan_item = lambda folder: {"verdict": "map", "maps": ["lvl"], "models": 0, "files": 1, "names": []}
+m.build_farm = lambda *a: "test tree built"
+m.kill_stale_engines = lambda root: 0
+m.patch_version = lambda game_dir: "1.41.9.4"
+m.read_key = lambda path: None
+m.check = lambda api, ids, deadline, now=None: ({}, [])
+loads = []
+humans_now = [0]
+def fake_load(engine, wid, levels, tags, hold, stop_check):
+    loads.append(wid)
+    if stop_check():
+        return {"id": wid, "verdict": "abort", "reason": "somebody came on the game server"}
+    return {"id": wid, "verdict": "pass", "reason": "loads", "level": "lvl", "load_s": 1.0, "mode": "wingman", "bots": 0}
+m.test_load = fake_load
+m.humans_on = lambda cfg: humans_now[0]
+run_root = os.path.join(ROOT, "run")
+run_data = os.path.join(run_root, "data")
+os.makedirs(run_data)
+os.environ.update({"SYNC_STATE_DIR": os.path.join(run_root, "state"), "SYNC_WORK_DIR": os.path.join(run_root, "work"), "SYNC_BRIDGE_DATA": run_data})
+os.makedirs(os.path.join(run_root, "state"))
+open(os.path.join(run_data, "maps.json"), "w", encoding="utf-8").write(json.dumps([{"rank": 1, "id": 11, "name": "a", "sizeMb": 5}], indent=1) + "\n")
+open(os.path.join(run_data, "broken.json"), "w", encoding="utf-8").write(json.dumps({"schema": "x", "maps": [], "packs": [], "removed": [], "blocked": []}, indent=2) + "\n")
+open(os.path.join(run_data, "search.json"), "w", encoding="utf-8").write(json.dumps({"11": "a 11"}, indent=0) + "\n")
+T0 = 1793540000.0   # an afternoon, outside the night's window
+run_items = {str(1000 + i): {"status": "queued", "ws": "ok", "app": 730, "tags": ["Wingman"], "subs": 10 * (i + 1), "lifetime": 1, "size": 1000, "created": T0 - 100 * m.DAY,
+                             "title": "m%d" % i, "description": "", "first": "2026-11-01", "why": "new"} for i in range(7)}
+run_items["2000"] = dict(run_items["1000"], subs=1, created=T0 - m.DAY, title="new upload")
+json.dump({"schema": 1, "items": run_items, "baseline": {}, "runs": [], "downloads": {}}, open(os.path.join(run_root, "state", "state.json"), "w"))
+cfg = m.Config()
+cfg.batch, cfg.download_max, cfg.download_pause = 2, 5, 0
+fc = FakeClock(T0)
+nr = m.Night(cfg, fc, manual=True)
+rep = nr.run()
+check("run: a new upload first, then strictly by subscribers", FakeSteam.asked[:5] == ["2000", "1006", "1005", "1004", "1003"])
+check("run: every download was tested", sorted(loads) == sorted(FakeSteam.asked))
+check("run: 5 downloads in batches of 2: 3 logins, one engine for each batch with work", FakeSteam.logins == 3 and rep["downloads"]["ok"] == 5)
+check("run: the day's cap ends it, with the reason", "today's cap of 5 downloads" in rep["downloads"].get("stop", ""))
+wing = json.load(open(os.path.join(run_data, "maps-wingman.json"), encoding="utf-8"))
+check("run: every batch published (5 maps on the list, the report adds them up)",
+      len(wing) == 5 and len(rep["published"]["modes"]["wingman"]) == 5 and "maps-wingman.json" in rep["published"]["files"])
+check("run: staging is empty again", os.listdir(os.path.join(run_root, "work", "staging", "steamapps", "workshop", "content", "730")) == [])
+state_after = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
+check("run: the rest waits, the day's book says 5", state_after["downloads"]["2026-11-01"]["items"] == 5
+      and sum(1 for r in state_after["items"].values() if r["status"] == "queued") == 3)
+check("run: the mail's estimate counts what is left", rep["backlog"]["items"] == 3 and "Backlog: 3 item(s)" in open(rep["report_path"][:-5] + ".txt", encoding="utf-8").read())
+check("run: no last_run_day from a manual run", state_after.get("last_run_day") in (None, ""))
+# somebody joins during a test: the engine stops at once, nothing runs until the quiet time is over
+loads[:] = []
+FakeSteam.logins = 0
+fc2 = FakeClock(T0 + m.DAY)
+cfg2 = m.Config()
+cfg2.batch, cfg2.download_max, cfg2.download_pause, cfg2.quiet = 3, 3, 0, 600
+slept = []
+def sleeper(n):
+    slept.append(n)
+    fc2.t += n
+    if len(slept) == 3:
+        humans_now[0] = 0
+nj = m.Night(cfg2, fc2, manual=True, sleep=sleeper)
+engines = []
+real_engine = FakeEngine
+class SpyEngine(FakeEngine):
+    def __init__(self, *a):
+        FakeEngine.__init__(self, *a)
+        engines.append(self)
+m.TestEngine = SpyEngine
+def joiner(engine, wid, levels, tags, hold, stop_check):
+    loads.append(wid)
+    if len(loads) == 1:
+        humans_now[0] = 2
+    if stop_check():
+        return {"id": wid, "verdict": "abort", "reason": "somebody came on the game server"}
+    return {"id": wid, "verdict": "pass", "reason": "loads", "level": "lvl", "load_s": 1.0, "mode": "wingman", "bots": 0}
+m.test_load = joiner
+rep2 = nj.run()
+check("join: the engine went down when somebody joined", engines and engines[0].stops >= 1 and engines[0].starts >= 2)
+check("join: it waited until 10 minutes after they left, and then finished the batch", sum(slept) >= 600 and len(rep2["tests"]["rows"]) == 3)
+# a rate limit: no more downloads that day, also for a later run; one access-denied item is that item
+m.test_load = fake_load
+fc3 = FakeClock(T0 + 2 * m.DAY)
+for w, r in list(state_after["items"].items()):
+    pass
+state3 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
+state3["items"]["3001"] = dict(run_items["1000"], subs=5000, title="denied")
+state3["items"]["3002"] = dict(run_items["1000"], subs=4000, title="fine")
+state3["items"]["3003"] = dict(run_items["1000"], subs=3000, title="limited")
+state3["items"]["3004"] = dict(run_items["1000"], subs=2000, title="never reached")
+json.dump(state3, open(os.path.join(run_root, "state", "state.json"), "w"))
+FakeSteam.answers = {"3001": "Access Denied", "3003": "Rate Limit Exceeded"}
+cfg3 = m.Config()
+cfg3.batch, cfg3.download_pause = 10, 0
+rep3 = m.Night(cfg3, fc3, manual=True).run()
+state3 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
+check("stop: one access-denied item is failed, the next one goes on", state3["items"]["3001"]["status"] == "failed" and state3["items"]["3002"]["status"] == "published")
+check("stop: a rate limit ends the downloads, the next item is not asked for", "Rate Limit Exceeded" in rep3["downloads"]["stop"] and state3["items"]["3004"]["status"] == "queued")
+rep4 = m.Night(cfg3, FakeClock(T0 + 2 * m.DAY + 3600), manual=True).run()
+check("stop: a later run that day downloads nothing", rep4["downloads"]["ok"] == 0 and "Rate Limit Exceeded" in rep4["downloads"]["stop"])
+FakeSteam.answers = {}
+# the day's window: its own report, no mail when it did nothing
+os.environ.update({"SYNC_DAY_AT": "07:15", "SYNC_DAY_END": "18:00"})
+cfgd = m.Config()
+nd = m.Night(cfgd, FakeClock(T0 + 3 * m.DAY), day_run=True)
+check("day: the deadline is the day window's end", m.time.strftime("%H:%M", m.time.localtime(nd.deadline)) in ("18:00", "17:00"))
+del os.environ["SYNC_DAY_AT"], os.environ["SYNC_DAY_END"]
+for k, v in real.items():
+    setattr(m, k, v)
+os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
 
 # ---- acf editing ---------------------------------------------------------------------------------------------------
 acf = os.path.join(ROOT, "appworkshop_730.acf")

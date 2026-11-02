@@ -6,7 +6,7 @@ Run them under Linux with the image's Python (os.open on a directory, which save
     docker run --rm -v "$PWD:/repo:ro" -w /repo/server python:3.9-slim python test_update_watch.py
 Exit status 0 when every check passes. Not deployed: only update-watch.py is copied to the server.
 """
-import json, os, sys, tempfile, types
+import json, os, shutil, sys, tempfile, types
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -551,6 +551,115 @@ check("N: --warmup-reset forgets the item (acf + folder)",
       '"111"' not in after and not os.path.isdir(os.path.join(wsdir, "content", "730", "111")))
 m.warmup_reset()
 check("N: a second --warmup-reset changes nothing", open(m.WORKSHOP_ACF).read() == after)
+# N2. the download line: what is said, when, and to nobody when nobody is on
+sent = []
+real_rcon = m.rcon
+m.rcon = lambda c, expect_reply=True: sent.extend(c) or ["gg_notice: shown"]
+bridge0 = os.path.join(ROOT, "bridge0")
+os.makedirs(bridge0, exist_ok=True)
+with open(os.path.join(bridge0, "maps-deathmatch.json"), "w") as h:
+    json.dump([{"rank": 1, "id": 900, "name": "Bastion", "sizeMb": 155}], h)
+m.BRIDGE_DATA = bridge0
+ln = m.DownloadLine()
+ln.console_line('11/01 08:45:57 [Workshop] Updating 900: state 3', 100.0)
+ln.step(101.0, 2)
+check("line: nothing in its first seconds", sent == [])
+ln.step(103.5, 0)
+check("line: nothing with nobody on", sent == [])
+ln.step(103.5, 2)
+check("line: the name and its size once it has taken 3 s (%s)" % sent, len(sent) == 1 and sent[0].startswith("gg_notice 4 ") and "Bastion" in sent[0] and "155 MB" in sent[0])
+ln.step(104.5, 2)
+check("line: not more often than every 2 s", len(sent) == 1)
+stage = os.path.join(wsdir, "downloads", "730", "900")
+os.makedirs(stage, exist_ok=True)
+with open(os.path.join(stage, "x.vpk"), "wb") as h:
+    h.write(b"0" * 1000)
+m.DownloadLine.staged = staticmethod(lambda wid: 77500000 if wid == "900" else 0)
+ln.step(106.0, 2)
+check("line: the progress from the staging folders (%s)" % sent[-1], "50 percent (78 MB of 155 MB)" in sent[-1] or "50 percent (77 MB of 155 MB)" in sent[-1])
+ln.console_line('11/01 08:46:30 [Workshop] Updating 900: state 5', 107.0)
+n = len(sent)
+ln.step(110.0, 2)
+check("line: state 5 ends it", len(sent) == n and not ln.active)
+ln.console_line('11/01 [MultiAddonManager] Addon download started for 901', 200.0)
+ln.console_line('11/01 [MultiAddonManager] Downloading addon 901: 3.00/6.00 MB (50.00%)', 203.0)
+ln.step(204.0, 1)
+check("line: MultiAddonManager's own bytes, an unlisted id by its number (%s)" % sent[-1], "Workshop item 901" in sent[-1] and "50 percent" in sent[-1])
+ln.console_line('11/01 [MultiAddonManager] Addon 901 downloaded successfully', 205.0)
+check("line: its success ends it", not ln.active)
+ln.step(300.0, 1, own={"902"})
+ln.started("902", 290.0)
+n = len(sent)
+ln.step(300.0, 1, own={"902"})
+check("line: never about the watcher's own downloads", len(sent) == n)
+ln.finished("902")
+ln.started("900", 400.0)
+ln.failed("900", "No Connection", 401.0)
+ln.step(402.0, 3)
+check("line: a failure says so once, and what to do (%s)" % sent[-1], sent[-1].startswith("gg_notice 10 ") and "could not download Bastion: No Connection" in sent[-1])
+n = len(sent)
+ln.step(405.0, 3)
+check("line: then nothing more", len(sent) == n)
+ln.console_line('nothing about downloads here', 500.0)
+ln.console_line('[Workshop] Updating 903: state 1', 500.0)
+ln.console_line('[Workshop] Updating 903: state 1', 500.0)
+ln.console_line('[Workshop] Loading custom game "903" with map "x"', 500.0)
+check("line: a cached map's load leaves nothing behind", not ln.active)
+m.rcon = real_rcon
+m.DownloadLine.staged = staticmethod(lambda wid: 0)
+# N3. the maps folder: real folders per type, links in content/730, new downloads moved in, nothing lost
+tree = os.path.join(ROOT, "orgtree")
+content_o = os.path.join(tree, "game", "bin", "linuxsteamrt64", "steamapps", "workshop", "content", "730")
+os.makedirs(content_o)
+maps_o = os.path.join(tree, "maps")
+def item(wid, text="x"):
+    os.makedirs(os.path.join(content_o, wid), exist_ok=True)
+    with open(os.path.join(content_o, wid, wid + "_dir.vpk"), "w") as h:
+        h.write(text)
+for wid in ("100", "200", "300", "400", "500", "600"):
+    item(wid)
+orgdata = os.path.join(ROOT, "orgdata")
+os.makedirs(orgdata)
+json.dump([{"rank": 1, "id": 100, "name": "De Dust 2 (remake)!", "sizeMb": 5}, {"rank": 2, "id": 400, "name": "My Map", "sizeMb": 1}], open(os.path.join(orgdata, "maps.json"), "w"))
+json.dump([{"rank": 1, "id": 200, "name": "Bastion", "sizeMb": 5}, {"rank": 2, "id": 100, "name": "De Dust 2 (remake)!", "sizeMb": 5}], open(os.path.join(orgdata, "maps-deathmatch.json"), "w"))
+json.dump([{"rank": 1, "id": 300, "name": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439", "sizeMb": 5}], open(os.path.join(orgdata, "maps-wingman.json"), "w"))
+json.dump({"maps": [{"id": 400, "name": "My Map"}]}, open(os.path.join(orgdata, "ours.json"), "w"))
+saved = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, os.environ.get("GUNGAME_HUD_ADDON"))
+m.BRIDGE_DATA, m.WARMUP_ITEM = orgdata, "600"
+os.environ["GUNGAME_HUD_ADDON"] = "500"
+m.WORKSHOP_ACF = os.path.join(ROOT, "no-such.acf")
+line = m.organize(content_o, maps_o)
+look = lambda wid: os.path.normpath(os.path.join(content_o, os.readlink(os.path.join(content_o, wid))))  # noqa: E731
+check("organize: an Arms Race map, also on Deathmatch, is Arms Race's (%s)" % line, look("100") == os.path.join(maps_o, "armsrace", "100-de_dust_2_remake"))
+check("organize: Deathmatch, Wingman with no ASCII in its title, own before the list, the HUD, not listed",
+      look("200") == os.path.join(maps_o, "deathmatch", "200-bastion") and look("300") == os.path.join(maps_o, "wingman", "300")
+      and look("400") == os.path.join(maps_o, "own", "400-my_map") and look("500") == os.path.join(maps_o, "hud", "500-hud"))
+check("organize: the link is relative, the file readable through it",
+      not os.path.isabs(os.readlink(os.path.join(content_o, "100"))) and open(os.path.join(content_o, "100", "100_dir.vpk")).read() == "x")
+check("organize: the warm-up item stays where it is", os.path.isdir(os.path.join(content_o, "600")) and not os.path.islink(os.path.join(content_o, "600")))
+check("organize: the index lists them", "armsrace\t100\tDe Dust 2 (remake)!" in open(os.path.join(maps_o, "INDEX.tsv"), encoding="utf-8").read())
+check("organize: a second run changes nothing", m.organize(content_o, maps_o) == "maps folder: in order")
+os.unlink(os.path.join(content_o, "100"))
+item("100", "new")
+line = m.organize(content_o, maps_o)
+check("organize: Steam's real folder (an update replaced the link) replaces the old copy (%s)" % line,
+      open(os.path.join(maps_o, "armsrace", "100-de_dust_2_remake", "100_dir.vpk")).read() == "new" and os.path.islink(os.path.join(content_o, "100")))
+item("700")
+line = m.organize(content_o, maps_o)
+check("organize: a new download goes to other until the lists name it", look("700") == os.path.join(maps_o, "other", "700"))
+json.dump([{"rank": 1, "id": 700, "name": "Now Listed", "sizeMb": 1}], open(os.path.join(orgdata, "maps-wingman.json"), "w"))
+line = m.organize(content_o, maps_o)
+check("organize: moved when the lists name it (%s)" % line, look("700") == os.path.join(maps_o, "wingman", "700-now_listed") and not os.path.exists(os.path.join(maps_o, "other", "700")))
+os.unlink(os.path.join(content_o, "200"))
+line = m.organize(content_o, maps_o)
+check("organize: a folder that lost its link gets it back (%s)" % line, look("200") == os.path.join(maps_o, "deathmatch", "200-bastion"))
+shutil.rmtree(os.path.join(maps_o, "deathmatch", "200-bastion"))
+line = m.organize(content_o, maps_o)
+check("organize: a link to nothing goes, the prefetch fetches it again (%s)" % line, not os.path.lexists(os.path.join(content_o, "200")))
+m.BRIDGE_DATA = os.path.join(ROOT, "nothing-here")
+check("organize: no lists, nothing touched", "not readable" in m.organize(content_o, maps_o))
+m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF = saved[:3]
+os.environ.pop("GUNGAME_HUD_ADDON", None)
 # O. warm-up: WARMUP_DELAY after the engine answers, one mm_download_addon; the result line ends it
 wslog = os.path.join(ROOT, "workshop_log.txt")
 open(wslog, "w").close()

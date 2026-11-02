@@ -225,6 +225,9 @@ cs2_watch_start() {
     if [[ "${CS2_WARMUP:-1}" == 1 && -n "${CS2_WARMUP_ITEM:-}" ]]; then
         python3 "$CS2_WATCH_SCRIPT" --warmup-reset || cs2_plugins_log "WARNING: update-watch.py --warmup-reset failed"
     fi
+    # Keep the maps in their folders per type (update-watch.py --organize, "THE MAPS FOLDER"): renames and links, seconds at most,
+    # now because no engine is running. A failure is a log line, and the engine starts anyway.
+    python3 "$CS2_WATCH_SCRIPT" --organize || cs2_plugins_log "WARNING: update-watch.py --organize failed"
     setsid python3 -u "$CS2_WATCH_SCRIPT" </dev/null &
     cs2_plugins_log "restart watcher started (pid $!); it logs as update-watch:"
 }

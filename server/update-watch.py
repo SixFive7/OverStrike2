@@ -6,7 +6,7 @@ the game) and lives as long as the container. Deployed to <config dir>/update-wa
 bind-mounted read-only at /home/steam/cs2-update-watch.py (source of truth: server/ in the Over Strike 2
 repo). Python 3.9 - the version in the joedwards32/cs2:4.0.1 image.
 
-SEVEN JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 never restart anything)
+EIGHT JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 never restart anything)
   1. UPDATES (CS2_AUTOUPDATE). entry.sh runs SteamCMD only when the container starts, so a Valve patch left the
      server rejecting every client for ~44 hours ("Bad host version"). Every CHECK_EVERY this asks
      Valve's ISteamApps/UpToDateCheck whether the installed build is current and restarts it when it is not.
@@ -68,6 +68,22 @@ SEVEN JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 ne
      never with players on (it waits for an empty server until the prefetch window closes). An engine younger than
      PREFETCH_FRESH (20 min) is fresh already and is not restarted. The prefetch itself starts only once that process's
      warm-up is done - not on the clock - and never in a process marked broken.
+  8. THE DOWNLOAD LINE (CS2_DOWNLOAD_LINE; since 2026-11-02). While the server downloads a map somebody is
+     waiting for - a vote's result, a request, a Deathmatch or Wingman Workshop map, an id typed on the keyboard - the HUD's news
+     line says so, with the progress, once it has taken LINE_AFTER seconds: nothing else on screen tells them why nothing
+     happens. The engine's own download (host_workshop_map) prints only "[Workshop] Updating <id>: state <n>"; MultiAddonManager's
+     (mm_download_addon) prints its bytes every second; both are read from console.log, and the engine's bytes from the cache's
+     staging folders. Never for the watcher's own warm-up and prefetch, never with nobody on, never in chat. A player's
+     download that ends "No Connection" marks the process broken like the watcher's own (job 6): the restart waits for an
+     empty server, as ever.
+
+THE MAPS FOLDER (`update-watch.py --organize`, run by pre.sh before every engine start, so at the latest by the 03:25 restart; since
+2026-11-02). The maps live in real folders per type - maps/armsrace, deathmatch, wingman, own, hud, other, each
+map <id>-<name> - on the game volume, and Steam's steamapps/workshop/content/730/<id> is a relative link to its folder. Every step
+is one rename or one link on one file system, with no engine running. What Steam downloaded since the last run is a real folder
+in content/730 (a new map; an update may replace a link by a real folder too): it moves into its type's folder and gets its link;
+an older copy of it there goes. Moved between types when the lists say so, renamed when a title changes. The warm-up item stays where
+Steam puts it: it is forgotten at every boot. CS2_MAPS_LAYOUT=off leaves everything alone.
 
 THE STUCK STATE
   The Steam client in the engine downloads from a ranked list of content servers. A request that fails - an HTTP 503
@@ -1103,11 +1119,134 @@ def warmup_reset():
             handle.write(new)
         os.chmod(temporary, stat.st_mode & 0o7777)
         os.replace(temporary, WORKSHOP_ACF)
-    if os.path.isdir(folder):
+    if os.path.islink(folder):
+        os.unlink(folder)
+    elif os.path.isdir(folder):
         shutil.rmtree(folder, ignore_errors=True)
     log("warm-up reset: workshop item %s forgotten (%s), so the first download after this boot is a real one"
         % (WARMUP_ITEM, "acf entries and folder" if new != text else "it was not installed"))
     return 0
+
+
+MAPS_DIR = os.path.join(STEAMAPPDIR, "maps")
+MAPS_LAYOUT = (os.environ.get("CS2_MAPS_LAYOUT") or "folders").strip().lower()
+MAP_TYPES = ("armsrace", "deathmatch", "wingman", "own", "hud", "other")
+SLUG_RX = re.compile(r"[^a-z0-9_.+-]+")
+
+
+def map_slug(name):
+    """What a folder may say of a title: lowercase ASCII, at most 40 characters; empty if nothing is left."""
+    return SLUG_RX.sub("_", (name or "").lower()).strip("_.-+")[:40].rstrip("_.-+")
+
+
+def map_types():
+    """{id: (type, title)} from the bridge's lists: the HUD item, then our own maps, then Arms Race, Deathmatch, Wingman. Not listed: other."""
+    out = {}
+    hud = (os.environ.get("GUNGAME_HUD_ADDON") or "").strip()
+    if hud:
+        out[hud] = ("hud", "hud")
+    for entry in (read_json(os.path.join(BRIDGE_DATA, "ours.json"), {}) or {}).get("maps") or []:
+        if isinstance(entry, dict) and entry.get("id"):
+            out.setdefault(str(entry["id"]), ("own", str(entry.get("name") or "")))
+    for kind, fname in (("armsrace", "maps.json"), ("deathmatch", "maps-deathmatch.json"), ("wingman", "maps-wingman.json")):
+        for entry in read_json(os.path.join(BRIDGE_DATA, fname), []) or []:
+            if isinstance(entry, dict) and entry.get("id"):
+                out.setdefault(str(entry["id"]), (kind, str(entry.get("name") or "")))
+    return out
+
+
+def organize(content=None, maps_dir=None):
+    """--organize: every map of content/730 in its type's folder under maps/, content/730/<id> a relative link to it (see THE MAPS
+    FOLDER above). Only ever renames and links, with no engine running; a real folder only goes when a newer copy of the same id has
+    taken its place. Returns a line for the log. Never raises: the engine's start must not depend on it."""
+    content = content or os.path.join(WORKSHOP_DIR, "content", "730")
+    maps_dir = maps_dir or MAPS_DIR
+    if MAPS_LAYOUT != "folders":
+        return "maps folder: off (CS2_MAPS_LAYOUT=%s)" % MAPS_LAYOUT
+    counts = {"moved": 0, "renamed": 0, "linked": 0, "replaced": 0, "broken": 0, "errors": 0}
+    try:
+        types = map_types()
+        if not any(kind == "armsrace" for kind, _ in types.values()):
+            return "maps folder: the bridge's lists are not readable - left as it is"
+        for kind in MAP_TYPES:
+            os.makedirs(os.path.join(maps_dir, kind), exist_ok=True)
+        where = {}      # id -> the folders under maps/ that hold it
+        for kind in MAP_TYPES:
+            for name in os.listdir(os.path.join(maps_dir, kind)):
+                wid = name.split("-", 1)[0]
+                if wid.isdigit():
+                    where.setdefault(wid, []).append(os.path.join(maps_dir, kind, name))
+        rel = os.path.relpath(maps_dir, content)
+        installed = set(os.listdir(content))
+        for wid in sorted(installed | set(where)):
+            if not wid.isdigit() or wid == WARMUP_ITEM:
+                continue
+            try:
+                path = os.path.join(content, wid)
+                kind, title = types.get(wid, ("other", ""))
+                slug = map_slug(title)
+                folder = "%s-%s" % (wid, slug) if slug else wid
+                target = os.path.join(maps_dir, kind, folder)
+                link = os.path.join(rel, kind, folder)
+                if os.path.islink(path):
+                    current = os.path.normpath(os.path.join(content, os.readlink(path)))
+                    if not os.path.isdir(current):
+                        os.unlink(path)     # its folder is gone: Steam or the prefetch fetches it again when it is wanted
+                        counts["broken"] += 1
+                        installed.discard(wid)
+                        if not where.get(wid):
+                            continue
+                    elif current == target and os.readlink(path) == link:
+                        for extra in where.get(wid, []):
+                            if extra != target:
+                                shutil.rmtree(extra, ignore_errors=True)
+                        continue
+                    else:
+                        os.rename(current, target)
+                        os.unlink(path)
+                        os.symlink(link, path)
+                        counts["renamed"] += 1
+                        continue
+                if os.path.isdir(path) and not os.path.islink(path):
+                    for old in where.get(wid, []):      # what Steam just wrote is the newer copy
+                        shutil.rmtree(old, ignore_errors=True)
+                        counts["replaced"] += 1
+                    os.rename(path, target)
+                    os.symlink(link, path)
+                    counts["moved"] += 1
+                elif not os.path.lexists(path) and where.get(wid):
+                    keep = target if target in where[wid] else where[wid][0]   # a folder that lost its link
+                    if keep != target:
+                        os.rename(keep, target)
+                    os.symlink(link, path)
+                    counts["linked"] += 1
+            except OSError as error:
+                counts["errors"] += 1
+                log("maps folder: %s: %s" % (wid, error))
+        write_maps_index(content, maps_dir, types)
+    except Exception as error:  # noqa: BLE001 - never in the way of the engine's start
+        return "maps folder: stopped (%s: %s) - the engine starts anyway" % (type(error).__name__, error)
+    return "maps folder: %s" % ", ".join("%d %s" % (v, k) for k, v in counts.items() if v) if any(counts.values()) else "maps folder: in order"
+
+
+def write_maps_index(content, maps_dir, types):
+    """maps/INDEX.tsv: type, id, title, megabytes, for looking around. Sizes from Steam's acf."""
+    sizes = {}
+    try:
+        with open(WORKSHOP_ACF, "r", encoding="utf-8") as handle:
+            for wid, body in kv_get(kv_get(kv_parse(handle.read()), "AppWorkshop"), "WorkshopItemsInstalled") or []:
+                if isinstance(body, list) and str(kv_get(body, "size") or "").isdigit():
+                    sizes[wid] = int(kv_get(body, "size"))
+    except (OSError, ValueError, TypeError):
+        pass
+    rows = ["type\tid\ttitle\tMB"]
+    for wid in sorted(x for x in os.listdir(content) if x.isdigit()):
+        kind, title = types.get(wid, ("other", ""))
+        rows.append("%s\t%s\t%s\t%d" % (kind, wid, title.replace("\t", " "), sizes.get(wid, 0) // 1000000))
+    temporary = os.path.join(maps_dir, ".INDEX.tsv.tmp")
+    with open(temporary, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(rows) + "\n")
+    os.replace(temporary, os.path.join(maps_dir, "INDEX.tsv"))
 
 
 def engine_age(pid):
@@ -1192,12 +1331,168 @@ def prefetch_slot(now):
     return None, None
 
 
+DOWNLOAD_LINE = flag_env("CS2_DOWNLOAD_LINE", True)
+LINE_AFTER = 3          # a download this young says nothing: a cached map's "download" ends within a second
+LINE_EVERY = 2          # seconds between two updates of the line
+LINE_HOLD = 4           # seconds one update stays up, so the line lasts until the next and goes by itself after the last
+LINE_FORGET = 1800      # a download with no sign of life for this long is over, whatever it never said
+ENGINE_STATE_RX = re.compile(r"\[Workshop\] Updating (\d+): state (\d+)")
+ENGINE_LOADING_RX = re.compile(r'\[Workshop\] Loading custom game "(\d+)"')
+MAM_STARTED_RX = re.compile(r"\[MultiAddonManager\] Addon download started for (\d+)")
+MAM_PROGRESS_RX = re.compile(r"\[MultiAddonManager\] Downloading addon (\d+): ([\d.]+)/([\d.]+) MB")
+MAM_DONE_RX = re.compile(r"\[MultiAddonManager\] Addon (\d+) downloaded successfully")
+MAM_FAILED_RX = re.compile(r'\[MultiAddonManager\] Addon (\d+) download failed with reason "([^"]*)"')
+
+
+def size_words(nbytes):
+    return "%.1f GB" % (nbytes / 1e9) if nbytes >= 1e9 else "%d MB" % max(1, round(nbytes / 1e6))
+
+
+class DownloadLine:
+    """Job 8: which downloads are running, and the news line about the newest one. Fed from console.log (console_line) and
+    the Steam client's workshop log (started, finished, failed); step() sends the line. A failed RCON call only skips an update."""
+
+    def __init__(self):
+        self.active = {}          # id -> {"since", "seen", "done", "total"} (done, total in bytes; from MultiAddonManager when it says)
+        self.failure = None       # (id, why): one line about it goes out at the next step
+        self.sent = 0
+        self.told = set()         # ids whose line was logged once
+        self.names = {}
+        self.names_at = 0
+
+    def reset(self):
+        self.active.clear()
+        self.failure = None
+        self.told.clear()
+
+    def started(self, wid, now):
+        entry = self.active.setdefault(wid, {"since": now, "seen": now, "done": None, "total": None})
+        entry["seen"] = now
+        return entry
+
+    def finished(self, wid):
+        self.active.pop(wid, None)
+        self.told.discard(wid)
+
+    def failed(self, wid, why, now):
+        if wid in self.active or wid in self.told:
+            self.failure = (wid, why)
+        self.finished(wid)
+
+    def console_line(self, line, now):
+        """One console.log line. Cheap: most lines match nothing."""
+        if "[Workshop]" not in line and "[MultiAddonManager]" not in line:
+            return
+        found = ENGINE_LOADING_RX.search(line)
+        if found:
+            self.finished(found.group(1))
+            return
+        found = ENGINE_STATE_RX.search(line)
+        if found:
+            if found.group(2) == "5":
+                self.finished(found.group(1))
+            else:
+                self.started(found.group(1), now)
+            return
+        found = MAM_STARTED_RX.search(line)
+        if found:
+            self.started(found.group(1), now)
+            return
+        found = MAM_PROGRESS_RX.search(line)
+        if found:
+            entry = self.started(found.group(1), now)
+            entry["done"], entry["total"] = float(found.group(2)) * (1 << 20), float(found.group(3)) * (1 << 20)
+            return
+        found = MAM_DONE_RX.search(line)
+        if found:
+            self.finished(found.group(1))
+            return
+        found = MAM_FAILED_RX.search(line)
+        if found:
+            self.failed(found.group(1), found.group(2), now)
+
+    def lookup(self, now):
+        """{id: (name, bytes)} from the bridge's lists, read again once a minute while a line is due."""
+        if now - self.names_at >= 60:
+            self.names_at = now
+            names = {}
+            for fname in ("maps-wingman.json", "maps-deathmatch.json", "maps.json"):
+                for entry in read_json(os.path.join(BRIDGE_DATA, fname), []) or []:
+                    if isinstance(entry, dict) and entry.get("id"):
+                        names[str(entry["id"])] = (str(entry.get("name") or ""), int(entry.get("sizeMb") or 0) * 1000000)
+            self.names = names
+        return self.names
+
+    @staticmethod
+    def staged(wid):
+        """Bytes of this item in the cache's staging folders."""
+        total = 0
+        for stage in ("downloads", "temp"):
+            for root, _dirs, files in os.walk(os.path.join(WORKSHOP_DIR, stage)):
+                if wid in root.split(os.sep):
+                    for name in files:
+                        try:
+                            total += os.path.getsize(os.path.join(root, name))
+                        except OSError:
+                            pass
+        return total
+
+    def title(self, wid, now):
+        return self.lookup(now).get(wid, ("", 0))[0].replace("%", "")[:48].strip() or "Workshop item %s" % wid
+
+    def words(self, wid, now):
+        name, size = self.title(wid, now), self.lookup(now).get(wid, ("", 0))[1]
+        entry = self.active[wid]
+        done, total = entry["done"], entry["total"] or size
+        if done is None:
+            done = self.staged(wid)
+        if done and total:
+            return "Server is downloading %s: %d percent (%s of %s) - the map changes when it is ready" % (   # no % sign on a console line
+                name, min(99, int(done * 100 / total)), size_words(done), size_words(total))
+        if done:
+            return "Server is downloading %s: %s so far - the map changes when it is ready" % (name, size_words(done))
+        if total:
+            return "Server is downloading %s (%s) - the map changes when it is ready" % (name, size_words(total))
+        return "Server is downloading %s - the map changes when it is ready" % name
+
+    def step(self, now, humans, own=()):
+        if not DOWNLOAD_LINE:
+            return
+        for wid in [w for w, e in self.active.items() if now - e["seen"] > LINE_FORGET]:
+            self.finished(wid)
+        if not humans:
+            self.failure = None
+            return
+        if self.failure:
+            wid, why = self.failure
+            self.failure = None
+            line = chat_safe("The server could not download %s: %s - pick another map or press Next" % (
+                self.title(wid, now), why.replace("%", "").strip() or "no reason given"), 240)
+            log("hud: %s" % line)
+            rcon(['gg_notice 10 "%s"' % line])
+            self.sent = now
+            return
+        if now - self.sent < LINE_EVERY:
+            return
+        waiting = [w for w, e in self.active.items() if w not in own and now - e["since"] >= LINE_AFTER]
+        if not waiting:
+            return
+        wid = max(waiting, key=lambda w: self.active[w]["since"])
+        line = chat_safe(self.words(wid, now), 240)
+        if wid not in self.told:
+            self.told.add(wid)
+            log("hud: %s" % line)
+        self.sent = now
+        rcon(['gg_notice %d "%s"' % (LINE_HOLD, line)])
+
+
 class Workshop:
     """The warm-up and the nightly prefetch, a state machine stepped once per watcher tick - never blocking it for
     longer than one RCON command or one Workshop details request."""
 
     def __init__(self, watch):
         self.watch = watch
+        self.line = DownloadLine()
         self.tail = Tail(WORKSHOP_LOG)
         self.warm = None                 # {"pid", "state": waiting|running|done|noop|skipped|failed, "at", "sent", "seen"}
         self.pf = None
@@ -1228,14 +1523,36 @@ class Workshop:
             if self.broken is not None:
                 log("workshop downloads: engine pid %d is a new process - the broken flag is cleared" % pid)
             self.broken = None
+            self.line.reset()
         if self.broken is not None:
             for wid, kind, text, _ in events:
                 if kind == "result" and text.strip().upper() == "OK":
                     log("workshop downloads work again (item %s OK) - the download restart is no longer due" % wid)
                     self.broken = None
                     break
+        self.step_players(now, events)
         self.step_warmup(now, events)
         self.step_prefetch(now, events)
+
+    # -- what players wait for ------------------------------------------------------------------------------------
+    def step_players(self, now, events):
+        """Every download that is not the warm-up's or the prefetch's: job 8's line, and job 6's broken flag for it (the stuck state
+        of 2026-10-31: a player's pick failed in a process nothing had marked, and nothing noticed)."""
+        own = set([WARMUP_ITEM]) if WARMUP_ITEM else set()
+        if self.pf is not None and self.pf.get("current"):
+            own.add(self.pf["current"][0])
+        for wid, kind, text, cancel in events:
+            if not wid or wid in own:
+                continue
+            if kind == "requested":
+                self.line.started(wid, now)
+            elif text.strip().upper() == "OK":
+                self.line.finished(wid)
+            else:
+                self.line.failed(wid, text, now)
+                if stuck_result(text, cancel):
+                    self.mark_broken(now, "a download for players (%s) came back '%s'" % (wid, text))
+        self.line.step(now, self.watch.a2s["humans"] if self.watch.a2s else 0, own)
 
     # -- warm-up --------------------------------------------------------------------------------------------------
     def step_warmup(self, now, events):
@@ -1559,6 +1876,10 @@ class Watch:
                     self.probe_token = None
                 if tail is not self.console:
                     continue
+                try:
+                    self.workshop.line.console_line(line, now)
+                except Exception as error:   # a bug in the line must never cost the freeze recovery below
+                    log_once("download-line", "WARNING: the download line (%s: %s) - no line" % (type(error).__name__, error))
                 if is_quit_echo(line):
                     if self.armed_pid is not None:
                         log("a quit/restart was sent over RCON - the silence watch stands down until the engine answers "
@@ -1949,6 +2270,9 @@ class Watch:
 def main():
     if sys.argv[1:] == ["--warmup-reset"]:
         return warmup_reset()
+    if sys.argv[1:] == ["--organize"]:
+        log(organize())
+        return 0
     if not (AUTOUPDATE or FREEZE_RECOVERY or RESTART_AT or (WARMUP and WARMUP_ITEM) or PREFETCH_AT):
         log("CS2_AUTOUPDATE=0, CS2_FREEZE_RECOVERY=0, CS2_RESTART_AT=off and no warm-up or prefetch: nothing to do, exiting")
         return 0
