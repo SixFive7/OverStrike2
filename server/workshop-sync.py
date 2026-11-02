@@ -2557,7 +2557,8 @@ class Night(object):
         fresh.sort(key=lambda w: -int(items[w].get("created") or 0))
         changed.sort(key=lambda w: popularity_key(dict(items[w], id=w)))
         ordered = fresh + changed + order_backlog(items, backlog)
-        self.backlog = backlog_stats(items, ordered, self.cfg, self.pace())
+        # the service's caps: a manual run's lowered one would make the mail promise 877 days (a test run of 6 maps did)
+        self.backlog = backlog_stats(items, ordered, Config() if self.manual else self.cfg, self.pace())
         return ordered
 
     def pace(self):

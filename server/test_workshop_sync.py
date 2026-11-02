@@ -805,6 +805,7 @@ check("run: the rest waits, the day's book says 5", state_after["downloads"]["20
       and sum(1 for r in state_after["items"].values() if r["status"] == "queued") == 3)
 check("run: the mail's estimate counts what is left", rep["backlog"]["items"] == 3 and "Backlog: 3 item(s)" in open(rep["report_path"][:-5] + ".txt", encoding="utf-8").read())
 check("run: no last_run_day from a manual run", state_after.get("last_run_day") in (None, ""))
+check("run: the estimate takes the service's caps, not the manual run's lowered one", rep["backlog"]["per_day"][0] == m.Config().download_max != 5)
 # somebody joins during a test: the engine stops at once, nothing runs until the quiet time is over
 loads[:] = []
 FakeSteam.logins = 0
