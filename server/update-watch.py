@@ -1345,7 +1345,8 @@ MAM_FAILED_RX = re.compile(r'\[MultiAddonManager\] Addon (\d+) download failed w
 
 
 def size_words(nbytes):
-    return "%.1f GB" % (nbytes / 1e9) if nbytes >= 1e9 else "%d MB" % max(1, round(nbytes / 1e6))
+    """As the HUD shows a map's size, the lists' sizeMb: binary units, labelled MB and GB (a client showed 486 MB of 464 MB in decimal ones)."""
+    return "%.1f GB" % (nbytes / float(1 << 30)) if nbytes >= (1 << 30) else "%d MB" % max(1, round(nbytes / float(1 << 20)))
 
 
 class DownloadLine:
@@ -1419,7 +1420,7 @@ class DownloadLine:
             for fname in ("maps-wingman.json", "maps-deathmatch.json", "maps.json"):
                 for entry in read_json(os.path.join(BRIDGE_DATA, fname), []) or []:
                     if isinstance(entry, dict) and entry.get("id"):
-                        names[str(entry["id"])] = (str(entry.get("name") or ""), int(entry.get("sizeMb") or 0) * 1000000)
+                        names[str(entry["id"])] = (str(entry.get("name") or ""), int(entry.get("sizeMb") or 0) << 20)
             self.names = names
         return self.names
 
