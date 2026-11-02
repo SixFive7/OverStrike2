@@ -13,7 +13,7 @@ services:
     ports:
       - 27015:27015/udp # game traffic and server queries; RCON stays inside: only the bridge uses it
     volumes:
-      - <game dir>:/home/steam/cs2-dedicated # the SteamCMD install (~35 GB) and the Workshop map cache
+      - <game dir>:/home/steam/cs2-dedicated # the SteamCMD install (about 75 GB) and the Workshop maps (about 370 GB for 3,700 maps)
       - <game dir>/steam-depotcache:/home/steam/Steam/depotcache # the Steam client's verified Workshop manifests, kept across recreates (create it first, owned by uid 1000)
       - <config dir>/gamemode_armsrace_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_armsrace_server.cfg:ro # server/: each mode's overrides, run after Valve's mode cfg on every map load
       - <config dir>/gamemode_deathmatch_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_deathmatch_server.cfg:ro # server/
@@ -55,6 +55,7 @@ services:
       CS2_PREFETCH_RESTART: 1 # a fresh engine process before the prefetch, only at 0 players
       CS2_WORKSHOP_RESTART: 1 # restart a process whose Workshop downloads are stuck, only at 0 players
       CS2_DOWNLOAD_LINE: 1 # say on the news line, with the progress, what the server downloads for a waiting player
+      # CS2_MAPS_LAYOUT: "off" # the default, folders, keeps the maps in maps/<type>/ on the game volume, linked from where Steam expects them
       GUNGAME_GRENADE_WIN: 0 # leave 0: CS2 does not end an Arms Race match on a last-level grenade kill
 
   bridge:

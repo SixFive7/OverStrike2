@@ -240,7 +240,7 @@ The game server (`joedwards32/cs2` variables, and these of ours):
 | `CS2_PLUGINS` | `1` installs and loads the plugin layer; `0` runs vanilla after a game update broke a dependency. |
 | `GUNGAME_HUD_ADDON` | The HUD addon's Workshop id; empty: a simple text panel instead of the menu, and MultiAddonManager stays unloaded. |
 | `GUNGAME_GRENADE_WIN` | Leave `0`: CS2 does not end an Arms Race match on a last-level grenade kill. |
-| `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_FREEZE_GRACE_SECONDS`, `CS2_WARMUP`, `CS2_WARMUP_ITEM`, `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART`, `CS2_WORKSHOP_RESTART`, `CS2_DOWNLOAD_LINE`, `CS2_BRIDGE_DATA` | The restart watcher (below). |
+| `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_FREEZE_GRACE_SECONDS`, `CS2_WARMUP`, `CS2_WARMUP_ITEM`, `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART`, `CS2_WORKSHOP_RESTART`, `CS2_DOWNLOAD_LINE`, `CS2_MAPS_LAYOUT`, `CS2_BRIDGE_DATA` | The restart watcher (below). |
 
 [`deploy/compose.example.yml`](../deploy/compose.example.yml) sets all of them, with a comment on each.
 
@@ -288,6 +288,7 @@ The plugin's modules:
 | `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART` | At night, while nobody is on, install every listed map that is missing and update every one with a newer Workshop copy; optionally in a fresh engine process. |
 | `CS2_WORKSHOP_RESTART` | Restart an engine process whose Workshop downloads are stuck (every download ends without a connection). |
 | `CS2_DOWNLOAD_LINE` | While the server downloads a map somebody is waiting for, say so on the HUD's news line, with the progress. Never for the watcher's own downloads, never with nobody on. |
+| `CS2_MAPS_LAYOUT` | `folders` (the default) keeps the maps in order before every engine start, see below; `off` leaves them where Steam puts them. |
 
 Restarts happen between matches; an empty server restarts at once. Loop protection is kept in `update-watch/state.json` on the
 game volume: planned restarts at least 10 minutes apart and at most 4 a day, freeze kills at least 3 minutes apart and at most
@@ -297,6 +298,13 @@ game volume: planned restarts at least 10 minutes apart and at most 4 a day, fre
 a server that fails is dropped for the life of the process, and once none is left every download fails. Two things lead
 there: a full manifest re-check in a new container (avoided by keeping `~/Steam/depotcache` on a volume - mount it), and
 content servers the client ranks first but cannot reach (keep every one reachable). The watcher restarts a process in that state.
+
+**The maps folder.** Before every engine start `update-watch.py --organize` moves each Workshop map to a real folder per type on the
+game volume, `maps/<type>/<id>-<name>/`: `armsrace`, `deathmatch`, `wingman`, `own`, `hud` and `other`, by the bridge's lists, with
+`maps/INDEX.tsv` listing them all. Steam's `content/730/<id>` becomes a relative link to that folder. Steam loads, updates and
+re-checks a map through the link, and a new download lands as a real folder where Steam expects it, which the next start moves.
+Tested on a side-by-side engine: loads, genuine updates, a fresh download onto a link and the re-check with a full and an empty
+depotcache. If the bridge's lists cannot be read, or a move fails, the engine starts anyway.
 
 ## The nightly Workshop sync
 
