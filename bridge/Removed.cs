@@ -78,11 +78,14 @@ static partial class Program
         Removed = r;
     }
 
-    /// <summary>What the plugin is to check: every map the server can list or roll (maps.json without the non-maps), and the seed.</summary>
-    static string CheckList() => Workshop.EncodeIds(Maps.Where(m => !IsPack(m) && m.Id > 0).Select(m => m.Id)
+    /// <summary>Every Workshop map the server lists: maps.json and the other modes' lists, whose maps the menu browses too.</summary>
+    static IEnumerable<MapInfo> AllListed => Maps.Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(ModeWorkshop));
+
+    /// <summary>What the plugin is to check: every map the server can list or roll (without the non-maps), and the seed.</summary>
+    static string CheckList() => Workshop.EncodeIds(AllListed.Where(m => !IsPack(m) && m.Id > 0).Select(m => m.Id)
         .Concat(RemovedSeed.Keys.Select(long.Parse)).Distinct());
 
-    static string NameOf(string id) => Maps.FirstOrDefault(m => m.Id.ToString() == id) is { } m ? Label(m) : $"workshop {id}";
+    static string NameOf(string id) => AllListed.FirstOrDefault(m => m.Id.ToString() == id) is { } m ? Label(m) : $"workshop {id}";
 
     /// <summary>A report from the plugin, on the event loop: keep it, log every change, and act on maps that just went - their queued
     /// requests go, a countdown to one stops, and the map that is on, if it is one, makes way for the dice. Returns a line for the plugin's log.</summary>
