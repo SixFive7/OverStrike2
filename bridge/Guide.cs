@@ -14,9 +14,9 @@ public static class Guide
     public const int MaxLines = 5;     // taller content makes CS2 scroll the panel, and every tick's re-send then flickers
     public const int ShowSeconds = 12; // on screen this long after it goes up, then cleared
 
-    /// <summary>The panel, one line each: a title and the tagline, then a pointer to the site and to !help. Everything else is discovered
-    /// there. (The centre panel is the fallback while GUNGAME_HUD_ADDON is empty; with the HUD on, a join gets TaglineHtml instead.)</summary>
-    public static string[] Lines => ["Welcome to Over Strike 2!", Tagline, "Commands, voting, queue:", Hud.Site != "" ? Hud.Site : "on the server's site", "Type !help in chat"];
+    /// <summary>The panel, one line each: a title and the tagline, then a pointer to !help. Everything else is discovered there. (The centre
+    /// panel is the fallback while GUNGAME_HUD_ADDON is empty; with the HUD on, a join gets TaglineHtml instead.)</summary>
+    public static string[] Lines => ["Welcome to Over Strike 2!", Tagline, "Commands, voting, queue:", "Type !help in chat"];
 
     /// <summary>The server's name and tagline (the owner's decision of 2026-11-01); the tagline is shown in the centre of the
     /// screen for a few seconds to every player who joins.</summary>
@@ -30,13 +30,12 @@ public static class Guide
     public static string TaglineHtml() => $"<font color='#FFD700'><b>{Escape(Name.ToUpperInvariant())}</b></font><br>{Escape(Tagline)}";
 
     /// <summary>The HTML for PrintToCenterHtml: only the tags CounterStrikeSharp's own center menu uses (font colour, bold, br).
-    /// The title is gold and bold, a word starting with '!' green, a word with a dot in it (the site) light blue.</summary>
+    /// The title is gold and bold, a word starting with '!' green.</summary>
     public static string Html()
     {
         var html = new StringBuilder($"<font color='#FFD700'><b>{Escape(Lines[0])}</b></font>");
         foreach (var line in Lines.Skip(1)) html.Append("<br>").Append(string.Join(' ', line.Split(' ').Select(word =>
-            word.StartsWith('!') ? $"<font color='#7CFC00'>{Escape(word)}</font>"
-            : word.Contains('.') ? $"<font color='#87CEFA'>{Escape(word)}</font>" : Escape(word))));
+            word.StartsWith('!') ? $"<font color='#7CFC00'>{Escape(word)}</font>" : Escape(word))));
         return html.ToString();
     }
 

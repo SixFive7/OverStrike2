@@ -329,7 +329,7 @@ def mb(nbytes):
     return "%.1f GB" % (nbytes / 1073741824.0) if nbytes >= 1073741824 else "%.0f MB" % (nbytes / 1048576.0)
 
 
-# Text as the site's build cleans it (site/build-1000.py): no control characters, no bidi overrides.
+# Text as a player may read it: no control characters, no bidi overrides.
 CTRL_RX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 BIDI_RX = re.compile("[‪-‮⁦-⁩]")
 WS_RX = re.compile(r"\s+")
@@ -1848,7 +1848,7 @@ def final_verdict(rec, night):
 
 
 def search_blob(name, wid, tags, description):
-    """The search text the site's build gives a map (build-1000.py's search_blob, no author): lowercased words."""
+    """The search text of a map: lowercased words."""
     parts = clean(name).lower().split()
     parts.append(str(wid))
     for tag in tags:
@@ -2891,7 +2891,7 @@ def status(cfg):
 
 
 def export(cfg):
-    """--export: what this sync has published, as entries a republish from the repo can merge (the site's entries shape:
+    """--export: what this sync has published, as entries a republish from the repo can merge (the entries' shape:
     id, rank, name, subscriptions, lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and
     state.json. The server's data is ahead of the repo after a night that published; this is the way back."""
     st = State(os.path.join(cfg.state_dir, "state.json")).load()

@@ -869,8 +869,8 @@ static partial class Program
             Console.WriteLine("panel: " + html);
             Check($"The panel fits without scrolling: {Guide.Lines.Length} lines of at most {Guide.LineWidth} characters (widest {Guide.Lines.Max(l => l.Length)})",
                 Guide.Lines.Length <= Guide.MaxLines && Guide.Lines.All(l => l.Length <= Guide.LineWidth));
-            Check($"Its HTML is small ({html.Length} characters), uses only font, b and br, and points at the site and !help",
-                html.Length <= 400 && Regex.Matches(html, "<(/?)([a-z]+)").All(t => t.Groups[2].Value is "font" or "b" or "br") && html.Contains(Site) && html.Contains("!help"));
+            Check($"Its HTML is small ({html.Length} characters), uses only font, b and br, and points at !help",
+                html.Length <= 400 && Regex.Matches(html, "<(/?)([a-z]+)").All(t => t.Groups[2].Value is "font" or "b" or "br") && html.Contains("!help"));
             var panel = new GuidePanel();
             var t0 = clock;
             string? Shows(int slot, double at) => panel.Frame(t0.AddSeconds(at)).Where(f => f.Slot == slot).Select(f => f.Html).Cast<string?>().FirstOrDefault();

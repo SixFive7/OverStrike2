@@ -1,6 +1,6 @@
 // Full-text search in the HUD's map browser (2026-10-21): the on-screen keyboard edits a query, and every listed map is matched on its
 // name, its Workshop tags and its Workshop description - not only on its name, as !find did. Shared like Hud.cs: the bridge reads the
-// index (search.json beside maps.json, built by search-index.py from the site's rows and the Workshop scrape), serves it on
+// index (search.json beside maps.json: search-index.py keeps it in step with maps.json, the nightly sync adds to it), serves it on
 // /search/<secret> and tests the matching; the plugin fetches it when its version moves and filters locally on every key press.
 // Plain BCL only.
 using System.Globalization;

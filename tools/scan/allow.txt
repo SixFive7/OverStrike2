@@ -8,9 +8,7 @@
 
 # Version numbers that look like IPv4 addresses
 ipv4 * 1\.41\.\d{1,2}\.\d{1,2}  # Counter-Strike 2 build numbers (1.41.9.2 is build 14192)
-ipv4 site/build-1000.py 140\.0\.0\.0  # the Chrome version in a browser User-Agent string
 ipv4 bridge/*.json 0\.9\.8\.2  # a version number in a Workshop map title
-ipv4 site/*.html 0\.9\.8\.2  # the same, on the map list page
 
 # Steam ids that are not anybody's account
 steam64 * 76561197960265728  # the SteamID64 of account 0: the constant every SteamID64 <-> account id conversion uses

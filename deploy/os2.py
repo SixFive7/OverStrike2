@@ -59,9 +59,6 @@ class Config:
             fail(f"'{dotted}' is empty in {self.path}", 2)
         return node
 
-    def site_host(self):
-        return self.get("site.url", required=True).split("://")[-1].rstrip("/")
-
 
 # ------------------------------------------------------------------------------------------------------ the Docker API
 

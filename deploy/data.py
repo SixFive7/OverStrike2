@@ -9,6 +9,7 @@ Without --apply it only shows what would change. The bridge reads its data files
 The nightly Workshop sync, when it runs, writes maps.json, broken.json and search.json on the server itself (and the
 mode lists), so a server copy can be newer than the repository: a file whose server copy is not one this repository ever
 committed is DRIFT, and nothing ships until its changes are taken into the repository (or --force, after you looked).
+search.json ships only to a server that has none: from then on the server's copy is its own, --force or not.
 """
 import argparse
 import os
@@ -23,6 +24,7 @@ SETS = {
     "server": ("server.config_dir", "server", ["pre.sh", "gamemode_armsrace_server.cfg", "gamemode_deathmatch_server.cfg",
                                                "gamemode_competitive2v2_server.cfg", "update-watch.py", "workshop-sync.py"]),
 }
+KEEP_IF_THERE = {"search.json"}  # the server's own once it has one: the nightly sync adds to it, and a copy from here would undo that
 
 
 def committed_before(rel, data, depth=50):
@@ -53,6 +55,10 @@ def main():
     if note:
         os2.log("server lock: " + note.replace("\n", " | ")[:300])
     drift = []
+    kept = [f for f in files if f in KEEP_IF_THERE and os.path.exists(os.path.join(dest, f))]
+    files = [f for f in files if f not in kept]
+    for f in kept:
+        os2.log(f"{f}: the server has its own, left alone")
     for f in files:  # drift: a server copy that is neither this commit's nor an earlier commit's was changed there
         target = os.path.join(dest, f)
         if os.path.exists(target):

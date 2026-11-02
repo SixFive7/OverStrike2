@@ -31,19 +31,6 @@ using System.Security.Cryptography;
 using System.Text;
 
 
-/// <summary>The server's site in a Workshop description: the placeholder host overstrike.example.com stands for SITE_URL's host and
-/// is filled in at upload time, so the real address stays out of the repository. An upload is refused while it is unfilled.</summary>
-static class Site
-{
-    public const string Placeholder = "overstrike.example.com";
-
-    public static string Fill(string text)
-    {
-        var host = (Environment.GetEnvironmentVariable("SITE_URL") ?? "").Trim().Split("://")[^1].TrimEnd('/');
-        return host.Length > 0 ? text.Replace(Placeholder, host) : text;
-    }
-}
-
 static class Program
 {
     const uint App = 730;
@@ -154,11 +141,6 @@ static class Program
     static int Publish(string addon, string idFile, string staging, string preview, string note)
     {
         if (ItemToUpdate(idFile) is not { } id) return 3; // before Steam is touched: there is nothing to create
-        if (Site.Fill(Description).Contains(Site.Placeholder))
-        {
-            Console.WriteLine($"REFUSED: the description names the placeholder site {Site.Placeholder}: set SITE_URL to the server's site.");
-            return 3;
-        }
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "steam_appid.txt"), App.ToString());
         Environment.SetEnvironmentVariable("SteamAppId", App.ToString());
         Environment.SetEnvironmentVariable("SteamGameId", App.ToString());
@@ -181,7 +163,7 @@ static class Program
 
             var h = Steam.SteamAPI_ISteamUGC_StartItemUpdate(ugc, App, id);
             Check("SetItemTitle", Steam.SteamAPI_ISteamUGC_SetItemTitle(ugc, h, Utf8(Title)));
-            Check("SetItemDescription", Steam.SteamAPI_ISteamUGC_SetItemDescription(ugc, h, Utf8(Site.Fill(Description))));
+            Check("SetItemDescription", Steam.SteamAPI_ISteamUGC_SetItemDescription(ugc, h, Utf8(Description)));
             Check("SetItemContent", Steam.SteamAPI_ISteamUGC_SetItemContent(ugc, h, Utf8(Path.GetFullPath(content))));
             Check("SetItemPreview", Steam.SteamAPI_ISteamUGC_SetItemPreview(ugc, h, Utf8(Path.GetFullPath(preview))));
             // An update leaves the visibility alone (the item is Public: on 2026-10-07 other players' games refused an Unlisted item with

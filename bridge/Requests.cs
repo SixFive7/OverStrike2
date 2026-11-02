@@ -361,7 +361,6 @@ static partial class Program
         var holders = Holders(now);
         var h = new HudState
         {
-            Site = Site,
             Maps = Playable,
             Map = S.Map != null || S.LogName != null ? Clip(CurrentLabel(), 40) : "",
             By = S.PickedBy ?? "",

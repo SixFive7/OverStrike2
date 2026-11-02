@@ -87,7 +87,6 @@ services:
       HUD_TAB: "down" # the board takes the mouse while TAB is held
       HUD_CHECK: dryrun # warn players whose game has not loaded the HUD; enforcement begins at the first real click on a release
       RESTART_COOLDOWN_SECONDS: 300
-      SITE_URL: https://<your site>
 
   sync: # optional: the nightly Workshop sync finds, downloads, scans and load-tests new maps and lists the ones that pass
     image: docker.io/joedwards32/cs2 # the game server's own image: its SteamCMD, its Python, the libraries a test engine needs

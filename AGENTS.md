@@ -8,8 +8,8 @@ in full, in [docs/reference.md](docs/reference.md).
 The server it runs on is not. Nothing about the deployment may enter this repository: no passwords, keys or tokens; no IP or
 MAC addresses; no host names, domains or subdomains of the deployment; no host paths, share names, container names or network
 layout; no local paths of a developer's machine; no Steam ids or player names. Placeholders stand in for them -
-`overstrike.example.com` (the site), `play.example.com` (the address players connect to) - and the real values live in the
-private config (`.private/`, gitignored; see [deploy/README.md](deploy/README.md)), from which the deploy scripts fill them in.
+`play.example.com` for the address players connect to - and the real values live in the private config (`.private/`, gitignored;
+see [deploy/README.md](deploy/README.md)), from which the deploy scripts read them.
 
 - **Commit in UTC** (`TZ=UTC git commit ...`): a commit's timestamp carries its author's time zone.
 - **The hooks are mandatory.** `git config core.hooksPath .githooks` once per clone. Pre-commit scans what is staged, pre-push
@@ -21,11 +21,10 @@ private config (`.private/`, gitignored; see [deploy/README.md](deploy/README.md
 - **No game files.** Never commit anything extracted from Counter-Strike 2 (textures, models, compiled resources `*_c`,
   `.vpk` packages, icons): a build reads it from the local installation at build time. Every binary file must be reviewed into
   `allow.txt` with its hash.
-- **No other authors' pictures.** Map thumbnails (`hud/thumbs/`, the site's `img/`) are made from Workshop previews and are
-  never committed.
-- **No other authors' text.** The data files and the site keep each Workshop item's title, id, tags and size - never its
-  description (people put addresses, handles and worse in them). Strip descriptions whenever the data is regenerated:
-  `search.json` is rebuilt from the site's rows, which carry none.
+- **No other authors' pictures.** Map thumbnails (`hud/thumbs/`) are made from Workshop previews and are never committed.
+- **No other authors' text.** The data files keep each Workshop item's title, id, tags and size - never its description (people
+  put addresses, handles and worse in them). Strip descriptions whenever the data is regenerated, and never take a server's
+  `search.json` into this repository: `bridge/search-index.py` keeps the committed one in step with `maps.json`.
 
 ## Build and test before every commit that touches code
 
@@ -37,9 +36,8 @@ docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_u
 python bridge/search-index.py --check
 ```
 
-The rules are said in three places - the menu's How it works and Help pages, and the site's guide - and `--selftest` holds
-all three to the code, number for number (docs/reference.md, "Keeping the rules in sync"): a rule change changes the code,
-the words and the site together.
+The rules are said in the menu's How it works, Help and Rules pages, and `--selftest` holds them to the code, number for number
+(docs/reference.md, "Keeping the rules in sync"): a rule change changes the code and the words together.
 
 ## Shipping
 

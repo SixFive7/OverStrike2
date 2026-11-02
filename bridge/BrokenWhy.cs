@@ -1,5 +1,5 @@
 // Why a map is broken (the owner, 2026-11-01, #8 and #11): every broken map says why, on its HUD card, in the confirm before anyone loads
-// it, and on the site - "may restart the server" only where that is true. broken.json's entries carry a short "reason" for the maps that
+// it - "may restart the server" only where that is true. broken.json's entries carry a short "reason" for the maps that
 // break something else (adverts, a player's HUD); a crasher without one keeps "crashed N of N test loads and may restart the server".
 //
 // And the maps that crash the players' games rather than the server (#6): 3 or more players timing out within 60 s of entering a map,
@@ -40,7 +40,7 @@ static partial class Program
         return reasons;
     }
 
-    /// <summary>What the card, the confirm and the site say about a broken map: the player-crash mark, broken.json's reason, or the crash
+    /// <summary>What the card and the confirm say about a broken map: the player-crash mark, broken.json's reason, or the crash
     /// count; empty when there is nothing to say beyond "on the broken list".</summary>
     static string ReasonOf(string key) =>
         S.PlayerCrashes.TryGetValue(key, out var auto) ? auto : BrokenReasons.GetValueOrDefault(key) ?? "";

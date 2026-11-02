@@ -1,5 +1,5 @@
 // The search index for the HUD's map browser (HudSearch.cs): search.json beside maps.json on the /data volume - map key -> the words a
-// search finds it by (its name, Workshop tags and description), built by search-index.py from the site's rows and the Workshop scrape.
+// search finds it by (its name, Workshop id and tags); search-index.py keeps it in step with maps.json, and the nightly sync adds to it.
 // Data like maps.json: read at start and again whenever it changes (Reload.cs), served to the plugin on /search/<secret>. A missing or
 // unreadable file leaves names-only search, which still works.
 using System.Text.Json;

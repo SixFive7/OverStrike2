@@ -13,7 +13,6 @@ the code is the final word, and the bridge's `--selftest` holds most of what is 
 | The HUD | [`hud/`](../hud/) | A Panorama layout and stylesheet published as one Steam Workshop item. MultiAddonManager hands it to every player who joins; every word on it comes from the plugin. |
 | The restart watcher | [`server/update-watch.py`](../server/update-watch.py) | Runs inside the game server's container: restarts for game updates and once a day, between matches; kills a frozen engine; warms the Steam client up; prefetches Workshop maps at night. |
 | The nightly Workshop sync | [`server/workshop-sync.py`](../server/workshop-sync.py) | An optional third container: finds new maps on the Workshop, downloads, scans and load-tests them, and lists the ones that pass. |
-| The site | [`site/`](../site/) | A static page of every map with its picture and the rules, and how to join. |
 
 The bridge is .NET 10 with the base class library only, published native AOT into a chiseled image; it runs read-only, with all
 capabilities dropped, as a non-root user, and writes only to its state directory. It does not reach the internet: everything
@@ -162,10 +161,9 @@ per reason. A game holding an older HUD has no popup: the player's note names th
 
 ### Keeping the rules in sync
 
-The rules are said in three places: the menu's How it works page, its Help page, and the site's how-to-play guide. The
-bridge's `--selftest` holds all three to the code: every number those words state must be one of the code's constants, the
-site's guide must carry How it works and every Help row word for word, and a rule change fails the selftest until the code, the
-menu's words (`bridge/Hud.cs`) and the site (`site/broken-maps.py` stamps the guide) agree again.
+The rules are said in the menu: its How it works, Help and Rules pages and the start page. The bridge's `--selftest` holds them to
+the code: every number those words state must be one of the code's constants, so a rule change fails the selftest until the code
+and the menu's words (`bridge/Hud.cs`) agree again.
 
 ## Maintenance flag
 
@@ -213,7 +211,6 @@ The bridge:
 | `HUD_TAB` | `down` | What TAB does: `down`, `hold`, `window`, `on`, `menu` or `off`. |
 | `HUD_CHECK` | `off` | The HUD check: `off`, `dryrun` (warn, and enforce from the first real click on a release) or `enforce`. |
 | `GUIDE_ON_JOIN` | `1` | Ask the plugin to show the welcome on every real join. |
-| `SITE_URL` | `https://overstrike.example.com` | Your site; the menu, the welcome and the hints show it without the scheme. |
 | `TZ` | `UTC` | Local times in notices. |
 
 The game server (`joedwards32/cs2` variables, and these of ours):
@@ -321,7 +318,7 @@ docker build -t localhost/overstrike2-bridge .
 Native AOT does not cross-compile between operating systems, so the image's build stage is the Linux publish. To run the bridge
 on Windows against a local server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:8080/log/dev"`,
 set `RCON_HOST=127.0.0.1`, `RCON_PASSWORD`, `LOG_SECRET=dev` and `STATE_DIR`, and `dotnet run`. The self-test reads the
-plugin's, the HUD's and the site's files from beside `bridge/`; set `OVERSTRIKE2_COMPOSE_FILE` to your compose file to have it
+plugin's and the HUD's files from beside `bridge/`; set `OVERSTRIKE2_COMPOSE_FILE` to your compose file to have it
 checked as well.
 
 ## Files
@@ -332,12 +329,11 @@ checked as well.
 | `bridge/maps.json` | The map list: `rank`, `id`, `name`, `sizeMb`. Append-only: a number, once given, keeps its map. |
 | `bridge/broken.json` | Crashers, non-maps, removed and blocked maps (above). |
 | `bridge/sizes.json` | Each map's measured walking area and size class, for the too-big rule. |
-| `bridge/search.json` | The menu's search text per map: title, Workshop id and tags, built by `bridge/search-index.py` from the site's rows. |
+| `bridge/search.json` | The menu's search text per map: title, Workshop id and tags; `bridge/search-index.py` keeps it in step with `maps.json`. |
 | `bridge/ours.json` | The server's own maps. |
 | `plugin/OverStrike2/` | The plugin; `blocked*.txt` the block lists, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |
 | `hud/` | The HUD addon ([`hud/PUBLISH.md`](../hud/PUBLISH.md)); `thumbs.py` makes the map pictures, which are never committed. |
 | `maps/` | Our own maps' generators and their Workshop publisher ([`maps/README.md`](../maps/README.md)). |
 | `server/` | The install hook, the mode cfgs, the restart watcher and the Workshop sync, with their tests. |
-| `site/` | The site's page (`index.html` and `more.html`, the rows after the first 1,016) and the scripts that build and stamp it. Other authors' descriptions are not kept: each row carries its title, id, tags and size. |
 | `deploy/` | Building and shipping from a workstation, with a private config. |
 | `tools/scan/` | The scanner the hooks run. |

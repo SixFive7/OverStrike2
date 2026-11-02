@@ -11,9 +11,8 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
 
 1. Install the **Counter-Strike 2 Workshop Tools** if `game\bin\win64\resourcecompiler.exe` is missing from the CS2 folder:
    start CS2, Settings, search for "Install Counter-Strike Workshop Tools", then let Steam download them.
-2. The map pictures: `python hud\thumbs.py` (needs Pillow) makes one small JPEG per map of `bridge/maps.json` in `hud\thumbs\`,
-   from the site's thumbnails (`--src <folder>`, or downloaded from `SITE_URL`'s `img/`). They are other authors' Workshop
-   previews and are never committed. `python deploy\workshop.py hud-thumbs` runs it with the site from the private config.
+2. The map pictures: `python hud\thumbs.py` (needs Pillow) makes one small JPEG per map of `bridge/maps.json` in `hud\thumbs\`, from
+   the maps' Workshop previews. They are other authors' pictures and are never committed.
 3. The knife icon: `hud\images\knife.png` is not in the repository (it is derived from the game's own HUD art). Put your copy
    there; the path is gitignored.
 4. `powershell -File hud\build.ps1` copies the layout, the stylesheets, the images and the pictures into the Workshop Tools'
@@ -32,10 +31,10 @@ powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY
 
 `publish.ps1` builds the publisher (`publisher\`, the Steamworks UGC API through CS2's own `steam_api64.dll`; it never sees a
 password: it attaches to the running Steam client), packs the built addon and uploads it as a content update. It refuses without
-`-UserApprovedUpdate`, without a change note, whenever `workshop_id.txt` names no item, and while the item's description still
-names the placeholder site: set `SITE_URL` to your site (`python deploy\workshop.py hud-publish` does). The title and the
-description are set again on every update; the item's preview image is `hud\workshop_preview.jpg`, which is kept out of the
-repository (gitignored) until a new one is made.
+`-UserApprovedUpdate`, without a change note, and whenever `workshop_id.txt` names no item. The title and the description live in
+`publisher\Program.cs` (`Title`, `Description`) and are set again on every update, so a change to them goes out with the next
+content update; the item's preview image is `hud\workshop_preview.jpg`, which is kept out of the repository (gitignored) until a
+new one is made.
 
 ## 3. The server's switch
 

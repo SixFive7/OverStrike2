@@ -1,5 +1,5 @@
 {
-  "schema": "cs2-broken/2 - read by the bridge (BROKEN_FILE) and by site/broken-maps.py",
+  "schema": "cs2-broken/2 - read by the bridge (BROKEN_FILE)",
   "generated": "2026-10-03",
   "source": "CS2 workshop load sweep v1+v2 of 2026-10-03 on engine 1.41.8.8, every item on the list and in the spare pool loaded on the server; the 10 uncertain items resolved from their download contents",
   "sweep": {

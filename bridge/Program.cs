@@ -15,9 +15,7 @@ static partial class Program
     static string StateDir = Env("STATE_DIR", "/data"); // not readonly: --selftest points it at a scratch directory
     static readonly string RconHost = Env("RCON_HOST", "cs2"), RconPassword = Env("RCON_PASSWORD", ""), LogSecret = Env("LOG_SECRET", ""),
         MapsFile = Env("MAPS_FILE", "maps.json"), BrokenFile = Env("BROKEN_FILE", ""),
-        StartMap = Env("START_MAP", "ar_shoots"), // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
-        SiteUrl = Env("SITE_URL", "https://overstrike.example.com"),
-        Site = SiteUrl.Split("://")[^1]; // the site without its scheme, as chat shows it
+        StartMap = Env("START_MAP", "ar_shoots"); // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
     static readonly int RconPort = int.Parse(Env("RCON_PORT", "27015")), HttpPort = int.Parse(Env("HTTP_PORT", "8080")),
         ChangeDelay = int.Parse(Env("CHANGE_DELAY_SECONDS", "8")), Cooldown = int.Parse(Env("CHANGE_COOLDOWN_SECONDS", "60")),
         RestartCooldown = int.Parse(Env("RESTART_COOLDOWN_SECONDS", "300"));
@@ -49,7 +47,6 @@ static partial class Program
 
     static int Main(string[] args)
     {
-        Hud.Site = Site; // the site address players read on the HUD: SITE_URL, configuration (the plugin gets it in the live state)
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--build-maps", var url]) return BuildMaps(url);
         if (RconPassword == "" || LogSecret == "") { Log("RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
@@ -60,7 +57,7 @@ static partial class Program
         Log(ReloadSearch(SearchFile));              // SearchIndex.cs: the map browser's full-text index - read here, then watched like the others
         Log(ReloadSizes(SizesFile));                // Selection.cs: each map's measured size, for the too-big rule - read here, then watched like the others
         foreach (var mode in Modes.All.Where(m => !m.ArmsRace)) Log(ReloadModeMaps(mode)); // ModeSwitch.cs: the other modes' Workshop lists - read here, then watched like the others
-        Log(ReloadOurs(OursFile));                  // Ours.cs: the owner's own maps, a section of the menu and the site
+        Log(ReloadOurs(OursFile));                  // Ours.cs: the owner's own maps, a section of the menu
         var statePath = Path.Combine(StateDir, "state.json");
         if (File.Exists(statePath)) S = JsonSerializer.Deserialize(File.ReadAllText(statePath), Ctx.Default.State) ?? new();
         LoadVotes();
@@ -353,7 +350,7 @@ static partial class Program
         {
             var json = File.ReadAllText(path);
             var (broken, packs) = (ParseBroken(json), ParsePacks(json));
-            BrokenReasons = ParseReasons(json); // BrokenWhy.cs: what the card, the confirm and the site say
+            BrokenReasons = ParseReasons(json); // BrokenWhy.cs: what the card and the confirm say
             Log($"broken list: {broken.Count} maps marked broken and {packs.Count} non-maps refused, from {path}");
             return (broken, packs);
         }
@@ -735,7 +732,7 @@ static partial class Program
     static string Detail(MapInfo m) => m.Official ? "" : Unlisted(m) ? " (size unknown, first load can take a while)" : $" ({Size(m)}{(m.SizeMb >= 400 ? ", first load takes a while" : "")})";
     static string Size(MapInfo m) => m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB";
 
-    static int Playable => Maps.Count(m => !IsPack(m)); // what chat counts as "maps": every listed one except a non-map, as the site's map tab does
+    static int Playable => Maps.Count(m => !IsPack(m)); // what chat counts as "maps": every listed one except a non-map
 
     public const int DefaultRoundMinutes = 60, ShortRoundMinutes = 10; // 60 is the engine ceiling for mp_roundtime; Arms Race is one long round, so this is the match length
 
@@ -815,7 +812,7 @@ static partial class Program
         {
             var options = hits.OrderBy(m => m.Name.Length).ThenBy(m => m.Rank).Take(count)
                 .Select(m => m.Official ? $"{verb} {m.Name} (official)" : $"{verb} {m.Rank} ({m.Name[..Math.Min(cut, m.Name.Length)]})").ToList();
-            line = $"Did you mean {string.Join(", ", options.SkipLast(1))} or {options[^1]}? More on {Site}";
+            line = $"Did you mean {string.Join(", ", options.SkipLast(1))} or {options[^1]}? More in the menu";
             if (line.Length <= 120) break;
         }
         return line;
@@ -1184,7 +1181,7 @@ static partial class Program
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         TabSelfTest(Check);
         GuiSelfTest(Check);
-        RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works, Help and the site against the code
+        RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
         Check("Choice shrinks to two truncated options", Choice(Enumerable.Range(1, 3).Select(i => new MapInfo(i, i, new string('x', 50) + i, 1)).ToList())
             is { Length: <= 120 } shrunk && shrunk.Contains("!map 2 (") && !shrunk.Contains("!map 3 ("));
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");

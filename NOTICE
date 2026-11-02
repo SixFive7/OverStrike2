@@ -13,7 +13,7 @@ by Valve. It includes no game files: the builds read what they need (the Worksho
 gg_vinceville ships, from ar_pool_day's map package) from a local Counter-Strike 2 installation. The HUD's knife icon
 (hud/images/knife.png) is derived from the game's own HUD art and is therefore not included; supply your own.
 
-Map titles, ids and tags in bridge/*.json and site/ are the Steam Workshop's, written by each map's author; their
+Map titles, ids and tags in bridge/*.json are the Steam Workshop's, written by each map's author; their
 descriptions are not part of this repository, and neither are the pictures of other authors' maps.
 
 -------------------------------------------------------------------------------------------------------------------------------

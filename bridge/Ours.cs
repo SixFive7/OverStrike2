@@ -1,12 +1,12 @@
 // "Our maps" (the owner, 2026-11-01): the maps the server's owner made or publishes get a section of their own - a filter on the HUD's
-// map browser, a tag on their cards, a section on the site. Which maps they are is data, never code: ours.json beside maps.json (on the
+// map browser and a tag on their cards. Which maps they are is data, never code: ours.json beside maps.json (on the
 // /data volume, like every list), read again while the bridge runs (Reload.cs). Adding a map later is a data change only: its entry on
 // maps.json (or any listed id) and its id here.
 //
 //   {"maps": [ {"id": 3831189574, "name": "gg_glasspire"}, ... ]}    or a bare array of ids
 //
 // An id that maps.json does not list is kept (it may be listed later) and simply shows nowhere. The catalog carries the flag (HudCatalog
-// field 19); the site's stamp (site/broken-maps.py) reads the same file.
+// field 19).
 using System.Text.Json;
 
 static partial class Program

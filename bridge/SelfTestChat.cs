@@ -203,16 +203,5 @@ static partial class Program
             var unknown = named.Where(w => ChatCommands.Parse(w + " on").Kind == ChatCommands.Kind.Unknown).ToList();
             Check($"The README's chat words are real ({string.Join(" ", named)}), and it names !help{(unknown.Count > 0 ? ": not " + string.Join(" ", unknown) : "")}", unknown.Count == 0 && named.Contains("!help"));
         }
-        if (File.Exists(SiteFile))
-        {
-            var html = File.ReadAllText(SiteFile);
-            var start = html.IndexOf("<!-- GUIDE-START", StringComparison.Ordinal);
-            var end = html.IndexOf("<!-- GUIDE-END -->", StringComparison.Ordinal);
-            if (start >= 0 && end > start)
-            {
-                var named = Regex.Matches(Regex.Replace(html[start..end], @"<script\b.*?</script>", " ", RegexOptions.Singleline), @"(?<=[>\s])![a-z]+").Select(m => m.Value).Distinct().ToList();
-                Check($"The site's guide names only primaries ({string.Join(" ", named)})", named.All(w => ChatCommands.Find(w) != null));
-            }
-        }
     }
 }

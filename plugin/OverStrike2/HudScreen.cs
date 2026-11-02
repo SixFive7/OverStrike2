@@ -877,7 +877,6 @@ sealed class HudScreen
         {
             lastStateText = text;
             state = fresh;
-            if (fresh.Site != "") Hud.Site = fresh.Site; // the bridge's SITE_URL: configuration, never code
             vote = VoteState.Decode(text);
             stateAt = now;
             changeAt = fresh.ChangeIn >= 0 ? now.AddSeconds(fresh.ChangeIn) : DateTime.MaxValue;

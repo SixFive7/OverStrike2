@@ -1,8 +1,7 @@
 // --selftest, part seven (2026-10-24): the menu's fun page (Fun.cs), the game-changers no map may set (BlockList.cs and the committed
-// plugin/OverStrike2/blocked.txt), and the owner's rule 5a: the three places players read the rules - the in-game How it works
-// page, the in-game Help page and the site's how-to-play guide - say the same as the code, number for number (README "Keeping the
+// plugin/OverStrike2/blocked.txt), and the owner's rule 5a: the places players read the rules - the in-game How it works page, the
+// in-game Help page and the Rules page - say the same as the code, number for number (docs/reference.md "Keeping the
 // rules in sync"). Every number in those words must be one of the phrases RuleNumbers builds from the bridge's own constants.
-using System.Net;
 using System.Text.RegularExpressions;
 
 static partial class Program
@@ -11,37 +10,24 @@ static partial class Program
         ServerCfgFile = "../server/gamemode_armsrace_server.cfg";
 
     /// <summary>Every phrase with a number in it that the rules may use, each made of the bridge's own constants. A number anywhere in
-    /// How it works, Help, Rules, the start page or the site's guide that is not inside one of these fails --selftest - so a rule change
+    /// How it works, Help, Rules or the start page that is not inside one of these fails --selftest - so a rule change
     /// changes the constant and all the words that state it together, or the selftest says which words still say the old number.</summary>
-    /// <summary>The deployment's compose file, when OVERSTRIKE2_COMPOSE_FILE names it: the selftest then checks the site and the
-    /// mounts against it. The repository holds none.</summary>
+    /// <summary>The deployment's compose file, when OVERSTRIKE2_COMPOSE_FILE names it: the selftest then checks the mounts against it.
+    /// The repository holds none.</summary>
     static string ComposeFile => Environment.GetEnvironmentVariable("OVERSTRIKE2_COMPOSE_FILE") ?? "";
-
-    /// <summary>The site's address as the deployment configures it (SITE_URL in that compose file; without one, the bridge's own
-    /// SITE_URL) - the address the site's own words were stamped with.</summary>
-    static string ConfiguredSite()
-    {
-        try
-        {
-            var m = Regex.Match((File.Exists(ComposeFile) ? File.ReadAllText(ComposeFile) : ""), @"^\s*SITE_URL:\s*(\S+)", RegexOptions.Multiline);
-            return m.Success ? m.Groups[1].Value.Split("://")[^1].Trim('/') : Site;
-        }
-        catch (IOException) { return Site; }
-    }
 
     static string[] RuleNumbers()
     {
         var odds = (int)Math.Round(1 / TooBigChance);
         return
         [
-            Guide.Name, Site, ConfiguredSite(), // the server's name and the site's address (the bridge's, and the stack's SITE_URL): configuration, not a rule's number
+            Guide.Name, // the server's name: not a rule's number
             $"#{FirstNewRank} and up", $"#1-#{FirstNewRank - 1}", $"1 random pick in {odds}", $"the other {odds - 1}", $"after {ResetEmptyMinutes} minutes with nobody on",
             $"{ResetEmptyMinutes} minutes with nobody on", $"the last {RecentCount} maps played", $"up to {UpvoteCap} Likes", $"(max {UpvoteCap})", $"up to {TopRankBoost:0}x",
             $"Up to {MaxRequestsEach} requests each", $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes",
-            $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page and the site
+            $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page
             $"Spawn with {Fun.VampireHealth} health", $"up to {Fun.VampireCap}", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost (#24)
             $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"{MapVote.MapOptions} maps and Random", $"{MapVote.MapOptions} maps", $"up to {Modes.Wingman.MaxPlayers} players", // the end-of-match vote (VoteRound.cs), the modes (Modes.cs)
-            "Counter-Strike 2", "CS2", // the game's name, on the site's join box: not a rule
         ];
     }
 
@@ -226,7 +212,7 @@ static partial class Program
         }
         else Console.WriteLine($"skip the blocked.txt checks: {BlockedFile} not found");
 
-        // ---- the rules in three places (the owner's 5a): every number in the game's words is the code's ----
+        // ---- the rules (the owner's 5a): every number in the game's words is the code's ----
         var gameWords = new List<(string Where, string Text)>();
         foreach (var r in Hud.How) gameWords.AddRange(r.Lines.Prepend(r.Title).Select(l => ($"How it works, {r.Title}", l)));
         foreach (var g in Hud.Help) gameWords.AddRange(g.Rows.Select(r => ($"Help, {g.Name}", $"{r.Command} {r.Words} {r.Also}")));
@@ -241,31 +227,8 @@ static partial class Program
         Check("...and the checker itself finds a number that is not (a 400 MB rule, a 2% chance)", StrayNumbers("Maps of 400 MB and up").Count == 1 && StrayNumbers("1 random pick in 50").Count == 1
             && StrayNumbers($"1 random pick in {(int)Math.Round(1 / TooBigChance)}").Count == 0);
 
-        // ---- ...and the site's how-to-play guide says the same, word for word, and no number of its own ----
-        if (File.Exists(SiteFile))
-        {
-            var html = File.ReadAllText(SiteFile);
-            var start = html.IndexOf("<!-- GUIDE-START", StringComparison.Ordinal);
-            var end = html.IndexOf("<!-- GUIDE-END -->", StringComparison.Ordinal);
-            Check("The site has its how-to-play guide (GUIDE-START ... GUIDE-END, stamped by broken-maps.py)", start >= 0 && end > start);
-            if (start >= 0 && end > start)
-            {
-                var block = Regex.Replace(html[start..end], @"<script\b.*?</script>", " ", RegexOptions.Singleline);
-                var guide = Norm(WebUtility.HtmlDecode(Regex.Replace(Regex.Replace(block, "<!--.*?-->", " ", RegexOptions.Singleline), "<[^>]+>", " ")));
-                var howMissing = Hud.How.SelectMany(r => r.Lines.Prepend(r.Title)).Where(l => !guide.Contains(Norm(l))).ToList();
-                Check($"The site's guide has How it works word for word: {Hud.How.Length} sections, {Hud.How.Sum(r => r.Lines.Length)} lines{(howMissing.Count > 0 ? " - missing: " + string.Join(" | ", howMissing) : "")}", howMissing.Count == 0);
-                var helpMissing = Hud.Help.SelectMany(g => g.Rows).Concat(Hud.HelpMore.Select(m => m.Row)).Where(r => r.Command != Hud.SiteRow && !guide.Contains(Norm(r.Words))).Select(r => r.Command).ToList();
-                Check($"The site's guide has every Help row's words - Too big, New maps, and content {Hud.Content}'s Ads and Fun too{(helpMissing.Count > 0 ? " - missing: " + string.Join(" | ", helpMissing) : "")}", helpMissing.Count == 0);
-                string[] counts = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"];
-                Check($"The site's guide counts the Fun page's settings as the code has them: {counts[Math.Min(Fun.Settings.Length, counts.Length - 1)]} settings",
-                    Fun.Settings.Length < counts.Length && guide.Contains($"{counts[Fun.Settings.Length]} settings anybody switches"));
-                var siteStray = StrayNumbers(guide);
-                Check($"Every number in the site's guide is one of the code's constants{(siteStray.Count > 0 ? " - not: " + string.Join(" | ", siteStray) : "")}", siteStray.Count == 0);
-            }
-        }
-        else Console.WriteLine($"skip the site guide checks: {SiteFile} not found");
         if (File.Exists("../docs/reference.md"))
-            Check("The README states the rule: a rule change updates How it works, Help and the site together, and --selftest holds them to the code",
+            Check("The reference states the rule: a rule change updates How it works, Help and Rules together, and --selftest holds them to the code",
                 File.ReadAllText("../docs/reference.md").Contains("### Keeping the rules in sync"));
     }
 }

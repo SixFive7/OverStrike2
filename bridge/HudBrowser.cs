@@ -111,7 +111,7 @@ public sealed class HudBrowser
     public const int PerPageTyping = 4;      // ...and the keyboard covers the second row of them while it is open
     public const double ConfirmSeconds = 30; // the bridge's own window for confirming a broken or crashed map
 
-    /// <summary>The site's size chips: under 25 MB, 25-120, 120-400, 400 MB and up.</summary>
+    /// <summary>The size chips: under 25 MB, 25-120, 120-400, 400 MB and up.</summary>
     public static Band BandOf(int sizeMb) => sizeMb < 25 ? Band.Tiny : sizeMb < 120 ? Band.Small : sizeMb < 400 ? Band.Mid : Band.Large;
 
     public SortBy Sort = SortBy.Rank;
@@ -497,7 +497,7 @@ public static class HudMenu
 }
 
 /// <summary>How a card shows its map's picture. A custom HUD cannot take a picture's address from the server, so every thumbnail is in
-/// the Workshop addon - the site's own picture of each map as a small JPEG, which the resource compiler stores as it is, or for an
+/// the Workshop addon - a small JPEG of each map's Workshop preview, which the resource compiler stores as it is, or for an
 /// official map the game's own screenshot - and the card picks one with classes.
 ///
 /// Two classes per picture, not one per map: the game interns every class name the server ever sets on the layout entity, for the

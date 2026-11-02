@@ -68,14 +68,7 @@ public static class Hud
     public static bool IsMapArg(string arg) => arg.Length is > 0 and <= WorkshopCard.MaxIdDigits && arg.All(char.IsAsciiDigit)
         || arg.Length is > 3 and <= 32 && arg.StartsWith("ar_") && arg.All(ch => ch == '_' || char.IsAsciiLetterLower(ch));
 
-    /// <summary>The site's address as players read it (no scheme): configuration, never code - the bridge's SITE_URL, which the bridge
-    /// sets here at its start and hands the plugin in the live state ("site" line); empty until known, and the words then leave it out.</summary>
-    public static string Site { get; set; } = "";
-
-    /// <summary>The Help row that names the site: its place to click is the site's address once known (HudView.Texts).</summary>
-    public const string SiteRow = "The site";
-
-    // ---- the words: kept equal to the site's how-to-play guide (--selftest checks it) ----
+    // ---- the words: every number in them is the code's own (--selftest checks it) ----
 
     public sealed record Row(string Command, string Words, string Also = "");
     public sealed record Group(string Name, Row[] Rows);
@@ -84,7 +77,7 @@ public static class Hud
     public const int RowsPerGroup = 4, LinesPerRule = 4; // the layout has exactly this many slots
 
     /// <summary>The Help rows content v3_2_0 adds: a fifth row in two groups (gg_c{group + 1}_5), for its two new places to click. Sent only
-    /// to a game that has shown it holds that content (HudView.NewIds32); the site's guide carries them like every other row.</summary>
+    /// to a game that has shown it holds that content (HudView.NewIds32).</summary>
     public static readonly (int Group, Row Row)[] HelpMore =
     [
         (2, new("Ads", "A dislike for ads or a server redirect: never a random pick")),
@@ -118,7 +111,7 @@ public static class Hud
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
-            new(SiteRow, "The rules and all the maps"),
+            new("Rules  ·  How it works", "The rules, and every chance in a map pick"),
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
@@ -223,7 +216,7 @@ public sealed class HudState
     /// asked (names, connected only) and their account ids - a player sees a cancel button on their own.</summary>
     public sealed record QueueEntry(string Arg, string Key, string Label, string Who, List<long> Accounts);
 
-    public int Maps;                                    // playable maps on the list, as the help and the site count them
+    public int Maps;                                    // playable maps on the list, as the help counts them
     public string Map = "", By = "", Size = "", Key = "", Status = "";
     public int Up, Down;                                // votes on the map that is on
     public bool Loading;                                // a change went out and its map has not logged its start yet
@@ -251,7 +244,6 @@ public sealed class HudState
     public int Big;                                     // too-big votes on the map that is on (each is also one of its Down)
     public string SizeClass = "";                       // its measured class (S, M, L, XL), empty when unmeasured
     public int Ads;                                     // ads votes on the map that is on (each is also one of its Down)
-    public string Site = "";                            // the site's address (SITE_URL without its scheme): the plugin's Hud.Site
 
     public string Encode()
     {
@@ -273,7 +265,6 @@ public sealed class HudState
         foreach (var (release, proof) in Proofs) Line("proof", release, proof);
         foreach (var (account, release) in Verified) Line("ok", account, release);
         if (TabMode != "") Line("tab", TabMode);
-        if (Site != "") s.Append("site\t").Append(Hud.Clean(Site, 60)).Append('\n');
         if (News != "" && NewsFor > 0) s.Append("news\t").Append(NewsFor.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(News, 240)).Append('\n');
         foreach (var (account, (text, secs)) in Notes)
             if (text != "" && secs > 0)
@@ -327,7 +318,6 @@ public sealed class HudState
                 case "newmaps": s.NewMaps = Str(f, 1); break;
                 case "big": (s.Big, s.SizeClass) = (Int(f, 1), Str(f, 2)); break;
                 case "ads": s.Ads = Int(f, 1); break;
-                case "site": s.Site = Str(f, 1); break;
                 case "proof" when HudCheck.IsRelease(Str(f, 1)): s.Proofs[Str(f, 1)] = Str(f, 2); break;
                 case "ok" when Long(f, 1) >= 0 && HudCheck.IsRelease(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
             }
@@ -418,7 +408,7 @@ public static class HudView
     {
         var t = new List<(string, string)>
         {
-            ("gg_w_headline", Hud.Headline), ("gg_w_hint", Hud.MenuHint), ("gg_f_site", Hud.Site == "" ? "" : $"Every rule and all the maps: {Hud.Site}"),
+            ("gg_w_headline", Hud.Headline), ("gg_w_hint", Hud.MenuHint), ("gg_f_site", ""), // the window's foot: empty, every content up to v4_0_0 has this label and it says nothing now
             ("gg_b_cmds", HudTab.BoardLine(HudTab.Mode.Off)),
         };
         for (var i = 0; i < Hud.Steps.Length; i++)
@@ -433,7 +423,7 @@ public static class HudView
             for (var r = 0; r < Hud.RowsPerGroup; r++)
             {
                 var row = r < Hud.Help[g].Rows.Length ? Hud.Help[g].Rows[r] : null;
-                t.Add(($"gg_c{g + 1}_{r + 1}_cmd", row?.Command == Hud.SiteRow && Hud.Site != "" ? Hud.Site : row?.Command ?? ""));
+                t.Add(($"gg_c{g + 1}_{r + 1}_cmd", row?.Command ?? ""));
                 t.Add(($"gg_c{g + 1}_{r + 1}_txt", row == null ? "" : row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
             }
         }
@@ -522,7 +512,7 @@ public static class HudView
         t.Add(("gg_b_big", s.Big.ToString(CultureInfo.InvariantCulture))); // content v3_1_0 (NewIds): the too-big votes on the map that is on
         t.Add(("gg_b_ads", s.Ads.ToString(CultureInfo.InvariantCulture))); // content v3_2_0 (NewIds32): the ads votes on it
         t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
-        t.Add(("gg_b_count", s.Maps > 0 ? (Hud.Site == "" ? $"{s.Maps} maps" : $"{s.Maps} maps  ·  {Hud.Site}") : Hud.Site));
+        t.Add(("gg_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
         t.Add(("gg_w_lede", Hud.Lede));
         t.Add(("gg_w_maps", s.Maps > 0 ? $"{s.Maps} Workshop maps" : "Workshop maps"));
         t.Add(("gg_k_map", s.ChangeMap));

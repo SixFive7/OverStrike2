@@ -1,14 +1,12 @@
-// --selftest, part three: the HUD's words and wiring (Hud.cs). The words must say what the site says; every panel id and class the
+// --selftest, part three: the HUD's words and wiring (Hud.cs). Every panel id and class the
 // plugin sends must exist in the Workshop layout, and every label in the layout must be fed - a mismatch there shows nothing on screen
 // and logs nothing anywhere, so this is the only place it can be caught before players see it.
-using System.Net;
 using System.Text.RegularExpressions;
 
 static partial class Program
 {
     const string HudLayoutFile = "../hud/layout/gungame_hud_" + Hud.Release + ".xml", HudStyleFile = "../hud/styles/gungame_hud_" + Hud.Release + ".css",
-        HudThumbFile = "../hud/styles/gungame_hud_thumbs_" + Hud.Release + ".css",
-        SiteFile = "../site/index.html";
+        HudThumbFile = "../hud/styles/gungame_hud_thumbs_" + Hud.Release + ".css";
 
     static void HudSelfTest(Action<string, bool> Check)
     {
@@ -28,17 +26,6 @@ static partial class Program
         var helpHeight = Hud.Help.Sum(g => g.Rows.Sum(r => HelpLines(r) * 19 + 4) + 14);
         Check($"The Help page fits the window: about {helpHeight} px of its 599 ({Hud.Help.Sum(g => g.Rows.Sum(HelpLines))} lines in {Hud.Help.Sum(g => g.Rows.Length)} rows)", helpHeight <= 599);
         Check("The one chat line left - the hint for a typed command - fits one chat line", Hud.ChatOff.Length <= 120 && !Hud.ChatOff.Contains('!'));
-
-        // ---- ...and what the site says, word for word, where the site says it (skipped where the site is not beside us: the image) ----
-        if (File.Exists(SiteFile))
-        {
-            var site = Norm(WebUtility.HtmlDecode(Regex.Replace(File.ReadAllText(SiteFile), "<[^>]+>", ""))); // tags out without a trace
-            var hudOnly = new HashSet<string> { Hud.SiteRow }; // the site says "this page"
-            var missing = rows.Where(r => !hudOnly.Contains(r.Command) && !site.Contains(Norm(r.Words))).Select(r => r.Command)
-                .Concat(Hud.Rules.SelectMany(r => r.Lines.Prepend(r.Title)).Where(l => !site.Contains(Norm(l)))).ToList();
-            Check($"Every Help row's words and every rule line on the HUD is on the site verbatim{(missing.Count > 0 ? ": missing " + string.Join(" | ", missing) : "")}", missing.Count == 0);
-        }
-        else Console.WriteLine($"skip HUD-against-site check: {SiteFile} not found");
 
         // ---- the codec: what the bridge serves is what the plugin reads ----
         var state = new HudState { Maps = 1000, Map = "#12 aim\tred\nline", By = "Jo\"ri; quit", Size = "17 MB", Key = "123", Up = 3, Down = 1, Status = "x",
@@ -98,7 +85,7 @@ static partial class Program
         Check("Browser: by size, smallest first, official maps (no download) last", Order(b) == "3,1,2,ar_shoots");
         b = new HudBrowser();
         b.Click("gg_fl_tiny", 4);
-        Check("Browser: the size chips are the site's (<25 MB here) and leave the official maps out", Order(b) == "3"
+        Check("Browser: the size chips (<25 MB here) leave the official maps out", Order(b) == "3"
             && HudBrowser.BandOf(24) == HudBrowser.Band.Tiny && HudBrowser.BandOf(25) == HudBrowser.Band.Small && HudBrowser.BandOf(120) == HudBrowser.Band.Mid && HudBrowser.BandOf(400) == HudBrowser.Band.Large);
         b.Click("gg_fl_tiny", 4);
         Check("...the same chip again is All again", b.Size == HudBrowser.Band.All && Order(b) == "1,2,3,ar_shoots");
@@ -448,6 +435,6 @@ static partial class Program
         else Console.WriteLine($"skip HUD layout checks: {HudLayoutFile} or {HudStyleFile} not found");
     }
 
-    /// <summary>For comparing with the site: typographic apostrophes and dashes as plain ones, spaces collapsed.</summary>
+    /// <summary>For comparing words: typographic apostrophes and dashes as plain ones, spaces collapsed.</summary>
     static string Norm(string s) => Regex.Replace(s.Replace('\u2019', '\'').Replace('\u2018', '\'').Replace('\u2013', '-').Replace('\u2014', '-').Replace('\u00a0', ' '), @"\s+", " ").Trim();
 }

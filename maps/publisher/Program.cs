@@ -480,19 +480,6 @@ static class Program
 }
 
 
-/// <summary>The server's site in a Workshop description: the placeholder host overstrike.example.com stands for SITE_URL's host and
-/// is filled in at upload time, so the real address stays out of the repository. An upload is refused while it is unfilled.</summary>
-static class Site
-{
-    public const string Placeholder = "overstrike.example.com";
-
-    public static string Fill(string text)
-    {
-        var host = (Environment.GetEnvironmentVariable("SITE_URL") ?? "").Trim().Split("://")[^1].TrimEnd('/');
-        return host.Length > 0 ? text.Replace(Placeholder, host) : text;
-    }
-}
-
 sealed class Refusal(string message) : Exception(message);
 
 /// <summary>What the Workshop shows for one map: workshop.json in its folder, checked against Steam's limits before anything is sent.</summary>
@@ -507,12 +494,11 @@ sealed record Item(string Title, string Description, string[] Tags, string Map)
         string Str(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         var tags = root.TryGetProperty("tags", out var t) && t.ValueKind == JsonValueKind.Array
             ? t.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToArray() : [];
-        var item = new Item(Str("title"), Site.Fill(Str("description")), tags,
+        var item = new Item(Str("title"), Str("description"), tags,
             Str("map") is { Length: > 0 } m ? m : Path.GetFileName(Path.GetFullPath(mapDir).TrimEnd('\\', '/')));
         var why = item.Title.Trim() == "" ? "no title"
             : Encoding.UTF8.GetByteCount(item.Title) > 128 ? "a title over 128 bytes"
             : Encoding.UTF8.GetByteCount(item.Description) > 7999 ? "a description over 8,000 bytes"
-            : item.Description.Contains(Site.Placeholder) ? $"a description naming the placeholder site {Site.Placeholder} (set SITE_URL)"
             : item.Tags.Length == 0 ? "no tags"
             : item.Tags.FirstOrDefault(x => x.Trim() == "" || x.Contains(',') || x.Length > 255) is { } bad ? $"a bad tag '{bad}'"
             : item.Tags.Sum(x => Encoding.UTF8.GetByteCount(x) + 1) > 1024 ? "tags over 1,024 bytes together"
