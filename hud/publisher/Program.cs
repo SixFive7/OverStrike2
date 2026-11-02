@@ -38,12 +38,51 @@ static class Program
     // (the owner's name for the server and its HUD, 2026-11-01). An update sets it again: the same item, never a new one.
     const string Title = "Over Strike 2";
     const string Description =
-        "Over Strike 2 - Over the top, on the Huis. The in-game menu of the Over Strike 2 server (Arms Race on 3,694 Workshop maps, Deathmatch and Wingman by vote) - the server's whole " +
-        "interface: every map with its picture, size and votes, full-text search on an on-screen keyboard, and any Workshop map by its id; " +
-        "the fair queue, the vote at a match's end, votes, game settings, sixteen fun settings anybody can switch (friendly fire, low gravity, Vampire, Laser guns and more), help, rules and how " +
-        "it all works - and a chat command for every action (!help). Hold TAB for the live board beside the scoreboard: vote, Next, the queue and the full menu, with the mouse.\n\n" +
-        "You do not need to subscribe: the server hands it to your game when you join. It shows nothing anywhere else.\n\n" +
-        "Built on the custom_hud_layout panel CS2 added on 2026-08-24. Layout and stylesheet only - no scripts.";
+        "Over Strike 2 - Over the top - On the Huis.\n\n" +
+        "The in-game menu of the Over Strike 2 server: Arms Race on thousands of Steam Workshop maps, with Deathmatch and Wingman by vote. You do not need to subscribe: " +
+        "the server hands this to your game when you join, and it shows nothing anywhere else. Layout and stylesheet only - no scripts.\n\n" +
+        "[h1]The menu[/h1]\n" +
+        "Hold TAB for the live board beside the scoreboard: the map that is on and who picked it, Like and Dislike, Next, what is queued - with the mouse, for as long as TAB is down. " +
+        "TAB + E opens the full menu, which closes by itself when idle and the moment you are hit.\n" +
+        "[list]\n" +
+        "[*][b]Maps[/b]: every map with its picture, number, size and votes. Search names, tags and Workshop ids on an on-screen keyboard; sort by number, votes, name or size; filter by size, " +
+        "your likes, official maps, Our maps or game mode, so Deathmatch and Wingman maps can be browsed too. A map with no picture yet has a button that shows it on request. Type any Workshop id " +
+        "to play a map that is not on the list: the server downloads it first, with the progress on its card.\n" +
+        "[*][b]Queue[/b]: who is next, your requests to cancel, back to the last map.\n" +
+        "[*][b]Game[/b]: match length, new maps in random picks, restart a stuck server.\n" +
+        "[*][b]Fun[/b]: the fun settings and the grenade drops.\n" +
+        "[*][b]Help, Rules, How it works[/b]: where everything is, the rules, and every chance in a map pick.\n" +
+        "[/list]\n\n" +
+        "[h1]Chat commands[/h1]\n" +
+        "Every action has one, and !help lists them: !play 12, !find words, !next, !q, !up, !down, !vote 3, !fun. The words you know from other servers work too, and the answer teaches: " +
+        "You typed !map 12 - ran !play 12. A Workshop link pasted in chat opens that map's card.\n\n" +
+        "[h1]Taking turns[/h1]\n" +
+        "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits. A map two or more players want goes first, then whoever has had the least play time. " +
+        "A requested map stays until its match ends, its requester is done, a majority of the others votes to skip it, or its requester has been gone over a minute while others wait.\n\n" +
+        "[h1]The vote at a match's end[/h1]\n" +
+        "Everybody votes for 60 seconds, or until a majority agrees: up to 5 maps and Random. Queued maps are on it with their requesters' votes already in, and so is a map of each other game mode " +
+        "that suits the players on: Deathmatch, and Wingman up to 4 players. Click a card or type its number. While the vote is open only !vote and a bare number count; the other map commands tell you what to type. " +
+        "A tie is drawn, no votes is Random, and the server is back on Arms Race after a restart or 10 minutes with nobody on.\n\n" +
+        "[h1]Your votes steer the dice[/h1]\n" +
+        "Random maps lean on your votes: each Like doubles a map's odds, up to 5, and each Dislike quarters them. One vote per player per map, and it stays: the same vote again says you voted so already, the opposite vote replaces it. " +
+        "A Dislike opens a small popup that asks why, which takes no mouse of its own: I did not like the map, too big, ads, too small, broken, runs badly. Click one, or type !down big. Only 1 random pick in 100 is a too-big map, and a map marked for ads is never a random pick.\n\n" +
+        "[h1]Fun settings[/h1]\n" +
+        "Sixteen settings anybody can switch until the map changes, each with its own word (!gravity low, !vampire on): gravity, super jump, bunny hopping, fall damage, ice floor, Laser guns, infinite ammo, " +
+        "headshots only, Vampire, Ghost, big grenades, double damage, free-for-all, friendly fire, Instakill and grenades x10. In Arms Race every player also gets a grenade that drops where they die.\n\n" +
+        "[h1]Catch-up boosts[/h1]\n" +
+        "Fall 2, 4 or 7 kills behind the leader in Arms Race and you spawn with a boost that grows with the gap: more health, less damage taken, more damage dealt, lifesteal and regeneration; further back a second chance and longer spawn protection; " +
+        "furthest back infinite ammo and a one-hit knife and Zeus. A private message at spawn says what you got. A leader who runs away takes up to 30% more damage.\n\n" +
+        "[h1]Maps that break things[/h1]\n" +
+        "A map that crashes the server or players' games, or shows ads, says why on its card and asks you to confirm before it loads; the dice never roll it. Items that are not maps and maps gone from the Workshop are refused. " +
+        "What a map changes in the game's settings is put back when it ends, and no map may turn on cheats or no spread, hide the radar or switch the mode: you are told on screen.\n\n" +
+        "[h1]Our maps[/h1]\n" +
+        "gg_glasspire, gg_moonglass and gg_vinceville, generated from code for this server, have their own filter and a tag on their cards.\n\n" +
+        "[h1]New maps by themselves[/h1]\n" +
+        "Every night the server finds new Arms Race, Deathmatch and Wingman maps on the Workshop, most popular first, scans them for adverts, load-tests them on a test copy and lists the ones that pass. " +
+        "While the server downloads a map somebody is waiting for, the news line shows the progress.\n\n" +
+        "[h1]Your HUD's version[/h1]\n" +
+        "The window says when your HUD is older or newer than the server's; older means quit CS2 and start it again, and Steam updates it. A new HUD version may ask for one click, Click to play: that shows the server your HUD works.\n\n" +
+        "Built on the custom_hud_layout panel CS2 added on 2026-08-24.";
     const string ApprovedFlag = "--user-approved-update";
 
     static int Main(string[] args)

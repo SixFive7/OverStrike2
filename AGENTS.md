@@ -32,6 +32,7 @@ see [deploy/README.md](deploy/README.md)), from which the deploy scripts read th
 cd bridge && dotnet build && dotnet run -- --selftest      # must end SELFTEST PASSED
 cd plugin/OverStrike2 && dotnet build -c Release            # zero warnings: warnings are errors
 cd plugin/OverStrike2.SelfTest && dotnet run
+cd plugin/CatchUp/SelfTest && dotnet run
 docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_update_watch.py   # Linux only
 python bridge/search-index.py --check
 ```

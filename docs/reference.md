@@ -21,10 +21,13 @@ verdicts.
 
 ## The menu and the commands
 
-The HUD's window is the whole interface: every map with its picture, size and votes, a search over names, tags and Workshop ids
-on an on-screen keyboard, any Workshop map by its id, the queue, the game settings, the fun settings and the grenade drops, help, the
-rules and how it all works. Holding **TAB** shows a board beside the scoreboard - Like, Dislike, Next and the queue - that takes the mouse while
-TAB is down; TAB + E opens the full window.
+The HUD's window is the whole interface, on eight pages: Start, Maps, Queue, Game, Help, Rules, How it works and Fun. Maps has every map with
+its picture, size and votes, a search over names, tags and Workshop ids on an on-screen keyboard, sorting by number, votes, name or size,
+and filters by size, by the player's own likes, by official maps, by Our maps and by game mode (`HudBrowser.cs`). A map with no picture in the
+addon has a button on its card that shows its Workshop preview on request, in the game's own message panel. Any Workshop map can be played by
+its id: its card asks the Workshop about it and downloads it to the server first, with the progress on the card (`HudWorkshop.cs`). Holding
+**TAB** shows a board beside the scoreboard - Like, Dislike, Next and the queue - that takes the mouse while TAB is down; TAB + E opens the full
+window, which closes after 30 s without a click and the moment its player is hurt.
 
 A chat line that starts with `!` or `/` is a command too, and does exactly what the matching click does (the same action, the
 same refusals and confirmations). A line stays visible as the player's normal chat line; only a `/` line is hidden, which is
@@ -106,10 +109,16 @@ the players present has chosen one option. The ballot holds up to five maps plus
 3. maps of the server's own mode, rolled like every random pick;
 4. Random.
 
-A player votes by clicking a card's **Vote**, or in chat with its number (`3`, or `!vote 3`). The winner plays; a queued map that
-loses stays queued. The game modes are switched by the plugin (`os_mode
-armsrace|deathmatch|wingman`), each with its own server cfg (`server/gamemode_*_server.cfg`) and block list
-(`plugin/OverStrike2/blocked*.txt`).
+A player votes by clicking a card's **Vote**, or in chat with its number (`3`, or `!vote 3`). The most votes win, a tie is drawn at random, and no
+votes at all is Random. The winner plays; a queued map that loses stays queued, and a rolled or Random winner is held by the vote until its match
+ends or a skip vote passes. With no plugin polling that draws the vote, or with `MATCH_END_VOTE=off`, a match end serves the queue or rolls the dice.
+
+**The game modes.** Arms Race is the default: after every server restart, and again after 10 minutes with nobody on. Each mode has Valve's official
+maps for it (`bridge/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race, `maps-deathmatch.json` and `maps-wingman.json` for the
+others, read like every data file. A map loads in its own mode: the bridge tells the plugin with `os_mode armsrace|deathmatch|wingman` and sets the
+mode's convars right before the map command. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and block list
+(`plugin/OverStrike2/blocked*.txt`). Grenade drops, the match length, the catch-up boosts and friendly fire's settings are Arms Race's own, and the
+menu leaves them out elsewhere.
 
 ## Random picks
 
@@ -175,6 +184,8 @@ advance. Requests still queue. Remove the file and everything resumes.
 - **Crashes.** A few seconds after every map start the bridge reads RCON `status`; its `spawn` counter tells whether the server
   process is new. A new process that did not quit cleanly is a crash, counted against the map it was loading. A map with a crash
   asks the player to confirm a pick, and the dice skip it.
+- **Maps that crash the players' games.** Three players timing out within 60 s of entering a map, while the server keeps answering, mark it broken by
+  itself, in `state.json` with its reason; the dice then take the server to another map.
 - **`broken.json`** (`BROKEN_FILE`) holds four lists: `maps` (maps that crash or freeze the server, or advertise: a pick asks to
   confirm, the dice never roll them, each says why), `packs` (Workshop items with no map in them - skins, models, empty
   uploads: refused), `removed` (maps gone from the Workshop: refused; a seed the daily check keeps current) and `blocked`
@@ -207,6 +218,7 @@ The bridge:
 | `RESTART_COOLDOWN_SECONDS` | `300` | Minimum time between two restart requests. |
 | `RANDOM_ON_MATCH_END` | `1` | Roll a random map when a match ends and nobody is queued. |
 | `RANDOM_ON_START` | `1` | Roll a random map when a new server process has loaded its start map. |
+| `MATCH_END_VOTE` | `auto` | The end-of-match vote: `auto` while a plugin that draws it is polling, `on` always, `off` never. |
 | `START_MAP` | `ar_shoots` | The game server's start map (`CS2_STARTMAP`): a start of it the bridge did not ask for means a restart. |
 | `HUD_TAB` | `down` | What TAB does: `down`, `hold`, `window`, `on`, `menu` or `off`. |
 | `HUD_CHECK` | `off` | The HUD check: `off`, `dryrun` (warn, and enforce from the first real click on a release) or `enforce`. |
@@ -222,7 +234,7 @@ The game server (`joedwards32/cs2` variables, and these of ours):
 | `CS2_PLUGINS` | `1` installs and loads the plugin layer; `0` runs vanilla after a game update broke a dependency. |
 | `GUNGAME_HUD_ADDON` | The HUD addon's Workshop id; empty: a simple text panel instead of the menu, and MultiAddonManager stays unloaded. |
 | `GUNGAME_GRENADE_WIN` | Leave `0`: CS2 does not end an Arms Race match on a last-level grenade kill. |
-| `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_FREEZE_GRACE_SECONDS`, `CS2_WARMUP`, `CS2_WARMUP_ITEM`, `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART`, `CS2_BRIDGE_DATA` | The restart watcher (below). |
+| `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_FREEZE_GRACE_SECONDS`, `CS2_WARMUP`, `CS2_WARMUP_ITEM`, `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART`, `CS2_WORKSHOP_RESTART`, `CS2_DOWNLOAD_LINE`, `CS2_BRIDGE_DATA` | The restart watcher (below). |
 
 [`deploy/compose.example.yml`](../deploy/compose.example.yml) sets all of them, with a comment on each.
 
@@ -250,7 +262,12 @@ The plugin's modules:
 - **Fun settings**: sixteen settings anybody switches from the menu until the map changes - gravity, super jump, bunny hopping,
   fall damage, ice floor, laser guns, infinite ammo, headshots only, vampire, ghost, big grenades, double damage, friendly fire
   and more. The news line says who switched what.
-- **Catch-up**: players who fall behind in Arms Race get a boost.
+- **Catch-up** (`plugin/CatchUp/`, its numbers in `catchup.json`): in Arms Race a player 2, 4 or 7 kills behind the leader gets a boost at spawn, with
+  a private message that says what it is. Health +20, +40 or +75%, damage taken -10, -20 or -30%, damage dealt +10, +20 or +30%, lifesteal 10, 20 or 30%,
+  regeneration 2, 4 or 6% a second after a few seconds unhurt; from 4 behind a second chance once per life and more spawn protection, at 7 behind infinite ammo
+  and a one-hit knife and Zeus. A leader 2 kills or more ahead of second place takes 10% more damage per 2 kills of lead, up to 30%. A cap keeps a boosted
+  player from coming out stronger than the leader on paper: never above 3 times, and never above the scoreboard's own ratio. The module counts the ladder from the
+  match's kills, since the game exposes no ladder position.
 - **The daily Workshop check** and the item check of the HUD's own Workshop item (the public Web API first; the item's page
   only right after a change, sparsely).
 
@@ -264,6 +281,7 @@ The plugin's modules:
 | `CS2_WARMUP`, `CS2_WARMUP_ITEM` | After every engine start, download a throwaway item in the background, so the Steam client's re-check of every installed item runs before a player needs it. |
 | `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART` | At night, while nobody is on, install every listed map that is missing and update every one with a newer Workshop copy; optionally in a fresh engine process. |
 | `CS2_WORKSHOP_RESTART` | Restart an engine process whose Workshop downloads are stuck (every download ends without a connection). |
+| `CS2_DOWNLOAD_LINE` | While the server downloads a map somebody is waiting for, say so on the HUD's news line, with the progress. Never for the watcher's own downloads, never with nobody on. |
 
 Restarts happen between matches; an empty server restarts at once. Loop protection is kept in `update-watch/state.json` on the
 game volume: planned restarts at least 10 minutes apart and at most 4 a day, freeze kills at least 3 minutes apart and at most
@@ -276,13 +294,15 @@ content servers the client ranks first but cannot reach (keep every one reachabl
 
 ## The nightly Workshop sync
 
-An optional container running [`server/workshop-sync.py`](../server/workshop-sync.py) in the game server's image, once a
-night inside a window and only while nobody plays:
+An optional container running [`server/workshop-sync.py`](../server/workshop-sync.py) in the game server's image, once a night inside a window and,
+if `SYNC_DAY_AT` and `SYNC_DAY_END` are set, once more by day while maps are waiting, and only while nobody plays. Downloads, tests and publishing repeat in
+batches, so a long run publishes as it goes:
 
 1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API - the only step that
    needs a Web API key, read from a secret file mounted read-only; without one the step is skipped.
 2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge.
-3. **Download** with SteamCMD's anonymous login, one item at a time.
+3. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: new uploads first, then listed maps that changed, then
+   everything else strictly by subscribers, whatever the mode.
 4. **Scan and load-test**: read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any
    commands that advertise another server or post a gambling ad), then load each map in a test copy of the server inside the
    container - its own port, passwords and Workshop folder, no plugins, no log push.
@@ -290,8 +310,9 @@ night inside a window and only while nobody plays:
    lists, the failures onto `broken.json`), ask the bridge to reload, and send an optional summary mail.
 
 Hard limits in code: one Web API call at a time, at least 2 s apart; at most 10,000 calls in any 24 hours and a nightly cap; any
-429, 403 or 401, or a burst of server errors, stops every API step for the night; at most 50 downloads and 3 GB a night. The
-configuration can lower each limit, never raise it. Every setting is in the script's docstring.
+429, 403 or 401, or a burst of server errors, stops every API step for the night; at most 1,500 downloads and 150 GB a day. The
+configuration can lower each limit, never raise it. When a player joins, the test engine stops at once and no new download starts; the run goes on only after a
+quiet spell with nobody on. Every setting is in the script's docstring.
 
 ## Log-line grammar
 
@@ -311,7 +332,7 @@ pushes its log with `logaddress_add_http`: a `POST` per tick, one or more lines,
 ```sh
 cd bridge
 dotnet build                     # zero warnings expected
-dotnet run -- --selftest         # the parser, the lists, the queue, the votes, the dice, the HUD, the rules in sync; exit 1 on failure
+dotnet run -- --selftest         # the parser, the lists, the queue, the votes, the dice, the HUD, the rules; exit 1 on failure
 docker build -t localhost/overstrike2-bridge .
 ```
 
@@ -332,6 +353,7 @@ checked as well.
 | `bridge/search.json` | The menu's search text per map: title, Workshop id and tags; `bridge/search-index.py` keeps it in step with `maps.json`. |
 | `bridge/ours.json` | The server's own maps. |
 | `plugin/OverStrike2/` | The plugin; `blocked*.txt` the block lists, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |
+| `plugin/CatchUp/` | The catch-up boosts and their self-test; the plugin compiles them in. |
 | `hud/` | The HUD addon ([`hud/PUBLISH.md`](../hud/PUBLISH.md)); `thumbs.py` makes the map pictures, which are never committed. |
 | `maps/` | Our own maps' generators and their Workshop publisher ([`maps/README.md`](../maps/README.md)). |
 | `server/` | The install hook, the mode cfgs, the restart watcher and the Workshop sync, with their tests. |
