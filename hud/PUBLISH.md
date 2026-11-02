@@ -24,7 +24,7 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
 
 ```powershell
 powershell -File hud\publish.ps1 -Query                                   # the item as Steam has it
-powershell -File hud\publish.ps1 -Public                                  # whether a visitor sees it (moderation)
+powershell -File hud\publish.ps1 -Public                                  # whether a visitor sees it (moderation): a visit to the page, see below
 powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY with the owner's go for this release
 ```
 
@@ -34,6 +34,10 @@ password: it attaches to the running Steam client), packs the built addon and up
 `publisher\Program.cs` (`Title`, `Description`) and are set again on every update, so a change to them goes out with the next
 content update; the item's preview image is `hud\workshop_preview.jpg`: the Fun page as a test client drew it, on a plain ground, with no other
 authors' pictures.
+
+While an update waits for Valve, go easy on the item's page: nothing may risk the owner's address or Steam account. The Web API (`time_updated`,
+`hcontent_file`) is the signal, and the plugin's `css_gghud` says what it knows without a request from you. At most one visit to the page every 15
+minutes, and after a 429 none for an hour; the plugin keeps to the same. Reviews have taken 9 to 63 minutes.
 
 ## 3. The server's switch
 

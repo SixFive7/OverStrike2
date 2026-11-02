@@ -187,13 +187,14 @@ public static class HudCheck
 /// <summary>When the plugin looks at the HUD item, and what it makes of it - free of CounterStrikeSharp and of the network, so the bridge's
 /// --selftest drives it on a handed clock; the plugin's ItemWatch does the fetching. Since 2026-11-01 the Web API (GetPublishedFileDetails, api.steampowered.com) is the signal, read every minute: its
 /// verdict says gone, private or banned, and a change in time_updated or hcontent_file says a new version went up. The item's page on
-/// the community site - the only thing that shows Valve's review - is visited only right after such a change, then at most every 10
-/// minutes while it is not shown, for ReviewWindow after the change, and at a plugin start only if the Web API's time_updated is that
-/// recent (an upload may be under review). Never otherwise: no idle polling. Until then (GunGameWelcome 3.1.3 and before) the page was
-/// visited every 2 minutes, all day.</summary>
+/// the community site - the only thing that shows Valve's review - is visited only right after such a change, then at most every 15
+/// minutes while it is not shown (the owner, 2026-11-02: nothing may risk his address or his Steam account), for ReviewWindow after the
+/// change, and at a plugin start only if the Web API's time_updated is that recent (an upload may be under review). A visit the site
+/// refuses (429: no verdict) leaves it alone for an hour. Never otherwise: no idle polling. Until then (GunGameWelcome 3.1.3 and before)
+/// the page was visited every 2 minutes, all day.</summary>
 public sealed class ItemPlan
 {
-    public static readonly TimeSpan ApiEvery = TimeSpan.FromMinutes(1), VisitEvery = TimeSpan.FromMinutes(10), ApiFresh = TimeSpan.FromMinutes(10);
+    public static readonly TimeSpan ApiEvery = TimeSpan.FromMinutes(1), VisitEvery = TimeSpan.FromMinutes(15), RefusedWait = TimeSpan.FromHours(1), ApiFresh = TimeSpan.FromMinutes(10);
 
     DateTime apiAt = DateTime.MinValue;
 
@@ -254,11 +255,11 @@ public sealed class ItemPlan
         VisitsSinceChange++;
     }
 
-    /// <summary>The visit's verdict (HudCheck.PagePublic): shown ends the visits; not shown or unreadable (429) plans the next in VisitEvery.</summary>
+    /// <summary>The visit's verdict (HudCheck.PagePublic): shown ends the visits; not shown plans the next in VisitEvery; unreadable (429, an error) in RefusedWait.</summary>
     public void PageAnswer(bool? verdict, DateTime now)
     {
         if (verdict != null) SinceChange = verdict;
-        NextVisit = verdict == true ? DateTime.MaxValue : now + VisitEvery;
+        NextVisit = verdict == true ? DateTime.MaxValue : now + (verdict == null ? RefusedWait : VisitEvery);
     }
 
     /// <summary>css_gghud item: one visit now, whatever the Web API says (a window just long enough for it).</summary>

@@ -35,8 +35,8 @@ static partial class Program
             && HudCheck.ParseItem(Held, 3823993566) == null && HudCheck.ParseItem("not json", 1) == null && HudCheck.ParseItem("{}", 1) == null);
 
         // ---- when the item's page is visited, and what joiners must download (ItemPlan; the owner, 2026-11-01: no regular scraping of
-        //      the community site - the Web API is the signal, the page only right after it shows a change, then at most every 10 minutes
-        //      for 3 hours while it is not shown, never idly) ----
+        //      the community site - the Web API is the signal, the page only right after it shows a change, then at most every 15 minutes
+        //      for 3 hours while it is not shown, an hour's pause after a refusal, never idly: the owner, 2026-11-02) ----
         var old = new HudCheck.ItemApi(Workshop.Ok, 1792700000, "111"); // an upload of days ago
         var plan = new ItemPlan();
         var t = upload.AddDays(1);
@@ -52,26 +52,33 @@ static partial class Program
         plan.PageAnswer(false, c0.AddSeconds(2)); // Steam's not-shown page: the new version under review
         Check("HUD item plan: a change in the Web API makes one visit due at once; the not-shown page drops the requirement at the first visit and the check's interlock",
             dueAtChange && !plan.Required(true, c0.AddSeconds(3)) && !plan.Public(c0.AddSeconds(3)) && plan.Cause == HudCheck.Cause.Review
-            && !plan.VisitDue(c0.AddMinutes(9)) && plan.VisitDue(c0.AddMinutes(10).AddSeconds(2)));
+            && !plan.VisitDue(c0.AddMinutes(14)) && plan.VisitDue(c0.AddMinutes(15).AddSeconds(2)));
         var visitTimes = new List<double>();
-        for (var sec = 610; sec <= 4 * 3600; sec += 10)
+        for (var sec = 910; sec <= 4 * 3600; sec += 10)
         {
             var at = c0.AddSeconds(sec);
             if (sec % 60 == 0) plan.ApiAnswer(v, at);
-            if (plan.VisitDue(at)) { plan.VisitStarted(); visitTimes.Add(sec / 60.0); plan.PageAnswer(sec < 3600 ? (sec % 1200 < 600 ? null : false) : false, at); }
+            if (plan.VisitDue(at)) { plan.VisitStarted(); visitTimes.Add(sec / 60.0); plan.PageAnswer(false, at); }
         }
-        Check($"HUD item plan: while it stays hidden the page is visited at most every 10 minutes ({visitTimes.Count} visits after the first), and not at all once the 3 hours are over",
-            visitTimes.Count is > 10 and <= 18 && visitTimes.Zip(visitTimes.Skip(1), (x, y) => y - x).All(d => d >= 9.99) && visitTimes.All(m => m <= 180)
+        Check($"HUD item plan: while it stays hidden the page is visited at most every 15 minutes ({visitTimes.Count} visits after the first), and not at all once the 3 hours are over",
+            visitTimes.Count is > 8 and <= 12 && visitTimes.Zip(visitTimes.Skip(1), (x, y) => y - x).All(d => d >= 14.99) && visitTimes.All(m => m <= 180)
             && !plan.VisitDue(c0.AddHours(4)) && !plan.Required(true, c0.AddHours(4)) && !plan.Public(c0.AddHours(4)));
+        var refused = new ItemPlan();
+        refused.ApiAnswer(old, t);
+        refused.ApiAnswer(v, c0);
+        refused.VisitStarted();
+        refused.PageAnswer(null, c0.AddSeconds(2)); // the site's 429: no verdict
+        Check("HUD item plan: a visit the site refuses leaves the page alone for an hour, and changes nothing about what joiners must download",
+            !refused.VisitDue(c0.AddMinutes(59)) && refused.VisitDue(c0.AddHours(1).AddSeconds(2)) && refused.SinceChange == null && refused.Required(true, c0.AddMinutes(5)));
         var p2 = new ItemPlan();
         p2.ApiAnswer(v, c0);
         p2.VisitStarted();
         p2.PageAnswer(false, c0.AddSeconds(2));
-        p2.ApiAnswer(v, c0.AddMinutes(10));
+        p2.ApiAnswer(v, c0.AddMinutes(15));
         p2.VisitStarted();
-        p2.PageAnswer(true, c0.AddMinutes(10)); // Valve approved: the page shows it
+        p2.PageAnswer(true, c0.AddMinutes(15)); // Valve approved: the page shows it
         Check("HUD item plan: the first visit that finds it shown puts the requirement back, makes it public, and ends the visits",
-            p2.Required(false, c0.AddMinutes(11)) && p2.Public(c0.AddMinutes(11)) && !p2.VisitDue(c0.AddMinutes(30)) && !p2.VisitDue(c0.AddHours(2)) && p2.Visits == 2);
+            p2.Required(false, c0.AddMinutes(16)) && p2.Public(c0.AddMinutes(16)) && !p2.VisitDue(c0.AddMinutes(45)) && !p2.VisitDue(c0.AddHours(2)) && p2.Visits == 2);
         var p3 = new ItemPlan();
         p3.ApiAnswer(held, upload.AddMinutes(20)); // a plugin start 20 minutes after an upload: the page once, at once
         var p4 = new ItemPlan();
@@ -88,7 +95,7 @@ static partial class Program
         Check("HUD item plan: no fresh Web API answer (over 10 minutes) changes nothing either way and allows no disconnect; a visit by hand is one visit",
             p6.Required(true, t.AddMinutes(11)) && !p6.Required(false, t.AddMinutes(11)) && !p6.Public(t.AddMinutes(11))
             && !p6.VisitDue(t.AddMinutes(1)) && Do(() => p6.VisitNow(t.AddMinutes(2))) && p6.VisitDue(t.AddMinutes(2)) && Do(p6.VisitStarted) && Do(() => p6.PageAnswer(true, t.AddMinutes(2)))
-            && !p6.VisitDue(t.AddMinutes(13)));
+            && !p6.VisitDue(t.AddMinutes(18)));
         static bool Do(Action a) { a(); return true; }
         // Steam's not-shown page (#19): the old Error page and since 2026-10-31 an HTTP 500 titled "Steam Workshop".
         const string NewPage = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Steam Workshop</title><link rel=\"stylesheet\" href=\"x.css\"></head><body><div id=\"root\"></div></body></html>";
