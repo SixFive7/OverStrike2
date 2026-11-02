@@ -65,7 +65,7 @@ sealed class HudScreen
     readonly Dictionary<int, OpenPicture> pictures = new();  // slot -> the map whose picture that player asked for (content v4_2_0, HudPreview)
     sealed class OpenPicture(string key, long id, int card, DateTime until)
     {
-        public string Key = key; public long Id = id; public int Card = card; public DateTime Until = until; public bool Sent;
+        public string Key = key; public long Id = id; public int Card = card; public DateTime Until = until; public string? Html;
     }
     int budget;                                       // engine calls this frame may still make; the rest go out in the next one
     const int FrameBudget = 600;
@@ -542,35 +542,34 @@ sealed class HudScreen
     void TogglePicture(CCSPlayerController p, long account, int card, DateTime now)
     {
         var key = CardKey(p, account, card);
-        if (pictures.TryGetValue(p.Slot, out var open)) { ClosePicture(p, open); if (open.Key == key) return; }
+        if (pictures.Remove(p.Slot, out var open) && open.Key == key) return;
         if (long.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0) pictures[p.Slot] = new OpenPicture(key, id, card, now.AddSeconds(HudPreview.Seconds));
     }
 
-    void ClosePicture(CCSPlayerController p, OpenPicture open)
-    {
-        pictures.Remove(p.Slot);
-        if (open.Sent) p.PrintToCenterHtml(" ", 1);
-    }
-
     /// <summary>Every frame, for a player with a picture up: it ends with its window, its page, its card's map or its time; once Steam has said where
-    /// the preview is, it goes to the game's message panel, for as long as it may stay up. The window goes short meanwhile and keeps its idle clock.</summary>
+    /// the preview is, PictureTick has its message. The window goes short meanwhile and keeps its idle clock.</summary>
     void PictureFrame(CCSPlayerController p, HudSlots.View view, long account, DateTime now)
     {
         var open = pictures.GetValueOrDefault(p.Slot);
-        if (open != null && (!view.Window || view.Page != HudSlots.Page.Maps || now >= open.Until || CardKey(p, account, open.Card) != open.Key)) { ClosePicture(p, open); open = null; }
+        if (open != null && (!view.Window || view.Page != HudSlots.Page.Maps || now >= open.Until || CardKey(p, account, open.Card) != open.Key)) { pictures.Remove(p.Slot); open = null; }
         Class(HudView.Screen, "pic1", open != null && HudPreview.RowClass(open.Card) == "pic1", p);
         Class(HudView.Screen, "pic2", open != null && HudPreview.RowClass(open.Card) == "pic2", p);
         if (open == null) return;
         slots.Hold(p.Slot, now);
-        if (open.Sent || plays.Ask(open.Id, now) is not { Done: true } answer) return;
-        if (HudPreview.Url(answer.Item?.Preview) is { } url)
-        {
-            p.PrintToCenterHtml(HudPreview.Html(url), HudPreview.Seconds);
-            open.Sent = true;
-            return;
-        }
+        if (open.Html != null || plays.Ask(open.Id, now) is not { Done: true } answer) return;
+        if (HudPreview.Url(answer.Item?.Preview) is { } url) { open.Html = HudPreview.Html(url); return; }
         pictures.Remove(p.Slot);
         LocalNote(p.Slot, answer.Error ?? "This map has no picture on the Workshop");
+    }
+
+    /// <summary>Every tick while a picture is up, as CounterStrikeSharp's CenterHtmlMenu sends its menu: the game's message panel goes within a second of
+    /// its last message, whatever duration that names, and a message every tenth of a second or slower opens it anew each time with a white flash
+    /// (measured in a real client, 2026-11-02). Once the picture is over the panel fades by itself, under the window as it grows back. Nothing up costs one count.</summary>
+    public void PictureTick()
+    {
+        if (pictures.Count == 0) return;
+        foreach (var (slot, open) in pictures)
+            if (open.Html != null && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p) p.PrintToCenterHtml(open.Html);
     }
 
     /// <summary>A line for everybody that reads like this player's own chat line, in CS2's own format (Cstrike_Chat_All: " [ALL] name: text"):

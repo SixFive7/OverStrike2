@@ -81,6 +81,7 @@ public class OverStrike2Plugin : BasePlugin
     /// only a few seconds and other centre messages overwrite it. Nothing to do costs one boolean check.</summary>
     void OnTick()
     {
+        hud?.PictureTick();
         foreach (var centre in new[] { panel, tagline })
         {
             if (centre.Idle) continue;

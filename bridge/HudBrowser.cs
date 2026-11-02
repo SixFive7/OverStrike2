@@ -628,7 +628,7 @@ public static class HudThumbs
 /// the game's own message panel (PrintToCenterHtml), which unlike a custom HUD may load web pictures; the window goes short meanwhile, because it
 /// is drawn above that panel. The picture comes from Steam's own image CDN, scaled by Steam: nothing of ours is asked, and the panel shows
 /// the 336x189 whole. Measured in a real client on production, 2026-11-02: the panel is 300 px wide at x 810-1110, y 750-908 at 1920x1080 and
-/// the picture 252 px wide inside it; the player's Steam client fetches it.</summary>
+/// the picture 252 px wide inside it; the player's Steam client fetches it. The panel pulses a little once a second, by itself, at any duration.</summary>
 public static class HudPreview
 {
     public const string SteamHost = "images.steamusercontent.com";
