@@ -32,8 +32,8 @@ powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY
 password: it attaches to the running Steam client), packs the built addon and uploads it as a content update. It refuses without
 `-UserApprovedUpdate`, without a change note, and whenever `workshop_id.txt` names no item. The title and the description live in
 `publisher\Program.cs` (`Title`, `Description`) and are set again on every update, so a change to them goes out with the next
-content update; the item's preview image is `hud\workshop_preview.jpg`, which is kept out of the repository (gitignored) until a
-new one is made.
+content update; the item's preview image is `hud\workshop_preview.jpg`: the Fun page as a test client drew it, on a plain ground, with no other
+authors' pictures.
 
 ## 3. The server's switch
 

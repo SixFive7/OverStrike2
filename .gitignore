@@ -13,10 +13,6 @@ __pycache__/
 .private/
 deploy/config.local.json
 
-# Kept out of the repository on purpose, but used by local builds when present:
-# - the HUD's current Workshop preview shows the old branding and other authors' map pictures
-hud/workshop_preview.jpg
-
 # Generated from other authors' Workshop previews: never committed
 hud/thumbs/
 
