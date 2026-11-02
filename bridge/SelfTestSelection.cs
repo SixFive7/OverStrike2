@@ -152,8 +152,8 @@ static partial class Program
         Check("The menu's catalog carries the too-big mark and the vote as a too-big vote (-2)", card.TooBig && card.Big == 1 && card.Down == 1
             && catalog.MyVote(1002, Key(small[40])) == TooBigVote && catalog.MyVote(1002, Key(on)) == -1);
         var oldReader = BuildCatalog().Encode().Split('\n').Where(l => l.StartsWith("v\t1002\t" + Key(small[40]))).Select(l => Math.Sign(long.Parse(l.Split('\t')[3]))).ToList();
-        Check("...which an older plugin (it takes the sign) reads as a dislike, and its twelve map fields stay where they were (eighteen since the ads count, twenty since Over Strike 2's ours and reason)",
-            oldReader is [-1] && BuildCatalog().Encode().Split('\n').First(l => l.StartsWith("m\t" + Key(small[40]))).Split('\t') is { Length: 20 } f && f[11] == "1" && f[13] == "1");
+        Check("...which an older plugin (it takes the sign) reads as a dislike, and its twelve map fields stay where they were (eighteen since the ads count, twenty since Over Strike 2's ours and reason, twenty-three since the places in each mode)",
+            oldReader is [-1] && BuildCatalog().Encode().Split('\n').First(l => l.StartsWith("m\t" + Key(small[40]))).Split('\t') is { Length: 23 } f && f[11] == "1" && f[13] == "1");
         Talk(bob, $"!toobig {small[30].Rank}");
         var state = HudState.Decode(BuildHud(Now()).Encode())!;
         Check("The live state says the too-big votes on the map that is on, and each player's own vote as -2", state.Big == 1 && state.MyVotes[1002] == TooBigVote && state.Down == 1);
@@ -186,7 +186,7 @@ static partial class Program
         var adsCatalog = HudCatalog.Decode(adsCatalogText)!;
         Check("The menu's catalog carries the ads votes on a map (field 18) and the player's vote as an ads vote (-3)",
             adsCatalog.Maps.First(x => x.Key == Key(cardMap)) is { Ads: 1, Down: 1 } && adsCatalog.MyVote(1002, Key(cardMap)) == AdsVote
-            && adsCatalogText.Split('\n').First(l => l.StartsWith("m\t" + Key(cardMap) + "\t")).Split('\t') is { Length: 20 } af && af[17] == "1"); // ads stays field 18
+            && adsCatalogText.Split('\n').First(l => l.StartsWith("m\t" + Key(cardMap) + "\t")).Split('\t') is { Length: 23 } af && af[17] == "1"); // ads stays field 18
         Check("...which a 3.1.0 plugin (it keeps -2 and takes the sign of the rest) reads as a dislike",
             adsCatalogText.Split('\n').First(l => l.StartsWith("v\t1002\t" + Key(cardMap) + "\t")).Split('\t')[3] is var raw && long.Parse(raw) is var v31 && (v31 == TooBigVote ? v31 : Math.Sign(v31)) == -1);
         var adsState = HudState.Decode(BuildHud(Now()).Encode())!;

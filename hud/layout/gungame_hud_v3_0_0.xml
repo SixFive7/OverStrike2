@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4_1_0 (custom_hud_layout, CS2 update of 2026-08-24).
+  Over Strike 2 - the in-game HUD, content v4_2_0 (custom_hud_layout, CS2 update of 2026-08-24).
 
   Structure and style only: every word that can change comes from the GunGameWelcome plugin as a dialog variable ({s:text} on a
   labelled panel; the words live in bridge/Hud.cs), and every state (window open, page, card, votes) is a class the plugin
@@ -40,6 +40,10 @@
   contents before it, what it adds needs no proof from the game and nothing is sent to its panels: its state is classes on gg_screen and
   gg_global (why, why-run, nd-on, nd-off), its words dialog variables on those two that its labels inherit ({s:oswhy}, {s:oswhy1} ...).
   An older game has no rule and no label for any of that, and goes on as it was.
+
+  Content v4_2_0 (2026-11-02), on the same path again: everything v4_1_0 had is here unchanged, plus a picture button on each card (gg_mN_pic, shown by
+  the card's nopic class for a map with no picture in the addon: its Workshop preview comes up in the game's own message panel below the window, which
+  goes short meanwhile, pic1 or pic2 on gg_screen) and the mode filter's chips (gg_fm_*, lit by a class on gg_screen). Nothing is sent to these panels.
 
   Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m8_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's
   number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity).
@@ -208,6 +212,11 @@
 										<Button id="gg_sort_name" class="gg-seg-btn"><Label class="gg-seg-text" text="Name" /><Panel class="gg-seg-dir" /></Button>
 										<Button id="gg_sort_size" class="gg-seg-btn"><Label class="gg-seg-text" text="Size" /><Panel class="gg-seg-dir" /></Button>
 									</Panel>
+									<Label class="gg-mbar-label gg-mbar-label-mode" text="Mode" />
+									<Button id="gg_fm_all" class="gg-chipb gg-chipm-all"><Label class="gg-chipb-text" text="All" /></Button>
+									<Button id="gg_fm_ar" class="gg-chipb gg-chipm-armsrace"><Label class="gg-chipb-text" text="Arms Race" /></Button>
+									<Button id="gg_fm_dm" class="gg-chipb gg-chipm-deathmatch"><Label class="gg-chipb-text" text="Deathmatch" /></Button>
+									<Button id="gg_fm_wm" class="gg-chipb gg-chipm-wingman"><Label class="gg-chipb-text" text="Wingman" /></Button>
 									<Panel class="gg-mbar-fill" />
 									<Panel id="gg_q_search" class="gg-search">
 										<Button id="gg_q_kbd" class="gg-search-open">
@@ -252,7 +261,7 @@
 									<Button id="gg_ws_play" class="gg-ws-play"><Label id="gg_ws_play_text" class="gg-ws-play-text" text="{s:text}" /></Button>
 								</Panel>
 								<Panel class="gg-grid">
-									<Panel class="gg-grid-row">
+									<Panel class="gg-grid-row gg-grid-row1">
 									<Panel id="gg_m1" class="gg-mcard">
 										<Panel id="gg_m1_thumb" class="gg-mthumb">
 											<Panel class="gg-mthumb-shade" />
@@ -266,6 +275,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m1_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m1_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m1_name" class="gg-mname" text="{s:text}" />
@@ -295,6 +305,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m2_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m2_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m2_name" class="gg-mname" text="{s:text}" />
@@ -324,6 +335,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m3_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m3_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m3_name" class="gg-mname" text="{s:text}" />
@@ -353,6 +365,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m4_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m4_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m4_name" class="gg-mname" text="{s:text}" />
@@ -384,6 +397,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m5_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m5_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m5_name" class="gg-mname" text="{s:text}" />
@@ -413,6 +427,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m6_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m6_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m6_name" class="gg-mname" text="{s:text}" />
@@ -442,6 +457,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m7_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m7_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m7_name" class="gg-mname" text="{s:text}" />
@@ -471,6 +487,7 @@
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
 											</Panel>
 											<Label id="gg_m8_warn" class="gg-mwarn" text="{s:text}" />
+											<Button id="gg_m8_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
 										<Panel class="gg-mbody">
 											<Label id="gg_m8_name" class="gg-mname" text="{s:text}" />
@@ -965,7 +982,7 @@
 
 					<Panel class="gg-win-foot">
 						<Panel class="gg-foot-fill" />
-						<Label class="gg-foot-ver" text="HUD v4_1_0  ·  server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4_2_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -996,10 +1013,10 @@
 
 				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
 				<!-- Over Strike 2: the HUD version check at a join (vjoin) - gg_global's classes say how the server's version compares with this
-				     layout's own, v4_1_0 (level 41): svge42 the server is newer, svlt41 older; the same version shows nothing -->
+				     layout's own, v4_2_0 (level 42): svge43 the server is newer, svlt42 older; the same version shows nothing -->
 				<Panel class="gg-ver" hittest="false">
-					<Label class="gg-ver-old" text="Your HUD is v4_1_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
-					<Label class="gg-ver-new" text="Your HUD is v4_1_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
+					<Label class="gg-ver-old" text="Your HUD is v4_2_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
+					<Label class="gg-ver-new" text="Your HUD is v4_2_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
 				</Panel>
 				<Panel class="gg-note" hittest="false">
 					<Label id="gg_note_text" class="gg-note-text" text="{s:text}" />

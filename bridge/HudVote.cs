@@ -81,8 +81,8 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number, for the version check: v4_1_0 is 41. The classes go from FirstLevel to LastLevel.</summary>
-    public const int ContentLevel = 41, FirstLevel = 31, LastLevel = 49;
+    /// <summary>The server's content as a number, for the version check: v4_2_0 is 42. The classes go from FirstLevel to LastLevel.</summary>
+    public const int ContentLevel = 42, FirstLevel = 31, LastLevel = 49;
 
     /// <summary>The dialog variables on gg_global that the newer layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
@@ -113,7 +113,7 @@ public static class HudVote
     /// <summary>The vote on the Maps page's cards: option k on card k (Random last), each with its mode, its map, its votes and who queued
     /// it; this player's choice lit (confirm), queued options tagged (queued), the winner once decided (now); the count line says how long
     /// and how many have voted. Cards beyond the options are empty. The newer layouts also hide the toolbar (voting on gg_screen).</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Cards(VoteState v, long account, HudCatalog? catalog)
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Cards(VoteState v, long account, HudCatalog? catalog, string openPicture = "")
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -151,18 +151,20 @@ public static class HudVote
             c.Add((id, "bigvoted", false));
             c.Add((id, "ads", false));
             c.Add((id, "adsvoted", false));
-            c.Add((id, "ours", o != null && catalog?.Maps.FirstOrDefault(m => m.Key == o.Key) is { Ours: true }));
+            c.Add((id, "ours", o != null && catalog?.Find(o.Key) is { Ours: true }));
+            c.Add((id, "nopic", o != null && !random && o.Key.All(char.IsAsciiDigit) && o.Key != "" && !HudThumbs.Has(o.Key))); // content v4_2_0: the picture on request
+            c.Add((id, "picopen", o != null && !random && o.Key == openPicture));
         }
         return (t, c);
     }
 
-    /// <summary>The pictures of the vote's cards: an option's map's picture where the addon has one (a Workshop map of the list, an official
-    /// Arms Race map); none for Random or a map without one.</summary>
+    /// <summary>The pictures of the vote's cards: an option's map's picture where the addon has one (a Workshop map, an official map of any
+    /// mode); none for Random or a map without one.</summary>
     public static List<(string Panel, string[] Classes)> Thumbs(VoteState v, HudCatalog? catalog) =>
         Enumerable.Range(1, HudMenu.Cards).Select(k =>
         {
             var o = k <= v.Options.Count ? v.Options[k - 1] : null;
-            var entry = o == null || o.Source == VoteSource.Random || catalog == null ? null : catalog.Maps.FirstOrDefault(m => m.Key == o.Key);
+            var entry = o == null || o.Source == VoteSource.Random || catalog == null ? null : catalog.Find(o.Key);
             return ($"{HudMenu.Card(k)}_thumb", entry != null ? HudThumbs.Classes(entry) : Array.Empty<string>());
         }).ToList();
 

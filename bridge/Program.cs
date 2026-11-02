@@ -193,13 +193,31 @@ static partial class Program
     static HudCatalog BuildCatalog()
     {
         var c = new HudCatalog { Version = CatalogVersion };
-        foreach (var m in Maps.Where(m => !IsPack(m) && !IsBlocked(m)).Concat(Officials))
+        // Every mode's maps, one entry a map: its place in each mode that lists it (ModeSwitch.cs), Arms Race's first.
+        var places = new Dictionary<string, (MapInfo First, int Ar, int Dm, int Wm)>();
+        var order = new List<string>();
+        void Place(MapInfo m, Modes.Mode mode)
         {
             var key = Key(m);
+            if (!places.TryGetValue(key, out var at)) { at = (m, -1, -1, -1); order.Add(key); }
+            var rank = m.Official ? 0 : m.Rank;
+            places[key] = mode.Id switch
+            {
+                Modes.ArmsRaceId => at with { Ar = rank },
+                Modes.DeathmatchId => at with { Dm = rank },
+                _ => at with { Wm = rank },
+            };
+        }
+        foreach (var m in Maps.Where(m => !IsPack(m) && !IsBlocked(m)).Concat(Officials)) Place(m, Modes.ArmsRace);
+        foreach (var mode in Modes.All.Where(x => !x.ArmsRace))
+            foreach (var m in PoolOf(mode).Where(m => !IsPack(m) && !IsBlocked(m))) Place(m, mode);
+        foreach (var key in order)
+        {
+            var (m, ar, dm, wm) = places[key];
             var (up, down) = Tally(key);
             c.Maps.Add(new HudCatalog.Entry(key, ArgOf(m), m.Rank, m.Id, m.Name, m.SizeMb, m.Official, Broken.TryGetValue(key, out var b) ? b : S.PlayerCrashes.ContainsKey(key) ? 0 : -1,
                 S.Crashes.GetValueOrDefault(key), up, down, IsRemoved(m), TooBig(m), SizeClass(m) ?? "", AreaOf(m) ?? 0, TooBigVotes(key), AdsVotes(key),
-                IsOurs(m), ReasonOf(key))); // Ours.cs, BrokenWhy.cs: fields 19 and 20 (an older plugin reads up to 18)
+                IsOurs(m), ReasonOf(key), ar, dm, wm)); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23 (an older plugin reads up to 18, 4.3 up to 20)
         }
         foreach (var (key, votes) in Votes)
             foreach (var (sid, value) in votes)
@@ -534,7 +552,7 @@ static partial class Program
         var cmd = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
         if (Ballot is { Open: true } && cmd is "!map" or "!next" or "!previous" or "!prev" or "!back" or "!done" or "!skip") { Tell(steamId, MapVote.WaitLine); return; } // the owner's 26: only the vote picks a map now (ChatCommands.WaitForVote)
-        if (cmd == "!map" && arg != "") PickMap(name, steamId, arg);
+        if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
         else if (cmd == "!next") NextRandom(name, steamId);
@@ -553,7 +571,7 @@ static partial class Program
 
     /// <summary>!map: look the map up, refuse a non-map, ask about a broken one - then it is a request (Ask): at once when the map that
     /// is on is random or free, into the fair queue when somebody's request is playing.</summary>
-    static void PickMap(string by, string steamId, string query)
+    static void PickMap(string by, string steamId, string query, string inMode = "")
     {
         var now = Now();
         var found = Find(query);
@@ -564,6 +582,8 @@ static partial class Program
         if (hits.Count == 0) { Tell(steamId, $"No map matches '{Clip(query, 40)}'"); return; }
         if (hits.Count > 1) { Tell(steamId, Choice(hits)); return; }
         var map = hits[0];
+        if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
+        if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
         if (ConfirmGate(map, by, steamId, now) is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
         Ask(by, steamId, map, now);
     }
@@ -796,7 +816,9 @@ static partial class Program
             if (known.Count > 0 || n is < 1_000_000 or > 9_999_999_999) return known;
             return [ModeMapById(n) ?? new MapInfo(0, n, $"workshop {n}", 0, false, CurrentMode.ArmsRace ? "" : CurrentMode.Id)]; // another mode's listed map; else unlisted, in the mode the server is in
         }
+        if (OfficialElsewhere(query) is { } official) return [official]; // ModeSwitch.cs: the whole name of another mode's official map (a card's Play names it so)
         var hits = Maps.Concat(Officials).Where(x => x.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Rank).ToList();
+        if (hits.Count == 0) hits = OtherModesNamed(query); // ModeSwitch.cs: nothing in Arms Race's list by that name, but a Deathmatch or Wingman map may have it
         var best = hits.GroupBy(x => Exactness(x, query)).Where(g => g.Key > 0).MaxBy(g => g.Key)?.ToList();
         return best ?? hits; // Tied exact names (several maps are literally called "AIM Map") narrow to those, not to every fragment hit.
     }
@@ -1178,6 +1200,7 @@ static partial class Program
         HudSelfTest(Check);
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
+        PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         TabSelfTest(Check);

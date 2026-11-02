@@ -62,6 +62,11 @@ sealed class HudScreen
     readonly Dictionary<int, HudBrowser> browsers = new();   // slot -> that player's map browser (sort, filters, page)
     readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
     readonly Dictionary<(int Slot, string Panel), HashSet<string>> thumbs = new(); // the picture classes a card has on for a player
+    readonly Dictionary<int, OpenPicture> pictures = new();  // slot -> the map whose picture that player asked for (content v4_2_0, HudPreview)
+    sealed class OpenPicture(string key, long id, int card, DateTime until)
+    {
+        public string Key = key; public long Id = id; public int Card = card; public DateTime Until = until; public bool Sent;
+    }
     int budget;                                       // engine calls this frame may still make; the rest go out in the next one
     const int FrameBudget = 600;
     DateTime stateAt;
@@ -343,6 +348,7 @@ sealed class HudScreen
         cards.Remove(slot);
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
+        pictures.Remove(slot);
         Forget(slot);
         captured.Remove(slot);
         resendAt.Remove(slot);
@@ -407,6 +413,7 @@ sealed class HudScreen
         cards.Remove(slot);
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
+        pictures.Remove(slot);
         Forget(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
@@ -462,6 +469,7 @@ sealed class HudScreen
         slots.Click(player.Slot, buttonId, now);
         var account = Account(player);
         var browser = Browser(player.Slot);
+        if (HudMenu.PicCard(buttonId) is > 0 and var picCard) { TogglePicture(player, account, picCard, now); Server.NextFrame(Frame); return; }
         if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
         {
             // The vote is on the Maps page's cards (HudVote.cs): a card's Play is a vote; the browser's own controls wait for the vote's end.
@@ -514,9 +522,54 @@ sealed class HudScreen
             var armed = restartArmed.TryGetValue(player.Slot, out var until) && now < until;
             if (armed) restartArmed.Remove(player.Slot); else restartArmed[player.Slot] = now.AddSeconds(HudBrowser.ConfirmSeconds);
         }
-        var command = HudView.Command(buttonId, state, account) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search);
+        var command = HudView.Command(buttonId, state, account) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id);
         if (command != null) Act(player, account, command);
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
+    }
+
+    /// <summary>The map on a card for this player: what the vote or the browser shows there, as its key (empty for none).</summary>
+    string CardKey(CCSPlayerController p, long account, int card)
+    {
+        if (vote.Round > 0) return card <= vote.Options.Count && vote.Options[card - 1].Source != VoteSource.Random ? vote.Options[card - 1].Key : "";
+        if (catalog == null) return "";
+        var browser = Browser(p.Slot);
+        var page = browser.PageOf(browser.Matches(catalog, account, search));
+        return card <= page.Count ? page[card - 1].Key : "";
+    }
+
+    /// <summary>A click on a card's picture button: that map's picture, or off again when it is the one up (HudPreview).</summary>
+    void TogglePicture(CCSPlayerController p, long account, int card, DateTime now)
+    {
+        var key = CardKey(p, account, card);
+        if (pictures.TryGetValue(p.Slot, out var open)) { ClosePicture(p, open); if (open.Key == key) return; }
+        if (long.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0) pictures[p.Slot] = new OpenPicture(key, id, card, now.AddSeconds(HudPreview.Seconds));
+    }
+
+    void ClosePicture(CCSPlayerController p, OpenPicture open)
+    {
+        pictures.Remove(p.Slot);
+        if (open.Sent) p.PrintToCenterHtml(" ", 1);
+    }
+
+    /// <summary>Every frame, for a player with a picture up: it ends with its window, its page, its card's map or its time; once Steam has said where
+    /// the preview is, it goes to the game's message panel, for as long as it may stay up. The window goes short meanwhile and keeps its idle clock.</summary>
+    void PictureFrame(CCSPlayerController p, HudSlots.View view, long account, DateTime now)
+    {
+        var open = pictures.GetValueOrDefault(p.Slot);
+        if (open != null && (!view.Window || view.Page != HudSlots.Page.Maps || now >= open.Until || CardKey(p, account, open.Card) != open.Key)) { ClosePicture(p, open); open = null; }
+        Class(HudView.Screen, "pic1", open != null && HudPreview.RowClass(open.Card) == "pic1", p);
+        Class(HudView.Screen, "pic2", open != null && HudPreview.RowClass(open.Card) == "pic2", p);
+        if (open == null) return;
+        slots.Hold(p.Slot, now);
+        if (open.Sent || plays.Ask(open.Id, now) is not { Done: true } answer) return;
+        if (HudPreview.Url(answer.Item?.Preview) is { } url)
+        {
+            p.PrintToCenterHtml(HudPreview.Html(url), HudPreview.Seconds);
+            open.Sent = true;
+            return;
+        }
+        pictures.Remove(p.Slot);
+        LocalNote(p.Slot, answer.Error ?? "This map has no picture on the Workshop");
     }
 
     /// <summary>A line for everybody that reads like this player's own chat line, in CS2's own format (Cstrike_Chat_All: " [ALL] name: text"):
@@ -967,6 +1020,7 @@ sealed class HudScreen
                 foreach (var (id, text2) in newTexts) if (HudView.LevelOf(id) <= level) Text(id, text2, p);
                 foreach (var ((id, cls), on) in newClasses) if (HudView.LevelOf(id) <= level) Class(id, cls, on, p);
             }
+            PictureFrame(p, view, account, now);
             if (view.Window) Menu(p, view.Page, shown, account, now);
             var capture = view.Capture || tab.Cursor(p.Slot); // the window's cursor, or the board's while TAB is held
             if (captured.GetValueOrDefault(p.Slot) != capture)
@@ -985,8 +1039,8 @@ sealed class HudScreen
     {
         var (texts, classes) = page switch
         {
-            HudSlots.Page.Maps when vote.Round > 0 => HudVote.Cards(vote, account, catalog),
-            HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search),
+            HudSlots.Page.Maps when vote.Round > 0 => HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? ""),
+            HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search, pictures.GetValueOrDefault(p.Slot)?.Key ?? ""),
             HudSlots.Page.Queue => HudMenu.Queue(shown, account),
             HudSlots.Page.Game => HudMenu.Game(shown, restartArmed.TryGetValue(p.Slot, out var until) && now < until ? (int)Math.Ceiling((until - now).TotalSeconds) : 0),
             _ => (null, null),

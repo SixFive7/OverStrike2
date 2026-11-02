@@ -30,7 +30,9 @@ public static class Hud
     /// v3_2_0's was (NewIds32), and its version checked against the server's by the layout itself (HudVote.cs). Content v4_1_0 keeps every
     /// panel of v4_0_0 and adds the popup that asks why a player disliked a map, and the Fun page's row for the grenade drops, whose buttons
     /// moved there from the Game page: nothing is sent to their panels (HudView.NewButtons41), so no game has to prove it holds them.
-    public const string Content = "v4_1_0";
+    /// Content v4_2_0 keeps every panel of v4_1_0 and adds the pictures of the maps not listed yet (hud/thumbs.py --ahead), a picture button on each
+    /// card (HudPreview) and the mode filter's chips: their state is classes on panels every game has, so again nothing is sent to them (NewButtons42).
+    public const string Content = "v4_2_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -61,12 +63,20 @@ public static class Hud
         var (verb, arg) = (command[..space], command[(space + 1)..]);
         if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a downvote's reason, with or without its map (the chat's !down big, !down 12 big)
         if (verb == DownReasons.PopupVerb) return DownReasons.Find(arg) != null; // a click on the popup's reason (HudVote.WhyClick)
+        if (verb == "!map" && SplitMode(arg) is { Mode: not "" } inMode) return IsMapArg(inMode.Map); // a card's Play in another mode that also lists the map
         return verb is "!map" or "!up" or "!down" or "!toobig" or "!ads" or "!cancel" && IsMapArg(arg);
     }
 
-    /// <summary>What names a map on /act: a rank or a Workshop id, or an official map's name - never a name search.</summary>
+    /// <summary>What names a map on /act: a rank or a Workshop id, or an official map's name, of any mode - never a name search.</summary>
     public static bool IsMapArg(string arg) => arg.Length is > 0 and <= WorkshopCard.MaxIdDigits && arg.All(char.IsAsciiDigit)
-        || arg.Length is > 3 and <= 32 && arg.StartsWith("ar_") && arg.All(ch => ch == '_' || char.IsAsciiLetterLower(ch));
+        || arg.Length is > 3 and <= 32 && (arg.StartsWith("ar_") || arg.StartsWith("de_") || arg.StartsWith("cs_")) && arg.All(ch => ch == '_' || char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch));
+
+    /// <summary>A !map argument as the map and the mode it asks for: "12 deathmatch" is 12 in Deathmatch, "12" is 12 in the first mode that lists it.</summary>
+    public static (string Map, string Mode) SplitMode(string arg)
+    {
+        var at = arg.LastIndexOf(' ');
+        return at > 0 && Modes.Find(arg[(at + 1)..]) is { } mode ? (arg[..at], mode.Id) : (arg, "");
+    }
 
     // ---- the words: every number in them is the code's own (--selftest checks it) ----
 
@@ -374,6 +384,10 @@ public static class HudView
     /// holds v4_1_0, and so everything before it. (The grenade drops' buttons moved to the Fun page and are no proof: every content has them.)</summary>
     public static readonly string[] NewButtons41 = [.. Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton)];
 
+    /// <summary>The buttons content v4_2_0 added: each card's picture button and the mode filter's chips. They need nothing sent to them either; a click
+    /// on one proves that player's game holds v4_2_0.</summary>
+    public static readonly string[] NewButtons42 = [.. Enumerable.Range(1, HudMenu.Cards).Select(HudMenu.PicButton), .. HudBrowser.ModeButtons.Select(b => b.Id)];
+
     static HashSet<string> NewPanels32()
     {
         var ids = new HashSet<string> { "gg_b_ads", HudMenu.FunNote, HudBrowser.OursButton }; // the Our maps chip gets its "on" class
@@ -389,8 +403,8 @@ public static class HudView
     /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
     public static int LevelOf(string id) => NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
 
-    /// <summary>The content a button proves a game holds: 41, 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
+    /// <summary>The content a button proves a game holds: 42, 41, 32, 31, or 0 for a button every game has.</summary>
+    public static int LevelOfButton(string id) => NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
 
     static HashSet<string> NewPanels()
     {

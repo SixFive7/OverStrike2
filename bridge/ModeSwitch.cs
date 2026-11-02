@@ -61,6 +61,32 @@ static partial class Program
         return $"{mode.Id} maps: {workshop} Workshop maps + {good.Count - workshop} official extra(s) from {path} (were {before}), {PoolOf(mode).Count} in the {mode.Name} pool";
     }
 
+    /// <summary>A mode's own entry for this map, when that mode lists it: its Workshop list, its officials, Arms Race's maps.json.</summary>
+    static MapInfo? ListedIn(Modes.Mode mode, MapInfo map) =>
+        (mode.ArmsRace ? Maps.Concat(Officials) : PoolOf(mode)).FirstOrDefault(m => Key(m) == Key(map));
+
+    /// <summary>A Deathmatch or Wingman official map by its whole name, in the first mode that has it, or null.</summary>
+    static MapInfo? OfficialElsewhere(string name) =>
+        Modes.All.Where(m => !m.ArmsRace).SelectMany(OfficialsOf).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The Deathmatch and Wingman maps a name fragment finds, the whole name first, one entry per map, in the first mode that lists it.</summary>
+    static List<MapInfo> OtherModesNamed(string query)
+    {
+        var hits = Modes.All.Where(m => !m.ArmsRace).SelectMany(PoolOf).GroupBy(Key).Select(g => g.First())
+            .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).OrderBy(m => m.Rank).ToList();
+        var whole = hits.Where(m => m.Name.Equals(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        return whole.Count > 0 ? whole : hits;
+    }
+
+    /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than Valve's maxplayers for it, the rule the vote's ballot follows.</summary>
+    static string? ModeRefusal(MapInfo map)
+    {
+        var mode = ModeOf(map);
+        if (mode.Id == CurrentMode.Id || mode.ArmsRace) return null;
+        var humans = Humans();
+        return mode.Suits(humans) ? null : $"{mode.Name} takes {mode.MaxPlayers} players, and {humans} are on - not this map now";
+    }
+
     /// <summary>A listed map of another mode by its Workshop id (a pasted link), or null.</summary>
     static MapInfo? ModeMapById(long id) => Modes.All.Where(m => !m.ArmsRace).SelectMany(ModeWorkshop).FirstOrDefault(m => m.Id == id);
 

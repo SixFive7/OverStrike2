@@ -3666,7 +3666,7 @@ Label
 	transition-duration: 0s;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_1_0 - level 41. At a join (vjoin) a server above it (svge42) or below it (svlt41)
+/* The HUD version check (HudVote.cs): this layout is v4_2_0 - level 42. At a join (vjoin) a server above it (svge43) or below it (svlt42)
    says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
 .gg-ver
 {
@@ -3703,12 +3703,12 @@ Label
 	text-align: center;
 }
 
-.gg-global.svge42 .gg-screen.vjoin .gg-ver-old
+.gg-global.svge43 .gg-screen.vjoin .gg-ver-old
 {
 	visibility: visible;
 }
 
-.gg-global.svlt41 .gg-screen.vjoin .gg-ver-new
+.gg-global.svlt42 .gg-screen.vjoin .gg-ver-new
 {
 	visibility: visible;
 }
@@ -3725,4 +3725,140 @@ Label
 	font-size: 11px;
 	color: gg-faint;
 	vertical-align: center;
+}
+
+/* ---- content v4_2_0: the picture on request and the mode filter -------------------------------------------------- */
+
+/* A map with no picture in the addon: its card's button brings its Workshop preview up in the game's own message panel. The panel is drawn below this
+   window and sits at y 750-908 at 1080p, so the window goes short meanwhile: the row without the card goes, and the window ends at y 720. */
+.gg-mpic
+{
+	visibility: collapse;
+	horizontal-align: center;
+	vertical-align: center;
+	height: 32px;
+	padding: 0px 14px;
+	border-radius: 16px;
+	border: 1px solid #FFFFFF47;
+	background-color: #0A0D11CC;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-mcard.nopic .gg-mpic
+{
+	visibility: visible;
+}
+
+.gg-mpic:hover
+{
+	border: 1px solid gg-gold;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-mpic:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-mpic-text
+{
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-text;
+}
+
+.gg-mpic-hide
+{
+	visibility: collapse;
+}
+
+.gg-mcard.picopen .gg-mpic
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-mcard.picopen .gg-mpic-show
+{
+	visibility: collapse;
+}
+
+.gg-mcard.picopen .gg-mpic-hide
+{
+	visibility: visible;
+}
+
+.gg-screen.pic1 .gg-grid-row2
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic2 .gg-grid-row1
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic1 .gg-win
+{
+	height: 590px;
+	vertical-align: top;
+	margin-top: 130px;
+}
+
+.gg-screen.pic2 .gg-win
+{
+	height: 590px;
+	vertical-align: top;
+	margin-top: 130px;
+}
+
+/* The mode filter: which modes' maps the page lists. Its chips' state is a class on gg_screen, which every content has. */
+.gg-mbar-label-mode
+{
+	margin-left: 18px;
+}
+
+.gg-screen.fm-all .gg-chipm-all
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-screen.fm-all .gg-chipm-all .gg-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.fm-armsrace .gg-chipm-armsrace
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-screen.fm-armsrace .gg-chipm-armsrace .gg-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.fm-deathmatch .gg-chipm-deathmatch
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-screen.fm-deathmatch .gg-chipm-deathmatch .gg-chipb-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.fm-wingman .gg-chipm-wingman
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-screen.fm-wingman .gg-chipm-wingman .gg-chipb-text
+{
+	color: #FFFFFF;
 }

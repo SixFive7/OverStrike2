@@ -20,7 +20,7 @@ namespace OverStrike2;
 /// (Hud.ChatOff) - and a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "4.3.0";
+    public const string Version = "4.4.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the grenade drops, the map settings and the fun page, the game modes";

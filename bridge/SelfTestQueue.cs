@@ -629,10 +629,11 @@ static partial class Program
                 hud.Queue.Select(q => q.Arg).SequenceEqual([Rank(2), Rank(3)]) && hud.Queue[0].Accounts.SequenceEqual([1002L]) && hud.Queue[1].Who == "Cara"
                 && hud.Queue[0].Key == Key(m[2]) && hud.RoundMinutes == S.RoundMinutes && hud.CatalogVersion == CatalogVersion);
             var catalog = HudCatalog.Decode(CatalogText)!;
-            Check($"The menu's catalog: every listed and official map once ({catalog.Maps.Count}), with its votes and whose they are",
-                catalog.Maps.Count == Maps.Count(x => !IsPack(x)) + Officials.Count && catalog.Maps.Select(x => x.Key).Distinct().Count() == catalog.Maps.Count
+            Check($"The menu's catalog: every listed and official map of every mode once ({catalog.Maps.Count}), with its votes and whose they are",
+                catalog.Maps.Count == Maps.Where(x => !IsPack(x)).Concat(Officials).Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(PoolOf).Where(x => !IsPack(x) && !IsBlocked(x))).Select(Key).Distinct().Count()
+                && catalog.Maps.Select(x => x.Key).Distinct().Count() == catalog.Maps.Count
                 && catalog.Maps.First(x => x.Key == Key(m[1])) is { Up: 2, Down: 0 } && catalog.MyVote(1003, Key(m[1])) == 1 && catalog.MyVote(1001, Key(m[1])) == 0
-                && catalog.Maps.Where(x => x.Official).All(x => x.Arg.StartsWith("ar_") && Hud.IsAction("!map " + x.Arg))
+                && catalog.Maps.Where(x => x.Official).All(x => x.Arg == x.Name && Hud.IsAction("!map " + x.Arg))
                 && catalog.Maps.Where(x => !x.Official).All(x => x.Arg == x.Rank.ToString() && Hud.IsAction("!up " + x.Arg)));
             var version = CatalogVersion;
             Check("A menu click on a card acts like the chat command: Cara's downvote on map 4 by its rank", HudAct($"[U:1:1003]\tCara\t!down {Rank(4)}")

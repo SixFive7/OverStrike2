@@ -8,7 +8,7 @@ using System.Globalization;
 using System.Text.Json;
 
 /// <summary>One item as the Web API describes it (GetPublishedFileDetails), with what the card needs.</summary>
-public sealed record WorkshopItem(long Id, int Result, int Visibility, bool Banned, long AppId, string Title, long Bytes, IReadOnlyList<string> Tags)
+public sealed record WorkshopItem(long Id, int Result, int Visibility, bool Banned, long AppId, string Title, long Bytes, IReadOnlyList<string> Tags, string Preview = "")
 {
     public const long Cs2 = 730;
 
@@ -37,7 +37,8 @@ public sealed record WorkshopItem(long Id, int Result, int Visibility, bool Bann
                 foreach (var tag in t.EnumerateArray())
                     if (tag.ValueKind == JsonValueKind.Object && tag.TryGetProperty("tag", out var tv) && tv.ValueKind == JsonValueKind.String) tags.Add(tv.GetString() ?? "");
             items[id] = new WorkshopItem(id, (int)Long(e, "result"), (int)Long(e, "visibility"), banned, Long(e, "consumer_app_id"),
-                Hud.Clean(e.TryGetProperty("title", out var ti) && ti.ValueKind == JsonValueKind.String ? ti.GetString() : "", 60), Long(e, "file_size"), tags);
+                Hud.Clean(e.TryGetProperty("title", out var ti) && ti.ValueKind == JsonValueKind.String ? ti.GetString() : "", 60), Long(e, "file_size"), tags,
+                e.TryGetProperty("preview_url", out var pv) && pv.ValueKind == JsonValueKind.String ? pv.GetString() ?? "" : "");
         }
         return items;
     }

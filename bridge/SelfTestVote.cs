@@ -544,6 +544,9 @@ static partial class Program
                 ReloadModeMaps(Modes.Deathmatch).Contains("less than half") && ModeWorkshop(Modes.Deathmatch).Count == 3 && ReloadModeMaps(Modes.Deathmatch, true).Contains("1 Workshop maps") && ModeWorkshop(Modes.Deathmatch).Count == 1);
             File.Delete(dmFile);
 
+            Fresh();
+            PicturesBridgeSelfTest(Check, alice); // SelfTestPictures.cs: a Play in a mode, a name only another mode has
+
             // ---- the weights and the exclusions outside Arms Race ----
             Fresh();
             ModeMaps["deathmatch"] = [new(1, 3070000001, "dm_one", 41, false, "deathmatch"), new(2, 3070000002, "dm_two", 12, false, "deathmatch"), new(3, 3070000003, "dm_three", 9, false, "deathmatch")];

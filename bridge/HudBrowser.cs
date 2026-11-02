@@ -7,7 +7,7 @@
 using System.Globalization;
 using System.Text;
 
-/// <summary>Every map the menu can show - the ranked list of maps.json and the official maps - with what the server knows about each:
+/// <summary>Every map the menu can show - the ranked list of maps.json, the Deathmatch and Wingman lists and every mode's official maps - with what the server knows about each:
 /// its size, the broken-list verdict, the live crash counter and the votes. A text codec like HudState's. The bridge bumps Version
 /// whenever any of it changes (a vote, a crash); the live state carries the version, so the plugin fetches this again only then.</summary>
 public sealed class HudCatalog
@@ -17,11 +17,29 @@ public sealed class HudCatalog
     /// <summary>Key: what the bridge counts votes and crashes by (an official map's name, otherwise the Workshop id). Arg: what a chat
     /// command takes to name it unambiguously (the rank of a ranked map, an official map's name, the id of an unlisted one).
     /// Broken: crashes on the swept broken list (0 = listed without a count), -1 when not on it. Removed: gone from the Workshop
-    /// (Workshop.cs) - nobody can download it, so it is refused rather than confirmed.</summary>
+    /// (Workshop.cs) - nobody can download it, so it is refused rather than confirmed. RankAr, RankDm, RankWm: the map's place in that mode's
+    /// list, 0 for an official map of that mode, -1 when that mode does not have it; Rank is the place in the first mode that has it.</summary>
     public sealed record Entry(string Key, string Arg, int Rank, long Id, string Name, int SizeMb, bool Official, int Broken, int Crashes, int Up, int Down,
-        bool Removed = false, bool TooBig = false, string SizeClass = "", int M2 = 0, int Big = 0, int Ads = 0, bool Ours = false, string Reason = "")
+        bool Removed = false, bool TooBig = false, string SizeClass = "", int M2 = 0, int Big = 0, int Ads = 0, bool Ours = false, string Reason = "",
+        int? RankAr = null, int RankDm = -1, int RankWm = -1)
     {
         public bool Risky => !Removed && (Broken >= 0 || Crashes > 0);
+
+        /// <summary>The map's place in a mode's list: 0 for an official map of that mode, -1 when that mode does not have it. An entry made without its
+        /// places is Arms Race's, at its Rank.</summary>
+        public int RankIn(string mode) => mode switch { Modes.ArmsRaceId => RankAr ?? Rank, Modes.DeathmatchId => RankDm, Modes.WingmanId => RankWm, _ => -1 };
+
+        /// <summary>The first mode that has the map, in menu order: what a click plays it in unless the filter or the server's mode says otherwise.</summary>
+        public string FirstMode => RankIn(Modes.ArmsRaceId) >= 0 ? Modes.ArmsRaceId : RankDm >= 0 ? Modes.DeathmatchId : Modes.WingmanId;
+    }
+
+    Dictionary<string, Entry>? byKey;
+
+    /// <summary>The entry of a map key, or null. Built once per catalog: the vote's cards ask for theirs every frame.</summary>
+    public Entry? Find(string key)
+    {
+        byKey ??= Maps.GroupBy(m => m.Key).ToDictionary(g => g.Key, g => g.First());
+        return byKey.GetValueOrDefault(key);
     }
 
     /// <summary>A too-big vote, as votes.json, the catalog's "v" lines and the live state's "vote" lines carry it: a downvote (an older
@@ -58,7 +76,7 @@ public sealed class HudCatalog
         s.Append("ver\t").Append(Version.ToString(CultureInfo.InvariantCulture)).Append('\n');
         foreach (var m in Maps)
             s.Append(string.Join('\t', "m", Hud.Clean(m.Key, 40), Hud.Clean(m.Arg, 40), I(m.Rank), I(m.Id), Hud.Clean(m.Name, 64), I(m.SizeMb), m.Official ? "1" : "0",
-                I(m.Broken), I(m.Crashes), I(m.Up), I(m.Down), m.Removed ? "1" : "0", m.TooBig ? "1" : "0", Hud.Clean(m.SizeClass, 2), I(m.M2), I(m.Big), I(m.Ads), m.Ours ? "1" : "0", Hud.Clean(m.Reason, 64))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen)
+                I(m.Broken), I(m.Crashes), I(m.Up), I(m.Down), m.Removed ? "1" : "0", m.TooBig ? "1" : "0", Hud.Clean(m.SizeClass, 2), I(m.M2), I(m.Big), I(m.Ads), m.Ours ? "1" : "0", Hud.Clean(m.Reason, 64), I(m.RankIn(Modes.ArmsRaceId)), I(m.RankDm), I(m.RankWm))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen, 4.3: twenty)
         foreach (var (account, mine) in Votes)
             foreach (var (key, value) in mine)
                 s.Append(string.Join('\t', "v", I(account), Hud.Clean(key, 40), I(Carried(value)))).Append('\n'); // an older plugin takes the sign (3.1.0 keeps -2 and takes the sign of -3)
@@ -84,7 +102,7 @@ public sealed class HudCatalog
                 case "m" when f.Length >= 12 && f[1] != "":
                     c.Maps.Add(new Entry(f[1], f[2], (int)L(f, 3), L(f, 4), f[5], (int)L(f, 6), f[7] == "1", (int)L(f, 8), (int)L(f, 9), (int)L(f, 10), (int)L(f, 11),
                         f.Length > 12 && f[12] == "1", f.Length > 13 && f[13] == "1", f.Length > 14 ? f[14] : "", (int)L(f, 15), (int)L(f, 16), (int)L(f, 17),
-                        f.Length > 18 && f[18] == "1", f.Length > 19 ? f[19] : ""));
+                        f.Length > 18 && f[18] == "1", f.Length > 19 ? f[19] : "", f.Length > 22 ? (int)L(f, 20) : (int)L(f, 3), f.Length > 22 ? (int)L(f, 21) : -1, f.Length > 22 ? (int)L(f, 22) : -1));
                     break;
                 case "v" when f.Length >= 4 && L(f, 1) > 0 && f[2] != "" && L(f, 3) != 0:
                     var account = L(f, 1);
@@ -118,6 +136,7 @@ public sealed class HudBrowser
     public bool Descending;                  // the natural direction flipped: a second click on the sort that is on
     public Band Size = Band.All;
     public bool Liked, Official, Ours;        // Ours: the server's own maps (ours.json; Over Strike 2's Our maps)
+    public string Mode = "";                 // the mode filter (content v4_2_0): a mode's id, or "" for every mode's maps
     public string Query = "";                // what the on-screen keyboard typed (HudKeyboard), or a Workshop link pasted in chat
     public bool Keyboard;                    // the keyboard is open on the Maps page
     public int Page;                         // zero-based; clamped whenever the matches are counted
@@ -129,14 +148,33 @@ public sealed class HudBrowser
         [("gg_sort_rank", SortBy.Rank), ("gg_sort_votes", SortBy.Votes), ("gg_sort_name", SortBy.Name), ("gg_sort_size", SortBy.Size)];
     public static readonly (string Id, Band Band)[] BandButtons =
         [("gg_fl_all", Band.All), ("gg_fl_tiny", Band.Tiny), ("gg_fl_small", Band.Small), ("gg_fl_mid", Band.Mid), ("gg_fl_large", Band.Large)];
+    /// <summary>The mode filter's chips (content v4_2_0): their state is a class on gg_screen (ModeClass), so nothing is sent to these panels.</summary>
+    public static readonly (string Id, string Mode)[] ModeButtons =
+        [("gg_fm_all", ""), ("gg_fm_ar", Modes.ArmsRaceId), ("gg_fm_dm", Modes.DeathmatchId), ("gg_fm_wm", Modes.WingmanId)];
+
+    /// <summary>The class on gg_screen that lights a mode chip.</summary>
+    public static string ModeClass(string mode) => mode == "" ? "fm-all" : $"fm-{mode}";
+
     public const string LikedButton = "gg_fl_liked", OfficialButton = "gg_fl_official", OursButton = "gg_fl_ours", ClearButton = "gg_q_clear",
         FirstButton = "gg_pg_first", PrevButton = "gg_pg_prev", NextButton = "gg_pg_next", LastButton = "gg_pg_last";
 
     /// <summary>The maps this player's filters and search let through, in this player's order. Officials have no rank: they sort after
     /// the ranked maps by rank (first when only officials are shown, which is the same thing). The search is full text (HudSearch):
     /// every typed word in the name, the Workshop tags or the description; a number is also a rank or a Workshop id. While searching
-    /// with the default sort, the best matches come first.</summary>
+    /// with the default sort, the best matches come first. Worked out once for each state of the browser and the catalog: the plugin asks
+    /// several times a frame for every open window, and the list runs to thousands of maps.</summary>
     public List<HudCatalog.Entry> Matches(HudCatalog catalog, long account, HudSearch? search = null)
+    {
+        var state = (catalog, search, account, Query, Sort, Descending, Size, Liked, Official, Ours, Mode);
+        if (lastMatches != null && lastMatchesFor.Equals(state)) return lastMatches;
+        lastMatchesFor = state;
+        return lastMatches = Work(catalog, account, search);
+    }
+
+    (HudCatalog?, HudSearch?, long, string, SortBy, bool, Band, bool, bool, bool, string) lastMatchesFor;
+    List<HudCatalog.Entry>? lastMatches;
+
+    List<HudCatalog.Entry> Work(HudCatalog catalog, long account, HudSearch? search)
     {
         var q = Hud.Clean(Query, HudSearch.MaxQuery).Trim().ToLowerInvariant();
         if (WorkshopQuery(catalog) != null) return []; // a Workshop id no listed map has: its card answers it, alone (map cards under it ran off the page)
@@ -147,6 +185,7 @@ public sealed class HudBrowser
         if (Liked) hits = hits.Where(m => catalog.MyVote(account, m.Key) > 0);
         if (Official) hits = hits.Where(m => m.Official);
         if (Ours) hits = hits.Where(m => m.Ours);
+        if (Mode != "") hits = hits.Where(m => m.RankIn(Mode) >= 0);
         var score = new Dictionary<string, int>();
         if (q != "")
         {
@@ -155,7 +194,17 @@ public sealed class HudBrowser
             foreach (var m in hits) if (Score(m) is > 0 and var n) score[m.Key] = n;
             hits = hits.Where(m => score.ContainsKey(m.Key));
         }
-        static int RankKey(HudCatalog.Entry m) => m.Rank > 0 ? m.Rank : 100_000;
+        // One mode: its own list's order, its official maps last. Every mode: Arms Race's list and official maps, then each other mode's own maps in
+        // their lists' order, then the official maps only those modes have.
+        int RankKey(HudCatalog.Entry m)
+        {
+            if (Mode != "") return m.RankIn(Mode) > 0 ? m.RankIn(Mode) : 100_000;
+            if (m.RankIn(Modes.ArmsRaceId) > 0) return m.RankIn(Modes.ArmsRaceId);
+            if (m.RankIn(Modes.ArmsRaceId) == 0) return 100_000;
+            if (m.RankDm > 0) return 200_000 + m.RankDm;
+            if (m.RankWm > 0) return 400_000 + m.RankWm;
+            return 600_000;
+        }
         IOrderedEnumerable<HudCatalog.Entry> sorted = Sort switch
         {
             SortBy.Votes => hits.OrderByDescending(m => m.Up - m.Down).ThenByDescending(m => m.Up).ThenBy(RankKey),
@@ -218,6 +267,8 @@ public sealed class HudBrowser
             }
         foreach (var (id, band) in BandButtons)
             if (buttonId == id) { Size = Size == band ? Band.All : band; Page = 0; return true; }
+        foreach (var (id, mode) in ModeButtons)
+            if (buttonId == id) { Mode = mode; Page = 0; return true; }
         switch (buttonId)
         {
             case LikedButton: Liked = !Liked; Page = 0; return true;
@@ -237,7 +288,7 @@ public sealed class HudBrowser
     public void Find(string text)
     {
         Query = Hud.Clean(text, HudSearch.MaxQuery);
-        Size = Band.All; Liked = false; Official = false; Ours = false;
+        Size = Band.All; Liked = false; Official = false; Ours = false; Mode = "";
         Page = 0;
     }
 }
@@ -266,6 +317,26 @@ public static class HudMenu
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
     public static string Card(int k) => $"gg_m{k}";
 
+    /// <summary>Card k's picture button (content v4_2_0), on a card whose map has no picture in the addon.</summary>
+    public static string PicButton(int k) => $"{Card(k)}_pic";
+
+    /// <summary>The card a picture button belongs to, or 0 when this is no picture button.</summary>
+    public static int PicCard(string buttonId) => buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_pic", StringComparison.Ordinal)
+        && int.TryParse(buttonId[4..^4], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= Cards ? k : 0;
+
+    /// <summary>What a card calls its place in the list: Arms Race's maps a number, the other modes' a number in their own list.</summary>
+    static string RankText(HudCatalog.Entry m, string filter)
+    {
+        if (m.Official) return "Official";
+        var mode = filter != "" && m.RankIn(filter) >= 0 ? filter : m.FirstMode;
+        return mode switch
+        {
+            Modes.DeathmatchId => $"DM #{m.RankIn(mode)}",
+            Modes.WingmanId => $"Wingman #{m.RankIn(mode)}",
+            _ => $"#{m.RankIn(mode)}",
+        };
+    }
+
     /// <summary>What a card's Play button says, and whether this player's click on it is the second, confirming one.</summary>
     static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now)
     {
@@ -285,7 +356,7 @@ public static class HudMenu
     /// <summary>The maps page for one player: the toolbar's state, the search box and keyboard, the count, the page counter and the
     /// eight cards. A query that is a Workshop id no map has hides the cards' empty message: the plugin shows that item's card there.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null)
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "")
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -317,7 +388,7 @@ public static class HudMenu
             var id = Card(k);
             var m = k <= page.Count ? page[k - 1] : null;
             var mine = m == null || catalog == null ? 0 : catalog.MyVote(account, m.Key);
-            t.Add(($"{id}_rank", m == null ? "" : m.Official ? "Official" : $"#{m.Rank}"));
+            t.Add(($"{id}_rank", m == null ? "" : RankText(m, b.Mode)));
             t.Add(($"{id}_name", m?.Name ?? ""));
             t.Add(($"{id}_size", m == null || m.Official ? "" : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
             t.Add(($"{id}_votes", m == null ? "" : Votes(m)));
@@ -338,7 +409,10 @@ public static class HudMenu
             c.Add((id, "ads", m?.Ads > 0));                                 // content v3_2_0: the Ads tag on the picture...
             c.Add((id, "adsvoted", mine == HudCatalog.AdsVote));            // ...and this player's ads vote lit
             c.Add((id, "ours", m?.Ours == true));                           // Over Strike 2's content: the Ours tag on the picture
+            c.Add((id, "nopic", m != null && !HudThumbs.Has(HudThumbs.Key(m)) && m.Id > 0)); // content v4_2_0: no picture in the addon, so its button shows
+            c.Add((id, "picopen", m != null && m.Key == openPicture));      // ...and says Hide picture while that picture is up
         }
+        foreach (var (_, mode) in HudBrowser.ModeButtons) c.Add((HudView.Screen, HudBrowser.ModeClass(mode), b.Mode == mode)); // content v4_2_0's chips, lit
         return (t, c);
     }
 
@@ -449,9 +523,17 @@ public static class HudMenu
         return (t, c);
     }
 
+    /// <summary>What a card's Play names: the map, and the mode it plays in when that is not the first mode that has it - the one the filter
+    /// shows it in, else the one the server is in when that mode has it too.</summary>
+    public static string PlayArg(HudCatalog.Entry m, string filter, string serverMode)
+    {
+        var mode = filter != "" && m.RankIn(filter) >= 0 ? filter : serverMode != "" && m.RankIn(serverMode) >= 0 ? serverMode : m.FirstMode;
+        return mode == m.FirstMode ? m.Arg : $"{m.Arg} {mode}";
+    }
+
     /// <summary>A click on a menu button as the action it asks the bridge for (null: nothing to send). Card buttons name the map shown on
     /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick.</summary>
-    public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null)
+    public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "")
     {
         if (buttonId.StartsWith("gg_m") && buttonId.Length > 5 && char.IsDigit(buttonId[4]) && catalog != null && s != null)
         {
@@ -468,10 +550,10 @@ public static class HudMenu
                 case "ads": return $"!ads {m.Arg}";    // content v3_2_0
                 case "play":
                     if (m.Key == s.Key && s.Key != "") return null;
-                    if (m.Removed) return $"!map {m.Arg}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
+                    if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
                     if (m.Risky && !(b.ConfirmKey == m.Key && now < b.ConfirmUntil)) { b.ConfirmKey = m.Key; b.ConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds); }
                     else { b.ConfirmKey = ""; b.ConfirmUntil = default; }
-                    return $"!map {m.Arg}"; // the first click on a risky map arms the bridge's confirmation too, and says why in the note
+                    return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the first click on a risky map arms the bridge's confirmation too, and says why in the note
             }
             return null;
         }
@@ -496,18 +578,24 @@ public static class HudMenu
     }
 }
 
-/// <summary>How a card shows its map's picture. A custom HUD cannot take a picture's address from the server, so every thumbnail is in
-/// the Workshop addon - a small JPEG of each map's Workshop preview, which the resource compiler stores as it is, or for an
-/// official map the game's own screenshot - and the card picks one with classes.
+/// <summary>How a card shows its map's picture. A custom HUD cannot take a picture's address from the server and the game refuses it web
+/// pictures outright (its window is the one that may not load http or https, 47 forms tested on 2026-11-01), so every thumbnail is in the
+/// Workshop addon - each map's Workshop preview as a small JPEG, which the resource compiler stores as it is, or for an official map the
+/// game's own screenshot - and the card picks one with classes. Maps that are not listed yet ship theirs too (hud/thumbs.py --ahead), so
+/// a map the nightly sync lists later has its picture without a new HUD; a map uploaded after that release has HudPreview instead.
 ///
 /// Two classes per picture, not one per map: the game interns every class name the server ever sets on the layout entity, for the
 /// entity's whole life and for all players together, and takes no more than 1,024 (the server logs "The maximum number of class names
-/// has been reached" and what the client then does is unknown). Picture n is the pair th{n / 64} and tl{n % 64}, so 1,004 pictures
-/// cost 80 names. n is the map's place in HudThumbList (hud/thumbs.py appends, nothing moves); gungame_hud_thumbs.css has the rule
-/// ".th{n / 64}.tl{n % 64}" for each, and a map without a number shows the card's plain backdrop.</summary>
+/// has been reached" and what the client then does is unknown). Picture n is the pair th{n / 64} and tl{n % 64}, so 9,000 pictures
+/// cost about 200 names. n is the map's place in HudThumbList (hud/thumbs.py appends, nothing moves); gungame_hud_thumbs.css has the rule
+/// ".th{n / 64}.tl{n % 64}" for each, and a map without a number shows the card's plain backdrop and the button for HudPreview.</summary>
 public static class HudThumbs
 {
     public const int Base = 64;
+
+    /// <summary>th0 ... th255: 16,384 pictures (hud/thumbs.py's MAX_HIGH), 320 class names at the very most. Tested in a real client on 2026-11-01:
+    /// the stylesheet of all 16,384 loads and flips pages without a hitch.</summary>
+    public const int MaxHigh = 256;
 
     static readonly Dictionary<string, int> numbers = Number();
 
@@ -530,5 +618,37 @@ public static class HudThumbs
     /// <summary>A map's picture classes, or none when it has no picture.</summary>
     public static string[] Classes(HudCatalog.Entry m) => numbers.TryGetValue(Key(m), out var n) ? Classes(n) : [];
 
+    /// <summary>Whether the addon has a picture for this map key.</summary>
+    public static bool Has(string key) => numbers.ContainsKey(key);
+
     public static bool IsThumbClass(string cls) => cls.Length > 2 && cls[0] == 't' && cls[1] is 'h' or 'l' && cls[2..].All(char.IsAsciiDigit);
+}
+
+/// <summary>The picture on request (content v4_2_0): a map with no picture in the addon has a button on its card, and its Workshop preview shows in
+/// the game's own message panel (PrintToCenterHtml), which unlike a custom HUD may load web pictures; the window goes short meanwhile, because it
+/// is drawn above that panel. The picture comes from Steam's own image CDN, scaled by Steam: nothing of ours is asked, and the panel shows
+/// the 336x189 whole. Measured in a real client on production, 2026-11-02: the panel is 300 px wide at x 810-1110, y 750-908 at 1920x1080 and
+/// the picture 252 px wide inside it; the player's Steam client fetches it.</summary>
+public static class HudPreview
+{
+    public const string SteamHost = "images.steamusercontent.com";
+    public const string Scaled = "?imw=336&imh=189&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false";
+
+    /// <summary>How long a picture stays up without a click. The window holds its idle clock meanwhile.</summary>
+    public const int Seconds = 30;
+
+    /// <summary>The address a Workshop item's preview_url makes, scaled: only Steam's image CDN, only an address that cannot break out of the
+    /// message's HTML. Null for anything else: the card then says there is no picture.</summary>
+    public static string? Url(string? previewUrl)
+    {
+        if (string.IsNullOrEmpty(previewUrl) || !Uri.TryCreate(previewUrl, UriKind.Absolute, out var u) || u.Scheme != "https" || u.Host != SteamHost) return null;
+        var path = u.AbsolutePath;
+        return path.All(c => char.IsAsciiLetterOrDigit(c) || c is '/' or '-' or '_' or '.') ? $"https://{SteamHost}{path}{Scaled}" : null;
+    }
+
+    /// <summary>The message: the picture and nothing after it, since a picture that fails to load takes the rest with it.</summary>
+    public static string Html(string url) => $"<img src='{url}'>";
+
+    /// <summary>The window's row a card is on, as the class on gg_screen that keeps it and collapses the other: pic1 or pic2.</summary>
+    public static string RowClass(int card) => card <= HudBrowser.PerPageTyping ? "pic1" : "pic2";
 }
