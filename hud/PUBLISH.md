@@ -11,8 +11,11 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
 
 1. Install the **Counter-Strike 2 Workshop Tools** if `game\bin\win64\resourcecompiler.exe` is missing from the CS2 folder:
    start CS2, Settings, search for "Install Counter-Strike Workshop Tools", then let Steam download them.
-2. The map pictures: `python hud\thumbs.py` (needs Pillow) makes one small JPEG per map of `bridge/maps.json` in `hud\thumbs\`, from
-   the maps' Workshop previews. They are other authors' pictures and are never committed.
+2. The map pictures: `python hud\thumbs.py --ahead maps.json` (needs Pillow) makes one small JPEG per map of `bridge/maps.json` in
+   `hud\thumbs\`, plus one per map the `--ahead` file names (a JSON array of `{"id", "preview"}`, most popular first: the maps the
+   sync has queued and the other modes' maps, so a map has its picture before it is listed). All from the maps' Workshop previews, on
+   Steam's image CDN. They are other authors' pictures and are never committed. The addon holds 16,384 pictures at most; a release
+   brings about 113 MB for 9,200 of them.
 3. The knife icon: `hud\images\knife.png` is in the repository, an original drawing (`python hud\knife.py` draws it again; no game art).
 4. `powershell -File hud\build.ps1` copies the layout, the stylesheets, the images and the pictures into the Workshop Tools'
    content folder and compiles them into `game\csgo_addons\gungame_hud\`. It must end with an `OK` line for the layout, each

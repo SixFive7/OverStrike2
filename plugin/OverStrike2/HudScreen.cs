@@ -128,7 +128,7 @@ sealed class HudScreen
         var count = 0;
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
-                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote) })
+                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(HudPreview) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
@@ -397,6 +397,7 @@ sealed class HudScreen
         entity = null;
         ForgetAll();
         captured.Clear();
+        pictures.Clear(); // the message panel ends with the map, and a click on the next map's cards asks anew
         gate.MapStarted();
         tab.MapStarted();
         checkHigh = HudCheck.Mode.Off;
