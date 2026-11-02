@@ -8,7 +8,7 @@ namespace OverStrike2;
 ///
 /// Since 2026-11-01 the Web API is the signal: GetPublishedFileDetails on api.steampowered.com every minute, anonymous. The item's page, the one
 /// place Valve's review shows, is visited only when ItemPlan (HudCheck.cs) says so - right after the Web API shows a change, then at most
-/// every 10 minutes while it is not shown, for 3 hours. The page is read as HudCheck.PagePublic says (Steam's old Error page and its new
+/// every 15 minutes while it is not shown, for 3 hours - and never with HudCheck.PageVariable off, as on a test copy. The page is read as HudCheck.PagePublic says (Steam's old Error page and its new
 /// HTTP 500 page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam already.</summary>
 sealed class ItemWatch
 {
@@ -18,6 +18,7 @@ sealed class ItemWatch
     readonly string? url;
     readonly long id;
     readonly ItemPlan plan = new();
+    readonly bool pageOff = HudCheck.PageOff(Environment.GetEnvironmentVariable(HudCheck.PageVariable));
     Task<(int Status, string? Html)>? pending;
     Task<HudCheck.ItemApi?>? apiPending;
     DateTime apiNext;
@@ -30,6 +31,7 @@ sealed class ItemWatch
         id = url != null ? long.Parse(addon, CultureInfo.InvariantCulture) : 0;
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
         if (url == null) note = "no item id";
+        else if (pageOff) note = $"never visited here ({HudCheck.PageVariable} is off)";
     }
 
     /// <summary>On the game thread, every frame: takes a finished page visit's verdict and a finished Web API answer, asks the Web API
@@ -63,7 +65,7 @@ sealed class ItemWatch
             apiNext = now + ItemPlan.ApiEvery;
             apiPending = AskApi(id);
         }
-        if (pending == null && plan.VisitDue(now))
+        if (pending == null && !pageOff && plan.VisitDue(now))
         {
             plan.VisitStarted();
             lastVisit = now;
@@ -97,6 +99,7 @@ sealed class ItemWatch
     /// changes nothing. How the page check was tried on the live server against items Steam hides (2026-11-01). By hand only.</summary>
     public async Task<string> Probe(long other)
     {
+        if (pageOff) return $"{other}: no visit - {HudCheck.PageVariable} is off here";
         var (status, html) = await Fetch("https://" + HudCheck.ItemUrl(other.ToString(CultureInfo.InvariantCulture))).ConfigureAwait(false);
         var title = html == null ? "-" : System.Text.RegularExpressions.Regex.Match(html, "<title>([^<]*)</title>").Groups[1].Value;
         var verdict = HudCheck.PagePublic(status, html);
