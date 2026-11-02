@@ -3813,6 +3813,12 @@ Label
 	margin-top: 130px;
 }
 
+/* The keyboard gives way too: the short window holds the toolbar and one row of cards, and it is back with its query when the picture ends. */
+.gg-screen.pic1.kbd .gg-kbd
+{
+	visibility: collapse;
+}
+
 /* The mode filter: which modes' maps the page lists. Its chips' state is a class on gg_screen, which every content has. */
 .gg-mbar-label-mode
 {
