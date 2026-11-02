@@ -10,8 +10,10 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
+import time
 import types
 import urllib.error
 
@@ -756,6 +758,32 @@ class FakeEngine(object):
         self.up = False
         self.stops += 1
 
+
+# the test engine's stop, with real processes: a wrapper that dies at the SIGTERM over an engine that does not (the night of 2026-11-02)
+if os.name == "posix":
+    stop_root = tempfile.mkdtemp()
+    te = m.TestEngine(m.Config(), stop_root, stop_root)
+    te.QUIT_WAIT, te.STOP_WAIT = 0, 1
+    stubborn = "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)"
+    te.proc = subprocess.Popen(["bash", "-c", '%s -c "%s" & wait' % (sys.executable, stubborn)], start_new_session=True)
+    time.sleep(1.0)
+    stop_pgid = te.proc.pid
+    check("engine stop: the group is up before the stop", m.group_alive(stop_pgid))
+    te.stop()
+    check("engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group", not m.group_alive(stop_pgid) and te.proc is None)
+    farm_bin = os.path.join(stop_root, "farm", "game", "bin")
+    os.makedirs(farm_bin)
+    shutil.copy("/bin/sleep", os.path.join(farm_bin, "cs2"))
+    stale_engine = subprocess.Popen([os.path.join(farm_bin, "cs2"), "300"])
+    with open(os.path.join(stop_root, "farm", "game", "cs2.sh"), "w") as h:
+        h.write("#!/bin/bash\nsleep 300\n")
+    os.chmod(os.path.join(stop_root, "farm", "game", "cs2.sh"), 0o755)
+    time.sleep(0.3)
+    ok_start, why_start = te.start(timeout=2)
+    check("engine start: nothing answering is a refusal (%s)" % why_start, not ok_start and "did not answer" in why_start)
+    check("engine start: an engine still running from the test tree is killed first", stale_engine.wait(5) == -9)
+    check("engine start: its own attempt is gone again", te.proc is None)
+    shutil.rmtree(stop_root, ignore_errors=True)
 
 real = {k: getattr(m, k) for k in ("SteamCmd", "TestEngine", "scan_item", "build_farm", "kill_stale_engines", "test_load", "humans_on", "read_key", "check", "patch_version")}
 m.SteamCmd, m.TestEngine = FakeSteam, FakeEngine

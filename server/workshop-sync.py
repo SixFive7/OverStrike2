@@ -1031,7 +1031,8 @@ class SteamCmd(object):
                 self.proc.wait(30)
         except Exception:
             pass
-        if self.proc.poll() is None:
+        self.proc.poll()
+        if group_alive(self.proc.pid):      # steamcmd.sh may be gone with its binary still running under it
             try:
                 os.killpg(self.proc.pid, signal.SIGKILL)
             except OSError:
@@ -1577,10 +1578,25 @@ def kill_stale_engines(farm_root):
 DOWNLOADING_RX = re.compile(r"Downloading (\d+) \([^/]*/\s*([\d.]+)\s*(KB|MB|GB)\)")
 
 
+def group_alive(pgid):
+    """Is anything left of this process group? Its leader's exit is not the group's: the engine's wrapper (cs2.sh) dies at a SIGTERM, a
+    frozen engine under it does not, and it keeps the port. Seen on the night of 2026-11-02: one map froze, the stop believed the wrapper,
+    and the next engine never answered, which ended the night's run with 1h37m of its window left."""
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
 class TestEngine(object):
     """The test copy: one engine process at a time, started from the farm on its own port with its own passwords."""
 
     MODE_ARGS = {"armsrace": ("1", "0", "mg_armsrace", "ar_shoots")}
+    QUIT_WAIT = 15      # seconds a clean quit gets
+    STOP_WAIT = 10      # seconds each signal gets
 
     def __init__(self, cfg, work_dir, home):
         self.cfg, self.work_dir, self.home = cfg, work_dir, home
@@ -1604,6 +1620,9 @@ class TestEngine(object):
     def start(self, timeout=180):
         """Start a fresh engine and wait until A2S answers on its start map and RCON works. (ok, why)."""
         self.stop()
+        stale = kill_stale_engines(os.path.dirname(self.farm))      # whatever still holds the port: a new engine would never answer
+        if stale:
+            log("killed %d test engine(s) still running from the test tree" % stale)
         if self.starts >= self.cfg.engine_starts_max:
             return False, "this run's cap of %d test-engine starts is reached" % self.cfg.engine_starts_max
         self.starts += 1
@@ -1655,21 +1674,24 @@ class TestEngine(object):
     def stop(self):
         if self.proc is None:
             return
+        pgid = self.proc.pid
         if self.alive():
             self.rcon("quit")
-            for _ in range(15):
+            for _ in range(self.QUIT_WAIT):
                 if not self.alive():
                     break
                 time.sleep(1)
         for sig in (signal.SIGTERM, signal.SIGKILL):
-            if not self.alive():
+            self.proc.poll()            # reaps the leader: a zombie still counts as a member of the group
+            if not group_alive(pgid):
                 break
             try:
-                os.killpg(self.proc.pid, sig)
+                os.killpg(pgid, sig)
             except OSError:
                 pass
-            for _ in range(10):
-                if not self.alive():
+            for _ in range(self.STOP_WAIT):
+                self.proc.poll()
+                if not group_alive(pgid):
                     break
                 time.sleep(1)
         try:
