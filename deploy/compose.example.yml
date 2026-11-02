@@ -53,6 +53,8 @@ services:
       CS2_PREFETCH_AT: "03:30" # nightly prefetch of missing and updated maps while nobody is on; "off" disables it
       CS2_PREFETCH_MINUTES: 195
       CS2_PREFETCH_RESTART: 1 # a fresh engine process before the prefetch, only at 0 players
+      CS2_WORKSHOP_RESTART: 1 # restart a process whose Workshop downloads are stuck, only at 0 players
+      CS2_DOWNLOAD_LINE: 1 # say on the news line, with the progress, what the server downloads for a waiting player
       GUNGAME_GRENADE_WIN: 0 # leave 0: CS2 does not end an Arms Race match on a last-level grenade kill
 
   bridge:
@@ -111,6 +113,8 @@ services:
       SYNC_PUBLISH: 1 # 0: every step runs, nothing is written into the bridge's data
       SYNC_AT: "03:30" # the nightly window; the run waits for the restart watcher's prefetch first
       SYNC_END: "06:45"
+      # SYNC_DAY_AT: "07:15" # optional: a second window by day, while maps are waiting; it stops the moment a player joins
+      # SYNC_DAY_END: "18:00"
       SYNC_TAGS: Armsrace,Deathmatch,Wingman
       SYNC_EXCLUDE_IDS: "3736209605,3823993566" # never candidates: the warm-up item and the HUD item
       SYNC_EXCLUDE_CREATORS: "<SteamID64s>" # Workshop authors whose items you list by hand (your own maps)
