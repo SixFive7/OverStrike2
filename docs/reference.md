@@ -116,7 +116,8 @@ ends or a skip vote passes. With no plugin polling that draws the vote, or with 
 **The game modes.** Arms Race is the default: after every server restart, and again after 10 minutes with nobody on. Each mode has Valve's official
 maps for it (`bridge/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race, `maps-deathmatch.json` and `maps-wingman.json` for the
 others, read like every data file. A map loads in its own mode: the bridge tells the plugin with `os_mode armsrace|deathmatch|wingman` and sets the
-mode's convars right before the map command. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and block list
+mode's convars right before the map command. A map several modes list plays, from its card, in the mode the Maps page's filter shows it in, else in the
+mode the server is in when that mode lists it, else in the first mode that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and block list
 (`plugin/OverStrike2/blocked*.txt`). Grenade drops, the match length, the catch-up boosts and friendly fire's settings are Arms Race's own, and the
 menu leaves them out elsewhere.
 

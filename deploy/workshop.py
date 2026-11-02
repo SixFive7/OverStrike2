@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The Steam Workshop items: the HUD addon and our own maps, through the Steam client logged in on this PC.
 
-    python deploy/workshop.py hud-thumbs --src DIR     the menu's map pictures (hud/thumbs.py), from a local folder of <id>.webp
+    python deploy/workshop.py hud-thumbs [args...]     the menu's map pictures (hud/thumbs.py, with these arguments)
     python deploy/workshop.py hud-build [--no-thumbs]  compile the addon with the CS2 Workshop Tools (hud/build.ps1)
     python deploy/workshop.py hud-query | hud-public   read-only: the item as Steam has it / whether everybody can see it
     python deploy/workshop.py hud-publish --note "..." --user-approved-update
@@ -33,7 +33,6 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["hud-thumbs", "hud-build", "hud-query", "hud-public", "hud-publish", "map"])
     ap.add_argument("rest", nargs=argparse.REMAINDER)
-    ap.add_argument("--src")
     ap.add_argument("--no-thumbs", action="store_true")
     ap.add_argument("--note")
     ap.add_argument("--user-approved-update", action="store_true")
@@ -42,7 +41,7 @@ def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     cfg = os2.Config(args.config)
     if args.command == "hud-thumbs":
-        return subprocess.run([sys.executable, os.path.join(HUD, "thumbs.py")] + (["--src", args.src] if args.src else [])).returncode
+        return subprocess.run([sys.executable, os.path.join(HUD, "thumbs.py"), *args.rest]).returncode
     if args.command == "hud-build":
         return ps(os.path.join(HUD, "build.ps1"), ["-NoThumbs"] if args.no_thumbs else [], cfg)
     if args.command == "hud-query":

@@ -216,7 +216,7 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
   its map lists are data files it reads again by itself when they change.
 - **The plugin** ([`plugin/OverStrike2/`](plugin/OverStrike2/)) is one CounterStrikeSharp plugin inside the game server: the menu and the board, chat, grenades, the settings put back and blocked, the fun
   settings, the catch-up boosts and the Workshop checks. Much of its logic is source shared with the bridge, so the bridge's self-test covers it.
-- **The HUD** ([`hud/`](hud/)) is a Panorama layout and stylesheet compiled into one Workshop addon, with every map's picture inside it: CS2 refuses web pictures in a custom HUD. Nearly every word on it comes from
+- **The HUD** ([`hud/`](hud/)) is a Panorama layout and stylesheet compiled into one Workshop addon, with every map's picture inside it, because CS2 refuses web pictures in a custom HUD. The pictures of the Workshop maps still queued ship ahead, so a map the nightly sync lists later has its picture without a new HUD. Nearly every word on it comes from
   the plugin, so most changes need no new HUD. A new version adds to the panels of the old one, so one plugin drives a game holding any of them.
 - **The server files** ([`server/`](server/)) are the install hook the [joedwards32/cs2](https://github.com/joedwards32/CS2) image runs before every start (it installs Metamod:Source, CounterStrikeSharp and
   MultiAddonManager at pinned versions and copies the plugin in), each game mode's settings, the restart watcher and the nightly sync.
