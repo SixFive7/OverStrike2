@@ -30,18 +30,17 @@ def ps(script, args, cfg):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter, allow_abbrev=False)
     ap.add_argument("command", choices=["hud-thumbs", "hud-build", "hud-query", "hud-public", "hud-publish", "map"])
-    ap.add_argument("rest", nargs=argparse.REMAINDER)
     ap.add_argument("--no-thumbs", action="store_true")
     ap.add_argument("--note")
     ap.add_argument("--user-approved-update", action="store_true")
     ap.add_argument("--config")
-    args = ap.parse_args()
+    args, rest = ap.parse_known_args()  # what hud-thumbs and map hand on; a positional that takes the rest would swallow --note as well
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     cfg = os2.Config(args.config)
     if args.command == "hud-thumbs":
-        return subprocess.run([sys.executable, os.path.join(HUD, "thumbs.py"), *args.rest]).returncode
+        return subprocess.run([sys.executable, os.path.join(HUD, "thumbs.py"), *rest]).returncode
     if args.command == "hud-build":
         return ps(os.path.join(HUD, "build.ps1"), ["-NoThumbs"] if args.no_thumbs else [], cfg)
     if args.command == "hud-query":
@@ -54,7 +53,7 @@ def main():
         extra = ["-UserApprovedUpdate"] if args.user_approved_update else []
         return ps(os.path.join(HUD, "publish.ps1"), ["-Note", args.note, *extra], cfg)
     if args.command == "map":
-        return ps(os.path.join(MAPS, "publish.ps1"), args.rest, cfg)
+        return ps(os.path.join(MAPS, "publish.ps1"), rest, cfg)
     return 0
 
 
