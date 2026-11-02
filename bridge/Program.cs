@@ -533,6 +533,7 @@ static partial class Program
         var parts = text.Split(' ', 2, StringSplitOptions.TrimEntries);
         var cmd = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
+        if (Ballot is { Open: true } && cmd is "!map" or "!next" or "!previous" or "!prev" or "!back" or "!done" or "!skip") { Tell(steamId, MapVote.WaitLine); return; } // the owner's 26: only the vote picks a map now (ChatCommands.WaitForVote)
         if (cmd == "!map" && arg != "") PickMap(name, steamId, arg);
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
@@ -677,7 +678,7 @@ static partial class Program
     static void NextRandom(string by, string steamId)
     {
         var now = Now();
-        if (Ballot is { Open: true }) { Tell(steamId, "The vote for the next map is on - vote on its screen"); return; } // VoteRound.cs
+        if (Ballot is { Open: true }) { Tell(steamId, MapVote.WaitLine); return; } // VoteRound.cs
         if (Pending is { } p) { Tell(steamId, $"Already changing to {Label(p.Map)}, wait for it"); return; }
         if (now < CooldownUntil) { Tell(steamId, $"Wait {(int)(CooldownUntil - now).TotalSeconds + 1} s"); return; }
         var mine = Owners.FirstOrDefault(o => o.Id == steamId && !o.Done);

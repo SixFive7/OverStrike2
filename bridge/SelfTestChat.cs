@@ -7,7 +7,7 @@ static partial class Program
 {
     static readonly (string Primary, string[] Aliases)[] OwnersWords =
     [
-        ("!play", ["!map", "!p", "!nominate", "!load", "!go"]),      // and !pick, Context
+        ("!play", ["!map", "!p", "!nominate", "!load", "!go", "!pick"]),
         ("!find", ["!search", "!s", "!lookup"]),                     // and !maps <words>
         ("!maps", ["!browse", "!list", "!maplist", "!m", "!top"]),
         ("!next", ["!n", "!rtv", "!change", "!skipmap"]),            // and !new with no argument, Context
@@ -21,7 +21,7 @@ static partial class Program
         ("!down", ["!dislike", "!-", "!bad", "!meh", "!thumbsdown"]),
         ("!toobig", ["!big", "!huge", "!toolarge", "!size", "!xl"]),
         ("!ads", ["!ad", "!spam", "!advert", "!report", "!scam"]),
-        ("!vote", ["!v", "!mv", "!choose"]),                         // and !pick while a vote is open, Context
+        ("!vote", ["!v", "!mv", "!choose"]),
         ("!fun", ["!set", "!settings", "!toggle", "!mode"]),
         ("!nades", ["!grenades", "!nade", "!he", "!drops", "!boom"]),
         ("!time", ["!length", "!minutes", "!timelimit", "!roundtime", "!duration"]),
@@ -60,8 +60,8 @@ static partial class Program
         var blasts = Fun.Find("nades")!.Choices.Select(c => c.Id).ToList();
         Check("Chat: one fun word is also a primary, !nades: on|off are the grenade drops, its setting's own choices the blast, and the two sets do not meet",
             sharedFun.SequenceEqual(["!nades"]) && !blasts.Contains("on") && !blasts.Contains("off"));
-        Check("Chat: the words that mean two things are the owner's (!pick, !new), each between two primaries that exist",
-            contextWords.SequenceEqual(["!pick", "!new"]) && ChatCommands.Context.All(c => ChatCommands.Find(c.Otherwise) != null && ChatCommands.Find(c.When) != null));
+        Check("Chat: the word that means two things is the owner's (!new), between two primaries that exist",
+            contextWords.SequenceEqual(["!new"]) && ChatCommands.Context.All(c => ChatCommands.Find(c.Otherwise) != null && ChatCommands.Find(c.When) != null));
 
         // ---- an alias runs the action and teaches the primary ----
         var wrong = new List<string>();
@@ -96,12 +96,27 @@ static partial class Program
             && ChatCommands.InChat("You upvoted #1 x, now +1 -0") == "You upvoted #1 x, now +1 -0");
 
         // ---- the owner's context rules ----
-        Check("Chat: !pick is a vote while a vote is open and a number was given, otherwise play",
-            ChatCommands.Parse("!pick 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Ran: "!vote 3", Typed: "!pick 3" }
-            && ChatCommands.Parse("!pick 3") is { Kind: ChatCommands.Kind.Play, Arg: "3", Ran: "!play 3", Typed: "!pick 3" }
-            && ChatCommands.Parse("!pick dust", voteOpen: true) is { Kind: ChatCommands.Kind.Play, Arg: "dust" }
-            && ChatCommands.Parse("!pick 7", voteOpen: true) is { Kind: ChatCommands.Kind.Play, Arg: "7" }
+        Check("Chat: outside a vote !pick is a plain alias of !play",
+            ChatCommands.Parse("!pick 3") is { Kind: ChatCommands.Kind.Play, Arg: "3", Ran: "!play 3", Typed: "!pick 3" } && ChatCommands.Parse("!pick dust") is { Kind: ChatCommands.Kind.Play, Arg: "dust" }
             && ChatCommands.Parse("!pick") is { Kind: ChatCommands.Kind.Usage, Name: "!play" });
+        var waiting = ChatCommands.All.Where(c => ChatCommands.WaitForVote.Contains(c.Word)).SelectMany(c => c.Aliases.Append(c.Word)).SelectMany(w => new[] { w, w + " 3", w + " dust" }).Append("!new").ToList();
+        var wrongWait = waiting.Where(w => ChatCommands.Parse(w, voteOpen: true) is not { Kind: ChatCommands.Kind.VoteOnly, Typed: "", Ran: "" }).ToList();
+        Check($"Chat: while a vote is open nothing that asks for another map plays, queues or votes: its {waiting.Count} ways of asking only say what to type (the owner's 26){(wrongWait.Count > 0 ? "; not " + string.Join(" | ", wrongWait) : "")}",
+            wrongWait.Count == 0 && ChatCommands.WaitForVote.All(w => ChatCommands.Find(w) != null)
+            && ChatCommands.WaitForVote.Order().SequenceEqual(new[] { "!back", "!done", "!next", "!play", "!random", "!skip" }));
+        Check("Chat: while a vote is open !vote and its aliases and the bare number vote; a wrong number gets the same answer, and a bare one that is no option stays plain chat",
+            ChatCommands.Parse("!vote 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "!mv 3" }
+            && ChatCommands.Parse("3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3" }
+            && new[] { "!vote 9", "!vote", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true).Kind == ChatCommands.Kind.VoteOnly)
+            && ChatCommands.Parse("9", voteOpen: true).Kind == ChatCommands.Kind.None);
+        var untouched = new[] { "!up", "!down big", "!toobig", "!ads", "!cancel", "!q", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!time 10", "!new half", "!newmaps half", "!restart", "!menu", "!help", "!rules", "!how" };
+        var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();
+        Check($"Chat: the commands that do not touch the map stay as they are while a vote is open{(touched.Count > 0 ? "; not " + string.Join(" | ", touched) : "")}",
+            touched.Count == 0 && untouched.All(w => ChatCommands.Parse(w, voteOpen: true).Kind != ChatCommands.Kind.VoteOnly));
+        var wait6 = ChatCommands.VoteOnlyLine(6);
+        Check($"Chat: what it says fits a chat line and names what to type, and that requests come back: {wait6}",
+            wait6.Length <= ChatCommands.LineMax && wait6.Contains("!vote 1-6") && wait6.Contains("just the number") && wait6.Contains("Requests reopen after the vote")
+            && ChatCommands.Parse(Regex.Match(wait6, @"!vote \d").Value, voteOpen: true).Kind == ChatCommands.Kind.Vote && MapVote.WaitLine.Length <= NoticeLength);
         Check("Chat: !new with no argument is !next, with one !newmaps",
             ChatCommands.Parse("!new") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next", Typed: "!new" }
             && ChatCommands.Parse("!new half") is { Kind: ChatCommands.Kind.Bridge, Arg: "!newmaps half", Ran: "!newmaps half", Typed: "!new half" }
@@ -192,8 +207,8 @@ static partial class Program
                 undocumented.Count == 0 && codeWords.Count == 0);
             var row = ChatCommands.All.Where(c => !Regex.IsMatch(section, $@"^\| `{Regex.Escape(c.Word)}[ `][^\n]*\| {string.Join(" ", c.Aliases.Select(a => Regex.Escape($"`{a}`")))}[ ,|]", RegexOptions.Multiline)).Select(c => c.Word).ToList();
             Check($"...each alias on its own primary's row, in the table's order{(row.Count > 0 ? ": not " + string.Join(" ", row) : "")}", row.Count == 0);
-            Check("...and it says the rules: what ran, the context words, the fun words, the vote's bare number, the printed card click, the reasons",
-                section.Contains("You typed !map 12 - ran !play 12") && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label))
+            Check("...and it says the rules: what ran, the context words, the fun words, the vote's bare number, what waits for the vote, the printed card click, the reasons",
+                section.Contains("You typed !map 12 - ran !play 12") && ChatCommands.WaitForVote.All(w => Regex.IsMatch(section, $@"While a vote is open.*?`{Regex.Escape(w)}`", RegexOptions.Singleline)) && section.Contains(MapVote.RequestsReopen) && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label))
                 && doc.Contains($"popup listing them for {DownReasons.PopupSeconds} s"));
         }
         if (File.Exists(readmeFile))

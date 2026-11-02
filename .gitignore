@@ -14,9 +14,7 @@ __pycache__/
 deploy/config.local.json
 
 # Kept out of the repository on purpose, but used by local builds when present:
-# - the HUD's knife icon is derived from CS2's own HUD art (Valve's)
 # - the HUD's current Workshop preview shows the old branding and other authors' map pictures
-hud/images/knife.png
 hud/workshop_preview.jpg
 
 # Generated from other authors' Workshop previews: never committed

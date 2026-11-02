@@ -23,6 +23,7 @@ host-path tools/scan/scan.py /mnt/\.|/boot/config|/var/lib/docker  # the pattern
 binary maps/gg_glasspire/workshop_preview.jpg 3e94b021f87260d1dc0b033a88413deb9bdb67d2fdc9c56b61efa0408bc531c7  # a render of our own generated map (preview.py), no game assets
 binary maps/gg_moonglass/workshop_preview.jpg 0816cb0637bdf8bde2d6c0715f11a7f5abae74f5d712dca4b582f57ee7e917b7  # a render of our own generated map (preview.py), no game assets
 binary maps/gg_vinceville/workshop_preview.jpg 15e306aa1b96ce2bc73bb494404f33b3b7f7212584e092f694a2bb3f307fe2cd  # a render of our own generated map (preview.py), no game assets
+binary hud/images/knife.png d2c519bfbb23433de5ba8541071db7860fd8af8bdb47f98ba2913577a4953d3f  # the HUD's knife icon: an original drawing (hud/knife.py), no game art
 
 # Self-test values that look like secrets
 token server/test_workshop_sync.py 0123456789ABCDEF0123456789ABCDEF  # the sync self-test's made-up Web API key

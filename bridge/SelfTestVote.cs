@@ -236,15 +236,22 @@ static partial class Program
             Check("Alone with a queued map: the pre-cast vote is 1 of 1, so the vote ends at once and the map is hers",
                 Ballot is { Open: false, Result.How: "majority" } && Pending is { } solo && solo.Map == m[5] && solo.Owners is [{ Name: "Alice" }]);
 
-            // ---- during the vote: requests queue, Next waits, a click changes or takes back a vote ----
+            // ---- during the vote: only the vote picks a map (the owner's 26); a click changes or takes back a vote on the ballot ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             MatchEnd();
             var round = Ballot!.Round;
-            Ask(alice, m[6]);
-            Check("A request while the vote is open waits in the queue (for the next vote): no change starts", Pending is null && Ballot!.Open && Queue.Any(r => r.Map == m[6]));
+            ClearNotices(); Ask(alice, m[6]);
+            Check("A request while the vote is open: it says what to do instead; no change starts and nothing is queued", Pending is null && Ballot!.Open && Queue.Count == 0 && Said(MapVote.WaitLine));
             ClearNotices(); NextRandom(bob.Item1, bob.Item2);
-            Check("Next while the vote is open: a note, no roll", Pending is null && Said("The vote for the next map is on"));
+            Check("Next while the vote is open: a note, no roll", Pending is null && Said(MapVote.WaitLine));
+            foreach (var asking in new[] { "!next", "!previous", "!done", "!skip", $"!map {ArgOf(m[7])}" })
+            {
+                ClearNotices();
+                Check($"A click on {asking} while the vote is open: the same note, nothing changes", HudAct($"{bob.Item2}\t{bob.Item1}\t{asking}") && Pending is null && Ballot!.Open && Queue.Count == 0 && Said(MapVote.WaitLine));
+            }
+            ClearNotices(); HudAct($"{alice.Item2}\t{alice.Item1}\t!cancel all"); HudAct($"{alice.Item2}\t{alice.Item1}\t!up");
+            Check("...what does not touch the map goes on as ever", !Said(MapVote.WaitLine));
             Click(alice, 2); Click(alice, 3);
             Check("A second click changes the vote", Ballot!.Choices[alice.Item2] == 3 && Ballot.Choices.Count == 1);
             Click(alice, 0);

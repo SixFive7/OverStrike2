@@ -10,7 +10,7 @@
   quoted; no comma selectors - one selector per rule, even where that repeats a block; pictures only as background-image.
 
   Look: CS2's own HUD language - dark frosted panels (world-blur), Stratum2, small letter-spaced labels - with one accent, the gold of
-  the golden knife, close to the game's own T colour and the site's.
+  the golden knife, close to the game's own T colour.
 */
 
 @define gg-gold: #E9B44C;
@@ -384,7 +384,7 @@ Label
 	color: gg-dim;
 }
 
-.gg-foot-site
+.gg-foot-note
 {
 	margin-top: 4px;
 	font-size: 12px;
@@ -1340,13 +1340,10 @@ Label
 	border-top: 1px solid gg-line;
 }
 
-.gg-win-foot .gg-foot-site
+.gg-foot-fill
 {
 	width: fill-parent-flow( 1 );
-	margin-top: 0px;
-	vertical-align: center;
-	font-size: 13px;
-	color: gg-dim;
+	height: 100%;
 }
 
 .gg-drain
@@ -1518,7 +1515,7 @@ Label
 	transform: rotateZ( 225deg );
 }
 
-/* filters: the site's size chips, liked by me, official */
+/* filters: the size chips, liked by me, official */
 .gg-chipb
 {
 	height: 28px;

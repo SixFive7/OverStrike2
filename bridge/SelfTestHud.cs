@@ -248,7 +248,7 @@ static partial class Program
                 Check($"Content v4_0_0 (as shipped): it kept every panel v3_1_0 had ({shipped31.Count}) and only added ({added32.Count} new: {HudView.NewIds32.Count} fed only to games that have them, {HudView.NewButtons32.Length} buttons that prove it)",
                     shipped31.All(shipped40.Contains) && HudView.NewIds32.All(added32.Contains) && HudView.NewButtons32.All(added32.Contains) && added32.All(id => HudView.NewIds32.Contains(id) || HudView.NewButtons32.Contains(id)));
                 Check($"Content {Hud.Content}: it keeps every panel v4_0_0 had ({shipped40.Count}), the grenade drops' buttons among them, and adds only the popup's {added41.Count} buttons ({HudView.NewButtons41.Length} that prove it), to which nothing is sent",
-                    shipped40.All(ids.Contains) && added41.SetEquals(HudView.NewButtons41) && !sent.Any(added41.Contains) && HudView.NewButtons41.All(b => HudView.LevelOfButton(b) == 41 && HudView.LevelOf(b) == 0));
+                    shipped40.Where(id => id != "gg_f_site").All(ids.Contains) && !ids.Contains("gg_f_site") && added41.SetEquals(HudView.NewButtons41) && !sent.Any(added41.Contains) && HudView.NewButtons41.All(b => HudView.LevelOfButton(b) == 41 && HudView.LevelOf(b) == 0));
                 var not40 = sent.Where(id => !shipped40.Contains(id)).ToList();
                 Check($"Content: everything the plugin sends, to any game, is in the shipped v4_0_0 layout ({sent.Count} ids): a game holding it goes on as it was{(not40.Count > 0 ? ": not there " + string.Join(", ", not40) : "")}", not40.Count == 0);
                 Check("Content v3_1_0: its new panels are sent only what HudView.NewIds names, and its buttons get nothing from the server (fixed labels, state in classes on older panels)",
@@ -269,6 +269,8 @@ static partial class Program
 
             // ---- content v4_1_0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
+            Check("The published layout and stylesheet depend on no site: no panel, class or word of one (the owner's 10+11; the window's footer has no line for it)",
+                !Regex.IsMatch(xml + css, @"\bsite\b|_site\b|-site\b|example\.com|https?://", RegexOptions.IgnoreCase));
             var whyFrom = noComments.IndexOf("class=\"gg-why\"", StringComparison.Ordinal);
             Check($"The popup: a button for each of the {DownReasons.All.Length} reasons, with its words from the variables the plugin sets on gg_global, the map's from gg_screen, and no other id in it",
                 whyFrom > 0 && Enumerable.Range(1, DownReasons.All.Length).All(k => Regex.IsMatch(noComments, $@"<Button id=""{HudVote.WhyButton(k)}"" class=""gg-whyb""><Label class=""gg-whyb-text"" text=""\{{s:{HudVote.WhyVar}{k}\}}"" /><Label class=""gg-whyb-word"" text=""\{{s:{HudVote.WhyVar}w{k}\}}"" /></Button>"))

@@ -105,7 +105,7 @@
 					</Button>
 					<Panel class="gg-board-foot">
 						<Label id="gg_b_cmds" class="gg-foot-cmds" text="{s:text}" />
-						<Label id="gg_b_count" class="gg-foot-site" text="{s:text}" />
+						<Label id="gg_b_count" class="gg-foot-note" text="{s:text}" />
 					</Panel>
 				</Panel>
 
@@ -964,7 +964,7 @@
 					</Panel>
 
 					<Panel class="gg-win-foot">
-						<Label id="gg_f_site" class="gg-foot-site" text="{s:text}" />
+						<Panel class="gg-foot-fill" />
 						<Label class="gg-foot-ver" text="HUD v4_1_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />

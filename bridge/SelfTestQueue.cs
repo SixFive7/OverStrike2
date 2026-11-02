@@ -502,7 +502,9 @@ static partial class Program
             Talk(alice, "!up"); Talk(bob, "!down");
             Check("!up and !down vote on the map that is on", Tally(key) == (1, 1) && Said("You upvoted") && Said("You downvoted") && NoteFor.ContainsKey(1001) && NoteFor.ContainsKey(1002));
             Talk(alice, "!up");
-            Check("The same vote again takes it back", Tally(key) == (0, 1) && Said("You took back your upvote"));
+            Check("The same vote again changes nothing and says so: there is no way back to no vote", Tally(key) == (1, 1) && Said("is up already") && !Said("took back"));
+            Talk(bob, "!down");
+            Check("...for a Dislike as well", Tally(key) == (1, 1) && Said("is down already"));
             Talk(alice, "!down"); Talk(alice, "!up");
             Check("The other vote replaces yours: one vote per player per map", Tally(key) == (1, 1) && Votes[key].Count == 2 && Said("You changed your vote"));
             Talk(cara, $"!up {Rank(2)}"); Talk(bob, $"!up {Rank(2)}"); Talk(alice, $"!up {Rank(2)}"); Talk(cara, $"!up {Rank(3)}"); Talk(bob, $"!up {Rank(3)}");
@@ -518,7 +520,7 @@ static partial class Program
             Check("The most liked list (the board's live column; the menu's Votes sort shows them all): most upvotes first, fewer downvotes breaking the tie",
                 top[0].Map == m[2] && top[0].Up == 3 && top.FindIndex(r => r.Map == m[4]) is > 0 and var i4 && top.FindIndex(r => r.Map == m[3]) > i4);
             Talk(cara, $"!up {Rank(4)}"); Talk(bob, $"!up {Rank(4)}");
-            Check("Taking back the last vote on a map leaves no empty entry behind", !Votes.ContainsKey(Key(m[4])));
+            Check("The same vote again leaves a map's votes as they were", Tally(Key(m[4])) == (2, 0));
             File.WriteAllText(VotesPath, "{ not json");
             LoadVotes();
             Check("An unreadable votes.json is set aside, never overwritten", Votes.Count == 0 && Directory.GetFiles(dir, "votes.json.bad-*").Length == 1);

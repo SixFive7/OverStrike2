@@ -5,17 +5,18 @@
 // All is the one table: one primary per action, in the order !help lists them, each with its aliases. An alias runs the action and its
 // reply teaches the primary by showing what ran ("You typed !map 12 - ran !play 12"); !help lists primaries only. Each fun setting's id
 // (Fun.cs) is a first-class command of its own: !gravity low. The few words that mean two things are settled by the owner's rules, in
-// Primary and nowhere else: !pick votes while a vote is open and a number was given, otherwise it plays; !new with an argument is !newmaps,
-// without one !next; !maps with words is !find. And !nades is both a primary and a fun setting's id: on|off are the grenade drops,
-// the setting's own choices (normal|big|huge) the grenades' blast. --selftest proves no word is anything else.
+// Primary and nowhere else: !new with an argument is !newmaps, without one !next; !maps with words is !find. And !nades is both a primary
+// and a fun setting's id: on|off are the grenade drops, the setting's own choices (normal|big|huge) the grenades' blast. --selftest proves no
+// word is anything else. While an end-of-match vote is open only the vote picks a map (the owner's 26, 2026-11-02): !vote, its aliases and the
+// bare number vote; whatever asks for another map (WaitForVote) answers what to type instead, and so does a !vote with a wrong number.
 //
 // Shared like Hud.cs (plain BCL): the plugin runs it, the bridge's --selftest checks the table and the parsing.
 public static class ChatCommands
 {
     /// <summary>What a chat command asks for: an action the bridge runs (Arg is its /act command), a menu page to open (Arg the page), the map
     /// browser sorted by votes, a map to find (Arg the words: the plugin resolves them), a fun setting (Arg "setting choice"), the grenade
-    /// drops (Arg on|off), a vote in the end-of-match vote (Arg the option), the list in chat, or nothing that is a command.</summary>
-    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage }
+    /// drops (Arg on|off), a vote in the end-of-match vote (Arg the option), the list in chat, what to type while a vote is open, or nothing that is a command.</summary>
+    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage, VoteOnly }
 
     /// <summary>A line as a command. Name: the primary word. Ran: the primary as it would be typed, what the reply calls it. Typed: the line as
     /// the player typed it when it was not that - an alias, or the long way round to a fun setting - which is what makes the reply teach.</summary>
@@ -27,7 +28,7 @@ public static class ChatCommands
     /// <summary>Every action, in the order !help lists them. The owner's list: nothing is an alias of two actions but the words of Context.</summary>
     public static readonly Command[] All =
     [
-        new("!play", "<number, name or Workshop ID>", "Play a map now, or queue it", "Maps", "!map", "!p", "!nominate", "!load", "!go"),
+        new("!play", "<number, name or Workshop ID>", "Play a map now, or queue it", "Maps", "!map", "!p", "!nominate", "!load", "!go", "!pick"),
         new("!find", "<words>", "Search the maps: the menu opens on the matches", "Maps", "!search", "!s", "!lookup"),
         new("!maps", "", "Open the map browser", "Maps", "!browse", "!list", "!maplist", "!m", TopWord),
         new("!next", "", "The board's Next: a random map, I'm done on your own, a skip vote on another's", "Maps", "!n", "!rtv", "!change", "!skipmap"),
@@ -57,7 +58,11 @@ public static class ChatCommands
     public const string TopWord = "!top";
 
     /// <summary>The words that mean one thing or another, and the two primaries they can run: the owner's collisions, settled (Primary).</summary>
-    public static readonly (string Word, string Otherwise, string When)[] Context = [("!pick", "!play", "!vote"), ("!new", "!next", "!newmaps")];
+    public static readonly (string Word, string Otherwise, string When)[] Context = [("!new", "!next", "!newmaps")];
+
+    /// <summary>The primaries that ask for another map: while an end-of-match vote is open they do nothing but say what to type (VoteOnly; the bridge refuses
+    /// the same clicks, MapVote.WaitLine). The commands that do not touch the map stay as they are.</summary>
+    public static readonly string[] WaitForVote = ["!play", "!next", "!random", "!back", "!done", "!skip"];
 
     static readonly Dictionary<string, string> aliases = AliasMap();
 
@@ -75,9 +80,8 @@ public static class ChatCommands
     public static bool IsBallotNumber(string s) => s.Length == 1 && s[0] >= '1' && s[0] - '0' <= MapVote.MaxOptions;
 
     /// <summary>The primary a typed word runs, by the owner's rules.</summary>
-    static string Primary(string word, string arg, bool voteOpen)
+    static string Primary(string word, string arg)
     {
-        if (word == "!pick") return voteOpen && IsBallotNumber(arg) ? "!vote" : "!play";
         if (word == "!new") return arg == "" ? "!next" : "!newmaps";
         var primary = aliases.GetValueOrDefault(word, word);
         return primary == "!maps" && arg != "" ? "!find" : primary;
@@ -85,7 +89,7 @@ public static class ChatCommands
 
     /// <summary>The chat line as a command: None when it is no command (it does not start with ! or /), Unknown for a word that is none of
     /// ours, Usage when the command needs something it did not get. While a vote is open a bare number is a vote too (the line still shows
-    /// normally, as every chat line does).</summary>
+    /// normally, as every chat line does), and whatever asks for another map, or a !vote without a number on the ballot, is VoteOnly.</summary>
     public static Parsed Parse(string? line, bool voteOpen = false)
     {
         var text = (line ?? "").Trim();
@@ -95,7 +99,8 @@ public static class ChatCommands
         if (parts.Length == 0) return new(Kind.None);
         var typed = "!" + parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1].Trim() : "";
-        var word = Primary(typed, arg, voteOpen);
+        var word = Primary(typed, arg);
+        if (voteOpen && (WaitForVote.Contains(word) || (word == "!vote" && !IsBallotNumber(arg)))) return new(Kind.VoteOnly, "", word);
         var p = Run(typed, word, arg);
         if (p.Kind is Kind.Usage or Kind.Unknown) return p;
         var teaches = typed != word || p.Ran != ""; // an alias, !top, or !fun gravity low: the reply shows what ran
@@ -206,6 +211,9 @@ public static class ChatCommands
         if (line != "") lines.Add(line);
         return lines;
     }
+
+    /// <summary>What chat says, to that player alone, to whatever does not vote while a vote is open: what to type, and that requests come back.</summary>
+    public static string VoteOnlyLine(int options) => $"{MapVote.IsOn}: type !vote 1-{options} or just the number. {MapVote.RequestsReopen}";
 
     /// <summary>What chat says for a word that is no command of ours.</summary>
     public static string UnknownLine(string word) => $"Unknown command {word} - !help lists them (and the menu: hold TAB, press E)";

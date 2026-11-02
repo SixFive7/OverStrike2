@@ -14,8 +14,9 @@ using System.Globalization;
 /// <summary>Why a player down-voted a map (the owner's decision of 2026-11-01): one vote per player per map, whose value in votes.json says
 /// why - every one of them that player's dislike wherever a vote counts. A plain Dislike is "I did not like the map". Too big and Ads
 /// have their own effects (Selection.cs); the rest are kept and count as a dislike, nothing more. Chat steers it directly: !down big,
-/// !down 12 big. The same words on /act set the reason and never take the vote back; plain !down keeps its old toggle. A plain !down also
-/// opens the popup that lists the reasons (Votes.cs, HudVote.WhyWords) for PopupSeconds: choosing one, or typing its word, updates that vote.</summary>
+/// !down 12 big. The same words on /act set the reason. Nothing takes a vote back (the owner's 27, 2026-11-02): a plain !down on a map already
+/// disliked keeps its reason and says so. A first plain !down opens the popup that lists the reasons (Votes.cs, HudVote.WhyWords) for
+/// PopupSeconds: choosing one, or typing its word, updates that vote.</summary>
 public static class DownReasons
 {
     /// <summary>A reason: the word chat uses, the vote's value, what the popup says, and how a note names it.</summary>

@@ -127,11 +127,7 @@ if ($NoThumbs) {
     Copy-Item (Join-Path $src "styles\*.css") $styleDir -Force
     Copy-Item (Join-Path $thumbs "*.jpg") $thumbDir -Force
 }
-if (-not (Test-Path (Join-Path $src "images\knife.png"))) {
-    Write-Output "hud\images\knife.png is missing. It is not in the repository: it is derived from CS2's own HUD icon (Valve's art)."
-    Write-Output "Put your copy there (the path is gitignored)."
-    exit 1
-}
+if (-not (Test-Path (Join-Path $src "images\knife.png"))) { Write-Output "hud\images\knife.png is missing: python hud\knife.py draws it."; exit 1 }
 Copy-Item (Join-Path $src "images\*") $imageDir -Force
 Copy-Item (Join-Path $src "addoninfo.txt") $game -Force
 Write-Output "Sources copied into $content"

@@ -765,9 +765,12 @@ sealed class HudScreen
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
                 if (!vote.Open || vote.Round <= 0) { Say("No vote is on - it opens when a match ends"); return; }
-                if (k > vote.Options.Count) { Say($"The vote has {vote.Options.Count} options: !vote 1 to {vote.Options.Count}"); return; }
+                if (k > vote.Options.Count) { Say(ChatCommands.VoteOnlyLine(vote.Options.Count)); return; }
                 Bridge(MapVote.Click(vote.Round, vote.Options[k - 1].N));
                 Say($"Your vote: {Hud.Clean(vote.Options[k - 1].Label, 40)}");
+                return;
+            case ChatCommands.Kind.VoteOnly:
+                Say(ChatCommands.VoteOnlyLine(vote.Options.Count));
                 return;
             case ChatCommands.Kind.Commands:
                 foreach (var line in ChatCommands.HelpLines()) Say(line);

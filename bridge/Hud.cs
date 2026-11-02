@@ -99,7 +99,7 @@ public static class Hud
             new("I'm done", "End your own map: the queue moves on"),
             new("Vote to skip", "Someone else's map: a majority of the others skips it")]),
         new("Voting", [
-            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the same again undoes it"),
+            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the other one replaces it"),
             new("Too big", "A dislike: only 1 random pick in 100 is a too-big map"),
             new("Maps  ·  arrows", "Vote on any map's card: up likes it, down dislikes it"),
             new("Sort  ·  Votes", "The most liked maps first")]),
@@ -151,7 +151,7 @@ public static class Hud
             "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other."]),
         new("Weights and votes", [
             "Inside that group, Workshop rank gives up to 3x, each Like doubles a map's odds (up to 5 Likes), each Dislike or Too big quarters them.",
-            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The same button again takes it back.",
+            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. Only the opposite vote replaces it.",
             "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
@@ -408,7 +408,7 @@ public static class HudView
     {
         var t = new List<(string, string)>
         {
-            ("gg_w_headline", Hud.Headline), ("gg_w_hint", Hud.MenuHint), ("gg_f_site", ""), // the window's foot: empty, every content up to v4_0_0 has this label and it says nothing now
+            ("gg_w_headline", Hud.Headline), ("gg_w_hint", Hud.MenuHint),
             ("gg_b_cmds", HudTab.BoardLine(HudTab.Mode.Off)),
         };
         for (var i = 0; i < Hud.Steps.Length; i++)

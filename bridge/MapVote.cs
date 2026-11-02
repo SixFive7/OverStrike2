@@ -18,6 +18,9 @@ public static class MapVote
     /// <summary>The click's verb on /act: !mv &lt;round&gt; &lt;n&gt; casts or changes the player's vote, n 0 takes it back.</summary>
     public const string Verb = "!mv";
 
+    /// <summary>What a player hears who asks for another map while the vote is open (the owner's 26, 2026-11-02): in chat ChatCommands.VoteOnlyLine, on a click WaitLine.</summary>
+    public const string IsOn = "The vote for the next map is on", RequestsReopen = "Requests reopen after the vote.", WaitLine = IsOn + ": click a card or type its number. " + RequestsReopen;
+
     /// <summary>What the plugin adds to its /hud poll to say it draws the vote: without a poll carrying it for 15 s the bridge opens no vote.</summary>
     public const string Capability = "mv=1";
 
