@@ -221,7 +221,7 @@ static partial class Program
                 !Regex.IsMatch(rules, @"@keyframes\s+[^'\s]") && !Regex.IsMatch(rules, @"[^{};]*,[^{};]*\{"));
             Check("Layout: it includes the compiled stylesheet by its s2r:// path", xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.Release}.vcss_c"));
             Check($"Stylesheet: the drain bar empties in exactly the idle close ({HudSlots.IdleCloseSeconds} s)",
-                Regex.IsMatch(rules, $@"\.draining \.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;"));
+                Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
             // ---- three contents on one path (v3_0_0, v3_1_0, v3_2_0): a game holding an older one must never be sent a panel it lacks ----
             const string shippedFile = "../hud/reference/gungame_hud_v3_0_0.xml", shipped31File = "../hud/reference/gungame_hud_v3_1_0.xml", shipped40File = "../hud/reference/gungame_hud_v4_0_0.xml"; // as they shipped
@@ -285,7 +285,7 @@ static partial class Program
             Check($"The popup stays hidden until its class comes, and stands clear of the window at 16:9: {whyWide} px of the {(1920 - 1240) / 2} beside it",
                 whyWide <= (1920 - 1240) / 2 && Regex.IsMatch(rules, @"\.gg-screen\.why \.gg-why\s*\{\s*visibility:\s*visible;"));
             Check($"The popup's line drains over its {DownReasons.PopupSeconds} s, from the moment the plugin starts it, a second in",
-                Regex.IsMatch(rules, $@"\.gg-screen\.why-run \.gg-why-fill\s*\{{[^}}]*transition-duration:\s*{DownReasons.PopupSeconds - 1}s;"));
+                Regex.IsMatch(rules, $@"\.gg-why-fill\s*\{{[^}}]*transition-duration:\s*{DownReasons.PopupSeconds - 1}s;") && Regex.IsMatch(rules, @"\.gg-screen\.why-run \.gg-why-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
             var fixedWords = Regex.Matches(noComments, @"\btext=""([^""]*)""").Select(m => m.Groups[1].Value).ToList();
             var fixedCommands = fixedWords.SelectMany(w => Regex.Matches(w, @"![a-z]+").Select(m => m.Value)).ToList();
             Check($"The layout's own words name only primaries ({string.Join(" ", fixedCommands)})", fixedCommands.Count > 0 && fixedCommands.All(w => ChatCommands.Find(w) != null));

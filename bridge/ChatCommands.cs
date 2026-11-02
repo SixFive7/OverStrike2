@@ -212,8 +212,9 @@ public static class ChatCommands
         return lines;
     }
 
-    /// <summary>What chat says, to that player alone, to whatever does not vote while a vote is open: what to type, and that requests come back.</summary>
-    public static string VoteOnlyLine(int options) => $"{MapVote.IsOn}: type !vote 1-{options} or just the number. {MapVote.RequestsReopen}";
+    /// <summary>What chat says, to that player alone, to whatever does not vote while a vote is open: what to type, and that requests come back. Two
+    /// lines that fit beside the window, which stands open for the vote.</summary>
+    public static string[] VoteOnlyLines(int options) => [$"Vote now: type !vote 1-{options} or just the number", MapVote.RequestsReopen];
 
     /// <summary>What chat says for a word that is no command of ours.</summary>
     public static string UnknownLine(string word) => $"Unknown command {word} - !help lists them (and the menu: hold TAB, press E)";

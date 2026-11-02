@@ -1382,15 +1382,16 @@ Label
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
-	transition-duration: 0s;
+	transition-duration: 30s;
+	transition-timing-function: linear;
 }
 
+/* Panorama takes a transition's length from the state it leaves (seen in a real client, 2026-11-02): the 30 s above run the line out, this 0 s puts it back at once. */
 .gg-screen.draining .gg-drain-fill
 {
 	transform: scaleX( 0 );
 	transition-property: transform;
-	transition-duration: 30s;
-	transition-timing-function: linear;
+	transition-duration: 0s;
 }
 
 /* ---- the menu's map browser (page-maps): a toolbar of sorts and filters, eight cards, pages ---------------------------- */
@@ -3652,16 +3653,17 @@ Label
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
-	transition-duration: 0s;
+	transition-duration: 14s;
+	transition-timing-function: linear;
 }
 
-/* One second after it opens (HudView.PlayerClasses), so a second Dislike's popup starts the line again. */
+/* One second after it opens (HudView.PlayerClasses), so a second Dislike's popup starts the line again. Panorama takes a transition's length from
+   the state it leaves (seen in a real client, 2026-11-02): the 14 s above run the line out, this 0 s puts it back at once. */
 .gg-screen.why-run .gg-why-fill
 {
 	transform: scaleX( 0 );
 	transition-property: transform;
-	transition-duration: 14s;
-	transition-timing-function: linear;
+	transition-duration: 0s;
 }
 
 /* The HUD version check (HudVote.cs): this layout is v4_1_0 - level 41. At a join (vjoin) a server above it (svge42) or below it (svlt41)

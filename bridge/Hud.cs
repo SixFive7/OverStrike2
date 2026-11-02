@@ -619,6 +619,7 @@ public sealed class HudSlots
     public const double WaitLimitSeconds = 20;    // a player who never spawns (spectating, picking a team) gets it anyway after this
     public const double ToastSeconds = 8;
     public const double IdleCloseSeconds = 30;    // the window goes by itself after this long without a click; the drain bar shows it (gungame_hud.css: 30s)
+    public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (seen in a real client, 2026-11-02; a click restarts it after FadeSeconds)
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
     public enum Page { Start, Maps, Queue, Game, Help, Rules, How, Fun } // How: content v3_1_0; Fun: v3_2_0
@@ -739,6 +740,7 @@ public sealed class HudSlots
         s.Open = true; s.OpenAt = DateTime.MaxValue; s.OpenedAt = now;
         s.Toast = 0; s.ToastFrom = DateTime.MaxValue;
         Touch(s, now);
+        s.DrainFrom = now.AddSeconds(DrainAfterOpenSeconds);
     }
 
     static void Touch(Slot s, DateTime now) { s.IdleUntil = now.AddSeconds(IdleCloseSeconds); s.DrainFrom = now.AddSeconds(FadeSeconds); }

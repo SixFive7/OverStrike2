@@ -67,8 +67,8 @@ Two words depend on what follows them, by rule, and nothing else is two things: 
 `!next`; `!maps` (and its aliases) with words is `!find`.
 
 While a vote is open only the vote picks a map: `!vote`, its aliases and the bare number vote, and `!play`, `!next`, `!random`, `!back`,
-`!done` and `!skip`, each with all its aliases, do nothing but answer that player with what to type: "The vote for the next map is on: type !vote
-1-6 or just the number. Requests reopen after the vote." A `!vote` with a number that is not on the ballot gets the same answer, and the
+`!done` and `!skip`, each with all its aliases, do nothing but answer that player with what to type: "Vote now: type !vote 1-6 or just the number"
+and "Requests reopen after the vote." A `!vote` with a number that is not on the ballot gets the same answer, and the
 same clicks in the menu a note saying so. The commands that do not touch the map stay as they are, `!restart` among them: a stuck server
 does not wait for a vote.
 

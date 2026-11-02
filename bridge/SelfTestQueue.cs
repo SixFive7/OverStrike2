@@ -904,7 +904,7 @@ static partial class Program
             win.Joined(1, first: true, alive: true, t0);
             Check("A first-time player who is alive: the window opens after the spawn delay, on its start page, and takes the mouse",
                 !At(win, 1, 1).Window && At(win, 1, 1.6) is { Window: true, Page: HudSlots.Page.Start, Capture: true, Toast: 0 });
-            Check("...and its drain bar starts a moment later", !At(win, 1, 1.7).Draining && At(win, 1, 1.9).Draining);
+            Check("...and its drain bar starts a moment later", !At(win, 1, 1.5 + HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(win, 1, 1.5 + HudSlots.DrainAfterOpenSeconds + 0.1).Draining);
             win.Click(1, "gg_tab_rules", t0.AddSeconds(10));
             Check("A tab switches the page, restarts the drain bar and keeps the window up", At(win, 1, 10.1) is { Page: HudSlots.Page.Rules, Draining: false } && At(win, 1, 10.4).Draining);
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",

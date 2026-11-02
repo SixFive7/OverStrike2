@@ -113,10 +113,10 @@ static partial class Program
         var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();
         Check($"Chat: the commands that do not touch the map stay as they are while a vote is open{(touched.Count > 0 ? "; not " + string.Join(" | ", touched) : "")}",
             touched.Count == 0 && untouched.All(w => ChatCommands.Parse(w, voteOpen: true).Kind != ChatCommands.Kind.VoteOnly));
-        var wait6 = ChatCommands.VoteOnlyLine(6);
-        Check($"Chat: what it says fits a chat line and names what to type, and that requests come back: {wait6}",
-            wait6.Length <= ChatCommands.LineMax && wait6.Contains("!vote 1-6") && wait6.Contains("just the number") && wait6.Contains("Requests reopen after the vote")
-            && ChatCommands.Parse(Regex.Match(wait6, @"!vote \d").Value, voteOpen: true).Kind == ChatCommands.Kind.Vote && MapVote.WaitLine.Length <= NoticeLength);
+        var wait6 = ChatCommands.VoteOnlyLines(6);
+        Check($"Chat: what it says fits beside the window and names what to type, and that requests come back: {string.Join(" / ", wait6)}",
+            wait6.All(l => l.Length <= ChatCommands.BesideWindow) && wait6[0].Contains("!vote 1-6") && wait6[0].Contains("just the number") && wait6[1].Contains("Requests reopen after the vote")
+            && ChatCommands.Parse(Regex.Match(wait6[0], @"!vote \d").Value, voteOpen: true).Kind == ChatCommands.Kind.Vote && MapVote.WaitLine.Length <= NoticeLength);
         Check("Chat: !new with no argument is !next, with one !newmaps",
             ChatCommands.Parse("!new") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next", Typed: "!new" }
             && ChatCommands.Parse("!new half") is { Kind: ChatCommands.Kind.Bridge, Arg: "!newmaps half", Ran: "!newmaps half", Typed: "!new half" }
