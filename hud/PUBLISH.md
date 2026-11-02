@@ -72,3 +72,7 @@ and `--selftest` follow `Hud.Release`; a content update within a release raises 
 and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to). Build, publish while nobody plays,
 wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players: the plugin's level is what
 tells a game holding the older content to update, so it never ships before the content does.
+
+Steam on a player's PC looks for changed items every 45 minutes and then updates the item by itself, so for up to about an hour after the
+approval a game may still hold the older content (31 and 40 minutes on this project's own PC): a look in a real client right after the approval
+can show the older HUD and say nothing about the new one.
