@@ -7,8 +7,8 @@ Other authors' descriptions never enter this file (AGENTS.md).
 The bridge reads search.json like maps.json - at start, and again about 10 s after it changes (Reload.cs) - and serves
 it to the plugin on /search/<secret>; HudSearch.cs (shared by both) normalises each text and matches the typed words
 against the name first, then this text. A missing file leaves names-only search, which still works. On a server the
-nightly sync (server/workshop-sync.py) adds a text for every Arms Race map it publishes; this script keeps the committed
-file in step with the committed maps.json.
+nightly sync (server/workshop-sync.py) adds a text for every map it publishes, of every mode; this script keeps the committed
+file in step with the committed maps.json (which holds the Arms Race list: the other modes' maps get theirs on the server).
 
 Usage (from the repo root):
   python bridge/search-index.py                  # write bridge/search.json: maps.json's order, a line for every map, no other
