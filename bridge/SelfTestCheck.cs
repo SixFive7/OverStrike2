@@ -68,8 +68,25 @@ static partial class Program
         refused.ApiAnswer(v, c0);
         refused.VisitStarted();
         refused.PageAnswer(null, c0.AddSeconds(2)); // the site's 429: no verdict
-        Check("HUD item plan: a visit the site refuses leaves the page alone for an hour, and changes nothing about what joiners must download",
-            !refused.VisitDue(c0.AddMinutes(59)) && refused.VisitDue(c0.AddHours(1).AddSeconds(2)) && refused.SinceChange == null && refused.Required(true, c0.AddMinutes(5)));
+        Check("HUD item plan: a visit the site refuses leaves the page alone for an hour",
+            !refused.VisitDue(c0.AddMinutes(59)) && refused.VisitDue(c0.AddHours(1).AddSeconds(2)) && refused.SinceChange == null);
+        var early = !refused.Required(true, c0.AddMinutes(5)) && refused.Cause == HudCheck.Cause.Review;
+        refused.ApiAnswer(v, c0.AddMinutes(62));
+        var late = !refused.Required(true, c0.AddMinutes(62)) && refused.Required(false, c0.AddMinutes(63));
+        Check($"HUD item plan: with no verdict joiners need not download it, and hear it is under review, until {ItemPlan.ReviewAssumed.TotalMinutes} minutes after the upload; then it is required again, and nobody can be disconnected for it until the window is over",
+            early && late && !refused.Public(c0.AddMinutes(64)) && refused.Public(c0.AddHours(3).AddMinutes(1)) == false);
+        refused.ApiAnswer(v, c0.AddHours(1));
+        refused.VisitStarted();
+        refused.PageAnswer(true, c0.AddHours(1));
+        var afterRefused = new ItemPlan();
+        afterRefused.ApiAnswer(old, t);
+        afterRefused.ApiAnswer(v, c0);
+        var dropsOnlyOnRefusal = afterRefused.VisitDue(c0) && afterRefused.Required(true, c0);
+        afterRefused.VisitStarted();
+        Check("HUD item plan: a later visit that shows it ends that; while a first visit is under way nothing changes, so a restart does not flicker; a not-shown page still drops it for as long as it takes",
+            refused.Required(false, c0.AddHours(1)) && dropsOnlyOnRefusal && afterRefused.Required(true, c0.AddSeconds(1))
+            && Do(() => afterRefused.PageAnswer(false, c0.AddSeconds(2))) && Do(() => afterRefused.PageAnswer(null, c0.AddMinutes(20))) && Do(() => afterRefused.ApiAnswer(v, c0.AddMinutes(70)))
+            && !afterRefused.Required(true, c0.AddMinutes(70)));
         var p2 = new ItemPlan();
         p2.ApiAnswer(v, c0);
         p2.VisitStarted();

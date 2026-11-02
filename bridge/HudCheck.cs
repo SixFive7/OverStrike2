@@ -190,11 +190,13 @@ public static class HudCheck
 /// the community site - the only thing that shows Valve's review - is visited only right after such a change, then at most every 15
 /// minutes while it is not shown (the owner, 2026-11-02: nothing may risk his address or his Steam account), for ReviewWindow after the
 /// change, and at a plugin start only if the Web API's time_updated is that recent (an upload may be under review). A visit the site
-/// refuses (429: no verdict) leaves it alone for an hour. Never otherwise: no idle polling. Until then (GunGameWelcome 3.1.3 and before)
-/// the page was visited every 2 minutes, all day.</summary>
+/// refuses (429: no verdict) leaves it alone for an hour, and until a verdict comes joiners need not download the item for ReviewAssumed after
+/// the upload: reviews have taken 9 to 63 minutes, and a new player without the menu is better off than one held at a download that cannot
+/// succeed. Never otherwise: no idle polling. Until then (GunGameWelcome 3.1.3 and before) the page was visited every 2 minutes, all day.</summary>
 public sealed class ItemPlan
 {
-    public static readonly TimeSpan ApiEvery = TimeSpan.FromMinutes(1), VisitEvery = TimeSpan.FromMinutes(15), RefusedWait = TimeSpan.FromHours(1), ApiFresh = TimeSpan.FromMinutes(10);
+    public static readonly TimeSpan ApiEvery = TimeSpan.FromMinutes(1), VisitEvery = TimeSpan.FromMinutes(15), RefusedWait = TimeSpan.FromHours(1), ApiFresh = TimeSpan.FromMinutes(10),
+        ReviewAssumed = TimeSpan.FromMinutes(63);
 
     DateTime apiAt = DateTime.MinValue;
 
@@ -216,6 +218,9 @@ public sealed class ItemPlan
     /// <summary>Page visits since the plugin loaded, and since the last change - the count the owner wants kept small.</summary>
     public int Visits { get; private set; }
     public int VisitsSinceChange { get; private set; }
+
+    /// <summary>A visit since the last change got no verdict (a 429, an error): what Valve is doing is not known.</summary>
+    public bool Refused { get; private set; }
 
     static DateTime FromUnix(long unix) => DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime;
 
@@ -242,6 +247,7 @@ public sealed class ItemPlan
         NextVisit = now;
         SinceChange = null;
         VisitsSinceChange = 0;
+        Refused = false;
     }
 
     /// <summary>A page visit should start now: one is planned, it is due, and the window is open.</summary>
@@ -258,7 +264,7 @@ public sealed class ItemPlan
     /// <summary>The visit's verdict (HudCheck.PagePublic): shown ends the visits; not shown plans the next in VisitEvery; unreadable (429, an error) in RefusedWait.</summary>
     public void PageAnswer(bool? verdict, DateTime now)
     {
-        if (verdict != null) SinceChange = verdict;
+        if (verdict != null) SinceChange = verdict; else Refused = true;
         NextVisit = verdict == true ? DateTime.MaxValue : now + (verdict == null ? RefusedWait : VisitEvery);
     }
 
@@ -273,9 +279,11 @@ public sealed class ItemPlan
     public bool Fresh(DateTime now) => Api != null && now - apiAt <= ApiFresh;
 
     /// <summary>Whether joiners must download the item: not while the Web API calls it gone, private or banned, nor once a page visit
-    /// since the last change found Steam's not-shown page (the first one is enough: the change explains it); again once a visit shows it.
-    /// Without a fresh Web API answer nothing changes (current): no word from Steam is no reason to flip either way.</summary>
-    public bool Required(bool current, DateTime now) => !Fresh(now) ? current : Api!.Value.Verdict == Workshop.Ok && SinceChange != false;
+    /// since the last change found Steam's not-shown page (the first one is enough: the change explains it), nor while a refused visit has
+    /// left it unknown, up to ReviewAssumed after the upload; again once a visit shows it. Without a fresh Web API answer nothing changes
+    /// (current): no word from Steam is no reason to flip either way.</summary>
+    public bool Required(bool current, DateTime now) => !Fresh(now) ? current
+        : Api!.Value.Verdict == Workshop.Ok && SinceChange != false && !(SinceChange == null && Refused && ChangedAt != DateTime.MinValue && now < ChangedAt + ReviewAssumed);
 
     /// <summary>Whether Steam shows the item to everybody as far as the plugin knows - the HUD check's interlock (nobody is disconnected
     /// otherwise): a fresh Web API answer calling it ok and, since a change, a visit that showed it (once the window is over: none that did not).</summary>
@@ -284,7 +292,7 @@ public sealed class ItemPlan
 
     /// <summary>Why it is not required, for the words (HudCheck.DroppedNews and the rest).</summary>
     public HudCheck.Cause Cause => Api is { } a && a.Verdict != Workshop.Ok ? HudCheck.Cause.Unavailable
-        : SinceChange == false && ChangedAt != DateTime.MinValue ? HudCheck.Cause.Review : HudCheck.Cause.Unknown;
+        : SinceChange != true && ChangedAt != DateTime.MinValue ? HudCheck.Cause.Review : HudCheck.Cause.Unknown;
 }
 
 /// <summary>One map's worth of the check in the plugin, per player slot: whose clock runs, who was warned, whose time is up. Every map
