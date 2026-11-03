@@ -212,8 +212,15 @@ static partial class Program
         var news = ReadyAt == default || !ids.SetEquals(ReadyIds);
         (ReadyIds, ReadyAt) = (ids, Now());
         if (news && !SelfTesting) Log($"ready: the restart watcher reports {ids.Count} map(s) on the server's disk - {QueueReadyWords()}");
-        return $"ok: {ids.Count} on disk - {QueueReadyWords()}";
+        return $"ok: {ids.Count} on disk - {QueueReadyWords()}" + (HoldWhy() is { } why ? $"; hold: {why}" : "");
     }
+
+    /// <summary>Why the watcher should start no background download now, or null: the map a player waits for would queue behind it.
+    /// Steam's client runs one Workshop download at a time - measured on a test copy on 2026-11-03: a map change's 449 MB started
+    /// only when the 350 MB in the background had ended, 8 s later - and one already running cannot be stopped, so the watcher asks
+    /// right before it starts one. A change counting down, a map loading (it may be downloading), a vote open (its winner loads next).</summary>
+    static string? HoldWhy() => Pending != null ? "a map change is counting down" : AnnouncePending ? "a map is loading"
+        : Ballot is { Open: true } ? "the vote is open" : null;
 
     /// <summary>"armsrace-new 12/15, ..." - entries on disk of the entries queued.</summary>
     static string QueueReadyWords() => string.Join(", ", QueueNames.Select(n => $"{n} {QueueOf(n).Count(e => !e.Key.All(char.IsAsciiDigit) || ReadyIds.Contains(e.Key))}/{QueueOf(n).Count}"));

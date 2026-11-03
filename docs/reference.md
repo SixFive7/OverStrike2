@@ -132,6 +132,18 @@ The dice roll at a server start (`RANDOM_ON_START`), at a match end with nobody 
 Without the bridge a finished match replays the same map: the Arms Race cfg sets `mp_match_end_restart 1` and
 `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.
 
+**Rolled ahead (since 2026-11-03).** The bridge keeps four random queues of `RANDOM_QUEUE` (15) in `state.json` - Arms Race's
+newer maps, its original list, Deathmatch, Wingman - each rolled one entry at a time with exactly the rules below on its own list,
+never a map twice in one queue. A random pick takes from its mode's queue (the new-maps setting picks Arms Race's: always the
+newer maps' queue, never the original's, half a coin between them): the first entry that is still eligible and that the restart
+watcher reports on the server's disk (`POST /ready/<LOG_SECRET>`, one id a line after `gg-ready	1`; an official map always is,
+and without a report for 5 minutes every entry counts), else the first eligible entry, else - nothing eligible in the queue - a
+roll on the spot. An entry no longer eligible, played since its roll or with its too-big mark changed is dropped; one whose
+votes went down is kept with the odds the vote left it. What a pick takes leaves the queue and is rolled anew at once. The vote's
+rolled options and its Random come from the queues the same way, shown or chosen alike. `/data/queues.json` (version 1: the four
+queues' keys in play order and the requested Workshop ids) is what the watcher downloads in the background and what the server
+keeps.
+
 The candidates are the listed maps, minus the map that is on, every map with a crash recorded or on the broken list, every
 non-map, every map marked **Ads** by any player, and the last 10 maps played. Of those:
 
@@ -285,7 +297,9 @@ The plugin's modules:
 | `CS2_RESTART_AT` | A daily restart at that local time (`off` disables it), only between matches, announced on the HUD. |
 | `CS2_FREEZE_RECOVERY`, `CS2_FREEZE_GRACE_SECONDS` | Kill a frozen engine so Docker restarts it: after the error-map signature in `console.log` and silence, or after A2S and RCON both went silent. |
 | `CS2_WARMUP`, `CS2_WARMUP_ITEM` | After every engine start, download a throwaway item in the background, so the Steam client's re-check of every installed item runs before a player needs it. |
-| `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART` | At night, while nobody is on, install every listed map that is missing and update every one with a newer Workshop copy; optionally in a fresh engine process. |
+| `CS2_PREFETCH_AT`, `CS2_PREFETCH_MINUTES`, `CS2_PREFETCH_RESTART` | At night, while nobody is on, install the kept maps and the queued ones that are missing and update the ones with a newer Workshop copy; optionally in a fresh engine process. |
+| `CS2_READY` | Download the bridge's random queues and the queued requests in the background, one at a time and silently, also while people play, and tell the bridge which are on disk. |
+| `CS2_MAPS_DELETE` | `on` deletes, at every engine start, every stored map outside the keep set (below); `dryrun` only writes the list; `off` keeps everything. |
 | `CS2_WORKSHOP_RESTART` | Restart an engine process whose Workshop downloads are stuck (every download ends without a connection). |
 | `CS2_DOWNLOAD_LINE` | While the server downloads a map somebody is waiting for, say so on the HUD's news line, with the progress. Never for the watcher's own downloads, never with nobody on. |
 | `CS2_MAPS_LAYOUT` | `folders` (the default) keeps the maps in order before every engine start, see below; `off` leaves them where Steam puts them. |
@@ -306,6 +320,16 @@ re-checks a map through the link, and a new download lands as a real folder wher
 Tested on a side-by-side engine: loads, genuine updates, a fresh download onto a link and the re-check with a full and an empty
 depotcache. If the bridge's lists cannot be read, or a move fails, the engine starts anyway.
 
+**What the server keeps** (the keep set, `keep_set` in both server scripts): every map with at least one up vote, per mode the 100
+playable maps with the best Workshop score (`ratings.json`, which the sync fetches daily), the own maps and the HUD item, the
+random queues and the requested maps. The same run takes in the maps the sync hands over (`workshop-sync/handover/<id>/`, its
+manifest, and last `<id>.json` with its acf entries and what the folder holds: only a complete one) - folder, link, acf entries,
+manifest, so Steam's client holds it as its own download - and then, with `CS2_MAPS_DELETE=on`, deletes every stored map outside
+the keep set: its acf entries first (backed up), then its link and folder. Never the own maps, the HUD, the warm-up item or a
+queued map; refused, with the reason logged, when an input is missing, the scores are over 3 days old or cover under 90% of a
+list, a top list is under 50 maps or a queue under 10. Each run writes `update-watch/keep.json` and its list,
+`update-watch/deleted-<time>-<done, dryrun or refused>.tsv`.
+
 ## The nightly Workshop sync
 
 An optional container running [`server/workshop-sync.py`](../server/workshop-sync.py) in the game server's image, once a night inside a window and,
@@ -314,9 +338,13 @@ batches, so a long run publishes as it goes:
 
 1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API - the only step that
    needs a Web API key, read from a secret file mounted read-only; without one the step is skipped.
-2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge.
-3. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: new uploads first, then listed maps that changed, then
-   everything else strictly by subscribers, whatever the mode.
+2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge; once a day also fetch the
+   Workshop's score of every listed map and every waiting one (`IPublishedFileService/GetDetails` with `includevotes`, the key)
+   into the bridge's `ratings.json`. Then download the maps the server keeps but lacks and hand them over (`<work>/handover/`).
+3. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score
+   would make their mode's 100 best first, then new uploads, listed maps that changed, and everything else strictly by
+   subscribers, whatever the mode. A map skipped as bigger than a day's cap is queued again when the cap changes and it fits.
+   A tested map the server keeps is handed over instead of deleted.
 4. **Scan and load-test**: read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any
    commands that advertise another server or post a gambling ad), then load each map in a test copy of the server inside the
    container - its own port, passwords and Workshop folder, no plugins, no log push.

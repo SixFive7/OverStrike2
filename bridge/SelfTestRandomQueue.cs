@@ -62,6 +62,9 @@ static partial class Program
                 pick != null && Key(pick) == third && QueueOf(QueueNew)[0].Key == first && QueueOf(QueueNew)[1].Key == second);
             pick = RandomNext(true, 1);
             Check("Nothing on disk: the first eligible entry anyway (the server downloads it, as it always did)", pick != null && Key(pick) == first);
+            Check("The report's answer says hold while a map change counts down or loads, or a vote is open, and nothing else",
+                !ApplyReady("gg-ready\t1\n").Contains("hold") && (Pending = new Change(Maps[0], "test", [])) != null && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map change is counting down")
+                && (Pending = null) == null && (AnnouncePending = true) && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map is loading") && !(AnnouncePending = false));
             clock = clock.AddMinutes(ReadyFreshMinutes + 1);
             Check("A report older than ReadyFreshMinutes counts for nothing: every entry is on disk again", !ReadyKnown && IsReady(Maps[1050]));
             var (stale, young, onDisk) = (QueueOf(QueueNew)[0], QueueOf(QueueNew)[1], QueueOf(QueueNew)[2]);

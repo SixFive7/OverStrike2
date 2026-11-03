@@ -111,6 +111,11 @@ flip, never the original list. Never rolled: the map that is on, the last 10 map
 player's game, broken and blocked maps, maps gone from the Workshop, and maps marked as showing ads. A map's download size plays no part. After 10 minutes
 with nobody on, the new-maps setting, the grenade drops and every fun setting go back to their defaults.
 
+The dice are rolled ahead: the bridge keeps a queue of 15 rolls for each list (the new maps, the original list, Deathmatch, Wingman), and the server
+downloads them in the background while you play, so pressing Next past a few maps nobody likes never waits for a download. A pick takes the first
+entry that is still eligible and already on the server's disk; the vote's random maps come from the same queues, and a map shown in a vote and not
+chosen comes back no sooner than the dice would bring it.
+
 ### Fun settings
 
 Sixteen settings anybody can switch until the map changes, each with its own word; a bare `!fun` opens the page and writes the words in chat.
@@ -191,11 +196,15 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
 ## A server that looks after itself
 
 - **The restart watcher** runs inside the game server's container. It restarts for game updates and once a day, only between matches, kills a frozen engine so Docker restarts it,
-  warms the Steam client up after every start, and prefetches at night every listed map that is missing or has a newer Workshop copy. A process whose Workshop downloads get stuck
-  is restarted when nobody is on. All of it has loop protection.
+  warms the Steam client up after every start, downloads the bridge's random queues and the queued requests in the background, and prefetches at night the maps the server keeps that
+  are missing or have a newer Workshop copy. A process whose Workshop downloads get stuck is restarted when nobody is on. All of it has loop protection.
+- **What the server keeps.** Every map with at least one up vote, each mode's 100 best-rated playable maps (the Workshop's score), our own maps, the HUD, the random queues and
+  the queued requests; everything else goes at the next engine start. The deletion refuses when its inputs are missing, the scores are stale or the set looks too small, and never
+  touches our maps, the HUD or a queued map.
 - **The download line.** While the server downloads a map somebody is waiting for, the news line says so, with the progress.
 - **The nightly Workshop sync** ([`server/workshop-sync.py`](server/workshop-sync.py), an optional third container) finds new Arms Race, Deathmatch and Wingman maps through the
-  Steam Web API, and works through every queued map: new uploads first, then listed maps that changed, then everything else by popularity. It downloads anonymously with SteamCMD,
+  Steam Web API, and works through every queued map: the ones whose Workshop score makes their mode's 100 best first, then new uploads, listed maps that changed, and everything
+  else by popularity. It fetches the Workshop's scores once a day, and hands the server the maps it keeps but lacks. It downloads anonymously with SteamCMD,
   scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the ones that pass; the rest
   go on the broken list with their reasons. It runs only while nobody plays, within hard limits in the code that the configuration can lower and never raise, stops at the first rate limit, and
   mails a morning summary if you give it a mail relay.
