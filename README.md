@@ -37,6 +37,7 @@ so nobody is left standing in it. Its pages:
 | **Help** | Where everything is, and what it does. |
 | **Rules** | The vote, how votes count, the fair queue. |
 | **How it works** | Every chance in a map pick: the queue, Next, the vote, the lists, the weights and everything that is never rolled. |
+| **Sync** | The Workshop sync's dashboard: what it does now (with the step on a bar), what waits in its queue, the random queues on the server's disk, and its history of runs and map events, newest first, a page at a time. |
 
 Everybody also sees a news line (who picked what, the queue moving, a skip vote, a crash, a map's blocked settings), a countdown
 banner before a map change, a now-playing card at the first spawn on each map, and the name and tagline for a few seconds on
@@ -191,7 +192,7 @@ The server's own maps have a filter on the Maps page and a tag on their cards. W
 ### What is in which HUD
 
 All of this is what the code does with the HUD content it is built for. The reasons popup and the grenade drops on the Fun page come with content `v4_1_0`; the pictures of maps not
-listed yet, the picture button and the game-mode filter with `v4_2_0`. Each version waits for Valve's review first, and a game holding an older one keeps working without them.
+listed yet, the picture button and the game-mode filter with `v4_2_0`; the Sync page with `v4_3_0`. Each version waits for Valve's review first, and a game holding an older one keeps working without them.
 
 ## A server that looks after itself
 
@@ -208,6 +209,7 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
   one map at a time, scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the
   ones that pass; the rest go on the broken list with their reasons. It works at any hour while nobody plays and stops within seconds when somebody joins; it has no daily download cap
   and stops when Steam pushes back, keeps hard Web API limits in the code that the configuration can lower and never raise, and mails a daily summary if you give it a mail relay.
+  What it is doing is on the menu's Sync page for everybody, and the bridge writes the same as a small website (an `index.html` and its data) for a web server behind your login.
 - **The daily Workshop check** asks the public Web API about every listed map, so a map that is gone, private or banned is refused at once.
 
 ## How it works
