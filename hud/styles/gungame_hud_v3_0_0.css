@@ -5244,6 +5244,24 @@ Label
 .gg-ours-wrap .gg-chipb-ours
 {
 	margin-right: 0px;
+	border: 1px solid #E9B44C8C;
+	background-color: #14171CF0;
+}
+
+.gg-ours-wrap .gg-chipb-ours .gg-chipb-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-ours-wrap .gg-chipb-ours.on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+}
+
+.gg-ours-wrap .gg-chipb-ours.on .gg-chipb-text
+{
+	color: #FFFFFF;
 }
 
 .gg-ours-glow
@@ -5251,8 +5269,8 @@ Label
 	width: 100%;
 	height: 28px;
 	border-radius: 14px;
-	background-color: #E9B44C30;
-	box-shadow: #E9B44CB3 0px 0px 12px 1px;
+	background-color: #E9B44C00;
+	box-shadow: #E9B44CCC 0px 0px 14px 2px;
 	animation-name: gg-ours-pulse;
 	animation-duration: 2.6s;
 	animation-timing-function: ease-in-out;
@@ -5363,7 +5381,7 @@ Label
 	flow-children: down;
 	padding: 8px 8px 0px 10px;
 	border-radius: 5px 5px 0px 0px;
-	background-color: #0A0D11E6;
+	background-color: #0A0D11;
 }
 
 .gg-whycard-title
@@ -5430,7 +5448,7 @@ Label
 {
 	width: 100%;
 	flow-children: right;
-	margin-bottom: 8px;
+	margin-bottom: 0px;
 }
 
 .gg-funtop .gg-fun-note
@@ -5442,6 +5460,8 @@ Label
 
 .gg-funallb
 {
+	width: 120px;
+	height: 26px;
 	margin-left: 8px;
 	vertical-align: center;
 }

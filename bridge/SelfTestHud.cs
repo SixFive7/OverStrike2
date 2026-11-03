@@ -415,15 +415,20 @@ static partial class Program
             var funTitle = Regex.Match(rules, @"\.gg-frow-title\s*\{[^}]*font-size:\s*(\d+)px;");
             var funTxt = Regex.Match(rules, @"\.gg-frow-txt\s*\{[^}]*margin-top:\s*(\d+)px;[^}]*font-size:\s*(\d+)px;");
             var funButton = Regex.Match(rules, @"\.gg-funb\s*\{[^}]*height:\s*(\d+)px;");
+            var funTopCss = Regex.Match(rules, @"\.gg-funtop\s*\{[^}]*margin-bottom:\s*(\d+)px;"); // content v4_4_0: the note's line holds Random and Default
+            var funAllCss = Regex.Match(rules, @"\.gg-funallb\s*\{[^}]*height:\s*(\d+)px;");
             static int Px(Match m, int g) => int.Parse(m.Groups[g].Value, System.Globalization.CultureInfo.InvariantCulture);
-            var funParsed = funPad.Success && funNote.Success && funRowCss.Success && funTop.Success && funTitle.Success && funTxt.Success && funButton.Success;
+            var funParsed = funPad.Success && funNote.Success && funRowCss.Success && funTop.Success && funTitle.Success && funTxt.Success && funButton.Success && funTopCss.Success && funAllCss.Success;
             var funXml = xml[xml.IndexOf("gg-page-fun", StringComparison.Ordinal)..];
             var funSplit = funXml.IndexOf("gg-fcol-right", StringComparison.Ordinal);
             var perColumn = Math.Max(Regex.Matches(funXml[..funSplit], @"class=""gg-frow[ ""]").Count, Regex.Matches(funXml[funSplit..], @"class=""gg-frow[ ""]").Count); // the grenade drops' row makes the right column the longer
-            var funHeight = funParsed ? Px(funPad, 1) + Px(funPad, 2) + (int)Math.Ceiling(Px(funNote, 2) * 1.3) + Px(funNote, 1) + perColumn * (Px(funRowCss, 1) + Px(funRowCss, 2)) : int.MaxValue;
+            // the note's line: the taller of the note and Random's and Default's buttons, and its row's margin (the real client of 2026-11-03 showed the
+            // last row under the window's foot with 40 px buttons and an 8 px margin there: 22 px past what fitted)
+            var funTopLine = funParsed ? Math.Max((int)Math.Ceiling(Px(funNote, 2) * 1.3), Px(funAllCss, 1)) + Px(funTopCss, 1) : 0;
+            var funHeight = funParsed ? Px(funPad, 1) + Px(funPad, 2) + funTopLine + perColumn * (Px(funRowCss, 1) + Px(funRowCss, 2)) : int.MaxValue;
             var rowNeeds = funParsed ? Math.Max(Px(funTop, 1), Math.Max((int)Math.Ceiling(Px(funTitle, 1) * 1.3), Px(funButton, 1))) + Px(funTxt, 1) + (int)Math.Ceiling(Px(funTxt, 2) * 1.3) : int.MaxValue;
             Check($"Fun page fits the window: about {funHeight} px of the pages' 633 for its {Fun.Rows} rows and the grenade drops ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
-                funHeight <= 633 && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 + 1);
+                funHeight <= 633 && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 + 1 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
             // ---- content v4_4_0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
             var voteCat = new HudCatalog { Version = 1 };
             voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));
