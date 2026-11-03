@@ -57,6 +57,8 @@ so the setting stays as it is.
 4. A map change: the news line says who picked what, and the banner counts down.
 5. **The Fun tab**: the fun settings, the one in force lit, and the grenade drops above Big grenades.
 6. **Dislike** a map: the popup at the left lists the reasons, and takes a click while TAB is held or the window is open.
+7. **The Sync tab** (content v4_3_0): the Workshop sync's dashboard - now, the queue, the history; the pagers page the queue, the runs
+   and the map events. Every word on it is the bridge's (bridge/HudDash.cs).
 
 ## Visibility
 

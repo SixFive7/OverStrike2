@@ -21,7 +21,7 @@ verdicts.
 
 ## The menu and the commands
 
-The HUD's window is the whole interface, on eight pages: Start, Maps, Queue, Game, Help, Rules, How it works and Fun. Maps has every map with
+The HUD's window is the whole interface, on nine pages: Start, Maps, Queue, Game, Help, Rules, How it works, Fun and Sync. Maps has every map with
 its picture, size and votes, a search over names, tags and Workshop ids on an on-screen keyboard, sorting by number, votes, name or size,
 and filters by size, by the player's own likes, by official maps, by Our maps and by game mode (`HudBrowser.cs`). A map with no picture in the
 addon has a button on its card that shows its Workshop preview on request, in the game's own message panel. Any Workshop map can be played by
@@ -371,6 +371,17 @@ page: what it does now and why (`now.state` is one of idle, waiting, discovery, 
 stopped), today's counts, the totals, the queue with its next maps in the order they are taken, the keep set's parts, and the
 history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every minute
 otherwise; fields may be added to it, never renamed or dropped.
+
+**The dashboard** is that file for everybody (`bridge/SyncDash.cs`). The bridge reads it whenever it changed (it looks every 2 s), adds the
+random queues and how many of their maps the restart watcher reports on the server's disk, and makes two things of it. The menu's **Sync**
+page: what the sync does now (its state, why, the map, the step on a bar, the run, today's counts, the totals and the file's age), its queue
+(the counts per mode, the finish estimate, what the server itself still lacks, the random queues, the next maps six a page) and its history
+(the runs three a page and the map events eight a page, newest first). The bridge writes every word of it and serves the block on
+`GET /dash/<secret>`, its version in the live state; the plugin pages each list per player and passes the rest through as dialog
+variables and classes on `gg_screen` (`bridge/HudDash.cs`), so a change to the page's words or rows needs a bridge alone. And a website:
+`index.html` and `dashboard.json` in `/data/web`, rewritten when they change and every minute, for a static web server behind a login (the
+page reads the JSON every 5 s and searches the whole history) - the bridge's own HTTP port is never reachable from outside. A file that
+is missing, does not parse or is older than 15 minutes is said as such, and the last good one stays on screen meanwhile.
 
 ## Log-line grammar
 
