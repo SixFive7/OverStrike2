@@ -72,7 +72,7 @@ static partial class Program
         CatalogVersion++;
         Log($"player crashes: {Label(on)} ({key}) at {now.ToLocalTime():yyyy-MM-dd HH:mm} - {timedOutOnThisMap.Count} players timed out within {PlayerCrashSeconds:0} s of entering it while the server kept answering - marked broken (state.json playerCrashes)");
         // Everybody who rejoins would load it again: the dice, as for a map that has just gone from the Workshop.
-        if (Pending == null && !AnnouncePending && RandomPick(true, 1) is { } map)
+        if (Pending == null && !AnnouncePending && RandomNext(true, 1) is { } map) // RandomQueue.cs
             StartChange(new Change(map, "the dice", []), $"{Clip(Label(on), 40)} {why} - it is marked broken. Rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
         else Announce($"{Clip(Label(on), 40)} {why} - it is marked broken; pick another map");
     }

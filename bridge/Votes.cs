@@ -179,34 +179,52 @@ static partial class Program
         RollNote = "";
         if (!enabled || humans <= 0) return null;
         inMode ??= CurrentMode; // ModeSwitch.cs: a roll is in one mode - the server's, unless the ballot asks for another
-        var current = S.Map != null ? Key(S.Map) : S.LogName; // by workshop id when the bridge picked it, else by the name the server logs
-        bool Rollable(MapInfo m) => Key(m) != current && m.Name != current && S.Crashes.GetValueOrDefault(Key(m)) == 0
-            && !Broken.ContainsKey(Key(m)) && !S.PlayerCrashes.ContainsKey(Key(m)) && !IsPack(m) && !IsRemoved(m) && !IsBlocked(m) && AdsVotes(Key(m)) == 0 && exclude?.Contains(Key(m)) != true;
-        if (!inMode.ArmsRace) return RollOtherMode(PoolOf(inMode).Where(Rollable).ToList(), inMode);
-        var eligible = Maps.Where(Rollable).ToList();
+        if (!inMode.ArmsRace) return RollOtherMode(PoolOf(inMode).Where(m => CanRoll(m, exclude)).ToList(), inMode);
+        var eligible = Maps.Where(m => CanRoll(m, exclude)).ToList();
         var mode = NewMapsMode;
         var newFirst = mode == NewMapsNever ? false : mode != NewMapsHalf || Dice.NextDouble() < 0.5; // always: the new maps; half: a fair coin; never: the original list
         var bigFirst = Dice.NextDouble() < TooBigChance;
-        var recent = S.History.TakeLast(RecentCount).Select(Key).ToHashSet();
         foreach (var newer in new[] { newFirst, !newFirst })
         {
             var list = eligible.Where(m => IsNew(m) == newer).ToList();
-            if (list.Count == 0) continue; // nothing eligible on this list: the other list rolls
-            var (group, big) = (list.Where(m => TooBig(m) == bigFirst).ToList(), bigFirst);
-            if (group.Count == 0) (group, big) = (list, !bigFirst); // that group is empty: the other one, which is then the whole list
-            if (group.Any(m => !recent.Contains(Key(m)))) group = group.Where(m => !recent.Contains(Key(m))).ToList();
-            var weights = group.Select(Weight).ToList();
-            var roll = Dice.NextDouble() * weights.Sum();
-            var pick = group[^1];
-            for (var i = 0; i < group.Count; i++)
-                if ((roll -= weights[i]) < 0) { pick = group[i]; break; }
+            if (RollIn(list, bigFirst) is not { } r) continue; // nothing eligible on this list: the other list rolls
             if (!SelfTesting)
-                Log($"dice: {(newer ? "new" : "original")} maps{(newer != newFirst ? " (the other list had none eligible)" : "")}, {(big ? "too big" : "not too big")}"
-                    + $"{(big != bigFirst ? " (the other group was empty)" : "")}: {group.Count} candidates, new maps {mode} -> {Label(pick)}");
+                Log($"dice: {(newer ? "new" : "original")} maps{(newer != newFirst ? " (the other list had none eligible)" : "")}, {(r.Big ? "too big" : "not too big")}"
+                    + $"{(r.Big != bigFirst ? " (the other group was empty)" : "")}: {r.Candidates} candidates, new maps {mode} -> {Label(r.Pick)}");
             if (newer != newFirst) RollNote = newFirst ? NoNewMapsNote : NoOriginalMapsNote;
-            return pick;
+            return r.Pick;
         }
         return null;
+    }
+
+    /// <summary>The rule every random pick applies to a candidate, as the dice have always applied it: not the map that is on, no crash on
+    /// record, not on the broken list, no player crashes, not a non-map, not gone from the Workshop, not blocked, not marked as showing ads,
+    /// and not in <paramref name="exclude"/> (the ballot's own maps). The random queues (RandomQueue.cs) roll with it and check it again
+    /// when an entry is used.</summary>
+    static bool CanRoll(MapInfo m, ISet<string>? exclude = null)
+    {
+        var current = S.Map != null ? Key(S.Map) : S.LogName; // by workshop id when the bridge picked it, else by the name the server logs
+        var key = Key(m);
+        return key != current && m.Name != current && S.Crashes.GetValueOrDefault(key) == 0 && !Broken.ContainsKey(key) && !S.PlayerCrashes.ContainsKey(key)
+            && !IsPack(m) && !IsRemoved(m) && !IsBlocked(m) && AdsVotes(key) == 0 && exclude?.Contains(key) != true;
+    }
+
+    /// <summary>The dice inside one list of eligible maps: the too-big group when <paramref name="bigFirst"/> (TooBigChance of the time),
+    /// the other group when that one is empty; the last RecentCount maps played left out while anything else is left; weighted by Weight.
+    /// Null for an empty list. One Dice draw, after the caller's: RandomPick, RollOtherMode and the random queues roll the same way.</summary>
+    static (MapInfo Pick, bool Big, int Candidates)? RollIn(List<MapInfo> list, bool bigFirst)
+    {
+        if (list.Count == 0) return null;
+        var (group, big) = (list.Where(m => TooBig(m) == bigFirst).ToList(), bigFirst);
+        if (group.Count == 0) (group, big) = (list, !bigFirst); // that group is empty: the other one, which is then the whole list
+        var recent = S.History.TakeLast(RecentCount).Select(Key).ToHashSet();
+        if (group.Any(m => !recent.Contains(Key(m)))) group = group.Where(m => !recent.Contains(Key(m))).ToList();
+        var weights = group.Select(Weight).ToList();
+        var roll = Dice.NextDouble() * weights.Sum();
+        var pick = group[^1];
+        for (var i = 0; i < group.Count; i++)
+            if ((roll -= weights[i]) < 0) { pick = group[i]; break; }
+        return (pick, big, group.Count);
     }
 
     /// <summary>A roll in Deathmatch or Wingman (ModeSwitch.cs): the same exclusions (already applied to the candidates), the too-big rule
@@ -215,16 +233,8 @@ static partial class Program
     {
         if (eligible.Count == 0) return null;
         var bigFirst = Dice.NextDouble() < TooBigChance;
-        var group = eligible.Where(m => TooBig(m) == bigFirst).ToList();
-        if (group.Count == 0) group = eligible;
-        var recent = S.History.TakeLast(RecentCount).Select(Key).ToHashSet();
-        if (group.Any(m => !recent.Contains(Key(m)))) group = group.Where(m => !recent.Contains(Key(m))).ToList();
-        var weights = group.Select(Weight).ToList();
-        var roll = Dice.NextDouble() * weights.Sum();
-        var pick = group[^1];
-        for (var i = 0; i < group.Count; i++)
-            if ((roll -= weights[i]) < 0) { pick = group[i]; break; }
-        if (!SelfTesting) Log($"dice: {mode.Name}, {group.Count} candidates -> {Label(pick)}");
-        return pick;
+        if (RollIn(eligible, bigFirst) is not { } r) return null;
+        if (!SelfTesting) Log($"dice: {mode.Name}, {r.Candidates} candidates -> {Label(r.Pick)}");
+        return r.Pick;
     }
 }

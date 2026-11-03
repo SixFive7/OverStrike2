@@ -13,8 +13,9 @@
 //    defaults: always, and on (GunGameNades' server command gg_nades on, over RCON) - and the fun page's changes are undone (gg_fun reset).
 //  - A map a player marked as showing ads (AdsVote, the owner's 15b of 2026-10-24) is never a random pick; anybody may still pick it.
 //
-// A random pick is any map the dice choose (RandomPick: the start roll, a match end, Next, a map that went from the Workshop) - never a
-// map a player picked or queued.
+// A random pick is any map the dice choose (the start roll, a match end, Next, a map that went from the Workshop, the vote's rolled
+// options and its Random) - never a map a player picked or queued. Since 2026-11-03 the dice are rolled ahead into one queue per list
+// (RandomQueue.cs: RandomNext takes from them), so the maps are on the server's disk before they are needed; the rules are these.
 using System.Text.Json;
 
 static partial class Program

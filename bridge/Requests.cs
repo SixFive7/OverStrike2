@@ -529,6 +529,7 @@ static partial class Program
         BallotTick(now);     // VoteRound.cs: the vote's timer, and voters who left
         TryStartRoll(now); // before Schedule, so a waiting request is announced as the start's
         Schedule(now);
+        QueueTick(now); // RandomQueue.cs: the random queues topped up, queues.json refreshed
         WatchTick(); // the data files (Reload.cs)
         RefreshHud();
     }

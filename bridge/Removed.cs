@@ -129,7 +129,7 @@ static partial class Program
         }
         if (Pending == null && !AnnouncePending && S.Map is { } on && newly.Contains(Key(on)))
         {
-            if (RandomPick(true, 1) is not { } map) { Log($"workshop check: the map that is on is gone, and no map is eligible to roll"); return; }
+            if (RandomNext(true, 1) is not { } map) { Log($"workshop check: the map that is on is gone, and no map is eligible to roll"); return; } // RandomQueue.cs
             StartChange(new Change(map, "the dice", []), $"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - nobody new can download it. Rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
         }
     }

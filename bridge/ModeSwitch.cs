@@ -205,7 +205,7 @@ static partial class Program
     {
         if (CurrentMode.ArmsRace || Pending != null || AnnouncePending || now < ModeResetRetryAt || InMaintenance()) return;
         ModeResetRetryAt = now.AddMinutes(1);
-        if (RandomPick(true, 1, Modes.Default) is not { } map) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
+        if (RandomNext(true, 1, Modes.Default) is not { } map) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; } // RandomQueue.cs
         Log($"reset: nobody on for over {ResetEmptyMinutes} min in {CurrentMode.Name} - back to {Modes.Default.Name} on {Label(map)}");
         StartChange(new Change(map, "the server", []), $"Nobody on for {ResetEmptyMinutes} minutes - back to {Modes.Default.Name}: {Label(map)}{Detail(map)}");
     }

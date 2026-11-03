@@ -68,6 +68,7 @@ static partial class Program
         // A clean quit is the server's, seen by this bridge. Bridges before 2026-10-20 also set it when they themselves were stopped, which
         // would let the first crash after a bridge-only restart pass for a quit; the crash watch reads the running process at start instead.
         S.CleanShutdown = false;
+        FillQueues();                               // RandomQueue.cs: the dice rolled ahead, so random picks find their maps on disk
         BridgeStart();
         After(SpawnBaselineDelayMs, SpawnBaseline); // CrashWatch.cs
         WatchStart(DataFiles());                    // Reload.cs: maps.json, broken.json, removed.json and search.json are read again when they change
@@ -110,6 +111,7 @@ static partial class Program
         if (c.Request.HttpMethod == "GET" && path == Workshop.CheckPath + LogSecret) { Reply(c, CheckList()); return; }   // the plugin's daily Workshop check: which ids
         if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // ...and what Steam said about them
         if (c.Request.HttpMethod == "POST" && path == ReloadPath + LogSecret) { ReloadRequest(c); return; }              // read the data files again now (Reload.cs)
+        if (c.Request.HttpMethod == "POST" && path == ReadyPath + LogSecret) { ReadyReport(c); return; }                // the restart watcher: the queued maps on disk (RandomQueue.cs)
         if (c.Request.HttpMethod == "GET" && path == HealthPath + LogSecret) { HealthRequest(c); return; }               // is it up, and hearing the server
         var ok = c.Request.HttpMethod == "POST" && path == "/log/" + LogSecret;
         var body = ok ? new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd() : "";
@@ -143,6 +145,7 @@ static partial class Program
             $"crash watch: spawn {(SpawnSeen?.ToString() ?? "not read yet")}, {S.Crashes.Count} map(s) with crashes",
             $"search: {Search.Count} maps indexed, version {Search.Version}",
             SelectionHealth(),
+            QueueHealth(),
             ReasonHealth(),
             ModeHealth(),
             VoteHealth(),
@@ -541,7 +544,7 @@ static partial class Program
         if (on == null && StartRollNeedsProof) { StartRollOwed = false; Log("start: RCON status does not name the loaded map - a bridge start rolls only on proof"); return; }
         if (Schedule(now, lead: "Server started. ") != null) return;
         if (!RandomOnStart) { StartRollOwed = false; Log("start: RANDOM_ON_START is off - staying on the start map"); return; }
-        if (RandomPick(true, 1) is not { } map) { StartRollOwed = false; Log("start: no map is eligible to roll"); return; }
+        if (RandomNext(true, 1) is not { } map) { StartRollOwed = false; Log("start: no map is eligible to roll"); return; } // RandomQueue.cs
         StartChange(new Change(map, "the dice", []), $"Server started, rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
     }
 
@@ -713,7 +716,7 @@ static partial class Program
         }
         if (VoteHeld) { Skip(by, steamId); return; } // VoteRound.cs: on the vote's map, Next is a vote to skip it
         if (Schedule(now, direct: true, lead: mine != null ? $"{by} is done. " : "") != null) return;
-        if (RandomPick(true, 1) is not { } map) { Tell(steamId, "No map is eligible to roll right now"); return; }
+        if (RandomNext(true, 1) is not { } map) { Tell(steamId, "No map is eligible to roll right now"); return; } // RandomQueue.cs
         StartChange(new Change(map, by, []), $"{by} rolled the dice: {Label(map)}{Detail(map)}{RollNote}");
     }
 
@@ -734,7 +737,7 @@ static partial class Program
         if (Schedule(now, lead: "Match over. ") != null) return;
         if (now < CooldownUntil) { Log("match end: inside the change cooldown - no roll"); return; }
         var humans = Humans();
-        if (RandomPick(RandomOnMatchEnd, humans) is not { } map) { Log($"match end: no roll (enabled {RandomOnMatchEnd}, humans {humans})"); return; }
+        if (RandomNext(RandomOnMatchEnd, humans) is not { } map) { Log($"match end: no roll (enabled {RandomOnMatchEnd}, humans {humans})"); return; } // RandomQueue.cs
         StartChange(new Change(map, "the dice", []), $"Nobody picked a map, rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
     }
 
@@ -1203,6 +1206,7 @@ static partial class Program
         PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
+        RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the dice rolled ahead, taken on disk first, re-checked when used
         TabSelfTest(Check);
         GuiSelfTest(Check);
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
@@ -1251,8 +1255,9 @@ sealed class State
     public string NewMaps { get; set; } = Program.DefaultNewMaps;     // new maps in random picks: always, half or never (Selection.cs); back to always after 10 min with nobody on
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
     public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (#6, BrokenWhy.cs)
+    public Dictionary<string, List<RolledMap>> RandomQueues { get; set; } = new(); // the dice rolled ahead, per queue (RandomQueue.cs)
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(State)), JsonSerializable(typeof(List<MapInfo>)), JsonSerializable(typeof(Dictionary<string, Dictionary<string, int>>)), JsonSerializable(typeof(RemovedFile)), JsonSerializable(typeof(Dictionary<string, string>))]
+[JsonSerializable(typeof(State)), JsonSerializable(typeof(List<MapInfo>)), JsonSerializable(typeof(Dictionary<string, Dictionary<string, int>>)), JsonSerializable(typeof(RemovedFile)), JsonSerializable(typeof(Dictionary<string, string>)), JsonSerializable(typeof(QueuesFile))]
 partial class Ctx : JsonSerializerContext { }

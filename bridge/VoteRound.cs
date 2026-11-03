@@ -95,16 +95,17 @@ static partial class Program
             if (taken.Add(Key(r.Map))) options.Add(new BallotOption(VoteSource.Queue, r.Map, r, ModeOf(r.Map)));
         }
 
-        // 2. a map of each other mode that suits the players on, while there is room
+        // 2. a map of each other mode that suits the players on, while there is room - from that mode's random queue (RandomQueue.cs):
+        //    shown or chosen, what a ballot takes leaves the queue, so a map shown and not chosen comes back no sooner than the dice bring it
         foreach (var mode in Modes.All.Where(m => m.Id != b.FillMode.Id && m.Suits(players)))
         {
             if (options.Count >= MapVote.MapOptions) break;
             if (options.Any(o => o.Mode.Id == mode.Id)) continue;
-            if (RandomPick(true, 1, mode, taken) is { } map && taken.Add(Key(map))) options.Add(new BallotOption(VoteSource.Rolled, map, null, mode));
+            if (RandomNext(true, 1, mode, taken) is { } map && taken.Add(Key(map))) options.Add(new BallotOption(VoteSource.Rolled, map, null, mode));
         }
 
-        // 3. the server's own mode, rolled, up to MapOptions maps
-        while (options.Count < MapVote.MapOptions && RandomPick(true, 1, b.FillMode, taken) is { } map && taken.Add(Key(map)))
+        // 3. the server's own mode, from its queue, up to MapOptions maps
+        while (options.Count < MapVote.MapOptions && RandomNext(true, 1, b.FillMode, taken) is { } map && taken.Add(Key(map)))
             options.Add(new BallotOption(VoteSource.Rolled, map, null, b.FillMode));
         RollNote = ""; // the ballot's rolls say nothing on the news line
 
@@ -184,7 +185,7 @@ static partial class Program
         }
         else if (o.Map is { } map && !IsPack(map) && !IsRemoved(map) && !IsBlocked(map))
             change = new Change(map, "the vote", []) { Voted = true };
-        else if (RandomPick(true, 1, b.FillMode) is { } rolled) // Random - or a map on the ballot that has become unplayable since
+        else if (RandomNext(true, 1, b.FillMode) is { } rolled) // Random - or a map on the ballot that has become unplayable since: the queue's next entry (RandomQueue.cs)
             change = new Change(rolled, "the vote", []) { Voted = true };
         if (change == null) { Log("vote: nothing eligible to load - the map stays"); Ballot = null; return; }
         var m = change.Map;
