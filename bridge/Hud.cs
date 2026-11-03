@@ -32,7 +32,9 @@ public static class Hud
     /// moved there from the Game page: nothing is sent to their panels (HudView.NewButtons41), so no game has to prove it holds them.
     /// Content v4_2_0 keeps every panel of v4_1_0 and adds the pictures of the maps not listed yet (hud/thumbs.py --ahead), a picture button on each
     /// card (HudPreview) and the mode filter's chips: their state is classes on panels every game has, so again nothing is sent to them (NewButtons42).
-    public const string Content = "v4_2_0";
+    /// Content v4_3_0 (2026-11-03) keeps every panel of v4_2_0 and adds the Sync tab: the Workshop sync's dashboard (HudDash.cs), whose words are
+    /// dialog variables and whose state is classes on gg_screen, so nothing is sent to its panels either (NewButtons43).
+    public const string Content = "v4_3_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -43,7 +45,7 @@ public static class Hud
 
     /// <summary>Paths on the bridge's HTTP port, followed by LOG_SECRET: the plugin GETs the live state, the map catalog and the search
     /// index, and POSTs a player's click.</summary>
-    public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/";
+    public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands they replaced, which is
     /// what the bridge and the plugin speak to each other on /act - nobody types them any more.</summary>
@@ -254,6 +256,7 @@ public sealed class HudState
     public int Big;                                     // too-big votes on the map that is on (each is also one of its Down)
     public string SizeClass = "";                       // its measured class (S, M, L, XL), empty when unmeasured
     public int Ads;                                     // ads votes on the map that is on (each is also one of its Down)
+    public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
 
     public string Encode()
     {
@@ -286,6 +289,7 @@ public sealed class HudState
         if (NewMaps != "") Line("newmaps", NewMaps);         // an older plugin skips the lines it does not know
         if (Big > 0 || SizeClass != "") Line("big", Big, SizeClass);
         if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
+        if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         return s.ToString();
     }
 
@@ -328,6 +332,7 @@ public sealed class HudState
                 case "newmaps": s.NewMaps = Str(f, 1); break;
                 case "big": (s.Big, s.SizeClass) = (Int(f, 1), Str(f, 2)); break;
                 case "ads": s.Ads = Int(f, 1); break;
+                case "dash": s.DashVersion = Long(f, 1); break;
                 case "proof" when HudCheck.IsRelease(Str(f, 1)): s.Proofs[Str(f, 1)] = Str(f, 2); break;
                 case "ok" when Long(f, 1) >= 0 && HudCheck.IsRelease(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
             }
@@ -356,7 +361,7 @@ public static class HudView
 
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
         [("gg_tab_start", HudSlots.Page.Start), ("gg_tab_maps", HudSlots.Page.Maps), ("gg_tab_queue", HudSlots.Page.Queue), ("gg_tab_game", HudSlots.Page.Game),
-         ("gg_tab_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.Rules), (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun)];
+         ("gg_tab_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.Rules), (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync)];
 
     /// <summary>The buttons content v3_1_0 added. A click on one proves that player's game has that content: from then on the plugin sends
     /// them the words of NewIds too. They need nothing from the server themselves - fixed labels, and their state in classes on panels that
@@ -388,6 +393,10 @@ public static class HudView
     /// on one proves that player's game holds v4_2_0.</summary>
     public static readonly string[] NewButtons42 = [.. Enumerable.Range(1, HudMenu.Cards).Select(HudMenu.PicButton), .. HudBrowser.ModeButtons.Select(b => b.Id)];
 
+    /// <summary>The buttons content v4_3_0 added: the Sync tab and the pagers of its lists (HudDash.LayoutButtons). Nothing is sent to them; a click on
+    /// one proves that player's game holds v4_3_0.</summary>
+    public static readonly string[] NewButtons43 = HudDash.LayoutButtons;
+
     static HashSet<string> NewPanels32()
     {
         var ids = new HashSet<string> { "gg_b_ads", HudMenu.FunNote, HudBrowser.OursButton }; // the Our maps chip gets its "on" class
@@ -403,8 +412,8 @@ public static class HudView
     /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
     public static int LevelOf(string id) => NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
 
-    /// <summary>The content a button proves a game holds: 42, 41, 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
+    /// <summary>The content a button proves a game holds: 43, 42, 41, 32, 31, or 0 for a button every game has.</summary>
+    public static int LevelOfButton(string id) => NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
 
     static HashSet<string> NewPanels()
     {
@@ -636,7 +645,7 @@ public sealed class HudSlots
     public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (seen in a real client, 2026-11-02; a click restarts it after FadeSeconds)
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
-    public enum Page { Start, Maps, Queue, Game, Help, Rules, How, Fun } // How: content v3_1_0; Fun: v3_2_0
+    public enum Page { Start, Maps, Queue, Game, Help, Rules, How, Fun, Sync } // How: content v3_1_0; Fun: v3_2_0; Sync: v4_3_0
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none,
     /// 1 now playing, 2 welcome back. Draining: the bar that shows the idle close is running (it restarts by losing this for a moment).</summary>

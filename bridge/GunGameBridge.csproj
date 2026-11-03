@@ -10,4 +10,9 @@
     <TrimMode>full</TrimMode>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The website of the sync's dashboard (SyncDash.cs writes it into /data/web, which a static web server behind the login serves). -->
+    <EmbeddedResource Include="dashboard.html" LogicalName="dashboard.html" />
+  </ItemGroup>
+
 </Project>

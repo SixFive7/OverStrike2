@@ -394,6 +394,7 @@ static partial class Program
         h.Proofs = HudCheckHold ? new() : S.HudProofs; // Selection.cs: while held, no proof is served, so the plugin's check stays a dry run (lifted 2026-10-24)
         h.Verified = S.HudVerified;
         h.SearchVersion = Search.Version;
+        h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));
         PutNotices(h, now);
         PutWhy(h, now); // Votes.cs: the Dislike popups that are open
@@ -531,6 +532,7 @@ static partial class Program
         Schedule(now);
         QueueTick(now); // RandomQueue.cs: the random queues topped up, queues.json refreshed
         WatchTick(); // the data files (Reload.cs)
+        SyncTick(now); // SyncDash.cs: the sync's status file, the Sync page's block and the website's files
         RefreshHud();
     }
 }

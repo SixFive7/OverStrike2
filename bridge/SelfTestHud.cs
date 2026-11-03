@@ -184,6 +184,7 @@ static partial class Program
                 .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.NadesClasses(true)).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-2", "toast-in", "c31", "c32", .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             var buttons = HudView.Tabs.Select(t => t.Id).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct]).Concat(HudView.NewButtons).Concat(HudView.NewButtons32).Concat(HudView.NewButtons41)
+                .Concat(HudView.NewButtons42).Concat(HudView.NewButtons43)
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"gg_m{k}_play", $"gg_m{k}_up", $"gg_m{k}_down" }))
@@ -224,18 +225,21 @@ static partial class Program
                 Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
             // ---- three contents on one path (v3_0_0, v3_1_0, v3_2_0): a game holding an older one must never be sent a panel it lacks ----
-            const string shippedFile = "../hud/reference/gungame_hud_v3_0_0.xml", shipped31File = "../hud/reference/gungame_hud_v3_1_0.xml", shipped40File = "../hud/reference/gungame_hud_v4_0_0.xml", shipped41File = "../hud/reference/gungame_hud_v4_1_0.xml"; // as they shipped
-            if (File.Exists(shippedFile) && File.Exists(shipped31File) && File.Exists(shipped40File) && File.Exists(shipped41File))
+            const string shippedFile = "../hud/reference/gungame_hud_v3_0_0.xml", shipped31File = "../hud/reference/gungame_hud_v3_1_0.xml", shipped40File = "../hud/reference/gungame_hud_v4_0_0.xml", shipped41File = "../hud/reference/gungame_hud_v4_1_0.xml",
+                shipped42File = "../hud/reference/gungame_hud_v4_2_0.xml"; // as they shipped
+            if (File.Exists(shippedFile) && File.Exists(shipped31File) && File.Exists(shipped40File) && File.Exists(shipped41File) && File.Exists(shipped42File))
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();
                 var shipped = IdsOf(shippedFile);
                 var shipped31 = IdsOf(shipped31File);
                 var shipped40 = IdsOf(shipped40File);
                 var shipped41 = IdsOf(shipped41File);
+                var shipped42 = IdsOf(shipped42File);
                 var added31 = shipped31.Where(id => !shipped.Contains(id)).ToHashSet();
                 var added32 = shipped40.Where(id => !shipped31.Contains(id)).ToHashSet();
                 var added41 = shipped41.Where(id => !shipped40.Contains(id)).ToHashSet();
-                var added42 = ids.Where(id => !shipped41.Contains(id)).ToHashSet();
+                var added42 = shipped42.Where(id => !shipped41.Contains(id)).ToHashSet();
+                var added43 = ids.Where(id => !shipped42.Contains(id)).ToHashSet();
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var toEverybody = sent.Where(id => HudView.LevelOf(id) == 0).ToList();
                 var notShipped = toEverybody.Where(id => !shipped.Contains(id)).ToList();
@@ -251,8 +255,10 @@ static partial class Program
                     shipped31.All(shipped40.Contains) && HudView.NewIds32.All(added32.Contains) && HudView.NewButtons32.All(added32.Contains) && added32.All(id => HudView.NewIds32.Contains(id) || HudView.NewButtons32.Contains(id)));
                 Check($"Content v4_1_0 (as shipped): it kept every panel v4_0_0 had ({shipped40.Count}), the grenade drops' buttons among them, and added only the popup's {added41.Count} buttons ({HudView.NewButtons41.Length} that prove it), to which nothing is sent",
                     shipped40.Where(id => id != "gg_f_site").All(shipped41.Contains) && !shipped41.Contains("gg_f_site") && added41.SetEquals(HudView.NewButtons41) && !sent.Any(added41.Contains) && HudView.NewButtons41.All(b => HudView.LevelOfButton(b) == 41 && HudView.LevelOf(b) == 0));
-                Check($"Content {Hud.Content}: it keeps every panel v4_1_0 had ({shipped41.Count}) and adds only the {added42.Count} buttons of the picture on request and the mode filter ({HudView.NewButtons42.Length} that prove it), to which nothing is sent",
-                    shipped41.All(ids.Contains) && added42.SetEquals(HudView.NewButtons42) && !sent.Any(added42.Contains) && HudView.NewButtons42.All(b => HudView.LevelOfButton(b) == 42 && HudView.LevelOf(b) == 0));
+                Check($"Content v4_2_0 (as shipped): it kept every panel v4_1_0 had ({shipped41.Count}) and added only the {added42.Count} buttons of the picture on request and the mode filter ({HudView.NewButtons42.Length} that prove it), to which nothing is sent",
+                    shipped41.All(shipped42.Contains) && added42.SetEquals(HudView.NewButtons42) && !sent.Any(added42.Contains) && HudView.NewButtons42.All(b => HudView.LevelOfButton(b) == 42 && HudView.LevelOf(b) == 0));
+                Check($"Content {Hud.Content}: it keeps every panel v4_2_0 had ({shipped42.Count}) and adds only the {added43.Count} buttons of the Sync page - its tab and its pagers ({HudView.NewButtons43.Length} that prove it), to which nothing is sent",
+                    shipped42.All(ids.Contains) && added43.SetEquals(HudView.NewButtons43) && !sent.Any(added43.Contains) && HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43 && HudView.LevelOf(b) == 0));
                 var not40 = sent.Where(id => !shipped40.Contains(id)).ToList();
                 Check($"Content: everything the plugin sends, to any game, is in the shipped v4_0_0 layout ({sent.Count} ids): a game holding it goes on as it was{(not40.Count > 0 ? ": not there " + string.Join(", ", not40) : "")}", not40.Count == 0);
                 Check("Content v3_1_0: its new panels are sent only what HudView.NewIds names, and its buttons get nothing from the server (fixed labels, state in classes on older panels)",
@@ -269,7 +275,7 @@ static partial class Program
                 Check("Content v4_0_0: the restart button blinks fast while armed (keyframes on opacity, the one kind a custom HUD runs), on the class every content has",
                     Regex.IsMatch(rules, @"@keyframes 'gg-blink'") && Regex.IsMatch(rules, @"\.gg-restart\.armed\s*\{[^}]*animation-name:\s*gg-blink;[^}]*animation-iteration-count:\s*infinite;"));
             }
-            else Console.WriteLine($"skip the content checks: {shippedFile}, {shipped31File}, {shipped40File} or {shipped41File} not found");
+            else Console.WriteLine($"skip the content checks: {shippedFile}, {shipped31File}, {shipped40File}, {shipped41File} or {shipped42File} not found");
 
             // ---- content v4_1_0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);

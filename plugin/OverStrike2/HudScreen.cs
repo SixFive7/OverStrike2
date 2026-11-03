@@ -63,6 +63,8 @@ sealed class HudScreen
     readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
     readonly Dictionary<(int Slot, string Panel), HashSet<string>> thumbs = new(); // the picture classes a card has on for a player
     readonly Dictionary<int, OpenPicture> pictures = new();  // slot -> the map whose picture that player asked for (content v4_2_0, HudPreview)
+    HudDash? dash;                                           // the Sync page's block (content v4_3_0): every word of it the bridge's, fetched when its version moves
+    readonly Dictionary<int, Dictionary<string, int>> dashPages = new(); // slot -> that player's page of each of its lists
     sealed class OpenPicture(string key, long id, int card, DateTime until)
     {
         public string Key = key; public long Id = id; public int Card = card; public DateTime Until = until; public string? Html;
@@ -128,7 +130,8 @@ sealed class HudScreen
         var count = 0;
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
-                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(HudPreview) })
+                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(HudPreview),
+                     typeof(HudDash) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
@@ -349,6 +352,7 @@ sealed class HudScreen
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
         pictures.Remove(slot);
+        dashPages.Remove(slot);
         Forget(slot);
         captured.Remove(slot);
         resendAt.Remove(slot);
@@ -363,7 +367,7 @@ sealed class HudScreen
         $"{(state?.Proofs.TryGetValue(Hud.Release, out var proof) == true ? "proven by " + proof : "not proven yet")}, item {item.Describe(DateTime.UtcNow)}), " +
         $"waiting for a click from [{string.Join(", ", Utilities.GetPlayers().Where(p => gate.Checking(p.Slot)).Select(p => p.PlayerName))}], " +
         $"TAB chord {HudTab.Name(tabMode)}{(tabOverride != null ? " (css_gghud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
-        $"search index {search.Count} maps (version {search.Version}), workshop {plays.Describe()}, " +
+        $"search index {search.Count} maps (version {search.Version}), sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +
         $"addon {(addonRequired ? "required of joiners" : "NOT required (Steam does not show it to everybody)")}, content v3_1_0 shown by {content.Values.Count(v => v >= 31)} and v3_2_0 by {content.Values.Count(v => v >= 32)} account(s), fun {string.Join(", ", Fun.Settings.Select(s => $"{s.Id} {Fun.Showing(s, FunValue).Id}"))}";
 
     // ---- the entity ----
@@ -415,6 +419,7 @@ sealed class HudScreen
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
         pictures.Remove(slot);
+        dashPages.Remove(slot);
         Forget(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
@@ -468,6 +473,7 @@ sealed class HudScreen
         }
         if (!slots.WindowOpen(player.Slot)) return;
         slots.Click(player.Slot, buttonId, now);
+        if (HudDash.Click(dash, buttonId, DashPages(player.Slot))) { Server.NextFrame(Frame); return; } // the Sync page's pagers (content v4_3_0)
         var account = Account(player);
         var browser = Browser(player.Slot);
         if (HudMenu.PicCard(buttonId) is > 0 and var picCard) { TogglePicture(player, account, picCard, now); Server.NextFrame(Frame); return; }
@@ -938,6 +944,7 @@ sealed class HudScreen
             changeAt = fresh.ChangeIn >= 0 ? now.AddSeconds(fresh.ChangeIn) : DateTime.MaxValue;
         }
         if (bridge?.TakeCatalog(now, state?.CatalogVersion ?? 0) is { } listText && HudCatalog.Decode(listText) is { } list) catalog = list;
+        if (bridge?.TakeDash(now, state?.DashVersion ?? 0) is { } dashText && HudDash.Decode(dashText) is { } block) dash = block;
         if (bridge?.TakeSearch(now, state?.SearchVersion ?? 0) is { } searchText && HudSearch.Decode(searchText) is { } index)
         {
             search = index;
@@ -1022,6 +1029,7 @@ sealed class HudScreen
             }
             PictureFrame(p, view, account, now);
             if (view.Window) Menu(p, view.Page, shown, account, now);
+            if (view.Window) DashFrame(p); // the Sync page's words and classes, for every open window: ready before its tab is clicked
             var capture = view.Capture || tab.Cursor(p.Slot); // the window's cursor, or the board's while TAB is held
             if (captured.GetValueOrDefault(p.Slot) != capture)
             {
@@ -1057,6 +1065,18 @@ sealed class HudScreen
         // A picture is two classes (HudThumbs): what the card's previous picture had and this one does not goes off first, and only then
         // does the new pair come on - a card never holds parts of two pictures at once, which could show the wrong map's.
         Pictures(p, HudMenu.Thumbs(catalog, Browser(p.Slot), account, search));
+    }
+
+    Dictionary<string, int> DashPages(int slot) => dashPages.TryGetValue(slot, out var p) ? p : dashPages[slot] = new();
+
+    /// <summary>The Sync page (content v4_3_0) for one player with the window open: the bridge's words as dialog variables on gg_screen that the page's
+    /// labels inherit, its classes on gg_screen, and this player's page of each list (HudDash.View). Only what changed goes out; an older game has
+    /// no label that reads them and no rule for the classes, so it shows nothing of it.</summary>
+    void DashFrame(CCSPlayerController p)
+    {
+        var (words, classes) = HudDash.View(dash, DashPages(p.Slot));
+        foreach (var (name, text) in words) Var(HudView.Screen, name, text, p);
+        foreach (var (name, on) in classes) Class(HudView.Screen, name, on, p);
     }
 
     /// <summary>The cards' pictures for this player (two classes a picture, HudThumbs).</summary>

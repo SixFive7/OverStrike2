@@ -3666,7 +3666,7 @@ Label
 	transition-duration: 0s;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_2_0 - level 42. At a join (vjoin) a server above it (svge43) or below it (svlt42)
+/* The HUD version check (HudVote.cs): this layout is v4_3_0 - level 43. At a join (vjoin) a server above it (svge44) or below it (svlt43)
    says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
 .gg-ver
 {
@@ -3703,12 +3703,12 @@ Label
 	text-align: center;
 }
 
-.gg-global.svge43 .gg-screen.vjoin .gg-ver-old
+.gg-global.svge44 .gg-screen.vjoin .gg-ver-old
 {
 	visibility: visible;
 }
 
-.gg-global.svlt42 .gg-screen.vjoin .gg-ver-new
+.gg-global.svlt43 .gg-screen.vjoin .gg-ver-new
 {
 	visibility: visible;
 }
@@ -3867,4 +3867,1117 @@ Label
 .gg-screen.fm-wingman .gg-chipm-wingman .gg-chipb-text
 {
 	color: #FFFFFF;
+}
+
+/* ---- the Sync page (content v4_3_0): the Workshop sync's dashboard ----------------------------------------------------
+   Words from {s:osd...} variables on gg_screen, state from classes on gg_screen (HudDash.cs): the look of the state (osdbusy, osdwait, osdidle,
+   osdstop), the file's age (osdold, osdnone), the progress bar in steps of 5 % (osdp0 ... osdp100), and per list the rows in use (osdq1 ...), their
+   colour (osdm3ok ...), the page (osdqfirst, osdqlast) and an empty list (osdqnone). It takes the whole window: the live column steps aside. */
+
+.gg-page-sync
+{
+	flow-children: down;
+	padding: 18px 30px 12px 30px;
+}
+
+.gg-screen.page-sync .gg-page-sync
+{
+	visibility: visible;
+}
+
+.gg-screen.page-sync .gg-live
+{
+	visibility: collapse;
+}
+
+.gg-screen.page-sync #gg_tab_sync
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-sync #gg_tab_sync .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-dnow
+{
+	width: 100%;
+	flow-children: down;
+	padding: 10px 16px 10px 16px;
+	margin-bottom: 12px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF0F;
+	background-color: #FFFFFF06;
+}
+
+.gg-dnow-top
+{
+	width: 100%;
+	height: 30px;
+	flow-children: right;
+}
+
+.gg-dtitle
+{
+	margin-left: 12px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 20px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-ddot
+{
+	width: 10px;
+	height: 10px;
+	margin-left: 16px;
+	vertical-align: center;
+	border-radius: 5px;
+	background-color: gg-faint;
+}
+
+.gg-screen.osdbusy .gg-ddot
+{
+	background-color: gg-up;
+	box-shadow: #7BD88F99 0px 0px 8px 0px;
+}
+
+.gg-screen.osdwait .gg-ddot
+{
+	background-color: gg-gold;
+}
+
+.gg-screen.osdidle .gg-ddot
+{
+	background-color: gg-faint;
+}
+
+.gg-screen.osdstop .gg-ddot
+{
+	background-color: gg-down;
+}
+
+.gg-dstate
+{
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 21px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.gg-screen.osdnone .gg-dstate
+{
+	color: gg-dim;
+}
+
+.gg-dage
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 16px;
+	vertical-align: center;
+	text-align: right;
+	font-size: 13px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.osdold .gg-dage
+{
+	color: gg-down;
+}
+
+.gg-dwhy
+{
+	width: 100%;
+	margin-top: 4px;
+	font-size: 14px;
+	color: gg-dim;
+}
+
+.gg-dnow-cols
+{
+	width: 100%;
+	flow-children: right;
+	margin-top: 6px;
+}
+
+.gg-dnow-col
+{
+	width: fill-parent-flow( 1 );
+	flow-children: down;
+}
+
+.gg-dnow-col2
+{
+	margin-left: 24px;
+}
+
+.gg-dmap
+{
+	visibility: collapse;
+	width: 100%;
+	font-size: 15px;
+	font-weight: bold;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.osdmapon .gg-dmap
+{
+	visibility: visible;
+}
+
+.gg-dbar
+{
+	visibility: collapse;
+	width: 100%;
+	height: 20px;
+	flow-children: right;
+	margin-top: 3px;
+}
+
+.gg-screen.osdbar .gg-dbar
+{
+	visibility: visible;
+}
+
+.gg-dbar-track
+{
+	width: fill-parent-flow( 1 );
+	height: 6px;
+	vertical-align: center;
+	border-radius: 3px;
+	background-color: #FFFFFF14;
+}
+
+.gg-dbar-fill
+{
+	width: 0%;
+	height: 100%;
+	border-radius: 3px;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), to( gg-gold-hi ) );
+}
+
+.gg-screen.osdp0 .gg-dbar-fill
+{
+	width: 0%;
+}
+
+.gg-screen.osdp5 .gg-dbar-fill
+{
+	width: 5%;
+}
+
+.gg-screen.osdp10 .gg-dbar-fill
+{
+	width: 10%;
+}
+
+.gg-screen.osdp15 .gg-dbar-fill
+{
+	width: 15%;
+}
+
+.gg-screen.osdp20 .gg-dbar-fill
+{
+	width: 20%;
+}
+
+.gg-screen.osdp25 .gg-dbar-fill
+{
+	width: 25%;
+}
+
+.gg-screen.osdp30 .gg-dbar-fill
+{
+	width: 30%;
+}
+
+.gg-screen.osdp35 .gg-dbar-fill
+{
+	width: 35%;
+}
+
+.gg-screen.osdp40 .gg-dbar-fill
+{
+	width: 40%;
+}
+
+.gg-screen.osdp45 .gg-dbar-fill
+{
+	width: 45%;
+}
+
+.gg-screen.osdp50 .gg-dbar-fill
+{
+	width: 50%;
+}
+
+.gg-screen.osdp55 .gg-dbar-fill
+{
+	width: 55%;
+}
+
+.gg-screen.osdp60 .gg-dbar-fill
+{
+	width: 60%;
+}
+
+.gg-screen.osdp65 .gg-dbar-fill
+{
+	width: 65%;
+}
+
+.gg-screen.osdp70 .gg-dbar-fill
+{
+	width: 70%;
+}
+
+.gg-screen.osdp75 .gg-dbar-fill
+{
+	width: 75%;
+}
+
+.gg-screen.osdp80 .gg-dbar-fill
+{
+	width: 80%;
+}
+
+.gg-screen.osdp85 .gg-dbar-fill
+{
+	width: 85%;
+}
+
+.gg-screen.osdp90 .gg-dbar-fill
+{
+	width: 90%;
+}
+
+.gg-screen.osdp95 .gg-dbar-fill
+{
+	width: 95%;
+}
+
+.gg-screen.osdp100 .gg-dbar-fill
+{
+	width: 100%;
+}
+
+.gg-dstep
+{
+	margin-left: 12px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: gg-text;
+}
+
+.gg-dline
+{
+	width: 100%;
+	margin-top: 3px;
+	font-size: 13px;
+	color: gg-text;
+}
+
+.gg-dfaint
+{
+	color: gg-dim;
+}
+
+.gg-dcols
+{
+	width: 100%;
+	height: fill-parent-flow( 1 );
+	flow-children: right;
+}
+
+.gg-dcol
+{
+	height: 100%;
+	flow-children: down;
+}
+
+.gg-dcol-queue
+{
+	width: 540px;
+	padding-right: 18px;
+	border-right: 1px solid gg-line;
+}
+
+.gg-dcol-hist
+{
+	width: fill-parent-flow( 1 );
+	padding-left: 18px;
+}
+
+.gg-dhead
+{
+	width: 100%;
+	height: 26px;
+	flow-children: right;
+	margin-bottom: 4px;
+}
+
+.gg-dhead-maps
+{
+	margin-top: 8px;
+}
+
+.gg-dlabel
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2.5px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-dshown
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 12px;
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dpager
+{
+	height: 100%;
+	flow-children: right;
+}
+
+.gg-screen.osdqfirst.osdqlast .gg-dpager-q
+{
+	visibility: collapse;
+}
+
+.gg-screen.osdrfirst.osdrlast .gg-dpager-r
+{
+	visibility: collapse;
+}
+
+.gg-screen.osdmfirst.osdmlast .gg-dpager-m
+{
+	visibility: collapse;
+}
+
+.gg-dpgb
+{
+	height: 100%;
+	margin-left: 4px;
+	padding: 0px 10px;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border, opacity;
+	transition-duration: 0.12s;
+}
+
+.gg-dpgb:hover
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C1F;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-dpgb:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-dpgb-text
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-dpgb:hover .gg-dpgb-text
+{
+	color: #FFFFFF;
+}
+
+.gg-dpgtext
+{
+	min-width: 64px;
+	margin-left: 6px;
+	margin-right: 2px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	text-align: center;
+	color: gg-text;
+}
+
+.gg-screen.osdqfirst #gg_osdq_prev
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdqlast #gg_osdq_next
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdrfirst #gg_osdr_prev
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdrlast #gg_osdr_next
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdmfirst #gg_osdm_first
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdmfirst #gg_osdm_prev
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdmlast #gg_osdm_next
+{
+	opacity: 0.3;
+}
+
+.gg-screen.osdmlast #gg_osdm_last
+{
+	opacity: 0.3;
+}
+
+.gg-dqhead
+{
+	width: 100%;
+	margin-top: 2px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.gg-dlist
+{
+	width: 100%;
+	flow-children: down;
+	margin-top: 6px;
+}
+
+.gg-dqrow
+{
+	visibility: collapse;
+	width: 100%;
+	height: 38px;
+	flow-children: right;
+	border-bottom: 1px solid #FFFFFF0A;
+}
+
+.gg-dqpos
+{
+	width: 30px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: gg-gold;
+}
+
+.gg-dqmain
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	flow-children: down;
+}
+
+.gg-dqtop
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-dqname
+{
+	max-width: 300px;
+	font-size: 14px;
+	font-weight: bold;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dqmeta
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 10px;
+	font-size: 12px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dqwhy
+{
+	width: 100%;
+	font-size: 12px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.osdq1 .gg-dq1
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq2 .gg-dq2
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq3 .gg-dq3
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq4 .gg-dq4
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq5 .gg-dq5
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq6 .gg-dq6
+{
+	visibility: visible;
+}
+
+.gg-screen.osdq1ok .gg-dq1 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq1bad .gg-dq1 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq1hot .gg-dq1 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq1dim .gg-dq1 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdq2ok .gg-dq2 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq2bad .gg-dq2 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq2hot .gg-dq2 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq2dim .gg-dq2 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdq3ok .gg-dq3 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq3bad .gg-dq3 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq3hot .gg-dq3 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq3dim .gg-dq3 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdq4ok .gg-dq4 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq4bad .gg-dq4 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq4hot .gg-dq4 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq4dim .gg-dq4 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdq5ok .gg-dq5 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq5bad .gg-dq5 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq5hot .gg-dq5 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq5dim .gg-dq5 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdq6ok .gg-dq6 .gg-dqname
+{
+	color: gg-up;
+}
+
+.gg-screen.osdq6bad .gg-dq6 .gg-dqname
+{
+	color: gg-down;
+}
+
+.gg-screen.osdq6hot .gg-dq6 .gg-dqname
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdq6dim .gg-dq6 .gg-dqname
+{
+	color: gg-faint;
+}
+
+.gg-dempty
+{
+	visibility: collapse;
+	width: 100%;
+	margin-top: 6px;
+	font-size: 13px;
+	color: gg-faint;
+}
+
+.gg-screen.osdqnone .gg-dqempty
+{
+	visibility: visible;
+}
+
+.gg-screen.osdrnone .gg-drempty
+{
+	visibility: visible;
+}
+
+.gg-screen.osdmnone .gg-dmempty
+{
+	visibility: visible;
+}
+
+.gg-drrow
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: down;
+	padding: 3px 0px 4px 0px;
+	border-bottom: 1px solid #FFFFFF0A;
+}
+
+.gg-drtop
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-drwhen
+{
+	font-size: 13px;
+	font-weight: bold;
+	color: gg-text;
+}
+
+.gg-drend
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 12px;
+	text-align: right;
+	font-size: 12px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-drwhat
+{
+	width: 100%;
+	font-size: 12px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.osdr1 .gg-dr1
+{
+	visibility: visible;
+}
+
+.gg-screen.osdr1hot .gg-dr1 .gg-drwhen
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdr1ok .gg-dr1 .gg-drend
+{
+	color: gg-up;
+}
+
+.gg-screen.osdr1bad .gg-dr1 .gg-drend
+{
+	color: gg-down;
+}
+
+.gg-screen.osdr1dim .gg-dr1 .gg-drend
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdr2 .gg-dr2
+{
+	visibility: visible;
+}
+
+.gg-screen.osdr2hot .gg-dr2 .gg-drwhen
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdr2ok .gg-dr2 .gg-drend
+{
+	color: gg-up;
+}
+
+.gg-screen.osdr2bad .gg-dr2 .gg-drend
+{
+	color: gg-down;
+}
+
+.gg-screen.osdr2dim .gg-dr2 .gg-drend
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdr3 .gg-dr3
+{
+	visibility: visible;
+}
+
+.gg-screen.osdr3hot .gg-dr3 .gg-drwhen
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdr3ok .gg-dr3 .gg-drend
+{
+	color: gg-up;
+}
+
+.gg-screen.osdr3bad .gg-dr3 .gg-drend
+{
+	color: gg-down;
+}
+
+.gg-screen.osdr3dim .gg-dr3 .gg-drend
+{
+	color: gg-faint;
+}
+
+.gg-dmrow
+{
+	visibility: collapse;
+	width: 100%;
+	height: 25px;
+	flow-children: right;
+	border-bottom: 1px solid #FFFFFF0A;
+}
+
+.gg-dmat
+{
+	width: 104px;
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-faint;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dmev
+{
+	width: 92px;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dmname
+{
+	max-width: 180px;
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-dmwhy
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 12px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.osdm1 .gg-dm1
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm1ok .gg-dm1 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm1bad .gg-dm1 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm1hot .gg-dm1 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm1dim .gg-dm1 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm2 .gg-dm2
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm2ok .gg-dm2 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm2bad .gg-dm2 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm2hot .gg-dm2 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm2dim .gg-dm2 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm3 .gg-dm3
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm3ok .gg-dm3 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm3bad .gg-dm3 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm3hot .gg-dm3 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm3dim .gg-dm3 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm4 .gg-dm4
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm4ok .gg-dm4 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm4bad .gg-dm4 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm4hot .gg-dm4 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm4dim .gg-dm4 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm5 .gg-dm5
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm5ok .gg-dm5 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm5bad .gg-dm5 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm5hot .gg-dm5 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm5dim .gg-dm5 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm6 .gg-dm6
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm6ok .gg-dm6 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm6bad .gg-dm6 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm6hot .gg-dm6 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm6dim .gg-dm6 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm7 .gg-dm7
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm7ok .gg-dm7 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm7bad .gg-dm7 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm7hot .gg-dm7 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm7dim .gg-dm7 .gg-dmname
+{
+	color: gg-faint;
+}
+
+.gg-screen.osdm8 .gg-dm8
+{
+	visibility: visible;
+}
+
+.gg-screen.osdm8ok .gg-dm8 .gg-dmev
+{
+	color: gg-up;
+}
+
+.gg-screen.osdm8bad .gg-dm8 .gg-dmev
+{
+	color: gg-down;
+}
+
+.gg-screen.osdm8hot .gg-dm8 .gg-dmev
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdm8dim .gg-dm8 .gg-dmname
+{
+	color: gg-faint;
 }

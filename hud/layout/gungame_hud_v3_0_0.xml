@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4_2_0 (custom_hud_layout, CS2 update of 2026-08-24).
+  Over Strike 2 - the in-game HUD, content v4_3_0 (custom_hud_layout, CS2 update of 2026-08-24).
 
   Structure and style only: every word that can change comes from the GunGameWelcome plugin as a dialog variable ({s:text} on a
   labelled panel; the words live in bridge/Hud.cs), and every state (window open, page, card, votes) is a class the plugin
@@ -44,6 +44,11 @@
   Content v4_2_0 (2026-11-02), on the same path again: everything v4_1_0 had is here unchanged, plus a picture button on each card (gg_mN_pic, shown by
   the card's nopic class for a map with no picture in the addon: its Workshop preview comes up in the game's own message panel below the window, which
   goes short meanwhile, pic1 or pic2 on gg_screen) and the mode filter's chips (gg_fm_*, lit by a class on gg_screen). Nothing is sent to these panels.
+
+  Content v4_3_0 (2026-11-03), the same path again: everything v4_2_0 had is here unchanged, plus the Sync tab (gg_tab_sync): the Workshop sync's
+  dashboard - what it does now, its queue, its history (bridge/HudDash.cs). Its words are dialog variables on gg_screen that its labels inherit
+  ({s:osd...}), its state classes on gg_screen (osdbusy, osdp35, osdq3 ...), and its only buttons are its lists' pagers (gg_osdq_prev ...): nothing
+  is sent to a panel of it, so a game holding an older content never hears of one.
 
   Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m8_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's
   number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity).
@@ -172,6 +177,7 @@
 						<Button id="gg_tab_help" class="gg-tab"><Label class="gg-tab-text" text="Help" /></Button>
 						<Button id="gg_tab_rules" class="gg-tab"><Label class="gg-tab-text" text="Rules" /></Button>
 						<Button id="gg_tab_how" class="gg-tab"><Label class="gg-tab-text" text="How it works" /></Button>
+						<Button id="gg_tab_sync" class="gg-tab"><Label class="gg-tab-text" text="Sync" /></Button>
 					</Panel>
 
 					<Panel class="gg-win-body">
@@ -930,6 +936,102 @@
 									</Panel>
 								</Panel>
 							</Panel>
+
+							<!-- Content v4_3_0. Sync: the Workshop sync's dashboard (HudDash.cs) - what it does now, its queue, its history, across the whole window.
+							     Every word comes from the bridge as a dialog variable on gg_screen, every state as a class there; the lists show this player's page. -->
+							<Panel class="gg-page gg-page-sync">
+								<Panel class="gg-dnow">
+									<Panel class="gg-dnow-top">
+										<Panel class="gg-rule-mark" />
+										<Label class="gg-dtitle" text="Map sync" />
+										<Panel class="gg-ddot" />
+										<Label class="gg-dstate" text="{s:osdstate}" />
+										<Label class="gg-dage" text="{s:osdage}" />
+									</Panel>
+									<Label class="gg-dwhy" text="{s:osdwhy}" />
+									<Panel class="gg-dnow-cols">
+										<Panel class="gg-dnow-col">
+											<Label class="gg-dmap" text="{s:osdmap}" />
+											<Panel class="gg-dbar">
+												<Panel class="gg-dbar-track"><Panel class="gg-dbar-fill" /></Panel>
+												<Label class="gg-dstep" text="{s:osdstep}" />
+											</Panel>
+											<Label class="gg-dline" text="{s:osdrun}" />
+										</Panel>
+										<Panel class="gg-dnow-col gg-dnow-col2">
+											<Label class="gg-dline" text="{s:osdtoday}" />
+											<Label class="gg-dline" text="{s:osdlisted}" />
+											<Label class="gg-dline gg-dfaint" text="{s:osdtested}" />
+										</Panel>
+									</Panel>
+								</Panel>
+								<Panel class="gg-dcols">
+									<Panel class="gg-dcol gg-dcol-queue">
+										<Panel class="gg-dhead">
+											<Label class="gg-dlabel" text="Queue" />
+											<Label class="gg-dshown" text="{s:osdqshown}" />
+											<Panel class="gg-dpager gg-dpager-q">
+												<Button id="gg_osdq_prev" class="gg-dpgb"><Label class="gg-dpgb-text" text="‹" /></Button>
+												<Label class="gg-dpgtext" text="{s:osdqpn} / {s:osdqps}" />
+												<Button id="gg_osdq_next" class="gg-dpgb"><Label class="gg-dpgb-text" text="›" /></Button>
+											</Panel>
+										</Panel>
+										<Label class="gg-dqhead" text="{s:osdqhead}" />
+										<Label class="gg-dline" text="{s:osdqmodes}" />
+										<Label class="gg-dline gg-dfaint" text="{s:osdqeta}" />
+										<Label class="gg-dline gg-dfaint" text="{s:osdqserve}" />
+										<Label class="gg-dline gg-dfaint" text="{s:osdqrand}" />
+										<Panel class="gg-dlist">
+											<Panel class="gg-dqrow gg-dq1"><Label class="gg-dqpos" text="{s:osdq1a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq1b}" /><Label class="gg-dqmeta" text="{s:osdq1c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq1d}" /></Panel></Panel>
+											<Panel class="gg-dqrow gg-dq2"><Label class="gg-dqpos" text="{s:osdq2a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq2b}" /><Label class="gg-dqmeta" text="{s:osdq2c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq2d}" /></Panel></Panel>
+											<Panel class="gg-dqrow gg-dq3"><Label class="gg-dqpos" text="{s:osdq3a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq3b}" /><Label class="gg-dqmeta" text="{s:osdq3c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq3d}" /></Panel></Panel>
+											<Panel class="gg-dqrow gg-dq4"><Label class="gg-dqpos" text="{s:osdq4a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq4b}" /><Label class="gg-dqmeta" text="{s:osdq4c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq4d}" /></Panel></Panel>
+											<Panel class="gg-dqrow gg-dq5"><Label class="gg-dqpos" text="{s:osdq5a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq5b}" /><Label class="gg-dqmeta" text="{s:osdq5c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq5d}" /></Panel></Panel>
+											<Panel class="gg-dqrow gg-dq6"><Label class="gg-dqpos" text="{s:osdq6a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq6b}" /><Label class="gg-dqmeta" text="{s:osdq6c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq6d}" /></Panel></Panel>
+											<Label class="gg-dempty gg-dqempty" text="{s:osdqnone}" />
+										</Panel>
+									</Panel>
+									<Panel class="gg-dcol gg-dcol-hist">
+										<Panel class="gg-dhead">
+											<Label class="gg-dlabel" text="History" />
+											<Label class="gg-dshown" text="Runs, newest first" />
+											<Panel class="gg-dpager gg-dpager-r">
+												<Button id="gg_osdr_prev" class="gg-dpgb"><Label class="gg-dpgb-text" text="‹" /></Button>
+												<Label class="gg-dpgtext" text="{s:osdrpn} / {s:osdrps}" />
+												<Button id="gg_osdr_next" class="gg-dpgb"><Label class="gg-dpgb-text" text="›" /></Button>
+											</Panel>
+										</Panel>
+										<Panel class="gg-dlist gg-dlist-runs">
+											<Panel class="gg-drrow gg-dr1"><Panel class="gg-drtop"><Label class="gg-drwhen" text="{s:osdr1a}" /><Label class="gg-drend" text="{s:osdr1c}" /></Panel><Label class="gg-drwhat" text="{s:osdr1b}" /></Panel>
+											<Panel class="gg-drrow gg-dr2"><Panel class="gg-drtop"><Label class="gg-drwhen" text="{s:osdr2a}" /><Label class="gg-drend" text="{s:osdr2c}" /></Panel><Label class="gg-drwhat" text="{s:osdr2b}" /></Panel>
+											<Panel class="gg-drrow gg-dr3"><Panel class="gg-drtop"><Label class="gg-drwhen" text="{s:osdr3a}" /><Label class="gg-drend" text="{s:osdr3c}" /></Panel><Label class="gg-drwhat" text="{s:osdr3b}" /></Panel>
+											<Label class="gg-dempty gg-drempty" text="{s:osdrnone}" />
+										</Panel>
+										<Panel class="gg-dhead gg-dhead-maps">
+											<Label class="gg-dlabel" text="Maps" />
+											<Label class="gg-dshown" text="Newest first" />
+											<Panel class="gg-dpager gg-dpager-m">
+												<Button id="gg_osdm_first" class="gg-dpgb"><Label class="gg-dpgb-text" text="First" /></Button>
+												<Button id="gg_osdm_prev" class="gg-dpgb"><Label class="gg-dpgb-text" text="‹" /></Button>
+												<Label class="gg-dpgtext" text="{s:osdmpn} / {s:osdmps}" />
+												<Button id="gg_osdm_next" class="gg-dpgb"><Label class="gg-dpgb-text" text="›" /></Button>
+												<Button id="gg_osdm_last" class="gg-dpgb"><Label class="gg-dpgb-text" text="Last" /></Button>
+											</Panel>
+										</Panel>
+										<Panel class="gg-dlist">
+											<Panel class="gg-dmrow gg-dm1"><Label class="gg-dmat" text="{s:osdm1a}" /><Label class="gg-dmev" text="{s:osdm1b}" /><Label class="gg-dmname" text="{s:osdm1c}" /><Label class="gg-dmwhy" text="{s:osdm1d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm2"><Label class="gg-dmat" text="{s:osdm2a}" /><Label class="gg-dmev" text="{s:osdm2b}" /><Label class="gg-dmname" text="{s:osdm2c}" /><Label class="gg-dmwhy" text="{s:osdm2d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm3"><Label class="gg-dmat" text="{s:osdm3a}" /><Label class="gg-dmev" text="{s:osdm3b}" /><Label class="gg-dmname" text="{s:osdm3c}" /><Label class="gg-dmwhy" text="{s:osdm3d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm4"><Label class="gg-dmat" text="{s:osdm4a}" /><Label class="gg-dmev" text="{s:osdm4b}" /><Label class="gg-dmname" text="{s:osdm4c}" /><Label class="gg-dmwhy" text="{s:osdm4d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm5"><Label class="gg-dmat" text="{s:osdm5a}" /><Label class="gg-dmev" text="{s:osdm5b}" /><Label class="gg-dmname" text="{s:osdm5c}" /><Label class="gg-dmwhy" text="{s:osdm5d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm6"><Label class="gg-dmat" text="{s:osdm6a}" /><Label class="gg-dmev" text="{s:osdm6b}" /><Label class="gg-dmname" text="{s:osdm6c}" /><Label class="gg-dmwhy" text="{s:osdm6d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm7"><Label class="gg-dmat" text="{s:osdm7a}" /><Label class="gg-dmev" text="{s:osdm7b}" /><Label class="gg-dmname" text="{s:osdm7c}" /><Label class="gg-dmwhy" text="{s:osdm7d}" /></Panel>
+											<Panel class="gg-dmrow gg-dm8"><Label class="gg-dmat" text="{s:osdm8a}" /><Label class="gg-dmev" text="{s:osdm8b}" /><Label class="gg-dmname" text="{s:osdm8c}" /><Label class="gg-dmwhy" text="{s:osdm8d}" /></Panel>
+											<Label class="gg-dempty gg-dmempty" text="{s:osdmnone}" />
+										</Panel>
+									</Panel>
+								</Panel>
+							</Panel>
 						</Panel>
 
 						<!-- The live column: always beside the pages -->
@@ -982,7 +1084,7 @@
 
 					<Panel class="gg-win-foot">
 						<Panel class="gg-foot-fill" />
-						<Label class="gg-foot-ver" text="HUD v4_2_0  ·  server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4_3_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -1013,10 +1115,10 @@
 
 				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
 				<!-- Over Strike 2: the HUD version check at a join (vjoin) - gg_global's classes say how the server's version compares with this
-				     layout's own, v4_2_0 (level 42): svge43 the server is newer, svlt42 older; the same version shows nothing -->
+				     layout's own, v4_3_0 (level 43): svge44 the server is newer, svlt43 older; the same version shows nothing -->
 				<Panel class="gg-ver" hittest="false">
-					<Label class="gg-ver-old" text="Your HUD is v4_2_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
-					<Label class="gg-ver-new" text="Your HUD is v4_2_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
+					<Label class="gg-ver-old" text="Your HUD is v4_3_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
+					<Label class="gg-ver-new" text="Your HUD is v4_3_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
 				</Panel>
 				<Panel class="gg-note" hittest="false">
 					<Label id="gg_note_text" class="gg-note-text" text="{s:text}" />

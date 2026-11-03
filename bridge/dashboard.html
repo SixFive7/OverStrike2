@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Over Strike 2 - map sync</title>
+<!--
+  The Workshop sync's dashboard as a website: the same three parts as the in-game menu's Sync page - what it does now, what waits in its
+  queue, what it did - with the whole history, searchable. Written by the bridge (SyncDash.cs) into its web folder beside dashboard.json,
+  which it rewrites whenever something changed and every minute; this page reads that file every 5 seconds. Self-contained: no script,
+  font or picture from anywhere else.
+-->
+<style>
+  :root { --bg: #0b0e12; --panel: #12171d; --panel2: #0e1217; --line: #ffffff14; --text: #f1ede5; --dim: #a9b1b9; --faint: #76818b;
+          --gold: #e9b44c; --gold-hi: #ffd47e; --up: #7bd88f; --down: #f07c6b; --hot: #6fb7ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 18px 28px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+           background: linear-gradient(#141a21, #0b0e12); }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: 3px; text-transform: uppercase; }
+  header h1 span { color: var(--gold); }
+  header .meta { color: var(--dim); font-size: 13px; }
+  header .meta.bad { color: var(--down); }
+  main { padding: 20px 28px 40px; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); align-items: start; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { margin: 0 0 12px; font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); }
+  h3 { margin: 18px 0 8px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--faint); }
+  .state { font-size: 28px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); flex: none; }
+  .busy .dot { background: var(--up); box-shadow: 0 0 10px var(--up); }
+  .wait .dot { background: var(--gold); }
+  .stop .dot { background: var(--down); }
+  .why { color: var(--dim); margin: 6px 0 12px; }
+  .line { margin: 4px 0; }
+  .line.dim { color: var(--dim); font-size: 14px; }
+  .bar { height: 8px; background: #ffffff10; border-radius: 4px; overflow: hidden; margin: 10px 0 4px; }
+  .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #b97c22, #ffd47e); transition: width .4s; }
+  .old { color: var(--down); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--panel2); border-radius: 14px; padding: 3px 12px; font-size: 13px; color: var(--dim); }
+  .chip b { color: var(--text); font-weight: 600; }
+  .chip.full b { color: var(--up); }
+  .chip.short b { color: var(--gold); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--faint); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 6px 8px; border-bottom: 1px solid #ffffff0a; vertical-align: top; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.t { white-space: nowrap; color: var(--dim); font-variant-numeric: tabular-nums; }
+  td.w { color: var(--dim); }
+  tr.ok td.e { color: var(--up); }
+  tr.bad td.e { color: var(--down); }
+  tr.dim td { color: var(--faint); }
+  tr.hot td.e, tr.hot td.t { color: var(--hot); }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  input[type=search] { flex: 1 1 260px; background: var(--panel2); color: var(--text); border: 1px solid #ffffff26; border-radius: 4px; padding: 7px 10px; font: inherit; }
+  input[type=search]:focus { outline: none; border-color: var(--gold); }
+  button { background: var(--panel2); color: var(--dim); border: 1px solid #ffffff26; border-radius: 14px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  button.on { color: #1a1408; background: var(--gold); border-color: var(--gold); }
+  .count { color: var(--faint); font-size: 13px; }
+  .scroll { max-height: 640px; overflow: auto; }
+  .empty { color: var(--faint); padding: 8px; }
+  a { color: var(--gold-hi); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  @media (max-width: 520px) { main { grid-template-columns: 1fr; padding: 12px; } header { padding: 14px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Over Strike 2 <span>map sync</span></h1>
+  <div class="meta" id="age">Loading...</div>
+  <div class="meta" id="gen"></div>
+</header>
+<main>
+  <section id="now">
+    <h2>Now</h2>
+    <div class="state" id="state"><div class="dot"></div><span id="statetext"></span></div>
+    <div class="why" id="why"></div>
+    <div class="line" id="map"></div>
+    <div id="barbox" hidden><div class="bar"><div id="bar"></div></div><div class="line dim" id="step"></div></div>
+    <div class="line dim" id="run"></div>
+    <h3>Today</h3>
+    <div class="line" id="today"></div>
+    <h3>So far</h3>
+    <div class="line" id="listed"></div>
+    <div class="line dim" id="tested"></div>
+  </section>
+
+  <section id="queue">
+    <h2>Queue</h2>
+    <div class="line" id="qhead"></div>
+    <div class="line dim" id="qmodes"></div>
+    <div class="line dim" id="qeta"></div>
+    <div class="line dim" id="qserve"></div>
+    <h3>Random picks rolled ahead</h3>
+    <div class="chips" id="random"></div>
+    <div class="line dim" id="randomnote"></div>
+    <h3 id="nexthead">Next</h3>
+    <table><thead><tr><th>#</th><th>Map</th><th>Mode</th><th class="n">Size</th><th>Why</th></tr></thead><tbody id="next"></tbody></table>
+  </section>
+
+  <section id="keep">
+    <h2>What the server keeps</h2>
+    <div class="line" id="keephead"></div>
+    <div class="line old" id="keepproblems"></div>
+    <table><thead><tr><th>Part</th><th>Mode</th><th class="n">Maps</th><th class="n">On disk</th><th class="n">GB</th></tr></thead><tbody id="keepparts"></tbody></table>
+  </section>
+
+  <section id="history" class="wide">
+    <h2>History</h2>
+    <div class="tools">
+      <input type="search" id="find" placeholder="Search the history: a map, a mode, a reason, a date" autocomplete="off">
+      <span id="events"></span>
+      <span class="count" id="found"></span>
+    </div>
+    <h3>Runs</h3>
+    <div class="scroll"><table><thead><tr><th>Started</th><th>Ended</th><th>Kind</th><th class="n">Downloads</th><th class="n">Size</th><th class="n">Passed</th><th class="n">Rejected</th><th class="n">Listed</th><th class="n">Removed</th><th>How it ended</th></tr></thead><tbody id="runs"></tbody></table></div>
+    <h3>Maps</h3>
+    <div class="scroll"><table><thead><tr><th>When</th><th>What</th><th>Map</th><th>Mode</th><th>Why</th></tr></thead><tbody id="maps"></tbody></table></div>
+  </section>
+</main>
+<script>
+"use strict";
+const MODES = { armsrace: "Arms Race", deathmatch: "Deathmatch", wingman: "Wingman" };
+const EVENTS = { listed: ["Listed", "ok"], "handed-over": ["To the server", "ok"], changed: ["Updated", "hot"], broken: ["Broken", "bad"], failed: ["Failed", "bad"], removed: ["Removed", "dim"] };
+const PARTS = { up: "Liked by a player", rated: "Top rated", popular: "Most popular (30 days)", subscribed: "Most subscribed", own: "Our own maps", hud: "The HUD", queues: "Random queues and requests" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = n => (n == null || isNaN(n)) ? "-" : Math.round(n).toLocaleString("en-US");
+const bytes = b => b == null ? "-" : b < 1073741824 ? `${num(b / 1048576)} MB` : `${(b / 1073741824).toFixed(1)} GB`;
+const sizeMb = m => !m ? "" : m >= 1000 ? `${(m / 1000).toFixed(1)} GB` : `${num(m)} MB`;
+const fmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const hm = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const when = t => { if (!t) return "-"; const d = new Date(t * 1000), n = new Date(); return d.toDateString() === n.toDateString() ? hm.format(d) : fmt.format(d); };
+const ago = s => s < 60 ? `${Math.round(s)} s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 172800 ? `${Math.floor(s / 3600)} h ${Math.floor(s / 60) % 60} min ago` : `${Math.floor(s / 86400)} days ago`;
+const mapName = m => m.name || (m.id ? `Workshop item ${m.id}` : "a map");
+const link = m => m.id ? `<a href="https://steamcommunity.com/sharedfiles/filedetails/?id=${encodeURIComponent(m.id)}" rel="noreferrer" target="_blank">${esc(mapName(m))}</a>` : esc(mapName(m));
+let data = null, shownEvent = "", failed = 0;
+
+function text(id, s) { $(id).textContent = s || ""; $(id).hidden = !s; }
+
+function render() {
+  if (!data) return;
+  const w = data.words || {}, looks = data.looks || {}, s = data.sync || {};
+  const now = Date.now() / 1000;
+  const age = s.updated ? now - s.updated : null, old = age == null || age >= (data.oldMinutes || 15) * 60;
+  $("age").textContent = !data.sync ? (w.age || "No word from the sync yet") : old ? `Old: the sync last wrote ${ago(age)} - it may be down` : `The sync wrote ${ago(age)}`;
+  $("age").className = "meta" + (old ? " bad" : "");
+  const genAge = now - data.generated;
+  $("gen").textContent = genAge > 180 ? `The bridge last wrote this page's data ${ago(genAge)} - it may be down` : "";
+  $("gen").className = "meta" + (genAge > 180 ? " bad" : "");
+  // now
+  $("state").className = "state " + (["busy", "wait", "idle", "stop"].find(l => looks[l]) || "");
+  $("statetext").textContent = w.state || "";
+  text("why", w.why); text("map", w.map); text("run", w.run); text("today", w.today); text("listed", w.listed); text("tested", w.tested);
+  const step = s.now && s.now.step;
+  $("barbox").hidden = !(step && step.total > 0);
+  if (step && step.total > 0) { $("bar").style.width = `${Math.min(100, 100 * step.done / step.total)}%`; $("step").textContent = `${num(step.done)} of ${num(step.total)}`; }
+  // queue
+  text("qhead", w.qhead); text("qmodes", w.qmodes); text("qeta", w.qeta); text("qserve", w.qserve);
+  const r = data.random || { queues: [] };
+  $("random").innerHTML = r.queues.map(q => `<span class="chip ${r.known ? (q.ready >= q.total ? "full" : "short") : ""}">${esc(q.label)} <b>${r.known ? `${q.ready}/${q.total}` : q.total}</b></span>`).join("");
+  text("randomnote", r.known ? `Maps on the server's disk by the restart watcher's report of ${when(r.reportAt)}` : "No fresh word from the server on which of them are on its disk");
+  const next = (s.queue && s.queue.next) || [];
+  $("nexthead").textContent = next.length ? (w.qshown ? `Next: ${w.qshown.replace(/^The next /, "")}` : "Next") : "Next";
+  $("next").innerHTML = next.length ? next.map((q, i) => `<tr><td class="n">${i + 1}</td><td>${link(q)}</td><td>${esc(MODES[q.mode] || q.mode)}</td><td class="n">${sizeMb(q.sizeMb)}</td><td class="w">${esc(q.why)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">${esc(w.qnone || "Nothing in the queue")}</td></tr>`;
+  // keep
+  const k = s.keep || {};
+  $("keephead").textContent = k.parts ? `${num(k.count)} maps, ${num(k.onDisk)} on the server's disk  ·  ${k.totalGb != null ? k.totalGb.toFixed(1) : "-"} GB` : "";
+  $("keepproblems").textContent = (k.problems || []).join("; ");
+  $("keepparts").innerHTML = (k.parts || []).map(p => `<tr><td>${esc(PARTS[p.part] || p.part)}${p.queue ? ` (${esc(p.queue)})` : ""}</td><td>${esc(MODES[p.mode] || p.mode || "")}</td><td class="n">${num(p.count)}</td><td class="n">${num(p.onDisk)}</td><td class="n">${p.gb != null ? p.gb.toFixed(1) : "-"}</td></tr>`).join("");
+  history();
+}
+
+function history() {
+  const s = (data && data.sync) || {}, h = s.history || {};
+  const words = $("find").value.toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = t => words.every(x => t.toLowerCase().includes(x));
+  const runs = (h.runs || []).slice().sort((a, b) => (b.started || 0) - (a.started || 0));
+  const maps = (h.maps || []).slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+  const kinds = [...new Set(maps.map(m => m.event))];
+  $("events").innerHTML = ["", ...kinds].map(e => `<button data-e="${esc(e)}" class="${e === shownEvent ? "on" : ""}">${esc(e ? (EVENTS[e] || [e])[0] : "Every event")}</button>`).join(" ");
+  const r = runs.filter(x => hit([fmt.format(new Date((x.started || 0) * 1000)), x.kind, x.stop || "", x.ended ? "" : "running"].join(" ")));
+  const m = maps.filter(x => (!shownEvent || x.event === shownEvent) && hit([fmt.format(new Date((x.at || 0) * 1000)), mapName(x), x.id, MODES[x.mode] || x.mode, (EVENTS[x.event] || [x.event])[0], x.why].join(" ")));
+  $("found").textContent = words.length || shownEvent ? `${r.length} of ${runs.length} runs, ${m.length} of ${maps.length} map events` : `${runs.length} runs, ${maps.length} map events`;
+  $("runs").innerHTML = r.length ? r.map(x => `<tr class="${x.ended ? (x.stop ? "dim" : "") : "hot"}"><td class="t">${when(x.started)}</td><td class="t">${x.ended ? when(x.ended) : "running"}</td><td>${x.kind === "manual" ? "by hand" : "automatic"}</td>`
+    + `<td class="n">${num(x.downloads)}</td><td class="n">${bytes(x.bytes)}</td><td class="n">${num(x.pass)}</td><td class="n">${num(x.rejected)}</td><td class="n">${num(x.listed)}</td><td class="n">${num(x.removed)}</td><td class="w">${esc(x.stop || (x.ended ? "finished" : ""))}</td></tr>`).join("")
+    : `<tr><td colspan="10" class="empty">${runs.length ? "No run matches" : "No runs yet"}</td></tr>`;
+  $("maps").innerHTML = m.length ? m.map(x => { const e = EVENTS[x.event] || [x.event, ""]; return `<tr class="${e[1]}"><td class="t">${when(x.at)}</td><td class="e">${esc(e[0])}</td><td>${link(x)}</td><td>${esc(MODES[x.mode] || x.mode)}</td><td class="w">${esc(x.why)}</td></tr>`; }).join("")
+    : `<tr><td colspan="5" class="empty">${maps.length ? "No map event matches" : "No map news yet"}</td></tr>`;
+}
+
+$("find").addEventListener("input", history);
+$("events").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { shownEvent = b.dataset.e; history(); } });
+
+async function load() {
+  try {
+    const r = await fetch(`dashboard.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    data = await r.json();
+    failed = 0;
+    render();
+  } catch (e) {
+    if (++failed >= 3) { $("age").textContent = `This page cannot read its data (${e.message}) - it tries again every 5 seconds`; $("age").className = "meta bad"; }
+  }
+}
+load();
+setInterval(load, 5000);
+setInterval(render, 15000);
+</script>
+</body>
+</html>

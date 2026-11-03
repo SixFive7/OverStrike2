@@ -107,6 +107,7 @@ static partial class Program
         if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(); if (c.Request.Url?.Query.Contains(MapVote.Capability) == true) VotePolled(); Reply(c, HudText); return; } // the HUD plugin, once a second (?mv=1: it draws the vote)
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
+        if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
         if (c.Request.HttpMethod == "POST" && path == Hud.ActPath + LogSecret) { HudClick(c); return; }               // a click on the HUD
         if (c.Request.HttpMethod == "GET" && path == Workshop.CheckPath + LogSecret) { Reply(c, CheckList()); return; }   // the plugin's daily Workshop check: which ids
         if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // ...and what Steam said about them
@@ -149,6 +150,7 @@ static partial class Program
             ReasonHealth(),
             ModeHealth(),
             VoteHealth(),
+            SyncHealth(),
             $"maintenance {(MaintenanceOn ? "on" : "off")}") + "\n";
     }
 
@@ -886,6 +888,7 @@ static partial class Program
     static int SelfTest()
     {
         SelfTesting = true; // the dice keep quiet: tens of thousands of rolls follow
+        SyncOn = false; DashZone = TimeZoneInfo.Utc; // SyncDash.cs: no sync-status.json and no web folder unless a test asks; times in UTC
         ModeProbeEnabled = false; // ModeSwitch.cs: no game_type/game_mode probes unless a test asks for them
         var samples = new (string Line, Kind? Kind, string Text)[] // HTTP push form as CS2 build 2000908 sends it, with made-up dates and times; player lines inferred
         {
@@ -1207,6 +1210,7 @@ static partial class Program
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the dice rolled ahead, taken on disk first, re-checked when used
+        DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels
         TabSelfTest(Check);
         GuiSelfTest(Check);
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code

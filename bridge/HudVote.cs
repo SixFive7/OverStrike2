@@ -81,8 +81,8 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number, for the version check: v4_2_0 is 42. The classes go from FirstLevel to LastLevel.</summary>
-    public const int ContentLevel = 42, FirstLevel = 31, LastLevel = 49;
+    /// <summary>The server's content as a number, for the version check: v4_3_0 is 43. The classes go from FirstLevel to LastLevel.</summary>
+    public const int ContentLevel = 43, FirstLevel = 31, LastLevel = 49;
 
     /// <summary>The dialog variables on gg_global that the newer layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";

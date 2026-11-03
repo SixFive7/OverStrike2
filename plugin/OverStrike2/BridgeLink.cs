@@ -3,7 +3,7 @@ using System.Text;
 namespace OverStrike2;
 
 /// <summary>The HUD's line to the bridge, over the stack network the log push already uses: GET /hud/&lt;secret&gt; for the live state
-/// (once a second while anyone is on the server), GET /catalog/ and /search/ when their versions move, POST /act/&lt;secret&gt; for a click. The address
+/// (once a second while anyone is on the server), GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt; for a click. The address
 /// and the secret come from the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;), so there is nothing new
 /// to configure.
 ///
@@ -14,17 +14,17 @@ sealed class BridgeLink
     public const double PollSeconds = 1;
 
     readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(3) };
-    readonly string stateUrl, actUrl, catalogUrl, searchUrl;
+    readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl;
     readonly List<Task<string?>> acts = new();
-    Task<string?>? fetch, catalogFetch, searchFetch;
-    DateTime nextFetch, nextCatalogTry, nextSearchTry;
-    long catalogHave, catalogAsked, searchHave, searchAsked;
+    Task<string?>? fetch, catalogFetch, searchFetch, dashFetch;
+    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry;
+    long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked;
 
     public int Failures { get; private set; }          // in a row; reset by any answer
     public string LastError { get; private set; } = "";
     public DateTime LastAnswer { get; private set; }
 
-    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl) { this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; }
+    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl) { this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl; }
 
     /// <summary>The link built from CS2_LOG_HTTP_URL, or null with the reason when that is missing or has no /log/ path.</summary>
     public static BridgeLink? FromEnvironment(out string where)
@@ -35,7 +35,8 @@ sealed class BridgeLink
         var (root, secret) = (log[..at], log[(at + 5)..]);
         where = root;
         // ?mv=1: this plugin draws the end-of-match vote (MapVote.Capability) - without it the bridge keeps the old match end.
-        return new BridgeLink(root + Hud.StatePath + secret + "?" + MapVote.Capability, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret);
+        return new BridgeLink(root + Hud.StatePath + secret + "?" + MapVote.Capability, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret,
+            root + Hud.DashPath + secret);
     }
 
     /// <summary>On the game thread, every frame of the plugin's timer: hands back the newest state text that arrived since the last
@@ -88,6 +89,25 @@ sealed class BridgeLink
         {
             searchAsked = wanted;
             searchFetch = GetText(searchUrl);
+        }
+        return text;
+    }
+
+    /// <summary>On the game thread, every frame: the Sync page's block (HudDash) once a fetch for a newer version has come back; starts that fetch
+    /// when the live state names a version we do not have (every 5 s at most after a failure). A few tens of kilobytes, when the sync's news moved.</summary>
+    public string? TakeDash(DateTime now, long wanted)
+    {
+        string? text = null;
+        if (dashFetch is { IsCompleted: true } done)
+        {
+            text = Result(done);
+            dashFetch = null;
+            if (text != null) dashHave = dashAsked; else nextDashTry = now.AddSeconds(5);
+        }
+        if (wanted > 0 && wanted != dashHave && dashFetch == null && now >= nextDashTry)
+        {
+            dashAsked = wanted;
+            dashFetch = GetText(dashUrl);
         }
         return text;
     }
