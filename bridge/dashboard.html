@@ -48,6 +48,7 @@
   td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   td.t { white-space: nowrap; color: var(--dim); font-variant-numeric: tabular-nums; }
   td.w { color: var(--dim); }
+  .sub { color: var(--faint); font-size: 12.5px; margin-top: 2px; }
   tr.ok td.e { color: var(--up); }
   tr.bad td.e { color: var(--down); }
   tr.dim td { color: var(--faint); }
@@ -96,7 +97,7 @@
     <div class="chips" id="random"></div>
     <div class="line dim" id="randomnote"></div>
     <h3 id="nexthead">Next</h3>
-    <table><thead><tr><th>#</th><th>Map</th><th>Mode</th><th class="n">Size</th><th>Why</th></tr></thead><tbody id="next"></tbody></table>
+    <table><thead><tr><th>#</th><th>Map, and why it is next</th><th>Mode</th><th class="n">Size</th></tr></thead><tbody id="next"></tbody></table>
   </section>
 
   <section id="keep">
@@ -152,7 +153,7 @@ function render() {
   // now
   $("state").className = "state " + (["busy", "wait", "idle", "stop"].find(l => looks[l]) || "");
   $("statetext").textContent = w.state || "";
-  text("why", w.why); text("map", w.map); text("run", w.run); text("today", w.today); text("listed", w.listed); text("tested", w.tested);
+  text("why", w.why); text("map", w.map); text("run", w.run); text("today", (w.today || "").replace(/^Today: /, "")); text("listed", w.listed); text("tested", w.tested);
   const step = s.now && s.now.step;
   $("barbox").hidden = !(step && step.total > 0);
   if (step && step.total > 0) { $("bar").style.width = `${Math.min(100, 100 * step.done / step.total)}%`; $("step").textContent = `${num(step.done)} of ${num(step.total)}`; }
@@ -163,8 +164,8 @@ function render() {
   text("randomnote", r.known ? `Maps on the server's disk by the restart watcher's report of ${when(r.reportAt)}` : "No fresh word from the server on which of them are on its disk");
   const next = (s.queue && s.queue.next) || [];
   $("nexthead").textContent = next.length ? (w.qshown ? `Next: ${w.qshown.replace(/^The next /, "")}` : "Next") : "Next";
-  $("next").innerHTML = next.length ? next.map((q, i) => `<tr><td class="n">${i + 1}</td><td>${link(q)}</td><td>${esc(MODES[q.mode] || q.mode)}</td><td class="n">${sizeMb(q.sizeMb)}</td><td class="w">${esc(q.why)}</td></tr>`).join("")
-    : `<tr><td colspan="5" class="empty">${esc(w.qnone || "Nothing in the queue")}</td></tr>`;
+  $("next").innerHTML = next.length ? next.map((q, i) => `<tr><td class="n">${i + 1}</td><td>${link(q)}<div class="sub">${esc(q.why)}</div></td><td>${esc(MODES[q.mode] || q.mode)}</td><td class="n">${sizeMb(q.sizeMb)}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="empty">${esc(w.qnone || "Nothing in the queue")}</td></tr>`;
   // keep
   const k = s.keep || {};
   $("keephead").textContent = k.parts ? `${num(k.count)} maps, ${num(k.onDisk)} on the server's disk  ·  ${k.totalGb != null ? k.totalGb.toFixed(1) : "-"} GB` : "";
