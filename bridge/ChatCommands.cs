@@ -16,7 +16,7 @@ public static class ChatCommands
     /// <summary>What a chat command asks for: an action the bridge runs (Arg is its /act command), a menu page to open (Arg the page), the map
     /// browser sorted by votes, a map to find (Arg the words: the plugin resolves them), a fun setting (Arg "setting choice"), the grenade
     /// drops (Arg on|off), a vote in the end-of-match vote (Arg the option), the list in chat, what to type while a vote is open, or nothing that is a command.</summary>
-    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage, VoteOnly }
+    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage, VoteOnly, FunAll }
 
     /// <summary>A line as a command. Name: the primary word. Ran: the primary as it would be typed, what the reply calls it. Typed: the line as
     /// the player typed it when it was not that - an alias, or the long way round to a fun setting - which is what makes the reply teach.</summary>
@@ -31,19 +31,18 @@ public static class ChatCommands
         new("!play", "<number, name or Workshop ID>", "Play a map now, or queue it", "Maps", "!map", "!p", "!nominate", "!load", "!go", "!pick"),
         new("!find", "<words>", "Search the maps: the menu opens on the matches", "Maps", "!search", "!s", "!lookup"),
         new("!maps", "", "Open the map browser", "Maps", "!browse", "!list", "!maplist", "!m", TopWord),
-        new("!next", "", "The board's Next: a random map, I'm done on your own, a skip vote on another's", "Maps", "!n", "!rtv", "!change", "!skipmap"),
-        new("!random", "", "A random map, while nobody holds this one", "Maps", "!roll", "!dice", "!rand", "!any", "!shuffle"),
+        new("!next", "", "A vote for the next map, Keep playing on it; on your own map, I'm done", "Maps", "!n", "!rtv", "!change", "!skipmap", "!skip", "!voteskip", "!vs", "!boo"),
+        new("!random", "", "A vote for the next map, with your vote on Random", "Maps", "!roll", "!dice", "!rand", "!any", "!shuffle"),
         new("!back", "", "Back to the last map", "Maps", "!previous", "!prev", "!last", "!undo", "!again"),
         new("!q", "", "Open the queue", "Queue", "!queue", "!upcoming", "!whatsnext", "!lineup", "!order"),
         new("!cancel", "[number]", "Drop your request for that map, or all of them", "Queue", "!unqueue", "!remove", "!drop", "!withdraw", "!uq"),
-        new("!done", "", "End your own map: the queue moves on", "Queue", "!finish", "!end", "!release", "!letgo", "!over"),
-        new("!skip", "", "Vote to skip someone else's map", "Queue", "!voteskip", "!vs", "!boo"),
+        new("!done", "", "End your own map: a vote picks the next one", "Queue", "!finish", "!end", "!release", "!letgo", "!over"),
         new("!up", "[number]", "Like the map that is on, or that map", "Voting", "!like", "!+", "!good", "!love", "!thumbsup"),
         new("!down", "[number] [reason]", $"Dislike it, and why: {DownReasons.Words}", "Voting", "!dislike", "!-", "!bad", "!meh", "!thumbsdown"),
         new("!toobig", "[number]", "Too big: only 1 random pick in 100", "Voting", "!big", "!huge", "!toolarge", "!size", "!xl"),
         new("!ads", "[number]", "It shows ads or sends players away: never a random pick", "Voting", "!ad", "!spam", "!advert", "!report", "!scam"),
-        new("!vote", "<1-6>", "Your choice in the vote at a match's end; the bare number works too", "Voting", "!v", "!mv", "!choose"),
-        new("!fun", "", "The Fun page, and each setting's own word: !gravity low, !vampire on", "Game", "!set", "!settings", "!toggle", "!mode"),
+        new("!vote", "<number>", "Your choice in the vote at a match's end; the bare number works too", "Voting", "!v", "!mv", "!choose"),
+        new("!fun", "", "The Fun page, each setting's own word (!gravity low), !fun random and !fun default", "Game", "!set", "!settings", "!toggle", "!mode", "!randomize", "!funrandom", "!defaults", "!fundefault"), // the last four: FunRandomWords, FunDefaultWords
         new("!nades", "<on|off>", "Grenade drops on or off", "Game", "!grenades", "!nade", "!he", "!drops", "!boom"),
         new("!time", "<10|60>", "Match length in minutes, from the next match", "Game", "!length", "!minutes", "!timelimit", "!roundtime", "!duration"),
         new("!newmaps", "<always|half|never>", "New maps in random picks", "Game", "!fresh", "!pool", "!mix", "!newmap"),
@@ -52,17 +51,22 @@ public static class ChatCommands
         new("!help", "", "The Help page, and this list", "Menu", "!commands", "!cmds", "!h", "!?", "!info"),
         new("!rules", "", "The rules", "Menu", "!rule", "!r", "!fair", "!howto", "!policy"),
         new("!how", "", "How it works: every chance in map picks", "Menu", "!howitworks", "!odds", "!chances", "!why", "!explain"),
+        new("!sync", "", "The Sync page: what the map sync does now, its queue and its history", "Menu", "!status", "!dashboard"),
     ];
 
     /// <summary>!top, the old word: the map browser sorted by votes.</summary>
     public const string TopWord = "!top";
 
+    /// <summary>!fun's aliases that run its Random and its Default (the owner's 2026-11-03): !randomize is !fun random, !defaults is !fun default.</summary>
+    public static readonly string[] FunRandomWords = ["!randomize", "!funrandom"], FunDefaultWords = ["!defaults", "!fundefault"];
+
     /// <summary>The words that mean one thing or another, and the two primaries they can run: the owner's collisions, settled (Primary).</summary>
     public static readonly (string Word, string Otherwise, string When)[] Context = [("!new", "!next", "!newmaps")];
 
     /// <summary>The primaries that ask for another map: while an end-of-match vote is open they do nothing but say what to type (VoteOnly; the bridge refuses
-    /// the same clicks, MapVote.WaitLine). The commands that do not touch the map stay as they are.</summary>
-    public static readonly string[] WaitForVote = ["!play", "!next", "!random", "!back", "!done", "!skip"];
+    /// the same clicks, MapVote.WaitLine). !play is not one since 2026-11-03: while the vote is open it puts its map on the ballot, with the player's vote
+    /// (VoteRound.cs), and !random puts the player's vote on Random. The commands that do not touch the map stay as they are.</summary>
+    public static readonly string[] WaitForVote = ["!next", "!back", "!done"];
 
     static readonly Dictionary<string, string> aliases = AliasMap();
 
@@ -76,8 +80,8 @@ public static class ChatCommands
 
     public static Command? Find(string word) => All.FirstOrDefault(c => c.Word.Equals(word, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>An option on the ballot, typed bare: one digit, 1 up to the most options a ballot can have.</summary>
-    public static bool IsBallotNumber(string s) => s.Length == 1 && s[0] >= '1' && s[0] - '0' <= MapVote.MaxOptions;
+    /// <summary>An option on the ballot, typed bare: one or two digits, 1 up to the most options a ballot can have (49 since 2026-11-03).</summary>
+    public static bool IsBallotNumber(string s) => s.Length is 1 or 2 && s.All(char.IsAsciiDigit) && s[0] != '0' && int.Parse(s, System.Globalization.CultureInfo.InvariantCulture) <= MapVote.MaxOptions;
 
     /// <summary>The primary a typed word runs, by the owner's rules.</summary>
     static string Primary(string word, string arg)
@@ -89,18 +93,20 @@ public static class ChatCommands
 
     /// <summary>The chat line as a command: None when it is no command (it does not start with ! or /), Unknown for a word that is none of
     /// ours, Usage when the command needs something it did not get. While a vote is open a bare number is a vote too (the line still shows
-    /// normally, as every chat line does), and whatever asks for another map, or a !vote without a number on the ballot, is VoteOnly.</summary>
-    public static Parsed Parse(string? line, bool voteOpen = false)
+    /// normally, as every chat line does), and whatever asks for another map, or a !vote without a number on the ballot, is VoteOnly. Highest: the
+    /// ballot's highest number, so a bare number it does not have stays plain chat.</summary>
+    public static Parsed Parse(string? line, bool voteOpen = false, int highest = MapVote.MaxOptions)
     {
         var text = (line ?? "").Trim();
-        if (voteOpen && IsBallotNumber(text)) return new(Kind.Vote, text, "!vote", $"!vote {text}");
+        bool OnBallot(string s) => IsBallotNumber(s) && int.Parse(s, System.Globalization.CultureInfo.InvariantCulture) <= highest;
+        if (voteOpen && OnBallot(text)) return new(Kind.Vote, text, "!vote", $"!vote {text}");
         if (text.Length < 2 || text[0] is not ('!' or '/')) return new(Kind.None);
         var parts = text[1..].Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length == 0) return new(Kind.None);
         var typed = "!" + parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1].Trim() : "";
         var word = Primary(typed, arg);
-        if (voteOpen && (WaitForVote.Contains(word) || (word == "!vote" && !IsBallotNumber(arg)))) return new(Kind.VoteOnly, "", word);
+        if (voteOpen && (WaitForVote.Contains(word) || (word == "!vote" && !OnBallot(arg)))) return new(Kind.VoteOnly, "", word);
         var p = Run(typed, word, arg);
         if (p.Kind is Kind.Usage or Kind.Unknown) return p;
         var teaches = typed != word || p.Ran != ""; // an alias, !top, or !fun gravity low: the reply shows what ran
@@ -118,18 +124,17 @@ public static class ChatCommands
             "!find" => arg == "" ? new(Kind.Page, "Maps", word) : new(Kind.Find, arg, word),
             "!maps" => typed == TopWord ? new(Kind.Top, "Maps", word, "!maps, sorted by votes") : new(Kind.Page, "Maps", word),
             "!next" => new(Kind.Bridge, "next", word),          // the plugin turns it into the board's Next for this player (HudView.Command)
-            "!random" => new(Kind.Bridge, "!next", word),
+            "!random" => new(Kind.Bridge, "!next random", word), // the vote with this player's vote on Random (VoteRound.cs)
             "!back" => new(Kind.Bridge, "!previous", word),
             "!q" => new(Kind.Page, "Queue", word),
             "!cancel" => arg == "" || low == "all" ? new(Kind.Bridge, "!cancel all", word) : Hud.IsMapArg(low) ? new(Kind.Bridge, $"!cancel {low}", word) : Usage(),
             "!done" => new(Kind.Bridge, "!done", word),
-            "!skip" => new(Kind.Bridge, "!skip", word),
             "!up" => OnMap("!up"),
             "!down" => DownReasons.Normal(low) is { } down ? new(Kind.Bridge, down == "" ? "!down" : $"!down {down}", word) : Usage(),
             "!toobig" => OnMap("!toobig"),
             "!ads" => OnMap("!ads"),
             "!vote" => IsBallotNumber(arg) ? new(Kind.Vote, arg, word) : Usage(),
-            "!fun" => FunCommand(low, word),
+            "!fun" => FunCommand(typed, low, word),
             "!nades" => low is "on" or "off" ? new(Kind.Nades, low, word)
                 : Fun.Find("nades") is { } size && Fun.Find(size, low) is { } blast ? new(Kind.Fun, $"{size.Id} {blast.Id}", word) : Usage(),
             "!time" => low is "10" or "60" ? new(Kind.Bridge, $"!time {low}", word) : Usage(),
@@ -139,6 +144,7 @@ public static class ChatCommands
             "!help" => new(Kind.Commands, "Help", word),
             "!rules" => new(Kind.Page, "Rules", word),
             "!how" => new(Kind.Page, "How", word),
+            "!sync" => new(Kind.Page, "Sync", word),
             _ when Fun.Find(word[1..]) is { } s => Fun.Find(s, low) is { } c ? new(Kind.Fun, $"{s.Id} {c.Id}", word) : Usage(),
             _ => new(Kind.Unknown, "", word),
         };
@@ -146,9 +152,12 @@ public static class ChatCommands
 
     /// <summary>!fun alone is the page. !fun gravity low, the long way round, runs the setting's own word and says so; !fun nades on|off the
     /// grenade drops. A setting alone toggles nothing: that word's usage line.</summary>
-    static Parsed FunCommand(string low, string word)
+    static Parsed FunCommand(string typed, string low, string word)
     {
+        if (FunRandomWords.Contains(typed)) return new(Kind.FunAll, Fun.RandomWord, word, $"!fun {Fun.RandomWord}");   // the Fun page's Random
+        if (FunDefaultWords.Contains(typed)) return new(Kind.FunAll, Fun.DefaultWord, word, $"!fun {Fun.DefaultWord}"); // ...and its Default
         var p = low.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p is [Fun.RandomWord] or [Fun.DefaultWord]) return new(Kind.FunAll, p[0], word);
         if (p.Length == 0) return new(Kind.Page, "Fun", word);
         if (p is ["nades", "on" or "off"]) return new(Kind.Nades, p[1], "!nades", $"!nades {p[1]}");
         if (Fun.Find(p[0]) is not { } s) return new(Kind.Usage, "", word);

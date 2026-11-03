@@ -81,8 +81,8 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number, for the version check: v4_3_0 is 43. The classes go from FirstLevel to LastLevel.</summary>
-    public const int ContentLevel = 43, FirstLevel = 31, LastLevel = 49;
+    /// <summary>The server's content as a number, for the version check: v4_4_0 is 44. The classes go from FirstLevel to LastLevel.</summary>
+    public const int ContentLevel = 44, FirstLevel = 31, LastLevel = 49;
 
     /// <summary>The dialog variables on gg_global that the newer layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
@@ -110,33 +110,65 @@ public static class HudVote
     public static List<(string Id, string Class, bool On)> ModeClasses(string mode) =>
         Modes.All.Select(m => (HudView.Global, $"mode-{m.Id}", m.Id == mode)).ToList();
 
-    /// <summary>The vote on the Maps page's cards: option k on card k (Random last), each with its mode, its map, its votes and who queued
-    /// it; this player's choice lit (confirm), queued options tagged (queued), the winner once decided (now); the count line says how long
-    /// and how many have voted. Cards beyond the options are empty. The newer layouts also hide the toolbar (voting on gg_screen).</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Cards(VoteState v, long account, HudCatalog? catalog, string openPicture = "")
+    /// <summary>A card's mode, as classes on the card (content v4_4_0: the label on its picture and its colour - the same three names as gg_global's,
+    /// on another panel): mode-armsrace, mode-deathmatch, mode-wingman, exactly one on for a card in use.</summary>
+    public static IEnumerable<(string Id, string Class, bool On)> CardModeClasses(string card, string? mode) =>
+        Modes.All.Select(m => (card, $"mode-{m.Id}", m.Id == mode));
+
+    // ---- the vote's own buttons (content v4_4_0): Random beside the cards, the map browser, and back to the ballot from it ----
+
+    public const string RandomButton = "gg_v_random", BrowseButton = "gg_v_browse", BackButton = "gg_v_back";
+
+    /// <summary>The dialog variables on gg_screen the vote's labels inherit (content v4_4_0), per player: Random's button, the hint that more
+    /// cards are on the other pages, and the line over the map browser while it adds to the vote.</summary>
+    public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft";
+
+    /// <summary>The ballot's pages: eight cards a page (MapVote.MinMaps is one page's worth). Random is a button of its own, not a card.</summary>
+    public static int Pages(VoteState v) => Math.Max(1, (v.Maps.Count + HudMenu.Cards - 1) / HudMenu.Cards);
+
+    /// <summary>The vote on the Maps page's cards, a page of them: option k of this page on card k, each with its mode (a label on the picture and
+    /// the card's colour), its map, its votes and who queued or added it; Keep playing first on a vote a player started; this player's choice lit
+    /// (confirm), queued options tagged (queued), the winner once decided (now); the count line says how long and how many have voted, the page line
+    /// where the other cards are. Random's button and the hint for the other pages are variables on gg_screen (content v4_4_0); a game holding an
+    /// older content sees the first page's cards and reads the rest off the page line - typing a card's number works from any content.</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
+        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
+        var w = new List<(string, string)>();
         var mine = v.ChoiceOf(account);
         var done = !v.Open && v.Result != null;
+        var maps = v.Maps;
+        var pages = Pages(v);
+        page = Math.Clamp(page, 0, pages - 1);
+        var shown = maps.Skip(page * HudMenu.Cards).Take(HudMenu.Cards).ToList();
+        var rest = maps.Count - (page + 1) * HudMenu.Cards;
         t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - changing in {v.SecondsLeft} s"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted, {v.Needed} decide it"));
-        t.Add(("gg_pg_text", mine > 0 ? "Your vote is lit - click another card or type its number" : "Click a card's Vote or type its number in chat"));
+        t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
+            : mine > 0 ? "Your vote is lit - click another card or type its number" : "Click a card's Vote or type its number in chat"));
         t.Add(("gg_m_empty", ""));
         c.Add(("gg_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
+        c.Add((HudView.Screen, "vpages", pages > 1));
+        c.Add((HudView.Screen, "vmore", rest > 0));
+        c.Add((HudBrowser.FirstButton, "off", page == 0));
+        c.Add((HudBrowser.PrevButton, "off", page == 0));
+        c.Add((HudBrowser.NextButton, "off", page >= pages - 1));
+        c.Add((HudBrowser.LastButton, "off", page >= pages - 1));
         for (var k = 1; k <= HudMenu.Cards; k++)
         {
             var id = HudMenu.Card(k);
-            var o = k <= v.Options.Count ? v.Options[k - 1] : null;
+            var o = k <= shown.Count ? shown[k - 1] : null;
             var mode = o == null ? null : Modes.Find(o.Mode);
-            var random = o?.Source == VoteSource.Random;
-            t.Add(($"{id}_rank", o == null ? "" : $"{o.N}  ·  {(random ? "Random" : mode?.Name ?? "")}")); // the number a player types in chat, or after !vote
-            t.Add(($"{id}_name", o == null ? "" : random ? $"Random {(mode?.Name ?? "map")}" : o.Label));
+            var keep = o?.Source == VoteSource.Keep;
+            t.Add(($"{id}_rank", o == null ? "" : $"{o.N}  ·  {(keep ? "Keep" : mode?.Name ?? "")}")); // the number a player types in chat, or after !vote
+            t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
-            t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(o.Who != "" ? $"  ·  queued by {o.Who}" : "")}"));
+            t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(o.Who == "" ? "" : o.Source == VoteSource.Added ? $"  ·  added by {o.Who}" : $"  ·  queued by {o.Who}")}"));
             t.Add(($"{id}_warn", ""));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : $"Vote {o.N}"));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : keep ? $"Keep {o.N}" : $"Vote {o.N}"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
             c.Add((id, "risky", false));
@@ -152,36 +184,94 @@ public static class HudVote
             c.Add((id, "ads", false));
             c.Add((id, "adsvoted", false));
             c.Add((id, "ours", o != null && catalog?.Find(o.Key) is { Ours: true }));
-            c.Add((id, "nopic", o != null && !random && o.Key.All(char.IsAsciiDigit) && o.Key != "" && !HudThumbs.Has(o.Key))); // content v4_2_0: the picture on request
-            c.Add((id, "picopen", o != null && !random && o.Key == openPicture));
+            c.Add((id, "nopic", o != null && o.Key.All(char.IsAsciiDigit) && o.Key != "" && !HudThumbs.Has(o.Key))); // content v4_2_0: the picture on request
+            c.Add((id, "picopen", o != null && o.Key != "" && o.Key == openPicture));
+            c.AddRange(CardModeClasses(id, o?.Mode));                                     // content v4_4_0: the mode's label and colour
         }
-        return (t, c);
+        var random = v.Random;
+        c.Add((HudView.Screen, "vrandom", random != null && mine == random.N && !done));
+        w.Add((RandomVar, random == null ? "" : $"{random.N}  ·  Random  ·  {random.Votes} vote{(random.Votes == 1 ? "" : "s")}"));
+        w.Add((MoreVar, rest > 0 ? $"{rest} more map{(rest == 1 ? "" : "s")} on the next page" : ""));
+        return (t, c, w);
     }
 
-    /// <summary>The pictures of the vote's cards: an option's map's picture where the addon has one (a Workshop map, an official map of any
-    /// mode); none for Random or a map without one.</summary>
-    public static List<(string Panel, string[] Classes)> Thumbs(VoteState v, HudCatalog? catalog) =>
-        Enumerable.Range(1, HudMenu.Cards).Select(k =>
+    /// <summary>The pictures of a page of the vote's cards: an option's map's picture where the addon has one (a Workshop map, an official map of any
+    /// mode, the map that is on for Keep playing); none for a map without one.</summary>
+    public static List<(string Panel, string[] Classes)> Thumbs(VoteState v, HudCatalog? catalog, int page = 0)
+    {
+        var shown = v.Maps.Skip(Math.Clamp(page, 0, Pages(v) - 1) * HudMenu.Cards).Take(HudMenu.Cards).ToList();
+        return Enumerable.Range(1, HudMenu.Cards).Select(k =>
         {
-            var o = k <= v.Options.Count ? v.Options[k - 1] : null;
-            var entry = o == null || o.Source == VoteSource.Random || catalog == null ? null : catalog.Find(o.Key);
+            var o = k <= shown.Count ? shown[k - 1] : null;
+            var entry = o == null || o.Key == "" || catalog == null ? null : catalog.Find(o.Key);
             return ($"{HudMenu.Card(k)}_thumb", entry != null ? HudThumbs.Classes(entry) : Array.Empty<string>());
         }).ToList();
+    }
+
+    /// <summary>The ballot's pager (the Maps page's First, Prev, Next and Last; content v4_4_0 shows them while the vote is on): the page a click
+    /// moves this player to, or null for any other button.</summary>
+    public static int? PageClick(VoteState v, string buttonId, int page)
+    {
+        var last = Pages(v) - 1;
+        page = Math.Clamp(page, 0, last);
+        return buttonId switch
+        {
+            HudBrowser.FirstButton => 0,
+            HudBrowser.PrevButton => Math.Max(0, page - 1),
+            HudBrowser.NextButton => Math.Min(last, page + 1),
+            HudBrowser.LastButton => last,
+            _ => null,
+        };
+    }
+
+    /// <summary>The line over the map browser while it adds to the vote (content v4_4_0's banner, a variable on gg_screen).</summary>
+    public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  a map's Play puts it on the vote, with your vote";
+
+    /// <summary>The page a card of this option is on (an added map's, for its adder to see it).</summary>
+    public static int PageOf(VoteState v, int n) => Math.Max(0, v.Maps.FindIndex(o => o.N == n)) / HudMenu.Cards;
 
     /// <summary>The dialog variable on gg_screen that content v4_1_0's popup inherits, for each player: the map it asks about. The reasons' words are
-    /// oswhy1 ... on gg_global, the same for everybody, and their chat words oswhyw1 ...; nothing is sent to the popup's own panels.</summary>
+    /// oswhy1 ... on gg_global, the same for everybody, their chat words oswhyw1 ... and (content v4_4_0) their short words oswhys1 ...; nothing is
+    /// sent to the popup's own panels.</summary>
     public const string WhyVar = "oswhy";
 
     /// <summary>The popup's buttons, one per reason, in DownReasons' order: k from 1.</summary>
     public static string WhyButton(int k) => $"gg_why_{k.ToString(CultureInfo.InvariantCulture)}";
 
+    /// <summary>Content v4_4_0's inline reasons (the owner's 2026-11-03): in the window's live column (w), on the TAB board (b), and over the picture of the
+    /// card that was disliked (c1 ... c8) - each a button per reason, k from 1.</summary>
+    public static string WhyButton(string place, int k) => $"gg_why{place}_{k.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>The places of content v4_4_0's inline reasons: the live column, the board, and each card.</summary>
+    public static readonly string[] WhyPlaces = ["w", "b", .. Enumerable.Range(1, HudMenu.Cards).Select(k => $"c{k}")];
+
     /// <summary>The popup's fixed words, as the dialog variables on gg_global that its labels inherit.</summary>
     public static List<(string Name, string Text)> WhyWords() =>
-        DownReasons.All.SelectMany((r, i) => new[] { ($"{WhyVar}{i + 1}", r.Label), ($"{WhyVar}w{i + 1}", r.Word) }).ToList();
+        DownReasons.All.SelectMany((r, i) => new[] { ($"{WhyVar}{i + 1}", r.Label), ($"{WhyVar}w{i + 1}", r.Word), ($"{WhyVar}s{i + 1}", ShortLabel(r)) }).ToList();
 
-    /// <summary>A click on a reason in the popup as the reason it names, or null for any other button.</summary>
-    public static DownReasons.Reason? WhyClick(string buttonId) =>
-        buttonId.StartsWith("gg_why_", StringComparison.Ordinal) && int.TryParse(buttonId[7..], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= DownReasons.All.Length ? DownReasons.All[k - 1] : null;
+    /// <summary>A reason as content v4_4_0's inline buttons say it: short enough for half a card.</summary>
+    public static string ShortLabel(DownReasons.Reason r) => r.Value == DownReasons.Plain ? "Not for me" : char.ToUpperInvariant(r.Short[0]) + r.Short[1..];
+
+    /// <summary>A click on a reason - the popup's or an inline one - as the reason it names, or null for any other button.</summary>
+    public static DownReasons.Reason? WhyClick(string buttonId)
+    {
+        for (var k = 1; k <= DownReasons.All.Length; k++)
+        {
+            if (buttonId == WhyButton(k)) return DownReasons.All[k - 1];
+            foreach (var place in WhyPlaces) if (buttonId == WhyButton(place, k)) return DownReasons.All[k - 1];
+        }
+        return null;
+    }
+
+    /// <summary>The card a Dislike came from (gg_m3_down: 3), or 0 for any other button: the inline reasons go over that card's picture.</summary>
+    public static int DownCard(string buttonId) => buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_down", StringComparison.Ordinal)
+        && int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= HudMenu.Cards ? k : 0;
+
+    /// <summary>The buttons content v4_4_0 added: the vote's Random, map browser and back buttons, the inline reasons, the Fun page's Random and Default.
+    /// A click on one proves that player's game holds v4_4_0; nothing is sent to them.</summary>
+    public static readonly string[] NewButtons44 =
+        [RandomButton, BrowseButton, BackButton, .. WhyPlaces.SelectMany(place => Enumerable.Range(1, DownReasons.All.Length).Select(k => WhyButton(place, k))),
+         HudMenu.FunRandom, HudMenu.FunDefault];
 
     /// <summary>The grenade drops' state, on gg_global (content v4_1_0's Fun page lights the choice that is on; an older game has no rule for it).</summary>
     public static List<(string Id, string Class, bool On)> NadesClasses(bool? on) => [(HudView.Global, "nd-on", on == true), (HudView.Global, "nd-off", on == false)];
@@ -196,10 +286,15 @@ public static class HudVote
     /// shows a page without rows either way. 0: every game has them.</summary>
     public static int PageLevel(string page) => page switch { "How" => 31, "Fun" or "Help" => 32, _ => 0 };
 
-    /// <summary>A click on card k's Play while the vote is open: !mv &lt;round&gt; &lt;k&gt;; null for anything else (the card's arrows do nothing then).</summary>
-    public static string? Click(VoteState v, string buttonId)
+    /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; null for
+    /// anything else (the card's arrows do nothing then).</summary>
+    public static string? Click(VoteState v, string buttonId, int page = 0)
     {
-        if (!v.Open || v.Round <= 0 || !buttonId.StartsWith("gg_m", StringComparison.Ordinal) || !buttonId.EndsWith("_play", StringComparison.Ordinal)) return null;
-        return int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= v.Options.Count ? MapVote.Click(v.Round, v.Options[k - 1].N) : null;
+        if (!v.Open || v.Round <= 0) return null;
+        if (buttonId == RandomButton) return v.Random is { } r ? MapVote.Click(v.Round, r.N) : null;
+        if (!buttonId.StartsWith("gg_m", StringComparison.Ordinal) || !buttonId.EndsWith("_play", StringComparison.Ordinal)) return null;
+        if (!int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1 || k > HudMenu.Cards) return null;
+        var shown = v.Maps.Skip(Math.Clamp(page, 0, Pages(v) - 1) * HudMenu.Cards).Take(HudMenu.Cards).ToList();
+        return k <= shown.Count ? MapVote.Click(v.Round, shown[k - 1].N) : null;
     }
 }

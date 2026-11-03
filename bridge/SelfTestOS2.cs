@@ -89,7 +89,7 @@ static partial class Program
             && ChatCommands.Parse("!cancel 7") is { Arg: "!cancel 7" } && ChatCommands.Parse("!cancel") is { Arg: "!cancel all" });
         Check("Chat: a line that is no command is nothing, an unknown word says so, a command missing its argument gets its usage",
             ChatCommands.Parse("hello !play 1") is { Kind: ChatCommands.Kind.None } && ChatCommands.Parse("!") is { Kind: ChatCommands.Kind.None }
-            && ChatCommands.Parse("!fly") is { Kind: ChatCommands.Kind.Unknown, Name: "!fly" } && ChatCommands.Parse("!vote 9") is { Kind: ChatCommands.Kind.Usage }
+            && ChatCommands.Parse("!fly") is { Kind: ChatCommands.Kind.Unknown, Name: "!fly" } && ChatCommands.Parse("!vote 99") is { Kind: ChatCommands.Kind.Usage }
             && ChatCommands.Parse("/PLAY de dust") is { Kind: ChatCommands.Kind.Play, Arg: "de dust" } && ChatCommands.Parse("!play") is { Kind: ChatCommands.Kind.Usage }
             && ChatCommands.Parse("!fun gravity low") is { Kind: ChatCommands.Kind.Fun, Arg: "gravity low" } && ChatCommands.Parse("!fun gravity") is { Kind: ChatCommands.Kind.Usage }
             && ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!vote 3") is { Kind: ChatCommands.Kind.Vote, Arg: "3" });
@@ -105,13 +105,36 @@ static partial class Program
         var cardsNow = HudVote.Cards(ballot, 1001, null);
         string T(string id) => cardsNow.Texts.Single(x => x.Id == id).Text;
         bool On(string id, string cls) => cardsNow.Classes.Single(x => x.Id == id && x.Class == cls).On;
-        Check("The vote on the cards: option k on card k with its mode and votes, the player's own vote lit, the queued one tagged, the cards after the options empty",
-            T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes").StartsWith("1 vote") && T("gg_m1_votes").Contains("Alice") && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name").StartsWith("Random")
-            && On("gg_m1", "confirm") && !On("gg_m2", "confirm") && On("gg_m1", "queued") && !On("gg_m4", "used") && On("gg_m3", "used") && T("gg_m1_play_text") == "Your vote"
-            && T("gg_m_count").Contains("42 s") && cardsNow.Classes.Any(x => x.Id == HudView.Screen && x.Class == "voting" && x.On));
-        Check("The vote's click: a card's Play is !mv <round> <option> while the vote is open, which the bridge takes; nothing else is a vote",
-            HudVote.Click(ballot, "gg_m2_play") == "!mv 1793500000 2" && MapVote.IsAction("!mv 1793500000 2") && HudVote.Click(ballot, "gg_m5_play") == null
-            && HudVote.Click(ballot, "gg_m1_up") == null && HudVote.Click(new VoteState(), "gg_m1_play") == null);
+        Check("The vote on the cards: option k on card k with its mode (label and colour) and votes, the player's own vote lit, the queued one tagged, Random on its own button, the cards after the maps empty",
+            T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes").StartsWith("1 vote") && T("gg_m1_votes").Contains("Alice") && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name") == ""
+            && On("gg_m1", "confirm") && !On("gg_m2", "confirm") && On("gg_m1", "queued") && !On("gg_m4", "used") && !On("gg_m3", "used") && T("gg_m1_play_text") == "Your vote"
+            && On("gg_m1", "mode-armsrace") && On("gg_m2", "mode-deathmatch") && !On("gg_m2", "mode-armsrace") && Modes.All.All(m => !On("gg_m3", $"mode-{m.Id}"))
+            && cardsNow.Vars.Single(x => x.Name == HudVote.RandomVar).Text.StartsWith("3  ·  Random") && !On(HudView.Screen, "vrandom") && !On(HudView.Screen, "vpages") && !On(HudView.Screen, "vmore")
+            && T("gg_m_count").Contains("42 s") && On(HudView.Screen, "voting"));
+        Check("The vote's click: a card's Play is !mv <round> <option> while the vote is open, which the bridge takes, Random's button its option; nothing else is a vote",
+            HudVote.Click(ballot, "gg_m2_play") == "!mv 1793500000 2" && MapVote.IsAction("!mv 1793500000 2") && HudVote.Click(ballot, "gg_m5_play") == null && HudVote.Click(ballot, "gg_m3_play") == null
+            && HudVote.Click(ballot, HudVote.RandomButton) == "!mv 1793500000 3" && HudVote.Click(ballot, "gg_m1_up") == null && HudVote.Click(new VoteState(), "gg_m1_play") == null);
+        // ---- a ballot of twelve maps and Random, started mid-match by a player: pages, Keep playing, a map added ----
+        var big = new System.Text.StringBuilder("mode\tarmsrace\tArms Race\nmv\t1793600000\topen\t30\t4\t3\t2\tmid\t1002\n");
+        big.Append("mvo\t1\tarmsrace\tkeep\t5\t3084291315\tKeep playing #5 aim_on\t\t1\t\n");
+        for (var n = 2; n <= 11; n++) big.Append($"mvo\t{n}\t{(n == 9 ? "deathmatch" : n == 10 ? "wingman" : "armsrace")}\trolled\t{n + 20}\t30842913{n + 20}\t#{n + 20} map_{n}\t12 MB\t0\t\n");
+        big.Append("mvo\t12\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvo\t13\tarmsrace\tadded\t77\t3084291377\t#77 aim_added\t9 MB\t1\tCara\nmvv\t1001\t13\nmvv\t1002\t1\n");
+        var twelve = VoteState.Decode(big.ToString());
+        var first = HudVote.Cards(twelve, 1001, null);
+        var second = HudVote.Cards(twelve, 1001, null, page: 1);
+        string P(List<(string Id, string Text)> t, string id) => t.Single(x => x.Id == id).Text;
+        bool C((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) d, string id, string cls) => d.Classes.Single(x => x.Id == id && x.Class == cls).On;
+        Check($"Twelve maps: {HudVote.Pages(twelve)} pages of {HudMenu.Cards} - Keep playing first, the added map after the others; the pager and the hint for the next page impossible to miss",
+            twelve is { MidMatch: true, Starter: 1002 } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "gg_m1_rank") == "1  ·  Keep" && P(first.Texts, "gg_m1_play_text") == "Keep 1"
+            && P(first.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && C(first, HudView.Screen, "vpages") && C(first, HudView.Screen, "vmore")
+            && first.Vars.Single(x => x.Name == HudVote.MoreVar).Text == "4 more maps on the next page" && C(first, HudBrowser.PrevButton, "off") && !C(first, HudBrowser.NextButton, "off")
+            && P(second.Texts, "gg_m4_name") == "#77 aim_added" && P(second.Texts, "gg_m4_votes").Contains("added by Cara") && P(second.Texts, "gg_m4_play_text") == "Your vote" && P(second.Texts, "gg_m5_name") == ""
+            && !C(second, HudView.Screen, "vmore") && C(second, HudBrowser.NextButton, "off") && C(second, "gg_m2", "mode-wingman"));
+        Check("...a page's card k is that page's option, the pager moves this player alone, and an added map's page is where its adder sees it",
+            HudVote.Click(twelve, "gg_m2_play", 1) == "!mv 1793600000 10" && HudVote.Click(twelve, "gg_m2_play", 0) == "!mv 1793600000 2" && HudVote.Click(twelve, "gg_m5_play", 1) == null
+            && HudVote.PageClick(twelve, HudBrowser.NextButton, 0) == 1 && HudVote.PageClick(twelve, HudBrowser.NextButton, 1) == 1 && HudVote.PageClick(twelve, HudBrowser.FirstButton, 1) == 0
+            && HudVote.PageClick(twelve, HudBrowser.LastButton, 0) == 1 && HudVote.PageClick(twelve, "gg_m1_play", 0) == null && HudVote.PageOf(twelve, 13) == 1 && HudVote.PageOf(twelve, 2) == 0
+            && HudVote.Click(twelve, HudVote.RandomButton) == "!mv 1793600000 12" && HudVote.BrowseLine(twelve).Contains("30 s left"));
         var levels = HudVote.VersionClasses();
         Check($"The version check: content {Hud.Content} is level {HudVote.ContentLevel}; each level from {HudVote.FirstLevel} to {HudVote.LastLevel} has exactly one of svge/svlt on",
             Hud.Content == $"v{HudVote.ContentLevel / 10}_{HudVote.ContentLevel % 10}_0"

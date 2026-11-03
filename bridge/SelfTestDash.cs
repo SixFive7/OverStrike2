@@ -135,9 +135,9 @@ static partial class Program
             && HudDash.View(HudDash.Decode(empty.Encode()), new()).Classes.Single(x => x.Name == "osdqnone").On);
         var (nw, nc) = HudDash.View(null, new());
         Check("...and before the first block: one word that says so", nw.Single().Name == "osdstate" && nc.Single() == ("osdnone", true));
-        Check("The Sync tab and its pagers prove content v4_3_0, and the tab opens the Sync page (no chat command: the owner's list is as it was)",
+        Check("The Sync tab and its pagers prove content v4_3_0, and the tab opens the Sync page; so does !sync (the owner's 38 b), whose page needs no words of a newer content",
             HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43) && HudView.Tabs.Single(t => t.Id == HudDash.Tab).Page == HudSlots.Page.Sync
-            && ChatCommands.Parse("!sync").Kind == ChatCommands.Kind.Unknown && HudVote.PageLevel("Sync") == 0);
+            && ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync" } && HudVote.PageLevel("Sync") == 0);
 
         // ---- the website's data ----
         var web = SyncWords.WebStamped(SyncWords.Web(In(DashSample(updated), now), d, zone), now);

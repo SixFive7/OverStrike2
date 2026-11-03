@@ -179,6 +179,41 @@ public static class Fun
 
     public static bool Idle(Setting s, Func<string, string?> value) => IdleBecause(s, value) != null;
 
+    /// <summary>The Fun page's two buttons (the owner's 2026-11-03) and their chat words: !fun random, !fun default.</summary>
+    public const string RandomWord = "random", DefaultWord = "default";
+
+    /// <summary>The Fun page's Random: a choice for every setting the page shows in this mode, each drawn evenly from its own choices
+    /// (dice: a number 0 to n-1), and the grenade drops on or off where they are (Arms Race). The page itself lets any combination stand
+    /// - a setting another one makes idle says so - with one exception kept here: Moon gravity with Super jump would throw players out of
+    /// most maps, so Super jump stays normal when the gravity is Moon.</summary>
+    public static (List<(Setting Setting, Choice Choice)> Choices, bool? Nades) Randomized(Func<int, int> dice, bool armsRace)
+    {
+        var picks = Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Choices[Math.Clamp(dice(s.Choices.Length), 0, s.Choices.Length - 1)])).ToList();
+        if (picks.Any(x => x.s.Id == "gravity" && x.Item2.Id == "moon"))
+            for (var i = 0; i < picks.Count; i++)
+                if (picks[i].s.Id == "jump") picks[i] = (picks[i].s, picks[i].s.Normal);
+        return (picks, armsRace ? dice(2) == 1 : null);
+    }
+
+    /// <summary>The one chat line for everybody after Random: who, and what changed (at most so many characters; the rest counted).</summary>
+    public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, int max = 200)
+    {
+        var parts = changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
+        if (nadesSwitched is { } on) parts.Add($"grenade drops {(on ? "on" : "off")}");
+        if (parts.Count == 0) return $"{who} rolled the fun settings: nothing changed";
+        var line = $"{who} rolled the fun settings: ";
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var next = (i > 0 ? ", " : "") + parts[i];
+            if (line.Length + next.Length + 12 > max) return line + $" and {parts.Count - i} more";
+            line += next;
+        }
+        return line;
+    }
+
+    /// <summary>The one chat line for everybody after Default.</summary>
+    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal, the grenade drops on";
+
     /// <summary>What the news line says for a change: "Remy switched gravity to Low - until the map changes", or "Remy put gravity back to
     /// normal" for the first choice.</summary>
     public static string News(string who, Setting s, Choice c) =>

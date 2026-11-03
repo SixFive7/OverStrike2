@@ -302,6 +302,9 @@ public static class HudMenu
     public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
         Restart = "gg_set_restart", CancelAll = "gg_q_cancelall", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
+    /// <summary>Content v4_4_0: the Fun page's Random and Default (the owner's 2026-11-03; !fun random, !fun default).</summary>
+    public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
+
     /// <summary>Content v3_1_0: the new-maps setting's three buttons and its line (the bridge's !newmaps, Selection.cs).</summary>
     public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never", NewMapsNow = "gg_set_new_now";
 
@@ -337,9 +340,17 @@ public static class HudMenu
         };
     }
 
-    /// <summary>What a card's Play button says, and whether this player's click on it is the second, confirming one.</summary>
-    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now)
+    /// <summary>What a card's Play button says, and whether this player's click on it is the second, confirming one. While the vote is open
+    /// (the map browser it opens, content v4_4_0) a Play puts the map on the vote, with this player's vote.</summary>
+    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? voting = null, long account = 0)
     {
+        if (voting is { Open: true } v)
+        {
+            if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Keep) is { } on) return v.ChoiceOf(account) == on.N ? "Your vote" : $"On the vote: {on.N}";
+            if (m.Removed) return "Unavailable";
+            if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again to add";
+            return m.Risky ? "Add anyway?" : "Add to the vote";
+        }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
         if (s.Queue.Any(q => q.Key == m.Key)) return "Queued - join it";
@@ -356,7 +367,7 @@ public static class HudMenu
     /// <summary>The maps page for one player: the toolbar's state, the search box and keyboard, the count, the page counter and the
     /// eight cards. A query that is a Workshop id no map has hides the cards' empty message: the plugin shows that item's card there.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "")
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "", string serverMode = "", VoteState? voting = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -379,6 +390,7 @@ public static class HudMenu
         c.Add((HudBrowser.LikedButton, "on", b.Liked));
         c.Add((HudBrowser.OfficialButton, "on", b.Official));
         c.Add((HudBrowser.OursButton, "on", b.Ours)); // Over Strike 2's content (NewIds32)
+        c.Add((HudView.Screen, "fl-ours", b.Ours));   // content v4_4_0: Our maps glows while it is off
         c.Add((HudBrowser.PrevButton, "off", b.Page == 0));
         c.Add((HudBrowser.FirstButton, "off", b.Page == 0));
         c.Add((HudBrowser.NextButton, "off", b.Page >= b.PagesFor(matches.Count) - 1));
@@ -393,7 +405,7 @@ public static class HudMenu
             t.Add(($"{id}_size", m == null || m.Official ? "" : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
             t.Add(($"{id}_votes", m == null ? "" : Votes(m)));
             t.Add(($"{id}_warn", m == null ? "" : Warning(m)));
-            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now)));
+            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, voting, account)));
             c.Add((id, "used", m != null));
             c.Add((id, "official", m?.Official == true));
             c.Add((id, "risky", m?.Risky == true));
@@ -411,6 +423,7 @@ public static class HudMenu
             c.Add((id, "ours", m?.Ours == true));                           // Over Strike 2's content: the Ours tag on the picture
             c.Add((id, "nopic", m != null && !HudThumbs.Has(HudThumbs.Key(m)) && m.Id > 0)); // content v4_2_0: no picture in the addon, so its button shows
             c.Add((id, "picopen", m != null && m.Key == openPicture));      // ...and says Hide picture while that picture is up
+            c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // content v4_4_0: the mode it plays in, on its picture and in its colour
         }
         foreach (var (_, mode) in HudBrowser.ModeButtons) c.Add((HudView.Screen, HudBrowser.ModeClass(mode), b.Mode == mode)); // content v4_2_0's chips, lit
         return (t, c);
@@ -527,9 +540,14 @@ public static class HudMenu
     /// shows it in, else the one the server is in when that mode has it too.</summary>
     public static string PlayArg(HudCatalog.Entry m, string filter, string serverMode)
     {
-        var mode = filter != "" && m.RankIn(filter) >= 0 ? filter : serverMode != "" && m.RankIn(serverMode) >= 0 ? serverMode : m.FirstMode;
+        var mode = PlayMode(m, filter, serverMode);
         return mode == m.FirstMode ? m.Arg : $"{m.Arg} {mode}";
     }
+
+    /// <summary>The mode a card's Play plays its map in: the filter's, else the server's when that mode has it too, else the first mode that has it.
+    /// Its label and colour on the card (content v4_4_0) say this mode.</summary>
+    public static string PlayMode(HudCatalog.Entry m, string filter, string serverMode) =>
+        filter != "" && m.RankIn(filter) >= 0 ? filter : serverMode != "" && m.RankIn(serverMode) >= 0 ? serverMode : m.FirstMode;
 
     /// <summary>A click on a menu button as the action it asks the bridge for (null: nothing to send). Card buttons name the map shown on
     /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick.</summary>

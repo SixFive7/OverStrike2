@@ -4,7 +4,7 @@
 
 Over Strike 2 turns a Counter-Strike 2 dedicated server into an Arms Race (gun game) server that plays the Steam Workshop:
 thousands of community maps, picked from an in-game menu or from chat, shared out fairly between the players who are on, voted
-on, and rolled at random when nobody asks. Deathmatch and Wingman come in through the vote at a match's end. Players install
+on, and rolled at random when nobody asks. Deathmatch and Wingman come in through the vote for the next map. Players install
 nothing: the server hands their game the menu when they join.
 
 The rest of this page says what it does for players, how it looks after itself, how it is built and tested, and how to run your own.
@@ -15,7 +15,7 @@ Every rule, setting and log line is in [docs/reference.md](docs/reference.md).
 ### The game modes
 
 **Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match.
-**Deathmatch** and **Wingman** are on the ballot at every match's end, Wingman while four players or fewer are on. A map loads in its
+**Deathmatch** and **Wingman** are on every ballot, Wingman while four players or fewer are on. A map loads in its
 own mode, with that mode's settings. Each mode has Valve's official maps and its own list of Workshop maps. The server goes back
 to Arms Race after every restart, and after 10 minutes with nobody on. Grenade drops, the match length, the catch-up boosts and
 friendly fire's settings are Arms Race's own; outside it the menu leaves them out.
@@ -30,16 +30,16 @@ so nobody is left standing in it. Its pages:
 | Page | What is on it |
 |---|---|
 | **Start** | The welcome, three steps and how to reach the menu. A first-time player gets this window at their first spawn; a returning one a short card. |
-| **Maps** | Eight cards a page, each with the map's picture, number, size and votes, and its Play button and vote arrows. Full-text search on an on-screen keyboard over names, tags and Workshop ids; sort by number, votes, name or size; filter by size (under 25 MB, 25-120, 120-400, 400 and up), by your own likes, by official maps, by Our maps and by game mode. A map with no picture in the HUD has a button on its card that shows its Workshop preview on request. Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the Workshop about it, and **Download and play** fetches it to the server, with the progress on the card, while nobody's game is interrupted; then it plays like any pick. |
+| **Maps** | Eight cards a page, each with the map's picture, number, size and votes, its Play button and vote arrows, and the mode it plays in: a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search on an on-screen keyboard over names, tags and Workshop ids; sort by number, votes, name or size; filter by size (under 25 MB, 25-120, 120-400, 400 and up), by your own likes, by official maps, by Our maps (its button glows) and by game mode. A map with no picture in the HUD has a button on its card that shows its Workshop preview on request. Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the Workshop about it, and **Download and play** fetches it to the server, with the progress on the card, while nobody's game is interrupted; then it plays like any pick. |
 | **Queue** | Who is next and who asked, Cancel on your own requests or all of them, Previous for the map before this one. |
 | **Game** | The match length (10 or 60 minutes, from the next match), new maps in random picks (always, half, never), and Restart for a stuck server, twice to confirm. |
-| **Fun** | The fun settings and the grenade drops. |
+| **Fun** | The fun settings and the grenade drops, with **Random** (every setting drawn at random) and **Default** (everything back to normal). |
 | **Help** | Where everything is, and what it does. |
 | **Rules** | The vote, how votes count, the fair queue. |
 | **How it works** | Every chance in a map pick: the queue, Next, the vote, the lists, the weights and everything that is never rolled. |
 | **Sync** | The Workshop sync's dashboard: what it does now (with the step on a bar), what waits in its queue, the random queues on the server's disk, and its history of runs and map events, newest first, a page at a time. |
 
-Everybody also sees a news line (who picked what, the queue moving, a skip vote, a crash, a map's blocked settings), a countdown
+Everybody also sees a news line (who picked what, the queue moving, a vote started, a crash, a map's blocked settings), a countdown
 banner before a map change, a now-playing card at the first spawn on each map, and the name and tagline for a few seconds on
 joining. Each player has a private note line, which answers what they just clicked.
 
@@ -51,13 +51,13 @@ lists the primaries; the table with all of them is in [docs/reference.md](docs/r
 | Group | Commands |
 |---|---|
 | Maps | `!play` `!find` `!maps` `!next` `!random` `!back` |
-| Queue | `!q` `!cancel` `!done` `!skip` |
+| Queue | `!q` `!cancel` `!done` |
 | Voting | `!up` `!down` `!toobig` `!ads` `!vote` |
-| Game | `!fun` `!nades` `!time` `!newmaps` `!restart` |
-| Menu | `!menu` `!help` `!rules` `!how` |
+| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!time` `!newmaps` `!restart` |
+| Menu | `!menu` `!help` `!rules` `!how` `!sync` |
 
 **Aliases teach.** Every command has its aliases, and the words players know from other servers are among them (`!map`, `!rtv`,
-`!nominate`). An alias runs the action, and its private reply shows what ran: `You typed !map 12 - ran !play 12`. A `/` line is hidden
+`!nominate`, `!skip`). An alias runs the action, and its private reply shows what ran: `You typed !map 12 - ran !play 12`. A `/` line is hidden
 from the others; a `!` line stays as normal chat. A pasted Workshop link or id opens that item's card.
 
 ### The fair queue
@@ -65,35 +65,43 @@ from the others; a `!` line stays as normal chat. A pasted Workshop link or id o
 Play on a card is a request. On a map nobody holds, a random map or the start map, it plays at once; on somebody's map it waits in the
 queue. A map two or more players on the server want goes first, then whoever has had the least play time from their own requests
 this session, so one player's five requests wait behind everyone else's first. Each player has up to five requests, and only players on the
-server are queued. A requested map stays until its match ends, its requester says **I'm done**, a majority of the other players votes to skip
-it, or its requester has been gone for over a minute while others wait. **Next** does what fits: a random map when nobody holds this one, I'm
-done on your own, a vote to skip on somebody else's.
+server are queued. A requested map stays until its match ends, its requester says **I'm done**, a vote replaces it, or its requester has been
+gone for over a minute while others wait. **Next** starts the vote for the next map, with Keep playing on it; on your own map it is I'm done.
 
-### The end-of-match vote
+### The vote for the next map
 
 When a match ends everybody votes on the Maps page's cards, for 60 seconds or until a strict majority of the players present agrees. The
-ballot holds up to five maps and Random:
+ballot holds at least eight maps, and Random:
 
-1. the queue: each connected requester's first request, with that requester's vote already in;
-2. a map of each other game mode that suits the players on;
-3. maps of the server's own mode, rolled like every random pick;
-4. Random: the dice after the vote.
+1. the queue: every request, with each connected requester's vote already in on their first;
+2. a map of each other game mode that suits the players on, unless a request is one;
+3. maps of the server's own mode, rolled like every random pick, up to eight maps in all;
+4. Random, a button of its own: the dice after the vote.
 
-Click a card's Vote, or type its number: a bare `3`, or `!vote 3`. A click also shows in chat, as that player's `!vote 3`, so menu users
-learn the chat way. The most votes win, a tie is drawn at random, and no votes at all is Random. A queued map that loses stays queued. The map
-a vote chose stays until its match ends or a skip vote passes.
+Every card shows its mode. Eight cards make a page, and a longer ballot pages, with a hint you cannot miss. **Open the map browser** lets you put
+any map on the ballot for everybody, with your vote on it (one map each; `!play` in chat does the same). Click a card's Vote, or type its number:
+a bare `3`, or `!vote 3`. A click also shows in chat, as that player's `!vote 3`, so menu users learn the chat way. The most votes win, a tie is
+drawn at random, and no votes at all is Random. A queued map that loses stays queued. The map a vote chose stays until its match ends or another
+vote replaces it.
 
-While the vote is open only the vote picks a map: `!play`, `!next`, `!random`, `!back`, `!done` and `!skip`, with all their aliases, only answer with
-what to type, and requests reopen after the vote.
+**Next starts the same vote at any time**, with one card more: **Keep playing** the map that is on. Only your own window opens; the others see
+it on the news line. If Keep wins, or nobody votes, the map stays - a request stays its requester's - and you wait 2 minutes before starting
+another. Any other winner replaces the map, even somebody's request: that is the only way to cut one short. `!random` is the same vote with
+your vote on Random. On your own map Next is I'm done, and the vote that follows has no Keep playing.
+
+While a vote is open `!play` adds its map to it and `!random` votes Random; `!next`, `!back` and `!done`, with all their aliases, only answer
+with what to type, and requests reopen after the vote.
 
 ### Votes and why
 
-**Like** and **Dislike** vote on the map that is on, the arrows on any map's card. One vote per player per map, and it is kept: a vote is never
-taken back. The same vote again says you voted so already, and the opposite vote replaces it.
+**Like** and **Dislike** vote on the map that is on, the arrows on any map's card. One vote per player per map, and a vote steps: Like on a
+disliked map takes the dislike back first, and says so ("Your dislike of ... is removed - like it again to add a like"); the next Like casts it.
+The same the other way round. The same vote again only says you voted so already: repeating a vote never takes it back.
 
-**A Dislike asks why.** A popup at the left of the screen lists the reasons for 15 seconds, without taking the mouse: a click needs the cursor you already
-have, from the window or from TAB. Chat answers it too (`!down big`), and names one directly on any map (`!down 12 big`). With no answer the vote
-stays "I did not like the map".
+**A Dislike asks why**, right where you clicked it: over the card's picture, in the window in place of Like and Dislike, or on the TAB board,
+for 15 seconds. A dislike typed in chat while the window is closed gets the list at the left of the screen. Chat answers it too (`!down big`),
+and names one directly on any map (`!down 12 big`); a reason on a map you liked takes the like back first. With no answer the vote stays
+"I did not like the map". Too big and Ads are reasons now, not buttons of their own.
 
 | Word | Reason | What it does |
 |---|---|---|
@@ -106,20 +114,23 @@ stays "I did not like the map".
 
 ### Random maps
 
-The dice roll at a server start, on Next, and for Random on the ballot. Each Like doubles a map's odds, up to five; each Dislike quarters them; Workshop
+The dice roll at a server start and for Random on the ballot. Each Like doubles a map's odds, up to five; each Dislike quarters them; Workshop
 popularity gives up to three times. The **new maps** setting on the Game page says which list a pick comes from: always the newer maps, half a coin
 flip, never the original list. Never rolled: the map that is on, the last 10 maps played while others are left, maps that crashed the server or a
 player's game, broken and blocked maps, maps gone from the Workshop, and maps marked as showing ads. A map's download size plays no part. After 10 minutes
 with nobody on, the new-maps setting, the grenade drops and every fun setting go back to their defaults.
 
-The dice are rolled ahead: the bridge keeps a queue of 15 rolls for each list (the new maps, the original list, Deathmatch, Wingman), and the server
-downloads them in the background while you play, so pressing Next past a few maps nobody likes never waits for a download. A pick takes the first
+The dice are rolled ahead: the bridge keeps a queue of 20 rolls for each list (the new maps, the original list, Deathmatch, Wingman), and the server
+downloads them in the background while you play, so at least 10 maps of every mode are on its disk at all times and a ballot's cards never wait
+for a download. A pick takes the first
 entry that is still eligible and already on the server's disk; the vote's random maps come from the same queues, and a map shown in a vote and not
 chosen comes back no sooner than the dice would bring it.
 
 ### Fun settings
 
 Sixteen settings anybody can switch until the map changes, each with its own word; a bare `!fun` opens the page and writes the words in chat.
+**Random** on the page (`!fun random`) draws every setting from its own choices and the grenade drops on or off, never a combination the page would
+not make; **Default** (`!fun default`) puts everything back as 10 minutes with nobody on does. Either says in chat who did it.
 
 | Word | Setting | Choices |
 |---|---|---|
@@ -192,7 +203,9 @@ The server's own maps have a filter on the Maps page and a tag on their cards. W
 ### What is in which HUD
 
 All of this is what the code does with the HUD content it is built for. The reasons popup and the grenade drops on the Fun page come with content `v4_1_0`; the pictures of maps not
-listed yet, the picture button and the game-mode filter with `v4_2_0`; the Sync page with `v4_3_0`. Each version waits for Valve's review first, and a game holding an older one keeps working without them.
+listed yet, the picture button and the game-mode filter with `v4_2_0`; the Sync page with `v4_3_0`; the vote's pages, Random's button and the map browser that adds to the
+vote, the cards' mode labels and colours, the reasons where a Dislike was clicked, the Fun page's Random and Default and the Our maps glow with `v4_4_0`. Each version waits
+for Valve's review first, and a game holding an older one keeps working without them (an older game shows the ballot's first eight maps, and its other numbers can be typed).
 
 ## A server that looks after itself
 

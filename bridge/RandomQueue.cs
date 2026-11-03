@@ -26,8 +26,9 @@ using System.Text.Json;
 
 static partial class Program
 {
-    /// <summary>Entries per queue (RANDOM_QUEUE, 10-40): at least 10 on disk per mode while a vote's 3-5 options and a few Nexts are taken.</summary>
-    public static readonly int QueueLength = Math.Clamp(int.TryParse(Env("RANDOM_QUEUE", "15"), out var n) ? n : 15, 10, 40);
+    /// <summary>Entries per queue (RANDOM_QUEUE, 10-40; 20 since 2026-11-03): at least 10 of every mode on disk at all times (the owner's 2026-11-03),
+    /// also right after a vote has taken its MapVote.MinMaps maps from the queue of the server's mode and one from each other mode's.</summary>
+    public static readonly int QueueLength = Math.Clamp(int.TryParse(Env("RANDOM_QUEUE", "20"), out var n) ? n : 20, 10, 40);
     public const string QueueNew = "armsrace-new", QueueOriginal = "armsrace-original";
     public static readonly string[] QueueNames = [QueueNew, QueueOriginal, Modes.DeathmatchId, Modes.WingmanId];
     public const int ReadyFreshMinutes = 5;  // the watcher's report counts this long; it sends one at least every 2 minutes

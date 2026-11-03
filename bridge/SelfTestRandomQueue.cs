@@ -51,7 +51,7 @@ static partial class Program
             var head = Head(QueueNew);
             var pick = RandomNext(true, 1);
             Check("No report from the watcher: a pick takes the head of the new maps' queue (new maps always), and the queue rolls its next at once",
-                pick != null && Key(pick) == head && QueueOf(QueueNew).Count == QueueLength && QueueOf(QueueNew).All(e => e.Key != head) && RollNote == "");
+                pick != null && Key(pick) == head && QueueOf(QueueNew).Count == QueueLength && QueueOf(QueueNew).SkipLast(1).All(e => e.Key != head) && RollNote == ""); // the new last entry is a fresh roll, which may be any map
             Check("No pick for an empty server or with the dice switched off, and nothing is taken then",
                 RandomNext(true, 0) is null && RandomNext(false, 3) is null && QueueOf(QueueNew).Count == QueueLength);
             var third = QueueOf(QueueNew)[2].Key;
@@ -60,6 +60,7 @@ static partial class Program
             pick = RandomNext(true, 1);
             Check("With a fresh report a pick takes the first entry on disk, and the two before it stay, in their places",
                 pick != null && Key(pick) == third && QueueOf(QueueNew)[0].Key == first && QueueOf(QueueNew)[1].Key == second);
+            ApplyReady("gg-ready\t1\n"); // a fresh report that names no queued map (the refill may have rolled the one it named again)
             pick = RandomNext(true, 1);
             Check("Nothing on disk: the first eligible entry anyway (the server downloads it, as it always did)", pick != null && Key(pick) == first);
             Check("The report's answer says hold while a map change counts down or loads, or a vote is open, and nothing else",
@@ -124,14 +125,15 @@ static partial class Program
             head = Head(Modes.DeathmatchId);
             pick = RandomNext(true, 1, Modes.Deathmatch);
             Check("Deathmatch: its own queue's head", pick != null && Key(pick) == head && pick.Mode == Modes.DeathmatchId);
-            var shown = new HashSet<string>(QueueNames.SelectMany(n => QueueOf(n).Take(3).Select(e => e.Key)));
-            Check("The vote opens with its maps from the queues", OpenBallot(clock, 2) && Ballot is { } b && b.Options.Count(o => o.Source == VoteSource.Rolled) == 5);
+            var shown = new HashSet<string>(QueueNames.SelectMany(n => QueueOf(n).Take(MapVote.MinMaps).Select(e => e.Key)));
+            Check($"The vote opens with its {MapVote.MinMaps} maps from the queues", OpenBallot(clock, 2) && Ballot is { } b && b.Options.Count(o => o.Source == VoteSource.Rolled) == MapVote.MinMaps);
             // the queue each option came from: its mode's (Arms Race's new maps under always); a map on two modes' lists (de_overpass is
             // Deathmatch's and Wingman's) has an entry of each mode's own dice, and only the one taken is used up
             static string From(BallotOption o) => o.Mode.ArmsRace ? QueueNew : o.Mode.Id;
             var rolled = Ballot!.Options.Where(o => o.Map != null).ToList();
+            var takes = rolled.GroupBy(From).ToDictionary(g => g.Key, g => g.Count()); // each take is rolled anew at the end of its queue, and a fresh roll may be any map
             Check("Every map the ballot shows was its queue's first entry, and is gone from that queue - shown or chosen, it was used, so it comes back no sooner than the dice bring it",
-                rolled.All(o => shown.Contains(Key(o.Map!))) && rolled.All(o => QueueOf(From(o)).All(e => e.Key != Key(o.Map!)))
+                rolled.All(o => shown.Contains(Key(o.Map!))) && rolled.All(o => QueueOf(From(o)).SkipLast(takes[From(o)]).All(e => e.Key != Key(o.Map!)))
                 && QueueNames.All(n => QueueOf(n).Count == QueueLength));
             Ballot = null;
 

@@ -50,7 +50,10 @@ sealed class HudScreen
 
     HudState? state;                                  // the bridge's newest state; null until the first answer
     VoteState vote = new();                           // the end-of-match vote and the modes, off the same text (MapVote.cs)
-    readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round)
+    readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round; negative while mid-match)
+    readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser is open on the vote (content v4_4_0)
+    readonly Dictionary<int, (int Card, string Key)> whyCard = new(); // slot -> the card a Dislike came from: its reasons go over its picture (content v4_4_0)
+    readonly Random dice = new();                     // the Fun page's Random
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
     readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: the version banner (and an older HUD's note) for a while
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
@@ -177,6 +180,7 @@ sealed class HudScreen
     {
         worldReady = true;
         if (find != null) Browser(player.Slot).Find(find);
+        if (find != null && vote is { Open: true, Round: > 0 }) voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, true); // a search during the vote: the map browser that adds to it
         slots.Show(player.Slot, HudSlots.Page.Maps, DateTime.UtcNow);
         Server.NextFrame(() => { EnsureEntity(); Frame(); }); // not inside the player's own chat command (see the class summary)
     }
@@ -343,6 +347,8 @@ sealed class HudScreen
     {
         slots.Gone(slot);
         voteShown.Remove(slot);
+        voteView.Remove(slot);
+        whyCard.Remove(slot);
         joinedAt.Remove(slot);
         gate.Gone(slot);
         tab.Gone(slot);
@@ -467,7 +473,9 @@ sealed class HudScreen
         if (buttonId == HudMenu.BoardOpen && !slots.WindowOpen(player.Slot)) { tab.Release(player.Slot); Menu(player); return; } // the board's button: the window keeps the cursor
         if (buttonId is HudView.BoardUp or HudView.BoardDown or HudView.BoardNext or HudView.BoardBig or HudView.BoardAds) // the board's own buttons, under the TAB cursor
         {
-            if (HudView.Command(buttonId, state, who) is { } boardCommand) Act(player, who, boardCommand);
+            var boardCommand = HudView.Command(buttonId, state, who);
+            if (boardCommand == HudView.OpenVote) { tab.Release(player.Slot); Menu(player); return; } // the vote is on: its window
+            if (boardCommand != null) Act(player, who, boardCommand);
             Server.NextFrame(Frame);
             return;
         }
@@ -477,19 +485,52 @@ sealed class HudScreen
         var account = Account(player);
         var browser = Browser(player.Slot);
         if (HudMenu.PicCard(buttonId) is > 0 and var picCard) { TogglePicture(player, account, picCard, now); Server.NextFrame(Frame); return; }
+        if (buttonId == HudView.ButtonAct && HudView.Command(buttonId, state, account) == HudView.OpenVote) { slots.Show(player.Slot, HudSlots.Page.Maps, now); Server.NextFrame(Frame); return; } // the vote is on: the Maps page shows it
         if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
         {
-            // The vote is on the Maps page's cards (HudVote.cs): a card's Play is a vote; the browser's own controls wait for the vote's end.
-            if (HudVote.Click(vote, buttonId) is { } cast)
+            var view = VoteView(player.Slot);
+            if (buttonId == HudVote.BrowseButton && vote.Open) { voteView[player.Slot] = (vote.Round, view.Page, true); Server.NextFrame(Frame); return; } // content v4_4_0: the map browser adds to the vote
+            if (buttonId == HudVote.BackButton) { voteView[player.Slot] = (vote.Round, view.Page, false); Server.NextFrame(Frame); return; }
+            if (!(view.Browse && vote.Open))
             {
-                var was = vote.ChoiceOf(account);
-                Act(player, account, cast);
-                if (MapVote.ParseClick(cast) is { } picked && picked.Option != was) SayForAll(player, HudVote.ChatWords(picked.Option)); // so menu users learn the chat way
+                // The vote is on the Maps page's cards (HudVote.cs), a page of eight: a card's Play is a vote, Random's button too, the pager pages.
+                if (HudVote.PageClick(vote, buttonId, view.Page) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Server.NextFrame(Frame); return; }
+                if (HudVote.Click(vote, buttonId, view.Page) is { } cast)
+                {
+                    var was = vote.ChoiceOf(account);
+                    Act(player, account, cast);
+                    if (MapVote.ParseClick(cast) is { } picked && picked.Option != was) SayForAll(player, HudVote.ChatWords(picked.Option)); // so menu users learn the chat way
+                }
+                Server.NextFrame(Frame);
+                return;
             }
+            // The map browser while the vote is on: its own controls as ever; a card's Play puts the map on the vote, with this player's vote (the bridge's
+            // !map during a vote), says so in chat the chat way (!play), and goes back to the ballot's last page, where the map appears for everybody.
+            var browsing = Browser(player.Slot);
+            if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
+            if (buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
+                && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
+            {
+                Act(player, account, add);
+                if (browsing.ConfirmKey == "") // a risky map's first click only arms its confirmation: the second one adds it
+                {
+                    SayForAll(player, "!play " + add[5..]);
+                    voteView[player.Slot] = (vote.Round, int.MaxValue, false);
+                }
+                Server.NextFrame(Frame);
+                return;
+            }
+        }
+        if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
+        if (HudVote.DownCard(buttonId) is > 0 and var downCard) whyCard[player.Slot] = (downCard, CardKey(player, account, downCard)); // content v4_4_0: the reasons go over that card
+        if (buttonId is HudMenu.FunRandom or HudMenu.FunDefault)
+        {
+            var which = buttonId == HudMenu.FunRandom ? Fun.RandomWord : Fun.DefaultWord;
+            SayForAll(player, $"!fun {which}"); // so menu users learn the chat way
+            FunAll(player, which);
             Server.NextFrame(Frame);
             return;
         }
-        if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
         if (buttonId is HudMenu.NadesOn or HudMenu.NadesOff && !mode.ArmsRace)
         {
             LocalNote(player.Slot, $"Grenade drops are Arms Race's own - not in {mode.Name}");
@@ -537,7 +578,11 @@ sealed class HudScreen
     /// <summary>The map on a card for this player: what the vote or the browser shows there, as its key (empty for none).</summary>
     string CardKey(CCSPlayerController p, long account, int card)
     {
-        if (vote.Round > 0) return card <= vote.Options.Count && vote.Options[card - 1].Source != VoteSource.Random ? vote.Options[card - 1].Key : "";
+        if (vote.Round > 0 && !(VoteView(p.Slot).Browse && vote.Open))
+        {
+            var shown = vote.Maps.Skip(Math.Clamp(VoteView(p.Slot).Page, 0, HudVote.Pages(vote) - 1) * HudMenu.Cards).ToList();
+            return card <= shown.Count ? shown[card - 1].Key : "";
+        }
         if (catalog == null) return "";
         var browser = Browser(p.Slot);
         var page = browser.PageOf(browser.Matches(catalog, account, search));
@@ -765,6 +810,9 @@ sealed class HudScreen
     /// <summary>The end-of-match vote is open: a bare number in chat is a vote (ChatCommands.Parse).</summary>
     public bool VoteOpen => vote is { Open: true, Round: > 0 };
 
+    /// <summary>The open vote's highest number: a bare number above it stays plain chat.</summary>
+    public int VoteHighest => vote.Highest;
+
     /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat - the bridge's note for that
     /// player is echoed there once it comes (EchoNotes), for a player whose game shows no HUD. An alias's reply first teaches the primary.</summary>
     public void Chat(CCSPlayerController player, ChatCommands.Parsed cmd)
@@ -783,6 +831,7 @@ sealed class HudScreen
             case ChatCommands.Kind.Bridge:
                 var action = cmd.Arg == "next" ? HudView.Command(HudView.BoardNext, state, account) : cmd.Arg; // the board's Next, as the board reads for this player
                 if (action == null) { Say("Next: nothing to do while a map change is under way"); return; }
+                if (action == HudView.OpenVote) { Menu(player); Say("The vote for the next map is on - the menu shows it; type !vote and a number"); return; }
                 Bridge(action);
                 return;
             case ChatCommands.Kind.Top:
@@ -824,12 +873,15 @@ sealed class HudScreen
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
                 if (!vote.Open || vote.Round <= 0) { Say("No vote is on - it opens when a match ends"); return; }
-                if (k > vote.Options.Count) { foreach (var line in ChatCommands.VoteOnlyLines(vote.Options.Count)) Say(line); return; }
-                Bridge(MapVote.Click(vote.Round, vote.Options[k - 1].N));
-                Say($"Your vote: {Hud.Clean(vote.Options[k - 1].Label, 40)}");
+                if (vote.Numbered(k) is not { } numbered) { foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line); return; }
+                Bridge(MapVote.Click(vote.Round, numbered.N));
+                Say($"Your vote: {Hud.Clean(numbered.Label, 40)}");
                 return;
             case ChatCommands.Kind.VoteOnly:
-                foreach (var line in ChatCommands.VoteOnlyLines(vote.Options.Count)) Say(line);
+                foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line);
+                return;
+            case ChatCommands.Kind.FunAll:
+                FunAll(player, cmd.Arg); // the Fun page's Random or Default (content v4_4_0's buttons; the owner's 2026-11-03)
                 return;
             case ChatCommands.Kind.Commands:
                 foreach (var line in ChatCommands.HelpLines()) Say(line);
@@ -984,7 +1036,12 @@ sealed class HudScreen
         if (vote.Round > 0)
             foreach (var h in humans)
             {
-                if (voteShown.GetValueOrDefault(h.Slot) != vote.Round) { voteShown[h.Slot] = vote.Round; slots.Show(h.Slot, HudSlots.Page.Maps, now); }
+                var shownKey = vote.MidMatch ? -vote.Round : vote.Round; // a vote a player started that a match end overtook opens everybody's window then
+                if (voteShown.GetValueOrDefault(h.Slot) != shownKey)
+                {
+                    voteShown[h.Slot] = shownKey;
+                    if (!vote.MidMatch || Account(h) == vote.Starter) slots.Show(h.Slot, HudSlots.Page.Maps, now); // a vote started mid-match opens its starter's window alone: nobody else is stopped in a fight
+                }
                 if (slots.WindowOpen(h.Slot) && vote.Open) slots.Hold(h.Slot, now);
             }
         foreach (var (id, cls, on) in HudVote.VersionClasses(TestLevel ?? HudVote.ContentLevel)) Class(id, cls, on);
@@ -1015,7 +1072,12 @@ sealed class HudScreen
             var joined = joinedAt.TryGetValue(p.Slot, out var at) && (now - at).TotalSeconds < HudVote.JoinSeconds;
             Class(HudView.Screen, "vjoin", joined, p);                     // the version banner, in the games that have one
             Class(HudView.Screen, "vold", joined && ContentOf(p) < 32, p); // the older HUD's note, which a newer game hides
-            if (vote.Round <= 0) Class(HudView.Screen, "voting", false, p);
+            var vv = VoteView(p.Slot);
+            var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
+            if (vote.Round <= 0 || browsing) Class(HudView.Screen, "voting", false, p);
+            Class(HudView.Screen, "vbrowse", browsing, p);                                  // content v4_4_0: the map browser adds to the vote
+            if (browsing) Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), p);
+            WhyInline(p, view, account, shown);                                              // content v4_4_0: a Dislike's reasons where it was clicked
             foreach (var page in Enum.GetValues<HudSlots.Page>()) Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, p);
             // Contents v3_1_0 and v3_2_0: what their new panels would get from everybody's state goes to this player alone, once their game
             // has shown it has them; c31 and c32 (on gg_screen, which v3_0_0 has too) uncover those panels.
@@ -1047,8 +1109,8 @@ sealed class HudScreen
     {
         var (texts, classes) = page switch
         {
-            HudSlots.Page.Maps when vote.Round > 0 => HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? ""),
-            HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search, pictures.GetValueOrDefault(p.Slot)?.Key ?? ""),
+            HudSlots.Page.Maps when vote.Round > 0 && !(vote.Open && VoteView(p.Slot).Browse) => BallotPage(p, account),
+            HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", mode.Id, vote.Open ? vote : null),
             HudSlots.Page.Queue => HudMenu.Queue(shown, account),
             HudSlots.Page.Game => HudMenu.Game(shown, restartArmed.TryGetValue(p.Slot, out var until) && now < until ? (int)Math.Ceiling((until - now).TotalSeconds) : 0),
             _ => (null, null),
@@ -1057,7 +1119,7 @@ sealed class HudScreen
         foreach (var (id, text) in texts) Text(id, text, p);
         foreach (var (id, cls, on) in classes) Class(id, cls, on, p);
         if (page != HudSlots.Page.Maps) return;
-        if (vote.Round > 0) { Pictures(p, HudVote.Thumbs(vote, catalog)); return; }
+        if (vote.Round > 0 && !(vote.Open && VoteView(p.Slot).Browse)) { Pictures(p, HudVote.Thumbs(vote, catalog, VoteView(p.Slot).Page)); return; }
         var card = cards.TryGetValue(p.Slot, out var c) ? c : cards[p.Slot] = new WorkshopCard();
         card.Show(Browser(p.Slot).WorkshopQuery(catalog), now); // a typed Workshop id that no listed map has: its card, asked about once it holds still
         foreach (var (id, text) in card.Texts()) Text(id, text, p);
@@ -1077,6 +1139,65 @@ sealed class HudScreen
         var (words, classes) = HudDash.View(dash, DashPages(p.Slot));
         foreach (var (name, text) in words) Var(HudView.Screen, name, text, p);
         foreach (var (name, on) in classes) Class(HudView.Screen, name, on, p);
+    }
+
+    /// <summary>This player's view of the vote that is on: their page of the ballot and whether the map browser is open on it; a new round starts on its
+    /// first page, on the ballot.</summary>
+    (int Page, bool Browse) VoteView(int slot)
+    {
+        if (!voteView.TryGetValue(slot, out var v) || v.Round != vote.Round) { voteView[slot] = v = (vote.Round, 0, false); }
+        var page = Math.Clamp(v.Page, 0, HudVote.Pages(vote) - 1);
+        if (page != v.Page) voteView[slot] = v = (v.Round, page, v.Browse);
+        return (v.Page, v.Browse);
+    }
+
+    /// <summary>The ballot's page for this player: its texts and classes, and its variables on gg_screen (Random's button, the hint for the other pages).</summary>
+    (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(CCSPlayerController p, long account)
+    {
+        var (texts, classes, vars) = HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", VoteView(p.Slot).Page);
+        foreach (var (name, text) in vars) Var(HudView.Screen, name, text, p);
+        return (texts, classes);
+    }
+
+    /// <summary>Content v4_4_0 (the owner's 2026-11-03): a Dislike's reasons where it was clicked - over the picture of the card it came from (whyc1 ...),
+    /// or in the window's live column (whyin alone) - and the left-hand popup only where neither is on screen (a dislike typed in chat with the
+    /// window closed; the TAB board shows its own, by the stylesheet).</summary>
+    void WhyInline(CCSPlayerController p, HudSlots.View view, long account, HudState shown)
+    {
+        var asked = shown.Why.TryGetValue(account, out var w) && w.For > 0;
+        var card = 0;
+        if (asked && view.Window && view.Page == HudSlots.Page.Maps && whyCard.TryGetValue(p.Slot, out var wc) && wc.Key != "" && CardKey(p, account, wc.Card) == wc.Key) card = wc.Card;
+        var inline = asked && view.Window && (view.Page is not (HudSlots.Page.Maps or HudSlots.Page.Sync) || card > 0);
+        Class(HudView.Screen, "whyin", inline, p);
+        for (var k = 1; k <= HudMenu.Cards; k++) Class(HudView.Screen, $"whyc{k}", card == k, p);
+    }
+
+    /// <summary>The Fun page's Random or Default (the owner's 2026-11-03), from a click or from !fun random / !fun default: Random draws every setting the page
+    /// shows in this mode from its own choices (Fun.Randomized) and the grenade drops where they are, Default is the reset after 10 minutes with nobody on -
+    /// gg_fun reset and the grenade drops on. The same commands a click on each row runs, a frame later; one chat line for everybody says what changed.</summary>
+    void FunAll(CCSPlayerController player, string which)
+    {
+        var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
+        if (which == Fun.DefaultWord)
+        {
+            var nadesOff = mode.ArmsRace && NadesOn?.Invoke() == false;
+            Server.NextFrame(() =>
+            {
+                Server.ExecuteCommand($"{Fun.ResetCommand} \"{name}\"");
+                if (nadesOff) Server.ExecuteCommand($"gg_nades on \"{name}\"");
+                Server.PrintToChatAll(" " + Fun.DefaultLine(name));
+            });
+            return;
+        }
+        var (picks, nades) = Fun.Randomized(dice.Next, mode.ArmsRace);
+        var changed = picks.Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
+        bool? nadesSwitched = nades is { } want && NadesOn?.Invoke() != want ? want : null;
+        Server.NextFrame(() =>
+        {
+            foreach (var (setting, choice) in changed) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
+            if (nadesSwitched is { } on) Server.ExecuteCommand($"gg_nades {(on ? "on" : "off")} \"{name}\"");
+            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed, nadesSwitched));
+        });
     }
 
     /// <summary>The cards' pictures for this player (two classes a picture, HudThumbs).</summary>

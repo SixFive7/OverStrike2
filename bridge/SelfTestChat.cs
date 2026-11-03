@@ -1,6 +1,8 @@
 // --selftest, the chat commands (ChatCommands.cs; the owner's decisions of 2026-11-01): every alias runs its primary and teaches it, no word
 // is two things outside the owner's context rules, each fun setting has its own word, a bare number votes only while a vote is open, and
 // the words are the same wherever they are said. The list below is the owner's, kept here word for word: the table may not drift from it.
+// Since 2026-11-03 (the owner's): !skip and its aliases are Next's (the vote for the next map), !fun has Random's and Default's words, and
+// !sync opens the Sync page (the owner's 38 b).
 using System.Text.RegularExpressions;
 
 static partial class Program
@@ -10,19 +12,18 @@ static partial class Program
         ("!play", ["!map", "!p", "!nominate", "!load", "!go", "!pick"]),
         ("!find", ["!search", "!s", "!lookup"]),                     // and !maps <words>
         ("!maps", ["!browse", "!list", "!maplist", "!m", "!top"]),
-        ("!next", ["!n", "!rtv", "!change", "!skipmap"]),            // and !new with no argument, Context
+        ("!next", ["!n", "!rtv", "!change", "!skipmap", "!skip", "!voteskip", "!vs", "!boo"]), // and !new with no argument, Context
         ("!random", ["!roll", "!dice", "!rand", "!any", "!shuffle"]),
         ("!back", ["!previous", "!prev", "!last", "!undo", "!again"]),
         ("!q", ["!queue", "!upcoming", "!whatsnext", "!lineup", "!order"]),
         ("!cancel", ["!unqueue", "!remove", "!drop", "!withdraw", "!uq"]),
         ("!done", ["!finish", "!end", "!release", "!letgo", "!over"]),
-        ("!skip", ["!voteskip", "!vs", "!boo"]),
         ("!up", ["!like", "!+", "!good", "!love", "!thumbsup"]),
         ("!down", ["!dislike", "!-", "!bad", "!meh", "!thumbsdown"]),
         ("!toobig", ["!big", "!huge", "!toolarge", "!size", "!xl"]),
         ("!ads", ["!ad", "!spam", "!advert", "!report", "!scam"]),
         ("!vote", ["!v", "!mv", "!choose"]),
-        ("!fun", ["!set", "!settings", "!toggle", "!mode"]),
+        ("!fun", ["!set", "!settings", "!toggle", "!mode", "!randomize", "!funrandom", "!defaults", "!fundefault"]), // the last four: !fun random, !fun default
         ("!nades", ["!grenades", "!nade", "!he", "!drops", "!boom"]),
         ("!time", ["!length", "!minutes", "!timelimit", "!roundtime", "!duration"]),
         ("!newmaps", ["!fresh", "!pool", "!mix", "!newmap"]),        // and !new with an argument, Context
@@ -31,6 +32,7 @@ static partial class Program
         ("!help", ["!commands", "!cmds", "!h", "!?", "!info"]),
         ("!rules", ["!rule", "!r", "!fair", "!howto", "!policy"]),
         ("!how", ["!howitworks", "!odds", "!chances", "!why", "!explain"]),
+        ("!sync", ["!status", "!dashboard"]),
     ];
 
     /// <summary>A line that runs a primary with something it needs, for the checks below.</summary>
@@ -70,7 +72,7 @@ static partial class Program
             var arg = SampleArg(o.Primary);
             var own = ChatCommands.Parse(o.Primary + arg);
             if (own.Kind is ChatCommands.Kind.Unknown or ChatCommands.Kind.Usage or ChatCommands.Kind.None || own.Typed != "" || own.Ran != o.Primary + arg || own.Name != o.Primary) wrong.Add(o.Primary);
-            foreach (var a in o.Aliases.Where(a => a != ChatCommands.TopWord))
+            foreach (var a in o.Aliases.Where(a => a != ChatCommands.TopWord && !ChatCommands.FunRandomWords.Contains(a) && !ChatCommands.FunDefaultWords.Contains(a)))
             {
                 var p = ChatCommands.Parse(a + arg);
                 if (p.Kind != own.Kind || p.Arg != own.Arg || p.Name != own.Name || p.Ran != own.Ran || p.Typed != a + arg
@@ -79,6 +81,18 @@ static partial class Program
         }
         Check($"Chat: every alias does what its primary does, and the reply teaches it: You typed !map 12 - ran !play 12{(wrong.Count > 0 ? "; not " + string.Join(" ", wrong) : "")}",
             wrong.Count == 0 && ChatCommands.Teach(ChatCommands.Parse("!map 12")) == "You typed !map 12 - ran !play 12");
+        Check("Chat: !fun random and !fun default are the Fun page's Random and Default; !randomize and !funrandom, !defaults and !fundefault run them and teach them, as !set does",
+            ChatCommands.Parse("!fun random") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Typed: "" } && ChatCommands.Parse("!FUN DEFAULT") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord, Typed: "" }
+            && ChatCommands.FunRandomWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !fun random")
+            && ChatCommands.FunDefaultWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !fun default")
+            && ChatCommands.Parse("!set random") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Ran: "!fun random", Typed: "!set random" }
+            && ChatCommands.Parse("!fun random", voteOpen: true) is { Kind: ChatCommands.Kind.FunAll } && ChatCommands.Parse("!fun randomly") is { Kind: ChatCommands.Kind.Usage, Name: "!fun" });
+        Check("Chat: !sync opens the Sync page (the owner's 38 b); !status and !dashboard teach it",
+            ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync", Typed: "" } && ChatCommands.Teach(ChatCommands.Parse("!status")) == "You typed !status - ran !sync"
+            && ChatCommands.Parse("!dashboard") is { Kind: ChatCommands.Kind.Page, Arg: "Sync", Ran: "!sync" });
+        Check("Chat: !skip and its aliases are Next's now - the vote for the next map, Keep playing on it (the owner's 2026-11-03); the old skip vote is gone",
+            new[] { "!skip", "!voteskip", "!vs", "!boo" }.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Name: "!next" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !next")
+            && ChatCommands.Find("!skip") == null && ChatCommands.Parse("!random") is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" } && Hud.IsAction("!next random"));
         Check("Chat: the primary itself teaches nothing, however it is typed; the reply keeps what was typed and always fits a chat line",
             ChatCommands.Teach(ChatCommands.Parse("!play 12")) == null && ChatCommands.Teach(ChatCommands.Parse("/PLAY 12")) == null
             && ChatCommands.Teach(ChatCommands.Parse("/MAP 12")) == "You typed /MAP 12 - ran !play 12"
@@ -103,12 +117,15 @@ static partial class Program
         var wrongWait = waiting.Where(w => ChatCommands.Parse(w, voteOpen: true) is not { Kind: ChatCommands.Kind.VoteOnly, Typed: "", Ran: "" }).ToList();
         Check($"Chat: while a vote is open nothing that asks for another map plays, queues or votes: its {waiting.Count} ways of asking only say what to type (the owner's 26){(wrongWait.Count > 0 ? "; not " + string.Join(" | ", wrongWait) : "")}",
             wrongWait.Count == 0 && ChatCommands.WaitForVote.All(w => ChatCommands.Find(w) != null)
-            && ChatCommands.WaitForVote.Order().SequenceEqual(new[] { "!back", "!done", "!next", "!play", "!random", "!skip" }));
+            && ChatCommands.WaitForVote.Order().SequenceEqual(new[] { "!back", "!done", "!next" }));
+        Check("Chat: while a vote is open !play puts its map on the ballot (the bridge adds it) and !random puts the vote on Random - neither is a VoteOnly",
+            ChatCommands.Parse("!play 12", voteOpen: true) is { Kind: ChatCommands.Kind.Play, Arg: "12" } && ChatCommands.Parse("!map dust", voteOpen: true) is { Kind: ChatCommands.Kind.Play }
+            && ChatCommands.Parse("!random", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" } && ChatCommands.Parse("!dice", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" });
         Check("Chat: while a vote is open !vote and its aliases and the bare number vote; a wrong number gets the same answer, and a bare one that is no option stays plain chat",
-            ChatCommands.Parse("!vote 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "!mv 3" }
-            && ChatCommands.Parse("3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3" }
-            && new[] { "!vote 9", "!vote", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true).Kind == ChatCommands.Kind.VoteOnly)
-            && ChatCommands.Parse("9", voteOpen: true).Kind == ChatCommands.Kind.None);
+            ChatCommands.Parse("!vote 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "!mv 3" }
+            && ChatCommands.Parse("3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" }
+            && new[] { "!vote 9", "!vote", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.VoteOnly)
+            && ChatCommands.Parse("9", voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None && ChatCommands.Parse("12", voteOpen: true, highest: 14).Kind == ChatCommands.Kind.Vote);
         var untouched = new[] { "!up", "!down big", "!toobig", "!ads", "!cancel", "!q", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!time 10", "!new half", "!newmaps half", "!restart", "!menu", "!help", "!rules", "!how" };
         var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();
         Check($"Chat: the commands that do not touch the map stay as they are while a vote is open{(touched.Count > 0 ? "; not " + string.Join(" | ", touched) : "")}",
@@ -164,7 +181,7 @@ static partial class Program
             string.Join(" ", other) is var o2 && !o2.Contains("!ff ") && !o2.Contains("!instakill") && !o2.Contains("!ffnades") && o2.Contains("!nades big") && !o2.Contains("!nades off"));
         var everyWord = ChatCommands.All.Select(c => c.Words + " " + c.Args).Concat(arms).Concat(Hud.Help.SelectMany(g => g.Rows).Select(r => r.Words)).ToList();
         Check("Chat: nothing teaches !fun <setting> <choice>: the short word is no alias of it, and every word a command's own line names runs",
-            !everyWord.Any(w => Regex.IsMatch(w, @"!fun \w")) && ChatCommands.All.SelectMany(c => Regex.Matches(c.Words, @"![a-z]+ ?[a-z]*").Select(m => m.Value.Trim())).All(w => ChatCommands.Parse(w).Kind is not (ChatCommands.Kind.Unknown or ChatCommands.Kind.Usage)));
+            !everyWord.Any(w => Regex.IsMatch(w, @"!fun (?!random\b|default\b)\w")) && ChatCommands.All.SelectMany(c => Regex.Matches(c.Words, @"![a-z]+ ?[a-z]*").Select(m => m.Value.Trim())).All(w => ChatCommands.Parse(w).Kind is not (ChatCommands.Kind.Unknown or ChatCommands.Kind.Usage)));
 
         // ---- !help lists primaries only ----
         var listed = ChatCommands.HelpLines().SelectMany(l => Regex.Matches(l, @"!\S+").Select(m => m.Value)).ToList();
@@ -172,20 +189,23 @@ static partial class Program
             listed.Order().SequenceEqual(primaries.Order()) && ChatCommands.HelpLines().All(l => l.Length <= ChatCommands.BesideWindow));
 
         // ---- a bare number is a vote, while a vote is open ----
-        Check($"Chat: while a vote is open a bare number 1 to {MapVote.MaxOptions} is a vote, with no reply about aliases; without a vote it is plain chat; a Workshop id is never one",
-            ChatCommands.Parse("3", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Name: "!vote", Typed: "" } && ChatCommands.Parse(" 6 ", voteOpen: true) is { Kind: ChatCommands.Kind.Vote, Arg: "6" }
-            && ChatCommands.Parse("3").Kind == ChatCommands.Kind.None && new[] { "0", "7", "12", "3 dust", "3631955210", "gg" }.All(x => ChatCommands.Parse(x, voteOpen: true).Kind == ChatCommands.Kind.None)
+        Check($"Chat: while a vote is open a bare number 1 to the ballot's highest (at most {MapVote.MaxOptions}) is a vote, with no reply about aliases; without a vote it is plain chat; a Workshop id is never one",
+            ChatCommands.Parse("3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Name: "!vote", Typed: "" } && ChatCommands.Parse(" 6 ", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "6" }
+            && ChatCommands.Parse("3").Kind == ChatCommands.Kind.None && new[] { "0", "7", "12", "3 dust", "3631955210", "gg" }.All(x => ChatCommands.Parse(x, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None)
+            && ChatCommands.Parse($"{MapVote.MaxOptions}", voteOpen: true).Kind == ChatCommands.Kind.Vote && ChatCommands.Parse($"{MapVote.MaxOptions + 1}", voteOpen: true).Kind == ChatCommands.Kind.None
             && WorkshopCard.IdInChat("3") == null);
         Check("Chat: !vote takes the same numbers; its aliases teach it",
             ChatCommands.Parse("!vote 3") is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3") is { Kind: ChatCommands.Kind.Vote, Ran: "!vote 3", Typed: "!mv 3" }
-            && ChatCommands.Parse("!choose 7") is { Kind: ChatCommands.Kind.Usage, Name: "!vote" } && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Usage });
+            && ChatCommands.Parse("!choose 77") is { Kind: ChatCommands.Kind.Usage, Name: "!vote" } && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Usage });
         Check("A card click says for everybody what a typed vote is: the line parses back as that vote",
             HudVote.ChatWords(3) == "!vote 3" && ChatCommands.Parse(HudVote.ChatWords(3)) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "" });
         var ballot = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793500000\topen\t42\t3\t2\t1\nmvo\t1\tarmsrace\tqueue\t12\t3084291314\t#12 aim_x\t17 MB\t1\tAlice\nmvo\t2\tdeathmatch\trolled\tde_dust2\tde_dust2\tde_dust2 (official)\t\t0\t\nmvo\t3\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\n");
-        var cards = HudVote.Cards(ballot, 1001, null).Texts;
+        var drawn = HudVote.Cards(ballot, 1001, null);
+        var cards = drawn.Texts;
         string T(string id) => cards.Single(x => x.Id == id).Text;
-        Check("The ballot's cards show the number to type: on the picture and on the button; the line under them says so",
-            T("gg_m2_rank") == "2  ·  Deathmatch" && T("gg_m3_rank") == "3  ·  Random" && T("gg_m1_play_text") == "Your vote" && T("gg_m2_play_text") == "Vote 2" && T("gg_pg_text").Contains("type its number")
+        Check("The ballot's cards show the number to type: on the picture and on the button, Random's on its own button; the line under them says so",
+            T("gg_m2_rank") == "2  ·  Deathmatch" && T("gg_m3_rank") == "" && drawn.Vars.Single(x => x.Name == HudVote.RandomVar).Text == "3  ·  Random  ·  0 votes"
+            && T("gg_m1_play_text") == "Your vote" && T("gg_m2_play_text") == "Vote 2" && T("gg_pg_text").Contains("type its number")
             && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "gg_pg_text").Text.Contains("type its number in chat"));
 
         // ---- a command that opens a page with a newer content's words asks for them: !fun has its rows at once ----

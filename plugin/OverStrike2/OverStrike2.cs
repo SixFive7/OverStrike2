@@ -20,7 +20,7 @@ namespace OverStrike2;
 /// (Hud.ChatOff) - and a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "4.5.0";
+    public const string Version = "4.6.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the grenade drops, the map settings and the fun page, the game modes";
@@ -142,7 +142,7 @@ public class OverStrike2Plugin : BasePlugin
         var who = player;
         // The chat commands are back (ChatCommands.cs; the owner, 2026-11-01): a line that starts with ! or / does what the menu's click
         // would, a frame later (not inside the player's own chat message: HudScreen's summary); a Workshop link or id opens its card.
-        var command = ChatCommands.Parse(text, hud?.VoteOpen == true);
+        var command = ChatCommands.Parse(text, hud?.VoteOpen == true, hud?.VoteHighest ?? MapVote.MaxOptions);
         if (hud != null && command.Kind != ChatCommands.Kind.None)
             Server.NextFrame(() => { if (who.IsValid) hud.Chat(who, command); });
         else if (hud != null && WorkshopCard.IdInChat(text) is { } id)

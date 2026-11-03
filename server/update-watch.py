@@ -78,7 +78,7 @@ NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 
      download that ends "No Connection" marks the process broken like the watcher's own (job 6): the restart waits for an
      empty server, as ever.
   9. THE QUEUED MAPS IN THE BACKGROUND (CS2_READY; since 2026-11-03: random maps never wait for a download). The bridge rolls its
-     dice ahead into four random queues of 15 (Arms Race's new and original
+     dice ahead into four random queues of 20 (Arms Race's new and original
      maps, Deathmatch, Wingman) and writes them, with the maps players have queued, to its /data/queues.json. Every READY_EVERY
      seconds this looks which of them are not on disk and downloads the next one - the requests first, then the queues' first
      entries, their second ones, and so on - with `mm_download_addon`, one at a time, also while people play, and silently: no

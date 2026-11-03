@@ -27,7 +27,8 @@ static partial class Program
             $"Up to {MaxRequestsEach} requests each", $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes",
             $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page
             $"Spawn with {Fun.VampireHealth} health", $"up to {Fun.VampireCap}", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost (#24)
-            $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"{MapVote.MapOptions} maps and Random", $"{MapVote.MapOptions} maps", $"up to {Modes.Wingman.MaxPlayers} players", // the end-of-match vote (VoteRound.cs), the modes (Modes.cs)
+            $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"at least {MapVote.MinMaps} maps", $"{MapVote.MinMaps} maps", $"up to {Modes.Wingman.MaxPlayers} players", // the vote (VoteRound.cs), the modes (Modes.cs)
+            $"waits {MidVoteCooldownMinutes} minutes", $"{MidVoteCooldownMinutes} minutes", // a vote a player started that kept the map
         ];
     }
 

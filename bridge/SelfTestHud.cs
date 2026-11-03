@@ -184,7 +184,7 @@ static partial class Program
                 .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.NadesClasses(true)).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-2", "toast-in", "c31", "c32", .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             var buttons = HudView.Tabs.Select(t => t.Id).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct]).Concat(HudView.NewButtons).Concat(HudView.NewButtons32).Concat(HudView.NewButtons41)
-                .Concat(HudView.NewButtons42).Concat(HudView.NewButtons43)
+                .Concat(HudView.NewButtons42).Concat(HudView.NewButtons43).Concat(HudVote.NewButtons44)
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"gg_m{k}_play", $"gg_m{k}_up", $"gg_m{k}_down" }))
@@ -226,8 +226,8 @@ static partial class Program
 
             // ---- three contents on one path (v3_0_0, v3_1_0, v3_2_0): a game holding an older one must never be sent a panel it lacks ----
             const string shippedFile = "../hud/reference/gungame_hud_v3_0_0.xml", shipped31File = "../hud/reference/gungame_hud_v3_1_0.xml", shipped40File = "../hud/reference/gungame_hud_v4_0_0.xml", shipped41File = "../hud/reference/gungame_hud_v4_1_0.xml",
-                shipped42File = "../hud/reference/gungame_hud_v4_2_0.xml"; // as they shipped
-            if (File.Exists(shippedFile) && File.Exists(shipped31File) && File.Exists(shipped40File) && File.Exists(shipped41File) && File.Exists(shipped42File))
+                shipped42File = "../hud/reference/gungame_hud_v4_2_0.xml", shipped43File = "../hud/reference/gungame_hud_v4_3_0.xml"; // as they shipped
+            if (File.Exists(shippedFile) && File.Exists(shipped31File) && File.Exists(shipped40File) && File.Exists(shipped41File) && File.Exists(shipped42File) && File.Exists(shipped43File))
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();
                 var shipped = IdsOf(shippedFile);
@@ -235,11 +235,13 @@ static partial class Program
                 var shipped40 = IdsOf(shipped40File);
                 var shipped41 = IdsOf(shipped41File);
                 var shipped42 = IdsOf(shipped42File);
+                var shipped43 = IdsOf(shipped43File);
                 var added31 = shipped31.Where(id => !shipped.Contains(id)).ToHashSet();
                 var added32 = shipped40.Where(id => !shipped31.Contains(id)).ToHashSet();
                 var added41 = shipped41.Where(id => !shipped40.Contains(id)).ToHashSet();
                 var added42 = shipped42.Where(id => !shipped41.Contains(id)).ToHashSet();
-                var added43 = ids.Where(id => !shipped42.Contains(id)).ToHashSet();
+                var added43 = shipped43.Where(id => !shipped42.Contains(id)).ToHashSet();
+                var added44 = ids.Where(id => !shipped43.Contains(id)).ToHashSet();
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var toEverybody = sent.Where(id => HudView.LevelOf(id) == 0).ToList();
                 var notShipped = toEverybody.Where(id => !shipped.Contains(id)).ToList();
@@ -257,8 +259,11 @@ static partial class Program
                     shipped40.Where(id => id != "gg_f_site").All(shipped41.Contains) && !shipped41.Contains("gg_f_site") && added41.SetEquals(HudView.NewButtons41) && !sent.Any(added41.Contains) && HudView.NewButtons41.All(b => HudView.LevelOfButton(b) == 41 && HudView.LevelOf(b) == 0));
                 Check($"Content v4_2_0 (as shipped): it kept every panel v4_1_0 had ({shipped41.Count}) and added only the {added42.Count} buttons of the picture on request and the mode filter ({HudView.NewButtons42.Length} that prove it), to which nothing is sent",
                     shipped41.All(shipped42.Contains) && added42.SetEquals(HudView.NewButtons42) && !sent.Any(added42.Contains) && HudView.NewButtons42.All(b => HudView.LevelOfButton(b) == 42 && HudView.LevelOf(b) == 0));
-                Check($"Content {Hud.Content}: it keeps every panel v4_2_0 had ({shipped42.Count}) and adds only the {added43.Count} buttons of the Sync page - its tab and its pagers ({HudView.NewButtons43.Length} that prove it), to which nothing is sent",
-                    shipped42.All(ids.Contains) && added43.SetEquals(HudView.NewButtons43) && !sent.Any(added43.Contains) && HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43 && HudView.LevelOf(b) == 0));
+                Check($"Content v4_3_0 (as shipped): it kept every panel v4_2_0 had ({shipped42.Count}) and added only the {added43.Count} buttons of the Sync page - its tab and its pagers ({HudView.NewButtons43.Length} that prove it), to which nothing is sent",
+                    shipped42.All(shipped43.Contains) && added43.SetEquals(HudView.NewButtons43) && !sent.Any(added43.Contains) && HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43 && HudView.LevelOf(b) == 0));
+                Check($"Content {Hud.Content}: it keeps every panel v4_3_0 had ({shipped43.Count}) and adds only {added44.Count} buttons - the vote's Random, map browser and back, the inline reasons, the Fun page's Random and Default ({HudVote.NewButtons44.Length} that prove it), to which nothing is sent",
+                    shipped43.All(ids.Contains) && added44.SetEquals(HudVote.NewButtons44) && !sent.Any(added44.Contains) && HudVote.NewButtons44.All(b => HudView.LevelOfButton(b) == 44 && HudView.LevelOf(b) == 0)
+                    && HudVote.NewButtons44.Distinct().Count() == HudVote.NewButtons44.Length);
                 var not40 = sent.Where(id => !shipped40.Contains(id)).ToList();
                 Check($"Content: everything the plugin sends, to any game, is in the shipped v4_0_0 layout ({sent.Count} ids): a game holding it goes on as it was{(not40.Count > 0 ? ": not there " + string.Join(", ", not40) : "")}", not40.Count == 0);
                 Check("Content v3_1_0: its new panels are sent only what HudView.NewIds names, and its buttons get nothing from the server (fixed labels, state in classes on older panels)",
@@ -275,7 +280,7 @@ static partial class Program
                 Check("Content v4_0_0: the restart button blinks fast while armed (keyframes on opacity, the one kind a custom HUD runs), on the class every content has",
                     Regex.IsMatch(rules, @"@keyframes 'gg-blink'") && Regex.IsMatch(rules, @"\.gg-restart\.armed\s*\{[^}]*animation-name:\s*gg-blink;[^}]*animation-iteration-count:\s*infinite;"));
             }
-            else Console.WriteLine($"skip the content checks: {shippedFile}, {shipped31File}, {shipped40File}, {shipped41File} or {shipped42File} not found");
+            else Console.WriteLine($"skip the content checks: {shippedFile}, {shipped31File}, {shipped40File}, {shipped41File}, {shipped42File} or {shipped43File} not found");
 
             // ---- content v4_1_0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
@@ -284,8 +289,21 @@ static partial class Program
             var whyFrom = noComments.IndexOf("class=\"gg-why\"", StringComparison.Ordinal);
             Check($"The popup: a button for each of the {DownReasons.All.Length} reasons, with its words from the variables the plugin sets on gg_global, the map's from gg_screen, and no other id in it",
                 whyFrom > 0 && Enumerable.Range(1, DownReasons.All.Length).All(k => Regex.IsMatch(noComments, $@"<Button id=""{HudVote.WhyButton(k)}"" class=""gg-whyb""><Label class=""gg-whyb-text"" text=""\{{s:{HudVote.WhyVar}{k}\}}"" /><Label class=""gg-whyb-word"" text=""\{{s:{HudVote.WhyVar}w{k}\}}"" /></Button>"))
-                && noComments.Contains($"text=\"{{s:{HudVote.WhyVar}}}\"") && HudVote.WhyWords().Count == 2 * DownReasons.All.Length && HudView.NewButtons41.Length == DownReasons.All.Length
+                && noComments.Contains($"text=\"{{s:{HudVote.WhyVar}}}\"") && HudVote.WhyWords().Count == 3 * DownReasons.All.Length && HudView.NewButtons41.Length == DownReasons.All.Length
                 && HudVote.WhyWords().All(w => w.Text.Length > 0 && w.Text.Length <= 40) && !Regex.IsMatch(noComments[whyFrom..noComments.IndexOf("class=\"gg-news\"", StringComparison.Ordinal)], @"\bid=""(?!gg_why_)"));
+            Check($"Content v4_4_0's reasons in place: in each of the {HudVote.WhyPlaces.Length} places (the live column, the TAB board, each card) a button per reason with its short words from gg_global, and a click on one is its reason",
+                HudVote.WhyPlaces.All(place => Enumerable.Range(1, DownReasons.All.Length).All(k => noComments.Contains($"<Button id=\"{HudVote.WhyButton(place, k)}\" class=\"gg-whyib\"><Label class=\"gg-whyib-text\" text=\"{{s:{HudVote.WhyVar}s{k}}}\" /></Button>")
+                    && HudVote.WhyClick(HudVote.WhyButton(place, k)) == DownReasons.All[k - 1]))
+                && DownReasons.All.All(r => HudVote.ShortLabel(r).Length is > 0 and <= 12) && HudVote.WhyClick("gg_whyz_1") == null && HudVote.WhyClick("gg_whyw_7") == null
+                && Enumerable.Range(1, HudMenu.Cards).All(k => Regex.IsMatch(rules, $@"\.gg-screen\.why\.whyc{k} \.gg-whycard-{k}\s*\{{\s*visibility:\s*visible;"))
+                && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-live \.gg-vote-buttons\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-why\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-whyboard\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-why\s*\{\s*visibility:\s*collapse;")
+                && HudVote.DownCard("gg_m3_down") == 3 && HudVote.DownCard("gg_m9_down") == 0 && HudVote.DownCard("gg_m3_up") == 0 && HudVote.DownCard(HudView.ButtonDown) == 0);
+            Check("Content v4_4_0: the board's Too big and Ads buttons step aside (chat's !down big and the cards' tags stay); Our maps glows slowly while it is not chosen, and is simply lit once it is; the cards wear their mode",
+                Regex.IsMatch(rules, @"\.gg-board \.gg-bigrow\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-mcard \.gg-mbig\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-mcard \.gg-mads\s*\{\s*visibility:\s*collapse;")
+                && Regex.IsMatch(rules, @"@keyframes 'gg-ours-pulse'") && Regex.IsMatch(rules, @"\.gg-ours-glow\s*\{[^}]*animation-name:\s*gg-ours-pulse;[^}]*animation-iteration-count:\s*infinite;") && Regex.IsMatch(rules, @"\.gg-screen\.fl-ours \.gg-ours-glow\s*\{[^}]*animation-name:\s*none;")
+                && Modes.All.All(m => Regex.IsMatch(rules, $@"\.gg-mcard\.mode-{m.Id} \.gg-mmode-{m.Id}\s*\{{\s*visibility:\s*visible;") && noComments.Contains($"class=\"gg-mmode gg-mmode-{m.Id}\""))
+                && Regex.Matches(noComments, "class=\"gg-mband\"").Count == HudMenu.Cards && noComments.Contains($"text=\"{{s:{HudVote.RandomVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.MoreVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.BrowseVar}}}\""));
             Check("The popup draws above the window, and a click on it is its reason, nothing else",
                 noComments.IndexOf("class=\"gg-win-foot\"", StringComparison.Ordinal) < whyFrom && whyFrom < noComments.IndexOf("class=\"gg-news\"", StringComparison.Ordinal)
                 && DownReasons.All.Select((r, i) => HudVote.WhyClick(HudVote.WhyButton(i + 1)) == r).All(x => x) && HudVote.WhyClick(HudVote.WhyButton(DownReasons.All.Length + 1)) == null
@@ -355,6 +373,37 @@ static partial class Program
                 && Enumerable.Range(1, Fun.Rows).Where(r => !friendly.Contains(r)).All(r => !Idle(ffaPage, r)));
             Check("Fun page: a dimmed row's buttons still work - Instakill Off is a click while friendly fire is off",
                 needing.All(x => HudMenu.FunClick(HudMenu.FunButton(x.Row, 2)) is var (fs, fc) && fs == x.Setting && fc.Id == "off"));
+
+            // ---- content v4_4_0: the Fun page's Random and Default (the owner's 2026-11-03) ----
+            var dice = new Random(2026);
+            var drawn = Fun.Settings.ToDictionary(s => s.Id, s => new int[s.Choices.Length]);
+            var (nadesOn, moonJump, highJump, armsCount) = (0, 0, 0, 0);
+            const int draws = 6000;
+            for (var i = 0; i < draws; i++)
+            {
+                var (picks, nades) = Fun.Randomized(n => dice.Next(n), armsRace: true);
+                foreach (var (s, c) in picks) drawn[s.Id][Array.IndexOf(s.Choices, c)]++;
+                if (nades == true) nadesOn++;
+                var isMoon = picks.Any(x => x.Setting.Id == "gravity" && x.Choice.Id == "moon");
+                var high = picks.Any(x => x.Setting.Id == "jump" && x.Choice != x.Setting.Normal);
+                if (isMoon && high) moonJump++;
+                if (high) highJump++;
+                armsCount = picks.Count;
+            }
+            var otherDraw = Fun.Randomized(n => dice.Next(n), armsRace: false);
+            var uneven = Fun.Settings.Where(s => s.Id != "jump").Where(s => drawn[s.Id].Any(k => Math.Abs(k - (double)draws / s.Choices.Length) > (double)draws / s.Choices.Length * 0.1)).Select(s => s.Id).ToList();
+            Check($"Fun's Random: every setting the page shows, each choice equally likely ({draws} draws, each within 10%{(uneven.Count > 0 ? "; not " + string.Join(" ", uneven) : "")}), the grenade drops on in {nadesOn}; Moon gravity never with Super jump ({highJump} high jumps, all on other gravity)",
+                armsCount == Fun.Settings.Length && uneven.Count == 0 && nadesOn is > 2700 and < 3300 && moonJump == 0 && highJump is > 1700 and < 2300);
+            Check("...outside Arms Race it leaves out what the page leaves out there: friendly fire's three and the grenade drops",
+                otherDraw.Nades == null && otherDraw.Choices.Count == Fun.Settings.Count(s => !Fun.ArmsRaceOnly(s)) && otherDraw.Choices.All(x => !Fun.ArmsRaceOnly(x.Setting))
+                && Fun.Randomized(n => n - 1, armsRace: true).Choices.Single(x => x.Setting.Id == "jump").Choice == Fun.Find("jump")!.Normal);
+            var gravity = Fun.Find("gravity")!;
+            var everyChange = Fun.Settings.Select(s => (s, s.Choices[^1])).ToList();
+            Check("...and its one chat line says who and what changed, the rest counted past 200 characters; Default's says what it did",
+                Fun.RandomLine("Remy", [(gravity, Fun.Find(gravity, "low")!)], true) == "Remy rolled the fun settings: gravity low, grenade drops on"
+                && Fun.RandomLine("Remy", [], null) == "Remy rolled the fun settings: nothing changed" && Fun.RandomLine("Remy", everyChange, false) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
+                && Fun.DefaultLine("Remy") == "Remy put every fun setting back to normal, the grenade drops on"
+                && HudView.LevelOfButton(HudMenu.FunRandom) == 44 && HudView.LevelOfButton(HudMenu.FunDefault) == 44);
             // The Fun page's height (Over Strike 2: sixteen rows in two columns of eight): the pages have 633 px (the window's 820 less its rule,
             // head, tabs and foot); the Fun page spends its padding, the note's line (about 1.3 times its type) and margin, and a column's rows
             // with their margins. A row holds its title line (the buttons' height, at least 1.3 times the title's type) over its words (1.3 times
@@ -375,6 +424,25 @@ static partial class Program
             var rowNeeds = funParsed ? Math.Max(Px(funTop, 1), Math.Max((int)Math.Ceiling(Px(funTitle, 1) * 1.3), Px(funButton, 1))) + Px(funTxt, 1) + (int)Math.Ceiling(Px(funTxt, 2) * 1.3) : int.MaxValue;
             Check($"Fun page fits the window: about {funHeight} px of the pages' 633 for its {Fun.Rows} rows and the grenade drops ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
                 funHeight <= 633 && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 + 1);
+            // ---- content v4_4_0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
+            var voteCat = new HudCatalog { Version = 1 };
+            voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));
+            voteCat.Maps.Add(new HudCatalog.Entry("3084291315", "2", 2, 3084291315, "Other Map", 20, false, -1, 0, 0, 0));
+            var openVote = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793700000\topen\t40\t2\t2\t1\tend\t0\nmvo\t1\tarmsrace\trolled\t1\t3084291314\t#1 AIM Map\t20 MB\t1\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\n");
+            string Play((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) page, int k) => page.Texts.Single(x => x.Id == $"gg_m{k}_play_text").Text;
+            bool VC((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) page, string id, string cls) => page.Classes.Single(x => x.Id == id && x.Class == cls).On;
+            var voter = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1001, now, voting: openVote);
+            var other = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1002, now, voting: openVote);
+            var noVote = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1002, now);
+            Check("The map browser while the vote is open: a map on the ballot says its number (or Your vote), any other one Add to the vote; with no vote, Play it",
+                Play(voter, 1) == "Your vote" && Play(voter, 2) == "Add to the vote" && Play(other, 1) == "On the vote: 1" && Play(noVote, 1) == "Play it" && Play(noVote, 2) == "Play it");
+            var oursOn = new HudBrowser();
+            oursOn.Click(HudBrowser.OursButton, 0);
+            var oursPage = HudMenu.Maps(voteCat, new HudState(), oursOn, 1002, now);
+            Check("Every card wears the mode it plays in, exactly one; an empty card none; Our maps glows until it is chosen (fl-ours on gg_screen)",
+                VC(noVote, "gg_m1", "mode-armsrace") && !VC(noVote, "gg_m1", "mode-deathmatch") && Modes.All.All(m => !VC(noVote, "gg_m3", $"mode-{m.Id}"))
+                && Enumerable.Range(1, 2).All(k => Modes.All.Count(m => VC(noVote, $"gg_m{k}", $"mode-{m.Id}")) == 1)
+                && !VC(noVote, HudView.Screen, "fl-ours") && VC(oursPage, HudView.Screen, "fl-ours"));
             var adsCat = new HudCatalog { Version = 1 };
             adsCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 2, Ads: 1));
             adsCat.Votes[1001] = new() { ["3084291314"] = HudCatalog.AdsVote };

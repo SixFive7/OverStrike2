@@ -42,11 +42,13 @@ static partial class Program
     static string TallyText(string key) => Tally(key) is var (u, d) && u + d > 0 ? $" (+{u}{(d > 0 ? $" -{d}" : "")})" : "";
 
     /// <summary>!up / !down / !toobig / !ads [map]: vote on the map that is on, or on any map by rank, name, id or URL. One vote per SteamID per
-    /// map, and no way back to no vote (the owner's 27, 2026-11-02): the same vote again changes nothing and says so, the opposite one replaces
-    /// it. A too-big vote (TooBigVote, Selection.cs) is that player's dislike - every tally and weight counts it as a downvote - and it also
-    /// marks the map too big; an ads vote (AdsVote) is a dislike too, and keeps the map out of random picks altogether. Named: !down with its
-    /// reason (DownReasons): the vote is that, whatever it was. A plain !down on a map already disliked keeps the reason. Without a map a
-    /// reason goes to the map the player's popup is asking about, if it is open.</summary>
+    /// map. It steps down - none - up (the owner's 2026-11-03): the opposite vote on a voted map only takes the vote away, back to none, and the
+    /// next one casts it; the same vote again changes nothing and says so (the owner's 27, 2026-11-02: repeating a vote never takes it back). A
+    /// too-big vote (TooBigVote, Selection.cs) is that player's dislike - every tally and weight counts it as a downvote - and it also marks the
+    /// map too big; an ads vote (AdsVote) is a dislike too, and keeps the map out of random picks altogether; taking one away takes its mark
+    /// with it. Named: !down with its reason (DownReasons) on a disliked map sets that reason; on a liked one it takes the like away first. A
+    /// plain !down on a map already disliked keeps the reason. Without a map a reason goes to the map the player's popup is asking about, if it
+    /// is open.</summary>
     static void Vote(string by, string id, string arg, int value, bool named = false)
     {
         var word = value > 0 ? "!up" : value == TooBigVote ? "!toobig" : value == AdsVote ? "!ads" : "!down";
@@ -70,8 +72,9 @@ static partial class Program
         CastVote(by, id, map, value, named);
     }
 
-    /// <summary>The vote on a map that is settled: kept, told, and the popup opened or closed. A Dislike that stands without a reason opens the popup;
-    /// any other vote on that map closes it, as a map change does - but a plain Dislike again changes nothing, the popup included: a running one stays.</summary>
+    /// <summary>The vote on a map that is settled: kept, taken away or told, and the popup opened or closed. A Dislike cast without a reason opens the
+    /// popup; any other vote on that map closes it, as a map change does - but a plain Dislike again changes nothing, the popup included: a running
+    /// one stays. The opposite vote on a voted map takes that vote away (back to none) and opens nothing.</summary>
     static void CastVote(string by, string id, MapInfo map, int value, bool named)
     {
         var key = Key(map);
@@ -87,9 +90,20 @@ static partial class Program
         if (plainAgain || old == value)
         {
             var name = Clip(Label(map), PlainVoteLabel);
-            Tell(id, old > 0 ? $"Your vote on {name} is up already, {Tallied()}. !down replaces it"
-                : old == DownReasons.Plain ? $"Your vote on {name} is down already, {Tallied()}. !up replaces it"
-                : $"Your vote on {name} is down already: {DownReasons.Of(old)?.Short}, {Tallied()}. !up replaces it");
+            Tell(id, old > 0 ? $"Your vote on {name} is up already, {Tallied()}. !down takes it back"
+                : old == DownReasons.Plain ? $"Your vote on {name} is down already, {Tallied()}. !up takes it back"
+                : $"Your vote on {name} is down already: {DownReasons.Of(old)?.Short}, {Tallied()}. !up takes it back");
+            return;
+        }
+        if (old != 0 && Math.Sign(old) != Math.Sign(value)) // the opposite vote: the vote goes, and nothing is cast (the owner's 2026-11-03)
+        {
+            Votes[key].Remove(id);
+            if (Votes[key].Count == 0) Votes.Remove(key);
+            SaveVotes();
+            var gone = old > 0 ? "like" : old == DownReasons.Plain ? "dislike" : $"dislike ({DownReasons.Of(old)?.Short})";
+            Log($"vote: {by} {id} on {Label(map)}: {gone} taken away");
+            var how = value > 0 ? "like it again to add a like" : value != DownReasons.Plain && DownReasons.Of(value) is { } r ? $"!down {r.Word} again to dislike it: {r.Short}" : "dislike it again to add a dislike";
+            Tell(id, $"Your {gone} of {Clip(Label(map), PlainVoteLabel)} is removed - {how}, {Tallied()}");
             return;
         }
         if (!Votes.TryGetValue(key, out var mine)) Votes[key] = mine = new();

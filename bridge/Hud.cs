@@ -34,7 +34,10 @@ public static class Hud
     /// card (HudPreview) and the mode filter's chips: their state is classes on panels every game has, so again nothing is sent to them (NewButtons42).
     /// Content v4_3_0 (2026-11-03) keeps every panel of v4_2_0 and adds the Sync tab: the Workshop sync's dashboard (HudDash.cs), whose words are
     /// dialog variables and whose state is classes on gg_screen, so nothing is sent to its panels either (NewButtons43).
-    public const string Content = "v4_3_0";
+    /// Content v4_4_0 (2026-11-03, the owner's rules of that evening) keeps every panel of v4_3_0 and adds the vote's pages, Random's button and the
+    /// map browser that adds to the vote, each card's mode label and colour, the inline reasons of a Dislike, the Fun page's Random and Default and
+    /// the Our maps glow; the board's Too big and Ads buttons step aside. Again nothing is sent to its new panels (HudVote.NewButtons44).
+    public const string Content = "v4_4_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -58,7 +61,7 @@ public static class Hud
     /// command, a name search or anything free-form: a map is named by its rank, an official map's name or a Workshop id.</summary>
     public static bool IsAction(string command)
     {
-        if (Actions.Contains(command) || NewMapsActions.Contains(command) || command is "!restart" or "!previous" or "!cancel" or "!cancel all" or "!time 10" or "!time 60") return true;
+        if (Actions.Contains(command) || NewMapsActions.Contains(command) || command is "!restart" or "!previous" or "!cancel" or "!cancel all" or "!time 10" or "!time 60" or "!next random") return true;
         if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudCheck.IsRelease(command[7..]); // the HUD check's click (HudCheck)
         var space = command.IndexOf(' ');
         if (space < 0) return false;
@@ -93,7 +96,7 @@ public static class Hud
     public static readonly (int Group, Row Row)[] HelpMore =
     [
         (2, new("Ads", "A dislike for ads or a server redirect: never a random pick")),
-        (3, new("Fun", "Friendly fire, low gravity and more, until the map changes")),
+        (3, new("Fun", "Friendly fire, low gravity and more; Random, Default")),
     ];
 
     /// <summary>The Help page: where each thing is in the menu. Command is the place to click, Words what it does. These are what the
@@ -103,16 +106,16 @@ public static class Hud
         new("Maps", [
             new("Maps  ·  Play", "Pick any map: every map with its picture, size and votes"),
             new("Search", "The keyboard on the Maps page: name, tags or a Workshop ID"),
-            new("Next", "On the board or the menu: a random map when nobody holds this one"),
+            new("Next", "On the board or the menu: a vote for the next map, Keep playing on it"),
             new("Queue  ·  Previous", "Back to the last map")]),
         new("Queue", [
             new("Queue", "Who is next - least play time goes first"),
             new("Cancel", "Drop one of your requests, or all of them"),
-            new("I'm done", "End your own map: the queue moves on"),
-            new("Vote to skip", "Someone else's map: a majority of the others skips it")]),
+            new("I'm done", "End your own map: a vote picks the next one"),
+            new("The vote", "Every request is on it; the map browser adds a map")]),
         new("Voting", [
-            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the other one replaces it"),
-            new("Too big", "A dislike: only 1 random pick in 100 is a too-big map"),
+            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the other one takes it back first"),
+            new("Dislike  ·  Too big", "A reason: only 1 random pick in 100 is a too-big map"),
             new("Maps  ·  arrows", "Vote on any map's card: up likes it, down dislikes it"),
             new("Sort  ·  Votes", "The most liked maps first")]),
         new("Game", [
@@ -123,22 +126,22 @@ public static class Hud
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
-            new("Rules  ·  How it works", "The rules, and every chance in a map pick"),
+            new("Rules  ·  How  ·  Sync", "The rules, every chance in a map pick, the map sync"),
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
     public static readonly Rule[] Rules =
     [
         new("Random maps", [
-            "When a match ends everybody votes for the next map: 5 maps and Random, for 60 s or until a majority agrees; your queued map is on it with your vote in.",
-            "Random maps - at start, and when nobody votes - are biased by Workshop popularity and by the votes."]),
+            "When a match ends everybody votes for 60 s or until a majority agrees: every queued map, one of each other mode, at least 8 maps, and Random.",
+            "Next starts the same vote at any time, with Keep playing on it. Random maps - at start, and when nobody votes - follow Workshop popularity and the votes."]),
         new("How voting counts", [
             "Each upvote doubles a map's odds on the dice (max 5), each downvote quarters them, Workshop rank gives up to 3x.",
-            "One vote per player per map, and it is kept."]),
+            "One vote per player per map, and it is kept; the opposite vote takes it back first."]),
         new("Fair queue", [
             "Whoever has had the least play time on their own requests goes next, so one player's five requests wait behind everyone else's first.",
             "A map two or more players asked for goes first.",
-            "A requested map stays until its match ends, its requester clicks I'm done, a skip vote passes, or the requester has been gone over a minute while others wait.",
+            "A requested map stays until its match ends, its requester clicks I'm done, a vote replaces it, or the requester has been gone over a minute while others wait.",
             "Up to 5 requests each, and only while you're on the server."]),
     ];
 
@@ -148,22 +151,22 @@ public static class Hud
     public static readonly Rule[] How =
     [
         new("Picking a map", [
-            "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits in the queue.",
+            "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits in the queue. While a vote is on, Play adds to it.",
             "The queue: a map two or more players asked for goes first, then whoever has had the least play time on their own requests.",
-            "A requested map stays until its match ends, its requester clicks I'm done, a skip vote passes, or the requester has been gone over a minute while others wait.",
+            "A requested map stays until its match ends, its requester clicks I'm done, a vote replaces it, or the requester has been gone over a minute while others wait.",
             "Up to 5 requests each, only while you're on the server. Previous asks for the map before this one."]),
-        new("Next and random maps", [
-            "Next rolls a random map when nobody holds this one; on your own map it is I'm done, on somebody else's a vote to skip.",
-            "When a match ends everybody votes for 60 s, or until a majority agrees: 5 maps and Random. A queued map is on the ballot with its requesters' votes in.",
-            "Each other mode gets a map on it: Deathmatch, and Wingman up to 4 players. Ties are drawn; no votes is Random. Arms Race after 10 minutes with nobody on.",
-            "The server rolls one at start. The vote's map stays until its match ends or a skip vote passes. A map a player picked or queued is never random."]),
+        new("The vote and random maps", [
+            "At a match end all vote for 60 s, or until a majority agrees: every queued map with its requesters' votes, one of each other mode, at least 8 maps, Random.",
+            "Next starts it any time, with Keep playing on it: Keep winning or no votes keeps the map, and its starter waits 2 minutes. Your own map: Next is I'm done.",
+            "Each other mode has a map: Deathmatch, Wingman up to 4 players. Ties are drawn; no votes at a match end is Random. Arms Race after 10 minutes with nobody on.",
+            "The server rolls one at start. The vote's map stays until its match ends or a vote replaces it. A map a player picked or queued is never random."]),
         new("Which maps a random pick takes", [
             "The New maps setting (Game page, anybody): Always - the new maps, #1017 and up. Half - a coin flip per pick. Never - the original #1-#1016.",
             "A list with nothing left to roll hands the pick to the other list, and the news line says so. 10 minutes with nobody on: back to Always.",
             "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other."]),
         new("Weights and votes", [
             "Inside that group, Workshop rank gives up to 3x, each Like doubles a map's odds (up to 5 Likes), each Dislike or Too big quarters them.",
-            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. Only the opposite vote replaces it.",
+            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The opposite vote takes it back first.",
             "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
@@ -256,6 +259,7 @@ public sealed class HudState
     public int Big;                                     // too-big votes on the map that is on (each is also one of its Down)
     public string SizeClass = "";                       // its measured class (S, M, L, XL), empty when unmeasured
     public int Ads;                                     // ads votes on the map that is on (each is also one of its Down)
+    public bool VoteOpen;                               // the vote for the next map is open (VoteRound.cs): Next opens it rather than asking for another
     public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
 
     public string Encode()
@@ -290,6 +294,7 @@ public sealed class HudState
         if (Big > 0 || SizeClass != "") Line("big", Big, SizeClass);
         if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
+        if (VoteOpen) Line("vopen");                       // an older plugin skips it
         return s.ToString();
     }
 
@@ -333,6 +338,7 @@ public sealed class HudState
                 case "big": (s.Big, s.SizeClass) = (Int(f, 1), Str(f, 2)); break;
                 case "ads": s.Ads = Int(f, 1); break;
                 case "dash": s.DashVersion = Long(f, 1); break;
+                case "vopen": s.VoteOpen = true; break;
                 case "proof" when HudCheck.IsRelease(Str(f, 1)): s.Proofs[Str(f, 1)] = Str(f, 2); break;
                 case "ok" when Long(f, 1) >= 0 && HudCheck.IsRelease(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
             }
@@ -412,8 +418,9 @@ public static class HudView
     /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
     public static int LevelOf(string id) => NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
 
-    /// <summary>The content a button proves a game holds: 43, 42, 41, 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41 : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
+    /// <summary>The content a button proves a game holds: 44, 43, 42, 41, 32, 31, or 0 for a button every game has.</summary>
+    public static int LevelOfButton(string id) => HudVote.NewButtons44.Contains(id) ? 44 : NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41
+        : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
 
     static HashSet<string> NewPanels()
     {
@@ -568,15 +575,18 @@ public static class HudView
     /// <summary>The seconds on the map-change banner, recomputed by the plugin every second from the deadline it took off the state.</summary>
     public static string Countdown(int seconds) => seconds <= 0 ? "now" : seconds.ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>The contextual button under the votes, per player: your map - let it go; somebody else's - vote it off; nobody's - roll
-    /// a random one; a change already under way - nothing. Command is what a click makes the player say, null for nothing.</summary>
+    /// <summary>What the contextual button asks for while the vote is open: the plugin opens that player's window on it (nothing goes to the bridge).</summary>
+    public const string OpenVote = "!vote";
+
+    /// <summary>The contextual button under the votes, per player (the owner's 2026-11-03): your map - let it go, and a vote picks the next; any other
+    /// - the vote for the next map, with Keep playing on it; the vote open - open it; a change already under way - nothing. Command is what a click
+    /// makes the player say, null for nothing, OpenVote for the window.</summary>
     public static (string Text, string Sub, string? Command) Action(HudState s, long account)
     {
         if (s.ChangeIn >= 0 || s.Loading) return ("Map change under way", "wait for the next map", null);
-        if (s.Holders.Contains(account)) return ("I'm done with this map", "your map: the queue moves on", "!done");
-        if (s.Holders.Count > 0)
-            return (s.Skip is { } k ? $"Vote to skip  {k.Votes}/{k.Needed}" : "Vote to skip", "someone's map: a majority of the others skips it", "!skip");
-        return ("Next: a random map", "nobody holds this one: roll the dice", "!next");
+        if (s.VoteOpen) return ("The vote is on: open it", "pick the next map, or Keep playing", OpenVote);
+        if (s.Holders.Contains(account)) return ("I'm done with this map", "your map: a vote picks the next one", "!done");
+        return ("Vote for the next map", s.Holders.Count > 0 ? "someone's map: Keep playing is on the vote" : "Keep playing is on the vote too", "!next");
     }
 
     /// <summary>The note this player sees now, if any: the bridge's answer to what they clicked.</summary>

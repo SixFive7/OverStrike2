@@ -23,7 +23,9 @@ verdicts.
 
 The HUD's window is the whole interface, on nine pages: Start, Maps, Queue, Game, Help, Rules, How it works, Fun and Sync. Maps has every map with
 its picture, size and votes, a search over names, tags and Workshop ids on an on-screen keyboard, sorting by number, votes, name or size,
-and filters by size, by the player's own likes, by official maps, by Our maps and by game mode (`HudBrowser.cs`). A map with no picture in the
+and filters by size, by the player's own likes, by official maps, by Our maps and by game mode (`HudBrowser.cs`). Every card wears the mode it
+plays in: a label on its picture and the card's colour - Arms Race the HUD's gold, Deathmatch red, Wingman blue (content `v4_4_0`); the Our maps
+filter glows slowly while it is not chosen and is simply lit once it is. A map with no picture in the
 addon has a button on its card that shows its Workshop preview on request, in the game's own message panel. Any Workshop map can be played by
 its id: its card asks the Workshop about it and downloads it to the server first, with the progress on the card (`HudWorkshop.cs`). Holding
 **TAB** shows a board beside the scoreboard - Like, Dislike, Next and the queue - that takes the mouse while TAB is down; TAB + E opens the full
@@ -41,19 +43,18 @@ the action, and its private reply teaches the primary by showing what ran: `You 
 | `!play <number, name or Workshop ID>` | Play a map now, or queue it | `!map` `!p` `!nominate` `!load` `!go` `!pick` |
 | `!find <words>` | Search the maps: the menu opens on the matches | `!search` `!s` `!lookup`, and `!maps <words>` |
 | `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` (sorted by votes) |
-| `!next` | The board's Next: a random map, I'm done on your own, a skip vote on another's | `!n` `!rtv` `!change` `!skipmap`, and `!new` with no argument |
-| `!random` | A random map, while nobody holds this one | `!roll` `!dice` `!rand` `!any` `!shuffle` |
+| `!next` | The board's Next: the vote for the next map, with Keep playing on it; on your own map, I'm done | `!n` `!rtv` `!change` `!skipmap` `!skip` `!voteskip` `!vs` `!boo`, and `!new` with no argument |
+| `!random` | The same vote, with your vote on Random; while a vote is open, your vote on Random | `!roll` `!dice` `!rand` `!any` `!shuffle` |
 | `!back` | Back to the last map | `!previous` `!prev` `!last` `!undo` `!again` |
 | `!q` | Open the queue | `!queue` `!upcoming` `!whatsnext` `!lineup` `!order` |
 | `!cancel [number]` | Drop your request for that map, or all of them | `!unqueue` `!remove` `!drop` `!withdraw` `!uq` |
-| `!done` | End your own map: the queue moves on | `!finish` `!end` `!release` `!letgo` `!over` |
-| `!skip` | Vote to skip someone else's map | `!voteskip` `!vs` `!boo` |
+| `!done` | End your own map: a vote picks the next one | `!finish` `!end` `!release` `!letgo` `!over` |
 | `!up [number]` | Like the map that is on, or that map | `!like` `!+` `!good` `!love` `!thumbsup` |
 | `!down [number] [reason]` | Dislike it, and why (see Voting) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` |
 | `!toobig [number]` | Too big: only 1 random pick in 100 | `!big` `!huge` `!toolarge` `!size` `!xl` |
 | `!ads [number]` | It shows ads or sends players away: never a random pick | `!ad` `!spam` `!advert` `!report` `!scam` |
-| `!vote <1-6>` | Your choice in the vote at a match's end | `!v` `!mv` `!choose` |
-| `!fun` | The Fun page, and each setting's own word | `!set` `!settings` `!toggle` `!mode` |
+| `!vote <number>` | Your choice in the vote for the next map; the bare number works too | `!v` `!mv` `!choose` |
+| `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
 | `!nades <on\|off>` | Grenade drops on or off | `!grenades` `!nade` `!he` `!drops` `!boom` |
 | `!time <10\|60>` | Match length in minutes, from the next match | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
 | `!newmaps <always\|half\|never>` | New maps in random picks | `!fresh` `!pool` `!mix` `!newmap`, and `!new` with an argument |
@@ -62,13 +63,17 @@ the action, and its private reply teaches the primary by showing what ran: `You 
 | `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
 | `!rules` | The rules | `!rule` `!r` `!fair` `!howto` `!policy` |
 | `!how` | How it works: every chance in map picks | `!howitworks` `!odds` `!chances` `!why` `!explain` |
+| `!sync` | The Sync page: what the map sync does now, its queue and its history | `!status` `!dashboard` |
 
 Two words depend on what follows them, by rule, and nothing else is two things: `!new` with an argument is `!newmaps`, without one
-`!next`; `!maps` (and its aliases) with words is `!find`.
+`!next`; `!maps` (and its aliases) with words is `!find`. Since 2026-11-03 (the owner's) `!skip` and its aliases are `!next`'s: the old skip
+vote is the vote for the next map now. `!randomize` and `!funrandom` run `!fun random`, `!defaults` and `!fundefault` run `!fun default`, and teach
+them as every alias teaches its primary.
 
-While a vote is open only the vote picks a map: `!vote`, its aliases and the bare number vote, and `!play`, `!next`, `!random`, `!back`,
-`!done` and `!skip`, each with all its aliases, do nothing but answer that player with what to type: "Vote now: type !vote 1-6 or just the number"
-and "Requests reopen after the vote." A `!vote` with a number that is not on the ballot gets the same answer, and the
+While a vote is open only the vote picks a map: `!vote`, its aliases and the bare number vote; `!play` - like a card's Play - puts its map on the
+ballot for everybody, with that player's vote; `!random` puts that player's vote on Random; and `!next`, `!back` and `!done`, each with all its
+aliases, do nothing but answer that player with what to type: "Vote now: type !vote 1-9 or just the number" (the ballot's own numbers) and
+"Requests reopen after the vote." A `!vote` with a number that is not on the ballot gets the same answer, and the
 same clicks in the menu a note saying so. The commands that do not touch the map stay as they are, `!restart` among them: a stuck server
 does not wait for a vote.
 
@@ -77,9 +82,16 @@ opens the Fun page and writes the words in chat, for the settings the page shows
 still works and teaches the short word. `!nades` is both: `on` and `off` are the grenade drops, `normal`, `big` and `huge` the
 blast of the grenades (Big grenades); `!fun nades on` and `!fun nades big` work too.
 
-**A vote in chat.** While the end-of-match vote is open a bare number from 1 to 6 counts as a vote, like `!vote 3`, and the line
-still shows as typed. A click on a card prints the same thing for everybody, as `[ALL] <name>: !vote 3` in the player's team's
-colour, so that menu users learn the chat way. Every card shows its number.
+**Random and Default** (the Fun page's two buttons, content `v4_4_0`; `!fun random`, `!fun default`): Random sets every setting the page shows in the
+mode that is on to one of its own choices, each choice equally likely, and the grenade drops on or off - never a combination the page itself would
+not make (moon gravity takes super jump back to normal, as the page does). Default is what 10 minutes with nobody on does: every fun setting back
+to normal and the grenade drops on. Either says in chat, in one short line for everybody, who did it and what changed; a click also prints the
+command for everybody, so that menu users learn the chat way. The same as every fun setting: anybody, at any time, a vote open or not.
+
+**A vote in chat.** While a vote is open a bare number the ballot has (1 to its highest, 49 at most) counts as a vote, like `!vote 3`, and
+the line still shows as typed; a number it does not have stays plain chat. A click on a card prints the same thing for everybody, as
+`[ALL] <name>: !vote 3` in the player's team's colour, so that menu users learn the chat way. Every card shows its number, and Random's
+button its own.
 
 The actions the menu sends the bridge (`/act`) are a closed list (`Hud.IsAction`): nothing typed or clicked reaches the server
 console.
@@ -90,7 +102,7 @@ A pick is a request. Whether it plays at once depends on who put the current map
 
 1. **A map nobody holds is replaced at once** - a random map, the start map, or a map its requesters let go of.
 2. **A requested map is held** by whoever asked for it until the match ends, they say they are done, they have been off the
-   server for over 60 s while others wait, or a majority of the other players votes to skip it.
+   server for over 60 s while others wait, or a vote for the next map replaces it (Next starts one at any time; see below).
 3. **The order:** a map that two or more players on the server want goes first; then one map at a time to whoever has had the
    least play time from their own requests this session (a queued request counts as 10 minutes ahead of time; your own requests
    play in the order you made them).
@@ -107,16 +119,35 @@ goes next, and newcomers start just below the least-served active requester.
 ## The end-of-match vote and the game modes
 
 When a match ends there is a vote: every player gets a ballot on the menu's map cards for 60 s, or until a strict majority of
-the players present has chosen one option. The ballot holds up to five maps plus **Random**:
+the players present has chosen one option (kept as it was on 2026-11-03). The ballot (the owner's rules of 2026-11-03):
 
-1. the queue - each connected requester's first request, with that requester's vote already cast;
-2. one map of each other game mode that suits the players on (Deathmatch; Wingman only for four players or fewer);
-3. maps of the server's own mode, rolled like every random pick;
-4. Random.
+1. the queue - every request, in play order, each connected requester's vote already cast on their first;
+2. one map of each other game mode that suits the players on (Deathmatch; Wingman only for four players or fewer), unless the requests
+   hold one of that mode;
+3. maps of the server's own mode, rolled like every random pick, until the ballot holds at least 8 maps (48 at most);
+4. **Random**, a button of its own beside the cards: the dice after the vote, in the mode the server is in.
+
+Every card wears its mode (a label on its picture, the card's colour). Eight cards make a page; a longer ballot has pages, with the pager and
+a gold hint saying how many more maps are on the next page. The gold **Open the map browser** button opens the whole map list while the vote
+is on: a map's **Play** there - or `!play` in chat - puts that map on the ballot for everybody, with a number after every other (numbers never
+change), and moves that player's vote to it; one map a player, and a map on the ballot already only gets the vote. **Back to the vote**
+returns to the cards. A map not on the server's disk downloads when it wins, with the download line.
 
 A player votes by clicking a card's **Vote**, or in chat with its number (`3`, or `!vote 3`). The most votes win, a tie is drawn at random, and no
 votes at all is Random. The winner plays; a queued map that loses stays queued, and a rolled or Random winner is held by the vote until its match
-ends or a skip vote passes. With no plugin polling that draws the vote, or with `MATCH_END_VOTE=off`, a match end serves the queue or rolls the dice.
+ends or another vote replaces it.
+
+**Next starts the vote at any time** (the board's and the menu's Next, `!next` and its aliases, `!skip` among them; the owner's 2026-11-03): the
+same ballot, with one card more, first - **Keep playing** the map that is on - counted among its 8. Only its starter's window opens on it;
+everybody else hears of it on the news line and opens it with Next or TAB + E. Keep winning, or nobody voting, keeps the map - a requested map
+stays its requester's - and its starter waits 2 minutes before starting another (the note says how long is left). Any other winner replaces
+the map that is on, somebody's request included: only a vote can do that, which is what the skip vote was. One vote at a time, and none
+while a change counts down or a map loads. A match that ends while such a vote is open makes it a match end's: the map's turn is over,
+every window opens on it, and nobody voting is Random. `!random` is Next with that player's vote on Random. On the player's own requested
+map Next is **I'm done**: when that leaves the map to nobody, the vote opens as at a match end, without Keep playing.
+
+With no plugin polling that draws the vote, or with `MATCH_END_VOTE=off`, a match end serves the queue or rolls the dice, and Next rolls the
+dice on a map nobody holds, as it always did.
 
 **The game modes.** Arms Race is the default: after every server restart, and again after 10 minutes with nobody on. Each mode has Valve's official
 maps for it (`bridge/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race, `maps-deathmatch.json` and `maps-wingman.json` for the
@@ -128,11 +159,13 @@ menu leaves them out elsewhere.
 
 ## Random picks
 
-The dice roll at a server start (`RANDOM_ON_START`), at a match end with nobody queued (`RANDOM_ON_MATCH_END`) and on **Next**.
+The dice roll at a server start (`RANDOM_ON_START`), for a vote that ends on Random or, at a match end, with no votes, and - with
+no plugin that draws the vote - at a match end with nobody queued (`RANDOM_ON_MATCH_END`) and on **Next**.
 Without the bridge a finished match replays the same map: the Arms Race cfg sets `mp_match_end_restart 1` and
 `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.
 
-**Rolled ahead (since 2026-11-03).** The bridge keeps four random queues of `RANDOM_QUEUE` (15) in `state.json` - Arms Race's
+**Rolled ahead (since 2026-11-03).** The bridge keeps four random queues of `RANDOM_QUEUE` (20, from 10 to 40) in `state.json` - so at least 10
+maps of every list are on the server's disk at all times, also right after a vote has taken its 8 - Arms Race's
 newer maps, its original list, Deathmatch, Wingman - each rolled one entry at a time with exactly the rules below on its own list,
 never a map twice in one queue. A random pick takes from its mode's queue (the new-maps setting picks Arms Race's: always the
 newer maps' queue, never the original's, half a coin between them): the first entry that is still eligible and that the restart
@@ -159,13 +192,20 @@ their defaults.
 
 ## Voting
 
-**Like** and **Dislike** vote on the map that is on, the arrows on any map's card: one vote per player per map, and no way back to no vote.
-The same vote again changes nothing and says it is up or down already; the opposite vote replaces it. **Too big** is a dislike that also marks the map too big (1 random pick in 100); **Ads** is a dislike that
-keeps the map out of random picks for good (it shows adverts or sends players to another server). Votes live in
+**Like** and **Dislike** vote on the map that is on, the arrows on any map's card: one vote per player per map. A vote steps (the owner's
+2026-11-03): the opposite vote on a voted map takes that vote back - to no vote - and says how to cast it ("Your dislike of #12 x is removed - like
+it again to add a like"); the next one casts it. The same vote again changes nothing and says it is up or down already: repeating a vote never
+takes it back (the owner's 27). Every place that shows a vote shows no vote as well. **Too big** is a dislike that also marks the map too big
+(1 random pick in 100); **Ads** is a dislike that keeps the map out of random picks for good (it shows adverts or sends players to another
+server); taking one back takes its mark with it. Since content `v4_4_0` they are a Dislike's reasons only: the board and the cards have no
+buttons of their own for them any more, and `!toobig`, `!ads`, `!down big` and the cards' tags stay. Votes live in
 `STATE_DIR/votes.json`; a file that does not parse is moved aside, never overwritten.
 
 **A dislike keeps its reason**, as the vote's value in `votes.json` (`DownReasons`). Any plain Dislike - the board's button, a card's arrow,
-`!down`, `!down <number>`, its aliases - on a map that player has not disliked counts at once as the first one, and that player gets a popup listing them for 15 s:
+`!down`, `!down <number>`, its aliases - on a map that player has not disliked counts at once as the first one, and that player gets a popup listing them for 15 s.
+Since content `v4_4_0` it stands where the Dislike was clicked: over the picture of the card it came from, in the window's live column in place
+of Like and Dislike, or on the TAB board in place of its buttons; the popup at the left is left for a dislike typed in chat while the window is
+closed. The reasons appear only when a dislike is cast - never for the click that takes a like back:
 
 | Word | Reason | Value | What it does |
 |---|---|---|---|
@@ -182,7 +222,8 @@ needs the cursor the player already has - the window's, or TAB's. A map change, 
 
 Chat steers it directly: `!down big` on the map that is on, `!down <number> <reason>` on any map (`!down 12 big`), a new vote with its
 reason if there was none, and no popup. While a popup is open `!down big` sets the reason of the vote it asks about, without a second
-vote. A reason replaces the one before; the same one again changes nothing and says so. A plain `!down` on a map already disliked keeps
+vote. A reason replaces the one before; the same one again changes nothing and says so. A reason on a map that player liked takes the like back
+first and says how to dislike it with that reason (`!down big again to dislike it: too big`). A plain `!down` on a map already disliked keeps
 the reason, says it is down already and leaves a popup that is open running; `!down meh` puts a reason back to the plain dislike. The
 health page counts the votes per reason. A game holding an older HUD has no popup: the player's note names the words instead, and every player's does.
 

@@ -250,8 +250,9 @@ static partial class Program
         News(same != null ? $"{by} also wants {Clip(Label(map), 24)}." : $"{by} queued {Clip(Label(map), 24)}."); // the board's queue line shows the place
     }
 
-    /// <summary>!done: the requester lets their map go. Last holder out, the queue moves on at once; with nothing queued the
-    /// map stays on, free, and the next request replaces it.</summary>
+    /// <summary>!done: the requester lets their map go. Last holder out: the vote for the next map, the match-end kind - no Keep playing (the
+    /// owner's 2026-11-03) - where a plugin draws it; otherwise the queue moves on at once, and with nothing queued the map stays on, free, and
+    /// the next request replaces it. A !done from somebody who holds no map is Next: the vote.</summary>
     static void Done(string by, string id)
     {
         var now = Now();
@@ -265,13 +266,14 @@ static partial class Program
         var mine = Owners.FirstOrDefault(o => o.Id == id && !o.Done);
         if (mine == null)
         {
-            if (Holders(now).Count > 0 || VoteHeld) { Skip(by, id); return; } // somebody else's map, or the vote's: a non-holder's !done is a vote to skip it
+            if (Holders(now).Count > 0 || VoteHeld) { StartVote(by, id); return; } // somebody else's map, or the vote's: a non-holder's !done is Next - the vote (VoteRound.cs)
             Tell(id, $"Nobody holds {CurrentLabel()} - pick a map and it plays at once");
             return;
         }
         Release(mine, now);
         var still = Holders(now);
         if (still.Count > 0) { News($"{by} is done with {Clip(CurrentLabel(), 24)}, it stays for {Names(still.Select(o => o.Name))}."); return; }
+        if (Pending == null && !AnnouncePending && BallotWanted(now) is { } voters && OpenBallot(now, voters)) { Log($"done: {by} let {CurrentLabel()} go - the vote"); return; } // VoteRound.cs: the match-end kind
         if (Schedule(now, direct: true, lead: $"{by} is done. ") != null) return;
         News($"{by} is done with {Clip(CurrentLabel(), 24)}, the next pick replaces it right away.");
     }
@@ -311,46 +313,9 @@ static partial class Program
         Ask(by, id, prev, now);
     }
 
-    // ---- !skip: the other players' way out of somebody's request ----
+    // ---- !skip: since 2026-11-03 Next's alias - the vote for the next map, Keep playing on it (VoteRound.cs); the old skip vote is gone ----
 
-    static readonly HashSet<string> SkipVotes = new(); // SteamIDs voting the held map off; cleared whenever the map changes or is let go
-
-    /// <summary>The skip count: votes from players in game who do not hold the map, out of all such players, and the majority
-    /// needed. Null when nobody holds the map (the votes are then cleared) or the holders are alone: no majority to reach.</summary>
-    static (int Votes, int Of, int Needed)? SkipTally(DateTime now)
-    {
-        var holders = Holders(now).Select(o => o.Id).ToHashSet();
-        if (holders.Count == 0 && !VoteHeld) { SkipVotes.Clear(); return null; } // the vote's map is held too (VoteRound.cs)
-        var others = Players.Where(kv => kv.Value.GoneSince == null && !holders.Contains(kv.Key)).Select(kv => kv.Key).ToList();
-        return others.Count == 0 ? null : (others.Count(SkipVotes.Contains), others.Count, others.Count / 2 + 1);
-    }
-
-    /// <summary>!skip: a vote to end somebody else's requested map. It counts while the voter is on the server; a majority of the
-    /// players who do not hold the map lets it go exactly as the holders' !done would. A holder's own !skip is their !done.</summary>
-    static void Skip(string by, string id)
-    {
-        var now = Now();
-        if (Owners.Any(o => o.Id == id && !o.Done)) { Done(by, id); return; }
-        if (SkipTally(now) is not { } t) { Tell(id, $"Nobody holds {CurrentLabel()} - pick a map and it plays at once"); return; }
-        if (!SkipVotes.Add(id)) { Tell(id, $"You voted already - {t.Votes}/{t.Of}, {t.Needed - t.Votes} more needed"); return; }
-        CheckSkip(now, by);
-    }
-
-    /// <summary>After a vote, and every tick (a player leaving shrinks the count): release the map once the majority is there.</summary>
-    static void CheckSkip(DateTime now, string? by = null)
-    {
-        if (SkipVotes.Count == 0 || SkipTally(now) is not { } t) return;
-        if (t.Votes < t.Needed)
-        {
-            if (by != null) News($"{by} voted to skip {Clip(CurrentLabel(), 24)}: {t.Votes}/{t.Of} - {t.Needed - t.Votes} more needed.");
-            return;
-        }
-        SkipVotes.Clear(); VoteHeld = false;
-        foreach (var o in Owners.Where(o => !o.Done)) Release(o, now);
-        Log($"skip: {t.Votes} of {t.Of} voted {CurrentLabel()} off");
-        if (Schedule(now, direct: true, lead: $"Skipped by vote ({t.Votes}/{t.Of}). ") != null) return;
-        News($"{Clip(CurrentLabel(), 24)} skipped by vote ({t.Votes}/{t.Of}), the next pick replaces it right away.");
-    }
+    static readonly HashSet<string> SkipVotes = new(); // kept empty: the old skip vote's, cleared where it always was
 
 
     /// <summary>The live state for the HUD (Hud.cs): the same facts !queue and !top say in chat - the map that is on, who picked it and
@@ -367,15 +332,14 @@ static partial class Program
             Size = S.Map is { Official: false, Rank: > 0 } m ? Size(m) : "",
             Key = key,
             Loading = AnnouncePending,
-            Holders = holders.Select(o => AccountId(o.Id)).Where(a => a >= 0).Distinct().Concat(VoteHeld && holders.Count == 0 ? [0L] : []).ToList(), // 0: the vote holds it, so the board's button is a skip vote
+            Holders = holders.Select(o => AccountId(o.Id)).Where(a => a >= 0).Distinct().Concat(VoteHeld && holders.Count == 0 ? [0L] : []).ToList(), // 0: the vote holds it - a request queues behind it
             Status = Pending is { } p ? $"Changing to {Clip(Label(p.Map), 32)}"
                 : Ballot is { Open: true } ? "Vote for the next map"
                 : holders.Count > 0 ? $"{Names(holders.Select(o => Clip(o.Name, 16)))}'s map until the match ends or they are done"
-                : VoteHeld ? "The vote's map until the match ends, or a skip vote"
+                : VoteHeld ? "The vote's map until the match ends, or a vote replaces it"
                 : "Nobody holds it: the next pick replaces it right away",
         };
         (h.Up, h.Down) = key == "" ? (0, 0) : Tally(key);
-        if ((holders.Count > 0 || VoteHeld) && SkipTally(now) is { } skip) h.Skip = skip;
         if (key != "" && Votes.TryGetValue(key, out var votes))
             foreach (var (id, value) in votes) if (AccountId(id) is >= 0 and var account) h.MyVotes[account] = value;
         foreach (var r in Order(now).Take(HudState.ListLength))
@@ -395,6 +359,7 @@ static partial class Program
         h.Verified = S.HudVerified;
         h.SearchVersion = Search.Version;
         h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
+        h.VoteOpen = Ballot is { Open: true }; // VoteRound.cs: Next opens the vote then
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));
         PutNotices(h, now);
         PutWhy(h, now); // Votes.cs: the Dislike popups that are open
@@ -525,7 +490,6 @@ static partial class Program
             ModeBack(); VoteHeld = false; // ModeSwitch.cs: the mode it was going to goes back
             Save();
         }
-        CheckSkip(now);
         ProbeModeIfDue(now); // ModeSwitch.cs: which mode the server is in, when the bridge does not know
         BallotTick(now);     // VoteRound.cs: the vote's timer, and voters who left
         TryStartRoll(now); // before Schedule, so a waiting request is announced as the start's

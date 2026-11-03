@@ -56,9 +56,14 @@ so the setting stays as it is.
 3. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
 4. A map change: the news line says who picked what, and the banner counts down.
 5. **The Fun tab**: the fun settings, the one in force lit, and the grenade drops above Big grenades.
-6. **Dislike** a map: the popup at the left lists the reasons, and takes a click while TAB is held or the window is open.
+6. **Dislike** a map: the reasons stand where it was clicked (content v4_4_0) - over a card's picture, in the window in place of Like and
+   Dislike, on the TAB board - and a dislike typed in chat with the window closed gets the popup at the left. No Too big or Ads buttons.
 7. **The Sync tab** (content v4_3_0): the Workshop sync's dashboard - now, the queue, the history; the pagers page the queue, the runs
    and the map events. Every word on it is the bridge's (bridge/HudDash.cs).
+8. **The vote** (content v4_4_0): a match end or Next opens it on the Maps page - at least eight cards, each with its mode's label and
+   colour, Keep playing first when Next started it, Random's button and the gold Open the map browser beside the filters, the pager and
+   its gold hint when there are more cards than a page holds; a Play in the browser puts its map on the vote.
+9. **The Fun tab**'s Random and Default (content v4_4_0), and the Maps page's Our maps button, which glows slowly until it is chosen.
 
 ## Visibility
 

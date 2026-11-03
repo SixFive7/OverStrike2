@@ -184,16 +184,19 @@ static partial class Program
 
         // ---- the board: a click action panel ----
         var free = new HudState { Map = "#5 x" };
-        var held = new HudState { Map = "#5 x", Holders = [1], Skip = (1, 3, 2) };
-        Check("Board: Like and Dislike are votes on the map that is on; Next is the same contextual button as the menu's",
+        var held = new HudState { Map = "#5 x", Holders = [1] };
+        var voting = new HudState { Map = "#5 x", Holders = [1], VoteOpen = true };
+        Check("Board: Like and Dislike are votes on the map that is on; Next is the same contextual button as the menu's - the vote for the next map, I'm done on your own map, the vote's window while it is on",
             HudView.Command(HudView.BoardUp, free, 1) == "!up" && HudView.Command(HudView.BoardDown, free, 1) == "!down"
-            && HudView.Command(HudView.BoardNext, free, 2) == "!next" && HudView.Command(HudView.BoardNext, held, 1) == "!done" && HudView.Command(HudView.BoardNext, held, 2) == "!skip"
-            && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }, 2) == null);
-        Check("Board: Next's words in each case - a random map, your map, someone's map - and none of them a typed command",
-            HudView.PlayerTexts(free, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("random map")
+            && HudView.Command(HudView.BoardNext, free, 2) == "!next" && HudView.Command(HudView.BoardNext, held, 1) == "!done" && HudView.Command(HudView.BoardNext, held, 2) == "!next"
+            && HudView.Command(HudView.BoardNext, voting, 1) == HudView.OpenVote && HudView.Command(HudView.BoardNext, voting, 2) == HudView.OpenVote
+            && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }, 2) == null && HudState.Decode(voting.Encode())!.VoteOpen && !HudState.Decode(held.Encode())!.VoteOpen);
+        Check("Board: Next's words in each case - a vote, your map, someone's map, the vote on - and none of them a typed command",
+            HudView.PlayerTexts(free, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("Vote for the next map")
             && HudView.PlayerTexts(held, 1, "Al", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("I'm done")
-            && HudView.PlayerTexts(held, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("Vote to skip  1/2")
-            && new[] { free, held }.SelectMany(x => new[] { 1L, 2L }.Select(a => HudView.Action(x, a))).All(a => !a.Text.Contains('!') && !a.Sub.Contains('!')));
+            && HudView.PlayerTexts(held, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("Vote for the next map")
+            && HudView.PlayerTexts(voting, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text.Contains("The vote is on")
+            && new[] { free, held, voting }.SelectMany(x => new[] { 1L, 2L }.Select(a => HudView.Action(x, a))).All(a => !a.Text.Contains('!') && !a.Sub.Contains('!')));
         var queued = new HudState { Next = [("#44 aim_aim", "Alice"), ("#12 de_x", "Bob"), ("#9 a_very_long_map_name_here_for_testing", "Cara")], Queue = [.. Enumerable.Range(0, 6).Select(i => new HudState.QueueEntry("1", "k", "m", "w", []))] };
         Check("Board: the queue in one line - what is next and for whom, as much as fits, and how many more",
             HudView.QueueLine(new HudState()) == "Nothing queued - pick a map in the full menu" && HudView.QueueLine(queued) is var ql && ql.StartsWith("Next: #44 aim_aim (Alice)  ·  #12 de_x (Bob)")
@@ -210,14 +213,14 @@ static partial class Program
         {
             ("!map <number|name|id>", "Maps: a card's Play", Card(claim, "play"), "!map 7"),
             ("!map <unlisted Workshop id>", "Maps: the keyboard's digits, the item's card", WorkshopCard.IdOf("3232901690")?.ToString(), "3232901690"),
-            ("!next", "Board or menu: Next (nobody holds the map)", HudView.Command(HudView.BoardNext, new HudState { Map = "x" }, 1), "!next"),
+            ("!next", "Board or menu: Vote for the next map", HudView.Command(HudView.BoardNext, new HudState { Map = "x" }, 1), "!next"),
             ("!previous !prev !back", "Queue: Previous", HudMenu.Command(HudMenu.Previous, catalog, live, mine, 1, DateTime.UtcNow), "!previous"),
             ("!find <words>", "Maps: Search and the keyboard", HudKeyboard.Press("", "gg_kb_a"), "a"),
             ("!queue !q", "Queue page; the board's queue line", HudView.QueueLine(live), HudView.QueueLine(live)),
             ("!cancel", "Queue: a request's Cancel", HudMenu.Command("gg_qr1_cancel", catalog, live, mine, 1, DateTime.UtcNow), "!cancel 1015"),
             ("!cancel all", "Queue: Cancel all mine", HudMenu.Command(HudMenu.CancelAll, catalog, live, mine, 1, DateTime.UtcNow), "!cancel all"),
             ("!done", "Board or menu: I'm done (your map)", HudView.Command(HudView.BoardNext, live, 2), "!done"),
-            ("!skip", "Board or menu: Vote to skip (someone's map)", HudView.Command(HudView.BoardNext, live, 1), "!skip"),
+            ("!skip", "Board or menu: Vote for the next map (someone's map: Keep playing is on it)", HudView.Command(HudView.BoardNext, live, 1), "!next"),
             ("!up", "Board or menu: Like", HudView.Command(HudView.BoardUp, live, 1), "!up"),
             ("!down", "Board or menu: Dislike", HudView.Command(HudView.ButtonDown, live, 1), "!down"),
             ("!up <map>", "Maps: a card's up arrow", Card(claim, "up"), "!up 7"),

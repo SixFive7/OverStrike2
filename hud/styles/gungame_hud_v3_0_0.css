@@ -3666,7 +3666,7 @@ Label
 	transition-duration: 0s;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_3_0 - level 43. At a join (vjoin) a server above it (svge44) or below it (svlt43)
+/* The HUD version check (HudVote.cs): this layout is v4_4_0 - level 44. At a join (vjoin) a server above it (svge45) or below it (svlt44)
    says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
 .gg-ver
 {
@@ -3703,12 +3703,12 @@ Label
 	text-align: center;
 }
 
-.gg-global.svge44 .gg-screen.vjoin .gg-ver-old
+.gg-global.svge45 .gg-screen.vjoin .gg-ver-old
 {
 	visibility: visible;
 }
 
-.gg-global.svlt43 .gg-screen.vjoin .gg-ver-new
+.gg-global.svlt44 .gg-screen.vjoin .gg-ver-new
 {
 	visibility: visible;
 }
@@ -4980,4 +4980,468 @@ Label
 .gg-screen.osdm8dim .gg-dm8 .gg-dmname
 {
 	color: gg-faint;
+}
+
+/* ---- content v4_4_0 (2026-11-03): the vote, the cards' modes, a Dislike's reasons in place, the Fun page's Random and Default, the Our maps glow ----
+   The modes' colours: Arms Race the HUD's own gold, Deathmatch red, Wingman blue - the label on a card's picture and the band over it come from the
+   card's mode-* class (HudVote.CardModeClasses), the same three names gg_global carries, here on the cards. */
+
+@define gg-ar: #E9B44C;
+@define gg-dm: #E8534A;
+@define gg-wm: #4C9BFF;
+
+@keyframes 'gg-ours-pulse'
+{
+	0% { opacity: 0.12; }
+	50% { opacity: 0.85; }
+	100% { opacity: 0.12; }
+}
+
+.gg-mband
+{
+	visibility: collapse;
+	width: 100%;
+	height: 4px;
+	vertical-align: top;
+	border-radius: 5px 5px 0px 0px;
+}
+
+.gg-mmode
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 8px 8px;
+	padding: 3px 9px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: #14100A;
+}
+
+.gg-mcard.mode-armsrace .gg-mband
+{
+	visibility: visible;
+	background-color: gg-ar;
+}
+
+.gg-mcard.mode-armsrace .gg-mmode-armsrace
+{
+	visibility: visible;
+	background-color: gg-ar;
+	color: #14100A;
+}
+
+.gg-mcard.mode-armsrace .gg-mbody
+{
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #E9B44C14 ), to( #E9B44C05 ) );
+}
+
+.gg-mcard.mode-deathmatch .gg-mband
+{
+	visibility: visible;
+	background-color: gg-dm;
+}
+
+.gg-mcard.mode-deathmatch .gg-mmode-deathmatch
+{
+	visibility: visible;
+	background-color: gg-dm;
+	color: #FFFFFF;
+}
+
+.gg-mcard.mode-deathmatch .gg-mbody
+{
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #E8534A14 ), to( #E8534A05 ) );
+}
+
+.gg-mcard.mode-wingman .gg-mband
+{
+	visibility: visible;
+	background-color: gg-wm;
+}
+
+.gg-mcard.mode-wingman .gg-mmode-wingman
+{
+	visibility: visible;
+	background-color: gg-wm;
+	color: #FFFFFF;
+}
+
+.gg-mcard.mode-wingman .gg-mbody
+{
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #4C9BFF14 ), to( #4C9BFF05 ) );
+}
+
+.gg-mcard.broken .gg-mmode
+{
+	margin-bottom: 30px;
+}
+
+.gg-mcard.crashed .gg-mmode
+{
+	margin-bottom: 30px;
+}
+
+.gg-board .gg-bigrow
+{
+	visibility: collapse;
+}
+
+.gg-mcard .gg-mbig
+{
+	visibility: collapse;
+}
+
+.gg-mcard .gg-mads
+{
+	visibility: collapse;
+}
+
+.gg-vbtn
+{
+	visibility: collapse;
+	height: 30px;
+	vertical-align: center;
+	margin-right: 10px;
+	padding: 0px 16px;
+	border-radius: 4px;
+	border: 1px solid #FFFFFF2E;
+	background-color: #FFFFFF0D;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-vbtn:hover
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-vbtn:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-vbtn-text
+{
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: gg-text;
+}
+
+.gg-screen.voting .gg-vrandom
+{
+	visibility: visible;
+}
+
+.gg-screen.voting .gg-vbrowse
+{
+	visibility: visible;
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+	box-shadow: #E9B44C40 0px 0px 12px 0px;
+}
+
+.gg-screen.voting .gg-vbrowse .gg-vbtn-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.vrandom .gg-vrandom
+{
+	border: 2px solid gg-gold;
+	background-color: #E9B44C40;
+}
+
+.gg-screen.voting .gg-ours-wrap
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting.vpages .gg-pgb
+{
+	visibility: visible;
+}
+
+.gg-vmore
+{
+	visibility: collapse;
+	vertical-align: center;
+	margin-left: 14px;
+	padding: 4px 12px;
+	border-radius: 4px;
+	background-color: gg-gold;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #14100A;
+}
+
+.gg-screen.voting.vmore .gg-vmore
+{
+	visibility: visible;
+}
+
+.gg-vbanner
+{
+	visibility: collapse;
+	width: 100%;
+	height: 36px;
+	flow-children: right;
+	margin-bottom: 6px;
+	padding: 0px 10px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C66;
+	background-color: #E9B44C1A;
+}
+
+.gg-screen.vbrowse .gg-vbanner
+{
+	visibility: visible;
+}
+
+.gg-vbanner .gg-rule-mark
+{
+	vertical-align: center;
+}
+
+.gg-vbanner-text
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: gg-text;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.vbrowse .gg-vback
+{
+	visibility: visible;
+}
+
+.gg-screen.vbrowse .gg-page-maps .gg-mbar-filters
+{
+	visibility: collapse;
+}
+
+.gg-ours-wrap
+{
+	vertical-align: center;
+	margin-right: 6px;
+}
+
+.gg-ours-wrap .gg-chipb-ours
+{
+	margin-right: 0px;
+}
+
+.gg-ours-glow
+{
+	width: 100%;
+	height: 28px;
+	border-radius: 14px;
+	background-color: #E9B44C30;
+	box-shadow: #E9B44CB3 0px 0px 12px 1px;
+	animation-name: gg-ours-pulse;
+	animation-duration: 2.6s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.gg-screen.fl-ours .gg-ours-glow
+{
+	animation-name: none;
+	opacity: 0;
+}
+
+.gg-whyin
+{
+	visibility: collapse;
+	width: 100%;
+	flow-children: down;
+	margin-top: 8px;
+	padding: 8px 10px 6px 10px;
+	border-radius: 4px;
+	border-left: 3px solid gg-gold;
+	background-color: #FFFFFF0A;
+}
+
+.gg-whyin-title
+{
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 16px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFFFFF;
+}
+
+.gg-whyin-map
+{
+	width: 100%;
+	margin-bottom: 4px;
+	font-size: 12px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-whygrid
+{
+	width: 100%;
+	flow-children: right-wrap;
+}
+
+.gg-whyib
+{
+	width: 48%;
+	height: 28px;
+	margin: 0px 4px 4px 0px;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF26;
+	background-color: #FFFFFF0D;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-whyib:hover
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C26;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-whyib:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-whyib-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	color: gg-text;
+}
+
+.gg-screen.why.whyin .gg-live .gg-vote-buttons
+{
+	visibility: collapse;
+}
+
+.gg-screen.why.whyin .gg-whylive
+{
+	visibility: visible;
+}
+
+.HUD_SCOREBOARD_VISIBLE .gg-screen.why .gg-board .gg-vote-buttons
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .gg-screen.why .gg-whyboard
+{
+	visibility: visible;
+}
+
+.gg-whycard
+{
+	visibility: collapse;
+	width: 100%;
+	height: 100%;
+	flow-children: down;
+	padding: 8px 8px 0px 10px;
+	border-radius: 5px 5px 0px 0px;
+	background-color: #0A0D11E6;
+}
+
+.gg-whycard-title
+{
+	margin-bottom: 4px;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 15px;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-screen.why.whyc1 .gg-whycard-1
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc2 .gg-whycard-2
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc3 .gg-whycard-3
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc4 .gg-whycard-4
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc5 .gg-whycard-5
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc6 .gg-whycard-6
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc7 .gg-whycard-7
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyc8 .gg-whycard-8
+{
+	visibility: visible;
+}
+
+.gg-screen.why.whyin .gg-why
+{
+	visibility: collapse;
+}
+
+.HUD_SCOREBOARD_VISIBLE .gg-screen.why .gg-why
+{
+	visibility: collapse;
+}
+
+.gg-funtop
+{
+	width: 100%;
+	flow-children: right;
+	margin-bottom: 8px;
+}
+
+.gg-funtop .gg-fun-note
+{
+	width: fill-parent-flow( 1 );
+	margin-bottom: 0px;
+	vertical-align: center;
+}
+
+.gg-funallb
+{
+	margin-left: 8px;
+	vertical-align: center;
 }

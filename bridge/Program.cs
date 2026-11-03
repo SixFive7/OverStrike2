@@ -556,14 +556,14 @@ static partial class Program
         var parts = text.Split(' ', 2, StringSplitOptions.TrimEntries);
         var cmd = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
-        if (Ballot is { Open: true } && cmd is "!map" or "!next" or "!previous" or "!prev" or "!back" or "!done" or "!skip") { Tell(steamId, MapVote.WaitLine); return; } // the owner's 26: only the vote picks a map now (ChatCommands.WaitForVote)
+        if (Ballot is { Open: true } && cmd is "!previous" or "!prev" or "!back" or "!done") { Tell(steamId, MapVote.WaitLine); return; } // the owner's 26: only the vote picks a map now (ChatCommands.WaitForVote); !map adds its map to the vote, Next and !skip say it is on (the owner's 2026-11-03)
         if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
-        else if (cmd == "!next") NextRandom(name, steamId);
+        else if (cmd == "!next") NextRandom(name, steamId, arg == "random"); // VoteRound.cs: a vote for the next map; "!next random" is !random's
         else if (cmd is "!previous" or "!prev" or "!back") Previous(name, steamId);
         else if (cmd == "!done") Done(name, steamId);
-        else if (cmd == "!skip") Skip(name, steamId);
+        else if (cmd == "!skip") NextRandom(name, steamId); // the owner's 2026-11-03: a vote for the next map, Keep playing on it (the old skip vote)
         else if (cmd == "!cancel") Cancel(name, steamId, arg);
         else if (cmd == "!up") Vote(name, steamId, arg, +1);
         else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Vote(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Votes.cs: with its reason, if it names one
@@ -590,6 +590,7 @@ static partial class Program
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
         if (ConfirmGate(map, by, steamId, now) is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
+        if (Ballot is { Open: true } vote) { AddToBallot(vote, by, steamId, map, now); return; } // VoteRound.cs: while the vote is open a pick goes on its ballot
         Ask(by, steamId, map, now);
     }
 
@@ -697,10 +698,18 @@ static partial class Program
             foreach (var o in change.Owners) Tell(o.Id, "If nothing happens within a minute it is not a playable map - I'm done lets it go", 60);
     }
 
-    /// <summary>!next: roll a random map right now. Someone asked, so unlike a match end this ignores RANDOM_ON_MATCH_END and the
-    /// empty-server guard. Somebody's request playing: refused, unless it is yours - then it means you are done with it, and the
-    /// queue goes first. The size cap, the crashed and broken maps, the recent maps and the current map are still excluded.</summary>
-    static void NextRandom(string by, string steamId)
+    /// <summary>!next (the board's Next, !skip): since 2026-11-03 the vote for the next map (VoteRound.cs, StartVote) - on your own requested map
+    /// it means you are done with it (Done). ForRandom: !random, the vote with this player's vote on Random.</summary>
+    static void NextRandom(string by, string steamId, bool forRandom = false)
+    {
+        if (Owners.Any(o => o.Id == steamId && !o.Done) && !forRandom) { Done(by, steamId); return; }
+        StartVote(by, steamId, forRandom);
+    }
+
+    /// <summary>The old !next, where no plugin draws a vote: roll a random map right now. Someone asked, so unlike a match end this ignores
+    /// RANDOM_ON_MATCH_END and the empty-server guard. Somebody's request playing: refused, unless it is yours - then it means you are done
+    /// with it, and the queue goes first. The size cap, the crashed and broken maps, the recent maps and the current map are still excluded.</summary>
+    static void OldNext(string by, string steamId)
     {
         var now = Now();
         if (Ballot is { Open: true }) { Tell(steamId, MapVote.WaitLine); return; } // VoteRound.cs
@@ -716,7 +725,7 @@ static partial class Program
             else Tell(steamId, $"{CurrentLabel()} is {names}'s request until its match ends - pick a map to queue yours");
             return;
         }
-        if (VoteHeld) { Skip(by, steamId); return; } // VoteRound.cs: on the vote's map, Next is a vote to skip it
+        if (VoteHeld) { Tell(steamId, $"{CurrentLabel()} is the vote's map until its match ends"); return; }
         if (Schedule(now, direct: true, lead: mine != null ? $"{by} is done. " : "") != null) return;
         if (RandomNext(true, 1) is not { } map) { Tell(steamId, "No map is eligible to roll right now"); return; } // RandomQueue.cs
         StartChange(new Change(map, by, []), $"{by} rolled the dice: {Label(map)}{Detail(map)}{RollNote}");
@@ -732,7 +741,16 @@ static partial class Program
         MatchEndUntil = now.AddSeconds(30);
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }
         if (AnnouncePending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
-        if (Ballot is { Open: true }) { Log("match end: the vote is still open"); return; }
+        if (Ballot is { Open: true } running)
+        {
+            if (running.MidMatch) // VoteRound.cs: a vote a player started runs on as a match end's - the turn of the map that is on is over
+            {
+                running.MatchEnded = true; ReleaseAll(now); VoteHeld = false;
+                Log("match end: a vote a player started is open - it decides as a match end's from now (nobody voting is Random)");
+            }
+            else Log("match end: the vote is still open");
+            return;
+        }
         ReleaseAll(now); VoteHeld = false; // the requested map's turn is over, and so is the vote's map's
         if (InMaintenance()) { Log("match end: maintenance flag set - no automatic change"); return; }
         if (BallotWanted(now) is { } voters && OpenBallot(now, voters)) return; // VoteRound.cs: the vote, where a plugin draws it

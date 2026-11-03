@@ -179,7 +179,8 @@ static partial class Program
             Talk(alice, $"!map {Rank(1)}"); Land(); Run(60);
             Talk(bob, $"!map {Rank(2)}");
             Talk(bob, "!done");
-            Check("!done from someone who does not hold the map is only a skip vote (1 of 2), and nothing changes", SkipTally(clock) == (1, 2, 2) && Pending == null);
+            Check("!done from someone who does not hold the map is Next: without a plugin that draws the vote, the old Next - refused on somebody's request, nothing changes",
+                Pending == null && Said("is Alice's request until its match ends") && SkipVotes.Count == 0);
             Quiet(); Talk(alice, "!done");
             Check("!done from the requester: the queue moves on at once", Pending?.Map == m[2] && Said("Alice is done. Bob picked"));
             Land(); Run(61);
@@ -229,35 +230,18 @@ static partial class Program
             Join(alice); Talk(alice, $"!map {S.Map!.Rank}");
             Check("Asking for the random map that is on claims it: it is now theirs", Pending == null && Holders(clock) is [{ Name: "Alice" }]);
 
-            // ---- !skip: a majority of the players who do not hold the map ends it ----
+            // ---- !skip: since 2026-11-03 Next's alias - the vote for the next map where a plugin draws it (SelfTestVote.cs), the old Next otherwise ----
             Fresh();
             var eve = ("Eve", "[U:1:1005]");
             foreach (var p in new[] { alice, bob, cara, dan, eve }) Join(p);
             Talk(alice, $"!map {Rank(1)}"); Land(); Run(61);
             Talk(eve, $"!map {Rank(2)}"); Run(10); Quiet();
             Talk(bob, "!skip");
-            Check("The holder is not counted: Bob's skip is 1 vote of the 4 others, 3 needed", SkipTally(clock) == (1, 4, 3) && Pending == null);
-            Run(3);
-            Check("...and chat says how far it is", Said("Bob voted to skip") && Said("1/4 - 2 more needed."));
+            Check("!skip is Next's: without a plugin that draws the vote somebody's request stays, the player hears why, and no skip count is kept", Pending == null && Said("is Alice's request until its match ends") && SkipVotes.Count == 0);
             Talk(cara, "!done");
-            Check("A non-holder's !done is the same vote", SkipTally(clock) == (2, 4, 3));
-            Talk(cara, "!skip");
-            Check("Voting twice counts once", SkipTally(clock) == (2, 4, 3) && Said("You voted already"));
-            Leave(bob); Run(1);
-            Check("A voter who leaves before the majority takes the vote along: 1 of the 3 still on", SkipTally(clock) == (1, 3, 2) && Pending == null);
-            Talk(dan, "!skip");
-            Check("Majority: the map goes exactly as on !done - the queue moves on", Pending?.Map == m[2] && Said("Skipped by vote (2/3). Eve picked"));
-            Land();
-            Check("The map changed: every vote is gone", SkipVotes.Count == 0 && SkipTally(clock) == (0, 3, 2));
-            Join(bob); Run(1); Talk(alice, "!skip"); Talk(cara, "!skip");
-            Check("Two of four others is no majority yet", Pending == null && Holders(clock) is [{ Name: "Eve" }]);
-            Leave(dan); Run(1);
-            Check("A non-voter leaving can complete it: 2 of the 3 still on", Holders(clock).Count == 0);
-            Fresh();
-            Join(alice); Talk(alice, $"!map {Rank(1)}"); Land(); Run(10);
-            Check("A holder alone on the server: no majority to reach", SkipTally(clock) == null);
+            Check("...a non-holder's !done the same", Pending == null && SkipVotes.Count == 0 && Holders(clock) is [{ Name: "Alice" }]);
             Talk(alice, "!skip");
-            Check("...and their own !skip is their !done", Holders(clock).Count == 0);
+            Check("...and the holder's own !skip is their !done: the queue moves on", Pending?.Map == m[2] && Said("Alice is done. Eve picked"));
 
             // ---- the crash counter (CrashWatch.cs): RCON status's spawn counter tells a new server process from the old one ----
             // The fake server counts its loads in statusSpawn and shows the map it loaded last; Crash() is the process dying without a
@@ -502,11 +486,18 @@ static partial class Program
             Talk(alice, "!up"); Talk(bob, "!down");
             Check("!up and !down vote on the map that is on", Tally(key) == (1, 1) && Said("You upvoted") && Said("You downvoted") && NoteFor.ContainsKey(1001) && NoteFor.ContainsKey(1002));
             Talk(alice, "!up");
-            Check("The same vote again changes nothing and says so: there is no way back to no vote", Tally(key) == (1, 1) && Said("is up already") && !Said("took back"));
+            Check("The same vote again changes nothing and says so: repeating a vote never takes it back (the owner's 27)", Tally(key) == (1, 1) && Said("is up already") && Said("!down takes it back"));
             Talk(bob, "!down");
             Check("...for a Dislike as well", Tally(key) == (1, 1) && Said("is down already"));
-            Talk(alice, "!down"); Talk(alice, "!up");
-            Check("The other vote replaces yours: one vote per player per map", Tally(key) == (1, 1) && Votes[key].Count == 2 && Said("You changed your vote"));
+            Quiet(); Talk(alice, "!down");
+            Check("The opposite vote takes yours back first (the owner's 2026-11-03): Alice's like is gone, nothing is cast, and the note says how to dislike",
+                Tally(key) == (0, 1) && !Votes[key].ContainsKey("[U:1:1001]") && Said("Your like of") && Said("is removed - dislike it again to add a dislike"));
+            Quiet(); Talk(alice, "!down");
+            Check("...the next Dislike casts it: one vote per player per map", Tally(key) == (0, 2) && Votes[key]["[U:1:1001]"] == -1 && Said("You downvoted"));
+            Quiet(); Talk(alice, "!up");
+            Check("...and back the same way: a Like takes the dislike back", Tally(key) == (0, 1) && Said("Your dislike of") && Said("like it again to add a like"));
+            Quiet(); Talk(alice, "!up");
+            Check("...and the next Like casts it", Tally(key) == (1, 1) && Votes[key].Count == 2 && Said("You upvoted"));
             Talk(cara, $"!up {Rank(2)}"); Talk(bob, $"!up {Rank(2)}"); Talk(alice, $"!up {Rank(2)}"); Talk(cara, $"!up {Rank(3)}"); Talk(bob, $"!up {Rank(3)}");
             Talk(alice, $"!down {Rank(3)}"); Talk(cara, $"!up {Rank(4)}"); Talk(bob, $"!up {Rank(4)}");
             Check("!up <number> votes on any map", Tally(Key(m[2])) == (3, 0) && Tally(Key(m[4])) == (2, 0) && Tally(Key(m[3])) == (2, 1));
@@ -614,8 +605,8 @@ static partial class Program
                 hud.Next.Select(n => n.Map).SequenceEqual([Clip(Label(m[2]), 36), Clip(Label(m[3]), 36)]) && hud.Next[0].Who == "Bob" && hud.Top is [var liked] && liked.Up == 1 && liked.Map == Clip(Label(m[1]), 36));
             Talk(bob, "!skip"); Run(1);
             hud = HudState.Decode(HudText)!;
-            Check("A skip vote shows its count, and the window's button fits each player: the holder lets go, the others vote it off",
-                hud.Skip == (1, 2, 2) && HudView.Action(hud, 1001).Command == "!done" && HudView.Action(hud, 1002).Command == "!skip" && HudView.Action(hud, 1003).Text.Contains("1/2"));
+            Check("The window's button fits each player: the holder lets go, the others start the vote for the next map (Keep playing on it) - no skip count any more",
+                hud.Skip == null && HudView.Action(hud, 1001).Command == "!done" && HudView.Action(hud, 1002).Command == "!next" && HudView.Action(hud, 1003).Text == "Vote for the next map");
             Quiet();
             Check("A click on the HUD acts exactly like the chat command: Cara's upvote is counted and said",
                 HudAct("[U:1:1003]\tCara\t!up") && Tally(Key(m[1])) == (2, 0) && Said("You upvoted") && NoteFor.ContainsKey(1003));
