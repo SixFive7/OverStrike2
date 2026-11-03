@@ -50,25 +50,29 @@ static class Program
         "to play a map that is not on the list: the server downloads it first, with the progress on its card.\n" +
         "[*][b]Queue[/b]: who is next, your requests to cancel, back to the last map.\n" +
         "[*][b]Game[/b]: match length, new maps in random picks, restart a stuck server.\n" +
-        "[*][b]Fun[/b]: the fun settings and the grenade drops.\n" +
+        "[*][b]Fun[/b]: the fun settings and the grenade drops, with Random and Default.\n" +
         "[*][b]Help, Rules, How it works[/b]: where everything is, the rules, and every chance in a map pick.\n" +
+        "[*][b]Sync[/b]: what the server's map sync is doing, what waits in its queue, and its history.\n" +
         "[/list]\n\n" +
         "[h1]Chat commands[/h1]\n" +
         "Every action has one, and !help lists them: !play 12, !find words, !next, !q, !up, !down, !vote 3, !fun. The words you know from other servers work too, and the answer teaches: " +
         "You typed !map 12 - ran !play 12. A Workshop link pasted in chat opens that map's card.\n\n" +
         "[h1]Taking turns[/h1]\n" +
         "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits. A map two or more players want goes first, then whoever has had the least play time. " +
-        "A requested map stays until its match ends, its requester is done, a majority of the others votes to skip it, or its requester has been gone over a minute while others wait.\n\n" +
-        "[h1]The vote at a match's end[/h1]\n" +
-        "Everybody votes for 60 seconds, or until a majority agrees: up to 5 maps and Random. Queued maps are on it with their requesters' votes already in, and so is a map of each other game mode " +
-        "that suits the players on: Deathmatch, and Wingman up to 4 players. Click a card or type its number. While the vote is open only !vote and a bare number count; the other map commands tell you what to type. " +
-        "A tie is drawn, no votes is Random, and the server is back on Arms Race after a restart or 10 minutes with nobody on.\n\n" +
+        "A requested map stays until its match ends, its requester is done, a vote replaces it, or its requester has been gone over a minute while others wait.\n\n" +
+        "[h1]The vote for the next map[/h1]\n" +
+        "When a match ends everybody votes for 60 seconds, or until a majority agrees: every queued map with its requesters' votes already in, a map of each other game mode " +
+        "that suits the players on (Deathmatch, and Wingman up to 4 players), at least 8 maps, and Random. Every card shows its mode, by a label and a colour; a longer ballot pages, with a hint you cannot miss. " +
+        "Open the map browser to put any map on the vote for everybody, with your vote on it. Next starts the same vote at any time, with Keep playing on it: if Keep wins or nobody votes, the map stays. " +
+        "Click a card or type its number. While the vote is open !vote and a bare number vote and !play adds its map; the other map commands tell you what to type. " +
+        "A tie is drawn, no votes at a match end is Random, and the server is back on Arms Race after a restart or 10 minutes with nobody on.\n\n" +
         "[h1]Your votes steer the dice[/h1]\n" +
-        "Random maps lean on your votes: each Like doubles a map's odds, up to 5, and each Dislike quarters them. One vote per player per map, and it stays: the same vote again says you voted so already, the opposite vote replaces it. " +
-        "A Dislike opens a small popup that asks why, which takes no mouse of its own: I did not like the map, too big, ads, too small, broken, runs badly. Click one, or type !down big. Only 1 random pick in 100 is a too-big map, and a map marked for ads is never a random pick.\n\n" +
+        "Random maps lean on your votes: each Like doubles a map's odds, up to 5, and each Dislike quarters them. One vote per player per map: the opposite vote takes yours back first, and the next one casts it; the same vote again says you voted so already. " +
+        "A Dislike asks why right where you clicked it: I did not like the map, too big, ads, too small, broken, runs badly. Click one, or type !down big. Only 1 random pick in 100 is a too-big map, and a map marked for ads is never a random pick.\n\n" +
         "[h1]Fun settings[/h1]\n" +
         "Sixteen settings anybody can switch until the map changes, each with its own word (!gravity low, !vampire on): gravity, super jump, bunny hopping, fall damage, ice floor, Laser guns, infinite ammo, " +
-        "headshots only, Vampire, Ghost, big grenades, double damage, free-for-all, friendly fire, Instakill and grenades x10. In Arms Race every player also gets a grenade that drops where they die.\n\n" +
+        "headshots only, Vampire, Ghost, big grenades, double damage, free-for-all, friendly fire, Instakill and grenades x10. Random sets them all at once (!fun random), Default puts everything back (!fun default). " +
+        "In Arms Race every player also gets a grenade that drops where they die.\n\n" +
         "[h1]Catch-up boosts[/h1]\n" +
         "Fall 2, 4 or 7 kills behind the leader in Arms Race and you spawn with a boost that grows with the gap: more health, less damage taken, more damage dealt, lifesteal and regeneration; further back a second chance and longer spawn protection; " +
         "furthest back infinite ammo and a one-hit knife and Zeus. A private message at spawn says what you got. A leader who runs away takes up to 30% more damage.\n\n" +
