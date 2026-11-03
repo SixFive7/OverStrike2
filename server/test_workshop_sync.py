@@ -126,6 +126,8 @@ c.lower({"api_night_cap": 50, "batch": 5, "publish": False, "api": True})
 check("config: run-now lowers a run's limits, and may ask for the API steps", (c.api_run_cap, c.batch, c.publish, c.force_api) == (50, 5, False, True))
 c.lower({"api_run_cap": 5000, "batch": 1000})
 check("config: run-now cannot raise them", (c.api_run_cap, c.batch) == (50, 5))
+c.lower({"api": False, "only_ids": [11, "12", "x"]})
+check("config: run-now may leave the API steps out, and limit the run to some maps", c.skip_api and c.only_ids == ["11", "12"])
 check("ledger: the hard day cap cannot be raised by a caller", m.ApiLedger("x", 50000, 10, FakeClock(0)).day_cap == 10000)
 
 # ---- the ledger: rolling 24 h, the night, persisted before every call ----------------------------------------------
@@ -1367,6 +1369,58 @@ m.SteamCmd, m.humans_on = real_steam, real["humans_on"]
 os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
 for k in ("SYNC_GAME_DIR", "SYNC_DEPOTCACHE"):
     os.environ.pop(k, None)
+
+# the crash of 2026-11-04 (its first test load): a second module-level mode_of (the status file's) replaced test_load's, and every real test load
+# failed at its first line - the tests' own test_load was a stand-in. One definition per name, and the real test_load's first steps
+import ast as _ast
+for script in ("workshop-sync.py", "update-watch.py"):
+    names = [n.name for n in _ast.parse(open(os.path.join(HERE, script), encoding="utf-8").read()).body
+             if isinstance(n, (_ast.FunctionDef, _ast.ClassDef))]
+    twice = sorted(set(n for n in names if names.count(n) > 1))
+    check("one definition per module-level name in %s (twice: %s)" % (script, twice), twice == [])
+check("mode_of is test_load's: (mode, game_type, game_mode) from the tags", m.mode_of(["Wingman"]) == ("wingman", 0, 2)
+      and m.mode_of([]) == ("armsrace", 1, 0) and m.list_mode({"tags": ["Deathmatch"]}) == "deathmatch")
+
+
+class DownEngine(object):
+    """An engine that is gone the moment it is asked: the real test_load runs its first steps and says crash."""
+
+    class tail(object):
+        @staticmethod
+        def lines():
+            return []
+    sent = []
+
+    def rcon(self, command):
+        DownEngine.sent.append(command)
+        return ""
+
+    def alive(self):
+        return False
+
+
+got = m.test_load(DownEngine(), "4242", ["de_x"], ["Wingman"], 20, lambda: False)
+check("test_load (the real one): the map asked for in its mode, a crash reported - no exception (%s)" % got.get("verdict"),
+      got.get("verdict") == "crash" and DownEngine.sent == ["game_type 0; game_mode 2; host_workshop_map 4242"])
+# a reshaped input (a list where a dict is read, a string, a dict of the wrong things) is logged and counted, never a crash
+shp = os.path.join(ROOT, "reshaped")
+os.makedirs(shp)
+for name, value in (("queues.json", []), ("votes.json", ["x"]), ("ratings.json", "x"), ("ours.json", {"maps": "x"}),
+                    ("maps.json", {"x": 1}), ("broken.json", []), ("removed.json", [1])):
+    json.dump(value, open(os.path.join(shp, name), "w"))
+ks = m.safe_keep_set(m.keep_inputs(shp), KT)
+check("reshaped inputs: the keep set says why it is not to be trusted, no exception (%s)" % ks["problems"][:2], ks["problems"] and not ks["all"] - set())
+real_keep = m.keep_set
+m.keep_set = lambda inputs, now, hud="": (_ for _ in ()).throw(AttributeError("'list' object has no attribute 'get'"))
+ks2 = m.safe_keep_set({}, KT)
+check("reshaped inputs: an exception inside the keep set is caught and named", ks2["problems"][0].startswith("the keep set could not be computed")
+      and ks2["all"] == set())
+nsr = m.Night(ncfg2, FakeClock(KT + 400), manual=True)
+nsr.state.load()
+nsr.serve()
+check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
+      "could not be computed" in nsr.report["serve"].get("skipped", "") and any("serve:" in e for e in nsr.report["errors"]))
+m.keep_set = real_keep
 
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\n%d failed" % len(FAILS) if FAILS else "\nall passed")

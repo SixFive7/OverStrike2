@@ -150,6 +150,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -284,6 +285,7 @@ class Config(object):
         self.steamcmd = os.environ.get("SYNC_STEAMCMD") or "/home/steam/steamcmd/steamcmd.sh"
         self.ratings = env_flag("SYNC_RATINGS", True)      # step 2b: the Workshop scores, once a day
         self.force_api = False
+        self.skip_api = False
         self.disk_low = env_int("SYNC_DISK_LOW_GB", 100, 1, 100000) << 30   # free on the game's volume under this: a problem mailed
         self.dashboard_url = (os.environ.get("SYNC_DASHBOARD_URL") or "").strip() or first_line(os.path.join(self.state_dir, "dashboard-url"))
         self.handover = env_flag("SYNC_HANDOVER", True)    # the keep set's maps handed over to the game server
@@ -301,6 +303,8 @@ class Config(object):
             self.key_file = ""
         if overrides.get("api") is True:
             self.force_api = True                       # discovery, the check and the ratings this run, whatever the cadence
+        if overrides.get("api") is False:
+            self.skip_api = True                        # ...or not at all in this run
         if isinstance(overrides.get("only_ids"), list):
             self.only_ids = [str(x) for x in overrides["only_ids"] if str(x).isdigit()]
 
@@ -1064,6 +1068,17 @@ def keep_set(inputs, now, hud=""):
         every |= set(ids)
     return {"up": sorted(up), "top": top, "lists": three, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
             "requested": requested, "all": every, "scored": len(scores), "problems": problems}
+
+
+def safe_keep_set(inputs, now, hud=""):
+    """keep_set, but an input whose shape it does not expect (a list where it reads a dict, say) is logged and counted as a
+    problem instead of ending the run: the keep set is then empty and says why, so nothing is handed over or deleted on it."""
+    try:
+        return keep_set(inputs, now, hud)
+    except Exception as error:     # a reshaped bridge file must never crash a run
+        log("keep set: not computed (%r) - an input has a shape this code does not read; nothing is decided on it" % error)
+        return {"up": [], "top": {}, "lists": {}, "cutoff": {}, "own": [], "hud": [], "queues": {}, "requested": [], "all": set(),
+                "scored": 0, "problems": ["the keep set could not be computed: %r" % error]}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -2811,8 +2826,9 @@ QUEUE_MODE = {"armsrace-new": "armsrace", "armsrace-original": "armsrace", "deat
 BROKEN_KINDS = ("advert", "crasher", "kick")
 
 
-def mode_of(rec, listed=None, wid=None):
-    """armsrace | deathmatch | wingman: the list a map is on, else the first of its Workshop tags; armsrace when neither says."""
+def list_mode(rec, listed=None, wid=None):
+    """armsrace | deathmatch | wingman: the list a map is on, else the first of its Workshop tags; armsrace when neither says. (Not
+    mode_of: that name is test_load's - a second definition replaced it on 2026-11-03 and crashed every test load.)"""
     if listed and wid in listed:
         return listed[wid]
     tags = (rec or {}).get("tags") or []
@@ -2982,13 +2998,13 @@ def status_heavy(n):
     queue = {"total": len(order), "bytes": sum(int((items.get(w) or {}).get("size") or 0) for w in order),
              "byMode": dict((mode, sum(1 for w in order if tag in ((items.get(w) or {}).get("tags") or []))) for mode, tag, _g, _m, _f in MODES),
              "eta": int(clock.now() + len(order) * pace * DAY / (HOURS_A_DAY * 3600.0)) if order else None,
-             "next": [{"id": w, "name": clean((items.get(w) or {}).get("title") or "", 80), "mode": mode_of(items.get(w), listed, w),
+             "next": [{"id": w, "name": clean((items.get(w) or {}).get("title") or "", 80), "mode": list_mode(items.get(w), listed, w),
                        "sizeMb": int((items.get(w) or {}).get("size") or 0) >> 20, "why": why(w)} for w in order[:STATUS_NEXT]]}
     # the keep set: its parts as the game server stores them, and what the sync still has to hand over
     # the HUD item: the sync is not told which it is - the restart watcher's keep.json of its last engine start names it
     watcher_keep = read_json(os.path.join(os.path.dirname(cfg.watcher_state), "keep.json"), {}) or {}
     hud = [str(w) for w in ((watcher_keep.get("parts") or {}).get("hud") or []) if str(w).isdigit()] if isinstance(watcher_keep, dict) else []
-    keep = keep_set(keep_inputs(cfg.bridge_data), clock.now(), hud=hud[0] if hud else "")
+    keep = safe_keep_set(keep_inputs(cfg.bridge_data), clock.now(), hud=hud[0] if hud else "")
     has, pending = server_maps(cfg.game_dir), handovers(cfg.handover_dir)
     want = [w for w in dict.fromkeys(keep["up"] + [w for mode, _f in KEEP_MODES for w in keep["top"].get(mode) or []] + keep["own"])
             if w not in has and w not in pending and w not in cfg.exclude]
@@ -3083,7 +3099,7 @@ class Night(object):
         """The status file: the map this step is on now, and how far the step is."""
         rec, wid = self.state.item(wid) or {}, str(wid)
         self.status.set(map={"id": wid, "name": clean(rec.get("title") or "", 80) or self.listed_name.get(wid, ""),
-                             "mode": mode_of(rec, self.listed_mode, wid),
+                             "mode": list_mode(rec, self.listed_mode, wid),
                              "sizeMb": (int(rec.get("size") or 0) or self.listed_size.get(wid, 0)) >> 20}, step={"done": int(done), "total": int(total)})
         self.status.rebuild(self)
         self.status.write()
@@ -3095,7 +3111,7 @@ class Night(object):
             rec = self.state.item(wid) or {}
             hist.setdefault("maps", []).append({"at": int(self.clock.now()), "id": str(wid),
                                                 "name": clean(rec.get("title") or "", 80) or self.listed_name.get(str(wid), ""),
-                                                "mode": mode_of(rec, self.listed_mode, str(wid)), "event": event, "why": clean(why, 200)})
+                                                "mode": list_mode(rec, self.listed_mode, str(wid)), "event": event, "why": clean(why, 200)})
             del hist["maps"][:-STATUS_MAPS]
         except Exception as error:
             log("status: an event of %s not kept (%r)" % (wid, error))
@@ -3208,7 +3224,8 @@ class Night(object):
         api = SteamApi(self.ledger, self.night, self.cfg.api_gap, key=key, run_cap=self.cfg.api_run_cap)
         self.api = api
         last_api = float(self.state.data.get("last_api") or 0)
-        api_due = self.cfg.force_api or self.clock.now() - last_api >= self.cfg.api_every or not backlog_waits(self.state.data)
+        api_due = (self.cfg.force_api or self.clock.now() - last_api >= self.cfg.api_every or not backlog_waits(self.state.data)) \
+            and not self.cfg.skip_api
         details, removed_now = {}, []
         if not api_due:
             why = "the last ran at %s; again after %s, or once nothing waits" % (self.clock.local(last_api).strftime("%H:%M"), hms(self.cfg.api_every))
@@ -3388,7 +3405,7 @@ class Night(object):
         set of the bridge's files as they are; {} without ratings. A waiting map that would make any of the three goes first."""
         if getattr(self, "_cut", None) is None or self.clock.now() - self._cut[0] > 600:
             inputs = keep_inputs(self.cfg.bridge_data)
-            keep = keep_set(inputs, self.clock.now())
+            keep = safe_keep_set(inputs, self.clock.now())
             trend = (inputs.get("ratings.json") or {}).get("trend") if isinstance(inputs.get("ratings.json"), dict) else {}
             cut = {}
             if keep["scored"]:
@@ -3522,10 +3539,16 @@ class Night(object):
         if not cfg.handover:
             rep["skipped"] = "SYNC_HANDOVER is off"
             return
-        keep = keep_set(keep_inputs(cfg.bridge_data), self.clock.now())
+        keep = safe_keep_set(keep_inputs(cfg.bridge_data), self.clock.now())
+        broken_keep = [p for p in keep["problems"] if p.startswith("the keep set could not be computed")]
+        if broken_keep:
+            rep["skipped"] = broken_keep[0]
+            self.report["errors"].append("serve: %s - nothing handed over" % broken_keep[0])
+            return
         has, pending = server_maps(cfg.game_dir), handovers(cfg.handover_dir)
         want = keep["up"] + [w for mode, _f in KEEP_MODES for w in keep["top"].get(mode) or []] + keep["own"]
-        want = [w for w in dict.fromkeys(want) if w not in has and w not in pending and w not in cfg.exclude]
+        want = [w for w in dict.fromkeys(want) if w not in has and w not in pending and w not in cfg.exclude
+                and (getattr(cfg, "only_ids", None) is None or w in cfg.only_ids)]
         rep.update(missing=len(want), stored=len(has), pending=len(pending))
         if not has:
             rep["skipped"] = "the game server's acf is not readable here - nothing fetched"
@@ -3810,8 +3833,11 @@ class Night(object):
         t = self.report.setdefault("tests", {"rows": []})
         content = os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "content", "730")
         staged = sorted(os.listdir(content)) if os.path.isdir(content) else []
+        only = getattr(cfg, "only_ids", None)          # a manual run limited to some maps tests only those
         work = []
         for wid in staged:
+            if only is not None and wid not in only:
+                continue
             rec = self.state.item(wid)
             if rec is None or rec.get("status") not in ("downloaded", "tested"):
                 continue
@@ -4072,7 +4098,10 @@ class Night(object):
         if not done:
             return
         if self.cfg.handover and self.cfg.publish:
-            keep = keep_set(keep_inputs(self.cfg.bridge_data), self.clock.now())     # the lists as just published
+            keep = safe_keep_set(keep_inputs(self.cfg.bridge_data), self.clock.now())     # the lists as just published
+            if any(p.startswith("the keep set could not be computed") for p in keep["problems"]):
+                log("staging: the keep set could not be computed - nothing removed, so no map the keep set may want is lost")
+                return
             has, pending = server_maps(self.cfg.game_dir), handovers(self.cfg.handover_dir)
             rep = self.report.setdefault("serve", {"ok": 0, "bytes": 0, "failed": []})
             for wid in list(done):
@@ -4298,7 +4327,7 @@ def main(argv):
             try:
                 Night(run_cfg, clock, manual=True, status=status).run()
             except Exception as error:  # the service must outlive any one run
-                log("the manual run failed: %r" % error)
+                log("the manual run failed: %r\n%s" % (error, traceback.format_exc().rstrip()))
                 log("mail %s" % mail_crash(cfg, clock, error, True))
             shown[0] = None
         elif not cfg.enabled:
@@ -4346,7 +4375,7 @@ def main(argv):
                     if report.get("idle"):
                         idle_until = clock.now() + IDLE_WAIT
                 except Exception as error:
-                    log("the run failed: %r" % error)
+                    log("the run failed: %r\n%s" % (error, traceback.format_exc().rstrip()))
                     log("mail %s" % mail_crash(cfg, clock, error, False))
                     idle_until = clock.now() + IDLE_WAIT
                 shown[0] = None
