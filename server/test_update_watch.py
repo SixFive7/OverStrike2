@@ -696,6 +696,8 @@ bridge = os.path.join(ROOT, "bridge")
 os.makedirs(bridge, exist_ok=True)
 with open(os.path.join(bridge, "maps.json"), "w") as h:
     json.dump([{"rank": 1, "id": 333}, {"rank": 2, "id": 222}, {"rank": 3, "id": 666}], h)
+upvote = lambda *ids: json.dump(dict((i, {"[U:1:1]": 1}) for i in ids), open(os.path.join(bridge, "votes.json"), "w"))  # noqa: E731
+upvote("333", "111")   # since 2026-11-03 the prefetch looks after the keep set and the queues only: upvoted maps are in it
 with open(os.path.join(bridge, "broken.json"), "w") as h:
     json.dump({"packs": [{"id": 666}], "blocked": []}, h)
 with open(os.path.join(bridge, "removed.json"), "w") as h:
@@ -777,6 +779,7 @@ check("O3: a second failure ends the warm-up as failed, with no third try",
 m.WARMUP_ITEM, m.PREFETCH_AT = "", (3, 30)
 with open(os.path.join(bridge, "maps.json"), "w") as h:
     json.dump([{"rank": 1, "id": 333}, {"rank": 2, "id": 444}, {"rank": 3, "id": 555}, {"rank": 4, "id": 777}], h)
+upvote("333", "444", "555", "777")
 with open(os.path.join(bridge, "broken.json"), "w") as h:
     json.dump({"packs": [], "blocked": []}, h)
 m.fetch_details = lambda ids: {i: (1, 50) for i in ids}
@@ -932,6 +935,7 @@ with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF)
 with open(os.path.join(bridge, "maps.json"), "w") as h:
     json.dump([{"rank": 1, "id": 333}], h)
+upvote("333")
 m.fetch_details = lambda ids: {i: (1, 50) for i in ids}
 m.PREFETCH_AT, m.PREFETCH_RESTART = (3, 30), False
 w, clock, eng = scenario(at("2026-10-12 03:30:05"))
@@ -984,6 +988,308 @@ w.state["prefetch_day"] = "2026-10-16"
 step(w, clock, 600)
 check("T4: tonight's prefetch already ran -> no restart", "quit" not in eng.cmds)
 m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, (7, 0), True
+
+# ---- 2026-11-03: the keep set, the hand-over, the deletion, job 9 ----------------------------------------------------------------
+# K2. acf_edit: hand-overs added, maps dropped, SizeOnDisk the sum again, every section in id order; a file it cannot reproduce: None
+inst = [("size", "5"), ("timeupdated", "3000"), ("manifest", "9")]
+det = [("manifest", "9"), ("timeupdated", "3000"), ("timetouched", "3001"), ("latest_timeupdated", "3000"), ("latest_manifest", "9")]
+new = m.acf_edit(ACF, {"150": (inst, det)}, {"222"})
+check("K2: acf_edit adds a hand-over's two entries in id order, drops the other map's, SizeOnDisk 10 + 5",
+      new is not None and m.acf_installed(new) == {"111": 1000, "150": 3000} and '"SizeOnDisk"\t\t"15"' in new
+      and new.index('"111"') < new.index('"150"') and '"latest_manifest"\t\t"9"' in new and '"222"' not in new
+      and m.kv_dump(m.kv_parse(new)) + "\n" == new)
+check("K2: acf_edit refuses a file it cannot reproduce byte for byte", m.acf_edit(ACF.replace('\t\t"730"', ' "730"'), {}, {"111"}) is None)
+
+# KS. the keep set: its parts, its order, and every reason it refuses to be trusted with a deletion
+NOW = 1793700000.0
+
+
+def kin(**over):
+    scores = dict((str(1000 + r), [1.0 - r / 1000.0, r, 0]) for r in range(1, 151))
+    scores.update(dict((str(2000 + r), [r / 1000.0, r, 0]) for r in range(1, 121)))
+    scores.update(dict((str(3000 + r), [0.5, r, 0]) for r in range(1, 61)))       # Wingman: all equal - list order breaks the ties
+    base = {
+        "maps.json": [{"rank": r, "id": 1000 + r, "name": "ar%d" % r, "sizeMb": 10} for r in range(1, 151)],
+        "maps-deathmatch.json": [{"rank": r, "id": 2000 + r, "name": "dm%d" % r, "sizeMb": 20} for r in range(1, 121)],
+        "maps-wingman.json": [{"rank": r, "id": 3000 + r, "name": "wm%d" % r, "sizeMb": 30} for r in range(1, 61)],
+        "broken.json": {"maps": [{"id": 1001}], "packs": [{"id": 1002}], "removed": [], "blocked": [{"id": 1003}]},
+        "removed.json": {"verdicts": {"1004": "removed", "1005": "ok"}},
+        "votes.json": {"1149": {"[U:1:1]": 1, "[U:1:2]": -1, "[U:1:3]": -1, "[U:1:4]": -1}, "1148": {"[U:1:1]": -2},
+                       "1147": {"[U:1:1]": -3}, "1146": {"[U:1:1]": -1}, "ar_baggage": {"[U:1:1]": 1}},
+        "ours.json": {"maps": [{"id": 4001, "name": "own"}]},
+        "ratings.json": {"version": 1, "fetched": NOW - 3600, "scores": scores},
+        "queues.json": {"version": 1, "random": {"armsrace-new": [str(1100 + i) for i in range(15)],
+                                                 "armsrace-original": [str(1010 + i) for i in range(15)],
+                                                 "deathmatch": [str(2001 + i) for i in range(14)] + ["de_dust2"],
+                                                 "wingman": [str(3001 + i) for i in range(15)]}, "requested": ["5001"]},
+        "state.json": {"crashes": {"1006": 2, "1007": 0}, "playerCrashes": {"1008": "crashed 3 players' games"}},
+    }
+    base.update(over)
+    return base
+
+
+ks = m.keep_set(kin(), NOW, "500")
+check("KS: a map with 1 up vote and 3 down votes stays; a too-big (-2), an ads (-3) or a plain down vote alone does not; an official name never counts",
+      ks["up"] == ["1149"])
+check("KS: Arms Race's top 100 by score, leaving out the broken, the non-map, the blocked, the removed, the crashed and the player-crash maps (%s ...)"
+      % ks["top"]["armsrace"][:6], ks["top"]["armsrace"][:4] == ["1005", "1007", "1009", "1010"] and len(ks["top"]["armsrace"]) == 100
+      and not set(["1001", "1002", "1003", "1004", "1006", "1008"]) & set(ks["top"]["armsrace"]) and ks["cutoff"]["armsrace"] == 1.0 - 106 / 1000.0)
+check("KS: Deathmatch's best 100 of 120; Wingman's 60 all stay (fewer than 100), ties in list order, no cutoff",
+      ks["top"]["deathmatch"][0] == "2120" and len(ks["top"]["deathmatch"]) == 100 and ks["top"]["wingman"] == [str(3000 + r) for r in range(1, 61)]
+      and ks["cutoff"]["wingman"] is None)
+check("KS: own maps, the HUD, the queues (official names left out) and the requests are in it; nothing is wrong",
+      ks["own"] == ["4001"] and ks["hud"] == ["500"] and "de_dust2" not in ks["queues"]["deathmatch"] and len(ks["queues"]["deathmatch"]) == 14
+      and set(["4001", "500", "5001", "1100", "1010", "3015"]) <= ks["all"] and ks["problems"] == [])
+check("KS: the same inputs, the same set", m.keep_set(kin(), NOW, "500") == ks)
+for label, inputs, hud, want in (
+        ("ratings older than 3 days", kin(**{"ratings.json": {"version": 1, "fetched": NOW - 4 * 86400, "scores": kin()["ratings.json"]["scores"]}}), "500", "ratings.json is 96 h old"),
+        ("ratings of no known age", kin(**{"ratings.json": {"version": 1, "scores": kin()["ratings.json"]["scores"]}}), "500", "of no known age"),
+        ("ratings scoring half a list", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": dict((k, v) for k, v in kin()["ratings.json"]["scores"].items() if not ("2000" < k < "2061"))}}), "500", "scores 60 of the 120 playable deathmatch maps"),
+        ("no votes.json", kin(**{"votes.json": None}), "500", "votes.json is missing or unreadable"),
+        ("no maps.json", kin(**{"maps.json": None}), "500", "maps.json is missing or unreadable"),
+        ("an empty maps.json", kin(**{"maps.json": []}), "500", "maps.json lists no map"),
+        ("a short queue", kin(**{"queues.json": {"version": 1, "random": {"armsrace-new": ["1100"], "armsrace-original": [str(1010 + i) for i in range(15)], "deathmatch": [str(2001 + i) for i in range(15)], "wingman": [str(3001 + i) for i in range(15)]}}}), "500", "the armsrace-new queue holds 1 entries"),
+        ("no queues.json", kin(**{"queues.json": None}), "500", "queues.json is missing or unreadable"),
+        ("no own map", kin(**{"ours.json": {"maps": []}}), "500", "ours.json names no own map"),
+        ("no HUD item", kin(), "", "no HUD item is set"),
+        ("a tiny top list", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": {"1005": 1.0}}}), "500", "the armsrace top list holds 1 maps")):
+    got = m.keep_set(inputs, NOW, hud)["problems"]
+    check("KS: refused for %s (%s)" % (label, "; ".join(got)[:150]), any(want in p for p in got))
+
+# N4. --organize with the keep set: a hand-over taken in; the deletion as a dry run, then for real, never the protected maps; refused when
+#     the keep set is not to be trusted
+t4 = os.path.join(ROOT, "tree4")
+ws4 = os.path.join(t4, "game", "bin", "linuxsteamrt64", "steamapps", "workshop")
+content4, maps4, hand4, depot4, data4 = os.path.join(ws4, "content", "730"), os.path.join(t4, "maps"), os.path.join(t4, "handover"), \
+    os.path.join(t4, "depotcache"), os.path.join(t4, "data")
+for d in (content4, maps4, hand4, depot4, data4, m.STATE_DIR):
+    os.makedirs(d, exist_ok=True)
+
+
+def put(folder, wid, text="x"):
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, wid + "_dir.vpk"), "w") as h:
+        h.write(text)
+
+
+ITEMS = ("100", "101", "102", "103", "150", "400", "500", "600")
+for wid in ITEMS[:4] + ITEMS[5:]:
+    put(os.path.join(content4, wid), wid)
+acf4 = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"0"\n\t"WorkshopItemsInstalled"\n\t{\n'
+        + "".join('\t\t"%s"\n\t\t{\n\t\t\t"size"\t\t"%d"\n\t\t\t"timeupdated"\t\t"1000"\n\t\t\t"manifest"\t\t"7%s"\n\t\t}\n' % (w, 1 << 30, w)
+                  for w in ITEMS if w != "150")
+        + '\t}\n\t"WorkshopItemDetails"\n\t{\n'
+        + "".join('\t\t"%s"\n\t\t{\n\t\t\t"manifest"\t\t"7%s"\n\t\t}\n' % (w, w) for w in ITEMS if w != "150") + '\t}\n}\n')
+data_files = {"maps.json": [{"rank": 1, "id": 100, "name": "Up Voted"}, {"rank": 2, "id": 101, "name": "Not Kept"}, {"rank": 3, "id": 102, "name": "Queued"}],
+              "maps-deathmatch.json": [{"rank": 1, "id": 150, "name": "Top Rated"}], "maps-wingman.json": [], "broken.json": {},
+              "removed.json": {"verdicts": {}}, "votes.json": {"100": {"[U:1:1]": 1}, "101": {"[U:1:1]": -1}},
+              "ours.json": {"maps": [{"id": 400, "name": "Own"}]}, "state.json": {"crashes": {}},
+              "ratings.json": {"version": 1, "fetched": None, "scores": {"100": 0.1, "101": 0.05, "102": 0.2, "150": 0.9}},
+              "queues.json": {"version": 1, "random": {"armsrace-new": ["102"], "armsrace-original": ["102"], "deathmatch": ["150"],
+                                                       "wingman": ["de_debris"]}, "requested": []}}
+saved4 = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP,
+          m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE, m.time)
+import time as real_time  # noqa: E402
+m.time = real_time
+data_files["ratings.json"]["fetched"] = real_time.time() - 600
+
+
+def write_data(**over):
+    for name, value in dict(data_files, **over).items():
+        with open(os.path.join(data4, name), "w") as h:
+            json.dump(value, h)
+
+
+write_data()
+with open(os.path.join(ws4, "appworkshop_730.acf"), "w") as h:
+    h.write(acf4)
+m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR = data4, "600", os.path.join(ws4, "appworkshop_730.acf"), ws4
+m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP, m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE = hand4, depot4, "dryrun", 1, 1, 1
+os.environ["GUNGAME_HUD_ADDON"] = "500"
+line = m.organize(content4, maps4)
+stored = lambda: sorted(n.split("-", 1)[0] for k in m.MAP_TYPES for n in os.listdir(os.path.join(maps4, k)))  # noqa: E731
+lists = sorted(n for n in os.listdir(m.STATE_DIR) if n.startswith("deleted-"))
+check("N4: a dry run lists the maps outside the keep set and deletes nothing (%s)" % line,
+      stored() == sorted(set(ITEMS) - set(["150", "600"])) and lists and lists[-1].endswith("-dryrun.tsv")
+      and open(os.path.join(m.STATE_DIR, lists[-1])).read().splitlines()[1:] == ["armsrace\t101\tNot Kept\t1073", "other\t103\t103\t1073"])
+keep4 = json.load(open(m.KEEP_FILE))
+check("N4: keep.json: the parts, their sizes, the delete mode, no problems",
+      keep4["delete"] == "dryrun" and keep4["problems"] == [] and keep4["parts"]["up"] == ["100"] and keep4["parts"]["top deathmatch"] == ["150"]
+      and keep4["summary"]["up"] == {"maps": 1, "on_disk": 1, "gb_on_disk": 1.0, "gb": 1.0} and keep4["summary"]["top deathmatch"]["on_disk"] == 0)
+# a hand-over of 150, complete, with its manifest; one incomplete (no marker); one whose folder does not match its marker
+put(os.path.join(hand4, "150"), "150", "handed")
+open(os.path.join(hand4, "150.manifest"), "wb").write(b"MANIFEST")
+marker = {"version": 1, "id": "150", "title": "Top Rated", "files": 1, "bytes": 6,
+          "installed": {"size": "6", "timeupdated": "3000", "manifest": "9150"},
+          "details": {"manifest": "9150", "timeupdated": "3000", "timetouched": "3001", "latest_timeupdated": "3000", "latest_manifest": "9150"}}
+json.dump(marker, open(os.path.join(hand4, "150.json"), "w"))
+put(os.path.join(hand4, "160"), "160")
+put(os.path.join(hand4, "170"), "170", "short")
+json.dump(dict(marker, id="170", bytes=999), open(os.path.join(hand4, "170.json"), "w"))
+line = m.organize(content4, maps4)
+acf_now = open(m.WORKSHOP_ACF).read()
+check("N4: a complete hand-over is taken in: its type's folder, its link, its acf entries, its manifest, its marker gone (%s)" % line,
+      os.path.realpath(os.path.join(content4, "150")) == os.path.realpath(os.path.join(maps4, "deathmatch", "150-top_rated"))
+      and open(os.path.join(content4, "150", "150_dir.vpk")).read() == "handed" and m.acf_installed(acf_now).get("150") == 3000
+      and '"latest_manifest"\t\t"9150"' in acf_now and open(os.path.join(depot4, "730_9150.manifest"), "rb").read() == b"MANIFEST"
+      and not os.path.exists(os.path.join(hand4, "150.json")) and not os.path.exists(os.path.join(hand4, "150")))
+check("N4: a hand-over without its marker, and one whose folder does not match it, are left alone",
+      os.path.isdir(os.path.join(hand4, "160")) and os.path.isdir(os.path.join(hand4, "170")) and os.path.exists(os.path.join(hand4, "170.json")))
+check("N4: the acf was backed up before the edit", any(n.endswith("-organize") for n in os.listdir(ws4)))
+put(os.path.join(hand4, "150"), "150", "handed")
+json.dump(marker, open(os.path.join(hand4, "150.json"), "w"))
+line = m.organize(content4, maps4)
+check("N4: a hand-over of a map the server has as new already is dropped (%s)" % line,
+      not os.path.exists(os.path.join(hand4, "150")) and not os.path.exists(os.path.join(hand4, "150.json")) and "1 hand-over(s) not needed" in line)
+m.MAPS_DELETE = "on"
+write_data(**{"ratings.json": dict(data_files["ratings.json"], fetched=real_time.time() - 5 * 86400)})
+line = m.organize(content4, maps4)
+check("N4: deletion on, but the ratings are 5 days old: refused, nothing deleted (%s)" % line,
+      "101" in stored() and "103" in stored() and "refused" in line)
+write_data()
+line = m.organize(content4, maps4)
+acf_now = open(m.WORKSHOP_ACF).read()
+check("N4: deletion on: the maps outside the keep set go - folder, link, acf entries (%s)" % line,
+      stored() == ["100", "102", "150", "400", "500"] and not os.path.lexists(os.path.join(content4, "101"))
+      and not os.path.lexists(os.path.join(content4, "103")) and "101" not in m.acf_installed(acf_now) and '"103"' not in acf_now
+      and any(n.startswith("deleted-") and n.endswith("-done.tsv") for n in os.listdir(m.STATE_DIR)))
+check("N4: never the own map, the HUD, the queued map, the upvoted one or the warm-up item",
+      set(["100", "102", "400", "500"]) <= set(stored()) and os.path.isdir(os.path.join(content4, "600")) and "600" in m.acf_installed(acf_now))
+write_data(**{"votes.json": {}, "queues.json": dict(data_files["queues.json"], random={"armsrace-new": [], "armsrace-original": ["102"],
+                                                                                     "deathmatch": ["150"], "wingman": ["de_debris"]})})
+m.KEEP_MIN_QUEUE = 1
+line = m.organize(content4, maps4)
+check("N4: an empty queue is a reason to refuse: 100 and 102 stay (%s)" % line, "100" in stored() and "102" in stored() and "refused" in line)
+put(os.path.join(content4, "180"), "180")
+line = m.organize(content4, maps4)
+check("N4: CS2_MAPS_DELETE=off-style refusals keep a new download too", "180" in stored())
+(m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP,
+ m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE, m.time) = saved4
+os.environ.pop("GUNGAME_HUD_ADDON", None)
+
+# PL. the prefetch's list: what players queued, the queues' entries in play order, the upvoted maps, the top lists, own maps, the HUD
+saved_pl = (m.BRIDGE_DATA, m.WARMUP_ITEM)
+plist = os.path.join(ROOT, "pldata")
+os.makedirs(plist, exist_ok=True)
+for name, value in kin().items():
+    json.dump(value, open(os.path.join(plist, name), "w"))
+m.BRIDGE_DATA, m.WARMUP_ITEM = plist, ""
+os.environ["GUNGAME_HUD_ADDON"] = "500"
+real_t = m.time
+m.time = types.SimpleNamespace(time=lambda: NOW, strftime=real_t.strftime, localtime=real_t.localtime)
+listed, skip, what = m.prefetch_lists()
+check("PL: the prefetch looks after the keep set and the queues only: %d maps, not the %d listed (%s)" % (len(listed), 150 + 120 + 60, what[:80]),
+      listed[:6] == ["5001", "1100", "1010", "2001", "3001", "1101"] and "1149" in listed and "4001" in listed and "500" in listed
+      and len(listed) == len(set(listed)) and len(listed) < 330 and "1002" in skip and "1003" in skip)
+m.time = real_t
+m.BRIDGE_DATA, m.WARMUP_ITEM = saved_pl
+os.environ.pop("GUNGAME_HUD_ADDON", None)
+
+# J9. job 9: the queued maps downloaded in the background - the requests first, then the queues' entries in play order; one at a
+#     time; silent; never beside a download somebody waits for; the bridge told what is on disk
+j9 = os.path.join(ROOT, "j9data")
+os.makedirs(j9, exist_ok=True)
+json.dump({"version": 1, "random": {"armsrace-new": ["901", "902"], "armsrace-original": ["903"], "deathmatch": ["904", "de_dust2"],
+                                    "wingman": ["905"]}, "requested": ["900"]}, open(os.path.join(j9, "queues.json"), "w"))
+saved9 = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
+with open(m.WORKSHOP_ACF, "w") as h:
+    h.write(ACF.replace('"111"', '"901"'))                     # 901 installed, with its folder: on disk
+os.makedirs(os.path.join(wsdir, "content", "730", "901"), exist_ok=True)
+reports = []
+
+
+class Reply:
+    def __init__(self, body):
+        self.body = body
+    def read(self):
+        return self.body
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+
+HOLD = []
+
+
+def fake_urlopen(request, timeout=None):
+    reports.append((request.full_url, request.data.decode()))
+    return Reply(b"ok: 1 on disk" + (b"; hold: the vote is open" if HOLD else b""))
+
+
+m.urllib.request.urlopen = fake_urlopen
+os.environ["CS2_LOG_HTTP_URL"] = "http://bridge.test:8080/log/abc123"
+m.BRIDGE_DATA, m.WARMUP_ITEM, m.PREFETCH_AT = j9, "", None
+w, clock, eng = scenario(at("2026-10-04 15:00:00"))
+eng.hud, eng.humans = True, 2
+step(w, clock, 30)
+dl = lambda: [c for c in eng.cmds if c.startswith("mm_download_addon")]  # noqa: E731
+check("J9: the request first: %s" % dl(), dl() == ["mm_download_addon 900"])
+check("J9: the bridge hears which queued maps are on disk, at its /ready/<secret>",
+      reports and reports[0][0] == "http://bridge.test:8080/ready/abc123" and reports[0][1] == "gg-ready\t1\n901\n")
+eng.write("[MultiAddonManager] Addon download started for 900")
+eng.write("[MultiAddonManager] Downloading addon 900: 10.00/100.00 MB (10.00%)")
+step(w, clock, 10)
+check("J9: silent - no news line about it, with players on", not eng.notices)
+
+
+def landed(wid):    # what the engine's Steam client does after a download: the acf names it, its folder is there
+    with open(m.WORKSHOP_ACF) as h:
+        text = h.read()
+    entry = '\t\t"%s"\n\t\t{\n\t\t\t"size"\t\t"1"\n\t\t\t"timeupdated"\t\t"1"\n\t\t\t"manifest"\t\t"1"\n\t\t}\n' % wid
+    head = '\t"WorkshopItemsInstalled"\n\t{\n'
+    with open(m.WORKSHOP_ACF, "w") as h:
+        h.write(text.replace(head, head + entry, 1))
+    os.makedirs(os.path.join(wsdir, "content", "730", wid), exist_ok=True)
+
+
+wsw2("[x] [AppID 730] Download item 900 requested by app")
+wsw2("[x] [AppID 730] Download item 900 result : OK")
+landed("900")
+step(w, clock, 25)
+check("J9: one at a time - after its result the next missing one, in play order (903, not 902): %s" % dl(),
+      dl() == ["mm_download_addon 900", "mm_download_addon 903"])
+eng.write("[Workshop] Updating 903: state 1")
+step(w, clock, 10)
+check("J9: a player's pick of the map it is fetching: the line shows it (%s)" % eng.notices[-1:], any("903" in n[1] for n in eng.notices))
+wsw2("[x] [AppID 730] Download item 903 result : OK")
+landed("903")
+eng.write('[Workshop] Loading custom game "903" with map "x"')
+eng.write("[Workshop] Updating 999: state 1")
+step(w, clock, 30)
+check("J9: while a download somebody waits for runs, nothing new starts: %s" % dl(), dl() == ["mm_download_addon 900", "mm_download_addon 903"])
+eng.write("[Workshop] Updating 999: state 5")
+step(w, clock, 25)
+check("J9: ... and once it is done, the next: %s" % dl(), dl()[-1] == "mm_download_addon 904")
+HOLD.append(1)
+wsw2("[x] [AppID 730] Download item 904 result : OK")
+landed("904")
+step(w, clock, 45)
+check("J9: the bridge says hold (a vote, a change counting down, a map loading): nothing new starts: %s" % dl(), dl()[-1] == "mm_download_addon 904")
+HOLD.pop()
+step(w, clock, 25)
+check("J9: ... and once it does not, the next one goes (905): %s" % dl(), dl()[-1] == "mm_download_addon 905")
+wsw2("[x] [AppID 730] Download item 905 result : OK")
+landed("905")
+step(w, clock, 25)
+check("J9: ... then the one after it in play order (902, the second round): %s" % dl(), dl()[-1] == "mm_download_addon 902")
+wsw2("[x] [AppID 730] Download item 902 result : Busy")
+step(w, clock, 25)
+check("J9: a failure is tried again later, and nothing is left to fetch now: %s" % dl(), dl()[-1] == "mm_download_addon 902" and w.workshop.ready.failed["902"][0] == 1)
+w.workshop.ready.failed["902"] = (1, 0)
+step(w, clock, 25)
+check("J9: its retry: %s" % dl(), dl()[-1] == "mm_download_addon 902")
+wsw2("[x] [AppID 730] Download item 902 result : No Connection")
+step(w, clock, 5)
+check("J9: a stuck result marks the process broken (job 6), and nothing more starts in it", w.workshop.broken is not None)
+step(w, clock, 60)
+check("J9: ... nothing more", dl()[-1] == "mm_download_addon 902" and dl().count("mm_download_addon 902") == 2)
+(m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, url9) = saved9
+if url9 is None:
+    os.environ.pop("CS2_LOG_HTTP_URL", None)
+os.environ["CS2_LOG_HTTP_URL"] = "http:\\/\\/bridge:8080\\/log\\/d4ab"
+check("J9: bridge_endpoint reads CS2_LOG_HTTP_URL as the image templates it", m.bridge_endpoint() == ("http://bridge:8080", "d4ab"))
+os.environ.pop("CS2_LOG_HTTP_URL", None)
 
 print("\n%d failure(s)" % len(FAILS))
 sys.exit(1 if FAILS else 0)

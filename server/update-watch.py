@@ -6,7 +6,7 @@ the game) and lives as long as the container. Deployed to <config dir>/update-wa
 bind-mounted read-only at /home/steam/cs2-update-watch.py (source of truth: server/ in the Over Strike 2
 repo). Python 3.9 - the version in the joedwards32/cs2:4.0.1 image.
 
-EIGHT JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 never restart anything)
+NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 never restart anything)
   1. UPDATES (CS2_AUTOUPDATE). entry.sh runs SteamCMD only when the container starts, so a Valve patch left the
      server rejecting every client for ~44 hours ("Bad host version"). Every CHECK_EVERY this asks
      Valve's ISteamApps/UpToDateCheck whether the installed build is current and restarts it when it is not.
@@ -45,10 +45,11 @@ EIGHT JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 ne
      depotcache holds. pre.sh runs `update-watch.py --warmup-reset` before every engine start - nothing holds the acf
      then - so that item is never installed at boot and the job is a real one: a test of the download path.
   5. NIGHTLY PREFETCH (CS2_PREFETCH_AT, CS2_PREFETCH_MINUTES). Once a night inside that window, and only while A2S
-     shows nobody (it pauses for players and carries on when they leave): asks the Workshop for time_updated of every
-     map on the bridge's list (maps.json on its /data volume, mounted read-only) and every installed item, then
-     `mm_download_addon`s each listed map that is missing and each one whose Workshop copy is newer than the installed
-     one, one at a time. Packs, blocked and removed items (broken.json, removed.json) are never fetched.
+     shows nobody (it pauses for players and carries on when they leave): asks the Workshop for time_updated of the maps
+     it looks after, then `mm_download_addon`s each one that is missing and each one whose Workshop copy is newer than
+     the installed one, one at a time. Since 2026-11-03 those are THE KEEP SET and the bridge's queues (below) - a few
+     hundred maps, of which a handful need anything on a night - not every listed or installed map any more. Packs,
+     blocked and removed items (broken.json, removed.json) are never fetched.
 
   6. DOWNLOAD RESTART (CS2_WORKSHOP_RESTART). Sometimes an engine process's Steam client
      gets stuck: every workshop download ends "No Connection" ("No target sources connected") while SteamCMD fetches
@@ -73,9 +74,22 @@ EIGHT JOBS, each behind its own switch in deploy/compose.example.yml (4 and 5 ne
      line says so, with the progress, once it has taken LINE_AFTER seconds: nothing else on screen tells them why nothing
      happens. The engine's own download (host_workshop_map) prints only "[Workshop] Updating <id>: state <n>"; MultiAddonManager's
      (mm_download_addon) prints its bytes every second; both are read from console.log, and the engine's bytes from the cache's
-     staging folders. Never for the watcher's own warm-up and prefetch, never with nobody on, never in chat. A player's
+     staging folders. Never for the watcher's own warm-up, prefetch and job 9, never with nobody on, never in chat. A player's
      download that ends "No Connection" marks the process broken like the watcher's own (job 6): the restart waits for an
      empty server, as ever.
+  9. THE QUEUED MAPS IN THE BACKGROUND (CS2_READY; since 2026-11-03: random maps never wait for a download). The bridge rolls its
+     dice ahead into four random queues of 15 (Arms Race's new and original
+     maps, Deathmatch, Wingman) and writes them, with the maps players have queued, to its /data/queues.json. Every READY_EVERY
+     seconds this looks which of them are not on disk and downloads the next one - the requests first, then the queues' first
+     entries, their second ones, and so on - with `mm_download_addon`, one at a time, also while people play, and silently: no
+     news line, since nobody waits for it. Never while a download somebody waits for runs (job 8's: it always goes first), nor
+     before the warm-up is done, nor beside the prefetch, nor in a process whose downloads are broken; a stuck result marks the
+     process broken exactly like job 6's own. A map a player picks while it is being fetched is theirs from then on: the line
+     shows it. After every look - and at least every READY_REPORT_EVERY - the bridge hears which queued maps are on disk (POST
+     /ready/<secret>, the log push's own address and secret), and its random picks take those first. Right before a download starts
+     the report goes once more, and an answer of '; hold: <why>' - a map change counting down, a map loading, a vote open - holds it:
+     Steam's client runs one Workshop download at a time and one already running cannot be stopped (measured on a test copy on
+     2026-11-03: a map change's 449 MB download started only when the 350 MB one in the background had ended, 8 s later).
 
 THE MAPS FOLDER (`update-watch.py --organize`, run by pre.sh before every engine start, so at the latest by the 03:25 restart; since
 2026-11-02). The maps live in real folders per type - maps/armsrace, deathmatch, wingman, own, hud, other, each
@@ -83,7 +97,32 @@ map <id>-<name> - on the game volume, and Steam's steamapps/workshop/content/730
 is one rename or one link on one file system, with no engine running. What Steam downloaded since the last run is a real folder
 in content/730 (a new map; an update may replace a link by a real folder too): it moves into its type's folder and gets its link;
 an older copy of it there goes. Moved between types when the lists say so, renamed when a title changes. The warm-up item stays where
-Steam puts it: it is forgotten at every boot. CS2_MAPS_LAYOUT=off leaves everything alone.
+Steam puts it: it is forgotten at every boot. CS2_MAPS_LAYOUT=off leaves everything alone. Then, in the same run: THE HAND-OVER and
+THE DELETION.
+
+THE KEEP SET (the owner's rules of 2026-11-03, keep_set; workshop-sync.py has the same function, word for word): the maps the server
+stores. Every map with at least one player's up vote in votes.json (an up vote is kept however many down votes the map has; too-big
+and ads votes are down votes); per mode, the 100 playable maps (on that mode's list, not on broken.json, not gone from the Workshop,
+no crash on record) with the best Workshop score - ratings.json, which the sync fetches daily: vote_data.score, the order of the
+Workshop's "Top Rated"; the own maps (ours.json) and the HUD item; the bridge's random queues and the maps players queued
+(queues.json). Written with its counts and sizes per part to update-watch/keep.json at every engine start.
+
+THE HAND-OVER: the sync (workshop-sync.py) downloads the keep set's maps the server lacks, and keeps the ones it tested that are in
+the keep set, and leaves each in workshop-sync/handover/: <id>/ (the content), <id>.manifest (the Steam client's verified manifest)
+and, written last, <id>.json (its acf entries as SteamCMD wrote them, and how many files and bytes the folder holds). --organize
+takes in every complete one - the folder holds exactly what its marker says - while no engine runs: the folder into its type's
+folder (a rename, the same dataset), its link in content/730, its two entries in appworkshop_730.acf (the acf backed up beside
+itself first, SizeOnDisk summed again), the manifest into ~/Steam/depotcache. A map the server has as new already is dropped. Steam's
+client then holds it exactly as if it had downloaded it itself: it loads without a download, and an author's later update is seen
+like any other (the prefetch's time_updated against the acf's, the client's manifest against the latest).
+
+THE DELETION (CS2_MAPS_DELETE, off | dryrun | on; MAPS_DELETE_DEFAULT): every stored map outside the keep set - its acf entries
+(backed up, one atomic write), its link, its folder - in armsrace, deathmatch, wingman and other; never own, never hud, never the
+warm-up item, a queued or a requested map, whatever the keep set says. Refused, with the reason in the log, when any input is
+missing or does not parse, the ratings are over 3 days old or score under 90% of a list, a mode's top list is under 50 maps, a
+queue holds under 10, or there is no own map or HUD item. Every run writes its list to update-watch/deleted-<time>-<done | dryrun |
+refused>.tsv and logs the count, the size and the volume's free space before and after. dryrun writes the list and deletes nothing.
+It runs at every engine start - crash restarts and container recreates included - so all of this is checked every time.
 
 THE STUCK STATE
   The Steam client in the engine downloads from a ranked list of content servers. A request that fails - an HTTP 503
@@ -1015,6 +1054,77 @@ def acf_forget(text, wid):
     return kv_dump(kv) + "\n" if changed else text
 
 
+ACF_BACKUPS_KEEP = 5            # appworkshop_730.acf.bak-<local time>-<why> beside it: the newest this many of each reason
+
+
+def acf_edit(text, add=None, drop=()):
+    """The acf text with items added or replaced (add: {id: (installed, details)}, each a [(key, value)] list, [] for none) and items
+    dropped (both sections), SizeOnDisk the sum of the installed sizes again, every section's entries in id order. None when the text
+    does not come back byte-identical through parse/dump or has no AppWorkshop block: never rewrite a file this parser does not fully
+    understand (the rule acf_forget follows)."""
+    kv = kv_parse(text)
+    if kv_dump(kv) + "\n" != text:
+        return None
+    workshop = kv_get(kv, "AppWorkshop")
+    if not isinstance(workshop, list):
+        return None
+    add = add or {}
+    gone = set(drop) | set(add)
+    for section, part in (("WorkshopItemsInstalled", 0), ("WorkshopItemDetails", 1)):
+        entries = kv_get(workshop, section)
+        if not isinstance(entries, list):
+            entries = []
+            workshop.append((section, entries))
+        kept = [(k, v) for k, v in entries if k not in gone] + [(wid, pair[part]) for wid, pair in add.items() if pair[part]]
+        entries[:] = sorted(kept, key=lambda e: (0, int(e[0])) if e[0].isdigit() else (1, 0))
+    total = 0
+    for _wid, body in kv_get(workshop, "WorkshopItemsInstalled"):
+        size = kv_get(body, "size") if isinstance(body, list) else None
+        total += int(size) if isinstance(size, str) and size.isdigit() else 0
+    for index, (key, value) in enumerate(workshop):
+        if key == "SizeOnDisk" and not isinstance(value, list):
+            workshop[index] = (key, str(total))
+    return kv_dump(kv) + "\n"
+
+
+def acf_write(text, why):
+    """Replace the workshop acf with `text`: first a copy of the old one beside it (appworkshop_730.acf.bak-<local time>-<why>; the newest
+    ACF_BACKUPS_KEEP of each reason are kept), then a temporary file with the old file's mode and an atomic rename. Returns the backup's
+    path; raises OSError, and then the old file is still in place."""
+    folder = os.path.dirname(WORKSHOP_ACF)
+    stamp = datetime.now(TZ).strftime("%Y%m%d-%H%M%S") if TZ else time.strftime("%Y%m%d-%H%M%S")
+    backup = "%s.bak-%s-%s" % (WORKSHOP_ACF, stamp, why)
+    shutil.copy2(WORKSHOP_ACF, backup)
+    mode = os.stat(WORKSHOP_ACF).st_mode & 0o7777
+    temporary = "%s.%s-tmp" % (WORKSHOP_ACF, why)
+    with open(temporary, "w", encoding="utf-8") as handle:
+        handle.write(text)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chmod(temporary, mode)
+    os.replace(temporary, WORKSHOP_ACF)
+    prefix = os.path.basename(WORKSHOP_ACF) + ".bak-"
+    for old in sorted(n for n in os.listdir(folder) if n.startswith(prefix) and n.endswith("-" + why))[:-ACF_BACKUPS_KEEP]:
+        try:
+            os.remove(os.path.join(folder, old))
+        except OSError:
+            pass
+    return backup
+
+
+def acf_sizes(text):
+    """{id: installed size in bytes} from an acf; {} when it does not parse."""
+    out = {}
+    try:
+        for wid, body in kv_get(kv_get(kv_parse(text), "AppWorkshop"), "WorkshopItemsInstalled") or []:
+            size = kv_get(body, "size") if isinstance(body, list) else None
+            if isinstance(size, str) and size.isdigit():
+                out[wid] = int(size)
+    except (ValueError, TypeError):
+        pass
+    return out
+
+
 def download_events(lines):
     """[(id, "requested" | "result", text)] from new workshop_log.txt lines, plus ("", "canceled", why) for a job's
     'Update canceled:' line (it comes right before the result of the item that job was for)."""
@@ -1070,9 +1180,18 @@ def read_json(path, default):
 
 
 def prefetch_lists():
-    """(listed ids in rank order, ids never to fetch, what was found) from the bridge's data volume (read-only)."""
-    maps = read_json(os.path.join(BRIDGE_DATA, "maps.json"), [])
-    listed = [str(m.get("id")) for m in sorted(maps, key=lambda m: m.get("rank") or 0) if isinstance(m, dict)]
+    """(the ids the prefetch looks after, ids never to fetch, what was found) from the bridge's data volume (read-only). Since
+    2026-11-03 the keep set and the queues (THE KEEP SET): what players queued, the random queues' entries in the order they are
+    played, the upvoted maps, each mode's top-rated, the own maps and the HUD - not every listed map any more."""
+    keep = keep_set(keep_inputs(BRIDGE_DATA), time.time(), (os.environ.get("GUNGAME_HUD_ADDON") or "").strip())
+    listed = list(keep["requested"])
+    rounds = max([len(ids) for ids in keep["queues"].values()] or [0])
+    for i in range(rounds):
+        listed += [ids[i] for ids in keep["queues"].values() if i < len(ids)]
+    listed += keep["up"]
+    for mode, _name in KEEP_MODES:
+        listed += keep["top"].get(mode) or []
+    listed = list(dict.fromkeys(listed + keep["own"] + keep["hud"]))
     broken = read_json(os.path.join(BRIDGE_DATA, "broken.json"), {})
     skip = set()
     for section in ("packs", "blocked"):
@@ -1083,7 +1202,8 @@ def prefetch_lists():
     skip |= set(wid for wid, verdict in removed.items() if verdict != "ok")
     if WARMUP_ITEM:
         skip.add(WARMUP_ITEM)
-    return listed, skip, "%d listed, %d skipped (packs, blocked, removed)" % (len(listed), len(skip))
+    return listed, skip, "the keep set and the queues: %d maps, %d never fetched (packs, blocked, removed)%s" % (
+        len(listed), len(skip), ("; the keep set's problems: " + "; ".join(keep["problems"])) if keep["problems"] else "")
 
 
 def fetch_details(ids):
@@ -1113,12 +1233,11 @@ def warmup_reset():
         log("warm-up reset: %s does not round-trip through the parser - left alone" % WORKSHOP_ACF)
         return 0
     if new != text:
-        stat = os.stat(WORKSHOP_ACF)
-        temporary = WORKSHOP_ACF + ".warmup-tmp"
-        with open(temporary, "w", encoding="utf-8") as handle:
-            handle.write(new)
-        os.chmod(temporary, stat.st_mode & 0o7777)
-        os.replace(temporary, WORKSHOP_ACF)
+        try:
+            acf_write(new, "warmup")
+        except OSError as error:
+            log("warm-up reset: %s not changed (%s)" % (WORKSHOP_ACF, error))
+            return 0
     if os.path.islink(folder):
         os.unlink(folder)
     elif os.path.isdir(folder):
@@ -1223,10 +1342,18 @@ def organize(content=None, maps_dir=None):
             except OSError as error:
                 counts["errors"] += 1
                 log("maps folder: %s: %s" % (wid, error))
+        where = {}      # again, now that everything is in its place
+        for kind in MAP_TYPES:
+            for name in os.listdir(os.path.join(maps_dir, kind)):
+                wid = name.split("-", 1)[0]
+                if wid.isdigit() and os.path.isdir(os.path.join(maps_dir, kind, name)):
+                    where.setdefault(wid, []).append(os.path.join(maps_dir, kind, name))
+        extra = keep_and_delete(content, maps_dir, types, where, rel)
         write_maps_index(content, maps_dir, types)
     except Exception as error:  # noqa: BLE001 - never in the way of the engine's start
         return "maps folder: stopped (%s: %s) - the engine starts anyway" % (type(error).__name__, error)
-    return "maps folder: %s" % ", ".join("%d %s" % (v, k) for k, v in counts.items() if v) if any(counts.values()) else "maps folder: in order"
+    done = ["%d %s" % (v, k) for k, v in counts.items() if v] + extra
+    return "maps folder: %s" % ", ".join(done) if done else "maps folder: in order"
 
 
 def write_maps_index(content, maps_dir, types):
@@ -1247,6 +1374,424 @@ def write_maps_index(content, maps_dir, types):
     with open(temporary, "w", encoding="utf-8") as handle:
         handle.write("\n".join(rows) + "\n")
     os.replace(temporary, os.path.join(maps_dir, "INDEX.tsv"))
+
+
+# ------------------------------------------------------------------------------------------------
+# THE KEEP SET (the owner's rules of 2026-11-03). keep_inputs and keep_set are in workshop-sync.py too, word for word:
+# test_workshop_sync.py runs both on the same data and fails when they differ.
+# ------------------------------------------------------------------------------------------------
+KEEP_TOP = 100                    # per mode: the best-rated playable maps that stay
+KEEP_RATINGS_MAX_AGE = 3 * 86400  # ratings older than this (the sync fetches them daily): nothing is deleted
+KEEP_RATED_SHARE = 0.9            # the ratings must score this share of each mode's playable maps
+KEEP_MIN_TOP = 50                 # a mode's top list shorter than this, with more playable maps listed: nothing is deleted
+KEEP_MIN_QUEUE = 10               # each random queue must hold this many entries (the bridge keeps 15)
+KEEP_MODES = (("armsrace", "maps.json"), ("deathmatch", "maps-deathmatch.json"), ("wingman", "maps-wingman.json"))
+KEEP_QUEUES = ("armsrace-new", "armsrace-original", "deathmatch", "wingman")
+KEEP_FILES = ("maps.json", "maps-deathmatch.json", "maps-wingman.json", "broken.json", "removed.json", "votes.json", "ours.json",
+              "ratings.json", "queues.json", "state.json")
+
+
+def keep_inputs(data_dir):
+    """The keep set's inputs: the bridge's data files by name, each None when it is missing or does not parse."""
+    out = {}
+    for name in KEEP_FILES:
+        try:
+            with open(os.path.join(data_dir, name), "r", encoding="utf-8") as handle:
+                out[name] = json.load(handle)
+        except (OSError, ValueError):
+            out[name] = None
+    return out
+
+
+def keep_set(inputs, now, hud=""):
+    """THE KEEP SET: the Workshop maps the server stores (official maps are part of the game). Its parts:
+      up       every map with at least one player's up vote in votes.json - one vote per player and map, up or down, the opposite
+               replaces it; too-big and ads votes are down votes - however many down votes it has besides
+      top      per mode, the KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists, removed.json's verdicts, the
+               bridge's crash counts) with the best Workshop score (ratings.json: vote_data.score, Steam's "Top Rated" order; ties by
+               list order)
+      own, hud ours.json's maps and the HUD item
+      queues   the bridge's random queues and the maps players have queued (queues.json)
+    Returns {"up", "top": {mode: [ids]}, "cutoff": {mode: the 100th score, or None}, "own", "hud", "queues": {name: [ids]}, "requested",
+    "all": set, "scored", "problems"}. problems: why the set is not to be trusted with a deletion - an input missing or unreadable,
+    ratings older than KEEP_RATINGS_MAX_AGE or scoring under KEEP_RATED_SHARE of a list, a top list under KEEP_MIN_TOP, a queue under
+    KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the same set."""
+    problems = []
+
+    def need(name, kind):
+        value = inputs.get(name)
+        if not isinstance(value, kind):
+            problems.append("%s is missing or unreadable" % name)
+            return kind()
+        return value
+
+    def digits(value):
+        return str(value) if str(value or "").isdigit() else None
+
+    lists = {}
+    for mode, name in KEEP_MODES:
+        lists[mode] = list(dict.fromkeys(digits(e.get("id")) for e in need(name, list) if isinstance(e, dict) and digits(e.get("id"))))
+    if not lists["armsrace"] and "maps.json is missing or unreadable" not in problems:
+        problems.append("maps.json lists no map")
+    bad = set()
+    broken = need("broken.json", dict)
+    for section in ("maps", "packs", "removed", "blocked"):
+        for entry in broken.get(section) or []:
+            wid = digits(entry.get("id") if isinstance(entry, dict) else entry)
+            if wid:
+                bad.add(wid)
+    bad |= set(str(w) for w, v in (need("removed.json", dict).get("verdicts") or {}).items() if v != "ok")
+    bridge = need("state.json", dict)
+    bad |= set(str(k) for k, v in (bridge.get("crashes") or {}).items() if isinstance(v, int) and not isinstance(v, bool) and v > 0)
+    bad |= set(str(k) for k in (bridge.get("playerCrashes") or {}))
+    up = set(str(k) for k, v in need("votes.json", dict).items() if digits(k) and isinstance(v, dict)
+             and any(isinstance(x, int) and not isinstance(x, bool) and x > 0 for x in v.values()))
+    ratings = need("ratings.json", dict)
+    scores = {}
+    for wid, value in (ratings.get("scores") or {}).items() if isinstance(ratings.get("scores"), dict) else []:
+        score = value[0] if isinstance(value, list) and value else value
+        if digits(wid) and isinstance(score, (int, float)) and not isinstance(score, bool):
+            scores[str(wid)] = float(score)
+    if ratings:
+        fetched = ratings.get("fetched")
+        age = now - fetched if isinstance(fetched, (int, float)) and not isinstance(fetched, bool) else None
+        if age is None or age > KEEP_RATINGS_MAX_AGE:
+            problems.append("ratings.json is %s old (at most %d h)" % ("%d h" % (age // 3600) if age is not None else "of no known age",
+                                                                       KEEP_RATINGS_MAX_AGE // 3600))
+    top, cutoff = {}, {}
+    for mode, _name in KEEP_MODES:
+        playable = [w for w in lists[mode] if w not in bad]
+        place = dict((w, i) for i, w in enumerate(playable))
+        rated = [w for w in playable if w in scores]
+        if playable and len(rated) < KEEP_RATED_SHARE * len(playable):
+            problems.append("ratings.json scores %d of the %d playable %s maps (%d%% needed)" % (len(rated), len(playable), mode,
+                                                                                               round(KEEP_RATED_SHARE * 100)))
+        top[mode] = sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP]
+        cutoff[mode] = scores[top[mode][-1]] if len(top[mode]) >= KEEP_TOP else None
+        if len(top[mode]) < min(KEEP_MIN_TOP, len(playable)):
+            problems.append("the %s top list holds %d maps (%d playable listed)" % (mode, len(top[mode]), len(playable)))
+    own = set(digits(e.get("id")) for e in need("ours.json", dict).get("maps") or [] if isinstance(e, dict) and digits(e.get("id")))
+    if not own:
+        problems.append("ours.json names no own map")
+    hud_ids = set([str(hud)]) if digits(hud) else set()
+    if not hud_ids:
+        problems.append("no HUD item is set")
+    queues = need("queues.json", dict)
+    if queues and queues.get("version") != 1:
+        problems.append("queues.json is not version 1")
+    random = queues.get("random") if isinstance(queues.get("random"), dict) else {}
+    qs = {}
+    for name in KEEP_QUEUES:
+        entries = [str(x) for x in random.get(name) or []] if isinstance(random.get(name), list) else []
+        if len(entries) < KEEP_MIN_QUEUE:
+            problems.append("the %s queue holds %d entries (at least %d)" % (name, len(entries), KEEP_MIN_QUEUE))
+        qs[name] = [x for x in entries if x.isdigit()]
+    requested = [str(x) for x in queues.get("requested") or [] if digits(x)] if isinstance(queues.get("requested"), list) else []
+    every = up | own | hud_ids | set(requested)
+    for ids in list(top.values()) + list(qs.values()):
+        every |= set(ids)
+    return {"up": sorted(up), "top": top, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
+            "requested": requested, "all": every, "scored": len(scores), "problems": problems}
+
+
+def keep_parts(keep):
+    """[(part name, ids)] in the order the log and keep.json give them."""
+    parts = [("up", keep["up"])] + [("top " + mode, keep["top"].get(mode) or []) for mode, _ in KEEP_MODES]
+    parts += [("own", keep["own"]), ("hud", keep["hud"])] + [("queue " + name, keep["queues"].get(name) or []) for name in KEEP_QUEUES]
+    return parts + [("requested", keep["requested"]), ("all", sorted(keep["all"]))]
+
+
+def keep_summary(keep, on_disk, listed_mb):
+    """{part: {"maps", "on_disk", "gb_on_disk", "gb"}}: how many, how many the server stores, and their size (the acf's for what is on
+    disk, the lists' sizeMb for the rest), in GiB."""
+    out = {}
+    for part, ids in keep_parts(keep):
+        stored = [w for w in ids if w in on_disk]
+        disk = sum(on_disk[w] for w in stored)
+        rest = sum(listed_mb.get(w, 0) << 20 for w in ids if w not in on_disk)
+        out[part] = {"maps": len(ids), "on_disk": len(stored), "gb_on_disk": round(disk / float(1 << 30), 1),
+                     "gb": round((disk + rest) / float(1 << 30), 1)}
+    return out
+
+
+def listed_sizes():
+    """{id: sizeMb} from the bridge's three lists."""
+    out = {}
+    for _mode, name in KEEP_MODES:
+        for entry in read_json(os.path.join(BRIDGE_DATA, name), []) or []:
+            if isinstance(entry, dict) and str(entry.get("id") or "").isdigit():
+                out.setdefault(str(entry["id"]), int(entry.get("sizeMb") or 0))
+    return out
+
+
+# ------------------------------------------------------------------------------------------------
+# THE HAND-OVER (the sync's maps for the server) and THE DELETION (what is not in the keep set), both in --organize
+# ------------------------------------------------------------------------------------------------
+HANDOVER_DIR = os.environ.get("CS2_HANDOVER_DIR") or os.path.join(STEAMAPPDIR, "workshop-sync", "handover")
+MAPS_DELETE_DEFAULT = "on"       # "dryrun" for the first production run (2026-11-03: 3,560 maps, 412.9 GB, checked clean), then on
+MAPS_DELETE = (os.environ.get("CS2_MAPS_DELETE") or MAPS_DELETE_DEFAULT).strip().lower()   # off | dryrun | on
+if MAPS_DELETE not in ("off", "dryrun", "on"):
+    BOOT_WARNINGS.append("CS2_MAPS_DELETE=%r is not off, dryrun or on - dryrun" % MAPS_DELETE)
+    MAPS_DELETE = "dryrun"
+DELETE_TYPES = ("armsrace", "deathmatch", "wingman", "other")   # never own, never hud
+KEEP_FILE = os.path.join(STATE_DIR, "keep.json")
+DELETE_LISTS_KEEP = 20          # update-watch/deleted-<time>-<dryrun|done>.tsv: the newest this many
+
+
+def folder_stats(path):
+    """(files, bytes) of everything under a folder."""
+    files = total = 0
+    for root, _dirs, names in os.walk(path):
+        for name in names:
+            try:
+                total += os.path.getsize(os.path.join(root, name))
+                files += 1
+            except OSError:
+                pass
+    return files, total
+
+
+def handover_read(marker, wid):
+    """A hand-over's marker, handover/<id>.json (the sync writes it last, so it means complete): (record, None) or (None, why)."""
+    try:
+        with open(marker, "r", encoding="utf-8") as handle:
+            rec = json.load(handle)
+    except (OSError, ValueError) as error:
+        return None, "its marker does not parse (%s)" % error
+    if not isinstance(rec, dict) or rec.get("version") != 1 or str(rec.get("id")) != wid:
+        return None, "its marker is not a version-1 hand-over of %s" % wid
+    installed, details = rec.get("installed"), rec.get("details")
+    if not (isinstance(installed, dict) and all(str(installed.get(k) or "").isdigit() for k in ("size", "timeupdated", "manifest"))):
+        return None, "its marker has no complete WorkshopItemsInstalled entry"
+    if not (isinstance(details, dict) and all(str(details.get(k) or "").isdigit() for k in ("manifest", "timeupdated"))):
+        return None, "its marker has no complete WorkshopItemDetails entry"
+    if not (isinstance(rec.get("files"), int) and isinstance(rec.get("bytes"), int) and rec["files"] > 0):
+        return None, "its marker does not say what the folder holds"
+    return rec, None
+
+
+def take_in(content, maps_dir, types, where, rel, installed_now):
+    """Every complete hand-over in HANDOVER_DIR moved into its type's folder and linked from content/730, like a download of Steam's
+    own. Returns ({id: (installed, details)} for the acf, [(id, marker, manifest file)] to finish once the acf is written, counts).
+    A hand-over is complete when its marker is there and the folder holds exactly the files and bytes the marker names; one the
+    server has an equal or newer copy of is dropped. A marker whose folder was moved already (a take-in cut short) still counts."""
+    add, finish = {}, []
+    counts = {"taken": 0, "redundant": 0, "incomplete": 0}
+    try:
+        names = sorted(os.listdir(HANDOVER_DIR))
+    except OSError:
+        return add, finish, counts
+    for name in names:
+        if not name.endswith(".json") or not name[:-5].isdigit():
+            continue
+        wid = name[:-5]
+        marker, folder = os.path.join(HANDOVER_DIR, name), os.path.join(HANDOVER_DIR, wid)
+        manifest = os.path.join(HANDOVER_DIR, wid + ".manifest")
+        rec, why = handover_read(marker, wid)
+        if rec is None:
+            counts["incomplete"] += 1
+            log("hand-over %s: left alone - %s" % (wid, why))
+            continue
+        kind, title = types.get(wid, ("other", rec.get("title") or ""))
+        slug = map_slug(title)
+        target = os.path.join(maps_dir, kind, "%s-%s" % (wid, slug) if slug else wid)
+        stamp = int(rec["installed"]["timeupdated"])
+        try:
+            if not os.path.isdir(folder) or os.path.islink(folder):
+                moved = [p for p in where.get(wid, []) if folder_stats(p) == (rec["files"], rec["bytes"])]
+                if not moved:
+                    counts["incomplete"] += 1
+                    log("hand-over %s: its marker is there, its folder is not - left alone" % wid)
+                    continue
+                target = moved[0]                                      # taken in before, cut short before the acf: finish it
+            else:
+                if folder_stats(folder) != (rec["files"], rec["bytes"]):
+                    counts["incomplete"] += 1
+                    log("hand-over %s: its folder does not hold the %d files and %d bytes its marker names - left alone"
+                        % (wid, rec["files"], rec["bytes"]))
+                    continue
+                if installed_now.get(wid, 0) >= stamp and where.get(wid):
+                    shutil.rmtree(folder, ignore_errors=True)            # the server's own copy is as new: nothing to take in
+                    for path in (marker, manifest):
+                        if os.path.exists(path):
+                            os.remove(path)
+                    counts["redundant"] += 1
+                    continue
+                old = [p for p in where.get(wid, [])]
+                aside = []
+                for path in old:                                       # an older copy of the same map: aside, then gone
+                    os.rename(path, path + ".old-%d" % os.getpid())
+                    aside.append(path + ".old-%d" % os.getpid())
+                os.rename(folder, target)
+                for path in aside:
+                    shutil.rmtree(path, ignore_errors=True)
+            link = os.path.join(content, wid)
+            if os.path.islink(link):
+                os.unlink(link)
+            elif os.path.isdir(link):
+                shutil.rmtree(link, ignore_errors=True)
+            os.symlink(os.path.relpath(target, content), link)
+            where[wid] = [target]
+            installed = [(k, str(rec["installed"][k])) for k in ("size", "timeupdated", "manifest")]
+            details = [(k, str(rec["details"][k])) for k in ("manifest", "timeupdated", "timetouched", "latest_timeupdated",
+                                                                "latest_manifest") if str(rec["details"].get(k) or "").isdigit()]
+            add[wid] = (installed, details)
+            finish.append((wid, marker, manifest if os.path.isfile(manifest) else None, str(rec["installed"]["manifest"])))
+            counts["taken"] += 1
+        except OSError as error:
+            counts["incomplete"] += 1
+            log("hand-over %s: not taken in (%s)" % (wid, error))
+    return add, finish, counts
+
+
+def unkept(maps_dir, keep, protected):
+    """[(type, id, folder)] of every stored map outside the keep set, in DELETE_TYPES' folders only; never a protected id."""
+    out = []
+    for kind in DELETE_TYPES:
+        try:
+            names = sorted(os.listdir(os.path.join(maps_dir, kind)))
+        except OSError:
+            continue
+        for name in names:
+            wid = name.split("-", 1)[0]
+            path = os.path.join(maps_dir, kind, name)
+            if wid.isdigit() and wid not in keep and wid not in protected and os.path.isdir(path) and not os.path.islink(path):
+                out.append((kind, wid, path))
+    return out
+
+
+def disk_free(path):
+    try:
+        st = os.statvfs(path)
+        return st.f_bavail * st.f_frsize
+    except (OSError, AttributeError):
+        return None
+
+
+def gib(nbytes):
+    return "%.1f GB" % (nbytes / float(1 << 30))
+
+
+def write_list(rows, what):
+    """update-watch/deleted-<local time>-<what>.tsv: type, id, title, MB - the record of a deletion or a dry run."""
+    stamp = datetime.now(TZ).strftime("%Y%m%d-%H%M%S") if TZ else time.strftime("%Y%m%d-%H%M%S")
+    path = os.path.join(STATE_DIR, "deleted-%s-%s.tsv" % (stamp, what))
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("type\tid\ttitle\tMB\n" + "".join("%s\t%s\t%s\t%d\n" % r for r in rows))
+        for old in sorted(n for n in os.listdir(STATE_DIR) if n.startswith("deleted-") and n.endswith(".tsv"))[:-DELETE_LISTS_KEEP]:
+            os.remove(os.path.join(STATE_DIR, old))
+    except OSError as error:
+        log("maps folder: the list %s was not written (%s)" % (path, error))
+        return None
+    return path
+
+
+def keep_and_delete(content, maps_dir, types, where, rel):
+    """THE HAND-OVER and THE DELETION, after the maps are in their folders: the hand-overs taken in, the keep set computed (and written
+    to update-watch/keep.json), then - CS2_MAPS_DELETE on, and nothing wrong with the keep set - every stored map outside it deleted:
+    its acf entries first (backed up, one atomic write together with the hand-overs' entries), then its link and its folder. dryrun:
+    the same list, logged and written, nothing deleted. Never the own maps, the HUD, the warm-up item or a queued map, whatever the
+    keep set says. Returns words for the summary line."""
+    now = time.time()
+    try:
+        with open(WORKSHOP_ACF, "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as error:
+        log("maps folder: %s cannot be read (%s) - no hand-over taken in, nothing deleted" % (WORKSHOP_ACF, error))
+        return []
+    try:
+        installed_now = acf_installed(text)
+    except ValueError as error:
+        log("maps folder: %s does not parse (%s) - no hand-over taken in, nothing deleted" % (WORKSHOP_ACF, error))
+        return []
+    sizes = acf_sizes(text)
+    add, finish, counts = take_in(content, maps_dir, types, where, rel, installed_now)
+    hud = (os.environ.get("GUNGAME_HUD_ADDON") or "").strip()
+    keep = keep_set(keep_inputs(BRIDGE_DATA), now, hud)
+    protected = set(keep["own"]) | set(keep["hud"]) | set(keep["requested"]) | set([WARMUP_ITEM] if WARMUP_ITEM else [])
+    for ids in keep["queues"].values():
+        protected |= set(ids)
+    protected |= set(add)                                              # just handed over: the keep set asked for them
+    on_disk = dict((w, sizes.get(w, 0)) for w in where if where.get(w))
+    for wid, (inst, _det) in add.items():
+        on_disk[wid] = int(dict(inst).get("size") or 0)
+    summary = keep_summary(keep, on_disk, listed_sizes())
+    gone = unkept(maps_dir, keep["all"], protected)
+    words = []
+    parts = ", ".join("%s %d (%d on disk, %.1f GB)" % (p, s["maps"], s["on_disk"], s["gb_on_disk"]) for p, s in summary.items())
+    log("keep set: %s; %d scored; problems: %s" % (parts, keep["scored"], "; ".join(keep["problems"]) or "none"))
+    try:
+        record = {"computed": time.strftime("%Y-%m-%dT%H:%M:%S"), "delete": MAPS_DELETE, "problems": keep["problems"],
+                  "summary": summary, "cutoff": keep["cutoff"], "parts": dict((p, ids) for p, ids in keep_parts(keep) if p != "all")}
+        temporary = KEEP_FILE + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(record, handle, indent=1)
+        os.replace(temporary, KEEP_FILE)
+    except OSError as error:
+        log("keep set: %s not written (%s)" % (KEEP_FILE, error))
+    rows = [(kind, wid, types.get(wid, ("other", ""))[1].replace("\t", " ") or os.path.basename(path).split("-", 1)[-1],
+             sizes.get(wid, 0) // 1000000) for kind, wid, path in gone]
+    by_type = ", ".join("%s %d" % (k, sum(1 for r in rows if r[0] == k)) for k in DELETE_TYPES if any(r[0] == k for r in rows))
+    volume = sum(sizes.get(wid, 0) for _k, wid, _p in gone)
+    delete = MAPS_DELETE == "on" and not keep["problems"] and gone
+    if gone and not delete:
+        listed = write_list(rows, "refused" if MAPS_DELETE == "on" else MAPS_DELETE)
+        why = ("CS2_MAPS_DELETE is %s" % MAPS_DELETE) if MAPS_DELETE != "on" else "REFUSED: " + "; ".join(keep["problems"])
+        log("maps folder: %d map(s) outside the keep set (%s, %s) - not deleted, %s; the list: %s"
+            % (len(gone), gib(volume), by_type, why, listed))
+        words.append("%d outside the keep set, not deleted (%s)" % (len(gone), MAPS_DELETE if MAPS_DELETE != "on" else "refused"))
+    drop = set(wid for _k, wid, _p in gone) if delete else set()
+    if add or drop:
+        new = acf_edit(text, add, drop)
+        if new is None:
+            log("maps folder: %s does not round-trip through the parser - no hand-over registered, nothing deleted" % WORKSHOP_ACF)
+            return words + ["acf left alone"]
+        try:
+            backup = acf_write(new, "organize")
+        except OSError as error:
+            log("maps folder: %s not written (%s) - no hand-over registered, nothing deleted" % (WORKSHOP_ACF, error))
+            return words + ["acf not written"]
+        log("maps folder: %s written - %d hand-over(s) registered, %d map(s) dropped; the old one is %s"
+            % (WORKSHOP_ACF, len(add), len(drop), backup))
+    for wid, marker, manifest, gid in finish:
+        if manifest:
+            target = os.path.join(DEPOTCACHE, "730_%s.manifest" % gid)
+            try:
+                if not os.path.exists(target):
+                    shutil.copy2(manifest, target)        # the Steam client's verified manifest: no re-check request for it
+            except OSError as error:
+                log("hand-over %s: its manifest was not copied into %s (%s) - the client asks for it once" % (wid, DEPOTCACHE, error))
+        for path in (marker, manifest):
+            try:
+                if path and os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
+    if add:
+        log("hand-over: %d map(s) taken in (%s)" % (len(add), ", ".join(sorted(add)[:20]) + (" ..." if len(add) > 20 else "")))
+        words.append("%d handed over" % len(add))
+    if counts["redundant"] or counts["incomplete"]:
+        words.append("%d hand-over(s) not needed, %d left alone" % (counts["redundant"], counts["incomplete"]))
+    if delete:
+        before = disk_free(maps_dir)
+        listed = write_list(rows, "done")
+        failed = 0
+        for kind, wid, path in gone:
+            link = os.path.join(content, wid)
+            try:
+                if os.path.islink(link):
+                    os.unlink(link)
+                shutil.rmtree(path)
+            except OSError as error:
+                failed += 1
+                log("maps folder: %s not deleted (%s)" % (path, error))
+        after = disk_free(maps_dir)
+        log("maps folder: DELETED %d map(s) outside the keep set, %s (%s)%s; free on the volume %s -> %s (ZFS frees in the background); "
+            "the list: %s" % (len(gone) - failed, gib(volume), by_type, (", %d failed" % failed) if failed else "",
+                              gib(before) if before is not None else "?", gib(after) if after is not None else "?", listed))
+        words.append("%d deleted (%s)" % (len(gone) - failed, gib(volume)))
+    return words
 
 
 def engine_age(pid):
@@ -1393,7 +1938,7 @@ class DownloadLine:
             if found.group(2) == "5":
                 self.finished(found.group(1))
             else:
-                self.started(found.group(1), now)
+                self.started(found.group(1), now)["engine"] = True   # the engine itself waits for it: a map change does
             return
         found = MAM_STARTED_RX.search(line)
         if found:
@@ -1487,9 +2032,186 @@ class DownloadLine:
         rcon(['gg_notice %d "%s"' % (LINE_HOLD, line)])
 
 
+READY = flag_env("CS2_READY", True)   # job 9's switch
+READY_EVERY = 20                # seconds between two looks at the bridge's queues.json and the cache
+READY_REPORT_EVERY = 120        # the report to the bridge goes again at least this often (the bridge trusts one for 5 minutes)
+READY_RETRY = 1800              # a queued map whose background download failed is tried again after this...
+READY_TRIES = 3                 # ...up to this many times in one engine process
+
+
+def bridge_endpoint():
+    """(base URL, secret) of the bridge: CS2_BRIDGE_URL and CS2_BRIDGE_SECRET, else the log push's own URL (CS2_LOG_HTTP_URL,
+    http://<bridge>:<port>/log/<secret>, which the image's templating may write with \\/). None when neither says."""
+    base, secret = (os.environ.get("CS2_BRIDGE_URL") or "").strip().rstrip("/"), (os.environ.get("CS2_BRIDGE_SECRET") or "").strip()
+    if base and secret:
+        return base, secret
+    found = re.match(r"^(https?://[^/\s]+)/log/([A-Za-z0-9]+)$", (os.environ.get("CS2_LOG_HTTP_URL") or "").strip().replace("\\/", "/"))
+    return (found.group(1), found.group(2)) if found else None
+
+
+class ReadyMaps:
+    """Job 9: the maps the bridge's random queues and the players' requests play next (queues.json), on disk before anybody asks -
+    downloaded in the background, one at a time, also while people play, and silently (job 8's line is for downloads somebody waits
+    for). The same engine path as the prefetch (mm_download_addon); never while a download somebody waits for runs, nor before the
+    warm-up, nor beside the prefetch, nor in a process whose downloads are broken (job 6, unchanged: a stuck result marks it). Every
+    look, and at least every READY_REPORT_EVERY, the bridge hears which of them are on disk (POST /ready), and takes those first."""
+
+    def __init__(self, ws):
+        self.ws = ws
+        self.current = None          # (id, sent): the background download in flight
+        self.failed = {}             # id -> (tries, not before) in this engine process
+        self.look_at = 0.0
+        self.reported = None         # (the ids reported, when)
+        self.queues = (None, [])     # (queues.json's stamp, the ids it wants, in play order)
+        self.acf = (None, {})        # (the acf's stamp, its installed items)
+        self.endpoint = bridge_endpoint()
+        self.downloads = 0
+
+    def reset(self):
+        self.current, self.failed, self.look_at = None, {}, 0.0
+
+    def wanted(self):
+        """What queues.json names, in the order it is needed: the requests (the next vote shows them), then the queues' first
+        entries, their second ones, and so on."""
+        path = os.path.join(BRIDGE_DATA, "queues.json")
+        try:
+            st = os.stat(path)
+        except OSError:
+            return []
+        if (st.st_mtime, st.st_size) != self.queues[0]:
+            data = read_json(path, {})
+            data = data if isinstance(data, dict) else {}
+            random = data.get("random") if isinstance(data.get("random"), dict) else {}
+            ids = [str(x) for x in data.get("requested") or [] if str(x).isdigit()] if isinstance(data.get("requested"), list) else []
+            lanes = [[str(x) for x in random.get(n) or [] if str(x).isdigit()] for n in KEEP_QUEUES]
+            for i in range(max([len(lane) for lane in lanes] or [0])):
+                ids += [lane[i] for lane in lanes if i < len(lane)]
+            self.queues = ((st.st_mtime, st.st_size), list(dict.fromkeys(ids)))
+        return self.queues[1]
+
+    def installed(self):
+        try:
+            st = os.stat(WORKSHOP_ACF)
+        except OSError:
+            return {}
+        if (st.st_mtime, st.st_size) != self.acf[0]:
+            try:
+                with open(WORKSHOP_ACF, "r", encoding="utf-8") as handle:
+                    self.acf = ((st.st_mtime, st.st_size), acf_installed(handle.read()))
+            except (OSError, ValueError):
+                pass
+        return self.acf[1]
+
+    def gate(self):
+        """Why no background download may start now, or None."""
+        ws, w = self.ws, self.ws.watch
+        if w.a2s is None or w.armed_pid is None:
+            return "the engine is not answering A2S"
+        if ws.warm is not None and ws.warm["state"] in ("waiting", "running"):
+            return "the warm-up comes first"
+        if ws.pf is not None:
+            return "the nightly prefetch is running (it fetches the queued maps too)"
+        if ws.broken is not None:
+            return "workshop downloads are broken in this engine process (%s)" % ws.broken[1]
+        own = ws.own()
+        if any(x not in own for x in ws.line.active):
+            return "a download somebody waits for goes first"
+        return None
+
+    def report(self, now, ready, total, force=False):
+        """POST /ready to the bridge when what is on disk changed, every READY_REPORT_EVERY, or when forced (right before a background
+        download starts). Returns the bridge's answer, or None. An answer ending in '; hold: <why>' means a map a player waits for is
+        on its way: Steam runs one Workshop download at a time and one already running cannot be stopped (measured on a test copy on
+        2026-11-03: a map change's download started only when the background one had ended), so none may start now."""
+        if self.endpoint is None:
+            log_once("ready-endpoint", "ready: no bridge address (CS2_LOG_HTTP_URL) - the bridge counts every queued map as on disk",
+                     repeat=21600)
+            return None
+        key = frozenset(ready)
+        if not force and self.reported is not None and self.reported[0] == key and now - self.reported[1] < READY_REPORT_EVERY:
+            return None
+        base, secret = self.endpoint
+        body = ("gg-ready\t1\n" + "".join("%s\n" % x for x in sorted(ready))).encode("utf-8")
+        try:
+            request = urllib.request.Request("%s/ready/%s" % (base, secret), data=body, method="POST",
+                                             headers={"User-Agent": USER_AGENT, "Content-Type": "text/plain; charset=utf-8"})
+            with urllib.request.urlopen(request, timeout=3) as response:
+                reply = response.read().decode("utf-8", "replace").strip()
+        except Exception as error:  # noqa: BLE001 - a bridge that is down or older: it then counts every queued map as on disk
+            log_once("ready-report", "WARNING: the ready report to the bridge failed (%s: %s) - it counts every queued map as on disk"
+                     % (type(error).__name__, str(error).replace(secret, "<secret>")), repeat=3600)
+            return None
+        news = self.reported is None or self.reported[0] != key
+        self.reported = (key, now)
+        if news:
+            log("ready: %d of %d queued map(s) on disk, reported to the bridge (%s)" % (len(ready), total, reply[:240]))
+        return reply
+
+    def step(self, now, events):
+        if not READY:
+            return
+        ws = self.ws
+        if self.current is not None:
+            wid, sent = self.current
+            for ewid, kind, text, cancel in events:
+                if ewid != wid or kind != "result":
+                    continue
+                self.current = None
+                ws.line.finished(wid)                          # whatever MultiAddonManager printed of it is over too
+                if text.strip().upper() == "OK":
+                    self.downloads += 1
+                    self.failed[wid] = (0, now + READY_RETRY)  # should the acf not show it, not again at once: no download loop
+                    self.look_at = 0.0                         # look again at once: the bridge hears of it now
+                    log("ready: %s downloaded in the background in %s (%d this engine process)" % (wid, hms(now - sent), self.downloads))
+                else:
+                    tries = self.failed.get(wid, (0, 0))[0] + 1
+                    self.failed[wid] = (tries, now + READY_RETRY)
+                    log("ready: the background download of %s came back '%s' (try %d of %d in this engine process)"
+                        % (wid, text, tries, READY_TRIES))
+                    if stuck_result(text, cancel):
+                        ws.mark_broken(now, "a background download (%s) came back '%s'" % (wid, text))
+                break
+            if self.current is not None and now - sent > PREFETCH_ITEM_TIMEOUT:
+                self.failed[wid] = (self.failed.get(wid, (0, 0))[0] + 1, now + READY_RETRY)
+                log("ready: no result for %s after %s - tried again later" % (wid, hms(PREFETCH_ITEM_TIMEOUT)))
+                self.current = None
+        if now < self.look_at:
+            return
+        self.look_at = now + READY_EVERY
+        wanted = self.wanted()
+        if not wanted:
+            return
+        installed = self.installed()
+        content = os.path.join(WORKSHOP_DIR, "content", "730")
+        ready = set(x for x in wanted if x in installed and os.path.isdir(os.path.join(content, x)))
+        missing = [x for x in wanted if x not in ready and x != WARMUP_ITEM]
+        todo = [x for x in missing if self.failed.get(x, (0, 0))[0] < READY_TRIES and now >= self.failed.get(x, (0, 0))[1]]
+        why = self.gate() if self.current is None and todo else None
+        reply = self.report(now, ready, len(wanted), force=self.current is None and bool(todo) and why is None)
+        if self.current is not None or not todo:
+            return
+        if why is None and reply and "; hold:" in reply:
+            why = "the bridge says hold (%s)" % reply.split("; hold:", 1)[1].strip()
+        if why:
+            log_once("ready-wait", "ready: %d of %d queued map(s) not on disk - waiting: %s" % (len(missing), len(wanted), why),
+                     repeat=1800)
+            return
+        wid = todo[0]
+        replies = rcon(["mm_download_addon %s" % wid])
+        if not replies or replies[0] is None:
+            return
+        if "unknown command" in replies[0].lower():
+            log_once("ready-mam", "ready: mm_download_addon is not loaded (MultiAddonManager runs only while the HUD is on) - no "
+                                  "background downloads", repeat=21600)
+            return
+        self.current = (wid, now)
+        log("ready: %s is not on disk - downloading it in the background, silently (%d of %d queued map(s) missing)"
+            % (wid, len(missing), len(wanted)))
+
+
 class Workshop:
-    """The warm-up and the nightly prefetch, a state machine stepped once per watcher tick - never blocking it for
-    longer than one RCON command or one Workshop details request."""
+    """The warm-up, the nightly prefetch and job 9, a state machine stepped once per watcher tick - never blocking it for
+    longer than one RCON command, one Workshop details request or one report to the bridge."""
 
     def __init__(self, watch):
         self.watch = watch
@@ -1500,6 +2222,17 @@ class Workshop:
         self.broken = None               # (since, why): downloads are failing in this engine process -> a restart is due
         self.pid_seen = None
         self.cancel = None               # the last 'Update canceled:' reason in workshop_log, until its result line
+        self.ready = ReadyMaps(self)     # job 9
+
+    def own(self):
+        """The downloads nobody waits for: the warm-up's, the prefetch's and job 9's - unless the engine itself waits for job 9's (a
+        pick of the very map it was fetching: then the line shows it)."""
+        own = set([WARMUP_ITEM]) if WARMUP_ITEM else set()
+        if self.pf is not None and self.pf.get("current"):
+            own.add(self.pf["current"][0])
+        if self.ready.current is not None and not self.line.active.get(self.ready.current[0], {}).get("engine"):
+            own.add(self.ready.current[0])
+        return own
 
     def mark_broken(self, now, why):
         if self.broken is None:
@@ -1525,6 +2258,7 @@ class Workshop:
                 log("workshop downloads: engine pid %d is a new process - the broken flag is cleared" % pid)
             self.broken = None
             self.line.reset()
+            self.ready.reset()
         if self.broken is not None:
             for wid, kind, text, _ in events:
                 if kind == "result" and text.strip().upper() == "OK":
@@ -1534,14 +2268,13 @@ class Workshop:
         self.step_players(now, events)
         self.step_warmup(now, events)
         self.step_prefetch(now, events)
+        self.ready.step(now, events)
 
     # -- what players wait for ------------------------------------------------------------------------------------
     def step_players(self, now, events):
-        """Every download that is not the warm-up's or the prefetch's: job 8's line, and job 6's broken flag for it (the stuck state
-        of 2026-10-31: a player's pick failed in a process nothing had marked, and nothing noticed)."""
-        own = set([WARMUP_ITEM]) if WARMUP_ITEM else set()
-        if self.pf is not None and self.pf.get("current"):
-            own.add(self.pf["current"][0])
+        """Every download that is not the warm-up's, the prefetch's or job 9's: job 8's line, and job 6's broken flag for it (the stuck
+        state of 2026-10-31: a player's pick failed in a process nothing had marked, and nothing noticed)."""
+        own = self.own()
         for wid, kind, text, cancel in events:
             if not wid or wid in own:
                 continue
@@ -1678,7 +2411,9 @@ class Workshop:
                 w.state["prefetch_day"] = day
                 w.save()
                 return
-            ids = [x for x in dict.fromkeys(listed + sorted(installed)) if x not in skip]
+            ids = [x for x in listed if x not in skip]   # the keep set and the queues only, since 2026-11-03 (prefetch_lists)
+            wanted = set(ids)
+            installed = dict((w, t) for w, t in installed.items() if w in wanted)
             self.pf = {"day": day, "end": slot + PREFETCH_SPAN, "phase": "plan", "started": now, "listed": listed,
                        "skip": skip, "installed": installed, "folders": folders, "details": {}, "errors": 0,
                        "batches": [(ids[i:i + DETAILS_BATCH], 0) for i in range(0, len(ids), DETAILS_BATCH)],
@@ -2237,7 +2972,12 @@ class Watch:
             + ", fresh process for the prefetch %s" % (
                 "on (%s, only at 0 humans)" % datetime.fromtimestamp(
                     next_slot(time.time(), PREFETCH_AT, TZ) - PREFETCH_RESTART_LEAD, TZ).strftime("%H:%M")
-                if PREFETCH_RESTART and PREFETCH_AT else "off"))
+                if PREFETCH_RESTART and PREFETCH_AT else "off")
+            + ", the queued maps in the background %s" % (("on, reported to the bridge at %s" % self.workshop.ready.endpoint[0])
+                                                          if READY and self.workshop.ready.endpoint else "on, no bridge address"
+                                                          if READY else "off")
+            + ", maps outside the keep set at engine start: %s" % {"on": "deleted", "dryrun": "listed only (dry run)",
+                                                                  "off": "kept"}[MAPS_DELETE])
         if WARMUP or PREFETCH_AT:
             self.log_depotcache()
         if self.blocked():

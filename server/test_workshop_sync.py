@@ -904,6 +904,176 @@ check("acf: items read", m.acf_items(acf) == {"1": 5, "2": 6})
 m.acf_forget(acf, ["1"])
 check("acf: an item is forgotten in both sections, the rest kept", m.acf_items(acf) == {"2": 6} and '"1"' not in open(acf).read())
 
+# ---- 2026-11-03: the keep set (the same as update-watch.py's), the scores, the hand-over, the 223 ------------------------------
+UW = os.path.join(HERE, "update-watch.py")
+uw_text, ws_text = open(UW, encoding="utf-8").read(), open(SRC, encoding="utf-8").read()
+
+
+def keep_block(text):
+    start = text.index("KEEP_TOP = 100")
+    end = text.index('"requested": requested, "all": every, "scored": len(scores), "problems": problems}', start)
+    return text[start:end]
+
+
+check("keep set: workshop-sync.py's keep_inputs and keep_set are update-watch.py's, word for word", keep_block(uw_text) == keep_block(ws_text))
+sys.modules.setdefault("fcntl", types.ModuleType("fcntl"))
+os.environ.setdefault("STEAMAPPDIR", os.path.join(ROOT, "uwroot"))
+uw = types.ModuleType("uw")
+uw.__dict__["__name__"] = "uw"
+exec(compile(uw_text, "update-watch", "exec"), uw.__dict__)
+KT = 1793700000.0
+kdata = {"maps.json": [{"rank": r, "id": 100 + r, "name": "a%d" % r, "sizeMb": 1} for r in range(1, 130)],
+         "maps-deathmatch.json": [{"rank": r, "id": 300 + r, "name": "d%d" % r, "sizeMb": 1} for r in range(1, 30)],
+         "maps-wingman.json": [], "broken.json": {"maps": [{"id": 101}]}, "removed.json": {"verdicts": {"102": "removed"}},
+         "votes.json": {"110": {"[U:1:1]": 1, "[U:1:2]": -1}, "111": {"[U:1:1]": -2}}, "ours.json": {"maps": [{"id": 900}]},
+         "ratings.json": {"version": 1, "fetched": KT - 60, "scores": dict((str(100 + r), [r / 200.0, 1, 0]) for r in range(1, 130))},
+         "queues.json": {"version": 1, "random": {"armsrace-new": ["120"], "deathmatch": ["301"]}, "requested": ["150"]},
+         "state.json": {"crashes": {"103": 1}}}
+check("keep set: both scripts give the same set from the same data", m.keep_set(kdata, KT, "500") == uw.keep_set(kdata, KT, "500")
+      and m.keep_set(kdata, KT, "")["problems"] == uw.keep_set(kdata, KT, "")["problems"])
+
+# the scores: IPublishedFileService/GetDetails with includevotes, with the key; a removed item is no score
+led, clock = ledger(os.path.join(ROOT, "votes-ledger.json"))
+api, sent, ft = api_with(led, clock, [{"response": {"publishedfiledetails": [
+    {"publishedfileid": "11", "result": 1, "vote_data": {"score": 0.547, "votes_up": 14, "votes_down": 3}},
+    {"publishedfileid": "12", "result": 15}, {"publishedfileid": "13", "result": 1}]}}])
+got = api.votes(["11", "12", "13"])
+check("votes: the score and the votes of what the Workshop has; result 15 and no vote_data give none", got == {"11": [0.547, 14, 3]})
+check("votes: one keyed GET to IPublishedFileService/GetDetails with includevotes, counted in the ledger as GetDetails",
+      len(sent) == 1 and sent[0].full_url.startswith(m.VOTES_URL) and "key=" + KEY in sent[0].full_url and "includevotes=true" in sent[0].full_url
+      and "publishedfileids%5B2%5D=13" in sent[0].full_url and led.data["calls"][-1][1] == "GetDetails")
+
+# a Night's own steps, on a folder of their own
+srv = os.path.join(ROOT, "srv")
+sdata, sstate, swork, sgame = (os.path.join(srv, x) for x in ("data", "state", "work", "game"))
+gws = os.path.join(sgame, "game", "bin", "linuxsteamrt64", "steamapps", "workshop")
+for d in (sdata, sstate, swork, os.path.join(gws, "content", "730"), os.path.join(sgame, "maps", "armsrace")):
+    os.makedirs(d, exist_ok=True)
+for name, value in kdata.items():
+    json.dump(value, open(os.path.join(sdata, name), "w"))
+os.environ.update({"SYNC_STATE_DIR": sstate, "SYNC_WORK_DIR": swork, "SYNC_BRIDGE_DATA": sdata, "SYNC_GAME_DIR": sgame,
+                   "SYNC_DEPOTCACHE": os.path.join(srv, "depotcache")})
+os.makedirs(os.path.join(srv, "depotcache"))
+items = {"140": {"status": "skipped", "evidence": "1.5 GB: more than a whole night's download cap (800 MB)", "size": 1 << 30, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
+         "141": {"status": "skipped", "evidence": "160.0 GB: more than a whole day's download cap (150.0 GB)", "size": 160 << 30, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
+         "142": {"status": "skipped", "evidence": "a CS:GO-era upload (its Workshop file is x): no CS2 map, not downloaded", "size": 1, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
+         "143": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 999, "created": 1, "lifetime": 1},
+         "144": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1, "lifetime": 1}}
+json.dump({"schema": 1, "items": items, "baseline": {}, "runs": [], "downloads": {}}, open(os.path.join(sstate, "state.json"), "w"))
+ncfg = m.Config()
+nn = m.Night(ncfg, FakeClock(KT), manual=True)
+nn.state.load()
+nn.requeue_size_skips()
+check("the 223: a map skipped as too big for an older cap is queued again when it fits today's; one that does not, and a CS:GO-era skip, stay",
+      nn.state.item("140")["status"] == "queued" and nn.state.item("141")["status"] == "skipped" and nn.state.item("142")["status"] == "skipped"
+      and nn.report["requeued"] == 1)
+nn.state.item("141")["skip_cap"] = 150 << 30
+nn.requeue_size_skips()
+check("the 223: a skip under today's cap is not looked at again", nn.state.item("141")["status"] == "skipped" and nn.report["requeued"] == 0)
+
+
+class VoteApi(object):
+    def __init__(self, scores, stop_after=None):
+        self.scores, self.stop_after, self.by_api, self.asked = scores, stop_after, {}, []
+
+    def votes(self, ids):
+        self.by_api["GetDetails"] = self.by_api.get("GetDetails", 0) + 1
+        if self.stop_after is not None and self.by_api["GetDetails"] > self.stop_after:
+            raise m.StopNight("HTTP 429")
+        self.asked += ids
+        return dict((w, [self.scores.get(w, 0.0), 1, 0]) for w in ids if w in self.scores)
+
+
+vapi = VoteApi({"143": 0.99, "144": 0.01, "140": 0.5, "105": 0.7})
+nn.ratings(vapi, ["105", "106"])
+rj = json.load(open(os.path.join(sdata, "ratings.json")))
+check("ratings: the listed maps and every map waiting for its test, scored and written to the bridge's data with the time",
+      set(vapi.asked) == set(["105", "106", "140", "143", "144"]) and rj["version"] == 1 and rj["fetched"] == KT and rj["scores"]["143"][0] == 0.99
+      and nn.report["ratings"]["complete"])
+nn.ratings(VoteApi({}), ["105"])
+check("ratings: once a day - not again within RATINGS_EVERY", "fetched" in nn.report["ratings"]["skipped"])
+nn.state.data["ratings"]["fetched"] = KT - 2 * m.DAY
+nn.report.pop("ratings")
+nn.ratings(VoteApi({"105": 0.1}, stop_after=0), ["105"])
+check("ratings: cut short by a stop - the old scores kept, with their old time", nn.state.data["ratings"]["fetched"] == KT - 2 * m.DAY
+      and not nn.report["ratings"]["complete"] and nn.state.data["ratings"]["scores"]["143"][0] == 0.99)
+nn.state.data["ratings"]["fetched"] = KT
+json.dump({"version": 1, "fetched": KT, "scores": dict(kdata["ratings.json"]["scores"], **{"143": [0.99, 1, 0], "144": [0.01, 1, 0]})},
+          open(os.path.join(sdata, "ratings.json"), "w"))
+nn._cut = None
+order = nn.queue({}, {})
+check("queue: a waiting map whose score puts it among its mode's best goes first (143), the rest by popularity: %s" % order[:4],
+      order[0] == "143" and order.index("143") < order.index("144"))
+
+# the hand-over: a staged download moved, its manifest copied, its marker last; the staging acf forgets it
+stg = os.path.join(swork, "staging", "steamapps", "workshop")
+os.makedirs(os.path.join(stg, "content", "730", "305"))
+open(os.path.join(stg, "content", "730", "305", "305_dir.vpk"), "w").write("vpk!")
+open(os.path.join(stg, "appworkshop_730.acf"), "w").write(
+    '"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"WorkshopItemsInstalled"\n\t{\n\t\t"305"\n\t\t{\n\t\t\t"size"\t\t"4"\n\t\t\t"timeupdated"\t\t"77"\n'
+    '\t\t\t"manifest"\t\t"555"\n\t\t}\n\t}\n\t"WorkshopItemDetails"\n\t{\n\t\t"305"\n\t\t{\n\t\t\t"manifest"\t\t"555"\n\t\t\t"timeupdated"\t\t"77"\n'
+    '\t\t\t"timetouched"\t\t"78"\n\t\t\t"latest_timeupdated"\t\t"77"\n\t\t\t"latest_manifest"\t\t"555"\n\t\t}\n\t}\n}\n')
+open(os.path.join(srv, "depotcache", "730_555.manifest"), "wb").write(b"M")
+hdir = os.path.join(swork, "handover")
+ok, words = m.hand_over(os.path.join(swork, "staging"), hdir, "305", "d5", os.path.join(srv, "depotcache"))
+mk = json.load(open(os.path.join(hdir, "305.json")))
+check("hand-over: the folder moved, the manifest copied, the marker names its acf entries and what the folder holds (%s)" % words,
+      ok and os.path.isfile(os.path.join(hdir, "305", "305_dir.vpk")) and open(os.path.join(hdir, "305.manifest"), "rb").read() == b"M"
+      and mk["installed"] == {"size": "4", "timeupdated": "77", "manifest": "555"} and mk["details"]["latest_manifest"] == "555"
+      and (mk["files"], mk["bytes"]) == (1, 4) and not os.path.exists(os.path.join(stg, "content", "730", "305"))
+      and m.acf_items(os.path.join(stg, "appworkshop_730.acf")) == {})
+check("hand-over: what waits in the folder", m.handovers(hdir) == {"305": 4})
+check("hand-over: nothing staged, nothing handed over", m.hand_over(os.path.join(swork, "staging"), hdir, "306", "", "")[0] is False)
+uw.HANDOVER_DIR, uw.DEPOTCACHE = hdir, os.path.join(srv, "server-depotcache")
+os.makedirs(uw.DEPOTCACHE)
+check("hand-over: update-watch.py reads the sync's marker as complete", uw.handover_read(os.path.join(hdir, "305.json"), "305")[0] is not None
+      and uw.folder_stats(os.path.join(hdir, "305")) == (mk["files"], mk["bytes"]))
+
+# serve: the keep set's maps the server does not store are fetched and handed over; what it stores, or waits, is not
+for wid in ("110", "120", "150", "301", "900"):
+    os.makedirs(os.path.join(sgame, "maps", "armsrace", wid))
+    link = os.path.join(gws, "content", "730", wid)
+    os.symlink(os.path.relpath(os.path.join(sgame, "maps", "armsrace", wid), os.path.dirname(link)), link) if os.name == "posix" else os.makedirs(link)
+open(os.path.join(gws, "appworkshop_730.acf"), "w").write('"AppWorkshop"\n{\n\t"WorkshopItemsInstalled"\n\t{\n' + "".join(
+    '\t\t"%s"\n\t\t{\n\t\t\t"timeupdated"\t\t"1"\n\t\t}\n' % w for w in ("110", "120", "150", "301", "900", "999")) + '\t}\n}\n')
+check("server: what the game server stores - in its acf, with a folder behind its link", sorted(m.server_maps(sgame)) == ["110", "120", "150", "301", "900"])
+real_steam = m.SteamCmd
+FakeSteam.asked, FakeSteam.answers = [], {}
+
+
+class AcfSteam(FakeSteam):
+    def download(self, wid):
+        ok = FakeSteam.download(self, wid)
+        acf_path = os.path.join(self.install_dir, "steamapps", "workshop", "appworkshop_730.acf")
+        body = '\t\t"%s"\n\t\t{\n\t\t\t"size"\t\t"1"\n\t\t\t"timeupdated"\t\t"9"\n\t\t\t"manifest"\t\t"4%s"\n\t\t}\n' % (wid, wid)
+        open(acf_path, "w").write('"AppWorkshop"\n{\n\t"WorkshopItemsInstalled"\n\t{\n' + body + '\t}\n}\n')
+        return ok
+
+
+m.SteamCmd = AcfSteam
+m.humans_on = lambda cfg: 0
+json.dump(dict(kdata["ratings.json"], fetched=KT), open(os.path.join(sdata, "ratings.json"), "w"))
+ncfg2 = m.Config()
+ncfg2.download_pause = 0
+ns = m.Night(ncfg2, FakeClock(KT), manual=True)
+ns.state.load()
+want = m.keep_set(m.keep_inputs(sdata), KT)
+ns.serve()
+handed = sorted(m.handovers(hdir))
+missing = sorted(set(want["up"] + want["top"]["armsrace"] + want["top"]["deathmatch"] + want["own"]) - set(["110", "120", "150", "301", "900", "305", "141"]))
+check("serve: every keep-set map the server lacks is fetched and handed over (%d), never one it stores or one waiting already, nor one bigger than the day's cap (141) (%s)"
+      % (len(missing), dict(ns.report["serve"], diff=sorted(set(missing + ["305"]) ^ set(handed)))), handed == sorted(missing + ["305"]) and not set(FakeSteam.asked) & set(["110", "301", "900", "305"])
+      and ns.report["serve"]["ok"] == len(missing))
+FakeSteam.asked = []
+ns2 = m.Night(ncfg2, FakeClock(KT + 60), manual=True)
+ns2.state.load()
+ns2.serve()
+check("serve: a second run fetches nothing more (only 141 is missing, too big for a day)", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 1)
+m.SteamCmd, m.humans_on = real_steam, real["humans_on"]
+os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
+for k in ("SYNC_GAME_DIR", "SYNC_DEPOTCACHE"):
+    os.environ.pop(k, None)
+
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\n%d failed" % len(FAILS) if FAILS else "\nall passed")
 sys.exit(1 if FAILS else 0)
