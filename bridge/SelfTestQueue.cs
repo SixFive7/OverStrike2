@@ -648,13 +648,15 @@ static partial class Program
             Talk(dan, $"!map {Rank(1)}"); Land(); Run(30); Quiet();
             Talk(alice, $"!map {Rank(2)}"); Talk(bob, $"!map {Rank(3)}"); Talk(cara, $"!map {Rank(3)}");
             Run(3);
-            var burst = Told.ToList();
+            var burst = Told.Where(x => !x.StartsWith("Queued ")).ToList(); // the news; each requester's own note says how to undo it (below)
+            var undo = Told.Count(x => x.StartsWith("Queued ") && x.Contains("click Play again or !cancel to undo"));
             Console.WriteLine("news: " + string.Join(" | ", burst));
             Check("Three queue changes in one burst become one merged news line, not three - and nothing goes to chat",
                 burst.Count == 1 && burst[0].Contains("Alice queued") && burst[0].Contains("Bob queued") && burst[0].Contains("Cara also wants") && NewsNow.Text == burst[0]
                 && !sent.Any(c => c.StartsWith("say ")));
             Quiet(); Talk(alice, $"!map {Rank(4)}"); Run(4);
-            Check("A change right after is held back: at most one news burst per 8 s", Told.Count == 0);
+            Check("...and each of the three requesters has a note saying how to take it back (the owner's 2026-11-03)", undo == 3);
+            Check("A change right after is held back: at most one news burst per 8 s", Told.Count(x => !x.StartsWith("Queued ")) == 0);
             Run(3);
             Check("...and still arrives", Said("Alice queued"));
 

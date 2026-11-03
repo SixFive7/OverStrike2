@@ -248,6 +248,7 @@ static partial class Program
         if (same == null) Queue.Add(entry);
         if (Schedule(now, direct: true) == entry) return;
         News(same != null ? $"{by} also wants {Clip(Label(map), 24)}." : $"{by} queued {Clip(Label(map), 24)}."); // the board's queue line shows the place
+        Tell(id, $"Queued {Clip(Label(map), 40)} - click Play again or !cancel to undo"); // the owner's 2026-11-03: where to take it back
     }
 
     /// <summary>!done: the requester lets their map go. Last holder out: the vote for the next map, the match-end kind - no Keep playing (the
@@ -295,6 +296,8 @@ static partial class Program
         {
             r.By.RemoveAll(a => a.Id == id);
             if (r.By.Count == 0) Queue.Remove(r);
+            // on an open ballot (a card's Remove mine): the vote the request cast goes with it; the card stays, its number never changes
+            if (Ballot is { Open: true } b && b.Options.FirstOrDefault(o => o.Request == r) is { } listed && b.Choices.GetValueOrDefault(id) == listed.N) b.Choices.Remove(id);
         }
         News(drop.Count == 1 ? $"{by} cancelled {Clip(Label(drop[0].Map), 24)}." : $"{by} cancelled {drop.Count} requests.");
     }

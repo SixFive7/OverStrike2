@@ -37,7 +37,51 @@ CatchUpConfig Defaults()
     return c;
 }
 
+// The numbers before 2026-11-03 (the owner made catch-up a little stronger that evening). The mechanics below - the bounty steps, the cap,
+// each hit, the healing, the message - are checked against these, so tuning the defaults moves only the checks of the defaults themselves.
+static CatchUpConfig Reference()
+{
+    var c = new CatchUpConfig
+    {
+        Tiers =
+        [
+            new() { MinBehind = 2, Health = 0.20, DamageTaken = -0.10, DamageDealt = 0.10, Lifesteal = 0.10, RegenPerSecond = 0.02, RegenDelaySeconds = 5 },
+            new() { MinBehind = 4, Health = 0.40, DamageTaken = -0.20, DamageDealt = 0.20, Lifesteal = 0.20, RegenPerSecond = 0.04, RegenDelaySeconds = 4,
+                    SecondChance = true, ExtraSpawnProtectionSeconds = 2 },
+            new() { MinBehind = 7, Health = 0.75, DamageTaken = -0.30, DamageDealt = 0.30, Lifesteal = 0.30, RegenPerSecond = 0.06, RegenDelaySeconds = 3,
+                    SecondChance = true, ExtraSpawnProtectionSeconds = 3, InfiniteAmmo = true, OneHitKnifeAndTaser = true },
+        ],
+    };
+    (c.Bounty.Max, c.Balance.MaxDuelFactor, c.Balance.ScoreboardCapFactor) = (0.30, 3.0, 1.0);
+    c.Normalize(new List<string>());
+    return c;
+}
+
 Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDictionary(p => p.Id, p => p.Progress));
+
+// --spawns <csv>: the cap on a log's spawns (the analysis's spawns.csv: behind, top, mine, lead_est), as the leader's enemy and as his
+// teammate, with the defaults - one line a spawn, for a cross-check against another implementation. Not a check: it changes nothing.
+if (args.Length >= 2 && args[0] == "--spawns")
+{
+    var cfg = Defaults();
+    var rows = File.ReadAllLines(args[1]);
+    var head = rows[0].Split(',');
+    int Col(string n) => Array.IndexOf(head, n);
+    var (ckind, cbehind, ctop, cmine, clead) = (Col("kind"), Col("behind"), Col("top"), Col("mine"), Col("lead_est"));
+    foreach (var line in rows.Skip(1))
+    {
+        var f = line.Split(',');
+        if (f.Length <= clead || f[ckind] != "spawn" || !int.TryParse(f[cbehind], out var behind) || !int.TryParse(f[ctop], out var top)
+            || !int.TryParse(f[cmine], out var mine)) continue;
+        var lead = int.TryParse(f[clead], out var l) ? l : 0;
+        var bounty = Rules.BountyFor(cfg.Bounty, lead);
+        var e = Rules.ForGap(cfg, behind, top, mine, bounty);
+        var t = Rules.ForGap(cfg, behind, top, mine, 0);
+        Console.WriteLine(string.Join(",", behind, top, mine, lead, $"{bounty:0.00}", $"{e.Allowed:0.0000}", $"{e.Factor:0.0000}", $"{e.Health:0.00}", $"{e.DamageTaken:0.00}", $"{e.DamageDealt:0.00}", $"{e.Lifesteal:0.00}",
+            $"{t.Allowed:0.0000}", $"{t.Factor:0.0000}", $"{t.Health:0.00}", $"{t.DamageTaken:0.00}", $"{t.DamageDealt:0.00}", $"{t.Lifesteal:0.00}"));
+    }
+    return 0;
+}
 
 // ---- config: the defaults, the shipped file, and what a bad file does ----
 
@@ -101,7 +145,7 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
 // ---- tiers and bounty ----
 
 {
-    var c = Defaults();
+    var c = Reference();
     foreach (var (behind, tier) in new[] { (0, 0), (1, 0), (2, 2), (3, 2), (4, 4), (5, 4), (6, 4), (7, 7), (8, 7), (30, 7) })
         Eq(Rules.TierFor(c.Tiers, behind)?.MinBehind ?? 0, tier, $"{behind} behind: tier");
     foreach (var (lead, bounty) in new[] { (0, 0.0), (1, 0.0), (2, 0.1), (3, 0.1), (4, 0.2), (5, 0.2), (6, 0.3), (7, 0.3), (20, 0.3) })
@@ -125,7 +169,7 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
     Check(!Rules.Decide(c, Stand((1, 9), (2, 8)), 2).IsBoost, "1 behind: nothing");
 
     // The table as configured, with the cap out of the way: every value reaches the boost.
-    var open = Defaults();
+    var open = Reference();
     open.Balance.ScoreboardCap = false;
     open.Balance.MaxDuelFactor = 100;
     foreach (var t in open.Tiers)
@@ -136,10 +180,16 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
               && bo.ExtraProtection == t.ExtraSpawnProtectionSeconds && bo.InfiniteAmmo == t.InfiniteAmmo && bo.OneHitMelee == t.OneHitKnifeAndTaser,
             $"tier {t.MinBehind}+ uncapped: the table's values");
     }
-    // The owner's own example, word for word (2026-11-01).
+    // The owner's own example, word for word (2026-11-01), on the numbers of then.
     Eq(Words.Sentence(Rules.ForGap(open, 5, 5, 0, 0)),
         "You are 5 kills behind the leader: +40% health, -20% damage taken, +20% damage, 20% lifesteal, regeneration, a second chance, +2 s spawn protection.",
         "the owner's example sentence");
+    // ...and on the defaults of 2026-11-03
+    var now5 = Defaults();
+    (now5.Balance.ScoreboardCap, now5.Balance.MaxDuelFactor) = (false, 100);
+    Eq(Words.Sentence(Rules.ForGap(now5, 5, 5, 0, 0)),
+        "You are 5 kills behind the leader: +60% health, -25% damage taken, +25% damage, 25% lifesteal, regeneration, a second chance, +2 s spawn protection.",
+        "the same sentence on today's numbers");
     Eq(Words.Sentence(new Boost { Lead = 4, Bounty = 0.2 }), "You lead by 4 kills: +20% damage taken (a bounty).", "the leader's sentence");
     Eq(Words.Sentence(Boost.None), "", "nothing to say without a boost");
 }
@@ -147,7 +197,7 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
 // ---- the balance cap ----
 
 {
-    var c = Defaults();
+    var c = Reference();
     Near(Rules.DuelFactor(0.20, 0.10, 0.10, -0.10, 0, true), 1.3 * 1.1 / 0.9, "tier 2+ duel factor");
     Near(Rules.DuelFactor(0.40, 0.20, 0.20, -0.20, 0, true), 2.4, "tier 4+ duel factor");
     Near(Rules.DuelFactor(0.75, 0.30, 0.30, -0.30, 0, true), 2.05 * 1.3 / 0.7, "tier 7+ duel factor");
@@ -155,9 +205,49 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
     Near(Rules.DuelFactor(0, 0, 0, 0, 0.3, true), 1.3, "the bounty alone");
     Near(Rules.Allowed(c.Balance, 16, 8), 17.0 / 9.0, "allowed: the scoreboard's ratio");
     Near(Rules.Allowed(c.Balance, 9, 0), 3.0, "allowed: never more than MaxDuelFactor");
-    var noBoard = Defaults();
+    var noBoard = Reference();
     noBoard.Balance.ScoreboardCap = false;
     Near(Rules.Allowed(noBoard.Balance, 16, 15), 3.0, "without the scoreboard cap: MaxDuelFactor only");
+    // The defaults of 2026-11-03 (the owner's), and the worked examples from that evening's log: the caps before and after the change.
+    var now = Defaults();
+    Check(now.Bounty.Max == 0.30 && now.Balance.MaxDuelFactor == 3.5 && now.Balance.ScoreboardCapFactor == 2.0 && now.Balance.ScoreboardCap
+        && now.Bounty.MinLead == 2 && now.Bounty.StepKills == 2 && now.Bounty.PerStep == 0.10,
+        "the defaults of 2026-11-03 (the owner's 42 d): the bounty as before (up to 30%), MaxDuelFactor 3.5, the scoreboard cap on at 2.0 times the ratio");
+    Check(now.Tiers.Select(t => (t.MinBehind, t.Health, t.DamageTaken, t.DamageDealt, t.Lifesteal, t.RegenPerSecond, t.RegenDelaySeconds)).SequenceEqual(
+        [(2, 0.30, -0.15, 0.15, 0.15, 0.03, 4.0), (4, 0.60, -0.25, 0.25, 0.25, 0.05, 3.0), (7, 1.00, -0.35, 0.40, 0.35, 0.08, 2.0)]),
+        "the tiers of 2026-11-03: 2+ +30%/-15%/+15%/15%/3%/s after 4 s, 4+ +60%/-25%/+25%/25%/5%/s after 3 s, 7+ +100%/-35%/+40%/35%/8%/s after 2 s");
+    Check(now.Tiers.Select(t => (t.SecondChance, t.ExtraSpawnProtectionSeconds, t.InfiniteAmmo, t.OneHitKnifeAndTaser)).SequenceEqual(
+        c.Tiers.Select(t => (t.SecondChance, t.ExtraSpawnProtectionSeconds, t.InfiniteAmmo, t.OneHitKnifeAndTaser))), "...and the extras as they were");
+    Near(Rules.Allowed(c.Balance, 13, 3), 3.0, "3 vs leader 13: allowed 3.0 before (MaxDuelFactor 3.0, under the ratio 3.5)");
+    Near(Rules.Allowed(now.Balance, 13, 3), 3.5, "...and min(3.5, 2.0 x 14/4) = 3.5 now");
+    Near(Rules.Allowed(c.Balance, 14, 7), 1.875, "7 vs 14: allowed 1.875 before (the ratio 15/8)");
+    Near(Rules.Allowed(now.Balance, 14, 7), 3.5, "...and min(3.5, 2.0 x 15/8) = 3.5 now");
+    Near(Rules.Allowed(now.Balance, 30, 23), 2.0 * 31.0 / 24.0, "a late 23 vs 30: 2.0 x 31/24 = 2.58");
+    Near(Rules.BountyFor(now.Bounty, 8), 0.30, "a lead of 8: the bounty stays at most 30%");
+    // The leader's bounty and his own teammates (the owner's 42 d): a teammate's cap is computed without it, an enemy's counts it first.
+    var standings = Stand((1, 20), (2, 12), (3, 10), (4, 8)); // 1 leads by 8: a 30% bounty; 3 is 10 behind (tier 7+)
+    var asEnemy = Rules.Decide(now, standings, 3);
+    var asMate = Rules.Decide(now, standings, 3, teammateOfLeader: true);
+    Near(asEnemy.Allowed, 3.5, "10 vs 20: allowed min(3.5, 2.0 x 21/11) = 3.5, the same for the leader's enemy and teammate");
+    Near(asMate.Allowed, 3.5, "...");
+    Check(asEnemy.Capped && asMate.Capped && asMate.Health > asEnemy.Health && asMate.DamageDealt >= asEnemy.DamageDealt,
+        $"...the enemy's own boosts share 3.5 / 1.3 (the bounty first), the teammate's the whole 3.5: health +{asEnemy.Health:0.00} for the enemy, +{asMate.Health:0.00} for the teammate");
+    var mateOwn = Rules.DuelFactor(asMate.Health, asMate.Lifesteal, asMate.DamageDealt, asMate.DamageTaken, 0, true);
+    var enemyOwn = Rules.DuelFactor(asEnemy.Health, asEnemy.Lifesteal, asEnemy.DamageDealt, asEnemy.DamageTaken, 0, true);
+    Check(mateOwn <= 3.5 + 1e-9 && enemyOwn <= 3.5 / 1.3 + 1e-9 && Math.Abs(asMate.Factor - mateOwn) < 1e-9 && asEnemy.Factor <= 3.5 + 1e-9,
+        $"...the teammate's own factor {mateOwn:0.00} within 3.5, the enemy's {enemyOwn:0.00} within 3.5 / 1.3 and {asEnemy.Factor:0.00} with the bounty");
+    var tight = Stand((1, 9), (2, 3), (3, 7)); // 1 leads by 2 over 3: a 10% bounty; 2 is 6 behind
+    Check(Rules.Decide(now, tight, 2, teammateOfLeader: true).Health >= Rules.Decide(now, tight, 2).Health, "a teammate never gets less than an enemy in the same place");
+    Check(Rules.Decide(now, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
+    var offCap = Defaults();
+    offCap.Balance.ScoreboardCap = false;
+    Near(Rules.Allowed(offCap.Balance, 14, 7), 3.5, "the scoreboard cap still switches off: MaxDuelFactor alone");
+    var worstNow = 0.0;
+    for (var top = 2; top <= 40; top++)
+        for (var lead = 0; lead <= 10; lead++)
+            for (var mine = 0; mine <= top - 2; mine++)
+                worstNow = Math.Max(worstNow, Rules.ForGap(now, top - mine, top, mine, Rules.BountyFor(now.Bounty, lead)).Factor);
+    Check(worstNow <= 3.5 + 1e-9, $"with today's defaults the duel factor never goes above 3.5 (worst {worstNow:0.00})");
 
     var worst = 0.0;
     var notStep = 0;
@@ -237,8 +327,8 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
 // ---- one hit ----
 
 {
-    var c = Defaults();
-    var open = Defaults();
+    var c = Reference();
+    var open = Reference();
     open.Balance.ScoreboardCap = false;
     open.Balance.MaxDuelFactor = 100;
     var t2 = Rules.ForGap(open, 2, 2, 0, 0);
@@ -388,6 +478,25 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
     s.Suicide(1);
     Eq(s.State(1), (1, 0, false), "a suicide: down a level, the kills on it gone, and placed by guns from now");
 
+    // A team kill under friendly fire (the analysis of 2026-11-03: two teammates counted at 38 and 40 of 32 with friendly fire and Instakill on).
+    var tk = new Ladder(p);
+    tk.StartMatch(new ulong[] { 1, 2, 3 });
+    for (var i = 0; i < 6; i++) tk.Kill(1, 3, gun[i / 2], true); // 1 reaches level 3, learning three rungs
+    for (var i = 0; i < 5; i++) tk.Kill(2, 3, gun[i / 2], true); // 2 reaches level 2 and one kill
+    var tkNote = tk.TeamKill(2, gun[2]);
+    Eq(tk.State(2), (1, 0, false), "a team kill: the killer down a level, the kills on it gone, and placed by guns from now");
+    Check(tkNote != null && tkNote.Contains("down from level 2 + 1 to level 1"), $"...and the log says so ({tkNote})");
+    Eq(tk.State(1), (3, 0, true), "...nobody else moves: the victim keeps their place");
+    var back = tk.Kill(2, 3, gun[2], true);
+    Check(back != null && back.Contains("placed on level 2") && tk.State(2) == (2, 1, false), $"the killer's next gun kill on a learned rung places them where the game says ({back})");
+    var noDemote = new ProgressConfig { TeamKillDemotes = false };
+    var kept = new Ladder(noDemote);
+    kept.StartMatch(new ulong[] { 1, 2 });
+    for (var i = 0; i < 3; i++) kept.Kill(1, 2, gun[i / 2], true);
+    kept.TeamKill(1, gun[1]);
+    Eq(kept.State(1), (1, 1, false), "with TeamKillDemotes off a team kill keeps the count, but still places the killer by their next gun kill");
+    Check(new ProgressConfig().TeamKillDemotes, "team kills take the killer down a level by default");
+
     var g = new Ladder(p);
     g.StartMatch(new ulong[] { 1, 2 });
     for (var i = 0; i < 6; i++) g.Kill(1, 2, gun[i / 2], true);
@@ -466,7 +575,7 @@ Standings Stand(params (ulong Id, int Progress)[] players) => new(players.ToDict
 // ---- the message ----
 
 {
-    var c = Defaults();
+    var c = Reference();
     var m = c.Message;
     var worstLines = 0;
     var worstWidth = 0;
@@ -549,8 +658,7 @@ return failures == 0 ? 0 : 1;
 
 static CatchUpConfig Open()
 {
-    var c = new CatchUpConfig();
-    c.Normalize(new List<string>());
+    var c = Reference();
     c.Balance.ScoreboardCap = false;
     c.Balance.MaxDuelFactor = 100;
     return c;

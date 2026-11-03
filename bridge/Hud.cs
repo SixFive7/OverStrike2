@@ -37,7 +37,10 @@ public static class Hud
     /// Content v4_4_0 (2026-11-03, the owner's rules of that evening) keeps every panel of v4_3_0 and adds the vote's pages, Random's button and the
     /// map browser that adds to the vote, each card's mode label and colour, the inline reasons of a Dislike, the Fun page's Random and Default and
     /// the Our maps glow; the board's Too big and Ads buttons step aside. Again nothing is sent to its new panels (HudVote.NewButtons44).
-    public const string Content = "v4_4_0";
+    /// Content v4_5_0 (2026-11-03, the owner's later rules) keeps every panel of v4_4_0 and adds where the votes go - each card's bar and voters,
+    /// the leader or a tie lit, the summary strip (HudVote.NewIds45: only a game that has shown v4_5_0 gets its classes) - the waiting line, Remove
+    /// mine on a card of your own request, the line back to a vote you closed, the Fun page's Catch-up row and its changed marks, and Our maps' pulse.
+    public const string Content = "v4_5_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -119,7 +122,7 @@ public static class Hud
             new("Maps  ·  arrows", "Vote on any map's card: up likes it, down dislikes it"),
             new("Sort  ·  Votes", "The most liked maps first")]),
         new("Game", [
-            new("Fun  ·  Grenade drops", "On or off, for everyone"),
+            new("Fun  ·  Catch-up", "Grenade drops and catch-up on or off, for everyone"),
             new("Match length", "10 or 60 minutes, from the next match"),
             new("New maps", "Always the new maps, Half a coin flip, Never the original list"),
             new("Restart", "Reboot a stuck server - click twice to confirm")]),
@@ -133,7 +136,7 @@ public static class Hud
     public static readonly Rule[] Rules =
     [
         new("Random maps", [
-            "When a match ends everybody votes for 60 s or until a majority agrees: every queued map, one of each other mode, at least 8 maps, and Random.",
+            "When a match ends everybody votes for 60 s, or until all have voted: every queued map, one of each other mode, at least 8 maps, and Random.",
             "Next starts the same vote at any time, with Keep playing on it. Random maps - at start, and when nobody votes - follow Workshop popularity and the votes."]),
         new("How voting counts", [
             "Each upvote doubles a map's odds on the dice (max 5), each downvote quarters them, Workshop rank gives up to 3x.",
@@ -156,7 +159,7 @@ public static class Hud
             "A requested map stays until its match ends, its requester clicks I'm done, a vote replaces it, or the requester has been gone over a minute while others wait.",
             "Up to 5 requests each, only while you're on the server. Previous asks for the map before this one."]),
         new("The vote and random maps", [
-            "At a match end all vote for 60 s, or until a majority agrees: every queued map with its requesters' votes, one of each other mode, at least 8 maps, Random.",
+            "At a match end all vote for 60 s, or until everybody has voted: every queued map with its requesters' votes, one of each other mode, at least 8 maps, Random.",
             "Next starts it any time, with Keep playing on it: Keep winning or no votes keeps the map, and its starter waits 2 minutes. Your own map: Next is I'm done.",
             "Each other mode has a map: Deathmatch, Wingman up to 4 players. Ties are drawn; no votes at a match end is Random. Arms Race after 10 minutes with nobody on.",
             "The server rolls one at start. The vote's map stays until its match ends or a vote replaces it. A map a player picked or queued is never random."]),
@@ -416,10 +419,10 @@ public static class HudView
     }
 
     /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
-    public static int LevelOf(string id) => NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
+    public static int LevelOf(string id) => HudVote.NewIds45.Contains(id) ? 45 : NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
 
     /// <summary>The content a button proves a game holds: 44, 43, 42, 41, 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => HudVote.NewButtons44.Contains(id) ? 44 : NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41
+    public static int LevelOfButton(string id) => HudVote.NewButtons45.Contains(id) ? 45 : HudVote.NewButtons44.Contains(id) ? 44 : NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41
         : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
 
     static HashSet<string> NewPanels()

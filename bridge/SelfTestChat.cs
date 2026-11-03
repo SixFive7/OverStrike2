@@ -25,6 +25,7 @@ static partial class Program
         ("!vote", ["!v", "!mv", "!choose"]),
         ("!fun", ["!set", "!settings", "!toggle", "!mode", "!randomize", "!funrandom", "!defaults", "!fundefault"]), // the last four: !fun random, !fun default
         ("!nades", ["!grenades", "!nade", "!he", "!drops", "!boom"]),
+        ("!catchup", ["!catch", "!boost", "!boosts", "!comeback"]), // the owner's 2026-11-03: the Fun page's Catch-up row in chat
         ("!time", ["!length", "!minutes", "!timelimit", "!roundtime", "!duration"]),
         ("!newmaps", ["!fresh", "!pool", "!mix", "!newmap"]),        // and !new with an argument, Context
         ("!restart", ["!reboot", "!fix", "!unstuck", "!stuck", "!reset"]),
@@ -38,7 +39,7 @@ static partial class Program
     /// <summary>A line that runs a primary with something it needs, for the checks below.</summary>
     static string SampleArg(string primary) => primary switch
     {
-        "!play" => " 12", "!find" => " dust", "!vote" => " 2", "!nades" => " on", "!time" => " 10", "!newmaps" => " half", _ => "",
+        "!play" => " 12", "!find" => " dust", "!vote" => " 2", "!nades" => " on", "!catchup" => " off", "!time" => " 10", "!newmaps" => " half", _ => "",
     };
 
     static void ChatSelfTest(Action<string, bool> Check)
@@ -124,7 +125,9 @@ static partial class Program
         Check("Chat: while a vote is open !vote and its aliases and the bare number vote; a wrong number gets the same answer, and a bare one that is no option stays plain chat",
             ChatCommands.Parse("!vote 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "!mv 3" }
             && ChatCommands.Parse("3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" }
-            && new[] { "!vote 9", "!vote", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.VoteOnly)
+            && new[] { "!vote 9", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.VoteOnly)
+            && ChatCommands.Parse("!vote", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Typed: "" } && ChatCommands.Parse("!v", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Ran: "!vote", Typed: "!v" }
+            && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Usage } // a bare !vote brings a player back to the vote; outside one it is its usage
             && ChatCommands.Parse("9", voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None && ChatCommands.Parse("12", voteOpen: true, highest: 14).Kind == ChatCommands.Kind.Vote);
         var untouched = new[] { "!up", "!down big", "!toobig", "!ads", "!cancel", "!q", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!time 10", "!new half", "!newmaps half", "!restart", "!menu", "!help", "!rules", "!how" };
         var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();

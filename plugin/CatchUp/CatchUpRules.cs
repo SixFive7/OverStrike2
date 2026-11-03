@@ -183,6 +183,22 @@ public sealed class Ladder
         return note;
     }
 
+    /// <summary>A team kill under friendly fire (not free-for-all, where a teammate is an enemy): the killer goes down a level with its kills
+    /// (TeamKillDemotes), and is placed again by their next gun kill, so the count heals whatever the game really did. The victim keeps theirs.
+    /// Returns the log's line.</summary>
+    public string? TeamKill(ulong killer, string? weapon)
+    {
+        var k = Get(killer);
+        var was = (k.Level, k.Kills);
+        if (cfg.TeamKillDemotes)
+        {
+            k.Kills = 0;
+            if (k.Level > 0) k.Level--;
+        }
+        k.Trusted = false;
+        return $"team-killed with {Weapons.Name(weapon)}: {(cfg.TeamKillDemotes ? $"down from level {was.Level} + {was.Kills} to level {k.Level}" : "the count kept")}, placed again by the next gun kill";
+    }
+
     /// <summary>A death no enemy caused: the world, a fall, the kill command, a team change. Its rule is CS:GO's, not seen in CS2, so
     /// the player's next gun kill places them.</summary>
     public void Suicide(ulong id)
@@ -308,21 +324,24 @@ public static class Rules
         (1 + health + (lifestealCounts ? lifesteal : 0)) * (1 + damageDealt) * (1 + bounty) / (1 + damageTaken);
 
     /// <summary>The most a player behind may get: never more than MaxDuelFactor, and with ScoreboardCap never more than the edge the
-    /// leader has shown on the scoreboard, (leader + 1) / (player + 1).</summary>
+    /// leader has shown on the scoreboard, (leader + 1) / (player + 1), times ScoreboardCapFactor.</summary>
     public static double Allowed(BalanceConfig b, int leaderProgress, int playerProgress)
     {
         var allowed = b.MaxDuelFactor;
-        if (b.ScoreboardCap) allowed = Math.Min(allowed, Math.Max(1.0, (leaderProgress + 1.0) / (playerProgress + 1.0)));
+        if (b.ScoreboardCap) allowed = Math.Min(allowed, Math.Max(1.0, (leaderProgress + 1.0) / (playerProgress + 1.0) * b.ScoreboardCapFactor));
         return allowed;
     }
 
-    /// <summary>The boost for this player now, by the standings. The leader may get a bounty, everybody else a tier, capped.</summary>
-    public static Boost Decide(CatchUpConfig c, Standings s, ulong id)
+    /// <summary>The boost for this player now, by the standings. The leader may get a bounty, everybody else a tier, capped. A teammate of the
+    /// leader (teammateOfLeader: the same team, no free-for-all) never fights the leader, so the leader's bounty takes nothing of their allowance:
+    /// their cap is computed without it (the owner's 42 d, 2026-11-03 - counted first, it left the leader's teammate with nothing in 18 of 23 late
+    /// spawns). The leader's enemies keep the rule: the bounty first, then their own boosts.</summary>
+    public static Boost Decide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader = false)
     {
         if (!c.Enabled || s.Players < 2) return Boost.None;
         var bounty = s.Leader == 0 ? 0 : BountyFor(c.Bounty, s.Lead);
         if (id == s.Leader) return new Boost { Lead = s.Lead, Bounty = bounty };
-        return ForGap(c, s.Behind(id), s.Top, s.Of(id), bounty);
+        return ForGap(c, s.Behind(id), s.Top, s.Of(id), teammateOfLeader ? 0 : bounty);
     }
 
     /// <summary>The tier for a gap, capped against a leader at leaderProgress with that bounty.</summary>

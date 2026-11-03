@@ -20,7 +20,7 @@ namespace OverStrike2;
 /// (Hud.ChatOff) - and a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "4.6.0";
+    public const string Version = "4.7.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the grenade drops, the map settings and the fun page, the game modes";
@@ -38,6 +38,9 @@ public class OverStrike2Plugin : BasePlugin
     internal HudScreen? Screen => hud;
     string addon = "";
     readonly HashSet<ulong> hinted = new(); // players who typed a chat command and were told, once, that the menu replaced them
+    (string Html, DateTime Until) funNotice;                // a fun change, centre screen for everybody (the owner's 2026-11-03)
+    readonly Dictionary<int, DateTime> boostShownUntil = new(); // a catch-up message on a slot: the fun notice waits for it
+    readonly HashSet<int> centreBusy = new();
 
     public override void Load(bool hotReload)
     {
@@ -71,6 +74,17 @@ public class OverStrike2Plugin : BasePlugin
             Logger.LogInformation("Over Strike 2: {Mode} - grenade drops {Nades}, catch-up {CatchUp}", mode.Name, mode.ArmsRace ? "as set" : "off", mode.ArmsRace ? "on" : "off");
         };
         if (hud != null) { hud.FunSource = settings.FunValue; hud.NadesOn = () => nades.Enabled; } // the fun page shows the settings module's values, its effects included
+        if (hud != null)
+        {
+            hud.CatchUpOn = () => catchUp.On;                       // content v4_5_0: the Fun page's catch-up row
+            hud.CatchUpSwitch = on => catchUp.Switch(on);
+            hud.Centre = (who, what) => funNotice = (FunNotice.Html(who, what), DateTime.UtcNow.AddSeconds(Fun.CentreSeconds));
+        }
+        catchUp.Show = (player, lines, html, seconds) => // its own message first: the fun notice steps aside for it
+        {
+            boostShownUntil[player.Slot] = DateTime.UtcNow.AddSeconds(seconds);
+            player.PrintToCenterHtml(html, seconds);
+        };
         Logger.LogInformation("Over Strike 2 {Version}: {Mode}, {Command} from the bridge, the menu on TAB and the chat commands.", ModuleVersion,
             hud != null ? $"HUD (Workshop addon {addon})" : $"centre panel for {Guide.ShowSeconds} s ({Hud.AddonVariable} is empty)", Guide.Command);
     }
@@ -82,16 +96,26 @@ public class OverStrike2Plugin : BasePlugin
     void OnTick()
     {
         hud?.PictureTick();
+        var now = DateTime.UtcNow;
+        var notice = now < funNotice.Until;
+        if (notice) centreBusy.Clear();
         foreach (var centre in new[] { panel, tagline })
         {
             if (centre.Idle) continue;
-            foreach (var (slot, html) in centre.Frame(DateTime.UtcNow))
+            foreach (var (slot, html) in centre.Frame(now))
             {
                 var player = Utilities.GetPlayerFromSlot(slot);
-                if (player is { IsValid: true, IsBot: false }) player.PrintToCenterHtml(html);
+                if (player is { IsValid: true, IsBot: false }) { player.PrintToCenterHtml(html); if (notice) centreBusy.Add(slot); }
                 else centre.Gone(slot);
             }
         }
+        if (!notice) return;
+        // A fun change, every tick for its 10 s (a slower message flashes the panel anew each time), for everybody whose centre panel is not
+        // showing something of their own: a picture, the join's tagline, a catch-up message.
+        foreach (var p in Utilities.GetPlayers())
+            if (p is { IsValid: true, IsBot: false } && !centreBusy.Contains(p.Slot) && hud?.PictureShowing(p.Slot) != true
+                && !(boostShownUntil.TryGetValue(p.Slot, out var boost) && now < boost))
+                p.PrintToCenterHtml(funNotice.Html);
     }
 
     HookResult OnPlayerSpawn(EventPlayerSpawn ev, GameEventInfo info)

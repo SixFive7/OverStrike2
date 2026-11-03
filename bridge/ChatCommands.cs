@@ -16,7 +16,7 @@ public static class ChatCommands
     /// <summary>What a chat command asks for: an action the bridge runs (Arg is its /act command), a menu page to open (Arg the page), the map
     /// browser sorted by votes, a map to find (Arg the words: the plugin resolves them), a fun setting (Arg "setting choice"), the grenade
     /// drops (Arg on|off), a vote in the end-of-match vote (Arg the option), the list in chat, what to type while a vote is open, or nothing that is a command.</summary>
-    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage, VoteOnly, FunAll }
+    public enum Kind { None, Bridge, Page, Top, Play, Find, Fun, Nades, Vote, Commands, Unknown, Usage, VoteOnly, FunAll, CatchUp }
 
     /// <summary>A line as a command. Name: the primary word. Ran: the primary as it would be typed, what the reply calls it. Typed: the line as
     /// the player typed it when it was not that - an alias, or the long way round to a fun setting - which is what makes the reply teach.</summary>
@@ -44,6 +44,7 @@ public static class ChatCommands
         new("!vote", "<number>", "Your choice in the vote at a match's end; the bare number works too", "Voting", "!v", "!mv", "!choose"),
         new("!fun", "", "The Fun page, each setting's own word (!gravity low), !fun random and !fun default", "Game", "!set", "!settings", "!toggle", "!mode", "!randomize", "!funrandom", "!defaults", "!fundefault"), // the last four: FunRandomWords, FunDefaultWords
         new("!nades", "<on|off>", "Grenade drops on or off", "Game", "!grenades", "!nade", "!he", "!drops", "!boom"),
+        new("!catchup", "<on|off>", "Catch-up boosts on or off, until the map changes", "Game", "!catch", "!boost", "!boosts", "!comeback"),
         new("!time", "<10|60>", "Match length in minutes, from the next match", "Game", "!length", "!minutes", "!timelimit", "!roundtime", "!duration"),
         new("!newmaps", "<always|half|never>", "New maps in random picks", "Game", "!fresh", "!pool", "!mix", "!newmap"),
         new("!restart", "", "Restart a stuck server - twice to confirm", "Game", "!reboot", "!fix", "!unstuck", "!stuck", "!reset"),
@@ -106,6 +107,7 @@ public static class ChatCommands
         var typed = "!" + parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1].Trim() : "";
         var word = Primary(typed, arg);
+        if (voteOpen && word == "!vote" && arg == "") return new(Kind.Page, "Maps", word, typed != word ? word : "", typed != word ? text : ""); // a bare !vote: back to the vote (the owner's 2026-11-03)
         if (voteOpen && (WaitForVote.Contains(word) || (word == "!vote" && !OnBallot(arg)))) return new(Kind.VoteOnly, "", word);
         var p = Run(typed, word, arg);
         if (p.Kind is Kind.Usage or Kind.Unknown) return p;
@@ -135,6 +137,7 @@ public static class ChatCommands
             "!ads" => OnMap("!ads"),
             "!vote" => IsBallotNumber(arg) ? new(Kind.Vote, arg, word) : Usage(),
             "!fun" => FunCommand(typed, low, word),
+            "!catchup" => low is "on" or "off" ? new(Kind.CatchUp, low, word) : Usage(),
             "!nades" => low is "on" or "off" ? new(Kind.Nades, low, word)
                 : Fun.Find("nades") is { } size && Fun.Find(size, low) is { } blast ? new(Kind.Fun, $"{size.Id} {blast.Id}", word) : Usage(),
             "!time" => low is "10" or "60" ? new(Kind.Bridge, $"!time {low}", word) : Usage(),

@@ -3666,7 +3666,7 @@ Label
 	transition-duration: 0s;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_4_0 - level 44. At a join (vjoin) a server above it (svge45) or below it (svlt44)
+/* The HUD version check (HudVote.cs): this layout is v4_5_0 - level 45. At a join (vjoin) a server above it (svge46) or below it (svlt45)
    says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
 .gg-ver
 {
@@ -3703,12 +3703,12 @@ Label
 	text-align: center;
 }
 
-.gg-global.svge45 .gg-screen.vjoin .gg-ver-old
+.gg-global.svge46 .gg-screen.vjoin .gg-ver-old
 {
 	visibility: visible;
 }
 
-.gg-global.svlt44 .gg-screen.vjoin .gg-ver-new
+.gg-global.svlt45 .gg-screen.vjoin .gg-ver-new
 {
 	visibility: visible;
 }
@@ -4990,13 +4990,6 @@ Label
 @define gg-dm: #E8534A;
 @define gg-wm: #4C9BFF;
 
-@keyframes 'gg-ours-pulse'
-{
-	0% { opacity: 0.12; }
-	50% { opacity: 0.85; }
-	100% { opacity: 0.12; }
-}
-
 .gg-mband
 {
 	visibility: collapse;
@@ -5269,17 +5262,21 @@ Label
 	width: 100%;
 	height: 28px;
 	border-radius: 14px;
-	background-color: #E9B44C00;
+	background-color: #E9B44C26;
 	box-shadow: #E9B44CCC 0px 0px 14px 2px;
-	animation-name: gg-ours-pulse;
-	animation-duration: 2.6s;
-	animation-timing-function: ease-in-out;
-	animation-iteration-count: infinite;
+	opacity: 0.2;
+	transition-property: opacity;
+	transition-duration: 1.2s;
+	transition-timing-function: ease-in-out;
+}
+
+.gg-screen.opulse .gg-ours-glow
+{
+	opacity: 1;
 }
 
 .gg-screen.fl-ours .gg-ours-glow
 {
-	animation-name: none;
 	opacity: 0;
 }
 
@@ -5464,4 +5461,453 @@ Label
 	height: 26px;
 	margin-left: 8px;
 	vertical-align: center;
+}
+
+/* ---- content v4_5_0 (2026-11-03, the owner's later rules): where the votes go, the waiting line, Remove mine, the line back to a vote, the lock,
+   the Fun page's Catch-up row and its changed marks. The shares are eleven classes, w0 ... w10 (tenths of the votes cast), on a card and on a
+   strip segment alike. ---- */
+
+.gg-vhead
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-vwait
+{
+	visibility: collapse;
+	width: fill-parent-flow( 1 );
+	margin: 6px 0px 0px 18px;
+	vertical-align: top;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.voting .gg-vwait
+{
+	visibility: visible;
+}
+
+.gg-vstrip
+{
+	visibility: collapse;
+	width: 440px;
+	height: 22px;
+	margin-top: 4px;
+	vertical-align: top;
+	flow-children: right;
+	overflow: clip;
+	border-radius: 4px;
+	background-color: #FFFFFF0F;
+}
+
+.gg-screen.voting.vstrip .gg-vstrip
+{
+	visibility: visible;
+}
+
+.gg-vseg
+{
+	visibility: collapse;
+	width: 0%;
+	height: 100%;
+	background-color: #8A94A3;
+	transition-property: width;
+	transition-duration: 0.3s;
+}
+
+.gg-vseg.used
+{
+	visibility: visible;
+}
+
+.gg-vseg.w0
+{
+	width: 4%;
+}
+
+.gg-vseg.w1
+{
+	width: 10%;
+}
+
+.gg-vseg.w2
+{
+	width: 20%;
+}
+
+.gg-vseg.w3
+{
+	width: 30%;
+}
+
+.gg-vseg.w4
+{
+	width: 40%;
+}
+
+.gg-vseg.w5
+{
+	width: 50%;
+}
+
+.gg-vseg.w6
+{
+	width: 60%;
+}
+
+.gg-vseg.w7
+{
+	width: 70%;
+}
+
+.gg-vseg.w8
+{
+	width: 80%;
+}
+
+.gg-vseg.w9
+{
+	width: 90%;
+}
+
+.gg-vseg.w10
+{
+	width: 100%;
+}
+
+.gg-vseg.mode-armsrace
+{
+	background-color: gg-ar;
+}
+
+.gg-vseg.mode-deathmatch
+{
+	background-color: gg-dm;
+}
+
+.gg-vseg.mode-wingman
+{
+	background-color: gg-wm;
+}
+
+.gg-vseg.vrand
+{
+	background-color: #A7B0BD;
+}
+
+.gg-vseg.vlead
+{
+	border: 2px solid #FFFFFF;
+}
+
+.gg-vseg.vtie
+{
+	border: 2px solid #FFB547;
+}
+
+.gg-vseg-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	color: #14100A;
+	text-overflow: clip;
+	white-space: nowrap;
+}
+
+.gg-mvbar
+{
+	visibility: collapse;
+	width: 100%;
+	height: 6px;
+	vertical-align: bottom;
+	background-color: #000000A6;
+}
+
+.gg-screen.voting .gg-mvbar
+{
+	visibility: visible;
+}
+
+.gg-mvbar-fill
+{
+	width: 0%;
+	height: 100%;
+	background-color: gg-ar;
+	transition-property: width;
+	transition-duration: 0.3s;
+}
+
+.gg-mcard.w1 .gg-mvbar-fill
+{
+	width: 10%;
+}
+
+.gg-mcard.w2 .gg-mvbar-fill
+{
+	width: 20%;
+}
+
+.gg-mcard.w3 .gg-mvbar-fill
+{
+	width: 30%;
+}
+
+.gg-mcard.w4 .gg-mvbar-fill
+{
+	width: 40%;
+}
+
+.gg-mcard.w5 .gg-mvbar-fill
+{
+	width: 50%;
+}
+
+.gg-mcard.w6 .gg-mvbar-fill
+{
+	width: 60%;
+}
+
+.gg-mcard.w7 .gg-mvbar-fill
+{
+	width: 70%;
+}
+
+.gg-mcard.w8 .gg-mvbar-fill
+{
+	width: 80%;
+}
+
+.gg-mcard.w9 .gg-mvbar-fill
+{
+	width: 90%;
+}
+
+.gg-mcard.w10 .gg-mvbar-fill
+{
+	width: 100%;
+}
+
+.gg-mcard.mode-deathmatch .gg-mvbar-fill
+{
+	background-color: gg-dm;
+}
+
+.gg-mcard.mode-wingman .gg-mvbar-fill
+{
+	background-color: gg-wm;
+}
+
+.gg-mvoters
+{
+	visibility: collapse;
+	max-width: 62%;
+	horizontal-align: right;
+	vertical-align: bottom;
+	margin: 0px 8px 12px 0px;
+	padding: 2px 7px;
+	border-radius: 3px;
+	background-color: #0A0D11D9;
+	font-size: 12px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-screen.voting .gg-mcard.vhas .gg-mvoters
+{
+	visibility: visible;
+}
+
+.gg-mtag-lead
+{
+	visibility: collapse;
+	background-color: gg-gold;
+	color: #14100A;
+}
+
+.gg-mtag-tie
+{
+	visibility: collapse;
+	background-color: #FFB547;
+	color: #14100A;
+}
+
+.gg-screen.voting .gg-mcard.vlead .gg-mtag-lead
+{
+	visibility: visible;
+}
+
+.gg-screen.voting .gg-mcard.vtie .gg-mtag-tie
+{
+	visibility: visible;
+}
+
+.gg-screen.voting .gg-mcard.vlead
+{
+	border: 2px solid gg-gold;
+	box-shadow: #E9B44C73 0px 0px 16px 0px;
+}
+
+.gg-screen.voting .gg-mcard.vtie
+{
+	border: 2px solid #FFB547;
+}
+
+.gg-munq
+{
+	visibility: collapse;
+	width: 108px;
+	height: 100%;
+	margin-left: 6px;
+	border-radius: 3px;
+	border: 1px solid #E8534A99;
+	background-color: #E8534A1F;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-munq:hover
+{
+	border: 1px solid #FF7A70;
+	background-color: #E8534A40;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-munq:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-munq-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FFD2CE;
+}
+
+.gg-screen.voting .gg-mcard.vmine .gg-munq
+{
+	visibility: visible;
+}
+
+.gg-vaway
+{
+	visibility: collapse;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 150px;
+	padding: 8px 20px;
+	border-radius: 4px;
+	border: 1px solid gg-gold;
+	background-color: #0A0D11E6;
+	box-shadow: #E9B44C59 0px 0px 18px 0px;
+}
+
+.gg-screen.vaway .gg-vaway
+{
+	visibility: visible;
+}
+
+.gg-vaway-text
+{
+	font-size: 18px;
+	font-weight: bold;
+	color: gg-gold-hi;
+}
+
+.gg-screen.vlock .gg-close
+{
+	visibility: collapse;
+}
+
+.gg-frow-dot
+{
+	visibility: collapse;
+	width: 9px;
+	height: 9px;
+	margin: 0px 0px 0px 8px;
+	vertical-align: center;
+	border-radius: 50%;
+	background-color: gg-gold;
+	box-shadow: #E9B44C99 0px 0px 6px 0px;
+}
+
+.gg-frow.changed .gg-frow-dot
+{
+	visibility: visible;
+}
+
+.gg-frow.changed .gg-funb.on
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gg-gold;
+}
+
+.gg-frow.changed .gg-funb.on .gg-setb-text
+{
+	color: #14100A;
+}
+
+.gg-global.nd-off .gg-frow-nades .gg-frow-dot
+{
+	visibility: visible;
+}
+
+.gg-global.nd-off .gg-frow-nades #gg_set_nades_off
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gg-gold;
+}
+
+.gg-global.nd-off .gg-frow-nades #gg_set_nades_off .gg-setb-text
+{
+	color: #14100A;
+}
+
+.gg-frow-catchup
+{
+	visibility: visible;
+}
+
+.gg-global.cu-on #gg_set_catchup_on
+{
+	border: 1px solid gg-gold;
+	background-color: #E9B44C2E;
+}
+
+.gg-global.cu-off #gg_set_catchup_off
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gg-gold;
+}
+
+.gg-global.cu-off #gg_set_catchup_off .gg-setb-text
+{
+	color: #14100A;
+}
+
+.gg-global.cu-off .gg-frow-catchup .gg-frow-dot
+{
+	visibility: visible;
+}
+
+.gg-global.mode-deathmatch .gg-set-catchup
+{
+	visibility: collapse;
+}
+
+.gg-global.mode-wingman .gg-set-catchup
+{
+	visibility: collapse;
 }

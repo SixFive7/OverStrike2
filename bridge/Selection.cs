@@ -46,6 +46,10 @@ static partial class Program
     /// had it. They last until the map changes anyway; an empty server puts them back sooner, like the other settings.</summary>
     public const string FunResetCommand = Fun.ResetCommand + " \"the server\"";
 
+    /// <summary>Catch-up back on (content v4_5_0's Fun page switches it, the owner's 2026-11-03): the module's own console command. Only in Arms
+    /// Race, where the boosts are; another mode's empty server goes back to Arms Race anyway, which switches it on.</summary>
+    public const string CatchUpDefaultCommand = "gg_catchup on";
+
     static bool SelfTesting; // --selftest: the dice roll tens of thousands of times without a log line each
 
     static bool IsNew(MapInfo m) => !m.Official && m.Rank >= FirstNewRank && InArmsRace(m); // list numbers of Arms Race's maps.json only
@@ -162,8 +166,9 @@ static partial class Program
         if (S.NewMaps != DefaultNewMaps) { S.NewMaps = DefaultNewMaps; Save(); }
         var nades = Send(NadesDefaultCommand);
         var fun = Send(FunResetCommand);
+        var catchUp = CurrentMode.ArmsRace ? Send(CatchUpDefaultCommand) : "(not Arms Race: the mode's change switches it)";
         Log($"reset: nobody on for over {ResetEmptyMinutes} min - new maps in random picks {was} -> {DefaultNewMaps}; {NadesDefaultCommand} -> {nades ?? "(rcon failed)"}; "
-            + $"{Fun.ResetCommand} -> {fun ?? "(rcon failed)"}");
+            + $"{Fun.ResetCommand} -> {fun ?? "(rcon failed)"}; {CatchUpDefaultCommand} -> {catchUp ?? "(rcon failed)"}");
         ModeBackToDefault(now);
     }
 

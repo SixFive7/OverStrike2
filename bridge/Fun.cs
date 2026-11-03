@@ -186,20 +186,21 @@ public static class Fun
     /// (dice: a number 0 to n-1), and the grenade drops on or off where they are (Arms Race). The page itself lets any combination stand
     /// - a setting another one makes idle says so - with one exception kept here: Moon gravity with Super jump would throw players out of
     /// most maps, so Super jump stays normal when the gravity is Moon.</summary>
-    public static (List<(Setting Setting, Choice Choice)> Choices, bool? Nades) Randomized(Func<int, int> dice, bool armsRace)
+    public static (List<(Setting Setting, Choice Choice)> Choices, bool? Nades, bool? CatchUp) Randomized(Func<int, int> dice, bool armsRace)
     {
         var picks = Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Choices[Math.Clamp(dice(s.Choices.Length), 0, s.Choices.Length - 1)])).ToList();
         if (picks.Any(x => x.s.Id == "gravity" && x.Item2.Id == "moon"))
             for (var i = 0; i < picks.Count; i++)
                 if (picks[i].s.Id == "jump") picks[i] = (picks[i].s, picks[i].s.Normal);
-        return (picks, armsRace ? dice(2) == 1 : null);
+        // the grenade drops are Arms Race's; catch-up (content v4_5_0) Random leaves as it is while the owner's 43 is open (root's recommendation: it
+        // does not flip) - the third value is there for the day it should
+        return (picks, armsRace ? dice(2) == 1 : null, null);
     }
 
     /// <summary>The one chat line for everybody after Random: who, and what changed (at most so many characters; the rest counted).</summary>
-    public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, int max = 200)
+    public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, int max = 200, bool? catchUpSwitched = null)
     {
-        var parts = changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
-        if (nadesSwitched is { } on) parts.Add($"grenade drops {(on ? "on" : "off")}");
+        var parts = Changes(changed, nadesSwitched, catchUpSwitched);
         if (parts.Count == 0) return $"{who} rolled the fun settings: nothing changed";
         var line = $"{who} rolled the fun settings: ";
         for (var i = 0; i < parts.Count; i++)
@@ -211,13 +212,61 @@ public static class Fun
         return line;
     }
 
+    /// <summary>What a Random changed, as the lines and the centre notice say it: "gravity low", "grenade drops off", "catch-up off".</summary>
+    public static List<string> Changes(List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, bool? catchUpSwitched)
+    {
+        var parts = changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
+        if (nadesSwitched is { } on) parts.Add($"grenade drops {(on ? "on" : "off")}");
+        if (catchUpSwitched is { } cu) parts.Add($"catch-up {(cu ? "on" : "off")}");
+        return parts;
+    }
+
     /// <summary>The one chat line for everybody after Default.</summary>
-    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal, the grenade drops on";
+    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal, the grenade drops and catch-up on";
+
+    /// <summary>The centre-screen notice of a fun change (content-free: the game's centre panel, for everybody, 10 s; the owner's 2026-11-03):
+    /// "Remy turned Vampire on", "Remy set Gravity to Low", "Remy put Gravity back to normal".</summary>
+    public static string CentreLine(string who, Setting s, Choice c) =>
+        c == s.Normal && s.Choices.Length > 2 ? $"{who} put {s.Title} back to normal"
+        : c.Id is "on" or "off" ? $"{who} turned {s.Title} {c.Id}" : $"{who} set {s.Title} to {c.Label}";
+
+    /// <summary>How long a fun change stays centre screen, for everybody.</summary>
+    public const int CentreSeconds = 10;
 
     /// <summary>What the news line says for a change: "Remy switched gravity to Low - until the map changes", or "Remy put gravity back to
     /// normal" for the first choice.</summary>
     public static string News(string who, Setting s, Choice c) =>
         c == s.Normal ? $"{who} put {s.Title.ToLowerInvariant()} back to {c.Label.ToLowerInvariant()}" : $"{who} switched {s.Title.ToLowerInvariant()} to {c.Label} - until the map changes";
+}
+
+/// <summary>A fun change as the game's centre panel shows it, to everybody, for Fun.CentreSeconds (the owner's 2026-11-03): who, in gold, over
+/// what changed, wrapped to the panel's width (it wraps at about 31 characters and scrolls past five lines; measured 2026-10-04).</summary>
+public static class FunNotice
+{
+    public const int Width = 30, Lines = 4;
+
+    public static string Html(string who, string what) =>
+        $"<font color='#E9B44C'><b>{Esc(Hud.Clean(who, 32))}</b></font><br>{string.Join("<br>", Wrap(Hud.Clean(what, 400), Width, Lines).Select(Esc))}";
+
+    static string Esc(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    /// <summary>Words into lines of at most width characters, at most max lines; what does not fit ends the last line with "...".</summary>
+    public static List<string> Wrap(string text, int width, int max)
+    {
+        var lines = new List<string>();
+        var line = "";
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length > 0 && line.Length + 1 + word.Length > width) { lines.Add(line); line = ""; }
+            line = line.Length == 0 ? word : line + " " + word;
+        }
+        if (line.Length > 0) lines.Add(line);
+        if (lines.Count <= max) return lines;
+        var kept = lines.Take(max).ToList();
+        var last = kept[^1];
+        kept[^1] = (last.Length + 4 > width ? last[..Math.Max(0, width - 4)] : last) + " ...";
+        return kept;
+    }
 }
 
 /// <summary>The players' changes on the map that is on, kept by MapSettingsReset: for every convar a player changed, what it was before the

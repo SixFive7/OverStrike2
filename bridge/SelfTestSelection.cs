@@ -370,7 +370,7 @@ static partial class Program
         Run(70);
         Check($"Past {ResetEmptyMinutes} min: the setting is back to always, the grenade drops on (gg_nades on over RCON), and the fun page's changes undone (gg_fun reset)",
             S.NewMaps == NewMapsAlways && sent.Count(x => x == NadesDefaultCommand) == 1 && sent.Contains("status")
-            && sent.Count(x => x == FunResetCommand) == 1 && FunResetCommand == "gg_fun reset \"the server\""
+            && sent.Count(x => x == FunResetCommand) == 1 && FunResetCommand == "gg_fun reset \"the server\"" && sent.Count(x => x == CatchUpDefaultCommand) == 1
             && JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(StateDir, "state.json")), Ctx.Default.State)!.NewMaps == NewMapsAlways);
         Run(1800);
         Check("...once per empty spell, however long it lasts", sent.Count(x => x == NadesDefaultCommand) == 1);

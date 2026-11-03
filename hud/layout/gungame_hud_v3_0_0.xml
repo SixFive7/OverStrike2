@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4_4_0 (custom_hud_layout, CS2 update of 2026-08-24).
+  Over Strike 2 - the in-game HUD, content v4_5_0 (custom_hud_layout, CS2 update of 2026-08-24).
 
   Structure and style only: every word that can change comes from the GunGameWelcome plugin as a dialog variable ({s:text} on a
   labelled panel; the words live in bridge/Hud.cs), and every state (window open, page, card, votes) is a class the plugin
@@ -56,6 +56,13 @@
   mode-* class - the reasons of a Dislike where it was clicked (gg_whyw_* in the live column, gg_whyb_* on the board, gg_whycN_* over card N's
   picture: whyin, whycN), the Fun page's Random and Default (gg_fun_random, gg_fun_default) and a slow glow on Our maps. The board's Too big and Ads
   step aside (the reasons have both). Nothing is sent to a new panel: states are classes on gg_screen and the cards, words variables on gg_screen.
+
+  Content v4_5_0 (2026-11-03, the owner's later rules), the same path again: everything v4_4_0 had is here, plus where the votes go - each card's bar
+  (w0 ... w10 on the card) and its voters ({s:osvn1} ...), the leading card or a tie lit (vlead, vtie), the summary strip across the top (gg_vs1 ...
+  gg_vs9, the one new panels the server sends classes to, and only to a game that has shown this content) - the waiting line ({s:osvwait}), a card's
+  Remove mine on your own request (gg_mN_unq, vmine), the line back to a vote you closed (vaway, {s:osvaway}), no close button on a match-end vote
+  (vlock), the Fun page's Catch-up row (gg_set_catchup_on, gg_set_catchup_off, lit by cu-on and cu-off on gg_global), a dot and the accent on every
+  setting off its default (changed), and Our maps' pulse (opulse, flipped by the plugin).
 
   Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m8_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's
   number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity).
@@ -156,6 +163,7 @@
 
 				<!-- 6. The window: the full menu -->
 				<Panel class="gg-dim" hittest="false" />
+				<Panel class="gg-vaway" hittest="false"><Label class="gg-vaway-text" text="{s:osvaway}" /></Panel>
 				<Panel class="gg-win" hittest="true">
 					<Panel class="gg-win-rule" />
 
@@ -249,7 +257,7 @@
 										<Button id="gg_q_clear" class="gg-search-clear"><Panel class="gg-x gg-x-a" /><Panel class="gg-x gg-x-b" /></Button>
 									</Panel>
 								</Panel>
-								<Label class="gg-vote-title" text="Vote for the next map" />
+								<Panel class="gg-vhead"><Label class="gg-vote-title" text="Vote for the next map" /><Label class="gg-vwait" text="{s:osvwait}" /><Panel class="gg-vstrip"><Panel id="gg_vs1" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs1}" /></Panel><Panel id="gg_vs2" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs2}" /></Panel><Panel id="gg_vs3" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs3}" /></Panel><Panel id="gg_vs4" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs4}" /></Panel><Panel id="gg_vs5" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs5}" /></Panel><Panel id="gg_vs6" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs6}" /></Panel><Panel id="gg_vs7" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs7}" /></Panel><Panel id="gg_vs8" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs8}" /></Panel><Panel id="gg_vs9" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs9}" /></Panel></Panel></Panel>
 								<Panel class="gg-mbar gg-mbar-filters">
 									<Label class="gg-mbar-label" text="Size" />
 									<Button id="gg_fl_all" class="gg-chipb"><Label class="gg-chipb-text" text="All" /></Button>
@@ -297,8 +305,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m1_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn1}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -317,6 +329,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m1_play" class="gg-mplay"><Label id="gg_m1_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m1_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m1_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m1_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m1_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -335,8 +348,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m2_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn2}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -355,6 +372,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m2_play" class="gg-mplay"><Label id="gg_m2_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m2_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m2_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m2_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m2_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -373,8 +391,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m3_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn3}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -393,6 +415,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m3_play" class="gg-mplay"><Label id="gg_m3_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m3_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m3_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m3_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m3_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -411,8 +434,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m4_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn4}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -431,6 +458,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m4_play" class="gg-mplay"><Label id="gg_m4_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m4_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m4_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m4_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m4_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -451,8 +479,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m5_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn5}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -471,6 +503,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m5_play" class="gg-mplay"><Label id="gg_m5_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m5_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m5_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m5_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m5_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -489,8 +522,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m6_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn6}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -509,6 +546,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m6_play" class="gg-mplay"><Label id="gg_m6_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m6_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m6_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m6_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m6_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -527,8 +565,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m7_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn7}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -547,6 +589,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m7_play" class="gg-mplay"><Label id="gg_m7_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m7_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m7_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m7_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m7_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -565,8 +608,12 @@
 												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
 												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
 												<Label class="gg-mtag gg-mtag-next" text="Next map" />
+												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
+												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
 											</Panel>
 											<Label id="gg_m8_warn" class="gg-mwarn" text="{s:text}" />
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Label class="gg-mvoters" text="{s:osvn8}" />
 											<Panel class="gg-mband" />
 											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
 											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
@@ -585,6 +632,7 @@
 											</Panel>
 											<Panel class="gg-macts">
 												<Button id="gg_m8_play" class="gg-mplay"><Label id="gg_m8_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
+												<Button id="gg_m8_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
 												<Button id="gg_m8_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
 												<Button id="gg_m8_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 												<Button id="gg_m8_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
@@ -868,7 +916,7 @@
 									<Panel class="gg-fcol">
 										<Panel id="gg_f1" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f1_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f1_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f1_1" class="gg-setb gg-funb"><Label id="gg_f1_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f1_2" class="gg-setb gg-funb"><Label id="gg_f1_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f1_3" class="gg-setb gg-funb"><Label id="gg_f1_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -877,7 +925,7 @@
 										</Panel>
 										<Panel id="gg_f2" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f2_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f2_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f2_1" class="gg-setb gg-funb"><Label id="gg_f2_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f2_2" class="gg-setb gg-funb"><Label id="gg_f2_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f2_3" class="gg-setb gg-funb"><Label id="gg_f2_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -886,7 +934,7 @@
 										</Panel>
 										<Panel id="gg_f3" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f3_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f3_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f3_1" class="gg-setb gg-funb"><Label id="gg_f3_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f3_2" class="gg-setb gg-funb"><Label id="gg_f3_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f3_3" class="gg-setb gg-funb"><Label id="gg_f3_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -895,7 +943,7 @@
 										</Panel>
 										<Panel id="gg_f4" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f4_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f4_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f4_1" class="gg-setb gg-funb"><Label id="gg_f4_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f4_2" class="gg-setb gg-funb"><Label id="gg_f4_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f4_3" class="gg-setb gg-funb"><Label id="gg_f4_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -904,7 +952,7 @@
 										</Panel>
 										<Panel id="gg_f5" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f5_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f5_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f5_1" class="gg-setb gg-funb"><Label id="gg_f5_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f5_2" class="gg-setb gg-funb"><Label id="gg_f5_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f5_3" class="gg-setb gg-funb"><Label id="gg_f5_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -913,7 +961,7 @@
 										</Panel>
 										<Panel id="gg_f6" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f6_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f6_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f6_1" class="gg-setb gg-funb"><Label id="gg_f6_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f6_2" class="gg-setb gg-funb"><Label id="gg_f6_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f6_3" class="gg-setb gg-funb"><Label id="gg_f6_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -922,7 +970,7 @@
 										</Panel>
 										<Panel id="gg_f7" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f7_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f7_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f7_1" class="gg-setb gg-funb"><Label id="gg_f7_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f7_2" class="gg-setb gg-funb"><Label id="gg_f7_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f7_3" class="gg-setb gg-funb"><Label id="gg_f7_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -931,18 +979,26 @@
 										</Panel>
 										<Panel id="gg_f8" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f8_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f8_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f8_1" class="gg-setb gg-funb"><Label id="gg_f8_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f8_2" class="gg-setb gg-funb"><Label id="gg_f8_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f8_3" class="gg-setb gg-funb"><Label id="gg_f8_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f8_txt" class="gg-frow-txt" text="{s:text}" />
 										</Panel>
+										<Panel class="gg-frow gg-frow-catchup gg-set-catchup">
+											<Panel class="gg-frow-top">
+												<Label class="gg-frow-title" text="Catch-up" /><Panel class="gg-frow-dot" />
+												<Button id="gg_set_catchup_on" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="On" /></Button>
+												<Button id="gg_set_catchup_off" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="Off" /></Button>
+											</Panel>
+											<Label class="gg-frow-txt" text="Boosts for players behind the leader, a bounty on a runaway one. On again when the map changes" />
+										</Panel>
 									</Panel>
 									<Panel class="gg-fcol gg-fcol-right">
 										<Panel id="gg_f9" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f9_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f9_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f9_1" class="gg-setb gg-funb"><Label id="gg_f9_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f9_2" class="gg-setb gg-funb"><Label id="gg_f9_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f9_3" class="gg-setb gg-funb"><Label id="gg_f9_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -951,7 +1007,7 @@
 										</Panel>
 										<Panel id="gg_f10" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f10_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f10_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f10_1" class="gg-setb gg-funb"><Label id="gg_f10_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f10_2" class="gg-setb gg-funb"><Label id="gg_f10_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f10_3" class="gg-setb gg-funb"><Label id="gg_f10_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -960,7 +1016,7 @@
 										</Panel>
 										<Panel class="gg-frow gg-frow-nades gg-set-nades">
 											<Panel class="gg-frow-top">
-												<Label class="gg-frow-title" text="Grenade drops" />
+												<Label class="gg-frow-title" text="Grenade drops" /><Panel class="gg-frow-dot" />
 												<Button id="gg_set_nades_on" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="On" /></Button>
 												<Button id="gg_set_nades_off" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="Off" /></Button>
 											</Panel>
@@ -968,7 +1024,7 @@
 										</Panel>
 										<Panel id="gg_f11" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f11_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f11_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f11_1" class="gg-setb gg-funb"><Label id="gg_f11_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f11_2" class="gg-setb gg-funb"><Label id="gg_f11_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f11_3" class="gg-setb gg-funb"><Label id="gg_f11_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -977,7 +1033,7 @@
 										</Panel>
 										<Panel id="gg_f12" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f12_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f12_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f12_1" class="gg-setb gg-funb"><Label id="gg_f12_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f12_2" class="gg-setb gg-funb"><Label id="gg_f12_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f12_3" class="gg-setb gg-funb"><Label id="gg_f12_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -986,7 +1042,7 @@
 										</Panel>
 										<Panel id="gg_f13" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f13_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f13_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f13_1" class="gg-setb gg-funb"><Label id="gg_f13_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f13_2" class="gg-setb gg-funb"><Label id="gg_f13_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f13_3" class="gg-setb gg-funb"><Label id="gg_f13_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -995,7 +1051,7 @@
 										</Panel>
 										<Panel id="gg_f14" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f14_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f14_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f14_1" class="gg-setb gg-funb"><Label id="gg_f14_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f14_2" class="gg-setb gg-funb"><Label id="gg_f14_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f14_3" class="gg-setb gg-funb"><Label id="gg_f14_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -1004,7 +1060,7 @@
 										</Panel>
 										<Panel id="gg_f15" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f15_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f15_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f15_1" class="gg-setb gg-funb"><Label id="gg_f15_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f15_2" class="gg-setb gg-funb"><Label id="gg_f15_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f15_3" class="gg-setb gg-funb"><Label id="gg_f15_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -1013,7 +1069,7 @@
 										</Panel>
 										<Panel id="gg_f16" class="gg-frow">
 											<Panel class="gg-frow-top">
-												<Label id="gg_f16_title" class="gg-frow-title" text="{s:text}" />
+												<Label id="gg_f16_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
 												<Button id="gg_f16_1" class="gg-setb gg-funb"><Label id="gg_f16_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f16_2" class="gg-setb gg-funb"><Label id="gg_f16_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
 												<Button id="gg_f16_3" class="gg-setb gg-funb"><Label id="gg_f16_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
@@ -1176,7 +1232,7 @@
 
 					<Panel class="gg-win-foot">
 						<Panel class="gg-foot-fill" />
-						<Label class="gg-foot-ver" text="HUD v4_4_0  ·  server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4_5_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -1207,10 +1263,10 @@
 
 				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
 				<!-- Over Strike 2: the HUD version check at a join (vjoin) - gg_global's classes say how the server's version compares with this
-				     layout's own, v4_4_0 (level 44): svge45 the server is newer, svlt44 older; the same version shows nothing -->
+				     layout's own, v4_5_0 (level 45): svge46 the server is newer, svlt45 older; the same version shows nothing -->
 				<Panel class="gg-ver" hittest="false">
-					<Label class="gg-ver-old" text="Your HUD is v4_4_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
-					<Label class="gg-ver-new" text="Your HUD is v4_4_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
+					<Label class="gg-ver-old" text="Your HUD is v4_5_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
+					<Label class="gg-ver-new" text="Your HUD is v4_5_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
 				</Panel>
 				<Panel class="gg-note" hittest="false">
 					<Label id="gg_note_text" class="gg-note-text" text="{s:text}" />

@@ -2,7 +2,8 @@
 // docs/reference.md, "The end-of-match vote and the game modes").
 //
 // When a match ends - where the bridge used to serve the queue or roll the dice - every player gets a vote screen for MapVote.Seconds (60),
-// or until a strict majority of the players present has voted for one option. The ballot (the owner's rules of 2026-11-03):
+// or until every human present has voted (the owner's 40 c, 2026-11-03; a strict majority closed it before). Alone, one vote ends it at once.
+// The ballot (the owner's rules of 2026-11-03):
 //   1. the queue: every request in fair-queue order, each requester's vote already cast on their first one - a queued map is a vote its
 //      requester cast before the screen is presented; a map that loses stays queued;
 //   2. a map of each other mode that suits the players on (Modes.Mode.Suits: Valve's maxplayers, so Wingman up to 4), unless the requests
@@ -19,7 +20,8 @@
 // starter's window opens on it; everybody else hears of it on the news line. !random is Next with its player's vote on Random.
 // A match that ends while such a vote is open makes it a match end's: its requests' turn is over, every window opens on it, and nobody
 // voting is Random; Keep stays a card (numbers never change) and, if it wins, the map plays its next match.
-// At the timer the most votes win; a tie is drawn at random among the tied; no votes at all is Random (Keep, mid-match). The winner loads in
+// At the timer, or once everybody has voted, the most votes win; a tie is drawn at random among the tied; no votes at all is Random (Keep,
+// mid-match). The winner loads in
 // its own mode (ModeSwitch.cs) after the usual countdown. A queued request that wins is held by its requesters, as a request is; a rolled or
 // Random winner is held by the vote (VoteHeld) until its match ends - requests queue for the next vote, and Next on it starts the vote.
 //
@@ -148,11 +150,11 @@ static partial class Program
 
         Ballot = b; LastRound = round;
         var count = VotePresent(b, now);
-        Log($"vote: round {round} open for {MapVote.Seconds} s, {count} present ({MapVote.Needed(count)} to decide early), {b.Choices.Count} vote(s) cast by the queue: "
+        Log($"vote: round {round} open for {MapVote.Seconds} s, {count} present (all {count} voting decide it early), {b.Choices.Count} vote(s) cast by the queue: "
             + string.Join(" | ", b.Options.Select(o => $"{o.N}. {OptionLabel(o)} ({o.Source.ToString().ToLowerInvariant()}, {o.Mode.Id}, {b.Choices.Values.Count(n => n == o.N)})")));
-        Announce(keep == 1 ? $"{Clip(starterName, 16)} started a vote for the next map: {MapVote.Seconds} s, or until {MapVote.Needed(count)} of {count} agree - Keep playing is on it. TAB + E, or type !vote and its number"
-            : $"Match over - vote for the next map: {MapVote.Seconds} s, or until {MapVote.Needed(count)} of {count} agree. Click a card or type its number; !play adds a map", MapVote.Seconds);
-        BallotTick(now); // the queue's votes alone may be a majority already
+        Announce(keep == 1 ? $"{Clip(starterName, 16)} started a vote for the next map: {MapVote.Seconds} s, or until all {count} have voted - Keep playing is on it. TAB + E, or type !vote"
+            : $"Match over - vote for the next map: {MapVote.Seconds} s, or until all {count} have voted. Click a card or type its number; !play adds a map", MapVote.Seconds);
+        BallotTick(now); // the queue's votes alone may be everybody's already (one player, with a request queued)
         return true;
     }
 
@@ -228,8 +230,8 @@ static partial class Program
         BallotTick(now);
     }
 
-    /// <summary>Every tick, and after every vote: a voter who left takes their vote along; a majority ends the vote early; the timer ends it.
-    /// Once decided it stays on screen until its change has gone out.</summary>
+    /// <summary>Every tick, and after every vote: a voter who left takes their vote along; everybody present having voted ends the vote early
+    /// (the owner's 40 c), the timer ends it. Once decided it stays on screen until its change has gone out.</summary>
     static void BallotTick(DateTime now)
     {
         if (Ballot is not { } b) return;
@@ -243,14 +245,12 @@ static partial class Program
         var count = VotePresent(b, now);
         if (count == 0) { Log("vote: everybody left - no change"); Ballot = null; return; }
         var tally = b.Options.ToDictionary(o => o.N, o => b.Choices.Values.Count(n => n == o.N));
-        var needed = MapVote.Needed(count);
-        var won = tally.Where(t => t.Value >= needed).Select(t => t.Key).FirstOrDefault();
-        if (won > 0) { CloseBallot(b, now, won, "majority", tally, count); return; }
-        if (now < b.Ends) return;
+        var everybody = b.Choices.Count >= count; // every human present has voted (a vote of a player not counted as present counts too)
+        if (!everybody && now < b.Ends) return;
         var most = tally.Values.Max();
         var top = tally.Where(t => t.Value == most).Select(t => t.Key).ToList();
         if (most == 0) CloseBallot(b, now, b.Options.First(o => o.Source == (b.MidMatch ? VoteSource.Keep : VoteSource.Random)).N, "none", tally, count); // no votes: Keep mid-match, Random at a match end
-        else if (top.Count == 1) CloseBallot(b, now, top[0], "most", tally, count);
+        else if (top.Count == 1) CloseBallot(b, now, top[0], everybody ? "all" : "most", tally, count);
         else CloseBallot(b, now, top[Dice.Next(top.Count)], "tie", tally, count);
     }
 
@@ -293,7 +293,7 @@ static partial class Program
             "none" => $"Nobody voted - rolling the dice: {target}, changing in {ChangeDelay} s",
             _ when o.Source == VoteSource.Random => $"The vote chose Random ({votes} of {cast}) - rolling the dice: {target}, changing in {ChangeDelay} s",
             "tie" => $"A tie at {votes} votes, drawn by the dice: {target}, changing in {ChangeDelay} s",
-            "majority" => $"The vote chose {target} ({votes} of {present}) - changing in {ChangeDelay} s",
+            "all" => $"Everybody has voted: {target} ({votes} of {cast}) - changing in {ChangeDelay} s",
             _ => $"The vote chose {target} ({votes} of {cast} votes) - changing in {ChangeDelay} s",
         });
     }
@@ -319,6 +319,10 @@ static partial class Program
         v.SecondsLeft = b.Open ? Math.Max(0, (int)Math.Ceiling((b.Ends - now).TotalSeconds))
             : Pending is { } p && p == b.Change ? Math.Max(0, (int)Math.Ceiling((p.FiresAt - now).TotalSeconds)) : 0;
         (v.Present, v.Needed, v.Cast) = (count, MapVote.Needed(Math.Max(count, 1)), b.Choices.Count);
+        // who voted what, by name (the cards' chips), and who has not voted yet (the waiting line): the log stream's players, the fakes of a test too
+        string NameOf(string id) => Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id;
+        foreach (var g in b.Choices.GroupBy(c => c.Value)) v.Voters[g.Key] = g.Select(c => NameOf(c.Key)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        if (b.Open) v.Waiting = PresentIds(now).Where(id => !b.Choices.ContainsKey(id)).Select(NameOf).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         foreach (var o in b.Options)
         {
             var who = o.Request?.By.Where(a => IsConnected(a.Id, now)).Select(a => Clip(a.Name, 16)).ToList() is { Count: > 0 } names ? Names(names) : Clip(o.AddedBy, 16);

@@ -53,9 +53,10 @@ the action, and its private reply teaches the primary by showing what ran: `You 
 | `!down [number] [reason]` | Dislike it, and why (see Voting) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` |
 | `!toobig [number]` | Too big: only 1 random pick in 100 | `!big` `!huge` `!toolarge` `!size` `!xl` |
 | `!ads [number]` | It shows ads or sends players away: never a random pick | `!ad` `!spam` `!advert` `!report` `!scam` |
-| `!vote <number>` | Your choice in the vote for the next map; the bare number works too | `!v` `!mv` `!choose` |
+| `!vote <number>` | Your choice in the vote for the next map; the bare number works too; alone, back to the vote | `!v` `!mv` `!choose` |
 | `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
 | `!nades <on\|off>` | Grenade drops on or off | `!grenades` `!nade` `!he` `!drops` `!boom` |
+| `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
 | `!time <10\|60>` | Match length in minutes, from the next match | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
 | `!newmaps <always\|half\|never>` | New maps in random picks | `!fresh` `!pool` `!mix` `!newmap`, and `!new` with an argument |
 | `!restart` | Restart a stuck server - twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
@@ -82,10 +83,18 @@ opens the Fun page and writes the words in chat, for the settings the page shows
 still works and teaches the short word. `!nades` is both: `on` and `off` are the grenade drops, `normal`, `big` and `huge` the
 blast of the grenades (Big grenades); `!fun nades on` and `!fun nades big` work too.
 
+**Catch-up** has its own row on the Fun page (content `v4_5_0`), on by default and Arms Race's alone, like the boosts: On and Off switch the
+catch-up module for everybody until the map changes (`!catchup on|off`, or `gg_catchup` on the console), and Default and 10 minutes with nobody
+on switch it back on.
+
+**A setting off its default stands out** (content `v4_5_0`): its chosen button is filled gold and a gold dot sits beside its name; a setting at
+its default stays plain. **Every fun change is centre screen** for everybody for 10 s, naming who did it ("Alice turned Vampire on") - a
+Random or Default press as one notice of all it changed - besides the chat line and the news line; what the server itself resets says nothing.
+
 **Random and Default** (the Fun page's two buttons, content `v4_4_0`; `!fun random`, `!fun default`): Random sets every setting the page shows in the
-mode that is on to one of its own choices, each choice equally likely, and the grenade drops on or off - never a combination the page itself would
+mode that is on to one of its own choices, each choice equally likely, and the grenade drops on or off (catch-up stays as it is) - never a combination the page itself would
 not make (moon gravity takes super jump back to normal, as the page does). Default is what 10 minutes with nobody on does: every fun setting back
-to normal and the grenade drops on. Either says in chat, in one short line for everybody, who did it and what changed; a click also prints the
+to normal, the grenade drops and catch-up on. Either says in chat, in one short line for everybody, who did it and what changed; a click also prints the
 command for everybody, so that menu users learn the chat way. The same as every fun setting: anybody, at any time, a vote open or not.
 
 **A vote in chat.** While a vote is open a bare number the ballot has (1 to its highest, 49 at most) counts as a vote, like `!vote 3`, and
@@ -101,25 +110,29 @@ console.
 A pick is a request. Whether it plays at once depends on who put the current map there:
 
 1. **A map nobody holds is replaced at once** - a random map, the start map, or a map its requesters let go of.
-2. **A requested map is held** by whoever asked for it until the match ends, they say they are done, they have been off the
+2. **A request can be taken back where it was made** (the owner's 2026-11-03): on your own queued map's card Play says Cancel my request,
+   a note after queueing says "click Play again or !cancel to undo", a ballot card of your own request has **Remove mine** (which takes your
+   vote on it back too), and the Queue page has Cancel; everybody sees the cancel on the news line.
+3. **A requested map is held** by whoever asked for it until the match ends, they say they are done, they have been off the
    server for over 60 s while others wait, or a vote for the next map replaces it (Next starts one at any time; see below).
-3. **The order:** a map that two or more players on the server want goes first; then one map at a time to whoever has had the
+4. **The order:** a map that two or more players on the server want goes first; then one map at a time to whoever has had the
    least play time from their own requests this session (a queued request counts as 10 minutes ahead of time; your own requests
    play in the order you made them).
-4. **No hoarding:** somebody who starts requesting is lifted to at least 10 minutes below the least-served player waiting, so
+5. **No hoarding:** somebody who starts requesting is lifted to at least 10 minutes below the least-served player waiting, so
    sitting out buys one turn, not five in a row. After 30 minutes with nobody on, play time goes back to zero.
-5. **Only players on the server are queued.** A player who leaves drops out after 60 s; a map change is a reload, not leaving,
+6. **Only players on the server are queued.** A player who leaves drops out after 60 s; a map change is a reload, not leaving,
    and has 10 minutes to finish.
-6. One request per map, five each. Asking for a queued map joins it and moves it up; asking for the map that is on claims it.
-7. Every change to the queue is announced on the HUD's news line, merged into one line per burst.
+7. One request per map, five each. Asking for a queued map joins it and moves it up; asking for the map that is on claims it.
+8. Every change to the queue is announced on the HUD's news line, merged into one line per burst.
 
 The design is the scheduling idea of fair-share CPU schedulers: play time is charged as maps play, the least-served requester
 goes next, and newcomers start just below the least-served active requester.
 
 ## The end-of-match vote and the game modes
 
-When a match ends there is a vote: every player gets a ballot on the menu's map cards for 60 s, or until a strict majority of
-the players present has chosen one option (kept as it was on 2026-11-03). The ballot (the owner's rules of 2026-11-03):
+When a match ends there is a vote: every player gets a ballot on the menu's map cards for 60 s, or until every human present has voted
+(the owner's 40 c, 2026-11-03; a strict majority closed it before) - alone, your one vote ends it at once. The ballot (the owner's rules of
+2026-11-03):
 
 1. the queue - every request, in play order, each connected requester's vote already cast on their first;
 2. one map of each other game mode that suits the players on (Deathmatch; Wingman only for four players or fewer), unless the requests
@@ -132,6 +145,13 @@ a gold hint saying how many more maps are on the next page. The gold **Open the 
 is on: a map's **Play** there - or `!play` in chat - puts that map on the ballot for everybody, with a number after every other (numbers never
 change), and moves that player's vote to it; one map a player, and a map on the ballot already only gets the vote. **Back to the vote**
 returns to the cards. A map not on the server's disk downloads when it wins, with the download line.
+
+**Where the votes go** shows on the screen as they come in (content `v4_5_0`): every card has a bar of its share of the votes and its voters'
+names on its picture, the leading card is lit gold and tagged Leading - tied cards are tagged Tie instead - and a strip across the top splits
+the votes by card, in each mode's colour, the most first. A line beside the title names everybody present who has not voted yet ("Waiting
+for: Alice, Bob") and says "Everyone has voted" at the end. A match-end vote cannot be closed: the window loses its close button and
+neither TAB nor a hit closes it until the vote is over. A vote somebody started with Next can be closed, and then a gold line at the top
+of the screen says it is on and how long it has left; TAB or a bare `!vote` opens it again.
 
 A player votes by clicking a card's **Vote**, or in chat with its number (`3`, or `!vote 3`). The most votes win, a tie is drawn at random, and no
 votes at all is Random. The winner plays; a queued map that loses stays queued, and a rolled or Random winner is held by the vote until its match
@@ -322,11 +342,16 @@ The plugin's modules:
   fall damage, ice floor, laser guns, infinite ammo, headshots only, vampire, ghost, big grenades, double damage, friendly fire
   and more. The news line says who switched what.
 - **Catch-up** (`plugin/CatchUp/`, its numbers in `catchup.json`): in Arms Race a player 2, 4 or 7 kills behind the leader gets a boost at spawn, with
-  a private message that says what it is. Health +20, +40 or +75%, damage taken -10, -20 or -30%, damage dealt +10, +20 or +30%, lifesteal 10, 20 or 30%,
-  regeneration 2, 4 or 6% a second after a few seconds unhurt; from 4 behind a second chance once per life and more spawn protection, at 7 behind infinite ammo
-  and a one-hit knife and Zeus. A leader 2 kills or more ahead of second place takes 10% more damage per 2 kills of lead, up to 30%. A cap keeps a boosted
-  player from coming out stronger than the leader on paper: never above 3 times, and never above the scoreboard's own ratio. The module counts the ladder from the
-  match's kills, since the game exposes no ladder position.
+  a private message that says what it is. Health +30, +60 or +100% of the spawn health (Vampire's 1,000, not its 2,000 ceiling), damage taken -15, -25
+  or -35%, damage dealt +15, +25 or +40%, lifesteal 15, 25 or 35%, regeneration 3, 5 or 8% a second after 4, 3 or 2 s unhurt; from 4 behind a
+  second chance once per life and more spawn protection, at 7 behind infinite ammo and a one-hit knife and Zeus (the owner's 42 d, 2026-11-03). A leader 2 kills
+  or more ahead of second place takes 10% more damage from enemies per 2 kills of lead, up to 30%. A cap keeps a boosted player within the scoreboard: their duel
+  factor (health with lifesteal, over the damage they take, times the damage they deal and the leader's bounty) at most `ScoreboardCapFactor` (2.0) times
+  (the leader's kills + 1) / (their kills + 1), and never above `MaxDuelFactor` (3.5). For the leader's enemies the bounty counts first, their own boosts
+  share the rest; for his teammates (the same team, no free-for-all), who never fight him, the cap is computed without the bounty. `ScoreboardCap` false
+  leaves `MaxDuelFactor` alone. The module counts the ladder from the match's kills, since the game exposes no ladder position: a team kill under
+  friendly fire takes the killer down a level (`TeamKillDemotes`) and has their next gun kill place them; every kill goes to the plugin's log as
+  `CatchUp: kill:` with both teams and both counts after it.
 - **The daily Workshop check** and the item check of the HUD's own Workshop item (the public Web API first; the item's page
   only right after a change, sparsely).
 

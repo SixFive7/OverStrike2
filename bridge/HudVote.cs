@@ -82,7 +82,7 @@ public static class DownReasons
 public static class HudVote
 {
     /// <summary>The server's content as a number, for the version check: v4_4_0 is 44. The classes go from FirstLevel to LastLevel.</summary>
-    public const int ContentLevel = 44, FirstLevel = 31, LastLevel = 49;
+    public const int ContentLevel = 45, FirstLevel = 31, LastLevel = 49;
 
     /// <summary>The dialog variables on gg_global that the newer layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
@@ -123,6 +123,45 @@ public static class HudVote
     /// cards are on the other pages, and the line over the map browser while it adds to the vote.</summary>
     public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft";
 
+    /// <summary>Content v4_5_0 (the owner's 2026-11-03): who has not voted yet (WaitVar), the voters on card k (VotersVar(k)), the summary strip's
+    /// segment i (StripVar(i)), and the line that brings a player who closed the window back to a vote a player started (AwayVar).</summary>
+    public const string WaitVar = "osvwait", AwayVar = "osvaway";
+    public static string VotersVar(int k) => $"osvn{k.ToString(CultureInfo.InvariantCulture)}";
+    public static string StripVar(int i) => $"osvs{i.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>The summary strip's segments (content v4_5_0): one panel each, its width a share class - the options with votes, the most first.</summary>
+    public const int StripSegments = 9;
+    public static string Segment(int i) => $"gg_vs{i.ToString(CultureInfo.InvariantCulture)}";
+
+    /// <summary>A share as one of eleven classes, w0 ... w10 - tenths of the votes cast: a card's bar and a strip segment's width (the same names
+    /// on both, so the eleven cost eleven of the 1,024 class names).</summary>
+    public static string Share(int votes, int cast) => $"w{(cast <= 0 ? 0 : (int)Math.Round(10.0 * votes / cast, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture)}";
+    public static IEnumerable<(string Id, string Class, bool On)> ShareClasses(string id, int votes, int cast)
+    {
+        var on = Share(votes, cast);
+        for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
+    }
+
+    /// <summary>A card's "Remove mine" (content v4_5_0): on a ballot card of this player's own queued request, it takes that request back.</summary>
+    public static string UnqueueButton(int k) => $"{HudMenu.Card(k)}_unq";
+
+    /// <summary>Names as a card's chips say them: as many as fit in about 34 characters, then "+N".</summary>
+    public static string Names(IReadOnlyList<string> names, int max = 34)
+    {
+        var shown = "";
+        for (var i = 0; i < names.Count; i++)
+        {
+            var next = (shown == "" ? "" : "  ·  ") + names[i];
+            var left = names.Count - i - 1;
+            if (shown.Length + next.Length + (left > 0 ? 4 : 0) > max) return shown == "" ? $"{names.Count} players" : $"{shown}  +{names.Count - i}";
+            shown += next;
+        }
+        return shown;
+    }
+
+    /// <summary>The waiting line (content v4_5_0, the owner's 2026-11-03): every player present who has not voted, by name, then "Everyone has voted".</summary>
+    public static string WaitLine(VoteState v) => !v.Open ? "" : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
+
     /// <summary>The ballot's pages: eight cards a page (MapVote.MinMaps is one page's worth). Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v) => Math.Max(1, (v.Maps.Count + HudMenu.Cards - 1) / HudMenu.Cards);
 
@@ -132,7 +171,7 @@ public static class HudVote
     /// where the other cards are. Random's button and the hint for the other pages are variables on gg_screen (content v4_4_0); a game holding an
     /// older content sees the first page's cards and reads the rest off the page line - typing a card's number works from any content.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
-        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0)
+        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0, ISet<string>? myQueued = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -145,7 +184,11 @@ public static class HudVote
         var shown = maps.Skip(page * HudMenu.Cards).Take(HudMenu.Cards).ToList();
         var rest = maps.Count - (page + 1) * HudMenu.Cards;
         t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - changing in {v.SecondsLeft} s"
-            : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted, {v.Needed} decide it"));
+            : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
+        // where the votes go (content v4_5_0): every card its share and its voters, the leader lit or a tie, the strip across the top
+        var counted = v.Options.Where(o => o.Votes > 0).ToList();
+        var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
+        var tied = counted.Count(o => o.Votes == most) > 1;
         t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
             : mine > 0 ? "Your vote is lit - click another card or type its number" : "Click a card's Vote or type its number in chat"));
         t.Add(("gg_m_empty", ""));
@@ -187,7 +230,28 @@ public static class HudVote
             c.Add((id, "nopic", o != null && o.Key.All(char.IsAsciiDigit) && o.Key != "" && !HudThumbs.Has(o.Key))); // content v4_2_0: the picture on request
             c.Add((id, "picopen", o != null && o.Key != "" && o.Key == openPicture));
             c.AddRange(CardModeClasses(id, o?.Mode));                                     // content v4_4_0: the mode's label and colour
+            c.AddRange(ShareClasses(id, o?.Votes ?? 0, v.Cast));                         // content v4_5_0: its share of the votes, as a bar
+            c.Add((id, "vhas", o != null && o.Votes > 0));                                // its voters' chips show
+            c.Add((id, "vlead", o != null && most > 0 && o.Votes == most && !tied));
+            c.Add((id, "vtie", o != null && most > 0 && o.Votes == most && tied));
+            c.Add((id, "vmine", o != null && v.Open && o.Source == VoteSource.Queue && myQueued?.Contains(o.Key) == true)); // Remove mine
+            w.Add((VotersVar(k), o != null && v.Voters.TryGetValue(o.N, out var names) ? Names(names) : ""));
         }
+        var strip = counted.OrderByDescending(o => o.Votes).ThenBy(o => o.N).Take(StripSegments).ToList();
+        for (var i = 1; i <= StripSegments; i++)
+        {
+            var o = i <= strip.Count ? strip[i - 1] : null;
+            var seg = Segment(i);
+            c.Add((seg, "used", o != null));
+            c.AddRange(ShareClasses(seg, o?.Votes ?? 0, v.Cast));
+            c.AddRange(CardModeClasses(seg, o?.Source == VoteSource.Random ? null : o?.Mode));
+            c.Add((seg, "vrand", o?.Source == VoteSource.Random));
+            c.Add((seg, "vlead", o != null && o.Votes == most && !tied));
+            c.Add((seg, "vtie", o != null && o.Votes == most && tied));
+            w.Add((StripVar(i), o == null ? "" : $"{(o.Source == VoteSource.Random ? "Random" : o.Source == VoteSource.Keep ? $"{o.N} Keep" : o.N.ToString(CultureInfo.InvariantCulture))}  ·  {o.Votes}"));
+        }
+        c.Add((HudView.Screen, "vstrip", counted.Count > 0));
+        w.Add((WaitVar, WaitLine(v)));
         var random = v.Random;
         c.Add((HudView.Screen, "vrandom", random != null && mine == random.N && !done));
         w.Add((RandomVar, random == null ? "" : $"{random.N}  ·  Random  ·  {random.Votes} vote{(random.Votes == 1 ? "" : "s")}"));
@@ -272,6 +336,16 @@ public static class HudVote
     public static readonly string[] NewButtons44 =
         [RandomButton, BrowseButton, BackButton, .. WhyPlaces.SelectMany(place => Enumerable.Range(1, DownReasons.All.Length).Select(k => WhyButton(place, k))),
          HudMenu.FunRandom, HudMenu.FunDefault];
+
+    /// <summary>The buttons content v4_5_0 added: each ballot card's Remove mine and the Fun page's Catch-up on and off. A click on one proves that
+    /// player's game holds v4_5_0; nothing is sent to them.</summary>
+    public static readonly string[] NewButtons45 = [.. Enumerable.Range(1, HudMenu.Cards).Select(UnqueueButton), HudMenu.CatchUpOn, HudMenu.CatchUpOff];
+
+    /// <summary>The panels content v4_5_0 added that get classes from the server: the summary strip's segments. Only a game that has shown v4_5_0 gets them.</summary>
+    public static readonly string[] NewIds45 = [.. Enumerable.Range(1, StripSegments).Select(Segment)];
+
+    /// <summary>Catch-up's state on gg_global (content v4_5_0's Fun page lights on or off; an older game has no rule for it).</summary>
+    public static List<(string Id, string Class, bool On)> CatchUpClasses(bool? on) => [(HudView.Global, "cu-on", on == true), (HudView.Global, "cu-off", on == false)];
 
     /// <summary>The grenade drops' state, on gg_global (content v4_1_0's Fun page lights the choice that is on; an older game has no rule for it).</summary>
     public static List<(string Id, string Class, bool On)> NadesClasses(bool? on) => [(HudView.Global, "nd-on", on == true), (HudView.Global, "nd-off", on == false)];

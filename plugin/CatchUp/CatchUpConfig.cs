@@ -23,12 +23,14 @@ public sealed class CatchUpConfig
     public MessageConfig Message { get; set; } = new();
     public EffectsConfig Effects { get; set; } = new();
 
+    /// <summary>A little stronger since 2026-11-03 (the owner's): 2+ was +20% health, -10% taken, +10% dealt, 10% lifesteal, 2%/s after 5 s;
+    /// 4+ +40%, -20%, +20%, 20%, 4%/s after 4 s; 7+ +75%, -30%, +30%, 30%, 6%/s after 3 s. The extras stay as they were.</summary>
     public static List<TierConfig> DefaultTiers() =>
     [
-        new() { MinBehind = 2, Health = 0.20, DamageTaken = -0.10, DamageDealt = 0.10, Lifesteal = 0.10, RegenPerSecond = 0.02, RegenDelaySeconds = 5 },
-        new() { MinBehind = 4, Health = 0.40, DamageTaken = -0.20, DamageDealt = 0.20, Lifesteal = 0.20, RegenPerSecond = 0.04, RegenDelaySeconds = 4,
+        new() { MinBehind = 2, Health = 0.30, DamageTaken = -0.15, DamageDealt = 0.15, Lifesteal = 0.15, RegenPerSecond = 0.03, RegenDelaySeconds = 4 },
+        new() { MinBehind = 4, Health = 0.60, DamageTaken = -0.25, DamageDealt = 0.25, Lifesteal = 0.25, RegenPerSecond = 0.05, RegenDelaySeconds = 3,
                 SecondChance = true, ExtraSpawnProtectionSeconds = 2 },
-        new() { MinBehind = 7, Health = 0.75, DamageTaken = -0.30, DamageDealt = 0.30, Lifesteal = 0.30, RegenPerSecond = 0.06, RegenDelaySeconds = 3,
+        new() { MinBehind = 7, Health = 1.00, DamageTaken = -0.35, DamageDealt = 0.40, Lifesteal = 0.35, RegenPerSecond = 0.08, RegenDelaySeconds = 2,
                 SecondChance = true, ExtraSpawnProtectionSeconds = 3, InfiniteAmmo = true, OneHitKnifeAndTaser = true },
     ];
 
@@ -185,12 +187,16 @@ public sealed class BountyConfig
 /// leader on paper. See Rules.DuelFactor and Rules.Cap.</summary>
 public sealed class BalanceConfig
 {
-    /// <summary>The ceiling on the duel factor against the leader (the leader's bounty included), whatever the scoreboard says.</summary>
-    public double MaxDuelFactor { get; set; } = 3.0;
+    /// <summary>The ceiling on the duel factor against the leader (the leader's bounty included), whatever the scoreboard says. 3.0 until 2026-11-03.</summary>
+    public double MaxDuelFactor { get; set; } = 3.5;
 
-    /// <summary>Also cap the duel factor at the scoreboard's ratio (leader's progress + 1) / (player's progress + 1): the boost may at
-    /// most cancel the edge the leader has shown, never overturn it.</summary>
+    /// <summary>Also cap the duel factor at the scoreboard's ratio (leader's progress + 1) / (player's progress + 1) times ScoreboardCapFactor:
+    /// the boost may cancel the edge the leader has shown, and go that far past it. Off: MaxDuelFactor alone.</summary>
     public bool ScoreboardCap { get; set; } = true;
+
+    /// <summary>How far past the leader's shown edge the scoreboard cap lets a boosted player go: 2.0 is up to twice the scoreboard's ratio
+    /// (the owner's 42 d, 2026-11-03; until then a fixed 1.0, never past it).</summary>
+    public double ScoreboardCapFactor { get; set; } = 2.0;
 
     /// <summary>Lifesteal counts as health in the duel factor (in a duel it returns that share of the leader's health).</summary>
     public bool LifestealCounts { get; set; } = true;
@@ -201,6 +207,7 @@ public sealed class BalanceConfig
     internal void Normalize(List<string> notes)
     {
         MaxDuelFactor = CatchUpConfig.Clamp(MaxDuelFactor, 1, 100, "Balance.MaxDuelFactor", notes);
+        ScoreboardCapFactor = CatchUpConfig.Clamp(ScoreboardCapFactor, 1, 10, "Balance.ScoreboardCapFactor", notes);
         RoundTo = CatchUpConfig.Clamp(RoundTo, 0, 0.5, "Balance.RoundTo", notes);
     }
 }
@@ -222,6 +229,11 @@ public sealed class ProgressConfig
 
     /// <summary>Death by the world, a fall or a team change: down one level, as in CS:GO's Arms Race (not seen in CS2's log).</summary>
     public bool SuicideDemotes { get; set; } = true;
+
+    /// <summary>A team kill (friendly fire, without free-for-all): the killer down one level, as Arms Race punishes it, and placed again by their
+    /// next gun kill on a rung somebody reached before - so the count heals whatever the game did. Ignoring team kills let tonight's counts run past
+    /// the golden knife (the analysis of 2026-11-03: 38 and 40 of 32 for two teammates, with friendly fire and Instakill on).</summary>
+    public bool TeamKillDemotes { get; set; } = true;
 
     /// <summary>On the last level (the golden knife) only a knife kill counts.</summary>
     public bool LastLevelOnlyKnife { get; set; } = true;

@@ -232,7 +232,7 @@ sealed class HudScreen
         {
             var now = DateTime.UtcNow;
             var released = tab.Release(p.Slot); // the board cursor too: shot means the hands are needed
-            if (slots.WindowOpen(p.Slot)) slots.Hurt(p.Slot, now);
+            if (slots.WindowOpen(p.Slot) && !VoteLocked) slots.Hurt(p.Slot, now); // a match-end vote stays on screen (the owner's 2026-11-03)
             else if (!released) return HookResult.Continue;
             Server.NextFrame(Frame);
         }
@@ -288,7 +288,9 @@ sealed class HudScreen
             {
                 case HudTab.Act.OpenMenu: Menu(p); return;
                 case HudTab.Act.OpenWindow: worldReady = true; tabLog[slot] = 0; slots.Show(slot, slots.PageOf(slot), at); EnsureEntity(); Frame(); return;
+                case HudTab.Act.CloseWindow when VoteLocked: Frame(); return; // a match-end vote stays on screen
                 case HudTab.Act.CloseWindow: slots.Info(slot, "off", at); Frame(); return;
+                case HudTab.Act.CursorOn when vote is { Open: true, Round: > 0 } && !slots.WindowOpen(slot): tab.Release(slot); Menu(p); return; // TAB brings a vote back
                 case HudTab.Act.HoldCheck:
                     plugin.AddTimer((float)HudTab.HoldSeconds, () =>
                     {
@@ -480,6 +482,7 @@ sealed class HudScreen
             return;
         }
         if (!slots.WindowOpen(player.Slot)) return;
+        if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, "The vote for the next map is on - this closes when it is over"); Server.NextFrame(Frame); return; } // the owner's 2026-11-03
         slots.Click(player.Slot, buttonId, now);
         if (HudDash.Click(dash, buttonId, DashPages(player.Slot))) { Server.NextFrame(Frame); return; } // the Sync page's pagers (content v4_3_0)
         var account = Account(player);
@@ -495,6 +498,15 @@ sealed class HudScreen
             {
                 // The vote is on the Maps page's cards (HudVote.cs), a page of eight: a card's Play is a vote, Random's button too, the pager pages.
                 if (HudVote.PageClick(vote, buttonId, view.Page) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Server.NextFrame(Frame); return; }
+                // content v4_5_0: a card's Remove mine takes this player's own queued request back (the bridge's !cancel, its news line for everybody)
+                for (var uk = 1; uk <= HudMenu.Cards; uk++)
+                    if (buttonId == HudVote.UnqueueButton(uk))
+                    {
+                        var onPage = vote.Maps.Skip(Math.Clamp(view.Page, 0, HudVote.Pages(vote) - 1) * HudMenu.Cards).Take(HudMenu.Cards).ToList();
+                        if (uk <= onPage.Count && onPage[uk - 1] is { Source: VoteSource.Queue } mineCard) Act(player, account, $"!cancel {mineCard.Arg}");
+                        Server.NextFrame(Frame);
+                        return;
+                    }
                 if (HudVote.Click(vote, buttonId, view.Page) is { } cast)
                 {
                     var was = vote.ChoiceOf(account);
@@ -523,6 +535,7 @@ sealed class HudScreen
         }
         if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
         if (HudVote.DownCard(buttonId) is > 0 and var downCard) whyCard[player.Slot] = (downCard, CardKey(player, account, downCard)); // content v4_4_0: the reasons go over that card
+        if (buttonId is HudMenu.CatchUpOn or HudMenu.CatchUpOff) { SwitchCatchUp(player, buttonId == HudMenu.CatchUpOn, t => LocalNote(player.Slot, t)); Server.NextFrame(Frame); return; } // content v4_5_0
         if (buttonId is HudMenu.FunRandom or HudMenu.FunDefault)
         {
             var which = buttonId == HudMenu.FunRandom ? Fun.RandomWord : Fun.DefaultWord;
@@ -544,7 +557,7 @@ sealed class HudScreen
             var onOff = buttonId == HudMenu.NadesOn ? "on" : "off";
             if (NadesOn?.Invoke() == (buttonId == HudMenu.NadesOn)) { LocalNote(player.Slot, $"Grenade drops: {onOff} already"); Server.NextFrame(Frame); return; }
             var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-            Server.NextFrame(() => { Server.ExecuteCommand($"gg_nades {onOff} \"{name}\""); Notice($"{name} switched grenade drops {onOff}", 8); });
+            Server.NextFrame(() => { Server.ExecuteCommand($"gg_nades {onOff} \"{name}\""); Notice($"{name} switched grenade drops {onOff}", 8); Centre?.Invoke(name, $"turned grenade drops {onOff}"); });
             return;
         }
         if (HudMenu.FunClick(buttonId) is { } fun)
@@ -558,7 +571,7 @@ sealed class HudScreen
             Server.NextFrame(() => Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""));
             plugin.AddTimer(FunCheckSeconds, () =>
             {
-                if (Fun.Showing(setting, FunValue) == choice) Notice(Fun.News(name, setting, choice), 8);
+                if (Fun.Showing(setting, FunValue) == choice) { Notice(Fun.News(name, setting, choice), 8); Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); }
                 else LocalNote(slot, $"{setting.Title} did not switch: the server's settings plugin did not take it");
                 Frame();
             });
@@ -861,7 +874,11 @@ sealed class HudScreen
                 var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
                 if (Fun.Showing(setting, FunValue) == choice) { Say($"{setting.Title}: {choice.Label} already"); return; }
                 Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
-                plugin.AddTimer(FunCheckSeconds, () => { if (Fun.Showing(setting, FunValue) == choice) Notice(Fun.News(name, setting, choice), 8); else Say($"{setting.Title} did not switch"); });
+                plugin.AddTimer(FunCheckSeconds, () =>
+                {
+                    if (Fun.Showing(setting, FunValue) == choice) { Notice(Fun.News(name, setting, choice), 8); Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); }
+                    else Say($"{setting.Title} did not switch");
+                });
                 return;
             case ChatCommands.Kind.Nades:
                 if (!mode.ArmsRace) { Say($"Grenade drops are Arms Race's own - not in {mode.Name}"); return; }
@@ -869,6 +886,10 @@ sealed class HudScreen
                 var who = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
                 Server.ExecuteCommand($"gg_nades {cmd.Arg} \"{who}\"");
                 Notice($"{who} switched grenade drops {cmd.Arg}", 8);
+                Centre?.Invoke(who, $"turned grenade drops {cmd.Arg}");
+                return;
+            case ChatCommands.Kind.CatchUp:
+                SwitchCatchUp(player, cmd.Arg == "on", Say); // content v4_5_0 (the owner's 2026-11-03)
                 return;
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
@@ -1050,6 +1071,7 @@ sealed class HudScreen
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words (content v4_1_0)
         foreach (var (id, cls, on) in HudVote.NadesClasses(NadesOn?.Invoke())) Class(id, cls, on); // the Fun page's grenade drops, lit
+        foreach (var (id, cls, on) in HudVote.CatchUpClasses(CatchUpOn?.Invoke())) Class(id, cls, on); // content v4_5_0: the Fun page's catch-up, lit
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
         foreach (var p in humans)
         {
@@ -1076,6 +1098,11 @@ sealed class HudScreen
             var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
             if (vote.Round <= 0 || browsing) Class(HudView.Screen, "voting", false, p);
             Class(HudView.Screen, "vbrowse", browsing, p);                                  // content v4_4_0: the map browser adds to the vote
+            Class(HudView.Screen, "vlock", VoteLocked, p);                                  // content v4_5_0: a match-end vote has no close button
+            var away = vote is { Open: true, Round: > 0 } && !view.Window;                 // ...and a vote this player closed has a line back
+            Class(HudView.Screen, "vaway", away, p);
+            Var(HudView.Screen, HudVote.AwayVar, away ? $"The vote for the next map is on  ·  {vote.SecondsLeft} s left  ·  TAB or !vote" : "", p);
+            Class(HudView.Screen, "opulse", view.Window && view.Page == HudSlots.Page.Maps && !Browser(p.Slot).Ours && now.Ticks / TimeSpan.FromMilliseconds(1300).Ticks % 2 == 0, p); // Our maps' pulse
             if (browsing) Var(HudView.Screen, HudVote.BrowseVar, HudVote.BrowseLine(vote), p);
             WhyInline(p, view, account, shown);                                              // content v4_4_0: a Dislike's reasons where it was clicked
             foreach (var page in Enum.GetValues<HudSlots.Page>()) Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, p);
@@ -1154,7 +1181,7 @@ sealed class HudScreen
     /// <summary>The ballot's page for this player: its texts and classes, and its variables on gg_screen (Random's button, the hint for the other pages).</summary>
     (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(CCSPlayerController p, long account)
     {
-        var (texts, classes, vars) = HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", VoteView(p.Slot).Page);
+        var (texts, classes, vars) = HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", VoteView(p.Slot).Page, HudMenu.MyQueuedKeys(state, account));
         foreach (var (name, text) in vars) Var(HudView.Screen, name, text, p);
         return (texts, classes);
     }
@@ -1181,22 +1208,29 @@ sealed class HudScreen
         if (which == Fun.DefaultWord)
         {
             var nadesOff = mode.ArmsRace && NadesOn?.Invoke() == false;
+            var catchUpOff = mode.ArmsRace && CatchUpOn?.Invoke() == false;
             Server.NextFrame(() =>
             {
                 Server.ExecuteCommand($"{Fun.ResetCommand} \"{name}\"");
                 if (nadesOff) Server.ExecuteCommand($"gg_nades on \"{name}\"");
+                if (catchUpOff) CatchUpSwitch?.Invoke(true);
                 Server.PrintToChatAll(" " + Fun.DefaultLine(name));
+                Centre?.Invoke(name, "put every fun setting back to normal");
             });
             return;
         }
-        var (picks, nades) = Fun.Randomized(dice.Next, mode.ArmsRace);
+        var (picks, nades, catchUp) = Fun.Randomized(dice.Next, mode.ArmsRace);
         var changed = picks.Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
         bool? nadesSwitched = nades is { } want && NadesOn?.Invoke() != want ? want : null;
+        bool? catchUpSwitched = catchUp is { } cu && CatchUpOn?.Invoke() != cu ? cu : null;
         Server.NextFrame(() =>
         {
             foreach (var (setting, choice) in changed) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
             if (nadesSwitched is { } on) Server.ExecuteCommand($"gg_nades {(on ? "on" : "off")} \"{name}\"");
-            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed, nadesSwitched));
+            if (catchUpSwitched is { } cuOn) CatchUpSwitch?.Invoke(cuOn);
+            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed, nadesSwitched, catchUpSwitched: catchUpSwitched));
+            var parts = Fun.Changes(changed, nadesSwitched, catchUpSwitched);
+            Centre?.Invoke(name, parts.Count == 0 ? "rolled the fun settings: nothing changed" : "rolled the fun settings: " + string.Join(", ", parts));
         });
     }
 
@@ -1251,6 +1285,34 @@ sealed class HudScreen
 
     /// <summary>Where the fun page's values come from: the settings module (convars and its effects); without it, the engine's convars.</summary>
     public Func<string, string?>? FunSource { get; set; }
+
+    /// <summary>The catch-up module's switch and state (content v4_5_0's Fun row, !catchup): set by the plugin.</summary>
+    public Func<bool>? CatchUpOn { get; set; }
+    public Action<bool>? CatchUpSwitch { get; set; }
+
+    /// <summary>A fun change for everybody, centre screen for Fun.CentreSeconds (the owner's 2026-11-03): set by the plugin, which owns the centre panel.</summary>
+    public Action<string, string>? Centre { get; set; }
+
+    /// <summary>A vote at a match's end is on: the window stays open until it is over (the owner's 2026-11-03), and nothing closes it.</summary>
+    bool VoteLocked => vote is { Open: true, Round: > 0, MidMatch: false };
+
+    /// <summary>The slots whose centre panel shows a picture now (the plugin's centre notice leaves those alone).</summary>
+    public bool PictureShowing(int slot) => pictures.TryGetValue(slot, out var open) && open.Html != null;
+
+    /// <summary>Catch-up switched from the Fun page or chat: Arms Race only; the news line and the centre notice say who.</summary>
+    void SwitchCatchUp(CCSPlayerController player, bool on, Action<string> say)
+    {
+        if (!mode.ArmsRace) { say($"Catch-up is Arms Race's own - not in {mode.Name}"); return; }
+        if (CatchUpOn?.Invoke() == on) { say($"Catch-up: {(on ? "on" : "off")} already"); return; }
+        var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
+        Server.NextFrame(() =>
+        {
+            CatchUpSwitch?.Invoke(on);
+            Notice($"{name} switched catch-up {(on ? "on" : "off")} - until the map changes", 8);
+            Centre?.Invoke(name, $"turned catch-up {(on ? "on" : "off")}");
+            Frame();
+        });
+    }
 
     /// <summary>The grenade drops as the grenades module has them.</summary>
     public Func<bool>? NadesOn { get; set; }

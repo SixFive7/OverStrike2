@@ -305,6 +305,9 @@ public static class HudMenu
     /// <summary>Content v4_4_0: the Fun page's Random and Default (the owner's 2026-11-03; !fun random, !fun default).</summary>
     public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
 
+    /// <summary>Content v4_5_0: the Fun page's Catch-up on and off (the owner's 2026-11-03; !catchup on|off). Arms Race only, like the boosts.</summary>
+    public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
+
     /// <summary>Content v3_1_0: the new-maps setting's three buttons and its line (the bridge's !newmaps, Selection.cs).</summary>
     public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never", NewMapsNow = "gg_set_new_now";
 
@@ -353,12 +356,20 @@ public static class HudMenu
         }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
+        if (MyQueued(s, m, account)) return "Cancel my request"; // the owner's 2026-11-03: undo an enqueue where it was made
         if (s.Queue.Any(q => q.Key == m.Key)) return "Queued - join it";
         if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again to play"; // fits the narrower Play of content v3_2_0's four small buttons
         return m.Risky ? "Play anyway?" : "Play it";
     }
 
     static string Votes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no votes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
+
+    /// <summary>This map is in the queue with this player among its requesters.</summary>
+    public static bool MyQueued(HudState s, HudCatalog.Entry m, long account) => account > 0 && s.Queue.Any(q => q.Key == m.Key && q.Accounts.Contains(account));
+
+    /// <summary>The keys of this player's queued requests (a ballot card's Remove mine).</summary>
+    public static HashSet<string> MyQueuedKeys(HudState? s, long account) =>
+        s == null || account <= 0 ? new() : s.Queue.Where(q => q.Accounts.Contains(account)).Select(q => q.Key).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The red strip across a card's picture: why the map is unavailable or broken (#8, #11: the reason, where the list gives one).</summary>
     static string Warning(HudCatalog.Entry m) => m.Removed ? "Removed from the Workshop" : m.Broken > 0 ? $"Broken: crashed {m.Broken}/{m.Broken} test loads"
@@ -490,6 +501,7 @@ public static class HudMenu
                 : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  this map runs its own" : s.Words));
             c.Add((FunRow(r), "used", s != null && (armsRace || !Fun.ArmsRaceOnly(s)))); // friendly fire's three are Arms Race's (#27 c): Deathmatch is free-for-all, Wingman runs Valve's
             c.Add((FunRow(r), "idle", idle));
+            c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // content v4_5_0 (the owner's 2026-11-03): a setting off its default stands out
             for (var k = 1; k <= Fun.ChoicesPerRow; k++)
             {
                 var choice = s != null && k <= s.Choices.Length ? s.Choices[k - 1] : null;
@@ -568,6 +580,7 @@ public static class HudMenu
                 case "ads": return $"!ads {m.Arg}";    // content v3_2_0
                 case "play":
                     if (m.Key == s.Key && s.Key != "") return null;
+                    if (MyQueued(s, m, account)) return $"!cancel {m.Arg}"; // your own request: Play takes it back (the owner's 2026-11-03)
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
                     if (m.Risky && !(b.ConfirmKey == m.Key && now < b.ConfirmUntil)) { b.ConfirmKey = m.Key; b.ConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds); }
                     else { b.ConfirmKey = ""; b.ConfirmUntil = default; }

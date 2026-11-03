@@ -1,6 +1,6 @@
 // The end-of-match vote (#26, the owner's decision of 2026-11-01; its ballot the owner's of 2026-11-03), the part both programs share: the
 // rules' numbers, the click the plugin sends, and the codec of the vote's lines in the live state. When a match ends, every player gets a vote
-// screen for MapVote.Seconds, or until a strict majority of the players present has voted for one option; the ballot holds every queued
+// screen for MapVote.Seconds, or until every human present has voted (the owner's 40 c, 2026-11-03; a strict majority before); the ballot holds every queued
 // request (each requester's vote already cast on their first), a map of each other mode, random maps of the server's mode until it holds at
 // least MinMaps maps, and Random. A player may add a map from the map browser while it is open (the owner's 2026-11-03): it goes on the
 // ballot for everybody, with that player's vote. The rules themselves are the bridge's (VoteRound.cs); docs/reference.md ("The end-of-match
@@ -13,7 +13,7 @@ using System.Text;
 
 public static class MapVote
 {
-    public const int Seconds = 60;     // the vote's timer (the owner's 60 s), or until a strict majority agrees (his 2026-11-01)
+    public const int Seconds = 60;     // the vote's timer (the owner's 60 s), or until everybody present has voted (his 40 c, 2026-11-03)
     public const int MinMaps = 8;      // the ballot holds at least this many maps (the owner's 2026-11-03): the cards of one page
     public const int MaxMaps = 48;     // and at most this many - six pages of eight - however many are queued or added; Random comes on top
     public const int MaxOptions = MaxMaps + 1;
@@ -42,8 +42,12 @@ public static class MapVote
     public static (long Round, int Option)? ParseClick(string command) =>
         IsAction(command) && command.Split(' ') is [_, var r, var n] ? (long.Parse(r, CultureInfo.InvariantCulture), int.Parse(n, CultureInfo.InvariantCulture)) : null;
 
-    /// <summary>The votes one option needs to end the vote early: a strict majority of the players present.</summary>
-    public static int Needed(int present) => present / 2 + 1;
+    /// <summary>The votes that end the vote early: every player present (the owner's 40 c, 2026-11-03 - a strict majority until then). Alone,
+    /// one vote ends it at once.</summary>
+    public static int Needed(int present) => Math.Max(1, present);
+
+    /// <summary>A strict majority of the players present: the rule until 2026-11-03, kept for the words that compare.</summary>
+    public static int Majority(int present) => present / 2 + 1;
 }
 
 /// <summary>How an option got onto the ballot: a queued request (its requesters' votes cast before the screen opens), a map the dice
@@ -67,6 +71,8 @@ public sealed class VoteState
     public long Starter;                              // that player's account id (0 at a match end)
     public List<Option> Options = new();              // in screen order, Random last; numbers never change once given, so a map added while the vote is open has a number after Random's
     public Dictionary<long, int> Choices = new();     // account id -> the option it voted for
+    public Dictionary<int, List<string>> Voters = new(); // option -> the names of the players whose vote is on it (content v4_5_0's chips; the fakes too)
+    public List<string> Waiting = new();              // the players present who have not voted yet, by name (the owner's 2026-11-03)
     public Outcome? Result;                           // once decided
 
     static string Source(VoteSource s) => s switch { VoteSource.Queue => "queue", VoteSource.Rolled => "rolled", VoteSource.Added => "added", VoteSource.Keep => "keep", _ => "random" };
@@ -83,6 +89,8 @@ public sealed class VoteState
         Line("mv", Round, Open ? "open" : "done", SecondsLeft, Present, Needed, Cast, MidMatch ? "mid" : "end", Starter);
         foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), o.Arg, o.Key, Hud.Clean(o.Label, 40), o.Size, o.Votes, o.Who);
         foreach (var (account, n) in Choices) Line("mvv", account, n);
+        foreach (var (n, names) in Voters) if (names.Count > 0) Line(["mvn", n, .. names.Select(x => (object)Hud.Clean(x, 24))]); // an older plugin skips it
+        if (Waiting.Count > 0) Line(["mvw", .. Waiting.Select(x => (object)Hud.Clean(x, 24))]);
         if (Result is { } r) Line("mvr", r.N, r.How, Hud.Clean(r.Label, 40), r.Mode);
         return s.ToString();
     }
@@ -108,10 +116,12 @@ public sealed class VoteState
                     v.Options.Add(new Option(Int(f, 1), Str(f, 2), src, Str(f, 4), Str(f, 5), Str(f, 6), Str(f, 7), Int(f, 8), Str(f, 9)));
                     break;
                 case "mvv" when Long(f, 1) >= 0 && Int(f, 2) > 0: v.Choices[Long(f, 1)] = Int(f, 2); break;
+                case "mvn" when Int(f, 1) > 0: v.Voters[Int(f, 1)] = f.Skip(2).Where(x => x != "").Take(64).ToList(); break;
+                case "mvw": v.Waiting = f.Skip(1).Where(x => x != "").Take(64).ToList(); break;
                 case "mvr" when Int(f, 1) > 0: v.Result = new Outcome(Int(f, 1), Str(f, 2), Str(f, 3), Str(f, 4)); break;
             }
         }
-        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Result = null; } // option lines without a vote line are not a vote
+        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Voters.Clear(); v.Waiting.Clear(); v.Result = null; } // option lines without a vote line are not a vote
         return v;
     }
 

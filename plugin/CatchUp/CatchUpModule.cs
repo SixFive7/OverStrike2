@@ -72,6 +72,18 @@ public sealed class CatchUpModule
 
     bool Active => config.Enabled && switchedOn && !stopped;
 
+    /// <summary>Whether the boosts run now (the Fun page lights it; content v4_5_0).</summary>
+    public bool On => Active;
+
+    /// <summary>The Fun page's and chat's switch (the owner's 2026-11-03): what 'gg_catchup on|off' does, until the map changes - the mode's own
+    /// switch at the next map start puts it back on in Arms Race.</summary>
+    public void Switch(bool on)
+    {
+        switchedOn = on;
+        if (on) { stopped = false; faults = 0; }
+        log.LogInformation("CatchUp: switched {State} from the Fun page or chat", on ? "on" : "off");
+    }
+
     public void Load(bool hotReload)
     {
         var summary = ReadConfig();
@@ -168,20 +180,38 @@ public sealed class CatchUpModule
             lives.Remove(victim.Slot); // the life is over, its boost with it
             if (!ladder.Tracking || !Playing(victim)) return HookResult.Continue;
             var attacker = ev.Attacker;
+            string kill;
             if (attacker is { IsValid: true } && attacker.Slot != victim.Slot && Playing(attacker))
             {
-                if (!Enemies(attacker, victim)) return HookResult.Continue; // a teammate's kill moves nobody on the ladder
-                var note = ladder.Kill(IdOf(attacker), IdOf(victim), ev.Weapon, CarriesGun(attacker));
+                string? note;
+                if (Enemies(attacker, victim)) note = ladder.Kill(IdOf(attacker), IdOf(victim), ev.Weapon, CarriesGun(attacker));
+                else note = ladder.TeamKill(IdOf(attacker), ev.Weapon); // friendly fire's team kill: Arms Race takes the killer down a level
                 if (note != null)
                 {
                     var name = attacker.PlayerName;
                     Server.NextFrame(() => log.LogInformation("CatchUp: {Name} {Note}", name, note));
                 }
+                kill = $"{attacker.PlayerName} ({TeamName(attacker)}, {Where(attacker)}) killed {victim.PlayerName} ({TeamName(victim)}, {Where(victim)}) with {Weapons.Name(ev.Weapon)}"
+                    + (Enemies(attacker, victim) ? "" : " - a team kill");
             }
-            else ladder.Suicide(IdOf(victim));
+            else
+            {
+                ladder.Suicide(IdOf(victim));
+                kill = $"{victim.PlayerName} ({TeamName(victim)}, {Where(victim)}) died without an enemy ({Weapons.Name(ev.Weapon)})";
+            }
+            Server.NextFrame(() => log.LogInformation("CatchUp: kill: {Kill}", kill)); // every kill, with the ladder after it, for the next look at the counts
         }
         catch (Exception e) { Fault("counting a kill", e); }
         return HookResult.Continue;
+    }
+
+    static string TeamName(CCSPlayerController p) => p.Team switch { CsTeam.Terrorist => "T", CsTeam.CounterTerrorist => "CT", var t => t.ToString() };
+
+    /// <summary>A player's place on the ladder as the counter has it, after the kill: "level 7 + 1 = 15" (kills), and whether it followed them from the start.</summary>
+    string Where(CCSPlayerController p)
+    {
+        var (level, kills, trusted) = ladder.State(IdOf(p));
+        return $"level {level} + {kills} = {level * config.Progress.KillsPerLevel + kills}{(trusted ? "" : ", placed")}";
     }
 
     /// <summary>Whether a player carries a gun. Nobody does on the last level, the golden knife. A dead attacker (a grenade thrown
@@ -222,8 +252,10 @@ public sealed class CatchUpModule
             var now = Server.CurrentTime;
             var id = IdOf(player);
 
+            // The base is the health this life spawned with - the game's 100, or a fun setting's own (Vampire's 1,000) - never the maximum:
+            // Vampire raises that to its 2,000 cap, and a boost of it gave 2,300 to 2,900 at a spawn (the analysis of 2026-11-03).
             // The pawn lives on across respawns: if it still holds what this module set last life, the base is the one under it.
-            var baseHealth = Math.Max(1, Math.Max(pawn.Health, pawn.MaxHealth));
+            var baseHealth = Math.Max(1, pawn.Health);
             var stale = healthSet.TryGetValue(slot, out var set) && pawn.MaxHealth == set.Set;
             if (stale) baseHealth = set.Base;
             healthSet.Remove(slot);
@@ -232,8 +264,11 @@ public sealed class CatchUpModule
             var boost = Boost.None;
             if (Active && ladder.Tracking && !Warmup())
             {
-                standings = ladder.Standings(Players().Select(IdOf));
-                boost = Rules.Decide(config, standings, id);
+                var present = Players();
+                standings = ladder.Standings(present.Select(IdOf));
+                var leaderId = standings.Leader;
+                var leader = leaderId == 0 ? null : present.FirstOrDefault(p => IdOf(p) == leaderId);
+                boost = Rules.Decide(config, standings, id, leader != null && leader.Slot != player.Slot && !Enemies(player, leader)); // the leader's teammate: no bounty in the cap
             }
 
             var spawnHealth = baseHealth;

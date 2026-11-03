@@ -33,7 +33,7 @@ so nobody is left standing in it. Its pages:
 | **Maps** | Eight cards a page, each with the map's picture, number, size and votes, its Play button and vote arrows, and the mode it plays in: a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search on an on-screen keyboard over names, tags and Workshop ids; sort by number, votes, name or size; filter by size (under 25 MB, 25-120, 120-400, 400 and up), by your own likes, by official maps, by Our maps (its button glows) and by game mode. A map with no picture in the HUD has a button on its card that shows its Workshop preview on request. Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the Workshop about it, and **Download and play** fetches it to the server, with the progress on the card, while nobody's game is interrupted; then it plays like any pick. |
 | **Queue** | Who is next and who asked, Cancel on your own requests or all of them, Previous for the map before this one. |
 | **Game** | The match length (10 or 60 minutes, from the next match), new maps in random picks (always, half, never), and Restart for a stuck server, twice to confirm. |
-| **Fun** | The fun settings and the grenade drops, with **Random** (every setting drawn at random) and **Default** (everything back to normal). |
+| **Fun** | The fun settings, the grenade drops and catch-up, with **Random** (every setting drawn at random) and **Default** (everything back to normal); a setting off its default is gold with a dot. |
 | **Help** | Where everything is, and what it does. |
 | **Rules** | The vote, how votes count, the fair queue. |
 | **How it works** | Every chance in a map pick: the queue, Next, the vote, the lists, the weights and everything that is never rolled. |
@@ -53,7 +53,7 @@ lists the primaries; the table with all of them is in [docs/reference.md](docs/r
 | Maps | `!play` `!find` `!maps` `!next` `!random` `!back` |
 | Queue | `!q` `!cancel` `!done` |
 | Voting | `!up` `!down` `!toobig` `!ads` `!vote` |
-| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!time` `!newmaps` `!restart` |
+| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!catchup` `!time` `!newmaps` `!restart` |
 | Menu | `!menu` `!help` `!rules` `!how` `!sync` |
 
 **Aliases teach.** Every command has its aliases, and the words players know from other servers are among them (`!map`, `!rtv`,
@@ -62,7 +62,7 @@ from the others; a `!` line stays as normal chat. A pasted Workshop link or id o
 
 ### The fair queue
 
-Play on a card is a request. On a map nobody holds, a random map or the start map, it plays at once; on somebody's map it waits in the
+Play on a card is a request; on your own queued map Play takes it back (on a ballot card, **Remove mine**; or `!cancel`). On a map nobody holds, a random map or the start map, it plays at once; on somebody's map it waits in the
 queue. A map two or more players on the server want goes first, then whoever has had the least play time from their own requests
 this session, so one player's five requests wait behind everyone else's first. Each player has up to five requests, and only players on the
 server are queued. A requested map stays until its match ends, its requester says **I'm done**, a vote replaces it, or its requester has been
@@ -70,22 +70,24 @@ gone for over a minute while others wait. **Next** starts the vote for the next 
 
 ### The vote for the next map
 
-When a match ends everybody votes on the Maps page's cards, for 60 seconds or until a strict majority of the players present agrees. The
-ballot holds at least eight maps, and Random:
+When a match ends everybody votes on the Maps page's cards, for 60 seconds or until everybody on the server has voted (alone, your vote ends it
+at once). The ballot holds at least eight maps, and Random:
 
 1. the queue: every request, with each connected requester's vote already in on their first;
 2. a map of each other game mode that suits the players on, unless a request is one;
 3. maps of the server's own mode, rolled like every random pick, up to eight maps in all;
 4. Random, a button of its own: the dice after the vote.
 
-Every card shows its mode. Eight cards make a page, and a longer ballot pages, with a hint you cannot miss. **Open the map browser** lets you put
+Every card shows its mode, and while the vote runs its share of the votes as a bar and its voters' names; the leading card is lit (or a tie
+shows as a tie), a strip across the top splits the votes by card, and a line names everybody who has not voted yet. A match-end vote stays on
+screen until it is over. Eight cards make a page, and a longer ballot pages, with a hint you cannot miss. **Open the map browser** lets you put
 any map on the ballot for everybody, with your vote on it (one map each; `!play` in chat does the same). Click a card's Vote, or type its number:
 a bare `3`, or `!vote 3`. A click also shows in chat, as that player's `!vote 3`, so menu users learn the chat way. The most votes win, a tie is
 drawn at random, and no votes at all is Random. A queued map that loses stays queued. The map a vote chose stays until its match ends or another
 vote replaces it.
 
 **Next starts the same vote at any time**, with one card more: **Keep playing** the map that is on. Only your own window opens; the others see
-it on the news line. If Keep wins, or nobody votes, the map stays - a request stays its requester's - and you wait 2 minutes before starting
+it on the news line and a gold line at the top of the screen, and TAB or `!vote` opens it. If Keep wins, or nobody votes, the map stays - a request stays its requester's - and you wait 2 minutes before starting
 another. Any other winner replaces the map, even somebody's request: that is the only way to cut one short. `!random` is the same vote with
 your vote on Random. On your own map Next is I'm done, and the vote that follows has no Keep playing.
 
@@ -129,6 +131,8 @@ chosen comes back no sooner than the dice would bring it.
 ### Fun settings
 
 Sixteen settings anybody can switch until the map changes, each with its own word; a bare `!fun` opens the page and writes the words in chat.
+Every change shows centre screen for everybody for 10 seconds, with who made it, and a setting off its default is gold with a dot on the page.
+**Catch-up** has its own row there too: on by default, off for everybody until the map changes (`!catchup off`).
 **Random** on the page (`!fun random`) draws every setting from its own choices and the grenade drops on or off, never a combination the page would
 not make; **Default** (`!fun default`) puts everything back as 10 minutes with nobody on does. Either says in chat who did it.
 
@@ -161,12 +165,16 @@ kills behind they are.
 
 | Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
 |---|---|---|---|---|---|---|
-| 2 | +20% | -10% | +10% | 10% | 2% a second | |
-| 4 | +40% | -20% | +20% | 20% | 4% a second | a second chance once per life, 2 s more spawn protection |
-| 7 | +75% | -30% | +30% | 30% | 6% a second | a second chance, 3 s more spawn protection, infinite ammo, a one-hit knife and Zeus |
+| 2 | +30% | -15% | +15% | 15% | 3% a second, after 4 s unhurt | |
+| 4 | +60% | -25% | +25% | 25% | 5% a second, after 3 s | a second chance once per life, 2 s more spawn protection |
+| 7 | +100% | -35% | +40% | 35% | 8% a second, after 2 s | a second chance, 3 s more spawn protection, infinite ammo, a one-hit knife and Zeus |
 
-A leader 2 kills or more ahead of second place takes more damage: 10% for every 2 kills of lead, up to 30%. A cap keeps the sum of it all from making a
-boosted player stronger than the leader on paper. The kill count comes from the match's own events ([`plugin/CatchUp/`](plugin/CatchUp/)).
+The health is a share of what the life spawned with: 1,000 under Vampire, never Vampire's 2,000 ceiling. A leader 2 kills or more ahead of second place
+takes more damage from enemies: 10% for every 2 kills of lead, up to 30%. A cap keeps the sum of it all within what the scoreboard shows: a boosted
+player may be at most twice the leader's shown edge, (the leader's kills + 1) / (theirs + 1), and never more than 3.5 times as strong on paper. For
+the leader's enemies the bounty counts first inside that cap; the leader's own teammates, who never fight him, get the whole of it. A team kill
+under friendly fire takes the killer down a level, as Arms Race does. The kill count comes from the match's own events, and every kill is in the
+plugin's log with the counts after it ([`plugin/CatchUp/`](plugin/CatchUp/)).
 
 ### Broken maps and why
 
