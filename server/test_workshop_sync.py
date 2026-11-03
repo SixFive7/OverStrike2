@@ -108,49 +108,45 @@ def api_with(led, clock, answers, key=KEY, gap=2.0):
 
 # ---- configuration: the owner's limits can only be lowered ------------------------------------------------------
 os.environ.update({"SYNC_API_DAY_CAP": "20000", "SYNC_API_NIGHT_CAP": "99999", "SYNC_API_GAP_SECONDS": "0.5",
-                   "SYNC_DOWNLOAD_MAX": "8000", "SYNC_DOWNLOAD_MAX_MB": "999999", "SYNC_DOWNLOAD_PAUSE": "0.1"})
+                   "SYNC_DOWNLOAD_MAX": "8000", "SYNC_DOWNLOAD_MAX_MB": "999999", "SYNC_DOWNLOAD_PAUSE": "0.1"})   # the two caps: ignored
 c = m.Config()
 check("config: a day cap above 10,000 is clamped to 10,000", c.api_day_cap == 10000)
-check("config: the night cap never exceeds the day cap", c.api_night_cap == 10000)
+check("config: the run's cap never exceeds the day cap (SYNC_API_NIGHT_CAP, the old name, still read)", c.api_run_cap == 10000)
 check("config: the gap never drops under 2 s", c.api_gap == 2.0)
-check("config: downloads at most 1,500 a day", c.download_max == 1500)
-check("config: downloads at most 150 GB a day", c.download_bytes == 150 << 30)
+check("config: no daily download cap any more (the owner's 36 c): SYNC_DOWNLOAD_MAX and SYNC_DOWNLOAD_MAX_MB mean nothing",
+      not hasattr(c, "download_max") and not hasattr(c, "download_bytes"))
 check("config: the pause between downloads never drops under 2 s", c.download_pause == 2.0)
 for k in ("SYNC_API_DAY_CAP", "SYNC_API_NIGHT_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB", "SYNC_DOWNLOAD_PAUSE"):
     del os.environ[k]
 c = m.Config()
-check("config: defaults are 500 calls a night, 10,000 in 24 h, 2 s, 1,500 downloads, 150 GB",
-      (c.api_night_cap, c.api_day_cap, c.api_gap, c.download_max, c.download_bytes) == (500, 10000, 2.0, 1500, 150 << 30))
-check("config: no day window unless both ends are set", c.day_start is None and c.day_end is None)
-os.environ["SYNC_DAY_AT"] = "07:15"
-check("config: one end alone is no window", m.Config().day_start is None)
-os.environ["SYNC_DAY_END"] = "18:00"
-check("config: the day's window", (m.Config().day_start, m.Config().day_end) == ((7, 15), (18, 0)))
-del os.environ["SYNC_DAY_AT"], os.environ["SYNC_DAY_END"]
-c.lower({"api_night_cap": 50, "download_max": 5, "download_max_mb": 200, "publish": False})
-check("config: run-now lowers a run's limits", (c.api_night_cap, c.download_max, c.download_bytes, c.publish) == (50, 5, 200 << 20, False))
-c.lower({"api_night_cap": 5000, "download_max": 1000})
-check("config: run-now cannot raise them", (c.api_night_cap, c.download_max) == (50, 5))
+check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s", (c.api_run_cap, c.api_day_cap, c.api_gap) == (500, 10000, 2.0))
+check("config: no time windows - the prefetch at 03:30 and the daily restart at 07:00 to keep clear of, runs of 3 h, the API every 4 h",
+      not hasattr(c, "day_start") and not hasattr(c, "start") and (c.prefetch_at, c.daily_restart, c.run_hours, c.api_every) == ((3, 30), (7, 0), 3, 4 * 3600))
+c.lower({"api_night_cap": 50, "batch": 5, "publish": False, "api": True})
+check("config: run-now lowers a run's limits, and may ask for the API steps", (c.api_run_cap, c.batch, c.publish, c.force_api) == (50, 5, False, True))
+c.lower({"api_run_cap": 5000, "batch": 1000})
+check("config: run-now cannot raise them", (c.api_run_cap, c.batch) == (50, 5))
 check("ledger: the hard day cap cannot be raised by a caller", m.ApiLedger("x", 50000, 10, FakeClock(0)).day_cap == 10000)
 
 # ---- the ledger: rolling 24 h, the night, persisted before every call ----------------------------------------------
 lp = os.path.join(ROOT, "ledger1.json")
-led, clock = ledger(lp, day_cap=10000, night_cap=500)
+led, clock = ledger(lp, day_cap=10000, night_cap=None)
 night = clock.day()
-for i in range(500):
+for i in range(600):
     led.reserve(night, "GetPublishedFileDetails")
+check("ledger: no night cap any more (no time windows): call 601 of a day goes, under the 24 h cap", led.reserve(night, "QueryFiles") >= 0)
+check("ledger: every reserved call is on disk", len(json.load(open(lp))["calls"]) == 601)
+led2, _ = ledger(lp, night_cap=None, t=clock.t)
+check("ledger: the day's count survives a restart (a new process reads the file)", led2.tonight(night) == 601)
+capped, sent_c, _ft = api_with(ledger(os.path.join(ROOT, "ledger-run.json"))[0], FakeClock(1793500000.0), [{"response": {}}] * 5)
+capped.run_cap = 3
+for i in range(3):
+    capped.call("GetPublishedFileDetails", m.DETAILS_URL, data=[("itemcount", 1)])
 try:
-    led.reserve(night, "QueryFiles")
-    check("ledger: call 501 of a night is refused", False)
+    capped.call("GetPublishedFileDetails", m.DETAILS_URL, data=[("itemcount", 1)])
+    check("api: the run's cap - its 4th call of 3 is refused, and nothing is sent", False)
 except m.StopNight as e:
-    check("ledger: call 501 of a night is refused", "tonight's cap of 500" in str(e))
-check("ledger: every reserved call is on disk", len(json.load(open(lp))["calls"]) == 500)
-led2, _ = ledger(lp, night_cap=500, t=clock.t)
-try:
-    led2.reserve(night, "QueryFiles")
-    check("ledger: the night cap survives a restart (a new process reads the file)", False)
-except m.StopNight:
-    check("ledger: the night cap survives a restart (a new process reads the file)", True)
+    check("api: the run's cap - its 4th call of 3 is refused, and nothing is sent", "this run's cap of 3" in str(e) and len(sent_c) == 3)
 # the rolling day: 10,000 across nights
 lp = os.path.join(ROOT, "ledger2.json")
 led, clock = ledger(lp, day_cap=10000, night_cap=10000)
@@ -207,7 +203,7 @@ for code in (429, 403, 401):
         led2.reserve(clock.day(), "QueryFiles")
         check("api: the HTTP %d stop is in the ledger, so a restart cannot resume tonight" % code, False)
     except m.StopNight as e:
-        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume tonight" % code, "stopped earlier tonight" in str(e))
+        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume tonight" % code, "stopped earlier today" in str(e))
 # 5xx: three in a row stop (the retries count)
 lp = os.path.join(ROOT, "ledger-5xx.json")
 led, clock = ledger(lp)
@@ -336,28 +332,26 @@ check("check: over 10% of 50+ gone is not believed (the bridge's own rule)", j["
 
 # ---- downloads: the day's items and volume, persisted ---------------------------------------------------------------
 st = m.State(os.path.join(ROOT, "st3.json"))
-b = m.DownloadBudget(st, "2026-11-01", 50, 3 << 30)
-ok_count = 0
-while b.allows(10 << 20)[0]:
-    b.spend(10 << 20)
-    ok_count += 1
-check("downloads: the 51st download is refused", ok_count == 50 and "50 downloads" in b.allows(1)[1])
+b = m.DownloadBudget(st, "2026-11-01")
+for i in range(3000):
+    b.spend(1 << 30, str(10000 + i))
+check("downloads: no daily cap (the owner's 36 c) - after 3,000 downloads and 3,000 GB in a day the next is allowed",
+      b.allows("1")[0] and b.night["items"] == 3000 and b.night["bytes"] == 3000 << 30)
+b.spend(10, "7")
+b.spend(10, "7")
+check("downloads: the bug brake - a map downloaded twice today is not downloaded a third time today, another one is",
+      not b.allows("7")[0] and "the bug brake" in b.allows("7")[1] and b.allows("8")[0])
 st.save()
 st2 = m.State(os.path.join(ROOT, "st3.json")).load()
-b2 = m.DownloadBudget(st2, "2026-11-01", 50, 3 << 30)
-check("downloads: the count survives a restart", not b2.allows(1)[0])
-b3 = m.DownloadBudget(st2, "2026-11-02", 50, 3 << 30)
-b3.spend(3 << 30)
-check("downloads: 3 GB a night", not b3.allows(1)[0] and "3.0 GB" in b3.allows(1)[1])
-check("downloads: a caller cannot raise the caps", m.DownloadBudget(st2, "x", 5000, 500 << 30).max_items == 1500
-      and m.DownloadBudget(st2, "y", 5000, 500 << 30).max_bytes == 150 << 30)
-b4 = m.DownloadBudget(st2, "z", 50, 3 << 30)
+check("downloads: the book and the brake survive a restart", not m.DownloadBudget(st2, "2026-11-01").allows("7")[0])
+check("downloads: the next day, the map may come again", m.DownloadBudget(st2, "2026-11-02").allows("7")[0])
+b4 = m.DownloadBudget(st2, "z")
 b4.refuse_for_today("Rate Limit Exceeded")
 st2.save()
 st5 = m.State(os.path.join(ROOT, "st3.json")).load()
 check("downloads: a rate limit ends the day's downloads, also for a later run that day",
-      not m.DownloadBudget(st5, "z", 50, 3 << 30).allows(0)[0] and "Rate Limit Exceeded" in m.DownloadBudget(st5, "z", 50, 3 << 30).allows(0)[1])
-check("downloads: the next day starts clean", m.DownloadBudget(st5, "zz", 50, 3 << 30).allows(0)[0])
+      not m.DownloadBudget(st5, "z").allows()[0] and "Rate Limit Exceeded" in m.DownloadBudget(st5, "z").allows("1")[1])
+check("downloads: the next day starts clean", m.DownloadBudget(st5, "zz").allows()[0])
 check("downloads: what stops them", m.STEAMCMD_STOP_RX.search("Rate Limit Exceeded") and m.STEAMCMD_STOP_RX.search("Too many requests")
       and not m.STEAMCMD_STOP_RX.search("Access Denied") and m.ACCESS_DENIED_RX.search("Access Denied"))
 
@@ -558,12 +552,12 @@ files3["search"] = json.loads(texts3["search.json"])
 check("publish: ...and then there is nothing to write", m.plan_publish(files3, st, N, [], [], False, {})[0] == {})
 
 # ---- the mail ------------------------------------------------------------------------------------------------------
-r = {"night": N, "manual": False, "api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for tonight",
+r = {"night": N, "manual": False, "api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day",
      "discovery": {"skipped": "stopped"}, "check": {"asked": 10, "calls": 1}, "downloads": {"ok": 0}, "tests": {"rows": []},
-     "published": {}, "limits": {"api_night": 3, "api_night_cap": 500, "api_24h": 3, "api_day_cap": 10000}}
+     "published": {}, "limits": {"api_run": 3, "api_run_cap": 500, "api_24h": 3, "api_day_cap": 10000}}
 subject, body = m.mail_text(r, m.Config())
 check("mail: a stop is in the subject and the body", "STOPPED: HTTP 429" in subject and "STOPPED: Steam's Web API answered HTTP 429" in body)
-check("mail: the limits are reported", "Web API calls tonight 3 of 500, last 24 h 3 of 10000" in body)
+check("mail: the limits are reported", "Web API calls this run 3 of 500, last 24 h 3 of 10000" in body)
 
 # ---- the backlog: strictly most subscribed first, whatever the mode; its size and estimate in the mail -----------------
 items = {"1": {"tags": ["Deathmatch"], "subs": 100, "size": 10 << 20}, "2": {"tags": ["Deathmatch"], "subs": 90, "size": 10 << 20},
@@ -574,20 +568,12 @@ check("backlog: strictly by subscribers across the modes", o == ["1", "5", "2", 
 c = m.Config()
 bs = m.backlog_stats(items, list(items), c)
 check("backlog: counted per mode", bs["items"] == 6 and bs["by_mode"] == {"armsrace": 2, "deathmatch": 4, "wingman": 2})
-c.download_max = 2
-check("backlog: the estimate is set by the slowest bound (6 items at 2 a day: 3 days)", m.backlog_stats(items, list(items), c)["days"] == 3)
-c = m.Config()
-c.download_bytes = 20 << 20
-check("backlog: real bytes count, nothing halved (60 MB at 20 MB a day: 3 days)", m.backlog_stats(items, list(items), c)["days"] == 3)
 c = m.Config()
 big = {str(i): {"tags": ["Wingman"], "subs": 1, "size": 100 << 20} for i in range(5255)}
-night_only = m.backlog_stats(big, list(big), c)
-check("backlog: the night's window alone, about 2.9 h at 31 s a map: 339 maps a day, 16 days for the backlog of 2026-11-01",
-      night_only["hours"] == 2.9 and night_only["days"] == 16)
-c.day_start, c.day_end = (7, 15), (18, 0)
 both = m.backlog_stats(big, list(big), c)
-check("backlog: with the day's window, 13.7 h at 31 s a map stops at the 1,500 cap: 4 days", both["hours"] == 13.7 and both["days"] == 4)
-check("backlog: a pace measured counts", m.backlog_stats(big, list(big), c, pace=60.0)["days"] == 7)
+check("backlog: no time windows, about 22 h a day at 31 s a map, 2,554 a day - no daily cap: 3 days for the backlog of 2026-11-01",
+      both["hours"] == 22 and both["per_day"] == 2554 and both["days"] == 3)
+check("backlog: a pace measured counts", m.backlog_stats(big, list(big), c, pace=60.0)["days"] == 4)
 r2 = dict(r, api_stop=None, backlog=bs, backlog_until=" (until about 2026-11-04)")
 subject2, body2 = m.mail_text(r2, m.Config())
 check("mail: the backlog's size, per mode, and its estimate", "Backlog: 6 item(s) waiting" in body2 and "Deathmatch 4, Wingman 2, Arms Race 2" in body2
@@ -598,7 +584,7 @@ subject3, body3 = m.mail_text(r3, m.Config())
 check("mail: a long run gives counts, what did not pass, a taste of what did", "60 PASS, 1 CRASHER." in body3 and "CRASHER  bad (1)" in body3
       and "and 50 more passes" in body3 and "map30 " not in body3)
 check("mail: a long mode list is counted", "maps-wingman.json  60 new maps" in body3)
-check("mail: a day run says so", "(day run)" in m.mail_text(dict(r, day_run=True), m.Config())[0])
+check("mail: a run says when it started", "(the run of 03:30)" in m.mail_text(dict(r, started_hm="03:30"), m.Config())[0])
 # the publish steps of a run add up
 mp = m.merge_published({"listed": [("1", 1, "a", 5)], "modes": {"wingman": [("2", "b")]}, "files": ["maps.json"], "reload": "x"},
                        {"listed": [("3", 2, "c", 5)], "modes": {"wingman": [("4", "d")], "deathmatch": [("5", "e")]}, "files": ["maps.json", "search.json"], "reload": "y"})
@@ -816,30 +802,139 @@ run_items = {str(1000 + i): {"status": "queued", "ws": "ok", "app": 730, "tags":
 run_items["2000"] = dict(run_items["1000"], subs=1, created=T0 - m.DAY, title="new upload")
 json.dump({"schema": 1, "items": run_items, "baseline": {}, "runs": [], "downloads": {}}, open(os.path.join(run_root, "state", "state.json"), "w"))
 cfg = m.Config()
-cfg.batch, cfg.download_max, cfg.download_pause = 2, 5, 0
+cfg.batch, cfg.download_pause = 2, 0
 fc = FakeClock(T0)
 nr = m.Night(cfg, fc, manual=True)
+FakeSteam.answers = {"1002": "Rate Limit Exceeded"}   # Steam pushes back at the sixth: no daily cap ends a run any more, that does
 rep = nr.run()
+FakeSteam.answers = {}
 check("run: a new upload first, then strictly by subscribers", FakeSteam.asked[:5] == ["2000", "1006", "1005", "1004", "1003"])
-check("run: every download was tested", sorted(loads) == sorted(FakeSteam.asked))
+check("run: every download was tested", sorted(loads) == sorted(FakeSteam.asked[:5]))
 check("run: 5 downloads in batches of 2: 3 logins, one engine for each batch with work", FakeSteam.logins == 3 and rep["downloads"]["ok"] == 5)
-check("run: the day's cap ends it, with the reason", "today's cap of 5 downloads" in rep["downloads"].get("stop", ""))
+check("run: Steam's push-back ends it, with the reason", "Rate Limit Exceeded" in rep["downloads"].get("stop", ""))
 wing = json.load(open(os.path.join(run_data, "maps-wingman.json"), encoding="utf-8"))
 check("run: every batch published (5 maps on the list, the report adds them up)",
       len(wing) == 5 and len(rep["published"]["modes"]["wingman"]) == 5 and "maps-wingman.json" in rep["published"]["files"])
 check("run: staging is empty again", os.listdir(os.path.join(run_root, "work", "staging", "steamapps", "workshop", "content", "730")) == [])
 state_after = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
 check("run: the rest waits, the day's book says 5", state_after["downloads"]["2026-11-01"]["items"] == 5
-      and sum(1 for r in state_after["items"].values() if r["status"] == "queued") == 3)
+      and sum(1 for r in state_after["items"].values() if r["status"] in ("queued", "retry")) == 3)
 check("run: the mail's estimate counts what is left", rep["backlog"]["items"] == 3 and "Backlog: 3 item(s)" in open(rep["report_path"][:-5] + ".txt", encoding="utf-8").read())
-check("run: no last_run_day from a manual run", state_after.get("last_run_day") in (None, ""))
-check("run: the estimate takes the service's caps, not the manual run's lowered one", rep["backlog"]["per_day"][0] == m.Config().download_max != 5)
+check("run: the state remembers the run, and when the API steps last ran", state_after["last_run"]["ended"] > 0 and state_after.get("last_api") == T0)
+check("run: the estimate counts on the day without the restarts' stretches", rep["backlog"]["hours"] == 22)
+
+
+# the status file for the in-game dashboard (schema 1): written by the run into the bridge's data, atomically
+def status_problems(doc):
+    """What in `doc` breaks schema 1 (the dashboard's contract: fields may be added, never renamed or dropped)."""
+    out = []
+    num = (int, float)
+
+    def need(obj, key, kinds, where):
+        if not isinstance(obj, dict) or key not in obj:
+            out.append("%s.%s missing" % (where, key))
+            return None
+        if not isinstance(obj[key], kinds):
+            out.append("%s.%s is %s" % (where, key, type(obj[key]).__name__))
+        return obj[key]
+    need(doc, "schema", int, "")
+    if doc.get("schema") != 1:
+        out.append("schema is not 1")
+    need(doc, "updated", int, "")
+    now = need(doc, "now", dict, "") or {}
+    if now.get("state") not in ("idle", "waiting", "discovery", "check", "ratings", "serve", "download", "test", "publish", "stopped"):
+        out.append("now.state is %r" % now.get("state"))
+    need(now, "why", str, "now")
+    for key, fields in (("map", (("id", str), ("name", str), ("mode", str), ("sizeMb", int))), ("step", (("done", int), ("total", int))),
+                        ("run", (("started", int), ("deadline", int), ("kind", str)))):
+        v = need(now, key, (dict, type(None)), "now")
+        for f, kind in fields if isinstance(v, dict) else ():
+            need(v, f, kind, "now." + key)
+    today = need(doc, "today", dict, "") or {}
+    for f in ("downloads", "bytes", "pass", "rejected", "failedDownloads", "apiCalls"):
+        need(today, f, int, "today")
+    totals = need(doc, "totals", dict, "") or {}
+    for f in ("tested", "pass", "broken", "nonmap"):
+        need(totals, f, int, "totals")
+    listed = need(totals, "listed", dict, "totals") or {}
+    queue = need(doc, "queue", dict, "") or {}
+    for f in ("total", "bytes"):
+        need(queue, f, int, "queue")
+    by_mode = need(queue, "byMode", dict, "queue") or {}
+    for mode in ("armsrace", "deathmatch", "wingman"):
+        need(listed, mode, int, "totals.listed")
+        need(by_mode, mode, int, "queue.byMode")
+    need(queue, "eta", (int, type(None)), "queue")
+    nxt = need(queue, "next", list, "queue") or []
+    if len(nxt) > 25:
+        out.append("queue.next holds %d" % len(nxt))
+    for e in nxt:
+        for f, kind in (("id", str), ("name", str), ("mode", str), ("sizeMb", int), ("why", str)):
+            need(e, f, kind, "queue.next[]")
+    serve = need(queue, "serve", dict, "queue") or {}
+    need(serve, "missing", int, "queue.serve")
+    need(serve, "bytes", int, "queue.serve")
+    keep = need(doc, "keep", dict, "") or {}
+    for e in need(keep, "parts", list, "keep") or []:
+        if e.get("part") not in ("up", "rated", "popular", "subscribed", "own", "hud", "queues"):
+            out.append("keep.parts[].part is %r" % e.get("part"))
+        for f, kind in (("mode", str), ("count", int), ("onDisk", int), ("gb", num)):
+            need(e, f, kind, "keep.parts[]")
+    need(keep, "totalGb", num, "keep")
+    hist = need(doc, "history", dict, "") or {}
+    runs, maps_ = need(hist, "runs", list, "history") or [], need(hist, "maps", list, "history") or []
+    if len(runs) > 50 or len(maps_) > 200:
+        out.append("history holds %d runs, %d maps" % (len(runs), len(maps_)))
+    for e in runs:
+        for f in ("started", "ended", "kind", "downloads", "bytes", "pass", "rejected", "listed", "removed", "stop"):
+            if f not in e:
+                out.append("history.runs[].%s missing" % f)
+    for e in maps_:
+        for f, kind in (("at", int), ("id", str), ("name", str), ("mode", str), ("event", str), ("why", str)):
+            need(e, f, kind, "history.maps[]")
+        if e.get("event") not in ("listed", "broken", "removed", "changed", "handed-over", "failed"):
+            out.append("history.maps[].event is %r" % e.get("event"))
+    return out
+
+
+sp = os.path.join(run_data, "sync-status.json")
+sdoc = json.load(open(sp, encoding="utf-8"))
+check("status: the run wrote sync-status.json into the bridge's data, schema 1 (%s)" % status_problems(sdoc)[:4], status_problems(sdoc) == [])
+check("status: after the run it says idle, no map, no step, no run", sdoc["now"]["state"] == "idle" and sdoc["now"]["map"] is None
+      and sdoc["now"]["step"] is None and sdoc["now"]["run"] is None and "has ended" in sdoc["now"]["why"])
+check("status: written atomically - no tmp file left beside it", not [n for n in os.listdir(run_data) if n.startswith(".sync-status")])
+check("status: today's counts - 5 downloads, 5 passes, the day's API calls", (sdoc["today"]["downloads"], sdoc["today"]["pass"]) == (5, 5)
+      and sdoc["today"]["apiCalls"] == state_after.get("api_calls_today", sdoc["today"]["apiCalls"]))
+check("status: the totals and the lists - 5 tested, 5 passed, 5 on the Wingman list, 1 on Arms Race", (sdoc["totals"]["tested"],
+      sdoc["totals"]["pass"], sdoc["totals"]["listed"]["wingman"], sdoc["totals"]["listed"]["armsrace"]) == (5, 5, 5, 1))
+check("status: the queue - the 3 left, in the order the downloads take them, each with why", sdoc["queue"]["total"] == 3
+      and [e["id"] for e in sdoc["queue"]["next"]] == [w for w in ("1002", "1001", "1000")] and all(e["why"] for e in sdoc["queue"]["next"])
+      and sdoc["queue"]["byMode"]["wingman"] == 3 and sdoc["queue"]["eta"] > T0)
+check("status: the run's history line - manual, 5 downloads, 5 passed, 5 listed, Steam's push-back as its stop",
+      sdoc["history"]["runs"][0]["kind"] == "manual" and (sdoc["history"]["runs"][0]["downloads"], sdoc["history"]["runs"][0]["pass"],
+      sdoc["history"]["runs"][0]["listed"]) == (5, 5, 5) and "Rate Limit" in (sdoc["history"]["runs"][0]["stop"] or ""))
+ev = sdoc["history"]["maps"]
+check("status: the map events, newest first - 5 listed, the failed download (%s)" % sorted(set(e["event"] for e in ev)),
+      sum(1 for e in ev if e["event"] == "listed") == 5 and any(e["event"] == "failed" and e["id"] == "1002" for e in ev)
+      and ev == sorted(ev, key=lambda e: -e["at"]))
+check("status: the day's failed downloads are counted", sdoc["today"]["failedDownloads"] == 1)
+st_obj = m.Status(cfg, fc)
+st_obj.path = os.path.join(run_data, "tick-status.json")
+real_tick = m.STATUS_TICK
+m.STATUS_TICK = 0.05
+st_obj.set(state="download", why="x")
+st_obj.start_ticker()
+m.time.sleep(0.4)
+st_obj.stop_ticker()
+m.STATUS_TICK = real_tick
+tick_doc = json.load(open(st_obj.path, encoding="utf-8"))
+check("status: the ticker writes the file while a run is active, and stops", tick_doc["now"]["state"] == "download" and st_obj.ticker is None)
 # somebody joins during a test: the engine stops at once, nothing runs until the quiet time is over
 loads[:] = []
 FakeSteam.logins = 0
 fc2 = FakeClock(T0 + m.DAY)
 cfg2 = m.Config()
-cfg2.batch, cfg2.download_max, cfg2.download_pause, cfg2.quiet = 3, 3, 0, 600
+cfg2.batch, cfg2.download_pause, cfg2.quiet = 3, 0, 600
 slept = []
 def sleeper(n):
     slept.append(n)
@@ -886,12 +981,31 @@ check("stop: a rate limit ends the downloads, the next item is not asked for", "
 rep4 = m.Night(cfg3, FakeClock(T0 + 2 * m.DAY + 3600), manual=True).run()
 check("stop: a later run that day downloads nothing", rep4["downloads"]["ok"] == 0 and "Rate Limit Exceeded" in rep4["downloads"]["stop"])
 FakeSteam.answers = {}
-# the day's window: its own report, no mail when it did nothing
-os.environ.update({"SYNC_DAY_AT": "07:15", "SYNC_DAY_END": "18:00"})
-cfgd = m.Config()
-nd = m.Night(cfgd, FakeClock(T0 + 3 * m.DAY), day_run=True)
-check("day: the deadline is the day window's end", m.time.strftime("%H:%M", m.time.localtime(nd.deadline)) in ("18:00", "17:00"))
-del os.environ["SYNC_DAY_AT"], os.environ["SYNC_DAY_END"]
+# no time windows: a run lasts SYNC_RUN_HOURS, cut short before the restarts; the service starts one whenever nobody plays and work waits
+fcd = FakeClock(T0 + 3 * m.DAY)
+day0 = fcd.at((0, 0))
+hm = lambda ts: fcd.local(ts).strftime("%H:%M")  # noqa: E731
+fcd.t = day0 + 12 * 3600
+check("run: at noon a run lasts 3 h", hm(m.Night(m.Config(), fcd).deadline) == "15:00")
+fcd.t = day0 + 5 * 3600
+check("run: at 05:00 it ends at 06:45, before the 07:00 restart", hm(m.Night(m.Config(), fcd).deadline) == "06:45")
+fcd.t = day0 + 2 * 3600
+check("run: at 02:00 it ends at 03:20, before the prefetch's restart", hm(m.Night(m.Config(), fcd).deadline) == "03:20")
+cfgs = m.Config()
+check("service: no start in the daily restart's stretch (06:45-07:10)", m.start_blocked(cfgs, fcd, day0 + 6.9 * 3600) is not None
+      and m.start_blocked(cfgs, fcd, day0 + 7.2 * 3600) is None)
+os.makedirs(os.path.dirname(cfgs.watcher_state), exist_ok=True) if os.path.dirname(cfgs.watcher_state) else None
+cfgs.watcher_state = os.path.join(run_root, "watcher-state.json")
+json.dump({"prefetch_day": "2000-01-01"}, open(cfgs.watcher_state, "w"))
+check("service: the prefetch holds it from 03:20 until the watcher stamps tonight's done", m.start_blocked(cfgs, fcd, day0 + 3.4 * 3600) is not None
+      and m.start_blocked(cfgs, fcd, day0 + 3.2 * 3600) is None)
+json.dump({"prefetch_day": fcd.day(day0 + 4 * 3600)}, open(cfgs.watcher_state, "w"))
+check("service: ...and lets it go the moment the prefetch is stamped", m.start_blocked(cfgs, fcd, day0 + 4 * 3600) is None)
+fcd.t = day0 + 12 * 3600
+check("service: work waits while maps are queued, unless Steam stopped today's downloads; or when the API steps are due",
+      m.work_waits(cfgs, fcd, {"items": {"1": {"status": "queued"}}, "last_api": fcd.t})
+      and not m.work_waits(cfgs, fcd, {"items": {"1": {"status": "queued"}}, "last_api": fcd.t, "downloads": {fcd.day(): {"stop": "x"}}})
+      and m.work_waits(cfgs, fcd, {"items": {}, "last_api": fcd.t - 5 * 3600}) and not m.work_waits(cfgs, fcd, {"items": {}, "last_api": fcd.t}))
 for k, v in real.items():
     setattr(m, k, v)
 os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
@@ -926,7 +1040,8 @@ kdata = {"maps.json": [{"rank": r, "id": 100 + r, "name": "a%d" % r, "sizeMb": 1
          "maps-deathmatch.json": [{"rank": r, "id": 300 + r, "name": "d%d" % r, "sizeMb": 1} for r in range(1, 30)],
          "maps-wingman.json": [], "broken.json": {"maps": [{"id": 101}]}, "removed.json": {"verdicts": {"102": "removed"}},
          "votes.json": {"110": {"[U:1:1]": 1, "[U:1:2]": -1}, "111": {"[U:1:1]": -2}}, "ours.json": {"maps": [{"id": 900}]},
-         "ratings.json": {"version": 1, "fetched": KT - 60, "scores": dict((str(100 + r), [r / 200.0, 1, 0]) for r in range(1, 130))},
+         "ratings.json": {"version": 1, "fetched": KT - 60, "scores": dict((str(100 + r), [r / 200.0, 1, 0, 1000 - r]) for r in range(1, 130)),
+                          "trend": {"armsrace": [str(100 + r) for r in range(60, 130)], "deathmatch": ["310", "311", "999"], "wingman": []}},
          "queues.json": {"version": 1, "random": {"armsrace-new": ["120"], "deathmatch": ["301"]}, "requested": ["150"]},
          "state.json": {"crashes": {"103": 1}}}
 check("keep set: both scripts give the same set from the same data", m.keep_set(kdata, KT, "500") == uw.keep_set(kdata, KT, "500")
@@ -938,7 +1053,7 @@ api, sent, ft = api_with(led, clock, [{"response": {"publishedfiledetails": [
     {"publishedfileid": "11", "result": 1, "vote_data": {"score": 0.547, "votes_up": 14, "votes_down": 3}},
     {"publishedfileid": "12", "result": 15}, {"publishedfileid": "13", "result": 1}]}}])
 got = api.votes(["11", "12", "13"])
-check("votes: the score and the votes of what the Workshop has; result 15 and no vote_data give none", got == {"11": [0.547, 14, 3]})
+check("votes: the score, the votes and the subscriptions of what the Workshop has; result 15 and no vote_data give none", got == {"11": [0.547, 14, 3, 0]})
 check("votes: one keyed GET to IPublishedFileService/GetDetails with includevotes, counted in the ledger as GetDetails",
       len(sent) == 1 and sent[0].full_url.startswith(m.VOTES_URL) and "key=" + KEY in sent[0].full_url and "includevotes=true" in sent[0].full_url
       and "publishedfileids%5B2%5D=13" in sent[0].full_url and led.data["calls"][-1][1] == "GetDetails")
@@ -964,32 +1079,35 @@ ncfg = m.Config()
 nn = m.Night(ncfg, FakeClock(KT), manual=True)
 nn.state.load()
 nn.requeue_size_skips()
-check("the 223: a map skipped as too big for an older cap is queued again when it fits today's; one that does not, and a CS:GO-era skip, stay",
-      nn.state.item("140")["status"] == "queued" and nn.state.item("141")["status"] == "skipped" and nn.state.item("142")["status"] == "skipped"
-      and nn.report["requeued"] == 1)
-nn.state.item("141")["skip_cap"] = 150 << 30
-nn.requeue_size_skips()
-check("the 223: a skip under today's cap is not looked at again", nn.state.item("141")["status"] == "skipped" and nn.report["requeued"] == 0)
+check("the 223: every map skipped as too big for an old daily cap is queued again, 160 GB too - there is no cap now; a CS:GO-era skip stays",
+      nn.state.item("140")["status"] == "queued" and nn.state.item("141")["status"] == "queued" and nn.state.item("142")["status"] == "skipped"
+      and nn.report["requeued"] == 2)
 
 
 class VoteApi(object):
-    def __init__(self, scores, stop_after=None):
-        self.scores, self.stop_after, self.by_api, self.asked = scores, stop_after, {}, []
+    def __init__(self, scores, stop_after=None, trends=None):
+        self.scores, self.stop_after, self.by_api, self.asked, self.trends, self.tags = scores, stop_after, {}, [], trends or {}, []
 
     def votes(self, ids):
         self.by_api["GetDetails"] = self.by_api.get("GetDetails", 0) + 1
         if self.stop_after is not None and self.by_api["GetDetails"] > self.stop_after:
             raise m.StopNight("HTTP 429")
         self.asked += ids
-        return dict((w, [self.scores.get(w, 0.0), 1, 0]) for w in ids if w in self.scores)
+        return dict((w, [self.scores.get(w, 0.0), 1, 0, 5]) for w in ids if w in self.scores)
+
+    def trend(self, tag, cursor, days):
+        self.tags.append((tag, days))
+        return self.trends.get(tag, []), "", len(self.trends.get(tag, []))
 
 
-vapi = VoteApi({"143": 0.99, "144": 0.01, "140": 0.5, "105": 0.7})
+vapi = VoteApi({"143": 0.99, "144": 0.01, "140": 0.5, "105": 0.7}, trends={"Armsrace": ["999", "105", "106"], "Deathmatch": ["301"], "Wingman": []})
 nn.ratings(vapi, ["105", "106"])
 rj = json.load(open(os.path.join(sdata, "ratings.json")))
-check("ratings: the listed maps and every map waiting for its test, scored and written to the bridge's data with the time",
-      set(vapi.asked) == set(["105", "106", "140", "143", "144"]) and rj["version"] == 1 and rj["fetched"] == KT and rj["scores"]["143"][0] == 0.99
+check("ratings: the listed maps and every map waiting for its test, scored with their subscriptions and written to the bridge's data with the time",
+      set(vapi.asked) == set(["105", "106", "140", "141", "143", "144"]) and rj["version"] == 1 and rj["fetched"] == KT and rj["scores"]["143"] == [0.99, 1, 0, 5]
       and nn.report["ratings"]["complete"])
+check("ratings: each mode's Most Popular order over 30 days, by its tag", rj["trend"] == {"armsrace": ["999", "105", "106"], "deathmatch": ["301"], "wingman": []}
+      and rj["trend_days"] == 30 and sorted(vapi.tags) == [("Armsrace", 30), ("Deathmatch", 30), ("Wingman", 30)])
 nn.ratings(VoteApi({}), ["105"])
 check("ratings: once a day - not again within RATINGS_EVERY", "fetched" in nn.report["ratings"]["skipped"])
 nn.state.data["ratings"]["fetched"] = KT - 2 * m.DAY
@@ -997,6 +1115,14 @@ nn.report.pop("ratings")
 nn.ratings(VoteApi({"105": 0.1}, stop_after=0), ["105"])
 check("ratings: cut short by a stop - the old scores kept, with their old time", nn.state.data["ratings"]["fetched"] == KT - 2 * m.DAY
       and not nn.report["ratings"]["complete"] and nn.state.data["ratings"]["scores"]["143"][0] == 0.99)
+saved_ratings = json.loads(json.dumps(nn.state.data["ratings"]))
+nn.state.data["ratings"]["fetched"] = KT
+nn.state.data["ratings"].pop("trend")
+nn.report.pop("ratings")
+nn.ratings(VoteApi({"105": 0.7}, trends={"Armsrace": ["105"]}), ["105"])
+check("ratings: at once when a list is missing (kept before the lists were three), however fresh",
+      nn.report["ratings"].get("complete") and "trend" in nn.state.data["ratings"])
+nn.state.data["ratings"] = saved_ratings
 nn.state.data["ratings"]["fetched"] = KT
 json.dump({"version": 1, "fetched": KT, "scores": dict(kdata["ratings.json"]["scores"], **{"143": [0.99, 1, 0], "144": [0.01, 1, 0]})},
           open(os.path.join(sdata, "ratings.json"), "w"))
@@ -1060,15 +1186,103 @@ ns.state.load()
 want = m.keep_set(m.keep_inputs(sdata), KT)
 ns.serve()
 handed = sorted(m.handovers(hdir))
-missing = sorted(set(want["up"] + want["top"]["armsrace"] + want["top"]["deathmatch"] + want["own"]) - set(["110", "120", "150", "301", "900", "305", "141"]))
-check("serve: every keep-set map the server lacks is fetched and handed over (%d), never one it stores or one waiting already, nor one bigger than the day's cap (141) (%s)"
+missing = sorted(set(want["up"] + want["top"]["armsrace"] + want["top"]["deathmatch"] + want["own"]) - set(["110", "120", "150", "301", "900", "305"]))
+check("serve: every keep-set map the server lacks is fetched and handed over (%d), 160 GB too, never one it stores or one waiting already (%s)"
       % (len(missing), dict(ns.report["serve"], diff=sorted(set(missing + ["305"]) ^ set(handed)))), handed == sorted(missing + ["305"]) and not set(FakeSteam.asked) & set(["110", "301", "900", "305"])
       and ns.report["serve"]["ok"] == len(missing))
 FakeSteam.asked = []
 ns2 = m.Night(ncfg2, FakeClock(KT + 60), manual=True)
 ns2.state.load()
 ns2.serve()
-check("serve: a second run fetches nothing more (only 141 is missing, too big for a day)", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 1)
+check("serve: a second run fetches nothing more", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 0)
+
+
+# serve after a run that could not hand over (2026-11-03: 136 of 160 - it looked before SteamCMD had written its acf): what is
+# staged with SteamCMD's entry goes without a download, an older staged version is downloaded again, a late acf is handed over
+# once SteamCMD has quit, and the cleanup keeps a keep-set pass whose hand-over failed
+def unhand(wid):
+    for p in (os.path.join(hdir, wid + ".json"), os.path.join(hdir, wid + ".manifest")):
+        if os.path.exists(p):
+            os.remove(p)
+    shutil.rmtree(os.path.join(hdir, wid), ignore_errors=True)
+
+
+def write_acf(entries):
+    open(os.path.join(stg, "appworkshop_730.acf"), "w").write('"AppWorkshop"\n{\n\t"WorkshopItemsInstalled"\n\t{\n' + "".join(
+        '\t\t"%s"\n\t\t{\n\t\t\t"size"\t\t"6"\n\t\t\t"timeupdated"\t\t"%s"\n\t\t\t"manifest"\t\t"7%s"\n\t\t}\n' % (w, u, w)
+        for w, u in entries.items()) + '\t}\n}\n')
+
+
+def stage(wid):
+    os.makedirs(os.path.join(stg, "content", "730", wid), exist_ok=True)
+    open(os.path.join(stg, "content", "730", wid, wid + "_dir.vpk"), "w").write("staged")
+
+
+class LateAcfSteam(FakeSteam):
+    """SteamCMD as on 2026-11-03 at its worst: its acf names the downloads only once it quits."""
+    got = []
+
+    def download(self, wid):
+        LateAcfSteam.got.append(wid)
+        return FakeSteam.download(self, wid)
+
+    def stop(self):
+        if LateAcfSteam.got:
+            write_acf(dict((w, "200") for w in LateAcfSteam.got))
+
+
+sa, sb, sc, sd = missing[:4]
+for w in (sa, sb, sc, sd):
+    unhand(w)
+stage(sa)
+stage(sb)
+write_acf({sa: "50", sb: "50"})
+m.ACF_WAIT = 1
+m.SteamCmd = LateAcfSteam
+FakeSteam.asked, LateAcfSteam.got = [], []
+ns3 = m.Night(ncfg2, FakeClock(KT + 120), manual=True)
+ns3.state.load()
+ns3.state.data["items"].setdefault(sb, {})["updated"] = 100      # the Workshop has a newer version than the staged one
+for w in (sa, sc):
+    (ns3.state.data["items"].get(w) or {}).pop("updated", None)
+ns3.serve()
+s3, waiting = ns3.report["serve"], m.handovers(hdir)
+check("serve: a map staged already with SteamCMD's entry is handed over without a download; an older staged version and one not "
+      "staged are downloaded (%s)" % dict(s3, asked=FakeSteam.asked), sa in waiting and sa not in FakeSteam.asked and s3.get("staged") == 1
+      and sorted(FakeSteam.asked) == sorted([sb, sc, sd]))
+check("serve: SteamCMD's acf late - every download is handed over once it has quit, none lost",
+      all(w in waiting for w in (sb, sc, sd)) and s3["ok"] == 4 and not s3["failed"])
+check("serve: the staging acf names none of the handed-over maps afterwards",
+      not set(m.acf_items(os.path.join(stg, "appworkshop_730.acf"))) & set([sa, sb, sc, sd]))
+check("serve: the marker of the re-downloaded map carries the new version, not the staged one",
+      json.load(open(os.path.join(hdir, sb + ".json")))["installed"]["timeupdated"] == "200")
+se, sf = "998", missing[4]           # sf: downloaded once today (sd twice: the brake holds it)
+unhand(sf)
+stage(sf)
+stage(se)
+write_acf({})
+ncfg4 = m.Config()
+ns4 = m.Night(ncfg4, FakeClock(KT + 180), manual=True)
+ns4.state.load()
+for w in (sf, se):
+    ns4.state.data["items"][w] = dict(ns4.state.data["items"].get(w) or {}, verdict="pass", status="tested", title="t" + w)
+ns4.cleanup_staging()
+check("cleanup: a keep-set pass whose hand-over failed (no acf entry) stays staged for the next run; a pass the keep set does not "
+      "want is removed", os.path.isdir(os.path.join(stg, "content", "730", sf)) and not os.path.isdir(os.path.join(stg, "content", "730", se)))
+m.SteamCmd = AcfSteam
+FakeSteam.asked = []
+ns5 = m.Night(ncfg2, FakeClock(KT + 240), manual=True)
+ns5.state.load()
+ns5.serve()
+check("serve: ...and the next run downloads it (SteamCMD's acf did not name it) and hands it over",
+      FakeSteam.asked == [sf] and sf in m.handovers(hdir))
+unhand(sd)
+FakeSteam.asked = []
+ns6 = m.Night(ncfg2, FakeClock(KT + 300), manual=True)
+ns6.state.load()
+ns6.serve()
+check("serve: the brake - a map downloaded twice today is not downloaded a third time", FakeSteam.asked == [] and sd not in m.handovers(hdir))
+m.ACF_WAIT = 20
 m.SteamCmd, m.humans_on = real_steam, real["humans_on"]
 os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
 for k in ("SYNC_GAME_DIR", "SYNC_DEPOTCACHE"):

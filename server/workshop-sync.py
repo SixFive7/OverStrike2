@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""workshop-sync.py - the nightly Workshop sync of the CS2 server: new Arms Race, Deathmatch and Wingman maps, the Workshop's scores, and
+"""workshop-sync.py - the Workshop sync of the CS2 server: new Arms Race, Deathmatch and Wingman maps, the Workshop's scores, and
 the keep set's maps for the game server.
 
 The main process of the `sync` service in deploy/compose.example.yml (its own container, the game server's own image), bind-
@@ -7,13 +7,17 @@ mounted read-only at /home/steam/cs2-workshop-sync.py (source of truth: server/ 
 Python 3.9 compatible. Every path, address, id and limit below comes from the environment (see CONFIG); the code holds
 no infrastructure detail, so it can be published as it is.
 
-ONE RUN A NIGHT, inside the nightly window (SYNC_AT 03:30 to SYNC_END 06:45), and ONE MORE BY DAY while a backlog waits
-(SYNC_DAY_AT to SYNC_DAY_END, off unless set), only while nobody plays. Steps 3 to 5 repeat in batches of SYNC_BATCH maps
-until the backlog, the day's caps or the window end, so a long run publishes as it goes and staging stays small:
-  0. WAIT FOR THE PREFETCH. The restart watcher's nightly prefetch (update-watch.py) runs from 03:30 in the game server's
-     own engine; this run starts only once the watcher has stamped tonight's prefetch as done (its state.json,
-     prefetch_day), so the two never fetch from Steam at the same time. Not done by SYNC_PREFETCH_WAIT_UNTIL (05:15): the
-     run goes on with the API steps only, and tonight's downloads and tests wait for the next night.
+NO TIME WINDOWS (the owner's decision of 2026-11-03 - the sync works at any hour while nobody plays): the service starts a run
+whenever the game server has had nobody on for SYNC_QUIET_MINUTES and there is work - maps waiting for a download or a test, or the
+API steps due - and a run lasts SYNC_RUN_HOURS (3), cut short before the game server's restarts. Steps 1 to 2b run at most every
+SYNC_API_EVERY_HOURS (4), and when nothing waits. Steps 3 to 5 repeat in batches of SYNC_BATCH maps until the backlog or the run
+ends, or Steam pushes back, so a long run publishes as it goes and staging stays small. When somebody joins, the run stops
+downloading and testing within seconds and waits; after a run that did nothing, the service looks again after IDLE_WAIT:
+  0. KEEP CLEAR OF THE PREFETCH AND THE RESTARTS. The restart watcher's nightly prefetch (update-watch.py) runs from
+     SYNC_PREFETCH_AT (03:30) in the game server's own engine: from 10 minutes before it until the watcher stamps tonight's
+     prefetch done (its state.json, prefetch_day; SYNC_PREFETCH_MINUTES at most) no run starts, and a running one downloads and
+     tests nothing - the two never fetch from Steam at once. No run starts from 15 minutes before the daily restart
+     (SYNC_DAILY_RESTART, 07:00) to 10 after, and every run ends 15 minutes before it and 10 before the prefetch.
   1. FIND NEW MAPS. IPublishedFileService/QueryFiles (api.steampowered.com, the owner's Web API key - the only call that
      needs one: without it the API answers 403, checked 2026-11-01): app 730, any of the tags SYNC_TAGS (Armsrace,
      Deathmatch, Wingman), newest first, 100 a page, the cursor from page to page, and it stops at the first page that
@@ -22,22 +26,26 @@ until the backlog, the day's caps or the window end, so a long run publishes as 
      maps.json and on the mode lists, and every candidate before its download. The verdicts (ok, or gone: result not 1,
      hidden, banned) are handed to the bridge exactly as its own daily Workshop check hands them (POST /removed), so a map
      that is gone is blocked at once; a map updated since we last saw it is downloaded and tested again, after the new ones.
-  2b. THE RATINGS (since 2026-11-03). IPublishedFileService/GetDetails with includevotes (the key), 100 ids a call, once every
-     RATINGS_EVERY: vote_data.score - the order of the Workshop's "Top Rated" - of every listed map and of every map waiting for
-     its test. Kept in the state and written to the bridge's data as ratings.json, from which THE KEEP SET (update-watch.py's
-     docstring; keep_set is the same here) takes each mode's 100 best playable maps. A run cut short keeps the old scores' time.
+  2b. THE RATINGS (since 2026-11-03). Once every RATINGS_EVERY, and at once when the ratings kept lack a list: the score
+     (vote_data.score, the Workshop's "Top Rated") and the current subscriptions ("Most Subscribed") of every listed map and every
+     map waiting for its test - IPublishedFileService/GetDetails with includevotes (the key), 100 ids a call - and each mode's
+     "Most Popular" order, Steam's trend over the last TREND_DAYS (30) days (QueryFiles RankedByTrend by the mode's tag; the API
+     takes 30, its order differs from 7's and 90's). Kept in the state and written to the bridge's data as ratings.json, from which
+     THE KEEP SET (update-watch.py's docstring; keep_set is the same here) takes each mode's three lists of 100 best playable maps
+     (the owner's 35). A run cut short keeps the old time.
   2c. THE HAND-OVER. The keep set's maps the game server does not store (its acf and folders, read on the read-only mount of its
      tree) - the upvoted maps, each mode's best-rated, the own maps; never the random queues, which the server fetches itself - are
-     downloaded with SteamCMD (step 3's session rules, caps and stops) and handed over at once: hand_over moves each into
+     downloaded with SteamCMD (step 3's session rules and stops) and handed over at once: hand_over moves each into
      <work>/handover/<id>/ with its manifest and, last, its marker <id>.json, and the game server's --organize takes it in at its
      next engine start. A map tested in step 4 that the keep set holds (its score puts it among its mode's best once it is listed)
      is handed over the same way instead of being deleted with the rest of the staging folder.
   3. DOWNLOAD with SteamCMD's anonymous login - never the owner's account, which is logged in nowhere - into this
      container's own staging folder: one SteamCMD session a batch, one item at a time, SYNC_DOWNLOAD_PAUSE between. First every
-     waiting map whose score would put it among its mode's best (the keep set's cut-off; best score first), then new uploads
+     waiting map that would make one of its mode's three lists (the keep set's cut-offs; best score first), then new uploads
      (created in the last 14 days, newest first), then listed maps that changed, then everything else strictly by subscribers,
-     whatever the mode. A map skipped as bigger than a whole day's cap is queued again whenever the cap is not the one it was
-     skipped under and it fits (the owner's 33: the 223 popular maps the old caps parked).
+     whatever the mode. Nothing is skipped for its size: there is no daily download cap (the owner's 36 c, 2026-11-03), and the
+     maps the old caps parked as too big are queued again (the owner's 33: 223 popular maps). The bug brake instead: a map
+     downloaded DOWNLOADS_PER_MAP_DAY (2) times in a day is not downloaded again that day.
   4. SCAN AND LOAD-TEST. The scan reads each download's VPKs: a map, a model pack, an empty upload or a CS:GO-era one,
      and the commands its entity lump and cfg files carry (connect <ip>, `say connect ...`, gambling promo codes). The
      maps then load, one by one, in a TEST COPY OF THE SERVER: a second CS2 engine in this container, started from a
@@ -59,55 +67,64 @@ SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
   * No steamcommunity.com request at all: only api.steampowered.com (the Web API) and Steam's own clients.
   * One request at a time: every Web API call goes through one function, in one thread, at least SYNC_API_GAP_SECONDS
     (2 s, never less) after the previous one, with an honest User-Agent naming this tool.
-  * HTTP 429 or 403 (401 too) stops every API step for the rest of the night at once; so do 3 server errors (5xx) in a
-    row, 5 in a night, or 5 network failures. The stop is written to the ledger, so a restart cannot resume it, and the
+  * HTTP 429 or 403 (401 too) stops every API step for the rest of the day at once; so do 3 server errors (5xx) in a
+    row, 5 in a day, or 5 network failures in a day. The stop is written to the ledger, so a restart cannot resume it, and the
     mail says so. An HTTP 429, 403 or 401 ends the day's downloads
     too. SteamCMD: a rate-limit answer, two access-denied answers in a row (one is about that item: 1 of 2,129 on 2026-10-05), or
     3 failed downloads in a row, end the downloads.
-  * HARD CAPS, persistent (<state>/api-ledger.json, written and flushed BEFORE each call, so a crash never loses one):
-    at most 10,000 Web API calls in any rolling 24 hours (10 % of Valve's 100,000 a day per key; the configuration can
-    only lower it) and SYNC_API_NIGHT_CAP (500) a night. Downloads: at most 1,500 items and 150 GB a day (again only
-    lower), what one night carried on 2026-10-05 with no trouble: 1,522 items and 131.5 GB by anonymous SteamCMD, 157
-    logins, one failure (one item's Access Denied), no rate limit. A stop by SteamCMD's answer ends the day's downloads for
-    every later run of that day too. An unreadable ledger means no calls at all.
+  * HARD CAPS on the Web API, persistent (<state>/api-ledger.json, written and flushed BEFORE each call, so a crash never
+    loses one): at most 10,000 Web API calls in any rolling 24 hours (10 % of Valve's 100,000 a day per key; the
+    configuration can only lower it) and SYNC_API_RUN_CAP (500) a run (SYNC_API_NIGHT_CAP, its old name, is still read; with no
+    time windows a night is no unit any more). An unreadable ledger means no calls at all.
+  * NO DAILY DOWNLOAD CAP (the owner's 36 c, 2026-11-03; 1,500 items and 150 GB a day until then): only Steam's push-back
+    stops the downloads - an HTTP 429, 403 or 401, a SteamCMD rate-limit answer or two Access Denied in a row end the day's
+    downloads (booked in state.json, so every later run of that day keeps to it), and 3 failed downloads in a row end the
+    run's. Still one anonymous SteamCMD download at a time, SYNC_DOWNLOAD_PAUSE apart. The bug brake: a map downloaded
+    twice in a day is not downloaded a third time that day.
   * Only while nobody plays: A2S of the game server must show 0 humans (an unanswered query counts as somebody), before
     every download, every test load and the publish. When somebody joins, the test engine is stopped at once (a second or
     two later) and no new download starts; the run goes on only after SYNC_QUIET_MINUTES with nobody on, because a map
     change shows 0 humans for a moment.
   * The test engine never touches the game server: read-only install, its own folders, no plugins, `log off`, no log
-    address (checked over RCON before the first load), and it stops by SYNC_END, before the 07:00 daily restart. A
-    game update during a test (steam.inf changes) ends the tests for the night.
+    address (checked over RCON before the first load), and it stops with its run, before the daily restart and the prefetch. A
+    game update during a test (steam.inf changes) ends the run's tests.
 
 FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, disposable)
   <state>/state.json        every item seen (its verdict, attempts, the details we know), the update baseline of the
-                            listed maps, the last run. Readable.
-  <state>/api-ledger.json   the Web API calls of the last 24 h, the count per night, the night's stop.
-  <state>/reports/<day>.json and .txt   the night's full result and the mail text (<day>-day.* the day's run).
+                            listed maps, the last run and when the API steps last ran, the day's downloads. Readable.
+  <state>/api-ledger.json   the Web API calls of the last 24 h, the count per day, the day's stop.
+  <state>/reports/<day>-<HHMM>.json and .txt   a run's full result and its mail text (-manual: a run-now). One mail a day
+                            (MAIL_EVERY), sooner when Steam pushed back or something failed; a run that did nothing mails nothing.
   <state>/backups/<stamp>/  the bridge's files as they were before each publish.
   <state>/running.json      present while a run is going: its phase (for anyone about to touch the server).
-  <state>/run-now           create it (any content, or JSON with lower limits) to start a run at once, outside the window.
+  <state>/run-now           create it (any content, or JSON with lower limits; {"api": true} runs the API steps whatever their
+                            cadence) to start a run at once.
   <work>/staging/           SteamCMD's install dir: steamapps/workshop is the test engine's Workshop folder.
   <work>/handover/          maps for the game server (step 2c): <id>/, <id>.manifest, <id>.json last; its --organize takes them in.
   <work>/farm/              the test engine's disposable game tree, rebuilt before every test session.
-  <bridge>/ratings.json     step 2b's scores, version 1: {"fetched": unix time, "scores": {id: [score, votes up, votes down]}}.
+  <bridge>/sync-status.json THE STATUS FILE for the in-game dashboard (the owner's 34), schema 1 (class Status): what the sync does
+                            now and why, today's counts, the totals, the queue and its next maps, the keep set's parts, the
+                            history of runs and map events. Written atomically at every phase change, every STATUS_TICK (15) s
+                            during a run, and every minute while idle, waiting or stopped. The bridge does not watch it.
+  <bridge>/ratings.json     step 2b's lists, version 1: {"fetched": unix time, "scores": {id: [score, votes up, votes down,
+                            subscriptions]}, "trend": {mode: [ids, Most Popular first]}, "trend_days": 30}.
 
 CONFIG (environment of the sync service; defaults in brackets)
-  SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_AT [03:30], SYNC_END [06:45], SYNC_AFTER_PREFETCH [1],
-  SYNC_PREFETCH_WAIT_UNTIL [05:15], SYNC_TAGS [Armsrace,Deathmatch,Wingman], SYNC_EXCLUDE_IDS (never candidates: the
+  SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_RUN_HOURS [3], SYNC_API_EVERY_HOURS [4], SYNC_PREFETCH_AT [03:30],
+  SYNC_PREFETCH_MINUTES [195], SYNC_DAILY_RESTART [07:00], SYNC_TAGS [Armsrace,Deathmatch,Wingman], SYNC_EXCLUDE_IDS (never candidates: the
   warm-up item, the HUD items), SYNC_EXCLUDE_CREATORS (Workshop authors whose items are listed by hand), SYNC_CHANGED_SINCE [2026-10-25] (a listed map updated after it counts as changed at the
   first check), SYNC_MODE_BACKFILL [0] (1: listed Arms Race maps that carry a mode's tag join that mode's list too,
   which this sync never loaded; off, a mode list holds only maps this sync load-tested itself),
-  SYNC_API_NIGHT_CAP [500], SYNC_API_DAY_CAP [10000], SYNC_API_GAP_SECONDS [2], SYNC_MAX_PAGES [200],
-  SYNC_DOWNLOAD_MAX [1500], SYNC_DOWNLOAD_MAX_MB [153600], SYNC_DOWNLOAD_PAUSE [2], SYNC_HOLD_SECONDS [20], SYNC_BATCH [100],
-  SYNC_DAY_AT, SYNC_DAY_END (the day's window, off unless both are set), SYNC_QUIET_MINUTES [10],
+  SYNC_API_RUN_CAP [500], SYNC_API_DAY_CAP [10000], SYNC_API_GAP_SECONDS [2], SYNC_MAX_PAGES [200],
+  SYNC_DOWNLOAD_PAUSE [2], SYNC_HOLD_SECONDS [20], SYNC_BATCH [100], SYNC_QUIET_MINUTES [10],
   SYNC_TEST_PORT [27215], SYNC_ENGINE_STARTS_MAX [200], SYNC_STATE_DIR, SYNC_WORK_DIR, SYNC_GAME_DIR,
   SYNC_BRIDGE_DATA, SYNC_BRIDGE_URL, SYNC_BRIDGE_SECRET, SYNC_GAME_HOST, SYNC_GAME_PORT, SYNC_WATCHER_STATE,
   SYNC_CFG_DIR, STEAM_WEBAPI_KEY_FILE, SYNC_SMTP_HOST, SYNC_SMTP_PORT [25], SYNC_MAIL_FROM, SYNC_MAIL_TO, TZ,
   SYNC_RATINGS [1] (step 2b), SYNC_HANDOVER [1] (step 2c and the tested hand-overs), SYNC_HANDOVER_DIR [<work>/handover],
   SYNC_DEPOTCACHE [~/Steam/depotcache: where SteamCMD keeps the manifests a hand-over carries].
 
-    python3 workshop-sync.py              the service: wait for the window (or run-now), one run a night
-    python3 workshop-sync.py --once       one run now, then exit (the same rules, the window ignored)
+    python3 workshop-sync.py              the service: a run whenever nobody plays and there is work (or at once: run-now)
+    python3 workshop-sync.py --once       one run now, then exit (the same rules)
     python3 workshop-sync.py --status     print the ledger's counters and the state's totals
     python3 workshop-sync.py --export     what it has published, as entries a republish from the repo can merge
 """
@@ -127,6 +144,7 @@ import socket
 import struct
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -142,15 +160,19 @@ VERSION = "1"
 USER_AGENT = "cs2-workshop-sync/%s (nightly Workshop sync of a private CS2 server; server/workshop-sync.py)" % VERSION
 
 # ------------------------------------------------------------------------------------------------
-# The owner's hard limits (2026-11-01; the download caps raised 2026-11-02). The environment may lower them, never raise them.
+# The owner's hard limits on the Web API (2026-11-01). The environment may lower them, never raise them. The daily download caps went
+# with the owner's 36 c (2026-11-03); the bug brake stands in for them.
 # ------------------------------------------------------------------------------------------------
 HARD_API_DAY_CAP = 10000          # 10 % of Valve's 100,000 Web API calls a day per key, over any rolling 24 hours
 HARD_API_GAP = 2.0                # seconds between two Web API calls, at least
-HARD_DOWNLOAD_MAX = 1500          # Workshop downloads a day: one night carried 1,522 by anonymous SteamCMD on 2026-10-05, no rate limit
-HARD_DOWNLOAD_BYTES = 150 << 30   # 150 GB a day: that night's 131.5 GB, and room for the most subscribed maps, which are the biggest
-API_5XX_ROW = 3                   # server errors in a row that stop the night's API steps
-API_5XX_NIGHT = 5                 # server errors in a night that stop them
-API_NETFAIL_NIGHT = 5             # network failures (timeouts, resets) in a night that stop them
+DOWNLOADS_PER_MAP_DAY = 2         # the bug brake: a map downloaded this often today is not downloaded again today (no daily caps since the owner's 36 c)
+QUEUE_CHECK = 3000                # the check (step 2) asks the Workshop about this many of the download queue's head
+HOURS_A_DAY = 22                  # what the estimate counts on: the day without the prefetch's and the restarts' stretches; play comes off it
+MAIL_EVERY = 20 * 3600            # one mail a day: a run mails when the last was this long ago, or when Steam pushed back or something failed
+IDLE_WAIT = 1800                  # after a run that did nothing, the service waits this long before it looks again
+API_5XX_ROW = 3                   # server errors in a row that stop the day's API steps
+API_5XX_NIGHT = 5                 # server errors in a day that stop them
+API_NETFAIL_NIGHT = 5             # network failures (timeouts, resets) in a day that stop them
 API_RETRY_WAIT = (30, 90)         # a failed call is tried again after these pauses, then given up
 DAY = 86400
 
@@ -159,7 +181,11 @@ DETAILS_URL = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFile
 VOTES_URL = "https://api.steampowered.com/IPublishedFileService/GetDetails/v1/"   # with includevotes: vote_data.score (the key needed)
 DETAILS_BATCH = 100
 KEYED_APIS = ("QueryFiles", "GetDetails")   # the calls that carry the Web API key; GetPublishedFileDetails needs none
-RATINGS_EVERY = 20 * 3600         # the scores are fetched again once this old: once a day, by the night's run or the day's
+RATINGS_EVERY = 20 * 3600         # the lists are fetched again once this old: once a day, by whichever run comes then
+TREND_DAYS = 30                   # Most Popular's window: the trend over the last 30 days (the API takes it, 2026-11-03)
+TREND_PAGES = 20                  # pages of 100 a mode's Most Popular walk reads at most...
+TREND_WANT = 150                  # ...stopping once this many of the mode's listed maps were in it (100 stay, the rest is slack)
+ACF_WAIT = 20                 # seconds serve waits for SteamCMD's acf entry of a download (it came 1.0-1.4 s after Success, 2026-11-03)
 HANDOVER_MAX_BYTES = 200 << 30    # hand-overs the server has not taken in yet: past this much, no more until it does
 
 MODES = (  # (id, Workshop tag, game_type, game_mode, the list file beside maps.json)
@@ -215,27 +241,22 @@ class Config(object):
             os.environ.update(env)
         self.enabled = env_flag("SYNC_ENABLED", True)
         self.publish = env_flag("SYNC_PUBLISH", True)
-        self.start = env_hhmm("SYNC_AT", (3, 30))
-        self.end = env_hhmm("SYNC_END", (6, 45))
-        self.after_prefetch = env_flag("SYNC_AFTER_PREFETCH", True)
-        self.prefetch_wait_until = env_hhmm("SYNC_PREFETCH_WAIT_UNTIL", (5, 15))
+        self.prefetch_at = env_hhmm("SYNC_PREFETCH_AT", (3, 30))            # the watcher's CS2_PREFETCH_AT: no run from 10 min before
+        self.prefetch_span = env_int("SYNC_PREFETCH_MINUTES", 195, 10, 1200) * 60   # ...until it stamps tonight's done, at most this long
+        self.daily_restart = env_hhmm("SYNC_DAILY_RESTART", (7, 0))         # the watcher's CS2_RESTART_AT: no run 15 min before to 10 after
+        self.run_hours = env_int("SYNC_RUN_HOURS", 3, 1, 12)               # a run's length; the service starts the next while nobody plays
+        self.api_every = env_int("SYNC_API_EVERY_HOURS", 4, 1, 48) * 3600   # discovery, the check and the ratings at most this often
         self.tags = [t.strip() for t in (os.environ.get("SYNC_TAGS") or "Armsrace,Deathmatch,Wingman").split(",") if t.strip()]
         self.exclude = set(x for x in re.split(r"[,\s]+", os.environ.get("SYNC_EXCLUDE_IDS") or "") if x.isdigit())
         self.exclude_creators = set(x for x in re.split(r"[,\s]+", os.environ.get("SYNC_EXCLUDE_CREATORS") or "") if x.isdigit())
         self.changed_since = os.environ.get("SYNC_CHANGED_SINCE") or "2026-10-25"
         self.mode_backfill = env_flag("SYNC_MODE_BACKFILL", False)
         self.api_day_cap = env_int("SYNC_API_DAY_CAP", HARD_API_DAY_CAP, 0, HARD_API_DAY_CAP)
-        self.api_night_cap = env_int("SYNC_API_NIGHT_CAP", 500, 0, self.api_day_cap)
+        self.api_run_cap = env_int("SYNC_API_RUN_CAP", env_int("SYNC_API_NIGHT_CAP", 500, 0, self.api_day_cap), 0, self.api_day_cap)
         self.api_gap = env_float("SYNC_API_GAP_SECONDS", HARD_API_GAP, HARD_API_GAP, 600.0)
         self.max_pages = env_int("SYNC_MAX_PAGES", 200, 1, 2000)
-        self.download_max = env_int("SYNC_DOWNLOAD_MAX", HARD_DOWNLOAD_MAX, 0, HARD_DOWNLOAD_MAX)
-        self.download_bytes = env_int("SYNC_DOWNLOAD_MAX_MB", HARD_DOWNLOAD_BYTES >> 20, 0, HARD_DOWNLOAD_BYTES >> 20) << 20
         self.download_pause = env_float("SYNC_DOWNLOAD_PAUSE", 2.0, 2.0, 600.0)
-        self.batch = env_int("SYNC_BATCH", 100, 1, HARD_DOWNLOAD_MAX)
-        self.day_start = env_hhmm("SYNC_DAY_AT", None)
-        self.day_end = env_hhmm("SYNC_DAY_END", None)
-        if not (self.day_start and self.day_end):
-            self.day_start = self.day_end = None
+        self.batch = env_int("SYNC_BATCH", 100, 1, 1500)
         self.quiet = env_int("SYNC_QUIET_MINUTES", 10, 0, 240) * 60
         self.hold = env_int("SYNC_HOLD_SECONDS", 20, 5, 300)
         self.test_port = env_int("SYNC_TEST_PORT", 27215, 1024, 65535)
@@ -258,21 +279,22 @@ class Config(object):
         self.tzname = os.environ.get("TZ") or "UTC"
         self.steamcmd = os.environ.get("SYNC_STEAMCMD") or "/home/steam/steamcmd/steamcmd.sh"
         self.ratings = env_flag("SYNC_RATINGS", True)      # step 2b: the Workshop scores, once a day
+        self.force_api = False
         self.handover = env_flag("SYNC_HANDOVER", True)    # the keep set's maps handed over to the game server
         self.handover_dir = os.environ.get("SYNC_HANDOVER_DIR") or os.path.join(self.work_dir, "handover")
         self.depotcache = os.environ.get("SYNC_DEPOTCACHE") or os.path.join(os.environ.get("HOME") or "/home/steam", "Steam", "depotcache")
 
     def lower(self, overrides):
         """run-now may only lower a limit for its run, never raise one."""
-        for key, attr in (("api_night_cap", "api_night_cap"), ("download_max", "download_max"), ("max_pages", "max_pages"), ("batch", "batch")):
+        for key, attr in (("api_run_cap", "api_run_cap"), ("api_night_cap", "api_run_cap"), ("max_pages", "max_pages"), ("batch", "batch")):
             if isinstance(overrides.get(key), int) and overrides[key] >= 0:
                 setattr(self, attr, min(getattr(self, attr), overrides[key]))
-        if isinstance(overrides.get("download_max_mb"), int) and overrides["download_max_mb"] >= 0:
-            self.download_bytes = min(self.download_bytes, overrides["download_max_mb"] << 20)
         if overrides.get("publish") is False:
             self.publish = False
         if overrides.get("discover") is False:
             self.key_file = ""
+        if overrides.get("api") is True:
+            self.force_api = True                       # discovery, the check and the ratings this run, whatever the cadence
         if isinstance(overrides.get("only_ids"), list):
             self.only_ids = [str(x) for x in overrides["only_ids"] if str(x).isdigit()]
 
@@ -430,7 +452,7 @@ def workshop_verdict(item):
 # ------------------------------------------------------------------------------------------------
 
 class StopNight(Exception):
-    """A limit or a refusal: no more Web API calls tonight."""
+    """A limit or a refusal: no more Web API calls this run (a cap) or today (Steam's push-back)."""
 
 
 class ApiError(Exception):
@@ -442,7 +464,8 @@ class ApiRefused(ApiError):
 
 
 class ApiLedger(object):
-    """Every Web API call this tool makes, persisted BEFORE it is sent. Rolling 24 h cap, per-night cap, the night's stop."""
+    """Every Web API call this tool makes, persisted BEFORE it is sent. The rolling 24 h cap, the count per day, the day's stop (the
+    per-run cap is SteamApi's)."""
 
     def __init__(self, path, day_cap, night_cap, clock):
         self.path, self.day_cap, self.night_cap, self.clock = path, min(day_cap, HARD_API_DAY_CAP), night_cap, clock
@@ -496,11 +519,9 @@ class ApiLedger(object):
         now = self.clock.now()
         self.prune(now)
         if self.stopped(night):
-            raise StopNight("stopped earlier tonight: %s" % self.stopped(night))
+            raise StopNight("stopped earlier today: %s" % self.stopped(night))
         if self.last_24h(now) >= self.day_cap:
             raise StopNight("the cap of %d Web API calls in 24 hours is reached" % self.day_cap)
-        if self.tonight(night) >= self.night_cap:
-            raise StopNight("tonight's cap of %d Web API calls is reached" % self.night_cap)
         self.data["calls"].append([round(now, 3), api, None])
         self.data["nights"][night] = self.tonight(night) + 1
         self.save()
@@ -517,8 +538,9 @@ class ApiLedger(object):
 class SteamApi(object):
     """The only way this tool talks to api.steampowered.com: one call at a time, at least `gap` seconds apart."""
 
-    def __init__(self, ledger, night, gap, key=None, opener=None, sleep=time.sleep, monotonic=time.monotonic):
+    def __init__(self, ledger, night, gap, key=None, opener=None, sleep=time.sleep, monotonic=time.monotonic, run_cap=None):
         self.ledger, self.night, self.gap, self.key = ledger, night, max(HARD_API_GAP, gap), key
+        self.run_cap = run_cap                       # this run's calls at most (SYNC_API_RUN_CAP); the ledger keeps the 24 h cap
         self.opener = opener or urllib.request.urlopen
         self.sleep, self.monotonic = sleep, monotonic
         self.last = None
@@ -562,6 +584,8 @@ class SteamApi(object):
     def _send(self, api, url, data, params):
         if self.stop_reason:
             raise StopNight(self.stop_reason)
+        if self.run_cap is not None and self.calls >= self.run_cap:
+            raise StopNight("this run's cap of %d Web API calls is reached" % self.run_cap)
         self._wait_gap()
         index = self.ledger.reserve(self.night, api)
         query = dict(params or {})
@@ -595,7 +619,7 @@ class SteamApi(object):
             status = error.code
             self.ledger.settle(index, status)
             if status in (401, 403, 429):
-                self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for tonight" % (status, api))
+                self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for the rest of the day" % (status, api))
             if 500 <= status < 600:
                 self.errors_5xx_row += 1
                 self.errors_5xx += 1
@@ -608,12 +632,12 @@ class SteamApi(object):
             self.ledger.settle(index, "net")
             self.netfails += 1
             if self.netfails >= API_NETFAIL_NIGHT:
-                self._stop("%d network failures talking to the Web API (the last: %s) - every API step stops for tonight"
+                self._stop("%d network failures talking to the Web API (the last: %s) - every API step stops for the rest of the day"
                            % (self.netfails, self.redact(error)))
             raise ApiError("network: %s" % self.redact(error))
         self.ledger.settle(index, status)
         if status == 429 or status == 403 or status == 401:
-            self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for tonight" % (status, api))
+            self._stop("Steam's Web API answered HTTP %d to %s - every API step stops for the rest of the day" % (status, api))
         self.errors_5xx_row = 0
         try:
             return json.loads(raw.decode("utf-8", "replace"))
@@ -641,8 +665,21 @@ class SteamApi(object):
         for item in ((reply or {}).get("response") or {}).get("publishedfiledetails") or []:
             wid, vote = str(item.get("publishedfileid") or ""), item.get("vote_data")
             if wid.isdigit() and int(item.get("result") or 0) == 1 and isinstance(vote, dict) and isinstance(vote.get("score"), (int, float)):
-                out[wid] = [round(float(vote["score"]), 6), int(vote.get("votes_up") or 0), int(vote.get("votes_down") or 0)]
+                out[wid] = [round(float(vote["score"]), 6), int(vote.get("votes_up") or 0), int(vote.get("votes_down") or 0),
+                            int(item.get("subscriptions") or 0)]
         return out
+
+    def trend(self, tag, cursor, days, per_page=100):
+        """(ids, next cursor, total): one page of the Workshop's Most Popular for a tag - IPublishedFileService/QueryFiles with
+        query_type 3 (RankedByTrend) over `days` days, ids only, the key needed (probed 2026-11-03: 30 days is accepted, its order
+        differs from 7's and 90's)."""
+        params = [("query_type", 3), ("days", days), ("cursor", cursor), ("numperpage", per_page), ("appid", 730), ("filetype", 0),
+                  ("requiredtags[0]", tag), ("ids_only", "true")]
+        reply = self.call("QueryFiles", QUERY_URL, params=params)
+        response = (reply or {}).get("response") or {}
+        ids = [str(i.get("publishedfileid")) for i in response.get("publishedfiledetails") or [] if isinstance(i, dict)
+               and str(i.get("publishedfileid") or "").isdigit()]
+        return ids, response.get("next_cursor") or "", int(response.get("total") or 0)
 
     def details(self, ids):
         form = [("itemcount", len(ids))] + [("publishedfileids[%d]" % i, w) for i, w in enumerate(ids)]
@@ -794,7 +831,7 @@ def discover(api, cfg, known, state, night, deadline, now=time.time):
     cursor = "*"
     while out["pages"] < cfg.max_pages:
         if now() >= deadline:
-            out["stop"] = "the night's deadline"
+            out["stop"] = "the run's deadline"
             break
         items, next_cursor, total = api.query_files(cfg.tags, cursor, DETAILS_BATCH)
         out["pages"] += 1
@@ -908,15 +945,19 @@ def keep_set(inputs, now, hud=""):
     """THE KEEP SET: the Workshop maps the server stores (official maps are part of the game). Its parts:
       up       every map with at least one player's up vote in votes.json - one vote per player and map, up or down, the opposite
                replaces it; too-big and ads votes are down votes - however many down votes it has besides
-      top      per mode, the KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists, removed.json's verdicts, the
-               bridge's crash counts) with the best Workshop score (ratings.json: vote_data.score, Steam's "Top Rated" order; ties by
-               list order)
+      top      per mode, the union of three lists of its KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists,
+               removed.json's verdicts, the bridge's crash counts), all from ratings.json, which the sync fetches daily: "rated", the
+               best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current subscriptions
+               (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order. Up to 300
+               maps a mode (the owner's 35, 2026-11-03)
       own, hud ours.json's maps and the HUD item
       queues   the bridge's random queues and the maps players have queued (queues.json)
-    Returns {"up", "top": {mode: [ids]}, "cutoff": {mode: the 100th score, or None}, "own", "hud", "queues": {name: [ids]}, "requested",
-    "all": set, "scored", "problems"}. problems: why the set is not to be trusted with a deletion - an input missing or unreadable,
-    ratings older than KEEP_RATINGS_MAX_AGE or scoring under KEEP_RATED_SHARE of a list, a top list under KEEP_MIN_TOP, a queue under
-    KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the same set."""
+    Returns {"up", "top": {mode: [ids]}, "lists": {mode: {"rated", "subscribed", "popular": [ids]}}, "cutoff": {mode: {"score",
+    "subscriptions": the 100th's, or None}}, "own", "hud", "queues": {name: [ids]}, "requested", "all": set, "scored", "problems"}.
+    problems: why the set is not to be trusted with a deletion - an input missing or unreadable, ratings older than
+    KEEP_RATINGS_MAX_AGE, scores or subscriptions for under KEEP_RATED_SHARE of a list, no Most Popular order for a mode, any of a
+    mode's three lists under KEEP_MIN_TOP, a queue under KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the
+    same set."""
     problems = []
 
     def need(name, kind):
@@ -948,29 +989,44 @@ def keep_set(inputs, now, hud=""):
     up = set(str(k) for k, v in need("votes.json", dict).items() if digits(k) and isinstance(v, dict)
              and any(isinstance(x, int) and not isinstance(x, bool) and x > 0 for x in v.values()))
     ratings = need("ratings.json", dict)
-    scores = {}
+    scores, subs = {}, {}
     for wid, value in (ratings.get("scores") or {}).items() if isinstance(ratings.get("scores"), dict) else []:
         score = value[0] if isinstance(value, list) and value else value
         if digits(wid) and isinstance(score, (int, float)) and not isinstance(score, bool):
             scores[str(wid)] = float(score)
+        count = value[3] if isinstance(value, list) and len(value) > 3 else None
+        if digits(wid) and isinstance(count, int) and not isinstance(count, bool):
+            subs[str(wid)] = count
+    trend = ratings.get("trend") if isinstance(ratings.get("trend"), dict) else {}
     if ratings:
         fetched = ratings.get("fetched")
         age = now - fetched if isinstance(fetched, (int, float)) and not isinstance(fetched, bool) else None
         if age is None or age > KEEP_RATINGS_MAX_AGE:
             problems.append("ratings.json is %s old (at most %d h)" % ("%d h" % (age // 3600) if age is not None else "of no known age",
                                                                        KEEP_RATINGS_MAX_AGE // 3600))
-    top, cutoff = {}, {}
+    top, cutoff, three = {}, {}, {}
     for mode, _name in KEEP_MODES:
         playable = [w for w in lists[mode] if w not in bad]
         place = dict((w, i) for i, w in enumerate(playable))
         rated = [w for w in playable if w in scores]
-        if playable and len(rated) < KEEP_RATED_SHARE * len(playable):
-            problems.append("ratings.json scores %d of the %d playable %s maps (%d%% needed)" % (len(rated), len(playable), mode,
-                                                                                               round(KEEP_RATED_SHARE * 100)))
-        top[mode] = sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP]
-        cutoff[mode] = scores[top[mode][-1]] if len(top[mode]) >= KEEP_TOP else None
-        if len(top[mode]) < min(KEEP_MIN_TOP, len(playable)):
-            problems.append("the %s top list holds %d maps (%d playable listed)" % (mode, len(top[mode]), len(playable)))
+        counted = [w for w in playable if w in subs]
+        for what, have in (("scores", rated), ("subscriptions", counted)):
+            if playable and len(have) < KEEP_RATED_SHARE * len(playable):
+                problems.append("ratings.json has the %s of %d of the %d playable %s maps (%d%% needed)" % (
+                    what, len(have), len(playable), mode, round(KEEP_RATED_SHARE * 100)))
+        order = trend.get(mode) if isinstance(trend.get(mode), list) else None
+        if order is None:
+            problems.append("ratings.json has no Most Popular order for %s" % mode)
+        best = {"rated": sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP],
+                "subscribed": sorted(counted, key=lambda w: (-subs[w], place[w]))[:KEEP_TOP],
+                "popular": [w for w in dict.fromkeys(str(x) for x in order or []) if w in place][:KEEP_TOP]}
+        three[mode] = best
+        top[mode] = list(dict.fromkeys(best["rated"] + best["subscribed"] + best["popular"]))
+        cutoff[mode] = {"score": scores[best["rated"][-1]] if len(best["rated"]) >= KEEP_TOP else None,
+                        "subscriptions": subs[best["subscribed"][-1]] if len(best["subscribed"]) >= KEEP_TOP else None}
+        for what, ids in best.items():
+            if len(ids) < min(KEEP_MIN_TOP, len(playable)):
+                problems.append("the %s %s list holds %d maps (%d playable listed)" % (mode, what, len(ids), len(playable)))
     own = set(digits(e.get("id")) for e in need("ours.json", dict).get("maps") or [] if isinstance(e, dict) and digits(e.get("id")))
     if not own:
         problems.append("ours.json names no own map")
@@ -991,7 +1047,7 @@ def keep_set(inputs, now, hud=""):
     every = up | own | hud_ids | set(requested)
     for ids in list(top.values()) + list(qs.values()):
         every |= set(ids)
-    return {"up": sorted(up), "top": top, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
+    return {"up": sorted(up), "top": top, "lists": three, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
             "requested": requested, "all": every, "scored": len(scores), "problems": problems}
 
 
@@ -1292,34 +1348,38 @@ class SteamCmd(object):
 
 
 class DownloadBudget(object):
-    """The day's download caps, persisted in state.json's "downloads" (so a restart of the service cannot reset them, and
-    the night's run and the day's run share them). A rate limit SteamCMD answered is kept there too: it ends the day's downloads."""
+    """The day's downloads, booked in state.json's "downloads" (so a restart of the service cannot reset them, and the night's
+    run and the day's run share them). No daily cap since the owner's 36 c (2026-11-03): only Steam's push-back stops them - a
+    SteamCMD rate-limit answer or two Access Denied in a row end the day's downloads (refuse_for_today, kept here), and a run ends
+    its own at 3 failures in a row. The bug brake instead of a volume cap: a map downloaded DOWNLOADS_PER_MAP_DAY times today is not
+    downloaded again today."""
 
-    def __init__(self, state, night, max_items, max_bytes):
+    def __init__(self, state, night):
         self.book = state.data.setdefault("downloads", {})
         for old in sorted(self.book)[:-14]:
             del self.book[old]
         self.night = self.book.setdefault(night, {"items": 0, "bytes": 0})
-        self.max_items, self.max_bytes = min(max_items, HARD_DOWNLOAD_MAX), min(max_bytes, HARD_DOWNLOAD_BYTES)
 
-    def allows(self, size):
+    def allows(self, wid=None):
+        """(ok, why): no when Steam pushed back today; for a map, no when it was downloaded DOWNLOADS_PER_MAP_DAY times today already."""
         if self.night.get("stop"):
             return False, "no more downloads today: %s" % self.night["stop"]
-        if self.night["items"] >= self.max_items:
-            return False, "today's cap of %d downloads is reached" % self.max_items
-        if self.night["bytes"] + max(0, size) > self.max_bytes:
-            return False, "%s would pass today's cap of %s (%s used)" % (mb(size), mb(self.max_bytes), mb(self.night["bytes"]))
+        if wid is not None and int((self.night.get("maps") or {}).get(str(wid), 0)) >= DOWNLOADS_PER_MAP_DAY:
+            return False, "downloaded %d times today already - not again today (the bug brake)" % DOWNLOADS_PER_MAP_DAY
         return True, ""
 
     def refuse_for_today(self, why):
         self.night["stop"] = why[:200]
 
-    def spend(self, nbytes):
+    def spend(self, nbytes, wid=None):
         self.night["items"] += 1
         self.night["bytes"] += max(0, int(nbytes))
+        if wid is not None:
+            maps = self.night.setdefault("maps", {})
+            maps[str(wid)] = int(maps.get(str(wid), 0)) + 1
 
-    def bytes_left(self):
-        return self.max_bytes - self.night["bytes"]
+    def fail(self):
+        self.night["failed"] = int(self.night.get("failed") or 0) + 1
 
     def spend_bytes(self, nbytes):
         """The test engine's own copy of an item SteamCMD already fetched: volume, not another item."""
@@ -2165,31 +2225,25 @@ PACE_DEFAULT = 31.0   # seconds a map takes, download and test, until a run has 
 
 
 def window_hours(cfg):
-    """The hours a day the windows give, without the prefetch's first 20 minutes of the night's window."""
-    def span(start, end):
-        return max(0, (end[0] * 60 + end[1]) - (start[0] * 60 + start[1])) / 60.0
-    hours = max(0.0, span(cfg.start, cfg.end) - 20 / 60.0)
-    if cfg.day_start and cfg.day_end:
-        hours += span(cfg.day_start, cfg.day_end)
-    return hours
+    """The hours a day the sync may work: every hour but the prefetch's and the restarts' stretches (HOURS_A_DAY) - there are no
+    time windows since 2026-11-03; every hour somebody plays comes off it."""
+    return float(HOURS_A_DAY)
 
 
 def backlog_stats(items, wids, cfg, pace=None):
-    """How much is waiting and how long it takes: {"items", "bytes", "by_mode", "days", "pace", "hours", "per_day"}. Three things
-    bound a day: the two caps, and the hours in the windows at the pace measured (or PACE_DEFAULT). Real bytes count: only an item
-    near the end of a day's volume is held back by the budget's room for a test engine's own copy, so nothing is halved."""
+    """How much is waiting and how long it takes: {"items", "bytes", "by_mode", "days", "pace", "hours", "per_day"}. With no daily
+    caps (the owner's 36 c) and no time windows one thing bounds a day: HOURS_A_DAY at the pace measured (or PACE_DEFAULT) - every
+    hour somebody plays comes on top."""
     by_mode = {}
     for mode, tag, _gt, _gm, _f in MODES:
         by_mode[mode] = sum(1 for w in wids if tag in (items[w].get("tags") or []))
     total = sum(int(items[w].get("size") or 0) for w in wids)
     pace = pace if pace and pace > 0 else PACE_DEFAULT
     hours = window_hours(cfg)
-    per_day = min(max(1, cfg.download_max), max(1, int(hours * 3600 / pace)))
-    days = 0
-    if wids:
-        days = max(-(-len(wids) // per_day), -(-total // max(1, cfg.download_bytes)))
+    per_day = max(1, int(hours * 3600 / pace))
+    days = -(-len(wids) // per_day) if wids else 0
     return {"items": len(wids), "bytes": total, "by_mode": by_mode, "days": days, "pace": round(pace, 1), "hours": round(hours, 1),
-            "per_day": [cfg.download_max, cfg.download_bytes]}
+            "per_day": per_day}
 
 
 def merge_problems(name, old_raw, new_text):
@@ -2429,14 +2483,15 @@ def mail_text(r, cfg):
         head.append("%d on broken.json" % nb)
     if pub.get("removed"):
         head.append("%d gone from the Workshop" % len(pub["removed"]))
-    subject = "%s Workshop sync %s%s: %s%s" % (cfg_name(cfg), r["night"], " (manual run)" if r.get("manual") else " (day run)" if r.get("day_run") else "",
+    subject = "%s Workshop sync %s%s: %s%s" % (cfg_name(cfg), r["night"], " (manual run)" if r.get("manual") else " (the run of %s)" % r.get("started_hm", "?"),
                                              ", ".join(head) or "nothing new", " - STOPPED: %s" % short_stop(stop) if stop else "")
-    w("%s - the Workshop sync, %s of %s (%s to %s)." % (cfg_name(cfg), "day run" if r.get("day_run") else "night", r["night"],
-                                                         r.get("started_hm", "?"), r.get("ended_hm", "?")))
+    w("%s - the Workshop sync, a run of %s (%s to %s). It runs whenever nobody plays; one mail a day, the reports of every run in" % (
+        cfg_name(cfg), r["night"], r.get("started_hm", "?"), r.get("ended_hm", "?")))
+    w("its reports folder.")
     w("")
     if stop:
         w("STOPPED: %s" % stop)
-        w("Every Web API step stopped for the rest of the night at that moment (the owner's rule: any 429, 403 or burst of")
+        w("Every Web API step stopped for the rest of the day at that moment (the owner's rule: any 429, 403 or burst of")
         w("server errors). The next night starts again from the ledger's counts.")
         w("")
     for line in r.get("notes") or []:
@@ -2547,10 +2602,10 @@ def mail_text(r, cfg):
             w("   content update.")
     lim = r.get("limits") or {}
     w("")
-    w("Limits: Web API calls tonight %s of %s, last 24 h %s of %s (10%% of Valve's 100,000), at least %.0f s apart;"
-      % (lim.get("api_night"), lim.get("api_night_cap"), lim.get("api_24h"), lim.get("api_day_cap"), lim.get("api_gap", 2)))
-    w("downloads %s of %s, %s of %s%s; test-engine starts %s of %s." % (
-        lim.get("dl_items"), lim.get("dl_max"), mb(lim.get("dl_bytes") or 0), mb(lim.get("dl_max_bytes") or 0),
+    w("Limits: Web API calls this run %s of %s, last 24 h %s of %s (10%% of Valve's 100,000), at least %.0f s apart;"
+      % (lim.get("api_run"), lim.get("api_run_cap"), lim.get("api_24h"), lim.get("api_day_cap"), lim.get("api_gap", 2)))
+    w("downloads today %s, %s%s - no daily cap (the owner's 36 c): only Steam's push-back stops them; test-engine starts %s of %s." % (
+        lim.get("dl_items"), mb(lim.get("dl_bytes") or 0),
         " (with %d copies the test engine fetched itself)" % lim["dl_engine"] if lim.get("dl_engine") else "",
         lim.get("engine_starts"), lim.get("engine_starts_max")))
     bl = r.get("backlog") or {}
@@ -2559,11 +2614,11 @@ def mail_text(r, cfg):
         w("Backlog: %d item(s) waiting, %s (Deathmatch %d, Wingman %d, Arms Race %d - one item can carry several tags), taken"
           % (bl["items"], mb(bl.get("bytes") or 0), bl["by_mode"].get("deathmatch", 0), bl["by_mode"].get("wingman", 0),
              bl["by_mode"].get("armsrace", 0)))
-        w("new uploads first, then strictly by subscribers. About %d more day(s)%s: %.0f s a map, %.1f h a day in the windows, at"
-          % (bl.get("days", 0), eta, bl.get("pace", PACE_DEFAULT), bl.get("hours", 0)))
-        w("most %d downloads and %s a day; every hour somebody plays comes on top. (%s Web API calls tonight of the %s allowed: the"
-          % (bl["per_day"][0], mb(bl["per_day"][1]), lim.get("api_night"), lim.get("api_night_cap")))
-        w("Web API is not what limits it.)")
+        w("the ones the keep set wants first, new uploads next, then strictly by subscribers. About %d more day(s)%s: %.0f s a map"
+          % (bl.get("days", 0), eta, bl.get("pace", PACE_DEFAULT)))
+        w("(download and test), about %.0f h a day while nobody plays (no time windows), so about %d a day; every hour somebody"
+          % (bl.get("hours", 0), bl["per_day"] if isinstance(bl.get("per_day"), int) else 0))
+        w("plays comes off it. No daily download cap (the owner's 36 c): only time and the test speed set it.")
     if r.get("waited"):
         w("Waited: %s." % "; ".join(r["waited"]))
     if r.get("errors"):
@@ -2585,12 +2640,248 @@ def cfg_name(cfg):
 
 
 # ------------------------------------------------------------------------------------------------
+# THE STATUS FILE for the in-game dashboard (the owner's 34, brought forward on 2026-11-03)
+# ------------------------------------------------------------------------------------------------
+STATUS_FILE = "sync-status.json"  # in the bridge's data folder; the bridge does not watch it (Reload.cs watches its own files only)
+STATUS_TICK = 15                  # seconds: written at least this often while a run is active
+STATUS_HEAVY = 15                 # seconds: the counts, the queue and the keep set are rebuilt at most this often during a run
+STATUS_IDLE = 60                  # seconds: written again this often while the service is idle, waiting or stopped...
+STATUS_IDLE_HEAVY = 300           # ...with the counts rebuilt at most this often
+STATUS_RUNS, STATUS_MAPS, STATUS_NEXT = 50, 200, 25
+PHASE_STATE = {"start": "waiting", "discovery": "discovery", "check": "check", "ratings": "ratings", "serve": "serve",
+               "downloads": "download", "tests": "test", "publish": "publish"}
+PHASE_WHY = {"start": "A run is starting.",
+             "discovery": "Looking for new maps on the Workshop.",
+             "check": "Asking the Workshop about every listed map: gone, hidden or updated.",
+             "ratings": "Fetching the Workshop's scores, subscriptions and trends for the lists of maps the server keeps.",
+             "serve": "Downloading the maps the server keeps but does not have yet, and handing them over to it.",
+             "downloads": "Downloading queued maps for their test.",
+             "tests": "Load-testing downloaded maps on a test copy of the server.",
+             "publish": "Putting the tested maps on the map lists."}
+QUEUE_MODE = {"armsrace-new": "armsrace", "armsrace-original": "armsrace", "deathmatch": "deathmatch", "wingman": "wingman"}
+BROKEN_KINDS = ("advert", "crasher", "kick")
+
+
+def mode_of(rec, listed=None, wid=None):
+    """armsrace | deathmatch | wingman: the list a map is on, else the first of its Workshop tags; armsrace when neither says."""
+    if listed and wid in listed:
+        return listed[wid]
+    tags = (rec or {}).get("tags") or []
+    for mode, tag, _gt, _gm, _f in MODES:
+        if tag in tags:
+            return mode
+    return "armsrace"
+
+
+def unix_of(stamp):
+    try:
+        return int(time.mktime(time.strptime(str(stamp), "%Y-%m-%dT%H:%M:%S")))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def run_entry(r):
+    """A run's line in the status file's history, from its report (the ones written before the status file existed too)."""
+    dl, sv, t, pub = r.get("downloads") or {}, r.get("serve") or {}, r.get("tests") or {}, r.get("published") or {}
+    rows = t.get("rows") or []
+    stop = next((str(s) for s in (dl.get("stop"), t.get("stop"), sv.get("stop"), r.get("api_stop")) if s), None)
+    return {"started": unix_of(r.get("started")), "ended": unix_of(r.get("ended")), "kind": "manual" if r.get("manual") else "auto",
+            "downloads": int(dl.get("ok") or 0) + int(sv.get("downloads", sv.get("ok")) or 0),
+            "bytes": int(dl.get("bytes") or 0) + int(sv.get("dl_bytes", sv.get("bytes")) or 0),
+            "pass": sum(1 for x in rows if str(x).startswith("PASS")), "rejected": sum(1 for x in rows if not str(x).startswith("PASS")),
+            "listed": len(pub.get("listed") or []) + sum(len(v or []) for v in (pub.get("modes") or {}).values()),
+            "removed": len((r.get("check") or {}).get("removed") or []), "stop": stop[:200] if stop else None}
+
+
+def seed_runs(state_dir):
+    """The history's runs from the reports kept so far, newest first: what the status file starts with."""
+    folder = os.path.join(state_dir, "reports")
+    try:
+        names = sorted((n for n in os.listdir(folder) if n.endswith(".json")), reverse=True)
+    except OSError:
+        return []
+    runs = []
+    for name in names:
+        r = read_json(os.path.join(folder, name), None)
+        if isinstance(r, dict) and r.get("started") and r.get("ended"):
+            runs.append(run_entry(r))
+        if len(runs) >= STATUS_RUNS:
+            break
+    runs.sort(key=lambda e: -(e.get("started") or 0))
+    return runs
+
+
+class Status(object):
+    """THE STATUS FILE: <bridge>/sync-status.json, schema 1, for the in-game dashboard - what the sync does now and why, today's
+    counts, the totals, the download queue (its next maps in the order they are taken), the keep set's parts and the history
+    of runs and map events. Written atomically (a tmp file, then a rename): at every phase change, at least every STATUS_TICK
+    seconds while a run is active (a ticker thread writes the last picture with a fresh time; the main thread alone rebuilds
+    it), and when the service goes idle, waits or stops (again every STATUS_IDLE seconds, so its time says the sync is alive).
+    A failure to build or write it is logged once and never stops the sync."""
+
+    def __init__(self, cfg, clock):
+        self.cfg, self.clock = cfg, clock
+        self.path = os.path.join(cfg.bridge_data, STATUS_FILE)
+        self.lock = threading.Lock()
+        self.now = {"state": "idle", "why": "The sync is starting.", "map": None, "step": None, "run": None}
+        self.heavy = {}
+        self.heavy_at = 0.0
+        self.failed = None
+        self.ticker, self.stop_event = None, threading.Event()
+
+    def set(self, **fields):
+        self.now = dict(self.now, **fields)            # a new dict each time: the ticker never sees one half-changed
+
+    def doc(self):
+        out = {"schema": 1, "updated": int(self.clock.now()), "now": self.now}
+        for key, empty in (("today", {}), ("totals", {}), ("queue", {}), ("keep", {"parts": [], "totalGb": 0.0}),
+                           ("history", {"runs": [], "maps": []})):
+            out[key] = self.heavy.get(key, empty)
+        return out
+
+    def write(self):
+        with self.lock:
+            try:
+                write_atomic(self.path, json.dumps(self.doc(), ensure_ascii=False, separators=(",", ":")) + "\n", mode=0o644)
+                if self.failed:
+                    log("status: %s written again" % self.path)
+                self.failed = None
+            except Exception as error:   # the dashboard must never stop the sync
+                if self.failed != str(error):
+                    log("status: %s not written (%s)" % (self.path, error))
+                self.failed = str(error)
+
+    def rebuild(self, night, force=False, every=STATUS_HEAVY):
+        """The counts, the queue, the keep set and the history again (the main thread only), at most every `every` seconds."""
+        if not force and self.clock.now() - self.heavy_at < every:
+            return
+        self.heavy_at = self.clock.now()
+        try:
+            self.heavy = status_heavy(night)
+        except Exception as error:
+            if self.failed != "rebuild: %r" % error:
+                log("status: not rebuilt (%r) - the last picture stays" % error)
+            self.failed = "rebuild: %r" % error
+
+    def start_ticker(self):
+        self.stop_ticker()
+        event = threading.Event()
+
+        def tick():
+            while not event.wait(STATUS_TICK):
+                self.write()
+        self.stop_event = event
+        self.ticker = threading.Thread(target=tick, name="sync-status", daemon=True)
+        self.ticker.start()
+
+    def stop_ticker(self):
+        if self.ticker is not None:
+            self.stop_event.set()
+            self.ticker.join(5)
+            self.ticker = None
+
+
+def status_heavy(n):
+    """The status file's parts but "now", from a Night `n` whose state (and ledger) are loaded."""
+    cfg, clock = n.cfg, n.clock
+    items = n.state.data.get("items") or {}
+    day = clock.day()
+    book = ((n.state.data.get("downloads") or {}).get(day) or {})
+    decided = [r for r in items.values() if r.get("decided") == day and r.get("verdict")]
+    today = {"downloads": int(book.get("items") or 0), "bytes": int(book.get("bytes") or 0),
+             "pass": sum(1 for r in decided if r["verdict"] == "pass"), "rejected": sum(1 for r in decided if r["verdict"] != "pass"),
+             "failedDownloads": int(book.get("failed") or 0),
+             "apiCalls": n.ledger.tonight(day) if n.ledger.data is not None else 0}
+    if book.get("stop"):
+        today["stop"] = str(book["stop"])[:200]
+    verdicts = [r.get("verdict") for r in items.values() if r.get("verdict")]
+    try:
+        files = bridge_files(cfg)
+    except (OSError, ValueError):
+        files = None
+    listed, sizes, names = {}, {}, {}
+    if files:
+        for mode, entries in [("armsrace", files["maps"])] + [(m, files["modes"].get(m) or []) for m in ("deathmatch", "wingman")]:
+            for entry in entries:
+                if isinstance(entry, dict) and str(entry.get("id") or "").isdigit():
+                    listed.setdefault(str(entry["id"]), mode)
+                    sizes.setdefault(str(entry["id"]), int(entry.get("sizeMb") or 0) << 20)
+                    names.setdefault(str(entry["id"]), clean(entry.get("name") or "", 80))
+    n.listed_mode, n.listed_size, n.listed_name = listed, sizes, names
+    totals = {"tested": len(verdicts), "pass": sum(1 for v in verdicts if v == "pass"),
+              "broken": sum(1 for v in verdicts if v in BROKEN_KINDS), "nonmap": sum(1 for v in verdicts if v == "nonmap"),
+              "listed": {"armsrace": len(files["maps"]) if files else 0,
+                         "deathmatch": len(files["modes"].get("deathmatch") or []) if files else 0,
+                         "wingman": len(files["modes"].get("wingman") or []) if files else 0}}
+
+    def size_of(wid):
+        return sizes.get(wid) or int((items.get(wid) or {}).get("size") or 0)
+    # the queue, in the order the downloads take it
+    order = n.queue(known_ids(files, cfg) if files else {}, {})
+    top, fresh, changed = getattr(n, "q_top", set()), getattr(n, "q_fresh", set()), getattr(n, "q_changed", set())
+
+    def why(wid):
+        rec = items.get(wid) or {}
+        if wid in top:
+            return "it would make one of its mode's lists of maps the server keeps"
+        if wid in changed:
+            return "it changed on the Workshop since its test"
+        if wid in fresh:
+            return "a new upload"
+        return "by popularity: %d subscribers" % int(rec.get("subs") or 0)
+    pace = n.pace() or PACE_DEFAULT
+    queue = {"total": len(order), "bytes": sum(int((items.get(w) or {}).get("size") or 0) for w in order),
+             "byMode": dict((mode, sum(1 for w in order if tag in ((items.get(w) or {}).get("tags") or []))) for mode, tag, _g, _m, _f in MODES),
+             "eta": int(clock.now() + len(order) * pace * DAY / (HOURS_A_DAY * 3600.0)) if order else None,
+             "next": [{"id": w, "name": clean((items.get(w) or {}).get("title") or "", 80), "mode": mode_of(items.get(w), listed, w),
+                       "sizeMb": int((items.get(w) or {}).get("size") or 0) >> 20, "why": why(w)} for w in order[:STATUS_NEXT]]}
+    # the keep set: its parts as the game server stores them, and what the sync still has to hand over
+    # the HUD item: the sync is not told which it is - the restart watcher's keep.json of its last engine start names it
+    watcher_keep = read_json(os.path.join(os.path.dirname(cfg.watcher_state), "keep.json"), {}) or {}
+    hud = [str(w) for w in ((watcher_keep.get("parts") or {}).get("hud") or []) if str(w).isdigit()] if isinstance(watcher_keep, dict) else []
+    keep = keep_set(keep_inputs(cfg.bridge_data), clock.now(), hud=hud[0] if hud else "")
+    has, pending = server_maps(cfg.game_dir), handovers(cfg.handover_dir)
+    want = [w for w in dict.fromkeys(keep["up"] + [w for mode, _f in KEEP_MODES for w in keep["top"].get(mode) or []] + keep["own"])
+            if w not in has and w not in pending and w not in cfg.exclude]
+    queue["serve"] = {"missing": len(want), "bytes": sum(size_of(w) for w in want), "handedOver": len(pending),
+                      "handedOverBytes": sum(pending.values())}
+    parts = []
+
+    def part(name, mode, ids, **extra):
+        ids = list(dict.fromkeys(str(w) for w in ids))
+        parts.append(dict({"part": name, "mode": mode, "count": len(ids), "onDisk": sum(1 for w in ids if w in has),
+                           "gb": round(sum(size_of(w) for w in ids) / float(1 << 30), 1)}, **extra))
+    part("up", "", keep["up"])
+    for mode, _f in KEEP_MODES:
+        lists = keep["lists"].get(mode) or {}
+        for name in ("rated", "popular", "subscribed"):
+            part(name, mode, lists.get(name) or [])
+    part("own", "", keep["own"])
+    part("hud", "", keep["hud"])
+    for name, ids in (keep["queues"] or {}).items():
+        part("queues", QUEUE_MODE.get(name, ""), ids, queue=name)
+    if keep["requested"]:
+        part("queues", "", keep["requested"], queue="requested")
+    keep_out = {"parts": parts, "totalGb": round(sum(size_of(w) for w in keep["all"]) / float(1 << 30), 1), "count": len(keep["all"]),
+                "onDisk": sum(1 for w in keep["all"] if w in has),
+                "problems": [p for p in keep["problems"] if not (p.startswith("no HUD item") and not hud)][:5]}
+    hist = n.state.data.setdefault("history", {})
+    if not hist.get("runs"):
+        hist["runs"] = seed_runs(cfg.state_dir)
+    history = {"runs": list(hist.get("runs") or [])[:STATUS_RUNS], "maps": list(reversed(hist.get("maps") or []))[:STATUS_MAPS]}
+    return {"today": today, "totals": totals, "queue": queue, "keep": keep_out, "history": history}
+
+
+# ------------------------------------------------------------------------------------------------
 # The night
 # ------------------------------------------------------------------------------------------------
 
 class Night(object):
-    def __init__(self, cfg, clock, manual=False, day_run=False, sleep=time.sleep):
-        self.cfg, self.clock, self.manual, self.day_run, self.sleep = cfg, clock, manual, day_run, sleep
+    def __init__(self, cfg, clock, manual=False, sleep=time.sleep, status=None):
+        self.cfg, self.clock, self.manual, self.sleep = cfg, clock, manual, sleep
+        self.status = status if status is not None else Status(cfg, clock)
+        self.phase_state = ("waiting", PHASE_WHY["start"])
+        self.listed_mode, self.listed_size, self.listed_name = {}, {}, {}
         self.night = clock.day()
         self.t0 = clock.now()
         self.human_at = None        # when this run last saw somebody on the game server (or could not tell)
@@ -2602,30 +2893,33 @@ class Night(object):
         os.makedirs(cfg.work_dir, exist_ok=True)
         LOG_FILE[0] = os.path.join(cfg.state_dir, "sync.log")
         self.deadline = self._deadline()
-        self.report = {"night": self.night, "manual": manual, "day_run": day_run, "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        self.report = {"night": self.night, "manual": manual, "started": time.strftime("%Y-%m-%dT%H:%M:%S"),
                        "started_hm": clock.local().strftime("%H:%M"), "notes": [], "errors": [], "waited": []}
-        self.ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, cfg.api_night_cap, clock)
+        self.ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, None, clock)
         self.state = State(os.path.join(cfg.state_dir, "state.json"))
         self.engine = None
         self.verdicts = []          # tonight's (id, ok|removed|hidden|banned) of every listed map the check answered
         self.backlog = None
 
     def _deadline(self):
-        if self.day_run:
-            return self.clock.at(self.cfg.day_end)
-        if not self.manual or self.clock.in_window(self.cfg.start, self.cfg.end):
-            return self.clock.at(self.cfg.end)
-        end = self.clock.now() + 3 * 3600
-        restart = env_hhmm("SYNC_DAILY_RESTART", (7, 0))
+        """A run's end: SYNC_RUN_HOURS from its start, cut short before the game server's restarts - 15 minutes before the daily one,
+        10 before the prefetch's - so the test engine never runs through one. The service starts the next run once nobody plays."""
+        now = self.clock.now()
+        end = now + self.cfg.run_hours * 3600
         for day in (0, 1):
-            at = self.clock.at(restart, self.clock.now() + day * DAY)
-            if self.clock.now() < at < end:
-                end = at - 900
+            for hhmm, lead in ((self.cfg.daily_restart, 900), (self.cfg.prefetch_at, 600)):
+                at = self.clock.at(hhmm, now + day * DAY) - lead
+                if now < at < end:
+                    end = at
         return end
 
     def phase(self, name):
         self.report["phase"] = name
         log("phase: %s" % name)
+        self.phase_state = (PHASE_STATE.get(name, "waiting"), PHASE_WHY.get(name, "Working."))
+        self.status.set(state=self.phase_state[0], why=self.phase_state[1], map=None, step=None)
+        self.status.rebuild(self, force=True)
+        self.status.write()
         try:
             write_atomic(os.path.join(self.cfg.state_dir, "running.json"), dumps(
                 {"night": self.night, "phase": name, "since": time.strftime("%Y-%m-%dT%H:%M:%S"), "pid": os.getpid(),
@@ -2635,6 +2929,27 @@ class Night(object):
 
     def left(self):
         return self.deadline - self.clock.now()
+
+    def on_map(self, wid, done, total):
+        """The status file: the map this step is on now, and how far the step is."""
+        rec, wid = self.state.item(wid) or {}, str(wid)
+        self.status.set(map={"id": wid, "name": clean(rec.get("title") or "", 80) or self.listed_name.get(wid, ""),
+                             "mode": mode_of(rec, self.listed_mode, wid),
+                             "sizeMb": (int(rec.get("size") or 0) or self.listed_size.get(wid, 0)) >> 20}, step={"done": int(done), "total": int(total)})
+        self.status.rebuild(self)
+        self.status.write()
+
+    def event(self, wid, event, why):
+        """A map's event for the status file's history (listed, broken, removed, changed, handed-over, failed), kept in the state."""
+        try:
+            hist = self.state.data.setdefault("history", {})
+            rec = self.state.item(wid) or {}
+            hist.setdefault("maps", []).append({"at": int(self.clock.now()), "id": str(wid),
+                                                "name": clean(rec.get("title") or "", 80) or self.listed_name.get(str(wid), ""),
+                                                "mode": mode_of(rec, self.listed_mode, str(wid)), "event": event, "why": clean(why, 200)})
+            del hist["maps"][:-STATUS_MAPS]
+        except Exception as error:
+            log("status: an event of %s not kept (%r)" % (wid, error))
 
     def humans(self):
         """Humans on the game server by A2S (None: it did not answer, which counts as somebody); remembers when it last saw any."""
@@ -2656,12 +2971,20 @@ class Night(object):
                 if said:
                     self.report["waited"].append("%s for %s (somebody on the server, or the maintenance flag)" % (
                         what, hms(self.clock.now() - t)))
+                    self.status.set(state=self.phase_state[0], why=self.phase_state[1])
+                    self.status.write()
                 return True
             if not said:
                 log("%s: waiting - %s" % (what, "the game server does not answer A2S" if h is None else (
                     "%d human(s) on the game server" % h if h else ("the bridge's maintenance flag is set" if flag else
                                                                     "somebody was on the server %s ago" % hms(self.clock.now() - self.human_at)))))
                 said = True
+                self.status.set(state="waiting", why=(
+                    "The game server does not answer, so the sync waits." if h is None else
+                    "Somebody is playing: the sync waits until the server has been empty for %d minutes." % (self.cfg.quiet // 60) if h
+                    else "The server is in maintenance, so the sync waits." if flag else
+                    "Somebody played a moment ago: the sync waits until the server has been empty for %d minutes." % (self.cfg.quiet // 60)))
+                self.status.write()
             if self.left() <= margin + 60:
                 self.report["waited"].append("%s: gave up at the deadline (%s)" % (what, "nobody answered" if h is None else
                                                                                     "%s human(s)" % h))
@@ -2669,30 +2992,43 @@ class Night(object):
             self.sleep(60)
 
     def wait_for_prefetch(self):
-        if not (self.cfg.after_prefetch and self.clock.in_window(self.cfg.start, self.cfg.end)):
-            return True
-        until = self.clock.at(self.cfg.prefetch_wait_until)
+        """True once no nightly prefetch of the restart watcher is due or running: from 10 minutes before SYNC_PREFETCH_AT until the
+        watcher stamps tonight's as done (its state.json, prefetch_day) or SYNC_PREFETCH_MINUTES are over, this run downloads and
+        tests nothing - the two never fetch from Steam at once. False when the run's deadline comes first."""
         t = self.clock.now()
         said = False
         while True:
-            st = read_json(self.cfg.watcher_state, {}) or {}
-            if st.get("prefetch_day") == self.night:
+            why = prefetch_due(self.cfg, self.clock)
+            if why is None:
                 if said:
                     self.report["waited"].append("the watcher's prefetch for %s" % hms(self.clock.now() - t))
                 return True
-            if self.clock.now() >= until:
-                self.report["notes"].append("the restart watcher's prefetch was not done by %02d:%02d (its prefetch_day: %s) - "
-                                            "tonight's downloads and tests wait for the next night" % (
-                                                self.cfg.prefetch_wait_until + (st.get("prefetch_day") or "none",)))
+            if self.left() < 600:
+                self.report["notes"].append("%s until the run's deadline - its downloads and tests wait for the next run" % why)
                 return False
             if not said:
-                log("waiting for the restart watcher's prefetch to finish (prefetch_day %s, until %02d:%02d)" % (
-                    (st.get("prefetch_day") or "none",) + self.cfg.prefetch_wait_until))
+                log("waiting: %s" % why)
                 said = True
-            time.sleep(60)
+                self.status.set(state="waiting", why="The server's nightly prefetch runs first: the sync waits until it is done.")
+                self.status.write()
+            self.sleep(60)
 
     # -- the steps ----------------------------------------------------------------------------------------------
     def run(self):
+        """One run, with the status file kept up to date: a ticker writes it every STATUS_TICK seconds until the run ends."""
+        self.status.set(run={"started": int(self.t0), "deadline": int(self.deadline), "kind": "manual" if self.manual else "auto"},
+                        map=None, step=None)
+        self.status.start_ticker()
+        try:
+            return self._run()
+        finally:
+            self.status.stop_ticker()
+            self.status.set(state="idle", why="The run that started at %s has ended." % self.clock.local(self.t0).strftime("%H:%M"),
+                            map=None, step=None, run=None)
+            self.status.rebuild(self, force=True)
+            self.status.write()
+
+    def _run(self):
         self.phase("start")
         try:
             self.ledger.load()
@@ -2720,63 +3056,78 @@ class Night(object):
             " (manual run)" if self.manual else ""))
         prefetch_done = self.wait_for_prefetch()
         key = read_key(self.cfg.key_file)
-        api = SteamApi(self.ledger, self.night, self.cfg.api_gap, key=key)
-        # 1. discovery
-        self.phase("discovery")
-        if key is None:
-            log("discovery skipped: no Steam Web API key in %s - the other steps run" % (self.cfg.key_file or "(not configured)"))
-            self.report["discovery"] = {"skipped": "no Web API key in the secret file"}
+        api = SteamApi(self.ledger, self.night, self.cfg.api_gap, key=key, run_cap=self.cfg.api_run_cap)
+        self.api = api
+        last_api = float(self.state.data.get("last_api") or 0)
+        api_due = self.cfg.force_api or self.clock.now() - last_api >= self.cfg.api_every or not backlog_waits(self.state.data)
+        details, removed_now = {}, []
+        if not api_due:
+            why = "the last ran at %s; again after %s, or once nothing waits" % (self.clock.local(last_api).strftime("%H:%M"), hms(self.cfg.api_every))
+            for step in ("discovery", "check", "ratings"):
+                self.report[step] = {"skipped": why}
+            log("discovery, the check and the ratings: not this run - %s" % why)
         else:
+            # 1. discovery
+            self.phase("discovery")
+            if key is None:
+                log("discovery skipped: no Steam Web API key in %s - the other steps run" % (self.cfg.key_file or "(not configured)"))
+                self.report["discovery"] = {"skipped": "no Web API key in the secret file"}
+            else:
+                try:
+                    d = discover(api, self.cfg, known, self.state, self.night, self.deadline - 1800, now=self.clock.now)
+                    self.report["discovery"] = d
+                    log("discovery: %d page(s), %d seen, %d new (%s)" % (d["pages"], d["seen"], len(d["new"]), d["stop"]))
+                except StopNight as stop:
+                    self.report["discovery"] = {"skipped": str(stop)}
+                    log("discovery stopped: %s" % stop)
+                except ApiError as error:
+                    self.report["discovery"] = {"skipped": "failed: %s" % error}
+                self.state.save()
+            # 2. the check: the listed maps, then the head of the download queue
+            self.phase("check")
+            queue_head = self.queue(known, {})[:QUEUE_CHECK]
+            ids = list(dict.fromkeys(listed + queue_head))
+            details, left, chk = {}, [], {"asked": len(ids)}
             try:
-                d = discover(api, self.cfg, known, self.state, self.night, self.deadline - 1800, now=self.clock.now)
-                self.report["discovery"] = d
-                log("discovery: %d page(s), %d seen, %d new (%s)" % (d["pages"], d["seen"], len(d["new"]), d["stop"]))
+                details, left = check(api, ids, self.deadline - 1500, now=self.clock.now)
+                chk["calls"] = api.by_api.get("GetPublishedFileDetails", 0)
+                chk["left"] = len(left)
             except StopNight as stop:
-                self.report["discovery"] = {"skipped": str(stop)}
-                log("discovery stopped: %s" % stop)
-            except ApiError as error:
-                self.report["discovery"] = {"skipped": "failed: %s" % error}
+                chk["skipped"] = str(stop)
+                log("check stopped: %s" % stop)
+            judged = judge_listed(details, listed, self.state, self.cfg, self.night) if details else {
+                "removed": [], "changed": [], "missing": len(listed), "suspicious": False}
+            seeded = set(str(e.get("id") if isinstance(e, dict) else e) for e in files["broken"].get("removed") or [])
+            removed_now = [] if judged["suspicious"] else [(w, v) for w, v in judged["removed"] if w not in seeded]
+            chk.update(removed=removed_now, changed=judged["changed"], suspicious=judged["suspicious"])
+            if not judged["suspicious"]:
+                self.verdicts = [(w, workshop_verdict(details[w])) for w in listed if w in details]
+            self.report["check"] = chk
+            for wid in judged["changed"]:
+                if wid in details:
+                    self.state.remember(details[wid], self.night, "changed")
+                    self.event(wid, "changed", "It changed on the Workshop: it is tested again.")
+            for wid, verdict in removed_now:
+                self.event(wid, "removed", "The Workshop says it is %s: it is blocked." % ("gone" if verdict == "removed" else verdict))
+            for wid in queue_head:
+                if wid in details:
+                    self.state.remember(details[wid], self.night, (self.state.item(wid) or {}).get("why") or "new")
             self.state.save()
-        # 2. the check: the listed maps, then the head of the download queue
-        self.phase("check")
-        queue_head = self.queue(known, {})[:max(2 * self.cfg.download_max, 0)]
-        ids = list(dict.fromkeys(listed + queue_head))
-        details, left, chk = {}, [], {"asked": len(ids)}
-        try:
-            details, left = check(api, ids, self.deadline - 1500, now=self.clock.now)
-            chk["calls"] = api.by_api.get("GetPublishedFileDetails", 0)
-            chk["left"] = len(left)
-        except StopNight as stop:
-            chk["skipped"] = str(stop)
-            log("check stopped: %s" % stop)
-        judged = judge_listed(details, listed, self.state, self.cfg, self.night) if details else {
-            "removed": [], "changed": [], "missing": len(listed), "suspicious": False}
-        seeded = set(str(e.get("id") if isinstance(e, dict) else e) for e in files["broken"].get("removed") or [])
-        removed_now = [] if judged["suspicious"] else [(w, v) for w, v in judged["removed"] if w not in seeded]
-        chk.update(removed=removed_now, changed=judged["changed"], suspicious=judged["suspicious"])
-        if not judged["suspicious"]:
-            self.verdicts = [(w, workshop_verdict(details[w])) for w in listed if w in details]
-        self.report["check"] = chk
-        for wid in judged["changed"]:
-            if wid in details:
-                self.state.remember(details[wid], self.night, "changed")
-        for wid in queue_head:
-            if wid in details:
-                self.state.remember(details[wid], self.night, (self.state.item(wid) or {}).get("why") or "new")
-        self.state.save()
-        log("check: %d asked, %d gone (%d not in broken.json's seed), %d changed%s" % (
-            len(ids), len(judged["removed"]), len(removed_now), len(judged["changed"]),
-            " - NOT BELIEVED (over 10%)" if judged["suspicious"] else ""))
-        if api.stop_reason:
-            self.report["api_stop"] = api.stop_reason
-        # 2b. the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
-        self.phase("ratings")
-        self.ratings(api, listed)
-        if api.stop_reason:
-            self.report["api_stop"] = api.stop_reason
+            log("check: %d asked, %d gone (%d not in broken.json's seed), %d changed%s" % (
+                len(ids), len(judged["removed"]), len(removed_now), len(judged["changed"]),
+                " - NOT BELIEVED (over 10%)" if judged["suspicious"] else ""))
+            if api.stop_reason:
+                self.report["api_stop"] = api.stop_reason
+            # 2b. the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
+            self.phase("ratings")
+            self.ratings(api, listed)
+            if api.stop_reason:
+                self.report["api_stop"] = api.stop_reason
+            self.state.data["last_api"] = self.clock.now()
+            self.state.save()
         stopped = api.stop_reason or (self.ledger.stopped(self.night) if self.ledger.data else None)
         if stopped and re.search(r"HTTP (?:429|403|401)", stopped):   # Steam said stop: no downloads either, today
-            DownloadBudget(self.state, self.night, self.cfg.download_max, self.cfg.download_bytes).refuse_for_today(
+            DownloadBudget(self.state, self.night).refuse_for_today(
                 "the Web API answered %s" % short_stop(stopped))
         # 2c. THE HAND-OVER: the keep set's maps the game server does not store, downloaded and handed over, before any test
         if prefetch_done:
@@ -2859,14 +3210,21 @@ class Night(object):
         scores = (self.state.data.get("ratings") or {}).get("scores") or {}
         cut = self.top_cutoffs()
         def best(wid):
-            s = scores.get(wid)
-            s = s[0] if isinstance(s, list) and s else s
+            v = scores.get(wid)
+            s = v[0] if isinstance(v, list) and v else v
+            n = v[3] if isinstance(v, list) and len(v) > 3 else None
             if not isinstance(s, (int, float)):
                 return None
             tags = items[wid].get("tags") or []
-            return s if any(tag in tags and (c is None or s >= c) for tag, c in cut.items()) else None
+            for tag, c in cut.items():
+                if tag in tags and ((c["score"] is None or s >= c["score"]) or (isinstance(n, int) and (c["subscriptions"] is None
+                                                                                                     or n >= c["subscriptions"])) or wid in c["popular"]):
+                    return s
+            return None
+        self.q_fresh, self.q_changed = set(fresh), set(changed)
         place = dict((w, i) for i, w in enumerate(ordered))
         top = sorted((w for w in ordered if best(w) is not None), key=lambda w: (-best(w), place[w]))
+        self.q_top = set(top)
         if top:
             first = set(top)
             ordered = top + [w for w in ordered if w not in first]
@@ -2876,29 +3234,41 @@ class Night(object):
         return ordered
 
     def top_cutoffs(self):
-        """{Workshop tag: the score a map needs to be among its mode's KEEP_TOP best (None: the list is shorter, any score)}, from
-        the keep set of the bridge's files as they are; {} without ratings."""
+        """{Workshop tag: {"score", "subscriptions": what a map needs to be among its mode's KEEP_TOP by that list (None: the list is
+        shorter, anything does), "popular": the ids of Most Popular's order up to its mode's KEEP_TOP-th listed map}}, from the keep
+        set of the bridge's files as they are; {} without ratings. A waiting map that would make any of the three goes first."""
         if getattr(self, "_cut", None) is None or self.clock.now() - self._cut[0] > 600:
-            keep = keep_set(keep_inputs(self.cfg.bridge_data), self.clock.now())
+            inputs = keep_inputs(self.cfg.bridge_data)
+            keep = keep_set(inputs, self.clock.now())
+            trend = (inputs.get("ratings.json") or {}).get("trend") if isinstance(inputs.get("ratings.json"), dict) else {}
             cut = {}
             if keep["scored"]:
                 for mode, tag, _gt, _gm, _f in MODES:
-                    cut[tag] = keep["cutoff"].get(mode)
+                    order = [str(x) for x in (trend or {}).get(mode) or []]
+                    last = (keep["lists"].get(mode) or {}).get("popular") or []
+                    upto = order.index(last[-1]) + 1 if len(last) >= KEEP_TOP and last[-1] in order else len(order)
+                    cut[tag] = dict(keep["cutoff"].get(mode) or {"score": None, "subscriptions": None}, popular=set(order[:upto]))
             self._cut = (self.clock.now(), cut)
         return self._cut[1]
 
     def ratings(self, api, listed):
-        """2b. The Workshop's score (vote_data.score, IPublishedFileService/GetDetails with the key) of every listed map, every mode,
-        and of every map still waiting for its test: once every RATINGS_EVERY. Kept in the state and written to the bridge's data as
-        ratings.json, where update-watch.py's keep set takes each mode's best from it. A run cut short merges what it got into the
-        last scores and keeps their time: the keep set refuses deletions on scores over 3 days old, so their age must stay honest."""
+        """2b. Once every RATINGS_EVERY - and at once when the ratings kept lack a list the keep set needs - the three lists the keep
+        set takes each mode's best from: the Workshop's score (vote_data.score) and the current subscriptions of every listed map,
+        every mode, and of every map still waiting for its test (IPublishedFileService/GetDetails with includevotes, 100 a call); and
+        each mode's Most Popular order, Steam's trend over the last TREND_DAYS days (QueryFiles RankedByTrend by the mode's tag, pages of
+        100 until TREND_WANT of the mode's listed maps were in it, at most TREND_PAGES). Kept in the state and written to the bridge's
+        data as ratings.json. A run cut short merges what it got into what was there and keeps the old time: the keep set refuses
+        deletions on ratings over 3 days old, so their age must stay honest."""
         st = self.state.data.setdefault("ratings", {"fetched": 0, "scores": {}})
         rep = self.report.setdefault("ratings", {})
         if not self.cfg.ratings:
             rep["skipped"] = "SYNC_RATINGS is off"
             return
         age = self.clock.now() - float(st.get("fetched") or 0)
-        if st.get("scores") and age < RATINGS_EVERY:
+        sample = list((st.get("scores") or {}).values())[:50]
+        whole = bool(sample) and all(isinstance(v, list) and len(v) > 3 for v in sample) and all(
+            isinstance((st.get("trend") or {}).get(mode), list) for mode, _t, _g, _m, _f in MODES)
+        if whole and age < RATINGS_EVERY:
             rep["skipped"] = "fetched %s ago, again after %s" % (hms(age), hms(RATINGS_EVERY))
             if not os.path.exists(os.path.join(self.cfg.bridge_data, "ratings.json")):
                 self.write_ratings(st)
@@ -2906,7 +3276,11 @@ class Night(object):
         waiting = [w for w, rec in self.state.data["items"].items() if rec.get("status") in ("queued", "retry") and rec.get("ws") == "ok"
                    and set(rec.get("tags") or []) & set(self.cfg.tags)]
         ids = list(dict.fromkeys(listed + waiting))
-        got, failed = {}, 0
+        inputs = keep_inputs(self.cfg.bridge_data)
+        members = {}
+        for mode, name in KEEP_MODES:
+            members[mode] = set(str(e.get("id")) for e in inputs.get(name) or [] if isinstance(e, dict) and str(e.get("id") or "").isdigit())
+        got, trend, failed, walked = {}, {}, 0, {}
         try:
             for start in range(0, len(ids), DETAILS_BATCH):
                 if self.clock.now() >= self.deadline - 1200:
@@ -2917,59 +3291,81 @@ class Night(object):
                 except ApiError as error:
                     failed += 1
                     log("scores of %d ids failed for good (%s)" % (len(ids[start:start + DETAILS_BATCH]), error))
+            for mode, tag, _gt, _gm, _f in MODES:
+                if rep.get("stop"):
+                    break
+                order, cursor, hits = [], "*", 0
+                for page in range(TREND_PAGES):
+                    try:
+                        page_ids, cursor_next, _total = api.trend(tag, cursor, TREND_DAYS)
+                    except ApiError as error:
+                        failed += 1
+                        log("Most Popular of %s, page %d, failed for good (%s)" % (mode, page + 1, error))
+                        break
+                    order += [w for w in page_ids if w not in order]
+                    hits = sum(1 for w in order if w in members[mode])
+                    if hits >= TREND_WANT or not page_ids or not cursor_next or cursor_next == cursor:
+                        break
+                    cursor = cursor_next
+                trend[mode] = order
+                walked[mode] = (len(order), hits)
         except StopNight as stop:
             rep["stop"] = str(stop)
             log("ratings stopped: %s" % stop)
-        complete = not rep.get("stop") and not failed
+        complete = not rep.get("stop") and not failed and len(trend) == len(MODES)
         if complete:
-            st["scores"], st["fetched"] = got, self.clock.now()
-        elif got:
-            st["scores"] = dict(st.get("scores") or {}, **got)
+            st["scores"], st["trend"], st["fetched"], st["trend_days"] = got, trend, self.clock.now(), TREND_DAYS
+        else:
+            if got:
+                st["scores"] = dict(st.get("scores") or {}, **got)
+            if trend:
+                st["trend"] = dict(st.get("trend") or {}, **trend)
         rep.update(asked=len(ids), listed=len(listed), waiting=len(waiting), scored=len(got), failed=failed, complete=complete,
-                   calls=api.by_api.get("GetDetails", 0))
-        log("ratings: %d of %d scored (%d listed, %d waiting) in %d call(s)%s" % (len(got), len(ids), len(listed), len(waiting),
-                                                                              rep["calls"], "" if complete else " - INCOMPLETE, the old scores' time kept"))
+                   calls=api.by_api.get("GetDetails", 0), trend=dict((m, list(v)) for m, v in walked.items()), trend_days=TREND_DAYS)
+        log("ratings: %d of %d scored with their subscriptions (%d listed, %d waiting) in %d call(s); Most Popular over %d days: %s%s" % (
+            len(got), len(ids), len(listed), len(waiting), rep["calls"], TREND_DAYS,
+            ", ".join("%s %d read, %d listed" % (m, v[0], v[1]) for m, v in walked.items()) or "none",
+            "" if complete else " - INCOMPLETE, the old time kept"))
         self.state.save()
         self._cut = None
-        if got:
+        if got or trend:
             self.write_ratings(st)
 
     def write_ratings(self, st):
-        """/data/ratings.json, version 1: {"fetched": unix time, "scores": {id: [score, votes up, votes down]}}."""
+        """/data/ratings.json, version 1: {"fetched": unix time, "scores": {id: [score, votes up, votes down, subscriptions]}, "trend":
+        {mode: [ids in Most Popular order]}, "trend_days": days}."""
         if not self.cfg.publish:
             self.report.setdefault("ratings", {})["file"] = "not written (SYNC_PUBLISH is off)"
             return
         try:
             write_atomic(os.path.join(self.cfg.bridge_data, "ratings.json"),
-                         json.dumps({"version": 1, "fetched": st.get("fetched") or 0, "source": "IPublishedFileService/GetDetails vote_data",
-                                     "scores": st.get("scores") or {}}, separators=(",", ":")) + "\n")
+                         json.dumps({"version": 1, "fetched": st.get("fetched") or 0, "source": "IPublishedFileService/GetDetails vote_data "
+                                     "and subscriptions; QueryFiles RankedByTrend", "trend_days": st.get("trend_days") or TREND_DAYS,
+                                     "scores": st.get("scores") or {}, "trend": st.get("trend") or {}}, separators=(",", ":")) + "\n")
             self.report.setdefault("ratings", {})["file"] = "ratings.json written"
         except OSError as error:
             self.report["errors"].append("ratings.json not written: %s" % error)
 
     def requeue_size_skips(self):
-        """The owner's 33 (2026-11-03): a map skipped as bigger than a whole day's download cap is queued again whenever the cap is
-        not the one it was skipped under and it fits now - the 223 popular maps the old caps parked (800 MB, then 3 GB a night) come
-        back under 150 GB a day, and are tested like the rest, by popularity (the best-rated first)."""
-        cap = min(self.cfg.download_bytes, HARD_DOWNLOAD_BYTES)
+        """The owner's 33 and 36 c (2026-11-03): a map skipped as bigger than a whole day's download cap is queued again - the 223
+        popular maps the old caps parked (800 MB, then 3 GB a night) - and nothing is skipped for its size any more: there is no
+        daily cap. They are tested like the rest, by popularity, the ones the keep set wants first."""
         back = []
         for wid, rec in self.state.data["items"].items():
             if rec.get("status") != "skipped" or "download cap" not in (rec.get("evidence") or ""):
                 continue
-            if rec.get("skip_cap") == cap or int(rec.get("size") or 0) > cap:
-                continue
             rec["status"] = "queued"
-            rec["requeued"] = "%s: the day's cap is %s now (%s)" % (self.night, mb(cap), rec.get("evidence") or "")
+            rec["requeued"] = "%s: no daily download cap any more (%s)" % (self.night, rec.get("evidence") or "")
             rec.pop("skip_cap", None)
             back.append(wid)
         if back:
             self.state.save()
-            log("queued again: %d map(s) skipped as too big for an older download cap fit today's %s" % (len(back), mb(cap)))
+            log("queued again: %d map(s) skipped as too big for an old daily download cap - there is none any more" % len(back))
         self.report["requeued"] = len(back)
 
     def serve(self):
         """THE HAND-OVER, for what is missing: the keep set's maps the game server does not store - the upvoted maps, each mode's
-        best-rated, the own maps - downloaded with SteamCMD (anonymous, inside the day's caps and every stop rule of the downloads) and
+        best-rated, the own maps - downloaded with SteamCMD (anonymous, with every push-back stop and the brake of the downloads) and
         handed over at once; never what waits in the hand-over folder, nor the random queues and the requests (the server fetches
         those itself, update-watch.py job 9), nor an excluded id. They were tested when they were listed: no test again."""
         cfg = self.cfg
@@ -2998,22 +3394,46 @@ class Night(object):
             for entry in read_json(os.path.join(cfg.bridge_data, name), []) or []:
                 if isinstance(entry, dict) and str(entry.get("id") or "").isdigit():
                     sizes.setdefault(str(entry["id"]), int(entry.get("sizeMb") or 0) << 20)
-        log("serve: %d map(s) of the keep set the game server does not store - downloading them for it" % len(want))
-        budget = DownloadBudget(self.state, self.night, cfg.download_max, cfg.download_bytes)
-        steam = SteamCmd(cfg.steamcmd, os.path.join(cfg.work_dir, "staging"), os.path.join(cfg.work_dir, "steamcmd.log"),
-                         home=os.environ.get("HOME"))
-        started, row, denied = False, 0, 0
+        staging = os.path.join(cfg.work_dir, "staging")
+        acf = os.path.join(staging, "steamapps", "workshop", "appworkshop_730.acf")
         handed, later = [], []
+        # what is staged already - an earlier run's download it could not hand over (killed, or it looked before SteamCMD had
+        # written its acf: 136 of 160 on 2026-11-03) - is handed over as it is, without a download, unless the Workshop has a newer one
+        for wid in [w for w in want if self.staged(w)]:
+            rec = self.state.item(wid) or {}
+            entry = acf_entries(acf, wid)
+            if not entry or not str(entry[0].get("timeupdated") or "").isdigit() or int(entry[0]["timeupdated"]) < int(rec.get("updated") or 0):
+                continue                          # no entry in SteamCMD's acf, or an older version: downloaded again below
+            nbytes = folder_bytes(os.path.join(staging, "steamapps", "workshop", "content", "730", wid))
+            try:
+                done, words = hand_over(staging, cfg.handover_dir, wid, rec.get("title") or "", cfg.depotcache)
+            except OSError as error:
+                done, words = False, "the hand-over failed (%s)" % error
+            log("serve: %s %s was staged already, %s" % (wid, (rec.get("title") or "")[:40], words))
+            if done:
+                rep["ok"] += 1
+                rep["bytes"] += nbytes
+                rep["staged"] = rep.get("staged", 0) + 1
+                handed.append(wid)
+                self.event(wid, "handed-over", "Handed over to the game server from an earlier download (%s)." % mb(nbytes))
+        want = [w for w in want if w not in handed]
+        log("serve: %d map(s) of the keep set the game server does not store - downloading them for it%s" % (
+            len(want), " (%d handed over from the staging folder first)" % len(handed) if handed else ""))
+        budget = DownloadBudget(self.state, self.night)
+        steam = SteamCmd(cfg.steamcmd, staging, os.path.join(cfg.work_dir, "steamcmd.log"), home=os.environ.get("HOME"))
+        started, row, denied = False, 0, 0
         try:
-            for wid in want:
-                ok, why = budget.allows(sizes.get(wid, 0))
+            for step, wid in enumerate(want):
+                ok, why = budget.allows(wid)
                 if not ok:
-                    if "downloads is reached" in why or "no more downloads" in why:
+                    if "no more downloads" in why:
                         rep["stop"] = why
                         break
+                    log("serve: %s: %s" % (wid, why))
                     continue
+                self.on_map(wid, step, len(want))
                 if self.left() < 900:
-                    rep["stop"] = "the window's deadline"
+                    rep["stop"] = "the run's deadline"
                     break
                 t_wait = self.clock.now()
                 if not self.wait_for_nobody("serve", margin=900):
@@ -3033,28 +3453,41 @@ class Night(object):
                 good, reason, nbytes = steam.download(wid)
                 if good and self.staged(wid):
                     on_disk = folder_bytes(os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "content", "730", wid))
-                    budget.spend(max(nbytes, on_disk))
+                    budget.spend(max(nbytes, on_disk), wid)
+                    rep["downloads"] = rep.get("downloads", 0) + 1
+                    rep["dl_bytes"] = rep.get("dl_bytes", 0) + max(nbytes, on_disk)
                     row, denied = 0, 0
                     rec = self.state.item(wid) or {}
-                    # SteamCMD writes its acf a few seconds after it says Success (seen 2026-11-03: 4 of the first 6): wait for the entry
-                    acf = os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "appworkshop_730.acf")
-                    for _ in range(20):
+                    # SteamCMD names the item in its acf 1.0-1.4 s after it says Success (measured 2026-11-03; the deployed code looked
+                    # at once and missed 136 of 160): wait for its entry of this version, else hand it over once SteamCMD has quit
+                    fresh = False
+                    for _ in range(ACF_WAIT):
                         entry = acf_entries(acf, wid)
-                        if entry and all(str(entry[0].get(k) or "").isdigit() for k in ("size", "timeupdated", "manifest")):
+                        if entry and all(str(entry[0].get(k) or "").isdigit() for k in ("size", "timeupdated", "manifest")) \
+                                and int(entry[0]["timeupdated"]) >= int(rec.get("updated") or 0):
+                            fresh = True
                             break
                         time.sleep(1)
-                    done, words = hand_over(os.path.join(cfg.work_dir, "staging"), cfg.handover_dir, wid, rec.get("title") or "",
-                                            cfg.depotcache)
+                    if not fresh:
+                        done, words = False, "SteamCMD's acf does not name this version yet - handed over once it has quit"
+                    else:
+                        try:
+                            done, words = hand_over(staging, cfg.handover_dir, wid, rec.get("title") or "", cfg.depotcache)
+                        except OSError as error:
+                            done, words = False, "the hand-over failed (%s)" % error
                     log("serve: %s %s downloaded in %.0f s, %s" % (wid, (rec.get("title") or "")[:40], time.time() - t, words))
                     if done:
                         rep["ok"] += 1
                         rep["bytes"] += max(nbytes, on_disk)
                         handed.append(wid)
+                        self.event(wid, "handed-over", "Downloaded and handed over to the game server (%s)." % mb(max(nbytes, on_disk)))
                     else:
                         later.append((wid, rec, max(nbytes, on_disk)))   # once SteamCMD has quit, its acf is complete
                 else:
                     rep["failed"].append((wid, reason))
                     row += 1
+                    budget.fail()
+                    self.event(wid, "failed", "Its download failed (%s)." % reason)
                     log("serve: the download of %s failed: %s" % (wid, reason))
                     if ACCESS_DENIED_RX.search(reason):
                         denied += 1
@@ -3073,14 +3506,17 @@ class Night(object):
         finally:
             steam.stop()
             self.state.save()
-        staging = os.path.join(cfg.work_dir, "staging")
         for wid, rec, nbytes in later:            # SteamCMD has quit: its acf names them now
-            done, words = hand_over(staging, cfg.handover_dir, wid, rec.get("title") or "", cfg.depotcache)
-            log("serve: %s handed over after SteamCMD quit: %s" % (wid, words))
+            try:
+                done, words = hand_over(staging, cfg.handover_dir, wid, rec.get("title") or "", cfg.depotcache)
+            except OSError as error:
+                done, words = False, "the hand-over failed (%s)" % error
+            log("serve: %s after SteamCMD quit: %s%s" % (wid, words, "" if done else " - it stays staged for the next run"))
             if done:
                 rep["ok"] += 1
                 rep["bytes"] += nbytes
                 handed.append(wid)
+                self.event(wid, "handed-over", "Downloaded and handed over to the game server (%s)." % mb(nbytes))
             else:
                 rep["failed"].append((wid, words))
         try:                                      # SteamCMD writes its acf from memory: it named the early ones again
@@ -3103,24 +3539,14 @@ class Night(object):
     def download(self, known, details):
         """One batch: at most SYNC_BATCH downloads on one anonymous SteamCMD login. Returns how many it downloaded."""
         cfg = self.cfg
-        budget = DownloadBudget(self.state, self.night, cfg.download_max, cfg.download_bytes)
-        dl = self.report.setdefault("downloads", {"ok": 0, "bytes": 0, "failed": [], "skipped_big": []})
-        queue = [w for w in self.queue(known, details) if not self.staged(w)]
-        todo = []
-        for wid in queue:
-            rec = self.state.item(wid)
-            if int(rec.get("size") or 0) > budget.max_bytes:
-                rec["status"] = "skipped"
-                rec["evidence"] = "%s: more than a whole day's download cap (%s)" % (mb(rec["size"]), mb(budget.max_bytes))
-                rec["skip_cap"] = budget.max_bytes          # requeue_size_skips: queued again once the cap changes and it fits
-                dl["skipped_big"].append(wid)
-                continue
-            todo.append(wid)
+        budget = DownloadBudget(self.state, self.night)
+        dl = self.report.setdefault("downloads", {"ok": 0, "bytes": 0, "failed": [], "braked": []})
+        todo = [w for w in self.queue(known, details) if not self.staged(w)]
         if not todo:
             dl["queued_left"] = 0
             self.limits(budget)
             return 0
-        ok, why = budget.allows(0)
+        ok, why = budget.allows()
         if not ok:
             dl["stop"] = why
             dl["queued_left"] = len(todo)
@@ -3134,16 +3560,17 @@ class Night(object):
             for wid in todo:
                 if got >= cfg.batch:
                     break
+                self.on_map(wid, got, min(len(todo), cfg.batch))
                 rec = self.state.item(wid)
-                # twice its size: room is kept for the test engine's own copy, which Steam sometimes insists on
-                ok, why = budget.allows(2 * int(rec.get("size") or 0))
+                ok, why = budget.allows(wid)
                 if not ok:
-                    if "downloads is reached" in why or "no more downloads" in why:
+                    if "no more downloads" in why:
                         dl["stop"] = why
                         break
-                    continue                       # this one is too big for what is left today; a smaller one may fit
+                    dl["braked"].append(wid)       # downloaded twice today already: a bug somewhere, not again today
+                    continue
                 if self.left() < 600 + 25 * (got + 1):
-                    dl["stop"] = "the window's deadline (time is kept for this batch's tests)"
+                    dl["stop"] = "the run's deadline (time is kept for this batch's tests)"
                     break
                 t_wait = self.clock.now()
                 if not self.wait_for_nobody("downloads", margin=600):
@@ -3166,7 +3593,7 @@ class Night(object):
                 rec["attempts"] = int(rec.get("attempts") or 0) + 1
                 if good and self.staged(wid):
                     on_disk = folder_bytes(os.path.join(cfg.work_dir, "staging", "steamapps", "workshop", "content", "730", wid))
-                    budget.spend(max(nbytes, on_disk))
+                    budget.spend(max(nbytes, on_disk), wid)
                     dl["ok"] += 1
                     got += 1
                     dl["bytes"] += max(nbytes, on_disk)
@@ -3180,6 +3607,8 @@ class Night(object):
                 else:
                     dl["failed"].append((wid, reason))
                     row += 1
+                    budget.fail()
+                    self.event(wid, "failed", "Its download failed (%s), %d of 3 tries." % (reason, rec["attempts"]))
                     rec["status"] = "retry" if rec["attempts"] < 3 else "failed"
                     rec["evidence"] = "SteamCMD could not download it (%s), %d of 3 tries" % (reason, rec["attempts"])
                     log("download of %s failed: %s" % (wid, reason))
@@ -3207,12 +3636,12 @@ class Night(object):
         return got
 
     def limits(self, budget=None):
-        budget = budget or DownloadBudget(self.state, self.night, self.cfg.download_max, self.cfg.download_bytes)
+        budget = budget or DownloadBudget(self.state, self.night)
         self.report["limits"] = {
-            "api_night": self.ledger.tonight(self.night), "api_night_cap": self.cfg.api_night_cap,
+            "api_run": self.api.calls if getattr(self, "api", None) is not None else 0, "api_run_cap": self.cfg.api_run_cap,
             "api_24h": self.ledger.last_24h() if self.ledger.data else None, "api_day_cap": self.ledger.day_cap,
-            "api_gap": self.cfg.api_gap, "dl_items": budget.night["items"], "dl_max": budget.max_items,
-            "dl_bytes": budget.night["bytes"], "dl_max_bytes": budget.max_bytes, "dl_engine": budget.night.get("engine", 0),
+            "api_gap": self.cfg.api_gap, "dl_items": budget.night["items"],
+            "dl_bytes": budget.night["bytes"], "dl_engine": budget.night.get("engine", 0),
             "engine_starts": self.engine.starts if self.engine else 0, "engine_starts_max": self.cfg.engine_starts_max}
 
     def scan_and_test(self):
@@ -3261,23 +3690,18 @@ class Night(object):
                     to_load = []
                 self.engine = TestEngine(cfg, cfg.work_dir, os.environ.get("HOME") or "/home/steam")
                 self.engine.starts = self.engine_starts
-                budget = DownloadBudget(self.state, self.night, cfg.download_max, cfg.download_bytes)
+                budget = DownloadBudget(self.state, self.night)
                 need_start = True
                 try:
-                    for wid in to_load:
+                    for step, wid in enumerate(to_load):
                         rec = self.state.item(wid)
-                        if budget.bytes_left() < int(rec.get("size") or 0):
-                            t.setdefault("waiting", []).append(wid)
-                            continue                  # its test could make the engine fetch it again: past tonight's cap
+                        self.on_map(wid, step, len(to_load))
                         while True:
                             kind, detail = final_verdict(rec, self.night)
                             if kind != "pending":
                                 break
                             if self.left() < 300:
-                                t["stop"] = "the night's deadline"
-                                break
-                            if budget.bytes_left() < int(rec.get("size") or 0):
-                                t.setdefault("waiting", []).append(wid)
+                                t["stop"] = "the run's deadline"
                                 break
                             if patch_version(cfg.game_dir) != version:
                                 t["stop"] = "the game was updated during the tests (steam.inf %s -> %s)" % (
@@ -3451,6 +3875,11 @@ class Night(object):
             listed |= {str(m.get("id")) for m in files["modes"][mode] if isinstance(m, dict)}
         on = broken_ids(files["broken"])
         for wid, kind, detail, rec in outcomes:
+            if (wid in listed or wid in on) and rec.get("status") != "published":
+                if kind == "pass" and wid in listed:
+                    self.event(wid, "listed", "It passed its test: it loads as %s." % (detail.get("level") or "its own map"))
+                elif wid in on:
+                    self.event(wid, "broken", detail.get("evidence") or detail.get("detail") or detail.get("reason") or kind)
             if wid in listed or wid in on:
                 rec["status"] = "published"
             elif kind == "pass" and rec.get("why") == "changed":
@@ -3474,7 +3903,8 @@ class Night(object):
     def cleanup_staging(self):
         """Forget the staged downloads that have a verdict (their folders and their acf entries); keep the rest. A pass the keep set
         holds - its score puts it among its mode's best now that it is listed, say - and the game server does not store is handed
-        over instead (THE HAND-OVER), so the server never downloads it again."""
+        over instead (THE HAND-OVER), so the server never downloads it again; when that fails it stays staged, and the next run's
+        serve step hands it over without a download (or downloads it again when SteamCMD's acf does not name it)."""
         root = os.path.join(self.cfg.work_dir, "staging", "steamapps", "workshop")
         content = os.path.join(root, "content", "730")
         if not os.path.isdir(content):
@@ -3490,12 +3920,17 @@ class Night(object):
                 rec = self.state.item(wid) or {}
                 if rec.get("verdict") != "pass" or wid not in keep["all"] or wid in has or wid in pending or wid in self.cfg.exclude:
                     continue
-                ok, why = hand_over(os.path.join(self.cfg.work_dir, "staging"), self.cfg.handover_dir, wid, rec.get("title"),
-                                    self.cfg.depotcache)
-                log("hand-over %s %s (tested tonight, in the keep set): %s" % (wid, (rec.get("title") or "")[:40], why))
+                try:
+                    ok, why = hand_over(os.path.join(self.cfg.work_dir, "staging"), self.cfg.handover_dir, wid, rec.get("title"),
+                                        self.cfg.depotcache)
+                except OSError as error:
+                    ok, why = False, "the hand-over failed (%s)" % error
+                log("hand-over %s %s (tested, in the keep set): %s%s" % (wid, (rec.get("title") or "")[:40], why,
+                                                                        "" if ok else " - it stays staged: the next run's serve hands it over"))
+                done.remove(wid)                  # handed over, or kept for the next run - never deleted while the keep set wants it
                 if ok:
-                    done.remove(wid)
                     rep["tested"] = rep.get("tested", 0) + 1
+                    self.event(wid, "handed-over", "Tested and handed over to the game server.")
         if not done:
             return
         acf = os.path.join(root, "appworkshop_730.acf")
@@ -3527,8 +3962,8 @@ class Night(object):
                 pass
         if self.ledger.data is not None and self.ledger.stopped(self.night):
             self.report["api_stop"] = self.ledger.stopped(self.night)
-        path = os.path.join(self.cfg.state_dir, "reports", "%s%s.json" % (self.night, "-manual-%s" % time.strftime("%H%M")
-                                                                          if self.manual else "-day" if self.day_run else ""))
+        path = os.path.join(self.cfg.state_dir, "reports", "%s-%s%s.json" % (self.night, self.clock.local(self.t0).strftime("%H%M"),
+                                                                           "-manual" if self.manual else ""))
         self.report["report_path"] = path
         subject, body = mail_text(self.report, self.cfg)
         self.report["mail_subject"] = subject
@@ -3537,19 +3972,34 @@ class Night(object):
             write_atomic(path[:-5] + ".txt", subject + "\n\n" + body + "\n", mode=0o644)
         except OSError as error:
             log("report not written: %s" % error)
-        idle = self.day_run and not ((self.report.get("downloads") or {}).get("ok") or (self.report.get("tests") or {}).get("rows")
-                                     or (self.report.get("published") or {}).get("files") or self.report.get("errors"))
-        why = "the day's run did nothing" if idle else send_mail(self.cfg, subject, body)
+        idle = not ((self.report.get("downloads") or {}).get("ok") or (self.report.get("tests") or {}).get("rows")
+                    or (self.report.get("published") or {}).get("files") or self.report.get("errors") or (self.report.get("serve") or {}).get("ok"))
+        urgent = bool(self.report.get("errors") or self.report.get("api_stop") or str((self.report.get("downloads") or {}).get("stop") or "").startswith("SteamCMD"))
+        last_mail = float(self.state.data.get("last_mail_at") or 0)
+        if idle:
+            why = "the run did nothing"
+        elif not urgent and self.clock.now() - last_mail < MAIL_EVERY:
+            why = "one mail a day, the last %s ago - this run's report is %s" % (hms(self.clock.now() - last_mail), path[:-5] + ".txt")
+        else:
+            why = send_mail(self.cfg, subject, body)
+            if why is None:
+                self.state.data["last_mail_at"] = self.clock.now()
         self.report["mail"] = "sent" if why is None else "NOT sent: %s" % why
         log("mail %s: %s" % (self.report["mail"], subject))
         try:                                    # again, now with the mail's outcome in it
             write_atomic(path, dumps(self.report, indent=1), mode=0o644)
         except OSError:
             pass
-        if self.day_run:
-            self.state.data["last_day_run"] = self.night
-        elif not self.manual:
-            self.state.data["last_run_day"] = self.night
+        self.state.data["last_run"] = {"ended": self.clock.now(), "did": 0 if idle else 1}
+        try:
+            hist = self.state.data.setdefault("history", {})
+            if not hist.get("runs"):
+                hist["runs"] = seed_runs(self.cfg.state_dir)
+            hist["runs"] = [e for e in hist["runs"] if e.get("started") != unix_of(self.report.get("started"))]
+            hist["runs"].insert(0, run_entry(self.report))
+            del hist["runs"][STATUS_RUNS:]
+        except Exception as error:
+            log("status: the run's history line not kept (%r)" % error)
         self.state.data["runs"].append({"night": self.night, "manual": self.manual, "ended": self.report["ended"],
                                         "subject": subject, "mail": self.report["mail"]})
         try:
@@ -3584,7 +4034,7 @@ def backlog_waits(state):
 
 def status(cfg):
     clock = Clock(cfg.tzname)
-    ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, cfg.api_night_cap, clock)
+    ledger = ApiLedger(os.path.join(cfg.state_dir, "api-ledger.json"), cfg.api_day_cap, None, clock)
     ledger.load()
     st = State(os.path.join(cfg.state_dir, "state.json")).load()
     counts = {}
@@ -3592,7 +4042,7 @@ def status(cfg):
         counts[rec.get("status")] = counts.get(rec.get("status"), 0) + 1
     print(json.dumps({"api_last_24h": ledger.last_24h() if ledger.data else None, "api_tonight": ledger.tonight(clock.day()),
                       "api_stop_tonight": ledger.stopped(clock.day()) if ledger.data else None,
-                      "items": counts, "last_run_day": st.data.get("last_run_day"),
+                      "items": counts, "last_run": st.data.get("last_run"), "last_api": st.data.get("last_api"),
                       "key": "present" if read_key(cfg.key_file) else "absent"}, indent=1))
 
 
@@ -3640,16 +4090,35 @@ def main(argv):
             try:
                 cfg.lower(json.loads(rest[0]))
             except ValueError:
-                print("--once takes an optional JSON object of lower limits, e.g. '{\"download_max\": 3}'")
+                print("--once takes an optional JSON object of lower limits, e.g. '{\"batch\": 3}'")
                 return 2
         Night(cfg, clock, manual=True).run()
         return 0
-    log("service start (version %s): window %02d:%02d-%02d:%02d%s, %s, Web API key %s, caps: %d calls a night, %d in 24 h, "
-        "%d downloads / %s a day" % ((VERSION,) + cfg.start + cfg.end + (
-            ", by day %02d:%02d-%02d:%02d while a backlog waits" % (cfg.day_start + cfg.day_end) if cfg.day_start else "",
-            "enabled" if cfg.enabled else "DISABLED (SYNC_ENABLED=0)", "present" if read_key(cfg.key_file) else "absent",
-            cfg.api_night_cap, cfg.api_day_cap, cfg.download_max, mb(cfg.download_bytes))))
-    nothing_waiting = None              # the day it was seen that no backlog waits: the state is not read again that day
+    log("service start (version %s): no time windows - a run whenever nobody plays and there is work, at most %d h each, never "
+        "around the %02d:%02d prefetch or the %02d:%02d restart; %s, Web API key %s, caps: %d calls a run, %d in 24 h, discovery and "
+        "the check every %s; downloads: no daily cap, Steam's push-back stops them, a map at most %d times a day" % (
+            (VERSION, cfg.run_hours) + cfg.prefetch_at + cfg.daily_restart + (
+                "enabled" if cfg.enabled else "DISABLED (SYNC_ENABLED=0)", "present" if read_key(cfg.key_file) else "absent",
+                cfg.api_run_cap, cfg.api_day_cap, hms(cfg.api_every), DOWNLOADS_PER_MAP_DAY)))
+    seen, idle_until, said = None, 0.0, None   # when the server last showed somebody (or did not answer); the wait after an idle run
+    status, shown = Status(cfg, clock), [None, 0.0]
+
+    def show(state, why):
+        """The status file while no run is going: on a change at once, else every STATUS_IDLE seconds (its counts every
+        STATUS_IDLE_HEAVY), so its time says the sync is alive."""
+        changed = shown[0] != (state, why)
+        if not changed and clock.now() - shown[1] < STATUS_IDLE:
+            return
+        try:
+            n = Night(cfg, clock, status=status)
+            n.state.load()
+            n.ledger.load()
+            status.rebuild(n, force=changed, every=STATUS_IDLE_HEAVY)
+        except Exception as error:
+            log("status: the idle picture not rebuilt (%r)" % error)
+        status.set(state=state, why=why, map=None, step=None, run=None)
+        status.write()
+        shown[0], shown[1] = (state, why), clock.now()
     while True:
         trigger = os.path.join(cfg.state_dir, "run-now")
         if os.path.exists(trigger):
@@ -3662,33 +4131,89 @@ def main(argv):
             run_cfg.lower(overrides if isinstance(overrides, dict) else {})
             log("run-now: a manual run (%s)" % (json.dumps(overrides) if overrides else "no overrides"))
             try:
-                Night(run_cfg, clock, manual=True).run()
+                Night(run_cfg, clock, manual=True, status=status).run()
             except Exception as error:  # the service must outlive any one run
                 log("the manual run failed: %r" % error)
-        elif cfg.enabled and clock.in_window(cfg.start, cfg.end):
+            shown[0] = None
+        elif not cfg.enabled:
+            show("stopped", "The sync is switched off.")
+        elif clock.now() < idle_until:
+            show("idle", "The last run found nothing to do: the sync looks again at %s." % clock.local(idle_until).strftime("%H:%M"))
+        else:
+            why = start_blocked(cfg, clock)
+            state, words = "waiting", None
+            if why is not None:
+                words = ("The server's daily restart is near: the sync waits until it is over." if "restart" in why else
+                         "The server's nightly prefetch runs first: the sync waits until it is done.")
+            h = humans_on(cfg)
+            flag = os.path.exists(os.path.join(cfg.bridge_data, "maintenance"))
+            if h is None or h > 0 or flag:
+                seen = clock.now()
+            if why is None and h is None:
+                why, words = "the game server does not answer A2S", "The game server does not answer, so the sync waits."
+            elif why is None and h:
+                why = "%d human(s) on the game server" % h
+                words = "Somebody is playing: the sync waits until the server has been empty for %d minutes." % (cfg.quiet // 60)
+            elif why is None and seen is not None and clock.now() - seen < cfg.quiet:
+                why = "somebody was on the server %s ago (or the maintenance flag)" % hms(clock.now() - seen)
+                words = ("The server is in maintenance, so the sync waits." if flag else
+                         "Somebody played a moment ago: the sync waits until the server has been empty for %d minutes." % (cfg.quiet // 60))
             st = read_json(os.path.join(cfg.state_dir, "state.json"), {}) or {}
-            if st.get("last_run_day") != clock.day():
-                try:
-                    Night(Config(), clock).run()
-                except Exception as error:
-                    log("tonight's run failed: %r" % error)
-                    st = read_json(os.path.join(cfg.state_dir, "state.json"), {}) or {}
-                    st["last_run_day"] = clock.day()
-                    try:
-                        write_atomic(os.path.join(cfg.state_dir, "state.json"), json.dumps(st) + "\n", mode=0o644)
-                    except OSError:
-                        pass
-        elif cfg.enabled and cfg.day_start and clock.in_window(cfg.day_start, cfg.day_end) and nothing_waiting != clock.day():
-            st = read_json(os.path.join(cfg.state_dir, "state.json"), {}) or {}
-            if st.get("last_day_run") == clock.day() or not backlog_waits(st):
-                nothing_waiting = clock.day()
+            if why is None and not work_waits(cfg, clock, st):
+                why = "nothing to do: no backlog, discovery and the check not due"
+                book = ((st.get("downloads") or {}).get(clock.day()) or {})
+                due = clock.local(float(st.get("last_api") or 0) + cfg.api_every).strftime("%H:%M")
+                if backlog_waits(st) and book.get("stop"):
+                    state, words = "stopped", "Steam asked for a pause today (%s): the downloads go on tomorrow; the next Workshop check is at %s." % (
+                        clean(book["stop"], 120), due)
+                else:
+                    state, words = "idle", "Nothing to do: no maps are waiting, and the next Workshop check is at %s." % due
+            if why is not None:
+                if why != said:
+                    log("not starting a run: %s" % why)
+                said = why
+                show(state, words or why)
             else:
+                said = None
                 try:
-                    Night(Config(), clock, day_run=True).run()
+                    report = Night(Config(), clock, status=status).run()
+                    if report.get("mail", "").startswith("NOT sent: the run did nothing"):
+                        idle_until = clock.now() + IDLE_WAIT
                 except Exception as error:
-                    log("the day's run failed: %r" % error)
-                    nothing_waiting = clock.day()
+                    log("the run failed: %r" % error)
+                    idle_until = clock.now() + IDLE_WAIT
+                shown[0] = None
         time.sleep(30)
+
+
+def prefetch_due(cfg, clock, now=None):
+    """Why the watcher's nightly prefetch holds the sync now, or None: from 10 minutes before SYNC_PREFETCH_AT (the 03:25 restart is
+    the watcher's) until the watcher stamps tonight's prefetch done or SYNC_PREFETCH_MINUTES are over."""
+    now = clock.now() if now is None else now
+    slot = clock.at(cfg.prefetch_at, now)
+    if not slot - 600 <= now < slot + cfg.prefetch_span:
+        return None
+    st = read_json(cfg.watcher_state, {}) or {}
+    if st.get("prefetch_day") == clock.day(now):
+        return None
+    return "the restart watcher's nightly prefetch (prefetch_day %s)" % (st.get("prefetch_day") or "none")
+
+
+def start_blocked(cfg, clock, now=None):
+    """Why no run may start now by the clock, or None: the daily restart's stretch (15 minutes before it to 10 after) and the prefetch."""
+    now = clock.now() if now is None else now
+    daily = clock.at(cfg.daily_restart, now)
+    if daily - 900 <= now < daily + 600:
+        return "the game server's daily restart"
+    return prefetch_due(cfg, clock, now)
+
+
+def work_waits(cfg, clock, st):
+    """A run has work: maps to download or test (and Steam has not stopped today's downloads), or discovery and the check are due."""
+    book = ((st.get("downloads") or {}).get(clock.day()) or {})
+    if backlog_waits(st) and not book.get("stop"):
+        return True
+    return clock.now() - float(st.get("last_api") or 0) >= cfg.api_every
 
 
 if __name__ == "__main__":

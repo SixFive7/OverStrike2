@@ -112,10 +112,9 @@ services:
       TZ: Etc/UTC
       SYNC_ENABLED: 1
       SYNC_PUBLISH: 1 # 0: every step runs, nothing is written into the bridge's data
-      SYNC_AT: "03:30" # the nightly window; the run waits for the restart watcher's prefetch first
-      SYNC_END: "06:45"
-      # SYNC_DAY_AT: "07:15" # optional: a second window by day, while maps are waiting; it stops the moment a player joins
-      # SYNC_DAY_END: "18:00"
+      SYNC_PREFETCH_AT: "03:30" # the watcher's CS2_PREFETCH_AT: no run from 10 minutes before it until the watcher's prefetch is done
+      SYNC_DAILY_RESTART: "07:00" # the watcher's CS2_RESTART_AT: no run around it, and every run ends 15 minutes before it
+      SYNC_RUN_HOURS: 3 # a run whenever nobody plays and there is work, at most this long; a join stops it within seconds
       SYNC_TAGS: Armsrace,Deathmatch,Wingman
       SYNC_EXCLUDE_IDS: "3736209605,3823993566" # never candidates: the warm-up item and the HUD item
       SYNC_EXCLUDE_CREATORS: "<SteamID64s>" # Workshop authors whose items you list by hand (your own maps)

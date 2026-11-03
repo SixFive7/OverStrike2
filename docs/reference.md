@@ -12,7 +12,7 @@ the code is the final word, and the bridge's `--selftest` holds most of what is 
 | The bridge | [`bridge/`](../bridge/) | A small sidecar. The game server pushes its log lines to it over HTTP; it keeps the queue, the votes and the history, rolls the dice, counts crashes, and sends map changes and notices back over RCON. It serves the plugin the menu's live state and takes its clicks. |
 | The HUD | [`hud/`](../hud/) | A Panorama layout and stylesheet published as one Steam Workshop item. MultiAddonManager hands it to every player who joins; every word on it comes from the plugin. |
 | The restart watcher | [`server/update-watch.py`](../server/update-watch.py) | Runs inside the game server's container: restarts for game updates and once a day, between matches; kills a frozen engine; warms the Steam client up; prefetches Workshop maps at night. |
-| The nightly Workshop sync | [`server/workshop-sync.py`](../server/workshop-sync.py) | An optional third container: finds new maps on the Workshop, downloads, scans and load-tests them, and lists the ones that pass. |
+| The Workshop sync | [`server/workshop-sync.py`](../server/workshop-sync.py) | An optional third container: finds new maps on the Workshop, downloads, scans and load-tests them, and lists the ones that pass. |
 
 The bridge is .NET 10 with the base class library only, published native AOT into a chiseled image; it runs read-only, with all
 capabilities dropped, as a non-root user, and writes only to its state directory. It does not reach the internet: everything
@@ -320,41 +320,55 @@ re-checks a map through the link, and a new download lands as a real folder wher
 Tested on a side-by-side engine: loads, genuine updates, a fresh download onto a link and the re-check with a full and an empty
 depotcache. If the bridge's lists cannot be read, or a move fails, the engine starts anyway.
 
-**What the server keeps** (the keep set, `keep_set` in both server scripts): every map with at least one up vote, per mode the 100
-playable maps with the best Workshop score (`ratings.json`, which the sync fetches daily), the own maps and the HUD item, the
-random queues and the requested maps. The same run takes in the maps the sync hands over (`workshop-sync/handover/<id>/`, its
+**What the server keeps** (the keep set, `keep_set` in both server scripts): every map with at least one up vote; per mode three
+lists of 100 playable maps together, so up to 300 - the best Workshop score (`vote_data.score`, the Workshop's "Top Rated"), the
+most current subscriptions ("Most Subscribed") and Steam's trend over the last 30 days ("Most Popular": `QueryFiles` RankedByTrend
+with `days=30`), all from `ratings.json`, which the sync fetches daily; the own maps and the HUD item, the random queues and the
+requested maps. The same run takes in the maps the sync hands over (`workshop-sync/handover/<id>/`, its
 manifest, and last `<id>.json` with its acf entries and what the folder holds: only a complete one) - folder, link, acf entries,
 manifest, so Steam's client holds it as its own download - and then, with `CS2_MAPS_DELETE=on`, deletes every stored map outside
 the keep set: its acf entries first (backed up), then its link and folder. Never the own maps, the HUD, the warm-up item or a
 queued map; refused, with the reason logged, when an input is missing, the scores are over 3 days old or cover under 90% of a
-list, a top list is under 50 maps or a queue under 10. Each run writes `update-watch/keep.json` and its list,
+list, any of a mode's three lists is under 50 maps or a queue under 10. Each run writes `update-watch/keep.json` and its list,
 `update-watch/deleted-<time>-<done, dryrun or refused>.tsv`.
 
-## The nightly Workshop sync
+## The Workshop sync
 
-An optional container running [`server/workshop-sync.py`](../server/workshop-sync.py) in the game server's image, once a night inside a window and,
-if `SYNC_DAY_AT` and `SYNC_DAY_END` are set, once more by day while maps are waiting, and only while nobody plays. Downloads, tests and publishing repeat in
-batches, so a long run publishes as it goes:
+An optional container running [`server/workshop-sync.py`](../server/workshop-sync.py) in the game server's image. It has no time windows: it
+starts a run whenever the server has had nobody on for a quiet spell and there is work, a run lasts at most `SYNC_RUN_HOURS` (3), and no run
+starts or lasts into the restart watcher's nightly prefetch (`SYNC_PREFETCH_AT`, until the watcher stamps it done) or its daily restart
+(`SYNC_DAILY_RESTART`). Discovery, the check and the ratings run at most every `SYNC_API_EVERY_HOURS` (4). Downloads, tests and publishing
+repeat in batches, so a long run publishes as it goes:
 
 1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API - the only step that
    needs a Web API key, read from a secret file mounted read-only; without one the step is skipped.
 2. **Check** every listed map (gone, hidden, banned, updated) and hand the verdicts to the bridge; once a day also fetch the
-   Workshop's score of every listed map and every waiting one (`IPublishedFileService/GetDetails` with `includevotes`, the key)
-   into the bridge's `ratings.json`. Then download the maps the server keeps but lacks and hand them over (`<work>/handover/`).
+   Workshop's score and subscriptions of every listed map and every waiting one (`IPublishedFileService/GetDetails` with
+   `includevotes`, the key) and each mode's Most Popular order (`QueryFiles` RankedByTrend, 30 days) into the bridge's
+   `ratings.json`. Then download the maps the server keeps but lacks and hand them over (`<work>/handover/`): each waits for
+   SteamCMD's acf entry of its download, and a map already staged with one is handed over without a new download.
 3. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score
-   would make their mode's 100 best first, then new uploads, listed maps that changed, and everything else strictly by
-   subscribers, whatever the mode. A map skipped as bigger than a day's cap is queued again when the cap changes and it fits.
-   A tested map the server keeps is handed over instead of deleted.
+   would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything else strictly
+   by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of
+   deleted.
 4. **Scan and load-test**: read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any
    commands that advertise another server or post a gambling ad), then load each map in a test copy of the server inside the
    container - its own port, passwords and Workshop folder, no plugins, no log push.
 5. **Publish** the passes into the bridge's data (Arms Race onto `maps.json` and `search.json`, the other modes onto their own
    lists, the failures onto `broken.json`), ask the bridge to reload, and send an optional summary mail.
 
-Hard limits in code: one Web API call at a time, at least 2 s apart; at most 10,000 calls in any 24 hours and a nightly cap; any
-429, 403 or 401, or a burst of server errors, stops every API step for the night; at most 1,500 downloads and 150 GB a day. The
-configuration can lower each limit, never raise it. When a player joins, the test engine stops at once and no new download starts; the run goes on only after a
-quiet spell with nobody on. Every setting is in the script's docstring.
+Hard limits in code: one Web API call at a time, at least 2 s apart; at most 10,000 calls in any 24 hours and 500 a run; any
+429, 403 or 401, or a burst of server errors, stops every API step for the rest of the day. The configuration can lower each
+limit, never raise it. There is no daily download cap: an HTTP 429, 403 or 401, a SteamCMD rate limit or two Access Denied in a
+row end the day's downloads, three failed downloads in a row end the run's, and a bug brake downloads a map at most twice a day.
+One SteamCMD download at a time, one test engine. When a player joins, the test engine stops at once and no new download starts;
+the run goes on only after a quiet spell with nobody on. Every setting is in the script's docstring.
+
+The sync also writes `sync-status.json` into the bridge's data folder (schema 1, `Status` in the script) for the in-game status
+page: what it does now and why (`now.state` is one of idle, waiting, discovery, check, ratings, serve, download, test, publish,
+stopped), today's counts, the totals, the queue with its next maps in the order they are taken, the keep set's parts, and the
+history of runs and map events. It is written atomically at every phase change, at least every 15 s during a run and every minute
+otherwise; fields may be added to it, never renamed or dropped.
 
 ## Log-line grammar
 

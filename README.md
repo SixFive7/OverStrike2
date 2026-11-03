@@ -198,16 +198,16 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
 - **The restart watcher** runs inside the game server's container. It restarts for game updates and once a day, only between matches, kills a frozen engine so Docker restarts it,
   warms the Steam client up after every start, downloads the bridge's random queues and the queued requests in the background, and prefetches at night the maps the server keeps that
   are missing or have a newer Workshop copy. A process whose Workshop downloads get stuck is restarted when nobody is on. All of it has loop protection.
-- **What the server keeps.** Every map with at least one up vote, each mode's 100 best-rated playable maps (the Workshop's score), our own maps, the HUD, the random queues and
-  the queued requests; everything else goes at the next engine start. The deletion refuses when its inputs are missing, the scores are stale or the set looks too small, and never
-  touches our maps, the HUD or a queued map.
+- **What the server keeps.** Every map with at least one up vote; per mode three lists of 100 playable maps together - the Workshop's best-rated, its most subscribed and its
+  most popular over the last 30 days - so up to 300 a mode; our own maps, the HUD, the random queues and the queued requests; everything else goes at the next engine start.
+  The deletion refuses when its inputs are missing, the scores are stale, a list is short or the set looks too small, and never touches our maps, the HUD or a queued map.
 - **The download line.** While the server downloads a map somebody is waiting for, the news line says so, with the progress.
-- **The nightly Workshop sync** ([`server/workshop-sync.py`](server/workshop-sync.py), an optional third container) finds new Arms Race, Deathmatch and Wingman maps through the
-  Steam Web API, and works through every queued map: the ones whose Workshop score makes their mode's 100 best first, then new uploads, listed maps that changed, and everything
-  else by popularity. It fetches the Workshop's scores once a day, and hands the server the maps it keeps but lacks. It downloads anonymously with SteamCMD,
-  scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the ones that pass; the rest
-  go on the broken list with their reasons. It runs only while nobody plays, within hard limits in the code that the configuration can lower and never raise, stops at the first rate limit, and
-  mails a morning summary if you give it a mail relay.
+- **The Workshop sync** ([`server/workshop-sync.py`](server/workshop-sync.py), an optional third container) finds new Arms Race, Deathmatch and Wingman maps through the
+  Steam Web API, and works through every queued map: the ones that would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
+  else by popularity. It fetches the Workshop's scores, subscriptions and trend once a day, and hands the server the maps it keeps but lacks. It downloads anonymously with SteamCMD,
+  one map at a time, scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the
+  ones that pass; the rest go on the broken list with their reasons. It works at any hour while nobody plays and stops within seconds when somebody joins; it has no daily download cap
+  and stops when Steam pushes back, keeps hard Web API limits in the code that the configuration can lower and never raise, and mails a daily summary if you give it a mail relay.
 - **The daily Workshop check** asks the public Web API about every listed map, so a map that is gone, private or banned is refused at once.
 
 ## How it works
@@ -228,7 +228,7 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
 - **The HUD** ([`hud/`](hud/)) is a Panorama layout and stylesheet compiled into one Workshop addon, with every map's picture inside it, because CS2 refuses web pictures in a custom HUD. The pictures of the Workshop maps still queued ship ahead, so a map the nightly sync lists later has its picture without a new HUD. Nearly every word on it comes from
   the plugin, so most changes need no new HUD. A new version adds to the panels of the old one, so one plugin drives a game holding any of them.
 - **The server files** ([`server/`](server/)) are the install hook the [joedwards32/cs2](https://github.com/joedwards32/CS2) image runs before every start (it installs Metamod:Source, CounterStrikeSharp and
-  MultiAddonManager at pinned versions and copies the plugin in), each game mode's settings, the restart watcher and the nightly sync.
+  MultiAddonManager at pinned versions and copies the plugin in), each game mode's settings, the restart watcher and the Workshop sync.
 
 ## Repository layout
 
@@ -238,7 +238,7 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`. Each vers
 | [`plugin/`](plugin/) | The CounterStrikeSharp plugin `OverStrike2`, its self-test, and the catch-up module `CatchUp` with its own |
 | [`hud/`](hud/) | The in-game HUD addon: layout, stylesheets, the thumbnail generator, the build script and the Workshop publisher |
 | [`maps/`](maps/) | Our own maps: one generator per map and the Workshop publisher |
-| [`server/`](server/) | The game server's install hook (`pre.sh`), each game mode's settings, the restart watcher (`update-watch.py`) and the nightly Workshop sync (`workshop-sync.py`), each with its tests |
+| [`server/`](server/) | The game server's install hook (`pre.sh`), each game mode's settings, the restart watcher (`update-watch.py`) and the Workshop sync (`workshop-sync.py`), each with its tests |
 | [`deploy/`](deploy/) | Deployment scripts and an example compose file; every deployment value comes from a private config |
 | [`tools/scan/`](tools/scan/) | The scanner that keeps secrets and private details out of this repository |
 | [`docs/`](docs/) | The reference: every part, rule and setting |
@@ -254,7 +254,7 @@ cd plugin/OverStrike2.SelfTest && dotnet run                  # the grenade logi
 cd plugin/CatchUp/SelfTest && dotnet run                      # the catch-up rules, replayed against a real match's log
 docker build -t localhost/overstrike2-bridge bridge           # the bridge's image (native AOT inside the SDK image)
 docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_update_watch.py   # the restart watcher
-python server/test_workshop_sync.py                           # the nightly Workshop sync
+python server/test_workshop_sync.py                           # the Workshop sync
 python bridge/search-index.py --check                         # the search text is in step with the map list
 ```
 
@@ -268,7 +268,7 @@ published HUD ever runs, in a plain client.
 
 ## Configure
 
-Two containers - the game server and the bridge - and optionally a third for the nightly Workshop sync. [`deploy/compose.example.yml`](deploy/compose.example.yml) is a complete example with every setting explained; the essentials:
+Two containers - the game server and the bridge - and optionally a third for the Workshop sync. [`deploy/compose.example.yml`](deploy/compose.example.yml) is a complete example with every setting explained; the essentials:
 
 | Where | Setting | What |
 |---|---|---|
@@ -277,7 +277,7 @@ Two containers - the game server and the bridge - and optionally a third for the
 | game server | `CS2_PLUGINS` | `1` installs and loads the plugin layer; `0` runs vanilla (after a game update broke a dependency) |
 | game server | `GUNGAME_HUD_ADDON` | the HUD addon's Workshop id; empty falls back to a simple text panel |
 | game server | `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_WARMUP`, `CS2_PREFETCH_AT` | the restart watcher's jobs |
-| sync | `SYNC_AT`, `SYNC_TAGS`, the `SYNC_*` limits, a Steam Web API key file | the nightly Workshop sync (optional: a third container) |
+| sync | `SYNC_TAGS`, `SYNC_RUN_HOURS`, `SYNC_PREFETCH_AT` and `SYNC_DAILY_RESTART` (the watcher's times), the `SYNC_*` limits, a Steam Web API key file | the Workshop sync (optional: a third container) |
 | bridge | `MAPS_FILE`, `BROKEN_FILE` | the map list and the broken list on the data volume, so a new list is a file copy (read again within seconds) |
 | bridge | `HUD_TAB`, `HUD_CHECK`, `RANDOM_ON_MATCH_END`, `RANDOM_ON_START`, `MATCH_END_VOTE` | how the board, the HUD check, the dice and the vote behave |
 

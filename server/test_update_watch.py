@@ -1005,9 +1005,11 @@ NOW = 1793700000.0
 
 
 def kin(**over):
-    scores = dict((str(1000 + r), [1.0 - r / 1000.0, r, 0]) for r in range(1, 151))
-    scores.update(dict((str(2000 + r), [r / 1000.0, r, 0]) for r in range(1, 121)))
-    scores.update(dict((str(3000 + r), [0.5, r, 0]) for r in range(1, 61)))       # Wingman: all equal - list order breaks the ties
+    scores = dict((str(1000 + r), [1.0 - r / 1000.0, r, 0, r]) for r in range(1, 151))          # Arms Race: subscriptions grow with the rank
+    scores.update(dict((str(2000 + r), [r / 1000.0, r, 0, 5]) for r in range(1, 121)))
+    scores.update(dict((str(3000 + r), [0.5, r, 0, 5]) for r in range(1, 61)))       # Wingman: all equal - list order breaks the ties
+    trend = {"armsrace": ["9999"] + [str(1000 + r) for r in range(150, 0, -1)], "deathmatch": [str(2000 + r) for r in range(1, 121)],
+             "wingman": [str(3000 + r) for r in range(1, 61)]}
     base = {
         "maps.json": [{"rank": r, "id": 1000 + r, "name": "ar%d" % r, "sizeMb": 10} for r in range(1, 151)],
         "maps-deathmatch.json": [{"rank": r, "id": 2000 + r, "name": "dm%d" % r, "sizeMb": 20} for r in range(1, 121)],
@@ -1017,7 +1019,7 @@ def kin(**over):
         "votes.json": {"1149": {"[U:1:1]": 1, "[U:1:2]": -1, "[U:1:3]": -1, "[U:1:4]": -1}, "1148": {"[U:1:1]": -2},
                        "1147": {"[U:1:1]": -3}, "1146": {"[U:1:1]": -1}, "ar_baggage": {"[U:1:1]": 1}},
         "ours.json": {"maps": [{"id": 4001, "name": "own"}]},
-        "ratings.json": {"version": 1, "fetched": NOW - 3600, "scores": scores},
+        "ratings.json": {"version": 1, "fetched": NOW - 3600, "scores": scores, "trend": trend, "trend_days": 30},
         "queues.json": {"version": 1, "random": {"armsrace-new": [str(1100 + i) for i in range(15)],
                                                  "armsrace-original": [str(1010 + i) for i in range(15)],
                                                  "deathmatch": [str(2001 + i) for i in range(14)] + ["de_dust2"],
@@ -1031,20 +1033,27 @@ def kin(**over):
 ks = m.keep_set(kin(), NOW, "500")
 check("KS: a map with 1 up vote and 3 down votes stays; a too-big (-2), an ads (-3) or a plain down vote alone does not; an official name never counts",
       ks["up"] == ["1149"])
-check("KS: Arms Race's top 100 by score, leaving out the broken, the non-map, the blocked, the removed, the crashed and the player-crash maps (%s ...)"
-      % ks["top"]["armsrace"][:6], ks["top"]["armsrace"][:4] == ["1005", "1007", "1009", "1010"] and len(ks["top"]["armsrace"]) == 100
-      and not set(["1001", "1002", "1003", "1004", "1006", "1008"]) & set(ks["top"]["armsrace"]) and ks["cutoff"]["armsrace"] == 1.0 - 106 / 1000.0)
+rated = ks["lists"]["armsrace"]["rated"]
+check("KS: Arms Race's 100 best-rated, leaving out the broken, the non-map, the blocked, the removed, the crashed and the player-crash maps (%s ...)"
+      % rated[:6], rated[:4] == ["1005", "1007", "1009", "1010"] and len(rated) == 100
+      and not set(["1001", "1002", "1003", "1004", "1006", "1008"]) & set(ks["top"]["armsrace"]) and ks["cutoff"]["armsrace"]["score"] == 1.0 - 106 / 1000.0)
+check("KS: Arms Race's 100 most subscribed and 100 most popular (Steam's order, an unlisted id skipped) are the other end of its list",
+      ks["lists"]["armsrace"]["subscribed"][:2] == ["1150", "1149"] and ks["lists"]["armsrace"]["popular"][:2] == ["1150", "1149"]
+      and len(ks["lists"]["armsrace"]["subscribed"]) == 100 and ks["cutoff"]["armsrace"]["subscriptions"] == 51)
+check("KS: the three lists together - %d maps of Arms Race's 144 playable, each once" % len(ks["top"]["armsrace"]),
+      len(ks["top"]["armsrace"]) == 144 and len(set(ks["top"]["armsrace"])) == 144)
 check("KS: Deathmatch's best 100 of 120; Wingman's 60 all stay (fewer than 100), ties in list order, no cutoff",
-      ks["top"]["deathmatch"][0] == "2120" and len(ks["top"]["deathmatch"]) == 100 and ks["top"]["wingman"] == [str(3000 + r) for r in range(1, 61)]
-      and ks["cutoff"]["wingman"] is None)
+      ks["lists"]["deathmatch"]["rated"][0] == "2120" and len(ks["lists"]["deathmatch"]["rated"]) == 100
+      and ks["lists"]["wingman"]["rated"] == [str(3000 + r) for r in range(1, 61)] and ks["cutoff"]["wingman"]["score"] is None
+      and len(ks["top"]["deathmatch"]) == 120)
 check("KS: own maps, the HUD, the queues (official names left out) and the requests are in it; nothing is wrong",
       ks["own"] == ["4001"] and ks["hud"] == ["500"] and "de_dust2" not in ks["queues"]["deathmatch"] and len(ks["queues"]["deathmatch"]) == 14
       and set(["4001", "500", "5001", "1100", "1010", "3015"]) <= ks["all"] and ks["problems"] == [])
 check("KS: the same inputs, the same set", m.keep_set(kin(), NOW, "500") == ks)
 for label, inputs, hud, want in (
-        ("ratings older than 3 days", kin(**{"ratings.json": {"version": 1, "fetched": NOW - 4 * 86400, "scores": kin()["ratings.json"]["scores"]}}), "500", "ratings.json is 96 h old"),
-        ("ratings of no known age", kin(**{"ratings.json": {"version": 1, "scores": kin()["ratings.json"]["scores"]}}), "500", "of no known age"),
-        ("ratings scoring half a list", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": dict((k, v) for k, v in kin()["ratings.json"]["scores"].items() if not ("2000" < k < "2061"))}}), "500", "scores 60 of the 120 playable deathmatch maps"),
+        ("ratings older than 3 days", kin(**{"ratings.json": dict(kin()["ratings.json"], fetched=NOW - 4 * 86400)}), "500", "ratings.json is 96 h old"),
+        ("ratings of no known age", kin(**{"ratings.json": dict((k, v) for k, v in kin()["ratings.json"].items() if k != "fetched")}), "500", "of no known age"),
+        ("ratings scoring half a list", kin(**{"ratings.json": dict(kin()["ratings.json"], scores=dict((k, v) for k, v in kin()["ratings.json"]["scores"].items() if not ("2000" < k < "2061")))}), "500", "has the scores of 60 of the 120 playable deathmatch maps"),
         ("no votes.json", kin(**{"votes.json": None}), "500", "votes.json is missing or unreadable"),
         ("no maps.json", kin(**{"maps.json": None}), "500", "maps.json is missing or unreadable"),
         ("an empty maps.json", kin(**{"maps.json": []}), "500", "maps.json lists no map"),
@@ -1052,7 +1061,9 @@ for label, inputs, hud, want in (
         ("no queues.json", kin(**{"queues.json": None}), "500", "queues.json is missing or unreadable"),
         ("no own map", kin(**{"ours.json": {"maps": []}}), "500", "ours.json names no own map"),
         ("no HUD item", kin(), "", "no HUD item is set"),
-        ("a tiny top list", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": {"1005": 1.0}}}), "500", "the armsrace top list holds 1 maps")):
+        ("a tiny top list", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": {"1005": 1.0}, "trend": kin()["ratings.json"]["trend"]}}), "500", "the armsrace rated list holds 1 maps"),
+        ("no Most Popular order", kin(**{"ratings.json": {"version": 1, "fetched": NOW, "scores": kin()["ratings.json"]["scores"]}}), "500", "no Most Popular order for armsrace"),
+        ("no subscriptions", kin(**{"ratings.json": dict(kin()["ratings.json"], scores=dict((k, v[:3]) for k, v in kin()["ratings.json"]["scores"].items()))}), "500", "has the subscriptions of 0 of")):
     got = m.keep_set(inputs, NOW, hud)["problems"]
     check("KS: refused for %s (%s)" % (label, "; ".join(got)[:150]), any(want in p for p in got))
 
@@ -1084,7 +1095,8 @@ data_files = {"maps.json": [{"rank": 1, "id": 100, "name": "Up Voted"}, {"rank":
               "maps-deathmatch.json": [{"rank": 1, "id": 150, "name": "Top Rated"}], "maps-wingman.json": [], "broken.json": {},
               "removed.json": {"verdicts": {}}, "votes.json": {"100": {"[U:1:1]": 1}, "101": {"[U:1:1]": -1}},
               "ours.json": {"maps": [{"id": 400, "name": "Own"}]}, "state.json": {"crashes": {}},
-              "ratings.json": {"version": 1, "fetched": None, "scores": {"100": 0.1, "101": 0.05, "102": 0.2, "150": 0.9}},
+              "ratings.json": {"version": 1, "fetched": None, "scores": {"100": [0.1, 1, 0, 9], "101": [0.05, 1, 0, 1], "102": [0.2, 1, 0, 50], "150": [0.9, 1, 0, 3]},
+                               "trend": {"armsrace": ["102"], "deathmatch": ["150"], "wingman": []}},
               "queues.json": {"version": 1, "random": {"armsrace-new": ["102"], "armsrace-original": ["102"], "deathmatch": ["150"],
                                                        "wingman": ["de_debris"]}, "requested": []}}
 saved4 = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP,
@@ -1178,9 +1190,9 @@ os.environ["GUNGAME_HUD_ADDON"] = "500"
 real_t = m.time
 m.time = types.SimpleNamespace(time=lambda: NOW, strftime=real_t.strftime, localtime=real_t.localtime)
 listed, skip, what = m.prefetch_lists()
-check("PL: the prefetch looks after the keep set and the queues only: %d maps, not the %d listed (%s)" % (len(listed), 150 + 120 + 60, what[:80]),
+check("PL: the prefetch looks after the keep set and the queues: %d maps, each once (%s)" % (len(listed), what[:80]),
       listed[:6] == ["5001", "1100", "1010", "2001", "3001", "1101"] and "1149" in listed and "4001" in listed and "500" in listed
-      and len(listed) == len(set(listed)) and len(listed) < 330 and "1002" in skip and "1003" in skip)
+      and len(listed) == len(set(listed)) and "1002" in skip and "1003" in skip and "1150" in listed)
 m.time = real_t
 m.BRIDGE_DATA, m.WARMUP_ITEM = saved_pl
 os.environ.pop("GUNGAME_HUD_ADDON", None)

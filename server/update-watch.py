@@ -102,10 +102,11 @@ THE DELETION.
 
 THE KEEP SET (the owner's rules of 2026-11-03, keep_set; workshop-sync.py has the same function, word for word): the maps the server
 stores. Every map with at least one player's up vote in votes.json (an up vote is kept however many down votes the map has; too-big
-and ads votes are down votes); per mode, the 100 playable maps (on that mode's list, not on broken.json, not gone from the Workshop,
-no crash on record) with the best Workshop score - ratings.json, which the sync fetches daily: vote_data.score, the order of the
-Workshop's "Top Rated"; the own maps (ours.json) and the HUD item; the bridge's random queues and the maps players queued
-(queues.json). Written with its counts and sizes per part to update-watch/keep.json at every engine start.
+and ads votes are down votes); per mode, three lists of its 100 playable maps (on that mode's list, not on broken.json, not gone
+from the Workshop, no crash on record), together up to 300 - the best Workshop score (Top Rated: vote_data.score), the most
+current subscriptions (Most Subscribed) and Steam's trend order over the last 30 days (Most Popular), all from ratings.json, which
+the sync fetches daily; the own maps (ours.json) and the HUD item; the bridge's random queues and the maps players queued
+(queues.json). Written with its counts and sizes per part and per list to update-watch/keep.json at every engine start.
 
 THE HAND-OVER: the sync (workshop-sync.py) downloads the keep set's maps the server lacks, and keeps the ones it tested that are in
 the keep set, and leaves each in workshop-sync/handover/: <id>/ (the content), <id>.manifest (the Steam client's verified manifest)
@@ -119,8 +120,8 @@ like any other (the prefetch's time_updated against the acf's, the client's mani
 THE DELETION (CS2_MAPS_DELETE, off | dryrun | on; MAPS_DELETE_DEFAULT): every stored map outside the keep set - its acf entries
 (backed up, one atomic write), its link, its folder - in armsrace, deathmatch, wingman and other; never own, never hud, never the
 warm-up item, a queued or a requested map, whatever the keep set says. Refused, with the reason in the log, when any input is
-missing or does not parse, the ratings are over 3 days old or score under 90% of a list, a mode's top list is under 50 maps, a
-queue holds under 10, or there is no own map or HUD item. Every run writes its list to update-watch/deleted-<time>-<done | dryrun |
+missing or does not parse, the ratings are over 3 days old or have the scores or subscriptions of under 90% of a list, a mode has no
+Most Popular order, any of a mode's three lists is under 50 maps, a queue holds under 10, or there is no own map or HUD item. Every run writes its list to update-watch/deleted-<time>-<done | dryrun |
 refused>.tsv and logs the count, the size and the volume's free space before and after. dryrun writes the list and deletes nothing.
 It runs at every engine start - crash restarts and container recreates included - so all of this is checked every time.
 
@@ -1407,15 +1408,19 @@ def keep_set(inputs, now, hud=""):
     """THE KEEP SET: the Workshop maps the server stores (official maps are part of the game). Its parts:
       up       every map with at least one player's up vote in votes.json - one vote per player and map, up or down, the opposite
                replaces it; too-big and ads votes are down votes - however many down votes it has besides
-      top      per mode, the KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists, removed.json's verdicts, the
-               bridge's crash counts) with the best Workshop score (ratings.json: vote_data.score, Steam's "Top Rated" order; ties by
-               list order)
+      top      per mode, the union of three lists of its KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists,
+               removed.json's verdicts, the bridge's crash counts), all from ratings.json, which the sync fetches daily: "rated", the
+               best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current subscriptions
+               (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order. Up to 300
+               maps a mode (the owner's 35, 2026-11-03)
       own, hud ours.json's maps and the HUD item
       queues   the bridge's random queues and the maps players have queued (queues.json)
-    Returns {"up", "top": {mode: [ids]}, "cutoff": {mode: the 100th score, or None}, "own", "hud", "queues": {name: [ids]}, "requested",
-    "all": set, "scored", "problems"}. problems: why the set is not to be trusted with a deletion - an input missing or unreadable,
-    ratings older than KEEP_RATINGS_MAX_AGE or scoring under KEEP_RATED_SHARE of a list, a top list under KEEP_MIN_TOP, a queue under
-    KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the same set."""
+    Returns {"up", "top": {mode: [ids]}, "lists": {mode: {"rated", "subscribed", "popular": [ids]}}, "cutoff": {mode: {"score",
+    "subscriptions": the 100th's, or None}}, "own", "hud", "queues": {name: [ids]}, "requested", "all": set, "scored", "problems"}.
+    problems: why the set is not to be trusted with a deletion - an input missing or unreadable, ratings older than
+    KEEP_RATINGS_MAX_AGE, scores or subscriptions for under KEEP_RATED_SHARE of a list, no Most Popular order for a mode, any of a
+    mode's three lists under KEEP_MIN_TOP, a queue under KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the
+    same set."""
     problems = []
 
     def need(name, kind):
@@ -1447,29 +1452,44 @@ def keep_set(inputs, now, hud=""):
     up = set(str(k) for k, v in need("votes.json", dict).items() if digits(k) and isinstance(v, dict)
              and any(isinstance(x, int) and not isinstance(x, bool) and x > 0 for x in v.values()))
     ratings = need("ratings.json", dict)
-    scores = {}
+    scores, subs = {}, {}
     for wid, value in (ratings.get("scores") or {}).items() if isinstance(ratings.get("scores"), dict) else []:
         score = value[0] if isinstance(value, list) and value else value
         if digits(wid) and isinstance(score, (int, float)) and not isinstance(score, bool):
             scores[str(wid)] = float(score)
+        count = value[3] if isinstance(value, list) and len(value) > 3 else None
+        if digits(wid) and isinstance(count, int) and not isinstance(count, bool):
+            subs[str(wid)] = count
+    trend = ratings.get("trend") if isinstance(ratings.get("trend"), dict) else {}
     if ratings:
         fetched = ratings.get("fetched")
         age = now - fetched if isinstance(fetched, (int, float)) and not isinstance(fetched, bool) else None
         if age is None or age > KEEP_RATINGS_MAX_AGE:
             problems.append("ratings.json is %s old (at most %d h)" % ("%d h" % (age // 3600) if age is not None else "of no known age",
                                                                        KEEP_RATINGS_MAX_AGE // 3600))
-    top, cutoff = {}, {}
+    top, cutoff, three = {}, {}, {}
     for mode, _name in KEEP_MODES:
         playable = [w for w in lists[mode] if w not in bad]
         place = dict((w, i) for i, w in enumerate(playable))
         rated = [w for w in playable if w in scores]
-        if playable and len(rated) < KEEP_RATED_SHARE * len(playable):
-            problems.append("ratings.json scores %d of the %d playable %s maps (%d%% needed)" % (len(rated), len(playable), mode,
-                                                                                               round(KEEP_RATED_SHARE * 100)))
-        top[mode] = sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP]
-        cutoff[mode] = scores[top[mode][-1]] if len(top[mode]) >= KEEP_TOP else None
-        if len(top[mode]) < min(KEEP_MIN_TOP, len(playable)):
-            problems.append("the %s top list holds %d maps (%d playable listed)" % (mode, len(top[mode]), len(playable)))
+        counted = [w for w in playable if w in subs]
+        for what, have in (("scores", rated), ("subscriptions", counted)):
+            if playable and len(have) < KEEP_RATED_SHARE * len(playable):
+                problems.append("ratings.json has the %s of %d of the %d playable %s maps (%d%% needed)" % (
+                    what, len(have), len(playable), mode, round(KEEP_RATED_SHARE * 100)))
+        order = trend.get(mode) if isinstance(trend.get(mode), list) else None
+        if order is None:
+            problems.append("ratings.json has no Most Popular order for %s" % mode)
+        best = {"rated": sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP],
+                "subscribed": sorted(counted, key=lambda w: (-subs[w], place[w]))[:KEEP_TOP],
+                "popular": [w for w in dict.fromkeys(str(x) for x in order or []) if w in place][:KEEP_TOP]}
+        three[mode] = best
+        top[mode] = list(dict.fromkeys(best["rated"] + best["subscribed"] + best["popular"]))
+        cutoff[mode] = {"score": scores[best["rated"][-1]] if len(best["rated"]) >= KEEP_TOP else None,
+                        "subscriptions": subs[best["subscribed"][-1]] if len(best["subscribed"]) >= KEEP_TOP else None}
+        for what, ids in best.items():
+            if len(ids) < min(KEEP_MIN_TOP, len(playable)):
+                problems.append("the %s %s list holds %d maps (%d playable listed)" % (mode, what, len(ids), len(playable)))
     own = set(digits(e.get("id")) for e in need("ours.json", dict).get("maps") or [] if isinstance(e, dict) and digits(e.get("id")))
     if not own:
         problems.append("ours.json names no own map")
@@ -1490,13 +1510,16 @@ def keep_set(inputs, now, hud=""):
     every = up | own | hud_ids | set(requested)
     for ids in list(top.values()) + list(qs.values()):
         every |= set(ids)
-    return {"up": sorted(up), "top": top, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
+    return {"up": sorted(up), "top": top, "lists": three, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
             "requested": requested, "all": every, "scored": len(scores), "problems": problems}
 
 
 def keep_parts(keep):
-    """[(part name, ids)] in the order the log and keep.json give them."""
-    parts = [("up", keep["up"])] + [("top " + mode, keep["top"].get(mode) or []) for mode, _ in KEEP_MODES]
+    """[(part name, ids)] in the order the log and keep.json give them: per mode its three lists, then their union (what stays)."""
+    parts = [("up", keep["up"])]
+    for mode, _ in KEEP_MODES:
+        parts += [("%s %s" % (what, mode), (keep.get("lists") or {}).get(mode, {}).get(what) or []) for what in ("rated", "subscribed", "popular")]
+        parts.append(("top " + mode, keep["top"].get(mode) or []))
     parts += [("own", keep["own"]), ("hud", keep["hud"])] + [("queue " + name, keep["queues"].get(name) or []) for name in KEEP_QUEUES]
     return parts + [("requested", keep["requested"]), ("all", sorted(keep["all"]))]
 
