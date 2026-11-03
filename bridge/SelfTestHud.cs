@@ -137,7 +137,8 @@ static partial class Program
         Check("Card buttons say what the chat would: votes and Play by the map's rank or official name",
             HudMenu.Command("gg_m1_up", back, live, mb, 1001, now) == "!up 1" && HudMenu.Command("gg_m4_down", back, live, mb, 1001, now) == "!down ar_shoots"
             && HudMenu.Command("gg_m1_play", back, live, mb, 1001, now) == "!cancel 1" && HudMenu.Command("gg_m1_play", back, live, mb, 1002, now) == "!map 1"
-            && Hud.IsAction("!cancel 1") && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now) == null
+            && Hud.IsAction("!cancel 1") && HudMenu.Command("gg_m1_play", back, new HudState { Key = live.Key, Queue = live.Queue, VoteOpen = true }, mb, 1001, now) == "!map 1"
+            && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now) == null
             && HudMenu.Command("gg_m5_play", back, live, mb, 1001, now) == null && HudMenu.Command("gg_m9_play", back, live, mb, 1001, now) == null);
         var first = HudMenu.Command("gg_m2_play", back, live, mb, 1001, now);
         var armed = HudMenu.Maps(back, live, mb, 1001, now.AddSeconds(5));

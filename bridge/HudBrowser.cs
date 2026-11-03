@@ -580,7 +580,7 @@ public static class HudMenu
                 case "ads": return $"!ads {m.Arg}";    // content v3_2_0
                 case "play":
                     if (m.Key == s.Key && s.Key != "") return null;
-                    if (MyQueued(s, m, account)) return $"!cancel {m.Arg}"; // your own request: Play takes it back (the owner's 2026-11-03)
+                    if (MyQueued(s, m, account) && !s.VoteOpen) return $"!cancel {m.Arg}"; // your own request: Play takes it back (the owner's 2026-11-03); during a vote it votes
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
                     if (m.Risky && !(b.ConfirmKey == m.Key && now < b.ConfirmUntil)) { b.ConfirmKey = m.Key; b.ConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds); }
                     else { b.ConfirmKey = ""; b.ConfirmUntil = default; }
