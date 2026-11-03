@@ -697,8 +697,8 @@ check("night: a maps.json that grew meanwhile is merged into, never written from
       now_maps[:4] == grown and now_maps[4]["id"] == 903 and now_maps[4]["rank"] == 5)
 nt.finish()
 rep_txt = [f for f in os.listdir(os.path.join(nt.cfg.state_dir, "reports")) if f.endswith(".txt")]
-check("night: the report and the mail text are written, the mail reports why it was not sent",
-      rep_txt and nt.report["mail"].startswith("NOT sent: no SMTP host"))
+check("night: the report and its text are written; a run without a problem mails nothing (the owner's 34)",
+      rep_txt and nt.report["mail"].startswith("NOT sent: no problem") and nt.report["issues"] == [])
 srv.shutdown()
 del os.environ["SYNC_BRIDGE_URL"], os.environ["SYNC_BRIDGE_SECRET"]
 
@@ -822,6 +822,66 @@ check("run: the rest waits, the day's book says 5", state_after["downloads"]["20
 check("run: the mail's estimate counts what is left", rep["backlog"]["items"] == 3 and "Backlog: 3 item(s)" in open(rep["report_path"][:-5] + ".txt", encoding="utf-8").read())
 check("run: the state remembers the run, and when the API steps last ran", state_after["last_run"]["ended"] > 0 and state_after.get("last_api") == T0)
 check("run: the estimate counts on the day without the restarts' stretches", rep["backlog"]["hours"] == 22)
+check("run: Steam's push-back is a problem the mail names (not sent here: no SMTP host)",
+      any("SteamCMD pushed back" in i for i in rep["issues"]) and rep["mail"].startswith("NOT sent: no SMTP host"))
+
+# the issues-only mail (the owner's 34): what counts, what does not, the words, once a day per problem
+quiet = {"night": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00", "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)"},
+         "tests": {"stop": "somebody was on the server until the deadline"}, "serve": {"stop": "the run's deadline"}, "errors": []}
+check("issues: a run that ended at its deadline, or waited for players, is no problem", m.issues_of(quiet) == [])
+cases = [
+    ({"api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day"}, "steam-webapi"),
+    ({"downloads": {"stop": "SteamCMD answered 'Rate Limit Exceeded' - no more downloads today"}}, "steamcmd-pushback"),
+    ({"serve": {"stop": "SteamCMD answered 'Access Denied' twice in a row - no more downloads today"}}, "steamcmd-pushback"),
+    ({"downloads": {"stop": "3 downloads in a row failed - no more in this run"}}, "downloads-in-a-row"),
+    ({"downloads": {"stop": "SteamCMD did not log in anonymously: no answer"}}, "steamcmd"),
+    ({"tests": {"stop": "test engine did not answer in 90 s", "engine_failed": "test engine did not answer in 90 s"}}, "test-engine"),
+    ({"tests": {"stop": "the test tree could not be built: disk full"}}, "tests-stopped"),
+    ({"discovery": {"skipped": "failed: HTTP 500"}}, "discovery-failed"),
+    ({"check": {"suspicious": True}}, "check-not-believed"),
+    ({"serve": {"handover_failed": [("305", "its folder is empty")]}}, "handover-failed"),
+    ({"serve": {"stop": "205.0 GB of hand-overs wait for the server already"}}, "handovers-waiting"),
+    ({"disk": {"low": "80.0 GB free on the game's volume (the mark is 100.0 GB)"}}, "disk-low"),
+    ({"watcher_keep": {"computed": "the next morning", "problems": ["ratings.json is 80 h old (at most 72 h)"]}}, "deletion-refused:"),
+    ({"errors": ["the bridge's data cannot be read (x) - nothing done tonight"]}, "error:"),
+]
+for extra, key in cases:
+    got = m.issues_of(dict(quiet, **extra))
+    check("issues: %s counts (%s)" % (key, got[0][1][:70] if got else "nothing"), len(got) == 1 and got[0][0].startswith(key) and got[0][2])
+sent_mails = []
+real_send = m.send_mail
+m.send_mail = lambda cfg, subject, body: sent_mails.append((subject, body))
+icfg = m.Config()
+icfg.state_dir = os.path.join(ROOT, "issues-state")
+os.makedirs(icfg.state_dir)
+open(os.path.join(icfg.state_dir, "dashboard-url"), "w").write("https://dash.example/\n")
+os.environ.pop("SYNC_DASHBOARD_URL", None)
+os.environ["SYNC_STATE_DIR"], old_state = icfg.state_dir, os.environ.get("SYNC_STATE_DIR")
+check("issues: the dashboard's address comes from <state>/dashboard-url when SYNC_DASHBOARD_URL is not set", m.Config().dashboard_url == "https://dash.example/")
+os.environ["SYNC_STATE_DIR"] = old_state
+icfg.dashboard_url = "https://dash.example/"
+ic = FakeClock(T0)
+probs = m.issues_of(dict(quiet, api_stop="Steam's Web API answered HTTP 429 to QueryFiles", report_path="/x/r.json"))
+out1 = m.mail_issues(icfg, ic, probs, dict(quiet, report_path="/x/r.json"))
+check("issues: a problem is mailed - what went wrong, what the sync did, the dashboard, the report",
+      out1.startswith("sent") and len(sent_mails) == 1 and "What went wrong: Steam's Web API pushed back" in sent_mails[0][1]
+      and "What the sync did: Every Web API step stopped" in sent_mails[0][1] and "The dashboard: https://dash.example/" in sent_mails[0][1]
+      and "/x/r.txt" in sent_mails[0][1] and "pushed back" in sent_mails[0][0])
+ic.t += 3600
+out2 = m.mail_issues(icfg, ic, probs, quiet)
+check("issues: the same problem an hour later is not mailed again", out2.startswith("NOT sent: every problem") and len(sent_mails) == 1)
+probs2 = probs + m.issues_of(dict(quiet, disk={"low": "50 GB free"}))
+out3 = m.mail_issues(icfg, ic, probs2, quiet)
+check("issues: a new problem is mailed, the ongoing one named as still going on", out3.startswith("sent") and len(sent_mails) == 2
+      and "disk is running low" in sent_mails[1][1] and "Still going on, mailed already in the last day: Steam's Web API" in sent_mails[1][1])
+ic.t += 21 * 3600
+m.mail_issues(icfg, ic, probs, quiet)
+check("issues: a problem that persists is mailed again once a day", len(sent_mails) == 3)
+check("issues: no problem, no mail", m.mail_issues(icfg, ic, [], quiet).startswith("NOT sent: no problem") and len(sent_mails) == 3)
+crash = m.mail_crash(icfg, ic, ValueError("boom"), False)
+check("issues: a run that crashed is mailed from the service", crash.startswith("sent") and "The run failed: ValueError('boom')" in sent_mails[-1][1])
+check("issues: ...once a day too", m.mail_crash(icfg, ic, ValueError("boom 2"), False).startswith("NOT sent: every problem"))
+m.send_mail = real_send
 
 
 # the status file for the in-game dashboard (schema 1): written by the run into the bridge's data, atomically

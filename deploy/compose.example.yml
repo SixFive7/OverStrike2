@@ -123,6 +123,7 @@ services:
       SYNC_BRIDGE_SECRET: <log secret>
       SYNC_CFG_DIR: /home/steam/sync-cfg
       SYNC_SERVER_NAME: Over Strike 2
-      SYNC_SMTP_HOST: "" # optional: an SMTP relay for the morning summary mail
+      SYNC_SMTP_HOST: "" # optional: an SMTP relay for the problem mails (no mail when a run has no problem)
+      SYNC_DASHBOARD_URL: "" # optional: the dashboard address the problem mails point to
       SYNC_MAIL_FROM: ""
       SYNC_MAIL_TO: ""

@@ -357,7 +357,11 @@ repeat in batches, so a long run publishes as it goes:
    commands that advertise another server or post a gambling ad), then load each map in a test copy of the server inside the
    container - its own port, passwords and Workshop folder, no plugins, no log push.
 5. **Publish** the passes into the bridge's data (Arms Race onto `maps.json` and `search.json`, the other modes onto their own
-   lists, the failures onto `broken.json`), ask the bridge to reload, and send an optional summary mail.
+   lists, the failures onto `broken.json`), and ask the bridge to reload. The optional mail is for problems only: a run
+   stopped early or a step that errored, Steam pushing back, the test engine failing to start, a safety check refusing,
+   the disk running low (`SYNC_DISK_LOW_GB`), a failed hand-over, any other error. Each says what went wrong and what the
+   sync did about it, and points to `SYNC_DASHBOARD_URL`; a problem that persists is mailed once a day at most. A run
+   without one mails nothing; its report stays in the state folder's `reports/` and in `sync-status.json`.
 
 Hard limits in code: one Web API call at a time, at least 2 s apart; at most 10,000 calls in any 24 hours and 500 a run; any
 429, 403 or 401, or a burst of server errors, stops every API step for the rest of the day. The configuration can lower each

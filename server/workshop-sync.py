@@ -59,8 +59,11 @@ downloading and testing within seconds and waits; after a run that did nothing, 
      run asks it to at once with POST /reload): the Arms Race passes appended to maps.json (and search.json), the
      Deathmatch and Wingman passes in maps-deathmatch.json and maps-wingman.json (the maps.json entry shape, rank 1..N by popularity; their texts in search.json too), the crashers, the maps with ads and the non-maps
      on broken.json with their reasons (not its "removed" seed, which the repo pins). Previous copies are kept under
-     <state>/backups/. Then THE MORNING MAIL to the owner: what was found, tested, published and skipped, the limits'
-     counters, and any stop.
+     <state>/backups/. THE MAIL is for problems only (the owner's 34, 2026-11-03, issues_of): a run stopped early or a step that errored, Steam pushing back, the test engine failing
+     to start, a safety check refusing, the disk running low (SYNC_DISK_LOW_GB), a failed hand-over, any other error, a run
+     that crashed. Each mail says what went wrong and what the sync did about it, and points to the dashboard; a problem that
+     persists is mailed again once a day at most (MAIL_EVERY). A run without one mails nothing: its report stays in
+     <state>/reports/ and on the dashboard.
 
 SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
   * The owner's Steam account is never logged in anywhere: SteamCMD and the test engine log on anonymously.
@@ -93,8 +96,9 @@ FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, dis
   <state>/state.json        every item seen (its verdict, attempts, the details we know), the update baseline of the
                             listed maps, the last run and when the API steps last ran, the day's downloads. Readable.
   <state>/api-ledger.json   the Web API calls of the last 24 h, the count per day, the day's stop.
-  <state>/reports/<day>-<HHMM>.json and .txt   a run's full result and its mail text (-manual: a run-now). One mail a day
-                            (MAIL_EVERY), sooner when Steam pushed back or something failed; a run that did nothing mails nothing.
+  <state>/reports/<day>-<HHMM>.json and .txt   a run's full result and its summary text (-manual: a run-now), mail or no mail.
+  <state>/mail-sent.json    when each problem was last mailed (its key: issues_of), so a persisting one goes once a day.
+  <state>/dashboard-url     the dashboard's address the mails point to, when SYNC_DASHBOARD_URL is not set (one line).
   <state>/backups/<stamp>/  the bridge's files as they were before each publish.
   <state>/running.json      present while a run is going: its phase (for anyone about to touch the server).
   <state>/run-now           create it (any content, or JSON with lower limits; {"api": true} runs the API steps whatever their
@@ -119,7 +123,7 @@ CONFIG (environment of the sync service; defaults in brackets)
   SYNC_DOWNLOAD_PAUSE [2], SYNC_HOLD_SECONDS [20], SYNC_BATCH [100], SYNC_QUIET_MINUTES [10],
   SYNC_TEST_PORT [27215], SYNC_ENGINE_STARTS_MAX [200], SYNC_STATE_DIR, SYNC_WORK_DIR, SYNC_GAME_DIR,
   SYNC_BRIDGE_DATA, SYNC_BRIDGE_URL, SYNC_BRIDGE_SECRET, SYNC_GAME_HOST, SYNC_GAME_PORT, SYNC_WATCHER_STATE,
-  SYNC_CFG_DIR, STEAM_WEBAPI_KEY_FILE, SYNC_SMTP_HOST, SYNC_SMTP_PORT [25], SYNC_MAIL_FROM, SYNC_MAIL_TO, TZ,
+  SYNC_CFG_DIR, STEAM_WEBAPI_KEY_FILE, SYNC_SMTP_HOST, SYNC_SMTP_PORT [25], SYNC_MAIL_FROM, SYNC_MAIL_TO, SYNC_DASHBOARD_URL, SYNC_DISK_LOW_GB [100], TZ,
   SYNC_RATINGS [1] (step 2b), SYNC_HANDOVER [1] (step 2c and the tested hand-overs), SYNC_HANDOVER_DIR [<work>/handover],
   SYNC_DEPOTCACHE [~/Steam/depotcache: where SteamCMD keeps the manifests a hand-over carries].
 
@@ -168,7 +172,7 @@ HARD_API_GAP = 2.0                # seconds between two Web API calls, at least
 DOWNLOADS_PER_MAP_DAY = 2         # the bug brake: a map downloaded this often today is not downloaded again today (no daily caps since the owner's 36 c)
 QUEUE_CHECK = 3000                # the check (step 2) asks the Workshop about this many of the download queue's head
 HOURS_A_DAY = 22                  # what the estimate counts on: the day without the prefetch's and the restarts' stretches; play comes off it
-MAIL_EVERY = 20 * 3600            # one mail a day: a run mails when the last was this long ago, or when Steam pushed back or something failed
+MAIL_EVERY = 20 * 3600            # the mail is for problems only, and one that persists is mailed again once this long has passed
 IDLE_WAIT = 1800                  # after a run that did nothing, the service waits this long before it looks again
 API_5XX_ROW = 3                   # server errors in a row that stop the day's API steps
 API_5XX_NIGHT = 5                 # server errors in a day that stop them
@@ -280,6 +284,8 @@ class Config(object):
         self.steamcmd = os.environ.get("SYNC_STEAMCMD") or "/home/steam/steamcmd/steamcmd.sh"
         self.ratings = env_flag("SYNC_RATINGS", True)      # step 2b: the Workshop scores, once a day
         self.force_api = False
+        self.disk_low = env_int("SYNC_DISK_LOW_GB", 100, 1, 100000) << 30   # free on the game's volume under this: a problem mailed
+        self.dashboard_url = (os.environ.get("SYNC_DASHBOARD_URL") or "").strip() or first_line(os.path.join(self.state_dir, "dashboard-url"))
         self.handover = env_flag("SYNC_HANDOVER", True)    # the keep set's maps handed over to the game server
         self.handover_dir = os.environ.get("SYNC_HANDOVER_DIR") or os.path.join(self.work_dir, "handover")
         self.depotcache = os.environ.get("SYNC_DEPOTCACHE") or os.path.join(os.environ.get("HOME") or "/home/steam", "Steam", "depotcache")
@@ -362,6 +368,15 @@ def read_json(path, default=None):
             return json.load(handle)
     except (OSError, ValueError):
         return default
+
+
+def first_line(path):
+    """The first line of a small text file, stripped; "" when it is missing or unreadable."""
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return handle.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return ""
 
 
 def write_atomic(path, text, mode=0o666):
@@ -2655,6 +2670,115 @@ def mail_text(r, cfg):
     return subject, "\n".join(L)
 
 
+def issues_of(r):
+    """THE MAIL'S PROBLEMS (the owner's 34, 2026-11-03: the mail only for issues and errors): [(key, what went wrong, what the
+    sync did about it)] of a run's report. What counts: a run stopped early or a step that errored, Steam pushing back (HTTP 429,
+    403 or 401; a SteamCMD rate-limit answer or two Access Denied in a row; 3 failed downloads in a row), the test engine failing
+    to start, a safety check refusing (the game server's deletion, the check's 10% rule, the publish's), the disk running low, a
+    hand-over that failed, and any other error. The key groups a problem that persists, so it is mailed once a day at most."""
+    out = []
+
+    def add(key, what, did):
+        out.append((key, what, did))
+    api = r.get("api_stop")
+    if api:
+        add("steam-webapi", "Steam's Web API pushed back: %s." % clean(api, 220),
+            "Every Web API step stopped for the rest of the day%s; the next day's runs try again by themselves." % (
+                ", and the downloads with them" if re.search(r"HTTP (?:429|403|401)", str(api)) else ""))
+    dl, sv, t = r.get("downloads") or {}, r.get("serve") or {}, r.get("tests") or {}
+    for name, part in (("the test downloads", dl), ("the hand-over downloads", sv)):
+        stop = str(part.get("stop") or "")
+        if "SteamCMD answered" in stop or "no more downloads today" in stop:
+            add("steamcmd-pushback", "SteamCMD pushed back during %s: %s." % (name, clean(stop, 220)),
+                "No more downloads today; they resume tomorrow by themselves.")
+        elif "in a row failed" in stop:
+            add("downloads-in-a-row", "3 downloads in a row failed during %s." % name,
+                "This run downloaded nothing more; the next run tries again, and a map is tried 3 times at most.")
+        elif "did not log in" in stop or "stopped answering" in stop:
+            add("steamcmd", "SteamCMD failed during %s: %s." % (name, clean(stop, 220)),
+                "This run's downloads stopped; the next run starts SteamCMD again.")
+        elif "hand-overs wait" in stop:
+            add("handovers-waiting", "The game server has not taken in its hand-overs: %s." % clean(stop, 160),
+                "No more hand-overs until it does; its next engine start takes them in.")
+    if t.get("engine_failed"):
+        add("test-engine", "The test engine did not start: %s." % clean(t["engine_failed"], 220),
+            "This run's tests stopped; the downloaded maps wait in the staging folder for the next run.")
+    elif t.get("stop") and not re.search(r"deadline|somebody was on|game was updated", str(t["stop"])):
+        add("tests-stopped", "The tests stopped early: %s." % clean(t["stop"], 220), "The maps without a verdict wait for the next run.")
+    for name in ("discovery", "ratings"):
+        skipped = str((r.get(name) or {}).get("skipped") or "")
+        if skipped.startswith("failed"):
+            add("%s-failed" % name, "The %s step failed: %s." % (name, clean(skipped, 200)), "The run went on without it; the next one tries again.")
+    if (r.get("check") or {}).get("suspicious"):
+        add("check-not-believed", "More than 10% of the listed maps came back gone from the Workshop - not believed.",
+            "Nothing was marked removed; the bridge's own rule refuses it too.")
+    failed = sv.get("handover_failed") or []
+    if failed:
+        add("handover-failed", "%d hand-over(s) to the game server failed: %s." % (len(failed), clean("; ".join("%s %s" % (w, why) for w, why in failed[:5]), 300)),
+            "Each map stays staged; the next run hands it over, or downloads it again.")
+    disk = r.get("disk") or {}
+    if disk.get("low"):
+        add("disk-low", "The disk is running low: %s." % disk["low"], "Nothing yet - the sync keeps working; make room, or raise the dataset's quota.")
+    wk = r.get("watcher_keep") or {}
+    if wk.get("problems"):
+        add("deletion-refused:%s" % re.sub(r"\d+", "#", str(wk["problems"][0]))[:60],
+            "The game server's deletion at its engine start of %s refused: %s." % (wk.get("computed", "?"), clean("; ".join(map(str, wk["problems"][:3])), 300)),
+            "It deleted nothing and kept every map; it tries again at its next engine start.")
+    for e in r.get("errors") or []:
+        add("error:%s" % re.sub(r"\d+", "#", str(e))[:80], "An error: %s." % clean(e, 300), "The run went on with its other steps.")
+    return out
+
+
+def issue_mail(issues, ongoing, r, cfg):
+    """(subject, body) of a problem mail: what went wrong, what the sync did, the dashboard, the run's report."""
+    when = "%s %s-%s" % (r.get("night", "?"), r.get("started_hm", "?"), r.get("ended_hm", "?"))
+    subject = "%s Workshop sync: %s%s" % (cfg_name(cfg), issues[0][1][:90].rstrip("."), " (and %d more)" % (len(issues) - 1) if len(issues) > 1 else "")
+    lines = ["The Workshop sync of %s ran into %s in its %srun of %s." % (
+        cfg_name(cfg), "a problem" if len(issues) == 1 else "%d problems" % len(issues), "manual " if r.get("manual") else "", when), ""]
+    for _key, what, did in issues:
+        lines += ["What went wrong: %s" % what, "What the sync did: %s" % did, ""]
+    if ongoing:
+        lines += ["Still going on, mailed already in the last day: %s" % " | ".join(what for _k, what, _d in ongoing), ""]
+    lines.append("The dashboard: %s" % (cfg.dashboard_url or "the HUD's Sync tab"))
+    lines.append("This run's full report: %s" % (r.get("report_path", "?")[:-5] + ".txt" if r.get("report_path") else "?"))
+    lines.append("Runs without a problem send no mail (the owner's 34); their reports stay in the reports folder and on the dashboard.")
+    return subject, "\n".join(lines)
+
+
+def mail_issues(cfg, clock, issues, r):
+    """Mails what is new among `issues`, once a day at most per problem (<state>/mail-sent.json keeps when each was last sent).
+    Returns the outcome for the report: "sent", or why not."""
+    if not issues:
+        return "NOT sent: no problem in this run (the mail is for problems only)"
+    path = os.path.join(cfg.state_dir, "mail-sent.json")
+    sent = read_json(path, {}) or {}
+    now = clock.now()
+    new = [i for i in issues if now - float(sent.get(i[0]) or 0) >= MAIL_EVERY]
+    if not new:
+        return "NOT sent: every problem of this run was mailed in the last %s" % hms(MAIL_EVERY)
+    ongoing = [i for i in issues if i not in new]
+    subject, body = issue_mail(new, ongoing, r, cfg)
+    why = send_mail(cfg, subject, body)
+    if why is not None:
+        return "NOT sent: %s" % why
+    for key, _w, _d in new:
+        sent[key] = now
+    for key in [k for k, at in sent.items() if now - float(at or 0) > 14 * DAY]:
+        del sent[key]
+    try:
+        write_atomic(path, dumps(sent), mode=0o644)
+    except OSError as error:
+        log("mail: %s not written (%s)" % (path, error))
+    return "sent: %s" % subject
+
+
+def mail_crash(cfg, clock, error, manual):
+    """A run that ended in an exception has no report: its problem is mailed from here, once a day at most."""
+    r = {"night": clock.day(), "manual": manual, "started_hm": "?", "ended_hm": clock.local().strftime("%H:%M")}
+    return mail_issues(cfg, clock, [("run-failed:%s" % type(error).__name__, "The run failed: %s." % clean(repr(error), 300),
+                                     "The service went on; it starts the next run after %s." % hms(IDLE_WAIT))], r)
+
+
 def short_stop(text):
     m = re.search(r"HTTP \d+|server errors|network failures|cap of [\d,]+", text or "")
     return m.group(0) if m else (text or "")[:60]
@@ -3541,6 +3665,8 @@ class Night(object):
             except OSError as error:
                 done, words = False, "the hand-over failed (%s)" % error
             log("serve: %s after SteamCMD quit: %s%s" % (wid, words, "" if done else " - it stays staged for the next run"))
+            if not done:
+                rep.setdefault("handover_failed", []).append((wid, words))
             if done:
                 rep["ok"] += 1
                 rep["bytes"] += nbytes
@@ -3747,7 +3873,7 @@ class Night(object):
                                 ok, why = self.engine.start()
                                 log(why)
                                 if not ok:
-                                    t["stop"] = why
+                                    t["stop"] = t["engine_failed"] = why
                                     break
                                 need_start = False
                             levels = (rec.get("scan") or {}).get("maps") or []
@@ -3960,6 +4086,8 @@ class Night(object):
                     ok, why = False, "the hand-over failed (%s)" % error
                 log("hand-over %s %s (tested, in the keep set): %s%s" % (wid, (rec.get("title") or "")[:40], why,
                                                                         "" if ok else " - it stays staged: the next run's serve hands it over"))
+                if not ok:
+                    rep.setdefault("handover_failed", []).append((wid, why))
                 done.remove(wid)                  # handed over, or kept for the next run - never deleted while the keep set wants it
                 if ok:
                     rep["tested"] = rep.get("tested", 0) + 1
@@ -4007,18 +4135,22 @@ class Night(object):
             log("report not written: %s" % error)
         idle = not ((self.report.get("downloads") or {}).get("ok") or (self.report.get("tests") or {}).get("rows")
                     or (self.report.get("published") or {}).get("files") or self.report.get("errors") or (self.report.get("serve") or {}).get("ok"))
-        urgent = bool(self.report.get("errors") or self.report.get("api_stop") or str((self.report.get("downloads") or {}).get("stop") or "").startswith("SteamCMD"))
-        last_mail = float(self.state.data.get("last_mail_at") or 0)
-        if idle:
-            why = "the run did nothing"
-        elif not urgent and self.clock.now() - last_mail < MAIL_EVERY:
-            why = "one mail a day, the last %s ago - this run's report is %s" % (hms(self.clock.now() - last_mail), path[:-5] + ".txt")
-        else:
-            why = send_mail(self.cfg, subject, body)
-            if why is None:
-                self.state.data["last_mail_at"] = self.clock.now()
-        self.report["mail"] = "sent" if why is None else "NOT sent: %s" % why
-        log("mail %s: %s" % (self.report["mail"], subject))
+        self.report["idle"] = idle
+        try:                                    # the disk, and the game server's last deletion, for the problems below
+            st = os.statvfs(self.cfg.game_dir)
+            free = st.f_bavail * st.f_frsize
+            self.report["disk"] = {"free": free}
+            if free < self.cfg.disk_low:
+                self.report["disk"]["low"] = "%s free on the game's volume (the mark is %s)" % (mb(free), mb(self.cfg.disk_low))
+        except (OSError, AttributeError):       # no statvfs on Windows (the tests)
+            pass
+        wk = read_json(os.path.join(os.path.dirname(self.cfg.watcher_state), "keep.json"), {}) or {}
+        if isinstance(wk, dict) and wk.get("problems") and str(wk.get("delete") or "on") != "off":
+            self.report["watcher_keep"] = {"computed": str(wk.get("computed") or "?"), "problems": list(wk["problems"])[:5]}
+        issues = issues_of(self.report)
+        self.report["issues"] = [what for _k, what, _d in issues]
+        self.report["mail"] = mail_issues(self.cfg, self.clock, issues, self.report)
+        log("mail %s%s" % (self.report["mail"], "" if issues else " - this run's report: %s" % (path[:-5] + ".txt")))
         try:                                    # again, now with the mail's outcome in it
             write_atomic(path, dumps(self.report, indent=1), mode=0o644)
         except OSError:
@@ -4167,6 +4299,7 @@ def main(argv):
                 Night(run_cfg, clock, manual=True, status=status).run()
             except Exception as error:  # the service must outlive any one run
                 log("the manual run failed: %r" % error)
+                log("mail %s" % mail_crash(cfg, clock, error, True))
             shown[0] = None
         elif not cfg.enabled:
             show("stopped", "The sync is switched off.")
@@ -4210,10 +4343,11 @@ def main(argv):
                 said = None
                 try:
                     report = Night(Config(), clock, status=status).run()
-                    if report.get("mail", "").startswith("NOT sent: the run did nothing"):
+                    if report.get("idle"):
                         idle_until = clock.now() + IDLE_WAIT
                 except Exception as error:
                     log("the run failed: %r" % error)
+                    log("mail %s" % mail_crash(cfg, clock, error, False))
                     idle_until = clock.now() + IDLE_WAIT
                 shown[0] = None
         time.sleep(30)

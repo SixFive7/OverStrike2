@@ -208,7 +208,7 @@ listed yet, the picture button and the game-mode filter with `v4_2_0`; the Sync 
   else by popularity. It fetches the Workshop's scores, subscriptions and trend once a day, and hands the server the maps it keeps but lacks. It downloads anonymously with SteamCMD,
   one map at a time, scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the
   ones that pass; the rest go on the broken list with their reasons. It works at any hour while nobody plays and stops within seconds when somebody joins; it has no daily download cap
-  and stops when Steam pushes back, keeps hard Web API limits in the code that the configuration can lower and never raise, and mails a daily summary if you give it a mail relay.
+  and stops when Steam pushes back, keeps hard Web API limits in the code that the configuration can lower and never raise, and, given a mail relay, mails only its problems - each once a day at most, pointing to your dashboard.
   What it is doing is on the menu's Sync page for everybody, and the bridge writes the same as a small website (an `index.html` and its data) for a web server behind your login.
 - **The daily Workshop check** asks the public Web API about every listed map, so a map that is gone, private or banned is refused at once.
 
