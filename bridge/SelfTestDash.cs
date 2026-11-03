@@ -49,14 +49,14 @@ static partial class Program
             && Wd(d, "osdstep") == "160 of 320" && Cl(d, "osdbar") && Cl(d, "osdp50") && Enumerable.Range(0, 21).Count(k => Cl(d, $"osdp{k * 5}")) == 1);
         Check("...the run (since, automatic, its deadline), today's numbers in the menu's units, the lists per mode, the tests so far, and a fresh file's age",
             Wd(d, "osdrun") == "Run since 17:05  ·  automatic  ·  ends by 20:05 at the latest"
-            && Wd(d, "osdtoday") == "Today: 847 downloads (158.5 GB)  ·  582 passed, 21 rejected  ·  1 failed downloads  ·  526 Web API calls"
+            && Wd(d, "osdtoday") == "Today: 847 downloads, 158.5 GB  ·  582 passed, 21 rejected  ·  1 failed  ·  526 API calls"
             && Wd(d, "osdlisted") == "Listed: Arms Race 3,718  ·  Deathmatch 1,096  ·  Wingman 827" && Wd(d, "osdtested") == "Tested so far: 1,606  ·  1,521 passed, 22 broken, 63 not maps"
             && Wd(d, "osdage") == "Updated less than a minute ago" && !Cl(d, "osdold") && !Cl(d, "osdnone"));
         Check("Sync page, queue: how many wait and their size, per mode (a count or an object with one), the finish estimate, the server's own missing maps, the random queues ready on disk",
             Wd(d, "osdqhead") == "3,845 maps waiting  ·  522.2 GB" && Wd(d, "osdqmodes") == "Arms Race 22  ·  Deathmatch 2,100  ·  Wingman 2,473"
             && Wd(d, "osdqeta") == $"All tested by about {SyncWords.When(updated + 129971, now, zone)}" && SyncWords.When(updated + 129971, now, zone) == "Thu 5 Nov 05:12"
             && Wd(d, "osdqserve") == "The server lacks 307 maps it keeps (52.6 GB): those come first  ·  198 handed over for the next restart"
-            && Wd(d, "osdqrand") == "Random picks ready on the server: Arms Race new 15/15  ·  Arms Race original 14/15  ·  Deathmatch 15/15  ·  Wingman 9/15"
+            && Wd(d, "osdqrand") == "On disk for random picks: Arms Race new 15/15  ·  original 14/15  ·  Deathmatch 15/15  ·  Wingman 9/15"
             && Wd(d, "osdqshown") == "The next 25 of 3,845");
         var queue = d.Lists.Single(l => l.Name == HudDash.QueueList);
         Check($"...the next maps in order, {SyncWords.QueueRows} a page: place, name, mode and size, the why with a capital",
@@ -87,15 +87,16 @@ static partial class Program
         var unknownDisk = D(DashSample(updated), now, known: false);
         var empty = D(DashSample(updated, queued: 0, events: 0), now);
         Check("Without a fresh report from the server the random queues say how many are rolled, not how many are on disk; an empty queue says so",
-            Wd(unknownDisk, "osdqrand") == "Random picks rolled ahead: Arms Race new 15  ·  Arms Race original 15  ·  Deathmatch 15  ·  Wingman 15  ·  no fresh word from the server on which are on its disk"
+            Wd(unknownDisk, "osdqrand") == "Rolled ahead for random picks: Arms Race new 15  ·  original 15  ·  Deathmatch 15  ·  Wingman 15  ·  disk not reported"
             && Wd(empty, "osdqhead") == "Nothing waiting: every map found so far is tested" && Wd(empty, "osdqeta") == "" && empty.Lists.Single(l => l.Name == HudDash.QueueList).Rows.Count == 0
             && Wd(empty, "osdqshown") == "");
         Check("Sizes as the Maps page shows them, and times: today the time alone, else the day",
             SyncWords.Bytes(56449040384) == "52.6 GB" && SyncWords.Bytes(3000000) == "3 MB" && SyncWords.SizeMb(2451) == "2.5 GB" && SyncWords.SizeMb(42) == "42 MB" && SyncWords.SizeMb(null) == ""
             && SyncWords.When(updated, now, zone) == "17:06" && SyncWords.When(updated - 86400, now, zone) == "yesterday 17:06" && SyncWords.When(updated + 86400, now, zone) == "tomorrow 17:06"
             && SyncWords.Ago(TimeSpan.FromMinutes(75)) == "1 h 15 min ago");
-        Check("Every word fits the block (a field and a word at most 120 characters), and every name is one the plugin takes",
+        Check("Every word fits the block (a field and a word at most 200 characters; the lines the queue column wraps stay under 120), and every name is one the plugin takes",
             d.Words.All(w => HudDash.IsName(w.Key) && w.Value.Length <= HudDash.MaxText) && d.Classes.Keys.All(HudDash.IsName) && d.Lists.All(l => HudDash.IsListName(l.Name))
+            && new[] { d, unknownDisk }.All(x => new[] { "osdqrand", "osdqserve", "osdqhead", "osdqmodes", "osdtoday" }.All(n => Wd(x, n).Length < 120))
             && d.Words.Count <= HudDash.MaxWords && d.Classes.Count <= HudDash.MaxClasses);
 
         // ---- the codec ----

@@ -291,9 +291,9 @@ static class SyncWords
         W("osdrun", run is { } r ? Join($"Run since {When(Num(r, "started") ?? 0, now, zone)}", Str(r, "kind") == "manual" ? "started by hand" : "automatic",
             Num(r, "deadline") is { } dl ? $"ends by {When(dl, now, zone)} at the latest" : "") : st == null ? "" : "No run at the moment");
         var today = Get(st, "today");
-        W("osdtoday", today == null ? "" : "Today: " + Join($"{N(Num(today, "downloads") ?? 0)} downloads ({Bytes(Num(today, "bytes") ?? 0)})",
-            $"{N(Num(today, "pass") ?? 0)} passed, {N(Num(today, "rejected") ?? 0)} rejected", $"{N(Num(today, "failedDownloads") ?? 0)} failed downloads",
-            $"{N(Num(today, "apiCalls") ?? 0)} Web API calls") + (Str(today, "stop") is { Length: > 0 } stop ? $"  ·  Steam stopped the downloads: {stop}" : ""));
+        W("osdtoday", today == null ? "" : "Today: " + Join($"{N(Num(today, "downloads") ?? 0)} downloads, {Bytes(Num(today, "bytes") ?? 0)}",
+            $"{N(Num(today, "pass") ?? 0)} passed, {N(Num(today, "rejected") ?? 0)} rejected", $"{N(Num(today, "failedDownloads") ?? 0)} failed",
+            $"{N(Num(today, "apiCalls") ?? 0)} API calls") + (Str(today, "stop") is { Length: > 0 } stop ? $"  ·  Steam stopped them: {stop}" : ""));
         var totals = Get(st, "totals");
         W("osdlisted", totals == null ? "" : "Listed: " + Join(Modes.All.Select(md => $"{md.Name} {N(ModeCount(Get(totals, "listed"), md.Id) ?? 0)}").ToArray()));
         W("osdtested", totals == null ? "" : $"Tested so far: {N(Num(totals, "tested") ?? 0)}  ·  {N(Num(totals, "pass") ?? 0)} passed, {N(Num(totals, "broken") ?? 0)} broken, {N(Num(totals, "nonmap") ?? 0)} not maps");
@@ -309,9 +309,10 @@ static class SyncWords
         var handed = Num(serve, "handedOver") ?? 0;
         W("osdqserve", serve == null ? "" : Join(missing > 0 ? $"The server lacks {N(missing)} maps it keeps ({Bytes(Num(serve, "bytes") ?? 0)}): those come first" : "The server has every map it keeps",
             handed > 0 ? $"{N(handed)} handed over for the next restart" : ""));
-        var rand = input.Random.Select(q => $"{RandomName(q.Name)} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
-        W("osdqrand", input.Random.Count == 0 ? "" : input.RandomKnown ? "Random picks ready on the server: " + Join(rand)
-            : $"Random picks rolled ahead: {Join(rand)}  ·  no fresh word from the server on which are on its disk");
+        // Arms Race's second queue reads "original" right after "Arms Race new": the line has to fit beside the queue (the layout wraps it once at most)
+        var rand = input.Random.Select(q => $"{(q.Name == Program.QueueOriginal ? "original" : RandomName(q.Name))} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
+        W("osdqrand", input.Random.Count == 0 ? "" : input.RandomKnown ? "On disk for random picks: " + Join(rand)
+            : $"Rolled ahead for random picks: {Join(rand)}  ·  disk not reported");
         var next = Items(queue, "next").ToList();
         d.Lists.Add(new HudDash.DashList(QueueList, QueueRows, next.Select((q, i) => new HudDash.Row("",
             [(i + 1).ToString(CultureInfo.InvariantCulture), MapName(q), Join(ModeName(Str(q, "mode")), SizeMb(Num(q, "sizeMb"))), Upper(Str(q, "why"))])).ToList()));

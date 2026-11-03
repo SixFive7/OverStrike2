@@ -23,7 +23,7 @@ public sealed class HudDash
     public const string Tab = "gg_tab_sync";
 
     /// <summary>What the plugin takes from one block at most: it is the bridge's, but a broken one must not flood the engine.</summary>
-    public const int MaxWords = 120, MaxClasses = 200, MaxLists = 6, MaxRows = 400, MaxFields = 6, MaxPageSize = 12, MaxText = 120;
+    public const int MaxWords = 120, MaxClasses = 200, MaxLists = 6, MaxRows = 400, MaxFields = 6, MaxPageSize = 12, MaxText = 200;
 
     /// <summary>A row's colour: a class <list><row><tone> on gg_screen while that row shows it.</summary>
     public static readonly string[] Tones = ["ok", "bad", "dim", "hot"];
