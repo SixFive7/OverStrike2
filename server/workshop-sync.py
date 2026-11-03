@@ -1238,6 +1238,31 @@ def hand_over(staging, folder, wid, title, depotcache):
     return True, "handed over (%s in %d files%s)" % (mb(nbytes), files, "" if os.path.isfile(manifest) else ", no manifest")
 
 
+def tidy_staging(staging, handover_dir, items):
+    """Before every SteamCMD session. SteamCMD writes its acf from memory, so it names again a map already handed over; at its next
+    login it finds that map's folder gone and downloads it again by itself - 68 maps, 11.9 GB on 2026-11-03, after three restarts of
+    the sync ended sessions before the serve step's clean-up. So: every acf entry without a staged folder is forgotten, and a staged
+    copy of a map that waits as a hand-over goes (folder and entry) unless it waits for its test. Returns (forgotten, dropped)."""
+    root = os.path.join(staging, "steamapps", "workshop")
+    acf = os.path.join(root, "appworkshop_730.acf")
+    content = os.path.join(root, "content", "730")
+    if not os.path.exists(acf):
+        return 0, 0
+    named = acf_items(acf)
+    pending = handovers(handover_dir)
+    ghosts = [w for w in named if not os.path.isdir(os.path.join(content, w))]
+    copies = [w for w in (os.listdir(content) if os.path.isdir(content) else [])
+              if w in pending and (items.get(w) or {}).get("status") != "downloaded" and not os.path.islink(os.path.join(content, w))]
+    if not ghosts and not copies:
+        return 0, 0
+    acf_forget(acf, ghosts + [w for w in copies if w in named])
+    for wid in copies:
+        shutil.rmtree(os.path.join(content, wid), ignore_errors=True)
+    log("staging: %d acf entr%s without a folder forgotten, %d staged cop%s of waiting hand-overs removed - SteamCMD would fetch them "
+        "again by itself" % (len(ghosts), "y" if len(ghosts) == 1 else "ies", len(copies), "y" if len(copies) == 1 else "ies"))
+    return len(ghosts), len(copies)
+
+
 SUCCESS_RX = re.compile(r'Success\. Downloaded item (\d+) to "[^"]*" \((\d+) bytes\)')
 FAILURE_RX = re.compile(r"ERROR! Download item (\d+) failed \(([^)]*)\)")
 LOGIN_FAIL_RX = re.compile(r"FAILED (?:to log ?in|login)|Login Failure|Rate Limit Exceeded|Invalid Password|No Connection", re.I)
@@ -3396,6 +3421,10 @@ class Night(object):
                     sizes.setdefault(str(entry["id"]), int(entry.get("sizeMb") or 0) << 20)
         staging = os.path.join(cfg.work_dir, "staging")
         acf = os.path.join(staging, "steamapps", "workshop", "appworkshop_730.acf")
+        try:
+            rep["tidied"] = tidy_staging(staging, cfg.handover_dir, self.state.data["items"])
+        except (OSError, ValueError) as error:
+            log("staging: not tidied (%s)" % error)
         handed, later = [], []
         # what is staged already - an earlier run's download it could not hand over (killed, or it looked before SteamCMD had
         # written its acf: 136 of 160 on 2026-11-03) - is handed over as it is, without a download, unless the Workshop has a newer one
@@ -3541,6 +3570,10 @@ class Night(object):
         cfg = self.cfg
         budget = DownloadBudget(self.state, self.night)
         dl = self.report.setdefault("downloads", {"ok": 0, "bytes": 0, "failed": [], "braked": []})
+        try:
+            tidy_staging(os.path.join(cfg.work_dir, "staging"), cfg.handover_dir, self.state.data["items"])
+        except (OSError, ValueError) as error:
+            log("staging: not tidied (%s)" % error)
         todo = [w for w in self.queue(known, details) if not self.staged(w)]
         if not todo:
             dl["queued_left"] = 0

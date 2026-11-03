@@ -346,7 +346,9 @@ repeat in batches, so a long run publishes as it goes:
    Workshop's score and subscriptions of every listed map and every waiting one (`IPublishedFileService/GetDetails` with
    `includevotes`, the key) and each mode's Most Popular order (`QueryFiles` RankedByTrend, 30 days) into the bridge's
    `ratings.json`. Then download the maps the server keeps but lacks and hand them over (`<work>/handover/`): each waits for
-   SteamCMD's acf entry of its download, and a map already staged with one is handed over without a new download.
+   SteamCMD's acf entry of its download, and a map already staged with one is handed over without a new download. Before
+   every SteamCMD session the staging acf forgets every entry without a folder, because SteamCMD downloads such a map again by
+   itself at its next login.
 3. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score
    would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything else strictly
    by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of

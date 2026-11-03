@@ -1283,6 +1283,26 @@ ns6.state.load()
 ns6.serve()
 check("serve: the brake - a map downloaded twice today is not downloaded a third time", FakeSteam.asked == [] and sd not in m.handovers(hdir))
 m.ACF_WAIT = 20
+
+# tidy_staging: SteamCMD would download again by itself what its acf names without a folder (2026-11-03: 68 maps, 11.9 GB)
+tg = os.path.join(srv, "tidy")
+tstg = os.path.join(tg, "steamapps", "workshop")
+thand = os.path.join(srv, "tidy-handover")
+for w in ("71", "73", "74"):
+    os.makedirs(os.path.join(tstg, "content", "730", w))
+os.makedirs(thand)
+for w in ("73", "74"):
+    json.dump({"version": 1, "id": w, "bytes": 1}, open(os.path.join(thand, w + ".json"), "w"))
+open(os.path.join(tstg, "appworkshop_730.acf"), "w").write('"AppWorkshop"\n{\n\t"WorkshopItemsInstalled"\n\t{\n' + "".join(
+    '\t\t"%s"\n\t\t{\n\t\t\t"size"\t\t"6"\n\t\t\t"timeupdated"\t\t"5"\n\t\t\t"manifest"\t\t"7"\n\t\t}\n' % w
+    for w in ("71", "72", "73", "74")) + '\t}\n}\n')
+res = m.tidy_staging(tg, thand, {"71": {"status": "downloaded"}, "74": {"status": "downloaded"}})
+left = m.acf_items(os.path.join(tstg, "appworkshop_730.acf"))
+check("tidy: an acf entry without a folder is forgotten (72), a staged copy of a waiting hand-over goes (73), a map waiting for its "
+      "test stays (71, and 74 although a hand-over waits for it) (%s, %s)" % (res, sorted(left)),
+      res == (1, 1) and sorted(left) == ["71", "74"] and not os.path.isdir(os.path.join(tstg, "content", "730", "73"))
+      and os.path.isdir(os.path.join(tstg, "content", "730", "74")))
+check("tidy: nothing to do, nothing written", m.tidy_staging(tg, thand, {"71": {"status": "downloaded"}, "74": {"status": "downloaded"}}) == (0, 0))
 m.SteamCmd, m.humans_on = real_steam, real["humans_on"]
 os.environ.update({"SYNC_STATE_DIR": os.path.join(ROOT, "state"), "SYNC_WORK_DIR": os.path.join(ROOT, "work"), "SYNC_BRIDGE_DATA": os.path.join(ROOT, "data")})
 for k in ("SYNC_GAME_DIR", "SYNC_DEPOTCACHE"):
