@@ -1,6 +1,6 @@
 # The map pictures the last HUD release shipped: one per line, Workshop id, sha1 and bytes of hud/thumbs/<id>.jpg. build.ps1 refuses
 # a build whose pictures differ from these unless the map is listed in thumbs-regenerated.txt (regenerated on purpose); a picture
-# of a map not listed here is new. Written by build.ps1 -MarkShipped after the publish of 2026-11-03.
+# of a map not listed here is new. Written by build.ps1 -MarkShipped after the publish of 2026-11-04.
 1998627204	bd5992c4a44bd742ec7ad9c035d65db2c5ca89fb	8802
 2112910066	08b737ee55610715cbeb4a7f37eb41a017b051be	11551
 2376611963	74b9770822d9b557cd1308da91fa0c5a482e35fd	10298
