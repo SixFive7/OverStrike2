@@ -63,7 +63,11 @@ so the setting stays as it is.
 8. **The vote** (content v4_4_0): a match end or Next opens it on the Maps page - at least eight cards, each with its mode's label and
    colour, Keep playing first when Next started it, Random's button and the gold Open the map browser beside the filters, the pager and
    its gold hint when there are more cards than a page holds; a Play in the browser puts its map on the vote.
-9. **The Fun tab**'s Random and Default (content v4_4_0), and the Maps page's Our maps button, which glows slowly until it is chosen.
+9. **The Fun tab**'s Random and Default (content v4_4_0), and the Maps page's Our maps button, which pulses until it is chosen.
+10. **Content v4_5_0**: on the vote, every card's bar and its voters' names, the leader lit or a tie tagged, the strip across the top, the
+    waiting line ("Everyone has voted" at the end); a match-end vote has no close button, a Next vote closed leaves a gold line back; Play
+    on your own queued map says Cancel my request, a ballot card of your request has Remove mine. The Fun tab: the Catch-up row, a setting
+    off its default gold with a dot, every change centre screen for everybody, and Moon gravity refusing Super jump High with the reason.
 
 ## Visibility
 

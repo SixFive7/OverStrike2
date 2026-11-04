@@ -50,7 +50,7 @@ static class Program
         "to play a map that is not on the list: the server downloads it first, with the progress on its card.\n" +
         "[*][b]Queue[/b]: who is next, your requests to cancel, back to the last map.\n" +
         "[*][b]Game[/b]: match length, new maps in random picks, restart a stuck server.\n" +
-        "[*][b]Fun[/b]: the fun settings and the grenade drops, with Random and Default.\n" +
+        "[*][b]Fun[/b]: the fun settings, the grenade drops and catch-up, with Random and Default; every change shows centre screen with who made it.\n" +
         "[*][b]Help, Rules, How it works[/b]: where everything is, the rules, and every chance in a map pick.\n" +
         "[*][b]Sync[/b]: what the server's map sync is doing, what waits in its queue, and its history.\n" +
         "[/list]\n\n" +
@@ -59,10 +59,12 @@ static class Program
         "You typed !map 12 - ran !play 12. A Workshop link pasted in chat opens that map's card.\n\n" +
         "[h1]Taking turns[/h1]\n" +
         "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits. A map two or more players want goes first, then whoever has had the least play time. " +
-        "A requested map stays until its match ends, its requester is done, a vote replaces it, or its requester has been gone over a minute while others wait.\n\n" +
+        "A requested map stays until its match ends, its requester is done, a vote replaces it, or its requester has been gone over a minute while others wait. " +
+        "Play on your own queued map takes it back.\n\n" +
         "[h1]The vote for the next map[/h1]\n" +
-        "When a match ends everybody votes for 60 seconds, or until a majority agrees: every queued map with its requesters' votes already in, a map of each other game mode " +
+        "When a match ends everybody votes for 60 seconds, or until everybody has voted: every queued map with its requesters' votes already in, a map of each other game mode " +
         "that suits the players on (Deathmatch, and Wingman up to 4 players), at least 8 maps, and Random. Every card shows its mode, by a label and a colour; a longer ballot pages, with a hint you cannot miss. " +
+        "You see where the votes go: a bar and the voters' names on every card, the leader lit, a strip across the top, and who still has to vote. " +
         "Open the map browser to put any map on the vote for everybody, with your vote on it. Next starts the same vote at any time, with Keep playing on it: if Keep wins or nobody votes, the map stays. " +
         "Click a card or type its number. While the vote is open !vote and a bare number vote and !play adds its map; the other map commands tell you what to type. " +
         "A tie is drawn, no votes at a match end is Random, and the server is back on Arms Race after a restart or 10 minutes with nobody on.\n\n" +
