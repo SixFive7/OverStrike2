@@ -281,6 +281,37 @@ static partial class Program
             Crash(); Run(20);
             Check("A new process after a clean quit (!restart, the 07:00 restart, an admin) is not a crash", S.Crashes.Count == 0 && SpawnSeen == 1);
 
+            // ---- the restart watcher's notice (the owner's 47 a, 2026-11-04): the engine segfaults on quit and its echo dies with the process ----
+            Fresh(); statusMap = "bsp"; statusSpawn = 3;
+            Join(alice); Talk(alice, $"!map {Rank(3)}"); Land(); Run(10);
+            Check("The restart watcher's notice: refused unless it is gg-quit 1 with a kind",
+                ApplyQuitNotice("hello\n").StartsWith("refused") && ApplyQuitNotice("gg-quit\t2\tdaily").StartsWith("refused") && ApplyQuitNotice("gg-quit\t1\t").StartsWith("refused") && !S.CleanShutdown);
+            Check("...a notice is the echo: the process is going down cleanly, the start roll owed, the map's hold gone",
+                ApplyQuitNotice("gg-quit\t1\tdaily") == "ok: going down" && S.CleanShutdown && StartRollOwed && S.Map == null && Holders(clock).Count == 0);
+            S.PickedBy = "a marker the echo must leave alone";
+            Line("rcon from \"127.0.0.1:33908\": command \"quit\"");
+            Check("...an echo that arrives as well changes nothing", S.PickedBy == "a marker the echo must leave alone" && S.CleanShutdown);
+            S.PickedBy = null;
+            Crash(); Run(20);
+            Check("...and the new process is no crash, without any echo", S.Crashes.Count == 0 && SpawnSeen == 1);
+
+            Fresh(); statusMap = "bsp"; statusSpawn = 3;
+            Join(alice); Talk(alice, $"!map {Rank(3)}"); Land(); Run(10);
+            Check("A notice the watcher takes back (its quit could not be delivered): the server stays up, nothing is clean any more",
+                ApplyQuitNotice("gg-quit\t1\tdaily") == "ok: going down" && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: cancelled" && !S.CleanShutdown
+                && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: nothing was announced");
+            var onAfterCancel = Key(m[3]);
+            S.Map = m[3]; S.LogName = m[3].Name; // the server stayed on its map; the bridge hears so with the next start, here set by hand
+            Crash(); Run(20);
+            Check("...so a crash after it is still a crash", S.Crashes.GetValueOrDefault(onAfterCancel) == 1);
+
+            Fresh(); statusMap = "bsp"; statusSpawn = 3;
+            Join(alice); Talk(alice, $"!map {Rank(3)}"); Land(); Run(10);
+            Talk(alice, "!restart"); Talk(alice, "!restart"); Run(4);
+            Check("The bridge's own !restart marks its quit clean as it sends it", sent.Contains("quit") && S.CleanShutdown);
+            Crash(); Run(20);
+            Check("...so its restart is no crash even when the echo never comes", S.Crashes.Count == 0 && SpawnSeen == 1);
+
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             Join(alice); Talk(alice, $"!map {Rank(3)}"); Land(); Run(10);
             Run(60); Talk(alice, "!done"); Talk(alice, $"!map {Rank(4)}"); Run(ChangeDelay);

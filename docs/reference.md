@@ -273,6 +273,13 @@ advance. Requests still queue. Remove the file and everything resumes.
 - **Crashes.** A few seconds after every map start the bridge reads RCON `status`; its `spawn` counter tells whether the server
   process is new. A new process that did not quit cleanly is a crash, counted against the map it was loading. A map with a crash
   asks the player to confirm a pick, and the dice skip it.
+- **A clean quit** is one the bridge was told of (the owner's 47 a, 2026-11-04): the restart watcher's notice right before its planned
+  quit (`POST /quitting/<LOG_SECRET>`, `gg-quit	1	<kind>`; `gg-quit	1	cancel	<kind>` takes it back when the quit could not be
+  delivered after all), the bridge's own Restart as it sends its quit, or the echo of an RCON `quit` or `_restart` in the log stream (an
+  admin's; and the backup of the other two). The echo alone was not enough: the engine segfaults on quit, and the last log batch, with
+  the echo in it, can die with the process - a planned restart was then booked as a crash of the map that was on. A second word of
+  the same quit within two minutes changes nothing. A freeze kill gets no notice and stays the crash it is. The watcher sends no
+  planned quit the bridge has not taken (an update restart excepted, after 30 minutes).
 - **Maps that crash the players' games.** Three players timing out within 60 s of entering a map, while the server keeps answering, mark it broken by
   itself, in `state.json` with its reason; the dice then take the server to another map.
 - **`broken.json`** (`BROKEN_FILE`) holds four lists: `maps` (maps that crash or freeze the server, or advertise: a pick asks to
@@ -469,7 +476,7 @@ The parser is one method (`Parse` in `bridge/Program.cs`) and `--selftest` shows
 pushes its log with `logaddress_add_http`: a `POST` per tick, one or more lines, each prefixed `MM/DD/YYYY - HH:MM:SS.mmm - `.
 
 - A map start is `Loading map "<name>"`, followed by `Started:` (the name comes from the request's `X-Game-Map` header).
-- A clean quit is the echo of an RCON `quit` or `_restart`.
+- A clean quit's echo is the echo of an RCON `quit` or `_restart` (one of the three signs of a clean quit, above).
 - Player lines: `"<name><uid><[U:1:n]><team>" say "..."`, `connected`, `entered the game`, `disconnected (reason "...")` - a
   reason containing `SHUTDOWN` is a map change's reload, not leaving.
 - A match end is the `Game Over:` line, once per match and last in its block; chat cannot fake it.

@@ -113,6 +113,7 @@ static partial class Program
         if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // ...and what Steam said about them
         if (c.Request.HttpMethod == "POST" && path == ReloadPath + LogSecret) { ReloadRequest(c); return; }              // read the data files again now (Reload.cs)
         if (c.Request.HttpMethod == "POST" && path == ReadyPath + LogSecret) { ReadyReport(c); return; }                // the restart watcher: the queued maps on disk (RandomQueue.cs)
+        if (c.Request.HttpMethod == "POST" && path == QuittingPath + LogSecret) { QuitNoticeRequest(c); return; }       // the restart watcher, right before its planned quit (CrashWatch.cs)
         if (c.Request.HttpMethod == "GET" && path == HealthPath + LogSecret) { HealthRequest(c); return; }               // is it up, and hearing the server
         var ok = c.Request.HttpMethod == "POST" && path == "/log/" + LogSecret;
         var body = ok ? new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd() : "";
@@ -321,14 +322,23 @@ static partial class Program
         HoldUntil = now.AddMinutes(2);
     }
 
-    /// <summary>The echo of an RCON quit or _restart (the bridge's !restart, the restart watcher, an admin): the process is going
-    /// down right now. Whatever was counting down or loading dies with it - left standing, a countdown would fire into the dead
-    /// server and the boot's start map would be taken for the map it had asked for, which is how restarts used to end on ar_shoots.</summary>
-    static void ServerGoingDown()
+    /// <summary>The process is going down right now, on purpose: the restart watcher's notice right before its planned quit (CrashWatch.cs),
+    /// the bridge's own !restart as it sends the quit, or the echo of an RCON quit or _restart in the log stream (an admin; and the backup
+    /// of the other two, since the echo dies with the process when the engine segfaults on quit). Whatever was counting down or loading dies
+    /// with it - left standing, a countdown would fire into the dead server and the boot's start map would be taken for the map it had asked
+    /// for, which is how restarts used to end on ar_shoots. Once per quit: an echo or a notice that follows one within GoingDownSeconds
+    /// changes nothing.</summary>
+    static void ServerGoingDown(string source)
     {
         var now = Now();
+        if (S.CleanShutdown && GoingDownAt != default && (now - GoingDownAt).TotalSeconds < GoingDownSeconds)
+        {
+            Log($"restart: {source} too - the quit was announced {(now - GoingDownAt).TotalSeconds:0} s ago, nothing more to do");
+            return;
+        }
+        GoingDownAt = now;
         if ((Pending?.Map ?? (AnnouncePending ? S.Map : null)) is { } gone) Log($"restart: the change to {Label(gone)} dies with the old process");
-        Log("restart: the server is quitting - the start roll is owed once its start map has loaded");
+        Log($"restart: the server is quitting ({source}) - a clean quit; the start roll is owed once its start map has loaded");
         S.CleanShutdown = true;
         Pending = null; AnnouncePending = false; AnnounceUntil = default;
         ReleaseAll(now); Owners.Clear(); SkipVotes.Clear();
@@ -439,7 +449,7 @@ static partial class Program
             case Kind.Disconnected: Depart(e.SteamId, e.Text, Now()); PlayerLeftMap(e.SteamId, e.Text, Now()); break; // BrokenWhy.cs: #6
             case Kind.MapStart: PlayerCrashMapStarted(); OnMapStart(e.Text != "" ? e.Text : gameMap ?? ""); break; // CS2's Started: line has no name; OnMapStart fills it in
             case Kind.MatchEnd: OnMatchEnd(); break;
-            case Kind.Shutdown: ServerGoingDown(); break;
+            case Kind.Shutdown: ServerGoingDown("the quit's echo"); break;
         }
     }
 
@@ -806,7 +816,8 @@ static partial class Program
 
     /// <summary>!restart: quit the game process. The container's restart policy starts it again, so pre.sh re-runs and every cfg is
     /// re-executed - which is what clears cvars a map left mangled. Needs no Docker access: the bridge only speaks RCON.
-    /// The quit echoes back into the log stream and is read as a clean shutdown, so this is never recorded as a crash.</summary>
+    /// The bridge marks the quit clean itself as it sends it (its echo in the log stream dies with the process when the engine segfaults
+    /// on quit), so this is never recorded as a crash.</summary>
     static void RestartServer(string by, string steamId)
     {
         var now = Now();
@@ -824,7 +835,7 @@ static partial class Program
         RestartConfirmBy = ""; RestartConfirmUntil = default;
         RestartCooldownUntil = now.AddSeconds(RestartCooldown);
         Announce($"{by} is restarting the server - back in about a minute, reconnect then", 30);
-        After(3000, () => { Log($"restart by {by}"); Send("quit"); }); // let the news line reach everyone before the process goes
+        After(3000, () => { Log($"restart by {by}"); ServerGoingDown($"its own !restart by {by}"); Send("quit"); }); // let the news line reach everyone before the process goes
     }
 
     [GeneratedRegex(@"^(?<id>\d+)$|[?&]id=(?<id>\d+)")] private static partial Regex IdRx(); // a bare number, or the id= of a pasted workshop URL

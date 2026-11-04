@@ -3,7 +3,9 @@
 // this server PROCESS has loaded, 1 for its boot map - a few seconds after every map start, and once when the bridge starts. Within one
 // process every map start raises it by one (measured: ten map starts after a boot, spawn 10), so a reading that has
 // not risen since the one before means a new process, and the map that was on (or loading) when the old one went is a crash, unless:
-//   - the old process went cleanly: the echo of an RCON quit or _restart (!restart, the 07:00 restart watcher, an admin) was seen;
+//   - the old process went cleanly: the restart watcher said so right before its planned quit (POST /quitting, below; the owner's 47 a,
+//     2026-11-04), the bridge sent the quit itself (!restart), or the echo of an RCON quit or _restart came in (an admin; and the backup:
+//     the engine segfaults on quit - 5 of 5 planned quits since 2026-11-03 - and the last log batch, with the echo in it, dies with it);
 //   - the maintenance flag is set: the map sweeps and the cache work crash and recreate the server on purpose;
 //   - the bridge cannot tell which map that was: no reading since it started, or a counter that does not fit the map starts it saw.
 // A reading counts only when RCON status shows the map the newest start logged. One taken while that map still loads, or when the server
@@ -15,6 +17,8 @@
 // restarts the bridge as well, which then has no reading of the old process to compare with.
 // A recorded crash is what !map's confirmation ("crashed the server N time(s) - are you sure?"), the dice (never a map with a crash) and
 // the HUD's card ("Crashed the server Nx") already read. Chat says it at once, and every join hears it for the next CrashNoticeMinutes.
+using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 
 static partial class Program
@@ -27,6 +31,9 @@ static partial class Program
     static string? LastStartName;          // the map the newest of them logged: what RCON status must show for a reading to count
     static readonly List<SpawnStart> SpawnStarts = new(); // the starts since the last reading, oldest first, each with what it would blame
     static DateTime CrashNoticeUntil;      // joins hear S.CrashNotice until then (the reconnect burst after a crash)
+    static DateTime GoingDownAt;           // when the bridge last heard that the server is quitting on purpose (ServerGoingDown)
+    const int GoingDownSeconds = 120;      // an echo or a notice within this long after that is the same quit
+    const string QuittingPath = "/quitting/";
     const int SpawnCheckDelayMs = 5000, SpawnCheckRetryMs = 10000, SpawnBaselineDelayMs = 15000, CrashNoticeMinutes = 10;
     const int SpawnCheckTries = 8; // 5 s, then every 10 s: 75 s covers the longest loads (up to 2.9 GB); a start without a reading is judged with the next one
 
@@ -36,7 +43,36 @@ static partial class Program
 
     static void ResetCrashWatch()
     {
-        SpawnSeen = null; SpawnSeenStarts = 0; MapStarts = 0; LastStartName = null; SpawnStarts.Clear(); CrashNoticeUntil = default;
+        SpawnSeen = null; SpawnSeenStarts = 0; MapStarts = 0; LastStartName = null; SpawnStarts.Clear(); CrashNoticeUntil = default; GoingDownAt = default;
+    }
+
+    /// <summary>POST /quitting/&lt;secret&gt;: the restart watcher, right before it sends a planned quit - "gg-quit\t1\t&lt;kind&gt;" (daily,
+    /// update, prefetch, workshop) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;". The
+    /// notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
+    /// a freeze kill it sends no notice for, so a freeze still counts as the crash it is. Runs on the event loop.</summary>
+    static void QuitNoticeRequest(HttpListenerContext c)
+    {
+        var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
+        var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Post(() => { try { done.TrySetResult(ApplyQuitNotice(body)); } catch (Exception e) { Log("quitting: " + e); done.TrySetResult("error: " + e.Message); } });
+        Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
+    }
+
+    static string ApplyQuitNotice(string body)
+    {
+        var f = body.Replace("\r", "").Split('\n')[0].Split('\t');
+        if (f.Length < 3 || f[0] != "gg-quit" || f[1] != "1" || f[2].Trim() == "") return "refused: not a gg-quit 1 notice";
+        var kind = Clip(f[2].Trim(), 20);
+        if (kind == "cancel")
+        {
+            var what = Clip(f.Length > 3 ? f[3].Trim() : "planned", 20);
+            if (!S.CleanShutdown) return "ok: nothing was announced";
+            S.CleanShutdown = false; GoingDownAt = default; Save();
+            Log($"restart: the restart watcher's {what} quit did not go out - the server stays up; a new process from here is no clean quit");
+            return "ok: cancelled";
+        }
+        ServerGoingDown($"the restart watcher's notice: {kind} restart");
+        return "ok: going down";
     }
 
     /// <summary>OnMapStart, for every start: the map it logged, and what was true just before it - the map that was on or loading,

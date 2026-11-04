@@ -182,7 +182,8 @@ plugin's log with the counts after it ([`plugin/CatchUp/`](plugin/CatchUp/)).
 
 Thousands of community maps include some that break things, so every broken map says why, on its card and in the confirm before anyone loads it.
 
-- **Maps that crash the server** are counted when it happens: a pick asks to confirm, and the dice never roll them.
+- **Maps that crash the server** are counted when it happens: a pick asks to confirm, and the dice never roll them. A planned restart is
+  never one: the restart watcher tells the bridge right before its quit, and the bridge's own Restart marks itself.
 - **Maps that crash players' games** mark themselves: three players timing out within 60 seconds of entering a map, while the server keeps answering, mark it
   broken, and the dice take the server to another map at once.
 - **The broken list** names crashers, freezers and maps that advertise, each with its reason. A pick asks to confirm, and the dice never roll them.
