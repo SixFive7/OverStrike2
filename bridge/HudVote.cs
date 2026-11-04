@@ -129,7 +129,9 @@ public static class HudVote
     public static string VotersVar(int k) => $"osvn{k.ToString(CultureInfo.InvariantCulture)}";
     public static string StripVar(int i) => $"osvs{i.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The summary strip's segments (content v4_5_0): one panel each, its width a share class - the options with votes, the most first.</summary>
+    /// <summary>The summary strip's segments (content v4_5_0): one panel each, the options with votes, the most first. A segment's class is its
+    /// count of votes (CountClasses), which the stylesheet makes its weight in the strip (fill-parent-flow), so the segments always fill the strip
+    /// exactly - tenths left a gap or ran past its end (three tied votes were 90 %, four were 120 %; the real client, 2026-11-04).</summary>
     public const int StripSegments = 9;
     public static string Segment(int i) => $"gg_vs{i.ToString(CultureInfo.InvariantCulture)}";
 
@@ -141,6 +143,17 @@ public static class HudVote
         var on = Share(votes, cast);
         for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
     }
+
+    /// <summary>A strip segment's votes as the same eleven classes, w0 ... w10 - its count, not a share (ten and more are w10): its weight in the strip.</summary>
+    public static IEnumerable<(string Id, string Class, bool On)> CountClasses(string id, int votes)
+    {
+        var on = $"w{Math.Clamp(votes, 0, 10).ToString(CultureInfo.InvariantCulture)}";
+        for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
+    }
+
+    /// <summary>How many characters of names a card's chips take, so a longer list ends in "+N" and never in "..." (the chips' 160 px beside the
+    /// mode label hold about 40 at 12 px; 62 % held 30 no more and cut "Test B" off in the real client, 2026-11-04).</summary>
+    public const int CardNames = 30;
 
     /// <summary>A card's "Remove mine" (content v4_5_0): on a ballot card of this player's own queued request, it takes that request back.</summary>
     public static string UnqueueButton(int k) => $"{HudMenu.Card(k)}_unq";
@@ -159,8 +172,9 @@ public static class HudVote
         return shown;
     }
 
-    /// <summary>The waiting line (content v4_5_0, the owner's 2026-11-03): every player present who has not voted, by name, then "Everyone has voted".</summary>
-    public static string WaitLine(VoteState v) => !v.Open ? "" : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
+    /// <summary>The waiting line (content v4_5_0, the owner's 2026-11-03): every player present who has not voted, by name, then "Everyone has voted" -
+    /// which a vote decided by everybody voting says for as long as it shows its result (it closes the moment the last one votes).</summary>
+    public static string WaitLine(VoteState v) => !v.Open ? (v.Result is { How: "all" } ? "Everyone has voted" : "") : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
 
     /// <summary>The ballot's pages: eight cards a page (MapVote.MinMaps is one page's worth). Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v) => Math.Max(1, (v.Maps.Count + HudMenu.Cards - 1) / HudMenu.Cards);
@@ -218,7 +232,7 @@ public static class HudVote
             c.Add((id, "broken", false));
             c.Add((id, "crashed", false));
             c.Add((id, "now", o != null && done && v.Result!.N == o.N));
-            c.Add((id, "queued", o?.Source == VoteSource.Queue));
+            c.Add((id, "queued", o?.Source == VoteSource.Queue && o.Who != "")); // a request taken back (Remove mine) leaves its card on the ballot, untagged
             c.Add((id, "liked", false));
             c.Add((id, "disliked", false));
             c.Add((id, "confirm", o != null && mine == o.N && !done));
@@ -235,7 +249,7 @@ public static class HudVote
             c.Add((id, "vlead", o != null && most > 0 && o.Votes == most && !tied));
             c.Add((id, "vtie", o != null && most > 0 && o.Votes == most && tied));
             c.Add((id, "vmine", o != null && v.Open && o.Source == VoteSource.Queue && myQueued?.Contains(o.Key) == true)); // Remove mine
-            w.Add((VotersVar(k), o != null && v.Voters.TryGetValue(o.N, out var names) ? Names(names) : ""));
+            w.Add((VotersVar(k), o != null && v.Voters.TryGetValue(o.N, out var names) ? Names(names, CardNames) : ""));
         }
         var strip = counted.OrderByDescending(o => o.Votes).ThenBy(o => o.N).Take(StripSegments).ToList();
         for (var i = 1; i <= StripSegments; i++)
@@ -243,7 +257,7 @@ public static class HudVote
             var o = i <= strip.Count ? strip[i - 1] : null;
             var seg = Segment(i);
             c.Add((seg, "used", o != null));
-            c.AddRange(ShareClasses(seg, o?.Votes ?? 0, v.Cast));
+            c.AddRange(CountClasses(seg, o?.Votes ?? 0));
             c.AddRange(CardModeClasses(seg, o?.Source == VoteSource.Random ? null : o?.Mode));
             c.Add((seg, "vrand", o?.Source == VoteSource.Random));
             c.Add((seg, "vlead", o != null && o.Votes == most && !tied));

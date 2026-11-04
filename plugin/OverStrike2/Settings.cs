@@ -579,6 +579,12 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         var by = command.ArgCount > 3 ? command.GetArg(3) : "Console";
         if (mode == "off") { command.ReplyToCommand("fun: refused - mapreset_mode is off"); return; }
+        if (Fun.Refusal(setting, choice, Value) is { } why) // a Clash (the owner's 43 c): the page and chat say it before they get here
+        {
+            log.LogInformation("MapSettingsReset: fun on {Map}: {Setting} {Choice} by {By} refused - {Why}", map, setting.Id, choice.Id, by, why);
+            command.ReplyToCommand($"fun: refused - {why}");
+            return;
+        }
         var writes = fun.Apply(setting, choice, Value);
         var refused = writes.Where(w => !Write(w.ConVar, w.Value)).Select(w => w.ConVar).ToList();
         var line = $"{setting.Id} {choice.Id} by {by}: {(writes.Count == 0 ? "nothing to change" : string.Join(", ", writes.Select(w => $"{w.ConVar} {w.Value}")))}{(refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "")}";

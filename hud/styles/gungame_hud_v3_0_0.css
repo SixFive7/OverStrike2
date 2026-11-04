@@ -5262,17 +5262,17 @@ Label
 	width: 100%;
 	height: 28px;
 	border-radius: 14px;
-	background-color: #E9B44C26;
-	box-shadow: #E9B44CCC 0px 0px 14px 2px;
-	opacity: 0.2;
-	transition-property: opacity;
+	background-color: #E9B44C0A;
+	box-shadow: #E9B44C2E 0px 0px 6px 0px;
+	transition-property: box-shadow, background-color;
 	transition-duration: 1.2s;
 	transition-timing-function: ease-in-out;
 }
 
 .gg-screen.opulse .gg-ours-glow
 {
-	opacity: 1;
+	background-color: #E9B44C2E;
+	box-shadow: #E9B44CEB 0px 0px 18px 3px;
 }
 
 .gg-screen.fl-ours .gg-ours-glow
@@ -5526,57 +5526,57 @@ Label
 
 .gg-vseg.w0
 {
-	width: 4%;
+	width: 0px;
 }
 
 .gg-vseg.w1
 {
-	width: 10%;
+	width: fill-parent-flow( 1.0 );
 }
 
 .gg-vseg.w2
 {
-	width: 20%;
+	width: fill-parent-flow( 2.0 );
 }
 
 .gg-vseg.w3
 {
-	width: 30%;
+	width: fill-parent-flow( 3.0 );
 }
 
 .gg-vseg.w4
 {
-	width: 40%;
+	width: fill-parent-flow( 4.0 );
 }
 
 .gg-vseg.w5
 {
-	width: 50%;
+	width: fill-parent-flow( 5.0 );
 }
 
 .gg-vseg.w6
 {
-	width: 60%;
+	width: fill-parent-flow( 6.0 );
 }
 
 .gg-vseg.w7
 {
-	width: 70%;
+	width: fill-parent-flow( 7.0 );
 }
 
 .gg-vseg.w8
 {
-	width: 80%;
+	width: fill-parent-flow( 8.0 );
 }
 
 .gg-vseg.w9
 {
-	width: 90%;
+	width: fill-parent-flow( 9.0 );
 }
 
 .gg-vseg.w10
 {
-	width: 100%;
+	width: fill-parent-flow( 10.0 );
 }
 
 .gg-vseg.mode-armsrace
@@ -5706,7 +5706,7 @@ Label
 .gg-mvoters
 {
 	visibility: collapse;
-	max-width: 62%;
+	max-width: 160px;
 	horizontal-align: right;
 	vertical-align: bottom;
 	margin: 0px 8px 12px 0px;
@@ -5752,7 +5752,7 @@ Label
 .gg-screen.voting .gg-mcard.vlead
 {
 	border: 2px solid gg-gold;
-	box-shadow: #E9B44C73 0px 0px 16px 0px;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #E9B44C1F ), to( #E9B44C08 ) );
 }
 
 .gg-screen.voting .gg-mcard.vtie

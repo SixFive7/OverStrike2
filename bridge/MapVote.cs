@@ -14,6 +14,7 @@ using System.Text;
 public static class MapVote
 {
     public const int Seconds = 60;     // the vote's timer (the owner's 60 s), or until everybody present has voted (his 40 c, 2026-11-03)
+    public const int QueueVoteSeconds = 10; // ...but the queue's own votes alone end no vote sooner than this: everybody sees the screen, and can change theirs
     public const int MinMaps = 8;      // the ballot holds at least this many maps (the owner's 2026-11-03): the cards of one page
     public const int MaxMaps = 48;     // and at most this many - six pages of eight - however many are queued or added; Random comes on top
     public const int MaxOptions = MaxMaps + 1;

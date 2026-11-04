@@ -133,8 +133,10 @@ chosen comes back no sooner than the dice would bring it.
 Sixteen settings anybody can switch until the map changes, each with its own word; a bare `!fun` opens the page and writes the words in chat.
 Every change shows centre screen for everybody for 10 seconds, with who made it, and a setting off its default is gold with a dot on the page.
 **Catch-up** has its own row there too: on by default, off for everybody until the map changes (`!catchup off`).
-**Random** on the page (`!fun random`) draws every setting from its own choices and the grenade drops on or off, never a combination the page would
-not make; **Default** (`!fun default`) puts everything back as 10 minutes with nobody on does. Either says in chat who did it.
+**Random** on the page (`!fun random`) draws every setting from its own choices, the grenade drops on or off and catch-up on three times in four,
+never a combination the page would not make; **Default** (`!fun default`) puts everything back as 10 minutes with nobody on does. Either says in
+chat who did it. Every combination works together - the self-test walks all 884,736 - but one: **Moon gravity with Super jump High** throws
+players out of most maps, so the page, chat and Random refuse the second of the two and say why.
 
 | Word | Setting | Choices |
 |---|---|---|

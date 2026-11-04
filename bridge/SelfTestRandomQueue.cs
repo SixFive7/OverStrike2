@@ -73,7 +73,7 @@ static partial class Program
             QueueOf(QueueNew)[0] = stale with { At = clock.AddHours(-NotReadyDropHours - 1) };
             pick = RandomNext(true, 1);
             Check($"An entry still not on disk after {NotReadyDropHours} h, while the reports keep coming, is dropped; a younger one waits its turn",
-                pick != null && Key(pick) == onDisk.Key && QueueOf(QueueNew).All(e => e.Key != stale.Key) && QueueOf(QueueNew)[0].Key == young.Key);
+                pick != null && Key(pick) == onDisk.Key && QueueOf(QueueNew).SkipLast(2).All(e => e.Key != stale.Key) && QueueOf(QueueNew)[0].Key == young.Key); // the last two are fresh rolls (one for the dropped entry, one for the pick), which may be any map
             ReadyAt = default;
 
             // ---- re-checked when used ----

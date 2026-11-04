@@ -568,6 +568,7 @@ sealed class HudScreen
             var slot = player.Slot;
             var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
             if (Fun.Showing(setting, FunValue) == choice) { LocalNote(slot, $"{setting.Title}: {choice.Label} already"); Server.NextFrame(Frame); return; }
+            if (Fun.Refusal(setting, choice, FunValue) is { } why) { LocalNote(slot, why); Server.NextFrame(Frame); return; } // a Clash (the owner's 43 c)
             Server.NextFrame(() => Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""));
             plugin.AddTimer(FunCheckSeconds, () =>
             {
@@ -873,6 +874,7 @@ sealed class HudScreen
                 if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) { Say($"{setting.Title} is Arms Race's own - not in {mode.Name}"); return; }
                 var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
                 if (Fun.Showing(setting, FunValue) == choice) { Say($"{setting.Title}: {choice.Label} already"); return; }
+                if (Fun.Refusal(setting, choice, FunValue) is { } refused) { Say(refused); return; } // a Clash (the owner's 43 c)
                 Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
                 plugin.AddTimer(FunCheckSeconds, () =>
                 {
@@ -1200,7 +1202,7 @@ sealed class HudScreen
     }
 
     /// <summary>The Fun page's Random or Default (the owner's 2026-11-03), from a click or from !fun random / !fun default: Random draws every setting the page
-    /// shows in this mode from its own choices (Fun.Randomized) and the grenade drops where they are, Default is the reset after 10 minutes with nobody on -
+    /// shows in this mode from its own choices (Fun.Randomized), the grenade drops and catch-up where they are (Arms Race), Default is the reset after 10 minutes with nobody on -
     /// gg_fun reset and the grenade drops on. The same commands a click on each row runs, a frame later; one chat line for everybody says what changed.</summary>
     void FunAll(CCSPlayerController player, string which)
     {
@@ -1225,7 +1227,7 @@ sealed class HudScreen
         bool? catchUpSwitched = catchUp is { } cu && CatchUpOn?.Invoke() != cu ? cu : null;
         Server.NextFrame(() =>
         {
-            foreach (var (setting, choice) in changed) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
+            foreach (var (setting, choice) in Fun.InSafeOrder(changed)) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""); // back to Normal first: no Clash on the way
             if (nadesSwitched is { } on) Server.ExecuteCommand($"gg_nades {(on ? "on" : "off")} \"{name}\"");
             if (catchUpSwitched is { } cuOn) CatchUpSwitch?.Invoke(cuOn);
             Server.PrintToChatAll(" " + Fun.RandomLine(name, changed, nadesSwitched, catchUpSwitched: catchUpSwitched));

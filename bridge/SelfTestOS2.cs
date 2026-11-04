@@ -147,8 +147,8 @@ static partial class Program
             SC("gg_m1", "w5") && !SC("gg_m1", "w4") && SC("gg_m2", "w3") && SC("gg_m3", "w0") && SC("gg_m1", "vhas") && !SC("gg_m3", "vhas")
             && SV(HudVote.VotersVar(1)) == "Alice  ·  Cara" && SV(HudVote.VotersVar(2)) == "Bob" && SV(HudVote.VotersVar(3)) == ""
             && SC("gg_m1", "vlead") && !SC("gg_m1", "vtie") && !SC("gg_m2", "vlead") && sp.Classes.Count(x => x.Class.StartsWith('w') && x.Id == "gg_m1" && x.On) == 1);
-        Check("...the strip: the options with votes, the most first, each its share and its mode's colour, Random grey; the waiting line names who has not voted",
-            SC(HudVote.Segment(1), "used") && SC(HudVote.Segment(1), "w5") && SC(HudVote.Segment(1), "mode-armsrace") && SV(HudVote.StripVar(1)) == "1  ·  2"
+        Check("...the strip: the options with votes, the most first, each its count (its weight in the strip) and its mode's colour, Random grey; the waiting line names who has not voted",
+            SC(HudVote.Segment(1), "used") && SC(HudVote.Segment(1), "w2") && SC(HudVote.Segment(2), "w1") && SC(HudVote.Segment(3), "w1") && SC(HudVote.Segment(1), "mode-armsrace") && SV(HudVote.StripVar(1)) == "1  ·  2"
             && SC(HudVote.Segment(2), "mode-deathmatch") && SV(HudVote.StripVar(2)) == "2  ·  1" && SC(HudVote.Segment(3), "vrand") && SV(HudVote.StripVar(3)) == "Random  ·  1"
             && !SC(HudVote.Segment(4), "used") && SC(HudView.Screen, "vstrip") && SV(HudVote.WaitVar) == "Waiting for: Eve"
             && HudVote.Cards(spread, 1001, null).Texts.Single(x => x.Id == "gg_m_count").Text.Contains("waiting for Eve"));
@@ -160,9 +160,19 @@ static partial class Program
         Check("A tie shows as a tie: both tied cards and their segments tagged, no leader; everybody voted: the waiting line says so",
             tc.Classes.Single(x => x.Id == "gg_m1" && x.Class == "vtie").On && tc.Classes.Single(x => x.Id == "gg_m2" && x.Class == "vtie").On && !tc.Classes.Single(x => x.Id == "gg_m1" && x.Class == "vlead").On
             && tc.Classes.Single(x => x.Id == HudVote.Segment(1) && x.Class == "vtie").On && tc.Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everyone has voted");
-        Check("Names that do not fit a card's chips end in +N; a share rounds to the nearest tenth",
+        Check("Names that do not fit a card's chips end in +N; a share rounds to the nearest tenth; a strip segment counts its votes, ten and more as ten",
             HudVote.Names(["Alexander", "Bartholomew", "Constantine", "Dorothea"]) is var cut && cut.Length <= 34 && cut.EndsWith(" +2") && HudVote.Share(1, 3) == "w3" && HudVote.Share(2, 3) == "w7"
-            && HudVote.Share(0, 0) == "w0" && HudVote.Share(1, 20) == "w1");
+            && HudVote.Share(0, 0) == "w0" && HudVote.Share(1, 20) == "w1"
+            && HudVote.Names(["Remy", "Test A", "Test B"], HudVote.CardNames) == "Remy  ·  Test A  ·  Test B" && HudVote.Names(["Alexander", "Test A", "Test B"], HudVote.CardNames) == "Alexander  ·  Test A  +1"
+            && HudVote.CountClasses("s", 3).Single(x => x.On).Class == "w3" && HudVote.CountClasses("s", 14).Single(x => x.On).Class == "w10" && HudVote.CountClasses("s", 0).Single(x => x.On).Class == "w0");
+        var taken = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800002\topen\t25\t2\t2\t1\tend\t0\nmvo\t1\tarmsrace\tqueue\t12\t3084291312\t#12 aim_x\t17 MB\t0\t\nmvo\t2\tarmsrace\tqueue\t13\t3084291313\t#13 aim_y\t9 MB\t1\tBob\nmvo\t3\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1002\t2\n");
+        var tk = HudVote.Cards(taken, 1001, null);
+        var allDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800003\tdone\t6\t2\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tall\t#5 a\tarmsrace\n");
+        var mostDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800004\tdone\t6\t2\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tmost\t#5 a\tarmsrace\n");
+        Check("A request taken back (Remove mine) stays a card on the ballot without its Queued tag; a vote everybody decided says so while it shows its result, one the clock decided does not",
+            !tk.Classes.Single(x => x.Id == "gg_m1" && x.Class == "queued").On && tk.Classes.Single(x => x.Id == "gg_m2" && x.Class == "queued").On
+            && allDone is { Open: false, Result.How: "all" } && HudVote.WaitLine(allDone) == "Everyone has voted" && HudVote.WaitLine(mostDone) == ""
+            && HudVote.Cards(allDone, 1001, null).Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everyone has voted");
         var levels = HudVote.VersionClasses();
         Check($"The version check: content {Hud.Content} is level {HudVote.ContentLevel}; each level from {HudVote.FirstLevel} to {HudVote.LastLevel} has exactly one of svge/svlt on",
             Hud.Content == $"v{HudVote.ContentLevel / 10}_{HudVote.ContentLevel % 10}_0"

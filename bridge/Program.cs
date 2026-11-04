@@ -1232,6 +1232,7 @@ static partial class Program
         TabSelfTest(Check);
         GuiSelfTest(Check);
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
+        FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings (the owner's 43 c)
         Check("Choice shrinks to two truncated options", Choice(Enumerable.Range(1, 3).Select(i => new MapInfo(i, i, new string('x', 50) + i, 1)).ToList())
             is { Length: <= 120 } shrunk && shrunk.Contains("!map 2 (") && !shrunk.Contains("!map 3 ("));
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");

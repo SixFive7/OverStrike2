@@ -308,9 +308,12 @@ static partial class Program
                 && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-live \.gg-vote-buttons\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-why\s*\{\s*visibility:\s*collapse;")
                 && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-whyboard\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-why\s*\{\s*visibility:\s*collapse;")
                 && HudVote.DownCard("gg_m3_down") == 3 && HudVote.DownCard("gg_m9_down") == 0 && HudVote.DownCard("gg_m3_up") == 0 && HudVote.DownCard(HudView.ButtonDown) == 0);
-            Check("Content v4_4_0: the board's Too big and Ads buttons step aside (chat's !down big and the cards' tags stay); Our maps pulses while it is not chosen (v4_5_0: opulse, which the plugin flips, under an opacity transition - keyframes did not run on it), and is simply lit once it is; the cards wear their mode",
+            Check("Content v4_4_0: the board's Too big and Ads buttons step aside (chat's !down big and the cards' tags stay); Our maps pulses while it is not chosen (v4_5_0: opulse, which the plugin flips, moves its box-shadow under a transition - keyframes and opacity left the shadow as it was), and is simply lit once it is; the cards wear their mode",
                 Regex.IsMatch(rules, @"\.gg-board \.gg-bigrow\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-mcard \.gg-mbig\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-mcard \.gg-mads\s*\{\s*visibility:\s*collapse;")
-                && Regex.IsMatch(rules, @"\.gg-ours-glow\s*\{[^}]*opacity:\s*0\.2;[^}]*transition-property:\s*opacity;") && Regex.IsMatch(rules, @"\.gg-screen\.opulse \.gg-ours-glow\s*\{\s*opacity:\s*1;")
+                && Regex.IsMatch(rules, @"\.gg-ours-glow\s*\{[^}]*box-shadow:\s*#E9B44C2E[^}]*transition-property:\s*box-shadow") && Regex.IsMatch(rules, @"\.gg-screen\.opulse \.gg-ours-glow\s*\{[^}]*box-shadow:\s*#E9B44CEB")
+                && !Regex.IsMatch(rules, @"(?m)^\.gg-ours-glow\s*\{[^}]*opacity:") // the game draws a box-shadow at full strength at any opacity but 0 (the real client, 2026-11-04)
+                && Enumerable.Range(1, 10).All(k => Regex.IsMatch(rules, $@"\.gg-vseg\.w{k}\s*\{{\s*width:\s*fill-parent-flow\(\s*{k}\.0\s*\);")) // the strip: weights, so it fills exactly
+                && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mcard\.vlead\s*\{[^}]*border:\s*2px solid gg-gold;") && !Regex.IsMatch(rules, @"\.gg-mcard\.vlead\s*\{[^}]*box-shadow")
                 && Regex.IsMatch(rules, @"\.gg-screen\.fl-ours \.gg-ours-glow\s*\{\s*opacity:\s*0;") && rules.IndexOf(".gg-screen.opulse .gg-ours-glow", StringComparison.Ordinal) < rules.IndexOf(".gg-screen.fl-ours .gg-ours-glow", StringComparison.Ordinal)
                 && Modes.All.All(m => Regex.IsMatch(rules, $@"\.gg-mcard\.mode-{m.Id} \.gg-mmode-{m.Id}\s*\{{\s*visibility:\s*visible;") && noComments.Contains($"class=\"gg-mmode gg-mmode-{m.Id}\""))
                 && Regex.Matches(noComments, "class=\"gg-mband\"").Count == HudMenu.Cards && noComments.Contains($"text=\"{{s:{HudVote.RandomVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.MoreVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.BrowseVar}}}\""));
@@ -405,7 +408,9 @@ static partial class Program
             var uneven = Fun.Settings.Where(s => s.Id != "jump").Where(s => drawn[s.Id].Any(k => Math.Abs(k - (double)draws / s.Choices.Length) > (double)draws / s.Choices.Length * 0.1)).Select(s => s.Id).ToList();
             Check($"Fun's Random: every setting the page shows, each choice equally likely ({draws} draws, each within 10%{(uneven.Count > 0 ? "; not " + string.Join(" ", uneven) : "")}), the grenade drops on in {nadesOn}; Moon gravity never with Super jump ({highJump} high jumps, all on other gravity)",
                 armsCount == Fun.Settings.Length && uneven.Count == 0 && nadesOn is > 2700 and < 3300 && moonJump == 0 && highJump is > 1700 and < 2300);
-            Check("...and catch-up stays as it is: Random never flips it (the owner's 43 is open)", catchUpOn == 0 && Fun.Randomized(n => n - 1, armsRace: true).CatchUp == null);
+            Check($"...and catch-up on three times in four (the owner's 43 c): on in {catchUpOn} of {draws}, off on the dice's 0 alone, Arms Race's own",
+                catchUpOn is > 4300 and < 4700 && Fun.Randomized(n => n - 1, armsRace: true).CatchUp == true && Fun.Randomized(n => 0, armsRace: true).CatchUp == false
+                && Fun.Randomized(n => 0, armsRace: false).CatchUp == null);
             Check("...outside Arms Race it leaves out what the page leaves out there: friendly fire's three and the grenade drops",
                 otherDraw.Nades == null && otherDraw.Choices.Count == Fun.Settings.Count(s => !Fun.ArmsRaceOnly(s)) && otherDraw.Choices.All(x => !Fun.ArmsRaceOnly(x.Setting))
                 && Fun.Randomized(n => n - 1, armsRace: true).Choices.Single(x => x.Setting.Id == "jump").Choice == Fun.Find("jump")!.Normal);

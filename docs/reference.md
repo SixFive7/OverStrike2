@@ -92,9 +92,17 @@ its default stays plain. **Every fun change is centre screen** for everybody for
 Random or Default press as one notice of all it changed - besides the chat line and the news line; what the server itself resets says nothing.
 
 **Random and Default** (the Fun page's two buttons, content `v4_4_0`; `!fun random`, `!fun default`): Random sets every setting the page shows in the
-mode that is on to one of its own choices, each choice equally likely, and the grenade drops on or off (catch-up stays as it is) - never a combination the page itself would
-not make (moon gravity takes super jump back to normal, as the page does). Default is what 10 minutes with nobody on does: every fun setting back
-to normal, the grenade drops and catch-up on. Either says in chat, in one short line for everybody, who did it and what changed; a click also prints the
+mode that is on to one of its own choices, each choice equally likely, and in Arms Race the grenade drops on or off and catch-up on three times in
+four, off one time in four (the owner's 43 c, 2026-11-04) - never a combination the page itself would not make (moon gravity keeps super jump
+normal). Default is what 10 minutes with nobody on does: every fun setting back to normal, the grenade drops and catch-up on.
+
+**Every combination works together** (the owner's 43 c): the fun settings touch no convar twice, so any mix of them is simply each one's own values,
+and `--selftest` walks every combination there is - 884,736 in Arms Race (the sixteen rows, the grenade drops and catch-up), 27,648 in Deathmatch
+and Wingman - checking that each reads back as made, that the page calls idle exactly what does nothing then, and that Random hands out each
+allowed one. One combination is refused: **Moon gravity with Super jump High**, a jump about 506 units high, nine times a normal one, out over
+the walls of most maps. The page, chat and `gg_fun` refuse the second of the two with the reason ("Super jump cannot be High while Gravity is
+Moon: together they throw players out of most maps"), and Random keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep
+working under headshots only (the owner's 45 a). Either says in chat, in one short line for everybody, who did it and what changed; a click also prints the
 command for everybody, so that menu users learn the chat way. The same as every fun setting: anybody, at any time, a vote open or not.
 
 **A vote in chat.** While a vote is open a bare number the ballot has (1 to its highest, 49 at most) counts as a vote, like `!vote 3`, and
@@ -131,8 +139,10 @@ goes next, and newcomers start just below the least-served active requester.
 ## The end-of-match vote and the game modes
 
 When a match ends there is a vote: every player gets a ballot on the menu's map cards for 60 s, or until every human present has voted
-(the owner's 40 c, 2026-11-03; a strict majority closed it before) - alone, your one vote ends it at once. The ballot (the owner's rules of
-2026-11-03):
+(the owner's 40 c, 2026-11-03; a strict majority closed it before) - alone, your one vote ends it at once. The votes the queue casts for its
+requesters at the open end no vote by themselves in its first 10 s: when everybody on has a request queued the vote is everybody's from the
+start, and it was over before anybody saw it; now it stays up 10 s for everybody to see and change their vote, or until a player votes. The
+ballot (the owner's rules of 2026-11-03):
 
 1. the queue - every request, in play order, each connected requester's vote already cast on their first;
 2. one map of each other game mode that suits the players on (Deathmatch; Wingman only for four players or fewer), unless the requests

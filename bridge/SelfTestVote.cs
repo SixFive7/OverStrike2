@@ -256,8 +256,18 @@ static partial class Program
             Join(alice);
             Ask(alice, m[4]); Land(); Ask(alice, m[5]);
             Settle(); MatchEnd();
-            Check("Alone with a queued map: the pre-cast vote is everybody's, so the vote ends at once and the map is hers",
+            Check($"Alone with a queued map: the queue's vote is everybody's, but the queue alone ends no vote in its first {MapVote.QueueVoteSeconds} s - the screen stays up to be seen",
+                Ballot is { Open: true } && Ballot.Choices.Count == 1 && Pending is null);
+            Run(MapVote.QueueVoteSeconds);
+            Check("...then it ends, and the map is hers",
                 Ballot is { Open: false, Result.How: "all" } && Pending is { } solo && solo.Map == m[5] && solo.Owners is [{ Name: "Alice" }]);
+            Fresh();
+            Join(alice);
+            Ask(alice, m[4]); Land(); Ask(alice, m[5]);
+            Settle(); MatchEnd();
+            Click(alice, Ballot!.Choices[alice.Item2]);
+            Check("...and her own click on the card the queue voted for ends it at once (her vote now, not the queue's)",
+                Ballot is { Open: false, Result.How: "all" } && Pending is { } clicked && clicked.Map == m[5]);
 
             // ---- during the vote: only the vote picks a map (the owner's 26); a pick goes on the ballot (the owner's 2026-11-03); a click changes or takes back a vote ----
             Fresh();

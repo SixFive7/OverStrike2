@@ -57,6 +57,7 @@ static partial class Program
         public readonly List<BallotOption> Options = new();
         public readonly Dictionary<string, int> Choices = new(); // SteamID -> the option it votes for
         public readonly Dictionary<string, int> Added = new();   // SteamID -> how many maps it added while the vote was open
+        public readonly HashSet<string> ByQueue = new();          // the SteamIDs whose vote the queue cast at the open and who have not voted themselves since
         public int PresentAtOpen;                                 // RCON status's humans, when the log stream knew nobody at the open
         public Modes.Mode FillMode = Modes.Default;               // the mode the rolled options of the server's mode, and Random, come from
         public bool Open = true;
@@ -146,7 +147,7 @@ static partial class Program
         b.Options.Add(new BallotOption(VoteSource.Random, null, null, b.FillMode));
         for (var i = 0; i < b.Options.Count; i++) b.Options[i].N = i + 1;
         foreach (var (id, r) in firstOf)
-            if (b.Options.FirstOrDefault(o => o.Request == r) is { } listed) b.Choices[id] = listed.N;
+            if (b.Options.FirstOrDefault(o => o.Request == r) is { } listed) { b.Choices[id] = listed.N; b.ByQueue.Add(id); }
 
         Ballot = b; LastRound = round;
         var count = VotePresent(b, now);
@@ -186,18 +187,19 @@ static partial class Program
         Present(steamId, by);
         if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by)) { Tell(steamId, "No map is eligible for a vote right now"); return; }
         Log($"vote: started by {by} {steamId}{(forRandom ? ", with their vote on Random" : "")}");
-        if (forRandom && Ballot?.Options.FirstOrDefault(o => o.Source == VoteSource.Random) is { } random) { Ballot.Choices[steamId] = random.N; BallotTick(now); }
+        if (forRandom && Ballot?.Options.FirstOrDefault(o => o.Source == VoteSource.Random) is { } random) { Ballot.Choices[steamId] = random.N; Ballot.ByQueue.Remove(steamId); BallotTick(now); }
     }
 
     /// <summary>A player's vote: !mv &lt;round&gt; &lt;n&gt; from the vote screen (0 takes it back).</summary>
     static void CastBallot(string by, string steamId, string arg)
     {
         if (MapVote.ParseClick($"{MapVote.Verb} {arg}") is not { } click || Ballot is not { Open: true } b || b.Round != click.Round) { Tell(steamId, "That vote is over"); return; }
-        if (click.Option == 0) { if (b.Choices.Remove(steamId)) Log($"vote: {by} {steamId} took their vote back"); return; }
+        if (click.Option == 0) { b.ByQueue.Remove(steamId); if (b.Choices.Remove(steamId)) Log($"vote: {by} {steamId} took their vote back"); return; }
         if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option) { Tell(steamId, $"No option {click.Option} on this ballot"); return; }
         Present(steamId, by);
         var was = b.Choices.GetValueOrDefault(steamId);
         b.Choices[steamId] = click.Option;
+        b.ByQueue.Remove(steamId); // their own vote now, also a click on the card the queue had voted for
         if (was != click.Option) Log($"vote: {by} {steamId} votes {click.Option} ({OptionLabel(option)}){(was > 0 ? $", was {was}" : "")}");
         BallotTick(Now());
     }
@@ -212,7 +214,7 @@ static partial class Program
         var key = Key(map);
         if (b.Options.FirstOrDefault(o => o.Map is { } m && Key(m) == key) is { } there)
         {
-            b.Choices[steamId] = there.N;
+            b.Choices[steamId] = there.N; b.ByQueue.Remove(steamId);
             Tell(steamId, $"{Clip(Label(map), 40)} is on the vote as {there.N} already - your vote is on it");
             Log($"vote: {by} {steamId} asked for {Label(map)}, on the ballot as {there.N} - votes {there.N}");
             BallotTick(now);
@@ -224,7 +226,7 @@ static partial class Program
         var random = b.Options.FindIndex(x => x.Source == VoteSource.Random);
         b.Options.Insert(random < 0 ? b.Options.Count : random, o); // on screen with the maps, before Random; its number after all of them
         b.Added[steamId] = b.Added.GetValueOrDefault(steamId) + 1;
-        b.Choices[steamId] = o.N;
+        b.Choices[steamId] = o.N; b.ByQueue.Remove(steamId);
         Log($"vote: {by} {steamId} added {o.N}. {OptionLabel(o)} and votes for it");
         Announce($"{Clip(by, 16)} added {Clip(Label(map), 32)}{ModeTag(map)} to the vote - !vote {o.N}", Math.Max(5, (int)Math.Ceiling((b.Ends - now).TotalSeconds)));
         BallotTick(now);
@@ -246,6 +248,9 @@ static partial class Program
         if (count == 0) { Log("vote: everybody left - no change"); Ballot = null; return; }
         var tally = b.Options.ToDictionary(o => o.N, o => b.Choices.Values.Count(n => n == o.N));
         var everybody = b.Choices.Count >= count; // every human present has voted (a vote of a player not counted as present counts too)
+        // ...but the queue's votes alone end no vote in its first QueueVoteSeconds: when everybody on has a request queued, the vote is
+        // everybody's at its open, and was over before anybody saw it (Wingman evenings of friends who each queued maps, 2026-11-04)
+        if (everybody && b.Choices.Keys.All(b.ByQueue.Contains) && now < b.Opened.AddSeconds(MapVote.QueueVoteSeconds)) everybody = false;
         if (!everybody && now < b.Ends) return;
         var most = tally.Values.Max();
         var top = tally.Where(t => t.Value == most).Select(t => t.Key).ToList();

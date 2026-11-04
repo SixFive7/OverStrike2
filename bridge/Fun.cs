@@ -179,23 +179,57 @@ public static class Fun
 
     public static bool Idle(Setting s, Func<string, string?> value) => IdleBecause(s, value) != null;
 
+    /// <summary>Two choices never on together (the owner's 43 c, 2026-11-04: every combination of the fun settings checked, --selftest walks
+    /// them all): the page, chat, gg_fun and Random each refuse the second of them, saying why. Moon gravity with Super jump makes a jump
+    /// about 506 units high (450 squared over twice 200), nine times a normal one - out over the walls and the skybox of most maps.</summary>
+    public sealed record Clash(string Setting, string Choice, string Other, string OtherChoice, string Why);
+
+    public static readonly Clash[] Clashes =
+    [
+        new("gravity", "moon", "jump", "high", "together they throw players out of most maps"),
+    ];
+
+    /// <summary>Why this choice may not be made with the other settings as they show now (a Clash): "Super jump cannot be High while Gravity
+    /// is Moon: together they throw players out of most maps". Null when it may.</summary>
+    public static string? Refusal(Setting s, Choice c, Func<string, string?> value)
+    {
+        foreach (var x in Clashes)
+        {
+            var (mine, theirs, theirChoice) = x.Setting == s.Id && x.Choice == c.Id ? (true, x.Other, x.OtherChoice)
+                : x.Other == s.Id && x.OtherChoice == c.Id ? (true, x.Setting, x.Choice) : (false, "", "");
+            if (mine && Find(theirs) is { } other && Showing(other, value).Id == theirChoice)
+                return $"{s.Title} cannot be {c.Label} while {other.Title} is {Showing(other, value).Label}: {x.Why}";
+        }
+        return null;
+    }
+
+    /// <summary>The first clash a whole combination holds (setting id to choice id; a setting left out is its Normal), or null.</summary>
+    public static Clash? ClashIn(Func<string, string> choiceOf) => Clashes.FirstOrDefault(x => choiceOf(x.Setting) == x.Choice && choiceOf(x.Other) == x.OtherChoice);
+
     /// <summary>The Fun page's two buttons (the owner's 2026-11-03) and their chat words: !fun random, !fun default.</summary>
     public const string RandomWord = "random", DefaultWord = "default";
 
+    /// <summary>Random's catch-up (the owner's 43 c, 2026-11-04): on three times in four, off one time in four - Arms Race's alone, like the page's row.</summary>
+    public const int CatchUpOffOneIn = 4;
+
     /// <summary>The Fun page's Random: a choice for every setting the page shows in this mode, each drawn evenly from its own choices
-    /// (dice: a number 0 to n-1), and the grenade drops on or off where they are (Arms Race). The page itself lets any combination stand
-    /// - a setting another one makes idle says so - with one exception kept here: Moon gravity with Super jump would throw players out of
-    /// most maps, so Super jump stays normal when the gravity is Moon.</summary>
+    /// (dice: a number 0 to n-1), and in Arms Race the grenade drops on or off and catch-up on three times in four (the owner's 43 c). The
+    /// page lets any combination stand but a Clash - a setting another one makes idle says so - and so does Random: of a clash it keeps the
+    /// first setting's draw and puts the other back to its Normal (Moon gravity keeps Super jump normal).</summary>
     public static (List<(Setting Setting, Choice Choice)> Choices, bool? Nades, bool? CatchUp) Randomized(Func<int, int> dice, bool armsRace)
     {
         var picks = Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Choices[Math.Clamp(dice(s.Choices.Length), 0, s.Choices.Length - 1)])).ToList();
-        if (picks.Any(x => x.s.Id == "gravity" && x.Item2.Id == "moon"))
+        string Of(string id) => picks.FirstOrDefault(x => x.s.Id == id) is { s: not null } p ? p.Item2.Id : Find(id)?.Normal.Id ?? "";
+        while (ClashIn(Of) is { } clash)
             for (var i = 0; i < picks.Count; i++)
-                if (picks[i].s.Id == "jump") picks[i] = (picks[i].s, picks[i].s.Normal);
-        // the grenade drops are Arms Race's; catch-up (content v4_5_0) Random leaves as it is while the owner's 43 is open (root's recommendation: it
-        // does not flip) - the third value is there for the day it should
-        return (picks, armsRace ? dice(2) == 1 : null, null);
+                if (picks[i].s.Id == clash.Other) picks[i] = (picks[i].s, picks[i].s.Normal);
+        return (picks, armsRace ? dice(2) == 1 : null, armsRace ? dice(CatchUpOffOneIn) != 0 : null);
     }
+
+    /// <summary>The order Random's changes are made in: the ones back to Normal first, so no change on the way meets a Clash the end result does
+    /// not hold (gg_fun refuses one: Super jump back to Normal before the gravity goes to Moon).</summary>
+    public static List<(Setting Setting, Choice Choice)> InSafeOrder(IEnumerable<(Setting Setting, Choice Choice)> changes) =>
+        changes.OrderBy(x => x.Choice == x.Setting.Normal ? 0 : 1).ToList();
 
     /// <summary>The one chat line for everybody after Random: who, and what changed (at most so many characters; the rest counted).</summary>
     public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, int max = 200, bool? catchUpSwitched = null)
