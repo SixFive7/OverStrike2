@@ -21,7 +21,7 @@ data_dir = ""                             # the bridge's /data on the server (a 
 [server]
 address = "play.example.com:27015"        # the game server's query address: is anybody playing?
 plugins_dir = ""                          # the folder the game server copies plugins from (one folder per plugin)
-config_dir = ""                           # where pre.sh, gamemode_armsrace_server.cfg and update-watch.py are deployed ("" = not from here)
+config_dir = ""                           # where server/ is deployed - pre.sh, the mode cfgs, update-watch.py, keepset.py, workshop-sync.py ("" = not from here)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 
 [workshop]

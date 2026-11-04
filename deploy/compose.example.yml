@@ -4,6 +4,12 @@
 # secret. Paths on the left of a volume are the host's. The game server is joedwards32/cs2 (SteamCMD, anonymous download of
 # app 730); server/pre.sh installs Metamod:Source, CounterStrikeSharp and MultiAddonManager into it before every start.
 
+# The times the restart watcher (cs2) and the Workshop sync (sync) must agree on, set once and used by both.
+x-times:
+  restart-at: &restart-at "07:00" # the daily restart, local time; "off" disables it
+  prefetch-at: &prefetch-at "03:30" # the nightly prefetch; "off" disables it
+  prefetch-minutes: &prefetch-minutes 195 # 03:30 + 195 min = 06:45, done before the daily restart
+
 services:
 
   cs2:
@@ -20,6 +26,7 @@ services:
       - <config dir>/gamemode_competitive2v2_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive2v2_server.cfg:ro # server/ (Wingman)
       - <config dir>/pre.sh:/home/steam/cs2-dedicated/pre.sh:ro # server/: the install hook the image runs before every start
       - <config dir>/update-watch.py:/home/steam/cs2-update-watch.py:ro # server/: the restart watcher pre.sh starts
+      - <config dir>/keepset.py:/home/steam/keepset.py:ro # server/: the keep set, beside the watcher (and the sync); without it nothing is deleted
       - <plugins dir>:/home/steam/cs2-plugins:ro # one folder per plugin: OverStrike2/OverStrike2.dll and blocked.txt
       - <data dir>:/home/steam/bridge-data:ro # the bridge's data, read by the watcher's nightly prefetch (CS2_BRIDGE_DATA)
     environment:
@@ -45,13 +52,11 @@ services:
       CS2_PLUGINS: 1 # 0 runs vanilla after a game update breaks Metamod or CounterStrikeSharp, until the pins in pre.sh are bumped
       GUNGAME_HUD_ADDON: "3823993566" # the HUD addon's Workshop id; empty: a simple text panel instead of the menu
       CS2_AUTOUPDATE: 1 # restart for a new game build, between matches
-      CS2_RESTART_AT: "07:00" # daily restart, between matches; "off" disables it
+      CS2_RESTART_AT: *restart-at # daily restart, only while nobody is on (with players on it waits, up to 2 h)
       CS2_FREEZE_RECOVERY: 1 # kill a frozen engine so Docker restarts it
       CS2_FREEZE_GRACE_SECONDS: 10
-      CS2_WARMUP: 1 # after every start, download a throwaway item so the Steam client's re-check runs before players need it
-      CS2_WARMUP_ITEM: "3736209605" # a small Workshop map that is not on the list
-      CS2_PREFETCH_AT: "03:30" # nightly prefetch of missing and updated maps while nobody is on; "off" disables it
-      CS2_PREFETCH_MINUTES: 195
+      CS2_PREFETCH_AT: *prefetch-at # nightly prefetch of missing and updated maps while nobody is on
+      CS2_PREFETCH_MINUTES: *prefetch-minutes
       CS2_PREFETCH_RESTART: 1 # a fresh engine process before the prefetch, only at 0 players
       CS2_WORKSHOP_RESTART: 1 # restart a process whose Workshop downloads are stuck, only at 0 players
       CS2_DOWNLOAD_LINE: 1 # say on the news line, with the progress, what the server downloads for a waiting player
@@ -104,6 +109,7 @@ services:
       - <game dir>:/home/steam/cs2-dedicated:ro # the game server's install, read-only: the test engine runs from links into it
       - <game dir>/workshop-sync:/home/steam/workshop-sync # staging downloads and the test engine's tree (create it first, owned by uid 1000)
       - <config dir>/workshop-sync.py:/home/steam/cs2-workshop-sync.py:ro # server/
+      - <config dir>/keepset.py:/home/steam/keepset.py:ro # server/: the same keep set the watcher reads; without it nothing is handed over
       - <sync state dir>:/home/steam/sync-state # the Web API ledger, the state, the nightly reports and backups (writable by uid 1000)
       - <secrets dir>:/run/secrets:ro # steam-webapi-key.txt: your Steam Web API key; without it the discovery step is skipped
       - <data dir>:/home/steam/bridge-data # the bridge's data, read-write: the sync publishes the map lists there
@@ -112,11 +118,12 @@ services:
       TZ: Etc/UTC
       SYNC_ENABLED: 1
       SYNC_PUBLISH: 1 # 0: every step runs, nothing is written into the bridge's data
-      SYNC_PREFETCH_AT: "03:30" # the watcher's CS2_PREFETCH_AT: no run from 10 minutes before it until the watcher's prefetch is done
-      SYNC_DAILY_RESTART: "07:00" # the watcher's CS2_RESTART_AT: no run around it, and every run ends 15 minutes before it
+      SYNC_PREFETCH_AT: *prefetch-at # the watcher's CS2_PREFETCH_AT: no run from 10 minutes before it until the watcher's prefetch is done
+      SYNC_PREFETCH_MINUTES: *prefetch-minutes
+      SYNC_DAILY_RESTART: *restart-at # the watcher's CS2_RESTART_AT: no run around it, every run ends 15 minutes before it, none starts with under 20 left
       SYNC_RUN_HOURS: 3 # a run whenever nobody plays and there is work, at most this long; a join stops it within seconds
       SYNC_TAGS: Armsrace,Deathmatch,Wingman
-      SYNC_EXCLUDE_IDS: "3736209605,3823993566" # never candidates: the warm-up item and the HUD item
+      SYNC_EXCLUDE_IDS: "3823993566" # never candidates: the HUD item
       SYNC_EXCLUDE_CREATORS: "<SteamID64s>" # Workshop authors whose items you list by hand (your own maps)
       SYNC_GAME_HOST: cs2 # downloads, tests and publishing happen only while this server shows 0 humans
       SYNC_BRIDGE_URL: http://bridge:8080
@@ -124,6 +131,6 @@ services:
       SYNC_CFG_DIR: /home/steam/sync-cfg
       SYNC_SERVER_NAME: Over Strike 2
       SYNC_SMTP_HOST: "" # optional: an SMTP relay for the problem mails (no mail when a run has no problem)
-      SYNC_DASHBOARD_URL: "" # optional: the dashboard address the problem mails point to
+      SYNC_DASHBOARD_URL: "" # optional: the dashboard address the problem mails point to (the one place it is set)
       SYNC_MAIL_FROM: ""
       SYNC_MAIL_TO: ""

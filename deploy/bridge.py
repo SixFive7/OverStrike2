@@ -22,8 +22,10 @@ normal priority. What ships is the committed bridge/ at HEAD, never uncommitted 
 The swap does for the bridge alone what compose would do, so nobody is disconnected: the container is stopped, renamed aside,
 created anew under its own name from its own inspect (environment, labels - compose's included, so it stays in its stack -
 mounts, restart policy, read-only root, capabilities, user and its network settings; only the image differs) and started,
-then verified: running, on the same network settings as before, GET /health answering from inside the game container, a log push arriving,
-and the game container untouched. Only then is the old container removed; on any failure it is put back and started.
+then verified: running, on the IP and MAC it is configured with, GET /health answering from inside the game container, a log push
+arriving, and the game container untouched. Only then is the old container removed; on any failure it is put back as it was. A
+stopped bridge is swapped the same way - checked against its configured network, not the runtime address it lacks - and put back
+stopped; one already on the target image is started.
 While the bridge is down (seconds) what it keeps only in memory is lost - the request queue, a countdown, airtime - so
 pick a moment between matches. A later redeploy of the stack runs <image>:latest, which is the same image.
 """
@@ -196,13 +198,26 @@ class Bridge:
         for k in ("Entrypoint", "Cmd", "WorkingDir", "Healthcheck", "StopSignal"):  # only where compose overrode the image
             if c.get(k) is not None and c.get(k) != img.get(k):
                 config[k] = c[k]
-        endpoints = {net: {k: v[k] for k in ("IPAMConfig", "Aliases", "MacAddress", "DriverOpts", "Links") if v.get(k)}
-                     for net, v in old["NetworkSettings"]["Networks"].items()}
+        endpoints = {}
+        for net, v in old["NetworkSettings"]["Networks"].items():
+            e = {k: v[k] for k in ("IPAMConfig", "Aliases", "MacAddress", "DriverOpts", "Links") if v.get(k)}
+            if not e.get("MacAddress") and c.get("MacAddress"):
+                e["MacAddress"] = c["MacAddress"]   # an older engine keeps a stopped container's MAC in its config only
+            endpoints[net] = e
         return {**config, "HostConfig": h, "NetworkingConfig": {"EndpointsConfig": endpoints}}
 
     @staticmethod
     def addresses(c):
+        """[(network, IP, MAC)] a container is on now: its runtime address, which a stopped container does not have."""
         return sorted((n, v.get("IPAddress"), v.get("MacAddress")) for n, v in ((c or {}).get("NetworkSettings", {}).get("Networks") or {}).items())
+
+    @staticmethod
+    def pinned(c):
+        """[(network, IP, MAC)] a container is configured with: its IPAM address and its MAC - what a stopped container still names
+        while its runtime address is empty, so a swap of a stopped bridge has something to recreate it on and to check it against."""
+        cfg_mac = ((c or {}).get("Config") or {}).get("MacAddress") or ""
+        return sorted((n, (v.get("IPAMConfig") or {}).get("IPv4Address") or v.get("IPAddress") or "", v.get("MacAddress") or cfg_mac)
+                      for n, v in ((c or {}).get("NetworkSettings", {}).get("Networks") or {}).items())
 
     def health(self, bridge):
         port = os2.env_of(bridge, "HTTP_PORT") or "8080"
@@ -244,24 +259,44 @@ class Bridge:
         target = self.d.inspect("images", f"{self.repo}:{source_tag}")
         if not target:
             os2.fail(f"no image {self.repo}:{source_tag} on the server")
-        if target["Id"] == old["Image"]:
-            os2.log(f"{self.name} already runs {self.repo}:{source_tag} ({target['Id'][7:19]}) - nothing to do")
-            return 0
-        old_image = self.d.inspect("images", old["Image"]) or {}
-        body = self.create_body(old, old_image, target["Id"])
-        want = self.addresses(old)
+        # a stopped bridge is swapped too (2026-11-04: a release stopped it to edit its state): what it is checked against is the
+        # network it is configured with, not the runtime address it has only while it runs - and it is put back stopped
+        running = bool((old.get("State") or {}).get("Running"))
+        want = self.pinned(old)
+        if not want or any(not ip or not mac for _net, ip, mac in want):
+            os2.fail(f"{self.name} names no pinned IP and MAC to recreate it on ({want}) - nothing changed; "
+                     f"{'start it once, or ' if not running else ''}redeploy the stack")
         game = self.d.inspect("containers", self.game)
         game_before = (game["Id"], game["State"]["StartedAt"])
+        if target["Id"] == old["Image"]:
+            if running:
+                os2.log(f"{self.name} already runs {self.repo}:{source_tag} ({target['Id'][7:19]}) - nothing to do")
+                return 0
+            os2.log(f"{self.name} is stopped on {self.repo}:{source_tag} ({target['Id'][7:19]}) already - starting it")
+            self.d.must("POST", f"/containers/{old['Id']}/start", "start the bridge")
+            problems = self.verify(game_before, want)
+            if not problems:
+                os2.log(f"DONE: {self.name} runs {target['Id'][7:19]}")
+                return 0
+            os2.log("PROBLEMS: " + "; ".join(problems) + " - stopping it again, as it was")
+            self.d.call("POST", f"/containers/{old['Id']}/stop?t=10", timeout=60)
+            return 1
+        if not running:
+            os2.log(f"{self.name} is stopped - swapped all the same, onto the network it is configured with: {want}")
+        old_image = self.d.inspect("images", old["Image"]) or {}
+        body = self.create_body(old, old_image, target["Id"])
         running_ref = (old["Config"].get("Image") or self.repo)
         ref_repo, _, ref_tag = running_ref.partition(":")
         ref_tag = ref_tag or "latest"
-        self.d.must("POST", f"/images/{old['Image']}/tag?repo={self.repo}&tag={keep_tag}", f"tag the running image {self.repo}:{keep_tag}")
+        self.d.must("POST", f"/images/{old['Image']}/tag?repo={self.repo}&tag={keep_tag}", f"tag the old image {self.repo}:{keep_tag}")
         self.d.must("POST", f"/images/{target['Id']}/tag?repo={ref_repo}&tag={ref_tag}", f"tag {running_ref}")
-        os2.log(f"{self.repo}:{keep_tag} = {old['Image'][7:19]} (running), {ref_repo}:{ref_tag} = {target['Id'][7:19]} (new)")
+        os2.log(f"{self.repo}:{keep_tag} = {old['Image'][7:19]} ({'running' if running else 'stopped'}), "
+                f"{ref_repo}:{ref_tag} = {target['Id'][7:19]} (new)")
         aside = f"{self.name}-replaced-{time.strftime('%H%M%S')}"
         new_id = None
         try:
-            self.d.must("POST", f"/containers/{old['Id']}/stop?t=15", "stop the old bridge", timeout=60)
+            if running:
+                self.d.must("POST", f"/containers/{old['Id']}/stop?t=15", "stop the old bridge", timeout=60)
             self.d.must("POST", f"/containers/{old['Id']}/rename?name={aside}", "rename the old bridge aside")
             new_id = self.d.must("POST", f"/containers/create?name={self.name}", "create the new bridge", body=body)["Id"]
             self.d.must("POST", f"/containers/{new_id}/start", "start the new bridge")
@@ -279,6 +314,10 @@ class Bridge:
             self.d.call("DELETE", f"/containers/{new_id}?force=1")
         self.d.call("POST", f"/containers/{old['Id']}/rename?name={self.name}")
         self.d.call("POST", f"/images/{old['Image']}/tag?repo={ref_repo}&tag={ref_tag}")
+        if not running:
+            back = self.d.inspect("containers", self.name)
+            os2.log(f"old bridge {'back, stopped as it was' if back and back['Id'] == old['Id'] else 'NOT back under its name - rename it by hand'}")
+            return 1
         s, _ = self.d.call("POST", f"/containers/{old['Id']}/start")
         back = self.d.inspect("containers", self.name)
         os2.log(f"old bridge {'back up' if back and back['Id'] == old['Id'] and back['State']['Running'] else 'NOT back - start it by hand'} (start HTTP {s})")
