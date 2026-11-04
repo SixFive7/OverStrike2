@@ -156,15 +156,14 @@ cs2_plugins_main() {
 }
 
 # cs2_watch_start: launch server/update-watch.py in the background - update restarts, the daily restart, freeze
-# recovery, the prefetch and the downloads in the background, each switched in deploy/compose.example.yml. It never holds up
+# recovery and the downloads in the background, each switched in deploy/compose.example.yml. It never holds up
 # the launch: no waiting, and every failure is one log line. It dies with the container; its counters live on the
 # volume (update-watch/state.json). Before it, --organize keeps the maps in order (the keep set is keepset.py, beside it).
 CS2_WATCH_SCRIPT="/home/steam/cs2-update-watch.py" # Read-only mount of <config dir>/update-watch.py.
 cs2_watch_start() {
     local log size
-    if [[ "${CS2_AUTOUPDATE:-1}" == 0 && "${CS2_FREEZE_RECOVERY:-1}" == 0 && "${CS2_RESTART_AT:-07:00}" == off \
-          && "${CS2_PREFETCH_AT:-off}" == off ]]; then
-        cs2_plugins_log "restart watcher: updates, daily restart, freeze recovery and prefetch all switched off, not started"; return 0
+    if [[ "${CS2_AUTOUPDATE:-1}" == 0 && "${CS2_FREEZE_RECOVERY:-1}" == 0 && "${CS2_RESTART_AT:-07:00}" == off ]]; then
+        cs2_plugins_log "restart watcher: updates, daily restart and freeze recovery all switched off, not started"; return 0
     fi
     if [[ ! -f "$CS2_WATCH_SCRIPT" ]]; then cs2_plugins_log "WARNING: $CS2_WATCH_SCRIPT is missing, restart watcher not started"; return 0; fi
     if ! command -v python3 >/dev/null 2>&1; then cs2_plugins_log "WARNING: python3 not found, restart watcher not started"; return 0; fi

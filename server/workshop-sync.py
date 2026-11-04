@@ -13,12 +13,10 @@ API steps due - and a run lasts SYNC_RUN_HOURS (3), cut short before the game se
 SYNC_API_EVERY_HOURS (4), and when nothing waits. Steps 3 to 5 repeat in batches of SYNC_BATCH maps until the backlog or the run
 ends, or Steam pushes back, so a long run publishes as it goes and staging stays small. When somebody joins, the run stops
 downloading and testing within seconds and waits; after a run that did nothing, the service looks again after IDLE_WAIT:
-  0. KEEP CLEAR OF THE PREFETCH AND THE RESTARTS. The restart watcher's nightly prefetch (update-watch.py) runs from
-     SYNC_PREFETCH_AT (03:30) in the game server's own engine: from 10 minutes before it until the watcher stamps tonight's
-     prefetch done (its state.json, prefetch_day; SYNC_PREFETCH_MINUTES at most) no run starts, and a running one downloads and
-     tests nothing - the two never fetch from Steam at once. No run starts from 15 minutes before the daily restart
-     (SYNC_DAILY_RESTART, 07:00) to 10 after, and every run ends 15 minutes before it and 10 before the prefetch. Nor does
-     one start with under MIN_RUN (20 min) left before such a cut: a run of minutes only writes a report (the owner's 85).
+  0. KEEP CLEAR OF THE DAILY RESTART. No run starts from 15 minutes before the game server's daily restart (SYNC_DAILY_RESTART,
+     07:00) to 10 after, every run ends 15 minutes before it, and none starts with under MIN_RUN (20 min) left before that cut: a
+     run of minutes only writes a report (the owner's 85). The restart watcher's nightly prefetch, which the sync kept clear of
+     too, is gone since the owner's 71 a (2026-11-04): what it did - the keep set's maps and their updates - is step 2c's.
   1. FIND NEW MAPS. IPublishedFileService/QueryFiles (api.steampowered.com, the owner's Web API key - the only call that
      needs one: without it the API answers 403, checked 2026-11-01): app 730, any of the tags SYNC_TAGS (Armsrace,
      Deathmatch, Wingman), newest first, 100 a page, the cursor from page to page, and it stops at the first page that
@@ -27,7 +25,8 @@ downloading and testing within seconds and waits; after a run that did nothing, 
      maps.json and on the mode lists, and every candidate before its download. The verdicts (ok, or gone: result not 1,
      hidden, banned) are handed to the bridge (POST /removed), so a map that is gone is blocked at once - the only Workshop
      check the bridge hears since the owner's 74 a (2026-11-04), the plugin's daily one gone; a map that goes says so once in
-     the history. A map updated since we last saw it is downloaded and tested again, after the new ones.
+     the history. A map updated since we last saw it is downloaded and tested again, after the new ones; once it passes, the
+     game server's older copy is replaced through the hand-over (2c).
   2b. THE RATINGS (since 2026-11-03). Once every RATINGS_EVERY, and at once when the ratings kept lack a list: the score
      (vote_data.score, the Workshop's "Top Rated") and the current subscriptions ("Most Subscribed") of every listed map and every
      map waiting for its test - IPublishedFileService/GetDetails with includevotes (the key), 100 ids a call - and each mode's
@@ -36,11 +35,16 @@ downloading and testing within seconds and waits; after a run that did nothing, 
      THE KEEP SET (keepset.py, shared with update-watch.py) takes each mode's three lists of 100 best playable maps
      (the owner's 35). A run cut short keeps the old time.
   2c. THE HAND-OVER. The keep set's maps the game server does not store (its acf and folders, read on the read-only mount of its
-     tree) - the upvoted maps, each mode's best-rated, the own maps; never the random queues, which the server fetches itself - are
-     downloaded with SteamCMD (step 3's session rules and stops) and handed over at once: hand_over moves each into
-     <work>/handover/<id>/ with its manifest and, last, its marker <id>.json, and the game server's --organize takes it in at its
-     next engine start. A map tested in step 4 that the keep set holds (its score puts it among its mode's best once it is listed)
-     is handed over the same way instead of being deleted with the rest of the staging folder.
+     tree) - the upvoted maps, each mode's best-rated, the own maps; never the random queues, which the server fetches itself - and,
+     since the owner's 71 a (2026-11-04), the ones it stores in an older version than the one this sync accepted (state.json's
+     baseline: the version a test passed, or one unchanged since SYNC_CHANGED_SINCE; our own maps, listed by hand and never tested
+     here: the newest the check saw) are downloaded with SteamCMD (step 3's session rules and stops) and handed over at once:
+     hand_over moves each into <work>/handover/<id>/ with its manifest and, last, its marker <id>.json, and the game server's
+     --organize takes it in at its next engine start, in place of an older copy. A map whose new version waits for its test is not
+     fetched for the server before it: a map tested in step 4 that the keep set holds (its score puts it among its mode's best now
+     that it is listed, or it is one the server stores) is handed over the same way instead of being deleted with the rest of the
+     staging folder - when the server lacks it, or stores an older copy than the tested one. SteamCMD fetches the Workshop's
+     version of the moment, so an author's update since the last check comes along untested, as with the engine's own download.
   3. DOWNLOAD with SteamCMD's anonymous login - never the owner's account, which is logged in nowhere - into this
      container's own staging folder: one SteamCMD session a batch, one item at a time, SYNC_DOWNLOAD_PAUSE between. First every
      waiting map that would make one of its mode's three lists (the keep set's cut-offs; best score first), then new uploads
@@ -93,7 +97,7 @@ SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
     two later) and no new download starts; the run goes on only after SYNC_QUIET_MINUTES with nobody on, because a map
     change shows 0 humans for a moment.
   * The test engine never touches the game server: read-only install, its own folders, no plugins, `log off`, no log
-    address (checked over RCON before the first load), and it stops with its run, before the daily restart and the prefetch. A
+    address (checked over RCON before the first load), and it stops with its run, before the daily restart. A
     game update during a test (steam.inf changes) ends the run's tests.
 
 FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, disposable)
@@ -116,15 +120,14 @@ FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, dis
                             subscriptions]}, "trend": {mode: [ids, Most Popular first]}, "trend_days": 30}.
 
 CONFIG (environment of the sync service; defaults in brackets)
-  SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_RUN_HOURS [3], SYNC_API_EVERY_HOURS [4], SYNC_PREFETCH_AT [03:30],
-  SYNC_PREFETCH_MINUTES [195], SYNC_DAILY_RESTART [07:00], SYNC_TAGS [Armsrace,Deathmatch,Wingman], SYNC_EXCLUDE_IDS (never candidates: the
-  warm-up item, the HUD items), SYNC_EXCLUDE_CREATORS (Workshop authors whose items are listed by hand), SYNC_CHANGED_SINCE [2026-10-25] (a listed map updated after it counts as changed at the
+  SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_RUN_HOURS [3], SYNC_API_EVERY_HOURS [4], SYNC_DAILY_RESTART [07:00],
+  SYNC_TAGS [Armsrace,Deathmatch,Wingman], SYNC_EXCLUDE_IDS (never candidates: the HUD item), SYNC_EXCLUDE_CREATORS (Workshop authors whose items are listed by hand), SYNC_CHANGED_SINCE [2026-10-25] (a listed map updated after it counts as changed at the
   first check), SYNC_MODE_BACKFILL [0] (1: listed Arms Race maps that carry a mode's tag join that mode's list too,
   which this sync never loaded; off, a mode list holds only maps this sync load-tested itself),
   SYNC_API_RUN_CAP [500], SYNC_API_DAY_CAP [10000], SYNC_API_GAP_SECONDS [2], SYNC_MAX_PAGES [200],
   SYNC_DOWNLOAD_PAUSE [2], SYNC_HOLD_SECONDS [20], SYNC_BATCH [100], SYNC_QUIET_MINUTES [10],
   SYNC_TEST_PORT [27215], SYNC_ENGINE_STARTS_MAX [200], SYNC_STATE_DIR, SYNC_WORK_DIR, SYNC_GAME_DIR,
-  SYNC_BRIDGE_DATA, SYNC_BRIDGE_URL, SYNC_BRIDGE_SECRET, SYNC_GAME_HOST, SYNC_GAME_PORT, SYNC_WATCHER_STATE,
+  SYNC_BRIDGE_DATA, SYNC_BRIDGE_URL, SYNC_BRIDGE_SECRET, SYNC_GAME_HOST, SYNC_GAME_PORT,
   SYNC_CFG_DIR, STEAM_WEBAPI_KEY_FILE, SYNC_SMTP_HOST, SYNC_SMTP_PORT [25], SYNC_MAIL_FROM, SYNC_MAIL_TO, SYNC_DASHBOARD_URL, SYNC_DISK_LOW_GB [100], TZ,
   SYNC_RATINGS [1] (step 2b), SYNC_HANDOVER [1] (step 2c and the tested hand-overs), SYNC_HANDOVER_DIR [<work>/handover],
   SYNC_DEPOTCACHE [~/Steam/depotcache: where SteamCMD keeps the manifests a hand-over carries].
@@ -174,7 +177,7 @@ HARD_API_DAY_CAP = 10000          # 10 % of Valve's 100,000 Web API calls a day 
 HARD_API_GAP = 2.0                # seconds between two Web API calls, at least
 DOWNLOADS_PER_MAP_DAY = 2         # the bug brake: a map downloaded this often today is not downloaded again today (no daily caps since the owner's 36 c)
 QUEUE_CHECK = 3000                # the check (step 2) asks the Workshop about this many of the download queue's head
-HOURS_A_DAY = 22                  # what the estimate counts on: the day without the prefetch's and the restarts' stretches; play comes off it
+HOURS_A_DAY = 22                  # what the estimate counts on: the day without the daily restart's stretch, with a margin; play comes off it
 MAIL_EVERY = 20 * 3600            # the mail is for problems only, and one that persists is mailed again once this long has passed
 IDLE_WAIT = 1800                  # after a run that did nothing, the service waits this long before it looks again
 MIN_RUN = 1200                    # no automatic run starts with less than this before its cut: a run of minutes does nothing (the owner's 85)
@@ -250,8 +253,6 @@ class Config(object):
             os.environ.update(env)
         self.enabled = env_flag("SYNC_ENABLED", True)
         self.publish = env_flag("SYNC_PUBLISH", True)
-        self.prefetch_at = env_hhmm("SYNC_PREFETCH_AT", (3, 30))            # the watcher's CS2_PREFETCH_AT: no run from 10 min before
-        self.prefetch_span = env_int("SYNC_PREFETCH_MINUTES", 195, 10, 1200) * 60   # ...until it stamps tonight's done, at most this long
         self.daily_restart = env_hhmm("SYNC_DAILY_RESTART", (7, 0))         # the watcher's CS2_RESTART_AT: no run 15 min before to 10 after
         self.run_hours = env_int("SYNC_RUN_HOURS", 3, 1, 12)               # a run's length; the service starts the next while nobody plays
         self.api_every = env_int("SYNC_API_EVERY_HOURS", 4, 1, 48) * 3600   # discovery, the check and the ratings at most this often
@@ -278,7 +279,7 @@ class Config(object):
         self.bridge_secret = os.environ.get("SYNC_BRIDGE_SECRET") or ""
         self.game_host = os.environ.get("SYNC_GAME_HOST") or ""
         self.game_port = env_int("SYNC_GAME_PORT", 27015, 1, 65535)
-        self.watcher_state = os.environ.get("SYNC_WATCHER_STATE") or os.path.join(self.game_dir, "update-watch", "state.json")
+        self.watcher_dir = os.path.join(self.game_dir, "update-watch")  # the restart watcher's folder: keep.json, its last keep set
         self.cfg_dir = os.environ.get("SYNC_CFG_DIR") or ""
         self.key_file = os.environ.get("STEAM_WEBAPI_KEY_FILE") or "/run/secrets/steam-webapi-key.txt"
         self.smtp_host = os.environ.get("SYNC_SMTP_HOST") or ""
@@ -1121,6 +1122,34 @@ def handovers(folder):
             rec = read_json(os.path.join(folder, name), {})
             out[name[:-5]] = int(rec.get("bytes") or 0) if isinstance(rec, dict) else 0
     return out
+
+
+def serve_wants(keep, has, pending, state, cfg):
+    """What serve fetches for the game server, in order: (missing, outdated). missing: the keep set's maps it does not store - the
+    upvoted maps, each mode's best-rated, the own maps. outdated (the owner's 71 a, 2026-11-04): the ones it stores in an older version
+    than the one this sync accepted - state.json's baseline, the version a test passed (or one unchanged since SYNC_CHANGED_SINCE);
+    for our own maps, listed by hand and never tested here, the newest the check saw. Never what waits as a hand-over, an excluded
+    id, a map whose new version waits for its test (once it passes, cleanup_staging hands that one over) or one whose last test
+    failed."""
+    base, items, own = state.get("baseline") or {}, state.get("items") or {}, set(keep["own"])
+    only = getattr(cfg, "only_ids", None)
+    ids = [w for w in dict.fromkeys(keep["up"] + [w for mode, _f in MODE_LISTS for w in keep["top"].get(mode) or []] + keep["own"])
+           if w not in pending and w not in cfg.exclude and (only is None or w in only)]
+    missing, outdated = [w for w in ids if w not in has], []
+    for wid in ids:
+        if wid not in has:
+            continue
+        rec = items.get(wid) or {}
+        if wid not in own and rec.get("why") == "changed" and rec.get("status") in ("queued", "retry", "downloaded", "tested"):
+            continue                                      # its new version waits for its test
+        if wid not in own and rec.get("verdict") not in (None, "pass"):
+            continue                                      # its last test failed: the Workshop's version now is the one that did
+        accepted = int(base.get(wid) or 0)
+        if wid in own:
+            accepted = max(accepted, int(rec.get("updated") or 0))
+        if accepted > int(has[wid] or 0):
+            outdated.append(wid)
+    return missing, outdated
 
 
 def hand_over(staging, folder, wid, title, depotcache):
@@ -2911,13 +2940,13 @@ def status_heavy(n):
                        "sizeMb": int((items.get(w) or {}).get("size") or 0) >> 20, "why": why(w)} for w in order[:STATUS_NEXT]]}
     # the keep set: its parts as the game server stores them, and what the sync still has to hand over
     # the HUD item: the sync is not told which it is - the restart watcher's keep.json of its last engine start names it
-    watcher_keep = read_json(os.path.join(os.path.dirname(cfg.watcher_state), "keep.json"), {}) or {}
+    watcher_keep = read_json(os.path.join(cfg.watcher_dir, "keep.json"), {}) or {}
     hud = [str(w) for w in ((watcher_keep.get("parts") or {}).get("hud") or []) if str(w).isdigit()] if isinstance(watcher_keep, dict) else []
     keep = safe_keep_set(keep_inputs(cfg.bridge_data), clock.now(), hud=hud[0] if hud else "")
     has, pending = server_maps(cfg.game_dir), handovers(cfg.handover_dir)
-    want = [w for w in dict.fromkeys(keep["up"] + [w for mode, _f in MODE_LISTS for w in keep["top"].get(mode) or []] + keep["own"])
-            if w not in has and w not in pending and w not in cfg.exclude]
-    queue["serve"] = {"missing": len(want), "bytes": sum(size_of(w) for w in want), "handedOver": len(pending),
+    want, outdated = serve_wants(keep, has, pending, n.state.data, cfg)
+    queue["serve"] = {"missing": len(want), "bytes": sum(size_of(w) for w in want), "outdated": len(outdated),
+                      "outdatedBytes": sum(size_of(w) for w in outdated), "handedOver": len(pending),
                       "handedOverBytes": sum(pending.values())}
     parts = []
 
@@ -3051,28 +3080,6 @@ class Run(object):
                 return False
             self.sleep(60)
 
-    def wait_for_prefetch(self):
-        """True once no nightly prefetch of the restart watcher is due or running: from 10 minutes before SYNC_PREFETCH_AT until the
-        watcher stamps tonight's as done (its state.json, prefetch_day) or SYNC_PREFETCH_MINUTES are over, this run downloads and
-        tests nothing - the two never fetch from Steam at once. False when the run's deadline comes first."""
-        t = self.clock.now()
-        said = False
-        while True:
-            why = prefetch_due(self.cfg, self.clock)
-            if why is None:
-                if said:
-                    self.report["waited"].append("the watcher's prefetch for %s" % hms(self.clock.now() - t))
-                return True
-            if self.left() < 600:
-                self.report["notes"].append("%s until the run's deadline - its downloads and tests wait for the next run" % why)
-                return False
-            if not said:
-                log("waiting: %s" % why)
-                said = True
-                self.status.set(state="waiting", why="The server's nightly prefetch runs first: the sync waits until it is done.")
-                self.status.write()
-            self.sleep(60)
-
     # -- the steps ----------------------------------------------------------------------------------------------
     def run(self):
         """One run, with the status file kept up to date: a ticker writes it every STATUS_TICK seconds until the run ends."""
@@ -3114,7 +3121,6 @@ class Run(object):
         log("start: %d listed map(s), %d id(s) known, %d item(s) in the state, deadline %s%s" % (
             len(listed), len(known), len(self.state.data["items"]), time.strftime("%H:%M", time.localtime(self.deadline)),
             " (manual run)" if self.manual else ""))
-        prefetch_done = self.wait_for_prefetch()
         key = read_key(self.cfg.key_file)
         api = SteamApi(self.ledger, self.day, self.cfg.api_gap, key=key, run_cap=self.cfg.api_run_cap)
         self.api = api
@@ -3192,25 +3198,19 @@ class Run(object):
         if stopped and re.search(r"HTTP (?:429|403|401)", stopped):   # Steam said stop: no downloads either, today
             DownloadBudget(self.state, self.day).refuse_for_today(
                 "the Web API answered %s" % short_stop(stopped))
-        # 2c. THE HAND-OVER: the keep set's maps the game server does not store, downloaded and handed over, before any test
-        if prefetch_done:
-            self.phase("serve")
-            self.serve()
+        # 2c. THE HAND-OVER: the keep set's maps the game server lacks or stores in an older version, handed over before any test
+        self.phase("serve")
+        self.serve()
         # 3.-5. downloads, tests and the publish, in batches: a long run publishes as it goes, and staging stays small
-        if not prefetch_done:
-            self.report["downloads"] = {"skipped": "the watcher's prefetch was still running"}
-            self.report["tests"] = {"skipped": "the watcher's prefetch was still running"}
         first = True
         while True:
             t_batch = self.clock.now()
-            outcomes, got = [], 0
-            if prefetch_done:
-                self.phase("downloads")
-                got = self.download(known, details)
-                self.phase("tests")
-                outcomes = self.scan_and_test()
-                self.worked += self.clock.now() - t_batch
-                self.decided += len(outcomes)
+            self.phase("downloads")
+            got = self.download(known, details)
+            self.phase("tests")
+            outcomes = self.scan_and_test()
+            self.worked += self.clock.now() - t_batch
+            self.decided += len(outcomes)
             # this batch's verdicts and any earlier one that could not be published then
             self.phase("publish")
             decided = set(w for w, _k, _d, _r in outcomes)
@@ -3223,7 +3223,7 @@ class Run(object):
             self.verdicts, first = [], False   # the check's verdicts go to the bridge once a run
             self.cleanup_staging()
             dl, t = self.report.get("downloads") or {}, self.report.get("tests") or {}
-            if not (prefetch_done and got) or dl.get("stop") or t.get("stop") or self.left() < 300:
+            if not got or dl.get("stop") or t.get("stop") or self.left() < 300:
                 break
             try:
                 known = known_ids(bridge_files(self.cfg), self.cfg)
@@ -3427,10 +3427,11 @@ class Run(object):
         self.report["requeued"] = len(back)
 
     def serve(self):
-        """THE HAND-OVER, for what is missing: the keep set's maps the game server does not store - the upvoted maps, each mode's
-        best-rated, the own maps - downloaded with SteamCMD (anonymous, with every push-back stop and the brake of the downloads) and
-        handed over at once; never what waits in the hand-over folder, nor the random queues and the requests (the server fetches
-        those itself, update-watch.py job 9), nor an excluded id. They were tested when they were listed: no test again."""
+        """THE HAND-OVER, for what is missing or outdated (serve_wants): the keep set's maps the game server does not store - the
+        upvoted maps, each mode's best-rated, the own maps - and the ones it stores in an older version than the one this sync accepted,
+        downloaded with SteamCMD (anonymous, with every push-back stop and the brake of the downloads) and handed over at once; never
+        what waits in the hand-over folder, nor the random queues and the requests (the server fetches those itself, update-watch.py
+        job 9), nor an excluded id. Their version was tested when they were listed or updated: no test again."""
         cfg = self.cfg
         rep = self.report.setdefault("serve", {"ok": 0, "bytes": 0, "failed": []})
         if not cfg.handover:
@@ -3443,15 +3444,15 @@ class Run(object):
             self.report["errors"].append("serve: %s - nothing handed over" % broken_keep[0])
             return
         has, pending = server_maps(cfg.game_dir), handovers(cfg.handover_dir)
-        want = keep["up"] + [w for mode, _f in MODE_LISTS for w in keep["top"].get(mode) or []] + keep["own"]
-        want = [w for w in dict.fromkeys(want) if w not in has and w not in pending and w not in cfg.exclude
-                and (getattr(cfg, "only_ids", None) is None or w in cfg.only_ids)]
-        rep.update(missing=len(want), stored=len(has), pending=len(pending))
+        missing, outdated = serve_wants(keep, has, pending, self.state.data, cfg)
+        want, newer = missing + outdated, set(outdated)
+        rep.update(missing=len(missing), outdated=len(outdated), stored=len(has), pending=len(pending))
         if not has:
             rep["skipped"] = "the game server's acf is not readable here - nothing fetched"
             return
         if not want:
-            log("serve: the game server stores every map of the keep set (%d pending hand-over(s))" % len(pending))
+            log("serve: the game server stores every map of the keep set, none older than its tested version (%d pending hand-over(s))"
+                % len(pending))
             return
         if sum(pending.values()) >= HANDOVER_MAX_BYTES:
             rep["stop"] = "%s of hand-overs wait for the server already" % mb(sum(pending.values()))
@@ -3488,10 +3489,11 @@ class Run(object):
                 rep["bytes"] += nbytes
                 rep["staged"] = rep.get("staged", 0) + 1
                 handed.append(wid)
-                self.event(wid, "handed-over", "Handed over to the game server from an earlier download (%s)." % mb(nbytes))
+                self.event(wid, "handed-over", ("Its newer version handed over" if wid in newer else "Handed over")
+                           + " to the game server from an earlier download (%s)." % mb(nbytes))
         want = [w for w in want if w not in handed and w not in set(x for x, _n in self.stalls)]   # a map that stalled waits for the next run
-        log("serve: %d map(s) of the keep set the game server does not store - downloading them for it%s" % (
-            len(want), " (%d handed over from the staging folder first)" % len(handed) if handed else ""))
+        log("serve: %d map(s) of the keep set the game server lacks or stores in an older version (%d) - downloading them for it%s" % (
+            len(want), len([w for w in want if w in newer]), " (%d handed over from the staging folder first)" % len(handed) if handed else ""))
         budget = DownloadBudget(self.state, self.day)
         steam = SteamCmd(cfg.steamcmd, staging, os.path.join(cfg.work_dir, "steamcmd.log"), home=os.environ.get("HOME"))
         started, row, denied = False, 0, 0
@@ -3553,7 +3555,8 @@ class Run(object):
                         rep["ok"] += 1
                         rep["bytes"] += max(nbytes, on_disk)
                         handed.append(wid)
-                        self.event(wid, "handed-over", "Downloaded and handed over to the game server (%s)." % mb(max(nbytes, on_disk)))
+                        self.event(wid, "handed-over", ("Its newer version downloaded" if wid in newer else "Downloaded")
+                                   + " and handed over to the game server (%s)." % mb(max(nbytes, on_disk)))
                     else:
                         later.append((wid, rec, max(nbytes, on_disk)))   # once SteamCMD has quit, its acf is complete
                 else:
@@ -3597,7 +3600,8 @@ class Run(object):
                 rep["ok"] += 1
                 rep["bytes"] += nbytes
                 handed.append(wid)
-                self.event(wid, "handed-over", "Downloaded and handed over to the game server (%s)." % mb(nbytes))
+                self.event(wid, "handed-over", ("Its newer version downloaded" if wid in newer else "Downloaded")
+                           + " and handed over to the game server (%s)." % mb(nbytes))
             else:
                 rep["failed"].append((wid, words))
         try:                                      # SteamCMD writes its acf from memory: it named the early ones again
@@ -4009,9 +4013,10 @@ class Run(object):
 
     def cleanup_staging(self):
         """Forget the staged downloads that have a verdict (their folders and their acf entries); keep the rest. A pass the keep set
-        holds - its score puts it among its mode's best now that it is listed, say - and the game server does not store is handed
-        over instead (THE HAND-OVER), so the server never downloads it again; when that fails it stays staged, and the next run's
-        serve step hands it over without a download (or downloads it again when SteamCMD's acf does not name it)."""
+        holds - its score puts it among its mode's best now that it is listed, say, or an update of a map the server stores - is handed
+        over instead (THE HAND-OVER) when the game server lacks it or stores an older copy than the tested one (the owner's 71 a), so
+        the server never downloads it again; when that fails it stays staged, and the next run's serve step hands it over without a
+        download (or downloads it again when SteamCMD's acf does not name it)."""
         root = os.path.join(self.cfg.work_dir, "staging", "steamapps", "workshop")
         content = os.path.join(root, "content", "730")
         if not os.path.isdir(content):
@@ -4026,23 +4031,30 @@ class Run(object):
                 return
             has, pending = server_maps(self.cfg.game_dir), handovers(self.cfg.handover_dir)
             rep = self.report.setdefault("serve", {"ok": 0, "bytes": 0, "failed": []})
+            acf = os.path.join(root, "appworkshop_730.acf")
             for wid in list(done):
                 rec = self.state.item(wid) or {}
-                if rec.get("verdict") != "pass" or wid not in keep["all"] or wid in has or wid in pending or wid in self.cfg.exclude:
+                entry = acf_entries(acf, wid) if wid in has else None   # the staged copy's version, as SteamCMD names it
+                staged_t = int(entry[0]["timeupdated"]) if entry and str(entry[0].get("timeupdated") or "").isdigit() else 0
+                newer = wid in has and staged_t > int(has[wid] or 0)
+                if rec.get("verdict") != "pass" or wid not in keep["all"] or (wid in has and not newer) or wid in pending \
+                        or wid in self.cfg.exclude:
                     continue
                 try:
                     ok, why = hand_over(os.path.join(self.cfg.work_dir, "staging"), self.cfg.handover_dir, wid, rec.get("title"),
                                         self.cfg.depotcache)
                 except OSError as error:
                     ok, why = False, "the hand-over failed (%s)" % error
-                log("hand-over %s %s (tested, in the keep set): %s%s" % (wid, (rec.get("title") or "")[:40], why,
-                                                                        "" if ok else " - it stays staged: the next run's serve hands it over"))
+                log("hand-over %s %s (tested, in the keep set%s): %s%s" % (
+                    wid, (rec.get("title") or "")[:40], ", newer than the server's copy" if newer else "", why,
+                    "" if ok else " - it stays staged: the next run's serve hands it over"))
                 if not ok:
                     rep.setdefault("handover_failed", []).append((wid, why))
                 done.remove(wid)                  # handed over, or kept for the next run - never deleted while the keep set wants it
                 if ok:
                     rep["tested"] = rep.get("tested", 0) + 1
-                    self.event(wid, "handed-over", "Tested and handed over to the game server.")
+                    self.event(wid, "handed-over", "Its update tested and handed over to the game server: it replaces the older copy."
+                               if newer else "Tested and handed over to the game server.")
         if not done:
             return
         acf = os.path.join(root, "appworkshop_730.acf")
@@ -4095,7 +4107,7 @@ class Run(object):
                 self.report["disk"]["low"] = "%s free on the game's volume (the mark is %s)" % (mb(free), mb(self.cfg.disk_low))
         except (OSError, AttributeError):       # no statvfs on Windows (the tests)
             pass
-        wk = read_json(os.path.join(os.path.dirname(self.cfg.watcher_state), "keep.json"), {}) or {}
+        wk = read_json(os.path.join(self.cfg.watcher_dir, "keep.json"), {}) or {}
         if isinstance(wk, dict) and wk.get("problems") and str(wk.get("delete") or "on") != "off":
             self.report["watcher_keep"] = {"computed": str(wk.get("computed") or "?"), "problems": list(wk["problems"])[:5]}
         issues = issues_of(self.report)
@@ -4205,9 +4217,9 @@ def main(argv):
         Run(cfg, clock, manual=True).run()
         return 0
     log("service start (version %s): no time windows - a run whenever nobody plays and there is work, at most %d h each, never "
-        "around the %02d:%02d prefetch or the %02d:%02d restart; %s, Web API key %s, caps: %d calls a run, %d in 24 h, discovery and "
+        "around the %02d:%02d restart; %s, Web API key %s, caps: %d calls a run, %d in 24 h, discovery and "
         "the check every %s; downloads: no daily cap, Steam's push-back stops them, a map at most %d times a day" % (
-            (VERSION, cfg.run_hours) + cfg.prefetch_at + cfg.daily_restart + (
+            (VERSION, cfg.run_hours) + cfg.daily_restart + (
                 "enabled" if cfg.enabled else "DISABLED (SYNC_ENABLED=0)", "present" if read_key(cfg.key_file) else "absent",
                 cfg.api_run_cap, cfg.api_day_cap, hms(cfg.api_every), DOWNLOADS_PER_MAP_DAY)))
     seen, idle_until, said = None, 0.0, None   # when the server last showed somebody (or did not answer); the wait after an idle run
@@ -4254,8 +4266,7 @@ def main(argv):
             why = start_blocked(cfg, clock)
             state, words = "waiting", None
             if why is not None:
-                words = ("The server's daily restart is near: the sync waits until it is over." if "restart" in why else
-                         "The server's nightly prefetch runs first: the sync waits until it is done.")
+                words = "The server's daily restart is near: the sync waits until it is over."
             h = humans_on(cfg)
             flag = os.path.exists(os.path.join(cfg.bridge_data, "maintenance"))
             if h is None or h > 0 or flag:
@@ -4298,46 +4309,28 @@ def main(argv):
         time.sleep(30)
 
 
-def prefetch_due(cfg, clock, now=None):
-    """Why the watcher's nightly prefetch holds the sync now, or None: from 10 minutes before SYNC_PREFETCH_AT (the 03:25 restart is
-    the watcher's) until the watcher stamps tonight's prefetch done or SYNC_PREFETCH_MINUTES are over."""
-    now = clock.now() if now is None else now
-    slot = clock.at(cfg.prefetch_at, now)
-    if not slot - 600 <= now < slot + cfg.prefetch_span:
-        return None
-    st = read_json(cfg.watcher_state, {}) or {}
-    if st.get("prefetch_day") == clock.day(now):
-        return None
-    return "the restart watcher's nightly prefetch (prefetch_day %s)" % (st.get("prefetch_day") or "none")
-
-
 def run_deadline(cfg, clock, now=None):
-    """A run's end, were it to start now: SYNC_RUN_HOURS on, cut short before the game server's restarts - 15 minutes before the daily
-    one, 10 before the prefetch's - so the test engine never runs through one. The service starts the next run once nobody plays."""
+    """A run's end, were it to start now: SYNC_RUN_HOURS on, cut short 15 minutes before the game server's daily restart, so the test
+    engine never runs through it. The service starts the next run once nobody plays."""
     now = clock.now() if now is None else now
     end = now + cfg.run_hours * 3600
     for day in (0, 1):
-        for hhmm, lead in ((cfg.daily_restart, 900), (cfg.prefetch_at, 600)):
-            at = clock.at(hhmm, now + day * DAY) - lead
-            if now < at < end:
-                end = at
+        at = clock.at(cfg.daily_restart, now + day * DAY) - 900
+        if now < at < end:
+            end = at
     return end
 
 
 def start_blocked(cfg, clock, now=None):
-    """Why no run may start now by the clock, or None: the daily restart's stretch (15 minutes before it to 10 after), the prefetch,
-    and a run that would have under MIN_RUN before such a cut - a run of a few minutes only writes a report (the owner's 85)."""
+    """Why no run may start now by the clock, or None: the daily restart's stretch (15 minutes before it to 10 after), and a run that
+    would have under MIN_RUN before its cut - a run of a few minutes only writes a report (the owner's 85)."""
     now = clock.now() if now is None else now
     daily = clock.at(cfg.daily_restart, now)
     if daily - 900 <= now < daily + 600:
         return "the game server's daily restart"
-    why = prefetch_due(cfg, clock, now)
-    if why:
-        return why
     end = run_deadline(cfg, clock, now)
     if end - now < MIN_RUN:
-        cut = "daily restart" if any(abs(clock.at(cfg.daily_restart, now + d * DAY) - 900 - end) < 1 for d in (0, 1)) else "nightly prefetch"
-        return "a run now would have %s before the game server's %s cuts it short" % (hms(end - now), cut)
+        return "a run now would have %s before the game server's daily restart cuts it short" % hms(end - now)
     return None
 
 

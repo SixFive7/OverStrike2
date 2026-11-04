@@ -4,11 +4,9 @@
 # secret. Paths on the left of a volume are the host's. The game server is joedwards32/cs2 (SteamCMD, anonymous download of
 # app 730); server/pre.sh installs Metamod:Source, CounterStrikeSharp and MultiAddonManager into it before every start.
 
-# The times the restart watcher (cs2) and the Workshop sync (sync) must agree on, set once and used by both.
+# The time the restart watcher (cs2) and the Workshop sync (sync) must agree on, set once and used by both.
 x-times:
   restart-at: &restart-at "07:00" # the daily restart, local time; "off" disables it
-  prefetch-at: &prefetch-at "03:30" # the nightly prefetch; "off" disables it
-  prefetch-minutes: &prefetch-minutes 195 # 03:30 + 195 min = 06:45, done before the daily restart
 
 services:
 
@@ -28,9 +26,9 @@ services:
       - <config dir>/update-watch.py:/home/steam/cs2-update-watch.py:ro # server/: the restart watcher pre.sh starts
       - <config dir>/keepset.py:/home/steam/keepset.py:ro # server/: the keep set, beside the watcher (and the sync); without it nothing is deleted
       - <plugins dir>:/home/steam/cs2-plugins:ro # one folder per plugin: OverStrike2/OverStrike2.dll and blocked.txt
-      - <data dir>:/home/steam/bridge-data:ro # the bridge's data, read by the watcher's nightly prefetch (CS2_BRIDGE_DATA)
+      - <data dir>:/home/steam/bridge-data:ro # the bridge's data, read by the watcher's keep set and its background downloads (CS2_BRIDGE_DATA)
     environment:
-      TZ: Etc/UTC # the daily restart and the prefetch use local time
+      TZ: Etc/UTC # the daily restart uses local time
       SRCDS_TOKEN: "" # a Game Server Login Token lists the server publicly; empty runs unlisted (direct connects work)
       CS2_SERVERNAME: Over Strike 2
       CS2_RCONPW: <rcon password>
@@ -55,9 +53,6 @@ services:
       CS2_RESTART_AT: *restart-at # daily restart, only while nobody is on (with players on it waits, up to 2 h)
       CS2_FREEZE_RECOVERY: 1 # kill a frozen engine so Docker restarts it
       CS2_FREEZE_GRACE_SECONDS: 10
-      CS2_PREFETCH_AT: *prefetch-at # nightly prefetch of missing and updated maps while nobody is on
-      CS2_PREFETCH_MINUTES: *prefetch-minutes
-      CS2_PREFETCH_RESTART: 1 # a fresh engine process before the prefetch, only at 0 players
       CS2_WORKSHOP_RESTART: 1 # restart a process whose Workshop downloads are stuck, only at 0 players
       CS2_DOWNLOAD_LINE: 1 # say on the news line, with the progress, what the server downloads for a waiting player
       # CS2_MAPS_LAYOUT: "off" # the default, folders, keeps the maps in maps/<type>/ on the game volume, linked from where Steam expects them
@@ -118,8 +113,6 @@ services:
       TZ: Etc/UTC
       SYNC_ENABLED: 1
       SYNC_PUBLISH: 1 # 0: every step runs, nothing is written into the bridge's data
-      SYNC_PREFETCH_AT: *prefetch-at # the watcher's CS2_PREFETCH_AT: no run from 10 minutes before it until the watcher's prefetch is done
-      SYNC_PREFETCH_MINUTES: *prefetch-minutes
       SYNC_DAILY_RESTART: *restart-at # the watcher's CS2_RESTART_AT: no run around it, every run ends 15 minutes before it, none starts with under 20 left
       SYNC_RUN_HOURS: 3 # a run whenever nobody plays and there is work, at most this long; a join stops it within seconds
       SYNC_TAGS: Armsrace,Deathmatch,Wingman

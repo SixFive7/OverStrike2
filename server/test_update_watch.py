@@ -19,6 +19,7 @@ sys.modules.setdefault("fcntl", types.ModuleType("fcntl"))
 m = types.ModuleType("uw")
 m.__dict__["__name__"] = "uw"
 exec(compile(open(SRC, encoding="utf-8").read(), "update-watch", "exec"), m.__dict__)
+REAL_VALVE_CHECK = m.valve_check     # the scenarios stand in for it; P1 drives the real one
 
 FAILS = []
 
@@ -635,7 +636,7 @@ check("J2: a dead RCON is capped at %d fast retries, then the %d ordinary tries 
       w.console is None and w.probe_rcon_misses == m.PROBE_RCON_MISSES and w.probe_tries >= m.PROBE_TRIES)
 
 
-# ---- K-P: the acf, the workshop log and the nightly prefetch (2026-10-20) ----
+# ---- K-M: the acf and the workshop log; the prefetch is gone (the owner's 71 a, 2026-11-04) ----
 ACF = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"30"\n\t"WorkshopItemsInstalled"\n\t{\n'
        '\t\t"111"\n\t\t{\n\t\t\t"size"\t\t"10"\n\t\t\t"timeupdated"\t\t"1000"\n\t\t\t"manifest"\t\t"7"\n\t\t}\n'
        '\t\t"222"\n\t\t{\n\t\t\t"size"\t\t"20"\n\t\t\t"timeupdated"\t\t"2000"\n\t\t\t"manifest"\t\t"8"\n\t\t}\n\t}\n'
@@ -648,14 +649,10 @@ ev = m.download_events(["[2001-01-01 12:00:00] [AppID 730] Download item 333 req
                         "[2001-01-01 12:14:54] [AppID 730] Download item 444 result : No Connection", "noise"])
 check("L: workshop_log download lines parse",
       ev == [("333", "requested", ""), ("333", "result", "OK"), ("444", "result", "No Connection")])
-det = m.details_parse(json.dumps({"response": {"publishedfiledetails": [
-    {"publishedfileid": "111", "result": 1, "time_updated": 1500}, {"publishedfileid": "222", "result": 1, "time_updated": 2000},
-    {"publishedfileid": "333", "result": 1, "time_updated": 10}, {"publishedfileid": "444", "result": 9},
-    {"publishedfileid": "555", "result": 1, "time_updated": 10}]}}))
-check("M: details_parse", det["111"] == (1, 1500) and det["444"] == (9, 0))
-missing, outdated = m.prefetch_plan(["333", "444", "555", "111"], {"111": 1000, "222": 2000}, {"111", "222"}, det, {"555"})
-check("M: plan = missing listed maps (not gone, not skipped) + newer Workshop copies (%s, %s)" % (missing, outdated),
-      missing == ["333"] and outdated == ["111"])
+check("M: no prefetch - its plan, its list, its Workshop details, its window and its restart are gone (the owner's 71 a)",
+      not any(hasattr(m, n) for n in ("prefetch_plan", "prefetch_lists", "details_parse", "fetch_details", "prefetch_slot", "PREFETCH_AT",
+                                      "PREFETCH_RESTART")) and not hasattr(m.Workshop, "step_prefetch")
+      and not hasattr(m.Watch, "prefetch_restart_due") and "prefetch_day" not in m.default_state())
 # the game volume's workshop folder for the scenarios below
 wsdir = os.path.join(ROOT, "game", "bin", "linuxsteamrt64", "steamapps", "workshop")
 os.makedirs(os.path.join(wsdir, "content", "730", "111"), exist_ok=True)
@@ -670,6 +667,16 @@ try:
 finally:
     sys.argv = saved_argv
 check("CLI: an argument it does not know exits at once (%r) - never the watcher's loop in the foreground of pre.sh" % (rc,), rc == 2)
+# every job switched off - how a test copy keeps the watcher from starting (testcopy.py): three switches since the prefetch went
+saved_sw, said_sw = (m.AUTOUPDATE, m.FREEZE_RECOVERY, m.RESTART_AT, sys.argv, m.log), []
+m.AUTOUPDATE, m.FREEZE_RECOVERY, m.RESTART_AT, sys.argv, m.log = False, False, None, ["update-watch.py"], said_sw.append
+try:
+    rc_sw = m.main()
+except Exception as error:   # the lock (fcntl is a stand-in here): it went on as if there were work
+    rc_sw = repr(error)
+m.AUTOUPDATE, m.FREEZE_RECOVERY, m.RESTART_AT, sys.argv, m.log = saved_sw
+check("CLI: updates, the daily restart and freeze recovery off - nothing to do, the watcher does not start (%r)" % (rc_sw,),
+      rc_sw == 0 and any("nothing to do" in s for s in said_sw))
 # N2. the download line: what is said, when, and to nobody when nobody is on
 sent = []
 real_rcon = m.rcon
@@ -778,7 +785,8 @@ line = m.organize(content_o, maps_o)
 check("organize: a folder that lost its link gets it back (%s)" % line, look("200") == os.path.join(maps_o, "deathmatch", "200-bastion"))
 shutil.rmtree(os.path.join(maps_o, "deathmatch", "200-bastion"))
 line = m.organize(content_o, maps_o)
-check("organize: a link to nothing goes, the prefetch fetches it again (%s)" % line, not os.path.lexists(os.path.join(content_o, "200")))
+check("organize: a link to nothing goes - Steam fetches the map again when it is wanted (%s)" % line,
+      not os.path.lexists(os.path.join(content_o, "200")))
 m.BRIDGE_DATA = os.path.join(ROOT, "nothing-here")
 check("organize: no lists, nothing touched", "not readable" in m.organize(content_o, maps_o))
 m.BRIDGE_DATA, m.WORKSHOP_ACF = saved[:2]
@@ -794,120 +802,38 @@ def wsw(line):
         h.write(line + "\n")
 
 
-# P. prefetch: in its window, nobody on -> missing then outdated, one at a time; a human pauses it; a day stamp ends it
-m.PREFETCH_RESTART = False           # the restart before the prefetch (03:25) has its own tests, T below
-bridge = os.path.join(ROOT, "bridge")
-os.makedirs(bridge, exist_ok=True)
-with open(os.path.join(bridge, "maps.json"), "w") as h:
-    json.dump([{"rank": 1, "id": 333}, {"rank": 2, "id": 222}, {"rank": 3, "id": 666}], h)
-upvote = lambda *ids: json.dump(dict((i, {"[U:1:1]": 1}) for i in ids), open(os.path.join(bridge, "votes.json"), "w"))  # noqa: E731
-upvote("333", "111")   # since 2026-11-03 the prefetch looks after the keep set and the queues only: upvoted maps are in it
-with open(os.path.join(bridge, "broken.json"), "w") as h:
-    json.dump({"packs": [{"id": 666}], "blocked": []}, h)
-with open(os.path.join(bridge, "removed.json"), "w") as h:
-    json.dump({"verdicts": {"222": "ok"}}, h)
-with open(m.WORKSHOP_ACF, "w") as h:
-    h.write(ACF)
-os.makedirs(os.path.join(wsdir, "content", "730", "111"), exist_ok=True)
-os.makedirs(os.path.join(wsdir, "content", "730", "222"), exist_ok=True)
-m.BRIDGE_DATA, m.PREFETCH_AT = bridge, (3, 30)
-m.fetch_details = lambda ids: {i: {"333": (1, 50), "222": (1, 2000), "111": (1, 1500), "666": (1, 9)}.get(i, (9, 0))
-                               for i in ids}
-w, clock, eng = scenario(at("2026-10-05 03:29:00"))
-step(w, clock, 50)
-check("P: nothing before the window", not any(c.startswith("mm_download_addon") for c in eng.cmds))
-step(w, clock, 30)
-dl = lambda: [c for c in eng.cmds if c.startswith("mm_download_addon")]  # noqa: E731
-check("P: first the missing listed map (333), never the pack (666): %s" % dl(), dl() == ["mm_download_addon 333"])
-eng.humans = 1
-wsw("[x] [AppID 730] Download item 333 result : OK")
-step(w, clock, 20)
-check("P: a human on -> no next download", dl() == ["mm_download_addon 333"])
-eng.humans = 0
-step(w, clock, 10)
-check("P: empty again -> the outdated one (111): %s" % dl(), dl()[-1:] == ["mm_download_addon 111"])
-wsw("[x] [AppID 730] Download item 111 result : OK")
-step(w, clock, 10)
-check("P: queue empty -> done and stamped for the night",
-      w.workshop.pf is None and w.state["prefetch_day"] == "2026-10-05")
-step(w, clock, 600)
-check("P: not again the same night", dl().count("mm_download_addon 333") == 1)
-m.PREFETCH_AT = None
-
-
-# P1. the details batches go one at a time, at least STEAM_API_GAP after the last one ended (the owner's rule, 2026-11-04) - the loop
-#     ticks every second, so without the gap one batch a tick went out, a second apart
+# P1. the Web API door (the owner's rule, 2026-11-04): the update check, the watcher's only Web API call since the prefetch went
+#     (71 a) - each at least STEAM_API_GAP after the last one ended
 asked = []
 
 
-def timed_details(ids):
+class Answer:
+    status = 200
+
+    def read(self, *a):
+        return CURRENT.encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def timed_urlopen(request, timeout=None):
     asked.append(m.time.time())
     m.time.sleep(0.4)                                    # the call itself takes a moment of the fake clock
-    return {i: (1, 50) for i in ids}
+    return Answer()
 
 
-saved_p1 = (m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH)
-m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH = timed_details, (3, 30), 1
-with open(m.WORKSHOP_ACF, "w") as h:
-    h.write(ACF)
+saved_p1 = (m.urllib.request.urlopen, m.time)
+m.urllib.request.urlopen, m.time = timed_urlopen, Clock(at("2026-10-05 12:00:00"))
 m.STEAM_API_LAST[0] = 0.0
-upvote("333", "111", "777", "888")                     # four maps in the keep set: four batches of one
-w, clock, eng = scenario(at("2026-10-05 03:30:05"))
-step(w, clock, 30)
+verdicts = [REAL_VALVE_CHECK(14188) for _ in range(3)]
 gaps = [round(b - (a + 0.4), 2) for a, b in zip(asked, asked[1:])]
-check("P1: the prefetch's details, one batch at a time, each at least %.0f s after the last ended (%d batches, gaps %s)"
-      % (m.STEAM_API_GAP, len(asked), gaps), len(asked) >= 3 and all(g >= m.STEAM_API_GAP for g in gaps))
-(m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH) = saved_p1
-upvote("333", "111")
-
-
-# P2. the details API failing (it answers 502 in streaks): the batch is asked again after PREFETCH_DETAIL_RETRY,
-#     and past PREFETCH_DETAIL_ERRORS the plan goes ahead with what came back
-calls = {"n": 0}
-
-
-def flaky(ids):
-    calls["n"] += 1
-    if calls["n"] <= 2:
-        raise OSError("HTTP Error 502: Bad Gateway")
-    return {i: {"333": (1, 50), "222": (1, 2000), "111": (1, 1500)}.get(i, (9, 0)) for i in ids}
-
-
-m.fetch_details, m.PREFETCH_AT = flaky, (3, 30)
-with open(m.WORKSHOP_ACF, "w") as h:
-    h.write(ACF)
-w, clock, eng = scenario(at("2026-10-06 03:30:05"))
-step(w, clock, 2 * m.PREFETCH_DETAIL_RETRY + 20)
-check("P2: two failed details requests, asked again, then the plan runs (333 first): %s" % dl(),
-      calls["n"] == 3 and dl()[:1] == ["mm_download_addon 333"])
-calls["n"], m.PREFETCH_DETAIL_ERRORS = -100, 3
-m.fetch_details = lambda ids: (_ for _ in ()).throw(OSError("HTTP Error 502: Bad Gateway"))
-w, clock, eng = scenario(at("2026-10-07 03:30:05"))
-step(w, clock, 4 * m.PREFETCH_DETAIL_RETRY + 30)
-check("P2: the API down for good -> planned without details: nothing fetched blind, the night stamped",
-      not any(c.startswith("mm_download_addon") for c in eng.cmds) and w.state["prefetch_day"] == "2026-10-07")
-m.PREFETCH_AT, m.PREFETCH_DETAIL_ERRORS = None, 40
-
-
-# P3. three failed downloads in a row ('Busy': not the stuck state, which stops it at once - U below) stop the night
-m.PREFETCH_AT = (3, 30)
-with open(os.path.join(bridge, "maps.json"), "w") as h:
-    json.dump([{"rank": 1, "id": 333}, {"rank": 2, "id": 444}, {"rank": 3, "id": 555}, {"rank": 4, "id": 777}], h)
-upvote("333", "444", "555", "777")
-with open(os.path.join(bridge, "broken.json"), "w") as h:
-    json.dump({"packs": [], "blocked": []}, h)
-m.fetch_details = lambda ids: {i: (1, 50) for i in ids}
-with open(m.WORKSHOP_ACF, "w") as h:
-    h.write(ACF)
-w, clock, eng = scenario(at("2026-10-08 03:30:05"))
-for wid in ("333", "444", "555"):
-    step(w, clock, 15)
-    wsw("[x] [AppID 730] Download item %s result : Busy" % wid)
-step(w, clock, 15)
-check("P3: 3 failures in a row stop the night (777 never asked): %s" % dl(),
-      dl() == ["mm_download_addon 333", "mm_download_addon 444", "mm_download_addon 555"]
-      and w.workshop.pf is None and w.state["prefetch_day"] == "2026-10-08")
-m.PREFETCH_AT = None
+m.urllib.request.urlopen, m.time = saved_p1
+check("P1: the update check through the one door - three in a row, each at least %.0f s after the last ended (gaps %s), all answered"
+      % (m.STEAM_API_GAP, gaps), len(asked) == 3 and all(g >= m.STEAM_API_GAP for g in gaps) and all(v[0] == "current" for v in verdicts))
 
 
 # R. downloads broken in the engine process -> a "workshop" restart: only at 0 humans, the clean quit, limits
@@ -919,7 +845,7 @@ def broken_download(w, clock):
     step(w, clock, 3)
 
 
-m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, None, False
+m.RESTART_AT, m.AUTOUPDATE = None, False
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
 eng.hud, eng.humans = True, 1
 broken_download(w, clock)
@@ -973,7 +899,7 @@ check("R3: an OK download clears the broken flag", w.workshop.broken is None)
 m.RESTART_AT, m.AUTOUPDATE = (7, 0), True
 
 
-# ---- S-U: the stuck state: no futile retry, the evidence saved, a fresh process for the prefetch ----
+# ---- S-T: the stuck state (2026-10-22): no futile retry, the evidence saved; no prefetch restart any more ----
 CANCEL_MANIFESTS = "[x] [AppID 730] Update canceled: Failed downloading 306 manifests (No connection)"
 CANCEL_CHUNK = ('[x] [AppID 730] Update canceled: Failed updating depot 730 while downloading chunk "a5e8" (Failure) '
                 '(Content unavailable) "No Download Source"')
@@ -986,11 +912,13 @@ check("S: the three stuck signatures (result or cancel line)",
 check("S: other failures are not the stuck state",
       not m.stuck_result("Failure", None) and not m.stuck_result("Busy", "Failed updating depot 730 (Disk write failure)"))
 state, fault = m.validate_state({"schema": 2, "restarts": [[100, "prefetch"]], "prefetch_restart_day": "2026-10-22",
-                                 "pending": {"kind": "prefetch", "at": 100}})
-check("S: state with a prefetch restart validates", fault is None and state["prefetch_restart_day"] == "2026-10-22")
-check("S: a prefetch restart is planned (floor) but outside the cap",
-      m.planned_block({"restarts": [[1000 - 100, "prefetch"]]}, 1000) is not None
-      and m.planned_block({"restarts": [[1000 - 3600 * h, "prefetch"] for h in range(1, 6)]}, 1000 + 3600) is None)
+                                 "prefetch_day": "2026-10-22", "pending": {"kind": "prefetch", "at": 100}})
+check("S: a state file from before the owner's 71 a - a prefetch restart in its history and pending, the prefetch's days - still loads "
+      "(a fault would stop every restart); the days are dropped", fault is None and state["restarts"] == [[100, "prefetch"]]
+      and state["pending"]["kind"] == "prefetch" and "prefetch_day" not in state and "prefetch_restart_day" not in state)
+check("S: a prefetch restart in the history is no planned kind any more: it neither fills the cap nor holds the floor",
+      m.planned_block({"restarts": [[1000 - 100, "prefetch"]]}, 1000) is None and "prefetch" not in m.PLANNED_KINDS
+      and "prefetch" not in m.EMPTY_ONLY)
 
 logs = os.path.join(ROOT, "steamlogs-src")
 os.makedirs(logs, exist_ok=True)
@@ -1013,7 +941,7 @@ def wsw2(*lines):
 
 
 # O4. a download that ends 'No Connection' marks the process broken AT ONCE, and the Steam client's logs are kept
-m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, None, False
+m.RESTART_AT, m.AUTOUPDATE = None, False
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
 eng.hud, eng.humans = True, 1
 step(w, clock, 5)
@@ -1043,59 +971,12 @@ for cancel, stuck, label in ((CANCEL_CHUNK, True, "chunk 'No Download Source'"),
     step(w, clock, 3)
     check("O5: %s -> %s" % (label, "broken at once" if stuck else "not broken"),
           (w.workshop.broken is not None) if stuck else (w.workshop.broken is None))
-# U. the prefetch: it starts as its window opens, never in a broken process
-with open(m.WORKSHOP_ACF, "w") as h:
-    h.write(ACF)
-with open(os.path.join(bridge, "maps.json"), "w") as h:
-    json.dump([{"rank": 1, "id": 333}], h)
-upvote("333")
-m.fetch_details = lambda ids: {i: (1, 50) for i in ids}
-m.PREFETCH_AT, m.PREFETCH_RESTART = (3, 30), False
-w, clock, eng = scenario(at("2026-10-12 03:30:05"))
-step(w, clock, 30)
-check("U: inside the window, nobody on -> the prefetch starts at once (333): %s" % [c for c in eng.cmds if c.startswith("mm_download_addon")],
-      [c for c in eng.cmds if c.startswith("mm_download_addon")] == ["mm_download_addon 333"])
-wsw2("[x] [AppID 730] Download item 333 requested by app", CANCEL_EMPTY, "[x] [AppID 730] Download item 333 result : Failure")
-step(w, clock, 5)
-check("U: a stuck prefetch download stops the run unstamped (it goes on in the next process) and marks broken",
-      w.workshop.pf is None and w.state["prefetch_day"] == "" and w.workshop.broken is not None)
-step(w, clock, 120)
-check("U: ... and no new run starts in the broken process",
-      w.workshop.pf is None and [c for c in eng.cmds if c.startswith("mm_download_addon")].count("mm_download_addon 333") == 1)
-# T. a fresh process before the prefetch: 03:25, only at 0 humans, the clean quit, once a night
-m.PREFETCH_RESTART = True
-age = {"s": 7200}
-m.engine_age = lambda pid: age["s"]
-w, clock, eng = scenario(at("2026-10-13 03:24:00"))
-step(w, clock, 50)
-check("T: before 03:25 -> no restart", "quit" not in eng.cmds)
-step(w, clock, 20)
-check("T: 03:25 with nobody on -> the clean quit, counted as a prefetch restart for that night",
-      "quit" in eng.cmds and [e[1] for e in w.state["restarts"]] == ["prefetch"]
-      and w.state["prefetch_restart_day"] == "2026-10-13" and w.state["pending"]["kind"] == "prefetch")
-eng.pid, age["s"] = 4343, 30
-step(w, clock, 600)
-check("T: the new process is not restarted again that night", eng.cmds.count("quit") == 1)
-age["s"] = 7200
-w, clock, eng = scenario(at("2026-10-14 03:24:30"))
-eng.humans = 2
+# T. no restart before a prefetch any more, and no prefetch (the owner's 71 a): from 03:20 to 03:35, nobody on, an old engine - nothing
+m.RESTART_AT, m.AUTOUPDATE = (7, 0), True
+w, clock, eng = scenario(at("2026-10-13 03:20:00"))
 step(w, clock, 900)
-check("T2: players on at 03:25 -> no restart, no chat warning, it waits", "quit" not in eng.cmds and not eng.chat)
-eng.humans = 0
-step(w, clock, 10)
-check("T2: ... and restarts the moment the server is empty", eng.cmds.count("quit") == 1
-      and [e[1] for e in w.state["restarts"]] == ["prefetch"])
-age["s"] = 300
-w, clock, eng = scenario(at("2026-10-15 03:25:30"))
-step(w, clock, 60)
-check("T3: an engine 5 min old is fresh already -> no restart, tonight stamped",
-      "quit" not in eng.cmds and w.state["prefetch_restart_day"] == "2026-10-15")
-age["s"] = 7200
-w, clock, eng = scenario(at("2026-10-16 03:20:00"))
-w.state["prefetch_day"] = "2026-10-16"
-step(w, clock, 600)
-check("T4: tonight's prefetch already ran -> no restart", "quit" not in eng.cmds)
-m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, (7, 0), True
+check("T: 03:25 and 03:30 with nobody on -> no restart and no download", "quit" not in eng.cmds
+      and not any(c.startswith("mm_download_addon") for c in eng.cmds) and w.state["restarts"] == [])
 
 # ---- 2026-11-03: the keep set, the hand-over, the deletion, job 9 ----------------------------------------------------------------
 # K2. acf_edit: hand-overs added, maps dropped, SizeOnDisk the sum again, every section in id order; a file it cannot reproduce: None
@@ -1307,31 +1188,13 @@ check("KM: no keepset.py: --organize deletes nothing, a new download stays (%s)"
  m.keepset.KEEP_MIN_TOP, m.keepset.KEEP_MIN_QUEUE, m.time) = saved4
 os.environ.pop("GUNGAME_HUD_ADDON", None)
 
-# PL. the prefetch's list: what players queued, the queues' entries in play order, the upvoted maps, the top lists, own maps, the HUD
-saved_pl = m.BRIDGE_DATA
-plist = os.path.join(ROOT, "pldata")
-os.makedirs(plist, exist_ok=True)
-for name, value in kin().items():
-    json.dump(value, open(os.path.join(plist, name), "w"))
-m.BRIDGE_DATA = plist
-os.environ["GUNGAME_HUD_ADDON"] = "500"
-real_t = m.time
-m.time = types.SimpleNamespace(time=lambda: NOW, strftime=real_t.strftime, localtime=real_t.localtime)
-listed, skip, what = m.prefetch_lists()
-check("PL: the prefetch looks after the keep set and the queues: %d maps, each once (%s)" % (len(listed), what[:80]),
-      listed[:6] == ["5001", "1100", "1010", "2001", "3001", "1101"] and "1149" in listed and "4001" in listed and "500" in listed
-      and len(listed) == len(set(listed)) and "1002" in skip and "1003" in skip and "1150" in listed)
-m.time = real_t
-m.BRIDGE_DATA = saved_pl
-os.environ.pop("GUNGAME_HUD_ADDON", None)
-
 # J9. job 9: the queued maps downloaded in the background - the requests first, then the queues' entries in play order; one at a
 #     time; silent; never beside a download somebody waits for; the bridge told what is on disk
 j9 = os.path.join(ROOT, "j9data")
 os.makedirs(j9, exist_ok=True)
 json.dump({"version": 1, "random": {"armsrace-new": ["901", "902"], "armsrace-original": ["903"], "deathmatch": ["904", "de_dust2"],
                                     "wingman": ["905"]}, "requested": ["900"]}, open(os.path.join(j9, "queues.json"), "w"))
-saved9 = (m.BRIDGE_DATA, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
+saved9 = (m.BRIDGE_DATA, m.WORKSHOP_ACF, m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
 with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF.replace('"111"', '"901"'))                     # 901 installed, with its folder: on disk
 os.makedirs(os.path.join(wsdir, "content", "730", "901"), exist_ok=True)
@@ -1359,7 +1222,7 @@ def fake_urlopen(request, timeout=None):
 
 m.urllib.request.urlopen = fake_urlopen
 os.environ["CS2_LOG_HTTP_URL"] = "http://bridge.test:8080/log/abc123"
-m.BRIDGE_DATA, m.PREFETCH_AT = j9, None
+m.BRIDGE_DATA = j9
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
 eng.hud, eng.humans = True, 2
 step(w, clock, 30)
@@ -1424,7 +1287,7 @@ step(w, clock, 5)
 check("J9: a stuck result marks the process broken (job 6), and nothing more starts in it", w.workshop.broken is not None)
 step(w, clock, 60)
 check("J9: ... nothing more", dl()[-1] == "mm_download_addon 902" and dl().count("mm_download_addon 902") == 2)
-(m.BRIDGE_DATA, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, url9) = saved9
+(m.BRIDGE_DATA, m.WORKSHOP_ACF, m.urllib.request.urlopen, url9) = saved9
 if url9 is None:
     os.environ.pop("CS2_LOG_HTTP_URL", None)
 os.environ["CS2_LOG_HTTP_URL"] = "http:\\/\\/bridge:8080\\/log\\/d4ab"

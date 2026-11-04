@@ -1,8 +1,8 @@
 """keepset.py - THE KEEP SET: the Workshop maps the game server stores (the owner's rules of 2026-11-03).
 
-One file for both server scripts (the owner's 76 a, 2026-11-04): update-watch.py deletes what is outside it at every engine start and
-fetches what it lacks at night; workshop-sync.py hands the server what it lacks, tests the maps that will stay first and shows the set
-on its dashboard. the deployment's compose file mounts this file read-only beside each of them, in /home/steam, so each imports it by name. Each guards the
+One file for both server scripts (the owner's 76 a, 2026-11-04): update-watch.py deletes what is outside it at every engine start;
+workshop-sync.py hands the server what it lacks and the updates a test passed (the owner's 71 a), tests the maps that will stay first
+and shows the set on its dashboard. the deployment's compose file mounts this file read-only beside each of them, in /home/steam, so each imports it by name. Each guards the
 import: without this file its keep set is empty and says why, so nothing is deleted or handed over on it. Python 3.9, standard
 library only, no infrastructure detail.
 

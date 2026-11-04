@@ -124,8 +124,9 @@ c = m.Config()
 check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s - SYNC_API_NIGHT_CAP, a name of before, means nothing (82 b)",
       (c.api_run_cap, c.api_day_cap, c.api_gap) == (500, 10000, 2.0))
 del os.environ["SYNC_API_NIGHT_CAP"]
-check("config: no time windows - the prefetch at 03:30 and the daily restart at 07:00 to keep clear of, runs of 3 h, the API every 4 h",
-      not hasattr(c, "day_start") and not hasattr(c, "start") and (c.prefetch_at, c.daily_restart, c.run_hours, c.api_every) == ((3, 30), (7, 0), 3, 4 * 3600))
+check("config: no time windows - the daily restart at 07:00 to keep clear of (no prefetch any more: the owner's 71 a), runs of 3 h, "
+      "the API every 4 h", not hasattr(c, "day_start") and not hasattr(c, "start") and not hasattr(c, "prefetch_at")
+      and not hasattr(c, "watcher_state") and (c.daily_restart, c.run_hours, c.api_every) == ((7, 0), 3, 4 * 3600))
 c.lower({"api_run_cap": 50, "batch": 5, "publish": False, "api": True})
 check("config: run-now lowers a run's limits, and may ask for the API steps", (c.api_run_cap, c.batch, c.publish, c.force_api) == (50, 5, False, True))
 c.lower({"api_run_cap": 5000, "batch": 1000})
@@ -1134,19 +1135,13 @@ check("run: at noon a run lasts 3 h", hm(m.Run(m.Config(), fcd).deadline) == "15
 fcd.t = day0 + 5 * 3600
 check("run: at 05:00 it ends at 06:45, before the 07:00 restart", hm(m.Run(m.Config(), fcd).deadline) == "06:45")
 fcd.t = day0 + 2 * 3600
-check("run: at 02:00 it ends at 03:20, before the prefetch's restart", hm(m.Run(m.Config(), fcd).deadline) == "03:20")
+check("run: at 02:00 it runs its 3 h - no prefetch to keep clear of (the owner's 71 a)", hm(m.Run(m.Config(), fcd).deadline) == "05:00")
 cfgs = m.Config()
 check("service: no start in the daily restart's stretch (06:45-07:10)", m.start_blocked(cfgs, fcd, day0 + 6.9 * 3600) is not None
       and m.start_blocked(cfgs, fcd, day0 + 7.2 * 3600) is None)
-os.makedirs(os.path.dirname(cfgs.watcher_state), exist_ok=True) if os.path.dirname(cfgs.watcher_state) else None
-cfgs.watcher_state = os.path.join(run_root, "watcher-state.json")
-json.dump({"prefetch_day": "2000-01-01"}, open(cfgs.watcher_state, "w"))
-check("service: the prefetch holds it from 03:20 until the watcher stamps tonight's done", m.start_blocked(cfgs, fcd, day0 + 3.4 * 3600) is not None
-      and m.start_blocked(cfgs, fcd, day0 + 2.9 * 3600) is None)
-check("service: no run with under 20 minutes before the prefetch's cut: at 03:10 it would end at 03:20 (%s)"
-      % m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60), "prefetch" in (m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60) or ""))
-json.dump({"prefetch_day": fcd.day(day0 + 4 * 3600)}, open(cfgs.watcher_state, "w"))
-check("service: ...and lets it go the moment the prefetch is stamped", m.start_blocked(cfgs, fcd, day0 + 4 * 3600) is None)
+check("service: the night is the sync's - a run may start at 03:10 and at 03:30, nothing waits for a prefetch (the owner's 71 a)",
+      m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60) is None and m.start_blocked(cfgs, fcd, day0 + 3.5 * 3600) is None
+      and not hasattr(m, "prefetch_due") and not hasattr(m.Run, "wait_for_prefetch"))
 check("service: no run with under 20 minutes before the daily restart's cut: at 06:30 it would end at 06:45 (%s) - at 06:20 one starts"
       % m.start_blocked(cfgs, fcd, day0 + 6.5 * 3600), "daily restart" in (m.start_blocked(cfgs, fcd, day0 + 6.5 * 3600) or "")
       and m.start_blocked(cfgs, fcd, day0 + (6 * 60 + 20) * 60) is None)
@@ -1345,6 +1340,44 @@ ns2 = m.Run(ncfg2, FakeClock(KT + 60), manual=True)
 ns2.state.load()
 ns2.serve()
 check("serve: a second run fetches nothing more", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 0)
+# the owner's 71 a: serve also fetches the stored keep-set maps the Workshop has a newer accepted version of - and only those
+state_file = os.path.join(sstate, "state.json")
+saved_state = open(state_file, encoding="utf-8").read()       # the runs below save it: the later tests get it back as it was
+FakeSteam.asked = []
+ns7 = m.Run(ncfg2, FakeClock(KT + 90), manual=True)
+ns7.state.load()
+ns7.state.data["baseline"].update({"110": 50, "120": 1, "150": 60, "301": 0})
+ns7.state.data["items"]["150"] = dict(ns7.state.data["items"].get("150") or {}, status="queued", why="changed", updated=80)
+ns7.state.data["items"]["900"] = dict(ns7.state.data["items"].get("900") or {}, status="skipped", why="changed", updated=70)
+keep7 = m.safe_keep_set(m.keep_inputs(sdata), KT)
+miss7, outd7 = m.serve_wants(keep7, m.server_maps(sgame), m.handovers(hdir), ns7.state.data, ncfg2)
+check("serve: outdated - a stored map whose tested version is newer than the server's (110) and an own map the Workshop has newer "
+      "(900, never tested here); not one as new (120) nor one whose new version waits for its test (150) (%s)" % outd7,
+      "110" in keep7["all"] and "150" in keep7["all"] and "120" in keep7["all"] and sorted(outd7) == ["110", "900"] and not miss7)
+guard = json.loads(json.dumps(ns7.state.data))
+guard["baseline"]["120"] = 30
+guard["items"]["120"] = {"verdict": "crasher", "status": "published", "why": "changed", "updated": 30}
+check("serve: nor one whose last test failed (120: the Workshop's version now is the one that crashed)",
+      "120" not in m.serve_wants(keep7, m.server_maps(sgame), m.handovers(hdir), guard, ncfg2)[1])
+check("serve: the status file counts them", m.status_heavy(ns7)["queue"]["serve"]["outdated"] == 2)
+ns7.serve()
+check("serve: ...both are downloaded and handed over, nothing else (%s)" % FakeSteam.asked,
+      sorted(FakeSteam.asked) == ["110", "900"] and set(["110", "900"]) <= set(m.handovers(hdir))
+      and ns7.report["serve"]["outdated"] == 2 and ns7.report["serve"]["ok"] == 2)
+check("serve: the history says it was the newer version", any(e["id"] == "110" and "newer version" in e["why"]
+                                                                for e in ns7.state.data["history"]["maps"]))
+FakeSteam.asked = []
+ns8 = m.Run(ncfg2, FakeClock(KT + 100), manual=True)
+ns8.state.load()
+ns8.state.data["baseline"].update({"110": 50})
+ns8.serve()
+check("serve: a newer version waiting as a hand-over is not fetched again", "110" not in FakeSteam.asked)
+open(state_file, "w", encoding="utf-8").write(saved_state)
+for w in ("110", "900"):
+    for pth in (os.path.join(hdir, w + ".json"), os.path.join(hdir, w + ".manifest")):
+        if os.path.exists(pth):
+            os.remove(pth)
+    shutil.rmtree(os.path.join(hdir, w), ignore_errors=True)
 
 
 # serve after a run that could not hand over (2026-11-03: 136 of 160 - it looked before SteamCMD had written its acf): what is
@@ -1419,6 +1452,24 @@ for w in (sf, se):
 ns4.cleanup_staging()
 check("cleanup: a keep-set pass whose hand-over failed (no acf entry) stays staged for the next run; a pass the keep set does not "
       "want is removed", os.path.isdir(os.path.join(stg, "content", "730", sf)) and not os.path.isdir(os.path.join(stg, "content", "730", se)))
+# the owner's 71 a: a tested pass of a map the server stores is handed over when it is newer than the server's copy (110: the server's
+# acf says 1, the staged one 40), and removed like any decided download when it is not (120: 1 against 1)
+saved_state = open(state_file, encoding="utf-8").read()
+stage("110")
+stage("120")
+write_acf({"110": "40", "120": "1"})
+ns9 = m.Run(ncfg4, FakeClock(KT + 200), manual=True)
+ns9.state.load()
+for w in ("110", "120"):
+    ns9.state.data["items"][w] = dict(ns9.state.data["items"].get(w) or {}, verdict="pass", status="tested", title="t" + w)
+ns9.cleanup_staging()
+check("cleanup: a tested update newer than the server's copy is handed over (110), one as old as it is removed (120)",
+      "110" in m.handovers(hdir) and json.load(open(os.path.join(hdir, "110.json")))["installed"]["timeupdated"] == "40"
+      and not os.path.isdir(os.path.join(stg, "content", "730", "120")) and "120" not in m.handovers(hdir)
+      and any(e["id"] == "110" and "replaces the older copy" in e["why"] for e in ns9.state.data["history"]["maps"]))
+unhand("110")
+write_acf({})
+open(state_file, "w", encoding="utf-8").write(saved_state)
 m.SteamCmd = AcfSteam
 FakeSteam.asked = []
 ns5 = m.Run(ncfg2, FakeClock(KT + 240), manual=True)
