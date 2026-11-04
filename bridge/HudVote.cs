@@ -174,7 +174,8 @@ public static class HudVote
 
     /// <summary>The waiting line (content v4_5_0, the owner's 2026-11-03): every player present who has not voted, by name, then "Everyone has voted" -
     /// which a vote decided by everybody voting says for as long as it shows its result (it closes the moment the last one votes).</summary>
-    public static string WaitLine(VoteState v) => !v.Open ? (v.Result is { How: "all" } ? "Everyone has voted" : "") : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
+    public static string WaitLine(VoteState v) => !v.Open ? (v.Result != null && v.Present > 0 && v.Cast >= v.Present ? "Everyone has voted" : "") // a tie everybody voted in too
+        : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
 
     /// <summary>The ballot's pages: eight cards a page (MapVote.MinMaps is one page's worth). Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v) => Math.Max(1, (v.Maps.Count + HudMenu.Cards - 1) / HudMenu.Cards);

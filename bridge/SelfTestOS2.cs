@@ -167,11 +167,13 @@ static partial class Program
             && HudVote.CountClasses("s", 3).Single(x => x.On).Class == "w3" && HudVote.CountClasses("s", 14).Single(x => x.On).Class == "w10" && HudVote.CountClasses("s", 0).Single(x => x.On).Class == "w0");
         var taken = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800002\topen\t25\t2\t2\t1\tend\t0\nmvo\t1\tarmsrace\tqueue\t12\t3084291312\t#12 aim_x\t17 MB\t0\t\nmvo\t2\tarmsrace\tqueue\t13\t3084291313\t#13 aim_y\t9 MB\t1\tBob\nmvo\t3\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1002\t2\n");
         var tk = HudVote.Cards(taken, 1001, null);
+        const string TieDone = "mode\tarmsrace\tArms Race\nmv\t1793800005\tdone\t6\t2\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t1\t\nmvo\t2\tarmsrace\trolled\t6\t3084291306\t#6 b\t\t1\t\nmvo\t3\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t2\nmvr\t1\ttie\t#5 a\tarmsrace\n";
         var allDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800003\tdone\t6\t2\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tall\t#5 a\tarmsrace\n");
-        var mostDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800004\tdone\t6\t2\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tmost\t#5 a\tarmsrace\n");
+        var mostDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800004\tdone\t6\t3\t2\t2\tend\t0\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tmost\t#5 a\tarmsrace\n");
         Check("A request taken back (Remove mine) stays a card on the ballot without its Queued tag; a vote everybody decided says so while it shows its result, one the clock decided does not",
             !tk.Classes.Single(x => x.Id == "gg_m1" && x.Class == "queued").On && tk.Classes.Single(x => x.Id == "gg_m2" && x.Class == "queued").On
             && allDone is { Open: false, Result.How: "all" } && HudVote.WaitLine(allDone) == "Everyone has voted" && HudVote.WaitLine(mostDone) == ""
+            && HudVote.WaitLine(VoteState.Decode(TieDone)) == "Everyone has voted" // a tie everybody voted in, drawn at once
             && HudVote.Cards(allDone, 1001, null).Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everyone has voted");
         var levels = HudVote.VersionClasses();
         Check($"The version check: content {Hud.Content} is level {HudVote.ContentLevel}; each level from {HudVote.FirstLevel} to {HudVote.LastLevel} has exactly one of svge/svlt on",
