@@ -19,6 +19,7 @@ import urllib.error
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "workshop-sync.py")
+sys.path.insert(0, os.path.dirname(os.path.abspath(SRC)))   # keepset.py beside the script, as the deployment's compose file mounts it (also under python -I)
 ROOT = tempfile.mkdtemp(prefix="ws-")
 for k in [k for k in os.environ if k.startswith("SYNC_")]:
     del os.environ[k]
@@ -92,9 +93,9 @@ def opener_of(answers, sent):
     return opener
 
 
-def ledger(path, day_cap=10000, night_cap=500, t=1793500000.0):
+def ledger(path, day_cap=10000, t=1793500000.0):
     clock = FakeClock(t)
-    led = m.ApiLedger(path, day_cap, night_cap, clock)
+    led = m.ApiLedger(path, day_cap, clock)
     led.load()
     return led, clock
 
@@ -107,39 +108,48 @@ def api_with(led, clock, answers, key=KEY, gap=2.0):
 
 
 # ---- configuration: the owner's limits can only be lowered ------------------------------------------------------
-os.environ.update({"SYNC_API_DAY_CAP": "20000", "SYNC_API_NIGHT_CAP": "99999", "SYNC_API_GAP_SECONDS": "0.5",
+os.environ.update({"SYNC_API_DAY_CAP": "20000", "SYNC_API_RUN_CAP": "99999", "SYNC_API_GAP_SECONDS": "0.5",
                    "SYNC_DOWNLOAD_MAX": "8000", "SYNC_DOWNLOAD_MAX_MB": "999999", "SYNC_DOWNLOAD_PAUSE": "0.1"})   # the two caps: ignored
 c = m.Config()
 check("config: a day cap above 10,000 is clamped to 10,000", c.api_day_cap == 10000)
-check("config: the run's cap never exceeds the day cap (SYNC_API_NIGHT_CAP, the old name, still read)", c.api_run_cap == 10000)
+check("config: the run's cap never exceeds the day cap", c.api_run_cap == 10000)
 check("config: the gap never drops under 2 s", c.api_gap == 2.0)
 check("config: no daily download cap any more (the owner's 36 c): SYNC_DOWNLOAD_MAX and SYNC_DOWNLOAD_MAX_MB mean nothing",
       not hasattr(c, "download_max") and not hasattr(c, "download_bytes"))
 check("config: the pause between downloads never drops under 2 s", c.download_pause == 2.0)
-for k in ("SYNC_API_DAY_CAP", "SYNC_API_NIGHT_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB", "SYNC_DOWNLOAD_PAUSE"):
+for k in ("SYNC_API_DAY_CAP", "SYNC_API_RUN_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB", "SYNC_DOWNLOAD_PAUSE"):
     del os.environ[k]
+os.environ["SYNC_API_NIGHT_CAP"] = "50"
 c = m.Config()
-check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s", (c.api_run_cap, c.api_day_cap, c.api_gap) == (500, 10000, 2.0))
+check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s - SYNC_API_NIGHT_CAP, a name of before, means nothing (82 b)",
+      (c.api_run_cap, c.api_day_cap, c.api_gap) == (500, 10000, 2.0))
+del os.environ["SYNC_API_NIGHT_CAP"]
 check("config: no time windows - the prefetch at 03:30 and the daily restart at 07:00 to keep clear of, runs of 3 h, the API every 4 h",
       not hasattr(c, "day_start") and not hasattr(c, "start") and (c.prefetch_at, c.daily_restart, c.run_hours, c.api_every) == ((3, 30), (7, 0), 3, 4 * 3600))
-c.lower({"api_night_cap": 50, "batch": 5, "publish": False, "api": True})
+c.lower({"api_run_cap": 50, "batch": 5, "publish": False, "api": True})
 check("config: run-now lowers a run's limits, and may ask for the API steps", (c.api_run_cap, c.batch, c.publish, c.force_api) == (50, 5, False, True))
 c.lower({"api_run_cap": 5000, "batch": 1000})
 check("config: run-now cannot raise them", (c.api_run_cap, c.batch) == (50, 5))
 c.lower({"api": False, "only_ids": [11, "12", "x"]})
 check("config: run-now may leave the API steps out, and limit the run to some maps", c.skip_api and c.only_ids == ["11", "12"])
-check("ledger: the hard day cap cannot be raised by a caller", m.ApiLedger("x", 50000, 10, FakeClock(0)).day_cap == 10000)
+check("ledger: the hard day cap cannot be raised by a caller", m.ApiLedger("x", 50000, FakeClock(0)).day_cap == 10000)
 
-# ---- the ledger: rolling 24 h, the night, persisted before every call ----------------------------------------------
+# ---- the ledger: rolling 24 h, the day, persisted before every call ----------------------------------------------
 lp = os.path.join(ROOT, "ledger1.json")
-led, clock = ledger(lp, day_cap=10000, night_cap=None)
-night = clock.day()
+led, clock = ledger(lp, day_cap=10000)
+today = clock.day()
 for i in range(600):
-    led.reserve(night, "GetPublishedFileDetails")
-check("ledger: no night cap any more (no time windows): call 601 of a day goes, under the 24 h cap", led.reserve(night, "QueryFiles") >= 0)
-check("ledger: every reserved call is on disk", len(json.load(open(lp))["calls"]) == 601)
-led2, _ = ledger(lp, night_cap=None, t=clock.t)
-check("ledger: the day's count survives a restart (a new process reads the file)", led2.tonight(night) == 601)
+    led.reserve(today, "GetPublishedFileDetails")
+check("ledger: no cap per day but the 24 h one: call 601 of a day goes", led.reserve(today, "QueryFiles") >= 0)
+check("ledger: every reserved call is on disk, counted under its day", len(json.load(open(lp))["calls"]) == 601
+      and json.load(open(lp))["days"] == {today: 601} and "nights" not in json.load(open(lp)))
+led2, _ = ledger(lp, t=clock.t)
+check("ledger: the day's count survives a restart (a new process reads the file)", led2.count(today) == 601)
+old = os.path.join(ROOT, "ledger-old.json")
+json.dump({"schema": 1, "calls": [], "nights": {today: 3}, "stops": {}}, open(old, "w"))
+led3, _ = ledger(old, t=clock.t)
+check("ledger: a file with the old key 'nights' and no 'days' is not read - no Web API call until the deploy's edit (82 b)",
+      led3.data is None and "does not parse" in (led3.broken or ""))
 capped, sent_c, _ft = api_with(ledger(os.path.join(ROOT, "ledger-run.json"))[0], FakeClock(1793500000.0), [{"response": {}}] * 5)
 capped.run_cap = 3
 for i in range(3):
@@ -147,20 +157,20 @@ for i in range(3):
 try:
     capped.call("GetPublishedFileDetails", m.DETAILS_URL, data=[("itemcount", 1)])
     check("api: the run's cap - its 4th call of 3 is refused, and nothing is sent", False)
-except m.StopNight as e:
+except m.StopApi as e:
     check("api: the run's cap - its 4th call of 3 is refused, and nothing is sent", "this run's cap of 3" in str(e) and len(sent_c) == 3)
-# the rolling day: 10,000 across nights
+# the rolling day: 10,000 across days
 lp = os.path.join(ROOT, "ledger2.json")
-led, clock = ledger(lp, day_cap=10000, night_cap=10000)
+led, clock = ledger(lp, day_cap=10000)
 led.data["calls"] = [[clock.t - 3600 - i * 0.5, "QueryFiles", 200] for i in range(9999)]
-led.data["nights"] = {"2026-10-31": 9999}
+led.data["days"] = {"2026-10-31": 9999}
 led.save()
 led.reserve(clock.day(), "QueryFiles")
 try:
     led.reserve(clock.day(), "QueryFiles")
-    check("ledger: the 10,001st call within 24 h is refused, whatever night it is", False)
-except m.StopNight as e:
-    check("ledger: the 10,001st call within 24 h is refused, whatever night it is", "10000 Web API calls in 24 hours" in str(e))
+    check("ledger: the 10,001st call within 24 h is refused, whatever day it is", False)
+except m.StopApi as e:
+    check("ledger: the 10,001st call within 24 h is refused, whatever day it is", "10000 Web API calls in 24 hours" in str(e))
 clock.t += 86400
 led.reserve(clock.day(), "QueryFiles")
 check("ledger: 24 h later the old calls have rolled off (a call exactly 24 h old included)", led.last_24h() == 1)
@@ -171,7 +181,7 @@ led, clock = ledger(lp)
 try:
     led.reserve(clock.day(), "QueryFiles")
     check("ledger: an unreadable ledger allows no call", False)
-except m.StopNight as e:
+except m.StopApi as e:
     check("ledger: an unreadable ledger allows no call", "does not parse" in str(e))
 
 # ---- the API door: the gap, the stops, the key ------------------------------------------------------------------
@@ -191,38 +201,38 @@ for code in (429, 403, 401):
     api, sent, ft = api_with(led, clock, [code, {"response": {}}])
     try:
         api.details(["1"])
-        check("api: HTTP %d stops the night" % code, False)
-    except m.StopNight as e:
-        check("api: HTTP %d stops the night" % code, "HTTP %d" % code in str(e))
+        check("api: HTTP %d stops the day" % code, False)
+    except m.StopApi as e:
+        check("api: HTTP %d stops the day" % code, "HTTP %d" % code in str(e))
     check("api: HTTP %d is sent once, never retried" % code, len(sent) == 1)
     try:
         api.details(["1"])
         check("api: after HTTP %d no further call goes out" % code, False)
-    except m.StopNight:
+    except m.StopApi:
         check("api: after HTTP %d no further call goes out" % code, len(sent) == 1)
     led2, _ = ledger(lp, t=clock.t)
     try:
         led2.reserve(clock.day(), "QueryFiles")
-        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume tonight" % code, False)
-    except m.StopNight as e:
-        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume tonight" % code, "stopped earlier today" in str(e))
+        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume it today" % code, False)
+    except m.StopApi as e:
+        check("api: the HTTP %d stop is in the ledger, so a restart cannot resume it today" % code, "stopped earlier today" in str(e))
 # 5xx: three in a row stop (the retries count)
 lp = os.path.join(ROOT, "ledger-5xx.json")
 led, clock = ledger(lp)
 api, sent, ft = api_with(led, clock, [502, 503, 500, {"response": {}}])
 try:
     api.details(["1"])
-    check("api: 3 server errors in a row stop the night", False)
-except m.StopNight as e:
-    check("api: 3 server errors in a row stop the night", "server errors" in str(e) and len(sent) == 3)
+    check("api: 3 server errors in a row stop the day", False)
+except m.StopApi as e:
+    check("api: 3 server errors in a row stop the day", "server errors" in str(e) and len(sent) == 3)
 check("api: the 5xx retries wait 30 s and 90 s", ft.sleeps[:1] == [30] and 90 in ft.sleeps)
-# 5xx: a single one is retried and the night goes on
+# 5xx: a single one is retried and the run goes on
 lp = os.path.join(ROOT, "ledger-5xx1.json")
 led, clock = ledger(lp)
 api, sent, ft = api_with(led, clock, [503, {"response": {"publishedfiledetails": [{"publishedfileid": "7", "result": 1}]}}])
 got = api.details(["7"])
 check("api: one 503 is retried and the answer used", "7" in got and len(sent) == 2 and not led.stopped(clock.day()))
-# 5 in a night stop, even not in a row
+# 5 in a run stop, even not in a row
 lp = os.path.join(ROOT, "ledger-5xx5.json")
 led, clock = ledger(lp)
 answers = []
@@ -233,10 +243,10 @@ stopped = None
 for i in range(6):
     try:
         api.details(["1"])
-    except m.StopNight as e:
+    except m.StopApi as e:
         stopped = str(e)
         break
-check("api: 5 server errors in a night stop it", stopped is not None and "5 server errors" in stopped)
+check("api: 5 server errors in a run stop it", stopped is not None and "5 server errors" in stopped)
 # network failures
 lp = os.path.join(ROOT, "ledger-net.json")
 led, clock = ledger(lp)
@@ -245,20 +255,20 @@ stopped = None
 for i in range(3):
     try:
         api.details(["1"])
-    except m.StopNight as e:
+    except m.StopApi as e:
         stopped = str(e)
         break
     except m.ApiError:
         pass
-check("api: 5 network failures stop the night", stopped is not None and "5 network failures" in stopped)
-# other 4xx: given up at once, not retried, the night goes on
+check("api: 5 network failures stop the day", stopped is not None and "5 network failures" in stopped)
+# other 4xx: given up at once, not retried, the run goes on
 lp = os.path.join(ROOT, "ledger-400.json")
 led, clock = ledger(lp)
 api, sent, ft = api_with(led, clock, [400, {"response": {}}])
 try:
     api.details(["1"])
     check("api: HTTP 400 is given up without a retry", False)
-except m.StopNight:
+except m.StopApi:
     check("api: HTTP 400 is given up without a retry", False)
 except m.ApiError:
     check("api: HTTP 400 is given up without a retry", len(sent) == 1 and not led.stopped(clock.day()))
@@ -276,7 +286,7 @@ api2, sent2, _ = api_with(led, clock, [], key=None)
 try:
     api2.query_files(["Armsrace"], "*", 100)
     check("api: no key, no QueryFiles", False)
-except m.StopNight as e:
+except m.StopApi as e:
     check("api: no key, no QueryFiles", "no Web API key" in str(e))
 check("key: a malformed secret file reads as no key", m.read_key(os.path.join(ROOT, "nokey")) is None)
 open(os.path.join(ROOT, "key.txt"), "w").write(KEY + "\n")
@@ -303,7 +313,7 @@ check("discovery: new items are remembered as queued with their details",
       st.item("9")["status"] == "queued" and st.item("9")["size"] == 1048576 and st.item("9")["ws"] == "ok")
 api, sent, ft = api_with(led, clock, [page([11, 10, 9], "c2"), page([8, 7], "c3")])
 d = m.discover(api, cfg, {"7": "listed", "6": "listed", "5": "listed"}, st, clock.day(), clock.t + 3600, now=lambda: clock.t)
-check("discovery: the next night, an item seen before is not new (stop after the page with only id 11 new)",
+check("discovery: the next day, an item seen before is not new (stop after the page with only id 11 new)",
       d["new"] == ["11"] and d["pages"] == 2)
 cfg.max_pages = 1
 api, sent, ft = api_with(led, clock, [page([20, 21], "c2"), page([22], "")])
@@ -338,7 +348,7 @@ b = m.DownloadBudget(st, "2026-11-01")
 for i in range(3000):
     b.spend(1 << 30, str(10000 + i))
 check("downloads: no daily cap (the owner's 36 c) - after 3,000 downloads and 3,000 GB in a day the next is allowed",
-      b.allows("1")[0] and b.night["items"] == 3000 and b.night["bytes"] == 3000 << 30)
+      b.allows("1")[0] and b.today["items"] == 3000 and b.today["bytes"] == 3000 << 30)
 b.spend(10, "7")
 b.spend(10, "7")
 check("downloads: the bug brake - a map downloaded twice today is not downloaded a third time today, another one is",
@@ -525,7 +535,7 @@ check("publish: a pack goes on packs with its kind", [p["id"] for p in nb["packs
 check("publish: a crasher and an advert go on maps", {e["id"] for e in nb["maps"]} == {905, 906, 222})
 check("publish: the advert has its reason, crashes 0", [e for e in nb["maps"] if e["id"] == 906][0]["reason"] == "posts a gambling ad")
 check("publish: a listed map that turned bad keeps its rank on broken.json", [e for e in nb["maps"] if e["id"] == 222][0]["rank"] == 2)
-check("publish: a listed map gone from the Workshop is NOT added to the removed seed (the repo pins it)", nb["removed"] == [])
+check("publish: a listed map gone from the Workshop goes to the bridge as a verdict, never into broken.json", nb.get("removed", []) == [])
 check("publish: ...but it is in the summary, for the bridge's report and the mail", summary["removed"] == [("111", 1, "a", "removed")])
 check("publish: broken.json keeps its format (indent 2)", texts["broken.json"] == json.dumps(nb, indent=2, ensure_ascii=False) + "\n")
 dm = json.loads(texts["maps-deathmatch.json"])
@@ -543,6 +553,14 @@ dm2 = json.loads(texts2["maps-deathmatch.json"])
 check("publish: backfill adds a listed map that carries the tag, keeps the old entries and the official one",
       [e.get("id") for e in dm2 if e.get("id")] == [111, 7] and dm2[-1] == {"name": "de_dust2", "official": True})
 check("publish: nothing to write when nothing changed", m.plan_publish(files2, st, N, [], [], False, {})[0] == {})
+# blocked.json (77 a): the maps blocked for good, a file of their own - known, never a candidate, never published by a test
+fb = dict(files, blocked=[{"id": 902, "name": "b", "map": "b", "reason": "kicks everybody"}, 905])
+tb, sb = m.plan_publish(fb, st, N, outcomes, [], True, details)
+check("blocked.json: a blocked map that passed is not appended, a blocked crasher not added to broken.json",
+      902 not in [e["id"] for e in json.loads(tb["maps.json"])] and 905 not in [e["id"] for e in json.loads(tb["broken.json"])["maps"]])
+check("blocked.json: its ids are known, as broken:blocked; without the file nothing is",
+      m.known_ids(fb, m.Config()).get("902") == "broken:blocked" and m.known_ids(fb, m.Config()).get("905") == "broken:blocked"
+      and "902" not in m.known_ids(files, m.Config()))
 check("publish: search.json gets the mode lists' new maps too, whatever their mode", "903" in json.loads(texts["search.json"]) and "nice" in json.loads(texts["search.json"])["903"]
       and "wingman" in json.loads(texts["search.json"])["903"])
 st.data["items"]["7"] = {"title": "q old", "tags": ["Deathmatch"], "description": "red walls"}
@@ -554,7 +572,7 @@ files3["search"] = json.loads(texts3["search.json"])
 check("publish: ...and then there is nothing to write", m.plan_publish(files3, st, N, [], [], False, {})[0] == {})
 
 # ---- the mail ------------------------------------------------------------------------------------------------------
-r = {"night": N, "manual": False, "api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day",
+r = {"day": N, "manual": False, "api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day",
      "discovery": {"skipped": "stopped"}, "check": {"asked": 10, "calls": 1}, "downloads": {"ok": 0}, "tests": {"rows": []},
      "published": {}, "limits": {"api_run": 3, "api_run_cap": 500, "api_24h": 3, "api_day_cap": 10000}}
 subject, body = m.mail_text(r, m.Config())
@@ -601,11 +619,11 @@ seen = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 m.humans_on = lambda cfg: seen.pop(0)
 fc = FakeClock(1793500000.0)
 waits = []
-nq = m.Night(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
+nq = m.Run(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
 check("wait: somebody on now means waiting, and 0 humans alone is not enough for the next 10 minutes", nq.wait_for_nobody("x") and len(waits) == 10)
 seen[:] = [0]
 waits[:] = []
-nq2 = m.Night(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
+nq2 = m.Run(m.Config(), fc, manual=True, sleep=lambda n: (waits.append(n), setattr(fc, "t", fc.t + n)))
 check("wait: nobody seen this run: at once", nq2.wait_for_nobody("x") and waits == [])
 m.humans_on = real_humans
 
@@ -645,15 +663,15 @@ class FakeBridge(http.server.BaseHTTPRequestHandler):
 srv = http.server.HTTPServer(("127.0.0.1", 0), FakeBridge)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 os.environ.update({"SYNC_BRIDGE_URL": "http://127.0.0.1:%d" % srv.server_port, "SYNC_BRIDGE_SECRET": "s3cr3t"})
-night = m.Night.__new__(m.Night)
-night.cfg = m.Config()
-ans = night.report_verdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")])
+one = m.Run.__new__(m.Run)
+one.cfg = m.Config()
+ans = one.report_verdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")])
 check("bridge: the verdicts go to POST /removed/<secret> in the plugin's format (magic line, id TAB verdict)",
       GOT[0][0] == "/removed/s3cr3t" and GOT[0][2] == "gg-removed\t1\n111\tok\n222\tremoved\n333\thidden\n"
       and GOT[0][1].startswith("text/plain"))
 check("bridge: its answer is kept for the mail", ans.startswith("3 checked"))
-check("bridge: POST /reload/<secret> after a publish", night.reload() == "reload: maps: 9 maps" and GOT[1][0] == "/reload/s3cr3t")
-# ---- a night's publish and finish, end to end, on a bridge folder of its own and the stand-in bridge -----------------
+check("bridge: POST /reload/<secret> after a publish", one.reload() == "reload: maps: 9 maps" and GOT[1][0] == "/reload/s3cr3t")
+# ---- a run's publish and finish, end to end, on a bridge folder of its own and the stand-in bridge -------------------
 data = os.path.join(ROOT, "data")
 os.makedirs(data, exist_ok=True)
 live_maps = [{"rank": 1, "id": 111, "name": "a", "sizeMb": 5}, {"rank": 2, "id": 222, "name": "b", "sizeMb": 7}]
@@ -661,7 +679,7 @@ live_broken = {"schema": "x", "maps": [], "packs": [], "removed": [{"id": 365928
 open(os.path.join(data, "maps.json"), "w", encoding="utf-8").write(json.dumps(live_maps, indent=1) + "\n")
 open(os.path.join(data, "broken.json"), "w", encoding="utf-8").write(json.dumps(live_broken, indent=2) + "\n")
 open(os.path.join(data, "search.json"), "w", encoding="utf-8").write(json.dumps({"111": "a 111", "222": "b 222"}, indent=0) + "\n")
-nt = m.Night(m.Config(), FakeClock(1793500000.0), manual=True)
+nt = m.Run(m.Config(), FakeClock(1793500000.0), manual=True)
 nt.ledger.load()
 nt.state.load()
 nt.verdicts = [("111", "ok"), ("222", "removed")]
@@ -671,22 +689,32 @@ pack_rec = {"title": "a pack", "tags": ["Armsrace"], "size": 1 << 20, "status": 
 nt.state.data["items"] = {"901": pass_rec, "902": pack_rec}
 GOT[:] = []
 files0 = m.bridge_files(nt.cfg)
+check("blocked.json: none in the bridge's folder - none blocked, and no problem", files0["blocked"] == [])
+open(os.path.join(data, "blocked.json"), "w", encoding="utf-8").write(json.dumps([{"id": 3076804331, "name": "x", "map": "x", "reason": "r"}]))
+check("blocked.json: read when it is there", m.blocked_ids(m.bridge_files(nt.cfg)) == {"3076804331": "blocked"})
+open(os.path.join(data, "blocked.json"), "w", encoding="utf-8").write('{"blocked": 5}')
+try:
+    m.bridge_files(nt.cfg)
+    check("blocked.json: one that is no list stops the publish (ValueError)", False)
+except ValueError as error:
+    check("blocked.json: one that is no list stops the publish (ValueError)", "blocked.json" in str(error))
+os.remove(os.path.join(data, "blocked.json"))
 nt.publish(files0, [("901", "pass", {"level": "x"}, pass_rec), ("902", "nonmap", {"kind": "pack", "detail": "models"}, pack_rec)],
            [("222", "removed")], {})
 after = json.load(open(os.path.join(data, "maps.json"), encoding="utf-8"))
-check("night: the pass is appended to the live maps.json as #3", after[:2] == live_maps and after[2]["id"] == 901 and after[2]["rank"] == 3)
-check("night: the pack joined broken.json's packs, the removed seed untouched",
+check("run: the pass is appended to the live maps.json as #3", after[:2] == live_maps and after[2]["id"] == 901 and after[2]["rank"] == 3)
+check("run: the pack joined broken.json's packs, the removed seed untouched",
       [p["id"] for p in json.load(open(os.path.join(data, "broken.json")))["packs"]] == [902]
       and json.load(open(os.path.join(data, "broken.json")))["removed"] == [{"id": 3659287341}])
-check("night: the Wingman list is created with the pass", [e["id"] for e in json.load(open(os.path.join(data, "maps-wingman.json")))] == [901])
-check("night: the verdicts went to /removed, then the files were reloaded",
+check("run: the Wingman list is created with the pass", [e["id"] for e in json.load(open(os.path.join(data, "maps-wingman.json")))] == [901])
+check("run: the verdicts went to /removed, then the files were reloaded",
       [g[0] for g in GOT] == ["/removed/s3cr3t", "/reload/s3cr3t"] and "222\tremoved" in GOT[0][2])
-check("night: the old files are backed up", len(os.listdir(os.path.join(nt.cfg.state_dir, "backups"))) == 1)
-check("night: search.json, written after the reload (the reload does not read it), holds the new map",
+check("run: the old files are backed up", len(os.listdir(os.path.join(nt.cfg.state_dir, "backups"))) == 1)
+check("run: search.json, written after the reload (the reload does not read it), holds the new map",
       "901" in json.load(open(os.path.join(data, "search.json"), encoding="utf-8")) and "search.json" in nt.report["published"]["files"])
-check("night: both items are marked published", pass_rec["status"] == "published" and pack_rec["status"] == "published")
+check("run: both items are marked published", pass_rec["status"] == "published" and pack_rec["status"] == "published")
 # a file that changed under the plan is planned again; a result that is not the live files plus additions is refused
-nt2 = m.Night(m.Config(), FakeClock(1793500100.0), manual=True)
+nt2 = m.Run(m.Config(), FakeClock(1793500100.0), manual=True)
 nt2.ledger.load()
 nt2.state.load()
 rec3 = {"title": "third", "tags": ["Armsrace"], "size": 1 << 20, "subs": 1, "status": "tested", "verdict": "pass", "updated": 1}
@@ -695,11 +723,11 @@ grown = after + [{"rank": 4, "id": 950, "name": "added by the release", "sizeMb"
 open(os.path.join(data, "maps.json"), "w", encoding="utf-8").write(json.dumps(grown, indent=1, ensure_ascii=False) + "\n")
 nt2.publish(stale, [("903", "pass", {"level": "y"}, rec3)], [], {})
 now_maps = json.load(open(os.path.join(data, "maps.json"), encoding="utf-8"))
-check("night: a maps.json that grew meanwhile is merged into, never written from the older copy",
+check("run: a maps.json that grew meanwhile is merged into, never written from the older copy",
       now_maps[:4] == grown and now_maps[4]["id"] == 903 and now_maps[4]["rank"] == 5)
 nt.finish()
 rep_txt = [f for f in os.listdir(os.path.join(nt.cfg.state_dir, "reports")) if f.endswith(".txt")]
-check("night: the report and its text are written; a run without a problem mails nothing (the owner's 34)",
+check("run: the report and its text are written; a run without a problem mails nothing (the owner's 34)",
       rep_txt and nt.report["mail"].startswith("NOT sent: no problem") and nt.report["issues"] == [])
 srv.shutdown()
 del os.environ["SYNC_BRIDGE_URL"], os.environ["SYNC_BRIDGE_SECRET"]
@@ -798,15 +826,15 @@ os.makedirs(os.path.join(run_root, "state"))
 open(os.path.join(run_data, "maps.json"), "w", encoding="utf-8").write(json.dumps([{"rank": 1, "id": 11, "name": "a", "sizeMb": 5}], indent=1) + "\n")
 open(os.path.join(run_data, "broken.json"), "w", encoding="utf-8").write(json.dumps({"schema": "x", "maps": [], "packs": [], "removed": [], "blocked": []}, indent=2) + "\n")
 open(os.path.join(run_data, "search.json"), "w", encoding="utf-8").write(json.dumps({"11": "a 11"}, indent=0) + "\n")
-T0 = 1793540000.0   # an afternoon, outside the night's window
+T0 = 1793540000.0   # an afternoon
 run_items = {str(1000 + i): {"status": "queued", "ws": "ok", "app": 730, "tags": ["Wingman"], "subs": 10 * (i + 1), "lifetime": 1, "size": 1000, "created": T0 - 100 * m.DAY,
                              "title": "m%d" % i, "description": "", "first": "2026-11-01", "why": "new"} for i in range(7)}
 run_items["2000"] = dict(run_items["1000"], subs=1, created=T0 - m.DAY, title="new upload")
-json.dump({"schema": 1, "items": run_items, "baseline": {}, "runs": [], "downloads": {}}, open(os.path.join(run_root, "state", "state.json"), "w"))
+json.dump({"schema": 1, "items": run_items, "baseline": {}, "downloads": {}}, open(os.path.join(run_root, "state", "state.json"), "w"))
 cfg = m.Config()
 cfg.batch, cfg.download_pause = 2, 0
 fc = FakeClock(T0)
-nr = m.Night(cfg, fc, manual=True)
+nr = m.Run(cfg, fc, manual=True)
 FakeSteam.answers = {"1002": "Rate Limit Exceeded"}   # Steam pushes back at the sixth: no daily cap ends a run any more, that does
 rep = nr.run()
 FakeSteam.answers = {}
@@ -828,7 +856,7 @@ check("run: Steam's push-back is a problem the mail names (not sent here: no SMT
       any("SteamCMD pushed back" in i for i in rep["issues"]) and rep["mail"].startswith("NOT sent: no SMTP host"))
 
 # the issues-only mail (the owner's 34): what counts, what does not, the words, once a day per problem
-quiet = {"night": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00", "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)"},
+quiet = {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00", "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)"},
          "tests": {"stop": "somebody was on the server until the deadline"}, "serve": {"stop": "the run's deadline"}, "errors": []}
 check("issues: a run that ended at its deadline, or waited for players, is no problem", m.issues_of(quiet) == [])
 cases = [
@@ -845,7 +873,7 @@ cases = [
     ({"serve": {"stop": "205.0 GB of hand-overs wait for the server already"}}, "handovers-waiting"),
     ({"disk": {"low": "80.0 GB free on the game's volume (the mark is 100.0 GB)"}}, "disk-low"),
     ({"watcher_keep": {"computed": "the next morning", "problems": ["ratings.json is 80 h old (at most 72 h)"]}}, "deletion-refused:"),
-    ({"errors": ["the bridge's data cannot be read (x) - nothing done tonight"]}, "error:"),
+    ({"errors": ["the bridge's data cannot be read (x) - nothing done in this run"]}, "error:"),
 ]
 for extra, key in cases:
     got = m.issues_of(dict(quiet, **extra))
@@ -858,8 +886,13 @@ icfg.state_dir = os.path.join(ROOT, "issues-state")
 os.makedirs(icfg.state_dir)
 open(os.path.join(icfg.state_dir, "dashboard-url"), "w").write("https://dash.example/\n")
 os.environ.pop("SYNC_DASHBOARD_URL", None)
+os.environ.pop("SYNC_DASHBOARD_URL", None)
 os.environ["SYNC_STATE_DIR"], old_state = icfg.state_dir, os.environ.get("SYNC_STATE_DIR")
-check("issues: the dashboard's address comes from <state>/dashboard-url when SYNC_DASHBOARD_URL is not set", m.Config().dashboard_url == "https://dash.example/")
+check("issues: the dashboard's address is SYNC_DASHBOARD_URL alone - a <state>/dashboard-url file means nothing (the owner's 85)",
+      m.Config().dashboard_url == "")
+os.environ["SYNC_DASHBOARD_URL"] = "https://dash.example/"
+check("issues: ... and set there, it is the one the mails point to", m.Config().dashboard_url == "https://dash.example/")
+del os.environ["SYNC_DASHBOARD_URL"]
 os.environ["SYNC_STATE_DIR"] = old_state
 icfg.dashboard_url = "https://dash.example/"
 ic = FakeClock(T0)
@@ -1003,7 +1036,7 @@ def sleeper(n):
     fc2.t += n
     if len(slept) == 3:
         humans_now[0] = 0
-nj = m.Night(cfg2, fc2, manual=True, sleep=sleeper)
+nj = m.Run(cfg2, fc2, manual=True, sleep=sleeper)
 engines = []
 real_engine = FakeEngine
 class SpyEngine(FakeEngine):
@@ -1036,23 +1069,72 @@ json.dump(state3, open(os.path.join(run_root, "state", "state.json"), "w"))
 FakeSteam.answers = {"3001": "Access Denied", "3003": "Rate Limit Exceeded"}
 cfg3 = m.Config()
 cfg3.batch, cfg3.download_pause = 10, 0
-rep3 = m.Night(cfg3, fc3, manual=True).run()
+rep3 = m.Run(cfg3, fc3, manual=True).run()
 state3 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
 check("stop: one access-denied item is failed, the next one goes on", state3["items"]["3001"]["status"] == "failed" and state3["items"]["3002"]["status"] == "published")
 check("stop: a rate limit ends the downloads, the next item is not asked for", "Rate Limit Exceeded" in rep3["downloads"]["stop"] and state3["items"]["3004"]["status"] == "queued")
-rep4 = m.Night(cfg3, FakeClock(T0 + 2 * m.DAY + 3600), manual=True).run()
+rep4 = m.Run(cfg3, FakeClock(T0 + 2 * m.DAY + 3600), manual=True).run()
 check("stop: a later run that day downloads nothing", rep4["downloads"]["ok"] == 0 and "Rate Limit Exceeded" in rep4["downloads"]["stop"])
 FakeSteam.answers = {}
+# a SteamCMD stall (the owner's 86 a): one is routine - a fresh session takes the next map and the downloads go on, nothing to mail; a
+# second stall in a run ends its downloads, and that, or one map stalling twice in a day, is a problem for the mail
+humans_now[0] = 0
+state5 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
+for wid, subs in (("5001", 99000), ("5002", 98000), ("5003", 97000)):
+    state5["items"][wid] = dict(run_items["1000"], subs=subs, title="stall %s" % wid)
+json.dump(state5, open(os.path.join(run_root, "state", "state.json"), "w"))
+FakeSteam.asked, FakeSteam.answers = [], {"5001": m.STALL + " 15m00s"}
+logins5 = FakeSteam.logins
+rep5 = m.Run(cfg3, FakeClock(T0 + 5 * m.DAY), manual=True).run()
+check("stall: one stall is routine - a fresh SteamCMD session, the next map at once, the downloads go on (%s, %d logins)"
+      % (FakeSteam.asked[:3], FakeSteam.logins - logins5), FakeSteam.asked[:3] == ["5001", "5002", "5003"]
+      and "stalled" not in str(rep5["downloads"].get("stop") or "") and [tuple(x) for x in rep5.get("stalls") or []] == [("5001", 1)]
+      and FakeSteam.logins - logins5 >= 2)
+check("stall: ... and nothing about SteamCMD for the mail", not [k for k, _w, _d in m.issues_of(rep5) if k.startswith("steamcmd")])
+state6 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
+for wid, subs in (("6001", 99500), ("6002", 99400), ("6003", 99300)):
+    state6["items"][wid] = dict(run_items["1000"], subs=subs, title="stall %s" % wid)
+json.dump(state6, open(os.path.join(run_root, "state", "state.json"), "w"))
+FakeSteam.asked, FakeSteam.answers = [], {"6001": m.STALL + " 15m00s", "6002": m.STALL + " 15m00s"}
+rep6 = m.Run(cfg3, FakeClock(T0 + 6 * m.DAY), manual=True).run()
+check("stall: a second stall in a run ends its downloads (6003 not asked) and is a problem for the mail (%s)" % rep6["downloads"].get("stop"),
+      FakeSteam.asked[:2] == ["6001", "6002"] and "6003" not in FakeSteam.asked and "stalled twice" in str(rep6["downloads"].get("stop"))
+      and [k for k, _w, _d in m.issues_of(rep6)].count("steamcmd-stalls") == 1
+      and not [k for k, _w, _d in m.issues_of(rep6) if k == "steamcmd"])
+check("stall: one map stalling twice in a day is a problem too; once is not",
+      [k for k, _w, _d in m.issues_of({"stalls": [["7001", 2]]})] == ["steamcmd-stalls"] and m.issues_of({"stalls": [["7001", 1]]}) == [])
+FakeSteam.answers = {}
+# a listed map gone from the Workshop (the seed filter gone, the owner's 77 a): the run's check has it, its event comes once - when the
+# bridge's removed.json does not hold that verdict yet - and verdicts that do not reach the bridge are a problem (the only check, 74 a)
+json.dump({"checked": "x", "verdicts": {"11": "ok"}}, open(os.path.join(run_data, "removed.json"), "w"))
+m.check = lambda api, ids, deadline, now=None: ({"11": {"publishedfileid": "11", "result": 9}}, [])
+cfg7 = m.Config()
+cfg7.batch, cfg7.download_pause = 1, 0
+cfg7.lower({"api": True})
+r7 = m.Run(cfg7, FakeClock(T0 + 7 * m.DAY), manual=True)
+r7.run()
+gone_events = lambda run: sum(1 for e in run.state.data.get("history", {}).get("maps") or [] if e["id"] == "11" and e["event"] == "removed")  # noqa: E731
+check("check: a listed map gone from the Workshop is in the run's check, and says so in the history (%d)" % gone_events(r7),
+      [tuple(x) for x in r7.report["check"]["removed"]] == [("11", "removed")] and gone_events(r7) == 1)
+json.dump({"checked": "x", "verdicts": {"11": "removed"}}, open(os.path.join(run_data, "removed.json"), "w"))
+r8 = m.Run(cfg7, FakeClock(T0 + 7 * m.DAY + 3600), manual=True)
+r8.run()
+check("check: ... at the next check still in its check, but no second event: the bridge holds the verdict (%d)" % gone_events(r8),
+      [tuple(x) for x in r8.report["check"]["removed"]] == [("11", "removed")] and gone_events(r8) == 1)
+check("issues: verdicts that do not reach the bridge are a problem for the mail - nothing else tells it (%s)"
+      % (r8.report.get("published") or {}).get("verdicts"), "verdicts-not-reported" in [k for k, _w, _d in m.issues_of(r8.report)])
+m.check = lambda api, ids, deadline, now=None: ({}, [])
+os.remove(os.path.join(run_data, "removed.json"))
 # no time windows: a run lasts SYNC_RUN_HOURS, cut short before the restarts; the service starts one whenever nobody plays and work waits
 fcd = FakeClock(T0 + 3 * m.DAY)
 day0 = fcd.at((0, 0))
 hm = lambda ts: fcd.local(ts).strftime("%H:%M")  # noqa: E731
 fcd.t = day0 + 12 * 3600
-check("run: at noon a run lasts 3 h", hm(m.Night(m.Config(), fcd).deadline) == "15:00")
+check("run: at noon a run lasts 3 h", hm(m.Run(m.Config(), fcd).deadline) == "15:00")
 fcd.t = day0 + 5 * 3600
-check("run: at 05:00 it ends at 06:45, before the 07:00 restart", hm(m.Night(m.Config(), fcd).deadline) == "06:45")
+check("run: at 05:00 it ends at 06:45, before the 07:00 restart", hm(m.Run(m.Config(), fcd).deadline) == "06:45")
 fcd.t = day0 + 2 * 3600
-check("run: at 02:00 it ends at 03:20, before the prefetch's restart", hm(m.Night(m.Config(), fcd).deadline) == "03:20")
+check("run: at 02:00 it ends at 03:20, before the prefetch's restart", hm(m.Run(m.Config(), fcd).deadline) == "03:20")
 cfgs = m.Config()
 check("service: no start in the daily restart's stretch (06:45-07:10)", m.start_blocked(cfgs, fcd, day0 + 6.9 * 3600) is not None
       and m.start_blocked(cfgs, fcd, day0 + 7.2 * 3600) is None)
@@ -1060,9 +1142,14 @@ os.makedirs(os.path.dirname(cfgs.watcher_state), exist_ok=True) if os.path.dirna
 cfgs.watcher_state = os.path.join(run_root, "watcher-state.json")
 json.dump({"prefetch_day": "2000-01-01"}, open(cfgs.watcher_state, "w"))
 check("service: the prefetch holds it from 03:20 until the watcher stamps tonight's done", m.start_blocked(cfgs, fcd, day0 + 3.4 * 3600) is not None
-      and m.start_blocked(cfgs, fcd, day0 + 3.2 * 3600) is None)
+      and m.start_blocked(cfgs, fcd, day0 + 2.9 * 3600) is None)
+check("service: no run with under 20 minutes before the prefetch's cut: at 03:10 it would end at 03:20 (%s)"
+      % m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60), "prefetch" in (m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60) or ""))
 json.dump({"prefetch_day": fcd.day(day0 + 4 * 3600)}, open(cfgs.watcher_state, "w"))
 check("service: ...and lets it go the moment the prefetch is stamped", m.start_blocked(cfgs, fcd, day0 + 4 * 3600) is None)
+check("service: no run with under 20 minutes before the daily restart's cut: at 06:30 it would end at 06:45 (%s) - at 06:20 one starts"
+      % m.start_blocked(cfgs, fcd, day0 + 6.5 * 3600), "daily restart" in (m.start_blocked(cfgs, fcd, day0 + 6.5 * 3600) or "")
+      and m.start_blocked(cfgs, fcd, day0 + (6 * 60 + 20) * 60) is None)
 fcd.t = day0 + 12 * 3600
 check("service: work waits while maps are queued, unless Steam stopped today's downloads; or when the API steps are due",
       m.work_waits(cfgs, fcd, {"items": {"1": {"status": "queued"}}, "last_api": fcd.t})
@@ -1080,23 +1167,17 @@ check("acf: items read", m.acf_items(acf) == {"1": 5, "2": 6})
 m.acf_forget(acf, ["1"])
 check("acf: an item is forgotten in both sections, the rest kept", m.acf_items(acf) == {"2": 6} and '"1"' not in open(acf).read())
 
-# ---- 2026-11-03: the keep set (the same as update-watch.py's), the scores, the hand-over, the 223 ------------------------------
-UW = os.path.join(HERE, "update-watch.py")
+# ---- 2026-11-03: the keep set (keepset.py, shared with update-watch.py), the scores, the hand-over, the 223 --------------------------
+UW = os.path.join(os.path.dirname(os.path.abspath(SRC)), "update-watch.py")
 uw_text, ws_text = open(UW, encoding="utf-8").read(), open(SRC, encoding="utf-8").read()
-
-
-def keep_block(text):
-    start = text.index("KEEP_TOP = 100")
-    end = text.index('"requested": requested, "all": every, "scored": len(scores), "problems": problems}', start)
-    return text[start:end]
-
-
-check("keep set: workshop-sync.py's keep_inputs and keep_set are update-watch.py's, word for word", keep_block(uw_text) == keep_block(ws_text))
+check("keep set: one copy of the rules - keepset.py; neither script holds its own (the owner's 76 a)",
+      m.keepset is not None and "KEEP_TOP = " not in uw_text and "KEEP_TOP = " not in ws_text and "def keep_set(inputs, now" not in ws_text)
 sys.modules.setdefault("fcntl", types.ModuleType("fcntl"))
 os.environ.setdefault("STEAMAPPDIR", os.path.join(ROOT, "uwroot"))
 uw = types.ModuleType("uw")
 uw.__dict__["__name__"] = "uw"
 exec(compile(uw_text, "update-watch", "exec"), uw.__dict__)
+check("keep set: both scripts import the same keepset.py", uw.keepset is m.keepset)
 KT = 1793700000.0
 kdata = {"maps.json": [{"rank": r, "id": 100 + r, "name": "a%d" % r, "sizeMb": 1} for r in range(1, 130)],
          "maps-deathmatch.json": [{"rank": r, "id": 300 + r, "name": "d%d" % r, "sizeMb": 1} for r in range(1, 30)],
@@ -1106,8 +1187,15 @@ kdata = {"maps.json": [{"rank": r, "id": 100 + r, "name": "a%d" % r, "sizeMb": 1
                           "trend": {"armsrace": [str(100 + r) for r in range(60, 130)], "deathmatch": ["310", "311", "999"], "wingman": []}},
          "queues.json": {"version": 1, "random": {"armsrace-new": ["120"], "deathmatch": ["301"]}, "requested": ["150"]},
          "state.json": {"crashes": {"103": 1}}}
-check("keep set: both scripts give the same set from the same data", m.keep_set(kdata, KT, "500") == uw.keep_set(kdata, KT, "500")
-      and m.keep_set(kdata, KT, "")["problems"] == uw.keep_set(kdata, KT, "")["problems"])
+check("keep set: both scripts give the same set from the same data", m.safe_keep_set(kdata, KT, "500") == uw.keep_set(kdata, KT, "500")
+      and m.safe_keep_set(kdata, KT, "")["problems"] == uw.keep_set(kdata, KT, "")["problems"])
+kb = m.safe_keep_set(dict(kdata, **{"blocked.json": [{"id": 105}, 106]}), KT, "500")
+k0 = m.safe_keep_set(kdata, KT, "500")
+check("keep set: blocked.json's maps (77 a) are left out of the top lists; without the file they are in, and neither is a problem",
+      "105" in k0["top"]["armsrace"] and "106" in k0["top"]["armsrace"] and not {"105", "106"} & set(kb["top"]["armsrace"])
+      and kb["problems"] == k0["problems"])
+kb2 = m.safe_keep_set(dict(kdata, **{"blocked.json": {"blocked": [105]}}), KT, "500")
+check("keep set: blocked.json may also hold its list under \"blocked\"", "105" not in kb2["top"]["armsrace"] and "106" in kb2["top"]["armsrace"])
 
 # the scores: IPublishedFileService/GetDetails with includevotes, with the key; a removed item is no score
 led, clock = ledger(os.path.join(ROOT, "votes-ledger.json"))
@@ -1120,7 +1208,7 @@ check("votes: one keyed GET to IPublishedFileService/GetDetails with includevote
       len(sent) == 1 and sent[0].full_url.startswith(m.VOTES_URL) and "key=" + KEY in sent[0].full_url and "includevotes=true" in sent[0].full_url
       and "publishedfileids%5B2%5D=13" in sent[0].full_url and led.data["calls"][-1][1] == "GetDetails")
 
-# a Night's own steps, on a folder of their own
+# a run's own steps, on a folder of their own
 srv = os.path.join(ROOT, "srv")
 sdata, sstate, swork, sgame = (os.path.join(srv, x) for x in ("data", "state", "work", "game"))
 gws = os.path.join(sgame, "game", "bin", "linuxsteamrt64", "steamapps", "workshop")
@@ -1136,9 +1224,9 @@ items = {"140": {"status": "skipped", "evidence": "1.5 GB: more than a whole nig
          "142": {"status": "skipped", "evidence": "a CS:GO-era upload (its Workshop file is x): no CS2 map, not downloaded", "size": 1, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
          "143": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 999, "created": 1, "lifetime": 1},
          "144": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1, "lifetime": 1}}
-json.dump({"schema": 1, "items": items, "baseline": {}, "runs": [], "downloads": {}}, open(os.path.join(sstate, "state.json"), "w"))
+json.dump({"schema": 1, "items": items, "baseline": {}, "downloads": {}}, open(os.path.join(sstate, "state.json"), "w"))
 ncfg = m.Config()
-nn = m.Night(ncfg, FakeClock(KT), manual=True)
+nn = m.Run(ncfg, FakeClock(KT), manual=True)
 nn.state.load()
 nn.requeue_size_skips()
 check("the 223: every map skipped as too big for an old daily cap is queued again, 160 GB too - there is no cap now; a CS:GO-era skip stays",
@@ -1153,7 +1241,7 @@ class VoteApi(object):
     def votes(self, ids):
         self.by_api["GetDetails"] = self.by_api.get("GetDetails", 0) + 1
         if self.stop_after is not None and self.by_api["GetDetails"] > self.stop_after:
-            raise m.StopNight("HTTP 429")
+            raise m.StopApi("HTTP 429")
         self.asked += ids
         return dict((w, [self.scores.get(w, 0.0), 1, 0, 5]) for w in ids if w in self.scores)
 
@@ -1243,9 +1331,9 @@ m.humans_on = lambda cfg: 0
 json.dump(dict(kdata["ratings.json"], fetched=KT), open(os.path.join(sdata, "ratings.json"), "w"))
 ncfg2 = m.Config()
 ncfg2.download_pause = 0
-ns = m.Night(ncfg2, FakeClock(KT), manual=True)
+ns = m.Run(ncfg2, FakeClock(KT), manual=True)
 ns.state.load()
-want = m.keep_set(m.keep_inputs(sdata), KT)
+want = m.safe_keep_set(m.keep_inputs(sdata), KT)
 ns.serve()
 handed = sorted(m.handovers(hdir))
 missing = sorted(set(want["up"] + want["top"]["armsrace"] + want["top"]["deathmatch"] + want["own"]) - set(["110", "120", "150", "301", "900", "305"]))
@@ -1253,7 +1341,7 @@ check("serve: every keep-set map the server lacks is fetched and handed over (%d
       % (len(missing), dict(ns.report["serve"], diff=sorted(set(missing + ["305"]) ^ set(handed)))), handed == sorted(missing + ["305"]) and not set(FakeSteam.asked) & set(["110", "301", "900", "305"])
       and ns.report["serve"]["ok"] == len(missing))
 FakeSteam.asked = []
-ns2 = m.Night(ncfg2, FakeClock(KT + 60), manual=True)
+ns2 = m.Run(ncfg2, FakeClock(KT + 60), manual=True)
 ns2.state.load()
 ns2.serve()
 check("serve: a second run fetches nothing more", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 0)
@@ -1302,7 +1390,7 @@ write_acf({sa: "50", sb: "50"})
 m.ACF_WAIT = 1
 m.SteamCmd = LateAcfSteam
 FakeSteam.asked, LateAcfSteam.got = [], []
-ns3 = m.Night(ncfg2, FakeClock(KT + 120), manual=True)
+ns3 = m.Run(ncfg2, FakeClock(KT + 120), manual=True)
 ns3.state.load()
 ns3.state.data["items"].setdefault(sb, {})["updated"] = 100      # the Workshop has a newer version than the staged one
 for w in (sa, sc):
@@ -1324,7 +1412,7 @@ stage(sf)
 stage(se)
 write_acf({})
 ncfg4 = m.Config()
-ns4 = m.Night(ncfg4, FakeClock(KT + 180), manual=True)
+ns4 = m.Run(ncfg4, FakeClock(KT + 180), manual=True)
 ns4.state.load()
 for w in (sf, se):
     ns4.state.data["items"][w] = dict(ns4.state.data["items"].get(w) or {}, verdict="pass", status="tested", title="t" + w)
@@ -1333,14 +1421,14 @@ check("cleanup: a keep-set pass whose hand-over failed (no acf entry) stays stag
       "want is removed", os.path.isdir(os.path.join(stg, "content", "730", sf)) and not os.path.isdir(os.path.join(stg, "content", "730", se)))
 m.SteamCmd = AcfSteam
 FakeSteam.asked = []
-ns5 = m.Night(ncfg2, FakeClock(KT + 240), manual=True)
+ns5 = m.Run(ncfg2, FakeClock(KT + 240), manual=True)
 ns5.state.load()
 ns5.serve()
 check("serve: ...and the next run downloads it (SteamCMD's acf did not name it) and hands it over",
       FakeSteam.asked == [sf] and sf in m.handovers(hdir))
 unhand(sd)
 FakeSteam.asked = []
-ns6 = m.Night(ncfg2, FakeClock(KT + 300), manual=True)
+ns6 = m.Run(ncfg2, FakeClock(KT + 300), manual=True)
 ns6.state.load()
 ns6.serve()
 check("serve: the brake - a map downloaded twice today is not downloaded a third time", FakeSteam.asked == [] and sd not in m.handovers(hdir))
@@ -1410,17 +1498,35 @@ for name, value in (("queues.json", []), ("votes.json", ["x"]), ("ratings.json",
     json.dump(value, open(os.path.join(shp, name), "w"))
 ks = m.safe_keep_set(m.keep_inputs(shp), KT)
 check("reshaped inputs: the keep set says why it is not to be trusted, no exception (%s)" % ks["problems"][:2], ks["problems"] and not ks["all"] - set())
-real_keep = m.keep_set
-m.keep_set = lambda inputs, now, hud="": (_ for _ in ()).throw(AttributeError("'list' object has no attribute 'get'"))
+real_keep = m.keepset.keep_set
+m.keepset.keep_set = lambda inputs, now, hud="": (_ for _ in ()).throw(AttributeError("'list' object has no attribute 'get'"))
 ks2 = m.safe_keep_set({}, KT)
 check("reshaped inputs: an exception inside the keep set is caught and named", ks2["problems"][0].startswith("the keep set could not be computed")
       and ks2["all"] == set())
-nsr = m.Night(ncfg2, FakeClock(KT + 400), manual=True)
+nsr = m.Run(ncfg2, FakeClock(KT + 400), manual=True)
 nsr.state.load()
 nsr.serve()
 check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
       "could not be computed" in nsr.report["serve"].get("skipped", "") and any("serve:" in e for e in nsr.report["errors"]))
-m.keep_set = real_keep
+m.keepset.keep_set = real_keep
+# keepset.py not mounted (the deployment's compose file names it, and a missing source becomes a directory): the keep set says so, serve hands over nothing
+saved_ks = sys.modules.get("keepset")
+sys.modules["keepset"] = None                                   # what an import of a file that is not there raises: ImportError
+try:
+    bare = types.ModuleType("ws_bare")
+    bare.__dict__["__name__"] = "ws_bare"
+    exec(compile(ws_text, "workshop-sync", "exec"), bare.__dict__)
+finally:
+    sys.modules["keepset"] = saved_ks
+bare.log = lambda message: LOGS.append(message)
+ksb = bare.safe_keep_set(bare.keep_inputs(sdata), KT, "500")
+check("no keepset.py: an empty keep set that says why (%s)" % ksb["problems"][:1],
+      bare.keepset is None and ksb["all"] == set() and ksb["problems"][0].startswith("the keep set could not be computed: keepset.py is not beside"))
+nb = bare.Run(ncfg2, FakeClock(KT + 500), manual=True)
+nb.state.load()
+nb.serve()
+check("no keepset.py: serve hands over nothing and names it as an error", "could not be computed" in nb.report["serve"].get("skipped", "")
+      and any("keepset.py" in e for e in nb.report["errors"]))
 
 shutil.rmtree(ROOT, ignore_errors=True)
 print("\n%d failed" % len(FAILS) if FAILS else "\nall passed")

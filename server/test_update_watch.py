@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "update-watch.py")
+sys.path.insert(0, os.path.dirname(os.path.abspath(SRC)))   # keepset.py beside the script, as the deployment's compose file mounts it (also under python -I)
 ROOT = tempfile.mkdtemp(prefix="uw-")
 os.makedirs(os.path.join(ROOT, "game", "csgo"))
 os.environ.update({"STEAMAPPDIR": ROOT, "CS2_RCONPW": "secret", "TZ": "Europe/Paris"})
@@ -407,26 +408,47 @@ n = eng.cmds.count("quit")
 step(w, clock, 1200)
 check("D: no second daily restart that day", eng.cmds.count("quit") == n)
 
-# E. daily restart with players: warns, waits for Game Over, says the line, quits 3 s later
+# E. the daily restart with players on waits for an empty server: no warning, no quit at a match end (it took the vote down with
+#    it), never a kick (the owner's 73 a, 2026-11-04)
 w, clock, eng = scenario(at("2026-10-04 06:59:00"))
 eng.humans = 3
 step(w, clock, 300)
-check("E: warned once, no quit mid-match", len(eng.chat) == 1 and "end of this match" in eng.chat[0] and "quit" not in eng.cmds)
 eng.write("L 10/04/2026 - 07:05:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min")
-step(w, clock, 10)
-check("E: restart line then quit after Game Over", "quit" in eng.cmds and "now" in eng.chat[-1])
-check("E: no HUD answers gg_notice, so both lines went to chat after asking it", sum(c.startswith("gg_notice ") for c in eng.cmds) == 2)
-
-# E2. the same with the HUD on: both lines on its news line (the warning for 10 minutes, the last line for 30 s), none in chat
+step(w, clock, 60)
+check("E: players on: no warning and no quit at the match end - it waits", "quit" not in eng.cmds and not eng.chat and not eng.notices
+      and w.due is not None and w.due[0] == "daily")
+eng.humans = 0
+step(w, clock, 30)
+check("E: ... and it restarts the moment the server is empty, silently", "quit" in eng.cmds and not eng.chat
+      and w.state["done_day"] == "2026-10-04")
 w, clock, eng = scenario(at("2026-10-04 06:59:00"))
+eng.humans = 2
+step(w, clock, m.DAILY_WINDOW + 120)
+eng.humans = 0
+step(w, clock, 60)
+check("E1: players on until DAILY_WINDOW after the slot: no daily restart that day", "quit" not in eng.cmds and w.state["done_day"] != "2026-10-04")
+
+# E2. an update restart with players on - the one restart that still goes at a match end: the warning on the HUD for 10 minutes,
+#     the last line for 30 s at the match end, then the quit; chat stays empty
+w, clock, eng = scenario(at("2026-10-04 15:00:00"), verdict=("stale", 14189))
 eng.humans, eng.hud = 3, True
 step(w, clock, 300)
-check("E2: the warning is on the HUD for 600 s, not in chat", eng.notices[:1] and eng.notices[0][0] == 600
-      and "end of this match" in eng.notices[0][1] and not eng.chat and "quit" not in eng.cmds)
-eng.write("L 10/04/2026 - 07:05:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min")
+check("E2: an update with players on: the warning is on the HUD for 600 s, not in chat, no quit mid-match",
+      eng.notices[:1] and eng.notices[0][0] == 600 and "end of this match" in eng.notices[0][1] and not eng.chat and "quit" not in eng.cmds)
+eng.write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min")  # the stamp is not read
 step(w, clock, 10)
 check("E2: the restart line on the HUD for 30 s, then quit - chat stays empty", "quit" in eng.cmds and len(eng.notices) == 2
-      and eng.notices[1][0] == 30 and "now" in eng.notices[1][1] and not eng.chat)
+      and eng.notices[1][0] == 30 and "CS2 update" in eng.notices[1][1] and not eng.chat)
+
+# E3. the same without a HUD: both lines go to chat after gg_notice was asked
+w, clock, eng = scenario(at("2026-10-04 15:00:00"), verdict=("stale", 14189))
+eng.humans = 3
+step(w, clock, 300)
+check("E3: no HUD: warned once in chat, no quit mid-match", len(eng.chat) == 1 and "end of this match" in eng.chat[0] and "quit" not in eng.cmds)
+eng.write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min")  # the stamp is not read
+step(w, clock, 10)
+check("E3: the restart line, then quit after Game Over", "quit" in eng.cmds and "CS2 update" in eng.chat[-1]
+      and sum(c.startswith("gg_notice ") for c in eng.cmds) == 2)
 
 # F. A2S says empty, RCON says 1 human -> no restart on a disagreement
 w, clock, eng = scenario(at("2026-10-04 06:59:50"))
@@ -489,6 +511,107 @@ step(w, clock, 120)
 check("I: quit not delivered -> engine not killed, restart counted once", not eng.killed and eng.pid == 4242
       and len([e for e in w.state["restarts"] if e[1] == "daily"]) == 1)
 
+# Q. the quit notice (the owner's 47 a, 2026-11-04): the bridge hears of a planned quit right before it, at /quitting/<secret> -
+#    the quit's echo dies with the process (the engine segfaults on quit), and without either the bridge books a crash
+class NoticeReply:
+    def __init__(self, body):
+        self.body = body
+    def read(self):
+        return self.body
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+
+
+saved_q = (m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
+os.environ["CS2_LOG_HTTP_URL"] = "http://bridge.test:8080/log/abc123"
+QORDER, QANSWER = [], {"reply": b"ok: going down", "fail": None}
+
+
+def notice_urlopen(request, timeout=None):
+    QORDER.append(("notice", request.full_url, request.data.decode()))
+    if QANSWER["fail"]:
+        raise QANSWER["fail"]
+    return NoticeReply(QANSWER["reply"])
+
+
+def quit_recorder(eng):
+    base = eng.rcon
+    def rcon(c, expect_reply=True):
+        if c == ["quit"]:
+            QORDER.append(("quit",))
+        return base(c, expect_reply)
+    return rcon
+
+
+m.urllib.request.urlopen = notice_urlopen
+w, clock, eng = scenario(at("2026-10-04 06:59:50"))
+m.rcon = quit_recorder(eng)
+step(w, clock, 40)
+check("Q1: the daily restart tells the bridge first, then quits: %s" % [x[0] for x in QORDER],
+      [x[0] for x in QORDER] == ["notice", "quit"] and QORDER[0][1] == "http://bridge.test:8080/quitting/abc123"
+      and QORDER[0][2] == "gg-quit\t1\tdaily\n" and w.state["done_day"] == "2026-10-04")
+
+QORDER.clear()
+QANSWER["fail"] = m.urllib.error.URLError("Connection refused")
+w, clock, eng = scenario(at("2026-10-04 06:59:50"))
+m.rcon = quit_recorder(eng)
+step(w, clock, 150)
+tries = sum(1 for x in QORDER if x[0] == "notice")
+check("Q2: a bridge that does not take the notice: no quit, no restart counted, the notice tried again every minute (%d tries)" % tries,
+      "quit" not in eng.cmds and not w.state["restarts"] and 2 <= tries <= 4 and w.due is not None)
+QANSWER["fail"] = None
+step(w, clock, 70)
+check("Q2: ... and once it does, the restart goes: notice, then quit", [x[0] for x in QORDER][-2:] == ["notice", "quit"]
+      and len([e for e in w.state["restarts"] if e[1] == "daily"]) == 1)
+
+QORDER.clear()
+QANSWER["reply"] = b"Not Found"
+w, clock, eng = scenario(at("2026-10-04 06:59:50"))
+m.rcon = quit_recorder(eng)
+step(w, clock, 90)
+check("Q3: an older bridge (its 404 page, no 'ok') has not taken it either: no quit", "quit" not in eng.cmds and not w.state["restarts"])
+QANSWER["reply"] = b"ok: going down"
+
+QORDER.clear()
+QANSWER["fail"] = m.urllib.error.URLError("timed out")
+w, clock, eng = scenario(at("2026-10-04 15:00:00"), verdict=("stale", 14189))
+m.rcon = quit_recorder(eng)
+step(w, clock, m.QUIT_NOTICE_PATIENCE - 120)
+check("Q4: an update restart waits for the notice too...", "quit" not in eng.cmds)
+step(w, clock, 300)
+check("Q4: ... but not for ever: after QUIT_NOTICE_PATIENCE an outdated server turning everybody away is worse than a false mark",
+      "quit" in eng.cmds and w.state["pending"]["kind"] == "update")
+QORDER.clear()
+w, clock, eng = scenario(at("2026-10-04 06:59:50"))
+m.rcon = quit_recorder(eng)
+step(w, clock, m.QUIT_NOTICE_PATIENCE - 120)
+check("Q8: the daily restart waits for the notice too...", "quit" not in eng.cmds and not w.state["restarts"])
+step(w, clock, 300)
+check("Q8: ... and, like every planned restart, goes ahead after QUIT_NOTICE_PATIENCE without the bridge's answer (the owner's 87 a)",
+      "quit" in eng.cmds and w.state["pending"]["kind"] == "daily")
+QANSWER["fail"] = None
+
+QORDER.clear()
+w, clock, eng = scenario(at("2026-10-04 06:59:50"))
+base_q = eng.rcon
+m.rcon = lambda c, expect_reply=True: None if c == ["quit"] else base_q(c, expect_reply)
+step(w, clock, 40)
+check("Q5: the bridge took the notice but the quit could not be delivered: the notice is taken back (%s)" % [x[2:] for x in QORDER],
+      [x[2] for x in QORDER[:2]] == ["gg-quit\t1\tdaily\n", "gg-quit\t1\tcancel\tdaily\n"] and not eng.killed)
+
+QORDER.clear()
+w, clock, eng = frozen_after(30)
+check("Q6: a freeze kill sends no notice - the bridge records it as the crash it is", len(eng.killed) == 1 and not QORDER)
+
+(m.urllib.request.urlopen, url_q) = saved_q
+if url_q is None:
+    os.environ.pop("CS2_LOG_HTTP_URL", None)
+else:
+    os.environ["CS2_LOG_HTTP_URL"] = url_q
+check("Q7: no bridge configured: the notice says so and the quit goes as before", m.quit_notice("daily") == ("none", None))
+
 # J. RCON not listening yet at boot (measured live: refused about a second after A2S first answered).
 #    A session that never opens says nothing about console.log, so it is retried in seconds and never burns a try.
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
@@ -512,7 +635,7 @@ check("J2: a dead RCON is capped at %d fast retries, then the %d ordinary tries 
       w.console is None and w.probe_rcon_misses == m.PROBE_RCON_MISSES and w.probe_tries >= m.PROBE_TRIES)
 
 
-# ---- K-P: the warm-up and the nightly prefetch (2026-10-20) ----
+# ---- K-P: the acf, the workshop log and the nightly prefetch (2026-10-20) ----
 ACF = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"30"\n\t"WorkshopItemsInstalled"\n\t{\n'
        '\t\t"111"\n\t\t{\n\t\t\t"size"\t\t"10"\n\t\t\t"timeupdated"\t\t"1000"\n\t\t\t"manifest"\t\t"7"\n\t\t}\n'
        '\t\t"222"\n\t\t{\n\t\t\t"size"\t\t"20"\n\t\t\t"timeupdated"\t\t"2000"\n\t\t\t"manifest"\t\t"8"\n\t\t}\n\t}\n'
@@ -520,12 +643,6 @@ ACF = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"30"\n\t"Worksho
        '\t\t"222"\n\t\t{\n\t\t\t"manifest"\t\t"8"\n\t\t}\n\t}\n}\n')
 check("K: an acf round-trips byte-identical through kv_parse/kv_dump", m.kv_dump(m.kv_parse(ACF)) + "\n" == ACF)
 check("K: acf_installed reads ids and timeupdated", m.acf_installed(ACF) == {"111": 1000, "222": 2000})
-gone = m.acf_forget(ACF, "111")
-check("K: acf_forget drops both entries of the item and nothing else",
-      gone is not None and '"111"' not in gone and m.acf_installed(gone) == {"222": 2000} and gone.count('"222"') == 2)
-check("K: acf_forget leaves a file without the item untouched", m.acf_forget(ACF, "999") == ACF)
-check("K: acf_forget refuses a file the parser cannot reproduce",
-      m.acf_forget(ACF.replace('\t\t"730"', ' "730"'), "111") is None)
 ev = m.download_events(["[2001-01-01 12:00:00] [AppID 730] Download item 333 requested by app",
                         "[2001-01-01 12:14:53] [AppID 730] Download item 333 result : OK",
                         "[2001-01-01 12:14:54] [AppID 730] Download item 444 result : No Connection", "noise"])
@@ -539,18 +656,20 @@ check("M: details_parse", det["111"] == (1, 1500) and det["444"] == (9, 0))
 missing, outdated = m.prefetch_plan(["333", "444", "555", "111"], {"111": 1000, "222": 2000}, {"111", "222"}, det, {"555"})
 check("M: plan = missing listed maps (not gone, not skipped) + newer Workshop copies (%s, %s)" % (missing, outdated),
       missing == ["333"] and outdated == ["111"])
-# N. --warmup-reset: before the engine starts, the item's folder and acf entries go; a second run changes nothing
+# the game volume's workshop folder for the scenarios below
 wsdir = os.path.join(ROOT, "game", "bin", "linuxsteamrt64", "steamapps", "workshop")
 os.makedirs(os.path.join(wsdir, "content", "730", "111"), exist_ok=True)
 with open(os.path.join(wsdir, "appworkshop_730.acf"), "w") as h:
     h.write(ACF)
-m.WARMUP, m.WARMUP_ITEM, m.WORKSHOP_DIR, m.WORKSHOP_ACF = True, "111", wsdir, os.path.join(wsdir, "appworkshop_730.acf")
-m.warmup_reset()
-after = open(m.WORKSHOP_ACF).read()
-check("N: --warmup-reset forgets the item (acf + folder)",
-      '"111"' not in after and not os.path.isdir(os.path.join(wsdir, "content", "730", "111")))
-m.warmup_reset()
-check("N: a second --warmup-reset changes nothing", open(m.WORKSHOP_ACF).read() == after)
+m.WORKSHOP_DIR, m.WORKSHOP_ACF = wsdir, os.path.join(wsdir, "appworkshop_730.acf")
+check("CLI: --warmup-reset (what an older pre.sh still calls) is gone", not hasattr(m, "warmup_reset"))
+saved_argv = sys.argv
+sys.argv = ["update-watch.py", "--warmup-reset"]
+try:
+    rc = m.main()
+finally:
+    sys.argv = saved_argv
+check("CLI: an argument it does not know exits at once (%r) - never the watcher's loop in the foreground of pre.sh" % (rc,), rc == 2)
 # N2. the download line: what is said, when, and to nobody when nobody is on
 sent = []
 real_rcon = m.rcon
@@ -628,8 +747,8 @@ json.dump([{"rank": 1, "id": 100, "name": "De Dust 2 (remake)!", "sizeMb": 5}, {
 json.dump([{"rank": 1, "id": 200, "name": "Bastion", "sizeMb": 5}, {"rank": 2, "id": 100, "name": "De Dust 2 (remake)!", "sizeMb": 5}], open(os.path.join(orgdata, "maps-deathmatch.json"), "w"))
 json.dump([{"rank": 1, "id": 300, "name": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439", "sizeMb": 5}], open(os.path.join(orgdata, "maps-wingman.json"), "w"))
 json.dump({"maps": [{"id": 400, "name": "My Map"}]}, open(os.path.join(orgdata, "ours.json"), "w"))
-saved = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, os.environ.get("GUNGAME_HUD_ADDON"))
-m.BRIDGE_DATA, m.WARMUP_ITEM = orgdata, "600"
+saved = (m.BRIDGE_DATA, m.WORKSHOP_ACF, os.environ.get("GUNGAME_HUD_ADDON"))
+m.BRIDGE_DATA = orgdata
 os.environ["GUNGAME_HUD_ADDON"] = "500"
 m.WORKSHOP_ACF = os.path.join(ROOT, "no-such.acf")
 line = m.organize(content_o, maps_o)
@@ -640,7 +759,7 @@ check("organize: Deathmatch, Wingman with no ASCII in its title, own before the 
       and look("400") == os.path.join(maps_o, "own", "400-my_map") and look("500") == os.path.join(maps_o, "hud", "500-hud"))
 check("organize: the link is relative, the file readable through it",
       not os.path.isabs(os.readlink(os.path.join(content_o, "100"))) and open(os.path.join(content_o, "100", "100_dir.vpk")).read() == "x")
-check("organize: the warm-up item stays where it is", os.path.isdir(os.path.join(content_o, "600")) and not os.path.islink(os.path.join(content_o, "600")))
+check("organize: an item no list names goes to other", look("600") == os.path.join(maps_o, "other", "600"))
 check("organize: the index lists them", "armsrace\t100\tDe Dust 2 (remake)!" in open(os.path.join(maps_o, "INDEX.tsv"), encoding="utf-8").read())
 check("organize: a second run changes nothing", m.organize(content_o, maps_o) == "maps folder: in order")
 os.unlink(os.path.join(content_o, "100"))
@@ -662,9 +781,9 @@ line = m.organize(content_o, maps_o)
 check("organize: a link to nothing goes, the prefetch fetches it again (%s)" % line, not os.path.lexists(os.path.join(content_o, "200")))
 m.BRIDGE_DATA = os.path.join(ROOT, "nothing-here")
 check("organize: no lists, nothing touched", "not readable" in m.organize(content_o, maps_o))
-m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF = saved[:3]
+m.BRIDGE_DATA, m.WORKSHOP_ACF = saved[:2]
 os.environ.pop("GUNGAME_HUD_ADDON", None)
-# O. warm-up: WARMUP_DELAY after the engine answers, one mm_download_addon; the result line ends it
+# the engine's workshop log, which the scenarios below write into
 wslog = os.path.join(ROOT, "workshop_log.txt")
 open(wslog, "w").close()
 m.WORKSHOP_LOG = wslog
@@ -675,21 +794,6 @@ def wsw(line):
         h.write(line + "\n")
 
 
-w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-step(w, clock, m.WARMUP_DELAY - 5)
-check("O: no warm-up inside the delay", not any(c.startswith("mm_download_addon") for c in eng.cmds))
-step(w, clock, 10)
-check("O: warm-up command sent after the delay",
-      eng.cmds.count("mm_download_addon 111") == 1 and w.workshop.warm["state"] == "running")
-wsw("[x] [AppID 730] Download item 111 requested by app")
-step(w, clock, 30)
-wsw("[x] [AppID 730] Download item 111 result : OK")
-step(w, clock, 3)
-check("O: the result line ends the warm-up, once",
-      w.workshop.warm["state"] == "done" and eng.cmds.count("mm_download_addon 111") == 1)
-w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-step(w, clock, m.WARMUP_DELAY + 5 + m.NOOP_AFTER + 5)
-check("O: no download started within NOOP_AFTER -> noop (the item was installed)", w.workshop.warm["state"] == "noop")
 # P. prefetch: in its window, nobody on -> missing then outdated, one at a time; a human pauses it; a day stamp ends it
 m.PREFETCH_RESTART = False           # the restart before the prefetch (03:25) has its own tests, T below
 bridge = os.path.join(ROOT, "bridge")
@@ -706,7 +810,7 @@ with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF)
 os.makedirs(os.path.join(wsdir, "content", "730", "111"), exist_ok=True)
 os.makedirs(os.path.join(wsdir, "content", "730", "222"), exist_ok=True)
-m.BRIDGE_DATA, m.PREFETCH_AT, m.WARMUP_ITEM = bridge, (3, 30), ""
+m.BRIDGE_DATA, m.PREFETCH_AT = bridge, (3, 30)
 m.fetch_details = lambda ids: {i: {"333": (1, 50), "222": (1, 2000), "111": (1, 1500), "666": (1, 9)}.get(i, (9, 0))
                                for i in ids}
 w, clock, eng = scenario(at("2026-10-05 03:29:00"))
@@ -728,7 +832,33 @@ check("P: queue empty -> done and stamped for the night",
       w.workshop.pf is None and w.state["prefetch_day"] == "2026-10-05")
 step(w, clock, 600)
 check("P: not again the same night", dl().count("mm_download_addon 333") == 1)
-m.PREFETCH_AT, m.WARMUP_ITEM = None, ""
+m.PREFETCH_AT = None
+
+
+# P1. the details batches go one at a time, at least STEAM_API_GAP after the last one ended (the owner's rule, 2026-11-04) - the loop
+#     ticks every second, so without the gap one batch a tick went out, a second apart
+asked = []
+
+
+def timed_details(ids):
+    asked.append(m.time.time())
+    m.time.sleep(0.4)                                    # the call itself takes a moment of the fake clock
+    return {i: (1, 50) for i in ids}
+
+
+saved_p1 = (m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH)
+m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH = timed_details, (3, 30), 1
+with open(m.WORKSHOP_ACF, "w") as h:
+    h.write(ACF)
+m.STEAM_API_LAST[0] = 0.0
+upvote("333", "111", "777", "888")                     # four maps in the keep set: four batches of one
+w, clock, eng = scenario(at("2026-10-05 03:30:05"))
+step(w, clock, 30)
+gaps = [round(b - (a + 0.4), 2) for a, b in zip(asked, asked[1:])]
+check("P1: the prefetch's details, one batch at a time, each at least %.0f s after the last ended (%d batches, gaps %s)"
+      % (m.STEAM_API_GAP, len(asked), gaps), len(asked) >= 3 and all(g >= m.STEAM_API_GAP for g in gaps))
+(m.fetch_details, m.PREFETCH_AT, m.DETAILS_BATCH) = saved_p1
+upvote("333", "111")
 
 
 # P2. the details API failing (it answers 502 in streaks): the batch is asked again after PREFETCH_DETAIL_RETRY,
@@ -743,7 +873,7 @@ def flaky(ids):
     return {i: {"333": (1, 50), "222": (1, 2000), "111": (1, 1500)}.get(i, (9, 0)) for i in ids}
 
 
-m.fetch_details, m.PREFETCH_AT, m.WARMUP_ITEM = flaky, (3, 30), ""
+m.fetch_details, m.PREFETCH_AT = flaky, (3, 30)
 with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF)
 w, clock, eng = scenario(at("2026-10-06 03:30:05"))
@@ -759,24 +889,8 @@ check("P2: the API down for good -> planned without details: nothing fetched bli
 m.PREFETCH_AT, m.PREFETCH_DETAIL_ERRORS = None, 40
 
 
-# O3. a warm-up whose item does not arrive for another reason than the stuck state ('Busy') is tried
-#     once more, and a second failure ends in a WARNING, not in "warm" ('No Connection' has no retry: O4 below)
-m.WARMUP_ITEM, m.PREFETCH_AT = "111", None
-w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-step(w, clock, m.WARMUP_DELAY + 5)
-wsw("[x] [AppID 730] Download item 111 requested by app")
-wsw("[x] [AppID 730] Download item 111 result : Busy")
-step(w, clock, 5)
-check("O3: a 'Busy' result is not 'done' - it waits to try again", w.workshop.warm["state"] == "waiting")
-step(w, clock, m.WARMUP_RETRY + 5)
-check("O3: the second try is sent after WARMUP_RETRY", eng.cmds.count("mm_download_addon 111") == 2)
-wsw("[x] [AppID 730] Download item 111 requested by app")
-wsw("[x] [AppID 730] Download item 111 result : Busy")
-step(w, clock, 5)
-check("O3: a second failure ends the warm-up as failed, with no third try",
-      w.workshop.warm["state"] == "failed" and eng.cmds.count("mm_download_addon 111") == 2)
 # P3. three failed downloads in a row ('Busy': not the stuck state, which stops it at once - U below) stop the night
-m.WARMUP_ITEM, m.PREFETCH_AT = "", (3, 30)
+m.PREFETCH_AT = (3, 30)
 with open(os.path.join(bridge, "maps.json"), "w") as h:
     json.dump([{"rank": 1, "id": 333}, {"rank": 2, "id": 444}, {"rank": 3, "id": 555}, {"rank": 4, "id": 777}], h)
 upvote("333", "444", "555", "777")
@@ -797,24 +911,26 @@ m.PREFETCH_AT = None
 
 
 # R. downloads broken in the engine process -> a "workshop" restart: only at 0 humans, the clean quit, limits
-def broken_warmup(w, clock):
-    """Drive a warm-up into 'No Connection': the process is marked broken at once (2026-10-22: no retry)."""
-    step(w, clock, m.WARMUP_DELAY + 5)
-    wsw("[x] [AppID 730] Download item 111 result : No Connection")
+def broken_download(w, clock):
+    """A player's download that ends 'No Connection': the process is marked broken at once (2026-10-22: no retry)."""
+    step(w, clock, 5)
+    wsw("[x] [AppID 730] Download item 998 requested by app")
+    wsw("[x] [AppID 730] Download item 998 result : No Connection")
     step(w, clock, 3)
 
 
-m.WARMUP_ITEM, m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = "111", None, None, False
+m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, None, False
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-eng.humans = 1
-broken_warmup(w, clock)
-check("R: a 'No Connection' warm-up marks the process broken", w.workshop.broken is not None)
+eng.hud, eng.humans = True, 1
+broken_download(w, clock)
+check("R: a player's download that ends 'No Connection' marks the process broken", w.workshop.broken is not None)
 step(w, clock, 120)
-check("R: with a human on, no restart and no chat warning", "quit" not in eng.cmds and not eng.chat)
+check("R: with a human on, no restart and no restart line", "quit" not in eng.cmds
+      and not any("Workshop downloads are broken" in n[1] for n in eng.notices))
 eng.humans = 0
 step(w, clock, 10)
 check("R: the first moment nobody is on: a line for the log, then the clean quit",
-      "quit" in eng.cmds and any("Workshop downloads are broken" in c for c in eng.chat))
+      "quit" in eng.cmds and any("Workshop downloads are broken" in n[1] for n in eng.notices))
 check("R: counted as a workshop restart", [e[1] for e in w.state["restarts"]] == ["workshop"]
       and w.state["pending"]["kind"] == "workshop")
 # R2. the limits: one 1 h ago -> warn only; three in 24 h -> warn only
@@ -823,7 +939,7 @@ for history, label in (([[int(clock.t) - 3600, "workshop"]], "one 1 h ago"),
     w, clock2, eng = scenario(at("2026-10-04 15:00:00"))
     w.state["restarts"] = [[e[0] - int(clock.t) + int(clock2.t), e[1]] for e in history]
     eng.humans = 0
-    broken_warmup(w, clock2)
+    broken_download(w, clock2)
     step(w, clock2, 60)
     check("R2: %s -> no restart, only a warning" % label, "quit" not in eng.cmds and w.workshop.broken is not None)
 # R2b. the gate's warning comes once per change, not once a second - it named the age of the restart it
@@ -834,7 +950,7 @@ try:
     w, clock2, eng = scenario(at("2026-10-04 15:00:00"))
     w.state["restarts"] = [[int(clock2.t) - 60, "daily"]]
     eng.humans = 0
-    broken_warmup(w, clock2)
+    broken_download(w, clock2)
     step(w, clock2, 180)
 finally:
     m.log = real_log
@@ -849,8 +965,8 @@ check("R2b: every gate names a moment, never an age",
       and " ago" not in m.workshop_block({"restarts": [[1000 - 3600, "workshop"]]}, 1000))
 # R3. a download that works later clears the flag; a new engine pid clears it too
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-eng.humans = 1
-broken_warmup(w, clock)
+eng.hud, eng.humans = True, 1
+broken_download(w, clock)
 wsw("[x] [AppID 730] Download item 999 result : OK")
 step(w, clock, 3)
 check("R3: an OK download clears the broken flag", w.workshop.broken is None)
@@ -896,41 +1012,38 @@ def wsw2(*lines):
         h.write("\n".join(lines) + "\n")
 
 
-# O4. a warm-up that ends 'No Connection' marks the process broken AT ONCE (no 10-minute retry), and the logs are kept
-m.WARMUP_ITEM, m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = "111", None, None, False
+# O4. a download that ends 'No Connection' marks the process broken AT ONCE, and the Steam client's logs are kept
+m.PREFETCH_AT, m.RESTART_AT, m.AUTOUPDATE = None, None, False
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-eng.humans = 1
-step(w, clock, m.WARMUP_DELAY + 5)
-wsw2("[x] [AppID 730] Download item 111 requested by app", CANCEL_MANIFESTS,
-     "[x] [AppID 730] Download item 111 result : No Connection")
+eng.hud, eng.humans = True, 1
+step(w, clock, 5)
+wsw2("[x] [AppID 730] Download item 998 requested by app", CANCEL_MANIFESTS,
+     "[x] [AppID 730] Download item 998 result : No Connection")
 step(w, clock, 3)
 snaps = sorted(os.listdir(m.SNAPSHOT_DIR)) if os.path.isdir(m.SNAPSHOT_DIR) else []
-check("O4: 'No Connection' -> failed and broken at once, no second try",
-      w.workshop.warm["state"] == "failed" and w.workshop.broken is not None and eng.cmds.count("mm_download_addon 111") == 1)
+check("O4: 'No Connection' -> broken at once", w.workshop.broken is not None)
 summary = open(os.path.join(m.SNAPSHOT_DIR, snaps[0], "summary.txt")).read() if snaps else ""
 check("O4: one snapshot of the Steam logs, with a summary (%s)" % snaps,
       len(snaps) == 1 and os.path.exists(os.path.join(m.SNAPSHOT_DIR, snaps[0], "content_log.txt"))
       and "No target sources connected: 1" in summary and "HTTP 503: 1" in summary and "2 manifests" in summary)
-step(w, clock, m.WARMUP_RETRY + 60)
-check("O4: still one try and one snapshot after the old retry time",
-      eng.cmds.count("mm_download_addon 111") == 1 and len(os.listdir(m.SNAPSHOT_DIR)) == 1)
+step(w, clock, 660)
+check("O4: still one snapshot ten minutes later", len(os.listdir(m.SNAPSHOT_DIR)) == 1)
 eng.humans = 0
 step(w, clock, 10)
 check("O4: ... and the download restart follows at 0 humans", "quit" in eng.cmds
       and [e[1] for e in w.state["restarts"]] == ["workshop"])
-# O5. 'Failure' with a 'No Download Source' cancel line is the stuck state too; a disk error is retried as before
+# O5. 'Failure' with a 'No Download Source' cancel line is the stuck state too; a disk error is not
 for cancel, stuck, label in ((CANCEL_CHUNK, True, "chunk 'No Download Source'"),
                              ("[x] [AppID 730] Update canceled: Failed updating depot 730 (Disk write failure)", False,
                               "a disk write failure")):
     w, clock, eng = scenario(at("2026-10-04 15:00:00"))
-    eng.humans = 1
-    step(w, clock, m.WARMUP_DELAY + 5)
-    wsw2("[x] [AppID 730] Download item 111 requested by app", cancel, "[x] [AppID 730] Download item 111 result : Failure")
+    eng.hud, eng.humans = True, 1
+    step(w, clock, 5)
+    wsw2("[x] [AppID 730] Download item 997 requested by app", cancel, "[x] [AppID 730] Download item 997 result : Failure")
     step(w, clock, 3)
-    check("O5: %s -> %s" % (label, "broken at once" if stuck else "one retry, not broken"),
-          (w.workshop.broken is not None and w.workshop.warm["state"] == "failed") if stuck
-          else (w.workshop.broken is None and w.workshop.warm["state"] == "waiting"))
-# U. the prefetch: never in a broken process, and only after the warm-up is done
+    check("O5: %s -> %s" % (label, "broken at once" if stuck else "not broken"),
+          (w.workshop.broken is not None) if stuck else (w.workshop.broken is None))
+# U. the prefetch: it starts as its window opens, never in a broken process
 with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF)
 with open(os.path.join(bridge, "maps.json"), "w") as h:
@@ -939,14 +1052,9 @@ upvote("333")
 m.fetch_details = lambda ids: {i: (1, 50) for i in ids}
 m.PREFETCH_AT, m.PREFETCH_RESTART = (3, 30), False
 w, clock, eng = scenario(at("2026-10-12 03:30:05"))
-step(w, clock, 20)
-check("U: inside the window, but the warm-up is waiting -> no prefetch yet",
-      not [c for c in eng.cmds if c.startswith("mm_download_addon")] and w.workshop.pf is None)
-step(w, clock, m.WARMUP_DELAY)
-wsw2("[x] [AppID 730] Download item 111 requested by app", "[x] [AppID 730] Download item 111 result : OK")
 step(w, clock, 30)
-check("U: the warm-up done -> the prefetch starts (333): %s" % [c for c in eng.cmds if c.startswith("mm_download_addon")],
-      [c for c in eng.cmds if c.startswith("mm_download_addon")] == ["mm_download_addon 111", "mm_download_addon 333"])
+check("U: inside the window, nobody on -> the prefetch starts at once (333): %s" % [c for c in eng.cmds if c.startswith("mm_download_addon")],
+      [c for c in eng.cmds if c.startswith("mm_download_addon")] == ["mm_download_addon 333"])
 wsw2("[x] [AppID 730] Download item 333 requested by app", CANCEL_EMPTY, "[x] [AppID 730] Download item 333 result : Failure")
 step(w, clock, 5)
 check("U: a stuck prefetch download stops the run unstamped (it goes on in the next process) and marks broken",
@@ -955,7 +1063,7 @@ step(w, clock, 120)
 check("U: ... and no new run starts in the broken process",
       w.workshop.pf is None and [c for c in eng.cmds if c.startswith("mm_download_addon")].count("mm_download_addon 333") == 1)
 # T. a fresh process before the prefetch: 03:25, only at 0 humans, the clean quit, once a night
-m.WARMUP_ITEM, m.PREFETCH_RESTART = "", True
+m.PREFETCH_RESTART = True
 age = {"s": 7200}
 m.engine_age = lambda pid: age["s"]
 w, clock, eng = scenario(at("2026-10-13 03:24:00"))
@@ -1083,7 +1191,7 @@ def put(folder, wid, text="x"):
         h.write(text)
 
 
-ITEMS = ("100", "101", "102", "103", "150", "400", "500", "600")
+ITEMS = ("100", "101", "102", "103", "150", "400", "500")
 for wid in ITEMS[:4] + ITEMS[5:]:
     put(os.path.join(content4, wid), wid)
 acf4 = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"0"\n\t"WorkshopItemsInstalled"\n\t{\n'
@@ -1099,8 +1207,8 @@ data_files = {"maps.json": [{"rank": 1, "id": 100, "name": "Up Voted"}, {"rank":
                                "trend": {"armsrace": ["102"], "deathmatch": ["150"], "wingman": []}},
               "queues.json": {"version": 1, "random": {"armsrace-new": ["102"], "armsrace-original": ["102"], "deathmatch": ["150"],
                                                        "wingman": ["de_debris"]}, "requested": []}}
-saved4 = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP,
-          m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE, m.time)
+saved4 = (m.BRIDGE_DATA, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.keepset.KEEP_TOP,
+          m.keepset.KEEP_MIN_TOP, m.keepset.KEEP_MIN_QUEUE, m.time)
 import time as real_time  # noqa: E402
 m.time = real_time
 data_files["ratings.json"]["fetched"] = real_time.time() - 600
@@ -1115,14 +1223,15 @@ def write_data(**over):
 write_data()
 with open(os.path.join(ws4, "appworkshop_730.acf"), "w") as h:
     h.write(acf4)
-m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR = data4, "600", os.path.join(ws4, "appworkshop_730.acf"), ws4
-m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP, m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE = hand4, depot4, "dryrun", 1, 1, 1
+m.BRIDGE_DATA, m.WORKSHOP_ACF, m.WORKSHOP_DIR = data4, os.path.join(ws4, "appworkshop_730.acf"), ws4
+m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE = hand4, depot4, "dryrun"
+m.keepset.KEEP_TOP, m.keepset.KEEP_MIN_TOP, m.keepset.KEEP_MIN_QUEUE = 1, 1, 1
 os.environ["GUNGAME_HUD_ADDON"] = "500"
 line = m.organize(content4, maps4)
 stored = lambda: sorted(n.split("-", 1)[0] for k in m.MAP_TYPES for n in os.listdir(os.path.join(maps4, k)))  # noqa: E731
 lists = sorted(n for n in os.listdir(m.STATE_DIR) if n.startswith("deleted-"))
 check("N4: a dry run lists the maps outside the keep set and deletes nothing (%s)" % line,
-      stored() == sorted(set(ITEMS) - set(["150", "600"])) and lists and lists[-1].endswith("-dryrun.tsv")
+      stored() == sorted(set(ITEMS) - set(["150"])) and lists and lists[-1].endswith("-dryrun.tsv")
       and open(os.path.join(m.STATE_DIR, lists[-1])).read().splitlines()[1:] == ["armsrace\t101\tNot Kept\t1073", "other\t103\t103\t1073"])
 keep4 = json.load(open(m.KEEP_FILE))
 check("N4: keep.json: the parts, their sizes, the delete mode, no problems",
@@ -1165,27 +1274,46 @@ check("N4: deletion on: the maps outside the keep set go - folder, link, acf ent
       stored() == ["100", "102", "150", "400", "500"] and not os.path.lexists(os.path.join(content4, "101"))
       and not os.path.lexists(os.path.join(content4, "103")) and "101" not in m.acf_installed(acf_now) and '"103"' not in acf_now
       and any(n.startswith("deleted-") and n.endswith("-done.tsv") for n in os.listdir(m.STATE_DIR)))
-check("N4: never the own map, the HUD, the queued map, the upvoted one or the warm-up item",
-      set(["100", "102", "400", "500"]) <= set(stored()) and os.path.isdir(os.path.join(content4, "600")) and "600" in m.acf_installed(acf_now))
+check("N4: never the own map, the HUD, the queued map or the upvoted one", set(["100", "102", "400", "500"]) <= set(stored()))
 write_data(**{"votes.json": {}, "queues.json": dict(data_files["queues.json"], random={"armsrace-new": [], "armsrace-original": ["102"],
                                                                                      "deathmatch": ["150"], "wingman": ["de_debris"]})})
-m.KEEP_MIN_QUEUE = 1
+m.keepset.KEEP_MIN_QUEUE = 1
 line = m.organize(content4, maps4)
 check("N4: an empty queue is a reason to refuse: 100 and 102 stay (%s)" % line, "100" in stored() and "102" in stored() and "refused" in line)
 put(os.path.join(content4, "180"), "180")
 line = m.organize(content4, maps4)
 check("N4: CS2_MAPS_DELETE=off-style refusals keep a new download too", "180" in stored())
-(m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.KEEP_TOP,
- m.KEEP_MIN_TOP, m.KEEP_MIN_QUEUE, m.time) = saved4
+# KM. keepset.py not mounted (the deployment's compose file names it; Docker makes a missing source a directory): the keep set says why, nothing is deleted
+write_data()
+saved_ks = sys.modules.get("keepset")
+sys.modules["keepset"] = None                                   # what an import of a file that is not there raises: ImportError
+try:
+    bare = types.ModuleType("uw_bare")
+    bare.__dict__["__name__"] = "uw_bare"
+    exec(compile(open(SRC, encoding="utf-8").read(), "update-watch", "exec"), bare.__dict__)
+finally:
+    sys.modules["keepset"] = saved_ks
+bare.BRIDGE_DATA, bare.WORKSHOP_ACF, bare.WORKSHOP_DIR, bare.HANDOVER_DIR, bare.DEPOTCACHE, bare.MAPS_DELETE = \
+    data4, m.WORKSHOP_ACF, ws4, hand4, depot4, "on"
+check("KM: no keepset.py: an empty keep set that says why, and a warning at the watcher's start",
+      bare.keepset is None and bare.keep_set(kin(), NOW, "500")["problems"][0].startswith("the keep set could not be computed: keepset.py is not")
+      and any("keepset.py" in x for x in bare.BOOT_WARNINGS))
+before_km = stored()
+put(os.path.join(content4, "190"), "190")
+line = bare.organize(content4, maps4)
+check("KM: no keepset.py: --organize deletes nothing, a new download stays (%s)" % line,
+      set(before_km) <= set(stored()) and "190" in stored() and "refused" in line)
+(m.BRIDGE_DATA, m.WORKSHOP_ACF, m.WORKSHOP_DIR, m.HANDOVER_DIR, m.DEPOTCACHE, m.MAPS_DELETE, m.keepset.KEEP_TOP,
+ m.keepset.KEEP_MIN_TOP, m.keepset.KEEP_MIN_QUEUE, m.time) = saved4
 os.environ.pop("GUNGAME_HUD_ADDON", None)
 
 # PL. the prefetch's list: what players queued, the queues' entries in play order, the upvoted maps, the top lists, own maps, the HUD
-saved_pl = (m.BRIDGE_DATA, m.WARMUP_ITEM)
+saved_pl = m.BRIDGE_DATA
 plist = os.path.join(ROOT, "pldata")
 os.makedirs(plist, exist_ok=True)
 for name, value in kin().items():
     json.dump(value, open(os.path.join(plist, name), "w"))
-m.BRIDGE_DATA, m.WARMUP_ITEM = plist, ""
+m.BRIDGE_DATA = plist
 os.environ["GUNGAME_HUD_ADDON"] = "500"
 real_t = m.time
 m.time = types.SimpleNamespace(time=lambda: NOW, strftime=real_t.strftime, localtime=real_t.localtime)
@@ -1194,7 +1322,7 @@ check("PL: the prefetch looks after the keep set and the queues: %d maps, each o
       listed[:6] == ["5001", "1100", "1010", "2001", "3001", "1101"] and "1149" in listed and "4001" in listed and "500" in listed
       and len(listed) == len(set(listed)) and "1002" in skip and "1003" in skip and "1150" in listed)
 m.time = real_t
-m.BRIDGE_DATA, m.WARMUP_ITEM = saved_pl
+m.BRIDGE_DATA = saved_pl
 os.environ.pop("GUNGAME_HUD_ADDON", None)
 
 # J9. job 9: the queued maps downloaded in the background - the requests first, then the queues' entries in play order; one at a
@@ -1203,7 +1331,7 @@ j9 = os.path.join(ROOT, "j9data")
 os.makedirs(j9, exist_ok=True)
 json.dump({"version": 1, "random": {"armsrace-new": ["901", "902"], "armsrace-original": ["903"], "deathmatch": ["904", "de_dust2"],
                                     "wingman": ["905"]}, "requested": ["900"]}, open(os.path.join(j9, "queues.json"), "w"))
-saved9 = (m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
+saved9 = (m.BRIDGE_DATA, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, os.environ.get("CS2_LOG_HTTP_URL"))
 with open(m.WORKSHOP_ACF, "w") as h:
     h.write(ACF.replace('"111"', '"901"'))                     # 901 installed, with its folder: on disk
 os.makedirs(os.path.join(wsdir, "content", "730", "901"), exist_ok=True)
@@ -1231,7 +1359,7 @@ def fake_urlopen(request, timeout=None):
 
 m.urllib.request.urlopen = fake_urlopen
 os.environ["CS2_LOG_HTTP_URL"] = "http://bridge.test:8080/log/abc123"
-m.BRIDGE_DATA, m.WARMUP_ITEM, m.PREFETCH_AT = j9, "", None
+m.BRIDGE_DATA, m.PREFETCH_AT = j9, None
 w, clock, eng = scenario(at("2026-10-04 15:00:00"))
 eng.hud, eng.humans = True, 2
 step(w, clock, 30)
@@ -1296,7 +1424,7 @@ step(w, clock, 5)
 check("J9: a stuck result marks the process broken (job 6), and nothing more starts in it", w.workshop.broken is not None)
 step(w, clock, 60)
 check("J9: ... nothing more", dl()[-1] == "mm_download_addon 902" and dl().count("mm_download_addon 902") == 2)
-(m.BRIDGE_DATA, m.WARMUP_ITEM, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, url9) = saved9
+(m.BRIDGE_DATA, m.WORKSHOP_ACF, m.PREFETCH_AT, m.urllib.request.urlopen, url9) = saved9
 if url9 is None:
     os.environ.pop("CS2_LOG_HTTP_URL", None)
 os.environ["CS2_LOG_HTTP_URL"] = "http:\\/\\/bridge:8080\\/log\\/d4ab"

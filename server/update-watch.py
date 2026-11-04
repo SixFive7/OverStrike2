@@ -6,12 +6,16 @@ the game) and lives as long as the container. Deployed to <config dir>/update-wa
 bind-mounted read-only at /home/steam/cs2-update-watch.py (source of truth: server/ in the Over Strike 2
 repo). Python 3.9 - the version in the joedwards32/cs2:4.0.1 image.
 
-NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 never restart anything)
+THE JOBS, each behind its own switch (5 and 9 never restart anything). Their numbers stay: 4, the warm-up after every boot, is gone
+(the owner's 72 a, 2026-11-04) - the depotcache on the volume made its re-check a matter of seconds, and the first download of every
+process (job 9's right after the start roll, a player's) tests the download path the same way, marking a stuck process for job 6.
   1. UPDATES (CS2_AUTOUPDATE). entry.sh runs SteamCMD only when the container starts, so a Valve patch left the
      server rejecting every client for ~44 hours ("Bad host version"). Every CHECK_EVERY this asks
      Valve's ISteamApps/UpToDateCheck whether the installed build is current and restarts it when it is not.
-  2. DAILY RESTART (CS2_RESTART_AT, 07:00 local time). Once a day,
-     players or not, but only between matches and announced in chat.
+  2. DAILY RESTART (CS2_RESTART_AT, 07:00 local time). Once a day, and only while nobody is on (A2S and RCON) - like the
+     download and the prefetch restarts, never a kick (the owner's 73 a, 2026-11-04: it no longer quits at a match end, which
+     took the vote down with it). With players on it waits; a day they stay on until DAILY_WINDOW (2 h) after the slot has none.
+     It is the moment the night's hand-overs are taken in and the maps outside the keep set go (--organize, at every start).
   3. FREEZE RECOVERY (CS2_FREEZE_RECOVERY). A frozen engine never exits, so Docker never restarts it; this kills it
      after CS2_FREEZE_GRACE_SECONDS (10 s) of silence, on either of two paths:
      a. The error-map signature. Some workshop items drive the engine into its `error` map:
@@ -36,14 +40,6 @@ NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 
      host stall of more than 10 s (the whole box frozen, not the game) would restart a healthy server once, and the
      players on it would reconnect after ~15-20 s.
 
-  4. WARM-UP (CS2_WARMUP, CS2_WARMUP_ITEM). The first workshop download in an engine process makes the Steam client
-     re-request the depot manifest of every installed item first (~250 a minute: a large collection takes many
-     minutes) - but only those it has no verified manifest for in ~/Steam/depotcache; with that folder on a volume
-     the warm-up takes seconds (THE STUCK STATE below). So
-     CS2_WARMUP_DELAY_SECONDS after a new engine first answers A2S this sends `mm_download_addon <CS2_WARMUP_ITEM>`
-     (MultiAddonManager: a download without a map change) and logs how long the job took and how many manifests the
-     depotcache holds. pre.sh runs `update-watch.py --warmup-reset` before every engine start - nothing holds the acf
-     then - so that item is never installed at boot and the job is a real one: a test of the download path.
   5. NIGHTLY PREFETCH (CS2_PREFETCH_AT, CS2_PREFETCH_MINUTES). Once a night inside that window, and only while A2S
      shows nobody (it pauses for players and carries on when they leave): asks the Workshop for time_updated of the maps
      it looks after, then `mm_download_addon`s each one that is missing and each one whose Workshop copy is newer than
@@ -55,8 +51,8 @@ NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 
      gets stuck: every workshop download ends "No Connection" ("No target sources connected") while SteamCMD fetches
      the same item at once, and only a restart clears it. Why
      (THE STUCK STATE below): the client has dropped every download source it had, and a process never
-     gets them back. So a warm-up or prefetch download that ends "No Connection" marks the process broken at once
-     (a retry in the same process cannot work); any other failure is retried once. A "workshop" restart then becomes
+     gets them back. So any download that ends "No Connection" - the prefetch's, job 9's or a player's - marks the process
+     broken at once (a retry in the same process cannot work). A "workshop" restart then becomes
      due: only while A2S and RCON both show 0 humans (with players on it waits - never a kick, never a match-end
      restart), through the same clean RCON `quit` as the daily restart (the bridge reads its echo as a clean shutdown,
      not a crash), announced in the server log first. At most one per 2 h and 3 per rolling 24 h; past that it only
@@ -65,16 +61,15 @@ NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 
      on the game volume, with a summary.txt (the newest 10 are kept): the evidence dies with the container otherwise.
   7. FRESH PROCESS FOR THE PREFETCH (CS2_PREFETCH_RESTART). A clean restart
      PREFETCH_RESTART_LEAD (5 min) before CS2_PREFETCH_AT - 03:25 - so the nightly prefetch always runs in a fresh
-     engine process with all its download sources, warmed: only at 0 humans (A2S and RCON), the same clean quit,
-     never with players on (it waits for an empty server until the prefetch window closes). An engine younger than
-     PREFETCH_FRESH (20 min) is fresh already and is not restarted. The prefetch itself starts only once that process's
-     warm-up is done - not on the clock - and never in a process marked broken.
+     engine process with all its download sources: only at 0 humans (A2S and RCON), the same clean quit, never with
+     players on (it waits for an empty server until the prefetch window closes). An engine younger than PREFETCH_FRESH
+     (20 min) is fresh already and is not restarted. The prefetch never starts in a process marked broken.
   8. THE DOWNLOAD LINE (CS2_DOWNLOAD_LINE; since 2026-11-02). While the server downloads a map somebody is
      waiting for - a vote's result, a request, a Deathmatch or Wingman Workshop map, an id typed on the keyboard - the HUD's news
      line says so, with the progress, once it has taken LINE_AFTER seconds: nothing else on screen tells them why nothing
      happens. The engine's own download (host_workshop_map) prints only "[Workshop] Updating <id>: state <n>"; MultiAddonManager's
      (mm_download_addon) prints its bytes every second; both are read from console.log, and the engine's bytes from the cache's
-     staging folders. Never for the watcher's own warm-up, prefetch and job 9, never with nobody on, never in chat. A player's
+     staging folders. Never for the watcher's own prefetch and job 9, never with nobody on, never in chat. A player's
      download that ends "No Connection" marks the process broken like the watcher's own (job 6): the restart waits for an
      empty server, as ever.
   9. THE QUEUED MAPS IN THE BACKGROUND (CS2_READY; since 2026-11-03: random maps never wait for a download). The bridge rolls its
@@ -83,7 +78,7 @@ NINE JOBS, each behind its own switch in deploy/compose.example.yml (4, 5 and 9 
      seconds this looks which of them are not on disk and downloads the next one - the requests first, then the queues' first
      entries, their second ones, and so on - with `mm_download_addon`, one at a time, also while people play, and silently: no
      news line, since nobody waits for it. Never while a download somebody waits for runs (job 8's: it always goes first), nor
-     before the warm-up is done, nor beside the prefetch, nor in a process whose downloads are broken; a stuck result marks the
+     beside the prefetch, nor in a process whose downloads are broken; a stuck result marks the
      process broken exactly like job 6's own. A map a player picks while it is being fetched is theirs from then on: the line
      shows it. After every look - and at least every READY_REPORT_EVERY - the bridge hears which queued maps are on disk (POST
      /ready/<secret>, the log push's own address and secret), and its random picks take those first. Right before a download starts
@@ -96,11 +91,11 @@ THE MAPS FOLDER (`update-watch.py --organize`, run by pre.sh before every engine
 map <id>-<name> - on the game volume, and Steam's steamapps/workshop/content/730/<id> is a relative link to its folder. Every step
 is one rename or one link on one file system, with no engine running. What Steam downloaded since the last run is a real folder
 in content/730 (a new map; an update may replace a link by a real folder too): it moves into its type's folder and gets its link;
-an older copy of it there goes. Moved between types when the lists say so, renamed when a title changes. The warm-up item stays where
-Steam puts it: it is forgotten at every boot. CS2_MAPS_LAYOUT=off leaves everything alone. Then, in the same run: THE HAND-OVER and
+an older copy of it there goes. Moved between types when the lists say so, renamed when a title changes. CS2_MAPS_LAYOUT=off leaves
+everything alone. Then, in the same run: THE HAND-OVER and
 THE DELETION.
 
-THE KEEP SET (the owner's rules of 2026-11-03, keep_set; workshop-sync.py has the same function, word for word): the maps the server
+THE KEEP SET (the owner's rules of 2026-11-03, in keepset.py beside this script, shared with workshop-sync.py): the maps the server
 stores. Every map with at least one player's up vote in votes.json (an up vote is kept however many down votes the map has; too-big
 and ads votes are down votes); per mode, three lists of its 100 playable maps (on that mode's list, not on broken.json, not gone
 from the Workshop, no crash on record), together up to 300 - the best Workshop score (Top Rated: vote_data.score), the most
@@ -118,8 +113,8 @@ client then holds it exactly as if it had downloaded it itself: it loads without
 like any other (the prefetch's time_updated against the acf's, the client's manifest against the latest).
 
 THE DELETION (CS2_MAPS_DELETE, off | dryrun | on; MAPS_DELETE_DEFAULT): every stored map outside the keep set - its acf entries
-(backed up, one atomic write), its link, its folder - in armsrace, deathmatch, wingman and other; never own, never hud, never the
-warm-up item, a queued or a requested map, whatever the keep set says. Refused, with the reason in the log, when any input is
+(backed up, one atomic write), its link, its folder - in armsrace, deathmatch, wingman and other; never own, never hud, never a
+queued or a requested map, whatever the keep set says. Refused, with the reason in the log, when any input is
 missing or does not parse, the ratings are over 3 days old or have the scores or subscriptions of under 90% of a list, a mode has no
 Most Popular order, any of a mode's three lists is under 50 maps, a queue holds under 10, or there is no own map or HUD item. Every run writes its list to update-watch/deleted-<time>-<done | dryrun |
 refused>.tsv and logs the count, the size and the volume's free space before and after. dryrun writes the list and deletes nothing.
@@ -141,17 +136,26 @@ HOW A RESTART HAPPENS
   Planned (update, daily): RCON `quit` - the engine exits, game/cs2.sh returns (its relaunch loop only repeats
   on exit code 42), entry.sh reaches its end, PID 1 exits and Docker's `restart: always` re-enters entry.sh, the
   only thing that re-runs SteamCMD. RCON `_restart` would NOT update: cs2.sh relaunches the binary in place.
-  The quit is echoed into the log stream as `rcon from ...: command "quit"`, which the bridge reads as a clean
-  shutdown, so it is not recorded as a crash. Freeze: SIGTERM, then SIGKILL, to the engine; the bridge records
-  that one as a crash of the map that caused it, which is the truth.
-  When nobody is on, a planned restart happens at once. With players on it is announced, then waits for the next
-  `Game Over:` (one per match; mp_match_end_restart replays the map straight away) and quits 3 s after it.
+  Right before the quit the watcher tells the bridge (POST /quitting/<secret>, "gg-quit 1 <kind>", over the ready
+  report's own link; the owner's 47 a, 2026-11-04), which takes that as the clean shutdown: the quit's echo in the
+  log stream (`rcon from ...: command "quit"`), its only proof before, dies with the process - the engine segfaults
+  on quit, 5 of 5 planned quits since 2026-11-03, and the last log batch goes with it - and the bridge booked a
+  crash on an innocent map. The echo stays the backup. A notice the bridge does not take (down, not answering, an
+  older bridge) holds the quit: the restart stays due and the notice is tried again every minute, and after
+  QUIT_NOTICE_PATIENCE (30 min) without the bridge's answer any planned restart goes ahead anyway - a false crash mark
+  can be cleared (the owner's 87 a, 2026-11-04). A quit that cannot be delivered after a notice sends the notice's cancel. No bridge
+  configured at all (no CS2_LOG_HTTP_URL): the echo alone, as before. Freeze: SIGTERM, then SIGKILL, to the engine,
+  with no notice; the bridge records that one as a crash of the map that caused it, which is the truth.
+  When nobody is on, a planned restart happens at once. Only an update restart goes with players on: it is announced,
+  then waits for the next `Game Over:` (one per match; mp_match_end_restart replays the map straight away) and quits 3 s
+  after it - an outdated server turns every new player away. The daily, the download and the prefetch restarts wait for
+  an empty server instead.
 
 WHERE IT LOOKS
   The watcher cannot read the container's stdout, so the engine runs with -condebug (console.log) and
   sv_logecho 1 (game-event lines such as `Game Over:` echoed into the console) - both set in the deployment's compose file. At start
   it proves the file is live: an RCON `echo` of a random token must appear in a console.log within 10 s. If no
-  file proves live, freeze recovery is off and planned restarts wait for an empty server; the log says so.
+  file proves live, freeze recovery is off and an update restart waits for an empty server too; the log says so.
 
 THE VERSION TRAP
   Valve's UpToDateCheck does a numeric >= against required_version and reports "up to date" for almost any
@@ -285,6 +289,25 @@ CONSOLE_CANDIDATES = [os.path.join(STEAMAPPDIR, "game", "csgo", "addons", "metam
 GAME_PORT = int_env("CS2_PORT", 27015, 1, 65535)
 RCON_PASSWORD = os.environ.get("CS2_RCONPW") or ""
 VALVE_URL = "https://api.steampowered.com/ISteamApps/UpToDateCheck/v1/?appid=730&version=%d"
+STEAM_API_GAP = 2.0             # seconds from the end of one Steam Web API call of this watcher to the start of the next: one at a time
+                                # (the loop is single-threaded) and at least 2 s apart - the owner's rule for every Web API caller (2026-11-04)
+STEAM_API_LAST = [0.0]          # time.time() when the last one ended
+
+
+def steam_api_free(block):
+    """Before a Steam Web API call (the update check, the prefetch's details): True when it may go now. block: sleep out what is
+    left of STEAM_API_GAP first (the update check, once every 30 minutes); else False, and the caller asks again on a later tick."""
+    left = STEAM_API_LAST[0] + STEAM_API_GAP - time.time()
+    if left <= 0:
+        return True
+    if block:
+        time.sleep(left)
+        return True
+    return False
+
+
+def steam_api_done():
+    STEAM_API_LAST[0] = time.time()
 USER_AGENT = "cs2-update-watch/2 (Over Strike 2; server/update-watch.py)"
 TZNAME = os.environ.get("TZ") or "UTC"
 
@@ -398,6 +421,7 @@ def valve_verdict(raw, vint):
 
 
 def valve_check(vint):
+    steam_api_free(block=True)
     try:
         request = urllib.request.Request(VALVE_URL % vint, headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
@@ -406,6 +430,8 @@ def valve_check(vint):
             raw = response.read(65536).decode("utf-8", "replace")
     except Exception as error:  # urllib raises a wide family; none of them may stop the loop
         return "unknown", "%s: %s" % (type(error).__name__, error)
+    finally:
+        steam_api_done()
     return valve_verdict(raw, vint)
 
 
@@ -496,6 +522,7 @@ def silence_confirmed(now, a2s_since, a2s_fails, rcon_since, rcon_fails, armed, 
 
 
 PLANNED_KINDS = ("update", "daily", "prefetch")
+EMPTY_ONLY = ("daily", "workshop", "prefetch")   # planned restarts that wait for an empty server; only an update quits at a match end
 
 
 def planned_block(state, now):
@@ -560,7 +587,8 @@ def chat_safe(text, limit=120):
 
 
 def texts(kind, back):
-    """(warning when it becomes due, line at the match end) for a planned restart."""
+    """(warning when it becomes due, line right before the quit) for a planned restart. Only an update restart waits for a match end
+    with players on; the download and prefetch restarts say one line for the log at 0 humans; the daily restart says nothing."""
     if kind == "workshop":
         return ("", "Workshop downloads are broken in this server process - restarting it while nobody is on (update-watch). "
                     "Back in %s." % say_back_in(back))
@@ -570,8 +598,7 @@ def texts(kind, back):
     if kind == "update":
         return ("A CS2 update is out: the server restarts at the end of this match to install it.",
                 "Restarting to install the CS2 update - back in a minute or two. Restart CS2 to update, then reconnect.")
-    return ("Daily server restart at the end of this match - back %s later." % say_back_in(back),
-            "Daily server restart now - back in %s. Reconnect then (console: retry)." % say_back_in(back))
+    return ("", "")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -906,29 +933,16 @@ class Tail:
 
 
 # ------------------------------------------------------------------------------------------------
-# Workshop: the warm-up after every engine start and the nightly prefetch
+# Workshop: the nightly prefetch and the downloads in the background (job 9)
 # ------------------------------------------------------------------------------------------------
-# Why: the first workshop download in an engine process makes the Steam client re-request the depot manifest of EVERY
-# installed item it has no verified copy of in ~/Steam/depotcache before it fetches the requested one (~250 manifests a
-# minute: many minutes for a large collection with an empty depotcache, seconds with it
-# full). After that one job, later downloads in the same process are fast. So the watcher spends that job
-# right after boot on a throwaway item (the warm-up), and once a night it brings every listed or installed map up to
-# date while nobody plays (the prefetch) - both through MultiAddonManager's `mm_download_addon`, which downloads into
-# the server's own cache without changing the map. Neither restarts anything; the restarts are jobs 6 and 7.
-
-WARMUP = flag_env("CS2_WARMUP", True)
-WARMUP_ITEM = (os.environ.get("CS2_WARMUP_ITEM") or "").strip()
-if WARMUP_ITEM and not WARMUP_ITEM.isdigit():
-    BOOT_WARNINGS.append("CS2_WARMUP_ITEM=%r is not a workshop id, warm-up off" % WARMUP_ITEM)
-    WARMUP_ITEM = ""
-WARMUP_DELAY = int_env("CS2_WARMUP_DELAY_SECONDS", 60, 0, 3600)  # after the engine first answers A2S (start roll first)
-WARMUP_TIMEOUT = 3600
-WARMUP_RETRY = 600            # a warm-up whose item did not arrive is tried once more after this
+# Once a night, while nobody plays, the prefetch brings the maps the server keeps up to date, and job 9 fetches the queued maps
+# whenever they are missing - both through MultiAddonManager's `mm_download_addon`, which downloads into the server's own cache
+# without changing the map. Neither restarts anything; the restarts are jobs 6 and 7. With ~/Steam/depotcache on the volume
+# (the deployment's compose file), the first download of a process re-checks no installed item: it takes seconds (measured 2026-10-22).
 WORKSHOP_RESTART = flag_env("CS2_WORKSHOP_RESTART", True)  # restart a process whose downloads are broken (only at 0 humans)
 WORKSHOP_RESTART_GAP = 7200    # at most one such restart per 2 h...
 WORKSHOP_RESTART_MAX = 3       # ...and 3 per rolling 24 h; past that, warn only
 PREFETCH_FAIL_STREAK = 3      # this many failed downloads in a row stop the night's prefetch (the download path is broken)
-NOOP_AFTER = 120                # no "Download item <id> requested" this long after the command: nothing to download
 PREFETCH_RESTART = flag_env("CS2_PREFETCH_RESTART", True)  # a fresh engine process for the nightly prefetch
 PREFETCH_RESTART_LEAD = 300     # ...this long before CS2_PREFETCH_AT (03:25 for 03:30), only while nobody is on
 PREFETCH_FRESH = 1200           # an engine process younger than this is fresh already: no restart for it
@@ -1035,26 +1049,6 @@ def acf_installed(text):
     return out
 
 
-def acf_forget(text, wid):
-    """The acf text without item `wid` (its WorkshopItemsInstalled and WorkshopItemDetails entries), the text itself if
-    it holds neither, or None when the file would not come back byte-identical through parse/dump - never rewrite a
-    file this parser does not fully understand."""
-    kv = kv_parse(text)
-    if kv_dump(kv) + "\n" != text:
-        return None
-    workshop = kv_get(kv, "AppWorkshop")
-    if not isinstance(workshop, list):
-        return None
-    changed = False
-    for section in ("WorkshopItemsInstalled", "WorkshopItemDetails"):
-        entries = kv_get(workshop, section)
-        if isinstance(entries, list):
-            kept = [(k, v) for k, v in entries if k != wid]
-            changed = changed or len(kept) != len(entries)
-            entries[:] = kept
-    return kv_dump(kv) + "\n" if changed else text
-
-
 ACF_BACKUPS_KEEP = 5            # appworkshop_730.acf.bak-<local time>-<why> beside it: the newest this many of each reason
 
 
@@ -1062,7 +1056,7 @@ def acf_edit(text, add=None, drop=()):
     """The acf text with items added or replaced (add: {id: (installed, details)}, each a [(key, value)] list, [] for none) and items
     dropped (both sections), SizeOnDisk the sum of the installed sizes again, every section's entries in id order. None when the text
     does not come back byte-identical through parse/dump or has no AppWorkshop block: never rewrite a file this parser does not fully
-    understand (the rule acf_forget follows)."""
+    understand."""
     kv = kv_parse(text)
     if kv_dump(kv) + "\n" != text:
         return None
@@ -1155,7 +1149,7 @@ def prefetch_plan(listed, installed, folders, details, skip):
     """(missing, outdated). missing: listed ids not installed, or installed without a folder. outdated: listed or
     installed ids whose Workshop time_updated is newer than the installed copy. Listed ids first in list order, then
     the rest of the installed ones by id. Only ids the Workshop returns as available (result 1) are queued; `skip`
-    (packs, blocked, removed, the warm-up item) never is."""
+    (packs, blocked, removed) never is."""
     listed_set = set(listed)
     order = list(dict.fromkeys(list(listed) + sorted(set(installed) - listed_set)))
     missing, outdated = [], []
@@ -1201,8 +1195,6 @@ def prefetch_lists():
                 skip.add(str(entry["id"]))
     removed = (read_json(os.path.join(BRIDGE_DATA, "removed.json"), {}) or {}).get("verdicts") or {}
     skip |= set(wid for wid, verdict in removed.items() if verdict != "ok")
-    if WARMUP_ITEM:
-        skip.add(WARMUP_ITEM)
     return listed, skip, "the keep set and the queues: %d maps, %d never fetched (packs, blocked, removed)%s" % (
         len(listed), len(skip), ("; the keep set's problems: " + "; ".join(keep["problems"])) if keep["problems"] else "")
 
@@ -1214,38 +1206,6 @@ def fetch_details(ids):
         "User-Agent": USER_AGENT, "Content-Type": "application/x-www-form-urlencoded"})
     with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
         return details_parse(response.read())
-
-
-def warmup_reset():
-    """`update-watch.py --warmup-reset`, run by pre.sh BEFORE the engine starts (nothing holds the acf then): forget
-    the warm-up item - its folder and its two acf entries - so the watcher's first download in the new process is a
-    real one. Exit 0 also when there is nothing to do; any doubt leaves the files alone."""
-    if not (WARMUP and WARMUP_ITEM):
-        return 0
-    folder = os.path.join(WORKSHOP_DIR, "content", "730", WARMUP_ITEM)
-    try:
-        with open(WORKSHOP_ACF, "r", encoding="utf-8") as handle:
-            text = handle.read()
-        new = acf_forget(text, WARMUP_ITEM)
-    except (OSError, ValueError) as error:
-        log("warm-up reset: %s not changed (%s)" % (WORKSHOP_ACF, error))
-        return 0
-    if new is None:
-        log("warm-up reset: %s does not round-trip through the parser - left alone" % WORKSHOP_ACF)
-        return 0
-    if new != text:
-        try:
-            acf_write(new, "warmup")
-        except OSError as error:
-            log("warm-up reset: %s not changed (%s)" % (WORKSHOP_ACF, error))
-            return 0
-    if os.path.islink(folder):
-        os.unlink(folder)
-    elif os.path.isdir(folder):
-        shutil.rmtree(folder, ignore_errors=True)
-    log("warm-up reset: workshop item %s forgotten (%s), so the first download after this boot is a real one"
-        % (WARMUP_ITEM, "acf entries and folder" if new != text else "it was not installed"))
-    return 0
 
 
 MAPS_DIR = os.path.join(STEAMAPPDIR, "maps")
@@ -1299,7 +1259,7 @@ def organize(content=None, maps_dir=None):
         rel = os.path.relpath(maps_dir, content)
         installed = set(os.listdir(content))
         for wid in sorted(installed | set(where)):
-            if not wid.isdigit() or wid == WARMUP_ITEM:
+            if not wid.isdigit():
                 continue
             try:
                 path = os.path.join(content, wid)
@@ -1378,140 +1338,33 @@ def write_maps_index(content, maps_dir, types):
 
 
 # ------------------------------------------------------------------------------------------------
-# THE KEEP SET (the owner's rules of 2026-11-03). keep_inputs and keep_set are in workshop-sync.py too, word for word:
-# test_workshop_sync.py runs both on the same data and fails when they differ.
+# THE KEEP SET (the owner's rules of 2026-11-03) lives in keepset.py, which the deployment's compose file mounts beside this script and workshop-sync.py: one
+# copy of the rules for both (the owner's 76 a, 2026-11-04). The import is guarded: without the file the keep set is empty and says
+# why, so the deletion refuses (nothing goes), the prefetch looks after nothing, and the start's log says so.
 # ------------------------------------------------------------------------------------------------
-KEEP_TOP = 100                    # per mode: the best-rated playable maps that stay
-KEEP_RATINGS_MAX_AGE = 3 * 86400  # ratings older than this (the sync fetches them daily): nothing is deleted
-KEEP_RATED_SHARE = 0.9            # the ratings must score this share of each mode's playable maps
-KEEP_MIN_TOP = 50                 # a mode's top list shorter than this, with more playable maps listed: nothing is deleted
-KEEP_MIN_QUEUE = 10               # each random queue must hold this many entries (the bridge keeps 15)
-KEEP_MODES = (("armsrace", "maps.json"), ("deathmatch", "maps-deathmatch.json"), ("wingman", "maps-wingman.json"))
-KEEP_QUEUES = ("armsrace-new", "armsrace-original", "deathmatch", "wingman")
-KEEP_FILES = ("maps.json", "maps-deathmatch.json", "maps-wingman.json", "broken.json", "removed.json", "votes.json", "ours.json",
-              "ratings.json", "queues.json", "state.json")
+try:
+    import keepset
+    KEEPSET_MISSING = None
+except ImportError as error:
+    keepset = None
+    KEEPSET_MISSING = "keepset.py is not beside update-watch.py (%s)" % error
+    BOOT_WARNINGS.append(KEEPSET_MISSING + " - no keep set: nothing is deleted at engine start, the prefetch looks after no map")
+KEEP_MODES = keepset.KEEP_MODES if keepset else ()
+KEEP_QUEUES = keepset.KEEP_QUEUES if keepset else ()
 
 
 def keep_inputs(data_dir):
-    """The keep set's inputs: the bridge's data files by name, each None when it is missing or does not parse."""
-    out = {}
-    for name in KEEP_FILES:
-        try:
-            with open(os.path.join(data_dir, name), "r", encoding="utf-8") as handle:
-                out[name] = json.load(handle)
-        except (OSError, ValueError):
-            out[name] = None
-    return out
+    """The bridge's data files the keep set reads (keepset.keep_inputs); nothing without the module."""
+    return keepset.keep_inputs(data_dir) if keepset else {}
 
 
 def keep_set(inputs, now, hud=""):
-    """THE KEEP SET: the Workshop maps the server stores (official maps are part of the game). Its parts:
-      up       every map with at least one player's up vote in votes.json - one vote per player and map, up or down, the opposite
-               replaces it; too-big and ads votes are down votes - however many down votes it has besides
-      top      per mode, the union of three lists of its KEEP_TOP playable maps (on that mode's list; not broken: broken.json's lists,
-               removed.json's verdicts, the bridge's crash counts), all from ratings.json, which the sync fetches daily: "rated", the
-               best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current subscriptions
-               (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order. Up to 300
-               maps a mode (the owner's 35, 2026-11-03)
-      own, hud ours.json's maps and the HUD item
-      queues   the bridge's random queues and the maps players have queued (queues.json)
-    Returns {"up", "top": {mode: [ids]}, "lists": {mode: {"rated", "subscribed", "popular": [ids]}}, "cutoff": {mode: {"score",
-    "subscriptions": the 100th's, or None}}, "own", "hud", "queues": {name: [ids]}, "requested", "all": set, "scored", "problems"}.
-    problems: why the set is not to be trusted with a deletion - an input missing or unreadable, ratings older than
-    KEEP_RATINGS_MAX_AGE, scores or subscriptions for under KEEP_RATED_SHARE of a list, no Most Popular order for a mode, any of a
-    mode's three lists under KEEP_MIN_TOP, a queue under KEEP_MIN_QUEUE, no own map, no HUD item. Pure: the same inputs give the
-    same set."""
-    problems = []
-
-    def need(name, kind):
-        value = inputs.get(name)
-        if not isinstance(value, kind):
-            problems.append("%s is missing or unreadable" % name)
-            return kind()
-        return value
-
-    def digits(value):
-        return str(value) if str(value or "").isdigit() else None
-
-    lists = {}
-    for mode, name in KEEP_MODES:
-        lists[mode] = list(dict.fromkeys(digits(e.get("id")) for e in need(name, list) if isinstance(e, dict) and digits(e.get("id"))))
-    if not lists["armsrace"] and "maps.json is missing or unreadable" not in problems:
-        problems.append("maps.json lists no map")
-    bad = set()
-    broken = need("broken.json", dict)
-    for section in ("maps", "packs", "removed", "blocked"):
-        for entry in broken.get(section) or []:
-            wid = digits(entry.get("id") if isinstance(entry, dict) else entry)
-            if wid:
-                bad.add(wid)
-    bad |= set(str(w) for w, v in (need("removed.json", dict).get("verdicts") or {}).items() if v != "ok")
-    bridge = need("state.json", dict)
-    bad |= set(str(k) for k, v in (bridge.get("crashes") or {}).items() if isinstance(v, int) and not isinstance(v, bool) and v > 0)
-    bad |= set(str(k) for k in (bridge.get("playerCrashes") or {}))
-    up = set(str(k) for k, v in need("votes.json", dict).items() if digits(k) and isinstance(v, dict)
-             and any(isinstance(x, int) and not isinstance(x, bool) and x > 0 for x in v.values()))
-    ratings = need("ratings.json", dict)
-    scores, subs = {}, {}
-    for wid, value in (ratings.get("scores") or {}).items() if isinstance(ratings.get("scores"), dict) else []:
-        score = value[0] if isinstance(value, list) and value else value
-        if digits(wid) and isinstance(score, (int, float)) and not isinstance(score, bool):
-            scores[str(wid)] = float(score)
-        count = value[3] if isinstance(value, list) and len(value) > 3 else None
-        if digits(wid) and isinstance(count, int) and not isinstance(count, bool):
-            subs[str(wid)] = count
-    trend = ratings.get("trend") if isinstance(ratings.get("trend"), dict) else {}
-    if ratings:
-        fetched = ratings.get("fetched")
-        age = now - fetched if isinstance(fetched, (int, float)) and not isinstance(fetched, bool) else None
-        if age is None or age > KEEP_RATINGS_MAX_AGE:
-            problems.append("ratings.json is %s old (at most %d h)" % ("%d h" % (age // 3600) if age is not None else "of no known age",
-                                                                       KEEP_RATINGS_MAX_AGE // 3600))
-    top, cutoff, three = {}, {}, {}
-    for mode, _name in KEEP_MODES:
-        playable = [w for w in lists[mode] if w not in bad]
-        place = dict((w, i) for i, w in enumerate(playable))
-        rated = [w for w in playable if w in scores]
-        counted = [w for w in playable if w in subs]
-        for what, have in (("scores", rated), ("subscriptions", counted)):
-            if playable and len(have) < KEEP_RATED_SHARE * len(playable):
-                problems.append("ratings.json has the %s of %d of the %d playable %s maps (%d%% needed)" % (
-                    what, len(have), len(playable), mode, round(KEEP_RATED_SHARE * 100)))
-        order = trend.get(mode) if isinstance(trend.get(mode), list) else None
-        if order is None:
-            problems.append("ratings.json has no Most Popular order for %s" % mode)
-        best = {"rated": sorted(rated, key=lambda w: (-scores[w], place[w]))[:KEEP_TOP],
-                "subscribed": sorted(counted, key=lambda w: (-subs[w], place[w]))[:KEEP_TOP],
-                "popular": [w for w in dict.fromkeys(str(x) for x in order or []) if w in place][:KEEP_TOP]}
-        three[mode] = best
-        top[mode] = list(dict.fromkeys(best["rated"] + best["subscribed"] + best["popular"]))
-        cutoff[mode] = {"score": scores[best["rated"][-1]] if len(best["rated"]) >= KEEP_TOP else None,
-                        "subscriptions": subs[best["subscribed"][-1]] if len(best["subscribed"]) >= KEEP_TOP else None}
-        for what, ids in best.items():
-            if len(ids) < min(KEEP_MIN_TOP, len(playable)):
-                problems.append("the %s %s list holds %d maps (%d playable listed)" % (mode, what, len(ids), len(playable)))
-    own = set(digits(e.get("id")) for e in need("ours.json", dict).get("maps") or [] if isinstance(e, dict) and digits(e.get("id")))
-    if not own:
-        problems.append("ours.json names no own map")
-    hud_ids = set([str(hud)]) if digits(hud) else set()
-    if not hud_ids:
-        problems.append("no HUD item is set")
-    queues = need("queues.json", dict)
-    if queues and queues.get("version") != 1:
-        problems.append("queues.json is not version 1")
-    random = queues.get("random") if isinstance(queues.get("random"), dict) else {}
-    qs = {}
-    for name in KEEP_QUEUES:
-        entries = [str(x) for x in random.get(name) or []] if isinstance(random.get(name), list) else []
-        if len(entries) < KEEP_MIN_QUEUE:
-            problems.append("the %s queue holds %d entries (at least %d)" % (name, len(entries), KEEP_MIN_QUEUE))
-        qs[name] = [x for x in entries if x.isdigit()]
-    requested = [str(x) for x in queues.get("requested") or [] if digits(x)] if isinstance(queues.get("requested"), list) else []
-    every = up | own | hud_ids | set(requested)
-    for ids in list(top.values()) + list(qs.values()):
-        every |= set(ids)
-    return {"up": sorted(up), "top": top, "lists": three, "cutoff": cutoff, "own": sorted(own), "hud": sorted(hud_ids), "queues": qs,
-            "requested": requested, "all": every, "scored": len(scores), "problems": problems}
+    """THE KEEP SET (keepset.keep_set), and never an exception: an input of a shape it does not read, or no module at all, gives an
+    empty set whose problems say why - nothing is deleted on it."""
+    if keepset is None:
+        return {"up": [], "top": {}, "lists": {}, "cutoff": {}, "own": [], "hud": [], "queues": {}, "requested": [], "all": set(),
+                "scored": 0, "problems": ["the keep set could not be computed: " + KEEPSET_MISSING]}
+    return keepset.safe_keep_set(inputs, now, hud, log)
 
 
 def keep_parts(keep):
@@ -1714,8 +1567,7 @@ def keep_and_delete(content, maps_dir, types, where, rel):
     """THE HAND-OVER and THE DELETION, after the maps are in their folders: the hand-overs taken in, the keep set computed (and written
     to update-watch/keep.json), then - CS2_MAPS_DELETE on, and nothing wrong with the keep set - every stored map outside it deleted:
     its acf entries first (backed up, one atomic write together with the hand-overs' entries), then its link and its folder. dryrun:
-    the same list, logged and written, nothing deleted. Never the own maps, the HUD, the warm-up item or a queued map, whatever the
-    keep set says. Returns words for the summary line."""
+    the same list, logged and written, nothing deleted. Never the own maps, the HUD or a queued map, whatever the keep set says. Returns words for the summary line."""
     now = time.time()
     try:
         with open(WORKSHOP_ACF, "r", encoding="utf-8") as handle:
@@ -1732,7 +1584,7 @@ def keep_and_delete(content, maps_dir, types, where, rel):
     add, finish, counts = take_in(content, maps_dir, types, where, rel, installed_now)
     hud = (os.environ.get("GUNGAME_HUD_ADDON") or "").strip()
     keep = keep_set(keep_inputs(BRIDGE_DATA), now, hud)
-    protected = set(keep["own"]) | set(keep["hud"]) | set(keep["requested"]) | set([WARMUP_ITEM] if WARMUP_ITEM else [])
+    protected = set(keep["own"]) | set(keep["hud"]) | set(keep["requested"])
     for ids in keep["queues"].values():
         protected |= set(ids)
     protected |= set(add)                                              # just handed over: the keep set asked for them
@@ -2058,6 +1910,9 @@ class DownloadLine:
 READY = flag_env("CS2_READY", True)   # job 9's switch
 READY_EVERY = 20                # seconds between two looks at the bridge's queues.json and the cache
 READY_REPORT_EVERY = 120        # the report to the bridge goes again at least this often (the bridge trusts one for 5 minutes)
+QUIT_NOTICE_TIMEOUT = 8         # the bridge answers a quit notice from its event loop, within 5 s
+QUIT_NOTICE_RETRY = 60          # a notice the bridge did not take is tried again after this (the restart stays due meanwhile)
+QUIT_NOTICE_PATIENCE = 1800     # ...and any planned restart goes ahead without one after this long (the owner's 87 a)
 READY_RETRY = 1800              # a queued map whose background download failed is tried again after this...
 READY_TRIES = 3                 # ...up to this many times in one engine process
 
@@ -2072,11 +1927,33 @@ def bridge_endpoint():
     return (found.group(1), found.group(2)) if found else None
 
 
+def quit_notice(kind, cancel=False):
+    """Tell the bridge, right before a planned quit, that the engine is going down on purpose (see HOW A RESTART HAPPENS): POST
+    /quitting/<secret> with "gg-quit 1 <kind>" (tab-separated), or "gg-quit 1 cancel <kind>" when the quit could not be
+    delivered after all. ("ok", reply) when the bridge took it, ("failed", why) when not, ("none", None) when no bridge is
+    configured (no CS2_LOG_HTTP_URL: the quit's echo alone, as before)."""
+    endpoint = bridge_endpoint()
+    if endpoint is None:
+        return "none", None
+    base, secret = endpoint
+    body = ("gg-quit\t1\t%s\n" % (("cancel\t%s" % kind) if cancel else kind)).encode("utf-8")
+    try:
+        request = urllib.request.Request("%s/quitting/%s" % (base, secret), data=body, method="POST",
+                                         headers={"User-Agent": USER_AGENT, "Content-Type": "text/plain; charset=utf-8"})
+        with urllib.request.urlopen(request, timeout=QUIT_NOTICE_TIMEOUT) as response:
+            reply = response.read().decode("utf-8", "replace").strip()
+    except Exception as error:  # noqa: BLE001 - a bridge that is down, slow or older (404): it has not taken the notice
+        return "failed", "%s: %s" % (type(error).__name__, str(error).replace(secret, "<secret>"))
+    if not reply.startswith("ok"):
+        return "failed", "the bridge answered %r" % reply[:120]
+    return "ok", reply
+
+
 class ReadyMaps:
     """Job 9: the maps the bridge's random queues and the players' requests play next (queues.json), on disk before anybody asks -
     downloaded in the background, one at a time, also while people play, and silently (job 8's line is for downloads somebody waits
-    for). The same engine path as the prefetch (mm_download_addon); never while a download somebody waits for runs, nor before the
-    warm-up, nor beside the prefetch, nor in a process whose downloads are broken (job 6, unchanged: a stuck result marks it). Every
+    for). The same engine path as the prefetch (mm_download_addon); never while a download somebody waits for runs, nor beside the
+    prefetch, nor in a process whose downloads are broken (job 6, unchanged: a stuck result marks it). Every
     look, and at least every READY_REPORT_EVERY, the bridge hears which of them are on disk (POST /ready), and takes those first."""
 
     def __init__(self, ws):
@@ -2106,7 +1983,7 @@ class ReadyMaps:
             data = data if isinstance(data, dict) else {}
             random = data.get("random") if isinstance(data.get("random"), dict) else {}
             ids = [str(x) for x in data.get("requested") or [] if str(x).isdigit()] if isinstance(data.get("requested"), list) else []
-            lanes = [[str(x) for x in random.get(n) or [] if str(x).isdigit()] for n in KEEP_QUEUES]
+            lanes = [[str(x) for x in lane if str(x).isdigit()] for lane in random.values() if isinstance(lane, list)]  # the bridge's order
             for i in range(max([len(lane) for lane in lanes] or [0])):
                 ids += [lane[i] for lane in lanes if i < len(lane)]
             self.queues = ((st.st_mtime, st.st_size), list(dict.fromkeys(ids)))
@@ -2130,8 +2007,6 @@ class ReadyMaps:
         ws, w = self.ws, self.ws.watch
         if w.a2s is None or w.armed_pid is None:
             return "the engine is not answering A2S"
-        if ws.warm is not None and ws.warm["state"] in ("waiting", "running"):
-            return "the warm-up comes first"
         if ws.pf is not None:
             return "the nightly prefetch is running (it fetches the queued maps too)"
         if ws.broken is not None:
@@ -2207,7 +2082,7 @@ class ReadyMaps:
         installed = self.installed()
         content = os.path.join(WORKSHOP_DIR, "content", "730")
         ready = set(x for x in wanted if x in installed and os.path.isdir(os.path.join(content, x)))
-        missing = [x for x in wanted if x not in ready and x != WARMUP_ITEM]
+        missing = [x for x in wanted if x not in ready]
         todo = [x for x in missing if self.failed.get(x, (0, 0))[0] < READY_TRIES and now >= self.failed.get(x, (0, 0))[1]]
         why = self.gate() if self.current is None and todo else None
         reply = self.report(now, ready, len(wanted), force=self.current is None and bool(todo) and why is None)
@@ -2233,14 +2108,13 @@ class ReadyMaps:
 
 
 class Workshop:
-    """The warm-up, the nightly prefetch and job 9, a state machine stepped once per watcher tick - never blocking it for
+    """The nightly prefetch, job 9 and the download line, a state machine stepped once per watcher tick - never blocking it for
     longer than one RCON command, one Workshop details request or one report to the bridge."""
 
     def __init__(self, watch):
         self.watch = watch
         self.line = DownloadLine()
         self.tail = Tail(WORKSHOP_LOG)
-        self.warm = None                 # {"pid", "state": waiting|running|done|noop|skipped|failed, "at", "sent", "seen"}
         self.pf = None
         self.broken = None               # (since, why): downloads are failing in this engine process -> a restart is due
         self.pid_seen = None
@@ -2248,9 +2122,9 @@ class Workshop:
         self.ready = ReadyMaps(self)     # job 9
 
     def own(self):
-        """The downloads nobody waits for: the warm-up's, the prefetch's and job 9's - unless the engine itself waits for job 9's (a
-        pick of the very map it was fetching: then the line shows it)."""
-        own = set([WARMUP_ITEM]) if WARMUP_ITEM else set()
+        """The downloads nobody waits for: the prefetch's and job 9's - unless the engine itself waits for job 9's (a pick of the very map
+        it was fetching: then the line shows it)."""
+        own = set()
         if self.pf is not None and self.pf.get("current"):
             own.add(self.pf["current"][0])
         if self.ready.current is not None and not self.line.active.get(self.ready.current[0], {}).get("engine"):
@@ -2289,13 +2163,12 @@ class Workshop:
                     self.broken = None
                     break
         self.step_players(now, events)
-        self.step_warmup(now, events)
         self.step_prefetch(now, events)
         self.ready.step(now, events)
 
     # -- what players wait for ------------------------------------------------------------------------------------
     def step_players(self, now, events):
-        """Every download that is not the warm-up's, the prefetch's or job 9's: job 8's line, and job 6's broken flag for it (the stuck
+        """Every download that is not the prefetch's or job 9's: job 8's line, and job 6's broken flag for it (the stuck
         state of 2026-10-31: a player's pick failed in a process nothing had marked, and nothing noticed)."""
         own = self.own()
         for wid, kind, text, cancel in events:
@@ -2310,79 +2183,6 @@ class Workshop:
                 if stuck_result(text, cancel):
                     self.mark_broken(now, "a download for players (%s) came back '%s'" % (wid, text))
         self.line.step(now, self.watch.a2s["humans"] if self.watch.a2s else 0, own)
-
-    # -- warm-up --------------------------------------------------------------------------------------------------
-    def step_warmup(self, now, events):
-        w = self.watch
-        if not (WARMUP and WARMUP_ITEM) or w.a2s is None or w.armed_pid is None:
-            return
-        if self.warm is None or self.warm["pid"] != w.armed_pid:
-            self.warm = {"pid": w.armed_pid, "state": "waiting", "at": now, "sent": None, "seen": False, "tries": 0}
-            try:
-                age = time.time() - os.stat("/proc/%d" % w.armed_pid).st_ctime
-            except OSError:
-                age = 0
-            if age > 600 and now - w.started < 120:
-                self.warm["state"] = "skipped"
-                log("warm-up: engine pid %d has been running for %s - the watcher restarted, not the engine: no warm-up"
-                    % (w.armed_pid, hms(age)))
-            return
-        warm = self.warm
-        if warm["state"] == "waiting" and now - warm["at"] >= WARMUP_DELAY:
-            replies = rcon(["mm_download_addon %s" % WARMUP_ITEM])
-            if not replies or replies[0] is None:
-                warm["at"] = now                       # RCON not up yet: try again after another delay
-                return
-            if "unknown command" in replies[0].lower():
-                warm["state"] = "skipped"
-                log("warm-up skipped: mm_download_addon is not loaded (MultiAddonManager runs only while the HUD is "
-                    "on) - the first player download in this process pays the per-item re-check")
-                return
-            warm["state"], warm["sent"], warm["seen"] = "running", now, False
-            warm["tries"] += 1
-            log("warm-up: downloading workshop item %s for engine pid %d - seconds with the depotcache in place, ~15 min "
-                "if the Steam client must re-check every installed item first" % (WARMUP_ITEM, warm["pid"]))
-            return
-        if warm["state"] != "running":
-            return
-        for wid, kind, text, cancel in events:
-            if wid != WARMUP_ITEM:
-                continue
-            if kind == "requested":
-                warm["seen"] = True
-            elif text.strip().upper() == "OK":
-                warm["state"] = "done"
-                count = depotcache_state()[0]
-                took = now - warm["sent"]
-                log("warm-up done in %s: this engine process is warm (%s manifests in the depotcache)"
-                    % ("%d s" % took if took < 120 else hms(took), count if count is not None else "?"))
-                return
-            elif stuck_result(text, cancel):
-                warm["state"] = "failed"
-                log("WARNING: warm-up: '%s' after %s (%s) - the Steam client has no download source left in this "
-                    "engine process, and a process never gets them back: no retry; players' uncached maps "
-                    "will not arrive" % (text, hms(now - warm["sent"]), cancel or "no cancel line"))
-                self.mark_broken(now, "the warm-up item came back '%s'" % text)
-                return
-            elif warm["tries"] < 2:
-                warm["state"], warm["at"] = "waiting", now + WARMUP_RETRY - WARMUP_DELAY
-                log("warm-up: the job ended after %s with '%s' - the item did not arrive; trying once more in %s"
-                    % (hms(now - warm["sent"]), text, hms(WARMUP_RETRY)))
-                return
-            else:
-                warm["state"] = "failed"
-                log("WARNING: warm-up: '%s' again - workshop downloads are failing in this engine process (only a restart "
-                    "clears it); players' uncached maps will not arrive"
-                    % text)
-                self.mark_broken(now, "the warm-up item came back '%s' twice" % text)
-                return
-        if not warm["seen"] and now - warm["sent"] > NOOP_AFTER:
-            warm["state"] = "noop"
-            log("WARNING: warm-up: no download started for %s within %d s - it was installed already (did pre.sh's "
-                "--warmup-reset run?), so this process is still cold" % (WARMUP_ITEM, NOOP_AFTER))
-        elif now - warm["sent"] > WARMUP_TIMEOUT:
-            warm["state"] = "failed"
-            log("WARNING: warm-up: no result for %s after %s" % (WARMUP_ITEM, hms(now - warm["sent"])))
 
     # -- nightly prefetch -----------------------------------------------------------------------------------------
     def window(self, now):
@@ -2413,8 +2213,6 @@ class Workshop:
         if self.pf is None:
             if slot is None or w.state.get("prefetch_day") == day:
                 return
-            if self.warm is not None and self.warm["state"] in ("waiting", "running"):
-                return                                   # the warm-up's job comes first
             if w.due is not None and w.due[0] == "prefetch":
                 return                                   # the fresh process comes first: its restart is due
             if self.broken is not None:
@@ -2450,7 +2248,7 @@ class Workshop:
         if pf["phase"] == "plan":
             if pf["batches"] and pf["errors"] < PREFETCH_DETAIL_ERRORS:
                 batch, not_before = pf["batches"][0]
-                if now < not_before:
+                if now < not_before or not steam_api_free(block=False):   # one batch a tick at most, 2 s after the last call ended
                     return
                 pf["batches"].pop(0)
                 try:
@@ -2459,6 +2257,8 @@ class Workshop:
                     pf["errors"] += 1
                     pf["last_error"] = "%s: %s" % (type(error).__name__, error)
                     pf["batches"].append((batch, now + PREFETCH_DETAIL_RETRY))
+                finally:
+                    steam_api_done()
                 return
             if pf["batches"]:
                 log("prefetch: the Workshop details API failed %d times (last: %s) - planning without %d item(s)"
@@ -2547,6 +2347,8 @@ class Watch:
         self.check_backoff = 0
         self.due = None                  # (kind, since) of a planned restart waiting for its moment
         self.warned = False
+        self.notice_failing = None       # since when the bridge has not taken a quit notice (None: it took the last one)
+        self.notice_retry = 0.0          # the next notice may go no sooner than this
         self.started = time.time()
         self.workshop = Workshop(self)
 
@@ -2766,7 +2568,7 @@ class Watch:
         if kind is None:
             if self.due:
                 log("the %s restart is no longer due (window passed or build current) - standing down" % self.due[0])
-            self.due, self.warned = None, False
+            self.due, self.warned, self.notice_failing = None, False, None
             return
         if self.due is None or self.due[0] != kind:
             self.due, self.warned = (kind, now), False
@@ -2782,10 +2584,12 @@ class Watch:
             return
         back = back_in(self.state["durations"])
         warning, final = texts(kind, back)
-        if kind in ("workshop", "prefetch") and self.a2s["humans"] > 0:
+        if kind in EMPTY_ONLY and self.a2s["humans"] > 0:
+            what = ("downloads broken: %s" % self.workshop.broken[1] if kind == "workshop"
+                    else "a fresh engine process for the nightly prefetch" if kind == "prefetch"
+                    else "the daily one, until %s at the latest" % at_clock(next_slot(now - DAILY_WINDOW, RESTART_AT, TZ) + DAILY_WINDOW))
             log_once("planned", "%s restart due (%s) but %d human(s) on - waiting for an empty server, never a kick"
-                     % (kind, "downloads broken: %s" % self.workshop.broken[1] if kind == "workshop"
-                        else "a fresh engine process for the nightly prefetch", self.a2s["humans"]), 900)
+                     % (kind, what, self.a2s["humans"]), 900)
             return
         if self.a2s["humans"] == 0:
             humans = rcon_humans()
@@ -2827,20 +2631,43 @@ class Watch:
         return False
 
     def quit(self, kind, now, final_line):
-        """The only place a planned restart happens."""
+        """The only place a planned restart happens. The bridge hears of it first (quit_notice): before the counters, so a notice it
+        does not take costs no restart, and a restart that does not happen after it is taken back."""
+        if now < self.notice_retry:
+            return
+        told, why = quit_notice(kind)
+        if told == "failed":
+            if self.notice_failing is None:
+                self.notice_failing = now
+            if now - self.notice_failing >= QUIT_NOTICE_PATIENCE:
+                log("WARNING: the bridge has not taken the quit notice for %s (%s) - the %s restart goes ahead without it: a false "
+                    "crash mark can be cleared (the owner's 87 a)" % (hms(now - self.notice_failing), why, kind))
+            else:
+                self.notice_retry = now + QUIT_NOTICE_RETRY
+                log_once("quit-notice", "WARNING: the bridge did not take the quit notice (%s) - not quitting yet: without it the bridge "
+                                        "would book a crash on an innocent map (the quit's echo dies with the process). The %s restart stays "
+                                        "due; the notice is tried again every %d s, and the restart goes ahead without it after %s"
+                                        % (why, kind, QUIT_NOTICE_RETRY, hms(QUIT_NOTICE_PATIENCE)), 900)
+                return
+        self.notice_failing = None
         if not self.commit(now, kind, self.verdict[1] if kind == "update" else None):
+            if told == "ok":
+                quit_notice(kind, cancel=True)
             return
         if final_line:
             notice(final_line, 30)
             time.sleep(QUIT_LEAD)
         log("RESTARTING NOW (%s): RCON quit, so entry.sh ends and Docker re-enters it (SteamCMD runs again). "
-            "%d planned restart(s) in 24 h." % (kind, len([e for e in self.state["restarts"]
-                                                         if e[1] != "freeze" and now - e[0] < WINDOW])))
+            "%d planned restart(s) in 24 h. %s" % (kind, len([e for e in self.state["restarts"] if e[1] != "freeze" and now - e[0] < WINDOW]),
+                                                   {"ok": "The bridge took the quit notice: %s." % why, "none": "No bridge to tell: the echo alone.",
+                                                    "failed": "The bridge did not take the quit notice: %s." % why}[told]))
         pid = engine_pid()
         self.going_down = now            # from here on the silence is ours: the silence path must not "rescue" it
         if rcon(["quit"], expect_reply=False) is None:
-            # Never force an undelivered quit: without its echo the bridge would book a crash on an innocent map.
+            # Never force an undelivered quit: the engine is not going down, so the bridge must not think it is.
             self.going_down = None
+            if told == "ok":
+                quit_notice(kind, cancel=True)
             log("WARNING: RCON quit could not be delivered - not forcing it; the %s restart stays due and is retried "
                 "after the %d min floor" % (kind, PLANNED_MIN_GAP // 60))
             return
@@ -2954,7 +2781,7 @@ class Watch:
         try:
             self.workshop.step(time.time())
         except Exception as error:   # a bug here must never cost the restarts and the freeze recovery above
-            log_once("workshop", "WARNING: the warm-up/prefetch step crashed (%s: %s) - no action"
+            log_once("workshop", "WARNING: the prefetch/background download step crashed (%s: %s) - no action"
                      % (type(error).__name__, error))
 
     def log_depotcache(self):
@@ -2986,8 +2813,7 @@ class Watch:
             % ("on" if AUTOUPDATE else "OFF", hms(CHECK_EVERY), "%02d:%02d" % RESTART_AT if RESTART_AT else "off",
                "on" if FREEZE_RECOVERY else "OFF", FREEZE_GRACE, SILENT_POLLS, PLANNED_MIN_GAP // 60,
                PLANNED_MAX_PER_DAY, FREEZE_MIN_GAP // 60, FREEZE_MAX_PER_DAY))
-        log("workshop: warm-up %s, nightly prefetch %s" % (
-            ("item %s, %d s after the engine answers" % (WARMUP_ITEM, WARMUP_DELAY)) if WARMUP and WARMUP_ITEM else "off",
+        log("workshop: nightly prefetch %s" % (
             ("%02d:%02d for %s, only while nobody is on" % (PREFETCH_AT + (hms(PREFETCH_SPAN),))) if PREFETCH_AT else "off")
             + ", download restart %s" % ("on (only at 0 humans, <= 1 per %s and %d per 24 h)" % (hms(WORKSHOP_RESTART_GAP),
                                                                                       WORKSHOP_RESTART_MAX)
@@ -3001,8 +2827,7 @@ class Watch:
                                                           if READY else "off")
             + ", maps outside the keep set at engine start: %s" % {"on": "deleted", "dryrun": "listed only (dry run)",
                                                                   "off": "kept"}[MAPS_DELETE])
-        if WARMUP or PREFETCH_AT:
-            self.log_depotcache()
+        self.log_depotcache()
         if self.blocked():
             log("ALERT: RESTARTS ARE DISABLED - %s. Observing only." % self.blocked())
         for key, what in (("update_tripped", "update"), ("freeze_tripped", "freeze")):
@@ -3032,13 +2857,14 @@ class Watch:
 
 
 def main():
-    if sys.argv[1:] == ["--warmup-reset"]:
-        return warmup_reset()
     if sys.argv[1:] == ["--organize"]:
         log(organize())
         return 0
-    if not (AUTOUPDATE or FREEZE_RECOVERY or RESTART_AT or (WARMUP and WARMUP_ITEM) or PREFETCH_AT):
-        log("CS2_AUTOUPDATE=0, CS2_FREEZE_RECOVERY=0, CS2_RESTART_AT=off and no warm-up or prefetch: nothing to do, exiting")
+    if sys.argv[1:]:   # never the watcher's loop in the foreground of pre.sh, which waits for it before the engine starts
+        log("unknown arguments %r - nothing done (--organize is the only one)" % (sys.argv[1:],))
+        return 2
+    if not (AUTOUPDATE or FREEZE_RECOVERY or RESTART_AT or PREFETCH_AT):
+        log("CS2_AUTOUPDATE=0, CS2_FREEZE_RECOVERY=0, CS2_RESTART_AT=off and no prefetch: nothing to do, exiting")
         return 0
     signal.signal(signal.SIGTERM, lambda *_: STOPPING.append(True))
     lock = None

@@ -8,11 +8,10 @@
 #
 # Driven by CS2_PLUGINS (set in deploy/compose.example.yml):
 #   1  install the pinned Metamod + CounterStrikeSharp + MultiAddonManager once (a marker file per component
-#      records the installed version), clear any executable-stack request in their libraries (glibc 2.41
-#      refuses to load one), re-apply the gameinfo.gi search path on EVERY start because SteamCMD updates
-#      rewrite that file, load MultiAddonManager only while the in-game HUD is switched on (GUNGAME_HUD_ADDON),
-#      then copy our plugins from the read-only mount into the game tree (and remove the ones it copied
-#      before that are gone from the mount).
+#      records the installed version), re-apply the gameinfo.gi search path on EVERY start because SteamCMD
+#      updates rewrite that file, load MultiAddonManager only while the in-game HUD is switched on
+#      (GUNGAME_HUD_ADDON), then copy our plugins from the read-only mount into the game tree (and remove the
+#      ones it copied before that are gone from the mount).
 #   0  the kill switch after a breaking Valve update: remove the gameinfo.gi search path so the
 #      server runs vanilla. Files stay on disk; set 1 again once the pins below have been bumped.
 # Then, independent of CS2_PLUGINS, it starts the restart watcher (server/update-watch.py) in the background.
@@ -24,8 +23,8 @@
 # Metamod release (mms.alliedmods.net/mmsdrop, where the dev builds used to be, answers 404 since October 2026), https://github.com/roflmuffin/CounterStrikeSharp/releases for the current CounterStrikeSharp
 # version and https://github.com/Source2ZE/MultiAddonManager/releases for MultiAddonManager, change the version
 # strings below (the marker file name changes with them, so the next start extracts the new build over the old
-# one), rebuild plugin/GunGameNades, GunGameWelcome and MapSettingsReset against the same CounterStrikeSharp.API NuGet
-# version, copy the DLLs to the plugins share and restart the container. Rolling back is the same edit the other
+# one), rebuild the OverStrike2 plugin (the OverStrike2 repository's plugin/OverStrike2) against the same CounterStrikeSharp.API
+# NuGet version, ship it (its deploy/plugin.py) and restart the container. Rolling back is the same edit the other
 # way round: only the current version's marker is kept, so an older pin is extracted again.
 CS2_PLUGINS_MM_VERSION="2.0.0-git1483" # Metamod:Source 2.0 dev build 1483 (Linux, 2026-10-18): SourceHook API 18 and KHook, which CounterStrikeSharp 1.0.375+ and MultiAddonManager 1.6+ need (1411 and older: API 17; 1460 segfaults on current CS2). Since 1473: a KHook bump, "Avoid closing null plugin library handles" (#292) and "Don't erase Unloader class too early". Loaded cleanly with CounterStrikeSharp 1.0.377 on 2026-10-21. Bump with CounterStrikeSharp.
 CS2_PLUGINS_MM_URL="https://github.com/alliedmodders/metamod-source/releases/download/${CS2_PLUGINS_MM_VERSION/-git/.}/mmsource-${CS2_PLUGINS_MM_VERSION}-linux.tar.gz"
@@ -106,54 +105,9 @@ cs2_plugins_copy() {
     cs2_plugins_log "plugins copied from $CS2_PLUGINS_SRC:${copied:- (none)}${removed:+; removed, gone from there:$removed}"
 }
 
-# cs2_plugins_execstack: glibc 2.41 (this image's Steam Runtime 4) refuses to load a shared object that asks for an
-# executable stack ("cannot enable executable stack as shared object requires"); CounterStrikeSharp 1.0.374's library
-# did, and a hand patch on the volume was all that kept the layer loading. So on every start, every ELF library under
-# addons/ that sets the X bit of PT_GNU_STACK gets it cleared - four bytes in place, what execstack -c does, never
-# patchelf (reported to corrupt the file). Idempotent: a clean library is only read, and one already patched stays so.
-cs2_plugins_execstack() {
-    local out
-    if ! command -v python3 >/dev/null 2>&1; then cs2_plugins_log "WARNING: python3 not found, executable-stack check skipped"; return 1; fi
-    out=$(python3 - "$CS2_PLUGINS_ROOT/game/csgo/addons" 2>&1 <<'PY'
-import os, re, struct, sys
-checked, cleared, failed = 0, [], []
-for root, _, names in os.walk(sys.argv[1]):
-    for name in names:
-        if not re.search(r"\.so(\.[0-9]+)*$", name):  # libraries only: not the hand patch's counterstrikesharp.so.bak-execstack
-            continue
-        path = os.path.join(root, name)
-        try:
-            with open(path, "rb") as f:
-                head = f.read(64)
-                if len(head) < 64 or head[:4] != b"\x7fELF" or head[4] != 2:
-                    continue
-                checked += 1
-                phoff = struct.unpack_from("<Q", head, 32)[0]
-                size, count = struct.unpack_from("<HH", head, 54)
-                hits = []
-                for i in range(count):
-                    f.seek(phoff + i * size)
-                    kind, flags = struct.unpack("<II", f.read(8))
-                    if kind == 0x6474E551 and flags & 1:
-                        hits.append((phoff + i * size + 4, flags & ~1))
-            if hits:
-                with open(path, "r+b") as f:
-                    for at, flags in hits:
-                        f.seek(at)
-                        f.write(struct.pack("<I", flags))
-                cleared.append(os.path.relpath(path, sys.argv[1]))
-        except OSError as e:
-            failed.append(f"{os.path.relpath(path, sys.argv[1])} ({e.strerror})")
-print(f"{checked} libraries checked, {len(cleared)} cleared" + (": " + " ".join(cleared) if cleared else "")
-      + (f"; WARNING could not patch: {' '.join(failed)}" if failed else ""))
-PY
-)
-    cs2_plugins_log "executable stack: $out"
-}
-
 # cs2_plugins_hud: the in-game HUD's switch, GUNGAME_HUD_ADDON on the cs2 service - the Workshop id of the published
-# HUD addon (hud/). Set: MultiAddonManager is loaded and hands that addon to every
-# client, and the GunGameWelcome plugin draws the HUD instead of its centre panel. Empty (the default): Metamod does not
+# HUD addon (OverStrike2's hud/). Set: MultiAddonManager is loaded and hands that addon to every client, and the
+# OverStrike2 plugin draws the HUD instead of its centre panel. Empty (the default): Metamod does not
 # load MultiAddonManager at all - its files stay on disk - so the layer is exactly what it was before the HUD existed.
 cs2_plugins_hud() {
     local csgo="$CS2_PLUGINS_ROOT/game/csgo" id="${GUNGAME_HUD_ADDON:-}"
@@ -186,7 +140,6 @@ cs2_plugins_main() {
             cs2_plugins_install metamod "$CS2_PLUGINS_MM_VERSION" "$CS2_PLUGINS_MM_URL" tar
             cs2_plugins_install counterstrikesharp "$CS2_PLUGINS_CSS_VERSION" "$CS2_PLUGINS_CSS_URL" zip
             cs2_plugins_install multiaddonmanager "$CS2_PLUGINS_MAM_VERSION" "$CS2_PLUGINS_MAM_URL" tar
-            cs2_plugins_execstack
             cs2_plugins_gameinfo on
             cs2_plugins_hud && [[ -n "${GUNGAME_HUD_ADDON:-}" ]] && hud="on (Workshop addon $GUNGAME_HUD_ADDON)"
             cs2_plugins_copy
@@ -202,15 +155,16 @@ cs2_plugins_main() {
     esac
 }
 
-# cs2_watch_start: launch server/update-watch.py in the background - update restarts, the daily restart and
-# freeze recovery, each switched in deploy/compose.example.yml. It never holds up the launch: no waiting, and every
-# failure is one log line. It dies with the container; its counters live on the volume (update-watch/state.json).
+# cs2_watch_start: launch server/update-watch.py in the background - update restarts, the daily restart, freeze
+# recovery, the prefetch and the downloads in the background, each switched in deploy/compose.example.yml. It never holds up
+# the launch: no waiting, and every failure is one log line. It dies with the container; its counters live on the
+# volume (update-watch/state.json). Before it, --organize keeps the maps in order (the keep set is keepset.py, beside it).
 CS2_WATCH_SCRIPT="/home/steam/cs2-update-watch.py" # Read-only mount of <config dir>/update-watch.py.
 cs2_watch_start() {
     local log size
     if [[ "${CS2_AUTOUPDATE:-1}" == 0 && "${CS2_FREEZE_RECOVERY:-1}" == 0 && "${CS2_RESTART_AT:-07:00}" == off \
-          && ( "${CS2_WARMUP:-1}" == 0 || -z "${CS2_WARMUP_ITEM:-}" ) && "${CS2_PREFETCH_AT:-off}" == off ]]; then
-        cs2_plugins_log "restart watcher: updates, daily restart, freeze recovery, warm-up and prefetch all switched off, not started"; return 0
+          && "${CS2_PREFETCH_AT:-off}" == off ]]; then
+        cs2_plugins_log "restart watcher: updates, daily restart, freeze recovery and prefetch all switched off, not started"; return 0
     fi
     if [[ ! -f "$CS2_WATCH_SCRIPT" ]]; then cs2_plugins_log "WARNING: $CS2_WATCH_SCRIPT is missing, restart watcher not started"; return 0; fi
     if ! command -v python3 >/dev/null 2>&1; then cs2_plugins_log "WARNING: python3 not found, restart watcher not started"; return 0; fi
@@ -219,12 +173,6 @@ cs2_watch_start() {
         size=$(stat -c %s "$log" 2>/dev/null) || continue
         if (( size > 52428800 )); then mv -f "$log" "$log.1" && cs2_plugins_log "rotated $log (over 50 MB) to $log.1"; fi
     done
-    # Forget the warm-up item now, while no engine holds the workshop acf (update-watch.py --warmup-reset: its folder and
-    # its two acf entries), so the watcher's warm-up after this boot is a real download - the job that runs the Steam
-    # client's re-check of every installed item, before a player needs it.
-    if [[ "${CS2_WARMUP:-1}" == 1 && -n "${CS2_WARMUP_ITEM:-}" ]]; then
-        python3 "$CS2_WATCH_SCRIPT" --warmup-reset || cs2_plugins_log "WARNING: update-watch.py --warmup-reset failed"
-    fi
     # Keep the maps in their folders per type (update-watch.py --organize, "THE MAPS FOLDER"): renames and links, seconds at most,
     # now because no engine is running. A failure is a log line, and the engine starts anyway.
     python3 "$CS2_WATCH_SCRIPT" --organize || cs2_plugins_log "WARNING: update-watch.py --organize failed"
@@ -234,5 +182,5 @@ cs2_watch_start() {
 
 cs2_plugins_main || true
 cs2_watch_start || true
-unset -f cs2_plugins_main cs2_plugins_copy cs2_plugins_gameinfo cs2_plugins_install cs2_plugins_execstack cs2_plugins_hud cs2_plugins_log cs2_watch_start
+unset -f cs2_plugins_main cs2_plugins_copy cs2_plugins_gameinfo cs2_plugins_install cs2_plugins_hud cs2_plugins_log cs2_watch_start
 unset CS2_PLUGINS_MM_VERSION CS2_PLUGINS_MM_URL CS2_PLUGINS_CSS_VERSION CS2_PLUGINS_CSS_URL CS2_PLUGINS_MAM_VERSION CS2_PLUGINS_MAM_URL CS2_PLUGINS_ROOT CS2_PLUGINS_SRC CS2_WATCH_SCRIPT
