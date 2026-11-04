@@ -21,7 +21,8 @@ see [deploy/README.md](deploy/README.md)), from which the deploy scripts read th
 - **No game files.** Never commit anything extracted from Counter-Strike 2 (textures, models, compiled resources `*_c`,
   `.vpk` packages, icons): a build reads it from the local installation at build time. Every binary file must be reviewed into
   `allow.txt` with its hash.
-- **No other authors' pictures.** Map thumbnails (`hud/thumbs/`) are made from Workshop previews and are never committed.
+- **No other authors' pictures.** Map thumbnails (`hud/thumbs/`) are made from Workshop previews and are never committed. The
+  one exception: the documentation's screenshots show the HUD as players see it, previews included (see the documentation below).
 - **No other authors' text.** The data files keep each Workshop item's title, id, tags and size - never its description (people
   put addresses, handles and worse in them). Strip descriptions whenever the data is regenerated, and never take a server's
   `search.json` into this repository: `bridge/search-index.py` keeps the committed one in step with `maps.json`.
@@ -77,8 +78,9 @@ everything and match the code (the owner's request of 2026-11-05):
 - **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
   production, driven by script so every page and state can be reached without anybody playing.
 - **Still public:** test names only - no player names, Steam ids, addresses or anything else of the deployment in a picture.
-  No other authors' pictures either: the test copy shows placeholder map pictures, not Workshop previews. Every picture is a
-  binary file, reviewed into [tools/scan/allow.txt](tools/scan/allow.txt) with its hash.
+  Workshop map previews may show in these screenshots as the HUD shows them (the owner's 94 b of 2026-11-05) - the one exception
+  to "No other authors' pictures", which still holds for everything else. Every picture is a binary file, reviewed into
+  [tools/scan/allow.txt](tools/scan/allow.txt) with its hash.
 
 ## Scratch
 
