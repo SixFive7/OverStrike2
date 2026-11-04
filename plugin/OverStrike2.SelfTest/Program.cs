@@ -380,10 +380,41 @@ else
     }
 }
 
+// ---- The Steam Web API's one door (SteamWebApi.cs, the owner's rule of 2026-11-04): three callers at once go one at a time, 2 s apart ----
+{
+    var seen = new System.Collections.Concurrent.ConcurrentQueue<(DateTime Start, DateTime End)>();
+    var inFlight = 0;
+    var most = 0;
+    using var http = new HttpClient(new Recorder(seen, () => { var n = Interlocked.Increment(ref inFlight); most = Math.Max(most, n); }, () => Interlocked.Decrement(ref inFlight)));
+    var calls = Enumerable.Range(0, 3).Select(_ => Task.Run(async () =>
+    {
+        using var r = await OverStrike2.SteamWebApi.PostAsync(http, "https://api.steampowered.com/test", new StringContent("x")).ConfigureAwait(false);
+    })).ToArray();
+    Task.WaitAll(calls);
+    var times = seen.OrderBy(t => t.Start).ToList();
+    var gaps = times.Zip(times.Skip(1), (a, b) => (b.Start - a.End).TotalSeconds).ToList();
+    Check(times.Count == 3 && most == 1, $"the Web API's door: three callers at once, one request at a time (at most {most} in flight)");
+    Check(gaps.All(g => g >= OverStrike2.SteamWebApi.Gap.TotalSeconds - 0.05), $"...each at least {OverStrike2.SteamWebApi.Gap.TotalSeconds:0} s after the last ended ({string.Join(", ", gaps.Select(g => g.ToString("0.00")))} s)");
+}
+
 Console.WriteLine(failures == 0
     ? $"Over Strike 2 plugin self-test: {checks} checks passed."
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");
 return failures == 0 ? 0 : 1;
+
+/// <summary>A Web API that answers at once, noting when each request started and ended.</summary>
+sealed class Recorder(System.Collections.Concurrent.ConcurrentQueue<(DateTime, DateTime)> seen, Action enter, Action leave) : HttpMessageHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancel)
+    {
+        enter();
+        var start = DateTime.UtcNow;
+        await Task.Delay(50, cancel).ConfigureAwait(false);
+        leave();
+        seen.Enqueue((start, DateTime.UtcNow));
+        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("{}") };
+    }
+}
 
 /// <summary>A file that hands over one byte at a time.</summary>
 sealed class Trickle(byte[] data) : MemoryStream(data)

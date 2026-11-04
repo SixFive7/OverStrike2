@@ -58,7 +58,7 @@ sealed class WorkshopPlay
     async Task<WorkshopItem?> Details(long id)
     {
         var form = new List<KeyValuePair<string, string>> { new("itemcount", "1"), new("publishedfileids[0]", id.ToString()) };
-        using var response = await http.PostAsync(Workshop.DetailsUrl, new FormUrlEncodedContent(form)).ConfigureAwait(false);
+        using var response = await SteamWebApi.PostAsync(http, Workshop.DetailsUrl, new FormUrlEncodedContent(form)).ConfigureAwait(false); // one at a time, 2 s apart
         if (!response.IsSuccessStatusCode) throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
         var items = WorkshopItem.Parse(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
         return items.TryGetValue(id, out var item) ? item : null;

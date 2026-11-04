@@ -20,6 +20,8 @@
     <!-- The same for the settings module's question to the running build: no CounterStrikeSharp type in it, the engine is faked. The real
          list comes along, to hold the question's rules to it. -->
     <Compile Include="..\OverStrike2\ConVarNames.cs" Link="ConVarNames.cs" />
+    <!-- The Web API's one door (one request at a time, 2 s apart): no CounterStrikeSharp type in it either. -->
+    <Compile Include="..\OverStrike2\SteamWebApi.cs" Link="SteamWebApi.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
   </ItemGroup>
 

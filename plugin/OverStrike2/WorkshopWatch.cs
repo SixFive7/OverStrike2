@@ -5,7 +5,8 @@ namespace OverStrike2;
 
 /// <summary>The daily Workshop check (../../bridge/Workshop.cs): which maps nobody can download any more. The bridge stays off the internet by design; the game server reaches Steam anyway. So, once a day (and a few minutes after every start, which the
 /// daily restart makes daily as well): ask the bridge which ids to check (GET /check/&lt;secret&gt;), ask the public Steam Web API about them in
-/// batches of 100 (ISteamRemoteStorage/GetPublishedFileDetails, anonymous), and hand the verdicts back (POST /removed/&lt;secret&gt;), where
+/// batches of 100 (ISteamRemoteStorage/GetPublishedFileDetails, anonymous) - one request per 100 ids, about 70 a run at 7,000 ids, each at least
+/// 2 s after the last ended (SteamWebApi) - and hand the verdicts back (POST /removed/&lt;secret&gt;), where
 /// the bridge blocks what went and unblocks what came back. Everything runs on the thread pool and touches no engine object; a failed run
 /// is tried again an hour later. css_gghud workshop runs it now and says how the last one went.</summary>
 sealed class WorkshopWatch
@@ -62,10 +63,9 @@ sealed class WorkshopWatch
             {
                 var form = new List<KeyValuePair<string, string>> { new("itemcount", batch.Length.ToString()) };
                 for (var i = 0; i < batch.Length; i++) form.Add(new($"publishedfileids[{i}]", batch[i].ToString()));
-                using var response = await http.PostAsync(Workshop.DetailsUrl, new FormUrlEncodedContent(form)).ConfigureAwait(false);
+                using var response = await SteamWebApi.PostAsync(http, Workshop.DetailsUrl, new FormUrlEncodedContent(form)).ConfigureAwait(false); // one at a time, 2 s apart
                 if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Steam Web API answered HTTP {(int)response.StatusCode}");
                 verdicts.AddRange(Workshop.ParseDetails(await response.Content.ReadAsStringAsync().ConfigureAwait(false)));
-                await Task.Delay(1000).ConfigureAwait(false); // ten requests a day; no hurry
             }
             using var content = new StringContent(Workshop.EncodeReport(verdicts), Encoding.UTF8, "text/plain");
             using var answer = await http.PostAsync(reportUrl, content).ConfigureAwait(false);

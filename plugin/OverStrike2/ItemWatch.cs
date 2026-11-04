@@ -127,7 +127,7 @@ sealed class ItemWatch
     async Task<HudCheck.ItemApi?> AskApi(long item)
     {
         using var form = new FormUrlEncodedContent([new("itemcount", "1"), new("publishedfileids[0]", item.ToString(CultureInfo.InvariantCulture))]);
-        using var response = await http.PostAsync(Workshop.DetailsUrl, form).ConfigureAwait(false);
+        using var response = await SteamWebApi.PostAsync(http, Workshop.DetailsUrl, form).ConfigureAwait(false); // the plugin's one door: one at a time, 2 s apart
         if (!response.IsSuccessStatusCode) return null;
         return HudCheck.ParseItem(await response.Content.ReadAsStringAsync().ConfigureAwait(false), item);
     }
