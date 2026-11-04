@@ -61,6 +61,25 @@ an update are exactly what Valve frowns on: while one is held, players cannot do
 Our own maps follow the same rule: a new version of a map item only with the owner's go
 ([maps/publisher/](maps/publisher/)).
 
+## The documentation shows the whole HUD - keep it current with every change
+
+The owner reviews the HUD from its documentation instead of in the game, and gives corrections from it, so it has to show
+everything and match the code (the owner's request of 2026-11-05):
+
+- **Every part of the interface, with screenshots:** every page, tab and state - the board, the menu window and each of its
+  pages, the vote and its ballot states, the map browser, the Fun page, the Sync page and whatever comes next - so anyone can see
+  how the HUD looks in game before installing it. The index lives in [README.md](README.md); the pages and their pictures live
+  under [docs/](docs/), not all in the README.
+- **Every kind of on-screen message, in one gallery:** a single self-contained HTML file with a screenshot of each notification
+  type - how it looks and where on the screen it appears - from which the owner picks the types to keep and how to merge them.
+- **Updated in the same change:** a change that alters what players see updates the affected screenshots and text in the same
+  release. It is not done until its documentation matches.
+- **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
+  production, driven by script so every page and state can be reached without anybody playing.
+- **Still public:** test names only - no player names, Steam ids, addresses or anything else of the deployment in a picture.
+  No other authors' pictures either: the test copy shows placeholder map pictures, not Workshop previews. Every picture is a
+  binary file, reviewed into [tools/scan/allow.txt](tools/scan/allow.txt) with its hash.
+
 ## Scratch
 
 Local scratch goes in `.work/` (gitignored), one folder per task.
