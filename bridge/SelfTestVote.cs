@@ -378,7 +378,7 @@ static partial class Program
             }
             Check($"A tie is drawn at random among the tied (120 ties: option 1 won {wins.GetValueOrDefault(1)}, option 3 {wins.GetValueOrDefault(3)}, the others {wins.Where(w => w.Key is not (1 or 3)).Sum(w => w.Value)})",
                 wins.GetValueOrDefault(1) >= 35 && wins.GetValueOrDefault(3) >= 35 && wins.Keys.All(k => k is 1 or 3) && wins.Values.Sum() == 120);
-            Check("...and says so", Said("A tie at 1 votes, drawn by the dice"));
+            Check("...and says so", Said("A tie at 1 vote each, drawn by the dice"));
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             MatchEnd();

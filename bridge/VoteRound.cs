@@ -297,7 +297,7 @@ static partial class Program
         {
             "none" => $"Nobody voted - rolling the dice: {target}, changing in {ChangeDelay} s",
             _ when o.Source == VoteSource.Random => $"The vote chose Random ({votes} of {cast}) - rolling the dice: {target}, changing in {ChangeDelay} s",
-            "tie" => $"A tie at {votes} votes, drawn by the dice: {target}, changing in {ChangeDelay} s",
+            "tie" => $"A tie at {votes} vote{(votes == 1 ? "" : "s")} each, drawn by the dice: {target}, changing in {ChangeDelay} s",
             "all" => $"Everybody has voted: {target} ({votes} of {cast}) - changing in {ChangeDelay} s",
             _ => $"The vote chose {target} ({votes} of {cast} votes) - changing in {ChangeDelay} s",
         });
