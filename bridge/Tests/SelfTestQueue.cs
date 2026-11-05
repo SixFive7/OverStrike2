@@ -337,6 +337,19 @@ static partial class Program
             Run(2);
             Check("...then the dice roll: there is no queue to serve any more", Pending is { Auto: true } && Said("Server started - Rolling the dice"));
 
+            // ---- players on at a server start: they choose - a vote instead of the dice, and nobody voting rolls them ----
+            Fresh();
+            HudActive = () => true;
+            S.CleanShutdown = true; Session("token-v"); Line("Loading map \"ar_shoots\""); Join(alice); Join(dan); Run(6);
+            Check("Players on at a server start: a vote for everybody opens instead of the dice, called by nobody, and the start roll is settled",
+                Ballot is { Open: true, Starter: "", ServerStart: true, MatchEnded: false } && Pending == null && Said("Server started - Vote for the next map") && !Said("Rolling the dice") && !StartRollOwed);
+            Run(MapVote.Seconds + 1);
+            Check("...nobody voting rolls the dice, as the start roll would have", Pending is { By: "the vote" } && Said("Nobody voted - Rolling the dice"));
+            HudActive = () => false;
+            Fresh();
+            S.CleanShutdown = true; Session("token-e"); Line("Loading map \"ar_shoots\""); Run(6);
+            Check("...an empty server's start: the dice, no vote", Ballot == null && Pending is { Auto: true } && Said("Server started - Rolling the dice"));
+
             // ---- the live boot of 2026-10-04: the token change went unseen, the one map start had no name, RCON answered 15 s later ----
             Fresh();
             S.ServerToken = "boot"; S.LogName = "aim_old_map"; S.CleanShutdown = true; // the state the bridge started with: this server's token already known

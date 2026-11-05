@@ -150,7 +150,7 @@ public static class Hud
         new("The dice", [
             "Random is the dice after the vote. Like every card the dice pick, it is a map on the server's disk: a favourite it keeps, or one of a small stock new to us.",
             "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other.",
-            "The dice change the map by themselves only at a server start, 10 minutes with nobody on, a broken map. Previous puts the map before this one to the vote."]),
+            "The dice change the map by themselves only at an empty server start, 10 minutes with nobody on, a broken map. Previous puts the map before this one to the vote."]),
         new("Points: each one doubles the odds", [
             "Workshop popularity (rating, players, trend) gives up to 4 points, each Like a point (up to 5 Likes), and each Dislike or Too big takes 2.",
             "A card shown and not chosen loses 1 point, 2 at most, fading to nothing over 28 days.",

@@ -66,6 +66,7 @@ static partial class Program
         public DateTime? KeptUntil;                               // the vote kept the map: the window shows that until then, everybody still frozen
         public string Starter = "", StarterName = "";             // who called it ("" at a match end)
         public bool MatchEnded;                                   // the match is over: Keep is "Play this map again", nobody voting is Random
+        public bool ServerStart;                                  // a server start with players on: the vote in place of the start roll, nobody voting is Random
         public int Picks;                                         // the picks so far, for their order among ties
         public DateTime? EverybodySince;                          // everybody present has voted, since then
         public DateTime LastChange;                               // the last activity: a vote cast, changed or taken back, a map put on it, the map browser
@@ -226,13 +227,13 @@ static partial class Program
 
     /// <summary>Opens a vote: builds the ballot by its recipe, casts the caller's vote on the map they selected, remembers what it shows, says so in chat and on
     /// the board, and puts the ballot's maps first in queues.json. False when there is nothing to put on it. A match end's vote ignores the wait.</summary>
-    static bool OpenBallot(DateTime now, int humans, string starter = "", string starterName = "", MapInfo? pick = null, bool matchEnd = false)
+    static bool OpenBallot(DateTime now, int humans, string starter = "", string starterName = "", MapInfo? pick = null, bool matchEnd = false, bool serverStart = false)
     {
         var present = PresentIds(now).Count;
         var players = Math.Max(present, humans);
         var round = Math.Max(new DateTimeOffset(now).ToUnixTimeSeconds(), LastRound + 1);
         var b = new MatchVote { Round = round, Opened = now, Ends = now.AddSeconds(MapVote.Seconds), PresentAtOpen = present > 0 ? 0 : humans,
-            Starter = starter, StarterName = starterName, MatchEnded = matchEnd };
+            Starter = starter, StarterName = starterName, MatchEnded = matchEnd, ServerStart = serverStart };
         b.FillMode = CurrentMode.Suits(players) ? CurrentMode : Modes.Default; // Wingman with 5 on: its random cards and Random come from Arms Race
         var taken = new HashSet<string>();
         if (CurrentKey != "") { b.Options.Add(new BallotOption(VoteSource.Keep, S.Map, CurrentMode, KeepOrder, S.Map is { } on ? TagsOf(on) : "")); taken.Add(CurrentKey); }
@@ -269,10 +270,11 @@ static partial class Program
 
         Ballot = b; LastRound = round;
         var count = VotePresent(b, now);
-        Log($"vote: round {round} open for {MapVote.Seconds} s{(matchEnd ? " at a match end" : starter != "" ? $", called by {starterName} {starter}" : "")}, {count} present: "
+        Log($"vote: round {round} open for {MapVote.Seconds} s{(matchEnd ? " at a match end" : serverStart ? " at a server start" : starter != "" ? $", called by {starterName} {starter}" : "")}, {count} present: "
             + string.Join(" | ", b.Options.Select(o => $"{o.N}. {OptionLabel(b, o)} ({o.Source.ToString().ToLowerInvariant()}, {o.Mode.Id}{(o.Order is FreshOrder or SurpriseOrder ? o.Order == FreshOrder ? ", fresh" : ", surprise" : "")}{(o.Tags != "" ? $", {o.Tags}" : "")})")));
         var how = $"{M.V($"{MapVote.Seconds} s")}, or until {(count > 1 ? $"all {M.V($"{count}")} have voted" : "everybody has voted")}";
         Post(Messages.VoteStarted, matchEnd ? $"Match over - Vote for the next map: {how}"
+            : serverStart ? $"Server started - Vote for the next map: {how}"
             : pick != null ? Fit($"{VoterMark(starterName)} put {M.A(Clip(Label(pick), 32))}{WhyNote(pick)}{ModeTag(pick)} to the vote: {how}", $"{VoterMark(starterName)} put {M.A(Clip(Label(pick), 32))}{ModeTag(pick)} to the vote: {how}")
             : $"{VoterMark(starterName)} started a vote for the next map: {how}", seconds: MapVote.Seconds);
         FillStock(); // RandomQueue.cs: the shown stock entries are used up and rolled anew, and the ballot's maps go first in queues.json, so they download now
@@ -440,8 +442,9 @@ static partial class Program
             Log($"vote: {OptionLabel(b, o)} has {tally[o.N]} vote(s), but {o.Mode.Name} takes {o.Mode.MaxPlayers} players and {count} are on - it cannot win");
         if (most == 0)
         {
-            // Nobody voted: Random at a match end. Mid-match the map stays - also when the bridge does not know which map that is, so the ballot has no Keep card.
-            CloseBallot(b, now, b.MatchEnded ? b.Options.First(o => o.Source == VoteSource.Random)
+            // Nobody voted: Random at a match end and at a server start (the dice the start roll would have rolled). Mid-match the map stays - also when the bridge does
+            // not know which map that is, so the ballot has no Keep card.
+            CloseBallot(b, now, b.MatchEnded || b.ServerStart ? b.Options.First(o => o.Source == VoteSource.Random)
                 : b.Options.FirstOrDefault(o => o.Source == VoteSource.Keep) ?? new BallotOption(VoteSource.Keep, null, CurrentMode, KeepOrder), "none", tally, count);
             return;
         }

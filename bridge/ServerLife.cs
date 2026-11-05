@@ -153,7 +153,7 @@ static partial class Program
     }
 
     /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice (bridge.randomOnStart) - the start roll, one of the
-    /// automatic changes. Waits out the maintenance flag, a change under way and a vote that is open (whose result settles it: CloseBallot); probes
+    /// automatic changes. With players on and the HUD drawn they choose instead: a vote opens for everybody, and nobody voting rolls the dice. Waits out the maintenance flag, a change under way and a vote that is open (whose result settles it: CloseBallot); probes
     /// RCON with a status first (every 10 s until it answers), and the debt stays open until a change command has actually gone out (FireChange).
     /// The status also says which map is loaded: on any other map than START_MAP there is nothing to roll, and a debt from BridgeStart rolls only
     /// when it says START_MAP.</summary>
@@ -167,6 +167,13 @@ static partial class Program
         if (on != null && !on.Equals(StartMap, StringComparison.OrdinalIgnoreCase)) { StartRollOwed = false; Log($"start: the server is on {on}, not {StartMap} - nothing to roll"); return; }
         if (on == null && StartRollNeedsProof) { StartRollOwed = false; Log("start: RCON status does not name the loaded map - a bridge start rolls only on proof"); return; }
         if (!RandomOnStart) { StartRollOwed = false; Log("start: RANDOM_ON_START is off - staying on the start map"); return; }
+        // Players on: a vote for everybody instead of the dice - everybody's window opens on the ballot at once, and nobody voting rolls the dice. An empty
+        // server, or one whose HUD nobody sees: the dice, as ever.
+        if (Humans() is > 0 and var humans && HudActive())
+        {
+            if (OpenBallot(now, humans, serverStart: true)) { StartRollOwed = false; Log($"start: {humans} player(s) on - a vote instead of the dice"); return; }
+            Log("start: the vote could not open - the dice instead");
+        }
         if (!AutoRoll("Server started")) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
     }
 
