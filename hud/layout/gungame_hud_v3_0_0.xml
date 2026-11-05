@@ -1169,7 +1169,7 @@
 						</Panel>
 					</Panel>
 					<!-- 3d, catch-up: a head and up to six rows, one for each boost or downside (used, good, bad on the row's own label), and a line that runs out -->
-					<Panel id="gg_cu" class="gg-cu" hittest="false">
+					<Panel class="gg-cu" hittest="false">
 						<Label id="gg_cu_head" class="gg-eyebrow" hittest="false" text="{s:text}" />
 						<Label id="gg_cu_1" class="gg-cu-row" hittest="false" text="{s:text}" />
 						<Label id="gg_cu_2" class="gg-cu-row" hittest="false" text="{s:text}" />
