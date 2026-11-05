@@ -41,10 +41,10 @@ mp_respawn_on_death_ct             *         1           0         // 28 items; 
 mp_respawn_on_death_t              *         1           0         // 26 items; 0 stops Ts respawning - the same
 mp_timelimit                       *         2           0         // 15 items; a time limit ends the map in the middle of a match (Deathmatch keeps Valve's 2; Wingman's rounds end its match)
 mp_match_end_restart               *         1           1         // 5 items; the server replays the map after a match, and the bridge's vote picks the next one
-mp_match_end_changelevel           *         0           0         // 1 item; a changelevel at the match end would go past the bridge's vote and queue
+mp_match_end_changelevel           *         0           0         // 1 item; a changelevel at the match end would go past the bridge's vote
 mp_warmup_pausetimer               *         0           0         // 7 items set 1: warmup never ends, so the match never starts
 sv_allow_votes                     *         0           0         // 4 items turn the F1/F2 votes on (kick, change level), which the server switched off: the bridge's vote is the vote
-bot_quota                          *         0           0         // 37 items add bots, and Valve's Deathmatch and Wingman add their own; this server runs none (README: CounterStrikeSharp #1446)
+bot_quota                          *         0           0         // 37 items add bots, and Valve's Deathmatch and Wingman add their own; this server runs none (CounterStrikeSharp #1446)
 bot_quota_mode                     *         normal      normal    // fill_with_minimum adds a bot even at bot_quota 0 (seen live in Deathmatch); Arms Race's own is fill
 
 // ---- weapons outside the ladder ----
