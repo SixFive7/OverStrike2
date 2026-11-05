@@ -571,7 +571,7 @@ with `maps.json`.
 ## Configuration
 
 Every part reads one settings file: its text inline, in the environment variable `OVERSTRIKE2_SETTINGS_CONTENT`, or the file `/etc/overstrike2/overstrike2.jsonc` ([how it gets into the containers](settings.md#how-the-file-gets-into-the-containers)). [settings.md](settings.md) has every key, its default and the variable it replaces, and the game image's own variables. `hud.addon` is required: without a usable one the game server does not start ([server.md](server.md#how-it-starts)). Until the install step writes that file, the bridge and the plugin
-fall back on those variables when there is no file or the file cannot be used, and each logs at its start which one it used, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example; [`deploy/compose.yml`](../deploy/compose.yml) mounts the file and
+fall back on those variables when there is no file at all - a file they cannot use stops them, as it stops the server programs - and each logs at its start which one it used, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example; [`deploy/compose.yml`](../deploy/compose.yml) mounts the file and
 [`deploy/compose.example.yml`](../deploy/compose.example.yml) has the text inline.
 
 ## The plugin layer

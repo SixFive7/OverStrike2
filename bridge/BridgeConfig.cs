@@ -1,5 +1,5 @@
 // The bridge's configuration: every value it reads at its start, from the settings file when there is one (SettingsSource.cs), else from
-// its environment variables as before.
+// its environment variables as before. A settings file it cannot use stops it (StopCode).
 using System.Globalization;
 using CoreSettings = OverStrike2.Core.Settings;
 using Part = OverStrike2.Core.Part;
@@ -11,7 +11,12 @@ using Part = OverStrike2.Core.Part;
 static class BridgeConfig
 {
     public static readonly SettingsSource Source = SettingsSource.Load(Part.Bridge);
-    public static readonly BridgeValues Values = Source.FromFile ? BridgeValues.FromFile(Source.File) : BridgeValues.FromEnvironment(Environment.GetEnvironmentVariable);
+    public static readonly BridgeValues Values = Source.FromFile || Source.Refusal != null ? BridgeValues.FromFile(Source.File) // a refused file: its defaults, which Main never uses
+        : BridgeValues.FromEnvironment(Environment.GetEnvironmentVariable);
+
+    /// <summary>The exit code the bridge stops with before anything else, or null to start: a settings file it cannot use (SettingsSource.Refusal) is
+    /// the server programs' code, 78.</summary>
+    public static int? StopCode(SettingsSource source) => source.Refusal != null ? CoreSettings.RefusedExit : null;
 }
 
 /// <summary>Every value the bridge reads at its start. Without the settings file each comes from its environment variable, read exactly as

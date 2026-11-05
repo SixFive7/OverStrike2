@@ -291,8 +291,12 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         && slow.Line == $"settings: the settings file {standard} - 2 problems (hud.itemPage, steam.apiGapSeconds)",
         "settings: a gap under 2 s is clamped to 2 and a wrong switch keeps its default - problems by key, never their values");
     var broken = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(vars), _ => "{ not json");
-    Check(!broken.FromFile && broken.Troubled && Setup(broken, Env(vars)) == e && broken.Line.StartsWith($"settings: the environment - the settings file {standard} cannot be used ("),
-        "settings: a file that cannot be used - the environment's values, and the line says why");
+    Check(!broken.FromFile && broken.Troubled && broken.Refusal != null && broken.Line.StartsWith($"settings: the settings file {standard} cannot be used (")
+        && broken.Line.EndsWith(" - not starting: no part runs on settings it cannot use"),
+        "settings: a file that cannot be used - the plugin does not load (never the environment's values), and the line says why");
+    var noAddon = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(vars), _ => """{ "schema": 1, "bridge": { "url": "http://x:8080", "secret": "abc" } }""");
+    Check(!noAddon.FromFile && noAddon.Refusal != null && noAddon.Line.Contains("hud.addon"), "settings: a file without hud.addon - the plugin does not load: a server without the HUD cannot exist");
+    Check(none.Refusal == null && file.Refusal == null, "settings: no file at all, or one that can be used, is no refusal");
 
     var gapBefore = SteamWebApi.Gap;
     SteamWebApi.Gap = TimeSpan.FromSeconds(1);

@@ -75,13 +75,14 @@ Either way, a change takes effect when the containers are created again (a redep
   only, never at Steam: while Valve holds the HUD's item the game keeps playing, and one player without the HUD gets a warning only
   (`hud.check`, `warn` by default).
 - **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** `os2-server` and
-  `os2-sync` then do nothing: one `ALERT` line says why and how to fix it, and they exit with code 78. `doctor` and `version` still
+  `os2-sync` then do nothing: one `ALERT` line says why and how to fix it, and they exit with code 78. The bridge and the plugin refuse
+  it the same way: the bridge exits with code 78, the plugin does not load, and their `settings:` line says why. `doctor` and `version` still
   work and say so. No file at all is the same for them: it names no `hud.addon`. On that code from `os2-server install`, `pre.sh` stops
   the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. All but one
   of the programs' other failures cost the plugin layer and the watcher, never the server ([server.md](server.md#how-it-starts)).
-- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no settings anywhere,
-  or settings they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
-  a file they can use, they read the file alone. Each logs which at its start - `settings: the settings file <path>`, naming the
+- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no settings anywhere
+  they read the environment variables the file replaces (the "Replaces" column) exactly as before; with a file they can use, they read
+  the file alone. Settings they cannot use are never a reason to fall back: as above, they stop. Each logs which at its start - `settings: the settings file <path>`, naming the
   keys with a problem or a warning, or `settings: the environment (<why>)` - and never a value. With the file, the bridge's map list
   and broken list have no key of their own: they are `maps.json` and `broken.json` in `paths.bridgeData`.
 

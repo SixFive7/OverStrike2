@@ -4,7 +4,7 @@ namespace OverStrike2;
 
 /// <summary>THE PLUGIN'S OWN SETTINGS, read once at its load: from the settings file when there is one that can be used (SettingsSource.cs;
 /// the keys whose readers include the plugin - hud.addon, bridge.url and bridge.secret, hud.itemPage, steam.apiGapSeconds), else from the
-/// cs2 service's environment as before, until the install step writes the file. No CounterStrikeSharp type in it: the self-test runs it as
+/// cs2 service's environment as before, until the install step writes the file; a file it cannot use stops the plugin (OverStrike2.Load). No CounterStrikeSharp type in it: the self-test runs it as
 /// it is.</summary>
 public sealed record PluginSetup
 {

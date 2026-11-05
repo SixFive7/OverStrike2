@@ -5,7 +5,7 @@ using System.Text.Json;
 
 static partial class Program
 {
-    // ---- configuration: the settings file, else the environment as before (BridgeConfig.cs, SettingsSource.cs) ----
+    // ---- configuration: the settings file, else the environment until the install step writes it (BridgeConfig.cs, SettingsSource.cs) ----
     static string StateDir = BridgeConfig.Values.StateDir; // not readonly: --selftest points it at a scratch directory
     static readonly string RconHost = BridgeConfig.Values.RconHost, RconPassword = BridgeConfig.Values.RconPassword, LogSecret = BridgeConfig.Values.LogSecret,
         MapsFile = BridgeConfig.Values.MapsFile, BrokenFile = BridgeConfig.Values.BrokenFile,
@@ -43,6 +43,7 @@ static partial class Program
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--search-index", .. var rest]) return SearchIndexFile.Command(rest); // SearchIndexFile.cs: the committed search.json, written or checked
         Log(BridgeConfig.Source.Line);              // where the settings came from - no value in it
+        if (BridgeConfig.StopCode(BridgeConfig.Source) is { } refused) return refused; // a settings file it cannot use: its line said why
         if (RconPassword == "" || LogSecret == "") { Log(BridgeConfig.Source.FromFile ? "server.rconPassword and bridge.secret must be set" : "RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
         (Broken, Packs) = LoadLists();

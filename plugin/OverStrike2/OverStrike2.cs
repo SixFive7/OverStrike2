@@ -42,8 +42,15 @@ public class OverStrike2Plugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        // The plugin's own settings: the settings file's, else the cs2 service's environment as before (PluginSetup.cs, SettingsSource.cs).
+        // The plugin's own settings: the settings file's, else the cs2 service's environment until the install step writes the file (PluginSetup.cs,
+        // SettingsSource.cs). A file it cannot use: it does not load, as the server programs refuse that file. Thrown before anything is registered,
+        // so CounterStrikeSharp marks the plugin failed and nothing of it runs.
         var source = SettingsSource.Load(Part.Plugin);
+        if (source.Refusal != null)
+        {
+            Logger.LogCritical("Over Strike 2 {Settings}", source.Line);
+            throw new InvalidOperationException("Over Strike 2 does not load: " + source.Line);
+        }
         var setup = source.FromFile ? PluginSetup.FromFile(source.File)
             : PluginSetup.FromEnvironment(Environment.GetEnvironmentVariable, Hud.AddonVariable, Hud.OldAddonVariable, HudCheck.PageVariable, HudCheck.PageOff);
         if (source.Troubled) Logger.LogWarning("Over Strike 2 {Settings}", source.Line); // where the settings came from - no value in it

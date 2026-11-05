@@ -60,7 +60,7 @@ static partial class Program
         Check("Settings: the settings as text in OVERSTRIKE2_SETTINGS_CONTENT count as the file, and the line names the variable, never the text",
             inline.FromFile && BridgeValues.FromFile(inline.File).RconHost == "inline-host" && inline.Line == "settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT");
 
-        // ---- a file that cannot be used: the environment, never a half-read file ----
+        // ---- a file that cannot be used: the bridge does not start - never the environment, never a half-read file ----
         foreach (var (what, read) in new (string, Func<string, string>)[]
         {
             ("no JSON", _ => "not json at all"),
@@ -70,9 +70,14 @@ static partial class Program
         })
         {
             var s = SettingsSource.Load(Part.Bridge, NoEnv, read);
-            Check($"Settings: a file that cannot be used ({what}) - the environment, and the line says why",
-                !s.FromFile && s.Troubled && s.Line.StartsWith($"settings: the environment - the settings file {standard} cannot be used (") && !s.Line.Contains("future-host"));
+            Check($"Settings: a file that cannot be used ({what}) - the bridge stops with 78, and the line says why",
+                !s.FromFile && s.Troubled && s.Refusal != null && BridgeConfig.StopCode(s) == 78 && s.Line.StartsWith($"settings: the settings file {standard} cannot be used (")
+                && s.Line.EndsWith(" - not starting: no part runs on settings it cannot use") && !s.Line.Contains("future-host"));
         }
+        var inlineBad = SettingsSource.Load(Part.Bridge, EnvOf(new() { ["OVERSTRIKE2_SETTINGS_CONTENT"] = "{ broken" }), NoFile);
+        Check("Settings: settings in OVERSTRIKE2_SETTINGS_CONTENT that cannot be used - no start either, and the line names the variable, not its text",
+            BridgeConfig.StopCode(inlineBad) == 78 && inlineBad.Line.StartsWith("settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT cannot be used (") && !inlineBad.Line.Contains("{ broken"));
+        Check("Settings: no file at all, or one that can be used, is no refusal", BridgeConfig.StopCode(none) == null && BridgeConfig.StopCode(file) == null && BridgeConfig.StopCode(bad) == null);
 
         // ---- the environment: as the bridge has always read it ----
         var env = BridgeValues.FromEnvironment(NoEnv);
