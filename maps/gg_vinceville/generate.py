@@ -22,14 +22,17 @@ prop_static entities of stock models; each pond is a func_water (rendered as wor
 shallow water material. Units are Hammer units (1 unit = 1 inch).
 """
 import argparse
-import hashlib
 import json
 import math
 import os
+import sys
 import random
-import uuid
 
 NAME = 'gg_vinceville'
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from vmapkit import El, data_array, fnum, node_ids, use_name, write_el  # noqa: E402 (maps/vmapkit.py: the ids and the DMX writer the generators share)
+
+use_name(NAME)
 
 # ---------------------------------------------------------------- dimensions
 GRID = 48            # terrain grid
@@ -146,83 +149,7 @@ VEG = ('tree', 'bush', 'hedge', 'grass', 'card')        # prop tags that get no 
 FADE = {'grass': (1400, 2000), 'bush': (2600, 3400)}    # small foliage fades out with distance
 
 
-# ---------------------------------------------------------------- deterministic ids
-_counter = [0]
-
-
-def new_id():
-    _counter[0] += 1
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f'{NAME}/{_counter[0]}'))
-
-
-_node = [1]
-
-
-def node_ids():
-    _node[0] += 1
-    ref = int(hashlib.sha1(f'{NAME}/node/{_node[0]}'.encode()).hexdigest()[:16], 16)
-    return _node[0], f'0x{ref:x}'
-
-
 # ---------------------------------------------------------------- keyvalues2 DMX writer (as gg_glasspire's)
-class El:
-    __slots__ = ('cls', 'attrs', 'id')
-
-    def __init__(self, cls, attrs=None):
-        self.cls = cls
-        self.attrs = attrs or []
-        self.id = new_id()
-
-
-def fnum(v):
-    if isinstance(v, bool):
-        return '1' if v else '0'
-    if isinstance(v, int):
-        return str(v)
-    s = f'{v:.6f}'.rstrip('0').rstrip('.')
-    return '0' if s in ('-0', '', '-') else s
-
-
-def fval(typ, v):
-    if typ in ('string', 'uint64', 'elementid'):
-        return v
-    if typ == 'bool':
-        return '1' if v else '0'
-    if typ in ('int', 'float'):
-        return fnum(v)
-    return ' '.join(fnum(x) for x in v)
-
-
-def write_el(out, el, ind, name=None):
-    t = '\t' * ind
-    t1 = t + '\t'
-    out.append(f'{t}"{el.cls}"' if name is None else f'{t}"{name}" "{el.cls}"')
-    out.append(t + '{')
-    out.append(f'{t1}"id" "elementid" "{el.id}"')
-    for n, typ, v in el.attrs:
-        if typ == 'element':
-            if v is None:
-                out.append(f'{t1}"{n}" "element" ""')
-            else:
-                write_el(out, v, ind + 1, n)
-        elif typ == 'element_array':
-            out.append(f'{t1}"{n}" "element_array" ')
-            out.append(t1 + '[')
-            for k, child in enumerate(v):
-                write_el(out, child, ind + 2)
-                if k < len(v) - 1:
-                    out[-1] += ','
-            out.append(t1 + ']')
-        elif typ.endswith('_array'):
-            base = typ[:-6]
-            out.append(f'{t1}"{n}" "{typ}" ')
-            out.append(t1 + '[')
-            if v:
-                out.append(',\n'.join(f'{t1}\t"{fval(base, x)}"' for x in v))
-            out.append(t1 + ']')
-        else:
-            out.append(f'{t1}"{n}" "{typ}" "{fval(typ, v)}"')
-    out.append(t + '}')
 
 
 # ---------------------------------------------------------------- vector helpers
@@ -266,10 +193,6 @@ def stream(sem, typ, data, flags, std=None, loc=0):
         ('name', 'string', f'{sem}:0'), ('standardAttributeName', 'string', sem if std is None else std),
         ('semanticName', 'string', sem), ('semanticIndex', 'int', 0), ('vertexBufferLocation', 'int', loc),
         ('dataStateFlags', 'int', flags), ('subdivisionBinding', 'element', None), ('data', typ, data)])
-
-
-def data_array(size, streams):
-    return El('CDmePolygonMeshDataArray', [('size', 'int', size), ('streams', 'element_array', streams)])
 
 
 def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0, wind='centroid', vn=None, smooth_faces=None):

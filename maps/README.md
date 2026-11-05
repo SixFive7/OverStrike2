@@ -4,6 +4,7 @@ Three Arms Race maps, each generated from a script: the geometry, the props, the
 Each folder holds `generate.py` (writes the Hammer map source into the CS2 Workshop Tools' content folder), `build.py`
 (generates, then compiles, lights and packs the map with the Workshop Tools), `preview.py` (renders the Workshop preview from
 the generated layout), `workshop.json` (the Workshop item's title, description and tags) and `workshop_id.txt` (the item).
+`vmapkit.py` holds what the generators share: the ids and the writer of the Hammer map source.
 
 | Map | Workshop item | What it is |
 |---|---|---|
