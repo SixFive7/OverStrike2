@@ -6,7 +6,7 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>A clock the tests move by hand: Sleep advances it and is recorded (the Python tests' FakeTime).</summary>
+/// <summary>A clock the tests move by hand: Sleep advances it and is recorded.</summary>
 sealed class FakeClock(double t) : IClock
 {
     public double T { get; set; } = t;
@@ -22,8 +22,7 @@ sealed class FakeClock(double t) : IClock
     }
 }
 
-/// <summary>The world the Python tests set up through the environment and by replacing the module's functions: the paths a new config
-/// reads, the seams every run uses, the log every run writes to.</summary>
+/// <summary>The world the tests set up: the paths a new config reads, the seams every run uses, the log every run writes to.</summary>
 static class W
 {
     public static readonly TimeZoneInfo Paris = TimeZoneInfo.FindSystemTimeZoneById("Europe/Paris");
@@ -32,7 +31,7 @@ static class W
     public static readonly SyncLog Log = new(new SyncClock(new FakeClock(0), Paris)) { Echo = false };
     public static readonly Seams Hooks = new();
 
-    /// <summary>The Python tests' m.Config(): the defaults, on the paths of the moment.</summary>
+    /// <summary>A new config: the defaults, on the paths of the moment.</summary>
     public static SyncConfig Cfg() => new()
     {
         StateDir = State, WorkDir = Work, GameDir = GameRoot, BridgeData = Data, BridgeUrl = BridgeUrl, BridgeSecret = BridgeSecret, Depotcache = Depotcache,

@@ -6,7 +6,7 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>The Python tests' first half, check by check: the limits (the Web API ledger's caps, the 2-second gap, the stops on 429 / 403 /
+/// <summary>The first part: the limits (the Web API ledger's caps, the 2-second gap, the stops on 429 / 403 /
 /// 5xx / network failures), the configuration's clamps, discovery's stop rule, the check's verdicts, the downloads' book, the scan's advert
 /// rules and its LZ4 reader, the verdicts, the publish plan, the mail, the backlog and the merge rule.</summary>
 static class Part1
@@ -41,7 +41,7 @@ static class Part1
         Check("config: a day cap above 10,000 is clamped to 10,000", c.ApiDayCap == 10000);
         Check("config: the run's cap never exceeds the day cap", c.ApiRunCap == 10000);
         Check("config: the gap never drops under 2 s", c.ApiGap == 2.0);
-        // Python: no attribute download_max / download_bytes; here: no such property, and the settings file knows no such key (a warning)
+        // No such property, and the settings file knows no such key (a warning)
         Check("config: no daily download cap any more: SYNC_DOWNLOAD_MAX and SYNC_DOWNLOAD_MAX_MB mean nothing",
               typeof(SyncConfig).GetProperties().All(p => !p.Name.StartsWith("DownloadMax", StringComparison.Ordinal) && p.Name != "DownloadBytes")
               && s.Warnings.Any(w => w.StartsWith("sync.downloadMax:", StringComparison.Ordinal)) && s.Warnings.Any(w => w.StartsWith("sync.downloadMaxMb:", StringComparison.Ordinal)));
@@ -535,7 +535,7 @@ static class Part1
         ["title"] = title ?? $"map {wid}", ["tags"] = Py.Strings(tags), ["size"] = 41L << 20, ["subs"] = subs, ["lifetime"] = subs, ["description"] = "nice map", ["preview"] = "p",
     };
 
-    // What the Python sync writes for this fixture, byte for byte (its json.dumps with indent 1 and 2; .work/expect.py made them)
+    // What the Python sync wrote for this fixture, byte for byte (its json.dumps with indent 1 and 2, made by Python when the port was written)
     const string ExpectMaps = "[\n {\n  \"rank\": 1,\n  \"id\": 111,\n  \"name\": \"a\",\n  \"sizeMb\": 5\n },\n {\n  \"rank\": 2,\n  \"id\": 222,\n  \"name\": \"b\",\n  \"sizeMb\": 7\n },\n {\n  \"rank\": 3,\n  \"id\": 902,\n  \"name\": \"map 902\",\n  \"sizeMb\": 41\n },\n {\n  \"rank\": 4,\n  \"id\": 901,\n  \"name\": \"map 901\",\n  \"sizeMb\": 41\n }\n]\n";
     const string ExpectBroken = "{\n  \"schema\": \"x\",\n  \"maps\": [\n    {\n      \"id\": 905,\n      \"rank\": null,\n      \"name\": \"map 905\",\n      \"crashes\": 3,\n      \"evidence\": \"crashes the server while loading - all 3\"\n    },\n    {\n      \"id\": 906,\n      \"rank\": null,\n      \"name\": \"map 906\",\n      \"crashes\": 0,\n      \"evidence\": \"posts a gambling ad in chat\",\n      \"reason\": \"posts a gambling ad\"\n    },\n    {\n      \"id\": 222,\n      \"rank\": 2,\n      \"name\": \"map 222\",\n      \"crashes\": 3,\n      \"evidence\": \"crashes after its update\"\n    }\n  ],\n  \"packs\": [\n    {\n      \"id\": 904,\n      \"name\": \"map 904\",\n      \"kind\": \"pack\",\n      \"evidence\": \"confirmed by test\",\n      \"phrase\": null,\n      \"detail\": \"models only\",\n      \"list\": \"sync\",\n      \"formerRank\": null,\n      \"spareRank\": null,\n      \"preview\": \"p\",\n      \"description\": \"nice map\"\n    }\n  ],\n  \"removed\": [],\n  \"blocked\": []\n}\n";
     public const string ExpectSearch = "{\n\"111\": \"a 111\",\n\"222\": \"b 222\",\n\"902\": \"map 902 902 armsrace nice map\",\n\"901\": \"map 901 901 armsrace deathmatch nice map\",\n\"903\": \"map 903 903 wingman nice map\"\n}\n";

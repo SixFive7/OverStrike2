@@ -6,7 +6,7 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>The exception the Python tests raise for a crashed run: its name is what the mail says.</summary>
+/// <summary>The exception the tests raise for a crashed run: its name is what the mail says.</summary>
 sealed class ValueError(string message) : Exception(message);
 
 /// <summary>An engine the tests count the instances of.</summary>
@@ -16,7 +16,7 @@ sealed class SpyEngine : FakeEngine
     public SpyEngine() => All.Add(this);
 }
 
-/// <summary>The Python tests' second half: the bridge's two posts, a run's publish and finish on a bridge folder of its own, the test engine's
+/// <summary>The second part: the bridge's two posts, a run's publish and finish on a bridge folder of its own, the test engine's
 /// stop with real processes, whole runs in batches on stand-ins for SteamCMD and the test engine, the problem mail, the status file, a join
 /// during the tests, Steam's push-back, the stalls, a map gone from the Workshop, and the run's clock.</summary>
 static class Part2

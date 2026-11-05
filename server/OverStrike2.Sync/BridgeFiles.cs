@@ -146,7 +146,7 @@ public sealed class BridgeData
 }
 
 /// <summary>&lt;state&gt;/state.json: the items this tool has seen and what it decided, the update baseline, the day's downloads, the ratings,
-/// the history, the last run. Kept in the Python sync's shape, so either reads the other's file.</summary>
+/// the history, the last run. Kept in the shape the Python sync wrote: this program reads the file it left, and the other way round.</summary>
 public sealed class SyncState(string path)
 {
     public string Path { get; } = path;

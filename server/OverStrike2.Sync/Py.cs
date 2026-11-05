@@ -7,8 +7,7 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
-/// <summary>A value of a data file that is not what its reader takes: the Python sync's ValueError. Nothing is published or assumed on
-/// it.</summary>
+/// <summary>A value of a data file that is not what its reader takes. Nothing is published or assumed on it.</summary>
 public sealed class BadDataException(string message) : Exception(message);
 
 /// <summary>The Python sync's semantics, where the port has to keep them exactly - the files it wrote are read by this program now, and

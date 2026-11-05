@@ -475,7 +475,7 @@ public static partial class Mail
             {
                 Say("STARTTLS");
                 Expect(220);
-                var ssl = new SslStream(stream, false, (_, _, _, _) => true);   // a relay inside the deployment, as Python's starttls() without a context
+                var ssl = new SslStream(stream, false, (_, _, _, _) => true);   // a relay inside the deployment: its certificate is not checked
                 ssl.AuthenticateAsClient(host);
                 stream = ssl;
                 reader = new SmtpReader(stream);

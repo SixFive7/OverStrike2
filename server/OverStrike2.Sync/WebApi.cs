@@ -134,7 +134,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
     }
 }
 
-/// <summary>File modes the sync writes with: its own files 0644, the bridge's 0666 (as the Python sync's os.chmod).</summary>
+/// <summary>File modes the sync writes with: its own files 0644, the bridge's 0666.</summary>
 public static class FileModes
 {
     public const UnixFileMode Private = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead;

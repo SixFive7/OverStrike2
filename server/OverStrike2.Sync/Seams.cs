@@ -4,7 +4,7 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
-/// <summary>The sync's outside world, each a seam a test replaces (the Python tests replaced the module's functions the same way): SteamCMD,
+/// <summary>The sync's outside world, each a seam a test replaces: SteamCMD,
 /// the test engine and its farm, the scan, a test load, A2S of the game server, the Workshop check, the mail, the keep set, the bridge's
 /// HTTP side and the Web API's. The defaults are the real ones.</summary>
 public sealed class Seams

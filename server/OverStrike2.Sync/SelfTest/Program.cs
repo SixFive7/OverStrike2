@@ -1,5 +1,5 @@
-// The Workshop sync's self-test: every check of the Python sync's tests (server/test_workshop_sync.py), by the same names, and the checks
-// of what the port brings new - the settings file, the SteamCMD driver, the test tree, the SMTP client, the dry run. Every check prints
+// The Workshop sync's self-test: every check the Python sync's tests held, under the same names but for those that named a Python file,
+// and the checks of what the port brings new - the settings file, the SteamCMD driver, the test tree, the SMTP client, the dry run. Every check prints
 // PASS, FAIL or SKIP; the exit code is the number of failures (0: all passed).
 //   dotnet run --project server/OverStrike2.Sync/SelfTest
 // The checks on process groups, /proc, links and real processes need Linux and say SKIP elsewhere. The run that counts is the one in the

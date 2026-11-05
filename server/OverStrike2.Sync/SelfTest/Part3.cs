@@ -88,7 +88,7 @@ sealed class VoteApi(Dictionary<string, double> scores, int? stopAfter = null, D
     public Dictionary<string, JsonObject> Details(IReadOnlyList<string> ids) => throw new NotSupportedException();
 }
 
-/// <summary>The Python tests' last third: acf editing, the keep set (Core's, the restart watcher's too), the scores, the 223, the ratings, the
+/// <summary>The third part: acf editing, the keep set (Core's, the restart watcher's too), the scores, the 223, the ratings, the
 /// queue, the hand-over and the watcher reading it, serve, the clean-up, the tidy step, one definition per name, the real test load, and
 /// reshaped inputs.</summary>
 static class Part3
@@ -164,14 +164,13 @@ static class Part3
     {
         var syncTypes = typeof(SyncRun).Assembly.GetTypes();
         var serverTypes = typeof(MapsFolder).Assembly.GetTypes();
-        // Python: one keepset.py and no copy of its rules in either script; here: one KeepSet type, in Core, and neither program has its own
-        Check("keep set: one copy of the rules - keepset.py; neither script holds its own",
+        Check("keep set: one copy of the rules - Core's KeepSet; neither program holds its own",
               !syncTypes.Any(t => t.Name.Contains("KeepSet", StringComparison.Ordinal)) && !serverTypes.Any(t => t.Name.Contains("KeepSet", StringComparison.Ordinal))
               && typeof(KeepSet).Assembly.GetName().Name == "OverStrike2.Core");
-        Check("keep set: both scripts import the same keepset.py",
+        Check("keep set: both programs use the same KeepSet, Core's",
               typeof(SyncRun).Assembly.GetReferencedAssemblies().Any(a => a.Name == "OverStrike2.Core") && typeof(MapsFolder).Assembly.GetReferencedAssemblies().Any(a => a.Name == "OverStrike2.Core"));
         var probe = W.Run(Cfg(), new FakeClock(KT));
-        Check("keep set: both scripts give the same set from the same data",
+        Check("keep set: both programs give the same set from the same data",
               Same(probe.SafeKeepSet(Inputs(kdata), KT, "500")) == Same(KeepSet.Safe(Inputs(kdata), SyncClock.At(KT), "500"))
               && probe.SafeKeepSet(Inputs(kdata), KT, "").Problems.SequenceEqual(KeepSet.Safe(Inputs(kdata), SyncClock.At(KT), "").Problems));
         var withBlocked = (JsonObject)kdata.DeepClone();
@@ -312,7 +311,7 @@ static class Part3
         Check("hand-over: what waits in the folder", Handover.Pending(hdir) is { Count: 1 } p && p["305"] == 4);
         Check("hand-over: nothing staged, nothing handed over", !Handover.HandOver(Path.Combine(swork, "staging"), hdir, "306", "", "", KT, Log.Line).Ok);
         // the one contract the two programs share: os2-server's MapsFolder takes in what the sync handed over
-        Check("hand-over: update-watch.py reads the sync's marker as complete",
+        Check("hand-over: os2-server reads the sync's marker as complete",
               MapsFolder.ReadMarker(Path.Combine(hdir, "305.json"), "305").Record is not null
               && MapsFolder.FolderStats(Path.Combine(hdir, "305")) == (Py.Int(mk["files"]), Py.Int(mk["bytes"])));
     }
@@ -520,10 +519,10 @@ static class Part3
     // ---- one definition per name, and the real test load's first steps
     static void Definitions()
     {
-        foreach (var (script, assembly) in new[] { ("workshop-sync.py", typeof(SyncRun).Assembly), ("update-watch.py", typeof(MapsFolder).Assembly) })
+        foreach (var (program, assembly) in new[] { ("os2-sync", typeof(SyncRun).Assembly), ("os2-server", typeof(MapsFolder).Assembly) })
         {
             var twice = Twice(assembly);
-            Check($"one definition per module-level name in {script} (twice: {T.Show(twice)})", twice.Count == 0);
+            Check($"one definition per name in {program} (twice: {T.Show(twice)})", twice.Count == 0);
         }
         Check("mode_of is test_load's: (mode, game_type, game_mode) from the tags",
               TestLoad.ModeOf(["Wingman"]) == ("wingman", 0, 2) && TestLoad.ModeOf([]) == ("armsrace", 1, 0) && Status.ListMode(O("{\"tags\": [\"Deathmatch\"]}")) == "deathmatch");
@@ -557,16 +556,16 @@ static class Part3
         nsr.Serve();
         Check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
               Py.StrOr(Py.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Py.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
-        // Python: keepset.py not mounted beside the script (an import guard); here the keep set is compiled in from Core and cannot be missing,
-        // so these two hold the guard's meaning - a keep set that could not be computed is empty, says why, and serve hands over nothing on it
+        // The keep set is compiled in from Core, so it cannot be missing; these two hold what a missing one must mean: a keep set that could
+        // not be computed is empty, says why, and serve hands over nothing on it
         Hooks.KeepSet = (_, _, _, _) => throw new FileNotFoundException("OverStrike2.Core's KeepSet is not loadable");
         var ksb = probe.SafeKeepSet(KeepSet.Inputs(sdata), KT, "500");
-        Check($"no keepset.py: an empty keep set that says why ({T.Show(ksb.Problems.Take(1))})",
+        Check($"no keep set: an empty one that says why ({T.Show(ksb.Problems.Take(1))})",
               ksb.All.Count == 0 && ksb.Problems[0].StartsWith("the keep set could not be computed: FileNotFoundException", StringComparison.Ordinal));
         var nb = W.Run(ncfg2, new FakeClock(KT + 500));
         nb.State.Load();
         nb.Serve();
-        Check("no keepset.py: serve hands over nothing and names it as an error", Py.StrOr(Py.Get(nb.Report["serve"], "skipped")).Contains("could not be computed")
+        Check("no keep set: serve hands over nothing and names it as an error",Py.StrOr(Py.Get(nb.Report["serve"], "skipped")).Contains("could not be computed")
               && Py.StrList(nb.Report["errors"]).Any(e => e.Contains("KeepSet")));
         Hooks.KeepSet = realKeep;
     }

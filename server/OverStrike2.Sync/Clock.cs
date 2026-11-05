@@ -4,7 +4,7 @@ using OverStrike2.Core;
 namespace OverStrike2.Sync;
 
 /// <summary>A SIGTERM on its way: thrown out of the next wait, so every step's clean-up runs (SteamCMD told to quit, the test engine
-/// stopped, the status file saying idle) - the Python sync's SystemExit. Never caught as an error.</summary>
+/// stopped, the status file saying idle). Never caught as an error.</summary>
 public sealed class StopRequested() : Exception("the service is stopping (SIGTERM)");
 
 /// <summary>The service's own clock: the system's, whose waits end at once when the service is told to stop.</summary>
@@ -32,7 +32,7 @@ public sealed class StoppableClock : IClock
     }
 }
 
-/// <summary>Local time for the restarts' times and the day's name, on a clock a test can move: unix seconds, as the Python sync counted.</summary>
+/// <summary>Local time for the restarts' times and the day's name, on a clock a test can move, in unix seconds.</summary>
 public sealed class SyncClock(IClock clock, TimeZoneInfo zone)
 {
     public IClock Clock { get; } = clock;
