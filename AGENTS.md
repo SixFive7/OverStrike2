@@ -29,25 +29,29 @@ see [deploy/README.md](deploy/README.md)), from which the deploy scripts read th
 
 ## Build and test before every commit that touches code
 
+From the repository's root:
+
 ```sh
-cd bridge && dotnet build && dotnet run -- --selftest      # must end SELFTEST PASSED
-cd plugin/OverStrike2 && dotnet build -c Release            # zero warnings: warnings are errors
-cd plugin/OverStrike2.SelfTest && dotnet run
-cd plugin/CatchUp/SelfTest && dotnet run
-dotnet run --project core/SelfTest                          # the settings file and what the parts share
-dotnet run --project server/OverStrike2.Server/SelfTest     # the server program; its Linux-only checks in the game image (docs/server.md)
-dotnet run --project server/OverStrike2.Sync/SelfTest       # the Workshop sync's program; its Linux-only checks in the game image too
+(cd bridge && dotnet build && dotnet run -- --selftest)         # must end SELFTEST PASSED
+(cd plugin/OverStrike2 && dotnet build -c Release)              # zero warnings: warnings are errors
+(cd plugin/OverStrike2.SelfTest && dotnet run)
+(cd plugin/CatchUp/SelfTest && dotnet run)
+dotnet run --project core/SelfTest                              # the settings file and what the parts share
+dotnet run --project server/OverStrike2.Server/SelfTest         # the server program; its Linux-only checks in the game image (docs/server.md)
+dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop sync's program; its Linux-only checks in the game image too
 python bridge/search-index.py --check
+python -I deploy/test_deploy.py                                 # the deploy scripts, with no server and no Docker
+python -I deploy/test_release.py
 ```
 
-The rules are said in the menu's How it works, Help and Rules pages, and `--selftest` holds them to the code, number for number
+The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number
 (docs/reference.md, "Keeping the rules in sync"): a rule change changes the code and the words together.
 
 ## Shipping
 
 Only through [deploy/](deploy/), with the private config, and only committed code. What restarts what: data files reload by
 themselves; a bridge swap disconnects nobody; the plugin, `pre.sh` and the game server's settings need a game server restart,
-which disconnects everybody - only at 0 players.
+which disconnects everybody: the watcher does it at once with nobody on, at the end of the match with players on (docs/server.md).
 
 ## cs2 in-game HUD — NEVER create another Workshop item
 
