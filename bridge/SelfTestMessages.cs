@@ -10,7 +10,7 @@ static partial class Program
     static void MessagesSelfTest(Action<string, bool> Check)
     {
         // ---- the catalogue ----
-        Check("Catalogue: every kind once, in the list, with a row of the owner's picks and a category", Messages.All.Select(k => k.Id).Distinct().Count() == Messages.All.Length
+        Check("Catalogue: every kind once, in the list, saying what it is, with a category", Messages.All.Select(k => k.Id).Distinct().Count() == Messages.All.Length
             && Messages.All.All(k => k.Row != "" && Messages.Categories.Contains(k.Cat) && Messages.Find(k.Id) == k));
         Check("Catalogue: the picks' surfaces: the top line, the countdown, the banner, the plain text, the alert, the card, the window",
             Messages.FunChanged.Surface == Surface.Top && Messages.MapCountdown.Surface == Surface.Countdown && Messages.RestartAfterMatch.Surface == Surface.Banner && Messages.Joined.Surface == Surface.Plain
@@ -20,7 +20,7 @@ static partial class Program
         // ---- the marks ----
         var palette = new M.Palette('P', 'C', 'A', 'V', 'R', 'D', name => name == "Remy" ? 'T' : null);
         var line = $"{M.N("Remy")} set {M.A("gravity")} to {M.V("Moon")} - Until the map changes";
-        Check("Marks: chat renders the owner's example in the functional colours, a name in its team's", M.Render(line, palette) == "TRemyP set AgravityP to VMoonP - Until the map changes");
+        Check("Marks: chat renders a fun change in the functional colours, a name in its team's", M.Render(line, palette) == "TRemyP set AgravityP to VMoonP - Until the map changes");
         Check("Marks: every other surface has the words alone", M.Plain(line) == "Remy set gravity to Moon - Until the map changes");
         Check("Marks: a name nobody on the server has gets no colour of its own; a refusal's and a done line's plain words have theirs",
             M.Render($"{M.N("Nobody")} left", palette) == "NobodyP left" && M.Render(M.Refused($"No {M.C("!foo")}"), palette) == "RNo C!fooR" && M.Render(M.Done("Done"), palette) == "DDone");
