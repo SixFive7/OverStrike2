@@ -2,7 +2,7 @@
 
 The HUD is **one** Steam Workshop item, **3823993566** ([`workshop_id.txt`](workshop_id.txt)), Public. A release is a content
 update of that item - never a new item, under any name (see [AGENTS.md](../AGENTS.md#cs2-in-game-hud--never-create-another-workshop-item)).
-Every new version waits in Valve's moderation queue, so publish only with the owner's go for that release, bundle every waiting
+Every new version waits in Valve's moderation queue, so publish only with the owner's go, standing or per release, bundle every waiting
 layout change into it, and publish while nobody plays.
 
 Everything here runs on Windows, with Counter-Strike 2 installed and Steam running and logged in.
@@ -29,7 +29,7 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
 ```powershell
 powershell -File hud\publish.ps1 -Query                                   # the item as Steam has it
 powershell -File hud\publish.ps1 -Public                                  # whether a visitor sees it (moderation): a visit to the page, see below
-powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY with the owner's go for this release
+powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY with the owner's go, standing or per release
 ```
 
 `publish.ps1` builds the publisher (`publisher\`, the Steamworks UGC API through CS2's own `steam_api64.dll`; it never sees a

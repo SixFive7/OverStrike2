@@ -57,7 +57,7 @@ of the match with players on (docs/server.md).
 ## cs2 in-game HUD — NEVER create another Workshop item
 
 Never publish another HUD Workshop item, under any name, and never publish a new version of the live one without the owner's
-go for that release. Valve holds new Workshop items and new versions for moderation, and near-identical new items in place of
+go, standing or per release. Valve holds new Workshop items and new versions for moderation, and near-identical new items in place of
 an update are exactly what Valve frowns on: while one is held, players cannot download the HUD.
 
 - The one HUD item is **3823993566** ([hud/workshop_id.txt](hud/workshop_id.txt)). A release is a content update of it; the

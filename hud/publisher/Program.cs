@@ -96,12 +96,12 @@ static class Program
     {
         try
         {
-            // Never another HUD item, and a new version of the one item only with the owner's go for that release (AGENTS.md): every
+            // Never another HUD item, and a new version of the one item only with the owner's go, standing or per release (AGENTS.md): every
             // version waits in Valve's moderation queue. Only an explicit, approved run may upload, and only as an update.
             if (args is ["publish", ..] && !args.Contains(ApprovedFlag))
             {
                 Console.WriteLine($"REFUSED: publishing uploads a new version of the HUD item, which waits for Valve's moderation. AGENTS.md, " +
-                    $"\"cs2 in-game HUD - NEVER create another Workshop item\": ask the user first; only with their go for this release pass {ApprovedFlag}.");
+                    $"\"cs2 in-game HUD - NEVER create another Workshop item\": only with the owner's go, standing or per release, pass {ApprovedFlag}.");
                 return 3;
             }
             args = args.Where(a => a != ApprovedFlag).ToArray();
