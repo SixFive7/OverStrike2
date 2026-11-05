@@ -17,7 +17,8 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
    most popular first) adds maps that are not listed yet, so a map has its picture before it is listed. All from the maps' Workshop
    previews, on Steam's image CDN. They are other authors' pictures and are never committed. An official map's picture is the game's own
    screenshot. The addon holds 16,384 pictures at most; a release brings about 113 MB for 9,200 of them.
-3. The knife icon: `hud\images\knife.png` is in the repository, an original drawing (`python hud\knife.py` draws it again; no game art).
+3. The knife icon: `hud\images\knife.png` is in the repository, an original drawing (no game art): 512 x 256, white on transparent,
+   tip to the right, which the stylesheet washes gold. A new one is a binary file, reviewed into `tools\scan\allow.txt` with its hash.
 4. `powershell -File hud\build.ps1` copies the layout, the stylesheets, the images and the pictures into the Workshop Tools'
    content folder and compiles them into `game\csgo_addons\gungame_hud\`. It must end with an `OK` line for the layout, each
    stylesheet, the knife and the pictures. `-Local` also copies the result into your own client to try it before publishing;
