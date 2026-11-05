@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- os2-server: the game server's own program, in its container beside the engine. `install` (what the image's pre.sh hook hands over
+       to before every engine start: the plugin layer, the HUD addon's delivery, the maps folder), `organize`, `watch` (the restart
+       watcher, in the background for the life of the container) and `doctor`. Shipped as one self-contained linux-x64 file:
+       dotnet publish -c Release -r linux-x64 (the properties below make it a single file with its runtime; JIT, not AOT, so it runs on
+       any glibc from 2.27). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- LibraryImport's generated marshalling: kill and statvfs -->
+    <RootNamespace>OverStrike2.Server</RootNamespace>
+    <AssemblyName>os2-server</AssemblyName>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\OverStrike2.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The self-test is a project of its own in the folder below. -->
+    <Compile Remove="SelfTest\**" />
+    <None Remove="SelfTest\**" />
+  </ItemGroup>
+
+</Project>

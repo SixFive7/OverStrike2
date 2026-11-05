@@ -13,6 +13,7 @@ the code is the final word, and the bridge's `--selftest` holds most of what is 
 | The HUD | [`hud/`](../hud/) | A Panorama layout and stylesheet published as one Steam Workshop item. MultiAddonManager hands it to every player who joins; every word on it comes from the plugin. |
 | The restart watcher | [`server/update-watch.py`](../server/update-watch.py) | Runs inside the game server's container: restarts for game updates and once a day, between matches; kills a frozen engine; warms the Steam client up; prefetches Workshop maps at night. |
 | The Workshop sync | [`server/workshop-sync.py`](../server/workshop-sync.py) | An optional third container: finds new maps on the Workshop, downloads, scans and load-tests them, and lists the ones that pass. |
+| The server program | [`server/OverStrike2.Server/`](../server/OverStrike2.Server/) | `os2-server`, the C# successor of the restart watcher and the install hook's shell work, with restarts for a new version of our own parts too: [server.md](server.md). |
 
 The bridge is .NET 10 with the base class library only, published native AOT into a chiseled image; it runs read-only, with all
 capabilities dropped, as a non-root user, and writes only to its state directory. It does not reach the internet: everything

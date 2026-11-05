@@ -186,5 +186,6 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `paths.syncCfg` | string | (empty) | server | SYNC_CFG_DIR | Mode cfgs copied over the test engine's own; empty: none. |
 | `paths.steamCmd` | string | `/home/steam/steamcmd/steamcmd.sh` | server | SYNC_STEAMCMD | SteamCMD in the sync's container (the image's own). |
 | `paths.depotcache` | string | `/home/steam/Steam/depotcache` | server | CS2_DEPOTCACHE, SYNC_DEPOTCACHE | Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing. |
+| `paths.plugins` | string | `/home/steam/cs2-plugins` | server | CS2_PLUGINS_SRC | The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start. |
 
 <!-- keys:end -->

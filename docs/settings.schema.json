@@ -507,6 +507,11 @@
           "description": "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing. Replaces CS2_DEPOTCACHE, SYNC_DEPOTCACHE.",
           "type": "string",
           "default": "/home/steam/Steam/depotcache"
+        },
+        "plugins": {
+          "description": "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start. Replaces CS2_PLUGINS_SRC.",
+          "type": "string",
+          "default": "/home/steam/cs2-plugins"
         }
       },
       "additionalProperties": false

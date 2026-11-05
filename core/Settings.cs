@@ -551,6 +551,8 @@ public sealed class Settings
             s => s.Paths.SteamCmd, (s, v) => s.Paths.SteamCmd = v, v => v.StartsWith('/'), "an absolute path"),
         Str("paths.depotcache", Part.Server, "/home/steam/Steam/depotcache", "CS2_DEPOTCACHE, SYNC_DEPOTCACHE", "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing.",
             s => s.Paths.Depotcache, (s, v) => s.Paths.Depotcache = v, v => v.StartsWith('/'), "an absolute path"),
+        Str("paths.plugins", Part.Server, "/home/steam/cs2-plugins", "CS2_PLUGINS_SRC", "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
+            s => s.Paths.Plugins, (s, v) => s.Paths.Plugins = v, v => v.StartsWith('/'), "an absolute path"),
     ];
 
     /// <summary>docs/settings.schema.json, made from <see cref="Keys"/>: what the self-test compares the committed file with.</summary>
@@ -765,4 +767,5 @@ public sealed class PathsSection
     public string SyncCfg { get; set; } = "";
     public string SteamCmd { get; set; } = "/home/steam/steamcmd/steamcmd.sh";
     public string Depotcache { get; set; } = "/home/steam/Steam/depotcache";
+    public string Plugins { get; set; } = "/home/steam/cs2-plugins";
 }

@@ -12,11 +12,18 @@ if (args.Contains("--write"))
     File.WriteAllText(md, T.WithKeys(File.ReadAllText(md), Settings.KeysMarkdown()));
     Console.WriteLine("wrote docs/settings.schema.json and the key tables of docs/settings.md");
 }
-SettingsTests.Run(root);
-KeyValuesTests.Run();
-NetTests.Run();
-TimeTests.Run();
-KeepSetTests.Run();
+try
+{
+    SettingsTests.Run(root);
+    KeyValuesTests.Run();
+    NetTests.Run();
+    TimeTests.Run();
+    KeepSetTests.Run();
+}
+finally
+{
+    T.Clean();
+}
 Console.WriteLine($"\n{T.Fails} failure(s) of {T.Checks} checks");
 return T.Fails;
 
@@ -80,11 +87,25 @@ namespace OverStrike2.Core.SelfTest
             return i < 0 || j < i ? "" : md[(i + Begin.Length)..j].Trim('\n');
         }
 
+        static readonly string TempDir = Path.Combine(Path.GetTempPath(), "os2-core-selftest-" + Environment.ProcessId);
+
         public static string Temp(string name)
         {
-            var dir = Path.Combine(Path.GetTempPath(), "os2-core-selftest-" + Environment.ProcessId);
-            Directory.CreateDirectory(dir);
-            return Path.Combine(dir, name);
+            Directory.CreateDirectory(TempDir);
+            return Path.Combine(TempDir, name);
+        }
+
+        /// <summary>The test's own temporary folder, gone at the end.</summary>
+        public static void Clean()
+        {
+            try
+            {
+                if (Directory.Exists(TempDir))
+                    Directory.Delete(TempDir, true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+            }
         }
     }
 

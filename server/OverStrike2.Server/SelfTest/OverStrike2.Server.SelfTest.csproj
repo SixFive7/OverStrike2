@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The server program's self-test: "dotnet run (project) server/OverStrike2.Server/SelfTest" from the repository's root runs every
+       check and exits 0 when all pass. The checks that need Linux (links, /proc, a folder's fsync) say SKIP elsewhere: the run that counts
+       is the one in the game image (docs in Program.cs). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>OverStrike2.Server.SelfTest</AssemblyName>
+    <RootNamespace>OverStrike2.Server.SelfTest</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+    <!-- The program under test is referenced for its code, never run from here: it need not be self-contained like this one. -->
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OverStrike2.Server.csproj" />
+  </ItemGroup>
+
+</Project>
