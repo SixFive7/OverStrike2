@@ -22,9 +22,8 @@ Dockerfile is bridge/Dockerfile), never uncommitted files.
 
 The swap does for the bridge alone what compose would do, so nobody is disconnected: the container is stopped, renamed aside,
 created anew under its own name from its own inspect (environment, labels - compose's included, so it stays in its stack -
-mounts, restart policy, read-only root, capabilities, user and its network settings; only the image differs), given the settings
-file the old container holds (compose copied it into the container's own layer, so an inspect does not carry it; without it a bridge
-with no secrets in its environment refuses to start) and started, then verified: running, on the IP and MAC it is configured with,
+mounts, restart policy, read-only root, capabilities, user and its network settings, the settings in OVERSTRIKE2_SETTINGS_CONTENT among
+them; only the image differs) and started, then verified: running, on the IP and MAC it is configured with,
 GET /health answering from inside the game container (the secret from the game container's CS2_LOG_HTTP_URL, else the bridge's
 LOG_SECRET), a log push arriving, and the game container untouched. Only then is the old container removed; on any failure it is put
 back as it was. A
@@ -296,7 +295,6 @@ class Bridge:
             os2.log(f"{self.name} is stopped - swapped all the same, onto the network it is configured with: {want}")
         old_image = self.d.inspect("images", old["Image"]) or {}
         body = self.create_body(old, old_image, target["Id"])
-        settings = os2.read_settings(self.d, old["Id"])   # read before anything changes; None: a bridge on its environment
         running_ref = (old["Config"].get("Image") or self.repo)
         ref_repo, _, ref_tag = running_ref.partition(":")
         ref_tag = ref_tag or "latest"
@@ -311,9 +309,6 @@ class Bridge:
                 self.d.must("POST", f"/containers/{old['Id']}/stop?t=15", "stop the old bridge", timeout=60)
             self.d.must("POST", f"/containers/{old['Id']}/rename?name={aside}", "rename the old bridge aside")
             new_id = self.d.must("POST", f"/containers/create?name={self.name}", "create the new bridge", body=body)["Id"]
-            if settings is not None:
-                os2.put_settings(self.d, new_id, settings)
-                os2.log(f"the settings file carried over ({len(settings)} bytes, {os2.SETTINGS_FILE})")
             self.d.must("POST", f"/containers/{new_id}/start", "start the new bridge")
             os2.log(f"new {self.name} {new_id[:12]} started (the old one is stopped, as {aside})")
             problems = self.verify(game_before, want)

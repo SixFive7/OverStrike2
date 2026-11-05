@@ -9,10 +9,8 @@ has no runtime address, so a swap that checked the runtime address put the old o
 and data.py ships the hand-made files but never a list the Workshop sync writes on the server (one writer per file).
 """
 import copy
-import io
 import os
 import sys
-import tarfile
 import tempfile
 import time
 
@@ -38,19 +36,18 @@ class FakeDocker:
     """The Docker Engine API calls bridge.py makes, on containers and tags kept in memory. old_engine: a stopped container keeps
     its MAC only in Config.MacAddress (engines before API 1.44), not on its network endpoint."""
 
-    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="gg-health 1\nlog pushes 3\n", settings=None, bare=False):
-        self.old_engine, self.health_text, self.calls, self.n = old_engine, health, [], 0
-        self.files, self.tar_names, self.execs, self.put_refused = {"c-old": settings} if settings is not None else {}, [], [], False
+    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="gg-health 1\nlog pushes 3\n", bare=False):
+        self.old_engine, self.health_text, self.calls, self.n, self.execs = old_engine, health, [], 0, []
         self.refs = {"localhost/overstrike2-bridge:latest": "sha256:image-old-00000", "localhost/overstrike2-bridge:candidate": "sha256:image-new-00000"}
         self.images = {i: {"Id": i, "Config": {"Env": ["PATH=/usr/bin"], "Labels": {"org.opencontainers.image.title": "x"}}}
                        for i in set(self.refs.values())}
-        env = ["PATH=/usr/bin"] if bare else ["PATH=/usr/bin", "HTTP_PORT=8080", "LOG_SECRET=s", "RCON_PASSWORD=p"]   # bare: all it has is the settings file
+        env = ["PATH=/usr/bin", "OVERSTRIKE2_SETTINGS_CONTENT={ \"schema\": 1 }"] if bare else ["PATH=/usr/bin", "HTTP_PORT=8080", "LOG_SECRET=s", "RCON_PASSWORD=p"]   # bare: its settings, no secret beside them
         endpoint = {"IPAMConfig": {"IPv4Address": IP} if pinned else None, "Aliases": ["bridge"], "MacAddress": MAC, "IPAddress": IP}
         self.containers = {
             "c-old": {"Id": "c-old", "Name": "/bridge", "Image": "sha256:image-old-00000", "RestartCount": 0,
                       "State": {"Running": True, "Status": "running", "StartedAt": "start-0"},
                       "Config": {"Image": "localhost/overstrike2-bridge", "Env": env, "Labels": {"com.docker.compose.service": "bridge"}},
-                      "HostConfig": {"RestartPolicy": {"Name": "unless-stopped"}, "NetworkMode": NET},
+                      "HostConfig": {"RestartPolicy": {"Name": "unless-stopped"}, "NetworkMode": NET, "ReadonlyRootfs": True},
                       "NetworkSettings": {"Networks": {NET: endpoint}}},
             "c-game": {"Id": "c-game", "Name": "/cs2", "Image": "sha256:game", "RestartCount": 0,
                        "State": {"Running": True, "Status": "running", "StartedAt": "start-game"},
@@ -78,28 +75,11 @@ class FakeDocker:
             c = self.images.get(self.refs.get(name, name))
         return copy.deepcopy(c) if c else None
 
-    def call(self, method, path, body=None, raw=None, ctype=None, timeout=60):
+    def call(self, method, path, body=None, timeout=60):
         route, _, query = path.partition("?")
         q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         parts = route.strip("/").split("/")
         self.calls.append((method, route, q.get("name") or q.get("tag") or ""))
-        if parts[-1] == "archive":
-            c = self.find(parts[1])
-            if method == "PUT":
-                if self.put_refused:
-                    return 400, "container rootfs is marked read-only"
-                with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
-                    self.tar_names = tar.getnames()
-                    self.files[c["Id"]] = tar.extractfile(tar.getmembers()[0]).read()
-                return 200, b""
-            if c["Id"] not in self.files:
-                return 404, "Could not find the file"
-            out = io.BytesIO()
-            with tarfile.open(fileobj=out, mode="w") as tar:
-                info = tarfile.TarInfo(os2.SETTINGS_FILE.rsplit("/", 1)[1])
-                info.size = len(self.files[c["Id"]])
-                tar.addfile(info, io.BytesIO(self.files[c["Id"]]))
-            return 200, out.getvalue()
         if parts[0] == "images" and parts[-1] == "tag":
             self.refs[f"{q['repo']}:{q['tag']}"] = parts[1]
             return 201, b""
@@ -225,26 +205,16 @@ try:
     f.refs["localhost/overstrike2-bridge:candidate"] = "sha256:image-old-00000"
     check("swap, running on the target already: nothing to do, nothing written", swap(f) == 0 and f.writes() == [])
 
-    # the settings file lives in the container's own layer: a new container made from the old one's inspect gets it from the swap
-    f = FakeDocker(settings=b"{ settings of the old bridge }")
+    # the settings are an environment variable: a new container made from the old one's inspect has them, on a read-only root too
+    f = FakeDocker(bare=True, health="gg-health 1\nlog pushes 3\n")
     r = swap(f)
     new = f.find("bridge")
-    check("swap, with a settings file: the new bridge holds the same bytes, put there before it starts, at the path every part reads",
-          r == 0 and f.files.get(new["Id"]) == b"{ settings of the old bridge }" and f.tar_names == ["etc/overstrike2/overstrike2.jsonc"]
-          and f.calls.index(("PUT", f"/containers/{new['Id']}/archive", "")) < f.calls.index(("POST", f"/containers/{new['Id']}/start", "")))
-    f = FakeDocker()
-    r = swap(f)
-    check("swap, a bridge on its environment: no settings file is made up", r == 0 and not f.files and not any(c[0] == "PUT" for c in f.calls))
-    f = FakeDocker(settings=b"{ }")
-    f.put_refused = True
-    r = swap(f)
-    back = f.find("bridge")
-    check("swap, the settings file refused (a read-only root): never started without it - the old bridge is back up",
-          r == 1 and back["Id"] == "c-old" and back["State"]["Running"] and len(f.containers) == 2
-          and not any(c[0] == "POST" and c[1].endswith("/start") and "new" in c[1] for c in f.calls))
+    check("swap, the settings in the environment: the new bridge has them byte for byte, its root still read-only, and nothing but the inspect was needed",
+          r == 0 and 'OVERSTRIKE2_SETTINGS_CONTENT={ "schema": 1 }' in new["Config"]["Env"] and new["HostConfig"]["ReadonlyRootfs"] is True
+          and not any("archive" in c[1] for c in f.calls))
 
-    # a bridge that reads the settings file has no secret in its environment: the game container's are used
-    f = FakeDocker(settings=b"{ }", bare=True, health="gg-health 1\nlog pushes 0\n")
+    # a bridge with no secret in its environment: the game container's are used
+    f = FakeDocker(bare=True, health="gg-health 1\nlog pushes 0\n")
     r = swap(f)
     gets = [a[3] for a in f.execs if a[2] == B.INNER_GET]
     says = [a for a in f.execs if a[2] == B.INNER_RCON]
@@ -279,14 +249,6 @@ check("os2: the log push address first, then the bridge's own variables; a URL w
 check("os2: the RCON password from the game container first, then the bridge's",
       os2.rcon_password(box("CS2_RCONPW=a"), box("RCON_PASSWORD=b")) == "a" and os2.rcon_password(box(), box("RCON_PASSWORD=b")) == "b"
       and os2.rcon_password(None, None) == "")
-f = FakeDocker()
-check("os2: a container with no settings file reads as None", os2.read_settings(f, "c-old") is None)
-f.call = lambda *a, **kw: (500, "the daemon's trouble")
-try:
-    os2.read_settings(f, "c-old")
-    check("os2: an archive call that fails is no 'no file'", False)
-except SystemExit:
-    check("os2: an archive call that fails is no 'no file'", True)
 
 # ---- data.py: what ships
 with tempfile.TemporaryDirectory() as dest:
@@ -304,6 +266,7 @@ with tempfile.TemporaryDirectory() as dest:
     check("data: the bridge's files are its only set - the server side ships with server.py", list(D.SETS) == ["bridge"])
 
 import plugin as P  # noqa: E402
+import re  # noqa: E402
 csproj = ('<None Include="..\\CatchUp\\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />\n'
           '<EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />\n'
           '<None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />\n<None Remove="hud\\**" />\n')
@@ -312,6 +275,16 @@ check("plugin: only the config files the project declares ship - blocked.txt and
 with open(os.path.join(P.PROJECT, P.NAME + ".csproj"), encoding="utf-8") as f:
     real = P.declared_content(f.read())
 check("plugin: the real project declares blocked.txt and catchup.json (%s)" % ", ".join(real), real == ["blocked.txt", "catchup.json"])
+with open(os.path.join(P.PROJECT, P.NAME + ".csproj"), encoding="utf-8") as f:
+    compiles_core = "core" in re.findall(r'Include="[^"]*?\.\.\\(core)\\', f.read())
+seen = []
+saved = (os2.clean_tree, P.dotnet)
+try:
+    os2.clean_tree, P.dotnet = (lambda paths: seen.extend(paths) or "c0ffee"), (lambda args, cwd: (0, "self-test passed\n"))
+    P.build()
+finally:
+    os2.clean_tree, P.dotnet = saved
+check("plugin: the project compiles core/ in, and a build refuses uncommitted changes there too (%s)" % ", ".join(seen), compiles_core and {"plugin", "bridge", "core"} <= set(seen))
 
 # ---- server.py: what ships where, only what the build made, renamed into place
 import json  # noqa: E402
@@ -361,10 +334,31 @@ with tempfile.TemporaryDirectory() as tmp:
               [os.path.basename(d) for _, d in S.plan(FakeConfig(**{"server.config_dir": conf}))] == [os.path.basename(c) for c in S.CFGS])
         S.ship(cfg, apply=False)
         check("server: ship without --apply copies nothing", not os.path.exists(prog) and not os.path.exists(conf))
+        for empty, what in ((FakeConfig(), "a config that names no folder"), (FakeConfig(**{"server.config_dir": conf}), "a config with no program folder")):
+            check(f"server: --apply with {what} fails loudly, and copies nothing", exits(S.ship, empty, True) == 2 and not os.path.exists(conf) and not os.path.exists(prog))
+            check(f"server: a dry run with {what} just says so", exits(S.ship, empty, False) is None)
         S.ship(cfg, apply=True)
         landed = all(os.path.exists(dst) and open(dst, "rb").read() == open(src, "rb").read() for src, dst in S.plan(cfg))
         check("server: ship --apply puts every file in place, byte for byte, and leaves no .new behind",
               landed and not [f for d in (prog, conf) for f in os.listdir(d) if f.endswith(".new")])
+        for _src, dst in S.plan(cfg):      # the server has older copies of everything, the same files as before
+            with open(dst, "r+b") as old:
+                old.seek(0, os.SEEK_END)
+                old.write(b"\nan older copy\n")
+        before = {dst: os.stat(dst).st_ino for _src, dst in S.plan(cfg)}
+        S.ship(cfg, apply=True, force=True)
+        same = {os.path.basename(dst) for dst in before if os.stat(dst).st_ino == before[dst]}
+        check("server: pre.sh and the cfgs are written in place: a container's single-file mount stays on that file and sees the new one (%s)" % ", ".join(sorted(same)),
+              same == {"pre.sh", *(os.path.basename(c) for c in S.CFGS)})
+        check("server: the programs are renamed into place: what runs from the old file keeps it", not {"os2-server", "os2-sync"} & same)
+        check("server: both ways the bytes are the build's and the repository's", all(open(dst, "rb").read() == open(src, "rb").read() for src, dst in S.plan(cfg)))
+        locked = os.path.join(prog, "pre.sh")
+        with open(locked, "ab") as old:
+            old.write(b"\nan older copy\n")
+        os.chmod(locked, 0o444)
+        check("server: a pre.sh or cfg that cannot be written in place is a failure that says so, not a traceback", exits(S.ship, cfg, True, True) == 1)
+        os.chmod(locked, 0o666)
+        S.ship(cfg, apply=True, force=True)
         with open(os.path.join(S.OUT, "os2-sync", "os2-sync"), "ab") as f:
             f.write(b" changed")
         check("server: a program that is not the file the build recorded is refused", exits(S.ship, cfg, True) == 1)
@@ -397,7 +391,6 @@ with tempfile.TemporaryDirectory() as tmp:
 
 # ---- the bridge's build context: bridge/ and core/ as the repository lays them out, the Dockerfile at bridge/Dockerfile
 import io  # noqa: E402
-import re  # noqa: E402
 import tarfile  # noqa: E402
 
 saved_clean = os2.clean_tree
@@ -467,14 +460,18 @@ mounts = {"<program dir>:/home/steam/overstrike2:ro": "the programs", "<program 
           ":/home/steam/sync-state #": "paths.syncState", ":/home/steam/sync-cfg/": "paths.syncCfg", "CS2_MAPGROUP: mg_ar_shoots": "the map group"}
 check("compose.example: the program folder, the launcher and the data paths are where the defaults look (%s)"
       % ", ".join(v for k, v in mounts.items() if k not in example), all(k in example for k in mounts))
-check("compose.example: every service has the settings file, and the sync runs a copy of os2-sync it can execute",
-      all("target: /etc/overstrike2/overstrike2.jsonc" in service(example, s) for s in ("cs2", "bridge", "sync"))
+check("compose.example: every service has the settings as the variable, and the sync runs a copy of os2-sync it can execute",
+      all("OVERSTRIKE2_SETTINGS_CONTENT: *settings" in service(example, s) for s in ("cs2", "bridge", "sync"))
       and "cp /home/steam/overstrike2/os2-sync /tmp/os2-sync && chmod 755 /tmp/os2-sync && exec /tmp/os2-sync serve" in service(example, "sync"))
-inline = re.search(r"^    content: \|\n(.*?)^\S", example, re.M | re.S)
-inline = settings_of(inline.group(1)) if inline else {}
+check("compose.example: no inline config, and the bridge has its read-only root back", not re.search(r"^\s*configs:", example, re.M) and "read_only: true" in service(example, "bridge"))
+inline = re.search(r"^x-settings: &settings \|\n(.*?)^\S", example, re.M | re.S)
+inline = json.loads(inline.group(1)) if inline else {}    # plain JSON: a tool that collapses newlines must not be able to harm it
 sample = settings_of(open(os.path.join(DEPLOY, "overstrike2.example.jsonc"), encoding="utf-8").read())
 inline.get("server", {}).pop("name", None), sample["server"].pop("name")
-check("compose.example: the inline settings are overstrike2.example.jsonc's, the server's name aside (core's self-test reads that file)", inline == sample)
+sample["bridge"].pop("admins", None)    # the key is leaving the settings (no admin command exists)
+check("compose.example: the settings are overstrike2.example.jsonc's, the server's name aside (core's self-test reads that file)", inline == sample)
+check("compose.yml: its settings are a file: compose makes that a read-only bind mount (buildContainerConfigMounts), so its bridge keeps its read-only root",
+      re.search(r"^  overstrike2:\n    file: ", compose, re.M) and "read_only: true" in service(compose, "bridge"))
 for name, text in (("compose.yml", compose), ("compose.example.yml", example)):
     check("%s: no inline settings file on a read-only service - Compose refuses it" % name,
           not (re.search(r"^    content: \|", text, re.M) and re.search(r"^    read_only: true", text, re.M)))

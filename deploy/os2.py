@@ -7,7 +7,6 @@ Nothing printed here contains a credential.
 """
 import filecmp
 import hashlib
-import io
 import json
 import os
 import re
@@ -16,7 +15,6 @@ import socket
 import ssl
 import subprocess
 import sys
-import tarfile
 import time
 import tomllib
 import urllib.error
@@ -24,7 +22,6 @@ import urllib.parse
 import urllib.request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETTINGS_FILE = "/etc/overstrike2/overstrike2.jsonc"    # where every part finds the settings file in its container (docs/settings.md)
 LOG_URL_RX = re.compile(r"^https?://[^/\s:]+(?::([0-9]+))?/log/([A-Za-z0-9]+)$")
 
 
@@ -157,36 +154,6 @@ def bridge_port(game, bridge=None):
 def rcon_password(game, bridge=None):
     """The RCON password: the game container's CS2_RCONPW, which the image needs anyway, else the bridge's RCON_PASSWORD. Never printed."""
     return (env_of(game, "CS2_RCONPW") if game else "") or (env_of(bridge, "RCON_PASSWORD") if bridge else "")
-
-
-def read_settings(d, container):
-    """The settings file inside a container, as bytes; None when it has none. By the Docker API's archive call: it needs no shell in the
-    container, and it works on a stopped one."""
-    status, out = d.call("GET", f"/containers/{container}/archive?path={SETTINGS_FILE}")
-    if status == 404:
-        return None
-    if status != 200 or not isinstance(out, bytes):
-        fail(f"the settings file in {container} could not be read: HTTP {status}")
-    try:
-        with tarfile.open(fileobj=io.BytesIO(out)) as tar:
-            for member in tar.getmembers():
-                if member.isfile():
-                    return tar.extractfile(member).read()
-    except tarfile.TarError as e:
-        fail(f"the settings file in {container}: the answer is no archive ({e.__class__.__name__})")
-    fail(f"the settings file in {container}: the archive holds no file")
-
-
-def put_settings(d, container, data):
-    """The settings file into a container that was created but not started, as compose's configs: does: read-only for everybody, the
-    folders made on the way. The file lives in the container's own layer, so a container created from another's inspect does not have it
-    until this puts it there. A container with a read-only root refuses it."""
-    out = io.BytesIO()
-    with tarfile.open(fileobj=out, mode="w") as tar:
-        info = tarfile.TarInfo(SETTINGS_FILE.lstrip("/"))
-        info.size, info.mode, info.mtime = len(data), 0o444, int(time.time())
-        tar.addfile(info, io.BytesIO(data))
-    d.must("PUT", f"/containers/{container}/archive?path=/", f"the settings file into {container}", raw=out.getvalue(), ctype="application/x-tar")
 
 
 # -------------------------------------------------------------------------------------------------- is anybody playing?

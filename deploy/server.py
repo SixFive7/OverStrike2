@@ -8,8 +8,11 @@ test them here, ship them to the server's folders.
                                               with the local build engine (build.engine), where every check runs.
     python deploy/server.py ship              show what would change: os2-server, os2-sync and pre.sh in <server.program_dir>, the
                                               three mode cfgs in <server.config_dir>
-    python deploy/server.py ship --apply      copy them there, verified byte for byte. Each file is written beside its target and
-                                              renamed over it: a program running from there keeps the copy it started with.
+    python deploy/server.py ship --apply      copy them there, verified byte for byte. The programs are written beside their targets and
+                                              renamed over them: a program running from there keeps the copy it started with. pre.sh and
+                                              the cfgs are written in place: a container mounts each as a single file, and such a mount
+                                              stays on the old file when another is renamed over it, so a running container would never
+                                              see the new one. --apply with no server.program_dir in the config fails: nothing would ship.
 
 What the server does with them (docs/server.md): the game server's container mounts the program folder read-only at
 /home/steam/overstrike2, with its pre.sh at <game>/pre.sh, which the image sources before every engine start: pre.sh copies
@@ -159,6 +162,9 @@ def drift(files):
 
 
 def ship(cfg, apply, force=False):
+    if apply and not cfg.get("server.program_dir", ""):
+        os2.fail(f"server.program_dir is empty in {getattr(cfg, 'path', 'the private config')}: --apply has nowhere to ship the programs, so nothing is "
+                 "shipped. Is this the deployment's config? OVERSTRIKE2_CONFIG or --config names it", 2)
     record = built()
     head = os2.clean_tree(SOURCES + [LAUNCHER] + CFGS)
     files = plan(cfg)
@@ -177,8 +183,13 @@ def ship(cfg, apply, force=False):
         os2.fail("DRIFT: changed on the server, and no commit holds that copy: " + ", ".join(changed) + " - take the server's "
                  "changes into the repository first, or --force after you looked")
     copied = 0
+    programs = {os.path.join(OUT, n, n) for n in PROGRAMS}
     for src, dst in files:
-        result = os2.copy_verified(src, dst, dry=not apply, atomic=True)
+        try:
+            result = os2.copy_verified(src, dst, dry=not apply, atomic=src in programs)
+        except OSError as error:
+            os2.fail(f"{dst} could not be written ({error.__class__.__name__}): " + ("" if src in programs else "it goes in place, so the file itself must be writable, not only its folder; ")
+                     + "look at its owner and mode. What was copied before it stays; ship again when it is fixed")
         copied += result == "copied"
         os2.log(f"{dst}: {result}" + (" (DRIFT overridden)" if dst in changed else ""))
     if not apply:

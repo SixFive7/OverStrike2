@@ -8,7 +8,7 @@
 The folder name must equal the DLL name. What ships: OverStrike2.dll, its .pdb (line numbers in stack traces) and the config
 files the build copies beside it (blocked.txt, the game-changers block list that "mapreset_block reload" reads again without a
 rebuild; a module's .json). CounterStrikeSharp.API comes with the server's install. The game server copies the plugin folder in at its next start (pre.sh): a restart of the game
-container, which disconnects everybody - do it at 0 humans. Only committed sources ship (plugin/ and the bridge sources the
+container, which disconnects everybody - do it at 0 humans. Only committed sources ship (plugin/, and the bridge sources and core/Settings.cs the
 plugin compiles in).
 """
 import argparse
@@ -55,7 +55,7 @@ def dotnet(args, cwd):
 
 
 def build():
-    commit = os2.clean_tree(["plugin", "bridge"])
+    commit = os2.clean_tree(["plugin", "bridge", "core"])
     code, out = dotnet(["build", "-c", "Release"], PROJECT)
     warnings = [l for l in out.splitlines() if ": warning " in l]
     if code != 0:
