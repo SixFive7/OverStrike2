@@ -473,7 +473,7 @@ public sealed class Settings
             s => s.Bridge.Secret, (s, v) => s.Bridge.Secret = v, v => v.Length == 0 || v.All(char.IsAsciiLetterOrDigit), "letters and digits", secret: true),
         List("bridge.officialMaps", Part.Bridge, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "OFFICIAL_MAPS", "The official maps the votes and the random picks may offer.",
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
-        Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, after any vote that is open: the dice, one of the automatic changes.",
+        Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, unless an open vote settles the map: the dice, one of the automatic changes.",
             s => s.Bridge.RandomOnStart, (s, v) => s.Bridge.RandomOnStart = v),
         Int("bridge.discoveryStock", BS, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),

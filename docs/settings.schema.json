@@ -82,7 +82,7 @@
           ]
         },
         "randomOnStart": {
-          "description": "A new server process rolls a random map once its start map is up, after any vote that is open: the dice, one of the automatic changes. Replaces RANDOM_ON_START.",
+          "description": "A new server process rolls a random map once its start map is up, unless an open vote settles the map: the dice, one of the automatic changes. Replaces RANDOM_ON_START.",
           "type": "boolean",
           "default": true
         },
