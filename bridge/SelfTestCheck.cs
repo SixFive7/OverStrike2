@@ -29,10 +29,13 @@ static partial class Program
             new[] { Hud.Content, "v4.5.0", "v4_5_0", HudCheck.Older, Hud.Release }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
-            HudCheck.LevelOf("v4.6.0") == 46 && HudCheck.LevelOf("v5.0.0") == 50 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4.5.0") && HudCheck.IsOutdated(HudCheck.Older)
+            HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4.5.0") && HudCheck.IsOutdated(HudCheck.Older)
             && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4.7.0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
             && HudCheck.VersionWords("v4.5.0") == "v4.5.0 - Restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - Restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
             && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4.7.0") == "v4.7.0");
+        Check("HUD check: a level is a content's line in the table, never its digits: a version with no line - a patch, v4.10.0, v5.0.0, v14.5.27 - is newer than this code knows, and a word that is no version stays refused",
+            new[] { "v4.6.1", "v4.10.0", "v5.0.0", "v14.5.27" }.Where(v => HudVote.Contents.All(c => c.Version != v)).All(v => HudCheck.IsVersionWord(v) && HudCheck.LevelOf(v) == HudCheck.NewerLevel && !HudCheck.IsOutdated(v) && HudCheck.VersionWords(v) == v)
+            && new[] { "v14.5", "14.5.27", "v14.x.27", "v14.5.27.1", "newer" }.All(w => !HudCheck.IsVersionWord(w) && HudCheck.LevelOf(w) == 0));
         var roll = HudView.PlayersPage([new("Alice", "CT", Hud.Content, 0, "voted", "42 min"), new("Bob", "T", "v4.5.0", 0, "waiting", "5 min"),
             new("Cleo", "T", HudCheck.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4.7.0", 0, "", "-"), new("Eve", "SPEC", Hud.Release, 0, "", "3 min"),
             new("Finn", "T", "", 0, "", "0 min"), new("Gus", "CT", "", 12, "", "0 min")]);

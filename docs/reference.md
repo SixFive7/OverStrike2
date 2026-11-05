@@ -394,7 +394,7 @@ Thousands of community maps include some that break things, so every broken map 
 
 A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
 lacks. Every shipped layout is kept in `hud/reference/`, which `--selftest` holds the new one to. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
-version numbers in the layout, and an older game is told how to update: quit CS2 and start it again, and Steam updates it.
+its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it.
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click: a player not seen clicking since their last real join
 gets the window at their first spawn on a map, and any button in it counts. The click also says which content the game holds (SERVER, Players). With `hud.check` `warn`, the default, one who has not

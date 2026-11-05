@@ -22,7 +22,7 @@ public static class Hud
     /// loaded never gets it served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
     public const string ReleaseFile = "v3_0_0";
 
-    /// <summary>The layout's content on that path. A content update keeps the path, so games holding older contents of the same release stay in
+    /// <summary>The layout's content on that path: the version on HudVote.Contents' last line, so a release adds that one line. A content update keeps the path, so games holding older contents of the same release stay in
     /// use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all. The rule since v4.6.0:
     /// the plugin sends what this content has, and an older content simply lacks what it lacks (a panel a game does not have takes nothing in
     /// it). What an older content needs to show its own pages keeps coming: its page classes, c31 and c32 (every content in use holds the panels
@@ -30,7 +30,7 @@ public static class Hud
     /// latest-N (HudVote.LatestClass); from v4.6.0 on every content shows its own outdated banner for an N above its own. The version a player's game
     /// holds comes from the HUD check's click (HudCheck.VersionButton). hud/reference/ holds every shipped content's layout, which --selftest
     /// holds this one to.</summary>
-    public const string Content = "v4.6.0";
+    public static string Content => HudVote.Contents[^1].Version;
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + ReleaseFile + ".xml";

@@ -248,8 +248,10 @@ static partial class Program
 
             // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and keeps what its own
             //      pages need; this content keeps every panel an older plugin that still runs against this bridge sends to ----
-            string[] shippedContents = ["v3.0.0", "v3.1.0", "v4.0.0", "v4.1.0", "v4.2.0", "v4.3.0", "v4.4.0", "v4.5.0"];
+            var shippedContents = HudVote.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
             var shippedFiles = shippedContents.Select(c => $"../hud/reference/gungame_hud_{c}.xml").ToList();
+            Check($"hud/reference/ holds the layout of every shipped content in the table ({shippedContents.Length}) and no other: a release adds its line and keeps the layout it replaces",
+                Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet().SetEquals(shippedContents));
             if (shippedFiles.All(File.Exists))
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();

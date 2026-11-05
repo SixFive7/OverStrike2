@@ -83,9 +83,16 @@ public static class HudCheck
     public static string? VersionOf(string buttonId) =>
         buttonId.StartsWith(VersionPrefix, StringComparison.Ordinal) && Normal(buttonId[VersionPrefix.Length..]) is var content && IsRelease(content) ? content : null;
 
-    /// <summary>A content as a number: v4.6.0 is 46; 0 for anything else.</summary>
-    public static int LevelOf(string version) =>
-        IsRelease(version) && version[1..].Split('.') is [var major, var minor, _] && int.TryParse(major, out var a) && int.TryParse(minor, out var b) ? a * 10 + b : 0;
+    /// <summary>The level of a version with no line in HudVote.Contents: newer than this bridge or plugin knows, so above every level there is.</summary>
+    public const int NewerLevel = int.MaxValue;
+
+    /// <summary>A content as a number: its line in HudVote.Contents, never its digits (v4.6.0 is 46); NewerLevel for a version with no line; 0 for a word that is no version.</summary>
+    public static int LevelOf(string version)
+    {
+        if (!IsRelease(version)) return 0;
+        foreach (var (known, level) in HudVote.Contents) if (known == version) return level;
+        return NewerLevel;
+    }
 
     /// <summary>A HUD other than the server's own as the Players page says it: older, its content not known (Hud.Release: a click on a button
     /// that names none), or not seen yet ("": no click since the last real join).</summary>

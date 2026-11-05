@@ -86,10 +86,13 @@ checks the item and never disconnects players over the HUD while Steam does not 
 
 CS2 caches a layout by its path for a whole game session, so a layout release needs new file names: raise `Hud.Release` and `Hud.ReleaseFile` in
 `bridge/Hud.cs` and rename `layout/gungame_hud_<ReleaseFile>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
-and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names: it raises `Hud.Content` and `HudVote.ContentLevel` instead,
+and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names. It adds one line to `HudVote.Contents` in `bridge/HudVote.cs`, its version and the next level (after v4.6.0 comes 47, whether the version is v4.7.0, v4.6.1 or v14.5.27), which `Hud.Content` and `HudVote.ContentLevel` read. It puts that version in the layout, in its words and its version button's id, starts the stylesheet's banner rules one level higher,
 and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to. Build, publish while nobody plays,
 wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players (`deploy/release.py live`): the plugin's level is what
 tells a game holding the older content to update, so it never ships before the content does.
+
+**How far a content's outdated banner reaches.** The server names the newest content it knows as one class, `latest-<level>`, and a content's stylesheet has a rule for each level above its own up to `HudVote.LatestLast`, now 59. A shipped stylesheet never changes, and every release takes a level, patches included. So v4.6.0 shows its banner for the next 13 releases, levels 47 to 59. A game still holding it at level 60 shows none, though it keeps working and the Players page still calls it older.
+At every release, count what is left from the new content's level up to `LatestLast`. Raising `LatestLast` means adding the rules to the new content's stylesheet, which widens that content and later ones, never one already shipped. `--selftest` fails once a content's level reaches `LatestLast`, because then its own banner could never show.
 
 Steam on a player's PC looks for changed items every 45 minutes and then updates the item by itself, so for up to about an hour after the
 approval a game may still hold the older content (31 and 40 minutes on this project's own PC): a look in a real client right after the approval

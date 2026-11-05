@@ -76,11 +76,29 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number: v4.6.0 is 46.</summary>
-    public const int ContentLevel = 46;
+    /// <summary>Every HUD content that has shipped, and on the last line the one this code is for: its version and its level. The level is the number the layouts
+    /// and the version classes know a content by (svge/svlt, latest-N). It is a release's place in line and says nothing about the version's digits: a shipped
+    /// content keeps its number for good, because its layout and stylesheet hold it, and a release adds one line with the next number, whatever its version says
+    /// (hud/PUBLISH.md). Hud.Content and ContentLevel read the last line. A version with no line is newer than this code knows (HudCheck.LevelOf).</summary>
+    public static readonly (string Version, int Level)[] Contents =
+    [
+        ("v3.0.0", 30),
+        ("v3.1.0", 31),
+        ("v4.0.0", 40),
+        ("v4.1.0", 41),
+        ("v4.2.0", 42),
+        ("v4.3.0", 43),
+        ("v4.4.0", 44),
+        ("v4.5.0", 45),
+        ("v4.6.0", 46),
+    ];
+
+    /// <summary>The server's content as a number: the level on Contents' last line.</summary>
+    public static int ContentLevel => Contents[^1].Level;
 
     /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
-    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast (v5.9.0): this one for latest-47 ... latest-59.</summary>
+    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-59, the next 13 releases. A stylesheet
+    /// never changes once it has shipped, so a release that raises LatestLast widens only its own content and later ones (hud/PUBLISH.md).</summary>
     public const int LatestLast = 59;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
@@ -92,15 +110,26 @@ public static class HudVote
     /// <summary>The dialog variables on gg_global that the layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
 
-    /// <summary>A content's name for its level, as the banner says it: 47 is v4.7.0 (ContentLevel 46 is Hud.Content, v4.6.0).</summary>
-    public static string ContentOfLevel(int level) => $"v{(level / 10).ToString(CultureInfo.InvariantCulture)}.{(level % 10).ToString(CultureInfo.InvariantCulture)}.0";
+    /// <summary>A content's name for its level, as the banner says it: its line in Contents. css_gghud level and content also ask for levels no line has. Above the
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (47 is v4.7.0 while v4.6.0 is the last line). Between two lines
+    /// it is the older of them, and below the first line the first.</summary>
+    public static string ContentOfLevel(int level)
+    {
+        var (last, top) = Contents[^1];
+        if (level > top) return last[1..].Split('.') is [var major, var minor, _] ? $"v{major}.{(int.Parse(minor, CultureInfo.InvariantCulture) + level - top).ToString(CultureInfo.InvariantCulture)}.0" : last;
+        for (var i = Contents.Length - 1; i > 0; i--) if (Contents[i].Level <= level) return Contents[i].Version;
+        return Contents[0].Version;
+    }
 
     /// <summary>How long after a real join an older content's version banner shows (vjoin).</summary>
     public const double JoinSeconds = 15;
 
     /// <summary>The version classes on gg_global for everybody: the older contents' svge/svlt and the newest content the server knows (latest-N).
     /// The plugin turns the latest class it sent before off itself when the level moves (css_gghud level).</summary>
-    public static List<(string Id, string Class, bool On)> VersionClasses(int level = ContentLevel)
+    public static List<(string Id, string Class, bool On)> VersionClasses() => VersionClasses(ContentLevel);
+
+    /// <summary>The same for a level css_gghud level fakes.</summary>
+    public static List<(string Id, string Class, bool On)> VersionClasses(int level)
     {
         var c = new List<(string, string, bool)>();
         for (var k = OldFirst + 1; k <= OldLast + 1; k++) c.Add((HudView.Global, $"svge{k}", level >= k));

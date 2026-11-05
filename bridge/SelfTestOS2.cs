@@ -227,15 +227,26 @@ static partial class Program
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
         var levels = HudVote.VersionClasses();
         Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; the contents v4.0.0 to v4.5.0 still read their svge/svlt, each level exactly one of them",
-            Hud.Content == $"v{HudVote.ContentLevel / 10}.{HudVote.ContentLevel % 10}.0" && HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel && HudVote.ContentOfLevel(HudVote.ContentLevel) == Hud.Content
+            HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel && HudVote.ContentOfLevel(HudVote.ContentLevel) == Hud.Content
             && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVote.ContentLevel}"
             && Enumerable.Range(HudVote.OldFirst, HudVote.OldLast - HudVote.OldFirst + 1).All(l => levels.Single(x => x.Class == $"svge{l + 1}").On && !levels.Single(x => x.Class == $"svlt{l}").On)
             && HudVote.VersionClasses(HudVote.OldFirst).Single(x => x.Class == $"svlt{HudVote.OldFirst + 1}").On && levels.All(x => x.Id == HudView.Global));
+        var table = HudVote.Contents;
+        Check($"The table of contents: {table.Length} lines, the last this content ({Hud.Content}, level {HudVote.ContentLevel}); every version readable and there once; the levels rise, by one from level {HudVote.OldFirst} on, so the next release is {HudVote.ContentLevel + 1} whatever its digits; the shipped ones keep their numbers",
+            table.Any(c => c.Version == Hud.Content) && table[^1] == (Hud.Content, HudVote.ContentLevel) && table.All(c => HudCheck.IsRelease(c.Version)) && table.Select(c => c.Version).Distinct().Count() == table.Length
+            && table.Zip(table.Skip(1)).All(p => p.Second.Level > p.First.Level && (p.First.Level < HudVote.OldFirst || p.Second.Level == p.First.Level + 1))
+            && HudCheck.LevelOf("v4.0.0") == 40 && HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46);
+        Check("A content's name for its level: its line, both ways; above the table a name no line has, which reads as newer (css_gghud level fakes a newer server); between two lines the older, below the table the first",
+            table.All(c => HudVote.ContentOfLevel(c.Level) == c.Version && HudCheck.LevelOf(c.Version) == c.Level)
+            && new[] { 1, 2 }.All(up => HudCheck.IsRelease(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) && HudCheck.LevelOf(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) == HudCheck.NewerLevel)
+            && HudVote.ContentOfLevel(HudVote.ContentLevel + 1) != HudVote.ContentOfLevel(HudVote.ContentLevel + 2) && HudVote.ContentOfLevel(35) == "v3.1.0" && HudVote.ContentOfLevel(2) == "v3.0.0");
+        Check($"Room for the next release: this content's level ({HudVote.ContentLevel}) is below LatestLast ({HudVote.LatestLast}), so its stylesheet can still show the banner for what comes next; at the end, raise LatestLast and this stylesheet's rules with it (hud/PUBLISH.md)",
+            HudVote.ContentLevel < HudVote.LatestLast);
         if (File.Exists(HudStyleFile))
         {
             var css = File.ReadAllText(HudStyleFile);
             var xml = File.ReadAllText(HudLayoutFile);
-            var banners = Enumerable.Range(HudVote.ContentLevel + 1, HudVote.LatestLast - HudVote.ContentLevel).ToList();
+            var banners = Enumerable.Range(HudVote.ContentLevel + 1, Math.Max(0, HudVote.LatestLast - HudVote.ContentLevel)).ToList();
             Check($"The outdated banner in this layout ({Hud.Content}): persistent under latest-{HudVote.ContentLevel + 1} ... latest-{HudVote.LatestLast}, never under its own level or below; its own version and the server's in its words",
                 banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVote.ContentLevel} ")
                 && xml.Contains($"Yours {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {Hud.Content}"));
