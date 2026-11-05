@@ -29,9 +29,9 @@ using System.Text.Json;
 
 static partial class Program
 {
-    /// <summary>Entries per lane of the stock: DISCOVERY_STOCK, 0 to 40, 10 when unset; 0 turns the stock off (the surprise is then a favourite).
+    /// <summary>Entries per lane of the stock: bridge.discoveryStock (DISCOVERY_STOCK without the settings file), 0 to 40, 10 when unset; 0 turns the stock off (the surprise is then a favourite).
     /// The keep set (keepset.py) wants each of queues.json's four lanes at least 10 long before it deletes anything, so below 10 nothing is deleted.</summary>
-    public static int StockSize = Math.Clamp(int.TryParse(Env("DISCOVERY_STOCK", "10"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 10, 0, 40);
+    public static int StockSize = BridgeConfig.Values.DiscoveryStock; // bridge.discoveryStock in the settings file
 
     /// <summary>The keys of queues.json's "random", each with the mode whose lane it carries: the four the watcher and the keep set read.</summary>
     public static readonly (string Key, string Mode)[] QueueKeys =

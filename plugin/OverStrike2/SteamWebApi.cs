@@ -1,12 +1,22 @@
 namespace OverStrike2;
 
 /// <summary>The plugin's one door to the Steam Web API (api.steampowered.com, GetPublishedFileDetails): one request at a time, and the next
-/// no sooner than Gap after the last one ended - the rule for every Web API caller of the project. The HUD item's check every minute and a
+/// no sooner than Gap (at least 2 s) after the last one ended - the rule for every Web API caller of the project. The HUD item's check every minute and a
 /// map card's details both go through it, whichever comes first, so neither can crowd the other. Every request says who asks (UserAgent).
 /// No CounterStrikeSharp type in it: the self-test runs it as it is.</summary>
 public static class SteamWebApi
 {
-    public static readonly TimeSpan Gap = TimeSpan.FromSeconds(2);
+    /// <summary>The least gap there is: the project's rule for every Web API caller.</summary>
+    public const double MinGapSeconds = 2;
+
+    /// <summary>The time from the end of one request to the start of the next: steam.apiGapSeconds (PluginSetup), set at load; never under
+    /// <see cref="MinGapSeconds"/>, whatever it is set to.</summary>
+    public static TimeSpan Gap
+    {
+        get => gap;
+        set => gap = value < TimeSpan.FromSeconds(MinGapSeconds) ? TimeSpan.FromSeconds(MinGapSeconds) : value;
+    }
+    static TimeSpan gap = TimeSpan.FromSeconds(MinGapSeconds);
 
     static readonly SemaphoreSlim One = new(1, 1);
     static DateTime lastEnded = DateTime.MinValue;

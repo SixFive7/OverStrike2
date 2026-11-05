@@ -7,8 +7,8 @@ namespace OverStrike2;
 /// state changes, or after Hud.LongPollSeconds that nothing did; every answer starts with its version and the bridge's clock, and its countdowns
 /// are end times the HUD counts down itself (HudState.AsOf). A bridge that answers without a version (an older one) is polled once a second as
 /// before. GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt;?v=1 for a click, answered with the state after it. The address
-/// and the secret come from the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;), so there is nothing new
-/// to configure.
+/// and the secret are the settings file's bridge.url and bridge.secret, or without the file the cs2 service's own CS2_LOG_HTTP_URL
+/// (http://bridge:8080/log/&lt;secret&gt;) - PluginSetup.cs.
 ///
 /// Every request runs on the thread pool and only ever hands back a string; the game thread picks it up in Take, so nothing here
 /// touches the engine off its thread.</summary>
@@ -42,17 +42,9 @@ sealed class BridgeLink
 
     BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl) { this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl; }
 
-    /// <summary>The link built from CS2_LOG_HTTP_URL, or null with the reason when that is missing or has no /log/ path.</summary>
-    public static BridgeLink? FromEnvironment(out string where)
-    {
-        var log = (Environment.GetEnvironmentVariable("CS2_LOG_HTTP_URL") ?? "").Replace("\\/", "/").Trim();
-        var at = log.LastIndexOf("/log/", StringComparison.Ordinal);
-        if (at < 0 || at + 5 >= log.Length) { where = "CS2_LOG_HTTP_URL has no /log/<secret> to derive the bridge from"; return null; }
-        var (root, secret) = (log[..at], log[(at + 5)..]);
-        where = root;
-        return new BridgeLink(root + Hud.StatePath + secret, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret,
-            root + Hud.DashPath + secret);
-    }
+    /// <summary>The link to the bridge at root (http://host:port) with the secret in its paths - both from PluginSetup.</summary>
+    public static BridgeLink At(string root, string secret) =>
+        new(root + Hud.StatePath + secret, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret, root + Hud.DashPath + secret);
 
     /// <summary>On the game thread, every frame of the plugin's timer: hands back the newest state text that arrived since the last
     /// call (from a poll or from an action's answer), and starts the next poll when one is due and wanted. draws: whether this plugin draws the HUD,

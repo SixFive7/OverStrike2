@@ -35,6 +35,10 @@
     <Compile Include="..\..\bridge\HudVote.cs" Link="HudVote.cs" />
     <Compile Include="..\..\bridge\HudDash.cs" Link="HudDash.cs" />
     <Compile Include="..\..\bridge\ChatCommands.cs" Link="ChatCommands.cs" />
+    <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin), and where the
+         plugin's settings come from while the install step does not write the file yet (PluginSetup.cs). -->
+    <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
+    <Compile Include="..\..\bridge\SettingsSource.cs" Link="SettingsSource.cs" />
     <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
     <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
     <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />

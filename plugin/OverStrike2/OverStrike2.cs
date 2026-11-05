@@ -3,6 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
 using Microsoft.Extensions.Logging;
+using Part = OverStrike2.Core.Part;
 
 namespace OverStrike2;
 
@@ -50,11 +51,17 @@ public class OverStrike2Plugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        string from;
-        (addon, from) = HudAddon.Read(Environment.GetEnvironmentVariable, Hud.AddonVariable, Hud.OldAddonVariable);
-        if (from == Hud.OldAddonVariable) Logger.LogWarning("Over Strike 2: the HUD addon comes from {Old}, the old name of {Variable} - rename it; the old name is read until the next release", Hud.OldAddonVariable, Hud.AddonVariable);
+        // The plugin's own settings: the settings file's, else the cs2 service's environment as before (PluginSetup.cs, SettingsSource.cs).
+        var source = SettingsSource.Load(Part.Plugin);
+        var setup = source.FromFile ? PluginSetup.FromFile(source.File)
+            : PluginSetup.FromEnvironment(Environment.GetEnvironmentVariable, Hud.AddonVariable, Hud.OldAddonVariable, HudCheck.PageVariable, HudCheck.PageOff);
+        if (source.Troubled) Logger.LogWarning("Over Strike 2 {Settings}", source.Line); // where the settings came from - no value in it
+        else Logger.LogInformation("Over Strike 2 {Settings}", source.Line);
+        addon = setup.Addon;
+        if (setup.AddonFrom == Hud.OldAddonVariable) Logger.LogWarning("Over Strike 2: the HUD addon comes from {Old}, the old name of {Variable} - rename it; the old name is read until the next release", Hud.OldAddonVariable, Hud.AddonVariable);
+        SteamWebApi.Gap = TimeSpan.FromSeconds(setup.ApiGapSeconds);
         SteamWebApi.UserAgent = SteamWebApi.AgentOf(Version);
-        hud = new HudScreen(this, Logger, hotReload, addon);
+        hud = new HudScreen(this, Logger, hotReload, setup);
         RegisterListener<Listeners.OnTick>(OnTick); // the freeze, the centre panels, the catch-up messages, the fun notice
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);

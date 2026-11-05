@@ -11,6 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- core/: the settings file's reader (BridgeConfig.cs) - what the bridge shares with the plugin and the server programs. -->
+    <ProjectReference Include="..\core\OverStrike2.Core.csproj" />
     <!-- The website of the sync's dashboard (SyncDash.cs writes it into /data/web, which a static web server behind the login serves). -->
     <EmbeddedResource Include="dashboard.html" LogicalName="dashboard.html" />
   </ItemGroup>

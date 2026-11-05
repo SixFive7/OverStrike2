@@ -101,20 +101,23 @@ sealed class HudScreen
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped
 
+    readonly (bool On, string Switch) itemPage;         // whether the HUD item's page may be visited, and the switch that says so (PluginSetup)
+
     /// <summary>Poll the bridge even with nobody on the server: set when the HUD was switched on by hand (css_gghud on), to try it.</summary>
     public bool AlwaysPoll { get; set; }
 
-    public HudScreen(BasePlugin plugin, ILogger log, bool hotReload, string addon)
+    public HudScreen(BasePlugin plugin, ILogger log, bool hotReload, PluginSetup setup)
     {
         this.plugin = plugin;
         this.log = log;
-        this.addon = addon;
+        addon = setup.Addon;
         addonRequired = addon != "";
-        item = addon != "" ? new ItemWatch(addon) : null;
+        itemPage = (setup.ItemPage, setup.ItemPageSwitch);
+        item = addon != "" ? new ItemWatch(addon, itemPage.On, itemPage.Switch) : null;
         plays = new WorkshopPlay(log);
-        bridge = BridgeLink.FromEnvironment(out var where);
+        bridge = setup.Bridge is { } root ? BridgeLink.At(root, setup.BridgeSecret) : null;
         log.LogInformation("Over Strike 2 HUD: {Drawn}, live state {Source}", addon != "" ? $"layout {Hud.Layout} from Workshop item {addon}" : "no addon - nothing drawn, chat answers in chat",
-            bridge != null ? $"from the bridge at {where}" : $"OFF - {where}");
+            bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); resendAt.Clear(); gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
@@ -747,7 +750,7 @@ sealed class HudScreen
     /// answers are in (a few seconds); changes nothing.</summary>
     public string ProbeItem(long other)
     {
-        _ = (item ?? new ItemWatch("")).Probe(other).ContinueWith(t => log.LogInformation("Over Strike 2 HUD item probe: {Result}",
+        _ = (item ?? new ItemWatch("", itemPage.On, itemPage.Switch)).Probe(other).ContinueWith(t => log.LogInformation("Over Strike 2 HUD item probe: {Result}",
             t.IsCompletedSuccessfully ? t.Result : $"{other}: failed ({t.Exception?.GetBaseException().Message})"), TaskScheduler.Default);
         return $"probing {other}'s Workshop page and the Web API - the answer goes to the server log as 'Over Strike 2 HUD item probe:'";
     }

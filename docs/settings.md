@@ -57,6 +57,11 @@ and the programs then refuse it.
   only warns about it.
 - **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** The server
   program then does nothing, and logs why. No file at all means every value is its default.
+- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no file at the path,
+  or a file they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
+  a file they can use, they read the file alone. Each logs which at its start - `settings: the settings file <path>`, naming the
+  keys with a problem or a warning, or `settings: the environment (<why>)` - and never a value. With the file, the bridge's map list
+  and broken list have no key of their own: they are `maps.json` and `broken.json` in `paths.bridgeData`.
 
 The parts also check the file against the image's own variables at start, and log any disagreement: `server.port` against
 `CS2_PORT`, `server.startMap` against `CS2_STARTMAP`, and `bridge.url` and `bridge.secret` against `CS2_LOG_HTTP_URL`.

@@ -287,39 +287,43 @@ advance. Requests still queue. Remove the file and everything resumes.
 The data files (`maps.json`, `broken.json`, `sizes.json`, `search.json`, `ours.json`, and the mode lists) are read again
 about 10 seconds after they change: a new list is a file copy, nothing restarts. A file that does not parse changes nothing.
 
-## Configuration (environment)
+## Configuration
+
+The bridge and the plugin read the settings file, `/etc/overstrike2/overstrike2.jsonc` ([settings.md](settings.md): every key, its
+default and the variable it replaces). Until the install step writes that file, they fall back on the environment variables below
+when there is no file or the file cannot be used - read exactly as before. Each logs at its start which one it used:
+`settings: the settings file <path>` (naming the keys with a problem or a warning) or `settings: the environment (<why>)`, never a
+value.
 
 The bridge:
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `RCON_HOST` | `cs2` | The game server's host name on the container network. |
-| `RCON_PORT` | `27015` | RCON TCP port. |
-| `RCON_PASSWORD` | (required) | The game server's `rcon_password` (`CS2_RCONPW` on the image). |
-| `LOG_SECRET` | (required) | The path segment the game server pushes its log to: `http://<bridge>:8080/log/<LOG_SECRET>`. Anything else gets a 404. |
-| `HTTP_PORT` | `8080` | The listen port (above 1024: the container is unprivileged). |
-| `STATE_DIR` | `/data` | `state.json`, `votes.json` and the maintenance flag; the only path the bridge writes to. |
-| `MAPS_FILE` | `/app/maps.json` in the image | The map list; the other data files are read from beside it. |
-| `BROKEN_FILE` | (empty) | `broken.json`. Empty or missing: nothing is marked broken. |
-| `OFFICIAL_MAPS` | `ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night` | Official maps installed on the server, loaded with `changelevel`. |
-| `ADMIN_STEAMIDS` | (empty) | SteamIDs allowed admin actions. |
-| `CHANGE_DELAY_SECONDS` | `8` | Seconds between the announcement and the map change. |
-| `CHANGE_COOLDOWN_SECONDS` | `60` | Minimum time between two map changes. |
-| `RESTART_COOLDOWN_SECONDS` | `300` | Minimum time between two restart requests. |
-| `RANDOM_ON_MATCH_END` | `1` | Roll a random map when a match ends and nobody is queued. |
-| `RANDOM_ON_START` | `1` | Roll a random map when a new server process has loaded its start map. |
-| `MATCH_END_VOTE` | `auto` | The end-of-match vote: `auto` while a plugin that draws it is polling, `on` always, `off` never. |
-| `START_MAP` | `ar_shoots` | The game server's start map (`CS2_STARTMAP`): a start of it the bridge did not ask for means a restart. |
-| `HUD_TAB` | `down` | What TAB does: `down`, `hold`, `window`, `on`, `menu` or `off`. |
-| `HUD_CHECK` | `off` | The HUD check: `off`, `dryrun` (warn, and enforce from the first real click on a release) or `enforce`. |
-| `GUIDE_ON_JOIN` | `1` | Ask the plugin to show the welcome on every real join. |
-| `TZ` | `UTC` | Local times in notices. |
+| Variable | Key in the file | Default | Meaning |
+|---|---|---|---|
+| `RCON_HOST` | `server.host` | `cs2` | The game server's host name on the container network. |
+| `RCON_PORT` | `server.port` | `27015` | RCON TCP port. |
+| `RCON_PASSWORD` | `server.rconPassword` | (required) | The game server's `rcon_password` (`CS2_RCONPW` on the image). |
+| `LOG_SECRET` | `bridge.secret` | (required) | The path segment the game server pushes its log to: `http://<bridge>:8080/log/<LOG_SECRET>`. Anything else gets a 404. |
+| `HTTP_PORT` | `bridge.port` | `8080` | The listen port (above 1024: the container is unprivileged). |
+| `STATE_DIR` | `paths.bridgeData` | `/data` | `state.json`, `votes.json` and the maintenance flag; the only path the bridge writes to. |
+| `MAPS_FILE` | (`maps.json` in `paths.bridgeData`) | `/app/maps.json` in the image | The map list; the other data files are read from beside it. |
+| `BROKEN_FILE` | (`broken.json` in `paths.bridgeData`) | (empty) | `broken.json`. Empty or missing: nothing is marked broken. |
+| `OFFICIAL_MAPS` | `bridge.officialMaps` | `ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night` | Official maps installed on the server, loaded with `changelevel`. |
+| `ADMIN_STEAMIDS` | `bridge.admins` | (empty) | SteamIDs allowed admin actions. |
+| `CHANGE_DELAY_SECONDS` | `bridge.changeDelaySeconds` | `8` | Seconds between the announcement and the map change. |
+| `RESTART_COOLDOWN_SECONDS` | `bridge.restartCooldownSeconds` | `300` | Minimum time between two restart requests. |
+| `RANDOM_ON_START` | `bridge.randomOnStart` | `1` | Roll a random map when a new server process has loaded its start map. |
+| `DISCOVERY_STOCK` | `bridge.discoveryStock` | `10` | Maps new to the server rolled ahead per mode, 0 to 40; 0 turns the stock off. |
+| `START_MAP` | `server.startMap` | `ar_shoots` | The game server's start map (`CS2_STARTMAP`): a start of it the bridge did not ask for means a restart. |
+| `HUD_TAB` | `hud.tab` | `down` | What TAB does: `down` or `off` (`hold`, `window`, `on` and `menu`, its old modes, read as `down`). |
+| `HUD_CHECK` | `hud.check` | `warn` | The HUD check: `off`, `warn` (`dryrun`, its old name, reads as `warn`) or `enforce`. |
+| `GUIDE_ON_JOIN` | `bridge.guideOnJoin` | `1` | Ask the plugin to show the welcome on every real join. |
+| `TZ` | (stays a variable) | `UTC` | Local times in notices. |
 
 The game server (`joedwards32/cs2` variables, and these of ours):
 
 | Variable | Meaning |
 |---|---|
-| `CS2_LOG: "on"`, `CS2_LOG_HTTP_URL` | Push every log line to the bridge (`http://bridge:8080/log/<LOG_SECRET>`); the plugin finds the bridge through it too. |
+| `CS2_LOG: "on"`, `CS2_LOG_HTTP_URL` | Push every log line to the bridge (`http://bridge:8080/log/<LOG_SECRET>`); without the settings file, the plugin finds the bridge through it too (with it: `bridge.url` and `bridge.secret`). |
 | `CS2_LOG_ECHO: 1`, `CS2_ADDITIONAL_ARGS: -condebug` | The console in `console.log`, where the restart watcher reads match ends and freezes. |
 | `CS2_PLUGINS` | `1` installs and loads the plugin layer; `0` runs vanilla after a game update broke a dependency. |
 | `GUNGAME_HUD_ADDON` | The HUD addon's Workshop id; empty: a simple text panel instead of the menu, and MultiAddonManager stays unloaded. |

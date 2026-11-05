@@ -10,21 +10,20 @@ using System.Text.RegularExpressions;
 
 static partial class Program
 {
-    // ---- configuration (environment) ----
-    static string Env(string key, string fallback) => Environment.GetEnvironmentVariable(key) is { Length: > 0 } v ? v : fallback;
-    static string StateDir = Env("STATE_DIR", "/data"); // not readonly: --selftest points it at a scratch directory
-    static readonly string RconHost = Env("RCON_HOST", "cs2"), RconPassword = Env("RCON_PASSWORD", ""), LogSecret = Env("LOG_SECRET", ""),
-        MapsFile = Env("MAPS_FILE", "maps.json"), BrokenFile = Env("BROKEN_FILE", ""),
-        StartMap = Env("START_MAP", "ar_shoots"); // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
-    static readonly int RconPort = int.Parse(Env("RCON_PORT", "27015")), HttpPort = int.Parse(Env("HTTP_PORT", "8080")),
-        ChangeDelay = int.Parse(Env("CHANGE_DELAY_SECONDS", "8")), RestartCooldown = int.Parse(Env("RESTART_COOLDOWN_SECONDS", "300"));
-    static readonly bool RandomOnStart = Env("RANDOM_ON_START", "1") is "1" or "true" or "yes", // roll a map when a new server process has loaded its start map
-        GuideOnJoin = Env("GUIDE_ON_JOIN", "1") is "1" or "true" or "yes";                         // ask the plugin to show the guide on every real join
-    static HudTab.Mode HudTabMode = HudTab.Parse(Env("HUD_TAB", HudTab.Name(HudTab.Default))); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
-    static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "warn")); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce; warn by default, so every player's HUD version is learned at their first click
-    static readonly HashSet<long> Admins = Env("ADMIN_STEAMIDS", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(AccountId).ToHashSet();
-    static readonly List<MapInfo> Officials = Env("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night") // installed on the server, loaded with changelevel
-        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
+    // ---- configuration: the settings file, else the environment as before (BridgeConfig.cs, SettingsSource.cs) ----
+    static string StateDir = BridgeConfig.Values.StateDir; // not readonly: --selftest points it at a scratch directory
+    static readonly string RconHost = BridgeConfig.Values.RconHost, RconPassword = BridgeConfig.Values.RconPassword, LogSecret = BridgeConfig.Values.LogSecret,
+        MapsFile = BridgeConfig.Values.MapsFile, BrokenFile = BridgeConfig.Values.BrokenFile,
+        StartMap = BridgeConfig.Values.StartMap; // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
+    static readonly int RconPort = BridgeConfig.Values.RconPort, HttpPort = BridgeConfig.Values.HttpPort,
+        ChangeDelay = BridgeConfig.Values.ChangeDelay, RestartCooldown = BridgeConfig.Values.RestartCooldown;
+    static readonly bool RandomOnStart = BridgeConfig.Values.RandomOnStart, // roll a map when a new server process has loaded its start map
+        GuideOnJoin = BridgeConfig.Values.GuideOnJoin;                       // ask the plugin to show the guide on every real join
+    static HudTab.Mode HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
+    static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce; warn by default, so every player's HUD version is learned at their first click
+    static readonly HashSet<long> Admins = BridgeConfig.Values.Admins.Select(AccountId).ToHashSet();
+    static readonly List<MapInfo> Officials = BridgeConfig.Values.OfficialMaps // installed on the server, loaded with changelevel
+        .Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
 
     // ---- runtime state (only touched from the event-loop thread) ----
     static List<MapInfo> Maps = new();
@@ -49,7 +48,8 @@ static partial class Program
     {
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--build-maps", var url]) return BuildMaps(url);
-        if (RconPassword == "" || LogSecret == "") { Log("RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
+        Log(BridgeConfig.Source.Line);              // where the settings came from - no value in it
+        if (RconPassword == "" || LogSecret == "") { Log(BridgeConfig.Source.FromFile ? "server.rconPassword and bridge.secret must be set" : "RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
         (Broken, Packs) = LoadLists();
         LoadRemoved();
@@ -1177,6 +1177,7 @@ static partial class Program
         HudSelfTest(Check);
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
+        SettingsSelfTest(Check); // SelfTestSettings.cs: the settings file, else the environment, and the line that says which
         PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice

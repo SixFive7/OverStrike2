@@ -11,6 +11,8 @@ using OverStrike2;
 //     attacked or saw a vote freeze start or end; and what the cloak puts back (CloakBook): every entity that leaves a hidden player, as it
 //     looked before - never as it looked hidden, also when it goes from one hidden player to another;
 //   - where the HUD addon's id comes from (HudAddon.cs): the new variable, its old name only while the new one is not set at all;
+//   - where the plugin's settings come from (PluginSetup.cs, bridge/SettingsSource.cs): the settings file when there is one that can be
+//     used, else the environment as before - and the line that says which, with no value in it;
 //   - the block file (bridge/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
@@ -195,6 +197,66 @@ void Eq<T>(T actual, T expected, string what) =>
     Eq(HudAddon.Read(Env(new() { [New] = "500", [Old] = "600" }), New, Old), ("500", New), "addon: both set - the new one wins");
     Eq(HudAddon.Read(Env(new() { [New] = "", [Old] = "600" }), New, Old), ("", New), "addon: the new one set but empty means no HUD, whatever the old one says");
     Eq(HudAddon.Read(Env(new()), New, Old), ("", New), "addon: neither set: no HUD");
+}
+
+// ---- where the plugin's settings come from (PluginSetup.cs, bridge/SettingsSource.cs): the settings file, else the environment as before ----
+{
+    const string standard = "/etc/overstrike2/overstrike2.jsonc";
+    Func<string, string?> Env(Dictionary<string, string> vars) => name => vars.TryGetValue(name, out var v) ? v : null;
+    static string NoFile(string p) => throw new FileNotFoundException(p);
+    PluginSetup FromEnv(Func<string, string?> env) =>
+        PluginSetup.FromEnvironment(env, "OS2_HUD_ADDON", "GUNGAME_HUD_ADDON", "HUD_ITEM_PAGE", v => string.Equals(v?.Trim(), "off", StringComparison.OrdinalIgnoreCase));
+    PluginSetup Setup(SettingsSource s, Func<string, string?> env) => s.FromFile ? PluginSetup.FromFile(s.File) : FromEnv(env);
+    var vars = new Dictionary<string, string>
+    {
+        ["OS2_HUD_ADDON"] = "500", ["CS2_LOG_HTTP_URL"] = "http:\\/\\/env-bridge:8080\\/log\\/envsecret41", ["HUD_ITEM_PAGE"] = "off",
+        ["TEST_SECRET"] = "filesecret42",
+    };
+
+    var none = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(vars), NoFile);
+    var e = Setup(none, Env(vars));
+    Check(!none.FromFile && !none.Troubled && none.Line == $"settings: the environment (no settings file at {standard})", "settings: no settings file - the environment, and the line says so");
+    Check(e is { Addon: "500", AddonFrom: "OS2_HUD_ADDON", Bridge: "http://env-bridge:8080", BridgeSecret: "envsecret41", BridgeWhy: "http://env-bridge:8080", ItemPage: false, ItemPageSwitch: "HUD_ITEM_PAGE" }
+        && e.ApiGapSeconds == 2, "settings: ...the environment's values as before: the addon, the bridge and its secret from CS2_LOG_HTTP_URL (\\/ read as /), the page visit off");
+    Check(PluginSetup.FromLogUrl("http://bridge:8080/nolog") is (null, "", var why) && why.Contains("CS2_LOG_HTTP_URL") && PluginSetup.FromLogUrl(null).Bridge == null
+        && PluginSetup.FromLogUrl("http://bridge:8080/log/").Bridge == null, "settings: ...no /log/<secret> in CS2_LOG_HTTP_URL: no bridge, and why");
+    Check(FromEnv(Env(new())) is { Addon: "", Bridge: null, ItemPage: true }, "settings: ...nothing set: no HUD, no bridge, the page visit on");
+
+    const string text = """
+        {
+          "schema": 1,
+          "server": { "host": "not-the-plugins" },   // a key the plugin does not read: left alone
+          "bridge": { "url": "http://file-bridge:8081/", "secret": "env:TEST_SECRET" },
+          "hud": { "addon": "3823993566", "itemPage": false },
+          "steam": { "apiGapSeconds": 5 },
+        }
+        """;
+    var file = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(vars), p => p == standard ? text : NoFile(p));
+    var f = Setup(file, Env(vars));
+    Check(file.FromFile && !file.Troubled && f is { Addon: "3823993566", AddonFrom: "hud.addon", Bridge: "http://file-bridge:8081", BridgeSecret: "filesecret42",
+        BridgeWhy: "http://file-bridge:8081", ItemPage: false, ItemPageSwitch: "hud.itemPage" } && f.ApiGapSeconds == 5,
+        "settings: a file that can be used - its values, the secret by reference; CS2_LOG_HTTP_URL and the addon variable no longer count");
+    Check(file.Line == $"settings: the settings file {standard}" && new[] { "filesecret42", "file-bridge", "3823993566", "envsecret41" }.All(x => !file.Line.Contains(x)),
+        "settings: ...the line names the file and nothing it holds");
+    var noSecret = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "bridge": { "secret": "env:TEST_SECRET" } }""");
+    Check(noSecret.FromFile && Setup(noSecret, Env(new())) is { Bridge: null, BridgeWhy: "bridge.secret is empty", Addon: "" } && noSecret.Line.EndsWith(" - 1 warning (bridge.secret)"),
+        "settings: a file whose secret's variable is not set - no bridge, the HUD's log line says why, the settings line names the key");
+    var slow = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "steam": { "apiGapSeconds": 0.5 }, "hud": { "itemPage": "no" } }""");
+    Check(slow.FromFile && slow.Troubled && PluginSetup.FromFile(slow.File) is { ApiGapSeconds: 2, ItemPage: true }
+        && slow.Line == $"settings: the settings file {standard} - 2 problems (hud.itemPage, steam.apiGapSeconds)",
+        "settings: a gap under 2 s is clamped to 2 and a wrong switch keeps its default - problems by key, never their values");
+    var broken = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(vars), _ => "{ not json");
+    Check(!broken.FromFile && broken.Troubled && Setup(broken, Env(vars)) == e && broken.Line.StartsWith($"settings: the environment - the settings file {standard} cannot be used ("),
+        "settings: a file that cannot be used - the environment's values, and the line says why");
+
+    var gapBefore = SteamWebApi.Gap;
+    SteamWebApi.Gap = TimeSpan.FromSeconds(1);
+    var floored = SteamWebApi.Gap;
+    SteamWebApi.Gap = TimeSpan.FromSeconds(5);
+    var raised = SteamWebApi.Gap;
+    SteamWebApi.Gap = gapBefore;
+    Check(floored == TimeSpan.FromSeconds(2) && raised == TimeSpan.FromSeconds(5) && gapBefore == TimeSpan.FromSeconds(2),
+        "settings: the Web API's door takes the gap from the settings, never under 2 s (2 s until set)");
 }
 
 // ---- the block file (bridge/Modes.cs): every game mode's value in one file ----

@@ -23,6 +23,10 @@
     <!-- When the vote freezes everybody, on a handed clock; and where the HUD addon's id comes from. -->
     <Compile Include="..\OverStrike2\FreezePlan.cs" Link="FreezePlan.cs" />
     <Compile Include="..\OverStrike2\HudAddon.cs" Link="HudAddon.cs" />
+    <!-- Where the plugin's settings come from: the settings file (core's reader), else the environment. -->
+    <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
+    <Compile Include="..\..\bridge\SettingsSource.cs" Link="SettingsSource.cs" />
+    <Compile Include="..\OverStrike2\PluginSetup.cs" Link="PluginSetup.cs" />
     <!-- Whom the spawn cloak hides, on handed ticks and positions, and which entities the cloak has painted and puts back. -->
     <Compile Include="..\OverStrike2\CloakPlan.cs" Link="CloakPlan.cs" />
     <!-- The block file's format, every game mode's values in one file, and the plugin's own file held to it. BlockList.Due compares with

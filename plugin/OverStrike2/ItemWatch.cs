@@ -13,7 +13,7 @@ namespace OverStrike2;
 /// subscriptions, favorited, lifetime_subscriptions, lifetime_favorited, views, tags), and a held item answers result 1, visibility 0 and
 /// banned 0 like a shown one. So the item's page, the one place Valve's review shows, stays the project's one recorded exception to "the
 /// Web API only": visited only when ItemPlan (HudCheck.cs) says so - right after the Web API shows a change, then at most every 15 minutes
-/// while it is not shown, for 3 hours - never with HudCheck.PageVariable off, as on a test copy, and always with an honest User-Agent
+/// while it is not shown, for 3 hours - never with the visit switched off (hud.itemPage false, or HudCheck.PageVariable off without the settings file), as on a test copy, and always with an honest User-Agent
 /// naming the project (SteamWebApi.UserAgent). The page is read as HudCheck.PagePublic says (Steam's old Error page and its new HTTP 500
 /// page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam
 /// already.</summary>
@@ -25,20 +25,23 @@ sealed class ItemWatch
     readonly string? url;
     readonly long id;
     readonly ItemPlan plan = new();
-    readonly bool pageOff = HudCheck.PageOff(Environment.GetEnvironmentVariable(HudCheck.PageVariable));
+    readonly bool pageOff;      // hud.itemPage false, or HUD_ITEM_PAGE off without the settings file (PluginSetup)
+    readonly string pageSwitch; // ...and the switch's name, for the notes
     Task<(int Status, string? Html)>? pending;
     Task<HudCheck.ItemApi?>? apiPending;
     DateTime apiNext;
     DateTime lastVisit = DateTime.MinValue, lastApi = DateTime.MinValue;
     string note = "no page visit (none needed)", apiNote = "not asked yet";
 
-    public ItemWatch(string addon)
+    public ItemWatch(string addon, bool page, string pageSwitch)
     {
+        pageOff = !page;
+        this.pageSwitch = pageSwitch;
         url = addon.Length is > 0 and <= 12 && addon.All(char.IsAsciiDigit) ? "https://" + HudCheck.ItemUrl(addon) : null;
         id = url != null ? long.Parse(addon, CultureInfo.InvariantCulture) : 0;
         http.DefaultRequestHeaders.UserAgent.ParseAdd(SteamWebApi.UserAgent); // the page visit too says who asks
         if (url == null) note = "no item id";
-        else if (pageOff) note = $"never visited here ({HudCheck.PageVariable} is off)";
+        else if (pageOff) note = $"never visited here ({pageSwitch} is off)";
     }
 
     /// <summary>On the game thread, every frame: takes a finished page visit's verdict and a finished Web API answer, asks the Web API
@@ -106,7 +109,7 @@ sealed class ItemWatch
     /// changes nothing. How the page check is tried against items Steam hides. By hand only.</summary>
     public async Task<string> Probe(long other)
     {
-        if (pageOff) return $"{other}: no visit - {HudCheck.PageVariable} is off here";
+        if (pageOff) return $"{other}: no visit - {pageSwitch} is off here";
         var (status, html) = await Fetch("https://" + HudCheck.ItemUrl(other.ToString(CultureInfo.InvariantCulture))).ConfigureAwait(false);
         var title = html == null ? "-" : System.Text.RegularExpressions.Regex.Match(html, "<title>([^<]*)</title>").Groups[1].Value;
         var verdict = HudCheck.PagePublic(status, html);
