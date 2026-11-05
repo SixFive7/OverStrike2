@@ -66,7 +66,7 @@ an update are exactly what Valve frowns on: while one is held, players cannot do
   every waiting layout change into that one release. Ship updates while nobody plays.
 - Deleting an old, unused HUD item at the owner's request is not a replacement.
 
-Our own maps follow the same rule: a new version of a map item only with the owner's go
+Our own maps follow the same rule, but per release: a new version of a map item only with the owner's go for that release
 ([maps/publisher/](maps/publisher/)).
 
 ## The documentation shows the whole HUD - keep it current with every change
