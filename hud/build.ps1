@@ -142,7 +142,7 @@ foreach ($f in Get-ChildItem $styleDir -Filter *.css) { & $compiler -i $f.FullNa
 
 $expected = @(Get-ChildItem (Join-Path $src "layout") -Filter *.xml | ForEach-Object { "panorama\layout\custom_game\$($_.BaseName).vxml_c" }) +
     @(Get-ChildItem (Join-Path $src "styles") -Filter *.css | Where-Object { -not ($NoThumbs -and $_.Name -like "gungame_hud_thumbs_*") } | ForEach-Object { "panorama\styles\custom_game\$($_.BaseName).vcss_c" }) +
-    @("panorama\styles\custom_game\$Addon\knife.vtex_c")
+    @("panorama\styles\custom_game\$Addon\knife.vtex_c", "panorama\styles\custom_game\$Addon\logo.vtex_c", "panorama\styles\custom_game\$Addon\lock_shut.vtex_c", "panorama\styles\custom_game\$Addon\lock_open.vtex_c")
 $missing = 0
 foreach ($rel in $expected) {
     $f = Join-Path $game $rel

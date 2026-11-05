@@ -26,6 +26,9 @@ binary maps/gg_glasspire/workshop_preview.jpg 3e94b021f87260d1dc0b033a88413deb9b
 binary maps/gg_moonglass/workshop_preview.jpg 0816cb0637bdf8bde2d6c0715f11a7f5abae74f5d712dca4b582f57ee7e917b7  # a render of our own generated map (preview.py), no game assets
 binary maps/gg_vinceville/workshop_preview.jpg 15e306aa1b96ce2bc73bb494404f33b3b7f7212584e092f694a2bb3f307fe2cd  # a render of our own generated map (preview.py), no game assets
 binary hud/images/knife.png d2c519bfbb23433de5ba8541071db7860fd8af8bdb47f98ba2913577a4953d3f  # the HUD's knife icon: an original drawing (hud/knife.py), no game art
+binary hud/images/logo.png 55056ebf521dc6df10801af6626242e91a95cfc9851ba67b1e094ae14ec03a42  # the project's logo: a hexagon with OS2 in it, drawn for the HUD
+binary hud/images/lock_shut.png a4ba06f484b91571d02e763858b803449ee6b14ec798be5b2e39b601fd46662e  # a padlock, drawn for the HUD: Play asks first
+binary hud/images/lock_open.png e65a8c4d7ae5b263394acc91a38bd8a112d5a37d8ea8f0b7a13a2665c2b11fee  # the same padlock, open
 binary hud/workshop_preview.jpg eebf2abc31669287fcf4f2d4022968e5eef0a6ad000a100f542b646ff891ca19  # the HUD item's preview: the Fun page as a test client drew it, on a plain ground - our own menu, no other authors' pictures
 
 # Self-test values that look like secrets
