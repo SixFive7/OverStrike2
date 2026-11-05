@@ -445,11 +445,12 @@ left before that cut. Discovery, the check and the ratings run at most every `sy
    inside the container - its own port, passwords and Workshop folder, no plugins, no log push - and hold it `sync.holdSeconds` with two bots.
 6. **Publish** the passes into the bridge's data (Arms Race onto `maps.json` and `search.json`, the other modes onto their own lists, the failures onto `broken.json`), and ask the bridge to reload. The optional mail is for problems only:
    a run stopped early or a step that errored, Steam pushing back, the test engine failing to start, a safety check refusing, the disk running low (`sync.diskLowGb`), a failed hand-over, any other error. Each says what went wrong and what
-   the sync did about it, and points to `sync.mail.dashboardUrl`; a problem that persists is mailed once a day at most. A run without one mails nothing; its report stays in the state folder's `reports/` and in `sync-status.json`.
+   the sync did about it, and points to `sync.mail.dashboardUrl`; a problem that persists is mailed once a day at most. A run without one mails nothing; its report stays in the state folder's `reports/` and in `sync-status.json`. The state folder keeps the newest 100 reports, and in `backups/` the bridge's lists as the newest 10 publishes found them.
 
 Hard limits in code: one Web API call at a time, at least 2 s apart, through one door; at most 10,000 calls in any 24 hours and 500 a run; any 429, 403 or 401, or a burst of server errors, stops every API step for the rest of the day. The
 configuration can lower each limit, never raise it. There is no daily download cap: an HTTP 429, 403 or 401, a SteamCMD rate limit or two Access Denied in a row end the day's downloads, three failed downloads in a row or a second stall end
-the run's, and a bug brake downloads a map at most twice a day. One SteamCMD download at a time, one test engine. When a player joins, the test engine stops at once and no new download starts; the run goes on only after a quiet spell with
+the run's, and a bug brake downloads a map at most twice a day. Three failed downloads of one version of a map are its last, until the Workshop has a newer one. A listed map whose new version failed its test is tested again at most once a
+day, until a version passes; a newer version is tested at once. One SteamCMD download at a time, one test engine. When a player joins, the test engine stops at once and no new download starts; the run goes on only after a quiet spell with
 nobody on.
 
 The sync also writes `sync-status.json` into the bridge's data folder (schema 1) for the in-game status page: what it does now and why (`now.state` is one of idle, waiting, discovery, check, ratings, serve, download, test, publish, stopped),
@@ -496,7 +497,7 @@ fall back on those variables when there is no file or the file cannot be used, a
 ## The plugin layer
 
 Before every engine start `os2-server install` puts in the pinned Metamod, CounterStrikeSharp (with its .NET runtime) and MultiAddonManager once per version, re-applies the `gameinfo.gi` search path (every game update rewrites that file), has MultiAddonManager
-mount the HUD's Workshop item (`hud.addon`, [server.md](server.md#the-hud-addon)), and copies every plugin folder in. Only a settings file with no usable `hud.addon` stops the launch ([server.md](server.md#how-it-starts)): every other failure is a logged warning and a server without that component. With `plugin.enabled` false it only removes the search path, and the server runs vanilla - the
+mount the HUD's Workshop item (`hud.addon`, [server.md](server.md#the-hud-addon)), and copies every plugin folder in. Only settings with no usable `hud.addon`, or no MultiAddonManager on disk after its download was tried, stop the launch ([server.md](server.md#how-it-starts)): every other failure is a logged warning and a server without that component. With `plugin.enabled` false it only removes the search path, and the server runs vanilla - the
 switch for the days after a game update breaks Metamod or CounterStrikeSharp. The bridge goes on rolling maps then. To bump a pin: change the version in `server/OverStrike2.Server/Install.cs`, build the plugin against the same CounterStrikeSharp version, and ship both.
 
 ## Log-line grammar

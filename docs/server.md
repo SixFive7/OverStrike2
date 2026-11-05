@@ -22,12 +22,14 @@ The image's entry script sources `pre.sh` right before it launches the engine. `
 ([`server/OverStrike2.Server/pre.sh`](../server/OverStrike2.Server/pre.sh)) is a launcher: it copies the program from where it is
 shipped (`OS2_SERVER`, else `/home/steam/overstrike2/os2-server`; a read-only or no-exec mount cannot run it) to
 `<game>/update-watch/os2-server`, runs `install`, and starts `watch` in the background. A failure costs the plugin layer and the
-watcher, never the server, with one exception, because a server without the HUD cannot exist: when `install` refuses the settings file
-(no usable `hud.addon`, or no file it can use; [settings.md](settings.md#how-each-part-reads-it)) it logs one `ALERT` line and exits
+watcher, never the server, with two exceptions, because a server without the HUD cannot exist: `install` refuses the settings (no
+usable `hud.addon`, or none it can use; [settings.md](settings.md#how-each-part-reads-it)), and it refuses to go on when MultiAddonManager
+is not on disk after its download was tried, so a new volume's first start needs GitHub. Either way it logs one `ALERT` line and exits
 with code 78, and on exactly that code `pre.sh` waits 5 minutes and ends the image's entry script. The engine does not start, Docker's
 restart policy tries again, and the log says why. The wait is there because every try begins with the image's anonymous SteamCMD login,
-and Docker restarts at once a container that ran for 10 s. `watch` and `organize` refuse the same way; `doctor` and `version` still work
-and say so.
+and Docker restarts at once a container that ran for 10 s. `watch` and `organize` refuse settings the same way; `doctor` and `version`
+still work and say so. `plugin.enabled` false, the emergency switch, asks for no MultiAddonManager. A download that stalls ends after
+60 s without a byte, or 10 minutes in all, so it never holds the start for long.
 
 ## The HUD addon
 
@@ -147,7 +149,7 @@ bridge's discovery stock takes only maps whose current content passed (`passed` 
 
 | Command | What it does |
 |---|---|
-| `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; `<state>/run-now` starts a manual run at once. |
+| `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; after a run nothing stopped and that had nothing it could do, it waits for the next check or a new day; `<state>/run-now` starts a manual run at once. |
 | `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
 | `os2-sync status` | The Web API ledger's counters and the state's totals. |
 | `os2-sync export` | What it has published, as entries a republish from the repository can merge, and the discovery stock as `queues.json` holds it (`queues`), which the HUD's pictures take first. |
