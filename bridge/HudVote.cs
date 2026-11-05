@@ -148,9 +148,8 @@ public static class HudVote
     public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle";
 
     /// <summary>Who has not voted yet (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4_6_0; HoverVar(k),
-    /// longer, for the names a card shows while the mouse is on it), the summary strip's segment i (StripVar(i)), and the line that brings a player
-    /// who closed the window back to a vote a player started (AwayVar).</summary>
-    public const string WaitVar = "osvwait", AwayVar = "osvaway";
+    /// longer, for the names a card shows while the mouse is on it) and the summary strip's segment i (StripVar(i)).</summary>
+    public const string WaitVar = "osvwait";
     public static string VotersVar(int k) => $"osvn{k.ToString(CultureInfo.InvariantCulture)}";
     public static string HoverVar(int k) => $"osvh{k.ToString(CultureInfo.InvariantCulture)}";
     public static string StripVar(int i) => $"osvs{i.ToString(CultureInfo.InvariantCulture)}";

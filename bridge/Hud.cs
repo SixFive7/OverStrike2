@@ -114,8 +114,8 @@ public static class Hud
             new("The wait", "2 minutes after a vote; a match end opens one anyway")]),
         new("Likes", [
             new("Like  ·  Dislike", "On the map that is on; the other one takes a mark back first"),
-            new("Dislike  ·  reasons", "Too big: 1 random pick in 100; Ads: never a random pick; the rest: a dislike"),
-            new("Maps  ·  arrows", "Like or dislike any map's card: up likes, down dislikes"),
+            new("Dislike  ·  Reasons", "Too big: 1 random pick in 100; Ads: never a random pick; the rest: a dislike"),
+            new("Maps  ·  Arrows", "Like or dislike any map's card: up likes, down dislikes"),
             new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
             new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
@@ -136,12 +136,12 @@ public static class Hud
     [
         new("The vote", [
             "Play on a card puts its map to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
-            "A vote freezes everybody - no moving, shooting or closing it - until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
+            "A vote freezes everybody (no moving, shooting or closing it) until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
             "Click a card to vote, another to change it, your own to take it back. A map a player put on the ballot leaves it once it has no votes.",
             "A match end opens a vote by itself. After any vote, 2 minutes before the next one can be called. No votes: mid-match the map stays, at a match end Random."]),
         new("The ballot", [
             "Keep playing this map while the match is on, Play this map again after it, every map a player put on it, and one map of each other mode.",
-            "Then this mode: a fresh map - a Workshop upload or update of the last 30 days - a surprise new to us, and favourites the server keeps fill the page.",
+            "Then this mode: a fresh map (a Workshop upload or update of the last 30 days), a surprise new to us, and favourites the server keeps fill the page.",
             "Wingman takes 4 players at most: with more on, no Wingman map is on it or can win. The most votes first; a second page only when needed.",
             "Every card but a player's pick is on the server's disk, so it loads at once. A risky map shows its record, and putting it to the vote takes a second click."]),
         new("The dice", [
@@ -149,14 +149,14 @@ public static class Hud
             "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other.",
             "The dice change the map by themselves only at a server start, 10 minutes with nobody on, a broken map. Previous puts the map before this one to the vote."]),
         new("Points: each one doubles the odds", [
-            "Workshop popularity - rating, players, trend - gives up to 4 points, each Like a point (up to 5 Likes), and each Dislike or Too big takes 2.",
+            "Workshop popularity (rating, players, trend) gives up to 4 points, each Like a point (up to 5 Likes), and each Dislike or Too big takes 2.",
             "A card shown and not chosen loses 1 point, 2 at most, fading to nothing over 28 days.",
             "One mark per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The opposite one takes it back first.",
             "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
             "Maps that crashed the server or are on the broken list, blocked maps, and maps gone from the Workshop. A Workshop update lifts a crash mark.",
-            "Maps a player marked Ads (they show ads or send players to another server) - anybody can still put them to the vote."]),
+            "Maps a player marked Ads (they show ads or send players to another server) - Anybody can still put them to the vote."]),
     ];
 
     public const int HowSections = 5, HowLines = 4; // the How page's sections and the lines in each (the layout has exactly this many)

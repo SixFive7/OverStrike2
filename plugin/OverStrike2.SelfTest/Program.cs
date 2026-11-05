@@ -35,6 +35,8 @@ void Check(bool ok, string what)
 void Eq<T>(T actual, T expected, string what) =>
     Check(EqualityComparer<T>.Default.Equals(actual, expected), $"{what}: expected {expected}, got {actual}");
 
+const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in this project
+
 // ---- the vote's freeze (FreezePlan.cs): on the bridge's fresh word on this map, never past a lost bridge or a stuck answer ----
 {
     var t0 = new DateTime(2026, 11, 5, 0, 0, 0, DateTimeKind.Utc);
@@ -69,11 +71,26 @@ void Eq<T>(T actual, T expected, string what) =>
     for (var s = 0; s <= FreezePlan.MaxSeconds; s += 1) { when = t0.AddSeconds(s); plan.Tick(10, true, when, map, when); }
     Check(plan.Frozen, $"freeze: {FreezePlan.MaxSeconds:0} s of one vote, still frozen");
     var capped = plan.Tick(10, true, when.AddSeconds(1), map, when.AddSeconds(1));
-    Check(capped && !plan.Frozen && plan.Reason == FreezePlan.Why.TooLong && plan.FreeBecause().Contains($"{FreezePlan.MaxSeconds:0} s"), "freeze: one vote frozen longer than the most one may: everybody free");
+    Check(capped && !plan.Frozen && plan.Reason == FreezePlan.Why.TooLong && plan.FreeBecause().Contains("past its end"), "freeze: a word without an end time, frozen longer than the most one vote may: everybody free");
     Check(!plan.Tick(10, true, when.AddSeconds(5), map, when.AddSeconds(5)) && !plan.Frozen, "freeze: ...and that round never freezes anybody again");
     Check(plan.Tick(11, true, when.AddSeconds(6), map, when.AddSeconds(6)) && plan.Frozen && plan.Since == when.AddSeconds(6), "freeze: the next round freezes on its own clock");
-    // MapVote.HardCapSeconds (180), the countdown after it (CHANGE_DELAY_SECONDS, 8 by default) and a margin; the plugin polls once a second
-    Check(FreezePlan.MaxSeconds >= 180 + 60 && FreezePlan.StaleSeconds >= 5, "freeze: the cap leaves the longest vote and its countdown room; staleness allows a few lost polls");
+    // The vote's own end time on the bridge's clock: the owner's 60 s limit holds if the bridge dies or hangs, at the moment the windows close too (HudScreen.VoteLocked).
+    var ending = new FreezePlan();
+    var ends = 60_000L;
+    bool Tick(long atMs) => ending.Tick(20, true, t0.AddMilliseconds(atMs), map, t0.AddMilliseconds(atMs), ends, atMs);
+    Tick(1_000);
+    Check(ending.Frozen, "freeze: a vote with an end time freezes everybody");
+    Tick(ends + (long)(FreezePlan.GraceSeconds * 1000));
+    Check(ending.Frozen, "freeze: ...through its end and the grace, the bridge's word on its way");
+    Check(Tick(ends + (long)(FreezePlan.GraceSeconds * 1000) + 1) && !ending.Frozen && ending.Reason == FreezePlan.Why.TooLong, "freeze: ...past them everybody is free, whatever the bridge's last word, at about 70 s of a 60 s vote");
+    Tick(ends + 20_000);
+    Check(!ending.Frozen && ending.Reason == FreezePlan.Why.TooLong, "freeze: ...and that round stays free");
+    var healthy = new FreezePlan();
+    healthy.Tick(30, true, t0, map, t0, 60_000, 0);
+    healthy.Tick(30, true, t0.AddSeconds(59), map, t0.AddSeconds(59), 68_000, 59_000); // decided at 59 s: its end is the map change's moment now
+    healthy.Tick(30, true, t0.AddSeconds(67), map, t0.AddSeconds(67), 68_000, 67_000);
+    Check(healthy.Frozen, "freeze: a vote decided holds everybody through its countdown: its end time moved to the map change's");
+    Check(FreezePlan.MaxSeconds >= 180 + 60 && FreezePlan.StaleSeconds >= Hud_LongPollSeconds + 5, "freeze: a word without an end time has room for the longest vote; staleness allows a long poll's silence");
 }
 
 // ---- the spawn cloak (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn hides its player; leaving it, an attack and a vote

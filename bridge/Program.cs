@@ -1186,6 +1186,7 @@ static partial class Program
         MapVote.InactivitySeconds = inactivity;
         Check($"The inactivity timer is {MapVote.InactivitySeconds} s, and the second inactivity limit is off (a proposal of {MapVote.HardCapSeconds} s at the most), one constant away",
             MapVote.InactivitySeconds == 5 && MapVote.IdleLimitSeconds == 0 && MapVote.HardCapSeconds == 180);
+        MessagesCapitalsCheck(Check); // last: every message this whole run posted holds the capitals rule
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");
         Console.WriteLine(failed == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failed})");
         return failed == 0 ? 0 : 1;

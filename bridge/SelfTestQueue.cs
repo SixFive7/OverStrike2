@@ -829,7 +829,7 @@ static partial class Program
             Check("Its X closes it: the mouse is let go at once, the window fades out", At(win, 1, 203.1) is { Capture: false, WindowIn: false, Window: true } && !At(win, 1, 203.5).Window);
             var idle = new HudSlots();
             idle.Show(1, HudSlots.Page.Fun, t0);
-            Check("The menu, opened any other way: its drain bar starts a moment later", !At(idle, 1, HudSlots.FadeSeconds - 0.1).Draining && At(idle, 1, HudSlots.FadeSeconds + 0.1).Draining);
+            Check("The menu, opened any other way: its drain bar starts a moment later", !At(idle, 1, HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(idle, 1, HudSlots.DrainAfterOpenSeconds + 0.1).Draining);
             idle.Click(1, "gg_tab_how", t0.AddSeconds(10));
             Check("A tab restarts the drain bar and keeps the window up", At(idle, 1, 10.1) is { Page: HudSlots.Page.How, Draining: false } && At(idle, 1, 10.4).Draining);
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",
