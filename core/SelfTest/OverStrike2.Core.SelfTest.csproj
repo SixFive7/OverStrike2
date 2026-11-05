@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The core library's self-test: "dotnet run (project) core/SelfTest" from the repository's root runs every check and exits 0 when all
+       pass. Given the argument "write" with two dashes, it first regenerates docs/settings.schema.json and docs/settings.md's key tables. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AssemblyName>OverStrike2.Core.SelfTest</AssemblyName>
+    <RootNamespace>OverStrike2.Core.SelfTest</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OverStrike2.Core.csproj" />
+  </ItemGroup>
+
+</Project>

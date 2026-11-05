@@ -28,6 +28,7 @@ binary hud/workshop_preview.jpg eebf2abc31669287fcf4f2d4022968e5eef0a6ad000a100f
 
 # Self-test values that look like secrets
 token server/test_workshop_sync.py 0123456789ABCDEF0123456789ABCDEF  # the sync self-test's made-up Web API key
+token core/SelfTest/SettingsTests.cs 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in the settings self-test
 token .gitleaks.toml 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in gitleaks' allowlist
 
 # Made-up values in the self-tests
@@ -35,6 +36,7 @@ hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-
 
 # The zone the tests run in
 timezone server/test_*.py Europe/Paris  # a zone with European summer time the restart and sync tests need; not the deployment's
+timezone core/SelfTest/TimeTests.cs Europe/Paris  # the same, for the core self-test's clock changes
 
 # Times that are not anybody's evening: made-up ones (a date in 2001, a time at or around noon or midnight), the restart
 # test's designed scenario clocks, and a date with its time zeroed

@@ -1,0 +1,59 @@
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace OverStrike2.Core;
+
+/// <summary>Careful file writes: a reader sees the old file or the new one, and after a crash the new one is on disk.</summary>
+public static partial class Files
+{
+    [LibraryImport("libc", EntryPoint = "open", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial int Open(string path, int flags);
+
+    [LibraryImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static partial int Fsync(int fd);
+
+    [LibraryImport("libc", EntryPoint = "close")]
+    private static partial int Close(int fd);
+
+    /// <summary>Write beside the target, flush it to disk, rename it over the target, then flush the folder (on Linux), so the rename
+    /// itself survives a crash. unixMode: the new file's permissions (Linux), else the umask's.</summary>
+    public static void WriteAtomic(string path, ReadOnlySpan<byte> data, UnixFileMode? unixMode = null)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        var tmp = Path.Combine(folder, $".{Path.GetFileName(path)}.tmp-{Environment.ProcessId}");
+        using (var f = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            f.Write(data);
+            f.Flush(true);
+        }
+        if (unixMode is { } mode && !OperatingSystem.IsWindows())
+            File.SetUnixFileMode(tmp, mode);
+        File.Move(tmp, path, true);
+        if (OperatingSystem.IsLinux())
+        {
+            var fd = Open(folder, 0);
+            if (fd >= 0)
+            {
+                Fsync(fd);
+                Close(fd);
+            }
+        }
+    }
+
+    public static void WriteAtomic(string path, string text, UnixFileMode? unixMode = null) => WriteAtomic(path, Encoding.UTF8.GetBytes(text), unixMode);
+
+    /// <summary>A JSON file as a node, or null when it is missing or does not parse.</summary>
+    public static JsonNode? ReadJson(string path)
+    {
+        try
+        {
+            return JsonNode.Parse(File.ReadAllText(path));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return null;
+        }
+    }
+}

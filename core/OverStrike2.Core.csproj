@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What the bridge, the plugin and the server program share: the settings file, RCON, A2S, Valve's KeyValues, the Steam Web API's one
+       door, careful file writes, local time, the keep set. No packages, and safe for trimming and native AOT (the bridge is native AOT,
+       the plugin runs in CounterStrikeSharp's .NET 10). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsAotCompatible>true</IsAotCompatible>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- LibraryImport's generated marshalling: the folder fsync in Files.WriteAtomic -->
+    <RootNamespace>OverStrike2.Core</RootNamespace>
+    <AssemblyName>OverStrike2.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The self-test is a project of its own in the folder below. -->
+    <Compile Remove="SelfTest\**" />
+    <None Remove="SelfTest\**" />
+  </ItemGroup>
+
+</Project>
