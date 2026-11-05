@@ -96,7 +96,6 @@ services:
       HUD_TAB: down # the board takes the mouse while TAB is held; off
       HUD_CHECK: warn # off, warn, or enforce: disconnect a player whose game has not loaded the HUD
       DISCOVERY_STOCK: 10 # per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
-      ADMIN_STEAMIDS: "" # SteamID64s of the players who may use the admin commands, comma-separated
 
   sync: # the Workshop sync: finds, downloads, scans and load-tests new maps and lists the ones that pass; leave it out to run without
     image: docker.io/joedwards32/cs2 # the game server's image: its SteamCMD and the libraries a test engine needs

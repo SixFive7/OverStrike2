@@ -68,14 +68,6 @@
           "type": "string",
           "default": ""
         },
-        "admins": {
-          "description": "SteamID64s of the players who may use the admin commands. Replaces ADMIN_STEAMIDS.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": []
-        },
         "officialMaps": {
           "description": "The official maps the votes and the random picks may offer. Replaces OFFICIAL_MAPS.",
           "type": "array",
@@ -90,7 +82,7 @@
           ]
         },
         "randomOnStart": {
-          "description": "A new server process rolls a random map once its start map is up, unless somebody is queued. Replaces RANDOM_ON_START.",
+          "description": "A new server process rolls a random map once its start map is up, after any vote that is open: the dice, one of the automatic changes. Replaces RANDOM_ON_START.",
           "type": "boolean",
           "default": true
         },
@@ -241,12 +233,12 @@
           ]
         },
         "backgroundDownloads": {
-          "description": "Download the maps the bridge's queues will play next, in the background, also while people play. Replaces CS2_READY.",
+          "description": "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play. Replaces CS2_READY.",
           "type": "boolean",
           "default": true
         },
         "downloadLine": {
-          "description": "Say on the HUD's news line what the server downloads for a waiting player, with its progress. Replaces CS2_DOWNLOAD_LINE.",
+          "description": "Say on the HUD's top line what the server downloads for a waiting player, with its progress. Replaces CS2_DOWNLOAD_LINE.",
           "type": "boolean",
           "default": true
         }

@@ -77,8 +77,8 @@ Either way, a change takes effect when the containers are created again (a redep
 - **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** `os2-server` and
   `os2-sync` then do nothing: one `ALERT` line says why and how to fix it, and they exit with code 78. `doctor` and `version` still
   work and say so. No file at all is the same for them: it names no `hud.addon`. On that code from `os2-server install`, `pre.sh` stops
-  the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. Every other failure
-  of the programs costs the plugin layer and the watcher, never the server ([server.md](server.md)).
+  the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. All but one
+  of the programs' other failures cost the plugin layer and the watcher, never the server ([server.md](server.md#how-it-starts)).
 - **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no settings anywhere,
   or settings they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
   a file they can use, they read the file alone. Each logs which at its start - `settings: the settings file <path>`, naming the
@@ -117,9 +117,8 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `bridge.url` | string | `http://bridge:8080` | plugin, server | CS2_BRIDGE_URL, SYNC_BRIDGE_URL, CS2_LOG_HTTP_URL | How the game server (the plugin, the restart watcher) and the sync reach the bridge. |
 | `bridge.port` | integer, 1..65535 | `8080` | bridge | HTTP_PORT | The port the bridge listens on. |
 | `bridge.secret` | string | (empty) | bridge, plugin, server | LOG_SECRET, CS2_BRIDGE_SECRET, SYNC_BRIDGE_SECRET | The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>. A secret: write it as a reference. |
-| `bridge.admins` | string list | `[]` | bridge | ADMIN_STEAMIDS | SteamID64s of the players who may use the admin commands. |
 | `bridge.officialMaps` | string list | `["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]` | bridge | OFFICIAL_MAPS | The official maps the votes and the random picks may offer. |
-| `bridge.randomOnStart` | boolean | `true` | bridge | RANDOM_ON_START | A new server process rolls a random map once its start map is up, unless somebody is queued. |
+| `bridge.randomOnStart` | boolean | `true` | bridge | RANDOM_ON_START | A new server process rolls a random map once its start map is up, after any vote that is open: the dice, one of the automatic changes. |
 | `bridge.discoveryStock` | integer, 0..40 | `10` | bridge, server | DISCOVERY_STOCK | The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long. |
 | `bridge.changeDelaySeconds` | integer, 0..120 | `8` | bridge | CHANGE_DELAY_SECONDS | The countdown before a map change. |
 | `bridge.restartCooldownSeconds` | integer, 0..86400 | `300` | bridge | RESTART_COOLDOWN_SECONDS | The least time between two !restart requests. |
@@ -158,8 +157,8 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 |---|---|---|---|---|---|
 | `maps.layout` | folders \| off | `folders` | server | CS2_MAPS_LAYOUT | Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone. |
 | `maps.delete` | on \| dryrun \| off | `on` | server | CS2_MAPS_DELETE | At every engine start, delete the maps outside the keep set; dryrun lists them only. |
-| `maps.backgroundDownloads` | boolean | `true` | server | CS2_READY | Download the maps the bridge's queues will play next, in the background, also while people play. |
-| `maps.downloadLine` | boolean | `true` | server | CS2_DOWNLOAD_LINE | Say on the HUD's news line what the server downloads for a waiting player, with its progress. |
+| `maps.backgroundDownloads` | boolean | `true` | server | CS2_READY | Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play. |
+| `maps.downloadLine` | boolean | `true` | server | CS2_DOWNLOAD_LINE | Say on the HUD's top line what the server downloads for a waiting player, with its progress. |
 
 ### `sync`
 

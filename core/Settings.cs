@@ -65,8 +65,9 @@ public sealed class Settings
     /// <summary><see cref="Source"/> of settings read from <see cref="ContentVariable"/>: the variable's name, never its value.</summary>
     public const string ContentSource = "the environment variable " + ContentVariable;
 
-    /// <summary>The exit code of a server program that refuses to run because <see cref="Fatal"/> is set (EX_CONFIG of sysexits.h). The launcher
-    /// pre.sh stops the container's start on exactly this code, and no other failure of the programs uses it.</summary>
+    /// <summary>The exit code of a server program that refuses to run because <see cref="Fatal"/> is set, and of an os2-server install that
+    /// finds no MultiAddonManager (EX_CONFIG of sysexits.h). The launcher pre.sh stops the container's start on exactly this code, and no
+    /// other failure of the programs uses it.</summary>
     public const int RefusedExit = 78;
 
     public ServerSection Server { get; } = new();
@@ -470,11 +471,9 @@ public sealed class Settings
             s => s.Bridge.Port, (s, v) => s.Bridge.Port = v),
         Str("bridge.secret", Part.All, "", "LOG_SECRET, CS2_BRIDGE_SECRET, SYNC_BRIDGE_SECRET", "The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>.",
             s => s.Bridge.Secret, (s, v) => s.Bridge.Secret = v, v => v.Length == 0 || v.All(char.IsAsciiLetterOrDigit), "letters and digits", secret: true),
-        List("bridge.admins", Part.Bridge, "[]", "ADMIN_STEAMIDS", "SteamID64s of the players who may use the admin commands.",
-            s => s.Bridge.Admins, (s, v) => s.Bridge.Admins = v, SteamId64, "a SteamID64"),
         List("bridge.officialMaps", Part.Bridge, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "OFFICIAL_MAPS", "The official maps the votes and the random picks may offer.",
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
-        Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, unless somebody is queued.",
+        Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, after any vote that is open: the dice, one of the automatic changes.",
             s => s.Bridge.RandomOnStart, (s, v) => s.Bridge.RandomOnStart = v),
         Int("bridge.discoveryStock", BS, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
@@ -520,9 +519,9 @@ public sealed class Settings
             s => s.Maps.Layout, (s, v) => s.Maps.Layout = v),
         Choice("maps.delete", Part.Server, "on", ["on", "dryrun", "off"], "CS2_MAPS_DELETE", "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
             s => s.Maps.Delete, (s, v) => s.Maps.Delete = v),
-        Bool("maps.backgroundDownloads", Part.Server, true, "CS2_READY", "Download the maps the bridge's queues will play next, in the background, also while people play.",
+        Bool("maps.backgroundDownloads", Part.Server, true, "CS2_READY", "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
             s => s.Maps.BackgroundDownloads, (s, v) => s.Maps.BackgroundDownloads = v),
-        Bool("maps.downloadLine", Part.Server, true, "CS2_DOWNLOAD_LINE", "Say on the HUD's news line what the server downloads for a waiting player, with its progress.",
+        Bool("maps.downloadLine", Part.Server, true, "CS2_DOWNLOAD_LINE", "Say on the HUD's top line what the server downloads for a waiting player, with its progress.",
             s => s.Maps.DownloadLine, (s, v) => s.Maps.DownloadLine = v),
 
         // sync: the Workshop sync
@@ -745,7 +744,6 @@ public sealed class BridgeSection
     public string Url { get; set; } = "http://bridge:8080";
     public int Port { get; set; } = 8080;
     public string Secret { get; set; } = "";
-    public List<string> Admins { get; set; } = [];
     public List<string> OfficialMaps { get; set; } = ["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"];
     public bool RandomOnStart { get; set; } = true;
     public int DiscoveryStock { get; set; } = 10;
