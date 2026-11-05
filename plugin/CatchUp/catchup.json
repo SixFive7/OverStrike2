@@ -122,7 +122,6 @@
     "Seconds": 2,
     "DelaySeconds": 0.25,
     "FirstSpawnDelaySeconds": 3.0,
-    "TaglineGapSeconds": 0.25,
     "LineWidth": 28,
     "MaxLines": 5
   },

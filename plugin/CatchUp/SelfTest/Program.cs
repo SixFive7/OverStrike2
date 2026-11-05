@@ -997,12 +997,8 @@ if (args.Length >= 2 && args[0] == "--spawns")
 
 {
     var m = Defaults().Message;
-    Near(Rules.MessageDelay(m, false, null), 0.25, "a spawn: right after the boost");
-    Near(Rules.MessageDelay(m, true, null), 3.0, "the first spawn after joining: after the join tagline (3 s)");
-    Near(Rules.MessageDelay(m, true, 2.5), 2.75, "the host said its tagline ends in 2.5 s: just after");
-    Near(Rules.MessageDelay(m, true, 6), 6.25, "a long tagline: after it");
-    Near(Rules.MessageDelay(m, false, -40), 0.25, "a tagline long gone: no wait");
-    Near(Rules.MessageDelay(m, true, -1), 0.25, "the host's tagline already over at the first spawn: no wait");
+    Near(Rules.MessageDelay(m, false), 0.25, "a spawn: right after the boost");
+    Near(Rules.MessageDelay(m, true), 3.0, "the first spawn after joining: after the join tagline (3 s)");
 }
 
 // ---- the table and the cap, as built (printed with --table) ----

@@ -155,8 +155,6 @@ public static class HudVote
     /// content has no rule for.</summary>
     public static readonly string[] TagClasses = ["t-liked", "t-upload", "t-updated", "t-trending", "t-toprated", "t-popular", "t-newtous"];
 
-    static string TagClass(string id) => $"t-{id}";
-
     /// <summary>The t-* classes of a card from its tags on the wire (the catalog's field 24, a ballot card's mvo field 11).</summary>
     public static IEnumerable<(string Id, string Class, bool On)> TagClassesOf(string card, string? wire)
     {

@@ -346,11 +346,7 @@ public static class Rules
     public static double ProtectedUntil(double spawnedAt, double gameProtection, Boost b) =>
         b.ExtraProtection > 0 ? spawnedAt + Math.Max(0, gameProtection) + b.ExtraProtection : spawnedAt;
 
-    /// <summary>Seconds after the spawn until the message. When the host said when its tagline ends (taglineLeft, negative once it
-    /// is gone), just after that; otherwise the first spawn after joining waits FirstSpawnDelaySeconds; otherwise DelaySeconds.</summary>
-    public static double MessageDelay(MessageConfig m, bool firstSinceJoin, double? taglineLeft)
-    {
-        if (taglineLeft is { } left) return Math.Max(m.DelaySeconds, left + m.TaglineGapSeconds);
-        return firstSinceJoin ? Math.Max(m.DelaySeconds, m.FirstSpawnDelaySeconds) : m.DelaySeconds;
-    }
+    /// <summary>Seconds after the spawn until the message: the first spawn after joining waits FirstSpawnDelaySeconds, any other DelaySeconds.</summary>
+    public static double MessageDelay(MessageConfig m, bool firstSinceJoin) =>
+        firstSinceJoin ? Math.Max(m.DelaySeconds, m.FirstSpawnDelaySeconds) : m.DelaySeconds;
 }

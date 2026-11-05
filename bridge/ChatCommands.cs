@@ -194,8 +194,6 @@ public static class ChatCommands
     /// <summary>The reply that teaches the primary by showing what was executed, or null when the player typed the primary.</summary>
     public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Marked(Hud.Clean(p.Typed, 44), p)} - Ran {Marked(Hud.Clean(p.Ran, 50), p)}";
 
-    public const int LineMax = 120;
-
     /// <summary>What a line can hold when the command also opens the window: chat stands at the left and the window covers it from 340 px in, at
     /// about 7.2 px a character on a 1920x1080 screen (seen in a real client, 2026-11-01).</summary>
     public const int BesideWindow = 46;

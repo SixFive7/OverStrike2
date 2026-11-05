@@ -44,7 +44,6 @@ public sealed class CatchUpModule
     readonly Dictionary<int, Life> lives = new();
     readonly Dictionary<int, (int Base, int Set)> healthSet = new(); // what this module set a slot's pawn to: undone at an unboosted spawn
     readonly HashSet<int> fresh = new();                            // joined, not yet spawned on a team
-    readonly Dictionary<int, double> taglineUntil = new();
     readonly HashSet<int> boostedLastLife = new();
     bool switchedOn = true;
     bool recalculation;  // a recalculation is queued for the next frame
@@ -105,10 +104,6 @@ public sealed class CatchUpModule
             hotReload ? "loaded during a map: counting starts at the next match" : "counting starts at the first match");
     }
 
-    /// <summary>Optional: the host has shown its own centre-screen line (the join tagline) to this slot for that long. The slot's next
-    /// message then waits until it is gone. Without it, the first spawn after a join waits Message.FirstSpawnDelaySeconds.</summary>
-    public void TaglineShown(int slot, double seconds) => taglineUntil[slot] = Server.CurrentTime + Math.Max(0, seconds);
-
     /// <summary>The boost of a slot's current life.</summary>
     public Boost BoostOf(int slot) => lives.TryGetValue(slot, out var life) ? life.Boost : Boost.None;
 
@@ -139,7 +134,6 @@ public sealed class CatchUpModule
         lives.Clear();
         healthSet.Clear();
         fresh.Clear();
-        taglineUntil.Clear();
         boostedLastLife.Clear();
         recalculation = false; // a frame queued before the map change may never come
         rules = null;
@@ -160,7 +154,6 @@ public sealed class CatchUpModule
         lives.Remove(slot);
         healthSet.Remove(slot);
         fresh.Remove(slot);
-        taglineUntil.Remove(slot);
         boostedLastLife.Remove(slot);
         QueueRecalculation(); // the standings lose a player: the leader may be gone
         return HookResult.Continue;
@@ -310,8 +303,7 @@ public sealed class CatchUpModule
 
             var lines = Lines(boost);
             if (lines.Length == 0 || player.IsBot) return;
-            double? taglineLeft = taglineUntil.TryGetValue(slot, out var until) ? until - now : null;
-            var wait = Rules.MessageDelay(config.Message, first, taglineLeft) - (now - spawnedAt);
+            var wait = Rules.MessageDelay(config.Message, first) - (now - spawnedAt);
             plugin.AddTimer((float)Math.Max(0.01, wait), () => ShowMessage(slot, s, lines, boost), TimerFlags.STOP_ON_MAPCHANGE);
         }
         catch (Exception e) { Fault("applying a spawn", e); }

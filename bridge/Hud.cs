@@ -99,7 +99,7 @@ public static class Hud
     public sealed record Group(string Name, Row[] Rows);
     public sealed record Rule(string Title, string[] Lines);
 
-    public const int RowsPerGroup = 4, LinesPerRule = 4; // the layout has exactly this many slots
+    public const int RowsPerGroup = 4; // the layout has exactly this many slots
 
     /// <summary>The Help page: where each thing is in the menu. Command is the place to click, Words what it does; every action has its chat
     /// command too (ChatCommands.cs, !help).</summary>
@@ -428,13 +428,6 @@ public static class HudView
         [("gg_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("gg_tab_help", HudSlots.Page.Help),
          (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("gg_tab_server", HudSlots.Page.Players),
          ("gg_sub_players", HudSlots.Page.Players), ("gg_sub_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.How)];
-
-    /// <summary>The page a tab or sub-tab opens, or null for any other button.</summary>
-    public static HudSlots.Page? TabPage(string buttonId)
-    {
-        foreach (var (id, page) in Tabs) if (id == buttonId) return page;
-        return null;
-    }
 
     /// <summary>The caption beside the sub-tabs, per page (a variable on gg_screen, SubCaptionVar): what the page is for; the Maps page's says
     /// whether a Play adds to the vote that is on.</summary>

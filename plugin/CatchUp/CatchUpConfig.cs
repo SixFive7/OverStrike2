@@ -278,11 +278,8 @@ public sealed class MessageConfig
     /// <summary>After a spawn, once the boost is applied.</summary>
     public double DelaySeconds { get; set; } = 0.25;
 
-    /// <summary>The first spawn after joining waits this long, for the join tagline to clear, unless the host said when its tagline ends.</summary>
+    /// <summary>The first spawn after joining waits this long, for the join tagline to clear.</summary>
     public double FirstSpawnDelaySeconds { get; set; } = 3.0;
-
-    /// <summary>When the host reports its tagline (TaglineShown), the message comes this long after it.</summary>
-    public double TaglineGapSeconds { get; set; } = 0.25;
 
     /// <summary>The centre panel wraps at about 31 characters and scrolls taller content (measured 2026-10-04): stay inside these.</summary>
     public int LineWidth { get; set; } = 28;
@@ -294,7 +291,6 @@ public sealed class MessageConfig
         Seconds = CatchUpConfig.Clamp(Seconds, 1, 10, "Message.Seconds", notes);
         DelaySeconds = CatchUpConfig.Clamp(DelaySeconds, 0, 10, "Message.DelaySeconds", notes);
         FirstSpawnDelaySeconds = CatchUpConfig.Clamp(FirstSpawnDelaySeconds, 0, 30, "Message.FirstSpawnDelaySeconds", notes);
-        TaglineGapSeconds = CatchUpConfig.Clamp(TaglineGapSeconds, 0, 10, "Message.TaglineGapSeconds", notes);
         LineWidth = CatchUpConfig.Clamp(LineWidth, 16, 80, "Message.LineWidth", notes);
         MaxLines = CatchUpConfig.Clamp(MaxLines, 1, 12, "Message.MaxLines", notes);
     }

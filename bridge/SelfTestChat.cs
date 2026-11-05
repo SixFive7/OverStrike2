@@ -94,7 +94,7 @@ static partial class Program
         Check("Chat: the primary itself teaches nothing, however it is typed; the reply keeps what was typed and always fits a chat line",
             Taught(ChatCommands.Parse("!play 12")) == null && Taught(ChatCommands.Parse("/PLAY 12")) == null
             && Taught(ChatCommands.Parse("/MAP 12")) == "You typed /MAP 12 - Ran !play 12"
-            && Taught(ChatCommands.Parse("!map " + new string('x', 300)))!.Length <= ChatCommands.LineMax);
+            && Taught(ChatCommands.Parse("!map " + new string('x', 300)))!.Length <= Messages.ChatLineMax);
         Check("Chat: !like 12, !dislike 12 big and the rest carry a map's number or an official map's name; anything else gets the primary's usage; !toobig and !ads are gone (!down big, !down ads)",
             ChatCommands.Parse("!like 12") is { Kind: ChatCommands.Kind.Bridge, Arg: "!up 12", Ran: "!up 12" } && ChatCommands.Parse("!dislike AR_shoots big") is { Kind: ChatCommands.Kind.Bridge, Arg: "!down ar_shoots big" }
             && ChatCommands.Parse("!like dust") is { Kind: ChatCommands.Kind.Usage, Name: "!up" } && ChatCommands.Parse("!toobig 12") is { Kind: ChatCommands.Kind.Unknown } && ChatCommands.Parse("!ads") is { Kind: ChatCommands.Kind.Unknown }
@@ -158,7 +158,7 @@ static partial class Program
                 if (ChatCommands.Parse($"!set {want}") is not { Kind: ChatCommands.Kind.Fun } set || set.Arg != want || Taught(set) != $"You typed !set {want} - Ran !{want}") funWrong.Add($"!set {want}");
             }
             if (ChatCommands.Parse($"!{s.Id}").Kind != ChatCommands.Kind.Usage || ChatCommands.Parse($"!{s.Id} nonsense").Kind != ChatCommands.Kind.Usage
-                || M.Plain(ChatCommands.UsageOf($"!{s.Id}")).Length > ChatCommands.LineMax || !M.Plain(ChatCommands.UsageOf($"!{s.Id}")).StartsWith($"!{s.Id} ")) funWrong.Add($"!{s.Id}");
+                || M.Plain(ChatCommands.UsageOf($"!{s.Id}")).Length > Messages.ChatLineMax || !M.Plain(ChatCommands.UsageOf($"!{s.Id}")).StartsWith($"!{s.Id} ")) funWrong.Add($"!{s.Id}");
         }
         Check($"Chat: each fun setting is a word of its own, with its choices: !gravity low, !vampire on; !fun gravity low keeps working and teaches the short word; a word alone or a wrong choice gets its usage{(funWrong.Count > 0 ? "; not " + string.Join(" | ", funWrong) : "")}",
             funWrong.Count == 0 && ChatCommands.Parse("!VAMPIRE ON") is { Kind: ChatCommands.Kind.Fun, Arg: "vampire on" });
@@ -168,7 +168,7 @@ static partial class Program
             && ChatCommands.Parse("!catchup off") is { Kind: ChatCommands.Kind.Fun, Arg: "catchup off" } && ChatCommands.Parse("!boost on") is { Kind: ChatCommands.Kind.Fun, Arg: "catchup on", Ran: "!catchup on" }
             && ChatCommands.Parse("!nades big") is { Kind: ChatCommands.Kind.Fun, Arg: "nades big", Typed: "" }
             && ChatCommands.Parse("!grenades huge") is { Kind: ChatCommands.Kind.Fun, Arg: "nades huge", Ran: "!nades huge" } && ChatCommands.Parse("!nades") is { Kind: ChatCommands.Kind.Usage, Name: "!nades" }
-            && M.Plain(ChatCommands.UsageOf("!nades")) is { Length: <= ChatCommands.LineMax } nu && nu.Contains("!nades on|off") && nu.Contains("!nades normal|big|huge"));
+            && M.Plain(ChatCommands.UsageOf("!nades")) is { Length: <= Messages.ChatLineMax } nu && nu.Contains("!nades on|off") && nu.Contains("!nades normal|big|huge"));
         Check("Chat: !fun alone opens the page; an unknown setting its usage, never a blank",
             ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun", Typed: "" } && ChatCommands.Parse("!mode") is { Kind: ChatCommands.Kind.Page, Arg: "Fun", Ran: "!fun", Typed: "!mode" }
             && ChatCommands.Parse("!fun nonsense on") is { Kind: ChatCommands.Kind.Usage, Name: "!fun" } && ChatCommands.Parse("!fun gravity") is { Kind: ChatCommands.Kind.Usage, Name: "!gravity" });

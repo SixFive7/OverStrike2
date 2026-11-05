@@ -77,10 +77,4 @@ static partial class Program
     {
         try { Reply(c, body); } catch (Exception e) { Log("hud: a poll's answer could not be sent: " + e.Message); } // the plugin went away meanwhile
     }
-
-    /// <summary>The health page's line about the transport.</summary>
-    static string TransportHealth()
-    {
-        lock (HudLock) return $"hud: version {HudVersion}, {HudWaiting.Count} poll(s) waiting, {HudTextNow.Length} characters";
-    }
 }

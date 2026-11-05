@@ -128,9 +128,8 @@ public sealed class HudCatalog
 /// is the screen's own to add. Shared like Hud.cs: the plugin draws them, the bridge's website and --selftest use the same table.</summary>
 public static class MapTags
 {
-    /// <summary>One tag: its id on the wire, its chip (12 characters at most, upper case), its words in a sentence, its family, its colour, its
-    /// chat colour (CounterStrikeSharp's ChatColors name).</summary>
-    public sealed record Tag(string Id, string Chip, string Words, string Family, string Colour, string Chat);
+    /// <summary>One tag: its id on the wire, its chip (12 characters at most, upper case), its words in a sentence, its family, its colour.</summary>
+    public sealed record Tag(string Id, string Chip, string Words, string Family, string Colour);
 
     public const string VoteFamily = "vote", PlayerFamily = "player", CautionFamily = "caution", UsFamily = "us", FreshFamily = "fresh",
         WorkshopFamily = "workshop", DiscoveryFamily = "discovery";
@@ -146,21 +145,21 @@ public static class MapTags
 
     public static readonly Tag[] All =
     [
-        new(Next, "NEXT MAP", "the next map", VoteFamily, "#FFD47E", "Gold"),
-        new(Lead, "LEADING", "leading", VoteFamily, "#E9B44C", "Gold"),
-        new(Tie, "TIE", "tied", VoteFamily, "#FFB547", "Gold"),
-        new(On, "ON NOW", "on now", VoteFamily, "#E9B44C", "Gold"),
-        new(Big, "TOO BIG", "too big for few players", CautionFamily, "#F07C6B", "LightRed"),
-        new(Ads, "ADS", "shows ads", CautionFamily, "#F07C6B", "LightRed"),
-        new(Picked, "PICKED", "picked by a player", PlayerFamily, "#F1EDE5", "White"),
-        new(Ours, "OUR MAP", "our own map", UsFamily, "#4FD6A2", "Green"),
-        new(Liked, "LIKED BY US", "liked by us", UsFamily, "#7BD88F", "Green"),
-        new(Upload, "NEW UPLOAD", "a recent Workshop upload", FreshFamily, "#63D8E8", "LightBlue"),
-        new(Updated, "UPDATED", "a recent Workshop update", FreshFamily, "#A6EAF2", "LightBlue"),
-        new(Trending, "TRENDING", "trending on the Workshop", WorkshopFamily, "#CFD6DE", "Silver"),
-        new(TopRated, "TOP RATED", "top rated on the Workshop", WorkshopFamily, "#CFD6DE", "Silver"),
-        new(Popular, "POPULAR", "Workshop popular", WorkshopFamily, "#CFD6DE", "Silver"),
-        new(NewToUs, "NEW TO US", "new to us", DiscoveryFamily, "#B48CFF", "LightPurple"),
+        new(Next, "NEXT MAP", "the next map", VoteFamily, "#FFD47E"),
+        new(Lead, "LEADING", "leading", VoteFamily, "#E9B44C"),
+        new(Tie, "TIE", "tied", VoteFamily, "#FFB547"),
+        new(On, "ON NOW", "on now", VoteFamily, "#E9B44C"),
+        new(Big, "TOO BIG", "too big for few players", CautionFamily, "#F07C6B"),
+        new(Ads, "ADS", "shows ads", CautionFamily, "#F07C6B"),
+        new(Picked, "PICKED", "picked by a player", PlayerFamily, "#F1EDE5"),
+        new(Ours, "OUR MAP", "our own map", UsFamily, "#4FD6A2"),
+        new(Liked, "LIKED BY US", "liked by us", UsFamily, "#7BD88F"),
+        new(Upload, "NEW UPLOAD", "a recent Workshop upload", FreshFamily, "#63D8E8"),
+        new(Updated, "UPDATED", "a recent Workshop update", FreshFamily, "#A6EAF2"),
+        new(Trending, "TRENDING", "trending on the Workshop", WorkshopFamily, "#CFD6DE"),
+        new(TopRated, "TOP RATED", "top rated on the Workshop", WorkshopFamily, "#CFD6DE"),
+        new(Popular, "POPULAR", "Workshop popular", WorkshopFamily, "#CFD6DE"),
+        new(NewToUs, "NEW TO US", "new to us", DiscoveryFamily, "#B48CFF"),
     ];
 
     public static Tag? Find(string? id) => All.FirstOrDefault(t => t.Id == id);
@@ -538,7 +537,7 @@ public static class HudMenu
 
     /// <summary>The Fun page as the live values have it: each row's title and words (with a word when the map runs its own value, and who set a
     /// setting that is off its default), each choice's label, the choice showing lit, a choice that cannot be made greyed (off: FunWhy says why); rows
-    /// and choices beyond the settings collapse. A row that does nothing at the moment (Instakill and Grenades while friendly fire is off: Fun.Idle) says
+    /// and choices beyond the settings collapse. A row that does nothing at the moment (Instakill and Grenades while friendly fire is off: Fun.IdleBecause) says
     /// so instead of its words and is dimmed (idle); its buttons still work. setBy: who set a setting, by its id (the settings module's word); null: nobody known.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) FunPage(Func<string, string?> value, bool armsRace = true,
         Func<string, string?>? setBy = null)

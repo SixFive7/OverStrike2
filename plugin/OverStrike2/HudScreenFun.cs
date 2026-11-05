@@ -1,6 +1,5 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Cvars;
 
 namespace OverStrike2;
 
@@ -13,11 +12,10 @@ sealed partial class HudScreen
 {
     const float FunCheckSeconds = 0.5f;                   // a fun change is made a frame after the click (gg_fun); looked at after this long
     readonly Random dice = new();                         // the Fun page's Random
-    readonly Dictionary<string, ConVar?> funVars = new(); // the fun page's convars (Fun.cs), found once
     readonly FunClicks funClicks = new();                 // which choices are grey since when, and each player's refused click
     List<(string Name, string Text)> funWhy = [];         // what the page's bubbles say, as of this frame
 
-    /// <summary>Where the fun page's values come from: the settings module (convars and its effects); without it, the engine's convars.</summary>
+    /// <summary>Where the fun page's values come from: the settings module (convars and its effects). Set at the plugin's load.</summary>
     public Func<string, string?>? FunSource { get; set; }
 
     /// <summary>Who set each fun setting that is off its default, by the setting's id: the settings module's word (gg_fun's last argument); null
@@ -25,16 +23,7 @@ sealed partial class HudScreen
     public Func<string, string?>? FunSetBy { get; set; }
 
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
-    string? FunValue(string name)
-    {
-        if (FunSource != null) return FunSource(name);
-        if (!funVars.TryGetValue(name, out var cv))
-        {
-            try { cv = ConVar.Find(name); } catch (Exception) { cv = null; }
-            funVars[name] = cv;
-        }
-        try { return cv?.StringValue; } catch (Exception) { return null; }
-    }
+    string? FunValue(string name) => FunSource?.Invoke(name);
 
     /// <summary>Every frame, the same for everybody: the page as the live values have it - the settings, who set them, what is grey - and the fixed rows of the contents before v4.6.0, worded and lit.</summary>
     void FunFrame(DateTime now)

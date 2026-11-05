@@ -70,7 +70,6 @@ sealed partial class HudScreen
     int budget;                                       // engine calls this frame may still make; the rest go out in the next one
     const int FrameBudget = 600;
     DateTime stateAt;
-    DateTime changeAt = DateTime.MaxValue;            // when the counting-down change fires, by our own clock
     string lastStateText = "";
 
     // What the entity holds already, so a frame only sends differences. Cleared whenever the entity is new.
@@ -166,13 +165,6 @@ sealed partial class HudScreen
         hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD
         Post(Messages.Tagline, Hud.Headline, Account(player));
         if (player.PawnIsAlive) { worldReady = true; Server.NextFrame(EnsureEntity); }
-    }
-
-    public void Info(CCSPlayerController player, string arg)
-    {
-        worldReady = true; // a client typing a command is in a loaded map
-        slots.Info(player.Slot, arg, DateTime.UtcNow);
-        Server.NextFrame(() => { EnsureEntity(); Frame(); }); // not inside the player's own chat command (see the class summary)
     }
 
     /// <summary>The menu, on its map browser (the board's Open full menu, TAB + E); with words, the browser searching for them from its
@@ -682,7 +674,7 @@ sealed partial class HudScreen
         {
             case ChatCommands.Kind.Bridge:
                 var action = cmd.Arg == "next" ? HudView.Command(HudView.BoardNext, state, vote) : cmd.Arg; // the board's Start a vote, as the board reads for this player
-                if (action == null && cmd.Arg == "next" && state is not { ChangeIn: >= 0 } && state is not { Loading: true }) action = cmd.Arg == "next" ? "!next" : cmd.Arg; // the wait after a vote: the bridge answers with the time left
+                if (action == null && cmd.Arg == "next" && state is not { ChangeIn: >= 0 } && state is not { Loading: true }) action = "!next"; // the wait after a vote: the bridge answers with the time left
                 if (action == null) { Say(ChatReply.ChangeUnderWay); return; }
                 if (action == HudView.OpenVote) { Menu(player); Say(ChatReply.VoteOn); return; }
                 Bridge(action);
