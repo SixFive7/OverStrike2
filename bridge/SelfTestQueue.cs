@@ -812,71 +812,59 @@ static partial class Program
             SelectionSelfTest(Check, Fresh, p => Join(p), (p, reason) => Leave(p, reason), Talk, Run, Said, Quiet, sent); // SelfTestSelection.cs
 
             // ---- the welcome panel, measured, and its timing as the plugin drives it ----
-            var html = Guide.Html();
-            Console.WriteLine("panel: " + html);
-            Check($"The panel fits without scrolling: {Guide.Lines.Length} lines of at most {Guide.LineWidth} characters (widest {Guide.Lines.Max(l => l.Length)})",
-                Guide.Lines.Length <= Guide.MaxLines && Guide.Lines.All(l => l.Length <= Guide.LineWidth));
-            Check($"Its HTML is small ({html.Length} characters), uses only font, b and br, and points at !help",
-                html.Length <= 400 && Regex.Matches(html, "<(/?)([a-z]+)").All(t => t.Groups[2].Value is "font" or "b" or "br") && html.Contains("!help"));
-            var panel = new GuidePanel();
             var t0 = clock;
-            string? Shows(int slot, double at) => panel.Frame(t0.AddSeconds(at)).Where(f => f.Slot == slot).Select(f => f.Html).Cast<string?>().FirstOrDefault();
-            panel.Request(3, alive: true, t0);
-            Check("css_guide on a living player: the panel waits for the HUD, then shows", Shows(3, 1) == null && Shows(3, 2) == html);
-            Check($"It stays {Guide.ShowSeconds} s, is cleared once, and then that player gets nothing", Shows(3, 1.5 + Guide.ShowSeconds - 0.5) == html
-                && Shows(3, 1.5 + Guide.ShowSeconds) == GuidePanel.Clear && Shows(3, 30) == null && panel.Idle);
-            panel.Command(4, "", t0); panel.Command(4, "off", t0.AddSeconds(1));
-            Check("!info shows it again, !info off clears it", Shows(4, 1) == GuidePanel.Clear && panel.Idle);
-            panel.Request(5, alive: false, t0);
-            Check("A dead or spectating player gets it at their next spawn...", Shows(5, 5) == null && !panel.Idle);
-            panel.Spawned(5, t0.AddSeconds(6));
-            Check("...after the spawn delay", Shows(5, 7) == null && Shows(5, 8) == html);
-            panel.Gone(5); panel.Request(6, alive: false, t0);
-            Check($"...or after {GuidePanel.WaitLimitSeconds} s if they never spawn; a player who leaves is forgotten", Shows(6, GuidePanel.WaitLimitSeconds) == html && Shows(5, 30) == null);
-            // The name and tagline at a real join: centre screen, a few seconds, the same clock as the panel.
-            var tag = Guide.TaglineHtml();
-            var tagPanel = new GuidePanel(tag, Guide.TaglineSeconds);
-            string? Tags(int slot, double at) => tagPanel.Frame(t0.AddSeconds(at)).Where(f => f.Slot == slot).Select(f => f.Html).Cast<string?>().FirstOrDefault();
-            tagPanel.Request(7, alive: true, t0);
-            Check($"The tagline at a join: '{Guide.Name}' and '{Guide.Tagline}' after the spawn delay, for {Guide.TaglineSeconds} s, then cleared once",
-                tag.Contains("OVER STRIKE 2") && tag.Contains("Over the top - On the Huis") && Regex.Matches(tag, "<(/?)([a-z]+)").All(t => t.Groups[2].Value is "font" or "b" or "br")
-                && Tags(7, 1) == null && Tags(7, 2) == tag && Tags(7, 1.5 + Guide.TaglineSeconds - 0.5) == tag && Tags(7, 1.5 + Guide.TaglineSeconds) == GuidePanel.Clear
-                && Tags(7, 9) == null && tagPanel.Idle && Math.Abs(Guide.TaglineSeconds - 4.0) <= 2 && Guide.Lines[0].Contains(Guide.Name) && Guide.Lines.Contains(Guide.Tagline));
 
             // ---- the HUD on screen, per player, on a handed clock (HudSlots; the plugin only sends what Frame changes) ----
             HudSlots.View At(HudSlots hs, int slot, double seconds) => hs.Frame(t0.AddSeconds(seconds)).FirstOrDefault(f => f.Slot == slot).View;
             var win = new HudSlots();
             win.Joined(1, first: true, alive: true, t0);
-            Check("A first-time player who is alive: the window opens after the spawn delay, on its start page, and takes the mouse",
-                !At(win, 1, 1).Window && At(win, 1, 1.6) is { Window: true, Page: HudSlots.Page.Start, Capture: true, Toast: 0 });
-            Check("...and its drain bar starts a moment later", !At(win, 1, 1.5 + HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(win, 1, 1.5 + HudSlots.DrainAfterOpenSeconds + 0.1).Draining);
+            Check("A player who joins, alive: the window opens after the spawn delay, on its start page, and takes the mouse",
+                !At(win, 1, 1).Window && At(win, 1, 1.6) is { Window: true, Page: HudSlots.Page.Start, Capture: true, Toast: 0, Returning: false });
+            Check($"...and stays until its X: no idle close after {HudSlots.IdleCloseSeconds} s, no drain bar", At(win, 1, 1.6 + HudSlots.IdleCloseSeconds * 5) is { Capture: true, Draining: false });
             win.Click(1, "gg_tab_how", t0.AddSeconds(10));
-            Check("A tab switches the page, restarts the drain bar and keeps the window up", At(win, 1, 10.1) is { Page: HudSlots.Page.How, Draining: false } && At(win, 1, 10.4).Draining);
+            Check("A tab switches the page and it still stays", At(win, 1, 200) is { Page: HudSlots.Page.How, Capture: true, Draining: false });
+            win.Spawned(1, t0.AddSeconds(201));
+            Check("A death and a respawn never close it", At(win, 1, 202) is { Window: true, Capture: true });
+            win.Click(1, HudView.ButtonClose, t0.AddSeconds(203));
+            Check("Its X closes it: the mouse is let go at once, the window fades out", At(win, 1, 203.1) is { Capture: false, WindowIn: false, Window: true } && !At(win, 1, 203.5).Window);
+            var idle = new HudSlots();
+            idle.Show(1, HudSlots.Page.Fun, t0);
+            Check("The menu, opened any other way: its drain bar starts a moment later", !At(idle, 1, HudSlots.FadeSeconds - 0.1).Draining && At(idle, 1, HudSlots.FadeSeconds + 0.1).Draining);
+            idle.Click(1, "gg_tab_how", t0.AddSeconds(10));
+            Check("A tab restarts the drain bar and keeps the window up", At(idle, 1, 10.1) is { Page: HudSlots.Page.How, Draining: false } && At(idle, 1, 10.4).Draining);
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",
-                At(win, 1, 10 + HudSlots.IdleCloseSeconds - 0.1).Capture && At(win, 1, 10 + HudSlots.IdleCloseSeconds + 0.1) is { Capture: false, WindowIn: false, Window: true }
-                && !At(win, 1, 10 + HudSlots.IdleCloseSeconds + 0.5).Window);
-            win.Info(1, "", t0.AddSeconds(60));
+                At(idle, 1, 10 + HudSlots.IdleCloseSeconds - 0.1).Capture && At(idle, 1, 10 + HudSlots.IdleCloseSeconds + 0.1) is { Capture: false, WindowIn: false, Window: true }
+                && !At(idle, 1, 10 + HudSlots.IdleCloseSeconds + 0.5).Window);
+            idle.Info(1, "", t0.AddSeconds(60));
             Check("!info opens it again, on the start page, visible first and fully in a moment later (Panorama cannot fade what turns visible)",
-                At(win, 1, 60.1) is { Window: true, WindowIn: false, Page: HudSlots.Page.Start } && At(win, 1, 60.4).WindowIn);
-            win.Click(1, HudView.ButtonClose, t0.AddSeconds(61));
-            Check("The close button closes it", At(win, 1, 61.1) is { Capture: false, WindowIn: false } && !At(win, 1, 61.5).Window);
-            win.Info(1, "", t0.AddSeconds(62)); win.Info(1, "off", t0.AddSeconds(63));
-            Check("!info off closes it too", !At(win, 1, 63.5).Window && win.Idle);
-            win.Click(1, HudView.ButtonUp, t0.AddSeconds(64));
-            Check("A click from a player without the window open does nothing", !At(win, 1, 64.1).Window);
-            win.Info(1, "", t0.AddSeconds(70));
-            var reading = At(win, 1, 70.5).Capture;
+                At(idle, 1, 60.1) is { Window: true, WindowIn: false, Page: HudSlots.Page.Start } && At(idle, 1, 60.4).WindowIn);
+            idle.Click(1, HudView.ButtonClose, t0.AddSeconds(61));
+            Check("The close button closes it", At(idle, 1, 61.1) is { Capture: false, WindowIn: false } && !At(idle, 1, 61.5).Window);
+            idle.Info(1, "", t0.AddSeconds(62)); idle.Info(1, "off", t0.AddSeconds(63));
+            Check("!info off closes it too", !At(idle, 1, 63.5).Window && idle.Idle);
+            idle.Click(1, HudView.ButtonUp, t0.AddSeconds(64));
+            Check("A click from a player without the window open does nothing", !At(idle, 1, 64.1).Window);
+            idle.Info(1, "", t0.AddSeconds(70));
+            var reading = At(idle, 1, 70.5).Capture;
             Check("Shot while reading: damage never closes the window (there is no close on a hit; only the vote's freeze protects anybody)",
-                reading && typeof(HudSlots).GetMethod("Hurt") == null && At(win, 1, 75.1).Capture && At(win, 1, 75.5).Window);
+                reading && typeof(HudSlots).GetMethod("Hurt") == null && At(idle, 1, 75.1).Capture && At(idle, 1, 75.5).Window);
+            var pinnedVote = new HudSlots();
+            pinnedVote.Joined(5, first: true, alive: true, t0);
+            pinnedVote.Show(5, HudSlots.Page.Maps, t0.AddSeconds(3));
+            pinnedVote.VoteOver(5, t0.AddSeconds(30));
+            var openedByVote = new HudSlots();
+            openedByVote.Show(6, HudSlots.Page.Maps, t0);
+            openedByVote.VoteOver(6, t0.AddSeconds(1));
+            Check("A vote's end: the welcome goes back to its start page and waits for its X, any other window closes",
+                At(pinnedVote, 5, 31) is { Window: true, Page: HudSlots.Page.Start, Capture: true } && At(openedByVote, 6, 1.5).Capture == false);
             var back = new HudSlots();
             back.Joined(2, first: false, alive: false, t0);
-            Check("A returning player not yet spawned: nothing until they do...", At(back, 2, 5).Toast == 0);
+            Check("A returning player not yet spawned: nothing until they do...", !At(back, 2, 5).Window);
             back.Spawned(2, t0.AddSeconds(6));
-            Check($"...then the welcome-back card, never the window, for {HudSlots.ToastSeconds} s, fading in and out",
-                At(back, 2, 7.6) is { Toast: 2, ToastIn: false, Window: false } && At(back, 2, 7.9).ToastIn && At(back, 2, 15.4) is { Toast: 2, ToastIn: true }
-                && At(back, 2, 15.6) is { Toast: 2, ToastIn: false } && At(back, 2, 15.9).Toast == 0);
+            Check("...then the same window, saying welcome back; never a card", At(back, 2, 7.6) is { Window: true, Returning: true, Toast: 0 });
+            back.Click(2, HudView.ButtonClose, t0.AddSeconds(8));
             back.Spawned(2, t0.AddSeconds(20));
-            Check("...and their respawns show nothing", At(back, 2, 21.6).Toast == 0);
+            Check("...and their respawns show nothing", At(back, 2, 21.6) is { Toast: 0, Window: false });
             var maps = new HudSlots();
             maps.Spawned(3, t0);
             Check("Everybody's first spawn on a map gets the now-playing card", At(maps, 3, 1.6).Toast == 1);

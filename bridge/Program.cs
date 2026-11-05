@@ -677,7 +677,7 @@ static partial class Program
     {
         Pending = change;
         change.FiresAt = Now().AddSeconds(ChangeDelay);
-        Announce(announcement, ChangeDelay);
+        Post(Messages.MapCountdown, announcement, seconds: ChangeDelay); // the countdown banner counts it down; chat and the board say it
         After(ChangeDelay * 1000, () => FireChange(change));
     }
 
