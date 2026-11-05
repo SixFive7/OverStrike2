@@ -331,8 +331,15 @@ static partial class Program
         b.Options.Where(o => o.Source == VoteSource.Rolled && !b.Choices.ContainsValue(o.N) && o.Order >= FillOrder && o.Order < OtherOrder).MaxBy(o => o.Order);
 
     /// <summary>Every tick, and after every vote: a voter who left takes their vote along; everybody present having voted ends the vote, the timer
-    /// ends it. Once decided it stays on screen until its change has gone out.</summary>
+    /// ends it. Once decided it stays on screen until its change has gone out. A vote always ends: whatever goes wrong in here drops it, so nobody
+    /// stays frozen and the rest of the tick runs.</summary>
     static void BallotTick(DateTime now)
+    {
+        try { BallotStep(now); }
+        catch (Exception e) { Log($"vote: its timer failed: {e}"); EndBallot("its timer failed"); }
+    }
+
+    static void BallotStep(DateTime now)
     {
         if (Ballot is not { } b) return;
         if (!b.Open)
@@ -355,11 +362,20 @@ static partial class Program
         var most = ranked.Max(o => tally[o.N]);
         foreach (var o in b.Options.Where(o => !Fits(o) && tally[o.N] > 0 && tally[o.N] >= most))
             Log($"vote: {OptionLabel(b, o)} has {tally[o.N]} vote(s), but {o.Mode.Name} takes {o.Mode.MaxPlayers} players and {count} are on - it cannot win");
-        if (most == 0) { CloseBallot(b, now, b.Options.First(o => o.Source == (b.MatchEnded ? VoteSource.Random : VoteSource.Keep)), "none", tally, count); return; }
+        if (most == 0)
+        {
+            // Nobody voted: Random at a match end. Mid-match the map stays - also when the bridge does not know which map that is, so the ballot has no Keep card.
+            CloseBallot(b, now, b.MatchEnded ? b.Options.First(o => o.Source == VoteSource.Random)
+                : b.Options.FirstOrDefault(o => o.Source == VoteSource.Keep) ?? new BallotOption(VoteSource.Keep, null, CurrentMode, KeepOrder), "none", tally, count);
+            return;
+        }
         var top = ranked.Where(o => tally[o.N] == most).ToList();
         if (top.Count == 1) CloseBallot(b, now, top[0], everybody ? "all" : "most", tally, count);
         else CloseBallot(b, now, top[Dice.Next(top.Count)], "tie", tally, count);
     }
+
+    /// <summary>The map that is on, for "... stays": its label, or plain words when the bridge does not know which map it is.</summary>
+    static string OnWords() => CurrentKey != "" ? Clip(CurrentLabel(), 40) : "the map";
 
     /// <summary>The vote is decided: Keep unfreezes everybody at once and the map plays on; anything else goes out through the usual countdown,
     /// everybody still frozen. Either way the next vote waits MapVote.WaitSeconds. The chosen card is no showing that steps back.</summary>
@@ -377,7 +393,7 @@ static partial class Program
         if ((b.Starter == "" || how == "none") && InMaintenance())
         {
             Log("vote: decided while the maintenance flag is set - a match end's vote, or nobody voted: no change");
-            Announce($"Maintenance - {Clip(CurrentLabel(), 40)} stays");
+            Announce($"Maintenance - {OnWords()} stays");
             Ballot = null;
             return;
         }
@@ -389,7 +405,7 @@ static partial class Program
             Ballot = null; // everybody unfreezes, every window closes, at the same moment (the plugin)
             Save();
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
-            Announce(how == "none" ? $"Nobody voted - {Clip(CurrentLabel(), 40)} stays"
+            Announce(how == "none" ? $"Nobody voted - {OnWords()} stays"
                 : b.MatchEnded ? $"The vote: {Clip(CurrentLabel(), 40)} again ({votes} of {cast}) - its next match starts on it"
                 : $"The vote kept {Clip(CurrentLabel(), 40)} ({votes} of {cast})");
             return;

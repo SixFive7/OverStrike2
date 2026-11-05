@@ -445,6 +445,39 @@ static partial class Program
                 && Hud.Help.SelectMany(g => g.Rows).All(r => !r.Command.Contains("New maps")));
             Check("The health page says what the bridge has of the Workshop's numbers, the kept maps, and restarts", HealthText().Contains("ratings: ") && HealthText().Contains("kept ") && HealthText().Contains("restart: "));
 
+            // ---- a vote always ends: with no Keep card and no votes, whatever its timer runs into, whatever another step of the tick runs into ----
+            Fresh();
+            S.Map = null; S.LogName = null; // the bridge does not know which map is on
+            Join(players[0]); Join(players[1]);
+            Check("A vote called while no map is known to be on has no Keep card",
+                OpenBallot(clock, 2, players[0].Item2, players[0].Item1) && Ballot is { } noKeep && noKeep.Options.All(o => o.Source != VoteSource.Keep));
+            Run(MapVote.Seconds - 1);
+            Check("...nobody voting, it stays open until its limit", Ballot is { Open: true } && BuildVoteState(clock).Freeze);
+            Run(2);
+            Check($"...and ends cleanly at {MapVote.Seconds} s: nobody frozen, no change, the next vote waits, and the words name no map",
+                Ballot == null && !BuildVoteState(clock).Freeze && Pending == null && VoteWaitUntil > clock && Said("Nobody voted - the map stays"));
+
+            Fresh();
+            Join(players[0]); Join(players[1]);
+            OpenBallot(clock, 2);
+            RefreshHud();
+            var roundShown = VoteState.Decode(HudText).Round;
+            Ballot!.Options[1].N = Ballot.Options[0].N; // two cards under one number: counting the votes at the vote's end throws
+            Run(MapVote.Seconds + 1);
+            Check("A vote whose timer throws is dropped: nobody stays frozen", Ballot == null && !BuildVoteState(clock).Freeze);
+            Check("...and the rest of that tick ran: the live state says so", roundShown > 0 && VoteState.Decode(HudText).Round == 0);
+
+            Fresh();
+            Join(players[0]); Join(players[1]);
+            OpenBallot(clock, 2);
+            var sendBefore = Send;
+            Send = command => command.Contains("game_type") ? throw new InvalidOperationException("a step before the vote's timer fails") : sendBefore(command);
+            (ModeProbeEnabled, ModeProbing, ModeProbeAt) = (true, true, default);
+            Run(MapVote.Seconds + 1);
+            Send = sendBefore;
+            (ModeProbeEnabled, ModeProbing) = (false, false);
+            Check("A step of the tick that throws before the vote's timer costs that step only: the vote still ends at its limit", Ballot == null && Said("Nobody voted"));
+
             string HudTextNow() { RefreshHud(); return HudText; }
         }
         finally

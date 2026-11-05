@@ -165,8 +165,23 @@ static partial class Program
     static void Tick()
     {
         var now = Now();
-        InMaintenance();
-        ResetWhenEmpty(now); // Selection.cs: nobody on for over 10 min - the fun settings back to their defaults
+        // A step that throws costs that step, never the rest of the tick: the vote's timer above all has to run.
+        void Step(string what, Action step) { try { step(); } catch (Exception e) { Log($"tick: {what} failed: {e}"); } }
+        Step("the maintenance flag", () => InMaintenance());
+        Step("the empty server's reset", () => ResetWhenEmpty(now)); // Selection.cs: nobody on for over 10 min - the fun settings back to their defaults
+        Step("the load's deadline", () => LoadDeadline(now));
+        Step("the mode's probe", () => ProbeModeIfDue(now));         // ModeSwitch.cs: which mode the server is in, when the bridge does not know
+        BallotTick(now);                                             // VoteRound.cs: the vote's timer, and voters who left; it never throws
+        Step("the start roll", () => TryStartRoll(now));
+        Step("the stock", () => QueueTick(now));                     // RandomQueue.cs: the stock checked and topped up, queues.json refreshed
+        Step("a restart's notice", () => RestartTick(now));          // Restarts.cs: a restart's notice that has run out
+        Step("the data files", WatchTick);                           // Reload.cs
+        Step("the sync's status", () => SyncTick(now));              // SyncDash.cs: the sync's status file, the Sync page's block and the website's files
+        Step("the live state", RefreshHud);
+    }
+
+    static void LoadDeadline(DateTime now)
+    {
         if (AnnouncePending && BackgroundNow() is { } behind && !LoadBehindDownload)
         {
             LoadBehindDownload = true;
@@ -183,13 +198,5 @@ static partial class Program
             ModeBack(); // ModeSwitch.cs: the mode it was going to goes back
             Save();
         }
-        ProbeModeIfDue(now); // ModeSwitch.cs: which mode the server is in, when the bridge does not know
-        BallotTick(now);     // VoteRound.cs: the vote's timer, and voters who left
-        TryStartRoll(now);
-        QueueTick(now);      // RandomQueue.cs: the stock checked and topped up, queues.json refreshed
-        RestartTick(now);    // Restarts.cs: a restart's notice that has run out
-        WatchTick();         // the data files (Reload.cs)
-        SyncTick(now);       // SyncDash.cs: the sync's status file, the Sync page's block and the website's files
-        RefreshHud();
     }
 }
