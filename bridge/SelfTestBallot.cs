@@ -478,6 +478,12 @@ static partial class Program
             (ModeProbeEnabled, ModeProbing) = (false, false);
             Check("A step of the tick that throws before the vote's timer costs that step only: the vote still ends at its limit", Ballot == null && Said("Nobody voted"));
 
+            // ---- the board's Most liked names a map of any mode ----
+            Fresh();
+            var likedElsewhere = ModeMaps[Modes.DeathmatchId][0];
+            Votes[Key(likedElsewhere)] = new() { [players[0].Item2] = 1 };
+            Check("Most liked names a map only Deathmatch or Wingman lists by its name, not as \"workshop <id>\"", TopRows() is [{ Map: { Name: "dm_1" } }]);
+
             string HudTextNow() { RefreshHud(); return HudText; }
         }
         finally

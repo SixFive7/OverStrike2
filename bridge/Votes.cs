@@ -141,8 +141,8 @@ static partial class Program
     /// <summary>The health page's line about the downvotes' reasons.</summary>
     static string ReasonHealth() => "down votes: " + string.Join(", ", DownReasons.All.Select(r => $"{Votes.Values.Sum(v => v.Values.Count(x => x == r.Value))} {r.Short}"));
 
-    /// <summary>The map a vote key stands for: a listed or official map, else an unlisted workshop id.</summary>
-    static MapInfo MapOf(string key) => Maps.Concat(Officials).FirstOrDefault(m => Key(m) == key)
+    /// <summary>The map a vote key stands for: a map any mode lists or an official map, else an unlisted workshop id.</summary>
+    static MapInfo MapOf(string key) => AllKnown.FirstOrDefault(m => Key(m) == key)
         ?? new MapInfo(0, long.TryParse(key, out var n) ? n : 0, long.TryParse(key, out _) ? $"workshop {key}" : key, 0);
 
     /// <summary>The ten maps with the most likes, fewer dislikes then the better place on the list breaking ties: the HUD's "most liked" list (and
