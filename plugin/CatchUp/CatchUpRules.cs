@@ -46,16 +46,22 @@ public static class Weapons
     }
 }
 
-/// <summary>Everybody's progress up the Arms Race ladder in this match, in kills (level x KillsPerLevel + kills on the level). The
-/// game exposes no ladder position (the ladder itself, CCSGameModeRules_ArmsRace.m_WeaponSequence, cannot be read: a vector of
-/// strings), so this counts it from the kills, by the rules in ProgressConfig.
+/// <summary>Everybody's progress up the Arms Race ladder in this match, in kills (level x KillsPerLevel + kills on the level), and the
+/// gun each one holds. The game exposes no ladder position (the ladder itself, CCSGameModeRules_ArmsRace.m_WeaponSequence, cannot be
+/// read: a vector of strings), so this counts it from the kills, by the rules in ProgressConfig - CS2's, as five real matches show them
+/// (the self-test replays them: 543 of 543 gun kills made with the gun this puts in the killer's hands).
+///
+/// Besides the level and the kills on it the game keeps a third number: the rung of the gun in hand (Held). It is the level's gun,
+/// except after a team kill: the killer goes down a level but keeps the gun he had until he dies, and his kills with it count on the
+/// lower level. A level-up, a death and so a respawn put the level's gun in hand again. A gun's rung is always checked and learned
+/// against the gun in hand, never against the level.
 ///
 /// It also learns the ladder as the match goes: a gun kill by a player counted from the match's start names the rung that gun is on,
-/// and a gun kill by anybody else (joined late, came back, changed team, died to the world) puts them on that rung. So the count of
-/// a player it could not follow is right again from their next gun kill on a rung somebody reached before.</summary>
+/// and a gun kill by anybody else (joined late, came back, changed team, died to the world above level 0) puts them on that rung. So
+/// the count of a player it could not follow is right again from their next gun kill on a rung somebody reached before.</summary>
 public sealed class Ladder
 {
-    sealed class Rec { public int Level, Kills; public bool Trusted; }
+    sealed class Rec { public int Level, Kills, Held; public bool Trusted; }
 
     readonly Dictionary<ulong, Rec> players = new();
     readonly Dictionary<string, int> rungOf = new(StringComparer.Ordinal);
@@ -71,12 +77,16 @@ public sealed class Ladder
 
     public int Rungs => rungOf.Count;
 
+    /// <summary>Placements and two-rung notes this match: none while the rules are right and everybody was followed from the start.</summary>
+    public int Notes { get; private set; }
+
     /// <summary>A new match: everybody at the bottom, counted from here.</summary>
     public void StartMatch(IEnumerable<ulong> present)
     {
         players.Clear();
         rungOf.Clear();
         ambiguous.Clear();
+        Notes = 0;
         foreach (var id in present) players[id] = new Rec { Trusted = true };
         Tracking = true;
     }
@@ -87,6 +97,7 @@ public sealed class Ladder
         players.Clear();
         rungOf.Clear();
         ambiguous.Clear();
+        Notes = 0;
         Tracking = false;
     }
 
@@ -100,57 +111,40 @@ public sealed class Ladder
     public (int Level, int Kills, bool Trusted) State(ulong id) =>
         players.TryGetValue(id, out var r) ? (r.Level, r.Kills, r.Trusted) : (0, 0, false);
 
+    /// <summary>The rung of the gun in this player's hands: the level's, or after a team kill the level they had before it, until they die.</summary>
+    public int Held(ulong id) => players.TryGetValue(id, out var r) ? r.Held : 0;
+
     /// <summary>The rung a gun was learned on this match, or -1.</summary>
     public int RungOf(string weapon) => rungOf.TryGetValue(Weapons.Name(weapon), out var rung) ? rung : -1;
 
     Rec Get(ulong id)
     {
-        if (!players.TryGetValue(id, out var r)) players[id] = r = new Rec { Trusted = false }; // joined after the match started
+        if (!players.TryGetValue(id, out var r)) players[id] = r = new Rec { Trusted = false }; // joined after the match started: at level 0, as CS2 starts them
         return r;
     }
 
     /// <summary>An enemy kill. killerHasGun: whether the killer carried a gun when the kill was reported - on the last level nobody
     /// does. Returns a line for the log when the kill placed the killer on its gun's rung, or showed a gun on two rungs; else null.
     ///
+    /// The killer: a gun, an HE grenade or a Zeus adds a kill, and the last kill of a level moves them up with the new level's gun; a
+    /// knife moves them up a level and keeps the kills on it. The victim: an enemy's knife takes them down a level and keeps the kills
+    /// (at level 0 the kill on it goes instead), an enemy's Zeus takes one kill (from 0 kills a level, with one kill on it); either way
+    /// they respawn with their level's gun.
+    ///
     /// Only a player counted since the start teaches a rung, and such a player is never moved: their count is the one the replayed
-    /// match proves right. If one of them kills on another rung with a gun already learned, the ladder holds that gun twice (or the
+    /// matches prove right. If one of them kills on another rung with a gun already learned, the ladder holds that gun twice (or the
     /// count is off): the gun places nobody for the rest of the match, and that player is placed by their next known gun.</summary>
     public string? Kill(ulong killer, ulong victim, string? weapon, bool killerHasGun)
     {
         var kind = Weapons.Kind(weapon);
-        var name = Weapons.Name(weapon);
         var k = Get(killer);
         var v = Get(victim);
-        string? note = null;
-
-        if (kind == WeaponKind.Gun && !ambiguous.Contains(name))
-        {
-            if (!rungOf.TryGetValue(name, out var rung))
-            {
-                if (k.Trusted) rungOf[name] = k.Level;
-            }
-            else if (rung != k.Level)
-            {
-                if (k.Trusted)
-                {
-                    note = $"made a {name} kill on level {k.Level}, learned on level {rung}: two rungs with one gun, or the count is off - {name} places nobody this match";
-                    rungOf.Remove(name);
-                    ambiguous.Add(name);
-                    k.Trusted = false;
-                }
-                else
-                {
-                    note = $"placed on level {rung} by a {name} kill (counted {k.Level})";
-                    k.Level = rung;
-                    k.Kills = Math.Min(k.Kills, cfg.KillsPerLevel - 1);
-                }
-            }
-        }
+        var note = Learn(k, weapon, kind);
 
         if (kind == WeaponKind.Knife && cfg.KnifeKillLevelsUp)
         {
-            k.Level++;
-            k.Kills = 0;
+            k.Level++; // the kills on the level kept
+            k.Held = k.Level;
         }
         // No gun and no kill on the level yet: the golden knife, where only a knife kill counts. With one kill on the level, this
         // kill finished it and the game swapped the gun for the knife before reporting the kill: it counts.
@@ -160,17 +154,11 @@ public sealed class Ladder
             {
                 k.Level++;
                 k.Kills = 0;
+                k.Held = k.Level; // the game hands out the new level's gun at once
             }
         }
 
-        if (kind == WeaponKind.Knife && cfg.KnifeDeathDemotes)
-        {
-            if (v.Level > 0)
-            {
-                v.Level--;
-                v.Kills = 0;
-            }
-        }
+        if (kind == WeaponKind.Knife && cfg.KnifeDeathDemotes) Demote(v);
         else if (kind == WeaponKind.Taser && cfg.TaserDeathCostsKill)
         {
             if (v.Kills > 0) v.Kills--;
@@ -180,36 +168,82 @@ public sealed class Ladder
                 v.Kills = cfg.KillsPerLevel - 1;
             }
         }
+        v.Held = v.Level; // the victim respawns with the level's gun
         return note;
     }
 
-    /// <summary>A team kill under friendly fire (not free-for-all, where a teammate is an enemy): the killer goes down a level with its kills
-    /// (TeamKillDemotes), and is placed again by their next gun kill, so the count heals whatever the game really did. The victim keeps theirs.
-    /// Returns the log's line.</summary>
-    public string? TeamKill(ulong killer, string? weapon)
+    /// <summary>A team kill under friendly fire (not free-for-all, where a teammate is an enemy). The killer goes down a level, the kills on
+    /// it kept - at level 0 the kill on it goes instead - (TeamKillDemotes), and keeps the gun in hand until he dies: his kills with it
+    /// count on the lower level. The victim loses nothing, and respawns with their level's gun. Returns the log's line, and apart from it
+    /// the note of Kill's kind when the gun placed the killer or showed a gun on two rungs (else null): a team kill's gun names the rung
+    /// in hand as well as an enemy kill's.</summary>
+    public (string Line, string? Note) TeamKill(ulong killer, ulong victim, string? weapon)
     {
         var k = Get(killer);
+        var note = Learn(k, weapon, Weapons.Kind(weapon));
         var was = (k.Level, k.Kills);
-        if (cfg.TeamKillDemotes)
-        {
-            k.Kills = 0;
-            if (k.Level > 0) k.Level--;
-        }
-        k.Trusted = false;
-        return $"team-killed with {Weapons.Name(weapon)}: {(cfg.TeamKillDemotes ? $"down from level {was.Level} + {was.Kills} to level {k.Level}" : "the count kept")}, placed again by the next gun kill";
+        if (cfg.TeamKillDemotes) Demote(k);
+        var v = Get(victim);
+        v.Held = v.Level;
+        var line = $"team-killed with {Weapons.Name(weapon)}: " + (cfg.TeamKillDemotes
+            ? $"down from level {was.Level} + {was.Kills} to level {k.Level} + {k.Kills}" + (k.Held != k.Level ? $", the level-{k.Held} gun in hand until death" : "")
+            : "the count kept");
+        return (line, note);
     }
 
-    /// <summary>A death no enemy caused: the world, a fall, the kill command, a team change. Its rule is CS:GO's, not seen in CS2, so
-    /// the player's next gun kill places them.</summary>
+    /// <summary>A death no enemy caused: the world, a fall, drowning, the kill command, a team change. At level 0 the kill on the level
+    /// goes, as CS2 does it. Above level 0 CS2 was never seen, so SuicideDemotes keeps CS:GO's rule (down a level, its kills gone) and
+    /// the player's next gun kill places them, whatever the game did. They respawn with their level's gun.</summary>
     public void Suicide(ulong id)
     {
         var r = Get(id);
-        if (cfg.SuicideDemotes)
+        if (r.Level > 0)
         {
-            r.Kills = 0;
-            if (r.Level > 0) r.Level--;
+            if (cfg.SuicideDemotes)
+            {
+                r.Level--;
+                r.Kills = 0;
+            }
+            r.Trusted = false;
         }
-        r.Trusted = false;
+        else if (cfg.SuicideDemotes) r.Kills = 0;
+        r.Held = r.Level;
+    }
+
+    /// <summary>Down a level, the kills on it kept; at level 0 the kill on it goes instead (a knife death, a team kill).</summary>
+    static void Demote(Rec r)
+    {
+        if (r.Level > 0) r.Level--;
+        else r.Kills = 0;
+    }
+
+    /// <summary>What a gun kill says about the rung in the killer's hands: a counted player's teaches it, anybody else's places them on a
+    /// rung learned before. Null when it says nothing new.</summary>
+    string? Learn(Rec k, string? weapon, WeaponKind kind)
+    {
+        if (kind != WeaponKind.Gun) return null;
+        var name = Weapons.Name(weapon);
+        if (ambiguous.Contains(name)) return null;
+        if (!rungOf.TryGetValue(name, out var rung))
+        {
+            if (k.Trusted) rungOf[name] = k.Held;
+            return null;
+        }
+        if (rung == k.Held) return null;
+        Notes++;
+        if (k.Trusted)
+        {
+            rungOf.Remove(name);
+            ambiguous.Add(name);
+            k.Trusted = false;
+            return $"made a {name} kill on level {k.Held}, learned on level {rung}: two rungs with one gun, or the count is off - {name} places nobody this match"
+                   + (k.Held != k.Level ? $" (counted level {k.Level} + {k.Kills}, holding the level-{k.Held} gun)" : "");
+        }
+        var placed = $"placed on level {rung} by a {name} kill (counted {k.Level})";
+        k.Level = rung;
+        k.Held = rung;
+        k.Kills = Math.Min(k.Kills, cfg.KillsPerLevel - 1);
+        return placed;
     }
 
     /// <summary>The standings among the players on a team now.</summary>
@@ -248,8 +282,8 @@ public sealed class Standings
     public int Behind(ulong id) => Top - Of(id);
 }
 
-/// <summary>What one life gets: a catch-up boost, the leader's bounty, or nothing. Decided at spawn and kept for that life, so the
-/// spawn message stays true until the player dies.</summary>
+/// <summary>What one life gets: a catch-up boost, the leader's bounty, or nothing. Decided at spawn, with the spawn's message; with
+/// RecalculateOnKill decided again after every change to the ladder, silently, by the mid-life rules (Rules.Recalculate).</summary>
 public sealed record Boost
 {
     public static readonly Boost None = new();
@@ -286,10 +320,17 @@ public sealed record Boost
     /// alone would take this player past what the cap allows.</summary>
     public double BountyAllowed { get; init; } = double.PositiveInfinity;
 
+    /// <summary>Mid-life: the health is what the life already held, more than this decision gives, and damage taken, damage dealt and
+    /// lifesteal were cut to make room (Rules.HoldHealth).</summary>
+    public bool HealthHeld { get; init; }
+
     public bool IsBoost => Tier > 0 && (Health > 0 || DamageTaken < 0 || DamageDealt > 0 || Lifesteal > 0 || RegenPerSecond > 0
                                         || SecondChance || ExtraProtection > 0 || InfiniteAmmo || OneHitMelee);
 
     public bool IsBounty => Bounty > 0;
+
+    /// <summary>What the log of a mid-life change keys on: the tier, the bounty's step, or nothing.</summary>
+    public string Step => IsBounty ? $"bounty +{Math.Round(Bounty * 100).ToString(CultureInfo.InvariantCulture)}%" : Tier > 0 ? $"tier {Tier}+" : "no boost";
 }
 
 public enum Melee { None, Knife, Taser }
@@ -301,6 +342,12 @@ public readonly record struct HitInput(
 
 /// <summary>What to do with it: block it, or let it through with this damage.</summary>
 public readonly record struct HitResult(bool Block, float Damage, bool SecondChanceUsed, bool OneHit);
+
+/// <summary>A life's boost decided again in its middle (RecalculateOnKill): the boost from now on; the health it holds, a fraction of the
+/// spawn health that never goes down within the life; its maximum health, never lower than it was - the ceiling regeneration and lifesteal
+/// fill, raised when the health grows while the current health is left alone; and whether the tier (or the bounty's step) changed, the cue
+/// for the log's one line.</summary>
+public readonly record struct MidLife(Boost Boost, double Health, int MaxHealth, bool TierChanged);
 
 public static class Rules
 {
@@ -417,8 +464,85 @@ public static class Rules
         };
     }
 
-    static double Own(double health, double lifesteal, double damageDealt, double damageTaken, bool lifestealCounts) =>
+    /// <summary>What a player's own four values multiply to: the duel factor without the leader's bounty.</summary>
+    public static double Own(double health, double lifesteal, double damageDealt, double damageTaken, bool lifestealCounts) =>
         DuelFactor(health, lifesteal, damageDealt, damageTaken, 0, lifestealCounts);
+
+    /// <summary>The own factor of a boost.</summary>
+    public static double Own(Boost b, bool lifestealCounts) => Own(b.Health, b.Lifesteal, b.DamageDealt, b.DamageTaken, lifestealCounts);
+
+    /// <summary>A new decision for a life that holds more health than it gives (lifeHealth, a fraction of the spawn health): health is never
+    /// lowered within a life, so it stays, and damage taken, damage dealt and lifesteal share what is left of the decision's own factor - scaled
+    /// down together (the same power of each one's factor, lifesteal's taken on top of the held health), rounded down to whole RoundTo steps,
+    /// then given back a step at a time, in that order, while they fit and never past the decision's own values. When the health alone reaches
+    /// that factor all three are zero. Everything else is the decision's: regeneration, the second chance, infinite ammo, the one-hit knife
+    /// and Zeus, the bounty. A life that holds no more health than the decision gives gets the decision as it is. leaderBounty: the bounty on
+    /// this player's hits on the leader, for the factor the log shows (0 for the leader and his teammates).</summary>
+    public static Boost HoldHealth(BalanceConfig b, Boost decided, double lifeHealth, double leaderBounty)
+    {
+        if (lifeHealth <= decided.Health + 1e-9) return decided;
+        var lsc = b.LifestealCounts;
+        var target = Own(decided, lsc);
+        var floor = 1 + lifeHealth; // the held health's share of the factor
+        var limit = new[] { -decided.DamageTaken, decided.DamageDealt, decided.Lifesteal };
+        var part = new double[3];   // resistance (as a positive share), damage, lifesteal
+        if (!lsc) part[2] = decided.Lifesteal; // outside the factor: as the decision gives it
+        double Given() => Own(lifeHealth, part[2], part[1], -part[0], lsc);
+        if (target > floor + 1e-9)
+        {
+            var lifestealFactor = lsc ? (floor + decided.Lifesteal) / floor : 1;
+            var all = lifestealFactor * (1 + decided.DamageDealt) / (1 + decided.DamageTaken);
+            var k = all > 1 + 1e-12 ? Math.Clamp(Math.Log(target / floor) / Math.Log(all), 0, 1) : 0;
+            part[0] = 1 - Math.Pow(1 + decided.DamageTaken, k);
+            part[1] = Math.Pow(1 + decided.DamageDealt, k) - 1;
+            if (lsc) part[2] = floor * (Math.Pow(lifestealFactor, k) - 1);
+            for (var i = 0; i < 3; i++)
+                if (lsc || i != 2) part[i] = Math.Min(limit[i], Down(part[i], b.RoundTo));
+            for (var grew = b.RoundTo > 0; grew;)
+            {
+                grew = false;
+                for (var i = 0; i < 3; i++)
+                {
+                    if (!lsc && i == 2) continue;
+                    var next = Math.Round(part[i] + b.RoundTo, 6);
+                    if (next > limit[i] + 1e-9) continue;
+                    var was = part[i];
+                    part[i] = next;
+                    if (Given() <= target + 1e-9) grew = true;
+                    else part[i] = was;
+                }
+            }
+        }
+        var given = Given();
+        // The cap's share of the bounty, as Cap leaves it, unless the held health alone goes past it; never below no bounty at all.
+        var bountyAllowed = decided.Tier > 0 ? Math.Max(1, decided.Allowed / given) : decided.BountyAllowed;
+        return decided with
+        {
+            Health = lifeHealth, DamageTaken = part[0] == 0 ? 0 : -part[0], DamageDealt = part[1], Lifesteal = part[2],
+            Factor = given * Math.Min(1 + Math.Max(0, leaderBounty), bountyAllowed), BountyAllowed = bountyAllowed, HealthHeld = true,
+        };
+    }
+
+    /// <summary>The boost of a life decided again in its middle by the standings now: Decide, then HoldHealth with the health the life holds.
+    /// The extra spawn protection stays the spawn's (spawnProtection): it was given at the spawn and ends at the first attack anyway.</summary>
+    public static Boost Redecide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader, double lifeHealth, double spawnProtection)
+    {
+        var decided = Decide(c, s, id, teammateOfLeader);
+        var bounty = !c.Enabled || s.Players < 2 || s.Leader == 0 || id == s.Leader || teammateOfLeader ? 0 : BountyFor(c.Bounty, s.Lead);
+        return HoldHealth(c.Balance, decided, lifeHealth, bounty) with { ExtraProtection = spawnProtection };
+    }
+
+    /// <summary>One life after a change to the ladder (RecalculateOnKill), from its boost now (current), the health it holds (lifeHealth),
+    /// its spawn health (baseHealth) and its maximum health: the new boost; health only ever up - a higher maximum, which regeneration and
+    /// lifesteal fill, never a cut, and never a heal of the current health; and whether the tier changed. The message and the spawn
+    /// protection stay the spawn's: a change in the middle of a life is silent.</summary>
+    public static MidLife Recalculate(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader, Boost current, double lifeHealth, int baseHealth, int maxHealth)
+    {
+        var next = Redecide(c, s, id, teammateOfLeader, lifeHealth, current.ExtraProtection);
+        var grows = next.Health > lifeHealth + 1e-9;
+        var max = grows ? Math.Max(maxHealth, SpawnHealth(baseHealth, next)) : maxHealth;
+        return new MidLife(next, grows ? next.Health : lifeHealth, max, current.Step != next.Step);
+    }
 
     static double Down(double value, double step)
     {
@@ -614,19 +738,42 @@ public static class Words
         var standing = $"(leader {leaderName ?? "tied"} {s.Top}, them {s.Top - b.KillsBehind}, {s.Players} players)";
         if (b.IsBounty) return $"{who} leads by {Kills(b.Lead)} ({s.Top} to {s.Second}, {s.Players} players): bounty +{Pct(b.Bounty)} damage taken from enemies";
         if (!b.IsBoost) return $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: no boost";
+        var parts = Parts(b, $"({baseHealth} -> {spawnHealth})", spawn: true);
+        var cap = b.Capped
+            ? string.Create(CultureInfo.InvariantCulture, $"capped: duel factor {b.RawFactor:0.00} -> {b.Factor:0.00}, allowed {b.Allowed:0.00}")
+            : string.Create(CultureInfo.InvariantCulture, $"duel factor {b.Factor:0.00}, allowed {b.Allowed:0.00}");
+        return string.Create(CultureInfo.InvariantCulture, $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: tier {b.Tier}+: {string.Join(", ", parts)}; {cap}");
+    }
+
+    /// <summary>The server log's line for a boost whose tier (or bounty step) changed in the middle of a life (RecalculateOnKill), for
+    /// example "P2's boost changes mid-life, tier 8+ -> tier 5+: +120% health held (100, at most 220), -5% damage taken, +10% damage, ...;
+    /// duel factor 3.06 - 5 kills behind (leader P1 20, them 15, 4 players)". maxHealth is the life's maximum after the change. The
+    /// standing comes last, so no line of this kind reads as a spawn's (Decision).</summary>
+    public static string Change(string who, Boost before, Boost now, Standings s, string? leaderName, int baseHealth, int maxHealth)
+    {
+        var where = now.Lead > 0
+            ? $"leads by {Kills(now.Lead)} ({s.Top} to {s.Second}, {s.Players} players)"
+            : $"{Kills(now.KillsBehind)} behind (leader {leaderName ?? "tied"} {s.Top}, them {s.Top - now.KillsBehind}, {s.Players} players)";
+        var parts = Parts(now, $"({baseHealth}, at most {maxHealth})", spawn: false);
+        if (now.IsBounty) parts.Add($"bounty +{Pct(now.Bounty)} damage taken from enemies");
+        if (parts.Count == 0) parts.Add("nothing");
+        var factor = now.Tier > 0 ? string.Create(CultureInfo.InvariantCulture, $"; duel factor {now.Factor:0.00}") : "";
+        return $"{who}'s boost changes mid-life, {before.Step} -> {now.Step}: {string.Join(", ", parts)}{factor} - {where}";
+    }
+
+    /// <summary>A boost's values for the log. The health with its numbers (health); the spawn protection only at a spawn: it is the spawn's.</summary>
+    static List<string> Parts(Boost b, string health, bool spawn)
+    {
         var parts = new List<string>();
-        if (b.Health > 0) parts.Add($"+{Pct(b.Health)} health ({baseHealth} -> {spawnHealth})");
+        if (b.Health > 0) parts.Add($"+{Pct(b.Health)} health {(b.HealthHeld ? "held " : "")}{health}");
         if (b.DamageTaken < 0) parts.Add($"-{Pct(b.DamageTaken)} damage taken");
         if (b.DamageDealt > 0) parts.Add($"+{Pct(b.DamageDealt)} damage");
         if (b.Lifesteal > 0) parts.Add($"{Pct(b.Lifesteal)} lifesteal");
         if (b.RegenPerSecond > 0) parts.Add($"regeneration {Pct(b.RegenPerSecond)}/s after {Sec(b.RegenDelaySeconds)} s");
         if (b.SecondChance) parts.Add("second chance");
-        if (b.ExtraProtection > 0) parts.Add($"+{Sec(b.ExtraProtection)} s spawn protection");
+        if (spawn && b.ExtraProtection > 0) parts.Add($"+{Sec(b.ExtraProtection)} s spawn protection");
         if (b.InfiniteAmmo) parts.Add("infinite ammo");
         if (b.OneHitMelee) parts.Add("one-hit knife and Zeus");
-        var cap = b.Capped
-            ? string.Create(CultureInfo.InvariantCulture, $"capped: duel factor {b.RawFactor:0.00} -> {b.Factor:0.00}, allowed {b.Allowed:0.00}")
-            : string.Create(CultureInfo.InvariantCulture, $"duel factor {b.Factor:0.00}, allowed {b.Allowed:0.00}");
-        return string.Create(CultureInfo.InvariantCulture, $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: tier {b.Tier}+: {string.Join(", ", parts)}; {cap}");
+        return parts;
     }
 }

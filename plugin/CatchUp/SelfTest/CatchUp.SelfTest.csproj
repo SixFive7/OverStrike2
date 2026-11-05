@@ -17,9 +17,10 @@
          the NuGet package nor a game server. `dotnet run -c Release` is the whole suite. -->
     <Compile Include="..\CatchUpConfig.cs" Link="CatchUpConfig.cs" />
     <Compile Include="..\CatchUpRules.cs" Link="CatchUpRules.cs" />
-    <!-- The shipped config, checked against the built-in defaults; and one real match, replayed through the kill counter. -->
+    <!-- The shipped config, checked against the built-in defaults; and five real matches, replayed through the kill counter. -->
     <None Include="..\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="armsrace-2026-09-19.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="armsrace-2026-11-04.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

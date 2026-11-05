@@ -1,12 +1,26 @@
 {
   "Enabled": true,
+  "RecalculateOnKill": true,
   "Tiers": [
     {
       "MinBehind": 2,
-      "Health": 0.30,
-      "DamageTaken": -0.15,
-      "DamageDealt": 0.15,
-      "Lifesteal": 0.15,
+      "Health": 0.05,
+      "DamageTaken": 0.00,
+      "DamageDealt": 0.00,
+      "Lifesteal": 0.05,
+      "RegenPerSecond": 0.03,
+      "RegenDelaySeconds": 4,
+      "SecondChance": false,
+      "ExtraSpawnProtectionSeconds": 0,
+      "InfiniteAmmo": false,
+      "OneHitKnifeAndTaser": false
+    },
+    {
+      "MinBehind": 3,
+      "Health": 0.15,
+      "DamageTaken": -0.10,
+      "DamageDealt": 0.05,
+      "Lifesteal": 0.05,
       "RegenPerSecond": 0.03,
       "RegenDelaySeconds": 4,
       "SecondChance": false,
@@ -16,10 +30,36 @@
     },
     {
       "MinBehind": 4,
-      "Health": 0.60,
+      "Health": 0.35,
+      "DamageTaken": -0.15,
+      "DamageDealt": 0.15,
+      "Lifesteal": 0.05,
+      "RegenPerSecond": 0.05,
+      "RegenDelaySeconds": 3,
+      "SecondChance": true,
+      "ExtraSpawnProtectionSeconds": 2,
+      "InfiniteAmmo": false,
+      "OneHitKnifeAndTaser": false
+    },
+    {
+      "MinBehind": 5,
+      "Health": 0.50,
       "DamageTaken": -0.25,
+      "DamageDealt": 0.20,
+      "Lifesteal": 0.10,
+      "RegenPerSecond": 0.05,
+      "RegenDelaySeconds": 3,
+      "SecondChance": true,
+      "ExtraSpawnProtectionSeconds": 2,
+      "InfiniteAmmo": false,
+      "OneHitKnifeAndTaser": false
+    },
+    {
+      "MinBehind": 6,
+      "Health": 0.75,
+      "DamageTaken": -0.30,
       "DamageDealt": 0.25,
-      "Lifesteal": 0.25,
+      "Lifesteal": 0.20,
       "RegenPerSecond": 0.05,
       "RegenDelaySeconds": 3,
       "SecondChance": true,
@@ -29,8 +69,21 @@
     },
     {
       "MinBehind": 7,
-      "Health": 1.00,
+      "Health": 0.95,
       "DamageTaken": -0.35,
+      "DamageDealt": 0.35,
+      "Lifesteal": 0.25,
+      "RegenPerSecond": 0.08,
+      "RegenDelaySeconds": 2,
+      "SecondChance": true,
+      "ExtraSpawnProtectionSeconds": 3,
+      "InfiniteAmmo": true,
+      "OneHitKnifeAndTaser": true
+    },
+    {
+      "MinBehind": 8,
+      "Health": 1.20,
+      "DamageTaken": -0.40,
       "DamageDealt": 0.40,
       "Lifesteal": 0.35,
       "RegenPerSecond": 0.08,
@@ -48,8 +101,8 @@
     "Max": 0.30
   },
   "Balance": {
-    "MaxDuelFactor": 3.5,
-    "ScoreboardCap": true,
+    "MaxDuelFactor": 8.0,
+    "ScoreboardCap": false,
     "ScoreboardCapFactor": 2.0,
     "LifestealCounts": true,
     "RoundTo": 0.05
