@@ -11,7 +11,7 @@ built against its published .NET packages to be licensed under the MIT License.
 Counter-Strike 2, the Steam Workshop and the CS2 Workshop Tools are Valve's. This project is not affiliated with or endorsed
 by Valve. It includes no game files: the builds read what they need (the Workshop Tools, and the underwater post-processing
 gg_vinceville ships, from ar_pool_day's map package) from a local Counter-Strike 2 installation. The HUD's knife icon
-(hud/images/knife.png) is derived from the game's own HUD art and is therefore not included; supply your own.
+(hud/images/knife.png) is an original drawing, made by hud/knife.py.
 
 Map titles, ids and tags in bridge/*.json are the Steam Workshop's, written by each map's author; their
 descriptions are not part of this repository, and neither are the pictures of other authors' maps.
