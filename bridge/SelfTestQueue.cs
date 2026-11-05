@@ -692,11 +692,6 @@ static partial class Program
             Check("!previous refuses a map gone from the Workshop", Said("was removed from the Workshop - Nobody can download it"));
             Checked = new(); RecomputeRemoved();
 
-            // the Workshop's own words, as the Web API answers
-            var details = """{"response":{"result":1,"resultcount":4,"publishedfiledetails":[{"publishedfileid":"3659287341","result":9},{"publishedfileid":"3084291314","result":1,"visibility":0,"banned":false},{"publishedfileid":"3453526792","result":1,"visibility":2,"banned":false},{"publishedfileid":"3395240479","result":1,"visibility":0,"banned":true},{"result":1}]}}""";
-            Check("The Web API's answer reads as verdicts: gone, downloadable, private, banned; an entry without an id is skipped",
-                Workshop.ParseDetails(details) is var pd && pd.Count == 4 && pd[0] == (3659287341L, Workshop.Removed) && pd[1] == (3084291314L, Workshop.Ok)
-                && pd[2] == (3453526792L, Workshop.Hidden) && pd[3] == (3395240479L, Workshop.Banned) && Workshop.ParseDetails("{}").Count == 0);
             Check("The report survives its codec, and keeps only well-formed lines",
                 Workshop.DecodeReport(Workshop.EncodeReport([(5, Workshop.Ok), (7, Workshop.Banned)]) + "x\tok\n9\tmaybe\n-1\tok\n") is [(5, "ok"), (7, "banned")]);
 

@@ -10,7 +10,6 @@
 // nobody but its owner can download it (seen on the HUD's own item, 2026-10-07).
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 
 public static class Workshop
 {
@@ -51,25 +50,5 @@ public static class Workshop
             if (f.Length == 2 && long.TryParse(f[0], NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 && IsVerdict(f[1])) by[id] = f[1];
         }
         return by.Select(x => (x.Key, x.Value)).ToList();
-    }
-
-    /// <summary>The Web API's answer (JSON) as verdicts, one per published file it reported on. An entry without a usable
-    /// publishedfileid is skipped; one that says no more than its id and a result (an item that is gone) is judged on the result.</summary>
-    public static List<(long Id, string Verdict)> ParseDetails(string json)
-    {
-        var verdicts = new List<(long, string)>();
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty("response", out var response) || !response.TryGetProperty("publishedfiledetails", out var list)
-            || list.ValueKind != JsonValueKind.Array) return verdicts;
-        foreach (var e in list.EnumerateArray())
-        {
-            if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty("publishedfileid", out var pid)) continue;
-            var idText = pid.ValueKind == JsonValueKind.String ? pid.GetString() : pid.GetRawText();
-            if (!long.TryParse(idText, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id <= 0) continue;
-            static int Int(JsonElement o, string name) => o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : 0;
-            var banned = e.TryGetProperty("banned", out var b) && (b.ValueKind == JsonValueKind.True || (b.ValueKind == JsonValueKind.Number && b.TryGetInt32(out var bn) && bn != 0));
-            verdicts.Add((id, Verdict(Int(e, "result"), Int(e, "visibility"), banned)));
-        }
-        return verdicts;
     }
 }

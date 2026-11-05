@@ -4,7 +4,6 @@
 // its page, the picks while it is open, everybody voting, the timer, ties, no votes, Keep and Play this map again, the wait after a vote, a
 // Wingman map with five on, the modes' map loads, the defaults after a restart and after 10 minutes with nobody on, the per-mode lists,
 // weights, block lists and server cfgs.
-using System.Text.Json;
 
 static partial class Program
 {

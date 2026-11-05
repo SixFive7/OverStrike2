@@ -1,7 +1,6 @@
 // --selftest, the random-pick rules (Selection.cs): the too-big maps and the 1% rule, the too-big vote, the ads vote, a dislike's reasons and its
 // popup, sizes.json, the retired new-maps setting's buttons, and the reset once nobody has been on for 10 minutes. Runs inside the queue harness
 // (SelfTestQueue.cs): its handed clock, its recorded RCON, its log lines.
-using System.Text.Json;
 
 static partial class Program
 {

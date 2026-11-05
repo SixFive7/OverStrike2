@@ -46,7 +46,6 @@ static partial class Program
     static int Main(string[] args)
     {
         if (args is ["--selftest"]) return SelfTest();
-        if (args is ["--build-maps", var url]) return BuildMaps(url);
         Log(BridgeConfig.Source.Line);              // where the settings came from - no value in it
         if (RconPassword == "" || LogSecret == "") { Log(BridgeConfig.Source.FromFile ? "server.rconPassword and bridge.secret must be set" : "RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
@@ -333,7 +332,7 @@ static partial class Program
     }
 
     /// <summary>The server is going down or has come up anew: its start map is still to come, and the start roll is owed once it has loaded.</summary>
-    static void StartAwaited(DateTime now)
+    static void StartAwaited()
     {
         StartRollOwed = true; StartRollNeedsProof = false; StartMapAt = default;
     }
@@ -362,7 +361,7 @@ static partial class Program
         EndBallot("the server is restarting"); ModeAtServerStart(); // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
         RestartGoing(); // Restarts.cs: a restart announced is happening
         MatchEndUntil = default;
-        StartAwaited(now);
+        StartAwaited();
         Save();
     }
 
@@ -484,12 +483,11 @@ static partial class Program
         if (GuideOnJoin) ShowGuide(e.SteamId, first);
     }
 
-    /// <summary>Asks the plugin to put the guide up for one player; true when it answered that it did (Guide.Shown).</summary>
-    static bool ShowGuide(string steamId, bool first)
+    /// <summary>Asks the plugin to put the guide up for one player.</summary>
+    static void ShowGuide(string steamId, bool first)
     {
         var reply = Send($"{Guide.Command} {AccountId(steamId)}{(first ? " first" : "")}");
         Log($"guide for {steamId}{(first ? " (first time)" : "")} -> {reply ?? "(rcon failed)"}");
-        return reply?.StartsWith(Guide.Shown) == true;
     }
 
     /// <summary>A map start. One load logs two lines in one burst - "Loading map" and CS2's nameless "Started:" (named only when the
@@ -1178,21 +1176,6 @@ static partial class Program
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");
         Console.WriteLine(failed == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failed})");
         return failed == 0 ? 0 : 1;
-    }
-
-    // ---- --build-maps <url>: scrape the rotation page into maps.json ----
-    [GeneratedRegex(@"<div class=""rank""><span>(\d+)</span>.*?<h2 class=""name"">(.*?)</h2>.*?size-\w+"">([\d.]+) (MB|GB)</dd>.*?host_workshop_map (\d+)", RegexOptions.Singleline)]
-    private static partial Regex RowRx();
-
-    static int BuildMaps(string url)
-    {
-        var html = new HttpClient().GetStringAsync(url).GetAwaiter().GetResult();
-        var maps = RowRx().Matches(html).Select(m => new MapInfo(int.Parse(m.Groups[1].Value), long.Parse(m.Groups[5].Value), WebUtility.HtmlDecode(m.Groups[2].Value).Trim(),
-            (int)Math.Round(double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture) * (m.Groups[4].Value == "GB" ? 1000 : 1)))).ToList();
-        if (maps.Count == 0 || !maps.Select((m, i) => m.Rank == i + 1).All(x => x)) { Log($"unexpected page structure: {maps.Count} rows"); return 1; }
-        File.WriteAllText("maps.json", JsonSerializer.Serialize(maps, Ctx.Default.ListMapInfo));
-        Log($"wrote maps.json with {maps.Count} maps");
-        return 0;
     }
 }
 

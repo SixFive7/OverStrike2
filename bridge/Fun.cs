@@ -244,10 +244,6 @@ public static class Fun
         return picks;
     }
 
-    /// <summary>The Fun page's Default: every setting the page shows in this mode back to its first choice - Normal, or the On of
-    /// a setting that is on by default (friendly fire's three, the grenade drops, catch-up).</summary>
-    public static List<(Setting Setting, Choice Choice)> Defaults(bool armsRace) => Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Normal)).ToList();
-
     /// <summary>The order Random's changes are made in: the ones back to Normal first, so no change on the way meets a Clash the end result does
     /// not hold (gg_fun refuses one: Super jump back to Normal before the gravity goes to Moon).</summary>
     public static List<(Setting Setting, Choice Choice)> InSafeOrder(IEnumerable<(Setting Setting, Choice Choice)> changes) =>

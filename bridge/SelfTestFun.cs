@@ -107,10 +107,7 @@ static partial class Program
         var jumpBack = Fun.InSafeOrder([(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "moon")!), (Fun.Find("jump")!, Fun.Find("jump")!.Normal)]);
         Check("Random makes its changes back to Normal first, so gg_fun meets no clash on the way (Super jump down before the gravity goes to Moon)",
             jumpBack[0].Setting.Id == "jump" && jumpBack[1].Setting.Id == "gravity");
-        var defaults = Fun.Defaults(true);
-        Check("Default: every row to its first choice - Normal, or the On of friendly fire's three, the grenade drops and catch-up - and in another mode only the rows it shows",
-            defaults.Count == Fun.Settings.Length && defaults.All(x => x.Choice == x.Setting.Normal) && Fun.Find("drops")!.Normal.Id == "on" && Fun.Find("catchup")!.Normal.Id == "on"
-            && Fun.Defaults(false).All(x => !Fun.ArmsRaceOnly(x.Setting)) && Fun.Defaults(false).Count < defaults.Count);
+        Check("The first choice of the grenade drops and of catch-up is On", Fun.Find("drops")!.Normal.Id == "on" && Fun.Find("catchup")!.Normal.Id == "on");
         Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, their fixed rows lit from them",
             Fun.Find("drops") is { } dr && Fun.ArmsRaceOnly(dr) && Fun.IsEffect(Fun.Drops) && Fun.Find("catchup") is { } cu && Fun.ArmsRaceOnly(cu) && Fun.IsEffect(Fun.CatchUp)
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")

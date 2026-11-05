@@ -52,17 +52,16 @@ static partial class Program
         var primaries = ChatCommands.All.Select(c => c.Word).ToList();
         var aliasWords = ChatCommands.All.SelectMany(c => c.Aliases).ToList();
         var funWords = Fun.Settings.Select(s => "!" + s.Id).ToList();
-        var contextWords = ChatCommands.Context.Select(c => c.Word).ToList();
-        var twice = primaries.Concat(aliasWords).Concat(contextWords).GroupBy(w => w).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-        Check($"Chat: no word maps to two actions: {primaries.Count + aliasWords.Count + contextWords.Count} words, each once{(twice.Count > 0 ? "; twice: " + string.Join(" ", twice) : "")}", twice.Count == 0);
-        var shadows = aliasWords.Concat(contextWords).Where(a => primaries.Contains(a) || funWords.Contains(a)).ToList();
+        var twice = primaries.Concat(aliasWords).GroupBy(w => w).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        Check($"Chat: no word maps to two actions: {primaries.Count + aliasWords.Count} words, each once{(twice.Count > 0 ? "; twice: " + string.Join(" ", twice) : "")}", twice.Count == 0);
+        var shadows = aliasWords.Where(a => primaries.Contains(a) || funWords.Contains(a)).ToList();
         Check($"Chat: no alias shadows a primary or a fun word ({funWords.Count} of those){(shadows.Count > 0 ? ": " + string.Join(" ", shadows) : "")}", shadows.Count == 0);
         var sharedFun = funWords.Where(primaries.Contains).ToList();
         var blasts = Fun.Find("nades")!.Choices.Select(c => c.Id).ToList();
         Check("Chat: two fun words are also primaries - !catchup, the setting's own word, and !nades: on|off are the grenade drops, its setting's own choices the blast, and the two sets do not meet",
             sharedFun.Order(StringComparer.Ordinal).SequenceEqual(["!catchup", "!nades"]) && !blasts.Contains("on") && !blasts.Contains("off"));
         Check("Chat: no word means one thing or another by what follows it any more - !new was one, until the new-maps setting went; it is Next's now",
-            contextWords.Count == 0 && ChatCommands.Find("!newmaps") == null);
+            ChatCommands.Find("!newmaps") == null);
 
         // ---- an alias runs the action and teaches the primary ----
         var wrong = new List<string>();
@@ -226,8 +225,8 @@ static partial class Program
         {
             var doc = File.ReadAllText(referenceFile);
             var section = Regex.Match(doc, @"## The menu and the commands(.*?)\n## ", RegexOptions.Singleline).Groups[1].Value;
-            var undocumented = primaries.Concat(aliasWords).Concat(contextWords).Where(w => !section.Contains($"`{w}") ).ToList();
-            var codeWords = Regex.Matches(section, @"`(![^\s`]+)").Select(m => m.Groups[1].Value).Distinct().Where(w => !primaries.Contains(w) && !aliasWords.Contains(w) && !contextWords.Contains(w) && !funWords.Contains(w)).ToList();
+            var undocumented = primaries.Concat(aliasWords).Where(w => !section.Contains($"`{w}") ).ToList();
+            var codeWords = Regex.Matches(section, @"`(![^\s`]+)").Select(m => m.Groups[1].Value).Distinct().Where(w => !primaries.Contains(w) && !aliasWords.Contains(w) && !funWords.Contains(w)).ToList();
             Check($"docs/reference.md's table has every primary and every alias, and no other command{(undocumented.Count + codeWords.Count > 0 ? ": missing " + string.Join(" ", undocumented) + " unknown " + string.Join(" ", codeWords) : "")}",
                 undocumented.Count == 0 && codeWords.Count == 0);
             var row = ChatCommands.All.Where(c => !Regex.IsMatch(section, $@"^\| `{Regex.Escape(c.Word)}[ `][^\n]*\| {string.Join(" ", c.Aliases.Select(a => Regex.Escape($"`{a}`")))}[ ,|]", RegexOptions.Multiline)).Select(c => c.Word).ToList();

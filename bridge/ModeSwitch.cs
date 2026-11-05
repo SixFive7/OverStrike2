@@ -70,15 +70,6 @@ static partial class Program
     static MapInfo? OfficialElsewhere(string name) =>
         Modes.All.Where(m => !m.ArmsRace).SelectMany(OfficialsOf).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The Deathmatch and Wingman maps a name fragment finds, the whole name first, one entry per map, in the first mode that lists it.</summary>
-    static List<MapInfo> OtherModesNamed(string query)
-    {
-        var hits = Modes.All.Where(m => !m.ArmsRace).SelectMany(PoolOf).GroupBy(Key).Select(g => g.First())
-            .Where(m => m.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).OrderBy(m => m.Rank).ToList();
-        var whole = hits.Where(m => m.Name.Equals(query, StringComparison.OrdinalIgnoreCase)).ToList();
-        return whole.Count > 0 ? whole : hits;
-    }
-
     /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than Valve's maxplayers for it (B6: no Wingman map with five
     /// or more on), the rule the ballot and its result follow too (VoteRound.cs).</summary>
     static string? ModeRefusal(MapInfo map)

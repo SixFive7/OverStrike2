@@ -42,8 +42,6 @@ static partial class Program
     static (int Up, int Down) Tally(string key) =>
         Votes.TryGetValue(key, out var v) ? (v.Values.Count(x => x > 0), v.Values.Count(x => x < 0)) : (0, 0);
 
-    static string TallyText(string key) => Tally(key) is var (u, d) && u + d > 0 ? $" (+{u}{(d > 0 ? $" -{d}" : "")})" : "";
-
     /// <summary>!up / !down [map] [reason]: like or dislike the map that is on, or any map by rank, Workshop id or official name. One mark per
     /// SteamID per map. It steps down - none - up: the opposite vote on a voted map only takes the vote away, back to none, and the
     /// next one casts it; the same vote again changes nothing and says so (repeating a vote never takes it back). A

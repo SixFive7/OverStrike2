@@ -3,7 +3,6 @@
 // picks, the other modes, the fresh card, the surprise and the favourites, every card but a pick on the server's disk - and what it remembers,
 // both timers on the wire, the restart notices before and after a restart, and the background download. Runs on a handed clock with a fake
 // timer wheel and a fake game server, like the vote's own test (SelfTestVote.cs); everything it touches is put back.
-using System.Text.Json;
 
 static partial class Program
 {

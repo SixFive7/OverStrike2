@@ -16,7 +16,6 @@ using System.Text.Json;
 
 static partial class Program
 {
-    const string DashPathPrefix = "/dash/";
     public const int StatusLookSeconds = 2, DashBuildSeconds = 5, WebHeartbeatSeconds = 60;
 
     static string SyncStatusPath => Path.Combine(StateDir, "sync-status.json");

@@ -13,8 +13,6 @@ public static class BlockList
     /// <summary>One line of the file: the convar, the value it must keep (null: the server's baseline) and why it is listed.</summary>
     public sealed record Entry(string ConVar, string? Value, string Why);
 
-    public const string FileName = "blocked.txt";
-
     /// <summary>The file's lines as entries. Blank lines and lines that start with // are skipped; a name that is not a plain convar
     /// name, a line with more than a name and a value before its //, or a name listed twice is an error (and the line is skipped).</summary>
     public static List<Entry> Parse(string text, out List<string> errors)

@@ -50,11 +50,6 @@ static partial class Program
         return blocked;
     }
 
-    /// <summary>A blocked map by its name or its map's name, exactly - for one maps.json does not list, which Find cannot name.</summary>
-    static MapInfo? BlockedNamed(string query) =>
-        query.Trim() is { Length: > 0 } q && Blocked.FirstOrDefault(b => b.Value.Name.Equals(q, StringComparison.OrdinalIgnoreCase)
-            || b.Value.Map.Equals(q, StringComparison.OrdinalIgnoreCase)) is { Key: not null } hit ? new MapInfo(0, long.Parse(hit.Key), hit.Value.Name, 0) : null;
-
     static void LoadBlocked()
     {
         BlockedInBroken = new();

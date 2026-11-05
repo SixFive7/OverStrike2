@@ -63,10 +63,6 @@ public static class ChatCommands
     /// <summary>!fun's aliases that run its Random and its Default: !randomize is !fun random, !defaults is !fun default.</summary>
     public static readonly string[] FunRandomWords = ["!randomize", "!funrandom"], FunDefaultWords = ["!defaults", "!fundefault"];
 
-    /// <summary>The words that mean one thing or another by what follows them, and the two primaries they can run: none any more - !new was one,
-    /// until the new-maps setting went.</summary>
-    public static readonly (string Word, string Otherwise, string When)[] Context = [];
-
     static readonly Dictionary<string, string> aliases = AliasMap();
 
     static Dictionary<string, string> AliasMap()
