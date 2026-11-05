@@ -68,7 +68,7 @@ public sealed class ServerConfig
     public string MapsDelete { get; set; } = "on";             // maps.delete
     public bool BackgroundDownloads { get; set; } = true;      // maps.backgroundDownloads
     public bool DownloadLine { get; set; } = true;             // maps.downloadLine
-    public string HudAddon { get; set; } = "";                 // hud.addon
+    public string HudAddon { get; set; } = "";                 // hud.addon, which the settings require: the program never runs without it
     public bool PluginLayer { get; set; } = true;              // plugin.enabled
     public int Port { get; set; } = 27015;                     // server.port
     public string RconPassword { get; set; } = "";             // server.rconPassword, else the image's CS2_RCONPW
@@ -95,7 +95,7 @@ public sealed class ServerConfig
             MapsDelete = s.Maps.Delete,
             BackgroundDownloads = s.Maps.BackgroundDownloads,
             DownloadLine = s.Maps.DownloadLine,
-            HudAddon = s.Hud.Addon.Trim(),
+            HudAddon = s.Hud.Addon,
             PluginLayer = s.Plugin.Enabled,
             Port = s.Server.Port,
             RconPassword = s.Server.RconPassword,
@@ -104,14 +104,6 @@ public sealed class ServerConfig
         };
         if (c.RconPassword.Length == 0 && env("CS2_RCONPW") is { Length: > 0 } pw)
             c.RconPassword = pw;                                // the image's own variable: it needs it anyway
-        if (c.HudAddon.Length == 0)                             // the plugin's own variable, the new name first: one release of both
-            foreach (var name in new[] { "OS2_HUD_ADDON", "GUNGAME_HUD_ADDON" })
-                if ((env(name) ?? "").Trim() is { Length: > 0 } id)
-                {
-                    c.HudAddon = id;
-                    c.BootWarnings.Add($"hud.addon is empty in the settings: the image's {name} ({id}) is used");
-                    break;
-                }
         c.Bridge = BridgeEndpoint(s.Bridge.Url, s.Bridge.Secret, env("CS2_LOG_HTTP_URL"));
         foreach (var p in s.Problems.Concat(s.Warnings).Where(x => !x.StartsWith("sync.", StringComparison.Ordinal)))   // the sync's keys are its own business
             c.BootWarnings.Add("settings: " + p);

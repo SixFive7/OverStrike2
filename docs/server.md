@@ -24,8 +24,10 @@ shipped (`OS2_SERVER`, else `/home/steam/overstrike2/os2-server`; a read-only or
 `<game>/update-watch/os2-server`, runs `install`, and starts `watch` in the background. A failure costs the plugin layer and the
 watcher, never the server, with one exception, because a server without the HUD cannot exist: when `install` refuses the settings file
 (no usable `hud.addon`, or no file it can use; [settings.md](settings.md#how-each-part-reads-it)) it logs one `ALERT` line and exits
-with code 78, and on exactly that code `pre.sh` ends the image's entry script. The engine does not start, Docker's restart policy tries
-again, and the log says why. `watch` and `organize` refuse the same way; `doctor` and `version` still work and say so.
+with code 78, and on exactly that code `pre.sh` waits 5 minutes and ends the image's entry script. The engine does not start, Docker's
+restart policy tries again, and the log says why. The wait is there because every try begins with the image's anonymous SteamCMD login,
+and Docker restarts at once a container that ran for 10 s. `watch` and `organize` refuse the same way; `doctor` and `version` still work
+and say so.
 
 ## The HUD addon
 

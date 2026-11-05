@@ -9,6 +9,7 @@ static class SettingsTests
     {
         ["CS2_RCONPW"] = "rcon-secret-value",
         ["OVERSTRIKE2_BRIDGE_SECRET"] = "abc123",
+        ["TEST_HUD_ITEM"] = "3823993566",
     };
 
     static string? FakeEnv(string name) => Env.TryGetValue(name, out var v) ? v : null;
@@ -23,9 +24,18 @@ static class SettingsTests
     public static void Run(string root)
     {
         // ---- the file's place, and none at all
-        var none = Settings.Load(Part.Server, Path.Combine(root, "no-such-dir", "overstrike2.jsonc"), FakeEnv);
-        Check("settings: no file - every value its default, and a warning says so", none.Fatal is null && none.Warnings.Count >= 1
-              && none.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && none.Warnings.Skip(1).All(w => w.StartsWith("sync.webApiKey", StringComparison.Ordinal))
+        var noFile = Path.Combine(root, "no-such-dir", "overstrike2.jsonc");
+        foreach (var part in new[] { Part.Bridge, Part.Plugin })
+        {
+            var fallsBack = Settings.Load(part, noFile, FakeEnv);
+            Check($"settings: no file, for the {part} (it falls back on the environment) - every value its default, and a warning says so",
+                  fallsBack.Fatal is null && fallsBack.Warnings.Count == 1 && fallsBack.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal)
+                  && fallsBack.Server.Port == 27015 && fallsBack.Source == "(defaults)");
+        }
+        var none = Settings.Load(Part.Server, noFile, FakeEnv);
+        Check("settings: no file, for the server programs (nothing to fall back on) - fatal, it names no hud.addon; the rest its default, and a warning says so",
+              none.Fatal is { } noFileFatal && noFileFatal.StartsWith("no settings file at", StringComparison.Ordinal) && noFileFatal.Contains("hud.addon: missing", StringComparison.Ordinal)
+              && none.Warnings.Count >= 1 && none.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && none.Warnings.Skip(1).All(w => w.StartsWith("sync.webApiKey", StringComparison.Ordinal))
               && none.Server.Port == 27015
               && none.Restarts.Daily == new TimeOfDay(7, 0) && none.Sync.ApiDayCap == 10000 && none.Source == "(defaults)");
         var asDir = Path.Combine(Path.GetTempPath(), "os2-settings-dir-" + Environment.ProcessId);
@@ -50,7 +60,7 @@ static class SettingsTests
               && ex.Hud.Addon == "3823993566" && ex.Hud.Check == "warn" && ex.Bridge.DiscoveryStock == 10 && ex.Restarts.Daily == new TimeOfDay(7, 0) && ex.Server.Name == "My CS2 server");
 
         // ---- comments, trailing commas, defaults for what is left out
-        var s1 = Read("{ // a comment\n \"schema\": 1, /* and another */ \"server\": { \"port\": 27016, }, }");
+        var s1 = Read("{ // a comment\n \"schema\": 1, /* and another */ \"server\": { \"port\": 27016, }, \"hud\": { \"addon\": \"3823993566\", }, }");
         Check("settings: JSON with comments and trailing commas; a key left out has its default",
               s1.Fatal is null && s1.Server.Port == 27016 && s1.Server.Host == "cs2" && s1.Problems.Count == 0);
 
@@ -86,10 +96,10 @@ static class SettingsTests
               && Read(bad, Part.Bridge).Problems[0].StartsWith("bridge.port", StringComparison.Ordinal));
 
         // ---- unknown keys warn, never stop
-        var s5 = Read("""{ "schema": 1, "$schema": "./settings.schema.json", "server": { "nmae": "x" }, "future": { "a": 1 }, "hud": 5 }""");
+        var s5 = Read("""{ "schema": 1, "$schema": "./settings.schema.json", "server": { "nmae": "x" }, "future": { "a": 1 }, "restarts": 5, "hud": { "addon": "3823993566" } }""");
         Check("settings: a misspelt key, a section nobody knows and a section that is no object are warnings, never fatal ("
               + string.Join("; ", s5.Warnings) + ")", s5.Fatal is null && s5.Warnings.Count == 3 && s5.Warnings.Any(w => w.StartsWith("server.nmae: no such setting", StringComparison.Ordinal))
-              && s5.Warnings.Any(w => w.StartsWith("future: no such setting", StringComparison.Ordinal)) && s5.Warnings.Any(w => w.StartsWith("hud: is a number, not a section", StringComparison.Ordinal)));
+              && s5.Warnings.Any(w => w.StartsWith("future: no such setting", StringComparison.Ordinal)) && s5.Warnings.Any(w => w.StartsWith("restarts: is a number, not a section", StringComparison.Ordinal)));
 
         // ---- references
         var key = Temp("webapi.txt");
@@ -115,8 +125,49 @@ static class SettingsTests
         Check("settings: a list instead of an object is fatal", Read("[1, 2]").Fatal == "not a JSON object");
         Check("settings: a schema this code does not know is fatal, and nothing of it is read",
               Read("""{ "schema": 2, "server": { "port": 1 } }""") is { Fatal: not null } f && f.Server.Port == 27015);
-        Check("settings: no schema at all is a problem, the rest is read", Read("""{ "server": { "port": 27016 } }""") is { Fatal: null } g
+        Check("settings: no schema at all is a problem, the rest is read", Read("""{ "server": { "port": 27016 }, "hud": { "addon": "3823993566" } }""") is { Fatal: null } g
               && g.Server.Port == 27016 && g.Problems.Count == 1);
+
+        // ---- hud.addon is required: missing, empty or not digits, the file cannot be used by the parts that read it
+        foreach (var (what, text, why) in new[]
+        {
+            ("no hud section", """{ "schema": 1 }""", "missing"),
+            ("a hud section without it", """{ "schema": 1, "hud": { "tab": "off" } }""", "missing"),
+            ("null", """{ "schema": 1, "hud": { "addon": null } }""", "missing"),
+            ("a hud that is no section", """{ "schema": 1, "hud": 5 }""", "missing"),
+            ("empty", """{ "schema": 1, "hud": { "addon": "" } }""", "empty"),
+            ("a variable that is not set", """{ "schema": 1, "hud": { "addon": "env:NOT_SET" } }""", "empty"),
+            ("a file that is not there", """{ "schema": 1, "hud": { "addon": "file:/no/such/file" } }""", "empty"),
+            ("letters", """{ "schema": 1, "hud": { "addon": "value-from-the-file" } }""", "not digits"),
+            ("digits and a space", """{ "schema": 1, "hud": { "addon": " 3823993566" } }""", "not digits"),
+            ("a minus sign", """{ "schema": 1, "hud": { "addon": "-3823993566" } }""", "not digits"),
+            ("a number, not a string", """{ "schema": 1, "hud": { "addon": 3823993566 } }""", "not a string"),
+        })
+        {
+            foreach (var part in new[] { Part.Plugin, Part.Server })
+            {
+                var s = Read(text, part);
+                Check($"hud.addon: {what}, for the {part} - the file cannot be used, the words name the key and what it must hold, never the value ({s.Fatal})",
+                      s.Fatal is { } fatal && fatal.StartsWith("hud.addon: " + why, StringComparison.Ordinal)
+                      && fatal.Contains("required: the Workshop id of the HUD addon, digits only", StringComparison.Ordinal) && !fatal.Contains("value-from-the-file", StringComparison.Ordinal)
+                      && s.Hud.Addon == "" && !s.Problems.Any(p => p.StartsWith("hud.addon", StringComparison.Ordinal)));
+            }
+        }
+        const string withAddon = """{ "schema": 1, "hud": { "addon": "3823993566" } }""";
+        Check("hud.addon: a Workshop id, for every reader - the file can be used",
+              new[] { Part.Bridge, Part.Plugin, Part.Server, Part.All }.All(p => Read(withAddon, p) is { Fatal: null, Problems.Count: 0 }) && Read(withAddon, Part.Server).Hud.Addon == "3823993566");
+        Check("hud.addon: by reference too, as any string value: env:, and file: trimmed", Read("""{ "schema": 1, "hud": { "addon": "env:TEST_HUD_ITEM" } }""", Part.Server) is { Fatal: null, Hud.Addon: "3823993566" }
+              && Read("""{ "schema": 1, "hud": { "addon": "file:/x/hud.txt" } }""", Part.Server, p => p == "/x/hud.txt" ? " 3823993566\n" : throw new FileNotFoundException(p)) is { Fatal: null, Hud.Addon: "3823993566" });
+        Check("hud.addon: the bridge does not read it - a file without it, or with a wrong one, is the bridge's as ever, not even a problem",
+              Read("""{ "schema": 1 }""", Part.Bridge) is { Fatal: null, Problems.Count: 0 } && Read("""{ "schema": 1, "hud": { "addon": "nope", "tab": "off" } }""", Part.Bridge) is { Fatal: null, Problems.Count: 0, Hud.Tab: "off" });
+        Check("hud.addon: the rest of the file is still read, for doctor to show", Read("""{ "schema": 1, "server": { "port": 27016 }, "bridge": { "port": "x" } }""", Part.All) is { Fatal: not null, Server.Port: 27016, Problems.Count: 1 });
+        Check("hud.addon: its default stays empty, no built-in id, and it is the one required key",
+              new Settings().Hud.Addon == "" && Settings.Keys.Where(k => k.Required != null).Select(k => k.Path).SequenceEqual(["hud.addon"]) && Settings.Keys.Single(k => k.Required != null).Default == "");
+        Check("hud.check: one player without the HUD still gets a warning only - warn by default", new Settings().Hud.Check == "warn" && Settings.Keys.Single(k => k.Path == "hud.check").Default == "warn");
+        Check("settings: plugin.enabled false (the emergency switch) is a file like any other: it can be used, with hud.addon in it",
+              Read("""{ "schema": 1, "hud": { "addon": "3823993566" }, "plugin": { "enabled": false } }""", Part.Server) is { Fatal: null, Plugin.Enabled: false }
+              && Read("""{ "schema": 1, "plugin": { "enabled": false } }""", Part.Server).Fatal != null);
+        Check("hud.addon: the example file says it is required, and offers no way to run without it", !example.Contains("no HUD", StringComparison.OrdinalIgnoreCase) && example.Contains("required", StringComparison.Ordinal));
 
         // ---- the times
         Check("settings: times - 07:00, 7:05 and off; not 24:00, 7:5 or 0700",
@@ -132,14 +183,20 @@ static class SettingsTests
         Check("settings: docs/settings.md's key tables are the ones the table makes",
               File.Exists(mdFile) && KeysBlock(File.ReadAllText(mdFile).ReplaceLineEndings("\n")) == Settings.KeysMarkdown().Trim('\n'));
         var schema = JsonNode.Parse(Settings.JsonSchema())!;
-        Check("settings: the schema holds every key of the table, and its default", Settings.Keys.All(k =>
+        Check("settings: the schema holds every key of the table, and its default (a required key has none)", Settings.Keys.All(k =>
         {
             JsonNode? n = schema["properties"];
             foreach (var p in k.Path.Split('.')[..^1])
                 n = n?[p]?["properties"];
-            return n?[k.Path.Split('.')[^1]]?["default"] != null;
+            var node = n?[k.Path.Split('.')[^1]];
+            return node != null && (node["default"] != null) == (k.Required is null);
         }));
-        Check("settings: every key's default reads back as itself", Settings.Keys.All(k =>
+        var hudSchema = schema["properties"]?["hud"];
+        var addonPattern = new System.Text.RegularExpressions.Regex(hudSchema?["properties"]?["addon"]?["pattern"]?.GetValue<string>() ?? "^$");
+        Check("settings: the schema requires hud.addon, and its form: digits, or a reference; not empty, not letters",
+              schema["required"]!.AsArray().Select(x => x!.GetValue<string>()).SequenceEqual(["schema", "hud"]) && hudSchema?["required"]?.AsArray().Select(x => x!.GetValue<string>()).SequenceEqual(["addon"]) == true
+              && addonPattern.IsMatch("3823993566") && addonPattern.IsMatch("env:NAME") && addonPattern.IsMatch("file:/run/hud.txt") && !addonPattern.IsMatch("") && !addonPattern.IsMatch("abc") && !addonPattern.IsMatch("12 3"));
+        Check("settings: every key's default reads back as itself; a required key's is fatal instead", Settings.Keys.All(k =>
         {
             var json = k.Type switch
             {
@@ -150,7 +207,8 @@ static class SettingsTests
             var text = "{ \"schema\": 1, " + string.Concat(parts[..^1].Select(p => "\"" + p + "\": { ")) + "\"" + parts[^1] + "\": " + json
                        + new string('}', parts.Length - 1) + " }";
             var s = Settings.Parse(text, Part.All, n => n == "CS2_RCONPW" ? "" : null, _ => "");
-            return s.Problems.Count == 0 && (k.Secret || k.Show(s) == k.Show(new Settings()) || k.Default.StartsWith("file:", StringComparison.Ordinal));
+            return s.Problems.Count == 0 && (k.Secret || k.Show(s) == k.Show(new Settings()) || k.Default.StartsWith("file:", StringComparison.Ordinal))
+                   && (k.Required is null || s.Fatal?.StartsWith(k.Path + ": empty", StringComparison.Ordinal) == true);
         }));
         var gameSide = Settings.Keys.Where(k => (k.Readers & (Part.Bridge | Part.Plugin)) != 0).Select(k => k.Path).ToList();
         Check($"settings: the bridge and the plugin read {gameSide.Count} keys, each in the docs", gameSide.Count > 0

@@ -13,9 +13,9 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>What the port brings that the Python tests could not hold: the settings file, the Python formats it must keep byte for byte, the
-/// program's one Web API door, the dry run for a shadow run, the command line, the SMTP client, and - in the game image - SteamCMD's
-/// driver, the test tree, and the whole hand-over taken in by the restart watcher's own code.</summary>
+/// <summary>What the port brings new: the settings file, the Python sync's formats it must keep byte for byte, the program's one Web API
+/// door, the dry run for a shadow run, the command line, the SMTP client, and - in the game image - SteamCMD's driver, the test tree, and
+/// the whole hand-over taken in by the restart watcher's own code.</summary>
 static class NewChecks
 {
     public static void Run()
@@ -38,7 +38,7 @@ static class NewChecks
     static Settings Parse(string json, Dictionary<string, string>? files = null) =>
         Settings.Parse(json, Part.Server, _ => null, p => files is not null && files.TryGetValue(p, out var t) ? t : throw new FileNotFoundException(p));
 
-    // ---- the settings file: every key the sync reads reaches its config; the HUD item; the values the Python environment did not have
+    // ---- the settings file: every key the sync reads reaches its config; the HUD item; the values no environment variable had
     static void SettingsFile(string root)
     {
         var s = Parse("""
@@ -114,7 +114,7 @@ static class NewChecks
               && QueueProblems(c4, four).Length == 0 && QueueProblems(c0, none).Length == 0 && QueueProblems(c10, four).Length == 4);
     }
 
-    // ---- the formats the Python sync wrote, which this program keeps byte for byte (references made by Python itself, .work/expect.py)
+    // ---- the formats the Python sync wrote, which this program keeps byte for byte (references made by Python itself when the port was written)
     static void Formats()
     {
         var tricky = O("""
@@ -230,10 +230,34 @@ static class NewChecks
         var file = Path.Combine(root, "cli.jsonc");
         File.WriteAllText(file, "{ \"schema\": 7 }");
         (code, said) = Quiet(() => Program.Main(["once", "--settings", file]));
-        Check("cli: a settings file this program cannot use: nothing done, and it says so", code == 1 && said.Contains("cannot be used"));
-        File.WriteAllText(file, "// a comment\n{ \"schema\": 1, \"sync\": { \"webApiKey\": \"\" }, }");
+        Check("cli: a settings file this program cannot use: nothing done, and it says so", code == Settings.RefusedExit && said.Contains("cannot be used"));
+        foreach (var (what, text, why) in new[]
+        {
+            ("missing", "{ \"schema\": 1 }", "hud.addon: missing"),
+            ("empty", "{ \"schema\": 1, \"hud\": { \"addon\": \"\" } }", "hud.addon: empty"),
+            ("not digits", "{ \"schema\": 1, \"hud\": { \"addon\": \"abc\" } }", "hud.addon: not digits"),
+        })
+        {
+            File.WriteAllText(file, text);
+            foreach (var command in new[] { "serve", "once" })
+            {
+                (code, said) = Quiet(() => Program.Main([command, "--settings", file]));
+                Check($"cli: {command} with hud.addon {what} refuses as os2-server does: one ALERT line naming the key and the fix, exit {Settings.RefusedExit}",
+                      code == Settings.RefusedExit && said.Trim().Split('\n').Length == 1 && said.Contains("ALERT") && said.Contains(why) && said.Contains("required: the Workshop id") && said.Contains("fix the file"));
+            }
+        }
+        (code, said) = Quiet(() => Program.Main(["once", "--settings", Path.Combine(root, "no-such-file.jsonc")]));
+        Check("cli: no settings file at all: the same", code == Settings.RefusedExit && said.Contains("no settings file at") && said.Contains("hud.addon: missing"));
+        File.WriteAllText(file, "{ \"schema\": 1 }");
         (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
-        Check("cli: doctor says what it sees, the key without its value", code == 0 && said.Contains("Web API key: absent") && said.Contains("cli-state"));
+        Check("cli: doctor still works with no hud.addon, and says so", code == 1 && said.Contains("NOT USABLE: hud.addon: missing") && said.Contains("Web API key:"));
+        (code, said) = Quiet(() => Program.Main(["version", "--settings", file]));
+        Check("cli: version too", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal) && said.Contains("settings: NOT USABLE - hud.addon: missing"));
+        File.WriteAllText(file, "// a comment\n{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"sync\": { \"webApiKey\": \"\" }, }");
+        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
+        Check("cli: doctor says what it sees, the key without its value", code == 0 && said.Contains("Web API key: absent") && said.Contains("cli-state") && said.Contains("the HUD item: 3823993566"));
+        (code, said) = Quiet(() => Program.Main(["version", "--settings", file]));
+        Check("cli: version with a good file: its one line", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal) && !said.Contains("NOT USABLE"));
     }
 
     // ---- the problem mail's SMTP client, against a stand-in relay on localhost

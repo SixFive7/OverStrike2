@@ -107,11 +107,6 @@ static class InstallTests
               && File.ReadAllText(cfg).Contains("mm_client_extra_addons \"\"") && File.ReadAllText(cfg).Contains("mm_addon_mount_download 0")
               && File.ReadAllText(cfg).Contains("mm_cache_clients_with_addons 1") && File.ReadAllText(cfg).Contains("mm_addon_connection_timeout 0")
               && !File.ReadAllText(cfg).Contains('\r'));
-        config.HudAddon = "not-an-id";
-        Check("hud: a value that is no Workshop id: not delivered, and it says so", !install.Hud() && !File.Exists(vdf));
-        config.HudAddon = "";
-        Check("hud: off (hud.addon empty) - MultiAddonManager not loaded at all", install.Hud() && !File.Exists(vdf) && lines[^1].StartsWith("HUD off"));
-        config.HudAddon = "3823993566";
 
         var dst = Path.Combine(csgo, "addons", "counterstrikesharp", "plugins");
         Put(Path.Combine(plugins, "OverStrike2", "OverStrike2.dll"), "os2");
@@ -138,7 +133,7 @@ static class InstallTests
               !File.Exists(con) && new FileInfo(con + ".1").Length == Install.RotateAt + 1);
 
         var settings = Path.Combine(game, "settings.jsonc");
-        File.WriteAllText(settings, "{ \"schema\": 1 }");
+        File.WriteAllText(settings, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" } }");
         var from = Path.Combine(game, "os2-server-shipped");
         File.WriteAllText(from, "binary");
         lines.Clear();
@@ -146,7 +141,15 @@ static class InstallTests
         var rec = Installed.Read(config.Paths.InstalledFile);
         Check($"install: the whole run - the layer, the HUD, the plugins, the maps folder, and the record of what it put in place ({string.Join(" | ", lines.Where(l => l.StartsWith("SUMMARY") || l.StartsWith("maps folder") || l.StartsWith("installed")))})",
               rc == 0 && rec is not null && rec.ServerFrom == from && rec.Fingerprint == Fingerprint.Compute(config.Paths, from, settings, _ => null).Total
-              && lines.Any(l => l.StartsWith("SUMMARY: plugin layer on")) && lines.Any(l => l.StartsWith("maps folder:")));
+              && lines.Any(l => l.StartsWith("SUMMARY: plugin layer on") && l.Contains("HUD on (Workshop addon 3823993566)")) && lines.Any(l => l.StartsWith("maps folder:")));
+        var mamUrl = downloads.Files[Install.MamUrl];
+        downloads.Files.Remove(Install.MamUrl);
+        Directory.Delete(Path.Combine(csgo, "addons", "multiaddonmanager"), true);
+        lines.Clear();
+        rc = install.Run(from, settings);
+        Check("install: MultiAddonManager that cannot be fetched costs the HUD's delivery, never the server: it says so, and the program exits 0 so the engine starts",
+              rc == 0 && !File.Exists(vdf) && lines.Any(l => l.Contains("MultiAddonManager is not installed")) && lines.Any(l => l.StartsWith("SUMMARY: plugin layer on") && l.Contains("HUD NOT delivered")));
+        downloads.Files[Install.MamUrl] = mamUrl;
         config.PluginLayer = false;
         lines.Clear();
         install.Run(from, settings);
@@ -154,19 +157,76 @@ static class InstallTests
               !File.ReadAllText(Path.Combine(csgo, "gameinfo.gi")).Contains("metamod") && lines.Any(l => l.StartsWith("SUMMARY: plugin layer off"))
               && File.Exists(Path.Combine(csgo, "addons", "metamod", ".pre.sh-installed-" + Install.MetamodVersion)));
 
-        var fromEnv = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null),
-                                        n => n switch { "OS2_HUD_ADDON" => "3823993566", "GUNGAME_HUD_ADDON" => "1111111111", _ => null });
-        var oldOnly = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), n => n == "GUNGAME_HUD_ADDON" ? "1111111111" : null);
         var fromFile = ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"2222222222\" } }", Part.Server, _ => null),
-                                         n => n == "OS2_HUD_ADDON" ? "3823993566" : null);
-        Check("hud: with no hud.addon in the settings, the image's OS2_HUD_ADDON, then the old GUNGAME_HUD_ADDON; the settings first",
-              fromEnv.HudAddon == "3823993566" && oldOnly.HudAddon == "1111111111" && fromFile.HudAddon == "2222222222"
-              && fromEnv.BootWarnings.Any(w => w.Contains("OS2_HUD_ADDON")));
+                                         n => n is "OS2_HUD_ADDON" or "GUNGAME_HUD_ADDON" ? "3823993566" : null);
+        var noneInFile = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), n => n is "OS2_HUD_ADDON" or "GUNGAME_HUD_ADDON" ? "3823993566" : null);
+        Check("hud: only the settings file names the item - the image's OS2_HUD_ADDON and GUNGAME_HUD_ADDON count for nothing",
+              fromFile.HudAddon == "2222222222" && noneInFile.HudAddon == "" && !noneInFile.BootWarnings.Concat(fromFile.BootWarnings).Any(w => w.Contains("HUD_ADDON")));
         Check("keep: the watcher's keep set follows the bridge's discovery stock (bridge.discoveryStock)",
               ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"bridge\": { \"discoveryStock\": 4 } }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 4
               && ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 10);
+        Refusal();
         Bridge();
         Launcher(root);
+    }
+
+    /// <summary>A server without the HUD cannot exist: install, watch and organize refuse a settings file with no usable hud.addon - or with none
+    /// at all to read - with one ALERT line and the exit code pre.sh stops the start on; doctor and version still work and say so.</summary>
+    static void Refusal()
+    {
+        var dir = Dir("refusal");
+        var file = Path.Combine(dir, "settings.jsonc");
+        (int Code, string Said) Run(params string[] args) => WorkshopTests.Quiet(() => Program.Main(args));
+        foreach (var (what, text, why) in new[]
+        {
+            ("hud.addon missing", "{ \"schema\": 1 }", "hud.addon: missing - required: the Workshop id"),
+            ("hud.addon empty", "{ \"schema\": 1, \"hud\": { \"addon\": \"\" } }", "hud.addon: empty - required: the Workshop id"),
+            ("hud.addon not digits", "{ \"schema\": 1, \"hud\": { \"addon\": \"abc\" } }", "hud.addon: not digits - required: the Workshop id"),
+            ("a file that is no JSON", "{ nope", "not JSON"),
+            ("a schema it does not know", "{ \"schema\": 7, \"hud\": { \"addon\": \"3823993566\" } }", "schema 7"),
+        })
+        {
+            File.WriteAllText(file, text);
+            foreach (var command in new[] { "install", "watch", "organize" })
+            {
+                var (code, said) = Run(command, "--settings", file);
+                var alerts = said.Split('\n').Where(l => l.Contains("ALERT")).ToList();
+                Check($"refusal: {command} with {what} - one ALERT line that names the key and the fix, exit {Settings.RefusedExit}, nothing else ({code})",
+                      code == Settings.RefusedExit && alerts.Count == 1 && alerts[0].Contains(why) && alerts[0].Contains("hud.addon") && alerts[0].Contains("fix the file")
+                      && (command == "install") == alerts[0].Contains("the engine does not start") && said.Trim().Split('\n').Length == 1);
+            }
+        }
+        var (missing, noFileSaid) = Run("install", "--settings", Path.Combine(dir, "no-such-file.jsonc"));
+        Check($"refusal: no settings file at all - the same (the fallback on defaults is gone for this program): {noFileSaid.Trim()}",
+              missing == Settings.RefusedExit && noFileSaid.Contains("no settings file at") && noFileSaid.Contains("hud.addon: missing") && noFileSaid.Contains("ALERT"));
+        File.WriteAllText(file, "{ \"schema\": 1 }");
+        var (saved, savedOld) = (Environment.GetEnvironmentVariable("OS2_HUD_ADDON"), Environment.GetEnvironmentVariable("GUNGAME_HUD_ADDON"));
+        Environment.SetEnvironmentVariable("OS2_HUD_ADDON", "3823993566");
+        Environment.SetEnvironmentVariable("GUNGAME_HUD_ADDON", "3823993566");
+        var (fellBack, _) = Run("install", "--settings", file);
+        Environment.SetEnvironmentVariable("OS2_HUD_ADDON", saved);
+        Environment.SetEnvironmentVariable("GUNGAME_HUD_ADDON", savedOld);
+        Check("refusal: the image's OS2_HUD_ADDON and GUNGAME_HUD_ADDON cannot stand in for hud.addon", fellBack == Settings.RefusedExit);
+        var (doctor, doctorSaid) = Run("doctor", "--settings", file);
+        Check("refusal: doctor still works and says so: not usable, why, what it costs; its usual lines all the same",
+              doctor == 1 && doctorSaid.Contains("NOT USABLE: hud.addon: missing") && doctorSaid.Contains($"install and watch refuse (exit {Settings.RefusedExit})")
+              && doctorSaid.Contains("path game:") && doctorSaid.Contains("RCON password:"));
+        var (version, versionSaid) = Run("version", "--settings", file);
+        Check("refusal: version still works and says so", version == 0 && versionSaid.StartsWith("os2-server ") && versionSaid.Contains("settings: NOT USABLE - hud.addon: missing"));
+        File.WriteAllText(file, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"daily\": \"off\" } }");
+        var (fine, fineSaid) = Run("version", "--settings", file);
+        Check("refusal: with hud.addon in the file version says its one line, doctor shows the item and exits 0, and watch gets past the refusal",
+              fine == 0 && !fineSaid.Contains("NOT USABLE") && fineSaid.Trim().Split('\n').Length == 1
+              && Run("doctor", "--settings", file) is { Code: 0 } good && good.Said.Contains("hud.addon = 3823993566") && !good.Said.Contains("NOT USABLE")
+              && Run("watch", "--settings", file) is { Code: 0 } watch && watch.Said.Contains("nothing to do"));
+        var (help, helpSaid) = Run("help");
+        Check("refusal: the usage names the exit code", help == 0 && helpSaid.Contains($"exit code {Settings.RefusedExit}"));
+        var game = Path.Combine(dir, "game");
+        Linux("refusal: install leaves the game's folder alone", () =>
+        {
+            File.WriteAllText(file, $"{{ \"schema\": 1, \"paths\": {{ \"gameDir\": \"{game}\" }} }}");
+            return Run("install", "--settings", file).Code == Settings.RefusedExit && !Directory.Exists(game);
+        });
     }
 
     /// <summary>The bridge over real HTTP: the address it posts to, the body, the answer read as the bridge gives it.</summary>
@@ -214,7 +274,9 @@ static class InstallTests
         Check($"bridge: no bridge listening: not taken, and the secret is never in the words ({told.Reply})", told.Told == "failed" && !told.Reply!.Contains("abc123"));
     }
 
-    /// <summary>The launcher: what pre.sh is now - a copy of the program, install, then the watcher in the background.</summary>
+    /// <summary>The launcher: what pre.sh is now - a copy of the program, install, then the watcher in the background; and, on Linux, what it does
+    /// sourced by an entry script: a stand-in for the image's, and in the game image the image's own, with a stand-in for SteamCMD, the engine
+    /// and the program.</summary>
     static void Launcher(string root)
     {
         var path = Path.Combine(root, "server", "OverStrike2.Server", "pre.sh");
@@ -226,8 +288,73 @@ static class InstallTests
         }
         var text = File.ReadAllText(path);
         var code = text.Split('\n').Where(l => l.Trim().Length > 0 && !l.TrimStart().StartsWith('#')).ToList();
-        Check($"pre.sh: a launcher of {code.Count} lines - the copy, install with the shipped file, the watcher in the background, never an exit",
-              code.Count <= 12 && text.Contains("install --from \"$os2_from\"") && text.Contains("setsid \"$os2_bin\" watch </dev/null &")
-              && !code.Any(l => l.Contains("exit") || l.Contains("set -e") || l.Contains("set -u")) && !text.Contains('\r'));
+        Check($"pre.sh: a launcher of {code.Count} lines - the copy, install with the shipped file, the watcher in the background; its one exit is the refusal's code, {Settings.RefusedExit}",
+              code.Count <= 16 && text.Contains("install --from \"$os2_from\"") && text.Contains("setsid \"$os2_bin\" watch </dev/null &")
+              && code.Count(l => l.Contains("exit")) == 1 && code.Any(l => l.Trim() == $"exit {Settings.RefusedExit}") && code.Any(l => l.Contains($"\"$os2_rc\" = {Settings.RefusedExit} ]"))
+              && code.Any(l => l.Trim() == "sleep \"${OS2_REFUSED_PAUSE:-300}\"") && !code.Any(l => l.Contains("set -e") || l.Contains("set -u")) && !text.Contains('\r'));
+        if (!OperatingSystem.IsLinux())
+        {
+            Skips++;
+            Console.WriteLine("SKIP pre.sh: what it does when an entry script sources it (Linux only)");
+            return;
+        }
+        const UnixFileMode Runnable = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+        const string ImageEntry = "/home/steam/entry.sh";
+        var dir = Dir("launcher");
+        var game = Path.Combine(dir, "cs2-dedicated");
+        var calls = Path.Combine(dir, "calls");
+        var program = Path.Combine(dir, "os2-server-shipped");
+        var standIn = Path.Combine(dir, "entry-stand-in.sh");
+        var home = Path.Combine(dir, "home");
+        Directory.CreateDirectory(home);
+        Put(Path.Combine(game, "pre.sh"), text);
+        Put(Path.Combine(game, "game", "cs2.sh"), "#!/bin/bash\necho ENGINE-STARTS\n");
+        File.SetUnixFileMode(Path.Combine(game, "game", "cs2.sh"), Runnable);
+        Put(Path.Combine(dir, "steamcmd", "steamcmd.sh"), "#!/bin/bash\nexit 0\n");
+        Put(program, "#!/bin/bash\necho \"$*\" >> \"$OS2_TEST_CALLS\"\nif [ \"$1\" = install ]; then exit \"$OS2_TEST_INSTALL\"; fi\n");
+        File.SetUnixFileMode(program, Runnable);
+        Put(standIn, "#!/bin/bash\ncd \"$STEAMAPPDIR/game/\"\nsource \"$STEAMAPPDIR/pre.sh\"\n./cs2.sh\n");
+
+        // The entry script's exit code and what it said. Reading to the end also waits for the watcher: it holds the same stdout.
+        (int Rc, string Said, string Calls) Start(string entry, int install, string? shipped = null, int pause = 0)
+        {
+            File.Delete(calls);
+            var psi = new System.Diagnostics.ProcessStartInfo("bash", [entry]) { RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = dir };
+            foreach (var (name, value) in new Dictionary<string, string>
+            {
+                ["STEAMAPPDIR"] = game, ["STEAMCMDDIR"] = Path.Combine(dir, "steamcmd"), ["HOME"] = home, ["OS2_SERVER"] = shipped ?? program, ["OS2_REFUSED_PAUSE"] = pause.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["OS2_TEST_CALLS"] = calls, ["OS2_TEST_INSTALL"] = install.ToString(System.Globalization.CultureInfo.InvariantCulture), ["CS2_RCON_PORT"] = "",
+            })
+                psi.Environment[name] = value;
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            var errors = p.StandardError.ReadToEndAsync();
+            var said = p.StandardOutput.ReadToEnd() + errors.GetAwaiter().GetResult();
+            p.WaitForExit();
+            return (p.ExitCode, said, File.Exists(calls) ? File.ReadAllText(calls) : "");
+        }
+
+        foreach (var (what, entry) in File.Exists(ImageEntry) ? new[] { ("a stand-in entry script", standIn), ("the image's own entry.sh", ImageEntry) } : [("a stand-in entry script", standIn)])
+        {
+            var (rc, said, ran) = Start(entry, Settings.RefusedExit);
+            Check($"pre.sh, sourced by {what}: install's refusal ({Settings.RefusedExit}) stops the start - the entry script ends with that code, no engine, no watcher, and the log says why (rc {rc})",
+                  rc == Settings.RefusedExit && !said.Contains("ENGINE-STARTS") && said.Contains("pre.sh: ALERT") && said.Contains("the engine does not start") && !said.Contains("restart watcher started")
+                  && ran.StartsWith($"install --from {program}") && !ran.Contains("watch"));
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            (rc, said, _) = Start(entry, Settings.RefusedExit, pause: 2);
+            Check($"pre.sh, sourced by {what}: ...it waits before it exits, so Docker's next try is no new Steam login at once, and says when ({watch.Elapsed.TotalSeconds:0.0} s)",
+                  rc == Settings.RefusedExit && watch.Elapsed >= TimeSpan.FromSeconds(2) && said.Contains("the next try in 2 s"));
+            foreach (var other in new[] { 1, 2, 77, 79, 134 })
+            {
+                (rc, said, ran) = Start(entry, other);
+                Check($"pre.sh, sourced by {what}: any other failure of install ({other}) costs the plugin layer, never the server - a warning, the engine, the watcher (rc {rc})",
+                      rc == 0 && said.Contains("ENGINE-STARTS") && said.Contains("WARNING: os2-server install failed - the engine starts anyway") && ran.Contains("watch"));
+            }
+            (rc, said, ran) = Start(entry, 0);
+            Check($"pre.sh, sourced by {what}: install fine - no warning, the engine, the watcher (rc {rc})",
+                  rc == 0 && said.Contains("ENGINE-STARTS") && !said.Contains("WARNING") && !said.Contains("ALERT") && said.Contains("restart watcher started") && ran.Contains("watch"));
+            (rc, said, ran) = Start(entry, 0, Path.Combine(dir, "no-such-program"));
+            Check($"pre.sh, sourced by {what}: a program that cannot be copied costs the plugin layer and the watcher, never the server (rc {rc})",
+                  rc == 0 && said.Contains("ENGINE-STARTS") && said.Contains("could not be copied") && ran.Length == 0);
+        }
     }
 }

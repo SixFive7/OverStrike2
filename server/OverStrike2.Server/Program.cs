@@ -20,6 +20,7 @@ public static class Program
         options:
           --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS, else /etc/overstrike2/overstrike2.jsonc)
           --state DIR             the state folder of an observing or dry run (else <paths.gameDir>/update-watch/observe)
+        exit code 78: the settings file cannot be used (hud.addon is required): nothing done, and pre.sh does not start the engine
         """;
 
     public static string Version => typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
@@ -63,6 +64,8 @@ public static class Program
         if (command == "version")
         {
             System.Console.WriteLine($"os2-server {Version} (.NET {Environment.Version}, {RuntimeInformation.RuntimeIdentifier})");
+            if (Settings.Load(Part.Server, Fingerprint.SettingsPath(settingsArg, env), env).Fatal is { } unusable)
+                System.Console.WriteLine($"settings: NOT USABLE - {unusable} (os2-server doctor says more)");
             return 0;
         }
         if (command is not ("install" or "organize" or "watch" or "doctor"))
@@ -77,10 +80,11 @@ public static class Program
         var log = new Log($"os2-server {command}", clock, zone);
         if (command == "doctor")
             return Doctor(settings, settingsPath, env, zone);
-        if (settings.Fatal is { } fatal)
+        if (settings.Fatal is { } fatal)   // no file, a broken one or no hud.addon in it: whichever, there is no HUD to give the players
         {
-            log.Line($"ALERT: the settings file cannot be used ({fatal}) - nothing done: fix it (os2-server doctor says what this program sees)");
-            return 1;
+            log.Line($"ALERT: the settings file cannot be used ({fatal}) - a server without hud.addon cannot exist, so nothing is done{(command == "install" ? " and the engine does not start" : "")}: "
+                     + "fix the file (docs/settings.md; os2-server doctor says what this program sees)");
+            return Settings.RefusedExit;
         }
         var config = ServerConfig.From(settings, env);
         if (observe || dryRun)
@@ -166,7 +170,7 @@ public static class Program
     {
         var w = System.Console.Out;
         w.WriteLine($"os2-server {Version} (.NET {Environment.Version}, {RuntimeInformation.RuntimeIdentifier}), local time zone {zone.Id}");
-        w.WriteLine($"settings: {settings.Source}{(settings.Fatal is { } f ? " - NOT USABLE: " + f : "")}");
+        w.WriteLine($"settings: {settings.Source}{(settings.Fatal is { } f ? $" - NOT USABLE: {f}; install and watch refuse (exit {Settings.RefusedExit}), and pre.sh does not start the engine" : "")}");
         foreach (var p in settings.Problems)
             w.WriteLine($"  problem: {p}");
         foreach (var x in settings.Warnings)

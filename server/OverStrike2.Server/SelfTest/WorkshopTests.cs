@@ -37,13 +37,13 @@ static class WorkshopTests
         Check("CLI: an argument it does not know exits at once (2) - never the watcher's loop in the foreground of pre.sh",
               Quiet(() => Program.Main(["organize", "--observe"])).Code == 2 && Quiet(() => Program.Main(["nonsense"])).Code == 2);
         var off = Path.Combine(Dir("cli"), "off.jsonc");
-        File.WriteAllText(off, "{ \"schema\": 1, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"daily\": \"off\" } }");
+        File.WriteAllText(off, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"daily\": \"off\" } }");
         var (code, said) = Quiet(() => Program.Main(["watch", "--settings", off]));
         Check($"CLI: updates, the daily restart and freeze recovery off - nothing to do, the watcher does not start ({code})", code == 0 && said.Contains("nothing to do"));
         var broken = Path.Combine(Dir("cli2"), "broken.jsonc");
         File.WriteAllText(broken, "{ \"schema\": 7 }");
         (code, said) = Quiet(() => Program.Main(["install", "--settings", broken]));
-        Check("CLI: a settings file this program cannot use: nothing done, and it says so", code == 1 && said.Contains("cannot be used"));
+        Check("CLI: a settings file this program cannot use: nothing done, and it says so", code == Settings.RefusedExit && said.Contains("cannot be used"));
 
         Line();
         Door();

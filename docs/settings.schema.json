@@ -4,7 +4,8 @@
   "description": "The settings file every part of Over Strike 2 reads (docs/settings.md). JSON with comments; a string \"env:NAME\" or \"file:PATH\" is read from there.",
   "type": "object",
   "required": [
-    "schema"
+    "schema",
+    "hud"
   ],
   "properties": {
     "$schema": {
@@ -126,9 +127,9 @@
       "type": "object",
       "properties": {
         "addon": {
-          "description": "The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead). Replaces OS2_HUD_ADDON, GUNGAME_HUD_ADDON.",
+          "description": "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run. Replaces OS2_HUD_ADDON, GUNGAME_HUD_ADDON.",
           "type": "string",
-          "default": ""
+          "pattern": "^([0-9]+|env:.+|file:.+)$"
         },
         "tab": {
           "description": "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. Replaces HUD_TAB.",
@@ -155,6 +156,9 @@
           "default": true
         }
       },
+      "required": [
+        "addon"
+      ],
       "additionalProperties": false
     },
     "plugin": {

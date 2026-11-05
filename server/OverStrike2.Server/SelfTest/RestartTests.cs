@@ -62,6 +62,8 @@ static class RestartTests
         Put(SettingsFile, "{ \"schema\": 9 }");
         Check("version: a settings file this program cannot use is no version at all: nothing is decided on it",
               Throws<InvalidDataException>(() => Now()));
+        Put(SettingsFile, "{ \"schema\": 1, \"hud\": { \"check\": \"off\" } }");
+        Check("version: nor is one that lost hud.addon: a running watcher restarts nothing for it", Throws<InvalidDataException>(() => Now()));
         Parts();
         File.Delete(Path.Combine(R, "game", "csgo", "cfg", "gamemode_armsrace_server.cfg"));
         Check("version: a part that is not there is 'none', the same way both times", Now().Parts.Cfgs == Fingerprint.None && Now().Parts == Now().Parts);

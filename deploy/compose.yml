@@ -1,7 +1,7 @@
 # Over Strike 2 on one Docker host, everything built on it: the game server (joedwards32/cs2), the bridge, the Workshop sync, and an
 # installer that builds the plugin and the server programs and puts them into the volumes. Quick start (docs/install.md), in deploy/:
 #
-#   cp overstrike2.example.jsonc overstrike2.jsonc     # your settings (docs/settings.md)
+#   cp overstrike2.example.jsonc overstrike2.jsonc     # your settings (docs/settings.md); hud.addon in it is required
 #   cp example.env .env                               # your secrets: the RCON password and the bridge's secret
 #   docker compose up -d --build
 #
@@ -19,7 +19,7 @@ services:
 
   cs2:
     image: docker.io/joedwards32/cs2
-    restart: always
+    restart: always # also what tries again after pre.sh stops a start for want of a usable hud.addon (this log says why)
     depends_on:
       installer:
         condition: service_completed_successfully

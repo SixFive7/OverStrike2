@@ -3,14 +3,15 @@
 // comments and trailing commas. A string "env:NAME" is read from the environment variable NAME, "file:PATH" from that file - the
 // way to keep a secret where it is kept already (the game image's own variables, a mounted secret file).
 //
-// Each container finds it at /etc/overstrike2/overstrike2.jsonc. With docker compose, either inline in the compose file:
+// Each container finds it at /etc/overstrike2/overstrike2.jsonc. With docker compose, either inline in the compose file (compose.example.yml
+// does; Compose refuses an inline config on a service with read_only: true):
 //
 //   configs:
 //     overstrike2:
 //       content: |
 //         { "schema": 1, ... }
 //
-// or as this file beside it (configs: overstrike2: file: ./overstrike2.jsonc), and in each of the three services:
+// or as this file beside it (configs: overstrike2: file: ./overstrike2.jsonc, as compose.yml does), and in each of the three services:
 //
 //   configs:
 //     - source: overstrike2
@@ -32,7 +33,7 @@
     "discoveryStock": 10,                  // per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
   },
   "hud": {
-    "addon": "3823993566",                 // the Over Strike 2 HUD on the Steam Workshop; "" for no HUD
+    "addon": "3823993566",                 // required: the Over Strike 2 HUD on the Steam Workshop; without it the game server does not start
     "tab": "down",                         // down: TAB puts the board down while held; off
     "check": "warn",                       // off, warn, or enforce (disconnect a player whose game has not loaded the HUD)
   },

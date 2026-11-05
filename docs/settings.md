@@ -9,7 +9,8 @@ left are the game image's own, the ones the image needs before any of our code r
 - **Format:** JSON with comments and trailing commas, `"schema": 1` at the top. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc)
   is a complete example. [`settings.schema.json`](settings.schema.json) is its JSON schema: an editor that knows JSON schemas checks
   the file as you type when the file says `"$schema": "<path to settings.schema.json>"`.
-- **A key you leave out has its default.** The tables below give every key, its default and the variable it replaces.
+- **A key you leave out has its default**, except `hud.addon`, which is required (below). The tables below give every key, its default
+  and the variable it replaces.
 - **Secrets stay where they are kept.** A string `"env:NAME"` is read from the environment variable `NAME`, and `"file:PATH"` from
   that file, trimmed. The RCON password, for instance, is `"env:CS2_RCONPW"`: the game image needs that variable anyway, so the
   bridge's container gets the same variable and nobody writes the password twice. A reference that finds nothing is an empty
@@ -55,8 +56,16 @@ and the programs then refuse it.
 - **Hard limits clamp:** at most 10,000 Steam Web API calls in 24 hours, and never less than 2 s between two calls of one program.
 - **A key nobody knows is a warning, never fatal.** A part released ahead of the others can bring a new key, and an older part
   only warns about it.
-- **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** The server
-  program then does nothing, and logs why. No file at all means every value is its default.
+- **`hud.addon` is required: a server without the HUD cannot exist.** Missing, empty or not digits, the file cannot be used by the
+  parts that read it (the plugin and the server programs), as in the next point. There is no built-in id: the example file holds the
+  public HUD's, and `OS2_HUD_ADDON` and `GUNGAME_HUD_ADDON` no longer stand in for it in the server programs. This looks at the file
+  only, never at Steam: while Valve holds the HUD's item the game keeps playing, and one player without the HUD gets a warning only
+  (`hud.check`, `warn` by default).
+- **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** `os2-server` and
+  `os2-sync` then do nothing: one `ALERT` line says why and how to fix it, and they exit with code 78. `doctor` and `version` still
+  work and say so. No file at all is the same for them: it names no `hud.addon`. On that code from `os2-server install`, `pre.sh` stops
+  the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. Every other failure
+  of the programs costs the plugin layer and the watcher, never the server ([server.md](server.md)).
 - **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no file at the path,
   or a file they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
   a file they can use, they read the file alone. Each logs which at its start - `settings: the settings file <path>`, naming the
@@ -107,7 +116,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 
 | Key | Type | Default | Read by | Replaces | What |
 |---|---|---|---|---|---|
-| `hud.addon` | string | (empty) | bridge, plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead). |
+| `hud.addon` | string | (required) | plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run. |
 | `hud.tab` | off \| down | `down` | bridge | HUD_TAB | The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. |
 | `hud.check` | off \| warn \| enforce | `warn` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn. |
 | `hud.itemPage` | boolean | `true` | plugin | HUD_ITEM_PAGE | Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). |

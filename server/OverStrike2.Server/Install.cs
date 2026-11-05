@@ -46,9 +46,10 @@ public sealed class HttpDownloader(IClock clock) : IDownloader
 /// <summary>THE PLUGIN LAYER, before every engine start (os2-server install, which the image's pre.sh hook hands over to): Metamod:Source,
 /// CounterStrikeSharp and MultiAddonManager at the pinned versions below, installed once each (a marker file per component records the
 /// version; only the current one's is kept, so pinning an older one again extracts it again), the gameinfo.gi search path re-applied on
-/// EVERY start (SteamCMD updates rewrite that file), MultiAddonManager loaded only while the in-game HUD is on (hud.addon), and the plugins
-/// copied in from their read-only folder (paths.plugins; the ones copied before that are gone from it are removed). plugin.enabled false is
-/// the kill switch after a breaking Valve update: the search path goes and the server runs vanilla, the files stay on disk. Then the
+/// EVERY start (SteamCMD updates rewrite that file), MultiAddonManager loaded with the HUD's Workshop item (hud.addon, which the settings
+/// require: this never runs without it), and the plugins copied in from their read-only folder (paths.plugins; the ones copied before
+/// that are gone from it are removed). plugin.enabled false is the kill switch after a breaking Valve update: the search path goes and
+/// the server runs vanilla, the files stay on disk. Then the
 /// console logs are rotated, the maps put in order (organize) and what was put in place is recorded (update-watch/installed.json, which the
 /// watcher compares with what is on disk: a new version restarts the engine).
 ///
@@ -76,7 +77,6 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     const string Marker = ".pre.sh-installed-";       // the marker's name, the same since the shell version: no needless reinstall
     const string CopiedList = ".pre.sh-copied";
 
-    [GeneratedRegex(@"^[0-9]{6,12}$")] private static partial Regex WorkshopId();
     [GeneratedRegex(@"^([ \t]*)Game_LowViolence[ \t]+csgo_lv.*$")] private static partial Regex LowViolence();
 
     ServerPaths P => config.Paths;
@@ -103,7 +103,7 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
                 Component("counterstrikesharp", CssVersion, CssUrl, "zip");
                 Component("multiaddonmanager", MamVersion, MamUrl, "tar");
                 Gameinfo(true);
-                var hud = Hud() && config.HudAddon.Length > 0 ? $"on (Workshop addon {config.HudAddon})" : "off";
+                var hud = Hud() ? $"on (Workshop addon {config.HudAddon})" : $"NOT delivered (Workshop addon {config.HudAddon}: the WARNING above says why)";
                 CopyPlugins();
                 log.Line($"SUMMARY: plugin layer on, Metamod {MetamodVersion} + CounterStrikeSharp {CssVersion} layer active, HUD {hud} (check 'meta list' and 'css_plugins list' on the server console)");
             }
@@ -249,11 +249,11 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         Files.WriteAtomic(path, text, mode);
     }
 
-    /// <summary>The in-game HUD's switch, hud.addon - the Workshop id of the published HUD addon. Set: MultiAddonManager is loaded, the server
-    /// mounts that addon (mm_extra_addons), so every map change - a changelevel to an official map included - carries it to every client, and
-    /// the plugin draws the HUD instead of its centre panel. A client-only addon (mm_client_extra_addons) dropped the HUD at every official-map
-    /// change; the mounted one keeps it, with one reconnect per change, at about 5 MiB of the server's memory. Empty: Metamod does not load
-    /// MultiAddonManager at all (its files stay on disk).</summary>
+    /// <summary>The in-game HUD: MultiAddonManager is loaded and the server mounts hud.addon, the Workshop id of the published HUD addon
+    /// (mm_extra_addons), so every map change - a changelevel to an official map included - carries it to every client. A client-only addon
+    /// (mm_client_extra_addons) dropped the HUD at every official-map change; the mounted one keeps it, with one reconnect per change, at about
+    /// 5 MiB of the server's memory. The settings have checked the id: digits only, so it is safe in the cfg. A failure here (MultiAddonManager
+    /// not installed, a cfg that cannot be written) costs the HUD's delivery, never the server, like every failure of the plugin layer.</summary>
     public bool Hud()
     {
         var vdf = Path.Combine(P.Csgo, "addons", "metamod", "multiaddonmanager.vdf");
@@ -268,18 +268,6 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
             }
-        }
-        if (id.Length == 0)
-        {
-            NoVdf();
-            log.Line("HUD off (hud.addon is empty): MultiAddonManager not loaded");
-            return true;
-        }
-        if (!WorkshopId().IsMatch(id))
-        {
-            NoVdf();
-            log.Line($"WARNING: hud.addon '{id}' is not a Workshop id; HUD addon not delivered");
-            return false;
         }
         if (!File.Exists(Path.Combine(P.Csgo, "addons", "multiaddonmanager", "bin", "multiaddonmanager.so")))
         {

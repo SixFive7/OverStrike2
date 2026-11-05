@@ -47,14 +47,20 @@ public readonly record struct TimeOfDay(int Hour, int Minute)
 /// out of its range keeps the default and is a <see cref="Problems"/> line - a typo must never silently widen a safety limit; a hard
 /// limit clamps. A key nobody knows is a <see cref="Warnings"/> line, never fatal, so a part one release ahead never stops another.
 /// A file that cannot be read, is no JSON object or names a schema this code does not know sets <see cref="Fatal"/>: every value is
-/// then its default, and the program decides (the server program does nothing on it). A string value "env:NAME" is read from the
-/// environment variable NAME and "file:PATH" from that file (trimmed) - the way a secret stays where it is kept: the image's own
-/// variables (CS2_RCONPW, ...) or a mounted secret file.</summary>
+/// then its default, and the program decides (the server programs refuse to run on it, <see cref="RefusedExit"/>). So does a required
+/// key (<see cref="Key.Required"/>: hud.addon, "a server without the HUD cannot exist") that is missing, empty or wrong, for the readers
+/// of that key: there is no default to run on, and the rest of the file is still read, for doctor to show. A string value "env:NAME" is
+/// read from the environment variable NAME and "file:PATH" from that file (trimmed) - the way a secret stays where it is kept: the
+/// image's own variables (CS2_RCONPW, ...) or a mounted secret file.</summary>
 public sealed class Settings
 {
     public const int Schema = 1;
     public const string DefaultPath = "/etc/overstrike2/overstrike2.jsonc";
     public const string PathVariable = "OVERSTRIKE2_SETTINGS";
+
+    /// <summary>The exit code of a server program that refuses to run because <see cref="Fatal"/> is set (EX_CONFIG of sysexits.h). The launcher
+    /// pre.sh stops the container's start on exactly this code, and no other failure of the programs uses it.</summary>
+    public const int RefusedExit = 78;
 
     public ServerSection Server { get; } = new();
     public BridgeSection Bridge { get; } = new();
@@ -72,7 +78,7 @@ public sealed class Settings
     /// <summary>What was ignored: keys nobody knows, a reference that found nothing.</summary>
     public List<string> Warnings { get; } = [];
 
-    /// <summary>Why the file was not used at all, or null.</summary>
+    /// <summary>Why the file cannot be used, or null.</summary>
     public string? Fatal { get; private set; }
 
     /// <summary>Where the values came from: the file's path, or "(defaults)".</summary>
@@ -81,7 +87,9 @@ public sealed class Settings
     public Part Reader { get; private set; } = Part.All;
 
     /// <summary>The settings for one reader: the file at OVERSTRIKE2_SETTINGS, else <see cref="DefaultPath"/>. No file at all: every value
-    /// is its default, and a warning says so. Never throws.</summary>
+    /// is its default, and a warning says so. For the bridge and the plugin that is all: they fall back on the environment while no file
+    /// exists (bridge/SettingsSource.cs). The server programs have nothing to fall back on, so for them no file is one more way of having
+    /// no hud.addon: <see cref="Fatal"/>. Never throws.</summary>
     public static Settings Load(Part reader, string? path = null, Func<string, string?>? env = null, Func<string, string>? readFile = null)
     {
         env ??= Environment.GetEnvironmentVariable;
@@ -97,6 +105,7 @@ public sealed class Settings
             var s = Parse("{ \"schema\": " + Schema + " }", reader, env, readFile);   // the defaults, their references read
             s.Source = "(defaults)";
             s.Warnings.Insert(0, $"no settings file at {path}: every value is its default");
+            s.Fatal = (reader & Part.Server) != 0 && s.Fatal is { } missing ? $"no settings file at {path} - {missing}" : null;
             return s;
         }
         catch (Exception e)
@@ -155,11 +164,19 @@ public sealed class Settings
             if (node is null && (key.Default.StartsWith("env:", StringComparison.Ordinal) || key.Default.StartsWith("file:", StringComparison.Ordinal)))
                 node = JsonValue.Create(key.Default);        // a default that is a reference is read like a value
             if (node is null)
+            {
+                if (key.Required is { } rule)
+                    s.Fatal ??= $"{key.Path}: missing - required: {rule}";
                 continue;
+            }
             var ctx = new Ctx(s, key, env, readFile);
             try
             {
                 key.Apply(s, node, ctx);
+            }
+            catch (InvalidOperationException e) when (key.Required is { } rule)
+            {
+                s.Fatal ??= $"{key.Path}: {e.Message} - required: {rule}";
             }
             catch (InvalidOperationException e)
             {
@@ -225,10 +242,11 @@ public sealed class Settings
     // ------------------------------------------------------------------------------------------------------------ the table
 
     /// <summary>One key of the file: its path, who reads it, its JSON type and default (for the docs and the schema), the environment
-    /// variable it replaces, one line about it, and how it is read.</summary>
+    /// variable it replaces, one line about it, and how it is read. Required: what a key the file cannot do without must hold, in words -
+    /// null for every other key; Pattern: its form in the JSON schema.</summary>
     public sealed record Key(string Path, Part Readers, string Type, string Default, string Replaces, string Doc, bool Secret,
                              Action<Settings, JsonNode, Ctx> Apply, Func<Settings, string> Show, string[]? Choices = null, double? Min = null,
-                             double? Max = null);
+                             double? Max = null, string? Required = null, string? Pattern = null);
 
     /// <summary>The context of reading one key: its references and its problems.</summary>
     public sealed class Ctx(Settings settings, Key key, Func<string, string?> env, Func<string, string> readFile)
@@ -330,6 +348,20 @@ public sealed class Settings
                 throw new InvalidOperationException($"'{(secret ? "..." : Clip(t))}' is not {what}");
             set(s, t);
         }, get);
+
+    /// <summary>A string the file cannot do without: <see cref="Fill"/> makes it fatal for its readers when it is missing or this throws. Its
+    /// default is empty and passes nothing, and the words never quote the value: they end up in the parts' logs.</summary>
+    static Key Must(string path, Part readers, string replaces, string doc, string rule, string pattern, Func<Settings, string> get, Action<Settings, string> set,
+                    Func<string, bool> valid, string what) =>
+        new(path, readers, "string", "", replaces, doc, false, (s, n, c) =>
+        {
+            var t = Text(n, c);
+            if (t.Length == 0)
+                throw new InvalidOperationException("empty");
+            if (!valid(t))
+                throw new InvalidOperationException("not " + what);
+            set(s, t);
+        }, get, Required: rule, Pattern: pattern);
 
     static Key Choice(string path, Part readers, string def, string[] choices, string replaces, string doc, Func<Settings, string> get,
                       Action<Settings, string> set, Dictionary<string, string>? aliases = null) =>
@@ -433,8 +465,8 @@ public sealed class Settings
             s => s.Bridge.GuideOnJoin, (s, v) => s.Bridge.GuideOnJoin = v),
 
         // hud: the in-game menu
-        Str("hud.addon", Part.All, "", "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead).",
-            s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, v => v.Length == 0 || Digits(v), "a Workshop id"),
+        Must("hud.addon", PS, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run.",
+             "the Workshop id of the HUD addon, digits only", "^([0-9]+|env:.+|file:.+)$", s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, Digits, "digits"),
         Choice("hud.tab", Part.Bridge, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
             s => s.Hud.Tab, (s, v) => s.Hud.Tab = v),
         Choice("hud.check", Part.Bridge, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn.",
@@ -614,12 +646,24 @@ public sealed class Settings
                     break;
                 default:
                     p["type"] = "string";
-                    p["default"] = key.Default;
+                    if (key.Required is null)
+                        p["default"] = key.Default;
+                    else
+                        p["pattern"] = key.Pattern;
                     if (key.Choices != null)
                         p["enum"] = new JsonArray(key.Choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
                     break;
             }
             node[parts[^1]] = p;
+            if (key.Required != null)
+            {
+                var section = root;                                 // the key, and every section on the way to it
+                foreach (var part in parts)
+                {
+                    Need(section, part);
+                    section = (JsonObject)section["properties"]![part]!;
+                }
+            }
         }
         foreach (var (_, section) in props)
             if (section is JsonObject o && o["type"]?.GetValue<string>() == "object")
@@ -640,12 +684,21 @@ public sealed class Settings
                 var readers = string.Join(", ", new[] { (Part.Bridge, "bridge"), (Part.Plugin, "plugin"), (Part.Server, "server") }
                     .Where(r => (k.Readers & r.Item1) != 0).Select(r => r.Item2));
                 var type = k.Choices != null ? string.Join(" \\| ", k.Choices) : k.Type + (k.Min is { } lo ? $", {lo.ToString(CultureInfo.InvariantCulture)}..{k.Max!.Value.ToString(CultureInfo.InvariantCulture)}" : "");
-                sb.Append("| `").Append(k.Path).Append("` | ").Append(type).Append(" | ").Append(k.Default.Length == 0 ? "(empty)" : "`" + k.Default.Replace("|", "\\|") + "`")
+                sb.Append("| `").Append(k.Path).Append("` | ").Append(type).Append(" | ").Append(k.Required != null ? "(required)" : k.Default.Length == 0 ? "(empty)" : "`" + k.Default.Replace("|", "\\|") + "`")
                   .Append(" | ").Append(readers)
                   .Append(" | ").Append(k.Replaces).Append(" | ").Append(k.Doc.Replace("|", "\\|")).Append(k.Secret ? " A secret: write it as a reference." : "").Append(" |\n");
             }
         }
         return sb.ToString();
+    }
+
+    /// <summary>One more name in an object's "required" list of the schema, once.</summary>
+    static void Need(JsonObject section, string name)
+    {
+        if (section["required"] is not JsonArray list)
+            section["required"] = list = [];
+        if (!list.Any(n => n?.GetValue<string>() == name))
+            list.Add((JsonNode?)JsonValue.Create(name));
     }
 
     static void Close(JsonObject section)

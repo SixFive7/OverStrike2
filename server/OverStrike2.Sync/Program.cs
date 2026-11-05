@@ -29,6 +29,7 @@ public static class Program
           --work DIR              the sync's work folder (else paths.syncWork): its staging, test tree and hand-overs
           --test-port N           the test engine's port (else sync.testPort)
           --no-handover           no hand-overs to the game server in this run (sync.handover false)
+        exit code 78: the settings file cannot be used (hud.addon is required): nothing done
         """;
 
     public static string Version => typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
@@ -84,6 +85,8 @@ public static class Program
         if (command == "version")
         {
             Console.WriteLine($"os2-sync {Version} (.NET {Environment.Version}, {RuntimeInformation.RuntimeIdentifier})");
+            if (Settings.Load(Part.Server, settingsArg ?? (env(Settings.PathVariable) is { Length: > 0 } given ? given : Settings.DefaultPath), env).Fatal is { } unusable)
+                Console.WriteLine($"settings: NOT USABLE - {unusable} (os2-sync doctor says more)");
             return 0;
         }
         if (command is not ("serve" or "once" or "status" or "export" or "doctor"))
@@ -115,8 +118,8 @@ public static class Program
             return Doctor(settings, cfg, zone);
         if (settings.Fatal is { } fatal)
         {
-            log.Line($"ALERT: the settings file cannot be used ({fatal}) - nothing done: fix it (os2-sync doctor says what this program sees)");
-            return 1;
+            log.Line($"ALERT: the settings file cannot be used ({fatal}) - nothing done: fix the file (docs/settings.md; os2-sync doctor says what this program sees)");
+            return Settings.RefusedExit;
         }
         using var term = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx =>
         {
