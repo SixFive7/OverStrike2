@@ -37,10 +37,10 @@ sealed partial class HudScreen
     readonly ILogger log;
     readonly BridgeLink? bridge;
     readonly HudSlots slots = new();
-    readonly string addon;                            // the Workshop item the server hands out (Hud.AddonVariable): its link is in the check's messages; empty: none
+    readonly string addon;                            // the Workshop item the server hands out (hud.addon): its link is in the check's messages
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
     readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudCheck.IsVersionWord); the bridge keeps the same for the players on the server
-    readonly ItemWatch? item;                         // whether Steam shows the item to everybody yet: nobody is disconnected until it does (none without an addon)
+    readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
     readonly HudTab tab = new();                      // TAB (HudTab.cs): the board's cursor while it is held
@@ -85,12 +85,10 @@ sealed partial class HudScreen
     // a game does not have takes nothing in it - and keeps what it needs for its own pages (HudView.StaticClasses' c31 and c32, the svge/svlt
     // version classes and vjoin).
     int latestSent;                                      // the level of the latest-N class on gg_global (HudVote.LatestClass): turned off when it moves
-    bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it (none without an addon)
+    bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped
     readonly HashSet<long> keptMenu = new();             // accounts on the server when it was dropped: they keep the HUD until the map changes
-
-    readonly (bool On, string Switch) itemPage;         // whether the HUD item's page may be visited, and the switch that says so (PluginSetup)
 
     public HudScreen(BasePlugin plugin, ILogger log, bool hotReload, PluginSetup setup)
     {
@@ -98,12 +96,11 @@ sealed partial class HudScreen
         this.log = log;
         addon = setup.Addon;
         addonRequired = addon != "";
-        itemPage = (setup.ItemPage, setup.ItemPageSwitch);
-        item = addon != "" ? new ItemWatch(addon, itemPage.On, itemPage.Switch) : null;
+        item = new ItemWatch(addon, setup.ItemPage, setup.ItemPageSwitch);
         plays = new WorkshopPlay(log);
         bridge = setup.Bridge is { } root ? BridgeLink.At(root, setup.BridgeSecret) : null;
         if (addon == "") log.LogError("Over Strike 2 HUD: no Workshop item for the HUD: a server without the HUD cannot exist - hud.addon must be set");
-        log.LogInformation("Over Strike 2 HUD: {Drawn}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
+        log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); resendAt.Clear(); gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
@@ -318,7 +315,7 @@ sealed partial class HudScreen
         $"state {(state == null ? "none" : $"{(DateTime.UtcNow - stateAt).TotalSeconds:0}s old: {state.Map} by {state.By}")}, vote {(vote.Round > 0 ? $"round {vote.Round} {(vote.Open ? "open" : "decided")}{(vote.Freeze ? ", everybody frozen" : "")}" : "none")}, " +
         $"bridge {(bridge == null ? "off" : bridge.Failures == 0 ? "ok" : $"{bridge.Failures} failures ({bridge.LastError})")}, " +
         $"window open for [{string.Join(", ", Utilities.GetPlayers().Where(p => slots.WindowOpen(p.Slot)).Select(p => p.PlayerName))}], " +
-        $"check {HudCheck.Name(checkMode)} (HUD_CHECK {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, item {item?.Describe(DateTime.UtcNow) ?? "none (no addon)"}), " +
+        $"check {HudCheck.Name(checkMode)} (HUD_CHECK {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, item {item.Describe(DateTime.UtcNow)}), " +
         $"waiting for a click from [{string.Join(", ", Utilities.GetPlayers().Where(p => gate.Checking(p.Slot)).Select(p => p.PlayerName))}], " +
         $"TAB {HudTab.Name(tabMode)}{(tabOverride != null ? " (css_gghud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
         $"search index {search.Count} maps (version {search.Version}), sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +
@@ -543,9 +540,8 @@ sealed partial class HudScreen
     /// gives everybody still waiting a fresh grace period and the window.</summary>
     void UpdateCheck(DateTime now)
     {
-        if (item == null) return; // no addon: nobody is asked for it, the check stays off
         var configured = HudCheck.Parse(state?.CheckMode);
-        item.Poll(now, true); // always: whether joiners must download the addon follows it too (RequireAddon)
+        item.Poll(now);
         RequireAddon(now);
         var answered = bridge == null || bridge.LastAnswer == default ? double.MaxValue : (now - bridge.LastAnswer).TotalSeconds;
         var mode = HudCheck.ModeOf(state, answered);
@@ -573,7 +569,6 @@ sealed partial class HudScreen
     /// a ballot may be frozen by a vote, so during a hold the plugin tells the bridge it draws nothing (HudActive: a match end rolls the dice) and the bridge refuses a vote.</summary>
     void RequireAddon(DateTime now)
     {
-        if (item == null) return;
         var cause = item.Cause;
         var required = item.Required(addonRequired, now);
         if (!required && addonRequired)
@@ -607,14 +602,13 @@ sealed partial class HudScreen
     /// why and what to do (nothing: play on). Who was on when the hold began still has it on that map.</summary>
     void TellNoMenu(CCSPlayerController player)
     {
-        if (item == null || addonRequired || keptMenu.Contains(Account(player)) || !toldNoMenu.Add(Account(player))) return;
+        if (addonRequired || keptMenu.Contains(Account(player)) || !toldNoMenu.Add(Account(player))) return;
         Post(Messages.HoldNoMenu, HudCheck.NoMenuChat(droppedCause, item.Updated), Account(player));
     }
 
     /// <summary>css_gghud item: the item's page visited now; says what the last visit found and whether joiners must download it.</summary>
     public string CheckItemNow()
     {
-        if (item == null) return "no HUD addon - no item to visit";
         item.Soon();
         return $"one item page visit due now, by hand (the answer shows in css_gghud in a few seconds); so far: {item.Describe(DateTime.UtcNow)}, addon {(addonRequired ? "required of joiners" : "NOT required")}";
     }
@@ -623,7 +617,7 @@ sealed partial class HudScreen
     /// answers are in (a few seconds); changes nothing.</summary>
     public string ProbeItem(long other)
     {
-        _ = (item ?? new ItemWatch("", itemPage.On, itemPage.Switch)).Probe(other).ContinueWith(t => log.LogInformation("Over Strike 2 HUD item probe: {Result}",
+        _ = item.Probe(other).ContinueWith(t => log.LogInformation("Over Strike 2 HUD item probe: {Result}",
             t.IsCompletedSuccessfully ? t.Result : $"{other}: failed ({t.Exception?.GetBaseException().Message})"), TaskScheduler.Default);
         return $"probing {other}'s Workshop page and the Web API - the answer goes to the server log as 'Over Strike 2 HUD item probe:'";
     }

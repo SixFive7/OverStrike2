@@ -46,7 +46,7 @@ sealed class ItemWatch
 
     /// <summary>On the game thread, every frame: takes a finished page visit's verdict and a finished Web API answer, asks the Web API
     /// every minute, and visits the page only when ItemPlan says one is due.</summary>
-    public void Poll(DateTime now, bool wanted)
+    public void Poll(DateTime now)
     {
         if (pending is { IsCompleted: true } done)
         {
@@ -69,7 +69,7 @@ sealed class ItemWatch
             lastApi = now;
             apiNote = fresh is { } f ? $"{f.Verdict}, updated {Local(f.TimeUpdated)}" : $"no answer ({asked.Exception?.GetBaseException().Message ?? "nothing about the item"})";
         }
-        if (url == null || !wanted) return;
+        if (url == null) return;
         if (apiPending == null && now >= apiNext)
         {
             apiNext = now + ItemPlan.ApiEvery;

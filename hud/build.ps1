@@ -160,7 +160,7 @@ Write-Output "Built into $game - publish that addon with the Workshop Manager (P
 
 if ($Local) {
     # Your own client loads loose compiled files from game\csgo\panorama\..., so the HUD can be tried on the server before it is
-    # published (the server half: css_gghud on). Remove them again afterwards, or the published addon and these would compete.
+    # published. Remove them again afterwards, or the published addon and these would compete.
     $own = Join-Path $Cs2 "game\csgo"
     foreach ($rel in $expected) {
         $to = Join-Path $own $rel
