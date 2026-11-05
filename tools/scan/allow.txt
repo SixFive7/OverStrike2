@@ -50,3 +50,21 @@ clock-time server/OverStrike2.Server/SelfTest/*.cs 10/04/2026 - (?:07:0\d|15:00)
 clock-time bridge/Tests/SelfTestMain.cs [01]\d/[0-3]\d/2001 - 12:\d\d  # the log parser's sample lines: made-up dates and times
 clock-time bridge/Tests/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures: made-up times, noon or midnight
 clock-time bridge/sizes.json 20\d\d-[01]\d-[0-3]\dT00:00  # the size list's generation date, its time zeroed
+
+# The published history (every commit is pushed, its old blobs included): files at the paths they had before the stage-3
+# restructure (bridge/Tests/) and before the C# port, and decision references in older versions of files. A push scans every blob
+# it sends, and these are the old blobs' own values: fake fixtures, and decision references, which are published with the history.
+clock-time bridge/Program.cs [01]\d/[0-3]\d/2001 - 12:\d\d  # the log parser's sample lines before bridge/Tests/: made-up dates and times
+steam64 bridge/Program.cs 76561197960278073  # a self-test value before bridge/Tests/: account 12345 as a SteamID64
+clock-time bridge/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures before bridge/Tests/: made-up times, noon or midnight
+steam64 bridge/SelfTestCheck.cs 76561190000000001  # a self-test value before bridge/Tests/: below the individual-account range, no account
+steam64 bridge/SelfTestSettings.cs 76561197960278073  # a self-test value before bridge/Tests/: account 12345 as a SteamID64
+clock-time server/test_update_watch.py 2001-01-01 12:\d\d|[01]\d/[0-3]\d/2001 - 12:\d\d|10/04/2026 - (?:07:0\d|15:00)|2026-10-0[45] (?:06:59|07:[03]0|08:59|09:00|12:00|15:00)|2026-10-13 03:20  # the Python watcher's tests, deleted at the C# port: made-up log dates and the restart scenarios' designed clocks
+timezone server/test_update_watch.py Europe/Paris  # the Python watcher's tests: a zone with summer time for the clock changes, not the deployment's
+timezone server/test_workshop_sync.py Europe/Paris  # the Python sync's tests: the same
+token server/test_workshop_sync.py 0123456789ABCDEF0123456789ABCDEF  # the made-up Web API key, in the Python sync's tests
+clock-time server/update-watch.py 07:00 local  # the Python watcher's words for its daily restart's default time, which the docs name too
+owner-ref plugin/CatchUp/*.cs the owner's (?:42 d|70|91|2026)  # decision references in CatchUp's older versions (42 d, 70, 91, the switch of 2026-11-03)
+owner-ref plugin/CatchUp/SelfTest/Program.cs the owner's (?:42 d|70|91)  # the same decisions, in CatchUp's self-test's older versions
+owner-ref docs/reference.md the owner's (?:rules|47 a|45 a|43 c|42 d|40 c|27|2026)  # decision references in the reference's older versions
+owner-ref AGENTS.md the owner's 94 b  # a decision reference in an older AGENTS.md (the screenshots' map previews)
