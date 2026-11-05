@@ -147,6 +147,7 @@ public sealed class CatchUpModule
         boostedLastLife.Clear();
         recalculation = false; // a frame queued before the map change may never come
         rules = null;
+        nextCvarRead = 0; // the game's clock starts over with a map: an old map's deadline would leave its rules (free-for-all, headshots only) in force for as long as it ran
     }
 
     void OnPutInServer(int slot)
