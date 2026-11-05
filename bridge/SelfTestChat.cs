@@ -143,7 +143,7 @@ static partial class Program
             && ChatCommands.Parse("!maps") is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Typed: "" }
             && ChatCommands.Parse("!top") is { Kind: ChatCommands.Kind.Top, Arg: "Maps", Typed: "!top" }
             && Taught(ChatCommands.Parse("!top")) == "You typed !top - Ran !maps, sorted by likes");
-        Check("Chat: !rtv and !change are the board's Next, which is what also makes them a vote to skip on somebody's map",
+        Check("Chat: !rtv and !change are the board's Next: they start a vote",
             ChatCommands.Parse("!rtv") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next" } && ChatCommands.Parse("!change") is { Kind: ChatCommands.Kind.Bridge, Arg: "next" });
 
         // ---- each fun setting's own word ----

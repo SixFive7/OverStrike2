@@ -10,7 +10,7 @@ static partial class Program
         var savedModes = ModeMaps.ToDictionary(kv => kv.Key, kv => kv.Value);
         string dir;
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-match-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-match-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-match-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         var clock = new DateTime(2026, 11, 5, 19, 0, 0, DateTimeKind.Utc);
         var timers = new List<(DateTime Due, long Seq, Action Work)>();
         long seq = 0;

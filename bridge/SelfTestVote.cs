@@ -58,7 +58,7 @@ static partial class Program
         var (realSend, realAfter, realNow, realStateDir, realHud, realProbe) = (Send, After, Now, StateDir, HudActive, ModeProbeEnabled);
         string dir;
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-vote-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-vote-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-vote-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         StateDir = dir; ModeMapsDir = dir;
         var clock = new DateTime(2026, 11, 1, 20, 0, 0, DateTimeKind.Utc);
         Now = () => clock;

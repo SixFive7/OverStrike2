@@ -13,7 +13,7 @@ static partial class Program
         var savedModes = ModeMaps.ToDictionary(kv => kv.Key, kv => kv.Value);
         string dir;
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-rq-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-rq-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-rq-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         try
         {
             var clock = new DateTime(2026, 11, 3, 18, 0, 0, DateTimeKind.Utc);
@@ -67,7 +67,7 @@ static partial class Program
             Check("...and a state.json from before it reads: its random queues and the new-maps setting are left aside",
                 JsonSerializer.Deserialize("""{"newMaps": "half", "randomQueues": {"armsrace-new": [{"key": "1", "weight": 1, "big": false}]}, "roundMinutes": 60}""", Ctx.Default.State) is { Stock.Count: 0, RoundMinutes: 60 });
 
-            // ---- queues.json: the watcher's job 9 reads "requested" first, then the lanes under the four keys it and the keep set know ----
+            // ---- queues.json: the watcher reads "requested" first, then the lanes under the four keys it and the keep set know ----
             var file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
             Check("queues.json: version 1, the four keys the watcher and the keep set read - Arms Race's lane under both of its old keys - the length, a time, nothing requested without a vote",
                 file.Version == 1 && file.Length == StockSize && file.Random.Keys.SequenceEqual(["armsrace-new", "armsrace-original", "deathmatch", "wingman"])
@@ -197,7 +197,7 @@ static partial class Program
             Ballot.Choices["[U:1:9]"] = voted.N;
             ExportQueues();
             file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
-            Check($"queues.json names the open ballot's {rolled.Count} Workshop maps as 'requested' (job 9 fetches those first), the one with votes first; no hold for the vote",
+            Check($"queues.json names the open ballot's {rolled.Count} Workshop maps as 'requested' (the watcher fetches those first), the one with votes first; no hold for the vote",
                 file.Requested.Count == rolled.Count && file.Requested[0] == Key(voted.Map!) && rolled.All(o => file.Requested.Contains(Key(o.Map!))) && HoldWhy() == null);
             Ballot = null;
             ExportQueues();

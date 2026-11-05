@@ -78,7 +78,7 @@ static partial class Program
         // ---- the chat commands (ChatCommands.cs) ----
         var parsed = ChatCommands.All.Select(c => (c, ChatCommands.Parse(c.Word + (c.Args.StartsWith('<') ? c.Word switch
         {
-            "!play" => " 12", "!vote" => " 2", "!nades" => " on", "!catchup" => " on", "!time" => " 10", "!newmaps" => " half", _ => " x",
+            "!play" => " 12", "!vote" => " 2", "!nades" => " on", "!catchup" => " on", "!time" => " 10", _ => " x",
         } : "")))).ToList();
         Check($"Chat: every one of the {ChatCommands.All.Length} commands parses as itself (none Unknown or a usage line), words unique",
             parsed.All(x => x.Item2.Kind is not (ChatCommands.Kind.Unknown or ChatCommands.Kind.None or ChatCommands.Kind.Usage))

@@ -180,7 +180,7 @@ static partial class Program
 
         // ---- the bridge's own loop: the file read when it changes, the block rebuilt, the website's files written; a bad file keeps the last good one ----
         var saved = (StateDir, Now, SyncOn, SyncDoc, SyncStamp, SyncReadAt, SyncProblem, DashText, DashVersion, dashBody, webWritten, webPage, webWrittenAt, syncTicks, ReadyAt, ReadyIds);
-        var dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-dash-{Environment.ProcessId}");
+        var dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-dash-{Environment.ProcessId}");
         try
         {
             Directory.CreateDirectory(dir);

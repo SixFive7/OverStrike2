@@ -13,7 +13,7 @@ static partial class Program
         HudActive = () => false; // the HUD plugin is not polling unless a test says so
         string dir;
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-state-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-selftest-{Environment.ProcessId}"); Directory.CreateDirectory(dir); } // the image's /app is not writable
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-selftest-{Environment.ProcessId}"); Directory.CreateDirectory(dir); } // the image's /app is not writable
         StateDir = dir;
         var clock = new DateTime(2026, 10, 4, 20, 0, 0, DateTimeKind.Utc);
         Now = () => clock;

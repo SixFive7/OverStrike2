@@ -173,7 +173,7 @@ static partial class Program
         Check($"HUD check: every chat line fits {HudCheck.LineMax} characters (longest {lines.Max(l => l.Length)}), the warning names the seconds and the link",
             lines.All(l => l.Length <= HudCheck.LineMax) && HudCheck.Warning(Item, 15, false)[0].Contains("15 s") && HudCheck.Warning(Item, 15, false)[1].Contains(HudCheck.ItemUrl(Item))
             && HudCheck.Warning(Item, 15, true)[0].Contains("nobody is disconnected"));
-        Check("HUD check: the lines say how to open the window now (TAB + E) and never name a chat command - typed commands are gone since v3.0.0",
+        Check("HUD check: the lines say how to open the window now (TAB + E) and never name a chat command",
             HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
             && lines.Append(reason).All(l => !l.Contains("!gg") && !l.Contains("/gg") && !l.Contains("!info")));
         Check("HUD check: a release or a content looks like v2.1.1 or v14.5.27, and the old form is not one",
@@ -246,7 +246,7 @@ static partial class Program
         var (savedMode, savedDir, savedNow, savedSend, savedS) = (HudCheckMode, StateDir, Now, Send, S);
         string dir; // Save() writes state.json: into a scratch folder, as the queue tests do (the image's /app is not writable)
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-check-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-check-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-check-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         try
         {
             StateDir = dir;

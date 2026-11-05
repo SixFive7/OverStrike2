@@ -201,7 +201,7 @@ static partial class Program
         var lt = HudView.Texts(free, leading);
         var lc = HudView.Classes(free, leading);
         string LT(string id) => lt.Single(t => t.Id == id).Text;
-        Check("Board and live column: the vote in one line, its leading cards in the old queue rows (there is no queue); outside a vote how to call one, or the wait",
+        Check("Board and live column: the vote in one line, its leading cards in the rows below it; outside a vote how to call one, or the wait",
             HudView.VoteLine(null) == "No vote on: Play on a map, or Start a vote" && HudView.VoteLine(leading) == "The vote is on: 20 s left  ·  3 of 3 voted"
             && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("gg_b_queue") == HudView.VoteLine(leading)
             && LT("gg_w_n1") == "#44 aim_aim" && LT("gg_w_nw1") == "2 votes" && LT("gg_w_n2") == "Keep playing this map" && LT("gg_w_nw2") == "1 vote" && LT("gg_w_n3") == ""
@@ -249,7 +249,7 @@ static partial class Program
             S = new State(); Pending = null; ClearNotices();
             Ingest("10/21/2026 - 12:00:00.000 - \"Remy<2><[U:1:12345678]><CT>\" say \"!map 12\"", null);
             Ingest("10/21/2026 - 12:00:01.000 - \"Remy<2><[U:1:12345678]><CT>\" say \"!next\"", null);
-            Check("A !map or !next typed in chat does nothing at the bridge: no change, no note, no news (the plugin answers it with one private hint)",
+            Check("A !map or !next typed in chat does nothing at the bridge: no change, no note, no news (chat commands are the plugin's)",
                 Pending == null && Told.Count == 0 && NoteFor.Count == 0);
             Tell("[U:1:1001]", "only Alice"); Announce("Everybody");
             var h = new HudState();

@@ -13,11 +13,11 @@
 //    watcher downloads between votes. An entry no longer eligible, on its list, tested as it is now, or with its too-big mark changed is dropped;
 //    so is one not on the disk after NotReadyDropHours while the reports keep coming; one whose votes went down since its roll stays with the
 //    odds the vote left it (kept with probability weight now / weight then, once per drop).
-//  - queues.json (QueuesFile, version 1), for the watcher's job 9, os2-server organize and the Workshop sync: "requested", the Workshop
-//    maps on the open ballot, the most votes first - job 9 downloads those before anything else; "random", the lanes under the keys the watcher
+//  - queues.json (QueuesFile, version 1), for the watcher's background downloads, os2-server organize and the Workshop sync: "requested", the Workshop
+//    maps on the open ballot, the most votes first - the watcher downloads those before anything else; "random", the lanes under the keys the watcher
 //    and the keep set read: Arms Race's under both "armsrace-new" and "armsrace-original" (the keep set wants each of its four at least 10 long),
 //    "deathmatch" and "wingman". Written atomically, only on change.
-//  - The watcher's report (POST /ready/<secret>): "gg-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while job 9
+//  - The watcher's report (POST /ready/<secret>): "gg-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
 //    downloads - "current\t<id>\t<percent>\t<title>" (a whole percent 0-100, or "-" before any progress; the title last, the rest of the line): the
 //    background download, which the Sync page and the website show. No fresh report for ReadyFreshMinutes: no stock entry counts as on the disk,
 //    the kept maps still do. Its answer says "; hold: <why>" while a change counts down or a map loads - Steam's client runs one Workshop download
@@ -49,7 +49,7 @@ static partial class Program
     static string QueuesWritten = "";           // queues.json as last written, without its time: written again only when it changes
     static DateTime QueueTickAt;
 
-    /// <summary>The background download job 9 runs now, by the watcher's last report: the map, its progress (null before any) and its title.</summary>
+    /// <summary>The background download running now, by the watcher's last report: the map, its progress (null before any) and its title.</summary>
     public sealed record Download(string Id, int? Percent, string Title, DateTime At);
     static Download? Background;
 
@@ -185,8 +185,8 @@ static partial class Program
 
     // ---- queues.json ----
 
-    /// <summary>/data/queues.json: the Workshop maps on the open ballot as "requested", the most votes first - job 9 downloads those first, so they
-    /// start downloading the moment the vote opens - and the stock's lanes as "random", in the order job 9 takes them. Version 1; written atomically,
+    /// <summary>/data/queues.json: the Workshop maps on the open ballot as "requested", the most votes first - the watcher downloads those first, so they
+    /// start downloading the moment the vote opens - and the stock's lanes as "random", in the order the watcher takes them. Version 1; written atomically,
     /// only on change.</summary>
     static void ExportQueues()
     {
@@ -260,7 +260,7 @@ static partial class Program
 sealed record StockEntry(string Key, double Weight, bool Big, bool Fresh, DateTime At);
 
 /// <summary>/data/queues.json, version 1 (RandomQueue.cs): the stock's lanes by the four keys the watcher and the keep set read - Workshop ids - and
-/// the Workshop ids on the open ballot ("requested", the name job 9 reads first).</summary>
+/// the Workshop ids on the open ballot ("requested", the name the watcher reads first).</summary>
 sealed class QueuesFile
 {
     public int Version { get; set; }
