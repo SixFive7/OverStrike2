@@ -696,15 +696,30 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         }
         var keep = KeepSetNow();
         var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Requested).Concat(keep.Queues.Values.SelectMany(q => q)).Concat(handovers));
+        // What Steam downloaded since the last run is still a real folder in content/730: the real run moves it into its type's folder
+        // first, so it counts here as if it had been moved.
+        var fresh = Directory.Exists(content)
+            ? Directory.EnumerateDirectories(content).Select(d => Path.GetFileName(d)!).Where(n => Digits(n) && !IsLink(Path.Combine(content, n))).OrderBy(x => x, StringComparer.Ordinal).ToList()
+            : [];
+        foreach (var id in fresh)
+            where.TryAdd(id, [Path.Combine(content, id)]);
         var onDisk = where.ToDictionary(kv => kv.Key, kv => sizes.GetValueOrDefault(kv.Key));
         var summary = Summary(keep, onDisk, ListedSizes());
         var gone = Unkept(mapsDir, keep.All, protect);
+        foreach (var id in fresh)
+        {
+            var kind = types.TryGetValue(id, out var t) ? t.Kind : "other";
+            if (DeleteTypes.Contains(kind) && !keep.All.Contains(id) && !protect.Contains(id) && !gone.Any(g => g.Id == id))
+                gone.Add((kind, id, Path.Combine(content, id)));
+        }
+        gone = [.. gone.OrderBy(g => Array.IndexOf(DeleteTypes, g.Kind)).ThenBy(g => g.Id, StringComparer.Ordinal)];
         LogKeep(keep, summary);
         WriteKeepFile(keep, summary);
         var rows = gone.Select(g => (g.Kind, g.Id, Title: RowTitle(types, g.Id, g.Path), Mb: sizes.GetValueOrDefault(g.Id) / 1000000)).ToList();
         var listed = WriteList(rows, "observe");
         var would = config.MapsDelete == "on" && keep.Problems.Count == 0 ? "would delete them" : config.MapsDelete != "on" ? $"maps.delete is {config.MapsDelete}" : "would refuse: " + string.Join("; ", keep.Problems);
-        var line = $"{gone.Count} map(s) outside the keep set ({Gib(gone.Sum(g => (double)sizes.GetValueOrDefault(g.Id)))}), {would}; {handovers.Count} complete hand-over(s); the list: {listed}";
+        var line = $"{gone.Count} map(s) outside the keep set ({Gib(gone.Sum(g => (double)sizes.GetValueOrDefault(g.Id)))}), {would}; {fresh.Count} new download(s) counted as moved in; "
+                   + $"{handovers.Count} complete hand-over(s); the list: {listed}";
         log.Line("maps folder (dry run): " + line);
         return line;
     }

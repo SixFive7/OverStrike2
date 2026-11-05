@@ -100,9 +100,18 @@ public sealed class ServerConfig
             Port = s.Server.Port,
             RconPassword = s.Server.RconPassword,
             ApiGap = s.Steam.ApiGapSeconds,
+            KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),   // the bridge's stock lanes are the keep set's queues
         };
         if (c.RconPassword.Length == 0 && env("CS2_RCONPW") is { Length: > 0 } pw)
             c.RconPassword = pw;                                // the image's own variable: it needs it anyway
+        if (c.HudAddon.Length == 0)                             // the plugin's own variable, the new name first: one release of both
+            foreach (var name in new[] { "OS2_HUD_ADDON", "GUNGAME_HUD_ADDON" })
+                if ((env(name) ?? "").Trim() is { Length: > 0 } id)
+                {
+                    c.HudAddon = id;
+                    c.BootWarnings.Add($"hud.addon is empty in the settings: the image's {name} ({id}) is used");
+                    break;
+                }
         c.Bridge = BridgeEndpoint(s.Bridge.Url, s.Bridge.Secret, env("CS2_LOG_HTTP_URL"));
         foreach (var p in s.Problems.Concat(s.Warnings).Where(x => !x.StartsWith("sync.", StringComparison.Ordinal)))   // the sync's keys are its own business
             c.BootWarnings.Add("settings: " + p);

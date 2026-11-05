@@ -334,7 +334,11 @@ public sealed partial class Watch
                 updated.RemoveAt(i--);
             }
             else
+            {
+                if (tries == 0)
+                    Log.Line($"the bridge did not take the after-restart note ({body.Split('\t')[2]}: {reply}) - tried again every {UpdatedRetry:0} s, up to {UpdatedTries} times");
                 updated[i] = (body, tries + 1, now + UpdatedRetry);
+            }
         }
     }
 

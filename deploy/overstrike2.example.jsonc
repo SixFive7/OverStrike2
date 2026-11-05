@@ -29,11 +29,12 @@
     "port": 8080,
     "secret": "env:OVERSTRIKE2_BRIDGE_SECRET",   // letters and digits; the game image's CS2_LOG_HTTP_URL is <url>/log/<secret>
     "admins": [],                          // SteamID64s of the players who may use the admin commands
+    "discoveryStock": 10,                  // per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
   },
   "hud": {
     "addon": "3823993566",                 // the Over Strike 2 HUD on the Steam Workshop; "" for no HUD
-    "tab": "down",
-    "check": "dryrun",
+    "tab": "down",                         // down: TAB puts the board down while held; off
+    "check": "warn",                       // off, warn, or enforce (disconnect a player whose game has not loaded the HUD)
   },
   "restarts": {
     "daily": "07:00",                      // local time (the containers' TZ), only while nobody is on; "off" for none

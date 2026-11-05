@@ -129,6 +129,17 @@ static class WorkshopTests
         ln.Started("905", 600.0);
         ln.Step(604.0, 2, new HashSet<string> { "906" });
         Check($"line: a map a player waits for behind a background download says so ({sent[^1]})", sent[^1].Contains("finishing the background download of Workshop item 906 first - then Workshop item 905"));
+        ln.Finished("905");
+        ln.ConsoleLine("11/05 [Workshop] Downloading 907 (0 bytes / 335.80 MB)", 700.0);
+        ln.Step(704.0, 2, new HashSet<string> { "906" });
+        Check($"line: the engine's own progress line, nothing of it yet: still behind the background download ({sent[^1]})",
+              sent[^1].Contains("finishing the background download of Workshop item 906 first - then Workshop item 907"));
+        ln.ConsoleLine("11/05 [Workshop] Downloading 907 (167.90 MB / 335.80 MB)", 705.0);
+        ln.Step(707.0, 2, new HashSet<string> { "906" });
+        Check($"line: the engine's own progress, exact - not the lists' size or the staging folder ({sent[^1]})",
+              sent[^1].Contains("Server is downloading Workshop item 907: 50 percent (160 MB of 320 MB)"));
+        ln.ConsoleLine("11/05 [Workshop] Updating 907: state 5", 708.0);
+        Check("line: the engine's own download ends with its state 5", ln.ActiveDownloads.Count == 0);
     }
 
     /// <summary>P1. the Web API door: the update check, the watcher's only Web API call - each at least the gap after the last one ended.</summary>

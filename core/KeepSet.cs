@@ -11,8 +11,12 @@ public sealed record KeepRules
     public double RatingsMaxAge { get; init; } = 3 * 86400;      // ratings older than this (the sync fetches them daily): nothing deleted
     public double RatedShare { get; init; } = 0.9;               // the ratings must score this share of each mode's playable maps
     public int MinTop { get; init; } = 50;                       // a mode's list shorter than this, with more playable maps listed: refused
-    public int MinQueue { get; init; } = 10;                     // each random queue must hold this many entries (the bridge keeps 20)
+    public int MinQueue { get; init; } = 10;                     // each random queue must hold this many entries (the bridge's stock lanes)
     public static readonly KeepRules Default = new();
+
+    /// <summary>The rules for a bridge whose discovery stock (bridge.discoveryStock) is that long: its lanes are the queues, so a queue
+    /// need not be longer than the stock - and with the stock off (0) the queues are empty and that is no reason to refuse.</summary>
+    public static KeepRules ForStock(int discoveryStock) => Default with { MinQueue = Math.Min(Default.MinQueue, Math.Max(0, discoveryStock)) };
 }
 
 /// <summary>What the keep set holds, and why it is not to be trusted with a deletion (Problems).</summary>

@@ -249,9 +249,11 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         Files.WriteAtomic(path, text, mode);
     }
 
-    /// <summary>The in-game HUD's switch, hud.addon - the Workshop id of the published HUD addon. Set: MultiAddonManager is loaded and hands
-    /// that addon to every client, and the plugin draws the HUD instead of its centre panel. Empty: Metamod does not load MultiAddonManager
-    /// at all (its files stay on disk).</summary>
+    /// <summary>The in-game HUD's switch, hud.addon - the Workshop id of the published HUD addon. Set: MultiAddonManager is loaded, the server
+    /// mounts that addon (mm_extra_addons), so every map change - a changelevel to an official map included - carries it to every client, and
+    /// the plugin draws the HUD instead of its centre panel. A client-only addon (mm_client_extra_addons) dropped the HUD at every official-map
+    /// change; the mounted one keeps it, with one reconnect per change, at about 5 MiB of the server's memory. Empty: Metamod does not load
+    /// MultiAddonManager at all (its files stay on disk).</summary>
     public bool Hud()
     {
         var vdf = Path.Combine(P.Csgo, "addons", "metamod", "multiaddonmanager.vdf");
@@ -290,11 +292,11 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
             Directory.CreateDirectory(Path.GetDirectoryName(cfg)!);
             File.WriteAllText(cfg, $"""
                 // Written by os2-server install before every engine start, from hud.addon in the settings file. Edits here do not survive.
-                mm_extra_addons ""                  // The server mounts nothing extra: the HUD layout lives on the clients only.
-                mm_client_extra_addons "{id}"        // The HUD addon, downloaded by every client on its first connect.
+                mm_extra_addons "{id}"              // The HUD addon, mounted by the server: every map change, an official map's too, carries it to every client.
+                mm_client_extra_addons ""           // Nothing for the clients alone (a client-only addon is lost at a changelevel to an official map).
                 mm_extra_addons_timeout 10
                 mm_addon_connection_timeout 0       // Never kick a client for taking long: a first download of a big workshop map can take minutes.
-                mm_addon_mount_download 0
+                mm_addon_mount_download 0           // The server's own copy is not downloaded again at a mount; clients use their own Steam copy.
                 mm_cache_clients_with_addons 1      // A client that has the addon is not sent it again on every map change (one reconnect less each time).
                 mm_cache_clients_duration 0         // ...for the life of the server process.
                 mm_block_disconnect_messages 0      // On, 1.6.1 crashed clients (MultiAddonManager #77); off costs a "left the game" line while someone downloads.

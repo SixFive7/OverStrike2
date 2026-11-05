@@ -226,5 +226,15 @@ with tempfile.TemporaryDirectory() as dest:
           all(os.path.isfile(os.path.join(os2.REPO, "server", f)) for f in server) and "update-watch.py" in server and "workshop-sync.py" in server
           and ("keepset.py" in server) == os.path.isfile(os.path.join(os2.REPO, "server", "keepset.py")))
 
+import plugin as P  # noqa: E402
+csproj = ('<None Include="..\\CatchUp\\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />\n'
+          '<EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />\n'
+          '<None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />\n<None Remove="hud\\**" />\n')
+check("plugin: only the config files the project declares ship - blocked.txt and the linked catchup.json, never a stale file of an older build",
+      P.declared_content(csproj) == ["blocked.txt", "catchup.json"])
+with open(os.path.join(P.PROJECT, P.NAME + ".csproj"), encoding="utf-8") as f:
+    real = P.declared_content(f.read())
+check("plugin: the real project declares blocked.txt and catchup.json (%s)" % ", ".join(real), real == ["blocked.txt", "catchup.json"])
+
 print("\n%d failure(s)" % len(FAILS))
 sys.exit(1 if FAILS else 0)

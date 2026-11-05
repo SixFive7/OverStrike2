@@ -332,10 +332,12 @@ public sealed class Settings
         }, get);
 
     static Key Choice(string path, Part readers, string def, string[] choices, string replaces, string doc, Func<Settings, string> get,
-                      Action<Settings, string> set) =>
+                      Action<Settings, string> set, Dictionary<string, string>? aliases = null) =>
         new(path, readers, "string", def, replaces, doc, false, (s, n, c) =>
         {
             var t = Text(n, c).Trim().ToLowerInvariant();
+            if (aliases != null && aliases.TryGetValue(t, out var meant))
+                t = meant;                                   // an old name of a choice
             if (!choices.Contains(t))
                 throw new InvalidOperationException($"'{Clip(t)}' is not one of {string.Join(", ", choices)}");
             set(s, t);
@@ -421,8 +423,8 @@ public sealed class Settings
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
         Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, unless somebody is queued.",
             s => s.Bridge.RandomOnStart, (s, v) => s.Bridge.RandomOnStart = v),
-        Int("bridge.randomQueue", Part.Bridge, 20, 1, 100, "RANDOM_QUEUE", "How many random picks each queue rolls ahead.",
-            s => s.Bridge.RandomQueue, (s, v) => s.Bridge.RandomQueue = v),
+        Int("bridge.discoveryStock", BS, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
+            s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
         Int("bridge.changeDelaySeconds", Part.Bridge, 8, 0, 120, "CHANGE_DELAY_SECONDS", "The countdown before a map change.",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),
         Int("bridge.restartCooldownSeconds", Part.Bridge, 300, 0, 86400, "RESTART_COOLDOWN_SECONDS", "The least time between two !restart requests.",
@@ -431,22 +433,18 @@ public sealed class Settings
             s => s.Bridge.GuideOnJoin, (s, v) => s.Bridge.GuideOnJoin = v),
 
         // hud: the in-game menu
-        Str("hud.addon", Part.All, "", "GUNGAME_HUD_ADDON", "The Workshop id of the HUD addon every client downloads; empty: no HUD (a text panel instead).",
+        Str("hud.addon", Part.All, "", "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead).",
             s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, v => v.Length == 0 || Digits(v), "a Workshop id"),
-        Choice("hud.tab", Part.Bridge, "down", ["off", "menu", "on", "down", "hold", "window"], "HUD_TAB", "The TAB chord: what holding TAB does with the board.",
+        Choice("hud.tab", Part.Bridge, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
             s => s.Hud.Tab, (s, v) => s.Hud.Tab = v),
-        Choice("hud.check", Part.Bridge, "off", ["off", "dryrun", "enforce"], "HUD_CHECK", "The HUD check: warn, then disconnect a player not seen clicking in the HUD of this release.",
-            s => s.Hud.Check, (s, v) => s.Hud.Check = v),
+        Choice("hud.check", Part.Bridge, "off", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them. dryrun, its old name, still means warn.",
+            s => s.Hud.Check, (s, v) => s.Hud.Check = v, new() { ["dryrun"] = "warn" }),
         Bool("hud.itemPage", Part.Plugin, true, "HUD_ITEM_PAGE", "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
             s => s.Hud.ItemPage, (s, v) => s.Hud.ItemPage = v),
 
         // plugin: the game server's own layer
         Bool("plugin.enabled", Part.Server, true, "CS2_PLUGINS", "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
             s => s.Plugin.Enabled, (s, v) => s.Plugin.Enabled = v),
-        Bool("plugin.grenadeWin", Part.Plugin, true, "GUNGAME_GRENADE_WIN", "Arms Race: a grenade kill on the last level wins the match.",
-            s => s.Plugin.GrenadeWin, (s, v) => s.Plugin.GrenadeWin = v),
-        Bool("plugin.grenadeWinKeepKnife", Part.Plugin, false, "GUNGAME_GRENADE_WIN_KEEP_KNIFE", "Hand out the grenade on the last level but leave the knife in play.",
-            s => s.Plugin.GrenadeWinKeepKnife, (s, v) => s.Plugin.GrenadeWinKeepKnife = v),
 
         // restarts: the restart watcher
         Time("restarts.daily", Part.Server, "07:00", "CS2_RESTART_AT, SYNC_DAILY_RESTART", "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
@@ -676,7 +674,7 @@ public sealed class BridgeSection
     public List<string> Admins { get; set; } = [];
     public List<string> OfficialMaps { get; set; } = ["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"];
     public bool RandomOnStart { get; set; } = true;
-    public int RandomQueue { get; set; } = 20;
+    public int DiscoveryStock { get; set; } = 10;
     public int ChangeDelaySeconds { get; set; } = 8;
     public int RestartCooldownSeconds { get; set; } = 300;
     public bool GuideOnJoin { get; set; } = true;
@@ -693,8 +691,6 @@ public sealed class HudSection
 public sealed class PluginSection
 {
     public bool Enabled { get; set; } = true;
-    public bool GrenadeWin { get; set; } = true;
-    public bool GrenadeWinKeepKnife { get; set; }
 }
 
 public sealed class RestartsSection

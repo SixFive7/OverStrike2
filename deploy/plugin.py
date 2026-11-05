@@ -13,6 +13,7 @@ plugin compiles in).
 """
 import argparse
 import os
+import re
 import subprocess
 import sys
 
@@ -25,11 +26,24 @@ SELFTEST = os.path.join(os2.REPO, "plugin", NAME + ".SelfTest")
 OUT = os.path.join(PROJECT, "bin", "Release", "net10.0")
 
 
+def declared_content(csproj_text):
+    """The config files the project copies beside the DLL - its <None Include="..." [Link="..."] CopyToOutputDirectory="..."> items, by
+    the name they get there (blocked.txt; catchup.json, linked from the CatchUp module). Only these ship: a file an older build left in
+    bin/Release (blocked-deathmatch.txt and blocked-wingman.txt, once) is no part of the plugin any more."""
+    names = set()
+    for m in re.finditer(r"<None\s+([^>]*?CopyToOutputDirectory=\"(?:PreserveNewest|Always)\"[^>]*?)/?>", csproj_text):
+        attrs = dict(re.findall(r"(\w+)=\"([^\"]*)\"", m.group(1)))
+        if attrs.get("Include"):
+            names.add(attrs.get("Link") or os.path.basename(attrs["Include"].replace("\\", "/")))
+    return sorted(names)
+
+
 def ship_list():
-    """The DLL and its .pdb, and every config file the build copies beside it (blocked.txt, a module's .json): the project's own
-    content files. Not the .deps.json or the runtimeconfig - CounterStrikeSharp needs neither."""
-    content = sorted(f for f in os.listdir(OUT) if f.endswith((".txt", ".json")) and not f.endswith((".deps.json", ".runtimeconfig.json")))
-    return [NAME + ".dll", NAME + ".pdb"] + content
+    """The DLL and its .pdb, and the config files the project declares (declared_content) as the build put them beside it. Not the
+    .deps.json or the runtimeconfig - CounterStrikeSharp needs neither."""
+    with open(os.path.join(PROJECT, NAME + ".csproj"), encoding="utf-8") as f:
+        declared = declared_content(f.read())
+    return [NAME + ".dll", NAME + ".pdb"] + [n for n in declared if os.path.exists(os.path.join(OUT, n))]
 BELOW_NORMAL, NO_WINDOW = 0x00004000, 0x08000000
 
 

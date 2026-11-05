@@ -65,6 +65,8 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
     public const double Forget = 1800;      // a download with no sign of life for this long is over, whatever it never said
 
     [GeneratedRegex(@"\[Workshop\] Updating (\d+): state (\d+)")] private static partial Regex EngineState();
+    // The engine's own progress of a download it waits for, many times a second, in decimal units: "(0 bytes / 335.80 MB)".
+    [GeneratedRegex(@"\[Workshop\] Downloading (\d+) \(([\d.]+) (bytes|KB|MB|GB) / ([\d.]+) (bytes|KB|MB|GB)\)")] private static partial Regex EngineProgress();
     [GeneratedRegex(@"\[Workshop\] Loading custom game ""(\d+)""")] private static partial Regex EngineLoading();
     [GeneratedRegex(@"\[MultiAddonManager\] Addon download started for (\d+)")] private static partial Regex MamStarted();
     [GeneratedRegex(@"\[MultiAddonManager\] Downloading addon (\d+): ([\d.]+)/([\d.]+) MB")] private static partial Regex MamProgress();
@@ -119,6 +121,14 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             Finished(loading.Groups[1].Value);
             return;
         }
+        if (EngineProgress().Match(line) is { Success: true } ep)
+        {
+            var e = Started(ep.Groups[1].Value, now);
+            e.Engine = true;                         // the engine itself waits for it: a map change does
+            if (Bytes(ep.Groups[2].Value, ep.Groups[3].Value) is { } done && Bytes(ep.Groups[4].Value, ep.Groups[5].Value) is { } total && total > 0)
+                (e.Done, e.Total) = (done, total);   // exact, where the staging folder and the lists' sizes are guesses
+            return;
+        }
         if (EngineState().Match(line) is { Success: true } state)
         {
             if (state.Groups[2].Value == "5")
@@ -148,6 +158,10 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         if (MamFailed().Match(line) is { Success: true } failed)
             Failed(failed.Groups[1].Value, failed.Groups[2].Value, now);
     }
+
+    static double? Bytes(string value, string unit) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)
+            ? v * unit switch { "KB" => 1e3, "MB" => 1e6, "GB" => 1e9, _ => 1 } : null;
 
     /// <summary>{id: (name, bytes)} from the bridge's lists, read again once a minute while a line is due.</summary>
     public Dictionary<string, (string Name, long Bytes)> Lookup(double now)

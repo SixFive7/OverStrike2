@@ -102,9 +102,11 @@ static class InstallTests
         var cfg = Path.Combine(csgo, "cfg", "multiaddonmanager", "multiaddonmanager.cfg");
         Check("hud: MultiAddonManager not installed: no vdf, and it says so", !install.Hud() && !File.Exists(vdf) && lines[^1].Contains("MultiAddonManager is not installed"));
         install.Component("multiaddonmanager", Install.MamVersion, Install.MamUrl, "tar");
-        Check("hud: on - MultiAddonManager loaded, every client gets the HUD addon",
-              install.Hud() && File.ReadAllText(vdf).Contains("addons/multiaddonmanager/bin/multiaddonmanager") && File.ReadAllText(cfg).Contains("mm_client_extra_addons \"3823993566\"")
-              && File.ReadAllText(cfg).Contains("mm_addon_connection_timeout 0") && !File.ReadAllText(cfg).Contains('\r'));
+        Check("hud: on - MultiAddonManager loaded, the server mounts the HUD addon, so every map change carries it to every client",
+              install.Hud() && File.ReadAllText(vdf).Contains("addons/multiaddonmanager/bin/multiaddonmanager") && File.ReadAllText(cfg).Contains("mm_extra_addons \"3823993566\"")
+              && File.ReadAllText(cfg).Contains("mm_client_extra_addons \"\"") && File.ReadAllText(cfg).Contains("mm_addon_mount_download 0")
+              && File.ReadAllText(cfg).Contains("mm_cache_clients_with_addons 1") && File.ReadAllText(cfg).Contains("mm_addon_connection_timeout 0")
+              && !File.ReadAllText(cfg).Contains('\r'));
         config.HudAddon = "not-an-id";
         Check("hud: a value that is no Workshop id: not delivered, and it says so", !install.Hud() && !File.Exists(vdf));
         config.HudAddon = "";
@@ -152,6 +154,17 @@ static class InstallTests
               !File.ReadAllText(Path.Combine(csgo, "gameinfo.gi")).Contains("metamod") && lines.Any(l => l.StartsWith("SUMMARY: plugin layer off"))
               && File.Exists(Path.Combine(csgo, "addons", "metamod", ".pre.sh-installed-" + Install.MetamodVersion)));
 
+        var fromEnv = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null),
+                                        n => n switch { "OS2_HUD_ADDON" => "3823993566", "GUNGAME_HUD_ADDON" => "1111111111", _ => null });
+        var oldOnly = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), n => n == "GUNGAME_HUD_ADDON" ? "1111111111" : null);
+        var fromFile = ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"2222222222\" } }", Part.Server, _ => null),
+                                         n => n == "OS2_HUD_ADDON" ? "3823993566" : null);
+        Check("hud: with no hud.addon in the settings, the image's OS2_HUD_ADDON, then the old GUNGAME_HUD_ADDON; the settings first",
+              fromEnv.HudAddon == "3823993566" && oldOnly.HudAddon == "1111111111" && fromFile.HudAddon == "2222222222"
+              && fromEnv.BootWarnings.Any(w => w.Contains("OS2_HUD_ADDON")));
+        Check("keep: the watcher's keep set follows the bridge's discovery stock (bridge.discoveryStock)",
+              ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"bridge\": { \"discoveryStock\": 4 } }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 4
+              && ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 10);
         Bridge();
         Launcher(root);
     }

@@ -8,8 +8,8 @@ variables where the image needs them.
 
 | Command | What it does |
 |---|---|
-| `os2-server install --from <file>` | Before every engine start: the plugin layer (Metamod, CounterStrikeSharp and MultiAddonManager at their pinned versions, the `gameinfo.gi` search path, the plugins copied in), the HUD addon's delivery, the rotation of an overgrown `console.log`, the maps folder, and a record of what it put in place. `<file>` is the program as shipped, which the watcher watches for a new version. |
-| `os2-server organize [--dry-run]` | The maps folder, the hand-over and the deletion (below). `--dry-run` changes nothing and writes its list and `keep.json` into its own state folder. |
+| `os2-server install --from <file>` | Before every engine start: the plugin layer (Metamod, CounterStrikeSharp and MultiAddonManager at their pinned versions, the `gameinfo.gi` search path, the plugins copied in), the HUD addon's delivery (below), the rotation of an overgrown `console.log`, the maps folder, and a record of what it put in place. `<file>` is the program as shipped, which the watcher watches for a new version. |
+| `os2-server organize [--dry-run]` | The maps folder, the hand-over and the deletion (below). `--dry-run` changes nothing and writes its list and `keep.json` into its own state folder; a download not yet moved into its type's folder counts as the real run would count it. |
 | `os2-server watch [--observe]` | The restart watcher, for the life of the container. `--observe` watches beside the acting watcher and does nothing: every action is a log line saying what it would have done, and its counters live in a state folder of its own. |
 | `os2-server doctor` | What the program sees: the settings as read, the paths, the installed version and the one on disk, the watcher's counters. |
 | `os2-server version` | Its version. |
@@ -24,6 +24,15 @@ The image's entry script sources `pre.sh` right before it launches the engine. T
 shipped (`OS2_SERVER`, else `/home/steam/overstrike2/os2-server`; a read-only or no-exec mount cannot run it) to
 `<game>/update-watch/os2-server`, runs `install`, and starts `watch` in the background. A failure costs the plugin layer and the
 watcher, never the server.
+
+## The HUD addon
+
+With `hud.addon` set, `install` loads MultiAddonManager and has the server mount the HUD's Workshop item (`mm_extra_addons`). Every map
+change then carries it to every client - a changelevel to an official map included, which dropped a client-only addon
+(`mm_client_extra_addons`) every time - at the cost of one reconnect per change (an official map change took 5-6 s) and about 5 MiB of
+the server's memory. The server's copy is not downloaded again at a mount (`mm_addon_mount_download 0`): clients use their own Steam
+copy, which works even while the server's copy is one release behind. A client that has the addon is not sent it again within the
+server process (`mm_cache_clients_with_addons 1`). Empty `hud.addon`: MultiAddonManager is not loaded at all.
 
 ## When the server restarts
 
@@ -86,7 +95,9 @@ Steam runs one Workshop download at a time, and one that is running cannot be st
 downloading in the background, it becomes the player's download - no second one - and the HUD's download line shows its progress.
 When a player picks another map while one downloads in the background, the change waits for it, and the line says so ("finishing the
 background download of X first", with its progress), then shows the chosen map's own progress. No background download starts while a
-download somebody waits for runs or while the bridge says hold.
+download somebody waits for runs or while the bridge says hold. The progress is the engine's own for a download it runs, and
+MultiAddonManager's for a background one: exact, where the lists' sizes are often far off (a map listed at 763 MB downloaded 63 MB).
+Steam's client often stalls near the end of a download for up to a minute; the line then stays at its last percent.
 
 ## The maps folder, the hand-over and the deletion
 

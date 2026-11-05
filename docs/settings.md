@@ -93,7 +93,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `bridge.admins` | string list | `[]` | bridge | ADMIN_STEAMIDS | SteamID64s of the players who may use the admin commands. |
 | `bridge.officialMaps` | string list | `["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]` | bridge | OFFICIAL_MAPS | The official maps the votes and the random picks may offer. |
 | `bridge.randomOnStart` | boolean | `true` | bridge | RANDOM_ON_START | A new server process rolls a random map once its start map is up, unless somebody is queued. |
-| `bridge.randomQueue` | integer, 1..100 | `20` | bridge | RANDOM_QUEUE | How many random picks each queue rolls ahead. |
+| `bridge.discoveryStock` | integer, 0..40 | `10` | bridge, server | DISCOVERY_STOCK | The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long. |
 | `bridge.changeDelaySeconds` | integer, 0..120 | `8` | bridge | CHANGE_DELAY_SECONDS | The countdown before a map change. |
 | `bridge.restartCooldownSeconds` | integer, 0..86400 | `300` | bridge | RESTART_COOLDOWN_SECONDS | The least time between two !restart requests. |
 | `bridge.guideOnJoin` | boolean | `true` | bridge | GUIDE_ON_JOIN | Ask the plugin to put the on-screen guide up on every real join. |
@@ -102,9 +102,9 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 
 | Key | Type | Default | Read by | Replaces | What |
 |---|---|---|---|---|---|
-| `hud.addon` | string | (empty) | bridge, plugin, server | GUNGAME_HUD_ADDON | The Workshop id of the HUD addon every client downloads; empty: no HUD (a text panel instead). |
-| `hud.tab` | off \| menu \| on \| down \| hold \| window | `down` | bridge | HUD_TAB | The TAB chord: what holding TAB does with the board. |
-| `hud.check` | off \| dryrun \| enforce | `off` | bridge | HUD_CHECK | The HUD check: warn, then disconnect a player not seen clicking in the HUD of this release. |
+| `hud.addon` | string | (empty) | bridge, plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead). |
+| `hud.tab` | off \| down | `down` | bridge | HUD_TAB | The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. |
+| `hud.check` | off \| warn \| enforce | `off` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them. dryrun, its old name, still means warn. |
 | `hud.itemPage` | boolean | `true` | plugin | HUD_ITEM_PAGE | Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). |
 
 ### `plugin`
@@ -112,8 +112,6 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | Key | Type | Default | Read by | Replaces | What |
 |---|---|---|---|---|---|
 | `plugin.enabled` | boolean | `true` | server | CS2_PLUGINS | Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla. |
-| `plugin.grenadeWin` | boolean | `true` | plugin | GUNGAME_GRENADE_WIN | Arms Race: a grenade kill on the last level wins the match. |
-| `plugin.grenadeWinKeepKnife` | boolean | `false` | plugin | GUNGAME_GRENADE_WIN_KEEP_KNIFE | Hand out the grenade on the last level but leave the knife in play. |
 
 ### `restarts`
 

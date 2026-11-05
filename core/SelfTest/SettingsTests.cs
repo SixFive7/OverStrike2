@@ -47,7 +47,7 @@ static class SettingsTests
         }
         var ex = Read(example, Part.All);
         Check("settings: the example's values, its references resolved", ex.Server.RconPassword == "rcon-secret-value" && ex.Bridge.Secret == "abc123"
-              && ex.Hud.Addon == "3823993566" && ex.Hud.Check == "dryrun" && ex.Restarts.Daily == new TimeOfDay(7, 0) && ex.Server.Name == "My CS2 server");
+              && ex.Hud.Addon == "3823993566" && ex.Hud.Check == "warn" && ex.Bridge.DiscoveryStock == 10 && ex.Restarts.Daily == new TimeOfDay(7, 0) && ex.Server.Name == "My CS2 server");
 
         // ---- comments, trailing commas, defaults for what is left out
         var s1 = Read("{ // a comment\n \"schema\": 1, /* and another */ \"server\": { \"port\": 27016, }, }");
@@ -66,6 +66,13 @@ static class SettingsTests
         Check("settings: a whole number wanted, a fraction given: the default", s2.Sync.RunHours == 3 && s2.Problems.Any(p => p.StartsWith("sync.runHours: 2.5 is not a whole number", StringComparison.Ordinal)));
         var s3 = Read("""{ "schema": 1, "sync": { "apiDayCap": 1000, "apiRunCap": 9000 } }""", Part.Server);
         Check("settings: a run's cap above the day's is clamped to it", s3.Sync.ApiRunCap == 1000 && s3.Problems.Any(p => p.Contains("clamped to it", StringComparison.Ordinal)));
+        var sk = Read("""{ "schema": 1, "hud": { "check": "dryrun", "tab": "menu" }, "bridge": { "discoveryStock": 0 }, "plugin": { "grenadeWin": true } }""");
+        Check($"settings: hud.check's old name dryrun means warn; hud.tab is off or down; a stock of 0 is the stock off; grenade-to-win is gone ({string.Join("; ", sk.Problems.Concat(sk.Warnings))})",
+              sk.Hud.Check == "warn" && sk.Hud.Tab == "down" && sk.Problems.Any(p => p.StartsWith("hud.tab: 'menu' is not one of off, down", StringComparison.Ordinal))
+              && sk.Bridge.DiscoveryStock == 0 && sk.Warnings.Any(w => w.StartsWith("plugin.grenadeWin: no such setting", StringComparison.Ordinal)));
+        Check("keep: the keep set's queues are as long as the discovery stock - 10 by default, shorter for a shorter stock, nothing for none",
+              KeepRules.ForStock(10).MinQueue == 10 && KeepRules.ForStock(40).MinQueue == 10 && KeepRules.ForStock(4).MinQueue == 4 && KeepRules.ForStock(0).MinQueue == 0
+              && KeepRules.ForStock(4).Top == KeepRules.Default.Top);
         var s4 = Read("""{ "schema": 1, "restarts": { "daily": "off" }, "hud": { "tab": "DOWN", "check": "sideways" }, "bridge": { "admins": ["76561197960265728", "12"] }, "sync": { "excludeIds": ["3823993566", "abc"], "mail": { "to": ["nobody"] }, "changedSince": "2026-13-01" } }""");
         Check("settings: off switches the daily restart off; a choice ignores case", s4.Restarts.Daily is null && s4.Hud.Tab == "down");
         Check("settings: a choice outside its list, a list entry of the wrong kind, a date that is none: each keeps its default (" + s4.Problems.Count + ")",
