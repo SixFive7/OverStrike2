@@ -7,15 +7,33 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>SteamCMD that writes an acf naming the item it just downloaded (alone).</summary>
+/// <summary>SteamCMD that writes an acf naming the item it just downloaded (alone), and once it quits every item of its session still staged, as
+/// the real one's acf is complete by then. A hand-over that could not read the acf at once waits for that quit; on Windows a read can be refused
+/// for a moment when something else has the new file open, and on this clock the 20 s the run waits for the entry take no time at all.</summary>
 sealed class AcfSteam(string installDir) : FakeSteam(installDir)
 {
+    readonly List<string> session = [];
+
+    string Acf => Path.Combine(InstallDir, "steamapps", "workshop", "appworkshop_730.acf");
+
+    void WriteAcf(IEnumerable<string> wids) =>
+        File.WriteAllText(Acf, "\"AppWorkshop\"\n{\n\t\"WorkshopItemsInstalled\"\n\t{\n"
+                               + string.Concat(wids.Select(w => $"\t\t\"{w}\"\n\t\t{{\n\t\t\t\"size\"\t\t\"1\"\n\t\t\t\"timeupdated\"\t\t\"9\"\n\t\t\t\"manifest\"\t\t\"4{w}\"\n\t\t}}\n")) + "\t}\n}\n");
+
     public override (bool Ok, string Reason, long Bytes) Download(string wid)
     {
         var ok = base.Download(wid);
-        var acf = Path.Combine(InstallDir, "steamapps", "workshop", "appworkshop_730.acf");
-        File.WriteAllText(acf, "\"AppWorkshop\"\n{\n\t\"WorkshopItemsInstalled\"\n\t{\n" + $"\t\t\"{wid}\"\n\t\t{{\n\t\t\t\"size\"\t\t\"1\"\n\t\t\t\"timeupdated\"\t\t\"9\"\n\t\t\t\"manifest\"\t\t\"4{wid}\"\n\t\t}}\n" + "\t}\n}\n");
+        session.Add(wid);
+        WriteAcf([wid]);
         return ok;
+    }
+
+    public override void Stop()
+    {
+        var staged = session.Where(w => Directory.Exists(Path.Combine(InstallDir, "steamapps", "workshop", "content", "730", w))).ToList();
+        if (staged.Count > 0)
+            WriteAcf(staged);
+        session.Clear();
     }
 }
 
