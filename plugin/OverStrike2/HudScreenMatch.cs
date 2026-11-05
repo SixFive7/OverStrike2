@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The Game page's game-side half: the two restart buttons' second click, and the match length for the match that is on (../../bridge/MatchLength.cs says what it does;
+/// <summary>The Game page's game-side half: the two restart buttons' second click, and the match length for the match that is on (../../bridge/Shared/MatchLength.cs says what it does;
 /// the bridge's Restarts.cs and Program.SetMatchLength decide). Restart match itself needs nothing here: the bridge counts it down and sends mp_restartgame, and the game's next
 /// round start reads mp_roundtime and starts the ladder, and catch-up's count, over.</summary>
 sealed partial class HudScreen

@@ -3,7 +3,7 @@ using CounterStrikeSharp.API.Core;
 
 namespace OverStrike2;
 
-/// <summary>The Fun page on screen: what it shows every frame (../../bridge/HudBrowser.cs: HudMenu.FunPage, FunWhy), what a click on it comes to (../../bridge/Fun.cs: FunClicks), the same
+/// <summary>The Fun page on screen: what it shows every frame (../../bridge/Shared/HudBrowser.cs: HudMenu.FunPage, FunWhy), what a click on it comes to (../../bridge/Shared/Fun.cs: FunClicks), the same
 /// change typed in chat, and Random and Default. The settings module makes every change (gg_fun): it owns the server's settings - the baseline, the put-back at the map's end and the block a
 /// player's change is exempt from; the grenade drops and catch-up are fun settings like the rest, its effects. Once the value is there one message says who switched what, the same for every
 /// setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB board, for everybody). A setting's "Set by" stays on the page: the message said it. One plugin drives every

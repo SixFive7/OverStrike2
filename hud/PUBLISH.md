@@ -69,7 +69,7 @@ The same list for every release, in a real client against a test copy of the ser
 8. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity greying Super jump
    High with the reason on hover, and a click made just as the other setting changed refused with a bubble at the button. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
 9. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
-   (`bridge/HudDash.cs`).
+   (`bridge/Shared/HudDash.cs`).
 10. **HELP:** Help and How it works, every row filled.
 11. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
 12. **A map change:** the countdown banner says what comes and who picked it, with the map's picture; at the first spawn the now-playing card under the crosshair.
@@ -86,8 +86,8 @@ checks the item and never disconnects players over the HUD while Steam does not 
 ## Updating the layout later
 
 CS2 caches a layout by its path for a whole game session, so a layout release needs new file names: raise `Hud.Release` and `Hud.ReleaseFile` in
-`bridge/Hud.cs` and rename `layout/gungame_hud_<ReleaseFile>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
-and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names. It adds one line to `HudVote.Contents` in `bridge/HudVote.cs`, its version and the next level (after v4.6.0 comes 47, whether the version is v4.7.0, v4.6.1 or v14.5.27), which `Hud.Content` and `HudVote.ContentLevel` read. It puts that version in the layout, in its words and its version button's id, starts the stylesheet's banner rules one level higher,
+`bridge/Shared/Hud.cs` and rename `layout/gungame_hud_<ReleaseFile>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
+and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names. It adds one line to `HudVote.Contents` in `bridge/Shared/HudVote.cs`, its version and the next level (after v4.6.0 comes 47, whether the version is v4.7.0, v4.6.1 or v14.5.27), which `Hud.Content` and `HudVote.ContentLevel` read. It puts that version in the layout, in its words and its version button's id, starts the stylesheet's banner rules one level higher,
 and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to. Build, publish while nobody plays,
 wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players (`deploy/release.py live`): the plugin's level is what
 tells a game holding the older content to update, so it never ships before the content does.

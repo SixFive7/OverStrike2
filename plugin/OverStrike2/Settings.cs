@@ -11,8 +11,8 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The steward of the server's game settings: it puts back, when a map ends, every game setting the map changed; it blocks the
-/// game-changers no map may set at all (blocked.txt beside the DLL, a value per game mode: ../../bridge/Modes.cs, ../../bridge/BlockList.cs);
-/// and it makes the players' changes from the menu's fun page (gg_fun, ../../bridge/Fun.cs), which last until the map changes and never
+/// game-changers no map may set at all (blocked.txt beside the DLL, a value per game mode: ../../bridge/Shared/Modes.cs, ../../bridge/Shared/BlockList.cs);
+/// and it makes the players' changes from the menu's fun page (gg_fun, ../../bridge/Shared/Fun.cs), which last until the map changes and never
 /// become the baseline nor get blocked. The fun page's effects that are no convar (Vampire, Ghost, no recoil, the grenade drops, catch-up)
 /// it keeps like convars: each starts at its default - on for the grenade drops and catch-up (Fun.EffectsOn), off for the rest - and is
 /// back at it after every map end and after the reset after nobody has been on (gg_fun reset); EffectChanged tells the modules that act on

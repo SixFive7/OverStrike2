@@ -102,7 +102,7 @@ public sealed class Settings
     /// else OVERSTRIKE2_SETTINGS); the file's text in <see cref="ContentVariable"/>, by the same rules and the same fatal path as a file;
     /// the file at <see cref="DefaultPath"/>. Naming DefaultPath is naming nothing: it is what a caller passes that was told no other.
     /// Nothing at all: every value is its default, and a warning says so. For the bridge and the plugin that is all: they fall back on the
-    /// environment while there are no settings (bridge/SettingsSource.cs). The server programs have nothing to fall back on, so for them it
+    /// environment while there are no settings (bridge/Shared/SettingsSource.cs). The server programs have nothing to fall back on, so for them it
     /// is one more way of having no hud.addon: <see cref="Fatal"/>. Never throws.</summary>
     public static Settings Load(Part reader, string? path = null, Func<string, string?>? env = null, Func<string, string>? readFile = null)
     {

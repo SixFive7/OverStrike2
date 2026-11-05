@@ -13,7 +13,7 @@ ipv4 bridge/*.json 0\.9\.8\.2  # a version number in a Workshop map title
 # Steam ids that are not anybody's account
 steam64 * 76561197960265728  # the SteamID64 of account 0: the constant every SteamID64 <-> account id conversion uses
 steam64 bridge/Program.cs 76561197960278073  # a self-test value: account 12345 as a SteamID64
-steam64 bridge/SelfTestCheck.cs 76561190000000001  # a self-test value below the individual-account range: no account
+steam64 bridge/Tests/SelfTestCheck.cs 76561190000000001  # a self-test value below the individual-account range: no account
 steamid bridge/*.cs \[U:1:12345678\]  # a self-test player's made-up account id
 steam64 server/OverStrike2.Sync/SelfTest/*.cs 76561190000000002  # a self-test value below the individual-account range: no account
 
@@ -48,5 +48,5 @@ timezone server/OverStrike2.Sync/SelfTest/*.cs Europe/Paris  # the same, for the
 clock-time server/OverStrike2.Server/SelfTest/*.cs 2001-01-01 12:\d\d|[01]\d/[0-3]\d/2001 - 12:\d\d  # the server program's self-test: log lines with made-up dates and times
 clock-time server/OverStrike2.Server/SelfTest/*.cs 10/04/2026 - (?:07:0\d|15:00)  # the server program's self-test: the restart scenarios' designed clocks, around the 07:00 restart
 clock-time bridge/Program.cs [01]\d/[0-3]\d/2001 - 12:\d\d  # the log parser's sample lines: made-up dates and times
-clock-time bridge/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures: made-up times, noon or midnight
+clock-time bridge/Tests/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures: made-up times, noon or midnight
 clock-time bridge/sizes.json 20\d\d-[01]\d-[0-3]\dT00:00  # the size list's generation date, its time zeroed

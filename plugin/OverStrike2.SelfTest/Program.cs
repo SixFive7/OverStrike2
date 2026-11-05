@@ -12,9 +12,9 @@ using OverStrike2;
 //     (CloakBook): every entity that leaves a hidden player, as it looked before - never as it looked hidden, also when it goes from one hidden
 //     player to another;
 //   - where the HUD addon's id comes from (HudAddon.cs): the new variable, its old name only while the new one is not set at all;
-//   - where the plugin's settings come from (PluginSetup.cs, bridge/SettingsSource.cs): the settings file when there is one that can be
+//   - where the plugin's settings come from (PluginSetup.cs, bridge/Shared/SettingsSource.cs): the settings file when there is one that can be
 //     used, else the environment as before - and the line that says which, with no value in it;
-//   - the block file (bridge/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
+//   - the block file (bridge/Shared/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
 //   - the Steam Web API's one door (SteamWebApi.cs): one request at a time, 2 s apart, each saying who asks.
@@ -241,7 +241,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Eq(HudAddon.Read(Env(new()), New, Old), ("", New), "addon: neither set: no HUD");
 }
 
-// ---- where the plugin's settings come from (PluginSetup.cs, bridge/SettingsSource.cs): the settings file, else the environment as before ----
+// ---- where the plugin's settings come from (PluginSetup.cs, bridge/Shared/SettingsSource.cs): the settings file, else the environment as before ----
 {
     const string standard = "/etc/overstrike2/overstrike2.jsonc";
     Func<string, string?> Env(Dictionary<string, string> vars) => name => vars.TryGetValue(name, out var v) ? v : null;
@@ -304,7 +304,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         "settings: the Web API's door takes the gap from the settings, never under 2 s (2 s until set)");
 }
 
-// ---- the block file (bridge/Modes.cs): every game mode's value in one file ----
+// ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----
 {
     var text = "// a comment\n\ngame_type  1  1  0  // the mode\nsv_cheats  *  0  0  // cheats\r\nbot_quota_mode * normal normal // bots\n"
         + "mp_buytime * 0 // two values only\nbad-name 1 1 1 // x\nsv_cheats 1 1 1 // again\n";
@@ -525,7 +525,7 @@ Console.WriteLine(failures == 0
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");
 return failures == 0 ? 0 : 1;
 
-/// <summary>BlockList.Due's comparison of two values, which these checks do not reach: the real Fun.Same is the bridge's (bridge/Fun.cs), tested there.</summary>
+/// <summary>BlockList.Due's comparison of two values, which these checks do not reach: the real Fun.Same is the bridge's (bridge/Shared/Fun.cs), tested there.</summary>
 static class Fun
 {
     public static bool Same(string? a, string? b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);

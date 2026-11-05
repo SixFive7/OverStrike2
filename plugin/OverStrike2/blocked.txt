@@ -3,7 +3,7 @@
 // is never blocked. The movement settings bhop and surf maps need (sv_airaccelerate, bunny hopping, stamina, sv_gravity, fall damage) are
 // deliberately NOT here; the bridge's --selftest fails if one is added.
 //
-// Format (bridge/Modes.cs, Modes.Blocked): one convar per line, then the value it keeps in each mode - Arms Race, Deathmatch, Wingman, in
+// Format (bridge/Shared/Modes.cs, Modes.Blocked): one convar per line, then the value it keeps in each mode - Arms Race, Deathmatch, Wingman, in
 // that order - then // and why. * keeps the server's own value (its baseline, taken when the boot map ends, an Arms Race map), so only Arms
 // Race uses it. Deathmatch's values are Valve's gamemode_deathmatch.cfg plus server/gamemode_deathmatch_server.cfg, Wingman's Valve's
 // gamemode_competitive2v2.cfg plus server/gamemode_competitive2v2_server.cfg. Counts are Workshop items setting it in the 2026-10-22 scan of

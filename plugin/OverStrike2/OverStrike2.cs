@@ -10,7 +10,7 @@ namespace OverStrike2;
 /// <summary>The server's one CounterStrikeSharp plugin: the HUD and the menu, the chat commands, the vote's freeze, the grenade drops, the
 /// settings module and the fun page, catch-up and the game modes. Its interface is the HUD: the full menu (maps with full-text search on an
 /// on-screen keyboard, unlisted Workshop ids, the vote, settings, help), the board beside the scoreboard as a click action panel while TAB is held,
-/// a now-playing card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Hud.cs;
+/// a now-playing card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Shared/Hud.cs;
 /// the layout is the Workshop addon in hud/, which MultiAddonManager hands out. A real join gets the welcome window, until its X.
 ///
 /// The bridge decides when to show the welcome (a real join, read off the log) and asks over RCON with css_guide. Chat: a line that starts with

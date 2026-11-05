@@ -13,7 +13,7 @@ each at least 2 s after the last one ended, as every Web API caller of the proje
                   first in line for a picture. An export that carries the queues itself ("queues") needs no --queues
   --ahead FILE    a JSON array of {"id", "preview"}: maps that are not listed yet but will be, most popular first, so their pictures can
                   ship before they are listed
-  bridge/Modes.cs the official maps of every mode
+  bridge/Shared/Modes.cs the official maps of every mode
 
 Writes:
 
@@ -22,7 +22,7 @@ Writes:
                                       Black bars baked into a Workshop preview (letterbox or pillarbox) are filled with a blurred copy
                                       of the picture first (debar): about a fifth of the maps had them. A JPEG that
                                       exists is kept as it is: build.ps1 holds the ones the last release shipped to their bytes
-  bridge/HudThumbList.cs              committed: every map that ever had a picture, in the order they got one. A map's place in it is
+  bridge/Shared/HudThumbList.cs       committed: every map that ever had a picture, in the order they got one. A map's place in it is
                                       its picture's number, for good: new maps go at the end and nothing moves, so a player whose CS2
                                       still holds an older addon sees no picture for a newer map - never another map's picture
   hud/styles/gungame_hud_thumbs.css   committed: one rule per picture, ".th<n / 64>.tl<n % 64>" - two classes out of a small set
@@ -31,7 +31,7 @@ Writes:
                                       map's at the game's own 360p screenshot (nothing to ship)
 
 A map listed after the release that ships its picture has no number: its card keeps the plain backdrop, and the button on it shows the
-Workshop preview in the game's own message panel instead (HudPreview in bridge/HudBrowser.cs). HudThumbs in bridge/HudBrowser.cs makes the
+Workshop preview in the game's own message panel instead. HudThumbs in bridge/Shared/HudThumbs.cs makes the
 same class names out of HudThumbList; the bridge's --selftest checks that every map has its rule and that every rule is its own map's.
 """
 import argparse
@@ -51,11 +51,11 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 HERE = Path(__file__).resolve().parent
 MAPS = HERE.parent / "bridge" / "maps.json"
-MODES = HERE.parent / "bridge" / "Modes.cs"
+MODES = HERE.parent / "bridge" / "Shared" / "Modes.cs"
 OUT = HERE / "thumbs"
-RELEASE = re.search(r'ReleaseFile = "(\w+)"', (HERE.parent / "bridge" / "Hud.cs").read_text(encoding="utf-8")).group(1)  # Hud.ReleaseFile
+RELEASE = re.search(r'ReleaseFile = "(\w+)"', (HERE.parent / "bridge" / "Shared" / "Hud.cs").read_text(encoding="utf-8")).group(1)  # Hud.ReleaseFile
 CSS = HERE / "styles" / f"gungame_hud_thumbs_{RELEASE}.css"
-LIST = HERE.parent / "bridge" / "HudThumbList.cs"
+LIST = HERE.parent / "bridge" / "Shared" / "HudThumbList.cs"
 BASE = 64  # HudThumbs.Base: picture n has the classes th<n / 64> and tl<n % 64>
 MAX_HIGH = 256  # HudThumbs.MaxHigh: th0 ... th255, 16,384 pictures, tested in a real client on 2026-11-01; 320 class names at the very most
 SIZE = (336, 189)

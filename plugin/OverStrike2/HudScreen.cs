@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The HUD on screen: one custom_hud_layout entity per map, driven from ../../bridge/Hud.cs. What to show is decided there (HudView for
+/// <summary>The HUD on screen: one custom_hud_layout entity per map, driven from ../../bridge/Shared/Hud.cs. What to show is decided there (HudView for
 /// the words, HudSlots for who has the window or a toast); this class owns the entity and sends the engine only what changed.
 ///
 /// A server without the HUD does not exist: the settings require the addon, and os2-server refuses to start without it. A Steam hold (RequireAddon) keeps playing: who is on

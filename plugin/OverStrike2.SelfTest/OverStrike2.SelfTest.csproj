@@ -25,14 +25,14 @@
     <Compile Include="..\OverStrike2\HudAddon.cs" Link="HudAddon.cs" />
     <!-- Where the plugin's settings come from: the settings file (core's reader), else the environment. -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
-    <Compile Include="..\..\bridge\SettingsSource.cs" Link="SettingsSource.cs" />
+    <Compile Include="..\..\bridge\Shared\SettingsSource.cs" Link="SettingsSource.cs" />
     <Compile Include="..\OverStrike2\PluginSetup.cs" Link="PluginSetup.cs" />
     <!-- Whom the spawn cloak hides, on handed ticks and positions, and which entities the cloak has painted and puts back. -->
     <Compile Include="..\OverStrike2\CloakPlan.cs" Link="CloakPlan.cs" />
     <!-- The block file's format, every game mode's values in one file, and the plugin's own file held to it. BlockList.Due compares with
          Fun.Same, which Program.cs stands in for (the real one is the bridge's, tested there). -->
-    <Compile Include="..\..\bridge\Modes.cs" Link="Modes.cs" />
-    <Compile Include="..\..\bridge\BlockList.cs" Link="BlockList.cs" />
+    <Compile Include="..\..\bridge\Shared\Modes.cs" Link="Modes.cs" />
+    <Compile Include="..\..\bridge\Shared\BlockList.cs" Link="BlockList.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
   </ItemGroup>
 

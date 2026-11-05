@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The plugin's half of the message system (../../bridge/Messages.cs is the catalogue; the bridge's half is its Notices.cs). Post routes a message of the
+/// <summary>The plugin's half of the message system (../../bridge/Shared/Messages.cs is the catalogue; the bridge's half is its Notices.cs). Post routes a message of the
 /// plugin's own - a fun change, a map's game-changer undone, a download line from the restart watcher - as the bridge routes its own. Every frame the plugin's
 /// own messages are merged into the state as of that frame (MergeMessages), so the views (HudView) draw one state; the bridge's chat lines are said once each (SayNew), and
 /// CS2's plain centre text and alert are held for their seconds (CentreTick).</summary>

@@ -84,7 +84,7 @@ up or down, attacking, or a vote's freeze starting or ending spends it until the
 window opens again. A player killed with the window open is hidden again at the respawn. What is no model - the radar's dot, the name when
 aimed at, sounds, muzzle flashes - still shows.
 
-**Messages.** Every message a player can get is one line of one catalogue (`bridge/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
+**Messages.** Every message a player can get is one line of one catalogue (`bridge/Shared/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
 the board's Lately list, and how long it stays. The bridge and the plugin both post through it, so one message cannot go two ways. What happens for everybody shows for everybody;
 what answers one player's click goes to that player alone. Nearly every word comes from the bridge and the plugin as dialog variables, so most changes need no new HUD (`Hud.cs`).
 
@@ -273,7 +273,7 @@ Race, when the map that is on has just gone from the Workshop, when it has just 
 
 Anybody may change these, on the Game page or in chat; each says for everybody who did it.
 
-- **The match length** (`!time 10`, `!time 60`; Arms Race's own, `bridge/MatchLength.cs`) applies to the match that is on, not only the next: Arms Race is one long round, so the plugin
+- **The match length** (`!time 10`, `!time 60`; Arms Race's own, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: Arms Race is one long round, so the plugin
   (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
   `mp_roundtime`. Outside Arms Race the row is gone and `!time` is refused: Deathmatch keeps Valve's 10-minute round, and a Wingman match is a whole match of rounds, where a round's time of
   10 minutes would only make one round long.
@@ -290,7 +290,7 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
 **Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match. It is the default,
 after every server restart and after 10 minutes with nobody on. **Deathmatch** and **Wingman** come in through the vote.
 
-Each mode has Valve's official maps for it (`bridge/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
+Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
 playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command. A map several modes list plays in the mode the
 map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode that does. Each mode has its own
@@ -542,7 +542,7 @@ minute otherwise; fields may be added to it, never renamed or dropped.
 `sync-status.json` for everybody (`bridge/SyncDash.cs`). The bridge reads it whenever it changed (it looks every 2 s), adds the discovery stock, how many of its maps the restart watcher reports on the server's disk and the background download, and makes two
 things of it. The menu's **Sync** page: what the sync does now (its state, why, the map, the step on a bar, the run, today's counts, the totals and the file's age), its queue (the counts per mode, the finish estimate, what the server itself still
 lacks, the stock, the next maps six a page) and its history (the runs three a page and the map events eight a page, newest first). The bridge writes every word of it and serves the block on `GET /dash/<secret>`, its version in the live state; the plugin
-pages each list per player and passes the rest through (`bridge/HudDash.cs`), so a change to the page's words or rows needs a bridge alone. And a website: `index.html` and `dashboard.json` in `web/` in the bridge's data folder, rewritten when they change and
+pages each list per player and passes the rest through (`bridge/Shared/HudDash.cs`), so a change to the page's words or rows needs a bridge alone. And a website: `index.html` and `dashboard.json` in `web/` in the bridge's data folder, rewritten when they change and
 every minute, for a static web server behind a login (the page reads the JSON every 5 s and searches the whole history) - the bridge's own HTTP port is never reachable from outside. A file that is missing, does not parse or is older than 15 minutes is said as such,
 and the last good one stays on screen meanwhile.
 
@@ -615,14 +615,14 @@ server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:80
 ### Keeping the rules in sync
 
 The rules are said in the menu: its How it works and Help pages and the start page. The bridge's `--selftest` holds them to the code: every number those words state must be one of the code's constants, so a rule change fails the selftest until the code and the menu's words
-(`bridge/Hud.cs`) agree again. It holds the chat table on this page to `ChatCommands.All` the same way.
+(`bridge/Shared/Hud.cs`) agree again. It holds the chat table on this page to `ChatCommands.All` the same way.
 
 ## Files
 
 | Path | What |
 |---|---|
 | `bridge/*.cs` | The bridge; `SelfTest*.cs` its self-test. The shared ones - the words, the vote's and the modes' tables, the HUD's logic - are compiled into the plugin too (`plugin/OverStrike2/OverStrike2.csproj` names them). |
-| `bridge/Messages.cs` | The [message catalogue](#in-game-hud): every message a player can get, one line each. |
+| `bridge/Shared/Messages.cs` | The [message catalogue](#in-game-hud): every message a player can get, one line each. |
 | `bridge/maps.json`, `broken.json`, `blocked.json`, `sizes.json`, `search.json`, `ours.json` | The [data files](#the-data-files) the repository starts from. |
 | `bridge/dashboard.html` | The website's page, built into the bridge. |
 | `plugin/OverStrike2/` | The plugin; `blocked.txt` the block list, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |

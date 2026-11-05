@@ -18,48 +18,10 @@
     <!-- Pinned to the CounterStrikeSharp release os2-server installs (server/OverStrike2.Server/Install.cs). 1.0.376 is the first that keeps per-player HUD text after
          a join (#1434). -->
     <PackageReference Include="CounterStrikeSharp.API" Version="1.0.379" />
-    <!-- The logic and the words live with the bridge, which tests them in its selftest; compiled in here as source. -->
-    <Compile Include="..\..\bridge\Guide.cs" Link="Guide.cs" />
-    <Compile Include="..\..\bridge\Hud.cs" Link="Hud.cs" />
-    <Compile Include="..\..\bridge\HudBrowser.cs" Link="HudBrowser.cs" />
-    <Compile Include="..\..\bridge\HudThumbList.cs" Link="HudThumbList.cs" />
-    <Compile Include="..\..\bridge\HudCheck.cs" Link="HudCheck.cs" />
-    <Compile Include="..\..\bridge\HudTab.cs" Link="HudTab.cs" />
-    <Compile Include="..\..\bridge\Workshop.cs" Link="Workshop.cs" />
-    <Compile Include="..\..\bridge\HudSearch.cs" Link="HudSearch.cs" />
-    <Compile Include="..\..\bridge\WorkshopCard.cs" Link="WorkshopCard.cs" />
-    <Compile Include="..\..\bridge\Fun.cs" Link="Fun.cs" />
-    <Compile Include="..\..\bridge\BlockList.cs" Link="BlockList.cs" />
-    <Compile Include="..\..\bridge\MapVote.cs" Link="MapVote.cs" />
-    <Compile Include="..\..\bridge\Modes.cs" Link="Modes.cs" />
-    <Compile Include="..\..\bridge\MatchLength.cs" Link="MatchLength.cs" />
-    <Compile Include="..\..\bridge\HudVote.cs" Link="HudVote.cs" />
-    <Compile Include="..\..\bridge\HudDash.cs" Link="HudDash.cs" />
-    <Compile Include="..\..\bridge\ChatCommands.cs" Link="ChatCommands.cs" />
-    <Compile Include="..\..\bridge\ChatReply.cs" Link="ChatReply.cs" />
-    <Compile Include="..\..\bridge\FunClicks.cs" Link="FunClicks.cs" />
-    <Compile Include="..\..\bridge\FunState.cs" Link="FunState.cs" />
-    <Compile Include="..\..\bridge\HudSlots.cs" Link="HudSlots.cs" />
-    <Compile Include="..\..\bridge\HudState.cs" Link="HudState.cs" />
-    <Compile Include="..\..\bridge\HudView.cs" Link="HudView.cs" />
-    <Compile Include="..\..\bridge\HudCatalog.cs" Link="HudCatalog.cs" />
-    <Compile Include="..\..\bridge\HudMenu.cs" Link="HudMenu.cs" />
-    <Compile Include="..\..\bridge\HudThumbs.cs" Link="HudThumbs.cs" />
-    <Compile Include="..\..\bridge\MapTags.cs" Link="MapTags.cs" />
-    <Compile Include="..\..\bridge\HudGate.cs" Link="HudGate.cs" />
-    <Compile Include="..\..\bridge\ItemPlan.cs" Link="ItemPlan.cs" />
-    <Compile Include="..\..\bridge\HudKeyboard.cs" Link="HudKeyboard.cs" />
-    <Compile Include="..\..\bridge\DownReasons.cs" Link="DownReasons.cs" />
-    <Compile Include="..\..\bridge\WorkshopItem.cs" Link="WorkshopItem.cs" />
-    <Compile Include="..\..\bridge\VoteState.cs" Link="VoteState.cs" />
-    <Compile Include="..\..\bridge\M.cs" Link="M.cs" />
-    <Compile Include="..\..\bridge\Sections.cs" Link="Sections.cs" />
-    <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin), and where the
-         plugin's settings come from while the install step does not write the file yet (PluginSetup.cs). -->
+    <!-- The logic and the words live with the bridge, which tests them in its selftest: every file of bridge/Shared/, compiled in here as source. -->
+    <Compile Include="..\..\bridge\Shared\*.cs" LinkBase="Shared" />
+    <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin). -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
-    <Compile Include="..\..\bridge\SettingsSource.cs" Link="SettingsSource.cs" />
-    <!-- The message catalogue (surfaces, chat and board copies), shared with the bridge. -->
-    <Compile Include="..\..\bridge\Messages.cs" Link="Messages.cs" />
     <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
     <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
     <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />
