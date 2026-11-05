@@ -143,7 +143,7 @@ static class PureTests
             Check($"texts {kind} fit 120 chars ({w.Length}/{f.Length})", w.Length <= 120 && f.Length <= 120);
         }
         Check("texts: the CS2 update tells players to restart CS2; ours says when it is back",
-              Rules.Texts("update", 30).Final.Contains("Restart CS2") && Rules.Texts("version", 30).Final.Contains("back in about 30 seconds") && !Rules.Texts("version", 30).Final.Contains("Restart CS2"));
+              Rules.Texts("update", 30).Final.Contains("Restart CS2") && Rules.Texts("version", 30).Final.Contains("Back in about 30 seconds") && !Rules.Texts("version", 30).Final.Contains("Restart CS2"));
         _ = root;
     }
 }

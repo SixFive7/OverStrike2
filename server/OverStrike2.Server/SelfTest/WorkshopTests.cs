@@ -141,12 +141,12 @@ static class WorkshopTests
         ln.Staged = _ => 0;
         ln.Started("905", 600.0);
         ln.Step(604.0, 2, new HashSet<string> { "906" });
-        Check($"line: a map a player waits for behind a background download says so ({sent[^1]})", sent[^1].Contains("finishing the background download of Workshop item 906 first - then Workshop item 905"));
+        Check($"line: a map a player waits for behind a background download says so ({sent[^1]})", sent[^1].Contains("finishing the background download of Workshop item 906 first - Then Workshop item 905"));
         ln.Finished("905");
         ln.ConsoleLine("11/05 [Workshop] Downloading 907 (0 bytes / 335.80 MB)", 700.0);
         ln.Step(704.0, 2, new HashSet<string> { "906" });
         Check($"line: the engine's own progress line, nothing of it yet: still behind the background download ({sent[^1]})",
-              sent[^1].Contains("finishing the background download of Workshop item 906 first - then Workshop item 907"));
+              sent[^1].Contains("finishing the background download of Workshop item 906 first - Then Workshop item 907"));
         ln.ConsoleLine("11/05 [Workshop] Downloading 907 (167.90 MB / 335.80 MB)", 705.0);
         ln.Step(707.0, 2, new HashSet<string> { "906" });
         Check($"line: the engine's own progress, exact - not the lists' size or the staging folder ({sent[^1]})",
@@ -457,7 +457,7 @@ static class WorkshopTests
         s.Eng.Write("[Workshop] Updating 950: state 1");
         s.Step(6);
         Check($"X2: another map is chosen while job 9 fetches: the line says the background download finishes first, with its progress ({Show(s.Eng.Notices.TakeLast(1).Select(x => x.Text))})",
-              s.Eng.Notices.Count > 0 && s.Eng.Notices[^1].Text.Contains("finishing the background download of Background Map first (63 percent) - then The Pick"));
+              s.Eng.Notices.Count > 0 && s.Eng.Notices[^1].Text.Contains("finishing the background download of Background Map first (63 percent) - Then The Pick"));
         s.Step(30);
         Check($"X2: ... no second download beside it, and none of the chosen map by the watcher ({Show(Downloads9(s))})",
               Downloads9(s).SequenceEqual(["mm_download_addon 920"]));

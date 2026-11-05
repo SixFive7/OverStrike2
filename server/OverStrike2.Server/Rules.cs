@@ -248,9 +248,9 @@ public static class Rules
     {
         "workshop" => ("", $"Workshop downloads are broken in this server process - restarting it while nobody is on (the restart watcher). Back in {SayBackIn(back)}."),
         "update" => ("A CS2 update is out: the server restarts at the end of this match to install it.",
-                     "Restarting to install the CS2 update - back in a minute or two. Restart CS2 to update, then reconnect."),
+                     "Restarting to install the CS2 update - Back in a minute or two. Restart CS2 to update, then reconnect."),
         "version" => ("A new version of this server is out: it restarts at the end of this match to install it.",
-                      $"Restarting to install the new server version - back in {SayBackIn(back)}."),
+                      $"Restarting to install the new server version - Back in {SayBackIn(back)}."),
         _ => ("", ""),
     };
 }

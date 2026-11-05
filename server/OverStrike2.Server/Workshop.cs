@@ -207,15 +207,15 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         {
             var (bd, bt) = Progress(bg, now);
             var p = bd > 0 && bt > 0 ? $" ({Percent(bd, bt)} percent)" : "";
-            return $"Server is finishing the background download of {Title(bg, now)} first{p} - then {name}, the map changes when it is ready";
+            return $"Server is finishing the background download of {Title(bg, now)} first{p} - Then {name}, the map changes when it is ready";
         }
         if (done > 0 && total > 0)    // no percent sign on a console line
-            return $"Server is downloading {name}: {Percent(done, total)} percent ({Downloads.SizeWords(done)} of {Downloads.SizeWords(total)}) - the map changes when it is ready";
+            return $"Server is downloading {name}: {Percent(done, total)} percent ({Downloads.SizeWords(done)} of {Downloads.SizeWords(total)}) - The map changes when it is ready";
         if (done > 0)
-            return $"Server is downloading {name}: {Downloads.SizeWords(done)} so far - the map changes when it is ready";
+            return $"Server is downloading {name}: {Downloads.SizeWords(done)} so far - The map changes when it is ready";
         if (total > 0)
-            return $"Server is downloading {name} ({Downloads.SizeWords(total)}) - the map changes when it is ready";
-        return $"Server is downloading {name} - the map changes when it is ready";
+            return $"Server is downloading {name} ({Downloads.SizeWords(total)}) - The map changes when it is ready";
+        return $"Server is downloading {name} - The map changes when it is ready";
     }
 
     /// <summary>The line, every Every seconds while somebody waits for a download: `own` holds job 9's download nobody waits for.</summary>
@@ -235,7 +235,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         {
             failure = null;
             var why = f.Why.Replace("%", "").Trim();
-            var text = Core.Words.ChatSafe($"The server could not download {Title(f.Id, now)}: {(why.Length > 0 ? why : "no reason given")} - pick another map or press Next", 240);
+            var text = Core.Words.ChatSafe($"The server could not download {Title(f.Id, now)}: {(why.Length > 0 ? why : "no reason given")} - Pick another map", 240);
             log.Line($"hud: {text}");
             engine.Rcon([$"gg_notice 10 \"{text}\""]);
             sent = now;
