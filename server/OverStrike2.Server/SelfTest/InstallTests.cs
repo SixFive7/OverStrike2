@@ -147,9 +147,17 @@ static class InstallTests
         Directory.Delete(Path.Combine(csgo, "addons", "multiaddonmanager"), true);
         lines.Clear();
         rc = install.Run(from, settings);
-        Check("install: MultiAddonManager that cannot be fetched costs the HUD's delivery, never the server: it says so, and the program exits 0 so the engine starts",
-              rc == 0 && !File.Exists(vdf) && lines.Any(l => l.Contains("MultiAddonManager is not installed")) && lines.Any(l => l.StartsWith("SUMMARY: plugin layer on") && l.Contains("HUD NOT delivered")));
+        Check($"install: no MultiAddonManager after its download failed: the HUD cannot reach anybody - one ALERT, exit {Settings.RefusedExit}, nothing done after it",
+              rc == Settings.RefusedExit && !File.Exists(vdf) && lines.Count(l => l.StartsWith("ALERT")) == 1
+              && lines.Any(l => l.StartsWith("ALERT: MultiAddonManager is not installed") && l.Contains("the engine does not start")) && !lines.Any(l => l.StartsWith("maps folder:")));
+        config.PluginLayer = false;
+        rc = install.Run(from, settings);
+        Check("install: ... plugin.enabled false, the emergency switch, does not ask for it", rc == 0);
+        config.PluginLayer = true;
         downloads.Files[Install.MamUrl] = mamUrl;
+        lines.Clear();
+        rc = install.Run(from, settings);
+        Check("install: ... and the next start tries the download again, and goes on", rc == 0 && File.Exists(vdf) && lines.Any(l => l.Contains("HUD on (Workshop addon 3823993566)")));
         config.PluginLayer = false;
         lines.Clear();
         install.Run(from, settings);
@@ -166,6 +174,7 @@ static class InstallTests
               ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"bridge\": { \"discoveryStock\": 4 } }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 4
               && ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 10);
         Refusal();
+        Downloader(log, lines, config);
         Bridge();
         Launcher(root);
     }
@@ -213,7 +222,7 @@ static class InstallTests
               && doctorSaid.Contains("path game:") && doctorSaid.Contains("RCON password:"));
         var (version, versionSaid) = Run("version", "--settings", file);
         Check("refusal: version still works and says so", version == 0 && versionSaid.StartsWith("os2-server ") && versionSaid.Contains("settings: NOT USABLE - hud.addon: missing"));
-        File.WriteAllText(file, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"daily\": \"off\" } }");
+        File.WriteAllText(file, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"downloadRestart\": false, \"daily\": \"off\" }, \"maps\": { \"backgroundDownloads\": false, \"downloadLine\": false } }");
         var (fine, fineSaid) = Run("version", "--settings", file);
         Check("refusal: with hud.addon in the file version says its one line, doctor shows the item and exits 0, and watch gets past the refusal",
               fine == 0 && !fineSaid.Contains("NOT USABLE") && fineSaid.Trim().Split('\n').Length == 1
@@ -253,6 +262,123 @@ static class InstallTests
             File.WriteAllText(file, $"{{ \"schema\": 1, \"paths\": {{ \"gameDir\": \"{game}\" }} }}");
             return Run("install", "--settings", file).Code == Settings.RefusedExit && !Directory.Exists(game);
         });
+    }
+
+    /// <summary>The real downloader against a stand-in server over real HTTP: a stall after the headers or before them ends, and a slow download
+    /// that keeps moving does not.</summary>
+    static void Downloader(Log log, List<string> lines, ServerConfig config)
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var url = $"http://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/archive";
+        var connections = 0;
+        Action<NetworkStream> behave = _ => { };
+        var open = new List<TcpClient>();                    // never closed before the end: a stalled server says nothing, and hangs up on nobody
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                while (true)
+                {
+                    var client = listener.AcceptTcpClient();
+                    lock (open)
+                        open.Add(client);
+                    Interlocked.Increment(ref connections);
+                    var answer = behave;
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var stream = client.GetStream();
+                            var (head, buffer) = ("", new byte[4096]);
+                            while (!head.Contains("\r\n\r\n"))
+                            {
+                                var n = stream.Read(buffer);
+                                if (n == 0)
+                                    return;
+                                head += Encoding.ASCII.GetString(buffer, 0, n);
+                            }
+                            answer(stream);
+                        }
+                        catch (Exception e) when (e is IOException or ObjectDisposedException or SocketException)
+                        {
+                        }
+                    });
+                }
+            }
+            catch (Exception e) when (e is SocketException or ObjectDisposedException or InvalidOperationException)
+            {
+            }
+        });
+        static void Say(NetworkStream s, string text) => s.Write(Encoding.ASCII.GetBytes(text));
+        var clock = new FakeClock(Scenario.At(2026, 10, 4, 15, 0, 0));
+        var file = Path.Combine(Dir("downloader"), "archive");
+        (string? Failed, int Tries, TimeSpan Took) Fetch(TimeSpan noData, TimeSpan? atMost = null)
+        {
+            connections = 0;
+            var took = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                new HttpDownloader(clock, noData, atMost).Download(url, file);
+                return (null, connections, took.Elapsed);
+            }
+            catch (IOException e)
+            {
+                return (e.Message, connections, took.Elapsed);
+            }
+        }
+        var longEnough = TimeSpan.FromSeconds(30);           // far under the default deadlines, far over what the short ones here should take
+
+        behave = s => { Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello"); s.Close(); };
+        var whole = Fetch(TimeSpan.FromSeconds(5));
+        Check("download: a whole answer lands in the file, in one try", whole.Failed is null && whole.Tries == 1 && File.ReadAllText(file) == "hello");
+
+        behave = s => Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\npart of it");
+        var stalled = Fetch(TimeSpan.FromMilliseconds(300));
+        Check($"download: a body that stalls after the headers ends - four tries, then the failure, never a wait for ever ({stalled.Failed}, {stalled.Tries} tries, {stalled.Took.TotalSeconds:0.0} s)",
+              stalled.Failed == "no data for 0.3 s" && stalled.Tries == 4 && stalled.Took < longEnough);
+
+        behave = _ => { };
+        var silent = Fetch(TimeSpan.FromMilliseconds(300));
+        Check($"download: a server that takes the request and never answers ends the same way ({silent.Failed}, {silent.Tries} tries)",
+              silent.Failed == "no data for 0.3 s" && silent.Tries == 4 && silent.Took < longEnough);
+
+        behave = s =>
+        {
+            Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\n");
+            foreach (var c in "slowy")
+            {
+                Thread.Sleep(200);
+                Say(s, c.ToString());
+            }
+            s.Close();
+        };
+        var slow = Fetch(TimeSpan.FromMilliseconds(800));
+        Check($"download: a slow one that keeps moving is no stall ({slow.Took.TotalSeconds:0.0} s, longer than the 0.8 s it may be quiet)",
+              slow.Failed is null && slow.Tries == 1 && File.ReadAllText(file) == "slowy" && slow.Took > TimeSpan.FromMilliseconds(800));
+
+        behave = s =>
+        {
+            Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n");
+            for (var i = 0; i < 100; i++)
+            {
+                Thread.Sleep(50);
+                Say(s, "x");
+            }
+        };
+        var trickle = Fetch(TimeSpan.FromSeconds(5), TimeSpan.FromMilliseconds(400));
+        Check($"download: one that trickles on ends at its deadline ({trickle.Failed}, {trickle.Tries} tries)", trickle.Failed == "not done after 0.4 s" && trickle.Tries == 4 && trickle.Took < longEnough);
+
+        behave = s => Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\npart of it");
+        lines.Clear();
+        var fetching = new Install(config, log, new HttpDownloader(clock, TimeSpan.FromMilliseconds(200)), _ => null, clock, Scenario.Paris);
+        var gotPast = !fetching.Component("stalled", "1", url, "tar");
+        Check($"download: install gets past a stalled component, and says so ({lines[^1]})", gotPast && lines[^1].StartsWith("WARNING: stalled 1 download or extraction failed (no data for 0.2 s)"));
+
+        listener.Stop();
+        lock (open)
+            foreach (var client in open)
+                client.Dispose();
     }
 
     /// <summary>The bridge over real HTTP: the address it posts to, the body, the answer read as the bridge gives it.</summary>

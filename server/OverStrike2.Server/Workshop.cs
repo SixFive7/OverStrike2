@@ -53,7 +53,7 @@ public sealed class Active
     public bool Engine;            // the engine itself waits for it: a map change does
 }
 
-/// <summary>JOB 8, THE DOWNLOAD LINE: which downloads run, and the news line about the newest one somebody waits for. Fed from console.log
+/// <summary>JOB 8, THE DOWNLOAD LINE: which downloads run, and the top line about the newest one somebody waits for. Fed from console.log
 /// (ConsoleLine) and the Steam client's workshop log (Started, Finished, Failed); Step sends the line. A failed RCON call only skips an
 /// update. While the map a player waits for queues behind a background download (Steam runs one at a time and one running cannot be
 /// stopped), the line says so, with that one's progress.</summary>

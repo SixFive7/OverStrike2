@@ -30,7 +30,8 @@ The first start takes a while: SteamCMD downloads the game, and the installer bu
 
 `hud.addon` in your settings is required, and the example has the public HUD's id. Without a usable one, or with a settings file that
 cannot be used, the game server does not start: `docker compose logs cs2` shows an `ALERT` line that says why and how to fix it, and
-Docker tries again every few minutes. Fix the file, then `docker compose up -d --force-recreate cs2 sync bridge`.
+Docker tries again every few minutes. Fix the file, then `docker compose up -d --force-recreate cs2 sync bridge`. The first start
+waits the same way if it cannot download MultiAddonManager, which hands the HUD to the players: each try downloads it again.
 
 ## Updating
 

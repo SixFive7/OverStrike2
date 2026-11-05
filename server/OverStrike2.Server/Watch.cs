@@ -175,7 +175,7 @@ public sealed partial class Watch
         return ok;
     }
 
-    /// <summary>A line for everybody on the HUD's news line (the plugin's server-only gg_notice, which answers "gg_notice: shown for N s:
+    /// <summary>A line for everybody on the HUD's top line (the plugin's server-only gg_notice, which answers "gg_notice: shown for N s:
     /// ..."); chat gets it only where there is no HUD to show it.</summary>
     public bool Notice(string text, int seconds)
     {
@@ -500,6 +500,9 @@ public sealed partial class Watch
         var changed = string.Join(", ", disk.Changed(inst.Parts));
         if (now - versionSigAt < VersionSettle)
         {
+            if (VersionDue is { } waiting)
+                Log.Line($"our parts are being written again ({changed}) - the restart for {waiting.Total} is off until what is on disk is still");
+            VersionDue = null;                         // a match end now would quit into a half-written deploy
             Log.Once("version", $"a new version of our parts is being written ({changed}) - waiting until it is still for {VersionSettle:0} s", 600);
             return;
         }
@@ -508,6 +511,27 @@ public sealed partial class Watch
             VersionDue = disk;
             Log.Line($"a new version of our parts is on disk: {changed} (installed {inst.Fingerprint}, on disk {disk.Total})");
         }
+    }
+
+    /// <summary>Whether our parts are being written right now, looked at afresh: a deploy that began after CheckVersion's last look counts too.
+    /// A quit now would have install copy a half-written plugin folder, and the check after the restart would raise a false alarm.</summary>
+    bool Deploying(double now)
+    {
+        if (!Config.NewVersions || InstalledNow is not { } inst)
+            return false;
+        try
+        {
+            if (Fingerprint.Signature(Config.Paths, inst.ServerFrom, SettingsPath) != versionSig)
+            {
+                versionCheckAt = 0;                    // CheckVersion looks at it on the next tick
+                return true;
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+        return OnDisk is { } disk && disk.Total != inst.Fingerprint && now - versionSigAt < VersionSettle;
     }
 
     string? PlannedKind(double now)
@@ -608,12 +632,17 @@ public sealed partial class Watch
             if (now >= until)
             {
                 CountdownUntil = null;
-                if (!Quit(kind, now, null))            // the bridge showed the countdown and the last line
+                if (Deploying(now) || !Quit(kind, now, null))   // the bridge showed the countdown and the last line
                 {
                     Announce(kind, "match-end", RestartCountdown, now);   // it did not go: it waits for the next match end again
                     announceTried = now;
                 }
             }
+            return;
+        }
+        if (Deploying(now))
+        {
+            Log.Once("planned", $"{kind} restart due, but a new version of our parts is being written - it waits until what is on disk is still");
             return;
         }
         var (warning, final) = Rules.Texts(kind, Rules.BackIn(State.Durations));

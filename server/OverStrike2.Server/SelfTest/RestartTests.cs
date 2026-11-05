@@ -258,6 +258,57 @@ static class RestartTests
         Check("V6: restarts.newVersions false: a new version restarts nothing", s.W.Due is null && !s.Has("quit"));
         Parts();
 
+        // V8. the next deploy begins while a version restart waits for the match end: no quit into a half-written deploy, no false alarm after it
+        const string gameOver = "L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min";
+        s = Scenario.Make(At(4, 15, 0, 0), installed: v1);
+        (s.Eng.Humans, s.Eng.Hud) = (3, true);
+        s.Step(20);
+        Put(PluginDll, "plugin v2");
+        s.Step(200);
+        var dueBefore = s.W.Due?.Kind;
+        Put(PluginDll, "plugin v3, half of it");             // the next deploy is writing
+        s.Step(70);                                          // the watcher has had its look
+        Check($"V8: a deploy begins while a version restart waits: it is no longer due until what is on disk is still, and the bridge hears that (due was {dueBefore})",
+              dueBefore == "version" && s.W.VersionDue is null && s.W.Due is null && Notices(s)[^1] == "gg-restart\t1\tcancel\tour-update\n");
+        s.Eng.Write(gameOver);
+        s.Step(15);
+        Check("V8: ... so a match end in that window quits nothing", !s.Has("quit") && s.W.CountdownUntil is null);
+        Put(PluginDll, "plugin v3");                         // the deploy is done
+        var v3 = Now(3);
+        s.Step(200);
+        Check("V8: ... once it is still the restart is due again, for what is on disk now", s.W.Due is { Kind: "version" } && s.W.VersionDue?.Total == v3.Fingerprint);
+        s.Eng.Write(gameOver);
+        s.Step(15);
+        Check("V8: ... and the next match end takes it, recorded with that version, so the check after it raises no false alarm", s.Has("quit") && s.W.State.Pending is { Kind: "version" } p8 && p8.Source == v3.Fingerprint);
+        Parts();
+
+        // V9. the deploy begins right after the watcher's look, and the match ends before the next one: the moment of the quit looks again
+        s = Scenario.Make(At(4, 15, 0, 0), installed: v1);
+        (s.Eng.Humans, s.Eng.Hud) = (3, true);
+        s.Step(20);
+        Put(PluginDll, "plugin v2");
+        s.Step(200);
+        var seen = s.W.Due?.Kind;
+        Put(PluginDll, "plugin v3, half of it");
+        s.Eng.Write(gameOver);
+        s.Step(15);
+        Check($"V9: a match end right after a deploy began, before the watcher's minute comes round: no countdown, no quit (due was {seen})",
+              seen == "version" && !s.Has("quit") && s.W.CountdownUntil is null);
+        Parts();
+
+        // V10. another kind of restart waits for a deploy too, and goes when it is still
+        s = Scenario.Make(At(4, 15, 0, 0), ("stale", 14189, null), installed: v1);
+        s.Eng.Humans = 3;
+        s.Step(20);
+        Put(PluginDll, "plugin v2");
+        s.Eng.Humans = 0;
+        s.Step(30);
+        Check($"V10: a CS2 update restart with nobody on, a deploy being written: it waits ({Show(s.Log.Lines.Where(l => l.Contains("being written")).Take(1))})",
+              s.W.Due is { Kind: "update" } && !s.Has("quit"));
+        s.Step(200);
+        Check("V10: ... and goes once what is on disk is still", s.Has("quit"));
+        Parts();
+
         // V7. no record of what install put in place (an older pre.sh): no version is detected, and the start says so
         s = Scenario.Make(At(4, 15, 0, 0));
         s.W.Start();

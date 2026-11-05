@@ -37,9 +37,22 @@ static class WorkshopTests
         Check("CLI: an argument it does not know exits at once (2) - never the watcher's loop in the foreground of pre.sh",
               Quiet(() => Program.Main(["organize", "--observe"])).Code == 2 && Quiet(() => Program.Main(["nonsense"])).Code == 2);
         var off = Path.Combine(Dir("cli"), "off.jsonc");
-        File.WriteAllText(off, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"daily\": \"off\" } }");
+        File.WriteAllText(off, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"downloadRestart\": false, \"daily\": \"off\" }, \"maps\": { \"backgroundDownloads\": false, \"downloadLine\": false } }");
         var (code, said) = Quiet(() => Program.Main(["watch", "--settings", off]));
-        Check($"CLI: updates, the daily restart and freeze recovery off - nothing to do, the watcher does not start ({code})", code == 0 && said.Contains("nothing to do"));
+        Check($"CLI: every job of the watcher off - nothing to do, the watcher does not start ({code})", code == 0 && said.Contains("nothing to do"));
+        var allOff = ServerConfig.From(Settings.Parse(File.ReadAllText(off), Part.Server, _ => null), _ => null);
+        Check("CLI: ... that is all seven switches: the settings file's", Program.NothingToDo(allOff));
+        foreach (var (name, on) in new (string, Action<ServerConfig>)[]
+        {
+            ("restarts.updates", c => c.Updates = true), ("restarts.newVersions", c => c.NewVersions = true), ("restarts.freezeRecovery", c => c.FreezeRecovery = true),
+            ("restarts.daily", c => c.Daily = new TimeOfDay(7, 0)), ("restarts.downloadRestart", c => c.DownloadRestart = true),
+            ("maps.backgroundDownloads", c => c.BackgroundDownloads = true), ("maps.downloadLine", c => c.DownloadLine = true),
+        })
+        {
+            var one = ServerConfig.From(Settings.Parse(File.ReadAllText(off), Part.Server, _ => null), _ => null);
+            on(one);
+            Check($"CLI: ... {name} alone on is a job for the watcher", !Program.NothingToDo(one));
+        }
         var broken = Path.Combine(Dir("cli2"), "broken.jsonc");
         File.WriteAllText(broken, "{ \"schema\": 7 }");
         (code, said) = Quiet(() => Program.Main(["install", "--settings", broken]));

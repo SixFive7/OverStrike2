@@ -21,7 +21,7 @@ public static class Program
           --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS; else the file's text in OVERSTRIKE2_SETTINGS_CONTENT;
                                   else /etc/overstrike2/overstrike2.jsonc)
           --state DIR            the state folder of an observing or dry run (else <paths.gameDir>/update-watch/observe)
-        exit code 78: the settings file cannot be used (hud.addon is required): nothing done, and pre.sh does not start the engine
+        exit code 78: the settings cannot be used (hud.addon is required), or install found no MultiAddonManager: pre.sh does not start the engine
         """;
 
     public static string Version => typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
@@ -126,11 +126,16 @@ public static class Program
         return copy;
     }
 
+    /// <summary>Whether every job of the watcher's loop is switched off: the restarts, and the Workshop jobs (the download restart, the background
+    /// downloads, the download line), which run beside them.</summary>
+    public static bool NothingToDo(ServerConfig c) =>
+        !(c.Updates || c.NewVersions || c.FreezeRecovery || c.Daily is not null || c.DownloadRestart || c.BackgroundDownloads || c.DownloadLine);
+
     static int WatchMain(ServerConfig config, string settingsPath, Func<string, string?> env, IClock clock, TimeZoneInfo zone, Log log, bool observe)
     {
-        if (!(config.Updates || config.FreezeRecovery || config.Daily is not null || config.NewVersions))
+        if (NothingToDo(config))
         {
-            log.Line("restarts.updates, restarts.newVersions and restarts.freezeRecovery false and restarts.daily off: nothing to do, exiting");
+            log.Line("restarts.updates, restarts.newVersions, restarts.freezeRecovery, restarts.downloadRestart, maps.backgroundDownloads and maps.downloadLine false and restarts.daily off: nothing to do, exiting");
             return 0;
         }
         using var stop = new CancellationTokenSource();

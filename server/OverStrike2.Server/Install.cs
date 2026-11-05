@@ -12,33 +12,67 @@ public interface IDownloader
     void Download(string url, string path);
 }
 
-public sealed class HttpDownloader(IClock clock) : IDownloader
+public sealed class HttpDownloader(IClock clock, TimeSpan? noData = null, TimeSpan? atMost = null) : IDownloader
 {
-    static readonly HttpClient Http = new(new SocketsHttpHandler { AllowAutoRedirect = true }) { Timeout = TimeSpan.FromMinutes(10) };
+    /// <summary>No byte for this long is a stalled download, before the headers as much as after them.</summary>
+    public static readonly TimeSpan NoData = TimeSpan.FromSeconds(60);
 
-    /// <summary>GET with redirects, three tries more on a transient failure (no answer, 408, 429, 5xx), 1 s, 2 s and 4 s apart.</summary>
+    /// <summary>One try takes at most this long, however it trickles.</summary>
+    public static readonly TimeSpan AtMost = TimeSpan.FromMinutes(10);
+
+    // No timeout of the client's own: it stops counting once the headers are in, and a body that stalls after them would hold install, so
+    // pre.sh, so the engine's start, for ever. Once's two deadlines cover all of it.
+    static readonly HttpClient Http = new(new SocketsHttpHandler { AllowAutoRedirect = true, ConnectTimeout = TimeSpan.FromSeconds(30) }) { Timeout = System.Threading.Timeout.InfiniteTimeSpan };
+
+    /// <summary>GET with redirects, three tries more on a transient failure (no answer, a stall, 408, 429, 5xx), 1 s, 2 s and 4 s apart.</summary>
     public void Download(string url, string path)
     {
         for (var attempt = 0; ; attempt++)
         {
             try
             {
-                using var req = new HttpRequestMessage(HttpMethod.Get, url);
-                req.Headers.UserAgent.ParseAdd(HttpBridge.UserAgent);
-                using var resp = Http.Send(req, HttpCompletionOption.ResponseHeadersRead);
-                var code = (int)resp.StatusCode;
-                if (attempt < 3 && (code is 408 or 429 || code >= 500))
-                    throw new HttpRequestException($"HTTP {code}");
-                resp.EnsureSuccessStatusCode();
-                using var s = resp.Content.ReadAsStream();
-                using var f = File.Create(path);
-                s.CopyTo(f);
+                Once(url, path, attempt).GetAwaiter().GetResult();
                 return;
             }
             catch (Exception e) when (attempt < 3 && e is HttpRequestException or TaskCanceledException or IOException)
             {
                 clock.Sleep(TimeSpan.FromSeconds(1 << attempt));
             }
+        }
+    }
+
+    async Task Once(string url, string path, int attempt)
+    {
+        var quietFor = noData ?? NoData;
+        var whole = atMost ?? AtMost;
+        using var deadline = new CancellationTokenSource(whole);
+        using var quiet = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+        quiet.CancelAfter(quietFor);
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.UserAgent.ParseAdd(HttpBridge.UserAgent);
+            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, quiet.Token);
+            var code = (int)resp.StatusCode;
+            if (attempt < 3 && (code is 408 or 429 || code >= 500))
+                throw new HttpRequestException($"HTTP {code}");
+            resp.EnsureSuccessStatusCode();
+            await using var s = await resp.Content.ReadAsStreamAsync(quiet.Token);
+            await using var f = File.Create(path);
+            var buffer = new byte[81920];
+            while (true)
+            {
+                quiet.CancelAfter(quietFor);
+                var n = await s.ReadAsync(buffer, quiet.Token);
+                if (n == 0)
+                    return;
+                await f.WriteAsync(buffer.AsMemory(0, n));
+            }
+        }
+        catch (OperationCanceledException) when (quiet.IsCancellationRequested)
+        {
+            static string Seconds(TimeSpan t) => t.TotalSeconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+            throw new IOException(deadline.IsCancellationRequested ? $"not done after {Seconds(whole)} s" : $"no data for {Seconds(quietFor)} s");
         }
     }
 }
@@ -56,7 +90,9 @@ public sealed class HttpDownloader(IClock clock) : IDownloader
 /// To bump a pin: read the components' release pages (github.com/alliedmodders/metamod-source, roflmuffin/CounterStrikeSharp,
 /// Source2ZE/MultiAddonManager), change the version below, rebuild the plugin (plugin/OverStrike2) against the same CounterStrikeSharp.API
 /// NuGet version, and ship both: the new program restarts the engine by itself at the end of a match. Every step logs what it did, and a
-/// failure costs the plugin layer, never the server.</summary>
+/// failure costs the plugin layer, never the server, but for one: with the layer on and no MultiAddonManager on disk after its download was
+/// tried, the HUD cannot reach anybody, and a server without the HUD cannot exist. That is <see cref="Settings.RefusedExit"/>: the engine does
+/// not start, and the next start tries the download again.</summary>
 public sealed partial class Install(ServerConfig config, Log log, IDownloader downloader, Func<string, string?> env, IClock clock, TimeZoneInfo zone)
 {
     // Metamod:Source 2.0 dev build 1483: SourceHook API 18 and KHook, which CounterStrikeSharp 1.0.375+ and MultiAddonManager 1.6+ need
@@ -80,6 +116,8 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     [GeneratedRegex(@"^([ \t]*)Game_LowViolence[ \t]+csgo_lv.*$")] private static partial Regex LowViolence();
 
     ServerPaths P => config.Paths;
+
+    bool MamThere => File.Exists(Path.Combine(P.Csgo, "addons", "multiaddonmanager", "bin", "multiaddonmanager.so"));
 
     static string ReplaceFirst(string s, string what, string with) => s.IndexOf(what, StringComparison.Ordinal) is var i and >= 0 ? s[..i] + with + s[(i + what.Length)..] : s;
 
@@ -115,7 +153,13 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         }
         catch (Exception e)   // the plugin layer is never worth the server
         {
-            log.Line($"WARNING: the plugin layer stopped ({e.GetType().Name}: {e.Message}) - the server starts anyway");
+            log.Line($"WARNING: the plugin layer stopped ({e.GetType().Name}: {e.Message})");
+        }
+        if (config.PluginLayer && !MamThere)   // after the catch: the layer may have stopped before it got that far
+        {
+            log.Line($"ALERT: MultiAddonManager is not installed, so the HUD (Workshop addon {config.HudAddon}) cannot reach the players - a server without the HUD cannot exist, so the engine does not start; "
+                     + "the next start tries its download again");
+            return Settings.RefusedExit;
         }
         RotateConsoleLogs();
         try
@@ -185,7 +229,7 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or HttpRequestException or TaskCanceledException or InvalidDataException or WebException)
         {
-            log.Line($"WARNING: {name} {version} download or extraction failed ({e.Message}); the server starts without it");
+            log.Line($"WARNING: {name} {version} download or extraction failed ({e.Message})");
             return false;
         }
         finally
@@ -252,8 +296,8 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
     /// <summary>The in-game HUD: MultiAddonManager is loaded and the server mounts hud.addon, the Workshop id of the published HUD addon
     /// (mm_extra_addons), so every map change - a changelevel to an official map included - carries it to every client. A client-only addon
     /// (mm_client_extra_addons) dropped the HUD at every official-map change; the mounted one keeps it, with one reconnect per change, at about
-    /// 5 MiB of the server's memory. The settings have checked the id: digits only, so it is safe in the cfg. A failure here (MultiAddonManager
-    /// not installed, a cfg that cannot be written) costs the HUD's delivery, never the server, like every failure of the plugin layer.</summary>
+    /// 5 MiB of the server's memory. The settings have checked the id: digits only, so it is safe in the cfg. False when it could not: no
+    /// MultiAddonManager (which <see cref="Run"/> then refuses), or a cfg that cannot be written.</summary>
     public bool Hud()
     {
         var vdf = Path.Combine(P.Csgo, "addons", "metamod", "multiaddonmanager.vdf");
@@ -269,7 +313,7 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
             {
             }
         }
-        if (!File.Exists(Path.Combine(P.Csgo, "addons", "multiaddonmanager", "bin", "multiaddonmanager.so")))
+        if (!MamThere)
         {
             NoVdf();
             log.Line($"WARNING: MultiAddonManager is not installed; HUD addon {id} cannot reach the players");
