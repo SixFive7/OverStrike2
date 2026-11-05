@@ -614,16 +614,16 @@ public static class HudView
     }
 
     /// <summary>The seconds on the map-change banner, recomputed by the plugin every second from the deadline it took off the state.</summary>
-    public static string Countdown(int seconds) => seconds <= 0 ? "now" : seconds.ToString(CultureInfo.InvariantCulture);
+    public static string Countdown(int seconds) => seconds <= 0 ? "Now" : seconds.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>A restart's countdown beside its words in the window's foot, from its end time by the plugin's own clock (0:25), or what it waits
     /// for; "" without one.</summary>
     public static string RestartCountdown(HudState s, DateTime now)
     {
         if (s.RestartKind == "") return "";
-        if (s.RestartAt <= 0) return "after this match";
+        if (s.RestartAt <= 0) return "After this match";
         var left = Math.Max(0, (int)Math.Ceiling((DateTimeOffset.FromUnixTimeSeconds(s.RestartAt).UtcDateTime - now).TotalSeconds));
-        return left <= 0 ? "now" : $"{left / 60}:{left % 60:00}";
+        return left <= 0 ? "Now" : $"{left / 60}:{left % 60:00}";
     }
 
     /// <summary>One row of the Players page (SERVER, Players): a player on the server, their team, the HUD their game showed at the HUD check's

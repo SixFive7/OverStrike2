@@ -336,7 +336,7 @@ static partial class Program
             Check("A restart coming shows in the window's foot, its words and its countdown; the freeze says so there too",
                 Regex.IsMatch(rules, @"\.gg-global\.rst \.gg-rstrip\s*\{\s*visibility:\s*visible;") && ids.Contains("gg_rst_text") && ids.Contains("gg_rst_secs")
                 && HudView.RestartCountdown(new HudState { RestartKind = "daily", RestartAt = 1793000030 }, DateTimeOffset.FromUnixTimeSeconds(1793000000).UtcDateTime) == "0:30"
-                && HudView.RestartCountdown(new HudState { RestartKind = "daily" }, now) == "after this match" && HudView.RestartCountdown(new HudState(), now) == ""
+                && HudView.RestartCountdown(new HudState { RestartKind = "daily" }, now) == "After this match" && HudView.RestartCountdown(new HudState(), now) == ""
                 && Regex.IsMatch(rules, @"\.gg-screen\.vlock \.gg-foot-frozen\s*\{\s*visibility:\s*visible;"));
             Check("The menu window has no knife behind its pages any more", !Regex.IsMatch(rules, @"\.gg-pages\s*\{[^}]*background-image"));
             Check("The popup draws above the window, and a click on it is its reason, nothing else",
