@@ -36,8 +36,7 @@ static partial class Program
     static void SaveVotes()
     {
         CatalogVersion++; // every saved vote changes a card in the menu
-        File.WriteAllText(VotesPath + ".tmp", JsonSerializer.Serialize(Votes, Ctx.Default.DictionaryStringDictionaryStringInt32));
-        File.Move(VotesPath + ".tmp", VotesPath, true);
+        WriteAtomic(VotesPath, JsonSerializer.Serialize(Votes, Ctx.Default.DictionaryStringDictionaryStringInt32));
     }
 
     static (int Up, int Down) Tally(string key) =>

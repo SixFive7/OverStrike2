@@ -202,8 +202,7 @@ static partial class Program
         file.Written = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
         try
         {
-            File.WriteAllText(QueuesPath + ".tmp", JsonSerializer.Serialize(file, Ctx.Default.QueuesFile));
-            File.Move(QueuesPath + ".tmp", QueuesPath, true);
+            WriteAtomic(QueuesPath, JsonSerializer.Serialize(file, Ctx.Default.QueuesFile));
             QueuesWritten = text;
         }
         catch (Exception e) { Log($"queue: {QueuesPath} not written ({Clip(e.Message, 120)})"); }

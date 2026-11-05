@@ -41,8 +41,7 @@ static partial class Program
 
     static void SaveRemoved()
     {
-        File.WriteAllText(RemovedPath + ".tmp", JsonSerializer.Serialize(Checked, Ctx.Default.RemovedFile));
-        File.Move(RemovedPath + ".tmp", RemovedPath, true);
+        WriteAtomic(RemovedPath, JsonSerializer.Serialize(Checked, Ctx.Default.RemovedFile));
         NoteOwnWrite(RemovedPath); // the watch (Reload.cs) is not to read the bridge's own write back
     }
 

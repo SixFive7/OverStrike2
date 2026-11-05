@@ -124,10 +124,15 @@ static partial class Program
         }
     }
 
+    /// <summary>A file written whole: its readers see the old one or the new one. On Windows - builds and self-tests only - something else can hold
+    /// the target for a moment (a scanner, by all signs) and the move fails with "access denied", so it is tried again there, for 2 s at the most. On
+    /// Linux a rename does not care who has the file open: one try, and a real failure throws as ever.</summary>
     static void WriteAtomic(string path, string text)
     {
         File.WriteAllText(path + ".tmp", text, new UTF8Encoding(false));
-        File.Move(path + ".tmp", path, true);
+        for (var tries = OperatingSystem.IsWindows() ? 100 : 1; ; tries--)
+            try { File.Move(path + ".tmp", path, true); return; }
+            catch (Exception e) when (tries > 1 && e is IOException or UnauthorizedAccessException) { Thread.Sleep(20); }
     }
 
     /// <summary>The website's page, built into the bridge (dashboard.html), so a bridge update brings its page along.</summary>
