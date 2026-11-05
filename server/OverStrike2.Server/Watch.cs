@@ -138,6 +138,7 @@ public sealed partial class Watch
     string? versionSig;
     double versionSigAt;
     double versionCheckAt;
+    bool versionUnread;                            // the last look at our parts could not read them
     readonly List<(string Body, int Tries, double Next)> updated = [];   // after-restart notes for the bridge
     public double Started { get; }
     public WorkshopJobs Workshop { get; }
@@ -486,9 +487,11 @@ public sealed partial class Watch
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
         {
+            versionUnread = true;
             Log.Once("version", $"WARNING: our parts on disk cannot be read ({e.Message}) - no decision on a new version");
             return;
         }
+        versionUnread = false;
         var disk = OnDisk!;
         if (disk.Total == inst.Fingerprint)
         {
@@ -514,10 +517,11 @@ public sealed partial class Watch
     }
 
     /// <summary>Whether our parts are being written right now, looked at afresh: a deploy that began after CheckVersion's last look counts too.
-    /// A quit now would have install copy a half-written plugin folder, and the check after the restart would raise a false alarm.</summary>
+    /// A quit now would have install copy a half-written plugin folder, and the check after the restart would raise a false alarm. Parts that
+    /// cannot be read are no deploy: nothing is decided on them, and they hold no other restart back.</summary>
     bool Deploying(double now)
     {
-        if (!Config.NewVersions || InstalledNow is not { } inst)
+        if (!Config.NewVersions || InstalledNow is not { } inst || versionUnread)
             return false;
         try
         {

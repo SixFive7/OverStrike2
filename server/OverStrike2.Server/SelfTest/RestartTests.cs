@@ -309,6 +309,16 @@ static class RestartTests
         Check("V10: ... and goes once what is on disk is still", s.Has("quit"));
         Parts();
 
+        // V11. parts that cannot be read are no deploy: no decision on a new version, and no other restart held back for them
+        s = Scenario.Make(At(4, 15, 0, 0), ("stale", 14189, null), installed: v1);
+        s.Eng.Humans = 3;
+        s.Step(20);
+        Put(SettingsFile, "{ \"schema\": 9 }");
+        s.Eng.Humans = 0;
+        s.Step(10);
+        Check("V11: a settings file that turned unusable is no deploy: the CS2 update restart goes", s.Has("quit") && s.W.VersionDue is null);
+        Parts();
+
         // V7. no record of what install put in place (an older pre.sh): no version is detected, and the start says so
         s = Scenario.Make(At(4, 15, 0, 0));
         s.W.Start();
