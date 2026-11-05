@@ -113,7 +113,7 @@ All of it, part by part: [The parts](docs/reference.md#the-parts).
 
 | Folder | What |
 |---|---|
-| [`bridge/`](bridge/) | The bridge: C# sources, its `--selftest`, the `Dockerfile`, the website's page and the starting data - `maps.json` (the map list), `broken.json`, `blocked.json`, `sizes.json`, `search.json` (titles, ids and tags), `ours.json` |
+| [`bridge/`](bridge/) | The bridge: C# sources, with `Shared/` the ones the plugin compiles in too and `Tests/` its `--selftest`, the `Dockerfile`, the website's page and the starting data - `maps.json` (the map list), `broken.json`, `blocked.json`, `sizes.json`, `search.json` (titles, ids and tags), `ours.json` |
 | [`plugin/`](plugin/) | The CounterStrikeSharp plugin `OverStrike2`, its self-test, and the catch-up module `CatchUp` with its own |
 | [`core/`](core/) | `OverStrike2.Core`, what the parts share: the settings file, the keep set, the game server query, Steam's file formats; its self-test |
 | [`server/`](server/) | The programs `OverStrike2.Server` (`os2-server`) and `OverStrike2.Sync` (`os2-sync`), each with its self-test, and each game mode's settings |

@@ -86,7 +86,7 @@ aimed at, sounds, muzzle flashes - still shows.
 
 **Messages.** Every message a player can get is one line of one catalogue (`bridge/Shared/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
 the board's Lately list, and how long it stays. The bridge and the plugin both post through it, so one message cannot go two ways. What happens for everybody shows for everybody;
-what answers one player's click goes to that player alone. Nearly every word comes from the bridge and the plugin as dialog variables, so most changes need no new HUD (`Hud.cs`).
+what answers one player's click goes to that player alone. Nearly every word comes from the bridge and the plugin as dialog variables, so most changes need no new HUD (`bridge/Shared/Hud.cs` and its siblings there).
 
 The places on screen: the **top stack**, top centre, holds the countdown banner, the status banner, the outdated and the newer banner, and the top line; above the open window only
 the top line stays. The **card stack**, under the crosshair, grows upward and draws above the window: the now-playing card and catch-up's rows. A **window line** lies over the foot of
@@ -621,7 +621,9 @@ The rules are said in the menu: its How it works and Help pages and the start pa
 
 | Path | What |
 |---|---|
-| `bridge/*.cs` | The bridge; `SelfTest*.cs` its self-test. The shared ones - the words, the vote's and the modes' tables, the HUD's logic - are compiled into the plugin too (`plugin/OverStrike2/OverStrike2.csproj` names them). |
+| `bridge/*.cs` | The bridge. |
+| `bridge/Shared/` | What the plugin compiles in too, one type per file - the words, the message catalogue, the vote's and the modes' tables, the HUD's logic; the plugin's project takes the whole folder (`plugin/OverStrike2/OverStrike2.csproj`). |
+| `bridge/Tests/` | The bridge's `--selftest`. |
 | `bridge/Shared/Messages.cs` | The [message catalogue](#in-game-hud): every message a player can get, one line each. |
 | `bridge/maps.json`, `broken.json`, `blocked.json`, `sizes.json`, `search.json`, `ours.json` | The [data files](#the-data-files) the repository starts from. |
 | `bridge/dashboard.html` | The website's page, built into the bridge. |
