@@ -503,6 +503,9 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Eq(Rules.SpawnHealth(100, t7), 175, "+75% on 100");
     Eq(Rules.SpawnHealth(1000, t4), 1400, "+40% on a 1,000 base (Vampire)");
     Eq(Rules.SpawnHealth(100, Boost.None), 100, "no boost: the base");
+    Eq(Rules.AfterMaximumCut(1000, 1400, 100), (100, 100), "Vampire off mid-life: the life's base and ceiling follow the pawn's 100, so nothing heals past it");
+    Eq(Rules.AfterMaximumCut(100, 140, 140), (100, 140), "a pawn at the life's own ceiling changes nothing");
+    Eq(Rules.AfterMaximumCut(100, 140, 2000), (100, 140), "nor does a higher maximum: Vampire on mid-life, a mode's own");
     Eq(Rules.Lifesteal(t4, 50, 100), 10, "20% lifesteal of 50");
     Eq(Rules.Lifesteal(t4, 400, 100), 20, "lifesteal never more than the victim's whole health");
     Eq(Rules.Lifesteal(Boost.None, 50, 100), 0, "no lifesteal without the boost");

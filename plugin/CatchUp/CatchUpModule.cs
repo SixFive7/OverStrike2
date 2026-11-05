@@ -371,6 +371,7 @@ public sealed class CatchUpModule
                 var player = present.FirstOrDefault(p => p.Slot == slot);
                 if (player is not { PawnIsAlive: true } || player.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) continue;
                 var mate = leader != null && leader.Slot != slot && !Enemies(player, leader); // the leader's teammate: no bounty in the cap
+                FollowMaximum(life, pawn);
                 var r = Rules.Recalculate(config, standings, IdOf(player), mate, life.Boost, life.Health, life.BaseHealth, life.MaxHealth);
                 if (r.MaxHealth > life.MaxHealth)
                 {
@@ -456,12 +457,17 @@ public sealed class CatchUpModule
         return HookResult.Continue;
     }
 
+    /// <summary>The life follows a pawn whose maximum something else has cut (Rules.AfterMaximumCut).</summary>
+    static void FollowMaximum(Life life, CCSPlayerPawn pawn) =>
+        (life.BaseHealth, life.MaxHealth) = Rules.AfterMaximumCut(life.BaseHealth, life.MaxHealth, pawn.MaxHealth);
+
     void Heal(int slot, int s, int amount)
     {
         try
         {
             if (!lives.TryGetValue(slot, out var life) || life.Serial != s) return;
             if (Utilities.GetPlayerFromSlot(slot)?.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) return;
+            FollowMaximum(life, pawn);
             if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.MaxHealth) return;
             pawn.Health = Math.Min(life.MaxHealth, pawn.Health + amount);
             Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
@@ -518,6 +524,7 @@ public sealed class CatchUpModule
                 var add = Rules.Regen(life.Boost, now - life.LastHurtAt, tickSeconds, life.BaseHealth, ref life.RegenCarry);
                 if (add <= 0) continue;
                 if (Utilities.GetPlayerFromSlot(slot)?.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) continue;
+                FollowMaximum(life, pawn);
                 if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.MaxHealth) continue;
                 pawn.Health = Math.Min(life.MaxHealth, pawn.Health + add);
                 Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");

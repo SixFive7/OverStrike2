@@ -599,6 +599,12 @@ public static class Rules
     /// <summary>Spawn health with the boost, relative to the spawn health the game (or a mode) gave.</summary>
     public static int SpawnHealth(int baseHealth, Boost b) => Math.Max(1, (int)Math.Round(Math.Max(1, baseHealth) * (1 + b.Health)));
 
+    /// <summary>A life's base and ceiling once something else has cut the pawn's maximum below that ceiling: Vampire switched off mid-life, after which
+    /// nobody keeps more than 100. The life follows the pawn, so regeneration, lifesteal and a later boost count from there. A maximum at or above
+    /// the ceiling changes nothing: a mode's own higher maximum stays.</summary>
+    public static (int Base, int Max) AfterMaximumCut(int baseHealth, int maxHealth, int pawnMax) =>
+        pawnMax >= maxHealth ? (baseHealth, maxHealth) : (Math.Min(baseHealth, pawnMax), pawnMax);
+
     /// <summary>Health back for a hit on an enemy: the lifesteal share of what they lost, never more than their whole health.</summary>
     public static int Lifesteal(Boost attacker, int healthLost, int victimMaxHealth) =>
         attacker.Lifesteal <= 0 || healthLost <= 0 ? 0 : (int)Math.Round(attacker.Lifesteal * Math.Min(healthLost, Math.Max(1, victimMaxHealth)));
