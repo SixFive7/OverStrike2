@@ -254,10 +254,10 @@ void Eq<T>(T actual, T expected, string what) =>
         "settings: a file that can be used - its values, the secret by reference; CS2_LOG_HTTP_URL and the addon variable no longer count");
     Check(file.Line == $"settings: the settings file {standard}" && new[] { "filesecret42", "file-bridge", "3823993566", "envsecret41" }.All(x => !file.Line.Contains(x)),
         "settings: ...the line names the file and nothing it holds");
-    var noSecret = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "bridge": { "secret": "env:TEST_SECRET" } }""");
-    Check(noSecret.FromFile && Setup(noSecret, Env(new())) is { Bridge: null, BridgeWhy: "bridge.secret is empty", Addon: "" } && noSecret.Line.EndsWith(" - 1 warning (bridge.secret)"),
+    var noSecret = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "hud": { "addon": "3823993566" }, "bridge": { "secret": "env:TEST_SECRET" } }""");
+    Check(noSecret.FromFile && Setup(noSecret, Env(new())) is { Bridge: null, BridgeWhy: "bridge.secret is empty", Addon: "3823993566" } && noSecret.Line.EndsWith(" - 1 warning (bridge.secret)"),
         "settings: a file whose secret's variable is not set - no bridge, the HUD's log line says why, the settings line names the key");
-    var slow = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "steam": { "apiGapSeconds": 0.5 }, "hud": { "itemPage": "no" } }""");
+    var slow = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "steam": { "apiGapSeconds": 0.5 }, "hud": { "addon": "3823993566", "itemPage": "no" } }""");
     Check(slow.FromFile && slow.Troubled && PluginSetup.FromFile(slow.File) is { ApiGapSeconds: 2, ItemPage: true }
         && slow.Line == $"settings: the settings file {standard} - 2 problems (hud.itemPage, steam.apiGapSeconds)",
         "settings: a gap under 2 s is clamped to 2 and a wrong switch keeps its default - problems by key, never their values");
