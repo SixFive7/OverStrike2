@@ -155,7 +155,7 @@ static partial class Program
             const string screen = "../plugin/OverStrike2/HudScreen.cs";
             if (File.Exists(screen))
             {
-                var code = File.ReadAllText(screen);
+                var code = string.Join("\n", Directory.GetFiles("../plugin/OverStrike2", "HudScreen*.cs").Order(StringComparer.Ordinal).Select(File.ReadAllText)); // the class, in all its files
                 Check("The plugin's frame hands every view the vote", code.Contains("HudView.Texts(shown, vote)") && code.Contains("HudView.Classes(shown, vote)") && code.Contains("view.Returning, vote)") && code.Contains("HudView.PlayerClasses(shown, account, vote)")
                     && code.Contains("search, mode.Id, vote)"));
                 Check("A click on the map browser counts its matches with the search, as its page does", code.Contains("Matches(catalog, account, search).Count") && !code.Contains("Matches(catalog, account).Count"));

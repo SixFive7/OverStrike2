@@ -35,7 +35,7 @@ public class OverStrike2Plugin : BasePlugin
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race
 
-    /// <summary>The HUD: the modules post their lines through it (the message system, HudMessages.cs), the game-changers block's notices too.</summary>
+    /// <summary>The HUD: the modules post their lines through it (the message system, HudScreenMessages.cs), the game-changers block's notices too.</summary>
     internal HudScreen? Screen => hud;
     string addon = "";
     readonly Dictionary<int, (string Html, DateTime Until)> boosts = new();     // slot -> its catch-up message on the centre panel, for a game not known to hold the card: sent every tick until then
