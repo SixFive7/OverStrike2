@@ -626,7 +626,12 @@ public sealed class CatchUpModule
             }
             log.LogInformation("CatchUp: given by the console to {Name}: {Sentence}", player.PlayerName, Words.Sentence(boost));
         }
-        if (!player.IsBot) player.PrintToCenterHtml(Words.Html(lines, boost), config.Message.Seconds);
+        if (!player.IsBot)
+        {
+            var html = Words.Html(lines, boost);
+            if (Show != null) Show(player, boost, lines, html, config.Message.Seconds); // what a real boost shows: the card under the crosshair, or an older HUD's centre panel
+            else player.PrintToCenterHtml(html, config.Message.Seconds);
+        }
         return $"{(give ? "gave" : "showed")} {player.PlayerName}: {Words.Sentence(boost)}";
     }
 

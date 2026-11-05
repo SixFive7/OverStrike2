@@ -74,10 +74,8 @@ public class OverStrike2Plugin : BasePlugin
         effects.Load();
         freeze = new VoteFreeze(this, Logger, () => hud);
         freeze.Load(); // before catch-up: its damage hook has the first word while everybody is frozen
-        // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window, the vote's freeze and the mode the map
-        // loaded in: not in Wingman, which has no respawns. It lives on in the handlers it registers.
-        new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true,
-            () => settings?.Mode.Id != Modes.WingmanId).Load();
+        // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window and the vote's freeze. It lives on in the handlers it registers.
+        new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // The Arms Race-only features follow the mode the map that is on was loaded in (os_mode; docs/reference.md) and, the grenade drops and

@@ -175,7 +175,7 @@ public static class HudVote
     /// the line over the map browser while it adds to the vote (the contents before v4.6.0), the Vote sub-tab's label, and the ballot's header: who started
     /// the vote, the limit's digits and line, the second row's key, digits and line (the inactivity timer, or the countdown once decided).</summary>
     public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle",
-        StartVar = "osvstart", LimitNumVar = "osvlimn", IdleKeyVar = "osvidlek", IdleNumVar = "osvidlen";
+        StartVar = "osvstart", LimitNumVar = "osvlimn", IdleKeyVar = "osvidlek", IdleNumVar = "osvidlen", NextVar = "osvnext";
 
     /// <summary>Who has not voted yet and then what came of the vote (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4.6.0; HoverVar(k),
     /// longer, for the names a card shows while the mouse is on it) and the summary strip's segment i (StripVar(i)).</summary>
@@ -364,7 +364,7 @@ public static class HudVote
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : keep ? (shownN > 0 ? $"Keep {shownN}" : "Keep") : shownN > 0 ? $"Vote {shownN}" : "Vote"));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? (shownN > 0 ? $"Keep {shownN}" : "Keep") : shownN > 0 ? $"Vote {shownN}" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
             c.Add((id, "risky", record?.Risky == true));
@@ -412,6 +412,7 @@ public static class HudVote
         w.Add((MoreVar, rest > 0 ? $"{rest} more map{(rest == 1 ? "" : "s")} on the next page" : ""));
         var clocks = Clocks(v);
         w.Add((StartVar, StartLine(v)));
+        w.Add((NextVar, v.Kept ? "Kept" : "Next map")); // the winner's tag: a kept map is no next map
         w.Add((LimitNumVar, clocks.LimitNum));
         w.Add((LimitVar, clocks.Limit));
         w.Add((IdleKeyVar, clocks.IdleKey));

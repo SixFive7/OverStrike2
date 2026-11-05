@@ -357,7 +357,7 @@ static partial class Program
                 var keptHud = BuildHud(clock);
                 Check($"Kept the map: for {MapVote.KeptSeconds} s the window says so and closes in that time, vdone, the card lit, everybody frozen; no change, no top line; chat and the board say it",
                     Header(w6) == $"Started by Bob | The vote kept {keptLabel} (4 of 6) |  |  | Closes in | {MapVote.KeptSeconds} s | " && w6 is { Open: false, Freeze: true, Kept: true, DoneSeconds: MapVote.KeptSeconds }
-                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "gg_m1", "now") && TextOf(w6, "gg_m1_score") == "4/6" && TextOf(w6, "gg_m1_play_text") == "Next map" && StepOf(w6, HudVote.IdleBar) == "w10"
+                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "gg_m1", "now") && TextOf(w6, "gg_m1_score") == "4/6" && TextOf(w6, "gg_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == "w10"
                     && Pending is null && S.Map == keptMap && keptHud.TopText == "" && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)")
                     && HudView.VoteLine(w6) == Hud.Clean($"The vote kept {keptLabel}", HudView.QueueLineMax));
                 Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(clock).Encode(endTimes: true)).AsOf(HudState.Ms(clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);

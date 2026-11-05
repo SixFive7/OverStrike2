@@ -454,26 +454,20 @@ sealed partial class HudScreen
                 if (HudVote.PageClick(vote, buttonId, view.Page, BallotCards(player.Slot)) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
                 if (HudVote.Click(vote, buttonId, view.Page, account, SeenOrder(player.Slot, view.Page, now), BallotCards(player.Slot)) is { } cast)
                 {
-                    var was = vote.ChoiceOf(account);
-                    Act(player, account, cast);
-                    if (MapVote.ParseClick(cast) is { Option: > 0 } picked && picked.Option != was && HudVote.ChatWords(picked.Option) is { Length: > 0 } words) SayForAll(player, words);
+                    Act(player, account, cast); // chat and the board say it: the bridge's line of who voted and who has yet to
                 }
                 Server.NextFrame(Frame);
                 return;
             }
             // The map browser while the vote is on: its own controls as ever; a card's Play puts the map on the vote, with this player's vote (the bridge's
-            // !map during a vote), says so in chat the chat way (!play), and goes back to the ballot's last page, where the map appears for everybody.
+            // !map during a vote; its line says so in chat), and goes back to the ballot's last page, where the map appears for everybody.
             var browsing = Browser(player.Slot);
             if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account, search).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
             if (buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
                 && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
                 Act(player, account, add);
-                if (browsing.ConfirmKey == "") // a risky map's first click only arms its confirmation: the second one adds it
-                {
-                    SayForAll(player, "!play " + add[5..]);
-                    voteView[player.Slot] = (vote.Round, int.MaxValue, false);
-                }
+                if (browsing.ConfirmKey == "") voteView[player.Slot] = (vote.Round, int.MaxValue, false); // a risky map's first click only arms its confirmation: the second one adds it
                 Server.NextFrame(Frame);
                 return;
             }

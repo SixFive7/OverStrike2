@@ -403,9 +403,6 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
 /// think, so the window's closing, a step off the spawn and an attack end the hide in the tick they happen.</summary>
 sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen)
 {
-    /// <summary>For the call that still hands in whether the mode respawns (OverStrike2.cs): the cloak is every mode's now, so nobody asks.</summary>
-    public SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen, Func<bool> _) : this(plugin, log, cloak, windowOpen, frozen) { }
-
     readonly SpawnCloakPlan plan = new();
     readonly List<int> look = new();
     readonly List<int> hidden = new();
