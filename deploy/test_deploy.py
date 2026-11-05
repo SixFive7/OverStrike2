@@ -9,8 +9,10 @@ has no runtime address, so a swap that checked the runtime address put the old o
 and data.py ships the hand-made files but never a list the Workshop sync writes on the server (one writer per file).
 """
 import copy
+import io
 import os
 import sys
+import tarfile
 import tempfile
 import time
 
@@ -36,12 +38,13 @@ class FakeDocker:
     """The Docker Engine API calls bridge.py makes, on containers and tags kept in memory. old_engine: a stopped container keeps
     its MAC only in Config.MacAddress (engines before API 1.44), not on its network endpoint."""
 
-    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="gg-health 1\nlog pushes 3\n"):
+    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="gg-health 1\nlog pushes 3\n", settings=None, bare=False):
         self.old_engine, self.health_text, self.calls, self.n = old_engine, health, [], 0
+        self.files, self.tar_names, self.execs, self.put_refused = {"c-old": settings} if settings is not None else {}, [], [], False
         self.refs = {"localhost/overstrike2-bridge:latest": "sha256:image-old-00000", "localhost/overstrike2-bridge:candidate": "sha256:image-new-00000"}
         self.images = {i: {"Id": i, "Config": {"Env": ["PATH=/usr/bin"], "Labels": {"org.opencontainers.image.title": "x"}}}
                        for i in set(self.refs.values())}
-        env = ["PATH=/usr/bin", "HTTP_PORT=8080", "LOG_SECRET=s", "RCON_PASSWORD=p"]
+        env = ["PATH=/usr/bin"] if bare else ["PATH=/usr/bin", "HTTP_PORT=8080", "LOG_SECRET=s", "RCON_PASSWORD=p"]   # bare: all it has is the settings file
         endpoint = {"IPAMConfig": {"IPv4Address": IP} if pinned else None, "Aliases": ["bridge"], "MacAddress": MAC, "IPAddress": IP}
         self.containers = {
             "c-old": {"Id": "c-old", "Name": "/bridge", "Image": "sha256:image-old-00000", "RestartCount": 0,
@@ -51,7 +54,8 @@ class FakeDocker:
                       "NetworkSettings": {"Networks": {NET: endpoint}}},
             "c-game": {"Id": "c-game", "Name": "/cs2", "Image": "sha256:game", "RestartCount": 0,
                        "State": {"Running": True, "Status": "running", "StartedAt": "start-game"},
-                       "Config": {"Image": "game", "Env": ["RCON_PORT=27015"]}, "HostConfig": {}, "NetworkSettings": {"Networks": {}}},
+                       "Config": {"Image": "game", "Env": ["RCON_PORT=27015"] + (["CS2_LOG_HTTP_URL=http://bridge:8090/log/fromthegame", "CS2_RCONPW=gamepw"] if bare else [])},
+                       "HostConfig": {}, "NetworkSettings": {"Networks": {}}},
         }
         if not bridge_running:
             self.stop(self.containers["c-old"])
@@ -74,11 +78,28 @@ class FakeDocker:
             c = self.images.get(self.refs.get(name, name))
         return copy.deepcopy(c) if c else None
 
-    def call(self, method, path, body=None, timeout=60, **kw):
+    def call(self, method, path, body=None, raw=None, ctype=None, timeout=60):
         route, _, query = path.partition("?")
         q = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
         parts = route.strip("/").split("/")
         self.calls.append((method, route, q.get("name") or q.get("tag") or ""))
+        if parts[-1] == "archive":
+            c = self.find(parts[1])
+            if method == "PUT":
+                if self.put_refused:
+                    return 400, "container rootfs is marked read-only"
+                with tarfile.open(fileobj=io.BytesIO(raw)) as tar:
+                    self.tar_names = tar.getnames()
+                    self.files[c["Id"]] = tar.extractfile(tar.getmembers()[0]).read()
+                return 200, b""
+            if c["Id"] not in self.files:
+                return 404, "Could not find the file"
+            out = io.BytesIO()
+            with tarfile.open(fileobj=out, mode="w") as tar:
+                info = tarfile.TarInfo(os2.SETTINGS_FILE.rsplit("/", 1)[1])
+                info.size = len(self.files[c["Id"]])
+                tar.addfile(info, io.BytesIO(self.files[c["Id"]]))
+            return 200, out.getvalue()
         if parts[0] == "images" and parts[-1] == "tag":
             self.refs[f"{q['repo']}:{q['tag']}"] = parts[1]
             return 201, b""
@@ -120,6 +141,9 @@ class FakeDocker:
         return out
 
     def exec_in(self, container, argv, timeout=60):
+        self.execs.append(argv)
+        if argv[2] == B.INNER_RCON:   # something said on the server: its log push reaches the bridge
+            self.health_text = "gg-health 1\nlog pushes 1\n"
         return self.health_text
 
     def writes(self):
@@ -201,12 +225,68 @@ try:
     f.refs["localhost/overstrike2-bridge:candidate"] = "sha256:image-old-00000"
     check("swap, running on the target already: nothing to do, nothing written", swap(f) == 0 and f.writes() == [])
 
+    # the settings file lives in the container's own layer: a new container made from the old one's inspect gets it from the swap
+    f = FakeDocker(settings=b"{ settings of the old bridge }")
+    r = swap(f)
+    new = f.find("bridge")
+    check("swap, with a settings file: the new bridge holds the same bytes, put there before it starts, at the path every part reads",
+          r == 0 and f.files.get(new["Id"]) == b"{ settings of the old bridge }" and f.tar_names == ["etc/overstrike2/overstrike2.jsonc"]
+          and f.calls.index(("PUT", f"/containers/{new['Id']}/archive", "")) < f.calls.index(("POST", f"/containers/{new['Id']}/start", "")))
+    f = FakeDocker()
+    r = swap(f)
+    check("swap, a bridge on its environment: no settings file is made up", r == 0 and not f.files and not any(c[0] == "PUT" for c in f.calls))
+    f = FakeDocker(settings=b"{ }")
+    f.put_refused = True
+    r = swap(f)
+    back = f.find("bridge")
+    check("swap, the settings file refused (a read-only root): never started without it - the old bridge is back up",
+          r == 1 and back["Id"] == "c-old" and back["State"]["Running"] and len(f.containers) == 2
+          and not any(c[0] == "POST" and c[1].endswith("/start") and "new" in c[1] for c in f.calls))
+
+    # a bridge that reads the settings file has no secret in its environment: the game container's are used
+    f = FakeDocker(settings=b"{ }", bare=True, health="gg-health 1\nlog pushes 0\n")
+    r = swap(f)
+    gets = [a[3] for a in f.execs if a[2] == B.INNER_GET]
+    says = [a for a in f.execs if a[2] == B.INNER_RCON]
+    check("swap, no LOG_SECRET and no RCON_PASSWORD in the bridge: /health with the secret and port of the game's CS2_LOG_HTTP_URL, RCON with its CS2_RCONPW",
+          r == 0 and gets and all(g == "http://bridge:8090/health/fromthegame" for g in gets) and says and says[0][3] == "gamepw")
+    f = FakeDocker(health="gg-health 1\nlog pushes 0\n")
+    r = swap(f)
+    gets = [a[3] for a in f.execs if a[2] == B.INNER_GET]
+    says = [a for a in f.execs if a[2] == B.INNER_RCON]
+    check("swap, a game container without them: the bridge's own LOG_SECRET, HTTP_PORT and RCON_PASSWORD, as before",
+          r == 0 and gets and all(g == "http://bridge:8080/health/s" for g in gets) and says and says[0][3] == "p")
+
     # a stopped bridge with no pinned IP: nothing to recreate it on - refused before any change
     f = FakeDocker(bridge_running=False, pinned=False)
     r = swap(f)
     check("swap, stopped and unpinned: refused, nothing written (%s)" % r, r == "exit 1" and f.writes() == [])
 finally:
     B.time.sleep = real_sleep
+
+# ---- os2: the secrets of a bridge that has none in its environment
+def box(*env):
+    return {"Config": {"Env": list(env)}}
+
+
+check("os2: the bridge's secret and port from the log push address, its templated form too",
+      os2.bridge_secret(box("CS2_LOG_HTTP_URL=http:\\/\\/bridge:8090\\/log\\/abc123")) == "abc123"
+      and os2.bridge_port(box("CS2_LOG_HTTP_URL=http://bridge:8090/log/abc123")) == "8090")
+check("os2: the log push address first, then the bridge's own variables; a URL with no port is the default port",
+      os2.bridge_secret(box("CS2_LOG_HTTP_URL=http://b:1/log/a"), box("LOG_SECRET=b")) == "a" and os2.bridge_secret(box(), box("LOG_SECRET=b")) == "b"
+      and os2.bridge_secret(None, None) == "" and os2.bridge_port(box("CS2_LOG_HTTP_URL=http://b/log/a"), box("HTTP_PORT=9")) == "9"
+      and os2.bridge_port(box()) == "8080")
+check("os2: the RCON password from the game container first, then the bridge's",
+      os2.rcon_password(box("CS2_RCONPW=a"), box("RCON_PASSWORD=b")) == "a" and os2.rcon_password(box(), box("RCON_PASSWORD=b")) == "b"
+      and os2.rcon_password(None, None) == "")
+f = FakeDocker()
+check("os2: a container with no settings file reads as None", os2.read_settings(f, "c-old") is None)
+f.call = lambda *a, **kw: (500, "the daemon's trouble")
+try:
+    os2.read_settings(f, "c-old")
+    check("os2: an archive call that fails is no 'no file'", False)
+except SystemExit:
+    check("os2: an archive call that fails is no 'no file'", True)
 
 # ---- data.py: what ships
 with tempfile.TemporaryDirectory() as dest:
