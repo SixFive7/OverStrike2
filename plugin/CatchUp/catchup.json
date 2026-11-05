@@ -102,8 +102,6 @@
   },
   "Balance": {
     "MaxDuelFactor": 8.0,
-    "ScoreboardCap": false,
-    "ScoreboardCapFactor": 2.0,
     "LifestealCounts": true,
     "RoundTo": 0.05
   },

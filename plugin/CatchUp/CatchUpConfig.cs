@@ -200,32 +200,25 @@ public sealed class BountyConfig
     }
 }
 
-/// <summary>The cap on what health, resistance, damage and lifesteal add up to against the leader. See Rules.DuelFactor and Rules.Cap. The curve
-/// is the rule and this a ceiling it never reaches: the strongest tier, 5.95, times the largest bounty, 1.30,
-/// is 7.74, under MaxDuelFactor 8, so every tier gives exactly its row.</summary>
+/// <summary>How a boost is weighed against the leader: the duel factor the log shows (Rules.DuelFactor), how much of the leader's bounty
+/// a boosted player's hits on him get, and the mid-life cut (Rules.HoldHealth).</summary>
 public sealed class BalanceConfig
 {
-    /// <summary>The ceiling on the duel factor against the leader (the leader's bounty included), whatever the scoreboard says.</summary>
+    /// <summary>The most a boosted player's duel factor against the leader may reach with his bounty: on each of their hits on him the
+    /// bounty counts only up to this over their own factor, never below no bounty at all. The strongest tier, 5.95, times the largest
+    /// bounty, 1.30, is 7.74: under 8, so every hit gets the whole bounty.</summary>
     public double MaxDuelFactor { get; set; } = 8.0;
-
-    /// <summary>Also cap the duel factor at the scoreboard's ratio (leader's progress + 1) / (player's progress + 1) times ScoreboardCapFactor:
-    /// the boost may cancel the edge the leader has shown, and go that far past it. Off: MaxDuelFactor alone.</summary>
-    public bool ScoreboardCap { get; set; } = false;
-
-    /// <summary>How far past the leader's shown edge the scoreboard cap lets a boosted player go: 2.0 is up to twice the scoreboard's ratio
-    /// Unused while ScoreboardCap is off.</summary>
-    public double ScoreboardCapFactor { get; set; } = 2.0;
 
     /// <summary>Lifesteal counts as health in the duel factor (in a duel it returns that share of the leader's health).</summary>
     public bool LifestealCounts { get; set; } = true;
 
-    /// <summary>A capped value is rounded down to a multiple of this (0.05 = whole 5% steps), so the message stays readable.</summary>
+    /// <summary>A value cut in the middle of a life (Rules.HoldHealth) is rounded down to a multiple of this (0.05 = whole 5% steps), so
+    /// the numbers stay readable.</summary>
     public double RoundTo { get; set; } = 0.05;
 
     internal void Normalize(List<string> notes)
     {
         MaxDuelFactor = CatchUpConfig.Clamp(MaxDuelFactor, 1, 100, "Balance.MaxDuelFactor", notes);
-        ScoreboardCapFactor = CatchUpConfig.Clamp(ScoreboardCapFactor, 1, 10, "Balance.ScoreboardCapFactor", notes);
         RoundTo = CatchUpConfig.Clamp(RoundTo, 0, 0.5, "Balance.RoundTo", notes);
     }
 }

@@ -433,8 +433,9 @@ green row per item for 5 s, with the same line in their chat; a leader's bounty 
 
 The health is a share of what the life spawned with: 1,000 under Vampire, never Vampire's 2,000 ceiling. The boost is decided again a frame after every change to the ladder - a kill,
 a team kill, a demotion, a player leaving - silently, so it shrinks as soon as its gap closes and grows when the leader pulls away. Within a life health only goes up, and when the
-boost shrinks the other values take the cut. A leader 2 kills or more ahead of second place takes more damage from enemies: 10% for every 2 kills of lead, up to 30%. Against the leader a
-boosted player's duel factor (health with lifesteal, over the damage they take, times the damage they deal and the bounty) stays within `MaxDuelFactor` (8).
+boost shrinks the other values take the cut. A leader 2 kills or more ahead of second place takes more damage from enemies: 10% for every 2 kills of lead, up to 30%. A boosted
+player's hits on the leader get his bounty only up to a duel factor (health with lifesteal, over the damage they take, times the damage they deal and the bounty) of `MaxDuelFactor`
+(8); the strongest tier with the largest bounty is 7.74, so every hit gets the whole bounty.
 
 The module counts the ladder from the match's kills, since the game exposes no ladder position, by CS2's own rules as real matches show them: a team kill under friendly fire takes the
 killer down a level, and every kill goes to the plugin's log as `CatchUp: kill:` with both teams and both counts after it. Its self-test replays real match logs against them. `!catchup off`

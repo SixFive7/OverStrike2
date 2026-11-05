@@ -270,7 +270,7 @@ public sealed class CatchUpModule
                 standings = ladder.Standings(present.Select(IdOf));
                 var leaderId = standings.Leader;
                 var leader = leaderId == 0 ? null : present.FirstOrDefault(p => IdOf(p) == leaderId);
-                boost = Rules.Decide(config, standings, id, leader != null && leader.Slot != player.Slot && !Enemies(player, leader)); // the leader's teammate: no bounty in the cap
+                boost = Rules.Decide(config, standings, id, leader != null && leader.Slot != player.Slot && !Enemies(player, leader)); // the leader's teammate: no bounty in their duel factor
             }
 
             var spawnHealth = baseHealth;
@@ -358,7 +358,7 @@ public sealed class CatchUpModule
                 if (life.Given) continue;
                 var player = present.FirstOrDefault(p => p.Slot == slot);
                 if (player is not { PawnIsAlive: true } || player.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) continue;
-                var mate = leader != null && leader.Slot != slot && !Enemies(player, leader); // the leader's teammate: no bounty in the cap
+                var mate = leader != null && leader.Slot != slot && !Enemies(player, leader); // the leader's teammate: no bounty in their duel factor
                 FollowMaximum(life, pawn);
                 var r = Rules.Recalculate(config, standings, IdOf(player), mate, life.Boost, life.Health, life.BaseHealth, life.MaxHealth);
                 if (r.MaxHealth > life.MaxHealth)
@@ -597,7 +597,7 @@ public sealed class CatchUpModule
         var lead = command.GetArg(3).Equals("lead", StringComparison.OrdinalIgnoreCase);
         if (!int.TryParse(command.GetArg(lead ? 4 : 3), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) || n < 0)
             return "a number of kills, please";
-        var boost = lead ? new Boost { Lead = n, Bounty = Rules.BountyFor(config.Bounty, n) } : Rules.ForGap(config, n, n, 0, 0);
+        var boost = lead ? new Boost { Lead = n, Bounty = Rules.BountyFor(config.Bounty, n) } : Rules.ForGap(config, n, 0);
         var lines = Words.Lines(boost, config.Message);
         if (lines.Length == 0) return $"{(lead ? $"a lead of {n}" : $"{n} behind")} gives nothing";
         if (give)
@@ -665,8 +665,8 @@ public sealed class CatchUpModule
         ladder.Configure(config.Progress);
         foreach (var note in notes) log.LogWarning("CatchUp config: {Note}", note);
         var tiers = string.Join(", ", config.Tiers.Select(t => $"{t.MinBehind}+"));
-        var summary = $"{config.Tiers.Count} tiers ({tiers} behind), bounty from {config.Bounty.MinLead} ahead, duel factor at most "
-                      + $"{config.Balance.MaxDuelFactor.ToString(CultureInfo.InvariantCulture)}{(config.Balance.ScoreboardCap ? " and the scoreboard's ratio" : "")}, "
+        var summary = $"{config.Tiers.Count} tiers ({tiers} behind), bounty from {config.Bounty.MinLead} ahead, a hit's bounty up to a duel factor of "
+                      + $"{config.Balance.MaxDuelFactor.ToString(CultureInfo.InvariantCulture)}, "
                       + (config.RecalculateOnKill ? "decided again after every kill" : "decided at spawn")
                       + (config.Enabled ? "" : ", switched off in the file");
         return notes.Count == 0 ? summary : $"{summary} ({notes.Count} config note(s) in the log)";

@@ -117,10 +117,7 @@ public static class Words
         if (b.IsBounty) return $"{who} leads by {Kills(b.Lead)} ({s.Top} to {s.Second}, {s.Players} players): bounty +{Pct(b.Bounty)} damage taken from enemies";
         if (!b.IsBoost) return $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: no boost";
         var parts = Parts(b, $"({baseHealth} -> {spawnHealth})", spawn: true);
-        var cap = b.Capped
-            ? string.Create(CultureInfo.InvariantCulture, $"capped: duel factor {b.RawFactor:0.00} -> {b.Factor:0.00}, allowed {b.Allowed:0.00}")
-            : string.Create(CultureInfo.InvariantCulture, $"duel factor {b.Factor:0.00}, allowed {b.Allowed:0.00}");
-        return string.Create(CultureInfo.InvariantCulture, $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: tier {b.Tier}+: {string.Join(", ", parts)}; {cap}");
+        return string.Create(CultureInfo.InvariantCulture, $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: tier {b.Tier}+: {string.Join(", ", parts)}; duel factor {b.Factor:0.00}");
     }
 
     /// <summary>The server log's line for a boost whose tier (or bounty step) changed in the middle of a life (RecalculateOnKill), for

@@ -1,12 +1,13 @@
 using System.Globalization;
+using System.Text.Json;
 using CatchUp;
 
 // CatchUp.SelfTest - every decision of the catch-up module, without a game server: the config and its file, the tiers and the
-// bounty, the balance cap, each hit, the healing, the Arms Race kill counter (its rules case by case, nine real players' runs, and five
+// bounty, the duel factor and the bounty's limit on a hit, each hit, the healing, the Arms Race kill counter (its rules case by case, nine real players' runs, and five
 // whole real matches replayed), the boost decided again in the middle of a life, the message and its timing. CatchUpConfig.cs and
 // CatchUpRules.cs are compiled in as source; CatchUpModule.cs (the game half) is not: the plugin's build compiles it.
 //
-// Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the tier table and the cap's examples.
+// Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the tier table, the panels and the mid-life cut.
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
@@ -37,7 +38,7 @@ CatchUpConfig Defaults()
     return c;
 }
 
-// A fixed set of numbers, not the defaults. The mechanics below - the bounty steps, the cap,
+// A fixed set of numbers, not the defaults. The mechanics below - the bounty steps, the bounty's limit on a hit,
 // each hit, the healing, the message - are checked against these, so tuning the defaults moves only the checks of the defaults themselves.
 static CatchUpConfig Reference()
 {
@@ -52,28 +53,7 @@ static CatchUpConfig Reference()
                     SecondChance = true, ExtraSpawnProtectionSeconds = 3, InfiniteAmmo = true, OneHitKnifeAndTaser = true },
         ],
     };
-    (c.Bounty.Max, c.Balance.MaxDuelFactor, c.Balance.ScoreboardCap, c.Balance.ScoreboardCapFactor) = (0.30, 3.0, true, 1.0);
-    c.Normalize(new List<string>());
-    return c;
-}
-
-// Three tiers, the scoreboard cap on at twice its ratio and
-// MaxDuelFactor 3.5. The cap binds there, so its rules for the leader's teammates and enemies are checked on these.
-static CatchUpConfig ThreeTiers()
-{
-    var c = new CatchUpConfig
-    {
-        Tiers =
-        [
-            new() { MinBehind = 2, Health = 0.30, DamageTaken = -0.15, DamageDealt = 0.15, Lifesteal = 0.15, RegenPerSecond = 0.03, RegenDelaySeconds = 4 },
-            new() { MinBehind = 4, Health = 0.60, DamageTaken = -0.25, DamageDealt = 0.25, Lifesteal = 0.25, RegenPerSecond = 0.05, RegenDelaySeconds = 3,
-                    SecondChance = true, ExtraSpawnProtectionSeconds = 2 },
-            new() { MinBehind = 7, Health = 1.00, DamageTaken = -0.35, DamageDealt = 0.40, Lifesteal = 0.35, RegenPerSecond = 0.08, RegenDelaySeconds = 2,
-                    SecondChance = true, ExtraSpawnProtectionSeconds = 3, InfiniteAmmo = true, OneHitKnifeAndTaser = true },
-        ],
-        RecalculateOnKill = false,
-    };
-    (c.Balance.MaxDuelFactor, c.Balance.ScoreboardCap, c.Balance.ScoreboardCapFactor) = (3.5, true, 2.0);
+    (c.Bounty.Max, c.Balance.MaxDuelFactor) = (0.30, 3.0);
     c.Normalize(new List<string>());
     return c;
 }
@@ -144,30 +124,6 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     }
 }
 
-// --spawns <csv>: the cap on a log's spawns (the analysis's spawns.csv: behind, top, mine, lead_est), as the leader's enemy and as his
-// teammate, with the defaults - one line a spawn, for a cross-check against another implementation. Not a check: it changes nothing.
-if (args.Length >= 2 && args[0] == "--spawns")
-{
-    var cfg = Defaults();
-    var rows = File.ReadAllLines(args[1]);
-    var head = rows[0].Split(',');
-    int Col(string n) => Array.IndexOf(head, n);
-    var (ckind, cbehind, ctop, cmine, clead) = (Col("kind"), Col("behind"), Col("top"), Col("mine"), Col("lead_est"));
-    foreach (var line in rows.Skip(1))
-    {
-        var f = line.Split(',');
-        if (f.Length <= clead || f[ckind] != "spawn" || !int.TryParse(f[cbehind], out var behind) || !int.TryParse(f[ctop], out var top)
-            || !int.TryParse(f[cmine], out var mine)) continue;
-        var lead = int.TryParse(f[clead], out var l) ? l : 0;
-        var bounty = Rules.BountyFor(cfg.Bounty, lead);
-        var e = Rules.ForGap(cfg, behind, top, mine, bounty);
-        var t = Rules.ForGap(cfg, behind, top, mine, 0);
-        Console.WriteLine(string.Join(",", behind, top, mine, lead, $"{bounty:0.00}", $"{e.Allowed:0.0000}", $"{e.Factor:0.0000}", $"{e.Health:0.00}", $"{e.DamageTaken:0.00}", $"{e.DamageDealt:0.00}", $"{e.Lifesteal:0.00}",
-            $"{t.Allowed:0.0000}", $"{t.Factor:0.0000}", $"{t.Health:0.00}", $"{t.DamageTaken:0.00}", $"{t.DamageDealt:0.00}", $"{t.Lifesteal:0.00}"));
-    }
-    return 0;
-}
-
 // ---- config: the defaults, the shipped file, and what a bad file does ----
 
 {
@@ -185,6 +141,24 @@ if (args.Length >= 2 && args[0] == "--spawns")
     var f = CatchUpConfig.Load(shipped, fileNotes);
     Eq(fileNotes.Count, 0, $"catchup.json needs no correction ({string.Join("; ", fileNotes)})");
     Eq(f.ToJson(), d.ToJson(), "catchup.json holds exactly the built-in defaults");
+    // ...and names every setting and nothing else: a key the file lacks takes its default and a key the module does not read is ignored,
+    // so neither shows above.
+    static IEnumerable<string> Keys(JsonElement e, string at) => e.ValueKind switch
+    {
+        JsonValueKind.Object => e.EnumerateObject().SelectMany(p => Keys(p.Value, $"{at}.{p.Name}").Prepend($"{at}.{p.Name}")),
+        JsonValueKind.Array => e.EnumerateArray().SelectMany((x, i) => Keys(x, $"{at}[{i}]")),
+        _ => [],
+    };
+    using (var file = JsonDocument.Parse(File.ReadAllText(shipped), new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }))
+    using (var built = JsonDocument.Parse(d.ToJson()))
+    {
+        var (inFile, inCode) = (Keys(file.RootElement, "").ToHashSet(), Keys(built.RootElement, "").ToHashSet());
+        Check(inFile.SetEquals(inCode), $"...and names every setting, nothing else (only in the file: {string.Join(" ", inFile.Except(inCode))}; only in the code: {string.Join(" ", inCode.Except(inFile))})");
+    }
+    var older = new List<string>();
+    var o = CatchUpConfig.Parse("{ \"Balance\": { \"ScoreboardCap\": true, \"ScoreboardCapFactor\": 2.0 } }");
+    o.Normalize(older);
+    Check(older.Count == 0 && o.ToJson() == d.ToJson(), "an older file still loads: the scoreboard cap's two keys mean nothing now");
 
     var missing = new List<string>();
     var m = CatchUpConfig.Load(Path.Combine(here, "no-such-file.json"), missing);
@@ -257,81 +231,63 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Check(!Rules.Decide(c, Stand((1, 9)), 1).IsBounty, "alone on the server: nothing");
     Check(!Rules.Decide(c, Stand((1, 9), (2, 8)), 2).IsBoost, "1 behind: nothing");
 
-    // The table as configured, with the cap out of the way: every value reaches the boost.
-    var open = Reference();
-    open.Balance.ScoreboardCap = false;
-    open.Balance.MaxDuelFactor = 100;
-    foreach (var t in open.Tiers)
+    // The table as configured: every value reaches the boost.
+    foreach (var t in c.Tiers)
     {
-        var bo = Rules.ForGap(open, t.MinBehind, t.MinBehind, 0, 0);
-        Check(!bo.Capped && bo.Tier == t.MinBehind && bo.Health == t.Health && bo.DamageTaken == t.DamageTaken && bo.DamageDealt == t.DamageDealt
+        var bo = Rules.ForGap(c, t.MinBehind, 0);
+        Check(bo.Tier == t.MinBehind && bo.Health == t.Health && bo.DamageTaken == t.DamageTaken && bo.DamageDealt == t.DamageDealt
               && bo.Lifesteal == t.Lifesteal && bo.RegenPerSecond == t.RegenPerSecond && bo.SecondChance == t.SecondChance
               && bo.ExtraProtection == t.ExtraSpawnProtectionSeconds && bo.InfiniteAmmo == t.InfiniteAmmo && bo.OneHitMelee == t.OneHitKnifeAndTaser,
-            $"tier {t.MinBehind}+ uncapped: the table's values");
+            $"tier {t.MinBehind}+: the table's values");
     }
     // A whole sentence, word for word, on these numbers.
-    Eq(Words.Sentence(Rules.ForGap(open, 5, 5, 0, 0)),
+    Eq(Words.Sentence(Rules.ForGap(c, 5, 0)),
         "You are 5 kills behind the leader: +40% health, -20% damage taken, +20% damage, 20% lifesteal, regeneration, a second chance, +2 s spawn protection.",
         "the whole sentence");
-    // ...and on the defaults: curve B's 5+ tier, which the cap never touches
-    Eq(Words.Sentence(Rules.ForGap(Defaults(), 5, 5, 0, 0)),
+    // ...and on the defaults: curve B's 5+ tier
+    Eq(Words.Sentence(Rules.ForGap(Defaults(), 5, 0)),
         "You are 5 kills behind the leader: +50% health, -25% damage taken, +20% damage, 10% lifesteal, regeneration, a second chance, +2 s spawn protection.",
         "the same sentence on today's numbers");
     Eq(Words.Sentence(new Boost { Lead = 4, Bounty = 0.2 }), "You lead by 4 kills: +20% damage taken (a bounty).", "the leader's sentence");
     Eq(Words.Sentence(Boost.None), "", "nothing to say without a boost");
 }
 
-// ---- the balance cap ----
+// ---- the duel factor, the leader's teammates, the bounty's limit on a hit, and curve B ----
 
 {
     var c = Reference();
+    var d = Defaults();
     Near(Rules.DuelFactor(0.20, 0.10, 0.10, -0.10, 0, true), 1.3 * 1.1 / 0.9, "tier 2+ duel factor");
     Near(Rules.DuelFactor(0.40, 0.20, 0.20, -0.20, 0, true), 2.4, "tier 4+ duel factor");
     Near(Rules.DuelFactor(0.75, 0.30, 0.30, -0.30, 0, true), 2.05 * 1.3 / 0.7, "tier 7+ duel factor");
     Near(Rules.DuelFactor(0.75, 0.30, 0.30, -0.30, 0, false), 1.75 * 1.3 / 0.7, "without lifesteal");
     Near(Rules.DuelFactor(0, 0, 0, 0, 0.3, true), 1.3, "the bounty alone");
-    Near(Rules.Allowed(c.Balance, 16, 8), 17.0 / 9.0, "allowed: the scoreboard's ratio");
-    Near(Rules.Allowed(c.Balance, 9, 0), 3.0, "allowed: never more than MaxDuelFactor");
-    var noBoard = Reference();
-    noBoard.Balance.ScoreboardCap = false;
-    Near(Rules.Allowed(noBoard.Balance, 16, 15), 3.0, "without the scoreboard cap: MaxDuelFactor only");
-    // Worked examples from a real match's log, on the two sets of numbers: the cap's result on each.
-    var threeTiers = ThreeTiers();
-    Near(Rules.Allowed(c.Balance, 13, 3), 3.0, "3 vs leader 13: allowed 3.0 before (MaxDuelFactor 3.0, under the ratio 3.5)");
-    Near(Rules.Allowed(threeTiers.Balance, 13, 3), 3.5, "...and min(3.5, 2.0 x 14/4) = 3.5 on the three tiers");
-    Near(Rules.Allowed(c.Balance, 14, 7), 1.875, "7 vs 14: allowed 1.875 before (the ratio 15/8)");
-    Near(Rules.Allowed(threeTiers.Balance, 14, 7), 3.5, "...and min(3.5, 2.0 x 15/8) = 3.5 then");
-    Near(Rules.Allowed(threeTiers.Balance, 30, 23), 2.0 * 31.0 / 24.0, "a late 23 vs 30: 2.0 x 31/24 = 2.58");
-    Near(Rules.BountyFor(threeTiers.Bounty, 8), 0.30, "a lead of 8: the bounty stays at most 30%");
-    // The leader's bounty and his own teammates: a teammate's cap is computed without it, an enemy's counts it first.
-    var standings = Stand((1, 20), (2, 12), (3, 10), (4, 8)); // 1 leads by 8: a 30% bounty; 3 is 10 behind (tier 7+)
-    var asEnemy = Rules.Decide(threeTiers, standings, 3);
-    var asMate = Rules.Decide(threeTiers, standings, 3, teammateOfLeader: true);
-    Near(asEnemy.Allowed, 3.5, "10 vs 20: allowed min(3.5, 2.0 x 21/11) = 3.5, the same for the leader's enemy and teammate");
-    Near(asMate.Allowed, 3.5, "...");
-    Check(asEnemy.Capped && asMate.Capped && asMate.Health > asEnemy.Health && asMate.DamageDealt >= asEnemy.DamageDealt,
-        $"...the enemy's own boosts share 3.5 / 1.3 (the bounty first), the teammate's the whole 3.5: health +{asEnemy.Health:0.00} for the enemy, +{asMate.Health:0.00} for the teammate");
-    var mateOwn = Rules.DuelFactor(asMate.Health, asMate.Lifesteal, asMate.DamageDealt, asMate.DamageTaken, 0, true);
-    var enemyOwn = Rules.DuelFactor(asEnemy.Health, asEnemy.Lifesteal, asEnemy.DamageDealt, asEnemy.DamageTaken, 0, true);
-    Check(mateOwn <= 3.5 + 1e-9 && enemyOwn <= 3.5 / 1.3 + 1e-9 && Math.Abs(asMate.Factor - mateOwn) < 1e-9 && asEnemy.Factor <= 3.5 + 1e-9,
-        $"...the teammate's own factor {mateOwn:0.00} within 3.5, the enemy's {enemyOwn:0.00} within 3.5 / 1.3 and {asEnemy.Factor:0.00} with the bounty");
-    var tight = Stand((1, 9), (2, 3), (3, 7)); // 1 leads by 2 over 3: a 10% bounty; 2 is 6 behind
-    Check(Rules.Decide(threeTiers, tight, 2, teammateOfLeader: true).Health >= Rules.Decide(threeTiers, tight, 2).Health, "a teammate never gets less than an enemy in the same place");
-    Check(Rules.Decide(threeTiers, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
-    var offCap = ThreeTiers();
-    offCap.Balance.ScoreboardCap = false;
-    Near(Rules.Allowed(offCap.Balance, 14, 7), 3.5, "the scoreboard cap switches off: MaxDuelFactor alone");
-    var worstThreeTiers = 0.0;
-    for (var top = 2; top <= 40; top++)
-        for (var lead = 0; lead <= 10; lead++)
-            for (var mine = 0; mine <= top - 2; mine++)
-                worstThreeTiers = Math.Max(worstThreeTiers, Rules.ForGap(threeTiers, top - mine, top, mine, Rules.BountyFor(threeTiers.Bounty, lead)).Factor);
-    Check(worstThreeTiers <= 3.5 + 1e-9, $"on the three tiers the duel factor never goes above 3.5 (worst {worstThreeTiers:0.00})");
 
-    // Curve B, the defaults: seven tiers, no scoreboard cap, MaxDuelFactor 8.
-    var d = Defaults();
-    Check(d.Bounty is { MinLead: 2, StepKills: 2, PerStep: 0.10, Max: 0.30 } && d.Balance is { MaxDuelFactor: 8.0, ScoreboardCap: false, LifestealCounts: true, RoundTo: 0.05 },
-        "the defaults: the bounty (+10% per 2 kills of lead from 2, up to 30%), no scoreboard cap, MaxDuelFactor 8");
+    // The leader's teammates never fight him: they get what his enemies get, and the duel factor the log shows for them leaves his bounty out.
+    var standings = Stand((1, 20), (2, 12), (3, 10), (4, 8)); // 1 leads by 8: a 30% bounty; 3 is 10 behind (curve B's 8+)
+    var asEnemy = Rules.Decide(d, standings, 3);
+    var asMate = Rules.Decide(d, standings, 3, teammateOfLeader: true);
+    Check(asEnemy.Tier == 8 && (asEnemy with { Factor = 0 }) == (asMate with { Factor = 0 }), "the leader's teammate gets what his enemy in the same place gets: tier 8+");
+    Near(asEnemy.Factor, 2.55 * 1.4 / 0.6 * 1.3, "...the enemy's duel factor with the leader's 30% bounty: 5.95 x 1.3");
+    Near(asMate.Factor, 2.55 * 1.4 / 0.6, "...the teammate's without it: 5.95");
+    Check(Rules.Decide(d, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
+
+    // The bounty's limit on a hit: a boosted player's hits on the leader get his bounty only up to MaxDuelFactor (3 here) over their own
+    // factor, never below no bounty at all; everybody else's get all of it.
+    var t4 = Rules.ForGap(c, 4, 0.3); // own factor 2.4: the bounty up to 3 / 2.4 = 1.25
+    var t7 = Rules.ForGap(c, 7, 0.3); // own factor 3.81, past 3 on its own
+    Near(t4.BountyAllowed, 1.25, "4 behind (own factor 2.4): the bounty on their hits up to 25%");
+    Near(t4.Factor, 3.0, "...so their duel factor against a 30% bounty is MaxDuelFactor exactly");
+    Near(t7.BountyAllowed, 1, "7 behind (own factor 3.81, past 3 already): none of the bounty, and never less than none");
+    var leader = new Boost { Lead = 6, Bounty = 0.3 };
+    Near(Rules.Multiplier(t4, leader), 1.2 * 1.25, "their hit on the leader: +20% damage and the bounty trimmed to 25%", 1e-5);
+    Near(Rules.Multiplier(t7, leader), 1.3, "...+30% damage and no bounty", 1e-5);
+    Near(Rules.Multiplier(Boost.None, leader), 1.3, "anybody else's hit on the leader: the whole bounty", 1e-5);
+    Near(Rules.Multiplier(t4, Boost.None), 1.2, "their hit on anybody else: no bounty to trim", 1e-5);
+
+    // Curve B, the defaults: seven tiers, MaxDuelFactor 8.
+    Check(d.Bounty is { MinLead: 2, StepKills: 2, PerStep: 0.10, Max: 0.30 } && d.Balance is { MaxDuelFactor: 8.0, LifestealCounts: true, RoundTo: 0.05 },
+        "the defaults: the bounty (+10% per 2 kills of lead from 2, up to 30%), lifesteal counted as health, 5% steps, MaxDuelFactor 8");
     Check(d.Tiers.Select(t => (t.MinBehind, t.Health, t.DamageTaken, t.DamageDealt, t.Lifesteal)).SequenceEqual(
         [(2, 0.05, 0.00, 0.00, 0.05), (3, 0.15, -0.10, 0.05, 0.05), (4, 0.35, -0.15, 0.15, 0.05), (5, 0.50, -0.25, 0.20, 0.10),
          (6, 0.75, -0.30, 0.25, 0.20), (7, 0.95, -0.35, 0.35, 0.25), (8, 1.20, -0.40, 0.40, 0.35)]),
@@ -344,112 +300,32 @@ if (args.Length >= 2 && args[0] == "--spawns")
         [(false, 0.0, false, false), (false, 0.0, false, false), (true, 2.0, false, false), (true, 2.0, false, false), (true, 2.0, false, false),
          (true, 3.0, true, true), (true, 3.0, true, true)]),
         "...a second chance and 2 s more spawn protection from 4 behind; 3 s more, infinite ammo and the one-hit knife and Zeus from 7");
-    var capped = 0;
+    // Every gap gives exactly its tier's row, as the leader's enemy or his teammate, and every hit on the leader his whole bounty:
+    // the bounty's limit never binds on curve B.
     var notTable = 0;
     var worstB = 0.0;
-    for (var top = 2; top <= 60; top++)
+    for (var behind = 2; behind <= 60; behind++)
         for (var lead = 0; lead <= 12; lead++)
-            for (var mine = 0; mine <= top - 2; mine++)
-                foreach (var mate in new[] { false, true })
-                {
-                    var bounty = mate ? 0 : Rules.BountyFor(d.Bounty, lead);
-                    var b = Rules.ForGap(d, top - mine, top, mine, bounty);
-                    var t = Rules.TierFor(d.Tiers, top - mine)!;
-                    if (b.Capped) capped++;
-                    if (b.Health != t.Health || b.DamageTaken != t.DamageTaken || b.DamageDealt != t.DamageDealt || b.Lifesteal != t.Lifesteal
-                        || b.BountyAllowed < 1 + bounty - 1e-9) notTable++;
-                    worstB = Math.Max(worstB, b.Factor);
-                }
-    Eq(capped, 0, "with curve B the cap never binds, as the leader's enemy or his teammate");
-    Eq(notTable, 0, "...so every tier gives exactly its row (no 'up to'), and the leader's whole bounty on every hit on him");
+            foreach (var mate in new[] { false, true })
+            {
+                var bounty = mate ? 0 : Rules.BountyFor(d.Bounty, lead);
+                var b = Rules.ForGap(d, behind, bounty);
+                var t = Rules.TierFor(d.Tiers, behind)!;
+                if (b.Health != t.Health || b.DamageTaken != t.DamageTaken || b.DamageDealt != t.DamageDealt || b.Lifesteal != t.Lifesteal
+                    || b.BountyAllowed < 1 + d.Bounty.Max - 1e-9) notTable++;
+                worstB = Math.Max(worstB, b.Factor);
+            }
+    Eq(notTable, 0, "with curve B every gap gives exactly its tier's row, as the leader's enemy or his teammate, and the leader's whole bounty on every hit on him");
     Check(Math.Abs(worstB - 5.95 * 1.3) < 0.01 && worstB < 8, $"...the most against the leader is 5.95 x the 30% bounty = 7.74 (worst {worstB:0.00}), under MaxDuelFactor 8");
-    Near(Rules.Allowed(d.Balance, 30, 0), 8, "allowed with curve B: 8, whatever the scoreboard");
-
-    var worst = 0.0;
-    var notStep = 0;
-    var overTable = 0;
-    var overAllowed = 0;
-    for (var top = 2; top <= 40; top++)
-        for (var lead = 0; lead <= 8; lead++)
-            for (var mine = 0; mine <= top - 2; mine++)
-            {
-                var bounty = Rules.BountyFor(c.Bounty, lead);
-                var b = Rules.ForGap(c, top - mine, top, mine, bounty);
-                var t = Rules.TierFor(c.Tiers, top - mine)!;
-                if (b.Factor > b.Allowed + 1e-9) overAllowed++;
-                if (b.Health > t.Health + 1e-9 || b.DamageDealt > t.DamageDealt + 1e-9 || b.Lifesteal > t.Lifesteal + 1e-9 || b.DamageTaken < t.DamageTaken - 1e-9
-                    || b.Health < 0 || b.DamageDealt < 0 || b.Lifesteal < 0 || b.DamageTaken > 0) overTable++;
-                if (b.Capped)
-                    foreach (var v in new[] { b.Health, b.DamageDealt, b.Lifesteal, -b.DamageTaken })
-                        if (Math.Abs(v / 0.05 - Math.Round(v / 0.05)) > 1e-6) notStep++;
-                Check(b.SecondChance == t.SecondChance && b.ExtraProtection == t.ExtraSpawnProtectionSeconds && b.InfiniteAmmo == t.InfiniteAmmo
-                      && b.OneHitMelee == t.OneHitKnifeAndTaser && b.RegenPerSecond == t.RegenPerSecond, $"top {top} mine {mine}: the extras are the tier's");
-                worst = Math.Max(worst, b.Factor);
-            }
-    Eq(overAllowed, 0, "never above what is allowed (on paper never stronger than the leader has shown to be)");
-    Eq(overTable, 0, "the cap only ever takes away from the table");
-    Eq(notStep, 0, "capped values are whole 5% steps");
-    Check(worst <= 3.0 + 1e-9, $"the duel factor never above 3 (worst {worst:0.00})");
-
-    // As the gap grows against the same leader, the duel factor does not fall (more than the 5% rounding can take).
-    var dips = 0.0;
-    for (var top = 4; top <= 40; top++)
-        for (var lead = 0; lead <= 8; lead++)
-        {
-            var bounty = Rules.BountyFor(c.Bounty, lead);
-            var last = 0.0;
-            for (var mine = top - 2; mine >= 0; mine--)
-            {
-                var f = Rules.ForGap(c, top - mine, top, mine, bounty).Factor;
-                dips = Math.Max(dips, last - f);
-                last = Math.Max(last, f);
-            }
-        }
-    Check(dips <= 0.16, $"a bigger gap never gives a weaker boost beyond rounding (largest dip {dips:0.000})");
-
-    // The bounty alone already gives all the edge allowed: health, resistance, damage and lifesteal go, the extras stay, and this
-    // player's hits on the leader get only as much of the bounty as the cap leaves.
-    var none = Rules.ForGap(c, 7, 30, 23, 0.3); // allowed 31/24 = 1.29 < the bounty's 1.3
-    Check(none.Capped && none.Health == 0 && none.DamageTaken == 0 && none.DamageDealt == 0 && none.Lifesteal == 0, "a bounty past the cap: no stat boost");
-    Check(none.SecondChance && none.InfiniteAmmo && none.OneHitMelee && none.ExtraProtection == 3, "a bounty past the cap: the extras stay");
-    Check(none.IsBoost, "...which is still a boost, with a message");
-    Near(none.BountyAllowed, 31.0 / 24.0, "...and the bounty on their hits is trimmed to the limit");
-    Near(none.Factor, 31.0 / 24.0, "...so the duel factor is exactly the limit");
-    var leader = new Boost { Lead = 6, Bounty = 0.3 };
-    Near(Rules.Multiplier(none, leader), 31.0 / 24.0, "their hit on the leader: the trimmed bounty", 1e-5);
-    Near(Rules.Multiplier(Boost.None, leader), 1.3, "anybody else's hit on the leader: the whole bounty", 1e-5);
-    Near(Rules.Multiplier(none, Boost.None), 1.0, "their hit on anybody else: no bounty to trim", 1e-5);
-
-    // Given back after the round-down: a capped boost leaves less than one 5% step of any value unused.
-    var slack = 0;
-    for (var top = 2; top <= 40; top++)
-        for (var mine = 0; mine <= top - 2; mine++)
-        {
-            var bounty = Rules.BountyFor(c.Bounty, 2);
-            var b = Rules.ForGap(c, top - mine, top, mine, bounty);
-            if (!b.Capped || b.Allowed / (1 + bounty) <= 1) continue;
-            var t = Rules.TierFor(c.Tiers, top - mine)!;
-            var target = b.Allowed / (1 + bounty);
-            if (b.Health + 0.05 <= t.Health + 1e-9 && Rules.DuelFactor(b.Health + 0.05, b.Lifesteal, b.DamageDealt, b.DamageTaken, 0, true) <= target - 1e-9) slack++;
-            if (b.DamageDealt + 0.05 <= t.DamageDealt + 1e-9 && Rules.DuelFactor(b.Health, b.Lifesteal, b.DamageDealt + 0.05, b.DamageTaken, 0, true) <= target - 1e-9) slack++;
-        }
-    Eq(slack, 0, "no 5% step of health or damage left unused under the cap");
-
-    // An early lead is not capped below the table for the first tiers.
-    var early = Rules.ForGap(c, 2, 2, 0, 0);
-    Check(!early.Capped && early.Health == 0.20, "2 kills to 0: tier 2+ as the table says");
 }
 
 // ---- one hit ----
 
 {
     var c = Reference();
-    var open = Reference();
-    open.Balance.ScoreboardCap = false;
-    open.Balance.MaxDuelFactor = 100;
-    var t2 = Rules.ForGap(open, 2, 2, 0, 0);
-    var t4 = Rules.ForGap(open, 4, 4, 0, 0);
-    var t7 = Rules.ForGap(open, 7, 7, 0, 0);
+    var t2 = Rules.ForGap(c, 2, 0);
+    var t4 = Rules.ForGap(c, 4, 0);
+    var t7 = Rules.ForGap(c, 7, 0);
     var leader = new Boost { Lead = 4, Bounty = 0.2 };
     HitInput H(float damage, Boost attacker, Boost victim, int health = 100, int armor = 0, Melee melee = Melee.None, bool prot = false, bool left = true, bool zero = false) =>
         new(damage, attacker, victim, health, armor, melee, prot, left, zero);
@@ -891,6 +767,9 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Eq(Words.Change("P3", Boost.None, plainLeader, Stand((1, 20), (3, 24)), null, 100, 100),
         "P3's boost changes mid-life, no boost -> bounty +20%: bounty +20% damage taken from enemies - leads by 4 kills (24 to 20, 2 players)",
         "...and for one with nothing held: the standing last, never the shape of a spawn's line");
+    Eq(Words.Decision("P3", spawn, Stand((1, 20), (2, 15), (3, 12), (4, 10)), "P1", 100, 220),
+        "P3 spawns 8 kills behind (leader P1 20, them 12, 4 players): tier 8+: +120% health (100 -> 220), -40% damage taken, +40% damage, 35% lifesteal, regeneration 8%/s after 2 s, second chance, +3 s spawn protection, infinite ammo, one-hit knife and Zeus; duel factor 7.14",
+        "a spawn's line: the tier's own values, and the duel factor with the leader's 20% bounty (5.95 x 1.2)");
     var lead5 = Rules.Recalculate(c, Stand((1, 20), (3, 25)), 3, false, lead4, 1.20, 100, 220);
     Check(!lead5.TierChanged, "a lead of 5: still +20%, nothing to log");
     Check(Rules.Recalculate(c, Stand((1, 20), (3, 26)), 3, false, lead5.Boost, 1.20, 100, 220).TierChanged, "a lead of 6: +30%, logged");
@@ -945,21 +824,18 @@ if (args.Length >= 2 && args[0] == "--spawns")
     var m = c.Message;
     var worstLines = 0;
     var worstWidth = 0;
-    var configs = new[] { c, Open(), Defaults() };
-    foreach (var cfg in configs)
-        for (var top = 2; top <= 60; top++)
-            for (var lead = 0; lead <= 8; lead++)
-                for (var mine = 0; mine <= top - 2; mine++)
-                {
-                    var b = Rules.ForGap(cfg, top - mine, top, mine, Rules.BountyFor(cfg.Bounty, lead));
-                    var ls = Words.Lines(b, m);
-                    if (!b.IsBoost) { Eq(ls.Length, 0, "no boost: no message"); continue; }
-                    worstLines = Math.Max(worstLines, ls.Length);
-                    worstWidth = Math.Max(worstWidth, ls.Max(x => x.Length));
-                    Check(ls.Length <= m.MaxLines && ls.All(x => x.Length <= m.LineWidth),
-                        $"{top - mine} behind (top {top}): fits {m.MaxLines} lines of {m.LineWidth}: {string.Join(" | ", ls)}");
-                    Check(ls[0].StartsWith($"{top - mine} kill"), $"{top - mine} behind: says how many kills behind first");
-                }
+    foreach (var cfg in new[] { c, Defaults() })
+        for (var behind = 2; behind <= 60; behind++)
+        {
+            var b = Rules.ForGap(cfg, behind, 0);
+            var ls = Words.Lines(b, m);
+            if (!b.IsBoost) { Eq(ls.Length, 0, "no boost: no message"); continue; }
+            worstLines = Math.Max(worstLines, ls.Length);
+            worstWidth = Math.Max(worstWidth, ls.Max(x => x.Length));
+            Check(ls.Length <= m.MaxLines && ls.All(x => x.Length <= m.LineWidth),
+                $"{behind} behind: fits {m.MaxLines} lines of {m.LineWidth}: {string.Join(" | ", ls)}");
+            Check(ls[0].StartsWith($"{behind} kill"), $"{behind} behind: says how many kills behind first");
+        }
     Check(worstLines <= 5 && worstWidth <= 28, $"the tallest message {worstLines} lines, the widest line {worstWidth}");
     for (var lead = 2; lead <= 30; lead++)
     {
@@ -967,26 +843,26 @@ if (args.Length >= 2 && args[0] == "--spawns")
         Check(ls.Length is >= 1 and <= 5 && ls.All(x => x.Length <= 28) && ls[0] == $"You lead by {lead} kills:", $"the leader's message at a lead of {lead}");
     }
 
-    var five = Words.Lines(Rules.ForGap(Open(), 5, 5, 0, 0), m);
+    var five = Words.Lines(Rules.ForGap(c, 5, 0), m);
     Eq(string.Join(" | ", five), "5 kills behind the leader: | +40% HP, -20% dmg taken, | +20% dmg, 20% lifesteal, | regen, 2nd chance, | +2s protection",
-        "5 behind, uncapped: the panel");
-    var two = Words.Lines(Rules.ForGap(Open(), 2, 2, 0, 0), m);
+        "5 behind: the panel");
+    var two = Words.Lines(Rules.ForGap(c, 2, 0), m);
     Eq(string.Join(" | ", two), "2 kills behind the leader: | +20% health, | -10% damage taken, | +10% damage, 10% lifesteal, | regeneration",
-        "2 behind, uncapped: the panel in long words");
-    var seven = Words.Lines(Rules.ForGap(Open(), 7, 7, 0, 0), m);
+        "2 behind: the panel in long words");
+    var seven = Words.Lines(Rules.ForGap(c, 7, 0), m);
     Eq(string.Join(" | ", seven), "7 kills behind: +75% HP, | -30% dmg taken, +30% dmg, | 30% lifesteal, regen, | 2nd chance, +3s protection, | no reloads, 1-hit knife/zeus",
-        "7 behind, uncapped: the panel, short words, the reason inline");
+        "7 behind: the panel, short words, the reason inline");
     Eq(string.Join(" | ", Words.Lines(new Boost { Lead = 4, Bounty = 0.2 }, m)), "You lead by 4 kills: | +20% damage taken (a bounty)", "the leader's panel");
     var d = Defaults();
-    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 2, 2, 0, 0), d.Message)), "2 kills behind the leader: | +5% health, 5% lifesteal, | regeneration",
+    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 2, 0), d.Message)), "2 kills behind the leader: | +5% health, 5% lifesteal, | regeneration",
         "curve B, 2 behind: the panel");
-    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 8, 8, 0, 0), d.Message)), "8 kills behind: +120% HP, | -40% dmg taken, +40% dmg, | 35% lifesteal, regen, | 2nd chance, +3s protection, | no reloads, 1-hit knife/zeus",
+    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 8, 0), d.Message)), "8 kills behind: +120% HP, | -40% dmg taken, +40% dmg, | 35% lifesteal, regen, | 2nd chance, +3s protection, | no reloads, 1-hit knife/zeus",
         "curve B, 8 behind: the panel");
 
-    var html = Words.Html(five, Rules.ForGap(Open(), 5, 5, 0, 0));
+    var html = Words.Html(five, Rules.ForGap(c, 5, 0));
     Check(html.StartsWith("<font color='#FFD700'><b>5 kills behind the leader:</b></font><br>"), "the reason gold and bold");
     Eq(html.Split("<br>").Length, five.Length, "one <br> between lines");
-    var inline = Words.Html(seven, Rules.ForGap(Open(), 7, 7, 0, 0));
+    var inline = Words.Html(seven, Rules.ForGap(c, 7, 0));
     Check(inline.StartsWith("<font color='#FFD700'><b>7 kills behind:</b></font> +75% HP,"), "an inline reason is gold and bold too");
     var leader = Words.Html(Words.Lines(new Boost { Lead = 6, Bounty = 0.3 }, m), new Boost { Lead = 6, Bounty = 0.3 });
     Check(leader.StartsWith("<font color='#FF6347'><b>You lead by 6 kills:</b></font>"), "the leader's message in red");
@@ -1001,7 +877,7 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Near(Rules.MessageDelay(m, true), 3.0, "the first spawn after joining: after the join tagline (3 s)");
 }
 
-// ---- the table and the cap, as built (printed with --table) ----
+// ---- the table, as built (printed with --table) ----
 
 if (printTable)
 {
@@ -1013,15 +889,8 @@ if (printTable)
     Console.WriteLine("Bounty: lead 0-1 none, " + string.Join(", ", new[] { 2, 4, 6 }.Select(l => $"{l}+ +{Rules.BountyFor(c.Bounty, l) * 100:0}%")));
     Console.WriteLine("The panel per tier:");
     foreach (var t in c.Tiers)
-        Console.WriteLine($"  {t.MinBehind}+: \"{string.Join(" | ", Words.Lines(Rules.ForGap(c, t.MinBehind, t.MinBehind, 0, 0), c.Message))}\"");
-    Console.WriteLine("The cap at work (health / damage taken / damage dealt / lifesteal given; the leader's lead over second place in brackets):");
-    foreach (var (top, mine, lead) in new[] { (4, 0, 2), (4, 2, 2), (8, 1, 2), (8, 4, 4), (12, 5, 2), (16, 8, 3), (16, 11, 3), (16, 13, 2), (24, 14, 4), (30, 23, 6), (33, 20, 2) })
-    {
-        var b = Rules.ForGap(c, top - mine, top, mine, Rules.BountyFor(c.Bounty, lead));
-        Console.WriteLine($"  leader {top,2}, player {mine,2} ({top - mine,2} behind, lead {lead}, bounty {Rules.BountyFor(c.Bounty, lead) * 100:0}%): allowed {b.Allowed:0.00}, raw {b.RawFactor:0.00} -> "
-                          + $"+{b.Health * 100:0}% / {b.DamageTaken * 100:0}% / +{b.DamageDealt * 100:0}% / {b.Lifesteal * 100:0}% = {b.Factor:0.00}{(b.Capped ? " capped" : "")}   \"{string.Join(" | ", Words.Lines(b, c.Message))}\"");
-    }
-    Console.WriteLine("Mid-life, a life that holds +120% health (spawned 8+ behind) as its gap closes:");
+        Console.WriteLine($"  {t.MinBehind}+: \"{string.Join(" | ", Words.Lines(Rules.ForGap(c, t.MinBehind, 0), c.Message))}\"");
+    Console.WriteLine("Mid-life,a life that holds +120% health (spawned 8+ behind) as its gap closes:");
     foreach (var gap in new[] { 8, 7, 6, 5, 4, 3, 2, 1 })
     {
         var b = Rules.Redecide(c, Stand((1, 20), (2, 20 - gap)), 2, false, 1.20, 3);
@@ -1031,11 +900,3 @@ if (printTable)
 
 Console.WriteLine(failures == 0 ? $"CatchUp self-test: all {checks} checks passed" : $"CatchUp self-test: {failures} of {checks} checks FAILED");
 return failures == 0 ? 0 : 1;
-
-static CatchUpConfig Open()
-{
-    var c = Reference();
-    c.Balance.ScoreboardCap = false;
-    c.Balance.MaxDuelFactor = 100;
-    return c;
-}

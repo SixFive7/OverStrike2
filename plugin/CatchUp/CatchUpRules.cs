@@ -1,5 +1,5 @@
 // The catch-up module's decisions, free of CounterStrikeSharp so the self-test drives every one of them on its own: the tier and
-// bounty, the balance cap, the damage pipeline and the healing. CatchUpModule.cs only feeds these the game's events and applies what they return.
+// bounty, the boost decided again mid-life, the damage pipeline and the healing. CatchUpModule.cs only feeds these the game's events and applies what they return.
 using System.Globalization;
 using System.Text;
 
@@ -33,14 +33,12 @@ public sealed record Boost
     /// <summary>The leader's handicap: extra damage taken from enemies.</summary>
     public double Bounty { get; init; }
 
-    /// <summary>The duel factor against the leader as the tier gives it, as given, and the most the cap allowed.</summary>
-    public double RawFactor { get; init; } = 1;
+    /// <summary>The duel factor against the leader (Rules.DuelFactor), with as much of the leader's bounty as this player's hits get: for
+    /// the log.</summary>
     public double Factor { get; init; } = 1;
-    public double Allowed { get; init; } = 1;
-    public bool Capped { get; init; }
 
-    /// <summary>The most the leader's bounty may multiply this player's hits on the leader: below 1 + the bounty only when the bounty
-    /// alone would take this player past what the cap allows.</summary>
+    /// <summary>The most the leader's bounty may multiply this player's hits on the leader: MaxDuelFactor over their own factor, never
+    /// below 1 (no bounty at all).</summary>
     public double BountyAllowed { get; init; } = double.PositiveInfinity;
 
     /// <summary>Mid-life: the health is what the life already held, more than this decision gives, and damage taken, damage dealt and
@@ -93,96 +91,31 @@ public static class Rules
     public static double DuelFactor(double health, double lifesteal, double damageDealt, double damageTaken, double bounty, bool lifestealCounts) =>
         (1 + health + (lifestealCounts ? lifesteal : 0)) * (1 + damageDealt) * (1 + bounty) / (1 + damageTaken);
 
-    /// <summary>The most a player behind may get: never more than MaxDuelFactor, and with ScoreboardCap never more than the edge the
-    /// leader has shown on the scoreboard, (leader + 1) / (player + 1), times ScoreboardCapFactor.</summary>
-    public static double Allowed(BalanceConfig b, int leaderProgress, int playerProgress)
-    {
-        var allowed = b.MaxDuelFactor;
-        if (b.ScoreboardCap) allowed = Math.Min(allowed, Math.Max(1.0, (leaderProgress + 1.0) / (playerProgress + 1.0) * b.ScoreboardCapFactor));
-        return allowed;
-    }
-
-    /// <summary>The boost for this player now, by the standings. The leader may get a bounty, everybody else a tier, capped. A teammate of the
-    /// leader (teammateOfLeader: the same team, no free-for-all) never fights the leader, so the leader's bounty takes nothing of their allowance:
-    /// their cap is computed without it (counted first, it left the leader's teammate with nothing in 18 of 23 late spawns of a real
-    /// match). The leader's enemies keep the rule: the bounty first, then their own boosts.</summary>
+    /// <summary>The boost for this player now, by the standings: the leader may get a bounty, everybody else their tier as the table gives
+    /// it. A teammate of the leader (teammateOfLeader: the same team, no free-for-all) never fights the leader, so the duel factor the log
+    /// shows for them leaves the leader's bounty out.</summary>
     public static Boost Decide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader = false)
     {
         if (!c.Enabled || s.Players < 2) return Boost.None;
         var bounty = s.Leader == 0 ? 0 : BountyFor(c.Bounty, s.Lead);
         if (id == s.Leader) return new Boost { Lead = s.Lead, Bounty = bounty };
-        return ForGap(c, s.Behind(id), s.Top, s.Of(id), teammateOfLeader ? 0 : bounty);
+        return ForGap(c, s.Behind(id), teammateOfLeader ? 0 : bounty);
     }
 
-    /// <summary>The tier for a gap, capped against a leader at leaderProgress with that bounty.</summary>
-    public static Boost ForGap(CatchUpConfig c, int behind, int leaderProgress, int playerProgress, double leaderBounty)
+    /// <summary>The tier for a gap, as the table gives it, against a leader with that bounty.</summary>
+    public static Boost ForGap(CatchUpConfig c, int behind, double leaderBounty)
     {
         var t = TierFor(c.Tiers, behind);
         if (t == null) return new Boost { KillsBehind = behind };
-        var raw = new Boost
+        var lsc = c.Balance.LifestealCounts;
+        var bountyAllowed = Math.Max(1, c.Balance.MaxDuelFactor / Own(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, lsc));
+        return new Boost
         {
             KillsBehind = behind, Tier = t.MinBehind,
             Health = t.Health, DamageTaken = t.DamageTaken, DamageDealt = t.DamageDealt, Lifesteal = t.Lifesteal,
             RegenPerSecond = t.RegenPerSecond, RegenDelaySeconds = t.RegenDelaySeconds, SecondChance = t.SecondChance,
             ExtraProtection = t.ExtraSpawnProtectionSeconds, InfiniteAmmo = t.InfiniteAmmo, OneHitMelee = t.OneHitKnifeAndTaser,
-        };
-        return Cap(c.Balance, raw, Allowed(c.Balance, leaderProgress, playerProgress), leaderBounty);
-    }
-
-    /// <summary>Keeps the duel factor against the leader inside what is allowed. The leader's bounty counts first; the player's health,
-    /// resistance, damage and lifesteal share the rest: scaled down together (the same power of each factor, so their proportions
-    /// stay), rounded down to whole RoundTo steps, then given back a step at a time, in that order, while they still fit and never past
-    /// the tier's own value. When the bounty alone is past the limit, the four are zero and the bounty on this player's hits on the
-    /// leader is trimmed to the limit (BountyAllowed). Regeneration, the second chance, spawn protection, infinite ammo and the one-hit
-    /// knife and Zeus are outside the factor: they stay as the tier gives them.</summary>
-    public static Boost Cap(BalanceConfig b, Boost raw, double allowed, double leaderBounty)
-    {
-        var lsc = b.LifestealCounts;
-        var bountyFactor = 1 + Math.Max(0, leaderBounty);
-        var rawFactor = DuelFactor(raw.Health, raw.Lifesteal, raw.DamageDealt, raw.DamageTaken, leaderBounty, lsc);
-        if (rawFactor <= allowed + 1e-9)
-            return raw with { RawFactor = rawFactor, Factor = rawFactor, Allowed = allowed, BountyAllowed = allowed / Own(raw.Health, raw.Lifesteal, raw.DamageDealt, raw.DamageTaken, lsc) };
-
-        // magnitudes: health, resistance (as a positive share), damage, lifesteal
-        var limit = new[] { raw.Health, -raw.DamageTaken, raw.DamageDealt, raw.Lifesteal };
-        var part = new double[4];
-        var target = allowed / bountyFactor; // what the player's own boosts may multiply to
-        if (target > 1 + 1e-9)
-        {
-            var own = Own(raw.Health, raw.Lifesteal, raw.DamageDealt, raw.DamageTaken, lsc); // > target here
-            var k = Math.Log(target) / Math.Log(own);
-            var healthPart = 1 + raw.Health + (lsc ? raw.Lifesteal : 0);
-            var share = healthPart - 1;
-            var scaled = Math.Pow(healthPart, k) - 1;
-            part[0] = share > 0 ? raw.Health * scaled / share : 0;
-            part[3] = !lsc ? raw.Lifesteal : share > 0 ? raw.Lifesteal * scaled / share : 0;
-            part[1] = 1 - Math.Pow(1 + raw.DamageTaken, k);
-            part[2] = Math.Pow(1 + raw.DamageDealt, k) - 1;
-            for (var i = 0; i < 4; i++)
-                if (lsc || i != 3) part[i] = Down(part[i], b.RoundTo);
-            for (var grew = b.RoundTo > 0; grew;)
-            {
-                grew = false;
-                for (var i = 0; i < 4; i++)
-                {
-                    if (!lsc && i == 3) continue;
-                    var next = Math.Round(part[i] + b.RoundTo, 6);
-                    if (next > limit[i] + 1e-9) continue;
-                    var was = part[i];
-                    part[i] = next;
-                    if (Own(part[0], part[3], part[2], -part[1], lsc) <= target + 1e-9) grew = true;
-                    else part[i] = was;
-                }
-            }
-        }
-        else if (!lsc) part[3] = raw.Lifesteal; // outside the factor: as the tier gives it
-
-        var given = Own(part[0], part[3], part[2], -part[1], lsc);
-        var bountyAllowed = allowed / given; // >= 1: given <= target <= allowed, or given is 1
-        return raw with
-        {
-            Health = part[0], DamageTaken = part[1] == 0 ? 0 : -part[1], DamageDealt = part[2], Lifesteal = part[3],
-            RawFactor = rawFactor, Factor = given * Math.Min(bountyFactor, bountyAllowed), Allowed = allowed, Capped = true,
+            Factor = DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, Math.Min(leaderBounty, bountyAllowed - 1), lsc),
             BountyAllowed = bountyAllowed,
         };
     }
@@ -237,8 +170,8 @@ public static class Rules
             }
         }
         var given = Given();
-        // The cap's share of the bounty, as Cap leaves it, unless the held health alone goes past it; never below no bounty at all.
-        var bountyAllowed = decided.Tier > 0 ? Math.Max(1, decided.Allowed / given) : decided.BountyAllowed;
+        // The bounty on this player's hits on the leader: up to MaxDuelFactor over the own factor the life has now; never below no bounty at all.
+        var bountyAllowed = decided.Tier > 0 ? Math.Max(1, b.MaxDuelFactor / given) : decided.BountyAllowed;
         return decided with
         {
             Health = lifeHealth, DamageTaken = part[0] == 0 ? 0 : -part[0], DamageDealt = part[1], Lifesteal = part[2],
@@ -275,7 +208,7 @@ public static class Rules
     }
 
     /// <summary>The damage multiplier for an enemy hit: the attacker's damage, the victim's resistance and the victim's bounty (no more
-    /// of the bounty than the attacker's cap leaves room for).</summary>
+    /// of the bounty than the attacker's BountyAllowed).</summary>
     public static float Multiplier(Boost attacker, Boost victim) =>
         (float)((1 + attacker.DamageDealt) * (1 + victim.DamageTaken) * Math.Min(1 + victim.Bounty, attacker.BountyAllowed));
 
