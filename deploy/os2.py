@@ -167,10 +167,13 @@ def read_settings(d, container):
         return None
     if status != 200 or not isinstance(out, bytes):
         fail(f"the settings file in {container} could not be read: HTTP {status}")
-    with tarfile.open(fileobj=io.BytesIO(out)) as tar:
-        for member in tar.getmembers():
-            if member.isfile():
-                return tar.extractfile(member).read()
+    try:
+        with tarfile.open(fileobj=io.BytesIO(out)) as tar:
+            for member in tar.getmembers():
+                if member.isfile():
+                    return tar.extractfile(member).read()
+    except tarfile.TarError as e:
+        fail(f"the settings file in {container}: the answer is no archive ({e.__class__.__name__})")
     fail(f"the settings file in {container}: the archive holds no file")
 
 
