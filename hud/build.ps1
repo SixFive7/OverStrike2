@@ -113,7 +113,7 @@ New-Item -ItemType Directory -Force -Path $layoutDir, $styleDir, $imageDir, $thu
 
 
 
-# Only this release's layout and stylesheets: an earlier release's files (other names, Hud.Release) would be compiled into the addon too.
+# Only this release's layout and stylesheets: an earlier release's files (other names, Hud.ReleaseFile) would be compiled into the addon too.
 Remove-Item (Join-Path $layoutDir "*.xml"), (Join-Path $styleDir "*.css") -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $thumbDir "*") -Force -ErrorAction SilentlyContinue
 if ($NoThumbs) {

@@ -13,24 +13,27 @@ using System.Text;
 
 public static class Hud
 {
-    /// <summary>The layout release: part of the layout's and the stylesheets' file names (hud/layout/gungame_hud_{Release}.xml,
-    /// hud/styles/gungame_hud_{Release}.css, hud/styles/gungame_hud_thumbs_{Release}.css), and every release is a new Workshop item.
-    /// CS2 caches a layout by its path for the whole game session, so a player who still has an older release loaded never gets it
-    /// served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
-    public const string Release = "v3_0_0";
+    /// <summary>The layout release as a version word: a click that proves no content says this one (HudCheck).</summary>
+    public const string Release = "v3.0.0";
+
+    /// <summary>The release in the layout's and the stylesheets' file names (hud/layout/gungame_hud_{ReleaseFile}.xml, hud/styles/gungame_hud_{ReleaseFile}.css,
+    /// hud/styles/gungame_hud_thumbs_{ReleaseFile}.css): the one place a version keeps its old form, because every content shipped so far has only these files
+    /// and the plugin must keep asking for them. CS2 caches a layout by its path for the whole game session, so a player who still has an older release
+    /// loaded never gets it served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
+    public const string ReleaseFile = "v3_0_0";
 
     /// <summary>The layout's content on that path. A content update keeps the path, so games holding older contents of the same release stay in
-    /// use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all. The rule since v4_6_0:
+    /// use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all. The rule since v4.6.0:
     /// the plugin sends what this content has, and an older content simply lacks what it lacks (a panel a game does not have takes nothing in
     /// it). What an older content needs to show its own pages keeps coming: its page classes, c31 and c32 (every content in use holds the panels
     /// those two uncover) and the svge/svlt version classes its join banner reads. The newest content a server knows rides on gg_global as one class,
-    /// latest-N (HudVote.LatestClass); from v4_6_0 on every content shows its own outdated banner for an N above its own. The version a player's game
+    /// latest-N (HudVote.LatestClass); from v4.6.0 on every content shows its own outdated banner for an N above its own. The version a player's game
     /// holds comes from the HUD check's click (HudCheck.VersionButton). hud/reference/ holds every shipped content's layout, which --selftest
     /// holds this one to.</summary>
-    public const string Content = "v4_6_0";
+    public const string Content = "v4.6.0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
-    public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
+    public const string Layout = "panorama/layout/custom_game/gungame_hud_" + ReleaseFile + ".xml";
 
     /// <summary>The switch, on the cs2 service: the Workshop id of the published HUD addon. Empty (the default) draws no HUD - the plugin
     /// answers chat commands in chat and shows the small centre welcome panel, and pre.sh does not even load MultiAddonManager.</summary>
@@ -128,7 +131,7 @@ public static class Hud
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
-    /// <summary>The "How it works" page (layout content v3_1_0) - the one set of rule texts (the Rules tab is gone; !rules opens this page): the
+    /// <summary>The "How it works" page (layout content v3.1.0) - the one set of rule texts (the Rules tab is gone; !rules opens this page): the
     /// vote, the ballot's recipe, the dice (what is on the server's disk, the 1% too-big rule), the points and what likes do, and every exclusion,
     /// tersely and completely. Each number in it is the bridge's own constant: --selftest (SelfTestHud.cs, SelfTestRules.cs, SelfTestBallot.cs)
     /// fails when one of them moves without these words.</summary>
@@ -382,7 +385,7 @@ public sealed class HudState
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
-                case "ok" when Long(f, 1) >= 0 && HudCheck.IsVersionWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
+                case "ok" when Long(f, 1) >= 0 && HudCheck.IsVersionWord(Str(f, 2)): s.Verified[Long(f, 1)] = HudCheck.Normal(Str(f, 2)); break;
                 case "topl" when Str(f, 4) != "": (s.TopAtMs, s.TopUntilMs, s.TopCat, s.TopText) = (Long(f, 1), Long(f, 2), Str(f, 3), Str(f, 4)); break;
                 case "ban" when Str(f, 3) != "": (s.BanTone, s.BanUntilMs, s.BanHead, s.BanLine) = (Str(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4)); break;
                 case "notec" when Long(f, 1) >= 0: s.NoteCats[Long(f, 1)] = Str(f, 2); break;
@@ -411,15 +414,15 @@ public static class HudView
     public const string ButtonClose = "gg_btn_close", ButtonUp = "gg_btn_up", ButtonDown = "gg_btn_down", ButtonAct = "gg_btn_act";
 
     /// <summary>The board's buttons (TAB): your like on the map that is on, Start a vote, and the full menu. BoardBig, the too-big mark, is
-    /// content v3_1_0 (since v4_4_0 a Dislike's reason; the button stepped aside).</summary>
+    /// content v3.1.0 (since v4.4.0 a Dislike's reason; the button stepped aside).</summary>
     public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open", BoardBig = "gg_b_vbig",
-        BoardAds = "gg_b_vads"; // content v3_2_0
+        BoardAds = "gg_b_vads"; // content v3.2.0
 
     public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun", TabGame = "gg_tab_game", TabMaps = "gg_tab_maps";
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
     /// BrowseButton), FUN, SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
-    /// tabs of the contents before v4_6_0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
+    /// tabs of the contents before v4.6.0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
     /// Rules tab opens How it works, where its words went; its Queue tab does nothing (there is no queue).</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
         [("gg_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("gg_tab_help", HudSlots.Page.Help),
@@ -487,7 +490,7 @@ public static class HudView
     }
 
     /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest. And c31 and c32 on gg_screen, for
-    /// everybody: the contents before v4_6_0 show their How it works, Fun and Help rows only under them, and every content in use holds those panels.</summary>
+    /// everybody: the contents before v4.6.0 show their How it works, Fun and Help rows only under them, and every content in use holds those panels.</summary>
     public static List<(string Id, string Class, bool On)> StaticClasses()
     {
         var c = new List<(string, string, bool)> { (Screen, "c31", true), (Screen, "c32", true) };
@@ -498,7 +501,7 @@ public static class HudView
         return c;
     }
 
-    /// <summary>The classes the plugin sends only for the contents before v4_6_0, which this content's stylesheet has no rule for: c31 and c32
+    /// <summary>The classes the plugin sends only for the contents before v4.6.0, which this content's stylesheet has no rule for: c31 and c32
     /// (StaticClasses), the join banner's vjoin (beside the version classes, HudVote.VersionClasses), and the marks that light an older card's Too big
     /// and Ads buttons (bigvoted, adsvoted: a Dislike's reasons now).</summary>
     public static readonly string[] OlderContentClasses = ["c31", "c32", "bigvoted", "adsvoted", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
@@ -714,7 +717,7 @@ public static class HudView
         var mine = s.MyVotes.GetValueOrDefault(account);
         var (_, _, command) = Action(s, v);
         if (v?.WaitFor > 0 && v is not { Round: > 0 }) command = null; // the wait after a vote: it looks off, and a click still gets its answer with the time left
-        var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4_1_0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
+        var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4.1.0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
         var cat = s.NoteCats.GetValueOrDefault(account, Messages.You.Id);
         var note = NoteOf(s, account) != "";
         List<(string Id, string Class, bool On)> c = [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
@@ -750,8 +753,8 @@ public static class HudView
     {
         ButtonUp or BoardUp => "!up",
         ButtonDown or BoardDown => "!down",
-        BoardBig => "!down big", // content v3_1_0's Too big: a Dislike's reason (one command for it)
-        BoardAds => "!down ads", // content v3_2_0
+        BoardBig => "!down big", // content v3.1.0's Too big: a Dislike's reason (one command for it)
+        BoardAds => "!down ads", // content v3.2.0
         ButtonAct or BoardNext => s == null ? null : Action(s, v).Command,
         _ => null,
     };
@@ -778,7 +781,7 @@ public sealed class HudSlots
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
     /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun; SERVER: Players, Game, Sync;
-    /// HELP: Help, How. Players is v4_6_0's: an older content has no rule for its page class and shows an empty page there.</summary>
+    /// HELP: Help, How. Players is v4.6.0's: an older content has no rule for its page class and shows an empty page there.</summary>
     public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players }
 
     /// <summary>The main tab a page belongs to, as the layout groups them.</summary>

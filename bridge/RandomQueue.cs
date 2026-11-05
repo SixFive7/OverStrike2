@@ -13,7 +13,7 @@
 //    watcher downloads between votes. An entry no longer eligible, on its list, tested as it is now, or with its too-big mark changed is dropped;
 //    so is one not on the disk after NotReadyDropHours while the reports keep coming; one whose votes went down since its roll stays with the
 //    odds the vote left it (kept with probability weight now / weight then, once per drop).
-//  - queues.json (QueuesFile, version 1), for the watcher's job 9, update-watch.py --organize and the Workshop sync: "requested", the Workshop
+//  - queues.json (QueuesFile, version 1), for the watcher's job 9, os2-server organize and the Workshop sync: "requested", the Workshop
 //    maps on the open ballot, the most votes first - job 9 downloads those before anything else; "random", the lanes under the keys the watcher
 //    and the keep set read: Arms Race's under both "armsrace-new" and "armsrace-original" (the keep set wants each of its four at least 10 long),
 //    "deathmatch" and "wingman". Written atomically, only on change.
@@ -30,7 +30,7 @@ using System.Text.Json;
 static partial class Program
 {
     /// <summary>Entries per lane of the stock: bridge.discoveryStock (DISCOVERY_STOCK without the settings file), 0 to 40, 10 when unset; 0 turns the stock off (the surprise is then a favourite).
-    /// The keep set (keepset.py) wants each of queues.json's four lanes at least 10 long before it deletes anything, so below 10 nothing is deleted.</summary>
+    /// The keep set wants each of queues.json's four lanes at least 10 long before it deletes anything, so below 10 nothing is deleted.</summary>
     public static int StockSize = BridgeConfig.Values.DiscoveryStock; // bridge.discoveryStock in the settings file
 
     /// <summary>The keys of queues.json's "random", each with the mode whose lane it carries: the four the watcher and the keep set read.</summary>

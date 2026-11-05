@@ -6,7 +6,7 @@ The pictures are the maps' own Workshop previews, from Steam's image CDN: the pr
 else the preview_url the public Web API gives for an item (ISteamRemoteStorage/GetPublishedFileDetails, no key) - one request at a time,
 each at least 2 s after the last one ended, as every Web API caller of the project does. Reads:
 
-  --export FILE   the Workshop sync's export (python3 workshop-sync.py --export, on the server): every mode's list - Arms Race's maps.json
+  --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list - Arms Race's maps.json
                   and the other modes' (its "modes") - each entry with its preview. Without it: bridge/maps.json, Arms Race's list as the
                   repository has it, with no previews, so every missing one is asked of the Web API
   --queues FILE   the bridge's queues.json: the maps its random queues will put on the next ballots and the maps on an open ballot,
@@ -53,7 +53,7 @@ HERE = Path(__file__).resolve().parent
 MAPS = HERE.parent / "bridge" / "maps.json"
 MODES = HERE.parent / "bridge" / "Modes.cs"
 OUT = HERE / "thumbs"
-RELEASE = re.search(r'Release = "(\w+)"', (HERE.parent / "bridge" / "Hud.cs").read_text(encoding="utf-8")).group(1)  # Hud.Release
+RELEASE = re.search(r'ReleaseFile = "(\w+)"', (HERE.parent / "bridge" / "Hud.cs").read_text(encoding="utf-8")).group(1)  # Hud.ReleaseFile
 CSS = HERE / "styles" / f"gungame_hud_thumbs_{RELEASE}.css"
 LIST = HERE.parent / "bridge" / "HudThumbList.cs"
 BASE = 64  # HudThumbs.Base: picture n has the classes th<n / 64> and tl<n % 64>
@@ -263,7 +263,7 @@ def rule(n, url):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--export", help="the Workshop sync's export (workshop-sync.py --export): every mode's list, with previews")
+    ap.add_argument("--export", help="the Workshop sync's export (os2-sync export): every mode's list, with previews")
     ap.add_argument("--queues", help="the bridge's queues.json: the maps the next ballots will show, first in line")
     ap.add_argument("--ahead", help="a JSON array of {id, preview}: maps not listed yet, most popular first")
     ap.add_argument("--workers", type=int, default=4, help="downloads at a time from Steam's image CDN")

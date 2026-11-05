@@ -278,6 +278,7 @@ static partial class Program
     {
         var f = body.Trim().Split('\t');
         if (f.Length != 3 || !SteamId3Rx().IsMatch(f[0]) || !(Hud.IsAction(f[2]) || MapVote.IsAction(f[2]))) { Log($"hud: refused '{Hud.Clean(body, 80)}'"); return false; }
+        if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) f[2] = HudCheck.Command(HudCheck.Normal(f[2][7..])); // an older plugin's word, in the one form from here on
         var name = Hud.Clean(f[1], 64) is { Length: > 0 } n ? n : "?";
         Log($"hud: {name} {f[0]} clicked {f[2]}");
         Present(f[0], name);
@@ -291,8 +292,8 @@ static partial class Program
     /// server only; nothing of it is written to a file.</summary>
     static readonly Dictionary<string, string> HudSeen = new();
 
-    /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4_6_0), Older (an
-    /// older content's gold button), or Hud.Release (which one not known: another button, or a plugin before v4_6_0, which sends its release). A
+    /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4.6.0), Older (an
+    /// older content's gold button), or Hud.Release (which one not known: another button, or a plugin before v4.6.0, which sends its release). A
     /// known version is never forgotten for an unknown one. The first click after a real join says on the news line which HUD the player brought,
     /// and an outdated HUD gets that player a note. Only the plugin's OnCustomHudClicked sends it - typing it in chat does nothing.</summary>
     static void HudVerify(string steamId, string name, string version)

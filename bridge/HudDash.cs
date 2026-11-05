@@ -5,7 +5,7 @@
 // The plugin passes the block through without knowing what it says. Every word is a dialog variable on gg_screen whose name starts with osd,
 // which the page's labels inherit ({s:osdstate}); every state is a class on gg_screen (osdbusy, osdp35, osdq3 ...). Nothing is sent to a panel
 // of the page itself, so a game that holds an older content - which has neither the tab nor the labels - goes on as it was, as with content
-// v4_1_0's popup. The block's lists are paged per player: the plugin keeps each player's page of each list and sends that player the rows on it,
+// v4.1.0's popup. The block's lists are paged per player: the plugin keeps each player's page of each list and sends that player the rows on it,
 // as the variables <list><row><field> (osdq3b: the third row on this player's page of the queue, its second field), the class <list><row> while
 // that row holds something and <list><row><tone> for its colour. The pagers' buttons (gg_osdq_prev ...) are all it reads back. So a new word,
 // number or row is a bridge update alone; only a new panel needs a HUD release.
@@ -19,7 +19,7 @@ public sealed class HudDash
     /// <summary>Every variable and class the block may set starts with this, so it can never touch one of the menu's own.</summary>
     public const string Prefix = "osd";
 
-    /// <summary>The page's tab (content v4_3_0).</summary>
+    /// <summary>The page's tab (content v4.3.0).</summary>
     public const string Tab = "gg_tab_sync";
 
     /// <summary>What the plugin takes from one block at most: it is the bridge's, but a broken one must not flood the engine.</summary>
@@ -31,10 +31,10 @@ public sealed class HudDash
     /// <summary>A pager's buttons: gg_<list>_<op>.</summary>
     public static readonly string[] PagerOps = ["first", "prev", "next", "last"];
 
-    /// <summary>The lists the layout of content v4_3_0 has rows for: the queue's next maps, the runs and the map events (SyncWords fills them).</summary>
+    /// <summary>The lists the layout of content v4.3.0 has rows for: the queue's next maps, the runs and the map events (SyncWords fills them).</summary>
     public const string QueueList = "osdq", RunList = "osdr", MapList = "osdm";
 
-    /// <summary>The buttons content v4_3_0 added: the tab and the pagers the layout has. A click on one proves that player's game holds v4_3_0;
+    /// <summary>The buttons content v4.3.0 added: the tab and the pagers the layout has. A click on one proves that player's game holds v4.3.0;
     /// nothing is sent to them.</summary>
     public static readonly string[] LayoutButtons =
         [Tab, Button(QueueList, "prev"), Button(QueueList, "next"), Button(RunList, "prev"), Button(RunList, "next"),

@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 
 static partial class Program
 {
-    const string HudLayoutFile = "../hud/layout/gungame_hud_" + Hud.Release + ".xml", HudStyleFile = "../hud/styles/gungame_hud_" + Hud.Release + ".css",
-        HudThumbFile = "../hud/styles/gungame_hud_thumbs_" + Hud.Release + ".css";
+    const string HudLayoutFile = "../hud/layout/gungame_hud_" + Hud.ReleaseFile + ".xml", HudStyleFile = "../hud/styles/gungame_hud_" + Hud.ReleaseFile + ".css",
+        HudThumbFile = "../hud/styles/gungame_hud_thumbs_" + Hud.ReleaseFile + ".css";
 
     /// <summary>The pages' height: the window's 820 px less its rule (3), head (76), tabs (48), sub-tabs (40) and foot (44); the Help page's, less its
     /// padding (14 + 20).</summary>
@@ -167,7 +167,7 @@ static partial class Program
             && HudMenu.Command(HudMenu.Restart, back, live, mb, 1, now) == "!restart" && gt.Single(x => x.Id == "gg_set_restart_text").Text == "Restart the server"
             && !gc.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
         var armedGame = Enumerable.Range(1, 30).Select(n => HudMenu.Game(live, n)).ToList();
-        Check("Restart, after its first click: \"Press again within N s\", counting down every second from 30, armed (content v3_2_0 blinks it) - and back to normal at 0",
+        Check("Restart, after its first click: \"Press again within N s\", counting down every second from 30, armed (content v3.2.0 blinks it) - and back to normal at 0",
             armedGame.Select((g, i) => g.Texts.Single(x => x.Id == "gg_set_restart_text").Text == $"Press again within {i + 1} s" && g.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On).All(x => x)
             && HudBrowser.ConfirmSeconds == 30 && PickConfirmSeconds == 30);
         var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m1_big", "gg_m1_ads", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart }
@@ -232,7 +232,7 @@ static partial class Program
             Check("Layout: no inline style attribute and no scaling attribute (each silently kills the layout in CS2)", !Regex.IsMatch(xml, @"\s(style|scaling)="));
             // Valve's whitelist (point_script.d.ts, CustomHudLayout): Panel id/class/hittest, Label id/class/hittest/text, Image
             // id/class/hittest/src, Button id/class. The client refuses the WHOLE layout for one attribute outside it ("Layout contains
-            // disallowed attribute %s for panel type '%s'") - v2_1_0 had hittest on a Button and rendered nothing at all.
+            // disallowed attribute %s for panel type '%s'") - v2.1.0 had hittest on a Button and rendered nothing at all.
             var allowed = new Dictionary<string, string[]> { ["Panel"] = ["id", "class", "hittest"], ["Label"] = ["id", "class", "hittest", "text"],
                 ["Image"] = ["id", "class", "hittest", "src"], ["Button"] = ["id", "class"] };
             var outside = Regex.Matches(Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline), @"<(Panel|Label|Image|Button)\b([^>]*)>")
@@ -242,23 +242,25 @@ static partial class Program
             var rules = Regex.Replace(css, @"/\*.*?\*/", "", RegexOptions.Singleline); // comments may say anything
             Check("Stylesheet: every @keyframes name is quoted, and no comma selector (each silently kills the layout)",
                 !Regex.IsMatch(rules, @"@keyframes\s+[^'\s]") && !Regex.IsMatch(rules, @"[^{};]*,[^{};]*\{"));
-            Check("Layout: it includes the compiled stylesheet by its s2r:// path", xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.Release}.vcss_c"));
+            Check("Layout: it includes the compiled stylesheet by its s2r:// path", xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.ReleaseFile}.vcss_c"));
             Check($"Stylesheet: the drain bar empties in exactly the idle close ({HudSlots.IdleCloseSeconds} s)",
                 Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
             // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and keeps what its own
             //      pages need; this content keeps every panel an older plugin that still runs against this bridge sends to ----
-            string[] shippedContents = ["v3_0_0", "v3_1_0", "v4_0_0", "v4_1_0", "v4_2_0", "v4_3_0", "v4_4_0", "v4_5_0"];
+            string[] shippedContents = ["v3.0.0", "v3.1.0", "v4.0.0", "v4.1.0", "v4.2.0", "v4.3.0", "v4.4.0", "v4.5.0"];
             var shippedFiles = shippedContents.Select(c => $"../hud/reference/gungame_hud_{c}.xml").ToList();
             if (shippedFiles.All(File.Exists))
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();
+                Check($"Every shipped content ({shippedFiles.Count}) includes its stylesheet as gungame_hud_{Hud.ReleaseFile}: the file names keep the old form, and the plugin keeps asking for the one layout those contents have",
+                    shippedFiles.All(f => File.ReadAllText(f).Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.ReleaseFile}.vcss_c")) && Hud.Layout.EndsWith($"gungame_hud_{Hud.ReleaseFile}.xml", StringComparison.Ordinal));
                 var shipped = shippedFiles.Select(IdsOf).ToList();
                 var last = shipped[^1];
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panels v4_6_0 retires, each for a reason no plugin that runs against this bridge is hurt by: the Queue page (no queue: a plugin
+                // The panels v4.6.0 retires, each for a reason no plugin that runs against this bridge is hurt by: the Queue page (no queue: a plugin
                 // before HEAD's addressed it, and no such plugin runs against a bridge without a queue), the Rules page and its tab (their words are How
                 // it works', and no plugin since sends them), the two fifth Help rows (sent nothing since Hud.HelpMore emptied), the new-maps setting's
                 // buttons and line (the setting is gone: its line only ever got an empty text), each card's Too big, Ads and Remove mine (nothing is sent
@@ -288,7 +290,7 @@ static partial class Program
             }
             else Console.WriteLine($"skip the content checks: one of {string.Join(", ", shippedFiles)} not found");
 
-            // ---- content v4_1_0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
+            // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
             Check("The published layout and stylesheet depend on no site: no panel, class or word of one (the window's footer has no line for it)",
                 !Regex.IsMatch(xml + css, @"\bsite\b|_site\b|-site\b|example\.com|https?://", RegexOptions.IgnoreCase));
@@ -450,7 +452,7 @@ static partial class Program
             var funTitle = Regex.Match(rules, @"\.gg-frow-title\s*\{[^}]*font-size:\s*(\d+)px;");
             var funTxt = Regex.Match(rules, @"\.gg-frow-txt\s*\{[^}]*margin-top:\s*(\d+)px;[^}]*font-size:\s*(\d+)px;");
             var funButton = Regex.Match(rules, @"\.gg-funb\s*\{[^}]*height:\s*(\d+)px;");
-            var funTopCss = Regex.Match(rules, @"\.gg-funtop\s*\{[^}]*margin-bottom:\s*(\d+)px;"); // content v4_4_0: the note's line holds Random and Default
+            var funTopCss = Regex.Match(rules, @"\.gg-funtop\s*\{[^}]*margin-bottom:\s*(\d+)px;"); // content v4.4.0: the note's line holds Random and Default
             var funAllCss = Regex.Match(rules, @"\.gg-funallb\s*\{[^}]*height:\s*(\d+)px;");
             static int Px(Match m, int g) => int.Parse(m.Groups[g].Value, System.Globalization.CultureInfo.InvariantCulture);
             var funParsed = funPad.Success && funNote.Success && funRowCss.Success && funTop.Success && funTitle.Success && funTxt.Success && funButton.Success && funTopCss.Success && funAllCss.Success;
@@ -464,7 +466,7 @@ static partial class Program
             var rowNeeds = funParsed ? Math.Max(Px(funTop, 1), Math.Max((int)Math.Ceiling(Px(funTitle, 1) * 1.3), Px(funButton, 1))) + Px(funTxt, 1) + (int)Math.Ceiling(Px(funTxt, 2) * 1.3) : int.MaxValue;
             Check($"Fun page fits the window: about {funHeight} px of the pages' {PagesHeight} for its {Fun.Rows} rows and the grenade drops ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
                 funHeight <= PagesHeight && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 + 1 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
-            // ---- content v4_4_0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
+            // ---- content v4.4.0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
             var voteCat = new HudCatalog { Version = 1 };
             voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));
             voteCat.Maps.Add(new HudCatalog.Entry("3084291315", "2", 2, 3084291315, "Other Map", 20, false, -1, 0, 0, 0));
@@ -483,7 +485,7 @@ static partial class Program
                 VC(noVote, "gg_m1", "mode-armsrace") && !VC(noVote, "gg_m1", "mode-deathmatch") && Modes.All.All(m => !VC(noVote, "gg_m3", $"mode-{m.Id}"))
                 && Enumerable.Range(1, 2).All(k => Modes.All.Count(m => VC(noVote, $"gg_m{k}", $"mode-{m.Id}")) == 1)
                 && !VC(noVote, HudView.Screen, "fl-ours") && VC(oursPage, HudView.Screen, "fl-ours"));
-            // ---- content v4_5_0: the Fun page's changed marks, the centre notice, and what the layout and stylesheet hold for them ----
+            // ---- content v4.5.0: the Fun page's changed marks, the centre notice, and what the layout and stylesheet hold for them ----
             var lowGravity = Fun.Settings.SelectMany(s => s.Stock).GroupBy(x => x.ConVar).ToDictionary(g => g.Key, g => g.First().Value);
             lowGravity["sv_gravity"] = "400";
             var changedPage = HudMenu.FunPage(cv => lowGravity.GetValueOrDefault(cv));
@@ -509,7 +511,7 @@ static partial class Program
                 && Fun.CentreLine("Remy", gravity, gravity.Normal) == "Remy put Gravity back to normal" && FunNotice.Html("<b>x</b>", "turned Vampire on") == "<font color='#E9B44C'><b>&lt;b&gt;x&lt;/b&gt;</b></font><br>turned Vampire on"
                 && FunNotice.Wrap(string.Join(" ", Enumerable.Repeat("gravity low,", 30)), FunNotice.Width, FunNotice.Lines) is { Count: FunNotice.Lines } wrapped && wrapped.All(l => l.Length <= FunNotice.Width) && wrapped[^1].EndsWith(" ...")
                 && Fun.CentreSeconds == 10);
-            Check("Catch-up's row: its two buttons prove content v4_5_0, its state is cu-on or cu-off on gg_global, and the page leaves it out outside Arms Race",
+            Check("Catch-up's row: its two buttons prove content v4.5.0, its state is cu-on or cu-off on gg_global, and the page leaves it out outside Arms Race",
                 noComments.Contains($"<Button id=\"{HudMenu.CatchUpOn}\"") && noComments.Contains($"<Button id=\"{HudMenu.CatchUpOff}\"") && noComments.Contains("class=\"gg-frow gg-frow-catchup gg-set-catchup\"")
                 && HudVote.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudVote.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
                 && HudVote.FixedRowClasses(cv => "1", false).All(x => !x.On)
@@ -551,9 +553,9 @@ static partial class Program
                 var shown = Maps.Where(x => !IsPack(x)).Concat(Officials).Select(x => new HudCatalog.Entry("", "", x.Rank, x.Id, x.Name, x.SizeMb, x.Official, -1, 0, 0, 0)).ToList();
                 static string Rule(HudCatalog.Entry x) => string.Join(".", HudThumbs.Classes(x));
                 // Every map the menu shows has its own picture. The hand-picked maps after the 1,000 most-subscribed - the 16 glass maps of
-                // 2026-10-21, #1001-#1016 - got theirs with layout release v3_0_0: a map listed after a release has none until the next one
+                // 2026-10-21, #1001-#1016 - got theirs with layout release v3.0.0: a map listed after a release has none until the next one
                 // (its card shows an empty picture), since each release is a new Workshop item that waits for Valve's approval.
-                // Since content v3_1_0 (2026-10-22) the list can grow after a picture release: maps listed after it (the tail of the list,
+                // Since content v3.1.0 (2026-10-22) the list can grow after a picture release: maps listed after it (the tail of the list,
                 // ranked after every map that has a picture) show the card's plain backdrop until the next release numbers them. Anything else
                 // without a picture - a gap inside the list, an official map - is a release that forgot thumbs.py.
                 var lastPictured = shown.Where(x => !x.Official && HudThumbs.Classes(x).Length == 2).Select(x => x.Rank).DefaultIfEmpty(0).Max();
@@ -575,7 +577,7 @@ static partial class Program
                 Check($"Thumbnails: {thumbClasses.Count} class names for all {thumbRules.Count} pictures, every one a picture class",
                     thumbClasses.All(HudThumbs.IsThumbClass) && thumbClasses.Count <= HudThumbs.Base + HudThumbs.MaxHigh && !Regex.IsMatch(rules, @"\.t[hl]\d"));
                 Check("Thumbnails: the layout includes their stylesheet, and it has nothing but those rules (no comma selector, no keyframes)",
-                    xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_thumbs_{Hud.Release}.vcss_c") && Regex.Matches(Regex.Replace(thumbCss, @"/\*.*?\*/", "", RegexOptions.Singleline), @"^\{", RegexOptions.Multiline).Count == thumbRules.Count);
+                    xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_thumbs_{Hud.ReleaseFile}.vcss_c") && Regex.Matches(Regex.Replace(thumbCss, @"/\*.*?\*/", "", RegexOptions.Singleline), @"^\{", RegexOptions.Multiline).Count == thumbRules.Count);
             }
             else Console.WriteLine($"skip thumbnail checks: {HudThumbFile} not found");
 

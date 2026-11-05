@@ -76,7 +76,7 @@ public sealed class CatchUpModule
 
     bool Active => config.Enabled && switchedOn && !stopped;
 
-    /// <summary>Whether the boosts run now (the Fun page lights it; content v4_5_0).</summary>
+    /// <summary>Whether the boosts run now (the Fun page lights it; content v4.5.0).</summary>
     public bool On => Active;
 
     /// <summary>The Fun page's and chat's switch (the owner's 2026-11-03): what 'gg_catchup on|off' does, until the map changes - the mode's own

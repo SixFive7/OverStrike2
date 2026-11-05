@@ -210,7 +210,7 @@ public sealed class HudBrowser
     public bool Descending;                  // the natural direction flipped: a second click on the sort that is on
     public Band Size = Band.All;
     public bool Liked, Official, Ours;        // Ours: the server's own maps (ours.json; Over Strike 2's Our maps)
-    public string Mode = "";                 // the mode filter (content v4_2_0): a mode's id, or "" for every mode's maps
+    public string Mode = "";                 // the mode filter (content v4.2.0): a mode's id, or "" for every mode's maps
     public string Query = "";                // what the on-screen keyboard typed (HudKeyboard), or a Workshop link pasted in chat
     public bool Keyboard;                    // the keyboard is open on the Maps page
     public int Page;                         // zero-based; clamped whenever the matches are counted
@@ -222,7 +222,7 @@ public sealed class HudBrowser
         [("gg_sort_rank", SortBy.Rank), ("gg_sort_votes", SortBy.Votes), ("gg_sort_name", SortBy.Name), ("gg_sort_size", SortBy.Size)];
     public static readonly (string Id, Band Band)[] BandButtons =
         [("gg_fl_all", Band.All), ("gg_fl_tiny", Band.Tiny), ("gg_fl_small", Band.Small), ("gg_fl_mid", Band.Mid), ("gg_fl_large", Band.Large)];
-    /// <summary>The mode filter's chips (content v4_2_0): their state is a class on gg_screen (ModeClass), so nothing is sent to these panels.</summary>
+    /// <summary>The mode filter's chips (content v4.2.0): their state is a class on gg_screen (ModeClass), so nothing is sent to these panels.</summary>
     public static readonly (string Id, string Mode)[] ModeButtons =
         [("gg_fm_all", ""), ("gg_fm_ar", Modes.ArmsRaceId), ("gg_fm_dm", Modes.DeathmatchId), ("gg_fm_wm", Modes.WingmanId)];
 
@@ -375,7 +375,7 @@ public static class HudMenu
 {
     public const int Cards = MapVote.PageCards > HudBrowser.PerPage ? MapVote.PageCards : HudBrowser.PerPage;
 
-    /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4_6_0).</summary>
+    /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4.6.0).</summary>
     public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
         Restart = "gg_set_restart", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
@@ -385,7 +385,7 @@ public static class HudMenu
     /// <summary>The Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
     public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
 
-    /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4_6_0 still has. The setting is gone - every ballot
+    /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4.6.0 still has. The setting is gone - every ballot
     /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Selection.cs).</summary>
     public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never";
 
@@ -510,7 +510,7 @@ public static class HudMenu
         return Enumerable.Range(1, Cards).Select(k => ($"{Card(k)}_thumb", k <= page.Count ? HudThumbs.Classes(page[k - 1]) : [])).ToList();
     }
 
-    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; the contents before v4_6_0 have it, under the
+    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; the contents before v4.6.0 have it, under the
     /// same ids, on their Queue page.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
         ([("gg_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);

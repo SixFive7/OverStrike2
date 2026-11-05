@@ -280,7 +280,7 @@ sealed partial class HudScreen
         return $"released: {windows} window(s), {cursors.Count} TAB cursor(s); capture off for everybody next frame";
     }
 
-    /// <summary>css_gghud level &lt;n&gt;: the server's content level as the version classes show it - latest-N, which from v4_6_0 on lights the
+    /// <summary>css_gghud level &lt;n&gt;: the server's content level as the version classes show it - latest-N, which from v4.6.0 on lights the
     /// outdated banner of every content below N, and the svge/svlt of the older contents' join banner (the client harness); null is the real one.</summary>
     public int? TestLevel { get; set; }
 
@@ -404,7 +404,7 @@ sealed partial class HudScreen
         if (!Live || player is not { IsValid: true, IsBot: false } || layout is not { IsValid: true } || layout.Index != entity!.Index) return;
         var now = DateTime.UtcNow;
         // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the gold button said
-        // "Click to play": from v4_6_0 on its id names the content (HudCheck.VersionButton), an older content's is the live column's action button,
+        // "Click to play": from v4.6.0 on its id names the content (HudCheck.VersionButton), an older content's is the live column's action button,
         // which counts as an older HUD. That click is the check and closes the window - it must not roll a map as !next would.
         var who = Account(player);
         var wasChecked = gate.Checking(player.Slot);
@@ -827,19 +827,19 @@ sealed partial class HudScreen
     }
 
     /// <summary>css_gghud content &lt;account&gt; &lt;level&gt;: the HUD that account's game showed at the HUD check's click, as if it had clicked - for the
-    /// client harness, which cannot click: 46 is v4_6_0, any level a content; 1 an older content (its gold button); 0 forgets it. It lasts until that
+    /// client harness, which cannot click: 46 is v4.6.0, any level a content; 1 an older content (its gold button); 0 forgets it. It lasts until that
     /// player's next disconnect, a map change's included (Gone): the bridge never hears of it.</summary>
     public string SetContent(long account, int level)
     {
         if (level <= 0) hudSeen.Remove(account);
-        else hudSeen[account] = level == 1 ? HudCheck.Older : $"v{level / 10}_{level % 10}_0";
+        else hudSeen[account] = level == 1 ? HudCheck.Older : HudVote.ContentOfLevel(level);
         Server.NextFrame(Frame);
         return $"account {account}: HUD {(level <= 0 ? "not seen" : hudSeen[account])}";
     }
 
     /// <summary>css_gghud press &lt;account&gt; &lt;button&gt;: that player's click on a button, through the same path as a real one - a tab,
     /// a filter, a Fun choice, a card's Play - for the client harness, whose CS2 never has focus. Like a real click it is the HUD check's click:
-    /// the version button (gg_hudver_v4_6_0) verifies that content, any other button a HUD of unknown content (HudCheck.cs).</summary>
+    /// the version button (gg_hudver_v4.6.0) verifies that content, any other button a HUD of unknown content (HudCheck.cs).</summary>
     public string Press(long account, string buttonId)
     {
         if (entity is not { IsValid: true } e) return "no HUD entity";
@@ -1036,7 +1036,7 @@ sealed partial class HudScreen
         return (v.Page, v.Browse);
     }
 
-    /// <summary>The ballot's cards a page for this slot's player: eight for a game known to hold a content before v4_6_0, which has no more cards -
+    /// <summary>The ballot's cards a page for this slot's player: eight for a game known to hold a content before v4.6.0, which has no more cards -
     /// its pager then reaches every option - and MapVote.PageCards for any other (HudVote.CardsFor).</summary>
     int BallotCards(int slot) => Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p ? HudVote.CardsFor(VersionOf(Account(p))) : MapVote.PageCards;
 

@@ -15,7 +15,7 @@
 // NeutralPopularity. Valve's official maps of Deathmatch and Wingman and our own maps are OfficialPopularity. The points make PopularityPoints
 // of it (Votes.cs): the most popular map has 16 times the odds of the least.
 //
-// The kept maps are the bridge's copy of the keep set (server/keepset.py decides what the server stores): every liked map, our own maps, and per
+// The kept maps are the bridge's copy of the keep set (core/KeepSet.cs decides what the server stores): every liked map, our own maps, and per
 // mode the three lists of its KeepTop playable maps by score, by subscribers and in the trend order. A ballot fills from them: a kept map counts
 // as on the server's disk when it is liked, ours, or within the first KeepTop - KeptMargin of a list - the margin covers a list that moved since
 // the server last stored it - unless the restart watcher's report covers it and says it is not there, or workshop.json says its content changed
@@ -28,7 +28,7 @@ using System.Text.Json;
 
 static partial class Program
 {
-    public const int KeepTop = 100;      // each of a mode's three lists of maps the server keeps (keepset.py's KEEP_TOP)
+    public const int KeepTop = 100;      // each of a mode's three lists of maps the server keeps (the keep set's Top, core/KeepSet.cs)
     public const int KeptMargin = 10;    // a kept map counts as on the disk within the first KeepTop - KeptMargin of a list
     public const int FreshDays = 30;     // NEW UPLOAD and UPDATED: in the last this many days
     public const double NeutralPopularity = 0.5, OfficialPopularity = 0.75;
@@ -227,7 +227,7 @@ static partial class Program
     static KeptKey? keptFor;
     static KeptMaps kept = new();
 
-    /// <summary>What keepset.py leaves off the lists: anything on broken.json's lists, blocked, gone from the Workshop, with a crash on record.</summary>
+    /// <summary>What the keep set leaves off the lists: anything on broken.json's lists, blocked, gone from the Workshop, with a crash on record.</summary>
     static bool KeepsetBad(MapInfo m) => Broken.ContainsKey(Key(m)) || IsPack(m) || IsRemoved(m) || IsBlocked(m) || S.Crashes.GetValueOrDefault(Key(m)) > 0 || S.PlayerCrashes.ContainsKey(Key(m));
 
     static KeptMaps Kept()
@@ -257,7 +257,7 @@ static partial class Program
         return kept = k;
     }
 
-    /// <summary>In the keep set: the server stores it (keepset.py), whatever the bridge's report says.</summary>
+    /// <summary>In the keep set: the server stores it, whatever the bridge's report says.</summary>
     static bool IsKept(MapInfo m) => Kept().All.Contains(Key(m));
 
     /// <summary>On the server's disk because the server keeps it - an official map always; a Workshop map when it is liked, ours or well inside a list

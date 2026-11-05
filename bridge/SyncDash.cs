@@ -340,8 +340,8 @@ static class SyncWords
         var rand = input.Random.Select(q => $"{RandomName(q.Name)} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
         var stock = input.Random.Count == 0 ? "" : input.RandomKnown ? "Stock on disk for the ballots: " + Join(rand) : $"Discovery stock: {Join(rand)}  ·  disk not reported";
         W("osdqrand", input.Background is { } bg ? $"{BackgroundWords(bg)}{(input.Random.Count == 0 ? "" : input.RandomKnown ? $"  ·  stock on disk {input.Random.Sum(q => q.Ready)} of {input.Random.Sum(q => q.Total)}" : "")}"
-            : stock); // the contents before v4_6_0: the background download folded into the stock's line
-        W("osdqstock", stock);                                                                  // from v4_6_0: the stock's line...
+            : stock); // the contents before v4.6.0: the background download folded into the stock's line
+        W("osdqstock", stock);                                                                  // from v4.6.0: the stock's line...
         W("osdqbg", input.Background is { } running ? BackgroundWords(running) : "");             // ...and the background download on a row of its own
         C("osdqbg", input.Background != null);
         var next = Items(queue, "next").ToList();

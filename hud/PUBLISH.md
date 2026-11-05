@@ -84,9 +84,9 @@ checks the item and never disconnects players over the HUD while Steam does not 
 
 ## Updating the layout later
 
-CS2 caches a layout by its path for a whole game session, so a layout release needs new file names: raise `Hud.Release` in
-`bridge/Hud.cs` and rename `layout/gungame_hud_<release>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
-and `--selftest` follow `Hud.Release`). A content update keeps the path and the file names: it raises `Hud.Content` and `HudVote.ContentLevel` instead,
+CS2 caches a layout by its path for a whole game session, so a layout release needs new file names: raise `Hud.Release` and `Hud.ReleaseFile` in
+`bridge/Hud.cs` and rename `layout/gungame_hud_<ReleaseFile>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
+and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names: it raises `Hud.Content` and `HudVote.ContentLevel` instead,
 and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to. Build, publish while nobody plays,
 wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players (`deploy/release.py live`): the plugin's level is what
 tells a game holding the older content to update, so it never ships before the content does.

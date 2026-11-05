@@ -82,7 +82,7 @@ static partial class Program
         Check("The mode chips get nothing from the server: their state is classes on gg_screen", !classes.Any(c => HudBrowser.ModeButtons.Any(m => m.Id == c.Id)));
 
         // ---- the layout and the stylesheet ----
-        const string layoutFile = "../hud/layout/gungame_hud_" + Hud.Release + ".xml", styleFile = "../hud/styles/gungame_hud_" + Hud.Release + ".css";
+        const string layoutFile = "../hud/layout/gungame_hud_" + Hud.ReleaseFile + ".xml", styleFile = "../hud/styles/gungame_hud_" + Hud.ReleaseFile + ".css";
         if (File.Exists(layoutFile) && File.Exists(styleFile))
         {
             var xml = Regex.Replace(File.ReadAllText(layoutFile), "<!--.*?-->", "", RegexOptions.Singleline);

@@ -3,7 +3,7 @@
 // an update and until it has downloaded it; the HUD's version classes; and why a player disliked a map (DownReasons).
 //
 // The version classes need no click and no word from the client. latest-N on gg_global names the newest content the server knows, and every
-// content from v4_6_0 on shows its outdated banner for an N above its own. The contents before it read svge<k> (the server's level is at least k)
+// content from v4.6.0 on shows its outdated banner for an N above its own. The contents before it read svge<k> (the server's level is at least k)
 // and svlt<k> (below k) at a join instead. The server's version name rides in the dialog variable osver on gg_global, which the labels inherit.
 //
 // Shared like Hud.cs (plain BCL): the plugin draws it, the bridge's --selftest checks it.
@@ -76,24 +76,24 @@ public static class DownReasons
 
 public static class HudVote
 {
-    /// <summary>The server's content as a number: v4_6_0 is 46.</summary>
+    /// <summary>The server's content as a number: v4.6.0 is 46.</summary>
     public const int ContentLevel = 46;
 
-    /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4_6_0 on shows its outdated banner by
-    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast (v5_9_0): this one for latest-47 ... latest-59.</summary>
+    /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
+    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast (v5.9.0): this one for latest-47 ... latest-59.</summary>
     public const int LatestLast = 59;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The version classes the contents before v4_6_0 read at a join (vjoin on gg_screen, for JoinSeconds): svge(k) while the server's
+    /// <summary>The version classes the contents before v4.6.0 read at a join (vjoin on gg_screen, for JoinSeconds): svge(k) while the server's
     /// level is at least k, svlt(k) while it is below - a content of level L shows "yours is older" under svge(L + 1) and "yours is newer" under
-    /// svlt(L). Those contents are v4_0_0 to v4_5_0, so only svge41 ... svge46 and svlt40 ... svlt45 are sent.</summary>
+    /// svlt(L). Those contents are v4.0.0 to v4.5.0, so only svge41 ... svge46 and svlt40 ... svlt45 are sent.</summary>
     public const int OldFirst = 40, OldLast = 45;
 
     /// <summary>The dialog variables on gg_global that the layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
 
-    /// <summary>A content's name for its level, as the banner says it: 47 is v4_7_0 (ContentLevel 46 is Hud.Content, v4_6_0).</summary>
-    public static string ContentOfLevel(int level) => $"v{(level / 10).ToString(CultureInfo.InvariantCulture)}_{(level % 10).ToString(CultureInfo.InvariantCulture)}_0";
+    /// <summary>A content's name for its level, as the banner says it: 47 is v4.7.0 (ContentLevel 46 is Hud.Content, v4.6.0).</summary>
+    public static string ContentOfLevel(int level) => $"v{(level / 10).ToString(CultureInfo.InvariantCulture)}.{(level % 10).ToString(CultureInfo.InvariantCulture)}.0";
 
     /// <summary>How long after a real join an older content's version banner shows (vjoin).</summary>
     public const double JoinSeconds = 15;
@@ -138,16 +138,16 @@ public static class HudVote
     /// <summary>Whether the wire's tags name this one.</summary>
     public static bool HasTag(string? wire, string id) => MapTags.Split(wire).Contains(id);
 
-    // ---- the vote's own buttons: Random in the ballot's header, the MAPS sub-tabs Browse and Vote (v4_6_0; before it, a button and a banner) ----
+    // ---- the vote's own buttons: Random in the ballot's header, the MAPS sub-tabs Browse and Vote (v4.6.0; before it, a button and a banner) ----
 
     public const string RandomButton = "gg_v_random", BrowseButton = "gg_v_browse", BackButton = "gg_v_back";
 
     /// <summary>The dialog variables on gg_screen the vote's labels inherit, per player: Random's button, the hint that more cards are on the other pages,
-    /// the line over the map browser while it adds to the vote (the contents before v4_6_0), the Vote sub-tab's label, the limit's and the inactivity
+    /// the line over the map browser while it adds to the vote (the contents before v4.6.0), the Vote sub-tab's label, the limit's and the inactivity
     /// timer's lines in the ballot's header.</summary>
     public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle";
 
-    /// <summary>Who has not voted yet (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4_6_0; HoverVar(k),
+    /// <summary>Who has not voted yet (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4.6.0; HoverVar(k),
     /// longer, for the names a card shows while the mouse is on it) and the summary strip's segment i (StripVar(i)).</summary>
     public const string WaitVar = "osvwait";
     public static string VotersVar(int k) => $"osvn{k.ToString(CultureInfo.InvariantCulture)}";
@@ -178,8 +178,8 @@ public static class HudVote
         for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
     }
 
-    /// <summary>How many characters of names a card's chips take in the contents before v4_6_0, so a longer list ends in "+N" and never in "..."; and
-    /// how many the names a v4_6_0 card shows on pointing take (three lines over its picture).</summary>
+    /// <summary>How many characters of names a card's chips take in the contents before v4.6.0, so a longer list ends in "+N" and never in "..."; and
+    /// how many the names a v4.6.0 card shows on pointing take (three lines over its picture).</summary>
     public const int CardNames = 30, HoverNames = 90;
 
     /// <summary>Names as a card's chips say them: as many as fit in about 34 characters, then "+N".</summary>
@@ -214,7 +214,7 @@ public static class HudVote
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
     public static string TabLabel(VoteState v) => v.Open ? $"Vote  ·  {v.SecondsLeft} s" : "Vote";
 
-    /// <summary>The ballot's cards a page for a game holding this HUD (HudCheck.IsVersionWord): a content before v4_6_0 has eight cards
+    /// <summary>The ballot's cards a page for a game holding this HUD (HudCheck.IsVersionWord): a content before v4.6.0 has eight cards
     /// (HudBrowser.PerPage), so a game known to hold one gets pages of eight and reaches every option on its pager; any other - this content, a newer
     /// one, or one not known (no HUD check's click yet, or HUD_CHECK off) - pages of MapVote.PageCards.</summary>
     public static int CardsFor(string version) => HudCheck.IsOutdated(version) ? HudBrowser.PerPage : MapVote.PageCards;
@@ -279,7 +279,7 @@ public static class HudVote
             var entry = o == null || o.Key == "" || catalog == null ? null : catalog.Find(o.Key);
             var record = keep ? null : entry; // its record, for a risky map
             var who = o == null || o.Who == "" ? "" : $"picked by {o.Who}";
-            t.Add(($"{id}_rank", o == null ? "" : $"{number}{(keep ? "Keep" : mode?.Name ?? "")}")); // the contents before v4_6_0 show it on the picture
+            t.Add(($"{id}_rank", o == null ? "" : $"{number}{(keep ? "Keep" : mode?.Name ?? "")}")); // the contents before v4.6.0 show it on the picture
             t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
             t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(who == "" ? "" : $"  ·  {who}")}"));
@@ -369,7 +369,7 @@ public static class HudVote
         };
     }
 
-    /// <summary>The line over the map browser while it adds to the vote (the contents before v4_6_0: a banner; a variable on gg_screen).</summary>
+    /// <summary>The line over the map browser while it adds to the vote (the contents before v4.6.0: a banner; a variable on gg_screen).</summary>
     public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  a map's Play puts it on the vote, with your vote";
 
     /// <summary>The page a card of this option is on (an added map's, for its adder to see it).</summary>

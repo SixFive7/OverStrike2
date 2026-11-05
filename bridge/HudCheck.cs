@@ -2,7 +2,7 @@
 // but whether the layout loaded the server cannot see - a game that kept an older copy shows nothing and says nothing - and a layout cannot send
 // anything by itself (CS2 drops a layout with scripts in it). The only proof is a click: a Button press in the window reaches the server
 // (OnCustomHudClicked) only from a game that has the layout and shows it. So a player not seen clicking since their last real join gets the window
-// with one gold button, "Click to play". From content v4_6_0 on that button's id carries the content (VersionButton: gg_hudver_v4_6_0), so its click
+// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (VersionButton: gg_hudver_v4.6.0), so its click
 // proves the exact version; an older content's gold button is the live column's action button, whose click counts as "older"; any other button
 // verifies the HUD without saying which. One who has not clicked GraceSeconds after their first spawn on a map is told in chat what to do, and
 // with HUD_CHECK=enforce disconnected; with warn only told.
@@ -25,11 +25,11 @@ public static class HudCheck
     public const int ReasonMax = 127;       // a disconnect reason travels as SteamNetworkingSockets' close reason: 128 bytes with its NUL
     public const int LineMax = 127;         // what a private chat line may take here
 
-    /// <summary>The gold button's words while a player is being checked: the live column's action button of the contents before v4_6_0 (set from
-    /// the server); from v4_6_0 on, the version button's own fixed words are the same.</summary>
+    /// <summary>The gold button's words while a player is being checked: the live column's action button of the contents before v4.6.0 (set from
+    /// the server); from v4.6.0 on, the version button's own fixed words are the same.</summary>
     public const string ActText = "Click to play", ActSub = "One click shows the server your HUD works";
 
-    /// <summary>HUD_CHECK: off, warn (tell, never disconnect) or enforce. "dryrun", the word the plugins before v4_6_0 know for warn, reads as warn.</summary>
+    /// <summary>HUD_CHECK: off, warn (tell, never disconnect) or enforce. "dryrun", the word the plugins before v4.6.0 know for warn, reads as warn.</summary>
     public static Mode Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
     {
         "warn" or "dryrun" or "dry-run" or "dry" or "test" => Mode.Warn,
@@ -39,7 +39,7 @@ public static class HudCheck
 
     public static string Name(Mode mode) => mode switch { Mode.Warn => "warn", Mode.Enforce => "enforce", _ => "off" };
 
-    /// <summary>The mode as the live state carries it: warn as "dryrun", which a plugin before v4_6_0 reads as its dry run - and without a release's
+    /// <summary>The mode as the live state carries it: warn as "dryrun", which a plugin before v4.6.0 reads as its dry run - and without a release's
     /// proof, which no bridge serves any more, a dry run never disconnects anybody either.</summary>
     public static string WireName(Mode mode) => mode == Mode.Warn ? "dryrun" : Name(mode);
 
@@ -51,33 +51,41 @@ public static class HudCheck
     /// <summary>Verified since the player's last real join, as far as the bridge knows.</summary>
     public static bool IsVerified(HudState? state, long account) => state != null && state.Verified.ContainsKey(account);
 
-    /// <summary>"v2_1_1": what a release or a content looks like (Hud.Release, Hud.Content).</summary>
+    /// <summary>"v2.1.1", "v14.5.27": what a release or a content looks like (Hud.Release, Hud.Content), and the one form everything shows, logs and compares.</summary>
     public static bool IsRelease(string text)
     {
-        var parts = text.Length > 1 && text[0] == 'v' ? text[1..].Split('_') : [];
+        var parts = text.Length > 1 && text[0] == 'v' ? text[1..].Split('.') : [];
         return parts.Length == 3 && parts.All(p => p.Length is > 0 and <= 3 && p.All(char.IsAsciiDigit));
     }
 
-    /// <summary>What a game's HUD is known as after the check's click: a content (v4_6_0, from its version button), Older (an older content's gold
-    /// button), or Hud.Release (verified, which content not known - the click was another button, or a plugin before v4_6_0 sent it).</summary>
+    /// <summary>A version word in the one form: "v4_6_0" reads as "v4.6.0", anything else comes back as it is. The only reader of the old form, used where a
+    /// word comes in - a version button's id, a click's !hudok, the live state's ok lines: what a game or a plugin from before the new form sends lasts until
+    /// Steam or the next restart updates it. Nothing past those doors sees the old form.</summary>
+    public static string Normal(string text) => !text.Contains('.') && text.Replace('_', '.') is var dotted && IsRelease(dotted) ? dotted : text;
+
+    /// <summary>What a game's HUD is known as after the check's click: a content (v4.6.0, from its version button), Older (an older content's gold
+    /// button), or Hud.Release (verified, which content not known - the click was another button, or a plugin before v4.6.0 sent it).</summary>
     public const string Older = "older";
 
     /// <summary>Whether !hudok may carry this: a content or release, or Older.</summary>
-    public static bool IsVersionWord(string text) => text == Older || IsRelease(text);
+    public static bool IsVersionWord(string text) => text == Older || IsRelease(Normal(text));
 
     /// <summary>The version button: the gold "Click to play" of the HUD check, whose id names the content that has it. The layout may put it
     /// anywhere (the welcome window's close button could carry it one day): any button with this prefix proves its content.</summary>
     public const string VersionPrefix = "gg_hudver_";
 
+    /// <summary>The version button's id for a content: the one place that says the id's form, gg_hudver_v4.6.0, and --selftest holds the layout's one id to it.
+    /// That CS2 takes a dot in a panel id is not proven until a real client has loaded this layout. If it does not, this line becomes
+    /// VersionPrefix + content.Replace('.', '_') and the layout's id follows; VersionOf reads both.</summary>
     public static string VersionButton(string content) => VersionPrefix + content;
 
-    /// <summary>The content a version button proves, or null for any other button.</summary>
+    /// <summary>The content a version button proves, in the one form whichever way its id writes it, or null for any other button.</summary>
     public static string? VersionOf(string buttonId) =>
-        buttonId.StartsWith(VersionPrefix, StringComparison.Ordinal) && IsRelease(buttonId[VersionPrefix.Length..]) ? buttonId[VersionPrefix.Length..] : null;
+        buttonId.StartsWith(VersionPrefix, StringComparison.Ordinal) && Normal(buttonId[VersionPrefix.Length..]) is var content && IsRelease(content) ? content : null;
 
-    /// <summary>A content as a number: v4_6_0 is 46; 0 for anything else.</summary>
+    /// <summary>A content as a number: v4.6.0 is 46; 0 for anything else.</summary>
     public static int LevelOf(string version) =>
-        IsRelease(version) && version[1..].Split('_') is [var major, var minor, _] && int.TryParse(major, out var a) && int.TryParse(minor, out var b) ? a * 10 + b : 0;
+        IsRelease(version) && version[1..].Split('.') is [var major, var minor, _] && int.TryParse(major, out var a) && int.TryParse(minor, out var b) ? a * 10 + b : 0;
 
     /// <summary>A HUD other than the server's own as the Players page says it: older, its content not known (Hud.Release: a click on a button
     /// that names none), or not seen yet ("": no click since the last real join).</summary>

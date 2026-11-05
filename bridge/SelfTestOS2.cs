@@ -153,12 +153,12 @@ static partial class Program
             && HudVote.PageClick(twelve, HudBrowser.NextButton, 0) == 1 && HudVote.PageClick(twelve, HudBrowser.NextButton, 1) == 1 && HudVote.PageClick(twelve, HudBrowser.FirstButton, 1) == 0
             && HudVote.PageClick(twelve, HudBrowser.LastButton, 0) == 1 && HudVote.PageClick(twelve, "gg_m1_play", 0) == null && HudVote.PageOf(twelve, 12) == 0 && HudVote.PageOf(twelve, 11) == 1
             && HudVote.Click(twelve, HudVote.RandomButton) == $"!mv 1793600000 {MapVote.RandomOption}" && HudVote.BrowseLine(twelve).Contains("30 s left"));
-        // ---- a game known to hold a content before v4_6_0 has eight cards: its pages are of eight, so its pager reaches every option ----
+        // ---- a game known to hold a content before v4.6.0 has eight cards: its pages are of eight, so its pager reaches every option ----
         var old8 = HudVote.CardsFor(HudCheck.Older);
         var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: old8);
         var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: old8);
-        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {Hud.Content} (older, or v4_5_0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
-            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4_5_0") == HudBrowser.PerPage && new[] { Hud.Content, "v4_7_0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
+        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {Hud.Content} (older, or v4.5.0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
+            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { Hud.Content, "v4.7.0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
             && HudVote.Pages(twelve, old8) == 2 && !C(oldFirst, "gg_m9", "used") && C(oldFirst, "gg_m8", "used") && P(oldFirst.Texts, "gg_m9_name") == ""
             && P(oldFirst.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "gg_m1_name") == P(first.Texts, "gg_m9_name")
             && HudVote.Click(twelve, "gg_m1_play", 1, -1, null, old8) == MapVote.Click(twelve.Round, twelve.Maps[old8].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, old8) == 1
@@ -226,8 +226,8 @@ static partial class Program
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
         var levels = HudVote.VersionClasses();
-        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; the contents v4_0_0 to v4_5_0 still read their svge/svlt, each level exactly one of them",
-            Hud.Content == $"v{HudVote.ContentLevel / 10}_{HudVote.ContentLevel % 10}_0" && HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel
+        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; the contents v4.0.0 to v4.5.0 still read their svge/svlt, each level exactly one of them",
+            Hud.Content == $"v{HudVote.ContentLevel / 10}.{HudVote.ContentLevel % 10}.0" && HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel && HudVote.ContentOfLevel(HudVote.ContentLevel) == Hud.Content
             && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVote.ContentLevel}"
             && Enumerable.Range(HudVote.OldFirst, HudVote.OldLast - HudVote.OldFirst + 1).All(l => levels.Single(x => x.Class == $"svge{l + 1}").On && !levels.Single(x => x.Class == $"svlt{l}").On)
             && HudVote.VersionClasses(HudVote.OldFirst).Single(x => x.Class == $"svlt{HudVote.OldFirst + 1}").On && levels.All(x => x.Id == HudView.Global));

@@ -227,7 +227,7 @@ static partial class Program
             ("!down <map>", "Maps: a card's down arrow", Card(claim, "down"), "!down 7"),
             ("!down <map> big", "Maps: a card's down arrow, then Too big in the dialog", Card(claim, "down") == "!down 7"
                 && HudVote.WhyClick(HudVote.WhyButton(Array.FindIndex(DownReasons.All, r => r.Word == "big") + 1)) is { } bigWhy ? $"!down {bigWhy.Word}" : null, "!down big"),
-            ("!down <map> big", "Maps: a card's Too big (the contents before v4_6_0)", Card(claim, "big"), "!down 7 big"),
+            ("!down <map> big", "Maps: a card's Too big (the contents before v4.6.0)", Card(claim, "big"), "!down 7 big"),
             ("!top", "Maps: Sort by Likes; the live column's Most liked", Sorted(catalog, index).FirstOrDefault()?.Name, "Claim the hill"),
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),
             ("!restart", "Game: Restart (twice)", HudMenu.Command(HudMenu.Restart, catalog, live, mine, 1, DateTime.UtcNow), "!restart"),
