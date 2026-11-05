@@ -118,6 +118,7 @@ sealed partial class HudScreen
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { worldReady = true; EnsureEntity(); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventPlayerHurt>(OnHurt);
         plugin.AddTimer(FrameSeconds, Frame, TimerFlags.REPEAT);
+        MatchLoad();
         WarmUp();
         if (hotReload) { worldReady = true; EnsureEntity(); } // a map is running: the one case where entities may be touched right away
     }
@@ -314,6 +315,7 @@ sealed partial class HudScreen
         cards.Remove(slot);
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
+        rematchArmed.Remove(slot);
         cuCards.Remove(slot);
         dashPages.Remove(slot);
         Forget(slot);
@@ -378,6 +380,7 @@ sealed partial class HudScreen
         cards.Remove(slot);
         localNotes.Remove(slot);
         restartArmed.Remove(slot);
+        rematchArmed.Remove(slot);
         cuCards.Remove(slot);
         dashPages.Remove(slot);
         drawnOrder.Remove(slot);
@@ -506,11 +509,7 @@ sealed partial class HudScreen
             return;
         }
         if (buttonId == WorkshopCard.Play) { Download(player); Server.NextFrame(Frame); return; }
-        if (buttonId == HudMenu.Restart)
-        {
-            var armed = restartArmed.TryGetValue(player.Slot, out var until) && now < until;
-            if (armed) restartArmed.Remove(player.Slot); else restartArmed[player.Slot] = now.AddSeconds(HudBrowser.ConfirmSeconds);
-        }
+        ArmGameButtons(player, buttonId, now);
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
         if (command != null) Act(player, account, command);
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
@@ -999,7 +998,7 @@ sealed partial class HudScreen
         {
             HudSlots.Page.Maps when vote.Round > 0 && !(vote.Open && VoteView(p.Slot).Browse) => BallotPage(p, account),
             HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search, mode.Id, vote),
-            HudSlots.Page.Game => HudMenu.Game(shown, restartArmed.TryGetValue(p.Slot, out var until) && now < until ? (int)Math.Ceiling((until - now).TotalSeconds) : 0),
+            HudSlots.Page.Game => GamePage(p, shown, now),
             _ => (null, null),
         };
         if (texts == null || classes == null) return;

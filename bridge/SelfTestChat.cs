@@ -24,6 +24,7 @@ static partial class Program
         ("!catchup", ["!catch", "!boost", "!boosts", "!comeback"]), // the Fun page's Catch-up row in chat
         ("!time", ["!length", "!minutes", "!timelimit", "!roundtime", "!duration"]),
         ("!restart", ["!reboot", "!fix", "!unstuck", "!stuck", "!reset"]),
+        ("!rematch", ["!restartmatch", "!matchrestart", "!restartgame", "!rr"]),
         ("!menu", ["!gg", "!hud", "!os", "!os2", "!open"]),
         ("!help", ["!commands", "!cmds", "!h", "!?", "!info"]),
         ("!how", ["!howitworks", "!odds", "!chances", "!why", "!explain", "!rules", "!rule", "!r", "!fair", "!howto", "!policy"]),
@@ -124,7 +125,7 @@ static partial class Program
             && ChatCommands.Parse("!vote", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Typed: "" } && ChatCommands.Parse("!v", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Ran: "!vote", Typed: "!v" }
             && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Page, Arg: "Maps" } // a bare !vote brings a player back to the vote; outside one it opens the maps, where one starts
             && ChatCommands.Parse("9", voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None && ChatCommands.Parse("12", voteOpen: true, highest: 14).Kind == ChatCommands.Kind.Vote);
-        var untouched = new[] { "!up", "!down big", "!down 12 ads", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!drops on", "!catchup off", "!time 10", "!restart", "!menu", "!help", "!rules", "!how" };
+        var untouched = new[] { "!up", "!down big", "!down 12 ads", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!drops on", "!catchup off", "!time 10", "!restart", "!rematch", "!menu", "!help", "!rules", "!how" };
         var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();
         Check($"Chat: the commands that do not touch the map stay as they are while a vote is open{(touched.Count > 0 ? "; not " + string.Join(" | ", touched) : "")}",
             touched.Count == 0 && untouched.All(w => ChatCommands.Parse(w, voteOpen: true).Kind != ChatCommands.Kind.VoteOnly));
@@ -275,7 +276,7 @@ static partial class Program
         Check("...and !top's words after its command are words", T("!top") == "You typed κ!topπ - Ran κ!mapsπ, sorted by likes" && T("!status") == "You typed κ!statusπ - Ran κ!syncπ");
 
         Check("A usage line: the command Lime; what it needs LightBlue, the few it can be Gold; a command or a reason its words name likewise",
-            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν<10|60>π: Match length in minutes, from the next match"
+            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν<10|60>π: Match length in minutes, this match too"
             && U("!gravity") == $"κ!gravityπ νnormal|low|moonπ: {Fun.Find("gravity")!.Words}" && U("!down") == $"κ!downπ α[number] [reason]π: Dislike it, and why: ν{DownReasons.Words}π"
             && U("!fun") == "κ!funπ: The Fun page, each setting's own word (κ!gravityπ νlowπ), κ!funπ νrandomπ and κ!funπ νdefaultπ"
             && U("!nades") == $"κ!nadesπ νon|offπ: Grenade drops on or off  ·  κ!nadesπ νnormal|big|hugeπ: {Fun.Find("nades")!.Words}");

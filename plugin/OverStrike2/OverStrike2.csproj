@@ -32,6 +32,7 @@
     <Compile Include="..\..\bridge\BlockList.cs" Link="BlockList.cs" />
     <Compile Include="..\..\bridge\MapVote.cs" Link="MapVote.cs" />
     <Compile Include="..\..\bridge\Modes.cs" Link="Modes.cs" />
+    <Compile Include="..\..\bridge\MatchLength.cs" Link="MatchLength.cs" />
     <Compile Include="..\..\bridge\HudVote.cs" Link="HudVote.cs" />
     <Compile Include="..\..\bridge\HudDash.cs" Link="HudDash.cs" />
     <Compile Include="..\..\bridge\ChatCommands.cs" Link="ChatCommands.cs" />

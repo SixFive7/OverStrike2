@@ -1,0 +1,355 @@
+// --selftest, the restarts a player can press and the match length (Restarts.cs, MatchLength.cs, Program.SetMatchLength, HudMenu.Game): the second click of Restart the server counts
+// down on the countdown banner, naming who pressed it, then quits; Restart match counts down the same way, then sends mp_restartgame; what either refuses and what ends them; and a new match
+// length for the match that is on, in Arms Race alone. Runs on a handed clock with a fake timer wheel and a fake game server, like the vote's own test (SelfTestVote.cs); everything it touches
+// is put back. What only a real server can show - that mp_restartgame resets the ladder and that the round's time reaches the clients - is the client test's.
+static partial class Program
+{
+    static void MatchSelfTest(Action<string, bool> Check)
+    {
+        var saved = (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, After, Now, StateDir, HudActive, ModeProbeEnabled, ToldAll);
+        var savedModes = ModeMaps.ToDictionary(kv => kv.Key, kv => kv.Value);
+        string dir;
+        try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-match-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-match-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        var clock = new DateTime(2026, 11, 5, 19, 0, 0, DateTimeKind.Utc);
+        var timers = new List<(DateTime Due, long Seq, Action Work)>();
+        long seq = 0;
+        var sent = new List<string>();
+        var rconDown = false;
+        string? lengthReply = null; // what the plugin answers to its command
+        var (alice, bob) = (("Alice", "[U:1:4001]"), ("Bob", "[U:1:4002]"));
+        var said = new List<string>(); // this test's own lines, for the capitals below
+        try
+        {
+            Now = () => clock;
+            StateDir = dir;
+            ToldAll = said;
+            After = (ms, work) => timers.Add((clock.AddMilliseconds(ms), seq++, work));
+            Send = command =>
+            {
+                if (rconDown) return null;
+                sent.Add(command);
+                if (command.StartsWith(MatchLength.Command, StringComparison.Ordinal)) return lengthReply;
+                return command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end" : "";
+            };
+            HudActive = () => true;
+            ModeProbeEnabled = false;
+            void Run(double seconds)
+            {
+                var end = clock.AddSeconds(seconds);
+                while (clock < end)
+                {
+                    var step = clock.AddSeconds(1) < end ? clock.AddSeconds(1) : end;
+                    while (timers.Where(t => t.Due <= step).OrderBy(t => t.Due).ThenBy(t => t.Seq).FirstOrDefault() is { Work: not null } t)
+                    {
+                        timers.Remove(t);
+                        if (t.Due > clock) clock = t.Due;
+                        t.Work();
+                    }
+                    clock = step;
+                    Tick();
+                }
+            }
+            void Line(string ev) => Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - {ev}", null);
+            void Join((string Name, string Id) p) { Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.1:27005\""); Line($"\"{p.Name}<2><{p.Id}><>\" entered the game"); }
+            void Click((string Name, string Id) p, string command) => Command(p.Name, p.Id, command);
+            void Twice((string Name, string Id) p, string command) { Click(p, command); Click(p, command); }
+            bool Said(string fragment) => Told.Any(t => t.Contains(fragment, StringComparison.Ordinal));
+            bool InChat(string line) => SaysNow.Any(l => M.Plain(l.Text) == line);
+            bool OnBoard(string line) => LatelyNow.Any(l => l.Text == line);
+            HudState Live() => HudState.Decode(BuildHud(clock).Encode(endTimes: true))!.AsOf(HudState.Ms(clock)); // the live state as the plugin has it at this moment
+            void Fresh()
+            {
+                S = new State(); Broken = new(); Packs = new(); Votes = new(); Removed = new(); Blocked = new(); Sizes = new(); PickConfirms.Clear();
+                Checked = new(); Players.Clear(); Ballot = null; Pending = null; AnnouncePending = false; AnnounceDeadline = default; VoteWaitUntil = default; LastRound = 0;
+                MatchEndUntil = default; StartRollOwed = false; StartMapAt = default; ResetCrashWatch(); WatchStop(); ClearNotices(); WhyOpen.Clear();
+                NobodySince = null; ResetDone = false; ResetProbeAt = default; ModeBeforeChange = null; ModeProbing = false; ModeResetRetryAt = default;
+                RestartDue = null; RematchDue = null; UpdatedNotice = ""; UpdatedNoticeUntil = default;
+                RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; RematchConfirmBy = ""; RematchConfirmUntil = default; RematchWaitUntil = default;
+                timers.Clear(); sent.Clear(); rconDown = false; lengthReply = null;
+                clock = clock.AddHours(1);
+                Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
+                ModeMaps.Clear();
+                S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
+                Join(alice); Join(bob);
+                ClearNotices(); sent.Clear();
+            }
+
+            // ---- Restart the server: the second click, the countdown, the quit ----
+            Fresh();
+            Click(alice, "!restart");
+            Check("Restart the server: the first click asks, to that player alone, and nothing counts down", NoteFor.ContainsKey(4001) && Said("Click or type it again within 30 s") && RestartDue == null && !sent.Contains("quit"));
+            Click(alice, "!restart");
+            var pressed = Live();
+            Check("...the second click starts the countdown of a restart of kind player, naming who pressed it, in the live state as the plugin reads it",
+                pressed is { RestartKind: PlayerKind, RestartWhen: "now", RestartBy: "Alice", RestartIn: PressedSeconds } && pressed.RestartAfter == "Back in a minute - Reconnect then (console: retry)" && !sent.Contains("quit"));
+            Check("...the countdown banner, the same as the restart counting down: the logo, who pressed it, what to do afterwards, the seconds",
+                HudView.CountdownOf(pressed) is { Eyebrow: "Server", Title: "Alice is restarting the server", Line: "Back in a minute - Reconnect then (console: retry)", Logo: true, Seconds: PressedSeconds });
+            var chatLine = $"Alice is restarting the server in {PressedSeconds} s - Back in a minute, reconnect then (console: retry)";
+            Check($"...chat and the board keep the real seconds, the mark never: {chatLine}", InChat(chatLine) && OnBoard(chatLine) && !SaysNow.Any(l => l.Text.Contains(Hud.LeftToken)) && !LatelyNow.Any(l => l.Text.Contains(Hud.LeftToken)));
+            Check("...its name in chat is marked for its team's colour, its seconds as a value", SaysNow.Any(l => l.Text == $"{M.N("Alice")} is restarting the server in {M.V($"{PressedSeconds} s")} - Back in a minute, reconnect then (console: retry)"));
+            Check("...and the news line of the older contents and the window's foot count down from the end time, unchanged in the change-driven text",
+                pressed.News.StartsWith($"Alice is restarting the server in {PressedSeconds} s") && pressed.RestartWords == pressed.News
+                && BuildHud(clock).Encode(endTimes: true) == BuildHud(clock.AddSeconds(1)).Encode(endTimes: true));
+            Check("...nobody can call a vote while it counts down", CannotCall(clock) is { } noVote && noVote.StartsWith($"The server restarts in {PressedSeconds} s - No vote"));
+            ClearNotices();
+            Click(bob, "!restart");
+            Check("...another player's click says it is coming; it starts nothing new", Said($"The server restarts in {PressedSeconds} s already") && RestartDue is { By: "Alice" });
+            Run(PressedSeconds - 1);
+            Check("...no quit before its end, and the banner counts", !sent.Contains("quit") && Live().RestartIn == 1 && HudView.CountdownOf(Live())?.Seconds == 1);
+            Run(1.5);
+            Check("...then the quit, marked clean as it goes; the warning goes with it", sent.Contains("quit") && S.CleanShutdown && RestartDue == null && Live().RestartKind == "" && S.Map == null);
+            ClearNotices();
+            Click(alice, "!restart");
+            Check("...and the cooldown holds after it, with a capital after the dash", Said("Just restarted - Wait"));
+
+            Fresh();
+            Click(alice, "!restart");
+            StartVote(bob.Item1, bob.Item2);
+            var voteWasOpen = Ballot is { Open: true };
+            Click(alice, "!restart");
+            Check("A vote that is open ends at the second click: the server would go down under it", voteWasOpen && Ballot == null && RestartDue is { Kind: PlayerKind });
+            Fresh();
+            Click(alice, "!restart");
+            StartChange(new Change(Maps[3], "Bob"), "Going");
+            Click(alice, "!restart");
+            var bannerNow = HudView.CountdownOf(Live());
+            Run(PressedSeconds + 1);
+            Check("A map change counting down dies with it: its countdown banner gives way, and its map command never goes out", bannerNow?.Eyebrow == "Server" && sent.Contains("quit") && !sent.Any(c => c.StartsWith("host_workshop_map")));
+            Fresh();
+            Twice(alice, "!restart");
+            Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
+            Check("A match end while it counts down opens no vote: the server goes down under it", Ballot == null && Pending == null && RestartDue is { Kind: PlayerKind });
+            Run(PressedSeconds + 1);
+            Check("...and the quit still goes", sent.Contains("quit"));
+
+            // ---- the watcher and a player's restart ----
+            Fresh();
+            Check("The watcher cannot name a player's restart", ApplyRestartNotice($"gg-restart\t1\t{PlayerKind}\tnow\t5").StartsWith("refused: the kind is") && ApplyUpdated($"gg-updated\t1\t{PlayerKind}\t").StartsWith("refused: the kind is") && RestartDue == null);
+            Twice(alice, "!restart");
+            Check("...nor take one back", ApplyRestartNotice($"gg-restart\t1\tcancel\t{PlayerKind}").StartsWith("refused") && RestartDue is { Kind: PlayerKind });
+            Check("A player's countdown stands whatever the watcher sends: a notice, a reminder, a cancel of its own, the note of an update",
+                ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t10").StartsWith("ok: daily restart: a player's restart goes first") && ApplyRestartNotice("gg-restart\t1\tdaily\tmatch-end\t10").StartsWith("ok")
+                && ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyUpdated("gg-updated\t1\tdaily\t").StartsWith("ok") && RestartDue is { Kind: PlayerKind, By: "Alice" });
+            Run(PressedSeconds + 1);
+            Check("...and its quit goes", sent.Contains("quit"));
+            Fresh();
+            ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t30");
+            ClearNotices();
+            Twice(alice, "!restart");
+            Check("The watcher's countdown is not replaced by a player's", Said("The server restarts in 30 s already") && RestartDue is { Kind: "daily" } && !sent.Contains("quit"));
+            Fresh();
+            ApplyRestartNotice("gg-restart\t1\tdaily\tmatch-end\t10");
+            Twice(alice, "!restart");
+            Check("A restart that waits for the match's end gives way to a player's", RestartDue is { Kind: PlayerKind, GoesAt: not null });
+
+            // ---- every restart's lines: the real seconds in chat and on the board, the right row, capitals ----
+            foreach (var (kind, why, after) in RestartKinds)
+            {
+                Fresh();
+                ApplyRestartNotice($"gg-restart\t1\t{kind}\tmatch-end\t10");
+                var waiting = $"{why}: the server restarts at the end of this match - {after}";
+                var waits = Live();
+                var isUpdate = kind == "game-update";
+                Check($"{kind}, waiting for the match's end: said once with its row, and {(isUpdate ? "the top line holds it, the banner does not" : "the banner holds it")}",
+                    InChat(waiting) && OnBoard(waiting) && waits.RestartWords == waiting
+                    && (isUpdate ? waits.BanHead == "" && waits.TopText == waiting : waits.BanHead == "The server restarts after this match" && waits.BanLine == $"{why} - {after}" && waits.TopText == ""));
+                if (isUpdate)
+                {
+                    Run(Messages.DefaultSeconds * 2);
+                    Announce("Something newer", 4);
+                    var covered = Live().TopText == "Something newer";
+                    Run(5);
+                    Check("...a newer line covers the top line while it lasts, and it comes back until the restart", covered && Live().TopText == waiting);
+                }
+                Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
+                var counting = $"{why}: the server restarts in 10 s - {after}";
+                var counts = Live();
+                Check($"{kind}, at the match's end: the countdown, with the real seconds in chat and on the board{(isUpdate ? "; the top line says what to do, without a number that would stand still" : "")}",
+                    InChat(counting) && OnBoard(counting) && counts is { RestartIn: 10 } && counts.BanHead == "" && !SaysNow.Any(l => l.Text.Contains(Hud.LeftToken)) && !LatelyNow.Any(l => l.Text.Contains(Hud.LeftToken))
+                    && (!isUpdate || counts.TopText == $"{why}: the server restarts for it - {after}") && HudView.CountdownOf(counts) is { Eyebrow: "Server", Logo: true, Seconds: 10 });
+                ClearNotices();
+            }
+            Fresh();
+            ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5");
+            Check("Updated to ...: the top line, chat and the board for a minute, with a capital after the dash; the value marked for chat",
+                Live().TopText == "Updated to CS2 1.41.9.5 - Welcome back" && Live().TopUntilMs == HudState.Ms(clock.AddSeconds(Messages.Updated.Seconds))
+                && OnBoard("Updated to CS2 1.41.9.5 - Welcome back") && SaysNow.Any(l => l.Text == $"Updated to {M.V("CS2 1.41.9.5")} - Welcome back"));
+            ClearNotices();
+            TellUpdated(alice.Item2);
+            Check("...and a joiner gets it as a line of their own, in their chat and on their board", NoteFor.ContainsKey(4001) && !NoteFor.ContainsKey(4002) && SaysNow.Single().Account == 4001 && LatelyNow.Single().Account == 4001);
+
+            // ---- Restart match: the second click, the countdown, mp_restartgame ----
+            Fresh();
+            var onMap = S.Map;
+            Click(alice, "!rematch");
+            Check("Restart match: the first click asks, to that player alone, and nothing counts down", NoteFor.ContainsKey(4001) && Said("Click or type it again within 30 s") && RematchDue == null && Live().RematchIn == -1);
+            Click(alice, "!rematch");
+            var rematch = Live();
+            Check("...the second click starts its countdown, on the wire and in the banner: the logo, who pressed it, the seconds",
+                rematch is { RematchBy: "Alice", RematchIn: PressedSeconds } && rematch.RematchAtMs == HudState.Ms(clock.AddSeconds(PressedSeconds)) && !sent.Contains("mp_restartgame 1")
+                && HudView.CountdownOf(rematch) is { Eyebrow: "Match", Title: "Alice is restarting the match", Line: "The whole match starts over", Logo: true, Seconds: PressedSeconds });
+            var rematchLine = $"Alice is restarting the match in {PressedSeconds} s - The ladder, the time and catch-up start over";
+            Check($"...and chat and the board say it for everybody, naming what starts over: {rematchLine}", InChat(rematchLine) && OnBoard(rematchLine) && SaysNow.Any(l => l.Account == 0 && l.Text.StartsWith(M.N("Alice"), StringComparison.Ordinal)));
+            Check("...the state stands still in the change-driven text while it counts down", BuildHud(clock).Encode(endTimes: true) == BuildHud(clock.AddSeconds(1)).Encode(endTimes: true));
+            Check("...nobody can call a vote while it counts down", CannotCall(clock) is { } noVote2 && noVote2.StartsWith($"The match restarts in {PressedSeconds} s - No vote"));
+            ClearNotices();
+            Click(bob, "!rematch");
+            Check("...another click says who pressed it and how long is left", Said($"Alice is restarting the match already - It goes in {PressedSeconds} s") && RematchDue is { By: "Alice" });
+            Run(PressedSeconds - 1);
+            Check("...nothing goes out before its end, and the banner counts", !sent.Contains("mp_restartgame 1") && Live().RematchIn == 1);
+            Run(1.5);
+            Check("...then mp_restartgame 1 over RCON, and the countdown is over", sent.Contains("mp_restartgame 1") && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
+            Check("...the map, its picker, the mode and a clean state stay: this is no restart of the server, and no map change", S.Map == onMap && !S.CleanShutdown && !sent.Contains("quit") && !sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("host_workshop_map")) && !AnnouncePending);
+            ClearNotices();
+            Click(bob, "!rematch");
+            Check($"...the next one waits: {RematchWaitSeconds} s from the second click", Said("The match was just restarted - Wait") && RematchConfirmBy == "");
+            Run(RematchWaitSeconds);
+            Click(bob, "!rematch");
+            Check("...and then it may be pressed again, by anyone", RematchConfirmBy == bob.Item2);
+
+            // ---- what Restart match refuses, and what ends it ----
+            Fresh();
+            Click(alice, "!restart"); Click(alice, "!restart");
+            ClearNotices();
+            Twice(bob, "!rematch");
+            Check("Refused while the server's restart counts down", Said($"The server restarts in {PressedSeconds} s - No restart of the match") && RematchDue == null);
+            Fresh();
+            StartChange(new Change(Maps[3], "Bob"), "Going");
+            ClearNotices();
+            Twice(alice, "!rematch");
+            Check("Refused while a map change counts down", Said("Already changing to") && Said("- Wait for it") && RematchDue == null);
+            Fresh();
+            AnnouncePending = true; AnnounceDeadline = clock.AddMinutes(5);
+            ClearNotices();
+            Twice(alice, "!rematch");
+            Check("Refused while a map loads", Said("The next map is still loading - Wait for it") && RematchDue == null);
+            Fresh();
+            StartVote(bob.Item1, bob.Item2);
+            var voteOpen = Ballot is { Open: true };
+            ClearNotices();
+            Twice(alice, "!rematch");
+            Check("Refused while a vote is on", voteOpen && Said("The vote for the next map is on - It decides first") && RematchDue == null);
+            Fresh();
+            MatchEndUntil = clock.AddSeconds(20);
+            ClearNotices();
+            Twice(alice, "!rematch");
+            Check("Refused right after a match's end: the next one starts by itself", Said("This match has just ended - The next one starts by itself") && RematchDue == null);
+            Fresh();
+            Twice(alice, "!rematch");
+            Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
+            var overBy = RematchDue;
+            Run(PressedSeconds + 1);
+            Check("A match end while it counts down ends it: the match has ended by itself, and the vote opens as ever", overBy == null && !sent.Contains("mp_restartgame 1") && Ballot != null);
+            Fresh();
+            Twice(alice, "!rematch");
+            Line("Loading map \"ar_other\"");
+            var mapBy = RematchDue;
+            Run(PressedSeconds + 1);
+            Check("A map start while it counts down ends it", mapBy == null && !sent.Contains("mp_restartgame 1"));
+            Fresh();
+            Twice(alice, "!rematch");
+            ServerGoingDown("a test");
+            var downBy = RematchDue;
+            Run(PressedSeconds + 1);
+            Check("The server going down ends it", downBy == null && !sent.Contains("mp_restartgame 1"));
+            Fresh();
+            Twice(alice, "!rematch");
+            Click(bob, "!restart"); Click(bob, "!restart");
+            var pressedOver = RematchDue;
+            Run(PressedSeconds + 1);
+            Check("A restart of the server pressed while it counts down ends it", pressedOver == null && !sent.Contains("mp_restartgame 1") && sent.Contains("quit"));
+            Fresh();
+            Twice(alice, "!rematch");
+            rconDown = true;
+            ClearNotices();
+            Run(PressedSeconds + 1);
+            rconDown = false;
+            Check("RCON not answering: the line for everybody says it did not restart", Said("The server did not answer - The match did not restart") && RematchDue == null);
+
+            // ---- in the other modes ----
+            foreach (var (mode, words) in new[] { (Modes.WingmanId, "The rounds and the scores start over"), (Modes.DeathmatchId, "The time and the scores start over") })
+            {
+                Fresh();
+                S.Mode = mode;
+                Twice(alice, "!rematch");
+                var line = $"Alice is restarting the match in {PressedSeconds} s - {words}";
+                Run(PressedSeconds + 1);
+                Check($"{mode}: Restart match works there too, in that mode's words, and the same command goes out", OnBoard(line) && sent.Contains("mp_restartgame 1"));
+                sent.Clear(); ClearNotices();
+                S.RoundMinutes = DefaultRoundMinutes;
+                Click(alice, $"!time {ShortRoundMinutes}");
+                Check($"{mode}: the match length stays out of it - refused, nothing sent, nothing stored: a round's time is not a match's there", Said("The match length is Arms Race's") && sent.Count == 0 && S.RoundMinutes == DefaultRoundMinutes);
+            }
+
+            // ---- the match length, for the match that is on ----
+            Check("The round's time: from the round's start, the time played counting; at least a minute from now",
+                MatchLength.RoundSeconds(10, 0) == 600 && MatchLength.RoundSeconds(60, 900) == 3600 && MatchLength.RoundSeconds(10, 530) == 600 && MatchLength.RoundSeconds(10, 540) == 600
+                && MatchLength.RoundSeconds(10, 540.5) == 601 && MatchLength.RoundSeconds(10, 600) == 660 && MatchLength.RoundSeconds(10, 900) == 960 && MatchLength.RoundSeconds(10, -3) == 600);
+            Check("...which is the match that is on as asked, or ending soon",
+                MatchLength.Of(10, 0) == MatchLength.Result.Set && MatchLength.Of(60, 900) == MatchLength.Result.Set && MatchLength.Of(10, 540) == MatchLength.Result.Set
+                && MatchLength.Of(10, 541) == MatchLength.Result.EndsSoon && MatchLength.Of(10, 900) == MatchLength.Result.EndsSoon);
+            var results = new[] { MatchLength.Result.Set, MatchLength.Result.EndsSoon, MatchLength.Result.NoMatch, MatchLength.Result.NotHere };
+            Check("The plugin's reply says what it did, and is read back; anything else is no word of its", results.All(r => MatchLength.Read("noise\n" + MatchLength.Reply(r, "details") + "\n") == r)
+                && MatchLength.Read(null) == null && MatchLength.Read("") == null && MatchLength.Read("Unknown command") == null);
+            foreach (var (result, effect) in new (MatchLength.Result?, string)[] { (MatchLength.Result.Set, "This match too"), (MatchLength.Result.EndsSoon, $"This match ends in {MatchLength.LeastSeconds} s"), (MatchLength.Result.NoMatch, "From this match on"), (null, "From the next match") })
+            {
+                Fresh();
+                lengthReply = result is { } r ? MatchLength.Reply(r, "details") : "Unknown command";
+                Click(alice, $"!time {ShortRoundMinutes}");
+                var words = $"Alice set the match length to {ShortRoundMinutes} minutes - {effect}";
+                var first = sent.IndexOf($"mp_roundtime {ShortRoundMinutes}");
+                Check($"!time, the plugin answering {result?.ToString() ?? "nothing it knows"}: mp_roundtime for the rounds to come, then the plugin for the one that is on; for everybody: {words}",
+                    first >= 0 && sent.IndexOf($"{MatchLength.Command} {ShortRoundMinutes}") == first + 1 && S.RoundMinutes == ShortRoundMinutes && S.RoundBy == "Alice"
+                    && Live().TopText == words && InChat(words) && OnBoard(words) && Live().RoundMinutes == ShortRoundMinutes);
+            }
+            Fresh();
+            rconDown = true;
+            Click(alice, $"!time {ShortRoundMinutes}");
+            rconDown = false;
+            Check("RCON not answering: stored, for the next map's load, and it says so", S.RoundMinutes == ShortRoundMinutes && Said("From the next match"));
+            Fresh();
+            lengthReply = MatchLength.Reply(MatchLength.Result.Set, "details");
+            Click(alice, $"!time {DefaultRoundMinutes}");
+            Check("The length that is set already: said to that player, and nothing goes out", NoteFor.ContainsKey(4001) && Said($"Matches are already {DefaultRoundMinutes} minutes") && sent.Count == 0);
+            Click(alice, "!time 20");
+            Check("A length there is no button for: refused", Said($"Matches are {ShortRoundMinutes} or {DefaultRoundMinutes} minutes") && sent.Count == 0);
+
+            // ---- the menu's side: the buttons, what they say, what they send ----
+            var browser = new HudBrowser();
+            var page = HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 0, 0);
+            string T(string id) => page.Texts.Single(x => x.Id == id).Text;
+            Check("Game page: both restarts say what they are, unarmed; a length not the default says who set it, with a capital",
+                T("gg_set_rematch_text") == "Restart the match" && T("gg_set_restart_text") == "Restart the server" && T("gg_set_time_now") == "Matches last 10 minutes - Set by Bob"
+                && !page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
+            page = HudMenu.Game(new HudState(), 0, 7);
+            Check("...Restart match after its first click: press again, its seconds, armed; the other button is not",
+                T("gg_set_rematch_text") == "Press again within 7 s" && page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && T("gg_set_restart_text") == "Restart the server" && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
+            Check("...the button sends !rematch, which the bridge takes from a click", HudMenu.Command(HudMenu.Rematch, null, new HudState(), browser, 1, clock) == "!rematch" && Hud.IsAction("!rematch") && HudAct("[U:1:4003]\tCara\t!rematch"));
+            Check("...the chat command is the same click, and teaches its aliases", ChatCommands.Parse("!rematch") is { Kind: ChatCommands.Kind.Bridge, Arg: "!rematch", Typed: "" } && M.Plain(ChatCommands.Teach(ChatCommands.Parse("!rr"))) == "You typed !rr - Ran !rematch");
+            var vote = new VoteState { Round = 3 };
+            Check("A click the state says will be refused arms nothing: the note says why, and the button does not ask for a second click",
+                !HudMenu.RestartRefused(HudMenu.Restart, new HudState(), null) && !HudMenu.RestartRefused(HudMenu.Rematch, new HudState(), new VoteState()) && !HudMenu.RestartRefused(HudMenu.Rematch, null, vote)
+                && HudMenu.RestartRefused(HudMenu.Rematch, new HudState { RematchIn = 4 }, null) && HudMenu.RestartRefused(HudMenu.Rematch, new HudState { RestartWhen = "now" }, null) && HudMenu.RestartRefused(HudMenu.Rematch, new HudState { ChangeIn = 2 }, null)
+                && HudMenu.RestartRefused(HudMenu.Rematch, new HudState { Loading = true }, null) && HudMenu.RestartRefused(HudMenu.Rematch, new HudState(), vote)
+                && HudMenu.RestartRefused(HudMenu.Restart, new HudState { RestartWhen = "now" }, null) && !HudMenu.RestartRefused(HudMenu.Restart, new HudState { RematchIn = 4 }, vote));
+
+            // ---- capitals: everything this test made the bridge say but the vote's own lines, the menu's words too ----
+            var words2 = said.Where(t => !M.Plain(t).Contains("the next map", StringComparison.Ordinal)).Concat(HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 12, 12).Texts.Select(x => x.Text)).Concat(HudMenu.Game(new HudState(), 0, 0).Texts.Select(x => x.Text)).Distinct().ToList();
+            var lower = words2.Where(t => Sections.Lower(t, ["Alice", "Bob", "Cara"]) != null).Select(t => $"\"{Sections.Lower(t, ["Alice", "Bob", "Cara"])}\" in \"{M.Plain(t)}\"").ToList();
+            Check($"Capitals: every section of the {words2.Count} lines said here starts with one{(lower.Count > 0 ? ": " + string.Join("; ", lower.Take(8)) : "")}", lower.Count == 0);
+        }
+        finally
+        {
+            (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, After, Now, StateDir, HudActive, ModeProbeEnabled, ToldAll) = saved;
+            ToldAll?.AddRange(said); // the run's own capitals check sees them too
+            ModeMaps.Clear();
+            foreach (var (mode, list) in savedModes) ModeMaps[mode] = list;
+            Players.Clear(); Ballot = null; Pending = null; AnnouncePending = false; AnnounceDeadline = default; VoteWaitUntil = default; LastRound = 0; MatchEndUntil = default;
+            StartRollOwed = false; StartMapAt = default; ResetCrashWatch(); WatchStop(); ClearNotices(); WhyOpen.Clear(); MaintenanceOn = false;
+            RestartDue = null; RematchDue = null; UpdatedNotice = ""; UpdatedNoticeUntil = default;
+            RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; RematchConfirmBy = ""; RematchConfirmUntil = default; RematchWaitUntil = default;
+            try { Directory.Delete(dir, true); } catch (Exception) { }
+        }
+    }
+}

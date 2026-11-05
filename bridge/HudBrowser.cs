@@ -377,7 +377,7 @@ public static class HudMenu
 
     /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4.6.0).</summary>
     public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
-        Restart = "gg_set_restart", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
+        Restart = "gg_set_restart", Rematch = "gg_set_rematch", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
     /// <summary>The Fun page's Random and Default (!fun random, !fun default).</summary>
     public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
@@ -593,25 +593,32 @@ public static class HudMenu
         return k >= 1 && k <= s.Choices.Length ? (s, s.Choices[k - 1]) : null;
     }
 
-    /// <summary>What the restart button says after its first click: press it again, and the seconds left of
+    /// <summary>What a restart button says after its first click: press it again, and the seconds left of
     /// the bridge's 30 s window, counting down every second; the stylesheet also makes it blink fast while armed (.gg-restart.armed).</summary>
     public static string RestartAgain(int seconds) => $"Press again within {seconds} s";
 
-    /// <summary>The game page: the match length that is set (and who set it, while it is not the default), and the restart button's two-click
-    /// state - restartSeconds is what is left of the confirmation window after the first click (0: not armed).</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Game(HudState s, int restartSeconds)
+    /// <summary>Whether the state says the bridge will refuse a click on this restart button: its first click then has nothing to arm, and the player's note says why. The whole
+    /// server: one counts down. The match: a restart of either kind, a map change or a load, a vote (the bridge's RematchRefusal has the rest, which the plugin cannot see).</summary>
+    public static bool RestartRefused(string buttonId, HudState? s, VoteState? v) =>
+        s != null && (s.RestartWhen == "now" || (buttonId == Rematch && (s.RematchIn >= 0 || s.ChangeIn >= 0 || s.Loading || v is { Round: > 0 })));
+
+    /// <summary>The game page: the match length that is set (and who set it, while it is not the default), and the two restart buttons' two-click
+    /// state - restartSeconds and rematchSeconds are what is left of each one's confirmation window after its first click (0: not armed).</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Game(HudState s, int restartSeconds, int rematchSeconds = 0)
     {
-        var armed = restartSeconds > 0;
+        var (armed, rearmed) = (restartSeconds > 0, rematchSeconds > 0);
         var t = new List<(string, string)>
         {
             ("gg_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
             ("gg_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
             ("gg_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),
+            ("gg_set_rematch_text", rearmed ? RestartAgain(rematchSeconds) : "Restart the match"),
+            ("gg_set_rematch_sub", rearmed ? "Starts the match over for everybody, 10 s after your click" : "Starts this match over, for everybody. Asks to confirm."),
         };
         var c = new List<(string, string, bool)>
         {
-            (Time10, "on", s.RoundMinutes == 10), (Time60, "on", s.RoundMinutes == 60), (Restart, "armed", armed),
+            (Time10, "on", s.RoundMinutes == 10), (Time60, "on", s.RoundMinutes == 60), (Restart, "armed", armed), (Rematch, "armed", rearmed),
         };
         return (t, c);
     }
@@ -661,6 +668,7 @@ public static class HudMenu
             Time10 => "!time 10",
             Time60 => "!time 60",
             Restart => "!restart",
+            Rematch => "!rematch",
             NewAlways => "!newmaps always",
             NewHalf => "!newmaps half",
             NewNever => "!newmaps never",

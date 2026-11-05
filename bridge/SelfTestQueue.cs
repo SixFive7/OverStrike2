@@ -78,7 +78,7 @@ static partial class Program
                 Players.Clear(); Ballot = null; VoteWaitUntil = default; LastRound = 0;
                 Pending = null; AnnouncePending = false; AnnounceDeadline = default; MatchEndUntil = default;
                 StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; rconDown = false;
-                statusMap = null; statusSpawn = 1; ResetCrashWatch(); WatchStop(); ClearNotices(); RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
+                statusMap = null; statusSpawn = 1; ResetCrashWatch(); WatchStop(); ClearNotices(); RestartDue = null; RematchDue = null; RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
                 Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; // Selection.cs
                 WhyOpen.Clear(); // Votes.cs
                 timers.Clear(); Quiet();
@@ -270,7 +270,7 @@ static partial class Program
 
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             Join(alice); Go(alice, 3); Land(); Run(10);
-            Talk(alice, "!restart"); Talk(alice, "!restart"); Run(4);
+            Talk(alice, "!restart"); Talk(alice, "!restart"); Run(PressedSeconds + 1);
             Check("The bridge's own !restart marks its quit clean as it sends it", sent.Contains("quit") && S.CleanShutdown);
             Crash(); Run(20);
             Check("...so its restart is no crash even when the echo never comes", S.Crashes.Count == 0 && SpawnSeen == 1);
@@ -370,29 +370,32 @@ static partial class Program
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             Join(alice); Go(alice, 1); Land(); Run(60);
-            Confirm(alice); Run(4);
-            Check("!restart: quit goes out 3 s after the confirm", sent.Contains("quit"));
+            Confirm(alice); Run(PressedSeconds - 1);
+            Check($"!restart: no quit during its {PressedSeconds} s countdown", !sent.Contains("quit"));
+            Run(2);
+            Check($"!restart: quit goes out {PressedSeconds} s after the confirm", sent.Contains("quit"));
             Restart(clean: true); Run(6);
             Check("Restart path 1, !restart on a map that is up: the boot's start map rolls the dice", Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             Join(alice); Run(5); Go(alice, 1); Run(ChangeDelay + 120); // the change went out; the download stalls
-            Confirm(alice); Run(4); Quiet();
+            Confirm(alice); Run(PressedSeconds + 1); Quiet();
             Restart(clean: true); Run(6);
             Check("Restart path 2, !restart on a stuck load: the boot is not taken for the stuck map", !Said($"Now on {Label(m[1])}") && S.Map?.Name == "ar_shoots" && !AnnouncePending);
             Check("...and the dice roll", Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             Join(alice); Run(5); Go(alice, 1); Run(ChangeDelay + 120);
-            Confirm(alice); Run(4); Quiet();
+            Confirm(alice); Run(PressedSeconds + 1); Quiet();
             Restart(clean: true, header: "ar_shoots"); Run(6);
             Check("Restart path 2 with the boot's map start named by X-Game-Map: the same", !Said($"Now on {Label(m[1])}") && Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             Join(alice); Run(5); Go(alice, 1); Run(1);
-            Confirm(alice); Run(3); // the quit goes out while the countdown still runs: its host_workshop_map would hit a dead server
+            sent.Clear(); Confirm(alice); Run(PressedSeconds + 1); // the map change counting down ends at the second click: its host_workshop_map would hit a dying server
+            Check("Restart path 3, !restart during a countdown: the change dies at the second click, its map command never goes out", sent.Contains("quit") && !sent.Any(c => c.StartsWith("host_workshop_map")));
             Quiet(); Restart(clean: true); Run(6);
-            Check("Restart path 3, !restart during a countdown: the change dies with the old process, the boot rolls", !Said($"Now on {Label(m[1])}") && Rolled());
+            Check("...and the boot rolls", !Said($"Now on {Label(m[1])}") && Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
             Join(alice); Join(bob); Run(30); MatchEnd();

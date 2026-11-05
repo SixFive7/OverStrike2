@@ -134,7 +134,7 @@ static partial class Program
                 Players.Clear();
                 Pending = null; AnnouncePending = false; AnnounceDeadline = default; MatchEndUntil = default;
                 StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default;
-                ResetCrashWatch(); WatchStop(); ClearNotices(); RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
+                ResetCrashWatch(); WatchStop(); ClearNotices(); RestartDue = null; RematchDue = null; RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
                 Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; WhyOpen.Clear();
                 Ballot = null; VoteWaitUntil = default; ModeBeforeChange = null; ModeProbing = false; ModeProbeEnabled = false; ModeProbeAt = default; ModeResetRetryAt = default; ModeMaps.Clear();
                 HudActive = () => true;

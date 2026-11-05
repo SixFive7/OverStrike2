@@ -62,7 +62,7 @@ public static class Hud
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
-    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!time 10", "!time 60"];
+    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time 10", "!time 60"];
 
     /// <summary>The "new maps in random picks" setting's old words: an older content's Game page still has its buttons, which hear that it is gone
     /// (the bridge's Selection.cs).</summary>
@@ -122,8 +122,8 @@ public static class Hud
             new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
             new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
-            new("Server  ·  Game", "Match length: 10 or 60 minutes, from the next match"),
-            new("Restart", "Server  ·  Game: reboot a stuck server - Click twice to confirm")]),
+            new("Server  ·  Game", "Match length: 10 or 60 minutes, this match too"),
+            new("Restart", "Server  ·  Game: the match or the whole server - Click twice to confirm")]),
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
@@ -447,7 +447,7 @@ public static class HudView
             : "Every map: Play puts it to the vote",
         HudSlots.Page.Fun => "Anybody, at any time, for everybody",
         HudSlots.Page.Players => "Who is on, and which HUD their game shows",
-        HudSlots.Page.Game => "The match length and the stuck-server restart",
+        HudSlots.Page.Game => "The match length, and the two restarts: the match or the whole server",
         HudSlots.Page.Sync => "The Workshop sync: what it does now, its queue, its history",
         HudSlots.Page.Help => "Where everything is",
         _ => "Every rule and chance of a map pick",
@@ -607,7 +607,7 @@ public static class HudView
     public static CountdownWords? CountdownOf(HudState s)
     {
         if (s.ChangeIn >= 0) return new("Map change", s.ChangeMap, Hud.ByWords(s.ChangeBy), false, s.ChangeIn);
-        if (s.RematchIn >= 0) return new("Match", $"{Hud.Clean(s.RematchBy, 32)} is restarting the match", "The ladder, the time and catch-up start over", true, s.RematchIn);
+        if (s.RematchIn >= 0) return new("Match", $"{Hud.Clean(s.RematchBy, 32)} is restarting the match", "The whole match starts over", true, s.RematchIn);
         if (s.RestartKind != "" && s.RestartWhen == "now" && s.RestartIn >= 0)
             return new("Server", s.RestartBy != "" ? $"{Hud.Clean(s.RestartBy, 32)} is restarting the server" : $"The server restarts in {MapVote.Left(s.RestartIn)}", s.RestartAfter, true, s.RestartIn);
         return null;

@@ -60,7 +60,7 @@ opens it for everybody and holds it open ([the freeze](#the-freeze)).
 | MAPS | Vote | While a vote is on, the ballot ([below](#the-ballot)); Browse then adds to the vote. |
 | FUN | | The [fun settings](#fun-settings), with Random and Default. |
 | SERVER | Players | Who is on, their team, the HUD their game showed, the HUD check's clock, their vote while one is open, and how long they have been on. |
-| SERVER | Game | The match length, 10 or 60 minutes (Arms Race's own), and who set it; Restart for a stuck server, twice to confirm. |
+| SERVER | Game | The match length, 10 or 60 minutes (Arms Race's own), and who set it; Restart the server, for a stuck one, and Restart the match, each twice to confirm ([below](#the-match-length-and-the-two-restarts)). |
 | SERVER | Sync | The [Workshop sync's dashboard](#the-dashboard). |
 | HELP | Help | Where everything is. |
 | HELP | How it works | Every rule of the vote and every chance of a random pick: the one set of rule texts in the game ([Keeping the rules in sync](#keeping-the-rules-in-sync)). |
@@ -129,8 +129,9 @@ in which only `!help` is Lime. Every section of a line starts with a capital, an
 | `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
 | `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` |
 | `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
-| `!time <10\|60>` | Match length in minutes | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
+| `!time <10\|60>` | Match length in minutes, this match too | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
 | `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
+| `!rematch` | Restart the match - Twice to confirm | `!restartmatch` `!matchrestart` `!restartgame` `!rr` |
 | `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
 | `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
 | `!how` | How it works: every rule of the vote and every chance of a random pick | `!howitworks` `!odds` `!chances` `!why` `!explain` `!rules` `!rule` `!r` `!fair` `!howto` `!policy` |
@@ -167,7 +168,7 @@ server console.
 - **A match ends:** the vote opens by itself. A vote that is open when a match ends runs on as a match end's. No vote opens with nobody on,
   while a change counts down or a map loads, when a restart waits for that match's end, or under the [maintenance flag](#maintenance-flag).
 
-Nobody can call a vote while a map change counts down or a map loads, while a restart counts down, or for **2 minutes after the last vote**; a
+Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, or for **2 minutes after the last vote**; a
 match end opens its vote anyway. A risky map - a crash on record, on the broken list - asks that player for a second click within 30 s first.
 With more than four on a Wingman map cannot win, and one asked for from another mode is refused.
 
@@ -215,6 +216,22 @@ The dice change the map by themselves only when nobody can vote: at a server sta
 Race, when the map that is on has just gone from the Workshop, when it has just crashed the players' games, and at a match end on a server that
 draws no HUD, where nobody would see a ballot. Without the bridge a finished match replays the same map: the Arms Race cfg sets
 `mp_match_end_restart 1` and `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.
+
+### The match length and the two restarts
+
+Anybody may change these, on the Game page or in chat; each says for everybody who did it.
+
+- **The match length** (`!time 10`, `!time 60`; Arms Race's own, `bridge/MatchLength.cs`) applies to the match that is on, not only the next: Arms Race is one long round, so the plugin
+  (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
+  `mp_roundtime`. Outside Arms Race the row is gone and `!time` is refused: Deathmatch keeps Valve's 10-minute round, and a Wingman match is a whole match of rounds, where a round's time of
+  10 minutes would only make one round long.
+- **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
+  and the bridge sends `mp_restartgame 1`. In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
+  mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
+  the last one was pressed; a match end, a map start or the server going down during its countdown ends it.
+- **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms, then the same 10 s countdown with the player's name, and the bridge quits the game process
+  (a clean quit, [below](#broken-maps)), which the container's restart policy starts again. A vote that is open and a map change counting down end at the second click. The least time
+  between two is `bridge.restartCooldownSeconds`.
 
 ### The game modes
 
@@ -377,7 +394,7 @@ Thousands of community maps include some that break things, so every broken map 
 - **Crashes.** A few seconds after every map start the bridge reads RCON `status`; its `spawn` counter tells whether the server process is new. A new process that did not quit cleanly is a
   crash, counted against the map it was loading. A map with a crash asks the player for a second click, and the dice skip it.
 - **A clean quit** is one the bridge was told of: the restart watcher's notice right before its planned quit (`POST /quitting/<secret>`; a cancel takes it back when the quit could not be
-  delivered after all), the bridge's own Restart as it sends its quit, or the echo of an RCON `quit` or `_restart` in the log stream. The echo alone was not enough: the engine segfaults on
+  delivered after all), the bridge's own Restart the server as it sends its quit, or the echo of an RCON `quit` or `_restart` in the log stream. The echo alone was not enough: the engine segfaults on
   quit, and the last log batch can die with the process. A second word of the same quit within two minutes changes nothing. A freeze kill gets no notice and stays the crash it is.
 - **Maps that crash the players' games.** Three players timing out within 60 s of entering a map, while the server keeps answering, mark it broken by itself, in `state.json` with its reason;
   the dice then take the server to another map.

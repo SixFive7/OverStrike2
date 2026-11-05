@@ -47,8 +47,9 @@ public static class ChatCommands
         new("!fun", "", "The Fun page, each setting's own word (!gravity low), !fun random and !fun default", "Game", "!set", "!settings", "!toggle", "!mode", "!randomize", "!funrandom", "!defaults", "!fundefault"), // the last four: FunRandomWords, FunDefaultWords
         new("!nades", "<on|off>", "Grenade drops on or off", "Game", "!grenades", "!nade", "!he", "!boom"), // !drops is the drops setting's own word (Fun.cs)
         new("!catchup", "<on|off>", "Catch-up boosts on or off, until the map changes", "Game", "!catch", "!boost", "!boosts", "!comeback"), // a fun setting's own word too (Fun.cs)
-        new("!time", "<10|60>", "Match length in minutes, from the next match", "Game", "!length", "!minutes", "!timelimit", "!roundtime", "!duration"),
+        new("!time", "<10|60>", "Match length in minutes, this match too", "Game", "!length", "!minutes", "!timelimit", "!roundtime", "!duration"),
         new("!restart", "", "Restart a stuck server - Twice to confirm", "Game", "!reboot", "!fix", "!unstuck", "!stuck", "!reset"),
+        new("!rematch", "", "Restart the match - Twice to confirm", "Game", "!restartmatch", "!matchrestart", "!restartgame", "!rr"),
         new("!menu", "", "Open the full menu", "Menu", "!gg", "!hud", "!os", "!os2", "!open"),
         new("!help", "", "The Help page, and this list", "Menu", "!commands", "!cmds", "!h", "!?", "!info"),
         new("!how", "", "How it works: every rule and chance of a map pick", "Menu", "!howitworks", "!odds", "!chances", "!why", "!explain",
@@ -132,6 +133,7 @@ public static class ChatCommands
                 : Fun.Find("nades") is { } size && Fun.Find(size, low) is { } blast ? new(Kind.Fun, $"{size.Id} {blast.Id}", word) : Usage(),
             "!time" => low is "10" or "60" ? new(Kind.Bridge, $"!time {low}", word) : Usage(),
             "!restart" => new(Kind.Bridge, "!restart", word),
+            "!rematch" => new(Kind.Bridge, "!rematch", word),
             "!menu" => new(Kind.Page, "Start", word),
             "!help" => new(Kind.Commands, "Help", word),
             "!how" => new(Kind.Page, "How", word),

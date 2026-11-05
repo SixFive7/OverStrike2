@@ -619,7 +619,7 @@
 									</Panel>
 								</Panel>
 								<Panel class="gg-set gg-set-last">
-									<Panel class="gg-set-head"><Panel class="gg-rule-mark gg-rule-mark-red" /><Label class="gg-set-title" text="Stuck server" /></Panel>
+									<Panel class="gg-set-head"><Panel class="gg-rule-mark gg-rule-mark-red" /><Label class="gg-set-title" text="Restart" /></Panel>
 									<Panel class="gg-set-btns">
 										<Button id="gg_set_restart" class="gg-restart">
 											<Label id="gg_set_restart_text" class="gg-restart-text" text="{s:text}" />

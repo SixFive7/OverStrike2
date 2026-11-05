@@ -342,7 +342,7 @@ static partial class Program
             Check("...a CS2 update due at the match's end: taken", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0\n").StartsWith("ok: game-update restart at the end of this match"));
             var h1 = HudState.Decode(BuildHud(clock).Encode())!;
             Check("...the warning stands on the news line, and the live state has it in its parts: kind, when, no countdown yet (-1), the words - which tell players to restart CS2 afterwards",
-                h1.News == "A CS2 update: the server restarts at the end of this match - Restart CS2 afterwards" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
+                h1.News == "A CS2 update: the server restarts at the end of this match - Restart CS2 afterwards, and Steam updates it" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
                 && h1.RestartIn == -1 && h1.RestartAt == 0 && h1.RestartWords == h1.News);
             Announce("P1 turned Vampire on", 5);
             var covered = BuildHud(clock).FillLeft(BuildHud(clock).News) == "P1 turned Vampire on";
@@ -355,10 +355,10 @@ static partial class Program
             MatchEnd();
             var h2 = HudState.Decode(BuildHud(clock).Encode())!;
             Check("At the match's end: no vote opens - the server goes down under it - nobody may call one, and the warning says in a moment until the watcher's countdown comes",
-                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards" && CannotCall(clock) is { } refusal && refusal.StartsWith("The server restarts now"));
+                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards, and Steam updates it" && CannotCall(clock) is { } refusal && refusal.StartsWith("The server restarts now"));
             Check("...the watcher's countdown: seconds left and the moment it goes, on the news line and in the live state",
                 ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
-                && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards");
+                && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards, and Steam updates it");
             Run(5);
             Check("...counting down, the news line with it", HudState.Decode(BuildHud(clock).Encode())!.RestartIn == 25 && BuildHud(clock).FillLeft(BuildHud(clock).News).Contains("restarts in 25 s"));
             Check("...and in the change-driven text its words stand still while it counts down - the HUD fills the countdown in from the end time",
@@ -368,7 +368,7 @@ static partial class Program
             ApplyQuitNotice("gg-quit\t1\tupdate");
             Check("The quit's notice: the restart is happening - the warning goes", RestartDue == null && HudState.Decode(BuildHud(clock).Encode())!.RestartKind == "");
             Check("After the reconnect: \"Updated to ...\" on the news line - CS2's new version from what was installed and what is now",
-                ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n") == "ok: Updated to CS2 1.41.9.5" && NewsNow.Text == "Updated to CS2 1.41.9.5");
+                ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n") == "ok: Updated to CS2 1.41.9.5 - Welcome back" && NewsNow.Text == "Updated to CS2 1.41.9.5 - Welcome back");
             ClearNotices();
             Run(60);
             Join(players[5]);
@@ -380,7 +380,7 @@ static partial class Program
                 ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).FillLeft(BuildHud(clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
                 && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
                 && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
-                && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6");
+                && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6 - Welcome back");
             Check("The first spellings are taken too: update, ours, matchend", ApplyRestartNotice("gg-restart\t1\tours\tmatchend\t0").StartsWith("ok: our-update restart") && RestartDue is { Kind: "our-update", When: "match-end" });
             Check("A cancel takes it back, and says so", ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tcancel\tour-update") == "ok: cancelled"
                 && RestartDue == null && NewsNow.Text.Contains("no restart after all"));

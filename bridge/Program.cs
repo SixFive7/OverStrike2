@@ -277,7 +277,7 @@ static partial class Program
     }
 
     /// <summary>"[U:1:n]\tname\t!up": the player clicked (or typed a chat command, which the plugin turns into the same click). Only what
-    /// Hud.IsAction passes gets through - likes, a map by rank, Workshop id or official name, Start a vote, the vote's clicks, !time, !restart -
+    /// Hud.IsAction passes gets through - likes, a map by rank, Workshop id or official name, Start a vote, the vote's clicks, !time, !restart, !rematch -
     /// so the menu can never reach !rcon or a free-form name search.</summary>
     static bool HudAct(string body)
     {
@@ -518,7 +518,7 @@ static partial class Program
             Pending = null; AnnouncePending = false;
             S.LogName = null; // attribution starts over below
         }
-        AllReloading(now); MatchEndUntil = default; // fresh map: everyone reconnects into it
+        AllReloading(now); MatchEndUntil = default; RematchDue = null; // fresh map: everyone reconnects into it, and it has a match of its own
         WhyOpen.Clear(); // Votes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
         if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the server say which mode it is in
@@ -587,6 +587,7 @@ static partial class Program
         var arg = parts.Length > 1 ? parts[1] : "";
         if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
+        else if (cmd == "!rematch") RestartMatch(name, steamId);
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
         else if (cmd == "!next") StartVote(name, steamId, arg == "random"); // VoteRound.cs: Start a vote; "!next random" is !random's
         else if (cmd == "!previous") Previous(name, steamId);
@@ -764,11 +765,11 @@ static partial class Program
 
     static void ApplyMatchLength() => Log($"mp_roundtime {S.RoundMinutes} -> {Send($"mp_roundtime {S.RoundMinutes}") ?? "(rcon failed)"}");
 
-    /// <summary>!time: switch the match length between 10 and 60 minutes. Stored in state and re-applied after every map
-    /// load, because gamemode_armsrace_server.cfg sets mp_roundtime back to the default each time the mode is created.</summary>
+    /// <summary>!time: switch the match length between 10 and 60 minutes, for the match that is on too (MatchLength.cs). Stored in state and re-applied after every map
+    /// load, because gamemode_armsrace_server.cfg sets mp_roundtime back to the default each time the mode is created. Arms Race's alone: a Deathmatch or Wingman match keeps its own.</summary>
     static void SetMatchLength(string by, string steamId, string arg)
     {
-        if (!CurrentMode.ArmsRace) { Tell(steamId, $"The match length is Arms Race's - {CurrentMode.Name} keeps its own"); return; } // ModeSwitch.cs
+        if (!CurrentMode.ArmsRace) { Tell(steamId, M.Refused($"The match length is Arms Race's - {CurrentMode.Name} keeps its own")); return; } // ModeSwitch.cs
         var want = arg.Trim() switch
         {
             "" => S.RoundMinutes == DefaultRoundMinutes ? ShortRoundMinutes : DefaultRoundMinutes, // bare !time flips it
@@ -776,40 +777,15 @@ static partial class Program
             var a when int.TryParse(a, out var n) && n == DefaultRoundMinutes => DefaultRoundMinutes,
             _ => 0,
         };
-        if (want == 0) { Tell(steamId, $"Matches are {ShortRoundMinutes} or {DefaultRoundMinutes} minutes"); return; }
-        if (want == S.RoundMinutes) { Tell(steamId, $"Matches are already {want} minutes"); return; }
+        if (want == 0) { Tell(steamId, M.Refused($"Matches are {ShortRoundMinutes} or {DefaultRoundMinutes} minutes")); return; }
+        if (want == S.RoundMinutes) { Tell(steamId, $"Matches are already {M.V($"{want} minutes")}"); return; }
         S.RoundMinutes = want;
         S.RoundBy = want == DefaultRoundMinutes ? null : Clip(by, 32); // the Game page says who set a length that is not the default
         Save();
         ApplyMatchLength();
-        Announce($"{by} set matches to {want} minutes - From the next match");
-    }
-
-    static DateTime RestartConfirmUntil, RestartCooldownUntil;
-    static string RestartConfirmBy = "";
-
-    /// <summary>!restart: quit the game process. The container's restart policy starts it again, so pre.sh re-runs and every cfg is
-    /// re-executed - which is what clears cvars a map left mangled. Needs no Docker access: the bridge only speaks RCON.
-    /// The bridge marks the quit clean itself as it sends it (its echo in the log stream dies with the process when the engine segfaults
-    /// on quit), so this is never recorded as a crash.</summary>
-    static void RestartServer(string by, string steamId)
-    {
-        var now = Now();
-        if (now < RestartCooldownUntil)
-        {
-            Tell(steamId, $"Just restarted - Wait {(int)(RestartCooldownUntil - now).TotalSeconds} s before asking again");
-            return;
-        }
-        if (RestartConfirmBy != steamId || now > RestartConfirmUntil)
-        {
-            RestartConfirmBy = steamId; RestartConfirmUntil = now.AddSeconds(30);
-            Tell(steamId, "A restart kicks everyone for about a minute. Click Restart again within 30 s to confirm", 30);
-            return;
-        }
-        RestartConfirmBy = ""; RestartConfirmUntil = default;
-        RestartCooldownUntil = now.AddSeconds(RestartCooldown);
-        Announce($"{by} is restarting the server - Back in about a minute, reconnect then", 30);
-        After(3000, () => { Log($"restart by {by}"); ServerGoingDown($"its own !restart by {by}"); Send("quit"); }); // let the news line reach everyone before the process goes
+        var reply = Send($"{MatchLength.Command} {want}"); // the round that is on: the plugin says what it did (HudScreenMatch.cs)
+        Log($"{MatchLength.Command} {want} -> {reply ?? "(rcon failed)"}");
+        Post(Messages.News, $"{M.N(Clip(by, 32))} set the match length to {M.V($"{want} minutes")} - {MatchLength.Effect(MatchLength.Read(reply))}");
     }
 
     [GeneratedRegex(@"^(?<id>\d+)$|[?&]id=(?<id>\d+)")] private static partial Regex IdRx(); // a bare number, or the id= of a pasted workshop URL
@@ -1189,6 +1165,7 @@ static partial class Program
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the discovery stock, the disk, queues.json and the watcher's report
         BallotSelfTest(Check); // SelfTestBallot.cs: the Workshop's numbers, popularity, the kept maps, the points, the tags, the recipe, restarts
+        MatchSelfTest(Check);  // SelfTestMatch.cs: a player's restart, Restart match, the match length for the match that is on
         DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels
         TabSelfTest(Check);
         GuiSelfTest(Check);

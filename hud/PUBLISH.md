@@ -67,7 +67,7 @@ The same list for every release, in a real client against a test copy of the ser
    the window closed gets the popup at the left.
 7. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity refusing Super jump
    High with the reason. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
-8. **SERVER:** Players with everybody's HUD version; Game with the match length and Restart; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
+8. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
    (`bridge/HudDash.cs`).
 9. **HELP:** Help and How it works, every row filled.
 10. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.

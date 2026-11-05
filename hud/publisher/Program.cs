@@ -45,7 +45,7 @@ static class Program
         "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id to play a map that is not on the list: the server " +
         "downloads it first, with the progress on its card. While a vote is on, this tab holds its ballot.\n" +
         "[*][b]Fun[/b]: the fun settings, with Random and Default; every change says who made it.\n" +
-        "[*][b]Server[/b]: who is on and which HUD they have; the match length and a restart for a stuck server; what the server's map sync is doing, what waits for it, and its " +
+        "[*][b]Server[/b]: who is on and which HUD they have; the match length and the two restarts, of the match or the whole server; what the server's map sync is doing, what waits for it, and its " +
         "history.\n" +
         "[*][b]Help[/b]: where everything is, and how it works: every rule of the vote and every chance in a map pick.\n" +
         "[/list]\n\n" +

@@ -54,7 +54,7 @@ Every part of the interface, as a real game client draws it against a test copy 
 | MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | to come |
 | FUN | The fun settings, off their default, idle, refused | to come |
 | SERVER, Players | Who is on, and which HUD their game shows | to come |
-| SERVER, Game | The match length and the stuck-server restart | to come |
+| SERVER, Game | The match length, and the two restarts: the match or the whole server | to come |
 | SERVER, Sync | The Workshop sync's dashboard: now, the queue, the history | to come |
 | HELP, Help | Where everything is | to come |
 | HELP, How it works | Every rule of the vote and every chance of a random pick | to come |

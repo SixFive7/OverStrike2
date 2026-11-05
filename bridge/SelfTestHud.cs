@@ -162,15 +162,16 @@ static partial class Program
             && HudMenu.Command(HudMenu.Previous, back, live, mb, 1001, now) == "!previous" && HudMenu.PreviousButton(new HudState()).Classes.Single(x => x.Id == HudMenu.Previous).On
             && HudMenu.Command(HudMenu.Previous, back, new HudState(), mb, 1001, now) == null);
         var (gt, gc) = HudMenu.Game(live, 0);
-        Check("Game page: the match length that is set is lit, and the buttons say !time and !restart",
+        Check("Game page: the match length that is set is lit, and the buttons say !time, !restart and !rematch",
             gc.Single(x => x.Id == HudMenu.Time10).On && !gc.Single(x => x.Id == HudMenu.Time60).On && HudMenu.Command(HudMenu.Time60, back, live, mb, 1, now) == "!time 60"
             && HudMenu.Command(HudMenu.Restart, back, live, mb, 1, now) == "!restart" && gt.Single(x => x.Id == "gg_set_restart_text").Text == "Restart the server"
-            && !gc.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
+            && !gc.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On
+            && HudMenu.Command(HudMenu.Rematch, back, live, mb, 1, now) == "!rematch" && gt.Single(x => x.Id == "gg_set_rematch_text").Text == "Restart the match");
         var armedGame = Enumerable.Range(1, 30).Select(n => HudMenu.Game(live, n)).ToList();
         Check("Restart, after its first click: \"Press again within N s\", counting down every second from 30, armed (content v3.2.0 blinks it) - and back to normal at 0",
             armedGame.Select((g, i) => g.Texts.Single(x => x.Id == "gg_set_restart_text").Text == $"Press again within {i + 1} s" && g.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On).All(x => x)
             && HudBrowser.ConfirmSeconds == 30 && PickConfirmSeconds == 30);
-        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m1_big", "gg_m1_ads", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart }
+        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m1_big", "gg_m1_ads", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.Rematch }
             .Select(id => HudMenu.Command(id, back, live, new HudBrowser(), 1001, now)).Where(x => x != null).ToList();
         Check($"Every command a menu click can send is one the bridge takes from the HUD ({menuCommands.Count})", menuCommands.All(x => Hud.IsAction(x!)));
 
