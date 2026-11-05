@@ -17,7 +17,8 @@ namespace OverStrike2.Server;
 ///      VersionSettle: at the end of the match with players on, at once with nobody on.
 ///      Both are announced: the bridge hears of the restart when it becomes due (POST /restart-notice, "match-end") and at the match end
 ///      (a countdown of RestartCountdown s, "now"), shows it to the players and holds its own map change; after the restart, once the
-///      engine answers, it hears what changed (POST /updated). A bridge that does not take the notice: the watcher's own lines on the HUD.
+///      engine answers, it hears what changed (POST /updated). A bridge that does not take the notice: nobody is warned - the watcher
+///      words nothing for players, and without the bridge the menu is dead anyway.
 ///   2. DAILY RESTART (restarts.daily, local time). Once a day, and only while nobody is on (A2S and RCON) - never a kick, never a match
 ///      end. With players on it waits; a day they stay on until DailyWindow after the slot has none. It is the moment the hand-overs are
 ///      taken in and the maps outside the keep set go (organize, at every engine start). A planned restart of another kind inside the
@@ -586,7 +587,7 @@ public sealed partial class Watch
             return true;
         }
         if (told == "failed")
-            Log.Once("announce-failed", $"WARNING: the bridge did not take the {kind} restart's notice ({reply}){(when == "match-end" || seconds > 0 ? " - the watcher's own lines on the HUD instead" : "")}", 900);
+            Log.Once("announce-failed", $"WARNING: the bridge did not take the {kind} restart's notice ({reply})", 900);
         return false;
     }
 
@@ -649,7 +650,7 @@ public sealed partial class Watch
             Log.Once("planned", $"{kind} restart due, but a new version of our parts is being written - it waits until what is on disk is still");
             return;
         }
-        var (warning, final) = Rules.Texts(kind, Rules.BackIn(State.Durations));
+        var final = kind == "workshop" ? Rules.WorkshopLine(Rules.BackIn(State.Durations)) : null; // the download restart's line for the log, at an empty server
         if (Kinds.EmptyOnly.Contains(kind) && a2s.Humans > 0)
         {
             var what = kind == "workshop" ? $"downloads broken: {Workshop.Broken?.Why}"
@@ -665,7 +666,7 @@ public sealed partial class Watch
             if (humans == 0)
             {
                 Announce(kind, "now", 0, now);
-                Quit(kind, now, kind == "workshop" ? final : null);
+                Quit(kind, now, final);
             }
             else
                 Log.Once("planned", $"A2S says the server is empty but RCON status says {(humans?.ToString(CultureInfo.InvariantCulture) ?? "None")} - not restarting on a disagreement");
@@ -678,8 +679,7 @@ public sealed partial class Watch
         }
         if (!warned)
         {
-            if (!Announce(kind, "match-end", RestartCountdown, now))
-                Notice(warning, 600);                  // once per due restart, delivered or not: never a retry loop
+            Announce(kind, "match-end", RestartCountdown, now);   // a bridge that does not take it: nobody is warned
             (warned, announceTried) = (true, now);
         }
         else if (now - announceTried >= AnnounceRefresh)
@@ -697,7 +697,7 @@ public sealed partial class Watch
                 Log.Line($"{kind} restart: the match is over - the bridge counts down {RestartCountdown} s, then the quit");
             }
             else
-                Quit(kind, now, final);                // no bridge to count down: our own last line, then the quit
+                Quit(kind, now, null);                 // no bridge to count down: the quit, unannounced
         }
         else
             Log.Once("planned", $"{kind} restart due, waiting for the end of the current match ({a2s.Humans} player(s))", 900);

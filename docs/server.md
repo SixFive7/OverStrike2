@@ -54,8 +54,8 @@ server process (`mm_cache_clients_with_addons 1`). `hud.addon` is required: the 
 every 5 minutes while it waits; the bridge shows it on the HUD. At the end of the match the bridge counts down 10 seconds, holds its
 own map change, and the quit follows. A CS2 update tells the players to restart CS2 to update; our own new version says when the
 server is back. After the restart, once the engine answers, the bridge hears what changed and says it on the top line for 60 s. A bridge that does
-not take these notices (down, or one that does not know them yet) gets the watcher's own lines on the HUD instead: the warning when
-the restart becomes due and the last line at the end of the match. The daily restart and the download restart happen only with
+not take these notices (down, or one that does not know them yet) means nobody is warned: the watcher has no words of its own for players,
+and without the bridge the menu is dead anyway. The daily restart and the download restart happen only with
 nobody on and say nothing to players. A new version of the HUD needs no restart (the plugin's banner).
 
 **Every planned restart** quits the engine over RCON, so the image runs SteamCMD again; the bridge hears of it right before

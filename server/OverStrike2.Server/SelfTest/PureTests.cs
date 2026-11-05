@@ -137,13 +137,7 @@ static class PureTests
         Check("back_in: default 30 before measurements", Rules.BackIn([]) == 30);
         Check("back_in: measured 14 s -> 20", Rules.BackIn([14]) == 20);
         Check("chat_safe: quotes and semicolons", Words.ChatSafe("a \"b\"; quit") == "a 'b', quit");
-        foreach (var kind in new[] { "daily", "update", "version" })
-        {
-            var (w, f) = Rules.Texts(kind, 30);
-            Check($"texts {kind} fit 120 chars ({w.Length}/{f.Length})", w.Length <= 120 && f.Length <= 120);
-        }
-        Check("texts: the CS2 update tells players to restart CS2; ours says when it is back",
-              Rules.Texts("update", 30).Final.Contains("Restart CS2") && Rules.Texts("version", 30).Final.Contains("Back in about 30 seconds") && !Rules.Texts("version", 30).Final.Contains("Restart CS2"));
+        Check("the download restart's line says when it is back", Rules.WorkshopLine(30).EndsWith("Back in about 30 seconds."));
         _ = root;
     }
 }

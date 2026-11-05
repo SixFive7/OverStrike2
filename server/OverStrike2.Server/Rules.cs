@@ -241,16 +241,7 @@ public static class Rules
 
     public static string SayBackIn(int seconds) => seconds <= 90 ? $"about {seconds} seconds" : $"about {(int)Math.Ceiling(seconds / 60.0)} minutes";
 
-    /// <summary>(the warning when it becomes due, the line right before the quit) for a planned restart - what the watcher shows itself
-    /// when the bridge does not take its restart notice (the bridge shows its own otherwise). Only an update and a new version wait for a
-    /// match end with players on; the download restart says one line for the log at 0 humans; the daily restart says nothing.</summary>
-    public static (string Warning, string Final) Texts(string kind, int back) => kind switch
-    {
-        "workshop" => ("", $"Workshop downloads are broken in this server process - restarting it while nobody is on (the restart watcher). Back in {SayBackIn(back)}."),
-        "update" => ("A CS2 update is out: the server restarts at the end of this match to install it.",
-                     "Restarting to install the CS2 update - Back in a minute or two. Restart CS2 to update, then reconnect."),
-        "version" => ("A new version of this server is out: it restarts at the end of this match to install it.",
-                      $"Restarting to install the new server version - Back in {SayBackIn(back)}."),
-        _ => ("", ""),
-    };
+    /// <summary>The download restart's one line, right before its quit at an empty server: for the log, nobody being on. Every other planned
+    /// restart says nothing of its own: the bridge words what players see (a restart notice it did not take warns nobody).</summary>
+    public static string WorkshopLine(int back) => $"Workshop downloads are broken in this server process - restarting it while nobody is on (the restart watcher). Back in {SayBackIn(back)}.";
 }

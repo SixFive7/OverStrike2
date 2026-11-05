@@ -196,27 +196,16 @@ static class ScenarioTests
         s.Step(60);
         Check("E1: players on until DAILY_WINDOW after the slot: no daily restart that day", !s.Has("quit") && s.W.State.DoneDay != "2026-10-04");
 
-        // E2. an update restart with players on - the restart that goes at a match end. No bridge to announce it to: the watcher's own
-        //     warning on the HUD for 10 minutes, its last line for 30 s at the match end, then the quit; chat stays empty
+        // E2. an update restart with players on - the restart that goes at a match end. No bridge to announce it to: nobody is warned, the
+        //     watcher says nothing of its own on the HUD or in chat; the quit at the match end
         s = Scenario.Make(At(4, 15, 0, 0), ("stale", 14189, null));
         (s.Eng.Humans, s.Eng.Hud) = (3, true);
         s.Step(300);
-        Check("E2: an update with players on: the warning is on the HUD for 600 s, not in chat, no quit mid-match",
-              s.Eng.Notices.Count > 0 && s.Eng.Notices[0].Seconds == 600 && s.Eng.Notices[0].Text.Contains("end of this match") && s.Eng.Chat.Count == 0 && !s.Has("quit"));
+        Check("E2: an update with players on and no bridge: no line of the watcher's own, no quit mid-match",
+              s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0 && !s.Has("quit") && s.Eng.Cmds.All(c => !c.StartsWith("gg_notice ", StringComparison.Ordinal)));
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");   // the stamp is not read
         s.Step(10);
-        Check("E2: the restart line on the HUD for 30 s, then quit - chat stays empty",
-              s.Has("quit") && s.Eng.Notices.Count == 2 && s.Eng.Notices[1].Seconds == 30 && s.Eng.Notices[1].Text.Contains("CS2 update") && s.Eng.Chat.Count == 0);
-
-        // E3. the same without a HUD: both lines go to chat after gg_notice was asked
-        s = Scenario.Make(At(4, 15, 0, 0), ("stale", 14189, null));
-        s.Eng.Humans = 3;
-        s.Step(300);
-        Check("E3: no HUD: warned once in chat, no quit mid-match", s.Eng.Chat.Count == 1 && s.Eng.Chat[0].Contains("end of this match") && !s.Has("quit"));
-        s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");
-        s.Step(10);
-        Check("E3: the restart line, then quit after Game Over",
-              s.Has("quit") && s.Eng.Chat[^1].Contains("CS2 update") && s.Eng.Cmds.Count(c => c.StartsWith("gg_notice ", StringComparison.Ordinal)) == 2);
+        Check("E2: the quit after Game Over, unannounced", s.Has("quit") && s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0);
 
         // F. A2S says empty, RCON says 1 human -> no restart on a disagreement
         s = Scenario.Make(At(4, 6, 59, 50));
