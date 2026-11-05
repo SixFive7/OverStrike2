@@ -14,7 +14,7 @@ public sealed record Restart(long At, string Kind);
 public sealed record Pending(string Kind, long At, string? From, int? Required, string? Installed = null, string? Source = null);
 
 /// <summary>LOOP PROTECTION, persisted in update-watch/state.json on the game's volume - the container restarting is the very thing being
-/// counted, so memory would be worthless. Schema 3 (schema 2, the Python watcher's, is read and written back as 3): schema 2 plus the
+/// counted, so memory would be worthless. Schema 3 (schema 2, the old watcher's, is read and written back as 3): schema 2 plus the
 /// restart kind "version", the pending record's Installed and Source, and VersionTrippedFor. A file that exists but does not type-check is
 /// a HARD FAULT, never a reason to start counting from zero: that would hand a corrupting bug a fresh budget on every boot.</summary>
 public sealed class WatchState

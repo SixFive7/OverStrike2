@@ -3,7 +3,7 @@ using static OverStrike2.Server.SelfTest.T;
 namespace OverStrike2.Server.SelfTest;
 
 /// <summary>The scenarios: the real Watch loop with a fake clock and a fake engine - both freeze paths, the loop protection, the planned
-/// restarts, the quit notice, the console probe at boot. The Python watcher's tests, check for check (same names); where a restart now
+/// restarts, the quit notice, the console probe at boot. The old watcher's tests, check for check (same names); where a restart now
 /// announces itself to the bridge first (POST /restart-notice), the check says so.</summary>
 static class ScenarioTests
 {

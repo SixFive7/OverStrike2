@@ -4,7 +4,7 @@ using static OverStrike2.Server.SelfTest.T;
 namespace OverStrike2.Server.SelfTest;
 
 /// <summary>The version trap, Valve's replies, the console lines, the daily window, both freeze decisions, the gates, the state file and
-/// the texts - the decisions on their own, as the Python watcher's tests had them (same names).</summary>
+/// the texts - the decisions on their own, as the old watcher's tests had them (same names).</summary>
 static class PureTests
 {
     public static void Run(string root)
@@ -125,7 +125,7 @@ static class PureTests
         var py = "{\"done_day\": \"2026-10-04\", \"durations\": [14, 9], \"freeze_misses\": 0, \"freeze_tripped\": 0, \"pending\": null, \"restarts\": [[1759550400, \"daily\"]], "
                  + "\"schema\": 2, \"update_misses\": 1, \"update_retry_after\": 0, \"update_tripped\": 0, \"update_tripped_for\": 0}\n";
         var (fromPy, pyFault) = WatchState.FromJson(py);
-        Check("state: the Python watcher's schema 2 file is read as it is, and written back as schema 3 with the same counters",
+        Check("state: the old watcher's schema 2 file is read as it is, and written back as schema 3 with the same counters",
               pyFault is null && fromPy.DoneDay == "2026-10-04" && fromPy.Durations.SequenceEqual([14, 9]) && fromPy.UpdateMisses == 1
               && fromPy.Restarts.Single() == new Restart(1759550400, "daily") && WatchState.FromJson(fromPy.ToJson()).State.ToJson() == fromPy.ToJson()
               && fromPy.ToJson().Contains("\"schema\":3"));
