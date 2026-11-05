@@ -40,6 +40,17 @@ public static class M
     /// <summary>A whole line that says it worked: its plain words are the done colour in chat.</summary>
     public static string Done(string line) => DoneLine + line;
 
+    /// <summary>Whether this place in a marked line lies inside a marked part: a name or a map's title, which stay as they are written.</summary>
+    public static bool Inside(string marked, int at)
+    {
+        for (var i = at - 1; i >= 0; i--)
+        {
+            if (marked[i] == End) return false;
+            if (marked[i] is NameStart or ArgStart or ValueStart or CommandStart) return true;
+        }
+        return false;
+    }
+
     /// <summary>The words alone, for every surface but chat.</summary>
     public static string Plain(string? text) => string.Concat((text ?? "").Where(c => !IsMark(c)));
 
@@ -296,9 +307,9 @@ public static partial class Sections
     }
 
     /// <summary>The first word after every " - ", " · " and line break a capital, a name left as it is written (marked, or with an underscore or a digit in it): the net
-    /// under every message, for a template no self-test reaches. The line's own first word stays: it is usually a name. A line from outside (the restart watcher's)
-    /// also goes through Messages.Capital.</summary>
-    public static string Capitalize(string text) => Starts().Replace(text, m => m.Groups[1].Value + (m.Groups[2].Value.Any(c => c == '_' || char.IsDigit(c)) ? m.Groups[2].Value : Messages.Capital(m.Groups[2].Value)));
+    /// under every message, for a template no self-test reaches. A marked part stays whole, also a map's title with " - " in it. The line's own first word stays: it is
+    /// usually a name. A line from outside (the restart watcher's) also goes through Messages.Capital.</summary>
+    public static string Capitalize(string text) => Starts().Replace(text, m => M.Inside(text, m.Index) ? m.Value : m.Groups[1].Value + (m.Groups[2].Value.Any(c => c == '_' || char.IsDigit(c)) ? m.Groups[2].Value : Messages.Capital(m.Groups[2].Value)));
 
     [GeneratedRegex(@"(\s+-\s+|\s+·\s+|\n)(\S+)")] private static partial Regex Starts();
 }

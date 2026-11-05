@@ -41,7 +41,7 @@ sealed class WorkshopPlay
     /// <summary>What the Workshop says about an id: null while the question is out (it is asked here, once), the item or null after.</summary>
     public (bool Done, WorkshopItem? Item, string? Error) Ask(long id, DateTime now)
     {
-        if (known.TryGetValue(id, out var k) && now - k.At < CacheFor) return (true, k.Item, k.Item == null ? "the Workshop did not answer - try again in a moment" : null);
+        if (known.TryGetValue(id, out var k) && now - k.At < CacheFor) return (true, k.Item, k.Item == null ? "the Workshop did not answer - Try again in a moment" : null);
         if (asking.TryGetValue(id, out var task))
         {
             if (!task.IsCompleted) return (false, null, null);
@@ -49,7 +49,7 @@ sealed class WorkshopPlay
             var item = task.IsCompletedSuccessfully ? task.Result : null;
             if (!task.IsCompletedSuccessfully) log.LogWarning("Over Strike 2 Workshop: details for {Id} failed: {Error}", id, task.Exception?.GetBaseException().Message);
             known[id] = (item, now);
-            return (true, item, item == null ? "the Workshop did not answer - try again in a moment" : null);
+            return (true, item, item == null ? "the Workshop did not answer - Try again in a moment" : null);
         }
         asking[id] = Details(id);
         return (false, null, null);

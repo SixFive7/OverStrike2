@@ -27,6 +27,7 @@ sealed partial class HudScreen
     /// only at its steps). Safe in any callback: chat goes out a frame later.</summary>
     public void Post(Messages.Kind kind, string text, long account = 0, string key = "", double? seconds = null, bool chat = true)
     {
+        text = Sections.Capitalize(text);
         var now = DateTime.UtcNow;
         var nowMs = bridge?.BridgeNowMs(now) ?? HudState.Ms(now);
         var plain = Hud.Clean(M.Plain(text), kind.Surface == Surface.Line ? Messages.LineMax : Messages.TopMax);
