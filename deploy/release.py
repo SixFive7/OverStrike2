@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """A release in two commands: `live` puts a new bridge and plugin on the server, `publish` makes a content update of the HUD item.
 It drives the other deploy scripts with their private config, so it holds no credential of its own: the Docker API key comes from
-the environment, as for every deploy script, and the RCON password from the game container's own environment, never printed.
+the environment, as for every deploy script, and the RCON password from the game container's own environment (CS2_RCONPW; a bridge that
+reads the settings file has neither the password nor its secret in its environment), never printed.
 
     python -I deploy/release.py live <bridge-tag> [--no-plugin] [--under-lock] [--dry-run]
     python -I deploy/release.py publish --note "<what changed>" --client-test <run folder> [--under-lock] [--dry-run]
@@ -14,8 +15,8 @@ live - after the release passed its tests (and after publish, when it has HUD co
   4. the plugin shipped (deploy/plugin.py ship --apply: the build that was tested - nothing is built here);
   5. the maintenance flag on (the bridge then counts no crash and makes no automatic map change), 0 humans once more, one RCON quit;
   6. the new engine: a new container start, A2S answering, OverStrike2 <version> LOADED, the files in the game container those
-     of the build (sha256), and the HUD item among the addons the server hands out - mounted by the server (mm_extra_addons) or
-     sent to the clients alone (mm_client_extra_addons);
+     of the build (sha256), and the HUD item (hud/workshop_id.txt) among the addons the server hands out - mounted by the server
+     (mm_extra_addons) or sent to the clients alone (mm_client_extra_addons);
   7. the flag off - in a finally, so a failure halfway never leaves it on - the deployment's own check (release.verify in the
      private config), the lock released (kept after a failure, and the way back printed);
   8. the record's lines, for the deployment's own log.
@@ -94,9 +95,7 @@ class Release:
 
     def rcon(self, command):
         game = self.d.inspect("containers", self.game) or {}
-        pw = os2.env_of(game, "CS2_RCONPW") if game else ""
-        if not pw:
-            pw = os2.env_of(self.d.inspect("containers", self.bridge_name) or {"Config": {}}, "RCON_PASSWORD")
+        pw = os2.rcon_password(game) or os2.rcon_password(None, self.d.inspect("containers", self.bridge_name))
         port = (os2.env_of(game, "RCON_PORT") if game else "") or "27015"
         return self.d.exec_in(self.game, ["python3", "-c", bridge_mod.INNER_RCON, pw, command, port], timeout=30)
 
@@ -113,10 +112,6 @@ class Release:
 
     def lock_text(self):
         return open(self.lock, encoding="utf-8", errors="replace").read() if self.lock and os.path.exists(self.lock) else None
-
-    def hud_item(self, game):
-        """The HUD item the game container is configured with: OS2_HUD_ADDON, else GUNGAME_HUD_ADDON; "" when neither says."""
-        return (os2.env_of(game, "OS2_HUD_ADDON") or os2.env_of(game, "GUNGAME_HUD_ADDON")).strip() if game else ""
 
     # ---- the lock and the flag
 
@@ -183,7 +178,7 @@ class Release:
                 raise Stop(f"REFUSED: no plugin build in {plugin_mod.OUT} - deploy/plugin.py build first (the build that was tested)")
             log(f"plugin: {plugin_mod.NAME} {version}, {len(files)} file(s), {plugin_mod.NAME}.dll sha256 {files.get(plugin_mod.NAME + '.dll', '?')[:12]}")
         self.nobody("before the release")
-        hud = self.hud_item(self.d.inspect("containers", self.game) or {})
+        hud = workshop_item()
         if self.dry:
             self.take_lock(under_lock, "dry run")
             log(f"dry run: would swap the bridge to {self.repo}:{tag}" + (f", ship plugin {version}, set the flag, quit the engine once" if ship_plugin else ""))
@@ -302,9 +297,7 @@ class Release:
                        "once a real client saw it work")
         if not note:
             raise Stop("REFUSED: --note, the change note Steam shows with the update")
-        hud = open(os.path.join(OS2_DIR, "hud", "workshop_id.txt"), encoding="utf-8").read().strip()
-        if not hud.isdigit():
-            raise Stop("REFUSED: hud/workshop_id.txt names no item - there is no create path")
+        hud = workshop_item()
         before = self.fetch(hud)
         log(f"the HUD item {hud} now: {describe(before)}")
         self.take_lock(under_lock, "release: HUD content update")
@@ -352,6 +345,14 @@ class Release:
                     raise Stop("REFUSED: the held-item check does not read NOT shown - the server would not recognise an item under review")
                 return seen
         raise Stop("REFUSED: the held-item check's answer did not reach the plugin's log within a minute")
+
+
+def workshop_item():
+    """The one HUD item, hud/workshop_id.txt: what a release's server must hand out, and what a content update goes to."""
+    hud = open(os.path.join(OS2_DIR, "hud", "workshop_id.txt"), encoding="utf-8").read().strip()
+    if not hud.isdigit():
+        raise Stop("REFUSED: hud/workshop_id.txt names no item - there is no create path")
+    return hud
 
 
 def plugin_version():

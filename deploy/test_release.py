@@ -46,8 +46,8 @@ class FakeDocker:
         self.loaded = '[#2:LOADED]: "OverStrike2" (4.7.1) by the authors'
         self.hashes, self.probe, self.log = dict(FILES), "page HTTP 500, title 'Steam Workshop' -> NOT shown; Web API ok", []
         self.lists = {"mm_extra_addons": "", "mm_client_extra_addons": HUD}
-        self.env = ["CS2_RCONPW=pw-secret", "RCON_PORT=27015", "GUNGAME_HUD_ADDON=" + HUD]
-        self.bridge_image = "sha256:image-old-0000"
+        self.env = ["CS2_RCONPW=pw-secret", "RCON_PORT=27015"]
+        self.bridge_env, self.bridge_image = [], "sha256:image-old-0000"   # a bridge on the settings file: no secret in its environment
 
     def inspect(self, kind, name):
         if kind == "images":
@@ -55,7 +55,7 @@ class FakeDocker:
         if name == "game":
             return {"Id": "c-game", "State": {"Running": True, "StartedAt": self.started}, "Config": {"Env": list(self.env)}}
         if name == "bridge":
-            return {"Id": "c-bridge", "Image": self.bridge_image, "State": {"Running": True}, "Config": {"Env": ["RCON_PASSWORD=other"]}}
+            return {"Id": "c-bridge", "Image": self.bridge_image, "State": {"Running": True}, "Config": {"Env": list(self.bridge_env)}}
         return None
 
     def exec_in(self, container, argv, timeout=60):
@@ -148,13 +148,42 @@ try:
           "RECORD - live" in out and "sha256:image-new-0000" in out and '"OverStrike2" (4.7.1)' in out and "`mm_client_extra_addons = " + HUD + "`" in out
           and "hashes those of the build" in out and "the deployment's check: ALL GOOD" in out and T.runs[-1][-1] == VERIFY_OK)
 
-    # ---- the HUD mounted by the server (mm_extra_addons), and the item from OS2_HUD_ADDON first
+    # ---- the HUD mounted by the server (mm_extra_addons); the item is hud/workshop_id.txt, whatever the container's variables say
+    check("the HUD item is the repository's hud/workshop_id.txt", R.workshop_item() == HUD)
     T = Test()
     T.d.lists = {"mm_extra_addons": HUD, "mm_client_extra_addons": ""}
-    T.d.env = ["CS2_RCONPW=pw-secret", "OS2_HUD_ADDON=" + HUD, "GUNGAME_HUD_ADDON=1234"]
+    T.d.env = ["CS2_RCONPW=pw-secret", "OS2_HUD_ADDON=1234", "GUNGAME_HUD_ADDON=5678"]
     r, out = go(T, lambda: T.release().live("rel", True, False))
-    check("live: the HUD item mounted by the server passes; OS2_HUD_ADDON is the item, not GUNGAME_HUD_ADDON",
+    check("live: the HUD item mounted by the server passes; OS2_HUD_ADDON and GUNGAME_HUD_ADDON mean nothing any more",
           r == 0 and "`mm_extra_addons = " + HUD + "`" in out)
+    T = Test()
+    T.d.lists = {"mm_extra_addons": "1234", "mm_client_extra_addons": "5678"}
+    T.d.env = ["CS2_RCONPW=pw-secret", "OS2_HUD_ADDON=1234", "GUNGAME_HUD_ADDON=5678"]
+    r, out = go(T, lambda: T.release().live("rel", True, False))
+    check("live: the items the variables name, handed out in place of the one HUD item - stopped",
+          str(r).startswith("STOP the server hands out no HUD item " + HUD))
+    saved_dir = R.OS2_DIR
+    try:
+        R.OS2_DIR = os.path.join(SCRATCH, "no-id")
+        os.makedirs(os.path.join(R.OS2_DIR, "hud"))
+        open(os.path.join(R.OS2_DIR, "hud", "workshop_id.txt"), "w").write("\n")
+        T = Test()
+        r, out = go(T, lambda: T.release().live("rel", True, False))
+        check("live: a workshop_id.txt that names no item - refused before the lock, the swap or the copy",
+              str(r).startswith("STOP REFUSED: hud/workshop_id.txt names no item") and not T.swaps and not T.runs and not os.path.exists(T.lock))
+    finally:
+        R.OS2_DIR = saved_dir
+
+    # ---- the bridge's environment and the RCON password
+    T = Test()
+    T.d.bridge_env = ["RCON_PASSWORD=from-the-bridge", "LOG_SECRET=from-the-bridge"]
+    r, out = go(T, lambda: T.release().live("rel", True, False))
+    check("live: the game container's CS2_RCONPW before the bridge's RCON_PASSWORD", r == 0 and all(pw == "pw-secret" for _c, pw, _f in T.d.rcon_sent))
+    T = Test()
+    T.d.env, T.d.bridge_env = ["RCON_PORT=27015"], ["RCON_PASSWORD=from-the-bridge"]
+    r, out = go(T, lambda: T.release().live("rel", True, False))
+    check("live: a game container with no CS2_RCONPW - the bridge's RCON_PASSWORD, never printed",
+          r == 0 and all(pw == "from-the-bridge" for _c, pw, _f in T.d.rcon_sent) and "from-the-bridge" not in out)
     T = Test()
     T.d.lists = {"mm_extra_addons": "", "mm_client_extra_addons": ""}
     r, out = go(T, lambda: T.release().live("rel", True, False))

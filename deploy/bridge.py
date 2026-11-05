@@ -22,9 +22,12 @@ Dockerfile is bridge/Dockerfile), never uncommitted files.
 
 The swap does for the bridge alone what compose would do, so nobody is disconnected: the container is stopped, renamed aside,
 created anew under its own name from its own inspect (environment, labels - compose's included, so it stays in its stack -
-mounts, restart policy, read-only root, capabilities, user and its network settings; only the image differs) and started,
-then verified: running, on the IP and MAC it is configured with, GET /health answering from inside the game container, a log push
-arriving, and the game container untouched. Only then is the old container removed; on any failure it is put back as it was. A
+mounts, restart policy, read-only root, capabilities, user and its network settings; only the image differs), given the settings
+file the old container holds (compose copied it into the container's own layer, so an inspect does not carry it; without it a bridge
+with no secrets in its environment refuses to start) and started, then verified: running, on the IP and MAC it is configured with,
+GET /health answering from inside the game container (the secret from the game container's CS2_LOG_HTTP_URL, else the bridge's
+LOG_SECRET), a log push arriving, and the game container untouched. Only then is the old container removed; on any failure it is put
+back as it was. A
 stopped bridge is swapped the same way - checked against its configured network, not the runtime address it lacks - and put back
 stopped; one already on the target image is started.
 While the bridge is down (seconds) what it keeps only in memory is lost - the request queue, a countdown, airtime - so
@@ -228,8 +231,8 @@ class Bridge:
                       for n, v in ((c or {}).get("NetworkSettings", {}).get("Networks") or {}).items())
 
     def health(self, bridge):
-        port = os2.env_of(bridge, "HTTP_PORT") or "8080"
-        return self.d.exec_in(self.game, ["python3", "-c", INNER_GET, f"http://{self.name}:{port}/health/{os2.env_of(bridge, 'LOG_SECRET')}"])
+        game = self.d.inspect("containers", self.game)
+        return self.d.exec_in(self.game, ["python3", "-c", INNER_GET, f"http://{self.name}:{os2.bridge_port(game, bridge)}/health/{os2.bridge_secret(game, bridge)}"])
 
     def verify(self, game_before, want):
         problems = []
@@ -250,7 +253,7 @@ class Bridge:
         pushes = lambda text: int(m.group(1)) if (m := re.search(r"log pushes (\d+)", text)) else 0
         if pushes(h) == 0:  # say something, so the server has a line to push
             port = os2.env_of(game, "RCON_PORT") or "27015"
-            self.d.exec_in(self.game, ["python3", "-c", INNER_RCON, os2.env_of(new, "RCON_PASSWORD"), "say The map bot was updated.", port])
+            self.d.exec_in(self.game, ["python3", "-c", INNER_RCON, os2.rcon_password(game, new), "say The map bot was updated.", port])
             for _ in range(12):
                 time.sleep(5)
                 if pushes(h := self.health(new)):
@@ -293,6 +296,7 @@ class Bridge:
             os2.log(f"{self.name} is stopped - swapped all the same, onto the network it is configured with: {want}")
         old_image = self.d.inspect("images", old["Image"]) or {}
         body = self.create_body(old, old_image, target["Id"])
+        settings = os2.read_settings(self.d, old["Id"])   # read before anything changes; None: a bridge on its environment
         running_ref = (old["Config"].get("Image") or self.repo)
         ref_repo, _, ref_tag = running_ref.partition(":")
         ref_tag = ref_tag or "latest"
@@ -307,6 +311,9 @@ class Bridge:
                 self.d.must("POST", f"/containers/{old['Id']}/stop?t=15", "stop the old bridge", timeout=60)
             self.d.must("POST", f"/containers/{old['Id']}/rename?name={aside}", "rename the old bridge aside")
             new_id = self.d.must("POST", f"/containers/create?name={self.name}", "create the new bridge", body=body)["Id"]
+            if settings is not None:
+                os2.put_settings(self.d, new_id, settings)
+                os2.log(f"the settings file carried over ({len(settings)} bytes, {os2.SETTINGS_FILE})")
             self.d.must("POST", f"/containers/{new_id}/start", "start the new bridge")
             os2.log(f"new {self.name} {new_id[:12]} started (the old one is stopped, as {aside})")
             problems = self.verify(game_before, want)
