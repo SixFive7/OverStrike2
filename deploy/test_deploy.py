@@ -468,7 +468,6 @@ inline = re.search(r"^x-settings: &settings \|\n(.*?)^\S", example, re.M | re.S)
 inline = json.loads(inline.group(1)) if inline else {}    # plain JSON: a tool that collapses newlines must not be able to harm it
 sample = settings_of(open(os.path.join(DEPLOY, "overstrike2.example.jsonc"), encoding="utf-8").read())
 inline.get("server", {}).pop("name", None), sample["server"].pop("name")
-sample["bridge"].pop("admins", None)    # the key is leaving the settings (no admin command exists)
 check("compose.example: the settings are overstrike2.example.jsonc's, the server's name aside (core's self-test reads that file)", inline == sample)
 check("compose.yml: its settings are a file: compose makes that a read-only bind mount (buildContainerConfigMounts), so its bridge keeps its read-only root",
       re.search(r"^  overstrike2:\n    file: ", compose, re.M) and "read_only: true" in service(compose, "bridge"))
