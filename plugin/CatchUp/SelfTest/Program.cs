@@ -4,8 +4,7 @@ using CatchUp;
 // CatchUp.SelfTest - every decision of the catch-up module, without a game server: the config and its file, the tiers and the
 // bounty, the balance cap, each hit, the healing, the Arms Race kill counter (its rules case by case, nine real players' runs, and five
 // whole real matches replayed), the boost decided again in the middle of a life, the message and its timing. CatchUpConfig.cs and
-// CatchUpRules.cs are compiled in as source; CatchUpModule.cs (the game half) is not, and is held to these by the compile check
-// (../CatchUp.CompileCheck.csproj).
+// CatchUpRules.cs are compiled in as source; CatchUpModule.cs (the game half) is not: the plugin's build compiles it.
 //
 // Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the tier table and the cap's examples.
 

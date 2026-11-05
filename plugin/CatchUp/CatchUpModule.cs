@@ -27,10 +27,9 @@ public sealed class CatchUpModule
     sealed class Life
     {
         public int Serial;
-        public ulong Id;
         public uint Pawn;
         public Boost Boost = Boost.None;
-        public double SpawnedAt, ProtectedUntil, LastHurtAt, RegenCarry;
+        public double ProtectedUntil, LastHurtAt, RegenCarry;
         public bool Attacked, SecondChanceUsed;
         public int BaseHealth, MaxHealth;
         public double Health; // the health this life holds, a fraction of BaseHealth: never lowered within the life
@@ -76,9 +75,6 @@ public sealed class CatchUpModule
 
     bool Active => config.Enabled && switchedOn && !stopped;
 
-    /// <summary>Whether the boosts run now (the Fun page lights it; content v4.5.0).</summary>
-    public bool On => Active;
-
     /// <summary>The Fun page's and chat's switch: what 'gg_catchup on|off' does, until the map changes - the mode's own
     /// switch at the next map start puts it back on in Arms Race.</summary>
     public void Switch(bool on)
@@ -113,7 +109,7 @@ public sealed class CatchUpModule
     /// message then waits until it is gone. Without it, the first spawn after a join waits Message.FirstSpawnDelaySeconds.</summary>
     public void TaglineShown(int slot, double seconds) => taglineUntil[slot] = Server.CurrentTime + Math.Max(0, seconds);
 
-    /// <summary>The boost of a slot's current life, for a host that wants to show it elsewhere.</summary>
+    /// <summary>The boost of a slot's current life.</summary>
     public Boost BoostOf(int slot) => lives.TryGetValue(slot, out var life) ? life.Boost : Boost.None;
 
     // ---- the match ----
@@ -295,7 +291,7 @@ public sealed class CatchUpModule
 
             lives[slot] = new Life
             {
-                Serial = s, Id = id, Pawn = pawn.Index, Boost = boost, SpawnedAt = spawnedAt, LastHurtAt = now,
+                Serial = s, Pawn = pawn.Index, Boost = boost, LastHurtAt = now,
                 ProtectedUntil = Rules.ProtectedUntil(spawnedAt, gameProtection, boost),
                 BaseHealth = baseHealth, MaxHealth = Math.Max(spawnHealth, pawn.MaxHealth),
                 Health = boost.IsBoost && boost.Health > 0 ? boost.Health : 0,
