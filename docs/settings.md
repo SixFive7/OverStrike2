@@ -4,8 +4,9 @@ Every part of Over Strike 2 reads one file: the bridge, the plugin and the serve
 container, and the Workshop sync in its own). It replaces the environment variables each part read before. The only variables
 left are the game image's own, the ones the image needs before any of our code runs (below).
 
-- **Where:** `/etc/overstrike2/overstrike2.jsonc` in each of the three containers, read-only. `OVERSTRIKE2_SETTINGS` points a test at
-  another file; nothing else needs it.
+- **Where:** each of the three containers takes the first of these that says: a file named for a test (`--settings`, else
+  `OVERSTRIKE2_SETTINGS`); the file's text in the environment variable `OVERSTRIKE2_SETTINGS_CONTENT`; the file
+  `/etc/overstrike2/overstrike2.jsonc`.
 - **Format:** JSON with comments and trailing commas, `"schema": 1` at the top. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc)
   is a complete example. [`settings.schema.json`](settings.schema.json) is its JSON schema: an editor that knows JSON schemas checks
   the file as you type when the file says `"$schema": "<path to settings.schema.json>"`.
@@ -18,16 +19,25 @@ left are the game image's own, the ones the image needs before any of our code r
 
 ## How the file gets into the containers
 
-With docker compose, either inline in the compose file, so the values live in it:
+Inline, as a multi-line environment variable of each of the three services, so the values live in the compose file. It is the file's
+text, comments and all, read by the same rules; a value that cannot be used counts as a file that cannot be used. It works on a
+read-only container, and a container recreated from its inspect (an update tool, a test copy) keeps it:
 
 ```yaml
-configs:
-  overstrike2:
-    content: |
-      { "schema": 1, ... }
+x-settings: &settings |
+  { "schema": 1, "hud": { "addon": "3823993566" }, ... }
+
+services:
+  cs2:
+    environment:
+      OVERSTRIKE2_SETTINGS_CONTENT: *settings
 ```
 
-or as a file beside the compose file:
+Compose expands `$` in it, as in any environment value, so a `"$schema"` key is written `"$$schema"`. Anybody who may inspect the
+container can read the value: keep secrets out of it, as references. The parts log the variable's name, never its value.
+
+The other way is a file beside the compose file, as [`deploy/compose.yml`](../deploy/compose.yml) does. Compose makes it a bind mount,
+which is fine on a read-only service:
 
 ```yaml
 configs:
@@ -43,10 +53,13 @@ and in each of the three services:
         target: /etc/overstrike2/overstrike2.jsonc
 ```
 
-Compose copies the file into the container when it creates it, so a change takes effect when the containers are created again
-(a redeploy), as with an environment variable. A deployment that cannot use `configs:` mounts the file read-only at the same
-path. The file must exist before the containers are created: Docker makes a folder of a bind mount whose source is missing,
-and the programs then refuse it.
+A deployment that cannot use `configs:` mounts the file read-only at the same path. The file must exist before the containers are
+created: Docker makes a folder of a bind mount whose source is missing, and the programs then refuse it.
+
+Not an inline compose config (`configs:` with `content:`): it lives in the container's own layer, so it does not run on a read-only
+service and it is lost at a recreate from inspect.
+
+Either way, a change takes effect when the containers are created again (a redeploy).
 
 ## How each part reads it
 
@@ -66,8 +79,8 @@ and the programs then refuse it.
   work and say so. No file at all is the same for them: it names no `hud.addon`. On that code from `os2-server install`, `pre.sh` stops
   the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. Every other failure
   of the programs costs the plugin layer and the watcher, never the server ([server.md](server.md)).
-- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no file at the path,
-  or a file they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
+- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no settings anywhere,
+  or settings they cannot use, they read the environment variables the file replaces (the "Replaces" column) exactly as before; with
   a file they can use, they read the file alone. Each logs which at its start - `settings: the settings file <path>`, naming the
   keys with a problem or a warning, or `settings: the environment (<why>)` - and never a value. With the file, the bridge's map list
   and broken list have no key of their own: they are `maps.json` and `broken.json` in `paths.bridgeData`.

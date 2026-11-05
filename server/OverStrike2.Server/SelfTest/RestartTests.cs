@@ -73,7 +73,7 @@ static class RestartTests
         Parts();
     }
 
-    static bool Throws<TE>(Action a) where TE : Exception
+    public static bool Throws<TE>(Action a) where TE : Exception
     {
         try
         {

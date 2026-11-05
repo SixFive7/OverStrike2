@@ -20,8 +20,9 @@ public static class Program
           doctor                  what this program sees: the settings as read, the paths
           version                 this program's version
         options:
-          --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS, else /etc/overstrike2/overstrike2.jsonc)
-          --dry-run               publishing off and nothing written for anybody else: no file in the bridge's data (the status file goes
+          --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS; else the file's text in OVERSTRIKE2_SETTINGS_CONTENT;
+                                  else /etc/overstrike2/overstrike2.jsonc)
+          --dry-run              publishing off and nothing written for anybody else: no file in the bridge's data (the status file goes
                                   to the state folder), nothing posted to the bridge, no mail; what it would publish goes to
                                   <state>/would-publish/. Its own folders and port unless given: <paths.syncState>/dry-run,
                                   <paths.syncWork>/dry-run, sync.testPort + 10

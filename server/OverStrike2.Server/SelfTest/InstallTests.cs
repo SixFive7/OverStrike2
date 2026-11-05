@@ -221,6 +221,32 @@ static class InstallTests
               && Run("watch", "--settings", file) is { Code: 0 } watch && watch.Said.Contains("nothing to do"));
         var (help, helpSaid) = Run("help");
         Check("refusal: the usage names the exit code", help == 0 && helpSaid.Contains($"exit code {Settings.RefusedExit}"));
+
+        // the settings inline in an environment variable: the programs read it like the file, and a file named for a test wins
+        const string inline = "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"plugin\": { \"enabled\": false } }";
+        var savedContent = Environment.GetEnvironmentVariable(Settings.ContentVariable);
+        var savedPath = Environment.GetEnvironmentVariable(Settings.PathVariable);
+        Environment.SetEnvironmentVariable(Settings.PathVariable, null);
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, inline);
+        var (fromVar, fromVarSaid) = Run("doctor");
+        Check($"settings inline: doctor reads {Settings.ContentVariable} like a file, names the variable, shows no text of it",
+              fromVar == 0 && fromVarSaid.Contains($"settings: {Settings.ContentSource}") && fromVarSaid.Contains("hud.addon = 3823993566") && !fromVarSaid.Contains("\"schema\""));
+        var (named, namedSaid) = Run("doctor", "--settings", file);
+        Check("settings inline: --settings wins, for a test", named == 0 && namedSaid.Contains($"settings: {file}") && !namedSaid.Contains(Settings.ContentSource));
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, "{ \"schema\": 1 }");
+        var (badVar, badVarSaid) = Run("install");
+        Check("settings inline: a value with no hud.addon refuses the same way, and the ALERT names the variable",
+              badVar == Settings.RefusedExit && badVarSaid.Contains($"{Settings.ContentSource}: hud.addon: missing") && badVarSaid.Trim().Split('\n').Length == 1);
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, null);
+        var hashFile = Path.Combine(dir, "same.jsonc");
+        File.WriteAllText(hashFile, inline);
+        string? ContentOnly(string name) => name == Settings.ContentVariable ? inline : null;
+        Check("settings inline: the version's settings part is the same from the variable as from a file with that text, and none with neither",
+              Fingerprint.HashSettings(Settings.DefaultPath, ContentOnly) == Fingerprint.HashSettings(hashFile, _ => null) && Fingerprint.HashSettings(hashFile, _ => null) != Fingerprint.None
+              && Fingerprint.HashSettings(Path.Combine(dir, "not-there.jsonc"), _ => null) == Fingerprint.None);
+        Check("settings inline: a value that cannot be used is no version: nothing is decided on it", RestartTests.Throws<InvalidDataException>(() => Fingerprint.HashSettings(Settings.DefaultPath, n => n == Settings.ContentVariable ? "{ nope" : null)));
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, savedContent);
+        Environment.SetEnvironmentVariable(Settings.PathVariable, savedPath);
         var game = Path.Combine(dir, "game");
         Linux("refusal: install leaves the game's folder alone", () =>
         {

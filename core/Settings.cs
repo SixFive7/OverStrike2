@@ -39,9 +39,9 @@ public readonly record struct TimeOfDay(int Hour, int Minute)
 }
 
 /// <summary>THE SETTINGS FILE: one structured file every part reads - the bridge, the plugin and the server program (the restart watcher
-/// and the Workshop sync). JSON with comments and trailing commas, at <see cref="DefaultPath"/> in each container (OVERSTRIKE2_SETTINGS
-/// points a test elsewhere). docs/settings.md describes every key; docs/settings.schema.json is made from the same table as this
-/// reader (<see cref="Keys"/>), and the self-test holds the two to each other.
+/// and the Workshop sync). JSON with comments and trailing commas: its text in <see cref="ContentVariable"/>, or a file at
+/// <see cref="DefaultPath"/> in each container (OVERSTRIKE2_SETTINGS points a test elsewhere). docs/settings.md describes every key;
+/// docs/settings.schema.json is made from the same table as this reader (<see cref="Keys"/>), and the self-test holds the two to each other.
 ///
 /// The rules: a reader checks the keys it uses (each key names its readers) and leaves the others alone. A value of the wrong type or
 /// out of its range keeps the default and is a <see cref="Problems"/> line - a typo must never silently widen a safety limit; a hard
@@ -57,6 +57,13 @@ public sealed class Settings
     public const int Schema = 1;
     public const string DefaultPath = "/etc/overstrike2/overstrike2.jsonc";
     public const string PathVariable = "OVERSTRIKE2_SETTINGS";
+
+    /// <summary>The environment variable that holds the file's text itself: how the settings stay inline in a compose file, on a read-only
+    /// container too and across a recreate from inspect, neither of which an inline compose config survives.</summary>
+    public const string ContentVariable = "OVERSTRIKE2_SETTINGS_CONTENT";
+
+    /// <summary><see cref="Source"/> of settings read from <see cref="ContentVariable"/>: the variable's name, never its value.</summary>
+    public const string ContentSource = "the environment variable " + ContentVariable;
 
     /// <summary>The exit code of a server program that refuses to run because <see cref="Fatal"/> is set (EX_CONFIG of sysexits.h). The launcher
     /// pre.sh stops the container's start on exactly this code, and no other failure of the programs uses it.</summary>
@@ -81,20 +88,34 @@ public sealed class Settings
     /// <summary>Why the file cannot be used, or null.</summary>
     public string? Fatal { get; private set; }
 
-    /// <summary>Where the values came from: the file's path, or "(defaults)".</summary>
+    /// <summary>Where the values came from: the file's path, <see cref="ContentSource"/>, or "(defaults)".</summary>
     public string Source { get; private set; } = "(defaults)";
+
+    /// <summary>Whether there was a file or a <see cref="ContentVariable"/> to read at all, usable or not: false only for the defaults of
+    /// no settings anywhere.</summary>
+    public bool Found => Source != "(defaults)";
 
     public Part Reader { get; private set; } = Part.All;
 
-    /// <summary>The settings for one reader: the file at OVERSTRIKE2_SETTINGS, else <see cref="DefaultPath"/>. No file at all: every value
-    /// is its default, and a warning says so. For the bridge and the plugin that is all: they fall back on the environment while no file
-    /// exists (bridge/SettingsSource.cs). The server programs have nothing to fall back on, so for them no file is one more way of having
-    /// no hud.addon: <see cref="Fatal"/>. Never throws.</summary>
+    /// <summary>The settings for one reader. Where from, the first that says: a file named for a test (path, which is what --settings gives,
+    /// else OVERSTRIKE2_SETTINGS); the file's text in <see cref="ContentVariable"/>, by the same rules and the same fatal path as a file;
+    /// the file at <see cref="DefaultPath"/>. Naming DefaultPath is naming nothing: it is what a caller passes that was told no other.
+    /// Nothing at all: every value is its default, and a warning says so. For the bridge and the plugin that is all: they fall back on the
+    /// environment while there are no settings (bridge/SettingsSource.cs). The server programs have nothing to fall back on, so for them it
+    /// is one more way of having no hud.addon: <see cref="Fatal"/>. Never throws.</summary>
     public static Settings Load(Part reader, string? path = null, Func<string, string?>? env = null, Func<string, string>? readFile = null)
     {
         env ??= Environment.GetEnvironmentVariable;
         readFile ??= File.ReadAllText;
         path ??= env(PathVariable) is { Length: > 0 } p ? p : DefaultPath;
+        if (path == DefaultPath && env(ContentVariable) is { Length: > 0 } content)
+        {
+            var inline = Parse(content, reader, env, readFile);
+            inline.Source = ContentSource;
+            if (inline.Fatal is { } bad)
+                inline.Fatal = $"{ContentSource}: {bad}";
+            return inline;
+        }
         string text;
         try
         {

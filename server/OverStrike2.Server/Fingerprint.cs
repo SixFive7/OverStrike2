@@ -109,18 +109,18 @@ public static class Fingerprint
         return Convert.ToHexStringLower(SHA256.HashData(f));
     }
 
-    /// <summary>The engine side's view of the settings file, hashed: every key the plugin reads, and plugin.enabled. None when there is no
-    /// file; throws InvalidDataException when the file is there but cannot be used (then nothing may be decided on it).</summary>
+    /// <summary>The engine side's view of the settings, from where core's Load finds them (the file, or its text in an environment variable),
+    /// hashed: every key the plugin reads, and plugin.enabled. None when there are none; throws InvalidDataException when they are there but
+    /// cannot be used (then nothing may be decided on them).</summary>
     public static string HashSettings(string path, Func<string, string?> env)
     {
-        if (!File.Exists(path))
+        var plugin = Core.Settings.Load(Part.Plugin, path, env);
+        if (!plugin.Found)
             return None;
-        var text = File.ReadAllText(path);
-        var plugin = Core.Settings.Parse(text, Part.Plugin, env);
-        var server = Core.Settings.Parse(text, Part.Server, env);
+        var server = Core.Settings.Load(Part.Server, path, env);
         var fatal = plugin.Fatal ?? server.Fatal;
         if (fatal is not null)
-            throw new InvalidDataException($"the settings file {path} is not usable: {fatal}");
+            throw new InvalidDataException($"the settings are not usable: {fatal}");
         var lines = new StringBuilder();
         foreach (var key in Core.Settings.Keys)
         {

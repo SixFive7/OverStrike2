@@ -3,19 +3,22 @@
 // comments and trailing commas. A string "env:NAME" is read from the environment variable NAME, "file:PATH" from that file - the
 // way to keep a secret where it is kept already (the game image's own variables, a mounted secret file).
 //
-// Each container finds it at /etc/overstrike2/overstrike2.jsonc. With docker compose, either inline in the compose file (compose.example.yml
-// does; Compose refuses an inline config on a service with read_only: true):
+// With docker compose, either inline in the compose file, as a multi-line environment variable of each of the three services:
 //
-//   configs:
-//     overstrike2:
-//       content: |
-//         { "schema": 1, ... }
+//   x-settings: &settings |
+//     { "schema": 1, ... }
+//   services:
+//     cs2:
+//       environment:
+//         OVERSTRIKE2_SETTINGS_CONTENT: *settings
 //
 // or as this file beside it (configs: overstrike2: file: ./overstrike2.jsonc, as compose.yml does), and in each of the three services:
 //
 //   configs:
 //     - source: overstrike2
 //       target: /etc/overstrike2/overstrike2.jsonc
+//
+// Not an inline compose config (configs: content:): it does not run on a read-only service and is lost at a recreate from inspect.
 {
   "schema": 1,
   "server": {

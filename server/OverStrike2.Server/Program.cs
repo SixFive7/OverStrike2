@@ -18,8 +18,9 @@ public static class Program
           doctor                  what this program sees: the settings, the paths, the versions, the watcher's state
           version                 this program's version
         options:
-          --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS, else /etc/overstrike2/overstrike2.jsonc)
-          --state DIR             the state folder of an observing or dry run (else <paths.gameDir>/update-watch/observe)
+          --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS; else the file's text in OVERSTRIKE2_SETTINGS_CONTENT;
+                                  else /etc/overstrike2/overstrike2.jsonc)
+          --state DIR            the state folder of an observing or dry run (else <paths.gameDir>/update-watch/observe)
         exit code 78: the settings file cannot be used (hud.addon is required): nothing done, and pre.sh does not start the engine
         """;
 

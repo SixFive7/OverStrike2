@@ -258,6 +258,18 @@ static class NewChecks
         Check("cli: doctor says what it sees, the key without its value", code == 0 && said.Contains("Web API key: absent") && said.Contains("cli-state") && said.Contains("the HUD item: 3823993566"));
         (code, said) = Quiet(() => Program.Main(["version", "--settings", file]));
         Check("cli: version with a good file: its one line", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal) && !said.Contains("NOT USABLE"));
+        var (savedContent, savedPath) = (Environment.GetEnvironmentVariable(Settings.ContentVariable), Environment.GetEnvironmentVariable(Settings.PathVariable));
+        Environment.SetEnvironmentVariable(Settings.PathVariable, null);
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"sync\": { \"webApiKey\": \"\" } }");
+        (code, said) = Quiet(() => Program.Main(["doctor", "--state", Path.Combine(root, "cli-state")]));
+        Check($"cli: {Settings.ContentVariable} is read like the file, and doctor names it", code == 0 && said.Contains($"settings: {Settings.ContentSource}") && said.Contains("the HUD item: 3823993566"));
+        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
+        Check("cli: --settings wins over it, for a test", code == 0 && said.Contains($"settings: {file}"));
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, "{ \"schema\": 1 }");
+        (code, said) = Quiet(() => Program.Main(["once"]));
+        Check("cli: a value with no hud.addon refuses the same way, and the ALERT names the variable", code == Settings.RefusedExit && said.Contains($"{Settings.ContentSource}: hud.addon: missing"));
+        Environment.SetEnvironmentVariable(Settings.ContentVariable, savedContent);
+        Environment.SetEnvironmentVariable(Settings.PathVariable, savedPath);
     }
 
     // ---- the problem mail's SMTP client, against a stand-in relay on localhost

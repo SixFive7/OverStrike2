@@ -47,6 +47,45 @@ static class SettingsTests
         var pointed = Settings.Load(Part.Server, null, n => n == Settings.PathVariable ? Path.Combine(root, "deploy", "overstrike2.example.jsonc") : FakeEnv(n));
         Check("settings: OVERSTRIKE2_SETTINGS points a reader at another file", pointed.Fatal is null && pointed.Source.EndsWith("overstrike2.example.jsonc", StringComparison.Ordinal));
 
+        // ---- the file's text in an environment variable, ahead of the file at the default path, behind a file named for a test
+        const string inlineText = "// a comment\n{ \"schema\": 1, \"server\": { \"port\": 27016, }, \"hud\": { \"addon\": \"3823993566\" }, \"bridge\": { \"secret\": \"env:OVERSTRIKE2_BRIDGE_SECRET\" }, }";
+        string? Inline(string name, string? value, string? named = null) =>
+            name == Settings.ContentVariable ? value : name == Settings.PathVariable ? named : FakeEnv(name);
+        string Unread(string path) => path == Settings.DefaultPath ? throw new InvalidOperationException("the file was read: " + path) : FakeFiles(path);
+        foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server })
+        {
+            foreach (var (how, given) in new[] { ("named nothing", (string?)null), ("named the default path, as the programs do when told no other", Settings.DefaultPath) })
+            {
+                var v = Settings.Load(part, given, n => Inline(n, inlineText), Unread);
+                Check($"settings: {Settings.ContentVariable} for the {part}, {how} - parsed by the file's rules (comments, trailing commas, references), no file looked at, the variable's name as the source, found like a file",
+                      v is { Fatal: null, Problems.Count: 0, Found: true, Source: Settings.ContentSource } && v.Bridge.Secret == "abc123" && v.Warnings.Count == 0);
+            }
+        }
+        Check("settings: the source names the variable, never its value", Settings.ContentSource == "the environment variable OVERSTRIKE2_SETTINGS_CONTENT");
+        var inFile = new Dictionary<string, string> { ["/x/test.jsonc"] = """{ "schema": 1, "server": { "port": 27017 }, "hud": { "addon": "3823993566" } }""" };
+        var fileSays = Settings.Load(Part.Server, "/x/test.jsonc", n => Inline(n, inlineText), p => inFile[p]);
+        Check("settings: a file named for a test (--settings) wins over the variable", fileSays is { Fatal: null, Source: "/x/test.jsonc" } && fileSays.Server.Port == 27017);
+        var pathSays = Settings.Load(Part.Server, null, n => Inline(n, inlineText, "/x/test.jsonc"), p => inFile[p]);
+        Check("settings: ... and so does OVERSTRIKE2_SETTINGS", pathSays is { Fatal: null, Source: "/x/test.jsonc" } && pathSays.Server.Port == 27017);
+        var emptyVar = Settings.Load(Part.Server, null, n => Inline(n, ""), p => p == Settings.DefaultPath ? inFile["/x/test.jsonc"] : throw new FileNotFoundException(p));
+        Check("settings: an empty variable is no variable: the file at the default path", emptyVar is { Fatal: null, Found: true, Source: Settings.DefaultPath } && emptyVar.Server.Port == 27017);
+        var noneAnywhere = Settings.Load(Part.Plugin, null, n => Inline(n, null), p => throw new FileNotFoundException(p));
+        Check("settings: neither variable nor file: not found, the defaults", noneAnywhere is { Fatal: null, Found: false, Source: "(defaults)" });
+        foreach (var (what, text, why) in new[]
+        {
+            ("no JSON", "{ nope, value-of-the-variable", "not JSON"),
+            ("just spaces", "   ", "not JSON"),
+            ("no object", "[1, 2]", "not a JSON object"),
+            ("a schema this code does not know", """{ "schema": 2, "hud": { "addon": "3823993566" } }""", "schema 2"),
+            ("no hud.addon", """{ "schema": 1 }""", "hud.addon: missing"),
+            ("a hud.addon of letters", """{ "schema": 1, "hud": { "addon": "value-of-the-variable" } }""", "hud.addon: not digits"),
+        })
+        {
+            var v = Settings.Load(Part.Server, null, n => Inline(n, text), Unread);
+            Check($"settings: {Settings.ContentVariable} with {what} - the fatal path, like a bad file, naming the variable and never its value ({v.Fatal})",
+                  v.Fatal is { } vf && vf.StartsWith(Settings.ContentSource + ": " + why, StringComparison.Ordinal) && !vf.Contains("value-of-the-variable", StringComparison.Ordinal) && v.Found && v.Source == Settings.ContentSource);
+        }
+
         // ---- the example file: every reader takes it as it is
         var example = File.ReadAllText(Path.Combine(root, "deploy", "overstrike2.example.jsonc"));
         foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server })
