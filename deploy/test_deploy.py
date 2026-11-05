@@ -425,7 +425,7 @@ check("installer: every source its Dockerfile copies from the checkout is there 
       copied and all(os.path.exists(os.path.join(os2.REPO, s)) for s in copied))
 plugin_files = re.search(r"COPY --from=build (/out/plugin/\S+(?: /out/plugin/\S+)*) /payload/plugins/OverStrike2/", dockerfile)
 check("installer: the plugin's files are the ones deploy/plugin.py ships (%s)" % (plugin_files.group(1) if plugin_files else "none"),
-      plugin_files and sorted(p.rsplit("/", 1)[1] for p in plugin_files.group(1).split()) == sorted(P.ship_list()))
+      plugin_files and sorted(p.rsplit("/", 1)[1] for p in plugin_files.group(1).split()) == sorted([P.NAME + ".dll", P.NAME + ".pdb"] + real))
 hand, first = re.search(r"for f in ([\w. ]+); do\s+put \"/payload/data", install), re.search(r"for f in ([\w. ]+); do\s+if \[ -e", install)
 check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as data.py ships them",
       hand and first and set(hand.group(1).split()) | set(first.group(1).split()) == set(D.SETS["bridge"][2])
