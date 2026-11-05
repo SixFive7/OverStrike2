@@ -41,6 +41,7 @@ static partial class Program
     static int Main(string[] args)
     {
         if (args is ["--selftest"]) return SelfTest();
+        if (args is ["--search-index", .. var rest]) return SearchIndexFile.Command(rest); // SearchIndexFile.cs: the committed search.json, written or checked
         Log(BridgeConfig.Source.Line);              // where the settings came from - no value in it
         if (RconPassword == "" || LogSecret == "") { Log(BridgeConfig.Source.FromFile ? "server.rconPassword and bridge.secret must be set" : "RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();

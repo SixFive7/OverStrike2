@@ -565,7 +565,7 @@ In the bridge's data folder (`paths.bridgeData`, `/data` by default). One writer
 The bridge reads these again about 10 s after they change, so a new list is a file copy and nothing restarts; `POST /reload/<secret>` reads them at once. A file that does not parse changes nothing, nor does a list cut by more than half. What a reload does at
 once: the menu's map list follows, a card or a countdown for a map that has just become unplayable goes, and a map that is on and has just gone from the Workshop makes way for the dice.
 
-`maps.json`'s entries are `rank`, `id`, `name`, `sizeMb` and the like, append-only: a number, once given, keeps its map. No Workshop description enters this repository: `search.json` here has titles, ids and tags only, and `bridge/search-index.py` keeps it in step
+`maps.json`'s entries are `rank`, `id`, `name`, `sizeMb` and the like, append-only: a number, once given, keeps its map. No Workshop description enters this repository: `search.json` here has titles, ids and tags only, and the bridge's `--search-index` (`bridge/SearchIndexFile.cs`) keeps it in step
 with `maps.json`.
 
 ## Configuration
@@ -603,7 +603,7 @@ commit runs.
 | `plugin/CatchUp/SelfTest` | The catch-up rules, replayed against real matches' logs |
 | `core/SelfTest` | The settings file and what the parts share; it holds [settings.md](settings.md)'s tables to the code (`-- --write` makes them) |
 | `server/OverStrike2.Server/SelfTest`, `server/OverStrike2.Sync/SelfTest` | The two programs, their Linux-only checks in the game image ([server.md](server.md#build-and-test)) |
-| `python bridge/search-index.py --check` | The search text is in step with the map list |
+| `dotnet run -- --search-index --check` in `bridge/` | The search text is in step with the map list |
 
 **A real client.** A layout cannot be fully tested without the game, so a new HUD is also tried in a real CS2 client before a release: a private harness, not in this repository because it drives its owner's own client and server, starts the client with no window on
 screen, joins a test copy of the server, loads the local HUD build there with VAC off, takes screenshots, and drives the menu through server-side clicks. On the live server only the published HUD ever runs, in a plain client.

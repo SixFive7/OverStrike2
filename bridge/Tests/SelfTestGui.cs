@@ -277,7 +277,26 @@ static partial class Program
         }
         finally { File.Delete(tmp); Search = new(); SearchText = new HudSearch().Encode(); }
 
-        // ---- the committed index itself (search-index.py), when the selftest runs where it is ----
+        // ---- the committed index's writer and checker (SearchIndexFile.cs, --search-index): Python's rules, byte for byte ----
+        const char DotAbove = (char)0x307, UnitSeparator = (char)0x1F;
+        Check("--search-index: a new map's text is its name's words in lower case, its id, then its tags' words - with Python's lower() and split()",
+            SearchIndexFile.TextOf("FUN GAME AİM", "7", ["Classic", $"Arms{UnitSeparator}Race", "  "]) == $"fun game ai{DotAbove}m 7 classic arms race"
+            && SearchIndexFile.Lower("ΟΔΥΣΣΕΑΣ: Σ'ΑΓΑΠΩ ΑΣ'Α Σ") == "οδυσσεας: σ'αγαπω ασ'α σ"
+            && SearchIndexFile.Words($"a{(char)0x1C}b{(char)0xA0}c{(char)0x2028}d{(char)0x3000}") is ["a", "b", "c", "d"]);
+        Check("--search-index: a known map keeps its text, an empty one is made again, a map that left loses its line - in maps.json's order",
+            SearchIndexFile.Build([("1", "One"), ("2", "Two"), ("3", null)], [("2", "kept 2"), ("3", "three 3"), ("9", "gone 9"), ("1", "")],
+                new Dictionary<string, List<string>> { ["1"] = ["Arms Race"] }) is [("1", "one 1 arms race"), ("2", "kept 2"), ("3", "three 3")]);
+        Check("--search-index --check: a missing text, a stray one, the order, a text without its own id, one over 300 code points",
+            SearchIndexFile.Problems(["1", "2"], [("1", "a 1")]) is ["1 map(s) of maps.json have no text, e.g. ['2']"]
+            && SearchIndexFile.Problems(["1"], [("1", "a 1"), ("9", "b 9")]) is ["1 text(s) for maps not on maps.json, e.g. ['9']"]
+            && SearchIndexFile.Problems(["1", "2"], [("2", "b 2"), ("1", "a 1")]) is ["the texts are not in maps.json's order"]
+            && SearchIndexFile.Problems(["1", "2"], [("1", "a"), ("2", "2 " + new string('y', 299))]) is [var noId, var tooLong] && noId.Contains("without their own") && tooLong.Contains("over 300")
+            && SearchIndexFile.Problems(["1"], [("1", "1 " + string.Concat(Enumerable.Repeat(char.ConvertFromUtf32(0x1F329), 298)))]) is []);
+        Check("--search-index writes the file as Python's json.dumps(indent=0, ensure_ascii=False): a map a line, only quotes, backslashes and controls escaped",
+            SearchIndexFile.Encode([("1", $"a\"b\\c{(char)1}{(char)0x7F}é"), ("2", "x 2")]) == $"{{\n\"1\": \"a\\\"b\\\\c\\u0001{(char)0x7F}é\",\n\"2\": \"x 2\"\n}}\n"
+            && SearchIndexFile.Encode([]) == "{}\n");
+
+        // ---- the committed index itself (--search-index keeps it in step), when the selftest runs where it is ----
         if (File.Exists("search.json") && Maps.Count > 0)
         {
             try

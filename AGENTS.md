@@ -25,7 +25,7 @@ see [deploy/README.md](deploy/README.md)), from which the deploy scripts read th
   one exception: the documentation's screenshots show the HUD as players see it, previews included (see the documentation below).
 - **No other authors' text.** The data files keep each Workshop item's title, id, tags and size - never its description (people
   put addresses, handles and worse in them). Strip descriptions whenever the data is regenerated, and never take a server's
-  `search.json` into this repository: `bridge/search-index.py` keeps the committed one in step with `maps.json`.
+  `search.json` into this repository: the bridge's `--search-index` keeps the committed one in step with `maps.json`.
 
 ## Build and test before every commit that touches code
 
@@ -39,7 +39,7 @@ From the repository's root:
 dotnet run --project core/SelfTest                              # the settings file and what the parts share
 dotnet run --project server/OverStrike2.Server/SelfTest         # the server program; its Linux-only checks in the game image (docs/server.md)
 dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop sync's program; its Linux-only checks in the game image too
-python bridge/search-index.py --check
+(cd bridge && dotnet run -- --search-index --check)             # search.json in step with maps.json
 python -I deploy/test_deploy.py                                 # the deploy scripts, with no server and no Docker
 python -I deploy/test_release.py
 ```
