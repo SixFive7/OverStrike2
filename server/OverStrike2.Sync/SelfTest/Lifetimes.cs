@@ -31,6 +31,7 @@ static class Lifetimes
 
     public static void Run()
     {
+        OldLedger();
         FailedVersion();
         NoOpRuns();
         Tries();
@@ -85,6 +86,36 @@ static class Lifetimes
 
     static int Events(JsonObject state, string wid, string evt) =>
         Py.Arr(Py.Get(state["history"], "maps")).Count(e => Py.Str(e!["id"]) == wid && Py.Str(e["event"]) == evt);
+
+    // ---- a ledger as the deployed Python sync wrote it: "nights", no "days". It must keep counting, or the check and the ratings stop at the switch
+    static void OldLedger()
+    {
+        var path = Path.Combine(Dir("old-ledger"), "api-ledger.json");
+        var calls = $"[[{T0 - 600}, \"GetPublishedFileDetails\", 200], [{T0 - 300}, \"QueryFiles\", null], [{T0 - 2 * 86400}, \"QueryFiles\", 200]]";
+        File.WriteAllText(path, $"{{\"schema\": 1, \"calls\": {calls}, \"nights\": {{\"2026-11-05\": 472, \"2026-11-04\": 31}}, \"stops\": {{\"2026-11-04\": \"HTTP 429\"}}}}\n");
+        var fc = new FakeClock(T0);
+        var led = new ApiLedger(path, 10000, C(fc));
+        led.Load();
+        Check($"old ledger: \"nights\" and no \"days\" parses ({led.Broken ?? "no problem"})", led.Broken is null && led.Data is not null);
+        Check("old ledger: ... its count per day is the day's count", led.Count("2026-11-05") == 472 && led.Count("2026-11-04") == 31);
+        Check("old ledger: ... its calls still count for the 24-hour cap, its stops still stop", led.Last24h() == 2 && led.Stopped("2026-11-04") == "HTTP 429");
+        led.Reserve("2026-11-05", "QueryFiles");
+        var saved = (JsonObject)Read(path)!;
+        Check("old ledger: ... the next write says \"days\", goes on counting, and keeps the calls and the stops",
+              !saved.ContainsKey("nights") && Py.Int(Py.Get(saved["days"], "2026-11-05")) == 473 && Py.Int(Py.Get(saved["days"], "2026-11-04")) == 31
+              && Py.Arr(saved["calls"]).Count == 3 && Py.Str(Py.Get(saved["stops"], "2026-11-04")) == "HTTP 429");
+        var again = new ApiLedger(path, 10000, C(fc));
+        again.Load();
+        Check("old ledger: ... and that file reads back", again.Broken is null && again.Count("2026-11-05") == 473 && again.Last24h() == 3);
+        File.WriteAllText(path, "{\"schema\": 1, \"calls\": [], \"days\": {\"2026-11-05\": 5}, \"nights\": {\"2026-11-05\": 9}, \"stops\": {}}\n");
+        var both = new ApiLedger(path, 10000, C(fc));
+        both.Load();
+        Check("old ledger: where both are there, \"days\" counts", both.Broken is null && both.Count("2026-11-05") == 5);
+        File.WriteAllText(path, "{\"schema\": 1, \"calls\": [], \"nights\": 5, \"stops\": {}}\n");
+        var bad = new ApiLedger(path, 10000, C(fc));
+        bad.Load();
+        Check("old ledger: \"nights\" of another shape is still no ledger: no Web API call until it is fixed", bad.Broken is not null && bad.Data is null);
+    }
 
     // ---- a listed map whose new version fails its test: tested once when it is seen, then at most once a day, and nothing waits in between
     static void FailedVersion()

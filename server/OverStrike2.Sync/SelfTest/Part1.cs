@@ -79,8 +79,8 @@ static class Part1
         var old = Path.Combine(root, "ledger-old.json");
         Json(old, new JsonObject { ["schema"] = 1, ["calls"] = new JsonArray(), ["nights"] = new JsonObject { [today] = 3 }, ["stops"] = new JsonObject() });
         var (led3, _) = W.Ledger(old, t: clock.T);
-        Check("ledger: a file with the old key 'nights' and no 'days' is not read - no Web API call until the deploy's edit",
-              led3.Data is null && (led3.Broken ?? "").Contains("does not parse"));
+        Check("ledger: a file with the old key 'nights' and no 'days' is read as it is - its count is the day's",
+              led3.Data is not null && led3.Broken is null && led3.Count(today) == 3);
         var (capped, sentC, _) = ApiWith(W.Ledger(Path.Combine(root, "ledger-run.json")).Ledger, new FakeClock(1793500000.0), Many(J("{\"response\": {}}"), 5));
         capped.RunCap = 3;
         for (var i = 0; i < 3; i++)
