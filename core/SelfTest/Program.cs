@@ -19,6 +19,7 @@ try
     NetTests.Run();
     TimeTests.Run();
     KeepSetTests.Run();
+    FilesTests.Run();
 }
 finally
 {
