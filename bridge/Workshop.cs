@@ -4,9 +4,7 @@
 //
 // Which maps are gone is checked every 4 hours against the public Steam Web API (ISteamRemoteStorage/GetPublishedFileDetails) by the
 // Workshop sync, which posts its verdicts here (POST /removed/<secret>); the bridge stays off the internet by design and keeps them in
-// /data/removed.json. (The plugin's own daily check went with the owner's 74 a: one checker, inside the sync's request budget.) Shared like
-// Hud.cs: the codec and the verdict are tested by the bridge's --selftest, and the plugin's HUD item watch reads the Web API's answer with
-// ParseDetails. Plain BCL.
+// /data/removed.json. Shared like Hud.cs: the codec and the verdict are tested by the bridge's --selftest. Plain BCL.
 //
 // What it cannot see: an item held in Valve's moderation queue (a new version awaiting approval) - the Web API calls it public while
 // nobody but its owner can download it (seen on the HUD's own item, 2026-10-07).

@@ -1,7 +1,7 @@
 // Maps gone from the Workshop (Workshop.cs): which ones, where that comes from, and what the bridge does about one.
 //
-// One source since the owner's 74 a and 77 a (2026-11-04): the Workshop sync asks the Steam Web API every 4 hours and posts its verdicts to
-// /removed/<secret>; they are kept in /data/removed.json. (The plugin's own daily check and broken.json's hand-made "removed" seed are gone.)
+// One source: the Workshop sync asks the Steam Web API every 4 hours and posts its verdicts to /removed/<secret>; they are kept in
+// /data/removed.json.
 // A removed map is refused (Play, chat), never rolled, leaves an open ballot, stops a countdown to it, and the HUD's browser shows it as
 // unavailable. If the map that is ON is removed, nobody new could download it, so the dice roll another at once (AutoRoll).
 using System.Net;
@@ -79,7 +79,7 @@ static partial class Program
         return $"{report.Count} checked, {gone} not downloadable, {newly.Count} newly blocked, {back.Count} unblocked, {Removed.Count} blocked in all";
     }
 
-    /// <summary>Maps that have just become unplayable (gone from the Workshop, blocked, found to be no map - the owner's 59 b: one check, packs
+    /// <summary>Maps that have just become unplayable (gone from the Workshop, blocked, found to be no map - one check, packs
     /// included): their cards leave an open ballot, a countdown to one stops, and the map that is on, if it has just gone from the Workshop, makes
     /// way for the dice - nobody new could download it.</summary>
     static void ActOnUnplayable(HashSet<string> newly)

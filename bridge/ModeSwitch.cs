@@ -1,4 +1,4 @@
-// The game modes on the bridge's side (#27 c; the table is Modes.cs): which mode the server is in, the maps each mode rolls and offers,
+// The game modes on the bridge's side (the table is Modes.cs): which mode the server is in, the maps each mode rolls and offers,
 // and how a map loads in its own mode.
 //
 //  - S.Mode (state.json) is the mode the server was last told to load in. Every server start is Arms Race (the cs2 service's
@@ -9,7 +9,7 @@
 //    the map command; after every map start the bridge sends os_mode again, for a plugin that reloaded, and the reply says whether the map
 //    loaded in that mode (SyncMode). A change that never loads gives the old mode back (the load timeout in Tick).
 //  - The pools: Arms Race is maps.json (MAPS_FILE) as it always was. Deathmatch and Wingman are Valve's official maps for the mode plus
-//    the Workshop maps of maps-<mode>.json beside maps.json (the nightly sync's output, same entry shape as maps.json; docs/reference.md).
+//    the Workshop maps of maps-<mode>.json beside maps.json (the sync's output, same entry shape as maps.json; docs/reference.md).
 //    Missing or empty, a mode has its official maps only. Read again when it changes, like maps.json (Reload.cs).
 //  - Outside Arms Race the match length setting (!time) does not apply: Deathmatch runs Valve's 10-minute round, Wingman its rounds.
 using System.Text.Json;

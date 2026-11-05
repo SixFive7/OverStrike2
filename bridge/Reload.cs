@@ -7,7 +7,7 @@
 // why once, and looks again when the file changes. The bridge's own writes of removed.json are not read back.
 // What a reload does at once: the HUD's map menu refetches (CatalogVersion), a card on an open ballot or a countdown for a map that has just
 // gone from the Workshop or onto the blocked list is dropped, and a map that is on and has just gone from the Workshop makes way for
-// the dice (as after the daily check).
+// the dice.
 using System.Net;
 using System.Text.Json;
 
@@ -151,7 +151,7 @@ static partial class Program
 
     /// <summary>Everything at once, whether it changed or not: POST /reload/&lt;secret&gt;, for whoever does not want to wait for the watch.
     /// Every file the watch covers (DataFiles) - search.json was once left out here but marked as read, so a new one waited
-    /// for a restart (the nightly sync's find).</summary>
+    /// for a restart (the sync's find).</summary>
     static string ReloadAll(bool force) => ReloadFiles(DataFiles(force));
 
     /// <summary>Reads each of these files now, and marks as read for the watch only the files it read.</summary>

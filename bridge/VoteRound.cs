@@ -7,7 +7,7 @@
 // everybody present has voted, or MapVote.Seconds (60) as the safety net for somebody away. A player who joins meanwhile is frozen and counted.
 // Then everybody unfreezes at the same moment; a result that changes the map keeps everybody frozen through the change's countdown.
 //
-// The ballot, a page of eight cards: Keep - "Keep playing this map" while the match is on, "Play this map again" once it is over (Wingman: the
+// The ballot, a page of cards (MapVote.PageCards): Keep - "Keep playing this map" while the match is on, "Play this map again" once it is over (Wingman: the
 // whole match, not a round) - every map a player selected, one map of each other mode that suits the players on (Modes.Mode.Suits: Valve's
 // maxplayers, so Wingman up to 4), then the server's own mode: one fresh map - a new Workshop upload or a recent update our sync tested, unless a
 // card above is fresh already - one surprise from the discovery stock (a map new to us), and the Workshop's favourites the server keeps to fill

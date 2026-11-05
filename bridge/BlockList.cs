@@ -1,13 +1,13 @@
-// The game-changers no map may set (the owner's decision 12b of 2026-10-24). MapSettingsReset already puts back, when a map ends, every
+// The game-changers no map may set. The plugin's settings module already puts back, when a map ends, every
 // setting the map changed; for the settings on this list it does not wait that long: a map that turns on no-spread, switches the radar
 // off, changes the game mode or turns cheats on gets that setting put back right after its own cfgs and entities have run - and again
 // whenever it tries later (a round start, a trigger) - and every block is logged. The movement settings bhop and surf maps need to work
 // (air acceleration, bunny hopping, stamina, gravity, fall damage) are not on it, and a player's choice on the fun page (Fun.cs) is
 // never blocked.
 //
-// The list is a config file, plugin/OverStrike2/blocked.txt, shipped beside the plugin's DLL: one convar per line, optionally the
+// The list is a config file, plugin/OverStrike2/blocked.txt, shipped beside the plugin's DLL: one convar per line, per mode, optionally the
 // value it must keep (otherwise the server's baseline), then // and why. Shared like Hud.cs: the bridge's --selftest checks the parser,
-// the decision and the committed file; MapSettingsReset links it in. Plain BCL only.
+// the decision and the committed file; the plugin links it in. Plain BCL only.
 public static class BlockList
 {
     /// <summary>One line of the file: the convar, the value it must keep (null: the server's baseline) and why it is listed.</summary>
@@ -53,7 +53,7 @@ public static class BlockList
         return due;
     }
 
-    /// <summary>What a blocked setting is called on the news line (#9 d): players' words, not the convar's.</summary>
+    /// <summary>What a blocked setting is called on the news line: players' words, not the convar's.</summary>
     public static string Label(string convar) => convar.ToLowerInvariant() switch
     {
         "game_type" or "game_mode" => "the game mode",
@@ -78,7 +78,7 @@ public static class BlockList
         _ => convar,
     };
 
-    /// <summary>The news line (#9 d, the owner, 2026-11-01): what the map tried to change, and that it was undone. At most 240 characters.</summary>
+    /// <summary>The news line: what the map tried to change, and that it was undone. At most 240 characters.</summary>
     public static string Notice(List<string> labels)
     {
         var list = labels.Count switch { 0 => "a setting", 1 => labels[0], _ => string.Join(", ", labels.Take(labels.Count - 1)) + " and " + labels[^1] };
@@ -86,7 +86,7 @@ public static class BlockList
         return line.Length <= 240 ? line : $"This map tried to change {labels.Count} settings - Undone: the server keeps its own rules.";
     }
 
-    /// <summary>The movement settings bhop and surf maps need: never on the list (the owner's 12b keeps them), checked by --selftest.</summary>
+    /// <summary>The movement settings bhop and surf maps need: never on the list, checked by --selftest.</summary>
     public static readonly string[] Movement =
     [
         "sv_gravity", "sv_airaccelerate", "sv_accelerate", "sv_friction", "sv_stopspeed", "sv_maxspeed", "sv_maxvelocity", "sv_enablebunnyhopping",

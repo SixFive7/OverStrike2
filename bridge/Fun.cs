@@ -1,6 +1,5 @@
-// The fun settings (the owner's feature request of 2026-10-24): a page of the in-game menu where anybody switches a few game settings
-// live, for everybody - low gravity, bunny hopping, no fall damage, the grenade drops, catch-up and so on. Since the owner's 61 b
-// (2026-11-04) every row is the same kind of switch: every change lasts until the map changes (the grenade drops too), the bridge's
+// The fun settings: a page of the in-game menu where anybody switches a few game settings
+// live, for everybody - low gravity, bunny hopping, no fall damage, the grenade drops, catch-up and so on. Every row is the same kind of switch: every change lasts until the map changes (the grenade drops too), the bridge's
 // reset after 10 minutes with nobody on puts them all back (gg_fun reset), and every change shows on the centre screen for everybody
 // with its command in chat - no news-line copy.
 //
@@ -11,13 +10,13 @@
 // What "Normal" means: no player's change. On most maps that is the server's own value; a map that sets its own (fs_highsky's low
 // gravity, a surf map's air acceleration) keeps it - Normal puts back what the setting was before the first player changed it on this map.
 //
-// Friendly fire's three (the owner's request of 2026-10-29: Friendly fire, Instakill, Grenades x10, all On by default) are the exception:
+// Friendly fire's three (Friendly fire, Instakill, Grenades x10) are the exception:
 // the server's own cfg (server/gamemode_armsrace_server.cfg) turns them on at every map load, so their first choice, On, sets those
 // same values - a player's On means on, also on one of the few maps that turn friendly fire off themselves. Instakill and Grenades x10 need
 // friendly fire on to do anything (Needs), which the page shows.
 //
-// Most settings are a convar without the cheat flag (cvarlist on CS2 1.41.9.1; README "Fun settings" says what was tried live). Since Over
-// Strike 2 (2026-11-01, the owner's #16 and #24) also: headshots only (mp_damage_headshot_only, no cheat flag), Infinite ammo
+// Most settings are a convar without the cheat flag (cvarlist on CS2 1.41.9.1). Also:
+// headshots only (mp_damage_headshot_only, no cheat flag), Infinite ammo
 // (sv_infinite_ammo 1 - a cheat-flagged convar the server sets itself, as Arms Race's own 2 is set), and three effects that are no convar
 // at all - Vampire, Ghost and the no-recoil half of Laser guns: the plugin's own switches (Effect names, "os2_..."), which its Effects
 // module acts on; the settings module keeps them like convars, so a player's change of one is undone at the map's end and by the reset
@@ -56,7 +55,7 @@ public static class Fun
 
     public static bool IsEffect(string name) => name.StartsWith(EffectPrefix, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Friendly fire's three are Arms Race's own (#27 c, docs/reference.md): Deathmatch is free-for-all and Wingman runs Valve's
+    /// <summary>Friendly fire's three are Arms Race's own (docs/reference.md): Deathmatch is free-for-all and Wingman runs Valve's
     /// competitive friendly fire, so the Fun page leaves them out there; the grenade drops and catch-up are Arms Race's too (its ladder).</summary>
     public static bool ArmsRaceOnly(Setting s) => s.Id is "ff" or "instakill" or "ffnades" or "drops" or "catchup";
 
@@ -87,7 +86,7 @@ public static class Fun
     static readonly string[] DamageScales = ["mp_damage_scale_ct_body", "mp_damage_scale_ct_head", "mp_damage_scale_t_body", "mp_damage_scale_t_head"];
 
     /// <summary>Friendly fire's On and Instakill's, as gamemode_armsrace_server.cfg sets them at every map load (--selftest holds them equal); Grenades
-    /// x10 is off by default since the owner's 92 b - the cfg sets ff_damage_reduction_grenade 1, the Fun page's On sets GrenadeShare. Each
+    /// x10 is off by default - the cfg sets ff_damage_reduction_grenade 1, the Fun page's On sets GrenadeShare. Each
     /// ff_damage_reduction_* is the share of an enemy's damage a teammate takes, despite its name: 1 is the same as an enemy, 100 kills
     /// with any hit. Valve documents 0-1; the server accepts more (read back 2026-10-29) - that it multiplies was not yet seen in a game.</summary>
     public const string FriendlyFireOn = "1", InstakillShare = "100", GrenadeShare = "10";
@@ -147,7 +146,7 @@ public static class Fun
             Set(("ff_damage_reduction_bullets", InstakillShare), ("ff_damage_reduction_other", InstakillShare)), [NotWithFreeForAll, NeedsFriendlyFire]),
         new("ffnades", $"Grenades x{GrenadeShare}", $"A grenade does {GrenadeShare} times the damage to teammates. Off: the damage an enemy takes",
             [new("off", "Off", []), new("on", "On", Set(("ff_damage_reduction_grenade", GrenadeShare)))],
-            Set(("ff_damage_reduction_grenade", "1")), [NotWithFreeForAll, NeedsFriendlyFire]), // off by default (the owner's 92 b): the cfg's 1
+            Set(("ff_damage_reduction_grenade", "1")), [NotWithFreeForAll, NeedsFriendlyFire]), // off by default: the cfg's 1
         new("drops", "Grenade drops", "Every player spawns with a grenade, dropped where they die; off: the ladder's weapons only",
             [new("on", "On", Set((Drops, "1"))), new("off", "Off", Set((Drops, "0")))],
             Set((Drops, "1"))),
@@ -194,7 +193,7 @@ public static class Fun
 
     public static bool Idle(Setting s, Func<string, string?> value) => IdleBecause(s, value) != null;
 
-    /// <summary>Two choices never on together (the owner's 43 c, 2026-11-04: every combination of the fun settings checked, --selftest walks
+    /// <summary>Two choices never on together (every combination of the fun settings is checked: --selftest walks
     /// them all): the page, chat, gg_fun and Random each refuse the second of them, saying why. Moon gravity with Super jump makes a jump
     /// about 506 units high (450 squared over twice 200), nine times a normal one - out over the walls and the skybox of most maps.</summary>
     public sealed record Clash(string Setting, string Choice, string Other, string OtherChoice, string Why);
@@ -224,14 +223,14 @@ public static class Fun
     /// <summary>The first clash a whole combination holds (setting id to choice id; a setting left out is its Normal), or null.</summary>
     public static Clash? ClashIn(Func<string, string> choiceOf) => Clashes.FirstOrDefault(x => choiceOf(x.Setting) == x.Choice && choiceOf(x.Other) == x.OtherChoice);
 
-    /// <summary>The Fun page's two buttons (the owner's 2026-11-03) and their chat words: !fun random, !fun default.</summary>
+    /// <summary>The Fun page's two buttons and their chat words: !fun random, !fun default.</summary>
     public const string RandomWord = "random", DefaultWord = "default";
 
-    /// <summary>Random's catch-up (the owner's 43 c, 2026-11-04): on three times in four, off one time in four - Arms Race's alone, like the page's row.</summary>
+    /// <summary>Random's catch-up: on three times in four, off one time in four - Arms Race's alone, like the page's row.</summary>
     public const int CatchUpOffOneIn = 4;
 
     /// <summary>The Fun page's Random: a choice for every setting the page shows in this mode, each drawn evenly from its own choices (dice: a number
-    /// 0 to n-1) - catch-up on three times in four (the owner's 43 c and 61 b), so dice(CatchUpOffOneIn) decides it. The page lets any combination
+    /// 0 to n-1) - catch-up on three times in four, so dice(CatchUpOffOneIn) decides it. The page lets any combination
     /// stand but a Clash - a setting another one makes idle says so - and so does Random: of a clash it keeps the first setting's draw and puts the
     /// other back to its Normal (Moon gravity keeps Super jump normal).</summary>
     public static List<(Setting Setting, Choice Choice)> Randomized(Func<int, int> dice, bool armsRace)
@@ -245,7 +244,7 @@ public static class Fun
         return picks;
     }
 
-    /// <summary>The Fun page's Default (the owner's 61 b): every setting the page shows in this mode back to its first choice - Normal, or the On of
+    /// <summary>The Fun page's Default: every setting the page shows in this mode back to its first choice - Normal, or the On of
     /// a setting that is on by default (friendly fire's three, the grenade drops, catch-up).</summary>
     public static List<(Setting Setting, Choice Choice)> Defaults(bool armsRace) => Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Normal)).ToList();
 
@@ -276,7 +275,7 @@ public static class Fun
     /// <summary>The one chat line for everybody after Default.</summary>
     public static string DefaultLine(string who) => $"{who} put every fun setting back to normal";
 
-    /// <summary>The centre-screen notice of a fun change (content-free: the game's centre panel, for everybody, 10 s; the owner's 2026-11-03):
+    /// <summary>The centre-screen notice of a fun change (content-free: the game's centre panel, for everybody, 10 s):
     /// "Remy turned Vampire on", "Remy set Gravity to Low", "Remy put Gravity back to normal".</summary>
     public static string CentreLine(string who, Setting s, Choice c) =>
         c == s.Normal && s.Choices.Length > 2 ? $"{who} put {s.Title} back to normal"
@@ -285,11 +284,11 @@ public static class Fun
     /// <summary>How long a fun change stays centre screen, for everybody.</summary>
     public const int CentreSeconds = 10;
 
-    /// <summary>The command a change is, as chat says it under the player's name since the owner's 61 b - !gravity low, !drops off.</summary>
+    /// <summary>The command a change is, as chat says it under the player's name - !gravity low, !drops off.</summary>
     public static string ChatWords(Setting s, Choice c) => $"!{s.Id} {c.Id}";
 }
 
-/// <summary>A fun change as the game's centre panel shows it, to everybody, for Fun.CentreSeconds (the owner's 2026-11-03): who, in gold, over
+/// <summary>A fun change as the game's centre panel shows it, to everybody, for Fun.CentreSeconds: who, in gold, over
 /// what changed, wrapped to the panel's width (it wraps at about 31 characters and scrolls past five lines; measured 2026-10-04).</summary>
 public static class FunNotice
 {

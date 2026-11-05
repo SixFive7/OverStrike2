@@ -1,5 +1,5 @@
 // The game modes: Deathmatch and Wingman next to Arms Race. Arms Race is the server's game and its default - after every server restart,
-// and again after 10 minutes with nobody on - and the other two come through the vote at a match's end (MapVote.cs): the ballot always
+// and again after 10 minutes with nobody on - and the other two come through the vote (MapVote.cs): the ballot always
 // holds a map of each other mode that suits the players on (Valve's maxplayers).
 //
 // A map loads in its own mode. The bridge puts the mode's game_type and game_mode in place right before the map command, and first tells
@@ -20,7 +20,7 @@ public static class Modes
     {
         public bool ArmsRace => Id == ArmsRaceId;
 
-        /// <summary>The mode's Workshop list, beside maps.json (Arms Race's is maps.json itself): the nightly sync's output.</summary>
+        /// <summary>The mode's Workshop list, beside maps.json (Arms Race's is maps.json itself): the sync's output.</summary>
         public string MapsFile => ArmsRace ? "maps.json" : $"maps-{Id}.json";
 
         /// <summary>The two convars that select the mode, as an RCON command.</summary>

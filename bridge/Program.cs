@@ -1,4 +1,4 @@
-// GunGameBridge: CS2 log-push -> chat commands -> RCON sidecar. Behaviour and configuration are documented in README.md.
+// The bridge: hears the game server's log and the plugin's clicks, decides, and sends the server its orders over RCON. See docs/reference.md.
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
@@ -837,7 +837,7 @@ static partial class Program
         return long.TryParse(id, out var n) ? (n >= 76561197960265728 ? n - 76561197960265728 : n) : -1;
     }
 
-    // ---- log-line parser. HTTP push form: MM/DD/YYYY - HH:MM:SS.mmm - <event> (disk form "L ... : " tolerated). See README. ----
+    // ---- log-line parser. HTTP push form: MM/DD/YYYY - HH:MM:SS.mmm - <event> (disk form "L ... : " tolerated). See docs/reference.md. ----
     [GeneratedRegex(@"^(?:L )?\d\d/\d\d/\d{4} - \d\d:\d\d:\d\d(?:\.\d+)?(?: - |: )")] private static partial Regex PrefixRx();
     [GeneratedRegex(@"^""(.+?)<(\d+)><(\[U:1:\d+\]|STEAM_[0-5]:[01]:\d+)><([^>]*)>"" (.+)$")] private static partial Regex PlayerRx();
     [GeneratedRegex(@"<\d+><(?:\[U:1:\d+\]|STEAM_[0-5]:[01]:\d+)><[^>]*>""")] private static partial Regex TripleRx();

@@ -3,8 +3,8 @@
 // this server PROCESS has loaded, 1 for its boot map - a few seconds after every map start, and once when the bridge starts. Within one
 // process every map start raises it by one (measured: ten map starts after a boot, spawn 10), so a reading that has
 // not risen since the one before means a new process, and the map that was on (or loading) when the old one went is a crash, unless:
-//   - the old process went cleanly: the restart watcher said so right before its planned quit (POST /quitting, below; the owner's 47 a,
-//     2026-11-04), the bridge sent the quit itself (!restart), or the echo of an RCON quit or _restart came in (an admin; and the backup:
+//   - the old process went cleanly: the restart watcher said so right before its planned quit (POST /quitting, below),
+//     the bridge sent the quit itself (!restart), or the echo of an RCON quit or _restart came in (an admin; and the backup:
 //     the engine segfaults on quit - 5 of 5 planned quits since 2026-11-03 - and the last log batch, with the echo in it, dies with it);
 //   - the maintenance flag is set: the map sweeps and the cache work crash and recreate the server on purpose;
 //   - the bridge cannot tell which map that was: no reading since it started, or a counter that does not fit the map starts it saw.
@@ -18,7 +18,7 @@
 // A recorded crash is what a pick's second click ("... crashed the server N time(s). Click Play again within 30 s to go ahead."), the dice
 // (never a map with a crash) and the HUD's cards - the map browser's and the ballot's - read. The news line says it at once, and every join
 // hears it for the next CrashNoticeMinutes. A mark - this one, or a player-crash mark (BrokenWhy.cs) - lasts until the map gets a Workshop
-// update (the owner's 59 b): the lists carry each map's time_updated ("updated", written by the Workshop sync), every mark keeps the one it was
+// update: the lists carry each map's time_updated ("updated", written by the Workshop sync), every mark keeps the one it was
 // set under (S.CrashStamps), and a newer one lifts it (ExpireMarks, at start and whenever a list is read again).
 using System.Net;
 using System.Text;
@@ -156,7 +156,7 @@ static partial class Program
     /// <summary>A mark set now remembers the Workshop update it was set under.</summary>
     static void StampMark(string key) { if (UpdatedOf(key) is > 0 and var t) S.CrashStamps[key] = t; else S.CrashStamps.Remove(key); }
 
-    /// <summary>The owner's 59 b: a crash mark or a player-crash mark ends when its map gets a Workshop update - the author may have fixed it. A mark
+    /// <summary>A crash mark or a player-crash mark ends when its map gets a Workshop update - the author may have fixed it. A mark
     /// set before its map's update time was known is stamped with the first one that is known, and lifted only by a later one.</summary>
     static void ExpireMarks()
     {

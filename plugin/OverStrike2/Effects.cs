@@ -20,7 +20,7 @@ namespace OverStrike2;
 ///     zero, so every shot of a spray is a first shot. CS2 has no recoil convar left (weapon_recoil_scale is gone on 1.41.9.x).
 ///
 /// Writes only fields the game writes itself (health, max health, the recoil index; the cloak's are its own, Cloak.cs), each marked changed
-/// for the network the way CounterStrikeSharp marks any field. The client harness cannot shoot (README "Fun settings"), so it cannot make a
+/// for the network the way CounterStrikeSharp marks any field. The client harness cannot shoot, so it cannot make a
 /// ghost; gg_cloak hide makes the same hide to look at, and bots that kill each other make ghosts too.</summary>
 sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloak cloak)
 {

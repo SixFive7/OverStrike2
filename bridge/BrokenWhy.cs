@@ -5,7 +5,7 @@
 // And the maps that crash the players' games rather than the server (#6): 3 or more players timing out within 60 s of entering a map,
 // while the server keeps answering (their disconnects reach the log, so it is up), mark that map broken by itself - kept in state.json
 // with its reason, never rolled, a pick asks to confirm with that reason, its ballot card shows it. A Workshop update of the map lifts the
-// mark (CrashWatch.cs, the owner's 59 b).
+// mark (CrashWatch.cs).
 // #2167 on 2026-10-29 is the case: all six players timed out about 20 s after entering it, the server stayed
 // up, and the server-crash counter never saw it. The map that is on when it happens makes way for the dice, since every rejoin would
 // load it again. broken.json is where a map is listed for good.

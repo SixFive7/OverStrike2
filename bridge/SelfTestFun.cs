@@ -1,6 +1,6 @@
-// --selftest, part fourteen (2026-11-04, the owner's 43 c, that every combination of the fun settings works together): every combination of the
-// fun settings - the page's rows with every value each takes, the grenade drops and catch-up among them in Arms Race (ordinary fun settings
-// since the owner's 61 b) - walked through, the way the page, chat and Random make them. A combination is the union of its choices' convar writes; the walk sets each one on a stock
+// --selftest, part fourteen: every combination of the
+// fun settings - the page's rows with every value each takes, the grenade drops and catch-up among them in Arms Race -
+// walked through, the way the page, chat and Random make them. A combination is the union of its choices' convar writes; the walk sets each one on a stock
 // server's values and checks that it reads back as made, that the page calls idle exactly what does nothing then, that it holds a Clash
 // exactly where Fun.Clashes says (the one rule Random obeys), that Random hands out every clash-free combination and no clashing one, and
 // that the page, chat and gg_fun refuse exactly the clicks that would make a clash. The live check on a test copy (every setting read back,
@@ -63,7 +63,7 @@ static partial class Program
                 if ((clash != null) != moonHigh) Fault($"clash {clash != null}, moon with high jump {moonHigh}");
                 if (clash != null) counts[1]++;
                 // Random, its dice made to draw this combination: it hands it out as drawn unless it clashes, and then with the clash's other setting back to Normal.
-                // Catch-up is drawn one in four off (the owner's 43 c): its die says 0 for off, any of 1, 2, 3 for on.
+                // Catch-up is drawn one in four off: its die says 0 for off, any of 1, 2, 3 for on.
                 var d = 0;
                 var draws = rows.Select((s, i) => s.Id == "catchup" ? (s.Choices[pick[i]].Id == "off" ? 0 : 1 + (int)(n % 3)) : pick[i]).ToArray();
                 var got = Fun.Randomized(k => draws[d++], armsRace);
@@ -108,10 +108,10 @@ static partial class Program
         Check("Random makes its changes back to Normal first, so gg_fun meets no clash on the way (Super jump down before the gravity goes to Moon)",
             jumpBack[0].Setting.Id == "jump" && jumpBack[1].Setting.Id == "gravity");
         var defaults = Fun.Defaults(true);
-        Check("Default (the owner's 61 b): every row to its first choice - Normal, or the On of friendly fire's three, the grenade drops and catch-up - and in another mode only the rows it shows",
+        Check("Default: every row to its first choice - Normal, or the On of friendly fire's three, the grenade drops and catch-up - and in another mode only the rows it shows",
             defaults.Count == Fun.Settings.Length && defaults.All(x => x.Choice == x.Setting.Normal) && Fun.Find("drops")!.Normal.Id == "on" && Fun.Find("catchup")!.Normal.Id == "on"
             && Fun.Defaults(false).All(x => !Fun.ArmsRaceOnly(x.Setting)) && Fun.Defaults(false).Count < defaults.Count);
-        Check("The grenade drops and catch-up are fun settings of their own (the owner's 61 b): effects on by default, Arms Race's alone, their fixed rows lit from them",
+        Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, their fixed rows lit from them",
             Fun.Find("drops") is { } dr && Fun.ArmsRaceOnly(dr) && Fun.IsEffect(Fun.Drops) && Fun.Find("catchup") is { } cu && Fun.ArmsRaceOnly(cu) && Fun.IsEffect(Fun.CatchUp)
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")
             && HudVote.FixedRowClasses(c => c == Fun.Drops ? "0" : "1", true) is var fr && fr.Single(x => x.Class == "nd-off").On && fr.Single(x => x.Class == "cu-on").On

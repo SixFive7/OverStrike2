@@ -1,6 +1,6 @@
 // --selftest, part six: the menu that replaced the chat commands. The search index and its scoring, the on-screen keyboard,
 // the card for a Workshop id that is not on the list, the news line and the notes, the board's buttons - and, command by command, the
-// place in the menu that does what the command did (README "The menu replaces the chat commands" lists the same).
+// place in the menu that does what the command did.
 using System.Text.Json;
 
 static partial class Program

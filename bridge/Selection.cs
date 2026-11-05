@@ -1,5 +1,5 @@
 // Random picks: the maps that are too big, the ones never rolled, and the reset of the server-wide settings once nobody is on. Rules for players:
-// README.md "Random maps"; in the game, the how-it-works words (Hud.How).
+// docs/reference.md "Random picks"; in the game, the how-it-works words (Hud.How).
 //
 //  - Too big: a map whose class in sizes.json (beside maps.json, written by the size tool) is XL, or that at least one player marked too
 //    big - a special downvote, TooBigVote in votes.json, which counts as that player's dislike everywhere a vote counts. A random pick comes
