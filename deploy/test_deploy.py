@@ -221,10 +221,7 @@ with tempfile.TemporaryDirectory() as dest:
           D.plan("bridge", files, dest) == [f for f in files if f in hand] and "ours.json" in hand and "sizes.json" in hand)
     check("data: blocked.json ships when the checkout has it, and is skipped (said) when not",
           ("blocked.json" in D.plan("bridge", files, dest)) == os.path.isfile(os.path.join(os2.REPO, "bridge", "blocked.json")))
-    server = D.plan("server", D.SETS["server"][2], dest)
-    check("data: the server set is server/'s own files, keepset.py with them when it is there (%s)" % ", ".join(server),
-          all(os.path.isfile(os.path.join(os2.REPO, "server", f)) for f in server) and "update-watch.py" in server and "workshop-sync.py" in server
-          and ("keepset.py" in server) == os.path.isfile(os.path.join(os2.REPO, "server", "keepset.py")))
+    check("data: the bridge's files are its only set - the server side ships with server.py", list(D.SETS) == ["bridge"])
 
 import plugin as P  # noqa: E402
 csproj = ('<None Include="..\\CatchUp\\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />\n'

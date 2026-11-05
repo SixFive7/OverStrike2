@@ -22,7 +22,7 @@ data_dir = ""                             # the bridge's /data on the server (a 
 [server]
 address = "play.example.com:27015"        # the game server's query address: is anybody playing?
 plugins_dir = ""                          # the folder the game server copies plugins from (one folder per plugin)
-config_dir = ""                           # where the mode cfgs are deployed (server.py), and data.py server's pre.sh, update-watch.py, keepset.py, workshop-sync.py ("" = not from here)
+config_dir = ""                           # where server.py ships the three mode cfgs ("" = not from here)
 program_dir = ""                          # where server.py ships os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 ("" = not from here)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 

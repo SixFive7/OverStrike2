@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""The bridge's hand-made data files and the game server's own files: copy the committed ones to the server, verified.
+"""The bridge's hand-made data files: copy the committed ones to the server, verified.
 
     python deploy/data.py bridge [--apply]    ours.json, sizes.json, blocked.json -> <bridge.data_dir> (and the first lists, once)
-    python deploy/data.py server [--apply]    server/pre.sh, the mode cfgs, update-watch.py, keepset.py, workshop-sync.py -> <server.config_dir>
 
-Without --apply it only shows what would change. The bridge reads its data files again by itself within about 10 seconds
-(nothing restarts); the server files take effect at the game container's (or the sync's) next start. Only committed bytes ship.
+Without --apply it only shows what would change. The bridge reads its data files again by itself within about 10 seconds (nothing
+restarts). Only committed bytes ship. The server side - the programs, the launcher and the mode cfgs - ships with deploy/server.py.
 
 One writer per file. The Workshop sync writes what it generates on the server itself - maps.json, the mode lists, broken.json,
 search.json, ratings.json, sync-status.json - so this script never ships over them: the repository's maps.json, broken.json and
 search.json go only to a server that has none yet (a first install), and from then on the server's copies are the sync's. They are
-snapshots here (the bridge's image and its self-test read them), refreshed from the server with the sync's --export when wanted.
+snapshots here (the bridge's image and its self-test read them), refreshed from the server with `os2-sync export` when wanted.
 What ships is what people make by hand: our maps (ours.json), the measured sizes (sizes.json) and the maps blocked for good
 (blocked.json). A file this checkout does not have is skipped, and said. A server copy of one of those that no commit of this
 repository ever held was changed there: that is DRIFT, and nothing ships until the change is in the repository (or --force).
@@ -25,9 +24,6 @@ import os2  # noqa: E402
 
 SETS = {
     "bridge": ("bridge.data_dir", "bridge", ["ours.json", "sizes.json", "blocked.json", "maps.json", "broken.json", "search.json"]),
-    "server": ("server.config_dir", "server", ["pre.sh", "gamemode_armsrace_server.cfg", "gamemode_deathmatch_server.cfg",
-                                               "gamemode_competitive2v2_server.cfg", "update-watch.py", "keepset.py",
-                                               "workshop-sync.py"]),
 }
 FIRST_ONLY = {"maps.json", "broken.json", "search.json"}   # the sync's on the server: shipped only where there is none yet
 

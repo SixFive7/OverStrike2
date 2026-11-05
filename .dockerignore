@@ -5,7 +5,6 @@
 !bridge
 !plugin
 !deploy/installer
-server/*.py
 server/*.cfg
 **/bin
 **/obj

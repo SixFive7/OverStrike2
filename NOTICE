@@ -46,9 +46,9 @@ hud/build.ps1 is adapted from CS2UIKit's kit/build.ps1 (https://github.com/nvmxr
 -------------------------------------------------------------------------------------------------------------------------------
 Used, not included (each under its own license; downloaded or referenced at build or run time)
 
-- Metamod:Source - https://github.com/alliedmodders/metamod-source (installed by server/pre.sh)
-- CounterStrikeSharp - https://github.com/roflmuffin/CounterStrikeSharp (installed by server/pre.sh; the plugin builds against
-  its CounterStrikeSharp.API package)
-- MultiAddonManager - https://github.com/Source2ZE/MultiAddonManager (installed by server/pre.sh)
+- Metamod:Source - https://github.com/alliedmodders/metamod-source (installed by the server program, server/OverStrike2.Server)
+- CounterStrikeSharp - https://github.com/roflmuffin/CounterStrikeSharp (installed by the server program; the plugin builds
+  against its CounterStrikeSharp.API package)
+- MultiAddonManager - https://github.com/Source2ZE/MultiAddonManager (installed by the server program)
 - The joedwards32/cs2 container image - https://github.com/joedwards32/CS2
 - The .NET SDK and runtime-deps container images - https://github.com/dotnet/dotnet-docker

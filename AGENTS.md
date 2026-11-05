@@ -34,7 +34,6 @@ cd bridge && dotnet build && dotnet run -- --selftest      # must end SELFTEST P
 cd plugin/OverStrike2 && dotnet build -c Release            # zero warnings: warnings are errors
 cd plugin/OverStrike2.SelfTest && dotnet run
 cd plugin/CatchUp/SelfTest && dotnet run
-docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_update_watch.py   # Linux only
 dotnet run --project core/SelfTest                          # the settings file and what the parts share
 dotnet run --project server/OverStrike2.Server/SelfTest     # the server program; its Linux-only checks in the game image (docs/server.md)
 dotnet run --project server/OverStrike2.Sync/SelfTest       # the Workshop sync's program; its Linux-only checks in the game image too

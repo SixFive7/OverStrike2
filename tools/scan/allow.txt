@@ -29,8 +29,7 @@ binary hud/images/knife.png d2c519bfbb23433de5ba8541071db7860fd8af8bdb47f98ba291
 binary hud/workshop_preview.jpg eebf2abc31669287fcf4f2d4022968e5eef0a6ad000a100f542b646ff891ca19  # the HUD item's preview: the Fun page as a test client drew it, on a plain ground - our own menu, no other authors' pictures
 
 # Self-test values that look like secrets
-token server/test_workshop_sync.py 0123456789ABCDEF0123456789ABCDEF  # the sync self-test's made-up Web API key
-token core/SelfTest/SettingsTests.cs 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in the settings self-test
+token core/SelfTest/SettingsTests.cs 0123456789ABCDEF0123456789ABCDEF  # a made-up Web API key, in the settings self-test
 token .gitleaks.toml 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in gitleaks' allowlist
 token server/OverStrike2.Sync/SelfTest/*.cs 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in the sync program's self-test
 
@@ -38,18 +37,14 @@ token server/OverStrike2.Sync/SelfTest/*.cs 0123456789ABCDEF0123456789ABCDEF  # 
 hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-tests and a comment); the real one stays private
 
 # The zone the tests run in
-timezone server/test_*.py Europe/Paris  # a zone with European summer time the restart and sync tests need; not the deployment's
-timezone core/SelfTest/TimeTests.cs Europe/Paris  # the same, for the core self-test's clock changes
+timezone core/SelfTest/TimeTests.cs Europe/Paris  # a zone with European summer time the core self-test's clock changes need; not the deployment's
 timezone server/OverStrike2.Server/SelfTest/*.cs Europe/Paris  # the same, for the server program's self-test (the restart scenarios)
 timezone server/OverStrike2.Sync/SelfTest/*.cs Europe/Paris  # the same, for the sync program's self-test (the daily restart's stretch, the local day)
 
 # Times that are not anybody's evening: made-up ones (a date in 2001, a time at or around noon or midnight), the restart
 # test's designed scenario clocks, and a date with its time zeroed
-clock-time server/test_*.py 2001-01-01 12:\d\d|[01]\d/[0-3]\d/2001 - 12:\d\d  # log lines with made-up dates and times
-clock-time server/test_*.py 2026-10-(?:0[4-8]|1[2-6]) [0-2]\d:[0-5]\d|10/04/2026 - (?:07:0\d|15:00)  # the restart test's designed scenario clocks, around its 03:30 prefetch and 07:00 restart
-clock-time server/OverStrike2.Server/SelfTest/*.cs 2001-01-01 12:\d\d|[01]\d/[0-3]\d/2001 - 12:\d\d  # the server program's self-test: the same made-up log lines
+clock-time server/OverStrike2.Server/SelfTest/*.cs 2001-01-01 12:\d\d|[01]\d/[0-3]\d/2001 - 12:\d\d  # the server program's self-test: log lines with made-up dates and times
 clock-time server/OverStrike2.Server/SelfTest/*.cs 10/04/2026 - (?:07:0\d|15:00)  # the server program's self-test: the restart scenarios' designed clocks, around the 07:00 restart
 clock-time bridge/Program.cs [01]\d/[0-3]\d/2001 - 12:\d\d  # the log parser's sample lines: made-up dates and times
 clock-time bridge/SelfTest*.cs 20\d\d-[01]\d-[0-3]\d[ T](?:12|00):00|[01]\d/[0-3]\d/20\d\d - 12:00  # self-test fixtures: made-up times, noon or midnight
 clock-time bridge/sizes.json 20\d\d-[01]\d-[0-3]\dT00:00  # the size list's generation date, its time zeroed
-clock-time server/update-watch.py 07:00 local  # the daily restart's default time (CS2_RESTART_AT)
