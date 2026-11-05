@@ -241,7 +241,7 @@ public sealed class SyncRun
 
     JsonObject RunInner()
     {
-        Phase("start");
+        string? unreadable = null;
         try
         {
             Ledger.Load();
@@ -249,7 +249,12 @@ public sealed class SyncRun
         }
         catch (Exception e) when (e is BadDataException or IOException or UnauthorizedAccessException)
         {
-            Errors.Add(e.Message);
+            unreadable = e.Message;
+        }
+        Phase("start");                                     // after the load: the run's first picture on the dashboard has its totals
+        if (unreadable is not null)
+        {
+            Errors.Add(unreadable);
             Finish();
             return Report;
         }

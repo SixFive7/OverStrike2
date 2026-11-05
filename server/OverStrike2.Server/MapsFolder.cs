@@ -233,7 +233,8 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
             sizes = [];
         }
         var rows = new StringBuilder("type\tid\ttitle\tMB\n");
-        foreach (var id in Directory.EnumerateFileSystemEntries(content).Select(Path.GetFileName).Where(n => Digits(n!)).OrderBy(x => x, StringComparer.Ordinal))
+        var entries = Directory.Exists(content) ? Directory.EnumerateFileSystemEntries(content) : [];   // a new volume has no Steam folder yet
+        foreach (var id in entries.Select(Path.GetFileName).Where(n => Digits(n!)).OrderBy(x => x, StringComparer.Ordinal))
         {
             var (kind, title) = types.TryGetValue(id!, out var t) ? t : ("other", "");
             rows.Append(kind).Append('\t').Append(id).Append('\t').Append(title.Replace('\t', ' ')).Append('\t')

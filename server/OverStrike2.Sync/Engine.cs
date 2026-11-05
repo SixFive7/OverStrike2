@@ -377,24 +377,44 @@ public sealed class TestEngine : ITestEngine
         return (false, $"the test engine did not answer within {timeout} s");
     }
 
+    /// <summary>The quit, then SIGTERM, then SIGKILL on the group, each with its wait. Under a SIGTERM of the service's own the waits are over at once
+    /// and the signals still go, so no frozen engine stays behind; the stop then goes on up.</summary>
     public void Stop()
     {
         if (proc is null)
             return;
         var pgid = proc.Id;
+        var stopping = false;
+        bool Waited()
+        {
+            if (stopping)
+                return false;
+            try
+            {
+                clock.Sleep(1);
+                return true;
+            }
+            catch (StopRequested)
+            {
+                stopping = true;
+                return false;
+            }
+        }
         if (Alive())
         {
             Rcon("quit");
-            for (var i = 0; i < QuitWait && Alive(); i++)
-                clock.Sleep(1);
+            for (var i = 0; i < QuitWait && Alive() && Waited(); i++)
+            {
+            }
         }
         foreach (var sig in new[] { Native.SigTerm, Native.SigKill })
         {
             if (!Native.GroupAlive(pgid))
                 break;
             Native.SignalGroup(pgid, sig);
-            for (var i = 0; i < StopWait && Native.GroupAlive(pgid); i++)
-                clock.Sleep(1);
+            for (var i = 0; i < StopWait && Native.GroupAlive(pgid) && Waited(); i++)
+            {
+            }
         }
         try
         {
@@ -405,6 +425,8 @@ public sealed class TestEngine : ITestEngine
         }
         proc.Dispose();
         proc = null;
+        if (stopping)
+            throw new StopRequested();
     }
 }
 

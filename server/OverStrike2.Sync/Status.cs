@@ -39,6 +39,10 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
     readonly object gate = new();
     public string Path { get; set; } = cfg.StatusFile;
     public double TickSeconds { get; set; } = 15;
+
+    /// <summary>A test's look at each picture as it is written.</summary>
+    public Action<JsonObject>? Wrote { get; set; }
+
     JsonObject now = new() { ["state"] = "idle", ["why"] = "The sync is starting.", ["map"] = null, ["step"] = null, ["run"] = null };
     JsonObject heavy = [];
     double heavyAt;
@@ -90,7 +94,9 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         {
             try
             {
-                OverStrike2.Core.Files.WriteAtomic(Path, Py.Compact(Doc()) + "\n", FileModes.Private);
+                var doc = Doc();
+                OverStrike2.Core.Files.WriteAtomic(Path, Py.Compact(doc) + "\n", FileModes.Private);
+                Wrote?.Invoke(doc);
                 if (failed is not null)
                     log($"status: {Path} written again");
                 failed = null;
@@ -153,13 +159,11 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         JsonObject dl = Py.Obj(r["downloads"]), sv = Py.Obj(r["serve"]), t = Py.Obj(r["tests"]), pub = Py.Obj(r["published"]);
         var rows = Py.StrList(t["rows"]);
         var stop = new[] { dl["stop"], t["stop"], sv["stop"], r["api_stop"] }.FirstOrDefault(Py.Truthy) is { } s ? Py.Str(s) : null;
-        var svDownloads = sv.ContainsKey("downloads") ? sv["downloads"] : sv["ok"];
-        var svBytes = sv.ContainsKey("dl_bytes") ? sv["dl_bytes"] : sv["bytes"];
         return new JsonObject
         {
             ["started"] = Unix(clock, r["started"]), ["ended"] = Unix(clock, r["ended"]), ["kind"] = Py.Truthy(r["manual"]) ? "manual" : "auto",
-            ["downloads"] = Py.Int(dl["ok"]) + Py.Int(svDownloads),
-            ["bytes"] = Py.Int(dl["bytes"]) + Py.Int(svBytes),
+            ["downloads"] = Py.Int(dl["ok"]) + Py.Int(sv["downloads"]),   // serve's own count, there once it downloaded: its ok also has what was staged already
+            ["bytes"] = Py.Int(dl["bytes"]) + Py.Int(sv["dl_bytes"]),
             ["pass"] = rows.Count(x => x.StartsWith("PASS", StringComparison.Ordinal)), ["rejected"] = rows.Count(x => !x.StartsWith("PASS", StringComparison.Ordinal)),
             ["listed"] = Py.Arr(pub["listed"]).Count + Py.Obj(pub["modes"]).Sum(kv => Py.Arr(kv.Value).Count),
             ["removed"] = Py.Arr(Py.Get(r["check"], "removed")).Count, ["stop"] = stop is null ? null : Py.Cut(stop, 200),

@@ -329,8 +329,16 @@ static class NewChecks
         listener.Stop();
         Check($"mail: sent through an SMTP relay - the sender's address, every recipient, the body dot-stuffed ({why ?? "sent"})",
               why is null && lines.Contains("MAIL FROM:<sync@example.com>") && lines.Contains("RCPT TO:<a@example.com>") && lines.Contains("RCPT TO:<b@example.com>")
-              && lines.Contains("Subject: a subject é") && lines.Contains("..a line that starts with a dot") && lines.Contains("last") && !lines.Contains("STARTTLS"));
+              && lines.Contains("Subject: =?utf-8?B?" + Convert.ToBase64String(Encoding.UTF8.GetBytes("a subject é")) + "?=") && lines.Contains("..a line that starts with a dot") && lines.Contains("last") && !lines.Contains("STARTTLS"));
         Check("mail: no relay configured, no mail", Mail.Send(Cfg(), "s", "b") == "no SMTP host, sender or recipient configured");
+        Check("mail: a plain subject stays as it is, and no line break makes a header of its own",
+              Mail.HeaderText("Over Strike 2: a problem") == "Over Strike 2: a problem" && Mail.HeaderText("a\r\nBcc: x") == "a  Bcc: x");
+        var longName = string.Concat(Enumerable.Repeat("Der gr\u00fcne Server \U0001F600 ", 12));
+        var folded = Mail.HeaderText(longName).Split("\r\n ");
+        var words = folded.Select(w => w[10..^2]).Select(Convert.FromBase64String).ToList();
+        Check($"mail: a long subject beyond ASCII is encoded words that fit their lines, each whole characters, and read back the same ({folded.Length} words)",
+              folded.Length > 1 && folded.All(w => w.StartsWith("=?utf-8?B?", StringComparison.Ordinal) && w.EndsWith("?=", StringComparison.Ordinal) && w.Length + "Subject: ".Length <= 76)
+              && words.All(b => !Encoding.UTF8.GetString(b).Contains('\uFFFD')) && string.Concat(words.Select(Encoding.UTF8.GetString)) == longName);
     }
 
     // ---- the console's tail: new lines only, a line cut short kept for later, a truncated file read again from its start

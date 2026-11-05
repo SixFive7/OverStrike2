@@ -403,13 +403,38 @@ public static partial class Mail
 
     // ------------------------------------------------------------------------------------------------ SMTP
 
+    /// <summary>A header's text as RFC 2047 wants it: printable ASCII as it is, anything else as UTF-8 encoded words on folded lines, each short enough for
+    /// a line of 76 behind "Subject: " and never splitting a character. A line break in the text cannot start a header of its own.</summary>
+    public static string HeaderText(string text)
+    {
+        const int WordBytes = 39;                           // 52 characters of Base64 (no padding but at the end), 64 with its marks
+        var clean = text.Replace('\r', ' ').Replace('\n', ' ');
+        if (clean.All(c => c is >= ' ' and <= '~'))
+            return clean;
+        var words = new List<string>();
+        var word = new List<byte>();
+        Span<byte> one = stackalloc byte[4];
+        foreach (var rune in clean.EnumerateRunes())
+        {
+            var n = rune.EncodeToUtf8(one);
+            if (word.Count + n > WordBytes)
+            {
+                words.Add($"=?utf-8?B?{Convert.ToBase64String(word.ToArray())}?=");
+                word.Clear();
+            }
+            word.AddRange(one[..n]);
+        }
+        words.Add($"=?utf-8?B?{Convert.ToBase64String(word.ToArray())}?=");
+        return string.Join("\r\n ", words);
+    }
+
     /// <summary>Plain-text mail through the SMTP relay (STARTTLS when it is offered, else plain; a TLS failure is tried again plain). Returns
     /// null when sent, else the reason.</summary>
     public static string? Send(SyncConfig cfg, string subject, string body)
     {
         if (cfg.SmtpHost.Length == 0 || cfg.MailFrom.Length == 0 || cfg.MailTo.Count == 0)
             return "no SMTP host, sender or recipient configured";
-        var msg = $"From: {cfg.MailFrom}\r\nTo: {string.Join(", ", cfg.MailTo)}\r\nSubject: {subject}\r\nDate: {DateTimeOffset.Now.ToString("ddd, dd MMM yyyy HH:mm:ss ", CultureInfo.InvariantCulture)}{Offset(DateTimeOffset.Now.Offset)}\r\n"
+        var msg = $"From: {cfg.MailFrom}\r\nTo: {string.Join(", ", cfg.MailTo)}\r\nSubject: {HeaderText(subject)}\r\nDate: {DateTimeOffset.Now.ToString("ddd, dd MMM yyyy HH:mm:ss ", CultureInfo.InvariantCulture)}{Offset(DateTimeOffset.Now.Offset)}\r\n"
                   + $"Message-ID: <{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.{Environment.ProcessId}.{Random.Shared.Next()}.os2-sync@{Environment.MachineName.ToLowerInvariant()}>\r\n"
                   + $"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\nX-Mailer: {SteamApi.UserAgent}\r\n\r\n{body.Replace("\n", "\r\n")}\r\n";
         var sender = Address(cfg.MailFrom);

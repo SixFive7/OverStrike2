@@ -36,6 +36,8 @@ static class Lifetimes
         FailedVersion();
         NoOpRuns();
         ServiceStart();
+        FirstPicture();
+        HistoryCounts();
         Tries();
         OldCounts();
         Backups();
@@ -283,6 +285,28 @@ static class Lifetimes
         Check($"service start: nobody on and work waiting, still no run in the quiet minutes after a start ({early} runs)", cfg.Quiet == 600 && early == 0);
         var after = RunsOfService(cfg, T0, T0 + cfg.Quiet + 120);
         Check($"service start: ... and a run once they are over ({after} runs)", after == 1);
+    }
+
+    // ---- a run's first picture on the dashboard: the state is loaded by then, so it never shows zero totals
+    static void FirstPicture()
+    {
+        var cfg = World("first-picture", new JsonObject { ["801"] = Listed(U1, ("verdict", "pass")) }, new JsonObject { ["801"] = U1 }, T0 - 5 * Hour);
+        Hooks.Check = (_, ids, _, _, _) => (ids.ToDictionary(i => i, i => Details(i, U1)), []);
+        var fc = new FakeClock(T0);
+        JsonObject? first = null;
+        var status = new Status(cfg, C(fc), Log.Line) { Wrote = doc => first ??= doc };
+        new SyncRun(cfg, C(fc), Hooks, Log, true, status: status, door: new WebApiDoor(cfg.ApiGap, fc)).Run();
+        Check($"status: a run's first picture already has the state's totals ({Py.Str(Py.Get(first?["totals"], "tested"))} tested)", Py.Int(Py.Get(first?["totals"], "tested")) == 1);
+    }
+
+    // ---- the history's downloads are what was downloaded: a hand-over of what was staged already is none
+    static void HistoryCounts()
+    {
+        var clock = C(new FakeClock(T0));
+        var staged = Status.RunEntry(O("{\"serve\": {\"ok\": 3, \"bytes\": 3000, \"failed\": []}}"), clock);
+        Check("status: a run's history - 3 handed over without a new download are 0 downloads, 0 bytes", Py.Int(staged["downloads"]) == 0 && Py.Int(staged["bytes"]) == 0);
+        var both = Status.RunEntry(O("{\"downloads\": {\"ok\": 2, \"bytes\": 200}, \"serve\": {\"ok\": 3, \"bytes\": 3000, \"downloads\": 1, \"dl_bytes\": 1000}}"), clock);
+        Check("status: a run's history - the test's downloads and serve's own", Py.Int(both["downloads"]) == 3 && Py.Int(both["bytes"]) == 1200);
     }
 
     // ---- the download tries are per content version

@@ -127,6 +127,10 @@ static class OrganizeTests
         Directory.Delete(Path.Combine(maps, "deathmatch", "200-bastion"), true);
         line = mf.Organize();
         C($"organize: a link to nothing goes - Steam fetches the map again when it is wanted ({line})", () => !MapsFolder.Lexists(Path.Combine(content, "200")));
+        var fresh = Dir("orgfresh");
+        var freshLine = new MapsFolder(Config(fresh, data, "500"), log, SystemClock.Instance, Scenario.Paris).Organize();
+        C($"organize: a new volume, no Steam folder yet: its line and an empty index, not a stop ({freshLine})",
+          () => !freshLine.Contains("stopped") && File.ReadAllText(Path.Combine(fresh, "maps", "INDEX.tsv")) == "type\tid\ttitle\tMB\n" && !Directory.Exists(Contents(fresh)));
         var none = new MapsFolder(Config(tree, Path.Combine(tree, "nothing-here"), "500"), log, SystemClock.Instance, Scenario.Paris);
         C("organize: no lists, nothing touched", () => none.Organize().Contains("not readable"));
         var off = Config(tree, data, "500");

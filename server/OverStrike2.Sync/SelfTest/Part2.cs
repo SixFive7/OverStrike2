@@ -135,6 +135,7 @@ static class Part2
         if (!OperatingSystem.IsLinux())
         {
             foreach (var name in new[] { "engine stop: the group is up before the stop", "engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group",
+                                         "engine stop under a SIGTERM: the signals still go, and no frozen engine stays", "engine stop under a SIGTERM: ... and the stop goes on up",
                                          "engine start: nothing answering is a refusal (not run)", "engine start: an engine still running from the test tree is killed first",
                                          "engine start: its own attempt is gone again" })
                 Linux(name, () => false);
@@ -150,6 +151,24 @@ static class Part2
         Check("engine stop: the group is up before the stop", Native.GroupAlive(stopPgid));
         te.Stop();
         Check("engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group", !Native.GroupAlive(stopPgid) && !te.HasProcess);
+        var going = new TestEngine(Cfg(), stopRoot, stopRoot, new SyncClock(new EndingClock(T0, T0), Paris), Log.Line);   // every wait of this clock throws at once
+        var frozen = Native.StartSession(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
+        going.Adopt(frozen);
+        Thread.Sleep(1000);
+        var frozenPgid = frozen.Id;
+        var wentUp = false;
+        try
+        {
+            going.Stop();
+        }
+        catch (StopRequested)
+        {
+            wentUp = true;
+        }
+        for (var i = 0; i < 30 && Native.GroupAlive(frozenPgid); i++)
+            Thread.Sleep(100);
+        Check("engine stop under a SIGTERM: the signals still go, and no frozen engine stays", !Native.GroupAlive(frozenPgid) && !going.HasProcess);
+        Check("engine stop under a SIGTERM: ... and the stop goes on up", wentUp);
         var farmBin = Path.Combine(stopRoot, "farm", "game", "bin");
         Directory.CreateDirectory(farmBin);
         File.Copy("/bin/sleep", Path.Combine(farmBin, "cs2"));
