@@ -12,7 +12,7 @@ and layout.json beside --layout (every box and pane, for the preview render and 
   python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>]
 
 Everything is boxes and wedges: each world piece is one closed CMapMesh, each pane of glass one func_breakable (material
-Glass, 1 health) with one CMapMesh child. Units are Hammer units (1 unit = 1 inch). See README.md.
+Glass, 1 health) with one CMapMesh child. Units are Hammer units (1 unit = 1 inch).
 """
 import argparse
 import json

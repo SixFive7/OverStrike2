@@ -19,7 +19,7 @@ and layout.json beside --layout (every piece and pane as polygons, the spawns an
 
 Every world piece is one closed convex CMapMesh; every pane of glass is one func_breakable (material Glass) with one mesh
 child. The design is original: a moon base theme (dome, white modules, greenhouse, tanks, Earth in a black sky), its own
-layout. Units are Hammer units. See README.md. Needs numpy and Pillow for the textures.
+layout. Units are Hammer units. Needs numpy and Pillow for the textures.
 """
 import argparse
 import hashlib

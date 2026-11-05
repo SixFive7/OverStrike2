@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """gg_vinceville - generates a CS2 gun game map: small houses scattered over a big grassy field, with clusters of trees,
-shallow ponds and plenty of corners to ambush (and taser) people in. Built on the owner's request of 2026-10-31.
+shallow ponds and plenty of corners to ambush (and taser) people in.
 Build 2 (2026-11-01): every staircase walkable without crouching or jumping (see walkcheck.py).
 Build 3 (2026-11-01): wide doors and little furniture, a cellar under every house, a sewer under the field
 joining every building (stairs down in the barn and the shed, four manholes in the field), ponds deep enough to

@@ -12,7 +12,7 @@ compile and no materials folder to ship.
 is under review; the map inside stays gg_vinceville. --spawns-from keeps an earlier build's spawn points.
 
 --nolight skips the lighting bake (a quick geometry check; such a map renders unlit - do not ship it).
---vis adds the visibility build; without it the map draws whole, which is what shipped (see the README of gg_glasspire).
+--vis adds the visibility build; without it the map draws whole, which is what shipped.
 """
 import argparse
 import os

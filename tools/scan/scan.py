@@ -80,7 +80,7 @@ RULES = [
 # a reference to one of the owner's numbered decisions: the code and the docs say what is, not who decided it when. Only in the
 # folders whose pass is done; the others join OWNER_REF_PATHS as theirs lands. Commit messages are history and are not checked.
 OWNER_REF = re.compile(r"\b[Tt]he owner's (?:\d+(?:\.\d+)?(?: ?[a-z])?\b|decisions?\b|rules?\b)|\b[Uu]ser decision\b|\bowner's decision\b")
-OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*", "core/*", "docs/*", "README.md", "AGENTS.md", "hud/PUBLISH.md", "maps/README.md")
+OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*", "core/*", "docs/*", "README.md", "AGENTS.md", "hud/PUBLISH.md", "maps/*", "plugin/CatchUp/*")
 DOC_V4 = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
 DOC_V6 = ipaddress.ip_network("2001:db8::/32")
 VALVE_COMPILED = re.compile(r"(?i)(_c|\.vpk)$")
