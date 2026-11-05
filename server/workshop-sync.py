@@ -118,6 +118,9 @@ FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, dis
                             during a run, and every minute while idle, waiting or stopped. The bridge does not watch it.
   <bridge>/ratings.json     step 2b's lists, version 1: {"fetched": unix time, "scores": {id: [score, votes up, votes down,
                             subscriptions]}, "trend": {mode: [ids, Most Popular first]}, "trend_days": 30}.
+  <bridge>/workshop.json    every listed map's Workshop numbers and the version this sync accepts, version 1 (Run.write_workshop),
+                            written by the check and every publish: the bridge's discovery stock takes only maps whose current
+                            content passed the sync's test.
 
 CONFIG (environment of the sync service; defaults in brackets)
   SYNC_ENABLED [1], SYNC_PUBLISH [1], SYNC_RUN_HOURS [3], SYNC_API_EVERY_HOURS [4], SYNC_DAILY_RESTART [07:00],
@@ -135,7 +138,8 @@ CONFIG (environment of the sync service; defaults in brackets)
     python3 workshop-sync.py              the service: a run whenever nobody plays and there is work (or at once: run-now)
     python3 workshop-sync.py --once       one run now, then exit (the same rules)
     python3 workshop-sync.py --status     print the ledger's counters and the state's totals
-    python3 workshop-sync.py --export     what it has published, as entries a republish from the repo can merge
+    python3 workshop-sync.py --export     what it has published, as entries a republish from the repo can merge, and the
+                                          random queues as queues.json holds them ("queues")
 """
 
 import calendar
@@ -198,6 +202,7 @@ TREND_PAGES = 20                  # pages of 100 a mode's Most Popular walk read
 TREND_WANT = 150                  # ...stopping once this many of the mode's listed maps were in it (100 stay, the rest is slack)
 ACF_WAIT = 20                 # seconds serve waits for SteamCMD's acf entry of a download (it came 1.0-1.4 s after Success, 2026-11-03)
 HANDOVER_MAX_BYTES = 200 << 30    # hand-overs the server has not taken in yet: past this much, no more until it does
+WORKSHOP_FILE = "workshop.json"   # in the bridge's data: every listed map's Workshop numbers and the version this sync accepts (write_workshop)
 
 MODES = (  # (id, Workshop tag, game_type, game_mode, the list file beside maps.json)
     ("armsrace", "Armsrace", 1, 0, "maps.json"),
@@ -852,6 +857,17 @@ class State(object):
             rec["status"] = "queued"
             rec["why"] = "changed"
         return rec
+
+    def note_workshop(self, wid, item):
+        """An item's Workshop numbers as the check saw them (result 1; a map gone or hidden keeps what was seen before): what
+        workshop.json gives the bridge."""
+        if int(item.get("result") or 0) != 1:
+            return
+        self.data.setdefault("workshop", {})[str(wid)] = {
+            "created": int(item.get("time_created") or 0), "updated": int(item.get("time_updated") or 0),
+            "content": str(item.get("hcontent_file") or ""), "subs": int(item.get("subscriptions") or 0),
+            "lifetime": int(item.get("lifetime_subscriptions") or 0), "favs": int(item.get("favorited") or 0),
+            "lifetimeFavs": int(item.get("lifetime_favorited") or 0), "views": int(item.get("views") or 0)}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -3181,10 +3197,13 @@ class Run(object):
             for wid in queue_head:
                 if wid in details:
                     self.state.remember(details[wid], self.day, (self.state.item(wid) or {}).get("why") or "new")
+            for wid, item in details.items():
+                self.state.note_workshop(wid, item)
             self.state.save()
             log("check: %d asked, %d gone (%d newly), %d changed%s" % (
                 len(ids), len(judged["removed"]), len(newly), len(judged["changed"]),
                 " - NOT BELIEVED (over 10%)" if judged["suspicious"] else ""))
+            self.write_workshop(files)
             if api.stop_reason:
                 self.report["api_stop"] = api.stop_reason
             # 2b. the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
@@ -3998,6 +4017,44 @@ class Run(object):
             if kind == "pass":
                 self.state.data["baseline"][wid] = int(rec.get("updated") or 0)
         self.state.save()
+        self.write_workshop(files)
+
+    def write_workshop(self, files):
+        """<bridge>/workshop.json, version 1, which the bridge reads (bridge/Popularity.cs) - its discovery stock takes only maps whose
+        current Workshop content passed the sync's test: {"version": 1, "written": unix time, "maps": {id: {"created", "updated",
+        "content", "subs", "lifetime", "favs", "lifetimeFavs", "views", "passed"}}} for every listed map. The Workshop's time_created,
+        time_updated, hcontent_file, subscriptions, lifetime_subscriptions, favorited, lifetime_favorited and views as the last check saw
+        them (the state's record of the map, with what it has, before the check has seen it), and "passed": the time_updated of the content
+        the sync accepts - the baseline, the version its last passing test was of (or one unchanged since SYNC_CHANGED_SINCE); for our own
+        maps (ours.json), never tested here, the newest the check saw. 0 while the map's Workshop numbers are not known. Written by the
+        check and by every publish."""
+        if not self.cfg.publish:
+            return
+        seen = self.state.data.get("workshop") or {}
+        base = self.state.data.get("baseline") or {}
+        ours = read_json(os.path.join(self.cfg.bridge_data, "ours.json"), {})
+        own = set(str(e.get("id")) for e in ((ours.get("maps") if isinstance(ours, dict) else None) or []) if isinstance(e, dict))
+        listed = [str(m["id"]) for m in files["maps"] if isinstance(m, dict) and str(m.get("id", "")).isdigit()]
+        for mode in files["modes"]:
+            listed += [str(m["id"]) for m in files["modes"][mode] if isinstance(m, dict) and str(m.get("id", "")).isdigit()
+                       and str(m["id"]) not in listed]
+        maps = {}
+        for wid in listed:
+            w = seen.get(wid)
+            if not isinstance(w, dict):
+                rec = self.state.item(wid) or {}
+                w = {"created": int(rec.get("created") or 0), "updated": int(rec.get("updated") or 0), "content": "",
+                     "subs": int(rec.get("subs") or 0), "lifetime": int(rec.get("lifetime") or 0), "favs": 0, "lifetimeFavs": 0, "views": 0}
+            updated = int(w.get("updated") or 0)
+            accepted = int(base.get(wid) or 0)
+            if wid in own:
+                accepted = max(accepted, updated)
+            maps[wid] = dict(w, passed=accepted if updated > 0 else 0)
+        try:
+            write_atomic(os.path.join(self.cfg.bridge_data, WORKSHOP_FILE), json.dumps(
+                {"version": 1, "written": int(self.clock.now()), "maps": maps}, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except OSError as error:
+            self.report["errors"].append("%s not written: %s" % (WORKSHOP_FILE, error))
 
     def reload(self):
         if not (self.cfg.bridge_url and self.cfg.bridge_secret):
@@ -4110,6 +4167,11 @@ class Run(object):
         wk = read_json(os.path.join(self.cfg.watcher_dir, "keep.json"), {}) or {}
         if isinstance(wk, dict) and wk.get("problems") and str(wk.get("delete") or "on") != "off":
             self.report["watcher_keep"] = {"computed": str(wk.get("computed") or "?"), "problems": list(wk["problems"])[:5]}
+        if self.cfg.publish and not os.path.exists(os.path.join(self.cfg.bridge_data, WORKSHOP_FILE)):
+            try:                                # never without one after a run: the bridge's stock waits for it
+                self.write_workshop(bridge_files(self.cfg))
+            except (OSError, ValueError):
+                pass
         issues = issues_of(self.report)
         self.report["issues"] = [what for _k, what, _d in issues]
         self.report["mail"] = mail_issues(self.cfg, self.clock, issues, self.report)
@@ -4171,7 +4233,9 @@ def status(cfg):
 def export(cfg):
     """--export: what this sync has published, as entries a republish from the repo can merge (the entries' shape:
     id, rank, name, subscriptions, lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and
-    state.json. The server's data is ahead of the repo after a run that published; this is the way back."""
+    state.json, and the random queues as queues.json holds them ("queues": version 1, its lanes under "random" and
+    "requested"; None without the file), which the HUD's pictures take first. The server's data is ahead of the repo after a
+    run that published; this is the way back."""
     st = State(os.path.join(cfg.state_dir, "state.json")).load()
     files = bridge_files(cfg)
     out = {"generated": time.strftime("%Y-%m-%dT%H:%M:%S"), "maps.json": [], "modes": {}, "broken.json": []}
@@ -4191,6 +4255,8 @@ def export(cfg):
         for e in files["broken"].get(section) or []:
             if isinstance(e, dict) and str(e.get("id")) in mine:
                 out["broken.json"].append(dict(e, section=section))
+    queues = read_json(os.path.join(cfg.bridge_data, "queues.json"), None)   # the random queues, as the bridge wrote them
+    out["queues"] = queues if isinstance(queues, dict) else None
     print(json.dumps(out, ensure_ascii=False, indent=1))
 
 

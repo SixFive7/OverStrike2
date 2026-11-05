@@ -1126,6 +1126,59 @@ check("issues: verdicts that do not reach the bridge are a problem for the mail 
       % (r8.report.get("published") or {}).get("verdicts"), "verdicts-not-reported" in [k for k, _w, _d in m.issues_of(r8.report)])
 m.check = lambda api, ids, deadline, now=None: ({}, [])
 os.remove(os.path.join(run_data, "removed.json"))
+# workshop.json (the bridge's discovery stock reads it, bridge/Popularity.cs): every listed map with the Workshop's numbers as the check saw
+# them, and "passed", the time_updated of the content the sync accepts - the baseline, our own maps' newest; a passing test of new content
+# moves it up to it. The export carries the random queues as queues.json holds them
+wroot = os.path.join(ROOT, "wsj")
+wdata = os.path.join(wroot, "data")
+os.makedirs(os.path.join(wroot, "state"))
+os.makedirs(wdata)
+json.dump([{"rank": 1, "id": 21, "name": "a", "sizeMb": 1}, {"rank": 2, "id": 22, "name": "b", "sizeMb": 1},
+           {"rank": 3, "id": 24, "name": "d", "sizeMb": 1}], open(os.path.join(wdata, "maps.json"), "w"))
+json.dump([{"rank": 1, "id": 23, "name": "c", "sizeMb": 1}, {"name": "de_dust2", "official": True}], open(os.path.join(wdata, "maps-deathmatch.json"), "w"))
+json.dump({"schema": "x", "maps": [], "packs": []}, open(os.path.join(wdata, "broken.json"), "w"))
+json.dump({"maps": [{"id": 23}]}, open(os.path.join(wdata, "ours.json"), "w"))
+json.dump({"version": 1, "length": 10, "random": {"armsrace-new": ["21"], "armsrace-original": ["21"], "deathmatch": [], "wingman": []},
+           "requested": ["24"]}, open(os.path.join(wdata, "queues.json"), "w"))
+json.dump({"schema": 1, "items": {}, "baseline": {"21": 500, "22": 600, "23": 300, "24": 400}, "downloads": {}},
+          open(os.path.join(wroot, "state", "state.json"), "w"))
+
+
+def wdet(wid, updated, **extra):
+    return dict({"publishedfileid": wid, "result": 1, "time_created": 100, "time_updated": updated, "hcontent_file": "9" + wid,
+                 "subscriptions": 5, "lifetime_subscriptions": 7, "favorited": 2, "lifetime_favorited": 3, "views": 11, "consumer_appid": 730,
+                 "title": "map " + wid, "tags": [{"tag": "Armsrace"}]}, **extra)
+
+
+m.check = lambda api, ids, deadline, now=None: ({"21": wdet("21", 500), "22": wdet("22", 900), "23": wdet("23", 700, creator="7"),
+                                                 "24": wdet("24", 800, tags=[])}, [])
+saved_env = {k: os.environ[k] for k in ("SYNC_STATE_DIR", "SYNC_WORK_DIR", "SYNC_BRIDGE_DATA")}
+os.environ.update({"SYNC_STATE_DIR": os.path.join(wroot, "state"), "SYNC_WORK_DIR": os.path.join(wroot, "work"), "SYNC_BRIDGE_DATA": wdata})
+cfgw = m.Config()
+cfgw.lower({"api": True})
+cfgw.download_pause, cfgw.exclude_creators = 0, {"7"}
+m.Run(cfgw, FakeClock(T0 + 9 * m.DAY), manual=True).run()
+wj = json.load(open(os.path.join(wdata, "workshop.json"), encoding="utf-8"))
+check("workshop.json: the check writes it - version 1, every listed map with the Workshop's numbers as the check saw them",
+      wj["version"] == 1 and wj["written"] == int(T0 + 9 * m.DAY) and sorted(wj["maps"]) == ["21", "22", "23", "24"]
+      and wj["maps"]["21"] == {"created": 100, "updated": 500, "content": "921", "subs": 5, "lifetime": 7, "favs": 2, "lifetimeFavs": 3,
+                               "views": 11, "passed": 500})
+check("workshop.json: passed is the version the sync accepts - a changed map still waiting for its test keeps the old one, our own map has its newest",
+      (wj["maps"]["24"]["updated"], wj["maps"]["24"]["passed"]) == (800, 400) and (wj["maps"]["23"]["updated"], wj["maps"]["23"]["passed"]) == (700, 700))
+check("workshop.json: a passing test of a map's new content moves its passed up to it (%s)" % wj["maps"]["22"],
+      (wj["maps"]["22"]["updated"], wj["maps"]["22"]["passed"]) == (900, 900) and "22" in loads)
+exported = io.StringIO()
+real_stdout, sys.stdout = sys.stdout, exported
+try:
+    m.export(cfgw)
+finally:
+    sys.stdout = real_stdout
+ex = json.loads(exported.getvalue())
+check("export: the random queues as queues.json holds them - its lanes and the open ballot's requests",
+      ex["queues"] == json.load(open(os.path.join(wdata, "queues.json"))) and ex["queues"]["random"]["armsrace-new"] == ["21"]
+      and ex["queues"]["requested"] == ["24"])
+os.environ.update(saved_env)
+m.check = lambda api, ids, deadline, now=None: ({}, [])
 # no time windows: a run lasts SYNC_RUN_HOURS, cut short before the restarts; the service starts one whenever nobody plays and work waits
 fcd = FakeClock(T0 + 3 * m.DAY)
 day0 = fcd.at((0, 0))
