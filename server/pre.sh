@@ -121,8 +121,8 @@ cs2_plugins_hud() {
         && cs2_plugins_log "HUD on: MultiAddonManager $CS2_PLUGINS_MAM_VERSION loaded, every client gets Workshop addon $id" \
         || { rm -f "$vdf"; cs2_plugins_log "WARNING: could not write the MultiAddonManager config; HUD addon not delivered"; return 1; }
 // Written by pre.sh on every start, from GUNGAME_HUD_ADDON in deploy/compose.example.yml (source: server/pre.sh). Edits here do not survive.
-mm_extra_addons ""                  // The server mounts nothing extra: the HUD layout lives on the clients only.
-mm_client_extra_addons "$id"        // The HUD addon, downloaded by every client on its first connect.
+mm_extra_addons "$id"               // The HUD addon, mounted by the server: every map change, an official map's too, carries it to every client.
+mm_client_extra_addons ""           // Nothing for the clients alone (a client-only addon is lost at a changelevel to an official map).
 mm_extra_addons_timeout 10
 mm_addon_connection_timeout 0       // Never kick a client for taking long: a first download of a big workshop map can take minutes.
 mm_addon_mount_download 0
