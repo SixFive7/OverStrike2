@@ -310,8 +310,7 @@ static partial class Program
         var known = version != Hud.Release;
         Log($"hud check: {name} {steamId} verified{(known ? $", HUD {version}" : "")}");
         if (!known) return;
-        Announce($"{Clip(name, 32)} joined with {(version == HudCheck.Older ? "an older HUD" : $"HUD {version}")}", 6);
-        if (HudCheck.IsOutdated(version)) Tell(steamId, HudCheck.OutdatedNote(version), 20);
+        Post(Messages.Joined, $"{M.N(Clip(name, 32))} joined with {(version == HudCheck.Older ? "an older HUD" : $"HUD {M.V(version)}")}");
     }
 
     /// <summary>The verifications of the players on the server, as the live state carries them: account -> the HUD its game showed.</summary>
@@ -475,7 +474,7 @@ static partial class Program
     static void OnJoin(LogEvent e, bool fresh)
     {
         if (e.Kind != Kind.Entered) return; // "entered the game" is the first moment the player can see the screen
-        if (CrashNotice != "" && Now() < CrashNoticeUntil && !InMaintenance()) Tell(e.SteamId, CrashNotice, 30);
+        if (CrashNotice != "" && Now() < CrashNoticeUntil && !InMaintenance()) Post(Messages.CrashNote, CrashNotice, e.SteamId);
         TellUpdated(e.SteamId); // Restarts.cs: an update just done
         var first = S.Seen.Add(e.SteamId);
         if (first) Save();

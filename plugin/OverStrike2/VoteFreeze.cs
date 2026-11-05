@@ -54,7 +54,7 @@ sealed class VoteFreeze(BasePlugin plugin, ILogger log, Func<HudScreen?> screen)
     {
         var hud = screen();
         var vote = hud?.Vote;
-        if (plan.Tick(vote?.Round ?? 0, vote?.Freeze == true, hud?.AnsweredAt ?? DateTime.MinValue, mapStartedAt, DateTime.UtcNow))
+        if (plan.Tick(vote?.Round ?? 0, vote?.Freeze == true, hud?.AnsweredAt ?? DateTime.MinValue, mapStartedAt, DateTime.UtcNow, vote?.EndsAtMs ?? 0, hud?.BridgeNowMs ?? 0))
         {
             if (plan.Frozen)
             {

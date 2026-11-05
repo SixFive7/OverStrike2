@@ -52,6 +52,82 @@ sealed partial class HudScreen
         Server.NextFrame(Frame);
     }
 
+    /// <summary>gg_notice from the restart watcher: a line for everybody, for this long. Its kind says its words: a download's line, or plain news. A download's refreshed line goes
+    /// to chat only when it starts and at each quarter.</summary>
+    public string Notice(string text, int seconds)
+    {
+        var line = Sections.Capitalize(Hud.Clean(text, Messages.TopMax));
+        var secs = Math.Clamp(seconds, 3, 3600);
+        var (kind, key, step) = Messages.OfNotice(line);
+        var said = key == "" || !noticeSteps.TryGetValue(key, out var was) || was != step;
+        if (key != "") noticeSteps[key] = step;
+        Post(kind, line, key: key, seconds: secs, chat: said);
+        return $"shown for {secs} s: {line}";
+    }
+
+    readonly Dictionary<string, int> noticeSteps = new();
+
+    // ---- a Workshop card's download, in chat and on the board: the card keeps its short form ----
+
+    readonly Dictionary<long, int> workshopSteps = new();
+
+    void WorkshopLine(CCSPlayerController p, WorkshopCard card, int percent)
+    {
+        if (card.Item is not { } item) return;
+        var step = percent / 25;
+        var said = !workshopSteps.TryGetValue(item.Id, out var was) || was != step;
+        workshopSteps[item.Id] = step;
+        var done = item.Bytes * percent / 100;
+        Post(Messages.WorkshopDownload, Messages.WorkshopLine(p.PlayerName, item.Title, percent, done, item.Bytes), Account(p), key: $"workshop:{item.Id}", chat: said);
+    }
+
+    // ---- catch-up's card: chat and the board through Post, the rows here ----
+
+    readonly Dictionary<int, (string Head, string[] Rows, bool Bad, DateTime From, DateTime Until)> cuCards = new();
+
+    /// <summary>Whether this player's game holds a content with the catch-up card: known by its version button (HudCheck), and not older. Any other gets the centre panel.</summary>
+    public bool HasCards(CCSPlayerController p) => VersionOf(Account(p)) is var v && v != "" && v != Hud.Release && !HudCheck.IsOutdated(v);
+
+    /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds, a row per item, green for a boost and red for a bounty; the same in that player's chat.</summary>
+    public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds)
+    {
+        var rows = items.Select(Messages.Capital).Take(CatchUpRows).ToArray();
+        var now = DateTime.UtcNow;
+        cuCards[player.Slot] = (head, rows, bad, now, now.AddSeconds(seconds));
+        var line = $"{head}: {string.Join("  ·  ", rows)}";
+        Post(bad ? Messages.Bounty : Messages.CatchUpBoost, bad ? M.Refused(line) : M.Done(line), Account(player), seconds: seconds);
+    }
+
+    const int CatchUpRows = 6;
+
+    void CatchUpFrame(CCSPlayerController p, DateTime now)
+    {
+        var has = cuCards.TryGetValue(p.Slot, out var c);
+        var on = has && now < c.Until.AddSeconds(HudSlots.FadeSeconds);
+        if (has && !on) cuCards.Remove(p.Slot);
+        var shown = on && now >= c.From.AddSeconds(HudSlots.FadeSeconds) && now < c.Until;
+        Class(HudView.Screen, "cu", on, p);
+        Class(HudView.Screen, "cu-in", shown, p);
+        Class(HudView.Screen, "cu-run", shown, p);
+        Text("gg_cu_head", on ? c.Head : "", p);
+        for (var k = 1; k <= CatchUpRows; k++)
+        {
+            var row = on && k <= c.Rows.Length ? c.Rows[k - 1] : "";
+            Text($"gg_cu_{k}", row, p);
+            Class($"gg_cu_{k}", "used", row != "", p);
+            Class($"gg_cu_{k}", "good", row != "" && !c.Bad, p);
+            Class($"gg_cu_{k}", "bad", row != "" && c.Bad, p);
+        }
+    }
+
+    /// <summary>css_gghud centre: how CS2's plain centre text holds, for the client harness: that text for that many seconds, sent again every so many seconds.</summary>
+    public string TestCentre(double every, double seconds, string text, bool alert)
+    {
+        CentreResendSeconds = Math.Max(0, every);
+        localCentres.Add((0, alert, Hud.Clean(text, Messages.CentreMax), DateTime.UtcNow.AddSeconds(seconds)));
+        return $"\"{text}\" for {seconds} s, sent again every {CentreResendSeconds} s";
+    }
+
     /// <summary>The status banner from the plugin (the HUD item's hold, and back): tone problem, warning, done or info, until its seconds are up.</summary>
     void PostBanner(Messages.Kind kind, string tone, string head, string line)
     {

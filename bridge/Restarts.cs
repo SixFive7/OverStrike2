@@ -135,6 +135,8 @@ static partial class Program
     {
         if (RestartDue is not { } r || RestartLine(now) is not { } line || RestartKind(r.Kind) is not { } k) return;
         h.RestartKind = r.Kind; h.RestartWhen = r.When; h.RestartWords = line;
+        h.RestartAfter = k.Kind == "game-update" ? "Restart CS2 afterwards" : "Back in a minute - Reconnect then (console: retry)";
+        if (r.GoesAt == null) (h.BanTone, h.BanHead, h.BanLine) = ("warning", "The server restarts after this match", $"{k.Why} - {char.ToUpperInvariant(k.After[0])}{k.After[1..]}");
         if (r.GoesAt is { } at) (h.RestartIn, h.RestartAt) = (Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)), HudState.Ms(at) / 1000); // on the same clock as every other end time (HudState.Ms)
         if (h.News == "" || h.News.StartsWith(k.Why + ": the server restarts", StringComparison.Ordinal)) // refreshed every tick while it stands
             (h.News, h.NewsFor, h.NewsUntilMs) = (line, Math.Max(h.NewsFor, 2), HudState.Ms(r.GoesAt ?? r.NoticeAt.AddHours(3))); // a fixed end: the state stays the same

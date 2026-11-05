@@ -154,6 +154,9 @@ sealed class WorkshopPlay
         return (WorkshopCard.Step.Downloading, percent, !requested && percent == 0 && now - c.Since > SteamBusyAfter, null);
     }
 
+    /// <summary>Every frame: the running download's end moves the queue on, whether or not a card of that id still asks (a search cleared, a map change).</summary>
+    public void Tick(DateTime now) { if (current is { } c) Status(c.Id, now); }
+
     void Next()
     {
         current = null;

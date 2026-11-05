@@ -169,8 +169,8 @@ public static class Hud
         ("Like it", "Like  Dislike", "Your likes steer the random maps."),
     ];
 
-    public const string Headline = "Race up the weapon ladder.";
-    public const string Lede = "Kills earn you the next gun; a kill with the golden knife on the last rung wins the match. Every map is a Workshop map, and any player can pick one.";
+    /// <summary>The large text of the welcome window: the tagline. What the game mode is everybody knows.</summary>
+    public const string Headline = "Over the top - On the Huis";
     public const string MenuHint = "Hold TAB any time: the board takes clicks - Start a vote, your like, the full menu.";
 
     // ---- small helpers both programs use ----
@@ -197,7 +197,10 @@ public static class Hud
         return long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? (n >= 76561197960265728 ? n - 76561197960265728 : n) : -1;
     }
 
-    public static string Tally(int up, int down) => up + down == 0 ? "no votes yet" : $"+{up}{(down > 0 ? $"  -{down}" : "")}";
+    public static string Tally(int up, int down) => up + down == 0 ? "No votes yet" : $"+{up}{(down > 0 ? $"  -{down}" : "")}";
+
+    /// <summary>Who or what picked a map, as a card says it.</summary>
+    public static string ByWords(string by) => by == "" ? "" : by == "the dice" ? "Rolled by the dice" : by == "the vote" ? "Picked by the vote" : $"Picked by {by}";
 }
 
 /// <summary>The live state the bridge serves on /hud/&lt;secret&gt; and the plugin puts on screen: the map that is on and what picked it, the
@@ -252,6 +255,7 @@ public sealed class HudState
     public string CrashNote = "";                       // a crash within the last minutes, as the welcome page says it
     public string ChangeKey = "";                       // the key of the map a change counts down to: its picture
     public string RestartBy = "";                       // the player who pressed a restart counting down
+    public string RestartAfter = "";                    // what players do afterwards, as the countdown's second line says it
     public long RematchAtMs;                            // Restart match counting down: the moment it goes...
     public string RematchBy = "";                       // ...and who pressed it
     public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
@@ -273,6 +277,7 @@ public sealed class HudState
         if (ChangeAtMs > 0) h.ChangeIn = Math.Max(0, Secs(ChangeAtMs));
         if (NewsUntilMs > 0 && Secs(NewsUntilMs) is var news) (h.News, h.NewsFor) = news > 0 ? (News, news) : ("", 0);
         h.Notes = new(Notes);
+        h.NoteCats = new(NoteCats);
         foreach (var (account, until) in NoteUntilMs)
             if (Secs(until) is > 0 and var left && Notes.TryGetValue(account, out var note)) h.Notes[account] = (note.Text, left); else h.Notes.Remove(account);
         h.Why = new(Why);
@@ -333,7 +338,7 @@ public sealed class HudState
         foreach (var (seq, account, alert, until, text) in Centres) Raw("ctr", seq, account, alert ? 1 : 0, until, Hud.Clean(text, Messages.CentreMax));
         if (CrashNote != "") Raw("crashn", Hud.Clean(CrashNote, Messages.TopMax));
         if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));
-        if (RestartBy != "") Raw("rstby", Hud.Clean(RestartBy, 32));
+        if (RestartKind != "") Raw("rstby", Hud.Clean(RestartBy, 32), Hud.Clean(RestartAfter, 80));
         if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 32));
         return s.ToString();
     }
@@ -386,7 +391,7 @@ public sealed class HudState
                 case "ctr" when Long(f, 1) > 0: s.Centres.Add((Long(f, 1), Math.Max(0, Long(f, 2)), Int(f, 3) == 1, Long(f, 4), Str(f, 5))); break;
                 case "crashn": s.CrashNote = Str(f, 1); break;
                 case "chgkey": s.ChangeKey = Str(f, 1); break;
-                case "rstby": s.RestartBy = Str(f, 1); break;
+                case "rstby": (s.RestartBy, s.RestartAfter) = (Str(f, 1), Str(f, 2)); break;
                 case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy) = (Long(f, 1), Str(f, 2)); break;
             }
         }
@@ -434,7 +439,7 @@ public static class HudView
 
     public static string SubCaption(HudSlots.Page page, bool ballot, bool browsingVote) => page switch
     {
-        HudSlots.Page.Start => "Over the top - On the Huis",
+        HudSlots.Page.Start => "",
         HudSlots.Page.Maps => ballot ? "Click a map to vote, yours again to take it back" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
             : "Every map: Play puts it to the vote",
         HudSlots.Page.Fun => "Anybody, at any time, for everybody",
@@ -476,6 +481,8 @@ public static class HudView
             for (var l = 0; l < Hud.HowLines; l++) t.Add(($"gg_h{s + 1}_{l + 1}_txt", how != null && l < how.Lines.Length ? how.Lines[l] : ""));
         }
         t.Add((HudMenu.FunNote, HudMenu.FunNoteText));
+        t.Add(("gg_w_back_eyebrow", "Now playing"));
+        t.Add(("gg_w_back_hint", LikeHint));
         return t;
     }
 
@@ -494,7 +501,12 @@ public static class HudView
     /// <summary>The classes the plugin sends only for the contents before v4_6_0, which this content's stylesheet has no rule for: c31 and c32
     /// (StaticClasses), the join banner's vjoin (beside the version classes, HudVote.VersionClasses), and the marks that light an older card's Too big
     /// and Ads buttons (bigvoted, adsvoted: a Dislike's reasons now).</summary>
-    public static readonly string[] OlderContentClasses = ["c31", "c32", "vjoin", "bigvoted", "adsvoted"];
+    public static readonly string[] OlderContentClasses = ["c31", "c32", "bigvoted", "adsvoted", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
+
+    /// <summary>The panels only the contents before v4.6.0 have: their news line, their note, their lede.</summary>
+    public static readonly string[] OlderContentTexts = ["gg_news_text", "gg_note_text", "gg_w_lede"];
+
+    public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
 
     /// <summary>The board's one line about the vote (its old queue line), about this many characters at the most (the mock review).</summary>
     public const int QueueLineMax = 52;
@@ -510,7 +522,7 @@ public static class HudView
     public static List<(string Id, string Text)> Texts(HudState s, VoteState? v = null)
     {
         var map = s.Map == "" ? "Waiting for the server" : s.Map;
-        var by = s.By == "" ? "" : s.By == "the dice" ? "rolled by the dice" : $"picked by {s.By}";
+        var by = Hud.ByWords(s.By);
         var byline = string.Join("  ·  ", new[] { by, s.Size }.Where(x => x != ""));
         var status = s.Loading ? "Loading - everyone reconnects in a moment" : s.Status;
         var t = new List<(string, string)>();
@@ -540,13 +552,22 @@ public static class HudView
         t.Add(("gg_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
         t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
         t.Add(("gg_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
-        t.Add(("gg_w_lede", Hud.Lede));
+        t.Add(("gg_w_lede", ""));
+        t.Add(("gg_w_back", string.Join("  ·  ", new[] { map, byline, Hud.Tally(s.Up, s.Down) }.Where(x => x != ""))));
+        t.Add(("gg_w_crash", s.CrashNote));
+        t.Add(("gg_top_tab", Messages.CategoryOf(s.TopCat)?.Name ?? ""));
+        t.Add(("gg_top_text", s.TopText));
+        t.Add(("gg_ban_head", s.BanHead));
+        t.Add(("gg_ban_line", s.BanLine));
         t.Add(("gg_w_maps", s.Maps > 0 ? $"{s.Maps} Workshop maps" : "Workshop maps"));
-        t.Add(("gg_k_map", s.ChangeMap));
-        t.Add(("gg_k_by", s.ChangeBy == "" ? "" : s.ChangeBy == "the dice" ? "rolled by the dice" : $"picked by {s.ChangeBy}"));
+        var countdown = CountdownOf(s);
+        t.Add(("gg_k_eyebrow", countdown?.Eyebrow ?? ""));
+        t.Add(("gg_k_map", countdown?.Title ?? ""));
+        t.Add(("gg_k_by", countdown?.Line ?? ""));
+        t.Add(("gg_k_secs", countdown == null ? "" : Countdown(countdown.Value.Seconds)));
         t.Add(("gg_t_map", map));
         t.Add(("gg_t_by", byline == "" ? Hud.Tally(s.Up, s.Down) : $"{byline}  ·  {Hud.Tally(s.Up, s.Down)}"));
-        t.Add(("gg_t_hint", "Like it? Hold TAB and click Like or Dislike."));
+        t.Add(("gg_t_hint", LikeHint));
         return t;
     }
 
@@ -558,9 +579,11 @@ public static class HudView
     {
         var c = new List<(string, string, bool)>
         {
-            (Global, "ready", true), (Global, "changing", s.ChangeIn >= 0), (Global, "loading", s.Loading), (Global, "news", s.NewsFor > 0 && s.News != ""),
-            (Global, "rst", s.RestartKind != ""),
+            (Global, "ready", true), (Global, "changing", CountdownOf(s) != null), (Global, "cd-logo", CountdownOf(s)?.Logo == true), (Global, "loading", s.Loading),
+            (Global, "news", s.NewsFor > 0 && s.News != ""), (Global, "rst", s.RestartKind != ""), (Global, "top", s.TopText != ""), (Global, "ban", s.BanHead != ""), (Global, "crash", s.CrashNote != ""),
         };
+        foreach (var cat in Messages.Categories) c.Add((TopPanel, cat.Class, cat.Id == s.TopCat));
+        foreach (var tone in Tones) c.Add((BannerPanel, "tone-" + tone, tone == s.BanTone));
         var leading = Leading(v).Count;
         for (var i = 0; i < HudState.ListLength; i++)
         {
@@ -570,6 +593,21 @@ public static class HudView
         c.Add(("gg_w_nempty", "used", leading == 0));
         c.Add(("gg_w_tempty", "used", s.Top.Count == 0));
         return c;
+    }
+
+    public const string TopPanel = "gg_top", BannerPanel = "gg_ban", LinePanel = "gg_wl";
+    public static readonly string[] Tones = ["problem", "warning", "done", "info"];
+
+    /// <summary>What the countdown banner shows: a map change, Restart match or a restart counting down. Logo: the project's logo in the picture's place.</summary>
+    public readonly record struct CountdownWords(string Eyebrow, string Title, string Line, bool Logo, int Seconds);
+
+    public static CountdownWords? CountdownOf(HudState s)
+    {
+        if (s.ChangeIn >= 0) return new("Map change", s.ChangeMap, Hud.ByWords(s.ChangeBy), false, s.ChangeIn);
+        if (s.RematchIn >= 0) return new("Match", $"{Hud.Clean(s.RematchBy, 32)} is restarting the match", "The ladder, the time and catch-up start over", true, s.RematchIn);
+        if (s.RestartKind != "" && s.RestartWhen == "now" && s.RestartIn >= 0)
+            return new("Server", s.RestartBy != "" ? $"{Hud.Clean(s.RestartBy, 32)} is restarting the server" : $"The server restarts in {MapVote.Left(s.RestartIn)}", s.RestartAfter, true, s.RestartIn);
+        return null;
     }
 
     /// <summary>The seconds on the map-change banner, recomputed by the plugin every second from the deadline it took off the state.</summary>
@@ -639,10 +677,10 @@ public static class HudView
     /// null for nothing, OpenVote for the window.</summary>
     public static (string Text, string Sub, string? Command) Action(HudState s, VoteState? v = null)
     {
-        if (s.ChangeIn >= 0 || s.Loading) return ("Map change under way", "wait for the next map", null);
-        if (v is { Open: true, Round: > 0 }) return ("The vote is on: open it", "pick the next map, or keep playing", OpenVote);
-        if (v?.WaitFor > 0) return ("Start a vote", $"the next one can start in {MapVote.Left(v.WaitFor)}", null);
-        return ("Start a vote", "for the next map - Keep playing is on it", "!next");
+        if (s.ChangeIn >= 0 || s.Loading) return ("Map change under way", "Wait for the next map", null);
+        if (v is { Open: true, Round: > 0 }) return ("The vote is on: open it", "Pick the next map, or keep playing", OpenVote);
+        if (v?.WaitFor > 0) return ("Start a vote", $"The next one can start in {MapVote.Left(v.WaitFor)}", "!next");
+        return ("Start a vote", "For the next map - Keep playing is on it", "!next");
     }
 
     /// <summary>The note this player sees now, if any: the bridge's answer to what they clicked.</summary>
@@ -654,10 +692,13 @@ public static class HudView
     {
         var mine = s.MyVotes.GetValueOrDefault(account);
         var (text, sub, _) = Action(s, v);
+        var note = NoteOf(s, account);
         return
         [
-            ("gg_w_hello", $"Welcome, {Hud.Clean(name, 32)}"),
-            ("gg_t_eyebrow", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : "Now playing"),
+            ("gg_w_hello", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : $"Welcome, {Hud.Clean(name, 32)}"),
+            ("gg_t_eyebrow", "Now playing"),
+            ("gg_wl_eyebrow", note == "" ? "" : Messages.CategoryOf(s.NoteCats.GetValueOrDefault(account, ""))?.Name ?? Messages.You.Name),
+            ("gg_wl_text", note),
             ("gg_b_you", mine > 0 ? "You liked this map" : mine == HudCatalog.TooBigVote ? "You marked this map too big" : mine == HudCatalog.AdsVote ? "You marked this map: ads"
                 : mine < DownReasons.Plain && DownReasons.Of(mine) is { } why ? $"You disliked this map: {why.Short}" : mine < 0 ? "You disliked this map" : "Like it or not?"),
             ("gg_btn_act_text", text),
@@ -672,10 +713,35 @@ public static class HudView
     {
         var mine = s.MyVotes.GetValueOrDefault(account);
         var (_, _, command) = Action(s, v);
+        if (v?.WaitFor > 0 && v is not { Round: > 0 }) command = null; // the wait after a vote: it looks off, and a click still gets its answer with the time left
         var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4_1_0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
-        return [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
-            (Screen, "note", NoteOf(s, account) != ""), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote),
+        var cat = s.NoteCats.GetValueOrDefault(account, Messages.You.Id);
+        var note = NoteOf(s, account) != "";
+        List<(string Id, string Class, bool On)> c = [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
+            (Screen, "note", note), (Screen, "wl", note), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote),
             (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
+        foreach (var k in Messages.Categories) c.Add((LinePanel, k.Class, note && k.Id == cat));
+        return c;
+    }
+
+    /// <summary>The board's Lately rows for one player: the three most recent lines, with how long ago (Messages.LatelyFor).</summary>
+    public static List<(string Id, string Text)> LatelyTexts(HudState s, long account, long nowMs)
+    {
+        var rows = Messages.LatelyFor(s.Lately, account);
+        var t = new List<(string, string)>();
+        for (var k = 1; k <= Messages.LatelyRows; k++)
+        {
+            var row = k <= rows.Count ? rows[k - 1] : null;
+            t.Add(($"gg_bl_w{k}", row?.Text ?? ""));
+            t.Add(($"gg_bl_t{k}", row == null ? "" : Messages.Ago(row.AtMs, nowMs)));
+        }
+        return t;
+    }
+
+    public static List<(string Id, string Class, bool On)> LatelyClasses(HudState s, long account)
+    {
+        var count = Messages.LatelyFor(s.Lately, account).Count;
+        return Enumerable.Range(1, Messages.LatelyRows).Select(k => ($"gg_bl_r{k}", "used", k <= count)).ToList();
     }
 
     /// <summary>A click, as the plugin receives it: the action it asks the bridge for, or null for the buttons that only work the window.
@@ -694,10 +760,10 @@ public static class HudView
 /// <summary>Who has what on screen, per player slot, kept free of CounterStrikeSharp like GuidePanel so the bridge's --selftest can drive
 /// it on a handed clock. The plugin feeds it events and asks Frame for the wanted view of every slot, then sends only the difference.
 ///
-/// The window opens for a first-time player once they have spawned (or after WaitLimitSeconds), and on !info; it takes the mouse while
-/// open - and with it the player's movement, which is why it closes itself after IdleCloseSeconds without a click. Damage never closes it:
-/// nothing protects a player while it is open but the vote's freeze. A returning player gets a short "welcome back" card instead, and
-/// everybody gets the "now playing" card at their first spawn on each map.
+/// The window opens at every login once the player has spawned (or after WaitLimitSeconds) and stays until its X: it is the welcome, and the X is the
+/// HUD check's first click (HudCheck.VersionButton). Opened any other way it takes the mouse - and with it the player's movement - which is why it closes itself
+/// after IdleCloseSeconds without a click. Damage, death and a respawn never close it: nothing protects a player while it is open but the vote's freeze. Everybody
+/// gets the "now playing" card at their first spawn on each map.
 ///
 /// Panorama cannot animate visibility, and a panel that turns visible and changes in the same update pops instead of fading. So each
 /// thing shows in two steps a FadeSeconds apart: visible first (still transparent), then "in" (opaque, in place); and leaves the same way
@@ -721,9 +787,9 @@ public sealed class HudSlots
         Page.Maps => "maps", Page.Fun => "fun", Page.Players or Page.Game or Page.Sync => "server", Page.Help or Page.How => "help", _ => "start",
     };
 
-    /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none,
-    /// 1 now playing, 2 welcome back. Draining: the bar that shows the idle close is running (it restarts by losing this for a moment).</summary>
-    public readonly record struct View(bool Window, bool WindowIn, bool Capture, Page Page, bool Draining, int Toast, bool ToastIn);
+    /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none, 1 now playing.
+    /// Draining: the bar that shows the idle close is running (it restarts by losing this for a moment). Returning: the player has been here before.</summary>
+    public readonly record struct View(bool Window, bool WindowIn, bool Capture, Page Page, bool Draining, int Toast, bool ToastIn, bool Returning = false);
 
     sealed class Slot
     {
@@ -732,7 +798,8 @@ public sealed class HudSlots
         public DateTime OpenAt = DateTime.MaxValue;    // a window waiting for its moment
         public DateTime OpenedAt, ClosedAt, IdleUntil, DrainFrom;
         public DateTime? WaitingSince;                 // css_guide came for a player who has not spawned yet
-        public bool WaitingFirst;
+        public bool Pinned;                            // the welcome: stays until its X, whatever else happens
+        public bool Returning;                         // css_guide said this player has been here before
         public int Toast;
         public DateTime ToastFrom = DateTime.MaxValue, ToastUntil;
         public bool SeenMap;                           // had the now-playing card (or the welcome) on this map
@@ -744,31 +811,30 @@ public sealed class HudSlots
 
     Slot Of(int slot) => slots.TryGetValue(slot, out var s) ? s : slots[slot] = new Slot();
 
-    /// <summary>css_guide from the bridge: a real join. First time: the window; returning: the welcome-back card. Right away (after the
-    /// spawn delay) for a player who is alive, at their next spawn otherwise.</summary>
+    /// <summary>css_guide from the bridge: a real join: the welcome window, on its start page, until its X. Right away (after the spawn delay) for a player who is
+    /// alive, at their next spawn otherwise.</summary>
     public void Joined(int slot, bool first, bool alive, DateTime now)
     {
         var s = Of(slot);
         s.SeenMap = true;
+        s.Returning = !first;
+        s.Pinned = true;
         s.Toast = 0; s.ToastFrom = DateTime.MaxValue;
-        if (alive) Schedule(s, first, now.AddSeconds(SpawnDelaySeconds));
-        else { s.WaitingSince = now; s.WaitingFirst = first; }
+        s.WaitingSince = null;
+        if (alive) Schedule(s, now.AddSeconds(SpawnDelaySeconds));
+        else s.WaitingSince = now;
     }
 
     public void Spawned(int slot, DateTime now)
     {
         var s = Of(slot);
-        if (s.WaitingSince != null) { s.WaitingSince = null; Schedule(s, s.WaitingFirst, now.AddSeconds(SpawnDelaySeconds)); return; }
+        if (s.WaitingSince != null) { s.WaitingSince = null; Schedule(s, now.AddSeconds(SpawnDelaySeconds)); return; }
         if (s.SeenMap || s.Open) return;
         s.SeenMap = true;
         Card(s, 1, now.AddSeconds(SpawnDelaySeconds));
     }
 
-    void Schedule(Slot s, bool first, DateTime at)
-    {
-        if (first) { s.OpenAt = at; s.Page = Page.Start; }
-        else Card(s, 2, at);
-    }
+    static void Schedule(Slot s, DateTime at) { s.OpenAt = at; s.Page = Page.Start; }
 
     static void Card(Slot s, int kind, DateTime at) { s.Toast = kind; s.ToastFrom = at; s.ToastUntil = at.AddSeconds(ToastSeconds); }
 
@@ -789,13 +855,14 @@ public sealed class HudSlots
 
     public Page PageOf(int slot) => slots.TryGetValue(slot, out var s) ? s.Page : Page.Start;
 
-    /// <summary>The HUD check (HudCheck): the window on its start page, where the gold button says "Click to play" - after the spawn
-    /// delay, instead of this spawn's card; nothing when it is open already.</summary>
+    /// <summary>The HUD check (HudCheck): the welcome window again on a new map for a player who never clicked its X - after the spawn delay, instead of this spawn's
+    /// card; nothing when it is open already.</summary>
     public void Check(int slot, DateTime now)
     {
         var s = Of(slot);
         s.SeenMap = true;
         s.WaitingSince = null;
+        s.Pinned = true;
         if (s.Open) return;
         s.Toast = 0; s.ToastFrom = DateTime.MaxValue;
         s.Page = Page.Start;
@@ -811,6 +878,14 @@ public sealed class HudSlots
         if (arg.Trim().ToLowerInvariant() is "off" or "close" or "stop" or "0") { Close(s, now); return; }
         s.Page = Page.Start;
         if (!s.Open) Open(s, now); else Touch(s, now);
+    }
+
+    /// <summary>A vote's freeze is over: the window it held closes, unless it is the welcome, which goes back to its start page and waits for its X.</summary>
+    public void VoteOver(int slot, DateTime now)
+    {
+        if (!slots.TryGetValue(slot, out var s) || !s.Open) return;
+        if (s.Pinned) { s.Page = Page.Start; Touch(s, now); return; }
+        Close(s, now);
     }
 
     /// <summary>A click in the window: closes it, switches the page, or (any other button) just keeps it open - the plugin turns the
@@ -848,7 +923,7 @@ public sealed class HudSlots
     static void Close(Slot s, DateTime now)
     {
         if (s.Open) s.ClosedAt = now;
-        s.Open = false; s.OpenAt = DateTime.MaxValue;
+        s.Open = false; s.OpenAt = DateTime.MaxValue; s.Pinned = false;
     }
 
     /// <summary>Every slot's wanted view at this moment. Advances the timers: a waiting window opens, an idle one closes, cards expire.</summary>
@@ -857,9 +932,9 @@ public sealed class HudSlots
         var frame = new List<(int, View)>();
         foreach (var (id, s) in slots)
         {
-            if (s.WaitingSince is { } w && (now - w).TotalSeconds >= WaitLimitSeconds) { s.WaitingSince = null; Schedule(s, s.WaitingFirst, now); }
+            if (s.WaitingSince is { } w && (now - w).TotalSeconds >= WaitLimitSeconds) { s.WaitingSince = null; Schedule(s, now); }
             if (!s.Open && now >= s.OpenAt) Open(s, now);
-            if (s.Open && now >= s.IdleUntil) Close(s, now);
+            if (s.Open && !s.Pinned && now >= s.IdleUntil) Close(s, now);
             var fading = !s.Open && now < s.ClosedAt.AddSeconds(FadeSeconds);
             if (s.Toast != 0 && now >= s.ToastUntil.AddSeconds(FadeSeconds)) { s.Toast = 0; s.ToastFrom = DateTime.MaxValue; }
             var toast = s.Toast != 0 && now >= s.ToastFrom && !s.Open && !fading ? s.Toast : 0;
@@ -868,9 +943,10 @@ public sealed class HudSlots
                 WindowIn: s.Open && now >= s.OpenedAt.AddSeconds(FadeSeconds),
                 Capture: s.Open,
                 Page: s.Page,
-                Draining: s.Open && now >= s.DrainFrom,
+                Draining: s.Open && !s.Pinned && now >= s.DrainFrom,
                 Toast: toast,
-                ToastIn: toast != 0 && now >= s.ToastFrom.AddSeconds(FadeSeconds) && now < s.ToastUntil)));
+                ToastIn: toast != 0 && now >= s.ToastFrom.AddSeconds(FadeSeconds) && now < s.ToastUntil,
+                Returning: s.Returning)));
         }
         return frame;
     }

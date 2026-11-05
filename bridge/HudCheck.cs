@@ -84,10 +84,6 @@ public static class HudCheck
     public static string VersionWords(string version) => version == Older ? "older - restart CS2" : version == "" ? "not seen yet"
         : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - restart CS2" : version;
 
-    /// <summary>The note a player whose HUD is older than the server's gets at its click.</summary>
-    public static string OutdatedNote(string version) =>
-        $"Your HUD is {(version == Older ? "older than the server's" : version)} - the server has {Hud.Content}: quit CS2 and start it again, and Steam updates it";
-
     /// <summary>Whether a known version is older than this server's content.</summary>
     public static bool IsOutdated(string version) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < HudVote.ContentLevel;
 
@@ -169,33 +165,29 @@ public static class HudCheck
     // Who sees what: a player who still has the HUD sees the news line; one who joined while it was not required has no HUD at all, so
     // chat is the only way to reach them - one private line at their first spawn, and a line for everybody when it is dropped and back.
 
-    /// <summary>The news line when joiners stop getting the HUD (at most 240 characters). since: the upload's local time, if known.</summary>
-    public static string DroppedNews(Cause why, string? since) => why switch
+    /// <summary>The status banner when joiners stop getting the HUD: its headline and its line. Who is on keeps the HUD on the map that is on and loses it at the next map change,
+    /// because the map change no longer carries it (MultiAddonManager, HudScreen.RequireAddon).</summary>
+    public static (string Head, string Line) Dropped(Cause why) => why switch
     {
-        Cause.Review => $"HUD update: Steam is reviewing the new version{(since != null ? $" (uploaded {since})" : "")}, usually 15-60 min. Until then new players join without the menu and yours goes at the next map change - the game plays on. It comes back by itself.",
-        Cause.Unavailable => "The HUD is unavailable on Steam right now: new players join without the menu and yours goes at the next map change - the game plays on as normal.",
-        _ => "Steam is not showing the HUD right now: new players join without the menu and yours goes at the next map change - the game plays on. It comes back by itself.",
+        Cause.Review => ("Steam is reviewing the new HUD", "Usually 15-60 min. New players join without the menu, and everybody loses it at the next map change - The game plays on"),
+        Cause.Unavailable => ("The HUD is unavailable on Steam", "New players join without the menu, and everybody loses it at the next map change - The game plays on"),
+        _ => ("Steam is not showing the HUD", "New players join without the menu, and everybody loses it at the next map change - The game plays on"),
     };
 
-    /// <summary>The same in chat, for everybody, when it is dropped (at most LineMax characters).</summary>
-    public static string DroppedChat(Cause why) => why switch
-    {
-        Cause.Review => "[HUD] Steam is reviewing the HUD's update: no menu (TAB) for a while. The game plays on; the menu comes back by itself.",
-        Cause.Unavailable => "[HUD] The HUD is unavailable on Steam right now: no menu (TAB) for a while. The game plays on as normal.",
-        _ => "[HUD] Steam is not showing the HUD right now: no menu (TAB) for a while. The game plays on; it comes back by itself.",
-    };
-
-    /// <summary>A player's first spawn while joiners do not get the HUD: why they have no menu (at most LineMax characters).</summary>
+    /// <summary>A player's first spawn without the HUD during a hold: why they have no menu (at most LineMax characters).</summary>
     public static string NoMenuChat(Cause why, string? since) => why switch
     {
-        Cause.Review => $"[HUD] No menu right now: Steam is reviewing the HUD's update{(since != null ? $" (since {since})" : "")}. Play on - it comes back by itself.",
-        Cause.Unavailable => "[HUD] No menu right now: the HUD is unavailable on Steam. Play on - random maps keep coming.",
-        _ => "[HUD] No menu right now: Steam is not showing the HUD. Play on - it comes back by itself.",
+        Cause.Review => $"No menu right now: Steam is reviewing the HUD's update{(since != null ? $" (since {since})" : "")} - Play on, it comes back by itself",
+        Cause.Unavailable => "No menu right now: The HUD is unavailable on Steam - Play on, random maps keep coming",
+        _ => "No menu right now: Steam is not showing the HUD - Play on, it comes back by itself",
     };
 
-    /// <summary>The news line and the chat line for everybody when the HUD is handed out again.</summary>
-    public const string BackNews = "The HUD is back on Steam: everybody gets the menu again at the next map change - or now, by reconnecting (console: retry).",
-        BackChat = "[HUD] The menu is back: you get it at the next map change, or now by reconnecting (console: retry).";
+    /// <summary>The status banner when the HUD is handed out again, and the chat line for those without it, who cannot read a banner.</summary>
+    public const string BackHead = "The HUD is back on Steam", BackLine = "Everybody gets the menu again at the next map change - Or now, by reconnecting (console: retry)",
+        BackChat = "The menu is back: You get it at the next map change - Or now, by reconnecting (console: retry)";
+
+    /// <summary>CS2's alert text before the disconnect, two short lines (warn: the same, saying nobody is disconnected).</summary>
+    public static string Alert(int seconds, bool warnOnly) => M.Lines("HUD check: No click yet", warnOnly ? "Close the window with its X" : $"Click any button within {seconds.ToString(CultureInfo.InvariantCulture)} s");
 
     /// <summary>The click's message to the bridge: verified, and which HUD (IsVersionWord).</summary>
     public static string Command(string version) => "!hudok " + version;
@@ -208,18 +200,13 @@ public static class HudCheck
     /// <summary>How a player opens the window again: TAB + E opens the menu in every HUD_TAB mode but off (HudTab.cs).</summary>
     public const string Reopen = "hold TAB, press E";
 
-    /// <summary>The window has just opened for a player the server has not seen click.</summary>
-    public const string Prompt = "HUD check: click 'Click to play' in the window - any button counts. Closed it? " + Reopen + ", click any button.";
-
-    public const string Thanks = "HUD check: thanks - your HUD works. Have fun!";
-
     /// <summary>The warning before the disconnect (warn: the same, saying nobody is disconnected).</summary>
     public static string[] Warning(string addon, int seconds, bool warnOnly) =>
     [
-        warnOnly ? "HUD check (nobody is disconnected): no click from your HUD. Click any button in the window (" + Reopen + ")."
-               : $"HUD check: no click from your HUD yet - you are disconnected in {seconds.ToString(CultureInfo.InvariantCulture)} s. Click any button in the window ({Reopen}).",
-        $"No window? Then your game lacks this server's HUD: 1) subscribe {ItemUrl(addon)}",
-        "2) quit CS2  3) let Steam finish the download  4) start CS2 and rejoin",
+        warnOnly ? "HUD check (nobody is disconnected): No click from your HUD. Click any button in the window (" + Reopen + ")."
+               : $"HUD check: No click from your HUD yet - You are disconnected in {seconds.ToString(CultureInfo.InvariantCulture)} s. Click any button in the window ({Reopen}).",
+        $"No window? Then your game lacks this server's HUD: 1) Subscribe {ItemUrl(addon)}",
+        "2) Quit CS2  3) Let Steam finish the download  4) Start CS2 and rejoin",
     ];
 }
 

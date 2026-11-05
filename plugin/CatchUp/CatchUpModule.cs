@@ -72,7 +72,7 @@ public sealed class CatchUpModule
 
     /// <summary>Replaces the centre panel as the way the message is shown: the player, the packed lines, the panel's HTML and the
     /// seconds it should stay. Unset: CCSPlayerController.PrintToCenterHtml.</summary>
-    public Action<CCSPlayerController, string[], string, int>? Show { get; set; }
+    public Action<CCSPlayerController, Boost, string[], string, int>? Show { get; set; }
 
     bool Active => config.Enabled && switchedOn && !stopped;
 
@@ -328,7 +328,7 @@ public sealed class CatchUpModule
         if (!lives.TryGetValue(slot, out var life) || life.Serial != s) return; // died or respawned since: that spawn says its own
         if (Utilities.GetPlayerFromSlot(slot) is not { IsValid: true, IsBot: false } player) return;
         var html = Words.Html(lines, boost);
-        if (Show != null) Show(player, lines, html, config.Message.Seconds);
+        if (Show != null) Show(player, boost, lines, html, config.Message.Seconds);
         else player.PrintToCenterHtml(html, config.Message.Seconds);
     }
 

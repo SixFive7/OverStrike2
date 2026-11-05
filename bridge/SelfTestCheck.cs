@@ -32,8 +32,7 @@ static partial class Program
             HudCheck.LevelOf("v4_6_0") == 46 && HudCheck.LevelOf("v5_0_0") == 50 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4_5_0") && HudCheck.IsOutdated(HudCheck.Older)
             && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4_7_0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
             && HudCheck.VersionWords("v4_5_0") == "v4_5_0 - restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
-            && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4_7_0") == "v4_7_0"
-            && HudCheck.OutdatedNote("v4_5_0").Contains(Hud.Content) && HudCheck.OutdatedNote("v4_5_0").Length <= NoticeLength);
+            && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4_7_0") == "v4_7_0");
         var roll = HudView.PlayersPage([new("Alice", "CT", Hud.Content, 0, "voted", "42 min"), new("Bob", "T", "v4_5_0", 0, "waiting", "5 min"),
             new("Cleo", "T", HudCheck.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4_7_0", 0, "", "-"), new("Eve", "SPEC", Hud.Release, 0, "", "3 min"),
             new("Finn", "T", "", 0, "", "0 min"), new("Gus", "CT", "", 12, "", "0 min")]);
@@ -152,28 +151,27 @@ static partial class Program
 
         // ---- the words while the HUD is not handed out ----
         var causes = new[] { HudCheck.Cause.Review, HudCheck.Cause.Unavailable, HudCheck.Cause.Unknown };
-        var news = causes.Select(c => HudCheck.DroppedNews(c, "23:59")).Append(HudCheck.DroppedNews(HudCheck.Cause.Review, null)).Append(HudCheck.BackNews).ToList();
-        var chats = causes.SelectMany(c => new[] { HudCheck.DroppedChat(c), HudCheck.NoMenuChat(c, "23:59"), HudCheck.NoMenuChat(c, null) }).Append(HudCheck.BackChat).ToList();
-        Check($"HUD item (#19): the news lines fit the news line's 240 characters (longest {news.Max(l => l.Length)}) and the chat lines {HudCheck.LineMax} (longest {chats.Max(l => l.Length)})",
-            news.All(l => l.Length <= 240 && l == Hud.Clean(l, 240)) && chats.All(l => l.Length <= HudCheck.LineMax));
-        Check("HUD item (#19): every line says what is happening and that the game plays on; the review lines name the upload's time; the way back says how to get the menu",
-            causes.All(c => HudCheck.DroppedNews(c, "23:59").Contains("without the menu") && HudCheck.DroppedChat(c).Contains("plays on") && HudCheck.NoMenuChat(c, "23:59").Contains("Play on"))
-            && HudCheck.DroppedNews(HudCheck.Cause.Review, "23:59").Contains("reviewing") && HudCheck.DroppedNews(HudCheck.Cause.Review, "23:59").Contains("23:59")
-            && HudCheck.NoMenuChat(HudCheck.Cause.Review, "23:59").Contains("since 23:59") && !HudCheck.DroppedNews(HudCheck.Cause.Review, null).Contains("uploaded")
-            && HudCheck.BackNews.Contains("next map change") && HudCheck.BackChat.Contains("retry")
-            && news.Concat(chats).All(l => !l.Contains("!gg") && !l.Contains("!info")));
+        var banners = causes.Select(HudCheck.Dropped).Append((HudCheck.BackHead, HudCheck.BackLine)).ToList();
+        var chats = causes.SelectMany(c => new[] { HudCheck.NoMenuChat(c, "23:59"), HudCheck.NoMenuChat(c, null) }).Append(HudCheck.BackChat).ToList();
+        Check($"HUD item (#19): the banner's lines fit its width (longest {banners.Max(l => l.Item2.Length)} of 125) and the chat lines {HudCheck.LineMax} (longest {chats.Max(l => l.Length)})",
+            banners.All(l => l.Item2.Length <= 125) && chats.All(l => l.Length <= HudCheck.LineMax));
+        Check("HUD item (#19): every line says what is happening, that the game plays on and that everybody loses the menu at the next map change; the way back says how to get the menu",
+            causes.All(c => HudCheck.Dropped(c).Line.Contains("without the menu") && HudCheck.Dropped(c).Line.Contains("next map change") && HudCheck.Dropped(c).Line.Contains("plays on") && HudCheck.NoMenuChat(c, "23:59").Contains("Play on"))
+            && HudCheck.Dropped(HudCheck.Cause.Review).Head.Contains("reviewing") && HudCheck.NoMenuChat(HudCheck.Cause.Review, "23:59").Contains("since 23:59")
+            && HudCheck.BackLine.Contains("next map change") && HudCheck.BackChat.Contains("retry")
+            && banners.Select(l => l.Item2).Concat(chats).All(l => !l.Contains("!gg") && !l.Contains("!info")));
 
         // ---- the words: the disconnect reason fits what a disconnect carries, every chat line one line ----
         var reason = HudCheck.Reason(Item);
         Check($"HUD check: the disconnect reason fits {HudCheck.ReasonMax} characters ({reason.Length}) and has the item's link and the four steps",
             reason.Length <= HudCheck.ReasonMax && reason.Contains(HudCheck.ItemUrl(Item)) && reason.Contains("1) subscribe") && reason.Contains("2) quit CS2")
             && reason.Contains("3) let Steam update") && reason.Contains("4) rejoin") && !reason.Contains('"'));
-        var lines = HudCheck.Warning(Item, 15, false).Concat(HudCheck.Warning(Item, 15, true)).Append(HudCheck.Prompt).Append(HudCheck.Thanks).ToList();
+        var lines = HudCheck.Warning(Item, 15, false).Concat(HudCheck.Warning(Item, 15, true)).ToList();
         Check($"HUD check: every chat line fits {HudCheck.LineMax} characters (longest {lines.Max(l => l.Length)}), the warning names the seconds and the link",
             lines.All(l => l.Length <= HudCheck.LineMax) && HudCheck.Warning(Item, 15, false)[0].Contains("15 s") && HudCheck.Warning(Item, 15, false)[1].Contains(HudCheck.ItemUrl(Item))
             && HudCheck.Warning(Item, 15, true)[0].Contains("nobody is disconnected"));
         Check("HUD check: the lines say how to open the window now (TAB + E) and never name a chat command - typed commands are gone since v3_0_0",
-            HudCheck.Prompt.Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
+            HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
             && lines.Append(reason).All(l => !l.Contains("!gg") && !l.Contains("/gg") && !l.Contains("!info")));
         Check("HUD check: a release or a content looks like v2_1_1",
             HudCheck.IsRelease(R) && HudCheck.IsRelease(Hud.Release) && HudCheck.IsRelease(Hud.Content) && !HudCheck.IsRelease("v2_1") && !HudCheck.IsRelease("2_1_1")

@@ -76,7 +76,8 @@ public static class M
                     if (name >= 0) { if (p.NameColour(s.ToString(name, s.Length - name)) is { } team) s.Insert(name, team); name = -1; }
                     s.Append(plain);
                     break;
-                case RefusedLine or DoneLine or Break: break;
+                case Break: s.Append(" - "); break;
+                case RefusedLine or DoneLine: break;
                 default: s.Append(c); break;
             }
         }
@@ -179,7 +180,7 @@ public static class Messages
         ServerDownload = new("download", "The server downloading a map", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         BackgroundFirst = new("background", "Finishing a background download first", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         DownloadFailed = new("dlfailed", "A download failed", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
-        WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Maps, 0, false),
+        WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.None, Who.Player, Who.Everybody, Who.Everybody, Maps, 0, false),
         PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map)", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, You, 30, false),
         WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, false),
         // restarts and updates
@@ -209,6 +210,29 @@ public static class Messages
     ];
 
     public static Kind? Find(string id) => All.FirstOrDefault(k => k.Id == id);
+
+    // ---- the words the catalogue's helpers make ----
+
+    /// <summary>A section's words with their first letter a capital.</summary>
+    public static string Capital(string words) => words.Length > 0 && char.IsLower(words[0]) ? char.ToUpperInvariant(words[0]) + words[1..] : words;
+
+    /// <summary>What a line from the restart watcher (gg_notice) is, by its words: a download's line - the key its refreshed lines share, and which quarter of it this is, for chat - or plain news.</summary>
+    public static (Kind Kind, string Key, int Step) OfNotice(string line)
+    {
+        var name = line.IndexOfAny([':', '(']) is > 0 and var end ? line[..end].TrimEnd() : "";
+        var percent = Regex.Match(line, @"(\d+) percent");
+        var step = percent.Success ? int.Parse(percent.Groups[1].Value, CultureInfo.InvariantCulture) / 25 : 0;
+        if (line.StartsWith("Server is finishing", StringComparison.Ordinal)) return (BackgroundFirst, "background", step);
+        if (line.StartsWith("Server is downloading", StringComparison.Ordinal)) return (ServerDownload, "download:" + name, step);
+        if (line.StartsWith("The server could not download", StringComparison.Ordinal)) return (DownloadFailed, "", 0);
+        return (News, "", 0);
+    }
+
+    /// <summary>A Workshop card's download as chat and the board say it; the card keeps its short form.</summary>
+    public static string WorkshopLine(string player, string title, int percent, long doneBytes, long totalBytes) =>
+        $"{M.N(player)} is downloading {M.A(Hud.Clean(title, 40))} to the server: {M.V($"{percent.ToString(CultureInfo.InvariantCulture)}%")} ({Mb(doneBytes)} of {Mb(totalBytes)})";
+
+    static string Mb(long bytes) => $"{(bytes / 1_000_000).ToString(CultureInfo.InvariantCulture)} MB";
 
     // ---- how long ago, for the board's Lately list ----
 
@@ -270,4 +294,9 @@ public static partial class Sections
         }
         return null;
     }
+
+    /// <summary>A line from outside (the restart watcher's) with every section's first word a capital, a name left as it is written.</summary>
+    public static string Capitalize(string text) => Between().Replace(Messages.Capital(text), m => m.Value).Length == 0 ? text : Starts().Replace(Messages.Capital(text), m => m.Groups[1].Value + (m.Groups[2].Value.Any(c => c == '_' || char.IsDigit(c)) ? m.Groups[2].Value : Messages.Capital(m.Groups[2].Value)));
+
+    [GeneratedRegex(@"(\s+-\s+|\s+·\s+)(\S+)")] private static partial Regex Starts();
 }

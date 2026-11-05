@@ -392,13 +392,6 @@ public static class HudMenu
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
     public static string Card(int k) => $"gg_m{k}";
 
-    /// <summary>Card k's picture button, on a card whose map has no picture in the addon.</summary>
-    public static string PicButton(int k) => $"{Card(k)}_pic";
-
-    /// <summary>The card a picture button belongs to, or 0 when this is no picture button.</summary>
-    public static int PicCard(string buttonId) => buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_pic", StringComparison.Ordinal)
-        && int.TryParse(buttonId[4..^4], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= Cards ? k : 0;
-
     /// <summary>What a card calls its place in the list: Arms Race's maps a number, the other modes' a number in their own list.</summary>
     static string RankText(HudCatalog.Entry m, string filter)
     {
@@ -442,7 +435,7 @@ public static class HudMenu
     /// eight cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
     /// empty message: the plugin shows that item's card there. The cards past the eighth are the ballot's: empty here.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "", string serverMode = "", VoteState? vote = null)
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -498,8 +491,6 @@ public static class HudMenu
             c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag...
             c.Add((id, "adsvoted", mine == HudCatalog.AdsVote));            // ...and this player's ads mark lit
             c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
-            c.Add((id, "nopic", m != null && !HudThumbs.Has(HudThumbs.Key(m)) && m.Id > 0)); // no picture in the addon, so its button shows
-            c.Add((id, "picopen", m != null && m.Key == openPicture));      // ...and says Hide picture while that picture is up
             c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // the mode it plays in, on its picture and in its colour
             c.AddRange(HudVote.TagClassesOf(id, m?.Tags));                  // the rest of its tags
             c.AddRange(HudVote.ShareClasses(id, 0, 0));                     // no vote's share here
@@ -682,13 +673,13 @@ public static class HudMenu
 /// pictures outright (its window is the one that may not load http or https, 47 forms tested on 2026-11-01), so every thumbnail is in the
 /// Workshop addon - each map's Workshop preview as a small JPEG, which the resource compiler stores as it is, or for an official map the
 /// game's own screenshot - and the card picks one with classes. Maps that are not listed yet ship theirs too (hud/thumbs.py --ahead), so
-/// a map the nightly sync lists later has its picture without a new HUD; a map uploaded after that release has HudPreview instead.
+/// a map the nightly sync lists later has its picture without a new HUD; a map uploaded after that release has the card's plain backdrop until the next one.
 ///
 /// Two classes per picture, not one per map: the game interns every class name the server ever sets on the layout entity, for the
 /// entity's whole life and for all players together, and takes no more than 1,024 (the server logs "The maximum number of class names
 /// has been reached" and what the client then does is unknown). Picture n is the pair th{n / 64} and tl{n % 64}, so 9,000 pictures
 /// cost about 200 names. n is the map's place in HudThumbList (hud/thumbs.py appends, nothing moves); gungame_hud_thumbs.css has the rule
-/// ".th{n / 64}.tl{n % 64}" for each, and a map without a number shows the card's plain backdrop and the button for HudPreview.</summary>
+/// ".th{n / 64}.tl{n % 64}" for each, and a map without a number shows the card's plain backdrop.</summary>
 public static class HudThumbs
 {
     public const int Base = 64;
@@ -724,32 +715,3 @@ public static class HudThumbs
     public static bool IsThumbClass(string cls) => cls.Length > 2 && cls[0] == 't' && cls[1] is 'h' or 'l' && cls[2..].All(char.IsAsciiDigit);
 }
 
-/// <summary>The picture on request: a map with no picture in the addon has a button on its card, and its Workshop preview shows in
-/// the game's own message panel (PrintToCenterHtml), which unlike a custom HUD may load web pictures; the window goes short meanwhile, because it
-/// is drawn above that panel. The picture comes from Steam's own image CDN, scaled by Steam: nothing of ours is asked, and the panel shows
-/// the 336x189 whole. Measured in a real client on production, 2026-11-02: the panel is 300 px wide at x 810-1110, y 750-908 at 1920x1080 and
-/// the picture 252 px wide inside it; the player's Steam client fetches it. The panel pulses a little once a second, by itself, at any duration.</summary>
-public static class HudPreview
-{
-    public const string SteamHost = "images.steamusercontent.com";
-    public const string Scaled = "?imw=336&imh=189&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=false";
-
-    /// <summary>How long a picture stays up without a click. The window holds its idle clock meanwhile.</summary>
-    public const int Seconds = 30;
-
-    /// <summary>The address a Workshop item's preview_url makes, scaled: only Steam's image CDN, only an address that cannot break out of the
-    /// message's HTML. Null for anything else: the card then says there is no picture.</summary>
-    public static string? Url(string? previewUrl)
-    {
-        if (string.IsNullOrEmpty(previewUrl) || !Uri.TryCreate(previewUrl, UriKind.Absolute, out var u) || u.Scheme != "https" || u.Host != SteamHost) return null;
-        var path = u.AbsolutePath;
-        return path.All(c => char.IsAsciiLetterOrDigit(c) || c is '/' or '-' or '_' or '.') ? $"https://{SteamHost}{path}{Scaled}" : null;
-    }
-
-    /// <summary>The message: the picture and nothing after it, since a picture that fails to load takes the rest with it.</summary>
-    public static string Html(string url) => $"<img src='{url}'>";
-
-    /// <summary>The window's rows of cards a card is on, as the class on gg_screen that keeps them and collapses the others: pic1 for cards 1-4,
-    /// pic2 for 5-8, pic3 for the ballot's 9 and 10.</summary>
-    public static string RowClass(int card) => card <= HudBrowser.PerPageTyping ? "pic1" : card <= HudBrowser.PerPage ? "pic2" : "pic3";
-}

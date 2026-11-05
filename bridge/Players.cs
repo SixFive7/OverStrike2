@@ -121,12 +121,14 @@ static partial class Program
         h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));
         PutNotices(h, now);
+        if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Votes.cs: the Dislike popups that are open
         PutRestart(h, now); // Restarts.cs: a restart coming, with its countdown
         if (BackgroundNow() is { } bg) (h.BgId, h.BgPercent, h.BgTitle) = (long.TryParse(bg.Id, out var bgId) ? bgId : 0, bg.Percent ?? -1, bg.Title); // RandomQueue.cs
         if (Pending is { } c)
         {
             h.ChangeMap = Clip(Label(c.Map), 40);
+            h.ChangeKey = Key(c.Map);
             h.ChangeBy = c.By;
             h.ChangeIn = Math.Max(0, (int)Math.Ceiling((c.FiresAt - now).TotalSeconds));
             h.ChangeAtMs = HudState.Ms(c.FiresAt);

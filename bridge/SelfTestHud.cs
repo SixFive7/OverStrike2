@@ -194,7 +194,7 @@ static partial class Program
                 .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(ballotView.Texts).Select(t => t.Id).Append("gg_k_secs").Append("gg_rst_secs").ToList();
             var sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
                 .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).ToList();
-            string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-2", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "vaway", "pic1", "pic2", "pic3",
+            string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has: an older content's own (its Rules tab, the new-maps setting's, a card's Too big and Ads) are not looked for here
             string[] olderButtons = ["gg_tab_rules", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever];
@@ -202,7 +202,7 @@ static partial class Program
                 .Concat([HudCheck.VersionButton(Hud.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault, HudMenu.CatchUpOn, HudMenu.CatchUpOff,
                     HudView.BoardBig, HudView.BoardAds, HudBrowser.OursButton])
                 .Concat(HudVote.WhyPlaces.SelectMany(place => Enumerable.Range(1, DownReasons.All.Length).Select(k => HudVote.WhyButton(place, k))))
-                .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton)).Concat(Enumerable.Range(1, HudMenu.Cards).Select(HudMenu.PicButton))
+                .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton))
                 .Concat(HudBrowser.ModeButtons.Select(b => b.Id)).Concat(HudDash.LayoutButtons)
                 .Concat(Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Select(c => HudMenu.FunButton(r, c))))
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))

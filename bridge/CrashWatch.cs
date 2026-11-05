@@ -161,7 +161,7 @@ static partial class Program
         if (lifted.Count == 0) return;
         CatalogVersion++;
         Save();
-        Announce(lifted.Count == 1 ? $"{Clip(NameOfKey(lifted[0]), 44)} got a Workshop update - its crash mark is lifted" : $"{lifted.Count} marked maps got a Workshop update - their crash marks are lifted");
+        Announce(lifted.Count == 1 ? $"The map {Clip(NameOfKey(lifted[0]), 44)} got a Workshop update - It can come up at random again" : $"{lifted.Count} marked maps got a Workshop update - They can come up at random again");
     }
 
     /// <summary>A crash of the map with this key: counted (persisted), shown on its HUD cards, said on the news line, and told to joiners for a while.</summary>
@@ -174,7 +174,7 @@ static partial class Program
         CrashNotice = $"Server restarted at {DateTime.Now:HH:mm} after a crash on {Clip(name, 44)}";
         CrashNoticeUntil = Now().AddMinutes(CrashNoticeMinutes);
         Log($"crash recorded: {name} ({key}), {S.Crashes[key]} in all - {why}");
-        Announce($"The server went down on {Clip(name, 44)} - it is marked: its card says so, a pick asks twice, the dice skip it.", 30);
+        Post(Messages.ServerDown, $"The server crashed on {M.A(Clip(name, 44))} and has restarted - That map no longer comes up at random, and voting for it takes a second click");
         Save();
     }
 }

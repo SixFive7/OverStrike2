@@ -239,7 +239,7 @@ public static class HudVote
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
     /// hint for the other pages are variables on gg_screen, and the pager's classes on gg_screen too. perPage: that player's page size (CardsFor).</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
-        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0, int perPage = MapVote.PageCards)
+        VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -303,8 +303,6 @@ public static class HudVote
             c.Add((id, "ads", o != null && HasTag(o.Tags, MapTags.Ads)));
             c.Add((id, "adsvoted", false));
             c.Add((id, "ours", o != null && (HasTag(o.Tags, MapTags.Ours) || catalog?.Find(o.Key) is { Ours: true })));
-            c.Add((id, "nopic", o != null && o.Key.All(char.IsAsciiDigit) && o.Key != "" && !HudThumbs.Has(o.Key))); // the picture on request
-            c.Add((id, "picopen", o != null && o.Key != "" && o.Key == openPicture));
             c.AddRange(CardModeClasses(id, o?.Mode));                                     // the mode's label and colour
             c.AddRange(TagClassesOf(id, o?.Tags));                                         // the rest of its tags
             c.AddRange(ShareClasses(id, o?.Votes ?? 0, v.Cast));                         // its share of the votes, as a bar

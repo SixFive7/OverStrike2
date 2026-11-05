@@ -405,7 +405,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
                 blocksThisMap[entry.ConVar] = seen;
             }
             // Players are told what the map tried to change and that it was undone - once per setting per map.
-            if (undone.Count > 0 && (plugin as OverStrike2Plugin)?.Screen is { } hud) hud.Notice(BlockList.Notice(undone.Distinct().ToList()), 10);
+            if (undone.Count > 0 && (plugin as OverStrike2Plugin)?.Screen is { } hud) hud.Post(Messages.GameChanger, BlockList.Notice(undone.Distinct().ToList()));
         }
         catch (Exception e) { log.LogWarning("Over Strike 2 settings: block failed: {Error}", e.Message); }
     }
