@@ -140,9 +140,9 @@
           ]
         },
         "check": {
-          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them. dryrun, its old name, still means warn. Replaces HUD_CHECK.",
+          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn. Replaces HUD_CHECK.",
           "type": "string",
-          "default": "off",
+          "default": "warn",
           "enum": [
             "off",
             "warn",

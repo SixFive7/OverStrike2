@@ -42,35 +42,27 @@ the action, and its private reply teaches the primary by showing what ran: `You 
 
 | Command | What it does | Aliases |
 |---|---|---|
-| `!play <number, name or Workshop ID>` | Play a map now, or queue it | `!map` `!p` `!nominate` `!load` `!go` `!pick` |
+| `!play <number, name or Workshop ID>` | Put a map to the vote, with your vote on it; while a vote is open, onto that ballot | `!map` `!p` `!nominate` `!load` `!go` `!pick` |
 | `!find <words>` | Search the maps: the menu opens on the matches | `!search` `!s` `!lookup`, and `!maps <words>` |
-| `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` (sorted by votes) |
-| `!next` | The board's Next: the vote for the next map, with Keep playing on it; on your own map, I'm done | `!n` `!rtv` `!change` `!skipmap` `!skip` `!voteskip` `!vs` `!boo`, and `!new` with no argument |
+| `!maps` | Open the map browser | `!browse` `!list` `!maplist` `!m` `!top` (sorted by likes) |
+| `!next` | Start a vote for the next map, Keep playing on it; while a vote is open, back to it | `!n` `!rtv` `!change` `!skipmap` `!skip` `!voteskip` `!vs` `!boo` `!done` `!finish` `!end` `!release` `!letgo` `!over` `!new` |
 | `!random` | The same vote, with your vote on Random; while a vote is open, your vote on Random | `!roll` `!dice` `!rand` `!any` `!shuffle` |
-| `!back` | Back to the last map | `!previous` `!prev` `!last` `!undo` `!again` |
-| `!q` | Open the queue | `!queue` `!upcoming` `!whatsnext` `!lineup` `!order` |
-| `!cancel [number]` | Drop your request for that map, or all of them | `!unqueue` `!remove` `!drop` `!withdraw` `!uq` |
-| `!done` | End your own map: a vote picks the next one | `!finish` `!end` `!release` `!letgo` `!over` |
+| `!back` | The map before this one, to the vote | `!previous` `!prev` `!last` `!undo` `!again` |
 | `!up [number]` | Like the map that is on, or that map | `!like` `!+` `!good` `!love` `!thumbsup` |
 | `!down [number] [reason]` | Dislike it, and why (see Voting) | `!dislike` `!-` `!bad` `!meh` `!thumbsdown` |
-| `!toobig [number]` | Too big: only 1 random pick in 100 | `!big` `!huge` `!toolarge` `!size` `!xl` |
-| `!ads [number]` | It shows ads or sends players away: never a random pick | `!ad` `!spam` `!advert` `!report` `!scam` |
-| `!vote <number>` | Your choice in the vote for the next map; the bare number works too; alone, back to the vote | `!v` `!mv` `!choose` |
+| `!vote` | Back to the vote for the next map: a vote is a click on its card | `!v` `!mv` `!choose` |
 | `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
-| `!nades <on\|off>` | Grenade drops on or off | `!grenades` `!nade` `!he` `!drops` `!boom` |
+| `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` |
 | `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
 | `!time <10\|60>` | Match length in minutes, from the next match | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
-| `!newmaps <always\|half\|never>` | New maps in random picks | `!fresh` `!pool` `!mix` `!newmap`, and `!new` with an argument |
 | `!restart` | Restart a stuck server - twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
 | `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
 | `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
-| `!rules` | The rules | `!rule` `!r` `!fair` `!howto` `!policy` |
-| `!how` | How it works: every chance in map picks | `!howitworks` `!odds` `!chances` `!why` `!explain` |
+| `!how` | How it works: every rule of the vote and every chance of a random pick | `!howitworks` `!odds` `!chances` `!why` `!explain` `!rules` `!rule` `!r` `!fair` `!howto` `!policy` |
 | `!sync` | The Sync page: what the map sync does now, its queue and its history | `!status` `!dashboard` |
 
-Two words depend on what follows them, by rule, and nothing else is two things: `!new` with an argument is `!newmaps`, without one
-`!next`; `!maps` (and its aliases) with words is `!find`. Since 2026-11-03 (the owner's) `!skip` and its aliases are `!next`'s: the old skip
-vote is the vote for the next map now. `!randomize` and `!funrandom` run `!fun random`, `!defaults` and `!fundefault` run `!fun default`, and teach
+One word depends on what follows it, by rule, and nothing else is two things: `!maps` (and its aliases) with words is `!find`. `!skip`
+and its aliases are `!next`'s: the old skip vote is the vote for the next map now. `!randomize` and `!funrandom` run `!fun random`, `!defaults` and `!fundefault` run `!fun default`, and teach
 them as every alias teaches its primary.
 
 While a vote is open only the vote picks a map: `!vote`, its aliases and the bare number vote; `!play` - like a card's Play - puts its map on the

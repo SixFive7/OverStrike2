@@ -51,48 +51,32 @@ lists the primaries; the table with all of them is in [docs/reference.md](docs/r
 | Group | Commands |
 |---|---|
 | Maps | `!play` `!find` `!maps` `!next` `!random` `!back` |
-| Queue | `!q` `!cancel` `!done` |
-| Voting | `!up` `!down` `!toobig` `!ads` `!vote` |
-| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!catchup` `!time` `!newmaps` `!restart` |
-| Menu | `!menu` `!help` `!rules` `!how` `!sync` |
+| Likes | `!up` `!down` (`!down big`, `!down ads`) |
+| The vote | `!vote` |
+| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!catchup` `!time` `!restart` |
+| Menu | `!menu` `!help` `!how` `!sync` |
 
 **Aliases teach.** Every command has its aliases, and the words players know from other servers are among them (`!map`, `!rtv`,
 `!nominate`, `!skip`). An alias runs the action, and its private reply shows what ran: `You typed !map 12 - ran !play 12`. A `/` line is hidden
 from the others; a `!` line stays as normal chat. A pasted Workshop link or id opens that item's card.
 
-### The fair queue
-
-Play on a card is a request; on your own queued map Play takes it back (on a ballot card, **Remove mine**; or `!cancel`). On a map nobody holds, a random map or the start map, it plays at once; on somebody's map it waits in the
-queue. A map two or more players on the server want goes first, then whoever has had the least play time from their own requests
-this session, so one player's five requests wait behind everyone else's first. Each player has up to five requests, and only players on the
-server are queued. A requested map stays until its match ends, its requester says **I'm done**, a vote replaces it, or its requester has been
-gone for over a minute while others wait. **Next** starts the vote for the next map, with Keep playing on it; on your own map it is I'm done.
-
 ### The vote for the next map
 
-When a match ends everybody votes on the Maps page's cards, for 60 seconds or until everybody on the server has voted (alone, your vote ends it
-at once). The ballot holds at least eight maps, and Random:
+There is no queue: **putting a map to the vote is how a map is chosen.** Play on a card (or `!play`, or Previous) calls a vote with that map
+on the ballot and your vote on it; while a vote is open it goes onto that ballot instead. **Start a vote** calls one without a map, and a
+match's end opens one by itself. Every vote opens everybody's window on the ballot and freezes everybody - nobody moves, shoots or takes
+damage, bots included - until it is decided, and everybody unfreezes at the same moment.
 
-1. the queue: every request, with each connected requester's vote already in on their first;
-2. a map of each other game mode that suits the players on, unless a request is one;
-3. maps of the server's own mode, rolled like every random pick, up to eight maps in all;
-4. Random, a button of its own: the dice after the vote.
+The ballot holds up to ten cards on one page: **Keep playing this map** while the match is on (**Play this map again** once it is over),
+every map a player put on it, one map of each other game mode that suits the players on, a fresh map and a surprise, and favourites of the
+server's mode to fill the page; **Random** is a button of its own in the header - the dice after the vote. Every card shows its mode and its
+tags beside its picture, and while the vote runs its votes and who cast them; the most votes come first.
 
-Every card shows its mode, and while the vote runs its share of the votes as a bar and its voters' names; the leading card is lit (or a tie
-shows as a tie), a strip across the top splits the votes by card, and a line names everybody who has not voted yet. A match-end vote stays on
-screen until it is over. Eight cards make a page, and a longer ballot pages, with a hint you cannot miss. **Open the map browser** lets you put
-any map on the ballot for everybody, with your vote on it (one map each; `!play` in chat does the same). Click a card's Vote, or type its number:
-a bare `3`, or `!vote 3`. A click also shows in chat, as that player's `!vote 3`, so menu users learn the chat way. The most votes win, a tie is
-drawn at random, and no votes at all is Random. A queued map that loses stays queued. The map a vote chose stays until its match ends or another
-vote replaces it.
-
-**Next starts the same vote at any time**, with one card more: **Keep playing** the map that is on. Only your own window opens; the others see
-it on the news line and a gold line at the top of the screen, and TAB or `!vote` opens it. If Keep wins, or nobody votes, the map stays - a request stays its requester's - and you wait 2 minutes before starting
-another. Any other winner replaces the map, even somebody's request: that is the only way to cut one short. `!random` is the same vote with
-your vote on Random. On your own map Next is I'm done, and the vote that follows has no Keep playing.
-
-While a vote is open `!play` adds its map to it and `!random` votes Random; `!next`, `!back` and `!done`, with all their aliases, only answer
-with what to type, and requests reopen after the vote.
+A vote is a click on a card, changed or taken back as often as you like (a click on your own card takes it back). A map a player put on
+the ballot that has no votes left leaves it. Once everybody on the server has voted, the **inactivity timer** closes the vote 5 s after the
+last activity - a vote, a map put on it, a page or a search in the map browser - and the screen names who reset it last; the vote's limit
+is 60 s. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match, or is Random at a match end. After any
+vote, 2 minutes pass before the next one can be called; a match end opens one anyway. A Wingman map cannot win with more than four on.
 
 ### Votes and why
 

@@ -104,7 +104,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 |---|---|---|---|---|---|
 | `hud.addon` | string | (empty) | bridge, plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | The Workshop id of the HUD addon: the game server mounts it, and every client downloads it and keeps it across every map change; empty: no HUD (a text panel instead). |
 | `hud.tab` | off \| down | `down` | bridge | HUD_TAB | The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. |
-| `hud.check` | off \| warn \| enforce | `off` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them. dryrun, its old name, still means warn. |
+| `hud.check` | off \| warn \| enforce | `warn` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn. |
 | `hud.itemPage` | boolean | `true` | plugin | HUD_ITEM_PAGE | Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). |
 
 ### `plugin`

@@ -437,7 +437,7 @@ public sealed class Settings
             s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, v => v.Length == 0 || Digits(v), "a Workshop id"),
         Choice("hud.tab", Part.Bridge, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
             s => s.Hud.Tab, (s, v) => s.Hud.Tab = v),
-        Choice("hud.check", Part.Bridge, "off", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them. dryrun, its old name, still means warn.",
+        Choice("hud.check", Part.Bridge, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn.",
             s => s.Hud.Check, (s, v) => s.Hud.Check = v, new() { ["dryrun"] = "warn" }),
         Bool("hud.itemPage", Part.Plugin, true, "HUD_ITEM_PAGE", "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
             s => s.Hud.ItemPage, (s, v) => s.Hud.ItemPage = v),
@@ -684,7 +684,7 @@ public sealed class HudSection
 {
     public string Addon { get; set; } = "";
     public string Tab { get; set; } = "down";
-    public string Check { get; set; } = "off";
+    public string Check { get; set; } = "warn";
     public bool ItemPage { get; set; } = true;
 }
 
