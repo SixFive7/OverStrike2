@@ -236,5 +236,87 @@ with open(os.path.join(P.PROJECT, P.NAME + ".csproj"), encoding="utf-8") as f:
     real = P.declared_content(f.read())
 check("plugin: the real project declares blocked.txt and catchup.json (%s)" % ", ".join(real), real == ["blocked.txt", "catchup.json"])
 
+# ---- server.py: what ships where, only what the build made, renamed into place
+import json  # noqa: E402
+import server as S  # noqa: E402
+
+
+class FakeConfig:
+    def __init__(self, **values):
+        self.values = values
+
+    def get(self, dotted, default=None, required=False):
+        return self.values.get(dotted, default)
+
+
+def exits(fn, *a, **kw):
+    try:
+        fn(*a, **kw)
+        return None
+    except SystemExit as e:
+        return e.code
+
+
+check("server: the launcher pre.sh and the three mode cfgs it ships are in the checkout",
+      all(os.path.isfile(os.path.join(os2.REPO, p)) for p in [S.LAUNCHER] + S.CFGS) and len(S.CFGS) == 3)
+saved = (S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before)
+with tempfile.TemporaryDirectory() as tmp:
+    try:
+        S.OUT, S.RECORD = os.path.join(tmp, "ship"), os.path.join(tmp, "ship", "build.json")
+        record = {"commit": "c0ffee", "programs": {}}
+        for name in S.PROGRAMS:
+            os.makedirs(os.path.join(S.OUT, name))
+            with open(os.path.join(S.OUT, name, name), "wb") as f:
+                f.write(b"ELF " + name.encode())
+            record["programs"][name] = {"sha256": os2.sha256(os.path.join(S.OUT, name, name))}
+        with open(S.RECORD, "w") as f:
+            json.dump(record, f)
+        diff = {"out": ""}
+        os2.git = lambda *a: diff["out"] if a[0] == "diff" else "c0ffee"
+        os2.clean_tree = lambda paths: "c0ffee"
+        D.committed_before = lambda rel, data, depth=50: None
+        prog, conf = os.path.join(tmp, "program"), os.path.join(tmp, "config")
+        cfg = FakeConfig(**{"server.program_dir": prog, "server.config_dir": conf})
+        targets = sorted(os.path.relpath(dst, tmp).replace(os.sep, "/") for _, dst in S.plan(cfg))
+        check("server: os2-server, os2-sync and pre.sh go to the program folder, the mode cfgs to the config folder (%s)" % ", ".join(targets),
+              targets == sorted(["program/os2-server", "program/os2-sync", "program/pre.sh"] + ["config/" + os.path.basename(c) for c in S.CFGS]))
+        check("server: an empty program folder in the config ships the cfgs alone",
+              [os.path.basename(d) for _, d in S.plan(FakeConfig(**{"server.config_dir": conf}))] == [os.path.basename(c) for c in S.CFGS])
+        S.ship(cfg, apply=False)
+        check("server: ship without --apply copies nothing", not os.path.exists(prog) and not os.path.exists(conf))
+        S.ship(cfg, apply=True)
+        landed = all(os.path.exists(dst) and open(dst, "rb").read() == open(src, "rb").read() for src, dst in S.plan(cfg))
+        check("server: ship --apply puts every file in place, byte for byte, and leaves no .new behind",
+              landed and not [f for d in (prog, conf) for f in os.listdir(d) if f.endswith(".new")])
+        with open(os.path.join(S.OUT, "os2-sync", "os2-sync"), "ab") as f:
+            f.write(b" changed")
+        check("server: a program that is not the file the build recorded is refused", exits(S.ship, cfg, True) == 1)
+        with open(os.path.join(S.OUT, "os2-sync", "os2-sync"), "wb") as f:
+            f.write(b"ELF os2-sync")
+        diff["out"] = "server/OverStrike2.Server/Watch.cs"
+        check("server: sources changed since the build - refused until it is built again", exits(S.ship, cfg, True) == 1)
+        diff["out"] = ""
+        with open(os.path.join(conf, os.path.basename(S.CFGS[0])), "w") as f:
+            f.write("sv_cheats 1 // made on the server\n")
+        check("server: a cfg changed on the server that no commit holds is DRIFT - refused", exits(S.ship, cfg, True) == 1)
+        S.ship(cfg, apply=True, force=True)
+        check("server: --force ships over it",
+              open(os.path.join(conf, os.path.basename(S.CFGS[0])), "rb").read() == open(os.path.join(os2.REPO, S.CFGS[0]), "rb").read())
+        one = os.path.join(tmp, "single")
+        os.makedirs(one)
+        for f in ("os2-server", "OverStrike2.Core.pdb"):
+            open(os.path.join(one, f), "w").close()
+        check("server: a published program with only debug symbols beside it is a single file", exits(S.single_file, one, "os2-server") is None)
+        open(os.path.join(one, "libSystem.Native.so"), "w").close()
+        check("server: a published program with a library beside it is refused - it would need that file too",
+              exits(S.single_file, one, "os2-server") == 1)
+        a, b = os.path.join(tmp, "a.bin"), os.path.join(tmp, "b.bin")
+        open(a, "wb").write(b"new")
+        open(b, "wb").write(b"old")
+        check("os2: an atomic copy replaces the file and leaves no .new",
+              os2.copy_verified(a, b, atomic=True) == "copied" and open(b, "rb").read() == b"new" and not os.path.exists(b + ".new"))
+    finally:
+        S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before = saved
+
 print("\n%d failure(s)" % len(FAILS))
 sys.exit(1 if FAILS else 0)

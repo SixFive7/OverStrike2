@@ -11,6 +11,7 @@ tls_verify = true                         # false only for a self-signed certifi
 [build]
 engine = "wslc"                           # the local image builder: "wslc" (WSL containers) or "docker"
 network_host = false                      # build-remote only: run the build steps in the host's network
+game_image = "docker.io/joedwards32/cs2"  # server.py build --image: the game server's image, where the programs' self-tests run in full
 
 [bridge]
 image = "localhost/overstrike2-bridge"    # the image on the server; "localhost/" so that no pull can ever fetch it from a public registry
@@ -21,7 +22,8 @@ data_dir = ""                             # the bridge's /data on the server (a 
 [server]
 address = "play.example.com:27015"        # the game server's query address: is anybody playing?
 plugins_dir = ""                          # the folder the game server copies plugins from (one folder per plugin)
-config_dir = ""                           # where server/ is deployed - pre.sh, the mode cfgs, update-watch.py, keepset.py, workshop-sync.py ("" = not from here)
+config_dir = ""                           # where the mode cfgs are deployed (server.py), and data.py server's pre.sh, update-watch.py, keepset.py, workshop-sync.py ("" = not from here)
+program_dir = ""                          # where server.py ships os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 ("" = not from here)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 
 [workshop]

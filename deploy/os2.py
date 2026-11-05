@@ -170,16 +170,21 @@ def sha256(path):
     return h.hexdigest()
 
 
-def copy_verified(src, dst, dry=False):
-    """Copy when the destination lacks the file or holds other bytes; compare after. Returns 'same', 'copied' or 'would copy'."""
+def copy_verified(src, dst, dry=False, atomic=False):
+    """Copy when the destination lacks the file or holds other bytes; compare after. Returns 'same', 'copied' or 'would copy'.
+    atomic: the bytes go to <dst>.new and are renamed over dst once verified, so a reader sees the old file or the new one, never
+    half of one, and a program running from dst keeps the copy it started with."""
     if os.path.exists(dst) and filecmp.cmp(src, dst, shallow=False):
         return "same"
     if dry:
         return "would copy"
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    shutil.copyfile(src, dst)
-    if not filecmp.cmp(src, dst, shallow=False):
-        fail(f"{dst} is not byte-identical to {src} after the copy")
+    to = dst + ".new" if atomic else dst
+    shutil.copyfile(src, to)
+    if not filecmp.cmp(src, to, shallow=False):
+        fail(f"{to} is not byte-identical to {src} after the copy")
+    if atomic:
+        os.replace(to, dst)
     return "copied"
 
 
