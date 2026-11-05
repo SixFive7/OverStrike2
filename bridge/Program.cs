@@ -92,12 +92,7 @@ static partial class Program
     static void Post(Action work) => Loop.Add(work);
     static Action<int, Action> After = (ms, work) => Task.Delay(ms).ContinueWith(_ => Post(work)); // --selftest swaps in a timer on its own clock
 
-    static void Save()
-    {
-        var path = Path.Combine(StateDir, "state.json");
-        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(S, Ctx.Default.State));
-        File.Move(path + ".tmp", path, true);
-    }
+    static void Save() => WriteAtomic(Path.Combine(StateDir, "state.json"), JsonSerializer.Serialize(S, Ctx.Default.State));
 
     // ---- inbound: the CS2 server POSTs its log lines to /log/<LOG_SECRET> ----
     static void StartHttp()
