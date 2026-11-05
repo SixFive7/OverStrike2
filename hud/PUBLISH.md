@@ -48,32 +48,33 @@ minutes, and after a 429 none for an hour; the plugin keeps to the same. Reviews
 
 ## 3. The server's setting
 
-`hud.addon` in the settings file ([docs/settings.md](../docs/settings.md)) names the item. MultiAddonManager has the server mount it, so every player who
-joins gets the addon (they do not subscribe) and keeps it across every map change, and the plugin draws the menu ([docs/server.md](../docs/server.md#the-hud-addon)).
-An update keeps the id, so the setting stays as it is.
+`hud.addon` in the settings file ([docs/settings.md](../docs/settings.md)) names the item, and is required: without a usable one the game server does not start. MultiAddonManager
+has the server mount it, so every player who joins gets the addon (they do not subscribe) and keeps it across every map change, and the plugin draws the menu
+([docs/server.md](../docs/server.md#the-hud-addon)). An update keeps the id, so the setting stays as it is.
 
 ## 4. What to look at in game
 
 The same list for every release, in a real client against a test copy of the server. What the release brings goes in the change note and the Workshop description.
 
-1. **Hold TAB:** the board beside the scoreboard takes clicks while TAB is down - Like, Dislike, Start a vote, the way into the menu - and letting go gives the mouse back.
-2. **TAB + E:** the window, on its five tabs and their sub-tabs. START: the welcome.
-3. **MAPS, Browse:** eight cards with their pictures, the mode's label and colour, size, likes and every tag. The sorts and the filters; the search box opens the on-screen
+1. **A join:** the welcome opens by itself on START and stays until its X, through damage, death and a respawn. The X has "Close this to play" beside it while the server waits for this
+   game's first click, and that click shows the HUD's version on SERVER, Players.
+2. **Hold TAB:** the board beside the scoreboard takes clicks while TAB is down - Like, Dislike, Start a vote, the way into the menu - with Lately at its foot, and letting go gives the mouse back.
+3. **TAB + E:** the window, on its five tabs and their sub-tabs, closing by itself after 30 s without a click.
+4. **MAPS, Browse:** eight cards with their pictures, the mode's label and colour, size, likes and every tag. The sorts and the filters; the search box opens the on-screen
    keyboard; a typed Workshop id gets its card, with Download and play.
-4. **Start a vote:** everybody's window opens on MAPS, Vote, and nobody can move, shoot or close it. Ten cards, Keep playing first; Random's button; where the votes go, who has
+5. **Start a vote:** everybody's window opens on MAPS, Vote, and nobody can move, shoot or close it. Ten cards, Keep playing first; Random's button; where the votes go, who has
    not voted yet and both timers. A click votes, another moves the vote, a click on your own takes it back. Browse puts a map on the vote, with your vote.
-5. **The vote's end:** Keep says so for 8 s, Closes in counting down, then everybody unfreezes; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.
-6. **Dislike** a map: the reasons stand where it was clicked - over a card's picture, in the window in place of Like and Dislike, on the TAB board - and a dislike typed in chat with
-   the window closed gets the popup at the left.
-7. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity refusing Super jump
-   High with the reason. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
-8. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
+6. **The vote's end:** Keep says so for 8 s, Closes in counting down, then everybody unfreezes; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.
+7. **Dislike** a map: the reasons in one small dialog at the centre, shown only while you have a cursor, the window's or TAB's; a dislike typed in chat with the window closed shows it once TAB is held.
+8. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity greying Super jump
+   High with the reason on hover, and a click made just as the other setting changed refused with a bubble at the button. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
+9. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
    (`bridge/HudDash.cs`).
-9. **HELP:** Help and How it works, every row filled.
-10. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
-11. **A map change:** the screen says what comes and who picked it, and the banner counts down; at the first spawn the now-playing card.
-12. **An older game:** the HUD says it is out of date (`css_gghud level` fakes a newer server), and a game holding the older content still works.
-13. **Every message** against the gallery in the [README's index](../README.md#the-hud-page-by-page): how it looks, and where on the screen.
+10. **HELP:** Help and How it works, every row filled.
+11. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
+12. **A map change:** the countdown banner says what comes and who picked it, with the map's picture; at the first spawn the now-playing card under the crosshair.
+13. **An older game:** its banner says it is out of date and names both versions (`css_gghud level` fakes a newer server), and a game holding the older content still works.
+14. **Every message** of the [catalogue](../docs/reference.md#in-game-hud) against the gallery in the [README's index](../README.md#the-hud-page-by-page): how it looks, and where on the screen.
 
 ## Visibility
 

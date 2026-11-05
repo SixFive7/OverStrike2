@@ -47,15 +47,19 @@ How they talk (`<secret>` is `bridge.secret`):
 The [README's index](../README.md#the-hud-page-by-page) is the way to every part's page and pictures.
 
 **The board.** Holding **TAB** shows a board beside the scoreboard: the map that is on and who picked it, Like and Dislike, the vote in
-one line, **Start a vote** and the way into the menu. It takes the mouse while TAB is down; letting go, a hit, death or the window opening
-gives it back. `hud.tab` `off` leaves TAB alone (`HudTab.cs`).
+one line, **Start a vote** and the way into the menu, and at its foot **Lately**: the last three lines for everybody or for this player, the newest first, each with its age
+(Now, 4 min, 2 h). It takes the mouse while TAB is down; letting go, a hit, death or the window opening gives it back. `hud.tab` `off` leaves TAB alone (`HudTab.cs`).
 
-**The window.** **TAB + E** opens the full menu, on five tabs. It closes after 30 s without a click, and damage never closes it. A vote
-opens it for everybody and holds it open ([the freeze](#the-freeze)).
+**The window.** **TAB + E** opens the full menu, on five tabs. It closes after 30 s without a click, a gold line running out over that time, and damage, death and a respawn
+never close it. A vote opens it for everybody and holds it open ([the freeze](#the-freeze)).
+
+**The welcome** is that window, opening by itself at every real join: on START, 1.5 s after the player is alive, at their next spawn if they are not, and after 20 s if they never
+spawn. It stays until its X: no idle close, through damage, death and a respawn. A vote takes it over and hands it back on START. The X is also the
+[HUD check](#the-huds-version-and-the-hud-check)'s click, so unless `hud.check` is `off` a player the server has not seen click since that join gets the window again at their first spawn on each map.
 
 | Tab | Page | What is on it |
 |---|---|---|
-| START | | The welcome, three steps and how to reach the menu. |
+| START | | The welcome: the tagline with the logo, three steps and how to reach the menu; for a player seen before "Welcome back", with the map that is on, who picked it, its likes and how to mark it. |
 | MAPS | Browse | The map browser: eight cards a page, each with the map's picture, its place on its list, size, likes and tags, its Play button and like arrows, and the mode it plays in, as a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search on an on-screen keyboard over names, tags and Workshop ids; sorting by place on the list, likes, name or size; filters by size (under 25 MB, 25-120, 120-400, 400 and up), by the player's own likes, by official maps, by Our maps and by game mode. Previous puts the map before this one to the vote. |
 | MAPS | Vote | While a vote is on, the ballot ([below](#the-ballot)); Browse then adds to the vote. |
 | FUN | | The [fun settings](#fun-settings), with Random and Default. |
@@ -80,10 +84,57 @@ up or down, attacking, or a vote's freeze starting or ending spends it until the
 window opens again. A player killed with the window open is hidden again at the respawn. What is no model - the radar's dot, the name when
 aimed at, sounds, muzzle flashes - still shows.
 
-**Messages.** What happens for everybody shows on screen for everybody: who changed what, a map change counting down, a restart coming, a
-download somebody waits for, a crash. What answers one player's click goes to that player alone. A now-playing card greets each map at the
-first spawn, and a joining player is welcomed. Nearly every word comes from the bridge and the plugin as dialog variables, so most changes
-need no new HUD (`Hud.cs`).
+**Messages.** Every message a player can get is one line of one catalogue (`bridge/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
+the board's Lately list, and how long it stays. The bridge and the plugin both post through it, so one message cannot go two ways. What happens for everybody shows for everybody;
+what answers one player's click goes to that player alone. Nearly every word comes from the bridge and the plugin as dialog variables, so most changes need no new HUD (`Hud.cs`).
+
+The places on screen: the **top stack**, top centre, holds the countdown banner, the status banner, the outdated and the newer banner, and the top line; above the open window only
+the top line stays. The **card stack**, under the crosshair, grows upward and draws above the window: the now-playing card and catch-up's rows. A **window line** lies over the foot of
+the window's page. The **centre text** and the **alert** are CS2's own.
+
+| Message | Where | Who sees it | How long | Chat | Lately |
+|---|---|---|---|---|---|
+| The welcome, also the HUD check's window | The window, on START | That player | Until its X | | |
+| The tagline | The window's large text, and a window line | That player | The line 3 s | That player | |
+| "Welcome back", with the map that is on | A line on the welcome page | A player seen before | With the window | | |
+| Now playing, with the map's picture | The card | Each player | 8 s, at their first spawn on a map | | Everybody |
+| A player joined with this HUD version, at the first click that says it | The centre text | Everybody | 8 s | Everybody | Everybody |
+| Your HUD is out of date, with both versions | Its banner, red | That player | As long as it is | | |
+| Your HUD is newer than the server's | Its banner, red | That player | 15 s at the join | | |
+| Steam does not show the HUD ([the item watch](#the-huds-version-and-the-hud-check)) | The status banner, red | Everybody | 45 s | | |
+| The HUD is back on Steam | The status banner, green | Everybody | 30 s | | |
+| No menu during that hold, and the menu back | Chat alone | | | A player without the HUD | |
+| The HUD check's warning | The alert, two lines | That player | 15 s | That player | |
+| The vote | The window, on the ballot | Everybody | Until it is over | | |
+| Who started the vote | The window's header | Everybody | While it is open | Everybody | Everybody |
+| The inactivity timer and who reset it, the 60 s limit, who has not voted | The window's header | Everybody | While it is open | | |
+| A vote clicked: who voted and who still has to | Chat and Lately alone | | | Everybody | Everybody |
+| The vote decided, and the change counting down | The window's header | Everybody | Until the map changes | Everybody | Everybody |
+| The vote kept the map | The window's header | Everybody | 8 s | Everybody | Everybody |
+| A vote cannot be called now | A window line, in the player's own words | The player who tried | 8 s | Everybody, naming them | Everybody, naming them |
+| A fun setting changed, catch-up and the grenade drops among them; Random; Default | The top line | Everybody | 10 s | Everybody | Everybody |
+| A map's game-changer undone | The top line | Everybody | 10 s | Everybody | Everybody |
+| A Fun click refused | A bubble at the button | That player | 8 s | That player | That player |
+| Catch-up's boost | The card, a green row per item | That player | 5 s | That player | That player |
+| The leader's bounty | The card, a red row per item | That player | 5 s | That player | |
+| A map change counting down | The countdown banner, with the map's picture | Everybody | Until the map changes | Everybody | Everybody |
+| The server downloading a map, or finishing a background download first; a download failed | The top line | Everybody | 10 s, or as the restart watcher asks | Everybody, at its start and each quarter | Everybody, one line that replaces itself |
+| A Workshop card downloading to the server | The card in the map browser | That player | While it downloads | Everybody, at its start and each quarter | Everybody, one line that replaces itself |
+| Play asks first: a risky map's padlock | A window line | That player | 30 s | That player | |
+| Why the dislike? ([below](#likes-and-dislikes)) | One dialog at the centre, only with a cursor | That player | 15 s | | |
+| The server restarts after this match | The status banner | Everybody | Until then | Everybody | Everybody |
+| A restart counting down: the server's, a player's Restart the server, Restart the match | The countdown banner, with the project's logo | Everybody | 10 s | Everybody | Everybody |
+| A CS2 update | The top line | Everybody | Until the restart | Everybody | Everybody |
+| Updated to a new version | The top line | Everybody | 60 s | Everybody | Everybody |
+| The same, for a player who joins within 10 minutes | A window line | That player | 15 s | That player | That player |
+| A plain news item | The top line | Everybody | 8 s | Everybody | Everybody |
+| The server crashed on a map | The top line | Everybody | 30 s | Everybody | Everybody |
+| The same, for a player who joins within 10 minutes | A line on the welcome page, and a window line | That player | The window line 30 s | That player | That player |
+| The answer to your own click: refused, click again, already set | A window line | That player | 8 s | That player | That player |
+| Command replies: an unknown command, an alias taught, `!help`'s list | Chat alone | | | That player | |
+
+The top line holds 240 characters at most, a window line 140 and the centre text 80. A game holding a content before v4.6.0 lacks what it lacks: its own news line and note still get
+the words.
 
 **Tags.** Every card says why it is there: every tag that applies, in this order, everywhere a map appears (`MapTags`, one table for the
 cards, the lines on screen and in chat, the website and the Sync page; a line carries the first "why" tag, in words).
@@ -168,9 +219,9 @@ server console.
 - **A match ends:** the vote opens by itself. A vote that is open when a match ends runs on as a match end's. No vote opens with nobody on,
   while a change counts down or a map loads, when a restart waits for that match's end, or under the [maintenance flag](#maintenance-flag).
 
-Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, or for **2 minutes after the last vote**; a
-match end opens its vote anyway. A player who tries reads why in their own line, and chat and the board name them for everybody. A risky map - a crash on record, on the
-broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
+Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, while [Steam is not showing the HUD](#the-huds-version-and-the-hud-check),
+or for **2 minutes after the last vote**; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
+says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
 With more than four on a Wingman map cannot win, and one asked for from another mode is refused.
 
 ### The freeze
@@ -214,8 +265,8 @@ unplayable hands over to the dice.
 ### The automatic changes
 
 The dice change the map by themselves only when nobody can vote: at a server start (`bridge.randomOnStart`), on the empty server's way back to Arms
-Race, when the map that is on has just gone from the Workshop, when it has just crashed the players' games, and at a match end on a server that
-draws no HUD, where nobody would see a ballot. Without the bridge a finished match replays the same map: the Arms Race cfg sets
+Race, when the map that is on has just gone from the Workshop, when it has just crashed the players' games, and at a match end when no plugin draws the HUD or
+[Steam is not showing it](#the-huds-version-and-the-hud-check), because a vote freezes everybody and not everybody would see the ballot. Without the bridge a finished match replays the same map: the Arms Race cfg sets
 `mp_match_end_restart 1` and `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.
 
 ### The match length and the two restarts
@@ -299,10 +350,9 @@ again changes nothing and says so: repeating a mark never takes it back. Every p
 bridge's data folder (the file keeps its name; "vote" means the vote for the next map alone); a file that does not parse is moved aside, never overwritten.
 
 **A dislike keeps its reason**, as the mark's value in `votes.json` (`DownReasons`). Any plain Dislike - the board's button, a card's arrow, `!down`,
-`!down <number>`, its aliases - on a map that player has not disliked counts at once as the first one, and that player gets a popup listing them for 15 s. It
-stands where the Dislike was clicked: over the picture of the card it came from, in the window's live column in place of Like and Dislike, or on the TAB board in
-place of its buttons; the popup at the left is left for a dislike typed in chat while the window is closed. The reasons appear only when a dislike is cast - never
-for the click that takes a like back:
+`!down <number>`, its aliases - on a map that player has not disliked counts at once as the first one, and that player gets a popup listing them for 15 s: **Why the dislike?**, one
+small dialog at the centre of the screen that names the map and shows only while the player has a cursor, the window's or TAB's, so a dislike typed in chat with the window closed shows
+it once TAB is held. The reasons appear only when a dislike is cast - never for the click that takes a like back:
 
 | Word | Reason | Value | What it does |
 |---|---|---|---|
@@ -367,8 +417,9 @@ set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. 
 
 ## Catch-up
 
-In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a private message says what it is and how many kills behind they are. The
-numbers are `plugin/CatchUp/catchup.json`; the module is [`plugin/CatchUp/`](../plugin/CatchUp/).
+In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a card under the crosshair says what it is and how many kills behind they are, a
+green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game not known to hold a content with that card, because
+[the window's X](#the-huds-version-and-the-hud-check) has not said which it holds yet, gets a centre panel instead. The numbers are `plugin/CatchUp/catchup.json`; the module is [`plugin/CatchUp/`](../plugin/CatchUp/).
 
 | Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
 |---|---|---|---|---|---|---|
@@ -413,17 +464,22 @@ Thousands of community maps include some that break things, so every broken map 
 
 A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
 lacks. Every shipped layout is kept in `hud/reference/`, which `--selftest` holds the new one to. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
-its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it.
+its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
+banner stays and names both versions; a newer game's shows for 15 s at the join.
 
-**The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click: a player not seen clicking since their last real join
-gets the window at their first spawn on a map, and any button in it counts. The click also says which content the game holds (SERVER, Players). With `hud.check` `warn`, the default, one who has not
-clicked 90 s after that spawn is told in chat what to do and nothing more; `enforce` disconnects them; `off` asks nothing. A verification lives in memory, per connection: a reconnecting player may have a
-new HUD. No fresh word from the bridge means off.
+**The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
+server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
+(SERVER, Players) and closes the window. Any other button proves the HUD without saying which, and a content before v4.6.0 keeps its gold "Click to play" button, whose click counts as an older HUD. A player not
+seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
+`hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. A verification lives in memory, per connection: a reconnecting player may have a new HUD. No fresh word
+from the bridge means off.
 
 **The item watch.** While Steam does not show the HUD's Workshop item to everybody - Valve reviews every new version, and a held item is an error page for everybody but its owner - the server must not make
 joiners download it, and nobody is disconnected. The plugin reads the Web API every minute, which says whether the item is gone, private or banned and when a new version went up, but not whether Valve
 holds it. So the item's page is visited right after a change, then at most every 15 minutes while it is not shown, for 3 hours (`ItemPlan`, `hud.itemPage`). A verdict of not shown takes the item off the
-addons joiners must download, and players are told; the visit that finds it shown puts it back.
+addons joiners must download, and that is **a hold**: the HUD check goes off, and the status banner says for 45 s that new players join without the menu, that everybody loses it at the next map change and that the game plays on. Nobody can
+call a vote during a hold, because it would freeze players with no ballot to see, and a match end rolls the dice. A player without the HUD has no mouse taken and gets one chat line saying why. The visit that finds the item shown puts it back: a green
+banner for 30 s says everybody gets the menu again at the next map change, or now by reconnecting, and those without it read the same in chat.
 
 ## Maintenance flag
 
@@ -514,9 +570,9 @@ with `maps.json`.
 
 ## Configuration
 
-Every part reads one settings file, `/etc/overstrike2/overstrike2.jsonc`: [settings.md](settings.md) has every key, its default and the variable it replaces, and the game image's own variables. Until the install step writes that file, the bridge and the plugin
-fall back on those variables when there is no file or the file cannot be used, and each logs at its start which one it used, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example, and
-[`deploy/compose.yml`](../deploy/compose.yml) sets the rest.
+Every part reads one settings file: its text inline, in the environment variable `OVERSTRIKE2_SETTINGS_CONTENT`, or the file `/etc/overstrike2/overstrike2.jsonc` ([how it gets into the containers](settings.md#how-the-file-gets-into-the-containers)). [settings.md](settings.md) has every key, its default and the variable it replaces, and the game image's own variables. `hud.addon` is required: without a usable one the game server does not start ([server.md](server.md#how-it-starts)). Until the install step writes that file, the bridge and the plugin
+fall back on those variables when there is no file or the file cannot be used, and each logs at its start which one it used, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example; [`deploy/compose.yml`](../deploy/compose.yml) mounts the file and
+[`deploy/compose.example.yml`](../deploy/compose.example.yml) has the text inline.
 
 ## The plugin layer
 
@@ -566,6 +622,7 @@ The rules are said in the menu: its How it works and Help pages and the start pa
 | Path | What |
 |---|---|
 | `bridge/*.cs` | The bridge; `SelfTest*.cs` its self-test. The shared ones - the words, the vote's and the modes' tables, the HUD's logic - are compiled into the plugin too (`plugin/OverStrike2/OverStrike2.csproj` names them). |
+| `bridge/Messages.cs` | The [message catalogue](#in-game-hud): every message a player can get, one line each. |
 | `bridge/maps.json`, `broken.json`, `blocked.json`, `sizes.json`, `search.json`, `ours.json` | The [data files](#the-data-files) the repository starts from. |
 | `bridge/dashboard.html` | The website's page, built into the bridge. |
 | `plugin/OverStrike2/` | The plugin; `blocked.txt` the block list, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |

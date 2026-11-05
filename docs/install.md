@@ -26,7 +26,9 @@ docker compose up -d --build
 
 The first start takes a while: SteamCMD downloads the game, and the installer builds the plugin and the programs. `docker compose logs
 -f cs2` shows the game server; it is ready when it reports its map. Players join with `connect <your address>:27015` in the console.
-`overstrike2.jsonc`, `.env` and `secrets/` stay yours: they are gitignored.
+`overstrike2.jsonc`, `.env` and `secrets/` stay yours: they are gitignored. This compose file mounts your settings as a file; they can also go inline in a compose file, as the
+environment variable `OVERSTRIKE2_SETTINGS_CONTENT` of each service, as [`deploy/compose.example.yml`](../deploy/compose.example.yml) does
+([settings.md](settings.md#how-the-file-gets-into-the-containers) has both ways).
 
 `hud.addon` in your settings is required, and the example has the public HUD's id. Without a usable one, or with a settings file that
 cannot be used, the game server does not start: `docker compose logs cs2` shows an `ALERT` line that says why and how to fix it, and

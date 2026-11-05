@@ -16,9 +16,10 @@ that learn from what the players like. Players install nothing: the server hands
 - **Arms Race, and more by vote.** A kill earns the next gun, and a kill with the golden knife on the last rung wins the match. Deathmatch, and
   Wingman up to four players, are on every ballot. The server is back on Arms Race after every restart and after 10 minutes with nobody on.
   ([The game modes](docs/reference.md#the-game-modes))
-- **A menu in the game.** Hold **TAB** for the live board beside the scoreboard, press **TAB + E** for the full window: every map with its picture
-  and full-text search, the vote, the fun settings, who is on, the Workshop sync's dashboard, and every rule. Any Workshop map can be played by its
-  id. ([In-game HUD](docs/reference.md#in-game-hud))
+- **A menu in the game.** It opens with a welcome at every join and stays until its X. Hold **TAB** for the live board beside the scoreboard, press
+  **TAB + E** for the full window: every map with its picture and full-text search, the vote, the fun settings, who is on, the Workshop sync's dashboard,
+  and every rule. Any Workshop map can be played by its id. Every message has one place on screen, and the ones that matter later stay in chat and on the
+  board's Lately list. ([In-game HUD](docs/reference.md#in-game-hud))
 - **Chat commands.** A line that starts with `!` or `/` does what the click does, and `!help` lists them. The words players know from other servers
   work and teach (`!map`, `!rtv`, `!nominate`, `!skip`). ([The commands](docs/reference.md#the-menu-and-the-commands))
 - **The vote is how a map is chosen.** Play on a card, or **Start a vote**, and everybody's window opens on a ballot of ten cards: Keep playing,
@@ -48,8 +49,8 @@ Every part of the interface, as a real game client draws it against a test copy 
 <!-- hud-index:begin - the screenshot script fills the Page column; keep this table's parts in step with the HUD, and keep these two markers -->
 | Part | What it shows | Page |
 |---|---|---|
-| The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu | to come |
-| START | The welcome | to come |
+| The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu, Lately | to come |
+| START | The welcome, at every join until its X | to come |
 | MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | to come |
 | MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | to come |
 | FUN | The fun settings, off their default, idle, refused | to come |
@@ -65,8 +66,9 @@ Every part of the interface, as a real game client draws it against a test copy 
 
 Two files, beside [`deploy/compose.yml`](deploy/compose.yml) ([docs/install.md](docs/install.md) has the steps):
 
-- **`overstrike2.jsonc`, your settings.** Every part reads this one file; a key you leave out has its default. [`deploy/overstrike2.example.jsonc`](deploy/overstrike2.example.jsonc)
-  is a complete example, and [docs/settings.md](docs/settings.md) has every key, its default and who reads it.
+- **`overstrike2.jsonc`, your settings.** Every part reads this one file; a key you leave out has its default, and `hud.addon` is required. [`deploy/overstrike2.example.jsonc`](deploy/overstrike2.example.jsonc)
+  is a complete example, and [docs/settings.md](docs/settings.md) has every key, its default and who reads it. A compose file can hold the same text inline instead, in the environment
+  variable `OVERSTRIKE2_SETTINGS_CONTENT` ([both ways](docs/settings.md#how-the-file-gets-into-the-containers)).
 - **`.env`, your secrets and the game image's own variables.** [`deploy/example.env`](deploy/example.env). The settings file names a secret by reference (`"env:CS2_RCONPW"`,
   `"file:/run/secrets/steam-webapi-key.txt"`), so nobody writes one twice.
 
@@ -76,7 +78,7 @@ The essentials:
 |---|---|---|
 | `.env` | `CS2_RCONPW`, `OVERSTRIKE2_BRIDGE_SECRET` | The RCON password, and the secret in the bridge's addresses. Both are required |
 | `.env` | `CS2_SERVERNAME`, `SRCDS_TOKEN`, `TZ` | The name players see; a Game Server Login Token to list the server publicly; local time for the daily restart and the logs |
-| settings | `hud.addon` | The HUD's Workshop id, 3823993566 in the example |
+| settings | `hud.addon` | The HUD's Workshop id, 3823993566 in the example. Required: without a usable one the game server does not start |
 | settings | `hud.tab`, `hud.check` | Whether TAB takes the mouse for the board; whether a player whose game shows no HUD is told (`warn`), disconnected (`enforce`), or neither |
 | settings | `bridge.discoveryStock` | How many maps new to the server are kept ready per mode |
 | settings | `plugin.enabled` | `false` runs the server vanilla, for the days after a game update breaks Metamod or CounterStrikeSharp |

@@ -38,8 +38,8 @@ static class Program
         "The in-game menu of the Over Strike 2 server: Arms Race on thousands of Steam Workshop maps, with Deathmatch and Wingman by vote. You do not need to subscribe: the " +
         "server hands this to your game when you join, and it shows nothing anywhere else. Layout and stylesheet only - no scripts.\n\n" +
         "[h1]The menu[/h1]\n" +
-        "Hold TAB for the live board beside the scoreboard: the map that is on and who picked it, Like and Dislike, Start a vote - with the mouse, for as long as TAB is down. TAB " +
-        "+ E opens the full menu, which closes by itself when idle.\n" +
+        "The menu opens by itself at every join, with a welcome, and stays until you close it with its X. Hold TAB for the live board beside the scoreboard: the map that is on and " +
+        "who picked it, Like and Dislike, Start a vote and the latest messages - with the mouse, for as long as TAB is down. TAB + E opens the full menu, which closes by itself when idle.\n" +
         "[list]\n" +
         "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look. Search names, tags and Workshop ids on an on-screen keyboard; sort by " +
         "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id to play a map that is not on the list: the server " +
@@ -51,7 +51,7 @@ static class Program
         "[/list]\n\n" +
         "[h1]Chat commands[/h1]\n" +
         "Every action has one, and !help lists them: !play 12, !find words, !next, !random, !up, !down, !vote, !fun. The words you know from other servers work too, and the " +
-        "answer teaches: You typed !map 12 - ran !play 12. A Workshop link pasted in chat opens that map's card.\n\n" +
+        "answer teaches: You typed !map 12 - Ran !play 12. A Workshop link pasted in chat opens that map's card.\n\n" +
         "[h1]The vote for the next map[/h1]\n" +
         "The vote is how a map is chosen. Play on a card puts that map to the vote, with your vote on it; while a vote is on, it goes on that ballot. Start a vote calls one " +
         "without a map, and a match's end opens one by itself. Every vote opens everybody's window and freezes everybody - nobody moves, shoots or takes damage - until all have " +
@@ -65,8 +65,8 @@ static class Program
         "[h1]Your likes steer the dice[/h1]\n" +
         "Random maps lean on your likes: each Like doubles a map's odds, up to 5, and each Dislike quarters them. The Workshop's own numbers - rating, players, trend - are worth " +
         "up to 16 times, and a map shown and not chosen steps back for a while. One mark per player per map: the opposite one takes yours back first, and the next one casts it; " +
-        "the same one again says you did so already. A Dislike asks why right where you clicked it: I did not like the map, too big, ads, too small, broken, runs badly. Click " +
-        "one, or type !down big. Only 1 random pick in 100 is a too-big map, and a map marked for ads is never a random pick.\n\n" +
+        "the same one again says you did so already. A Dislike asks why, in a small dialog at the centre while you have the mouse: I did not like the map, too big, ads, too small, broken, " +
+        "runs badly. Click one, or type !down big. Only 1 random pick in 100 is a too-big map, and a map marked for ads is never a random pick.\n\n" +
         "[h1]Fun settings[/h1]\n" +
         "Anybody can switch them until the map changes, each with its own word (!gravity low, !vampire on): gravity, super jump, bunny hopping, fall damage, ice floor, Laser " +
         "guns, infinite ammo, headshots only, Vampire, Ghost, big grenades, double damage and free-for-all. Arms Race has five more: friendly fire, Instakill, grenades x10, the " +
@@ -75,7 +75,7 @@ static class Program
         "[h1]Catch-up boosts[/h1]\n" +
         "Fall 2 or more kills behind the leader in Arms Race and you spawn with a boost that grows with every kill of the gap, up to 8 and more: more health, lifesteal and " +
         "regeneration; from 3 behind less damage taken and more damage dealt; from 4 a second chance and longer spawn protection; from 7 infinite ammo and a one-hit knife and " +
-        "Zeus. A private message at spawn says what you got. A leader who runs away takes up to 30% more damage. Catch-up is one of the fun settings: on unless somebody switches " +
+        "Zeus. A card under the crosshair at spawn says what you got. A leader who runs away takes up to 30% more damage. Catch-up is one of the fun settings: on unless somebody switches " +
         "it off, until the map changes.\n\n" +
         "[h1]Maps that break things[/h1]\n" +
         "A map that crashes the server or players' games, or is listed for advertising, says why on its card and asks for a second click before it goes to the vote; the dice " +
@@ -87,8 +87,8 @@ static class Program
         "Whenever nobody plays, the server finds new Arms Race, Deathmatch and Wingman maps on the Workshop, scans them for adverts, load-tests them on a test copy and lists the " +
         "ones that pass. While the server downloads a map somebody is waiting for, the screen shows the progress.\n\n" +
         "[h1]Your HUD's version[/h1]\n" +
-        "The HUD says when yours is older or newer than the server's; older means quit CS2 and start it again, and Steam updates it. A new HUD version may ask for one click in " +
-        "the window: that shows the server your HUD works.\n\n" +
+        "The HUD says when yours is older or newer than the server's; older means quit CS2 and start it again, and Steam updates it. Closing the welcome with its X shows the server " +
+        "your HUD works, and which version it is.\n\n" +
         "Built on the custom_hud_layout panel CS2 added on 2026-08-24.";
     const string ApprovedFlag = "--user-approved-update";
 

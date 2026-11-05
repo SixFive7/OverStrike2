@@ -13,7 +13,7 @@ and the image's own variables where the image needs them.
 | `os2-server doctor` | What the program sees: the settings as read, the paths, the installed version and the one on disk, the watcher's counters. |
 | `os2-server version` | Its version. |
 
-Every command takes `--settings <file>` (else `OVERSTRIKE2_SETTINGS`, else `/etc/overstrike2/overstrike2.jsonc`); `watch --observe` and
+Every command takes `--settings <file>` (else `OVERSTRIKE2_SETTINGS`, else the file's text in `OVERSTRIKE2_SETTINGS_CONTENT`, else `/etc/overstrike2/overstrike2.jsonc`); `watch --observe` and
 `organize --dry-run` take `--state <folder>` (else `<paths.gameDir>/update-watch/observe`).
 
 ## How it starts
@@ -53,7 +53,7 @@ server process (`mm_cache_clients_with_addons 1`). `hud.addon` is required: the 
 **What the players see.** A restart that waits for the end of the match is announced to the bridge when it becomes due, and again
 every 5 minutes while it waits; the bridge shows it on the HUD. At the end of the match the bridge counts down 10 seconds, holds its
 own map change, and the quit follows. A CS2 update tells the players to restart CS2 to update; our own new version says when the
-server is back. After the restart, once the engine answers, the bridge hears what changed and shows a short note. A bridge that does
+server is back. After the restart, once the engine answers, the bridge hears what changed and says it on the top line for 60 s. A bridge that does
 not take these notices (down, or one that does not know them yet) gets the watcher's own lines on the HUD instead: the warning when
 the restart becomes due and the last line at the end of the match. The daily restart and the download restart happen only with
 nobody on and say nothing to players. A new version of the HUD needs no restart (the plugin's banner).
@@ -98,9 +98,9 @@ The watcher posts plain text to the bridge at `<bridge.url>/<path>/<bridge.secre
 ## Downloads a player waits for
 
 Steam runs one Workshop download at a time, and one that is running cannot be stopped. When a player picks the map the watcher is
-downloading in the background, it becomes the player's download - no second one - and the HUD's download line shows its progress.
-When a player picks another map while one downloads in the background, the change waits for it, and the line says so ("finishing the
-background download of X first", with its progress), then shows the chosen map's own progress. No background download starts while a
+downloading in the background, it becomes the player's download - no second one - and the HUD's top line shows its progress.
+When a player picks another map while one downloads in the background, the change waits for it, and the line says so ("Server is finishing
+the background download of X first", with its progress), then shows the chosen map's own progress. No background download starts while a
 download somebody waits for runs or while the bridge says hold. The progress is the engine's own for a download it runs, and
 MultiAddonManager's for a background one: exact, where the lists' sizes are often far off (a map listed at 763 MB downloaded 63 MB).
 Steam's client often stalls near the end of a download for up to a minute; the line then stays at its last percent.
