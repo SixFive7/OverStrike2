@@ -2,8 +2,8 @@
 
   <!-- The Workshop sync's self-test: "dotnet run (project) server/OverStrike2.Sync/SelfTest" from the repository's root runs every check
        and exits 0 when all pass. The checks that need Linux (process groups, /proc, links, SteamCMD's and the test engine's processes) say
-       SKIP elsewhere: the run that counts is the one in the game image (docs in Program.cs). It references the server program too, for the
-       one contract the two share: the hand-over the sync writes is what the restart watcher takes in. -->
+       SKIP elsewhere: the run that counts is the one in the game image (docs in Program.cs). It references the server program and the
+       bridge too, for the files they share with the sync: the hand-over the restart watcher takes in, the workshop.json the bridge reads. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -25,6 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\OverStrike2.Sync.csproj" />
     <ProjectReference Include="..\..\OverStrike2.Server\OverStrike2.Server.csproj" />
+    <!-- The bridge, for the other file the two share: workshop.json, which the bridge's own reader (Popularity.cs) must read as meant. -->
+    <ProjectReference Include="..\..\..\bridge\GunGameBridge.csproj" />
   </ItemGroup>
 
 </Project>

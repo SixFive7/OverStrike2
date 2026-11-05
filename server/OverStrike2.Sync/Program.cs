@@ -16,7 +16,7 @@ public static class Program
           once [JSON]             one run now, then exit (the same rules); JSON lowers its limits, e.g. '{"batch": 3}' (api_run_cap,
                                   max_pages, batch; publish false; discover false; api true or false; only_ids [...])
           status                  the Web API ledger's counters and the state's totals
-          export                  what it has published, as entries a republish from the repository can merge
+          export                  what it has published, as entries a republish from the repository can merge, and the random queues
           doctor                  what this program sees: the settings as read, the paths
           version                 this program's version
         options:

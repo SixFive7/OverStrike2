@@ -34,9 +34,10 @@ public sealed class Seams
     /// <summary>A problem mail: (config, subject, body) - null when sent, else why not.</summary>
     public Func<SyncConfig, string, string, string?> SendMail { get; set; } = Mail.Send;
 
-    /// <summary>THE KEEP SET (Core's KeepSet, the restart watcher's too); the sync never trusts it with an exception.</summary>
-    public Func<IReadOnlyDictionary<string, JsonNode?>, DateTimeOffset, string, KeepSetResult> KeepSet { get; set; } =
-        (inputs, now, hud) => Core.KeepSet.Compute(inputs, now, hud);
+    /// <summary>THE KEEP SET (Core's KeepSet, the restart watcher's too), with the rules of the config (its queues as long as
+    /// bridge.discoveryStock, as the watcher's); the sync never trusts it with an exception.</summary>
+    public Func<IReadOnlyDictionary<string, JsonNode?>, DateTimeOffset, string, KeepRules, KeepSetResult> KeepSet { get; set; } =
+        (inputs, now, hud, rules) => Core.KeepSet.Compute(inputs, now, hud, rules);
 
     /// <summary>A POST to the bridge: (URL, body, content type) - (status, the answer's text). Throws when there is no answer.</summary>
     public Func<string, string, string, (int Status, string Text)> BridgePost { get; set; } = Game.Post;

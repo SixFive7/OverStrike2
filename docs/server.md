@@ -128,14 +128,20 @@ the load tests and the publish, with the same limits, stops and mail. It keeps t
 Web API ledger, the reports, the hand-overs, the bridge's files byte for byte - so either reads what the other wrote. It reads the
 settings file (`sync.*`, `paths.*`, `server.*`, `bridge.*`, `hud.addon`, `restarts.daily`, `steam.apiGapSeconds`); HOME is the
 image's own. Every Steam Web API call goes through the program's one door (one at a time, `steam.apiGapSeconds` apart, also from one
-run to the next) and is booked in the ledger before it is sent.
+run to the next) and is booked in the ledger before it is sent. Its keep set is the restart watcher's: the same code, with the queues
+as long as `bridge.discoveryStock`.
+
+Besides the map lists, it writes the bridge's `workshop.json` (version 1) after the check and after every publish: every listed map
+with the Workshop's numbers as the check saw them (`created`, `updated`, `content`, `subs`, `lifetime`, `favs`, `lifetimeFavs`, `views`)
+and `passed`, the `time_updated` of the content the sync accepts - the version its last passing test was of; our own maps' newest. The
+bridge's discovery stock takes only maps whose current content passed (`passed` at least `updated`).
 
 | Command | What it does |
 |---|---|
 | `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; `<state>/run-now` starts a manual run at once. |
 | `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
 | `os2-sync status` | The Web API ledger's counters and the state's totals. |
-| `os2-sync export` | What it has published, as entries a republish from the repository can merge. |
+| `os2-sync export` | What it has published, as entries a republish from the repository can merge, and the random queues as `queues.json` holds them (`queues`), which the HUD's pictures take first. |
 | `os2-sync doctor` | What it sees: the settings as read, the paths, whether there is a key, the bridge, the mail. |
 | `os2-sync version` | Its version. |
 

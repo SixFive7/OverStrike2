@@ -22,6 +22,7 @@ static class NewChecks
     {
         var root = Dir("new");
         SettingsFile(root);
+        StockRule();
         Formats();
         DoorAndLedger(root);
         DryRun(root);
@@ -88,6 +89,29 @@ static class NewChecks
         var heavy = run.StatusHeavy();
         var hud = Py.Arr(heavy["keep"]!["parts"]).First(p => Py.Str(p!["part"]) == "hud");
         Check("status: the keep set's HUD item is hud.addon", Py.Int(hud!["count"]) == 1 && !Py.StrList(heavy["keep"]!["problems"]).Any(p => p.StartsWith("no HUD item", StringComparison.Ordinal)));
+    }
+
+    // ---- the keep set's queue rule follows the discovery stock (bridge.discoveryStock), as the restart watcher's does: the bridge's lanes
+    // are the queues, so a stock of N under 10 wants lanes of N, and with the stock off (0) empty lanes are no reason to refuse
+    static void StockRule()
+    {
+        var c4 = SyncConfig.From(Parse("""{ "schema": 1, "bridge": { "discoveryStock": 4 } }"""), _ => null);
+        var c0 = SyncConfig.From(Parse("""{ "schema": 1, "bridge": { "discoveryStock": 0 } }"""), _ => null);
+        var c10 = SyncConfig.From(Parse("""{ "schema": 1 }"""), _ => null);
+        static string[] QueueProblems(SyncConfig rules, JsonObject queues)
+        {
+            var cfg = Cfg();
+            cfg.KeepRules = rules.KeepRules;
+            var data = Part3.KData();
+            data["queues.json"] = queues.DeepClone();
+            return W.Run(cfg, new FakeClock(1793700000.0)).SafeKeepSet(Part3.Inputs(data), 1793700000.0, "500").Problems
+                .Where(p => p.Contains(" queue holds ", StringComparison.Ordinal)).ToArray();
+        }
+        var four = O("""{"version": 1, "random": {"armsrace-new": ["1", "2", "3", "4"], "armsrace-original": ["1", "2", "3", "4"], "deathmatch": ["5", "6", "7", "8"], "wingman": ["9", "10", "11", "12"]}, "requested": []}""");
+        var none = O("""{"version": 1, "random": {"armsrace-new": [], "armsrace-original": [], "deathmatch": [], "wingman": []}, "requested": []}""");
+        Check("keep set: the queue rule follows the discovery stock - lanes of 4 for a stock of 4, none for a stock that is off, 10 by default (KeepRules.ForStock, as the restart watcher's)",
+              c4.KeepRules.MinQueue == 4 && c0.KeepRules.MinQueue == 0 && c10.KeepRules.MinQueue == 10 && c4.KeepRules == KeepRules.ForStock(4)
+              && QueueProblems(c4, four).Length == 0 && QueueProblems(c0, none).Length == 0 && QueueProblems(c10, four).Length == 4);
     }
 
     // ---- the formats the Python sync wrote, which this program keeps byte for byte (references made by Python itself, .work/expect.py)

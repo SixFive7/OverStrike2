@@ -233,8 +233,9 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     }
 
     /// <summary>os2-sync export: what this sync has published, as entries a republish from the repo can merge (id, rank, name, subscriptions,
-    /// lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and state.json. The server's data is ahead of the repo
-    /// after a run that published; this is the way back.</summary>
+    /// lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and state.json, and the random queues as queues.json
+    /// holds them ("queues": version 1, its lanes under "random" and "requested"; null without the file), which the HUD's pictures take first.
+    /// The server's data is ahead of the repo after a run that published; this is the way back.</summary>
     public string Export()
     {
         var st = new SyncState(Path.Combine(cfg.StateDir, "state.json")).Load();
@@ -261,6 +262,10 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 copy["section"] = section;
                 broken.Add(copy);
             }
-        return Py.Dumps(new JsonObject { ["generated"] = clock.Stamp(), ["maps.json"] = maps, ["modes"] = modes, ["broken.json"] = broken }, 1);
+        var queues = Py.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the random queues, as the bridge wrote them
+        return Py.Dumps(new JsonObject
+        {
+            ["generated"] = clock.Stamp(), ["maps.json"] = maps, ["modes"] = modes, ["broken.json"] = broken, ["queues"] = queues?.DeepClone(),
+        }, 1);
     }
 }

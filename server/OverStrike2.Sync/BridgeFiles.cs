@@ -183,6 +183,22 @@ public sealed class SyncState(string path)
 
     public JsonObject? Item(string wid) => Items[wid] as JsonObject;
 
+    /// <summary>The Workshop's numbers of each map as the check last saw it: what workshop.json gives the bridge.</summary>
+    public JsonObject Workshop => Section("workshop");
+
+    /// <summary>An item's Workshop numbers as the check saw them (result 1; a map gone or hidden keeps what was seen before).</summary>
+    public void NoteWorkshop(string wid, JsonObject item)
+    {
+        if (Py.Int(item["result"]) != 1)
+            return;
+        Workshop[wid] = new JsonObject
+        {
+            ["created"] = Py.Int(item["time_created"]), ["updated"] = Py.Int(item["time_updated"]), ["content"] = Py.StrOr(item["hcontent_file"]),
+            ["subs"] = Py.Int(item["subscriptions"]), ["lifetime"] = Py.Int(item["lifetime_subscriptions"]), ["favs"] = Py.Int(item["favorited"]),
+            ["lifetimeFavs"] = Py.Int(item["lifetime_favorited"]), ["views"] = Py.Int(item["views"]),
+        };
+    }
+
     /// <summary>Record a Workshop item we were shown (discovery, or a changed listed map), keeping what we decided before.</summary>
     public JsonObject Remember(JsonObject item, string day, string why)
     {

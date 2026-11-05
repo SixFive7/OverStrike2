@@ -124,7 +124,7 @@ static class Part3
         Check("acf: an item is forgotten in both sections, the rest kept", Handover.AcfItems(acf) is { Count: 1 } left && left["2"] == 6 && !File.ReadAllText(acf).Contains("\"1\""));
     }
 
-    static JsonObject KData()
+    public static JsonObject KData()
     {
         var maps = new JsonArray(Enumerable.Range(1, 129).Select(r => (JsonNode?)new JsonObject { ["rank"] = r, ["id"] = 100 + r, ["name"] = $"a{r}", ["sizeMb"] = 1 }).ToArray());
         var dm = new JsonArray(Enumerable.Range(1, 29).Select(r => (JsonNode?)new JsonObject { ["rank"] = r, ["id"] = 300 + r, ["name"] = $"d{r}", ["sizeMb"] = 1 }).ToArray());
@@ -149,7 +149,7 @@ static class Part3
         };
     }
 
-    static Dictionary<string, JsonNode?> Inputs(JsonObject data) => data.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
+    public static Dictionary<string, JsonNode?> Inputs(JsonObject data) => data.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
 
     static string Same(KeepSetResult k) => Py.Compact(new JsonObject
     {
@@ -548,7 +548,7 @@ static class Part3
         var ks = probe.SafeKeepSet(KeepSet.Inputs(shp), KT);
         Check($"reshaped inputs: the keep set says why it is not to be trusted, no exception ({T.Show(ks.Problems.Take(2))})", ks.Problems.Count > 0 && ks.All.Count == 0);
         var realKeep = Hooks.KeepSet;
-        Hooks.KeepSet = (_, _, _) => throw new InvalidCastException("'list' object has no attribute 'get'");
+        Hooks.KeepSet = (_, _, _, _) => throw new InvalidCastException("'list' object has no attribute 'get'");
         var ks2 = probe.SafeKeepSet(new Dictionary<string, JsonNode?>(), KT);
         Check("reshaped inputs: an exception inside the keep set is caught and named",
               ks2.Problems[0].StartsWith("the keep set could not be computed", StringComparison.Ordinal) && ks2.All.Count == 0);
@@ -559,7 +559,7 @@ static class Part3
               Py.StrOr(Py.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Py.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
         // Python: keepset.py not mounted beside the script (an import guard); here the keep set is compiled in from Core and cannot be missing,
         // so these two hold the guard's meaning - a keep set that could not be computed is empty, says why, and serve hands over nothing on it
-        Hooks.KeepSet = (_, _, _) => throw new FileNotFoundException("OverStrike2.Core's KeepSet is not loadable");
+        Hooks.KeepSet = (_, _, _, _) => throw new FileNotFoundException("OverStrike2.Core's KeepSet is not loadable");
         var ksb = probe.SafeKeepSet(KeepSet.Inputs(sdata), KT, "500");
         Check($"no keepset.py: an empty keep set that says why ({T.Show(ksb.Problems.Take(1))})",
               ksb.All.Count == 0 && ksb.Problems[0].StartsWith("the keep set could not be computed: FileNotFoundException", StringComparison.Ordinal));

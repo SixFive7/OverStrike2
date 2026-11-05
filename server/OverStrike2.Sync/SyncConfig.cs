@@ -61,6 +61,7 @@ public sealed class SyncConfig
     public string Home { get; set; } = "/home/steam";              // the image's HOME: SteamCMD's and the test engine's
     public List<string>? OnlyIds { get; set; }                     // a run-now's {"only_ids": [...]}
     public bool DryRun { get; set; }                               // os2-sync --dry-run: nothing written for anybody else, no mail
+    public KeepRules KeepRules { get; set; } = KeepRules.Default;  // the keep set's limits: its queues as long as bridge.discoveryStock, the restart watcher's too
     public string? StatusFileOverride { get; set; }
     public List<string> BootWarnings { get; } = [];
 
@@ -118,6 +119,7 @@ public sealed class SyncConfig
             ServerName = s.Server.Name.Length > 0 ? s.Server.Name : "CS2 server",
             HudAddon = s.Hud.Addon.Trim(),
             Home = env("HOME") is { Length: > 0 } home ? home : "/home/steam",
+            KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),
         };
         c.ApiRunCap = Math.Clamp(s.Sync.ApiRunCap, 0, c.ApiDayCap);
         c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Py.Digits));

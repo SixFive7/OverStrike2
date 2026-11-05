@@ -49,6 +49,7 @@ static class Part2
         Stops();
         Stalls();
         Gone();
+        WorkshopJson();
         Clock();
     }
 
@@ -558,6 +559,78 @@ static class Part2
               Mail.IssuesOf(r8.Report).Any(i => i.Key == "verdicts-not-reported"));
         Hooks.Check = (_, _, _, _, _) => ([], []);
         File.Delete(Path.Combine(RunData, "removed.json"));
+    }
+
+    /// <summary>The workshop.json the scenario below wrote, for the bridge's own reader.</summary>
+    public static string WorkshopText = "";
+
+    static JsonObject WDet(string wid, long updated, params (string Key, JsonNode Value)[] extra)
+    {
+        var o = O($$"""
+            {"publishedfileid": "{{wid}}", "result": 1, "time_created": 100, "time_updated": {{updated}}, "hcontent_file": "9{{wid}}", "subscriptions": 5,
+             "lifetime_subscriptions": 7, "favorited": 2, "lifetime_favorited": 3, "views": 11, "consumer_appid": 730, "title": "map {{wid}}", "tags": [{"tag": "Armsrace"}]}
+            """);
+        foreach (var (k, v) in extra)
+            o[k] = v.DeepClone();
+        return o;
+    }
+
+    // ---- workshop.json (the bridge's discovery stock reads it, bridge/Popularity.cs): every listed map with the Workshop's numbers as the
+    // check saw them, and "passed", the time_updated of the content the sync accepts - the baseline, our own maps' newest; a passing test of
+    // new content moves it up to it. The export carries the random queues as queues.json holds them
+    static void WorkshopJson()
+    {
+        var wroot = Path.Combine(T.Root, "wsj");
+        var wdata = Path.Combine(wroot, "data");
+        Directory.CreateDirectory(Path.Combine(wroot, "state"));
+        Directory.CreateDirectory(wdata);
+        Json(Path.Combine(wdata, "maps.json"), A("""[{"rank": 1, "id": 21, "name": "a", "sizeMb": 1}, {"rank": 2, "id": 22, "name": "b", "sizeMb": 1}, {"rank": 3, "id": 24, "name": "d", "sizeMb": 1}]"""));
+        Json(Path.Combine(wdata, "maps-deathmatch.json"), A("""[{"rank": 1, "id": 23, "name": "c", "sizeMb": 1}, {"name": "de_dust2", "official": true}]"""));
+        Json(Path.Combine(wdata, "broken.json"), O("""{"schema": "x", "maps": [], "packs": []}"""));
+        Json(Path.Combine(wdata, "ours.json"), O("""{"maps": [{"id": 23}]}"""));
+        var queues = O("""{"version": 1, "length": 10, "random": {"armsrace-new": ["21"], "armsrace-original": ["21"], "deathmatch": [], "wingman": []}, "requested": ["24"]}""");
+        Json(Path.Combine(wdata, "queues.json"), queues);
+        Json(Path.Combine(wroot, "state", "state.json"), O("""{"schema": 1, "items": {}, "baseline": {"21": 500, "22": 600, "23": 300, "24": 400}, "downloads": {}}"""));
+        Hooks.Check = (_, _, _, _, _) => (new Dictionary<string, JsonObject>
+        {
+            ["21"] = WDet("21", 500), ["22"] = WDet("22", 900), ["23"] = WDet("23", 700, ("creator", "7")), ["24"] = WDet("24", 800, ("tags", new JsonArray())),
+        }, []);
+        var saved = (State, Work, Data);
+        (State, Work, Data) = (Path.Combine(wroot, "state"), Path.Combine(wroot, "work"), wdata);
+        var cfgw = Cfg();
+        cfgw.Lower(O("{\"api\": true}"));
+        (cfgw.DownloadPause, cfgw.ExcludeCreators) = (0, ["7"]);
+        var fc = new FakeClock(T0 + 9 * 86400);
+        W.Run(cfgw, fc).Run();
+        WorkshopText = File.ReadAllText(Path.Combine(wdata, "workshop.json"));
+        var wj = O(WorkshopText);
+        var maps = (JsonObject)wj["maps"]!;
+        Check("workshop.json: the check writes it - version 1, every listed map with the Workshop's numbers as the check saw them",
+              Py.Int(wj["version"]) == 1 && Py.Integer(wj["written"]) == (long)(T0 + 9 * 86400) && maps.Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(["21", "22", "23", "24"])
+              && Py.Eq(maps["21"], O("""{"created": 100, "updated": 500, "content": "921", "subs": 5, "lifetime": 7, "favs": 2, "lifetimeFavs": 3, "views": 11, "passed": 500}"""))
+              && Py.IsString(maps["21"]!["content"]) && Py.Integer(maps["21"]!["passed"]) is not null);
+        Check("workshop.json: passed is the version the sync accepts - a changed map still waiting for its test keeps the old one, our own map has its newest",
+              (Py.Int(maps["24"]!["updated"]), Py.Int(maps["24"]!["passed"])) == (800, 400) && (Py.Int(maps["23"]!["updated"]), Py.Int(maps["23"]!["passed"])) == (700, 700));
+        Check($"workshop.json: a passing test of a map's new content moves its passed up to it ({Py.Dumps(maps["22"])})",
+              (Py.Int(maps["22"]!["updated"]), Py.Int(maps["22"]!["passed"])) == (900, 900) && Loads.Contains("22"));
+        var ex = O(new Service(cfgw, C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
+        Check("export: the random queues as queues.json holds them - its lanes and the open ballot's requests",
+              Py.Eq(ex["queues"], queues) && Py.StrList(ex["queues"]!["random"]!["armsrace-new"]) is ["21"] && Py.StrList(ex["queues"]!["requested"]) is ["24"]);
+        Check("workshop.json: the bridge's own reader (bridge/Popularity.cs) reads it as meant - every map, its numbers, whether its current content passed", () =>
+        {
+            var program = System.Reflection.Assembly.Load("GunGameBridge").GetType("Program", true)!;
+            var parse = program.GetMethod("ParseWorkshop", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            var result = parse.Invoke(null, [WorkshopText])!;
+            var read = (System.Collections.IDictionary)result.GetType().GetField("Item1")!.GetValue(result)!;
+            var written = (long)result.GetType().GetField("Item2")!.GetValue(result)!;
+            object? P(string id, string property) => read[id]!.GetType().GetProperty(property)!.GetValue(read[id]);
+            return read.Count == 4 && written == (long)(T0 + 9 * 86400)
+                   && (long)P("21", "Created")! == 100 && (long)P("21", "Updated")! == 500 && (string)P("21", "Content")! == "921" && (long)P("21", "Subs")! == 5
+                   && (long)P("21", "Lifetime")! == 7 && (long)P("21", "Favs")! == 2 && (long)P("21", "LifetimeFavs")! == 3 && (long)P("21", "Views")! == 11 && (long)P("21", "Passed")! == 500
+                   && (bool)P("21", "ContentPassed")! && (bool)P("22", "ContentPassed")! && (bool)P("23", "ContentPassed")! && (bool)P("24", "ContentUntested")! && !(bool)P("24", "ContentPassed")!;
+        });
+        (State, Work, Data) = saved;
+        Hooks.Check = (_, _, _, _, _) => ([], []);
     }
 
     // ---- no time windows: a run lasts sync.runHours, cut short before the restarts; the service starts one whenever nobody plays and work waits

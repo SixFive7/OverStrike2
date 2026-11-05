@@ -100,7 +100,7 @@ public sealed class SyncRun
     {
         try
         {
-            return Seams.KeepSet(inputs, SyncClock.At(now), hud);
+            return Seams.KeepSet(inputs, SyncClock.At(now), hud, Cfg.KeepRules);
         }
         catch (Exception e) when (e is not StopRequested)      // a reshaped bridge file must never crash a run
         {
@@ -350,8 +350,11 @@ public sealed class SyncRun
             foreach (var wid in queueHead)
                 if (details.TryGetValue(wid, out var item))
                     State.Remember(item, Day0, Py.StrOr(State.Item(wid)?["why"], "new"));
+            foreach (var (wid, item) in details)
+                State.NoteWorkshop(wid, item);
             State.Save();
             L($"check: {ids.Count} asked, {judged.Removed.Count} gone ({newly.Count} newly), {judged.Changed.Count} changed{(judged.Suspicious ? " - NOT BELIEVED (over 10%)" : "")}");
+            WriteWorkshop(files);
             if (api.StopReason is { } r1)
                 Report["api_stop"] = r1;
             // 2b. the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
@@ -506,7 +509,7 @@ public sealed class SyncRun
                 {
                     var order = Py.StrList(trend[mode]);
                     var last = keep.Lists.TryGetValue(mode, out var l) ? l.Popular ?? [] : [];
-                    var upto = last.Count >= KeepRules.Default.Top && order.Contains(last[^1]) ? order.IndexOf(last[^1]) + 1 : order.Count;
+                    var upto = last.Count >= Cfg.KeepRules.Top && order.Contains(last[^1]) ? order.IndexOf(last[^1]) + 1 : order.Count;
                     var (score, subs) = keep.Cutoff.TryGetValue(mode, out var co) ? co : (null, null);
                     c[tag] = (score, subs, [.. order.Take(upto)]);
                 }
@@ -1528,6 +1531,57 @@ public sealed class SyncRun
                 State.Baseline[wid] = Py.Int(rec["updated"]);
         }
         State.Save();
+        WriteWorkshop(files);
+    }
+
+    public const string WorkshopFile = "workshop.json";
+
+    /// <summary>&lt;bridge&gt;/workshop.json, version 1, which the bridge reads (bridge/Popularity.cs) - its discovery stock takes only maps whose
+    /// current Workshop content passed the sync's test: {"version": 1, "written": unix time, "maps": {id: {"created", "updated", "content",
+    /// "subs", "lifetime", "favs", "lifetimeFavs", "views", "passed"}}} for every listed map. The Workshop's time_created, time_updated,
+    /// hcontent_file, subscriptions, lifetime_subscriptions, favorited, lifetime_favorited and views as the last check saw them (the state's
+    /// record of the map, with what it has, before the check has seen it), and "passed": the time_updated of the content the sync accepts - the
+    /// baseline, the version its last passing test was of (or one unchanged since sync.changedSince); for our own maps (ours.json), never
+    /// tested here, the newest the check saw. 0 while the map's Workshop numbers are not known. Written by the check and by every publish.</summary>
+    public void WriteWorkshop(BridgeData files)
+    {
+        var own = new HashSet<string>(Py.Arr(Py.Get(Py.ReadJson(Path.Combine(Cfg.BridgeData, "ours.json")), "maps")).OfType<JsonObject>()
+                                          .Select(e => Py.Str(e["id"])).Where(Py.Digits));
+        var maps = new JsonObject();
+        foreach (var wid in files.Listed())
+        {
+            if (State.Workshop[wid] is not JsonObject w)
+            {
+                var rec = State.Item(wid) ?? [];
+                w = new JsonObject
+                {
+                    ["created"] = Py.Int(rec["created"]), ["updated"] = Py.Int(rec["updated"]), ["content"] = "", ["subs"] = Py.Int(rec["subs"]),
+                    ["lifetime"] = Py.Int(rec["lifetime"]), ["favs"] = 0, ["lifetimeFavs"] = 0, ["views"] = 0,
+                };
+            }
+            var entry = (JsonObject)w.DeepClone();
+            var updated = Py.Int(entry["updated"]);
+            var accepted = Py.Int(State.Baseline[wid]);
+            if (own.Contains(wid))
+                accepted = Math.Max(accepted, updated);
+            entry["passed"] = updated > 0 ? accepted : 0;
+            maps[wid] = entry;
+        }
+        var text = Py.Compact(new JsonObject { ["version"] = 1, ["written"] = (long)Math.Truncate(Clock.Now()), ["maps"] = maps }) + "\n";
+        if (!Cfg.Publish)
+        {
+            if (Cfg.DryRun)
+                WouldPublish.Write(Cfg, Clock, WorkshopFile, text, L);
+            return;
+        }
+        try
+        {
+            Files.WriteAtomic(Path.Combine(Cfg.BridgeData, WorkshopFile), text, FileModes.Shared);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Errors.Add($"{WorkshopFile} not written: {e.Message}");
+        }
     }
 
     public string Reload()
@@ -1676,6 +1730,16 @@ public sealed class SyncRun
             {
                 ["computed"] = Py.StrOr(wk["computed"], "?"), ["problems"] = new JsonArray(Py.Arr(wk["problems"]).Take(5).Select(p => p?.DeepClone()).ToArray()),
             };
+        if (Cfg.Publish && !File.Exists(Path.Combine(Cfg.BridgeData, WorkshopFile)))
+        {
+            try                                             // never without one after a run: the bridge's stock waits for it
+            {
+                WriteWorkshop(BridgeData.Read(Cfg.BridgeData));
+            }
+            catch (Exception e) when (e is BadDataException or IOException or UnauthorizedAccessException)
+            {
+            }
+        }
         var issues = Mail.IssuesOf(Report);
         Report["issues"] = Py.Strings(issues.Select(i => i.What));
         Report["mail"] = Mail.MailIssues(Cfg, Clock, issues, Report, Seams.SendMail, L);
