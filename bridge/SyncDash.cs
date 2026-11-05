@@ -107,9 +107,10 @@ static partial class Program
             Directory.CreateDirectory(WebDir);
             if (webPage == "")
             {
-                webPage = DashboardPage();
+                var built = DashboardPage();
                 var page = Path.Combine(WebDir, "index.html");
-                if (!File.Exists(page) || File.ReadAllText(page) != webPage) WriteAtomic(page, webPage);
+                if (!File.Exists(page) || File.ReadAllText(page) != built) WriteAtomic(page, built);
+                webPage = built; // once it is there: a page the folder refused is tried again at the next rebuild
             }
             var json = SyncWords.Web(input, dash, DashZone);
             var same = json == webWritten;

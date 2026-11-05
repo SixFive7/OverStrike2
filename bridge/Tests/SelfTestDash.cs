@@ -208,6 +208,15 @@ static partial class Program
             var kept = HudDash.Decode(DashText);
             Check("...a file that does not parse: the last good one stays on screen, and the age line says the newest was not taken",
                 kept != null && kept.Words["osdstate"] == "Fetching maps for the server" && kept.Words["osdage"].Contains("the newest file was not taken: the file does not parse") && SyncHealth().Contains("not taken"));
+            webPage = ""; // as at a start
+            var pagePath = Path.Combine(dir, "web", "index.html");
+            File.Delete(pagePath);
+            Directory.CreateDirectory(pagePath); // a folder where the page goes: it cannot be written
+            for (var i = 0; i < DashBuildSeconds; i++) SyncTick(clock = clock.AddSeconds(1));
+            var refused = !File.Exists(pagePath);
+            Directory.Delete(pagePath);
+            for (var i = 0; i < DashBuildSeconds; i++) SyncTick(clock = clock.AddSeconds(1));
+            Check("...a page the web folder refused is written at the next rebuild", refused && File.Exists(pagePath));
         }
         finally
         {
