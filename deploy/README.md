@@ -21,6 +21,7 @@ environment (`"env:NAME"` values). Nothing here prints a credential.
 | `release.py publish --note ... --client-test <run>` | a content update of the HUD item, after a real-client test and the server's held-item check, waiting for the upload and Valve's approval | nothing |
 
 Without `--apply`, the copying scripts only show what would change. Every script ships committed files only.
+[`compose.example.yml`](compose.example.yml) is the shape of a host they ship to: the folders they fill, the settings file inline.
 
 A host that builds everything itself needs none of these: [`compose.yml`](compose.yml) builds the bridge and an installer image
 (`installer/`), which puts the plugin, both programs and `pre.sh` into the volumes the other services mount

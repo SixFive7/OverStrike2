@@ -446,5 +446,42 @@ check("compose: the settings file, the program volume and the data paths are whe
       % ", ".join(v for k, v in mounts.items() if k not in compose), all(k in compose for k in mounts)
       and "/home/steam/overstrike2/os2-server" in open(os.path.join(os2.REPO, S.LAUNCHER), encoding="utf-8").read())
 
+
+# ---- compose.example.yml, the shape of a host the scripts ship to: nothing builds or runs it here, so this holds it to what the parts read
+
+def service(text, name):
+    """One service's block of a compose file: from its two-space key to the next one."""
+    found = re.search(r"^  %s:.*?(?=^  \w|^\S|\Z)" % name, text, re.M | re.S)
+    return found.group(0) if found else ""
+
+
+def settings_of(jsonc):
+    """A settings file's values: JSON once the comments (only ever after white space here) and the trailing commas are gone."""
+    return json.loads(re.sub(r",(\s*[}\]])", r"\1", re.sub(r"(?m)(^|\s)//.*$", "", jsonc)))
+
+
+example = open(os.path.join(DEPLOY, "compose.example.yml"), encoding="utf-8").read()
+mounts = {"<program dir>:/home/steam/overstrike2:ro": "the programs", "<program dir>/pre.sh:/home/steam/cs2-dedicated/pre.sh:ro": "the launcher",
+          "<plugins dir>:/home/steam/cs2-plugins:ro": "paths.plugins", "<data dir>:/data:ro": "the game server's paths.bridgeData",
+          "<data dir>:/data #": "the bridge's and the sync's paths.bridgeData", ":/home/steam/workshop-sync #": "paths.syncWork",
+          ":/home/steam/sync-state #": "paths.syncState", ":/home/steam/sync-cfg/": "paths.syncCfg", "CS2_MAPGROUP: mg_ar_shoots": "the map group"}
+check("compose.example: the program folder, the launcher and the data paths are where the defaults look (%s)"
+      % ", ".join(v for k, v in mounts.items() if k not in example), all(k in example for k in mounts))
+check("compose.example: every service has the settings file, and the sync runs a copy of os2-sync it can execute",
+      all("target: /etc/overstrike2/overstrike2.jsonc" in service(example, s) for s in ("cs2", "bridge", "sync"))
+      and "cp /home/steam/overstrike2/os2-sync /tmp/os2-sync && chmod 755 /tmp/os2-sync && exec /tmp/os2-sync serve" in service(example, "sync"))
+inline = re.search(r"^    content: \|\n(.*?)^\S", example, re.M | re.S)
+inline = settings_of(inline.group(1)) if inline else {}
+sample = settings_of(open(os.path.join(DEPLOY, "overstrike2.example.jsonc"), encoding="utf-8").read())
+inline.get("server", {}).pop("name", None), sample["server"].pop("name")
+check("compose.example: the inline settings are overstrike2.example.jsonc's, the server's name aside (core's self-test reads that file)", inline == sample)
+for name, text in (("compose.yml", compose), ("compose.example.yml", example)):
+    check("%s: no inline settings file on a read-only service - Compose refuses it" % name,
+          not (re.search(r"^    content: \|", text, re.M) and re.search(r"^    read_only: true", text, re.M)))
+    check("%s: each service has the variables the settings file's env: values read (else the bridge exits at its start)" % name,
+          all(re.search(r"^      %s: " % v, service(text, s), re.M) for s, names in (("cs2", ["CS2_RCONPW", "OVERSTRIKE2_BRIDGE_SECRET"]),
+                                                                               ("bridge", ["CS2_RCONPW", "OVERSTRIKE2_BRIDGE_SECRET"]),
+                                                                               ("sync", ["OVERSTRIKE2_BRIDGE_SECRET"])) for v in names))
+
 print("\n%d failure(s)" % len(FAILS))
 sys.exit(1 if FAILS else 0)
