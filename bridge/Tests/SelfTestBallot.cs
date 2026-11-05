@@ -323,14 +323,8 @@ static partial class Program
                     v3.Open && v3.SecondsLeft == 3 && v3.Inactivity == 3 && v3.ResetBy == "P3");
                 Run(3);
                 Check("...and closes it", Ballot is not { Open: true });
-                MapVote.IdleLimitSeconds = 30;
-                var idle = new MatchVote { Opened = clock, Ends = clock.AddSeconds(MapVote.Seconds), LastChange = clock.AddSeconds(10) };
-                var idleEnds = VoteEnds(idle);
-                MapVote.IdleLimitSeconds = 0;
-                Check($"The second inactivity limit is one constant away: on, a vote ends {30} s after the last activity ({MapVote.HardCapSeconds} s at the most); off, at its fixed limit",
-                    idleEnds == clock.AddSeconds(40) && VoteEnds(idle) == clock.AddSeconds(MapVote.Seconds));
             }
-            finally { MapVote.InactivitySeconds = inactivity; MapVote.IdleLimitSeconds = 0; }
+            finally { MapVote.InactivitySeconds = inactivity; }
 
             // ---- the restart notices, as the server program's watcher sends them ----
             Fresh();

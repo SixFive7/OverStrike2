@@ -78,10 +78,8 @@ static partial class Program
     static DateTime SettleEnd(MatchVote b) =>
         (b.EverybodySince is { } e && e > b.LastChange ? e : b.LastChange).AddSeconds(MapVote.InactivitySeconds);
 
-    /// <summary>When a vote ends while somebody has not voted: MapVote.Seconds after it opened - or, with the second inactivity limit on,
-    /// MapVote.IdleLimitSeconds after the last activity, MapVote.HardCapSeconds after it opened at the most.</summary>
-    static DateTime VoteEnds(MatchVote b) => MapVote.IdleLimitSeconds <= 0 ? b.Ends
-        : new[] { b.Opened.AddSeconds(MapVote.HardCapSeconds), (b.LastChange > b.Opened ? b.LastChange : b.Opened).AddSeconds(MapVote.IdleLimitSeconds) }.Min();
+    /// <summary>When a vote ends while somebody has not voted: MapVote.Seconds after it opened.</summary>
+    static DateTime VoteEnds(MatchVote b) => b.Ends;
 
     /// <summary>A player at work in the map browser while the vote is open (!mvb &lt;round&gt;, from the plugin): it resets the inactivity timer.</summary>
     static void VoteBusy(string by, string steamId, string arg)
@@ -581,5 +579,5 @@ static partial class Program
 
     /// <summary>The health page's line about the vote.</summary>
     static string VoteHealth() => "vote: " + (Ballot is { } b ? $"round {b.Round} {(b.Open ? "open" : "decided")}, {b.Choices.Count} vote(s), {b.Options.Count - 1} card(s)" : "none open")
-        + (Now() < VoteWaitUntil ? $"; the next can be called in {(int)Math.Ceiling((VoteWaitUntil - Now()).TotalSeconds)} s" : "") + $"; cards numbered {MapVote.Numbers.ToString().ToLowerInvariant()}";
+        + (Now() < VoteWaitUntil ? $"; the next can be called in {(int)Math.Ceiling((VoteWaitUntil - Now()).TotalSeconds)} s" : "");
 }

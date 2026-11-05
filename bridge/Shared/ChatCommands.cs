@@ -8,7 +8,7 @@
 // Primary and nowhere else: !maps with words is !find. And !nades is both a primary and a fun setting's id: on|off are the grenade drops (the
 // drops setting), the setting's own choices (normal|big|huge) the grenades' blast; !catchup is a primary and the catch-up setting's id alike.
 // --selftest proves no word is anything else. While a vote is open !play and !back put their map on it and a bare !vote brings its window back;
-// the cards have no numbers, so a !vote with one answers that a vote is a click - the numbers' machinery stays one word away (MapVote.Numbers).
+// the cards have no numbers, so a !vote with one answers that a vote is a click, and a bare number is plain chat.
 //
 // Every reply is written with its functional parts marked (M, Messages.cs): chat shows a command Lime - and only what can be typed is one - an argument LightBlue,
 // a value Gold, a refusal LightRed, what worked Green, the rest in the chat's own colour. Every section starts with a capital, a line holds at most
@@ -86,14 +86,11 @@ public static class ChatCommands
     }
 
     /// <summary>The chat line as a command: None when it is no command (it does not start with ! or /), Unknown for a word that is none of
-    /// ours, Usage when the command needs something it did not get. While a vote is open a bare number is a vote too (the line still shows
-    /// normally, as every chat line does), and a !vote without a number on the ballot is VoteOnly. Highest: the ballot's highest number
-    /// (VoteState.Highest; 0 while the cards have no numbers), so a bare number it does not have stays plain chat.</summary>
-    public static Parsed Parse(string? line, bool voteOpen = false, int highest = MapVote.MaxMaps)
+    /// ours, Usage when the command needs something it did not get. While a vote is open a !vote with anything after it is VoteOnly: the cards
+    /// have no numbers, so a vote is a click (and a bare number is plain chat, as every chat line that is no command).</summary>
+    public static Parsed Parse(string? line, bool voteOpen = false)
     {
         var text = (line ?? "").Trim();
-        bool OnBallot(string s) => IsBallotNumber(s) && int.Parse(s, System.Globalization.CultureInfo.InvariantCulture) <= highest;
-        if (voteOpen && OnBallot(text)) return new(Kind.Vote, text, "!vote", $"!vote {text}");
         if (text.Length < 2 || text[0] is not ('!' or '/')) return new(Kind.None);
         var parts = text[1..].Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length == 0) return new(Kind.None);
@@ -101,7 +98,7 @@ public static class ChatCommands
         var arg = parts.Length > 1 ? parts[1].Trim() : "";
         var word = Primary(typed, arg);
         if (voteOpen && word == "!vote" && arg == "") return new(Kind.Page, "Maps", word, typed != word ? word : "", typed != word ? text : ""); // a bare !vote: back to the vote
-        if (voteOpen && word == "!vote" && !OnBallot(arg)) return new(Kind.VoteOnly, "", word);
+        if (voteOpen && word == "!vote") return new(Kind.VoteOnly, "", word);
         var p = Run(typed, word, arg);
         if (p.Kind is Kind.Usage or Kind.Unknown) return p;
         var teaches = typed != word || p.Ran != ""; // an alias, !top, or !fun gravity low: the reply shows what ran
@@ -231,9 +228,9 @@ public static class ChatCommands
         return lines;
     }
 
-    /// <summary>What chat says, to that player alone, to a !vote the ballot has no card for: what to type - or, while the cards have no numbers
-    /// (MapVote.Numbers), to click a card. A line that fits beside the window, which stands open for the vote.</summary>
-    public static string[] VoteOnlyLines(int highest) => [M.Refused(highest > 0 ? $"Vote now: type {M.C("!vote")} {M.V($"1-{highest}")} or just the number" : "Vote now: click a card in the window")];
+    /// <summary>What chat says, to that player alone, to a !vote with a number while a vote is open: the cards have no numbers, so click one. A line
+    /// that fits beside the window, which stands open for the vote.</summary>
+    public static string[] VoteOnlyLines() => [M.Refused("Vote now: click a card in the window")];
 
     /// <summary>What chat says for a word that is no command of ours.</summary>
     public static string UnknownLine(string word) => M.Refused($"Unknown command {M.A(Hud.Clean(word, 40))} - {M.C("!help")} lists them (and the menu: hold TAB, press E)");

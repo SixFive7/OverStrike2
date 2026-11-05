@@ -332,8 +332,7 @@ static partial class Program
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
         FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
         MapVote.InactivitySeconds = inactivity;
-        Check($"The inactivity timer is {MapVote.InactivitySeconds} s, and the second inactivity limit is off (a proposal of {MapVote.HardCapSeconds} s at the most), one constant away",
-            MapVote.InactivitySeconds == 5 && MapVote.IdleLimitSeconds == 0 && MapVote.HardCapSeconds == 180);
+        Check($"The inactivity timer is {MapVote.InactivitySeconds} s", MapVote.InactivitySeconds == 5);
         MessagesCapitalsCheck(Check); // last: every message this whole run posted holds the capitals rule
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");
         Console.WriteLine(failed == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failed})");

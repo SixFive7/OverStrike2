@@ -117,22 +117,18 @@ static partial class Program
             && ChatCommands.Parse("!back", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "!previous" } && ChatCommands.Parse("!next", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "next" }
             && ChatCommands.Parse("!done", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next", Typed: "!done" }
             && ChatCommands.Parse("!random", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" } && ChatCommands.Parse("!dice", voteOpen: true) is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" });
-        Check("Chat: while a vote is open !vote and its aliases and the bare number vote; a wrong number gets the same answer, and a bare one that is no option stays plain chat",
-            ChatCommands.Parse("!vote 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "!mv 3" }
-            && ChatCommands.Parse("3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3" }
-            && new[] { "!vote 9", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.VoteOnly)
+        Check("Chat: while a vote is open !vote and its aliases with anything after them say to click; a bare !vote brings the window back; a bare number stays plain chat",
+            new[] { "!vote 3", "!mv 3", "!vote 9", "!vote dust", "!v 0", "!choose 12" }.All(w => ChatCommands.Parse(w, voteOpen: true).Kind == ChatCommands.Kind.VoteOnly)
             && ChatCommands.Parse("!vote", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Typed: "" } && ChatCommands.Parse("!v", voteOpen: true) is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Ran: "!vote", Typed: "!v" }
             && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Page, Arg: "Maps" } // a bare !vote brings a player back to the vote; outside one it opens the maps, where one starts
-            && ChatCommands.Parse("9", voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None && ChatCommands.Parse("12", voteOpen: true, highest: 14).Kind == ChatCommands.Kind.Vote);
+            && ChatCommands.Parse("3", voteOpen: true).Kind == ChatCommands.Kind.None && ChatCommands.Parse("12", voteOpen: true).Kind == ChatCommands.Kind.None);
         var untouched = new[] { "!up", "!down big", "!down 12 ads", "!maps", "!find dust", "!fun", "!gravity low", "!nades off", "!drops on", "!catchup off", "!time 10", "!restart", "!rematch", "!menu", "!help", "!rules", "!how" };
         var touched = untouched.Where(w => ChatCommands.Parse(w, voteOpen: true) != ChatCommands.Parse(w)).ToList();
         Check($"Chat: the commands that do not touch the map stay as they are while a vote is open{(touched.Count > 0 ? "; not " + string.Join(" | ", touched) : "")}",
             touched.Count == 0 && untouched.All(w => ChatCommands.Parse(w, voteOpen: true).Kind != ChatCommands.Kind.VoteOnly));
-        var wait6 = ChatCommands.VoteOnlyLines(6).Select(M.Plain).ToArray();
-        Check($"Chat: what a wrong number gets fits beside the window and names what to type - or, without card numbers, to click: {string.Join(" / ", wait6)}",
-            wait6.Length == 1 && wait6.All(l => l.Length <= ChatCommands.BesideWindow) && wait6[0].Contains("!vote 1-6") && wait6[0].Contains("just the number")
-            && ChatCommands.Parse(Regex.Match(wait6[0], @"!vote \d").Value, voteOpen: true).Kind == ChatCommands.Kind.Vote
-            && ChatCommands.VoteOnlyLines(0).Select(M.Plain).ToArray() is [var click] && click.Contains("click a card") && click.Length <= ChatCommands.BesideWindow);
+        var wait = ChatCommands.VoteOnlyLines().Select(M.Plain).ToArray();
+        Check($"Chat: what a !vote with a number gets while a vote is open fits beside the window and says to click: {string.Join(" / ", wait)}",
+            wait is [var click] && click.Contains("click a card") && click.Length <= ChatCommands.BesideWindow);
         Check("Chat: !new is an alias of !next, with or without words after it; !newmaps and its aliases are no commands any more",
             ChatCommands.Parse("!new") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next", Typed: "!new" }
             && ChatCommands.Parse("!new half") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Name: "!next" }
@@ -190,19 +186,15 @@ static partial class Program
         Check($"Chat: !help's {helpLines.Count} lines list the {listed.Count} primaries, no alias, and fit beside the window it opens ({ChatCommands.BesideWindow} characters)",
             listed.Order().SequenceEqual(primaries.Order()) && helpLines.All(l => l.Length <= ChatCommands.BesideWindow));
 
-        // ---- a bare number is a vote, while a vote is open ----
-        Check($"Chat: with card numbers, while a vote is open a bare number 1 to the ballot's highest (at most {MapVote.MaxMaps}) is a vote, with no reply about aliases; without a vote it is plain chat; a Workshop id is never one; without numbers (highest 0) no number is",
-            ChatCommands.Parse("3", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Name: "!vote", Typed: "" } && ChatCommands.Parse(" 6 ", voteOpen: true, highest: 6) is { Kind: ChatCommands.Kind.Vote, Arg: "6" }
-            && ChatCommands.Parse("3").Kind == ChatCommands.Kind.None && new[] { "0", "7", "12", "3 dust", "3631955210", "gg" }.All(x => ChatCommands.Parse(x, voteOpen: true, highest: 6).Kind == ChatCommands.Kind.None)
-            && ChatCommands.Parse($"{MapVote.MaxMaps}", voteOpen: true).Kind == ChatCommands.Kind.Vote && ChatCommands.Parse($"{MapVote.MaxMaps + 1}", voteOpen: true).Kind == ChatCommands.Kind.None
-            && WorkshopCard.IdInChat("3") == null && ChatCommands.Parse("3", voteOpen: true, highest: 0).Kind == ChatCommands.Kind.None
-            && ChatCommands.Parse("!vote 3", voteOpen: true, highest: 0).Kind == ChatCommands.Kind.VoteOnly && M.Plain(ChatCommands.VoteOnlyLines(0)[0]).Contains("click a card"));
+        // ---- a number in chat: the cards have none, so a vote is a click ----
+        Check("Chat: a bare number is never a vote, open vote or not; a !vote with a number says to click while a vote is open, and is a vote command without one (answered: no vote)",
+            new[] { "3", " 6 ", "0", "7", "12", $"{MapVote.MaxMaps}", "3 dust", "3631955210", "gg" }.All(x => ChatCommands.Parse(x, voteOpen: true).Kind == ChatCommands.Kind.None && ChatCommands.Parse(x).Kind == ChatCommands.Kind.None)
+            && WorkshopCard.IdInChat("3") == null
+            && ChatCommands.Parse("!vote 3", voteOpen: true).Kind == ChatCommands.Kind.VoteOnly && M.Plain(ChatCommands.VoteOnlyLines()[0]).Contains("click a card")
+            && ChatCommands.Parse("!vote 3") is { Kind: ChatCommands.Kind.Vote, Arg: "3" });
         Check("Chat: !vote takes the same numbers; its aliases teach it",
             ChatCommands.Parse("!vote 3") is { Kind: ChatCommands.Kind.Vote, Arg: "3" } && ChatCommands.Parse("!mv 3") is { Kind: ChatCommands.Kind.Vote, Ran: "!vote 3", Typed: "!mv 3" }
             && ChatCommands.Parse("!choose 77") is { Kind: ChatCommands.Kind.Usage, Name: "!vote" } && ChatCommands.Parse("!vote") is { Kind: ChatCommands.Kind.Page, Arg: "Maps" });
-        Check("A card click says nothing in chat while the cards have no numbers (there is no typed vote to learn); with numbers, what a typed vote is",
-            HudVote.ChatWords(3) == "" && (MapVote.Numbers = MapVote.Numbering.Fixed) == MapVote.Numbering.Fixed && HudVote.ChatWords(3) == "!vote 3"
-            && ChatCommands.Parse(HudVote.ChatWords(3)) is { Kind: ChatCommands.Kind.Vote, Arg: "3", Typed: "" } && (MapVote.Numbers = MapVote.Numbering.None) == MapVote.Numbering.None);
         var ballot = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793500000\topen\t42\t3\t2\tmid\t0\t1\nmvo\t1\tarmsrace\tpicked\t12\t3084291314\t#12 aim_x\t17 MB\t1\tAlice\nmvo\t2\tdeathmatch\trolled\tde_dust2\tde_dust2\tde_dust2 (official)\t\t0\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\n");
         var drawn = HudVote.Cards(ballot, 1001, null);
         var cards = drawn.Texts;
@@ -284,7 +276,7 @@ static partial class Program
             && Coloured(ChatCommands.FunLines(true)[1]).StartsWith("κ!gravityπ νlowπ  κ!jumpπ νhighπ"));
         Check("A refusal is LightRed, and what it does not know is no command: Unknown command !foo is an argument, !help is the Lime in it",
             Coloured(ChatCommands.UnknownLine("!foo")) == "ρUnknown command α!fooρ - κ!helpρ lists them (and the menu: hold TAB, press E)"
-            && Coloured(ChatCommands.VoteOnlyLines(6)[0]) == "ρVote now: type κ!voteρ ν1-6ρ or just the number");
+            && Coloured(ChatCommands.VoteOnlyLines()[0]) == "ρVote now: click a card in the window");
         var moon = Fun.Find(Fun.Find("gravity")!, "moon")!;
         var jump = Fun.Find("jump")!;
         Check("A clash's refusal in chat: its settings arguments, their choices values; the plain words are the same words, for the window and the page",
@@ -315,8 +307,7 @@ static partial class Program
         lines.AddRange(ChatCommands.HelpLines());
         lines.AddRange(ChatCommands.FunLines(true));
         lines.AddRange(ChatCommands.FunLines(false));
-        lines.AddRange(ChatCommands.VoteOnlyLines(0));
-        lines.AddRange(ChatCommands.VoteOnlyLines(6));
+        lines.AddRange(ChatCommands.VoteOnlyLines());
         lines.Add(ChatCommands.UnknownLine("!foo"));
         lines.Add(ChatCommands.UnknownLine("!" + new string('x', 300)));
         foreach (var c in ChatCommands.All)

@@ -121,27 +121,4 @@ public sealed class VoteState
     /// <summary>Random, or null.</summary>
     public Option? Random => Options.FirstOrDefault(o => o.Source == VoteSource.Random);
 
-    /// <summary>The number a card shows (MapVote.Numbers): its fixed number, its place on the ballot, or 0 for none.</summary>
-    public int Shown(Option o) => o.Source == VoteSource.Random ? 0 : MapVote.Numbers switch
-    {
-        MapVote.Numbering.Fixed => o.N,
-        MapVote.Numbering.Position => Maps.FindIndex(x => x.N == o.N) + 1,
-        _ => 0,
-    };
-
-    /// <summary>The card a typed number names (!vote 3, or a bare 3 in chat), or null: none such, or no numbers at all.</summary>
-    public Option? Typed(int k) => MapVote.Numbers switch
-    {
-        MapVote.Numbering.Fixed => Maps.FirstOrDefault(o => o.N == k),
-        MapVote.Numbering.Position => k >= 1 && k <= Maps.Count ? Maps[k - 1] : null,
-        _ => null,
-    };
-
-    /// <summary>The highest number chat may type: a bare number above it stays plain chat; 0 when cards have no numbers.</summary>
-    public int Highest => Maps.Count == 0 ? 0 : MapVote.Numbers switch
-    {
-        MapVote.Numbering.Fixed => Maps.Max(o => o.N),
-        MapVote.Numbering.Position => Maps.Count,
-        _ => 0,
-    };
 }

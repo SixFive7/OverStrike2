@@ -195,7 +195,7 @@ the grenade drops, `normal`, `big` and `huge` the blast of the grenades. The wor
 
 While a vote is open `!play` - like a card's Play in the map browser - puts its map on the ballot for everybody, with that player's vote, and
 `!back` does the same with the map before this one; `!random` moves that player's vote to Random; `!next` and a bare `!vote` bring its window
-back. The cards have no numbers (`MapVote.Numbers`): a `!vote` with a number answers that a vote is a click on a card, and a bare number stays
+back. The cards have no numbers: a `!vote` with a number answers that a vote is a click on a card, and a bare number stays
 plain chat. The commands that do not touch the map stay as they are, `!restart` among them: a stuck server does not wait for a vote.
 
 **Each fun setting is a word of its own**, with the setting's id and its choices: `!gravity low`, `!vampire on`, `!bhop turbo`. A bare `!fun`

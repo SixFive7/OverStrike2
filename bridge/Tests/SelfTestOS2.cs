@@ -115,19 +115,10 @@ static partial class Program
             HudVote.Click(ballot, "gg_m2_play") == "!mv 1793500000 2" && MapVote.IsAction("!mv 1793500000 2") && HudVote.Click(ballot, "gg_m5_play") == null && HudVote.Click(ballot, "gg_m3_play") == null
             && HudVote.Click(ballot, HudVote.RandomButton) == $"!mv 1793500000 {MapVote.RandomOption}" && MapVote.IsAction($"!mv 1793500000 {MapVote.RandomOption}")
             && HudVote.Click(ballot, "gg_m1_up") == null && HudVote.Click(new VoteState(), "gg_m1_play") == null);
-        var was = MapVote.Numbers;
-        MapVote.Numbers = MapVote.Numbering.None;
         var plain = HudVote.Cards(ballot, 1002, null);
-        Check("Numbering is one setting - none: a card says Vote and its mode only, chat can type no number, the page line says click",
-            was == MapVote.Numbering.None &&
-            plain.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Vote" && plain.Texts.Single(x => x.Id == "gg_m2_rank").Text == "Deathmatch" && ballot.Typed(2) == null && ballot.Highest == 0
+        Check("A card says Vote and its mode only, and the page line says click",
+            plain.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Vote" && plain.Texts.Single(x => x.Id == "gg_m2_rank").Text == "Deathmatch"
             && plain.Texts.Single(x => x.Id == "gg_pg_text").Text == "Click a card's Vote");
-        MapVote.Numbers = MapVote.Numbering.Position;
-        Check("...by place: the card's place on the ballot, and a typed number names the card in that place",
-            ballot.Shown(ballot.Maps[1]) == 2 && ballot.Typed(1)?.N == 1 && ballot.Typed(2)?.N == 2 && ballot.Typed(3) == null && ballot.Highest == 2);
-        MapVote.Numbers = MapVote.Numbering.Fixed;
-        Check("...fixed: each card its own number, Random none", ballot.Shown(ballot.Maps[1]) == 2 && ballot.Typed(2)?.N == 2 && ballot.Random is { } rnd && ballot.Shown(rnd) == 0 && ballot.Highest == 2);
-        MapVote.Numbers = was;
         // ---- a ballot of twelve cards and Random, called mid-match by a player: the most votes first, pages, Keep playing, a map added ----
         var big = new System.Text.StringBuilder("mode\tarmsrace\tArms Race\nmv\t1793600000\topen\t30\t4\t2\tmid\t1002\t1\n");
         big.Append("mvo\t1\tarmsrace\tkeep\t5\t3084291315\tKeep playing this map\t#5 aim_on\t1\t\n");

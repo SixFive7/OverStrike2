@@ -265,9 +265,8 @@ public static class HudVote
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
-        var typing = MapVote.Numbers == MapVote.Numbering.None ? "" : " or type its number";
         t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
-            : mine > 0 ? $"Your vote is lit - Click another card{typing} to change it, yours to take it back" : $"Click a card's Vote{(typing == "" ? "" : typing + " in chat")}"));
+            : mine > 0 ? "Your vote is lit - Click another card to change it, yours to take it back" : "Click a card's Vote"));
         t.Add(("gg_m_empty", ""));
         c.Add(("gg_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
@@ -285,19 +284,17 @@ public static class HudVote
             var o = k <= shown.Count ? shown[k - 1] : null;
             var mode = o == null ? null : Modes.Find(o.Mode);
             var keep = o?.Source == VoteSource.Keep;
-            var shownN = o == null ? 0 : v.Shown(o);
-            var number = shownN > 0 ? $"{shownN}  ·  " : "";
             var entry = o == null || o.Key == "" || catalog == null ? null : catalog.Find(o.Key);
             var record = keep ? null : entry; // its record, for a risky map
             var who = o == null || o.Who == "" ? "" : $"Picked by {o.Who}";
-            t.Add(($"{id}_rank", o == null ? "" : $"{number}{(keep ? "Keep" : mode?.Name ?? "")}")); // the contents before v4.6.0 show it on the picture
+            t.Add(($"{id}_rank", o == null ? "" : keep ? "Keep" : mode?.Name ?? "")); // the contents before v4.6.0 show it on the picture
             t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
             t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(who == "" ? "" : $"  ·  {who}")}"));
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? (shownN > 0 ? $"Keep {shownN}" : "Keep") : shownN > 0 ? $"Vote {shownN}" : "Vote"));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? "Keep" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
             c.Add((id, "risky", record?.Risky == true));
@@ -334,7 +331,7 @@ public static class HudVote
             c.Add((seg, "vrand", o?.Source == VoteSource.Random));
             c.Add((seg, "vlead", o != null && o.Votes == most && !tied));
             c.Add((seg, "vtie", o != null && o.Votes == most && tied));
-            var tag = o == null ? "" : o.Source == VoteSource.Random ? "Random" : o.Source == VoteSource.Keep ? "Keep" : v.Shown(o) is > 0 and var sn ? sn.ToString(CultureInfo.InvariantCulture) : Hud.Clean(o.Label, 12);
+            var tag = o == null ? "" : o.Source == VoteSource.Random ? "Random" : o.Source == VoteSource.Keep ? "Keep" : Hud.Clean(o.Label, 12);
             w.Add((StripVar(i), o == null ? "" : $"{tag}  ·  {o.Votes}"));
         }
         c.Add((HudView.Screen, "vstrip", counted.Count > 0));
@@ -423,9 +420,6 @@ public static class HudVote
         return [(HudView.Global, "nd-on", drops == true), (HudView.Global, "nd-off", drops == false), (HudView.Global, "cu-on", catchUp == true), (HudView.Global, "cu-off", catchUp == false)];
     }
 
-    /// <summary>What a card click says for everybody in chat, under that player's name: the command a typed vote would be, so that menu users learn
-    /// the chat way - nothing while the cards have no numbers: there is no typed vote to learn.</summary>
-    public static string ChatWords(int option) => MapVote.Numbers == MapVote.Numbering.None ? "" : $"!vote {option.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; a click on the
     /// card (or Random) this player's vote is on takes it back, !mv &lt;round&gt; 0; null for anything else (the card's arrows do nothing then).

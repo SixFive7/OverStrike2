@@ -49,7 +49,7 @@ public static class HudMenu
         if (vote is { Open: true, Round: > 0 } v)
         {
             if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
-                return v.ChoiceOf(account) == on.N ? "Your vote" : v.Shown(on) is > 0 and var n ? $"On the vote: {n}" : "On the vote";
+                return v.ChoiceOf(account) == on.N ? "Your vote" : "On the vote";
             if (m.Removed) return "Unavailable";
             if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
             return m.Risky ? Locked : "Add to the vote";

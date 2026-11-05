@@ -11,9 +11,6 @@ sealed partial class HudScreen
     /// <summary>The end-of-match vote is open: a bare number in chat is a vote (ChatCommands.Parse).</summary>
     public bool VoteOpen => vote is { Open: true, Round: > 0 };
 
-    /// <summary>The open vote's highest number: a bare number above it stays plain chat.</summary>
-    public int VoteHighest => vote.Highest;
-
     /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat, in its functional colours (Messages.CommandReply; the words are
     /// ChatCommands' and ChatReply's) - the bridge's answer to that player has a chat copy of its own (Messages.Answer). An alias's reply first teaches the primary.</summary>
     public void Chat(CCSPlayerController player, ChatCommands.Parsed cmd)
@@ -53,14 +50,11 @@ sealed partial class HudScreen
                 FunTyped(player, cmd.Arg); // the same change as a click on the Fun page (HudScreenFun.cs)
                 return;
             case ChatCommands.Kind.Vote:
-                var k = int.Parse(cmd.Arg);
                 if (!vote.Open || vote.Round <= 0) { Say(ChatReply.NoVote); return; }
-                if (vote.Numbered(k) is not { } numbered) { foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line); return; }
-                Bridge(MapVote.Click(vote.Round, numbered.N));
-                Say(ChatReply.YourVote(numbered.Label));
+                foreach (var line in ChatCommands.VoteOnlyLines()) Say(line); // a vote opened since the line was typed: still a click
                 return;
             case ChatCommands.Kind.VoteOnly:
-                foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line);
+                foreach (var line in ChatCommands.VoteOnlyLines()) Say(line);
                 return;
             case ChatCommands.Kind.FunAll:
                 FunAll(player, cmd.Arg); // the Fun page's Random or Default

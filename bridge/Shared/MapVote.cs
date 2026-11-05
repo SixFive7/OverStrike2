@@ -9,7 +9,7 @@ using System.Globalization;
 
 public static class MapVote
 {
-    public const int Seconds = 60;        // the vote's limit, the safety net for somebody away (while IdleLimitSeconds is 0); everybody having voted ends it sooner (InactivitySeconds)
+    public const int Seconds = 60;        // the vote's limit, the safety net for somebody away; everybody having voted ends it sooner (InactivitySeconds)
     public const int PageCards = 10;      // one page of the ballot: ten cards, two columns of five. The ballot fills one page; a second only when what must be on it does not fit
     public const int MaxMaps = 48;        // a ballot's cards at the most - six pages - however many maps players put on it; Random comes on top
     public const int MaxOptions = MaxMaps + 1;
@@ -22,11 +22,6 @@ public static class MapVote
     /// and SecondsLeft. 0: it closes the moment the last one votes.</summary>
     public static int InactivitySeconds = 5;
 
-    /// <summary>A second inactivity limit, off: in place of the fixed Seconds, the vote would end this long after the last activity by anyone
-    /// while somebody has not voted, HardCapSeconds after it opened at the most. 0: the fixed limit (a proposal of 30 is open).</summary>
-    public static int IdleLimitSeconds = 0;
-    public const int HardCapSeconds = 180;
-
     /// <summary>The map browser's activity while a vote is open, which resets the inactivity timer: !mvb &lt;round&gt;, sent by the plugin for a
     /// page, a sort, a filter or a search a player made in it.</summary>
     public const string BusyVerb = "!mvb";
@@ -35,11 +30,6 @@ public static class MapVote
 
     /// <summary>Random's number on the wire: a click on Random's button is option 99 (Random has no number a player sees or types).</summary>
     public const int RandomOption = 99;
-
-    /// <summary>How the cards are numbered: not at all - a player votes by clicking a card. Fixed (a number per map, what chat typed after !vote)
-    /// and Position (the card's place) stay one word away; every word and parse goes through VoteState.Shown and VoteState.Typed.</summary>
-    public enum Numbering { None, Fixed, Position }
-    public static Numbering Numbers = Numbering.None;
 
     /// <summary>The click's verb on /act: !mv &lt;round&gt; &lt;n&gt; casts or changes the player's vote, n 0 takes it back, n 99 is Random.</summary>
     public const string Verb = "!mv";
