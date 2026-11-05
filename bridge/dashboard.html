@@ -6,9 +6,10 @@
 <title>Over Strike 2 - map sync</title>
 <!--
   The Workshop sync's dashboard as a website: the same three parts as the in-game menu's Sync page - what it does now, what waits in its
-  queue, what it did - with the whole history, searchable. Written by the bridge (SyncDash.cs) into its web folder beside dashboard.json,
-  which it rewrites whenever something changed and every minute; this page reads that file every 5 seconds. Self-contained: no script,
-  font or picture from anywhere else.
+  queue, what it did - with the whole history, searchable, the discovery stock with its maps, the restart watcher's background download,
+  and every map's tags as the HUD's chips (the table and the colours come with the data: MapTags). Written by the bridge (SyncDash.cs)
+  into its web folder beside dashboard.json, which it rewrites whenever something changed and every minute; this page reads that file
+  every 5 seconds. Self-contained: no script, font or picture from anywhere else.
 -->
 <style>
   :root { --bg: #0b0e12; --panel: #12171d; --panel2: #0e1217; --line: #ffffff14; --text: #f1ede5; --dim: #a9b1b9; --faint: #76818b;
@@ -61,6 +62,15 @@
   .count { color: var(--faint); font-size: 13px; }
   .scroll { max-height: 640px; overflow: auto; }
   .empty { color: var(--faint); padding: 8px; }
+  .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+         line-height: 16px; color: var(--chip-text); background: var(--c, var(--tag-workshop)); vertical-align: 1px; white-space: nowrap; }
+  :root { --chip-text: #10141a; --tag-vote: #e9b44c; --tag-player: #f1ede5; --tag-us: #4fd6a2; --tag-fresh: #63d8e8; --tag-workshop: #cfd6de;
+          --tag-discovery: #b48cff; --tag-caution: #f07c6b; }
+  .stock { margin: 8px 0 0; display: grid; gap: 4px; }
+  .stock .lane { color: var(--faint); font-size: 12.5px; }
+  .stock .lane b { color: var(--dim); font-weight: 600; margin-right: 6px; }
+  .stock .waiting { color: var(--faint); }
+  #background { color: var(--hot); }
   a { color: var(--gold-hi); text-decoration: none; }
   a:hover { text-decoration: underline; }
   @media (max-width: 520px) { main { grid-template-columns: 1fr; padding: 12px; } header { padding: 14px; } }
@@ -93,9 +103,11 @@
     <div class="line dim" id="qmodes"></div>
     <div class="line dim" id="qeta"></div>
     <div class="line dim" id="qserve"></div>
-    <h3>Random picks rolled ahead</h3>
+    <h3>The discovery stock</h3>
+    <div class="line" id="background"></div>
     <div class="chips" id="random"></div>
     <div class="line dim" id="randomnote"></div>
+    <div class="stock" id="stock"></div>
     <h3 id="nexthead">Next</h3>
     <table><thead><tr><th>#</th><th>Map, and why it is next</th><th>Mode</th><th class="n">Size</th></tr></thead><tbody id="next"></tbody></table>
   </section>
@@ -124,7 +136,7 @@
 "use strict";
 const MODES = { armsrace: "Arms Race", deathmatch: "Deathmatch", wingman: "Wingman" };
 const EVENTS = { listed: ["Listed", "ok"], "handed-over": ["To the server", "ok"], changed: ["Updated", "hot"], broken: ["Broken", "bad"], failed: ["Failed", "bad"], removed: ["Removed", "dim"] };
-const PARTS = { up: "Liked by a player", rated: "Top rated", popular: "Most popular (30 days)", subscribed: "Most subscribed", own: "Our own maps", hud: "The HUD", queues: "Random queues and requests" };
+const PARTS = { up: "Liked by a player", rated: "Top rated", popular: "Most popular (30 days)", subscribed: "Most subscribed", own: "Our own maps", hud: "The HUD", queues: "The stock and the open vote's maps" };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const num = n => (n == null || isNaN(n)) ? "-" : Math.round(n).toLocaleString("en-US");
@@ -136,7 +148,11 @@ const when = t => { if (!t) return "-"; const d = new Date(t * 1000), n = new Da
 const ago = s => s < 60 ? `${Math.round(s)} s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 172800 ? `${Math.floor(s / 3600)} h ${Math.floor(s / 60) % 60} min ago` : `${Math.floor(s / 86400)} days ago`;
 const mapName = m => m.name || (m.id ? `Workshop item ${m.id}` : "a map");
 const link = m => m.id ? `<a href="https://steamcommunity.com/sharedfiles/filedetails/?id=${encodeURIComponent(m.id)}" rel="noreferrer" target="_blank">${esc(mapName(m))}</a>` : esc(mapName(m));
-let data = null, shownEvent = "", failed = 0;
+let data = null, shownEvent = "", failed = 0, tags = {};
+// a map's chips, the first two of its tags (the wire's ids, in precedence order), each in its colour, its words on hover
+const chips = wire => String(wire || "").split(",").filter(id => tags[id]).slice(0, 2)
+  .map(id => `<span class="tag" style="--c:${esc(tags[id].colour)}" title="${esc(tags[id].words)}">${esc(tags[id].chip)}</span>`).join("");
+const tagsOf = id => (data && data.mapTags && data.mapTags[id]) || "";
 
 function text(id, s) { $(id).textContent = s || ""; $(id).hidden = !s; }
 
@@ -159,12 +175,16 @@ function render() {
   if (step && step.total > 0) { $("bar").style.width = `${Math.min(100, 100 * step.done / step.total)}%`; $("step").textContent = `${num(step.done)} of ${num(step.total)}`; }
   // queue
   text("qhead", w.qhead); text("qmodes", w.qmodes); text("qeta", w.qeta); text("qserve", w.qserve);
+  tags = Object.fromEntries((data.tags || []).map(t => [t.id, t]));
   const r = data.random || { queues: [] };
+  text("background", data.background ? data.background.words : "");
   $("random").innerHTML = r.queues.map(q => `<span class="chip ${r.known ? (q.ready >= q.total ? "full" : "short") : ""}">${esc(q.label)} <b>${r.known ? `${q.ready}/${q.total}` : q.total}</b></span>`).join("");
-  text("randomnote", r.known ? `Maps on the server's disk by the restart watcher's report of ${when(r.reportAt)}` : "No fresh word from the server on which of them are on its disk");
+  text("randomnote", r.known ? `Maps new to us on the server's disk for the ballots' surprises, by the restart watcher's report of ${when(r.reportAt)}` : "No fresh word from the server on which of them are on its disk");
+  $("stock").innerHTML = r.queues.filter(q => (q.maps || []).length).map(q => `<div class="lane"><b>${esc(q.label)}</b>`
+    + q.maps.map(m => `<span class="${r.known && !m.ready ? "waiting" : ""}" title="${r.known && !m.ready ? "not on the server's disk yet" : ""}">${link(m)}${chips(m.tags)}</span>`).join("  ·  ") + "</div>").join("");
   const next = (s.queue && s.queue.next) || [];
   $("nexthead").textContent = next.length ? (w.qshown ? `Next: ${w.qshown.replace(/^The next /, "")}` : "Next") : "Next";
-  $("next").innerHTML = next.length ? next.map((q, i) => `<tr><td class="n">${i + 1}</td><td>${link(q)}<div class="sub">${esc(q.why)}</div></td><td>${esc(MODES[q.mode] || q.mode)}</td><td class="n">${sizeMb(q.sizeMb)}</td></tr>`).join("")
+  $("next").innerHTML = next.length ? next.map((q, i) => `<tr><td class="n">${i + 1}</td><td>${link(q)}${chips(tagsOf(q.id))}<div class="sub">${esc(q.why)}</div></td><td>${esc(MODES[q.mode] || q.mode)}</td><td class="n">${sizeMb(q.sizeMb)}</td></tr>`).join("")
     : `<tr><td colspan="4" class="empty">${esc(w.qnone || "Nothing in the queue")}</td></tr>`;
   // keep
   const k = s.keep || {};
@@ -188,7 +208,7 @@ function history() {
   $("runs").innerHTML = r.length ? r.map(x => `<tr class="${x.ended ? (x.stop ? "dim" : "") : "hot"}"><td class="t">${when(x.started)}</td><td class="t">${x.ended ? when(x.ended) : "running"}</td><td>${x.kind === "manual" ? "by hand" : "automatic"}</td>`
     + `<td class="n">${num(x.downloads)}</td><td class="n">${bytes(x.bytes)}</td><td class="n">${num(x.pass)}</td><td class="n">${num(x.rejected)}</td><td class="n">${num(x.listed)}</td><td class="n">${num(x.removed)}</td><td class="w">${esc(x.stop || (x.ended ? "finished" : ""))}</td></tr>`).join("")
     : `<tr><td colspan="10" class="empty">${runs.length ? "No run matches" : "No runs yet"}</td></tr>`;
-  $("maps").innerHTML = m.length ? m.map(x => { const e = EVENTS[x.event] || [x.event, ""]; return `<tr class="${e[1]}"><td class="t">${when(x.at)}</td><td class="e">${esc(e[0])}</td><td>${link(x)}</td><td>${esc(MODES[x.mode] || x.mode)}</td><td class="w">${esc(x.why)}</td></tr>`; }).join("")
+  $("maps").innerHTML = m.length ? m.map(x => { const e = EVENTS[x.event] || [x.event, ""]; return `<tr class="${e[1]}"><td class="t">${when(x.at)}</td><td class="e">${esc(e[0])}</td><td>${link(x)}${chips(tagsOf(x.id))}</td><td>${esc(MODES[x.mode] || x.mode)}</td><td class="w">${esc(x.why)}</td></tr>`; }).join("")
     : `<tr><td colspan="5" class="empty">${maps.length ? "No map event matches" : "No map news yet"}</td></tr>`;
 }
 

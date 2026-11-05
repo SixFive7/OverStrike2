@@ -1,13 +1,13 @@
-// The data files reload while the bridge runs (2026-10-20). maps.json (MAPS_FILE), broken.json (BROKEN_FILE) and /data/removed.json
-// are data, and changing one must never restart anything: a cs2 restart kicks everybody, and even a bridge restart loses the queue and
+// The data files reload while the bridge runs. maps.json (MAPS_FILE), broken.json (BROKEN_FILE), /data/removed.json and the rest of DataFiles
+// are data, and changing one must never restart anything: a cs2 restart kicks everybody, and even a bridge restart loses an open vote and
 // any countdown. So the bridge watches them. Every WatchSeconds it compares each file's size and write time with what it last read; a
 // file that has changed and then held still for one more look is read again, so a copy still being written is never read half-way. POST
-// /reload/<LOG_SECRET> reads all three at once ("?force" also takes a maps.json that cuts the list by more than half).
+// /reload/<LOG_SECRET> reads them all at once ("?force" also takes a maps.json that cuts the list by more than half).
 // A file that does not parse, or a maps.json that is empty or cut by more than half, changes nothing: the bridge keeps what it had, logs
 // why once, and looks again when the file changes. The bridge's own writes of removed.json are not read back.
-// What a reload does at once: the HUD's map menu refetches (CatalogVersion), a queued request or a countdown for a map that has just
+// What a reload does at once: the HUD's map menu refetches (CatalogVersion), a card on an open ballot or a countdown for a map that has just
 // gone from the Workshop or onto the blocked list is dropped, and a map that is on and has just gone from the Workshop makes way for
-// the dice (as after the daily check). Requests already queued keep the map entry they were made with.
+// the dice (as after the daily check).
 using System.Net;
 using System.Text.Json;
 
@@ -38,6 +38,9 @@ static partial class Program
         files.Add((SizesFile, () => ReloadSizes(SizesFile)));
         foreach (var mode in Modes.All.Where(m => !m.ArmsRace)) files.Add((ModeMapsPath(mode), () => ReloadModeMaps(mode, force))); // ModeSwitch.cs
         files.Add((OursFile, () => ReloadOurs(OursFile)));
+        files.Add((BlockedMapsFile, ReloadBlocked)); // Blocked.cs: the maps blocked for good, a file of their own
+        files.Add((RatingsFile, () => ReloadRatings(RatingsFile)));   // Popularity.cs: the Workshop's ratings and trend
+        files.Add((WorkshopFile, () => ReloadWorkshop(WorkshopFile))); // Popularity.cs: the Workshop's numbers and the sync's last passing tests
         return files;
     }
 
@@ -94,26 +97,27 @@ static partial class Program
         var count = Maps.Count;
         Maps = list;
         CatalogVersion++;
+        ExpireMarks(); // CrashWatch.cs: a map's Workshop update lifts its crash mark
         return $"maps: {list.Count} maps from {path} (were {count}: {added} new, {gone} gone)";
     }
 
-    /// <summary>broken.json again - every list it carries: the crashers, the non-maps, the removed seed and the blocked maps.</summary>
+    /// <summary>broken.json again - every list it carries: the crashers, the non-maps and the blocked maps.</summary>
     static string ReloadBroken(string path)
     {
-        Dictionary<string, int> broken; Dictionary<string, string> packs, seed; Dictionary<string, (string, string, string)> blocked;
+        Dictionary<string, int> broken; Dictionary<string, string> packs; Dictionary<string, (string, string, string)> blocked;
         try
         {
             var json = File.ReadAllText(path);
-            (broken, packs, seed, blocked) = (ParseBroken(json), ParsePacks(json), ParseRemoved(json), ParseBlocked(json));
+            (broken, packs, blocked) = (ParseBroken(json), ParsePacks(json), ParseBlocked(json));
             BrokenReasons = ParseReasons(json);
         }
         catch (Exception e) { return $"broken list: {path} unreadable ({Clip(e.Message, 120)}) - kept the lists loaded"; }
-        var (removedBefore, blockedBefore) = (new Dictionary<string, string>(Removed), Blocked.Keys.ToHashSet());
-        (Broken, Packs, RemovedSeed, Blocked) = (broken, packs, seed, blocked);
-        RecomputeRemoved();
+        var before = Unplayables();
+        (Broken, Packs, BlockedInBroken) = (broken, packs, blocked);
+        Blocked = MergeBlocked(); // Blocked.cs: with blocked.json's
         CatalogVersion++;
-        var acted = AfterListChange(removedBefore, blockedBefore);
-        return $"broken list: {broken.Count} crashers, {packs.Count} non-maps, {seed.Count} removed, {blocked.Count} blocked from {path}{acted}";
+        var acted = AfterListChange(before);
+        return $"broken list: {broken.Count} crashers, {packs.Count} non-maps, {blocked.Count} blocked from {path}{acted}";
     }
 
     /// <summary>/data/removed.json again, when something other than the bridge changed it.</summary>
@@ -122,39 +126,31 @@ static partial class Program
         RemovedFile file;
         try { file = File.Exists(RemovedPath) ? JsonSerializer.Deserialize(File.ReadAllText(RemovedPath), Ctx.Default.RemovedFile) ?? new() : new(); }
         catch (Exception e) { return $"removed list: {RemovedPath} unreadable ({Clip(e.Message, 120)}) - kept the verdicts loaded"; }
-        var before = new Dictionary<string, string>(Removed);
+        var before = Unplayables();
         Checked = file;
         RecomputeRemoved();
         CatalogVersion++;
-        var acted = AfterListChange(before, Blocked.Keys.ToHashSet());
+        var acted = AfterListChange(before);
         return $"removed list: {Checked.Verdicts.Count} verdict(s) from {RemovedPath}, {Removed.Count} map(s) gone from the Workshop{acted}";
     }
 
-    /// <summary>What changes at once when a list moved: requests and countdowns for maps that just became unplayable go, and the map that
-    /// is on, if it just went from the Workshop, makes way for the dice. Returns what happened, for the log line.</summary>
-    static string AfterListChange(Dictionary<string, string> removedBefore, HashSet<string> blockedBefore)
+    /// <summary>The Workshop ids no player can play now: gone from the Workshop, blocked, or no map (a pack).</summary>
+    static HashSet<string> Unplayables() => Removed.Keys.Concat(Blocked.Keys).Concat(Packs.Keys).ToHashSet();
+
+    /// <summary>What changes at once when a list moved: every map that has just become unplayable - gone, blocked or found to be no map - leaves an
+    /// open ballot and stops a countdown, and the map that is on, if it has just gone from the Workshop, makes way for the dice (Removed.cs,
+    /// ActOnUnplayable). Returns what happened, for the log line.</summary>
+    static string AfterListChange(HashSet<string> before)
     {
-        var newlyRemoved = Removed.Keys.Where(id => !removedBefore.ContainsKey(id)).ToHashSet();
-        var back = removedBefore.Keys.Count(id => !Removed.ContainsKey(id));
-        var newlyBlocked = Blocked.Keys.Where(id => !blockedBefore.Contains(id)).ToHashSet();
-        foreach (var r in Queue.Where(r => newlyBlocked.Contains(Key(r.Map)) && !newlyRemoved.Contains(Key(r.Map))).ToList())
-        {
-            Queue.Remove(r);
-            News($"{Clip(Label(r.Map), 24)} is blocked now - its request is dropped.");
-        }
-        if (Pending is { } p && newlyBlocked.Contains(Key(p.Map)) && !newlyRemoved.Contains(Key(p.Map)))
-        {
-            Pending = null; // its countdown callbacks see they are stale and stop
-            Announce($"{Clip(Label(p.Map), 44)} is blocked now - the change is off.");
-            Schedule(Now(), direct: true);
-        }
-        if (newlyRemoved.Count > 0) ActOnRemoved(newlyRemoved);
-        return newlyRemoved.Count + back + newlyBlocked.Count == 0 ? ""
-            : $"; {newlyRemoved.Count} newly gone from the Workshop, {back} back, {newlyBlocked.Count} newly blocked";
+        var now = Unplayables();
+        var newly = now.Where(id => !before.Contains(id)).ToHashSet();
+        var back = before.Count(id => !now.Contains(id));
+        if (newly.Count > 0) ActOnUnplayable(newly);
+        return newly.Count + back == 0 ? "" : $"; {newly.Count} newly unplayable, {back} playable again";
     }
 
     /// <summary>Everything at once, whether it changed or not: POST /reload/&lt;secret&gt;, for whoever does not want to wait for the watch.
-    /// Every file the watch covers (DataFiles) - until 2026-11-01 search.json was left out here but marked as read, so a new one waited
+    /// Every file the watch covers (DataFiles) - search.json was once left out here but marked as read, so a new one waited
     /// for a restart (the nightly sync's find).</summary>
     static string ReloadAll(bool force) => ReloadFiles(DataFiles(force));
 

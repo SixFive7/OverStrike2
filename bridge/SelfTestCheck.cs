@@ -244,69 +244,28 @@ static partial class Program
         }
     }
 
-    /// <summary>--selftest, part five: the TAB chord (HudTab.cs) on a handed clock, and the check's pause handling.</summary>
+    /// <summary>--selftest, part five: TAB (HudTab.cs: down, or off) on a handed clock, and the check's pause handling.</summary>
     static void TabSelfTest(Action<string, bool> Check)
     {
         var t0 = new DateTime(2026, 10, 11, 20, 0, 0, DateTimeKind.Utc);
-        const ulong TAB = HudTab.Scoreboard, E = HudTab.Use, RMB = HudTab.Attack2, W = 1UL << 3, JUMP = 1UL << 1;
-        Check("TAB chord: the bits are CounterStrikeSharp's (IN_SCORE 1<<33, IN_USE 1<<5, IN_ATTACK2 1<<11)",
-            HudTab.Scoreboard == 0x200000000UL && HudTab.Use == 0x20UL && HudTab.Attack2 == 0x800UL);
-        Check("TAB: the mode flag reads off, menu, on (chord, board), down, hold and window, anything else as off - and every name reads back",
-            HudTab.Parse("menu") == HudTab.Mode.Menu && HudTab.Parse(" ON ") == HudTab.Mode.On && HudTab.Parse("chord") == HudTab.Mode.On && HudTab.Parse("down") == HudTab.Mode.Down
-            && HudTab.Parse("hold") == HudTab.Mode.Hold && HudTab.Parse("Window") == HudTab.Mode.Window && HudTab.Parse("off") == HudTab.Mode.Off
-            && HudTab.Parse(null) == HudTab.Mode.Off && HudTab.Parse("yes") == HudTab.Mode.Off
+        const ulong TAB = HudTab.Scoreboard, E = HudTab.Use, RMB = 1UL << 11, W = 1UL << 3, JUMP = 1UL << 1;
+        Check("TAB: the bits are CounterStrikeSharp's (IN_SCORE 1<<33, IN_USE 1<<5)", HudTab.Scoreboard == 0x200000000UL && HudTab.Use == 0x20UL);
+        Check("TAB: the mode flag reads down and off; the names of the modes TAB had before read as down, anything else as off - and every name reads back",
+            HudTab.Parse("down") == HudTab.Mode.Down && HudTab.Parse(" Down ") == HudTab.Mode.Down && HudTab.Parse("off") == HudTab.Mode.Off
+            && new[] { "hold", "window", "on", "chord", "board", "menu" }.All(old => HudTab.Parse(old) == HudTab.Mode.Down)
+            && HudTab.Parse(null) == HudTab.Mode.Off && HudTab.Parse("") == HudTab.Mode.Off && HudTab.Parse("yes") == HudTab.Mode.Off
             && Enum.GetValues<HudTab.Mode>().All(m => HudTab.Parse(HudTab.Name(m)) == m));
         var lines = Enum.GetValues<HudTab.Mode>().Select(HudTab.BoardLine).ToList();
-        Check($"TAB chord: the board's command line fits it in every mode (longest {lines.Max(l => l.Length)}, the old one 52)", lines.All(l => l.Length <= 56)
+        Check($"TAB: the board's command line fits it in both modes (longest {lines.Max(l => l.Length)}, the old one 52)", lines.All(l => l.Length <= 56)
             && HudTab.BoardLine(HudTab.Mode.Off) == HudView.StaticTexts().First(t => t.Id == "gg_b_cmds").Text);
 
         var tab = new HudTab();
-        Check("TAB chord: off - nothing, whatever is pressed",
+        Check("TAB off: nothing, whatever is pressed",
             tab.Buttons(1, TAB, 0, HudTab.Mode.Off, t0) == null && tab.Buttons(1, E | RMB, 0, HudTab.Mode.Off, t0) == null && !tab.Cursor(1));
         tab = new HudTab();
-        Check("TAB chord: E, right-click, moving or jumping without TAB do nothing - only with TAB held",
-            tab.Buttons(2, E, 0, HudTab.Mode.On, t0) == null && tab.Buttons(2, 0, E, HudTab.Mode.On, t0) == null && tab.Buttons(2, RMB, 0, HudTab.Mode.On, t0) == null
-            && tab.Buttons(2, 0, RMB, HudTab.Mode.On, t0) == null && tab.Buttons(2, W | JUMP, 0, HudTab.Mode.On, t0) == null
-            && tab.Buttons(2, TAB, W | JUMP, HudTab.Mode.On, t0) == null && !tab.Cursor(2));
-        tab = new HudTab();
-        tab.Buttons(3, TAB, 0, HudTab.Mode.Menu, t0);
-        Check("TAB chord: TAB + E opens the menu (menu mode), and TAB + right-click there does nothing",
-            tab.Buttons(3, E, 0, HudTab.Mode.Menu, t0.AddSeconds(1)) == HudTab.Act.OpenMenu && tab.Buttons(3, RMB, 0, HudTab.Mode.Menu, t0.AddSeconds(2)) == null
-            && !tab.Cursor(3));
-        tab = new HudTab();
-        tab.Buttons(4, TAB, 0, HudTab.Mode.On, t0);
-        var on = tab.Buttons(4, RMB, 0, HudTab.Mode.On, t0.AddSeconds(1));
-        var during = tab.Cursor(4);
-        var off = tab.Buttons(4, 0, TAB, HudTab.Mode.On, t0.AddSeconds(3));
-        Check("TAB chord: TAB + right-click gives the board's cursor, letting go of TAB takes it back",
-            on == HudTab.Act.CursorOn && during && off == HudTab.Act.CursorOff && !tab.Cursor(4));
-        tab = new HudTab();
-        tab.Buttons(5, TAB, 0, HudTab.Mode.On, t0);
-        tab.Buttons(5, RMB, 0, HudTab.Mode.On, t0);
-        var stillOn = tab.Buttons(5, W, 0, HudTab.Mode.On, t0.AddMinutes(30)) == null && tab.Cursor(5) && tab.CursorSlots().SequenceEqual([5]);
-        Check("TAB chord: no time limit - the board's cursor stays while TAB is held, however long, and TAB coming up ends it (2026-10-21)",
-            stillOn && tab.Buttons(5, 0, TAB, HudTab.Mode.On, t0.AddMinutes(30)) == HudTab.Act.CursorOff && !tab.CursorSlots().Any());
-        tab = new HudTab();
-        tab.Buttons(6, TAB, 0, HudTab.Mode.On, t0);
-        tab.Buttons(6, RMB, 0, HudTab.Mode.On, t0);
-        var again = tab.Buttons(6, 0, RMB, HudTab.Mode.On, t0.AddSeconds(1)) == null && tab.Buttons(6, RMB, 0, HudTab.Mode.On, t0.AddSeconds(2)) == null;
-        var toMenu = tab.Buttons(6, E, 0, HudTab.Mode.On, t0.AddSeconds(3));
-        Check("TAB chord: a second right-click changes nothing; TAB + E with the board's cursor on opens the menu, which keeps the cursor itself",
-            again && toMenu == HudTab.Act.OpenMenu && !tab.Cursor(6));
-        tab = new HudTab();
-        foreach (var slot in new[] { 7, 8, 9 }) { tab.Buttons(slot, TAB, 0, HudTab.Mode.On, t0); tab.Buttons(slot, RMB, 0, HudTab.Mode.On, t0); }
-        var hit = tab.Release(7) && !tab.Release(7) && !tab.Cursor(7);
-        tab.Gone(8);
-        var all = tab.ReleaseAll();
-        Check("TAB chord: a hit or death takes the cursor back (once), leaving forgets the slot, css_gghud release takes every cursor back",
-            hit && !tab.Cursor(8) && all.SequenceEqual([9]) && !tab.CursorSlots().Any());
-        tab = new HudTab();
-        tab.Buttons(10, TAB, 0, HudTab.Mode.On, t0);
-        tab.Buttons(10, RMB, 0, HudTab.Mode.On, t0);
-        tab.MapStarted();
-        Check("TAB chord: a map change forgets everything (everybody reconnects)", !tab.Cursor(10) && tab.Buttons(10, E, 0, HudTab.Mode.On, t0.AddSeconds(1)) == null);
-
-        // ---- the experiment modes (css_gghud tab down|hold|window) ----
+        Check("TAB: E, right-click, moving or jumping without TAB do nothing",
+            tab.Buttons(2, E, 0, HudTab.Mode.Down, t0) == null && tab.Buttons(2, 0, E, HudTab.Mode.Down, t0) == null && tab.Buttons(2, RMB, 0, HudTab.Mode.Down, t0) == null
+            && tab.Buttons(2, 0, RMB, HudTab.Mode.Down, t0) == null && tab.Buttons(2, W | JUMP, 0, HudTab.Mode.Down, t0) == null && !tab.Cursor(2));
         tab = new HudTab();
         var downOn = tab.Buttons(20, TAB, 0, HudTab.Mode.Down, t0);
         var downHeld = tab.Cursor(20);
@@ -315,31 +274,37 @@ static partial class Program
             downOn == HudTab.Act.CursorOn && downHeld && downOff == HudTab.Act.CursorOff && !tab.Cursor(20));
         tab = new HudTab();
         tab.Buttons(21, TAB, 0, HudTab.Mode.Down, t0);
-        Check("TAB down: TAB held for minutes, moving and clicking - the cursor stays (the old 10 s limit ended it "
-            + "with TAB still held, and that click fired the gun); TAB coming up ends it, the next TAB brings it back",
+        Check("TAB down: TAB held for minutes, moving and clicking - the cursor stays (a time limit ended it with TAB still held, and that click "
+            + "fired the gun); TAB coming up ends it, the next TAB brings it back",
             tab.Buttons(21, W, 0, HudTab.Mode.Down, t0.AddSeconds(10)) == null && tab.Buttons(21, 1UL, 0, HudTab.Mode.Down, t0.AddSeconds(10)) == null && tab.Cursor(21)
-            && tab.Buttons(21, 0, W | 1UL, HudTab.Mode.Down, t0.AddMinutes(5)) == null && tab.Cursor(21)
-            && tab.Buttons(21, 0, TAB, HudTab.Mode.Down, t0.AddMinutes(5)) == HudTab.Act.CursorOff && !tab.Cursor(21)
+            && tab.Buttons(21, 0, W | 1UL, HudTab.Mode.Down, t0.AddMinutes(5)) == null && tab.Cursor(21) && tab.CursorSlots().SequenceEqual([21])
+            && tab.Buttons(21, 0, TAB, HudTab.Mode.Down, t0.AddMinutes(5)) == HudTab.Act.CursorOff && !tab.Cursor(21) && !tab.CursorSlots().Any()
             && tab.Buttons(21, TAB, 0, HudTab.Mode.Down, t0.AddMinutes(6)) == HudTab.Act.CursorOn);
         tab = new HudTab();
-        var holdArm = tab.Buttons(22, TAB, 0, HudTab.Mode.Hold, t0);
-        var holdEarly = tab.Hold(22, HudTab.Mode.Hold, t0.AddSeconds(0.1));
-        var holdOn = tab.Hold(22, HudTab.Mode.Hold, t0.AddSeconds(HudTab.HoldSeconds));
-        var holdOff = tab.Buttons(22, 0, TAB, HudTab.Mode.Hold, t0.AddSeconds(2));
-        tab.Buttons(22, TAB, 0, HudTab.Mode.Hold, t0.AddSeconds(3));
-        tab.Buttons(22, 0, TAB, HudTab.Mode.Hold, t0.AddSeconds(3.1));
-        var holdTapped = tab.Hold(22, HudTab.Mode.Hold, t0.AddSeconds(3 + HudTab.HoldSeconds));
-        Check($"TAB hold: the cursor only once TAB has been held {HudTab.HoldSeconds} s - a quick look at the scores gets none - and off when TAB comes up",
-            holdArm == HudTab.Act.HoldCheck && holdEarly == null && holdOn == HudTab.Act.CursorOn && holdOff == HudTab.Act.CursorOff && holdTapped == null
-            && tab.Hold(22, HudTab.Mode.On, t0.AddSeconds(5)) == null);
+        tab.Buttons(6, TAB, 0, HudTab.Mode.Down, t0);
+        var toMenu = tab.Buttons(6, E, 0, HudTab.Mode.Down, t0.AddSeconds(1));
+        var noCursor = !tab.Cursor(6);
+        var upAfter = tab.Buttons(6, 0, TAB, HudTab.Mode.Down, t0.AddSeconds(2));
+        Check("TAB + E: the menu window, which takes the cursor over and stays when TAB comes up (TAB up then asks nothing)",
+            toMenu == HudTab.Act.OpenMenu && noCursor && upAfter == null && !tab.Cursor(6));
         tab = new HudTab();
-        var winOpen = tab.Buttons(23, TAB, 0, HudTab.Mode.Window, t0);
-        var winIs = tab.Window(23) && !tab.Cursor(23);
-        var winClose = tab.Buttons(23, 0, TAB, HudTab.Mode.Window, t0.AddSeconds(4));
-        tab.Buttons(23, TAB, 0, HudTab.Mode.Window, t0.AddSeconds(5));
-        var winHit = tab.Release(23) && !tab.Window(23) && tab.Buttons(23, 0, TAB, HudTab.Mode.Window, t0.AddSeconds(7)) == null;
-        Check("TAB window: the menu window while TAB is held (the window keeps the cursor), closed when TAB comes up; a hit or death closes it, and TAB up then asks nothing",
-            winOpen == HudTab.Act.OpenWindow && winIs && winClose == HudTab.Act.CloseWindow && !tab.Window(23) && winHit);
+        tab.Buttons(5, TAB, 0, HudTab.Mode.Down, t0);
+        Check("TAB: a right-click with TAB held changes nothing - the cursor is on already", tab.Buttons(5, RMB, 0, HudTab.Mode.Down, t0.AddSeconds(1)) == null && tab.Cursor(5));
+        tab = new HudTab();
+        foreach (var slot in new[] { 7, 8, 9 }) tab.Buttons(slot, TAB, 0, HudTab.Mode.Down, t0);
+        var hit = tab.Release(7) && !tab.Release(7) && !tab.Cursor(7);
+        tab.Gone(8);
+        var all = tab.ReleaseAll();
+        Check("TAB: a hit or death takes the cursor back (once), leaving forgets the slot, css_gghud release (and switching TAB off) takes every cursor back",
+            hit && !tab.Cursor(8) && all.SequenceEqual([9]) && !tab.CursorSlots().Any());
+        tab = new HudTab();
+        tab.Buttons(10, TAB, 0, HudTab.Mode.Down, t0);
+        tab.MapStarted();
+        Check("TAB: a map change forgets everything (everybody reconnects)", !tab.Cursor(10) && tab.Buttons(10, E, 0, HudTab.Mode.Down, t0.AddSeconds(1)) == null);
+        tab = new HudTab();
+        tab.Buttons(11, TAB, 0, HudTab.Mode.Down, t0);
+        Check("TAB: a cursor that stuck (its TAB-up never seen) goes with the next tap of TAB",
+            tab.Buttons(11, TAB, 0, HudTab.Mode.Down, t0.AddSeconds(30)) == null && tab.Buttons(11, 0, TAB, HudTab.Mode.Down, t0.AddSeconds(30.2)) == HudTab.Act.CursorOff && !tab.Cursor(11));
         var held = new HudSlots();
         held.Show(40, HudSlots.Page.Start, t0);
         for (var sec = 0.25; sec <= 120; sec += 0.25) { held.Hold(40, t0.AddSeconds(sec)); held.Frame(t0.AddSeconds(sec)); }
@@ -347,39 +312,20 @@ static partial class Program
         var afterHold = held.Frame(t0.AddSeconds(120 + HudSlots.IdleCloseSeconds)).First(v => v.Slot == 40).View;
         var notHeld = new HudSlots();
         notHeld.Show(41, HudSlots.Page.Start, t0);
-        Check("TAB window: no idle close while TAB holds it (two minutes here) and no drain bar; once the hold ends the idle close is back - "
-            + "and a window TAB does not hold still closes after its 30 s",
+        Check("A held window (the vote holds everybody's): no idle close while it is held (two minutes here) and no drain bar; once the hold ends "
+            + "the idle close is back - and a window nothing holds still closes after its 30 s",
             heldView is { Capture: true, Draining: false } && !afterHold.Capture && !notHeld.Frame(t0.AddSeconds(HudSlots.IdleCloseSeconds)).First(v => v.Slot == 41).View.Capture);
-        Check("TAB: E with TAB held opens the menu in every mode but off",
-            Enum.GetValues<HudTab.Mode>().Where(m => m != HudTab.Mode.Off).All(m =>
-            {
-                var t = new HudTab();
-                t.Buttons(30, TAB, 0, m, t0);
-                return t.Buttons(30, E, 0, m, t0.AddSeconds(0.5)) == HudTab.Act.OpenMenu && !t.Cursor(30) && !t.Window(30);
-            }));
-        tab = new HudTab();
-        tab.Buttons(24, TAB, 0, HudTab.Mode.Down, t0);
-        tab.Buttons(25, TAB, 0, HudTab.Mode.Window, t0);
-        var released = tab.ReleaseAll();
-        Check("TAB: css_gghud release (and switching off) takes every TAB cursor and window back",
-            released.OrderBy(x => x).SequenceEqual([24, 25]) && !tab.Cursor(24) && !tab.Window(25));
-        Check("TAB: the log names the buttons the client sent",
-            HudTab.Names(TAB | W | E) == "TAB+E+W" && HudTab.Names(0) == "-" && HudTab.Names(1UL << 40) == "0x10000000000" && HudTab.Names(1UL | RMB) == "LMB+RMB");
-        tab = new HudTab();
-        tab.Buttons(26, TAB, 0, HudTab.Mode.Hold, t0);
-        Check("TAB: what is worth logging - TAB held in an experiment mode, a TAB cursor or window up; not plain play",
-            tab.Watching(26, HudTab.Mode.Hold) && !tab.Watching(26, HudTab.Mode.On) && !new HudTab().Watching(27, HudTab.Mode.Down));
 
-        Check("TAB: down is the default (the owner's choice, 2026-10-21) - HUD_TAB unset - and reads back", HudTab.Default == HudTab.Mode.Down
+        Check("TAB: down is the default - HUD_TAB unset - and reads back", HudTab.Default == HudTab.Mode.Down
             && HudTab.Parse(HudTab.Name(HudTab.Default)) == HudTab.Mode.Down && (Environment.GetEnvironmentVariable("HUD_TAB") is { Length: > 0 } || HudTabMode == HudTab.Mode.Down));
-        var sent = new HudState { TabMode = "on" };
-        Check("TAB chord: the state carries the mode to the plugin, and an older bridge's state means off",
-            HudState.Decode(sent.Encode())!.TabMode == "on" && HudTab.Parse(HudState.Decode(new HudState().Encode())!.TabMode) == HudTab.Mode.Off);
+        var sent = new HudState { TabMode = "down" };
+        Check("TAB: the state carries the mode to the plugin, and an older bridge's state means off",
+            HudState.Decode(sent.Encode())!.TabMode == "down" && HudTab.Parse(HudState.Decode(new HudState().Encode())!.TabMode) == HudTab.Mode.Off);
         var savedTab = HudTabMode;
         try
         {
-            HudTabMode = HudTab.Mode.Menu;
-            Check("TAB chord: the bridge serves HUD_TAB", HudState.Decode(BuildHud(Now()).Encode())!.TabMode == "menu");
+            HudTabMode = HudTab.Mode.Off;
+            Check("TAB: the bridge serves HUD_TAB", HudState.Decode(BuildHud(Now()).Encode())!.TabMode == "off");
         }
         finally { HudTabMode = savedTab; }
 

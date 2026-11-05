@@ -17,12 +17,10 @@ static partial class Program
         MapsFile = Env("MAPS_FILE", "maps.json"), BrokenFile = Env("BROKEN_FILE", ""),
         StartMap = Env("START_MAP", "ar_shoots"); // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
     static readonly int RconPort = int.Parse(Env("RCON_PORT", "27015")), HttpPort = int.Parse(Env("HTTP_PORT", "8080")),
-        ChangeDelay = int.Parse(Env("CHANGE_DELAY_SECONDS", "8")), Cooldown = int.Parse(Env("CHANGE_COOLDOWN_SECONDS", "60")),
-        RestartCooldown = int.Parse(Env("RESTART_COOLDOWN_SECONDS", "300"));
-    static readonly bool RandomOnMatchEnd = Env("RANDOM_ON_MATCH_END", "1") is "1" or "true" or "yes", // roll a map when a match ends and nobody is queued
-        RandomOnStart = Env("RANDOM_ON_START", "1") is "1" or "true" or "yes",                        // roll a map when a new server process has loaded its start map
-        GuideOnJoin = Env("GUIDE_ON_JOIN", "1") is "1" or "true" or "yes";                            // ask the GunGameWelcome plugin to show the guide on every real join
-    static HudTab.Mode HudTabMode = HudTab.Parse(Env("HUD_TAB", HudTab.Name(HudTab.Default))); // the TAB chord (HudTab.cs): down (the default since 2026-10-21: the board's cursor while TAB is held), hold, window, on, menu, off
+        ChangeDelay = int.Parse(Env("CHANGE_DELAY_SECONDS", "8")), RestartCooldown = int.Parse(Env("RESTART_COOLDOWN_SECONDS", "300"));
+    static readonly bool RandomOnStart = Env("RANDOM_ON_START", "1") is "1" or "true" or "yes", // roll a map when a new server process has loaded its start map
+        GuideOnJoin = Env("GUIDE_ON_JOIN", "1") is "1" or "true" or "yes";                         // ask the plugin to show the guide on every real join
+    static HudTab.Mode HudTabMode = HudTab.Parse(Env("HUD_TAB", HudTab.Name(HudTab.Default))); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
     static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "off")); // the HUD check (HudCheck.cs): off, dryrun (turns into enforce at the first real click on a release), enforce
     static readonly HashSet<long> Admins = Env("ADMIN_STEAMIDS", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(AccountId).ToHashSet();
     static readonly List<MapInfo> Officials = Env("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night") // installed on the server, loaded with changelevel
@@ -38,9 +36,11 @@ static partial class Program
     static readonly BlockingCollection<Action> Loop = new();
     static readonly List<IDisposable> Signals = new();
     static Change? Pending;                         // a map change counting down CHANGE_DELAY_SECONDS
-    static bool AnnouncePending;                   // a change was sent and its map-start line is still to come: "Now on ..." is owed
-    static DateTime CooldownUntil, AnnounceUntil, AnnounceDeadline, PickConfirmUntil;
-    static string PickConfirmKey = "", PickConfirmBy = ""; // the map key and the SteamID of an outstanding !map confirmation
+    static bool AnnouncePending;                   // a change was sent and its map-start line is still to come
+    static DateTime AnnounceDeadline;              // ...and when the bridge gives up waiting for it
+    static DateTime AnnounceSentAt;                // ...and when it was sent (a load behind a background download waits longer: Players.cs)
+    static bool LoadBehindDownload;                // ...and whether the restart watcher reported a background download during it
+    static readonly Dictionary<string, (string Key, DateTime Until)> PickConfirms = new(); // SteamID -> the risky map it clicked once, and until when the second click counts
     static DateTime MatchEndUntil;                 // debounce: one match end is one decision, however many lines the server logs for it
     static readonly Random Dice = new();
     static Timer? Clock;                           // drives Tick once a second; held here so it is never collected
@@ -57,18 +57,22 @@ static partial class Program
         Log(ReloadSearch(SearchFile));              // SearchIndex.cs: the map browser's full-text index - read here, then watched like the others
         Log(ReloadSizes(SizesFile));                // Selection.cs: each map's measured size, for the too-big rule - read here, then watched like the others
         foreach (var mode in Modes.All.Where(m => !m.ArmsRace)) Log(ReloadModeMaps(mode)); // ModeSwitch.cs: the other modes' Workshop lists - read here, then watched like the others
-        Log(ReloadOurs(OursFile));                  // Ours.cs: the owner's own maps, a section of the menu
+        Log(ReloadOurs(OursFile));                  // Ours.cs: our own maps, a section of the menu
+        Log(ReloadRatings(RatingsFile));            // Popularity.cs: the Workshop's ratings and trend, the keep set's lists
+        Log(ReloadWorkshop(WorkshopFile));          // Popularity.cs: the Workshop's numbers and the sync's last passing tests
         var statePath = Path.Combine(StateDir, "state.json");
         if (File.Exists(statePath)) S = JsonSerializer.Deserialize(File.ReadAllText(statePath), Ctx.Default.State) ?? new();
+        if (S.Met.Count == 0) S.Met.UnionWith(S.History.Select(Key)); // a state.json from before the stock: the maps played are no longer new to us
+        ExpireMarks();                              // CrashWatch.cs: marks whose maps got a Workshop update while the bridge was down
         LoadVotes();
         ModeProbing = true;                         // ModeSwitch.cs: ask the server which mode it is in, once RCON answers
         Rc = new Rcon(RconHost, RconPort, RconPassword);
         foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT })
             Signals.Add(PosixSignalRegistration.Create(sig, c => { c.Cancel = true; Post(() => { Save(); Log("stopped"); Environment.Exit(0); }); }));
-        // A clean quit is the server's, seen by this bridge. Bridges before 2026-10-20 also set it when they themselves were stopped, which
+        // A clean quit is the server's, seen by this bridge. Older bridges also set it when they themselves were stopped, which
         // would let the first crash after a bridge-only restart pass for a quit; the crash watch reads the running process at start instead.
         S.CleanShutdown = false;
-        FillQueues();                               // RandomQueue.cs: the dice rolled ahead, so random picks find their maps on disk
+        FillStock();                                // RandomQueue.cs: the discovery stock rolled ahead, so the watcher fetches it in the background
         BridgeStart();
         After(SpawnBaselineDelayMs, SpawnBaseline); // CrashWatch.cs
         WatchStart(DataFiles());                    // Reload.cs: maps.json, broken.json, removed.json and search.json are read again when they change
@@ -104,16 +108,17 @@ static partial class Program
     static void Handle(HttpListenerContext c)
     {
         var path = c.Request.Url?.AbsolutePath;
-        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(); if (c.Request.Url?.Query.Contains(MapVote.Capability) == true) VotePolled(); Reply(c, HudText); return; } // the HUD plugin, once a second (?mv=1: it draws the vote)
+        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(); Reply(c, HudText); return; } // the HUD plugin, once a second
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
         if (c.Request.HttpMethod == "POST" && path == Hud.ActPath + LogSecret) { HudClick(c); return; }               // a click on the HUD
-        if (c.Request.HttpMethod == "GET" && path == Workshop.CheckPath + LogSecret) { Reply(c, CheckList()); return; }   // the plugin's daily Workshop check: which ids
-        if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // ...and what Steam said about them
+        if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // the Workshop sync: what Steam says about the listed maps
         if (c.Request.HttpMethod == "POST" && path == ReloadPath + LogSecret) { ReloadRequest(c); return; }              // read the data files again now (Reload.cs)
         if (c.Request.HttpMethod == "POST" && path == ReadyPath + LogSecret) { ReadyReport(c); return; }                // the restart watcher: the queued maps on disk (RandomQueue.cs)
         if (c.Request.HttpMethod == "POST" && path == QuittingPath + LogSecret) { QuitNoticeRequest(c); return; }       // the restart watcher, right before its planned quit (CrashWatch.cs)
+        if (c.Request.HttpMethod == "POST" && path == RestartNoticePath + LogSecret) { RestartNoticeRequest(c); return; } // the restart watcher: a restart coming, or not after all (Restarts.cs)
+        if (c.Request.HttpMethod == "POST" && path == UpdatedPath + LogSecret) { UpdatedRequest(c); return; }          // the restart watcher: the new engine is up, and what it is (Restarts.cs)
         if (c.Request.HttpMethod == "GET" && path == HealthPath + LogSecret) { HealthRequest(c); return; }               // is it up, and hearing the server
         var ok = c.Request.HttpMethod == "POST" && path == "/log/" + LogSecret;
         var body = ok ? new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd() : "";
@@ -147,10 +152,12 @@ static partial class Program
             $"crash watch: spawn {(SpawnSeen?.ToString() ?? "not read yet")}, {S.Crashes.Count} map(s) with crashes",
             $"search: {Search.Count} maps indexed, version {Search.Version}",
             SelectionHealth(),
+            NumbersHealth(),
             QueueHealth(),
             ReasonHealth(),
             ModeHealth(),
             VoteHealth(),
+            RestartHealth(),
             SyncHealth(),
             $"maintenance {(MaintenanceOn ? "on" : "off")}") + "\n";
     }
@@ -172,7 +179,7 @@ static partial class Program
         c.Response.Close();
     }
 
-    // ---- the HUD: the GunGameWelcome plugin reads the live state here and sends players' clicks back (see Hud.cs) ----
+    // ---- the HUD: the plugin reads the live state here and sends players' clicks back (see Hud.cs) ----
 
     static volatile string HudText = new HudState().Encode(); // rebuilt on the event loop every tick and after every click; read by the HTTP thread
     static long hudPolledTicks;                              // when the plugin last asked for it (UTC ticks, written by the HTTP thread)
@@ -223,7 +230,7 @@ static partial class Program
             var (up, down) = Tally(key);
             c.Maps.Add(new HudCatalog.Entry(key, ArgOf(m), m.Rank, m.Id, m.Name, m.SizeMb, m.Official, Broken.TryGetValue(key, out var b) ? b : S.PlayerCrashes.ContainsKey(key) ? 0 : -1,
                 S.Crashes.GetValueOrDefault(key), up, down, IsRemoved(m), TooBig(m), SizeClass(m) ?? "", AreaOf(m) ?? 0, TooBigVotes(key), AdsVotes(key),
-                IsOurs(m), ReasonOf(key), ar, dm, wm)); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23 (an older plugin reads up to 18, 4.3 up to 20)
+                IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs; an older plugin reads up to 18, 4.3 up to 20, 4.5 up to 23)
         }
         foreach (var (key, votes) in Votes)
             foreach (var (sid, value) in votes)
@@ -257,8 +264,8 @@ static partial class Program
         Reply(c, done.Task.Wait(2000) ? done.Task.Result : HudText);
     }
 
-    /// <summary>"[U:1:n]\tname\t!up": the player clicked, so the bridge acts exactly as if they had typed the command in chat. Only what
-    /// Hud.IsAction passes gets through - votes, requests by rank or official name, !cancel, !done, !skip, !next, !time, !restart -
+    /// <summary>"[U:1:n]\tname\t!up": the player clicked (or typed a chat command, which the plugin turns into the same click). Only what
+    /// Hud.IsAction passes gets through - likes, a map by rank, Workshop id or official name, Start a vote, the vote's clicks, !time, !restart -
     /// so the menu can never reach !rcon or a free-form name search.</summary>
     static bool HudAct(string body)
     {
@@ -289,37 +296,22 @@ static partial class Program
         else if (!again) Log($"hud check: {name} {steamId} verified on {release}");
     }
 
-    /// <summary>A server token the bridge has not seen; without a clean shutdown that is still recorded as a crash. NOT a restart
-    /// signal: CS2 does not renew the token per process (one value, 5e1f0c2ab7d94a36, for three weeks
-    /// through every deploy and restart, then one change, cause unknown), so a production restart is caught by ServerGoingDown
-    /// (the quit's echo) and OnMapStart (the boot's start map) instead.</summary>
+    /// <summary>A server token the bridge has not seen: logged, nothing more. CS2 does not renew the token per process (one value,
+    /// 5e1f0c2ab7d94a36, for three weeks through every deploy and restart, then one change, cause unknown), so a restart is caught by
+    /// ServerGoingDown (the restart watcher's notice, the bridge's own !restart, the quit's echo) and OnMapStart (the boot's start map), and a
+    /// crash by the spawn counter (CrashWatch.cs).</summary>
     static void Session(string token)
     {
         if (token == S.ServerToken) return;
-        var first = S.ServerToken == null;
-        Log($"server token {token}{(first ? " (the first this bridge has seen)" : $" replaces {S.ServerToken}")}");
+        Log($"server token {token}{(S.ServerToken == null ? " (the first this bridge has seen)" : $" replaces {S.ServerToken}")}");
         S.ServerToken = token;
-        // Crashes are no longer judged here: CS2 keeps one token across processes, so this almost never fires. The spawn counter does it
-        // (CrashWatch.cs); a token change only clears the notice an earlier process left.
-        S.CrashNotice = null;
-        var now = Now();
-        ReleaseAll(now); Owners.Clear(); SkipVotes.Clear(); // whatever was requested went down with the old process
-        S.Map = null; S.PickedBy = null; S.PickedAt = null; S.LogName = null; // the restarted server is on its start map
-        EndBallot("the server restarted"); VoteHeld = false; ModeAtServerStart(); ModeProbing = true; // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
-        S.CleanShutdown = false;
-        Pending = null; AnnouncePending = false; AnnounceUntil = default;
-        MatchEndUntil = default; CooldownUntil = default;  // a new process: the old one's change cooldown means nothing
-        AllReloading(now);                                // everyone has to reconnect: their queue places wait out the load grace
-        if (!first) StartAwaited(now);                    // a fresh bridge seeing a running server for the first time must not yank its map (BridgeStart decides that, on proof)
         Save();
     }
 
-    /// <summary>The server is going down or has come up anew: its start map is still to come, and the start roll is owed once it has
-    /// loaded. Nothing automatic happens before that (or for 2 min, if it never says so).</summary>
+    /// <summary>The server is going down or has come up anew: its start map is still to come, and the start roll is owed once it has loaded.</summary>
     static void StartAwaited(DateTime now)
     {
         StartRollOwed = true; StartRollNeedsProof = false; StartMapAt = default;
-        HoldUntil = now.AddMinutes(2);
     }
 
     /// <summary>The process is going down right now, on purpose: the restart watcher's notice right before its planned quit (CrashWatch.cs),
@@ -340,11 +332,11 @@ static partial class Program
         if ((Pending?.Map ?? (AnnouncePending ? S.Map : null)) is { } gone) Log($"restart: the change to {Label(gone)} dies with the old process");
         Log($"restart: the server is quitting ({source}) - a clean quit; the start roll is owed once its start map has loaded");
         S.CleanShutdown = true;
-        Pending = null; AnnouncePending = false; AnnounceUntil = default;
-        ReleaseAll(now); Owners.Clear(); SkipVotes.Clear();
-        S.Map = null; S.PickedBy = null; S.PickedAt = null; S.LogName = null; // the restarted server will be on its start map
-        EndBallot("the server is restarting"); VoteHeld = false; ModeAtServerStart(); // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
-        MatchEndUntil = default; CooldownUntil = default;
+        Pending = null; AnnouncePending = false;
+        S.Map = null; S.PickedBy = null; S.LogName = null; // the restarted server will be on its start map
+        EndBallot("the server is restarting"); ModeAtServerStart(); // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
+        RestartGoing(); // Restarts.cs: a restart announced is happening
+        MatchEndUntil = default;
         StartAwaited(now);
         Save();
     }
@@ -365,7 +357,6 @@ static partial class Program
     /// <summary>How chat names a map: "#12 aim_redline_fps", "ar_baggage (official)", or "workshop 3736209605" for an unlisted one (rank 0, not official).</summary>
     static string Label(MapInfo m) => m.Official ? $"{m.Name} (official)" : m.Rank > 0 && InArmsRace(m) ? $"#{m.Rank} {m.Name}" : m.Name; // another mode's list numbers are its own: no "#n" there
     static string Key(MapInfo m) => m.Official ? m.Name : m.Id.ToString(); // crash-counter key; an official map's name is also what the server logs
-    static string Short(MapInfo m) => m.Name[(m.Name.IndexOf('_') + 1)..];  // ar_baggage -> baggage: how an official map is typed
     static bool Unlisted(MapInfo m) => m.Rank == 0 && !m.Official;
 
     // ---- the broken-map list and the non-maps: data on the /data volume beside maps.json, never code ----
@@ -454,12 +445,13 @@ static partial class Program
     }
 
     /// <summary>A "connected" or "entered the game" line; fresh is true for a real join (Arrive), false for the reconnect a map change causes.
-    /// On a real join the GunGameWelcome plugin is asked over RCON to put the guide on screen - "first" for a player never seen before,
+    /// On a real join the plugin is asked over RCON to put the guide on screen - "first" for a player never seen before,
     /// who then gets the HUD's window on its start page. Nothing goes to chat. Within CrashNoticeMinutes of a crash, a joiner's note says so.</summary>
     static void OnJoin(LogEvent e, bool fresh)
     {
         if (e.Kind != Kind.Entered) return; // "entered the game" is the first moment the player can see the screen
-        if (S.CrashNotice != null && Now() < CrashNoticeUntil && !InMaintenance()) Tell(e.SteamId, S.CrashNotice, 30);
+        if (CrashNotice != "" && Now() < CrashNoticeUntil && !InMaintenance()) Tell(e.SteamId, CrashNotice, 30);
+        TellUpdated(e.SteamId); // Restarts.cs: an update just done
         var first = S.Seen.Add(e.SteamId);
         if (first) Save();
         if (!fresh && !first) return;
@@ -497,34 +489,30 @@ static partial class Program
         {
             var gone = Pending?.Map ?? S.Map;
             Log($"restart: the server came up on {StartMap} instead of {(gone != null ? Label(gone) : "?")} - that change died with the old process");
-            Pending = null; AnnouncePending = false; AnnounceUntil = default; CooldownUntil = default;
+            Pending = null; AnnouncePending = false;
             S.LogName = null; // attribution starts over below
         }
         AllReloading(now); MatchEndUntil = default; // fresh map: everyone reconnects into it
         WhyOpen.Clear(); // Votes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
-        if (!ours) { ModeProbing = true; VoteHeld = false; } // ...and any map start nobody asked for has the server say which mode it is in
+        if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the server say which mode it is in
         else { ModeBeforeChange = null; ModeVerifyDue = true; } // the change landed: SyncMode checks the mode it came up in
         if (S.RoundMinutes != DefaultRoundMinutes && CurrentMode.ArmsRace) After(2000, ApplyMatchLength); // the mode cfg just reset mp_roundtime; put the chosen value back (Arms Race only)
         if (ours && S.Map != null) // the change we asked for has loaded (ours implies S.Map; repeated for the null analysis)
         {
             AnnouncePending = false;
             S.LogName = logName;
-            AnnounceUntil = now.AddMinutes(3);
-            foreach (var o in Owners.Where(o => !o.Done)) o.Since = now; // their airtime runs from here
             Remember(S.Map); // the HUD's now-playing card says what is on, at everybody's spawn
         }
         else if (logName != S.LogName) // the server rotated by itself, or a new process loaded its start map: attribution no longer applies
         {
-            ReleaseAll(now); Owners.Clear(); SkipVotes.Clear();
             S.Map = Officials.FirstOrDefault(o => o.Name.Equals(logName, StringComparison.OrdinalIgnoreCase)); // an official map is known by the name it logs
-            S.PickedBy = null; S.PickedAt = null; S.LogName = logName;
+            S.PickedBy = null; S.LogName = logName;
             if (S.Map != null) Remember(S.Map);
-            AnnounceUntil = default;
         }
         if (!ours && (StartRollOwed || start))
         {
-            StartRollOwed = true; StartRollNeedsProof = false; StartMapAt = now; HoldUntil = now.AddMilliseconds(StartRollDelayMs); // nothing automatic before the start roll
+            StartRollOwed = true; StartRollNeedsProof = false; StartMapAt = now;
         }
         S.CleanShutdown = false;
         Save();
@@ -533,76 +521,82 @@ static partial class Program
 
     const int StartRollDelayMs = 5000, HistoryLength = 20;
 
-    /// <summary>Played maps, oldest first, for !previous and for the dice's recent-map rule. A map played again moves to the end.</summary>
+    /// <summary>Played maps, oldest first, for !previous and for the dice's recent-map rule. A map played again moves to the end. A map played is no
+    /// longer new to us (S.Met): a stock entry played is used up.</summary>
     static void Remember(MapInfo map)
     {
         S.History.RemoveAll(m => Key(m) == Key(map));
         S.History.Add(map);
+        if (S.Met.Add(Key(map))) CatalogVersion++; // its cards' tags change
         if (S.History.Count > HistoryLength) S.History.RemoveRange(0, S.History.Count - HistoryLength);
     }
 
-    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the queue if anyone is waiting, otherwise the dice
-    /// (RANDOM_ON_START). Waits out the maintenance flag and a change under way; probes RCON with a status first (every 10 s until it
-    /// answers), and the debt stays open until a change command has actually gone out (FireChange). The status also says which map is
-    /// loaded: on any other map than START_MAP there is nothing to roll, and a debt from BridgeStart rolls only when it says START_MAP.</summary>
+    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice (RANDOM_ON_START) - the start roll, one of the
+    /// automatic changes. Waits out the maintenance flag, a change under way and a vote that is open (whose result settles it: CloseBallot); probes
+    /// RCON with a status first (every 10 s until it answers), and the debt stays open until a change command has actually gone out (FireChange).
+    /// The status also says which map is loaded: on any other map than START_MAP there is nothing to roll, and a debt from BridgeStart rolls only
+    /// when it says START_MAP.</summary>
     static void TryStartRoll(DateTime now)
     {
         if (!StartRollOwed || StartMapAt == default || now < StartMapAt.AddMilliseconds(StartRollDelayMs) || now < StartRollRetryAt) return;
-        if (InMaintenance() || Pending != null || AnnouncePending) return;
+        if (InMaintenance() || Pending != null || AnnouncePending || Ballot != null) return;
         StartRollRetryAt = now.AddSeconds(10);
         if (Send("status") is not { } status) { Log("start: RCON not answering yet - start roll again in 10 s"); return; }
         var on = StatusMap(status);
         if (on != null && !on.Equals(StartMap, StringComparison.OrdinalIgnoreCase)) { StartRollOwed = false; Log($"start: the server is on {on}, not {StartMap} - nothing to roll"); return; }
         if (on == null && StartRollNeedsProof) { StartRollOwed = false; Log("start: RCON status does not name the loaded map - a bridge start rolls only on proof"); return; }
-        if (Schedule(now, lead: "Server started. ") != null) return;
         if (!RandomOnStart) { StartRollOwed = false; Log("start: RANDOM_ON_START is off - staying on the start map"); return; }
-        if (RandomNext(true, 1) is not { } map) { StartRollOwed = false; Log("start: no map is eligible to roll"); return; } // RandomQueue.cs
-        StartChange(new Change(map, "the dice", []), $"Server started, rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
+        if (!AutoRoll("Server started")) { StartRollOwed = false; Log("start: no map is eligible to roll"); }
     }
 
-    // ---- the menu's actions: what a click asks for (HudAct), written like the chat commands they replaced ----
+    // ---- the menu's actions: what a click asks for (HudAct), written like the chat commands they stand for ----
     static void Command(string name, string steamId, string text)
     {
         var parts = text.Split(' ', 2, StringSplitOptions.TrimEntries);
         var cmd = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1] : "";
-        if (Ballot is { Open: true } && cmd is "!previous" or "!prev" or "!back" or "!done") { Tell(steamId, MapVote.WaitLine); return; } // the owner's 26: only the vote picks a map now (ChatCommands.WaitForVote); !map adds its map to the vote, Next and !skip say it is on (the owner's 2026-11-03)
         if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
-        else if (cmd == "!next") NextRandom(name, steamId, arg == "random"); // VoteRound.cs: a vote for the next map; "!next random" is !random's
-        else if (cmd is "!previous" or "!prev" or "!back") Previous(name, steamId);
-        else if (cmd == "!done") Done(name, steamId);
-        else if (cmd == "!skip") NextRandom(name, steamId); // the owner's 2026-11-03: a vote for the next map, Keep playing on it (the old skip vote)
-        else if (cmd == "!cancel") Cancel(name, steamId, arg);
+        else if (cmd == "!next") StartVote(name, steamId, arg == "random"); // VoteRound.cs: Start a vote; "!next random" is !random's
+        else if (cmd == "!previous") Previous(name, steamId);
         else if (cmd == "!up") Vote(name, steamId, arg, +1);
         else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Vote(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Votes.cs: with its reason, if it names one
-        else if (cmd == DownReasons.PopupVerb) PopupReason(name, steamId, arg); // Votes.cs: a click on a reason in the popup
-        else if (cmd == "!toobig") Vote(name, steamId, arg, TooBigVote); // Selection.cs: a dislike that also marks the map too big
-        else if (cmd == "!ads") Vote(name, steamId, arg, AdsVote);       // Selection.cs: a dislike that also keeps the map out of random picks
-        else if (cmd == "!newmaps") SetNewMaps(name, steamId, arg);       // Selection.cs: always, half or never
-        else if (cmd == MapVote.Verb) CastBallot(name, steamId, arg);    // VoteRound.cs: a vote on the end-of-match ballot (a click only)
+        else if (cmd == "!newmaps") NewMapsGone(name, steamId);           // Selection.cs: the setting is gone; an older content's buttons hear so
+        else if (cmd == MapVote.Verb) CastBallot(name, steamId, arg);    // VoteRound.cs: a vote on the ballot (a click only)
+        else if (cmd == MapVote.BusyVerb) VoteBusy(name, steamId, arg);  // VoteRound.cs: the map browser at work during the vote: the inactivity timer starts again
     }
 
-    /// <summary>!map: look the map up, refuse a non-map, ask about a broken one - then it is a request (Ask): at once when the map that
-    /// is on is random or free, into the fair queue when somebody's request is playing.</summary>
+    /// <summary>!map: the map a click names (Find), refused when it is no playable map (Unplayable) or its mode does not suit the players on (B6: no
+    /// Wingman with five or more), asked about once more when it is risky (ConfirmGate, per player) - then selected: a vote with it on the ballot and
+    /// this player's vote on it, or onto the vote that is open (VoteRound.cs).</summary>
     static void PickMap(string by, string steamId, string query, string inMode = "")
     {
         var now = Now();
-        var found = Find(query);
-        var hits = found.Where(m => !IsPack(m) && !IsRemoved(m) && !IsBlocked(m)).ToList(); // a non-map, a removed or a blocked map is never a candidate, not even in a "Did you mean" line
-        if (hits.Count == 0 && (found.FirstOrDefault(IsBlocked) ?? BlockedNamed(query)) is { } blocked) { Tell(steamId, BlockedRefusal(blocked)); return; }
-        if (hits.Count == 0 && found.FirstOrDefault(IsRemoved) is { } gone) { Tell(steamId, RemovedRefusal(gone)); return; }
-        if (hits.Count == 0 && (found.FirstOrDefault(IsPack) ?? PackNamed(query)) is { } pack) { Tell(steamId, PackRefusal(pack)); return; }
-        if (hits.Count == 0) { Tell(steamId, $"No map matches '{Clip(query, 40)}'"); return; }
-        if (hits.Count > 1) { Tell(steamId, Choice(hits)); return; }
-        var map = hits[0];
+        if (Find(query) is not [var map]) { Tell(steamId, $"No map is '{Clip(query, 40)}'"); return; }
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
+        if (Unplayable(map) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
-        if (ConfirmGate(map, by, steamId, now) is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
-        if (Ballot is { Open: true } vote) { AddToBallot(vote, by, steamId, map, now); return; } // VoteRound.cs: while the vote is open a pick goes on its ballot
-        Ask(by, steamId, map, now);
+        if (ConfirmGate(map, steamId, now) is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
+        SelectMap(by, steamId, map, now);
     }
+
+    /// <summary>!previous: the last map before this one, selected like any map - a vote with it on the ballot.</summary>
+    static void Previous(string by, string steamId)
+    {
+        var now = Now();
+        var on = Pending?.Map ?? S.Map;
+        var prev = Enumerable.Reverse(S.History).FirstOrDefault(m => on == null || Key(m) != Key(on));
+        if (prev == null) { Tell(steamId, "There is no previous map on record yet"); return; }
+        if (Unplayable(prev) is { } no) { Tell(steamId, no); return; }
+        if (ModeRefusal(prev) is { } full) { Tell(steamId, full); return; }
+        if (ConfirmGate(prev, steamId, now, "Previous") is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
+        SelectMap(by, steamId, prev, now);
+    }
+
+    /// <summary>Why a map cannot be played at all, or null - the one check for a map asked for, a card on the ballot, a change
+    /// counting down and a list that changed: blocked, gone from the Workshop, or no playable map (a pack). Each refusal says why.</summary>
+    static string? Unplayable(MapInfo m) => IsBlocked(m) ? BlockedRefusal(m) : IsRemoved(m) ? RemovedRefusal(m) : IsPack(m) ? PackRefusal(m) : null;
 
     /// <summary>A "pack" here is any workshop item with no playable map in it - skins and player models, but also configs, sound and
     /// viewmodel packs and empty uploads (the name predates the wider list). host_workshop_map on one finds nothing to load: the
@@ -622,14 +616,6 @@ static partial class Program
         return $"{name[..Math.Min(60, name.Length)]} {NotAMap}";
     }
 
-    /// <summary>A pack by name, for the packs maps.json no longer lists, which Find cannot see: the exact name, else the shortest one
-    /// containing the query. Only asked once no map matched and the query is not a number, so a pack never shadows a real map.</summary>
-    static MapInfo? PackNamed(string query) =>
-        query.Trim() is { Length: > 0 } q && !IdRx().IsMatch(q)
-        && Packs.Where(p => p.Value.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(p => p.Value.Equals(q, StringComparison.OrdinalIgnoreCase)).ThenBy(p => p.Value.Length)
-            .FirstOrDefault() is { Key: not null } hit ? new MapInfo(0, long.Parse(hit.Key), hit.Value, 0) : null;
-
     const int PickConfirmSeconds = 30; // same window as Restart: one confirmation idiom, one number to remember
 
     /// <summary>What is on record against this map, or null when nothing is. Two sources, the swept list first because it is the
@@ -638,7 +624,7 @@ static partial class Program
     {
         var key = Key(map);
         var tests = Broken.GetValueOrDefault(key);
-        var why = ReasonOf(key); // BrokenWhy.cs (#8, #11): broken.json's reason, or a player-crash mark (#6)
+        var why = ReasonOf(key); // BrokenWhy.cs: broken.json's reason, or a player-crash mark
         return S.PlayerCrashes.ContainsKey(key) ? $"is broken: {why}"
             : tests > 0 ? $"crashed {tests} of {tests} test loads and may restart the server"
             : Broken.ContainsKey(key) ? (why != "" ? $"is broken: {why}" : "is on the broken list")
@@ -651,25 +637,22 @@ static partial class Program
     static string PickConfirmNote(MapInfo map, string record, string again = "Play")
     {
         var name = Label(map);
-        return $"{(name.Length > 34 ? name[..34] : name)} {record}. Click {again} again within {PickConfirmSeconds} s to play it anyway.";
+        return $"{(name.Length > 34 ? name[..34] : name)} {record}. Click {again} again within {PickConfirmSeconds} s to go ahead.";
     }
 
-    /// <summary>The confirmation gate in front of a pick, built like Restart's: the first click arms a window, and only the same
-    /// SteamID repeating the same map inside PickConfirmSeconds gets through. Returns the note that refuses the pick, or null to let it
-    /// through. Free of RCON and the HUD, and takes its clock as an argument, so --selftest can drive it.</summary>
-    static string? ConfirmGate(MapInfo map, string by, string steamId, DateTime now, string again = "Play")
+    /// <summary>The confirmation gate in front of a pick: the first click arms a window for that player alone, and only that
+    /// player repeating the same map inside PickConfirmSeconds gets through - another player's pick no longer clears it. Returns the note that
+    /// holds the pick back, or null to let it through. The ballot card shows the same record to everybody (HudVote.Cards).</summary>
+    static string? ConfirmGate(MapInfo map, string steamId, DateTime now, string again = "Play")
     {
-        if (PickRecord(map) is not { } record) { ClearPickConfirm(); return null; }                    // nothing on record: straight through
-        if (PickConfirmBy == steamId && PickConfirmKey == Key(map) && now <= PickConfirmUntil) { ClearPickConfirm(); return null; } // confirmed by the same player, in time
-        PickConfirmBy = steamId; PickConfirmKey = Key(map); PickConfirmUntil = now.AddSeconds(PickConfirmSeconds);
+        if (PickRecord(map) is not { } record) { PickConfirms.Remove(steamId); return null; }                                   // nothing on record: straight through
+        if (PickConfirms.TryGetValue(steamId, out var armed) && armed.Key == Key(map) && now <= armed.Until) { PickConfirms.Remove(steamId); return null; } // confirmed in time
+        PickConfirms[steamId] = (Key(map), now.AddSeconds(PickConfirmSeconds));
         return PickConfirmNote(map, record, again);
     }
 
-    static void ClearPickConfirm() { PickConfirmBy = ""; PickConfirmKey = ""; PickConfirmUntil = default; }
-
     /// <summary>The only path that changes the map: announce it on the news line, let the HUD's banner count it down, then FireChange.
-    /// A later StartChange, a request replacing an automatic countdown, or a server restart replaces Pending, and the stale callback sees
-    /// that and stops.</summary>
+    /// A server restart, or a list that made the map unplayable, clears Pending, and the stale callback sees that and stops.</summary>
     static void StartChange(Change change, string announcement)
     {
         Pending = change;
@@ -678,8 +661,7 @@ static partial class Program
         After(ChangeDelay * 1000, () => FireChange(change));
     }
 
-    /// <summary>The countdown is over: the map being left lets its owners go, the new one gets the change's owners (their airtime
-    /// starts at its map start), and host_workshop_map / changelevel goes out.</summary>
+    /// <summary>The countdown is over: host_workshop_map / changelevel goes out, the mode's commands first (ModeSwitch.cs).</summary>
     static void FireChange(Change change)
     {
         if (Pending != change) return; // cancelled in the meantime
@@ -692,83 +674,40 @@ static partial class Program
         if (reply == null && change.Auto && StartRollOwed) { Log("start: the start roll did not reach the server - trying again"); return; }
         if (reply == null) // the server did not take it (it is restarting, or RCON is down): nothing is loading, so nothing may be waited for
         {
-            Announce($"The server did not answer - {Clip(Label(change.Map), 40)} was not loaded{(change.Auto ? "" : " - pick it again in a minute")}");
+            Announce($"The server did not answer - {Clip(Label(change.Map), 40)} was not loaded");
             return;
         }
         StartRollOwed = false; // the server has left its start map one way or another
         ModeReloads = 0;       // ModeSwitch.cs: a new change may load once more for its mode
-        CooldownUntil = now.AddSeconds(Cooldown);
-        ReleaseAll(now);
-        Owners.Clear(); Owners.AddRange(change.Owners); SkipVotes.Clear();
-        VoteHeld = change.Voted && change.Owners.Count == 0; // VoteRound.cs: the vote's own map is held until its match ends
-        S.Map = change.Map; S.PickedBy = change.By; S.PickedAt = DateTime.Now;
-        AnnouncePending = true; AnnounceDeadline = now.AddMinutes(10);
+        S.Map = change.Map; S.PickedBy = change.By;
+        AnnouncePending = true; AnnounceDeadline = now.AddMinutes(LoadMinutes); AnnounceSentAt = now; LoadBehindDownload = false;
         Save();
-        if (Unlisted(change.Map)) // the bridge stays off the internet: the plugin checked and downloaded it first, but only loading proves it is a map
-            foreach (var o in change.Owners) Tell(o.Id, "If nothing happens within a minute it is not a playable map - I'm done lets it go", 60);
+        if (Unlisted(change.Map)) // the bridge stays off the internet: only loading proves an unlisted id is a map
+            Announce($"{Clip(Label(change.Map), 40)} is not on the list: if nothing happens within a minute it is no playable map - start a vote to replace it", 60);
     }
 
-    /// <summary>!next (the board's Next, !skip): since 2026-11-03 the vote for the next map (VoteRound.cs, StartVote) - on your own requested map
-    /// it means you are done with it (Done). ForRandom: !random, the vote with this player's vote on Random.</summary>
-    static void NextRandom(string by, string steamId, bool forRandom = false)
-    {
-        if (Owners.Any(o => o.Id == steamId && !o.Done) && !forRandom) { Done(by, steamId); return; }
-        StartVote(by, steamId, forRandom);
-    }
-
-    /// <summary>The old !next, where no plugin draws a vote: roll a random map right now. Someone asked, so unlike a match end this ignores
-    /// RANDOM_ON_MATCH_END and the empty-server guard. Somebody's request playing: refused, unless it is yours - then it means you are done
-    /// with it, and the queue goes first. The size cap, the crashed and broken maps, the recent maps and the current map are still excluded.</summary>
-    static void OldNext(string by, string steamId)
-    {
-        var now = Now();
-        if (Ballot is { Open: true }) { Tell(steamId, MapVote.WaitLine); return; } // VoteRound.cs
-        if (Pending is { } p) { Tell(steamId, $"Already changing to {Label(p.Map)}, wait for it"); return; }
-        if (now < CooldownUntil) { Tell(steamId, $"Wait {(int)(CooldownUntil - now).TotalSeconds + 1} s"); return; }
-        var mine = Owners.FirstOrDefault(o => o.Id == steamId && !o.Done);
-        if (mine != null) Release(mine, now);
-        var holders = Holders(now);
-        if (holders.Count > 0)
-        {
-            var names = Names(holders.Select(o => o.Name));
-            if (mine != null) Announce($"{by} is done with {CurrentLabel()}, it stays for {names}");
-            else Tell(steamId, $"{CurrentLabel()} is {names}'s request until its match ends - pick a map to queue yours");
-            return;
-        }
-        if (VoteHeld) { Tell(steamId, $"{CurrentLabel()} is the vote's map until its match ends"); return; }
-        if (Schedule(now, direct: true, lead: mine != null ? $"{by} is done. " : "") != null) return;
-        if (RandomNext(true, 1) is not { } map) { Tell(steamId, "No map is eligible to roll right now"); return; } // RandomQueue.cs
-        StartChange(new Change(map, by, []), $"{by} rolled the dice: {Label(map)}{Detail(map)}{RollNote}");
-    }
-
-    /// <summary>An Arms Race match ended. A requested map's turn ends with its match, so: the queue first, then the dice
-    /// (RANDOM_ON_MATCH_END, and only with humans on). Nothing happens while a change counts down or the next map is still
-    /// loading - that match was the old map's - nor while the maintenance flag is set.</summary>
+    /// <summary>A match ended: the vote, where the plugin draws it (it polls /hud) and somebody is on; the dice where nothing draws a vote, the
+    /// vanilla server's case. A vote that is open runs on as a match end's - Keep is "Play this map again", nobody voting is Random. Nothing happens
+    /// while a change counts down or the next map is still loading - that match was the old map's - nor while the maintenance flag is set. A match
+    /// end's vote ignores the wait after the last one.</summary>
     static void OnMatchEnd()
     {
         var now = Now();
         if (now < MatchEndUntil) return;
         MatchEndUntil = now.AddSeconds(30);
+        if (RestartAtMatchEnd(now)) return; // Restarts.cs: a restart was waiting for this match's end - no vote, the server goes down
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }
         if (AnnouncePending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
         if (Ballot is { Open: true } running)
         {
-            if (running.MidMatch) // VoteRound.cs: a vote a player started runs on as a match end's - the turn of the map that is on is over
-            {
-                running.MatchEnded = true; ReleaseAll(now); VoteHeld = false;
-                Log("match end: a vote a player started is open - it decides as a match end's from now (nobody voting is Random)");
-            }
-            else Log("match end: the vote is still open");
+            if (!running.MatchEnded) { running.MatchEnded = true; Log("match end: the vote that is open decides as a match end's from now (Play this map again; nobody voting is Random)"); }
             return;
         }
-        ReleaseAll(now); VoteHeld = false; // the requested map's turn is over, and so is the vote's map's
         if (InMaintenance()) { Log("match end: maintenance flag set - no automatic change"); return; }
-        if (BallotWanted(now) is { } voters && OpenBallot(now, voters)) return; // VoteRound.cs: the vote, where a plugin draws it
-        if (Schedule(now, lead: "Match over. ") != null) return;
-        if (now < CooldownUntil) { Log("match end: inside the change cooldown - no roll"); return; }
         var humans = Humans();
-        if (RandomNext(RandomOnMatchEnd, humans) is not { } map) { Log($"match end: no roll (enabled {RandomOnMatchEnd}, humans {humans})"); return; } // RandomQueue.cs
-        StartChange(new Change(map, "the dice", []), $"Nobody picked a map, rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
+        if (humans <= 0) { Log("match end: nobody on - nothing to do"); return; }
+        if (HudActive() && OpenBallot(now, humans, matchEnd: true)) return; // VoteRound.cs
+        if (!AutoRoll("Match over")) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
     }
 
     [GeneratedRegex(@"^players\s*:\s*(\d+) humans", RegexOptions.Multiline)] private static partial Regex HumansRx();
@@ -784,6 +723,9 @@ static partial class Program
         : Send("status") is { } reply && HumansRx().Match(reply) is { Success: true } m ? int.Parse(m.Groups[1].Value) : 0;
 
     static string Detail(MapInfo m) => m.Official ? "" : Unlisted(m) ? " (size unknown, first load can take a while)" : $" ({Size(m)}{(m.SizeMb >= 400 ? ", first load takes a while" : "")})";
+
+    /// <summary>Detail with the map's first "why" tag in words (MapTags) inside it: " (41 MB, trending on the Workshop)".</summary>
+    static string Detail(MapInfo m, string why) => why == "" ? Detail(m) : Detail(m) is { Length: > 0 } d ? $"{d[..^1]}, {why})" : $" ({why})";
     static string Size(MapInfo m) => m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB";
 
     static int Playable => Maps.Count(m => !IsPack(m)); // what chat counts as "maps": every listed one except a non-map
@@ -840,39 +782,20 @@ static partial class Program
 
     [GeneratedRegex(@"^(?<id>\d+)$|[?&]id=(?<id>\d+)")] private static partial Regex IdRx(); // a bare number, or the id= of a pasted workshop URL
 
-    /// <summary>Rank (1-Maps.Count), workshop id or URL (an id of 7-10 digits that maps.json lacks becomes an unlisted map), or a case-insensitive name fragment
-    /// over the ranked and official maps; the most exact match wins when it is unique (see Exactness), otherwise every fragment match is returned.</summary>
+    /// <summary>The map a click names (Hud.IsMapArg): a rank of Arms Race's list, a Workshop id or URL - a map any mode lists, else an unlisted one
+    /// in the mode the server is in - or an official map's whole name, Arms Race's own first, else the first mode that has it. One map or none:
+    /// the plugin resolves names itself (HudScreen.Play), so no name search is left here.</summary>
     static List<MapInfo> Find(string query)
     {
-        if (IdRx().Match(query) is { Success: true } m && long.TryParse(m.Groups["id"].Value, out var n))
+        var q = query.Trim();
+        if (IdRx().Match(q) is { Success: true } m && long.TryParse(m.Groups["id"].Value, out var n))
         {
             var known = Maps.Where(x => n <= Maps.Count ? x.Rank == n : x.Id == n).ToList();
             if (known.Count > 0 || n is < 1_000_000 or > 9_999_999_999) return known;
             return [ModeMapById(n) ?? new MapInfo(0, n, $"workshop {n}", 0, false, CurrentMode.ArmsRace ? "" : CurrentMode.Id)]; // another mode's listed map; else unlisted, in the mode the server is in
         }
-        if (OfficialElsewhere(query) is { } official) return [official]; // ModeSwitch.cs: the whole name of another mode's official map (a card's Play names it so)
-        var hits = Maps.Concat(Officials).Where(x => x.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Rank).ToList();
-        if (hits.Count == 0) hits = OtherModesNamed(query); // ModeSwitch.cs: nothing in Arms Race's list by that name, but a Deathmatch or Wingman map may have it
-        var best = hits.GroupBy(x => Exactness(x, query)).Where(g => g.Key > 0).MaxBy(g => g.Key)?.ToList();
-        return best ?? hits; // Tied exact names (several maps are literally called "AIM Map") narrow to those, not to every fragment hit.
-    }
-
-    /// <summary>3: the full name; for official maps also 2: the name without its ar_ prefix ("shoots") or 1: one of its words ("pool", "night"); 0: fragment only.</summary>
-    static int Exactness(MapInfo m, string query) => m.Name.Equals(query, StringComparison.OrdinalIgnoreCase) ? 3 : !m.Official ? 0
-        : Short(m).Equals(query, StringComparison.OrdinalIgnoreCase) ? 3 : Short(m).Split('_').Contains(query, StringComparer.OrdinalIgnoreCase) ? 1 : 0;
-
-    /// <summary>Several fragment matches: one line that spells out up to three commands, shortest names first, shrunk until it fits in 120 characters.</summary>
-    static string Choice(List<MapInfo> hits, string verb = "!map")
-    {
-        var line = "";
-        foreach (var (count, cut) in new[] { (3, int.MaxValue), (2, int.MaxValue), (2, 18) })
-        {
-            var options = hits.OrderBy(m => m.Name.Length).ThenBy(m => m.Rank).Take(count)
-                .Select(m => m.Official ? $"{verb} {m.Name} (official)" : $"{verb} {m.Rank} ({m.Name[..Math.Min(cut, m.Name.Length)]})").ToList();
-            line = $"Did you mean {string.Join(", ", options.SkipLast(1))} or {options[^1]}? More in the menu";
-            if (line.Length <= 120) break;
-        }
-        return line;
+        if (Officials.FirstOrDefault(o => o.Name.Equals(q, StringComparison.OrdinalIgnoreCase)) is { } official) return [official];
+        return OfficialElsewhere(q) is { } other ? [other] : []; // ModeSwitch.cs: another mode's official map by its whole name (a card's Play names it so)
     }
 
     /// <summary>Steam account id from "[U:1:123]", a bare account id, or a SteamID64; -1 when unrecognised.</summary>
@@ -914,9 +837,26 @@ static partial class Program
     }
 
     // ---- --selftest: run sample lines through the parser and the helpers ----
+    /// <summary>The self-test, in a scratch directory it always removes again - an exception inside a check fails the run, it does not end it
+    /// with the directory left behind.</summary>
     static int SelfTest()
     {
+        var stateDirBefore = StateDir; // part one's picks open votes, whose cards come from the random queues, which save: into a scratch directory
+        var scratch = Path.Combine(Path.GetTempPath(), $"os2-selftest-main-{Environment.ProcessId}");
+        try { Directory.CreateDirectory(scratch); StateDir = scratch; return SelfTestRun(); }
+        catch (Exception e) { Console.WriteLine($"FAIL the self-test stopped on an exception: {e}"); Console.WriteLine("SELFTEST FAILED"); return 1; }
+        finally
+        {
+            StateDir = stateDirBefore;
+            try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); } catch (Exception e) { Console.WriteLine($"selftest: could not remove {scratch}: {e.Message}"); }
+        }
+    }
+
+    static int SelfTestRun()
+    {
         SelfTesting = true; // the dice keep quiet: tens of thousands of rolls follow
+        var inactivity = MapVote.InactivitySeconds; // the inactivity timer: 5 s; the checks of everything else close a vote the moment everybody has voted
+        MapVote.InactivitySeconds = 0;
         SyncOn = false; DashZone = TimeZoneInfo.Utc; // SyncDash.cs: no sync-status.json and no web folder unless a test asks; times in UTC
         ModeProbeEnabled = false; // ModeSwitch.cs: no game_type/game_mode probes unless a test asks for them
         var samples = new (string Line, Kind? Kind, string Text)[] // HTTP push form as CS2 build 2000908 sends it, with made-up dates and times; player lines inferred
@@ -973,11 +913,9 @@ static partial class Program
             Check("A rank above the list is not silently treated as a workshop id", Find((Maps.Count + 1).ToString()).Count == 0);
             Check("Find by rank", Find("12") is [{ Rank: 12 }]);
             Check("Find by workshop id", Find(Maps[0].Id.ToString()) is [{ Rank: 1 }]);
-            Check("Find by fragment (several)", Find("aim_").Count > 1); // "aim" alone is a map's whole name since the list grew (#2141 Aim, 2026-10-22)
             var uniq = Maps.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase).First(g => g.Count() == 1).First();
-            Check($"Find exact name wins ({uniq.Name})", Find(uniq.Name) is [{ } one] && one.Id == uniq.Id);
-            var dupe = Maps.GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
-            Check("Tied exact names return just those, not every fragment", dupe is null || Find(dupe.Key).Count == dupe.Count());
+            Check($"No name search is left in the bridge: a fragment or a Workshop map's name ({uniq.Name}) finds nothing - the plugin resolves names",
+                Find("aim_").Count == 0 && Find(uniq.Name).Count == 0);
             Check("Find nothing", Find("zqxzqx").Count == 0 && Find("123456").Count == 0);
             const long absent = 9_876_543_210; // 10 digits, deliberately not a real workshop id, so this cannot start resolving if the list grows.
             Check("test fixture is genuinely absent from maps.json", Maps.All(m => m.Id != absent));
@@ -985,38 +923,28 @@ static partial class Program
             Check("Find workshop URL", Find($"https://steamcommunity.com/sharedfiles/filedetails/?id={absent}") is [{ Rank: 0, Id: absent }]
                 && Find($"https://steamcommunity.com/workshop/filedetails/?id={absent}&searchtext=x") is [{ Id: absent }]
                 && Find($"https://steamcommunity.com/sharedfiles/filedetails/?id={Maps[0].Id}") is [{ Rank: 1 }]);
-            Check("Find official: baggage, pool, night, full name", Find("baggage") is [{ Name: "ar_baggage", Official: true }]
-                && Find("pool") is [{ Name: "ar_pool_day" }] && Find("night") is [{ Name: "ar_shoots_night" }]
-                && Find("AR_SHOOTS_NIGHT") is [{ Name: "ar_shoots_night" }] && Find("ar_shoots") is [{ Name: "ar_shoots", Official: true }]);
-            // A workshop map named exactly like an official shortcut (there is one called "Shoots") must not silently win or hide the official.
-            var clash = Find("shoots");
-            Check($"Official shortcut colliding with a workshop name offers both ({clash.Count})",
-                clash.Count == 2 && clash.Any(x => x.Official && x.Name == "ar_shoots") && clash.Any(x => !x.Official));
-            Check("That offer is answerable and does not loop", Choice(clash).Contains("!map ar_shoots (official)"));
-            var choice = Choice(Find("aim_"));
-            Console.WriteLine("choice: " + choice);
-            Check("Choice line for several matches fits", choice.StartsWith("Did you mean !map ") && choice.Length <= 120);
+            Check("Find official: the whole name, in any case; a shortcut is no click's word", Find("ar_baggage") is [{ Name: "ar_baggage", Official: true }]
+                && Find("AR_SHOOTS_NIGHT") is [{ Name: "ar_shoots_night" }] && Find("ar_shoots") is [{ Name: "ar_shoots", Official: true }]
+                && Find("baggage").Count == 0 && Find("shoots").Count == 0);
 
             // ---- the random map a match end rolls when nobody picked ----
             S = new State(); // no crashes, no map: the state a fresh server has
-            Check("RANDOM_ON_MATCH_END off means no roll at all", RandomPick(false, 4) is null);
-            Check("An empty server is never rolled a new map", RandomPick(true, 0) is null && RandomPick(true, -1) is null);
-            var eligible = Maps.Where(IsNew).ToList(); // random picks come from the new maps unless the setting says otherwise (Selection.cs)
-            var draws = Enumerable.Range(0, 4000).Select(_ => RandomPick(true, 2)!).ToList();
+            var eligible = Maps.ToList(); // the dice over every eligible map take the whole ranked list (Votes.cs: RandomPick)
+            var draws = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
             Check($"A roll only ever lands on a ranked map ({eligible.Count} of {Maps.Count} eligible)", draws.All(m => m.Rank > 0 && !m.Official && Maps.Contains(m)));
             Check($"A map's download size plays no part: maps of 400 MB and up come up too ({draws.Count(m => m.SizeMb >= 400)} of 4000 rolls, {eligible.Count(m => m.SizeMb >= 400)} such maps eligible)",
                 draws.Any(m => m.SizeMb >= 400) && eligible.Count(m => m.SizeMb >= 400) > 0);
             Check($"A roll spreads over the table ({draws.Select(m => m.Rank).Distinct().Count()} distinct maps in 4000 rolls)", draws.Select(m => m.Rank).Distinct().Count() > eligible.Count / 2);
             S.Map = eligible[0];                                                    // the map now loaded
             foreach (var m in eligible.Skip(1).Take(200)) S.Crashes[Key(m)] = 1;     // 200 maps that have crashed the server
-            var after = Enumerable.Range(0, 4000).Select(_ => RandomPick(true, 2)!).ToList();
+            var after = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
             Check("A roll never lands on the map that is already loaded", after.All(m => Key(m) != Key(S.Map)));
             Check("A roll never lands on a map with a crash counter (so it never raises a confirm)", after.All(m => !S.Crashes.ContainsKey(Key(m))));
             Check($"Those 201 are gone from the pool ({after.Select(m => m.Rank).Distinct().Count()} distinct left)", after.Select(m => m.Rank).Distinct().Count() <= eligible.Count - 201);
             S = new State { LogName = eligible[3].Name };                            // no bridge-picked map: only the name the server logs
-            Check("A roll excludes the loaded map by its log name too", Enumerable.Range(0, 2000).All(_ => RandomPick(true, 1)!.Name != eligible[3].Name));
+            Check("A roll excludes the loaded map by its log name too", Enumerable.Range(0, 2000).All(_ => RandomPick()!.Name != eligible[3].Name));
             S = new State();
-            var dice = eligible.Select(m => $"Nobody picked a map, rolling the dice: {Label(m)}{Detail(m)}").ToList();
+            var dice = eligible.Select(m => $"Match over - rolling the dice: {Label(m)}{Detail(m)}").ToList();
             Console.WriteLine("dice: " + dice[Maps.Count / 7]);
             Check($"The dice line fits for {dice.Count(l => l.Length <= 120)} of {dice.Count} eligible maps (longest {dice.Max(l => l.Length)}, Say trims the rest)",
                 dice.Count(l => l.Length > 120) * 100 < dice.Count);
@@ -1039,43 +967,46 @@ static partial class Program
             var clock = new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc);
             var (bad, bad2, fine) = (Maps[10], Maps[11], Maps[12]);
             const string p1 = "[U:1:111]", p2 = "[U:1:222]";
-            S = new State(); Broken = new(); ClearPickConfirm();
+            S = new State(); Broken = new(); PickConfirms.Clear();
             Check("An empty broken list disables the whole feature: nothing is gated",
-                ConfirmGate(bad, "Remy", p1, clock) is null && ConfirmGate(fine, "Remy", p1, clock) is null);
+                ConfirmGate(bad, p1, clock) is null && ConfirmGate(fine, p1, clock) is null);
 
             Broken = new Dictionary<string, int> { [Key(bad)] = 3, [Key(bad2)] = 3 };
-            ClearPickConfirm();
-            var ask = ConfirmGate(bad, "Remy", p1, clock);
+            PickConfirms.Clear();
+            var ask = ConfirmGate(bad, p1, clock);
             Console.WriteLine("warn: " + ask);
-            Check("A broken map is refused first, and its note says what is on record and how to agree to it",
+            Check("A broken map is held back first, and its note says what is on record and how to agree to it",
                 ask is { } w && w.Contains(Label(bad)[..Math.Min(34, Label(bad).Length)]) && w.Contains("crashed 3 of 3 test loads and may restart the server")
-                    && w.Contains($"Click Play again within {PickConfirmSeconds} s to play it anyway"));
-            var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, PickRecord(m)!); }).ToList();
-            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps (longest {notes.Max(n => n.Length)})", notes.All(n => n.Length <= NoticeLength));
+                    && w.Contains($"Click Play again within {PickConfirmSeconds} s to go ahead"));
+            var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, PickRecord(m)!, "Previous"); }).ToList();
+            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => n.Length)})", notes.All(n => n.Length <= NoticeLength));
             Broken = new Dictionary<string, int> { [Key(bad)] = 3, [Key(bad2)] = 3 };
-            ClearPickConfirm(); ConfirmGate(bad, "Remy", p1, clock);
-            Check("A different player cannot confirm it, and leaves the first player still having to ask",
-                ConfirmGate(bad, "Eve", p2, clock.AddSeconds(5)) is { } && PickConfirmBy == p2 && ConfirmGate(bad, "Remy", p1, clock.AddSeconds(6)) is { });
-            ClearPickConfirm(); ConfirmGate(bad, "Remy", p1, clock);
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
+            Check("Per player: another player's click arms their own confirm and leaves the first player's standing, so the first player's repeat goes through",
+                ConfirmGate(bad, p2, clock.AddSeconds(5)) is { } && PickConfirms.ContainsKey(p2) && ConfirmGate(bad, p1, clock.AddSeconds(6)) is null && PickConfirms.ContainsKey(p2));
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
+            Check("...and another player's ordinary pick leaves it standing too",
+                ConfirmGate(fine, p2, clock.AddSeconds(2)) is null && ConfirmGate(bad, p1, clock.AddSeconds(3)) is null);
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
             Check("The same player repeating the same map inside the window proceeds, and the window closes behind it",
-                ConfirmGate(bad, "Remy", p1, clock.AddSeconds(PickConfirmSeconds)) is null && PickConfirmKey == "" && PickConfirmBy == "");
-            ClearPickConfirm(); ConfirmGate(bad, "Remy", p1, clock);
+                ConfirmGate(bad, p1, clock.AddSeconds(PickConfirmSeconds)) is null && !PickConfirms.ContainsKey(p1));
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
             Check("The confirmation expires: one second past the window it asks again",
-                ConfirmGate(bad, "Remy", p1, clock.AddSeconds(PickConfirmSeconds + 1)) is { });
-            ClearPickConfirm(); ConfirmGate(bad, "Remy", p1, clock);
+                ConfirmGate(bad, p1, clock.AddSeconds(PickConfirmSeconds + 1)) is { });
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
             Check("Confirming is per map: a second broken map asks on its own account",
-                ConfirmGate(bad2, "Remy", p1, clock.AddSeconds(2)) is { } && PickConfirmKey == Key(bad2));
-            ClearPickConfirm(); ConfirmGate(bad, "Remy", p1, clock);
-            Check("An unbroken map is unaffected, and picking one drops the outstanding confirmation",
-                ConfirmGate(fine, "Remy", p1, clock.AddSeconds(2)) is null && PickConfirmKey == "");
-            ClearPickConfirm();
-            Check("Previous asks with its own button's name", ConfirmGate(bad, "Remy", p1, clock, "Previous") is { } prevAsk && prevAsk.Contains("Click Previous again"));
-            ClearPickConfirm();
+                ConfirmGate(bad2, p1, clock.AddSeconds(2)) is { } && PickConfirms[p1].Key == Key(bad2));
+            PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
+            Check("An unbroken map is unaffected, and that player's pick of one drops their outstanding confirmation",
+                ConfirmGate(fine, p1, clock.AddSeconds(2)) is null && !PickConfirms.ContainsKey(p1));
+            PickConfirms.Clear();
+            Check("Previous asks with its own button's name", ConfirmGate(bad, p1, clock, "Previous") is { } prevAsk && prevAsk.Contains("Click Previous again"));
+            PickConfirms.Clear();
 
             // ---- the pre-existing live crash counter keeps its own wording and the same gate ----
-            Broken = new(); S = new State(); S.Crashes[Key(bad)] = 2; ClearPickConfirm();
+            Broken = new(); S = new State(); S.Crashes[Key(bad)] = 2; PickConfirms.Clear();
             Check("The live crash counter still gates a pick, in its own words",
-                ConfirmGate(bad, "Remy", p1, clock) is { } c1 && c1.Contains("crashed the server 2 time(s)") && ConfirmGate(bad, "Remy", p1, clock.AddSeconds(10)) is null);
+                ConfirmGate(bad, p1, clock) is { } c1 && c1.Contains("crashed the server 2 time(s)") && ConfirmGate(bad, p1, clock.AddSeconds(10)) is null);
             Broken = new Dictionary<string, int> { [Key(bad)] = 3 };
             Check("A map that is both swept-broken and has crashed live reads as broken, the stronger evidence",
                 PickRecord(bad) is { } both && both.Contains("test loads"));
@@ -1083,7 +1014,7 @@ static partial class Program
             // ---- the dice must never walk a broken map past a gate nobody was shown ----
             S = new State();
             Broken = eligible.Skip(5).Take(300).GroupBy(Key).ToDictionary(g => g.Key, _ => 3);
-            var rolls = Enumerable.Range(0, 4000).Select(_ => RandomPick(true, 2)!).ToList();
+            var rolls = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
             Check($"The dice never roll one of the {Broken.Count} broken maps", rolls.All(m => !Broken.ContainsKey(Key(m))));
 
             // ---- non-maps (skin, config and sound packs, empty uploads): refused outright - by rank, name, bare workshop id or URL - never confirmed, never rolled ----
@@ -1096,57 +1027,40 @@ static partial class Program
                 && ParseBroken("""{"maps":[{"id":1,"crashes":3}],"packs":[2]}""") is { Count: 1 } beside && beside["1"] == 3);
 
             // Every RCON command the bridge would send, recorded instead of sent: what lands in `sent` is everything the server would have
-            // received. A refusal is a note to the player (Told), and sends the server nothing at all.
+            // received. A refusal is a note to the player (Told), and sends the server nothing at all. A pick is a vote; alone,
+            // the picker's own vote decides it at once, so an ordinary pick ends in the change counting down.
             var sent = new List<string>();
             var door = Send;
             Send = command => { sent.Add(command); return ""; };
-            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; CooldownUntil = default; PickMap(who, id, query); }
+            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; Ballot = null; VoteWaitUntil = default; PickMap(who, id, query); }
             static Dictionary<string, string> PacksOf(IEnumerable<MapInfo> ms) => ms.Where(m => !m.Official).GroupBy(Key).ToDictionary(g => g.Key, g => g.First().Name);
-            S = new State(); Broken = new(); ClearPickConfirm();
-            var listed = Maps.Skip(200).First(m => Find(m.Name) is [var only] && only == m); // a pack maps.json still lists, as the live list does today; a unique name so Find resolves it alone
-            const long hole = 9_876_543_211;                                                  // a pack maps.json does not list: only its id or its name can reach it
-            Check("test fixture for the unlisted pack is genuinely absent from maps.json", Maps.All(m => m.Id != hole) && Find("zebra skins").Count == 0);
+            S = new State(); Broken = new(); PickConfirms.Clear(); Players.Clear();
+            var listed = Maps.Skip(200).First(); // a pack maps.json still lists, as the live list does today
+            const long hole = 9_876_543_211;     // a pack maps.json does not list: only its id can reach it
+            Check("test fixture for the unlisted pack is genuinely absent from maps.json", Maps.All(m => m.Id != hole));
             Packs = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
 
             Pick(fine.Rank.ToString());
-            Check($"Control: an ordinary pick starts the change and says so on the news line, so the silence below means something",
-                Pending is { } go && go.Map == fine && Told is [var announced] && announced.Contains("changing in") && NewsNow.Text == announced && sent.Count == 0);
+            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the news line, so the silence below means something",
+                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("changing in") && NewsNow.Text == Told[1] && sent.Count == 0);
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",
                 Told is [var byRank] && byRank == PackRefusal(listed) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
-            Check("The refusal sends the server nothing at all: no chat, no host_workshop_map, no changelevel, nothing pending",
-                sent.Count == 0 && Pending is null && CooldownUntil == default && NewsNow.Text == "");
+            Check("The refusal sends the server nothing at all: no chat, no host_workshop_map, no changelevel, no vote, nothing pending",
+                sent.Count == 0 && Pending is null && Ballot is null && NewsNow.Text == "");
             Pick(listed.Id.ToString());
             var byId = Told.ToList();
             Pick($"https://steamcommunity.com/sharedfiles/filedetails/?id={listed.Id}");
-            var byUrl = Told.ToList();
-            Pick(listed.Name);
-            Check("...and by its workshop id, its pasted URL and its exact name, each answered with that one note only",
-                byId is [var a1] && a1.Contains(NotAMap) && byUrl is [var a2] && a2.Contains(NotAMap) && Told is [var a3] && a3.Contains(NotAMap) && Pending is null && sent.Count == 0);
+            Check("...and by its workshop id and its pasted URL, each answered with that one note only",
+                byId is [var a1] && a1.Contains(NotAMap) && Told is [var a2] && a2.Contains(NotAMap) && Pending is null && sent.Count == 0);
             Pick($"{hole}");
             Check("The hole: the bare id of a pack maps.json does not list is refused too, named from the packs list",
                 Told is [var h1] && h1.Contains("Zebra Skins | Test Pack") && h1.Contains(NotAMap) && Pending is null);
             Pick($"https://steamcommunity.com/workshop/filedetails/?id={hole}&searchtext=x");
-            var holeUrl = Told.ToList();
-            Pick("zebra skins");
-            Check("...and so are its pasted URL and its name, though Find cannot see it",
-                holeUrl is [var h2] && h2.Contains("Zebra Skins") && Told is [var h3] && h3.Contains("Zebra Skins | Test Pack") && h3.Contains(NotAMap) && Pending is null);
+            Check("...and so is its pasted URL", Told is [var h2] && h2.Contains("Zebra Skins | Test Pack") && h2.Contains(NotAMap) && Pending is null);
             Pick($"{Maps.Count + 1}");
-            Check($"A number past the list ({Maps.Count + 1}) gets the plain answer, even though a pack's name contains it",
-                Told is [var past] && past.Contains("No map matches") && Pending is null);
-
-            var aims = Find("aim_");
-            Packs = PacksOf(aims.Skip(2));
-            Pick("aim_");
-            Check($"A fragment that also matches packs offers only maps in its Did-you-mean ({aims.Count - 2} of {aims.Count} hits are packs here)",
-                Told is [var dym] && dym.StartsWith("Did you mean") && aims.Skip(2).All(m => !dym.Contains($"!map {m.Rank} (")) && Pending is null);
-            Packs = PacksOf(aims.Skip(1));
-            Pick("aim_");
-            Check("...picks the one real map outright when only one is left", Pending is { } lone && lone.Map == aims[0]);
-            Packs = PacksOf(aims);
-            Pick("aim_");
-            Check("...and refuses when every hit is a pack", Told is [var allPacks] && allPacks.Contains(NotAMap) && Pending is null);
+            Check($"A number past the list ({Maps.Count + 1}) gets the plain answer", Told is [var past] && past.Contains("No map is") && Pending is null);
 
             Packs = new();
             Pick(listed.Rank.ToString());
@@ -1156,25 +1070,25 @@ static partial class Program
                 rankAgain is { } r0 && r0.Map == listed && Pending is { } h0 && h0.Map.Id == hole && Unlisted(h0.Map) && !Told.Any(c => c.Contains(NotAMap)));
 
             Packs = PacksOf(eligible.Skip(3).Take(300));
-            var packRolls = Enumerable.Range(0, 4000).Select(_ => RandomPick(true, 2)!).ToList();
+            var packRolls = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
             Check($"The dice never roll one of the {Packs.Count} packs", packRolls.All(m => !IsPack(m)));
             Check($"The banner counts only real maps: {Playable} of {Maps.Count} listed", Playable == Maps.Count - Packs.Count);
 
             Packs = PacksOf([listed]);
             Broken = new Dictionary<string, int> { [Key(bad)] = 3 };
-            ClearPickConfirm();
+            PickConfirms.Clear();
             Pick(bad.Rank.ToString());
             var asked = Told.ToList();
             sent.Clear(); ClearNotices(); PickMap("Remy", p1, bad.Rank.ToString()); // the same player again, well inside the 30 s window
-            Check("Beside a packs list a broken map still asks first, and the same player's repeat still goes through",
-                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to play it anyway") && Pending is { } conf && conf.Map == bad);
+            Check("Beside a packs list a broken map still asks first, and the same player's repeat still goes through (to the vote, and alone the change)",
+                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to go ahead") && Pending is { } conf && conf.Map == bad);
             Pick(listed.Rank.ToString());
             Check("...while the pack beside it is still refused, with no confirm offered", Told is [var still] && still.Contains(NotAMap) && !still.Contains("again within") && Pending is null);
             Packs = new Dictionary<string, string> { [Key(bad)] = bad.Name };
-            ClearPickConfirm();
+            PickConfirms.Clear();
             Pick(bad.Rank.ToString());
             Check("An id on both lists is refused, not confirmed: a pack has nothing to agree to",
-                Told is [var onBoth] && onBoth.Contains(NotAMap) && Pending is null && PickConfirmKey == "");
+                Told is [var onBoth] && onBoth.Contains(NotAMap) && Pending is null && PickConfirms.Count == 0);
 
             var refusals = Maps.Select(m => { Packs = PacksOf([m]); return PackRefusal(m); }).ToList();
             Packs = new Dictionary<string, string> { [$"{hole}"] = new string('W', 200) };
@@ -1205,22 +1119,22 @@ static partial class Program
                 var lines = cp.Keys.Select(k => PackRefusal(new MapInfo(0, long.Parse(k), "", 0))).ToList();
                 Check($"Every committed non-map's refusal fits the note line untrimmed and claims only that it is no playable map (longest {lines.Max(l => l.Length)})",
                     lines.All(l => l.Length <= NoticeLength && l.EndsWith(NotAMap) && !l.Contains("skin pack")));
-                Packs = new(); Broken = cb; S = new State(); ClearPickConfirm();
+                Packs = new(); Broken = cb; S = new State(); PickConfirms.Clear();
                 var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, PickRecord(m)!))).ToList();
                 Console.WriteLine("broken.json confirm notes: " + string.Join(" | ", listedCrashers.Select(c => c.Line)));
-                Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise (#11)",
+                Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise",
                     listedCrashers.All(c => c.Line.Length <= NoticeLength && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
                         : !c.Line.Contains("restart the server") && (BrokenReasons.TryGetValue(Key(c.Map), out var rw) ? c.Line.Contains($"is broken: {rw}") : c.Line.Contains("is on the broken list")))));
                 var offList = cb.Keys.Where(k => long.TryParse(k, out var id) && Maps.All(m => m.Id != id)).ToList();
                 Check($"A committed crasher that is not on the list ({offList.Count}) still asks to confirm when its bare id is picked",
                     offList.All(k => Find(k) is [var u] && Unlisted(u) && PickRecord(u) is { } w && w.Contains("may restart the server")));
-                Broken = new(); S = new State(); ClearPickConfirm();
+                Broken = new(); S = new State(); PickConfirms.Clear();
             }
             else Console.WriteLine("skip broken.json checks: no broken.json beside maps.json");
-            Send = door; Packs = new(); Pending = null; CooldownUntil = default; ClearNotices();
-            S = new State(); Broken = new(); ClearPickConfirm(); // the checks below this block read the unbroken wording
-            QueueSelfTest(Check); // requests, the fair queue, votes, the weighted dice, !previous, the start roll, maintenance, the guide
-            VoteSelfTest(Check);  // SelfTestVote.cs: the end-of-match vote and the game modes
+            Send = door; Packs = new(); Pending = null; Ballot = null; VoteWaitUntil = default; ClearNotices(); Players.Clear();
+            S = new State(); Broken = new(); PickConfirms.Clear(); // the checks below this block read the unbroken wording
+            QueueSelfTest(Check); // SelfTestQueue.cs: picks as votes, likes, the weighted dice, !previous, the start roll, crashes, maintenance, the guide
+            VoteSelfTest(Check);  // SelfTestVote.cs: the vote for the next map and the game modes
         }
         else Console.WriteLine($"skip maps checks: {MapsFile} not found");
         // The "players : N humans" line of an RCON status reply, as the live server sends it.
@@ -1229,7 +1143,7 @@ static partial class Program
         Check("The Help page: five groups that fit their slots, each row one line",
             Hud.Help.Length == 5 && Hud.Help.All(g => g.Rows.Length is > 0 and <= Hud.RowsPerGroup) && Hud.Help.SelectMany(g => g.Rows).All(r => (r.Command + r.Words + r.Also).Length <= 100));
         var menuWords = string.Join(" ", Hud.Help.SelectMany(g => g.Rows).Select(r => r.Command + " " + r.Words + " " + r.Also)) + " " + string.Join(" ", Hud.Steps.Select(x => x.Command + " " + x.Words))
-            + " " + Hud.MenuHint + " " + string.Join(" ", Hud.Rules.SelectMany(r => r.Lines));
+            + " " + Hud.MenuHint + " " + string.Join(" ", Hud.How.SelectMany(r => r.Lines));
         Check("The menu's words name only real chat commands (ChatCommands.cs: they are back since Over Strike 2)",
             Regex.Matches(menuWords, @"![a-z]+").All(m => ChatCommands.Find(m.Value) != null));
         HudSelfTest(Check);
@@ -1238,14 +1152,16 @@ static partial class Program
         PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
-        RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the dice rolled ahead, taken on disk first, re-checked when used
+        RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the discovery stock, the disk, queues.json and the watcher's report
+        BallotSelfTest(Check); // SelfTestBallot.cs: the Workshop's numbers, popularity, the kept maps, the points, the tags, the recipe, restarts
         DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels
         TabSelfTest(Check);
         GuiSelfTest(Check);
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
-        FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings (the owner's 43 c)
-        Check("Choice shrinks to two truncated options", Choice(Enumerable.Range(1, 3).Select(i => new MapInfo(i, i, new string('x', 50) + i, 1)).ToList())
-            is { Length: <= 120 } shrunk && shrunk.Contains("!map 2 (") && !shrunk.Contains("!map 3 ("));
+        FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
+        MapVote.InactivitySeconds = inactivity;
+        Check($"The inactivity timer is {MapVote.InactivitySeconds} s, and the second inactivity limit is off (a proposal of {MapVote.HardCapSeconds} s at the most), one constant away",
+            MapVote.InactivitySeconds == 5 && MapVote.IdleLimitSeconds == 0 && MapVote.HardCapSeconds == 180);
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");
         Console.WriteLine(failed == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failed})");
         return failed == 0 ? 0 : 1;
@@ -1269,27 +1185,27 @@ static partial class Program
 
 enum Kind { Chat, Connected, Entered, Disconnected, MapStart, MatchEnd, Shutdown }
 record LogEvent(Kind Kind, string Name, string SteamId, string Text);
-record MapInfo(int Rank, long Id, string Name, int SizeMb, bool Official = false, string Mode = ""); // Official: from OFFICIAL_MAPS or a mode's official pool, no rank or id; Rank 0 and not official: unlisted workshop map; Mode: the game mode it loads in (Modes.cs), "" for Arms Race
+record MapInfo(int Rank, long Id, string Name, int SizeMb, bool Official = false, string Mode = "", long Updated = 0); // Official: from OFFICIAL_MAPS or a mode's official pool, no rank or id; Rank 0 and not official: unlisted workshop map; Mode: the game mode it loads in (Modes.cs), "" for Arms Race; Updated: the Workshop's time_updated (unix seconds) when the list carries it, 0 unknown
 
 sealed class State
 {
     public string? ServerToken { get; set; }          // last X-Server-Instance-Token seen
     public MapInfo? Map { get; set; }                 // current map when the bridge picked it
     public string? LogName { get; set; }              // map name as the server logs it
-    public string? PickedBy { get; set; }
-    public DateTime? PickedAt { get; set; }
+    public string? PickedBy { get; set; }             // "the vote", "the dice": what picked the map that is on
     public bool CleanShutdown { get; set; }
-    public string? CrashNotice { get; set; }          // repeated on every join for the rest of the session
     public Dictionary<string, int> Crashes { get; set; } = new();
+    public Dictionary<string, long> CrashStamps { get; set; } = new(); // crash key -> the map's Workshop update time when it was marked: a newer update lifts the mark (CrashWatch.cs)
     public HashSet<string> Seen { get; set; } = new();
     public int RoundMinutes { get; set; } = Program.DefaultRoundMinutes;   // survives restarts; re-applied after every map load
     public List<MapInfo> History { get; set; } = new();  // maps played, oldest first, at most 20: !previous and the dice's recent-map rule
     public Dictionary<long, string> HudVerified { get; set; } = new(); // account id -> the HUD release it last clicked in (HudCheck)
     public Dictionary<string, string> HudProofs { get; set; } = new(); // HUD release -> its first real click (who, when): a dry run is enforced there
-    public string NewMaps { get; set; } = Program.DefaultNewMaps;     // new maps in random picks: always, half or never (Selection.cs); back to always after 10 min with nobody on
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
-    public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (#6, BrokenWhy.cs)
-    public Dictionary<string, List<RolledMap>> RandomQueues { get; set; } = new(); // the dice rolled ahead, per queue (RandomQueue.cs)
+    public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (BrokenWhy.cs)
+    public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (RandomQueue.cs)
+    public Dictionary<string, List<long>> Shown { get; set; } = new();       // map key -> when it was a card on a ballot (unix seconds), the last ShownFadeDays (VoteRound.cs)
+    public HashSet<string> Met { get; set; } = new();                        // every map shown on a ballot or played here: NEW TO US is the rest
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

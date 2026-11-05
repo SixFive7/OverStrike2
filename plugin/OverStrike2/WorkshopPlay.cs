@@ -47,7 +47,7 @@ sealed class WorkshopPlay
             if (!task.IsCompleted) return (false, null, null);
             asking.Remove(id);
             var item = task.IsCompletedSuccessfully ? task.Result : null;
-            if (!task.IsCompletedSuccessfully) log.LogWarning("GunGameWelcome Workshop: details for {Id} failed: {Error}", id, task.Exception?.GetBaseException().Message);
+            if (!task.IsCompletedSuccessfully) log.LogWarning("Over Strike 2 Workshop: details for {Id} failed: {Error}", id, task.Exception?.GetBaseException().Message);
             known[id] = (item, now);
             return (true, item, item == null ? "the Workshop did not answer - try again in a moment" : null);
         }
@@ -83,7 +83,7 @@ sealed class WorkshopPlay
     {
         current = (id, bytes, DateTime.UtcNow, false);
         Server.ExecuteCommand($"mm_download_addon {id}");
-        log.LogInformation("GunGameWelcome Workshop: downloading {Id} ({Bytes} bytes) for a player's pick - mm_download_addon", id, bytes);
+        log.LogInformation("Over Strike 2 Workshop: downloading {Id} ({Bytes} bytes) for a player's pick - mm_download_addon", id, bytes);
     }
 
     /// <summary>Bytes of this item in the cache's staging folders (downloads/, temp/) - how far its download is.</summary>
@@ -140,7 +140,7 @@ sealed class WorkshopPlay
             Next();
             if (result.Equals("OK", StringComparison.OrdinalIgnoreCase) || Installed(id)) return (WorkshopCard.Step.Installed, 100, false, null);
             failed[id] = $"Steam said '{Hud.Clean(result, 40)}'";
-            log.LogWarning("GunGameWelcome Workshop: download of {Id} failed: {Result}", id, result);
+            log.LogWarning("Over Strike 2 Workshop: download of {Id} failed: {Result}", id, result);
             return (WorkshopCard.Step.Failed, 0, false, failed[id]);
         }
         if (!requested && now - c.Since > TimeSpan.FromSeconds(20) && Installed(id)) { Next(); return (WorkshopCard.Step.Installed, 100, false, null); } // nothing to fetch: it was in the cache

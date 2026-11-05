@@ -15,8 +15,11 @@
 // A process killed from outside without a quit (a container restart by hand, a freeze kill by the restart watcher) counts too: that is
 // what makes a freeze count, and the price is that a restart by hand should set the maintenance flag first. A redeploy of the whole stack
 // restarts the bridge as well, which then has no reading of the old process to compare with.
-// A recorded crash is what !map's confirmation ("crashed the server N time(s) - are you sure?"), the dice (never a map with a crash) and
-// the HUD's card ("Crashed the server Nx") already read. Chat says it at once, and every join hears it for the next CrashNoticeMinutes.
+// A recorded crash is what a pick's second click ("... crashed the server N time(s). Click Play again within 30 s to go ahead."), the dice
+// (never a map with a crash) and the HUD's cards - the map browser's and the ballot's - read. The news line says it at once, and every join
+// hears it for the next CrashNoticeMinutes. A mark - this one, or a player-crash mark (BrokenWhy.cs) - lasts until the map gets a Workshop
+// update (the owner's 59 b): the lists carry each map's time_updated ("updated", written by the Workshop sync), every mark keeps the one it was
+// set under (S.CrashStamps), and a newer one lifts it (ExpireMarks, at start and whenever a list is read again).
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -30,7 +33,8 @@ static partial class Program
     static int MapStarts;                  // the map starts this bridge has seen (a load's second line not counted)
     static string? LastStartName;          // the map the newest of them logged: what RCON status must show for a reading to count
     static readonly List<SpawnStart> SpawnStarts = new(); // the starts since the last reading, oldest first, each with what it would blame
-    static DateTime CrashNoticeUntil;      // joins hear S.CrashNotice until then (the reconnect burst after a crash)
+    static string CrashNotice = "";        // what joins hear after a crash...
+    static DateTime CrashNoticeUntil;      // ...until then (the reconnect burst after a crash); in memory only, so a restarted bridge says nothing old
     static DateTime GoingDownAt;           // when the bridge last heard that the server is quitting on purpose (ServerGoingDown)
     const int GoingDownSeconds = 120;      // an echo or a notice within this long after that is the same quit
     const string QuittingPath = "/quitting/";
@@ -43,11 +47,11 @@ static partial class Program
 
     static void ResetCrashWatch()
     {
-        SpawnSeen = null; SpawnSeenStarts = 0; MapStarts = 0; LastStartName = null; SpawnStarts.Clear(); CrashNoticeUntil = default; GoingDownAt = default;
+        SpawnSeen = null; SpawnSeenStarts = 0; MapStarts = 0; LastStartName = null; SpawnStarts.Clear(); CrashNotice = ""; CrashNoticeUntil = default; GoingDownAt = default;
     }
 
     /// <summary>POST /quitting/&lt;secret&gt;: the restart watcher, right before it sends a planned quit - "gg-quit\t1\t&lt;kind&gt;" (daily,
-    /// update, prefetch, workshop) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;". The
+    /// update, workshop) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;". The
     /// notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
     /// a freeze kill it sends no notice for, so a freeze still counts as the crash it is. Runs on the event loop.</summary>
     static void QuitNoticeRequest(HttpListenerContext c)
@@ -125,19 +129,52 @@ static partial class Program
         else RecordCrash(boot.Before, $"the server came back without a quit ({what})");
     }
 
-    static string NameOfKey(string key) =>
-        Maps.FirstOrDefault(m => Key(m) == key) is { } m ? Label(m) : Officials.FirstOrDefault(o => Key(o) == key) is { } o ? Label(o) : key;
+    /// <summary>Every map the server knows, in every mode: Arms Race's list and official maps, the other modes' Workshop lists and official pools.</summary>
+    static IEnumerable<MapInfo> AllKnown => Maps.Concat(Officials).Concat(Modes.All.Where(m => !m.ArmsRace).SelectMany(PoolOf));
 
-    /// <summary>A crash of the map with this key: counted (persisted), shown on its HUD card, said in chat, and told to joiners for a while.</summary>
+    /// <summary>A map key as a player reads it: the map's label in whichever mode lists it - a Deathmatch or Wingman map by its name, not its Workshop
+    /// id (B13) - else the key itself.</summary>
+    static string NameOfKey(string key) => AllKnown.FirstOrDefault(m => Key(m) == key) is { } m ? Label(m) : key;
+
+    /// <summary>A map's Workshop update time as the lists carry it (MapInfo.Updated), 0 when none of them does.</summary>
+    static long UpdatedOf(string key) => AllKnown.Where(m => Key(m) == key).Select(m => m.Updated).DefaultIfEmpty(0).Max();
+
+    /// <summary>A mark set now remembers the Workshop update it was set under.</summary>
+    static void StampMark(string key) { if (UpdatedOf(key) is > 0 and var t) S.CrashStamps[key] = t; else S.CrashStamps.Remove(key); }
+
+    /// <summary>The owner's 59 b: a crash mark or a player-crash mark ends when its map gets a Workshop update - the author may have fixed it. A mark
+    /// set before its map's update time was known is stamped with the first one that is known, and lifted only by a later one.</summary>
+    static void ExpireMarks()
+    {
+        var lifted = new List<string>();
+        foreach (var key in S.Crashes.Keys.Concat(S.PlayerCrashes.Keys).Distinct().ToList())
+        {
+            var updated = UpdatedOf(key);
+            if (updated <= 0) continue;
+            if (!S.CrashStamps.TryGetValue(key, out var stamp)) { S.CrashStamps[key] = updated; continue; }
+            if (updated <= stamp) continue;
+            S.Crashes.Remove(key); S.PlayerCrashes.Remove(key); S.CrashStamps.Remove(key);
+            lifted.Add(key);
+            Log($"crash marks: {NameOfKey(key)} ({key}) got a Workshop update - its mark is lifted");
+        }
+        foreach (var key in S.CrashStamps.Keys.Where(k => !S.Crashes.ContainsKey(k) && !S.PlayerCrashes.ContainsKey(k)).ToList()) S.CrashStamps.Remove(key);
+        if (lifted.Count == 0) return;
+        CatalogVersion++;
+        Save();
+        Announce(lifted.Count == 1 ? $"{Clip(NameOfKey(lifted[0]), 44)} got a Workshop update - its crash mark is lifted" : $"{lifted.Count} marked maps got a Workshop update - their crash marks are lifted");
+    }
+
+    /// <summary>A crash of the map with this key: counted (persisted), shown on its HUD cards, said on the news line, and told to joiners for a while.</summary>
     static void RecordCrash(string key, string why)
     {
         S.Crashes[key] = S.Crashes.GetValueOrDefault(key) + 1;
+        StampMark(key);
         CatalogVersion++;
         var name = NameOfKey(key);
-        S.CrashNotice = $"Server restarted at {DateTime.Now:HH:mm} after a crash on {Clip(name, 44)}";
+        CrashNotice = $"Server restarted at {DateTime.Now:HH:mm} after a crash on {Clip(name, 44)}";
         CrashNoticeUntil = Now().AddMinutes(CrashNoticeMinutes);
         Log($"crash recorded: {name} ({key}), {S.Crashes[key]} in all - {why}");
-        Announce($"The server went down on {Clip(name, 44)} - it is marked: Play asks first, the dice skip it.", 30);
+        Announce($"The server went down on {Clip(name, 44)} - it is marked: its card says so, a pick asks twice, the dice skip it.", 30);
         Save();
     }
 }

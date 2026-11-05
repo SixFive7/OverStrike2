@@ -1,6 +1,7 @@
 // Uploads the gungame_hud addon as a content update of the one HUD Workshop item for Counter-Strike 2 (app 730), through the Steam
 // client that is already running and logged in on this PC - it never sees a password: SteamAPI_Init attaches to that client.
-// It never creates an item (AGENTS.md, "cs2 in-game HUD - NEVER create another Workshop item"; user decision 2026-10-21).
+// It never creates an item, and it changes nothing else about one: no visibility, no deletion, no subscription (AGENTS.md, "cs2 in-game
+// HUD - NEVER create another Workshop item").
 //
 // What the CS2 Workshop Manager uploads, and so what this uploads (read off items in steamapps/workshop/content/730/):
 //   <id>.vpk           the addon's game folder, packed (VPK 2, data embedded, 1 MB chunk MD5s, the 48-byte checksum block,
@@ -15,13 +16,9 @@
 //                                                                          moderation, and only the user says go), and REFUSED, flag or
 //                                                                          not, when <id file> names no item: there is no create path
 //   publisher public <id>                                                   is it shown to everybody? An anonymous visit to its Workshop
-//                                                                          page (the Web API calls an item awaiting moderation public);
-//                                                                          exit 0 only when it is
-//   publisher query <id>                                                    the item as its owner's client sees it
-//   publisher list                                                          every item this account published for app 730
-//   publisher visibility <id> <0|1|2|3>                                     public, friends only, private, unlisted - no new revision
-//   publisher delete <id>                                                   delete one of the account's items for good
-//   publisher unsubscribe <id>                                              unsubscribe the account from an item (anybody's)
+//                                                                          page (the Web API calls an item awaiting moderation public),
+//                                                                          with an honest User-Agent; exit 0 only when it is
+//   publisher query <id>                                                    the item as its owner's client sees it (reads only)
 //
 // hud/publish.ps1 runs it with hud/workshop_id.txt, which names the one HUD item (3823993566). An empty, missing or unreadable id file
 // is refused before Steam is even asked: creating an item is what the rule forbids, so the code cannot do it.
@@ -34,8 +31,7 @@ using System.Text;
 static class Program
 {
     const uint App = 730;
-    // The one HUD item's title (3823993566, since release v3_0_0): "its earlier title" until content v4_0_0, "Over Strike 2" since
-    // (the owner's name for the server and its HUD, 2026-11-01). An update sets it again: the same item, never a new one.
+    // The one HUD item's title (3823993566): the server's name. An update sets it again: the same item, never a new one.
     const string Title = "Over Strike 2";
     const string Description =
         "Over Strike 2 - Over the top - On the Huis.\n\n" +
@@ -74,10 +70,11 @@ static class Program
         "[h1]Fun settings[/h1]\n" +
         "Sixteen settings anybody can switch until the map changes, each with its own word (!gravity low, !vampire on): gravity, super jump, bunny hopping, fall damage, ice floor, Laser guns, infinite ammo, " +
         "headshots only, Vampire, Ghost, big grenades, double damage, free-for-all, friendly fire, Instakill and grenades x10. Random sets them all at once (!fun random), Default puts everything back (!fun default). " +
-        "In Arms Race every player also gets a grenade that drops where they die.\n\n" +
+        "Arms Race has two more, on unless somebody switches them off: the grenade drops - every player spawns with a grenade, dropped where they die (!drops off) - and catch-up (!catchup off).\n\n" +
         "[h1]Catch-up boosts[/h1]\n" +
-        "Fall 2, 4 or 7 kills behind the leader in Arms Race and you spawn with a boost that grows with the gap: more health, less damage taken, more damage dealt, lifesteal and regeneration; further back a second chance and longer spawn protection; " +
-        "furthest back infinite ammo and a one-hit knife and Zeus. A private message at spawn says what you got. A leader who runs away takes up to 30% more damage.\n\n" +
+        "Fall 2 or more kills behind the leader in Arms Race and you spawn with a boost that grows with every kill of the gap, up to 8 and more: more health, lifesteal and regeneration; " +
+        "from 3 behind less damage taken and more damage dealt; from 4 a second chance and longer spawn protection; from 7 infinite ammo and a one-hit knife and Zeus. " +
+        "A private message at spawn says what you got. A leader who runs away takes up to 30% more damage. Catch-up is one of the fun settings: on unless somebody switches it off, until the map changes.\n\n" +
         "[h1]Maps that break things[/h1]\n" +
         "A map that crashes the server or players' games, or shows ads, says why on its card and asks you to confirm before it loads; the dice never roll it. Items that are not maps and maps gone from the Workshop are refused. " +
         "What a map changes in the game's settings is put back when it ends, and no map may turn on cheats or no spread, hide the radar or switch the mode: you are told on screen.\n\n" +
@@ -95,8 +92,8 @@ static class Program
     {
         try
         {
-            // Never another HUD item, and a new version of the one item only with the user's go for that release (AGENTS.md): every
-            // version waits in Valve's moderation queue. Only an explicit, user-approved run may upload, and only as an update.
+            // Never another HUD item, and a new version of the one item only with the owner's go for that release (AGENTS.md): every
+            // version waits in Valve's moderation queue. Only an explicit, approved run may upload, and only as an update.
             if (args is ["publish", ..] && !args.Contains(ApprovedFlag))
             {
                 Console.WriteLine($"REFUSED: publishing uploads a new version of the HUD item, which waits for Valve's moderation. AGENTS.md, " +
@@ -111,17 +108,13 @@ static class Program
                 ["publish", _, _, _, _] => NoNote(),
                 ["publish", var addon, var idFile, var staging, var preview, var note] => Publish(addon, idFile, staging, preview, note),
                 ["query", var id] => Query(ulong.Parse(id)),
-                ["visibility", var id, var v] => Visibility(ulong.Parse(id), int.Parse(v)),
-                ["list"] => List(),
-                ["delete", var id] => Delete(ulong.Parse(id)),
-                ["unsubscribe", var id] => Unsubscribe(ulong.Parse(id)),
                 _ => Usage(),
             };
         }
         catch (Exception e) { Console.WriteLine("FAILED: " + e); return 1; }
     }
 
-    static int Usage() { Console.WriteLine($"publisher pack <addon dir> <out dir> <id> | publish <addon dir> <id file> <staging dir> <preview.jpg> <change note> {ApprovedFlag} | public <id> | query <id> | list | visibility <id> <0-3> | delete <id> | unsubscribe <id>"); return 2; }
+    static int Usage() { Console.WriteLine($"publisher pack <addon dir> <out dir> <id> | publish <addon dir> <id file> <staging dir> <preview.jpg> <change note> {ApprovedFlag} | public <id> | query <id>"); return 2; }
 
     static int NoNote() { Console.WriteLine("REFUSED: a content update needs a change note - Steam shows it in the item's change notes."); return 3; }
 
@@ -137,15 +130,15 @@ static class Program
         return null;
     }
 
-    /// <summary>Whether Steam shows the item to everybody: an anonymous visit to its Workshop page, as a stranger's browser makes it. Steam's
-    /// Error page means not yet (it is what everybody but the owner gets while the item or its latest version awaits moderation); the
-    /// Web API is no help, it reports such an item as public. 0 = shown to everybody, 1 = not shown, 2 = no verdict (rate limited, error).
-    /// Since Steam's new Workshop pages (2026-10-31) that page is also an HTTP 500 titled just "Steam Workshop" - for an item held for
-    /// moderation exactly as for an id that does not exist (#19, 2026-11-01; the plugin's HudCheck.PagePublic reads it the same way).</summary>
+    /// <summary>Whether Steam shows the item to everybody: an anonymous visit to its Workshop page, saying who asks. Steam's Error page means
+    /// not yet (it is what everybody but the item's owner gets while the item or its latest version awaits moderation); the Web API is no
+    /// help, it reports such an item as public. 0 = shown to everybody, 1 = not shown, 2 = no verdict (rate limited, error). Steam's new
+    /// Workshop pages answer it as an HTTP 500 titled just "Steam Workshop" too - for an item held for moderation exactly as for an id that
+    /// does not exist (the plugin's HudCheck.PagePublic reads it the same way).</summary>
     static int PublicNow(ulong id)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("OverStrike2-publisher/1 (the Over Strike 2 HUD's publisher; hud/publisher)");
         var url = $"https://steamcommunity.com/sharedfiles/filedetails/?id={id}";
         using var response = http.GetAsync(url).GetAwaiter().GetResult();
         var status = (int)response.StatusCode;
@@ -211,8 +204,8 @@ static class Program
             Check("SetItemDescription", Steam.SteamAPI_ISteamUGC_SetItemDescription(ugc, h, Utf8(Description)));
             Check("SetItemContent", Steam.SteamAPI_ISteamUGC_SetItemContent(ugc, h, Utf8(Path.GetFullPath(content))));
             Check("SetItemPreview", Steam.SteamAPI_ISteamUGC_SetItemPreview(ugc, h, Utf8(Path.GetFullPath(preview))));
-            // An update leaves the visibility alone (the item is Public: on 2026-10-07 other players' games refused an Unlisted item with
-            // ERROR 15 in the download prompt, while the owner's downloaded it).
+            // An update leaves the visibility alone: the item is Public, and other players' games refuse an Unlisted item with ERROR 15 in
+            // the download prompt while its owner's downloads it.
             var submit = Steam.SteamAPI_ISteamUGC_SubmitItemUpdate(ugc, h, Utf8(note));
             var s = Wait<SubmitItemUpdateResult>(utils, submit, 3404, () =>
             {
@@ -225,89 +218,6 @@ static class Program
         }
         finally { Steam.SteamAPI_Shutdown(); Marshal.FreeHGlobal(err); }
     }
-
-    /// <summary>Only the visibility (0 public, 1 friends only, 2 private, 3 unlisted): no content, no new revision for players to fetch.</summary>
-    static int Visibility(ulong id, int visibility)
-    {
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "steam_appid.txt"), App.ToString());
-        Environment.SetEnvironmentVariable("SteamAppId", App.ToString());
-        Environment.SetEnvironmentVariable("SteamGameId", App.ToString());
-        var err = Marshal.AllocHGlobal(1024);
-        if (Steam.SteamAPI_InitFlat(err) is var init && init != 0) { Console.WriteLine($"SteamAPI_InitFlat = {init}: {Marshal.PtrToStringUTF8(err)}"); return 1; }
-        try
-        {
-            var ugc = Steam.SteamAPI_SteamUGC_v021();
-            var utils = Steam.SteamAPI_SteamUtils_v010();
-            var h = Steam.SteamAPI_ISteamUGC_StartItemUpdate(ugc, App, id);
-            Check($"SetItemVisibility({visibility})", Steam.SteamAPI_ISteamUGC_SetItemVisibility(ugc, h, visibility));
-            var s = Wait<SubmitItemUpdateResult>(utils, Steam.SteamAPI_ISteamUGC_SubmitItemUpdate(ugc, h, Utf8("")), 3404);
-            Console.WriteLine($"SubmitItemUpdate (visibility only): result {s.Result}, id {s.Id}");
-            return s.Result == 1 ? 0 : 1;
-        }
-        finally { Steam.SteamAPI_Shutdown(); Marshal.FreeHGlobal(err); }
-    }
-
-    /// <summary>Runs one Steam session for a maintenance command; the account and its interfaces are handed to the body.</summary>
-    static int Session(Func<IntPtr, IntPtr, uint, int> body)
-    {
-        File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "steam_appid.txt"), App.ToString());
-        Environment.SetEnvironmentVariable("SteamAppId", App.ToString());
-        Environment.SetEnvironmentVariable("SteamGameId", App.ToString());
-        var err = Marshal.AllocHGlobal(1024);
-        if (Steam.SteamAPI_InitFlat(err) is var init && init != 0) { Console.WriteLine($"SteamAPI_InitFlat = {init}: {Marshal.PtrToStringUTF8(err)}"); return 1; }
-        try
-        {
-            var account = (uint)(Steam.SteamAPI_ISteamUser_GetSteamID(Steam.SteamAPI_SteamUser_v023()) & 0xFFFFFFFF);
-            return body(Steam.SteamAPI_SteamUGC_v021(), Steam.SteamAPI_SteamUtils_v010(), account);
-        }
-        finally { Steam.SteamAPI_Shutdown(); Marshal.FreeHGlobal(err); }
-    }
-
-    /// <summary>Every item this account has published for CS2 (private ones too: the owner asks), newest first, with whether the
-    /// account is subscribed to it.</summary>
-    static unsafe int List() => Session((ugc, utils, account) =>
-    {
-        Console.WriteLine($"account {account}: items published for app {App}");
-        var buf = new byte[16384];
-        for (uint page = 1; page <= 20; page++)
-        {
-            // k_EUserUGCList_Published, k_EUGCMatchingUGCType_All (~0, valid for user queries), k_EUserUGCListSortOrder_CreationOrderDesc
-            var q = Steam.SteamAPI_ISteamUGC_CreateQueryUserUGCRequest(ugc, account, 0, -1, 0, App, App, page);
-            var done = Wait<QueryCompleted>(utils, Steam.SteamAPI_ISteamUGC_SendQueryUGCRequest(ugc, q), 3401);
-            Console.WriteLine($"page {page}: result {done.Result}, returned {done.Returned} of {done.Total}");
-            fixed (byte* p = buf)
-                for (uint i = 0; i < done.Returned; i++)
-                {
-                    Array.Clear(buf);
-                    if (!Steam.SteamAPI_ISteamUGC_GetQueryUGCResult(ugc, q, i, (IntPtr)p)) continue;
-                    string Str(int off, int max) { var e = Array.IndexOf(buf, (byte)0, off, max); return Encoding.UTF8.GetString(buf, off, e >= 0 ? e - off : max); }
-                    var id = BitConverter.ToUInt64(buf, 0);
-                    string Day(uint t) => DateTimeOffset.FromUnixTimeSeconds(t).ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-                    Console.WriteLine($"  {id}  '{Str(24, 129)}'  type {BitConverter.ToInt32(buf, 12)}  created {Day(BitConverter.ToUInt32(buf, 8168))}  updated {Day(BitConverter.ToUInt32(buf, 8172))}  " +
-                        $"visibility {BitConverter.ToInt32(buf, 8180)}  size {BitConverter.ToUInt64(buf, 9776)}  state {Steam.SteamAPI_ISteamUGC_GetItemState(ugc, id)}");
-                }
-            Steam.SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(ugc, q);
-            if (done.Returned == 0 || page * 50 >= done.Total) break;
-        }
-        return 0;
-    });
-
-    /// <summary>Deletes one of the account's own items for good (ISteamUGC::DeleteItem).</summary>
-    static int Delete(ulong id) => Session((ugc, utils, _) =>
-    {
-        var r = Wait<FileResult>(utils, Steam.SteamAPI_ISteamUGC_DeleteItem(ugc, id), 3417); // DeleteItemResult_t
-        Console.WriteLine($"DeleteItem {id}: result {r.Result} (1 = ok), id {r.Id}");
-        return r.Result == 1 ? 0 : 1;
-    });
-
-    /// <summary>Unsubscribes the account from an item (anybody's), with its item state before and after (1 = subscribed).</summary>
-    static int Unsubscribe(ulong id) => Session((ugc, utils, _) =>
-    {
-        Console.WriteLine($"item state before: {Steam.SteamAPI_ISteamUGC_GetItemState(ugc, id)}");
-        var r = Wait<FileResult>(utils, Steam.SteamAPI_ISteamUGC_UnsubscribeItem(ugc, id), 1315); // RemoteStorageUnsubscribePublishedFileResult_t
-        Console.WriteLine($"UnsubscribeItem {id}: result {r.Result} (1 = ok); item state after: {Steam.SteamAPI_ISteamUGC_GetItemState(ugc, id)}");
-        return r.Result == 1 ? 0 : 1;
-    });
 
     /// <summary>The item as its owner's client sees it (anonymous web lookups do not show unlisted items).</summary>
     static unsafe int Query(ulong id)
@@ -370,10 +280,6 @@ static class Program
 [StructLayout(LayoutKind.Explicit, Size = 280)]
 struct QueryCompleted { [FieldOffset(0)] public ulong Handle; [FieldOffset(8)] public int Result; [FieldOffset(12)] public uint Returned; [FieldOffset(16)] public uint Total; [FieldOffset(20)] public byte Cached; }
 
-// DeleteItemResult_t and RemoteStorageUnsubscribePublishedFileResult_t: an EResult and the item's id.
-[StructLayout(LayoutKind.Explicit, Size = 16)]
-struct FileResult { [FieldOffset(0)] public int Result; [FieldOffset(8)] public ulong Id; }
-
 [StructLayout(LayoutKind.Explicit, Size = 16)]
 struct SubmitItemUpdateResult { [FieldOffset(0)] public int Result; [FieldOffset(4)] public byte NeedsLegal; [FieldOffset(8)] public ulong Id; }
 
@@ -393,13 +299,8 @@ static class Steam
     [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_SetItemDescription(IntPtr ugc, ulong h, byte[] s);
     [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_SetItemContent(IntPtr ugc, ulong h, byte[] s);
     [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_SetItemPreview(IntPtr ugc, ulong h, byte[] s);
-    [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_SetItemVisibility(IntPtr ugc, ulong h, int visibility);
     [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_SubmitItemUpdate(IntPtr ugc, ulong h, byte[] note);
     [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_CreateQueryUGCDetailsRequest(IntPtr ugc, ulong[] ids, uint n);
-    [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_CreateQueryUserUGCRequest(IntPtr ugc, uint account, int list, int matching, int sort, uint creatorApp, uint consumerApp, uint page);
-    [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_DeleteItem(IntPtr ugc, ulong id);
-    [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_UnsubscribeItem(IntPtr ugc, ulong id);
-    [DllImport(Dll)] public static extern uint SteamAPI_ISteamUGC_GetItemState(IntPtr ugc, ulong id);
     [DllImport(Dll)] public static extern ulong SteamAPI_ISteamUGC_SendQueryUGCRequest(IntPtr ugc, ulong q);
     [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_GetQueryUGCResult(IntPtr ugc, ulong q, uint index, IntPtr details);
     [DllImport(Dll)][return: MarshalAs(UnmanagedType.I1)] public static extern bool SteamAPI_ISteamUGC_ReleaseQueryUGCRequest(IntPtr ugc, ulong q);

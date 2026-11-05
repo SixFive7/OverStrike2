@@ -1,9 +1,9 @@
-// The in-game HUD - since 2026-10-21 the server's whole interface, chat commands are gone: one custom_hud_layout window (the menu:
-// maps with full-text search and an on-screen keyboard, the queue, game settings, help and rules, beside the live map state), the
-// board beside the scoreboard while TAB is held (the click action panel: next, votes, the queue, the menu), a now-playing card, a
-// map-change banner, the news line everybody sees and the note only its player sees. Shared like Guide.cs: the bridge compiles
-// this file (it builds the live state, and --selftest drives everything here on a handed clock), and the GunGameWelcome plugin links
-// it in and puts it on screen. Plain BCL only: no CounterStrikeSharp type, no reflection (the bridge is native AOT).
+// The in-game HUD - the server's interface, with the chat commands beside it (ChatCommands.cs): one
+// custom_hud_layout window (the menu: maps with full-text search and an on-screen keyboard, the vote, game settings, help and how it works,
+// beside the live map state), the board beside the scoreboard while TAB is held (the click action panel: Start a vote, likes, the menu), a
+// now-playing card, a map-change banner, the news line everybody sees and the note only its player sees. Shared like Guide.cs: the bridge
+// compiles this file (it builds the live state, and --selftest drives everything here on a handed clock), and the OverStrike2 plugin links it
+// in and puts it on screen. Plain BCL only: no CounterStrikeSharp type, no reflection (the bridge is native AOT).
 //
 // The layout itself (XML + CSS) is a Workshop addon, hud/. It holds structure, style and a few fixed headings
 // ("Now playing", the tab names); every other word comes from here, as dialog variables, so changing it is a plugin deploy, not a
@@ -19,25 +19,25 @@ public static class Hud
     /// served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
     public const string Release = "v3_0_0";
 
-    /// <summary>The layout's content on that path. Since 2026-10-22 a release can be new content on the SAME path: content v3_1_0 (the
+    /// <summary>The layout's content on that path. A release can be new content on the SAME path: content v3_1_0 (the
     /// too-big vote, the new-maps setting, How it works, the new maps' pictures) keeps every panel of v3_0_0 and only adds, so one plugin
     /// drives a game holding either - players keep a working HUD while Valve reviews the update and until their game has downloaded it.
     /// The panels it adds get words only once the player's game has clicked one of them (HudView.NewIds, HudView.NewButtons).
-    /// Content v3_2_0 (2026-10-24, friendly fire's rows 2026-10-29: the Ads vote, the Fun page, two more Help rows, the restart button's blink, the pictures of #3565 and
+    /// Content v3_2_0 (the Ads vote, the Fun page with friendly fire's rows, two more Help rows, the restart button's blink, the pictures of #3565 and
     /// up) does the same one level up: it keeps every panel of v3_1_0, and what it adds waits for a click on one of its own buttons
     /// (HudView.NewIds32, HudView.NewButtons32). So one plugin drives a game holding any of the three.</summary>
-    /// Over Strike 2 (2026-11-01; v3_2_0 never shipped) is content v4_0_0, the same way: every panel of v3_1_0 kept, what it adds gated as
+    /// Over Strike 2 (v3_2_0 never shipped) is content v4_0_0, the same way: every panel of v3_1_0 kept, what it adds gated as
     /// v3_2_0's was (NewIds32), and its version checked against the server's by the layout itself (HudVote.cs). Content v4_1_0 keeps every
     /// panel of v4_0_0 and adds the popup that asks why a player disliked a map, and the Fun page's row for the grenade drops, whose buttons
     /// moved there from the Game page: nothing is sent to their panels (HudView.NewButtons41), so no game has to prove it holds them.
     /// Content v4_2_0 keeps every panel of v4_1_0 and adds the pictures of the maps not listed yet (hud/thumbs.py --ahead), a picture button on each
     /// card (HudPreview) and the mode filter's chips: their state is classes on panels every game has, so again nothing is sent to them (NewButtons42).
-    /// Content v4_3_0 (2026-11-03) keeps every panel of v4_2_0 and adds the Sync tab: the Workshop sync's dashboard (HudDash.cs), whose words are
+    /// Content v4_3_0 keeps every panel of v4_2_0 and adds the Sync tab: the Workshop sync's dashboard (HudDash.cs), whose words are
     /// dialog variables and whose state is classes on gg_screen, so nothing is sent to its panels either (NewButtons43).
-    /// Content v4_4_0 (2026-11-03, the owner's rules of that evening) keeps every panel of v4_3_0 and adds the vote's pages, Random's button and the
+    /// Content v4_4_0 keeps every panel of v4_3_0 and adds the vote's pages, Random's button and the
     /// map browser that adds to the vote, each card's mode label and colour, the inline reasons of a Dislike, the Fun page's Random and Default and
     /// the Our maps glow; the board's Too big and Ads buttons step aside. Again nothing is sent to its new panels (HudVote.NewButtons44).
-    /// Content v4_5_0 (2026-11-03, the owner's later rules) keeps every panel of v4_4_0 and adds where the votes go - each card's bar and voters,
+    /// Content v4_5_0 keeps every panel of v4_4_0 and adds where the votes go - each card's bar and voters,
     /// the leader or a tie lit, the summary strip (HudVote.NewIds45: only a game that has shown v4_5_0 gets its classes) - the waiting line, Remove
     /// mine on a card of your own request, the line back to a vote you closed, the Fun page's Catch-up row and its changed marks, and Our maps' pulse.
     public const string Content = "v4_5_0";
@@ -45,17 +45,21 @@ public static class Hud
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
 
-    /// <summary>The switch, on the cs2 service: the Workshop id of the published HUD addon. Empty (the default) keeps the HUD off -
-    /// the plugin shows the old centre panel and pre.sh does not even load MultiAddonManager.</summary>
-    public const string AddonVariable = "GUNGAME_HUD_ADDON";
+    /// <summary>The switch, on the cs2 service: the Workshop id of the published HUD addon. Empty (the default) draws no HUD - the plugin
+    /// answers chat commands in chat and shows the small centre welcome panel, and pre.sh does not even load MultiAddonManager.</summary>
+    public const string AddonVariable = "OS2_HUD_ADDON";
+
+    /// <summary>The switch's old name, read only while AddonVariable is not set at all: a one-time fallback for a deployment that still says
+    /// it the old way, to be removed in the next release.</summary>
+    public const string OldAddonVariable = "GUNGAME_HUD_ADDON";
 
     /// <summary>Paths on the bridge's HTTP port, followed by LOG_SECRET: the plugin GETs the live state, the map catalog and the search
     /// index, and POSTs a player's click.</summary>
     public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";
 
-    /// <summary>The actions a click may ask for without an argument. They are written like the chat commands they replaced, which is
-    /// what the bridge and the plugin speak to each other on /act - nobody types them any more.</summary>
-    public static readonly string[] Actions = ["!up", "!down", "!toobig", "!ads", "!next", "!done", "!skip"];
+    /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
+    /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
+    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!time 10", "!time 60"];
 
     /// <summary>The "new maps in random picks" setting as the Game page switches it (the bridge's Selection.cs).</summary>
     public static readonly string[] NewMapsActions = ["!newmaps always", "!newmaps half", "!newmaps never"];
@@ -64,15 +68,14 @@ public static class Hud
     /// command, a name search or anything free-form: a map is named by its rank, an official map's name or a Workshop id.</summary>
     public static bool IsAction(string command)
     {
-        if (Actions.Contains(command) || NewMapsActions.Contains(command) || command is "!restart" or "!previous" or "!cancel" or "!cancel all" or "!time 10" or "!time 60" or "!next random") return true;
+        if (Actions.Contains(command) || NewMapsActions.Contains(command)) return true;
         if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudCheck.IsRelease(command[7..]); // the HUD check's click (HudCheck)
         var space = command.IndexOf(' ');
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
-        if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a downvote's reason, with or without its map (the chat's !down big, !down 12 big)
-        if (verb == DownReasons.PopupVerb) return DownReasons.Find(arg) != null; // a click on the popup's reason (HudVote.WhyClick)
+        if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a dislike's reason, with or without its map (the popup, the chat's !down big, !down 12 big)
         if (verb == "!map" && SplitMode(arg) is { Mode: not "" } inMode) return IsMapArg(inMode.Map); // a card's Play in another mode that also lists the map
-        return verb is "!map" or "!up" or "!down" or "!toobig" or "!ads" or "!cancel" && IsMapArg(arg);
+        return verb is "!map" or "!up" or "!down" && IsMapArg(arg);
     }
 
     /// <summary>What names a map on /act: a rank or a Workshop id, or an official map's name, of any mode - never a name search.</summary>
@@ -94,87 +97,69 @@ public static class Hud
 
     public const int RowsPerGroup = 4, LinesPerRule = 4; // the layout has exactly this many slots
 
-    /// <summary>The Help rows content v3_2_0 adds: a fifth row in two groups (gg_c{group + 1}_5), for its two new places to click. Sent only
-    /// to a game that has shown it holds that content (HudView.NewIds32).</summary>
-    public static readonly (int Group, Row Row)[] HelpMore =
-    [
-        (2, new("Ads", "A dislike for ads or a server redirect: never a random pick")),
-        (3, new("Fun", "Friendly fire, low gravity and more; Random, Default")),
-    ];
+    /// <summary>The Help rows content v3_2_0 added: a fifth row in two groups (gg_c{group + 1}_5). None any more - one Fun row, one row
+    /// for a Dislike's reasons, no Ads row - so those rows stay collapsed.</summary>
+    public static readonly (int Group, Row Row)[] HelpMore = [];
 
-    /// <summary>The Help page: where each thing is in the menu. Command is the place to click, Words what it does. These are what the
-    /// chat commands were (README "The menu replaces the chat commands" maps each old command to its place here).</summary>
+    /// <summary>The Help page: where each thing is in the menu. Command is the place to click, Words what it does; every action has its chat
+    /// command too (ChatCommands.cs, !help).</summary>
     public static readonly Group[] Help =
     [
         new("Maps", [
-            new("Maps  ·  Play", "Pick any map: every map with its picture, size and votes"),
+            new("Maps  ·  Play", "Put any map to the vote: a vote opens, your vote on that map"),
             new("Search", "The keyboard on the Maps page: name, tags or a Workshop ID"),
-            new("Next", "On the board or the menu: a vote for the next map, Keep playing on it"),
-            new("Queue  ·  Previous", "Back to the last map")]),
-        new("Queue", [
-            new("Queue", "Who is next - least play time goes first"),
-            new("Cancel", "Drop one of your requests, or all of them"),
-            new("I'm done", "End your own map: a vote picks the next one"),
-            new("The vote", "Every request is on it; the map browser adds a map")]),
-        new("Voting", [
-            new("Like  ·  Dislike", "On the map that is on - Dislike asks why; the other one takes it back first"),
-            new("Dislike  ·  Too big", "A reason: only 1 random pick in 100 is a too-big map"),
-            new("Maps  ·  arrows", "Vote on any map's card: up likes it, down dislikes it"),
-            new("Sort  ·  Votes", "The most liked maps first")]),
+            new("Start a vote", "On the board or in the menu: a vote for the next map"),
+            new("Previous  ·  !back", "The map before this one, to the vote")]),
+        new("The vote", [
+            new("Everybody votes", "Everybody is frozen until all have voted, 60 s at the most"),
+            new("Cards", "Click to vote, another to change it, yours to take it back"),
+            new("Random", "The dice after the vote, in this mode"),
+            new("The wait", "2 minutes after a vote; a match end opens one anyway")]),
+        new("Likes", [
+            new("Like  ·  Dislike", "On the map that is on; the other one takes a mark back first"),
+            new("Dislike  ·  reasons", "Too big: 1 random pick in 100; Ads: never a random pick; the rest: a dislike"),
+            new("Maps  ·  arrows", "Like or dislike any map's card: up likes, down dislikes"),
+            new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
-            new("Fun  ·  Catch-up", "Grenade drops and catch-up on or off, for everyone"),
+            new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
             new("Match length", "10 or 60 minutes, from the next match"),
-            new("New maps", "Always the new maps, Half a coin flip, Never the original list"),
             new("Restart", "Reboot a stuck server - click twice to confirm")]),
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
-            new("Rules  ·  How  ·  Sync", "The rules, every chance in a map pick, the map sync"),
+            new("How  ·  Sync", "Every rule and chance of a map pick, the map sync"),
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
-    public static readonly Rule[] Rules =
-    [
-        new("Random maps", [
-            "When a match ends everybody votes for 60 s, or until all have voted: every queued map, one of each other mode, at least 8 maps, and Random.",
-            "Next starts the same vote at any time, with Keep playing on it. Random maps - at start, and when nobody votes - follow Workshop popularity and the votes."]),
-        new("How voting counts", [
-            "Each upvote doubles a map's odds on the dice (max 5), each downvote quarters them, Workshop rank gives up to 3x.",
-            "One vote per player per map, and it is kept; the opposite vote takes it back first."]),
-        new("Fair queue", [
-            "Whoever has had the least play time on their own requests goes next, so one player's five requests wait behind everyone else's first.",
-            "A map two or more players asked for goes first.",
-            "A requested map stays until its match ends, its requester clicks I'm done, a vote replaces it, or the requester has been gone over a minute while others wait.",
-            "Up to 5 requests each, and only while you're on the server."]),
-    ];
-
-    /// <summary>The "How it works" page (layout content v3_1_0): every chance in map selection, tersely and completely - the queue and
-    /// requests, Next, the random pick (the new-maps setting, the 1% too-big rule, the weights and what votes do) and every exclusion. Each
-    /// number in it is the bridge's own constant: --selftest (SelfTestHud.cs) fails when one of them moves without these words.</summary>
+    /// <summary>The "How it works" page (layout content v3_1_0) - the one set of rule texts (the Rules tab is gone; !rules opens this page): the
+    /// vote, the ballot's recipe, the dice (what is on the server's disk, the 1% too-big rule), the points and what likes do, and every exclusion,
+    /// tersely and completely. Each number in it is the bridge's own constant: --selftest (SelfTestHud.cs, SelfTestRules.cs, SelfTestBallot.cs)
+    /// fails when one of them moves without these words.</summary>
     public static readonly Rule[] How =
     [
-        new("Picking a map", [
-            "Play on a card is a request. On a map nobody holds it plays at once; on somebody's map it waits in the queue. While a vote is on, Play adds to it.",
-            "The queue: a map two or more players asked for goes first, then whoever has had the least play time on their own requests.",
-            "A requested map stays until its match ends, its requester clicks I'm done, a vote replaces it, or the requester has been gone over a minute while others wait.",
-            "Up to 5 requests each, only while you're on the server. Previous asks for the map before this one."]),
-        new("The vote and random maps", [
-            "At a match end all vote for 60 s, or until everybody has voted: every queued map with its requesters' votes, one of each other mode, at least 8 maps, Random.",
-            "Next starts it any time, with Keep playing on it: Keep winning or no votes keeps the map, and its starter waits 2 minutes. Your own map: Next is I'm done.",
-            "Each other mode has a map: Deathmatch, Wingman up to 4 players. Ties are drawn; no votes at a match end is Random. Arms Race after 10 minutes with nobody on.",
-            "The server rolls one at start. The vote's map stays until its match ends or a vote replaces it. A map a player picked or queued is never random."]),
-        new("Which maps a random pick takes", [
-            "The New maps setting (Game page, anybody): Always - the new maps, #1017 and up. Half - a coin flip per pick. Never - the original #1-#1016.",
-            "A list with nothing left to roll hands the pick to the other list, and the news line says so. 10 minutes with nobody on: back to Always.",
-            "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other."]),
-        new("Weights and votes", [
-            "Inside that group, Workshop rank gives up to 3x, each Like doubles a map's odds (up to 5 Likes), each Dislike or Too big quarters them.",
-            "One vote per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The opposite vote takes it back first.",
+        new("The vote", [
+            "Play on a card puts its map to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
+            "A vote freezes everybody - no moving, shooting or closing it - until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
+            "Click a card to vote, another to change it, your own to take it back. A map a player put on the ballot leaves it once it has no votes.",
+            "A match end opens a vote by itself. After any vote, 2 minutes before the next one can be called. No votes: mid-match the map stays, at a match end Random."]),
+        new("The ballot", [
+            "Keep playing this map while the match is on, Play this map again after it, every map a player put on it, and one map of each other mode.",
+            "Then this mode: a fresh map - a Workshop upload or update of the last 30 days - a surprise new to us, and favourites the server keeps fill the page.",
+            "Wingman takes 4 players at most: with more on, no Wingman map is on it or can win. The most votes first; a second page only when needed.",
+            "Every card but a player's pick is on the server's disk, so it loads at once. A risky map shows its record, and putting it to the vote takes a second click."]),
+        new("The dice", [
+            "Random is the dice after the vote. Like every card the dice pick, it is a map on the server's disk: a favourite it keeps, or one of a small stock new to us.",
+            "1 random pick in 100 takes a too-big map (measured XL, or marked Too big by a player), the other 99 one that is not; an empty group hands the pick to the other.",
+            "The dice change the map by themselves only at a server start, 10 minutes with nobody on, a broken map. Previous puts the map before this one to the vote."]),
+        new("Points: each one doubles the odds", [
+            "Workshop popularity - rating, players, trend - gives up to 4 points, each Like a point (up to 5 Likes), and each Dislike or Too big takes 2.",
+            "A card shown and not chosen loses 1 point, 2 at most, fading to nothing over 28 days.",
+            "One mark per player per map, kept: Like, or Dislike with a reason. Only Too big and Ads do more than a Dislike. The opposite one takes it back first.",
             "Nothing else counts: a map's download size never makes it more or less likely."]),
         new("Never rolled", [
             "The map that is on, and the last 10 maps played (while others are left).",
-            "Maps that crashed the server or are on the broken list, blocked maps, and maps gone from the Workshop.",
-            "Maps a player marked Ads (they show ads or send players to another server) - anybody can still pick them."]),
+            "Maps that crashed the server or are on the broken list, blocked maps, and maps gone from the Workshop. A Workshop update lifts a crash mark.",
+            "Maps a player marked Ads (they show ads or send players to another server) - anybody can still put them to the vote."]),
     ];
 
     public const int HowSections = 5, HowLines = 4; // the How page's sections and the lines in each (the layout has exactly this many)
@@ -182,17 +167,14 @@ public static class Hud
     /// <summary>The start page: three steps, each a title, where to click and a few words.</summary>
     public static readonly (string Title, string Command, string Words)[] Steps =
     [
-        ("Pick a map", "Maps", "Every map with its picture; search names, tags, IDs."),
-        ("Vote on it", "Like  Dislike", "Your votes steer the random maps."),
-        ("Take turns", "Queue", "Least play time goes next. I'm done hands the map on."),
+        ("Pick a map", "Maps", "Every map with its picture; Play puts it to the vote."),
+        ("Vote", "The vote", "Everybody votes; the most votes win."),
+        ("Like it", "Like  Dislike", "Your likes steer the random maps."),
     ];
 
     public const string Headline = "Race up the weapon ladder.";
     public const string Lede = "Kills earn you the next gun; a kill with the golden knife on the last rung wins the match. Every map is a Workshop map, and any player can pick one.";
-    public const string MenuHint = "Hold TAB any time: the board takes clicks - Next, your vote, the full menu.";
-
-    /// <summary>The one chat line a player can still get from the server: privately, once per visit, after typing a chat command.</summary>
-    public const string ChatOff = "This server uses the menu: press TAB";
+    public const string MenuHint = "Hold TAB any time: the board takes clicks - Start a vote, your like, the full menu.";
 
     // ---- small helpers both programs use ----
 
@@ -221,31 +203,22 @@ public static class Hud
     public static string Tally(int up, int down) => up + down == 0 ? "no votes yet" : $"+{up}{(down > 0 ? $"  -{down}" : "")}";
 }
 
-/// <summary>The live state the bridge serves on /hud/&lt;secret&gt; and the plugin puts on screen: the map that is on and who holds it, the
-/// votes on it, the queue, the most liked maps and a change counting down. A text format of tab-separated lines rather than JSON, so the
-/// native-AOT bridge needs no serializer context for it and both ends share one tested codec.</summary>
+/// <summary>The live state the bridge serves on /hud/&lt;secret&gt; and the plugin puts on screen: the map that is on and what picked it, the
+/// likes on it, the most liked maps and a change counting down. A text format of tab-separated lines rather than JSON, so the native-AOT bridge
+/// needs no serializer context for it and both ends share one tested codec. The vote's own lines follow it (VoteState, MapVote.cs).</summary>
 public sealed class HudState
 {
     public const string Magic = "gg-hud\t1";
-    public const int ListLength = 5;    // the board and the live column have five rows for the queue and five for the most liked maps
-    public const int QueueLength = 10;  // the menu's queue page has ten
-
-    /// <summary>A request in the queue, for the menu's queue page: what chat commands call the map (Arg), its key, how it reads, who
-    /// asked (names, connected only) and their account ids - a player sees a cancel button on their own.</summary>
-    public sealed record QueueEntry(string Arg, string Key, string Label, string Who, List<long> Accounts);
+    public const int ListLength = 5;    // the board and the live column have five rows for the vote's leading cards and five for the most liked maps
 
     public int Maps;                                    // playable maps on the list, as the help counts them
     public string Map = "", By = "", Size = "", Key = "", Status = "";
-    public int Up, Down;                                // votes on the map that is on
+    public int Up, Down;                                // likes and dislikes on the map that is on
     public bool Loading;                                // a change went out and its map has not logged its start yet
-    public List<long> Holders = new();                  // account ids holding the map that is on (their request)
-    public (int Votes, int Of, int Needed)? Skip;       // the !skip count while somebody holds the map
-    public Dictionary<long, int> MyVotes = new();       // account id -> +1 or -1 on the map that is on
-    public List<(string Map, string Who)> Next = new(); // the queue in play order
+    public Dictionary<long, int> MyVotes = new();       // account id -> its like (+1) or dislike (a reason's value) on the map that is on
     public List<(string Map, int Up, int Down)> Top = new();
     public string ChangeMap = "", ChangeBy = "";        // a change counting down...
     public int ChangeIn = -1;                           // ...and the seconds until it goes out; -1 when none is
-    public List<QueueEntry> Queue = new();              // the whole queue (up to QueueLength), in play order
     public int RoundMinutes;                            // the match length !time set
     public long CatalogVersion;                         // the map catalog's version: the plugin fetches it again when this moves
     public string CheckMode = "";                       // the HUD check as configured (HUD_CHECK: off, dryrun, enforce); empty from an older bridge
@@ -256,14 +229,21 @@ public sealed class HudState
     public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left
     public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Votes.cs)
-    public string PrevLabel = "", PrevArg = "";         // the map before this one, for the queue page's Previous button
+    public string PrevLabel = "", PrevArg = "";         // the map before this one, for the Previous button
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
-    public string NewMaps = "";                         // new maps in random picks: always, half or never; empty from an older bridge
+    public string NewMaps = "";                         // the new-maps setting of an older bridge (always, half or never); the setting is gone, so empty
     public int Big;                                     // too-big votes on the map that is on (each is also one of its Down)
     public string SizeClass = "";                       // its measured class (S, M, L, XL), empty when unmeasured
     public int Ads;                                     // ads votes on the map that is on (each is also one of its Down)
-    public bool VoteOpen;                               // the vote for the next map is open (VoteRound.cs): Next opens it rather than asking for another
     public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
+    public string RestartKind = "";                     // a restart coming (the bridge's Restarts.cs): game-update (a CS2 update), our-update, daily, downloads; "" none
+    public string RestartWhen = "";                     // ...match-end (at the end of this match) or now
+    public int RestartIn = -1;                          // ...its seconds left, -1 while it waits for the match's end
+    public long RestartAt;                              // ...the moment it goes, unix seconds (0 while it waits for the match's end): the end time a countdown counts to
+    public string RestartWords = "";                    // ...and the warning in words, as the news line says it
+    public long BgId;                                   // the restart watcher's background download (the bridge's RandomQueue.cs): the map's Workshop id, 0 none
+    public int BgPercent = -1;                          // ...its progress, 0-100, -1 before any
+    public string BgTitle = "";                         // ...and its title
 
     public string Encode()
     {
@@ -272,13 +252,9 @@ public sealed class HudState
         Line("maps", Maps);
         Line("now", Map, By, Size, Key, Up, Down, Status);
         if (Loading) Line("loading");
-        foreach (var h in Holders) Line("hold", h);
-        if (Skip is { } k) Line("skip", k.Votes, k.Of, k.Needed);
         foreach (var (id, v) in MyVotes) Line("vote", id, v);
-        foreach (var (map, who) in Next.Take(ListLength)) Line("next", map, who);
         foreach (var (map, up, down) in Top.Take(ListLength)) Line("top", map, up, down);
         if (ChangeIn >= 0) Line("change", ChangeMap, ChangeBy, ChangeIn);
-        foreach (var q in Queue.Take(QueueLength)) Line("q", q.Arg, q.Key, q.Label, q.Who, string.Join(',', q.Accounts.Select(a => a.ToString(CultureInfo.InvariantCulture))));
         if (RoundMinutes > 0) Line("set", RoundMinutes);
         if (CatalogVersion > 0) Line("cat", CatalogVersion);
         if (CheckMode != "") Line("chk", CheckMode);
@@ -297,7 +273,9 @@ public sealed class HudState
         if (Big > 0 || SizeClass != "") Line("big", Big, SizeClass);
         if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
-        if (VoteOpen) Line("vopen");                       // an older plugin skips it
+        if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
+            .Append(RestartIn.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(RestartWords, 240)).Append('\n');
+        if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two
         return s.ToString();
     }
 
@@ -318,16 +296,9 @@ public sealed class HudState
                 case "maps": s.Maps = Int(f, 1); break;
                 case "now": (s.Map, s.By, s.Size, s.Key, s.Up, s.Down, s.Status) = (Str(f, 1), Str(f, 2), Str(f, 3), Str(f, 4), Int(f, 5), Int(f, 6), Str(f, 7)); break;
                 case "loading": s.Loading = true; break;
-                case "hold": if (Long(f, 1) is >= 0 and var h) s.Holders.Add(h); break;
-                case "skip": s.Skip = (Int(f, 1), Int(f, 2), Int(f, 3)); break;
-                case "vote": if (Long(f, 1) is >= 0 and var id) s.MyVotes[id] = HudCatalog.Carried(Int(f, 2)); break; // an older plugin reads a special downvote as -1, a dislike
-                case "next": if (s.Next.Count < ListLength) s.Next.Add((Str(f, 1), Str(f, 2))); break;
+                case "vote": if (Long(f, 1) is >= 0 and var id) s.MyVotes[id] = HudCatalog.Carried(Int(f, 2)); break;
                 case "top": if (s.Top.Count < ListLength) s.Top.Add((Str(f, 1), Int(f, 2), Int(f, 3))); break;
                 case "change": (s.ChangeMap, s.ChangeBy, s.ChangeIn) = (Str(f, 1), Str(f, 2), Int(f, 3)); break;
-                case "q" when s.Queue.Count < QueueLength && Str(f, 1) != "":
-                    s.Queue.Add(new QueueEntry(Str(f, 1), Str(f, 2), Str(f, 3), Str(f, 4), Str(f, 5).Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(a => long.TryParse(a, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : -1).Where(n => n >= 0).ToList()));
-                    break;
                 case "set": s.RoundMinutes = Int(f, 1); break;
                 case "cat": s.CatalogVersion = Long(f, 1); break;
                 case "chk": s.CheckMode = Str(f, 1); break;
@@ -341,7 +312,8 @@ public sealed class HudState
                 case "big": (s.Big, s.SizeClass) = (Int(f, 1), Str(f, 2)); break;
                 case "ads": s.Ads = Int(f, 1); break;
                 case "dash": s.DashVersion = Long(f, 1); break;
-                case "vopen": s.VoteOpen = true; break;
+                case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
+                case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
                 case "proof" when HudCheck.IsRelease(Str(f, 1)): s.Proofs[Str(f, 1)] = Str(f, 2); break;
                 case "ok" when Long(f, 1) >= 0 && HudCheck.IsRelease(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
             }
@@ -350,9 +322,9 @@ public sealed class HudState
     }
 }
 
-/// <summary>What goes on screen: label texts by panel id and classes by panel id, out of a HudState. Global ones are the same for
-/// everybody and are set once for all players; per-player ones (your vote, the button that depends on whether the map is yours) are set
-/// per player. The plugin only sends what changed since the last time.</summary>
+/// <summary>What goes on screen: label texts by panel id and classes by panel id, out of a HudState (and the vote's VoteState). Global ones
+/// are the same for everybody and are set once for all players; per-player ones (your like, your note) are set per player. The plugin only
+/// sends what changed since the last time.</summary>
 public static class HudView
 {
     /// <summary>Panel ids the plugin addresses. The layout's root may not carry an id, so global classes go on gg_global and a player's
@@ -361,16 +333,18 @@ public static class HudView
 
     public const string ButtonClose = "gg_btn_close", ButtonUp = "gg_btn_up", ButtonDown = "gg_btn_down", ButtonAct = "gg_btn_act";
 
-    /// <summary>The board's buttons (TAB): your vote on the map that is on, the contextual Next, and the full menu. BoardBig, the too-big
-    /// vote, is content v3_1_0.</summary>
+    /// <summary>The board's buttons (TAB): your like on the map that is on, Start a vote, and the full menu. BoardBig, the too-big mark, is
+    /// content v3_1_0 (since v4_4_0 a Dislike's reason; the button stepped aside).</summary>
     public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open", BoardBig = "gg_b_vbig",
         BoardAds = "gg_b_vads"; // content v3_2_0
 
     public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun"; // content v3_1_0, v3_2_0
 
+    /// <summary>The window's tabs (no Queue and no Rules page any more - in a game still holding an older content their
+    /// tabs do nothing).</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
-        [("gg_tab_start", HudSlots.Page.Start), ("gg_tab_maps", HudSlots.Page.Maps), ("gg_tab_queue", HudSlots.Page.Queue), ("gg_tab_game", HudSlots.Page.Game),
-         ("gg_tab_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.Rules), (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync)];
+        [("gg_tab_start", HudSlots.Page.Start), ("gg_tab_maps", HudSlots.Page.Maps), ("gg_tab_game", HudSlots.Page.Game),
+         ("gg_tab_help", HudSlots.Page.Help), (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync)];
 
     /// <summary>The buttons content v3_1_0 added. A click on one proves that player's game has that content: from then on the plugin sends
     /// them the words of NewIds too. They need nothing from the server themselves - fixed labels, and their state in classes on panels that
@@ -436,7 +410,7 @@ public static class HudView
         return ids;
     }
 
-    /// <summary>The words that never change: help, rules, the start page. Sent once per layout entity (they are global too).</summary>
+    /// <summary>The words that never change: help, how it works, the start page. Sent once per layout entity (they are global too).</summary>
     public static List<(string Id, string Text)> StaticTexts()
     {
         var t = new List<(string, string)>
@@ -460,11 +434,6 @@ public static class HudView
                 t.Add(($"gg_c{g + 1}_{r + 1}_txt", row == null ? "" : row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
             }
         }
-        for (var s = 0; s < Hud.Rules.Length; s++)
-        {
-            t.Add(($"gg_r{s + 1}_title", Hud.Rules[s].Title));
-            for (var l = 0; l < Hud.LinesPerRule; l++) t.Add(($"gg_r{s + 1}_{l + 1}_txt", l < Hud.Rules[s].Lines.Length ? Hud.Rules[s].Lines[l] : ""));
-        }
         for (var s = 0; s < Hud.HowSections; s++) // content v3_1_0 (NewIds): the plugin sends these only to a game that has them
         {
             var how = s < Hud.How.Length ? Hud.How[s] : null;
@@ -480,42 +449,30 @@ public static class HudView
         return t;
     }
 
-    /// <summary>Rows of the help and rules pages that hold something: the layout collapses the rest.</summary>
+    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest.</summary>
     public static List<(string Id, string Class, bool On)> StaticClasses()
     {
         var c = new List<(string, string, bool)>();
         for (var g = 0; g < Hud.Help.Length; g++)
             for (var r = 0; r < Hud.RowsPerGroup; r++) c.Add(($"gg_c{g + 1}_{r + 1}", "used", r < Hud.Help[g].Rows.Length));
-        for (var s = 0; s < Hud.Rules.Length; s++)
-            for (var l = 0; l < Hud.LinesPerRule; l++) c.Add(($"gg_r{s + 1}_{l + 1}", "used", l < Hud.Rules[s].Lines.Length));
         for (var s = 0; s < Hud.HowSections; s++)
             for (var l = 0; l < Hud.HowLines; l++) c.Add(($"gg_h{s + 1}_{l + 1}", "used", s < Hud.How.Length && l < Hud.How[s].Lines.Length));
         foreach (var (g, _) in Hud.HelpMore) c.Add(($"gg_c{g + 1}_5", "used", true)); // content v3_2_0 (NewIds32)
         return c;
     }
 
-    /// <summary>The board's one queue line: what comes next and for whom, as much as fits.</summary>
-    /// <summary>The board's queue line holds about this many characters in its one line (the mock review, 2026-10-21); past it the
-    /// rest is a count, and the label's ellipsis catches a first entry that is longer on its own.</summary>
+    /// <summary>The board's one line about the vote (its old queue line), about this many characters at the most (the mock review).</summary>
     public const int QueueLineMax = 52;
 
-    public static string QueueLine(HudState s)
-    {
-        if (s.Next.Count == 0) return "Nothing queued - pick a map in the full menu";
-        var line = "Next: ";
-        for (var i = 0; i < s.Next.Count; i++)
-        {
-            var item = $"{s.Next[i].Map}{(s.Next[i].Who != "" ? $" ({s.Next[i].Who})" : "")}";
-            var more = s.Queue.Count > i + 1 ? $"  +{Math.Max(s.Queue.Count, s.Next.Count) - i - 1}" : "";
-            if (i > 0 && line.Length + 3 + item.Length + more.Length > QueueLineMax) return line + $"  +{Math.Max(s.Queue.Count, s.Next.Count) - i}";
-            line += (i > 0 ? "  ·  " : "") + item;
-        }
-        return line;
-    }
+    /// <summary>The board's vote line: the vote that is on, its result, the wait before the next one, or how to call one.</summary>
+    public static string VoteLine(VoteState? v) => v == null || v.Round <= 0
+        ? (v?.WaitFor > 0 ? $"The next vote can start in {MapVote.Left(v.WaitFor)}" : "No vote on: Play on a map, or Start a vote")
+        : v.Open ? $"The vote is on: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted"
+        : v.Result is { } r ? Hud.Clean($"The vote chose {r.Label}", QueueLineMax) : "The vote is over";
 
-    /// <summary>The live texts, the same for everybody. The board (b) and the window's live column (w) show the same facts; the column also
-    /// lists the queue and the most liked maps, the board has the one queue line.</summary>
-    public static List<(string Id, string Text)> Texts(HudState s)
+    /// <summary>The live texts, the same for everybody. The board (b) and the window's live column (w) show the same facts; the column also lists
+    /// the vote's leading cards (its old queue rows) and the most liked maps, the board has the one vote line.</summary>
+    public static List<(string Id, string Text)> Texts(HudState s, VoteState? v = null)
     {
         var map = s.Map == "" ? "Waiting for the server" : s.Map;
         var by = s.By == "" ? "" : s.By == "the dice" ? "rolled by the dice" : $"picked by {s.By}";
@@ -530,18 +487,19 @@ public static class HudView
             t.Add(($"gg_{p}_down", s.Down.ToString(CultureInfo.InvariantCulture)));
             t.Add(($"gg_{p}_status", status));
         }
+        var leading = Leading(v);
         for (var i = 0; i < HudState.ListLength; i++)
         {
-            var n = i < s.Next.Count ? s.Next[i] : ("", "");
-            t.Add(($"gg_w_n{i + 1}", n.Item1));
-            t.Add(($"gg_w_nw{i + 1}", n.Item2));
+            var n = i < leading.Count ? leading[i] : null;
+            t.Add(($"gg_w_n{i + 1}", n?.Label ?? ""));
+            t.Add(($"gg_w_nw{i + 1}", n == null ? "" : $"{n.Votes} vote{(n.Votes == 1 ? "" : "s")}"));
             var top = i < s.Top.Count ? s.Top[i] : ("", 0, 0);
             t.Add(($"gg_w_t{i + 1}", top.Item1));
             t.Add(($"gg_w_ts{i + 1}", top.Item1 == "" ? "" : $"+{top.Item2}{(top.Item3 > 0 ? $" -{top.Item3}" : "")}"));
         }
-        t.Add(("gg_w_nempty", "Nothing queued. Pick a map on the Maps page."));
+        t.Add(("gg_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
         t.Add(("gg_w_tempty", "No likes yet. Like a map: its card's up arrow."));
-        t.Add(("gg_b_queue", QueueLine(s)));
+        t.Add(("gg_b_queue", VoteLine(v)));
         t.Add(("gg_b_big", s.Big.ToString(CultureInfo.InvariantCulture))); // content v3_1_0 (NewIds): the too-big votes on the map that is on
         t.Add(("gg_b_ads", s.Ads.ToString(CultureInfo.InvariantCulture))); // content v3_2_0 (NewIds32): the ads votes on it
         t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
@@ -556,8 +514,11 @@ public static class HudView
         return t;
     }
 
-    /// <summary>The live classes, the same for everybody: which list rows are in use, an empty queue or top list, a change counting down.</summary>
-    public static List<(string Id, string Class, bool On)> Classes(HudState s)
+    /// <summary>The vote's cards that have votes, the most first: the live column's rows while a vote is on.</summary>
+    static List<VoteState.Option> Leading(VoteState? v) => v is not { Round: > 0 } ? [] : v.Options.Where(o => o.Votes > 0).OrderByDescending(o => o.Votes).Take(HudState.ListLength).ToList();
+
+    /// <summary>The live classes, the same for everybody: which list rows are in use, an empty vote or top list, a change counting down.</summary>
+    public static List<(string Id, string Class, bool On)> Classes(HudState s, VoteState? v = null)
     {
         var c = new List<(string, string, bool)>
         {
@@ -565,12 +526,13 @@ public static class HudView
             // content v3_1_0: the new-maps setting that is on lights its button; on gg_global, which a v3_0_0 game has too (and no rule for)
             (Global, "nm-always", s.NewMaps == "always"), (Global, "nm-half", s.NewMaps == "half"), (Global, "nm-never", s.NewMaps == "never"),
         };
+        var leading = Leading(v).Count;
         for (var i = 0; i < HudState.ListLength; i++)
         {
-            c.Add(($"gg_w_row_n{i + 1}", "used", i < s.Next.Count));
+            c.Add(($"gg_w_row_n{i + 1}", "used", i < leading));
             c.Add(($"gg_w_row_t{i + 1}", "used", i < s.Top.Count));
         }
-        c.Add(("gg_w_nempty", "used", s.Next.Count == 0));
+        c.Add(("gg_w_nempty", "used", leading == 0));
         c.Add(("gg_w_tempty", "used", s.Top.Count == 0));
         return c;
     }
@@ -581,32 +543,32 @@ public static class HudView
     /// <summary>What the contextual button asks for while the vote is open: the plugin opens that player's window on it (nothing goes to the bridge).</summary>
     public const string OpenVote = "!vote";
 
-    /// <summary>The contextual button under the votes, per player (the owner's 2026-11-03): your map - let it go, and a vote picks the next; any other
-    /// - the vote for the next map, with Keep playing on it; the vote open - open it; a change already under way - nothing. Command is what a click
-    /// makes the player say, null for nothing, OpenVote for the window.</summary>
-    public static (string Text, string Sub, string? Command) Action(HudState s, long account)
+    /// <summary>The button under the likes (the board's, and the window's live column's): Start a vote, Keep playing on it; the vote
+    /// open - open it; the wait after a vote - when the next can start; a change under way - nothing. Command is what a click makes the player say,
+    /// null for nothing, OpenVote for the window.</summary>
+    public static (string Text, string Sub, string? Command) Action(HudState s, VoteState? v = null)
     {
         if (s.ChangeIn >= 0 || s.Loading) return ("Map change under way", "wait for the next map", null);
-        if (s.VoteOpen) return ("The vote is on: open it", "pick the next map, or Keep playing", OpenVote);
-        if (s.Holders.Contains(account)) return ("I'm done with this map", "your map: a vote picks the next one", "!done");
-        return ("Vote for the next map", s.Holders.Count > 0 ? "someone's map: Keep playing is on the vote" : "Keep playing is on the vote too", "!next");
+        if (v is { Open: true, Round: > 0 }) return ("The vote is on: open it", "pick the next map, or keep playing", OpenVote);
+        if (v?.WaitFor > 0) return ("Start a vote", $"the next one can start in {MapVote.Left(v.WaitFor)}", null);
+        return ("Start a vote", "for the next map - Keep playing is on it", "!next");
     }
 
     /// <summary>The note this player sees now, if any: the bridge's answer to what they clicked.</summary>
     public static string NoteOf(HudState s, long account) => s.Notes.TryGetValue(account, out var n) && n.For > 0 ? n.Text : "";
 
-    /// <summary>Per-player texts: the greeting, the toast's first line, your own vote, the contextual button (in the window and on the
-    /// board) and your note.</summary>
-    public static List<(string Id, string Text)> PlayerTexts(HudState s, long account, string name, bool welcomeBack)
+    /// <summary>Per-player texts: the greeting, the toast's first line, your own like, the button under it (in the window and on the board) and
+    /// your note.</summary>
+    public static List<(string Id, string Text)> PlayerTexts(HudState s, long account, string name, bool welcomeBack, VoteState? v = null)
     {
         var mine = s.MyVotes.GetValueOrDefault(account);
-        var (text, sub, _) = Action(s, account);
+        var (text, sub, _) = Action(s, v);
         return
         [
             ("gg_w_hello", $"Welcome, {Hud.Clean(name, 32)}"),
             ("gg_t_eyebrow", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : "Now playing"),
             ("gg_b_you", mine > 0 ? "You liked this map" : mine == HudCatalog.TooBigVote ? "You marked this map too big" : mine == HudCatalog.AdsVote ? "You marked this map: ads"
-                : mine < DownReasons.Plain && DownReasons.Of(mine) is { } why ? $"You disliked this map: {why.Short}" : mine < 0 ? "You disliked this map" : "Click to vote"),
+                : mine < DownReasons.Plain && DownReasons.Of(mine) is { } why ? $"You disliked this map: {why.Short}" : mine < 0 ? "You disliked this map" : "Like it or not?"),
             ("gg_btn_act_text", text),
             ("gg_btn_act_sub", sub),
             ("gg_b_next_text", text),
@@ -615,25 +577,25 @@ public static class HudView
         ];
     }
 
-    public static List<(string Id, string Class, bool On)> PlayerClasses(HudState s, long account)
+    public static List<(string Id, string Class, bool On)> PlayerClasses(HudState s, long account, VoteState? v = null)
     {
         var mine = s.MyVotes.GetValueOrDefault(account);
-        var (_, _, command) = Action(s, account);
+        var (_, _, command) = Action(s, v);
         var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4_1_0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
-        return [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null), (Screen, "holder", s.Holders.Contains(account)),
+        return [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
             (Screen, "note", NoteOf(s, account) != ""), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote),
             (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
     }
 
     /// <summary>A click, as the plugin receives it: the action it asks the bridge for, or null for the buttons that only work the window.
-    /// The board's buttons are the same as the live column's: a vote on the map that is on, and the contextual Next.</summary>
-    public static string? Command(string buttonId, HudState? s, long account) => buttonId switch
+    /// The board's buttons are the same as the live column's: a like on the map that is on, and Start a vote.</summary>
+    public static string? Command(string buttonId, HudState? s, VoteState? v = null) => buttonId switch
     {
         ButtonUp or BoardUp => "!up",
         ButtonDown or BoardDown => "!down",
-        BoardBig => "!toobig",
-        BoardAds => "!ads", // content v3_2_0
-        ButtonAct or BoardNext => s == null ? null : Action(s, account).Command,
+        BoardBig => "!down big", // content v3_1_0's Too big: a Dislike's reason (one command for it)
+        BoardAds => "!down ads", // content v3_2_0
+        ButtonAct or BoardNext => s == null ? null : Action(s, v).Command,
         _ => null,
     };
 }
@@ -658,7 +620,7 @@ public sealed class HudSlots
     public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (seen in a real client, 2026-11-02; a click restarts it after FadeSeconds)
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
-    public enum Page { Start, Maps, Queue, Game, Help, Rules, How, Fun, Sync } // How: content v3_1_0; Fun: v3_2_0; Sync: v4_3_0
+    public enum Page { Start, Maps, Game, Help, How, Fun, Sync } // How: content v3_1_0; Fun: v3_2_0; Sync: v4_3_0 (the Queue and Rules pages are gone)
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none,
     /// 1 now playing, 2 welcome back. Draining: the bar that shows the idle close is running (it restarts by losing this for a moment).</summary>
@@ -782,7 +744,7 @@ public sealed class HudSlots
     static void Touch(Slot s, DateTime now) { s.IdleUntil = now.AddSeconds(IdleCloseSeconds); s.DrainFrom = now.AddSeconds(FadeSeconds); }
 
     /// <summary>The TAB window (HudTab, mode window), every frame while TAB is held: no idle close and no drain bar while it is held,
-    /// since nothing TAB opens ends on a timer (2026-10-21). Once the hold ends the window closes with TAB, or (TAB + E) turns into the
+    /// since nothing TAB opens ends on a timer. Once the hold ends the window closes with TAB, or (TAB + E) turns into the
     /// menu, whose Show starts its idle close afresh.</summary>
     public void Hold(int slot, DateTime now)
     {

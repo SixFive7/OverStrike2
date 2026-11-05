@@ -11,8 +11,12 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The steward of the server's game settings: it puts back, when a map ends, every game setting the map changed; it blocks the
-/// game-changers no map may set at all (blocked.txt beside the DLL, ../../bridge/BlockList.cs); and it makes the players' changes from the menu's
-/// fun page (gg_fun, ../../bridge/Fun.cs), which last until the map changes and never become the baseline nor get blocked.
+/// game-changers no map may set at all (blocked.txt beside the DLL, a value per game mode: ../../bridge/Modes.cs, ../../bridge/BlockList.cs);
+/// and it makes the players' changes from the menu's fun page (gg_fun, ../../bridge/Fun.cs), which last until the map changes and never
+/// become the baseline nor get blocked. The fun page's effects that are no convar (Vampire, Ghost, no recoil, the grenade drops, catch-up)
+/// it keeps like convars: each starts at its default - on for the grenade drops and catch-up (Fun.EffectsOn), off for the rest - and is
+/// back at it after every map end and after the reset after nobody has been on (gg_fun reset); EffectChanged tells the modules that act on
+/// them.
 ///
 /// Why it is needed (measured live on 2026-10-22, CS2 1.41.9.1/14191): <c>host_workshop_map</c> - how the bridge loads every Workshop map -
 /// resets no game convar. fs_highsky's point_servercommand <c>sv_airaccelerate 20</c> survived into aim_snow_tundra, and sv_friction,
@@ -29,12 +33,11 @@ namespace OverStrike2;
 /// while a map is on, the baseline saved earlier by this same server process is used (else the live values). game_type and game_mode
 /// always want CS2_GAMETYPE / CS2_GAMEMODE. The blocked and the fun convars get a baseline the same way, cfg-named or not.
 /// A map keeps its own settings for as long as it is on - except the blocked ones - and they are undone at its end (OnMapEnd), before the
-/// next map's cfgs and entities run. Plugin state such as the grenade toggle is not a convar and is never touched, nor is anything outside
-/// the game convars and the block list (hostname, passwords, CSTV, MultiAddonManager).</summary>
+/// next map's cfgs and entities run. Nothing outside the game convars, the block list and the fun page's effects is ever touched (hostname,
+/// passwords, CSTV, MultiAddonManager).</summary>
 sealed class Settings(BasePlugin plugin, ILogger log)
 {
-    /// <summary>MapSettingsReset 1.4.1 until 2026-11-01 (undoes the game settings a map changed when it ends, blocks the game-changers,
-    /// makes the fun page's changes); a module of the Over Strike 2 plugin since, with the host's version.</summary>
+    /// <summary>The settings module of the Over Strike 2 plugin, with the host's version.</summary>
     const string ModuleVersion = OverStrike2Plugin.Version;
 
     /// <summary>Never touched: engine bookkeeping that changes by itself between maps, and the bridge's own runtime setting.</summary>
@@ -97,9 +100,9 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     string lastFun = "none yet";
 
     string BaselineFile => Path.Combine(plugin.ModuleDirectory, "baseline.json");
-    string BlockedFile => Path.Combine(plugin.ModuleDirectory, blockMode.BlockFile);
+    string BlockedFile => Path.Combine(plugin.ModuleDirectory, Modes.BlockFile);
 
-    // ---- the game mode (#27 c; docs/reference.md) ----
+    // ---- the game mode (docs/reference.md) ----
     Modes.Mode? gameMode;                   // os_mode: the mode the server loads in; null until told (then the live convars at a map start)
     Modes.Mode blockMode = Modes.ArmsRace;  // whose block list is on now
     Modes.Mode? loadedIn;                   // the mode the map that is on was loaded in (its game_type/game_mode at the start)
@@ -163,10 +166,11 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => Block("round start"), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
         plugin.AddTimer(BlockEvery, () => Block(null), TimerFlags.REPEAT);
-        log.LogInformation("MapSettingsReset {Version}: {Managed} settings watched ({Listed} game convars listed and {FromBuild} only this build has: {Cfg} left to the engine cfgs, " +
+        log.LogInformation("Over Strike 2 settings {Version}: {Managed} settings watched ({Listed} game convars listed and {FromBuild} only this build has: {Cfg} left to the engine cfgs, " +
             "{Alone} never touched, {NotGame} not game convars, {NotFound} unknown to this build; plus {Also} engine convars maps set); {Blocked}; " +
-            "{Fun} fun settings ({FunVars} convars); baseline {From}.",
-            ModuleVersion, managed.Count, listed, fromBuild, leftToCfg, leftAlone, notGame, notFound, alsoWatched, blockedFrom, Fun.Settings.Length, Fun.AllConVars.Count(), baselineFrom);
+            "{Fun} fun settings ({FunVars} convars and effects; {On} on by default); baseline {From}.",
+            ModuleVersion, managed.Count, listed, fromBuild, leftToCfg, leftAlone, notGame, notFound, alsoWatched, blockedFrom, Fun.Settings.Length, Fun.AllConVars.Count(),
+            string.Join(", ", Fun.EffectsOn.Select(e => e.Effect)), baselineFrom);
     }
 
     // ---- what is managed ----------------------------------------------------------------------------------------------------
@@ -179,7 +183,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
             var path = Path.Combine(dir, file);
             try
             {
-                if (!File.Exists(path)) { log.LogWarning("MapSettingsReset: {Path} not found", path); continue; }
+                if (!File.Exists(path)) { log.LogWarning("Over Strike 2 settings: {Path} not found", path); continue; }
                 foreach (var raw in File.ReadAllLines(path))
                 {
                     var line = raw;
@@ -192,7 +196,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
                     }
                 }
             }
-            catch (Exception e) { log.LogWarning("MapSettingsReset: could not read {Path}: {Error}", path, e.Message); }
+            catch (Exception e) { log.LogWarning("Over Strike 2 settings: could not read {Path}: {Error}", path, e.Message); }
         }
     }
 
@@ -208,7 +212,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         var found = ConVarNames.Ask(() => File.OpenRead(ConVarNames.BinaryPath(Server.GameDirectory, OperatingSystem.IsWindows())), list, AskEngine);
         foreach (var name in found.New) { fromBuild++; Manage(name); }
         listFrom = found.Describe(clock.ElapsedMilliseconds);
-        log.Log(found.Refused == null ? LogLevel.Information : LogLevel.Warning, "MapSettingsReset: the list: {List}", listFrom);
+        log.Log(found.Refused == null ? LogLevel.Information : LogLevel.Warning, "Over Strike 2 settings: the list: {List}", listFrom);
         foreach (var more in Also)
         {
             if (managed.ContainsKey(more) || cfgNames.Contains(more) || Never.Contains(more)) continue;
@@ -221,7 +225,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     List<string> ReadList()
     {
         using var stream = GetType().Assembly.GetManifestResourceStream("convars.txt");
-        if (stream == null) { log.LogError("MapSettingsReset: convars.txt is not embedded; only what this build's game DLL names is watched"); return []; }
+        if (stream == null) { log.LogError("Over Strike 2 settings: convars.txt is not embedded; only what this build's game DLL names is watched"); return []; }
         using var reader = new StreamReader(stream);
         return ConVarNames.ParseList(reader);
     }
@@ -271,54 +275,92 @@ sealed class Settings(BasePlugin plugin, ILogger log)
 
     string? Value(string name)
     {
-        if (Fun.IsEffect(name)) return effects.GetValueOrDefault(name, "0"); // the plugin's own switches (Effects.cs), off until a player's change
+        if (Fun.IsEffect(name)) return effects.TryGetValue(name, out var on) ? on : EffectDefault(name); // the plugin's own switches, kept like convars
         try { return Var(name)?.StringValue; } catch { return null; }
     }
 
-    /// <summary>The fun page's effects that are no game convar (Fun.Vampire, Fun.Ghost, Fun.NoRecoil): "1" or "0", kept here like a convar.</summary>
+    /// <summary>The fun page's effects that are no game convar (Fun.Vampire, Fun.Ghost, Fun.NoRecoil, Fun.Drops, Fun.CatchUp): "1" or "0", kept
+    /// here like a convar; one not in it holds its default.</summary>
     readonly Dictionary<string, string> effects = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>An effect's default: on for those of Fun.EffectsOn (the grenade drops, catch-up), off for every other.</summary>
+    static string EffectDefault(string name) => Fun.EffectsOn.FirstOrDefault(e => e.Effect.Equals(name, StringComparison.OrdinalIgnoreCase)).Value ?? "0";
+
+    /// <summary>Every effect the fun page can switch.</summary>
+    static IEnumerable<string> EffectNames => Fun.AllConVars.Where(Fun.IsEffect);
+
+    /// <summary>An effect changed (a player's change, the undo at a map's end, the reset): its name and whether it is on now. The plugin hands
+    /// the grenade drops and catch-up to their modules through it; the Effects module looks for itself.</summary>
+    public event Action<string, bool>? EffectChanged;
+
+    /// <summary>The map is ending (from its OnMapEnd to the next map's start): an effect put back now must not act on the players of the map
+    /// that goes - no grenade is handed out then.</summary>
+    public bool MapEnding { get; private set; }
 
     /// <summary>What a fun setting's convar or effect holds now: the HUD's fun page reads it, the Effects module asks whether one is on.</summary>
     public string? FunValue(string name) => Value(name);
 
-    public bool EffectOn(string name) => Fun.Same(effects.GetValueOrDefault(name, "0"), "1");
+    public bool EffectOn(string name) => Fun.Same(Value(name), "1");
 
     string? Baseline(string name) => baselinePending ? null : managed.TryGetValue(name, out var m) ? m.Baseline : extra.TryGetValue(name, out var x) ? x.Baseline : null;
 
     /// <summary>Sets a convar the way the put-back always has (the engine's own SetString, which also runs its change callbacks) and reads
-    /// it back: false when the game kept another value.</summary>
+    /// it back: false when the game kept another value. An effect is the plugin's own: it always takes, and says so when it changed.</summary>
     bool Write(string name, string value)
     {
-        if (Fun.IsEffect(name)) { effects[name] = value; return true; }
+        if (Fun.IsEffect(name))
+        {
+            var was = EffectOn(name);
+            effects[name] = value;
+            var on = EffectOn(name);
+            if (on != was) EffectChanged?.Invoke(name, on);
+            return true;
+        }
         var cv = Var(name);
         if (cv == null) return false;
         try { cv.StringValue = value; return Fun.Same(cv.StringValue, value); } catch { return false; }
     }
 
+    /// <summary>Every effect back at its default (after the players' changes are undone at a map's end and at the reset): whatever left one
+    /// elsewhere - a reload of the plugin keeps none - this is where they all are afterwards. Returns what it changed.</summary>
+    List<string> EffectsBack()
+    {
+        var changed = new List<string>();
+        foreach (var name in EffectNames)
+        {
+            var want = EffectDefault(name);
+            if (Fun.Same(Value(name), want)) continue;
+            Write(name, want);
+            changed.Add($"{name} -> {want}");
+        }
+        return changed;
+    }
+
     // ---- the block list ---------------------------------------------------------------------------------------------------------
 
+    /// <summary>The block list for the mode in force: blocked.txt's values for it (Modes.Blocked - one file, a value per mode).</summary>
     void ReadBlocked()
     {
         if (!File.Exists(BlockedFile))
         {
             blocked = new();
             blockedFrom = $"no block list ({BlockedFile} not found: nothing is blocked)";
-            log.LogWarning("MapSettingsReset: {File} not found - no game-changer is blocked", BlockedFile);
+            log.LogWarning("Over Strike 2 settings: {File} not found - no game-changer is blocked", BlockedFile);
             return;
         }
         try
         {
-            blocked = BlockList.Parse(File.ReadAllText(BlockedFile), out var errors);
-            foreach (var error in errors) log.LogWarning("MapSettingsReset: {File}: {Error}", BlockList.FileName, error);
+            blocked = Modes.Blocked(File.ReadAllText(BlockedFile), blockMode, out var errors);
+            foreach (var error in errors) log.LogWarning("Over Strike 2 settings: {File}: {Error}", Modes.BlockFile, error);
             var unknown = blocked.Where(b => FindVar(b.ConVar) == null).Select(b => b.ConVar).ToList();
-            if (unknown.Count > 0) log.LogWarning("MapSettingsReset: {File}: unknown to this build, not blocked: {List}", BlockList.FileName, string.Join(", ", unknown));
-            blockedFrom = $"{blocked.Count - unknown.Count} game-changers blocked ({blockMode.BlockFile}{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})";
+            if (unknown.Count > 0) log.LogWarning("Over Strike 2 settings: {File}: unknown to this build, not blocked: {List}", Modes.BlockFile, string.Join(", ", unknown));
+            blockedFrom = $"{blocked.Count - unknown.Count} game-changers blocked ({Modes.BlockFile}, {blockMode.Name}'s values{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})";
         }
         catch (Exception e)
         {
             blocked = new();
             blockedFrom = $"block list unreadable ({e.Message}): nothing is blocked";
-            log.LogWarning("MapSettingsReset: {File} unreadable: {Error}", BlockedFile, e.Message);
+            log.LogWarning("Over Strike 2 settings: {File} unreadable: {Error}", BlockedFile, e.Message);
         }
     }
 
@@ -339,35 +381,35 @@ sealed class Settings(BasePlugin plugin, ILogger log)
                 blocksTotal++;
                 if (mode == "dryrun")
                 {
-                    if (seen.Count <= BlockLogLines) log.LogInformation("MapSettingsReset: dry run - would block on {Map}: {Name} {Was} -> {Want} ({Why})", map, entry.ConVar, was, want, entry.Why);
+                    if (seen.Count <= BlockLogLines) log.LogInformation("Over Strike 2 settings: dry run - would block on {Map}: {Name} {Was} -> {Want} ({Why})", map, entry.ConVar, was, want, entry.Why);
                     blocksThisMap[entry.ConVar] = (seen.Count, now);
                     continue;
                 }
                 var ok = Write(entry.ConVar, want);
                 lastBlock = $"{DateTime.Now:HH:mm:ss} {map}: {entry.ConVar} {was} -> {want}{(ok ? "" : $" (refused, reads {Value(entry.ConVar)})")}";
-                if (!ok) { blockRefused.Add(entry.ConVar); log.LogWarning("MapSettingsReset: could not block {Name} on {Map}: {Was} -> {Want} refused, reads {Now}", entry.ConVar, map, was, want, Value(entry.ConVar)); }
+                if (!ok) { blockRefused.Add(entry.ConVar); log.LogWarning("Over Strike 2 settings: could not block {Name} on {Map}: {Was} -> {Want} refused, reads {Now}", entry.ConVar, map, was, want, Value(entry.ConVar)); }
                 else if (seen.Count <= BlockLogLines)
-                    log.LogInformation("MapSettingsReset: blocked on {Map}{When}: {Name} {Was} -> {Want} ({Why})", map, when != null ? $" at the {when}" : "", entry.ConVar, was, want, entry.Why);
+                    log.LogInformation("Over Strike 2 settings: blocked on {Map}{When}: {Name} {Was} -> {Want} ({Why})", map, when != null ? $" at the {when}" : "", entry.ConVar, was, want, entry.Why);
                 if (ok && seen.Count == 1) undone.Add(BlockList.Label(entry.ConVar));
                 else if ((now - seen.LastLine).TotalSeconds >= 60)
                 {
-                    log.LogInformation("MapSettingsReset: blocked on {Map}: {Name} again - {Count} times on this map so far, the last {Was} -> {Want}", map, entry.ConVar, seen.Count, was, want);
+                    log.LogInformation("Over Strike 2 settings: blocked on {Map}: {Name} again - {Count} times on this map so far, the last {Was} -> {Want}", map, entry.ConVar, seen.Count, was, want);
                     seen.LastLine = now;
                 }
                 if (seen.Count <= BlockLogLines) seen.LastLine = now;
                 blocksThisMap[entry.ConVar] = seen;
             }
-            // #9 d (the owner, 2026-11-01): players are told what the map tried to change and that it was undone - once per setting per map.
+            // Players are told what the map tried to change and that it was undone - once per setting per map.
             if (undone.Count > 0 && (plugin as OverStrike2Plugin)?.Screen is { } hud) hud.Notice(BlockList.Notice(undone.Distinct().ToList()), 10);
         }
-        catch (Exception e) { log.LogWarning("MapSettingsReset: block failed: {Error}", e.Message); }
+        catch (Exception e) { log.LogWarning("Over Strike 2 settings: block failed: {Error}", e.Message); }
     }
 
     /// <summary>The block's summary for the map that ends: each convar the map tried more than the logged lines show.</summary>
     void BlockSummary(string ended)
     {
         var many = blocksThisMap.Where(kv => kv.Value.Count > BlockLogLines).Select(kv => $"{kv.Key} {kv.Value.Count} times").ToList();
-        if (many.Count > 0) log.LogInformation("MapSettingsReset: {Map} kept trying: blocked {List}", ended, string.Join(", ", many));
+        if (many.Count > 0) log.LogInformation("Over Strike 2 settings: {Map} kept trying: blocked {List}", ended, string.Join(", ", many));
         blocksThisMap.Clear();
         blockRefused.Clear();
     }
@@ -410,7 +452,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
                     return;
                 }
             }
-            catch (Exception e) { log.LogWarning("MapSettingsReset: {File} unreadable ({Error}); taking the live values", BaselineFile, e.Message); }
+            catch (Exception e) { log.LogWarning("Over Strike 2 settings: {File} unreadable ({Error}); taking the live values", BaselineFile, e.Message); }
         }
         TakeLiveBaseline($"live values on {map} at {DateTime.Now:HH:mm:ss} (loaded mid-map; no saved baseline from this server process)");
     }
@@ -431,7 +473,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
             var values = managed.Concat(extra).ToDictionary(kv => kv.Key, kv => kv.Value.Baseline, StringComparer.OrdinalIgnoreCase);
             File.WriteAllText(BaselineFile, JsonSerializer.Serialize(new BaselineDoc(pid, start, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), map, values)));
         }
-        catch (Exception e) { log.LogWarning("MapSettingsReset: could not save {File}: {Error}", BaselineFile, e.Message); }
+        catch (Exception e) { log.LogWarning("Over Strike 2 settings: could not save {File}: {Error}", BaselineFile, e.Message); }
     }
 
     // ---- map end: put everything back ---------------------------------------------------------------------------------------
@@ -457,7 +499,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     {
         if (mode == "off" || baselinePending) return;
         var diffs = Differences();
-        if (diffs.Count == 0) { lastRestore = $"{DateTime.Now:HH:mm:ss} {when}: nothing to put back"; log.LogInformation("MapSettingsReset: {When}: nothing to put back", when); return; }
+        if (diffs.Count == 0) { lastRestore = $"{DateTime.Now:HH:mm:ss} {when}: nothing to put back"; log.LogInformation("Over Strike 2 settings: {When}: nothing to put back", when); return; }
         var done = new List<string>();
         var refused = new List<string>();
         foreach (var (name, now, want) in diffs)
@@ -474,13 +516,14 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         var verb = mode == "dryrun" ? "would put back" : "put back";
         lastRestore = $"{DateTime.Now:HH:mm:ss} {when}: {verb} {done.Count}: {string.Join(", ", done)}" + (refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "");
-        log.LogInformation("MapSettingsReset: {When}: {Verb} {Count} setting(s): {List}", when, verb, done.Count, string.Join(", ", done));
-        if (refused.Count > 0) log.LogWarning("MapSettingsReset: {When}: could not put back: {List}", when, string.Join(", ", refused));
+        log.LogInformation("Over Strike 2 settings: {When}: {Verb} {Count} setting(s): {List}", when, verb, done.Count, string.Join(", ", done));
+        if (refused.Count > 0) log.LogWarning("Over Strike 2 settings: {When}: could not put back: {List}", when, string.Join(", ", refused));
     }
 
     void OnMapEnd()
     {
         endSeenSinceStart = true;
+        MapEnding = true;
         try
         {
             UndoFun($"end of {map}"); // the players' changes first: they last until the map changes, and are never part of the baseline
@@ -491,16 +534,17 @@ sealed class Settings(BasePlugin plugin, ILogger log)
                 if (managed.Count < listed / 2) BuildManagedSet(); // too few convars were registered when the plugin loaded
                 baselinePending = false;
                 TakeLiveBaseline($"end of the first map ({map}) at {DateTime.Now:HH:mm:ss}");
-                log.LogInformation("MapSettingsReset: baseline taken at the end of {Map}: {Count} game settings watched, {Extra} more for the block and the fun page", map, managed.Count, extra.Count);
+                log.LogInformation("Over Strike 2 settings: baseline taken at the end of {Map}: {Count} game settings watched, {Extra} more for the block and the fun page", map, managed.Count, extra.Count);
                 return;
             }
             Restore($"end of {map}");
         }
-        catch (Exception e) { log.LogError("MapSettingsReset: map end failed: {Error}", e); }
+        catch (Exception e) { log.LogError("Over Strike 2 settings: map end failed: {Error}", e); }
     }
 
     void OnMapStart(string name)
     {
+        MapEnding = false;
         // The mode this map loaded in - its live game_type/game_mode - not the one the bridge told (os_mode): a changelevel from a Workshop
         // map to an official one can bring back the convars CS2 saved before, the mode included (measured 2026-11-01: de_dust2 told
         // Deathmatch came up in Arms Race). The bridge then loads it once more in the told mode; until that load, this map keeps its own
@@ -521,7 +565,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
             if (missedEnd) { UndoFun($"start of {name}"); BlockSummary(before); }
             if (missedEnd && !baselinePending) Restore($"start of {name} (no map end seen after {before})");
         }
-        catch (Exception e) { log.LogError("MapSettingsReset: map start failed: {Error}", e); }
+        catch (Exception e) { log.LogError("Over Strike 2 settings: map start failed: {Error}", e); }
         plugin.AddTimer(ReportDelay, () => Report(name), TimerFlags.STOP_ON_MAPCHANGE);
     }
 
@@ -532,29 +576,31 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         {
             var diffs = Differences();
             if (diffs.Count > 0)
-                log.LogInformation("MapSettingsReset: {Map} runs with {Count} changed setting(s), put back at its end: {List}", name, diffs.Count,
+                log.LogInformation("Over Strike 2 settings: {Map} runs with {Count} changed setting(s), put back at its end: {List}", name, diffs.Count,
                     string.Join(", ", diffs.Select(d => $"{d.Name} {d.Now} (normally {d.Want})")));
         }
-        catch (Exception e) { log.LogWarning("MapSettingsReset: report failed: {Error}", e.Message); }
+        catch (Exception e) { log.LogWarning("Over Strike 2 settings: report failed: {Error}", e.Message); }
     }
 
     // ---- the fun page: gg_fun (Fun.cs) ----------------------------------------------------------------------------------------
 
     /// <summary>Every player change undone (the map's end, the bridge's reset after nobody has been on): each changed convar back to what it
-    /// was before the first player change on this map.</summary>
+    /// was before the first player change on this map, and every effect back at its default - the grenade drops and catch-up on.</summary>
     string UndoFun(string when)
     {
         var writes = fun.Reset(Value);
-        if (writes.Count == 0) return "no player changes to undo";
         var done = writes.Select(w => $"{w.ConVar} -> {w.Value}{(Write(w.ConVar, w.Value) ? "" : " (refused)")}").ToList();
+        done.AddRange(EffectsBack().Select(b => b + " (its default)")); // after the undo: every effect where it starts, whatever left it elsewhere
+        if (done.Count == 0) return "no player changes to undo";
         lastFun = $"{DateTime.Now:HH:mm:ss} {when}: undone {string.Join(", ", done)}";
-        log.LogInformation("MapSettingsReset: fun settings undone at {When}: {List}", when, string.Join(", ", done));
+        log.LogInformation("Over Strike 2 settings: fun settings undone at {When}: {List}", when, string.Join(", ", done));
         return $"undone {string.Join(", ", done)}";
     }
 
-    /// <summary>gg_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a player's change from the menu's fun page (GunGameWelcome runs it, naming who
-    /// clicked, and puts it on the news line once the value has landed). gg_fun reset ["who"]: every player change undone - the bridge's
-    /// reset after 10 minutes with nobody on. Bare gg_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
+    /// <summary>gg_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a player's change from the menu's fun page or chat (the HUD runs it, naming who
+    /// asked; once the value has landed the centre of the screen says who switched what, and chat says it as the command). gg_fun reset
+    /// ["who"]: every player change undone and every effect at its default - the bridge's reset after 10 minutes with nobody on, and the
+    /// page's Default. Bare gg_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
     [ConsoleCommand(Fun.Command, "Fun settings: gg_fun <setting> <choice> [who] | gg_fun reset [who] | gg_fun")]
     [CommandHelper(minArgs: 0, usage: "[<setting> <choice> | reset] [who]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnFun(CCSPlayerController? player, CommandInfo command)
@@ -579,9 +625,9 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         var by = command.ArgCount > 3 ? command.GetArg(3) : "Console";
         if (mode == "off") { command.ReplyToCommand("fun: refused - mapreset_mode is off"); return; }
-        if (Fun.Refusal(setting, choice, Value) is { } why) // a Clash (the owner's 43 c): the page and chat say it before they get here
+        if (Fun.Refusal(setting, choice, Value) is { } why) // a Clash: the page and chat say it before they get here
         {
-            log.LogInformation("MapSettingsReset: fun on {Map}: {Setting} {Choice} by {By} refused - {Why}", map, setting.Id, choice.Id, by, why);
+            log.LogInformation("Over Strike 2 settings: fun on {Map}: {Setting} {Choice} by {By} refused - {Why}", map, setting.Id, choice.Id, by, why);
             command.ReplyToCommand($"fun: refused - {why}");
             return;
         }
@@ -589,13 +635,13 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         var refused = writes.Where(w => !Write(w.ConVar, w.Value)).Select(w => w.ConVar).ToList();
         var line = $"{setting.Id} {choice.Id} by {by}: {(writes.Count == 0 ? "nothing to change" : string.Join(", ", writes.Select(w => $"{w.ConVar} {w.Value}")))}{(refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "")}";
         lastFun = $"{DateTime.Now:HH:mm:ss} {line}";
-        log.LogInformation("MapSettingsReset: fun on {Map}: {Line}", map, line);
+        log.LogInformation("Over Strike 2 settings: fun on {Map}: {Line}", map, line);
         command.ReplyToCommand($"fun: {line}");
     }
 
     // ---- console (server only: RCON and the server console) ------------------------------------------------------------------
 
-    [ConsoleCommand("mapreset_check", "MapSettingsReset: the watched settings that differ from the baseline now, the last put-back, the block and the fun page")]
+    [ConsoleCommand("mapreset_check", "Over Strike 2 settings: the watched settings that differ from the baseline now, the last put-back, the block and the fun page")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnCheck(CCSPlayerController? player, CommandInfo command)
     {
@@ -610,7 +656,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         if (stubborn.Count > 0) command.ReplyToCommand("mapreset: refused a put-back: " + string.Join(", ", stubborn));
     }
 
-    [ConsoleCommand("mapreset_now", "MapSettingsReset: put the watched settings back right now")]
+    [ConsoleCommand("mapreset_now", "Over Strike 2 settings: put the watched settings back right now")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnNow(CCSPlayerController? player, CommandInfo command)
     {
@@ -618,26 +664,26 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         command.ReplyToCommand($"mapreset: {lastRestore}");
     }
 
-    [ConsoleCommand("mapreset_mode", "MapSettingsReset: on (default) | dryrun (log only) | off, until the plugin reloads")]
+    [ConsoleCommand("mapreset_mode", "Over Strike 2 settings: on (default) | dryrun (log only) | off, until the plugin reloads")]
     [CommandHelper(minArgs: 0, usage: "[on|dryrun|off]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnMode(CCSPlayerController? player, CommandInfo command)
     {
         var arg = command.ArgCount > 1 ? command.GetArg(1).ToLowerInvariant() : "";
-        if (arg is "on" or "dryrun" or "off") { mode = arg; log.LogInformation("MapSettingsReset: mode {Mode}", mode); }
+        if (arg is "on" or "dryrun" or "off") { mode = arg; log.LogInformation("Over Strike 2 settings: mode {Mode}", mode); }
         command.ReplyToCommand($"mapreset: mode {mode}");
     }
 
-    [ConsoleCommand("mapreset_block", "MapSettingsReset: the game-changers block - on (default) | off, until the plugin reloads; reload reads blocked.txt again; bare: the list")]
+    [ConsoleCommand("mapreset_block", "Over Strike 2 settings: the game-changers block - on (default) | off, until the plugin reloads; reload reads blocked.txt again; bare: the list")]
     [CommandHelper(minArgs: 0, usage: "[on|off|reload]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnBlock(CCSPlayerController? player, CommandInfo command)
     {
         var arg = command.ArgCount > 1 ? command.GetArg(1).ToLowerInvariant() : "";
-        if (arg is "on" or "off") { blockOn = arg == "on"; log.LogInformation("MapSettingsReset: block {State}", arg); }
-        if (arg == "reload") { ReadBlocked(); BuildExtra(); log.LogInformation("MapSettingsReset: {Blocked}", blockedFrom); }
+        if (arg is "on" or "off") { blockOn = arg == "on"; log.LogInformation("Over Strike 2 settings: block {State}", arg); }
+        if (arg == "reload") { ReadBlocked(); BuildExtra(); log.LogInformation("Over Strike 2 settings: {Blocked}", blockedFrom); }
         command.ReplyToCommand($"mapreset: block {(blockOn ? "on" : "off")}, {blockedFrom}: {string.Join(", ", blocked.Select(b => $"{b.ConVar} {b.Value ?? Baseline(b.ConVar) ?? "?"}"))}");
     }
 
-    [ConsoleCommand("mapreset_rebaseline", "MapSettingsReset: take the current values as the wanted ones (after an intended change)")]
+    [ConsoleCommand("mapreset_rebaseline", "Over Strike 2 settings: take the current values as the wanted ones (after an intended change)")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnRebaseline(CCSPlayerController? player, CommandInfo command)
     {

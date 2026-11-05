@@ -2,10 +2,11 @@
 // removed from the Workshop: every client got ERROR 15 in its download prompt and nobody could join until the map was switched by hand.
 // A removed map is refused like a non-map, never rolled and never queued; the HUD's map browser shows it as unavailable.
 //
-// Which maps are gone is checked every day against the public Steam Web API (ISteamRemoteStorage/GetPublishedFileDetails, anonymous).
-// The bridge stays off the internet by design, so the GunGameWelcome plugin, in the game server, which reaches Steam anyway, asks the bridge which ids to check (GET /check/<secret>), asks Steam, and hands the verdicts back (POST /removed/<secret>);
-// the bridge keeps them in /data/removed.json. Shared like Hud.cs: the codecs and the verdict are tested by the bridge's --selftest.
-// Plain BCL.
+// Which maps are gone is checked every 4 hours against the public Steam Web API (ISteamRemoteStorage/GetPublishedFileDetails) by the
+// Workshop sync, which posts its verdicts here (POST /removed/<secret>); the bridge stays off the internet by design and keeps them in
+// /data/removed.json. (The plugin's own daily check went with the owner's 74 a: one checker, inside the sync's request budget.) Shared like
+// Hud.cs: the codec and the verdict are tested by the bridge's --selftest, and the plugin's HUD item watch reads the Web API's answer with
+// ParseDetails. Plain BCL.
 //
 // What it cannot see: an item held in Valve's moderation queue (a new version awaiting approval) - the Web API calls it public while
 // nobody but its owner can download it (seen on the HUD's own item, 2026-10-07).
@@ -15,10 +16,9 @@ using System.Text.Json;
 
 public static class Workshop
 {
-    public const string CheckPath = "/check/", ReportPath = "/removed/";
-    public const string CheckMagic = "gg-check\t1", ReportMagic = "gg-removed\t1";
+    public const string ReportPath = "/removed/";
+    public const string ReportMagic = "gg-removed\t1";
     public const string Ok = "ok", Removed = "removed", Hidden = "hidden", Banned = "banned";
-    public const int Batch = 100; // ids per Web API request
     public const string DetailsUrl = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
 
     public static bool IsVerdict(string v) => v is Ok or Removed or Hidden or Banned;
@@ -34,22 +34,7 @@ public static class Workshop
         _ => "was removed from the Workshop",
     };
 
-    /// <summary>The ids the plugin is to check, one per line after the magic line.</summary>
-    public static string EncodeIds(IEnumerable<long> ids)
-    {
-        var s = new StringBuilder(CheckMagic).Append('\n');
-        foreach (var id in ids) s.Append(id.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        return s.ToString();
-    }
-
-    public static List<long> DecodeIds(string? text)
-    {
-        if (text == null || !text.StartsWith(CheckMagic)) return [];
-        return text.Split('\n').Skip(1).Select(l => long.TryParse(l.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0)
-            .Where(n => n > 0).Distinct().ToList();
-    }
-
-    /// <summary>The verdicts the plugin hands the bridge: "id&lt;TAB&gt;verdict" per line after the magic line.</summary>
+    /// <summary>The verdicts the sync hands the bridge: "id&lt;TAB&gt;verdict" per line after the magic line.</summary>
     public static string EncodeReport(IEnumerable<(long Id, string Verdict)> verdicts)
     {
         var s = new StringBuilder(ReportMagic).Append('\n');

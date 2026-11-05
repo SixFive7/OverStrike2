@@ -1,13 +1,22 @@
-// Maps blocked for good, each for its own reason: broken.json's "blocked" list. The other lists did not fit glassbox (3076804331, map
+// Maps blocked for good, each for its own reason: blocked.json beside maps.json - written by hand, shipped by deploy/data.py, never by the
+// Workshop sync (the owner's 77 a: one writer per file) - and broken.json's own "blocked" list, which still counts. The other lists did not fit glassbox (3076804331, map
 // glassboxfinal, not on maps.json, loaded by id on 2026-10-20), which kicked every player off the server: a crasher only asks to be
 // confirmed, a non-map or a removed map says the wrong thing. A blocked map is refused by id, URL or its own name, from the HUD's Play
 // and from !previous - "glassbox (3076804331) kicked every player off the server (2026-10-20) - it is blocked." - never rolled, never
-// queued, and left out of the HUD's map browser. Like the other lists: data on the /data volume, read once at start.
+// put on a ballot, and left out of the HUD's map browser. Like the other lists: data on the /data volume, read at start and again when it changes.
 using System.Text.Json;
 
 static partial class Program
 {
-    static Dictionary<string, (string Name, string Map, string Reason)> Blocked = new(); // workshop id -> its name, its map's name, why
+    static Dictionary<string, (string Name, string Map, string Reason)> Blocked = new(); // workshop id -> its name, its map's name, why: both lists
+    static Dictionary<string, (string Name, string Map, string Reason)> BlockedOwn = new(), BlockedInBroken = new(); // blocked.json's; broken.json's "blocked"
+
+    /// <summary>blocked.json: the maps blocked for good, beside maps.json like ours.json and sizes.json.</summary>
+    static string BlockedMapsFile => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", "blocked.json");
+
+    /// <summary>The two lists as one: blocked.json's entry wins where both name a map.</summary>
+    static Dictionary<string, (string Name, string Map, string Reason)> MergeBlocked() =>
+        BlockedInBroken.Concat(BlockedOwn).GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Last().Value);
 
     static bool IsBlocked(MapInfo m) => !m.Official && Blocked.ContainsKey(m.Id.ToString());
 
@@ -19,14 +28,16 @@ static partial class Program
         return $"{Clip(name, 40)} ({id}) {Clip(reason, 48)} - it is blocked."; // at most 40 + 14 + 48 + 17 = 119 characters
     }
 
-    /// <summary>broken.json's "blocked": objects with a positive "id", and "name", "map" (the map name the server logs) and "reason";
-    /// a bare id or a missing reason still blocks, with "is on the blocked list". No list, none.</summary>
+    /// <summary>A list of blocked maps - blocked.json's, a plain list or an object holding it under "blocked"; broken.json's "blocked": objects with a
+    /// positive "id", and "name", "map" (the map name the server logs) and "reason"; a bare id or a missing reason still blocks, with "is on the blocked
+    /// list". No list, none.</summary>
     static Dictionary<string, (string, string, string)> ParseBlocked(string json)
     {
         var blocked = new Dictionary<string, (string, string, string)>();
         using var doc = JsonDocument.Parse(json);
-        if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("blocked", out var list)
-            || list.ValueKind != JsonValueKind.Array) return blocked;
+        var list = doc.RootElement;
+        if (list.ValueKind == JsonValueKind.Object && !list.TryGetProperty("blocked", out list)) return blocked;
+        if (list.ValueKind != JsonValueKind.Array) return blocked;
         foreach (var e in list.EnumerateArray())
         {
             var id = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("id", out var i) ? i : e;
@@ -46,9 +57,31 @@ static partial class Program
 
     static void LoadBlocked()
     {
-        Blocked = new();
+        BlockedInBroken = new();
         if (BrokenFile != "" && File.Exists(BrokenFile))
-            try { Blocked = ParseBlocked(File.ReadAllText(BrokenFile)); } catch (Exception e) { Log($"blocked list: {BrokenFile} unreadable ({e.Message})"); }
-        Log($"blocked list: {Blocked.Count} map(s) blocked for good{(Blocked.Count > 0 ? ": " + string.Join(", ", Blocked.Select(b => $"{b.Value.Name} ({b.Key})")) : "")}");
+            try { BlockedInBroken = ParseBlocked(File.ReadAllText(BrokenFile)); } catch (Exception e) { Log($"blocked list: {BrokenFile} unreadable ({e.Message})"); }
+        Log(ReadBlockedFile());
+    }
+
+    /// <summary>blocked.json read (at start, and whenever it changes): a file that does not parse keeps what was read; a missing one is no maps.</summary>
+    static string ReadBlockedFile()
+    {
+        var path = BlockedMapsFile;
+        if (!File.Exists(path)) BlockedOwn = new();
+        else
+            try { BlockedOwn = ParseBlocked(File.ReadAllText(path)); }
+            catch (Exception e) { Blocked = MergeBlocked(); return $"blocked list: {path} unreadable ({Clip(e.Message, 120)}) - kept the {BlockedOwn.Count} read before"; }
+        Blocked = MergeBlocked();
+        return $"blocked list: {Blocked.Count} map(s) blocked for good ({BlockedOwn.Count} from {path}{(File.Exists(path) ? "" : ", not found")}, {BlockedInBroken.Count} from broken.json)"
+            + (Blocked.Count > 0 ? ": " + string.Join(", ", Blocked.Select(b => $"{b.Value.Name} ({b.Key})")) : "");
+    }
+
+    /// <summary>blocked.json again, while the bridge runs: what has just become blocked leaves an open ballot and stops a countdown (Reload.cs).</summary>
+    static string ReloadBlocked()
+    {
+        var before = Unplayables();
+        var line = ReadBlockedFile();
+        CatalogVersion++;
+        return line + AfterListChange(before);
     }
 }

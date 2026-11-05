@@ -15,14 +15,18 @@ sealed class BridgeLink
 
     readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(3) };
     readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl;
-    readonly List<Task<string?>> acts = new();
+    readonly List<(Task<string?> Task, DateTime Sent)> acts = new();
     Task<string?>? fetch, catalogFetch, searchFetch, dashFetch;
-    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry;
+    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry, fetchSent;
     long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked;
 
     public int Failures { get; private set; }          // in a row; reset by any answer
     public string LastError { get; private set; } = "";
     public DateTime LastAnswer { get; private set; }
+
+    /// <summary>When the newest state answer taken was asked for (its request went out then): the state is the bridge's word as of then, at
+    /// the latest - an answer asked for before a map change is the old map's, however late the game thread takes it. MinValue: none yet.</summary>
+    public DateTime StateAsOf { get; private set; }
 
     BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl) { this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl; }
 
@@ -34,8 +38,7 @@ sealed class BridgeLink
         if (at < 0 || at + 5 >= log.Length) { where = "CS2_LOG_HTTP_URL has no /log/<secret> to derive the bridge from"; return null; }
         var (root, secret) = (log[..at], log[(at + 5)..]);
         where = root;
-        // ?mv=1: this plugin draws the end-of-match vote (MapVote.Capability) - without it the bridge keeps the old match end.
-        return new BridgeLink(root + Hud.StatePath + secret + "?" + MapVote.Capability, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret,
+        return new BridgeLink(root + Hud.StatePath + secret, root + Hud.ActPath + secret, root + Hud.CatalogPath + secret, root + Hud.SearchPath + secret,
             root + Hud.DashPath + secret);
     }
 
@@ -44,11 +47,20 @@ sealed class BridgeLink
     public string? Take(DateTime now, bool wanted)
     {
         string? newest = null;
-        if (fetch is { IsCompleted: true } done) { newest = Result(done) ?? newest; fetch = null; }
-        foreach (var act in acts.Where(a => a.IsCompleted).ToList()) { newest = Result(act) ?? newest; acts.Remove(act); }
+        if (fetch is { IsCompleted: true } done)
+        {
+            if (Result(done) is { } polled) { newest = polled; StateAsOf = Max(StateAsOf, fetchSent); }
+            fetch = null;
+        }
+        foreach (var act in acts.Where(a => a.Task.IsCompleted).ToList())
+        {
+            if (Result(act.Task) is { } answered) { newest = answered; StateAsOf = Max(StateAsOf, act.Sent); }
+            acts.Remove(act);
+        }
         if (wanted && fetch == null && now >= nextFetch)
         {
             nextFetch = now.AddSeconds(PollSeconds);
+            fetchSent = DateTime.UtcNow;
             fetch = Get();
         }
         return newest;
@@ -117,8 +129,10 @@ sealed class BridgeLink
     public void Act(long account, string name, string command)
     {
         if (acts.Count >= 8) return; // a stuck bridge must not pile up requests
-        acts.Add(Post($"[U:1:{account}]\t{Hud.Clean(name, 64)}\t{command}"));
+        acts.Add((Post($"[U:1:{account}]\t{Hud.Clean(name, 64)}\t{command}"), DateTime.UtcNow));
     }
+
+    static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
     string? Result(Task<string?> t)
     {

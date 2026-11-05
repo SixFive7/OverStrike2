@@ -2,16 +2,16 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using OverStrike2;
-using Verdict = OverStrike2.ArmsRaceLoadout.Verdict;
 
-// GunGameNades.SelfTest - asserts the offline half of the grenade-to-win feature: the environment flag parsing, the
-// weapon classifier, and the detector that decides who is standing on the last level of the Arms Race ladder. That
-// last one is the whole feature and the whole risk: a false positive takes a level-one player's knife away for the
-// rest of the match. It is driven here against fake loadouts and a fake clock, never against a live schema read,
-// which is the only way any of it could be checked before the DLL reaches the server.
+// The Over Strike 2 plugin's self-test: the halves of it that need no game server, driven against fakes and a handed clock -
 //
-// And the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to
-// convars.txt, and that anything wrong leaves convars.txt alone.
+//   - when the vote freezes everybody (FreezePlan.cs): only on this map's fresh word from the bridge, freed when the bridge goes quiet or one
+//     vote has frozen everybody for too long, and everybody at the same tick;
+//   - where the HUD addon's id comes from (HudAddon.cs): the new variable, its old name only while the new one is not set at all;
+//   - the block file (bridge/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
+//   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
+//     anything wrong leaves convars.txt alone;
+//   - the Steam Web API's one door (SteamWebApi.cs): one request at a time, 2 s apart, each saying who asks.
 //
 // Run with `dotnet run -c Release`; exit code 0 means every case passed.
 
@@ -29,188 +29,83 @@ void Check(bool ok, string what)
 void Eq<T>(T actual, T expected, string what) =>
     Check(EqualityComparer<T>.Default.Equals(actual, expected), $"{what}: expected {expected}, got {actual}");
 
-// ---- EnvFlag: anything unrecognised keeps the compiled-in default, so a typo cannot silently disable a feature ----
-
-foreach (var on in new[] { "1", "true", "TRUE", "yes", "on", " On " })
-    Eq(ArmsRaceLoadout.EnvFlag(on, false), true, $"EnvFlag(\"{on}\")");
-foreach (var off in new[] { "0", "false", "FALSE", "no", "off", " Off " })
-    Eq(ArmsRaceLoadout.EnvFlag(off, true), false, $"EnvFlag(\"{off}\")");
-foreach (var junk in new string?[] { null, "", "   ", "banana", "2", "-1" })
+// ---- the vote's freeze (FreezePlan.cs): on the bridge's fresh word on this map, never past a lost bridge or a stuck answer ----
 {
-    Eq(ArmsRaceLoadout.EnvFlag(junk, true), true, $"EnvFlag({junk ?? "null"}) keeps default true");
-    Eq(ArmsRaceLoadout.EnvFlag(junk, false), false, $"EnvFlag({junk ?? "null"}) keeps default false");
+    var t0 = new DateTime(2026, 11, 5, 0, 0, 0, DateTimeKind.Utc);
+    var map = t0.AddMinutes(-5); // this map started five minutes before
+    var plan = new FreezePlan();
+    Check(!plan.Tick(0, false, t0, map, t0) && !plan.Frozen && plan.Reason == FreezePlan.Why.Over, "freeze: no vote, nobody frozen");
+    Check(!plan.Tick(7, false, t0, map, t0) && !plan.Frozen, "freeze: a vote whose state says no freeze freezes nobody");
+    var on = plan.Tick(7, true, t0, map, t0);
+    Check(on && plan.Frozen && plan.Reason == FreezePlan.Why.Vote && plan.Round == 7 && plan.Since == t0, "freeze: a vote that freezes, on a fresh answer: everybody frozen, once");
+    Check(!plan.Tick(7, true, t0.AddSeconds(1), map, t0.AddSeconds(1)) && plan.Frozen, "freeze: ...and it stays, with nothing more to log");
+    var gone = plan.Tick(7, false, t0.AddSeconds(30), map, t0.AddSeconds(30));
+    Check(gone && !plan.Frozen && plan.Reason == FreezePlan.Why.Over && plan.FreeBecause() == "the vote is over", "freeze: the vote's end frees everybody at once, once");
+
+    plan = new FreezePlan();
+    Check(!plan.Tick(8, true, map.AddSeconds(-1), map, t0) && !plan.Frozen && plan.Reason == FreezePlan.Why.OldMap,
+        "freeze: the old map's last word (an answer from before this map started) freezes nobody");
+    Check(!plan.Tick(8, true, DateTime.MinValue, DateTime.MinValue, t0) && !plan.Frozen && plan.Reason == FreezePlan.Why.OldMap,
+        "freeze: no answer at all freezes nobody either");
+    Check(plan.Tick(8, true, t0, map, t0) && plan.Frozen, "freeze: the first answer on this map that freezes, freezes");
+
+    plan = new FreezePlan();
+    plan.Tick(9, true, t0, DateTime.MinValue, t0); // loaded mid-map: any answer is this map's
+    Check(plan.Frozen, "freeze: loaded mid-map, the first answer counts");
+    Check(!plan.Tick(9, true, t0, DateTime.MinValue, t0.AddSeconds(FreezePlan.StaleSeconds)) && plan.Frozen, $"freeze: {FreezePlan.StaleSeconds:0} s without an answer is not yet stale");
+    var stale = plan.Tick(9, true, t0, DateTime.MinValue, t0.AddSeconds(FreezePlan.StaleSeconds + 0.5));
+    Check(stale && !plan.Frozen && plan.Reason == FreezePlan.Why.Stale && plan.FreeBecause().Contains("has not answered"), "freeze: a bridge that stops answering frees everybody - nobody stays frozen behind a lost bridge");
+    var back = plan.Tick(9, true, t0.AddSeconds(20), DateTime.MinValue, t0.AddSeconds(20));
+    Check(back && plan.Frozen && plan.Since == t0, "freeze: ...and its next answer freezes everybody again if the vote is still on, on the vote's own clock");
+
+    plan = new FreezePlan();
+    var when = t0;
+    for (var s = 0; s <= FreezePlan.MaxSeconds; s += 1) { when = t0.AddSeconds(s); plan.Tick(10, true, when, map, when); }
+    Check(plan.Frozen, $"freeze: {FreezePlan.MaxSeconds:0} s of one vote, still frozen");
+    var capped = plan.Tick(10, true, when.AddSeconds(1), map, when.AddSeconds(1));
+    Check(capped && !plan.Frozen && plan.Reason == FreezePlan.Why.TooLong && plan.FreeBecause().Contains($"{FreezePlan.MaxSeconds:0} s"), "freeze: one vote frozen longer than the most one may: everybody free");
+    Check(!plan.Tick(10, true, when.AddSeconds(5), map, when.AddSeconds(5)) && !plan.Frozen, "freeze: ...and that round never freezes anybody again");
+    Check(plan.Tick(11, true, when.AddSeconds(6), map, when.AddSeconds(6)) && plan.Frozen && plan.Since == when.AddSeconds(6), "freeze: the next round freezes on its own clock");
+    // MapVote.HardCapSeconds (180), the countdown after it (CHANGE_DELAY_SECONDS, 8 by default) and a margin; the plugin polls once a second
+    Check(FreezePlan.MaxSeconds >= 180 + 60 && FreezePlan.StaleSeconds >= 5, "freeze: the cap leaves the longest vote and its countdown room; staleness allows a few lost polls");
 }
 
-// ---- Canonical ----
-
-Eq(ArmsRaceLoadout.Canonical("ak47"), "weapon_ak47", "Canonical bare alias");
-Eq(ArmsRaceLoadout.Canonical("weapon_ak47"), "weapon_ak47", "Canonical already prefixed");
-Eq(ArmsRaceLoadout.Canonical("WEAPON_AK47"), "weapon_ak47", "Canonical upper case");
-Eq(ArmsRaceLoadout.Canonical("  knifegg  "), "weapon_knifegg", "Canonical trims");
-Eq(ArmsRaceLoadout.Canonical(null), "", "Canonical null");
-Eq(ArmsRaceLoadout.Canonical(""), "", "Canonical empty");
-Eq(ArmsRaceLoadout.Canonical("   "), "", "Canonical blank");
-
-// ---- The classifier. Getting a gun wrong is the expensive direction, so unknown names must count as guns ----
-
-foreach (var knife in new[]
-         {
-             "weapon_knife", "weapon_knife_t", "weapon_knife_ct", "weapon_knifegg", "weapon_knife_karambit",
-             "weapon_knife_m9_bayonet", "weapon_knife_push", "weapon_bayonet", "weapon_axe", "weapon_fists",
-         })
+// ---- where the HUD addon's id comes from (HudAddon.cs) ----
 {
-    Check(ArmsRaceLoadout.IsKnife(knife), $"IsKnife {knife}");
-    Check(!ArmsRaceLoadout.IsGun(knife), $"IsGun rejects {knife}");
+    const string New = "OS2_HUD_ADDON", Old = "GUNGAME_HUD_ADDON";
+    Func<string, string?> Env(Dictionary<string, string> vars) => name => vars.TryGetValue(name, out var v) ? v : null;
+    Eq(HudAddon.Read(Env(new() { [New] = " 500 " }), New, Old), ("500", New), "addon: the new variable, trimmed");
+    Eq(HudAddon.Read(Env(new() { [Old] = "600" }), New, Old), ("600", Old), "addon: the old name, while the new one is not set at all");
+    Eq(HudAddon.Read(Env(new() { [New] = "500", [Old] = "600" }), New, Old), ("500", New), "addon: both set - the new one wins");
+    Eq(HudAddon.Read(Env(new() { [New] = "", [Old] = "600" }), New, Old), ("", New), "addon: the new one set but empty means no HUD, whatever the old one says");
+    Eq(HudAddon.Read(Env(new()), New, Old), ("", New), "addon: neither set: no HUD");
 }
-foreach (var kit in new[]
-         {
-             "weapon_hegrenade", "weapon_flashbang", "weapon_smokegrenade", "weapon_molotov", "weapon_incgrenade",
-             "weapon_decoy", "weapon_c4", "weapon_taser", "weapon_healthshot",
-         })
+
+// ---- the block file (bridge/Modes.cs): every game mode's value in one file ----
 {
-    Check(ArmsRaceLoadout.IsEquipment(kit), $"IsEquipment {kit}");
-    Check(!ArmsRaceLoadout.IsGun(kit), $"IsGun rejects {kit}");
-}
-foreach (var gun in new[]
-         {
-             "weapon_glock", "weapon_usp_silencer", "weapon_deagle", "weapon_nova", "weapon_mac10", "weapon_p90",
-             "weapon_ak47", "weapon_m4a1", "weapon_awp", "weapon_negev", "weapon_revolver",
-         })
-{
-    Check(ArmsRaceLoadout.IsGun(gun), $"IsGun {gun}");
-    Check(!ArmsRaceLoadout.IsKnife(gun), $"IsKnife rejects {gun}");
-}
-// The asymmetry, stated as a test: a weapon nobody listed is treated as a gun, which makes the feature not fire
-// rather than disarming somebody by mistake.
-Check(ArmsRaceLoadout.IsGun("weapon_something_valve_added_last_tuesday"), "an unknown weapon counts as a gun");
-Check(!ArmsRaceLoadout.IsGun(""), "an unreadable name is not a gun");
-
-Check(ArmsRaceLoadout.HasGun(["weapon_ak47", "weapon_knife_t", "weapon_hegrenade"]), "HasGun with a rifle");
-Check(!ArmsRaceLoadout.HasGun(["weapon_knife_t", "weapon_hegrenade"]), "HasGun with only knife and grenade");
-Check(!ArmsRaceLoadout.HasGun(["weapon_knifegg"]), "HasGun with only the golden knife");
-Check(!ArmsRaceLoadout.HasGun([]), "HasGun with empty hands");
-
-// ---- Classify: every branch of the detector, against loadouts rather than a schema ----
-
-const float settled = 30f; // Comfortably past SpawnGrace.
-const float confirmed = 30f; // Comfortably past ConfirmDelay.
-
-Eq(ArmsRaceLoadout.Classify(["weapon_glock", "weapon_knife_t"], true, settled, 0f), Verdict.HoldingAGun,
-    "level one with a glock is holding a gun");
-Eq(ArmsRaceLoadout.Classify(["weapon_awp", "weapon_knife_t", "weapon_hegrenade"], true, settled, 0f), Verdict.HoldingAGun,
-    "the top gun is still a gun");
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t", "weapon_hegrenade"], true, settled, confirmed), Verdict.LastLevel,
-    "knife and grenade only, seen with a gun before, settled and confirmed");
-Eq(ArmsRaceLoadout.Classify(["weapon_knifegg"], true, settled, confirmed), Verdict.LastLevel,
-    "the golden knife alone is the last level too");
-Eq(ArmsRaceLoadout.Classify([], true, settled, confirmed), Verdict.LastLevel,
-    "a disarmed last-level player who threw their grenade stays the last level");
-
-// The three ways the detector refuses, which are the three ways it could have disarmed the wrong player.
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t"], false, settled, confirmed), Verdict.TooSoonToTell,
-    "never seen with a gun: leave them alone");
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t"], true, 0.1f, confirmed), Verdict.TooSoonToTell,
-    "a tenth of a second after spawning: the engine has not equipped them yet");
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t"], true, ArmsRaceLoadout.SpawnGrace - 0.01f, confirmed), Verdict.TooSoonToTell,
-    "just inside the spawn grace");
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t"], true, settled, ArmsRaceLoadout.ConfirmDelay - 0.01f), Verdict.TooSoonToTell,
-    "gunless, but not yet for long enough");
-Eq(ArmsRaceLoadout.Classify(["weapon_knife_t"], true, ArmsRaceLoadout.SpawnGrace, ArmsRaceLoadout.ConfirmDelay), Verdict.LastLevel,
-    "exactly on both thresholds");
-
-// ---- A whole match, swept twice a second against fake loadouts and a fake clock ----
-//
-// This is the case that would have caught the ladder read throwing on the live server: the detector is exercised
-// end to end here with no schema involved at all, so if it needs something that cannot be read, it cannot be
-// written this way in the first place.
-
-// One player's timeline, mirroring what the plugin does per sweep. Returns the sweep numbers at which the verdict
-// first became LastLevel, plus the verdict history, so both the timing and the absence of false positives are checked.
-List<int> Walk(IReadOnlyList<string[]> loadoutPerSweep, IReadOnlyList<int> respawnSweeps, float interval = 0.5f)
-{
-    var triggered = new List<int>();
-    var everHeldAGun = false;
-    float? gunlessSince = null;
-    var spawnedAt = 0f;
-    var known = false;
-    for (var sweep = 0; sweep < loadoutPerSweep.Count; sweep++)
+    var text = "// a comment\n\ngame_type  1  1  0  // the mode\nsv_cheats  *  0  0  // cheats\r\nbot_quota_mode * normal normal // bots\n"
+        + "mp_buytime * 0 // two values only\nbad-name 1 1 1 // x\nsv_cheats 1 1 1 // again\n";
+    var ar = Modes.Blocked(text, Modes.ArmsRace, out var arErrors);
+    var dm = Modes.Blocked(text, Modes.Deathmatch, out _);
+    var wm = Modes.Blocked(text, Modes.Wingman, out _);
+    Check(ar.Select(e => (e.ConVar, e.Value)).SequenceEqual([("game_type", "1"), ("sv_cheats", null), ("bot_quota_mode", null)]),
+        $"block file: Arms Race's values, * for the server's own: {string.Join(", ", ar.Select(e => $"{e.ConVar} {e.Value ?? "*"}"))}");
+    Check(dm.Select(e => e.Value).SequenceEqual(["1", "0", "normal"]) && wm.Select(e => e.Value).SequenceEqual(["0", "0", "normal"]), "block file: each mode its own column");
+    Check(ar[0].Why == "the mode" && ar[1].Why == "cheats", "block file: every line's why, after //");
+    Check(arErrors.Count == 3 && arErrors.Any(e => e.StartsWith("line 6:") && e.Contains("for each of the 3 modes")) && arErrors.Any(e => e.StartsWith("line 7:"))
+        && arErrors.Any(e => e.StartsWith("line 8:") && e.Contains("twice")), $"block file: a line short of a value per mode, a bad name and a name twice are errors, by the file's own line: {string.Join(" | ", arErrors)}");
+    Eq(Modes.BlockFile, "blocked.txt", "block file: one file, beside the DLL");
+    var committed = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", Modes.BlockFile);
+    if (!File.Exists(committed)) Console.WriteLine($"(no {committed}: the plugin's own block file is not checked)");
+    else
     {
-        var now = sweep * interval;
-        if (respawnSweeps.Contains(sweep)) spawnedAt = now;
-        var carried = loadoutPerSweep[sweep];
-        if (ArmsRaceLoadout.HasGun(carried)) { everHeldAGun = true; gunlessSince = null; }
-        else gunlessSince ??= now;
-        var verdict = ArmsRaceLoadout.Classify(carried, everHeldAGun, now - spawnedAt, gunlessSince is null ? 0f : now - gunlessSince.Value);
-        if (verdict == Verdict.HoldingAGun) { known = false; continue; }
-        if (verdict == Verdict.TooSoonToTell && !known) continue;
-        if (!known) { known = true; triggered.Add(sweep); }
+        var file = File.ReadAllText(committed);
+        var lists = Modes.All.ToDictionary(m => m.Id, m => (List: Modes.Blocked(file, m, out var errors), Errors: errors));
+        Check(lists.Values.All(l => l.Errors.Count == 0 && l.List.Count == 30), $"the plugin's {Modes.BlockFile}: every mode's 30 values parse ({string.Join(", ", lists.Select(kv => $"{kv.Key} {kv.Value.List.Count}, {kv.Value.Errors.Count} error(s)"))})");
+        Check(Modes.All.All(m => lists[m.Id].List.Single(e => e.ConVar == "game_type").Value == $"{m.GameType}" && lists[m.Id].List.Single(e => e.ConVar == "game_mode").Value == $"{m.GameMode}"),
+            "...each mode keeps its own game_type and game_mode");
+        Check(lists.Where(kv => kv.Key != Modes.ArmsRaceId).All(kv => kv.Value.List.All(e => e.Value != null)), "...and only Arms Race keeps the server's own (*): the boot baseline is an Arms Race map's");
     }
-    return triggered;
-}
-
-// 16 rungs, four sweeps spent on each, the knife-only loadout from rung 16 onwards. Only the last rung may trigger,
-// and only once the spawn grace and the confirm delay have both passed.
-{
-    var loadouts = new List<string[]>();
-    string[] guns =
-    [
-        "weapon_glock", "weapon_usp_silencer", "weapon_p250", "weapon_deagle", "weapon_nova", "weapon_mag7",
-        "weapon_mac10", "weapon_mp9", "weapon_ump45", "weapon_p90", "weapon_galilar", "weapon_famas",
-        "weapon_ak47", "weapon_m4a1", "weapon_awp",
-    ];
-    foreach (var gun in guns)
-        for (var i = 0; i < 4; i++) loadouts.Add([gun, "weapon_knife_t", "weapon_hegrenade"]);
-    for (var i = 0; i < 8; i++) loadouts.Add(["weapon_knife_t", "weapon_hegrenade"]);
-    var triggered = Walk(loadouts, respawnSweeps: [0]);
-    Eq(triggered.Count, 1, "a full ladder walk triggers exactly once");
-    // Rung 16 starts at sweep 60; ConfirmDelay is 1 s at 0.5 s a sweep, so sweep 62 is the first that may fire.
-    Eq(triggered.Count == 1 ? triggered[0] : -1, 62, "and only after the confirm delay on the last rung");
-}
-
-// A level-one player who respawns over and over. The engine equips them within a sweep or two every time, which is
-// exactly the window that must never be read as the last level.
-{
-    var loadouts = new List<string[]>();
-    var respawns = new List<int>();
-    for (var life = 0; life < 6; life++)
-    {
-        respawns.Add(loadouts.Count);
-        loadouts.Add(["weapon_knife_t"]);                                  // Spawned, not yet equipped.
-        loadouts.Add(["weapon_knife_t"]);                                  // Still not equipped: half a second gone.
-        for (var i = 0; i < 6; i++) loadouts.Add(["weapon_glock", "weapon_knife_t"]);
-    }
-    Eq(Walk(loadouts, respawns).Count, 0, "six lives on level one never look like the last level");
-}
-
-// The pathological spawn: the engine takes a full second and a half to hand the gun over, twice as long as observed.
-{
-    var loadouts = new List<string[]>();
-    for (var i = 0; i < 3; i++) loadouts.Add(["weapon_knife_t"]);
-    for (var i = 0; i < 10; i++) loadouts.Add(["weapon_ak47", "weapon_knife_t"]);
-    Eq(Walk(loadouts, respawnSweeps: [0]).Count, 0, "a slow weapon hand-out is still not the last level");
-}
-
-// A last-level player who dies and respawns: the plugin keeps them on its list, so the knife the engine hands back
-// on every spawn keeps being taken. Modelled by the `known` flag surviving the spawn grace.
-{
-    var loadouts = new List<string[]>();
-    for (var i = 0; i < 8; i++) loadouts.Add(["weapon_awp", "weapon_knife_t"]);
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_knife_t", "weapon_hegrenade"]); // Reaches the last level here.
-    var respawns = new List<int> { 0, 14 };
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_knife_t"]);                     // Died and respawned, still last level.
-    var triggered = Walk(loadouts, respawns);
-    Eq(triggered.Count, 1, "a last-level player who respawns is not re-triggered");
-    Eq(triggered.Count == 1 ? triggered[0] : -1, 10, "and was found on the sweep the confirm delay allowed");
-}
-
-// Demotion: a last-level player handed a gun again drops off the list, and may trigger again later.
-{
-    var loadouts = new List<string[]>();
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_awp", "weapon_knife_t"]);
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_knife_t", "weapon_hegrenade"]); // Last level.
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_awp", "weapon_knife_t"]);       // Demoted.
-    for (var i = 0; i < 6; i++) loadouts.Add(["weapon_knife_t", "weapon_hegrenade"]); // Last level again.
-    Eq(Walk(loadouts, respawnSweeps: [0]).Count, 2, "demotion then promotion triggers twice");
 }
 
 // ---- ConVarNames: the game convars the running build has, asked of the build itself. What can go wrong on a server is a missing or strange
@@ -380,12 +275,15 @@ else
     }
 }
 
-// ---- The Steam Web API's one door (SteamWebApi.cs, the owner's rule of 2026-11-04): three callers at once go one at a time, 2 s apart ----
+// ---- The Steam Web API's one door (SteamWebApi.cs): three callers at once go one at a time, 2 s apart, each saying who asks ----
 {
     var seen = new System.Collections.Concurrent.ConcurrentQueue<(DateTime Start, DateTime End)>();
+    var agents = new System.Collections.Concurrent.ConcurrentQueue<string>();
     var inFlight = 0;
     var most = 0;
-    using var http = new HttpClient(new Recorder(seen, () => { var n = Interlocked.Increment(ref inFlight); most = Math.Max(most, n); }, () => Interlocked.Decrement(ref inFlight)));
+    OverStrike2.SteamWebApi.UserAgent = OverStrike2.SteamWebApi.AgentOf("9.9.9");
+    using var http = new HttpClient(new Recorder(seen, agents, () => { var n = Interlocked.Increment(ref inFlight); most = Math.Max(most, n); }, () => Interlocked.Decrement(ref inFlight)));
+    http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0"); // a caller's own default never speaks for the door
     var calls = Enumerable.Range(0, 3).Select(_ => Task.Run(async () =>
     {
         using var r = await OverStrike2.SteamWebApi.PostAsync(http, "https://api.steampowered.com/test", new StringContent("x")).ConfigureAwait(false);
@@ -395,6 +293,8 @@ else
     var gaps = times.Zip(times.Skip(1), (a, b) => (b.Start - a.End).TotalSeconds).ToList();
     Check(times.Count == 3 && most == 1, $"the Web API's door: three callers at once, one request at a time (at most {most} in flight)");
     Check(gaps.All(g => g >= OverStrike2.SteamWebApi.Gap.TotalSeconds - 0.05), $"...each at least {OverStrike2.SteamWebApi.Gap.TotalSeconds:0} s after the last ended ({string.Join(", ", gaps.Select(g => g.ToString("0.00")))} s)");
+    Check(agents.Count == 3 && agents.All(a => a == "OverStrike2/9.9.9 (the Over Strike 2 CS2 server plugin; plugin/OverStrike2)"),
+        $"...each with an honest User-Agent naming the project, never a browser's ({string.Join(" | ", agents.Distinct())})");
 }
 
 Console.WriteLine(failures == 0
@@ -402,12 +302,19 @@ Console.WriteLine(failures == 0
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");
 return failures == 0 ? 0 : 1;
 
-/// <summary>A Web API that answers at once, noting when each request started and ended.</summary>
-sealed class Recorder(System.Collections.Concurrent.ConcurrentQueue<(DateTime, DateTime)> seen, Action enter, Action leave) : HttpMessageHandler
+/// <summary>BlockList.Due's comparison of two values, which these checks do not reach: the real Fun.Same is the bridge's (bridge/Fun.cs), tested there.</summary>
+static class Fun
+{
+    public static bool Same(string? a, string? b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>A Web API that answers at once, noting when each request started and ended, and who it said was asking.</summary>
+sealed class Recorder(System.Collections.Concurrent.ConcurrentQueue<(DateTime, DateTime)> seen, System.Collections.Concurrent.ConcurrentQueue<string> agents, Action enter, Action leave) : HttpMessageHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancel)
     {
         enter();
+        agents.Enqueue(request.Headers.UserAgent.ToString());
         var start = DateTime.UtcNow;
         await Task.Delay(50, cancel).ConfigureAwait(false);
         leave();

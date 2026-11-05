@@ -127,11 +127,10 @@ static partial class Program
         ModeMaps[inDm.Id] = [new(1, ar.Id, ar.Name, ar.SizeMb, false, inDm.Id), new(2, 3070000099, "only_in_dm", 12, false, inDm.Id)];
         var listed = ListedIn(inDm, ar);
         Check("A map in two lists: its entry in the mode asked for", listed != null && listed.Mode == inDm.Id && ListedIn(Modes.Wingman, ar) == null && ListedIn(Modes.ArmsRace, listed) is { Mode: "" });
-        Check("By name: a name only another mode has is found there", Find("only_in_dm") is [{ Id: 3070000099, Mode: Modes.DeathmatchId }]);
-        Check("By name: an official map of another mode by its name", Find("de_dust2") is [{ Official: true, Mode: Modes.DeathmatchId }]);
-        Check("By name: an Arms Race map's name stays Arms Race's", Find(ar.Name).All(m => m.Mode == ""));
-        Check("The daily Workshop check asks about the other modes' maps too, each once, so a map gone from the Workshop is unavailable on their cards as well",
-            Workshop.DecodeIds(CheckList()) is var ids && ids.Contains(3070000099) && ids.Count(x => x == ar.Id) == 1);
+        Check("By id: a map only another mode lists is found there, in that mode", Find("3070000099") is [{ Id: 3070000099, Mode: Modes.DeathmatchId }]);
+        Check("By name: an official map of another mode by its whole name", Find("de_dust2") is [{ Official: true, Mode: Modes.DeathmatchId }]);
+        Check("By id: an Arms Race map's id stays Arms Race's", Find(ar.Id.ToString()).All(m => m.Mode == ""));
+        Check("A crash notice names another mode's map by its name, not its Workshop id (B13)", NameOfKey("3070000099") == "only_in_dm" && NameOfKey("de_dust2") == "de_dust2 (official)");
         var catalog = BuildCatalog();
         Check("The catalog: a map in two lists is one entry with both places, a map of another mode has its own, an official map of other modes too",
             catalog.Find(Key(ar)) is { RankDm: 1, RankAr: > 0, RankWm: -1 } && catalog.Find("3070000099") is { RankAr: -1, RankDm: 2, Arg: "3070000099" } && catalog.Find("de_dust2") is { RankAr: -1, RankDm: 0, Official: true, Arg: "de_dust2" }

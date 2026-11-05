@@ -11,13 +11,13 @@ static partial class Program
     static void HudSelfTest(Action<string, bool> Check)
     {
         // ---- the words: the Help page's groups and rows, and room for them in the layout ----
-        Check("The Help page's five groups: maps, queue, voting, game, the board", Hud.Help.Select(g => g.Name).SequenceEqual(["Maps", "Queue", "Voting", "Game", "The board"]));
-        Check("Every group fits its rows, every rule its lines, the start page its three steps",
-            Hud.Help.All(g => g.Rows.Length is > 0 and <= Hud.RowsPerGroup) && Hud.Rules.All(r => r.Lines.Length is > 0 and <= Hud.LinesPerRule) && Hud.Steps.Length == 3);
+        Check("The Help page's five groups: maps, the vote, likes, game, the board", Hud.Help.Select(g => g.Name).SequenceEqual(["Maps", "The vote", "Likes", "Game", "The board"]));
+        Check("Every group fits its rows, every section of How it works its lines, the start page its three steps",
+            Hud.Help.All(g => g.Rows.Length is > 0 and <= Hud.RowsPerGroup) && Hud.How.All(r => r.Lines.Length is > 0 and <= Hud.HowLines) && Hud.How.Length <= Hud.HowSections && Hud.Steps.Length == 3);
         var rows = Hud.Help.SelectMany(g => g.Rows).ToList();
         Check($"Every place to click fits its column: at most 22 characters (longest {rows.Max(r => r.Command.Length)})", rows.All(r => r.Command.Length <= 22));
         Check($"...and its words two lines of it: at most 100 characters (longest {rows.Max(r => (r.Words + r.Also).Length + 5)})", rows.All(r => (r.Words + r.Also).Length + 5 <= 100));
-        Check($"Every rule line at most 160 characters, three lines of its column (longest {Hud.Rules.SelectMany(r => r.Lines).Max(l => l.Length)})", Hud.Rules.SelectMany(r => r.Lines).All(l => l.Length <= 160));
+        Check($"Every line of How it works at most 160 characters, three lines of its column (longest {Hud.How.SelectMany(r => r.Lines).Max(l => l.Length)})", Hud.How.SelectMany(r => r.Lines).All(l => l.Length <= 160));
         Check("Start page steps: short titles and places, at most three lines of words", Hud.Steps.All(s => s.Title.Length <= 14 && s.Command.Length <= 14 && s.Words.Length <= 90));
         // The Help page's height (2026-10-24): a row's words wrap at about 60 characters (14 px Stratum2 in the 446 px left of the 820 px
         // pages beside the live column, the group name and the place); a line is 19 px, a row 4 px more, a group 14 px; the page has
@@ -25,38 +25,36 @@ static partial class Program
         static int HelpLines(Hud.Row r) => (int)Math.Ceiling((r.Also == "" ? r.Words : $"{r.Words}  ·  {r.Also}").Length / 60.0);
         var helpHeight = Hud.Help.Sum(g => g.Rows.Sum(r => HelpLines(r) * 19 + 4) + 14);
         Check($"The Help page fits the window: about {helpHeight} px of its 599 ({Hud.Help.Sum(g => g.Rows.Sum(HelpLines))} lines in {Hud.Help.Sum(g => g.Rows.Length)} rows)", helpHeight <= 599);
-        Check("The one chat line left - the hint for a typed command - fits one chat line", Hud.ChatOff.Length <= 120 && !Hud.ChatOff.Contains('!'));
 
         // ---- the codec: what the bridge serves is what the plugin reads ----
         var state = new HudState { Maps = 1000, Map = "#12 aim\tred\nline", By = "Jo\"ri; quit", Size = "17 MB", Key = "123", Up = 3, Down = 1, Status = "x",
-            Holders = [7, 8], Skip = (1, 3, 2), MyVotes = new() { [7] = 1, [9] = -1 }, Next = [("#44 aim_aim", "Bob + Cara")], Top = [("#44 aim_aim", 3, 1)],
-            ChangeMap = "#5 x", ChangeBy = "the dice", ChangeIn = 6 };
+            MyVotes = new() { [7] = 1, [9] = -1 }, Top = [("#44 aim_aim", 3, 1)], ChangeMap = "#5 x", ChangeBy = "the dice", ChangeIn = 6 };
         var decoded = HudState.Decode(state.Encode());
-        Check("The codec carries every field, and a tab or newline in a name cannot break a line",
+        Check("The codec carries every field, and a tab or newline in a name cannot break a line; no queue, holder or skip line any more (the owner's 46, 84 a)",
             decoded is { Maps: 1000, Up: 3, Down: 1, ChangeIn: 6, Size: "17 MB", Key: "123" } && decoded.Map == "#12 aim red line" && decoded.By == "Jo\"ri; quit"
-            && decoded.Holders.SequenceEqual([7L, 8L]) && decoded.Skip == (1, 3, 2) && decoded.MyVotes[9] == -1 && decoded.Next is [("#44 aim_aim", "Bob + Cara")]
-            && decoded.Top is [("#44 aim_aim", 3, 1)] && decoded.ChangeBy == "the dice" && decoded.Encode() == state.Encode());
+            && decoded.MyVotes[9] == -1 && decoded.Top is [("#44 aim_aim", 3, 1)] && decoded.ChangeBy == "the dice" && decoded.Encode() == state.Encode()
+            && !Regex.IsMatch(state.Encode(), @"(?m)^(hold|skip|next|q|vopen)\t"));
         Check("Not a HUD state (an error page, an old bridge) decodes to nothing; unknown lines are skipped",
             HudState.Decode(null) is null && HudState.Decode("<html>") is null && HudState.Decode(HudState.Magic + "\nfuture\tline\nmaps\t5\n") is { Maps: 5 });
 
         // ---- the window's buttons ----
         var free = new HudState();
-        Check("The action button: a free map rolls the dice, a change under way or a load in progress offers nothing",
-            HudView.Action(free, 1).Command == "!next" && HudView.Action(new HudState { ChangeIn = 3 }, 1).Command == null && HudView.Action(new HudState { Loading = true }, 1).Command == null);
-        Check("Clicks map to commands: the vote buttons, the action button; the close and tab buttons stay in the plugin",
-            HudView.Command(HudView.ButtonUp, null, 1) == "!up" && HudView.Command(HudView.ButtonDown, null, 1) == "!down" && HudView.Command(HudView.ButtonAct, free, 1) == "!next"
-            && HudView.Command(HudView.ButtonClose, free, 1) == null && HudView.Tabs.All(t => HudView.Command(t.Id, free, 1) == null)
-            && HudView.Command(HudView.ButtonAct, null, 1) == null);
-        Check("Every command a click can send is one the bridge accepts from the HUD", new[] { "!up", "!down", "!next", "!done", "!skip" }.All(Hud.Actions.Contains)
-            && new[] { free, new HudState { Holders = [1] }, new HudState { Holders = [2] } }.All(s => HudView.Action(s, 1).Command is not { } c || Hud.Actions.Contains(c)));
+        Check("The action button: Start a vote; a change under way or a load in progress offers nothing",
+            HudView.Action(free).Command == "!next" && HudView.Action(new HudState { ChangeIn = 3 }).Command == null && HudView.Action(new HudState { Loading = true }).Command == null);
+        Check("Clicks map to commands: the like buttons, the action button; the close and tab buttons stay in the plugin",
+            HudView.Command(HudView.ButtonUp, null) == "!up" && HudView.Command(HudView.ButtonDown, null) == "!down" && HudView.Command(HudView.ButtonAct, free) == "!next"
+            && HudView.Command(HudView.ButtonClose, free) == null && HudView.Tabs.All(t => HudView.Command(t.Id, free) == null)
+            && HudView.Command(HudView.ButtonAct, null) == null);
+        Check("Every command a click can send is one the bridge accepts from the HUD", new[] { "!up", "!down", "!next", "!next random", "!previous" }.All(Hud.Actions.Contains)
+            && new[] { free, new HudState { ChangeIn = 2 } }.All(s => HudView.Action(s).Command is not { } c || Hud.Actions.Contains(c)));
 
         // ---- the menu: what a click may say ----
-        Check("Menu clicks: votes, requests and cancels name a map by rank or official name; !time 10|60, !restart, !cancel all pass",
-            new[] { "!up", "!down", "!next", "!done", "!skip", "!map 12", "!map 3084291314", "!up 12", "!down ar_shoots_night", "!cancel 7", "!cancel all", "!cancel",
-                "!time 10", "!time 60", "!restart", "!previous", "!map ar_baggage" }.All(Hud.IsAction));
-        Check("...and nothing free-form: no name search, no second command, no other !time, no !rcon, no unknown verb",
+        Check("Menu clicks: likes and picks name a map by rank, Workshop id or official name; a Dislike's reason; !time 10|60, !restart, Start a vote pass",
+            new[] { "!up", "!down", "!next", "!next random", "!map 12", "!map 3084291314", "!up 12", "!down ar_shoots_night", "!down big", "!down 12 big", "!down ads",
+                "!time 10", "!time 60", "!restart", "!previous", "!map ar_baggage", "!map 12 deathmatch" }.All(Hud.IsAction));
+        Check("...and nothing free-form: no name search, no second command, no other !time, no !rcon, no unknown verb - and none of the queue's or the duplicates' old words (the owner's 46, 84 a)",
             new[] { "!map aim", "!map 12 13", "!map 12;quit", "!map ar_Baggage", "!map ar_", "!up 1234567890123", "!time 30", "!rcon quit", "!nades on",
-                "!cancel bob", "!map", "!map ", "", "say hi", "!skip 3" }.All(c => !Hud.IsAction(c)));
+                "!cancel 7", "!cancel all", "!cancel", "!done", "!skip", "!toobig", "!ads", "!toobig 12", "!reason big", "!map", "!map ", "", "say hi", "!skip 3" }.All(c => !Hud.IsAction(c)));
 
         // ---- the menu's catalog: what the bridge serves on /catalog is what the plugin reads ----
         var cat = new HudCatalog { Version = 42 };
@@ -123,36 +121,42 @@ static partial class Program
 
         // ---- the menu's pages and its clicks ----
         var now = new DateTime(2026, 10, 7, 20, 0, 0, DateTimeKind.Utc);
-        var live = new HudState { Key = "3070210812", Queue = [new("1", "3084291314", "#1 AIM Map", "Alice", [1001])], RoundMinutes = 10 };
+        var live = new HudState { Key = "3070210812", RoundMinutes = 10, PrevArg = "2", PrevLabel = "#2 Zebra" };
         var mb = new HudBrowser();
         var (mt, mc) = HudMenu.Maps(back, live, mb, 1001, now);
         string MT(string id) => mt.Single(x => x.Id == id).Text;
         bool MC(string id, string cls) => mc.Single(x => x.Id == id && x.Class == cls).On;
-        Check("Cards: rank, name, size, votes, the broken warning and what Play does - on now, queued, broken", MT("gg_m1_rank") == "#1" && MT("gg_m1_name") == "AIM Map One"
-            && MT("gg_m1_size") == "112 MB" && MT("gg_m1_votes") == "+5  -1" && MT("gg_m1_play_text") == "Cancel my request" && MC("gg_m1", "queued") && MC("gg_m1", "liked")
-            && HudMenu.Maps(back, live, new HudBrowser(), 1002, now).Texts.Single(x => x.Id == "gg_m1_play_text").Text == "Queued - join it"
-            && MT("gg_m2_warn") == "Broken: crashed 3/3 test loads" && MC("gg_m2", "risky") && MC("gg_m2", "disliked") && MT("gg_m2_play_text") == "Play anyway?"
+        Check("Cards: rank, name, size, likes, the broken warning and what Play does (the owner's 46: it puts the map to the vote) - on now, broken", MT("gg_m1_rank") == "#1" && MT("gg_m1_name") == "AIM Map One"
+            && MT("gg_m1_size") == "112 MB" && MT("gg_m1_votes") == "+5  -1" && MT("gg_m1_play_text") == "Put to the vote" && !MC("gg_m1", "queued") && MC("gg_m1", "liked")
+            && MT("gg_m2_warn") == "Broken: crashed 3/3 test loads" && MC("gg_m2", "risky") && MC("gg_m2", "disliked") && MT("gg_m2_play_text") == "Vote anyway?"
             && MC("gg_m3", "now") && MT("gg_m3_play_text") == "On now" && MT("gg_m4_rank") == "Official" && MT("gg_m4_size") == "" && MT("gg_m4_warn") == "Crashed the server 2x"
             && !MC("gg_m5", "used") && MT("gg_m5_name") == "" && MT("gg_m_count") == "4 maps" && MT("gg_pg_text") == "Page 1 of 1" && !MC("gg_m_empty", "used"));
-        Check("Card buttons say what the chat would: votes and Play by the map's rank or official name",
+        var inVote = VoteState.Decode("mv\t1793700100\topen\t40\t2\t1\tmid\t1001\t1\nmvo\t1\tarmsrace\tkeep\t\t3070210812\tKeep playing this map\t#3 beta\t0\t\nmvo\t2\tarmsrace\tpicked\t1\t3084291314\t#1 AIM Map One\t112 MB\t1\tAlice\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t2\n");
+        var waitVote = new VoteState { WaitFor = 45 };
+        string PT(long account, VoteState? v, int k) => HudMenu.Maps(back, live, new HudBrowser(), account, now, vote: v).Texts.Single(x => x.Id == $"gg_m{k}_play_text").Text;
+        Check("...while a vote is open a card on the ballot says Your vote or On the vote (no numbers since the owner's 89 a), the map that is on is Keep's card, any other Add to the vote; after a vote, the wait",
+            PT(1001, inVote, 1) == "Your vote" && PT(1002, inVote, 1) == "On the vote" && PT(1002, inVote, 3) == "On the vote" && PT(1002, inVote, 4) == "Add anyway?" && PT(1002, inVote, 5) == "" 
+            && HudMenu.Maps(back, live, new HudBrowser(), 1002, now, vote: inVote).Classes.Single(x => x.Id == "gg_m1" && x.Class == "queued").On
+            && PT(1002, waitVote, 1) == "Vote in 45 s" && PT(1002, waitVote, 3) == "On now");
+        Check("Card buttons say what the chat would: likes and Play by the map's rank or official name; the map that is on is Keep's vote while one is open, nothing outside one; Too big is a Dislike's reason",
             HudMenu.Command("gg_m1_up", back, live, mb, 1001, now) == "!up 1" && HudMenu.Command("gg_m4_down", back, live, mb, 1001, now) == "!down ar_shoots"
-            && HudMenu.Command("gg_m1_play", back, live, mb, 1001, now) == "!cancel 1" && HudMenu.Command("gg_m1_play", back, live, mb, 1002, now) == "!map 1"
-            && Hud.IsAction("!cancel 1") && HudMenu.Command("gg_m1_play", back, new HudState { Key = live.Key, Queue = live.Queue, VoteOpen = true }, mb, 1001, now) == "!map 1"
-            && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now) == null
+            && HudMenu.Command("gg_m1_play", back, live, mb, 1001, now) == "!map 1" && HudMenu.Command("gg_m1_play", back, live, mb, 1002, now) == "!map 1"
+            && HudMenu.Command("gg_m1_big", back, live, mb, 1001, now) == "!down 1 big" && Hud.IsAction("!down 1 big")
+            && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now) == null && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now, vote: inVote) == "!map 3"
             && HudMenu.Command("gg_m5_play", back, live, mb, 1001, now) == null && HudMenu.Command("gg_m9_play", back, live, mb, 1001, now) == null);
         var first = HudMenu.Command("gg_m2_play", back, live, mb, 1001, now);
         var armed = HudMenu.Maps(back, live, mb, 1001, now.AddSeconds(5));
         var second = HudMenu.Command("gg_m2_play", back, live, mb, 1001, now.AddSeconds(10));
-        Check("A broken map: the first Play asks (and arms the bridge's own confirmation), the second within 30 s plays it",
-            first == "!map 2" && armed.Classes.Single(x => x.Id == "gg_m2" && x.Class == "confirm").On && armed.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Click again to play"
+        Check("A broken map: the first Play asks (and arms the bridge's own confirmation, this player's alone), the second within 30 s puts it to the vote",
+            first == "!map 2" && armed.Classes.Single(x => x.Id == "gg_m2" && x.Class == "confirm").On && armed.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Click again"
             && second == "!map 2" && mb.ConfirmKey == "");
         HudMenu.Command("gg_m2_play", back, live, mb, 1001, now);
         Check("...and after 30 s the next click asks again", HudMenu.Command("gg_m2_play", back, live, mb, 1001, now.AddSeconds(31)) == "!map 2" && mb.ConfirmKey == "3070208661");
-        var (qt, qc) = HudMenu.Queue(live, 1001);
-        Check("Queue page: the row, who asked, a cancel button only on your own, and Cancel all off without requests",
-            qt.Single(x => x.Id == "gg_qr1_map").Text == "#1 AIM Map" && qc.Single(x => x.Id == "gg_qr1" && x.Class == "mine").On && !qc.Single(x => x.Id == "gg_qr2" && x.Class == "used").On
-            && HudMenu.Command("gg_qr1_cancel", back, live, mb, 1001, now) == "!cancel 1" && HudMenu.Command("gg_qr1_cancel", back, live, mb, 1002, now) == null
-            && !HudMenu.Queue(live, 1001).Classes.Single(x => x.Id == HudMenu.CancelAll && x.Class == "off").On && HudMenu.Queue(live, 1002).Classes.Single(x => x.Id == HudMenu.CancelAll && x.Class == "off").On);
+        var (qt, qc) = HudMenu.PreviousButton(live);
+        Check("Previous: the map before this one on its button, which puts it to the vote; off while there is none",
+            qt.Single(x => x.Id == "gg_q_prev_text").Text == "Previous: #2 Zebra" && !qc.Single(x => x.Id == HudMenu.Previous && x.Class == "off").On
+            && HudMenu.Command(HudMenu.Previous, back, live, mb, 1001, now) == "!previous" && HudMenu.PreviousButton(new HudState()).Classes.Single(x => x.Id == HudMenu.Previous).On
+            && HudMenu.Command(HudMenu.Previous, back, new HudState(), mb, 1001, now) == null);
         var (gt, gc) = HudMenu.Game(live, 0);
         Check("Game page: the match length that is set is lit, and the buttons say !time and !restart",
             gc.Single(x => x.Id == HudMenu.Time10).On && !gc.Single(x => x.Id == HudMenu.Time60).On && HudMenu.Command(HudMenu.Time60, back, live, mb, 1, now) == "!time 60"
@@ -162,7 +166,7 @@ static partial class Program
         Check("Restart, after its first click (the owner's 14a): \"Press again within N s\", counting down every second from 30, armed (content v3_2_0 blinks it) - and back to normal at 0",
             armedGame.Select((g, i) => g.Texts.Single(x => x.Id == "gg_set_restart_text").Text == $"Press again within {i + 1} s" && g.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On).All(x => x)
             && HudBrowser.ConfirmSeconds == 30 && PickConfirmSeconds == 30);
-        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m4_up", "gg_qr1_cancel", HudMenu.CancelAll, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart }
+        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m1_big", "gg_m1_ads", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart }
             .Select(id => HudMenu.Command(id, back, live, new HudBrowser(), 1001, now)).Where(x => x != null).ToList();
         Check($"Every command a menu click can send is one the bridge takes from the HUD ({menuCommands.Count})", menuCommands.All(x => Hud.IsAction(x!)));
 
@@ -173,9 +177,9 @@ static partial class Program
             var css = File.ReadAllText(HudStyleFile);
             var ids = Regex.Matches(xml, @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToList();
             var fed = Regex.Matches(xml, @"<Label\b[^>]*\bid=""([^""]+)""[^>]*text=""\{s:text\}""").Select(x => x.Groups[1].Value).ToHashSet();
-            var full = new HudState { Next = [.. Enumerable.Repeat(("m", "w"), 5)], Top = [.. Enumerable.Repeat(("m", 1, 0), 5)], ChangeIn = 1, Skip = (1, 2, 2) };
+            var full = new HudState { Top = [.. Enumerable.Repeat(("m", 1, 0), 5)], ChangeIn = 1, PrevArg = "1", PrevLabel = "#1 m" };
             var menuMaps = HudMenu.Maps(back, full, new HudBrowser(), 1001, now);
-            var menuQueue = HudMenu.Queue(full, 1);
+            var menuQueue = HudMenu.PreviousButton(full);
             var menuGame = HudMenu.Game(full, 30);
             var card = new WorkshopCard();
             card.Show(3232901690);
@@ -184,15 +188,14 @@ static partial class Program
             var sentTexts = HudView.StaticTexts().Concat(HudView.Texts(full)).Concat(HudView.PlayerTexts(full, 1, "x", true)).Concat(menuMaps.Texts).Concat(menuQueue.Texts)
                 .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Select(t => t.Id).Append("gg_k_secs").ToList();
             var sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
-                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.NadesClasses(true)).ToList();
+                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-2", "toast-in", "c31", "c32", .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             var buttons = HudView.Tabs.Select(t => t.Id).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct]).Concat(HudView.NewButtons).Concat(HudView.NewButtons32).Concat(HudView.NewButtons41)
                 .Concat(HudView.NewButtons42).Concat(HudView.NewButtons43).Concat(HudVote.NewButtons44).Concat(HudVote.NewButtons45)
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"gg_m{k}_play", $"gg_m{k}_up", $"gg_m{k}_down" }))
-                .Concat(Enumerable.Range(1, HudMenu.QueueRows).Select(r => $"gg_qr{r}_cancel"))
-                .Concat([HudMenu.CancelAll, HudMenu.Previous, HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
+                .Concat([HudMenu.Previous, HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudKeyboard.Open, WorkshopCard.Play]).Concat(HudKeyboard.Keys()).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
@@ -338,17 +341,19 @@ static partial class Program
                 && Regex.IsMatch(funOnwards, @"class=""gg-frow gg-frow-nades gg-set-nades""") && Regex.IsMatch(rules, @"\.gg-frow-nades\s*\{\s*visibility:\s*visible;")
                 && Regex.IsMatch(rules, @"\.gg-global\.mode-deathmatch \.gg-set-nades") && Regex.IsMatch(rules, @"\.gg-global\.mode-wingman \.gg-set-nades")
                 && Regex.IsMatch(rules, $@"\.gg-global\.nd-on #{HudMenu.NadesOn}") && Regex.IsMatch(rules, $@"\.gg-global\.nd-off #{HudMenu.NadesOff}"));
-            Check("...lit from gg_global, which every content has: on is one class, off the other, and unknown neither",
-                HudVote.NadesClasses(true).Single(x => x.Class == "nd-on").On && !HudVote.NadesClasses(true).Single(x => x.Class == "nd-off").On && HudVote.NadesClasses(false).Single(x => x.Class == "nd-off").On
-                && HudVote.NadesClasses(null).All(x => !x.On) && HudVote.NadesClasses(true).All(x => x.Id == HudView.Global));
+            var dropsOff = new Dictionary<string, string>(stock) { [Fun.Drops] = "0" };
+            Check("...lit from gg_global, which every content has, off the drops' fun setting (the owner's 61 b): on is one class, off the other, and outside Arms Race neither",
+                HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+                && HudVote.FixedRowClasses(cv => dropsOff.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+                && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), false).All(x => !x.On) && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).All(x => x.Id == HudView.Global));
 
             // ---- the Fun page and the Ads buttons, as the plugin fills and reads them ----
             var stockPage = HudMenu.FunPage(cv => stock.GetValueOrDefault(cv));
             bool FC(string id, string cls) => stockPage.Classes.Single(x => x.Id == id && x.Class == cls).On;
             string FT(string id) => stockPage.Texts.Single(x => x.Id == id).Text;
-            Check($"Fun page: a row per setting ({Fun.Settings.Length} of {Fun.Rows}), the rest collapsed; a button per choice, the rest collapsed; on a stock server every first choice lit",
+            Check($"Fun page: a row per setting of the grid ({Math.Min(Fun.Settings.Length, Fun.Rows)} of {Fun.Rows}; the grenade drops and catch-up have fixed rows), the rest collapsed; a button per choice, the rest collapsed; on a stock server every first choice lit",
                 Enumerable.Range(1, Fun.Rows).All(r => FC(HudMenu.FunRow(r), "used") == r <= Fun.Settings.Length)
-                && Fun.Settings.Select((s, i) => Enumerable.Range(1, Fun.ChoicesPerRow).All(k => FC(HudMenu.FunButton(i + 1, k), "used") == k <= s.Choices.Length
+                && Fun.Settings.Take(Fun.Rows).Select((s, i) => Enumerable.Range(1, Fun.ChoicesPerRow).All(k => FC(HudMenu.FunButton(i + 1, k), "used") == k <= s.Choices.Length
                     && FC(HudMenu.FunButton(i + 1, k), "on") == (k == 1) && FT($"{HudMenu.FunButton(i + 1, k)}_txt") == (k <= s.Choices.Length ? s.Choices[k - 1].Label : ""))).All(x => x)
                 && FT("gg_f1_title") == Fun.Settings[0].Title && FT("gg_f1_txt") == Fun.Settings[0].Words);
             var moon = new Dictionary<string, string>(stock) { ["sv_gravity"] = "200", ["sv_airaccelerate"] = "2000" };
@@ -360,9 +365,9 @@ static partial class Program
                 && moonPage.Classes.Single(x => x.Id == HudMenu.FunButton(bhopRow, 1) && x.Class == "on").On && moonPage.Texts.Single(x => x.Id == $"{HudMenu.FunRow(bhopRow)}_txt").Text.EndsWith("this map runs its own"));
             Check("Fun page: a click names its setting and choice, and nothing else does (the size chips are gg_fl_*, the note a label)",
                 HudMenu.FunClick(HudMenu.FunButton(gravityRow, 2)) is ({ Id: "gravity" }, { Id: "low" }) && HudMenu.FunClick(HudMenu.FunButton(gravityRow, 1)) is (_, { Id: "normal" })
-                && HudMenu.FunClick(HudMenu.FunButton(Fun.Settings.Length + 1, 1)) == null && HudMenu.FunClick(HudMenu.FunButton(2, 3)) == null
+                && HudMenu.FunClick(HudMenu.FunButton(Fun.Rows + 1, 1)) == null && HudMenu.FunClick(HudMenu.FunButton(2, 3)) == null
                 && HudMenu.FunClick("gg_fl_all") == null && HudMenu.FunClick(HudMenu.FunNote) == null && HudMenu.FunClick("gg_f1_x") == null
-                && Fun.Settings.Select((s, i) => s.Choices.Select((c, k) => HudMenu.FunClick(HudMenu.FunButton(i + 1, k + 1)) is var (fs, fc) && fs == s && fc == c).All(x => x)).All(x => x));
+                && Fun.Settings.Take(Fun.Rows).Select((s, i) => s.Choices.Select((c, k) => HudMenu.FunClick(HudMenu.FunButton(i + 1, k + 1)) is var (fs, fc) && fs == s && fc == c).All(x => x)).All(x => x));
             Check("Fun page: its note says how long a change lasts, in the bridge's numbers", HudMenu.FunNoteText.Contains($"{ResetEmptyMinutes} minutes with nobody on") && StrayNumbers(HudMenu.FunNoteText).Count == 0
                 && Fun.Settings.All(s => StrayNumbers($"{s.Title} {s.Words} {string.Join(" ", s.Choices.Select(c => c.Label))}").Count == 0));
             // Friendly fire's three (2026-10-29): Off on friendly fire dims the rows that need it, which then say so instead of their words.
@@ -384,8 +389,8 @@ static partial class Program
             Check("Fun page (#4): free-for-all On dims friendly fire, Instakill and Grenades, each saying free-for-all makes them do nothing; nothing else dims",
                 friendly.All(r => r > 0 && Idle(ffaPage, r) && ffaPage.Texts.Single(t => t.Id == $"{HudMenu.FunRow(r)}_txt").Text.Contains("free-for-all"))
                 && Enumerable.Range(1, Fun.Rows).Where(r => !friendly.Contains(r)).All(r => !Idle(ffaPage, r)));
-            Check("Fun page: a dimmed row's buttons still work - Instakill Off is a click while friendly fire is off",
-                needing.All(x => HudMenu.FunClick(HudMenu.FunButton(x.Row, 2)) is var (fs, fc) && fs == x.Setting && fc.Id == "off"));
+            Check("Fun page: a dimmed row's buttons still work - Instakill Off and Grenades On are clicks while friendly fire is off",
+                needing.All(x => HudMenu.FunClick(HudMenu.FunButton(x.Row, 2)) is var (fs, fc) && fs == x.Setting && fc == x.Setting.Choices[1]));
 
             // ---- content v4_4_0: the Fun page's Random and Default (the owner's 2026-11-03) ----
             var dice = new Random(2026);
@@ -394,10 +399,10 @@ static partial class Program
             const int draws = 6000;
             for (var i = 0; i < draws; i++)
             {
-                var (picks, nades, catchUpDraw) = Fun.Randomized(n => dice.Next(n), armsRace: true);
-                if (catchUpDraw == true) catchUpOn++;
+                var picks = Fun.Randomized(n => dice.Next(n), armsRace: true);
+                if (picks.Any(x => x.Setting.Id == "catchup" && x.Choice.Id == "on")) catchUpOn++;
                 foreach (var (s, c) in picks) drawn[s.Id][Array.IndexOf(s.Choices, c)]++;
-                if (nades == true) nadesOn++;
+                if (picks.Any(x => x.Setting.Id == "drops" && x.Choice.Id == "on")) nadesOn++;
                 var isMoon = picks.Any(x => x.Setting.Id == "gravity" && x.Choice.Id == "moon");
                 var high = picks.Any(x => x.Setting.Id == "jump" && x.Choice != x.Setting.Normal);
                 if (isMoon && high) moonJump++;
@@ -405,22 +410,23 @@ static partial class Program
                 armsCount = picks.Count;
             }
             var otherDraw = Fun.Randomized(n => dice.Next(n), armsRace: false);
-            var uneven = Fun.Settings.Where(s => s.Id != "jump").Where(s => drawn[s.Id].Any(k => Math.Abs(k - (double)draws / s.Choices.Length) > (double)draws / s.Choices.Length * 0.1)).Select(s => s.Id).ToList();
+            var uneven = Fun.Settings.Where(s => s.Id is not ("jump" or "catchup")).Where(s => drawn[s.Id].Any(k => Math.Abs(k - (double)draws / s.Choices.Length) > (double)draws / s.Choices.Length * 0.1)).Select(s => s.Id).ToList();
             Check($"Fun's Random: every setting the page shows, each choice equally likely ({draws} draws, each within 10%{(uneven.Count > 0 ? "; not " + string.Join(" ", uneven) : "")}), the grenade drops on in {nadesOn}; Moon gravity never with Super jump ({highJump} high jumps, all on other gravity)",
                 armsCount == Fun.Settings.Length && uneven.Count == 0 && nadesOn is > 2700 and < 3300 && moonJump == 0 && highJump is > 1700 and < 2300);
+            string CatchUpOf(List<(Fun.Setting Setting, Fun.Choice Choice)> p) => p.SingleOrDefault(x => x.Setting.Id == "catchup").Choice?.Id ?? "none";
             Check($"...and catch-up on three times in four (the owner's 43 c): on in {catchUpOn} of {draws}, off on the dice's 0 alone, Arms Race's own",
-                catchUpOn is > 4300 and < 4700 && Fun.Randomized(n => n - 1, armsRace: true).CatchUp == true && Fun.Randomized(n => 0, armsRace: true).CatchUp == false
-                && Fun.Randomized(n => 0, armsRace: false).CatchUp == null);
-            Check("...outside Arms Race it leaves out what the page leaves out there: friendly fire's three and the grenade drops",
-                otherDraw.Nades == null && otherDraw.Choices.Count == Fun.Settings.Count(s => !Fun.ArmsRaceOnly(s)) && otherDraw.Choices.All(x => !Fun.ArmsRaceOnly(x.Setting))
-                && Fun.Randomized(n => n - 1, armsRace: true).Choices.Single(x => x.Setting.Id == "jump").Choice == Fun.Find("jump")!.Normal);
+                catchUpOn is > 4300 and < 4700 && CatchUpOf(Fun.Randomized(n => n - 1, armsRace: true)) == "on" && CatchUpOf(Fun.Randomized(n => 0, armsRace: true)) == "off"
+                && CatchUpOf(Fun.Randomized(n => 0, armsRace: false)) == "none");
+            Check("...outside Arms Race it leaves out what the page leaves out there: friendly fire's three, the grenade drops and catch-up",
+                otherDraw.Count == Fun.Settings.Count(s => !Fun.ArmsRaceOnly(s)) && otherDraw.All(x => !Fun.ArmsRaceOnly(x.Setting))
+                && Fun.Randomized(n => n - 1, armsRace: true).Single(x => x.Setting.Id == "jump").Choice == Fun.Find("jump")!.Normal);
             var gravity = Fun.Find("gravity")!;
             var everyChange = Fun.Settings.Select(s => (s, s.Choices[^1])).ToList();
             Check("...and its one chat line says who and what changed, the rest counted past 200 characters; Default's says what it did",
-                Fun.RandomLine("Remy", [(gravity, Fun.Find(gravity, "low")!)], true) == "Remy rolled the fun settings: gravity low, grenade drops on"
-                && Fun.RandomLine("Remy", [], null) == "Remy rolled the fun settings: nothing changed" && Fun.RandomLine("Remy", everyChange, false) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
-                && Fun.DefaultLine("Remy") == "Remy put every fun setting back to normal, the grenade drops and catch-up on"
-                && Fun.RandomLine("Remy", [], null, catchUpSwitched: false) == "Remy rolled the fun settings: catch-up off"
+                Fun.RandomLine("Remy", [(gravity, Fun.Find(gravity, "low")!), (Fun.Find("drops")!, Fun.Find(Fun.Find("drops")!, "off")!)]) == "Remy rolled the fun settings: gravity low, grenade drops off"
+                && Fun.RandomLine("Remy", []) == "Remy rolled the fun settings: nothing changed" && Fun.RandomLine("Remy", everyChange) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
+                && Fun.DefaultLine("Remy") == "Remy put every fun setting back to normal"
+                && Fun.RandomLine("Remy", [(Fun.Find("catchup")!, Fun.Find(Fun.Find("catchup")!, "off")!)]) == "Remy rolled the fun settings: catch-up off"
                 && HudView.LevelOfButton(HudMenu.FunRandom) == 44 && HudView.LevelOfButton(HudMenu.FunDefault) == 44);
             // The Fun page's height (Over Strike 2: sixteen rows in two columns of eight): the pages have 633 px (the window's 820 less its rule,
             // head, tabs and foot); the Fun page spends its padding, the note's line (about 1.3 times its type) and margin, and a column's rows
@@ -451,14 +457,14 @@ static partial class Program
             var voteCat = new HudCatalog { Version = 1 };
             voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));
             voteCat.Maps.Add(new HudCatalog.Entry("3084291315", "2", 2, 3084291315, "Other Map", 20, false, -1, 0, 0, 0));
-            var openVote = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793700000\topen\t40\t2\t2\t1\tend\t0\nmvo\t1\tarmsrace\trolled\t1\t3084291314\t#1 AIM Map\t20 MB\t1\t\nmvo\t2\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\n");
+            var openVote = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793700000\topen\t40\t2\t1\tend\t0\t1\nmvo\t1\tarmsrace\trolled\t1\t3084291314\t#1 AIM Map\t20 MB\t1\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\n");
             string Play((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) page, int k) => page.Texts.Single(x => x.Id == $"gg_m{k}_play_text").Text;
             bool VC((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) page, string id, string cls) => page.Classes.Single(x => x.Id == id && x.Class == cls).On;
-            var voter = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1001, now, voting: openVote);
-            var other = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1002, now, voting: openVote);
+            var voter = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1001, now, vote: openVote);
+            var other = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1002, now, vote: openVote);
             var noVote = HudMenu.Maps(voteCat, new HudState(), new HudBrowser(), 1002, now);
-            Check("The map browser while the vote is open: a map on the ballot says its number (or Your vote), any other one Add to the vote; with no vote, Play it",
-                Play(voter, 1) == "Your vote" && Play(voter, 2) == "Add to the vote" && Play(other, 1) == "On the vote: 1" && Play(noVote, 1) == "Play it" && Play(noVote, 2) == "Play it");
+            Check("The map browser while the vote is open: a map on the ballot says On the vote (or Your vote), any other one Add to the vote; with no vote, Put to the vote",
+                Play(voter, 1) == "Your vote" && Play(voter, 2) == "Add to the vote" && Play(other, 1) == "On the vote" && Play(noVote, 1) == "Put to the vote" && Play(noVote, 2) == "Put to the vote");
             var oursOn = new HudBrowser();
             oursOn.Click(HudBrowser.OursButton, 0);
             var oursPage = HudMenu.Maps(voteCat, new HudState(), oursOn, 1002, now);
@@ -473,8 +479,8 @@ static partial class Program
             var gravityRow2 = Array.FindIndex(Fun.Settings, s => s.Id == "gravity") + 1;
             Check("Fun page: a setting off its default is marked changed (gold, with a dot); every other row plain",
                 changedPage.Classes.Single(x => x.Id == HudMenu.FunRow(gravityRow2) && x.Class == "changed").On
-                && Enumerable.Range(1, Fun.Settings.Length).Where(r => r != gravityRow2).All(r => !changedPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On)
-                && Enumerable.Range(1, Fun.Settings.Length).All(r => !stockPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On));
+                && Enumerable.Range(1, Fun.Rows).Where(r => r != gravityRow2).All(r => !changedPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On)
+                && Enumerable.Range(1, Fun.Rows).All(r => !stockPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On));
             var vampire = Fun.Find("vampire")!;
             Check("The centre notice of a fun change: who in gold, what changed under it, wrapped to the panel, names escaped",
                 Fun.CentreLine("Alice", vampire, Fun.Find(vampire, "on")!) == "Alice turned Vampire on" && Fun.CentreLine("Remy", gravity, Fun.Find(gravity, "low")!) == "Remy set Gravity to Low"
@@ -483,7 +489,8 @@ static partial class Program
                 && Fun.CentreSeconds == 10);
             Check("Catch-up's row: its two buttons prove content v4_5_0, its state is cu-on or cu-off on gg_global, and the page leaves it out outside Arms Race",
                 noComments.Contains($"<Button id=\"{HudMenu.CatchUpOn}\"") && noComments.Contains($"<Button id=\"{HudMenu.CatchUpOff}\"") && noComments.Contains("class=\"gg-frow gg-frow-catchup gg-set-catchup\"")
-                && HudVote.CatchUpClasses(false).Single(x => x.Class == "cu-off").On && !HudVote.CatchUpClasses(true).Single(x => x.Class == "cu-off").On && HudVote.CatchUpClasses(null).All(x => !x.On)
+                && HudVote.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudVote.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
+                && HudVote.FixedRowClasses(cv => "1", false).All(x => !x.On)
                 && Regex.IsMatch(rules, @"\.gg-global\.mode-deathmatch \.gg-set-catchup\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-global\.mode-wingman \.gg-set-catchup\s*\{\s*visibility:\s*collapse;")
                 && Regex.IsMatch(rules, @"\.gg-global\.cu-on #gg_set_catchup_on\s*\{") && Regex.IsMatch(rules, @"\.gg-global\.cu-off #gg_set_catchup_off\s*\{"));
             string[] v45Classes = ["vlead", "vtie", "vmine", "vhas", "vstrip", "vlock", "vaway", "opulse", "changed", "cu-on", "cu-off", "vrand", .. Enumerable.Range(0, 11).Select(k => $"w{k}")];
@@ -496,17 +503,16 @@ static partial class Program
             adsCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 2, Ads: 1));
             adsCat.Votes[1001] = new() { ["3084291314"] = HudCatalog.AdsVote };
             var adsMenu = HudMenu.Maps(adsCat, new HudState(), new HudBrowser(), 1001, now);
-            Check("Cards: a map with an ads vote shows the Ads tag, this player's ads vote lights the card's Ads, and the card's Ads button sends !ads <rank>",
+            Check("Cards: a map with an ads mark shows the Ads tag, this player's ads mark lights the card's Ads, and the card's Ads button sends !down <rank> ads",
                 adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "ads").On && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "adsvoted").On
-                && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "disliked").On && HudMenu.Command("gg_m1_ads", adsCat, new HudState(), new HudBrowser(), 1001, now) == "!ads 1"
-                && Hud.IsAction("!ads 1"));
+                && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "disliked").On && HudMenu.Command("gg_m1_ads", adsCat, new HudState(), new HudBrowser(), 1001, now) == "!down 1 ads"
+                && Hud.IsAction("!down 1 ads"));
             var adsLive = new HudState { Ads = 2, MyVotes = new() { [7] = HudCatalog.AdsVote } };
-            Check("The board: Ads sends !ads, its count is the ads votes on the map that is on, and the player's own ads vote lights it",
-                HudView.Command(HudView.BoardAds, adsLive, 7) == "!ads" && HudView.Texts(adsLive).Single(x => x.Id == "gg_b_ads").Text == "2"
+            Check("The board: Ads sends !down ads, its count is the ads marks on the map that is on, and the player's own ads mark lights it",
+                HudView.Command(HudView.BoardAds, adsLive) == "!down ads" && HudView.Texts(adsLive).Single(x => x.Id == "gg_b_ads").Text == "2"
                 && HudView.PlayerClasses(adsLive, 7).Single(x => x.Class == "voted-ads").On && HudView.PlayerTexts(adsLive, 7, "x", false).Single(x => x.Id == "gg_b_you").Text == "You marked this map: ads");
-            Check("Help: content v3_2_0's two rows go into the Voting and Game groups' fifth slot, which only that content has",
-                Hud.HelpMore.Select(m => Hud.Help[m.Group].Name).SequenceEqual(["Voting", "Game"]) && Hud.HelpMore.All(m => HudView.NewIds32.Contains($"gg_c{m.Group + 1}_5_txt") && m.Row.Command.Length <= 22)
-                && Hud.HelpMore.All(m => Hud.Help[m.Group].Rows.Length == Hud.RowsPerGroup));
+            Check("Help: content v3_2_0's two fifth rows stay empty since the owner's 64 a (one Fun row, one row for a Dislike's reasons, no Ads row)",
+                Hud.HelpMore.Length == 0 && Hud.Help.Count(g => g.Rows.Any(r => r.Command.StartsWith("Fun"))) == 1 && !Hud.Help.Any(g => g.Rows.Any(r => r.Command == "Ads")));
             // The Help page's height with content v3_2_0's two rows and its tighter rows (1 px a row each way, 4 + 5 px a group): the budget of
             // the check above with those numbers.
             static int Lines32(Hud.Row r) => (int)Math.Ceiling((r.Also == "" ? r.Words : $"{r.Words}  ·  {r.Also}").Length / 60.0);

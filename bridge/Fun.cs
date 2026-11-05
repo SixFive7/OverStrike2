@@ -1,10 +1,11 @@
 // The fun settings (the owner's feature request of 2026-10-24): a page of the in-game menu where anybody switches a few game settings
-// live, for everybody - low gravity, bunny hopping, no fall damage and so on - the way the grenade drops are switched, with the same
-// line on the news for everyone. Unlike the grenade drops, every change a player makes lasts only until the map changes, and the
-// bridge's reset after 10 minutes with nobody on puts them back too.
+// live, for everybody - low gravity, bunny hopping, no fall damage, the grenade drops, catch-up and so on. Since the owner's 61 b
+// (2026-11-04) every row is the same kind of switch: every change lasts until the map changes (the grenade drops too), the bridge's
+// reset after 10 minutes with nobody on puts them all back (gg_fun reset), and every change shows on the centre screen for everybody
+// with its command in chat - no news-line copy.
 //
-// Shared like Hud.cs: the bridge's --selftest checks all of it, GunGameWelcome draws the page and asks for a change, and MapSettingsReset
-// makes it (gg_fun) - the plugin that owns the server's game settings: their baseline, the put-back at every map end, and the
+// Shared like Hud.cs: the bridge's --selftest checks all of it, the plugin's HUD draws the page and asks for a change, and its settings
+// module makes it (gg_fun) - the part that owns the server's game settings: their baseline, the put-back at every map end, and the
 // game-changers no map may set (BlockList.cs). A player's change is never blocked, and never becomes the baseline. Plain BCL only.
 //
 // What "Normal" means: no player's change. On most maps that is the server's own value; a map that sets its own (fs_highsky's low
@@ -20,7 +21,9 @@
 // (sv_infinite_ammo 1 - a cheat-flagged convar the server sets itself, as Arms Race's own 2 is set), and three effects that are no convar
 // at all - Vampire, Ghost and the no-recoil half of Laser guns: the plugin's own switches (Effect names, "os2_..."), which its Effects
 // module acts on; the settings module keeps them like convars, so a player's change of one is undone at the map's end and by the reset
-// like any other. Left out still: speed (no convar raises a player's run speed - the weapon in hand sets it) and host_timescale.
+// like any other. The grenade drops and catch-up are two more such effects (os2_drops, os2_catchup), on by default like friendly fire's
+// three, Arms Race's alone; the grenades and catch-up modules read them. Left out still: speed (no convar raises a player's run speed -
+// the weapon in hand sets it) and host_timescale.
 using System.Globalization;
 
 public static class Fun
@@ -45,13 +48,17 @@ public static class Fun
 
     /// <summary>The fun page's effects that are no game convar: the plugin's own switches, "1" on and "0" off (Vampire, Ghost, no recoil).
     /// The settings module keeps them like convars (FunState, the undo at the map's end, the reset); the Effects module acts on them.</summary>
-    public const string EffectPrefix = "os2_", Vampire = "os2_vampire", Ghost = "os2_ghost", NoRecoil = "os2_norecoil";
+    public const string EffectPrefix = "os2_", Vampire = "os2_vampire", Ghost = "os2_ghost", NoRecoil = "os2_norecoil", Drops = "os2_drops", CatchUp = "os2_catchup";
+
+    /// <summary>The effects that are on unless a player switched them off (every other effect is off until switched on): the grenade drops and
+    /// catch-up. The settings module starts them so, and puts them back so at every map end and at the reset.</summary>
+    public static readonly (string Effect, string Value)[] EffectsOn = [(Drops, "1"), (CatchUp, "1")];
 
     public static bool IsEffect(string name) => name.StartsWith(EffectPrefix, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Friendly fire's three are Arms Race's own (#27 c, docs/reference.md): Deathmatch is free-for-all and Wingman runs
-    /// Valve's competitive friendly fire, so the Fun page leaves them out there.</summary>
-    public static bool ArmsRaceOnly(Setting s) => s.Id is "ff" or "instakill" or "ffnades";
+    /// <summary>Friendly fire's three are Arms Race's own (#27 c, docs/reference.md): Deathmatch is free-for-all and Wingman runs Valve's
+    /// competitive friendly fire, so the Fun page leaves them out there; the grenade drops and catch-up are Arms Race's too (its ladder).</summary>
+    public static bool ArmsRaceOnly(Setting s) => s.Id is "ff" or "instakill" or "ffnades" or "drops" or "catchup";
 
     /// <summary>Vampire's numbers: every player spawns with this much health while it is
     /// on, and the damage they deal heals them up to the cap.</summary>
@@ -63,12 +70,13 @@ public static class Fun
     /// <summary>Vampire's heal: what a hit worth that much damage leaves the attacker with.</summary>
     public static int Heal(int health, int damage) => Math.Clamp(health + Math.Max(0, damage), 0, VampireCap) is var h && h > health ? h : health;
 
-    /// <summary>The server command MapSettingsReset registers: gg_fun &lt;setting&gt; &lt;choice&gt; ["who"] | gg_fun reset ["who"] | gg_fun.
-    /// Server only: GunGameWelcome runs it for a click, the bridge for its reset after nobody has been on for 10 minutes.</summary>
+    /// <summary>The server command the settings module registers: gg_fun &lt;setting&gt; &lt;choice&gt; ["who"] | gg_fun reset ["who"] | gg_fun.
+    /// Server only: the bridge runs it for its reset after nobody has been on for 10 minutes (the plugin's own clicks apply in-process).</summary>
     public const string Command = "gg_fun";
     public const string ResetCommand = Command + " reset";
 
-    public const int Rows = 16, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons (Over Strike 2's content)
+    public const int Rows = 16, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons (Over Strike 2's content);
+                                                   // the grenade drops and catch-up, the 17th and 18th setting, have fixed rows of their own (HudMenu.FunClick)
 
     static (string, string)[] Set(params (string, string)[] sets) => sets;
 
@@ -78,7 +86,8 @@ public static class Fun
 
     static readonly string[] DamageScales = ["mp_damage_scale_ct_body", "mp_damage_scale_ct_head", "mp_damage_scale_t_body", "mp_damage_scale_t_head"];
 
-    /// <summary>Friendly fire's On, as gamemode_armsrace_server.cfg sets it at every map load (--selftest holds the two equal). Each
+    /// <summary>Friendly fire's On and Instakill's, as gamemode_armsrace_server.cfg sets them at every map load (--selftest holds them equal); Grenades
+    /// x10 is off by default since the owner's 92 b - the cfg sets ff_damage_reduction_grenade 1, the Fun page's On sets GrenadeShare. Each
     /// ff_damage_reduction_* is the share of an enemy's damage a teammate takes, despite its name: 1 is the same as an enemy, 100 kills
     /// with any hit. Valve documents 0-1; the server accepts more (read back 2026-10-29) - that it multiplies was not yet seen in a game.</summary>
     public const string FriendlyFireOn = "1", InstakillShare = "100", GrenadeShare = "10";
@@ -137,8 +146,14 @@ public static class Fun
              new("off", "Off", Set(("ff_damage_reduction_bullets", "1"), ("ff_damage_reduction_other", "1")))],
             Set(("ff_damage_reduction_bullets", InstakillShare), ("ff_damage_reduction_other", InstakillShare)), [NotWithFreeForAll, NeedsFriendlyFire]),
         new("ffnades", $"Grenades x{GrenadeShare}", $"A grenade does {GrenadeShare} times the damage to teammates. Off: the damage an enemy takes",
-            [new("on", "On", Set(("ff_damage_reduction_grenade", GrenadeShare))), new("off", "Off", Set(("ff_damage_reduction_grenade", "1")))],
-            Set(("ff_damage_reduction_grenade", GrenadeShare)), [NotWithFreeForAll, NeedsFriendlyFire]),
+            [new("off", "Off", []), new("on", "On", Set(("ff_damage_reduction_grenade", GrenadeShare)))],
+            Set(("ff_damage_reduction_grenade", "1")), [NotWithFreeForAll, NeedsFriendlyFire]), // off by default (the owner's 92 b): the cfg's 1
+        new("drops", "Grenade drops", "Every player spawns with a grenade, dropped where they die; off: the ladder's weapons only",
+            [new("on", "On", Set((Drops, "1"))), new("off", "Off", Set((Drops, "0")))],
+            Set((Drops, "1"))),
+        new("catchup", "Catch-up", "Players behind the leader get boosts, the leader a bounty; off: everybody plays even",
+            [new("on", "On", Set((CatchUp, "1"))), new("off", "Off", Set((CatchUp, "0")))],
+            Set((CatchUp, "1"))),
     ];
 
     /// <summary>Every convar the fun page can touch.</summary>
@@ -212,19 +227,24 @@ public static class Fun
     /// <summary>Random's catch-up (the owner's 43 c, 2026-11-04): on three times in four, off one time in four - Arms Race's alone, like the page's row.</summary>
     public const int CatchUpOffOneIn = 4;
 
-    /// <summary>The Fun page's Random: a choice for every setting the page shows in this mode, each drawn evenly from its own choices
-    /// (dice: a number 0 to n-1), and in Arms Race the grenade drops on or off and catch-up on three times in four (the owner's 43 c). The
-    /// page lets any combination stand but a Clash - a setting another one makes idle says so - and so does Random: of a clash it keeps the
-    /// first setting's draw and puts the other back to its Normal (Moon gravity keeps Super jump normal).</summary>
-    public static (List<(Setting Setting, Choice Choice)> Choices, bool? Nades, bool? CatchUp) Randomized(Func<int, int> dice, bool armsRace)
+    /// <summary>The Fun page's Random: a choice for every setting the page shows in this mode, each drawn evenly from its own choices (dice: a number
+    /// 0 to n-1) - catch-up on three times in four (the owner's 43 c and 61 b), so dice(CatchUpOffOneIn) decides it. The page lets any combination
+    /// stand but a Clash - a setting another one makes idle says so - and so does Random: of a clash it keeps the first setting's draw and puts the
+    /// other back to its Normal (Moon gravity keeps Super jump normal).</summary>
+    public static List<(Setting Setting, Choice Choice)> Randomized(Func<int, int> dice, bool armsRace)
     {
-        var picks = Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Choices[Math.Clamp(dice(s.Choices.Length), 0, s.Choices.Length - 1)])).ToList();
+        Choice Draw(Setting s) => s.Id == "catchup" ? (dice(CatchUpOffOneIn) == 0 ? Find(s, "off")! : Find(s, "on")!) : s.Choices[Math.Clamp(dice(s.Choices.Length), 0, s.Choices.Length - 1)];
+        var picks = Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, Draw(s))).ToList();
         string Of(string id) => picks.FirstOrDefault(x => x.s.Id == id) is { s: not null } p ? p.Item2.Id : Find(id)?.Normal.Id ?? "";
         while (ClashIn(Of) is { } clash)
             for (var i = 0; i < picks.Count; i++)
                 if (picks[i].s.Id == clash.Other) picks[i] = (picks[i].s, picks[i].s.Normal);
-        return (picks, armsRace ? dice(2) == 1 : null, armsRace ? dice(CatchUpOffOneIn) != 0 : null);
+        return picks;
     }
+
+    /// <summary>The Fun page's Default (the owner's 61 b): every setting the page shows in this mode back to its first choice - Normal, or the On of
+    /// a setting that is on by default (friendly fire's three, the grenade drops, catch-up).</summary>
+    public static List<(Setting Setting, Choice Choice)> Defaults(bool armsRace) => Settings.Where(s => armsRace || !ArmsRaceOnly(s)).Select(s => (s, s.Normal)).ToList();
 
     /// <summary>The order Random's changes are made in: the ones back to Normal first, so no change on the way meets a Clash the end result does
     /// not hold (gg_fun refuses one: Super jump back to Normal before the gravity goes to Moon).</summary>
@@ -232,9 +252,9 @@ public static class Fun
         changes.OrderBy(x => x.Choice == x.Setting.Normal ? 0 : 1).ToList();
 
     /// <summary>The one chat line for everybody after Random: who, and what changed (at most so many characters; the rest counted).</summary>
-    public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, int max = 200, bool? catchUpSwitched = null)
+    public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, int max = 200)
     {
-        var parts = Changes(changed, nadesSwitched, catchUpSwitched);
+        var parts = Changes(changed);
         if (parts.Count == 0) return $"{who} rolled the fun settings: nothing changed";
         var line = $"{who} rolled the fun settings: ";
         for (var i = 0; i < parts.Count; i++)
@@ -246,17 +266,12 @@ public static class Fun
         return line;
     }
 
-    /// <summary>What a Random changed, as the lines and the centre notice say it: "gravity low", "grenade drops off", "catch-up off".</summary>
-    public static List<string> Changes(List<(Setting Setting, Choice Choice)> changed, bool? nadesSwitched, bool? catchUpSwitched)
-    {
-        var parts = changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
-        if (nadesSwitched is { } on) parts.Add($"grenade drops {(on ? "on" : "off")}");
-        if (catchUpSwitched is { } cu) parts.Add($"catch-up {(cu ? "on" : "off")}");
-        return parts;
-    }
+    /// <summary>What a Random or a Default changed, as the lines and the centre notice say it: "gravity low", "grenade drops off", "catch-up off".</summary>
+    public static List<string> Changes(List<(Setting Setting, Choice Choice)> changed) =>
+        changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
 
     /// <summary>The one chat line for everybody after Default.</summary>
-    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal, the grenade drops and catch-up on";
+    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal";
 
     /// <summary>The centre-screen notice of a fun change (content-free: the game's centre panel, for everybody, 10 s; the owner's 2026-11-03):
     /// "Remy turned Vampire on", "Remy set Gravity to Low", "Remy put Gravity back to normal".</summary>
@@ -267,10 +282,8 @@ public static class Fun
     /// <summary>How long a fun change stays centre screen, for everybody.</summary>
     public const int CentreSeconds = 10;
 
-    /// <summary>What the news line says for a change: "Remy switched gravity to Low - until the map changes", or "Remy put gravity back to
-    /// normal" for the first choice.</summary>
-    public static string News(string who, Setting s, Choice c) =>
-        c == s.Normal ? $"{who} put {s.Title.ToLowerInvariant()} back to {c.Label.ToLowerInvariant()}" : $"{who} switched {s.Title.ToLowerInvariant()} to {c.Label} - until the map changes";
+    /// <summary>The command a change is, as chat says it under the player's name since the owner's 61 b - !gravity low, !drops off.</summary>
+    public static string ChatWords(Setting s, Choice c) => $"!{s.Id} {c.Id}";
 }
 
 /// <summary>A fun change as the game's centre panel shows it, to everybody, for Fun.CentreSeconds (the owner's 2026-11-03): who, in gold, over
@@ -303,7 +316,7 @@ public static class FunNotice
     }
 }
 
-/// <summary>The players' changes on the map that is on, kept by MapSettingsReset: for every convar a player changed, what it was before the
+/// <summary>The players' changes on the map that is on, kept by the settings module: for every convar a player changed, what it was before the
 /// first such change on this map. That is what Normal (and the reset of all of them) puts back, so a map's own value survives a player's
 /// detour; and while a convar holds a player's value it is exempt from the game-changers block (BlockList.cs) and kept out of the
 /// baseline. Free of CounterStrikeSharp: the plugin hands it the live values and makes the writes it returns.</summary>

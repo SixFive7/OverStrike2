@@ -1,16 +1,26 @@
 """The menu's map thumbnails: one small JPEG per map, the stylesheet that gives each one its class, and the list that numbers them.
 
-    python thumbs.py [--ahead FILE] [--workers 4]
+    python thumbs.py [--export FILE] [--queues FILE] [--ahead FILE] [--workers 4]
 
-The pictures are the maps' own Workshop previews, from Steam's image CDN: the preview_url the public Web API gives for an item
-(ISteamRemoteStorage/GetPublishedFileDetails, no key), or the preview an --ahead file already names. Reads bridge/maps.json,
-bridge/Modes.cs (the official maps of every mode) and, with --ahead, a JSON array of {"id", "preview"}: maps that are not listed yet
-but will be, most popular first, so their pictures can ship before they are listed. Writes:
+The pictures are the maps' own Workshop previews, from Steam's image CDN: the preview the Workshop sync's export or an --ahead file names,
+else the preview_url the public Web API gives for an item (ISteamRemoteStorage/GetPublishedFileDetails, no key) - one request at a time,
+each at least 2 s after the last one ended, as every Web API caller of the project does. Reads:
+
+  --export FILE   the Workshop sync's export (python3 workshop-sync.py --export, on the server): every mode's list - Arms Race's maps.json
+                  and the other modes' (its "modes") - each entry with its preview. Without it: bridge/maps.json, Arms Race's list as the
+                  repository has it, with no previews, so every missing one is asked of the Web API
+  --queues FILE   the bridge's queues.json: the maps its random queues will put on the next ballots and the maps on an open ballot,
+                  first in line for a picture. An export that carries the queues itself ("queues") needs no --queues
+  --ahead FILE    a JSON array of {"id", "preview"}: maps that are not listed yet but will be, most popular first, so their pictures can
+                  ship before they are listed
+  bridge/Modes.cs the official maps of every mode
+
+Writes:
 
   hud/thumbs/<id>.jpg                 336x189, quality 82 (about 12 KB each) - gitignored, other authors' pictures; build.ps1 copies them
                                       into the addon, where the resource compiler stores each JPEG as it is (VTEX JPEG_DXT5).
                                       Black bars baked into a Workshop preview (letterbox or pillarbox) are filled with a blurred copy
-                                      of the picture first (debar), since 2026-10-21: about a fifth of the maps had them. A JPEG that
+                                      of the picture first (debar): about a fifth of the maps had them. A JPEG that
                                       exists is kept as it is: build.ps1 holds the ones the last release shipped to their bytes
   bridge/HudThumbList.cs              committed: every map that ever had a picture, in the order they got one. A map's place in it is
                                       its picture's number, for good: new maps go at the end and nothing moves, so a player whose CS2
@@ -52,7 +62,8 @@ SIZE = (336, 189)
 QUALITY = 82
 DETAILS = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"
 SIZING = {"imw", "imh", "ima", "impolicy", "imcolor", "imsharp", "letterbox"}  # Steam's sizing query: without it, the original upload
-AGENT = {"User-Agent": "OverStrike2-thumbs/1.0"}
+AGENT = {"User-Agent": "OverStrike2-thumbs/1.1 (the Over Strike 2 HUD's map pictures; hud/thumbs.py)"}
+API_GAP = 2.0  # seconds from the end of one Web API request to the start of the next, never less
 MAX_BYTES = 32 * 1024 * 1024
 
 HEAD = """/*
@@ -160,21 +171,75 @@ def get(url):
     return data
 
 
+class WebApi:
+    """The one door to the Steam Web API: one request at a time, and the next no sooner than API_GAP after the last one ENDED, however it
+    ended (an answer, an error, a timeout)."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.ended = None  # time.monotonic() when the last request ended
+
+    def post(self, url, form):
+        with self.lock:
+            if self.ended is not None:
+                wait = self.ended + API_GAP - time.monotonic()
+                if wait > 0:
+                    time.sleep(wait)
+            try:
+                req = urllib.request.Request(url, data=urllib.parse.urlencode(form).encode(), headers=AGENT)
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    return json.load(r)
+            finally:
+                self.ended = time.monotonic()
+
+
+API = WebApi()
+
+
 def previews_from_steam(ids):
-    """Each id's preview_url from the Web API: 100 ids a call, one call at a time."""
+    """Each id's preview_url from the Web API: 100 ids a call, through the one door (WebApi)."""
     found = {}
     ids = list(ids)
     for i in range(0, len(ids), 100):
         batch = ids[i:i + 100]
         form = {"itemcount": str(len(batch)), **{f"publishedfileids[{k}]": v for k, v in enumerate(batch)}}
-        req = urllib.request.Request(DETAILS, data=urllib.parse.urlencode(form).encode(), headers=AGENT)
-        with urllib.request.urlopen(req, timeout=30) as r:
-            details = json.load(r)["response"]["publishedfiledetails"]
+        details = API.post(DETAILS, form)["response"]["publishedfiledetails"]
         for d in details:
             if d.get("preview_url"):
                 found[str(d["publishedfileid"])] = d["preview_url"]
-        time.sleep(1)
     return found
+
+
+def by_rank(entries):
+    """A list's entries (dicts with an id and a rank, as maps.json and the export have them), most popular first."""
+    def rank(e):
+        try:
+            return int(e.get("rank"))
+        except (TypeError, ValueError):
+            return 1 << 30
+    return sorted((e for e in entries if isinstance(e, dict) and str(e.get("id", "")).isdigit()), key=rank)
+
+
+def from_export(export):
+    """The export's maps, every mode's: (ids most popular first, Arms Race's list first; their previews)."""
+    lists = [export.get("maps.json") or []] + [entries for _, entries in sorted((export.get("modes") or {}).items())]
+    ids, previews = [], {}
+    for entries in lists:
+        for e in by_rank(entries):
+            ids.append(str(e["id"]))
+            if e.get("preview"):
+                previews[str(e["id"])] = e["preview"]
+    return ids, previews
+
+
+def from_queues(queues):
+    """The Workshop ids queues.json (version 1) names: the open ballot's first ("requested"), then every random queue in play order."""
+    if not isinstance(queues, dict) or queues.get("version", queues.get("Version")) != 1:
+        sys.exit("the queues are not queues.json version 1")
+    random = queues.get("random") or queues.get("Random") or {}
+    requested = queues.get("requested") or queues.get("Requested") or []
+    keys = list(requested) + [k for name in sorted(random) for k in random[name]]
+    return [str(k) for k in keys if str(k).isdigit()]
 
 
 def known_keys():
@@ -198,10 +263,22 @@ def rule(n, url):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--export", help="the Workshop sync's export (workshop-sync.py --export): every mode's list, with previews")
+    ap.add_argument("--queues", help="the bridge's queues.json: the maps the next ballots will show, first in line")
     ap.add_argument("--ahead", help="a JSON array of {id, preview}: maps not listed yet, most popular first")
     ap.add_argument("--workers", type=int, default=4, help="downloads at a time from Steam's image CDN")
     a = ap.parse_args()
-    maps = json.loads(MAPS.read_text(encoding="utf-8"))
+    export = json.loads(Path(a.export).read_text(encoding="utf-8")) if a.export else None
+    if export is not None:
+        listed, previews = from_export(export)
+        print(f"the sync's export: {len(listed)} listed map(s) of every mode, {len(previews)} with their preview", flush=True)
+    else:
+        listed, previews = [str(m["id"]) for m in by_rank(json.loads(MAPS.read_text(encoding="utf-8")))], {}
+        print(f"{MAPS.name}: {len(listed)} Arms Race map(s), no previews (--export gives every mode's, with them)", flush=True)
+    queues = json.loads(Path(a.queues).read_text(encoding="utf-8")) if a.queues else (export or {}).get("queues")
+    queued = from_queues(queues) if queues is not None else []
+    if queues is None:
+        print("no random queues (--queues, or an export that carries them): the next ballots' maps get no head start", flush=True)
     ahead = json.loads(Path(a.ahead).read_text(encoding="utf-8")) if a.ahead else []
     OUT.mkdir(exist_ok=True)
     keys = known_keys()
@@ -209,8 +286,8 @@ def main():
     if len(number) != len(keys):
         sys.exit(f"{LIST.name} names a map twice - fix it by hand before anything else")
     official = officials()
-    wanted = [str(m["id"]) for m in sorted(maps, key=lambda m: int(m["rank"]))] + [str(e["id"]) for e in ahead]
-    url_of = {str(e["id"]): e.get("preview") or "" for e in ahead}
+    wanted = list(dict.fromkeys(queued + listed + [str(e["id"]) for e in ahead]))
+    url_of = {**previews, **{str(e["id"]): e.get("preview") or "" for e in ahead if e.get("preview")}}
     # Every numbered map keeps its picture; every map wanted gets one. Only a JPEG that is missing is fetched.
     workshop = list(dict.fromkeys([k for k in keys if k.isdigit()] + wanted))
     missing = [k for k in workshop if not (OUT / f"{k}.jpg").exists()]

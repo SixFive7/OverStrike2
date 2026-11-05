@@ -58,6 +58,7 @@ static partial class Program
         if (!force && before > 0 && workshop * 2 < before)
             return $"{mode.Id} maps: {path} has {workshop} Workshop maps, less than half of the {before} loaded - kept them";
         ModeMaps[mode.Id] = good;
+        ExpireMarks(); // CrashWatch.cs: a map's Workshop update lifts its crash mark
         return $"{mode.Id} maps: {workshop} Workshop maps + {good.Count - workshop} official extra(s) from {path} (were {before}), {PoolOf(mode).Count} in the {mode.Name} pool";
     }
 
@@ -78,7 +79,8 @@ static partial class Program
         return whole.Count > 0 ? whole : hits;
     }
 
-    /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than Valve's maxplayers for it, the rule the vote's ballot follows.</summary>
+    /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than Valve's maxplayers for it (B6: no Wingman map with five
+    /// or more on), the rule the ballot and its result follow too (VoteRound.cs).</summary>
     static string? ModeRefusal(MapInfo map)
     {
         var mode = ModeOf(map);
@@ -205,9 +207,9 @@ static partial class Program
     {
         if (CurrentMode.ArmsRace || Pending != null || AnnouncePending || now < ModeResetRetryAt || InMaintenance()) return;
         ModeResetRetryAt = now.AddMinutes(1);
-        if (RandomNext(true, 1, Modes.Default) is not { } map) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; } // RandomQueue.cs
-        Log($"reset: nobody on for over {ResetEmptyMinutes} min in {CurrentMode.Name} - back to {Modes.Default.Name} on {Label(map)}");
-        StartChange(new Change(map, "the server", []), $"Nobody on for {ResetEmptyMinutes} minutes - back to {Modes.Default.Name}: {Label(map)}{Detail(map)}");
+        var from = CurrentMode.Name;
+        if (!AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - back to {Modes.Default.Name}", Modes.Default)) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
+        Log($"reset: nobody on for over {ResetEmptyMinutes} min in {from} - back to {Modes.Default.Name} on {Label(Pending!.Map)}");
     }
 
     /// <summary>The mode's name after a map's label when it is not the mode the server is in: what the ballot and the news line show.</summary>

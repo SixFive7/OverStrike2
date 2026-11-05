@@ -1,34 +1,30 @@
-// Random picks (the owner's rules of 2026-10-22): which list a random pick comes from, the maps that are too big, and the reset of the
-// server-wide settings once nobody is on. Rules for players: README.md "Random maps"; in the game, the how-it-works words (Hud.How).
+// Random picks: the maps that are too big, the ones never rolled, and the reset of the server-wide settings once nobody is on. Rules for players:
+// README.md "Random maps"; in the game, the how-it-works words (Hud.How).
 //
-//  - New maps are list numbers FirstNewRank (1017) and up: the Arms Race maps added on 2026-10-22 and every later addition; the original
-//    list is #1-#1016. The "new maps in random picks" setting - server-wide, anybody may switch it in the menu, like the grenade drops -
-//    says where a random pick comes from: always (the default) the new maps, half a fair coin per roll, never the original list. A list
-//    with no eligible map hands the roll to the other one, so the dice never stop rolling for want of a list.
 //  - Too big: a map whose class in sizes.json (beside maps.json, written by the size tool) is XL, or that at least one player marked too
 //    big - a special downvote, TooBigVote in votes.json, which counts as that player's dislike everywhere a vote counts. A random pick comes
 //    from the too-big maps of its list TooBigChance (1%) of the time, otherwise from the rest; an empty group hands the roll to the other.
-//    Within the group the weights and the exclusions are what they always were (Votes.cs).
-//  - Once no human has been connected for more than ResetEmptyMinutes (10), the new-maps setting and the grenade drops go back to their
-//    defaults: always, and on (GunGameNades' server command gg_nades on, over RCON) - and the fun page's changes are undone (gg_fun reset).
-//  - A map a player marked as showing ads (AdsVote, the owner's 15b of 2026-10-24) is never a random pick; anybody may still pick it.
+//    Within the group the points and the exclusions decide (Votes.cs).
+//  - Once no human has been connected for more than ResetEmptyMinutes (10), the Fun page's changes are undone - the grenade drops and catch-up
+//    among them, ordinary fun settings - with gg_fun reset over RCON, and the server goes back to Arms Race (ModeSwitch.cs).
+//  - A map a player marked as showing ads (AdsVote) is never a random pick; anybody may still pick it.
+//  - The new-maps setting is gone: every ballot has a fresh map and a surprise new to us (VoteRound.cs). The Game page's three buttons of a
+//    content that still has them answer that (NewMapsGone).
 //
-// A random pick is any map the dice choose (the start roll, a match end, Next, a map that went from the Workshop, the vote's rolled
-// options and its Random) - never a map a player picked or queued. Since 2026-11-03 the dice are rolled ahead into one queue per list
-// (RandomQueue.cs: RandomNext takes from them), so the maps are on the server's disk before they are needed; the rules are these.
+// A random pick is any map the dice choose (the vote's random cards and its Random, and the automatic changes: the start roll, the way back
+// to Arms Race, a map gone from the Workshop or crashing the players' games) - never a map a player selected. It takes a map on the server's
+// disk (RandomQueue.cs: RandomNext), so it loads at once; the rules are these.
 using System.Text.Json;
 
 static partial class Program
 {
-    public const int FirstNewRank = 1017;      // list numbers from here on are the new maps; #1-#1016 are the original list
     public const double TooBigChance = 0.01;   // a random pick is a too-big map this often
-    public const int ResetEmptyMinutes = 10;   // nobody connected for longer than this: the new-maps setting and the grenade drops go back to their defaults
+    public const int ResetEmptyMinutes = 10;   // nobody connected for longer than this: the fun settings go back to their defaults
     public const int TooBigVote = HudCatalog.TooBigVote; // a too-big vote in votes.json: a downvote that also marks the map too big
-    public const int AdsVote = HudCatalog.AdsVote;       // an ads vote in votes.json: a downvote that also keeps the map out of random picks (the owner's 15b)
+    public const int AdsVote = HudCatalog.AdsVote;       // an ads vote in votes.json: a downvote that also keeps the map out of random picks
 
-    /// <summary>The "new maps in random picks" setting, by the names state.json keeps it under and the menu sends (!newmaps &lt;mode&gt;).</summary>
-    public const string NewMapsAlways = "always", NewMapsHalf = "half", NewMapsNever = "never", DefaultNewMaps = NewMapsAlways;
-    public static readonly string[] NewMapsModes = [NewMapsAlways, NewMapsHalf, NewMapsNever];
+    /// <summary>What the new-maps buttons and !newmaps answer: the setting is gone, and what took its place.</summary>
+    public const string NewMapsGoneNote = "The new-maps setting is gone: every vote now has a fresh Workshop map and a surprise new to us";
 
     /// <summary>The owner's rule for the HUD update of 2026-10-22 (content v3_1_0 of item 3823993566): nobody may be kicked or kept out over
     /// the HUD while the update waits for Valve's review or a player's game has not downloaded it. While this holds, the live state carries no
@@ -39,30 +35,11 @@ static partial class Program
     /// interlocks stay: no disconnect while Steam does not show the item to everybody, nor while joiners are not made to download it.</summary>
     public static readonly bool HudCheckHold = false;
 
-    /// <summary>The grenade drops' default, as GunGameNades' server command takes it (it starts with drops on, and a restart is back to on).</summary>
-    public const string NadesDefaultCommand = "gg_nades on";
-
-    /// <summary>The fun page's changes undone (MapSettingsReset's gg_fun reset, Fun.cs): each setting a player changed back to how the map
-    /// had it. They last until the map changes anyway; an empty server puts them back sooner, like the other settings.</summary>
+    /// <summary>The Fun page's changes undone (the settings module's gg_fun reset, Fun.cs): every row back to its first choice - the grenade drops
+    /// and catch-up too. They last until the map changes anyway; an empty server puts them back sooner, like the other settings.</summary>
     public const string FunResetCommand = Fun.ResetCommand + " \"the server\"";
 
-    /// <summary>Catch-up back on (content v4_5_0's Fun page switches it, the owner's 2026-11-03): the module's own console command. Only in Arms
-    /// Race, where the boosts are; another mode's empty server goes back to Arms Race anyway, which switches it on.</summary>
-    public const string CatchUpDefaultCommand = "gg_catchup on";
-
     static bool SelfTesting; // --selftest: the dice roll tens of thousands of times without a log line each
-
-    static bool IsNew(MapInfo m) => !m.Official && m.Rank >= FirstNewRank && InArmsRace(m); // list numbers of Arms Race's maps.json only
-
-    static string NewMapsMode => NewMapsModes.Contains(S.NewMaps) ? S.NewMaps : DefaultNewMaps; // a state.json someone edited by hand reads as the default
-
-    /// <summary>What the setting does, in the words of the news line and the health page.</summary>
-    static string NewMapsWords(string mode) => mode switch
-    {
-        NewMapsHalf => "half: a coin flip between the new and the original maps",
-        NewMapsNever => $"never: the original #1-#{FirstNewRank - 1} only",
-        _ => $"always: every random pick is a new map (#{FirstNewRank} and up)",
-    };
 
     // ---- sizes.json: the size tool's verdict on each map (contract version 1, written by the size tool beside maps.json) ----
 
@@ -123,18 +100,13 @@ static partial class Program
     /// <summary>Too big: measured XL, or marked too big by at least one player. An unmeasured map is not too big.</summary>
     static bool TooBig(MapInfo m) => SizeClass(m) == "XL" || TooBigVotes(Key(m)) > 0;
 
-    // ---- the setting: !newmaps always|half|never, from the menu's Game page ----
+    // ---- the new-maps setting is gone: a content that still has its buttons sends !newmaps always|half|never ----
 
-    /// <summary>!newmaps &lt;mode&gt;: anybody switches where random picks come from, for everybody, and the news line says who did - the way
-    /// the grenade drops are switched.</summary>
-    static void SetNewMaps(string by, string steamId, string arg)
+    /// <summary>!newmaps from one of the Game page's old buttons: it changes nothing, and that player hears what took its place.</summary>
+    static void NewMapsGone(string by, string steamId)
     {
-        var want = arg.Trim().ToLowerInvariant();
-        if (!NewMapsModes.Contains(want)) { Tell(steamId, "New maps in random picks: always, half or never"); return; }
-        if (want == NewMapsMode) { Tell(steamId, $"New maps in random picks are {NewMapsWords(want)} already"); return; }
-        S.NewMaps = want; Save();
-        Log($"selection: {by} {steamId} set new maps in random picks to {want}");
-        Announce($"{by} set new maps in random picks to {NewMapsWords(want)}");
+        Log($"selection: {by} {steamId} clicked a new-maps button - the setting is gone");
+        Tell(steamId, NewMapsGoneNote);
     }
 
     // ---- the reset: nobody on for more than ResetEmptyMinutes, and the server-wide settings go back to their defaults ----
@@ -143,15 +115,13 @@ static partial class Program
     static bool ResetDone;          // this empty spell's reset has been done
     static DateTime ResetProbeAt;   // when to ask RCON status again (once a minute while it says somebody is there, or does not answer)
 
-    /// <summary>From Tick. The log stream says who is connected; a departure's 60 s grace does not count, a reload inside its 10-minute
-    /// grace does. Past ResetEmptyMinutes of nobody, RCON status has the last word - a bridge that started mid-map has not seen the joins -
-    /// and only "0 humans" resets: the new-maps setting to always, the grenade drops on. Once per empty spell; anybody connecting ends it.</summary>
+    /// <summary>From Tick. The log stream says who is present (VoteRound.cs: in game, or reloading inside its 10-minute grace). Past
+    /// ResetEmptyMinutes of nobody, RCON status has the last word - a bridge that started mid-map has not seen the joins - and only "0 humans"
+    /// resets: the fun settings back. Once per empty spell; anybody connecting ends it.</summary>
     static void ResetWhenEmpty(DateTime now)
     {
-        var anyone = Players.Values.Any(p => p.GoneSince == null && (p.ReloadSince is not { } r || (now - r).TotalSeconds <= ReloadGraceSeconds));
-        if (anyone) { NobodySince = null; ResetDone = false; return; }
+        if (PresentIds(now).Count > 0) { NobodySince = null; ResetDone = false; return; }
         NobodySince ??= now;
-        if (VoteHeld) { VoteHeld = false; Log("vote: nobody on - the vote's map is held by nobody now, the next pick replaces it"); } // VoteRound.cs
         if (ResetDone) { ModeBackToDefault(now); return; } // ModeSwitch.cs: back to Arms Race too, once nothing is in the way
         if ((now - NobodySince.Value).TotalMinutes <= ResetEmptyMinutes || now < ResetProbeAt) return;
         ResetProbeAt = now.AddMinutes(1);
@@ -162,19 +132,14 @@ static partial class Program
             return;
         }
         ResetDone = true;
-        var was = NewMapsMode;
-        if (S.NewMaps != DefaultNewMaps) { S.NewMaps = DefaultNewMaps; Save(); }
-        var nades = Send(NadesDefaultCommand);
         var fun = Send(FunResetCommand);
-        var catchUp = CurrentMode.ArmsRace ? Send(CatchUpDefaultCommand) : "(not Arms Race: the mode's change switches it)";
-        Log($"reset: nobody on for over {ResetEmptyMinutes} min - new maps in random picks {was} -> {DefaultNewMaps}; {NadesDefaultCommand} -> {nades ?? "(rcon failed)"}; "
-            + $"{Fun.ResetCommand} -> {fun ?? "(rcon failed)"}; {CatchUpDefaultCommand} -> {catchUp ?? "(rcon failed)"}");
+        Log($"reset: nobody on for over {ResetEmptyMinutes} min - {Fun.ResetCommand} -> {fun ?? "(rcon failed)"}");
         ModeBackToDefault(now);
     }
 
     /// <summary>The health page's lines about random picks.</summary>
     static string SelectionHealth() =>
-        $"random picks: new maps {NewMapsMode} (#{FirstNewRank} and up: {Maps.Count(IsNew)} maps), too big {Maps.Count(TooBig)} (XL {Maps.Count(m => SizeClass(m) == "XL")}, "
+        $"random picks: too big {Maps.Count(TooBig)} (XL {Maps.Count(m => SizeClass(m) == "XL")}, "
         + $"marked {Votes.Count(kv => kv.Value.Values.Any(x => x == TooBigVote))}) - 1 pick in {Math.Round(1 / TooBigChance)}; "
         + $"marked ads {Votes.Count(kv => kv.Value.Values.Any(x => x == AdsVote))} (never rolled); "
         + $"sizes {Sizes.Count} measured (S<={SizeBounds.S}, M<={SizeBounds.M}, L<={SizeBounds.L} m²)";

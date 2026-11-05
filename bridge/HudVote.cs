@@ -1,6 +1,7 @@
-// Over Strike 2's screens that every HUD content can show (2026-11-01): the end-of-match vote (#26, the bridge's side in VoteRound.cs and
-// MapVote.cs), drawn on the Maps page's eight cards - so a game still holding an older content (v3_0_0, v3_1_0) can vote too, during
-// Valve's review of the update and until it has downloaded it - the HUD version check, and why a player down-voted a map (DownReasons).
+// Over Strike 2's screens that every HUD content can show (2026-11-01): the vote for the next map (#26; since the owner's 46 the only way a
+// player changes the map - the bridge's side in VoteRound.cs and MapVote.cs), drawn on the Maps page's eight cards - so a game still holding an
+// older content can vote too, during Valve's review of the update and until it has downloaded it - the HUD version check, and why a player
+// disliked a map (DownReasons).
 //
 // The version check needs no click and no word from the client: the server sets threshold classes on gg_global - svge<k> while its own
 // content level is at least k, svlt<k> while it is below k - and every content from v4_0_0 on carries rules for its own level: a v4_0_0
@@ -11,12 +12,13 @@
 // Shared like Hud.cs (plain BCL): the plugin draws it, the bridge's --selftest checks it.
 using System.Globalization;
 
-/// <summary>Why a player down-voted a map (the owner's decision of 2026-11-01): one vote per player per map, whose value in votes.json says
-/// why - every one of them that player's dislike wherever a vote counts. A plain Dislike is "I did not like the map". Too big and Ads
+/// <summary>Why a player disliked a map (the owner's decision of 2026-11-01): one mark per player per map, whose value in votes.json says
+/// why - every one of them that player's dislike wherever likes count. A plain Dislike is "I did not like the map". Too big and Ads
 /// have their own effects (Selection.cs); the rest are kept and count as a dislike, nothing more. Chat steers it directly: !down big,
-/// !down 12 big. The same words on /act set the reason. Nothing takes a vote back (the owner's 27, 2026-11-02): a plain !down on a map already
-/// disliked keeps its reason and says so. A first plain !down opens the popup that lists the reasons (Votes.cs, HudVote.WhyWords) for
-/// PopupSeconds: choosing one, or typing its word, updates that vote.</summary>
+/// !down 12 big. The same words on /act set the reason - the popup's click too, "!down big" (the owner's 84 a: one command for it). Repeating a
+/// plain !down on a map already disliked keeps its reason and says so. A first plain !down opens the popup that lists the reasons (Votes.cs,
+/// HudVote.WhyWords) for PopupSeconds: choosing one, or typing its word, updates that mark - without a map, a reason goes to the map the popup asks
+/// about while it is open.</summary>
 public static class DownReasons
 {
     /// <summary>A reason: the word chat uses, the vote's value, what the popup says, and how a note names it.</summary>
@@ -27,9 +29,6 @@ public static class DownReasons
     /// <summary>How long the popup stands, and how long after that a click on its way still counts. The drain line runs a second shorter (HudView.PlayerClasses;
     /// the stylesheet's .why-run).</summary>
     public const double PopupSeconds = 15, PopupGraceSeconds = 2;
-
-    /// <summary>The click on a reason in the popup, on /act: "!reason big". It updates the vote the popup asks about, and nothing else; once the popup is gone it does nothing.</summary>
-    public const string PopupVerb = "!reason";
 
     public static readonly Reason[] All =
     [
@@ -155,7 +154,8 @@ public static class HudVote
     /// mode label hold about 40 at 12 px; 62 % held 30 no more and cut "Test B" off in the real client, 2026-11-04).</summary>
     public const int CardNames = 30;
 
-    /// <summary>A card's "Remove mine" (content v4_5_0): on a ballot card of this player's own queued request, it takes that request back.</summary>
+    /// <summary>A card's "Remove mine" (content v4_5_0): it took a queued request back. There is no queue since the owner's 46, so it never shows; its id
+    /// stays a proof that a game holds v4_5_0 (NewButtons45).</summary>
     public static string UnqueueButton(int k) => $"{HudMenu.Card(k)}_unq";
 
     /// <summary>Names as a card's chips say them: as many as fit in about 34 characters, then "+N".</summary>
@@ -175,18 +175,23 @@ public static class HudVote
     /// <summary>The waiting line (content v4_5_0, the owner's 2026-11-03): every player present who has not voted, by name, then "Everyone has voted" -
     /// which a vote decided by everybody voting says for as long as it shows its result (it closes the moment the last one votes).</summary>
     public static string WaitLine(VoteState v) => !v.Open ? (v.Result != null && v.Present > 0 && v.Cast >= v.Present ? "Everyone has voted" : "") // a tie everybody voted in too
-        : v.Waiting.Count == 0 ? "Everyone has voted" : "Waiting for: " + Names(v.Waiting, 110);
+        : v.Waiting.Count > 0 ? "Waiting for: " + Names(v.Waiting, 110)
+        : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}" : "Everyone has voted";
+
+    /// <summary>The inactivity timer as the screen says it since the owner's 89.1 a - Inactivity timer 4 s - reset by Bob.</summary>
+    public static string InactivityLine(VoteState v) => $"Inactivity timer {v.Inactivity} s{(v.ResetBy != "" ? $" - reset by {Hud.Clean(v.ResetBy, 24)}" : "")}";
 
     /// <summary>The ballot's pages: eight cards a page (MapVote.MinMaps is one page's worth). Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v) => Math.Max(1, (v.Maps.Count + HudMenu.Cards - 1) / HudMenu.Cards);
 
-    /// <summary>The vote on the Maps page's cards, a page of them: option k of this page on card k, each with its mode (a label on the picture and
-    /// the card's colour), its map, its votes and who queued or added it; Keep playing first on a vote a player started; this player's choice lit
-    /// (confirm), queued options tagged (queued), the winner once decided (now); the count line says how long and how many have voted, the page line
-    /// where the other cards are. Random's button and the hint for the other pages are variables on gg_screen (content v4_4_0); a game holding an
-    /// older content sees the first page's cards and reads the rest off the page line - typing a card's number works from any content.</summary>
+    /// <summary>The vote on the Maps page's cards, a page of them, the most votes first (the owner's 56 a): option k of this page on card k, each with
+    /// its mode (a label on the picture and the card's colour), its map, its votes and who picked it, its record when it is risky (the owner's 53);
+    /// this player's choice lit (confirm), picked cards tagged (queued), the winner once decided (now); the count line says how long and how many
+    /// have voted, the page line where the other cards are. Random's button and the hint for the other pages are variables on gg_screen (content
+    /// v4_4_0), and the pager's pulse classes on gg_screen too; a game holding an older content sees the first page's cards and reads the rest off
+    /// the page line. The numbers the cards show are MapVote.Numbers' (VoteState.Shown).</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
-        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0, ISet<string>? myQueued = null)
+        VoteState v, long account, HudCatalog? catalog, string openPicture = "", int page = 0)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -199,18 +204,21 @@ public static class HudVote
         var shown = maps.Skip(page * HudMenu.Cards).Take(HudMenu.Cards).ToList();
         var rest = maps.Count - (page + 1) * HudMenu.Cards;
         t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - changing in {v.SecondsLeft} s"
+            : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         // where the votes go (content v4_5_0): every card its share and its voters, the leader lit or a tie, the strip across the top
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
+        var typing = MapVote.Numbers == MapVote.Numbering.None ? "" : " or type its number";
         t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
-            : mine > 0 ? "Your vote is lit - click another card or type its number" : "Click a card's Vote or type its number in chat"));
+            : mine > 0 ? $"Your vote is lit - click another card{typing} to change it, yours to take it back" : $"Click a card's Vote{(typing == "" ? "" : typing + " in chat")}"));
         t.Add(("gg_m_empty", ""));
         c.Add(("gg_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));
+        c.Add((HudView.Screen, "vback", page > 0)); // the new content's pager pulses: Next while more pages follow (vmore), Prev while this is not the first
         c.Add((HudBrowser.FirstButton, "off", page == 0));
         c.Add((HudBrowser.PrevButton, "off", page == 0));
         c.Add((HudBrowser.NextButton, "off", page >= pages - 1));
@@ -221,19 +229,22 @@ public static class HudVote
             var o = k <= shown.Count ? shown[k - 1] : null;
             var mode = o == null ? null : Modes.Find(o.Mode);
             var keep = o?.Source == VoteSource.Keep;
-            t.Add(($"{id}_rank", o == null ? "" : $"{o.N}  ·  {(keep ? "Keep" : mode?.Name ?? "")}")); // the number a player types in chat, or after !vote
+            var shownN = o == null ? 0 : v.Shown(o);
+            var number = shownN > 0 ? $"{shownN}  ·  " : "";
+            var entry = o == null || keep || o.Key == "" || catalog == null ? null : catalog.Find(o.Key); // its record (the owner's 53)
+            t.Add(($"{id}_rank", o == null ? "" : $"{number}{(keep ? "Keep" : mode?.Name ?? "")}")); // the number a player types in chat, or after !vote
             t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
-            t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(o.Who == "" ? "" : o.Source == VoteSource.Added ? $"  ·  added by {o.Who}" : $"  ·  queued by {o.Who}")}"));
-            t.Add(($"{id}_warn", ""));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : keep ? $"Keep {o.N}" : $"Vote {o.N}"));
+            t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(o.Who == "" ? "" : $"  ·  picked by {o.Who}")}"));
+            t.Add(($"{id}_warn", entry == null ? "" : HudMenu.Record(entry)));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : keep ? (shownN > 0 ? $"Keep {shownN}" : "Keep") : shownN > 0 ? $"Vote {shownN}" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
-            c.Add((id, "risky", false));
-            c.Add((id, "broken", false));
-            c.Add((id, "crashed", false));
+            c.Add((id, "risky", entry?.Risky == true));
+            c.Add((id, "broken", entry != null && (entry.Broken >= 0 || entry.Removed)));
+            c.Add((id, "crashed", entry is { Crashes: > 0 }));
             c.Add((id, "now", o != null && done && v.Result!.N == o.N));
-            c.Add((id, "queued", o?.Source == VoteSource.Queue && o.Who != "")); // a request taken back (Remove mine) leaves its card on the ballot, untagged
+            c.Add((id, "queued", o?.Source == VoteSource.Picked)); // a player's pick: the tag on its picture
             c.Add((id, "liked", false));
             c.Add((id, "disliked", false));
             c.Add((id, "confirm", o != null && mine == o.N && !done));
@@ -249,7 +260,6 @@ public static class HudVote
             c.Add((id, "vhas", o != null && o.Votes > 0));                                // its voters' chips show
             c.Add((id, "vlead", o != null && most > 0 && o.Votes == most && !tied));
             c.Add((id, "vtie", o != null && most > 0 && o.Votes == most && tied));
-            c.Add((id, "vmine", o != null && v.Open && o.Source == VoteSource.Queue && myQueued?.Contains(o.Key) == true)); // Remove mine
             w.Add((VotersVar(k), o != null && v.Voters.TryGetValue(o.N, out var names) ? Names(names, CardNames) : ""));
         }
         var strip = counted.OrderByDescending(o => o.Votes).ThenBy(o => o.N).Take(StripSegments).ToList();
@@ -263,13 +273,14 @@ public static class HudVote
             c.Add((seg, "vrand", o?.Source == VoteSource.Random));
             c.Add((seg, "vlead", o != null && o.Votes == most && !tied));
             c.Add((seg, "vtie", o != null && o.Votes == most && tied));
-            w.Add((StripVar(i), o == null ? "" : $"{(o.Source == VoteSource.Random ? "Random" : o.Source == VoteSource.Keep ? $"{o.N} Keep" : o.N.ToString(CultureInfo.InvariantCulture))}  ·  {o.Votes}"));
+            var tag = o == null ? "" : o.Source == VoteSource.Random ? "Random" : o.Source == VoteSource.Keep ? "Keep" : v.Shown(o) is > 0 and var sn ? sn.ToString(CultureInfo.InvariantCulture) : Hud.Clean(o.Label, 12);
+            w.Add((StripVar(i), o == null ? "" : $"{tag}  ·  {o.Votes}"));
         }
         c.Add((HudView.Screen, "vstrip", counted.Count > 0));
         w.Add((WaitVar, WaitLine(v)));
         var random = v.Random;
         c.Add((HudView.Screen, "vrandom", random != null && mine == random.N && !done));
-        w.Add((RandomVar, random == null ? "" : $"{random.N}  ·  Random  ·  {random.Votes} vote{(random.Votes == 1 ? "" : "s")}"));
+        w.Add((RandomVar, random == null ? "" : $"Random  ·  {random.Votes} vote{(random.Votes == 1 ? "" : "s")}")); // no number (the owner's 56 a)
         w.Add((MoreVar, rest > 0 ? $"{rest} more map{(rest == 1 ? "" : "s")} on the next page" : ""));
         return (t, c, w);
     }
@@ -359,15 +370,19 @@ public static class HudVote
     /// <summary>The panels content v4_5_0 added that get classes from the server: the summary strip's segments. Only a game that has shown v4_5_0 gets them.</summary>
     public static readonly string[] NewIds45 = [.. Enumerable.Range(1, StripSegments).Select(Segment)];
 
-    /// <summary>Catch-up's state on gg_global (content v4_5_0's Fun page lights on or off; an older game has no rule for it).</summary>
-    public static List<(string Id, string Class, bool On)> CatchUpClasses(bool? on) => [(HudView.Global, "cu-on", on == true), (HudView.Global, "cu-off", on == false)];
-
-    /// <summary>The grenade drops' state, on gg_global (content v4_1_0's Fun page lights the choice that is on; an older game has no rule for it).</summary>
-    public static List<(string Id, string Class, bool On)> NadesClasses(bool? on) => [(HudView.Global, "nd-on", on == true), (HudView.Global, "nd-off", on == false)];
+    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page (contents v4_1_0 and v4_5_0), lit by classes on gg_global - nd-on/off and
+    /// cu-on/off - from their fun settings (the owner's 61 b), in Arms Race only (an older game has no rule for them).</summary>
+    public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
+    {
+        bool? On(string id) => !armsRace || Fun.Find(id) is not { } s ? null : Fun.Showing(s, value).Id == "on";
+        var (drops, catchUp) = (On("drops"), On("catchup"));
+        return [(HudView.Global, "nd-on", drops == true), (HudView.Global, "nd-off", drops == false), (HudView.Global, "cu-on", catchUp == true), (HudView.Global, "cu-off", catchUp == false)];
+    }
 
     /// <summary>What a card click says for everybody in chat, under that player's name (the owner's decision of 2026-11-01): the command a
-    /// typed vote would be, so that menu users learn the chat way.</summary>
-    public static string ChatWords(int option) => $"!vote {option.ToString(CultureInfo.InvariantCulture)}";
+    /// typed vote would be, so that menu users learn the chat way - nothing while the cards have no numbers (the owner's 89 a): there is no
+    /// typed vote to learn.</summary>
+    public static string ChatWords(int option) => MapVote.Numbers == MapVote.Numbering.None ? "" : $"!vote {option.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>The content a page's words need (HudView.NewIds, NewIds32). A game gets them once it has shown it holds that content: by a click on a
     /// button only that content has, such as the page's own tab - or by its player asking for the page in chat (the owner: !fun opens the GUI, rows
@@ -375,15 +390,17 @@ public static class HudVote
     /// shows a page without rows either way. 0: every game has them.</summary>
     public static int PageLevel(string page) => page switch { "How" => 31, "Fun" or "Help" => 32, _ => 0 };
 
-    /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; null for
-    /// anything else (the card's arrows do nothing then).</summary>
-    public static string? Click(VoteState v, string buttonId, int page = 0)
+    /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; a click on the
+    /// card (or Random) this player's vote is on takes it back, !mv &lt;round&gt; 0 (the owner's 89 a); null for anything else (the card's arrows do
+    /// nothing then). account: the player's; -1 when not known, which never takes a vote back.</summary>
+    public static string? Click(VoteState v, string buttonId, int page = 0, long account = -1)
     {
         if (!v.Open || v.Round <= 0) return null;
-        if (buttonId == RandomButton) return v.Random is { } r ? MapVote.Click(v.Round, r.N) : null;
+        string Toggle(int n) => MapVote.Click(v.Round, account >= 0 && v.ChoiceOf(account) == n ? 0 : n);
+        if (buttonId == RandomButton) return v.Random is { } r ? Toggle(r.N) : null;
         if (!buttonId.StartsWith("gg_m", StringComparison.Ordinal) || !buttonId.EndsWith("_play", StringComparison.Ordinal)) return null;
         if (!int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1 || k > HudMenu.Cards) return null;
         var shown = v.Maps.Skip(Math.Clamp(page, 0, Pages(v) - 1) * HudMenu.Cards).Take(HudMenu.Cards).ToList();
-        return k <= shown.Count ? MapVote.Click(v.Round, shown[k - 1].N) : null;
+        return k <= shown.Count ? Toggle(shown[k - 1].N) : null;
     }
 }

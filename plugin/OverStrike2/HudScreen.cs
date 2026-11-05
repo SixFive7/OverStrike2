@@ -15,6 +15,10 @@ namespace OverStrike2;
 /// <summary>The HUD on screen: one custom_hud_layout entity per map, driven from ../../bridge/Hud.cs. What to show is decided there (HudView for
 /// the words, HudSlots for who has the window or a toast); this class owns the entity and sends the engine only what changed.
 ///
+/// Without a HUD addon (an empty Hud.AddonVariable) it runs all the same but draws nothing, as when Steam hides the HUD item from everybody:
+/// it reads the bridge's state, the chat commands work and their answers come in chat - and it makes no layout entity, never requires the
+/// addon, watches no Workshop item and checks nobody (Drawn). css_gghud on draws it anyway, until the plugin reloads.
+///
 /// Rules this follows, each of which cost somebody else an evening (CS2UIKit's docs/GOTCHAS.md, MIT):
 ///   - no entity is touched before the first round start of a cold server: CounterStrikeSharp caches a failed entity-system lookup for the
 ///     life of the process. A spawned player proves a map is loaded, so a spawn may create it too;
@@ -34,17 +38,16 @@ sealed class HudScreen
     readonly ILogger log;
     readonly BridgeLink? bridge;
     readonly HudSlots slots = new();
-    readonly string addon;                            // the Workshop item the server hands out (GUNGAME_HUD_ADDON): its link is in the check's messages
+    readonly string addon;                            // the Workshop item the server hands out (Hud.AddonVariable): its link is in the check's messages; empty: none
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
     readonly HashSet<long> clicked = new();           // accounts seen clicking on this release since the plugin loaded (the bridge keeps them for good)
-    readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
+    readonly ItemWatch? item;                         // whether Steam shows the item to everybody yet: nobody is disconnected until it does (none without an addon)
+    bool byHand;                                      // css_gghud on: drawn without an addon, until the plugin reloads
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
-    readonly HudTab tab = new();                      // the TAB chord (HudTab.cs)
-    HudTab.Mode tabMode;                              // the chord's mode as of the last frame (HUD_TAB, or css_gghud tab)
-    HudTab.Mode? tabOverride;                         // css_gghud tab <mode>: until the plugin reloads
-    readonly Dictionary<int, int> tabLog = new();     // TAB button lines logged per slot this session (TabLogLines at most)
-    const int TabLogLines = 60;
+    readonly HudTab tab = new();                      // TAB (HudTab.cs): the board's cursor while it is held
+    HudTab.Mode tabMode;                              // down or off, as of the last frame (HUD_TAB, or css_gghud tab)
+    HudTab.Mode? tabOverride;                         // css_gghud tab off|down: until the plugin reloads
     CCSCustomHudLayout? entity;
     bool worldReady;
 
@@ -60,7 +63,7 @@ sealed class HudScreen
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
     readonly Dictionary<int, WorkshopCard> cards = new(); // slot -> that player's card for an unlisted Workshop id
-    (string Text, DateTime Until) localNews = ("", default);  // the news line from here, not the bridge: the restart watcher, the grenade switch
+    (string Text, DateTime Until) localNews = ("", default);  // the news line from here, not the bridge: the restart watcher, the block's notices, the item check
     readonly Dictionary<int, (string Text, DateTime Until)> localNotes = new(); // slot -> a note from here: no line to the bridge
     readonly Dictionary<int, HudBrowser> browsers = new();   // slot -> that player's map browser (sort, filters, page)
     readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
@@ -96,7 +99,7 @@ sealed class HudScreen
     readonly Dictionary<(string, string), bool> newClasses = new();
     readonly Dictionary<string, ConVar?> funVars = new(); // the fun page's convars (Fun.cs), found once
     const float FunCheckSeconds = 0.5f;                  // a fun change is made a frame after the click (gg_fun); looked at after this long
-    bool addonRequired = true;                           // what pre.sh set at start: mm_client_extra_addons <addon>, every joiner downloads it
+    bool addonRequired;                                  // what pre.sh set at start: mm_client_extra_addons <addon>, every joiner downloads it (none without an addon)
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped
 
@@ -108,12 +111,14 @@ sealed class HudScreen
         this.plugin = plugin;
         this.log = log;
         this.addon = addon;
-        item = new ItemWatch(addon);
+        addonRequired = addon != "";
+        item = addon != "" ? new ItemWatch(addon) : null;
         plays = new WorkshopPlay(log);
         bridge = BridgeLink.FromEnvironment(out var where);
-        log.LogInformation("GunGameWelcome HUD: layout {Layout}, live state {Source}", Hud.Layout, bridge != null ? $"from the bridge at {where}" : $"OFF - {where}");
+        log.LogInformation("Over Strike 2 HUD: {Drawn}, live state {Source}", addon != "" ? $"layout {Hud.Layout} from Workshop item {addon}" : "no addon - nothing drawn, chat answers in chat",
+            bridge != null ? $"from the bridge at {where}" : $"OFF - {where}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); resendAt.Clear(); gate.MapStarted(); tab.MapStarted(); tabLog.Clear(); checkHigh = HudCheck.Mode.Off; });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); resendAt.Clear(); gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
@@ -134,15 +139,33 @@ sealed class HudScreen
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
                      typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(HudPreview),
-                     typeof(HudDash) })
+                     typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
                 try { RuntimeHelpers.PrepareMethod(method.MethodHandle); count++; } catch (Exception) { } // a method the JIT cannot prepare ahead is compiled on first use, as before
             }
         var pictures = HudThumbs.Count; // builds the pictures' lookup now too, not in the first maps page
-        log.LogInformation("GunGameWelcome HUD: {Count} methods compiled ahead in {Ms} ms, {Pictures} map pictures numbered", count, clock.ElapsedMilliseconds, pictures);
+        log.LogInformation("Over Strike 2 HUD: {Count} methods compiled ahead in {Ms} ms, {Pictures} map pictures numbered", count, clock.ElapsedMilliseconds, pictures);
     }
+
+    /// <summary>Something is drawn: there is a HUD addon to hand out, or css_gghud on asked for it by hand. Without, nothing is drawn: no layout
+    /// entity, and the plugin shows the centre welcome panel instead.</summary>
+    public bool Drawn => addon != "" || byHand;
+
+    /// <summary>css_gghud on: drawn without an addon until the plugin reloads, polling the bridge even with nobody on - the server half tried
+    /// without recreating the container (players see it only once their client has the addon).</summary>
+    public void DrawByHand()
+    {
+        byHand = true;
+        AlwaysPoll = true;
+        worldReady |= Utilities.GetPlayers().Count > 0 || !string.IsNullOrEmpty(Server.MapName); // a map is on: entities may be touched
+        Server.NextFrame(() => { EnsureEntity(); Frame(); });
+    }
+
+    /// <summary>As of when the state is the bridge's word: when the newest answer taken was asked for (MinValue: never). The freeze goes by it
+    /// (VoteFreeze.cs): an answer asked for before this map started is the old map's.</summary>
+    public DateTime AnsweredAt => bridge?.StateAsOf ?? DateTime.MinValue;
 
     public void Unload()
     {
@@ -180,7 +203,7 @@ sealed class HudScreen
     {
         worldReady = true;
         if (find != null) Browser(player.Slot).Find(find);
-        if (find != null && vote is { Open: true, Round: > 0 }) voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, true); // a search during the vote: the map browser that adds to it
+        if (find != null && vote is { Open: true, Round: > 0 }) { voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, true); Busy(player, Account(player)); } // a search during the vote: the map browser that adds to it
         slots.Show(player.Slot, HudSlots.Page.Maps, DateTime.UtcNow);
         Server.NextFrame(() => { EnsureEntity(); Frame(); }); // not inside the player's own chat command (see the class summary)
     }
@@ -232,7 +255,7 @@ sealed class HudScreen
         {
             var now = DateTime.UtcNow;
             var released = tab.Release(p.Slot); // the board cursor too: shot means the hands are needed
-            if (slots.WindowOpen(p.Slot) && !VoteLocked) slots.Hurt(p.Slot, now); // a match-end vote stays on screen (the owner's 2026-11-03)
+            if (slots.WindowOpen(p.Slot) && !VoteLocked) slots.Hurt(p.Slot, now); // the vote's window stays on screen
             else if (!released) return HookResult.Continue;
             Server.NextFrame(Frame);
         }
@@ -241,73 +264,32 @@ sealed class HudScreen
 
     HookResult OnDeath(EventPlayerDeath ev, GameEventInfo info)
     {
-        if (ev.Userid is { IsValid: true, IsBot: false } p)
-        {
-            var tabWindow = tab.Window(p.Slot);
-            if (!tab.Release(p.Slot)) return HookResult.Continue;
-            var slot = p.Slot;
-            Server.NextFrame(() => { if (tabWindow) slots.Info(slot, "off", DateTime.UtcNow); Frame(); });
-        }
+        if (ev.Userid is { IsValid: true, IsBot: false } p && tab.Release(p.Slot)) Server.NextFrame(Frame);
         return HookResult.Continue;
     }
 
-    /// <summary>TAB (HudTab.cs). CounterStrikeSharp calls this inside the server's think for every button any player presses or lets go,
-    /// so it only does HudTab's bookkeeping; opening a window, switching a cursor or writing the log waits for the next frame. While a
-    /// TAB cursor or window is up (or TAB is held in an experiment mode) every change is logged, at most TabLogLines a session: that is
-    /// how the experiment learns what the client still sends while it is captured.</summary>
+    /// <summary>TAB (HudTab.cs: down, or off). CounterStrikeSharp calls this inside the server's think for every button any player presses or
+    /// lets go, so it only does HudTab's bookkeeping; opening the window or switching the cursor waits for the next frame.</summary>
     void OnButtons(CCSPlayerController player, PlayerButtons pressed, PlayerButtons released)
     {
-        if (player is not { IsValid: true, IsBot: false }) return;
-        var now = DateTime.UtcNow;
+        if (player is not { IsValid: true, IsBot: false } || !Drawn) return;
         var slot = player.Slot;
-        if (tabMode == HudTab.Mode.Off && !tab.Cursor(slot) && !tab.Window(slot)) return;
-        var watched = tab.Watching(slot, tabMode);
-        var act = tab.Buttons(slot, (ulong)pressed, (ulong)released, tabMode, now);
-        if ((watched || tab.Watching(slot, tabMode)) && tabLog.GetValueOrDefault(slot) < TabLogLines)
-        {
-            tabLog[slot] = tabLog.GetValueOrDefault(slot) + 1;
-            var line = $"pressed {HudTab.Names((ulong)pressed)}, released {HudTab.Names((ulong)released)}, cursor {(tab.Cursor(slot) ? "on" : "off")}, " +
-                $"captured {(captured.GetValueOrDefault(slot) ? "yes" : "no")}, window {(slots.WindowOpen(slot) ? "open" : "closed")}";
-            Server.NextFrame(() => log.LogInformation("GunGameWelcome HUD TAB buttons: slot {Slot} {Line}", slot, line));
-        }
+        if (tabMode == HudTab.Mode.Off && !tab.Cursor(slot)) return;
+        var act = tab.Buttons(slot, (ulong)pressed, (ulong)released, tabMode, DateTime.UtcNow);
         if (act == null) return;
         Server.NextFrame(() =>
         {
             if (Utilities.GetPlayerFromSlot(slot) is not { IsValid: true, IsBot: false } p) return;
-            var at = DateTime.UtcNow;
-            log.LogInformation("GunGameWelcome HUD TAB: {Name} {Act} (mode {Mode})", p.PlayerName, act switch
-            {
-                HudTab.Act.OpenMenu => "TAB + E - the menu",
-                HudTab.Act.CursorOn => "the TAB cursor on, until TAB comes up",
-                HudTab.Act.CursorOff => "let go of TAB - the TAB cursor off",
-                HudTab.Act.OpenWindow => "TAB down - the window",
-                HudTab.Act.CloseWindow => "let go of TAB - the window closed",
-                _ => $"TAB down - the cursor in {HudTab.HoldSeconds} s if still held",
-            }, HudTab.Name(tabMode));
             switch (act)
             {
-                case HudTab.Act.OpenMenu: Menu(p); return;
-                case HudTab.Act.OpenWindow: worldReady = true; tabLog[slot] = 0; slots.Show(slot, slots.PageOf(slot), at); EnsureEntity(); Frame(); return;
-                case HudTab.Act.CloseWindow when VoteLocked: Frame(); return; // a match-end vote stays on screen
-                case HudTab.Act.CloseWindow: slots.Info(slot, "off", at); Frame(); return;
+                case HudTab.Act.OpenMenu: Menu(p); return; // TAB + E: the window takes the cursor over
                 case HudTab.Act.CursorOn when vote is { Open: true, Round: > 0 } && !slots.WindowOpen(slot): tab.Release(slot); Menu(p); return; // TAB brings a vote back
-                case HudTab.Act.HoldCheck:
-                    plugin.AddTimer((float)HudTab.HoldSeconds, () =>
-                    {
-                        if (tab.Hold(slot, tabMode, DateTime.UtcNow) == null) return;
-                        tabLog[slot] = 0;
-                        if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } q)
-                            log.LogInformation("GunGameWelcome HUD TAB: {Name} the TAB cursor on after {Hold} s, until TAB comes up (mode hold)", q.PlayerName, HudTab.HoldSeconds);
-                        Frame();
-                    });
-                    return;
-                case HudTab.Act.CursorOn: tabLog[slot] = 0; Frame(); return;
                 default: Frame(); return;
             }
         });
     }
 
-    /// <summary>css_gghud tab &lt;off|menu|on|down|hold|window&gt;: the mode until the plugin reloads (null: back to HUD_TAB from the bridge).</summary>
+    /// <summary>css_gghud tab off|down: TAB's mode until the plugin reloads (null: back to HUD_TAB from the bridge).</summary>
     public string SetTab(string? mode)
     {
         tabOverride = mode == null ? null : HudTab.Parse(mode);
@@ -325,7 +307,7 @@ sealed class HudScreen
             if (slots.WindowOpen(p.Slot)) { slots.Info(p.Slot, "off", now); windows++; }
         foreach (var slot in captured.Keys.ToList()) captured[slot] = true; // force the next frame to send capture off to everybody
         Server.NextFrame(Frame);
-        return $"released: {windows} window(s), {cursors.Count} TAB cursor(s) or TAB window(s); capture off for everybody next frame";
+        return $"released: {windows} window(s), {cursors.Count} TAB cursor(s); capture off for everybody next frame";
     }
 
     /// <summary>css_gghud level &lt;n&gt;: the server's content level as the version check's classes show it - a client test of the
@@ -354,7 +336,6 @@ sealed class HudScreen
         joinedAt.Remove(slot);
         gate.Gone(slot);
         tab.Gone(slot);
-        tabLog.Remove(slot);
         browsers.Remove(slot);
         cards.Remove(slot);
         localNotes.Remove(slot);
@@ -368,21 +349,21 @@ sealed class HudScreen
 
     public string Status() =>
         $"entity {(Live ? entity!.Index.ToString() : "none")}, world {(worldReady ? "ready" : "not ready")}, " +
-        $"state {(state == null ? "none" : $"{(DateTime.UtcNow - stateAt).TotalSeconds:0}s old: {state.Map} by {state.By}, {state.Next.Count} queued")}, " +
+        $"state {(state == null ? "none" : $"{(DateTime.UtcNow - stateAt).TotalSeconds:0}s old: {state.Map} by {state.By}")}, vote {(vote.Round > 0 ? $"round {vote.Round} {(vote.Open ? "open" : "decided")}{(vote.Freeze ? ", everybody frozen" : "")}" : "none")}, " +
         $"bridge {(bridge == null ? "off" : bridge.Failures == 0 ? "ok" : $"{bridge.Failures} failures ({bridge.LastError})")}, " +
         $"window open for [{string.Join(", ", Utilities.GetPlayers().Where(p => slots.WindowOpen(p.Slot)).Select(p => p.PlayerName))}], " +
         $"check {HudCheck.Name(checkMode)} (HUD_CHECK {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, {Hud.Release} " +
-        $"{(state?.Proofs.TryGetValue(Hud.Release, out var proof) == true ? "proven by " + proof : "not proven yet")}, item {item.Describe(DateTime.UtcNow)}), " +
+        $"{(state?.Proofs.TryGetValue(Hud.Release, out var proof) == true ? "proven by " + proof : "not proven yet")}, item {item?.Describe(DateTime.UtcNow) ?? "none (no addon)"}), " +
         $"waiting for a click from [{string.Join(", ", Utilities.GetPlayers().Where(p => gate.Checking(p.Slot)).Select(p => p.PlayerName))}], " +
-        $"TAB chord {HudTab.Name(tabMode)}{(tabOverride != null ? " (css_gghud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
+        $"TAB {HudTab.Name(tabMode)}{(tabOverride != null ? " (css_gghud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
         $"search index {search.Count} maps (version {search.Version}), sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +
-        $"addon {(addonRequired ? "required of joiners" : "NOT required (Steam does not show it to everybody)")}, content v3_1_0 shown by {content.Values.Count(v => v >= 31)} and v3_2_0 by {content.Values.Count(v => v >= 32)} account(s), fun {string.Join(", ", Fun.Settings.Select(s => $"{s.Id} {Fun.Showing(s, FunValue).Id}"))}";
+        $"addon {(addon == "" ? "none: nothing drawn" + (byHand ? " but by hand (css_gghud on)" : "") : addonRequired ? "required of joiners" : "NOT required (Steam does not show it to everybody)")}, content v3_1_0 shown by {content.Values.Count(v => v >= 31)} and v3_2_0 by {content.Values.Count(v => v >= 32)} account(s), fun {string.Join(", ", Fun.Settings.Select(s => $"{s.Id} {Fun.Showing(s, FunValue).Id}"))}";
 
     // ---- the entity ----
 
     void EnsureEntity()
     {
-        if (Live || !worldReady) return;
+        if (Live || !worldReady || !Drawn) return;
         var clock = Stopwatch.StartNew();
         try
         {
@@ -390,16 +371,16 @@ sealed class HudScreen
             foreach (var old in Utilities.FindAllEntitiesByDesignerName<CCSCustomHudLayout>("custom_hud_layout"))
                 if (old.IsValid && old.StrLayout == Hud.Layout) { old.Remove(); stale++; }
             entity = Utilities.CreateEntityByName<CCSCustomHudLayout>("custom_hud_layout");
-            if (entity is not { IsValid: true }) { log.LogWarning("GunGameWelcome HUD: could not create custom_hud_layout"); entity = null; return; }
+            if (entity is not { IsValid: true }) { log.LogWarning("Over Strike 2 HUD: could not create custom_hud_layout"); entity = null; return; }
             entity.StrLayout = Hud.Layout;
             entity.DispatchSpawn();
             ForgetAll();
-            log.LogInformation("GunGameWelcome HUD: layout entity {Index} spawned in {Ms} ms{Stale}", entity.Index, clock.ElapsedMilliseconds, stale > 0 ? $", {stale} leftover(s) removed" : "");
+            log.LogInformation("Over Strike 2 HUD: layout entity {Index} spawned in {Ms} ms{Stale}", entity.Index, clock.ElapsedMilliseconds, stale > 0 ? $", {stale} leftover(s) removed" : "");
         }
         catch (Exception e)
         {
             entity = null;
-            log.LogWarning("GunGameWelcome HUD: spawning the layout entity failed: {Message}", e.Message);
+            log.LogWarning("Over Strike 2 HUD: spawning the layout entity failed: {Message}", e.Message);
         }
     }
 
@@ -421,7 +402,6 @@ sealed class HudScreen
         slots.Gone(slot);
         gate.Gone(slot);
         tab.Gone(slot);
-        tabLog.Remove(slot);
         browsers.Remove(slot);
         cards.Remove(slot);
         localNotes.Remove(slot);
@@ -460,14 +440,14 @@ sealed class HudScreen
         if (who > 0 && HudView.LevelOfButton(buttonId) is > 0 and var proves && proves > content.GetValueOrDefault(who)) // only a game with that content has this button
         {
             content[who] = proves;
-            log.LogInformation("GunGameWelcome HUD: {Name} [U:1:{Account}] clicked {Button} - their game has content {Content}; its new panels get words from now on",
+            log.LogInformation("Over Strike 2 HUD: {Name} [U:1:{Account}] clicked {Button} - their game has content {Content}; its new panels get words from now on",
                 player.PlayerName, who, buttonId, proves >= 41 ? Hud.Content : proves >= 32 ? "v4_0_0" : "v3_1_0");
         }
         if (wasChecked && buttonId == HudView.ButtonAct) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
         if (HudVote.WhyClick(buttonId) is { } reason)
         {
             // The popup's reason (content v4_1_0), under whichever cursor this player has: the window's or TAB's. The bridge knows which vote it is about.
-            Act(player, who, $"{DownReasons.PopupVerb} {reason.Word}");
+            Act(player, who, $"!down {reason.Word}"); // the same words a typist uses
             if (slots.WindowOpen(player.Slot)) slots.Click(player.Slot, buttonId, now);
             Server.NextFrame(Frame);
             return;
@@ -475,43 +455,35 @@ sealed class HudScreen
         if (buttonId == HudMenu.BoardOpen && !slots.WindowOpen(player.Slot)) { tab.Release(player.Slot); Menu(player); return; } // the board's button: the window keeps the cursor
         if (buttonId is HudView.BoardUp or HudView.BoardDown or HudView.BoardNext or HudView.BoardBig or HudView.BoardAds) // the board's own buttons, under the TAB cursor
         {
-            var boardCommand = HudView.Command(buttonId, state, who);
+            var boardCommand = HudView.Command(buttonId, state, vote);
             if (boardCommand == HudView.OpenVote) { tab.Release(player.Slot); Menu(player); return; } // the vote is on: its window
             if (boardCommand != null) Act(player, who, boardCommand);
             Server.NextFrame(Frame);
             return;
         }
         if (!slots.WindowOpen(player.Slot)) return;
-        if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, "The vote for the next map is on - this closes when it is over"); Server.NextFrame(Frame); return; } // the owner's 2026-11-03
+        if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, "The vote for the next map is on - this closes when it is over"); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         if (HudDash.Click(dash, buttonId, DashPages(player.Slot))) { Server.NextFrame(Frame); return; } // the Sync page's pagers (content v4_3_0)
         var account = Account(player);
         var browser = Browser(player.Slot);
         if (HudMenu.PicCard(buttonId) is > 0 and var picCard) { TogglePicture(player, account, picCard, now); Server.NextFrame(Frame); return; }
-        if (buttonId == HudView.ButtonAct && HudView.Command(buttonId, state, account) == HudView.OpenVote) { slots.Show(player.Slot, HudSlots.Page.Maps, now); Server.NextFrame(Frame); return; } // the vote is on: the Maps page shows it
+        if (buttonId == HudView.ButtonAct && HudView.Command(buttonId, state, vote) == HudView.OpenVote) { slots.Show(player.Slot, HudSlots.Page.Maps, now); Server.NextFrame(Frame); return; } // the vote is on: the Maps page shows it
         if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
         {
             var view = VoteView(player.Slot);
-            if (buttonId == HudVote.BrowseButton && vote.Open) { voteView[player.Slot] = (vote.Round, view.Page, true); Server.NextFrame(Frame); return; } // content v4_4_0: the map browser adds to the vote
-            if (buttonId == HudVote.BackButton) { voteView[player.Slot] = (vote.Round, view.Page, false); Server.NextFrame(Frame); return; }
+            if (buttonId == HudVote.BrowseButton && vote.Open) { voteView[player.Slot] = (vote.Round, view.Page, true); Busy(player, account); Server.NextFrame(Frame); return; } // the map browser adds to the vote
+            if (buttonId == HudVote.BackButton) { voteView[player.Slot] = (vote.Round, view.Page, false); Busy(player, account); Server.NextFrame(Frame); return; }
             if (!(view.Browse && vote.Open))
             {
-                // The vote is on the Maps page's cards (HudVote.cs), a page of eight: a card's Play is a vote, Random's button too, the pager pages.
-                if (HudVote.PageClick(vote, buttonId, view.Page) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Server.NextFrame(Frame); return; }
-                // content v4_5_0: a card's Remove mine takes this player's own queued request back (the bridge's !cancel, its news line for everybody)
-                for (var uk = 1; uk <= HudMenu.Cards; uk++)
-                    if (buttonId == HudVote.UnqueueButton(uk))
-                    {
-                        var onPage = vote.Maps.Skip(Math.Clamp(view.Page, 0, HudVote.Pages(vote) - 1) * HudMenu.Cards).Take(HudMenu.Cards).ToList();
-                        if (uk <= onPage.Count && onPage[uk - 1] is { Source: VoteSource.Queue } mineCard) Act(player, account, $"!cancel {mineCard.Arg}");
-                        Server.NextFrame(Frame);
-                        return;
-                    }
-                if (HudVote.Click(vote, buttonId, view.Page) is { } cast)
+                // The vote is on the Maps page's cards (HudVote.cs), a page of eight: a card's Play is a vote - on the card this player's vote is on, it
+                // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer).
+                if (HudVote.PageClick(vote, buttonId, view.Page) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
+                if (HudVote.Click(vote, buttonId, view.Page, account) is { } cast)
                 {
                     var was = vote.ChoiceOf(account);
                     Act(player, account, cast);
-                    if (MapVote.ParseClick(cast) is { } picked && picked.Option != was) SayForAll(player, HudVote.ChatWords(picked.Option)); // so menu users learn the chat way
+                    if (MapVote.ParseClick(cast) is { Option: > 0 } picked && picked.Option != was && HudVote.ChatWords(picked.Option) is { Length: > 0 } words) SayForAll(player, words);
                 }
                 Server.NextFrame(Frame);
                 return;
@@ -519,9 +491,9 @@ sealed class HudScreen
             // The map browser while the vote is on: its own controls as ever; a card's Play puts the map on the vote, with this player's vote (the bridge's
             // !map during a vote), says so in chat the chat way (!play), and goes back to the ballot's last page, where the map appears for everybody.
             var browsing = Browser(player.Slot);
-            if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
+            if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
             if (buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
-                && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
+                && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
                 Act(player, account, add);
                 if (browsing.ConfirmKey == "") // a risky map's first click only arms its confirmation: the second one adds it
@@ -535,7 +507,6 @@ sealed class HudScreen
         }
         if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account).Count)) { Server.NextFrame(Frame); return; }
         if (HudVote.DownCard(buttonId) is > 0 and var downCard) whyCard[player.Slot] = (downCard, CardKey(player, account, downCard)); // content v4_4_0: the reasons go over that card
-        if (buttonId is HudMenu.CatchUpOn or HudMenu.CatchUpOff) { SwitchCatchUp(player, buttonId == HudMenu.CatchUpOn, t => LocalNote(player.Slot, t)); Server.NextFrame(Frame); return; } // content v4_5_0
         if (buttonId is HudMenu.FunRandom or HudMenu.FunDefault)
         {
             var which = buttonId == HudMenu.FunRandom ? Fun.RandomWord : Fun.DefaultWord;
@@ -544,36 +515,22 @@ sealed class HudScreen
             Server.NextFrame(Frame);
             return;
         }
-        if (buttonId is HudMenu.NadesOn or HudMenu.NadesOff && !mode.ArmsRace)
-        {
-            LocalNote(player.Slot, $"Grenade drops are Arms Race's own - not in {mode.Name}");
-            Server.NextFrame(Frame);
-            return;
-        }
-        if (buttonId is HudMenu.NadesOn or HudMenu.NadesOff)
-        {
-            // GunGameNades owns the toggle (gg_nades, a server command since chat commands went): run it, and say who switched it on the
-            // news line. A frame later, like everything a click starts: it hands every living player a grenade.
-            var onOff = buttonId == HudMenu.NadesOn ? "on" : "off";
-            if (NadesOn?.Invoke() == (buttonId == HudMenu.NadesOn)) { LocalNote(player.Slot, $"Grenade drops: {onOff} already"); Server.NextFrame(Frame); return; }
-            var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-            Server.NextFrame(() => { Server.ExecuteCommand($"gg_nades {onOff} \"{name}\""); Notice($"{name} switched grenade drops {onOff}", 8); Centre?.Invoke(name, $"turned grenade drops {onOff}"); });
-            return;
-        }
         if (HudMenu.FunClick(buttonId) is { } fun)
         {
-            // MapSettingsReset makes the change (gg_fun): it owns the server's settings - the baseline, the put-back at the map's end and the
-            // block a player's change is exempt from. The news line says who switched what once the value is there, as for the grenade drops.
+            // The settings module makes the change (gg_fun): it owns the server's settings - the baseline, the put-back at the map's end and the
+            // block a player's change is exempt from; the grenade drops and catch-up are fun settings like the rest, its effects. Once the value is
+            // there the centre of the screen says who switched what, and chat says it as the command, under the player's name.
             var (setting, choice) = fun;
             var slot = player.Slot;
             var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
+            if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) { LocalNote(slot, $"{setting.Title} is Arms Race's own - not in {mode.Name}"); Server.NextFrame(Frame); return; }
             if (Fun.Showing(setting, FunValue) == choice) { LocalNote(slot, $"{setting.Title}: {choice.Label} already"); Server.NextFrame(Frame); return; }
-            if (Fun.Refusal(setting, choice, FunValue) is { } why) { LocalNote(slot, why); Server.NextFrame(Frame); return; } // a Clash (the owner's 43 c)
+            if (Fun.Refusal(setting, choice, FunValue) is { } why) { LocalNote(slot, why); Server.NextFrame(Frame); return; } // a Clash
             Server.NextFrame(() => Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""));
             plugin.AddTimer(FunCheckSeconds, () =>
             {
-                if (Fun.Showing(setting, FunValue) == choice) { Notice(Fun.News(name, setting, choice), 8); Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); }
-                else LocalNote(slot, $"{setting.Title} did not switch: the server's settings plugin did not take it");
+                if (Fun.Showing(setting, FunValue) == choice) { Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); SayForAll(player, Fun.ChatWords(setting, choice)); }
+                else LocalNote(slot, $"{setting.Title} did not switch: the server's settings module did not take it");
                 Frame();
             });
             return;
@@ -584,7 +541,7 @@ sealed class HudScreen
             var armed = restartArmed.TryGetValue(player.Slot, out var until) && now < until;
             if (armed) restartArmed.Remove(player.Slot); else restartArmed[player.Slot] = now.AddSeconds(HudBrowser.ConfirmSeconds);
         }
-        var command = HudView.Command(buttonId, state, account) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id);
+        var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
         if (command != null) Act(player, account, command);
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
     }
@@ -646,6 +603,10 @@ sealed class HudScreen
         Server.NextFrame(() => Server.PrintToChatAll(line));
     }
 
+    /// <summary>Work in the map browser while a vote is open - a page, a sort, a filter, a search - resets the vote's inactivity timer (the bridge's
+    /// !mvb). Scrolling and hovering never reach the server, so they cannot count.</summary>
+    void Busy(CCSPlayerController player, long account) { if (vote is { Open: true, Round: > 0 }) Act(player, account, MapVote.Busy(vote.Round)); }
+
     /// <summary>Ask the bridge for what a click stands for; without a line to it, the player's note says so.</summary>
     void Act(CCSPlayerController player, long account, string command)
     {
@@ -685,7 +646,7 @@ sealed class HudScreen
                 case WorkshopCard.Step.Installed:
                     Act(p, Account(p), $"!map {card.Id}");
                     card.Requested();
-                    log.LogInformation("GunGameWelcome Workshop: {Id} installed - asked for it as {Name}'s pick", card.Id, p.PlayerName);
+                    log.LogInformation("Over Strike 2 Workshop: {Id} installed - asked for it as {Name}'s pick", card.Id, p.PlayerName);
                     break;
             }
         }
@@ -701,7 +662,7 @@ sealed class HudScreen
         clicked.Add(account);
         gate.Verified(player.Slot);
         bridge?.Act(account, player.PlayerName, HudCheck.Command(Hud.Release));
-        log.LogInformation("GunGameWelcome HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Release})", player.PlayerName, account, Hud.Release);
+        log.LogInformation("Over Strike 2 HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Release})", player.PlayerName, account, Hud.Release);
         var slot = player.Slot;
         if (wasChecked) Server.NextFrame(() => { if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p) p.PrintToChat(" " + HudCheck.Thanks); });
     }
@@ -711,6 +672,7 @@ sealed class HudScreen
     /// download it would be thrown out for nothing. A stricter mode gives everybody still waiting a fresh grace period and the window.</summary>
     void UpdateCheck(DateTime now)
     {
+        if (item == null) return; // no addon: nobody is asked for it, the check stays off
         var configured = HudCheck.Parse(state?.CheckMode);
         item.Poll(now, true); // always: whether joiners must download the addon follows it too (RequireAddon)
         RequireAddon(now);
@@ -719,7 +681,7 @@ sealed class HudScreen
         if (mode == HudCheck.Mode.Enforce && !item.Public(now)) mode = HudCheck.Mode.DryRun;
         if (!addonRequired) mode = HudCheck.Mode.Off; // nobody is made to download it now, so nobody may be asked for it either
         if (mode == checkMode) return;
-        log.LogInformation("GunGameWelcome HUD check: {From} -> {To} (HUD_CHECK {Configured}, release {Release} {Proof}, item {Item})", HudCheck.Name(checkMode), HudCheck.Name(mode),
+        log.LogInformation("Over Strike 2 HUD check: {From} -> {To} (HUD_CHECK {Configured}, release {Release} {Proof}, item {Item})", HudCheck.Name(checkMode), HudCheck.Name(mode),
             HudCheck.Name(configured), Hud.Release, state?.Proofs.ContainsKey(Hud.Release) == true ? "proven" : "not proven yet", item.Describe(now));
         if (mode > checkHigh) // once per step up on a map, never on a flap - and never for a player the bridge knows (a spawn before its first answer)
         {
@@ -730,15 +692,16 @@ sealed class HudScreen
         checkMode = mode;
     }
 
-    /// <summary>The owner's rule of 2026-10-22: while Steam does not show the HUD item to everybody (an update waiting for Valve's review
-    /// can do that), the server must not require it - MultiAddonManager would hold every joiner at a download that cannot succeed. So
-    /// a Web API verdict of gone, private or banned, or a page visit after the Web API showed a new version that finds Steam's not-shown
-    /// page, takes the item off mm_client_extra_addons (new joiners come in without the HUD; players who have it keep it until they
-    /// reconnect), and the visit that finds it shown puts it back (ItemPlan in HudCheck.cs: since 2026-11-01 the page is visited only
-    /// after a change, at most every 10 minutes for 3 hours - no idle polling). MultiAddonManager re-reads the list for every connection
-    /// (its change callback, v1.6.2 and v1.7.1). No fresh word from the Web API: as it was (at a start: as pre.sh set it).</summary>
+    /// <summary>While Steam does not show the HUD item to everybody (an update waiting for Valve's review can do that), the server must not
+    /// require it - MultiAddonManager would hold every joiner at a download that cannot succeed. So a Web API verdict of gone, private or
+    /// banned, or a page visit after the Web API showed a new version that finds Steam's not-shown page, takes the item off
+    /// mm_client_extra_addons (new joiners come in without the HUD; players who have it keep it until they reconnect), and the visit that
+    /// finds it shown puts it back (ItemPlan in HudCheck.cs: the page is visited only after a change, at most every 15 minutes for 3 hours -
+    /// no idle polling). MultiAddonManager re-reads the list for every connection (its change callback, v1.6.2 and v1.7.1). No fresh word
+    /// from the Web API: as it was (at a start: as pre.sh set it). Only with an addon (UpdateCheck).</summary>
     void RequireAddon(DateTime now)
     {
+        if (item == null) return;
         var cause = item.Cause;
         var required = item.Required(addonRequired, now);
         if (!required && addonRequired)
@@ -749,8 +712,8 @@ sealed class HudScreen
             toldNoMenu.Clear();
             log.LogWarning("Over Strike 2 HUD: Steam does not show Workshop item {Addon} to everybody ({Cause}) - joiners no longer have to download it (mm_client_extra_addons emptied), the HUD check is off",
                 addon, cause switch { HudCheck.Cause.Review => $"the version uploaded {item.Updated} under review", HudCheck.Cause.Unavailable => "the Web API says it is not downloadable", _ => "a page visit by hand found it hidden" });
-            // Informative errors for the players (the owner's decision of 2026-11-01): the news line for those who still have the HUD, and
-            // one chat line for everybody, since a player who joins from now on has no HUD to read anything on.
+            // Informative errors for the players: the news line for those who still have the HUD, and one chat line for everybody, since a
+            // player who joins from now on has no HUD to read anything on.
             Notice(HudCheck.DroppedNews(cause, item.Updated), 45);
             var chat = HudCheck.DroppedChat(cause);
             foreach (var p in Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false })) { p.PrintToChat(" " + chat); toldNoMenu.Add(Account(p)); }
@@ -770,7 +733,7 @@ sealed class HudScreen
     /// line - once per player until the HUD is back - says why and what to do (nothing: play on).</summary>
     void TellNoMenu(CCSPlayerController player)
     {
-        if (addonRequired || !toldNoMenu.Add(Account(player))) return;
+        if (item == null || addonRequired || !toldNoMenu.Add(Account(player))) return;
         var slot = player.Slot;
         var line = HudCheck.NoMenuChat(droppedCause, item.Updated);
         Server.NextFrame(() => { if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p) p.PrintToChat(" " + line); });
@@ -779,6 +742,7 @@ sealed class HudScreen
     /// <summary>css_gghud item: the item's page visited now; says what the last visit found and whether joiners must download it.</summary>
     public string CheckItemNow()
     {
+        if (item == null) return "no HUD addon - no item to visit";
         item.Soon();
         return $"one item page visit due now, by hand (the answer shows in css_gghud in a few seconds); so far: {item.Describe(DateTime.UtcNow)}, addon {(addonRequired ? "required of joiners" : "NOT required")}";
     }
@@ -787,9 +751,9 @@ sealed class HudScreen
     /// answers are in (a few seconds); changes nothing.</summary>
     public string ProbeItem(long other)
     {
-        _ = item.Probe(other).ContinueWith(t => log.LogInformation("GunGameWelcome HUD item probe: {Result}",
+        _ = (item ?? new ItemWatch("")).Probe(other).ContinueWith(t => log.LogInformation("Over Strike 2 HUD item probe: {Result}",
             t.IsCompletedSuccessfully ? t.Result : $"{other}: failed ({t.Exception?.GetBaseException().Message})"), TaskScheduler.Default);
-        return $"probing {other}'s Workshop page and the Web API - the answer goes to the server log as 'GunGameWelcome HUD item probe:'";
+        return $"probing {other}'s Workshop page and the Web API - the answer goes to the server log as 'Over Strike 2 HUD item probe:'";
     }
 
     /// <summary>What the check's clock says is due: the warning in chat, then the disconnect - in a dry run only a log line.</summary>
@@ -803,13 +767,13 @@ sealed class HudScreen
             {
                 case HudGate.Act.Warn:
                     foreach (var line in HudCheck.Warning(addon, seconds, checkMode != HudCheck.Mode.Enforce)) p.PrintToChat(" " + line);
-                    log.LogInformation("GunGameWelcome HUD check: warned {Name} [U:1:{Account}] ({Mode}, {Seconds} s left)", p.PlayerName, account, HudCheck.Name(checkMode), seconds);
+                    log.LogInformation("Over Strike 2 HUD check: warned {Name} [U:1:{Account}] ({Mode}, {Seconds} s left)", p.PlayerName, account, HudCheck.Name(checkMode), seconds);
                     break;
                 case HudGate.Act.WouldKick:
-                    log.LogInformation("GunGameWelcome HUD check (dry run): would disconnect {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);
+                    log.LogInformation("Over Strike 2 HUD check (dry run): would disconnect {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);
                     break;
                 case HudGate.Act.Kick:
-                    log.LogWarning("GunGameWelcome HUD check: disconnecting {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);
+                    log.LogWarning("Over Strike 2 HUD check: disconnecting {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);
                     if (p.UserId is int userId) Server.ExecuteCommand($"kickid {userId} \"{HudCheck.Reason(addon)}\"");
                     else p.Disconnect(CounterStrikeSharp.API.ValveConstants.Protobuf.NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED);
                     break;
@@ -843,9 +807,9 @@ sealed class HudScreen
         switch (cmd.Kind)
         {
             case ChatCommands.Kind.Bridge:
-                var action = cmd.Arg == "next" ? HudView.Command(HudView.BoardNext, state, account) : cmd.Arg; // the board's Next, as the board reads for this player
-                if (action == null) { Say("Next: nothing to do while a map change is under way"); return; }
-                if (action == HudView.OpenVote) { Menu(player); Say("The vote for the next map is on - the menu shows it; type !vote and a number"); return; }
+                var action = cmd.Arg == "next" ? HudView.Command(HudView.BoardNext, state, vote) : cmd.Arg; // the board's Start a vote, as the board reads for this player
+                if (action == null) { Say("Start a vote: nothing to do while a map change is under way"); return; }
+                if (action == HudView.OpenVote) { Menu(player); Say("The vote for the next map is on - the menu shows it: click a card to vote"); return; }
                 Bridge(action);
                 return;
             case ChatCommands.Kind.Top:
@@ -874,28 +838,18 @@ sealed class HudScreen
                 if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) { Say($"{setting.Title} is Arms Race's own - not in {mode.Name}"); return; }
                 var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
                 if (Fun.Showing(setting, FunValue) == choice) { Say($"{setting.Title}: {choice.Label} already"); return; }
-                if (Fun.Refusal(setting, choice, FunValue) is { } refused) { Say(refused); return; } // a Clash (the owner's 43 c)
+                if (Fun.Refusal(setting, choice, FunValue) is { } refused) { Say(refused); return; } // a Clash
                 Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
                 plugin.AddTimer(FunCheckSeconds, () =>
                 {
-                    if (Fun.Showing(setting, FunValue) == choice) { Notice(Fun.News(name, setting, choice), 8); Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); }
+                    // the player's own line in chat says the command already: the centre of the screen says who switched what
+                    if (Fun.Showing(setting, FunValue) == choice) Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart());
                     else Say($"{setting.Title} did not switch");
                 });
                 return;
-            case ChatCommands.Kind.Nades:
-                if (!mode.ArmsRace) { Say($"Grenade drops are Arms Race's own - not in {mode.Name}"); return; }
-                if (NadesOn?.Invoke() == (cmd.Arg == "on")) { Say($"Grenade drops: {cmd.Arg} already"); return; }
-                var who = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-                Server.ExecuteCommand($"gg_nades {cmd.Arg} \"{who}\"");
-                Notice($"{who} switched grenade drops {cmd.Arg}", 8);
-                Centre?.Invoke(who, $"turned grenade drops {cmd.Arg}");
-                return;
-            case ChatCommands.Kind.CatchUp:
-                SwitchCatchUp(player, cmd.Arg == "on", Say); // content v4_5_0 (the owner's 2026-11-03)
-                return;
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
-                if (!vote.Open || vote.Round <= 0) { Say("No vote is on - it opens when a match ends"); return; }
+                if (!vote.Open || vote.Round <= 0) { Say("No vote is on - Start a vote, or put a map to the vote with !play"); return; }
                 if (vote.Numbered(k) is not { } numbered) { foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line); return; }
                 Bridge(MapVote.Click(vote.Round, numbered.N));
                 Say($"Your vote: {Hud.Clean(numbered.Label, 40)}");
@@ -904,7 +858,7 @@ sealed class HudScreen
                 foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line);
                 return;
             case ChatCommands.Kind.FunAll:
-                FunAll(player, cmd.Arg); // the Fun page's Random or Default (content v4_4_0's buttons; the owner's 2026-11-03)
+                FunAll(player, cmd.Arg); // the Fun page's Random or Default (content v4_4_0's buttons)
                 return;
             case ChatCommands.Kind.Commands:
                 foreach (var line in ChatCommands.HelpLines()) Say(line);
@@ -926,7 +880,7 @@ sealed class HudScreen
         var needs = HudVote.PageLevel(page);
         if (account <= 0 || needs <= content.GetValueOrDefault(account)) return;
         content[account] = needs;
-        log.LogInformation("GunGameWelcome HUD: {Name} [U:1:{Account}] asked for the {Page} page in chat - its words go to their game from now on", player.PlayerName, account, page);
+        log.LogInformation("Over Strike 2 HUD: {Name} [U:1:{Account}] asked for the {Page} page in chat - its words go to their game from now on", player.PlayerName, account, page);
     }
 
     /// <summary>!play &lt;map&gt;: a number is a map's rank (its !map); a Workshop id no listed map has opens its card (the menu's download);
@@ -938,11 +892,11 @@ sealed class HudScreen
         if (catalog == null) { say("The map list is not loaded yet - try again in a moment"); return; }
         var exact = catalog.Maps.FirstOrDefault(m => m.Arg.Equals(q, StringComparison.OrdinalIgnoreCase) || m.Id.ToString(CultureInfo.InvariantCulture) == q
             || m.Name.Equals(q, StringComparison.OrdinalIgnoreCase));
-        if (exact != null) { bridge($"!map {exact.Arg}"); return; }
+        if (exact != null) { bridge($"!map {HudMenu.PlayArg(exact, "", mode.Id)}"); return; } // in the mode a card's Play would load it in (B7)
         var browser = new HudBrowser();
         browser.Find(q);
         var hits = browser.Matches(catalog, account, search);
-        if (hits.Count == 1) { bridge($"!map {hits[0].Arg}"); return; }
+        if (hits.Count == 1) { bridge($"!map {HudMenu.PlayArg(hits[0], "", mode.Id)}"); return; }
         Menu(player, q);
         say(hits.Count == 0 ? $"No map matches \"{Hud.Clean(q, 40)}\" - other words, a number, or a Workshop ID" : $"{hits.Count} maps match - the menu shows them: click Play on one");
     }
@@ -996,7 +950,7 @@ sealed class HudScreen
 
     public string SimulateClick(long account, string buttonId)
     {
-        var command = HudView.Command(buttonId, state, account);
+        var command = HudView.Command(buttonId, state, vote);
         if (command == null) return $"button {buttonId} sends nothing for account {account} (state {(state == null ? "unknown" : "known")})";
         if (bridge == null) return "no bridge link";
         bridge.Act(account, "HUDtest", command);
@@ -1023,7 +977,7 @@ sealed class HudScreen
         if (bridge?.TakeSearch(now, state?.SearchVersion ?? 0) is { } searchText && HudSearch.Decode(searchText) is { } index)
         {
             search = index;
-            log.LogInformation("GunGameWelcome HUD: search index {Version} - {Count} maps", index.Version, index.Count);
+            log.LogInformation("Over Strike 2 HUD: search index {Version} - {Count} maps", index.Version, index.Count);
         }
         UpdateCheck(now);
         EchoNotes(now);
@@ -1033,13 +987,8 @@ sealed class HudScreen
             if (now >= at) { resendAt.Remove(slot); Forget(slot); }
 
         tabMode = tabOverride ?? HudTab.Parse(state?.TabMode);
-        if (tabMode == HudTab.Mode.Off)
-            foreach (var slot in tab.CursorSlots().Concat(humans.Where(h => tab.Window(h.Slot)).Select(h => h.Slot)).Distinct().ToList())
-            {
-                if (tab.Window(slot)) slots.Info(slot, "off", now);
-                tab.Release(slot);
-                log.LogInformation("GunGameWelcome HUD TAB: switched off - the TAB cursor or window of slot {Slot} released", slot);
-            }
+        if (tabMode == HudTab.Mode.Off && tab.CursorSlots().Any())
+            log.LogInformation("Over Strike 2 HUD: TAB switched off - {Count} TAB cursor(s) released", tab.ReleaseAll().Count);
         foreach (var (id, text2) in HudView.StaticTexts()) Text(id, id == "gg_b_cmds" ? HudTab.BoardLine(tabMode) : text2);
         foreach (var (id, cls, on) in HudView.StaticClasses()) Class(id, cls, on);
         var (funTexts, funClasses) = HudMenu.FunPage(FunValue, mode.ArmsRace); // Over Strike 2's content (NewIds32): the server's settings, the same for everybody whose game has the page
@@ -1053,27 +1002,31 @@ sealed class HudScreen
         WorkshopCards(humans, now);
         if (changeAt != DateTime.MaxValue) Text("gg_k_secs", HudView.Countdown((int)Math.Ceiling((changeAt - now).TotalSeconds)));
 
-        foreach (var h in humans) if (tab.Window(h.Slot)) slots.Hold(h.Slot, now); // the TAB window: no idle close while TAB is held
-        // The end-of-match vote (#26): everybody's window opens on it once a round, and stays open while it runs; who closes it can open it
-        // again with TAB + E. The Maps page draws it while it is on.
-        if (vote.Round > 0)
+        // Every vote opens everybody's window on the ballot - a player who joins meanwhile too - and holds it while everybody is frozen: while it is
+        // open, and while its result counts down to a map change. Nothing closes it then (VoteLocked). When the freeze ends, the windows it opened
+        // close for everybody at the same moment. The Maps page draws the vote while it is on.
+        if (vote.Round > 0 && vote.Freeze)
             foreach (var h in humans)
             {
-                var shownKey = vote.MidMatch ? -vote.Round : vote.Round; // a vote a player started that a match end overtook opens everybody's window then
-                if (voteShown.GetValueOrDefault(h.Slot) != shownKey)
+                if (voteShown.GetValueOrDefault(h.Slot) != vote.Round || !slots.WindowOpen(h.Slot))
                 {
-                    voteShown[h.Slot] = shownKey;
-                    if (!vote.MidMatch || Account(h) == vote.Starter) slots.Show(h.Slot, HudSlots.Page.Maps, now); // a vote started mid-match opens its starter's window alone: nobody else is stopped in a fight
+                    voteShown[h.Slot] = vote.Round;
+                    slots.Show(h.Slot, HudSlots.Page.Maps, now);
+                    voteOpened.Add(h.Slot);
                 }
-                if (slots.WindowOpen(h.Slot) && vote.Open) slots.Hold(h.Slot, now);
+                slots.Hold(h.Slot, now);
             }
+        else if (voteOpened.Count > 0)
+        {
+            foreach (var slot in voteOpened) if (slots.WindowOpen(slot)) slots.Info(slot, "off", now);
+            voteOpened.Clear();
+        }
         foreach (var (id, cls, on) in HudVote.VersionClasses(TestLevel ?? HudVote.ContentLevel)) Class(id, cls, on);
         foreach (var (id, cls, on) in HudVote.ModeClasses(mode.Id)) Class(id, cls, on);
         Var(HudView.Global, HudVote.VersionVar, Hud.Content);
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words (content v4_1_0)
-        foreach (var (id, cls, on) in HudVote.NadesClasses(NadesOn?.Invoke())) Class(id, cls, on); // the Fun page's grenade drops, lit
-        foreach (var (id, cls, on) in HudVote.CatchUpClasses(CatchUpOn?.Invoke())) Class(id, cls, on); // content v4_5_0: the Fun page's catch-up, lit
+        foreach (var (id, cls, on) in HudVote.FixedRowClasses(FunValue, mode.ArmsRace)) Class(id, cls, on); // the Fun page's grenade drops and catch-up rows, lit
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
         foreach (var p in humans)
         {
@@ -1140,7 +1093,6 @@ sealed class HudScreen
         {
             HudSlots.Page.Maps when vote.Round > 0 && !(vote.Open && VoteView(p.Slot).Browse) => BallotPage(p, account),
             HudSlots.Page.Maps => HudMenu.Maps(catalog, shown, Browser(p.Slot), account, now, search, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", mode.Id, vote.Open ? vote : null),
-            HudSlots.Page.Queue => HudMenu.Queue(shown, account),
             HudSlots.Page.Game => HudMenu.Game(shown, restartArmed.TryGetValue(p.Slot, out var until) && now < until ? (int)Math.Ceiling((until - now).TotalSeconds) : 0),
             _ => (null, null),
         };
@@ -1183,12 +1135,12 @@ sealed class HudScreen
     /// <summary>The ballot's page for this player: its texts and classes, and its variables on gg_screen (Random's button, the hint for the other pages).</summary>
     (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(CCSPlayerController p, long account)
     {
-        var (texts, classes, vars) = HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", VoteView(p.Slot).Page, HudMenu.MyQueuedKeys(state, account));
+        var (texts, classes, vars) = HudVote.Cards(vote, account, catalog, pictures.GetValueOrDefault(p.Slot)?.Key ?? "", VoteView(p.Slot).Page);
         foreach (var (name, text) in vars) Var(HudView.Screen, name, text, p);
         return (texts, classes);
     }
 
-    /// <summary>Content v4_4_0 (the owner's 2026-11-03): a Dislike's reasons where it was clicked - over the picture of the card it came from (whyc1 ...),
+    /// <summary>Content v4_4_0: a Dislike's reasons where it was clicked - over the picture of the card it came from (whyc1 ...),
     /// or in the window's live column (whyin alone) - and the left-hand popup only where neither is on screen (a dislike typed in chat with the
     /// window closed; the TAB board shows its own, by the stylesheet).</summary>
     void WhyInline(CCSPlayerController p, HudSlots.View view, long account, HudState shown)
@@ -1201,37 +1153,29 @@ sealed class HudScreen
         for (var k = 1; k <= HudMenu.Cards; k++) Class(HudView.Screen, $"whyc{k}", card == k, p);
     }
 
-    /// <summary>The Fun page's Random or Default (the owner's 2026-11-03), from a click or from !fun random / !fun default: Random draws every setting the page
-    /// shows in this mode from its own choices (Fun.Randomized), the grenade drops and catch-up where they are (Arms Race), Default is the reset after 10 minutes with nobody on -
-    /// gg_fun reset and the grenade drops on. The same commands a click on each row runs, a frame later; one chat line for everybody says what changed.</summary>
+    /// <summary>The Fun page's Random or Default, from a click or from !fun random / !fun default: Random draws every setting the page shows in this
+    /// mode from its own choices (Fun.Randomized; catch-up on three times in four), Default puts every one back to its first choice - gg_fun reset,
+    /// the reset after 10 minutes with nobody on. The same commands a click on each row runs, a frame later; one chat line for everybody says what
+    /// changed, and the centre of the screen who did it.</summary>
     void FunAll(CCSPlayerController player, string which)
     {
         var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
         if (which == Fun.DefaultWord)
         {
-            var nadesOff = mode.ArmsRace && NadesOn?.Invoke() == false;
-            var catchUpOff = mode.ArmsRace && CatchUpOn?.Invoke() == false;
             Server.NextFrame(() =>
             {
                 Server.ExecuteCommand($"{Fun.ResetCommand} \"{name}\"");
-                if (nadesOff) Server.ExecuteCommand($"gg_nades on \"{name}\"");
-                if (catchUpOff) CatchUpSwitch?.Invoke(true);
                 Server.PrintToChatAll(" " + Fun.DefaultLine(name));
                 Centre?.Invoke(name, "put every fun setting back to normal");
             });
             return;
         }
-        var (picks, nades, catchUp) = Fun.Randomized(dice.Next, mode.ArmsRace);
-        var changed = picks.Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
-        bool? nadesSwitched = nades is { } want && NadesOn?.Invoke() != want ? want : null;
-        bool? catchUpSwitched = catchUp is { } cu && CatchUpOn?.Invoke() != cu ? cu : null;
+        var changed = Fun.Randomized(dice.Next, mode.ArmsRace).Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
         Server.NextFrame(() =>
         {
             foreach (var (setting, choice) in Fun.InSafeOrder(changed)) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""); // back to Normal first: no Clash on the way
-            if (nadesSwitched is { } on) Server.ExecuteCommand($"gg_nades {(on ? "on" : "off")} \"{name}\"");
-            if (catchUpSwitched is { } cuOn) CatchUpSwitch?.Invoke(cuOn);
-            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed, nadesSwitched, catchUpSwitched: catchUpSwitched));
-            var parts = Fun.Changes(changed, nadesSwitched, catchUpSwitched);
+            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed));
+            var parts = Fun.Changes(changed);
             Centre?.Invoke(name, parts.Count == 0 ? "rolled the fun settings: nothing changed" : "rolled the fun settings: " + string.Join(", ", parts));
         });
     }
@@ -1272,7 +1216,7 @@ sealed class HudScreen
         catch (Exception e)
         {
             markBroken = true;
-            log.LogWarning("GunGameWelcome HUD: marking the layout for the network failed, left to the engine from now on: {Message}", e.Message);
+            log.LogWarning("Over Strike 2 HUD: marking the layout for the network failed, left to the engine from now on: {Message}", e.Message);
         }
         globalDirty = playerDirty = false;
     }
@@ -1288,36 +1232,21 @@ sealed class HudScreen
     /// <summary>Where the fun page's values come from: the settings module (convars and its effects); without it, the engine's convars.</summary>
     public Func<string, string?>? FunSource { get; set; }
 
-    /// <summary>The catch-up module's switch and state (content v4_5_0's Fun row, !catchup): set by the plugin.</summary>
-    public Func<bool>? CatchUpOn { get; set; }
-    public Action<bool>? CatchUpSwitch { get; set; }
 
-    /// <summary>A fun change for everybody, centre screen for Fun.CentreSeconds (the owner's 2026-11-03): set by the plugin, which owns the centre panel.</summary>
+    /// <summary>A fun change for everybody, centre screen for Fun.CentreSeconds: set by the plugin, which owns the centre panel.</summary>
     public Action<string, string>? Centre { get; set; }
 
-    /// <summary>A vote at a match's end is on: the window stays open until it is over (the owner's 2026-11-03), and nothing closes it.</summary>
-    bool VoteLocked => vote is { Open: true, Round: > 0, MidMatch: false };
+    /// <summary>A vote freezes everybody: the window stays open until the freeze is over, and nothing closes it.</summary>
+    bool VoteLocked => vote is { Round: > 0, Freeze: true };
+
+    /// <summary>The vote as the bridge last said it: the freeze reads it (VoteFreeze.cs).</summary>
+    public VoteState Vote => vote;
+
+    readonly HashSet<int> voteOpened = new(); // the slots whose window the vote that is on opened: closed together when the freeze ends
 
     /// <summary>The slots whose centre panel shows a picture now (the plugin's centre notice leaves those alone).</summary>
     public bool PictureShowing(int slot) => pictures.TryGetValue(slot, out var open) && open.Html != null;
 
-    /// <summary>Catch-up switched from the Fun page or chat: Arms Race only; the news line and the centre notice say who.</summary>
-    void SwitchCatchUp(CCSPlayerController player, bool on, Action<string> say)
-    {
-        if (!mode.ArmsRace) { say($"Catch-up is Arms Race's own - not in {mode.Name}"); return; }
-        if (CatchUpOn?.Invoke() == on) { say($"Catch-up: {(on ? "on" : "off")} already"); return; }
-        var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-        Server.NextFrame(() =>
-        {
-            CatchUpSwitch?.Invoke(on);
-            Notice($"{name} switched catch-up {(on ? "on" : "off")} - until the map changes", 8);
-            Centre?.Invoke(name, $"turned catch-up {(on ? "on" : "off")}");
-            Frame();
-        });
-    }
-
-    /// <summary>The grenade drops as the grenades module has them.</summary>
-    public Func<bool>? NadesOn { get; set; }
 
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
     string? FunValue(string name)

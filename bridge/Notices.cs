@@ -10,7 +10,7 @@ static partial class Program
     public const int NewsLength = 240;   // the news line, at most: a burst of queue news is merged into it (FlushNews), up to three lines
 
     static readonly Dictionary<long, (string Text, DateTime Until)> NoteFor = new();
-    static (string Text, DateTime Until) NewsNow = ("", default);
+    static (string Text, DateTime Until) NewsNow = ("", default), NewsBefore = ("", default); // the news line's two slots (the owner's 63 a)
 
     /// <summary>Every notice given, newest last (the last 200): the log reads the same, and --selftest asserts on it.</summary>
     static readonly List<string> Told = new();
@@ -24,14 +24,21 @@ static partial class Program
         if (AccountId(steamId) is > 0 and var account) NoteFor[account] = (line, Now().AddSeconds(seconds));
     }
 
-    /// <summary>The news line, shown to everybody for a few seconds; a newer one replaces it.</summary>
+    /// <summary>The news line, shown to everybody for a few seconds. It has two slots (the owner's 63 a): a newer line covers the one that is on,
+    /// and that one comes back when the newer has gone, if its own time is not up - a fun click no longer wipes a restart's warning off it.</summary>
     static void Announce(string text, double seconds = NewsSeconds)
     {
         var line = Hud.Clean(text, NewsLength);
         Log($"news: {line}");
         Keep(line);
-        NewsNow = (line, Now().AddSeconds(seconds));
+        var now = Now();
+        if (NewsNow.Text != "" && now < NewsNow.Until && NewsNow.Text != line) NewsBefore = NewsNow;
+        NewsNow = (line, now.AddSeconds(seconds));
     }
+
+    /// <summary>The news line as it shows now: the newest line whose time is not up.</summary>
+    static (string Text, DateTime Until) NewsShown(DateTime now) =>
+        NewsNow.Text != "" && now < NewsNow.Until ? NewsNow : NewsBefore.Text != "" && now < NewsBefore.Until ? NewsBefore : ("", default);
 
     static void Keep(string line)
     {
@@ -42,7 +49,7 @@ static partial class Program
     /// <summary>The notices still on, into the live state: the news and each note with their seconds left; expired notes go.</summary>
     static void PutNotices(HudState h, DateTime now)
     {
-        if (NewsNow.Text != "" && now < NewsNow.Until) (h.News, h.NewsFor) = (NewsNow.Text, (int)Math.Ceiling((NewsNow.Until - now).TotalSeconds));
+        if (NewsShown(now) is { Text: not "" } news) (h.News, h.NewsFor) = (news.Text, (int)Math.Ceiling((news.Until - now).TotalSeconds));
         foreach (var (account, (text, until)) in NoteFor.ToList())
         {
             if (now >= until) { NoteFor.Remove(account); continue; }
@@ -50,5 +57,5 @@ static partial class Program
         }
     }
 
-    static void ClearNotices() { NoteFor.Clear(); NewsNow = ("", default); Told.Clear(); }
+    static void ClearNotices() { NoteFor.Clear(); NewsNow = NewsBefore = ("", default); Told.Clear(); }
 }

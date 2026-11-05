@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The fun page's effects that are no game convar (Fun.cs: Fun.Vampire, Fun.Ghost, Fun.NoRecoil - the owner's #24 of 2026-11-01).
+/// <summary>Three of the fun page's effects that are no game convar (Fun.cs: Fun.Vampire, Fun.Ghost, Fun.NoRecoil); the grenade drops and catch-up,
+/// the other two, are the grenades module's and the catch-up module's.
 /// The settings module keeps their switches like convars (a player's change, its undo at the map's end and in the reset); this module
 /// does what they say, from game events. Nothing heavy inside an event: every write waits for the next frame, the way the HUD's work does.
 ///

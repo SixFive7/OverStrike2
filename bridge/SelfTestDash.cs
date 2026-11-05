@@ -1,6 +1,7 @@
-// --selftest, the Sync page (content v4_3_0, 2026-11-03): the block's codec, what a player with the page open is sent and how its pagers page,
-// the words out of the sync's file (SyncWords) on a handed clock, the website's data, the bridge's own loop over the file, and the layout's
-// labels and the stylesheet's rules against everything the view can send. Self-contained: its own file, clock and state directory, put back.
+// --selftest, the Sync page (content v4_3_0): the block's codec, what a player with the page open is sent and how its pagers page, the words
+// out of the sync's file (SyncWords) on a handed clock - the stock and the background download among them, and the maps' tags - the website's
+// data, the bridge's own loop over the file, and the layout's labels and the stylesheet's rules against everything the view can send.
+// Self-contained: its own file, clock and state directory, put back.
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -34,10 +35,12 @@ static partial class Program
         const long updated = 1793725560; // a Tuesday, six minutes past five in the afternoon, UTC
         var now = DateTime.UnixEpoch.AddSeconds(updated + 30);
         var zone = TimeZoneInfo.Utc;
-        List<SyncWords.RandomQueue> rq = [new(QueueNew, 15, 15), new(QueueOriginal, 14, 15), new(Modes.DeathmatchId, 15, 15), new(Modes.WingmanId, 9, 15)];
-        SyncWords.Input In(string? json, DateTime at, string problem = "", bool known = true) =>
-            new(json == null ? null : JsonDocument.Parse(json).RootElement, now, problem, rq, known, now.AddSeconds(-40), 15, at);
-        HudDash D(string? json, DateTime at, string problem = "", bool known = true) => SyncWords.Dash(In(json, at, problem, known), zone);
+        List<SyncWords.RandomQueue> rq = [new(Modes.ArmsRaceId, 7, 10, [new("3900000001", "stock_one", true, "upload,newtous"), new("3900000002", "stock_two", false, "newtous")]),
+            new(Modes.DeathmatchId, 10, 10), new(Modes.WingmanId, 9, 10)];
+        string FakeTags(string id) => id == "3800000001" ? "liked,trending" : id == "3900000003" ? "upload,newtous" : "";
+        SyncWords.Input In(string? json, DateTime at, string problem = "", bool known = true, Download? background = null) =>
+            new(json == null ? null : JsonDocument.Parse(json).RootElement, now, problem, rq, known, now.AddSeconds(-40), 10, at, background, FakeTags);
+        HudDash D(string? json, DateTime at, string problem = "", bool known = true, Download? background = null) => SyncWords.Dash(In(json, at, problem, known, background), zone);
 
         // ---- the words out of the file ----
         var d = D(DashSample(updated), now);
@@ -52,12 +55,19 @@ static partial class Program
             && Wd(d, "osdtoday") == "Today: 847 downloads, 158.5 GB  ·  582 passed, 21 rejected  ·  1 failed  ·  526 API calls"
             && Wd(d, "osdlisted") == "Listed: Arms Race 3,718  ·  Deathmatch 1,096  ·  Wingman 827" && Wd(d, "osdtested") == "Tested so far: 1,606  ·  1,521 passed, 22 broken, 63 not maps"
             && Wd(d, "osdage") == "Updated less than a minute ago" && !Cl(d, "osdold") && !Cl(d, "osdnone"));
-        Check("Sync page, queue: how many wait and their size, per mode (a count or an object with one), the finish estimate, the server's own missing maps, the random queues ready on disk",
+        Check("Sync page, queue: how many wait and their size, per mode (a count or an object with one), the finish estimate, the server's own missing maps, the stock ready on disk",
             Wd(d, "osdqhead") == "3,845 maps waiting  ·  522.2 GB" && Wd(d, "osdqmodes") == "Arms Race 22  ·  Deathmatch 2,100  ·  Wingman 2,473"
             && Wd(d, "osdqeta") == $"All tested by about {SyncWords.When(updated + 129971, now, zone)}" && SyncWords.When(updated + 129971, now, zone) == "Thu 5 Nov 05:12"
             && Wd(d, "osdqserve") == "The server lacks 307 maps it keeps (52.6 GB): those come first  ·  198 handed over for the next restart"
-            && Wd(d, "osdqrand") == "On disk for random picks: Arms Race new 15/15  ·  original 14/15  ·  Deathmatch 15/15  ·  Wingman 9/15"
+            && Wd(d, "osdqrand") == "Stock on disk for the ballots: Arms Race 7/10  ·  Deathmatch 10/10  ·  Wingman 9/10"
             && Wd(d, "osdqshown") == "The next 25 of 3,845");
+        var bgD = D(DashSample(updated), now, background: new Download("3900000002", 63, "Lake Aim", now));
+        Check("Sync page, the background download: while the restart watcher downloads in the background, the stock's line says it first - its title and progress - and the stock in short; nothing on the news line",
+            Wd(bgD, "osdqrand") == "Background download: Lake Aim, 63%  ·  stock on disk 26 of 30" && Wd(bgD, "osdqrand").Length < 120
+            && Wd(D(DashSample(updated), now, background: new Download("3900000002", null, "", now)), "osdqrand").StartsWith("Background download: Workshop item 3900000002, starting"));
+        Check("Sync page, the tags: a map's first why tag in words after its name, in the queue and the map events; a map without one as it was",
+            D(DashSample(updated), now).Lists.Single(l => l.Name == HudDash.MapList).Rows.Any(r => r.Fields[2] == "event_map_1 (liked by us)  ·  Arms Race")
+            && D(DashSample(updated), now).Lists.Single(l => l.Name == HudDash.QueueList).Rows[0].Fields[1] == "queued_map_1");
         var queue = d.Lists.Single(l => l.Name == HudDash.QueueList);
         Check($"...the next maps in order, {SyncWords.QueueRows} a page: place, name, mode and size, the why with a capital",
             queue.PageSize == SyncWords.QueueRows && queue.Rows.Count == 25 && queue.Pages == 5 && queue.Rows[0].Fields.SequenceEqual(["1", "queued_map_1", "Deathmatch  ·  2.5 GB", "It would make one of its mode's lists of maps the server keeps"])
@@ -69,7 +79,7 @@ static partial class Program
             && runs.Rows[2].Tone == "dim" && runs.Rows[2].Fields[2] == "Stopped: 3 downloads in a row failed - no more in this run");
         var events = d.Lists.Single(l => l.Name == HudDash.MapList);
         Check($"...the map events newest first, {SyncWords.MapRows} a page: when, what (in words, coloured by kind), the map and its mode, why; a nameless one by its Workshop id",
-            events.PageSize == SyncWords.MapRows && events.Rows.Count == 20 && events.Rows[0].Fields.SequenceEqual(["16:55", "Failed", "event_map_1  ·  Arms Race", "Reason 1."]) && events.Rows[0].Tone == "bad"
+            events.PageSize == SyncWords.MapRows && events.Rows.Count == 20 && events.Rows[0].Fields.SequenceEqual(["16:55", "Failed", "event_map_1 (liked by us)  ·  Arms Race", "Reason 1."]) && events.Rows[0].Tone == "bad"
             && events.Rows[1].Fields[2] == "Workshop item 3800000002  ·  Arms Race" && events.Rows[1].Fields[1] == "Listed" && events.Rows[1].Tone == "ok"
             && events.Rows[2].Tone == "bad" && events.Rows[3].Tone == "dim" && events.Rows[4].Tone == "hot" && events.Rows[4].Fields[1] == "Updated" && events.Rows[5].Fields[1] == "To the server");
         var oldD = D(DashSample(updated), now.AddMinutes(SyncWords.OldMinutes));
@@ -86,8 +96,8 @@ static partial class Program
             Wd(odd, "osdstate") == "Frobnicate" && Cl(odd, "osdbusy") && SyncWords.States.All(s => Looks(D(DashSample(updated, state: s.State), now)) == 1 && Wd(D(DashSample(updated, state: s.State), now), "osdstate") == s.Words));
         var unknownDisk = D(DashSample(updated), now, known: false);
         var empty = D(DashSample(updated, queued: 0, events: 0), now);
-        Check("Without a fresh report from the server the random queues say how many are rolled, not how many are on disk; an empty queue says so",
-            Wd(unknownDisk, "osdqrand") == "Rolled ahead for random picks: Arms Race new 15  ·  original 15  ·  Deathmatch 15  ·  Wingman 15  ·  disk not reported"
+        Check("Without a fresh report from the server the stock says how many are rolled, not how many are on disk; an empty queue says so",
+            Wd(unknownDisk, "osdqrand") == "Discovery stock: Arms Race 10  ·  Deathmatch 10  ·  Wingman 10  ·  disk not reported"
             && Wd(empty, "osdqhead") == "Nothing waiting: every map found so far is tested" && Wd(empty, "osdqeta") == "" && empty.Lists.Single(l => l.Name == HudDash.QueueList).Rows.Count == 0
             && Wd(empty, "osdqshown") == "");
         Check("Sizes as the Maps page shows them, and times: today the time alone, else the day",
@@ -135,7 +145,7 @@ static partial class Program
             && HudDash.View(HudDash.Decode(empty.Encode()), new()).Classes.Single(x => x.Name == "osdqnone").On);
         var (nw, nc) = HudDash.View(null, new());
         Check("...and before the first block: one word that says so", nw.Single().Name == "osdstate" && nc.Single() == ("osdnone", true));
-        Check("The Sync tab and its pagers prove content v4_3_0, and the tab opens the Sync page; so does !sync (the owner's 38 b), whose page needs no words of a newer content",
+        Check("The Sync tab and its pagers prove content v4_3_0, and the tab opens the Sync page; so does !sync, whose page needs no words of a newer content",
             HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43) && HudView.Tabs.Single(t => t.Id == HudDash.Tab).Page == HudSlots.Page.Sync
             && ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync" } && HudVote.PageLevel("Sync") == 0);
 
@@ -144,12 +154,22 @@ static partial class Program
         using (var doc = JsonDocument.Parse(web))
         {
             var r = doc.RootElement;
-            Check("The website's data: when it was written first, the page's words, the random queues, and the sync's own file as it was read (unknown fields too)",
+            Check("The website's data: when it was written first, the page's words, the stock, and the sync's own file as it was read (unknown fields too)",
                 web.StartsWith("{\"generated\":" + (updated + 30).ToString(CultureInfo.InvariantCulture) + ",", StringComparison.Ordinal) && r.GetProperty("words").GetProperty("state").GetString() == "Fetching maps for the server"
-                && r.GetProperty("random").GetProperty("queues").GetArrayLength() == 4 && r.GetProperty("random").GetProperty("known").GetBoolean()
+                && r.GetProperty("random").GetProperty("queues").GetArrayLength() == 3 && r.GetProperty("random").GetProperty("known").GetBoolean()
                 && r.GetProperty("sync").GetProperty("extra").GetProperty("ignored").GetBoolean() && r.GetProperty("sync").GetProperty("history").GetProperty("maps").GetArrayLength() == 20
-                && r.GetProperty("looks").GetProperty("busy").GetBoolean() && r.GetProperty("oldMinutes").GetInt32() == SyncWords.OldMinutes);
+                && r.GetProperty("looks").GetProperty("busy").GetBoolean() && r.GetProperty("oldMinutes").GetInt32() == SyncWords.OldMinutes && !r.TryGetProperty("background", out _));
+            var lane = r.GetProperty("random").GetProperty("queues")[0];
+            Check("...each stock lane with its maps - name, on the disk or not, tags - the tags' table (id, chip, words, family, colour), and the tags of the sync's maps the bridge lists",
+                lane.GetProperty("label").GetString() == "Arms Race" && lane.GetProperty("maps").GetArrayLength() == 2 && lane.GetProperty("maps")[0].GetProperty("ready").GetBoolean()
+                && lane.GetProperty("maps")[0].GetProperty("tags").GetString() == "upload,newtous" && r.GetProperty("tags").GetArrayLength() == MapTags.All.Length
+                && r.GetProperty("tags")[0].GetProperty("chip").GetString() == "NEXT MAP" && r.GetProperty("tags").EnumerateArray().All(t => t.GetProperty("colour").GetString()!.StartsWith('#'))
+                && r.GetProperty("mapTags").GetProperty("3800000001").GetString() == "liked,trending" && !r.GetProperty("mapTags").TryGetProperty("3800000002", out _));
         }
+        using (var doc = JsonDocument.Parse(SyncWords.Web(In(DashSample(updated), now, background: new Download("3900000002", 63, "Lake Aim", now)), bgD, zone)))
+            Check("...and while the watcher downloads in the background: the download, its title, its percent and its words",
+                doc.RootElement.GetProperty("background") is var bgj && bgj.GetProperty("id").GetString() == "3900000002" && bgj.GetProperty("percent").GetInt32() == 63
+                && bgj.GetProperty("words").GetString() == "Background download: Lake Aim, 63%");
         using (var doc = JsonDocument.Parse(SyncWords.WebStamped(SyncWords.Web(In(null, now), gone, zone), now)))
             Check("...and without a file: no sync, the words that say so", doc.RootElement.GetProperty("sync").ValueKind == JsonValueKind.Null && doc.RootElement.GetProperty("words").GetProperty("state").GetString() == "No word from the sync");
         Check("The website's page is built into the bridge and reads its data from beside itself, every 5 s, with nothing from elsewhere",
@@ -214,7 +234,7 @@ static partial class Program
                 foreach (var (n, _) in c) sentClasses.Add(n);
             }
         }
-        foreach (var x in new[] { d, oldD, gone, broken, empty, unknownDisk }.Concat(SyncWords.States.Select(s => D(DashSample(updated, state: s.State), now)))) Take(x);
+        foreach (var x in new[] { d, oldD, gone, broken, empty, unknownDisk, bgD }.Concat(SyncWords.States.Select(s => D(DashSample(updated, state: s.State), now)))) Take(x);
         Take(null);
         var unlabelled = sentWords.Where(n => !labelled.Contains(n)).ToList();
         var unfed = labelled.Where(n => !sentWords.Contains(n)).ToList();

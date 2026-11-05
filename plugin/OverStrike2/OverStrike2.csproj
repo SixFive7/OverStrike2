@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Over Strike 2: the server's one CounterStrikeSharp plugin since 2026-11-01 - the successor of GunGameWelcome (the HUD, the guide,
-       the daily Workshop check), with GunGameNades (the grenade drops) and MapSettingsReset (a map's settings put back, the
-       game-changers block, the fun page's changes) folded in as modules, so the fun page's effects, the block's notices and the game
-       mode are one plugin's state. The folder name, the DLL name and the plugin's name are the same: OverStrike2. -->
+  <!-- Over Strike 2: the server's one CounterStrikeSharp plugin - the HUD and the menu, the chat commands, the vote's freeze, the grenade
+       drops, the settings module (a map's settings put back, the game-changers block, the fun page's changes), catch-up and the game
+       modes, as modules of one plugin, so the fun page's effects, the block's notices and the game mode are one plugin's state. The
+       folder name, the DLL name and the plugin's name are the same: OverStrike2. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -46,11 +46,9 @@
          that fails. A CS2 update therefore needs no new list; to refresh it anyway, run cvarlist over RCON, read the reply to its end
          (its last line gives the count) and keep the name of every line whose second column is not cmd and whose flags column has sv, sorted. -->
     <EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />
-    <!-- The block list is a config file beside the DLL (deploy both): editing it needs no rebuild, "mapreset_block reload" reads it. -->
+    <!-- The block list, every game mode's in one file, is a config file beside the DLL (deploy both): editing it needs no rebuild,
+         "mapreset_block reload" reads it. -->
     <None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />
-    <!-- The other modes' block lists (#27 c), read at a map start in that mode; a missing one blocks nothing in it, so deploy them too. -->
-    <None Include="blocked-deathmatch.txt" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="blocked-wingman.txt" CopyToOutputDirectory="PreserveNewest" />
     <!-- hud/ is the Workshop addon (Panorama layout and stylesheet) and its publisher, a separate program: not part of the plugin. -->
     <Compile Remove="hud\**" />
     <None Remove="hud\**" />

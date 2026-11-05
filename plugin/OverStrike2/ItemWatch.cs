@@ -3,13 +3,20 @@ using System.Globalization;
 namespace OverStrike2;
 
 /// <summary>Whether Steam shows the HUD's Workshop item to everybody. A new item, and every new version of one, waits for Valve's
-/// moderation, and meanwhile nobody but the owner can download it (other players' games show ERROR 15) - so the HUD check must not
+/// moderation, and meanwhile nobody but the item's owner can download it (other players' games show ERROR 15) - so the HUD check must not
 /// disconnect anybody then, and joiners must not be made to download it (HudScreen.RequireAddon).
 ///
-/// Since 2026-11-01 the Web API is the signal: GetPublishedFileDetails on api.steampowered.com every minute, anonymous. The item's page, the one
-/// place Valve's review shows, is visited only when ItemPlan (HudCheck.cs) says so - right after the Web API shows a change, then at most
-/// every 15 minutes while it is not shown, for 3 hours - and never with HudCheck.PageVariable off, as on a test copy. The page is read as HudCheck.PagePublic says (Steam's old Error page and its new
-/// HTTP 500 page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam already.</summary>
+/// The Web API is the signal: GetPublishedFileDetails on api.steampowered.com every minute, anonymous, through the plugin's one door
+/// (SteamWebApi.cs). It says whether the item is gone, private or banned and when a new version went up, but not whether Valve's review
+/// holds it: its keyless answer has no field for moderation at all (publishedfileid, result, creator, the app ids, filename, file_size,
+/// file_url, hcontent_file, preview_url, hcontent_preview, title, description, time_created, time_updated, visibility, banned, ban_reason,
+/// subscriptions, favorited, lifetime_subscriptions, lifetime_favorited, views, tags), and a held item answers result 1, visibility 0 and
+/// banned 0 like a shown one. So the item's page, the one place Valve's review shows, stays the project's one recorded exception to "the
+/// Web API only": visited only when ItemPlan (HudCheck.cs) says so - right after the Web API shows a change, then at most every 15 minutes
+/// while it is not shown, for 3 hours - never with HudCheck.PageVariable off, as on a test copy, and always with an honest User-Agent
+/// naming the project (SteamWebApi.UserAgent). The page is read as HudCheck.PagePublic says (Steam's old Error page and its new HTTP 500
+/// page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam
+/// already.</summary>
 sealed class ItemWatch
 {
     const int PageBytesMax = 400_000; // the new 500 page is ~172 KB of client-side app; the title near its top is all that is read
@@ -29,7 +36,7 @@ sealed class ItemWatch
     {
         url = addon.Length is > 0 and <= 12 && addon.All(char.IsAsciiDigit) ? "https://" + HudCheck.ItemUrl(addon) : null;
         id = url != null ? long.Parse(addon, CultureInfo.InvariantCulture) : 0;
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(SteamWebApi.UserAgent); // the page visit too says who asks
         if (url == null) note = "no item id";
         else if (pageOff) note = $"never visited here ({HudCheck.PageVariable} is off)";
     }
@@ -96,7 +103,7 @@ sealed class ItemWatch
             (now < plan.WindowUntil && plan.NextVisit != DateTime.MaxValue ? $"next at {plan.NextVisit.ToLocalTime():HH:mm})" : "no more planned)"));
 
     /// <summary>css_gghud page &lt;id&gt;: one visit to any item's page and one Web API question, with what this watch would make of them -
-    /// changes nothing. How the page check was tried on the live server against items Steam hides (2026-11-01). By hand only.</summary>
+    /// changes nothing. How the page check is tried against items Steam hides. By hand only.</summary>
     public async Task<string> Probe(long other)
     {
         if (pageOff) return $"{other}: no visit - {HudCheck.PageVariable} is off here";

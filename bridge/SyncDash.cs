@@ -1,12 +1,13 @@
-// The Workshop sync's dashboard (the owner's 34, 2026-11-03): a full status dashboard for the sync, in game for everybody and as a simple website,
-// showing what it is doing now, what is on its queue and what it has done.
+// The Workshop sync's dashboard: a full status dashboard for the sync, in game for everybody and as a simple website, showing what it is doing
+// now, what is on its queue and what it has done.
 //
 // The sync writes /data/sync-status.json (schema 1: now, today, totals, queue, keep, history; atomically, at every phase change, every 15 s in
-// a run and every 60 s otherwise). The bridge reads it whenever it changed (every StatusLookSeconds), adds what only it knows - the random
-// queues and how many of their maps the restart watcher reports on the server's disk (RandomQueue.cs) - and makes two things of it:
+// a run and every 60 s otherwise). The bridge reads it whenever it changed (every StatusLookSeconds), adds what only it knows - the discovery
+// stock and how many of its maps the restart watcher reports on the server's disk, the background download the watcher runs (RandomQueue.cs),
+// and each map's tags (MapTags) - and makes two things of it:
 //   - the menu's Sync page: the block the plugin pages and passes through (HudDash.cs), on GET /dash/<secret>, its version in the live state;
-//   - the website: /data/web/index.html (dashboard.html, built in) and /data/web/dashboard.json, which a static web server behind the owner's
-//     login serves - so nothing of the bridge's own HTTP port is ever reachable from outside.
+//   - the website: /data/web/index.html (dashboard.html, built in) and /data/web/dashboard.json, which a static web server behind a login
+//     serves - so nothing of the bridge's own HTTP port is ever reachable from outside.
 // A file that is missing, does not parse or stops changing is shown as such, with its age: the last good one stays on screen meanwhile.
 // Every word is written here; SyncWords holds them, --selftest (SelfTestDash.cs) drives them on a handed clock.
 using System.Globalization;
@@ -67,14 +68,25 @@ static partial class Program
         }
     }
 
-    /// <summary>The random queues as the dashboard shows them: each queue's maps the watcher's last report names on the disk (an official map always
-    /// is) out of its length, and whether that report is fresh.</summary>
-    static List<SyncWords.RandomQueue> RandomQueuesNow() =>
-        QueueNames.Select(n => new SyncWords.RandomQueue(n, QueueOf(n).Count(e => !e.Key.All(char.IsAsciiDigit) || ReadyIds.Contains(e.Key)), QueueOf(n).Count)).ToList();
+    /// <summary>The stock as the dashboard shows it: a lane per mode, its entries the watcher's last report names on the disk out of its length, and
+    /// each entry with its name and tags.</summary>
+    static List<SyncWords.RandomQueue> StockNow()
+    {
+        var byKey = AllKnown.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        return Modes.All.Select(m => new SyncWords.RandomQueue(m.Id, LaneOf(m).Count(e => Downloaded(e.Key)), LaneOf(m).Count,
+            LaneOf(m).Select(e => new SyncWords.StockMap(e.Key, byKey.TryGetValue(e.Key, out var x) ? x.Name : e.Key, Downloaded(e.Key), byKey.TryGetValue(e.Key, out var y) ? TagsOf(y) : "")).ToList())).ToList();
+    }
+
+    /// <summary>Each map's tags by its Workshop id, for the sync's maps the bridge has on a list: "" for the rest.</summary>
+    static Func<string, string> TagsById()
+    {
+        var byKey = AllKnown.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        return id => byKey.TryGetValue(id, out var m) ? TagsOf(m) : "";
+    }
 
     static void RebuildDash(DateTime now)
     {
-        var input = new SyncWords.Input(SyncDoc?.RootElement, SyncReadAt, SyncProblem, RandomQueuesNow(), ReadyKnown, ReadyAt, QueueLength, now);
+        var input = new SyncWords.Input(SyncDoc?.RootElement, SyncReadAt, SyncProblem, StockNow(), ReadyKnown, ReadyAt, StockSize, now, BackgroundNow(), TagsById());
         var dash = SyncWords.Dash(input, DashZone);
         var body = dash.Encode();
         if (body != dashBody)
@@ -139,14 +151,23 @@ static partial class Program
     }
 }
 
-/// <summary>The dashboard's words and the website's data, out of the sync's file and the bridge's random queues: a pure function of its input and
-/// a clock, so --selftest can hold every word to it.</summary>
+/// <summary>The dashboard's words and the website's data, out of the sync's file and the bridge's stock: a pure function of its input and a clock,
+/// so --selftest can hold every word to it.</summary>
 static class SyncWords
 {
-    /// <summary>A random queue: its name (RandomQueue.cs), its maps on the server's disk by the watcher's report, its length.</summary>
-    public sealed record RandomQueue(string Name, int Ready, int Total);
+    /// <summary>A lane of the stock: its mode, its maps on the server's disk by the watcher's report, its length, and its entries.</summary>
+    public sealed record RandomQueue(string Name, int Ready, int Total, List<StockMap>? Maps = null);
 
-    public sealed record Input(JsonElement? Status, DateTime ReadAt, string Problem, List<RandomQueue> Random, bool RandomKnown, DateTime RandomAt, int RandomLength, DateTime Now);
+    /// <summary>A stock entry: its Workshop id, its name, whether it is on the disk, its tags.</summary>
+    public sealed record StockMap(string Id, string Name, bool Ready, string Tags);
+
+    /// <summary>What the words are made of: the sync's file, the stock (Random), the watcher's background download, and each map's tags by id.</summary>
+    public sealed record Input(JsonElement? Status, DateTime ReadAt, string Problem, List<RandomQueue> Random, bool RandomKnown, DateTime RandomAt, int RandomLength, DateTime Now,
+        Program.Download? Background = null, Func<string, string>? Tags = null);
+
+    /// <summary>A map's name with its first "why" tag in words after it: "Lake (liked by us)".</summary>
+    static string NameWithWhy(JsonElement m, Input input) =>
+        MapName(m) + (input.Tags?.Invoke(Str(m, "id")) is { } t && MapTags.WhyWords(t) is { Length: > 0 } w ? $" ({w})" : "");
 
     /// <summary>The sync's file is old after this long without a new "updated": it writes one at least every minute, every 15 s in a run.</summary>
     public const int OldMinutes = 15;
@@ -309,13 +330,15 @@ static class SyncWords
         var handed = Num(serve, "handedOver") ?? 0;
         W("osdqserve", serve == null ? "" : Join(missing > 0 ? $"The server lacks {N(missing)} maps it keeps ({Bytes(Num(serve, "bytes") ?? 0)}): those come first" : "The server has every map it keeps",
             handed > 0 ? $"{N(handed)} handed over for the next restart" : ""));
-        // Arms Race's second queue reads "original" right after "Arms Race new": the line has to fit beside the queue (the layout wraps it once at most)
-        var rand = input.Random.Select(q => $"{(q.Name == Program.QueueOriginal ? "original" : RandomName(q.Name))} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
-        W("osdqrand", input.Random.Count == 0 ? "" : input.RandomKnown ? "On disk for random picks: " + Join(rand)
-            : $"Rolled ahead for random picks: {Join(rand)}  ·  disk not reported");
+        // the stock's line, and while the restart watcher downloads in the background, that download first: one line that fits beside the queue (the
+        // layout wraps it once at most)
+        var rand = input.Random.Select(q => $"{RandomName(q.Name)} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
+        W("osdqrand", input.Background is { } bg ? $"{BackgroundWords(bg)}{(input.Random.Count == 0 ? "" : input.RandomKnown ? $"  ·  stock on disk {input.Random.Sum(q => q.Ready)} of {input.Random.Sum(q => q.Total)}" : "")}"
+            : input.Random.Count == 0 ? "" : input.RandomKnown ? "Stock on disk for the ballots: " + Join(rand)
+            : $"Discovery stock: {Join(rand)}  ·  disk not reported");
         var next = Items(queue, "next").ToList();
         d.Lists.Add(new HudDash.DashList(QueueList, QueueRows, next.Select((q, i) => new HudDash.Row("",
-            [(i + 1).ToString(CultureInfo.InvariantCulture), MapName(q), Join(ModeName(Str(q, "mode")), SizeMb(Num(q, "sizeMb"))), Upper(Str(q, "why"))])).ToList()));
+            [(i + 1).ToString(CultureInfo.InvariantCulture), NameWithWhy(q, input), Join(ModeName(Str(q, "mode")), SizeMb(Num(q, "sizeMb"))), Upper(Str(q, "why"))])).ToList()));
         W("osdqshown", next.Count == 0 ? "" : next.Count < waiting ? $"The next {N(next.Count)} of {N(waiting)}" : $"All {N(next.Count)}");
         W("osdqnone", queue == null ? "" : "Nothing in the queue");
 
@@ -327,7 +350,7 @@ static class SyncWords
         d.Lists.Add(new HudDash.DashList(MapList, MapRows, events.Select(x =>
         {
             var ev = Events.FirstOrDefault(e => e.Event == Str(x, "event"));
-            return new HudDash.Row(ev.Tone ?? "", [When(Num(x, "at") ?? 0, now, zone), ev.Words ?? Upper(Str(x, "event")), Join(MapName(x), ModeName(Str(x, "mode"))), Str(x, "why")]);
+            return new HudDash.Row(ev.Tone ?? "", [When(Num(x, "at") ?? 0, now, zone), ev.Words ?? Upper(Str(x, "event")), Join(NameWithWhy(x, input), ModeName(Str(x, "mode"))), Str(x, "why")]);
         }).ToList()));
         W("osdmnone", "No map news yet");
         return d;
@@ -347,18 +370,18 @@ static class SyncWords
             ended == null ? "Running now" : Str(x, "stop") is { Length: > 0 } stop ? $"Stopped: {stop}" : "Finished"];
     }
 
-    /// <summary>A random queue's name as a player reads it.</summary>
-    public static string RandomName(string queue) => queue switch
-    {
-        Program.QueueNew => "Arms Race new",
-        Program.QueueOriginal => "Arms Race original",
-        _ => ModeName(queue) is { Length: > 0 } name ? name : queue,
-    };
+    /// <summary>A stock lane's name as a player reads it: its mode's.</summary>
+    public static string RandomName(string lane) => ModeName(lane) is { Length: > 0 } name ? name : lane;
+
+    /// <summary>The background download in words: "Background download: Lake Aim, 63%" - its title, else its Workshop id.</summary>
+    public static string BackgroundWords(Program.Download d) =>
+        $"Background download: {(d.Title != "" ? (d.Title.Length <= 36 ? d.Title : d.Title[..35] + "~") : $"Workshop item {d.Id}")}{(d.Percent is { } p ? $", {p}%" : ", starting")}";
 
     // ---- the website's data ----
 
-    /// <summary>dashboard.json without its "generated" stamp (WebStamped adds it): the page's words, the random queues, and the sync's own file as
-    /// it was read - the page draws the full lists from that.</summary>
+    /// <summary>dashboard.json without its "generated" stamp (WebStamped adds it): the page's words, the stock with its maps, the background
+    /// download, the tags' table and the tags of every map the page names, and the sync's own file as it was read - the page draws the full lists
+    /// from that.</summary>
     public static string Web(Input input, HudDash dash, TimeZoneInfo zone)
     {
         using var buffer = new MemoryStream();
@@ -386,9 +409,41 @@ static class SyncWords
                 w.WriteString("label", RandomName(q.Name));
                 w.WriteNumber("ready", q.Ready);
                 w.WriteNumber("total", q.Total);
+                w.WriteStartArray("maps");
+                foreach (var m in q.Maps ?? [])
+                {
+                    w.WriteStartObject();
+                    w.WriteString("id", m.Id);
+                    w.WriteString("name", m.Name);
+                    w.WriteBoolean("ready", m.Ready);
+                    w.WriteString("tags", m.Tags);
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
             w.WriteEndArray();
+            w.WriteEndObject();
+            if (input.Background is { } bg)
+            {
+                w.WriteStartObject("background");
+                w.WriteString("id", bg.Id);
+                w.WriteString("title", bg.Title);
+                if (bg.Percent is { } p) w.WriteNumber("percent", p); else w.WriteNull("percent");
+                w.WriteString("words", BackgroundWords(bg));
+                w.WriteEndObject();
+            }
+            w.WriteStartArray("tags");
+            foreach (var t in MapTags.All)
+            {
+                w.WriteStartObject();
+                w.WriteString("id", t.Id); w.WriteString("chip", t.Chip); w.WriteString("words", t.Words); w.WriteString("family", t.Family); w.WriteString("colour", t.Colour);
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+            w.WriteStartObject("mapTags");
+            var ids = Items(input.Status, "queue", "next").Concat(Items(input.Status, "history", "maps")).Select(x => Str(x, "id")).Where(x => x != "").Distinct();
+            foreach (var id in ids) if (input.Tags?.Invoke(id) is { Length: > 0 } tags) w.WriteString(id, tags);
             w.WriteEndObject();
             if (input.Problem != "") w.WriteString("problem", input.Problem);
             if (input.ReadAt != default) w.WriteNumber("readAt", (long)(input.ReadAt - DateTime.UnixEpoch).TotalSeconds);

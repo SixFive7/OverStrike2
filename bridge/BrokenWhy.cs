@@ -4,11 +4,11 @@
 //
 // And the maps that crash the players' games rather than the server (#6): 3 or more players timing out within 60 s of entering a map,
 // while the server keeps answering (their disconnects reach the log, so it is up), mark that map broken by itself - kept in state.json
-// with its reason, never rolled, a pick asks to confirm with that reason.
+// with its reason, never rolled, a pick asks to confirm with that reason, its ballot card shows it. A Workshop update of the map lifts the
+// mark (CrashWatch.cs, the owner's 59 b).
 // #2167 on 2026-10-29 is the case: all six players timed out about 20 s after entering it, the server stayed
 // up, and the server-crash counter never saw it. The map that is on when it happens makes way for the dice, since every rejoin would
-// load it again. The mark is data: deleting the entry from state.json (bridge stopped) or a fix in its Workshop item lifts nothing by
-// itself; broken.json is where a map is listed for good.
+// load it again. broken.json is where a map is listed for good.
 using System.Text.Json;
 
 static partial class Program
@@ -68,12 +68,12 @@ static partial class Program
         if (S.PlayerCrashes.ContainsKey(key) || Broken.ContainsKey(key)) return; // known already
         var why = $"crashed {timedOutOnThisMap.Count} players' games within {PlayerCrashSeconds:0} s";
         S.PlayerCrashes[key] = Hud.Clean(why, ReasonMax);
+        StampMark(key);
         Save();
         CatalogVersion++;
         Log($"player crashes: {Label(on)} ({key}) at {now.ToLocalTime():yyyy-MM-dd HH:mm} - {timedOutOnThisMap.Count} players timed out within {PlayerCrashSeconds:0} s of entering it while the server kept answering - marked broken (state.json playerCrashes)");
         // Everybody who rejoins would load it again: the dice, as for a map that has just gone from the Workshop.
-        if (Pending == null && !AnnouncePending && RandomNext(true, 1) is { } map) // RandomQueue.cs
-            StartChange(new Change(map, "the dice", []), $"{Clip(Label(on), 40)} {why} - it is marked broken. Rolling the dice: {Label(map)}{Detail(map)}{RollNote}");
-        else Announce($"{Clip(Label(on), 40)} {why} - it is marked broken; pick another map");
+        if (Ballot is { Open: true } || Pending != null || AnnouncePending || !AutoRoll($"{Clip(Label(on), 40)} {why} - it is marked broken"))
+            Announce($"{Clip(Label(on), 40)} {why} - it is marked broken; pick another map");
     }
 }

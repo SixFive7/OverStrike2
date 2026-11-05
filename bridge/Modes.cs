@@ -1,14 +1,15 @@
-// The game modes (#27 c, the owner's decision of 2026-11-01): Deathmatch and Wingman next to Arms Race. Arms Race is the server's game
-// and its default - after every server restart, and again after 10 minutes with nobody on - and the other two come through the vote at
-// a match's end (MapVote.cs): the ballot always holds a map of each other mode that suits the players on (Valve's maxplayers).
+// The game modes: Deathmatch and Wingman next to Arms Race. Arms Race is the server's game and its default - after every server restart,
+// and again after 10 minutes with nobody on - and the other two come through the vote at a match's end (MapVote.cs): the ballot always
+// holds a map of each other mode that suits the players on (Valve's maxplayers).
 //
 // A map loads in its own mode. The bridge puts the mode's game_type and game_mode in place right before the map command, and first tells
-// the plugin with the server command os_mode <id> (Command), so MapSettingsReset neither puts game_type/game_mode back to the boot values
-// at the old map's end nor blocks the new mode's own settings; the plugin switches its block list (BlockFile) and the Arms Race-only
-// features (the grenade drops, the weapon ladder and catch-up, friendly fire's defaults) at the next map start.
+// the plugin with the server command os_mode <id> (Command), so the plugin's settings module neither puts game_type/game_mode back to the
+// boot values at the old map's end nor blocks the new mode's own settings; the plugin switches to the mode's values of its block list
+// (BlockFile) and the Arms Race-only features (the grenade drops, the weapon ladder and catch-up, friendly fire's defaults) at the next
+// map start.
 //
 // Shared like Hud.cs: the bridge compiles it (the vote, the map loads, the per-mode lists, --selftest) and the OverStrike2 plugin links it
-// in (os_mode, the per-mode features and block files). Plain BCL only. The official pools are Valve's online map groups (mapgroupsMP)
+// in (os_mode, the per-mode features and the block file). Plain BCL only. The official pools are Valve's online map groups (mapgroupsMP)
 // for each mode in the server's gamemodes.txt (CS2 1.41.9.4, read 2026-11-01); every one of those maps is installed on the server.
 public static class Modes
 {
@@ -21,10 +22,6 @@ public static class Modes
 
         /// <summary>The mode's Workshop list, beside maps.json (Arms Race's is maps.json itself): the nightly sync's output.</summary>
         public string MapsFile => ArmsRace ? "maps.json" : $"maps-{Id}.json";
-
-        /// <summary>MapSettingsReset's game-changers for the mode, beside its DLL: Arms Race keeps blocked.txt (values from the boot
-        /// baseline where none is given), the others carry their own explicit values.</summary>
-        public string BlockFile => ArmsRace ? "blocked.txt" : $"blocked-{Id}.txt";
 
         /// <summary>The two convars that select the mode, as an RCON command.</summary>
         public string ConVars => $"game_type {GameType};game_mode {GameMode}";
@@ -73,4 +70,33 @@ public static class Modes
 
     /// <summary>What the bridge sends after every map start, so a plugin that reloaded knows the mode again.</summary>
     public static string SyncLine(Mode mode) => $"{Command} {mode.Id}";
+
+    /// <summary>The game-changers no map may set (BlockList.cs), every mode's in one file beside the plugin's DLL: a convar a line with the
+    /// value it keeps in each mode, in the order of All (armsrace deathmatch wingman), then // and why. Baseline in a mode's place keeps the
+    /// server's own value there (its baseline, taken when the boot map ends).</summary>
+    public const string BlockFile = "blocked.txt", Baseline = "*";
+
+    /// <summary>One mode's game-changers out of the block file's text: each convar with that mode's value (none for Baseline), and the errors -
+    /// a line without a value for every mode, and what BlockList.Parse finds (a name that is no convar name, a name twice), each with the
+    /// file's own line number.</summary>
+    public static List<BlockList.Entry> Blocked(string text, Mode mode, out List<string> errors)
+    {
+        var column = 1 + Array.FindIndex(All, m => m.Id == mode.Id);
+        var lines = text.Replace("\r", "").Split('\n');
+        var wrong = new List<string>();
+        var one = new System.Text.StringBuilder(); // the same lines, each with this mode's value alone: BlockList.Parse's own format
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var comment = line.IndexOf("//", StringComparison.Ordinal);
+            var body = (comment >= 0 ? line[..comment] : line).Trim();
+            var words = body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length == 1 + All.Length) one.Append(words[0]).Append(words[column] == Baseline ? "" : " " + words[column]).Append(' ').Append(comment >= 0 ? line[comment..] : "");
+            else if (words.Length > 0) wrong.Add($"line {i + 1}: '{body}' is not a convar and a value for each of the {All.Length} modes ({string.Join(" ", All.Select(m => m.Id))}; {Baseline} for the server's own)");
+            one.Append('\n');
+        }
+        var list = BlockList.Parse(one.ToString(), out var parsed);
+        errors = [.. wrong, .. parsed];
+        return list;
+    }
 }

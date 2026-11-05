@@ -1,6 +1,6 @@
-// The in-game menu's map browser, queue and game pages: the logic both programs share, like Hud.cs. The bridge serves the map catalog
-// (HudCatalog, on /catalog/<secret>) and tests everything here in --selftest; the GunGameWelcome plugin keeps one HudBrowser per player
-// slot, works out that player's page from the catalog, and puts it on screen through HudMenu's texts and classes. Plain BCL only.
+// The in-game menu's map browser and game pages: the logic both programs share, like Hud.cs. The bridge serves the map catalog (HudCatalog,
+// on /catalog/<secret>) and tests everything here in --selftest; the OverStrike2 plugin keeps one HudBrowser per player slot, works out that
+// player's page from the catalog, and puts it on screen through HudMenu's texts and classes. Plain BCL only.
 //
 // Every click is a server round trip, so all of this is cheap on purpose: sorting and filtering ~1,000 entries is well under a
 // millisecond, a page is 8 cards, and the plugin sends only what changed.
@@ -8,7 +8,7 @@ using System.Globalization;
 using System.Text;
 
 /// <summary>Every map the menu can show - the ranked list of maps.json, the Deathmatch and Wingman lists and every mode's official maps - with what the server knows about each:
-/// its size, the broken-list verdict, the live crash counter and the votes. A text codec like HudState's. The bridge bumps Version
+/// its size, the broken-list verdict, the live crash counter, the votes and its tags. A text codec like HudState's. The bridge bumps Version
 /// whenever any of it changes (a vote, a crash); the live state carries the version, so the plugin fetches this again only then.</summary>
 public sealed class HudCatalog
 {
@@ -18,10 +18,11 @@ public sealed class HudCatalog
     /// command takes to name it unambiguously (the rank of a ranked map, an official map's name, the id of an unlisted one).
     /// Broken: crashes on the swept broken list (0 = listed without a count), -1 when not on it. Removed: gone from the Workshop
     /// (Workshop.cs) - nobody can download it, so it is refused rather than confirmed. RankAr, RankDm, RankWm: the map's place in that mode's
-    /// list, 0 for an official map of that mode, -1 when that mode does not have it; Rank is the place in the first mode that has it.</summary>
+    /// list, 0 for an official map of that mode, -1 when that mode does not have it; Rank is the place in the first mode that has it.
+    /// Tags: its tags' ids in precedence order, comma-separated (MapTags) - field 24; an older plugin reads up to field 23.</summary>
     public sealed record Entry(string Key, string Arg, int Rank, long Id, string Name, int SizeMb, bool Official, int Broken, int Crashes, int Up, int Down,
         bool Removed = false, bool TooBig = false, string SizeClass = "", int M2 = 0, int Big = 0, int Ads = 0, bool Ours = false, string Reason = "",
-        int? RankAr = null, int RankDm = -1, int RankWm = -1)
+        int? RankAr = null, int RankDm = -1, int RankWm = -1, string Tags = "")
     {
         public bool Risky => !Removed && (Broken >= 0 || Crashes > 0);
 
@@ -47,12 +48,12 @@ public sealed class HudCatalog
     /// SizeClass and M2 the measurement (sizes.json); Big the too-big votes on it.</summary>
     public const int TooBigVote = -2;
 
-    /// <summary>An ads vote (the owner's 15b, 2026-10-24), carried like a too-big vote: a downvote - an older plugin, taking the sign, reads
+    /// <summary>An ads vote, carried like a too-big vote: a downvote - an older plugin, taking the sign, reads
     /// it as a dislike - that also marks the map as one that shows ads or sends players to another server. A map with one is never a
     /// random pick (players can still pick it). Ads on an entry: the ads votes on it.</summary>
     public const int AdsVote = -3;
 
-    /// <summary>The other reasons a downvote can give (DownReasons, the owner's decision of 2026-11-01), carried the same way: each a dislike and
+    /// <summary>The other reasons a downvote can give (DownReasons), carried the same way: each a dislike and
     /// nothing more, kept per vote.</summary>
     public const int SmallVote = -4, BrokenVote = -5, SlowVote = -6;
 
@@ -76,7 +77,8 @@ public sealed class HudCatalog
         s.Append("ver\t").Append(Version.ToString(CultureInfo.InvariantCulture)).Append('\n');
         foreach (var m in Maps)
             s.Append(string.Join('\t', "m", Hud.Clean(m.Key, 40), Hud.Clean(m.Arg, 40), I(m.Rank), I(m.Id), Hud.Clean(m.Name, 64), I(m.SizeMb), m.Official ? "1" : "0",
-                I(m.Broken), I(m.Crashes), I(m.Up), I(m.Down), m.Removed ? "1" : "0", m.TooBig ? "1" : "0", Hud.Clean(m.SizeClass, 2), I(m.M2), I(m.Big), I(m.Ads), m.Ours ? "1" : "0", Hud.Clean(m.Reason, 64), I(m.RankIn(Modes.ArmsRaceId)), I(m.RankDm), I(m.RankWm))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen, 4.3: twenty)
+                I(m.Broken), I(m.Crashes), I(m.Up), I(m.Down), m.Removed ? "1" : "0", m.TooBig ? "1" : "0", Hud.Clean(m.SizeClass, 2), I(m.M2), I(m.Big), I(m.Ads), m.Ours ? "1" : "0", Hud.Clean(m.Reason, 64), I(m.RankIn(Modes.ArmsRaceId)), I(m.RankDm), I(m.RankWm),
+                MapTags.Clean(m.Tags))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen, 4.3: twenty, 4.5: twenty-three)
         foreach (var (account, mine) in Votes)
             foreach (var (key, value) in mine)
                 s.Append(string.Join('\t', "v", I(account), Hud.Clean(key, 40), I(Carried(value)))).Append('\n'); // an older plugin takes the sign (3.1.0 keeps -2 and takes the sign of -3)
@@ -102,7 +104,8 @@ public sealed class HudCatalog
                 case "m" when f.Length >= 12 && f[1] != "":
                     c.Maps.Add(new Entry(f[1], f[2], (int)L(f, 3), L(f, 4), f[5], (int)L(f, 6), f[7] == "1", (int)L(f, 8), (int)L(f, 9), (int)L(f, 10), (int)L(f, 11),
                         f.Length > 12 && f[12] == "1", f.Length > 13 && f[13] == "1", f.Length > 14 ? f[14] : "", (int)L(f, 15), (int)L(f, 16), (int)L(f, 17),
-                        f.Length > 18 && f[18] == "1", f.Length > 19 ? f[19] : "", f.Length > 22 ? (int)L(f, 20) : (int)L(f, 3), f.Length > 22 ? (int)L(f, 21) : -1, f.Length > 22 ? (int)L(f, 22) : -1));
+                        f.Length > 18 && f[18] == "1", f.Length > 19 ? f[19] : "", f.Length > 22 ? (int)L(f, 20) : (int)L(f, 3), f.Length > 22 ? (int)L(f, 21) : -1, f.Length > 22 ? (int)L(f, 22) : -1,
+                        f.Length > 23 ? MapTags.Clean(f[23]) : ""));
                     break;
                 case "v" when f.Length >= 4 && L(f, 1) > 0 && f[2] != "" && L(f, 3) != 0:
                     var account = L(f, 1);
@@ -118,8 +121,79 @@ public sealed class HudCatalog
     }
 }
 
-/// <summary>One player's view of the map browser: sort, filters, search and page, plus a risky map's first click waiting for the second.
-/// Lives in the plugin, one per player slot; a new player in the slot starts from a fresh one.</summary>
+/// <summary>Why a map is where it is, in one word: one table for every surface - the ballot's cards and the map browser's (the first two that
+/// apply, as chips), chat and the news line (the first "why" tag, in words), the website and the Sync page. The table is in precedence order:
+/// the vote's state, a caution, then why the map is there. The bridge works out each map's tags (Popularity.cs) and sends their ids on the
+/// catalog's entries (field 24) and the vote's cards (mvo field 11), comma-separated in this order; the vote's state - next, lead, tie, on -
+/// is the screen's own to add. Shared like Hud.cs: the plugin draws them, the bridge's website and --selftest use the same table.</summary>
+public static class MapTags
+{
+    /// <summary>One tag: its id on the wire, its chip (12 characters at most, upper case), its words in a sentence, its family, its colour, its
+    /// chat colour (CounterStrikeSharp's ChatColors name).</summary>
+    public sealed record Tag(string Id, string Chip, string Words, string Family, string Colour, string Chat);
+
+    public const string VoteFamily = "vote", PlayerFamily = "player", CautionFamily = "caution", UsFamily = "us", FreshFamily = "fresh",
+        WorkshopFamily = "workshop", DiscoveryFamily = "discovery";
+
+    /// <summary>Chip text is dark on every chip.</summary>
+    public const string ChipText = "#10141A";
+
+    /// <summary>The chips a card shows: the first this many tags that apply.</summary>
+    public const int OnCard = 2;
+
+    public const string Next = "next", Lead = "lead", Tie = "tie", On = "on", Picked = "picked", Big = "big", Ads = "ads", Ours = "ours", Liked = "liked",
+        Upload = "upload", Updated = "updated", Trending = "trending", TopRated = "toprated", Popular = "popular", NewToUs = "newtous";
+
+    public static readonly Tag[] All =
+    [
+        new(Next, "NEXT MAP", "the next map", VoteFamily, "#FFD47E", "Gold"),
+        new(Lead, "LEADING", "leading", VoteFamily, "#E9B44C", "Gold"),
+        new(Tie, "TIE", "tied", VoteFamily, "#FFB547", "Gold"),
+        new(On, "ON NOW", "on now", VoteFamily, "#E9B44C", "Gold"),
+        new(Big, "TOO BIG", "too big for few players", CautionFamily, "#F07C6B", "LightRed"),
+        new(Ads, "ADS", "shows ads", CautionFamily, "#F07C6B", "LightRed"),
+        new(Picked, "PICKED", "picked by a player", PlayerFamily, "#F1EDE5", "White"),
+        new(Ours, "OUR MAP", "our own map", UsFamily, "#4FD6A2", "Green"),
+        new(Liked, "LIKED BY US", "liked by us", UsFamily, "#7BD88F", "Green"),
+        new(Upload, "NEW UPLOAD", "a recent Workshop upload", FreshFamily, "#63D8E8", "LightBlue"),
+        new(Updated, "UPDATED", "a recent Workshop update", FreshFamily, "#A6EAF2", "LightBlue"),
+        new(Trending, "TRENDING", "trending on the Workshop", WorkshopFamily, "#CFD6DE", "Silver"),
+        new(TopRated, "TOP RATED", "top rated on the Workshop", WorkshopFamily, "#CFD6DE", "Silver"),
+        new(Popular, "POPULAR", "Workshop popular", WorkshopFamily, "#CFD6DE", "Silver"),
+        new(NewToUs, "NEW TO US", "new to us", DiscoveryFamily, "#B48CFF", "LightPurple"),
+    ];
+
+    public static Tag? Find(string? id) => All.FirstOrDefault(t => t.Id == id);
+
+    /// <summary>A tag that says why the map is there (not the vote's state, not a caution).</summary>
+    public static bool IsWhy(Tag t) => t.Family is PlayerFamily or UsFamily or FreshFamily or WorkshopFamily or DiscoveryFamily;
+
+    static int Place(string id) => Array.FindIndex(All, t => t.Id == id);
+
+    /// <summary>Ids as the wire carries them: known ones only, each once, in precedence order, comma-separated.</summary>
+    public static string Join(IEnumerable<string> ids) => string.Join(',', ids.Where(i => Find(i) != null).Distinct().OrderBy(Place));
+
+    /// <summary>A wire value made safe: what Join would make of it (an unknown id or a stray character is dropped).</summary>
+    public static string Clean(string? wire) => Join(Split(wire));
+
+    /// <summary>The ids of a wire value, in its order.</summary>
+    public static List<string> Split(string? wire) => (wire ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    /// <summary>The first tag that says why the map is there, or null. Without <paramref name="picked"/> a player's pick is no reason: the line
+    /// that names the player says it already.</summary>
+    public static Tag? FirstWhy(string? wire, bool picked = true) =>
+        Split(wire).Select(Find).FirstOrDefault(t => t != null && IsWhy(t) && (picked || t.Id != Picked));
+
+    /// <summary>The first "why" tag in words, for chat and the news line: "liked by us", or "" when there is none.</summary>
+    public static string WhyWords(string? wire, bool picked = true) => FirstWhy(wire, picked)?.Words ?? "";
+
+    /// <summary>The chips a card shows: the first OnCard tags of the wire value.</summary>
+    public static List<Tag> Chips(string? wire) => Split(wire).Select(Find).OfType<Tag>().Take(OnCard).ToList();
+}
+
+/// <summary>One player's view of the map browser: sort, filters, search and page, plus a risky map's first click waiting for the second (per
+/// player, like the bridge's own confirm). Lives in the plugin, one per player slot; a new player in the slot starts from a
+/// fresh one.</summary>
 public sealed class HudBrowser
 {
     public enum SortBy { Rank, Votes, Name, Size }
@@ -297,28 +371,24 @@ public sealed class HudBrowser
 /// click on them as the chat command it stands for. Card k (1-8) is panel gg_m{k}; its parts are gg_m{k}_*.</summary>
 public static class HudMenu
 {
-    public const int Cards = HudBrowser.PerPage, QueueRows = HudState.QueueLength;
+    public const int Cards = HudBrowser.PerPage;
 
+    /// <summary>Previous: on the old Queue page (content up to v4_5_0), the map before this one to the vote.</summary>
     public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
-        Restart = "gg_set_restart", CancelAll = "gg_q_cancelall", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
+        Restart = "gg_set_restart", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
-    /// <summary>Content v4_4_0: the Fun page's Random and Default (the owner's 2026-11-03; !fun random, !fun default).</summary>
+    /// <summary>Content v4_4_0: the Fun page's Random and Default (!fun random, !fun default).</summary>
     public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
 
-    /// <summary>Content v4_5_0: the Fun page's Catch-up on and off (the owner's 2026-11-03; !catchup on|off). Arms Race only, like the boosts.</summary>
+    /// <summary>Content v4_5_0: the Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
     public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
 
-    /// <summary>Content v3_1_0: the new-maps setting's three buttons and its line (the bridge's !newmaps, Selection.cs).</summary>
+    /// <summary>Content v3_1_0: the new-maps setting's three buttons and its line. The setting is gone - every ballot has a fresh map and a surprise
+    /// instead - so the buttons only answer that (the bridge's !newmaps, Selection.cs) until a content without them; the line under them is empty.</summary>
     public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never", NewMapsNow = "gg_set_new_now";
 
-    /// <summary>What the setting in force means, under its three buttons. The numbers are the bridge's (--selftest holds them to it).</summary>
-    public static string NewMapsLine(string mode) => mode switch
-    {
-        "always" => "Always: every random pick is a new map, #1017 and up. Back to Always after 10 minutes with nobody on.",
-        "half" => "Half: a coin flip per random pick between the new maps and the original #1-#1016. Back to Always after 10 minutes with nobody on.",
-        "never" => "Never: random picks take only the original #1-#1016. Back to Always after 10 minutes with nobody on.",
-        _ => "",
-    };
+    /// <summary>The line under the new-maps buttons: nothing, for every value - the setting is gone.</summary>
+    public static string NewMapsLine(string mode) => "";
 
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
     public static string Card(int k) => $"gg_m{k}";
@@ -343,42 +413,37 @@ public static class HudMenu
         };
     }
 
-    /// <summary>What a card's Play button says, and whether this player's click on it is the second, confirming one. While the vote is open
-    /// (the map browser it opens, content v4_4_0) a Play puts the map on the vote, with this player's vote.</summary>
-    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? voting = null, long account = 0)
+    /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
+    /// one. While the vote is open (the map browser it opens, content v4_4_0) a Play puts the map on the vote, with this player's vote; after a vote,
+    /// the wait before the next one.</summary>
+    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0)
     {
-        if (voting is { Open: true } v)
+        if (vote is { Open: true, Round: > 0 } v)
         {
-            if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Keep) is { } on) return v.ChoiceOf(account) == on.N ? "Your vote" : $"On the vote: {on.N}";
+            if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
+                return v.ChoiceOf(account) == on.N ? "Your vote" : v.Shown(on) is > 0 and var n ? $"On the vote: {n}" : "On the vote";
             if (m.Removed) return "Unavailable";
             if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again to add";
             return m.Risky ? "Add anyway?" : "Add to the vote";
         }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
-        if (MyQueued(s, m, account)) return "Cancel my request"; // the owner's 2026-11-03: undo an enqueue where it was made
-        if (s.Queue.Any(q => q.Key == m.Key)) return "Queued - join it";
-        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again to play"; // fits the narrower Play of content v3_2_0's four small buttons
-        return m.Risky ? "Play anyway?" : "Play it";
+        if (vote?.WaitFor > 0) return $"Vote in {MapVote.Left(vote.WaitFor)}";
+        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again"; // fits the narrower Play of content v3_2_0's four small buttons
+        return m.Risky ? "Vote anyway?" : "Put to the vote";
     }
 
-    static string Votes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no votes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
+    static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
 
-    /// <summary>This map is in the queue with this player among its requesters.</summary>
-    public static bool MyQueued(HudState s, HudCatalog.Entry m, long account) => account > 0 && s.Queue.Any(q => q.Key == m.Key && q.Accounts.Contains(account));
-
-    /// <summary>The keys of this player's queued requests (a ballot card's Remove mine).</summary>
-    public static HashSet<string> MyQueuedKeys(HudState? s, long account) =>
-        s == null || account <= 0 ? new() : s.Queue.Where(q => q.Accounts.Contains(account)).Select(q => q.Key).ToHashSet(StringComparer.Ordinal);
-
-    /// <summary>The red strip across a card's picture: why the map is unavailable or broken (#8, #11: the reason, where the list gives one).</summary>
-    static string Warning(HudCatalog.Entry m) => m.Removed ? "Removed from the Workshop" : m.Broken > 0 ? $"Broken: crashed {m.Broken}/{m.Broken} test loads"
+    /// <summary>The red strip across a card's picture - the map browser's and the ballot's: why the map is unavailable or broken
+    /// (the reason, where the list gives one), or what it crashed. The one text of a map's record on screen.</summary>
+    public static string Record(HudCatalog.Entry m) => m.Removed ? "Removed from the Workshop" : m.Broken > 0 ? $"Broken: crashed {m.Broken}/{m.Broken} test loads"
         : m.Broken == 0 ? (m.Reason != "" ? $"Broken: {m.Reason}" : "On the broken list") : m.Crashes > 0 ? $"Crashed the server {m.Crashes}x" : "";
 
     /// <summary>The maps page for one player: the toolbar's state, the search box and keyboard, the count, the page counter and the
     /// eight cards. A query that is a Workshop id no map has hides the cards' empty message: the plugin shows that item's card there.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "", string serverMode = "", VoteState? voting = null)
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "", string serverMode = "", VoteState? vote = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -414,16 +479,16 @@ public static class HudMenu
             t.Add(($"{id}_rank", m == null ? "" : RankText(m, b.Mode)));
             t.Add(($"{id}_name", m?.Name ?? ""));
             t.Add(($"{id}_size", m == null || m.Official ? "" : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
-            t.Add(($"{id}_votes", m == null ? "" : Votes(m)));
-            t.Add(($"{id}_warn", m == null ? "" : Warning(m)));
-            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, voting, account)));
+            t.Add(($"{id}_votes", m == null ? "" : Likes(m)));
+            t.Add(($"{id}_warn", m == null ? "" : Record(m)));
+            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, vote, account)));
             c.Add((id, "used", m != null));
             c.Add((id, "official", m?.Official == true));
             c.Add((id, "risky", m?.Risky == true));
             c.Add((id, "broken", m != null && (m.Broken >= 0 || m.Removed))); // the red strip: a removed map is the stronger warning
             c.Add((id, "crashed", m != null && m.Crashes > 0));
             c.Add((id, "now", m != null && m.Key == s.Key && s.Key != ""));
-            c.Add((id, "queued", m != null && s.Queue.Any(q => q.Key == m.Key)));
+            c.Add((id, "queued", m != null && vote is { Open: true, Round: > 0 } && vote.Options.Any(o => o.Key == m.Key && o.Source is VoteSource.Picked or VoteSource.Rolled))); // on the open ballot
             c.Add((id, "liked", mine > 0));
             c.Add((id, "disliked", mine < 0));
             c.Add((id, "confirm", m != null && b.ConfirmKey == m.Key && now < b.ConfirmUntil));
@@ -448,36 +513,17 @@ public static class HudMenu
         return Enumerable.Range(1, Cards).Select(k => ($"{Card(k)}_thumb", k <= page.Count ? HudThumbs.Classes(page[k - 1]) : [])).ToList();
     }
 
-    /// <summary>The queue page: every request in play order, who asked, and a cancel button on this player's own.</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Queue(HudState s, long account)
-    {
-        var t = new List<(string, string)>();
-        var c = new List<(string, string, bool)>();
-        for (var i = 0; i < QueueRows; i++)
-        {
-            var q = i < s.Queue.Count ? s.Queue[i] : null;
-            t.Add(($"gg_qr{i + 1}_pos", q == null ? "" : (i + 1).ToString(CultureInfo.InvariantCulture)));
-            t.Add(($"gg_qr{i + 1}_map", q?.Label ?? ""));
-            t.Add(($"gg_qr{i + 1}_who", q?.Who ?? ""));
-            c.Add(($"gg_qr{i + 1}", "used", q != null));
-            c.Add(($"gg_qr{i + 1}", "mine", q != null && q.Accounts.Contains(account)));
-        }
-        var mineCount = s.Queue.Count(q => q.Accounts.Contains(account));
-        t.Add(("gg_q_empty", "Nothing queued. Pick a map on the Maps page - it plays at once when nobody holds this one."));
-        t.Add(("gg_q_mine", mineCount == 0 ? "You have nothing in the queue." : $"You have {mineCount} request{(mineCount == 1 ? "" : "s")} in the queue (up to 5)."));
-        t.Add(("gg_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}"));
-        c.Add(("gg_q_empty", "used", s.Queue.Count == 0));
-        c.Add((CancelAll, "off", mineCount == 0));
-        c.Add((Previous, "off", s.PrevArg == ""));
-        return (t, c);
-    }
+    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page from content v4_6_0, on the old
+    /// Queue page before it, under the same ids, so it is sent to every game alike; nothing else of the old Queue page is sent any more.</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
+        ([("gg_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
 
     // ---- the Fun page (content v3_2_0): a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
 
     public const string FunNote = "gg_fun_note";
 
-    /// <summary>The line at the top of the Fun page.</summary>
-    public const string FunNoteText = "Anybody switches these, for everybody. A change lasts until the map changes (or 10 minutes with nobody on), and the news line says who.";
+    /// <summary>The line at the top of the Fun page (every row alike, the grenade drops too).</summary>
+    public const string FunNoteText = "Anybody switches these, for everybody. Everything lasts until the map changes (or 10 minutes with nobody on); the centre of the screen says who.";
 
     public static string FunRow(int r) => $"gg_f{r}";
 
@@ -492,16 +538,16 @@ public static class HudMenu
         var c = new List<(string, string, bool)>();
         for (var r = 1; r <= Fun.Rows; r++)
         {
-            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null;
+            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null; // the grid's sixteen; the grenade drops and catch-up have fixed rows
             var showing = s == null ? null : Fun.Showing(s, value);
             var because = s == null ? null : Fun.IdleBecause(s, value);
             var idle = because != null;
             t.Add(($"{FunRow(r)}_title", s?.Title ?? ""));
             t.Add(($"{FunRow(r)}_txt", s == null ? "" : because != null ? because.Idle
                 : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  this map runs its own" : s.Words));
-            c.Add((FunRow(r), "used", s != null && (armsRace || !Fun.ArmsRaceOnly(s)))); // friendly fire's three are Arms Race's (#27 c): Deathmatch is free-for-all, Wingman runs Valve's
+            c.Add((FunRow(r), "used", s != null && (armsRace || !Fun.ArmsRaceOnly(s)))); // friendly fire's three are Arms Race's: Deathmatch is free-for-all, Wingman runs Valve's
             c.Add((FunRow(r), "idle", idle));
-            c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // content v4_5_0 (the owner's 2026-11-03): a setting off its default stands out
+            c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // content v4_5_0: a setting off its default stands out
             for (var k = 1; k <= Fun.ChoicesPerRow; k++)
             {
                 var choice = s != null && k <= s.Choices.Length ? s.Choices[k - 1] : null;
@@ -513,18 +559,21 @@ public static class HudMenu
         return (t, c);
     }
 
-    /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing.</summary>
+    /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing - the grid's
+    /// rows, and the grenade drops' and catch-up's fixed rows (ordinary fun settings).</summary>
     public static (Fun.Setting Setting, Fun.Choice Choice)? FunClick(string buttonId)
     {
+        var fixedRow = buttonId switch { NadesOn => ("drops", "on"), NadesOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };
+        if (fixedRow.Item1 != "" && Fun.Find(fixedRow.Item1) is { } fs && Fun.Find(fs, fixedRow.Item2) is { } fc) return (fs, fc);
         var parts = buttonId.StartsWith("gg_f", StringComparison.Ordinal) ? buttonId[4..].Split('_') : [];
         if (parts.Length != 2 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var r)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null; // gg_fl_* are the size chips, gg_fun_note a label
-        if (r < 1 || r > Fun.Settings.Length) return null;
+        if (r < 1 || r > Math.Min(Fun.Rows, Fun.Settings.Length)) return null;
         var s = Fun.Settings[r - 1];
         return k >= 1 && k <= s.Choices.Length ? (s, s.Choices[k - 1]) : null;
     }
 
-    /// <summary>What the restart button says after its first click (the owner's 14a, 2026-10-24): press it again, and the seconds left of
+    /// <summary>What the restart button says after its first click: press it again, and the seconds left of
     /// the bridge's 30 s window, counting down every second; content v3_2_0 also makes it blink fast while armed (.gg-restart.armed).</summary>
     public static string RestartAgain(int seconds) => $"Press again within {seconds} s";
 
@@ -563,7 +612,7 @@ public static class HudMenu
 
     /// <summary>A click on a menu button as the action it asks the bridge for (null: nothing to send). Card buttons name the map shown on
     /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick.</summary>
-    public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "")
+    public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null)
     {
         if (buttonId.StartsWith("gg_m") && buttonId.Length > 5 && char.IsDigit(buttonId[4]) && catalog != null && s != null)
         {
@@ -576,11 +625,10 @@ public static class HudMenu
             {
                 case "up": return $"!up {m.Arg}";
                 case "down": return $"!down {m.Arg}";
-                case "big": return $"!toobig {m.Arg}"; // content v3_1_0
-                case "ads": return $"!ads {m.Arg}";    // content v3_2_0
+                case "big": return $"!down {m.Arg} big"; // content v3_1_0's Too big: a Dislike's reason (one command for it)
+                case "ads": return $"!down {m.Arg} ads"; // content v3_2_0
                 case "play":
-                    if (m.Key == s.Key && s.Key != "") return null;
-                    if (MyQueued(s, m, account) && !s.VoteOpen) return $"!cancel {m.Arg}"; // your own request: Play takes it back (the owner's 2026-11-03); during a vote it votes
+                    if (m.Key == s.Key && s.Key != "" && vote is not { Open: true, Round: > 0 }) return null; // the map that is on: Keep on the vote, nothing outside one
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
                     if (m.Risky && !(b.ConfirmKey == m.Key && now < b.ConfirmUntil)) { b.ConfirmKey = m.Key; b.ConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds); }
                     else { b.ConfirmKey = ""; b.ConfirmUntil = default; }
@@ -588,15 +636,8 @@ public static class HudMenu
             }
             return null;
         }
-        if (buttonId.StartsWith("gg_qr") && buttonId.EndsWith("_cancel") && s != null
-            && int.TryParse(buttonId[5..^7], NumberStyles.None, CultureInfo.InvariantCulture, out var row) && row >= 1 && row <= s.Queue.Count)
-        {
-            var q = s.Queue[row - 1];
-            return q.Accounts.Contains(account) ? $"!cancel {q.Arg}" : null;
-        }
         return buttonId switch
         {
-            CancelAll => "!cancel all",
             Previous => s?.PrevArg is { Length: > 0 } ? "!previous" : null,
             Time10 => "!time 10",
             Time60 => "!time 60",

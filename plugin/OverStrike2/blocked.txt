@@ -1,51 +1,55 @@
-// MapSettingsReset: the game-changers no map may set (the owner's decision 12b, 2026-10-24). A map that sets one of these gets it put back
-// within a second - right after its own cfgs and entities have run, and again whenever it tries later - and every block is logged.
-// The value it must keep is the server's own (its baseline) unless a value follows the name. A player's choice on the menu's fun page is
-// never blocked. Movement settings that bhop and surf maps need (sv_airaccelerate, bunny hopping, stamina, sv_gravity, fall damage) are
+// The game-changers no map may set, in every game mode. A map that sets one of these gets it put back within a second - right after its
+// own cfgs and entities have run, and again whenever it tries later - and every block is logged. A player's choice on the menu's fun page
+// is never blocked. The movement settings bhop and surf maps need (sv_airaccelerate, bunny hopping, stamina, sv_gravity, fall damage) are
 // deliberately NOT here; the bridge's --selftest fails if one is added.
 //
-// Format: one convar per line, an optional value, then // and why. Counts are Workshop items setting it in the 2026-10-22 scan of all
-// ~3,600 cached items (a local scratch folder). Deploy beside OverStrike2.dll on the plugins share;
-// the plugin reads it at load and on "mapreset_block reload".
+// Format (bridge/Modes.cs, Modes.Blocked): one convar per line, then the value it keeps in each mode - Arms Race, Deathmatch, Wingman, in
+// that order - then // and why. * keeps the server's own value (its baseline, taken when the boot map ends, an Arms Race map), so only Arms
+// Race uses it. Deathmatch's values are Valve's gamemode_deathmatch.cfg plus server/gamemode_deathmatch_server.cfg, Wingman's Valve's
+// gamemode_competitive2v2.cfg plus server/gamemode_competitive2v2_server.cfg. Counts are Workshop items setting it in the 2026-10-22 scan of
+// all ~3,600 cached items. Deploy beside OverStrike2.dll; the plugin reads it at load, at the first map start in another mode, and on
+// "mapreset_block reload".
+//
+// convar                          armsrace  deathmatch  wingman   // why
 
 // ---- the mode and cheats ----
-game_type 1                        // the game mode: 29 items switch it (Competitive, Casual, Demolition), which would carry into the next map; Arms Race is 1/0
-game_mode 0                        // the same, 28 items. Deathmatch and Wingman have their own lists (blocked-deathmatch.txt, blocked-wingman.txt)
-sv_cheats                          // 93 items turn cheats on, which lets every player use cheat commands for the rest of the map
+game_type                          1         1           0         // the game mode (Arms Race 1/0, Deathmatch 1/2, Wingman 0/2): 29 items switch it, which would carry into the next map
+game_mode                          0         2           2         // the same, 28 items
+sv_cheats                          *         0           0         // 93 items turn cheats on, which lets every player use cheat commands for the rest of the map
 
 // ---- shooting ----
-weapon_accuracy_nospread           // no spread: 26 items make every gun a laser
-weapon_air_spread_scale            // accurate jumping: 2 items
-sv_infinite_ammo                   // Arms Race runs 2 (endless reserve); 28 items set 1 (no reloads) or 0 (run dry)
+weapon_accuracy_nospread           *         0           0         // no spread: 26 items make every gun a laser
+weapon_air_spread_scale            *         1           1         // accurate jumping: 2 items; CS2's own jumping inaccuracy
+sv_infinite_ammo                   *         2           0         // Arms Race and Deathmatch run 2 (endless reserve, reloads as usual), Wingman 0 (ammo runs out); 28 items set 1 (no reloads) or 0 (run dry)
 
 // ---- damage and who is an enemy ----
-mp_damage_headshot_only            // headshots only: 2 items
-mp_damage_scale_ct_body            // damage scales, CT body: 4 items (0.3 to 999)
-mp_damage_scale_ct_head            // damage scales, CT head: 3 items
-mp_damage_scale_t_body             // damage scales, T body: 4 items
-mp_damage_scale_t_head             // damage scales, T head: 3 items
-mp_teammates_are_enemies           // free-for-all: 21 items
-mp_free_armor                      // Arms Race gives armour and helmet (2); 50 items set 1 or 0, which changes how many hits kill
-sv_hegrenade_radius_multiplier     // grenade blast radius: 2 items
+mp_damage_headshot_only            *         0           0         // headshots only: 2 items
+mp_damage_scale_ct_body            *         1           1         // damage scales, CT body: 4 items (0.3 to 999)
+mp_damage_scale_ct_head            *         1           1         // damage scales, CT head: 3 items
+mp_damage_scale_t_body             *         1           1         // damage scales, T body: 4 items
+mp_damage_scale_t_head             *         1           1         // damage scales, T head: 3 items
+mp_teammates_are_enemies           *         1           0         // free-for-all: 21 items; Valve's Deathmatch is free-for-all, Wingman is two teams of two
+mp_free_armor                      *         2           0         // Arms Race and Deathmatch give armour and helmet (2), Wingman's is bought; 50 items set 1 or 0, which changes how many hits kill
+sv_hegrenade_radius_multiplier     *         1           1         // grenade blast radius: 2 items
 
 // ---- what a player sees ----
-sv_disable_radar                   // radar off: 17 items
+sv_disable_radar                   *         0           0         // radar off: 17 items
 
 // ---- how a match runs and ends ----
-mp_ignore_round_win_conditions     // 73 items: the round never ends, so the match length (mp_roundtime) would never end the match
-mp_respawn_on_death_ct             // 28 items; 0 stops CTs respawning
-mp_respawn_on_death_t              // 26 items; 0 stops Ts respawning
-mp_timelimit                       // 15 items; a time limit ends the map in the middle of a match
-mp_match_end_restart               // 5 items; the server replays the map after a match, and the bridge picks the next one
-mp_match_end_changelevel           // 1 item; a changelevel at match end would go past the bridge's queue
-mp_warmup_pausetimer               // 7 items set 1: warmup never ends, so the match never starts
-sv_allow_votes                     // 4 items turn the F1/F2 votes on (kick, change level), which the server switched off
-bot_quota                          // 37 items add bots; this server runs none (README: CounterStrikeSharp #1446)
-bot_quota_mode                     // fill_with_minimum adds a bot even at bot_quota 0 (seen live in Deathmatch); Arms Race's own is fill
+mp_ignore_round_win_conditions     *         0           0         // 73 items: the round never ends, so the match length (mp_roundtime) would never end the match
+mp_respawn_on_death_ct             *         1           0         // 28 items; 0 stops CTs respawning - in Wingman's rounds the dead wait for the next round
+mp_respawn_on_death_t              *         1           0         // 26 items; 0 stops Ts respawning - the same
+mp_timelimit                       *         2           0         // 15 items; a time limit ends the map in the middle of a match (Deathmatch keeps Valve's 2; Wingman's rounds end its match)
+mp_match_end_restart               *         1           1         // 5 items; the server replays the map after a match, and the bridge's vote picks the next one
+mp_match_end_changelevel           *         0           0         // 1 item; a changelevel at the match end would go past the bridge's vote and queue
+mp_warmup_pausetimer               *         0           0         // 7 items set 1: warmup never ends, so the match never starts
+sv_allow_votes                     *         0           0         // 4 items turn the F1/F2 votes on (kick, change level), which the server switched off: the bridge's vote is the vote
+bot_quota                          *         0           0         // 37 items add bots, and Valve's Deathmatch and Wingman add their own; this server runs none (README: CounterStrikeSharp #1446)
+bot_quota_mode                     *         normal      normal    // fill_with_minimum adds a bot even at bot_quota 0 (seen live in Deathmatch); Arms Race's own is fill
 
 // ---- weapons outside the ladder ----
-mp_weapons_allow_map_placed        // 19 items: guns lying on the map can be picked up
-mp_death_drop_gun                  // 11 items: the dead drop their gun for anyone to pick up
-mp_death_drop_grenade              // 2 items set 0: the grenade drops on death (GunGameNades) would stop
-mp_buy_anywhere                    // 43 items: buying anywhere
-mp_buytime                         // 84 items: a buy window; Arms Race has none
+mp_weapons_allow_map_placed        *         0           1         // 19 items: guns lying on the map can be picked up - in Wingman, as Valve has it
+mp_death_drop_gun                  *         0           1         // 11 items: the dead drop their gun for anyone to pick up - in Wingman, as Valve has it
+mp_death_drop_grenade              *         0           3         // 2 items set 0 in Arms Race, which would stop the grenade drops; Deathmatch drops nothing, Wingman the grenades too
+mp_buy_anywhere                    *         1           0         // 43 items: buying anywhere - Valve's Deathmatch buys anywhere, during the spawn protection, free of charge
+mp_buytime                         *         0           20        // 84 items: a buy window; Arms Race has none, Deathmatch buys during the spawn protection only, Wingman for Valve's 20 s at a round's start
