@@ -200,15 +200,10 @@ public sealed class BountyConfig
     }
 }
 
-/// <summary>How a boost is weighed against the leader: the duel factor the log shows (Rules.DuelFactor), how much of the leader's bounty
-/// a boosted player's hits on him get, and the mid-life cut (Rules.HoldHealth).</summary>
+/// <summary>How a boost's values are weighed against each other: the duel factor the log shows (Rules.DuelFactor) and the mid-life cut
+/// (Rules.HoldHealth).</summary>
 public sealed class BalanceConfig
 {
-    /// <summary>The most a boosted player's duel factor against the leader may reach with his bounty: on each of their hits on him the
-    /// bounty counts only up to this over their own factor, never below no bounty at all. The strongest tier, 5.95, times the largest
-    /// bounty, 1.30, is 7.74: under 8, so every hit gets the whole bounty.</summary>
-    public double MaxDuelFactor { get; set; } = 8.0;
-
     /// <summary>Lifesteal counts as health in the duel factor (in a duel it returns that share of the leader's health).</summary>
     public bool LifestealCounts { get; set; } = true;
 
@@ -218,7 +213,6 @@ public sealed class BalanceConfig
 
     internal void Normalize(List<string> notes)
     {
-        MaxDuelFactor = CatchUpConfig.Clamp(MaxDuelFactor, 1, 100, "Balance.MaxDuelFactor", notes);
         RoundTo = CatchUpConfig.Clamp(RoundTo, 0, 0.5, "Balance.RoundTo", notes);
     }
 }

@@ -665,8 +665,7 @@ public sealed class CatchUpModule
         ladder.Configure(config.Progress);
         foreach (var note in notes) log.LogWarning("CatchUp config: {Note}", note);
         var tiers = string.Join(", ", config.Tiers.Select(t => $"{t.MinBehind}+"));
-        var summary = $"{config.Tiers.Count} tiers ({tiers} behind), bounty from {config.Bounty.MinLead} ahead, a hit's bounty up to a duel factor of "
-                      + $"{config.Balance.MaxDuelFactor.ToString(CultureInfo.InvariantCulture)}, "
+        var summary = $"{config.Tiers.Count} tiers ({tiers} behind), bounty from {config.Bounty.MinLead} ahead, "
                       + (config.RecalculateOnKill ? "decided again after every kill" : "decided at spawn")
                       + (config.Enabled ? "" : ", switched off in the file");
         return notes.Count == 0 ? summary : $"{summary} ({notes.Count} config note(s) in the log)";

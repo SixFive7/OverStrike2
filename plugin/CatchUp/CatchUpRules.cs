@@ -33,13 +33,8 @@ public sealed record Boost
     /// <summary>The leader's handicap: extra damage taken from enemies.</summary>
     public double Bounty { get; init; }
 
-    /// <summary>The duel factor against the leader (Rules.DuelFactor), with as much of the leader's bounty as this player's hits get: for
-    /// the log.</summary>
+    /// <summary>The duel factor against the leader (Rules.DuelFactor), the leader's bounty included: for the log.</summary>
     public double Factor { get; init; } = 1;
-
-    /// <summary>The most the leader's bounty may multiply this player's hits on the leader: MaxDuelFactor over their own factor, never
-    /// below 1 (no bounty at all).</summary>
-    public double BountyAllowed { get; init; } = double.PositiveInfinity;
 
     /// <summary>Mid-life: the health is what the life already held, more than this decision gives, and damage taken, damage dealt and
     /// lifesteal were cut to make room (Rules.HoldHealth).</summary>
@@ -107,16 +102,13 @@ public static class Rules
     {
         var t = TierFor(c.Tiers, behind);
         if (t == null) return new Boost { KillsBehind = behind };
-        var lsc = c.Balance.LifestealCounts;
-        var bountyAllowed = Math.Max(1, c.Balance.MaxDuelFactor / Own(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, lsc));
         return new Boost
         {
             KillsBehind = behind, Tier = t.MinBehind,
             Health = t.Health, DamageTaken = t.DamageTaken, DamageDealt = t.DamageDealt, Lifesteal = t.Lifesteal,
             RegenPerSecond = t.RegenPerSecond, RegenDelaySeconds = t.RegenDelaySeconds, SecondChance = t.SecondChance,
             ExtraProtection = t.ExtraSpawnProtectionSeconds, InfiniteAmmo = t.InfiniteAmmo, OneHitMelee = t.OneHitKnifeAndTaser,
-            Factor = DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, Math.Min(leaderBounty, bountyAllowed - 1), lsc),
-            BountyAllowed = bountyAllowed,
+            Factor = DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, leaderBounty, c.Balance.LifestealCounts),
         };
     }
 
@@ -169,13 +161,10 @@ public static class Rules
                 }
             }
         }
-        var given = Given();
-        // The bounty on this player's hits on the leader: up to MaxDuelFactor over the own factor the life has now; never below no bounty at all.
-        var bountyAllowed = decided.Tier > 0 ? Math.Max(1, b.MaxDuelFactor / given) : decided.BountyAllowed;
         return decided with
         {
             Health = lifeHealth, DamageTaken = part[0] == 0 ? 0 : -part[0], DamageDealt = part[1], Lifesteal = part[2],
-            Factor = given * Math.Min(1 + Math.Max(0, leaderBounty), bountyAllowed), BountyAllowed = bountyAllowed, HealthHeld = true,
+            Factor = Given() * (1 + Math.Max(0, leaderBounty)), HealthHeld = true,
         };
     }
 
@@ -207,10 +196,9 @@ public static class Rules
         return Math.Round(Math.Floor(value / step + 1e-9) * step, 6);
     }
 
-    /// <summary>The damage multiplier for an enemy hit: the attacker's damage, the victim's resistance and the victim's bounty (no more
-    /// of the bounty than the attacker's BountyAllowed).</summary>
+    /// <summary>The damage multiplier for an enemy hit: the attacker's damage, the victim's resistance and the victim's bounty.</summary>
     public static float Multiplier(Boost attacker, Boost victim) =>
-        (float)((1 + attacker.DamageDealt) * (1 + victim.DamageTaken) * Math.Min(1 + victim.Bounty, attacker.BountyAllowed));
+        (float)((1 + attacker.DamageDealt) * (1 + victim.DamageTaken) * (1 + victim.Bounty));
 
     /// <summary>Damage that kills anybody: more than their health and armour together, several times over.</summary>
     public static float OneHitDamage(int health, int armor) => Math.Max(1, health + armor) * 4f + 100f;

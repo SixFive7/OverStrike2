@@ -101,7 +101,6 @@
     "Max": 0.30
   },
   "Balance": {
-    "MaxDuelFactor": 8.0,
     "LifestealCounts": true,
     "RoundTo": 0.05
   },
