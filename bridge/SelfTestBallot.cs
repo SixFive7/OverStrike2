@@ -484,6 +484,24 @@ static partial class Program
             Votes[Key(likedElsewhere)] = new() { [players[0].Item2] = 1 };
             Check("Most liked names a map only Deathmatch or Wingman lists by its name, not as \"workshop <id>\"", TopRows() is [{ Map: { Name: "dm_1" } }]);
 
+            // ---- a plugin on a quiet server: its long poll counts when it arrives, and the bridge then holds it up to Hud.LongPollSeconds ----
+            var realHudActive = saved.HudActive;
+            var polledBefore = Interlocked.Read(ref hudPolledTicks);
+            void PolledAgo(double seconds) => Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.AddSeconds(-seconds).Ticks);
+            PolledAgo(Hud.LongPollSeconds + 1);
+            Check($"A plugin whose long poll has been held the whole {Hud.LongPollSeconds} s still counts as drawing the HUD", realHudActive());
+            PolledAgo(Hud.LongPollSeconds + 20);
+            Check("...one gone for longer than that and a margin does not", !realHudActive());
+            Fresh();
+            Join(players[0]); Join(players[1]);
+            HudActive = realHudActive;
+            PolledAgo(Hud.LongPollSeconds - 1);
+            MatchEnd();
+            HudActive = () => true;
+            Interlocked.Exchange(ref hudPolledTicks, polledBefore);
+            Check("...so a match end in a quiet stretch opens the vote, and the dice do not change the map without one", Ballot is { Open: true, MatchEnded: true } && Pending == null);
+            EndBallot("the test goes on");
+
             string HudTextNow() { RefreshHud(); return HudText; }
         }
         finally

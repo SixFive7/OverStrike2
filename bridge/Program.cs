@@ -185,7 +185,7 @@ static partial class Program
 
     static volatile string HudText = new HudState().Encode(); // rebuilt on the event loop every tick and after every click; read by the HTTP thread
     static long hudPolledTicks;                              // when the plugin last asked for it (UTC ticks, written by the HTTP thread)
-    const int HudActiveSeconds = 15;
+    const int HudActiveSeconds = Hud.LongPollSeconds + 15; // a poll counts when it arrives, and the bridge then holds it up to LongPollSeconds: on a quiet stretch the last arrival is that old
 
     /// <summary>A plugin that draws the HUD is polling: the HUD addon is set on the game server and its plugin is alive. While it is, the vote opens
     /// at a match end (somebody sees the ballot) and the HUD shows the map-change countdown and the now-playing card. A plugin that runs undrawn
