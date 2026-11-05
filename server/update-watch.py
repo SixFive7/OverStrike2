@@ -1115,7 +1115,7 @@ def map_slug(name):
 def map_types():
     """{id: (type, title)} from the bridge's lists: the HUD item, then our own maps, then Arms Race, Deathmatch, Wingman. Not listed: other."""
     out = {}
-    hud = (os.environ.get("GUNGAME_HUD_ADDON") or "").strip()
+    hud = (os.environ.get("OS2_HUD_ADDON") or os.environ.get("GUNGAME_HUD_ADDON") or "").strip()   # the new name first, one release of both
     if hud:
         out[hud] = ("hud", "hud")
     for entry in (read_json(os.path.join(BRIDGE_DATA, "ours.json"), {}) or {}).get("maps") or []:
@@ -1475,7 +1475,7 @@ def keep_and_delete(content, maps_dir, types, where, rel):
         return []
     sizes = acf_sizes(text)
     add, finish, counts = take_in(content, maps_dir, types, where, rel, installed_now)
-    hud = (os.environ.get("GUNGAME_HUD_ADDON") or "").strip()
+    hud = (os.environ.get("OS2_HUD_ADDON") or os.environ.get("GUNGAME_HUD_ADDON") or "").strip()   # the new name first, one release of both
     keep = keep_set(keep_inputs(BRIDGE_DATA), now, hud)
     protected = set(keep["own"]) | set(keep["hud"]) | set(keep["requested"])
     for ids in keep["queues"].values():

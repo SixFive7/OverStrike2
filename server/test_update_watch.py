@@ -789,6 +789,10 @@ check("organize: a link to nothing goes - Steam fetches the map again when it is
       not os.path.lexists(os.path.join(content_o, "200")))
 m.BRIDGE_DATA = os.path.join(ROOT, "nothing-here")
 check("organize: no lists, nothing touched", "not readable" in m.organize(content_o, maps_o))
+os.environ["OS2_HUD_ADDON"] = "777"
+check("organize: the HUD item from OS2_HUD_ADDON first, GUNGAME_HUD_ADDON (still 500 here) for one release",
+      m.map_types().get("777") == ("hud", "hud") and m.map_types().get("500") != ("hud", "hud"))
+os.environ.pop("OS2_HUD_ADDON", None)
 m.BRIDGE_DATA, m.WORKSHOP_ACF = saved[:2]
 os.environ.pop("GUNGAME_HUD_ADDON", None)
 # the engine's workshop log, which the scenarios below write into

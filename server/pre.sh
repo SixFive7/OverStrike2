@@ -110,10 +110,10 @@ cs2_plugins_copy() {
 # OverStrike2 plugin draws the HUD instead of its centre panel. Empty (the default): Metamod does not
 # load MultiAddonManager at all - its files stay on disk - so the layer is exactly what it was before the HUD existed.
 cs2_plugins_hud() {
-    local csgo="$CS2_PLUGINS_ROOT/game/csgo" id="${GUNGAME_HUD_ADDON:-}"
+    local csgo="$CS2_PLUGINS_ROOT/game/csgo" id="${OS2_HUD_ADDON:-${GUNGAME_HUD_ADDON:-}}"
     local vdf="$csgo/addons/metamod/multiaddonmanager.vdf" cfg="$csgo/cfg/multiaddonmanager/multiaddonmanager.cfg"
-    if [[ -z "$id" ]]; then rm -f "$vdf"; cs2_plugins_log "HUD off (GUNGAME_HUD_ADDON is empty): MultiAddonManager not loaded"; return 0; fi
-    if [[ ! "$id" =~ ^[0-9]{6,12}$ ]]; then rm -f "$vdf"; cs2_plugins_log "WARNING: GUNGAME_HUD_ADDON='$id' is not a Workshop id; HUD addon not delivered"; return 1; fi
+    if [[ -z "$id" ]]; then rm -f "$vdf"; cs2_plugins_log "HUD off (OS2_HUD_ADDON and GUNGAME_HUD_ADDON are empty): MultiAddonManager not loaded"; return 0; fi
+    if [[ ! "$id" =~ ^[0-9]{6,12}$ ]]; then rm -f "$vdf"; cs2_plugins_log "WARNING: the HUD addon '$id' (OS2_HUD_ADDON, or GUNGAME_HUD_ADDON) is not a Workshop id; HUD addon not delivered"; return 1; fi
     if [[ ! -f "$csgo/addons/multiaddonmanager/bin/multiaddonmanager.so" ]]; then
         rm -f "$vdf"; cs2_plugins_log "WARNING: MultiAddonManager is not installed; HUD addon $id cannot reach the players"; return 1
     fi
@@ -141,7 +141,7 @@ cs2_plugins_main() {
             cs2_plugins_install counterstrikesharp "$CS2_PLUGINS_CSS_VERSION" "$CS2_PLUGINS_CSS_URL" zip
             cs2_plugins_install multiaddonmanager "$CS2_PLUGINS_MAM_VERSION" "$CS2_PLUGINS_MAM_URL" tar
             cs2_plugins_gameinfo on
-            cs2_plugins_hud && [[ -n "${GUNGAME_HUD_ADDON:-}" ]] && hud="on (Workshop addon $GUNGAME_HUD_ADDON)"
+            cs2_plugins_hud && [[ -n "${OS2_HUD_ADDON:-${GUNGAME_HUD_ADDON:-}}" ]] && hud="on (Workshop addon ${OS2_HUD_ADDON:-$GUNGAME_HUD_ADDON})"
             cs2_plugins_copy
             cs2_plugins_log "SUMMARY: CS2_PLUGINS=1, Metamod $CS2_PLUGINS_MM_VERSION + CounterStrikeSharp $CS2_PLUGINS_CSS_VERSION" \
                 "layer active, HUD $hud" \
