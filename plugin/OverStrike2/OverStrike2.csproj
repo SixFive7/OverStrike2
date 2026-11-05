@@ -27,7 +27,7 @@
     <Compile Include="..\..\bridge\HudTab.cs" Link="HudTab.cs" />
     <Compile Include="..\..\bridge\Workshop.cs" Link="Workshop.cs" />
     <Compile Include="..\..\bridge\HudSearch.cs" Link="HudSearch.cs" />
-    <Compile Include="..\..\bridge\HudWorkshop.cs" Link="HudWorkshop.cs" />
+    <Compile Include="..\..\bridge\WorkshopCard.cs" Link="WorkshopCard.cs" />
     <Compile Include="..\..\bridge\Fun.cs" Link="Fun.cs" />
     <Compile Include="..\..\bridge\BlockList.cs" Link="BlockList.cs" />
     <Compile Include="..\..\bridge\MapVote.cs" Link="MapVote.cs" />
@@ -36,6 +36,24 @@
     <Compile Include="..\..\bridge\HudVote.cs" Link="HudVote.cs" />
     <Compile Include="..\..\bridge\HudDash.cs" Link="HudDash.cs" />
     <Compile Include="..\..\bridge\ChatCommands.cs" Link="ChatCommands.cs" />
+    <Compile Include="..\..\bridge\ChatReply.cs" Link="ChatReply.cs" />
+    <Compile Include="..\..\bridge\FunClicks.cs" Link="FunClicks.cs" />
+    <Compile Include="..\..\bridge\FunState.cs" Link="FunState.cs" />
+    <Compile Include="..\..\bridge\HudSlots.cs" Link="HudSlots.cs" />
+    <Compile Include="..\..\bridge\HudState.cs" Link="HudState.cs" />
+    <Compile Include="..\..\bridge\HudView.cs" Link="HudView.cs" />
+    <Compile Include="..\..\bridge\HudCatalog.cs" Link="HudCatalog.cs" />
+    <Compile Include="..\..\bridge\HudMenu.cs" Link="HudMenu.cs" />
+    <Compile Include="..\..\bridge\HudThumbs.cs" Link="HudThumbs.cs" />
+    <Compile Include="..\..\bridge\MapTags.cs" Link="MapTags.cs" />
+    <Compile Include="..\..\bridge\HudGate.cs" Link="HudGate.cs" />
+    <Compile Include="..\..\bridge\ItemPlan.cs" Link="ItemPlan.cs" />
+    <Compile Include="..\..\bridge\HudKeyboard.cs" Link="HudKeyboard.cs" />
+    <Compile Include="..\..\bridge\DownReasons.cs" Link="DownReasons.cs" />
+    <Compile Include="..\..\bridge\WorkshopItem.cs" Link="WorkshopItem.cs" />
+    <Compile Include="..\..\bridge\VoteState.cs" Link="VoteState.cs" />
+    <Compile Include="..\..\bridge\M.cs" Link="M.cs" />
+    <Compile Include="..\..\bridge\Sections.cs" Link="Sections.cs" />
     <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin), and where the
          plugin's settings come from while the install step does not write the file yet (PluginSetup.cs). -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
