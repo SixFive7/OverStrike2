@@ -1,10 +1,9 @@
 # The server program
 
 `os2-server` ([`server/OverStrike2.Server/`](../server/OverStrike2.Server/)) is the game server's own program: one self-contained
-Linux file that runs in the game server's container beside the engine. It takes over from the restart watcher
-(`server/update-watch.py`) and the install hook's shell work (`server/pre.sh`); the Workshop sync has a program of its own,
-`os2-sync` ([below](#the-workshop-sync-os2-sync)). It reads the settings file ([settings.md](settings.md)) and the image's own
-variables where the image needs them.
+Linux file that runs in the game server's container beside the engine: the install step and the restart watcher. The Workshop sync
+has a program of its own, `os2-sync` ([below](#the-workshop-sync-os2-sync)). It reads the settings file ([settings.md](settings.md))
+and the image's own variables where the image needs them.
 
 | Command | What it does |
 |---|---|
@@ -19,7 +18,7 @@ Every command takes `--settings <file>` (else `OVERSTRIKE2_SETTINGS`, else `/etc
 
 ## How it starts
 
-The image's entry script sources `pre.sh` right before it launches the engine. The new `pre.sh`
+The image's entry script sources `pre.sh` right before it launches the engine. `pre.sh`
 ([`server/OverStrike2.Server/pre.sh`](../server/OverStrike2.Server/pre.sh)) is a launcher: it copies the program from where it is
 shipped (`OS2_SERVER`, else `/home/steam/overstrike2/os2-server`; a read-only or no-exec mount cannot run it) to
 `<game>/update-watch/os2-server`, runs `install`, and starts `watch` in the background. A failure costs the plugin layer and the
@@ -55,7 +54,7 @@ nobody on and say nothing to players. A new version of the HUD needs no restart 
 **Every planned restart** quits the engine over RCON, so the image runs SteamCMD again; the bridge hears of it right before
 (`/quitting`) and takes it as a clean shutdown. A planned restart inside the daily restart's window counts as that day's.
 
-**Loop protection** (`update-watch/state.json`, schema 3; the Python watcher's schema 2 is read as it is): planned restarts at least
+**Loop protection** (`update-watch/state.json`, schema 3; the older schema 2 is read as it is): planned restarts at least
 10 minutes apart and at most 4 in any 24 hours; an update restart that left the build unchanged is a miss, retried after 30 minutes
 and then 2 hours, and the third latches the update breaker for that build; a version restart that did not install the new version is
 not repeated for that version. Freeze kills at least 3 minutes apart and at most 10 in 24 hours; two kills after which the server
@@ -87,7 +86,7 @@ The watcher posts plain text to the bridge at `<bridge.url>/<path>/<bridge.secre
 | `/restart-notice/` | `gg-restart\t1\tcancel\t<kind>` | The announced restart is off: no longer due, or its quit could not be delivered. |
 | `/quitting/` | `gg-quit\t1\t<kind>`, `gg-quit\t1\tcancel\t<kind>` | Right before the quit (`kind`: `update`, `version`, `daily`, `workshop`); the cancel when the quit could not be delivered. A freeze kill sends nothing: it is the crash it looks like. |
 | `/updated/` | `gg-updated\t1\t<what>\t<from>\t<to>` | After a planned restart, once the engine answers: `game-update` with the CS2 builds, `our-update` with the versions of our parts. Tried again every minute, up to 10 times. |
-| `/ready/` | `gg-ready\t1`, then one Workshop id a line; while a background download runs, a last line `current\t<id>\t<percent or ->\t<title>` | The queued maps on the server's disk (job 9), at least every 2 minutes and whenever that or the download's progress changes. An answer that ends in `; hold: <why>` holds the next background download. |
+| `/ready/` | `gg-ready\t1`, then one Workshop id a line; while a background download runs, a last line `current\t<id>\t<percent or ->\t<title>` | The maps `queues.json` names that are on the server's disk, at least every 2 minutes and whenever that or the download's progress changes. An answer that ends in `; hold: <why>` holds the next background download. |
 
 ## Downloads a player waits for
 
@@ -103,8 +102,9 @@ Steam's client often stalls near the end of a download for up to a minute; the l
 
 Before every engine start `install` (or `os2-server organize`) keeps each Workshop map in a real folder per type -
 `maps/<armsrace|deathmatch|wingman|own|hud|other>/<id>-<name>/` - with Steam's `content/730/<id>` a relative link to it, takes in the
-Workshop sync's complete hand-overs, and with `maps.delete` on deletes every stored map outside the keep set: never our own maps, the
-HUD or a queued one, and never when the keep set names a problem. Each run writes `update-watch/keep.json` and
+Workshop sync's complete hand-overs, and with `maps.delete` on deletes every stored map outside the keep set
+([what the server keeps](reference.md#what-the-server-keeps)): never our own maps, the HUD or a map `queues.json` names, and never when
+the keep set names a problem. Each run writes `update-watch/keep.json` and
 `update-watch/deleted-<time>-<done, dryrun or refused>.tsv`.
 
 ## Build and test
@@ -116,8 +116,8 @@ dotnet publish server/OverStrike2.Server -c Release -r linux-x64 -o <folder>    
 dotnet publish server/OverStrike2.Server/SelfTest -c Release -r linux-x64 -o <folder>   # the self-test, to run in the game image
 ```
 
-The self-test drives the watcher's own loop on a fake clock with a fake engine and a fake bridge: every check of the Python
-watcher's tests, the restarts above, both download collisions, the install, the observing run.
+The self-test drives the watcher's own loop on a fake clock with a fake engine and a fake bridge: its rules, the restarts above,
+both download collisions, the install, the observing run.
 
 `python deploy/server.py build` publishes both programs (this one and [os2-sync](#the-workshop-sync-os2-sync)) and runs both
 self-tests, with `--image` in the game image too; `ship --apply` puts `os2-server`, `os2-sync` and `pre.sh` in the server's program
@@ -126,10 +126,10 @@ folder, which the containers mount read-only at `/home/steam/overstrike2` ([depl
 ## The Workshop sync (os2-sync)
 
 `os2-sync` ([`server/OverStrike2.Sync/`](../server/OverStrike2.Sync/)) is the Workshop sync as one self-contained Linux file, run in
-a container of its own (the game server's image: its SteamCMD, the libraries a test engine needs). It takes over from
-`server/workshop-sync.py` step for step: discovery, the check, the ratings, the hand-over to the game server, downloads, the scan,
-the load tests and the publish, with the same limits, stops and mail. It keeps the Python sync's files as they are - the state, the
-Web API ledger, the reports, the hand-overs, the bridge's files byte for byte - so either reads what the other wrote. It reads the
+a container of its own (the game server's image: its SteamCMD, the libraries a test engine needs). Its steps are discovery, the check,
+the ratings, the hand-over to the game server, downloads, the scan, the load tests and the publish, with their limits, stops and mail
+([the Workshop sync](reference.md#the-workshop-sync)). Its files - the state, the Web API ledger, the reports, the hand-overs, the
+bridge's files - keep the formats of the sync before it, byte for byte, so a server that switches carries on with what it has. It reads the
 settings file (`sync.*`, `paths.*`, `server.*`, `bridge.*`, `hud.addon`, `restarts.daily`, `steam.apiGapSeconds`); HOME is the
 image's own. Every Steam Web API call goes through the program's one door (one at a time, `steam.apiGapSeconds` apart, also from one
 run to the next) and is booked in the ledger before it is sent. Its keep set is the restart watcher's: the same code, with the queues
@@ -145,7 +145,7 @@ bridge's discovery stock takes only maps whose current content passed (`passed` 
 | `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; `<state>/run-now` starts a manual run at once. |
 | `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
 | `os2-sync status` | The Web API ledger's counters and the state's totals. |
-| `os2-sync export` | What it has published, as entries a republish from the repository can merge, and the random queues as `queues.json` holds them (`queues`), which the HUD's pictures take first. |
+| `os2-sync export` | What it has published, as entries a republish from the repository can merge, and the discovery stock as `queues.json` holds it (`queues`), which the HUD's pictures take first. |
 | `os2-sync doctor` | What it sees: the settings as read, the paths, whether there is a key, the bridge, the mail. |
 | `os2-sync version` | Its version. |
 
@@ -171,7 +171,6 @@ dotnet publish server/OverStrike2.Sync -c Release -r linux-x64 -o <folder>      
 dotnet publish server/OverStrike2.Sync/SelfTest -c Release -r linux-x64 -o <folder>   # the self-test, to run in the game image
 ```
 
-The self-test holds every check of the Python sync's tests (`server/test_workshop_sync.py`), by the same names, and the port's own:
-the settings file, the Python formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the dry run, the
+The self-test holds the sync's rules and the settings file, the file formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the dry run, the
 command line, the SMTP client, SteamCMD's driver against a stand-in, the test tree, and a hand-over taken in by the restart watcher's
 own code.

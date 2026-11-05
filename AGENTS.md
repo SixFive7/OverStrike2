@@ -67,7 +67,7 @@ Our own maps follow the same rule: a new version of a map item only with the own
 ## The documentation shows the whole HUD - keep it current with every change
 
 The owner reviews the HUD from its documentation instead of in the game, and gives corrections from it, so it has to show
-everything and match the code (the owner's request of 2026-11-05):
+everything and match the code:
 
 - **Every part of the interface, with screenshots:** every page, tab and state - the board, the menu window and each of its
   pages, the vote and its ballot states, the map browser, the Fun page, the Sync page and whatever comes next - so anyone can see
@@ -80,7 +80,7 @@ everything and match the code (the owner's request of 2026-11-05):
 - **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
   production, driven by script so every page and state can be reached without anybody playing.
 - **Still public:** test names only - no player names, Steam ids, addresses or anything else of the deployment in a picture.
-  Workshop map previews may show in these screenshots as the HUD shows them (the owner's 94 b of 2026-11-05) - the one exception
+  Workshop map previews may show in these screenshots as the HUD shows them - the one exception
   to "No other authors' pictures", which still holds for everything else. Every picture is a binary file, reviewed into
   [tools/scan/allow.txt](tools/scan/allow.txt) with its hash.
 

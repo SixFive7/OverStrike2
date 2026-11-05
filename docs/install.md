@@ -45,7 +45,7 @@ nobody on. A new CS2 build is the watcher's job too: it restarts the engine, and
 | Service | What it is |
 |---|---|
 | `cs2` | The game server. Before every engine start the image sources `pre.sh`, which copies `os2-server` out of the program volume and runs `install` (Metamod, CounterStrikeSharp, MultiAddonManager, the plugin, the HUD addon, the maps folder) and then the restart watcher ([server.md](server.md)). |
-| `bridge` | The bridge: the votes, the queues, the HUD's data and the dashboard; it drives the game server over RCON and reads its log. |
+| `bridge` | The bridge: the vote, the dice, the HUD's data and the dashboard; it drives the game server over RCON and reads its log. |
 | `sync` | The Workshop sync (`os2-sync serve`): new maps found, downloaded, scanned and load-tested while nobody plays, and listed when they pass. Leave it out (`docker compose up -d cs2 bridge`) to run with the lists from this repository. |
 | `installer` | Builds the plugin and both programs, puts them into the volumes with `pre.sh` and the bridge's hand-made data, and exits. |
 

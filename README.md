@@ -2,304 +2,137 @@
 
 *Over the top - On the Huis*
 
-Over Strike 2 turns a Counter-Strike 2 dedicated server into an Arms Race (gun game) server that plays the Steam Workshop:
-thousands of community maps, picked from an in-game menu or from chat, shared out fairly between the players who are on, voted
-on, and rolled at random when nobody asks. Deathmatch and Wingman come in through the vote for the next map. Players install
-nothing: the server hands their game the menu when they join.
+Over Strike 2 turns a Counter-Strike 2 dedicated server into an Arms Race (gun game) server that plays the Steam Workshop: thousands of
+community maps, chosen together in a vote that freezes everybody until it is decided, with Deathmatch and Wingman on every ballot and dice
+that learn from what the players like. Players install nothing: the server hands their game the menu when they join.
 
-The rest of this page says what it does for players, how it looks after itself, how it is built and tested, and how to run your own.
-Every rule, setting and log line is in [docs/reference.md](docs/reference.md).
+- **Run your own:** [docs/install.md](docs/install.md) - one Docker host, a settings file, `docker compose up -d --build`.
+- **See the HUD:** [the HUD, page by page](#the-hud-page-by-page).
+- **Every rule and number:** [docs/reference.md](docs/reference.md). **Every setting:** [docs/settings.md](docs/settings.md).
+- **The server programs:** [docs/server.md](docs/server.md). **Shipping from a workstation:** [deploy/README.md](deploy/README.md).
 
-## For players
+## What players get
 
-### The game modes
+- **Arms Race, and more by vote.** A kill earns the next gun, and a kill with the golden knife on the last rung wins the match. Deathmatch, and
+  Wingman up to four players, are on every ballot. The server is back on Arms Race after every restart and after 10 minutes with nobody on.
+  ([The game modes](docs/reference.md#the-game-modes))
+- **A menu in the game.** Hold **TAB** for the live board beside the scoreboard, press **TAB + E** for the full window: every map with its picture
+  and full-text search, the vote, the fun settings, who is on, the Workshop sync's dashboard, and every rule. Any Workshop map can be played by its
+  id. ([In-game HUD](docs/reference.md#in-game-hud))
+- **Chat commands.** A line that starts with `!` or `/` does what the click does, and `!help` lists them. The words players know from other servers
+  work and teach (`!map`, `!rtv`, `!nominate`, `!skip`). ([The commands](docs/reference.md#the-menu-and-the-commands))
+- **The vote is how a map is chosen.** Play on a card, or **Start a vote**, and everybody's window opens on a ballot of ten cards: Keep playing,
+  every map a player put on it, one map of each other mode, a fresh Workshop map, a surprise new to the server, and favourites. Everybody is frozen
+  until all have voted, 60 s at the most. Every card but a player's own pick is on the server's disk, so the winner loads at once.
+  ([The vote](docs/reference.md#the-vote-and-the-game-modes))
+- **Cards that say why.** Every card wears its mode's colour and tags: OUR MAP, LIKED BY US, NEW UPLOAD, UPDATED, TRENDING, TOP RATED, POPULAR,
+  NEW TO US. ([Tags](docs/reference.md#in-game-hud))
+- **Dice that learn.** Each Like doubles a map's odds, up to five; each Dislike quarters them, and asks why; Workshop popularity is worth up to 16 times.
+  A map shown and not chosen steps back for a while. ([Random picks](docs/reference.md#random-picks), [Likes and dislikes](docs/reference.md#likes-and-dislikes))
+- **Fun settings.** Eighteen switches anybody can flip for everybody, until the map changes: gravity, bunny hopping, Vampire, Ghost, Laser guns and more,
+  with Random and Default. Every combination but one works together, and the self-test walks all 884,736. ([Fun settings](docs/reference.md#fun-settings))
+- **Catch-up.** In Arms Race a player who falls behind gets a boost that grows with every kill of the gap, and a runaway leader a bounty.
+  ([Catch-up](docs/reference.md#catch-up))
+- **Maps that break things say why.** A map that crashed the server or players' games shows its record and asks for a second click, and the dice skip it;
+  non-maps, blocked maps and maps gone from the Workshop are refused. ([Broken maps](docs/reference.md#broken-maps))
+- **A server that looks after itself.** It restarts for game updates and for new versions of its own parts, kills a frozen engine, keeps its disk to the maps
+  worth keeping, and finds, scans and load-tests new Workshop maps while nobody plays. ([What the server keeps](docs/reference.md#what-the-server-keeps),
+  [the Workshop sync](docs/reference.md#the-workshop-sync), [restarts](docs/server.md#when-the-server-restarts))
+- **Our own maps.** [gg_glasspire, gg_moonglass and gg_vinceville](maps/README.md), generated from code: geometry, props, spawns and breakable glass.
 
-**Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match.
-**Deathmatch** and **Wingman** are on every ballot, Wingman while four players or fewer are on. A map loads in its
-own mode, with that mode's settings. Each mode has Valve's official maps and its own list of Workshop maps. The server goes back
-to Arms Race after every restart, and after 10 minutes with nobody on. Grenade drops, the match length, the catch-up boosts and
-friendly fire's settings are Arms Race's own; outside it the menu leaves them out.
+## The HUD, page by page
 
-### The menu
+Every part of the interface, as a real game client draws it against a test copy of the server, taken by script. The pages and their pictures live under
+[`docs/`](docs/); this is their index. Until a part has its page, its rules are in [In-game HUD](docs/reference.md#in-game-hud).
 
-Hold **TAB** for the live board beside the scoreboard: the map that is on and who picked it, Like and Dislike, Next, what is queued,
-and the way into the full menu. It takes the mouse for as long as TAB is down, and letting go, a hit or death gives the mouse back.
-**TAB + E** opens the full menu, a CS2-style window. It closes by itself after 30 seconds without a click and the moment you are hit,
-so nobody is left standing in it. Its pages:
-
-| Page | What is on it |
-|---|---|
-| **Start** | The welcome, three steps and how to reach the menu. A first-time player gets this window at their first spawn; a returning one a short card. |
-| **Maps** | Eight cards a page, each with the map's picture, number, size and votes, its Play button and vote arrows, and the mode it plays in: a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search on an on-screen keyboard over names, tags and Workshop ids; sort by number, votes, name or size; filter by size (under 25 MB, 25-120, 120-400, 400 and up), by your own likes, by official maps, by Our maps (its button glows) and by game mode. A map with no picture in the HUD has a button on its card that shows its Workshop preview on request. Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the Workshop about it, and **Download and play** fetches it to the server, with the progress on the card, while nobody's game is interrupted; then it plays like any pick. |
-| **Queue** | Who is next and who asked, Cancel on your own requests or all of them, Previous for the map before this one. |
-| **Game** | The match length (10 or 60 minutes, from the next match), new maps in random picks (always, half, never), and Restart for a stuck server, twice to confirm. |
-| **Fun** | The fun settings, the grenade drops and catch-up, with **Random** (every setting drawn at random) and **Default** (everything back to normal); a setting off its default is gold with a dot. |
-| **Help** | Where everything is, and what it does. |
-| **Rules** | The vote, how votes count, the fair queue. |
-| **How it works** | Every chance in a map pick: the queue, Next, the vote, the lists, the weights and everything that is never rolled. |
-| **Sync** | The Workshop sync's dashboard: what it does now (with the step on a bar), what waits in its queue, the random queues on the server's disk, and its history of runs and map events, newest first, a page at a time. |
-
-Everybody also sees a news line (who picked what, the queue moving, a vote started, a crash, a map's blocked settings), a countdown
-banner before a map change, a now-playing card at the first spawn on each map, and the name and tagline for a few seconds on
-joining. Each player has a private note line, which answers what they just clicked.
-
-### Chat commands
-
-A chat line that starts with `!` or `/` does exactly what the matching click does, with the same refusals and confirmations. `!help`
-lists the primaries; the table with all of them is in [docs/reference.md](docs/reference.md#the-menu-and-the-commands).
-
-| Group | Commands |
-|---|---|
-| Maps | `!play` `!find` `!maps` `!next` `!random` `!back` |
-| Likes | `!up` `!down` (`!down big`, `!down ads`) |
-| The vote | `!vote` |
-| Game | `!fun` (`!fun random`, `!fun default`) `!nades` `!catchup` `!time` `!restart` |
-| Menu | `!menu` `!help` `!how` `!sync` |
-
-**Aliases teach.** Every command has its aliases, and the words players know from other servers are among them (`!map`, `!rtv`,
-`!nominate`, `!skip`). An alias runs the action, and its private reply shows what ran: `You typed !map 12 - ran !play 12`. A `/` line is hidden
-from the others; a `!` line stays as normal chat. A pasted Workshop link or id opens that item's card.
-
-### The vote for the next map
-
-There is no queue: **putting a map to the vote is how a map is chosen.** Play on a card (or `!play`, or Previous) calls a vote with that map
-on the ballot and your vote on it; while a vote is open it goes onto that ballot instead. **Start a vote** calls one without a map, and a
-match's end opens one by itself. Every vote opens everybody's window on the ballot and freezes everybody - nobody moves, shoots or takes
-damage, bots included - until it is decided, and everybody unfreezes at the same moment.
-
-The ballot holds up to ten cards on one page: **Keep playing this map** while the match is on (**Play this map again** once it is over),
-every map a player put on it, one map of each other game mode that suits the players on, a fresh map and a surprise, and favourites of the
-server's mode to fill the page; **Random** is a button of its own in the header - the dice after the vote. Every card shows its mode and its
-tags beside its picture, and while the vote runs its votes and who cast them; the most votes come first.
-
-A vote is a click on a card, changed or taken back as often as you like (a click on your own card takes it back). A map a player put on
-the ballot that has no votes left leaves it. Once everybody on the server has voted, the **inactivity timer** closes the vote 5 s after the
-last activity - a vote, a map put on it, a page or a search in the map browser - and the screen names who reset it last; the vote's limit
-is 60 s. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match, or is Random at a match end. After any
-vote, 2 minutes pass before the next one can be called; a match end opens one anyway. A Wingman map cannot win with more than four on.
-
-### Votes and why
-
-**Like** and **Dislike** vote on the map that is on, the arrows on any map's card. One vote per player per map, and a vote steps: Like on a
-disliked map takes the dislike back first, and says so ("Your dislike of ... is removed - like it again to add a like"); the next Like casts it.
-The same the other way round. The same vote again only says you voted so already: repeating a vote never takes it back.
-
-**A Dislike asks why**, right where you clicked it: over the card's picture, in the window in place of Like and Dislike, or on the TAB board,
-for 15 seconds. A dislike typed in chat while the window is closed gets the list at the left of the screen. Chat answers it too (`!down big`),
-and names one directly on any map (`!down 12 big`); a reason on a map you liked takes the like back first. With no answer the vote stays
-"I did not like the map". Too big and Ads are reasons now, not buttons of their own.
-
-| Word | Reason | What it does |
+<!-- hud-index:begin - the screenshot script fills the Page column; keep this table's parts in step with the HUD, and keep these two markers -->
+| Part | What it shows | Page |
 |---|---|---|
-| `meh` | I did not like the map | A dislike |
-| `big` | Map too big | A dislike, and only 1 random pick in 100 takes a too-big map |
-| `ads` | Shows ads or sends players away | A dislike, and the map is never a random pick |
-| `small` | Map too small | A dislike |
-| `broken` | Map is broken | A dislike |
-| `slow` | Runs badly | A dislike |
+| The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu | to come |
+| START | The welcome | to come |
+| MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | to come |
+| MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | to come |
+| FUN | The fun settings, off their default, idle, refused | to come |
+| SERVER, Players | Who is on, and which HUD their game shows | to come |
+| SERVER, Game | The match length and the stuck-server restart | to come |
+| SERVER, Sync | The Workshop sync's dashboard: now, the queue, the history | to come |
+| HELP, Help | Where everything is | to come |
+| HELP, How it works | Every rule of the vote and every chance of a random pick | to come |
+| Every kind of on-screen message | One gallery: how each message looks and where on the screen it appears | to come |
+<!-- hud-index:end -->
 
-### Random maps
+## Configure
 
-The dice roll at a server start and for Random on the ballot. Each Like doubles a map's odds, up to five; each Dislike quarters them; Workshop
-popularity gives up to three times. The **new maps** setting on the Game page says which list a pick comes from: always the newer maps, half a coin
-flip, never the original list. Never rolled: the map that is on, the last 10 maps played while others are left, maps that crashed the server or a
-player's game, broken and blocked maps, maps gone from the Workshop, and maps marked as showing ads. A map's download size plays no part. After 10 minutes
-with nobody on, the new-maps setting, the grenade drops and every fun setting go back to their defaults.
+Two files, beside [`deploy/compose.yml`](deploy/compose.yml) ([docs/install.md](docs/install.md) has the steps):
 
-The dice are rolled ahead: the bridge keeps a queue of 20 rolls for each list (the new maps, the original list, Deathmatch, Wingman), and the server
-downloads them in the background while you play, so at least 10 maps of every mode are on its disk at all times and a ballot's cards never wait
-for a download. A pick takes the first
-entry that is still eligible and already on the server's disk; the vote's random maps come from the same queues, and a map shown in a vote and not
-chosen comes back no sooner than the dice would bring it.
+- **`overstrike2.jsonc`, your settings.** Every part reads this one file; a key you leave out has its default. [`deploy/overstrike2.example.jsonc`](deploy/overstrike2.example.jsonc)
+  is a complete example, and [docs/settings.md](docs/settings.md) has every key, its default and who reads it.
+- **`.env`, your secrets and the game image's own variables.** [`deploy/example.env`](deploy/example.env). The settings file names a secret by reference (`"env:CS2_RCONPW"`,
+  `"file:/run/secrets/steam-webapi-key.txt"`), so nobody writes one twice.
 
-### Fun settings
+The essentials:
 
-Sixteen settings anybody can switch until the map changes, each with its own word; a bare `!fun` opens the page and writes the words in chat.
-Every change shows centre screen for everybody for 10 seconds, with who made it, and a setting off its default is gold with a dot on the page.
-**Catch-up** has its own row there too: on by default, off for everybody until the map changes (`!catchup off`).
-**Random** on the page (`!fun random`) draws every setting from its own choices, the grenade drops on or off and catch-up on three times in four,
-never a combination the page would not make; **Default** (`!fun default`) puts everything back as 10 minutes with nobody on does. Either says in
-chat who did it. Every combination works together - the self-test walks all 884,736 - but one: **Moon gravity with Super jump High** throws
-players out of most maps, so the page, chat and Random refuse the second of the two and say why.
-
-| Word | Setting | Choices |
+| Where | What | For |
 |---|---|---|
-| `!gravity` | Gravity | normal, low, moon |
-| `!jump` | Super jump | normal, high |
-| `!bhop` | Bunny hopping | off, on, turbo |
-| `!fall` | Fall damage | on, off |
-| `!ice` | Ice floor | off, on |
-| `!aim` | Laser guns: no spread and no recoil | off, on |
-| `!ammo` | Infinite ammo | off, on |
-| `!hs` | Headshots only | off, on |
-| `!vampire` | Vampire: spawn with 1,000 health, the damage you deal heals you up to 2,000 | off, on |
-| `!ghost` | Ghost: invisible for 2 seconds after every kill | off, on |
-| `!nades` | Big grenades, a wider blast | normal, big, huge |
-| `!damage` | Double damage | off, on |
-| `!ffa` | Free-for-all | off, on |
-| `!ff` | Friendly fire, on by default | on, off |
-| `!instakill` | Instakill: any bullet or knife hit on a teammate kills, on by default | on, off |
-| `!ffnades` | Grenades x10 on teammates, on by default | on, off |
-
-**Grenade drops** sit on the same page, and `!nades on` or `!nades off` switches them: every player gets one HE grenade after spawning, and it drops
-where they die. The news line says who switched what. A map that sets its own value of a setting keeps it until a player changes it, and gets it back.
-
-### Catch-up boosts
-
-In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a private message says what it is and how many
-kills behind they are.
-
-| Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
-|---|---|---|---|---|---|---|
-| 2 | +30% | -15% | +15% | 15% | 3% a second, after 4 s unhurt | |
-| 4 | +60% | -25% | +25% | 25% | 5% a second, after 3 s | a second chance once per life, 2 s more spawn protection |
-| 7 | +100% | -35% | +40% | 35% | 8% a second, after 2 s | a second chance, 3 s more spawn protection, infinite ammo, a one-hit knife and Zeus |
-
-The health is a share of what the life spawned with: 1,000 under Vampire, never Vampire's 2,000 ceiling. A leader 2 kills or more ahead of second place
-takes more damage from enemies: 10% for every 2 kills of lead, up to 30%. A cap keeps the sum of it all within what the scoreboard shows: a boosted
-player may be at most twice the leader's shown edge, (the leader's kills + 1) / (theirs + 1), and never more than 3.5 times as strong on paper. For
-the leader's enemies the bounty counts first inside that cap; the leader's own teammates, who never fight him, get the whole of it. A team kill
-under friendly fire takes the killer down a level, as Arms Race does. The kill count comes from the match's own events, and every kill is in the
-plugin's log with the counts after it ([`plugin/CatchUp/`](plugin/CatchUp/)).
-
-### Broken maps and why
-
-Thousands of community maps include some that break things, so every broken map says why, on its card and in the confirm before anyone loads it.
-
-- **Maps that crash the server** are counted when it happens: a pick asks to confirm, and the dice never roll them. A planned restart is
-  never one: the restart watcher tells the bridge right before its quit, and the bridge's own Restart marks itself.
-- **Maps that crash players' games** mark themselves: three players timing out within 60 seconds of entering a map, while the server keeps answering, mark it
-  broken, and the dice take the server to another map at once.
-- **The broken list** names crashers, freezers and maps that advertise, each with its reason. A pick asks to confirm, and the dice never roll them.
-- **Items that are not maps** (skins, models, empty uploads) are refused, **maps gone from the Workshop** are refused and shown as unavailable, and **blocked maps**
-  are refused for good, each with its reason.
-- **What a map changes** in the game's settings is put back when it ends. **The game-changers** no map may set (no spread, radar off, a mode switch, cheats) are put
-  back within a second, per game mode, and the news line tells the players.
-
-### The HUD's version
-
-The window says when a player's HUD is older or newer than the server's, by comparing version numbers in the layout itself, and an older game is told how
-to update: quit CS2 and start it again, and Steam updates it. A game holding older content keeps working: what it lacks gets no words until it has shown that it
-has them, by a click on a button only that content has or by asking for the page in chat.
-
-The server also checks that a player's game really shows the HUD. The only proof is a click, so a player not seen clicking on this release gets the window with one gold button,
-**Click to play**; one who has not clicked 90 seconds after their first spawn is warned in chat and disconnected. It never disconnects anybody while Steam does not show the HUD's Workshop
-item to everybody, or before a real click has proved the check works on that release.
-
-### Our maps
-
-The server's own maps have a filter on the Maps page and a tag on their cards. Which maps they are is data (`bridge/ours.json`); these three are generated from code
-([`maps/`](maps/)), geometry, props, spawns and breakable glass:
-
-- **gg_glasspire**: a square glass tower around an open atrium, with ramps spiralling up the outer walls.
-- **gg_moonglass**: a moon base under a faceted glass dome, with glass bridges, rooms and tunnels.
-- **gg_vinceville**: small houses scattered over a grassy field, with ponds deep enough to swim in and a sewer that links every house.
-
-### What is in which HUD
-
-All of this is what the code does with the HUD content it is built for. The reasons popup and the grenade drops on the Fun page come with content `v4_1_0`; the pictures of maps not
-listed yet, the picture button and the game-mode filter with `v4_2_0`; the Sync page with `v4_3_0`; the vote's pages, Random's button and the map browser that adds to the
-vote, the cards' mode labels and colours, the reasons where a Dislike was clicked, the Fun page's Random and Default and the Our maps glow with `v4_4_0`. Each version waits
-for Valve's review first, and a game holding an older one keeps working without them (an older game shows the ballot's first eight maps, and its other numbers can be typed).
-
-## A server that looks after itself
-
-- **The restart watcher** runs inside the game server's container. It restarts for game updates and once a day, only between matches, kills a frozen engine so Docker restarts it,
-  warms the Steam client up after every start, downloads the bridge's random queues and the queued requests in the background, and prefetches at night the maps the server keeps that
-  are missing or have a newer Workshop copy. A process whose Workshop downloads get stuck is restarted when nobody is on. All of it has loop protection.
-- **What the server keeps.** Every map with at least one up vote; per mode three lists of 100 playable maps together - the Workshop's best-rated, its most subscribed and its
-  most popular over the last 30 days - so up to 300 a mode; our own maps, the HUD, the random queues and the queued requests; everything else goes at the next engine start.
-  The deletion refuses when its inputs are missing, the scores are stale, a list is short or the set looks too small, and never touches our maps, the HUD or a queued map.
-- **The download line.** While the server downloads a map somebody is waiting for, the news line says so, with the progress.
-- **The Workshop sync** ([`server/workshop-sync.py`](server/workshop-sync.py), an optional third container) finds new Arms Race, Deathmatch and Wingman maps through the
-  Steam Web API, and works through every queued map: the ones that would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
-  else by popularity. It fetches the Workshop's scores, subscriptions and trend once a day, and hands the server the maps it keeps but lacks. It downloads anonymously with SteamCMD,
-  one map at a time, scans each download for what it is and for commands that advertise another server or a gambling site, loads each map in a test copy of the server, and lists the
-  ones that pass; the rest go on the broken list with their reasons. It works at any hour while nobody plays and stops within seconds when somebody joins; it has no daily download cap
-  and stops when Steam pushes back, keeps hard Web API limits in the code that the configuration can lower and never raise, and, given a mail relay, mails only its problems - each once a day at most, pointing to your dashboard.
-  What it is doing is on the menu's Sync page for everybody, and the bridge writes the same as a small website (an `index.html` and its data) for a web server behind your login.
-- **The daily Workshop check** asks the public Web API about every listed map, so a map that is gone, private or banned is refused at once.
+| `.env` | `CS2_RCONPW`, `OVERSTRIKE2_BRIDGE_SECRET` | The RCON password, and the secret in the bridge's addresses. Both are required |
+| `.env` | `CS2_SERVERNAME`, `SRCDS_TOKEN`, `TZ` | The name players see; a Game Server Login Token to list the server publicly; local time for the daily restart and the logs |
+| settings | `hud.addon` | The HUD's Workshop id, 3823993566 in the example |
+| settings | `hud.tab`, `hud.check` | Whether TAB takes the mouse for the board; whether a player whose game shows no HUD is told (`warn`), disconnected (`enforce`), or neither |
+| settings | `bridge.discoveryStock` | How many maps new to the server are kept ready per mode |
+| settings | `plugin.enabled` | `false` runs the server vanilla, for the days after a game update breaks Metamod or CounterStrikeSharp |
+| settings | `restarts.*`, `maps.*` | The daily restart, restarts for updates, freeze recovery; the maps folder, the deletion outside the keep set, background downloads |
+| settings | `sync.*`, `sync.webApiKey`, `sync.mail.*` | The Workshop sync: a Steam Web API key for its discovery and ratings, its limits, a mail relay for its problems |
 
 ## How it works
 
 ```
  players ──► CS2 dedicated server ──── log lines over HTTP ────► bridge (sidecar)
-              │ Metamod + CounterStrikeSharp                      │ queue, votes, dice, crash and Workshop checks
-              │ OverStrike2 plugin: menu, HUD, grenades,  ◄───────┤ RCON: map changes, notices
-              │   map settings, fun settings, catch-up            │ HTTP: the menu's live state, the clicks
-              └ MultiAddonManager hands every player the HUD addon (a Steam Workshop item)
+              │ Metamod + CounterStrikeSharp                      │ the vote, the dice, likes, crash marks, the lists
+              │ OverStrike2 plugin: HUD, chat, the freeze,  ◄─────┤ RCON: map changes, plugin commands
+              │   fun settings, catch-up, map settings            │ HTTP: the HUD's live state, the clicks
+              │ MultiAddonManager mounts the HUD (a Workshop item)│
+              │ os2-server: install, restart watcher ─────────────┤ HTTP: what is on disk, restarts coming
+              │                                                   │
+ Workshop ◄── os2-sync (optional): find, download, scan,  ──────► │ files: the map lists, ratings, its status
+              load-test, list, hand over                          └ web/: a website, behind your login
 ```
 
-- **The bridge** ([`bridge/`](bridge/)) is a small C# service: .NET 10, base class library only, native AOT, a chiseled image that runs read-only as a non-root user and stays off the internet. The
-  game server pushes its log lines to it; it decides what a click or a chat command asks for and talks back over RCON. Its state (votes, history, crash counts) is a few JSON files in one directory, and
-  its map lists are data files it reads again by itself when they change.
-- **The plugin** ([`plugin/OverStrike2/`](plugin/OverStrike2/)) is one CounterStrikeSharp plugin inside the game server: the menu and the board, chat, grenades, the settings put back and blocked, the fun
-  settings, the catch-up boosts and the Workshop checks. Much of its logic is source shared with the bridge, so the bridge's self-test covers it.
-- **The HUD** ([`hud/`](hud/)) is a Panorama layout and stylesheet compiled into one Workshop addon, with every map's picture inside it, because CS2 refuses web pictures in a custom HUD. The pictures of the Workshop maps still queued ship ahead, so a map the nightly sync lists later has its picture without a new HUD. Nearly every word on it comes from
-  the plugin, so most changes need no new HUD. A new version adds to the panels of the old one, so one plugin drives a game holding any of them.
-- **The server files** ([`server/`](server/)) are the install hook the [joedwards32/cs2](https://github.com/joedwards32/CS2) image runs before every start (it installs Metamod:Source, CounterStrikeSharp and
-  MultiAddonManager at pinned versions and copies the plugin in), each game mode's settings, the restart watcher and the Workshop sync.
+- **The bridge** ([`bridge/`](bridge/)) is a small C# service: .NET 10, native AOT, a chiseled image that runs read-only as a non-root user and never reaches the internet. It decides what a click or a
+  chat command asks for, writes nearly every word on the HUD, and talks back over RCON. A swap of it disconnects nobody.
+- **The plugin** ([`plugin/OverStrike2/`](plugin/OverStrike2/)) is one CounterStrikeSharp plugin inside the game server. Much of its logic is source shared with the bridge, so the bridge's self-test covers it.
+- **The HUD** ([`hud/`](hud/)) is a Panorama layout and stylesheet compiled into one Workshop addon, with every map's picture inside it, because CS2 refuses web pictures in a custom HUD. One plugin drives a game
+  holding any version of it.
+- **The server programs** ([`server/`](server/)) are `os2-server`, beside the engine in the game server's container, and `os2-sync`, in a container of its own: each one self-contained file, reading the same settings
+  file ([docs/server.md](docs/server.md)). The game image is [joedwards32/cs2](https://github.com/joedwards32/CS2).
+
+All of it, part by part: [The parts](docs/reference.md#the-parts).
 
 ## Repository layout
 
 | Folder | What |
 |---|---|
-| [`bridge/`](bridge/) | The bridge: C# sources, its `--selftest`, the `Dockerfile`, and the data files - `maps.json` (the map list), `broken.json` (crashers, non-maps, removed and blocked maps), `sizes.json` (measured map sizes), `search.json` (the menu's search text: titles, ids and tags), `ours.json` (our maps) |
+| [`bridge/`](bridge/) | The bridge: C# sources, its `--selftest`, the `Dockerfile`, the website's page and the starting data - `maps.json` (the map list), `broken.json`, `blocked.json`, `sizes.json`, `search.json` (titles, ids and tags), `ours.json` |
 | [`plugin/`](plugin/) | The CounterStrikeSharp plugin `OverStrike2`, its self-test, and the catch-up module `CatchUp` with its own |
-| [`hud/`](hud/) | The in-game HUD addon: layout, stylesheets, the thumbnail generator, the build script and the Workshop publisher |
+| [`core/`](core/) | `OverStrike2.Core`, what the parts share: the settings file, the keep set, the game server query, Steam's file formats; its self-test |
+| [`server/`](server/) | The programs `OverStrike2.Server` (`os2-server`) and `OverStrike2.Sync` (`os2-sync`), each with its self-test, and each game mode's settings |
+| [`hud/`](hud/) | The in-game HUD addon: layout, stylesheets, the shipped layouts, the thumbnail generator, the build script and the Workshop publisher |
 | [`maps/`](maps/) | Our own maps: one generator per map and the Workshop publisher |
-| [`server/`](server/) | The game server's install hook (`pre.sh`), each game mode's settings, the restart watcher (`update-watch.py`) and the Workshop sync (`workshop-sync.py`), each with its tests |
-| [`deploy/`](deploy/) | Deployment scripts and an example compose file; every deployment value comes from a private config |
+| [`deploy/`](deploy/) | [`compose.yml`](deploy/compose.yml) with its installer, for a host that builds everything itself; [`compose.example.yml`](deploy/compose.example.yml) and the scripts, for a host a workstation ships to, where every deployment value comes from a private config |
 | [`tools/scan/`](tools/scan/) | The scanner that keeps secrets and private details out of this repository |
-| [`docs/`](docs/) | The reference: every part, rule and setting |
+| [`docs/`](docs/) | [install.md](docs/install.md), [settings.md](docs/settings.md), [server.md](docs/server.md), [reference.md](docs/reference.md) |
 
 ## Build and test
 
-Requirements: the .NET 10 SDK, Python 3.12+, and a container builder (Docker, or WSL containers on Windows) for the bridge's image. The HUD and the maps need Windows with Counter-Strike 2 and its Workshop Tools.
-
-```sh
-cd bridge && dotnet build && dotnet run -- --selftest        # the bridge, the shared HUD logic, the rules, the chat table against these docs
-cd plugin/OverStrike2 && dotnet build -c Release              # the plugin (warnings are errors)
-cd plugin/OverStrike2.SelfTest && dotnet run                  # the grenade logic
-cd plugin/CatchUp/SelfTest && dotnet run                      # the catch-up rules, replayed against a real match's log
-docker build -t localhost/overstrike2-bridge -f bridge/Dockerfile .   # the bridge's image (native AOT inside the SDK image; it takes core/ too)
-docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_update_watch.py   # the restart watcher
-python server/test_workshop_sync.py                           # the Workshop sync
-python bridge/search-index.py --check                         # the search text is in step with the map list
-```
-
-**The tests.** `--selftest` runs hundreds of checks on a handed clock, with no server: the log parser, the queue, the votes, the ballot, the dice, the HUD's words and wiring, every panel id and class against the layout,
-the older HUD contents against the panels sent to them, and every number in the menu's rules against the code's constants. It also holds the chat table in
-[docs/reference.md](docs/reference.md#the-menu-and-the-commands) to the code, so a rule change fails until the words follow.
-
-**A real client.** A layout cannot be fully tested without the game, so a new HUD is also tried in a real CS2 client before a release: a private harness, not in this repository because it drives its owner's own client and
-server, starts the client with no window on screen, joins a test copy of the server, loads the local HUD build there with VAC off, takes screenshots, and drives the menu through server-side clicks. On the live server only the
-published HUD ever runs, in a plain client.
-
-## Configure
-
-Two containers - the game server and the bridge - and optionally a third for the Workshop sync. [`deploy/compose.example.yml`](deploy/compose.example.yml) is a complete example with every setting explained; the essentials:
-
-| Where | Setting | What |
-|---|---|---|
-| both | `RCON_PASSWORD` / `CS2_RCONPW` | the same RCON password on the bridge and the game server |
-| both | `LOG_SECRET` | a random path segment: the game server pushes its log to `http://bridge:8080/log/<LOG_SECRET>` (`CS2_LOG_HTTP_URL`) |
-| game server | `CS2_PLUGINS` | `1` installs and loads the plugin layer; `0` runs vanilla (after a game update broke a dependency) |
-| game server | `GUNGAME_HUD_ADDON` | the HUD addon's Workshop id; empty falls back to a simple text panel |
-| game server | `CS2_AUTOUPDATE`, `CS2_RESTART_AT`, `CS2_FREEZE_RECOVERY`, `CS2_WARMUP`, `CS2_PREFETCH_AT` | the restart watcher's jobs |
-| sync | `SYNC_TAGS`, `SYNC_RUN_HOURS`, `SYNC_PREFETCH_AT` and `SYNC_DAILY_RESTART` (the watcher's times), the `SYNC_*` limits, a Steam Web API key file | the Workshop sync (optional: a third container) |
-| bridge | `MAPS_FILE`, `BROKEN_FILE` | the map list and the broken list on the data volume, so a new list is a file copy (read again within seconds) |
-| bridge | `HUD_TAB`, `HUD_CHECK`, `RANDOM_ON_MATCH_END`, `RANDOM_ON_START`, `MATCH_END_VOTE` | how the board, the HUD check, the dice and the vote behave |
-
-Every bridge setting is in [docs/reference.md](docs/reference.md#configuration-environment), and the restart watcher's in its own section there.
+Requirements, what each self-test holds and how a new HUD is tried in a real client: [Build and test](docs/reference.md#build-and-test). The commands every commit runs are in
+[AGENTS.md](AGENTS.md#build-and-test-before-every-commit-that-touches-code).
 
 ## Deploy
 
-Builds happen on a workstation; there is no CI and no registry. The scripts in [`deploy/`](deploy/) build the bridge's image locally, load it into the server's Docker and swap the running bridge without disconnecting anybody; copy the
-plugin, the data files and the server files to the server; and build and publish the Workshop items. They read every address, path, container name and credential from a private config that never enters this repository - see
-[`deploy/README.md`](deploy/README.md) and [`deploy/config.example.toml`](deploy/config.example.toml).
+A host that builds everything itself needs one command: [docs/install.md](docs/install.md). A workstation that builds and ships to a server has the scripts in [`deploy/`](deploy/README.md), which read every address, path,
+container name and credential from a private config that never enters this repository.
 
-What restarts what: data files reload by themselves, a bridge swap disconnects nobody, and the plugin, the install hook and the game server's settings need a game server restart, which disconnects everybody.
+What restarts what: data files reload by themselves, a bridge swap disconnects nobody, and the plugin, the launcher and the mode settings need a game server restart, which the restart watcher does by itself - at the end of the
+match, at once with nobody on ([docs/server.md](docs/server.md#a-new-version-of-our-own-parts)).
 
 The HUD is one Workshop item, updated in place: every new version waits for Valve's moderation, and a new item is never created ([`hud/PUBLISH.md`](hud/PUBLISH.md)).
 
@@ -312,7 +145,7 @@ e-mail addresses, compiled game files and unreviewed binaries, plus a private de
 git config core.hooksPath .githooks
 ```
 
-No game files are included: builds read what they need from a local Counter-Strike 2 installation.
+No game files are included: builds read what they need from a local Counter-Strike 2 installation. The rules for changing this repository are in [AGENTS.md](AGENTS.md).
 
 ## License
 
