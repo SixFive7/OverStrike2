@@ -100,7 +100,10 @@ public static class HudCheck
         : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - Restart CS2" : version;
 
     /// <summary>Whether a known version is older than this server's content.</summary>
-    public static bool IsOutdated(string version) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < HudVote.ContentLevel;
+    public static bool IsOutdated(string version) => IsBefore(version, HudVote.ContentLevel);
+
+    /// <summary>Whether this version is known to be a content older than this level: a shipped one below it, or the old word for "too old to say which".</summary>
+    public static bool IsBefore(string version, int level) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < level;
 
     /// <summary>What an anonymous visit to the item's Workshop page says about it: true - Steam shows it to everybody (HTTP 200, its title
     /// reads "Steam Workshop::..."); false - the page Steam shows a visitor instead, which is what everybody but the owner gets while the

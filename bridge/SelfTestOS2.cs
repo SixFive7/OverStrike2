@@ -158,7 +158,7 @@ static partial class Program
         var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: old8);
         var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: old8);
         Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {Hud.Content} (older, or v4.5.0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
-            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { Hud.Content, "v4.7.0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
+            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { Hud.Content, "v4.6.0", "v4.7.0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
             && HudVote.Pages(twelve, old8) == 2 && !C(oldFirst, "gg_m9", "used") && C(oldFirst, "gg_m8", "used") && P(oldFirst.Texts, "gg_m9_name") == ""
             && P(oldFirst.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "gg_m1_name") == P(first.Texts, "gg_m9_name")
             && HudVote.Click(twelve, "gg_m1_play", 1, -1, null, old8) == MapVote.Click(twelve.Round, twelve.Maps[old8].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, old8) == 1

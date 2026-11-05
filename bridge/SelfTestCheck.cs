@@ -30,7 +30,7 @@ static partial class Program
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
             HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4.5.0") && HudCheck.IsOutdated(HudCheck.Older)
-            && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4.7.0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
+            && !HudCheck.IsBefore("v4.6.0", HudVote.CardsLevel) && HudCheck.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4.7.0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
             && HudCheck.VersionWords("v4.5.0") == "v4.5.0 - Restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - Restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
             && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4.7.0") == "v4.7.0");
         Check("HUD check: a level is a content's line in the table, never its digits: a version with no line - a patch, v4.10.0, v5.0.0, v14.5.27 - is newer than this code knows, and a word that is no version stays refused",
