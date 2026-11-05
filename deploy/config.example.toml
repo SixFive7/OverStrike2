@@ -26,5 +26,8 @@ config_dir = ""                           # where the mode cfgs are deployed (se
 program_dir = ""                          # where server.py ships os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 ("" = not from here)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 
+[release]
+verify = []                               # optional: the deployment's own check after release.py live, a command - ["python", "-I", "<path>/check.py", "verify"]; exit 0 = all good
+
 [workshop]
 cs2_dir = ""                              # the local "Counter-Strike Global Offensive" folder ("" = found through Steam)

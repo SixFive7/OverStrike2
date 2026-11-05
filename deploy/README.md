@@ -18,6 +18,8 @@ environment (`"env:NAME"` values). Nothing here prints a credential.
 | `server.py build [--image]` | publishes `os2-server` and `os2-sync`, one self-contained linux-x64 file each, from the committed sources, and runs both self-tests; `--image` runs them in the game server's image as well, where the checks that need Linux run too | nothing |
 | `server.py ship [--apply]` | `os2-server`, `os2-sync` and the launcher `pre.sh` to the server's program folder, the three mode cfgs to its config folder, each renamed into place | the restart watcher takes a new `os2-server`, `pre.sh` or cfg in by itself - at the end of the match, at once with nobody on; `os2-sync` at the sync container's next start |
 | `workshop.py ...` | the HUD's thumbnails, build and Workshop update; our maps' Workshop items | players fetch a new HUD version when they join |
+| `release.py live <tag> [--no-plugin]` | a release, at 0 humans and under the server lock: the bridge swapped to that image tag, the plugin shipped, the engine quit once and checked when it is back (plugin loaded, its files the build's, the HUD item handed out), then the deployment's own check (`release.verify`) | the game server once (none with `--no-plugin`) |
+| `release.py publish --note ... --client-test <run>` | a content update of the HUD item, after a real-client test and the server's held-item check, waiting for the upload and Valve's approval | nothing |
 
 Without `--apply`, the copying scripts only show what would change. Every script ships committed files only.
 
