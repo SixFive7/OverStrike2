@@ -54,7 +54,6 @@ sealed partial class HudScreen
     readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round; negative while mid-match)
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
-    readonly Dictionary<int, (int Card, string Key)> whyCard = new(); // slot -> the card a Dislike came from: its reasons go over its picture
     readonly Random dice = new();                     // the Fun page's Random
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
     readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: an older content's version banner for a while, and the Players page's time on
@@ -305,7 +304,6 @@ sealed partial class HudScreen
         voteShown.Remove(slot);
         voteView.Remove(slot);
         drawnOrder.Remove(slot);
-        whyCard.Remove(slot);
         gate.Gone(slot);
         tab.Gone(slot);
         browsers.Remove(slot);

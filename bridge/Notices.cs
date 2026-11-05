@@ -8,7 +8,7 @@ static partial class Program
 {
     public const double NoteSeconds = 8, NewsSeconds = 8;
     public const int NoticeLength = Messages.LineMax;  // a note, at most: one line in the window (two in the note panel of the older contents)
-    public const int NewsLength = Messages.TopMax;     // the news line of the older contents, at most: a burst of news merges into it, up to three lines
+    public const int NewsLength = Messages.TopMax;     // the top line and the older contents' news line, at most: one line, a newer one replaces it
 
     static readonly Dictionary<long, (string Text, DateTime Until, string Cat)> NoteFor = new();
     static (string Text, DateTime Until) NewsNow = ("", default);
