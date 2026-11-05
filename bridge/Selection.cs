@@ -40,7 +40,7 @@ static partial class Program
 
     static Dictionary<string, SizeEntry> Sizes = new();                                      // map key -> its measurement
     static (int S, int M, int L) SizeBounds;                                                 // the classes' upper bounds in m², for the health page
-    static string SizesFile => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", "sizes.json");
+    static string SizesFile => Path.Combine(DataDir, "sizes.json");
 
     /// <summary>sizes.json read: version 1, "maps" an object of map key (a Workshop id, or an official map's name) -> {"m2", "class",
     /// "method"}. A class other than S, M, L or XL reads as unmeasured; an entry that is not an object is skipped. Another version, or a

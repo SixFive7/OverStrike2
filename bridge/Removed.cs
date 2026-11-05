@@ -97,11 +97,5 @@ static partial class Program
     }
 
     /// <summary>The sync's POST of a report. Runs on the event loop like everything else that changes state.</summary>
-    static void RemovedReport(HttpListenerContext c)
-    {
-        var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { done.TrySetResult(ApplyRemovedReport(body)); } catch (Exception e) { Log("workshop check: " + e); done.TrySetResult("error: " + e.Message); } });
-        Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
-    }
+    static void RemovedReport(HttpListenerContext c) => OnLoop(c, ApplyRemovedReport, "workshop check");
 }

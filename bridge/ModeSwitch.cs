@@ -24,7 +24,7 @@ static partial class Program
     static bool InArmsRace(MapInfo m) => ModeOf(m).ArmsRace;
 
     static string? ModeMapsDir; // where the per-mode files are: beside MAPS_FILE, unless --selftest points elsewhere
-    static string ModeMapsPath(Modes.Mode mode) => Path.Combine(ModeMapsDir ?? Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", mode.MapsFile);
+    static string ModeMapsPath(Modes.Mode mode) => Path.Combine(ModeMapsDir ?? DataDir, mode.MapsFile);
 
     /// <summary>A mode's official maps: Arms Race's from OFFICIAL_MAPS (never rolled, as always), the others' Valve's pool plus any official
     /// extra the mode's file names - all rollable, because they are what the mode starts from.</summary>

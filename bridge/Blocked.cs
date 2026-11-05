@@ -12,7 +12,7 @@ static partial class Program
     static Dictionary<string, (string Name, string Map, string Reason)> BlockedOwn = new(), BlockedInBroken = new(); // blocked.json's; broken.json's "blocked"
 
     /// <summary>blocked.json: the maps blocked for good, beside maps.json like ours.json and sizes.json.</summary>
-    static string BlockedMapsFile => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", "blocked.json");
+    static string BlockedMapsFile => Path.Combine(DataDir, "blocked.json");
 
     /// <summary>The two lists as one: blocked.json's entry wins where both name a map.</summary>
     static Dictionary<string, (string Name, string Map, string Reason)> MergeBlocked() =>

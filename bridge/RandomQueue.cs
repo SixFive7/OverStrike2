@@ -216,13 +216,7 @@ static partial class Program
     // ---- the watcher's report ----
 
     /// <summary>POST /ready/&lt;secret&gt;: the restart watcher's report (the file's summary). Runs on the event loop.</summary>
-    static void ReadyReport(HttpListenerContext c)
-    {
-        var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { done.TrySetResult(ApplyReady(body)); } catch (Exception e) { Log("ready: " + e); done.TrySetResult("error: " + e.Message); } });
-        Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
-    }
+    static void ReadyReport(HttpListenerContext c) => OnLoop(c, ApplyReady, "ready");
 
     /// <summary>A "current" line's download: the id, a whole percent 0-100 or "-", and the title - the rest of the line, tabs and all.</summary>
     static Download? ParseCurrent(string line, DateTime now)

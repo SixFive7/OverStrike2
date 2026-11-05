@@ -9,7 +9,7 @@ static partial class Program
     static HudSearch Search = new();
     static volatile string SearchText = new HudSearch().Encode(); // what /search/<secret> answers; rebuilt on the event loop, read by the HTTP thread
 
-    static string SearchFile => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", "search.json");
+    static string SearchFile => Path.Combine(DataDir, "search.json");
 
     /// <summary>search.json: an object of map key -> text. Anything else (a missing file, bad JSON, no object) keeps the index it had.</summary>
     static string ReloadSearch(string path)

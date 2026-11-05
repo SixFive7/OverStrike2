@@ -13,7 +13,7 @@ static partial class Program
 {
     static HashSet<long> Ours = new();
 
-    static string OursFile => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".", "ours.json");
+    static string OursFile => Path.Combine(DataDir, "ours.json");
 
     /// <summary>The ids out of ours.json's text: a bare array of ids, or an object whose "maps" array holds ids or objects with an "id".
     /// Anything else is skipped; malformed JSON throws to the caller.</summary>

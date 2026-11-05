@@ -54,13 +54,7 @@ static partial class Program
     /// update, workshop) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;". The
     /// notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
     /// a freeze kill it sends no notice for, so a freeze still counts as the crash it is. Runs on the event loop.</summary>
-    static void QuitNoticeRequest(HttpListenerContext c)
-    {
-        var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { done.TrySetResult(ApplyQuitNotice(body)); } catch (Exception e) { Log("quitting: " + e); done.TrySetResult("error: " + e.Message); } });
-        Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
-    }
+    static void QuitNoticeRequest(HttpListenerContext c) => OnLoop(c, ApplyQuitNotice, "quitting");
 
     /// <summary>What a quit notice clears for the server's restart (ServerGoingDown). If the notice is taken back the server stays up, on its map and in
     /// its mode, so all of it comes back; a change that was counting down and a vote that was open stay gone. A map start after the notice ends the
