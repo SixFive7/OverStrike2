@@ -179,6 +179,7 @@ static partial class Program
         Check("The page greys what cannot be made, for everybody, and its row's variable says why: Moon gravity greys Super jump's High, Super jump High greys Gravity's Moon; nothing on a stock server, and nothing while a map runs both (they are lit, as they are)",
             Page(moonValues).Grey.SequenceEqual([highButton]) && Page(moonValues).Why.SequenceEqual([(HudMenu.FunWhyVar(jumpRow), reasonHigh)])
             && Page(highValues).Grey.SequenceEqual([moonButton]) && Page(highValues).Why.SequenceEqual([(HudMenu.FunWhyVar(gravityRow), reasonMoon)])
+            && HudMenu.FunRowOf(HudMenu.FunWhyVar(jumpRow)) == $"gg_f{jumpRow}"
             && Page(stockValues).Grey.Count == 0 && Page(stockValues).Why.Count == 0 && Page(bothValues).Grey.Count == 0 && Page(bothValues).Why.Count == 0
             && HudMenu.FunPage(stockValues).Classes.Count(x => x.Class == "off") == Fun.Rows * Fun.ChoicesPerRow && HudMenu.FunWhy(stockValues).Select(x => x.Name).SequenceEqual(Enumerable.Range(1, Fun.Rows).Select(r => $"osfw{r}")));
 
@@ -231,10 +232,14 @@ static partial class Program
         {
             var xml = File.ReadAllText(HudLayoutFile);
             var css = File.ReadAllText(HudStyleFile);
+            // No bubble at the button (it never showed in a real client, 2026-11-05): the reason is the row's own second line, which reads the row's variable.
             var missing = Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Where(k => !Regex.IsMatch(xml,
-                $@"<Button id=""{HudMenu.FunButton(r, k)}""[^>]*>\s*<Label id=""{HudMenu.FunButton(r, k)}_txt""[^>]*/>\s*<Panel class=""gg-ftip""><Label class=""gg-ftip-text"" text=""\{{s:{HudMenu.FunWhyVar(r)}\}}"" /></Panel></Button>")).Select(k => HudMenu.FunButton(r, k))).ToList();
-            Check($"The layout: each of the page's {Fun.Rows * Fun.ChoicesPerRow} choices is a Button holding its bubble, which reads its row's variable{(missing.Count > 0 ? ": not " + string.Join(", ", missing.Take(6)) : "")}; the stylesheet greys off, shows the bubble under the mouse, and at once on refused",
-                missing.Count == 0 && Regex.IsMatch(css, @"\.gg-funb\.off\s*\{") && Regex.IsMatch(css, @"\.gg-funb\.off:hover \.gg-ftip\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(css, @"\.gg-funb\.refused \.gg-ftip\s*\{\s*visibility:\s*visible;"));
+                $@"<Button id=""{HudMenu.FunButton(r, k)}""[^>]*>\s*<Label id=""{HudMenu.FunButton(r, k)}_txt""[^>]*/>\s*</Button>")).Select(k => HudMenu.FunButton(r, k))).ToList();
+            var lineless = Enumerable.Range(1, Fun.Rows).Where(r => !Regex.IsMatch(xml,
+                $@"<Label id=""gg_f{r}_txt"" class=""gg-frow-txt"" text=""\{{s:text\}}"" />\s*<Label class=""gg-fwhy"" text=""\{{s:{HudMenu.FunWhyVar(r)}\}}"" />")).Select(r => $"gg_f{r}").ToList();
+            Check($"The layout: each of the page's {Fun.Rows * Fun.ChoicesPerRow} choices is a Button, and each row has its reason line, which reads its row's variable{(missing.Count + lineless.Count > 0 ? ": not " + string.Join(", ", missing.Concat(lineless).Take(6)) : "")}; the stylesheet greys off, shows the reason in place of the row's words under clash, and edges a refused click's button",
+                missing.Count == 0 && lineless.Count == 0 && Regex.IsMatch(css, @"\.gg-funb\.off\s*\{") && Regex.IsMatch(css, @"\.gg-frow\.clash \.gg-fwhy\s*\{\s*visibility:\s*visible;")
+                && Regex.IsMatch(css, @"\.gg-frow\.clash \.gg-frow-txt\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.gg-funb\.refused\s*\{") && !css.Contains("gg-ftip"));
         }
         else Console.WriteLine($"skip the Fun page's layout check: {HudLayoutFile} or {HudStyleFile} not found");
     }

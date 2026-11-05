@@ -148,7 +148,7 @@ static partial class Program
             var pc = HudView.PlayerClasses(noted, 7);
             Check("The window's line: the player's note, its category's colour and eyebrow", On(pc, HudView.Screen, "wl") && On(pc, HudView.LinePanel, "cat-vote") && !On(HudView.PlayerClasses(noted, 8), HudView.Screen, "wl")
                 && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "gg_wl_eyebrow").Text == "Vote" && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "gg_wl_text").Text == "Refused");
-            Check("The welcome: says welcome back to a returning player, the tagline is its large text", HudView.PlayerTexts(new HudState(), 1, "Bob", true).Single(t => t.Id == "gg_w_hello").Text == "Welcome back, Bob"
+            Check("The welcome: its large text greets the player, welcome back for a returning one; the tagline stands beside the title in the window's head", HudView.PlayerTexts(new HudState(), 1, "Bob", true).Single(t => t.Id == "gg_w_hello").Text == "Welcome back, Bob"
                 && HudView.PlayerTexts(new HudState(), 1, "Bob", false).Single(t => t.Id == "gg_w_hello").Text == "Welcome, Bob" && HudView.StaticTexts().Single(t => t.Id == "gg_w_headline").Text == "Over the top - On the Huis");
 
             // ---- the plugin hands the views the vote, which only its source can show: without it the board says no vote is on, and the wait looks live ----

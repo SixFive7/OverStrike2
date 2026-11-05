@@ -55,7 +55,11 @@ sealed partial class HudScreen
     /// word on a refusal is not everybody's, so all of it goes per player, and only what changed goes out.</summary>
     void FunBubbles(CCSPlayerController p, DateTime now)
     {
-        foreach (var (name, words) in funClicks.Words(p.Slot, funWhy, now)) Var(HudView.Screen, name, words, p);
+        foreach (var (name, words) in funClicks.Words(p.Slot, funWhy, now))
+        {
+            Var(HudView.Screen, name, words, p);
+            Class(HudMenu.FunRowOf(name), "clash", words != "", p); // the reason is the row's second line while it has one
+        }
         foreach (var (id, cls, on) in funClicks.Classes(p.Slot, now)) Class(id, cls, on, p);
     }
 

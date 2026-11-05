@@ -107,11 +107,12 @@
 					<Panel class="gg-win-rule" />
 
 					<Panel class="gg-win-head">
-						<Panel class="gg-emblem">
-							<Panel class="gg-knife gg-knife-emblem" />
-						</Panel>
+						<Panel class="gg-logo" />
 						<Panel class="gg-titles">
-							<Label class="gg-title" text="Over Strike 2" />
+							<Panel class="gg-title-row">
+								<Label class="gg-title" text="Over Strike 2" />
+								<Label id="gg_w_headline" text="{s:text}" />
+							</Panel>
 							<Panel class="gg-subtitle">
 								<Label class="gg-sub" text="{s:osmode}" />
 								<Label class="gg-sub gg-sub-dot" text="·" />
@@ -164,11 +165,7 @@
 							<!-- Start -->
 							<Panel class="gg-page gg-page-start">
 								<Panel class="gg-wel-hero">
-									<Panel class="gg-logo" />
-									<Panel class="gg-titles">
-										<Label id="gg_w_hello" class="gg-eyebrow" text="{s:text}" />
-										<Label id="gg_w_headline" text="{s:text}" />
-									</Panel>
+									<Label id="gg_w_hello" text="{s:text}" />
 								</Panel>
 								<Panel class="gg-wback">
 									<Label id="gg_w_back_eyebrow" class="gg-eyebrow" text="{s:text}" />
@@ -735,166 +732,184 @@
 										<Panel id="gg_f1" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f1_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f1_1" class="gg-setb gg-funb"><Label id="gg_f1_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw1}" /></Panel></Button>
-												<Button id="gg_f1_2" class="gg-setb gg-funb"><Label id="gg_f1_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw1}" /></Panel></Button>
-												<Button id="gg_f1_3" class="gg-setb gg-funb"><Label id="gg_f1_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw1}" /></Panel></Button>
+												<Button id="gg_f1_1" class="gg-setb gg-funb"><Label id="gg_f1_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f1_2" class="gg-setb gg-funb"><Label id="gg_f1_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f1_3" class="gg-setb gg-funb"><Label id="gg_f1_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f1_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw1}" />
 										</Panel>
 										<Panel id="gg_f2" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f2_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f2_1" class="gg-setb gg-funb"><Label id="gg_f2_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw2}" /></Panel></Button>
-												<Button id="gg_f2_2" class="gg-setb gg-funb"><Label id="gg_f2_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw2}" /></Panel></Button>
-												<Button id="gg_f2_3" class="gg-setb gg-funb"><Label id="gg_f2_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw2}" /></Panel></Button>
+												<Button id="gg_f2_1" class="gg-setb gg-funb"><Label id="gg_f2_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f2_2" class="gg-setb gg-funb"><Label id="gg_f2_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f2_3" class="gg-setb gg-funb"><Label id="gg_f2_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f2_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw2}" />
 										</Panel>
 										<Panel id="gg_f3" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f3_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f3_1" class="gg-setb gg-funb"><Label id="gg_f3_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw3}" /></Panel></Button>
-												<Button id="gg_f3_2" class="gg-setb gg-funb"><Label id="gg_f3_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw3}" /></Panel></Button>
-												<Button id="gg_f3_3" class="gg-setb gg-funb"><Label id="gg_f3_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw3}" /></Panel></Button>
+												<Button id="gg_f3_1" class="gg-setb gg-funb"><Label id="gg_f3_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f3_2" class="gg-setb gg-funb"><Label id="gg_f3_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f3_3" class="gg-setb gg-funb"><Label id="gg_f3_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f3_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw3}" />
 										</Panel>
 										<Panel id="gg_f4" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f4_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f4_1" class="gg-setb gg-funb"><Label id="gg_f4_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw4}" /></Panel></Button>
-												<Button id="gg_f4_2" class="gg-setb gg-funb"><Label id="gg_f4_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw4}" /></Panel></Button>
-												<Button id="gg_f4_3" class="gg-setb gg-funb"><Label id="gg_f4_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw4}" /></Panel></Button>
+												<Button id="gg_f4_1" class="gg-setb gg-funb"><Label id="gg_f4_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f4_2" class="gg-setb gg-funb"><Label id="gg_f4_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f4_3" class="gg-setb gg-funb"><Label id="gg_f4_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f4_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw4}" />
 										</Panel>
 										<Panel id="gg_f5" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f5_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f5_1" class="gg-setb gg-funb"><Label id="gg_f5_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw5}" /></Panel></Button>
-												<Button id="gg_f5_2" class="gg-setb gg-funb"><Label id="gg_f5_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw5}" /></Panel></Button>
-												<Button id="gg_f5_3" class="gg-setb gg-funb"><Label id="gg_f5_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw5}" /></Panel></Button>
+												<Button id="gg_f5_1" class="gg-setb gg-funb"><Label id="gg_f5_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f5_2" class="gg-setb gg-funb"><Label id="gg_f5_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f5_3" class="gg-setb gg-funb"><Label id="gg_f5_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f5_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw5}" />
 										</Panel>
 										<Panel id="gg_f6" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f6_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f6_1" class="gg-setb gg-funb"><Label id="gg_f6_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw6}" /></Panel></Button>
-												<Button id="gg_f6_2" class="gg-setb gg-funb"><Label id="gg_f6_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw6}" /></Panel></Button>
-												<Button id="gg_f6_3" class="gg-setb gg-funb"><Label id="gg_f6_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw6}" /></Panel></Button>
+												<Button id="gg_f6_1" class="gg-setb gg-funb"><Label id="gg_f6_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f6_2" class="gg-setb gg-funb"><Label id="gg_f6_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f6_3" class="gg-setb gg-funb"><Label id="gg_f6_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f6_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw6}" />
 										</Panel>
 										<Panel id="gg_f7" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f7_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f7_1" class="gg-setb gg-funb"><Label id="gg_f7_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw7}" /></Panel></Button>
-												<Button id="gg_f7_2" class="gg-setb gg-funb"><Label id="gg_f7_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw7}" /></Panel></Button>
-												<Button id="gg_f7_3" class="gg-setb gg-funb"><Label id="gg_f7_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw7}" /></Panel></Button>
+												<Button id="gg_f7_1" class="gg-setb gg-funb"><Label id="gg_f7_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f7_2" class="gg-setb gg-funb"><Label id="gg_f7_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f7_3" class="gg-setb gg-funb"><Label id="gg_f7_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f7_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw7}" />
 										</Panel>
 										<Panel id="gg_f8" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f8_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f8_1" class="gg-setb gg-funb"><Label id="gg_f8_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw8}" /></Panel></Button>
-												<Button id="gg_f8_2" class="gg-setb gg-funb"><Label id="gg_f8_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw8}" /></Panel></Button>
-												<Button id="gg_f8_3" class="gg-setb gg-funb"><Label id="gg_f8_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw8}" /></Panel></Button>
+												<Button id="gg_f8_1" class="gg-setb gg-funb"><Label id="gg_f8_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f8_2" class="gg-setb gg-funb"><Label id="gg_f8_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f8_3" class="gg-setb gg-funb"><Label id="gg_f8_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f8_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw8}" />
 										</Panel>
 										<Panel id="gg_f17" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f17_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f17_1" class="gg-setb gg-funb"><Label id="gg_f17_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw17}" /></Panel></Button>
-												<Button id="gg_f17_2" class="gg-setb gg-funb"><Label id="gg_f17_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw17}" /></Panel></Button>
-												<Button id="gg_f17_3" class="gg-setb gg-funb"><Label id="gg_f17_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw17}" /></Panel></Button>
+												<Button id="gg_f17_1" class="gg-setb gg-funb"><Label id="gg_f17_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f17_2" class="gg-setb gg-funb"><Label id="gg_f17_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f17_3" class="gg-setb gg-funb"><Label id="gg_f17_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f17_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw17}" />
 										</Panel>
 									</Panel>
 									<Panel class="gg-fcol gg-fcol-right">
 										<Panel id="gg_f9" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f9_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f9_1" class="gg-setb gg-funb"><Label id="gg_f9_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw9}" /></Panel></Button>
-												<Button id="gg_f9_2" class="gg-setb gg-funb"><Label id="gg_f9_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw9}" /></Panel></Button>
-												<Button id="gg_f9_3" class="gg-setb gg-funb"><Label id="gg_f9_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw9}" /></Panel></Button>
+												<Button id="gg_f9_1" class="gg-setb gg-funb"><Label id="gg_f9_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f9_2" class="gg-setb gg-funb"><Label id="gg_f9_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f9_3" class="gg-setb gg-funb"><Label id="gg_f9_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f9_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw9}" />
 										</Panel>
 										<Panel id="gg_f10" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f10_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f10_1" class="gg-setb gg-funb"><Label id="gg_f10_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw10}" /></Panel></Button>
-												<Button id="gg_f10_2" class="gg-setb gg-funb"><Label id="gg_f10_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw10}" /></Panel></Button>
-												<Button id="gg_f10_3" class="gg-setb gg-funb"><Label id="gg_f10_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw10}" /></Panel></Button>
+												<Button id="gg_f10_1" class="gg-setb gg-funb"><Label id="gg_f10_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f10_2" class="gg-setb gg-funb"><Label id="gg_f10_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f10_3" class="gg-setb gg-funb"><Label id="gg_f10_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f10_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw10}" />
 										</Panel>
 										<Panel id="gg_f11" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f11_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f11_1" class="gg-setb gg-funb"><Label id="gg_f11_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw11}" /></Panel></Button>
-												<Button id="gg_f11_2" class="gg-setb gg-funb"><Label id="gg_f11_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw11}" /></Panel></Button>
-												<Button id="gg_f11_3" class="gg-setb gg-funb"><Label id="gg_f11_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw11}" /></Panel></Button>
+												<Button id="gg_f11_1" class="gg-setb gg-funb"><Label id="gg_f11_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f11_2" class="gg-setb gg-funb"><Label id="gg_f11_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f11_3" class="gg-setb gg-funb"><Label id="gg_f11_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f11_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw11}" />
 										</Panel>
 										<Panel id="gg_f12" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f12_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f12_1" class="gg-setb gg-funb"><Label id="gg_f12_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw12}" /></Panel></Button>
-												<Button id="gg_f12_2" class="gg-setb gg-funb"><Label id="gg_f12_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw12}" /></Panel></Button>
-												<Button id="gg_f12_3" class="gg-setb gg-funb"><Label id="gg_f12_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw12}" /></Panel></Button>
+												<Button id="gg_f12_1" class="gg-setb gg-funb"><Label id="gg_f12_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f12_2" class="gg-setb gg-funb"><Label id="gg_f12_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f12_3" class="gg-setb gg-funb"><Label id="gg_f12_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f12_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw12}" />
 										</Panel>
 										<Panel id="gg_f13" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f13_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f13_1" class="gg-setb gg-funb"><Label id="gg_f13_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw13}" /></Panel></Button>
-												<Button id="gg_f13_2" class="gg-setb gg-funb"><Label id="gg_f13_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw13}" /></Panel></Button>
-												<Button id="gg_f13_3" class="gg-setb gg-funb"><Label id="gg_f13_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw13}" /></Panel></Button>
+												<Button id="gg_f13_1" class="gg-setb gg-funb"><Label id="gg_f13_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f13_2" class="gg-setb gg-funb"><Label id="gg_f13_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f13_3" class="gg-setb gg-funb"><Label id="gg_f13_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f13_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw13}" />
 										</Panel>
 										<Panel id="gg_f14" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f14_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f14_1" class="gg-setb gg-funb"><Label id="gg_f14_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw14}" /></Panel></Button>
-												<Button id="gg_f14_2" class="gg-setb gg-funb"><Label id="gg_f14_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw14}" /></Panel></Button>
-												<Button id="gg_f14_3" class="gg-setb gg-funb"><Label id="gg_f14_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw14}" /></Panel></Button>
+												<Button id="gg_f14_1" class="gg-setb gg-funb"><Label id="gg_f14_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f14_2" class="gg-setb gg-funb"><Label id="gg_f14_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f14_3" class="gg-setb gg-funb"><Label id="gg_f14_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f14_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw14}" />
 										</Panel>
 										<Panel id="gg_f15" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f15_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f15_1" class="gg-setb gg-funb"><Label id="gg_f15_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw15}" /></Panel></Button>
-												<Button id="gg_f15_2" class="gg-setb gg-funb"><Label id="gg_f15_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw15}" /></Panel></Button>
-												<Button id="gg_f15_3" class="gg-setb gg-funb"><Label id="gg_f15_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw15}" /></Panel></Button>
+												<Button id="gg_f15_1" class="gg-setb gg-funb"><Label id="gg_f15_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f15_2" class="gg-setb gg-funb"><Label id="gg_f15_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f15_3" class="gg-setb gg-funb"><Label id="gg_f15_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f15_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw15}" />
 										</Panel>
 										<Panel id="gg_f16" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f16_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f16_1" class="gg-setb gg-funb"><Label id="gg_f16_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw16}" /></Panel></Button>
-												<Button id="gg_f16_2" class="gg-setb gg-funb"><Label id="gg_f16_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw16}" /></Panel></Button>
-												<Button id="gg_f16_3" class="gg-setb gg-funb"><Label id="gg_f16_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw16}" /></Panel></Button>
+												<Button id="gg_f16_1" class="gg-setb gg-funb"><Label id="gg_f16_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f16_2" class="gg-setb gg-funb"><Label id="gg_f16_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f16_3" class="gg-setb gg-funb"><Label id="gg_f16_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f16_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw16}" />
 										</Panel>
 										<Panel id="gg_f18" class="gg-frow">
 											<Panel class="gg-frow-top">
 												<Label id="gg_f18_title" class="gg-frow-title" text="{s:text}" /><Panel class="gg-frow-dot" />
-												<Button id="gg_f18_1" class="gg-setb gg-funb"><Label id="gg_f18_1_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw18}" /></Panel></Button>
-												<Button id="gg_f18_2" class="gg-setb gg-funb"><Label id="gg_f18_2_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw18}" /></Panel></Button>
-												<Button id="gg_f18_3" class="gg-setb gg-funb"><Label id="gg_f18_3_txt" class="gg-setb-text" text="{s:text}" /><Panel class="gg-ftip"><Label class="gg-ftip-text" text="{s:osfw18}" /></Panel></Button>
+												<Button id="gg_f18_1" class="gg-setb gg-funb"><Label id="gg_f18_1_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f18_2" class="gg-setb gg-funb"><Label id="gg_f18_2_txt" class="gg-setb-text" text="{s:text}" /></Button>
+												<Button id="gg_f18_3" class="gg-setb gg-funb"><Label id="gg_f18_3_txt" class="gg-setb-text" text="{s:text}" /></Button>
 											</Panel>
 											<Label id="gg_f18_txt" class="gg-frow-txt" text="{s:text}" />
+											<Label class="gg-fwhy" text="{s:osfw18}" />
 										</Panel>
 									</Panel>
 								</Panel>

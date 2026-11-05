@@ -573,6 +573,9 @@ public static class HudMenu
     /// <summary>The variable a row's bubbles read: a greyed choice's reason, or what a refused click there says.</summary>
     public static string FunWhyVar(int r) => $"osfw{r}";
 
+    /// <summary>The row a reason's variable belongs to (osfw2 -> gg_f2): it takes class clash while that reason shows, as its own second line.</summary>
+    public static string FunRowOf(string whyVar) => $"gg_f{whyVar[4..]}";
+
     /// <summary>What each row's bubbles say as the live values have it: why its greyed choice cannot be made (Fun.Refusal), "" on a row with none. One a row is enough: there is one clash
     /// (Fun.Clashes), and it greys one choice of a row.</summary>
     public static List<(string Name, string Text)> FunWhy(Func<string, string?> value) =>

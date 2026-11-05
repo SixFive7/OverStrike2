@@ -1279,24 +1279,12 @@ Label
 	padding: 0px 24px 0px 32px;
 }
 
-.gg-emblem
+/* The project's logo in the window's head, 60 px, where the knife was */
+.gg-win-head .gg-logo
 {
-	width: 52px;
-	height: 52px;
+	width: 60px;
+	height: 60px;
 	vertical-align: center;
-	border-radius: 5px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F6D27E ), to( gg-gold-deep ) );
-	box-shadow: #E9B44C40 0px 0px 18px 0px;
-}
-
-.gg-knife-emblem
-{
-	width: 64px;
-	height: 32px;
-	horizontal-align: center;
-	vertical-align: center;
-	wash-color: #1A1408;
-	transform: rotateZ( -38deg );
 }
 
 .gg-titles
@@ -1314,6 +1302,23 @@ Label
 	letter-spacing: 3px;
 	text-transform: uppercase;
 	color: #FFFFFF;
+	text-shadow: 0px 2px 6px 1 #00000080;
+}
+
+/* The title and, beside it, the tagline */
+.gg-title-row
+{
+	flow-children: right;
+}
+
+#gg_w_headline
+{
+	vertical-align: center;
+	margin-left: 16px;
+	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
+	font-size: 22px;
+	letter-spacing: 1px;
+	color: gg-gold-hi;
 	text-shadow: 0px 2px 6px 1 #00000080;
 }
 
@@ -1516,29 +1521,15 @@ Label
 	flow-children: down;
 }
 
-#gg_w_hello
-{
-	font-size: 13px;
-	letter-spacing: 3px;
-}
-
-/* The welcome's first row: the logo, and beside it the eyebrow and the tagline (.gg-titles is their column, as in the window's head). */
+/* The welcome's first row: the greeting, as large text (the logo and the tagline are in the window's head) */
 .gg-wel-hero
 {
 	width: 100%;
-	height: 90px;
-	flow-children: right;
+	flow-children: down;
 }
 
-.gg-wel-hero .gg-logo
+#gg_w_hello
 {
-	width: 90px;
-	height: 90px;
-}
-
-#gg_w_headline
-{
-	margin-top: 2px;
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 38px;
 	color: #FFFFFF;
@@ -3320,39 +3311,33 @@ Label
 	background-color: #FFFFFF05;
 }
 
-.gg-ftip
+/* Why a choice cannot be made, or why this player's click was refused just now: the row's own second line, in amber, in place of who set it (class clash on the row) */
+.gg-fwhy
 {
 	visibility: collapse;
-	width: 340px;
-	horizontal-align: right;
-	vertical-align: top;
-	margin-right: 106px;
-	padding: 7px 12px;
-	background-color: #12171DFA;
-	border: 1px solid #F0B44C;
-	border-radius: 4px;
-	box-shadow: #000000A0 0px 8px 24px 0px;
-	z-index: 20;
+	width: 100%;
+	font-size: 13px;
+	font-weight: bold;
+	color: #F0B44C;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.gg-funb.off:hover .gg-ftip
+.gg-frow.clash .gg-fwhy
 {
 	visibility: visible;
 }
 
-.gg-funb.refused .gg-ftip
+.gg-frow.clash .gg-frow-txt
 {
-	visibility: visible;
+	visibility: collapse;
+}
+
+/* The button a refused click landed on: edged in red while its reason stands */
+.gg-funb.refused
+{
 	border: 1px solid #F07C6B;
 }
-
-.gg-ftip-text
-{
-	width: 100%;
-	font-size: 14px;
-	color: #FFFFFF;
-}
-
 
 /* ---- our maps, the vote, the mode ---------------------------------------------------------------------------------------------------- */
 
