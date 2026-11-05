@@ -26,7 +26,7 @@ static partial class Program
               "schema": 1,
               "server": { "host": "game-host", "port": 27016, "rconPassword": "env:TEST_RCON", "startMap": "ar_pool_day" },
               "bridge": { "port": 8081, "secret": "env:TEST_SECRET", "officialMaps": ["ar_baggage", "ar_shoots"],
-                          "randomOnStart": false, "discoveryStock": 7, "changeDelaySeconds": 3, "restartCooldownSeconds": 60, "guideOnJoin": false },
+                          "discoveryStock": 7, "changeDelaySeconds": 3, "restartCooldownSeconds": 60 },
               "hud": { "tab": "off", "check": "enforce" },
               "paths": { "bridgeData": "/srv/bridge-data/" },
             }
@@ -37,7 +37,7 @@ static partial class Program
         Check("Settings: a file that can be used - its values, the environment's variables only where it refers to them",
             file.FromFile && !file.Troubled && v.RconHost == "game-host" && v.RconPort == 27016 && v.RconPassword == "rconvalue71" && v.StartMap == "ar_pool_day"
             && v.HttpPort == 8081 && v.LogSecret == "secretvalue72" && v.OfficialMaps.SequenceEqual(["ar_baggage", "ar_shoots"])
-            && !v.RandomOnStart && v.DiscoveryStock == 7 && v.ChangeDelay == 3 && v.RestartCooldown == 60 && !v.GuideOnJoin
+            && v.DiscoveryStock == 7 && v.ChangeDelay == 3 && v.RestartCooldown == 60
             && HudTab.Parse(v.Tab) == HudTab.Mode.Off && HudCheck.Parse(v.Check) == HudCheck.Mode.Enforce
             && v.StateDir == "/srv/bridge-data/" && v.MapsFile == "/srv/bridge-data/maps.json" && v.BrokenFile == "/srv/bridge-data/broken.json");
         Check("Settings: the line names the file and nothing it holds", file.Line == $"settings: the settings file {standard}"
@@ -84,19 +84,19 @@ static partial class Program
         Check("Settings: the environment's defaults are the old ones",
             env.StateDir == "/data" && env.RconHost == "cs2" && env.RconPort == 27015 && env.RconPassword == "" && env.LogSecret == "" && env.MapsFile == "maps.json"
             && env.BrokenFile == "" && env.StartMap == "ar_shoots" && env.HttpPort == 8080 && env.ChangeDelay == 8 && env.RestartCooldown == 300
-            && env.RandomOnStart && env.GuideOnJoin && HudTab.Parse(env.Tab) == HudTab.Default && HudCheck.Parse(env.Check) == HudCheck.Mode.Warn
+            && HudTab.Parse(env.Tab) == HudTab.Default && HudCheck.Parse(env.Check) == HudCheck.Mode.Warn
             && env.OfficialMaps.SequenceEqual(["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]) && env.DiscoveryStock == 10);
         var set = BridgeValues.FromEnvironment(EnvOf(new()
         {
             ["STATE_DIR"] = "/d", ["RCON_HOST"] = "h", ["RCON_PORT"] = "1", ["RCON_PASSWORD"] = "p", ["LOG_SECRET"] = "s", ["MAPS_FILE"] = "/d/m.json",
             ["BROKEN_FILE"] = "/d/b.json", ["START_MAP"] = "ar_baggage", ["HTTP_PORT"] = "2", ["CHANGE_DELAY_SECONDS"] = "3", ["RESTART_COOLDOWN_SECONDS"] = "4",
-            ["RANDOM_ON_START"] = "0", ["GUIDE_ON_JOIN"] = "no", ["HUD_TAB"] = "off", ["HUD_CHECK"] = "dryrun",
+            ["HUD_TAB"] = "off", ["HUD_CHECK"] = "dryrun",
             ["OFFICIAL_MAPS"] = "ar_shoots", ["DISCOVERY_STOCK"] = "99",
         }));
         Check("Settings: the environment's variables, each read as before (DISCOVERY_STOCK clamped to 40, dryrun read as warn)",
             set.StateDir == "/d" && set.RconHost == "h" && set.RconPort == 1 && set.RconPassword == "p" && set.LogSecret == "s" && set.MapsFile == "/d/m.json"
             && set.BrokenFile == "/d/b.json" && set.StartMap == "ar_baggage" && set.HttpPort == 2 && set.ChangeDelay == 3 && set.RestartCooldown == 4
-            && !set.RandomOnStart && !set.GuideOnJoin && HudTab.Parse(set.Tab) == HudTab.Mode.Off && HudCheck.Parse(set.Check) == HudCheck.Mode.Warn
+            && HudTab.Parse(set.Tab) == HudTab.Mode.Off && HudCheck.Parse(set.Check) == HudCheck.Mode.Warn
             && set.OfficialMaps.SequenceEqual(["ar_shoots"]) && set.DiscoveryStock == 40);
 
         // ---- the switch changes nothing by itself: a file that sets nothing gives the environment's defaults ----

@@ -34,8 +34,6 @@ sealed record BridgeValues
     public int HttpPort { get; init; }
     public int ChangeDelay { get; init; }
     public int RestartCooldown { get; init; }
-    public bool RandomOnStart { get; init; }
-    public bool GuideOnJoin { get; init; }
     public string Tab { get; init; } = "";      // HudTab.Parse reads it
     public string Check { get; init; } = "";    // HudCheck.Parse reads it
     public List<string> OfficialMaps { get; init; } = [];
@@ -55,8 +53,6 @@ sealed record BridgeValues
         HttpPort = s.Bridge.Port,
         ChangeDelay = s.Bridge.ChangeDelaySeconds,
         RestartCooldown = s.Bridge.RestartCooldownSeconds,
-        RandomOnStart = s.Bridge.RandomOnStart,
-        GuideOnJoin = s.Bridge.GuideOnJoin,
         Tab = s.Hud.Tab,
         Check = s.Hud.Check,
         OfficialMaps = [.. s.Bridge.OfficialMaps],
@@ -82,8 +78,6 @@ sealed record BridgeValues
             HttpPort = int.Parse(E("HTTP_PORT", "8080"), CultureInfo.InvariantCulture),
             ChangeDelay = int.Parse(E("CHANGE_DELAY_SECONDS", "8"), CultureInfo.InvariantCulture),
             RestartCooldown = int.Parse(E("RESTART_COOLDOWN_SECONDS", "300"), CultureInfo.InvariantCulture),
-            RandomOnStart = Yes(E("RANDOM_ON_START", "1")),
-            GuideOnJoin = Yes(E("GUIDE_ON_JOIN", "1")),
             Tab = E("HUD_TAB", HudTab.Name(HudTab.Default)),
             Check = E("HUD_CHECK", "warn"),
             OfficialMaps = Names(E("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night")),

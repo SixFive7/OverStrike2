@@ -229,7 +229,7 @@ sealed partial class HudScreen
 
     public void Gone(int slot)
     {
-        // The HUD this player's game showed is forgotten here too, not only at css_guide's real join (which bridge.guideOnJoin off never sends): a real leave
+        // The HUD this player's game showed is forgotten here too, not only at css_guide's real join: a real leave
         // forgets it, and through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read.
         if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving) hudSeen.Remove(Account(leaving));
         slots.Gone(slot);

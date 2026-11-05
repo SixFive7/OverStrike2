@@ -264,7 +264,7 @@ unplayable hands over to the dice.
 
 ### The automatic changes
 
-The dice change the map by themselves only when nobody can vote: at a server start with nobody on (`bridge.randomOnStart`; with players on a vote opens for everybody instead, and nobody voting rolls the dice), on the empty server's way back to Arms
+The dice change the map by themselves only when nobody can vote: at a server start with nobody on (with players on a vote opens for everybody instead, and nobody voting rolls the dice), on the empty server's way back to Arms
 Race, when the map that is on has just gone from the Workshop, when it has just crashed the players' games, and at a match end when no plugin draws the HUD or
 [Steam is not showing it](#the-huds-version-and-the-hud-check), because a vote freezes everybody and not everybody would see the ballot. Without the bridge a finished match replays the same map: the Arms Race cfg sets
 `mp_match_end_restart 1` and `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.

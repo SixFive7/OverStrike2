@@ -73,7 +73,7 @@ static partial class Program
         if (first) Save();
         if (!fresh && !first) return;
         HudSeen.Remove(e.SteamId); // a real join: the HUD check asks again (it may be a new HUD)
-        if (GuideOnJoin) ShowGuide(e.SteamId, first);
+        ShowGuide(e.SteamId, first);
     }
 
     /// <summary>Asks the plugin to put the guide up for one player.</summary>
@@ -152,7 +152,7 @@ static partial class Program
         if (S.History.Count > HistoryLength) S.History.RemoveRange(0, S.History.Count - HistoryLength);
     }
 
-    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice (bridge.randomOnStart) - the start roll, one of the
+    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice - the start roll, one of the
     /// automatic changes. With players on and the HUD drawn they choose instead: a vote opens for everybody, and nobody voting rolls the dice. Waits out the maintenance flag, a change under way and a vote that is open (whose result settles it: CloseBallot); probes
     /// RCON with a status first (every 10 s until it answers), and the debt stays open until a change command has actually gone out (FireChange).
     /// The status also says which map is loaded: on any other map than START_MAP there is nothing to roll, and a debt from BridgeStart rolls only
@@ -166,7 +166,6 @@ static partial class Program
         var on = StatusMap(status);
         if (on != null && !on.Equals(StartMap, StringComparison.OrdinalIgnoreCase)) { StartRollOwed = false; Log($"start: the server is on {on}, not {StartMap} - nothing to roll"); return; }
         if (on == null && StartRollNeedsProof) { StartRollOwed = false; Log("start: RCON status does not name the loaded map - a bridge start rolls only on proof"); return; }
-        if (!RandomOnStart) { StartRollOwed = false; Log("start: RANDOM_ON_START is off - staying on the start map"); return; }
         // Players on: a vote for everybody instead of the dice - everybody's window opens on the ballot at once, and nobody voting rolls the dice. An empty
         // server, or one whose HUD nobody sees: the dice, as ever.
         if (Humans() is > 0 and var humans && HudActive())

@@ -81,11 +81,6 @@
             "ar_shoots_night"
           ]
         },
-        "randomOnStart": {
-          "description": "A new server process rolls a random map once its start map is up, unless an open vote settles the map: the dice, one of the automatic changes. Replaces RANDOM_ON_START.",
-          "type": "boolean",
-          "default": true
-        },
         "discoveryStock": {
           "description": "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long. Replaces DISCOVERY_STOCK.",
           "type": "integer",
@@ -106,11 +101,6 @@
           "default": 300,
           "minimum": 0,
           "maximum": 86400
-        },
-        "guideOnJoin": {
-          "description": "Ask the plugin to put the on-screen guide up on every real join. Replaces GUIDE_ON_JOIN.",
-          "type": "boolean",
-          "default": true
         }
       },
       "additionalProperties": false

@@ -473,16 +473,12 @@ public sealed class Settings
             s => s.Bridge.Secret, (s, v) => s.Bridge.Secret = v, v => v.Length == 0 || v.All(char.IsAsciiLetterOrDigit), "letters and digits", secret: true),
         List("bridge.officialMaps", Part.Bridge, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "OFFICIAL_MAPS", "The official maps the votes and the random picks may offer.",
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
-        Bool("bridge.randomOnStart", Part.Bridge, true, "RANDOM_ON_START", "A new server process rolls a random map once its start map is up, unless an open vote settles the map: the dice, one of the automatic changes.",
-            s => s.Bridge.RandomOnStart, (s, v) => s.Bridge.RandomOnStart = v),
         Int("bridge.discoveryStock", BS, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
         Int("bridge.changeDelaySeconds", Part.Bridge, 8, 0, 120, "CHANGE_DELAY_SECONDS", "The countdown before a map change.",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),
         Int("bridge.restartCooldownSeconds", Part.Bridge, 300, 0, 86400, "RESTART_COOLDOWN_SECONDS", "The least time between two !restart requests.",
             s => s.Bridge.RestartCooldownSeconds, (s, v) => s.Bridge.RestartCooldownSeconds = v),
-        Bool("bridge.guideOnJoin", Part.Bridge, true, "GUIDE_ON_JOIN", "Ask the plugin to put the on-screen guide up on every real join.",
-            s => s.Bridge.GuideOnJoin, (s, v) => s.Bridge.GuideOnJoin = v),
 
         // hud: the in-game menu
         Must("hud.addon", PS, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run.",
@@ -745,11 +741,9 @@ public sealed class BridgeSection
     public int Port { get; set; } = 8080;
     public string Secret { get; set; } = "";
     public List<string> OfficialMaps { get; set; } = ["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"];
-    public bool RandomOnStart { get; set; } = true;
     public int DiscoveryStock { get; set; } = 10;
     public int ChangeDelaySeconds { get; set; } = 8;
     public int RestartCooldownSeconds { get; set; } = 300;
-    public bool GuideOnJoin { get; set; } = true;
 }
 
 public sealed class HudSection
