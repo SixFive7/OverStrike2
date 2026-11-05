@@ -498,7 +498,7 @@ static partial class Program
                 && !HudMenu.FixedRowWords(cv => stock.GetValueOrDefault(cv), id => "Bob").Any(x => x.Text.Contains("set by"))
                 && noComments.Contains($"text=\"{{s:{HudMenu.DropsWordsVar}}}\"") && noComments.Contains($"text=\"{{s:{HudMenu.CatchUpWordsVar}}}\"") && !noComments.Contains("Stays as you set it"));
             Check("Game page: a match length that is not the default says who set it; the default says nobody",
-                HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 0).Texts.Single(x => x.Id == "gg_set_time_now").Text == "Matches last 10 minutes - set by Bob"
+                HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 0).Texts.Single(x => x.Id == "gg_set_time_now").Text == "Matches last 10 minutes - Set by Bob"
                 && HudMenu.Game(new HudState { RoundMinutes = 60 }, 0).Texts.Single(x => x.Id == "gg_set_time_now").Text == "Matches last 60 minutes"
                 && HudState.Decode(new HudState { RoundMinutes = 10, RoundBy = "Bob" }.Encode()) is { RoundMinutes: 10, RoundBy: "Bob" });
             Check("Fun page: a setting off its default is marked changed (gold, with a dot); every other row plain",

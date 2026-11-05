@@ -31,7 +31,7 @@ static partial class Program
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
             HudCheck.LevelOf("v4.6.0") == 46 && HudCheck.LevelOf("v5.0.0") == 50 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4.5.0") && HudCheck.IsOutdated(HudCheck.Older)
             && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4.7.0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
-            && HudCheck.VersionWords("v4.5.0") == "v4.5.0 - restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
+            && HudCheck.VersionWords("v4.5.0") == "v4.5.0 - Restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - Restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
             && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4.7.0") == "v4.7.0");
         var roll = HudView.PlayersPage([new("Alice", "CT", Hud.Content, 0, "voted", "42 min"), new("Bob", "T", "v4.5.0", 0, "waiting", "5 min"),
             new("Cleo", "T", HudCheck.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4.7.0", 0, "", "-"), new("Eve", "SPEC", Hud.Release, 0, "", "3 min"),
@@ -40,7 +40,7 @@ static partial class Program
         Check("HUD check: the Players page counts each HUD once - the server's, older, newer, of unknown content, not seen yet (the check's clock among those) - and says each row's",
             Roll(HudView.PlayersSummaryVar) == $"7 on the server  ·  1 on the server's HUD, {Hud.Content}  ·  2 older  ·  1 newer  ·  1 unknown  ·  2 not seen yet"
             && Roll("ospl1a") == "Alice" && Roll("ospl1c") == Hud.Content && Roll("ospl1o") == "" && Roll("ospl1d") == "voted" && Roll("ospl1e") == "42 min"
-            && Roll("ospl2c") == "" && Roll("ospl2o") == "v4.5.0 - restart CS2" && Roll("ospl3o") == "older - restart CS2" && Roll("ospl4o") == "v4.7.0"
+            && Roll("ospl2c") == "" && Roll("ospl2o") == "v4.5.0 - Restart CS2" && Roll("ospl3o") == "older - Restart CS2" && Roll("ospl4o") == "v4.7.0"
             && Roll("ospl5o") == "version unknown" && Roll("ospl6o") == "not seen yet" && Roll("ospl7o") == "" && Roll("ospl7k") == "HUD check: 12 s left"
             && Roll("ospl8a") == "" && Roll("ospl8o") == "" && HudView.PlayersPage([])[0] == (HudView.PlayersSummaryVar, "Nobody on the server"));
         Check("HUD check: Steam's Error page means not shown to everybody, a Workshop page means shown, a 429 or anything else means no verdict",

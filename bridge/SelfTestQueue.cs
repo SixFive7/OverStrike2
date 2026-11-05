@@ -116,7 +116,7 @@ static partial class Program
             Check("...and once it is out the vote is over: nobody frozen, the map is the vote's", Ballot == null && !BuildVoteState(clock).Freeze && S.Map == m[1] && S.PickedBy == "the vote");
             Quiet(); Talk(alice, $"!map {Rank(2)}");
             Check($"After any vote, {MapVote.WaitSeconds / 60} minutes before anybody can call another: a pick is refused, saying how long",
-                Ballot == null && Pending == null && Said("A vote was just held - the next one can start in"));
+                Ballot == null && Pending == null && Said("A vote was just held - The next one can start in"));
             Quiet(); Talk(alice, "!next");
             Check("...Start a vote too", Ballot == null && Said("A vote was just held"));
             var waitState = BuildVoteState(clock);
@@ -170,9 +170,9 @@ static partial class Program
             Quiet(); MatchEnd();
             vote = Ballot!;
             Check("A match end opens the vote by itself, the wait after the last one notwithstanding: Play this map again on it",
-                vote is { Open: true, MatchEnded: true } && BuildVoteState(clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again" && Said("Match over - vote for the next map"));
+                vote is { Open: true, MatchEnded: true } && BuildVoteState(clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again" && Said("Match over - Vote for the next map"));
             Run(MapVote.Seconds + 1);
-            Check("...nobody voting there is Random: the dice roll a map of this mode", Pending is { By: "the vote" } mr && mr.Map != m[3] && Said("Nobody voted - rolling the dice"));
+            Check("...nobody voting there is Random: the dice roll a map of this mode", Pending is { By: "the vote" } mr && mr.Map != m[3] && Said("Nobody voted - Rolling the dice"));
             HudActive = () => false;
             Land();
             Run(MapVote.WaitSeconds + 1); Quiet();
@@ -181,7 +181,7 @@ static partial class Program
             Check("A match that ends while a vote is open makes it the match end's: Keep reads Play this map again, nobody voting is Random",
                 Ballot is { Open: true, MatchEnded: true } && BuildVoteState(clock).Maps.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again");
             Run(MapVote.Seconds);
-            Check("...and so it rolls the dice", Pending != null && Said("Nobody voted - rolling the dice"));
+            Check("...and so it rolls the dice", Pending != null && Said("Nobody voted - Rolling the dice"));
             Land();
             Run(MapVote.WaitSeconds + 1); Quiet();
             Talk(alice, $"!map {Rank(5)}");
@@ -316,14 +316,14 @@ static partial class Program
             S.CleanShutdown = true; Session("token-2"); Line("Loading map \"ar_shoots\""); Run(4);
             Check("A new server process is left alone for 5 s after its start map...", Pending == null);
             Run(2);
-            Check("...then rolls the dice", Pending is { Auto: true } && Said("Server started - rolling the dice"));
+            Check("...then rolls the dice", Pending is { Auto: true } && Said("Server started - Rolling the dice"));
             Join(alice); Join(dan);
             Land(); Run(61); Go(dan, 1); Land(); Run(30); Go(alice, 2);
             Check("(a change counts down when the server restarts)", Pending?.Map == m[2]);
             S.CleanShutdown = true; Session("token-3"); Line("Loading map \"ar_shoots\""); Run(4);
             Check("A restarted server's start map ends the change that died with the old process, and the server is left alone for 5 s", Pending == null && !AnnouncePending);
             Run(2);
-            Check("...then the dice roll: there is no queue to serve any more", Pending is { Auto: true } && Said("Server started - rolling the dice"));
+            Check("...then the dice roll: there is no queue to serve any more", Pending is { Auto: true } && Said("Server started - Rolling the dice"));
 
             // ---- the live boot of 2026-10-04: the token change went unseen, the one map start had no name, RCON answered 15 s later ----
             Fresh();
@@ -334,7 +334,7 @@ static partial class Program
             Run(15);
             Check("RCON not answering: no countdown into the void, the roll stays owed", Pending == null && !Said("rolling the dice") && StartRollOwed);
             rconDown = false; Run(11);
-            Check("RCON answering: the start roll goes out", Pending is { Auto: true } && Said("Server started - rolling the dice"));
+            Check("RCON answering: the start roll goes out", Pending is { Auto: true } && Said("Server started - Rolling the dice"));
             Run(ChangeDelay);
             Check("...and only a change command that went out settles it", sent.Any(c => c.StartsWith("host_workshop_map")) && !StartRollOwed);
             Fresh();
@@ -342,7 +342,7 @@ static partial class Program
             File.WriteAllText(MaintenanceFile, ""); Run(30);
             Check("Maintenance: the owed start roll waits...", Pending == null && StartRollOwed);
             File.Delete(MaintenanceFile); Run(2);
-            Check("...and goes out once the flag is gone", Pending is { Auto: true } && Said("Server started - rolling the dice"));
+            Check("...and goes out once the flag is gone", Pending is { Auto: true } && Said("Server started - Rolling the dice"));
 
             // ---- production restarts as they really happen: CS2 keeps its X-Server-Instance-Token across process restarts (one token,
             // 5e1f0c2ab7d94a36, in state.json from 2026-09-15 to 2026-10-05, through every deploy, daily restart and !restart), so a
@@ -354,7 +354,7 @@ static partial class Program
                 statusSpawn = 1; if (statusMap != null) statusMap = header ?? StartMap; // the new process has loaded its start map
                 Session("prod"); Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - Started:  \"\"", header);
             }
-            bool Rolled() => Pending is { Auto: true } && Said("Server started - rolling the dice");
+            bool Rolled() => Pending is { Auto: true } && Said("Server started - Rolling the dice");
             void Confirm((string Name, string Id) p) { Talk(p, "!restart"); Talk(p, "!restart"); }
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
@@ -473,11 +473,11 @@ static partial class Program
             Check("...for a Dislike as well", Tally(key) == (1, 1) && Said("You dislike") && Said("already"));
             Quiet(); Talk(alice, "!down");
             Check("The opposite vote takes yours back first: Alice's like is gone, nothing is cast, and the note says how to dislike",
-                Tally(key) == (0, 1) && !Votes[key].ContainsKey("[U:1:1001]") && Said("Your like of") && Said("is removed - dislike it again to add a dislike"));
+                Tally(key) == (0, 1) && !Votes[key].ContainsKey("[U:1:1001]") && Said("Your like of") && Said("is removed - Dislike it again to add a dislike"));
             Quiet(); Talk(alice, "!down");
             Check("...the next Dislike casts it: one vote per player per map", Tally(key) == (0, 2) && Votes[key]["[U:1:1001]"] == -1 && Said("You disliked"));
             Quiet(); Talk(alice, "!up");
-            Check("...and back the same way: a Like takes the dislike back", Tally(key) == (0, 1) && Said("Your dislike of") && Said("like it again to add a like"));
+            Check("...and back the same way: a Like takes the dislike back", Tally(key) == (0, 1) && Said("Your dislike of") && Said("Like it again to add a like"));
             Quiet(); Talk(alice, "!up");
             Check("...and the next Like casts it", Tally(key) == (1, 1) && Votes[key].Count == 2 && Said("You liked"));
             Talk(cara, $"!up {Rank(2)}"); Talk(bob, $"!up {Rank(2)}"); Talk(alice, $"!up {Rank(2)}"); Talk(cara, $"!up {Rank(3)}"); Talk(bob, $"!up {Rank(3)}");
@@ -567,7 +567,7 @@ static partial class Program
             HudActive = () => true;
             Quiet();
             Go(alice, 1);
-            Check("The pick and its vote are on the news line, the result with the countdown's length", Told.Any(t => t.Contains("Alice put")) && NewsNow.Text.Contains("Everybody has voted") && NewsNow.Text.Contains("changing in"));
+            Check("The pick and its vote are on the news line, the result with the countdown's length", Told.Any(t => t.Contains("Alice put")) && NewsNow.Text.Contains("Everybody has voted") && NewsNow.Text.Contains("Changing in"));
             Land(); Run(20);
             Check("The map changes, and nothing at all went to chat: no countdown, no after-load line", sent.Contains($"host_workshop_map {m[1].Id}") && !sent.Any(c => c.StartsWith("say ")));
             HudActive = () => false;
@@ -626,10 +626,10 @@ static partial class Program
             Quiet();
             Talk(alice, $"!map {Rank(3)}");
             Check("A map gone from the Workshop is refused by number, with what happened and what to do, and no vote opens",
-                Said($"{Clip(Label(goneMap), 44)} was removed from the Workshop - nobody can download it. Pick another.") && Pending == null && Ballot == null);
+                Said($"{Clip(Label(goneMap), 44)} was removed from the Workshop - Nobody can download it. Pick another.") && Pending == null && Ballot == null);
             Quiet();
             Talk(bob, $"!map {goneMap.Id}");
-            Check("...by its workshop id too", Said("was removed from the Workshop - nobody can download it. Pick another.") && Pending == null && Ballot == null);
+            Check("...by its workshop id too", Said("was removed from the Workshop - Nobody can download it. Pick another.") && Pending == null && Ballot == null);
             Check("...and the refusal fits one chat line for every map on the list",
                 Maps.All(x => { Removed = new() { [x.Id.ToString()] = Workshop.Removed }; return RemovedRefusal(x).Length <= 120; }));
             RecomputeRemoved();
@@ -661,7 +661,7 @@ static partial class Program
             Land(); Run(30); Quiet();
             answer = ApplyRemovedReport(Workshop.EncodeReport([(landing!.Id, Workshop.Hidden)]));
             Check("The map that is ON going private makes way at once: the dice roll another, and the news line says why",
-                landing == m[6] && Pending is { Auto: true } rolled && rolled.Map != landing && !IsRemoved(rolled.Map) && Said("is no longer public on the Workshop - nobody new can download it - rolling the dice"));
+                landing == m[6] && Pending is { Auto: true } rolled && rolled.Map != landing && !IsRemoved(rolled.Map) && Said("is no longer public on the Workshop - Nobody new can download it - Rolling the dice"));
             Land(); Run(30);
             var before = Removed.Count;
             answer = ApplyRemovedReport(Workshop.EncodeReport(Maps.Take(200).Select((x, i) => (x.Id, i < 30 ? Workshop.Removed : Workshop.Ok))));
@@ -671,7 +671,7 @@ static partial class Program
             Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
             S.History.Add(goneMap);
             Talk(cara, "!previous");
-            Check("!previous refuses a map gone from the Workshop", Said("was removed from the Workshop - nobody can download it"));
+            Check("!previous refuses a map gone from the Workshop", Said("was removed from the Workshop - Nobody can download it"));
             Checked = new(); RecomputeRemoved();
 
             // the Workshop's own words, as the Web API answers
@@ -686,7 +686,7 @@ static partial class Program
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             Blocked = new() { ["3076804331"] = ("glassbox", "glassboxfinal", "kicked every player off the server (2026-10-20)") };
-            var glassLine = "glassbox (3076804331) kicked every player off the server (2026-10-20) - it is blocked.";
+            var glassLine = "glassbox (3076804331) kicked every player off the server (2026-10-20) - It is blocked.";
             Talk(alice, "!map 3076804331");
             Check("A blocked map is refused by id, in its own words, and no vote opens", Said(glassLine) && Pending == null && Ballot == null);
             Quiet(); Talk(bob, "!map https://steamcommunity.com/sharedfiles/filedetails/?id=3076804331");
@@ -765,7 +765,7 @@ static partial class Program
             Check("...the cards of the maps that just became unplayable - a non-map too (packs re-checked) - leave the open ballot",
                 Ballot is { Open: true } rb2 && rb2.Options.All(o => o.Map != m[5] && o.Map != m[6]));
             Quiet(); Talk(bob, $"!map {Rank(6)}");
-            Check("...and a map it blocks is refused at once, in its own words", Said("froze the server - it is blocked."));
+            Check("...and a map it blocks is refused at once, in its own words", Said("froze the server - It is blocked."));
             File.WriteAllText(brokenPath, "{\"maps\":[");
             Check("A broken.json that does not parse changes nothing", ReloadBroken(brokenPath).Contains("unreadable") && IsBlocked(m[6]) && IsPack(m[5]));
 

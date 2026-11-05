@@ -123,7 +123,7 @@ public static class Hud
         new("Game", [
             new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
             new("Server  ·  Game", "Match length: 10 or 60 minutes, from the next match"),
-            new("Restart", "Server  ·  Game: reboot a stuck server - click twice to confirm")]),
+            new("Restart", "Server  ·  Game: reboot a stuck server - Click twice to confirm")]),
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
@@ -527,7 +527,7 @@ public static class HudView
         var map = s.Map == "" ? "Waiting for the server" : s.Map;
         var by = Hud.ByWords(s.By);
         var byline = string.Join("  ·  ", new[] { by, s.Size }.Where(x => x != ""));
-        var status = s.Loading ? "Loading - everyone reconnects in a moment" : s.Status;
+        var status = s.Loading ? "Loading - Everyone reconnects in a moment" : s.Status;
         var t = new List<(string, string)>();
         foreach (var p in new[] { "b", "w" })
         {

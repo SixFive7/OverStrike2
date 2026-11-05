@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 static partial class Program
 {
     /// <summary>Words a section may start with as they are in this run's made-up data: map names without an underscore or a digit, written that way on purpose.</summary>
-    static readonly string[] TestNames = ["beta", "aim", "m ", "map ", "stock", "workshop ", "only", "keep", "fresh", "popular", "x"];
+    static readonly string[] TestNames = ["beta", "aim", "m ", "map ", "stock", "workshop ", "only", "keep", "fresh", "popular", "x", "glassbox", "anubis", "my very first", "started a vote"];
 
     static void MessagesSelfTest(Action<string, bool> Check)
     {
@@ -36,8 +36,8 @@ static partial class Program
         Check("Capitals: what starts a section", Sections.Lower("Updated to CS2 1.41.9.6 - Welcome back") == null && Sections.Lower("Yours v4.5.0  ·  The server's v4.6.0") == null && Sections.Lower("+60% HP  ·  -25% damage taken  ·  Regeneration") == null
             && Sections.Lower("#1  ·  112 MB  ·  +12  -1") == null && Sections.Lower("38 s left  ·  4 of 4 voted") == null && Sections.Lower("!help - !play 12") == null && Sections.Lower("aim_rush won - Picked by the vote") == null
             && Sections.Lower("Updated to CS2 - welcome back") == "welcome back" && Sections.Lower("Yours  ·  the server's") == "the server's" && Sections.Lower("First\nsecond") == "second");
-        Check("Capitals: a line from outside gets them, a map's name stays", Sections.Capitalize("Server is downloading x: 61 percent - the map changes when it is ready") == "Server is downloading x: 61 percent - The map changes when it is ready"
-            && Sections.Capitalize("finishing - aim_x first") == "Finishing - aim_x first");
+        Check("Capitals: the net under every message: after every separator, a map's name stays, the line's first word too (it is usually a name)", Sections.Capitalize("Server is downloading x: 61 percent - the map changes when it is ready") == "Server is downloading x: 61 percent - The map changes when it is ready"
+            && Sections.Capitalize("glassbox froze - aim_x first") == "glassbox froze - aim_x first" && Sections.Capitalize("First  ·  second\nthird") == "First  ·  Second\nThird");
         var templates = new List<string>();
         templates.AddRange(HudView.StaticTexts().Select(t => t.Text));
         templates.AddRange(Hud.Help.SelectMany(g => g.Rows).SelectMany(r => new[] { r.Command, r.Words, r.Also }));
@@ -151,7 +151,7 @@ static partial class Program
     {
         var all = ToldAll ?? [];
         var lower = all.Where(t => Sections.Lower(t, TestNames) != null).Select(t => $"\"{Sections.Lower(t, TestNames)}\" in \"{M.Plain(t)}\"").Distinct().ToList();
-        Check($"Capitals: every section of everything the bridge said in this run starts with one ({all.Distinct().Count()} different lines){(lower.Count > 0 ? $": {lower.Count} do not, such as " + string.Join("; ", lower.Take(25)) : "")}", lower.Count == 0);
+        Check($"Capitals: every section of everything the bridge said in this run starts with one ({all.Distinct().Count()} different lines){(lower.Count > 0 ? $": {lower.Count} do not: " + string.Join("; ", lower) : "")}", lower.Count == 0);
         ToldAll = null;
     }
 }

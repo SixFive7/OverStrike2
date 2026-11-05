@@ -137,18 +137,18 @@ static partial class Program
 
         // ---- the server's own refusals on the card: non-maps, blocked maps, unlisted maps gone from the Workshop ----
         var cat = new HudCatalog { Version = 5 };
-        cat.Refused[3076804331] = ("glassbox", "kicked every player off the server (2026-10-20) - it is blocked");
-        cat.Refused[3369214545] = ("", "was removed from the Workshop - nobody can download it");
+        cat.Refused[3076804331] = ("glassbox", "kicked every player off the server (2026-10-20) - It is blocked");
+        cat.Refused[3369214545] = ("", "was removed from the Workshop - Nobody can download it");
         var catBack = HudCatalog.Decode(cat.Encode())!;
         Check("Catalog: the ids the server refuses survive the codec with their name and reason; a line without a reason is dropped",
-            catBack.Refused.Count == 2 && catBack.Refused[3076804331] == ("glassbox", "kicked every player off the server (2026-10-20) - it is blocked")
+            catBack.Refused.Count == 2 && catBack.Refused[3076804331] == ("glassbox", "kicked every player off the server (2026-10-20) - It is blocked")
             && catBack.Refused[3369214545].Name == "" && HudCatalog.Decode(HudCatalog.Magic + "\nn\t42\tx\t\n")!.Refused.Count == 0);
         var blockedCard = new WorkshopCard();
         blockedCard.Show(3076804331);
         blockedCard.Refuse("glassbox", catBack.Refused[3076804331].Why);
         Check("Card: a blocked id is refused at once in the server's words, under its own name, with no button and no Workshop question",
             blockedCard.At == WorkshopCard.Step.Refused && blockedCard.Item == null && blockedCard.Texts().Single(t => t.Id == "gg_ws_title").Text == "glassbox"
-            && blockedCard.Texts().Single(t => t.Id == "gg_ws_status").Text == "Not playable: it kicked every player off the server (2026-10-20) - it is blocked."
+            && blockedCard.Texts().Single(t => t.Id == "gg_ws_status").Text == "Not playable: it kicked every player off the server (2026-10-20) - It is blocked."
             && blockedCard.Classes().Contains((WorkshopCard.Play, "off", true)));
         blockedCard.Checked(items[3232901690]);
         Check("...and a late Workshop answer does not undo the refusal", blockedCard.At == WorkshopCard.Step.Refused);
@@ -163,8 +163,8 @@ static partial class Program
                 Removed = new Dictionary<string, string> { ["987654321"] = Workshop.Removed, [listedGone.Id.ToString()] = Workshop.Removed };
                 var built = BuildCatalog();
                 Check("Bridge: the catalog carries every non-map, blocked id and unlisted gone id the server refuses, each in the card's words - a listed gone map stays a card on the list",
-                    built.Refused[3369214545] == ("CS2 Aim Map", NotAMap) && built.Refused[3076804331] == ("glassbox", "kicked every player off the server (2026-10-20) - it is blocked")
-                    && built.Refused[123456789].Why == "is on the blocked list" && built.Refused[987654321].Why.EndsWith("nobody can download it")
+                    built.Refused[3369214545] == ("CS2 Aim Map", NotAMap) && built.Refused[3076804331] == ("glassbox", "kicked every player off the server (2026-10-20) - It is blocked")
+                    && built.Refused[123456789].Why == "is on the blocked list" && built.Refused[987654321].Why.EndsWith("Nobody can download it")
                     && !built.Refused.ContainsKey(listedGone.Id) && built.Maps.Single(m => m.Id == listedGone.Id).Removed);
             }
             finally { (Packs, Blocked, Removed) = (packs, blocked, removed); }
@@ -250,11 +250,11 @@ static partial class Program
             Ingest("10/21/2026 - 12:00:01.000 - \"Remy<2><[U:1:12345678]><CT>\" say \"!next\"", null);
             Check("A !map or !next typed in chat does nothing at the bridge: no change, no note, no news (the plugin answers it with one private hint)",
                 Pending == null && Told.Count == 0 && NoteFor.Count == 0);
-            Tell("[U:1:1001]", "only Alice"); Announce("everybody");
+            Tell("[U:1:1001]", "only Alice"); Announce("Everybody");
             var h = new HudState();
             PutNotices(h, Now());
             Check("Tell is a note for that player alone, Announce the news line for all; both carry their seconds left",
-                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)NoteSeconds && h.News == "everybody" && h.NewsFor > 0);
+                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)NoteSeconds && h.News == "Everybody" && h.NewsFor > 0);
             PutNotices(h = new HudState(), Now().AddSeconds(NoteSeconds + 1));
             Check("...and both are gone once their time is up", h.Notes.Count == 0 && h.News == "" && NoteFor.Count == 0);
         }

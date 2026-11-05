@@ -295,8 +295,10 @@ public static partial class Sections
         return null;
     }
 
-    /// <summary>A line from outside (the restart watcher's) with every section's first word a capital, a name left as it is written.</summary>
-    public static string Capitalize(string text) => Between().Replace(Messages.Capital(text), m => m.Value).Length == 0 ? text : Starts().Replace(Messages.Capital(text), m => m.Groups[1].Value + (m.Groups[2].Value.Any(c => c == '_' || char.IsDigit(c)) ? m.Groups[2].Value : Messages.Capital(m.Groups[2].Value)));
+    /// <summary>The first word after every " - ", " · " and line break a capital, a name left as it is written (marked, or with an underscore or a digit in it): the net
+    /// under every message, for a template no self-test reaches. The line's own first word stays: it is usually a name. A line from outside (the restart watcher's)
+    /// also goes through Messages.Capital.</summary>
+    public static string Capitalize(string text) => Starts().Replace(text, m => m.Groups[1].Value + (m.Groups[2].Value.Any(c => c == '_' || char.IsDigit(c)) ? m.Groups[2].Value : Messages.Capital(m.Groups[2].Value)));
 
-    [GeneratedRegex(@"(\s+-\s+|\s+·\s+)(\S+)")] private static partial Regex Starts();
+    [GeneratedRegex(@"(\s+-\s+|\s+·\s+|\n)(\S+)")] private static partial Regex Starts();
 }

@@ -28,13 +28,14 @@ static partial class Program
     /// replaces its own older version on the board. seconds: how long, when not the kind's. chat: false leaves chat out this once (a refreshed line says it only at its steps).</summary>
     static void Post(Messages.Kind kind, string text, string steamId = "", string key = "", double? seconds = null, bool chat = true)
     {
+        ToldAll?.Add(text); // as written: the self-test holds the templates themselves to the capitals rule
+        text = Sections.Capitalize(text);
         var now = Now();
         var plain = Hud.Clean(M.Plain(text), kind.Surface == Surface.Line ? NoticeLength : NewsLength);
         var secs = seconds ?? (kind.Seconds > 0 ? kind.Seconds : NewsSeconds);
         var account = steamId != "" ? Math.Max(0, AccountId(steamId)) : 0;
         Log($"{kind.Id}{(steamId != "" ? $" {steamId}" : "")}: {plain}");
         Keep(plain);
-        ToldAll?.Add(text);
         switch (kind.Surface)
         {
             case Surface.Top: TopNow = (plain, kind.Cat.Id, now, now.AddSeconds(secs)); break;

@@ -86,7 +86,7 @@ static partial class Program
         var mode = ModeOf(map);
         if (mode.Id == CurrentMode.Id || mode.ArmsRace) return null;
         var humans = Humans();
-        return mode.Suits(humans) ? null : $"{mode.Name} takes {mode.MaxPlayers} players, and {humans} are on - not this map now";
+        return mode.Suits(humans) ? null : $"{mode.Name} takes {mode.MaxPlayers} players, and {humans} are on - Not this map now";
     }
 
     /// <summary>A listed map of another mode by its Workshop id (a pasted link), or null.</summary>
@@ -208,7 +208,7 @@ static partial class Program
         if (CurrentMode.ArmsRace || Pending != null || AnnouncePending || now < ModeResetRetryAt || InMaintenance()) return;
         ModeResetRetryAt = now.AddMinutes(1);
         var from = CurrentMode.Name;
-        if (!AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - back to {Modes.Default.Name}", Modes.Default)) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
+        if (!AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - Back to {Modes.Default.Name}", Modes.Default)) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }
         Log($"reset: nobody on for over {ResetEmptyMinutes} min in {from} - back to {Modes.Default.Name} on {Label(Pending!.Map)}");
     }
 

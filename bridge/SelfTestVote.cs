@@ -168,7 +168,7 @@ static partial class Program
             HudActive = () => false;
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             MatchEnd();
-            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Pending is { Auto: true, By: "the dice" } && Said("Match over - rolling the dice"));
+            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Pending is { Auto: true, By: "the dice" } && Said("Match over - Rolling the dice"));
 
             // ---- the ballot at a match end: Play this map again, the server's mode to a page, one map of each other mode, Random ----
             Fresh();
@@ -184,7 +184,7 @@ static partial class Program
             Check($"A match end with the plugin drawing it opens the vote at once, the wait after the last vote notwithstanding: a page of {MapVote.PageCards} cards numbered 1 to {MapVote.PageCards} and Random (option {MapVote.RandomOption}), {MapVote.Seconds} s, on the news line",
                 Ballot is { Open: true, MatchEnded: true } b1 && b1.Options.Count == MapVote.PageCards + 1 && b1.Options[^1] is { Source: VoteSource.Random, Map: null, N: MapVote.RandomOption }
                 && (b1.Ends - b1.Opened).TotalSeconds == MapVote.Seconds && b1.Options.SkipLast(1).Select(o => o.N).SequenceEqual(Enumerable.Range(1, MapVote.PageCards))
-                && Pending is null && Said("Match over - vote for the next map: everybody votes"));
+                && Pending is null && Said("Match over - Vote for the next map: Everybody votes"));
             Check($"...Play this map again first, then {fill} Arms Race maps, then one Deathmatch and one Wingman map (3 on: Wingman suits)",
                 Opt(1) is { Source: VoteSource.Keep } k1 && k1.Map == m[0]
                 && Ballot!.Options.Skip(1).Take(MapVote.PageCards - 1).Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", fill).Concat(["deathmatch", "wingman"]))
@@ -252,7 +252,7 @@ static partial class Program
                 var (r1, r2) = (Ballot!.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(0).N, Ballot.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(1).N);
                 Click(alice, r1);
                 Check($"The inactivity timer ({MapVote.InactivitySeconds} s): everybody has voted, the vote stays open, the screen counts it down and names who reset it",
-                    Ballot is { Open: true } && VoteState.Decode(HudTextNow()) is { Inactivity: 5, Waiting.Count: 0, ResetBy: "Alice" } st && HudVote.WaitLine(st).EndsWith("Inactivity timer 5 s - reset by Alice"));
+                    Ballot is { Open: true } && VoteState.Decode(HudTextNow()) is { Inactivity: 5, Waiting.Count: 0, ResetBy: "Alice" } st && HudVote.WaitLine(st).EndsWith("Inactivity timer 5 s - Reset by Alice"));
                 Run(3); Click(alice, r2);
                 Run(3);
                 Check("...a change starts it again: 3 s after the change, still open", Ballot is { Open: true });
@@ -279,7 +279,7 @@ static partial class Program
             // ---- the transport (HudTransport.cs): countdowns as end times, so a state that only counts down does not change ----
             Fresh();
             foreach (var p in new[] { alice, bob }) Join(p);
-            Announce("a line", 60); Tell(alice.Item2, "a note", 30);
+            Announce("A line", 60); Tell(alice.Item2, "A note", 30);
             MatchEnd();
             Click(alice, Ballot!.Options.First(o => o.Source == VoteSource.Rolled).N); // a vote open, Bob still to vote: its clock runs
             string EndTimesText() => BuildHud(clock).Encode(endTimes: true) + BuildVoteState(clock).Encode(endTimes: true);
@@ -297,10 +297,10 @@ static partial class Program
                 && !HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(clock.AddSeconds(90))).SecondsLeft == 0);
             PublishHud(); var published = HudVersion; PublishHud();
             Check("A state published again unchanged keeps its version", HudVersion == published);
-            Announce("another line", 10); PublishHud();
+            Announce("Another line", 10); PublishHud();
             Check("...a change takes the next one; every answer starts with it and the bridge's clock, and a poll without a change gets a few bytes",
                 HudVersion == published + 1 && StateAnswer().Split('\n')[1].StartsWith($"{Hud.VersionLine}\t{HudVersion}\t") && UnchangedAnswer().EndsWith($"{Hud.Unchanged}\n") && UnchangedAnswer().Length < 80
-                && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.News == "another line");
+                && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.News == "Another line");
 
             // ---- during the vote: picks go on it, a click changes or takes back a vote ----
             Fresh();
@@ -346,7 +346,7 @@ static partial class Program
             ClearNotices(); Pick(bob, two0);
             Check("...a map the ballot holds already gets the player's vote alone", Ballot!.Choices[bob.Item2] == 2 && Said("is on the vote already"));
             ClearNotices(); Pick(cara, m[9]);
-            Check("...the map that is on is the Keep card: a pick of it is a vote to keep it", Ballot!.Choices[cara.Item2] == OptOf(o => o.Source == VoteSource.Keep) && Said("is on the vote - your vote is on it"));
+            Check("...the map that is on is the Keep card: a pick of it is a vote to keep it", Ballot!.Choices[cara.Item2] == OptOf(o => o.Source == VoteSource.Keep) && Said("is on the vote - Your vote is on it"));
             Check("Three of four have voted: still open, waiting for Dan, everybody frozen", Ballot!.Open && VoteState.Decode(HudTextNow()) is { Freeze: true } w4 && w4.Waiting.SequenceEqual(["Dan"]));
             Leave(bob); Run(1);
             Check("A voter who leaves takes their vote along, and the base shrinks to the 3 still on", !Ballot!.Choices.ContainsKey(bob.Item2) && Ballot.Choices.Count == 2 && VotePresent(Ballot, clock) == 3);
@@ -401,7 +401,7 @@ static partial class Program
             MatchEnd();
             Run(MapVote.Seconds);
             Check("No votes at all at a match end: Random - the dice roll a map of the server's mode",
-                Ballot is { Result: { How: "none" } nr } && nr.N == MapVote.RandomOption && Pending is { By: "the vote" } nv && InArmsRace(nv.Map) && Said("Nobody voted - rolling the dice"));
+                Ballot is { Result: { How: "none" } nr } && nr.N == MapVote.RandomOption && Pending is { By: "the vote" } nv && InArmsRace(nv.Map) && Said("Nobody voted - Rolling the dice"));
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             MatchEnd();
@@ -449,7 +449,7 @@ static partial class Program
             Check("A match that ends during a vote a player started: it runs on as a match end's - its Keep card is Play this map again",
                 Ballot is { Open: true, MatchEnded: true } && VoteState.Decode(HudTextNow()) is { MatchEnded: true } me && me.Options.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again");
             Run(MapVote.Seconds);
-            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && Said("Nobody voted - rolling the dice"));
+            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && Said("Nobody voted - Rolling the dice"));
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             Ask(alice, m[4]); Land();
@@ -457,7 +457,7 @@ static partial class Program
             var again = OptOf(o => o.Source == VoteSource.Keep);
             Click(alice, again); Click(bob, again); Click(cara, again);
             Check("Play this map again wins at a match end: no change - the server's next match is on the same map (mp_match_end_restart)",
-                Ballot is null && Pending is null && S.Map == m[4] && Said("again") && Said("its next match"));
+                Ballot is null && Pending is null && S.Map == m[4] && Said("again") && Said("Its next match"));
 
             // ---- the vote is dropped by a map start, the maintenance flag, everybody leaving, a restart ----
             Fresh();
@@ -618,7 +618,7 @@ static partial class Program
             Check($"Nobody on for just under {ResetEmptyMinutes} minutes in Deathmatch: it stays", S.Mode == "deathmatch" && Pending is null);
             Run(70);
             Check($"...past {ResetEmptyMinutes} minutes: a random Arms Race map, announced, and loaded in Arms Race",
-                Said("back to Arms Race") && sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && sent.Any(c => c.StartsWith("host_workshop_map"))
+                Said("Back to Arms Race") && sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && sent.Any(c => c.StartsWith("host_workshop_map"))
                 && S.Mode == "armsrace" && (gameType, gameMode) == (1, 0) && S.Map is { } backOn && InArmsRace(backOn) && !backOn.Official);
             Fresh();
             foreach (var p in new[] { alice, bob }) Join(p);

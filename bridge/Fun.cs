@@ -120,7 +120,7 @@ public static class Fun
         new("ammo", "Infinite ammo", "No reloads: the magazine never runs out",
             [new("off", "Off", []), new("on", "On", Set(("sv_infinite_ammo", "1")))],
             Set(("sv_infinite_ammo", "2"))), // 2 is Arms Race's own: endless reserve ammo, reloads as usual
-        new("hs", "Headshots only", "Only a hit to the head does damage - aim high",
+        new("hs", "Headshots only", "Only a hit to the head does damage - Aim high",
             [new("off", "Off", []), new("on", "On", Set(("mp_damage_headshot_only", "1")))],
             Set(("mp_damage_headshot_only", "0"))),
         new("vampire", "Vampire", $"Spawn with {VampireHealth} health; the damage you deal heals you, up to {VampireCap}",

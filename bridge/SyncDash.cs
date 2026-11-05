@@ -292,7 +292,7 @@ static class SyncWords
         var old = st == null || age is not { } a || a.TotalMinutes >= OldMinutes;
         W("osdage", st == null ? (input.Problem != "" ? $"No word from the sync: {input.Problem}" : "No word from the sync yet")
             : age is not { } ag ? "The sync's file says nothing of when it was written"
-            : old ? $"Old: the sync last wrote {Ago(ag)} - it may be down"
+            : old ? $"Old: the sync last wrote {Ago(ag)} - It may be down"
             : $"Updated {Ago(ag)}" + (input.Problem != "" ? $" (the newest file was not taken: {input.Problem})" : ""));
         C("osdnone", st == null);
         C("osdold", st != null && old);

@@ -71,26 +71,26 @@ static partial class Program
             {
                 var p = ChatCommands.Parse(a + arg);
                 if (p.Kind != own.Kind || p.Arg != own.Arg || p.Name != own.Name || p.Ran != own.Ran || p.Typed != a + arg
-                    || ChatCommands.Teach(p) != $"You typed {a}{arg} - ran {o.Primary}{arg}") wrong.Add(a);
+                    || ChatCommands.Teach(p) != $"You typed {a}{arg} - Ran {o.Primary}{arg}") wrong.Add(a);
             }
         }
-        Check($"Chat: every alias does what its primary does, and the reply teaches it: You typed !map 12 - ran !play 12{(wrong.Count > 0 ? "; not " + string.Join(" ", wrong) : "")}",
-            wrong.Count == 0 && ChatCommands.Teach(ChatCommands.Parse("!map 12")) == "You typed !map 12 - ran !play 12");
+        Check($"Chat: every alias does what its primary does, and the reply teaches it: You typed !map 12 - Ran !play 12{(wrong.Count > 0 ? "; not " + string.Join(" ", wrong) : "")}",
+            wrong.Count == 0 && ChatCommands.Teach(ChatCommands.Parse("!map 12")) == "You typed !map 12 - Ran !play 12");
         Check("Chat: !fun random and !fun default are the Fun page's Random and Default; !randomize and !funrandom, !defaults and !fundefault run them and teach them, as !set does",
             ChatCommands.Parse("!fun random") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Typed: "" } && ChatCommands.Parse("!FUN DEFAULT") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord, Typed: "" }
-            && ChatCommands.FunRandomWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !fun random")
-            && ChatCommands.FunDefaultWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !fun default")
+            && ChatCommands.FunRandomWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - Ran !fun random")
+            && ChatCommands.FunDefaultWords.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.DefaultWord, Name: "!fun" } p && ChatCommands.Teach(p) == $"You typed {w} - Ran !fun default")
             && ChatCommands.Parse("!set random") is { Kind: ChatCommands.Kind.FunAll, Arg: Fun.RandomWord, Ran: "!fun random", Typed: "!set random" }
             && ChatCommands.Parse("!fun random", voteOpen: true) is { Kind: ChatCommands.Kind.FunAll } && ChatCommands.Parse("!fun randomly") is { Kind: ChatCommands.Kind.Usage, Name: "!fun" });
         Check("Chat: !sync opens the Sync page; !status and !dashboard teach it",
-            ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync", Typed: "" } && ChatCommands.Teach(ChatCommands.Parse("!status")) == "You typed !status - ran !sync"
+            ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync", Typed: "" } && ChatCommands.Teach(ChatCommands.Parse("!status")) == "You typed !status - Ran !sync"
             && ChatCommands.Parse("!dashboard") is { Kind: ChatCommands.Kind.Page, Arg: "Sync", Ran: "!sync" });
         Check("Chat: !skip and its aliases are Next's now - the vote for the next map, Keep playing on it; the old skip vote is gone",
-            new[] { "!skip", "!voteskip", "!vs", "!boo" }.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Name: "!next" } p && ChatCommands.Teach(p) == $"You typed {w} - ran !next")
+            new[] { "!skip", "!voteskip", "!vs", "!boo" }.All(w => ChatCommands.Parse(w) is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Name: "!next" } p && ChatCommands.Teach(p) == $"You typed {w} - Ran !next")
             && ChatCommands.Find("!skip") == null && ChatCommands.Parse("!random") is { Kind: ChatCommands.Kind.Bridge, Arg: "!next random" } && Hud.IsAction("!next random"));
         Check("Chat: the primary itself teaches nothing, however it is typed; the reply keeps what was typed and always fits a chat line",
             ChatCommands.Teach(ChatCommands.Parse("!play 12")) == null && ChatCommands.Teach(ChatCommands.Parse("/PLAY 12")) == null
-            && ChatCommands.Teach(ChatCommands.Parse("/MAP 12")) == "You typed /MAP 12 - ran !play 12"
+            && ChatCommands.Teach(ChatCommands.Parse("/MAP 12")) == "You typed /MAP 12 - Ran !play 12"
             && ChatCommands.Teach(ChatCommands.Parse("!map " + new string('x', 300)))!.Length <= ChatCommands.LineMax);
         Check("Chat: !like 12, !dislike 12 big and the rest carry a map's number or an official map's name; anything else gets the primary's usage; !toobig and !ads are gone (!down big, !down ads)",
             ChatCommands.Parse("!like 12") is { Kind: ChatCommands.Kind.Bridge, Arg: "!up 12", Ran: "!up 12" } && ChatCommands.Parse("!dislike AR_shoots big") is { Kind: ChatCommands.Kind.Bridge, Arg: "!down ar_shoots big" }
@@ -139,7 +139,7 @@ static partial class Program
             && ChatCommands.Parse("!m dust") is { Kind: ChatCommands.Kind.Find, Arg: "dust" }
             && ChatCommands.Parse("!maps") is { Kind: ChatCommands.Kind.Page, Arg: "Maps", Typed: "" }
             && ChatCommands.Parse("!top") is { Kind: ChatCommands.Kind.Top, Arg: "Maps", Typed: "!top" }
-            && ChatCommands.Teach(ChatCommands.Parse("!top")) == "You typed !top - ran !maps, sorted by likes");
+            && ChatCommands.Teach(ChatCommands.Parse("!top")) == "You typed !top - Ran !maps, sorted by likes");
         Check("Chat: !rtv and !change are the board's Next, which is what also makes them a vote to skip on somebody's map",
             ChatCommands.Parse("!rtv") is { Kind: ChatCommands.Kind.Bridge, Arg: "next", Ran: "!next" } && ChatCommands.Parse("!change") is { Kind: ChatCommands.Kind.Bridge, Arg: "next" });
 
@@ -152,7 +152,7 @@ static partial class Program
                 var want = $"{s.Id} {c.Id}";
                 if (ChatCommands.Parse($"!{want}") is not { Kind: ChatCommands.Kind.Fun, Typed: "" } own || own.Arg != want || own.Ran != $"!{want}") funWrong.Add($"!{want}");
                 if (ChatCommands.Parse($"!fun {want}") is not { Kind: ChatCommands.Kind.Fun } fun || fun.Arg != want || fun.Ran != $"!{want}" || fun.Typed != $"!fun {want}") funWrong.Add($"!fun {want}");
-                if (ChatCommands.Parse($"!set {want}") is not { Kind: ChatCommands.Kind.Fun } set || set.Arg != want || ChatCommands.Teach(set) != $"You typed !set {want} - ran !{want}") funWrong.Add($"!set {want}");
+                if (ChatCommands.Parse($"!set {want}") is not { Kind: ChatCommands.Kind.Fun } set || set.Arg != want || ChatCommands.Teach(set) != $"You typed !set {want} - Ran !{want}") funWrong.Add($"!set {want}");
             }
             if (ChatCommands.Parse($"!{s.Id}").Kind != ChatCommands.Kind.Usage || ChatCommands.Parse($"!{s.Id} nonsense").Kind != ChatCommands.Kind.Usage
                 || ChatCommands.UsageOf($"!{s.Id}").Length > ChatCommands.LineMax || !ChatCommands.UsageOf($"!{s.Id}").StartsWith($"!{s.Id} ")) funWrong.Add($"!{s.Id}");
@@ -228,7 +228,7 @@ static partial class Program
             var row = ChatCommands.All.Where(c => !Regex.IsMatch(section, $@"^\| `{Regex.Escape(c.Word)}[ `][^\n]*\| {string.Join(" ", c.Aliases.Select(a => Regex.Escape($"`{a}`")))}[ ,|]", RegexOptions.Multiline)).Select(c => c.Word).ToList();
             Check($"...each alias on its own primary's row, in the table's order{(row.Count > 0 ? ": not " + string.Join(" ", row) : "")}", row.Count == 0);
             Check("...and it says the rules: what ran, the context words, the fun words, the vote's bare number, what a vote does to !play and !back, the printed card click, the reasons",
-                section.Contains("You typed !map 12 - ran !play 12") && Regex.IsMatch(section, @"While a vote is open.*?`!play`.*?`!back`", RegexOptions.Singleline) && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label))
+                section.Contains("You typed !map 12 - Ran !play 12") && Regex.IsMatch(section, @"While a vote is open.*?`!play`.*?`!back`", RegexOptions.Singleline) && doc.Contains($"!down <number> <reason>") && DownReasons.All.All(r => doc.Contains($"`{r.Word}`") && doc.Contains(r.Label))
                 && doc.Contains($"popup listing them for {DownReasons.PopupSeconds} s"));
         }
         if (File.Exists(readmeFile))

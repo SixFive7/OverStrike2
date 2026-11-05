@@ -15,7 +15,7 @@ public sealed record WorkshopItem(long Id, int Result, int Visibility, bool Bann
     /// <summary>Null when the server can play it; otherwise why not, in the card's words.</summary>
     public string? Refusal => Result != 1 ? "is not on the Workshop (removed, or a wrong id)"
         : Banned ? "was banned from the Workshop"
-        : Visibility != 0 ? "is not public on the Workshop - only its author can download it"
+        : Visibility != 0 ? "is not public on the Workshop - Only its author can download it"
         : AppId != Cs2 ? "is not a Counter-Strike 2 item"
         : null;
 
@@ -112,7 +112,7 @@ public sealed class WorkshopCard
     public void Checked(WorkshopItem? item, string? error = null)
     {
         if (At != Step.Checking) return;
-        if (item == null) { (At, Why) = (Step.Failed, error ?? "the Workshop did not answer - try again in a moment"); return; }
+        if (item == null) { (At, Why) = (Step.Failed, error ?? "the Workshop did not answer - Try again in a moment"); return; }
         Item = item;
         (At, Why) = item.Refusal is { } no ? (Step.Refused, no) : (Step.Ready, "");
     }
@@ -144,10 +144,10 @@ public sealed class WorkshopCard
             Step.Checking => "Asking the Workshop about it...",
             Step.Refused => $"Not playable: it {Why}.",
             Step.Ready => "Not on the list, but playable. The server downloads it first; nobody's game is interrupted meanwhile.",
-            Step.Waiting => "Another download is running - this one starts right after it.",
+            Step.Waiting => "Another download is running - This one starts right after it.",
             Step.Downloading => SteamBusy ? "Waiting for Steam: the first download after a server restart waits for its map-cache check (up to 15 minutes)."
                 : $"Downloading to the server: {Percent}%",
-            Step.Installed => "Downloaded - asking for the map change.",
+            Step.Installed => "Downloaded - Asking for the map change.",
             Step.Requested => "Requested: it plays when its turn comes, like any pick.",
             Step.Failed => $"Could not get it: {Why}.",
             _ => "",

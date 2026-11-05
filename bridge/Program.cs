@@ -249,11 +249,11 @@ static partial class Program
         // anything is asked of the Workshop or downloaded. Command() refuses the same ids again if one ever reaches it.
         var listed = c.Maps.Select(m => m.Id).ToHashSet();
         foreach (var (id, verdict) in Removed)
-            if (long.TryParse(id, out var n) && !listed.Contains(n)) c.Refused[n] = ("", $"{Workshop.Reason(verdict)} - nobody can download it");
+            if (long.TryParse(id, out var n) && !listed.Contains(n)) c.Refused[n] = ("", $"{Workshop.Reason(verdict)} - Nobody can download it");
         foreach (var (id, name) in Packs)
             if (long.TryParse(id, out var n)) c.Refused[n] = (name, NotAMap);
         foreach (var (id, (name, _, reason)) in Blocked)
-            if (long.TryParse(id, out var n)) c.Refused[n] = (name, reason.StartsWith("is on the blocked list") ? reason : $"{reason} - it is blocked");
+            if (long.TryParse(id, out var n)) c.Refused[n] = (name, reason.StartsWith("is on the blocked list") ? reason : $"{reason} - It is blocked");
         return c;
     }
 
@@ -626,7 +626,7 @@ static partial class Program
 
     /// <summary>The refusal's claim. Deliberately neutral: the list mixes skin packs, configs, sound packs and empty uploads, and
     /// "skin pack" was false for most of them. True of every one: it is not a playable map, and the server cannot load it.</summary>
-    const string NotAMap = "isn't a playable map - it can't be loaded";
+    const string NotAMap = "isn't a playable map - It can't be loaded";
 
     /// <summary>The refusal, named from the packs list so a bare id still reads as the item it is. The name is clipped at 60
     /// characters, so the line fits untrimmed whatever the item is called and "it can't be loaded" is never the part cut off.</summary>
@@ -703,7 +703,7 @@ static partial class Program
         AnnouncePending = true; AnnounceDeadline = now.AddMinutes(LoadMinutes); AnnounceSentAt = now; LoadBehindDownload = false;
         Save();
         if (Unlisted(change.Map)) // the bridge stays off the internet: only loading proves an unlisted id is a map
-            Announce($"{Clip(Label(change.Map), 40)} is not on the list: if nothing happens within a minute it is no playable map - start a vote to replace it", 60);
+            Announce($"{Clip(Label(change.Map), 40)} is not on the list: if nothing happens within a minute it is no playable map - Start a vote to replace it", 60);
     }
 
     /// <summary>A match ended: the vote, where the plugin draws it (it polls /hud) and somebody is on; the dice where nothing draws a vote, the
@@ -772,7 +772,7 @@ static partial class Program
         S.RoundBy = want == DefaultRoundMinutes ? null : Clip(by, 32); // the Game page says who set a length that is not the default
         Save();
         ApplyMatchLength();
-        Announce($"{by} set matches to {want} minutes - from the next match");
+        Announce($"{by} set matches to {want} minutes - From the next match");
     }
 
     static DateTime RestartConfirmUntil, RestartCooldownUntil;
@@ -787,7 +787,7 @@ static partial class Program
         var now = Now();
         if (now < RestartCooldownUntil)
         {
-            Tell(steamId, $"Just restarted - wait {(int)(RestartCooldownUntil - now).TotalSeconds} s before asking again");
+            Tell(steamId, $"Just restarted - Wait {(int)(RestartCooldownUntil - now).TotalSeconds} s before asking again");
             return;
         }
         if (RestartConfirmBy != steamId || now > RestartConfirmUntil)
@@ -798,7 +798,7 @@ static partial class Program
         }
         RestartConfirmBy = ""; RestartConfirmUntil = default;
         RestartCooldownUntil = now.AddSeconds(RestartCooldown);
-        Announce($"{by} is restarting the server - back in about a minute, reconnect then", 30);
+        Announce($"{by} is restarting the server - Back in about a minute, reconnect then", 30);
         After(3000, () => { Log($"restart by {by}"); ServerGoingDown($"its own !restart by {by}"); Send("quit"); }); // let the news line reach everyone before the process goes
     }
 
@@ -967,7 +967,7 @@ static partial class Program
             S = new State { LogName = eligible[3].Name };                            // no bridge-picked map: only the name the server logs
             Check("A roll excludes the loaded map by its log name too", Enumerable.Range(0, 2000).All(_ => RandomPick()!.Name != eligible[3].Name));
             S = new State();
-            var dice = eligible.Select(m => $"Match over - rolling the dice: {Label(m)}{Detail(m)}").ToList();
+            var dice = eligible.Select(m => $"Match over - Rolling the dice: {Label(m)}{Detail(m)}").ToList();
             Console.WriteLine("dice: " + dice[Maps.Count / 7]);
             Check($"The dice line fits for {dice.Count(l => l.Length <= 120)} of {dice.Count} eligible maps (longest {dice.Max(l => l.Length)}, Say trims the rest)",
                 dice.Count(l => l.Length > 120) * 100 < dice.Count);
@@ -1065,7 +1065,7 @@ static partial class Program
 
             Pick(fine.Rank.ToString());
             Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the news line, so the silence below means something",
-                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("changing in") && NewsNow.Text == Told[1] && sent.Count == 0);
+                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing in") && NewsNow.Text == Told[1] && sent.Count == 0);
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",

@@ -56,7 +56,7 @@ sealed partial class HudScreen
     /// to chat only when it starts and at each quarter.</summary>
     public string Notice(string text, int seconds)
     {
-        var line = Sections.Capitalize(Hud.Clean(text, Messages.TopMax));
+        var line = Messages.Capital(Sections.Capitalize(Hud.Clean(text, Messages.TopMax)));
         var secs = Math.Clamp(seconds, 3, 3600);
         var (kind, key, step) = Messages.OfNotice(line);
         var said = key == "" || !noticeSteps.TryGetValue(key, out var was) || was != step;

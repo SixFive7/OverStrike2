@@ -84,7 +84,7 @@ static partial class Program
     static bool AutoRoll(string lead, Modes.Mode? mode = null)
     {
         if (RandomNext(mode) is not { } map) return false;
-        StartChange(new Change(map, "the dice") { Auto = true }, $"{lead} - rolling the dice: {Label(map)}{Detail(map, MapTags.WhyWords(TagsOf(map), picked: false))}{ModeTag(map)}");
+        StartChange(new Change(map, "the dice") { Auto = true }, $"{lead} - Rolling the dice: {Label(map)}{Detail(map, MapTags.WhyWords(TagsOf(map), picked: false))}{ModeTag(map)}");
         return true;
     }
 
@@ -103,7 +103,7 @@ static partial class Program
             Loading = AnnouncePending,
             Status = Pending is { } p ? $"Changing to {Clip(Label(p.Map), 32)}"
                 : Ballot is { Open: true } ? "Vote for the next map"
-                : "Plays until its match ends - or start a vote",
+                : "Plays until its match ends - Or start a vote",
         };
         (h.Up, h.Down) = key == "" ? (0, 0) : Tally(key);
         if (key != "" && Votes.TryGetValue(key, out var votes))

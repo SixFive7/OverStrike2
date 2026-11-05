@@ -48,7 +48,7 @@ static partial class Program
         Join(alice); Quiet();
         OnMatchEnd();
         HudActive = hudWas;
-        Check("...end to end: the dice's news line names the map, and fits", Pending is { Auto: true } && NewsNow.Text.StartsWith("Match over - rolling the dice: ") && NewsNow.Text.Length <= NewsLength);
+        Check("...end to end: the dice's news line names the map, and fits", Pending is { Auto: true } && NewsNow.Text.StartsWith("Match over - Rolling the dice: ") && NewsNow.Text.Length <= NewsLength);
         Fresh();
 
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----
@@ -113,7 +113,7 @@ static partial class Program
         int VoteOf(string key, string id) => Votes.TryGetValue(key, out var v) ? v.GetValueOrDefault(id) : 0;
         Quiet(); Talk(alice, "!up");
         Check("A Like takes the too-big vote back first, and the mark goes with it: no vote, nothing cast",
-            VoteOf(Key(on), "[U:1:1001]") == 0 && !TooBig(on) && Said("Your dislike (too big) of") && Said("like it again to add a like"));
+            VoteOf(Key(on), "[U:1:1001]") == 0 && !TooBig(on) && Said("Your dislike (too big) of") && Said("Like it again to add a like"));
         Quiet(); Talk(alice, "!up");
         Check("...the next Like casts it", VoteOf(Key(on), "[U:1:1001]") == 1 && Said("You liked"));
         Talk(bob, "!down"); Quiet(); Talk(bob, "!down big");
@@ -214,7 +214,7 @@ static partial class Program
         Quiet(); Talk(alice, "!down");
         Check("...and a plain !down on a plain downvote changes nothing and says it is down already", Votes[whyKey][aliceId] == DownReasons.Plain && Said("You dislike") && Said("already") && !Said("took back"));
         Quiet(); Talk(alice, "!up");
-        Check("The opposite vote takes it back first: no vote, and the note says how to like it", VoteOf(whyKey, aliceId) == 0 && Tally(whyKey) == (0, 0) && Said("Your dislike of") && Said("like it again to add a like"));
+        Check("The opposite vote takes it back first: no vote, and the note says how to like it", VoteOf(whyKey, aliceId) == 0 && Tally(whyKey) == (0, 0) && Said("Your dislike of") && Said("Like it again to add a like"));
         Quiet(); Talk(alice, "!up");
         Check("...the next Like casts it", VoteOf(whyKey, aliceId) == 1 && Tally(whyKey) == (1, 0) && Said("You liked"));
         Quiet(); Talk(alice, "!up");

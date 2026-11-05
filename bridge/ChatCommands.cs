@@ -42,7 +42,7 @@ public static class ChatCommands
         new("!nades", "<on|off>", "Grenade drops on or off", "Game", "!grenades", "!nade", "!he", "!boom"), // !drops is the drops setting's own word (Fun.cs)
         new("!catchup", "<on|off>", "Catch-up boosts on or off, until the map changes", "Game", "!catch", "!boost", "!boosts", "!comeback"), // a fun setting's own word too (Fun.cs)
         new("!time", "<10|60>", "Match length in minutes, from the next match", "Game", "!length", "!minutes", "!timelimit", "!roundtime", "!duration"),
-        new("!restart", "", "Restart a stuck server - twice to confirm", "Game", "!reboot", "!fix", "!unstuck", "!stuck", "!reset"),
+        new("!restart", "", "Restart a stuck server - Twice to confirm", "Game", "!reboot", "!fix", "!unstuck", "!stuck", "!reset"),
         new("!menu", "", "Open the full menu", "Menu", "!gg", "!hud", "!os", "!os2", "!open"),
         new("!help", "", "The Help page, and this list", "Menu", "!commands", "!cmds", "!h", "!?", "!info"),
         new("!how", "", "How it works: every rule and chance of a map pick", "Menu", "!howitworks", "!odds", "!chances", "!why", "!explain",
@@ -165,7 +165,7 @@ public static class ChatCommands
     public static string InChat(string note) => note.Replace("Click Play again", "Type it again").Replace("Click Previous again", "Type it again").Replace("Click Restart again", "Type it again");
 
     /// <summary>The reply that teaches the primary by showing what was executed, or null when the player typed the primary.</summary>
-    public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Hud.Clean(p.Typed, 44)} - ran {Hud.Clean(p.Ran, 50)}";
+    public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Hud.Clean(p.Typed, 44)} - Ran {Hud.Clean(p.Ran, 50)}";
 
     public const int LineMax = 120;
 

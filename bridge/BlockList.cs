@@ -82,8 +82,8 @@ public static class BlockList
     public static string Notice(List<string> labels)
     {
         var list = labels.Count switch { 0 => "a setting", 1 => labels[0], _ => string.Join(", ", labels.Take(labels.Count - 1)) + " and " + labels[^1] };
-        var line = $"This map tried to change {list} - undone: the server keeps its own rules.";
-        return line.Length <= 240 ? line : $"This map tried to change {labels.Count} settings - undone: the server keeps its own rules.";
+        var line = $"This map tried to change {list} - Undone: the server keeps its own rules.";
+        return line.Length <= 240 ? line : $"This map tried to change {labels.Count} settings - Undone: the server keeps its own rules.";
     }
 
     /// <summary>The movement settings bhop and surf maps need: never on the list (the owner's 12b keeps them), checked by --selftest.</summary>

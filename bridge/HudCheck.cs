@@ -89,8 +89,8 @@ public static class HudCheck
 
     /// <summary>A HUD other than the server's own as the Players page says it: older, its content not known (Hud.Release: a click on a button
     /// that names none), or not seen yet ("": no click since the last real join).</summary>
-    public static string VersionWords(string version) => version == Older ? "older - restart CS2" : version == "" ? "not seen yet"
-        : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - restart CS2" : version;
+    public static string VersionWords(string version) => version == Older ? "older - Restart CS2" : version == "" ? "not seen yet"
+        : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - Restart CS2" : version;
 
     /// <summary>Whether a known version is older than this server's content.</summary>
     public static bool IsOutdated(string version) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < HudVote.ContentLevel;

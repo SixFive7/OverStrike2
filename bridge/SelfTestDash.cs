@@ -89,7 +89,7 @@ static partial class Program
         var broken = D(DashSample(updated), now, "the file does not parse: x");
         var odd = D(DashSample(updated, state: "frobnicate"), now);
         Check($"The file's age: old after {SyncWords.OldMinutes} minutes without a new 'updated' (said, and red), missing (said, osdnone), a newer one that was not taken (said beside the age)",
-            Cl(oldD, "osdold") && Wd(oldD, "osdage") == "Old: the sync last wrote 15 min ago - it may be down" && Cl(gone, "osdnone") && !Cl(gone, "osdold")
+            Cl(oldD, "osdold") && Wd(oldD, "osdage") == "Old: the sync last wrote 15 min ago - It may be down" && Cl(gone, "osdnone") && !Cl(gone, "osdold")
             && Wd(gone, "osdstate") == "No word from the sync" && Wd(gone, "osdage") == "No word from the sync yet" && Looks(gone) == 0 && Wd(gone, "osdqhead") == "No queue yet"
             && Wd(broken, "osdage") == "Updated less than a minute ago (the newest file was not taken: the file does not parse: x)"
             && Wd(D(null, now, "schema 2, not 1"), "osdage") == "No word from the sync: schema 2, not 1");

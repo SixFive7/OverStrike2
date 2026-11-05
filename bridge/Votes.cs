@@ -59,8 +59,8 @@ static partial class Program
         else if (arg == "")
         {
             map = S.Map;
-            if (AnnouncePending) { Tell(id, "The next map is still loading - like it once it is on, or on a card in the menu"); return; } // S.Map is already the map on its way
-            if (map == null) { Tell(id, "Not sure which map this is - like it on its card in the menu instead"); return; }
+            if (AnnouncePending) { Tell(id, "The next map is still loading - Like it once it is on, or on a card in the menu"); return; } // S.Map is already the map on its way
+            if (map == null) { Tell(id, "Not sure which map this is - Like it on its card in the menu instead"); return; }
         }
         else
         {
@@ -101,7 +101,7 @@ static partial class Program
             SaveVotes();
             var gone = old > 0 ? "like" : old == DownReasons.Plain ? "dislike" : $"dislike ({DownReasons.Of(old)?.Short})";
             Log($"likes: {by} {id} on {Label(map)}: {gone} taken away");
-            var how = value > 0 ? "like it again to add a like" : value != DownReasons.Plain && DownReasons.Of(value) is { } r ? $"!down {r.Word} again to dislike it: {r.Short}" : "dislike it again to add a dislike";
+            var how = value > 0 ? "Like it again to add a like" : value != DownReasons.Plain && DownReasons.Of(value) is { } r ? $"!down {r.Word} again to dislike it: {r.Short}" : "Dislike it again to add a dislike";
             Tell(id, $"Your {gone} of {Clip(Label(map), PlainVoteLabel)} is removed - {how}, {Tallied()}");
             return;
         }

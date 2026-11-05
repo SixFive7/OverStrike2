@@ -447,7 +447,7 @@ public static class HudMenu
         t.Add(("gg_pg_text", $"Page {b.Page + 1} of {b.PagesFor(matches.Count)}"));
         t.Add(("gg_q_text", b.Keyboard ? b.Query + "|" : b.Query));
         t.Add(("gg_q_hint", b.Query == "" && !b.Keyboard ? "name, tag, description or Workshop ID" : ""));
-        t.Add(("gg_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - other words, or a Workshop ID."
+        t.Add(("gg_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
             : b.Liked ? "You have not liked a map yet: the up arrow on a card likes it." : b.Ours ? "No map of ours on the list yet." : "No map matches these filters."));
         c.Add(("gg_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
         c.Add(("gg_q_search", "used", b.Query != ""));
@@ -604,7 +604,7 @@ public static class HudMenu
         var armed = restartSeconds > 0;
         var t = new List<(string, string)>
         {
-            ("gg_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
+            ("gg_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
             ("gg_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
             ("gg_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),

@@ -24,7 +24,7 @@ static partial class Program
 
     /// <summary>The refusal: neutral, says why, and what to do. The label is clipped so the line always fits.</summary>
     static string RemovedRefusal(MapInfo m) =>
-        $"{Clip(Label(m), 44)} {Workshop.Reason(Removed.GetValueOrDefault(m.Id.ToString(), Workshop.Removed))} - nobody can download it. Pick another.";
+        $"{Clip(Label(m), 44)} {Workshop.Reason(Removed.GetValueOrDefault(m.Id.ToString(), Workshop.Removed))} - Nobody can download it. Pick another.";
 
     static string RemovedPath => Path.Combine(StateDir, "removed.json");
 
@@ -92,7 +92,7 @@ static partial class Program
             Announce($"{Clip(why, 120)} - the change is off.");
         }
         if (Pending == null && !AnnouncePending && Ballot is not { Open: true } && S.Map is { } on && IsRemoved(on) && newly.Contains(Key(on))
-            && !AutoRoll($"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - nobody new can download it"))
+            && !AutoRoll($"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - Nobody new can download it"))
             Log("workshop check: the map that is on is gone, and no map is eligible to roll");
     }
 

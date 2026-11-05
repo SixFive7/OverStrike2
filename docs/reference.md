@@ -108,7 +108,7 @@ confirmations). A line stays visible as the player's normal chat line; only a `/
 trigger. A pasted Workshop link or id opens that item's card.
 
 One table in the code (`ChatCommands.All`), which `--selftest` holds this one to. `!help` lists the first column only. An alias runs the
-action, and its private reply teaches the primary by showing what ran: `You typed !map 12 - ran !play 12`.
+action, and its private reply teaches the primary by showing what ran: `You typed !map 12 - Ran !play 12`.
 
 | Command | What it does | Aliases |
 |---|---|---|

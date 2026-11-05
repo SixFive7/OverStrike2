@@ -36,10 +36,10 @@ static partial class Program
     /// <summary>The kinds a restart notice may name, as the wire names them, and the words for each: why, and what players do afterwards.</summary>
     public static readonly (string Kind, string Why, string After)[] RestartKinds =
     [
-        ("game-update", "A CS2 update", "restart CS2 afterwards"),
-        ("our-update", "An Over Strike 2 update", "back in a minute"),
-        ("daily", "The daily restart", "back in a minute"),
-        ("downloads", "Stuck map downloads", "back in a minute"),
+        ("game-update", "A CS2 update", "Restart CS2 afterwards"),
+        ("our-update", "An Over Strike 2 update", "Back in a minute"),
+        ("daily", "The daily restart", "Back in a minute"),
+        ("downloads", "Stuck map downloads", "Back in a minute"),
     ];
 
     /// <summary>A kind or a when as the wire may spell it, in the one spelling the bridge keeps.</summary>
@@ -85,7 +85,7 @@ static partial class Program
             if (RestartWord(f[3]) != due.Kind) return $"refused: the restart announced is {due.Kind}, not {Clip(f[3], 20)}";
             Log($"restart: the restart watcher takes back its {due.Kind} restart");
             RestartDue = null;
-            Announce($"{RestartKind(due.Kind)!.Value.Why}: no restart after all - the server stays up");
+            Announce($"{RestartKind(due.Kind)!.Value.Why}: no restart after all - The server stays up");
             return "ok: cancelled";
         }
         if (RestartKind(f[2]) is not { } kind) return $"refused: the kind is {string.Join(", ", RestartKinds.Select(k => k.Kind))}, not {Clip(f[2], 20)}";
@@ -113,7 +113,7 @@ static partial class Program
         // from and to: CS2's versions name what it is now; our version's fingerprint names nothing a player reads. Else the words as sent.
         var words = Hud.Clean(f.Length >= 5 ? (kind.Kind == "game-update" ? $"CS2 {f[4].Trim()}" : "") : f.Length > 3 ? string.Join(' ', f.Skip(3)) : "", 60);
         var now = Now();
-        UpdatedNotice = words != "" ? $"Updated to {words}" : kind.Kind == "our-update" ? "Over Strike 2 is updated - welcome back" : $"{kind.Why} is done - welcome back";
+        UpdatedNotice = words != "" ? $"Updated to {words}" : kind.Kind == "our-update" ? "Over Strike 2 is updated - Welcome back" : $"{kind.Why} is done - Welcome back";
         UpdatedNoticeUntil = now.AddMinutes(UpdatedNoticeMinutes);
         RestartDue = null;
         Log($"restart: the restart watcher says the {kind.Kind} restart is done{(words != "" ? $" - {words}" : "")}");

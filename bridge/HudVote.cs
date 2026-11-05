@@ -203,12 +203,12 @@ public static class HudVote
         : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}" : "Everyone has voted";
 
     /// <summary>The inactivity timer as the screen says it: Inactivity timer 4 s - reset by Bob.</summary>
-    public static string InactivityLine(VoteState v) => $"Inactivity timer {v.Inactivity} s{(v.ResetBy != "" ? $" - reset by {Hud.Clean(v.ResetBy, 24)}" : "")}";
+    public static string InactivityLine(VoteState v) => $"Inactivity timer {v.Inactivity} s{(v.ResetBy != "" ? $" - Reset by {Hud.Clean(v.ResetBy, 24)}" : "")}";
 
     /// <summary>The ballot header's two clocks while the vote is open: the limit's line (its seconds left, how many have voted), and the inactivity
     /// timer's once everybody has voted ("" before); decided, the first says what comes and when.</summary>
     public static (string Limit, string Idle) Clocks(VoteState v) =>
-        !v.Open ? (v.Result is { } r ? $"The vote chose {Hud.Clean(r.Label, 40)} - changing in {v.SecondsLeft} s" : "", "")
+        !v.Open ? (v.Result is { } r ? $"The vote chose {Hud.Clean(r.Label, 40)} - Changing in {v.SecondsLeft} s" : "", "")
         : ($"{v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted", v.Inactivity > 0 ? InactivityLine(v) : "");
 
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
@@ -250,7 +250,7 @@ public static class HudVote
         page = Math.Clamp(page, 0, pages - 1);
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
-        t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - changing in {v.SecondsLeft} s"
+        t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - Changing in {v.SecondsLeft} s"
             : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
@@ -258,7 +258,7 @@ public static class HudVote
         var tied = counted.Count(o => o.Votes == most) > 1;
         var typing = MapVote.Numbers == MapVote.Numbering.None ? "" : " or type its number";
         t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
-            : mine > 0 ? $"Your vote is lit - click another card{typing} to change it, yours to take it back" : $"Click a card's Vote{(typing == "" ? "" : typing + " in chat")}"));
+            : mine > 0 ? $"Your vote is lit - Click another card{typing} to change it, yours to take it back" : $"Click a card's Vote{(typing == "" ? "" : typing + " in chat")}"));
         t.Add(("gg_m_empty", ""));
         c.Add(("gg_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));

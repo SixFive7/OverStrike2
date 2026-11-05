@@ -342,7 +342,7 @@ static partial class Program
             Check("...a CS2 update due at the match's end: taken", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0\n").StartsWith("ok: game-update restart at the end of this match"));
             var h1 = HudState.Decode(BuildHud(clock).Encode())!;
             Check("...the warning stands on the news line, and the live state has it in its parts: kind, when, no countdown yet (-1), the words - which tell players to restart CS2 afterwards",
-                h1.News == "A CS2 update: the server restarts at the end of this match - restart CS2 afterwards" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
+                h1.News == "A CS2 update: the server restarts at the end of this match - Restart CS2 afterwards" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
                 && h1.RestartIn == -1 && h1.RestartAt == 0 && h1.RestartWords == h1.News);
             Announce("P1 turned Vampire on", 5);
             var covered = BuildHud(clock).FillLeft(BuildHud(clock).News) == "P1 turned Vampire on";
@@ -355,10 +355,10 @@ static partial class Program
             MatchEnd();
             var h2 = HudState.Decode(BuildHud(clock).Encode())!;
             Check("At the match's end: no vote opens - the server goes down under it - nobody may call one, and the warning says in a moment until the watcher's countdown comes",
-                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - restart CS2 afterwards" && CannotCall(clock) is { } refusal && refusal.StartsWith("The server restarts now"));
+                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards" && CannotCall(clock) is { } refusal && refusal.StartsWith("The server restarts now"));
             Check("...the watcher's countdown: seconds left and the moment it goes, on the news line and in the live state",
                 ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
-                && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - restart CS2 afterwards");
+                && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards");
             Run(5);
             Check("...counting down, the news line with it", HudState.Decode(BuildHud(clock).Encode())!.RestartIn == 25 && BuildHud(clock).FillLeft(BuildHud(clock).News).Contains("restarts in 25 s"));
             Check("...and in the change-driven text its words stand still while it counts down - the HUD fills the countdown in from the end time",
@@ -377,9 +377,9 @@ static partial class Program
             ClearNotices(); Join(players[6]);
             Check("...not later", !Said("Updated to"));
             Check("An update of ours: back in a minute; afterwards no fingerprint on the screen; the words as sent work too; a refused gg-updated changes nothing",
-                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).FillLeft(BuildHud(clock).News) == "An Over Strike 2 update: the server restarts in 30 s - back in a minute"
+                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).FillLeft(BuildHud(clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
                 && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
-                && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - welcome back"
+                && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
                 && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6");
             Check("The first spellings are taken too: update, ours, matchend", ApplyRestartNotice("gg-restart\t1\tours\tmatchend\t0").StartsWith("ok: our-update restart") && RestartDue is { Kind: "our-update", When: "match-end" });
             Check("A cancel takes it back, and says so", ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tcancel\tour-update") == "ok: cancelled"
@@ -426,7 +426,7 @@ static partial class Program
             var odds = (int)Math.Round(1 / TooBigChance);
             var claims = new (string Words, bool True)[]
             {
-                ($"a fresh map - a Workshop upload or update of the last {FreshDays} days", FreshDays == 30), ("a surprise new to us", true), ("favourites the server keeps fill the page", MapVote.PageCards == HudMenu.Cards),
+                ($"a fresh map (a Workshop upload or update of the last {FreshDays} days)", FreshDays == 30), ("a surprise new to us", true), ("favourites the server keeps fill the page", MapVote.PageCards == HudMenu.Cards),
                 ("Every card but a player's pick is on the server's disk", true), ("a small stock new to us", StockSize > 0), ("Random is the dice after the vote", true),
                 ($"1 random pick in {odds} takes a too-big map", Math.Abs(odds * TooBigChance - 1) < 1e-9), ($"the other {odds - 1} one that is not; an empty group hands the pick to the other", true),
                 ("measured XL, or marked Too big by a player", true), ($"gives up to {PopularityPoints:0} points", true), ($"each Like a point (up to {UpvoteCap} Likes)", true),
@@ -455,7 +455,7 @@ static partial class Program
             Check("...nobody voting, it stays open until its limit", Ballot is { Open: true } && BuildVoteState(clock).Freeze);
             Run(2);
             Check($"...and ends cleanly at {MapVote.Seconds} s: nobody frozen, no change, the next vote waits, and the words name no map",
-                Ballot == null && !BuildVoteState(clock).Freeze && Pending == null && VoteWaitUntil > clock && Said("Nobody voted - the map stays"));
+                Ballot == null && !BuildVoteState(clock).Freeze && Pending == null && VoteWaitUntil > clock && Said("Nobody voted - The map stays"));
 
             Fresh();
             Join(players[0]); Join(players[1]);
