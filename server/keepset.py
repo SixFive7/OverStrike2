@@ -1,14 +1,14 @@
-"""keepset.py - THE KEEP SET: the Workshop maps the game server stores (the owner's rules of 2026-11-03).
+"""keepset.py - THE KEEP SET: the Workshop maps the game server stores.
 
-One file for both server scripts (the owner's 76 a, 2026-11-04): update-watch.py deletes what is outside it at every engine start;
-workshop-sync.py hands the server what it lacks and the updates a test passed (the owner's 71 a), tests the maps that will stay first
+One file for both server scripts: update-watch.py deletes what is outside it at every engine start;
+workshop-sync.py hands the server what it lacks and the updates a test passed, tests the maps that will stay first
 and shows the set on its dashboard. the deployment's compose file mounts this file read-only beside each of them, in /home/steam, so each imports it by name. Each guards the
 import: without this file its keep set is empty and says why, so nothing is deleted or handed over on it. Python 3.9, standard
 library only, no infrastructure detail.
 
 Its parts (keep_set): every map with at least one player's up vote; per mode, three lists of its KEEP_TOP playable maps - the best
 Workshop score (Top Rated), the most current subscriptions (Most Subscribed) and Steam's trend order over the last 30 days (Most
-Popular), from ratings.json, which the sync fetches daily - up to 300 a mode (the owner's 35); the own maps and the HUD item; the
+Popular), from ratings.json, which the sync fetches daily - up to 300 a mode; the own maps and the HUD item; the
 bridge's random queues and the maps players queued. Its problems say when it is not to be trusted with a deletion.
 """
 import json
@@ -45,7 +45,7 @@ def keep_set(inputs, now, hud=""):
                blocked.json, removed.json's verdicts, the bridge's crash counts), all from ratings.json, which the sync fetches daily: "rated", the
                best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current subscriptions
                (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order. Up to 300
-               maps a mode (the owner's 35, 2026-11-03)
+               maps a mode
       own, hud ours.json's maps and the HUD item
       queues   the bridge's random queues and the maps players have queued (queues.json)
     Returns {"up", "top": {mode: [ids]}, "lists": {mode: {"rated", "subscribed", "popular": [ids]}}, "cutoff": {mode: {"score",
@@ -78,7 +78,7 @@ def keep_set(inputs, now, hud=""):
             wid = digits(entry.get("id") if isinstance(entry, dict) else entry)
             if wid:
                 bad.add(wid)
-    blocked = inputs.get("blocked.json")  # the maps blocked for good, a file of their own (77 a); optional - without it, more stays
+    blocked = inputs.get("blocked.json")  # the maps blocked for good, a file of their own; optional - without it, more stays
     entries = blocked.get("blocked") if isinstance(blocked, dict) else blocked
     for entry in entries if isinstance(entries, list) else []:
         wid = digits(entry.get("id") if isinstance(entry, dict) else entry)

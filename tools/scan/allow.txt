@@ -2,7 +2,7 @@
 #   <rule> <path glob> <regex the matched text must fully match>  # why it is not private
 #   binary <path> <sha256>  # what the file is and why it may be public
 # Rules: ipv4 ipv6 mac host-path share user-path drive-path steam64 steamid e-mail token hex16 timezone phone id-number
-# cdn-route clock-time quote, or * for any.
+# cdn-route clock-time quote owner-ref, or * for any.
 # Allowed without an entry: loopback and unspecified addresses, the documentation ranges (192.0.2.0/24, 198.51.100.0/24,
 # 203.0.113.0/24, 2001:db8::/32) and e-mail addresses at example.com/.org/.net or .example/.invalid/.test.
 

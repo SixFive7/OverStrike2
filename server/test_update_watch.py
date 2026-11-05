@@ -410,7 +410,7 @@ step(w, clock, 1200)
 check("D: no second daily restart that day", eng.cmds.count("quit") == n)
 
 # E. the daily restart with players on waits for an empty server: no warning, no quit at a match end (it took the vote down with
-#    it), never a kick (the owner's 73 a, 2026-11-04)
+#    it), never a kick
 w, clock, eng = scenario(at("2026-10-04 06:59:00"))
 eng.humans = 3
 step(w, clock, 300)
@@ -512,7 +512,7 @@ step(w, clock, 120)
 check("I: quit not delivered -> engine not killed, restart counted once", not eng.killed and eng.pid == 4242
       and len([e for e in w.state["restarts"] if e[1] == "daily"]) == 1)
 
-# Q. the quit notice (the owner's 47 a, 2026-11-04): the bridge hears of a planned quit right before it, at /quitting/<secret> -
+# Q. the quit notice: the bridge hears of a planned quit right before it, at /quitting/<secret> -
 #    the quit's echo dies with the process (the engine segfaults on quit), and without either the bridge books a crash
 class NoticeReply:
     def __init__(self, body):
@@ -590,7 +590,7 @@ m.rcon = quit_recorder(eng)
 step(w, clock, m.QUIT_NOTICE_PATIENCE - 120)
 check("Q8: the daily restart waits for the notice too...", "quit" not in eng.cmds and not w.state["restarts"])
 step(w, clock, 300)
-check("Q8: ... and, like every planned restart, goes ahead after QUIT_NOTICE_PATIENCE without the bridge's answer (the owner's 87 a)",
+check("Q8: ... and, like every planned restart, goes ahead after QUIT_NOTICE_PATIENCE without the bridge's answer",
       "quit" in eng.cmds and w.state["pending"]["kind"] == "daily")
 QANSWER["fail"] = None
 
@@ -636,7 +636,7 @@ check("J2: a dead RCON is capped at %d fast retries, then the %d ordinary tries 
       w.console is None and w.probe_rcon_misses == m.PROBE_RCON_MISSES and w.probe_tries >= m.PROBE_TRIES)
 
 
-# ---- K-M: the acf and the workshop log; the prefetch is gone (the owner's 71 a, 2026-11-04) ----
+# ---- K-M: the acf and the workshop log; the prefetch is gone ----
 ACF = ('"AppWorkshop"\n{\n\t"appid"\t\t"730"\n\t"SizeOnDisk"\t\t"30"\n\t"WorkshopItemsInstalled"\n\t{\n'
        '\t\t"111"\n\t\t{\n\t\t\t"size"\t\t"10"\n\t\t\t"timeupdated"\t\t"1000"\n\t\t\t"manifest"\t\t"7"\n\t\t}\n'
        '\t\t"222"\n\t\t{\n\t\t\t"size"\t\t"20"\n\t\t\t"timeupdated"\t\t"2000"\n\t\t\t"manifest"\t\t"8"\n\t\t}\n\t}\n'
@@ -649,7 +649,7 @@ ev = m.download_events(["[2001-01-01 12:00:00] [AppID 730] Download item 333 req
                         "[2001-01-01 12:14:54] [AppID 730] Download item 444 result : No Connection", "noise"])
 check("L: workshop_log download lines parse",
       ev == [("333", "requested", ""), ("333", "result", "OK"), ("444", "result", "No Connection")])
-check("M: no prefetch - its plan, its list, its Workshop details, its window and its restart are gone (the owner's 71 a)",
+check("M: no prefetch - its plan, its list, its Workshop details, its window and its restart are gone",
       not any(hasattr(m, n) for n in ("prefetch_plan", "prefetch_lists", "details_parse", "fetch_details", "prefetch_slot", "PREFETCH_AT",
                                       "PREFETCH_RESTART")) and not hasattr(m.Workshop, "step_prefetch")
       and not hasattr(m.Watch, "prefetch_restart_due") and "prefetch_day" not in m.default_state())
@@ -802,8 +802,8 @@ def wsw(line):
         h.write(line + "\n")
 
 
-# P1. the Web API door (the owner's rule, 2026-11-04): the update check, the watcher's only Web API call since the prefetch went
-#     (71 a) - each at least STEAM_API_GAP after the last one ended
+# P1. the Web API door: the update check, the watcher's only Web API call since the prefetch went
+#     - each at least STEAM_API_GAP after the last one ended
 asked = []
 
 
@@ -913,7 +913,7 @@ check("S: other failures are not the stuck state",
       not m.stuck_result("Failure", None) and not m.stuck_result("Busy", "Failed updating depot 730 (Disk write failure)"))
 state, fault = m.validate_state({"schema": 2, "restarts": [[100, "prefetch"]], "prefetch_restart_day": "2026-10-22",
                                  "prefetch_day": "2026-10-22", "pending": {"kind": "prefetch", "at": 100}})
-check("S: a state file from before the owner's 71 a - a prefetch restart in its history and pending, the prefetch's days - still loads "
+check("S: a state file from before the prefetch went - a prefetch restart in its history and pending, the prefetch's days - still loads "
       "(a fault would stop every restart); the days are dropped", fault is None and state["restarts"] == [[100, "prefetch"]]
       and state["pending"]["kind"] == "prefetch" and "prefetch_day" not in state and "prefetch_restart_day" not in state)
 check("S: a prefetch restart in the history is no planned kind any more: it neither fills the cap nor holds the floor",
@@ -971,7 +971,7 @@ for cancel, stuck, label in ((CANCEL_CHUNK, True, "chunk 'No Download Source'"),
     step(w, clock, 3)
     check("O5: %s -> %s" % (label, "broken at once" if stuck else "not broken"),
           (w.workshop.broken is not None) if stuck else (w.workshop.broken is None))
-# T. no restart before a prefetch any more, and no prefetch (the owner's 71 a): from 03:20 to 03:35, nobody on, an old engine - nothing
+# T. no restart before a prefetch any more, and no prefetch: from 03:20 to 03:35, nobody on, an old engine - nothing
 m.RESTART_AT, m.AUTOUPDATE = (7, 0), True
 w, clock, eng = scenario(at("2026-10-13 03:20:00"))
 step(w, clock, 900)

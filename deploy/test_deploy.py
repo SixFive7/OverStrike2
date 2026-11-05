@@ -5,8 +5,8 @@
 
 No server, no Docker, no private config: the stand-in keeps containers and image tags in memory and answers the calls bridge.py
 makes. What it checks: a running bridge and a stopped one are swapped onto the IP and MAC they are configured with (a stopped one
-has no runtime address: on 2026-11-04 a swap of a stopped bridge put the old one back), a failed swap puts it back as it was, and
-data.py ships the hand-made files but never a list the Workshop sync writes on the server (the owner's 77 a).
+has no runtime address, so a swap that checked the runtime address put the old one back), a failed swap puts it back as it was,
+and data.py ships the hand-made files but never a list the Workshop sync writes on the server (one writer per file).
 """
 import copy
 import os

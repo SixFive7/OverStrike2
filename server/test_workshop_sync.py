@@ -114,17 +114,17 @@ c = m.Config()
 check("config: a day cap above 10,000 is clamped to 10,000", c.api_day_cap == 10000)
 check("config: the run's cap never exceeds the day cap", c.api_run_cap == 10000)
 check("config: the gap never drops under 2 s", c.api_gap == 2.0)
-check("config: no daily download cap any more (the owner's 36 c): SYNC_DOWNLOAD_MAX and SYNC_DOWNLOAD_MAX_MB mean nothing",
+check("config: no daily download cap any more: SYNC_DOWNLOAD_MAX and SYNC_DOWNLOAD_MAX_MB mean nothing",
       not hasattr(c, "download_max") and not hasattr(c, "download_bytes"))
 check("config: the pause between downloads never drops under 2 s", c.download_pause == 2.0)
 for k in ("SYNC_API_DAY_CAP", "SYNC_API_RUN_CAP", "SYNC_API_GAP_SECONDS", "SYNC_DOWNLOAD_MAX", "SYNC_DOWNLOAD_MAX_MB", "SYNC_DOWNLOAD_PAUSE"):
     del os.environ[k]
 os.environ["SYNC_API_NIGHT_CAP"] = "50"
 c = m.Config()
-check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s - SYNC_API_NIGHT_CAP, a name of before, means nothing (82 b)",
+check("config: defaults are 500 calls a run, 10,000 in 24 h, 2 s - SYNC_API_NIGHT_CAP, a name of before, means nothing",
       (c.api_run_cap, c.api_day_cap, c.api_gap) == (500, 10000, 2.0))
 del os.environ["SYNC_API_NIGHT_CAP"]
-check("config: no time windows - the daily restart at 07:00 to keep clear of (no prefetch any more: the owner's 71 a), runs of 3 h, "
+check("config: no time windows - the daily restart at 07:00 to keep clear of (no prefetch any more), runs of 3 h, "
       "the API every 4 h", not hasattr(c, "day_start") and not hasattr(c, "start") and not hasattr(c, "prefetch_at")
       and not hasattr(c, "watcher_state") and (c.daily_restart, c.run_hours, c.api_every) == ((7, 0), 3, 4 * 3600))
 c.lower({"api_run_cap": 50, "batch": 5, "publish": False, "api": True})
@@ -149,7 +149,7 @@ check("ledger: the day's count survives a restart (a new process reads the file)
 old = os.path.join(ROOT, "ledger-old.json")
 json.dump({"schema": 1, "calls": [], "nights": {today: 3}, "stops": {}}, open(old, "w"))
 led3, _ = ledger(old, t=clock.t)
-check("ledger: a file with the old key 'nights' and no 'days' is not read - no Web API call until the deploy's edit (82 b)",
+check("ledger: a file with the old key 'nights' and no 'days' is not read - no Web API call until the deploy's edit",
       led3.data is None and "does not parse" in (led3.broken or ""))
 capped, sent_c, _ft = api_with(ledger(os.path.join(ROOT, "ledger-run.json"))[0], FakeClock(1793500000.0), [{"response": {}}] * 5)
 capped.run_cap = 3
@@ -348,7 +348,7 @@ st = m.State(os.path.join(ROOT, "st3.json"))
 b = m.DownloadBudget(st, "2026-11-01")
 for i in range(3000):
     b.spend(1 << 30, str(10000 + i))
-check("downloads: no daily cap (the owner's 36 c) - after 3,000 downloads and 3,000 GB in a day the next is allowed",
+check("downloads: no daily cap - after 3,000 downloads and 3,000 GB in a day the next is allowed",
       b.allows("1")[0] and b.today["items"] == 3000 and b.today["bytes"] == 3000 << 30)
 b.spend(10, "7")
 b.spend(10, "7")
@@ -554,7 +554,7 @@ dm2 = json.loads(texts2["maps-deathmatch.json"])
 check("publish: backfill adds a listed map that carries the tag, keeps the old entries and the official one",
       [e.get("id") for e in dm2 if e.get("id")] == [111, 7] and dm2[-1] == {"name": "de_dust2", "official": True})
 check("publish: nothing to write when nothing changed", m.plan_publish(files2, st, N, [], [], False, {})[0] == {})
-# blocked.json (77 a): the maps blocked for good, a file of their own - known, never a candidate, never published by a test
+# blocked.json: the maps blocked for good, a file of their own - known, never a candidate, never published by a test
 fb = dict(files, blocked=[{"id": 902, "name": "b", "map": "b", "reason": "kicks everybody"}, 905])
 tb, sb = m.plan_publish(fb, st, N, outcomes, [], True, details)
 check("blocked.json: a blocked map that passed is not appended, a blocked crasher not added to broken.json",
@@ -728,7 +728,7 @@ check("run: a maps.json that grew meanwhile is merged into, never written from t
       now_maps[:4] == grown and now_maps[4]["id"] == 903 and now_maps[4]["rank"] == 5)
 nt.finish()
 rep_txt = [f for f in os.listdir(os.path.join(nt.cfg.state_dir, "reports")) if f.endswith(".txt")]
-check("run: the report and its text are written; a run without a problem mails nothing (the owner's 34)",
+check("run: the report and its text are written; a run without a problem mails nothing",
       rep_txt and nt.report["mail"].startswith("NOT sent: no problem") and nt.report["issues"] == [])
 srv.shutdown()
 del os.environ["SYNC_BRIDGE_URL"], os.environ["SYNC_BRIDGE_SECRET"]
@@ -856,7 +856,7 @@ check("run: the estimate counts on the day without the restarts' stretches", rep
 check("run: Steam's push-back is a problem the mail names (not sent here: no SMTP host)",
       any("SteamCMD pushed back" in i for i in rep["issues"]) and rep["mail"].startswith("NOT sent: no SMTP host"))
 
-# the issues-only mail (the owner's 34): what counts, what does not, the words, once a day per problem
+# the issues-only mail: what counts, what does not, the words, once a day per problem
 quiet = {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00", "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)"},
          "tests": {"stop": "somebody was on the server until the deadline"}, "serve": {"stop": "the run's deadline"}, "errors": []}
 check("issues: a run that ended at its deadline, or waited for players, is no problem", m.issues_of(quiet) == [])
@@ -889,7 +889,7 @@ open(os.path.join(icfg.state_dir, "dashboard-url"), "w").write("https://dash.exa
 os.environ.pop("SYNC_DASHBOARD_URL", None)
 os.environ.pop("SYNC_DASHBOARD_URL", None)
 os.environ["SYNC_STATE_DIR"], old_state = icfg.state_dir, os.environ.get("SYNC_STATE_DIR")
-check("issues: the dashboard's address is SYNC_DASHBOARD_URL alone - a <state>/dashboard-url file means nothing (the owner's 85)",
+check("issues: the dashboard's address is SYNC_DASHBOARD_URL alone - a <state>/dashboard-url file means nothing",
       m.Config().dashboard_url == "")
 os.environ["SYNC_DASHBOARD_URL"] = "https://dash.example/"
 check("issues: ... and set there, it is the one the mails point to", m.Config().dashboard_url == "https://dash.example/")
@@ -1077,7 +1077,7 @@ check("stop: a rate limit ends the downloads, the next item is not asked for", "
 rep4 = m.Run(cfg3, FakeClock(T0 + 2 * m.DAY + 3600), manual=True).run()
 check("stop: a later run that day downloads nothing", rep4["downloads"]["ok"] == 0 and "Rate Limit Exceeded" in rep4["downloads"]["stop"])
 FakeSteam.answers = {}
-# a SteamCMD stall (the owner's 86 a): one is routine - a fresh session takes the next map and the downloads go on, nothing to mail; a
+# a SteamCMD stall: one is routine - a fresh session takes the next map and the downloads go on, nothing to mail; a
 # second stall in a run ends its downloads, and that, or one map stalling twice in a day, is a problem for the mail
 humans_now[0] = 0
 state5 = json.load(open(os.path.join(run_root, "state", "state.json"), encoding="utf-8"))
@@ -1105,7 +1105,7 @@ check("stall: a second stall in a run ends its downloads (6003 not asked) and is
 check("stall: one map stalling twice in a day is a problem too; once is not",
       [k for k, _w, _d in m.issues_of({"stalls": [["7001", 2]]})] == ["steamcmd-stalls"] and m.issues_of({"stalls": [["7001", 1]]}) == [])
 FakeSteam.answers = {}
-# a listed map gone from the Workshop (the seed filter gone, the owner's 77 a): the run's check has it, its event comes once - when the
+# a listed map gone from the Workshop (the seed filter gone): the run's check has it, its event comes once - when the
 # bridge's removed.json does not hold that verdict yet - and verdicts that do not reach the bridge are a problem (the only check, 74 a)
 json.dump({"checked": "x", "verdicts": {"11": "ok"}}, open(os.path.join(run_data, "removed.json"), "w"))
 m.check = lambda api, ids, deadline, now=None: ({"11": {"publishedfileid": "11", "result": 9}}, [])
@@ -1135,11 +1135,11 @@ check("run: at noon a run lasts 3 h", hm(m.Run(m.Config(), fcd).deadline) == "15
 fcd.t = day0 + 5 * 3600
 check("run: at 05:00 it ends at 06:45, before the 07:00 restart", hm(m.Run(m.Config(), fcd).deadline) == "06:45")
 fcd.t = day0 + 2 * 3600
-check("run: at 02:00 it runs its 3 h - no prefetch to keep clear of (the owner's 71 a)", hm(m.Run(m.Config(), fcd).deadline) == "05:00")
+check("run: at 02:00 it runs its 3 h - no prefetch to keep clear of", hm(m.Run(m.Config(), fcd).deadline) == "05:00")
 cfgs = m.Config()
 check("service: no start in the daily restart's stretch (06:45-07:10)", m.start_blocked(cfgs, fcd, day0 + 6.9 * 3600) is not None
       and m.start_blocked(cfgs, fcd, day0 + 7.2 * 3600) is None)
-check("service: the night is the sync's - a run may start at 03:10 and at 03:30, nothing waits for a prefetch (the owner's 71 a)",
+check("service: the night is the sync's - a run may start at 03:10 and at 03:30, nothing waits for a prefetch",
       m.start_blocked(cfgs, fcd, day0 + (3 * 60 + 10) * 60) is None and m.start_blocked(cfgs, fcd, day0 + 3.5 * 3600) is None
       and not hasattr(m, "prefetch_due") and not hasattr(m.Run, "wait_for_prefetch"))
 check("service: no run with under 20 minutes before the daily restart's cut: at 06:30 it would end at 06:45 (%s) - at 06:20 one starts"
@@ -1165,7 +1165,7 @@ check("acf: an item is forgotten in both sections, the rest kept", m.acf_items(a
 # ---- 2026-11-03: the keep set (keepset.py, shared with update-watch.py), the scores, the hand-over, the 223 --------------------------
 UW = os.path.join(os.path.dirname(os.path.abspath(SRC)), "update-watch.py")
 uw_text, ws_text = open(UW, encoding="utf-8").read(), open(SRC, encoding="utf-8").read()
-check("keep set: one copy of the rules - keepset.py; neither script holds its own (the owner's 76 a)",
+check("keep set: one copy of the rules - keepset.py; neither script holds its own",
       m.keepset is not None and "KEEP_TOP = " not in uw_text and "KEEP_TOP = " not in ws_text and "def keep_set(inputs, now" not in ws_text)
 sys.modules.setdefault("fcntl", types.ModuleType("fcntl"))
 os.environ.setdefault("STEAMAPPDIR", os.path.join(ROOT, "uwroot"))
@@ -1186,7 +1186,7 @@ check("keep set: both scripts give the same set from the same data", m.safe_keep
       and m.safe_keep_set(kdata, KT, "")["problems"] == uw.keep_set(kdata, KT, "")["problems"])
 kb = m.safe_keep_set(dict(kdata, **{"blocked.json": [{"id": 105}, 106]}), KT, "500")
 k0 = m.safe_keep_set(kdata, KT, "500")
-check("keep set: blocked.json's maps (77 a) are left out of the top lists; without the file they are in, and neither is a problem",
+check("keep set: blocked.json's maps are left out of the top lists; without the file they are in, and neither is a problem",
       "105" in k0["top"]["armsrace"] and "106" in k0["top"]["armsrace"] and not {"105", "106"} & set(kb["top"]["armsrace"])
       and kb["problems"] == k0["problems"])
 kb2 = m.safe_keep_set(dict(kdata, **{"blocked.json": {"blocked": [105]}}), KT, "500")
@@ -1340,7 +1340,7 @@ ns2 = m.Run(ncfg2, FakeClock(KT + 60), manual=True)
 ns2.state.load()
 ns2.serve()
 check("serve: a second run fetches nothing more", FakeSteam.asked == [] and ns2.report["serve"]["missing"] == 0)
-# the owner's 71 a: serve also fetches the stored keep-set maps the Workshop has a newer accepted version of - and only those
+# serve also fetches the stored keep-set maps the Workshop has a newer accepted version of - and only those
 state_file = os.path.join(sstate, "state.json")
 saved_state = open(state_file, encoding="utf-8").read()       # the runs below save it: the later tests get it back as it was
 FakeSteam.asked = []
@@ -1452,7 +1452,7 @@ for w in (sf, se):
 ns4.cleanup_staging()
 check("cleanup: a keep-set pass whose hand-over failed (no acf entry) stays staged for the next run; a pass the keep set does not "
       "want is removed", os.path.isdir(os.path.join(stg, "content", "730", sf)) and not os.path.isdir(os.path.join(stg, "content", "730", se)))
-# the owner's 71 a: a tested pass of a map the server stores is handed over when it is newer than the server's copy (110: the server's
+# a tested pass of a map the server stores is handed over when it is newer than the server's copy (110: the server's
 # acf says 1, the staged one 40), and removed like any decided download when it is not (120: 1 against 1)
 saved_state = open(state_file, encoding="utf-8").read()
 stage("110")

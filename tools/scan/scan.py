@@ -14,8 +14,9 @@ Three layers, all of which must pass:
   1. gitleaks (installed separately): secrets by their known formats and by entropy.
   2. The public rules in this file: any IPv4/IPv6 address, MAC address, host path (/mnt/...), network share, local user path,
      Steam id, e-mail address, token-shaped secret, IANA time zone, phone or national id number, mention of an internet
-     provider or a compose hosts block, clock time beside a date, quoted words of the owner, compiled Valve file (*_c, .vpk),
-     and any binary file not reviewed in allow.txt.
+     provider or a compose hosts block, clock time beside a date, quoted words of the owner, a reference to one of the owner's
+     numbered decisions (in the folders OWNER_REF_PATHS names), compiled Valve file (*_c, .vpk), and any binary file not
+     reviewed in allow.txt.
      Documentation addresses (RFC 5737, RFC 3849), loopback and example.com are allowed by design.
   3. The private denylist: the deployment's own names, domains, addresses and secrets. It lives outside this repository
      (.private/scan-deny.txt, gitignored, or the file OVERSTRIKE2_SCAN_DENY names), because listing those values here would
@@ -76,6 +77,10 @@ RULES = [
     ("quote", re.compile(r"\b[Tt]he owner's\s*\"|\b[Tt]he owner(?:'s \w+)?(?:, 20\d\d-[01]\d-[0-3]\d)?:\s*\"|\b(?:user|owner's) decision [\d-]+ \""
                          r"|\"\s*\((?:the )?owner\)|\b[Tt]he owner's\b[^\n\"]{0,80}?:\s*[\"“]")),
 ]
+# a reference to one of the owner's numbered decisions: the code and the docs say what is, not who decided it when. Only in the
+# folders whose pass is done; the others join OWNER_REF_PATHS as theirs lands. Commit messages are history and are not checked.
+OWNER_REF = re.compile(r"\b[Tt]he owner's (?:\d+(?:\.\d+)?(?: ?[a-z])?\b|decisions?\b|rules?\b)|\b[Uu]ser decision\b|\bowner's decision\b")
+OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*")
 DOC_V4 = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
 DOC_V6 = ipaddress.ip_network("2001:db8::/32")
 VALVE_COMPILED = re.compile(r"(?i)(_c|\.vpk)$")
@@ -207,6 +212,10 @@ class Scan:
                         continue
                     if not self.allow.allows(rule, path, t):
                         self.add(at, rule, t, line, secret=(rule == "token"))
+            if any(fnmatch.fnmatch(path, g) for g in OWNER_REF_PATHS):
+                for m in OWNER_REF.finditer(line):
+                    if not self.allow.allows("owner-ref", path, m.group(0)):
+                        self.add(at, "owner-ref", m.group(0), line)
             for rule, rx in self.deny.patterns:
                 for m in rx.finditer(line):
                     if not self.deny.allowed(path, m.group(0)):

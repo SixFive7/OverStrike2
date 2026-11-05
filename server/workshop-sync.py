@@ -7,7 +7,7 @@ mounted read-only at /home/steam/cs2-workshop-sync.py (source of truth: server/ 
 Python 3.9 compatible. Every path, address, id and limit below comes from the environment (see CONFIG); the code holds
 no infrastructure detail, so it can be published as it is.
 
-NO TIME WINDOWS (the owner's decision of 2026-11-03 - the sync works at any hour while nobody plays): the service starts a run
+NO TIME WINDOWS (the sync works at any hour while nobody plays): the service starts a run
 whenever the game server has had nobody on for SYNC_QUIET_MINUTES and there is work - maps waiting for a download or a test, or the
 API steps due - and a run lasts SYNC_RUN_HOURS (3), cut short before the game server's restarts. Steps 1 to 2b run at most every
 SYNC_API_EVERY_HOURS (4), and when nothing waits. Steps 3 to 5 repeat in batches of SYNC_BATCH maps until the backlog or the run
@@ -15,8 +15,8 @@ ends, or Steam pushes back, so a long run publishes as it goes and staging stays
 downloading and testing within seconds and waits; after a run that did nothing, the service looks again after IDLE_WAIT:
   0. KEEP CLEAR OF THE DAILY RESTART. No run starts from 15 minutes before the game server's daily restart (SYNC_DAILY_RESTART,
      07:00) to 10 after, every run ends 15 minutes before it, and none starts with under MIN_RUN (20 min) left before that cut: a
-     run of minutes only writes a report (the owner's 85). The restart watcher's nightly prefetch, which the sync kept clear of
-     too, is gone since the owner's 71 a (2026-11-04): what it did - the keep set's maps and their updates - is step 2c's.
+     run of minutes only writes a report. The restart watcher's nightly prefetch, which the sync kept clear of too, is gone:
+     what it did - the keep set's maps and their updates - is step 2c's.
   1. FIND NEW MAPS. IPublishedFileService/QueryFiles (api.steampowered.com, the owner's Web API key - the only call that
      needs one: without it the API answers 403, checked 2026-11-01): app 730, any of the tags SYNC_TAGS (Armsrace,
      Deathmatch, Wingman), newest first, 100 a page, the cursor from page to page, and it stops at the first page that
@@ -24,19 +24,19 @@ downloading and testing within seconds and waits; after a run that did nothing, 
   2. CHECK THE MAPS WE LIST. ISteamRemoteStorage/GetPublishedFileDetails (no key), 100 ids a call: every map on
      maps.json and on the mode lists, and every candidate before its download. The verdicts (ok, or gone: result not 1,
      hidden, banned) are handed to the bridge (POST /removed), so a map that is gone is blocked at once - the only Workshop
-     check the bridge hears since the owner's 74 a (2026-11-04), the plugin's daily one gone; a map that goes says so once in
+     check the bridge hears, the plugin's daily one gone; a map that goes says so once in
      the history. A map updated since we last saw it is downloaded and tested again, after the new ones; once it passes, the
      game server's older copy is replaced through the hand-over (2c).
-  2b. THE RATINGS (since 2026-11-03). Once every RATINGS_EVERY, and at once when the ratings kept lack a list: the score
+  2b. THE RATINGS. Once every RATINGS_EVERY, and at once when the ratings kept lack a list: the score
      (vote_data.score, the Workshop's "Top Rated") and the current subscriptions ("Most Subscribed") of every listed map and every
      map waiting for its test - IPublishedFileService/GetDetails with includevotes (the key), 100 ids a call - and each mode's
      "Most Popular" order, Steam's trend over the last TREND_DAYS (30) days (QueryFiles RankedByTrend by the mode's tag; the API
      takes 30, its order differs from 7's and 90's). Kept in the state and written to the bridge's data as ratings.json, from which
-     THE KEEP SET (keepset.py, shared with update-watch.py) takes each mode's three lists of 100 best playable maps
-     (the owner's 35). A run cut short keeps the old time.
+     THE KEEP SET (keepset.py, shared with update-watch.py) takes each mode's three lists of 100 best playable maps. A run cut
+     short keeps the old time.
   2c. THE HAND-OVER. The keep set's maps the game server does not store (its acf and folders, read on the read-only mount of its
-     tree) - the upvoted maps, each mode's best-rated, the own maps; never the random queues, which the server fetches itself - and,
-     since the owner's 71 a (2026-11-04), the ones it stores in an older version than the one this sync accepted (state.json's
+     tree) - the upvoted maps, each mode's best-rated, the own maps; never the random queues, which the server fetches itself - and
+     the ones it stores in an older version than the one this sync accepted (state.json's
      baseline: the version a test passed, or one unchanged since SYNC_CHANGED_SINCE; our own maps, listed by hand and never tested
      here: the newest the check saw) are downloaded with SteamCMD (step 3's session rules and stops) and handed over at once:
      hand_over moves each into <work>/handover/<id>/ with its manifest and, last, its marker <id>.json, and the game server's
@@ -49,11 +49,11 @@ downloading and testing within seconds and waits; after a run that did nothing, 
      container's own staging folder: one SteamCMD session a batch, one item at a time, SYNC_DOWNLOAD_PAUSE between. First every
      waiting map that would make one of its mode's three lists (the keep set's cut-offs; best score first), then new uploads
      (created in the last 14 days, newest first), then listed maps that changed, then everything else strictly by subscribers,
-     whatever the mode. Nothing is skipped for its size: there is no daily download cap (the owner's 36 c, 2026-11-03), and the
-     maps the old caps parked as too big are queued again (the owner's 33: 223 popular maps). The bug brake instead: a map
+     whatever the mode. Nothing is skipped for its size: there is no daily download cap, and the
+     maps the old caps parked as too big are queued again (223 popular maps). The bug brake instead: a map
      downloaded DOWNLOADS_PER_MAP_DAY (2) times in a day is not downloaded again that day. A stall - SteamCMD silent about an
      item for 15 minutes - is routine once: a fresh session takes the next map, and the map that stalled waits for the next
-     run; a second stall in a run ends that run's downloads (the owner's 86 a, 2026-11-04).
+     run; a second stall in a run ends that run's downloads.
   4. SCAN AND LOAD-TEST. The scan reads each download's VPKs: a map, a model pack, an empty upload or a CS:GO-era one,
      and the commands its entity lump and cfg files carry (connect <ip>, `say connect ...`, gambling promo codes). The
      maps then load, one by one, in a TEST COPY OF THE SERVER: a second CS2 engine in this container, started from a
@@ -67,14 +67,14 @@ downloading and testing within seconds and waits; after a run that did nothing, 
      run asks it to at once with POST /reload): the Arms Race passes appended to maps.json (and search.json), the
      Deathmatch and Wingman passes in maps-deathmatch.json and maps-wingman.json (the maps.json entry shape, rank 1..N by popularity; their texts in search.json too), the crashers, the maps with ads and the non-maps
      on broken.json with their reasons. Previous copies are kept under
-     <state>/backups/. THE MAIL is for problems only (the owner's 34, 2026-11-03, issues_of): a run stopped early or a step that errored, Steam pushing back, the test engine failing
+     <state>/backups/. THE MAIL is for problems only (issues_of): a run stopped early or a step that errored, Steam pushing back, the test engine failing
      to start, a safety check refusing, the disk running low (SYNC_DISK_LOW_GB), a failed hand-over, the check's verdicts not
      reaching the bridge, SteamCMD stalling twice in a run or twice on one map in a day (one stall is routine), any other
      error, a run that crashed. Each mail says what went wrong and what the sync did about it, and points to the dashboard; a problem that
      persists is mailed again once a day at most (MAIL_EVERY). A run without one mails nothing: its report stays in
      <state>/reports/ and on the dashboard.
 
-SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
+SAFETY (enforced here, not by convention)
   * The owner's Steam account is never logged in anywhere: SteamCMD and the test engine log on anonymously.
   * No steamcommunity.com request at all: only api.steampowered.com (the Web API) and Steam's own clients.
   * One request at a time: every Web API call goes through one function, in one thread, at least SYNC_API_GAP_SECONDS
@@ -87,7 +87,7 @@ SAFETY (the owner's rules of 2026-11-01, enforced here, not by convention)
   * HARD CAPS on the Web API, persistent (<state>/api-ledger.json, written and flushed BEFORE each call, so a crash never
     loses one): at most 10,000 Web API calls in any rolling 24 hours (10 % of Valve's 100,000 a day per key; the
     configuration can only lower it) and SYNC_API_RUN_CAP (500) a run. An unreadable ledger means no calls at all.
-  * NO DAILY DOWNLOAD CAP (the owner's 36 c, 2026-11-03; 1,500 items and 150 GB a day until then): only Steam's push-back
+  * NO DAILY DOWNLOAD CAP: only Steam's push-back
     stops the downloads - an HTTP 429, 403 or 401, a SteamCMD rate-limit answer or two Access Denied in a row end the day's
     downloads (booked in state.json, so every later run of that day keeps to it), and 3 failed downloads in a row end the
     run's. Still one anonymous SteamCMD download at a time, SYNC_DOWNLOAD_PAUSE apart. The bug brake: a map downloaded
@@ -112,7 +112,7 @@ FILES (<state> = SYNC_STATE_DIR, kept and backed up; <work> = SYNC_WORK_DIR, dis
   <work>/staging/           SteamCMD's install dir: steamapps/workshop is the test engine's Workshop folder.
   <work>/handover/          maps for the game server (step 2c): <id>/, <id>.manifest, <id>.json last; its --organize takes them in.
   <work>/farm/              the test engine's disposable game tree, rebuilt before every test session.
-  <bridge>/sync-status.json THE STATUS FILE for the in-game dashboard (the owner's 34), schema 1 (class Status): what the sync does
+  <bridge>/sync-status.json THE STATUS FILE for the in-game dashboard, schema 1 (class Status): what the sync does
                             now and why, today's counts, the totals, the queue and its next maps, the keep set's parts, the
                             history of runs and map events. Written atomically at every phase change, every STATUS_TICK (15) s
                             during a run, and every minute while idle, waiting or stopped. The bridge does not watch it.
@@ -170,17 +170,17 @@ VERSION = "1"
 USER_AGENT = "cs2-workshop-sync/%s (Workshop sync of a private CS2 server; server/workshop-sync.py)" % VERSION
 
 # ------------------------------------------------------------------------------------------------
-# The owner's hard limits on the Web API (2026-11-01). The environment may lower them, never raise them. The daily download caps went
-# with the owner's 36 c (2026-11-03); the bug brake stands in for them.
+# The hard limits on the Web API. The environment may lower them, never raise them. There are no daily download caps; the bug brake
+# stands in for them.
 # ------------------------------------------------------------------------------------------------
 HARD_API_DAY_CAP = 10000          # 10 % of Valve's 100,000 Web API calls a day per key, over any rolling 24 hours
 HARD_API_GAP = 2.0                # seconds between two Web API calls, at least
-DOWNLOADS_PER_MAP_DAY = 2         # the bug brake: a map downloaded this often today is not downloaded again today (no daily caps since the owner's 36 c)
+DOWNLOADS_PER_MAP_DAY = 2         # the bug brake: a map downloaded this often today is not downloaded again today (no daily caps)
 QUEUE_CHECK = 3000                # the check (step 2) asks the Workshop about this many of the download queue's head
 HOURS_A_DAY = 22                  # what the estimate counts on: the day without the daily restart's stretch, with a margin; play comes off it
 MAIL_EVERY = 20 * 3600            # the mail is for problems only, and one that persists is mailed again once this long has passed
 IDLE_WAIT = 1800                  # after a run that did nothing, the service waits this long before it looks again
-MIN_RUN = 1200                    # no automatic run starts with less than this before its cut: a run of minutes does nothing (the owner's 85)
+MIN_RUN = 1200                    # no automatic run starts with less than this before its cut: a run of minutes does nothing
 API_5XX_ROW = 3                   # server errors in a row that stop the day's API steps
 API_5XX_RUN = 5                   # server errors in a run that stop them
 API_NETFAIL_RUN = 5               # network failures (timeouts, resets) in a run that stop them
@@ -292,7 +292,7 @@ class Config(object):
         self.force_api = False
         self.skip_api = False
         self.disk_low = env_int("SYNC_DISK_LOW_GB", 100, 1, 100000) << 30   # free on the game's volume under this: a problem mailed
-        self.dashboard_url = (os.environ.get("SYNC_DASHBOARD_URL") or "").strip()   # the one place it is set (the owner's 85)
+        self.dashboard_url = (os.environ.get("SYNC_DASHBOARD_URL") or "").strip()   # the one place it is set
         self.handover = env_flag("SYNC_HANDOVER", True)    # the keep set's maps handed over to the game server
         self.handover_dir = os.environ.get("SYNC_HANDOVER_DIR") or os.path.join(self.work_dir, "handover")
         self.depotcache = os.environ.get("SYNC_DEPOTCACHE") or os.path.join(os.environ.get("HOME") or "/home/steam", "Steam", "depotcache")
@@ -726,7 +726,7 @@ def bridge_files(cfg):
     """The bridge's data as it is now: {"maps": [...], "broken": {...}, "blocked": [...], "modes": {mode: [...]}, "search": {...},
     "raw": {}}. Raises ValueError when maps.json, broken.json or a blocked.json that is there does not parse: then nothing is
     published and nothing is assumed. blocked.json - the maps blocked for good, written by hand and shipped by deploy/data.py, never
-    by this tool (the owner's 77 a: one writer per file) - may be missing; broken.json's own "blocked" counts as well."""
+    by this tool (one writer per file) - may be missing; broken.json's own "blocked" counts as well."""
     out = {"raw": {}}
     path = os.path.join(cfg.bridge_data, "maps.json")
     with open(path, "rb") as handle:
@@ -949,8 +949,8 @@ def judge_listed(details, listed, state, cfg, day):
 
 
 # ------------------------------------------------------------------------------------------------
-# THE KEEP SET (the owner's rules of 2026-11-03) lives in keepset.py, which the deployment's compose file mounts beside this script and update-watch.py: one
-# copy of the rules for both (the owner's 76 a, 2026-11-04). The game server deletes what is outside it; this sync hands over what is in
+# THE KEEP SET lives in keepset.py, which the deployment's compose file mounts beside this script and update-watch.py: one
+# copy of the rules for both. The game server deletes what is outside it; this sync hands over what is in
 # it. The import is guarded: without the file the keep set is empty and says why, so serve and the clean-up stop on it as an error and
 # nothing is handed over or lost - the rest of a run goes on.
 # ------------------------------------------------------------------------------------------------
@@ -1126,7 +1126,7 @@ def handovers(folder):
 
 def serve_wants(keep, has, pending, state, cfg):
     """What serve fetches for the game server, in order: (missing, outdated). missing: the keep set's maps it does not store - the
-    upvoted maps, each mode's best-rated, the own maps. outdated (the owner's 71 a, 2026-11-04): the ones it stores in an older version
+    upvoted maps, each mode's best-rated, the own maps. outdated: the ones it stores in an older version
     than the one this sync accepted - state.json's baseline, the version a test passed (or one unchanged since SYNC_CHANGED_SINCE);
     for our own maps, listed by hand and never tested here, the newest the check saw. Never what waits as a hand-over, an excluded
     id, a map whose new version waits for its test (once it passes, cleanup_staging hands that one over) or one whose last test
@@ -1328,7 +1328,7 @@ class SteamCmd(object):
 
 class DownloadBudget(object):
     """The day's downloads, booked in state.json's "downloads" (so a restart of the service cannot reset them, and every run of
-    the day shares them). No daily cap since the owner's 36 c (2026-11-03): only Steam's push-back stops them - a
+    the day shares them). No daily cap: only Steam's push-back stops them - a
     SteamCMD rate-limit answer or two Access Denied in a row end the day's downloads (refuse_for_today, kept here), and a run ends
     its own at 3 failures in a row. The bug brake instead of a volume cap: a map downloaded DOWNLOADS_PER_MAP_DAY times today is not
     downloaded again today."""
@@ -2211,7 +2211,7 @@ PACE_DEFAULT = 31.0   # seconds a map takes, download and test, until a run has 
 
 def backlog_stats(items, wids, cfg, pace=None):
     """How much is waiting and how long it takes: {"items", "bytes", "by_mode", "days", "pace", "hours", "per_day"}. With no daily
-    caps (the owner's 36 c) and no time windows one thing bounds a day: HOURS_A_DAY at the pace measured (or PACE_DEFAULT) - every
+    caps and no time windows one thing bounds a day: HOURS_A_DAY at the pace measured (or PACE_DEFAULT) - every
     hour somebody plays comes on top."""
     by_mode = {}
     for mode, tag, _gt, _gm, _f in MODES:
@@ -2472,7 +2472,7 @@ def mail_text(r, cfg):
     w("")
     if stop:
         w("STOPPED: %s" % stop)
-        w("Every Web API step stopped for the rest of the day at that moment (the owner's rule: any 429, 403 or burst of")
+        w("Every Web API step stopped for the rest of the day at that moment (any 429, 403 or burst of")
         w("server errors). The next day starts again from the ledger's counts.")
         w("")
     for line in r.get("notes") or []:
@@ -2585,7 +2585,7 @@ def mail_text(r, cfg):
     w("")
     w("Limits: Web API calls this run %s of %s, last 24 h %s of %s (10%% of Valve's 100,000), at least %.0f s apart;"
       % (lim.get("api_run"), lim.get("api_run_cap"), lim.get("api_24h"), lim.get("api_day_cap"), lim.get("api_gap", 2)))
-    w("downloads today %s, %s%s - no daily cap (the owner's 36 c): only Steam's push-back stops them; test-engine starts %s of %s." % (
+    w("downloads today %s, %s%s - no daily cap: only Steam's push-back stops them; test-engine starts %s of %s." % (
         lim.get("dl_items"), mb(lim.get("dl_bytes") or 0),
         " (with %d copies the test engine fetched itself)" % lim["dl_engine"] if lim.get("dl_engine") else "",
         lim.get("engine_starts"), lim.get("engine_starts_max")))
@@ -2599,7 +2599,7 @@ def mail_text(r, cfg):
           % (bl.get("days", 0), eta, bl.get("pace", PACE_DEFAULT)))
         w("(download and test), about %.0f h a day while nobody plays (no time windows), so about %d a day; every hour somebody"
           % (bl.get("hours", 0), bl["per_day"] if isinstance(bl.get("per_day"), int) else 0))
-        w("plays comes off it. No daily download cap (the owner's 36 c): only time and the test speed set it.")
+        w("plays comes off it. No daily download cap: only time and the test speed set it.")
     if r.get("waited"):
         w("Waited: %s." % "; ".join(r["waited"]))
     if r.get("errors"):
@@ -2612,7 +2612,7 @@ def mail_text(r, cfg):
 
 
 def issues_of(r):
-    """THE MAIL'S PROBLEMS (the owner's 34, 2026-11-03: the mail only for issues and errors): [(key, what went wrong, what the
+    """THE MAIL'S PROBLEMS (the mail only for issues and errors): [(key, what went wrong, what the
     sync did about it)] of a run's report. What counts: a run stopped early or a step that errored, Steam pushing back (HTTP 429,
     403 or 401; a SteamCMD rate-limit answer or two Access Denied in a row; 3 failed downloads in a row), the test engine failing
     to start, a safety check refusing (the game server's deletion, the check's 10% rule, the publish's), the disk running low, a
@@ -2643,7 +2643,7 @@ def issues_of(r):
                 "No more hand-overs until it does; its next engine start takes them in.")
     stalls = [tuple(s) for s in r.get("stalls") or [] if isinstance(s, (list, tuple)) and len(s) == 2]
     again = [w for w, n in stalls if n >= 2]
-    if len(stalls) >= 2 or again:      # one stall is routine (the owner's 86 a): a fresh session took the next map
+    if len(stalls) >= 2 or again:      # one stall is routine: a fresh session took the next map
         add("steamcmd-stalls", "SteamCMD stalled %s: %s." % (
             "twice in this run" if len(stalls) >= 2 else "on the same map twice today",
             ", ".join("%s (%s today)" % (w, n) for w, n in stalls[:6])),
@@ -2694,7 +2694,7 @@ def issue_mail(issues, ongoing, r, cfg):
         lines += ["Still going on, mailed already in the last day: %s" % " | ".join(what for _k, what, _d in ongoing), ""]
     lines.append("The dashboard: %s" % (cfg.dashboard_url or "the HUD's Sync tab"))
     lines.append("This run's full report: %s" % (r.get("report_path", "?")[:-5] + ".txt" if r.get("report_path") else "?"))
-    lines.append("Runs without a problem send no mail (the owner's 34); their reports stay in the reports folder and on the dashboard.")
+    lines.append("Runs without a problem send no mail; their reports stay in the reports folder and on the dashboard.")
     return subject, "\n".join(lines)
 
 
@@ -2742,7 +2742,7 @@ def cfg_name(cfg):
 
 
 # ------------------------------------------------------------------------------------------------
-# THE STATUS FILE for the in-game dashboard (the owner's 34, brought forward on 2026-11-03)
+# THE STATUS FILE for the in-game dashboard
 # ------------------------------------------------------------------------------------------------
 STATUS_FILE = "sync-status.json"  # in the bridge's data folder; the bridge does not watch it (Reload.cs watches its own files only)
 STATUS_TICK = 15                  # seconds: written at least this often while a run is active
@@ -3268,7 +3268,7 @@ class Run(object):
         fresh.sort(key=lambda w: -int(items[w].get("created") or 0))
         changed.sort(key=lambda w: popularity_key(dict(items[w], id=w)))
         ordered = fresh + changed + order_backlog(items, backlog)
-        # the owner's rule of 2026-11-03: a waiting map whose Workshop score would put it among its mode's best (the keep set's top
+        # a waiting map whose Workshop score would put it among its mode's best (the keep set's top
         # lists) goes first, best score first, so the maps that will stay on the server are tested before the rest
         scores = (self.state.data.get("ratings") or {}).get("scores") or {}
         cut = self.top_cutoffs()
@@ -3410,7 +3410,7 @@ class Run(object):
             self.report["errors"].append("ratings.json not written: %s" % error)
 
     def requeue_size_skips(self):
-        """The owner's 33 and 36 c (2026-11-03): a map skipped as bigger than a whole day's download cap is queued again - the 223
+        """A map skipped as bigger than a whole day's download cap is queued again - the 223
         popular maps the old caps parked (800 MB, then 3 GB a night) - and nothing is skipped for its size any more: there is no
         daily cap. They are tested like the rest, by popularity, the ones the keep set wants first."""
         back = []
@@ -3578,7 +3578,7 @@ class Run(object):
                         if self.stalled(wid, reason, budget):
                             rep["stop"] = "SteamCMD stalled twice in this run (%s) - no more downloads in it" % reason
                             break
-                        steam.stop()             # a fresh session for the next map: a stall alone is routine (the owner's 86 a)
+                        steam.stop()             # a fresh session for the next map: a stall alone is routine
                         started = False
                     elif "not running" in reason or "stdin" in reason:
                         rep["stop"] = "SteamCMD stopped answering (%s)" % reason
@@ -3616,7 +3616,7 @@ class Run(object):
 
     def stalled(self, wid, reason, budget):
         """A SteamCMD stall on `wid`: booked (the run's list, the day's count of the map), logged. True when it is the run's second -
-        the downloads stop then; one alone is routine (the owner's 86 a), and the mail speaks of stalls only from two in a run, or
+        the downloads stop then; one alone is routine, and the mail speaks of stalls only from two in a run, or
         two of one map in a day (issues_of)."""
         self.stalls.append((str(wid), budget.stall(wid)))
         self.report["stalls"] = list(self.stalls)
@@ -3727,7 +3727,7 @@ class Run(object):
                         if self.stalled(wid, reason, budget):
                             dl["stop"] = "SteamCMD stalled twice in this run (%s) - no more downloads in it" % reason
                             break
-                        steam.stop()             # a fresh session for the next map: a stall alone is routine (the owner's 86 a)
+                        steam.stop()             # a fresh session for the next map: a stall alone is routine
                         started = False
                     elif "not running" in reason or "stdin" in reason:
                         dl["stop"] = "SteamCMD stopped answering (%s)" % reason
@@ -3965,7 +3965,7 @@ class Run(object):
 
     def report_verdicts(self, verdicts):
         """This run's check of the listed maps, handed to the bridge (POST /removed/<secret>, Workshop.cs) - the only Workshop check
-        it hears (the owner's 74 a): the bridge keeps them in /data/removed.json, blocks a map that is gone at once (and unblocks
+        it hears: the bridge keeps them in /data/removed.json, blocks a map that is gone at once (and unblocks
         one that came back), and applies its own rule - more than 10% of 50+ gone is not believed. A report that does not arrive
         is a problem for the mail: nothing else tells the bridge; the next check reports again."""
         if not (self.cfg.bridge_url and self.cfg.bridge_secret):
@@ -4014,7 +4014,7 @@ class Run(object):
     def cleanup_staging(self):
         """Forget the staged downloads that have a verdict (their folders and their acf entries); keep the rest. A pass the keep set
         holds - its score puts it among its mode's best now that it is listed, say, or an update of a map the server stores - is handed
-        over instead (THE HAND-OVER) when the game server lacks it or stores an older copy than the tested one (the owner's 71 a), so
+        over instead (THE HAND-OVER) when the game server lacks it or stores an older copy than the tested one, so
         the server never downloads it again; when that fails it stays staged, and the next run's serve step hands it over without a
         download (or downloads it again when SteamCMD's acf does not name it)."""
         root = os.path.join(self.cfg.work_dir, "staging", "steamapps", "workshop")
@@ -4323,7 +4323,7 @@ def run_deadline(cfg, clock, now=None):
 
 def start_blocked(cfg, clock, now=None):
     """Why no run may start now by the clock, or None: the daily restart's stretch (15 minutes before it to 10 after), and a run that
-    would have under MIN_RUN before its cut - a run of a few minutes only writes a report (the owner's 85)."""
+    would have under MIN_RUN before its cut - a run of a few minutes only writes a report."""
     now = clock.now() if now is None else now
     daily = clock.at(cfg.daily_restart, now)
     if daily - 900 <= now < daily + 600:

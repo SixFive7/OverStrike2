@@ -259,7 +259,7 @@ class Bridge:
         target = self.d.inspect("images", f"{self.repo}:{source_tag}")
         if not target:
             os2.fail(f"no image {self.repo}:{source_tag} on the server")
-        # a stopped bridge is swapped too (2026-11-04: a release stopped it to edit its state): what it is checked against is the
+        # a stopped bridge is swapped too (a release may stop it to edit its state): what it is checked against is the
         # network it is configured with, not the runtime address it has only while it runs - and it is put back stopped
         running = bool((old.get("State") or {}).get("Running"))
         want = self.pinned(old)

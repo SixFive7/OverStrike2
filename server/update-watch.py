@@ -6,17 +6,16 @@ the game) and lives as long as the container. Deployed to <config dir>/update-wa
 bind-mounted read-only at /home/steam/cs2-update-watch.py (source of truth: server/ in the Over Strike 2
 repo). Python 3.9 - the version in the joedwards32/cs2:4.0.1 image.
 
-THE JOBS, each behind its own switch (9 never restarts anything). Their numbers stay, with three gone (the owner's decisions of
-2026-11-04): 4, the warm-up after every boot (72 a) - the depotcache on the volume made its re-check a matter of seconds, and the
-first download of every process (job 9's right after the start roll, a player's) tests the download path the same way, marking a
-stuck process for job 6; and 5 and 7, the nightly prefetch and the fresh process before it (71 a) - the Workshop sync hands the
-server the keep set's maps it lacks and, once a test passed, their updates (THE HAND-OVER below), and the engine fetches any other
-update when the map loads, with job 8's line.
+THE JOBS, each behind its own switch (9 never restarts anything). Their numbers stay, with three gone: 4, the warm-up after every
+boot - the depotcache on the volume made its re-check a matter of seconds, and the first download of every process (job 9's right
+after the start roll, a player's) tests the download path the same way, marking a stuck process for job 6; and 5 and 7, the nightly
+prefetch and the fresh process before it - the Workshop sync hands the server the keep set's maps it lacks and, once a test passed,
+their updates (THE HAND-OVER below), and the engine fetches any other update when the map loads, with job 8's line.
   1. UPDATES (CS2_AUTOUPDATE). entry.sh runs SteamCMD only when the container starts, so a Valve patch left the
      server rejecting every client for ~44 hours ("Bad host version"). Every CHECK_EVERY this asks
      Valve's ISteamApps/UpToDateCheck whether the installed build is current and restarts it when it is not.
   2. DAILY RESTART (CS2_RESTART_AT, 07:00 local time). Once a day, and only while nobody is on (A2S and RCON) - like the
-     download restart, never a kick (the owner's 73 a, 2026-11-04: it no longer quits at a match end, which
+     download restart, never a kick (it no longer quits at a match end, which
      took the vote down with it). With players on it waits; a day they stay on until DAILY_WINDOW (2 h) after the slot has none.
      It is the moment the night's hand-overs are taken in and the maps outside the keep set go (--organize, at every start).
   3. FREEZE RECOVERY (CS2_FREEZE_RECOVERY). A frozen engine never exits, so Docker never restarts it; this kills it
@@ -55,7 +54,7 @@ update when the map loads, with job 8's line.
      warns. A download that succeeds later in the same process, or a new process, clears it. The moment a process is
      marked broken - before any restart - the Steam client's logs are copied to update-watch/steamlogs/<time>-<why>/
      on the game volume, with a summary.txt (the newest 10 are kept): the evidence dies with the container otherwise.
-  8. THE DOWNLOAD LINE (CS2_DOWNLOAD_LINE; since 2026-11-02). While the server downloads a map somebody is
+  8. THE DOWNLOAD LINE (CS2_DOWNLOAD_LINE). While the server downloads a map somebody is
      waiting for - a vote's result, a request, a Deathmatch or Wingman Workshop map, an id typed on the keyboard - the HUD's news
      line says so, with the progress, once it has taken LINE_AFTER seconds: nothing else on screen tells them why nothing
      happens. The engine's own download (host_workshop_map) prints only "[Workshop] Updating <id>: state <n>"; MultiAddonManager's
@@ -63,7 +62,7 @@ update when the map loads, with job 8's line.
      staging folders. Never for job 9's own downloads, never with nobody on, never in chat. A player's
      download that ends "No Connection" marks the process broken like the watcher's own (job 6): the restart waits for an
      empty server, as ever.
-  9. THE QUEUED MAPS IN THE BACKGROUND (CS2_READY; since 2026-11-03: random maps never wait for a download). The bridge rolls its
+  9. THE QUEUED MAPS IN THE BACKGROUND (CS2_READY: random maps never wait for a download). The bridge rolls its
      dice ahead into four random queues of 20 (Arms Race's new and original
      maps, Deathmatch, Wingman) and writes them, with the maps players have queued, to its /data/queues.json. Every READY_EVERY
      seconds this looks which of them are not on disk and downloads the next one - the requests first, then the queues' first
@@ -77,8 +76,8 @@ update when the map loads, with job 8's line.
      Steam's client runs one Workshop download at a time and one already running cannot be stopped (measured on a test copy on
      2026-11-03: a map change's 449 MB download started only when the 350 MB one in the background had ended, 8 s later).
 
-THE MAPS FOLDER (`update-watch.py --organize`, run by pre.sh before every engine start, so at the latest by the daily restart; since
-2026-11-02). The maps live in real folders per type - maps/armsrace, deathmatch, wingman, own, hud, other, each
+THE MAPS FOLDER (`update-watch.py --organize`, run by pre.sh before every engine start, so at the latest by the daily restart).
+The maps live in real folders per type - maps/armsrace, deathmatch, wingman, own, hud, other, each
 map <id>-<name> - on the game volume, and Steam's steamapps/workshop/content/730/<id> is a relative link to its folder. Every step
 is one rename or one link on one file system, with no engine running. What Steam downloaded since the last run is a real folder
 in content/730 (a new map; an update may replace a link by a real folder too): it moves into its type's folder and gets its link;
@@ -86,7 +85,7 @@ an older copy of it there goes. Moved between types when the lists say so, renam
 everything alone. Then, in the same run: THE HAND-OVER and
 THE DELETION.
 
-THE KEEP SET (the owner's rules of 2026-11-03, in keepset.py beside this script, shared with workshop-sync.py): the maps the server
+THE KEEP SET (in keepset.py beside this script, shared with workshop-sync.py): the maps the server
 stores. Every map with at least one player's up vote in votes.json (an up vote is kept however many down votes the map has; too-big
 and ads votes are down votes); per mode, three lists of its 100 playable maps (on that mode's list, not on broken.json, not gone
 from the Workshop, no crash on record), together up to 300 - the best Workshop score (Top Rated: vote_data.score), the most
@@ -129,13 +128,13 @@ HOW A RESTART HAPPENS
   on exit code 42), entry.sh reaches its end, PID 1 exits and Docker's `restart: always` re-enters entry.sh, the
   only thing that re-runs SteamCMD. RCON `_restart` would NOT update: cs2.sh relaunches the binary in place.
   Right before the quit the watcher tells the bridge (POST /quitting/<secret>, "gg-quit 1 <kind>", over the ready
-  report's own link; the owner's 47 a, 2026-11-04), which takes that as the clean shutdown: the quit's echo in the
+  report's own link), which takes that as the clean shutdown: the quit's echo in the
   log stream (`rcon from ...: command "quit"`), its only proof before, dies with the process - the engine segfaults
   on quit, 5 of 5 planned quits since 2026-11-03, and the last log batch goes with it - and the bridge booked a
   crash on an innocent map. The echo stays the backup. A notice the bridge does not take (down, not answering, an
   older bridge) holds the quit: the restart stays due and the notice is tried again every minute, and after
   QUIT_NOTICE_PATIENCE (30 min) without the bridge's answer any planned restart goes ahead anyway - a false crash mark
-  can be cleared (the owner's 87 a, 2026-11-04). A quit that cannot be delivered after a notice sends the notice's cancel. No bridge
+  can be cleared. A quit that cannot be delivered after a notice sends the notice's cancel. No bridge
   configured at all (no CS2_LOG_HTTP_URL): the echo alone, as before. Freeze: SIGTERM, then SIGKILL, to the engine,
   with no notice; the bridge records that one as a crash of the map that caused it, which is the truth.
   When nobody is on, a planned restart happens at once. Only an update restart goes with players on: it is announced,
@@ -281,12 +280,12 @@ GAME_PORT = int_env("CS2_PORT", 27015, 1, 65535)
 RCON_PASSWORD = os.environ.get("CS2_RCONPW") or ""
 VALVE_URL = "https://api.steampowered.com/ISteamApps/UpToDateCheck/v1/?appid=730&version=%d"
 STEAM_API_GAP = 2.0             # seconds from the end of one Steam Web API call of this watcher to the start of the next: one at a time
-                                # (the loop is single-threaded) and at least 2 s apart - the owner's rule for every Web API caller (2026-11-04)
+                                # (the loop is single-threaded) and at least 2 s apart - the rule for every Web API caller
 STEAM_API_LAST = [0.0]          # time.time() when the last one ended
 
 
 def steam_api_wait():
-    """Before a Steam Web API call - since the prefetch went (the owner's 71 a) the update check is this watcher's only one: sleep out
+    """Before a Steam Web API call - since the prefetch went the update check is this watcher's only one: sleep out
     what is left of STEAM_API_GAP since the last one ended."""
     left = STEAM_API_LAST[0] + STEAM_API_GAP - time.time()
     if left > 0:
@@ -344,8 +343,8 @@ def hms(seconds):
 def at_clock(t):
     """A moment as local wall-clock time, HH:MM:SS. Why a gate is shut names WHEN the restart or kill it waits on
     happened, not how long ago: an age changes every second, and log_once then took every line for a change -
-    "NOT restarting: a planned restart was N s ago. Only warning." 44 times in a minute.
-    A moment stays the same, so the line comes once per change, as the other warnings do."""
+    "NOT restarting: a planned restart was N s ago. Only warning." 44 times in a minute. A moment stays the same, so the line
+    comes once per change, as the other warnings do."""
     return "%02d:%02d:%02d" % tuple(time.localtime(t)[3:6])
 
 
@@ -587,7 +586,7 @@ def texts(kind, back):
 # Persisted state
 # ------------------------------------------------------------------------------------------------
 
-# "prefetch" was the restart before the nightly prefetch (job 7), gone since the owner's 71 a (2026-11-04): never made any more, but
+# "prefetch" was the restart before the nightly prefetch (job 7): never made any more, but
 # still read, so the last 24 hours of history in a state file from before do not make it a fault - a fault stops every restart
 RESTART_KINDS = ("update", "daily", "freeze", "workshop", "prefetch")
 
@@ -1232,8 +1231,8 @@ def write_maps_index(content, maps_dir, types):
 
 
 # ------------------------------------------------------------------------------------------------
-# THE KEEP SET (the owner's rules of 2026-11-03) lives in keepset.py, which the deployment's compose file mounts beside this script and workshop-sync.py: one
-# copy of the rules for both (the owner's 76 a, 2026-11-04). The import is guarded: without the file the keep set is empty and says
+# THE KEEP SET lives in keepset.py, which the deployment's compose file mounts beside this script and workshop-sync.py: one
+# copy of the rules for both. The import is guarded: without the file the keep set is empty and says
 # why, so the deletion refuses (nothing goes), and the start's log says so.
 # ------------------------------------------------------------------------------------------------
 try:
@@ -1795,7 +1794,7 @@ READY_EVERY = 20                # seconds between two looks at the bridge's queu
 READY_REPORT_EVERY = 120        # the report to the bridge goes again at least this often (the bridge trusts one for 5 minutes)
 QUIT_NOTICE_TIMEOUT = 8         # the bridge answers a quit notice from its event loop, within 5 s
 QUIT_NOTICE_RETRY = 60          # a notice the bridge did not take is tried again after this (the restart stays due meanwhile)
-QUIT_NOTICE_PATIENCE = 1800     # ...and any planned restart goes ahead without one after this long (the owner's 87 a)
+QUIT_NOTICE_PATIENCE = 1800     # ...and any planned restart goes ahead without one after this long
 READY_RETRY = 1800              # a queued map whose background download failed is tried again after this...
 READY_TRIES = 3                 # ...up to this many times in one engine process
 
@@ -2364,7 +2363,7 @@ class Watch:
                 self.notice_failing = now
             if now - self.notice_failing >= QUIT_NOTICE_PATIENCE:
                 log("WARNING: the bridge has not taken the quit notice for %s (%s) - the %s restart goes ahead without it: a false "
-                    "crash mark can be cleared (the owner's 87 a)" % (hms(now - self.notice_failing), why, kind))
+                    "crash mark can be cleared" % (hms(now - self.notice_failing), why, kind))
             else:
                 self.notice_retry = now + QUIT_NOTICE_RETRY
                 log_once("quit-notice", "WARNING: the bridge did not take the quit notice (%s) - not quitting yet: without it the bridge "
