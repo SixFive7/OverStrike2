@@ -6258,6 +6258,12 @@ Label
 }
 
 /* This window cannot be closed, so it does not close when idle either. */
+/* The welcome closes only by its X: no idle words, no drain bar */
+.gg-screen.pinned .gg-drain
+{
+	visibility: collapse;
+}
+
 .gg-screen.voting .gg-drain
 {
 	visibility: collapse;

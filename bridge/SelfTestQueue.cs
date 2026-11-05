@@ -837,7 +837,7 @@ static partial class Program
             win.Joined(1, first: true, alive: true, t0);
             Check("A player who joins, alive: the window opens after the spawn delay, on its start page, and takes the mouse",
                 !At(win, 1, 1).Window && At(win, 1, 1.6) is { Window: true, Page: HudSlots.Page.Start, Capture: true, Toast: 0, Returning: false });
-            Check($"...and stays until its X: no idle close after {HudSlots.IdleCloseSeconds} s, no drain bar", At(win, 1, 1.6 + HudSlots.IdleCloseSeconds * 5) is { Capture: true, Draining: false });
+            Check($"...and stays until its X: no idle close after {HudSlots.IdleCloseSeconds} s, no drain bar, and its foot says nothing about idling (pinned)", At(win, 1, 1.6 + HudSlots.IdleCloseSeconds * 5) is { Capture: true, Draining: false, Pinned: true });
             win.Click(1, "gg_tab_how", t0.AddSeconds(10));
             Check("A tab switches the page and it still stays", At(win, 1, 200) is { Page: HudSlots.Page.How, Capture: true, Draining: false });
             win.Spawned(1, t0.AddSeconds(201));
@@ -846,7 +846,7 @@ static partial class Program
             Check("Its X closes it: the mouse is let go at once, the window fades out", At(win, 1, 203.1) is { Capture: false, WindowIn: false, Window: true } && !At(win, 1, 203.5).Window);
             var idle = new HudSlots();
             idle.Show(1, HudSlots.Page.Fun, t0);
-            Check("The menu, opened any other way: its drain bar starts a moment later", !At(idle, 1, HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(idle, 1, HudSlots.DrainAfterOpenSeconds + 0.1).Draining);
+            Check("The menu, opened any other way: its drain bar starts a moment later, and it is not pinned", !At(idle, 1, HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(idle, 1, HudSlots.DrainAfterOpenSeconds + 0.1) is { Draining: true, Pinned: false });
             idle.Click(1, "gg_tab_how", t0.AddSeconds(10));
             Check("A tab restarts the drain bar and keeps the window up", At(idle, 1, 10.1) is { Page: HudSlots.Page.How, Draining: false } && At(idle, 1, 10.4).Draining);
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",

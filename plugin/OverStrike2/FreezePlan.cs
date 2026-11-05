@@ -7,6 +7,8 @@ namespace OverStrike2;
 /// and only while that word is this map's and fresh:
 ///   - an answer from before this map started freezes nobody: the last state of the old map's vote stays in memory across the map change
 ///     until the first answer on the new one;
+///   - a round that froze anybody on the map before never freezes on this one: the bridge ends every vote when a map starts, but it hears of the start
+///     from the server's log, seconds late, and its answers until then still say that round's countdown freezes everybody;
 ///   - no answer for StaleSeconds frees everybody, so a lost bridge never leaves anybody frozen; its next answer freezes them again if the
 ///     vote is still on;
 ///   - a round frozen past its own end time on the bridge's clock (VoteState.EndsAtMs: the vote's end while it is open, the map change's moment during its countdown) and
@@ -23,6 +25,9 @@ public sealed class FreezePlan
     long round;                       // the round whose freeze clock runs (0: none)
     DateTime since = DateTime.MinValue; // ...frozen first at
     long tooLong;                     // a round frozen past MaxSeconds: nobody is frozen for it again
+    long lastFrozen;                  // the last round that froze anybody
+    long oldMapRound;                 // ...as of the map before this one: it never freezes on this map
+    DateTime mapSeen = DateTime.MinValue; // the map start the last tick was told
 
     /// <summary>Everybody is frozen now.</summary>
     public bool Frozen { get; private set; }
@@ -38,8 +43,9 @@ public sealed class FreezePlan
     /// the plugin loaded mid-map, its state is new), and now; the round's end time and the bridge's clock, unix milliseconds (0: no end time known). True when Frozen changed.</summary>
     public bool Tick(long voteRound, bool freeze, DateTime answeredAt, DateTime mapStartedAt, DateTime now, long endsAtMs = 0, long bridgeNowMs = 0)
     {
+        if (mapStartedAt != mapSeen) (oldMapRound, mapSeen) = (lastFrozen, mapStartedAt);
         var why = voteRound <= 0 || !freeze ? Why.Over
-            : answeredAt == DateTime.MinValue || answeredAt < mapStartedAt ? Why.OldMap
+            : answeredAt == DateTime.MinValue || answeredAt < mapStartedAt || voteRound == oldMapRound ? Why.OldMap
             : (now - answeredAt).TotalSeconds > StaleSeconds ? Why.Stale
             : voteRound == tooLong ? Why.TooLong
             : Why.Vote;
@@ -48,6 +54,7 @@ public sealed class FreezePlan
         if (why == Why.Vote && (endsAtMs > 0 ? bridgeNowMs > endsAtMs + (long)(GraceSeconds * 1000) : (now - since).TotalSeconds > MaxSeconds)) (tooLong, why) = (voteRound, Why.TooLong);
         Reason = why;
         var frozen = why == Why.Vote;
+        if (frozen) lastFrozen = voteRound;
         if (frozen == Frozen) return false;
         Frozen = frozen;
         return true;

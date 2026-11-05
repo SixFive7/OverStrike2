@@ -792,7 +792,7 @@ public sealed class HudSlots
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none, 1 now playing.
     /// Draining: the bar that shows the idle close is running (it restarts by losing this for a moment). Returning: the player has been here before.</summary>
-    public readonly record struct View(bool Window, bool WindowIn, bool Capture, Page Page, bool Draining, int Toast, bool ToastIn, bool Returning = false);
+    public readonly record struct View(bool Window, bool WindowIn, bool Capture, Page Page, bool Draining, int Toast, bool ToastIn, bool Returning = false, bool Pinned = false);
 
     sealed class Slot
     {
@@ -949,7 +949,7 @@ public sealed class HudSlots
                 Draining: s.Open && !s.Pinned && now >= s.DrainFrom,
                 Toast: toast,
                 ToastIn: toast != 0 && now >= s.ToastFrom.AddSeconds(FadeSeconds) && now < s.ToastUntil,
-                Returning: s.Returning)));
+                Returning: s.Returning, Pinned: s.Open && s.Pinned)));
         }
         return frame;
     }

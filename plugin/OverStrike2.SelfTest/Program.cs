@@ -85,6 +85,15 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(Tick(ends + (long)(FreezePlan.GraceSeconds * 1000) + 1) && !ending.Frozen && ending.Reason == FreezePlan.Why.TooLong, "freeze: ...past them everybody is free, whatever the bridge's last word, at about 70 s of a 60 s vote");
     Tick(ends + 20_000);
     Check(!ending.Frozen && ending.Reason == FreezePlan.Why.TooLong, "freeze: ...and that round stays free");
+    // A decided vote counts down, the map changes, and the bridge - which hears of the new map from the server's log, seconds late - still says that round freezes everybody.
+    var carried = new FreezePlan();
+    var (mapOne, mapTwo) = (t0, t0.AddSeconds(70));
+    carried.Tick(77, true, t0.AddSeconds(60), mapOne, t0.AddSeconds(60));
+    var frozeOnOne = carried.Frozen;
+    carried.Tick(77, true, t0.AddSeconds(71), mapTwo, t0.AddSeconds(71));
+    Check(frozeOnOne && !carried.Frozen && carried.Reason == FreezePlan.Why.OldMap, "freeze: a round that froze everybody on the map before never freezes on the new one, though the bridge's fresh answer still says so");
+    carried.Tick(78, true, t0.AddSeconds(90), mapTwo, t0.AddSeconds(90));
+    Check(carried.Frozen, "freeze: ...a new round on the new map does");
     var healthy = new FreezePlan();
     healthy.Tick(30, true, t0, map, t0, 60_000, 0);
     healthy.Tick(30, true, t0.AddSeconds(59), map, t0.AddSeconds(59), 68_000, 59_000); // decided at 59 s: its end is the map change's moment now

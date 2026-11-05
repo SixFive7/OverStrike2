@@ -386,7 +386,7 @@ sealed partial class HudScreen
         Forget(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
-            foreach (var cls in new[] { "win", "win-in", "draining", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
+            foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
                 entity!.SetHasClassForPlayer(p, HudView.Screen, cls, false);
             entity!.SetInputCaptureEnabled(p, false);
             playerDirty = true;
@@ -904,6 +904,7 @@ sealed partial class HudScreen
             Class(HudView.Screen, "win", view.Window, p);
             Class(HudView.Screen, "win-in", view.WindowIn, p);
             Class(HudView.Screen, "draining", view.Draining, p);
+            Class(HudView.Screen, "pinned", view.Window && view.Pinned, p); // the welcome closes only by its X: its foot has no idle bar
             Class(HudView.Screen, "toast-1", view.Toast == 1, p);
             Class(HudView.Screen, "toast-in", view.ToastIn, p);
             var joined = joinedAt.TryGetValue(p.Slot, out var at) && (now - at).TotalSeconds < HudVote.JoinSeconds;
