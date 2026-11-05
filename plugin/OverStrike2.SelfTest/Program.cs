@@ -74,7 +74,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(capped && !plan.Frozen && plan.Reason == FreezePlan.Why.TooLong && plan.FreeBecause().Contains("past its end"), "freeze: a word without an end time, frozen longer than the most one vote may: everybody free");
     Check(!plan.Tick(10, true, when.AddSeconds(5), map, when.AddSeconds(5)) && !plan.Frozen, "freeze: ...and that round never freezes anybody again");
     Check(plan.Tick(11, true, when.AddSeconds(6), map, when.AddSeconds(6)) && plan.Frozen && plan.Since == when.AddSeconds(6), "freeze: the next round freezes on its own clock");
-    // The vote's own end time on the bridge's clock: the owner's 60 s limit holds if the bridge dies or hangs, at the moment the windows close too (HudScreen.VoteLocked).
+    // The vote's own end time on the bridge's clock: the 60 s limit holds if the bridge dies or hangs, at the moment the windows close too (HudScreen.VoteLocked).
     var ending = new FreezePlan();
     var ends = 60_000L;
     bool Tick(long atMs) => ending.Tick(20, true, t0.AddMilliseconds(atMs), map, t0.AddMilliseconds(atMs), ends, atMs);

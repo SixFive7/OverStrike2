@@ -126,7 +126,7 @@ public sealed record Category(string Id, string Name)
 
 public static class Messages
 {
-    public const int ChatLineMax = 120; // characters a chat line holds on a 1920x1080 screen (the owner's picks)
+    public const int ChatLineMax = 120; // characters a chat line holds on a 1920x1080 screen
     public const double DefaultSeconds = 8;
     public const int TopMax = 240, LineMax = 140, CentreMax = 80, LatelyRows = 3, LatelyKeep = 12, SayKeepSeconds = 20;
 
@@ -137,11 +137,11 @@ public static class Messages
 
     public static Category? CategoryOf(string id) => Categories.FirstOrDefault(c => c.Id == id);
 
-    /// <summary>A kind of message: the owner's row, its surface and who sees it there, who gets a chat copy and a board copy, its category and how long it
+    /// <summary>A kind of message: what it is, its surface and who sees it there, who gets a chat copy and a board copy, its category and how long it
     /// stays (0: as long as its state lasts). News: whether the news line of the contents before v4.6.0 carries it as well.</summary>
     public sealed record Kind(string Id, string Row, Surface Surface, Who On, Who Chat, Who Board, Category Cat, double Seconds, bool News = true);
 
-    // ---- the catalogue, in the order of the owner's picks. A row that went has no kind ----
+    // ---- the catalogue. A message that went has no kind ----
 
     public static readonly Kind
         // joining
@@ -270,7 +270,7 @@ public static class Messages
     }
 }
 
-/// <summary>Every section of a message starts with a capital: the owner's rule, held by --selftest over every template and everything said while it runs. A
+/// <summary>Every section of a message starts with a capital, held by --selftest over every template and everything said while it runs. A
 /// section is what stands between " - ", " · " and line breaks. What may start one besides a capital: a digit, a sign (+60% HP, #1, !help), a name (a word
 /// with an underscore or a digit in it: a map's name stays as it is written).</summary>
 public static partial class Sections

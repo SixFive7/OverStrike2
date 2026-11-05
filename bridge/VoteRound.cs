@@ -106,9 +106,10 @@ static partial class Program
 
     static string OptionKey(BallotOption o) => o.Source == VoteSource.Keep ? CurrentKey : o.Map is { } m ? Key(m) : "";
 
-    /// <summary>Why nobody may call a vote now, or null: a change under way, a map loading, a restart counting down, the wait after the last vote.</summary>
+    /// <summary>Why nobody may call a vote now, or null: a hold, a change under way, a map loading, a restart counting down, the wait after the last vote.</summary>
     static string? CannotCall(DateTime now)
     {
+        if (HudHeld()) return "Steam is reviewing the HUD, so a vote cannot start now - The game plays on";
         if (Pending is { } p) return $"Already changing to {Clip(Label(p.Map), 40)} - Wait for it";
         if (AnnouncePending) return "The next map is still loading - Wait for it";
         if (RestartRefusal(now) is { } restart) return restart; // Restarts.cs

@@ -192,7 +192,12 @@ static partial class Program
     /// polls with draw=0 and does not count: nobody would see a ballot that freezes everybody.</summary>
     static Func<bool> HudActive = () => DateTime.UtcNow.Ticks - Interlocked.Read(ref hudPolledTicks) < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
 
-    static void HudPolled(bool draws) { if (draws) Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.Ticks); }
+    static void HudPolled(bool draws) => Interlocked.Exchange(ref draws ? ref hudPolledTicks : ref hudHeldTicks, DateTime.UtcNow.Ticks);
+
+    static long hudHeldTicks; // when a poll last said its plugin draws nothing: Steam is not showing the HUD (HudScreen.RequireAddon)
+
+    /// <summary>A hold: the plugin's last poll said it draws nothing. Nobody may call a vote then: it freezes everybody, over a ballot not everybody can see.</summary>
+    static Func<bool> HudHeld = () => Interlocked.Read(ref hudHeldTicks) > Interlocked.Read(ref hudPolledTicks) && DateTime.UtcNow.Ticks - Interlocked.Read(ref hudHeldTicks) < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
 
     /// <summary>Whether a poll's query says its plugin draws the HUD: draw=0 does not; draw=1 and a poll without the word (an older plugin) do.</summary>
     static bool Draws(string? query) => !(query ?? "").TrimStart('?').Split('&').Contains($"{Hud.DrawQuery}=0");
@@ -536,8 +541,12 @@ static partial class Program
         }
         S.CleanShutdown = false;
         Save();
+        if (S.Map != null || S.LogName != null) Post(Messages.NowPlaying, NowPlayingLine(), key: "playing"); // the board's copy of the card everybody gets at their spawn
         After(1500, SyncMode); // ModeSwitch.cs: the plugin hears the mode again, in case it reloaded
     }
+
+    /// <summary>The now-playing card's words: what is on, how big, who picked it.</summary>
+    static string NowPlayingLine() => string.Join("  ·  ", new[] { Clip(CurrentLabel(), 40), S.Map is { Official: false, Rank: > 0 } m ? Size(m) : "", Hud.ByWords(S.PickedBy ?? "") }.Where(x => x != ""));
 
     const int StartRollDelayMs = 5000, HistoryLength = 20;
 

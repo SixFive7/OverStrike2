@@ -57,6 +57,14 @@ static partial class Program
         var lower = templates.Where(t => Sections.Lower(t, TestNames) != null).Select(t => $"\"{Sections.Lower(t, TestNames)}\" in \"{t}\"").Distinct().ToList();
         Check($"Capitals: every section of every template starts with one ({templates.Count} templates){(lower.Count > 0 ? ": " + string.Join("; ", lower.Take(12)) : "")}", lower.Count == 0);
 
+        // ---- a hold ----
+        HudPolled(false);
+        var heldWords = CannotCall(Now());
+        Check("A hold: the plugin's poll says it draws nothing, so nobody can call a vote, in words that say why", HudHeld() && heldWords != null && heldWords.StartsWith("Steam is reviewing the HUD"));
+        Thread.Sleep(1);
+        HudPolled(true);
+        Check("...a poll that draws ends it", !HudHeld());
+
         // ---- the routing ----
         var (sb, nb) = (Now, StateDir);
         var at = new DateTime(2026, 11, 5, 18, 0, 0, DateTimeKind.Utc);
