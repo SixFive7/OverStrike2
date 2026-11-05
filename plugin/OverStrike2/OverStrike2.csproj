@@ -45,6 +45,8 @@
     <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
     <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
     <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />
+    <Compile Include="..\CatchUp\Ladder.cs" Link="CatchUp\Ladder.cs" />
+    <Compile Include="..\CatchUp\CatchUpWords.cs" Link="CatchUp\CatchUpWords.cs" />
     <Compile Include="..\CatchUp\CatchUpModule.cs" Link="CatchUp\CatchUpModule.cs" />
     <None Include="..\CatchUp\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The names of every game convar (FCVAR_GAMEDLL, "sv" in cvarlist) on CS2 1.41.9.1/14191, and the same 1,555 on 1.41.9.2/14192
