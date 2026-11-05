@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>Unlisted Workshop maps from the menu (../../bridge/HudWorkshop.cs holds the card and the tested logic): asks the public Steam Web
+/// <summary>Unlisted Workshop maps from the menu (../../bridge/Shared/WorkshopCard.cs holds the card and the tested logic): asks the public Steam Web
 /// API about an id - this container has internet, the bridge has none - and downloads one item at a time into the server's own Workshop
 /// cache with MultiAddonManager's mm_download_addon, which changes nothing for anybody playing. Progress comes from the cache's staging
 /// folders, the outcome from the Steam client's workshop_log.txt ("Download item &lt;id&gt; result : OK"), the same log the restart watcher

@@ -65,7 +65,7 @@ public static class Hud
     public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time 10", "!time 60"];
 
     /// <summary>The "new maps in random picks" setting's old words: an older content's Game page still has its buttons, which hear that it is gone
-    /// (the bridge's Selection.cs).</summary>
+    /// (the bridge's Clicks.cs).</summary>
     public static readonly string[] NewMapsActions = ["!newmaps always", "!newmaps half", "!newmaps never"];
 
     /// <summary>Whether a click may ask for this. The bridge refuses anything else on its /act path, so the menu can never reach a server

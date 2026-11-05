@@ -3,7 +3,6 @@
 // every RCON command is recorded, so a whole evening of play - joins, map loads, match ends, departures - replays in milliseconds and the same
 // way every time. The vote's own rules in detail are SelfTestVote.cs's.
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 static partial class Program
 {
@@ -79,8 +78,8 @@ static partial class Program
                 Pending = null; AnnouncePending = false; AnnounceDeadline = default; MatchEndUntil = default;
                 StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; rconDown = false;
                 statusMap = null; statusSpawn = 1; ResetCrashWatch(); WatchStop(); ClearNotices(); RestartDue = null; RematchDue = null; RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
-                Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; // Selection.cs
-                WhyOpen.Clear(); // Votes.cs
+                Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; // Sizes.cs, EmptyServer.cs
+                WhyOpen.Clear(); // Likes.cs
                 timers.Clear(); Quiet();
                 if (File.Exists(MaintenanceFile)) File.Delete(MaintenanceFile);
                 InMaintenance();

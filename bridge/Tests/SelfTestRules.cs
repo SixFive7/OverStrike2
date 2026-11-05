@@ -24,7 +24,7 @@ static partial class Program
             Guide.Name, // the server's name: not a rule's number
             $"1 random pick in {odds}", $"the other {odds - 1}", $"after {ResetEmptyMinutes} minutes with nobody on",
             $"{ResetEmptyMinutes} minutes with nobody on", $"the last {RecentCount} maps played", $"up to {UpvoteCap} Likes", $"(max {UpvoteCap})",
-            $"up to {PopularityPoints:0} points", $"takes {DislikePoints:0}", $"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most", $"over {ShownFadeDays} days", // the points (Votes.cs)
+            $"up to {PopularityPoints:0} points", $"takes {DislikePoints:0}", $"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most", $"over {ShownFadeDays} days", // the points (Dice.cs)
             $"the last {FreshDays} days", // the fresh card (Popularity.cs)
             $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes",
             $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page

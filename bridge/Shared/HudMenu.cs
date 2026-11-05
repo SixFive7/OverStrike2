@@ -19,7 +19,7 @@ public static class HudMenu
     public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
 
     /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4.6.0 still has. The setting is gone - every ballot
-    /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Selection.cs).</summary>
+    /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Clicks.cs).</summary>
     public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never";
 
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>

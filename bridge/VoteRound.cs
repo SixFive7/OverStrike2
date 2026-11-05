@@ -17,7 +17,7 @@
 // maxplayers, so Wingman up to 4), then the server's own mode: one fresh map - a new Workshop upload or a recent update our sync tested, unless a
 // card above is fresh already - one surprise from the discovery stock (a map new to us), and the Workshop's favourites the server keeps to fill
 // the page. Every card but a player's pick is on the server's disk (RandomQueue.cs), so whichever wins loads at once; an empty slot - no fresh
-// map on the disk, the stock not downloaded yet - is a favourite. The cards are rolled by points (Votes.cs). Random is a button of its own,
+// map on the disk, the stock not downloaded yet - is a favourite. The cards are rolled by points (Dice.cs). Random is a button of its own,
 // without a number. A map a player selects while the vote is open goes on it, with their vote, taking the place of a random card of the
 // server's mode nobody voted for - favourites first, then the surprise, the fresh card last; the other modes' cards keep their place - so that
 // one page holds it all; a second page only when what must be on it does not fit. The cards are shown with the most votes first, each with its
@@ -205,7 +205,7 @@ static partial class Program
         StockOnDisk(mode, taken).FirstOrDefault(m => CanRoll(m, taken)) is { } m && taken.Add(Key(m)) ? m : null;
 
     /// <summary>A card shown: its map is no longer new to us, and a card the dice or a player put on it is remembered with the time, for the step back
-    /// a card shown and not chosen takes in the points (Votes.cs: ShownPenalty). Showings older than ShownFadeDays are forgotten.</summary>
+    /// a card shown and not chosen takes in the points (Dice.cs: ShownPenalty). Showings older than ShownFadeDays are forgotten.</summary>
     static void Showing(BallotOption o, DateTime now)
     {
         if (o.Map is not { } m) { if (o.Source == VoteSource.Keep && CurrentKey != "") S.Met.Add(CurrentKey); return; }

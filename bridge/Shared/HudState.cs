@@ -27,7 +27,7 @@ public sealed class HudState
     public string News = "";                            // the news line of the contents before v4.6.0, which everybody sees...
     public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left
-    public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Votes.cs)
+    public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Likes.cs)
     public string PrevLabel = "", PrevArg = "";         // the map before this one, for the Previous button
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
     public string NewMaps = "";                         // the new-maps setting of an older bridge (always, half or never); the setting is gone, so empty

@@ -2,7 +2,7 @@
 // and how a map loads in its own mode.
 //
 //  - S.Mode (state.json) is the mode the server was last told to load in. Every server start is Arms Race (the cs2 service's
-//    CS2_GAMETYPE/CS2_GAMEMODE and its start map), and so is a server that has had nobody on for ResetEmptyMinutes (Selection.cs): it is
+//    CS2_GAMETYPE/CS2_GAMEMODE and its start map), and so is a server that has had nobody on for ResetEmptyMinutes (EmptyServer.cs): it is
 //    put on a random Arms Race map. A bridge that starts, and every map start the bridge did not ask for, reads game_type and game_mode
 //    over RCON instead of guessing.
 //  - A map carries its mode (MapInfo.Mode, "" = Arms Race). FireChange sends Modes.PrepareLine (os_mode, game_type, game_mode) and then

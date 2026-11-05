@@ -71,7 +71,7 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 
 **A map that is not listed.** Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the
 Workshop about it (the plugin, through the public Web API), and **Download and play** fetches it into the server's own Workshop cache,
-with the progress on the card, while nobody's game is interrupted (`HudWorkshop.cs`, `WorkshopPlay.cs`). Once it is installed it is
+with the progress on the card, while nobody's game is interrupted (`WorkshopCard.cs`, `WorkshopPlay.cs`). Once it is installed it is
 selected like any map: to the vote.
 
 **The pictures** are inside the addon, because CS2 refuses web pictures in a custom HUD: each map's Workshop preview as a small JPEG, an
@@ -302,7 +302,7 @@ length, catch-up and friendly fire's settings are Arms Race's own, and the menu 
 A random pick is any map the dice choose: the vote's random cards, its Random, and the [automatic changes](#the-automatic-changes). Never a map a
 player selected.
 
-**Points set the odds; each point doubles them** (`Votes.cs`, `weight = 2^points`):
+**Points set the odds; each point doubles them** (`Dice.cs`, `weight = 2^points`):
 
 | What | Points |
 |---|---|
@@ -582,7 +582,7 @@ switch for the days after a game update breaks Metamod or CounterStrikeSharp. Th
 
 ## Log-line grammar
 
-The parser is one method (`Parse` in `bridge/Program.cs`) and `--selftest` shows exactly what it accepts. The game server pushes its log with `logaddress_add_http`: a `POST` per tick, one or more lines, each prefixed `MM/DD/YYYY - HH:MM:SS.mmm - `.
+The parser is one method (`Parse` in `bridge/LogStream.cs`) and `--selftest` shows exactly what it accepts. The game server pushes its log with `logaddress_add_http`: a `POST` per tick, one or more lines, each prefixed `MM/DD/YYYY - HH:MM:SS.mmm - `.
 
 - A map start is `Loading map "<name>"`, followed by `Started:` (the name comes from the request's `X-Game-Map` header).
 - A clean quit's echo is the echo of an RCON `quit` or `_restart` (one of the three signs of a clean quit, [above](#broken-maps)).

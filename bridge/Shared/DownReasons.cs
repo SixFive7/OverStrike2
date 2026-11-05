@@ -1,10 +1,10 @@
 // Shared like Hud.cs: the bridge compiles it and tests it in --selftest, the plugin links it in. Plain BCL only.
 
 /// <summary>Why a player disliked a map: one mark per player per map, whose value in votes.json says why - every one of them that player's dislike
-/// wherever likes count. A plain Dislike is "I did not like the map". Too big and Ads have their own effects (Selection.cs); the rest are kept and
+/// wherever likes count. A plain Dislike is "I did not like the map". Too big and Ads have their own effects (Sizes.cs); the rest are kept and
 /// count as a dislike, nothing more. Chat steers it directly: !down big, !down 12 big. The same words on /act set the reason - the popup's click
 /// too, "!down big", one command for both. Repeating a plain !down on a map already disliked keeps its reason and says so. A first plain !down opens
-/// the popup that lists the reasons (Votes.cs, HudVote.WhyWords) for PopupSeconds: choosing one, or typing its word, updates that mark - without a
+/// the popup that lists the reasons (Likes.cs, HudVote.WhyWords) for PopupSeconds: choosing one, or typing its word, updates that mark - without a
 /// map, a reason goes to the map the popup asks about while it is open.</summary>
 public static class DownReasons
 {

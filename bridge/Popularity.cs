@@ -13,7 +13,7 @@
 // score; Played, the mean of its percentiles by subscribers, lifetime subscribers, favourites and views; Hot, its percentile in the 30-day trend
 // order, where the maps past the fetched list tie at the bottom. A family with no data at all is left out; with none at all a map is
 // NeutralPopularity. Valve's official maps of Deathmatch and Wingman and our own maps are OfficialPopularity. The points make PopularityPoints
-// of it (Votes.cs): the most popular map has 16 times the odds of the least.
+// of it (Dice.cs): the most popular map has 16 times the odds of the least.
 //
 // The kept maps are the bridge's copy of the keep set (core/KeepSet.cs decides what the server stores): every liked map, our own maps, and per
 // mode the three lists of its KeepTop playable maps by score, by subscribers and in the trend order. A ballot fills from them: a kept map counts
