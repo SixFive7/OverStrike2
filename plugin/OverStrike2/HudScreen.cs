@@ -30,7 +30,7 @@ namespace OverStrike2;
 ///     player's network messages, and more than 313 ms there disconnects the player with "Overflow error" - which the first join after
 ///     a server start did on 2026-10-05, the layout entity being created (and all of this code compiled for the first time) inside
 ///     its spawn event. They queue the work for the next frame instead, and the code is compiled ahead at load (WarmUp).</summary>
-sealed class HudScreen
+sealed partial class HudScreen
 {
     const float FrameSeconds = 0.25f;
 
@@ -65,7 +65,7 @@ sealed class HudScreen
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
     readonly Dictionary<int, WorkshopCard> cards = new(); // slot -> that player's card for an unlisted Workshop id
     (string Text, DateTime Until) localNews = ("", default);  // the news line from here, not the bridge: the restart watcher, the block's notices, the item check
-    readonly Dictionary<int, (string Text, DateTime Until)> localNotes = new(); // slot -> a note from here: no line to the bridge
+    readonly Dictionary<int, (string Text, DateTime Until, string Cat)> localNotes = new(); // slot -> a note from here: no line to the bridge
     readonly Dictionary<int, HudBrowser> browsers = new();   // slot -> that player's map browser (sort, filters, page)
     readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
     readonly Dictionary<(int Slot, string Panel), HashSet<string>> thumbs = new(); // the picture classes a card has on for a player
@@ -220,7 +220,7 @@ sealed class HudScreen
         return $"shown for {Math.Clamp(seconds, 3, 3600)} s: {localNews.Text}";
     }
 
-    void LocalNote(int slot, string text, double seconds = 8) => localNotes[slot] = (Hud.Clean(text, 140), DateTime.UtcNow.AddSeconds(seconds));
+    void LocalNote(int slot, string text, double seconds = 8) => localNotes[slot] = (Hud.Clean(text, Messages.LineMax), DateTime.UtcNow.AddSeconds(seconds), Messages.You.Id);
 
     public void Spawned(CCSPlayerController player)
     {
@@ -974,6 +974,8 @@ sealed class HudScreen
         // new state only when something changes.
         var bridgeNow = bridge?.BridgeNowMs(now) ?? HudState.Ms(now);
         state = stateRaw?.AsOf(bridgeNow);
+        if (state != null) MergeMessages(state, bridgeNow);
+        SayNew(stateRaw);
         vote = voteRaw.AsOf(bridgeNow);
         if (bridge?.TakeCatalog(now, state?.CatalogVersion ?? 0) is { } listText && HudCatalog.Decode(listText) is { } list) catalog = list;
         if (bridge?.TakeDash(now, state?.DashVersion ?? 0) is { } dashText && HudDash.Decode(dashText) is { } block) dash = block;

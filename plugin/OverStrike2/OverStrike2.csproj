@@ -39,6 +39,8 @@
          plugin's settings come from while the install step does not write the file yet (PluginSetup.cs). -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
     <Compile Include="..\..\bridge\SettingsSource.cs" Link="SettingsSource.cs" />
+    <!-- The message catalogue (surfaces, chat and board copies), shared with the bridge. -->
+    <Compile Include="..\..\bridge\Messages.cs" Link="Messages.cs" />
     <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
     <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
     <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />

@@ -268,15 +268,13 @@ static partial class Program
             }
             finally { MapVote.InactivitySeconds = 0; }
 
-            // ---- the news line's two slots ----
+            // ---- the top line: one line, a newer one replaces it ----
             Fresh();
-            Announce("a long one", 60); Run(1);
-            Announce("a short one", 5);
-            Check("The news line: a newer line covers the one that is on", BuildHud(clock).News == "a short one");
+            Announce("A long one", 60); Run(1);
+            Announce("A short one", 5);
+            Check("The top line: a newer line replaces the one that is on", BuildHud(clock) is { News: "A short one", TopText: "A short one", TopCat: "server" });
             Run(6);
-            Check("...and once its time is up the one it covered comes back, with its own time left", BuildHud(clock) is { News: "a long one" } h2 && h2.NewsFor is > 40 and <= 54);
-            Run(60);
-            Check("...until its own time is up too", BuildHud(clock).News == "");
+            Check("...and nothing comes back when its time is up", BuildHud(clock) is { News: "", TopText: "" });
 
             // ---- the transport (HudTransport.cs): countdowns as end times, so a state that only counts down does not change ----
             Fresh();

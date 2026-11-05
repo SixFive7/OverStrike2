@@ -143,6 +143,7 @@ public class OverStrike2Plugin : BasePlugin
     {
         freeze?.Tick();
         hud?.PictureTick();
+        hud?.CentreTick();
         var now = DateTime.UtcNow;
         centreBusy.Clear();
         Centre(panel, now);

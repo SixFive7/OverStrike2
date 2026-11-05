@@ -241,6 +241,20 @@ public sealed class HudState
     public long BgId;                                   // the restart watcher's background download (the bridge's RandomQueue.cs): the map's Workshop id, 0 none
     public int BgPercent = -1;                          // ...its progress, 0-100, -1 before any
     public string BgTitle = "";                         // ...and its title
+    public string TopText = "", TopCat = "";            // the top line (Messages.cs): the words and the category's id...
+    public long TopAtMs, TopUntilMs;                    // ...since when and until when, unix milliseconds
+    public string BanTone = "", BanHead = "", BanLine = ""; // the status banner: its tone (problem, warning, done, info), headline and line...
+    public long BanUntilMs;                             // ...and until when, 0 while its state lasts
+    public Dictionary<long, string> NoteCats = new();   // account id -> the category of that player's note
+    public List<Messages.LatelyLine> Lately = new();    // the board's Lately lines, oldest first
+    public List<(long Seq, long Account, string Text)> Says = new(); // chat lines, each said once by its number (account 0: everybody); the text carries its marks (M)
+    public List<(long Seq, long Account, bool Alert, long UntilMs, string Text)> Centres = new(); // CS2's plain centre text and alert, held until then
+    public string CrashNote = "";                       // a crash within the last minutes, as the welcome page says it
+    public string ChangeKey = "";                       // the key of the map a change counts down to: its picture
+    public string RestartBy = "";                       // the player who pressed a restart counting down
+    public long RematchAtMs;                            // Restart match counting down: the moment it goes...
+    public string RematchBy = "";                       // ...and who pressed it
+    public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
 
     /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
     /// carries these instead of the seconds, which would change it every second; the plugin counts down from them itself (AsOf).</summary>
@@ -265,6 +279,9 @@ public sealed class HudState
         foreach (var (account, until) in WhyUntilMs)
             if (Secs(until) is > 0 and var left && Why.TryGetValue(account, out var why)) h.Why[account] = (why.Map, left); else h.Why.Remove(account);
         if (RestartAt > 0) h.RestartIn = Math.Max(0, Secs(RestartAt * 1000));
+        if (TopUntilMs > 0 && nowMs >= TopUntilMs) (h.TopText, h.TopCat, h.TopAtMs, h.TopUntilMs) = ("", "", 0, 0);
+        if (BanUntilMs > 0 && nowMs >= BanUntilMs) (h.BanTone, h.BanHead, h.BanLine, h.BanUntilMs) = ("", "", "", 0);
+        h.RematchIn = RematchAtMs > 0 ? Math.Max(0, Secs(RematchAtMs)) : -1;
         (h.News, h.RestartWords) = (h.FillLeft(h.News), h.FillLeft(h.RestartWords));
         return h;
     }
@@ -306,7 +323,18 @@ public sealed class HudState
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
             .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(restartWords, 240)).Append('\n');
-        if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two
+        if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two and everything after them
+        void Raw(string name, params object[] fields) => s.Append(name).Append('\t').Append(string.Join('\t', fields.Select(f => f is string t ? t : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
+        if (TopText != "") Raw("topl", TopAtMs, TopUntilMs, Hud.Clean(TopCat, 12), Hud.Clean(TopText, Messages.TopMax));
+        if (BanHead != "") Raw("ban", Hud.Clean(BanTone, 12), BanUntilMs, Hud.Clean(BanHead, 80), Hud.Clean(BanLine, Messages.TopMax));
+        foreach (var (account, cat) in NoteCats) if (Notes.ContainsKey(account)) Raw("notec", account, Hud.Clean(cat, 12));
+        foreach (var l in Lately) Raw("late", l.AtMs, l.Account, Hud.Clean(l.Key, 40), Hud.Clean(l.Text, Messages.TopMax));
+        foreach (var (seq, account, text) in Says) Raw("say", seq, account, Hud.Clean(text, 400));
+        foreach (var (seq, account, alert, until, text) in Centres) Raw("ctr", seq, account, alert ? 1 : 0, until, Hud.Clean(text, Messages.CentreMax));
+        if (CrashNote != "") Raw("crashn", Hud.Clean(CrashNote, Messages.TopMax));
+        if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));
+        if (RestartBy != "") Raw("rstby", Hud.Clean(RestartBy, 32));
+        if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 32));
         return s.ToString();
     }
 
@@ -350,6 +378,16 @@ public sealed class HudState
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
                 case "ok" when Long(f, 1) >= 0 && HudCheck.IsVersionWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
+                case "topl" when Str(f, 4) != "": (s.TopAtMs, s.TopUntilMs, s.TopCat, s.TopText) = (Long(f, 1), Long(f, 2), Str(f, 3), Str(f, 4)); break;
+                case "ban" when Str(f, 3) != "": (s.BanTone, s.BanUntilMs, s.BanHead, s.BanLine) = (Str(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4)); break;
+                case "notec" when Long(f, 1) >= 0: s.NoteCats[Long(f, 1)] = Str(f, 2); break;
+                case "late" when Str(f, 4) != "": s.Lately.Add(new Messages.LatelyLine(Long(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4))); break;
+                case "say" when Long(f, 1) > 0: s.Says.Add((Long(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3))); break;
+                case "ctr" when Long(f, 1) > 0: s.Centres.Add((Long(f, 1), Math.Max(0, Long(f, 2)), Int(f, 3) == 1, Long(f, 4), Str(f, 5))); break;
+                case "crashn": s.CrashNote = Str(f, 1); break;
+                case "chgkey": s.ChangeKey = Str(f, 1); break;
+                case "rstby": s.RestartBy = Str(f, 1); break;
+                case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy) = (Long(f, 1), Str(f, 2)); break;
             }
         }
         return s;
