@@ -5,11 +5,11 @@ namespace OverStrike2.Sync;
 
 /// <summary>THE SERVICE (os2-sync serve): no time windows - a run starts whenever the game server has had nobody on for sync.quietMinutes and
 /// there is work (maps waiting for a download or a test, or the API steps due), lasts sync.runHours, and is cut short before the game
-/// server's daily restart. After a run that did nothing it looks again after IdleWait. &lt;state&gt;/run-now (any content, or JSON with lower
+/// server's daily restart. After a run that did nothing it waits (IdleUntil). &lt;state&gt;/run-now (any content, or JSON with lower
 /// limits; {"api": true} runs the API steps whatever their cadence) starts a manual run at once.</summary>
 public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLog log, WebApiDoor door)
 {
-    public const double IdleWait = 1800;             // after a run that did nothing, the service waits this long before it looks again
+    public const double IdleWait = 1800;             // after a run that did nothing, the service waits at least this long before it looks again
     public const double MinRun = 1200;               // no automatic run starts with less than this before its cut: a run of minutes does nothing
     public const double Loop = 30;
 
@@ -67,6 +67,20 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
         if (BacklogWaits(state) && !Py.Truthy(book["stop"]))
             return true;
         return clock.Now() - Py.Float(state["last_api"]) >= cfg.ApiEvery;
+    }
+
+    /// <summary>When the service looks again after a run that did nothing. Something stopped it - a join, the deadline, a failed download, a
+    /// publish that had to wait: it tries again after IdleWait. Nothing stopped it: it had nothing it could do, because what still waits cannot
+    /// be downloaded today (the brake) or at all (gone from the Workshop). Only the next check or a new day can change that, so it looks again
+    /// then, not every IdleWait for a run that writes a report and nothing else.</summary>
+    public static double IdleUntil(SyncConfig cfg, SyncClock clock, JsonObject report, JsonNode? lastApi)
+    {
+        var now = clock.Now();
+        var stopped = new[] { "downloads", "tests", "serve" }.Any(step => Py.Truthy(Py.Get(report[step], "stop")) || Py.Truthy(Py.Get(report[step], "failed")))
+                      || Py.Truthy(Py.Get(report["tests"], "waiting_verdict")) || Py.Truthy(Py.Get(report["published"], "skipped"));
+        if (stopped)
+            return now + IdleWait;
+        return Math.Max(now + IdleWait, Math.Min(Py.Float(lastApi) + cfg.ApiEvery, clock.AtTime(new TimeOfDay(0, 0), now + 86400)));
     }
 
     SyncRun NewRun(SyncConfig runCfg, bool manual, Status status) => new(runCfg, clock, seams, log, manual, status: status, door: door);
@@ -183,9 +197,10 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     said = null;
                     try
                     {
-                        var report = NewRun(cfg.Clone(), false, status).Run();
+                        var run = NewRun(cfg.Clone(), false, status);
+                        var report = run.Run();
                         if (Py.Truthy(report["idle"]))
-                            idleUntil = clock.Now() + IdleWait;
+                            idleUntil = IdleUntil(cfg, clock, report, run.State.Data["last_api"]);
                     }
                     catch (Exception e) when (e is not StopRequested)
                     {

@@ -199,7 +199,9 @@ public sealed class SyncState(string path)
         };
     }
 
-    /// <summary>Record a Workshop item we were shown (discovery, or a changed listed map), keeping what we decided before.</summary>
+    /// <summary>Record a Workshop item we were shown (discovery, or a changed listed map), keeping what we decided before. "attempts" is the
+    /// download tries of one content version: a newer version has them all again, and a changed listed map that used them up on an older
+    /// one is queued for the new one.</summary>
     public JsonObject Remember(JsonObject item, string day, string why)
     {
         var wid = Py.Str(item["publishedfileid"]);
@@ -208,6 +210,7 @@ public sealed class SyncState(string path)
             rec = new JsonObject { ["first"] = day, ["status"] = "queued", ["why"] = why, ["attempts"] = 0, ["tests"] = 0 };
             Items[wid] = rec;
         }
+        var newer = Py.Int(item["time_updated"]) > Py.Int(rec["updated"]);
         var verdictOf = (JsonObject)item.DeepClone();
         if (!verdictOf.ContainsKey("result"))
             verdictOf["result"] = 1;
@@ -224,11 +227,19 @@ public sealed class SyncState(string path)
         rec["ws"] = Text.WorkshopVerdict(verdictOf);
         rec["preview"] = Py.Truthy(item["preview_url"]) ? item["preview_url"]!.DeepClone() : "";
         rec["description"] = Py.Cut(Text.CleanDescription(Py.StrOr(item["file_description"])), 300);
-        if (why == "changed" && Py.Str(rec["status"]) is "published" or "pass")
+        if (newer)
+            rec["attempts"] = 0;
+        if (why == "changed" && (Py.Str(rec["status"]) is "published" or "pass" || (newer && Py.Str(rec["status"]) == "failed")))
         {
             rec["status"] = "queued";
             rec["why"] = "changed";
         }
         return rec;
     }
+
+    /// <summary>Whether this version of a map failed its test today. A version that fails stays ahead of the baseline, so every check finds the
+    /// map changed for as long as the Workshop keeps it: this is what holds it to one test a day.</summary>
+    public bool FailedToday(string wid, JsonObject item, string day) =>
+        Item(wid) is { } rec && Py.Str(rec["decided"]) == day && Py.Truthy(rec["verdict"]) && Py.Str(rec["verdict"]) != "pass"
+        && Py.Int(item["time_updated"]) <= Py.Int(rec["updated"]);
 }

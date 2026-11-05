@@ -14,6 +14,7 @@ try
     Part2.Run();
     Part3.Run();
     NewChecks.Run();
+    Lifetimes.Run();
 }
 finally
 {

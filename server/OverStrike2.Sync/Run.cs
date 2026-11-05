@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
@@ -8,6 +9,8 @@ namespace OverStrike2.Sync;
 /// in batches until the backlog or the run ends, or Steam pushes back; its report, its mail (problems only) and its line in the history.</summary>
 public sealed class SyncRun
 {
+    public const int BackupsKept = 10;               // the newest publishes' copies of the bridge's lists, about 1 MB each, on the backed-up volume
+    public const int ReportsKept = 100;              // the newest runs' reports; at least Status.Runs, which the status file's history starts from
     public const int QueueCheck = 3000;              // the check (step 2) asks the Workshop about this many of the download queue's head
     public const double RatingsEvery = 20 * 3600;    // the ratings are fetched again once this old: once a day, by whichever run comes then
     public const int TrendDays = 30;                 // Most Popular's window: the trend over the last 30 days
@@ -264,6 +267,7 @@ public sealed class SyncRun
             return Report;
         }
         RequeueSizeSkips();
+        ClearLifetimeCounts();
         var known = files.KnownIds(Cfg);
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
@@ -337,14 +341,26 @@ public sealed class SyncRun
             if (!judged.Suspicious)
                 VerdictsToReport = listed.Where(details.ContainsKey).Select(w => (w, Text.WorkshopVerdict(details[w]))).ToList();
             Report["check"] = chk;
+            var failedToday = new List<string>();
             foreach (var wid in judged.Changed)
             {
-                if (details.TryGetValue(wid, out var item))
+                if (!details.TryGetValue(wid, out var item))
+                    continue;
+                if (State.FailedToday(wid, item, Day0))
                 {
-                    State.Remember(item, Day0, "changed");
-                    Event(wid, "changed", "It changed on the Workshop: it is tested again.");
+                    failedToday.Add(wid);                 // its next test is tomorrow's: nothing to download, nothing waits
+                    continue;
                 }
+                var before = State.Item(wid);
+                var was = before is null ? null : Py.Str(before["status"]);
+                var sameFailed = before is not null && Py.Truthy(before["verdict"]) && Py.Str(before["verdict"]) != "pass"
+                                 && Py.Int(item["time_updated"]) <= Py.Int(before["updated"]);
+                var rec = State.Remember(item, Day0, "changed");
+                if (Py.Str(rec["status"]) == "queued" && was != "queued")   // one event when it is queued, not one at every check it waits
+                    Event(wid, "changed", sameFailed ? "This version failed its test: it is tested again, once a day." : "It changed on the Workshop: it is tested again.");
             }
+            if (failedToday.Count > 0)
+                chk["failed_today"] = Py.Strings(failedToday);
             foreach (var (wid, verdict) in newly)         // one event when a map goes, not one at every check
                 Event(wid, "removed", $"The Workshop says it is {(verdict == "removed" ? "gone" : verdict)}: it is blocked.");
             foreach (var wid in queueHead)
@@ -353,7 +369,8 @@ public sealed class SyncRun
             foreach (var (wid, item) in details)
                 State.NoteWorkshop(wid, item);
             State.Save();
-            L($"check: {ids.Count} asked, {judged.Removed.Count} gone ({newly.Count} newly), {judged.Changed.Count} changed{(judged.Suspicious ? " - NOT BELIEVED (over 10%)" : "")}");
+            L($"check: {ids.Count} asked, {judged.Removed.Count} gone ({newly.Count} newly), {judged.Changed.Count} changed"
+              + (failedToday.Count > 0 ? $" ({failedToday.Count} failed their test today: again tomorrow)" : "") + (judged.Suspicious ? " - NOT BELIEVED (over 10%)" : ""));
             WriteWorkshop(files);
             if (api.StopReason is { } r1)
                 Report["api_stop"] = r1;
@@ -698,6 +715,31 @@ public sealed class SyncRun
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Errors.Add($"ratings.json not written: {e.Message}");
+        }
+    }
+
+    /// <summary>"attempts" used to count every download of a map's life, so a map updated a few times was "failed" at its next single failure
+    /// ("5 of 3 tries"). It is the tries of one content version now and never goes over 3, so a count above 3 is an old one: it goes, and a map
+    /// it failed has its tries back. (A count of exactly 3 cannot be told from three real failures; that map waits for its next version.)</summary>
+    public void ClearLifetimeCounts()
+    {
+        var back = new List<string>();
+        foreach (var (wid, node) in State.Items)
+        {
+            if (node is not JsonObject rec || Py.Int(rec["attempts"]) <= 3)
+                continue;
+            rec["attempts"] = 0;
+            if (Py.Str(rec["status"]) == "failed")
+            {
+                rec["status"] = "queued";
+                rec.Remove("evidence");
+                back.Add(wid);
+            }
+        }
+        if (back.Count > 0)
+        {
+            State.Save();
+            L($"queued again: {back.Count} map(s) failed by a count of every download of their life, not by three tries of one version");
         }
     }
 
@@ -1095,9 +1137,9 @@ public sealed class SyncRun
                 }
                 var t = Clock.Now();
                 var (good, reason, nbytes) = steam.Download(wid);
-                rec["attempts"] = Py.Int(rec["attempts"]) + 1;
                 if (good && Staged(wid))
                 {
+                    rec["attempts"] = 0;                   // the tries of a content version: this one is here
                     var onDisk = Handover.FolderBytes(Path.Combine(Content, wid));
                     var size = Math.Max(nbytes, onDisk);
                     budget.Spend(size, wid);
@@ -1107,7 +1149,7 @@ public sealed class SyncRun
                     rec["status"] = "downloaded";
                     rec["downloaded"] = Day0;
                     rec["loads"] = Py.Str(rec["why"]) == "changed" ? new JsonArray() : Py.Truthy(rec["loads"]) ? rec["loads"]!.DeepClone() : new JsonArray();
-                    foreach (var stale in new[] { "scan", "verdict", "decided", "detail" })
+                    foreach (var stale in new[] { "scan", "verdict", "decided", "detail", "evidence" })
                         rec.Remove(stale);
                     (row, denied) = (0, 0);
                     L($"downloaded {wid} {Py.Cut(Py.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Py.Fixed(Clock.Now() - t, 0)} s");
@@ -1117,7 +1159,8 @@ public sealed class SyncRun
                     List(dl, "failed").Add(Py.Array(wid, reason));
                     row++;
                     budget.Fail();
-                    var attempts = Py.Int(rec["attempts"]);
+                    var attempts = Py.Int(rec["attempts"]) + 1;
+                    rec["attempts"] = attempts;
                     Event(wid, "failed", $"Its download failed ({reason}), {attempts} of 3 tries.");
                     rec["status"] = attempts < 3 ? "retry" : "failed";
                     rec["evidence"] = $"SteamCMD could not download it ({reason}), {attempts} of 3 tries";
@@ -1472,7 +1515,45 @@ public sealed class SyncRun
         pub["files"] = Py.Strings(written);
         pub["backup"] = backup;
         L($"published {string.Join(", ", written)}; bridge: {Py.Str(pub["reload"])}");
+        PruneBackups(Path.GetDirectoryName(backup)!, stamp);
         MarkPublished(outcomes, BridgeData.Read(Cfg.BridgeData));
+    }
+
+    /// <summary>Only the newest BackupsKept of backups/&lt;yyyyMMdd-HHmmss&gt;/ stay, the one just made among them; anything else in the folder is
+    /// not ours to delete. A failure here costs a little disk, never the run.</summary>
+    void PruneBackups(string folder, string own)
+    {
+        try
+        {
+            var old = Directory.EnumerateDirectories(folder).Select(p => Path.GetFileName(p)!)
+                .Where(n => n != own && Regex.IsMatch(n, @"^\d{8}-\d{6}$")).OrderByDescending(n => n, StringComparer.Ordinal).Skip(BackupsKept - 1).ToList();
+            foreach (var name in old)
+                Directory.Delete(Path.Combine(folder, name), true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            L($"backups not pruned: {e.Message}");
+        }
+    }
+
+    /// <summary>Only the newest ReportsKept of reports/&lt;day&gt;-&lt;hhmm&gt;[-manual].json stay, with their .txt, the one just written among them;
+    /// anything else in the folder is not ours to delete. A failure here costs a little disk, never the run.</summary>
+    void PruneReports(string folder, string own)
+    {
+        try
+        {
+            var old = Directory.EnumerateFiles(folder, "*.json").Select(p => Path.GetFileName(p)!)
+                .Where(n => n != own && Regex.IsMatch(n, @"^\d{4}-\d{2}-\d{2}-\d{4}(-manual)?\.json$")).OrderByDescending(n => n, StringComparer.Ordinal).Skip(ReportsKept - 1).ToList();
+            foreach (var name in old)
+            {
+                File.Delete(Path.Combine(folder, name));
+                File.Delete(Path.Combine(folder, name[..^5] + ".txt"));
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            L($"reports not pruned: {e.Message}");
+        }
     }
 
     static void Merge(JsonObject into, JsonObject from)
@@ -1715,6 +1796,7 @@ public sealed class SyncRun
         {
             L($"report not written: {e.Message}");
         }
+        PruneReports(Path.GetDirectoryName(path)!, Path.GetFileName(path));
         var idle = !(Py.Truthy(Py.Get(Report["downloads"], "ok")) || Py.Truthy(Py.Get(Report["tests"], "rows")) || Py.Truthy(Py.Get(Report["published"], "files"))
                      || Py.Truthy(Report["errors"]) || Py.Truthy(Py.Get(Report["serve"], "ok")));
         Report["idle"] = idle;
