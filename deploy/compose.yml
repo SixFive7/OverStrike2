@@ -88,7 +88,8 @@ services:
       RCON_PORT: 27015
       RCON_PASSWORD: ${CS2_RCONPW}
       LOG_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET}
-      OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET}
+      CS2_RCONPW: ${CS2_RCONPW} # server.rconPassword reads it; without it the bridge refuses to start
+      OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET} # bridge.secret reads it
       MAPS_FILE: /data/maps.json # the lists on the data volume: the sync replaces them, the bridge reads them again within seconds
       BROKEN_FILE: /data/broken.json
       START_MAP: ar_shoots # the same as CS2_STARTMAP
