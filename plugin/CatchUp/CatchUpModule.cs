@@ -79,7 +79,7 @@ public sealed class CatchUpModule
     /// <summary>Whether the boosts run now (the Fun page lights it; content v4.5.0).</summary>
     public bool On => Active;
 
-    /// <summary>The Fun page's and chat's switch (the owner's 2026-11-03): what 'gg_catchup on|off' does, until the map changes - the mode's own
+    /// <summary>The Fun page's and chat's switch: what 'gg_catchup on|off' does, until the map changes - the mode's own
     /// switch at the next map start puts it back on in Arms Race.</summary>
     public void Switch(bool on)
     {
@@ -266,7 +266,7 @@ public sealed class CatchUpModule
             var id = IdOf(player);
 
             // The base is the health this life spawned with - the game's 100, or a fun setting's own (Vampire's 1,000) - never the maximum:
-            // Vampire raises that to its 2,000 cap, and a boost of it gave 2,300 to 2,900 at a spawn (the analysis of 2026-11-03).
+            // Vampire raises that to its 2,000 cap, and a boost of it gave 2,300 to 2,900 at a spawn.
             // The pawn lives on across respawns: if it still holds what this module set last life, the base is the one under it.
             var baseHealth = Math.Max(1, pawn.Health);
             var stale = healthSet.TryGetValue(slot, out var set) && pawn.MaxHealth == set.Set;

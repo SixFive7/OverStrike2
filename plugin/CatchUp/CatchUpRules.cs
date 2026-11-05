@@ -381,8 +381,8 @@ public static class Rules
 
     /// <summary>The boost for this player now, by the standings. The leader may get a bounty, everybody else a tier, capped. A teammate of the
     /// leader (teammateOfLeader: the same team, no free-for-all) never fights the leader, so the leader's bounty takes nothing of their allowance:
-    /// their cap is computed without it (the owner's 42 d, 2026-11-03 - counted first, it left the leader's teammate with nothing in 18 of 23 late
-    /// spawns). The leader's enemies keep the rule: the bounty first, then their own boosts.</summary>
+    /// their cap is computed without it (counted first, it left the leader's teammate with nothing in 18 of 23 late spawns of a real
+    /// match). The leader's enemies keep the rule: the bounty first, then their own boosts.</summary>
     public static Boost Decide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader = false)
     {
         if (!c.Enabled || s.Players < 2) return Boost.None;
@@ -639,7 +639,7 @@ public static class Words
     static string Sec(double seconds) => Math.Round(seconds, 1).ToString(CultureInfo.InvariantCulture);
     static string Kills(int n) => n == 1 ? "1 kill" : $"{n} kills";
 
-    /// <summary>What the boost gives, in the order of the owner's example; long words or short ones.</summary>
+    /// <summary>What the boost gives, in a fixed order; long words or short ones.</summary>
     public static List<string> Items(Boost b, bool shortWords)
     {
         var items = new List<string>();

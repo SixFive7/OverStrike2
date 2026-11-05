@@ -38,7 +38,7 @@ CatchUpConfig Defaults()
     return c;
 }
 
-// The numbers before 2026-11-03 (the owner made catch-up a little stronger that evening). The mechanics below - the bounty steps, the cap,
+// A fixed set of numbers, not the defaults. The mechanics below - the bounty steps, the cap,
 // each hit, the healing, the message - are checked against these, so tuning the defaults moves only the checks of the defaults themselves.
 static CatchUpConfig Reference()
 {
@@ -58,9 +58,9 @@ static CatchUpConfig Reference()
     return c;
 }
 
-// The numbers of 2026-11-03 (the owner's 42 d), in force until the owner's 70: three tiers, the scoreboard cap on at twice its ratio and
+// Three tiers, the scoreboard cap on at twice its ratio and
 // MaxDuelFactor 3.5. The cap binds there, so its rules for the leader's teammates and enemies are checked on these.
-static CatchUpConfig Nov3()
+static CatchUpConfig ThreeTiers()
 {
     var c = new CatchUpConfig
     {
@@ -176,9 +176,9 @@ if (args.Length >= 2 && args[0] == "--spawns")
     var d = new CatchUpConfig();
     d.Normalize(notes);
     Eq(notes.Count, 0, "the defaults need no correction");
-    Eq(d.Tiers.Count, 7, "seven tiers by default (curve B, the owner's 70): one per gap from 2 to 8+");
+    Eq(d.Tiers.Count, 7, "seven tiers by default (curve B): one per gap from 2 to 8+");
     Eq(string.Join(",", d.Tiers.Select(t => t.MinBehind)), "2,3,4,5,6,7,8", "tiers from 2, 3, 4, 5, 6, 7 and 8 behind");
-    Check(d.RecalculateOnKill, "the boost is decided again after every kill by default (the owner's 70)");
+    Check(d.RecalculateOnKill, "the boost is decided again after every kill by default");
 
     var shipped = Path.Combine(here, CatchUpConfig.FileName);
     Check(File.Exists(shipped), "catchup.json is copied beside the test");
@@ -270,10 +270,10 @@ if (args.Length >= 2 && args[0] == "--spawns")
               && bo.ExtraProtection == t.ExtraSpawnProtectionSeconds && bo.InfiniteAmmo == t.InfiniteAmmo && bo.OneHitMelee == t.OneHitKnifeAndTaser,
             $"tier {t.MinBehind}+ uncapped: the table's values");
     }
-    // The owner's own example, word for word (2026-11-01), on the numbers of then.
+    // A whole sentence, word for word, on these numbers.
     Eq(Words.Sentence(Rules.ForGap(open, 5, 5, 0, 0)),
         "You are 5 kills behind the leader: +40% health, -20% damage taken, +20% damage, 20% lifesteal, regeneration, a second chance, +2 s spawn protection.",
-        "the owner's example sentence");
+        "the whole sentence");
     // ...and on the defaults: curve B's 5+ tier, which the cap never touches
     Eq(Words.Sentence(Rules.ForGap(Defaults(), 5, 5, 0, 0)),
         "You are 5 kills behind the leader: +50% health, -25% damage taken, +20% damage, 10% lifesteal, regeneration, a second chance, +2 s spawn protection.",
@@ -296,18 +296,18 @@ if (args.Length >= 2 && args[0] == "--spawns")
     var noBoard = Reference();
     noBoard.Balance.ScoreboardCap = false;
     Near(Rules.Allowed(noBoard.Balance, 16, 15), 3.0, "without the scoreboard cap: MaxDuelFactor only");
-    // The numbers of 2026-11-03 (the owner's 42 d), and the worked examples from that evening's log: the caps before and after that change.
-    var nov3 = Nov3();
+    // Worked examples from a real match's log, on the two sets of numbers: the cap's result on each.
+    var threeTiers = ThreeTiers();
     Near(Rules.Allowed(c.Balance, 13, 3), 3.0, "3 vs leader 13: allowed 3.0 before (MaxDuelFactor 3.0, under the ratio 3.5)");
-    Near(Rules.Allowed(nov3.Balance, 13, 3), 3.5, "...and min(3.5, 2.0 x 14/4) = 3.5 on the numbers of 2026-11-03");
+    Near(Rules.Allowed(threeTiers.Balance, 13, 3), 3.5, "...and min(3.5, 2.0 x 14/4) = 3.5 on the three tiers");
     Near(Rules.Allowed(c.Balance, 14, 7), 1.875, "7 vs 14: allowed 1.875 before (the ratio 15/8)");
-    Near(Rules.Allowed(nov3.Balance, 14, 7), 3.5, "...and min(3.5, 2.0 x 15/8) = 3.5 then");
-    Near(Rules.Allowed(nov3.Balance, 30, 23), 2.0 * 31.0 / 24.0, "a late 23 vs 30: 2.0 x 31/24 = 2.58");
-    Near(Rules.BountyFor(nov3.Bounty, 8), 0.30, "a lead of 8: the bounty stays at most 30%");
-    // The leader's bounty and his own teammates (the owner's 42 d): a teammate's cap is computed without it, an enemy's counts it first.
+    Near(Rules.Allowed(threeTiers.Balance, 14, 7), 3.5, "...and min(3.5, 2.0 x 15/8) = 3.5 then");
+    Near(Rules.Allowed(threeTiers.Balance, 30, 23), 2.0 * 31.0 / 24.0, "a late 23 vs 30: 2.0 x 31/24 = 2.58");
+    Near(Rules.BountyFor(threeTiers.Bounty, 8), 0.30, "a lead of 8: the bounty stays at most 30%");
+    // The leader's bounty and his own teammates: a teammate's cap is computed without it, an enemy's counts it first.
     var standings = Stand((1, 20), (2, 12), (3, 10), (4, 8)); // 1 leads by 8: a 30% bounty; 3 is 10 behind (tier 7+)
-    var asEnemy = Rules.Decide(nov3, standings, 3);
-    var asMate = Rules.Decide(nov3, standings, 3, teammateOfLeader: true);
+    var asEnemy = Rules.Decide(threeTiers, standings, 3);
+    var asMate = Rules.Decide(threeTiers, standings, 3, teammateOfLeader: true);
     Near(asEnemy.Allowed, 3.5, "10 vs 20: allowed min(3.5, 2.0 x 21/11) = 3.5, the same for the leader's enemy and teammate");
     Near(asMate.Allowed, 3.5, "...");
     Check(asEnemy.Capped && asMate.Capped && asMate.Health > asEnemy.Health && asMate.DamageDealt >= asEnemy.DamageDealt,
@@ -317,22 +317,22 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Check(mateOwn <= 3.5 + 1e-9 && enemyOwn <= 3.5 / 1.3 + 1e-9 && Math.Abs(asMate.Factor - mateOwn) < 1e-9 && asEnemy.Factor <= 3.5 + 1e-9,
         $"...the teammate's own factor {mateOwn:0.00} within 3.5, the enemy's {enemyOwn:0.00} within 3.5 / 1.3 and {asEnemy.Factor:0.00} with the bounty");
     var tight = Stand((1, 9), (2, 3), (3, 7)); // 1 leads by 2 over 3: a 10% bounty; 2 is 6 behind
-    Check(Rules.Decide(nov3, tight, 2, teammateOfLeader: true).Health >= Rules.Decide(nov3, tight, 2).Health, "a teammate never gets less than an enemy in the same place");
-    Check(Rules.Decide(nov3, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
-    var offCap = Nov3();
+    Check(Rules.Decide(threeTiers, tight, 2, teammateOfLeader: true).Health >= Rules.Decide(threeTiers, tight, 2).Health, "a teammate never gets less than an enemy in the same place");
+    Check(Rules.Decide(threeTiers, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
+    var offCap = ThreeTiers();
     offCap.Balance.ScoreboardCap = false;
     Near(Rules.Allowed(offCap.Balance, 14, 7), 3.5, "the scoreboard cap switches off: MaxDuelFactor alone");
-    var worstNov3 = 0.0;
+    var worstThreeTiers = 0.0;
     for (var top = 2; top <= 40; top++)
         for (var lead = 0; lead <= 10; lead++)
             for (var mine = 0; mine <= top - 2; mine++)
-                worstNov3 = Math.Max(worstNov3, Rules.ForGap(nov3, top - mine, top, mine, Rules.BountyFor(nov3.Bounty, lead)).Factor);
-    Check(worstNov3 <= 3.5 + 1e-9, $"on the numbers of 2026-11-03 the duel factor never goes above 3.5 (worst {worstNov3:0.00})");
+                worstThreeTiers = Math.Max(worstThreeTiers, Rules.ForGap(threeTiers, top - mine, top, mine, Rules.BountyFor(threeTiers.Bounty, lead)).Factor);
+    Check(worstThreeTiers <= 3.5 + 1e-9, $"on the three tiers the duel factor never goes above 3.5 (worst {worstThreeTiers:0.00})");
 
-    // Curve B, the defaults since the owner's 70 (2026-11-04): seven tiers, no scoreboard cap, MaxDuelFactor 8.
+    // Curve B, the defaults: seven tiers, no scoreboard cap, MaxDuelFactor 8.
     var d = Defaults();
     Check(d.Bounty is { MinLead: 2, StepKills: 2, PerStep: 0.10, Max: 0.30 } && d.Balance is { MaxDuelFactor: 8.0, ScoreboardCap: false, LifestealCounts: true, RoundTo: 0.05 },
-        "the defaults of the owner's 70: the bounty as before (+10% per 2 kills of lead from 2, up to 30%), no scoreboard cap, MaxDuelFactor 8");
+        "the defaults: the bounty (+10% per 2 kills of lead from 2, up to 30%), no scoreboard cap, MaxDuelFactor 8");
     Check(d.Tiers.Select(t => (t.MinBehind, t.Health, t.DamageTaken, t.DamageDealt, t.Lifesteal)).SequenceEqual(
         [(2, 0.05, 0.00, 0.00, 0.05), (3, 0.15, -0.10, 0.05, 0.05), (4, 0.35, -0.15, 0.15, 0.05), (5, 0.50, -0.25, 0.20, 0.10),
          (6, 0.75, -0.30, 0.25, 0.20), (7, 0.95, -0.35, 0.35, 0.25), (8, 1.20, -0.40, 0.40, 0.35)]),
@@ -546,7 +546,7 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Eq(Weapons.Name("WEAPON_M4A1_SILENCER_OFF"), "m4a1_silencer", "one spelling");
 }
 
-// ---- the kill counter: CS2's rules case by case (the owner's 91; a ladder of 16 guns, then the golden knife on level 16) ----
+// ---- the kill counter: CS2's rules case by case (a ladder of 16 guns, then the golden knife on level 16) ----
 
 {
     string[] gun = ["g3sg1", "awp", "aug", "ak47", "famas", "m4a1_silencer", "negev", "mp5sd", "mp7", "mp9", "revolver", "hkp2000", "glock", "elite", "sawedoff", "mag7"];
@@ -658,7 +658,7 @@ if (args.Length >= 2 && args[0] == "--spawns")
     Eq(twice.State(8).Level, 0, "...so a late joiner who uses it stays where counted");
 }
 
-// ---- the kill counter: nine real players' runs (the owner's 91: the sequences that prove each rule, from the matches below) ----
+// ---- the kill counter: nine real players' runs (the sequences that prove each rule, from the matches below) ----
 
 {
     string[] combat = ["g3sg1", "awp", "aug", "famas", "m4a1_silencer", "ak47", "m249", "ump45", "bizon", "mac10", "ssg08", "usp_silencer", "hkp2000", "fiveseven", "mag7", "nova"];
@@ -784,7 +784,7 @@ if (args.Length >= 2 && args[0] == "--spawns")
         }
 }
 
-// ---- the boost decided again after every kill (RecalculateOnKill, the owner's 70) ----
+// ---- the boost decided again after every kill (RecalculateOnKill) ----
 
 {
     var c = Defaults();

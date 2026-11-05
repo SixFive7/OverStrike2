@@ -15,7 +15,7 @@ public sealed class CatchUpConfig
     public bool Enabled { get; set; } = true;
 
     /// <summary>Decide every living player's boost again a frame after each change to the ladder (a kill, a team kill, a demotion, a death
-    /// without an enemy, a player leaving or changing team), not only at spawn (the owner's 70, 2026-11-04): a boost shrinks as soon as its
+    /// without an enemy, a player leaving or changing team), not only at spawn: a boost shrinks as soon as its
     /// gap closes, so it cannot carry a streak, and grows when the leader pulls away. Within a life health only goes up (a higher maximum; the
     /// current health is never cut), and when the boost shrinks the other three values take the cut (Rules.HoldHealth); spawn protection and
     /// the message stay the spawn's. Off: decided at spawn only, kept for the life.</summary>
@@ -30,13 +30,11 @@ public sealed class CatchUpConfig
     public MessageConfig Message { get; set; } = new();
     public EffectsConfig Effects { get; set; } = new();
 
-    /// <summary>Curve B since the owner's 70 (2026-11-04): one tier per gap from 2 to 8+, little boost near the top and much more far behind.
+    /// <summary>Curve B: one tier per gap from 2 to 8+, little boost near the top and much more far behind.
     /// The own factor of each, (1 + health + lifesteal) x (1 + damage dealt) / (1 + damage taken), follows the steep quadratic 1 + 0.10 x
     /// (gap - 1)^2 in whole 5% steps: 1.10, 1.40, 1.89, 2.56, 3.48, 4.57 and 5.95. The extras keep their bands: regeneration 3%/s after 4 s
     /// at 2-3 behind, 5%/s after 3 s at 4-6, 8%/s after 2 s from 7; a second chance and 2 s more spawn protection from 4; 3 s more, infinite
-    /// ammo and the one-hit knife and Zeus from 7. Three tiers before: from 2026-11-03 2+ +30% health, -15% taken, +15% dealt, 15% lifesteal;
-    /// 4+ +60%, -25%, +25%, 25%; 7+ +100%, -35%, +40%, 35% - and until 2026-11-03 2+ +20%, -10%, +10%, 10%; 4+ +40%, -20%, +20%, 20%;
-    /// 7+ +75%, -30%, +30%, 30%.</summary>
+    /// ammo and the one-hit knife and Zeus from 7.</summary>
     public static List<TierConfig> DefaultTiers() =>
     [
         new() { MinBehind = 2, Health = 0.05, DamageTaken = 0.00, DamageDealt = 0.00, Lifesteal = 0.05, RegenPerSecond = 0.03, RegenDelaySeconds = 4 },
@@ -202,22 +200,20 @@ public sealed class BountyConfig
     }
 }
 
-/// <summary>The cap on what health, resistance, damage and lifesteal add up to against the leader. See Rules.DuelFactor and Rules.Cap. Since the
-/// owner's 70 (2026-11-04) the curve is the rule and this a ceiling it never reaches: the strongest tier, 5.95, times the largest bounty, 1.30,
+/// <summary>The cap on what health, resistance, damage and lifesteal add up to against the leader. See Rules.DuelFactor and Rules.Cap. The curve
+/// is the rule and this a ceiling it never reaches: the strongest tier, 5.95, times the largest bounty, 1.30,
 /// is 7.74, under MaxDuelFactor 8, so every tier gives exactly its row.</summary>
 public sealed class BalanceConfig
 {
-    /// <summary>The ceiling on the duel factor against the leader (the leader's bounty included), whatever the scoreboard says. 3.0 until
-    /// 2026-11-03, 3.5 until the owner's 70 (2026-11-04).</summary>
+    /// <summary>The ceiling on the duel factor against the leader (the leader's bounty included), whatever the scoreboard says.</summary>
     public double MaxDuelFactor { get; set; } = 8.0;
 
     /// <summary>Also cap the duel factor at the scoreboard's ratio (leader's progress + 1) / (player's progress + 1) times ScoreboardCapFactor:
-    /// the boost may cancel the edge the leader has shown, and go that far past it. Off: MaxDuelFactor alone. Off since the owner's 70
-    /// (2026-11-04); on until then.</summary>
+    /// the boost may cancel the edge the leader has shown, and go that far past it. Off: MaxDuelFactor alone.</summary>
     public bool ScoreboardCap { get; set; } = false;
 
     /// <summary>How far past the leader's shown edge the scoreboard cap lets a boosted player go: 2.0 is up to twice the scoreboard's ratio
-    /// (the owner's 42 d, 2026-11-03; until then a fixed 1.0, never past it). Unused while ScoreboardCap is off.</summary>
+    /// Unused while ScoreboardCap is off.</summary>
     public double ScoreboardCapFactor { get; set; } = 2.0;
 
     /// <summary>Lifesteal counts as health in the duel factor (in a duel it returns that share of the leader's health).</summary>
@@ -235,9 +231,8 @@ public sealed class BalanceConfig
 }
 
 /// <summary>How Arms Race moves a player up and down its ladder, as the kill counter models it. The defaults are CS2's rules as this
-/// server's own match logs show them (the owner's 91: one match of 2026-09-19 and four of 2026-11-04, replayed by the self-test - 543 of 543
-/// gun kills made with the gun the model puts in the killer's hands). Until then (plugin 4.7.0) a knife kill, a knife death and a team kill
-/// zeroed the kills on the level, and a team-killer was taken to hold the lower level's gun: counts drifted 1-3 levels low.</summary>
+/// server's own match logs show them: the self-test replays one match of 2026-09-19 and four of 2026-11-04, and 543 of 543 gun kills were made
+/// with the gun the model puts in the killer's hands.</summary>
 public sealed class ProgressConfig
 {
     public int KillsPerLevel { get; set; } = 2;
@@ -258,8 +253,8 @@ public sealed class ProgressConfig
 
     /// <summary>A team kill (friendly fire, without free-for-all): the killer down one level, the kills on it kept (9 + 1 becomes 8 + 1; at
     /// level 0 the kill on it goes instead), as Arms Race punishes it. The killer keeps the gun in hand, the old level's, until he dies, and
-    /// kills with it count on the lower level. The victim loses nothing. Ignoring team kills let the counts of 2026-11-03 run past the golden
-    /// knife (38 and 40 of 32 for two teammates, with friendly fire and Instakill on).</summary>
+    /// kills with it count on the lower level. The victim loses nothing. Ignoring team kills lets the counts run past the golden knife: 38 and
+    /// 40 of 32 were measured for two teammates, with friendly fire and Instakill on.</summary>
     public bool TeamKillDemotes { get; set; } = true;
 
     /// <summary>On the last level (the golden knife) only a knife kill counts.</summary>
