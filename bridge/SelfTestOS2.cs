@@ -237,8 +237,8 @@ static partial class Program
             var xml = File.ReadAllText(HudLayoutFile);
             var banners = Enumerable.Range(HudVote.ContentLevel + 1, HudVote.LatestLast - HudVote.ContentLevel).ToList();
             Check($"The outdated banner in this layout ({Hud.Content}): persistent under latest-{HudVote.ContentLevel + 1} ... latest-{HudVote.LatestLast}, never under its own level or below; its own version and the server's in its words",
-                banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVote.ContentLevel} ") && !css.Contains(".gg-screen.vjoin")
-                && xml.Contains($"yours {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {Hud.Content}"));
+                banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVote.ContentLevel} ")
+                && xml.Contains($"Yours {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {Hud.Content}"));
         }
         (S, Broken, BrokenReasons) = (sBefore, brokenBefore, reasonsBefore);
         try { Directory.Delete(StateDir, true); } catch (IOException) { }

@@ -254,6 +254,9 @@ void Eq<T>(T actual, T expected, string what) =>
         "settings: a file that can be used - its values, the secret by reference; CS2_LOG_HTTP_URL and the addon variable no longer count");
     Check(file.Line == $"settings: the settings file {standard}" && new[] { "filesecret42", "file-bridge", "3823993566", "envsecret41" }.All(x => !file.Line.Contains(x)),
         "settings: ...the line names the file and nothing it holds");
+    var inline = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new() { ["OVERSTRIKE2_SETTINGS_CONTENT"] = """{ "schema": 1, "hud": { "addon": "3823993566" }, "bridge": { "url": "http://inline:8080", "secret": "abc" } }""" }), NoFile);
+    Check(inline.FromFile && PluginSetup.FromFile(inline.File) is { Addon: "3823993566", Bridge: "http://inline:8080", BridgeSecret: "abc" } && inline.Line == "settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT",
+        "settings: the settings as text in OVERSTRIKE2_SETTINGS_CONTENT count as the file, and the line names the variable, never the text");
     var noSecret = SettingsSource.Load(OverStrike2.Core.Part.Plugin, Env(new()), _ => """{ "schema": 1, "hud": { "addon": "3823993566" }, "bridge": { "secret": "env:TEST_SECRET" } }""");
     Check(noSecret.FromFile && Setup(noSecret, Env(new())) is { Bridge: null, BridgeWhy: "bridge.secret is empty", Addon: "3823993566" } && noSecret.Line.EndsWith(" - 1 warning (bridge.secret)"),
         "settings: a file whose secret's variable is not set - no bridge, the HUD's log line says why, the settings line names the key");

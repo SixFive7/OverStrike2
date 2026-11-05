@@ -24,7 +24,7 @@ public sealed class SettingsSource
     {
         File = file;
         Path = path;
-        FromFile = file.Fatal == null && file.Source == path; // Settings.Load names the path as the source only when it found the file
+        FromFile = file.Fatal == null && file.Found; // settings were found: the file, or their text in OVERSTRIKE2_SETTINGS_CONTENT
     }
 
     /// <summary>Reads the part's settings file. Never throws: a file that is not there or cannot be used means the environment.</summary>
@@ -41,11 +41,11 @@ public sealed class SettingsSource
     /// <summary>The one line for the part's log, e.g. "settings: the settings file /etc/overstrike2/overstrike2.jsonc - 1 problem (server.port)"
     /// or "settings: the environment (no settings file at /etc/overstrike2/overstrike2.jsonc)". No key's value is in it.</summary>
     public string Line =>
-        FromFile ? $"settings: the settings file {Path}{Keys("problem", File.Problems)}{Keys("warning", File.Warnings)}"
+        FromFile ? $"settings: {(File.Source == Path ? $"the settings file {Path}" : File.Source)}{Keys("problem", File.Problems)}{Keys("warning", File.Warnings)}"
         : File.Fatal is { } fatal ? $"settings: the environment - the settings file {Path} cannot be used ({fatal})"
         : $"settings: the environment (no settings file at {Path})";
 
-    /// <summary>" - 2 problems (server.port, bridge.admins)": the keys by name, each once - every line of core's starts with its key.</summary>
+    /// <summary>" - 2 problems (server.port, bridge.port)": the keys by name, each once - every line of core's starts with its key.</summary>
     static string Keys(string what, List<string> lines)
     {
         if (lines.Count == 0)

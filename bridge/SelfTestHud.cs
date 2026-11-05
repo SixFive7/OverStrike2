@@ -191,34 +191,36 @@ static partial class Program
             var stock = Fun.Settings.SelectMany(s => s.Stock).GroupBy(x => x.ConVar).ToDictionary(g => g.Key, g => g.First().Value);
             var funPage = HudMenu.FunPage(cv => stock.GetValueOrDefault(cv));
             var sentTexts = HudView.StaticTexts().Concat(HudView.Texts(full)).Concat(HudView.PlayerTexts(full, 1, "x", true)).Concat(menuMaps.Texts).Concat(menuQueue.Texts)
-                .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(ballotView.Texts).Select(t => t.Id).Append("gg_k_secs").Append("gg_rst_secs").ToList();
-            var sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
-                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).ToList();
+                .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("gg_rst_secs").Append("gg_cu_head")
+                .Concat(Enumerable.Range(1, 6).Select(k => $"gg_cu_{k}")).ToList();
+            List<(string Id, string Class, bool On)> sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
+                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
+                .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"gg_cu_{k}", "used", true), ($"gg_cu_{k}", "good", true), ($"gg_cu_{k}", "bad", false) })).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has: an older content's own (its Rules tab, the new-maps setting's, a card's Too big and Ads) are not looked for here
             string[] olderButtons = ["gg_tab_rules", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever];
+            var olderPanels = new[] { HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.CatchUpOn, HudMenu.CatchUpOff }.Concat(HudView.OlderContentTexts).ToHashSet(); // the fixed Fun rows, the news line, the note, the lede
             var buttons = HudView.Tabs.Select(t => t.Id).Where(id => !olderButtons.Contains(id)).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct])
-                .Concat([HudCheck.VersionButton(Hud.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault, HudMenu.CatchUpOn, HudMenu.CatchUpOff,
+                .Concat([HudCheck.VersionButton(Hud.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault,
                     HudView.BoardBig, HudView.BoardAds, HudBrowser.OursButton])
-                .Concat(HudVote.WhyPlaces.SelectMany(place => Enumerable.Range(1, DownReasons.All.Length).Select(k => HudVote.WhyButton(place, k))))
                 .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton))
                 .Concat(HudBrowser.ModeButtons.Select(b => b.Id)).Concat(HudDash.LayoutButtons)
                 .Concat(Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Select(c => HudMenu.FunButton(r, c))))
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"gg_m{k}_play", $"gg_m{k}_up", $"gg_m{k}_down" }))
-                .Concat([HudMenu.Previous, HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
+                .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
                 .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudKeyboard.Open, WorkshopCard.Play]).Concat(HudKeyboard.Keys()).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
                 ids.Count == ids.Distinct().Count() && !Regex.IsMatch(xml, @"<root>\s*<styles>.*?</styles>\s*<Panel\b[^>]*\bid=", RegexOptions.Singleline));
-            var unknownText = sentTexts.Where(id => !fed.Contains(id)).Distinct().ToList();
+            var unknownText = sentTexts.Where(id => !fed.Contains(id) && !olderPanels.Contains(id)).Distinct().ToList();
             Check($"Layout: every text the plugin sends lands on a {{s:text}} label ({sentTexts.Distinct().Count()}){(unknownText.Count > 0 ? ": missing " + string.Join(", ", unknownText) : "")}", unknownText.Count == 0);
             var unfed = fed.Where(id => !sentTexts.Contains(id)).ToList();
             Check($"Layout: every {{s:text}} label is fed by the plugin ({fed.Count}){(unfed.Count > 0 ? ": never set " + string.Join(", ", unfed) : "")}", unfed.Count == 0);
-            var unknownPanels = sentClasses.Select(c => c.Id).Concat([HudView.Global, HudView.Screen]).Concat(buttons).Where(id => !ids.Contains(id)).Distinct().ToList();
+            var unknownPanels = sentClasses.Select(c => c.Id).Concat([HudView.Global, HudView.Screen]).Concat(buttons).Where(id => !ids.Contains(id) && !olderPanels.Contains(id)).Distinct().ToList();
             Check($"Layout: every panel the plugin sets a class on, and every button it listens to, exists{(unknownPanels.Count > 0 ? ": missing " + string.Join(", ", unknownPanels) : "")}", unknownPanels.Count == 0);
             Check("Layout: the buttons are Buttons", buttons.All(b => Regex.IsMatch(xml, $@"<Button\b[^>]*\bid=""{b}""")));
             var classes = sentClasses.Select(c => c.Class).Concat(screenClasses).Distinct().ToList();
@@ -265,13 +267,16 @@ static partial class Program
                     "gg_c4_5", "gg_c4_5_cmd", "gg_c4_5_txt", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever, "gg_set_new_now" };
                 for (var r = 1; r <= 10; r++) foreach (var part in new[] { "", "_pos", "_map", "_who", "_cancel" }) expectedRetired.Add($"gg_qr{r}{part}");
                 for (var s = 1; s <= 3; s++) { expectedRetired.Add($"gg_r{s}_title"); for (var l = 1; l <= 4; l++) { expectedRetired.Add($"gg_r{s}_{l}"); expectedRetired.Add($"gg_r{s}_{l}_txt"); } }
-                for (var k = 1; k <= HudBrowser.PerPage; k++) foreach (var part in new[] { "_big", "_ads", "_unq" }) expectedRetired.Add($"{HudMenu.Card(k)}{part}");
+                for (var k = 1; k <= HudBrowser.PerPage; k++) foreach (var part in new[] { "_big", "_ads", "_unq", "_pic" }) expectedRetired.Add($"{HudMenu.Card(k)}{part}"); // the picture on request goes too
+                // The message system's picks: the news line, the note and the lede; the fixed Fun rows (ordinary rows now); the reasons in place (one dialog now).
+                foreach (var id in olderPanels) expectedRetired.Add(id);
+                foreach (var place in new[] { "w", "b", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8" }) for (var r = 1; r <= DownReasons.All.Length; r++) expectedRetired.Add($"gg_why{place}_{r}");
                 Check($"Content {Hud.Content}: it keeps every panel of {shippedContents[^1]} ({last.Count}) but the {retired.Count} it retires, each for a reason (the Queue and Rules pages, the fifth Help rows, the new-maps setting, the cards' Too big, Ads and Remove mine){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {Hud.Content}: what the plugin sends a panel the retired ones are not among, but the Previous button's (kept, on the Maps page) - nothing goes to a panel this content lacks but the older contents' own",
-                    !sent.Any(retired.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("gg_q_prev_text"));
+                    !sent.Any(id => retired.Contains(id) && !olderPanels.Contains(id)) && ids.Contains(HudMenu.Previous) && ids.Contains("gg_q_prev_text"));
                 Check($"Content {Hud.Content}: it adds {added.Count} panels - the version button, the two cards of the ballot's second column foot, each card's score and line, the sub-tabs, the clocks, the restart's words - and every one is fed or listened to",
-                    added.Contains(HudCheck.VersionButton(Hud.Content)) && added.Contains(HudMenu.Card(MapVote.PageCards)) && added.All(id => sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb")));
+                    added.Contains(HudCheck.VersionButton(Hud.Content)) && added.Contains(HudMenu.Card(MapVote.PageCards)) && added.All(id => sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "gg_vidle" or "gg_vlim"));
                 // Every content in use keeps what its pages need: the page classes, which every one has a rule for under their old names; c31 and c32, on for
                 // everybody; and the svge/svlt of its join banner. What it lacks - the Players page, the ballot's ten cards, the sub-tabs - it simply lacks.
                 var olderPages = new[] { "page-start", "page-maps", "page-game", "page-help", "page-fun" };
@@ -291,21 +296,14 @@ static partial class Program
             Check($"The popup: a button for each of the {DownReasons.All.Length} reasons, with its words from the variables the plugin sets on gg_global, the map's from gg_screen, and no other id in it",
                 whyFrom > 0 && Enumerable.Range(1, DownReasons.All.Length).All(k => Regex.IsMatch(noComments, $@"<Button id=""{HudVote.WhyButton(k)}"" class=""gg-whyb""><Label class=""gg-whyb-text"" text=""\{{s:{HudVote.WhyVar}{k}\}}"" /><Label class=""gg-whyb-word"" text=""\{{s:{HudVote.WhyVar}w{k}\}}"" /></Button>"))
                 && noComments.Contains($"text=\"{{s:{HudVote.WhyVar}}}\"") && HudVote.WhyWords().Count == 3 * DownReasons.All.Length
-                && HudVote.WhyWords().All(w => w.Text.Length > 0 && w.Text.Length <= 40) && !Regex.IsMatch(noComments[whyFrom..noComments.IndexOf("class=\"gg-news\"", StringComparison.Ordinal)], @"\bid=""(?!gg_why_)"));
-            Check($"Content v4_4_0's reasons in place: in each of the {HudVote.WhyPlaces.Length} places (the live column, the TAB board, each card) a button per reason with its short words from gg_global, and a click on one is its reason",
-                HudVote.WhyPlaces.All(place => Enumerable.Range(1, DownReasons.All.Length).All(k => noComments.Contains($"<Button id=\"{HudVote.WhyButton(place, k)}\" class=\"gg-whyib\"><Label class=\"gg-whyib-text\" text=\"{{s:{HudVote.WhyVar}s{k}}}\" /></Button>")
-                    && HudVote.WhyClick(HudVote.WhyButton(place, k)) == DownReasons.All[k - 1]))
-                && DownReasons.All.All(r => HudVote.ShortLabel(r).Length is > 0 and <= 12) && HudVote.WhyClick("gg_whyz_1") == null && HudVote.WhyClick("gg_whyw_7") == null
-                && Enumerable.Range(1, HudBrowser.PerPage).All(k => Regex.IsMatch(rules, $@"\.gg-screen\.why\.whyc{k} \.gg-whycard-{k}\s*\{{\s*visibility:\s*visible;"))
-                && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-live \.gg-vote-buttons\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-screen\.why\.whyin \.gg-why\s*\{\s*visibility:\s*collapse;")
-                && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-whyboard\s*\{\s*visibility:\s*visible;") && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-why\s*\{\s*visibility:\s*collapse;")
-                && HudVote.DownCard("gg_m3_down") == 3 && HudVote.DownCard("gg_m9_down") == 0 && HudVote.DownCard("gg_m3_up") == 0 && HudVote.DownCard(HudView.ButtonDown) == 0);
+                && HudVote.WhyWords().All(w => w.Text.Length > 0 && w.Text.Length <= 40) && !Regex.IsMatch(noComments[whyFrom..noComments.IndexOf("class=\"gg-topstack\"", StringComparison.Ordinal)], @"\bid=""(?!gg_why_)"));
+            Check("The reasons are one dialog: no reasons in place on a card, the board or the live column, and nothing else counts as a reason", !rules.Contains("gg-whycard") && !rules.Contains("whyin") && !noComments.Contains("gg_whyw_") && !noComments.Contains("gg_whyb_")
+                && DownReasons.All.All(r => HudVote.ShortLabel(r).Length is > 0 and <= 12) && HudVote.WhyClick("gg_whyz_1") == null && HudVote.WhyClick("gg_whyw_1") == null);
             Check("The board's Too big and Ads buttons stay aside (chat's !down big and the cards' tags stay); Our maps glows, still, while it is not chosen, and is simply lit once it is; the cards wear their mode",
                 Regex.IsMatch(rules, @"\.gg-board \.gg-bigrow\s*\{\s*visibility:\s*collapse;") && !Enumerable.Range(1, HudMenu.Cards).Any(k => ids.Contains($"{HudMenu.Card(k)}_big") || ids.Contains($"{HudMenu.Card(k)}_ads"))
                 && Regex.IsMatch(rules, @"\.gg-ours-glow\s*\{[^}]*box-shadow:\s*#E9B44C80") && !rules.Contains("opulse")
                 && !Regex.IsMatch(rules, @"(?m)^\.gg-ours-glow\s*\{[^}]*opacity:") // the game draws a box-shadow at full strength at any opacity but 0
                 && Enumerable.Range(1, 10).All(k => Regex.IsMatch(rules, $@"\.gg-vseg\.w{k}\s*\{{\s*width:\s*fill-parent-flow\(\s*{k}\.0\s*\);")) // the strip: weights, so it fills exactly
-                && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mcard\.vlead\s*\{[^}]*border:\s*2px solid gg-gold;") && !Regex.IsMatch(rules, @"\.gg-mcard\.vlead\s*\{[^}]*box-shadow")
                 && Regex.IsMatch(rules, @"\.gg-screen\.fl-ours \.gg-ours-glow\s*\{\s*opacity:\s*0;")
                 && Modes.All.All(m => Regex.IsMatch(rules, $@"\.gg-mcard\.mode-{m.Id} \.gg-mmode-{m.Id}\s*\{{\s*visibility:\s*visible;") && noComments.Contains($"class=\"gg-mmode gg-mmode-{m.Id}\""))
                 && Regex.Matches(noComments, "class=\"gg-mband\"").Count == HudMenu.Cards && noComments.Contains($"text=\"{{s:{HudVote.RandomVar}}}\"") && noComments.Contains($"text=\"{{s:{HudVote.MoreVar}}}\"")
@@ -314,10 +312,9 @@ static partial class Program
             Check($"The cards: {HudMenu.Cards} of them, each with its picture, the 15 tags of MapTags in their order (none but the mode label and the warning on the picture), a score and a line under the name; the browser shows {HudBrowser.PerPage}, the ballot {MapVote.PageCards}",
                 HudMenu.Cards == MapVote.PageCards && Enumerable.Range(1, HudMenu.Cards).All(k => ids.Contains(HudMenu.Card(k)) && ids.Contains($"{HudMenu.Card(k)}_score") && ids.Contains($"{HudMenu.Card(k)}_who"))
                 && Regex.Matches(noComments, "class=\"gg-mtags\"").Count == HudMenu.Cards && Regex.Matches(noComments, "class=\"gg-mtag ").Count == HudMenu.Cards * MapTags.All.Length
-                && Regex.IsMatch(rules, @"\.gg-mtags\s*\{[^}]*flow-children:\s*right-wrap;") && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mthumb\s*\{\s*width:\s*164px;")
-                && Regex.IsMatch(rules, @"\.gg-mthumb\s*\{\s*width:\s*196px;") && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mcard\s*\{\s*height:\s*92px;")
+                && Regex.IsMatch(rules, @"\.gg-mtags\s*\{[^}]*flow-children:\s*right-wrap;") && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mthumb\s*\{\s*width:\s*328px;")
+                && Regex.IsMatch(rules, @"\.gg-mthumb\s*\{\s*width:\s*196px;") && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mcard\s*\{\s*width:\s*330px;\s*height:\s*276px;")
                 && HudVote.TagClasses.All(c => Regex.IsMatch(rules, $@"\.gg-mcard\.{c} \.gg-mtag\.{c}\s*\{{\s*visibility:\s*visible;"))
-                && Regex.IsMatch(rules, @"\.gg-screen\.voting \.gg-mplay:hover \.gg-mpop\s*\{\s*visibility:\s*visible;")
                 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\"")));
             // ---- the menu's tabs and sub-tabs, the Players page, the version button, the outdated banner, the restart in the foot ----
             Check("Five tabs - Start, Maps, Fun, Server, Help - and the sub-tabs of the tab that is on; the Vote sub-tab only while a vote is on; the Players page's every row and the caption fed",
@@ -327,9 +324,9 @@ static partial class Program
                 && Enum.GetValues<HudSlots.Page>().All(pg => Regex.IsMatch(rules, $@"\.gg-screen\.page-{pg.ToString().ToLowerInvariant()} "))
                 && noComments.Contains($"text=\"{{s:{HudView.SubCaptionVar}}}\"") && noComments.Contains($"text=\"{{s:{HudView.PlayersSummaryVar}}}\"")
                 && HudView.PlayersPage([]).All(w => noComments.Contains($"text=\"{{s:{w.Name}}}\"")) && HudView.PlayersPage([]).Count == 1 + 7 * HudView.PlayerRows);
-            Check("The HUD check's version button: its id names this content, it has its fixed words, and it stands in for the live column's button while the check waits (vcheck)",
-                noComments.Contains($"<Button id=\"{HudCheck.VersionButton(Hud.Content)}\" class=\"gg-act gg-hudver\">") && Regex.IsMatch(rules, @"\.gg-screen\.vcheck \.gg-hudver\s*\{\s*visibility:\s*visible;")
-                && Regex.IsMatch(rules, @"\.gg-screen\.vcheck #gg_btn_act\s*\{\s*visibility:\s*collapse;") && Regex.Matches(noComments, @"id=""gg_hudver_").Count == 1);
+            Check("The HUD check's version button is the window's X: its id names this content, and it stands in for the plain close button while the server does not know the version (vcheck)",
+                noComments.Contains($"<Button id=\"{HudCheck.VersionButton(Hud.Content)}\" class=\"gg-close gg-hudver\">") && Regex.IsMatch(rules, @"\.gg-screen\.vcheck \.gg-hudver\s*\{\s*visibility:\s*visible;")
+                && Regex.IsMatch(rules, @"\.gg-screen\.vcheck #gg_btn_close\s*\{\s*visibility:\s*collapse;") && Regex.Matches(noComments, @"id=""gg_hudver_").Count == 1);
             Check("A restart coming shows in the window's foot, its words and its countdown; the freeze says so there too",
                 Regex.IsMatch(rules, @"\.gg-global\.rst \.gg-rstrip\s*\{\s*visibility:\s*visible;") && ids.Contains("gg_rst_text") && ids.Contains("gg_rst_secs")
                 && HudView.RestartCountdown(new HudState { RestartKind = "daily", RestartAt = 1793000030 }, DateTimeOffset.FromUnixTimeSeconds(1793000000).UtcDateTime) == "0:30"
@@ -337,13 +334,12 @@ static partial class Program
                 && Regex.IsMatch(rules, @"\.gg-screen\.vlock \.gg-foot-frozen\s*\{\s*visibility:\s*visible;"));
             Check("The menu window has no knife behind its pages any more", !Regex.IsMatch(rules, @"\.gg-pages\s*\{[^}]*background-image"));
             Check("The popup draws above the window, and a click on it is its reason, nothing else",
-                noComments.IndexOf("class=\"gg-win-foot\"", StringComparison.Ordinal) < whyFrom && whyFrom < noComments.IndexOf("class=\"gg-news\"", StringComparison.Ordinal)
+                noComments.IndexOf("class=\"gg-win-foot\"", StringComparison.Ordinal) < whyFrom && whyFrom < noComments.IndexOf("class=\"gg-topstack\"", StringComparison.Ordinal)
                 && DownReasons.All.Select((r, i) => HudVote.WhyClick(HudVote.WhyButton(i + 1)) == r).All(x => x) && HudVote.WhyClick(HudVote.WhyButton(DownReasons.All.Length + 1)) == null
                 && HudVote.WhyClick(HudView.ButtonDown) == null && HudVote.WhyClick("gg_why_x") == null);
-            var whyBox = Regex.Match(rules, @"\.gg-why\s*\{[^}]*?visibility:\s*collapse;[^}]*?width:\s*(\d+)px;[^}]*?margin-left:\s*(\d+)px;[^}]*?padding:\s*\d+px (\d+)px \d+px (\d+)px;[^}]*?border-left:\s*(\d+)px");
-            var whyWide = whyBox.Success ? Px(whyBox, 1) + Px(whyBox, 2) + Px(whyBox, 3) + Px(whyBox, 4) + Px(whyBox, 5) : int.MaxValue;
-            Check($"The popup stays hidden until its class comes, and stands clear of the window at 16:9: {whyWide} px of the {(1920 - 1240) / 2} beside it",
-                whyWide <= (1920 - 1240) / 2 && Regex.IsMatch(rules, @"\.gg-screen\.why \.gg-why\s*\{\s*visibility:\s*visible;"));
+            Check("The dialog: 440 wide in the very centre of the screen, shown only while the player has a cursor (the window, or TAB) - its seconds run on meanwhile",
+                Regex.IsMatch(rules, @"\.gg-why\s*\{[^}]*width:\s*440px;[^}]*horizontal-align:\s*center;[^}]*vertical-align:\s*center;") && Regex.IsMatch(rules, @"\.gg-screen\.why\.win \.gg-why\s*\{[^}]*opacity:\s*1;")
+                && Regex.IsMatch(rules, @"\.HUD_SCOREBOARD_VISIBLE \.gg-screen\.why \.gg-why\s*\{[^}]*opacity:\s*1;"));
             Check($"The popup's line drains over its {DownReasons.PopupSeconds} s, from the moment the plugin starts it, a second in",
                 Regex.IsMatch(rules, $@"\.gg-why-fill\s*\{{[^}}]*transition-duration:\s*{DownReasons.PopupSeconds - 1}s;") && Regex.IsMatch(rules, @"\.gg-screen\.why-run \.gg-why-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
             var fixedWords = Regex.Matches(noComments, @"\btext=""([^""]*)""").Select(m => m.Groups[1].Value).ToList();
@@ -519,7 +515,7 @@ static partial class Program
                 && HudVote.FixedRowClasses(cv => "1", false).All(x => !x.On)
                 && Regex.IsMatch(rules, @"\.gg-global\.mode-deathmatch \.gg-set-catchup\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-global\.mode-wingman \.gg-set-catchup\s*\{\s*visibility:\s*collapse;")
                 && Regex.IsMatch(rules, @"\.gg-global\.cu-on #gg_set_catchup_on\s*\{") && Regex.IsMatch(rules, @"\.gg-global\.cu-off #gg_set_catchup_off\s*\{"));
-            string[] v45Classes = ["vlead", "vtie", "vhas", "vstrip", "vlock", "vaway", "changed", "cu-on", "cu-off", "vrand", .. Enumerable.Range(0, 11).Select(k => $"w{k}")];
+            string[] v45Classes = ["vlead", "vtie", "vhas", "vstrip", "vlock", "changed", "vrand", .. Enumerable.Range(0, 11).Select(k => $"w{k}")];
             var v45Unstyled = v45Classes.Where(cls => !Regex.IsMatch(rules, $@"\.{Regex.Escape(cls)}\b")).ToList();
             Check($"Where the votes go: its classes each have a rule{(v45Unstyled.Count > 0 ? ": none for " + string.Join(", ", v45Unstyled) : "")}; the layout holds every card's bar and its voters on pointing, the strip's nine segments, the waiting line and the line back",
                 v45Unstyled.Count == 0 && Enumerable.Range(1, HudMenu.Cards).All(k => noComments.Contains($"text=\"{{s:{HudVote.HoverVar(k)}}}\""))

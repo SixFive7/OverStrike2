@@ -186,15 +186,15 @@ static partial class Program
         var free = new HudState { Map = "#5 x" };
         var open = VoteState.Decode("mv\t1793900000\topen\t30\t2\t0\tmid\t2\t1\n");
         var waiting = new VoteState { WaitFor = 80 };
-        Check("Board: Like and Dislike are likes on the map that is on, Too big and Ads a Dislike's reasons; the button under them is Start a vote - the vote's window while one is on, nothing during the wait or a change",
+        Check("Board: Like and Dislike are likes on the map that is on, Too big and Ads a Dislike's reasons; the button under them is Start a vote - the vote's window while one is on, the answer with the time left during the wait, nothing during a change",
             HudView.Command(HudView.BoardUp, free) == "!up" && HudView.Command(HudView.BoardDown, free) == "!down"
             && HudView.Command(HudView.BoardBig, free) == "!down big" && HudView.Command(HudView.BoardAds, free) == "!down ads" && Hud.IsAction("!down big") && Hud.IsAction("!down ads")
             && HudView.Command(HudView.BoardNext, free) == "!next" && HudView.Command(HudView.BoardNext, free, open) == HudView.OpenVote
-            && HudView.Command(HudView.BoardNext, free, waiting) == null && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }) == null);
+            && HudView.Command(HudView.BoardNext, free, waiting) == "!next" && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }) == null);
         Check("Board: the button's words in each case - start one, the vote on, the wait after one - and none of them a typed command",
             HudView.PlayerTexts(free, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text == "Start a vote"
             && HudView.PlayerTexts(free, 2, "Bob", false, open).Single(t => t.Id == "gg_b_next_text").Text.Contains("The vote is on")
-            && HudView.PlayerTexts(free, 2, "Bob", false, waiting).Single(t => t.Id == "gg_b_next_sub").Text == "the next one can start in 1 min 20 s"
+            && HudView.PlayerTexts(free, 2, "Bob", false, waiting).Single(t => t.Id == "gg_b_next_sub").Text == "The next one can start in 1 min 20 s"
             && HudView.PlayerClasses(free, 2, waiting).Contains((HudView.Screen, "act-off", true)) && HudView.PlayerClasses(free, 2).Contains((HudView.Screen, "act-off", false))
             && new VoteState?[] { null, open, waiting }.Select(v => HudView.Action(free, v)).All(a => !a.Text.Contains('!') && !a.Sub.Contains('!')));
         var leading = VoteState.Decode("mv\t1793900001\topen\t20\t3\t3\tmid\t2\t1\nmvo\t2\tarmsrace\tpicked\t44\t44\t#44 aim_aim\t\t2\tAlice\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep playing this map\t#5 x\t1\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\n");
@@ -225,8 +225,8 @@ static partial class Program
             ("!down", "Board or menu: Dislike", HudView.Command(HudView.ButtonDown, live), "!down"),
             ("!up <map>", "Maps: a card's up arrow", Card(claim, "up"), "!up 7"),
             ("!down <map>", "Maps: a card's down arrow", Card(claim, "down"), "!down 7"),
-            ("!down <map> big", "Maps: a card's down arrow, then Too big over its picture", Card(claim, "down") == "!down 7"
-                && HudVote.WhyClick(HudVote.WhyButton($"c{claim}", Array.FindIndex(DownReasons.All, r => r.Word == "big") + 1)) is { } bigWhy ? $"!down {bigWhy.Word}" : null, "!down big"),
+            ("!down <map> big", "Maps: a card's down arrow, then Too big in the dialog", Card(claim, "down") == "!down 7"
+                && HudVote.WhyClick(HudVote.WhyButton(Array.FindIndex(DownReasons.All, r => r.Word == "big") + 1)) is { } bigWhy ? $"!down {bigWhy.Word}" : null, "!down big"),
             ("!down <map> big", "Maps: a card's Too big (the contents before v4_6_0)", Card(claim, "big"), "!down 7 big"),
             ("!top", "Maps: Sort by Likes; the live column's Most liked", Sorted(catalog, index).FirstOrDefault()?.Name, "Claim the hill"),
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),

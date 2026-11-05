@@ -120,8 +120,8 @@ static partial class Program
             Quiet(); Talk(alice, "!next");
             Check("...Start a vote too", Ballot == null && Said("A vote was just held"));
             var waitState = BuildVoteState(clock);
-            Check("...and the live state carries the wait, so the board's button says it and offers nothing",
-                waitState.WaitFor is > 0 and <= MapVote.WaitSeconds && HudView.Action(BuildHud(clock), waitState) is { Command: null, Text: "Start a vote" });
+            Check("...and the live state carries the wait, so the board's button says it, looks off, and a click gets its answer with the time left",
+                waitState.WaitFor is > 0 and <= MapVote.WaitSeconds && HudView.Action(BuildHud(clock), waitState) is { Command: "!next", Text: "Start a vote" } && HudView.PlayerClasses(BuildHud(clock), 1, waitState).Contains((HudView.Screen, "act-off", true)));
             Run(MapVote.WaitSeconds);
             Quiet(); Talk(alice, $"!map {Rank(1)}");
             Check("The map that is on is no pick outside a vote: it is on already", Ballot == null && Said("is on now"));
@@ -207,7 +207,7 @@ static partial class Program
             var crashed = S.Map!; Quiet();
             Crash(); Run(10); Join(bob);
             Check("A new process without a quit is recorded against the map that was on, said at once and to whoever joins",
-                S.Crashes.GetValueOrDefault(Key(crashed)) == 1 && S.Crashes.Count == 1 && Said($"The server went down on {Clip(Label(crashed), 44)} - it is marked")
+                S.Crashes.GetValueOrDefault(Key(crashed)) == 1 && S.Crashes.Count == 1 && Said($"The server crashed on {Clip(Label(crashed), 44)} and has restarted - That map no longer comes up at random")
                 && Said($"after a crash on {Clip(Label(crashed), 44)}"));
             Quiet(); Talk(cara, $"!map {crashed.Rank}");
             Check("...a pick of it now asks twice (that player's own confirm)", Said("crashed the server 1 time(s)") && Pending?.Map != crashed && Ballot == null);
@@ -584,7 +584,7 @@ static partial class Program
             Check("The HUD state names the map, what picked it, its likes and who liked what, and the most liked maps",
                 hud.Map == Clip(Label(m[1]), 40) && hud.By == "the vote" && (hud.Up, hud.Down) == (1, 0) && hud.MyVotes.GetValueOrDefault(1002) == 1 && hud.Maps == Playable
                 && hud.Top is [var liked] && liked.Up == 1 && liked.Map == Clip(Label(m[1]), 36));
-            Check("...and, the vote just over, the wait before the next one: the window's button says when and offers nothing", hudVote.WaitFor > 0 && HudView.Action(hud, hudVote).Command == null);
+            Check("...and, the vote just over, the wait before the next one: the window's button says when, and a click gets its answer", hudVote.WaitFor > 0 && HudView.Action(hud, hudVote).Command == "!next");
             Quiet();
             Check("A click on the HUD acts exactly like the chat command: Cara's like is counted and said",
                 HudAct("[U:1:1003]\tCara\t!up") && Tally(Key(m[1])) == (2, 0) && Said("You liked") && NoteFor.ContainsKey(1003));

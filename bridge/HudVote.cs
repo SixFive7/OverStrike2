@@ -383,13 +383,6 @@ public static class HudVote
     /// <summary>The popup's buttons, one per reason, in DownReasons' order: k from 1.</summary>
     public static string WhyButton(int k) => $"gg_why_{k.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>A Dislike's reasons in place: in the window's live column (w), on the TAB board (b), and over the picture of the browser's card that was
-    /// disliked (c1 ... c8) - each a button per reason, k from 1.</summary>
-    public static string WhyButton(string place, int k) => $"gg_why{place}_{k.ToString(CultureInfo.InvariantCulture)}";
-
-    /// <summary>The places of the inline reasons: the live column, the board, and each of the browser's cards.</summary>
-    public static readonly string[] WhyPlaces = ["w", "b", .. Enumerable.Range(1, HudBrowser.PerPage).Select(k => $"c{k}")];
-
     /// <summary>The popup's fixed words, as the dialog variables on gg_global that its labels inherit.</summary>
     public static List<(string Name, string Text)> WhyWords() =>
         DownReasons.All.SelectMany((r, i) => new[] { ($"{WhyVar}{i + 1}", r.Label), ($"{WhyVar}w{i + 1}", r.Word), ($"{WhyVar}s{i + 1}", ShortLabel(r)) }).ToList();
@@ -401,16 +394,9 @@ public static class HudVote
     public static DownReasons.Reason? WhyClick(string buttonId)
     {
         for (var k = 1; k <= DownReasons.All.Length; k++)
-        {
             if (buttonId == WhyButton(k)) return DownReasons.All[k - 1];
-            foreach (var place in WhyPlaces) if (buttonId == WhyButton(place, k)) return DownReasons.All[k - 1];
-        }
         return null;
     }
-
-    /// <summary>The browser card a Dislike came from (gg_m3_down: 3), or 0 for any other button: the inline reasons go over that card's picture.</summary>
-    public static int DownCard(string buttonId) => buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_down", StringComparison.Ordinal)
-        && int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) && k >= 1 && k <= HudBrowser.PerPage ? k : 0;
 
     /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
     /// settings, in Arms Race only (the rows are Arms Race's own).</summary>

@@ -25,7 +25,7 @@ static partial class Program
             {
               "schema": 1,
               "server": { "host": "game-host", "port": 27016, "rconPassword": "env:TEST_RCON", "startMap": "ar_pool_day" },
-              "bridge": { "port": 8081, "secret": "env:TEST_SECRET", "admins": ["76561197960278073"], "officialMaps": ["ar_baggage", "ar_shoots"],
+              "bridge": { "port": 8081, "secret": "env:TEST_SECRET", "officialMaps": ["ar_baggage", "ar_shoots"],
                           "randomOnStart": false, "discoveryStock": 7, "changeDelaySeconds": 3, "restartCooldownSeconds": 60, "guideOnJoin": false },
               "hud": { "tab": "off", "check": "enforce" },
               "paths": { "bridgeData": "/srv/bridge-data/" },
@@ -36,25 +36,29 @@ static partial class Program
         var v = BridgeValues.FromFile(file.File);
         Check("Settings: a file that can be used - its values, the environment's variables only where it refers to them",
             file.FromFile && !file.Troubled && v.RconHost == "game-host" && v.RconPort == 27016 && v.RconPassword == "rconvalue71" && v.StartMap == "ar_pool_day"
-            && v.HttpPort == 8081 && v.LogSecret == "secretvalue72" && v.Admins.SequenceEqual(["76561197960278073"]) && v.OfficialMaps.SequenceEqual(["ar_baggage", "ar_shoots"])
+            && v.HttpPort == 8081 && v.LogSecret == "secretvalue72" && v.OfficialMaps.SequenceEqual(["ar_baggage", "ar_shoots"])
             && !v.RandomOnStart && v.DiscoveryStock == 7 && v.ChangeDelay == 3 && v.RestartCooldown == 60 && !v.GuideOnJoin
             && HudTab.Parse(v.Tab) == HudTab.Mode.Off && HudCheck.Parse(v.Check) == HudCheck.Mode.Enforce
-            && v.StateDir == "/srv/bridge-data/" && v.MapsFile == "/srv/bridge-data/maps.json" && v.BrokenFile == "/srv/bridge-data/broken.json"
-            && AccountId(v.Admins[0]) == 12345);
+            && v.StateDir == "/srv/bridge-data/" && v.MapsFile == "/srv/bridge-data/maps.json" && v.BrokenFile == "/srv/bridge-data/broken.json");
         Check("Settings: the line names the file and nothing it holds", file.Line == $"settings: the settings file {standard}"
-            && new[] { "rconvalue71", "secretvalue72", "game-host", "27016", "ar_pool_day", "8081", "76561197960278073", "bridge-data" }.All(x => !file.Line.Contains(x)));
+            && new[] { "rconvalue71", "secretvalue72", "game-host", "27016", "ar_pool_day", "8081", "bridge-data" }.All(x => !file.Line.Contains(x)));
 
         // ---- a file with problems: still the file; the line names the keys, never what they hold ----
-        const string wrong = """{ "schema": 1, "server": { "port": "port-text-81" }, "bridge": { "admins": ["123456789"] }, "unknownkey": 1 }""";
+        const string wrong = """{ "schema": 1, "server": { "port": "port-text-81" }, "bridge": { "port": "port-text-82" }, "unknownkey": 1 }""";
         var bad = SettingsSource.Load(Part.Bridge, NoEnv, _ => wrong);
         var bv = BridgeValues.FromFile(bad.File);
         Check("Settings: a wrong value keeps its default and the file is still used; the line names the keys only - no value, no reason",
-            bad.FromFile && bad.Troubled && bv.RconPort == 27015 && bv.Admins.Count == 0
-            && bad.Line == $"settings: the settings file {standard} - 2 problems (server.port, bridge.admins) - 1 warning (unknownkey)"
-            && !bad.Line.Contains("port-text-81") && !bad.Line.Contains("123456789"));
+            bad.FromFile && bad.Troubled && bv.RconPort == 27015 && bv.HttpPort == 8080
+            && bad.Line == $"settings: the settings file {standard} - 2 problems (server.port, bridge.port) - 1 warning (unknownkey)"
+            && !bad.Line.Contains("port-text-81") && !bad.Line.Contains("port-text-82"));
         var unset = SettingsSource.Load(Part.Bridge, NoEnv, _ => """{ "schema": 1, "bridge": { "secret": "env:TEST_UNSET" } }""");
         Check("Settings: a secret whose variable is not set is empty - a warning naming the key, so the bridge refuses to start",
             unset.FromFile && BridgeValues.FromFile(unset.File).LogSecret == "" && unset.Line.EndsWith(" - 1 warning (bridge.secret)"));
+
+        // ---- the same text in an environment variable, where a stack has no file to mount ----
+        var inline = SettingsSource.Load(Part.Bridge, EnvOf(new() { ["OVERSTRIKE2_SETTINGS_CONTENT"] = """{ "schema": 1, "server": { "host": "inline-host" } }""" }), NoFile);
+        Check("Settings: the settings as text in OVERSTRIKE2_SETTINGS_CONTENT count as the file, and the line names the variable, never the text",
+            inline.FromFile && BridgeValues.FromFile(inline.File).RconHost == "inline-host" && inline.Line == "settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT");
 
         // ---- a file that cannot be used: the environment, never a half-read file ----
         foreach (var (what, read) in new (string, Func<string, string>)[]
@@ -76,30 +80,30 @@ static partial class Program
             env.StateDir == "/data" && env.RconHost == "cs2" && env.RconPort == 27015 && env.RconPassword == "" && env.LogSecret == "" && env.MapsFile == "maps.json"
             && env.BrokenFile == "" && env.StartMap == "ar_shoots" && env.HttpPort == 8080 && env.ChangeDelay == 8 && env.RestartCooldown == 300
             && env.RandomOnStart && env.GuideOnJoin && HudTab.Parse(env.Tab) == HudTab.Default && HudCheck.Parse(env.Check) == HudCheck.Mode.Warn
-            && env.Admins.Count == 0 && env.OfficialMaps.SequenceEqual(["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]) && env.DiscoveryStock == 10);
+            && env.OfficialMaps.SequenceEqual(["ar_baggage", "ar_pool_day", "ar_shoots", "ar_shoots_night"]) && env.DiscoveryStock == 10);
         var set = BridgeValues.FromEnvironment(EnvOf(new()
         {
             ["STATE_DIR"] = "/d", ["RCON_HOST"] = "h", ["RCON_PORT"] = "1", ["RCON_PASSWORD"] = "p", ["LOG_SECRET"] = "s", ["MAPS_FILE"] = "/d/m.json",
             ["BROKEN_FILE"] = "/d/b.json", ["START_MAP"] = "ar_baggage", ["HTTP_PORT"] = "2", ["CHANGE_DELAY_SECONDS"] = "3", ["RESTART_COOLDOWN_SECONDS"] = "4",
-            ["RANDOM_ON_START"] = "0", ["GUIDE_ON_JOIN"] = "no", ["HUD_TAB"] = "off", ["HUD_CHECK"] = "dryrun", ["ADMIN_STEAMIDS"] = " 76561197960278073 , [U:1:7] ,",
+            ["RANDOM_ON_START"] = "0", ["GUIDE_ON_JOIN"] = "no", ["HUD_TAB"] = "off", ["HUD_CHECK"] = "dryrun",
             ["OFFICIAL_MAPS"] = "ar_shoots", ["DISCOVERY_STOCK"] = "99",
         }));
         Check("Settings: the environment's variables, each read as before (DISCOVERY_STOCK clamped to 40, dryrun read as warn)",
             set.StateDir == "/d" && set.RconHost == "h" && set.RconPort == 1 && set.RconPassword == "p" && set.LogSecret == "s" && set.MapsFile == "/d/m.json"
             && set.BrokenFile == "/d/b.json" && set.StartMap == "ar_baggage" && set.HttpPort == 2 && set.ChangeDelay == 3 && set.RestartCooldown == 4
             && !set.RandomOnStart && !set.GuideOnJoin && HudTab.Parse(set.Tab) == HudTab.Mode.Off && HudCheck.Parse(set.Check) == HudCheck.Mode.Warn
-            && set.Admins.Select(AccountId).SequenceEqual([12345L, 7L]) && set.OfficialMaps.SequenceEqual(["ar_shoots"]) && set.DiscoveryStock == 40);
+            && set.OfficialMaps.SequenceEqual(["ar_shoots"]) && set.DiscoveryStock == 40);
 
         // ---- the switch changes nothing by itself: a file that sets nothing gives the environment's defaults ----
         var empty = BridgeValues.FromFile(CoreSettings.Parse("""{ "schema": 1 }""", Part.Bridge, NoEnv, NoFile));
         Check("Settings: every default is the same in the file as in the environment - but the data files, which the file puts in paths.bridgeData",
-            empty with { MapsFile = env.MapsFile, BrokenFile = env.BrokenFile, Admins = env.Admins, OfficialMaps = env.OfficialMaps } == env
-            && empty.Admins.SequenceEqual(env.Admins) && empty.OfficialMaps.SequenceEqual(env.OfficialMaps)
+            empty with { MapsFile = env.MapsFile, BrokenFile = env.BrokenFile, OfficialMaps = env.OfficialMaps } == env
+            && empty.OfficialMaps.SequenceEqual(env.OfficialMaps)
             && empty.MapsFile == "/data/maps.json" && empty.BrokenFile == "/data/broken.json" && HudTab.Parse(empty.Tab) == HudTab.Parse(env.Tab));
 
         // ---- this run's own: the bridge itself took the one the source says ----
         Check("Settings: the bridge's own values come from the source its line names",
             BridgeConfig.Values == (BridgeConfig.Source.FromFile ? BridgeValues.FromFile(BridgeConfig.Source.File) : BridgeValues.FromEnvironment(Environment.GetEnvironmentVariable))
-            with { Admins = BridgeConfig.Values.Admins, OfficialMaps = BridgeConfig.Values.OfficialMaps });
+            with { OfficialMaps = BridgeConfig.Values.OfficialMaps });
     }
 }

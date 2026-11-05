@@ -259,12 +259,12 @@ static partial class Program
             HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(Hud.Release)}"); // a later click on another button: the version stays known
             var served = HudState.Decode(BuildHud(clock).Encode())!;
             var joinNews = NewsNow.Text;
-            var bobNote = HudView.NoteOf(served, 5002);
             Check("HUD check: a click verifies its player with the HUD it proved (the version button's content, an older content's gold button, or unknown), and a known one is kept",
                 served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == Hud.Content && served.Verified.GetValueOrDefault(5002) == HudCheck.Older
                 && served.Verified.GetValueOrDefault(5003) == Hud.Release && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn);
-            Check("HUD check: the first click with a known HUD says on the news line which one the player brought, and an outdated one gets that player a note",
-                joinNews.Contains("joined with") && bobNote.Contains(Hud.Content) && HudView.NoteOf(served, 5001) == "");
+            Check("HUD check: the first click with a known HUD says for everybody which one the player brought, in CS2's plain centre text, chat and on the board; an outdated one gets no note, its own banner says it",
+                joinNews.Contains("joined with") && served.Centres.Any(c => M.Plain(c.Text).Contains("joined with")) && served.Says.Any(l => M.Plain(l.Text).Contains("joined with")) && served.Lately.Any(l => l.Text.Contains("joined with"))
+                && HudView.NoteOf(served, 5002) == "" && HudView.NoteOf(served, 5001) == "");
             Ingest("10/07/2026 - 12:00:05.000 - \"Bob<2><[U:1:5002]><CT>\" disconnected (reason \"NETWORK_DISCONNECT_DISCONNECT_BY_USER\")", null);
             Ingest("10/07/2026 - 12:00:06.000 - \"Alice<2><[U:1:5001]><CT>\" disconnected (reason \"NETWORK_DISCONNECT_SHUTDOWN\")", null);
             var afterLeave = HudState.Decode(BuildHud(clock).Encode())!;

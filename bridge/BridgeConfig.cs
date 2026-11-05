@@ -33,7 +33,6 @@ sealed record BridgeValues
     public bool GuideOnJoin { get; init; }
     public string Tab { get; init; } = "";      // HudTab.Parse reads it
     public string Check { get; init; } = "";    // HudCheck.Parse reads it
-    public List<string> Admins { get; init; } = [];
     public List<string> OfficialMaps { get; init; } = [];
     public int DiscoveryStock { get; init; }
 
@@ -55,7 +54,6 @@ sealed record BridgeValues
         GuideOnJoin = s.Bridge.GuideOnJoin,
         Tab = s.Hud.Tab,
         Check = s.Hud.Check,
-        Admins = [.. s.Bridge.Admins],
         OfficialMaps = [.. s.Bridge.OfficialMaps],
         DiscoveryStock = s.Bridge.DiscoveryStock,
     };
@@ -83,7 +81,6 @@ sealed record BridgeValues
             GuideOnJoin = Yes(E("GUIDE_ON_JOIN", "1")),
             Tab = E("HUD_TAB", HudTab.Name(HudTab.Default)),
             Check = E("HUD_CHECK", "warn"),
-            Admins = Names(E("ADMIN_STEAMIDS", "")),
             OfficialMaps = Names(E("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night")),
             DiscoveryStock = Math.Clamp(int.TryParse(E("DISCOVERY_STOCK", "10"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 10, 0, 40),
         };

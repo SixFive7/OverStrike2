@@ -21,7 +21,6 @@ static partial class Program
         GuideOnJoin = BridgeConfig.Values.GuideOnJoin;                       // ask the plugin to show the guide on every real join
     static HudTab.Mode HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
     static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce; warn by default, so every player's HUD version is learned at their first click
-    static readonly HashSet<long> Admins = BridgeConfig.Values.Admins.Select(AccountId).ToHashSet();
     static readonly List<MapInfo> Officials = BridgeConfig.Values.OfficialMaps // installed on the server, loaded with changelevel
         .Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
 
@@ -78,7 +77,7 @@ static partial class Program
         WatchStart(DataFiles());                    // Reload.cs: maps.json, broken.json, removed.json and search.json are read again when they change
         StartHttp();
         Clock = new Timer(_ => Post(Tick), null, 1000, 1000);
-        Log($"listening on port {HttpPort}, rcon {RconHost}:{RconPort}, {Maps.Count} maps + {Officials.Count} official, {Broken.Count} broken, {Packs.Count} non-maps, {Removed.Count} gone from the Workshop, {Blocked.Count} blocked, {Admins.Count} admins, {Votes.Count} maps with votes, state {statePath}");
+        Log($"listening on port {HttpPort}, rcon {RconHost}:{RconPort}, {Maps.Count} maps + {Officials.Count} official, {Broken.Count} broken, {Packs.Count} non-maps, {Removed.Count} gone from the Workshop, {Blocked.Count} blocked, {Votes.Count} maps with votes, state {statePath}");
         InMaintenance();
         foreach (var work in Loop.GetConsumingEnumerable())
         {
@@ -877,6 +876,7 @@ static partial class Program
     static int SelfTestRun()
     {
         SelfTesting = true; // the dice keep quiet: tens of thousands of rolls follow
+        ToldAll = new(); // the capitals check at the end reads everything the run makes the bridge post
         var inactivity = MapVote.InactivitySeconds; // the inactivity timer: 5 s; the checks of everything else close a vote the moment everybody has voted
         MapVote.InactivitySeconds = 0;
         SyncOn = false; DashZone = TimeZoneInfo.Utc; // SyncDash.cs: no sync-status.json and no web folder unless a test asks; times in UTC
@@ -1172,6 +1172,7 @@ static partial class Program
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
         SettingsSelfTest(Check); // SelfTestSettings.cs: the settings file, else the environment, and the line that says which
+        MessagesSelfTest(Check); // SelfTestMessages.cs: the catalogue, the marks, the capitals, the routing, the wire, the views
         PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
