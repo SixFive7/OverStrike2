@@ -15,7 +15,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Pinned to the CounterStrikeSharp release installed by server/pre.sh. 1.0.376 is the first that keeps per-player HUD text after
+    <!-- Pinned to the CounterStrikeSharp release os2-server installs (server/OverStrike2.Server/Install.cs). 1.0.376 is the first that keeps per-player HUD text after
          a join (#1434). -->
     <PackageReference Include="CounterStrikeSharp.API" Version="1.0.379" />
     <!-- The logic and the words live with the bridge, which tests them in its selftest; compiled in here as source. -->
@@ -56,9 +56,6 @@
     <!-- The block list, every game mode's in one file, is a config file beside the DLL (deploy both): editing it needs no rebuild,
          "mapreset_block reload" reads it. -->
     <None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />
-    <!-- hud/ is the Workshop addon (Panorama layout and stylesheet) and its publisher, a separate program: not part of the plugin. -->
-    <Compile Remove="hud\**" />
-    <None Remove="hud\**" />
   </ItemGroup>
 
 </Project>

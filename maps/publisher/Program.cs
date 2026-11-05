@@ -60,7 +60,7 @@ static class Program
     const uint App = 730;
     const int FileTypeCommunity = 0;   // k_EWorkshopFileTypeCommunity: an ordinary item anybody can subscribe to, as every map is
     const int VisibilityPublic = 0;    // k_ERemoteStoragePublishedFileVisibilityPublic
-    const string IdFileName = "workshop_id.txt", ItemFileName = "workshop.json";
+    const string IdFileName = "workshop_id.txt";
     const string CreateFlag = "--user-approved-create", UpdateFlag = "--user-approved-update";
     const long MaxPreviewBytes = 1_000_000; // Steam refuses a bigger preview; checked before an item is created
 

@@ -1,23 +1,11 @@
 # Line endings: LF in history and working tree, on every OS. text=auto leaves binaries alone.
 * text=auto eol=lf
 
-*.bat text eol=crlf
-*.cmd text eol=crlf
-
 *.cs   text diff=csharp
 *.ps1  text
-*.psm1 text
 *.sh   text eol=lf
 *.cfg  text
 *.vtex text
 
 *.png  binary
 *.jpg  binary
-*.jpeg binary
-*.webp binary
-*.dll  binary
-*.exe  binary
-*.vpk  binary
-*.zip  binary
-*.gz   binary
-*.tar  binary
