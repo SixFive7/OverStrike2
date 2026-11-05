@@ -20,6 +20,7 @@ sealed class BridgeLink
     readonly HttpClient poll = new() { Timeout = TimeSpan.FromSeconds(Hud.LongPollSeconds + 15) };          // the long poll: the bridge holds it up to LongPollSeconds
     long version = -1;   // the version of the newest state taken; -1 none yet
     bool legacy;         // the bridge answered without a version: an older one, polled once a second
+    bool? sentDraws;     // what the last poll told the bridge about drawing the HUD (Hud.DrawQuery); null: no poll yet
 
     /// <summary>The bridge's clock less ours, in milliseconds, from its newest answer: the HUD counts the state's end times against the bridge's clock.</summary>
     public long ClockOffsetMs { get; private set; }
@@ -73,9 +74,17 @@ sealed class BridgeLink
             }
             acts.Remove(act);
         }
+        if (fetch != null && sentDraws != null && sentDraws != draws)
+        {
+            // A hold begins or ends: the bridge hears it now, not when the long poll in flight comes back (up to Hud.LongPollSeconds) - in between a match end
+            // would open a vote nobody without the HUD sees. The short poll's answer is the state as of now, which the next long poll brings again anyway.
+            _ = GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}", http).ContinueWith(t => _ = t.Exception, TaskScheduler.Default);
+            sentDraws = draws;
+        }
         if (wanted && fetch == null && now >= nextFetch)
         {
             fetchSent = DateTime.UtcNow;
+            sentDraws = draws;
             fetch = legacy ? GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}", http)
                 : GetText($"{stateUrl}?v={version}&{Hud.DrawQuery}={(draws ? 1 : 0)}", poll);
         }

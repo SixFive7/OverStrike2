@@ -13,7 +13,7 @@ namespace OverStrike2;
 ///
 ///   - set (the Workshop id of the published HUD addon): the HUD - the full menu (maps with full-text search on an on-screen keyboard, unlisted
 ///     Workshop ids, the queue, settings, help, rules), the board beside the scoreboard as a click action panel while TAB is held, a now-playing
-///     card, a map-change banner, the news line and each player's note. See HudScreen and ../../bridge/Hud.cs; the layout is the Workshop addon in
+///     card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Hud.cs; the layout is the Workshop addon in
 ///     hud/, which MultiAddonManager hands out. A real join gets the welcome window, until its X.
 ///
 /// The bridge decides when to show the welcome (a real join, read off the log) and asks over RCON with css_guide. Chat: a line that starts with
@@ -38,7 +38,7 @@ public class OverStrike2Plugin : BasePlugin
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race
 
-    /// <summary>The HUD (drawn or not): the modules put their lines on its news line (the block's notices) through this.</summary>
+    /// <summary>The HUD: the modules post their lines through it (the message system, HudMessages.cs), the game-changers block's notices too.</summary>
     internal HudScreen? Screen => hud;
     string addon = "";
     readonly Dictionary<int, (string Html, DateTime Until)> boosts = new();     // slot -> its catch-up message on the centre panel, for a game not known to hold the card: sent every tick until then
@@ -209,7 +209,7 @@ public class OverStrike2Plugin : BasePlugin
     }
 
     /// <summary>Server console / RCON (the restart watcher, os2-server): a line for everybody on the top line, in chat and on the board, for that many seconds.</summary>
-    [ConsoleCommand("gg_notice", "Over Strike 2: a line on the HUD's news line for everybody: gg_notice <seconds> <text>")]
+    [ConsoleCommand("gg_notice", "Over Strike 2: a line for everybody on the HUD's top line, in chat and on the TAB board: gg_notice <seconds> <text>")]
     [CommandHelper(minArgs: 2, usage: "<seconds> <text>", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnNoticeCommand(CCSPlayerController? caller, CommandInfo command)
     {

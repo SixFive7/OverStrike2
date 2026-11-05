@@ -122,7 +122,7 @@ public sealed class HudCatalog
 }
 
 /// <summary>Why a map is where it is, in one word: one table for every surface - the ballot's cards and the map browser's (the first two that
-/// apply, as chips), chat and the news line (the first "why" tag, in words), the website and the Sync page. The table is in precedence order:
+/// apply, as chips), chat and the top line (the first "why" tag, in words), the website and the Sync page. The table is in precedence order:
 /// the vote's state, a caution, then why the map is there. The bridge works out each map's tags (Popularity.cs) and sends their ids on the
 /// catalog's entries (field 24) and the vote's cards (mvo field 11), comma-separated in this order; the vote's state - next, lead, tie, on -
 /// is the screen's own to add. Shared like Hud.cs: the plugin draws them, the bridge's website and --selftest use the same table.</summary>
@@ -184,7 +184,7 @@ public static class MapTags
     public static Tag? FirstWhy(string? wire, bool picked = true) =>
         Split(wire).Select(Find).FirstOrDefault(t => t != null && IsWhy(t) && (picked || t.Id != Picked));
 
-    /// <summary>The first "why" tag in words, for chat and the news line: "liked by us", or "" when there is none.</summary>
+    /// <summary>The first "why" tag in words, for chat and the top line: "liked by us", or "" when there is none.</summary>
     public static string WhyWords(string? wire, bool picked = true) => FirstWhy(wire, picked)?.Words ?? "";
 
     /// <summary>The chips a card shows: the first OnCard tags of the wire value.</summary>

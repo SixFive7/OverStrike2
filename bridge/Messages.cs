@@ -171,7 +171,7 @@ public static class Messages
     public static readonly Kind
         // joining
         Welcome = new("welcome", "Welcome window, at every login", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false),
-        Tagline = new("tagline", "Join tagline", Surface.Line, Who.Player, Who.Player, Who.Nobody, Join, 3, false),
+        Tagline = new("tagline", "Join tagline: the welcome window's large text, and this chat line", Surface.None, Who.Nobody, Who.Player, Who.Nobody, Join, 0, false),
         WelcomeBack = new("back", "Welcome-back card", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Join, 8, false),
         NowPlaying = new("playing", "Now-playing card, at each map's first spawn", Surface.Card, Who.Everybody, Who.Nobody, Who.Everybody, Join, 8, false),
         Joined = new("joined", "A player joined with a HUD version", Surface.Plain, Who.Everybody, Who.Everybody, Who.Everybody, Join, 8),

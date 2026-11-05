@@ -16,7 +16,7 @@
 // what makes a freeze count, and the price is that a restart by hand should set the maintenance flag first. A redeploy of the whole stack
 // restarts the bridge as well, which then has no reading of the old process to compare with.
 // A recorded crash is what a pick's second click ("... crashed the server N time(s). Click Play again within 30 s to go ahead."), the dice
-// (never a map with a crash) and the HUD's cards - the map browser's and the ballot's - read. The news line says it at once, and every join
+// (never a map with a crash) and the HUD's cards - the map browser's and the ballot's - read. The top line, chat and the board say it at once, and every join
 // hears it for the next CrashNoticeMinutes. A mark - this one, or a player-crash mark (BrokenWhy.cs) - lasts until the map gets a Workshop
 // update: the lists carry each map's time_updated ("updated", written by the Workshop sync), every mark keeps the one it was
 // set under (S.CrashStamps), and a newer one lifts it (ExpireMarks, at start and whenever a list is read again).
@@ -172,7 +172,7 @@ static partial class Program
         Announce(lifted.Count == 1 ? $"The map {Clip(NameOfKey(lifted[0]), 44)} got a Workshop update - It can come up at random again" : $"{lifted.Count} marked maps got a Workshop update - They can come up at random again");
     }
 
-    /// <summary>A crash of the map with this key: counted (persisted), shown on its HUD cards, said on the news line, and told to joiners for a while.</summary>
+    /// <summary>A crash of the map with this key: counted (persisted), shown on its HUD cards, said on the top line, in chat and on the board, and told to joiners for a while.</summary>
     static void RecordCrash(string key, string why)
     {
         S.Crashes[key] = S.Crashes.GetValueOrDefault(key) + 1;

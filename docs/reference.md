@@ -95,7 +95,7 @@ the window's page. The **centre text** and the **alert** are CS2's own.
 | Message | Where | Who sees it | How long | Chat | Lately |
 |---|---|---|---|---|---|
 | The welcome, also the HUD check's window | The window, on START | That player | Until its X | | |
-| The tagline | The window's large text, and a window line | That player | The line 3 s | That player | |
+| The tagline | The window's large text | That player | | That player | |
 | "Welcome back", with the map that is on | A line on the welcome page | A player seen before | With the window | | |
 | Now playing, with the map's picture | The card | Each player | 8 s, at their first spawn on a map | | Everybody |
 | A player joined with this HUD version, at the first click that says it | The centre text | Everybody | 8 s | Everybody | Everybody |

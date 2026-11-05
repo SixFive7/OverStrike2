@@ -67,12 +67,15 @@ static partial class Program
         }
 
         // ---- a hold ----
+        var (polledWas, heldWas) = (Interlocked.Read(ref hudPolledTicks), Interlocked.Read(ref hudHeldTicks));
         HudPolled(false);
         var heldWords = CannotCall(Now());
-        Check("A hold: the plugin's poll says it draws nothing, so nobody can call a vote, in words that say why", HudHeld() && heldWords != null && heldWords.StartsWith("Steam is reviewing the HUD"));
+        Check("A hold: the plugin's poll says it draws nothing, so nobody can call a vote, in words that say why, and a match end opens none - from that poll on",
+            HudHeld() && heldWords != null && heldWords.StartsWith("Steam is reviewing the HUD") && !HudActive());
         Thread.Sleep(1);
         HudPolled(true);
-        Check("...a poll that draws ends it", !HudHeld());
+        Check("...a poll that draws ends it", !HudHeld() && HudActive());
+        Interlocked.Exchange(ref hudPolledTicks, polledWas); Interlocked.Exchange(ref hudHeldTicks, heldWas);
 
         // ---- the routing ----
         var (sb, nb) = (Now, StateDir);

@@ -188,8 +188,9 @@ static partial class Program
 
     /// <summary>A plugin that draws the HUD is polling: the HUD addon is set on the game server and its plugin is alive. While it is, the vote opens
     /// at a match end (somebody sees the ballot) and the HUD shows the map-change countdown and the now-playing card. A plugin that runs undrawn
-    /// polls with draw=0 and does not count: nobody would see a ballot that freezes everybody.</summary>
-    static Func<bool> HudActive = () => DateTime.UtcNow.Ticks - Interlocked.Read(ref hudPolledTicks) < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
+    /// polls with draw=0 and does not count, from that poll on: nobody would see a ballot that freezes everybody (a hold, HudHeld).</summary>
+    static Func<bool> HudActive = () => Interlocked.Read(ref hudPolledTicks) is var at && at > Interlocked.Read(ref hudHeldTicks)
+        && DateTime.UtcNow.Ticks - at < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
 
     static void HudPolled(bool draws) => Interlocked.Exchange(ref draws ? ref hudPolledTicks : ref hudHeldTicks, DateTime.UtcNow.Ticks);
 
@@ -298,8 +299,9 @@ static partial class Program
 
     /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4.6.0), Older (an
     /// older content's gold button), or Hud.Release (which one not known: another button, or a plugin before v4.6.0, which sends its release). A
-    /// known version is never forgotten for an unknown one. The first click after a real join says on the news line which HUD the player brought,
-    /// and an outdated HUD gets that player a note. Only the plugin's OnCustomHudClicked sends it - typing it in chat does nothing.</summary>
+    /// known version is never forgotten for an unknown one. The first click after a real join that names the version says which HUD the player brought
+    /// (Messages.Joined: the centre text, chat and the board); an outdated HUD shows its own banner. Only the plugin's OnCustomHudClicked sends it - typing it
+    /// in chat does nothing.</summary>
     static void HudVerify(string steamId, string name, string version)
     {
         if (AccountId(steamId) <= 0) return;
@@ -1049,7 +1051,7 @@ static partial class Program
             Packs = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
 
             Pick(fine.Rank.ToString());
-            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the news line, so the silence below means something",
+            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the older contents' news line, so the silence below means something",
                 Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing in") && NewsNow.Text == Told[1] && sent.Count == 0);
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));

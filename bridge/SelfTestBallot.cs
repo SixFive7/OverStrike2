@@ -485,7 +485,7 @@ static partial class Program
 
             // ---- a plugin on a quiet server: its long poll counts when it arrives, and the bridge then holds it up to Hud.LongPollSeconds ----
             var realHudActive = saved.HudActive;
-            var polledBefore = Interlocked.Read(ref hudPolledTicks);
+            var (polledBefore, heldBefore) = (Interlocked.Read(ref hudPolledTicks), Interlocked.Exchange(ref hudHeldTicks, 0));
             void PolledAgo(double seconds) => Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.AddSeconds(-seconds).Ticks);
             PolledAgo(Hud.LongPollSeconds + 1);
             Check($"A plugin whose long poll has been held the whole {Hud.LongPollSeconds} s still counts as drawing the HUD", realHudActive());
@@ -497,7 +497,7 @@ static partial class Program
             PolledAgo(Hud.LongPollSeconds - 1);
             MatchEnd();
             HudActive = () => true;
-            Interlocked.Exchange(ref hudPolledTicks, polledBefore);
+            Interlocked.Exchange(ref hudPolledTicks, polledBefore); Interlocked.Exchange(ref hudHeldTicks, heldBefore);
             Check("...so a match end in a quiet stretch opens the vote, and the dice do not change the map without one", Ballot is { Open: true, MatchEnded: true } && Pending == null);
             EndBallot("the test goes on");
 
