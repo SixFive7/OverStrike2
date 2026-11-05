@@ -2,8 +2,9 @@
 
 `os2-server` ([`server/OverStrike2.Server/`](../server/OverStrike2.Server/)) is the game server's own program: one self-contained
 Linux file that runs in the game server's container beside the engine. It takes over from the restart watcher
-(`server/update-watch.py`) and the install hook's shell work (`server/pre.sh`); the Workshop sync follows. It reads the settings
-file ([settings.md](settings.md)) and the image's own variables where the image needs them.
+(`server/update-watch.py`) and the install hook's shell work (`server/pre.sh`); the Workshop sync has a program of its own,
+`os2-sync` ([below](#the-workshop-sync-os2-sync)). It reads the settings file ([settings.md](settings.md)) and the image's own
+variables where the image needs them.
 
 | Command | What it does |
 |---|---|
@@ -106,3 +107,50 @@ dotnet publish server/OverStrike2.Server/SelfTest -c Release -r linux-x64 -o <fo
 
 The self-test drives the watcher's own loop on a fake clock with a fake engine and a fake bridge: every check of the Python
 watcher's tests, the restarts above, both download collisions, the install, the observing run.
+
+## The Workshop sync (os2-sync)
+
+`os2-sync` ([`server/OverStrike2.Sync/`](../server/OverStrike2.Sync/)) is the Workshop sync as one self-contained Linux file, run in
+a container of its own (the game server's image: its SteamCMD, the libraries a test engine needs). It takes over from
+`server/workshop-sync.py` step for step: discovery, the check, the ratings, the hand-over to the game server, downloads, the scan,
+the load tests and the publish, with the same limits, stops and mail. It keeps the Python sync's files as they are - the state, the
+Web API ledger, the reports, the hand-overs, the bridge's files byte for byte - so either reads what the other wrote. It reads the
+settings file (`sync.*`, `paths.*`, `server.*`, `bridge.*`, `hud.addon`, `restarts.daily`, `steam.apiGapSeconds`); HOME is the
+image's own. Every Steam Web API call goes through the program's one door (one at a time, `steam.apiGapSeconds` apart, also from one
+run to the next) and is booked in the ledger before it is sent.
+
+| Command | What it does |
+|---|---|
+| `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; `<state>/run-now` starts a manual run at once. |
+| `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
+| `os2-sync status` | The Web API ledger's counters and the state's totals. |
+| `os2-sync export` | What it has published, as entries a republish from the repository can merge. |
+| `os2-sync doctor` | What it sees: the settings as read, the paths, whether there is a key, the bridge, the mail. |
+| `os2-sync version` | Its version. |
+
+Every command takes `--settings <file>`. `serve` and `once` also take:
+
+- `--dry-run`: publishing off, and nothing written for anybody else - no file in the bridge's data (the status file goes to the state
+  folder), nothing posted to the bridge, no mail. What it would publish - each file, the check's verdicts, a problem mail - goes to
+  `<state>/would-publish/<local time>-<name>`, to compare with what the live sync publishes. Unless told otherwise it keeps to folders
+  and a port of its own: `<paths.syncState>/dry-run`, `<paths.syncWork>/dry-run` and `sync.testPort` + 10.
+- `--state <folder>` and `--work <folder>`: the state folder (ledger, state, reports) and the work folder (staging, test tree,
+  hand-overs), else `paths.syncState` and `paths.syncWork`.
+- `--test-port <n>`: the test engine's port, else `sync.testPort`.
+- `--no-handover`: no downloads for the game server in this run.
+
+**A shadow run** beside the live sync is a `--dry-run`: it shares no ledger, staging, test tree, hand-over folder or test port with the
+live one. It still downloads with SteamCMD (into its own staging, as the same user, so not while the live sync's SteamCMD runs) and
+starts a test engine of its own (each an anonymous logon); `--no-handover` leaves out the keep set's downloads for the game server.
+
+```sh
+dotnet build server/OverStrike2.Sync
+dotnet run --project server/OverStrike2.Sync/SelfTest       # process groups, /proc, links, real processes: SKIP elsewhere
+dotnet publish server/OverStrike2.Sync -c Release -r linux-x64 -o <folder>          # the one file to ship
+dotnet publish server/OverStrike2.Sync/SelfTest -c Release -r linux-x64 -o <folder>   # the self-test, to run in the game image
+```
+
+The self-test holds every check of the Python sync's tests (`server/test_workshop_sync.py`), by the same names, and the port's own:
+the settings file, the Python formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the dry run, the
+command line, the SMTP client, SteamCMD's driver against a stand-in, the test tree, and a hand-over taken in by the restart watcher's
+own code.

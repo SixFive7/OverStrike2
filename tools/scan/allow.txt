@@ -15,6 +15,7 @@ steam64 * 76561197960265728  # the SteamID64 of account 0: the constant every St
 steam64 bridge/Program.cs 76561197960278073  # a self-test value: account 12345 as a SteamID64
 steam64 bridge/SelfTestCheck.cs 76561190000000001  # a self-test value below the individual-account range: no account
 steamid bridge/*.cs \[U:1:12345678\]  # a self-test player's made-up account id
+steam64 server/OverStrike2.Sync/SelfTest/*.cs 76561190000000002  # a self-test value below the individual-account range: no account
 
 # The scanner's own rule definitions
 host-path tools/scan/scan.py /mnt/\.|/boot/config|/var/lib/docker  # the patterns and their documentation
@@ -30,6 +31,7 @@ binary hud/workshop_preview.jpg eebf2abc31669287fcf4f2d4022968e5eef0a6ad000a100f
 token server/test_workshop_sync.py 0123456789ABCDEF0123456789ABCDEF  # the sync self-test's made-up Web API key
 token core/SelfTest/SettingsTests.cs 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in the settings self-test
 token .gitleaks.toml 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in gitleaks' allowlist
+token server/OverStrike2.Sync/SelfTest/*.cs 0123456789ABCDEF0123456789ABCDEF  # the same made-up key, in the sync program's self-test
 
 # Made-up values in the self-tests
 hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-tests and a comment); the real one stays private
@@ -38,6 +40,7 @@ hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-
 timezone server/test_*.py Europe/Paris  # a zone with European summer time the restart and sync tests need; not the deployment's
 timezone core/SelfTest/TimeTests.cs Europe/Paris  # the same, for the core self-test's clock changes
 timezone server/OverStrike2.Server/SelfTest/*.cs Europe/Paris  # the same, for the server program's self-test (the restart scenarios)
+timezone server/OverStrike2.Sync/SelfTest/*.cs Europe/Paris  # the same, for the sync program's self-test (the daily restart's stretch, the local day)
 
 # Times that are not anybody's evening: made-up ones (a date in 2001, a time at or around noon or midnight), the restart
 # test's designed scenario clocks, and a date with its time zeroed
