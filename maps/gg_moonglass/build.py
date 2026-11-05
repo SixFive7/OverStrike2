@@ -19,7 +19,7 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..', '..'))
+REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 NAME = 'gg_moonglass'
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 
