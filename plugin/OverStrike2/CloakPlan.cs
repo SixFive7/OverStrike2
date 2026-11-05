@@ -15,18 +15,19 @@ public enum CloakWhy
     Test = 4,  // gg_cloak hide, from the console: to look at the hide from another player's game
 }
 
-/// <summary>The spawn cloak, per player and per life: a player who opens the menu window while still on their spawn is hidden while it is open.
-/// Hidden while all of this holds:
-///   - the menu window is open, and the mode respawns players (Arms Race, Deathmatch; not Wingman, where one hidden player could stall a round
-///     that has no respawns);
+/// <summary>The spawn cloak, per player and per life: a player whose menu window is open while they are on their spawn is hidden for as long as it
+/// stays open, in every game mode. The cloak is the window's only: a spawn with the window shut is a normal spawn, seen by everybody. Hidden while
+/// all of this holds:
+///   - the menu window is open. It may have opened on this spawn or before it: the window stays open through damage and death, so a player
+///     killed with it open respawns with it open, on their spawn, and the cloak comes on at that respawn;
 ///   - this life is still on its spawn: never more than Radius from the point it spawned at, sideways, nor Height up or down. The point is
 ///     taken one tick after the spawn, once the game has placed the pawn;
 ///   - this life has not attacked: no shot, swing or throw, and no damage dealt to anybody;
-///   - no vote freeze is on, and none has started or ended during this life;
-///   - the life is younger than LimitSeconds: the cloak covers a menu session at the spawn, never camping there (one constant).
+///   - no vote freeze is on, and none has started or ended during this life.
 /// Leaving the spawn, attacking and a freeze's start or end spend the life's cloak: it does not come back until the next spawn, not even back on
 /// the spot, so nobody walks somewhere and turns it on again, and nobody hides again after a fight. Closing the window only ends it until the
-/// window opens again.
+/// window opens again. There is no time limit: an open window keeps its player from looking around, and the cloak never leaves the spawn, so
+/// nobody camps with it.
 ///
 /// The radius: 64 units is two player widths (the hull is 32 wide), a quarter of a second of running - room for the pawn settling onto the floor
 /// and a stray step, never for taking another position. Up or down it allows 72 units, a player's height: a jump on the spot (57 units) stays
@@ -35,11 +36,8 @@ public sealed class SpawnCloakPlan
 {
     public const double Radius = 64, Height = 72;
 
-    /// <summary>How long after its spawn a life may be cloaked at all, and the game's ticks a second (CS2 runs at 64).</summary>
-    public const double LimitSeconds = 60, TicksPerSecond = 64;
-
     public const string Left = "left their spawn", Attacked = "attacked", Hurt = "dealt damage", FreezeStarted = "a vote freeze started",
-        FreezeEnded = "a vote freeze ended", TimedOut = "60 s after the spawn";
+        FreezeEnded = "a vote freeze ended";
 
     sealed class Life
     {
@@ -78,9 +76,9 @@ public sealed class SpawnCloakPlan
         return true;
     }
 
-    /// <summary>One living player, this pass: whether the cloak hides them now. The window, and whether the mode and the moment allow it at all
-    /// (a respawning mode, no freeze), are the caller's. Takes the spawn point at the first look after the spawn's tick, and spends the life
-    /// once the player is off it - open window or not.</summary>
+    /// <summary>One living player, this pass: whether the cloak hides them now. The window, and whether the moment allows it at all (no freeze),
+    /// are the caller's. Takes the spawn point at the first look after the spawn's tick, and spends the life once the player is off it - open
+    /// window or not.</summary>
     public bool Hides(int slot, long tick, double x, double y, double z, bool windowOpen, bool allowed)
     {
         if (!lives.TryGetValue(slot, out var life) || life.Spent != null) return false;
@@ -90,7 +88,6 @@ public sealed class SpawnCloakPlan
             (life.Placed, life.X, life.Y, life.Z) = (true, x, y, z);
         }
         if (Off(life.X, life.Y, life.Z, x, y, z)) { life.Spent = Left; return false; }
-        if (tick - life.SpawnTick > LimitSeconds * TicksPerSecond) { life.Spent = TimedOut; return false; }
         return windowOpen && allowed;
     }
 

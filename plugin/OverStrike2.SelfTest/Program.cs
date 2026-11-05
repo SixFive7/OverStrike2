@@ -7,9 +7,10 @@ using OverStrike2;
 //
 //   - when the vote freezes everybody (FreezePlan.cs): only on this map's fresh word from the bridge, freed when the bridge goes quiet or one
 //     vote has frozen everybody for too long, and everybody at the same tick;
-//   - whom the spawn cloak hides (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn, and never again in a life that left it,
-//     attacked or saw a vote freeze start or end; and what the cloak puts back (CloakBook): every entity that leaves a hidden player, as it
-//     looked before - never as it looked hidden, also when it goes from one hidden player to another;
+//   - whom the spawn cloak hides (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn, for as long as it stays open and again after a
+//     respawn with it open, and never again in a life that left it, attacked or saw a vote freeze start or end; and what the cloak puts back
+//     (CloakBook): every entity that leaves a hidden player, as it looked before - never as it looked hidden, also when it goes from one hidden
+//     player to another;
 //   - where the HUD addon's id comes from (HudAddon.cs): the new variable, its old name only while the new one is not set at all;
 //   - where the plugin's settings come from (PluginSetup.cs, bridge/SettingsSource.cs): the settings file when there is one that can be
 //     used, else the environment as before - and the line that says which, with no value in it;
@@ -88,9 +89,24 @@ void Eq<T>(T actual, T expected, string what) =>
     Check(!plan.Hides(1, 103, 500, 500, 0, false, true) && plan.Ready(1), "spawn cloak: the window shut: seen, and the cloak not spent");
     var late = new SpawnCloakPlan();
     late.Spawned(9, 1000); late.Hides(9, 1001, 0, 0, 0, true, true);
-    var limit = (long)(SpawnCloakPlan.LimitSeconds * SpawnCloakPlan.TicksPerSecond);
-    Check(late.Hides(9, 1000 + limit, 0, 0, 0, true, true) && !late.Hides(9, 1001 + limit, 0, 0, 0, true, true) && !late.Ready(9)
-        && !late.Hides(9, 1002 + limit, 0, 0, 0, true, true), $"spawn cloak: {SpawnCloakPlan.LimitSeconds:0} s after the spawn it is spent for the life, window open or not");
+    var anHour = 3600 * 64L; // CS2 runs at 64 ticks a second
+    Check(late.Hides(9, 1000 + anHour, 0, 0, 0, true, true) && late.Ready(9) && !late.Hides(9, 1001 + anHour, 0, 0, 0, false, true) && late.Hides(9, 1002 + anHour, 0, 0, 0, true, true),
+        "spawn cloak: no time limit - an hour after the spawn, the window open on the spot still hides, shut it does not, and nothing is spent");
+    var killed = new SpawnCloakPlan();
+    killed.Spawned(8, 2000);
+    Check(killed.Hides(8, 2001, 100, 100, 0, true, true), "spawn cloak: killed with the window open, part 1: hidden on the first spawn");
+    killed.Ended(8);
+    Check(!killed.Hides(8, 2100, 100, 100, 0, true, true), "spawn cloak: ...dead with the window still open: no life, nothing to hide");
+    killed.Spawned(8, 2200);
+    Check(!killed.Hides(8, 2200, 900, -900, 0, true, true) && killed.Ready(8) && killed.Hides(8, 2201, 900, -900, 0, true, true),
+        "spawn cloak: ...the respawn with the window still open: hidden from the first look after it, on the new spawn - far from the old one, and nothing spent");
+    var shut = new SpawnCloakPlan();
+    shut.Spawned(7, 3000);
+    Check(!shut.Hides(7, 3001, 0, 0, 0, false, true) && !shut.Hides(7, 3002, 0, 0, 0, false, true) && shut.Ready(7), "spawn cloak: a normal spawn, the window shut: seen, and the cloak still there for a window that opens on the spot");
+    var away = new SpawnCloakPlan();
+    away.Spawned(6, 4000); away.Hides(6, 4001, 0, 0, 0, false, true);
+    Check(!away.Hides(6, 4002, 500, 0, 0, false, true) && !away.Hides(6, 4003, 500, 0, 0, true, true) && away.SpentBecause(6) == SpawnCloakPlan.Left,
+        "spawn cloak: the window opened away from the spawn: seen");
     Check(plan.Hides(1, 104, 500, 500, 0, true, true), "spawn cloak: ...the window open again on the spawn: hidden again");
     Check(plan.Hides(1, 105, 545, 545, 0, true, true), "spawn cloak: a step aside (63 units diagonally) is still the spawn");
     Check(plan.Hides(1, 106, 500, 500 + R, 0, true, true), $"spawn cloak: exactly {R:0} units away is still the spawn");
@@ -106,7 +122,7 @@ void Eq<T>(T actual, T expected, string what) =>
     Check(!plan.Hides(1, 202, -30, 10, H + 1, true, true) && plan.SpentBecause(1) == SpawnCloakPlan.Left, $"spawn cloak: {H + 1:0} units up (a lift, a jump pad) is off the spawn too");
 
     plan.Spawned(1, 300);
-    Check(!plan.Hides(1, 301, 0, 0, 0, true, false) && plan.Ready(1), "spawn cloak: not allowed (Wingman, a freeze): seen, and nothing spent by it");
+    Check(!plan.Hides(1, 301, 0, 0, 0, true, false) && plan.Ready(1), "spawn cloak: not allowed (a freeze): seen, and nothing spent by it");
     Check(plan.Hides(1, 302, 0, 0, 0, true, true), "spawn cloak: ...allowed again: hidden");
     Check(plan.Spend(1, SpawnCloakPlan.Attacked) && !plan.Spend(1, SpawnCloakPlan.Hurt) && plan.SpentBecause(1) == SpawnCloakPlan.Attacked,
         "spawn cloak: an attack spends the life's cloak, once - the first reason stays");

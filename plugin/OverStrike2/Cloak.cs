@@ -391,17 +391,21 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     }
 }
 
-/// <summary>The spawn cloak in the game; the rule is SpawnCloakPlan's (CloakPlan.cs). A player who opens the menu window while still on their
-/// spawn is hidden by the cloak while it is open - not when they leave the spawn, attack or deal damage, nor while a vote freeze is on, and
-/// leaving, attacking or a freeze's start or end spend it until the next spawn. While the window is open there is no other protection: the
-/// vote's freeze still protects everybody during a vote, and the game's own spawn protection runs as ever.
+/// <summary>The spawn cloak in the game; the rule is SpawnCloakPlan's (CloakPlan.cs). A player whose menu window is open while they are on their
+/// spawn is hidden by the cloak while it stays open, in every game mode, Wingman too - not when they leave the spawn, attack or deal damage, nor
+/// while a vote freeze is on, and leaving, attacking or a freeze's start or end spend it until the next spawn. A spawn with the window shut is a
+/// normal spawn. Damage and death do not close the window, so a player killed with it open respawns with it open and is hidden again at that
+/// respawn. While the window is open there is no other protection: the vote's freeze still protects everybody during a vote, and the game's own
+/// spawn protection runs as ever.
 ///
-/// The window is the HUD's (HudScreen.WindowOpen, handed in by the plugin), the freeze the vote's (VoteFreeze.Frozen) and the mode the settings
-/// module's: Wingman has no respawns, and a player hidden on the spawn could stall a round there, so the cloak is Arms Race's and Deathmatch's.
-/// The events only note (a spawn, a death, a shot, a throw, a hit); the look at every player still on their spawn is the cloak's pass, every
-/// tick after the entities' think, so the window's closing, a step off the spawn and an attack end the hide in the tick they happen.</summary>
-sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen, Func<bool> respawns)
+/// The window is the HUD's (HudScreen.WindowOpen, handed in by the plugin) and the freeze the vote's (VoteFreeze.Frozen). The events only note (a
+/// spawn, a death, a shot, a throw, a hit); the look at every player still on their spawn is the cloak's pass, every tick after the entities'
+/// think, so the window's closing, a step off the spawn and an attack end the hide in the tick they happen.</summary>
+sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen)
 {
+    /// <summary>For the call that still hands in whether the mode respawns (OverStrike2.cs): the cloak is every mode's now, so nobody asks.</summary>
+    public SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen, Func<bool> _) : this(plugin, log, cloak, windowOpen, frozen) { }
+
     readonly SpawnCloakPlan plan = new();
     readonly List<int> look = new();
     readonly List<int> hidden = new();
@@ -417,7 +421,7 @@ sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, b
         plugin.RegisterListener<Listeners.OnMapStart>(_ => plan.MapStarted());
         cloak.BeforePass += Pass;
         cloak.About = About;
-        log.LogInformation("Over Strike 2 spawn cloak: the menu window open on the spawn ({Radius} units sideways, {Height} up or down) hides its player, in Arms Race and Deathmatch",
+        log.LogInformation("Over Strike 2 spawn cloak: the menu window open on the spawn ({Radius} units sideways, {Height} up or down) hides its player, in every mode",
             SpawnCloakPlan.Radius, SpawnCloakPlan.Height);
     }
 
@@ -440,7 +444,7 @@ sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, b
     {
         var freeze = frozen();
         plan.Freeze(freeze);
-        var allowed = !freeze && respawns();
+        var allowed = !freeze;
         var tick = Server.TickCount;
         plan.Unspent(look);
         foreach (var slot in look)
