@@ -555,7 +555,7 @@ public sealed class Settings
             s => s.Sync.HoldSeconds, (s, v) => s.Sync.HoldSeconds = v),
         Int("sync.batch", Part.Server, 100, 1, 1500, "SYNC_BATCH", "Downloads per batch; a batch is downloaded, tested and published before the next.",
             s => s.Sync.Batch, (s, v) => s.Sync.Batch = v),
-        Int("sync.quietMinutes", Part.Server, 10, 0, 240, "SYNC_QUIET_MINUTES", "How long the server must have had nobody on before a run, after somebody was seen.",
+        Int("sync.quietMinutes", Part.Server, 10, 0, 240, "SYNC_QUIET_MINUTES", "How long the server must have had nobody on before a run, after somebody was seen or the service started.",
             s => s.Sync.QuietMinutes, (s, v) => s.Sync.QuietMinutes = v),
         Int("sync.testPort", Part.Server, 27215, 1024, 65535, "SYNC_TEST_PORT", "The test engine's port inside the sync's container.",
             s => s.Sync.TestPort, (s, v) => s.Sync.TestPort = v),

@@ -35,6 +35,7 @@ static class Lifetimes
         LeftBehind();
         FailedVersion();
         NoOpRuns();
+        ServiceStart();
         Tries();
         OldCounts();
         Backups();
@@ -271,6 +272,17 @@ static class Lifetimes
         var late = new SyncClock(new FakeClock(evening), Paris);
         Check("no-op runs: ... a new day comes before the next check: the brake is over, it looks then",
               Service.IdleUntil(cfg, late, Report("{}"), evening + 3 * Hour) == now.AtTime(new TimeOfDay(0, 0), evening + 86400));
+    }
+
+    // ---- a service start: it cannot know who just left, so it waits the quiet minutes as it does after anybody
+    static void ServiceStart()
+    {
+        var cfg = World("service-start", new JsonObject { ["701"] = Listed(U1) }, new JsonObject { ["701"] = U1 }, T0 - 5 * Hour);
+        Hooks.Check = (_, ids, _, _, _) => (ids.ToDictionary(i => i, i => Details(i, U1)), []);
+        var early = RunsOfService(cfg, T0, T0 + cfg.Quiet - 60);
+        Check($"service start: nobody on and work waiting, still no run in the quiet minutes after a start ({early} runs)", cfg.Quiet == 600 && early == 0);
+        var after = RunsOfService(cfg, T0, T0 + cfg.Quiet + 120);
+        Check($"service start: ... and a run once they are over ({after} runs)", after == 1);
     }
 
     // ---- the download tries are per content version

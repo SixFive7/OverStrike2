@@ -455,7 +455,7 @@ process in that state once nobody is on.
 ## The Workshop sync
 
 `os2-sync serve`, in a container of its own: the game server's image, for its SteamCMD and the libraries a test engine needs ([commands, files and the shadow run](server.md#the-workshop-sync-os2-sync)). It has no time windows: a run
-starts whenever the server has had nobody on for `sync.quietMinutes` (10) and there is work, and lasts at most `sync.runHours` (3). No run starts from 15 minutes before the daily restart to 10 after it, or with under 20 minutes
+starts whenever the server has had nobody on for `sync.quietMinutes` (10) and there is work, and lasts at most `sync.runHours` (3). A start of the service counts as somebody on, since it cannot know who just left. No run starts from 15 minutes before the daily restart to 10 after it, or with under 20 minutes
 left before that cut. Discovery, the check and the ratings run at most every `sync.apiEveryHours` (4); downloads, tests and publishing repeat in batches of `sync.batch`, so a long run publishes as it goes.
 
 1. **Find** new maps with the Workshop's tags (Arms Race, Deathmatch, Wingman) through the Steam Web API. It needs a Web API key (`sync.webApiKey`); without one the step is skipped.

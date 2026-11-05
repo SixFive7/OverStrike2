@@ -353,7 +353,7 @@
           "maximum": 1500
         },
         "quietMinutes": {
-          "description": "How long the server must have had nobody on before a run, after somebody was seen. Replaces SYNC_QUIET_MINUTES.",
+          "description": "How long the server must have had nobody on before a run, after somebody was seen or the service started. Replaces SYNC_QUIET_MINUTES.",
           "type": "integer",
           "default": 10,
           "minimum": 0,

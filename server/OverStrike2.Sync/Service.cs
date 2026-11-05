@@ -96,7 +96,8 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                  + $"{Text.Hms(cfg.ApiEvery)}; downloads: no daily cap, Steam's push-back stops them, a map at most {DownloadBudget.DownloadsPerMapDay} times a day");
         foreach (var w in cfg.BootWarnings)
             log.Line("WARNING: " + w);
-        double? seen = null;                          // when the server last showed somebody (or did not answer)
+        var started = clock.Now();
+        var seen = started;                           // when the server last showed somebody (or did not answer); a start cannot know who just left, so it counts
         var idleUntil = 0.0;
         string? said = null;
         var status = new Status(cfg, clock, log.Line);
@@ -171,9 +172,11 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     (why, words) = ("the game server does not answer A2S", "The game server does not answer, so the sync waits.");
                 else if (why is null && h > 0)
                     (why, words) = ($"{h} human(s) on the game server", $"Somebody is playing: the sync waits until the server has been empty for {minutes} minutes.");
-                else if (why is null && seen is not null && clock.Now() - seen < cfg.Quiet)
-                    (why, words) = ($"somebody was on the server {Text.Hms(clock.Now() - seen.Value)} ago (or the maintenance flag)",
-                                    flag ? "The server is in maintenance, so the sync waits." : $"Somebody played a moment ago: the sync waits until the server has been empty for {minutes} minutes.");
+                else if (why is null && clock.Now() - seen < cfg.Quiet)
+                    (why, words) = seen == started
+                        ? ($"the service started {Text.Hms(clock.Now() - started)} ago, and it cannot know who just left", $"The sync has just started: it waits until the server has been empty for {minutes} minutes.")
+                        : ($"somebody was on the server {Text.Hms(clock.Now() - seen)} ago (or the maintenance flag)",
+                           flag ? "The server is in maintenance, so the sync waits." : $"Somebody played a moment ago: the sync waits until the server has been empty for {minutes} minutes.");
                 var st = Py.ReadJson(Path.Combine(cfg.StateDir, "state.json")) as JsonObject ?? [];
                 if (why is null && !WorkWaits(cfg, clock, st))
                 {

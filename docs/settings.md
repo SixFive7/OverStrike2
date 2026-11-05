@@ -179,7 +179,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `sync.downloadPauseSeconds` | number, 2..600 | `2` | server | SYNC_DOWNLOAD_PAUSE | The pause between two SteamCMD downloads; at least 2 s. |
 | `sync.holdSeconds` | integer, 5..300 | `20` | server | SYNC_HOLD_SECONDS | How long the test engine must hold a map with two bots for a pass. |
 | `sync.batch` | integer, 1..1500 | `100` | server | SYNC_BATCH | Downloads per batch; a batch is downloaded, tested and published before the next. |
-| `sync.quietMinutes` | integer, 0..240 | `10` | server | SYNC_QUIET_MINUTES | How long the server must have had nobody on before a run, after somebody was seen. |
+| `sync.quietMinutes` | integer, 0..240 | `10` | server | SYNC_QUIET_MINUTES | How long the server must have had nobody on before a run, after somebody was seen or the service started. |
 | `sync.testPort` | integer, 1024..65535 | `27215` | server | SYNC_TEST_PORT | The test engine's port inside the sync's container. |
 | `sync.engineStartsMax` | integer, 1..400 | `200` | server | SYNC_ENGINE_STARTS_MAX | Test engine starts in one run, at most; each is an anonymous game-server logon. |
 | `sync.ratings` | boolean | `true` | server | SYNC_RATINGS | Fetch the Workshop's scores, subscriptions and trend once a day (the keep set's top lists). |
