@@ -80,11 +80,10 @@ RULES = [
 # a reference to one of the owner's numbered decisions: the code and the docs say what is, not who decided it when. Only in the
 # folders whose pass is done; the others join OWNER_REF_PATHS as theirs lands. Commit messages are history and are not checked.
 OWNER_REF = re.compile(r"\b[Tt]he owner's (?:\d+(?:\.\d+)?(?: ?[a-z])?\b|decisions?\b|rules?\b)|\b[Uu]ser decision\b|\bowner's decision\b")
-OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*", "core/*", "docs/settings.*")
+OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*", "core/*", "docs/*", "README.md", "AGENTS.md", "hud/PUBLISH.md", "maps/README.md")
 DOC_V4 = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
 DOC_V6 = ipaddress.ip_network("2001:db8::/32")
 VALVE_COMPILED = re.compile(r"(?i)(_c|\.vpk)$")
-SKIP_TEXT_RULES_FOR_BINARY = True
 
 
 def ipv4_ok(text):
@@ -116,8 +115,8 @@ def email_ok(text):
 class Allow:
     """allow.txt: '<rule> <path glob> <regex for the matched text>  # reason', or 'binary <path> <sha256>  # reason'."""
 
-    def __init__(self, path, origin):
-        self.rules, self.binaries, self.origin = [], {}, origin
+    def __init__(self, path):
+        self.rules, self.binaries = [], {}
         if not os.path.exists(path):
             return
         for n, raw in enumerate(open(path, encoding="utf-8"), 1):
@@ -381,9 +380,9 @@ def main():
     deny = Deny(DENY_FILE)
     if not deny.loaded and not (args.public_only or os.environ.get("OVERSTRIKE2_SCAN_PUBLIC_ONLY") == "1"):
         print(f"scan: the private denylist is missing ({DENY_FILE}). It holds the deployment's own names and addresses and is what\n"
-              "      stops them reaching this public repository. Restore it, or run with --public-only if you have none.")
+              "      stops them reaching this public repository. Restore it, or run with --public-only if you have none (the hooks: set OVERSTRIKE2_SCAN_PUBLIC_ONLY=1).")
         return 2
-    s = Scan(Allow(ALLOW_FILE, "allow.txt"), deny)
+    s = Scan(Allow(ALLOW_FILE), deny)
     mode = "staged" if args.staged else "history" if args.history else "range" if args.range else "tree"
     if mode == "tree":
         scope = f"{len(scan_tree(s))} files in the working tree"
