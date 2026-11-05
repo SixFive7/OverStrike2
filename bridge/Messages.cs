@@ -54,6 +54,20 @@ public static class M
     /// <summary>The words alone, for every surface but chat.</summary>
     public static string Plain(string? text) => string.Concat((text ?? "").Where(c => !IsMark(c)));
 
+    /// <summary>Marked text with the dashes in a name's or an argument's own words out: a map's title is somebody else's text, and a " - " in it ends no section of ours (Sections).</summary>
+    public static string OwnSections(string marked)
+    {
+        var s = new StringBuilder(marked.Length);
+        var theirs = false;
+        foreach (var c in marked)
+        {
+            if (c is NameStart or ArgStart) theirs = true;
+            else if (c == End) theirs = false;
+            s.Append(theirs && c is '-' or '·' ? ' ' : c);
+        }
+        return s.ToString();
+    }
+
     /// <summary>A line break that survives the wire (Hud.Clean takes newlines out): CS2's plain centre text and alert break on it (Lines).</summary>
     public static string Lines(params string[] lines) => string.Join(Break, lines);
 
@@ -174,10 +188,11 @@ public static class Messages
         VoteStarted = new("votestart", "The vote started: the line for everybody", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
         VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
         VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
-        VoteWaiting = new("votewait", "Waiting for: the players who have not voted", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0, false),
+        VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
         VoteDecided = new("votedone", "The vote decided, and the change counting down", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
         VoteKept = new("votekept", "The vote kept the map", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 8),
         VoteRefused = new("voteno", "You cannot call a vote yet", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Vote, 8, false),
+        VoteRefusedYou = new("votenoyou", "You cannot call a vote yet: the player's own line, in their own words", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Vote, 8, false),
         // fun and game settings
         FunChanged = new("fun", "Fun: one setting changed (catch-up and the grenade drops the same)", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunRandom = new("funrandom", "Fun: Random", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
@@ -192,7 +207,7 @@ public static class Messages
         BackgroundFirst = new("background", "Finishing a background download first", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         DownloadFailed = new("dlfailed", "A download failed", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.None, Who.Player, Who.Everybody, Who.Everybody, Maps, 0, false),
-        PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map)", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, You, 30, false),
+        PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map): chat too, the only answer a typed !play has", Surface.Line, Who.Player, Who.Player, Who.Nobody, You, 30, false),
         WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, false),
         // restarts and updates
         RestartAfterMatch = new("restartend", "The server restarts after this match", Surface.Banner, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
@@ -210,12 +225,12 @@ public static class Messages
         Answer = new("answer", "The answer to your own click: refused, click again, already set", Surface.Line, Who.Player, Who.Player, Who.Player, You, 8, false),
         // the chat interface
         CommandReply = new("reply", "Command replies: unknown command, an alias taught, !help's list", Surface.None, Who.Nobody, Who.Player, Who.Nobody, You, 0, false),
-        VoteClick = new("voteclick", "Lines for everybody: a vote clicked on a card", Surface.None, Who.Nobody, Who.Everybody, Who.Everybody, Vote, 0, false);
+        VoteClick = new("voteclick", "Lines for everybody: a vote clicked on a card, with who voted and who still has to", Surface.None, Who.Nobody, Who.Everybody, Who.Everybody, Vote, 0, false);
 
     public static readonly Kind[] All =
     [
         Welcome, Tagline, WelcomeBack, NowPlaying, Joined, Outdated, Newer, Hold, HoldBack, HoldNoMenu, CheckClick, CheckWarning, VoteWindow, VoteStarted, VoteInactivity, VoteLimit,
-        VoteWaiting, VoteDecided, VoteKept, VoteRefused, FunChanged, FunRandom, FunDefault, GameChanger, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
+        VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, GameChanger, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
         DownloadFailed, WorkshopDownload, PlayAsksFirst, WhyDislike, RestartAfterMatch, RestartCountdown, GameUpdate, Updated, UpdatedJoiner, PlayerRestart, MatchRestart, News,
         ServerDown, CrashNote, Answer, CommandReply, VoteClick,
     ];
@@ -289,7 +304,7 @@ public static partial class Sections
     [GeneratedRegex(@"\s+-\s+|\s+·\s+|\n|\r")] private static partial Regex Between();
 
     /// <summary>The sections of a text.</summary>
-    public static IEnumerable<string> Of(string text) => Between().Split(M.Plain(text).Replace('', '\n')).Select(s => s.Trim()).Where(s => s != "");
+    public static IEnumerable<string> Of(string text) => Between().Split(M.Plain(M.OwnSections(text)).Replace('', '\n')).Select(s => s.Trim()).Where(s => s != "");
 
     /// <summary>The first section that starts wrong, or null. allowed: words a section may start with as they are (the names in a test's words).</summary>
     public static string? Lower(string text, IReadOnlyCollection<string>? allowed = null)

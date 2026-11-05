@@ -132,14 +132,14 @@ static partial class Program
         bool MC(string id, string cls) => mc.Single(x => x.Id == id && x.Class == cls).On;
         Check("Cards: rank, name, size, likes, the broken warning and what Play does (it puts the map to the vote) - on now, broken", MT("gg_m1_rank") == "#1" && MT("gg_m1_name") == "AIM Map One"
             && MT("gg_m1_size") == "112 MB" && MT("gg_m1_votes") == "+5  -1" && MT("gg_m1_play_text") == "Put to the vote" && !MC("gg_m1", "queued") && MC("gg_m1", "liked")
-            && MT("gg_m2_warn") == "Broken: crashed 3/3 test loads" && MC("gg_m2", "risky") && MC("gg_m2", "disliked") && MT("gg_m2_play_text") == "Vote anyway?"
+            && MT("gg_m2_warn") == "Broken: crashed 3/3 test loads" && MC("gg_m2", "risky") && MC("gg_m2", "disliked") && MT("gg_m2_play_text") == HudMenu.Locked
             && MC("gg_m3", "now") && MT("gg_m3_play_text") == "On now" && MT("gg_m4_rank") == "Official" && MT("gg_m4_size") == "" && MT("gg_m4_warn") == "Crashed the server 2x"
             && !MC("gg_m5", "used") && MT("gg_m5_name") == "" && MT("gg_m_count") == "4 maps" && MT("gg_pg_text") == "Page 1 of 1" && !MC("gg_m_empty", "used"));
         var inVote = VoteState.Decode("mv\t1793700100\topen\t40\t2\t1\tmid\t1001\t1\nmvo\t1\tarmsrace\tkeep\t\t3070210812\tKeep playing this map\t#3 beta\t0\t\nmvo\t2\tarmsrace\tpicked\t1\t3084291314\t#1 AIM Map One\t112 MB\t1\tAlice\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t2\n");
         var waitVote = new VoteState { WaitFor = 45 };
         string PT(long account, VoteState? v, int k) => HudMenu.Maps(back, live, new HudBrowser(), account, now, vote: v).Texts.Single(x => x.Id == $"gg_m{k}_play_text").Text;
         Check("...while a vote is open a card on the ballot says Your vote or On the vote (the cards have no numbers), the map that is on is Keep's card, any other Add to the vote; after a vote, the wait",
-            PT(1001, inVote, 1) == "Your vote" && PT(1002, inVote, 1) == "On the vote" && PT(1002, inVote, 3) == "On the vote" && PT(1002, inVote, 4) == "Add anyway?" && PT(1002, inVote, 5) == "" 
+            PT(1001, inVote, 1) == "Your vote" && PT(1002, inVote, 1) == "On the vote" && PT(1002, inVote, 3) == "On the vote" && PT(1002, inVote, 4) == HudMenu.Locked && PT(1002, inVote, 5) == "" 
             && HudMenu.Maps(back, live, new HudBrowser(), 1002, now, vote: inVote).Classes.Single(x => x.Id == "gg_m1" && x.Class == "queued").On
             && PT(1002, waitVote, 1) == "Vote in 45 s" && PT(1002, waitVote, 3) == "On now");
         Check("Card buttons say what the chat would: likes and Play by the map's rank or official name; the map that is on is Keep's vote while one is open, nothing outside one; Too big is a Dislike's reason",
@@ -152,7 +152,7 @@ static partial class Program
         var armed = HudMenu.Maps(back, live, mb, 1001, now.AddSeconds(5));
         var second = HudMenu.Command("gg_m2_play", back, live, mb, 1001, now.AddSeconds(10));
         Check("A broken map: the first Play asks (and arms the bridge's own confirmation, this player's alone), the second within 30 s puts it to the vote",
-            first == "!map 2" && armed.Classes.Single(x => x.Id == "gg_m2" && x.Class == "confirm").On && armed.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Click again"
+            first == "!map 2" && armed.Classes.Single(x => x.Id == "gg_m2" && x.Class == "confirm").On && armed.Texts.Single(x => x.Id == "gg_m2_play_text").Text == HudMenu.Unlocked
             && second == "!map 2" && mb.ConfirmKey == "");
         HudMenu.Command("gg_m2_play", back, live, mb, 1001, now);
         Check("...and after 30 s the next click asks again", HudMenu.Command("gg_m2_play", back, live, mb, 1001, now.AddSeconds(31)) == "!map 2" && mb.ConfirmKey == "3070208661");

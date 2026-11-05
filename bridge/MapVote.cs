@@ -15,6 +15,7 @@ public static class MapVote
     public const int MaxMaps = 48;        // a ballot's cards at the most - six pages - however many maps players put on it; Random comes on top
     public const int MaxOptions = MaxMaps + 1;
     public const int WaitSeconds = 120;   // after any vote, this long before anybody can call another; a match end opens its vote anyway
+    public const int KeptSeconds = 8;     // the vote kept the map: everybody's window shows that for this long, everybody still frozen, and closes at the same moment
 
     /// <summary>The inactivity timer: once everybody present has voted, the vote closes this long after the last activity - a vote cast, changed or
     /// taken back, a map put on it, or a player's work in the map browser that reaches the server (a page, a sort, a filter, a search; scrolling and
@@ -81,19 +82,24 @@ public sealed class VoteState
     public List<ModeInfo> Modes = new();              // every mode, in menu order
     public int WaitFor;                               // seconds before anybody can call a vote again; 0: they can
     public long Round;                                // 0: no vote
-    public bool Open;                                 // voting now; false with a Round: decided, the change counting down
-    public int SecondsLeft, Present, Cast;            // while open: the vote's limit's seconds left (MapVote.Seconds), always; decided: the change's countdown
+    public bool Open;                                 // voting now; false with a Round: decided, the change counting down, or the map kept (Kept), the window closing
+    public int SecondsLeft, Present, Cast;            // while open: the vote's limit's seconds left (MapVote.Seconds), always; decided: the change's countdown, or the window's (Kept)
+    public int DoneSeconds;                           // decided: how long that countdown runs in all (its bar's full length)
     public bool MatchEnded;                           // the match is over: Keep reads "Play this map again", and nobody voting is Random
-    public bool Freeze;                               // everybody frozen: the vote is open, or its result counts down to a map change
+    public bool Freeze;                               // everybody frozen: the vote is open, or its result counts down - to a map change, or to the window's close
     public int Inactivity;                            // everybody has voted: the inactivity timer's seconds left, never more than SecondsLeft (MapVote.InactivitySeconds; 0: not counting)
     public long EndsAtMs, InactivityAtMs, WaitUntilMs; // the end times behind SecondsLeft, Inactivity and WaitFor, unix milliseconds (0: none): the change-driven text carries these (AsOf)
     public string ResetBy = "";                       // ...and who reset it last (with Inactivity only)
     public long Starter;                              // the account that called it (0 at a match end)
+    public string StarterName = "";                   // ...and its name, as the window says who started it ("" at a match end)
     public List<Option> Options = new();              // in screen order - the most votes first - Random last
     public Dictionary<long, int> Choices = new();     // account id -> the option it voted for
     public Dictionary<int, List<string>> Voters = new(); // option -> the names of the players whose vote is on it (the cards' chips; the fakes too)
     public List<string> Waiting = new();              // the players present who have not voted yet, by name
     public Outcome? Result;                           // once decided
+
+    /// <summary>Decided, on the Keep card: nothing changes, the window closes when its seconds are up.</summary>
+    public bool Kept => !Open && Result is { } r && Numbered(r.N)?.Source == VoteSource.Keep;
 
     static string Source(VoteSource s) => s switch { VoteSource.Picked => "picked", VoteSource.Rolled => "rolled", VoteSource.Keep => "keep", _ => "random" };
     static VoteSource? Source(string s) => s switch { "picked" => VoteSource.Picked, "rolled" => VoteSource.Rolled, "random" => VoteSource.Random, "keep" => VoteSource.Keep, _ => null };
@@ -121,7 +127,7 @@ public sealed class VoteState
         if (WaitFor > 0 && endTimes) Line("mvwaitat", WaitUntilMs);
         else if (WaitFor > 0) Line("mvwait", WaitFor);
         if (Round <= 0) return s.ToString();
-        Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", Starter, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24));
+        Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", Starter, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24), Hud.Clean(StarterName, 24), DoneSeconds);
         if (endTimes) Line("mvt", EndsAtMs, Inactivity > 0 ? InactivityAtMs : 0);
         foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), o.Arg, o.Key, Hud.Clean(o.Label, 40), o.Size, o.Votes, o.Who, MapTags.Clean(o.Tags));
         foreach (var (account, n) in Choices) Line("mvv", account, n);
@@ -149,8 +155,8 @@ public sealed class VoteState
                 case "mvwaitat" when Long(f, 1) > 0: (v.WaitFor, v.WaitUntilMs) = (1, Long(f, 1)); break;
                 case "mvt": (v.EndsAtMs, v.InactivityAtMs) = (Math.Max(0, Long(f, 1)), Math.Max(0, Long(f, 2))); break;
                 case "mv" when Long(f, 1) > 0:
-                    (v.Round, v.Open, v.SecondsLeft, v.Present, v.Cast, v.MatchEnded, v.Starter, v.Freeze, v.Inactivity, v.ResetBy) =
-                        (Long(f, 1), Str(f, 2) == "open", Int(f, 3), Int(f, 4), Int(f, 5), Str(f, 6) == "end", Math.Max(0, Long(f, 7)), Int(f, 8) == 1, Math.Max(0, Int(f, 9)), Str(f, 10));
+                    (v.Round, v.Open, v.SecondsLeft, v.Present, v.Cast, v.MatchEnded, v.Starter, v.Freeze, v.Inactivity, v.ResetBy, v.StarterName, v.DoneSeconds) =
+                        (Long(f, 1), Str(f, 2) == "open", Int(f, 3), Int(f, 4), Int(f, 5), Str(f, 6) == "end", Math.Max(0, Long(f, 7)), Int(f, 8) == 1, Math.Max(0, Int(f, 9)), Str(f, 10), Str(f, 11), Math.Max(0, Int(f, 12)));
                     break;
                 case "mvo" when Int(f, 1) > 0 && Source(Str(f, 3)) is { } src && v.Options.Count < MapVote.MaxOptions:
                     v.Options.Add(new Option(Int(f, 1), Str(f, 2), src, Str(f, 4), Str(f, 5), Str(f, 6), Str(f, 7), Int(f, 8), Str(f, 9), MapTags.Clean(Str(f, 10))));
@@ -161,7 +167,7 @@ public sealed class VoteState
                 case "mvr" when Int(f, 1) > 0: v.Result = new Outcome(Int(f, 1), Str(f, 2), Str(f, 3), Str(f, 4)); break;
             }
         }
-        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Voters.Clear(); v.Waiting.Clear(); v.Result = null; v.Freeze = false; v.Inactivity = 0; v.ResetBy = ""; } // option lines without a vote line are not a vote
+        if (v.Round <= 0) { v.Options.Clear(); v.Choices.Clear(); v.Voters.Clear(); v.Waiting.Clear(); v.Result = null; v.Freeze = false; v.Inactivity = 0; v.ResetBy = ""; v.StarterName = ""; v.DoneSeconds = 0; } // option lines without a vote line are not a vote
         return v;
     }
 

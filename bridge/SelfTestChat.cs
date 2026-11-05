@@ -103,7 +103,7 @@ static partial class Program
 
         var broken = new MapInfo(12, 1, "aim_x", 1);
         Check("Chat: a confirmation's note says to type the line again, as a second click and a second line count alike: the restart (and its aliases), a risky map's Play and Previous; every other note is left alone",
-            ChatCommands.InChat(PickConfirmNote(broken, "is on the broken list")) == $"{Label(broken)} is on the broken list. Type it again within {PickConfirmSeconds} s to go ahead."
+            M.Plain(ChatCommands.InChat(PickConfirmNote(broken, "is on the broken list"))) == $"{Label(broken)} is on the broken list. Type it again within {PickConfirmSeconds} s to vote anyway"
             && ChatCommands.InChat(PickConfirmNote(broken, "is on the broken list", "Previous")).Contains("Type it again within")
             && ChatCommands.InChat("A restart kicks everyone for about a minute. Click Restart again within 30 s to confirm") == "A restart kicks everyone for about a minute. Type it again within 30 s to confirm"
             && ChatCommands.InChat("You liked #1 x, now +1 -0") == "You liked #1 x, now +1 -0");

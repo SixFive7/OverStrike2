@@ -5,7 +5,12 @@
 // it), a player starts one without a map (Start a vote, !next; !random with their vote on Random), or a match ends. Every vote opens everybody's
 // window and freezes everybody - bots too, nobody takes damage, nobody closes the window (the plugin does that, off VoteState.Freeze) - until
 // everybody present has voted, or MapVote.Seconds (60) as the safety net for somebody away. A player who joins meanwhile is frozen and counted.
-// Then everybody unfreezes at the same moment; a result that changes the map keeps everybody frozen through the change's countdown.
+// Then the window shows the result, everybody still frozen: through the change's countdown, or for MapVote.KeptSeconds when the vote kept the map; then
+// everybody unfreezes at the same moment.
+//
+// What it says (the rows are in Messages.cs): who started it stands in the window nobody can close, its chat and board copy is the line for everybody;
+// every vote - cast, changed, taken back, a map put on it - says in chat and on the board who voted and who still has to (VoteLine); the result likewise; and
+// a player who tries to call a vote when none may be called reads why in their own line, and chat and the board name them (RefuseCall).
 //
 // The ballot, a page of cards (MapVote.PageCards): Keep - "Keep playing this map" while the match is on, "Play this map again" once it is over (Wingman: the
 // whole match, not a round) - every map a player selected, one map of each other mode that suits the players on (Modes.Mode.Suits: Valve's
@@ -58,6 +63,7 @@ static partial class Program
         public bool Open = true;
         public VoteState.Outcome? Result;
         public Change? Change;                                    // what the result started
+        public DateTime? KeptUntil;                               // the vote kept the map: the window shows that until then, everybody still frozen
         public string Starter = "", StarterName = "";             // who called it ("" at a match end)
         public bool MatchEnded;                                   // the match is over: Keep is "Play this map again", nobody voting is Random
         public int Picks;                                         // the picks so far, for their order among ties
@@ -106,16 +112,74 @@ static partial class Program
 
     static string OptionKey(BallotOption o) => o.Source == VoteSource.Keep ? CurrentKey : o.Map is { } m ? Key(m) : "";
 
-    /// <summary>Why nobody may call a vote now, or null: a hold, a change under way, a map loading, a restart counting down, the wait after the last vote.</summary>
-    static string? CannotCall(DateTime now)
+    /// <summary>Why nobody may call a vote now, or null: a hold, a change under way, a map loading, a restart counting down, the wait after the last vote. You: what the
+    /// player who tried reads. All: what everybody reads after that player's name.</summary>
+    static (string You, string All)? CallRefusal(DateTime now)
     {
-        if (HudHeld()) return "Steam is reviewing the HUD, so a vote cannot start now - The game plays on";
-        if (Pending is { } p) return $"Already changing to {Clip(Label(p.Map), 40)} - Wait for it";
-        if (AnnouncePending) return "The next map is still loading - Wait for it";
-        if (RestartRefusal(now) is { } restart) return restart; // Restarts.cs
-        if (now < VoteWaitUntil) return $"A vote was just held - The next one can start in {MapVote.Left((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds))}";
+        if (HudHeld()) return ("Steam is reviewing the HUD, so a vote cannot start now - The game plays on", "tried to start a vote - Steam is reviewing the HUD, so a vote cannot start now");
+        if (Pending is { } p) return ($"Already changing to {M.A(Clip(Label(p.Map), 40))} - Wait for it", $"tried to start a vote - Already changing to {M.A(Clip(Label(p.Map), 40))}");
+        if (AnnouncePending) return ("The next map is still loading - Wait for it", "tried to start a vote - The next map is still loading");
+        if (RestartRefusal(now) is { } restart) return (restart, $"tried to start a vote - {restart}"); // Restarts.cs
+        if (now < VoteWaitUntil && MapVote.Left((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds)) is var left)
+            return ($"You can call a vote again in {left}", $"tried to start another vote - The next one can start in {M.V(left)}");
         return null;
     }
+
+    static string? CannotCall(DateTime now) => CallRefusal(now)?.You;
+
+    /// <summary>A player who keeps trying is named at most this often in chat; their own line and their row on the board stay current at every try.</summary>
+    const double RefusedQuietSeconds = 10;
+    static readonly Dictionary<string, DateTime> RefusedSaid = new();
+
+    /// <summary>Nobody may call a vote now and this player tried: their own line says why, and chat and the board name them, for everybody (the owner's note).</summary>
+    static void RefuseCall(string by, string steamId, (string You, string All) no, DateTime now)
+    {
+        Log($"vote: {by} {steamId} tried to call one - {no.You}");
+        var say = !RefusedSaid.TryGetValue(steamId, out var said) || (now - said).TotalSeconds >= RefusedQuietSeconds;
+        if (say) { if (RefusedSaid.Count > 64) RefusedSaid.Clear(); RefusedSaid[steamId] = now; }
+        Post(Messages.VoteRefused, M.Refused($"{VoterMark(by)} {no.All}"), steamId, key: $"voteno{steamId}", chat: say);
+        Post(Messages.VoteRefusedYou, no.You, steamId);
+    }
+
+    /// <summary>A player's name in a line of the vote's: their team's colour in chat.</summary>
+    static string VoterMark(string name) => M.N(Clip(name, 24));
+
+    /// <summary>A player's name as the vote's lists say it: the log stream's, the fakes of a test too.</summary>
+    static string VoterName(string id) => Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id;
+
+    /// <summary>The board keeps the newest of a vote's own lines (VoteLine): the list as it stands, with the line it started with and its result beside it.</summary>
+    static string VoteLineKey(MatchVote b) => $"vote{b.Round}";
+
+    /// <summary>What every vote says in chat and on the board, one line of at most Messages.ChatLineMax characters: what this player did, who has voted and who still
+    /// has to (the owner's note), each list as many names as fit and +N after them. Half the room for each, and what one leaves goes to the other.</summary>
+    static string VoteLine(MatchVote b, string what, DateTime now)
+    {
+        var voted = b.Choices.Keys.Select(VoterName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var waiting = PresentIds(now).Where(id => !b.Choices.ContainsKey(id)).Select(VoterName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var count = VotePresent(b, now);
+        var head = voted.Count == 0 ? "Nobody has voted" : voted.Count >= count ? "Everybody has voted: " : $"{M.V($"{voted.Count} of {count}")} voted: ";
+        const string wait = " - Waiting for: ";
+        var room = Messages.ChatLineMax - M.Plain(what).Length - " - ".Length - M.Plain(head).Length - (waiting.Count > 0 ? wait.Length : 0);
+        static int Width(List<string> names) => names.Sum(n => n.Length) + ", ".Length * Math.Max(0, names.Count - 1);
+        var forWaiting = Math.Max(room / 2, room - Width(voted));
+        var forVoted = room - Math.Min(forWaiting, Width(waiting));
+        return $"{what} - {head}{(voted.Count > 0 ? HudVote.Names(voted, forVoted, ", ", M.N) : "")}{(waiting.Count > 0 ? wait + HudVote.Names(waiting, forWaiting, ", ", M.N) : "")}";
+    }
+
+    /// <summary>What a vote on this card says: Bob voted for #12 aim_x; on Keep, what keeping means now.</summary>
+    static string VotedWords(MatchVote b, string by, BallotOption o) => o.Source switch
+    {
+        VoteSource.Keep when b.MatchEnded => $"{VoterMark(by)} voted to play {M.A(Clip(CurrentLabel(), 32))} again",
+        VoteSource.Keep => $"{VoterMark(by)} voted to keep {M.A(Clip(CurrentLabel(), 32))}",
+        VoteSource.Random => $"{VoterMark(by)} voted for {M.A("Random")}",
+        _ => $"{VoterMark(by)} voted for {M.A(Clip(Label(o.Map!), 32))}{ModeTag(o.Map!)}",
+    };
+
+    /// <summary>A vote cast, changed or taken back, or a map put on the ballot: the line for everybody.</summary>
+    static void SayVote(MatchVote b, string what, DateTime now) => Post(Messages.VoteClick, VoteLine(b, what, now), key: VoteLineKey(b));
+
+    /// <summary>The longer words while they fit in a chat line, else the shorter.</summary>
+    static string Fit(string longer, string shorter) => M.Plain(longer).Length <= Messages.ChatLineMax ? longer : shorter;
 
     /// <summary>One draw of the dice for a card: a map of the mode from the kept maps on the server's disk (KeptOnDisk), by points, never one already
     /// taken - and taken by it. Null: none is left.</summary>
@@ -160,9 +224,8 @@ static partial class Program
         }
     }
 
-    /// <summary>Opens a vote: builds the ballot by its recipe, casts the caller's vote on the map they selected, remembers what it shows, says so on
-    /// the news line, and puts the ballot's maps first in queues.json. False when there is nothing to put on it. A match end's vote ignores the
-    /// wait.</summary>
+    /// <summary>Opens a vote: builds the ballot by its recipe, casts the caller's vote on the map they selected, remembers what it shows, says so in chat and on
+    /// the board, and puts the ballot's maps first in queues.json. False when there is nothing to put on it. A match end's vote ignores the wait.</summary>
     static bool OpenBallot(DateTime now, int humans, string starter = "", string starterName = "", MapInfo? pick = null, bool matchEnd = false)
     {
         var present = PresentIds(now).Count;
@@ -208,17 +271,14 @@ static partial class Program
         var count = VotePresent(b, now);
         Log($"vote: round {round} open for {MapVote.Seconds} s{(matchEnd ? " at a match end" : starter != "" ? $", called by {starterName} {starter}" : "")}, {count} present: "
             + string.Join(" | ", b.Options.Select(o => $"{o.N}. {OptionLabel(b, o)} ({o.Source.ToString().ToLowerInvariant()}, {o.Mode.Id}{(o.Order is FreshOrder or SurpriseOrder ? o.Order == FreshOrder ? ", fresh" : ", surprise" : "")}{(o.Tags != "" ? $", {o.Tags}" : "")})")));
-        var how = $"Everybody votes, {MapVote.Seconds} s at the most - {HowToVote}";
-        Announce(matchEnd ? $"Match over - Vote for the next map: {how}"
-            : pick != null ? $"{Clip(starterName, 16)} put {Clip(Label(pick), 32)}{WhyNote(pick)}{ModeTag(pick)} to the vote: {how}"
-            : $"{Clip(starterName, 16)} started a vote for the next map: {how}", MapVote.Seconds);
+        var how = $"{M.V($"{MapVote.Seconds} s")}, or until {(count > 1 ? $"all {M.V($"{count}")} have voted" : "everybody has voted")}";
+        Post(Messages.VoteStarted, matchEnd ? $"Match over - Vote for the next map: {how}"
+            : pick != null ? Fit($"{VoterMark(starterName)} put {M.A(Clip(Label(pick), 32))}{WhyNote(pick)}{ModeTag(pick)} to the vote: {how}", $"{VoterMark(starterName)} put {M.A(Clip(Label(pick), 32))}{ModeTag(pick)} to the vote: {how}")
+            : $"{VoterMark(starterName)} started a vote for the next map: {how}", seconds: MapVote.Seconds);
         FillStock(); // RandomQueue.cs: the shown stock entries are used up and rolled anew, and the ballot's maps go first in queues.json, so they download now
         BallotTick(now); // alone, the caller's own vote ends it at once
         return true;
     }
-
-    /// <summary>How the news line tells players to vote: a card, and its number while the cards have numbers (MapVote.Numbers).</summary>
-    static string HowToVote => MapVote.Numbers == MapVote.Numbering.None ? "Click a card (again: take it back)" : "Click a card or type its number";
 
     static string KeepWords(MatchVote b) => b.MatchEnded ? "Play this map again" : "Keep playing this map";
 
@@ -232,14 +292,20 @@ static partial class Program
         if (Ballot is { Open: true } open)
         {
             if (forRandom) { CastBallot(by, steamId, $"{open.Round} {MapVote.RandomOption}"); return; }
-            Tell(steamId, "The vote for the next map is on - Click a card in it");
+            Tell(steamId, M.Refused("The vote for the next map is on - Click a card in it"));
             return;
         }
-        if (CannotCall(now) is { } why) { Tell(steamId, why); return; }
+        if (CallRefusal(now) is { } no) { RefuseCall(by, steamId, no, now); return; }
         Present(steamId, by);
-        if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by)) { Tell(steamId, "No map is eligible for a vote right now"); return; }
+        if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by)) { Tell(steamId, M.Refused("No map is eligible for a vote right now")); return; }
         Log($"vote: started by {by} {steamId}{(forRandom ? ", with their vote on Random" : "")}");
-        if (forRandom && Ballot is { Open: true } b) { b.Choices[steamId] = MapVote.RandomOption; (b.LastChange, b.LastBy) = (now, by); BallotTick(now); }
+        if (forRandom && Ballot is { Open: true } b)
+        {
+            b.Choices[steamId] = MapVote.RandomOption;
+            (b.LastChange, b.LastBy) = (now, by);
+            SayVote(b, VotedWords(b, by, b.Options.First(o => o.Source == VoteSource.Random)), now);
+            BallotTick(now);
+        }
     }
 
     /// <summary>A map a player selected (Play, !play, Previous), past every refusal and a risky map's second click: a vote with it on the ballot and
@@ -249,29 +315,35 @@ static partial class Program
     {
         Present(steamId, by);
         if (Ballot is { Open: true } open) { AddToBallot(open, by, steamId, map, now); return; }
-        if (IsOn(map)) { Tell(steamId, $"{Clip(Label(map), 40)} is on now - Start a vote to change it"); return; }
-        if (CannotCall(now) is { } why) { Tell(steamId, why); return; }
-        if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by, map)) Tell(steamId, "No vote could open right now - Try again in a moment");
+        if (IsOn(map)) { Tell(steamId, M.Refused($"{M.A(Clip(Label(map), 40))} is on now - Start a vote to change it")); return; }
+        if (CallRefusal(now) is { } no) { RefuseCall(by, steamId, no, now); return; }
+        if (!OpenBallot(now, Math.Max(Humans(), 1), steamId, by, map)) Tell(steamId, M.Refused("No vote could open right now - Try again in a moment"));
     }
 
     /// <summary>A player's vote: !mv &lt;round&gt; &lt;n&gt; from the vote screen (0 takes it back, 99 is Random) - as often as they like.</summary>
     static void CastBallot(string by, string steamId, string arg)
     {
-        if (MapVote.ParseClick($"{MapVote.Verb} {arg}") is not { } click || Ballot is not { Open: true } b || b.Round != click.Round) { Tell(steamId, "That vote is over"); return; }
+        if (MapVote.ParseClick($"{MapVote.Verb} {arg}") is not { } click || Ballot is not { Open: true } b || b.Round != click.Round) { Tell(steamId, M.Refused("That vote is over")); return; }
         var now = Now();
         if (click.Option == 0)
         {
             if (!b.Choices.Remove(steamId)) return;
             Log($"vote: {by} {steamId} took their vote back");
             (b.LastChange, b.LastBy) = (now, by);
+            SayVote(b, $"{VoterMark(by)} took their vote back", now);
             BallotTick(now);
             return;
         }
-        if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option) { Tell(steamId, "That card is not on this ballot any more"); return; }
+        if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option) { Tell(steamId, M.Refused("That card is not on this ballot any more")); return; }
         Present(steamId, by);
         var was = b.Choices.GetValueOrDefault(steamId);
         b.Choices[steamId] = click.Option;
-        if (was != click.Option) { Log($"vote: {by} {steamId} votes {click.Option} ({OptionLabel(b, option)}){(was > 0 ? $", was {was}" : "")}"); (b.LastChange, b.LastBy) = (now, by); }
+        if (was != click.Option)
+        {
+            Log($"vote: {by} {steamId} votes {click.Option} ({OptionLabel(b, option)}){(was > 0 ? $", was {was}" : "")}");
+            (b.LastChange, b.LastBy) = (now, by);
+            SayVote(b, VotedWords(b, by, option), now);
+        }
         BallotTick(now);
     }
 
@@ -295,16 +367,18 @@ static partial class Program
         var key = Key(map);
         if (b.Options.FirstOrDefault(o => o.Source != VoteSource.Random && OptionKey(o) == key && (o.Source == VoteSource.Keep ? IsOn(map) : ModeOf(map).Id == o.Mode.Id)) is { } there)
         {
-            if (b.Choices.GetValueOrDefault(steamId) != there.N) (b.LastChange, b.LastBy) = (now, by);
+            var moved = b.Choices.GetValueOrDefault(steamId) != there.N;
+            if (moved) (b.LastChange, b.LastBy) = (now, by);
             b.Choices[steamId] = there.N;
             if (there.Source == VoteSource.Picked && there.Pickers.All(p => p.Id != steamId)) there.Pickers.Add((steamId, by));
-            Tell(steamId, there.Source == VoteSource.Keep ? $"{KeepWords(b)} is on the vote - Your vote is on it" : $"{Clip(Label(map), 40)} is on the vote already - Your vote is on it");
+            Tell(steamId, M.Done(there.Source == VoteSource.Keep ? $"{KeepWords(b)} is on the vote - Your vote is on it" : $"{M.A(Clip(Label(map), 40))} is on the vote already - Your vote is on it"));
             Log($"vote: {by} {steamId} asked for {Label(map)}, on the ballot as {there.N} - votes {there.N}");
+            if (moved) SayVote(b, VotedWords(b, by, there), now);
             BallotTick(now);
             return;
         }
         var cards = b.Options.Where(o => o.Source != VoteSource.Random).ToList();
-        if (cards.Count >= MapVote.MaxMaps) { Tell(steamId, $"The vote holds {MapVote.MaxMaps} maps - vote for one of them"); return; }
+        if (cards.Count >= MapVote.MaxMaps) { Tell(steamId, M.Refused($"The vote holds {M.V($"{MapVote.MaxMaps}")} maps - Vote for one of them")); return; }
         var o = new BallotOption(VoteSource.Picked, map, ModeOf(map), PickOrder + b.Picks++, TagsOf(map, picked: true));
         o.Pickers.Add((steamId, by));
         if (cards.Count >= MapVote.PageCards && Replaceable(b) is { } gone)
@@ -321,7 +395,7 @@ static partial class Program
         CatalogVersion++;
         Save();
         Log($"vote: {by} {steamId} added {o.N}. {OptionLabel(b, o)} and votes for it");
-        Announce($"{Clip(by, 16)} added {Clip(Label(map), 32)}{WhyNote(map)}{ModeTag(map)} to the vote", Math.Max(5, (int)Math.Ceiling((b.Ends - now).TotalSeconds)));
+        SayVote(b, $"{VoterMark(by)} added {M.A(Clip(Label(map), 32))}{ModeTag(map)} to the vote", now);
         FillStock(); // a stock entry picked is used up; the new card goes into queues.json
         BallotTick(now);
     }
@@ -332,8 +406,8 @@ static partial class Program
         b.Options.Where(o => o.Source == VoteSource.Rolled && !b.Choices.ContainsValue(o.N) && o.Order >= FillOrder && o.Order < OtherOrder).MaxBy(o => o.Order);
 
     /// <summary>Every tick, and after every vote: a voter who left takes their vote along; everybody present having voted ends the vote, the timer
-    /// ends it. Once decided it stays on screen until its change has gone out. A vote always ends: whatever goes wrong in here drops it, so nobody
-    /// stays frozen and the rest of the tick runs.</summary>
+    /// ends it. Once decided it stays on screen until its change has gone out, or for MapVote.KeptSeconds when it kept the map. A vote always ends: whatever
+    /// goes wrong in here drops it, so nobody stays frozen and the rest of the tick runs.</summary>
     static void BallotTick(DateTime now)
     {
         try { BallotStep(now); }
@@ -345,6 +419,7 @@ static partial class Program
         if (Ballot is not { } b) return;
         if (!b.Open)
         {
+            if (b.KeptUntil is { } until) { if (now >= until) Ballot = null; return; } // everybody unfreezes, every window closes, at the same moment (the plugin)
             if (Pending == null || Pending != b.Change || (now - b.DoneAt).TotalSeconds > ChangeDelay + 5) Ballot = null;
             return;
         }
@@ -375,11 +450,12 @@ static partial class Program
         else CloseBallot(b, now, top[Dice.Next(top.Count)], "tie", tally, count);
     }
 
-    /// <summary>The map that is on, for "... stays": its label, or plain words when the bridge does not know which map it is.</summary>
+    /// <summary>The map that is on, where it starts a section: "... stays": its label, or plain words when the bridge does not know which map it is.</summary>
     static string OnWords() => CurrentKey != "" ? Clip(CurrentLabel(), 40) : "The map";
 
-    /// <summary>The vote is decided: Keep unfreezes everybody at once and the map plays on; anything else goes out through the usual countdown,
-    /// everybody still frozen. Either way the next vote waits MapVote.WaitSeconds. The chosen card is no showing that steps back.</summary>
+    /// <summary>The vote is decided: Keep shows that for MapVote.KeptSeconds and the map plays on; anything else goes out through the usual countdown. Everybody stays
+    /// frozen until then. Either way the next vote waits MapVote.WaitSeconds. The chosen card is no showing that steps back. "N of M" in what it says is the tile's
+    /// N/M: its votes of everybody present.</summary>
     static void CloseBallot(MatchVote b, DateTime now, BallotOption o, string how, Dictionary<int, int> tally, int present)
     {
         b.Open = false; b.DoneAt = now;
@@ -401,14 +477,19 @@ static partial class Program
         StartRollOwed = false; // the players have had their say: a server start's roll is no longer owed (TryStartRoll waits for an open vote)
         var votes = tally.GetValueOrDefault(o.N);
         var cast = tally.Values.Sum();
+        var count = M.V($"{votes} of {present}");
         if (o.Source == VoteSource.Keep)
         {
-            Ballot = null; // everybody unfreezes, every window closes, at the same moment (the plugin)
+            b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40), CurrentMode.Id);
+            b.KeptUntil = now.AddSeconds(MapVote.KeptSeconds);
             Save();
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
-            Announce(how == "none" ? $"Nobody voted - {OnWords()} stays"
-                : b.MatchEnded ? $"The vote: {Clip(CurrentLabel(), 40)} again ({votes} of {cast}) - Its next match starts on it"
-                : $"The vote kept {Clip(CurrentLabel(), 40)} ({votes} of {cast})");
+            var kept = M.A(OnWords());
+            Post(Messages.VoteKept, how == "none" ? $"Nobody voted - {kept} stays"
+                : how == "tie" ? $"The vote kept {kept} ({count}) - A tie, drawn by the dice"
+                : b.MatchEnded ? $"The vote: {kept} again ({count}) - Its next match starts on it"
+                : $"The vote kept {kept} ({count})");
+            if (!b.Options.Contains(o)) Ballot = null; // no card for it: the bridge does not know which map is on, so there is nothing to show - everybody unfreezes at once
             return;
         }
         var target = o.Source == VoteSource.Random ? null : o.Map is { } m && Unplayable(m) == null ? m : null;
@@ -419,15 +500,16 @@ static partial class Program
         b.Change = change;
         Save();
         Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {o.N}. {OptionLabel(b, o)} -> {Label(target)} in {ModeOf(target).Name}");
-        var shown = $"{Label(target)}{Detail(target, MapTags.WhyWords(TagsOf(target), picked: false))}{ModeTag(target)}";
-        StartChange(change, how switch
+        var delay = M.V($"{ChangeDelay} s");
+        string Words(string shown) => how switch
         {
-            "none" => $"Nobody voted - Rolling the dice: {shown}, changing in {ChangeDelay} s",
-            _ when o.Source == VoteSource.Random => $"The vote chose Random ({votes} of {cast}) - Rolling the dice: {shown}, changing in {ChangeDelay} s",
-            "tie" => $"A tie at {votes} vote{(votes == 1 ? "" : "s")} each, drawn by the dice: {shown}, changing in {ChangeDelay} s",
-            "all" => $"Everybody has voted: {shown} ({votes} of {cast}) - Changing in {ChangeDelay} s",
-            _ => $"The vote chose {shown} ({votes} of {cast} votes) - Changing in {ChangeDelay} s",
-        });
+            "none" => $"Nobody voted - Rolling the dice: {M.A(shown)}, changing in {delay}",
+            _ when o.Source == VoteSource.Random => $"The vote chose Random ({count}) - Rolling the dice: {M.A(shown)}, changing in {delay}",
+            "tie" => $"A tie at {M.V($"{votes}")} vote{(votes == 1 ? "" : "s")} each, drawn by the dice: {M.A(shown)}, changing in {delay}",
+            "all" => $"Everybody has voted: {M.A(shown)} ({count}) - Changing in {delay}",
+            _ => $"The vote chose {M.A(shown)} ({count}) - Changing in {delay}",
+        };
+        StartChange(change, Fit(Words($"{Label(target)}{Detail(target, MapTags.WhyWords(TagsOf(target), picked: false))}{ModeTag(target)}"), Words($"{Clip(Label(target), 40)}{ModeTag(target)}")), Messages.VoteDecided);
     }
 
     /// <summary>Drops a vote without a change: a restart, a map start nobody asked for, the server emptied. Everybody unfreezes.</summary>
@@ -453,7 +535,7 @@ static partial class Program
 
     /// <summary>The vote and the modes, for the live state (the lines VoteState.Encode adds after HudState's): the cards with the most votes first.
     /// While it is open both timers are on the wire: SecondsLeft, the vote's limit, always; Inactivity and who reset it once everybody has voted,
-    /// never more than SecondsLeft - the limit closes it first.</summary>
+    /// never more than SecondsLeft - the limit closes it first. Decided, SecondsLeft is the countdown: the change's, or the window's when it kept the map.</summary>
     static VoteState BuildVoteState(DateTime now)
     {
         var mode = CurrentMode;
@@ -465,20 +547,21 @@ static partial class Program
         var count = VotePresent(b, now);
         v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded;
         v.Starter = b.Starter != "" ? Math.Max(0, AccountId(b.Starter)) : 0;
-        v.Freeze = b.Open || (Pending is { } p && p == b.Change);
-        v.SecondsLeft = b.Open ? Math.Max(0, (int)Math.Ceiling((VoteEnds(b) - now).TotalSeconds))
-            : Pending is { } q && q == b.Change ? Math.Max(0, (int)Math.Ceiling((q.FiresAt - now).TotalSeconds)) : 0;
-        v.EndsAtMs = b.Open ? HudState.Ms(VoteEnds(b)) : Pending is { } q2 && q2 == b.Change ? HudState.Ms(q2.FiresAt) : 0; // the plugin counts down from these (HudTransport.cs)
+        v.StarterName = b.StarterName;
+        var counting = b.Open ? VoteEnds(b) : b.KeptUntil ?? (Pending is { } p && p == b.Change ? p.FiresAt : (DateTime?)null);
+        v.Freeze = b.Open || b.KeptUntil != null || (Pending != null && Pending == b.Change);
+        v.SecondsLeft = counting is { } at ? Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)) : 0;
+        v.EndsAtMs = counting is { } at2 ? HudState.Ms(at2) : 0; // the plugin counts down from these (HudTransport.cs)
+        v.DoneSeconds = b.Open ? 0 : b.KeptUntil != null ? MapVote.KeptSeconds : ChangeDelay;
         if (b.Open && MapVote.InactivitySeconds > 0 && b.EverybodySince != null)
         {
             (v.Inactivity, v.ResetBy) = (Math.Min(Math.Max(1, (int)Math.Ceiling((SettleEnd(b) - now).TotalSeconds)), Math.Max(1, v.SecondsLeft)), b.LastBy);
             v.InactivityAtMs = HudState.Ms(SettleEnd(b));
         }
         (v.Present, v.Cast) = (count, b.Choices.Count);
-        // who voted what, by name (the cards' chips, the hover), and who has not voted yet (the waiting line): the log stream's players, the fakes of a test too
-        string NameOf(string id) => Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id;
-        foreach (var g in b.Choices.GroupBy(c => c.Value)) v.Voters[g.Key] = g.Select(c => NameOf(c.Key)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
-        if (b.Open) v.Waiting = PresentIds(now).Where(id => !b.Choices.ContainsKey(id)).Select(NameOf).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        // who voted what, by name (the cards' chips, the hover), and who has not voted yet (the waiting line)
+        foreach (var g in b.Choices.GroupBy(c => c.Value)) v.Voters[g.Key] = g.Select(c => VoterName(c.Key)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        if (b.Open) v.Waiting = PresentIds(now).Where(id => !b.Choices.ContainsKey(id)).Select(VoterName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         int Votes(BallotOption o) => b.Choices.Values.Count(n => n == o.N);
         foreach (var o in b.Options.OrderBy(o => o.Source == VoteSource.Random).ThenByDescending(Votes).ThenBy(o => o.Order))
         {

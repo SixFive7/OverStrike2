@@ -518,7 +518,7 @@ public static class HudView
     public static string VoteLine(VoteState? v) => v == null || v.Round <= 0
         ? (v?.WaitFor > 0 ? $"The next vote can start in {MapVote.Left(v.WaitFor)}" : "No vote on: Play on a map, or Start a vote")
         : v.Open ? $"The vote is on: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted"
-        : v.Result is { } r ? Hud.Clean($"The vote chose {r.Label}", QueueLineMax) : "The vote is over";
+        : v.Result is { } r ? Hud.Clean($"The vote {(v.Kept ? "kept" : "chose")} {r.Label}", QueueLineMax) : "The vote is over";
 
     /// <summary>The live texts, the same for everybody. The board (b) and the window's live column (w) show the same facts; the column also lists
     /// the vote's leading cards (its old queue rows) and the most liked maps, the board has the one vote line.</summary>

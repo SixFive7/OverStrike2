@@ -62,7 +62,7 @@ The same list for every release, in a real client against a test copy of the ser
    keyboard; a typed Workshop id gets its card, with Download and play.
 4. **Start a vote:** everybody's window opens on MAPS, Vote, and nobody can move, shoot or close it. Ten cards, Keep playing first; Random's button; where the votes go, who has
    not voted yet and both timers. A click votes, another moves the vote, a click on your own takes it back. Browse puts a map on the vote, with your vote.
-5. **The vote's end:** Keep unfreezes everybody at once; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.
+5. **The vote's end:** Keep says so for 8 s, Closes in counting down, then everybody unfreezes; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.
 6. **Dislike** a map: the reasons stand where it was clicked - over a card's picture, in the window in place of Like and Dislike, on the TAB board - and a dislike typed in chat with
    the window closed gets the popup at the left.
 7. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity refusing Super jump

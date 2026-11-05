@@ -472,7 +472,7 @@ static partial class Program
             var sendBefore = Send;
             Send = command => command.Contains("game_type") ? throw new InvalidOperationException("a step before the vote's timer fails") : sendBefore(command);
             (ModeProbeEnabled, ModeProbing, ModeProbeAt) = (true, true, default);
-            Run(MapVote.Seconds + 1);
+            Run(MapVote.Seconds + MapVote.KeptSeconds + 1);
             Send = sendBefore;
             (ModeProbeEnabled, ModeProbing) = (false, false);
             Check("A step of the tick that throws before the vote's timer costs that step only: the vote still ends at its limit", Ballot == null && Said("Nobody voted"));

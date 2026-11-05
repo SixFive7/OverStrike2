@@ -172,11 +172,12 @@ public static class HudVote
     public const string RandomButton = "gg_v_random", BrowseButton = "gg_v_browse", BackButton = "gg_v_back";
 
     /// <summary>The dialog variables on gg_screen the vote's labels inherit, per player: Random's button, the hint that more cards are on the other pages,
-    /// the line over the map browser while it adds to the vote (the contents before v4.6.0), the Vote sub-tab's label, the limit's and the inactivity
-    /// timer's lines in the ballot's header.</summary>
-    public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle";
+    /// the line over the map browser while it adds to the vote (the contents before v4.6.0), the Vote sub-tab's label, and the ballot's header: who started
+    /// the vote, the limit's digits and line, the second row's key, digits and line (the inactivity timer, or the countdown once decided).</summary>
+    public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle",
+        StartVar = "osvstart", LimitNumVar = "osvlimn", IdleKeyVar = "osvidlek", IdleNumVar = "osvidlen";
 
-    /// <summary>Who has not voted yet (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4.6.0; HoverVar(k),
+    /// <summary>Who has not voted yet and then what came of the vote (WaitVar), the voters on card k (VotersVar(k), short, for the chips of the contents before v4.6.0; HoverVar(k),
     /// longer, for the names a card shows while the mouse is on it) and the summary strip's segment i (StripVar(i)).</summary>
     public const string WaitVar = "osvwait";
     public static string VotersVar(int k) => $"osvn{k.ToString(CultureInfo.InvariantCulture)}";
@@ -194,51 +195,94 @@ public static class HudVote
     /// <summary>A share as one of eleven classes, w0 ... w10 - tenths of the votes cast: a card's bar and a strip segment's width (the same names
     /// on both, so the eleven cost eleven of the 1,024 class names).</summary>
     public static string Share(int votes, int cast) => $"w{(cast <= 0 ? 0 : (int)Math.Round(10.0 * votes / cast, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture)}";
-    public static IEnumerable<(string Id, string Class, bool On)> ShareClasses(string id, int votes, int cast)
-    {
-        var on = Share(votes, cast);
-        for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
-    }
+    public static IEnumerable<(string Id, string Class, bool On)> ShareClasses(string id, int votes, int cast) => StepClasses(id, Share(votes, cast));
 
     /// <summary>A strip segment's votes as the same eleven classes, w0 ... w10 - its count, not a share (ten and more are w10): its weight in the strip.</summary>
-    public static IEnumerable<(string Id, string Class, bool On)> CountClasses(string id, int votes)
+    public static IEnumerable<(string Id, string Class, bool On)> CountClasses(string id, int votes) => StepClasses(id, $"w{Math.Clamp(votes, 0, 10).ToString(CultureInfo.InvariantCulture)}");
+
+    /// <summary>How long one class of the limit's bar lasts: its transition in the stylesheet takes as long (.gg-clock-fill), so the bar moves steadily and is
+    /// right to within a second. Ten of them are the limit.</summary>
+    public const int LimitStepSeconds = MapVote.Seconds / 10;
+
+    /// <summary>The limit's bar by the seconds left, as the same eleven classes: full from MapVote.Seconds up, then a step down every LimitStepSeconds. The class
+    /// names where the bar is going, so a late joiner is right at once and it cannot drift; w0 snaps (the stylesheet), so the next vote's first w10 is full at once.</summary>
+    public static string LimitStep(int secondsLeft) => secondsLeft >= MapVote.Seconds ? "w10"
+        : $"w{Math.Max(0, (int)Math.Ceiling(secondsLeft / (double)LimitStepSeconds) - 1).ToString(CultureInfo.InvariantCulture)}";
+
+    public static IEnumerable<(string Id, string Class, bool On)> LimitClasses(string id, int secondsLeft) => StepClasses(id, LimitStep(secondsLeft));
+
+    static IEnumerable<(string Id, string Class, bool On)> StepClasses(string id, string on)
     {
-        var on = $"w{Math.Clamp(votes, 0, 10).ToString(CultureInfo.InvariantCulture)}";
         for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
     }
 
-    /// <summary>How many characters of names a card's chips take in the contents before v4.6.0, so a longer list ends in "+N" and never in "..."; and
-    /// how many the names a v4.6.0 card shows on pointing take (three lines over its picture).</summary>
-    public const int CardNames = 30, HoverNames = 90;
+    /// <summary>How many characters of names a card's chips take in the contents before v4.6.0, so a longer list ends in "+N" and never in "..."; how
+    /// many the names a v4.6.0 card shows on pointing take (three lines over its picture); and how many the waiting line in the ballot's header takes
+    /// after its "Waiting for: " (its 518 px at 15 px bold).</summary>
+    public const int CardNames = 30, HoverNames = 90, WaitNames = 52;
 
-    /// <summary>Names as a card's chips say them: as many as fit in about 34 characters, then "+N".</summary>
-    public static string Names(IReadOnlyList<string> names, int max = 34)
+    /// <summary>Names as a card's chips say them: as many as fit in about 34 characters, then "+N". between: what stands between two names; mark: what a name
+    /// becomes in the text (a chat line's colour, M.N), which takes no room on screen.</summary>
+    public static string Names(IReadOnlyList<string> names, int max = 34, string between = "  ·  ", Func<string, string>? mark = null)
     {
         var shown = "";
+        var length = 0;
         for (var i = 0; i < names.Count; i++)
         {
-            var next = (shown == "" ? "" : "  ·  ") + names[i];
+            var gap = i == 0 ? "" : between;
             var left = names.Count - i - 1;
-            if (shown.Length + next.Length + (left > 0 ? 4 : 0) > max) return shown == "" ? $"{names.Count} players" : $"{shown}  +{names.Count - i}";
-            shown += next;
+            if (length + gap.Length + names[i].Length + (left > 0 ? 4 : 0) > max)
+                return i > 0 ? $"{shown}  +{names.Count - i}" : names.Count == 1 ? "1 player" : $"{names.Count} players";
+            shown += gap + (mark?.Invoke(names[i]) ?? names[i]);
+            length += gap.Length + names[i].Length;
         }
         return shown;
     }
 
-    /// <summary>The waiting line: every player present who has not voted, by name, then "Everyone has voted" - which a vote decided by everybody
-    /// voting says for as long as it shows its result (it closes the moment the last one votes).</summary>
-    public static string WaitLine(VoteState v) => !v.Open ? (v.Result != null && v.Present > 0 && v.Cast >= v.Present ? "Everyone has voted" : "") // a tie everybody voted in too
-        : v.Waiting.Count > 0 ? "Waiting for: " + Names(v.Waiting, 110)
-        : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}" : "Everyone has voted";
+    /// <summary>The line beside the ballot's strip: every player present who has not voted, by name; Everybody has voted once nobody is left; decided, what came of
+    /// it (DoneLine). A player the log stream does not know yet (the bridge started mid-map) has no name: only a number.</summary>
+    public static string WaitLine(VoteState v) => !v.Open ? DoneLine(v)
+        : v.Waiting.Count > 0 ? $"Waiting for: {Names(v.Waiting, WaitNames, ", ")}"
+        : v.Cast < v.Present ? $"Waiting for: {(v.Present - v.Cast == 1 ? "1 player" : $"{v.Present - v.Cast} players")}"
+        : "Everybody has voted";
 
-    /// <summary>The inactivity timer as the screen says it: Inactivity timer 4 s - reset by Bob.</summary>
+    /// <summary>What came of the vote, as the window says it while it counts down: the map that won and its votes of everybody present (N of M, like the tile's N/M),
+    /// the dice's part in it, or the map kept; "" before it is decided.</summary>
+    public static string DoneLine(VoteState v)
+    {
+        if (v.Result is not { } r) return "";
+        var label = Hud.Clean(r.Label, 40);
+        var card = v.Numbered(r.N);
+        var count = $"({card?.Votes ?? 0} of {v.Present})";
+        if (v.Kept)
+            return r.How == "none" ? $"Nobody voted - {label} stays"
+                : r.How == "tie" ? $"The vote kept {label} {count} - A tie, drawn by the dice"
+                : v.MatchEnded ? $"{label} again {count} - Its next match starts on it"
+                : $"The vote kept {label} {count}";
+        return r.How == "none" ? $"Nobody voted - The dice rolled {label}"
+            : card?.Source == VoteSource.Random ? $"Random won {count} - The dice rolled {label}"
+            : r.How == "tie" ? $"{label} won {count} - A tie, drawn by the dice"
+            : $"{label} won {count} - Picked by the vote";
+    }
+
+    /// <summary>The inactivity timer as a line of its own says it, for the contents before v4.6.0: Inactivity timer 4 s - Reset by Bob.</summary>
     public static string InactivityLine(VoteState v) => $"Inactivity timer {v.Inactivity} s{(v.ResetBy != "" ? $" - Reset by {Hud.Clean(v.ResetBy, 24)}" : "")}";
 
-    /// <summary>The ballot header's two clocks while the vote is open: the limit's line (its seconds left, how many have voted), and the inactivity
-    /// timer's once everybody has voted ("" before); decided, the first says what comes and when.</summary>
-    public static (string Limit, string Idle) Clocks(VoteState v) =>
-        !v.Open ? (v.Result is { } r ? $"The vote chose {Hud.Clean(r.Label, 40)} - Changing in {v.SecondsLeft} s" : "", "")
-        : ($"{v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted", v.Inactivity > 0 ? InactivityLine(v) : "");
+    /// <summary>Who started the vote, in the window nobody can close: where the owner wants it, in place of a top line. A match end's vote has nobody.</summary>
+    public static string StartLine(VoteState v) => v.StarterName != "" ? $"Started by {Hud.Clean(v.StarterName, 24)}" : v.MatchEnded ? "Match over" : "";
+
+    /// <summary>The words of the ballot header's two rows. The limit: its digits and how many have voted. The second row: the inactivity timer while the vote is open -
+    /// its digits and who reset it once everybody has voted - and, decided, the limit's row gone, the countdown to the change or to the window's close.</summary>
+    public readonly record struct ClockWords(string LimitNum, string Limit, string IdleKey, string IdleNum, string Idle);
+
+    public static ClockWords Clocks(VoteState v) =>
+        !v.Open ? new("", "", v.Kept ? "Closes in" : "Changing in", $"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", "")
+        : new($"{v.SecondsLeft.ToString(CultureInfo.InvariantCulture)} s", $"{v.Cast} of {v.Present} voted", "Inactivity timer",
+            v.Inactivity > 0 ? $"{v.Inactivity.ToString(CultureInfo.InvariantCulture)} s" : "",
+            v.Inactivity <= 0 ? "Starts when everybody has voted" : v.ResetBy != "" ? $"Reset by {Hud.Clean(v.ResetBy, 24)}" : "");
+
+    /// <summary>The last seconds of the limit, when its digits turn red and pulse (vlow on gg_screen).</summary>
+    public const int LowSeconds = 10;
 
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
     public static string TabLabel(VoteState v) => v.Open ? $"Vote  ·  {v.SecondsLeft} s" : "Vote";
@@ -282,9 +326,9 @@ public static class HudVote
         page = Math.Clamp(page, 0, pages - 1);
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
-        t.Add(("gg_m_count", done ? $"The vote chose {Hud.Clean(v.Result!.Label, 40)} - Changing in {v.SecondsLeft} s"
-            : v.Inactivity > 0 ? $"Everyone has voted  ·  {InactivityLine(v)}"
-            : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
+        t.Add(("gg_m_count", done ? $"{DoneLine(v)} - {(v.Kept ? "Closes in" : "Changing in")} {v.SecondsLeft} s"
+            : v.Inactivity > 0 ? $"Everybody has voted  ·  {InactivityLine(v)}"
+            : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  Waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
@@ -294,6 +338,8 @@ public static class HudVote
         t.Add(("gg_m_empty", ""));
         c.Add(("gg_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
+        c.Add((HudView.Screen, "vdone", done));                      // decided or kept: the limit's row goes, the second row counts down, the tiles dim but the winner
+        c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
         c.Add((HudView.Screen, "vpages", pages > 1));
         c.Add((HudView.Screen, "vmore", rest > 0));
         c.Add((HudBrowser.FirstButton, "off", page == 0));
@@ -310,13 +356,13 @@ public static class HudVote
             var number = shownN > 0 ? $"{shownN}  ·  " : "";
             var entry = o == null || o.Key == "" || catalog == null ? null : catalog.Find(o.Key);
             var record = keep ? null : entry; // its record, for a risky map
-            var who = o == null || o.Who == "" ? "" : $"picked by {o.Who}";
+            var who = o == null || o.Who == "" ? "" : $"Picked by {o.Who}";
             t.Add(($"{id}_rank", o == null ? "" : $"{number}{(keep ? "Keep" : mode?.Name ?? "")}")); // the contents before v4.6.0 show it on the picture
             t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
             t.Add(($"{id}_votes", o == null ? "" : $"{o.Votes} vote{(o.Votes == 1 ? "" : "s")}{(who == "" ? "" : $"  ·  {who}")}"));
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
-            t.Add(($"{id}_score", o == null ? "" : o.Votes.ToString(CultureInfo.InvariantCulture)));
+            t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
             t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? "Next map" : "") : mine == o.N ? "Your vote" : keep ? (shownN > 0 ? $"Keep {shownN}" : "Keep") : shownN > 0 ? $"Vote {shownN}" : "Vote"));
             c.Add((id, "used", o != null));
@@ -364,11 +410,16 @@ public static class HudVote
         c.Add((HudView.Screen, "vrandom", random != null && mine == random.N && !done));
         w.Add((RandomVar, random == null ? "" : $"Random  ·  {random.Votes} vote{(random.Votes == 1 ? "" : "s")}"));
         w.Add((MoreVar, rest > 0 ? $"{rest} more map{(rest == 1 ? "" : "s")} on the next page" : ""));
-        var (limit, idle) = Clocks(v);
-        w.Add((LimitVar, limit));
-        w.Add((IdleVar, idle));
-        c.AddRange(ShareClasses(LimitBar, v.Open ? v.SecondsLeft : 0, MapVote.Seconds));
-        c.AddRange(ShareClasses(IdleBar, v.Open ? v.Inactivity : 0, Math.Max(1, MapVote.InactivitySeconds)));
+        var clocks = Clocks(v);
+        w.Add((StartVar, StartLine(v)));
+        w.Add((LimitNumVar, clocks.LimitNum));
+        w.Add((LimitVar, clocks.Limit));
+        w.Add((IdleKeyVar, clocks.IdleKey));
+        w.Add((IdleNumVar, clocks.IdleNum));
+        w.Add((IdleVar, clocks.Idle));
+        c.AddRange(LimitClasses(LimitBar, v.Open ? v.SecondsLeft : 0));
+        c.AddRange(v.Open ? ShareClasses(IdleBar, v.Inactivity, Math.Max(1, MapVote.InactivitySeconds)) // a reset jumps to w10: the bar refills in a second, which is the visible reset
+            : ShareClasses(IdleBar, v.SecondsLeft, Math.Max(v.SecondsLeft, Math.Max(1, v.DoneSeconds))));    // decided: this bar counts down, not the limit's - leaving its state would take 6 s to refill
         return (t, c, w);
     }
 
@@ -402,7 +453,7 @@ public static class HudVote
     }
 
     /// <summary>The line over the map browser while it adds to the vote (the contents before v4.6.0: a banner; a variable on gg_screen).</summary>
-    public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  a map's Play puts it on the vote, with your vote";
+    public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  A map's Play puts it on the vote, with your vote";
 
     /// <summary>The page a card of this option is on (an added map's, for its adder to see it).</summary>
     public static int PageOf(VoteState v, int n, int perPage = MapVote.PageCards) => Math.Max(0, v.Maps.FindIndex(o => o.N == n)) / perPage;

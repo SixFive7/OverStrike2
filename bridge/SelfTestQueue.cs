@@ -116,9 +116,9 @@ static partial class Program
             Check("...and once it is out the vote is over: nobody frozen, the map is the vote's", Ballot == null && !BuildVoteState(clock).Freeze && S.Map == m[1] && S.PickedBy == "the vote");
             Quiet(); Talk(alice, $"!map {Rank(2)}");
             Check($"After any vote, {MapVote.WaitSeconds / 60} minutes before anybody can call another: a pick is refused, saying how long",
-                Ballot == null && Pending == null && Said("A vote was just held - The next one can start in"));
+                Ballot == null && Pending == null && Said("You can call a vote again in") && Said("Alice tried to start another vote - The next one can start in"));
             Quiet(); Talk(alice, "!next");
-            Check("...Start a vote too", Ballot == null && Said("A vote was just held"));
+            Check("...Start a vote too", Ballot == null && Said("You can call a vote again in"));
             var waitState = BuildVoteState(clock);
             Check("...and the live state carries the wait, so the board's button says it, looks off, and a click gets its answer with the time left",
                 waitState.WaitFor is > 0 and <= MapVote.WaitSeconds && HudView.Action(BuildHud(clock), waitState) is { Command: "!next", Text: "Start a vote" } && HudView.PlayerClasses(BuildHud(clock), 1, waitState).Contains((HudView.Screen, "act-off", true)));
@@ -162,9 +162,11 @@ static partial class Program
             var keepN = vote.Options.Single(o => o.Source == VoteSource.Keep).N;
             Check("Start a vote opens one without a map, Keep playing on it, nobody's vote cast", vote is { Open: true } && vote.Choices.Count == 0 && Said("Alice started a vote"));
             foreach (var p in new[] { alice, bob, cara }) VoteFor(p, keepN);
-            Check("Keep playing wins: nothing changes, and everybody unfreezes at the same moment", Pending == null && Ballot == null && !BuildVoteState(clock).Freeze && Said("The vote kept"));
+            Check("Keep playing wins: nothing changes, and the window says so, everybody still frozen", Pending == null && Ballot is { KeptUntil: not null } && BuildVoteState(clock) is { Freeze: true, Kept: true } && Said("The vote kept"));
+            Run(MapVote.KeptSeconds);
+            Check("...until everybody unfreezes at the same moment", Pending == null && Ballot == null && !BuildVoteState(clock).Freeze);
             Run(MapVote.WaitSeconds + 1); Quiet();
-            Talk(bob, "!next"); Run(MapVote.Seconds + 1);
+            Talk(bob, "!next"); Run(MapVote.Seconds + MapVote.KeptSeconds + 1);
             Check($"Nobody voting in the {MapVote.Seconds} s keeps the map mid-match", Pending == null && Ballot == null && Said("Nobody voted") && S.Map == m[3]);
             HudActive = () => true;
             Quiet(); MatchEnd();

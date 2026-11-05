@@ -606,7 +606,7 @@ static partial class Program
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
         if (Unplayable(map) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
-        if (ConfirmGate(map, steamId, now) is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
+        if (ConfirmGate(map, steamId, now) is { } warning) { Post(Messages.PlayAsksFirst, warning, steamId); return; }
         SelectMap(by, steamId, map, now);
     }
 
@@ -619,7 +619,7 @@ static partial class Program
         if (prev == null) { Tell(steamId, M.Refused("There is no previous map on record yet")); return; }
         if (Unplayable(prev) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(prev) is { } full) { Tell(steamId, full); return; }
-        if (ConfirmGate(prev, steamId, now, "Previous") is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
+        if (ConfirmGate(prev, steamId, now, "Previous") is { } warning) { Post(Messages.PlayAsksFirst, warning, steamId); return; }
         SelectMap(by, steamId, prev, now);
     }
 
@@ -661,12 +661,12 @@ static partial class Program
             : null;
     }
 
-    /// <summary>The note that asks for the confirmation: which map, what is on record, and how to agree to it. The label is clipped at 34
-    /// characters, so the "click it again" half always fits however long the map is called.</summary>
+    /// <summary>The note that asks for the confirmation: which map, what is on record, and how to agree to it, in the words of the card's lock (HudMenu.Unlocked; Previous
+    /// is a button of its own). The label is clipped at 34 characters, so the "click it again" half always fits however long the map is called.</summary>
     static string PickConfirmNote(MapInfo map, string record, string again = "Play")
     {
         var name = Label(map);
-        return $"{(name.Length > 34 ? name[..34] : name)} {record}. Click {again} again within {PickConfirmSeconds} s to go ahead.";
+        return $"{M.A(name.Length > 34 ? name[..34] : name)} {record}. Click {(again == "Play" ? "" : $"{again} ")}again within {M.V($"{PickConfirmSeconds} s")} to vote anyway";
     }
 
     /// <summary>The confirmation gate in front of a pick: the first click arms a window for that player alone, and only that
@@ -680,13 +680,14 @@ static partial class Program
         return PickConfirmNote(map, record, again);
     }
 
-    /// <summary>The only path that changes the map: announce it on the news line, let the HUD's banner count it down, then FireChange.
-    /// A server restart, or a list that made the map unplayable, clears Pending, and the stale callback sees that and stops.</summary>
-    static void StartChange(Change change, string announcement)
+    /// <summary>The only path that changes the map: say so - the kind of message it is, the vote's result having its own (its window says it, the change's line
+    /// would say it twice) - let the HUD's banner count it down, then FireChange. A server restart, or a list that made the map unplayable, clears Pending, and the stale callback
+    /// sees that and stops.</summary>
+    static void StartChange(Change change, string announcement, Messages.Kind? kind = null)
     {
         Pending = change;
         change.FiresAt = Now().AddSeconds(ChangeDelay);
-        Post(Messages.MapCountdown, announcement, seconds: ChangeDelay); // the countdown banner counts it down; chat and the board say it
+        Post(kind ?? Messages.MapCountdown, announcement, seconds: ChangeDelay); // the countdown banner counts it down; chat and the board say it
         After(ChangeDelay * 1000, () => FireChange(change));
     }
 
@@ -984,9 +985,9 @@ static partial class Program
             Console.WriteLine("warn: " + ask);
             Check("A broken map is held back first, and its note says what is on record and how to agree to it",
                 ask is { } w && w.Contains(Label(bad)[..Math.Min(34, Label(bad).Length)]) && w.Contains("crashed 3 of 3 test loads and may restart the server")
-                    && w.Contains($"Click Play again within {PickConfirmSeconds} s to go ahead"));
+                    && M.Plain(w).Contains($"Click again within {PickConfirmSeconds} s to vote anyway"));
             var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, PickRecord(m)!, "Previous"); }).ToList();
-            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => n.Length)})", notes.All(n => n.Length <= NoticeLength));
+            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => M.Plain(n).Length)})", notes.All(n => M.Plain(n).Length <= NoticeLength));
             Broken = new Dictionary<string, int> { [Key(bad)] = 3, [Key(bad2)] = 3 };
             PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
             Check("Per player: another player's click arms their own confirm and leaves the first player's standing, so the first player's repeat goes through",
@@ -1088,7 +1089,7 @@ static partial class Program
             var asked = Told.ToList();
             sent.Clear(); ClearNotices(); PickMap("Remy", p1, bad.Rank.ToString()); // the same player again, well inside the 30 s window
             Check("Beside a packs list a broken map still asks first, and the same player's repeat still goes through (to the vote, and alone the change)",
-                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to go ahead") && Pending is { } conf && conf.Map == bad);
+                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to vote anyway") && Pending is { } conf && conf.Map == bad);
             Pick(listed.Rank.ToString());
             Check("...while the pack beside it is still refused, with no confirm offered", Told is [var still] && still.Contains(NotAMap) && !still.Contains("again within") && Pending is null);
             Packs = new Dictionary<string, string> { [Key(bad)] = bad.Name };
@@ -1130,7 +1131,7 @@ static partial class Program
                 var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, PickRecord(m)!))).ToList();
                 Console.WriteLine("broken.json confirm notes: " + string.Join(" | ", listedCrashers.Select(c => c.Line)));
                 Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise",
-                    listedCrashers.All(c => c.Line.Length <= NoticeLength && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
+                    listedCrashers.All(c => M.Plain(c.Line).Length <= NoticeLength && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
                         : !c.Line.Contains("restart the server") && (BrokenReasons.TryGetValue(Key(c.Map), out var rw) ? c.Line.Contains($"is broken: {rw}") : c.Line.Contains("is on the broken list")))));
                 var offList = cb.Keys.Where(k => long.TryParse(k, out var id) && Maps.All(m => m.Id != id)).ToList();
                 Check($"A committed crasher that is not on the list ({offList.Count}) still asks to confirm when its bare id is picked",

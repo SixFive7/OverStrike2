@@ -169,14 +169,15 @@ server console.
   while a change counts down or a map loads, when a restart waits for that match's end, or under the [maintenance flag](#maintenance-flag).
 
 Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, or for **2 minutes after the last vote**; a
-match end opens its vote anyway. A risky map - a crash on record, on the broken list - asks that player for a second click within 30 s first.
+match end opens its vote anyway. A player who tries reads why in their own line, and chat and the board name them for everybody. A risky map - a crash on record, on the
+broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
 With more than four on a Wingman map cannot win, and one asked for from another mode is refused.
 
 ### The freeze
 
 Every vote opens everybody's window on the ballot and freezes everybody: nobody moves, shoots, takes damage or closes the window, bots
 included (`VoteFreeze.cs`). A player who joins meanwhile is frozen and counted. Everybody unfreezes at the same moment: when the vote keeps
-the map, at once; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes. The
+the map, once the window has said so for 8 s; when it changes the map, after the countdown (`bridge.changeDelaySeconds`, 8 s), everybody frozen until the map changes. The
 plugin frees everybody by itself if the bridge stops answering for 40 s, on a new map, and after 5 minutes of one freeze, so a lost bridge
 never leaves anybody frozen.
 
@@ -188,8 +189,8 @@ it back. A voter who leaves takes their vote along.
 Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast, changed or taken back, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
-end. A Wingman map cannot win with more than four on: the next most votes do. The window shows where the votes go, who has not voted yet and
-both timers.
+end. A Wingman map cannot win with more than four on: the next most votes do. The window shows who started the vote, where the votes go, who has not voted yet and
+both timers, then what came of it and the countdown. Every vote - cast, changed or taken back - says in chat and on the board who voted and who still has to.
 
 ### The ballot
 

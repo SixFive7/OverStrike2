@@ -405,6 +405,10 @@ public static class HudMenu
         };
     }
 
+    /// <summary>A risky map's Play is a lock: its card under a shut padlock with this on the button (risky), and after the first click, for this player and for
+    /// HudBrowser.ConfirmSeconds, the padlock open with the second word (confirm): that click puts it to the vote. When the time is up the class goes and it shuts again.</summary>
+    public const string Locked = "Locked - Click to unlock", Unlocked = "Click again - Vote anyway";
+
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
     /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
     static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0)
@@ -414,14 +418,14 @@ public static class HudMenu
             if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
                 return v.ChoiceOf(account) == on.N ? "Your vote" : v.Shown(on) is > 0 and var n ? $"On the vote: {n}" : "On the vote";
             if (m.Removed) return "Unavailable";
-            if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again to add";
-            return m.Risky ? "Add anyway?" : "Add to the vote";
+            if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
+            return m.Risky ? Locked : "Add to the vote";
         }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
         if (vote?.WaitFor > 0) return $"Vote in {MapVote.Left(vote.WaitFor)}";
-        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again"; // fits the narrower Play of the older contents' four small buttons
-        return m.Risky ? "Vote anyway?" : "Put to the vote";
+        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
+        return m.Risky ? Locked : "Put to the vote";
     }
 
     static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
@@ -452,6 +456,8 @@ public static class HudMenu
         c.Add(("gg_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
         c.Add(("gg_q_search", "used", b.Query != ""));
         c.Add((HudView.Screen, "kbd", b.Keyboard));
+        c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
+        c.Add((HudView.Screen, "vlow", false));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "on", b.Sort == sort));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "desc", b.Sort == sort && b.Descending));
         foreach (var (id, band) in HudBrowser.BandButtons) c.Add((id, "on", b.Size == band));

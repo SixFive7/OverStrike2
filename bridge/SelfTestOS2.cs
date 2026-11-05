@@ -24,7 +24,7 @@ static partial class Program
         Check("The confirm (#11): a crasher says it may restart the server; a map broken some other way says why and never that it may restart the server",
             crasher == "crashed 3 of 3 test loads and may restart the server" && ads == "is broken: advertises another server" && bare == "is on the broken list"
             && !ads!.Contains("restart") && !bare!.Contains("restart") && PickRecord(M(9)) == null);
-        var longest = PickConfirmNote(new MapInfo(1, 1, new string('w', 60), 1), $"is broken: {new string('r', ReasonMax)}");
+        var longest = global::M.Plain(PickConfirmNote(new MapInfo(1, 1, new string('w', 60), 1), $"is broken: {new string('r', ReasonMax)}"));
         Check($"The confirm note with the longest label and the longest reason fits the HUD's note line ({longest.Length} of {NoticeLength})", longest.Length <= NoticeLength);
 
         // ---- #6: three players timing out within 60 s of entering the map mark it ----
@@ -106,7 +106,7 @@ static partial class Program
         string T(string id) => cardsNow.Texts.Single(x => x.Id == id).Text;
         bool On(string id, string cls) => cardsNow.Classes.Single(x => x.Id == id && x.Class == cls).On;
         Check("The vote on the cards: each card its mode (label and colour), votes and who picked it, the player's own vote lit, the picked one tagged, Random on its own button without a number, the cards after the maps empty; everybody frozen",
-            ballot is { Freeze: true, MatchEnded: false, Starter: 1001 } && T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes") == "1 vote  ·  picked by Alice" && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name") == ""
+            ballot is { Freeze: true, MatchEnded: false, Starter: 1001 } && T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes") == "1 vote  ·  Picked by Alice" && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name") == ""
             && On("gg_m1", "confirm") && !On("gg_m2", "confirm") && On("gg_m1", "queued") && !On("gg_m2", "queued") && !On("gg_m4", "used") && !On("gg_m3", "used") && T("gg_m1_play_text") == "Your vote"
             && On("gg_m1", "mode-armsrace") && On("gg_m2", "mode-deathmatch") && !On("gg_m2", "mode-armsrace") && Modes.All.All(m => !On("gg_m3", $"mode-{m.Id}"))
             && cardsNow.Vars.Single(x => x.Name == HudVote.RandomVar).Text == "Random  ·  0 votes" && !On(HudView.Screen, "vrandom") && !On(HudView.Screen, "vpages") && !On(HudView.Screen, "vmore")
@@ -142,8 +142,8 @@ static partial class Program
         Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {MapVote.PageCards} - in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
             twelve is { MatchEnded: false, Starter: 1002 } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "gg_m1_rank") == "Keep" && P(first.Texts, "gg_m1_play_text") == "Keep"
             && P(first.Texts, "gg_m1_name") == "Keep playing this map" && P(first.Texts, "gg_m1_size") == "#5 aim_on"
-            && P(first.Texts, "gg_m2_name") == "#77 aim_added" && P(first.Texts, "gg_m2_votes").Contains("picked by Cara") && P(first.Texts, "gg_m2_play_text") == "Your vote"
-            && P(first.Texts, "gg_m2_who") == "9 MB  ·  picked by Cara" && P(first.Texts, "gg_m2_score") == "1" && P(first.Texts, "gg_m10_name") == "#29 map_9"
+            && P(first.Texts, "gg_m2_name") == "#77 aim_added" && P(first.Texts, "gg_m2_votes").Contains("Picked by Cara") && P(first.Texts, "gg_m2_play_text") == "Your vote"
+            && P(first.Texts, "gg_m2_who") == "9 MB  ·  Picked by Cara" && P(first.Texts, "gg_m2_score") == $"1/{twelve.Present}" && P(first.Texts, "gg_m10_name") == "#29 map_9"
             && P(first.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 2 more on the next page" && C(first, HudView.Screen, "vpages") && C(first, HudView.Screen, "vmore") 
             && first.Vars.Single(x => x.Name == HudVote.MoreVar).Text == "2 more maps on the next page" && C(first, HudBrowser.PrevButton, "off") && !C(first, HudBrowser.NextButton, "off")
             && P(second.Texts, "gg_m2_name") == "#31 map_11" && P(second.Texts, "gg_m3_name") == "" && !C(second, HudView.Screen, "vmore") 
@@ -191,7 +191,7 @@ static partial class Program
             SC(HudVote.Segment(1), "used") && SC(HudVote.Segment(1), "w2") && SC(HudVote.Segment(2), "w1") && SC(HudVote.Segment(3), "w1") && SC(HudVote.Segment(1), "mode-armsrace") && SV(HudVote.StripVar(1)) == $"{Hud.Clean("#12 aim_x", 12)}  ·  2"
             && SC(HudVote.Segment(2), "mode-deathmatch") && SV(HudVote.StripVar(2)) == $"{Hud.Clean("de_dust2 (official)", 12)}  ·  1" && SC(HudVote.Segment(3), "vrand") && SV(HudVote.StripVar(3)) == "Random  ·  1"
             && !SC(HudVote.Segment(4), "used") && SC(HudView.Screen, "vstrip") && SV(HudVote.WaitVar) == "Waiting for: Eve"
-            && HudVote.Cards(spread, 1001, null).Texts.Single(x => x.Id == "gg_m_count").Text.Contains("waiting for Eve"));
+            && HudVote.Cards(spread, 1001, null).Texts.Single(x => x.Id == "gg_m_count").Text.Contains("Waiting for Eve"));
         Check("...a risky map's record on its ballot card for everybody: the strip's words and its classes, from the catalog; none on a card the catalog has nothing against",
             sp.Texts.Single(x => x.Id == "gg_m1_warn").Text == "Broken: crashed 3/3 test loads" && SC("gg_m1", "risky") && SC("gg_m1", "broken")
             && sp.Texts.Single(x => x.Id == "gg_m2_warn").Text == "" && !SC("gg_m2", "risky"));
@@ -209,7 +209,7 @@ static partial class Program
         var tc = HudVote.Cards(tie, 1001, null);
         Check("A tie shows as a tie: both tied cards and their segments tagged, no leader; everybody voted: the waiting line says so",
             tc.Classes.Single(x => x.Id == "gg_m1" && x.Class == "vtie").On && tc.Classes.Single(x => x.Id == "gg_m2" && x.Class == "vtie").On && !tc.Classes.Single(x => x.Id == "gg_m1" && x.Class == "vlead").On
-            && tc.Classes.Single(x => x.Id == HudVote.Segment(1) && x.Class == "vtie").On && tc.Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everyone has voted");
+            && tc.Classes.Single(x => x.Id == HudVote.Segment(1) && x.Class == "vtie").On && tc.Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everybody has voted");
         Check("Names that do not fit a card's chips end in +N; a share rounds to the nearest tenth; a strip segment counts its votes, ten and more as ten",
             HudVote.Names(["Alexander", "Bartholomew", "Constantine", "Dorothea"]) is var cut && cut.Length <= 34 && cut.EndsWith(" +2") && HudVote.Share(1, 3) == "w3" && HudVote.Share(2, 3) == "w7"
             && HudVote.Share(0, 0) == "w0" && HudVote.Share(1, 20) == "w1"
@@ -218,10 +218,10 @@ static partial class Program
         const string TieDone = "mode\tarmsrace\tArms Race\nmv\t1793800005\tdone\t6\t2\t2\tend\t0\t1\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t1\t\nmvo\t2\tarmsrace\trolled\t6\t3084291306\t#6 b\t\t1\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t2\nmvr\t1\ttie\t#5 a\tarmsrace\n";
         var allDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800003\tdone\t6\t2\t2\tend\t0\t1\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tall\t#5 a\tarmsrace\n");
         var mostDone = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800004\tdone\t6\t3\t2\tend\t0\t1\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t2\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t1\nmvr\t1\tmost\t#5 a\tarmsrace\n");
-        Check("A vote everybody decided says so while it shows its result, one the clock decided does not; both keep everybody frozen through the countdown",
-            allDone is { Open: false, Freeze: true, Result.How: "all" } && HudVote.WaitLine(allDone) == "Everyone has voted" && HudVote.WaitLine(mostDone) == ""
-            && HudVote.WaitLine(VoteState.Decode(TieDone)) == "Everyone has voted" // a tie everybody voted in, drawn at once
-            && HudVote.Cards(allDone, 1001, null).Vars.Single(x => x.Name == HudVote.WaitVar).Text == "Everyone has voted");
+        Check("A decided vote says what came of it while it counts down, its votes of everybody present, a tie as a tie; it keeps everybody frozen through the countdown",
+            allDone is { Open: false, Freeze: true, Result.How: "all" } && HudVote.WaitLine(allDone) == "#5 a won (2 of 2) - Picked by the vote" && HudVote.WaitLine(mostDone) == "#5 a won (2 of 3) - Picked by the vote"
+            && HudVote.WaitLine(VoteState.Decode(TieDone)) == "#5 a won (1 of 2) - A tie, drawn by the dice"
+            && HudVote.Cards(allDone, 1001, null).Vars.Single(x => x.Name == HudVote.WaitVar).Text == HudVote.WaitLine(allDone));
         Check("The wait after a vote rides the state without a vote ('mvwait'); option lines without a vote line are no vote, and freeze nothing",
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
