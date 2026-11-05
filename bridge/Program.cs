@@ -353,6 +353,7 @@ static partial class Program
             return;
         }
         GoingDownAt = now;
+        BeforeQuit = new(S.Map, S.PickedBy, S.LogName, S.Mode, ModeBeforeChange, RestartDue, StartRollOwed, StartRollNeedsProof, StartMapAt);
         if ((Pending?.Map ?? (AnnouncePending ? S.Map : null)) is { } gone) Log($"restart: the change to {Label(gone)} dies with the old process");
         Log($"restart: the server is quitting ({source}) - a clean quit; the start roll is owed once its start map has loaded");
         S.CleanShutdown = true;

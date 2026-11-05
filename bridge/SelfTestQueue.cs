@@ -249,13 +249,24 @@ static partial class Program
 
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             Join(alice); Go(alice, 3); Land(); Run(10);
+            var (mapOnBefore, logBefore) = (S.Map, S.LogName);
+            S.Mode = Modes.DeathmatchId;
             Check("A notice the watcher takes back (its quit could not be delivered): the server stays up, nothing is clean any more",
                 ApplyQuitNotice("gg-quit\t1\tdaily") == "ok: going down" && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: cancelled" && !S.CleanShutdown
                 && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: nothing was announced");
+            Check("...and the bridge knows what is on again: the map, its name in the log, its mode, and no start roll is owed",
+                mapOnBefore == m[3] && S.Map == m[3] && S.LogName == logBefore && S.Mode == Modes.DeathmatchId && !StartRollOwed);
+            S.Mode = Modes.ArmsRaceId;
             var onAfterCancel = Key(m[3]);
-            S.Map = m[3]; S.LogName = m[3].Name; // the server stayed on its map; the bridge hears so with the next start, here set by hand
             Crash(); Run(20);
             Check("...so a crash after it is still a crash", S.Crashes.GetValueOrDefault(onAfterCancel) == 1);
+
+            Fresh(); statusMap = "bsp"; statusSpawn = 3;
+            Join(alice); Go(alice, 3); Land(); Run(10);
+            ApplyQuitNotice("gg-quit\t1\tdaily");
+            Line("Loading map \"ar_shoots\""); Line("Started:  \"\"");
+            Check("A map start after the notice says for itself what is on: a late take-back brings nothing back",
+                ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: nothing was announced" && S.Map != m[3]);
 
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             Join(alice); Go(alice, 3); Land(); Run(10);

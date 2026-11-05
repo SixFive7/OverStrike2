@@ -62,6 +62,14 @@ static partial class Program
         Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
     }
 
+    /// <summary>What a quit notice clears for the server's restart (ServerGoingDown). If the notice is taken back the server stays up, on its map and in
+    /// its mode, so all of it comes back; a change that was counting down and a vote that was open stay gone. A map start after the notice ends the
+    /// clean quit, and with it any way back: it says for itself what is on.</summary>
+    sealed record QuitSnapshot(MapInfo? Map, string? PickedBy, string? LogName, string Mode, Modes.Mode? ModeBefore, RestartNotice? Restart,
+        bool RollOwed, bool RollNeedsProof, DateTime StartMapAt);
+
+    static QuitSnapshot? BeforeQuit;
+
     static string ApplyQuitNotice(string body)
     {
         var f = body.Replace("\r", "").Split('\n')[0].Split('\t');
@@ -71,8 +79,14 @@ static partial class Program
         {
             var what = Clip(f.Length > 3 ? f[3].Trim() : "planned", 20);
             if (!S.CleanShutdown) return "ok: nothing was announced";
-            S.CleanShutdown = false; GoingDownAt = default; Save();
-            Log($"restart: the restart watcher's {what} quit did not go out - the server stays up; a new process from here is no clean quit");
+            S.CleanShutdown = false; GoingDownAt = default;
+            if (BeforeQuit is { } was)
+            {
+                (S.Map, S.PickedBy, S.LogName, S.Mode, ModeBeforeChange, RestartDue) = (was.Map, was.PickedBy, was.LogName, was.Mode, was.ModeBefore, was.Restart);
+                (StartRollOwed, StartRollNeedsProof, StartMapAt) = (was.RollOwed, was.RollNeedsProof, was.StartMapAt);
+            }
+            Save();
+            Log($"restart: the restart watcher's {what} quit did not go out - the server stays up on {CurrentLabel()}; a new process from here is no clean quit");
             return "ok: cancelled";
         }
         ServerGoingDown($"the restart watcher's notice: {kind} restart");
