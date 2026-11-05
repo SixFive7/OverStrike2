@@ -48,7 +48,7 @@ services:
       CS2_MAXPLAYERS: 10
       CS2_GAMETYPE: 1 # gun game
       CS2_GAMEMODE: 0 # Arms Race
-      CS2_MAPGROUP: mg_armsrace
+      CS2_MAPGROUP: mg_ar_shoots # Valve's one-map Arms Race group: CS2 then shows no end-of-match VOTING tab of its own, so the bridge's vote is the only one
       CS2_STARTMAP: ar_shoots # always boot to a stock map (server.startMap), so a crash on a Workshop map never restarts into it
       CS2_SERVER_HIBERNATE: 0
       CS2_LAN: 0
