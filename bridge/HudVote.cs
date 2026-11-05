@@ -97,9 +97,9 @@ public static class HudVote
     public static int ContentLevel => Contents[^1].Level;
 
     /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
-    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-59, the next 13 releases. A stylesheet
+    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-99, the next 53 releases. A stylesheet
     /// never changes once it has shipped, so a release that raises LatestLast widens only its own content and later ones (hud/PUBLISH.md).</summary>
-    public const int LatestLast = 59;
+    public const int LatestLast = 99;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>The version classes the contents before v4.6.0 read at a join (vjoin on gg_screen, for JoinSeconds): svge(k) while the server's

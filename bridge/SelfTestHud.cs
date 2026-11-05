@@ -586,11 +586,13 @@ static partial class Program
 
             // ---- the game's own limit: one layout entity interns at most 1,024 panel ids and 1,024 class names that the server sets, for
             // its whole life and for all players together. Past it the server logs "The maximum number of ... has been reached" and the
-            // client's behaviour is unknown. Every class the plugin sets has a rule (checked above), so the stylesheets bound it. ----
-            var styleClasses = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value))
+            // client's behaviour is unknown. Every class the plugin sets has a rule (checked above), so the stylesheets bound it - but for the latest-N rules, which are for
+            // later servers: this server sets one, its own level (HudVote.VersionClasses), and a later one sets another. ----
+            var styleClasses = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).Where(c => !Regex.IsMatch(c, @"^latest-\d+$"))
                 .Concat(thumbClasses).Concat(HudView.OlderContentClasses).Concat(HudVote.VersionClasses().Select(c => c.Class)).ToHashSet(); // with what goes only to older contents
-            Check($"Limit: at most 1,024 class names and 1,024 panel ids per entity - the stylesheets name {styleClasses.Count} classes with the ones only the older contents get, the layout {ids.Count} ids (both under 900)",
+            Check($"Limit: at most 1,024 class names and 1,024 panel ids per entity - the server can set {styleClasses.Count} classes with the ones only the older contents get, the layout {ids.Count} ids (both under 900)",
                 styleClasses.Count < 900 && ids.Count < 900);
+            Check("Limit: of the latest-N names the server sets one, its own level", HudVote.VersionClasses().Count(c => c.Class.StartsWith("latest-", StringComparison.Ordinal)) == 1);
             Check("A value starting with # (a rank, a name) is kept from being read as a localization token, and nothing else is touched",
                 Hud.Plain("#5") == "\u2060#5" && Hud.Plain("Map #5") == "Map #5" && Hud.Plain("") == "");
         }
