@@ -113,7 +113,7 @@ sealed partial class HudScreen
             Class(HudView.Screen, "toast-1", view.Toast == 1, p);
             Class(HudView.Screen, "toast-in", view.ToastIn, p);
             var joined = joinedAt.TryGetValue(p.Slot, out var at) && (now - at).TotalSeconds < HudVote.JoinSeconds;
-            Class(HudView.Screen, "vjoin", joined, p);                                      // an older content's join banner (svge/svlt)
+            Class(HudView.Screen, "vjoin", joined, p);                                      // v4.5.0's join banner (svge/svlt)
             var vv = VoteView(p.Slot);
             var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
             if (vote.Round <= 0 || browsing) Class(HudView.Screen, "voting", false, p);

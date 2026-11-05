@@ -112,8 +112,6 @@ static partial class Program
         h.Top = TopRows().Take(HudState.ListLength).Select(r => (Clip(Label(r.Map), 36), r.Up, r.Down)).ToList();
         h.RoundMinutes = S.RoundMinutes;
         h.RoundBy = S.RoundMinutes == DefaultRoundMinutes ? "" : S.RoundBy ?? "";
-        if (key != "") (h.Big, h.SizeClass) = (TooBigVotes(key), S.Map is { } on ? SizeClass(on) ?? "" : Sizes.TryGetValue(key, out var e) ? e.Class ?? "" : "");
-        if (key != "") h.Ads = AdsVotes(key);
         h.CatalogVersion = CatalogVersion;
         h.CheckMode = HudCheck.WireName(HudCheckMode);
         h.TabMode = HudTab.Name(HudTabMode);

@@ -31,9 +31,6 @@ public sealed class HudState
     public string PrevLabel = "", PrevArg = "";         // the map before this one, for the Previous button
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
     public string NewMaps = "";                         // the new-maps setting of an older bridge (always, half or never); the setting is gone, so empty
-    public int Big;                                     // too-big votes on the map that is on (each is also one of its Down)
-    public string SizeClass = "";                       // its measured class (S, M, L, XL), empty when unmeasured
-    public int Ads;                                     // ads votes on the map that is on (each is also one of its Down)
     public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
     public string RestartKind = "";                     // a restart coming (the bridge's Restarts.cs): game-update (a CS2 update), our-update, daily, downloads; "" none
     public string RestartWhen = "";                     // ...match-end (at the end of this match) or now
@@ -122,8 +119,6 @@ public sealed class HudState
         if (PrevArg != "") Line("prev", PrevArg, PrevLabel);
         if (SearchVersion > 0) Line("srch", SearchVersion);
         if (NewMaps != "") Line("newmaps", NewMaps);         // an older plugin skips the lines it does not know
-        if (Big > 0 || SizeClass != "") Line("big", Big, SizeClass);
-        if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
             .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(restartWords, 240)).Append('\n');
@@ -176,8 +171,6 @@ public sealed class HudState
                 case "prev": (s.PrevArg, s.PrevLabel) = (Str(f, 1), Str(f, 2)); break;
                 case "srch": s.SearchVersion = Long(f, 1); break;
                 case "newmaps": s.NewMaps = Str(f, 1); break;
-                case "big": (s.Big, s.SizeClass) = (Int(f, 1), Str(f, 2)); break;
-                case "ads": s.Ads = Int(f, 1); break;
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;

@@ -133,7 +133,7 @@ static partial class Program
             oldReader is [-1] && BuildCatalog().Encode().Split('\n').First(l => l.StartsWith("m\t" + Key(small[40]))).Split('\t') is { Length: 24 } f && f[11] == "1" && f[13] == "1");
         Talk(bob, $"!down {small[30].Rank} big");
         var state = HudState.Decode(BuildHud(Now()).Encode())!;
-        Check("The live state says the too-big votes on the map that is on, and each player's own vote as -2", state.Big == 1 && state.MyVotes[1002] == TooBigVote && state.Down == 1);
+        Check("The live state says each player's own vote on the map that is on, a too-big one as -2", state.MyVotes[1002] == TooBigVote && state.Down == 1);
         Check("A click may send the too-big mark - and an older content's new-maps buttons their three words - and nothing like them that is free-form; !toobig is no click any more",
             new[] { "!down big", "!down 12 big", "!down ar_baggage big", "!newmaps always", "!newmaps half", "!newmaps never" }.All(Hud.IsAction)
             && new[] { "!toobig", "!toobig 12", "!down aim big", "!down 12 13 big", "!newmaps", "!newmaps sometimes", "!newmaps always; quit", "!newmaps ALWAYS" }.All(x => !Hud.IsAction(x)));
@@ -171,7 +171,7 @@ static partial class Program
         Check("...which a 3.1.0 plugin (it keeps -2 and takes the sign of the rest) reads as a dislike",
             adsCatalogText.Split('\n').First(l => l.StartsWith("v\t1002\t" + Key(cardMap) + "\t")).Split('\t')[3] is var raw && long.Parse(raw) is var v31 && (v31 == TooBigVote ? v31 : Math.Sign(v31)) == -1);
         var adsState = HudState.Decode(BuildHud(Now()).Encode())!;
-        Check("The live state says the ads votes on the map that is on, and each player's own vote as -3", adsState.Ads == 1 && adsState.Big == 1 && adsState.MyVotes[1002] == AdsVote
+        Check("The live state says each player's own vote on the map that is on, an ads one as -3", adsState.MyVotes[1002] == AdsVote
             && adsState.MyVotes[1001] == TooBigVote && adsState.Down == 2);
         Check("A click may send the ads mark, and nothing like it that is free-form; !ads is no click any more",
             new[] { "!down ads", "!down 12 ads", "!down ar_baggage ads" }.All(Hud.IsAction) && new[] { "!ads", "!ads 12", "!down aim ads", "!down 12 13 ads", "!down 12 ads;quit", "!adsx" }.All(x => !Hud.IsAction(x)));
@@ -237,8 +237,7 @@ static partial class Program
         Check("The catalog and the live state carry the reason; the board says it; the card lights Dislike; an older plugin's sign reads a dislike",
             whyCatalog.MyVote(1002, Key(whyCard)) == HudCatalog.SlowVote && whyState.MyVotes[1002] == HudCatalog.SmallVote && whyState.Down == 1
             && HudView.PlayerTexts(whyState, 1002, "Bob", false).Single(x => x.Id == "gg_b_you").Text == "You disliked this map: too small"
-            && HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-down").On && !HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-big").On
-            && Math.Sign(whyState.MyVotes[1002]) == -1);
+            && HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-down").On && Math.Sign(whyState.MyVotes[1002]) == -1);
         var whySaved = Votes[Key(whyCard)][bobId];
         LoadVotes();
         Check("The reason is in votes.json: it reads back with the vote", Votes[Key(whyCard)][bobId] == whySaved && HealthText().Contains("down votes: ") && HealthText().Contains("1 too small") && HealthText().Contains("1 runs badly"));

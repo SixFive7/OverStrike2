@@ -142,10 +142,9 @@ static partial class Program
             PT(1001, inVote, 1) == "Your vote" && PT(1002, inVote, 1) == "On the vote" && PT(1002, inVote, 3) == "On the vote" && PT(1002, inVote, 4) == HudMenu.Locked && PT(1002, inVote, 5) == "" 
             && HudMenu.Maps(back, live, new HudBrowser(), 1002, now, vote: inVote).Classes.Single(x => x.Id == "gg_m1" && x.Class == "queued").On
             && PT(1002, waitVote, 1) == "Vote in 45 s" && PT(1002, waitVote, 3) == "On now");
-        Check("Card buttons say what the chat would: likes and Play by the map's rank or official name; the map that is on is Keep's vote while one is open, nothing outside one; Too big is a Dislike's reason",
+        Check("Card buttons say what the chat would: likes and Play by the map's rank or official name; the map that is on is Keep's vote while one is open, nothing outside one",
             HudMenu.Command("gg_m1_up", back, live, mb, 1001, now) == "!up 1" && HudMenu.Command("gg_m4_down", back, live, mb, 1001, now) == "!down ar_shoots"
             && HudMenu.Command("gg_m1_play", back, live, mb, 1001, now) == "!map 1" && HudMenu.Command("gg_m1_play", back, live, mb, 1002, now) == "!map 1"
-            && HudMenu.Command("gg_m1_big", back, live, mb, 1001, now) == "!down 1 big" && Hud.IsAction("!down 1 big")
             && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now) == null && HudMenu.Command("gg_m3_play", back, live, mb, 1001, now, vote: inVote) == "!map 3"
             && HudMenu.Command("gg_m5_play", back, live, mb, 1001, now) == null && HudMenu.Command("gg_m9_play", back, live, mb, 1001, now) == null);
         var first = HudMenu.Command("gg_m2_play", back, live, mb, 1001, now);
@@ -171,7 +170,7 @@ static partial class Program
         Check("Restart, after its first click: \"Press again within N s\", counting down every second from 30, armed (content v3.2.0 blinks it) - and back to normal at 0",
             armedGame.Select((g, i) => g.Texts.Single(x => x.Id == "gg_set_restart_text").Text == $"Press again within {i + 1} s" && g.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On).All(x => x)
             && HudBrowser.ConfirmSeconds == 30 && PickConfirmSeconds == 30);
-        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m1_big", "gg_m1_ads", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.Rematch }
+        var menuCommands = new[] { "gg_m1_up", "gg_m1_down", "gg_m1_play", "gg_m4_up", HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.Rematch }
             .Select(id => HudMenu.Command(id, back, live, new HudBrowser(), 1001, now)).Where(x => x != null).ToList();
         Check($"Every command a menu click can send is one the bridge takes from the HUD ({menuCommands.Count})", menuCommands.All(x => Hud.IsAction(x!)));
 
@@ -199,12 +198,14 @@ static partial class Program
                 .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"gg_cu_{k}", "used", true), ($"gg_cu_{k}", "good", true), ($"gg_cu_{k}", "bad", false) })).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
-            // the buttons this content has: an older content's own (its Rules tab, the new-maps setting's, a card's Too big and Ads) are not looked for here
+            // the buttons this content has: v4.5.0's own (its Rules tab, the new-maps setting's) are not looked for here
             string[] olderButtons = ["gg_tab_rules", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever];
             var olderPanels = new[] { HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.CatchUpOn, HudMenu.CatchUpOff }.Concat(HudView.OlderContentTexts).ToHashSet(); // the fixed Fun rows, the news line, the note, the lede
+            // the counts of the board's old Too big and Ads row, which this content keeps collapsed (.gg-board .gg-bigrow, checked below) as v4.5.0 does: nothing feeds them
+            string[] hiddenRow = ["gg_b_big", "gg_b_ads"];
             var buttons = HudView.Tabs.Select(t => t.Id).Where(id => !olderButtons.Contains(id)).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct])
                 .Concat([HudCheck.VersionButton(Hud.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault,
-                    HudView.BoardBig, HudView.BoardAds, HudBrowser.OursButton])
+                    HudBrowser.OursButton])
                 .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton))
                 .Concat(HudBrowser.ModeButtons.Select(b => b.Id)).Concat(HudDash.LayoutButtons)
                 .Concat(Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Select(c => HudMenu.FunButton(r, c))))
@@ -219,8 +220,9 @@ static partial class Program
                 ids.Count == ids.Distinct().Count() && !Regex.IsMatch(xml, @"<root>\s*<styles>.*?</styles>\s*<Panel\b[^>]*\bid=", RegexOptions.Singleline));
             var unknownText = sentTexts.Where(id => !fed.Contains(id) && !olderPanels.Contains(id)).Distinct().ToList();
             Check($"Layout: every text the plugin sends lands on a {{s:text}} label ({sentTexts.Distinct().Count()}){(unknownText.Count > 0 ? ": missing " + string.Join(", ", unknownText) : "")}", unknownText.Count == 0);
-            var unfed = fed.Where(id => !sentTexts.Contains(id)).ToList();
-            Check($"Layout: every {{s:text}} label is fed by the plugin ({fed.Count}){(unfed.Count > 0 ? ": never set " + string.Join(", ", unfed) : "")}", unfed.Count == 0);
+            var unfed = fed.Where(id => !sentTexts.Contains(id) && !hiddenRow.Contains(id)).ToList();
+            Check($"Layout: every {{s:text}} label is fed by the plugin ({fed.Count}), but the board's hidden Too big and Ads counts{(unfed.Count > 0 ? ": never set " + string.Join(", ", unfed) : "")}",
+                unfed.Count == 0 && !hiddenRow.Any(sentTexts.Contains));
             var unknownPanels = sentClasses.Select(c => c.Id).Concat([HudView.Global, HudView.Screen]).Concat(buttons).Where(id => !ids.Contains(id) && !olderPanels.Contains(id)).Distinct().ToList();
             Check($"Layout: every panel the plugin sets a class on, and every button it listens to, exists{(unknownPanels.Count > 0 ? ": missing " + string.Join(", ", unknownPanels) : "")}", unknownPanels.Count == 0);
             Check("Layout: the buttons are Buttons", buttons.All(b => Regex.IsMatch(xml, $@"<Button\b[^>]*\bid=""{b}""")));
@@ -247,19 +249,22 @@ static partial class Program
             Check($"Stylesheet: the drain bar empties in exactly the idle close ({HudSlots.IdleCloseSeconds} s)",
                 Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
-            // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and keeps what its own
-            //      pages need; this content keeps every panel an older plugin that still runs against this bridge sends to ----
+            // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and the ones still drawn for
+            //      (HudVote.OldestLevel on) keep what their own pages need. hud/reference/ keeps every shipped layout; these checks read the ones still drawn
+            //      for and the one this content replaces ----
             var shippedContents = HudVote.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
-            var shippedFiles = shippedContents.Select(c => $"../hud/reference/gungame_hud_{c}.xml").ToList();
+            static string ReferenceFile(string content) => $"../hud/reference/gungame_hud_{content}.xml";
+            var inUseContents = HudVote.Contents.SkipLast(1).Where(c => c.Level >= HudVote.OldestLevel).Select(c => c.Version).ToArray(); // the shipped contents still drawn for
+            var readFiles = inUseContents.Append(shippedContents[^1]).Distinct().Select(ReferenceFile).ToList();
             Check($"hud/reference/ holds the layout of every shipped content in the table ({shippedContents.Length}) and no other: a release adds its line and keeps the layout it replaces",
                 Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet().SetEquals(shippedContents));
-            if (shippedFiles.All(File.Exists))
+            if (readFiles.All(File.Exists))
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();
-                Check($"Every shipped content ({shippedFiles.Count}) includes its stylesheet as gungame_hud_{Hud.ReleaseFile}: the file names keep the old form, and the plugin keeps asking for the one layout those contents have",
-                    shippedFiles.All(f => File.ReadAllText(f).Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.ReleaseFile}.vcss_c")) && Hud.Layout.EndsWith($"gungame_hud_{Hud.ReleaseFile}.xml", StringComparison.Ordinal));
-                var shipped = shippedFiles.Select(IdsOf).ToList();
-                var last = shipped[^1];
+                Check($"The shipped contents still drawn for ({string.Join(", ", inUseContents)}) include their stylesheet as gungame_hud_{Hud.ReleaseFile}: the file names keep the old form, and the plugin keeps asking for the one layout those contents have",
+                    inUseContents.Select(ReferenceFile).All(f => File.ReadAllText(f).Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.ReleaseFile}.vcss_c")) && Hud.Layout.EndsWith($"gungame_hud_{Hud.ReleaseFile}.xml", StringComparison.Ordinal));
+                var inUse = inUseContents.Select(c => IdsOf(ReferenceFile(c))).ToList();
+                var last = IdsOf(ReferenceFile(shippedContents[^1]));
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
@@ -284,16 +289,16 @@ static partial class Program
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "gg_vidle" or "gg_vlim")).ToList();
                 Check($"Content {Hud.Content}: it adds {added.Count} panels - the version button, the two cards of the ballot's second column foot, each card's score and line, the sub-tabs, the clocks, the restart's words - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}",
                     added.Contains(HudCheck.VersionButton(Hud.Content)) && added.Contains(HudMenu.Card(MapVote.PageCards)) && addedIdle.Count == 0);
-                // Every content in use keeps what its pages need: the page classes, which every one has a rule for under their old names; c31 and c32, on for
-                // everybody; and the svge/svlt of its join banner. What it lacks - the Players page, the ballot's ten cards, the sub-tabs - it simply lacks.
+                // Every content still drawn for keeps what its pages need: the page classes, which every one has a rule for under their old names; c31 and
+                // c32, on for everybody; and the svge/svlt of its join banner. What it lacks - the Players page, the ballot's ten cards, the sub-tabs - it simply lacks.
                 var olderPages = new[] { "page-start", "page-maps", "page-game", "page-help", "page-fun" };
-                Check("Every content in use goes on as it was: the pages it has keep their classes, c31 and c32 are on for everybody, the cards it has keep their ids (gg_m1 ... gg_m8)",
+                Check($"Every content still drawn for ({string.Join(", ", inUseContents)}) goes on as it was: the pages it has keep their classes, c31 and c32 are on for everybody, the cards it has keep their ids (gg_m1 ... gg_m8)",
                     olderPages.All(c => screenClasses.Contains(c)) && HudView.StaticClasses().Contains((HudView.Screen, "c31", true)) && HudView.StaticClasses().Contains((HudView.Screen, "c32", true))
-                    && shipped.Skip(2).All(s => Enumerable.Range(1, HudBrowser.PerPage).All(k => s.Contains(HudMenu.Card(k)) && ids.Contains(HudMenu.Card(k)))));
-                Check("Content: the plugin sends what this content has (no panel waits for a click to prove a content): every text and class goes to every game alike",
-                    sent.All(id => ids.Contains(id) || shipped.Any(s => s.Contains(id))));
+                    && inUse.All(s => Enumerable.Range(1, HudBrowser.PerPage).All(k => s.Contains(HudMenu.Card(k)) && ids.Contains(HudMenu.Card(k)))));
+                Check($"Content: the plugin sends what this content has (no panel waits for a click to prove a content): every text and class goes to every game alike, to a panel of this content or of one still drawn for - none only a content before {HudVote.ContentOfLevel(HudVote.OldestLevel)} has",
+                    sent.All(id => ids.Contains(id) || inUse.Any(s => s.Contains(id))));
             }
-            else Console.WriteLine($"skip the content checks: one of {string.Join(", ", shippedFiles)} not found");
+            else Console.WriteLine($"skip the content checks: one of {string.Join(", ", readFiles)} not found");
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
@@ -306,8 +311,9 @@ static partial class Program
                 && HudVote.WhyWords().All(w => w.Text.Length > 0 && w.Text.Length <= 40) && !Regex.IsMatch(noComments[whyFrom..noComments.IndexOf("class=\"gg-topstack\"", StringComparison.Ordinal)], @"\bid=""(?!gg_why_)"));
             Check("The reasons are one dialog: no reasons in place on a card, the board or the live column, and nothing else counts as a reason", !rules.Contains("gg-whycard") && !rules.Contains("whyin") && !noComments.Contains("gg_whyw_") && !noComments.Contains("gg_whyb_")
                 && DownReasons.All.All(r => HudVote.ShortLabel(r).Length is > 0 and <= 12) && HudVote.WhyClick("gg_whyz_1") == null && HudVote.WhyClick("gg_whyw_1") == null);
-            Check("The board's Too big and Ads buttons stay aside (chat's !down big and the cards' tags stay); Our maps glows, still, while it is not chosen, and is simply lit once it is; the cards wear their mode",
+            Check("The board's Too big and Ads buttons stay aside, and a click on them, or on an older card's, counts for nothing (the dialog's and chat's !down big stay, and the cards' tags); Our maps glows, still, while it is not chosen, and is simply lit once it is; the cards wear their mode",
                 Regex.IsMatch(rules, @"\.gg-board \.gg-bigrow\s*\{\s*visibility:\s*collapse;") && !Enumerable.Range(1, HudMenu.Cards).Any(k => ids.Contains($"{HudMenu.Card(k)}_big") || ids.Contains($"{HudMenu.Card(k)}_ads"))
+                && new[] { "gg_b_vbig", "gg_b_vads" }.All(b => HudView.Command(b, full) == null) && new[] { "gg_m1_big", "gg_m1_ads" }.All(b => HudMenu.Command(b, back, full, new HudBrowser(), 1001, now) == null)
                 && Regex.IsMatch(rules, @"\.gg-ours-glow\s*\{[^}]*box-shadow:\s*#E9B44C80") && !rules.Contains("opulse")
                 && !Regex.IsMatch(rules, @"(?m)^\.gg-ours-glow\s*\{[^}]*opacity:") // the game draws a box-shadow at full strength at any opacity but 0
                 && Enumerable.Range(1, 10).All(k => Regex.IsMatch(rules, $@"\.gg-vseg\.w{k}\s*\{{\s*width:\s*fill-parent-flow\(\s*{k}\.0\s*\);")) // the strip: weights, so it fills exactly
@@ -522,14 +528,11 @@ static partial class Program
             adsCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 2, Ads: 1));
             adsCat.Votes[1001] = new() { ["3084291314"] = HudCatalog.AdsVote };
             var adsMenu = HudMenu.Maps(adsCat, new HudState(), new HudBrowser(), 1001, now);
-            Check("Cards: a map with an ads mark shows the Ads tag, this player's ads mark lights the card's Ads, and the card's Ads button sends !down <rank> ads",
-                adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "ads").On && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "adsvoted").On
-                && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "disliked").On && HudMenu.Command("gg_m1_ads", adsCat, new HudState(), new HudBrowser(), 1001, now) == "!down 1 ads"
-                && Hud.IsAction("!down 1 ads"));
-            var adsLive = new HudState { Ads = 2, MyVotes = new() { [7] = HudCatalog.AdsVote } };
-            Check("The board: Ads sends !down ads, its count is the ads marks on the map that is on, and the player's own ads mark lights it",
-                HudView.Command(HudView.BoardAds, adsLive) == "!down ads" && HudView.Texts(adsLive).Single(x => x.Id == "gg_b_ads").Text == "2"
-                && HudView.PlayerClasses(adsLive, 7).Single(x => x.Class == "voted-ads").On && HudView.PlayerTexts(adsLive, 7, "x", false).Single(x => x.Id == "gg_b_you").Text == "You marked this map: ads");
+            Check("Cards: a map with an ads mark shows the Ads tag, and this player's ads mark is a Dislike there",
+                adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "ads").On && adsMenu.Classes.Single(x => x.Id == "gg_m1" && x.Class == "disliked").On && Hud.IsAction("!down 1 ads"));
+            var adsLive = new HudState { MyVotes = new() { [7] = HudCatalog.AdsVote } };
+            Check("The board: the player's own ads mark on the map that is on says so, and lights Dislike",
+                HudView.PlayerClasses(adsLive, 7).Single(x => x.Class == "voted-down").On && HudView.PlayerTexts(adsLive, 7, "x", false).Single(x => x.Id == "gg_b_you").Text == "You marked this map: ads");
             Check("Help: one Fun row, one row for a Dislike's reasons, no Ads row, and no fifth row in any group",
                 Hud.Help.Count(g => g.Rows.Any(r => r.Command.StartsWith("Fun"))) == 1 && !Hud.Help.Any(g => g.Rows.Any(r => r.Command == "Ads")) && !noComments.Contains("gg-crow-c32"));
             // The Help page's height with its tighter rows (1 px a row each way, 4 + 5 px a group): the budget of the check above with those numbers.

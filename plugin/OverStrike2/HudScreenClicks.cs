@@ -31,7 +31,7 @@ sealed partial class HudScreen
             return;
         }
         if (buttonId == HudMenu.BoardOpen && !slots.WindowOpen(player.Slot)) { tab.Release(player.Slot); Menu(player); return; } // the board's button: the window keeps the cursor
-        if (buttonId is HudView.BoardUp or HudView.BoardDown or HudView.BoardNext or HudView.BoardBig or HudView.BoardAds) // the board's own buttons, under the TAB cursor
+        if (buttonId is HudView.BoardUp or HudView.BoardDown or HudView.BoardNext) // the board's own buttons, under the TAB cursor
         {
             var boardCommand = HudView.Command(buttonId, state, vote);
             if (boardCommand == HudView.OpenVote) { tab.Release(player.Slot); Menu(player); return; } // the vote is on: its window

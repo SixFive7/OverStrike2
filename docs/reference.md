@@ -463,7 +463,9 @@ Thousands of community maps include some that break things, so every broken map 
 ## The HUD's version and the HUD check
 
 A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
-lacks. Every shipped layout is kept in `hud/reference/`, which `--selftest` holds the new one to. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
+lacks. What v4.5.0, the content before it, needs for its own pages keeps coming (`HudVote.OldestLevel`); nothing comes for what only an older content reads, so a game holding one of those runs on what it
+shares with v4.5.0, shows no version banner, and its Too big and Ads buttons (up to v4.3.0) do nothing. Every shipped layout is kept in `hud/reference/`, and `--selftest` holds the new one to those still
+drawn for. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
 banner stays and names both versions; a newer game's shows for 15 s at the join.
 

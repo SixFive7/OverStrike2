@@ -217,16 +217,18 @@ static partial class Program
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
         var levels = HudVote.VersionClasses();
-        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; the contents v4.0.0 to v4.5.0 still read their svge/svlt, each level exactly one of them",
+        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; v4.5.0, the oldest content still drawn for, reads its svge46 and svlt45 - and no older content's are sent",
             HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel && HudVote.ContentOfLevel(HudVote.ContentLevel) == Hud.Content
             && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVote.ContentLevel}"
-            && Enumerable.Range(HudVote.OldFirst, HudVote.OldLast - HudVote.OldFirst + 1).All(l => levels.Single(x => x.Class == $"svge{l + 1}").On && !levels.Single(x => x.Class == $"svlt{l}").On)
-            && HudVote.VersionClasses(HudVote.OldFirst).Single(x => x.Class == $"svlt{HudVote.OldFirst + 1}").On && levels.All(x => x.Id == HudView.Global));
+            && HudVote.OldestLevel == HudCheck.LevelOf("v4.5.0") && levels.Single(x => x.Class == "svge46").On && !levels.Single(x => x.Class == "svlt45").On && levels.Count == 3
+            && !HudVote.VersionClasses(HudVote.OldestLevel).Any(x => x.Class.StartsWith("sv", StringComparison.Ordinal) && x.On) && HudVote.VersionClasses(HudVote.OldestLevel - 1).Single(x => x.Class == "svlt45").On
+            && levels.All(x => x.Id == HudView.Global));
         var table = HudVote.Contents;
-        Check($"The table of contents: {table.Length} lines, the last this content ({Hud.Content}, level {HudVote.ContentLevel}); every version readable and there once; the levels rise, by one from level {HudVote.OldFirst} on, so the next release is {HudVote.ContentLevel + 1} whatever its digits; the shipped ones keep their numbers",
+        var byOne = HudCheck.LevelOf("v4.0.0"); // the levels before v4.0.0 skip; from it on each release is the next number
+        Check($"The table of contents: {table.Length} lines, the last this content ({Hud.Content}, level {HudVote.ContentLevel}); every version readable and there once; the levels rise, by one from level {byOne} on, so the next release is {HudVote.ContentLevel + 1} whatever its digits; the shipped ones keep their numbers",
             table.Any(c => c.Version == Hud.Content) && table[^1] == (Hud.Content, HudVote.ContentLevel) && table.All(c => HudCheck.IsRelease(c.Version)) && table.Select(c => c.Version).Distinct().Count() == table.Length
-            && table.Zip(table.Skip(1)).All(p => p.Second.Level > p.First.Level && (p.First.Level < HudVote.OldFirst || p.Second.Level == p.First.Level + 1))
-            && HudCheck.LevelOf("v4.0.0") == 40 && HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46);
+            && table.Zip(table.Skip(1)).All(p => p.Second.Level > p.First.Level && (p.First.Level < byOne || p.Second.Level == p.First.Level + 1))
+            && byOne == 40 && HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46 && table[0] == ("v3.0.0", 30)); // the contents no longer drawn for keep their lines
         Check("A content's name for its level: its line, both ways; above the table a name no line has, which reads as newer (css_gghud level fakes a newer server); between two lines the older, below the table the first",
             table.All(c => HudVote.ContentOfLevel(c.Level) == c.Version && HudCheck.LevelOf(c.Version) == c.Level)
             && new[] { 1, 2 }.All(up => HudCheck.IsRelease(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) && HudCheck.LevelOf(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) == HudCheck.NewerLevel)

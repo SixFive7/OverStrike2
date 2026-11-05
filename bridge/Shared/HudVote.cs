@@ -3,8 +3,9 @@
 // an update and until it has downloaded it; the HUD's version classes; and why a player disliked a map (DownReasons).
 //
 // The version classes need no click and no word from the client. latest-N on gg_global names the newest content the server knows, and every
-// content from v4.6.0 on shows its outdated banner for an N above its own. The contents before it read svge<k> (the server's level is at least k)
-// and svlt<k> (below k) at a join instead. The server's version name rides in the dialog variable osver on gg_global, which the labels inherit.
+// content from v4.6.0 on shows its outdated banner for an N above its own. v4.5.0, the one content before it still drawn for (OldestLevel), reads
+// svge46 (the server's level is above its own) and svlt45 (below it) at a join instead. The server's version name rides in the dialog variable
+// osver on gg_global, which the labels inherit.
 //
 // Shared like Hud.cs (plain BCL): the plugin draws it, the bridge's --selftest checks it.
 using System.Globalization;
@@ -31,16 +32,17 @@ public static class HudVote
     /// <summary>The server's content as a number: the level on Contents' last line.</summary>
     public static int ContentLevel => Contents[^1].Level;
 
+    /// <summary>The oldest content the plugin still draws for, by its level: v4.5.0. Nothing is sent for what only an older content reads - its join banner's
+    /// version classes, and the marks, counts and clicks of the Too big and Ads buttons the contents up to v4.3.0 show - so a game holding one runs on what it
+    /// shares with v4.5.0 and shows no banner of its own. v4.5.0 is also the last content whose banner reads svge/svlt (VersionClasses): they go when this
+    /// moves past it.</summary>
+    public const int OldestLevel = 45;
+
     /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
     /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-99, the next 53 releases. A stylesheet
     /// never changes once it has shipped, so a release that raises LatestLast widens only its own content and later ones (hud/PUBLISH.md).</summary>
     public const int LatestLast = 99;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
-
-    /// <summary>The version classes the contents before v4.6.0 read at a join (vjoin on gg_screen, for JoinSeconds): svge(k) while the server's
-    /// level is at least k, svlt(k) while it is below - a content of level L shows "yours is older" under svge(L + 1) and "yours is newer" under
-    /// svlt(L). Those contents are v4.0.0 to v4.5.0, so only svge41 ... svge46 and svlt40 ... svlt45 are sent.</summary>
-    public const int OldFirst = 40, OldLast = 45;
 
     /// <summary>The dialog variables on gg_global that the layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
@@ -56,22 +58,17 @@ public static class HudVote
         return Contents[0].Version;
     }
 
-    /// <summary>How long after a real join an older content's version banner shows (vjoin).</summary>
+    /// <summary>How long after a real join v4.5.0's version banner shows (vjoin).</summary>
     public const double JoinSeconds = 15;
 
-    /// <summary>The version classes on gg_global for everybody: the older contents' svge/svlt and the newest content the server knows (latest-N).
-    /// The plugin turns the latest class it sent before off itself when the level moves (css_gghud level).</summary>
+    /// <summary>The version classes on gg_global for everybody: the newest content the server knows (latest-N), and what v4.5.0's banner reads at a join
+    /// (vjoin on gg_screen, for JoinSeconds) - svge46 while the server's level is above its own, "yours is older", and svlt45 while it is below, "yours is
+    /// newer". The plugin turns the latest class it sent before off itself when the level moves (css_gghud level).</summary>
     public static List<(string Id, string Class, bool On)> VersionClasses() => VersionClasses(ContentLevel);
 
     /// <summary>The same for a level css_gghud level fakes.</summary>
-    public static List<(string Id, string Class, bool On)> VersionClasses(int level)
-    {
-        var c = new List<(string, string, bool)>();
-        for (var k = OldFirst + 1; k <= OldLast + 1; k++) c.Add((HudView.Global, $"svge{k}", level >= k));
-        for (var k = OldFirst; k <= OldLast; k++) c.Add((HudView.Global, $"svlt{k}", level < k));
-        c.Add((HudView.Global, LatestClass(level), true));
-        return c;
-    }
+    public static List<(string Id, string Class, bool On)> VersionClasses(int level) =>
+        [(HudView.Global, $"svge{OldestLevel + 1}", level > OldestLevel), (HudView.Global, $"svlt{OldestLevel}", level < OldestLevel), (HudView.Global, LatestClass(level), true)];
 
     /// <summary>The game mode's classes on gg_global (mode-armsrace, mode-deathmatch, mode-wingman): the layouts hide what is Arms Race's own outside
     /// it - friendly fire's rows on the Fun page, the match length on the Game page.</summary>
@@ -306,9 +303,7 @@ public static class HudVote
             c.Add((id, "disliked", false));
             c.Add((id, "confirm", o != null && mine == o.N && !done));
             c.Add((id, "big", o != null && HasTag(o.Tags, MapTags.Big)));
-            c.Add((id, "bigvoted", false));
             c.Add((id, "ads", o != null && HasTag(o.Tags, MapTags.Ads)));
-            c.Add((id, "adsvoted", false));
             c.Add((id, "ours", o != null && (HasTag(o.Tags, MapTags.Ours) || catalog?.Find(o.Key) is { Ours: true })));
             c.AddRange(CardModeClasses(id, o?.Mode));                                     // the mode's label and colour
             c.AddRange(TagClassesOf(id, o?.Tags));                                         // the rest of its tags

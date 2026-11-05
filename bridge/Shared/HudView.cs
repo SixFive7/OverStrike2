@@ -12,10 +12,8 @@ public static class HudView
 
     public const string ButtonClose = "gg_btn_close", ButtonUp = "gg_btn_up", ButtonDown = "gg_btn_down", ButtonAct = "gg_btn_act";
 
-    /// <summary>The board's buttons (TAB): your like on the map that is on, Start a vote, and the full menu. BoardBig, the too-big mark, is
-    /// content v3.1.0 (since v4.4.0 a Dislike's reason; the button stepped aside).</summary>
-    public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open", BoardBig = "gg_b_vbig",
-        BoardAds = "gg_b_vads"; // content v3.2.0
+    /// <summary>The board's buttons (TAB): your like on the map that is on, Start a vote, and the full menu.</summary>
+    public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open";
 
     public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun", TabGame = "gg_tab_game", TabMaps = "gg_tab_maps";
 
@@ -93,12 +91,11 @@ public static class HudView
         return c;
     }
 
-    /// <summary>The classes the plugin sends only for the contents before v4.6.0, which this content's stylesheet has no rule for: c31 and c32
-    /// (StaticClasses), the join banner's vjoin (beside the version classes, HudVote.VersionClasses), and the marks that light an older card's Too big
-    /// and Ads buttons (bigvoted, adsvoted: a Dislike's reasons now).</summary>
-    public static readonly string[] OlderContentClasses = ["c31", "c32", "bigvoted", "adsvoted", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
+    /// <summary>The classes the plugin sends only for v4.5.0, which this content's stylesheet has no rule for: c31 and c32 (StaticClasses), its news line and
+    /// note (news, note), and its fixed Fun rows' marks (nd-on, nd-off, cu-on, cu-off: HudVote.FixedRowClasses).</summary>
+    public static readonly string[] OlderContentClasses = ["c31", "c32", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
 
-    /// <summary>The panels only the contents before v4.6.0 have: their news line, their note, their lede.</summary>
+    /// <summary>The panels only v4.5.0 has of the contents still drawn for: its news line, its note, its lede.</summary>
     public static readonly string[] OlderContentTexts = ["gg_news_text", "gg_note_text", "gg_w_lede"];
 
     public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
@@ -142,8 +139,6 @@ public static class HudView
         t.Add(("gg_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
         t.Add(("gg_w_tempty", "No likes yet. Like a map: its card's up arrow."));
         t.Add(("gg_b_queue", VoteLine(v)));
-        t.Add(("gg_b_big", s.Big.ToString(CultureInfo.InvariantCulture))); // the too-big marks on the map that is on (the board's hidden row)
-        t.Add(("gg_b_ads", s.Ads.ToString(CultureInfo.InvariantCulture))); // ...and the ads marks
         t.Add(("gg_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
         t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
         t.Add(("gg_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
@@ -313,8 +308,7 @@ public static class HudView
         var cat = s.NoteCats.GetValueOrDefault(account, Messages.You.Id);
         var note = NoteOf(s, account) != "";
         List<(string Id, string Class, bool On)> c = [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
-            (Screen, "note", note), (Screen, "wl", note), (Screen, "voted-big", mine == HudCatalog.TooBigVote), (Screen, "voted-ads", mine == HudCatalog.AdsVote),
-            (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
+            (Screen, "note", note), (Screen, "wl", note), (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
         foreach (var k in Messages.Categories) c.Add((LinePanel, k.Class, note && k.Id == cat));
         return c;
     }
@@ -345,8 +339,6 @@ public static class HudView
     {
         ButtonUp or BoardUp => "!up",
         ButtonDown or BoardDown => "!down",
-        BoardBig => "!down big", // content v3.1.0's Too big: a Dislike's reason (one command for it)
-        BoardAds => "!down ads", // content v3.2.0
         ButtonAct or BoardNext => s == null ? null : Action(s, v).Command,
         _ => null,
     };

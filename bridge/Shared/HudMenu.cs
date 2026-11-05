@@ -125,10 +125,8 @@ public static class HudMenu
             c.Add((id, "liked", mine > 0));
             c.Add((id, "disliked", mine < 0));
             c.Add((id, "confirm", m != null && b.ConfirmKey == m.Key && now < b.ConfirmUntil));
-            c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag...
-            c.Add((id, "bigvoted", mine == HudCatalog.TooBigVote));        // ...and this player's too-big mark lit
-            c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag...
-            c.Add((id, "adsvoted", mine == HudCatalog.AdsVote));            // ...and this player's ads mark lit
+            c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag
+            c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag
             c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
             c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // the mode it plays in, on its picture and in its colour
             c.AddRange(HudVote.TagClassesOf(id, m?.Tags));                  // the rest of its tags
@@ -302,8 +300,6 @@ public static class HudMenu
             {
                 case "up": return $"!up {m.Arg}";
                 case "down": return $"!down {m.Arg}";
-                case "big": return $"!down {m.Arg} big"; // an older content's Too big: a Dislike's reason (one command for it)
-                case "ads": return $"!down {m.Arg} ads"; // ...and its Ads
                 case "play":
                     if (m.Key == s.Key && s.Key != "" && vote is not { Open: true, Round: > 0 }) return null; // the map that is on: Keep on the vote, nothing outside one
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm

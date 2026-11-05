@@ -186,9 +186,8 @@ static partial class Program
         var free = new HudState { Map = "#5 x" };
         var open = VoteState.Decode("mv\t1793900000\topen\t30\t2\t0\tmid\t2\t1\n");
         var waiting = new VoteState { WaitFor = 80 };
-        Check("Board: Like and Dislike are likes on the map that is on, Too big and Ads a Dislike's reasons; the button under them is Start a vote - the vote's window while one is on, the answer with the time left during the wait, nothing during a change",
+        Check("Board: Like and Dislike are likes on the map that is on; the button under them is Start a vote - the vote's window while one is on, the answer with the time left during the wait, nothing during a change",
             HudView.Command(HudView.BoardUp, free) == "!up" && HudView.Command(HudView.BoardDown, free) == "!down"
-            && HudView.Command(HudView.BoardBig, free) == "!down big" && HudView.Command(HudView.BoardAds, free) == "!down ads" && Hud.IsAction("!down big") && Hud.IsAction("!down ads")
             && HudView.Command(HudView.BoardNext, free) == "!next" && HudView.Command(HudView.BoardNext, free, open) == HudView.OpenVote
             && HudView.Command(HudView.BoardNext, free, waiting) == "!next" && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }) == null);
         Check("Board: the button's words in each case - start one, the vote on, the wait after one - and none of them a typed command",
@@ -227,7 +226,6 @@ static partial class Program
             ("!down <map>", "Maps: a card's down arrow", Card(claim, "down"), "!down 7"),
             ("!down <map> big", "Maps: a card's down arrow, then Too big in the dialog", Card(claim, "down") == "!down 7"
                 && HudVote.WhyClick(HudVote.WhyButton(Array.FindIndex(DownReasons.All, r => r.Word == "big") + 1)) is { } bigWhy ? $"!down {bigWhy.Word}" : null, "!down big"),
-            ("!down <map> big", "Maps: a card's Too big (the contents before v4.6.0)", Card(claim, "big"), "!down 7 big"),
             ("!top", "Maps: Sort by Likes; the live column's Most liked", Sorted(catalog, index).FirstOrDefault()?.Name, "Claim the hill"),
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),
             ("!restart", "Game: Restart the server (twice)", HudMenu.Command(HudMenu.Restart, catalog, live, mine, 1, DateTime.UtcNow), "!restart"),

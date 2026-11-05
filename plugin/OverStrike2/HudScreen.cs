@@ -52,7 +52,7 @@ sealed partial class HudScreen
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
-    readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: an older content's version banner for a while, and the Players page's time on
+    readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: v4.5.0's version banner for a while, and the Players page's time on
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
@@ -70,8 +70,8 @@ sealed partial class HudScreen
     readonly Dictionary<int, DateTime> resendAt = new(); // slot -> forget what it has (and send it again) at this time
 
     // Every content on the layout path (Hud.Content) is sent the same: what this content has. An older content simply lacks what it lacks - a panel
-    // a game does not have takes nothing in it - and keeps what it needs for its own pages (HudView.StaticClasses' c31 and c32, the svge/svlt
-    // version classes and vjoin).
+    // a game does not have takes nothing in it - and v4.5.0, the oldest still drawn for (HudVote.OldestLevel), keeps what it needs for its own pages
+    // (HudView.StaticClasses' c31 and c32, the svge/svlt version classes and vjoin).
     int latestSent;                                      // the level of the latest-N class on gg_global (HudVote.LatestClass): turned off when it moves
     bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get

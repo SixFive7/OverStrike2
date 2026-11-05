@@ -25,11 +25,11 @@ public static class Hud
     /// <summary>The layout's content on that path: the version on HudVote.Contents' last line, so a release adds that one line. A content update keeps the path, so games holding older contents of the same release stay in
     /// use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all. The rule since v4.6.0:
     /// the plugin sends what this content has, and an older content simply lacks what it lacks (a panel a game does not have takes nothing in
-    /// it). What an older content needs to show its own pages keeps coming: its page classes, c31 and c32 (every content in use holds the panels
-    /// those two uncover) and the svge/svlt version classes its join banner reads. The newest content a server knows rides on gg_global as one class,
-    /// latest-N (HudVote.LatestClass); from v4.6.0 on every content shows its own outdated banner for an N above its own. The version a player's game
-    /// holds comes from the HUD check's click (HudCheck.VersionButton). hud/reference/ holds every shipped content's layout, which --selftest
-    /// holds this one to.</summary>
+    /// it). What v4.5.0, the oldest content still drawn for (HudVote.OldestLevel), needs to show its own pages keeps coming: its page classes, c31 and
+    /// c32 (it holds the panels those two uncover) and the svge/svlt version classes its join banner reads; nothing comes for what only a content before
+    /// it reads. The newest content a server knows rides on gg_global as one class, latest-N (HudVote.LatestClass); from v4.6.0 on every content shows
+    /// its own outdated banner for an N above its own. The version a player's game holds comes from the HUD check's click (HudCheck.VersionButton).
+    /// hud/reference/ holds every shipped content's layout, and --selftest holds this one to those still drawn for.</summary>
     public static string Content => HudVote.Contents[^1].Version;
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
