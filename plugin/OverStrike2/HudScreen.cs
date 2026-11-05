@@ -979,7 +979,8 @@ sealed partial class HudScreen
             foreach (var page in Enum.GetValues<HudSlots.Page>()) Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, p);
             if (view.Window) Menu(p, view.Page, shown, account, now);
             if (view.Window) DashFrame(p); // the Sync page's words and classes, for every open window: ready before its tab is clicked
-            var capture = view.Capture || tab.Cursor(p.Slot); // the window's cursor, or the board's while TAB is held
+            // The window's cursor, or the board's while TAB is held. During a hold a player who joined has no HUD, so no window to close: nothing takes their mouse.
+            var capture = (view.Capture || tab.Cursor(p.Slot)) && (addonRequired || keptMenu.Contains(account));
             if (captured.GetValueOrDefault(p.Slot) != capture)
             {
                 entity!.SetInputCaptureEnabled(p, capture);
