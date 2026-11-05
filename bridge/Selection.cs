@@ -97,7 +97,7 @@ static partial class Program
     static void NewMapsGone(string by, string steamId)
     {
         Log($"selection: {by} {steamId} clicked a new-maps button - the setting is gone");
-        Tell(steamId, NewMapsGoneNote);
+        Tell(steamId, M.Refused(NewMapsGoneNote));
     }
 
     // ---- the reset: nobody on for more than ResetEmptyMinutes, and the server-wide settings go back to their defaults ----

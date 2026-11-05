@@ -25,7 +25,7 @@ static partial class Program
     {
         var id = m.Id.ToString();
         var (name, _, reason) = Blocked.TryGetValue(id, out var b) ? b : (m.Name, "", "is on the blocked list");
-        return $"{Clip(name, 40)} ({id}) {Clip(reason, 48)} - It is blocked."; // at most 40 + 14 + 48 + 17 = 119 characters
+        return M.Refused($"{M.A(Clip(name, 40))} ({id}) {Clip(reason, 48)} - It is blocked."); // at most 40 + 14 + 48 + 17 = 119 characters
     }
 
     /// <summary>A list of blocked maps - blocked.json's, a plain list or an object holding it under "blocked"; broken.json's "blocked": objects with a

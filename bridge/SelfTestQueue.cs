@@ -467,8 +467,12 @@ static partial class Program
             Land();
             Talk(alice, "!up"); Talk(bob, "!down");
             Check("!up and !down like and dislike the map that is on", Tally(key) == (1, 1) && Said("You liked") && Said("You disliked") && NoteFor.ContainsKey(1001) && NoteFor.ContainsKey(1002));
+            var markOn = Clip(Label(m[1]), PlainVoteLabel);
+            Check("...and chat says what worked in Green: the map an argument, the tally a value, what comes next a command with its values",
+                Coloured(SaysNow[^1].Text) == $"δYou disliked α{markOn}δ, now ν+1 -1δ. Why? κ!downδ ν{DownReasons.Words}δ");
             Talk(alice, "!up");
             Check("The same vote again changes nothing and says so: repeating a vote never takes it back", Tally(key) == (1, 1) && Said("You like") && Said("already") && Said("!down takes it back"));
+            Check("...which is no refusal and nothing done, so it stays the chat's own colour around its parts", Coloured(SaysNow[^1].Text) == $"You like α{markOn}π already, now ν+1 -1π. κ!downπ takes it back");
             Talk(bob, "!down");
             Check("...for a Dislike as well", Tally(key) == (1, 1) && Said("You dislike") && Said("already"));
             Quiet(); Talk(alice, "!down");
@@ -631,7 +635,7 @@ static partial class Program
             Talk(bob, $"!map {goneMap.Id}");
             Check("...by its workshop id too", Said("was removed from the Workshop - Nobody can download it. Pick another.") && Pending == null && Ballot == null);
             Check("...and the refusal fits one chat line for every map on the list",
-                Maps.All(x => { Removed = new() { [x.Id.ToString()] = Workshop.Removed }; return RemovedRefusal(x).Length <= 120; }));
+                Maps.All(x => { Removed = new() { [x.Id.ToString()] = Workshop.Removed }; return M.Plain(RemovedRefusal(x)).Length <= 120; }));
             RecomputeRemoved();
             var dicePool = Maps.Where(x => x.Rank > 0).Take(400).ToList();
             Checked = new() { Verdicts = dicePool.Skip(3).Take(390).ToDictionary(x => x.Id.ToString(), _ => Workshop.Removed) }; RecomputeRemoved();
@@ -689,6 +693,8 @@ static partial class Program
             var glassLine = "glassbox (3076804331) kicked every player off the server (2026-10-20) - It is blocked.";
             Talk(alice, "!map 3076804331");
             Check("A blocked map is refused by id, in its own words, and no vote opens", Said(glassLine) && Pending == null && Ballot == null);
+            Check("...in LightRed in chat, the map an argument, while the window's line and the board have the words alone",
+                Coloured(SaysNow[^1].Text) == "ραglassboxρ (3076804331) kicked every player off the server (2026-10-20) - It is blocked." && Told[^1] == glassLine);
             Quiet(); Talk(bob, "!map https://steamcommunity.com/sharedfiles/filedetails/?id=3076804331");
             Check("...by a pasted Workshop URL", Said(glassLine) && Pending == null);
             Quiet(); Talk(cara, "!map glassboxfinal");
@@ -700,8 +706,8 @@ static partial class Program
             Check("A blocked map on the list: never rolled, and left out of the HUD's map browser",
                 Enumerable.Range(0, 800).Select(_ => RandomPick()).All(x => x == null || !IsBlocked(x)) && BuildCatalog().Maps.All(x => x.Id != listedBlock.Id));
             Check("The refusal fits one chat line whatever the name and reason",
-                BlockedRefusal(new MapInfo(0, 3076804331, "x", 0)) is var r0 && r0.Length <= 120
-                && (Blocked["3076804331"] = (new string('n', 90), "", new string('r', 200))) != default && BlockedRefusal(new MapInfo(0, 3076804331, "x", 0)).Length <= 120);
+                M.Plain(BlockedRefusal(new MapInfo(0, 3076804331, "x", 0))) is var r0 && r0.Length <= 120
+                && (Blocked["3076804331"] = (new string('n', 90), "", new string('r', 200))) != default && M.Plain(BlockedRefusal(new MapInfo(0, 3076804331, "x", 0))).Length <= 120);
             Check("The list reads objects and bare ids; a missing reason still blocks",
                 ParseBlocked("""{"blocked":[{"id":5,"name":"a","map":"b","reason":"c"},6,{"name":"no id"},{"id":7}]}""") is { Count: 3 } pb
                 && pb["5"] == ("a", "b", "c") && pb["6"].Item3 == "is on the blocked list" && pb["7"].Item1 == "workshop 7" && ParseBlocked("{}").Count == 0);

@@ -602,7 +602,7 @@ static partial class Program
     static void PickMap(string by, string steamId, string query, string inMode = "")
     {
         var now = Now();
-        if (Find(query) is not [var map]) { Tell(steamId, $"No map is '{Clip(query, 40)}'"); return; }
+        if (Find(query) is not [var map]) { Tell(steamId, M.Refused($"No map is '{M.A(Clip(query, 40))}'")); return; }
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
         if (Unplayable(map) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
@@ -616,7 +616,7 @@ static partial class Program
         var now = Now();
         var on = Pending?.Map ?? S.Map;
         var prev = Enumerable.Reverse(S.History).FirstOrDefault(m => on == null || Key(m) != Key(on));
-        if (prev == null) { Tell(steamId, "There is no previous map on record yet"); return; }
+        if (prev == null) { Tell(steamId, M.Refused("There is no previous map on record yet")); return; }
         if (Unplayable(prev) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(prev) is { } full) { Tell(steamId, full); return; }
         if (ConfirmGate(prev, steamId, now, "Previous") is { } warning) { Tell(steamId, warning, PickConfirmSeconds); return; }
@@ -642,7 +642,7 @@ static partial class Program
     static string PackRefusal(MapInfo m)
     {
         var name = Packs.TryGetValue(m.Id.ToString(), out var listed) ? listed : m.Name;
-        return $"{name[..Math.Min(60, name.Length)]} {NotAMap}";
+        return M.Refused($"{M.A(name[..Math.Min(60, name.Length)])} {NotAMap}");
     }
 
     const int PickConfirmSeconds = 30; // same window as Restart: one confirmation idiom, one number to remember
@@ -1078,7 +1078,7 @@ static partial class Program
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",
-                Told is [var byRank] && byRank == PackRefusal(listed) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
+                Told is [var byRank] && byRank == M.Plain(PackRefusal(listed)) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
             Check("The refusal sends the server nothing at all: no chat, no host_workshop_map, no changelevel, no vote, nothing pending",
                 sent.Count == 0 && Pending is null && Ballot is null && NewsNow.Text == "");
             Pick(listed.Id.ToString());

@@ -3,14 +3,20 @@
 // player privately.
 //
 // All is the one table: one primary per action, in the order !help lists them, each with its aliases. An alias runs the action and its
-// reply teaches the primary by showing what ran ("You typed !map 12 - ran !play 12"); !help lists primaries only. Each fun setting's id
+// reply teaches the primary by showing what ran ("You typed !map 12 - Ran !play 12"); !help lists primaries only. Each fun setting's id
 // (Fun.cs) is a first-class command of its own: !gravity low, !drops off, !catchup off. The one word that means two things is settled in
 // Primary and nowhere else: !maps with words is !find. And !nades is both a primary and a fun setting's id: on|off are the grenade drops (the
 // drops setting), the setting's own choices (normal|big|huge) the grenades' blast; !catchup is a primary and the catch-up setting's id alike.
 // --selftest proves no word is anything else. While a vote is open !play and !back put their map on it and a bare !vote brings its window back;
 // the cards have no numbers, so a !vote with one answers that a vote is a click - the numbers' machinery stays one word away (MapVote.Numbers).
 //
+// Every reply is written with its functional parts marked (M, Messages.cs): chat shows a command Lime - and only what can be typed is one - an argument LightBlue,
+// a value Gold, a refusal LightRed, what worked Green, the rest in the chat's own colour. Every section starts with a capital, a line holds at most
+// Messages.ChatLineMax characters, and --selftest walks them all (ChatReply below is what the plugin says beyond this file's own lines).
+//
 // Shared like Hud.cs (plain BCL): the plugin runs it, the bridge's --selftest checks the table and the parsing.
+using System.Text.RegularExpressions;
+
 public static class ChatCommands
 {
     /// <summary>What a chat command asks for: an action the bridge runs (Arg is its /act command), a menu page to open (Arg the page), the map
@@ -153,10 +159,33 @@ public static class ChatCommands
     public static string UsageOf(string word)
     {
         if (word == "!nades" && Find(word) is { } nades && Fun.Find("nades") is { } size)
-            return $"!nades on|off: {nades.Words}  ·  !nades {ChoiceWords(size)}: {size.Words}";
-        if (Find(word) is { } c) return $"{c.Word}{(c.Args != "" ? " " + c.Args : "")}: {c.Words}";
-        return word.Length > 1 && Fun.Find(word[1..]) is { } s ? $"!{s.Id} {ChoiceWords(s)}: {s.Words}" : UnknownLine(word);
+            return $"{M.C("!nades")} {M.V("on|off")}: {nades.Words}  ·  {M.C("!nades")} {M.V(ChoiceWords(size))}: {size.Words}";
+        if (Find(word) is { } c) return $"{M.C(c.Word)}{(c.Args != "" ? " " + ArgsMarked(c.Args) : "")}: {WordsMarked(c.Words)}";
+        return word.Length > 1 && Fun.Find(word[1..]) is { } s ? $"{M.C($"!{s.Id}")} {M.V(ChoiceWords(s))}: {s.Words}" : UnknownLine(word);
     }
+
+    /// <summary>What follows a command in its usage line: the few it can be (&lt;on|off&gt;, &lt;10|60&gt;) are values, anything else what the command is about.</summary>
+    static string ArgsMarked(string args) => args.Contains('|') ? M.V(args) : M.A(args);
+
+    /// <summary>A command's own words in its usage line: a command they name is one, with the value it is named with (!gravity low, !fun random); the reasons !down takes are values.</summary>
+    static string WordsMarked(string words) =>
+        Regex.Replace(words, @"(![a-z]+)( [a-z]+)?", m => Parse(m.Value) is { Kind: Kind.Fun or Kind.FunAll } p ? Marked(m.Value, p) : M.C(m.Groups[1].Value) + m.Groups[2].Value)
+            .Replace(DownReasons.Words, M.V(DownReasons.Words));
+
+    /// <summary>A command line as the reply that teaches shows it: its word a command, what follows an argument - and the last word a value where the command takes one of a few
+    /// (!gravity moon, !fun gravity moon, !time 60, !down 12 big). "!maps, sorted by likes" has words after its command, no argument.</summary>
+    static string Marked(string line, Parsed p)
+    {
+        if (line.IndexOf(' ') is not (> 0 and var at)) return M.C(line);
+        var (word, rest) = (line[..at], line[(at + 1)..]);
+        if (word.EndsWith(',')) return $"{M.C(word[..^1])}, {rest}";
+        var last = rest.LastIndexOf(' ');
+        var end = rest[(last + 1)..];
+        if (!IsValue(p, end)) return $"{M.C(word)} {M.A(rest)}";
+        return last < 0 ? $"{M.C(word)} {M.V(end)}" : $"{M.C(word)} {M.A(rest[..last])} {M.V(end)}";
+    }
+
+    static bool IsValue(Parsed p, string word) => p.Kind is Kind.Fun or Kind.FunAll || p.Name == "!time" || (p.Name == "!down" && DownReasons.All.Any(r => r.Word.Equals(word, StringComparison.OrdinalIgnoreCase)));
 
     static string ChoiceWords(Fun.Setting s) => string.Join('|', s.Choices.Select(c => c.Id));
 
@@ -165,7 +194,7 @@ public static class ChatCommands
     public static string InChat(string note) => note.Replace("Click Play again", "Type it again").Replace("Click Previous again", "Type it again").Replace("Click Restart again", "Type it again");
 
     /// <summary>The reply that teaches the primary by showing what was executed, or null when the player typed the primary.</summary>
-    public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Hud.Clean(p.Typed, 44)} - Ran {Hud.Clean(p.Ran, 50)}";
+    public static string? Teach(Parsed p) => p.Typed == "" ? null : $"You typed {Marked(Hud.Clean(p.Typed, 44), p)} - Ran {Marked(Hud.Clean(p.Ran, 50), p)}";
 
     public const int LineMax = 120;
 
@@ -182,8 +211,8 @@ public static class ChatCommands
             var line = $"{g.Key}:";
             foreach (var c in g)
             {
-                if (line.Length + 1 + c.Word.Length > BesideWindow) { lines.Add(line); line = $"{g.Key}:"; }
-                line += " " + c.Word;
+                if (M.Plain(line).Length + 1 + c.Word.Length > BesideWindow) { lines.Add(line); line = $"{g.Key}:"; }
+                line += " " + M.C(c.Word);
             }
             lines.Add(line);
         }
@@ -197,19 +226,56 @@ public static class ChatCommands
         var lines = new List<string> { "Every setting here has its own word:" };
         var line = "";
         foreach (var s in Fun.Settings.Where(s => armsRace || !Fun.ArmsRaceOnly(s)))
-            foreach (var add in new[] { $"!{s.Id} {s.Choices[1].Id}" })
-            {
-                if (line.Length + 2 + add.Length > BesideWindow) { lines.Add(line); line = ""; }
-                line += (line == "" ? "" : "  ") + add;
-            }
+        {
+            var add = $"{M.C($"!{s.Id}")} {M.V(s.Choices[1].Id)}";
+            if (M.Plain(line).Length + 2 + M.Plain(add).Length > BesideWindow) { lines.Add(line); line = ""; }
+            line += (line == "" ? "" : "  ") + add;
+        }
         if (line != "") lines.Add(line);
         return lines;
     }
 
     /// <summary>What chat says, to that player alone, to a !vote the ballot has no card for: what to type - or, while the cards have no numbers
     /// (MapVote.Numbers), to click a card. A line that fits beside the window, which stands open for the vote.</summary>
-    public static string[] VoteOnlyLines(int highest) => [highest > 0 ? $"Vote now: type !vote 1-{highest} or just the number" : "Vote now: click a card in the window"];
+    public static string[] VoteOnlyLines(int highest) => [M.Refused(highest > 0 ? $"Vote now: type {M.C("!vote")} {M.V($"1-{highest}")} or just the number" : "Vote now: click a card in the window")];
 
     /// <summary>What chat says for a word that is no command of ours.</summary>
-    public static string UnknownLine(string word) => $"Unknown command {word} - !help lists them (and the menu: hold TAB, press E)";
+    public static string UnknownLine(string word) => M.Refused($"Unknown command {M.A(Hud.Clean(word, 40))} - {M.C("!help")} lists them (and the menu: hold TAB, press E)");
+
+    /// <summary>Whether a name as a line shows it is this player's: whole, or clipped with a ~ at its end (Clip, Hud.Clean), a " in it said as ' (the plugin's fun lines). Chat's team colour goes by it.</summary>
+    public static bool IsName(string shown, string name)
+    {
+        var whole = Hud.Clean(name, 64).Replace('"', '\'');
+        return shown == whole || (shown.Length > 1 && shown.EndsWith('~') && whole.StartsWith(shown[..^1], StringComparison.Ordinal));
+    }
+}
+
+/// <summary>What chat answers a command beyond ChatCommands' own lines, marked (M): the plugin says these (HudScreen.Chat) and --selftest walks them. A refusal is
+/// LightRed, what worked Green, what only informs in the chat's own colour. Also the answers to a click that the plugin gives itself (Messages.Answer).</summary>
+public static class ChatReply
+{
+    public static readonly string
+        ChangeUnderWay = M.Refused($"{M.A("Start a vote")}: Nothing to do while a map change is under way"),
+        VoteOn = "The vote for the next map is on - The menu shows it: click a card to vote",
+        VoteWindowStays = M.Refused("The vote for the next map is on - This closes when it is over"),
+        NoVote = M.Refused($"No vote is on - {M.A("Start a vote")}, or put a map to the vote with {M.C("!play")}"),
+        CardOpen = M.Done($"Its card is open in the menu: {M.A("Download and play")}"),
+        ListLoading = M.Refused("The map list is not loaded yet - Try again in a moment"),
+        NoLine = M.Refused("The menu has no line to the server right now - Try again in a moment");
+
+    public static string MenuOn(string page) => M.Done($"The menu is open on {M.A(page)}");
+
+    public static string Searching(string words) => M.Done($"The menu's map browser is searching for \"{M.A(Hud.Clean(words, 40))}\"");
+
+    public static string NoMatch(string words) => M.Refused($"No map matches \"{M.A(Hud.Clean(words, 40))}\" - Other words, a number, or a Workshop ID");
+
+    public static string Matches(int count) => $"{M.V(count.ToString(System.Globalization.CultureInfo.InvariantCulture))} maps match - The menu shows them: click {M.A("Play")} on one";
+
+    public static string YourVote(string label) => M.Done($"Your vote: {M.A(Hud.Clean(label, 40))}");
+
+    public static string NotInMode(Fun.Setting s, string mode) => M.Refused($"{M.A(s.Title)} is Arms Race's own - Not in {M.V(mode)}");
+
+    public static string Already(Fun.Setting s, Fun.Choice c) => $"{M.A(s.Title)}: {M.V(c.Label)} already";
+
+    public static string DidNotSwitch(Fun.Setting s) => M.Refused($"{M.A(s.Title)} did not switch: the server's settings module did not take it");
 }

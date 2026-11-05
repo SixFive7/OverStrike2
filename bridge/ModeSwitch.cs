@@ -86,8 +86,10 @@ static partial class Program
         var mode = ModeOf(map);
         if (mode.Id == CurrentMode.Id || mode.ArmsRace) return null;
         var humans = Humans();
-        return mode.Suits(humans) ? null : $"{mode.Name} takes {mode.MaxPlayers} players, and {humans} are on - Not this map now";
+        return mode.Suits(humans) ? null : ModeFullLine(mode, humans);
     }
+
+    static string ModeFullLine(Modes.Mode mode, int humans) => M.Refused($"{M.V(mode.Name)} takes {M.V($"{mode.MaxPlayers} players")}, and {M.V($"{humans}")} are on - Not this map now");
 
     /// <summary>A listed map of another mode by its Workshop id (a pasted link), or null.</summary>
     static MapInfo? ModeMapById(long id) => Modes.All.Where(m => !m.ArmsRace).SelectMany(ModeWorkshop).FirstOrDefault(m => m.Id == id);

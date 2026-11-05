@@ -446,7 +446,7 @@ static partial class Program
         {
             b.Options.Remove(o);
             foreach (var id in b.Choices.Where(c => c.Value == o.N).Select(c => c.Key).ToList()) b.Choices.Remove(id);
-            Log($"vote: {Label(o.Map!)} leaves the ballot - {Unplayable(o.Map!)}");
+            Log($"vote: {Label(o.Map!)} leaves the ballot - {M.Plain(Unplayable(o.Map!))}");
         }
         return gone.Count;
     }

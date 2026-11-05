@@ -59,12 +59,12 @@ static partial class Program
         else if (arg == "")
         {
             map = S.Map;
-            if (AnnouncePending) { Tell(id, "The next map is still loading - Like it once it is on, or on a card in the menu"); return; } // S.Map is already the map on its way
-            if (map == null) { Tell(id, "Not sure which map this is - Like it on its card in the menu instead"); return; }
+            if (AnnouncePending) { Tell(id, M.Refused("The next map is still loading - Like it once it is on, or on a card in the menu")); return; } // S.Map is already the map on its way
+            if (map == null) { Tell(id, M.Refused("Not sure which map this is - Like it on its card in the menu instead")); return; }
         }
         else
         {
-            if (Find(arg) is not [var found]) { Tell(id, $"No map is '{Clip(arg, 40)}'"); return; }
+            if (Find(arg) is not [var found]) { Tell(id, M.Refused($"No map is '{M.A(Clip(arg, 40))}'")); return; }
             if (IsPack(found)) { Tell(id, PackRefusal(found)); return; }
             map = found;
         }
@@ -84,14 +84,14 @@ static partial class Program
         {
             var (up, down) = Tally(key);
             var marks = string.Join(", ", new[] { TooBigVotes(key) is > 0 and var big ? $"{big} too big" : "", AdsVotes(key) is > 0 and var ads ? $"{ads} ads" : "" }.Where(x => x != ""));
-            return $"now +{up} -{down}{(marks != "" ? $" ({marks})" : "")}";
+            return $"now {M.V($"+{up} -{down}")}{(marks != "" ? $" ({marks})" : "")}";
         }
         if (plainAgain || old == value)
         {
-            var name = Clip(Label(map), PlainVoteLabel);
-            Tell(id, old > 0 ? $"You like {name} already, {Tallied()}. !down takes it back"
-                : old == DownReasons.Plain ? $"You dislike {name} already, {Tallied()}. !up takes it back"
-                : $"You dislike {name} already: {DownReasons.Of(old)?.Short}, {Tallied()}. !up takes it back");
+            var name = M.A(Clip(Label(map), PlainVoteLabel));
+            Tell(id, old > 0 ? $"You like {name} already, {Tallied()}. {M.C("!down")} takes it back"
+                : old == DownReasons.Plain ? $"You dislike {name} already, {Tallied()}. {M.C("!up")} takes it back"
+                : $"You dislike {name} already: {M.V(DownReasons.Of(old)?.Short ?? "")}, {Tallied()}. {M.C("!up")} takes it back");
             return;
         }
         if (old != 0 && Math.Sign(old) != Math.Sign(value)) // the opposite vote: the vote goes, and nothing is cast
@@ -101,8 +101,8 @@ static partial class Program
             SaveVotes();
             var gone = old > 0 ? "like" : old == DownReasons.Plain ? "dislike" : $"dislike ({DownReasons.Of(old)?.Short})";
             Log($"likes: {by} {id} on {Label(map)}: {gone} taken away");
-            var how = value > 0 ? "Like it again to add a like" : value != DownReasons.Plain && DownReasons.Of(value) is { } r ? $"!down {r.Word} again to dislike it: {r.Short}" : "Dislike it again to add a dislike";
-            Tell(id, $"Your {gone} of {Clip(Label(map), PlainVoteLabel)} is removed - {how}, {Tallied()}");
+            var how = value > 0 ? "Like it again to add a like" : value != DownReasons.Plain && DownReasons.Of(value) is { } r ? $"{M.C("!down")} {M.V(r.Word)} again to dislike it: {M.V(r.Short)}" : "Dislike it again to add a dislike";
+            Tell(id, M.Done($"Your {gone} of {M.A(Clip(Label(map), PlainVoteLabel))} is removed - {how}, {Tallied()}"));
             return;
         }
         if (!Votes.TryGetValue(key, out var mine)) Votes[key] = mine = new();
@@ -112,12 +112,12 @@ static partial class Program
         if (value == DownReasons.Plain && !named) WhyOpen[id] = new WhyAsked(map, Now().AddSeconds(DownReasons.PopupSeconds));
         var tally = Tallied();
         static string To(int v) => v > 0 ? "up" : DownReasons.Of(v)?.Short ?? "down";
-        Tell(id, old != 0 ? $"You changed your mark on {Label(map)} to {To(value)}, {tally}"
-            : value == TooBigVote ? $"You marked {Label(map)} too big (a dislike; random picks take it 1 time in {Math.Round(1 / TooBigChance)}), {tally}"
-            : value == AdsVote ? $"You marked {Label(map)}: ads (a dislike; never a random pick), {tally}"
-            : value == DownReasons.Plain ? $"You disliked {Clip(Label(map), PlainVoteLabel)}, {tally}. Why? !down {DownReasons.Words}"
-            : value < 0 ? $"You disliked {Label(map)}: {To(value)}, {tally}"
-            : $"You liked {Label(map)}, {tally}");
+        Tell(id, M.Done(old != 0 ? $"You changed your mark on {M.A(Label(map))} to {M.V(To(value))}, {tally}"
+            : value == TooBigVote ? $"You marked {M.A(Label(map))} {M.V("too big")} (a dislike; random picks take it 1 time in {Math.Round(1 / TooBigChance)}), {tally}"
+            : value == AdsVote ? $"You marked {M.A(Label(map))}: {M.V("ads")} (a dislike; never a random pick), {tally}"
+            : value == DownReasons.Plain ? $"You disliked {M.A(Clip(Label(map), PlainVoteLabel))}, {tally}. Why? {M.C("!down")} {M.V(DownReasons.Words)}"
+            : value < 0 ? $"You disliked {M.A(Label(map))}: {M.V(To(value))}, {tally}"
+            : $"You liked {M.A(Label(map))}, {tally}"));
     }
 
     const int PlainVoteLabel = 34; // a plain downvote's note names the map in this much, so "Why? ..." always fits the note line

@@ -110,6 +110,11 @@ trigger. A pasted Workshop link or id opens that item's card.
 One table in the code (`ChatCommands.All`), which `--selftest` holds this one to. `!help` lists the first column only. An alias runs the
 action, and its private reply teaches the primary by showing what ran: `You typed !map 12 - Ran !play 12`.
 
+Chat's colours help reading, and each means one thing: a command is Lime, and only what can be typed is one; an argument, what a command or a setting is about, is
+LightBlue; a value is Gold; a player's name has their team's colour; other words are the chat's own colour. A line that refuses is LightRed around those colours, a line that says
+it worked Green. For example `You typed !fun gravity low - Ran !gravity low` shows all three kinds of word apart, and `Unknown command !foo - !help lists them` is a refusal
+in which only `!help` is Lime. Every section of a line starts with a capital, and a line holds at most about 120 characters.
+
 | Command | What it does | Aliases |
 |---|---|---|
 | `!play <number, name or Workshop ID>` | Put a map to the vote, with your vote on it; while a vote is open, onto that ballot | `!map` `!p` `!nominate` `!load` `!go` `!pick` |
@@ -125,7 +130,7 @@ action, and its private reply teaches the primary by showing what ran: `You type
 | `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` |
 | `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
 | `!time <10\|60>` | Match length in minutes | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
-| `!restart` | Restart a stuck server - twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
+| `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
 | `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
 | `!help` | The Help page, and this list | `!commands` `!cmds` `!h` `!?` `!info` |
 | `!how` | How it works: every rule of the vote and every chance of a random pick | `!howitworks` `!odds` `!chances` `!why` `!explain` `!rules` `!rule` `!r` `!fair` `!howto` `!policy` |
@@ -271,7 +276,7 @@ anything else; and `random`, the lanes under the keys `armsrace-new`, `armsrace-
 ## Likes and dislikes
 
 **Like** and **Dislike** mark the map that is on, the arrows on any map's card: one mark per player per map. A mark steps: the opposite one on a marked map
-takes that mark back - to none - and says how to cast it ("Your dislike of #12 x is removed - like it again to add a like"); the next one casts it. The same one
+takes that mark back - to none - and says how to cast it ("Your dislike of #12 x is removed - Like it again to add a like"); the next one casts it. The same one
 again changes nothing and says so: repeating a mark never takes it back. Every place that shows a mark shows no mark as well. Marks live in `votes.json` in the
 bridge's data folder (the file keeps its name; "vote" means the vote for the next map alone); a file that does not parse is moved aside, never overwritten.
 

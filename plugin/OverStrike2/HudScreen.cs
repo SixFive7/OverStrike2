@@ -193,7 +193,11 @@ sealed partial class HudScreen
     /// <summary>A Workshop link or id pasted in chat: the menu on Maps, searching for it - its card if it is not on the list.</summary>
     public void OpenWorkshop(CCSPlayerController player, long id) => Menu(player, id.ToString());
 
-    void LocalNote(int slot, string text, double seconds = 8) => localNotes[slot] = (Hud.Clean(text, Messages.LineMax), DateTime.UtcNow.AddSeconds(seconds), Messages.You.Id);
+    /// <summary>The answer to this player's own click from the plugin itself: the line in their window, their chat and their board (Messages.Answer). text may carry marks (M).</summary>
+    void LocalNote(int slot, string text, double seconds = 8)
+    {
+        if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p) Post(Messages.Answer, text, Account(p), seconds: seconds);
+    }
 
     public void Spawned(CCSPlayerController player)
     {
@@ -428,7 +432,7 @@ sealed partial class HudScreen
             return;
         }
         if (!slots.WindowOpen(player.Slot)) return;
-        if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, "The vote for the next map is on - this closes when it is over"); Server.NextFrame(Frame); return; } // the vote's window stays
+        if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
         if (HudDash.Click(dash, buttonId, DashPages(player.Slot))) { Server.NextFrame(Frame); return; } // the Sync page's pagers
         if (buttonId == HudView.TabMaps && vote.Round > 0) { voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, false); Server.NextFrame(Frame); return; } // MAPS opens on its first page: the ballot while a vote is on
@@ -528,7 +532,7 @@ sealed partial class HudScreen
     /// <summary>Ask the bridge for what a click stands for; without a line to it, the player's note says so.</summary>
     void Act(CCSPlayerController player, long account, string command)
     {
-        if (bridge == null) LocalNote(player.Slot, "The menu has no line to the server right now - try again in a moment");
+        if (bridge == null) LocalNote(player.Slot, ChatReply.NoLine);
         else bridge.Act(account, player.PlayerName, command);
     }
 
@@ -710,22 +714,21 @@ sealed partial class HudScreen
     /// <summary>The open vote's highest number: a bare number above it stays plain chat.</summary>
     public int VoteHighest => vote.Highest;
 
-    /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat - the bridge's answer to that player has a chat copy of its own
-    /// (Messages.Answer). An alias's reply first teaches the primary.</summary>
+    /// <summary>A chat command, a frame after the line: what the menu's click would do, and the answer in chat, in its functional colours (Messages.CommandReply; the words are
+    /// ChatCommands' and ChatReply's) - the bridge's answer to that player has a chat copy of its own (Messages.Answer). An alias's reply first teaches the primary.</summary>
     public void Chat(CCSPlayerController player, ChatCommands.Parsed cmd)
     {
         var account = Account(player);
-        var now = DateTime.UtcNow;
-        void Say(string line) => player.PrintToChat(" " + Hud.Clean(line, ChatCommands.LineMax));
-        void Bridge(string command) => Act(player, account, command);
+        void Say(string line) => Post(Messages.CommandReply, Hud.Clean(line, 400), account);
+        void Bridge(string command) { Typed(account); Act(player, account, command); }
         if (ChatCommands.Teach(cmd) is { } taught) Say(taught);
         switch (cmd.Kind)
         {
             case ChatCommands.Kind.Bridge:
                 var action = cmd.Arg == "next" ? HudView.Command(HudView.BoardNext, state, vote) : cmd.Arg; // the board's Start a vote, as the board reads for this player
                 if (action == null && cmd.Arg == "next" && state is not { ChangeIn: >= 0 } && state is not { Loading: true }) action = cmd.Arg == "next" ? "!next" : cmd.Arg; // the wait after a vote: the bridge answers with the time left
-                if (action == null) { Say("Start a vote: Nothing to do while a map change is under way"); return; }
-                if (action == HudView.OpenVote) { Menu(player); Say("The vote for the next map is on - the menu shows it: click a card to vote"); return; }
+                if (action == null) { Say(ChatReply.ChangeUnderWay); return; }
+                if (action == HudView.OpenVote) { Menu(player); Say(ChatReply.VoteOn); return; }
                 Bridge(action);
                 return;
             case ChatCommands.Kind.Top:
@@ -737,11 +740,11 @@ sealed partial class HudScreen
             case ChatCommands.Kind.Page:
                 ShowFor(account, cmd.Arg);
                 if (cmd.Arg == "Fun") foreach (var line in ChatCommands.FunLines(mode.ArmsRace)) Say(line);
-                else if (cmd.Typed == "") Say($"The menu is open on {cmd.Arg}");
+                else if (cmd.Typed == "") Say(ChatReply.MenuOn(cmd.Arg));
                 return;
             case ChatCommands.Kind.Find:
                 Menu(player, cmd.Arg);
-                Say($"The menu's map browser is searching for \"{Hud.Clean(cmd.Arg, 40)}\"");
+                Say(ChatReply.Searching(cmd.Arg));
                 return;
             case ChatCommands.Kind.Play:
                 Play(player, account, cmd.Arg, Say, Bridge);
@@ -764,10 +767,10 @@ sealed partial class HudScreen
                 return;
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
-                if (!vote.Open || vote.Round <= 0) { Say("No vote is on - Start a vote, or put a map to the vote with !play"); return; }
+                if (!vote.Open || vote.Round <= 0) { Say(ChatReply.NoVote); return; }
                 if (vote.Numbered(k) is not { } numbered) { foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line); return; }
                 Bridge(MapVote.Click(vote.Round, numbered.N));
-                Say($"Your vote: {Hud.Clean(numbered.Label, 40)}");
+                Say(ChatReply.YourVote(numbered.Label));
                 return;
             case ChatCommands.Kind.VoteOnly:
                 foreach (var line in ChatCommands.VoteOnlyLines(vote.Highest)) Say(line);
@@ -793,8 +796,8 @@ sealed partial class HudScreen
     void Play(CCSPlayerController player, long account, string what, Action<string> say, Action<string> bridge)
     {
         var q = what.Trim();
-        if (WorkshopCard.IdOf(q) is { } wid && catalog?.Maps.All(m => m.Id != wid) == true && q.Length > 6) { OpenWorkshop(player, wid); say("Its card is open in the menu: Download and play"); return; }
-        if (catalog == null) { say("The map list is not loaded yet - try again in a moment"); return; }
+        if (WorkshopCard.IdOf(q) is { } wid && catalog?.Maps.All(m => m.Id != wid) == true && q.Length > 6) { OpenWorkshop(player, wid); say(ChatReply.CardOpen); return; }
+        if (catalog == null) { say(ChatReply.ListLoading); return; }
         var exact = catalog.Maps.FirstOrDefault(m => m.Arg.Equals(q, StringComparison.OrdinalIgnoreCase) || m.Id.ToString(CultureInfo.InvariantCulture) == q
             || m.Name.Equals(q, StringComparison.OrdinalIgnoreCase));
         if (exact != null) { bridge($"!map {HudMenu.PlayArg(exact, "", mode.Id)}"); return; } // in the mode a card's Play would load it in (B7)
@@ -803,7 +806,7 @@ sealed partial class HudScreen
         var hits = browser.Matches(catalog, account, search);
         if (hits.Count == 1) { bridge($"!map {HudMenu.PlayArg(hits[0], "", mode.Id)}"); return; }
         Menu(player, q);
-        say(hits.Count == 0 ? $"No map matches \"{Hud.Clean(q, 40)}\" - other words, a number, or a Workshop ID" : $"{hits.Count} maps match - the menu shows them: click Play on one");
+        say(hits.Count == 0 ? ChatReply.NoMatch(q) : ChatReply.Matches(hits.Count));
     }
 
     /// <summary>css_gghud show &lt;account&gt; &lt;page&gt;: the window on that page for that account, as if they had clicked their way there - for

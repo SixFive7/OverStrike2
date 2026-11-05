@@ -205,15 +205,18 @@ public static class Fun
     ];
 
     /// <summary>Why this choice may not be made with the other settings as they show now (a Clash): "Super jump cannot be High while Gravity
-    /// is Moon: together they throw players out of most maps". Null when it may.</summary>
-    public static string? Refusal(Setting s, Choice c, Func<string, string?> value)
+    /// is Moon: together they throw players out of most maps". Null when it may. The words alone, for every surface but chat.</summary>
+    public static string? Refusal(Setting s, Choice c, Func<string, string?> value) => RefusalLine(s, c, value) is { } line ? M.Plain(line) : null;
+
+    /// <summary>The same refusal with its functional parts marked (M): what chat says, and a message's one text (Post).</summary>
+    public static string? RefusalLine(Setting s, Choice c, Func<string, string?> value)
     {
         foreach (var x in Clashes)
         {
             var (mine, theirs, theirChoice) = x.Setting == s.Id && x.Choice == c.Id ? (true, x.Other, x.OtherChoice)
                 : x.Other == s.Id && x.OtherChoice == c.Id ? (true, x.Setting, x.Choice) : (false, "", "");
             if (mine && Find(theirs) is { } other && Showing(other, value).Id == theirChoice)
-                return $"{s.Title} cannot be {c.Label} while {other.Title} is {Showing(other, value).Label}: {x.Why}";
+                return M.Refused($"{M.A(s.Title)} cannot be {M.V(c.Label)} while {M.A(other.Title)} is {M.V(Showing(other, value).Label)}: {x.Why}");
         }
         return null;
     }

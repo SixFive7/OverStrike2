@@ -93,10 +93,10 @@ static partial class Program
             && ChatCommands.Parse("/PLAY de dust") is { Kind: ChatCommands.Kind.Play, Arg: "de dust" } && ChatCommands.Parse("!play") is { Kind: ChatCommands.Kind.Usage }
             && ChatCommands.Parse("!fun gravity low") is { Kind: ChatCommands.Kind.Fun, Arg: "gravity low" } && ChatCommands.Parse("!fun gravity") is { Kind: ChatCommands.Kind.Usage }
             && ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!vote 3") is { Kind: ChatCommands.Kind.Vote, Arg: "3" });
-        var help = ChatCommands.HelpLines();
+        var help = ChatCommands.HelpLines().Select(global::M.Plain).ToList(); // M here is this test's own map
         Check($"Chat: !help's list fits chat ({help.Count} lines, the longest {help.Max(l => l.Length)} of {ChatCommands.LineMax}) and names every command; every usage line fits",
             help.All(l => l.Length <= ChatCommands.LineMax) && ChatCommands.All.All(c => help.Any(l => l.Contains(c.Word)))
-            && ChatCommands.All.All(c => ChatCommands.UsageOf(c.Word).Length <= ChatCommands.LineMax) && ChatCommands.UnknownLine("!abcdefghijkl").Length <= ChatCommands.LineMax);
+            && ChatCommands.All.All(c => global::M.Plain(ChatCommands.UsageOf(c.Word)).Length <= ChatCommands.LineMax) && global::M.Plain(ChatCommands.UnknownLine("!abcdefghijkl")).Length <= ChatCommands.LineMax);
         Check("Chat: every page a command opens is a page of the menu", parsed.Where(x => x.Item2.Kind is ChatCommands.Kind.Page or ChatCommands.Kind.Commands)
             .All(x => Enum.TryParse<HudSlots.Page>(x.Item2.Arg, out _)));
 

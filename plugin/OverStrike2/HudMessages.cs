@@ -148,9 +148,12 @@ sealed partial class HudScreen
             foreach (var line in lines) p.PrintToChat(line);
     }
 
-    /// <summary>A name's colour in chat: its player's team's; none for a name nobody on the server has, or a spectator's.</summary>
-    static char? NameColour(string name) =>
-        Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && x.PlayerName == name) is { Team: CsTeam.Terrorist or CsTeam.CounterTerrorist } p ? ChatColors.ForTeam(p.Team) : null;
+    /// <summary>A name's colour in chat: its player's team's, the name whole or as a line clipped it (ChatCommands.IsName); none for a name nobody on the server has, or a spectator's.</summary>
+    static char? NameColour(string name)
+    {
+        var humans = Utilities.GetPlayers().Where(x => x is { IsValid: true, IsBot: false }).ToList();
+        return (humans.FirstOrDefault(x => x.PlayerName == name) ?? humans.FirstOrDefault(x => ChatCommands.IsName(name, x.PlayerName))) is { Team: CsTeam.Terrorist or CsTeam.CounterTerrorist } p ? ChatColors.ForTeam(p.Team) : null;
+    }
 
     /// <summary>The state as of this frame gets the plugin's own messages: the newest top line of the two, the banner, the Lately lines.</summary>
     void MergeMessages(HudState s, long nowMs)
@@ -169,12 +172,29 @@ sealed partial class HudScreen
         foreach (var (seq, account, text) in raw.Says.OrderBy(l => l.Seq))
         {
             if (seq <= lastSay) continue;
-            if (lastSay > 0) Say(text, account);
+            if (lastSay > 0) Say(Answered(account, text), account);
             lastSay = seq;
         }
         if (lastSay == 0) lastSay = 1;
         foreach (var c in raw.Centres) if (bridgeCentres.All(x => x.Seq != c.Seq)) bridgeCentres.Add(c);
     }
+
+    readonly Dictionary<long, DateTime> typedAt = new(); // account -> when a chat command of theirs last went to the bridge
+
+    /// <summary>How long after a typed command the bridge's line to that player counts as its answer.</summary>
+    const double TypedAnswerSeconds = 5;
+
+    /// <summary>A chat command of this account's goes to the bridge: what comes back in the next moments is a typist's answer (Answered).</summary>
+    void Typed(long account)
+    {
+        var now = DateTime.UtcNow;
+        typedAt[account] = now;
+        if (typedAt.Count > 256) foreach (var old in typedAt.Where(x => (now - x.Value).TotalSeconds > TypedAnswerSeconds).Select(x => x.Key).ToList()) typedAt.Remove(old);
+    }
+
+    /// <summary>A line of the bridge's as chat says it: a confirmation asks a click of a menu user, and of a player who just typed the command the same line again (ChatCommands.InChat).</summary>
+    string Answered(long account, string text) =>
+        account > 0 && typedAt.TryGetValue(account, out var at) && (DateTime.UtcNow - at).TotalSeconds <= TypedAnswerSeconds ? ChatCommands.InChat(text) : text;
 
     /// <summary>The held centre texts: sent again every CentreResendSeconds until their end. The window hides them, which costs nothing.</summary>
     public void CentreTick()
