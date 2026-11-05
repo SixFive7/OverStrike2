@@ -32,6 +32,7 @@ static class Lifetimes
     public static void Run()
     {
         OldLedger();
+        LeftBehind();
         FailedVersion();
         NoOpRuns();
         Tries();
@@ -62,7 +63,7 @@ static class Lifetimes
         O($"{{\"id\": \"{wid}\", \"verdict\": \"{verdict}\", \"reason\": \"the test\", \"level\": \"lvl\", \"load_s\": 1.0, \"mode\": \"armsrace\", \"bots\": 0}}");
 
     /// <summary>A fresh world: the listed maps on the bridge's list, a state with these records, the API steps due.</summary>
-    static SyncConfig World(string name, JsonObject items, JsonObject baseline, double lastApi)
+    static SyncConfig World(string name, JsonObject items, JsonObject baseline, double lastApi, IReadOnlySet<string>? unlisted = null)
     {
         Part2.FakeWorld();
         Part2.HumansNow[0] = 0;
@@ -72,10 +73,11 @@ static class Lifetimes
             (Path.Combine(root, "state"), Path.Combine(root, "work"), Path.Combine(root, "data"), Path.Combine(root, "game"), Path.Combine(root, "depot"), "", "");
         Directory.CreateDirectory(W.State);
         Directory.CreateDirectory(Data);
-        var maps = new JsonArray(items.Select((kv, i) => (JsonNode?)O($"{{\"rank\": {i + 1}, \"id\": {kv.Key}, \"name\": \"m{kv.Key}\", \"sizeMb\": 5}}")).ToArray());
+        var listed = items.Where(kv => unlisted is null || !unlisted.Contains(kv.Key)).ToList();
+        var maps = new JsonArray(listed.Select((kv, i) => (JsonNode?)O($"{{\"rank\": {i + 1}, \"id\": {kv.Key}, \"name\": \"m{kv.Key}\", \"sizeMb\": 5}}")).ToArray());
         File.WriteAllText(Path.Combine(Data, "maps.json"), Py.DumpsFile(maps, 1));
         File.WriteAllText(Path.Combine(Data, "broken.json"), Py.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
-        File.WriteAllText(Path.Combine(Data, "search.json"), Py.DumpsFile(new JsonObject(items.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
+        File.WriteAllText(Path.Combine(Data, "search.json"), Py.DumpsFile(new JsonObject(listed.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
         Json(Path.Combine(W.State, "state.json"), new JsonObject { ["schema"] = 1, ["items"] = items, ["baseline"] = baseline, ["downloads"] = new JsonObject(), ["last_api"] = lastApi });
         var cfg = Cfg();
         cfg.DownloadPause = 0;
@@ -115,6 +117,44 @@ static class Lifetimes
         var bad = new ApiLedger(path, 10000, C(fc));
         bad.Load();
         Check("old ledger: \"nights\" of another shape is still no ledger: no Web API call until it is fixed", bad.Broken is not null && bad.Data is null);
+    }
+
+    // ---- what a run of the deployed Python left in the state (all of these were in the real state file when it was stopped): a verdict whose
+    // publish never came, a map waiting for its test with its download gone, a map waiting for its test with its download there, running.json
+    static void LeftBehind()
+    {
+        var cfg = World("left-behind", new JsonObject
+        {
+            ["530"] = Listed(U1, ("status", "downloaded"), ("verdict", "nonmap"), ("decided", "2026-11-03"), ("detail", O("{\"kind\": \"pack\", \"detail\": \"only models\"}")),
+                             ("scan", O("{\"verdict\": \"pack\", \"maps\": [], \"models\": 9, \"files\": 9, \"names\": []}")), ("loads", new JsonArray())),
+            ["531"] = Listed(U1, ("status", "downloaded"), ("why", "changed"), ("downloaded", "2026-11-03"), ("loads", new JsonArray()),
+                             ("scan", O("{\"verdict\": \"map\", \"maps\": [\"lvl\"], \"models\": 0, \"files\": 1, \"names\": []}"))),
+            ["532"] = Listed(U1, ("status", "tested"), ("downloaded", "2026-11-03"), ("tests", 1), ("scan", O("{\"verdict\": \"map\", \"maps\": [\"lvl\"], \"models\": 0, \"files\": 1, \"names\": []}")),
+                             ("loads", new JsonArray(Load("532", "crash")))),
+            ["533"] = Listed(U1, ("status", "downloaded"), ("downloaded", "2026-11-05"), ("loads", new JsonArray())),
+        }, new JsonObject { ["531"] = U0, ["533"] = U1 }, T0, new HashSet<string> { "530", "532", "533" });
+        T.Put(Path.Combine(Work, "staging", "steamapps", "workshop", "content", "730", "533", "533_dir.vpk"), "x");
+        T.Put(Path.Combine(W.State, "running.json"), "{\"night\": \"2026-11-05\", \"phase\": \"downloads\", \"since\": \"then\", \"pid\": 7}");
+        Hooks.Check = (_, ids, _, _, _) => (ids.ToDictionary(i => i, i => Details(i, U1)), []);
+        var loads = new List<string>();
+        Hooks.TestLoad = (_, wid, _, _, _, _, _) =>
+        {
+            loads.Add(wid);
+            return Load(wid, "pass");
+        };
+        var report = W.Run(cfg, new FakeClock(T0 + 60), false).Run();
+        var st = Saved();
+        JsonNode? Field(string wid, string key) => Py.Get(Py.Get(st["items"], wid), key);
+        var packs = Py.Arr(((JsonObject)Read(Path.Combine(Data, "broken.json"))!)["packs"]).Select(p => Py.Str(p!["id"])).ToList();
+        Check($"left behind: a verdict whose publish never came is published, its folder long gone ({Py.Str(Field("530", "status"))}, packs {T.Show(packs)})",
+              Py.Str(Field("530", "status")) == "published" && packs.Contains("530") && !FakeSteam.Asked.Contains("530"));
+        Check($"left behind: a map waiting for its test, its download gone, is downloaded and tested after all ({Py.Str(Field("531", "status"))}, {T.Show(FakeSteam.Asked)})",
+              FakeSteam.Asked.Contains("531") && Py.Str(Field("531", "verdict")) == "pass" && Py.Int(Py.Get(st["baseline"], "531")) == U1);
+        Check($"left behind: ... also one that had a load already ({Py.Str(Field("532", "status"))}, {T.Show(FakeSteam.Asked)})", FakeSteam.Asked.Contains("532") && Py.Str(Field("532", "verdict")) == "pass");
+        Check($"left behind: a map waiting for its test with its download there is tested without a new one ({T.Show(loads)})",
+              !FakeSteam.Asked.Contains("533") && loads.Contains("533") && Py.Str(Field("533", "verdict")) == "pass");
+        Check("left behind: the run says nothing of these as errors", Py.Arr(report["errors"]).Count == 0);
+        Check("left behind: running.json goes: no run of the Python that wrote it is going, and this program writes none", !File.Exists(Path.Combine(W.State, "running.json")));
     }
 
     // ---- a listed map whose new version fails its test: tested once when it is seen, then at most once a day, and nothing waits in between
@@ -330,15 +370,23 @@ static class Lifetimes
         }
         T.Put(Path.Combine(folder, "notes.md"), "by hand");
         T.Put(Path.Combine(folder, "2026-10-30-1200.txt"), "a report without its json");
+        // the names older versions gave their reports, all of them older than any of the above, and the first test's, which is no report of the service's
+        foreach (var older in new[] { "2026-09-01", "2026-09-02-day", "2026-09-03-manual-0540" })
+        {
+            T.Put(Path.Combine(folder, older + ".json"), "{\"night\": \"2026-09-01\"}");
+            T.Put(Path.Combine(folder, older + ".txt"), "a report");
+        }
+        T.Put(Path.Combine(folder, "probe-2026-09-01-manual-0310.json"), "{\"night\": \"2026-09-01\"}");
         var run = W.Run(cfg, new FakeClock(T0));
         run.Ledger.Load();
         run.State.Load();
         run.Finish();
-        var json = Directory.GetFiles(folder, "*.json").Select(p => Path.GetFileNameWithoutExtension(p)!).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var json = Directory.GetFiles(folder, "*.json").Select(p => Path.GetFileNameWithoutExtension(p)!).Where(n => !n.StartsWith("probe", StringComparison.Ordinal)).OrderBy(n => n, StringComparer.Ordinal).ToList();
         var text = Directory.GetFiles(folder, "*.txt").Select(p => Path.GetFileNameWithoutExtension(p)!).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Check($"reports: a run's end leaves the newest {SyncRun.ReportsKept} with their texts, its own among them ({json.Count} and {text.Count})",
               json.Count == SyncRun.ReportsKept && text.Count == SyncRun.ReportsKept + 1 && File.Exists(Py.Str(run.Report["report_path"])) && !json.Contains("2026-10-01-0000"));
-        Check("reports: what is no report of a run is left alone", File.Exists(Path.Combine(folder, "notes.md")));
+        Check($"reports: the names older versions gave theirs go the same way ({json[0]})", !json.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)) && !text.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)));
+        Check("reports: what is no report of a run is left alone", File.Exists(Path.Combine(folder, "notes.md")) && File.Exists(Path.Combine(folder, "probe-2026-09-01-manual-0310.json")));
         Check($"reports: the status file's history can still start from them ({Status.SeedRuns(W.State, clock).Count} of {Status.Runs})",
               SyncRun.ReportsKept >= Status.Runs && Status.SeedRuns(W.State, clock).Count == Status.Runs);
     }

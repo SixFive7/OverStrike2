@@ -268,6 +268,8 @@ public sealed class SyncRun
         }
         RequeueSizeSkips();
         ClearLifetimeCounts();
+        RequeueLostDownloads();
+        ForgetRunningFile();
         var known = files.KnownIds(Cfg);
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
@@ -403,7 +405,7 @@ public sealed class SyncRun
             Phase("publish");
             var decided = new HashSet<string>(outcomes.Select(o => o.Id));
             foreach (var (wid, node) in State.Items)
-                if (!decided.Contains(wid) && node is JsonObject rec && Py.Truthy(rec["verdict"]) && Py.Str(rec["status"]) == "tested")
+                if (!decided.Contains(wid) && node is JsonObject rec && Py.Truthy(rec["verdict"]) && Py.Str(rec["status"]) is "tested" or "downloaded")
                     outcomes.Add(new Verdicts.Outcome(wid, Py.Str(rec["verdict"]), Py.Obj(rec["detail"]), rec));
             var before = Report["published"] as JsonObject;
             before = (JsonObject?)before?.DeepClone();
@@ -740,6 +742,40 @@ public sealed class SyncRun
         {
             State.Save();
             L($"queued again: {back.Count} map(s) failed by a count of every download of their life, not by three tries of one version");
+        }
+    }
+
+    /// <summary>A map that waits for its test with its download gone from the staging folder can never get a verdict: the work folder is disposable,
+    /// and a hand-over can take a staged map. It is downloaded again, or it would count as waiting for good. One with a verdict waits only for its
+    /// publish (the step after the tests takes it), which needs no folder.</summary>
+    public void RequeueLostDownloads()
+    {
+        var back = new List<string>();
+        foreach (var (wid, node) in State.Items)
+        {
+            if (node is not JsonObject rec || Py.Truthy(rec["verdict"]) || Py.Str(rec["status"]) is not ("downloaded" or "tested") || Staged(wid))
+                continue;
+            rec["status"] = "queued";
+            back.Add(wid);
+        }
+        if (back.Count > 0)
+        {
+            State.Save();
+            L($"queued again: {back.Count} map(s) waiting for their test with their download gone from the staging folder");
+        }
+    }
+
+    /// <summary>The Python sync kept &lt;state&gt;/running.json while a run was going, for anyone about to touch the server, and a killed run left it
+    /// behind. This program writes none and nothing reads it, so one that is here says a run is going that no longer is.</summary>
+    public void ForgetRunningFile()
+    {
+        try
+        {
+            File.Delete(Path.Combine(Cfg.StateDir, "running.json"));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            L($"running.json not removed: {e.Message}");
         }
     }
 
@@ -1536,14 +1572,15 @@ public sealed class SyncRun
         }
     }
 
-    /// <summary>Only the newest ReportsKept of reports/&lt;day&gt;-&lt;hhmm&gt;[-manual].json stay, with their .txt, the one just written among them;
-    /// anything else in the folder is not ours to delete. A failure here costs a little disk, never the run.</summary>
+    /// <summary>Only the newest ReportsKept of reports/&lt;day&gt;...json stay, with their .txt, the one just written among them. Every version's report
+    /// starts with its day, whatever followed it then (-&lt;hhmm&gt;[-manual], -manual-&lt;hhmm&gt;, -day, nothing); anything else in the folder is not ours to
+    /// delete. A failure here costs a little disk, never the run.</summary>
     void PruneReports(string folder, string own)
     {
         try
         {
             var old = Directory.EnumerateFiles(folder, "*.json").Select(p => Path.GetFileName(p)!)
-                .Where(n => n != own && Regex.IsMatch(n, @"^\d{4}-\d{2}-\d{2}-\d{4}(-manual)?\.json$")).OrderByDescending(n => n, StringComparer.Ordinal).Skip(ReportsKept - 1).ToList();
+                .Where(n => n != own && Regex.IsMatch(n, @"^\d{4}-\d{2}-\d{2}\b.*\.json$")).OrderByDescending(n => n, StringComparer.Ordinal).Skip(ReportsKept - 1).ToList();
             foreach (var name in old)
             {
                 File.Delete(Path.Combine(folder, name));
