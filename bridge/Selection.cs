@@ -26,15 +26,6 @@ static partial class Program
     /// <summary>What the new-maps buttons and !newmaps answer: the setting is gone, and what took its place.</summary>
     public const string NewMapsGoneNote = "The new-maps setting is gone: every vote now has a fresh Workshop map and a surprise new to us";
 
-    /// <summary>The owner's rule for the HUD update of 2026-10-22 (content v3_1_0 of item 3823993566): nobody may be kicked or kept out over
-    /// the HUD while the update waits for Valve's review or a player's game has not downloaded it. While this holds, the live state carries no
-    /// HUD-check proof, so the plugin's check never gets past a dry run (HudCheck.Effective) - it still shows "Click to play" and logs, and
-    /// disconnects nobody. **Lifted on 2026-10-24** (the item has been shown to everybody at every check since the update):
-    /// the proofs are served again, so HUD_CHECK=dryrun enforces on v3_0_0, whose first real click is on record - a player
-    /// not seen clicking on it gets "Click to play" and 90 s, then the steps in chat and the disconnect (HudCheck.cs). The plugin's own
-    /// interlocks stay: no disconnect while Steam does not show the item to everybody, nor while joiners are not made to download it.</summary>
-    public static readonly bool HudCheckHold = false;
-
     /// <summary>The Fun page's changes undone (the settings module's gg_fun reset, Fun.cs): every row back to its first choice - the grenade drops
     /// and catch-up too. They last until the map changes anyway; an empty server puts them back sooner, like the other settings.</summary>
     public const string FunResetCommand = Fun.ResetCommand + " \"the server\"";

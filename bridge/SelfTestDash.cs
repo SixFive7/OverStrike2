@@ -62,8 +62,10 @@ static partial class Program
             && Wd(d, "osdqrand") == "Stock on disk for the ballots: Arms Race 7/10  ·  Deathmatch 10/10  ·  Wingman 9/10"
             && Wd(d, "osdqshown") == "The next 25 of 3,845");
         var bgD = D(DashSample(updated), now, background: new Download("3900000002", 63, "Lake Aim", now));
-        Check("Sync page, the background download: while the restart watcher downloads in the background, the stock's line says it first - its title and progress - and the stock in short; nothing on the news line",
-            Wd(bgD, "osdqrand") == "Background download: Lake Aim, 63%  ·  stock on disk 26 of 30" && Wd(bgD, "osdqrand").Length < 120
+        Check("Sync page, the background download on a row of its own (osdqbg, lit by its class) beside the stock's line (osdqstock); the contents before v4_6_0 read both folded into one line (osdqrand); nothing on the news line",
+            Wd(bgD, "osdqbg") == "Background download: Lake Aim, 63%" && Cl(bgD, "osdqbg") && !Cl(d, "osdqbg") && Wd(d, "osdqbg") == ""
+            && Wd(bgD, "osdqstock") == Wd(d, "osdqrand") && Wd(d, "osdqstock") == Wd(d, "osdqrand")
+            && Wd(bgD, "osdqrand") == "Background download: Lake Aim, 63%  ·  stock on disk 26 of 30" && Wd(bgD, "osdqrand").Length < 120
             && Wd(D(DashSample(updated), now, background: new Download("3900000002", null, "", now)), "osdqrand").StartsWith("Background download: Workshop item 3900000002, starting"));
         Check("Sync page, the tags: a map's first why tag in words after its name, in the queue and the map events; a map without one as it was",
             D(DashSample(updated), now).Lists.Single(l => l.Name == HudDash.MapList).Rows.Any(r => r.Fields[2] == "event_map_1 (liked by us)  ·  Arms Race")
@@ -145,9 +147,9 @@ static partial class Program
             && HudDash.View(HudDash.Decode(empty.Encode()), new()).Classes.Single(x => x.Name == "osdqnone").On);
         var (nw, nc) = HudDash.View(null, new());
         Check("...and before the first block: one word that says so", nw.Single().Name == "osdstate" && nc.Single() == ("osdnone", true));
-        Check("The Sync tab and its pagers prove content v4_3_0, and the tab opens the Sync page; so does !sync, whose page needs no words of a newer content",
-            HudView.NewButtons43.All(b => HudView.LevelOfButton(b) == 43) && HudView.Tabs.Single(t => t.Id == HudDash.Tab).Page == HudSlots.Page.Sync
-            && ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync" } && HudVote.PageLevel("Sync") == 0);
+        Check("The Sync sub-tab opens the Sync page, under SERVER; so does !sync",
+            HudView.Tabs.Single(t => t.Id == HudDash.Tab).Page == HudSlots.Page.Sync && HudSlots.GroupOf(HudSlots.Page.Sync) == "server"
+            && ChatCommands.Parse("!sync") is { Kind: ChatCommands.Kind.Page, Arg: "Sync" });
 
         // ---- the website's data ----
         var web = SyncWords.WebStamped(SyncWords.Web(In(DashSample(updated), now), d, zone), now);
@@ -236,7 +238,8 @@ static partial class Program
         }
         foreach (var x in new[] { d, oldD, gone, broken, empty, unknownDisk, bgD }.Concat(SyncWords.States.Select(s => D(DashSample(updated, state: s.State), now)))) Take(x);
         Take(null);
-        var unlabelled = sentWords.Where(n => !labelled.Contains(n)).ToList();
+        string[] olderWords = ["osdqrand"]; // the stock's line with the background download folded in: the contents before v4_6_0 read it
+        var unlabelled = sentWords.Where(n => !labelled.Contains(n) && !olderWords.Contains(n)).ToList();
         var unfed = labelled.Where(n => !sentWords.Contains(n)).ToList();
         Check($"Sync page layout: every word the view can send has a label on the page ({sentWords.Count}){(unlabelled.Count > 0 ? ": none for " + string.Join(", ", unlabelled) : "")}", syncPage != "" && unlabelled.Count == 0);
         Check($"...every label on the page is fed ({labelled.Count}), and no osd word is used outside it{(unfed.Count > 0 ? ": never sent " + string.Join(", ", unfed) : "")}", unfed.Count == 0 && everywhere.SetEquals(labelled));
@@ -244,8 +247,8 @@ static partial class Program
         Check($"...every class it can send has a rule ({sentClasses.Count}){(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}", unstyled.Count == 0);
         Check($"...{sentClasses.Count} class names at most, well inside the 1,024 the game takes for the whole HUD", sentClasses.Count <= 160);
         var pageButtons = Regex.Matches(syncPage, @"<Button\b[^>]*\bid=""([^""]+)""").Select(m => m.Groups[1].Value).Append(HudDash.Tab).ToHashSet();
-        Check("...its buttons are exactly the tab and the pagers the plugin pages (HudDash.LayoutButtons), and nothing else on the page has an id",
-            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"gg-tab\">"));
+        Check("...its buttons are exactly the sub-tab and the pagers the plugin pages (HudDash.LayoutButtons), and nothing else on the page has an id",
+            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"gg-stab\">"));
         Check($"...a row for each line of a page: {SyncWords.QueueRows} in the queue, {SyncWords.RunRows} runs, {SyncWords.MapRows} map events",
             Regex.Matches(syncPage, @"class=""gg-dqrow gg-dq\d""").Count == SyncWords.QueueRows && Regex.Matches(syncPage, @"class=""gg-drrow gg-dr\d""").Count == SyncWords.RunRows
             && Regex.Matches(syncPage, @"class=""gg-dmrow gg-dm\d""").Count == SyncWords.MapRows);

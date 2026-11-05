@@ -1,5 +1,5 @@
-// --selftest, Over Strike 2's part (2026-11-01): why a map is broken (#8, #11) on the card and in the confirm, the maps that crash players'
-// games marked by themselves (#6), our maps (ours.json) and the catalog's two new fields.
+// --selftest, Over Strike 2's part: why a map is broken on the card and in the confirm, the maps that crash players' games marked by themselves,
+// our maps (ours.json), the catalog's two newer fields, the chat commands, the vote on the cards and the version classes.
 static partial class Program
 {
     static void Os2SelfTest(Action<string, bool> Check)
@@ -118,7 +118,7 @@ static partial class Program
         var was = MapVote.Numbers;
         MapVote.Numbers = MapVote.Numbering.None;
         var plain = HudVote.Cards(ballot, 1002, null);
-        Check("Numbering is one setting - none since the owner's 89 a: a card says Vote and its mode only, chat can type no number, the page line says click",
+        Check("Numbering is one setting - none: a card says Vote and its mode only, chat can type no number, the page line says click",
             was == MapVote.Numbering.None &&
             plain.Texts.Single(x => x.Id == "gg_m2_play_text").Text == "Vote" && plain.Texts.Single(x => x.Id == "gg_m2_rank").Text == "Deathmatch" && ballot.Typed(2) == null && ballot.Highest == 0
             && plain.Texts.Single(x => x.Id == "gg_pg_text").Text == "Click a card's Vote");
@@ -126,7 +126,7 @@ static partial class Program
         Check("...by place: the card's place on the ballot, and a typed number names the card in that place",
             ballot.Shown(ballot.Maps[1]) == 2 && ballot.Typed(1)?.N == 1 && ballot.Typed(2)?.N == 2 && ballot.Typed(3) == null && ballot.Highest == 2);
         MapVote.Numbers = MapVote.Numbering.Fixed;
-        Check("...fixed (as before the owner's 89 a): each card its own number, Random none", ballot.Shown(ballot.Maps[1]) == 2 && ballot.Typed(2)?.N == 2 && ballot.Random is { } rnd && ballot.Shown(rnd) == 0 && ballot.Highest == 2);
+        Check("...fixed: each card its own number, Random none", ballot.Shown(ballot.Maps[1]) == 2 && ballot.Typed(2)?.N == 2 && ballot.Random is { } rnd && ballot.Shown(rnd) == 0 && ballot.Highest == 2);
         MapVote.Numbers = was;
         // ---- a ballot of twelve cards and Random, called mid-match by a player: the most votes first, pages, Keep playing, a map added ----
         var big = new System.Text.StringBuilder("mode\tarmsrace\tArms Race\nmv\t1793600000\topen\t30\t4\t2\tmid\t1002\t1\n");
@@ -139,20 +139,41 @@ static partial class Program
         var second = HudVote.Cards(twelve, 1001, null, page: 1);
         string P(List<(string Id, string Text)> t, string id) => t.Single(x => x.Id == id).Text;
         bool C((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) d, string id, string cls) => d.Classes.Single(x => x.Id == id && x.Class == cls).On;
-        Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {HudMenu.Cards} - in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
+        Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {MapVote.PageCards} - in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
             twelve is { MatchEnded: false, Starter: 1002 } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "gg_m1_rank") == "Keep" && P(first.Texts, "gg_m1_play_text") == "Keep"
             && P(first.Texts, "gg_m1_name") == "Keep playing this map" && P(first.Texts, "gg_m1_size") == "#5 aim_on"
             && P(first.Texts, "gg_m2_name") == "#77 aim_added" && P(first.Texts, "gg_m2_votes").Contains("picked by Cara") && P(first.Texts, "gg_m2_play_text") == "Your vote"
-            && P(first.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && C(first, HudView.Screen, "vpages") && C(first, HudView.Screen, "vmore") && !C(first, HudView.Screen, "vback")
-            && first.Vars.Single(x => x.Name == HudVote.MoreVar).Text == "4 more maps on the next page" && C(first, HudBrowser.PrevButton, "off") && !C(first, HudBrowser.NextButton, "off")
-            && P(second.Texts, "gg_m4_name") == "#31 map_11" && P(second.Texts, "gg_m5_name") == "" && !C(second, HudView.Screen, "vmore") && C(second, HudView.Screen, "vback")
-            && C(second, HudBrowser.NextButton, "off") && C(second, "gg_m3", "mode-wingman"));
+            && P(first.Texts, "gg_m2_who") == "9 MB  ·  picked by Cara" && P(first.Texts, "gg_m2_score") == "1" && P(first.Texts, "gg_m10_name") == "#29 map_9"
+            && P(first.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 2 more on the next page" && C(first, HudView.Screen, "vpages") && C(first, HudView.Screen, "vmore") 
+            && first.Vars.Single(x => x.Name == HudVote.MoreVar).Text == "2 more maps on the next page" && C(first, HudBrowser.PrevButton, "off") && !C(first, HudBrowser.NextButton, "off")
+            && P(second.Texts, "gg_m2_name") == "#31 map_11" && P(second.Texts, "gg_m3_name") == "" && !C(second, HudView.Screen, "vmore") 
+            && C(second, HudBrowser.NextButton, "off") && C(second, "gg_m1", "mode-wingman"));
         Check("...a page's card k is that page's option, the pager moves this player alone, and a card's page follows its votes",
-            HudVote.Click(twelve, "gg_m2_play", 1) == "!mv 1793600000 9" && HudVote.Click(twelve, "gg_m2_play", 0) == "!mv 1793600000 12" && HudVote.Click(twelve, "gg_m5_play", 1) == null
+            HudVote.Click(twelve, "gg_m2_play", 1) == "!mv 1793600000 11" && HudVote.Click(twelve, "gg_m2_play", 0) == "!mv 1793600000 12" && HudVote.Click(twelve, "gg_m3_play", 1) == null
             && HudVote.PageClick(twelve, HudBrowser.NextButton, 0) == 1 && HudVote.PageClick(twelve, HudBrowser.NextButton, 1) == 1 && HudVote.PageClick(twelve, HudBrowser.FirstButton, 1) == 0
             && HudVote.PageClick(twelve, HudBrowser.LastButton, 0) == 1 && HudVote.PageClick(twelve, "gg_m1_play", 0) == null && HudVote.PageOf(twelve, 12) == 0 && HudVote.PageOf(twelve, 11) == 1
             && HudVote.Click(twelve, HudVote.RandomButton) == $"!mv 1793600000 {MapVote.RandomOption}" && HudVote.BrowseLine(twelve).Contains("30 s left"));
-        // ---- where the votes go - bars, voters, the leader or a tie, the strip, the waiting line; a risky map's record on its card (the owner's 53) ----
+        // ---- a game known to hold a content before v4_6_0 has eight cards: its pages are of eight, so its pager reaches every option ----
+        var old8 = HudVote.CardsFor(HudCheck.Older);
+        var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: old8);
+        var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: old8);
+        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {Hud.Content} (older, or v4_5_0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
+            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4_5_0") == HudBrowser.PerPage && new[] { Hud.Content, "v4_7_0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
+            && HudVote.Pages(twelve, old8) == 2 && !C(oldFirst, "gg_m9", "used") && C(oldFirst, "gg_m8", "used") && P(oldFirst.Texts, "gg_m9_name") == ""
+            && P(oldFirst.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "gg_m1_name") == P(first.Texts, "gg_m9_name")
+            && HudVote.Click(twelve, "gg_m1_play", 1, -1, null, old8) == MapVote.Click(twelve.Round, twelve.Maps[old8].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, old8) == 1
+            && HudVote.Order(twelve, 1, old8).Length == 12 - old8 && HudVote.PageOf(twelve, twelve.Maps[old8].N, old8) == 1 && HudVote.Thumbs(twelve, null, 1, old8).Count(x => x.Classes.Length > 0) == 0);
+        // ---- a click counts against the order that player saw: the cards re-sort as votes come in ----
+        var before = HudVote.Order(twelve, 0);
+        var resorted = VoteState.Decode(big.ToString());
+        resorted.Options.Reverse(0, 2); // the added map now leads: card 1 shows it, card 2 Keep
+        var after = HudVote.Order(resorted, 0);
+        Check($"A card's click counts for the map the player saw on it: against the order drawn before a re-sort for {HudVote.ReSortSeconds} s, the newest after; a map the vote dropped counts for nothing",
+            before[0] == 1 && before[1] == 12 && after[0] == 12 && after[1] == 1
+            && HudVote.Click(resorted, "gg_m1_play", 0, 1003, before) == "!mv 1793600000 1" && HudVote.Click(resorted, "gg_m1_play", 0, 1003, after) == "!mv 1793600000 12"
+            && HudVote.Click(resorted, "gg_m1_play", 0, 1003) == "!mv 1793600000 12" && HudVote.Click(resorted, "gg_m1_play", 0, 1003, [42]) == null
+            && HudVote.Click(resorted, "gg_m2_play", 0, 1001, before) == "!mv 1793600000 0");
+        // ---- where the votes go - bars, voters, the leader or a tie, the strip, the waiting line; a risky map's record on its card ----
         var spread = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800000\topen\t25\t5\t4\tend\t0\t1\n"
             + "mvo\t1\tarmsrace\tpicked\t12\t3084291312\t#12 aim_x\t17 MB\t2\tAlice\nmvo\t2\tdeathmatch\trolled\tde_dust2\tde_dust2\tde_dust2 (official)\t\t1\t\n"
             + "mvo\t3\twingman\trolled\tde_nuke\tde_nuke\tde_nuke (official)\t\t0\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t1\t\n"
@@ -171,9 +192,19 @@ static partial class Program
             && SC(HudVote.Segment(2), "mode-deathmatch") && SV(HudVote.StripVar(2)) == $"{Hud.Clean("de_dust2 (official)", 12)}  ·  1" && SC(HudVote.Segment(3), "vrand") && SV(HudVote.StripVar(3)) == "Random  ·  1"
             && !SC(HudVote.Segment(4), "used") && SC(HudView.Screen, "vstrip") && SV(HudVote.WaitVar) == "Waiting for: Eve"
             && HudVote.Cards(spread, 1001, null).Texts.Single(x => x.Id == "gg_m_count").Text.Contains("waiting for Eve"));
-        Check("...a risky map's record on its ballot card for everybody (the owner's 53): the strip's words and its classes, from the catalog; none on a card the catalog has nothing against",
+        Check("...a risky map's record on its ballot card for everybody: the strip's words and its classes, from the catalog; none on a card the catalog has nothing against",
             sp.Texts.Single(x => x.Id == "gg_m1_warn").Text == "Broken: crashed 3/3 test loads" && SC("gg_m1", "risky") && SC("gg_m1", "broken")
-            && sp.Texts.Single(x => x.Id == "gg_m2_warn").Text == "" && !SC("gg_m2", "risky") && HudVote.UnqueueButton(1) == "gg_m1_unq" && HudView.LevelOfButton("gg_m1_unq") == 45);
+            && sp.Texts.Single(x => x.Id == "gg_m2_warn").Text == "" && !SC("gg_m2", "risky"));
+        Check("...the names a card shows while the mouse is on it: every voter, longer than the chips the older contents show (HoverVar beside VotersVar)",
+            SV(HudVote.HoverVar(1)) == "Alice  ·  Cara" && SV(HudVote.HoverVar(3)) == "" && HudVote.HoverNames > HudVote.CardNames
+            && HudVote.Names(Enumerable.Range(1, 12).Select(i => $"Player {i}").ToList(), HudVote.HoverNames).Length <= HudVote.HoverNames);
+        var picked = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800009\topen\t25\t2\t1\tmid\t1001\t1\n"
+            + "mvo\t1\tarmsrace\tpicked\t12\t3084291312\t#12 aim_x\t17 MB\t1\tAlice\tpicked,big,liked,upload,updated,trending\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\n");
+        var pk = HudVote.Cards(picked, 1001, null);
+        bool PK(string cls) => pk.Classes.Single(x => x.Id == "gg_m1" && x.Class == cls).On;
+        Check("Every tag on a ballot card: the cautions and the pick on the classes every content has (big, queued), the rest as t-* - a new upload updated since shows both",
+            PK("queued") && PK("big") && !PK("ads") && PK("t-liked") && PK("t-upload") && PK("t-updated") && PK("t-trending") && !PK("t-toprated") && !PK("t-newtous")
+            && HudVote.TagClasses.All(c => MapTags.Find(c[2..]) != null));
         var tie = VoteState.Decode("mode\tarmsrace\tArms Race\nmv\t1793800001\topen\t25\t2\t2\tend\t0\t1\nmvo\t1\tarmsrace\trolled\t5\t3084291305\t#5 a\t\t1\t\nmvo\t2\tarmsrace\trolled\t6\t3084291306\t#6 b\t\t1\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\nmvv\t1001\t1\nmvv\t1002\t2\n");
         var tc = HudVote.Cards(tie, 1001, null);
         Check("A tie shows as a tie: both tied cards and their segments tagged, no leader; everybody voted: the waiting line says so",
@@ -195,18 +226,19 @@ static partial class Program
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
         var levels = HudVote.VersionClasses();
-        Check($"The version check: content {Hud.Content} is level {HudVote.ContentLevel}; each level from {HudVote.FirstLevel} to {HudVote.LastLevel} has exactly one of svge/svlt on",
-            Hud.Content == $"v{HudVote.ContentLevel / 10}_{HudVote.ContentLevel % 10}_0"
-            && Enumerable.Range(HudVote.FirstLevel, HudVote.LastLevel - HudVote.FirstLevel + 1).All(k => levels.Count(x => x.Class == $"svge{k}" && x.On) + levels.Count(x => x.Class == $"svlt{k}" && x.On) == 1)
-            && levels.Single(x => x.Class == $"svge{HudVote.ContentLevel}").On && levels.Single(x => x.Class == $"svlt{HudVote.ContentLevel + 1}").On
-            && HudVote.OldHudNote.Length <= NoticeLength);
+        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; the contents v4_0_0 to v4_5_0 still read their svge/svlt, each level exactly one of them",
+            Hud.Content == $"v{HudVote.ContentLevel / 10}_{HudVote.ContentLevel % 10}_0" && HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel
+            && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVote.ContentLevel}"
+            && Enumerable.Range(HudVote.OldFirst, HudVote.OldLast - HudVote.OldFirst + 1).All(l => levels.Single(x => x.Class == $"svge{l + 1}").On && !levels.Single(x => x.Class == $"svlt{l}").On)
+            && HudVote.VersionClasses(HudVote.OldFirst).Single(x => x.Class == $"svlt{HudVote.OldFirst + 1}").On && levels.All(x => x.Id == HudView.Global));
         if (File.Exists(HudStyleFile))
         {
             var css = File.ReadAllText(HudStyleFile);
             var xml = File.ReadAllText(HudLayoutFile);
-            Check($"The version check in this layout ({Hud.Content}): the older banner under svge{HudVote.ContentLevel + 1}, the newer one under svlt{HudVote.ContentLevel}, the older HUD's note hidden (vold), its own version in its words",
-                css.Contains($".gg-global.svge{HudVote.ContentLevel + 1} .gg-screen.vjoin .gg-ver-old") && css.Contains($".gg-global.svlt{HudVote.ContentLevel} .gg-screen.vjoin .gg-ver-new")
-                && css.Contains(".gg-screen.vold .gg-note") && xml.Contains($"Your HUD is {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}"));
+            var banners = Enumerable.Range(HudVote.ContentLevel + 1, HudVote.LatestLast - HudVote.ContentLevel).ToList();
+            Check($"The outdated banner in this layout ({Hud.Content}): persistent under latest-{HudVote.ContentLevel + 1} ... latest-{HudVote.LatestLast}, never under its own level or below; its own version and the server's in its words",
+                banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVote.ContentLevel} ") && !css.Contains(".gg-screen.vjoin")
+                && xml.Contains($"yours {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {Hud.Content}"));
         }
         (S, Broken, BrokenReasons) = (sBefore, brokenBefore, reasonsBefore);
         try { Directory.Delete(StateDir, true); } catch (IOException) { }

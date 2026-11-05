@@ -278,6 +278,9 @@ static partial class Program
     static bool IsFreshUpdate(MapInfo m) => !m.Official && WorkshopInfo.TryGetValue(Key(m), out var w) && w.Updated > 0 && NowUnix - w.Updated <= FreshDays * 86400L
         && w.ContentPassed && !IsNewUpload(m);
 
+    /// <summary>A new upload whose Workshop copy changed after it went up, the change tested by our sync: its tags say NEW UPLOAD and UPDATED.</summary>
+    static bool UpdatedSinceUpload(MapInfo m) => IsNewUpload(m) && WorkshopInfo.TryGetValue(Key(m), out var w) && w.Updated > w.Created && w.ContentPassed;
+
     /// <summary>A fresh map: a new Workshop upload, or a recent update our sync has tested.</summary>
     static bool IsFresh(MapInfo m) => IsNewUpload(m) || IsFreshUpdate(m);
 
@@ -300,7 +303,7 @@ static partial class Program
         if (IsOurs(m)) tags.Add(MapTags.Ours);
         if (up > 0 && up > down) tags.Add(MapTags.Liked);
         if (IsNewUpload(m)) tags.Add(MapTags.Upload);
-        else if (IsFreshUpdate(m)) tags.Add(MapTags.Updated);
+        if (IsFreshUpdate(m) || UpdatedSinceUpload(m)) tags.Add(MapTags.Updated); // a new upload updated since shows both
         if (k.Trend.Contains(key)) tags.Add(MapTags.Trending);
         if (k.TopRated.Contains(key)) tags.Add(MapTags.TopRated);
         if (k.MostSubscribed.Contains(key)) tags.Add(MapTags.Popular);

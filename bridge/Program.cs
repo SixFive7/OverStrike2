@@ -21,7 +21,7 @@ static partial class Program
     static readonly bool RandomOnStart = Env("RANDOM_ON_START", "1") is "1" or "true" or "yes", // roll a map when a new server process has loaded its start map
         GuideOnJoin = Env("GUIDE_ON_JOIN", "1") is "1" or "true" or "yes";                         // ask the plugin to show the guide on every real join
     static HudTab.Mode HudTabMode = HudTab.Parse(Env("HUD_TAB", HudTab.Name(HudTab.Default))); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
-    static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "off")); // the HUD check (HudCheck.cs): off, dryrun (turns into enforce at the first real click on a release), enforce
+    static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "off")); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce
     static readonly HashSet<long> Admins = Env("ADMIN_STEAMIDS", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(AccountId).ToHashSet();
     static readonly List<MapInfo> Officials = Env("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night") // installed on the server, loaded with changelevel
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
@@ -108,7 +108,7 @@ static partial class Program
     static void Handle(HttpListenerContext c)
     {
         var path = c.Request.Url?.AbsolutePath;
-        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(); Reply(c, HudText); return; } // the HUD plugin, once a second
+        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(Draws(c.Request.Url?.Query)); Reply(c, HudText); return; } // the HUD plugin, once a second
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
@@ -185,11 +185,15 @@ static partial class Program
     static long hudPolledTicks;                              // when the plugin last asked for it (UTC ticks, written by the HTTP thread)
     const int HudActiveSeconds = 15;
 
-    /// <summary>A HUD plugin is polling: GUNGAME_HUD_ADDON is set on the game server and its plugin is alive. While it is, the HUD shows
-    /// the map-change countdown and the now-playing card, so chat is spared the per-second countdown and the banner.</summary>
+    /// <summary>A plugin that draws the HUD is polling: the HUD addon is set on the game server and its plugin is alive. While it is, the vote opens
+    /// at a match end (somebody sees the ballot) and the HUD shows the map-change countdown and the now-playing card. A plugin that runs undrawn
+    /// polls with draw=0 and does not count: nobody would see a ballot that freezes everybody.</summary>
     static Func<bool> HudActive = () => DateTime.UtcNow.Ticks - Interlocked.Read(ref hudPolledTicks) < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
 
-    static void HudPolled() => Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.Ticks);
+    static void HudPolled(bool draws) { if (draws) Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.Ticks); }
+
+    /// <summary>Whether a poll's query says its plugin draws the HUD: draw=0 does not; draw=1 and a poll without the word (an older plugin) do.</summary>
+    static bool Draws(string? query) => !(query ?? "").TrimStart('?').Split('&').Contains($"{Hud.DrawQuery}=0");
 
     static void RefreshHud()
     {
@@ -279,21 +283,33 @@ static partial class Program
         return true;
     }
 
-    /// <summary>A click in the HUD window (any button): that player's game has release <paramref name="release"/> loaded. Kept per
-    /// SteamID for good; the first one on a release is the proof that real clicks reach the server, which turns a dry run into
-    /// enforcement on that release (HudCheck.Effective). Only the plugin's OnCustomHudClicked sends it - typing it in chat does nothing.</summary>
-    static void HudVerify(string steamId, string name, string release)
+    /// <summary>The HUD check's verifications, in memory and per connection: SteamID -> the HUD its game showed (HudCheck.IsVersionWord). A real join
+    /// and a real departure forget the player (OnJoin, Depart): a reconnecting player may have a new HUD. The live state carries the players on the
+    /// server only; nothing of it is written to a file.</summary>
+    static readonly Dictionary<string, string> HudSeen = new();
+
+    /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4_6_0), Older (an
+    /// older content's gold button), or Hud.Release (which one not known: another button, or a plugin before v4_6_0, which sends its release). A
+    /// known version is never forgotten for an unknown one. The first click after a real join says on the news line which HUD the player brought,
+    /// and an outdated HUD gets that player a note. Only the plugin's OnCustomHudClicked sends it - typing it in chat does nothing.</summary>
+    static void HudVerify(string steamId, string name, string version)
     {
-        var account = AccountId(steamId);
-        if (account <= 0) return;
-        var again = S.HudVerified.GetValueOrDefault(account) == release;
-        S.HudVerified[account] = release;
-        var proof = !S.HudProofs.ContainsKey(release);
-        if (proof) S.HudProofs[release] = $"{name} {steamId} {Now().ToLocalTime():yyyy-MM-dd HH:mm}";
-        if (!again || proof) Save();
-        if (proof) Log($"hud check: {name} {steamId} clicked in the HUD - the first real click on {release}" +
-            (HudCheckMode == HudCheck.Mode.DryRun ? ": the dry run is over on this release - the plugin enforces it once Steam shows the HUD item to everybody" : $" (HUD_CHECK={HudCheck.Name(HudCheckMode)})"));
-        else if (!again) Log($"hud check: {name} {steamId} verified on {release}");
+        if (AccountId(steamId) <= 0) return;
+        var had = HudSeen.GetValueOrDefault(steamId);
+        if (had != null && (had == version || version == Hud.Release)) return;
+        HudSeen[steamId] = version;
+        var known = version != Hud.Release;
+        Log($"hud check: {name} {steamId} verified{(known ? $", HUD {version}" : "")}");
+        if (!known) return;
+        Announce($"{Clip(name, 32)} joined with {(version == HudCheck.Older ? "an older HUD" : $"HUD {version}")}", 6);
+        if (HudCheck.IsOutdated(version)) Tell(steamId, HudCheck.OutdatedNote(version), 20);
+    }
+
+    /// <summary>The verifications of the players on the server, as the live state carries them: account -> the HUD its game showed.</summary>
+    static Dictionary<long, string> HudVerifiedNow(DateTime now)
+    {
+        var present = PresentIds(now);
+        return HudSeen.Where(kv => present.Contains(kv.Key) && AccountId(kv.Key) > 0).ToDictionary(kv => AccountId(kv.Key), kv => kv.Value);
     }
 
     /// <summary>A server token the bridge has not seen: logged, nothing more. CS2 does not renew the token per process (one value,
@@ -455,6 +471,7 @@ static partial class Program
         var first = S.Seen.Add(e.SteamId);
         if (first) Save();
         if (!fresh && !first) return;
+        HudSeen.Remove(e.SteamId); // a real join: the HUD check asks again (it may be a new HUD)
         if (GuideOnJoin) ShowGuide(e.SteamId, first);
     }
 
@@ -748,7 +765,9 @@ static partial class Program
         };
         if (want == 0) { Tell(steamId, $"Matches are {ShortRoundMinutes} or {DefaultRoundMinutes} minutes"); return; }
         if (want == S.RoundMinutes) { Tell(steamId, $"Matches are already {want} minutes"); return; }
-        S.RoundMinutes = want; Save();
+        S.RoundMinutes = want;
+        S.RoundBy = want == DefaultRoundMinutes ? null : Clip(by, 32); // the Game page says who set a length that is not the default
+        Save();
         ApplyMatchLength();
         Announce($"{by} set matches to {want} minutes - from the next match");
     }
@@ -1199,8 +1218,7 @@ sealed class State
     public HashSet<string> Seen { get; set; } = new();
     public int RoundMinutes { get; set; } = Program.DefaultRoundMinutes;   // survives restarts; re-applied after every map load
     public List<MapInfo> History { get; set; } = new();  // maps played, oldest first, at most 20: !previous and the dice's recent-map rule
-    public Dictionary<long, string> HudVerified { get; set; } = new(); // account id -> the HUD release it last clicked in (HudCheck)
-    public Dictionary<string, string> HudProofs { get; set; } = new(); // HUD release -> its first real click (who, when): a dry run is enforced there
+    public string? RoundBy { get; set; }              // who set a match length that is not the default
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
     public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (BrokenWhy.cs)
     public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (RandomQueue.cs)

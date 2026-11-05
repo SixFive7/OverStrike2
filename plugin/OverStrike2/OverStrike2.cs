@@ -36,6 +36,7 @@ public class OverStrike2Plugin : BasePlugin
     Nades? nades;            // the grenade drops
     Settings? settings;      // a map's settings put back, the game-changers block, the fun page's changes and effects
     Effects? effects;        // the fun page's effects Vampire, Ghost and no recoil
+    Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), gg_cloak's
     CatchUp.CatchUpModule? catchUp; // the Arms Race catch-up boosts
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race
@@ -66,10 +67,16 @@ public class OverStrike2Plugin : BasePlugin
         RegisterConsoleCommandAttributeHandlers(settings);
         nades = new Nades(this, Logger, () => settings.EffectOn(Fun.Drops));
         nades.Load();
-        effects = new Effects(this, Logger, settings.EffectOn);
+        cloak = new Cloak(this, Logger);
+        cloak.Load();
+        effects = new Effects(this, Logger, settings.EffectOn, cloak);
         effects.Load();
         freeze = new VoteFreeze(this, Logger, () => hud);
         freeze.Load(); // before catch-up: its damage hook has the first word while everybody is frozen
+        // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window, the vote's freeze and the mode the map
+        // loaded in: not in Wingman, which has no respawns. It lives on in the handlers it registers.
+        new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true,
+            () => settings?.Mode.Id != Modes.WingmanId).Load();
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // The Arms Race-only features follow the mode the map that is on was loaded in (os_mode; docs/reference.md) and, the grenade drops and
@@ -104,6 +111,7 @@ public class OverStrike2Plugin : BasePlugin
 
     public override void Unload(bool hotReload)
     {
+        cloak?.Unload(); // nobody stays hidden by an instance that is gone
         freeze?.Unload();
         hud?.Unload();
     }

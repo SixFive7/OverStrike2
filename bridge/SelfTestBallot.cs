@@ -215,8 +215,8 @@ static partial class Program
             var freshKey = fresh?.Map is { } fk ? Key(fk) : "";
             var others = b.Options.Where(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).ToList();
             Console.WriteLine("recipe: " + string.Join(" | ", b.Options.Select(o => $"{o.N}. {OptionLabel(b, o)} ({o.Order}, {o.Tags})")));
-            Check($"Four on, nobody's pick: Keep, a fresh map, a surprise, three favourites, one Deathmatch and one Wingman map - the page's {MapVote.PageCards} - and Random",
-                b.Options.Count == MapVote.PageCards + 1 && b.Options[0].Source == VoteSource.Keep && fresh != null && surprise != null && favourites.Count == 3
+            Check($"Four on, nobody's pick: Keep, a fresh map, a surprise, {MapVote.PageCards - 5} favourites, one Deathmatch and one Wingman map - the page's {MapVote.PageCards} - and Random",
+                b.Options.Count == MapVote.PageCards + 1 && b.Options[0].Source == VoteSource.Keep && fresh != null && surprise != null && favourites.Count == MapVote.PageCards - 5
                 && others.Select(o => o.Mode.Id).SequenceEqual([Modes.DeathmatchId, Modes.WingmanId]) && b.Options[^1].Source == VoteSource.Random
                 && b.Options.Take(MapVote.PageCards).Select(o => o.N).SequenceEqual(Enumerable.Range(1, MapVote.PageCards)));
             Check("...the fresh card a recent upload or tested update on the disk; the surprise the stock's first downloaded entry, new to us; the favourites and the other modes' cards kept maps on the disk",
@@ -249,8 +249,8 @@ static partial class Program
             ClearNotices();
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(5))}");
             b = Ballot!;
-            Check("A pick of a fresh map: no second fresh card - Keep, the pick, a surprise, three favourites and the other modes",
-                b.Options.All(o => o.Order != FreshOrder) && b.Options.Count(o => o.Order == SurpriseOrder) == 1 && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == 3
+            Check($"A pick of a fresh map: no second fresh card - Keep, the pick, a surprise, {MapVote.PageCards - 5} favourites and the other modes",
+                b.Options.All(o => o.Order != FreshOrder) && b.Options.Count(o => o.Order == SurpriseOrder) == 1 && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == MapVote.PageCards - 5
                 && b.Options.Single(o => o.Source == VoteSource.Picked).Tags.StartsWith("picked,upload"));
             Check("...and the news line says who put it on and why it is there: \"P1 put #5 ar_5 (a recent Workshop upload) to the vote\"", Said($"P1 put {Label(Ar(5))} (a recent Workshop upload) to the vote"));
 
@@ -262,30 +262,31 @@ static partial class Program
             FillStock(); // the stock rolled, but no report says any of it is on the disk
             StartVote(players[0].Item1, players[0].Item2);
             b = Ballot!;
-            Check("No fresh map on the disk and the stock not downloaded yet: the fresh card and the surprise are favourites too - five kept maps of the mode, nobody waits for a download",
-                b.Options.All(o => o.Order is not (FreshOrder or SurpriseOrder)) && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == 5
+            Check($"No fresh map on the disk and the stock not downloaded yet: the fresh card and the surprise are favourites too - {MapVote.PageCards - 3} kept maps of the mode, nobody waits for a download",
+                b.Options.All(o => o.Order is not (FreshOrder or SurpriseOrder)) && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == MapVote.PageCards - 3
                 && b.Options.Where(o => o.Source == VoteSource.Rolled).All(o => KeptOnDisk(o.Map!)));
 
             // ---- picks while the vote is open: the favourites make room first, then the surprise, the fresh card last; the other modes keep their place ----
             Fresh();
-            foreach (var p in players) Join(p); // nine on: no Wingman card; P8 and P9 never vote, so the vote stays open
+            foreach (var p in players) Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open whoever votes
             ReportAllStock();
             StartVote(players[8].Item1, players[8].Item2);
             b = Ballot!;
             var order = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).OrderByDescending(o => o.Order).Select(o => o.Order).ToList();
             var dm = b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled);
             var replaced = new List<int>();
-            var extra = Maps.Skip(150).Where(x => b.Options.All(o => o.Map != x)).Take(7).ToList();
-            for (var i = 0; i < 7; i++)
+            var picks = MapVote.PageCards - 1; // one more than the random cards of the mode: the last one opens a second page
+            var extra = Maps.Skip(150).Where(x => b.Options.All(o => o.Map != x)).Take(picks).ToList();
+            for (var i = 0; i < picks; i++)
             {
                 var room = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).Select(o => o.Order).ToHashSet();
                 Command(players[i].Item1, players[i].Item2, $"!map {ArgOf(extra[i])}");
                 replaced.AddRange(room.Where(r => b.Options.All(o => o.Order != r)));
             }
-            Check($"Seven picks during the vote: each takes the place of a random card nobody voted for - the favourites first (the last rolled first), then the surprise, the fresh card last ({string.Join(", ", replaced)})",
-                order.Count == 6 && replaced.SequenceEqual(order) && order[^2] == SurpriseOrder && order[^1] == FreshOrder);
-            Check("...the Deathmatch card keeps its place and number; the seventh pick, with no random card of the mode left, opens a second page",
-                b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && b.Options.Count(o => o.Source == VoteSource.Picked) == 7
+            Check($"{picks} picks during the vote: each takes the place of a random card nobody voted for - the favourites first (the last rolled first), then the surprise, the fresh card last ({string.Join(", ", replaced)})",
+                order.Count == MapVote.PageCards - 2 && replaced.SequenceEqual(order) && order[^2] == SurpriseOrder && order[^1] == FreshOrder);
+            Check("...the Deathmatch card keeps its place and number; the last pick, with no random card of the mode left, opens a second page",
+                b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && b.Options.Count(o => o.Source == VoteSource.Picked) == picks
                 && b.Options.Max(o => o.Source == VoteSource.Random ? 0 : o.N) == MapVote.PageCards + 1 && HudVote.Pages(VoteState.Decode(HudTextNow())) == 2);
 
             // ---- Random takes a map on the disk ----

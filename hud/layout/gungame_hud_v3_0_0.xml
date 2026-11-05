@@ -1,72 +1,31 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4_5_0 (custom_hud_layout, CS2 update of 2026-08-24).
+  Over Strike 2 - the in-game HUD, content v4_6_0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
-  Structure and style only: every word that can change comes from the GunGameWelcome plugin as a dialog variable ({s:text} on a
-  labelled panel; the words live in bridge/Hud.cs), and every state (window open, page, card, votes) is a class the plugin
-  sets - for everybody on gg_global, per player on gg_screen. The bridge's selftest checks that every id and class the plugin
-  sends exists here and in the stylesheet, and that every {s:text} label here is fed.
+  Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
+  a named variable on gg_global or gg_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
+  open, page, card, votes) is a class the plugin sets - for everybody on gg_global, per player on gg_screen. The bridge's selftest checks that
+  every id and class the plugin sends exists here and in the stylesheet, and that every {s:text} label here is fed.
 
-  Rules from CS2UIKit's GOTCHAS (MIT) that this file obeys, because each one makes CS2 drop the whole layout without a word:
-  the root panel has no id; only Panel, Label, Image and Button; no inline style; no scaling attribute; pictures are panel
-  backgrounds, never <Image src="...vsvg">.
+  Rules from CS2UIKit's GOTCHAS (MIT) that this file obeys, because each one makes CS2 drop the whole layout without a word: the root panel has
+  no id; only Panel, Label, Image and Button, each with only Valve's attributes; no inline style; no scaling attribute; no scripts; pictures are
+  panel backgrounds, never <Image src="...vsvg">.
 
-  Release v3_0_0 (2026-10-21): the HUD is the server's whole interface - there are no chat commands any more. On one full-screen root:
-    1. the board  - beside the scoreboard while TAB is held (the client's own HUD_SCOREBOARD_VISIBLE class shows it). With the TAB
-       cursor (HUD_TAB down) it is a click action panel: your vote on the map that is on, Next (a random map, I'm done, or vote to
-       skip), the queue in one line, and the full menu;
+  On one full-screen root:
+    1. the board  - beside the scoreboard while TAB is held (the client's own HUD_SCOREBOARD_VISIBLE class shows it): your like on the map that
+       is on, Start a vote, the vote in one line, the full menu;
     2. the card   - "now playing" at each map's first spawn, "welcome back" on a returning player's join;
     3. the banner - a map change counting down;
-    4. the news   - one line for everybody: what just happened (a pick, a skip vote, the queue moving, a crash, a restart);
-    5. the note   - one line for one player: the answer to their own click (a refusal, a confirmation to give);
-    6. the window - the full menu: start, the map browser (full-text search on an on-screen keyboard, a card for a Workshop id that is
-       not on the list), the queue, game settings, help and rules, with the live map state and clickable votes beside them.
+    4. the news   - one line for everybody: what just happened;
+    5. the note   - one line for one player: the answer to their own click;
+    6. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN, SERVER (Players, Game, Sync) and HELP (Help, How
+       it works), with the live column beside the pages that leave it room. MAPS shows ten cards a page on the ballot and eight in the browser,
+       each card on its side: the picture, then the name and every tag that applies in two lines at most;
+    7. the outdated banner - persistent while gg_global's latest-N names a content newer than this one (47 and up);
+  and the HUD check's gold "Click to play" button, gg_hudver_v4_6_0: its id tells the server which content this game shows.
 
-  Content v3_1_0 (2026-10-22), on the SAME path, so that one plugin drives a game holding either: everything v3_0_0 had is here unchanged,
-  plus the too-big vote (the board's gg_b_vbig, each card's gg_mN_big), the new-maps setting (the Game page's gg_set_new_*) and the How it
-  works page (gg_tab_how, gg_h*). The plugin sends a panel that is new here (HudView.NewIds) nothing until that player's game has clicked
-  a button only this content has - a game with the v3_0_0 content never hears of a panel it lacks - and those panels stay collapsed until
-  then (the c31 class on gg_screen). Their state lives in classes on panels v3_0_0 has too (gg_global, gg_screen, the cards), which an
-  older game ignores.
-
-  Content v3_2_0 (2026-10-24), on the same path again, so one plugin still drives a game holding any of the three: everything v3_1_0 had
-  is here unchanged, plus the Ads vote (the board's gg_b_vads beside Too big, each card's gg_mN_ads, an Ads tag on the picture), the
-  Fun page and its tab (gg_tab_fun, gg_fun_note and twelve rows gg_f1 ... gg_f12 of up to three choices gg_fR_1 ... gg_fR_3) and a fifth
-  row for two Help groups (gg_c3_5, gg_c4_5). The same rule as v3_1_0's, one level up: a panel new here (HudView.NewIds32) is sent
-  nothing until that player's game has clicked a button only this content has (HudView.NewButtons32), and stays collapsed until then
-  (the c32 class on gg_screen). The restart button's fast blink while armed is a stylesheet rule on a class v3_0_0 has.
-
-  Content v4_1_0 (2026-11-01), the same path once more: every panel v4_0_0 had, plus the popup that asks why a player disliked a map (gg_why_1
-  ... gg_why_6) above everything, and the grenade drops' row moved from the Game page to the Fun page under its own button ids. Unlike the
-  contents before it, what it adds needs no proof from the game and nothing is sent to its panels: its state is classes on gg_screen and
-  gg_global (why, why-run, nd-on, nd-off), its words dialog variables on those two that its labels inherit ({s:oswhy}, {s:oswhy1} ...).
-  An older game has no rule and no label for any of that, and goes on as it was.
-
-  Content v4_2_0 (2026-11-02), on the same path again: everything v4_1_0 had is here unchanged, plus a picture button on each card (gg_mN_pic, shown by
-  the card's nopic class for a map with no picture in the addon: its Workshop preview comes up in the game's own message panel below the window, which
-  goes short meanwhile, pic1 or pic2 on gg_screen) and the mode filter's chips (gg_fm_*, lit by a class on gg_screen). Nothing is sent to these panels.
-
-  Content v4_3_0 (2026-11-03), the same path again: everything v4_2_0 had is here unchanged, plus the Sync tab (gg_tab_sync): the Workshop sync's
-  dashboard - what it does now, its queue, its history (bridge/HudDash.cs). Its words are dialog variables on gg_screen that its labels inherit
-  ({s:osd...}), its state classes on gg_screen (osdbusy, osdp35, osdq3 ...), and its only buttons are its lists' pagers (gg_osdq_prev ...): nothing
-  is sent to a panel of it, so a game holding an older content never hears of one.
-
-  Content v4_4_0 (2026-11-03, the owner's rules of that evening), the same path again: everything v4_3_0 had is here, plus the vote's pages (the pager
-  shows while it is on, osvmore says how many cards are on the next pages), Random's button and the map browser's (gg_v_random, gg_v_browse, and
-  gg_v_back above the browser while it adds to the vote: vbrowse, osvleft), each card's mode - a label on its picture and its colour, by the card's
-  mode-* class - the reasons of a Dislike where it was clicked (gg_whyw_* in the live column, gg_whyb_* on the board, gg_whycN_* over card N's
-  picture: whyin, whycN), the Fun page's Random and Default (gg_fun_random, gg_fun_default) and a slow glow on Our maps. The board's Too big and Ads
-  step aside (the reasons have both). Nothing is sent to a new panel: states are classes on gg_screen and the cards, words variables on gg_screen.
-
-  Content v4_5_0 (2026-11-03, the owner's later rules), the same path again: everything v4_4_0 had is here, plus where the votes go - each card's bar
-  (w0 ... w10 on the card) and its voters ({s:osvn1} ...), the leading card or a tie lit (vlead, vtie), the summary strip across the top (gg_vs1 ...
-  gg_vs9, the one new panels the server sends classes to, and only to a game that has shown this content) - the waiting line ({s:osvwait}), a card's
-  Remove mine on your own request (gg_mN_unq, vmine), the line back to a vote you closed (vaway, {s:osvaway}), no close button on a match-end vote
-  (vlock), the Fun page's Catch-up row (gg_set_catchup_on, gg_set_catchup_off, lit by cu-on and cu-off on gg_global), a dot and the accent on every
-  setting off its default (changed), and Our maps' pulse (opulse, flipped by the plugin).
-
-  Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m8_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's
-  number in bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity).
-  Each pair is a rule in gungame_hud_thumbs.css that points at a JPEG in the addon (or at the game's own picture of an official map).
+  Map thumbnails are classes on the cards' gg_m1_thumb ... gg_m10_thumb: two per picture, th(n / 64) and tl(n % 64), n being the map's number in
+  bridge/HudThumbList.cs (two out of a small set, because the game takes at most 1,024 class names per layout entity). Each pair is a rule in
+  gungame_hud_thumbs.css that points at a JPEG in the addon (or at the game's own picture of an official map).
 -->
 <root>
 	<styles>
@@ -100,9 +59,8 @@
 							<Label id="gg_b_down" class="gg-vote-num" text="{s:text}" />
 						</Button>
 					</Panel>
-					<!-- content v3_1_0: the too-big vote, a dislike that also marks the map too big (random picks take it 1 time in 100);
-					     content v3_2_0: the ads vote beside it, a dislike that keeps the map out of random picks altogether -->
-					<Panel class="gg-whyin gg-whyboard">
+					<!-- A Dislike's reasons in place of Like and Dislike; the old Too big and Ads row stays hidden (its counts still come) -->
+<Panel class="gg-whyin gg-whyboard">
 						<Label class="gg-whyin-title" text="Why the dislike?" />
 						<Panel class="gg-whygrid"><Button id="gg_whyb_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyb_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyb_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyb_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyb_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyb_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
 					</Panel>
@@ -123,7 +81,7 @@
 						<Label id="gg_b_next_sub" class="gg-act-sub" text="{s:text}" />
 					</Button>
 
-					<Label class="gg-label" text="Queue" />
+					<Label class="gg-label" text="The vote" />
 					<Label id="gg_b_queue" class="gg-bqueue" text="{s:text}" />
 
 					<Button id="gg_b_open" class="gg-board-open">
@@ -177,8 +135,6 @@
 								<Label class="gg-sub" text="{s:osmode}" />
 								<Label class="gg-sub gg-sub-dot" text="·" />
 								<Label id="gg_w_maps" class="gg-sub" text="{s:text}" />
-								<Label class="gg-sub gg-sub-dot" text="·" />
-								<Label class="gg-sub" text="Fair queue" />
 							</Panel>
 						</Panel>
 						<Button id="gg_btn_close" class="gg-close">
@@ -190,13 +146,28 @@
 					<Panel class="gg-tabs">
 						<Button id="gg_tab_start" class="gg-tab"><Label class="gg-tab-text" text="Start" /></Button>
 						<Button id="gg_tab_maps" class="gg-tab"><Label class="gg-tab-text" text="Maps" /></Button>
-						<Button id="gg_tab_queue" class="gg-tab"><Label class="gg-tab-text" text="Queue" /></Button>
-						<Button id="gg_tab_game" class="gg-tab"><Label class="gg-tab-text" text="Game" /></Button>
 						<Button id="gg_tab_fun" class="gg-tab"><Label class="gg-tab-text" text="Fun" /></Button>
+						<Button id="gg_tab_server" class="gg-tab"><Label class="gg-tab-text" text="Server" /></Button>
 						<Button id="gg_tab_help" class="gg-tab"><Label class="gg-tab-text" text="Help" /></Button>
-						<Button id="gg_tab_rules" class="gg-tab"><Label class="gg-tab-text" text="Rules" /></Button>
-						<Button id="gg_tab_how" class="gg-tab"><Label class="gg-tab-text" text="How it works" /></Button>
-						<Button id="gg_tab_sync" class="gg-tab"><Label class="gg-tab-text" text="Sync" /></Button>
+					</Panel>
+
+					<!-- The sub-tabs of the tab that is on, and what the page is for. MAPS: Vote (only while a vote is on) and Browse - the vote's own
+					     buttons, gg_v_back and gg_v_browse; SERVER: Players, Game, Sync; HELP: Help, How it works. -->
+					<Panel class="gg-subs">
+						<Panel class="gg-subs-group gg-subs-maps">
+							<Button id="gg_v_back" class="gg-stab gg-stab-vote"><Label class="gg-stab-text" text="{s:osvtab}" /></Button>
+							<Button id="gg_v_browse" class="gg-stab"><Label class="gg-stab-text" text="Browse" /></Button>
+						</Panel>
+						<Panel class="gg-subs-group gg-subs-server">
+							<Button id="gg_sub_players" class="gg-stab"><Label class="gg-stab-text" text="Players" /></Button>
+							<Button id="gg_tab_game" class="gg-stab"><Label class="gg-stab-text" text="Game" /></Button>
+							<Button id="gg_tab_sync" class="gg-stab"><Label class="gg-stab-text" text="Sync" /></Button>
+						</Panel>
+						<Panel class="gg-subs-group gg-subs-help">
+							<Button id="gg_sub_help" class="gg-stab"><Label class="gg-stab-text" text="Help" /></Button>
+							<Button id="gg_tab_how" class="gg-stab"><Label class="gg-stab-text" text="How it works" /></Button>
+						</Panel>
+						<Label class="gg-subcap" text="{s:ossub}" />
 					</Panel>
 
 					<Panel class="gg-win-body">
@@ -229,10 +200,20 @@
 
 							<!-- Maps: the map browser - sort, filters, eight cards, pages. Everything in it is per player. -->
 							<Panel class="gg-page gg-page-maps">
-								<Panel class="gg-vbanner">
-									<Panel class="gg-rule-mark" />
-									<Label class="gg-vbanner-text" text="{s:osvleft}" />
-									<Button id="gg_v_back" class="gg-vbtn gg-vback"><Label class="gg-vbtn-text" text="Back to the vote" /></Button>
+								<!-- The ballot's header: the title and who has not voted, Random and the strip of where the votes go, and the two clocks: the
+								     limit, and the inactivity timer once everybody has voted -->
+								<Panel class="gg-vhead">
+									<Panel class="gg-vhead-main">
+										<Panel class="gg-vhead-top"><Label class="gg-vote-title" text="Vote for the next map" /><Label class="gg-vwait" text="{s:osvwait}" /></Panel>
+										<Panel class="gg-vhead-row">
+											<Button id="gg_v_random" class="gg-vbtn gg-vrandom"><Label class="gg-vbtn-text" text="{s:osvrand}" /></Button>
+											<Panel class="gg-vstrip"><Panel id="gg_vs1" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs1}" /></Panel><Panel id="gg_vs2" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs2}" /></Panel><Panel id="gg_vs3" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs3}" /></Panel><Panel id="gg_vs4" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs4}" /></Panel><Panel id="gg_vs5" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs5}" /></Panel><Panel id="gg_vs6" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs6}" /></Panel><Panel id="gg_vs7" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs7}" /></Panel><Panel id="gg_vs8" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs8}" /></Panel><Panel id="gg_vs9" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs9}" /></Panel></Panel>
+										</Panel>
+									</Panel>
+									<Panel class="gg-clocks">
+										<Panel class="gg-clock"><Label class="gg-clock-key" text="Limit" /><Panel id="gg_vlim" class="gg-clock-bar"><Panel class="gg-clock-fill" /></Panel><Label class="gg-clock-text" text="{s:osvlim}" /></Panel>
+										<Panel class="gg-clock gg-clock-idle"><Label class="gg-clock-key" text="Inactivity" /><Panel id="gg_vidle" class="gg-clock-bar"><Panel class="gg-clock-fill" /></Panel><Label class="gg-clock-text" text="{s:osvidle}" /></Panel>
+									</Panel>
 								</Panel>
 								<Panel class="gg-mbar">
 									<Label class="gg-mbar-label" text="Sort" />
@@ -257,7 +238,6 @@
 										<Button id="gg_q_clear" class="gg-search-clear"><Panel class="gg-x gg-x-a" /><Panel class="gg-x gg-x-b" /></Button>
 									</Panel>
 								</Panel>
-								<Panel class="gg-vhead"><Label class="gg-vote-title" text="Vote for the next map" /><Label class="gg-vwait" text="{s:osvwait}" /><Panel class="gg-vstrip"><Panel id="gg_vs1" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs1}" /></Panel><Panel id="gg_vs2" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs2}" /></Panel><Panel id="gg_vs3" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs3}" /></Panel><Panel id="gg_vs4" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs4}" /></Panel><Panel id="gg_vs5" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs5}" /></Panel><Panel id="gg_vs6" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs6}" /></Panel><Panel id="gg_vs7" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs7}" /></Panel><Panel id="gg_vs8" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs8}" /></Panel><Panel id="gg_vs9" class="gg-vseg"><Label class="gg-vseg-text" text="{s:osvs9}" /></Panel></Panel></Panel>
 								<Panel class="gg-mbar gg-mbar-filters">
 									<Label class="gg-mbar-label" text="Size" />
 									<Button id="gg_fl_all" class="gg-chipb"><Label class="gg-chipb-text" text="All" /></Button>
@@ -269,9 +249,8 @@
 									<Button id="gg_fl_liked" class="gg-chipb gg-chipb-liked"><Panel class="gg-chev" /><Label class="gg-chipb-text" text="Liked by me" /></Button>
 									<Button id="gg_fl_official" class="gg-chipb"><Label class="gg-chipb-text" text="Official" /></Button>
 									<Panel class="gg-ours-wrap"><Panel class="gg-ours-glow" /><Button id="gg_fl_ours" class="gg-chipb gg-chipb-ours"><Label class="gg-chipb-text" text="Our maps" /></Button></Panel>
-									<Button id="gg_v_random" class="gg-vbtn gg-vrandom"><Label class="gg-vbtn-text" text="{s:osvrand}" /></Button>
-									<Button id="gg_v_browse" class="gg-vbtn gg-vbrowse"><Label class="gg-vbtn-text" text="Open the map browser  ·  add a map to the vote" /></Button>
 									<Panel class="gg-mbar-fill" />
+									<Button id="gg_q_prev" class="gg-qprev"><Label id="gg_q_prev_text" class="gg-qprev-text" text="{s:text}" /></Button>
 									<Label id="gg_m_count" class="gg-mcount" text="{s:text}" />
 								</Panel>
 								<!-- The keyboard: a custom HUD has no text entry, so each key is a button; the plugin edits the query and filters live -->
@@ -294,468 +273,356 @@
 								</Panel>
 								<Panel class="gg-grid">
 									<Panel class="gg-grid-row gg-grid-row1">
-									<Panel id="gg_m1" class="gg-mcard">
-										<Panel id="gg_m1_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m1_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
+										<Panel id="gg_m1" class="gg-mcard gg-mcard-l">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m1_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m1_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m1_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-1">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc1_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc1_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc1_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc1_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc1_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc1_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m1_name" class="gg-mname" text="{s:text}" /><Label id="gg_m1_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m1_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Label id="gg_m1_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn1}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-1">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc1_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc1_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc1_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc1_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc1_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc1_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m1_play" class="gg-mplay">
+													<Label id="gg_m1_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m1_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh1}" /></Panel>
+												</Button>
+												<Label id="gg_m1_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m1_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m1_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m1_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m1_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m1_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m1_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m2" class="gg-mcard">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m2_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m2_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m2_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-2">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc2_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc2_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc2_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc2_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc2_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc2_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m2_name" class="gg-mname" text="{s:text}" /><Label id="gg_m2_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m2_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m1_play" class="gg-mplay"><Label id="gg_m1_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m1_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m1_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m1_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m1_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m1_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m2" class="gg-mcard">
-										<Panel id="gg_m2_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m2_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m2_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn2}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-2">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc2_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc2_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc2_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc2_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc2_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc2_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m2_play" class="gg-mplay">
+													<Label id="gg_m2_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m2_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh2}" /></Panel>
+												</Button>
+												<Label id="gg_m2_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m2_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m2_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m2_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m2_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m2_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m2_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m3" class="gg-mcard gg-mcard-l">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m3_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m3_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m3_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-3">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc3_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc3_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc3_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc3_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc3_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc3_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m3_name" class="gg-mname" text="{s:text}" /><Label id="gg_m3_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m3_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m2_play" class="gg-mplay"><Label id="gg_m2_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m2_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m2_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m2_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m2_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m2_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m3" class="gg-mcard">
-										<Panel id="gg_m3_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m3_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m3_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn3}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-3">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc3_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc3_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc3_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc3_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc3_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc3_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m3_play" class="gg-mplay">
+													<Label id="gg_m3_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m3_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh3}" /></Panel>
+												</Button>
+												<Label id="gg_m3_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m3_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m3_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m3_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m3_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m3_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m3_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m4" class="gg-mcard">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m4_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m4_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m4_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-4">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc4_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc4_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc4_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc4_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc4_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc4_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m4_name" class="gg-mname" text="{s:text}" /><Label id="gg_m4_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m4_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m3_play" class="gg-mplay"><Label id="gg_m3_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m3_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m3_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m3_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m3_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m3_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m4" class="gg-mcard">
-										<Panel id="gg_m4_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m4_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m4_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn4}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-4">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc4_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc4_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc4_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc4_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc4_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc4_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m4_play" class="gg-mplay">
+													<Label id="gg_m4_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m4_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh4}" /></Panel>
+												</Button>
+												<Label id="gg_m4_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m4_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m4_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m4_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m4_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m4_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m4_votes" class="gg-mvotes" text="{s:text}" />
-											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m4_play" class="gg-mplay"><Label id="gg_m4_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m4_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m4_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m4_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m4_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m4_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
 									</Panel>
 									<Panel class="gg-grid-row gg-grid-row2">
-									<Panel id="gg_m5" class="gg-mcard">
-										<Panel id="gg_m5_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m5_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
+										<Panel id="gg_m5" class="gg-mcard gg-mcard-l">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m5_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m5_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m5_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-5">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc5_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc5_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc5_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc5_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc5_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc5_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m5_name" class="gg-mname" text="{s:text}" /><Label id="gg_m5_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m5_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Label id="gg_m5_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn5}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-5">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc5_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc5_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc5_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc5_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc5_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc5_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m5_play" class="gg-mplay">
+													<Label id="gg_m5_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m5_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh5}" /></Panel>
+												</Button>
+												<Label id="gg_m5_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m5_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m5_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m5_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m5_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m5_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m5_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m6" class="gg-mcard">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m6_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m6_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m6_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-6">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc6_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc6_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc6_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc6_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc6_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc6_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m6_name" class="gg-mname" text="{s:text}" /><Label id="gg_m6_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m6_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m5_play" class="gg-mplay"><Label id="gg_m5_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m5_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m5_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m5_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m5_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m5_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m6" class="gg-mcard">
-										<Panel id="gg_m6_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m6_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m6_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn6}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-6">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc6_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc6_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc6_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc6_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc6_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc6_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m6_play" class="gg-mplay">
+													<Label id="gg_m6_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m6_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh6}" /></Panel>
+												</Button>
+												<Label id="gg_m6_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m6_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m6_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m6_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m6_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m6_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m6_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m7" class="gg-mcard gg-mcard-l">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m7_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m7_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m7_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-7">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc7_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc7_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc7_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc7_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc7_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc7_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m7_name" class="gg-mname" text="{s:text}" /><Label id="gg_m7_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m7_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m6_play" class="gg-mplay"><Label id="gg_m6_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m6_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m6_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m6_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m6_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m6_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m7" class="gg-mcard">
-										<Panel id="gg_m7_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m7_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m7_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn7}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-7">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc7_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc7_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc7_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc7_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc7_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc7_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m7_play" class="gg-mplay">
+													<Label id="gg_m7_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m7_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh7}" /></Panel>
+												</Button>
+												<Label id="gg_m7_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m7_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m7_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m7_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m7_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m7_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m7_votes" class="gg-mvotes" text="{s:text}" />
+										<Panel id="gg_m8" class="gg-mcard">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m8_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m8_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m8_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+													<Panel class="gg-whycard gg-whycard-8">
+														<Label class="gg-whycard-title" text="Why the dislike?" />
+														<Panel class="gg-whygrid"><Button id="gg_whyc8_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc8_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc8_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc8_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc8_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc8_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+													</Panel>
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m8_name" class="gg-mname" text="{s:text}" /><Label id="gg_m8_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m8_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
 											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m7_play" class="gg-mplay"><Label id="gg_m7_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m7_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m7_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m7_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m7_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m7_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
-									</Panel>
-									<Panel id="gg_m8" class="gg-mcard">
-										<Panel id="gg_m8_thumb" class="gg-mthumb">
-											<Panel class="gg-mthumb-shade" />
-											<Label id="gg_m8_rank" class="gg-mrank" text="{s:text}" />
-											<Panel class="gg-mtags">
-												<Label class="gg-mtag gg-mtag-now" text="On now" />
-												<Label class="gg-mtag gg-mtag-queued" text="Queued" />
-												<Label class="gg-mtag gg-mtag-big" text="Too big" />
-												<Label class="gg-mtag gg-mtag-ads" text="Ads" />
-												<Label class="gg-mtag gg-mtag-ours" text="Ours" />
-												<Label class="gg-mtag gg-mtag-next" text="Next map" />
-												<Label class="gg-mtag gg-mtag-lead" text="Leading" />
-												<Label class="gg-mtag gg-mtag-tie" text="Tie" />
-											</Panel>
-											<Label id="gg_m8_warn" class="gg-mwarn" text="{s:text}" />
 											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
-											<Label class="gg-mvoters" text="{s:osvn8}" />
-											<Panel class="gg-mband" />
-											<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
-											<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
-											<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
-											<Panel class="gg-whycard gg-whycard-8">
-												<Label class="gg-whycard-title" text="Why the dislike?" />
-												<Panel class="gg-whygrid"><Button id="gg_whyc8_1" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys1}" /></Button><Button id="gg_whyc8_2" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys2}" /></Button><Button id="gg_whyc8_3" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys3}" /></Button><Button id="gg_whyc8_4" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys4}" /></Button><Button id="gg_whyc8_5" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys5}" /></Button><Button id="gg_whyc8_6" class="gg-whyib"><Label class="gg-whyib-text" text="{s:oswhys6}" /></Button></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m8_play" class="gg-mplay">
+													<Label id="gg_m8_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m8_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh8}" /></Panel>
+												</Button>
+												<Label id="gg_m8_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m8_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m8_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
 											</Panel>
 											<Button id="gg_m8_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
 										</Panel>
-										<Panel class="gg-mbody">
-											<Label id="gg_m8_name" class="gg-mname" text="{s:text}" />
-											<Panel class="gg-mmeta">
-												<Label id="gg_m8_size" class="gg-msize" text="{s:text}" />
-												<Label id="gg_m8_votes" class="gg-mvotes" text="{s:text}" />
-											</Panel>
-											<Panel class="gg-macts">
-												<Button id="gg_m8_play" class="gg-mplay"><Label id="gg_m8_play_text" class="gg-mplay-text" text="{s:text}" /></Button>
-												<Button id="gg_m8_unq" class="gg-munq"><Label class="gg-munq-text" text="Remove mine" /></Button>
-												<Button id="gg_m8_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
-												<Button id="gg_m8_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
-												<Button id="gg_m8_big" class="gg-mvote gg-mbig"><Label class="gg-mbig-text" text="Big" /></Button>
-												<Button id="gg_m8_ads" class="gg-mvote gg-mads"><Label class="gg-mads-text" text="Ads" /></Button>
-											</Panel>
-										</Panel>
 									</Panel>
+									<Panel class="gg-grid-row gg-grid-row3">
+										<Panel id="gg_m9" class="gg-mcard gg-mcard-l">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m9_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m9_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m9_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m9_name" class="gg-mname" text="{s:text}" /><Label id="gg_m9_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m9_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
+											</Panel>
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m9_play" class="gg-mplay">
+													<Label id="gg_m9_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m9_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh9}" /></Panel>
+												</Button>
+												<Label id="gg_m9_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m9_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m9_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
+											</Panel>
+											<Button id="gg_m9_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
+										</Panel>
+										<Panel id="gg_m10" class="gg-mcard">
+											<Panel class="gg-mrow">
+												<Panel class="gg-mband" />
+												<Panel id="gg_m10_thumb" class="gg-mthumb">
+													<Panel class="gg-mthumb-shade" />
+													<Label id="gg_m10_rank" class="gg-mrank" text="{s:text}" />
+													<Label id="gg_m10_warn" class="gg-mwarn" text="{s:text}" />
+													<Label class="gg-mmode gg-mmode-armsrace" text="Arms Race" />
+													<Label class="gg-mmode gg-mmode-deathmatch" text="Deathmatch" />
+													<Label class="gg-mmode gg-mmode-wingman" text="Wingman" />
+												</Panel>
+												<Panel class="gg-mbody">
+													<Panel class="gg-mline"><Label id="gg_m10_name" class="gg-mname" text="{s:text}" /><Label id="gg_m10_size" class="gg-msize" text="{s:text}" /></Panel>
+													<Label id="gg_m10_who" class="gg-mwho" text="{s:text}" />
+													<Panel class="gg-mtags"><Label class="gg-mtag gg-mtag-next" text="Next map" /><Label class="gg-mtag gg-mtag-lead" text="Leading" /><Label class="gg-mtag gg-mtag-tie" text="Tie" /><Label class="gg-mtag gg-mtag-now" text="On now" /><Label class="gg-mtag gg-mtag-big" text="Too big" /><Label class="gg-mtag gg-mtag-ads" text="Ads" /><Label class="gg-mtag gg-mtag-queued" text="Picked" /><Label class="gg-mtag gg-mtag-ours" text="Our map" /><Label class="gg-mtag t-liked" text="Liked by us" /><Label class="gg-mtag t-upload" text="New upload" /><Label class="gg-mtag t-updated" text="Updated" /><Label class="gg-mtag t-trending" text="Trending" /><Label class="gg-mtag t-toprated" text="Top rated" /><Label class="gg-mtag t-popular" text="Popular" /><Label class="gg-mtag t-newtous" text="New to us" /></Panel>
+												</Panel>
+											</Panel>
+											<Panel class="gg-mvbar"><Panel class="gg-mvbar-fill" /></Panel>
+											<Panel class="gg-macts">
+												<Button id="gg_m10_play" class="gg-mplay">
+													<Label id="gg_m10_score" class="gg-mscore" text="{s:text}" />
+													<Label id="gg_m10_play_text" class="gg-mplay-text" text="{s:text}" />
+													<Panel class="gg-mpop"><Label class="gg-mpop-title" text="Voted for it" /><Label class="gg-mpop-none" text="No votes yet" /><Label class="gg-mpop-names" text="{s:osvh10}" /></Panel>
+												</Button>
+												<Label id="gg_m10_votes" class="gg-mvotes" text="{s:text}" />
+												<Button id="gg_m10_up" class="gg-mvote gg-mvote-up"><Panel class="gg-chev" /></Button>
+												<Button id="gg_m10_down" class="gg-mvote gg-mvote-down"><Panel class="gg-chev gg-chev-down" /></Button>
+											</Panel>
+											<Button id="gg_m10_pic" class="gg-mpic"><Label class="gg-mpic-text gg-mpic-show" text="Show picture" /><Label class="gg-mpic-text gg-mpic-hide" text="Hide picture" /></Button>
+										</Panel>
 									</Panel>
 									<Label id="gg_m_empty" class="gg-mempty" text="{s:text}" />
 								</Panel>
 								<Panel class="gg-pager">
 									<Button id="gg_pg_first" class="gg-pgb"><Label class="gg-pgb-text" text="First" /></Button>
-									<Button id="gg_pg_prev" class="gg-pgb"><Label class="gg-pgb-text" text="‹  Prev" /></Button>
+									<Button id="gg_pg_prev" class="gg-pgb"><Panel class="gg-pgb-glow" /><Label class="gg-pgb-text" text="‹  Prev" /></Button>
 									<Label id="gg_pg_text" class="gg-pgtext" text="{s:text}" />
-									<Button id="gg_pg_next" class="gg-pgb"><Label class="gg-pgb-text" text="Next  ›" /></Button>
+									<Button id="gg_pg_next" class="gg-pgb"><Panel class="gg-pgb-glow" /><Label class="gg-pgb-text" text="Next  ›" /></Button>
 									<Button id="gg_pg_last" class="gg-pgb"><Label class="gg-pgb-text" text="Last" /></Button>
 									<Label class="gg-vmore" text="{s:osvmore}" />
 								</Panel>
 							</Panel>
 
-							<!-- Queue: every request in play order; a cancel button on the player's own -->
-							<Panel class="gg-page gg-page-queue">
-								<Panel class="gg-qhead">
-									<Label id="gg_q_mine" class="gg-qmine" text="{s:text}" />
-									<Button id="gg_q_prev" class="gg-qprev"><Label id="gg_q_prev_text" class="gg-qprev-text" text="{s:text}" /></Button>
-									<Button id="gg_q_cancelall" class="gg-qcancelall"><Label class="gg-qcancel-text" text="Cancel all mine" /></Button>
-								</Panel>
-								<Panel class="gg-qlist">
-									<Panel id="gg_qr1" class="gg-qrow">
-										<Label id="gg_qr1_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr1_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr1_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr1_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr2" class="gg-qrow">
-										<Label id="gg_qr2_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr2_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr2_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr2_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr3" class="gg-qrow">
-										<Label id="gg_qr3_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr3_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr3_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr3_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr4" class="gg-qrow">
-										<Label id="gg_qr4_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr4_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr4_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr4_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr5" class="gg-qrow">
-										<Label id="gg_qr5_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr5_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr5_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr5_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr6" class="gg-qrow">
-										<Label id="gg_qr6_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr6_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr6_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr6_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr7" class="gg-qrow">
-										<Label id="gg_qr7_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr7_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr7_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr7_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr8" class="gg-qrow">
-										<Label id="gg_qr8_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr8_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr8_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr8_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr9" class="gg-qrow">
-										<Label id="gg_qr9_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr9_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr9_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr9_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Panel id="gg_qr10" class="gg-qrow">
-										<Label id="gg_qr10_pos" class="gg-qpos" text="{s:text}" />
-										<Panel class="gg-qmain">
-											<Label id="gg_qr10_map" class="gg-qmap" text="{s:text}" />
-											<Label id="gg_qr10_who" class="gg-qwho" text="{s:text}" />
-										</Panel>
-										<Label class="gg-qyours" text="Yours" />
-										<Button id="gg_qr10_cancel" class="gg-qcancel"><Label class="gg-qcancel-text" text="Cancel" /></Button>
-									</Panel>
-									<Label id="gg_q_empty" class="gg-empty gg-qempty" text="{s:text}" />
-								</Panel>
-							</Panel>
-
-							<!-- Game: match length, where random picks come from, the restart for a stuck server -->
+							<!-- SERVER, Game: the match length, and the restart for a stuck server -->
 							<Panel class="gg-page gg-page-game">
 								<Panel class="gg-set gg-set-time">
 									<Panel class="gg-set-head"><Panel class="gg-rule-mark" /><Label class="gg-set-title" text="Match length" /></Panel>
@@ -763,16 +630,6 @@
 									<Panel class="gg-set-btns">
 										<Button id="gg_set_time_10" class="gg-setb"><Label class="gg-setb-text" text="10 minutes" /></Button>
 										<Button id="gg_set_time_60" class="gg-setb"><Label class="gg-setb-text" text="60 minutes" /></Button>
-									</Panel>
-								</Panel>
-								<!-- content v3_1_0: where random picks come from - the one that is on is lit by gg_global's nm-always, nm-half or nm-never -->
-								<Panel class="gg-set">
-									<Panel class="gg-set-head"><Panel class="gg-rule-mark" /><Label class="gg-set-title" text="New maps in random picks" /></Panel>
-									<Label id="gg_set_new_now" class="gg-set-sub gg-set-new-now" text="{s:text}" />
-									<Panel class="gg-set-btns">
-										<Button id="gg_set_new_always" class="gg-setb"><Label class="gg-setb-text" text="Always" /></Button>
-										<Button id="gg_set_new_half" class="gg-setb"><Label class="gg-setb-text" text="Half" /></Button>
-										<Button id="gg_set_new_never" class="gg-setb"><Label class="gg-setb-text" text="Never" /></Button>
 									</Panel>
 								</Panel>
 								<Panel class="gg-set gg-set-last">
@@ -784,7 +641,7 @@
 								</Panel>
 							</Panel>
 
-							<!-- Help: where everything is - five groups of up to four rows (Hud.Help) -->
+							<!-- HELP, Help: where everything is - five groups of up to four rows (Hud.Help) -->
 							<Panel class="gg-page gg-page-help">
 								<Panel class="gg-group">
 									<Label id="gg_c1_name" class="gg-group-name" text="{s:text}" />
@@ -811,8 +668,7 @@
 										<Panel id="gg_c3_2" class="gg-crow"><Label id="gg_c3_2_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c3_2_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
 										<Panel id="gg_c3_3" class="gg-crow"><Label id="gg_c3_3_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c3_3_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
 										<Panel id="gg_c3_4" class="gg-crow"><Label id="gg_c3_4_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c3_4_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_c3_5" class="gg-crow gg-crow-c32"><Label id="gg_c3_5_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c3_5_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
-									</Panel>
+</Panel>
 								</Panel>
 								<Panel class="gg-group">
 									<Label id="gg_c4_name" class="gg-group-name" text="{s:text}" />
@@ -821,8 +677,7 @@
 										<Panel id="gg_c4_2" class="gg-crow"><Label id="gg_c4_2_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c4_2_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
 										<Panel id="gg_c4_3" class="gg-crow"><Label id="gg_c4_3_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c4_3_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
 										<Panel id="gg_c4_4" class="gg-crow"><Label id="gg_c4_4_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c4_4_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_c4_5" class="gg-crow gg-crow-c32"><Label id="gg_c4_5_cmd" class="gg-cmd gg-crow-cmd" text="{s:text}" /><Label id="gg_c4_5_txt" class="gg-crow-txt" text="{s:text}" /></Panel>
-									</Panel>
+</Panel>
 								</Panel>
 								<Panel class="gg-group gg-group-last">
 									<Label id="gg_c5_name" class="gg-group-name" text="{s:text}" />
@@ -835,36 +690,7 @@
 								</Panel>
 							</Panel>
 
-							<!-- Rules: three sections of up to four lines -->
-							<Panel class="gg-page gg-page-rules">
-								<Panel class="gg-rules-col">
-									<Panel class="gg-rule">
-										<Panel class="gg-rule-head"><Panel class="gg-rule-mark" /><Label id="gg_r1_title" class="gg-rule-title" text="{s:text}" /></Panel>
-										<Panel id="gg_r1_1" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r1_1_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r1_2" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r1_2_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r1_3" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r1_3_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r1_4" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r1_4_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-									</Panel>
-									<Panel class="gg-rule">
-										<Panel class="gg-rule-head"><Panel class="gg-rule-mark" /><Label id="gg_r2_title" class="gg-rule-title" text="{s:text}" /></Panel>
-										<Panel id="gg_r2_1" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r2_1_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r2_2" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r2_2_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r2_3" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r2_3_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r2_4" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r2_4_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-									</Panel>
-								</Panel>
-								<Panel class="gg-rules-col gg-rules-col-wide">
-									<Panel class="gg-rule">
-										<Panel class="gg-rule-head"><Panel class="gg-rule-mark" /><Label id="gg_r3_title" class="gg-rule-title" text="{s:text}" /></Panel>
-										<Panel id="gg_r3_1" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r3_1_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r3_2" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r3_2_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r3_3" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r3_3_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-										<Panel id="gg_r3_4" class="gg-rline"><Panel class="gg-bullet" /><Label id="gg_r3_4_txt" class="gg-rline-txt" text="{s:text}" /></Panel>
-									</Panel>
-								</Panel>
-							</Panel>
-
-							<!-- content v3_1_0. How it works: every chance in map selection (Hud.How), across the whole window - the live column steps aside -->
+							<!-- HELP, How it works: every rule and chance of a map pick (Hud.How), across the whole window - the live column steps aside -->
 							<Panel class="gg-page gg-page-how">
 								<Panel class="gg-how">
 									<Panel class="gg-rule-head"><Panel class="gg-rule-mark" /><Label id="gg_h1_title" class="gg-rule-title" text="{s:text}" /></Panel>
@@ -903,9 +729,9 @@
 								</Panel>
 							</Panel>
 
-							<!-- Over Strike 2 (content v4_0_0; v3_2_0 never shipped). Fun: settings anybody switches for everybody until the map changes (Fun.cs),
-							     across the whole window, sixteen rows in two columns: a row is its title and up to three choices, its words under them.
-							     Content v4_1_0: a seventeenth above Big grenades, the grenade drops, in fixed words: gg_global's nd-on or nd-off lights its button -->
+							<!-- FUN: settings anybody switches for everybody until the map changes (Fun.cs), across the whole window, sixteen rows in two columns:
+							     a row is its title and up to three choices, its words under them (with who set a setting off its default). The grenade drops and
+							     catch-up have rows of their own: gg_global's nd-on/nd-off and cu-on/cu-off light their buttons, osfdrops and osfcatch are their words -->
 							<Panel class="gg-page gg-page-fun">
 								<Panel class="gg-funtop">
 									<Label id="gg_fun_note" class="gg-fun-note" text="{s:text}" />
@@ -992,7 +818,7 @@
 												<Button id="gg_set_catchup_on" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="On" /></Button>
 												<Button id="gg_set_catchup_off" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="Off" /></Button>
 											</Panel>
-											<Label class="gg-frow-txt" text="Boosts for players behind the leader, a bounty on a runaway one. On again when the map changes" />
+											<Label class="gg-frow-txt" text="{s:osfcatch}" />
 										</Panel>
 									</Panel>
 									<Panel class="gg-fcol gg-fcol-right">
@@ -1020,7 +846,7 @@
 												<Button id="gg_set_nades_on" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="On" /></Button>
 												<Button id="gg_set_nades_off" class="gg-setb gg-nadeb"><Label class="gg-setb-text" text="Off" /></Button>
 											</Panel>
-											<Label class="gg-frow-txt" text="A grenade for every player at each spawn. Stays as you set it when the map changes" />
+											<Label class="gg-frow-txt" text="{s:osfdrops}" />
 										</Panel>
 										<Panel id="gg_f11" class="gg-frow">
 											<Panel class="gg-frow-top">
@@ -1080,7 +906,7 @@
 								</Panel>
 							</Panel>
 
-							<!-- Content v4_3_0. Sync: the Workshop sync's dashboard (HudDash.cs) - what it does now, its queue, its history, across the whole window.
+							<!-- SERVER, Sync: the Workshop sync's dashboard (HudDash.cs) - what it does now, its queue, its history, across the whole window.
 							     Every word comes from the bridge as a dialog variable on gg_screen, every state as a class there; the lists show this player's page. -->
 							<Panel class="gg-page gg-page-sync">
 								<Panel class="gg-dnow">
@@ -1123,7 +949,8 @@
 										<Label class="gg-dline" text="{s:osdqmodes}" />
 										<Label class="gg-dline gg-dfaint" text="{s:osdqeta}" />
 										<Label class="gg-dline gg-dfaint" text="{s:osdqserve}" />
-										<Label class="gg-dline gg-dfaint" text="{s:osdqrand}" />
+										<Label class="gg-dline gg-dfaint" text="{s:osdqstock}" />
+										<Label class="gg-dline gg-dbg" text="{s:osdqbg}" />
 										<Panel class="gg-dlist">
 											<Panel class="gg-dqrow gg-dq1"><Label class="gg-dqpos" text="{s:osdq1a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq1b}" /><Label class="gg-dqmeta" text="{s:osdq1c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq1d}" /></Panel></Panel>
 											<Panel class="gg-dqrow gg-dq2"><Label class="gg-dqpos" text="{s:osdq2a}" /><Panel class="gg-dqmain"><Panel class="gg-dqtop"><Label class="gg-dqname" text="{s:osdq2b}" /><Label class="gg-dqmeta" text="{s:osdq2c}" /></Panel><Label class="gg-dqwhy" text="{s:osdq2d}" /></Panel></Panel>
@@ -1175,9 +1002,34 @@
 									</Panel>
 								</Panel>
 							</Panel>
+
+							<!-- SERVER, Players: every player on the server, their team, the HUD their game showed at the HUD check's click (the server's own,
+							     an older one, or the check's clock), their vote while one is open, how long they have been on. Every word is a variable on
+							     gg_global (HudView.PlayersPage); nothing is sent to a panel of the page. -->
+							<Panel class="gg-page gg-page-players">
+								<Label class="gg-psum" text="{s:ospsum}" />
+								<Panel class="gg-phead"><Label class="gg-pname gg-phl" text="Player" /><Label class="gg-pteam gg-phl" text="Team" /><Label class="gg-phud gg-phl" text="HUD" /><Label class="gg-pvote gg-phl" text="Vote" /><Label class="gg-pfor gg-phl" text="On for" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl1a}" /><Label class="gg-pteam" text="{s:ospl1b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl1c}" /><Label class="gg-phud-old" text="{s:ospl1o}" /><Label class="gg-phud-chk" text="{s:ospl1k}" /></Panel><Label class="gg-pvote" text="{s:ospl1d}" /><Label class="gg-pfor" text="{s:ospl1e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl2a}" /><Label class="gg-pteam" text="{s:ospl2b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl2c}" /><Label class="gg-phud-old" text="{s:ospl2o}" /><Label class="gg-phud-chk" text="{s:ospl2k}" /></Panel><Label class="gg-pvote" text="{s:ospl2d}" /><Label class="gg-pfor" text="{s:ospl2e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl3a}" /><Label class="gg-pteam" text="{s:ospl3b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl3c}" /><Label class="gg-phud-old" text="{s:ospl3o}" /><Label class="gg-phud-chk" text="{s:ospl3k}" /></Panel><Label class="gg-pvote" text="{s:ospl3d}" /><Label class="gg-pfor" text="{s:ospl3e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl4a}" /><Label class="gg-pteam" text="{s:ospl4b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl4c}" /><Label class="gg-phud-old" text="{s:ospl4o}" /><Label class="gg-phud-chk" text="{s:ospl4k}" /></Panel><Label class="gg-pvote" text="{s:ospl4d}" /><Label class="gg-pfor" text="{s:ospl4e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl5a}" /><Label class="gg-pteam" text="{s:ospl5b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl5c}" /><Label class="gg-phud-old" text="{s:ospl5o}" /><Label class="gg-phud-chk" text="{s:ospl5k}" /></Panel><Label class="gg-pvote" text="{s:ospl5d}" /><Label class="gg-pfor" text="{s:ospl5e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl6a}" /><Label class="gg-pteam" text="{s:ospl6b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl6c}" /><Label class="gg-phud-old" text="{s:ospl6o}" /><Label class="gg-phud-chk" text="{s:ospl6k}" /></Panel><Label class="gg-pvote" text="{s:ospl6d}" /><Label class="gg-pfor" text="{s:ospl6e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl7a}" /><Label class="gg-pteam" text="{s:ospl7b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl7c}" /><Label class="gg-phud-old" text="{s:ospl7o}" /><Label class="gg-phud-chk" text="{s:ospl7k}" /></Panel><Label class="gg-pvote" text="{s:ospl7d}" /><Label class="gg-pfor" text="{s:ospl7e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl8a}" /><Label class="gg-pteam" text="{s:ospl8b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl8c}" /><Label class="gg-phud-old" text="{s:ospl8o}" /><Label class="gg-phud-chk" text="{s:ospl8k}" /></Panel><Label class="gg-pvote" text="{s:ospl8d}" /><Label class="gg-pfor" text="{s:ospl8e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl9a}" /><Label class="gg-pteam" text="{s:ospl9b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl9c}" /><Label class="gg-phud-old" text="{s:ospl9o}" /><Label class="gg-phud-chk" text="{s:ospl9k}" /></Panel><Label class="gg-pvote" text="{s:ospl9d}" /><Label class="gg-pfor" text="{s:ospl9e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl10a}" /><Label class="gg-pteam" text="{s:ospl10b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl10c}" /><Label class="gg-phud-old" text="{s:ospl10o}" /><Label class="gg-phud-chk" text="{s:ospl10k}" /></Panel><Label class="gg-pvote" text="{s:ospl10d}" /><Label class="gg-pfor" text="{s:ospl10e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl11a}" /><Label class="gg-pteam" text="{s:ospl11b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl11c}" /><Label class="gg-phud-old" text="{s:ospl11o}" /><Label class="gg-phud-chk" text="{s:ospl11k}" /></Panel><Label class="gg-pvote" text="{s:ospl11d}" /><Label class="gg-pfor" text="{s:ospl11e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl12a}" /><Label class="gg-pteam" text="{s:ospl12b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl12c}" /><Label class="gg-phud-old" text="{s:ospl12o}" /><Label class="gg-phud-chk" text="{s:ospl12k}" /></Panel><Label class="gg-pvote" text="{s:ospl12d}" /><Label class="gg-pfor" text="{s:ospl12e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl13a}" /><Label class="gg-pteam" text="{s:ospl13b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl13c}" /><Label class="gg-phud-old" text="{s:ospl13o}" /><Label class="gg-phud-chk" text="{s:ospl13k}" /></Panel><Label class="gg-pvote" text="{s:ospl13d}" /><Label class="gg-pfor" text="{s:ospl13e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl14a}" /><Label class="gg-pteam" text="{s:ospl14b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl14c}" /><Label class="gg-phud-old" text="{s:ospl14o}" /><Label class="gg-phud-chk" text="{s:ospl14k}" /></Panel><Label class="gg-pvote" text="{s:ospl14d}" /><Label class="gg-pfor" text="{s:ospl14e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl15a}" /><Label class="gg-pteam" text="{s:ospl15b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl15c}" /><Label class="gg-phud-old" text="{s:ospl15o}" /><Label class="gg-phud-chk" text="{s:ospl15k}" /></Panel><Label class="gg-pvote" text="{s:ospl15d}" /><Label class="gg-pfor" text="{s:ospl15e}" /></Panel>
+									<Panel class="gg-prow"><Label class="gg-pname" text="{s:ospl16a}" /><Label class="gg-pteam" text="{s:ospl16b}" /><Panel class="gg-phud"><Label class="gg-phud-ok" text="{s:ospl16c}" /><Label class="gg-phud-old" text="{s:ospl16o}" /><Label class="gg-phud-chk" text="{s:ospl16k}" /></Panel><Label class="gg-pvote" text="{s:ospl16d}" /><Label class="gg-pfor" text="{s:ospl16e}" /></Panel>
+								<Label class="gg-plegend" text="A game shows the server its HUD with the HUD check's click: Click to play, after joining." />
+							</Panel>
 						</Panel>
 
-						<!-- The live column: always beside the pages -->
+						<!-- The live column: beside the pages that leave it room -->
 						<Panel class="gg-live">
 							<Panel class="gg-live-head">
 								<Label class="gg-label" text="Now playing" />
@@ -1207,8 +1059,13 @@
 								<Label id="gg_btn_act_text" class="gg-act-text" text="{s:text}" />
 								<Label id="gg_btn_act_sub" class="gg-act-sub" text="{s:text}" />
 							</Button>
+							<!-- The HUD check's gold button while the server waits for this game's first click (vcheck): its id names this content -->
+							<Button id="gg_hudver_v4_6_0" class="gg-act gg-hudver">
+								<Label class="gg-act-text" text="Click to play" />
+								<Label class="gg-act-sub" text="One click shows the server your HUD works" />
+							</Button>
 
-							<Label class="gg-label" text="Up next" />
+							<Label class="gg-label" text="The vote" />
 							<Panel class="gg-list">
 								<Panel id="gg_w_row_n1" class="gg-row"><Label class="gg-row-num" text="1" /><Label id="gg_w_n1" class="gg-row-map" text="{s:text}" /><Label id="gg_w_nw1" class="gg-row-side" text="{s:text}" /></Panel>
 								<Panel id="gg_w_row_n2" class="gg-row"><Label class="gg-row-num" text="2" /><Label id="gg_w_n2" class="gg-row-map" text="{s:text}" /><Label id="gg_w_nw2" class="gg-row-side" text="{s:text}" /></Panel>
@@ -1231,8 +1088,10 @@
 					</Panel>
 
 					<Panel class="gg-win-foot">
+						<Panel class="gg-rstrip"><Label id="gg_rst_text" class="gg-rst-text" text="{s:text}" /><Label id="gg_rst_secs" class="gg-rst-secs" text="{s:text}" /></Panel>
+						<Label class="gg-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="gg-foot-fill" />
-						<Label class="gg-foot-ver" text="HUD v4_5_0  ·  server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4_6_0  ·  server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -1240,7 +1099,7 @@
 					</Panel>
 				</Panel>
 
-				<!-- Last, so they draw above the dim layer and the window. Content v4_1_0: why the dislike - the reasons of a Dislike, for its player (why on gg_screen),
+				<!-- Last, so they draw above the dim layer and the window. Why the dislike - the reasons of a Dislike, for its player (why on gg_screen),
 				     at the left, clear of the window and the scoreboard. It takes no mouse of its own: a click needs the cursor the player already has, the window's or TAB's -->
 				<Panel class="gg-why" hittest="false">
 					<Label class="gg-why-title" text="Why the dislike?" />
@@ -1261,13 +1120,11 @@
 					<Label id="gg_news_text" class="gg-news-text" text="{s:text}" />
 				</Panel>
 
-				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
-				<!-- Over Strike 2: the HUD version check at a join (vjoin) - gg_global's classes say how the server's version compares with this
-				     layout's own, v4_5_0 (level 45): svge46 the server is newer, svlt45 older; the same version shows nothing -->
-				<Panel class="gg-ver" hittest="false">
-					<Label class="gg-ver-old" text="Your HUD is v4_5_0, the server's {s:osver}: yours is older. Quit CS2 and start it again, and Steam updates it." />
-					<Label class="gg-ver-new" text="Your HUD is v4_5_0, the server's {s:osver}: yours is newer. The server catches up soon; till then a few things may be missing." />
+				<!-- 7. The outdated banner: gg_global's latest-N names the newest content the server knows; from 47 up it is newer than this one -->
+				<Panel class="gg-outdated" hittest="false">
+					<Label class="gg-outdated-text" text="Your HUD is outdated - restart CS2  ·  yours v4_6_0, the server's {s:osver}" />
 				</Panel>
+				<!-- 5. The note: the answer to this player's own click, for them alone (a refusal, a confirmation to give) -->
 				<Panel class="gg-note" hittest="false">
 					<Label id="gg_note_text" class="gg-note-text" text="{s:text}" />
 				</Panel>

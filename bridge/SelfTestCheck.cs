@@ -1,25 +1,48 @@
-// --selftest, part four: the HUD check (HudCheck.cs) - who is verified, when the warning and the disconnect come, that a dry run never
-// disconnects and turns into enforcement only on a release a real click has proven, and that only the plugin's click can verify.
+// --selftest, part four: the HUD check (HudCheck.cs) - who is verified and with which HUD, when the warning and the disconnect come, that warn
+// never disconnects, that a verification lives in memory per connection and the live state carries only the players on the server, and that only
+// the plugin's click can verify.
 static partial class Program
 {
     static void CheckSelfTest(Action<string, bool> Check)
     {
-        const string R = "v2_1_1", Old = "v2_1_0", Item = "3815436903";
+        const string R = "v2_1_1", Item = "3815436903";
         var t0 = new DateTime(2026, 10, 7, 22, 0, 0, DateTimeKind.Utc);
-        var proven = new Dictionary<string, string> { [R] = "Remy [U:1:1] 2026-10-07 12:00" };
 
-        // ---- the modes, and the safety interlock ----
-        Check("HUD check: the mode flag reads off, dryrun and enforce, and anything else as off",
-            HudCheck.Parse("dryrun") == HudCheck.Mode.DryRun && HudCheck.Parse(" Enforce ") == HudCheck.Mode.Enforce && HudCheck.Parse("off") == HudCheck.Mode.Off
-            && HudCheck.Parse("") == HudCheck.Mode.Off && HudCheck.Parse(null) == HudCheck.Mode.Off && HudCheck.Parse("kick") == HudCheck.Mode.Off);
-        Check("HUD check: a dry run becomes enforcement only on a release a real click has proven - a new release is back in dry run",
-            HudCheck.Effective(HudCheck.Mode.DryRun, proven, R) == HudCheck.Mode.Enforce && HudCheck.Effective(HudCheck.Mode.DryRun, proven, "v2_2_0") == HudCheck.Mode.DryRun
-            && HudCheck.Effective(HudCheck.Mode.DryRun, new Dictionary<string, string>(), R) == HudCheck.Mode.DryRun
-            && HudCheck.Effective(HudCheck.Mode.Off, proven, R) == HudCheck.Mode.Off && HudCheck.Effective(HudCheck.Mode.Enforce, new Dictionary<string, string>(), R) == HudCheck.Mode.Enforce);
-        var live = new HudState { CheckMode = "dryrun", Proofs = new(proven) };
-        Check("HUD check: no state, or one older than 10 s, means off - a silent bridge never gets anybody disconnected",
-            HudCheck.ModeOf(null, 0, R) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 11, R) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 1, R) == HudCheck.Mode.Enforce
-            && HudCheck.ModeOf(new HudState(), 1, R) == HudCheck.Mode.Off);
+        // ---- the modes: one setting, off, warn or enforce ----
+        Check("HUD check: the mode reads off, warn and enforce - dryrun, the word the plugins before v4_6_0 know, as warn - and anything else as off",
+            HudCheck.Parse("warn") == HudCheck.Mode.Warn && HudCheck.Parse("dryrun") == HudCheck.Mode.Warn && HudCheck.Parse(" Enforce ") == HudCheck.Mode.Enforce
+            && HudCheck.Parse("off") == HudCheck.Mode.Off && HudCheck.Parse("") == HudCheck.Mode.Off && HudCheck.Parse(null) == HudCheck.Mode.Off && HudCheck.Parse("kick") == HudCheck.Mode.Off);
+        Check("HUD check: the live state carries warn as dryrun (an older plugin's dry run, which without a proof never disconnects), the others as they are",
+            HudCheck.WireName(HudCheck.Mode.Warn) == "dryrun" && HudCheck.WireName(HudCheck.Mode.Enforce) == "enforce" && HudCheck.WireName(HudCheck.Mode.Off) == "off"
+            && Enum.GetValues<HudCheck.Mode>().All(m => HudCheck.Parse(HudCheck.WireName(m)) == m && HudCheck.Parse(HudCheck.Name(m)) == m));
+        var live = new HudState { CheckMode = "enforce" };
+        Check("HUD check: no state, or one older than 10 s, means off - a silent bridge never gets anybody disconnected; a fresh one says the mode, no proof needed",
+            HudCheck.ModeOf(null, 0) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 11) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 1) == HudCheck.Mode.Enforce
+            && HudCheck.ModeOf(new HudState { CheckMode = "dryrun" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
+
+        // ---- the version button: its id names the content that has it ----
+        Check("HUD check: the version button's id names its content (gg_hudver_v4_6_0); any other button names none, and a malformed one is no version button",
+            HudCheck.VersionButton(Hud.Content) == "gg_hudver_" + Hud.Content && HudCheck.VersionOf(HudCheck.VersionButton(Hud.Content)) == Hud.Content
+            && HudCheck.VersionOf("gg_hudver_v4_7_0") == "v4_7_0" && HudCheck.VersionOf("gg_hudver_x") == null && HudCheck.VersionOf(HudView.ButtonAct) == null && HudCheck.VersionOf("gg_tab_maps") == null);
+        Check("HUD check: what !hudok carries - a content, older, or the release (which content not known) - and nothing else",
+            new[] { Hud.Content, "v4_5_0", HudCheck.Older, Hud.Release }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
+            && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok newer"));
+        Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
+            HudCheck.LevelOf("v4_6_0") == 46 && HudCheck.LevelOf("v5_0_0") == 50 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4_5_0") && HudCheck.IsOutdated(HudCheck.Older)
+            && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4_7_0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
+            && HudCheck.VersionWords("v4_5_0") == "v4_5_0 - restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
+            && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4_7_0") == "v4_7_0"
+            && HudCheck.OutdatedNote("v4_5_0").Contains(Hud.Content) && HudCheck.OutdatedNote("v4_5_0").Length <= NoticeLength);
+        var roll = HudView.PlayersPage([new("Alice", "CT", Hud.Content, 0, "voted", "42 min"), new("Bob", "T", "v4_5_0", 0, "waiting", "5 min"),
+            new("Cleo", "T", HudCheck.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4_7_0", 0, "", "-"), new("Eve", "SPEC", Hud.Release, 0, "", "3 min"),
+            new("Finn", "T", "", 0, "", "0 min"), new("Gus", "CT", "", 12, "", "0 min")]);
+        string Roll(string name) => roll.Single(w => w.Name == name).Text;
+        Check("HUD check: the Players page counts each HUD once - the server's, older, newer, of unknown content, not seen yet (the check's clock among those) - and says each row's",
+            Roll(HudView.PlayersSummaryVar) == $"7 on the server  ·  1 on the server's HUD, {Hud.Content}  ·  2 older  ·  1 newer  ·  1 unknown  ·  2 not seen yet"
+            && Roll("ospl1a") == "Alice" && Roll("ospl1c") == Hud.Content && Roll("ospl1o") == "" && Roll("ospl1d") == "voted" && Roll("ospl1e") == "42 min"
+            && Roll("ospl2c") == "" && Roll("ospl2o") == "v4_5_0 - restart CS2" && Roll("ospl3o") == "older - restart CS2" && Roll("ospl4o") == "v4_7_0"
+            && Roll("ospl5o") == "version unknown" && Roll("ospl6o") == "not seen yet" && Roll("ospl7o") == "" && Roll("ospl7k") == "HUD check: 12 s left"
+            && Roll("ospl8a") == "" && Roll("ospl8o") == "" && HudView.PlayersPage([])[0] == (HudView.PlayersSummaryVar, "Nobody on the server"));
         Check("HUD check: Steam's Error page means not shown to everybody, a Workshop page means shown, a 429 or anything else means no verdict",
             HudCheck.PagePublic(200, "<html><head><title>Steam Community :: Error</title></head><body>There was a problem accessing the item.</body></html>") == false
             && HudCheck.PagePublic(200, "<html><head><title>Steam Workshop::Over Strike 2 HUD</title></head></html>") == true
@@ -34,9 +57,9 @@ static partial class Program
             held is { Verdict: Workshop.Ok, TimeUpdated: 1793000000, Content: "7434112514802144923" } && HudCheck.ParseItem(Gone, 3659287341) is { Verdict: Workshop.Removed, TimeUpdated: 0 }
             && HudCheck.ParseItem(Held, 3823993566) == null && HudCheck.ParseItem("not json", 1) == null && HudCheck.ParseItem("{}", 1) == null);
 
-        // ---- when the item's page is visited, and what joiners must download (ItemPlan; the owner, 2026-11-01: no regular scraping of
+        // ---- when the item's page is visited, and what joiners must download (ItemPlan: no regular scraping of
         //      the community site - the Web API is the signal, the page only right after it shows a change, then at most every 15 minutes
-        //      for 3 hours while it is not shown, an hour's pause after a refusal, never idly: the owner, 2026-11-02) ----
+        //      for 3 hours while it is not shown, an hour's pause after a refusal, never idly) ----
         var old = new HudCheck.ItemApi(Workshop.Ok, 1792700000, "111"); // an upload of days ago
         var plan = new ItemPlan();
         var t = upload.AddDays(1);
@@ -151,9 +174,9 @@ static partial class Program
         Check("HUD check: the lines say how to open the window now (TAB + E) and never name a chat command - typed commands are gone since v3_0_0",
             HudCheck.Prompt.Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
             && lines.Append(reason).All(l => !l.Contains("!gg") && !l.Contains("/gg") && !l.Contains("!info")));
-        Check("HUD check: a release looks like v2_1_1, and the click's !hudok takes exactly one",
-            HudCheck.IsRelease(R) && HudCheck.IsRelease(Hud.Release) && !HudCheck.IsRelease("v2_1") && !HudCheck.IsRelease("2_1_1") && !HudCheck.IsRelease("v2_1_1_1") && !HudCheck.IsRelease("v2_x_1")
-            && Hud.IsAction(HudCheck.Command(R)) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit"));
+        Check("HUD check: a release or a content looks like v2_1_1",
+            HudCheck.IsRelease(R) && HudCheck.IsRelease(Hud.Release) && HudCheck.IsRelease(Hud.Content) && !HudCheck.IsRelease("v2_1") && !HudCheck.IsRelease("2_1_1")
+            && !HudCheck.IsRelease("v2_1_1_1") && !HudCheck.IsRelease("v2_x_1"));
 
         // ---- the clock (HudGate), on a handed clock ----
         List<(int Slot, HudGate.Act Act, int Seconds, double At)> Run(HudGate g, HudCheck.Mode mode, HashSet<long> verified, double from, double to, Action<double>? at = null)
@@ -182,12 +205,12 @@ static partial class Program
             !again && acts.Count == 2 && acts[0] is (3, HudGate.Act.Warn, 15, 75) && acts[1] is (3, HudGate.Act.Kick, 0, 90));
         gate = new HudGate();
         gate.Spawned(4, 104, false, t0);
-        acts = Run(gate, HudCheck.Mode.DryRun, [], 0, 300);
-        Check("HUD check: a dry run warns and logs, and never disconnects",
+        acts = Run(gate, HudCheck.Mode.Warn, [], 0, 300);
+        Check("HUD check: warn warns and logs, and never disconnects",
             acts.Count == 2 && acts[0] is (4, HudGate.Act.Warn, 15, 75) && acts[1] is (4, HudGate.Act.WouldKick, 0, 90) && acts.All(a => a.Act != HudGate.Act.Kick));
         gate = new HudGate();
         gate.Spawned(5, 105, false, t0);
-        Run(gate, HudCheck.Mode.DryRun, [], 0, 100);
+        Run(gate, HudCheck.Mode.Warn, [], 0, 100);
         var rearmed = gate.Rearm(t0.AddSeconds(100));
         acts = Run(gate, HudCheck.Mode.Enforce, [], 100, 400);
         Check("HUD check: when enforcement comes on, everybody still waiting gets a full grace period from then - nobody is thrown out on the spot",
@@ -199,47 +222,66 @@ static partial class Program
         Check("HUD check: a new map (everybody reconnects) starts the clock over", gate.Spawned(6, 106, false, t0.AddSeconds(400)) && gate.Checking(6));
         gate.Gone(6);
         Check("HUD check: a player who left is forgotten", !gate.Checking(6) && Run(gate, HudCheck.Mode.Enforce, [], 400, 600).Count == 0);
-        var mixed = new HudState { Verified = { [201] = R, [202] = Old } };
-        Check("HUD check: verified once per release - a click on the previous release does not count for this one",
-            HudCheck.IsVerified(mixed, 201, R) && !HudCheck.IsVerified(mixed, 202, R) && HudCheck.IsVerified(mixed, 202, Old) && !HudCheck.IsVerified(mixed, 203, R) && !HudCheck.IsVerified(null, 201, R));
+        var mixed = new HudState { Verified = { [201] = Hud.Content, [202] = HudCheck.Older } };
+        var clockGate = new HudGate();
+        clockGate.Spawned(7, 107, false, t0);
+        Check("HUD check: verified is any HUD the bridge has for the player since their last real join; the Players page reads the check's clock",
+            HudCheck.IsVerified(mixed, 201) && HudCheck.IsVerified(mixed, 202) && !HudCheck.IsVerified(mixed, 203) && !HudCheck.IsVerified(null, 201)
+            && clockGate.SecondsLeft(7, t0.AddSeconds(30)) == (int)HudCheck.GraceSeconds - 30 && clockGate.SecondsLeft(8, t0) == 0);
 
-        // ---- the codec: mode, proofs and verifications reach the plugin ----
-        var sent = new HudState { CheckMode = "dryrun", Proofs = new(proven), Verified = { [201] = R, [202] = Old } };
-        var got = HudState.Decode(sent.Encode() + "proof\tnot-a-release\tx\nok\tx\tv2_1_1\n")!;
-        Check("HUD check: the state carries the mode, the proofs and the verifications, and drops malformed ones",
-            got.CheckMode == "dryrun" && got.Proofs.Count == 1 && got.Proofs[R] == proven[R] && got.Verified.Count == 2 && got.Verified[201] == R && got.Verified[202] == Old);
+        // ---- the codec: the mode and the verifications reach the plugin; no proof lines any more ----
+        var sent = new HudState { CheckMode = "dryrun", Verified = { [201] = Hud.Content, [202] = HudCheck.Older, [203] = Hud.Release } };
+        var got = HudState.Decode(sent.Encode() + "proof\tv2_1_1\tx\nok\tx\tv2_1_1\nok\t204\tnewer\n")!;
+        Check("HUD check: the state carries the mode and the verifications with their HUDs, and drops malformed ones (an old bridge's proof lines are skipped)",
+            got.CheckMode == "dryrun" && got.Verified.Count == 3 && got.Verified[201] == Hud.Content && got.Verified[202] == HudCheck.Older && got.Verified[203] == Hud.Release
+            && !sent.Encode().Contains("proof\t"));
 
-        // ---- the bridge: only a click verifies, the first real one proves the release, and it is kept ----
-        var (savedMode, savedVerified, savedProofs, savedDir) = (HudCheckMode, S.HudVerified, S.HudProofs, StateDir);
+        // ---- the bridge: only a click verifies, in memory, for the players on the server, forgotten at a real join or a real departure ----
+        var (savedMode, savedDir, savedNow, savedSend, savedS) = (HudCheckMode, StateDir, Now, Send, S);
         string dir; // Save() writes state.json: into a scratch folder, as the queue tests do (the image's /app is not writable)
         try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-check-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"gungamebridge-check-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
         try
         {
             StateDir = dir;
-            HudCheckMode = HudCheck.Mode.DryRun;
-            S.HudVerified = new(); S.HudProofs = new();
-            Command("Mallory", "[U:1:5009]", HudCheck.Command(R));
-            Check("HUD check: !hudok typed in chat verifies nobody and proves nothing", S.HudVerified.Count == 0 && S.HudProofs.Count == 0);
-            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(R)}");
-            HudAct($"[U:1:5002]\tBob\t{HudCheck.Command(R)}");
-            HudAct($"[U:1:5003]\tCara\t{HudCheck.Command(Old)}");
-            Check("HUD check: a click verifies its player on its release, and the first click on a release is its proof",
-                S.HudVerified.GetValueOrDefault(5001) == R && S.HudVerified.GetValueOrDefault(5002) == R && S.HudVerified.GetValueOrDefault(5003) == Old
-                && S.HudProofs.Count == 2 && S.HudProofs[R].StartsWith("Alice [U:1:5001]") && S.HudProofs[Old].StartsWith("Cara"));
-            var served = HudState.Decode(BuildHud(Now()).Encode())!;
-            Check(HudCheckHold
-                    ? "HUD check, held (the owner's rule while the HUD update is under review, Selection.cs): the bridge serves the verifications but no proof, so the plugin stays a dry run on every release - and keeps the proofs for when the hold lifts"
-                    : "HUD check: the bridge serves them, and with HUD_CHECK=dryrun the plugin then enforces on the proven release only",
-                served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == R && (HudCheckHold
-                    ? served.Proofs.Count == 0 && HudCheck.ModeOf(served, 0, R) == HudCheck.Mode.DryRun && S.HudProofs.ContainsKey(R)
-                    : HudCheck.ModeOf(served, 0, R) == HudCheck.Mode.Enforce)
-                && HudCheck.ModeOf(served, 0, "v2_2_0") == HudCheck.Mode.DryRun);
-            Check("HUD check: refused click lines change nothing", !HudAct("[U:1:5004]\tDan\t!hudok v9") && !S.HudVerified.ContainsKey(5004));
+            var clock = t0;
+            Now = () => clock;
+            Send = _ => null; // a real join asks the plugin for the guide over RCON: nobody to answer here
+            S = new State();
+            HudCheckMode = HudCheck.Mode.Warn;
+            HudSeen.Clear(); ClearNotices();
+            foreach (var (id, name) in new[] { ("[U:1:5001]", "Alice"), ("[U:1:5002]", "Bob"), ("[U:1:5003]", "Cara"), ("[U:1:5009]", "Mallory") })
+                Ingest($"10/07/2026 - 12:00:00.000 - \"{name}<2><{id}><CT>\" entered the game", null);
+            Command("Mallory", "[U:1:5009]", HudCheck.Command(Hud.Content));
+            Check("HUD check: !hudok typed in chat verifies nobody", HudSeen.Count == 0);
+            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(Hud.Content)}");
+            HudAct($"[U:1:5002]\tBob\t{HudCheck.Command(HudCheck.Older)}");
+            HudAct($"[U:1:5003]\tCara\t{HudCheck.Command(Hud.Release)}");
+            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(Hud.Release)}"); // a later click on another button: the version stays known
+            var served = HudState.Decode(BuildHud(clock).Encode())!;
+            var joinNews = NewsNow.Text;
+            var bobNote = HudView.NoteOf(served, 5002);
+            Check("HUD check: a click verifies its player with the HUD it proved (the version button's content, an older content's gold button, or unknown), and a known one is kept",
+                served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == Hud.Content && served.Verified.GetValueOrDefault(5002) == HudCheck.Older
+                && served.Verified.GetValueOrDefault(5003) == Hud.Release && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn);
+            Check("HUD check: the first click with a known HUD says on the news line which one the player brought, and an outdated one gets that player a note",
+                joinNews.Contains("joined with") && bobNote.Contains(Hud.Content) && HudView.NoteOf(served, 5001) == "");
+            Ingest("10/07/2026 - 12:00:05.000 - \"Bob<2><[U:1:5002]><CT>\" disconnected (reason \"NETWORK_DISCONNECT_DISCONNECT_BY_USER\")", null);
+            Ingest("10/07/2026 - 12:00:06.000 - \"Alice<2><[U:1:5001]><CT>\" disconnected (reason \"NETWORK_DISCONNECT_SHUTDOWN\")", null);
+            var afterLeave = HudState.Decode(BuildHud(clock).Encode())!;
+            Check("HUD check: a player who left is forgotten at once - the live state carries only the players on the server - and a map change's reconnect forgets nobody",
+                !afterLeave.Verified.ContainsKey(5002) && afterLeave.Verified.ContainsKey(5001) && !HudSeen.ContainsKey("[U:1:5002]"));
+            Ingest("10/07/2026 - 12:00:30.000 - \"Bob<2><[U:1:5002]><CT>\" connected, address \"\"", null);
+            Ingest("10/07/2026 - 12:00:31.000 - \"Bob<2><[U:1:5002]><CT>\" entered the game", null);
+            Check("HUD check: a real join asks again - the returning player may have a new HUD - and nothing of it is written to state.json",
+                !HudState.Decode(BuildHud(clock).Encode())!.Verified.ContainsKey(5002) && !File.ReadAllText(Path.Combine(dir, "state.json")).Contains("hud", StringComparison.OrdinalIgnoreCase));
+            Check("HUD check: refused click lines change nothing", !HudAct("[U:1:5004]\tDan\t!hudok v9") && !HudSeen.ContainsKey("[U:1:5004]"));
         }
         finally
         {
-            (HudCheckMode, S.HudVerified, S.HudProofs, StateDir) = (savedMode, savedVerified, savedProofs, savedDir);
+            (HudCheckMode, StateDir, Now, Send, S) = (savedMode, savedDir, savedNow, savedSend, savedS);
+            HudSeen.Clear(); ClearNotices();
+            foreach (var id in new[] { "[U:1:5001]", "[U:1:5002]", "[U:1:5003]", "[U:1:5009]" }) Players.Remove(id);
             try { Directory.Delete(dir, true); } catch (Exception e) { Console.WriteLine($"selftest: could not remove {dir}: {e.Message}"); }
         }
     }

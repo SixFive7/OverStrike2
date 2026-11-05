@@ -2,8 +2,8 @@ using System.Text;
 
 namespace OverStrike2;
 
-/// <summary>The HUD's line to the bridge, over the stack network the log push already uses: GET /hud/&lt;secret&gt; for the live state
-/// (once a second while anyone is on the server), GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt; for a click. The address
+/// <summary>The HUD's line to the bridge, over the stack network the log push already uses: GET /hud/&lt;secret&gt;?draw=1 (or draw=0, Hud.DrawQuery) for the
+/// live state (once a second while anyone is on the server), GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt; for a click. The address
 /// and the secret come from the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;), so there is nothing new
 /// to configure.
 ///
@@ -43,8 +43,9 @@ sealed class BridgeLink
     }
 
     /// <summary>On the game thread, every frame of the plugin's timer: hands back the newest state text that arrived since the last
-    /// call (from a poll or from an action's answer), and starts the next poll when one is due and wanted.</summary>
-    public string? Take(DateTime now, bool wanted)
+    /// call (from a poll or from an action's answer), and starts the next poll when one is due and wanted. draws: whether this plugin draws the HUD,
+    /// which the poll tells the bridge - only a drawing plugin makes it open votes nobody else would see.</summary>
+    public string? Take(DateTime now, bool wanted, bool draws = true)
     {
         string? newest = null;
         if (fetch is { IsCompleted: true } done)
@@ -61,7 +62,7 @@ sealed class BridgeLink
         {
             nextFetch = now.AddSeconds(PollSeconds);
             fetchSent = DateTime.UtcNow;
-            fetch = Get();
+            fetch = GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}");
         }
         return newest;
     }
@@ -141,8 +142,6 @@ sealed class BridgeLink
         LastError = t.Exception?.GetBaseException().Message ?? "no answer";
         return null;
     }
-
-    Task<string?> Get() => GetText(stateUrl);
 
     async Task<string?> GetText(string url)
     {

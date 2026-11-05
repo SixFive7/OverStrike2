@@ -44,7 +44,7 @@ static partial class Program
     {
         var p = PlayerOf(id);
         if (reason.Contains("SHUTDOWN")) { if (p.GoneSince == null) p.ReloadSince ??= now; }
-        else { p.GoneSince = now; p.ReloadSince = null; p.Joining = false; }
+        else { p.GoneSince = now; p.ReloadSince = null; p.Joining = false; HudSeen.Remove(id); } // left for real: the HUD check forgets them
     }
 
     /// <summary>A chat line or a click proves its sender is on the server.</summary>
@@ -110,13 +110,13 @@ static partial class Program
             foreach (var (id, value) in votes) if (AccountId(id) is >= 0 and var account) h.MyVotes[account] = value;
         h.Top = TopRows().Take(HudState.ListLength).Select(r => (Clip(Label(r.Map), 36), r.Up, r.Down)).ToList();
         h.RoundMinutes = S.RoundMinutes;
+        h.RoundBy = S.RoundMinutes == DefaultRoundMinutes ? "" : S.RoundBy ?? "";
         if (key != "") (h.Big, h.SizeClass) = (TooBigVotes(key), S.Map is { } on ? SizeClass(on) ?? "" : Sizes.TryGetValue(key, out var e) ? e.Class ?? "" : "");
         if (key != "") h.Ads = AdsVotes(key);
         h.CatalogVersion = CatalogVersion;
-        h.CheckMode = HudCheck.Name(HudCheckMode);
+        h.CheckMode = HudCheck.WireName(HudCheckMode);
         h.TabMode = HudTab.Name(HudTabMode);
-        h.Proofs = HudCheckHold ? new() : S.HudProofs; // Selection.cs: while held, no proof is served, so the plugin's check stays a dry run (lifted 2026-10-24)
-        h.Verified = S.HudVerified;
+        h.Verified = HudVerifiedNow(now); // Program.cs: the HUD check, for the players on the server
         h.SearchVersion = Search.Version;
         h.DashVersion = DashVersion; // SyncDash.cs: the Sync page's block
         if (Enumerable.Reverse(S.History).FirstOrDefault(m => Key(m) != key) is { } prev) (h.PrevLabel, h.PrevArg) = (Clip(Label(prev), 40), ArgOf(prev));

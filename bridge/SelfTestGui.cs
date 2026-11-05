@@ -1,4 +1,4 @@
-// --selftest, part six (2026-10-21): the menu that replaced the chat commands. The search index and its scoring, the on-screen keyboard,
+// --selftest, part six: the menu that replaced the chat commands. The search index and its scoring, the on-screen keyboard,
 // the card for a Workshop id that is not on the list, the news line and the notes, the board's buttons - and, command by command, the
 // place in the menu that does what the command did (README "The menu replaces the chat commands" lists the same).
 using System.Text.Json;
@@ -201,7 +201,7 @@ static partial class Program
         var lt = HudView.Texts(free, leading);
         var lc = HudView.Classes(free, leading);
         string LT(string id) => lt.Single(t => t.Id == id).Text;
-        Check("Board and live column: the vote in one line, its leading cards in the old queue rows (the owner's 46: no queue); outside a vote how to call one, or the wait",
+        Check("Board and live column: the vote in one line, its leading cards in the old queue rows (there is no queue); outside a vote how to call one, or the wait",
             HudView.VoteLine(null) == "No vote on: Play on a map, or Start a vote" && HudView.VoteLine(leading) == "The vote is on: 20 s left  ·  3 of 3 voted"
             && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("gg_b_queue") == HudView.VoteLine(leading)
             && LT("gg_w_n1") == "#44 aim_aim" && LT("gg_w_nw1") == "2 votes" && LT("gg_w_n2") == "Keep playing this map" && LT("gg_w_nw2") == "1 vote" && LT("gg_w_n3") == ""
@@ -225,13 +225,15 @@ static partial class Program
             ("!down", "Board or menu: Dislike", HudView.Command(HudView.ButtonDown, live), "!down"),
             ("!up <map>", "Maps: a card's up arrow", Card(claim, "up"), "!up 7"),
             ("!down <map>", "Maps: a card's down arrow", Card(claim, "down"), "!down 7"),
-            ("!down <map> big", "Maps: a card's Too big (content v3_1_0)", Card(claim, "big"), "!down 7 big"),
+            ("!down <map> big", "Maps: a card's down arrow, then Too big over its picture", Card(claim, "down") == "!down 7"
+                && HudVote.WhyClick(HudVote.WhyButton($"c{claim}", Array.FindIndex(DownReasons.All, r => r.Word == "big") + 1)) is { } bigWhy ? $"!down {bigWhy.Word}" : null, "!down big"),
+            ("!down <map> big", "Maps: a card's Too big (the contents before v4_6_0)", Card(claim, "big"), "!down 7 big"),
             ("!top", "Maps: Sort by Likes; the live column's Most liked", Sorted(catalog, index).FirstOrDefault()?.Name, "Claim the hill"),
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),
             ("!restart", "Game: Restart (twice)", HudMenu.Command(HudMenu.Restart, catalog, live, mine, 1, DateTime.UtcNow), "!restart"),
-            ("!nades on|off", "Fun: Grenade drops (a fun setting since the owner's 61 b)", HudMenu.NadesOn + " " + HudMenu.NadesOff, "gg_set_nades_on gg_set_nades_off"),
+            ("!nades on|off", "Fun: Grenade drops (a fun setting)", HudMenu.NadesOn + " " + HudMenu.NadesOff, "gg_set_nades_on gg_set_nades_off"),
             ("!gg !info", "Board: Open full menu; TAB + E", HudView.BoardOpen, "gg_b_open"),
-            ("!help !maps", "Help page", HudView.Tabs.Single(t => t.Page == HudSlots.Page.Help).Id, "gg_tab_help"),
+            ("!help !maps", "Help page", HudView.Tabs.First(t => t.Page == HudSlots.Page.Help).Id, "gg_tab_help"),
         };
         static List<HudCatalog.Entry> Sorted(HudCatalog c, HudSearch i) { var v = new HudBrowser(); v.Click("gg_sort_votes", 0); return v.Matches(c, 1, i); }
         foreach (var (chat, where, sends, expected) in rows)

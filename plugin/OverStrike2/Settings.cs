@@ -98,6 +98,10 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     // ---- the fun page's changes (Fun.cs) ----
     readonly FunState fun = new();
     string lastFun = "none yet";
+    readonly Dictionary<string, string> setBy = new(StringComparer.OrdinalIgnoreCase); // setting id -> who set it, while it is off its default (the HUD's Fun page says it)
+
+    /// <summary>Who set a fun setting that is off its default (gg_fun's last argument), or null: at its default, or not known.</summary>
+    public string? SetBy(string settingId) => setBy.GetValueOrDefault(settingId);
 
     string BaselineFile => Path.Combine(plugin.ModuleDirectory, "baseline.json");
     string BlockedFile => Path.Combine(plugin.ModuleDirectory, Modes.BlockFile);
@@ -164,6 +168,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         else { baselinePending = true; baselineFrom = "pending: taken when the first map ends"; }
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
+        if ((plugin as OverStrike2Plugin)?.Screen is { } hud) hud.FunSetBy = SetBy; // the Fun page says who set each setting off its default
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => Block("round start"), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
         plugin.AddTimer(BlockEvery, () => Block(null), TimerFlags.REPEAT);
         log.LogInformation("Over Strike 2 settings {Version}: {Managed} settings watched ({Listed} game convars listed and {FromBuild} only this build has: {Cfg} left to the engine cfgs, " +
@@ -588,6 +593,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     /// was before the first player change on this map, and every effect back at its default - the grenade drops and catch-up on.</summary>
     string UndoFun(string when)
     {
+        setBy.Clear(); // every setting goes back to its default: nobody set any
         var writes = fun.Reset(Value);
         var done = writes.Select(w => $"{w.ConVar} -> {w.Value}{(Write(w.ConVar, w.Value) ? "" : " (refused)")}").ToList();
         done.AddRange(EffectsBack().Select(b => b + " (its default)")); // after the undo: every effect where it starts, whatever left it elsewhere
@@ -633,6 +639,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         var writes = fun.Apply(setting, choice, Value);
         var refused = writes.Where(w => !Write(w.ConVar, w.Value)).Select(w => w.ConVar).ToList();
+        if (choice == setting.Normal) setBy.Remove(setting.Id); else if (refused.Count == 0) setBy[setting.Id] = by; // who set it, until it is back at its default
         var line = $"{setting.Id} {choice.Id} by {by}: {(writes.Count == 0 ? "nothing to change" : string.Join(", ", writes.Select(w => $"{w.ConVar} {w.Value}")))}{(refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "")}";
         lastFun = $"{DateTime.Now:HH:mm:ss} {line}";
         log.LogInformation("Over Strike 2 settings: fun on {Map}: {Line}", map, line);

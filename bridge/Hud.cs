@@ -19,28 +19,15 @@ public static class Hud
     /// served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
     public const string Release = "v3_0_0";
 
-    /// <summary>The layout's content on that path. A release can be new content on the SAME path: content v3_1_0 (the
-    /// too-big vote, the new-maps setting, How it works, the new maps' pictures) keeps every panel of v3_0_0 and only adds, so one plugin
-    /// drives a game holding either - players keep a working HUD while Valve reviews the update and until their game has downloaded it.
-    /// The panels it adds get words only once the player's game has clicked one of them (HudView.NewIds, HudView.NewButtons).
-    /// Content v3_2_0 (the Ads vote, the Fun page with friendly fire's rows, two more Help rows, the restart button's blink, the pictures of #3565 and
-    /// up) does the same one level up: it keeps every panel of v3_1_0, and what it adds waits for a click on one of its own buttons
-    /// (HudView.NewIds32, HudView.NewButtons32). So one plugin drives a game holding any of the three.</summary>
-    /// Over Strike 2 (v3_2_0 never shipped) is content v4_0_0, the same way: every panel of v3_1_0 kept, what it adds gated as
-    /// v3_2_0's was (NewIds32), and its version checked against the server's by the layout itself (HudVote.cs). Content v4_1_0 keeps every
-    /// panel of v4_0_0 and adds the popup that asks why a player disliked a map, and the Fun page's row for the grenade drops, whose buttons
-    /// moved there from the Game page: nothing is sent to their panels (HudView.NewButtons41), so no game has to prove it holds them.
-    /// Content v4_2_0 keeps every panel of v4_1_0 and adds the pictures of the maps not listed yet (hud/thumbs.py --ahead), a picture button on each
-    /// card (HudPreview) and the mode filter's chips: their state is classes on panels every game has, so again nothing is sent to them (NewButtons42).
-    /// Content v4_3_0 keeps every panel of v4_2_0 and adds the Sync tab: the Workshop sync's dashboard (HudDash.cs), whose words are
-    /// dialog variables and whose state is classes on gg_screen, so nothing is sent to its panels either (NewButtons43).
-    /// Content v4_4_0 keeps every panel of v4_3_0 and adds the vote's pages, Random's button and the
-    /// map browser that adds to the vote, each card's mode label and colour, the inline reasons of a Dislike, the Fun page's Random and Default and
-    /// the Our maps glow; the board's Too big and Ads buttons step aside. Again nothing is sent to its new panels (HudVote.NewButtons44).
-    /// Content v4_5_0 keeps every panel of v4_4_0 and adds where the votes go - each card's bar and voters,
-    /// the leader or a tie lit, the summary strip (HudVote.NewIds45: only a game that has shown v4_5_0 gets its classes) - the waiting line, Remove
-    /// mine on a card of your own request, the line back to a vote you closed, the Fun page's Catch-up row and its changed marks, and Our maps' pulse.
-    public const string Content = "v4_5_0";
+    /// <summary>The layout's content on that path. A content update keeps the path, so games holding older contents of the same release stay in
+    /// use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all. The rule since v4_6_0:
+    /// the plugin sends what this content has, and an older content simply lacks what it lacks (a panel a game does not have takes nothing in
+    /// it). What an older content needs to show its own pages keeps coming: its page classes, c31 and c32 (every content in use holds the panels
+    /// those two uncover) and the svge/svlt version classes its join banner reads. The newest content a server knows rides on gg_global as one class,
+    /// latest-N (HudVote.LatestClass); from v4_6_0 on every content shows its own outdated banner for an N above its own. The version a player's game
+    /// holds comes from the HUD check's click (HudCheck.VersionButton). hud/reference/ holds every shipped content's layout, which --selftest
+    /// holds this one to.</summary>
+    public const string Content = "v4_6_0";
 
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + Release + ".xml";
@@ -57,11 +44,16 @@ public static class Hud
     /// index, and POSTs a player's click.</summary>
     public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";
 
+    /// <summary>The query the plugin adds to its GET of the live state: whether it draws the HUD (draw=1) or runs undrawn (draw=0, no addon). Only
+    /// a drawing plugin makes the bridge open votes (the bridge's HudActive); a poll without it is an older plugin's, which counts as drawing.</summary>
+    public const string DrawQuery = "draw";
+
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
     public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!time 10", "!time 60"];
 
-    /// <summary>The "new maps in random picks" setting as the Game page switches it (the bridge's Selection.cs).</summary>
+    /// <summary>The "new maps in random picks" setting's old words: an older content's Game page still has its buttons, which hear that it is gone
+    /// (the bridge's Selection.cs).</summary>
     public static readonly string[] NewMapsActions = ["!newmaps always", "!newmaps half", "!newmaps never"];
 
     /// <summary>Whether a click may ask for this. The bridge refuses anything else on its /act path, so the menu can never reach a server
@@ -69,7 +61,7 @@ public static class Hud
     public static bool IsAction(string command)
     {
         if (Actions.Contains(command) || NewMapsActions.Contains(command)) return true;
-        if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudCheck.IsRelease(command[7..]); // the HUD check's click (HudCheck)
+        if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudCheck.IsVersionWord(command[7..]); // the HUD check's click (HudCheck)
         var space = command.IndexOf(' ');
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
@@ -97,10 +89,6 @@ public static class Hud
 
     public const int RowsPerGroup = 4, LinesPerRule = 4; // the layout has exactly this many slots
 
-    /// <summary>The Help rows content v3_2_0 added: a fifth row in two groups (gg_c{group + 1}_5). None any more - one Fun row, one row
-    /// for a Dislike's reasons, no Ads row - so those rows stay collapsed.</summary>
-    public static readonly (int Group, Row Row)[] HelpMore = [];
-
     /// <summary>The Help page: where each thing is in the menu. Command is the place to click, Words what it does; every action has its chat
     /// command too (ChatCommands.cs, !help).</summary>
     public static readonly Group[] Help =
@@ -109,7 +97,7 @@ public static class Hud
             new("Maps  ·  Play", "Put any map to the vote: a vote opens, your vote on that map"),
             new("Search", "The keyboard on the Maps page: name, tags or a Workshop ID"),
             new("Start a vote", "On the board or in the menu: a vote for the next map"),
-            new("Previous  ·  !back", "The map before this one, to the vote")]),
+            new("Previous  ·  !back", "On the Maps page: the map before this one, to the vote")]),
         new("The vote", [
             new("Everybody votes", "Everybody is frozen until all have voted, 60 s at the most"),
             new("Cards", "Click to vote, another to change it, yours to take it back"),
@@ -122,12 +110,12 @@ public static class Hud
             new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
             new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
-            new("Match length", "10 or 60 minutes, from the next match"),
-            new("Restart", "Reboot a stuck server - click twice to confirm")]),
+            new("Server  ·  Game", "Match length: 10 or 60 minutes, from the next match"),
+            new("Restart", "Server  ·  Game: reboot a stuck server - click twice to confirm")]),
         new("The board", [
             new("Hold TAB", "The live board beside the scoreboard, with the mouse"),
             new("TAB + E", "The full menu"),
-            new("How  ·  Sync", "Every rule and chance of a map pick, the map sync"),
+            new("Help  ·  Server", "How it works under Help; who is on, the game and the map sync under Server"),
             new("Chat  ·  !help", "Every action has a chat command too - !help lists them")]),
     ];
 
@@ -168,7 +156,7 @@ public static class Hud
     public static readonly (string Title, string Command, string Words)[] Steps =
     [
         ("Pick a map", "Maps", "Every map with its picture; Play puts it to the vote."),
-        ("Vote", "The vote", "Everybody votes; the most votes win."),
+        ("Vote", "Maps  ·  Vote", "Everybody votes; the most votes win."),
         ("Like it", "Like  Dislike", "Your likes steer the random maps."),
     ];
 
@@ -220,10 +208,10 @@ public sealed class HudState
     public string ChangeMap = "", ChangeBy = "";        // a change counting down...
     public int ChangeIn = -1;                           // ...and the seconds until it goes out; -1 when none is
     public int RoundMinutes;                            // the match length !time set
+    public string RoundBy = "";                         // ...and who set it, while it is not the default
     public long CatalogVersion;                         // the map catalog's version: the plugin fetches it again when this moves
-    public string CheckMode = "";                       // the HUD check as configured (HUD_CHECK: off, dryrun, enforce); empty from an older bridge
-    public Dictionary<string, string> Proofs = new();   // release -> the first real click verified on it (who, when): dryrun is enforce there
-    public Dictionary<long, string> Verified = new();   // account id -> the release it last clicked in
+    public string CheckMode = "";                       // the HUD check as configured (HUD_CHECK: off, warn - "dryrun" on the wire - or enforce); empty from an older bridge
+    public Dictionary<long, string> Verified = new();   // account id -> the HUD its game showed at the check's click since its last real join (HudCheck.VersionWord), players on the server only
     public string TabMode = "";                         // the TAB chord (HUD_TAB: off, menu, on); empty from an older bridge
     public string News = "";                            // the news line everybody sees (a pick, a skip vote, the queue moving, a crash)...
     public int NewsFor;                                 // ...and for how many more seconds
@@ -255,11 +243,10 @@ public sealed class HudState
         foreach (var (id, v) in MyVotes) Line("vote", id, v);
         foreach (var (map, up, down) in Top.Take(ListLength)) Line("top", map, up, down);
         if (ChangeIn >= 0) Line("change", ChangeMap, ChangeBy, ChangeIn);
-        if (RoundMinutes > 0) Line("set", RoundMinutes);
+        if (RoundMinutes > 0) Line("set", RoundMinutes, RoundBy); // an older plugin reads the first field
         if (CatalogVersion > 0) Line("cat", CatalogVersion);
         if (CheckMode != "") Line("chk", CheckMode);
-        foreach (var (release, proof) in Proofs) Line("proof", release, proof);
-        foreach (var (account, release) in Verified) Line("ok", account, release);
+        foreach (var (account, version) in Verified) Line("ok", account, version);
         if (TabMode != "") Line("tab", TabMode);
         if (News != "" && NewsFor > 0) s.Append("news\t").Append(NewsFor.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(News, 240)).Append('\n');
         foreach (var (account, (text, secs)) in Notes)
@@ -299,7 +286,7 @@ public sealed class HudState
                 case "vote": if (Long(f, 1) is >= 0 and var id) s.MyVotes[id] = HudCatalog.Carried(Int(f, 2)); break;
                 case "top": if (s.Top.Count < ListLength) s.Top.Add((Str(f, 1), Int(f, 2), Int(f, 3))); break;
                 case "change": (s.ChangeMap, s.ChangeBy, s.ChangeIn) = (Str(f, 1), Str(f, 2), Int(f, 3)); break;
-                case "set": s.RoundMinutes = Int(f, 1); break;
+                case "set": (s.RoundMinutes, s.RoundBy) = (Int(f, 1), Str(f, 2)); break;
                 case "cat": s.CatalogVersion = Long(f, 1); break;
                 case "chk": s.CheckMode = Str(f, 1); break;
                 case "tab": s.TabMode = Str(f, 1); break;
@@ -314,8 +301,7 @@ public sealed class HudState
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
-                case "proof" when HudCheck.IsRelease(Str(f, 1)): s.Proofs[Str(f, 1)] = Str(f, 2); break;
-                case "ok" when Long(f, 1) >= 0 && HudCheck.IsRelease(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
+                case "ok" when Long(f, 1) >= 0 && HudCheck.IsVersionWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
             }
         }
         return s;
@@ -338,77 +324,40 @@ public static class HudView
     public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open", BoardBig = "gg_b_vbig",
         BoardAds = "gg_b_vads"; // content v3_2_0
 
-    public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun"; // content v3_1_0, v3_2_0
+    public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun", TabGame = "gg_tab_game", TabMaps = "gg_tab_maps";
 
-    /// <summary>The window's tabs (no Queue and no Rules page any more - in a game still holding an older content their
-    /// tabs do nothing).</summary>
+    /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
+    /// BrowseButton), FUN, SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
+    /// tabs of the contents before v4_6_0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
+    /// Rules tab opens How it works, where its words went; its Queue tab does nothing (there is no queue).</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
-        [("gg_tab_start", HudSlots.Page.Start), ("gg_tab_maps", HudSlots.Page.Maps), ("gg_tab_game", HudSlots.Page.Game),
-         ("gg_tab_help", HudSlots.Page.Help), (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync)];
+        [("gg_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("gg_tab_help", HudSlots.Page.Help),
+         (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("gg_tab_server", HudSlots.Page.Players),
+         ("gg_sub_players", HudSlots.Page.Players), ("gg_sub_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.How)];
 
-    /// <summary>The buttons content v3_1_0 added. A click on one proves that player's game has that content: from then on the plugin sends
-    /// them the words of NewIds too. They need nothing from the server themselves - fixed labels, and their state in classes on panels that
-    /// v3_0_0 has as well.</summary>
-    public static readonly string[] NewButtons =
-        [BoardBig, TabHow, HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever, .. Enumerable.Range(1, HudMenu.Cards).Select(k => $"{HudMenu.Card(k)}_big")];
-
-    /// <summary>The panels content v3_1_0 added that the plugin sends something to (a label's words, a row's "used"). A game that still holds
-    /// the v3_0_0 content does not have them, and is never sent them: the plugin sends them only to a player whose game has clicked one of
-    /// NewButtons (HudScreen), per player. The selftest checks that everything else it sends is in the shipped v3_0_0 layout.</summary>
-    public static readonly HashSet<string> NewIds = NewPanels();
-
-    /// <summary>The buttons content v3_2_0 added: the board's Ads, the Fun tab, each card's Ads and every choice of the Fun page. A click on
-    /// one proves that player's game holds v3_2_0 (and so v3_1_0 too).</summary>
-    public static readonly string[] NewButtons32 =
-        [BoardAds, TabFun, HudBrowser.OursButton, .. Enumerable.Range(1, HudMenu.Cards).Select(k => $"{HudMenu.Card(k)}_ads"),
-         .. Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Select(c => HudMenu.FunButton(r, c)))];
-
-    /// <summary>The panels content v3_2_0 added that the plugin sends something to: the board's ads count, the Fun page (its note, every row,
-    /// title, words, choice and choice label - the choices get classes, so they are here as well as in NewButtons32) and the two Help rows.
-    /// Sent only to a player whose game has clicked one of NewButtons32, like NewIds one level down.</summary>
-    public static readonly HashSet<string> NewIds32 = NewPanels32();
-
-    /// <summary>The buttons content v4_1_0 added: the popup's reasons. They need nothing sent to them; a click on one proves that player's game
-    /// holds v4_1_0, and so everything before it. (The grenade drops' buttons moved to the Fun page and are no proof: every content has them.)</summary>
-    public static readonly string[] NewButtons41 = [.. Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton)];
-
-    /// <summary>The buttons content v4_2_0 added: each card's picture button and the mode filter's chips. They need nothing sent to them either; a click
-    /// on one proves that player's game holds v4_2_0.</summary>
-    public static readonly string[] NewButtons42 = [.. Enumerable.Range(1, HudMenu.Cards).Select(HudMenu.PicButton), .. HudBrowser.ModeButtons.Select(b => b.Id)];
-
-    /// <summary>The buttons content v4_3_0 added: the Sync tab and the pagers of its lists (HudDash.LayoutButtons). Nothing is sent to them; a click on
-    /// one proves that player's game holds v4_3_0.</summary>
-    public static readonly string[] NewButtons43 = HudDash.LayoutButtons;
-
-    static HashSet<string> NewPanels32()
+    /// <summary>The page a tab or sub-tab opens, or null for any other button.</summary>
+    public static HudSlots.Page? TabPage(string buttonId)
     {
-        var ids = new HashSet<string> { "gg_b_ads", HudMenu.FunNote, HudBrowser.OursButton }; // the Our maps chip gets its "on" class
-        for (var r = 1; r <= Fun.Rows; r++)
-        {
-            ids.Add(HudMenu.FunRow(r)); ids.Add($"{HudMenu.FunRow(r)}_title"); ids.Add($"{HudMenu.FunRow(r)}_txt");
-            for (var c = 1; c <= Fun.ChoicesPerRow; c++) { ids.Add(HudMenu.FunButton(r, c)); ids.Add($"{HudMenu.FunButton(r, c)}_txt"); }
-        }
-        foreach (var (g, _) in Hud.HelpMore) { ids.Add($"gg_c{g + 1}_5"); ids.Add($"gg_c{g + 1}_5_cmd"); ids.Add($"gg_c{g + 1}_5_txt"); }
-        return ids;
+        foreach (var (id, page) in Tabs) if (id == buttonId) return page;
+        return null;
     }
 
-    /// <summary>The content a panel came with: 32 for v3_2_0's, 31 for v3_1_0's, 0 for one every game has.</summary>
-    public static int LevelOf(string id) => HudVote.NewIds45.Contains(id) ? 45 : NewIds32.Contains(id) ? 32 : NewIds.Contains(id) ? 31 : 0;
+    /// <summary>The caption beside the sub-tabs, per page (a variable on gg_screen, SubCaptionVar): what the page is for; the Maps page's says
+    /// whether a Play adds to the vote that is on.</summary>
+    public const string SubCaptionVar = "ossub";
 
-    /// <summary>The content a button proves a game holds: 44, 43, 42, 41, 32, 31, or 0 for a button every game has.</summary>
-    public static int LevelOfButton(string id) => HudVote.NewButtons45.Contains(id) ? 45 : HudVote.NewButtons44.Contains(id) ? 44 : NewButtons43.Contains(id) ? 43 : NewButtons42.Contains(id) ? 42 : NewButtons41.Contains(id) ? 41
-        : NewButtons32.Contains(id) ? 32 : NewButtons.Contains(id) ? 31 : 0;
-
-    static HashSet<string> NewPanels()
+    public static string SubCaption(HudSlots.Page page, bool ballot, bool browsingVote) => page switch
     {
-        var ids = new HashSet<string> { "gg_b_big", HudMenu.NewMapsNow };
-        for (var s = 1; s <= Hud.HowSections; s++)
-        {
-            ids.Add($"gg_h{s}_title");
-            for (var l = 1; l <= Hud.HowLines; l++) { ids.Add($"gg_h{s}_{l}"); ids.Add($"gg_h{s}_{l}_txt"); }
-        }
-        return ids;
-    }
+        HudSlots.Page.Start => "Over the top - On the Huis",
+        HudSlots.Page.Maps => ballot ? "Click a map to vote, yours again to take it back" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
+            : "Every map: Play puts it to the vote",
+        HudSlots.Page.Fun => "Anybody, at any time, for everybody",
+        HudSlots.Page.Players => "Who is on, and which HUD their game shows",
+        HudSlots.Page.Game => "The match length and the stuck-server restart",
+        HudSlots.Page.Sync => "The Workshop sync: what it does now, its queue, its history",
+        HudSlots.Page.Help => "Where everything is",
+        _ => "Every rule and chance of a map pick",
+    };
 
     /// <summary>The words that never change: help, how it works, the start page. Sent once per layout entity (they are global too).</summary>
     public static List<(string Id, string Text)> StaticTexts()
@@ -434,32 +383,32 @@ public static class HudView
                 t.Add(($"gg_c{g + 1}_{r + 1}_txt", row == null ? "" : row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
             }
         }
-        for (var s = 0; s < Hud.HowSections; s++) // content v3_1_0 (NewIds): the plugin sends these only to a game that has them
+        for (var s = 0; s < Hud.HowSections; s++)
         {
             var how = s < Hud.How.Length ? Hud.How[s] : null;
             t.Add(($"gg_h{s + 1}_title", how?.Title ?? ""));
             for (var l = 0; l < Hud.HowLines; l++) t.Add(($"gg_h{s + 1}_{l + 1}_txt", how != null && l < how.Lines.Length ? how.Lines[l] : ""));
         }
-        foreach (var (g, row) in Hud.HelpMore) // content v3_2_0 (NewIds32)
-        {
-            t.Add(($"gg_c{g + 1}_5_cmd", row.Command));
-            t.Add(($"gg_c{g + 1}_5_txt", row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
-        }
-        t.Add((HudMenu.FunNote, HudMenu.FunNoteText)); // content v3_2_0 (NewIds32)
+        t.Add((HudMenu.FunNote, HudMenu.FunNoteText));
         return t;
     }
 
-    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest.</summary>
+    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest. And c31 and c32 on gg_screen, for
+    /// everybody: the contents before v4_6_0 show their How it works, Fun and Help rows only under them, and every content in use holds those panels.</summary>
     public static List<(string Id, string Class, bool On)> StaticClasses()
     {
-        var c = new List<(string, string, bool)>();
+        var c = new List<(string, string, bool)> { (Screen, "c31", true), (Screen, "c32", true) };
         for (var g = 0; g < Hud.Help.Length; g++)
             for (var r = 0; r < Hud.RowsPerGroup; r++) c.Add(($"gg_c{g + 1}_{r + 1}", "used", r < Hud.Help[g].Rows.Length));
         for (var s = 0; s < Hud.HowSections; s++)
             for (var l = 0; l < Hud.HowLines; l++) c.Add(($"gg_h{s + 1}_{l + 1}", "used", s < Hud.How.Length && l < Hud.How[s].Lines.Length));
-        foreach (var (g, _) in Hud.HelpMore) c.Add(($"gg_c{g + 1}_5", "used", true)); // content v3_2_0 (NewIds32)
         return c;
     }
+
+    /// <summary>The classes the plugin sends only for the contents before v4_6_0, which this content's stylesheet has no rule for: c31 and c32
+    /// (StaticClasses), the join banner's vjoin (beside the version classes, HudVote.VersionClasses), and the marks that light an older card's Too big
+    /// and Ads buttons (bigvoted, adsvoted: a Dislike's reasons now).</summary>
+    public static readonly string[] OlderContentClasses = ["c31", "c32", "vjoin", "bigvoted", "adsvoted"];
 
     /// <summary>The board's one line about the vote (its old queue line), about this many characters at the most (the mock review).</summary>
     public const int QueueLineMax = 52;
@@ -500,8 +449,9 @@ public static class HudView
         t.Add(("gg_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
         t.Add(("gg_w_tempty", "No likes yet. Like a map: its card's up arrow."));
         t.Add(("gg_b_queue", VoteLine(v)));
-        t.Add(("gg_b_big", s.Big.ToString(CultureInfo.InvariantCulture))); // content v3_1_0 (NewIds): the too-big votes on the map that is on
-        t.Add(("gg_b_ads", s.Ads.ToString(CultureInfo.InvariantCulture))); // content v3_2_0 (NewIds32): the ads votes on it
+        t.Add(("gg_b_big", s.Big.ToString(CultureInfo.InvariantCulture))); // the too-big marks on the map that is on (the board's hidden row)
+        t.Add(("gg_b_ads", s.Ads.ToString(CultureInfo.InvariantCulture))); // ...and the ads marks
+        t.Add(("gg_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
         t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
         t.Add(("gg_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
         t.Add(("gg_w_lede", Hud.Lede));
@@ -523,8 +473,7 @@ public static class HudView
         var c = new List<(string, string, bool)>
         {
             (Global, "ready", true), (Global, "changing", s.ChangeIn >= 0), (Global, "loading", s.Loading), (Global, "news", s.NewsFor > 0 && s.News != ""),
-            // content v3_1_0: the new-maps setting that is on lights its button; on gg_global, which a v3_0_0 game has too (and no rule for)
-            (Global, "nm-always", s.NewMaps == "always"), (Global, "nm-half", s.NewMaps == "half"), (Global, "nm-never", s.NewMaps == "never"),
+            (Global, "rst", s.RestartKind != ""),
         };
         var leading = Leading(v).Count;
         for (var i = 0; i < HudState.ListLength; i++)
@@ -539,6 +488,62 @@ public static class HudView
 
     /// <summary>The seconds on the map-change banner, recomputed by the plugin every second from the deadline it took off the state.</summary>
     public static string Countdown(int seconds) => seconds <= 0 ? "now" : seconds.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A restart's countdown beside its words in the window's foot, from its end time by the plugin's own clock (0:25), or what it waits
+    /// for; "" without one.</summary>
+    public static string RestartCountdown(HudState s, DateTime now)
+    {
+        if (s.RestartKind == "") return "";
+        if (s.RestartAt <= 0) return "after this match";
+        var left = Math.Max(0, (int)Math.Ceiling((DateTimeOffset.FromUnixTimeSeconds(s.RestartAt).UtcDateTime - now).TotalSeconds));
+        return left <= 0 ? "now" : $"{left / 60}:{left % 60:00}";
+    }
+
+    /// <summary>One row of the Players page (SERVER, Players): a player on the server, their team, the HUD their game showed at the HUD check's
+    /// click (HudCheck.IsVersionWord: a content, older, or Hud.Release for a HUD whose content is not known; "" not seen yet), the check's seconds
+    /// left while it waits for that click, their vote while one is open, and how long they have been on.</summary>
+    public sealed record PlayerRow(string Name, string Team, string Version, int CheckSeconds, string Vote, string OnFor);
+
+    public const int PlayerRows = 16;
+    public const string PlayersVar = "ospl", PlayersSummaryVar = "ospsum";
+
+    /// <summary>The Players page's words, as variables on gg_global that the page's labels inherit: osplNa the name, osplNb the team, osplNc the HUD
+    /// when it is the server's own, osplNo an older or unknown one, osplNk the HUD check's clock, osplNd the vote, osplNe how long on; ospsum the
+    /// line over them. The rows the list does not reach are empty.</summary>
+    public static List<(string Name, string Text)> PlayersPage(IReadOnlyList<PlayerRow> rows)
+    {
+        var w = new List<(string, string)>();
+        static string Var(int k, char f) => $"{PlayersVar}{k.ToString(CultureInfo.InvariantCulture)}{f}";
+        var seen = rows.Where(r => r.CheckSeconds <= 0).Select(r => r.Version).ToList();
+        var current = seen.Count(v => v == Hud.Content);
+        var older = seen.Count(HudCheck.IsOutdated);
+        var newer = seen.Count(v => HudCheck.LevelOf(v) > HudVote.ContentLevel);
+        var unknown = seen.Count(v => v == Hud.Release);
+        var unseen = rows.Count - current - older - newer - unknown;
+        w.Add((PlayersSummaryVar, rows.Count == 0 ? "Nobody on the server" : string.Join("  ·  ", new[]
+        {
+            $"{rows.Count} on the server", current > 0 ? $"{current} on the server's HUD, {Hud.Content}" : "", older > 0 ? $"{older} older" : "",
+            newer > 0 ? $"{newer} newer" : "", unknown > 0 ? $"{unknown} unknown" : "", unseen > 0 ? $"{unseen} not seen yet" : "",
+            rows.Count > PlayerRows ? $"the first {PlayerRows} here" : "",
+        }.Where(x => x != ""))));
+        for (var k = 1; k <= PlayerRows; k++)
+        {
+            var r = k <= rows.Count ? rows[k - 1] : null;
+            var checking = r is { CheckSeconds: > 0 };
+            var mine = r != null && !checking && r.Version == Hud.Content;
+            w.Add((Var(k, 'a'), r == null ? "" : Hud.Clean(r.Name, 32)));
+            w.Add((Var(k, 'b'), r?.Team ?? ""));
+            w.Add((Var(k, 'c'), mine ? r!.Version : ""));
+            w.Add((Var(k, 'o'), r == null || mine || checking ? "" : HudCheck.VersionWords(r.Version)));
+            w.Add((Var(k, 'k'), checking ? $"HUD check: {r!.CheckSeconds} s left" : ""));
+            w.Add((Var(k, 'd'), r?.Vote ?? ""));
+            w.Add((Var(k, 'e'), r?.OnFor ?? ""));
+        }
+        return w;
+    }
+
+    /// <summary>How long a player has been on since their last real join, as the Players page says it: "42 min", "1 h 05", "-" when not known.</summary>
+    public static string OnFor(TimeSpan? since) => since is not { } d ? "-" : d.TotalMinutes < 60 ? $"{(int)d.TotalMinutes} min" : $"{(int)d.TotalHours} h {d.Minutes:00}";
 
     /// <summary>What the contextual button asks for while the vote is open: the plugin opens that player's window on it (nothing goes to the bridge).</summary>
     public const string OpenVote = "!vote";
@@ -604,9 +609,9 @@ public static class HudView
 /// it on a handed clock. The plugin feeds it events and asks Frame for the wanted view of every slot, then sends only the difference.
 ///
 /// The window opens for a first-time player once they have spawned (or after WaitLimitSeconds), and on !info; it takes the mouse while
-/// open - and with it the player's movement, which is why it closes itself after IdleCloseSeconds without a click, and at once when its
-/// player is hurt. A returning player gets a short "welcome back" card instead, and everybody gets the "now playing" card at their first
-/// spawn on each map.
+/// open - and with it the player's movement, which is why it closes itself after IdleCloseSeconds without a click. Damage never closes it:
+/// nothing protects a player while it is open but the vote's freeze. A returning player gets a short "welcome back" card instead, and
+/// everybody gets the "now playing" card at their first spawn on each map.
 ///
 /// Panorama cannot animate visibility, and a panel that turns visible and changes in the same update pops instead of fading. So each
 /// thing shows in two steps a FadeSeconds apart: visible first (still transparent), then "in" (opaque, in place); and leaves the same way
@@ -617,10 +622,18 @@ public sealed class HudSlots
     public const double WaitLimitSeconds = 20;    // a player who never spawns (spectating, picking a team) gets it anyway after this
     public const double ToastSeconds = 8;
     public const double IdleCloseSeconds = 30;    // the window goes by itself after this long without a click; the drain bar shows it (gungame_hud.css: 30s)
-    public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (seen in a real client, 2026-11-02; a click restarts it after FadeSeconds)
+    public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (a click restarts it after FadeSeconds)
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
-    public enum Page { Start, Maps, Game, Help, How, Fun, Sync } // How: content v3_1_0; Fun: v3_2_0; Sync: v4_3_0 (the Queue and Rules pages are gone)
+    /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun; SERVER: Players, Game, Sync;
+    /// HELP: Help, How. Players is v4_6_0's: an older content has no rule for its page class and shows an empty page there.</summary>
+    public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players }
+
+    /// <summary>The main tab a page belongs to, as the layout groups them.</summary>
+    public static string GroupOf(Page page) => page switch
+    {
+        Page.Maps => "maps", Page.Fun => "fun", Page.Players or Page.Game or Page.Sync => "server", Page.Help or Page.How => "help", _ => "start",
+    };
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none,
     /// 1 now playing, 2 welcome back. Draining: the bar that shows the idle close is running (it restarts by losing this for a moment).</summary>
@@ -703,8 +716,8 @@ public sealed class HudSlots
         s.OpenAt = now.AddSeconds(SpawnDelaySeconds);
     }
 
-    /// <summary>The window on its start page (the HUD check, css_guide), or closed with "off" (TAB coming up on the TAB window, a hit, the
-    /// TAB chord switched off, css_gghud release).</summary>
+    /// <summary>The window on its start page (the HUD check, css_guide), or closed with "off" (TAB coming up on the TAB window, the TAB chord
+    /// switched off, css_gghud release).</summary>
     public void Info(int slot, string arg, DateTime now)
     {
         var s = Of(slot);
@@ -725,13 +738,6 @@ public sealed class HudSlots
     }
 
     public bool WindowOpen(int slot) => slots.TryGetValue(slot, out var s) && s.Open;
-
-    /// <summary>The player took damage: an open window gives them the mouse and their movement back at once. A captured player cannot
-    /// move, and a first-time player reading the window would otherwise be easy prey once spawn protection wears off.</summary>
-    public void Hurt(int slot, DateTime now)
-    {
-        if (slots.TryGetValue(slot, out var s) && s.Open) Close(s, now);
-    }
 
     void Open(Slot s, DateTime now)
     {

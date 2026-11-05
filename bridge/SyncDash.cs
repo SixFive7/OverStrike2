@@ -333,9 +333,12 @@ static class SyncWords
         // the stock's line, and while the restart watcher downloads in the background, that download first: one line that fits beside the queue (the
         // layout wraps it once at most)
         var rand = input.Random.Select(q => $"{RandomName(q.Name)} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
+        var stock = input.Random.Count == 0 ? "" : input.RandomKnown ? "Stock on disk for the ballots: " + Join(rand) : $"Discovery stock: {Join(rand)}  ·  disk not reported";
         W("osdqrand", input.Background is { } bg ? $"{BackgroundWords(bg)}{(input.Random.Count == 0 ? "" : input.RandomKnown ? $"  ·  stock on disk {input.Random.Sum(q => q.Ready)} of {input.Random.Sum(q => q.Total)}" : "")}"
-            : input.Random.Count == 0 ? "" : input.RandomKnown ? "Stock on disk for the ballots: " + Join(rand)
-            : $"Discovery stock: {Join(rand)}  ·  disk not reported");
+            : stock); // the contents before v4_6_0: the background download folded into the stock's line
+        W("osdqstock", stock);                                                                  // from v4_6_0: the stock's line...
+        W("osdqbg", input.Background is { } running ? BackgroundWords(running) : "");             // ...and the background download on a row of its own
+        C("osdqbg", input.Background != null);
         var next = Items(queue, "next").ToList();
         d.Lists.Add(new HudDash.DashList(QueueList, QueueRows, next.Select((q, i) => new HudDash.Row("",
             [(i + 1).ToString(CultureInfo.InvariantCulture), NameWithWhy(q, input), Join(ModeName(Str(q, "mode")), SizeMb(Num(q, "sizeMb"))), Upper(Str(q, "why"))])).ToList()));

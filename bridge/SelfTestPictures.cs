@@ -1,4 +1,4 @@
-// --selftest, content v4_2_0's part (2026-11-02): every mode's maps in the menu with a mode filter, the pictures shipped ahead, and the picture on request
+// --selftest, the mode filter's and the pictures' part: every mode's maps in the menu with a mode filter, the pictures shipped ahead, and the picture on request
 // for a map that has none. Shared code only (HudBrowser.cs), plus the bridge's own pick of a map in a mode.
 using System.Text.RegularExpressions;
 
@@ -81,8 +81,9 @@ static partial class Program
             !On("gg_m1", "nopic") && On("gg_m2", "nopic") && !On("gg_m3", "nopic") && On("gg_m2", "picopen") && !On("gg_m1", "picopen"));
         Check("Every official map of every mode has a picture number", Modes.All.SelectMany(m => m.Official).All(HudThumbs.Has));
         Check("Picture buttons: one per card, read back to their card, and nothing else reads as one",
-            Enumerable.Range(1, HudMenu.Cards).All(k => HudMenu.PicCard(HudMenu.PicButton(k)) == k) && HudMenu.PicCard("gg_m9_pic") == 0 && HudMenu.PicCard("gg_m1_play") == 0 && HudMenu.PicCard("gg_mx_pic") == 0);
-        Check("Content v4_2_0's buttons prove it, and nothing is sent to them", HudView.NewButtons42.Length == HudMenu.Cards + HudBrowser.ModeButtons.Length && HudView.NewButtons42.All(x => HudView.LevelOfButton(x) == 42 && HudView.LevelOf(x) == 0));
+            Enumerable.Range(1, HudMenu.Cards).All(k => HudMenu.PicCard(HudMenu.PicButton(k)) == k) && HudMenu.PicCard($"gg_m{HudMenu.Cards + 1}_pic") == 0 && HudMenu.PicCard("gg_m1_play") == 0 && HudMenu.PicCard("gg_mx_pic") == 0);
+        Check("The picture buttons and the mode chips get nothing from the server: their state is classes on the cards and on gg_screen",
+            !classes.Any(c => Enumerable.Range(1, HudMenu.Cards).Any(k => c.Id == HudMenu.PicButton(k))) && !classes.Any(c => HudBrowser.ModeButtons.Any(m => m.Id == c.Id)));
         const string preview = "https://images.steamusercontent.com/ugc/9254111869742482466/C3329D6202447C9B9F78B46CEEC5C7756DC424C9/";
         var url = HudPreview.Url(preview);
         Check("The picture's address: Steam's own image CDN scaled by Steam, at the address the Web API gave, and nothing else",
@@ -91,7 +92,8 @@ static partial class Program
             && HudPreview.Url("https://images.steamusercontent.com.example.com/ugc/1/A/") == null);
         Check("The message is the picture and nothing after it, well under the 1,450 bytes a message may have",
             HudPreview.Html(url!) == $"<img src='{url}'>" && HudPreview.Html(url!).Length < 300);
-        Check("The short window keeps the row of the card that asked", HudPreview.RowClass(1) == "pic1" && HudPreview.RowClass(4) == "pic1" && HudPreview.RowClass(5) == "pic2" && HudPreview.RowClass(8) == "pic2");
+        Check("The short window keeps the rows of the card that asked: cards 1-4, 5-8, or the ballot's 9 and 10",
+            HudPreview.RowClass(1) == "pic1" && HudPreview.RowClass(4) == "pic1" && HudPreview.RowClass(5) == "pic2" && HudPreview.RowClass(8) == "pic2" && HudPreview.RowClass(9) == "pic3" && HudPreview.RowClass(10) == "pic3");
         var item = WorkshopItem.Parse("""{"response":{"publishedfiledetails":[{"publishedfileid":"5","result":1,"visibility":0,"consumer_app_id":730,"title":"t","file_size":"9","preview_url":"PREVIEW"}]}}""".Replace("PREVIEW", preview))[5];
         Check("The Web API's answer carries the item's preview", item.Preview == preview && WorkshopItem.Parse("""{"response":{"publishedfiledetails":[{"publishedfileid":"5","result":9}]}}""")[5].Preview == "");
 
@@ -101,10 +103,10 @@ static partial class Program
         {
             var xml = Regex.Replace(File.ReadAllText(layoutFile), "<!--.*?-->", "", RegexOptions.Singleline);
             var css = File.ReadAllText(styleFile);
-            Check("Layout: each card has its picture button on its picture, with its two fixed labels and no id in them",
+            Check("Layout: each card has its picture button, with its two fixed labels and no id in them, last on its card - above the picture and a ballot card's own button",
                 Enumerable.Range(1, HudMenu.Cards).All(k => Regex.IsMatch(xml, $@"<Button id=""{HudMenu.PicButton(k)}"" class=""gg-mpic""><Label class=""gg-mpic-text gg-mpic-show"" text=""Show picture"" /><Label class=""gg-mpic-text gg-mpic-hide"" text=""Hide picture"" /></Button>")
-                    && xml.IndexOf($"id=\"{HudMenu.Card(k)}_thumb\"", StringComparison.Ordinal) < xml.IndexOf($"id=\"{HudMenu.PicButton(k)}\"", StringComparison.Ordinal)
-                    && xml.IndexOf($"id=\"{HudMenu.PicButton(k)}\"", StringComparison.Ordinal) < xml.IndexOf($"id=\"{HudMenu.Card(k)}_name\"", StringComparison.Ordinal)));
+                    && xml.IndexOf($"id=\"{HudMenu.Card(k)}_thumb\"", StringComparison.Ordinal) < xml.IndexOf($"id=\"{HudMenu.Card(k)}_play\"", StringComparison.Ordinal)
+                    && xml.IndexOf($"id=\"{HudMenu.Card(k)}_play\"", StringComparison.Ordinal) < xml.IndexOf($"id=\"{HudMenu.PicButton(k)}\"", StringComparison.Ordinal)));
             Check("Layout: the mode chips, each lit by its class on gg_screen",
                 HudBrowser.ModeButtons.All(m => xml.Contains($"<Button id=\"{m.Id}\" class=\"gg-chipb gg-chipm-{(m.Mode == "" ? "all" : m.Mode)}\">") && css.Contains($".gg-screen.{HudBrowser.ModeClass(m.Mode)} .gg-chipm-{(m.Mode == "" ? "all" : m.Mode)}")));
             Check("The button shows only on a card with nopic, and the other row goes while a picture is up",

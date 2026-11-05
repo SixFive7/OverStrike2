@@ -866,8 +866,8 @@ static partial class Program
             Check("A click from a player without the window open does nothing", !At(win, 1, 64.1).Window);
             win.Info(1, "", t0.AddSeconds(70));
             var reading = At(win, 1, 70.5).Capture;
-            win.Hurt(1, t0.AddSeconds(75));
-            Check("Shot while reading: the window lets go of the mouse (and the player's movement) at once", reading && !At(win, 1, 75.1).Capture && !At(win, 1, 75.5).Window);
+            Check("Shot while reading: damage never closes the window (there is no close on a hit; only the vote's freeze protects anybody)",
+                reading && typeof(HudSlots).GetMethod("Hurt") == null && At(win, 1, 75.1).Capture && At(win, 1, 75.5).Window);
             var back = new HudSlots();
             back.Joined(2, first: false, alive: false, t0);
             Check("A returning player not yet spawned: nothing until they do...", At(back, 2, 5).Toast == 0);

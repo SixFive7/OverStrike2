@@ -473,7 +473,7 @@ static partial class Program
                 big9.Open && big9.Maps.Count(o => o.Source == VoteSource.Picked) == 9 && many.All(x => big9.Maps.Any(o => o.Key == Key(x))) && big9.Maps.Count == 11
                 && big9.Maps.Take(9).All(o => o.Source == VoteSource.Picked && o.Votes == 1) && big9.Maps.Skip(9).Select(o => o.Source).SequenceEqual([VoteSource.Keep, VoteSource.Rolled])
                 && HudVote.Pages(big9) == 2 && HudVote.Cards(big9, 2001, null).Classes.Contains((HudView.Screen, "vmore", true))
-                && HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudView.Screen, "vback", true)) && !HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudView.Screen, "vmore", true)));
+                && HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudBrowser.PrevButton, "off", false)) && !HudVote.Cards(big9, 2001, null, page: 1).Classes.Contains((HudView.Screen, "vmore", true)));
 
             // ---- a Deathmatch map wins: it loads in Deathmatch ----
             Fresh();

@@ -1,4 +1,4 @@
-// The menu's Sync page (content v4_3_0, 2026-11-03, the owner's 34): the Workshop sync's dashboard for everybody in game - what it does now,
+// The menu's Sync page (SERVER, Sync): the Workshop sync's dashboard for everybody in game - what it does now,
 // what waits in its queue, and what it did. Shared like Hud.cs (plain BCL): the bridge writes every word of it (SyncDash.cs builds the block it
 // serves on /dash/<secret>), the plugin pages it and puts it on screen, and --selftest drives both halves.
 //

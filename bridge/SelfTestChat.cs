@@ -208,12 +208,12 @@ static partial class Program
             && T("gg_m1_play_text") == "Your vote" && T("gg_m2_play_text") == "Vote" && !T("gg_pg_text").Contains("number") && T("gg_pg_text").Contains("yours to take it back")
             && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "gg_pg_text").Text == "Click a card's Vote");
 
-        // ---- a command that opens a page with a newer content's words asks for them: !fun has its rows at once ----
-        Check("A command that opens How, Fun or Help asks for the words of the page, as a click on its tab would prove: the level it asks for is what those panels need; the other pages need none",
-            HudVote.PageLevel("How") == HudView.LevelOf("gg_h1_title") && HudVote.PageLevel("Fun") == HudView.LevelOf(HudMenu.FunRow(1))
-            && new[] { "Maps", "Start", "Game" }.All(p => HudVote.PageLevel(p) == 0)
-            && HudView.LevelOfButton(HudView.TabHow) == HudVote.PageLevel("How") && HudView.LevelOfButton(HudView.TabFun) == HudVote.PageLevel("Fun")
-            && ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!how") is { Kind: ChatCommands.Kind.Page, Arg: "How" } && ChatCommands.Parse("!help") is { Kind: ChatCommands.Kind.Commands, Arg: "Help" });
+        // ---- a command that opens a page: its words are on it at once, as for everybody (no content has to prove anything first) ----
+        Check("A command that opens How, Fun, Help or Sync opens that page of the menu; its words go to every game alike, and the older contents' c31 and c32 are on for everybody",
+            ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!how") is { Kind: ChatCommands.Kind.Page, Arg: "How" }
+            && ChatCommands.Parse("!help") is { Kind: ChatCommands.Kind.Commands, Arg: "Help" } && ChatCommands.Parse("!rules") is { Kind: ChatCommands.Kind.Page, Arg: "How" }
+            && HudView.StaticClasses().Contains((HudView.Screen, "c31", true)) && HudView.StaticClasses().Contains((HudView.Screen, "c32", true))
+            && HudView.StaticTexts().Any(x => x.Id == "gg_h1_title") && HudView.StaticTexts().Any(x => x.Id == HudMenu.FunNote));
 
         // ---- the words are the same wherever they are said ----
         const string referenceFile = "../docs/reference.md", readmeFile = "../README.md";

@@ -1,4 +1,3 @@
-using System.Drawing;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Timers;
@@ -9,21 +8,24 @@ namespace OverStrike2;
 /// <summary>Three of the fun page's effects that are no game convar (Fun.cs: Fun.Vampire, Fun.Ghost, Fun.NoRecoil); the grenade drops and catch-up,
 /// the other two, are the grenades module's and the catch-up module's.
 /// The settings module keeps their switches like convars (a player's change, its undo at the map's end and in the reset); this module
-/// does what they say, from game events. Nothing heavy inside an event: every write waits for the next frame, the way the HUD's work does.
+/// does what they say, from game events. Nothing heavy inside an event: every write waits for the next frame, the way the HUD's work does, or
+/// for the cloak's pass after the entities' think.
 ///
 ///   - Vampire: every player spawns with Fun.VampireHealth health while it is on, and the damage they deal heals them up to Fun.VampireCap
 ///     (Fun.Heal). Switched on, everybody alive gets the spawn health at once; switched off, nobody keeps more than 100.
-///   - Ghost: a player who kills is invisible for Fun.GhostSeconds - their model and the gun in their hand rendered transparent - and comes
-///     back by itself; switched off, everybody comes back at once.
+///   - Ghost: a player who kills is hidden by the cloak (Cloak.cs) for Fun.GhostSeconds - the model, every weapon they carry, held or
+///     holstered, the grenades included, any wearable and the shadows - and is seen again by themselves; a newer kill starts the time again.
+///     Their death or respawn ends it, and so does switching Ghost off, for everybody at once; whatever they drop meanwhile is seen at once.
 ///   - No recoil (Laser guns' second half; the first is weapon_accuracy_nospread): after every shot the gun's recoil index goes back to
 ///     zero, so every shot of a spray is a first shot. CS2 has no recoil convar left (weapon_recoil_scale is gone on 1.41.9.x).
 ///
-/// Writes only fields the game writes itself (health, max health, the render colour and mode, the recoil index), each marked changed
-/// for the network the way CounterStrikeSharp marks any field. What each does in a game is inferred, not yet seen: the client harness
-/// cannot shoot (README "Fun settings").</summary>
-sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
+/// Writes only fields the game writes itself (health, max health, the recoil index; the cloak's are its own, Cloak.cs), each marked changed
+/// for the network the way CounterStrikeSharp marks any field. The client harness cannot shoot (README "Fun settings"), so it cannot make a
+/// ghost; gg_cloak hide makes the same hide to look at, and bots that kill each other make ghosts too.</summary>
+sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloak cloak)
 {
-    readonly Dictionary<int, int> hidden = new(); // slot -> the kill count that made them a ghost (a newer kill extends it)
+    readonly Dictionary<int, int> ghosts = new(); // slot -> the kill that made them a ghost: a newer kill takes over, and only its own timer ends it
+    int kills;                                     // every ghost's kill counted, never reset - so no timer of an older kill, or life, ends a newer one
     bool vampire, ghost;                           // as of the last look, to act on a switch
 
     public void Load()
@@ -32,6 +34,7 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
         plugin.RegisterEventHandler<EventPlayerSpawn>(OnSpawn);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterEventHandler<EventWeaponFire>(OnFire);
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => ghosts.Clear()); // the cloak forgets the old map's too
         plugin.AddTimer(0.5f, Look, TimerFlags.REPEAT);
         log.LogInformation("Over Strike 2 effects: Vampire ({Health} at spawn, up to {Cap}), Ghost ({Seconds} s after a kill), no recoil - off until a player switches one on",
             Fun.VampireHealth, Fun.VampireCap, Fun.GhostSeconds);
@@ -54,7 +57,11 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
         if (g != ghost)
         {
             ghost = g;
-            if (!g) foreach (var slot in hidden.Keys.ToList()) Show(slot);
+            if (!g)
+            {
+                foreach (var slot in ghosts.Keys) cloak.Want(slot, CloakWhy.Ghost, false, "Ghost switched off");
+                ghosts.Clear();
+            }
             log.LogInformation("Over Strike 2 effects: Ghost {State}", g ? "on" : "off");
         }
     }
@@ -78,7 +85,7 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
     {
         if (ev.Userid is not { IsValid: true } player) return HookResult.Continue;
         var slot = player.Slot;
-        hidden.Remove(slot); // a new life is seen
+        ghosts.Remove(slot); // a new life is seen: the cloak ends every reason of the old one itself
         if (!vampire) return HookResult.Continue;
         // The next frame: before the catch-up module applies its boost 0.1 s after the spawn, which is relative to the spawn health
         // - so a player behind gets the boost on top of the vampire's health.
@@ -90,14 +97,23 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
         return HookResult.Continue;
     }
 
+    /// <summary>A kill makes its killer a ghost, from this tick: the cloak's pass after the entities' think hides them before the next snapshot,
+    /// with whatever gun Arms Race hands out for the kill. Only bookkeeping in here; a dead ghost's own ghost ends with the life.</summary>
     HookResult OnDeath(EventPlayerDeath ev, GameEventInfo info)
     {
-        if (!ghost || ev.Attacker is not { IsValid: true } killer || ev.Userid is not { IsValid: true } dead || killer.Slot == dead.Slot) return HookResult.Continue;
+        if (ev.Userid is not { IsValid: true } dead) return HookResult.Continue;
+        ghosts.Remove(dead.Slot);
+        if (!ghost || ev.Attacker is not { IsValid: true } killer || killer.Slot == dead.Slot) return HookResult.Continue;
         var slot = killer.Slot;
-        var kill = hidden.GetValueOrDefault(slot) + 1;
-        hidden[slot] = kill;
-        Server.NextFrame(() => Hide(slot));
-        plugin.AddTimer((float)Fun.GhostSeconds, () => { if (hidden.GetValueOrDefault(slot) == kill) Show(slot); }, TimerFlags.STOP_ON_MAPCHANGE);
+        var kill = ++kills;
+        if (!cloak.Want(slot, CloakWhy.Ghost, true, "a kill")) return HookResult.Continue; // the killer is dead too (a grenade from beyond)
+        ghosts[slot] = kill;
+        plugin.AddTimer((float)Fun.GhostSeconds, () =>
+        {
+            if (ghosts.GetValueOrDefault(slot) != kill) return; // a newer kill, a death, a respawn or Ghost switched off came first
+            ghosts.Remove(slot);
+            cloak.Want(slot, CloakWhy.Ghost, false, $"{Fun.GhostSeconds:0} s after the kill");
+        }, TimerFlags.STOP_ON_MAPCHANGE);
         return HookResult.Continue;
     }
 
@@ -121,26 +137,5 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on)
     {
         if (pawn.MaxHealth != max) { pawn.MaxHealth = max; Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iMaxHealth"); }
         if (pawn.Health != health) { pawn.Health = health; Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth"); }
-    }
-
-    void Hide(int slot) => Paint(slot, 0);
-
-    void Show(int slot)
-    {
-        hidden.Remove(slot);
-        Paint(slot, 255);
-    }
-
-    /// <summary>The player's model and the gun in their hand at this alpha (0 invisible, 255 as normal).</summary>
-    static void Paint(int slot, int alpha)
-    {
-        if (Utilities.GetPlayerFromSlot(slot)?.PlayerPawn.Value is not { IsValid: true } pawn) return;
-        foreach (CBaseModelEntity e in new CBaseModelEntity?[] { pawn, pawn.WeaponServices?.ActiveWeapon.Value }.Where(x => x is { IsValid: true })!)
-        {
-            e.RenderMode = alpha < 255 ? RenderMode_t.kRenderTransAlpha : RenderMode_t.kRenderNormal;
-            e.Render = Color.FromArgb(alpha, e.Render.R, e.Render.G, e.Render.B);
-            Utilities.SetStateChanged(e, "CBaseModelEntity", "m_nRenderMode");
-            Utilities.SetStateChanged(e, "CBaseModelEntity", "m_clrRender");
-        }
     }
 }

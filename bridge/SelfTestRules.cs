@@ -220,7 +220,6 @@ static partial class Program
         foreach (var r in Hud.How) gameWords.AddRange(r.Lines.Prepend(r.Title).Select(l => ($"How it works, {r.Title}", l)));
         foreach (var g in Hud.Help) gameWords.AddRange(g.Rows.Select(r => ($"Help, {g.Name}", $"{r.Command} {r.Words} {r.Also}")));
         gameWords.AddRange(Hud.Steps.Select(s => ("Start", $"{s.Title} {s.Command} {s.Words}")));
-        gameWords.AddRange(Hud.HelpMore.Select(m => ($"Help ({Hud.Content}), {Hud.Help[m.Group].Name}", $"{m.Row.Command} {m.Row.Words} {m.Row.Also}")));
         gameWords.Add(("Fun page", HudMenu.FunNoteText));
         var stray = gameWords.SelectMany(w => StrayNumbers(w.Text).Select(n => $"{w.Where}: '{n}'")).ToList();
         Check($"Every number in How it works, Help and the start page is one of the code's constants ({gameWords.Count} lines){(stray.Count > 0 ? " - not: " + string.Join(" | ", stray) : "")}",

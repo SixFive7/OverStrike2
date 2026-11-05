@@ -199,7 +199,7 @@ public sealed class HudBrowser
     public enum SortBy { Rank, Votes, Name, Size }
     public enum Band { All, Tiny, Small, Mid, Large }
 
-    public const int PerPage = 8;            // the layout has eight cards
+    public const int PerPage = 8;            // the browser's cards: two columns of four (the ballot's page is MapVote.PageCards)
     public const int PerPageTyping = 4;      // ...and the keyboard covers the second row of them while it is open
     public const double ConfirmSeconds = 30; // the bridge's own window for confirming a broken or crashed map
 
@@ -231,6 +231,7 @@ public sealed class HudBrowser
 
     public const string LikedButton = "gg_fl_liked", OfficialButton = "gg_fl_official", OursButton = "gg_fl_ours", ClearButton = "gg_q_clear",
         FirstButton = "gg_pg_first", PrevButton = "gg_pg_prev", NextButton = "gg_pg_next", LastButton = "gg_pg_last";
+    // (the pager's Next pulses while more pages follow, Prev while this is not the first page: the stylesheet's, off the buttons' "off" class)
 
     /// <summary>The maps this player's filters and search let through, in this player's order. Officials have no rank: they sort after
     /// the ranked maps by rank (first when only officials are shown, which is the same thing). The search is full text (HudSearch):
@@ -368,32 +369,30 @@ public sealed class HudBrowser
 }
 
 /// <summary>The menu's pages as texts and classes for one player, out of the catalog, the live state and that player's browser, and a
-/// click on them as the chat command it stands for. Card k (1-8) is panel gg_m{k}; its parts are gg_m{k}_*.</summary>
+/// click on them as the chat command it stands for. Card k (1-10) is panel gg_m{k}; its parts are gg_m{k}_*. The browser shows the first eight,
+/// the ballot ten.</summary>
 public static class HudMenu
 {
-    public const int Cards = HudBrowser.PerPage;
+    public const int Cards = MapVote.PageCards > HudBrowser.PerPage ? MapVote.PageCards : HudBrowser.PerPage;
 
-    /// <summary>Previous: on the old Queue page (content up to v4_5_0), the map before this one to the vote.</summary>
+    /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4_6_0).</summary>
     public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
         Restart = "gg_set_restart", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
-    /// <summary>Content v4_4_0: the Fun page's Random and Default (!fun random, !fun default).</summary>
+    /// <summary>The Fun page's Random and Default (!fun random, !fun default).</summary>
     public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
 
-    /// <summary>Content v4_5_0: the Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
+    /// <summary>The Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
     public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
 
-    /// <summary>Content v3_1_0: the new-maps setting's three buttons and its line. The setting is gone - every ballot has a fresh map and a surprise
-    /// instead - so the buttons only answer that (the bridge's !newmaps, Selection.cs) until a content without them; the line under them is empty.</summary>
-    public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never", NewMapsNow = "gg_set_new_now";
-
-    /// <summary>The line under the new-maps buttons: nothing, for every value - the setting is gone.</summary>
-    public static string NewMapsLine(string mode) => "";
+    /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4_6_0 still has. The setting is gone - every ballot
+    /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Selection.cs).</summary>
+    public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never";
 
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
     public static string Card(int k) => $"gg_m{k}";
 
-    /// <summary>Card k's picture button (content v4_2_0), on a card whose map has no picture in the addon.</summary>
+    /// <summary>Card k's picture button, on a card whose map has no picture in the addon.</summary>
     public static string PicButton(int k) => $"{Card(k)}_pic";
 
     /// <summary>The card a picture button belongs to, or 0 when this is no picture button.</summary>
@@ -414,8 +413,7 @@ public static class HudMenu
     }
 
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
-    /// one. While the vote is open (the map browser it opens, content v4_4_0) a Play puts the map on the vote, with this player's vote; after a vote,
-    /// the wait before the next one.</summary>
+    /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
     static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0)
     {
         if (vote is { Open: true, Round: > 0 } v)
@@ -429,7 +427,7 @@ public static class HudMenu
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
         if (vote?.WaitFor > 0) return $"Vote in {MapVote.Left(vote.WaitFor)}";
-        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again"; // fits the narrower Play of content v3_2_0's four small buttons
+        if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return "Click again"; // fits the narrower Play of the older contents' four small buttons
         return m.Risky ? "Vote anyway?" : "Put to the vote";
     }
 
@@ -441,7 +439,8 @@ public static class HudMenu
         : m.Broken == 0 ? (m.Reason != "" ? $"Broken: {m.Reason}" : "On the broken list") : m.Crashes > 0 ? $"Crashed the server {m.Crashes}x" : "";
 
     /// <summary>The maps page for one player: the toolbar's state, the search box and keyboard, the count, the page counter and the
-    /// eight cards. A query that is a Workshop id no map has hides the cards' empty message: the plugin shows that item's card there.</summary>
+    /// eight cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
+    /// empty message: the plugin shows that item's card there. The cards past the eighth are the ballot's: empty here.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
         HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string openPicture = "", string serverMode = "", VoteState? vote = null)
     {
@@ -465,8 +464,8 @@ public static class HudMenu
         foreach (var (id, band) in HudBrowser.BandButtons) c.Add((id, "on", b.Size == band));
         c.Add((HudBrowser.LikedButton, "on", b.Liked));
         c.Add((HudBrowser.OfficialButton, "on", b.Official));
-        c.Add((HudBrowser.OursButton, "on", b.Ours)); // Over Strike 2's content (NewIds32)
-        c.Add((HudView.Screen, "fl-ours", b.Ours));   // content v4_4_0: Our maps glows while it is off
+        c.Add((HudBrowser.OursButton, "on", b.Ours));
+        c.Add((HudView.Screen, "fl-ours", b.Ours));   // Our maps glows while it is off
         c.Add((HudBrowser.PrevButton, "off", b.Page == 0));
         c.Add((HudBrowser.FirstButton, "off", b.Page == 0));
         c.Add((HudBrowser.NextButton, "off", b.Page >= b.PagesFor(matches.Count) - 1));
@@ -480,6 +479,8 @@ public static class HudMenu
             t.Add(($"{id}_name", m?.Name ?? ""));
             t.Add(($"{id}_size", m == null || m.Official ? "" : m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB"));
             t.Add(($"{id}_votes", m == null ? "" : Likes(m)));
+            t.Add(($"{id}_who", ""));   // the ballot's line under the name
+            t.Add(($"{id}_score", "")); // the ballot's count
             t.Add(($"{id}_warn", m == null ? "" : Record(m)));
             t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, vote, account)));
             c.Add((id, "used", m != null));
@@ -492,16 +493,21 @@ public static class HudMenu
             c.Add((id, "liked", mine > 0));
             c.Add((id, "disliked", mine < 0));
             c.Add((id, "confirm", m != null && b.ConfirmKey == m.Key && now < b.ConfirmUntil));
-            c.Add((id, "big", m?.TooBig == true));                         // content v3_1_0: the Too big tag on the picture...
-            c.Add((id, "bigvoted", mine == HudCatalog.TooBigVote));        // ...and this player's too-big vote lit (classes on the card, which v3_0_0 has)
-            c.Add((id, "ads", m?.Ads > 0));                                 // content v3_2_0: the Ads tag on the picture...
-            c.Add((id, "adsvoted", mine == HudCatalog.AdsVote));            // ...and this player's ads vote lit
-            c.Add((id, "ours", m?.Ours == true));                           // Over Strike 2's content: the Ours tag on the picture
-            c.Add((id, "nopic", m != null && !HudThumbs.Has(HudThumbs.Key(m)) && m.Id > 0)); // content v4_2_0: no picture in the addon, so its button shows
+            c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag...
+            c.Add((id, "bigvoted", mine == HudCatalog.TooBigVote));        // ...and this player's too-big mark lit
+            c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag...
+            c.Add((id, "adsvoted", mine == HudCatalog.AdsVote));            // ...and this player's ads mark lit
+            c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
+            c.Add((id, "nopic", m != null && !HudThumbs.Has(HudThumbs.Key(m)) && m.Id > 0)); // no picture in the addon, so its button shows
             c.Add((id, "picopen", m != null && m.Key == openPicture));      // ...and says Hide picture while that picture is up
-            c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // content v4_4_0: the mode it plays in, on its picture and in its colour
+            c.AddRange(HudVote.CardModeClasses(id, m == null ? null : PlayMode(m, b.Mode, serverMode))); // the mode it plays in, on its picture and in its colour
+            c.AddRange(HudVote.TagClassesOf(id, m?.Tags));                  // the rest of its tags
+            c.AddRange(HudVote.ShareClasses(id, 0, 0));                     // no vote's share here
+            c.Add((id, "vhas", false));
+            c.Add((id, "vlead", false));
+            c.Add((id, "vtie", false));
         }
-        foreach (var (_, mode) in HudBrowser.ModeButtons) c.Add((HudView.Screen, HudBrowser.ModeClass(mode), b.Mode == mode)); // content v4_2_0's chips, lit
+        foreach (var (_, mode) in HudBrowser.ModeButtons) c.Add((HudView.Screen, HudBrowser.ModeClass(mode), b.Mode == mode)); // the mode filter's chips, lit
         return (t, c);
     }
 
@@ -513,12 +519,12 @@ public static class HudMenu
         return Enumerable.Range(1, Cards).Select(k => ($"{Card(k)}_thumb", k <= page.Count ? HudThumbs.Classes(page[k - 1]) : [])).ToList();
     }
 
-    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page from content v4_6_0, on the old
-    /// Queue page before it, under the same ids, so it is sent to every game alike; nothing else of the old Queue page is sent any more.</summary>
+    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; the contents before v4_6_0 have it, under the
+    /// same ids, on their Queue page.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
         ([("gg_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
 
-    // ---- the Fun page (content v3_2_0): a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
+    // ---- the Fun page: a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
 
     public const string FunNote = "gg_fun_note";
 
@@ -529,10 +535,16 @@ public static class HudMenu
 
     public static string FunButton(int r, int c) => $"gg_f{r}_{c}";
 
-    /// <summary>The Fun page as the live values have it: each row's title and words (with a word when the map runs its own value), each choice's
-    /// label, the choice showing lit; rows and choices beyond the settings collapse. A row that does nothing at the moment (Instakill and
-    /// Grenades while friendly fire is off: Fun.Idle) says so instead of its words and is dimmed (idle); its buttons still work.</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) FunPage(Func<string, string?> value, bool armsRace = true)
+    /// <summary>A setting off its default, with who set it: "Moon - set by Alice", the words of its row; "" while it is at its default or nobody is
+    /// known to have set it.</summary>
+    public static string SetByWords(Fun.Setting s, Fun.Choice showing, string? by) => showing == s.Normal || string.IsNullOrWhiteSpace(by) ? "" : $"{showing.Label} - set by {Hud.Clean(by, 32)}";
+
+    /// <summary>The Fun page as the live values have it: each row's title and words (with a word when the map runs its own value, and who set a
+    /// setting that is off its default), each choice's label, the choice showing lit; rows and choices beyond the settings collapse. A row that does
+    /// nothing at the moment (Instakill and Grenades while friendly fire is off: Fun.Idle) says so instead of its words and is dimmed (idle); its
+    /// buttons still work. setBy: who set a setting, by its id (the settings module's word); null: nobody known.</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) FunPage(Func<string, string?> value, bool armsRace = true,
+        Func<string, string?>? setBy = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -543,11 +555,12 @@ public static class HudMenu
             var because = s == null ? null : Fun.IdleBecause(s, value);
             var idle = because != null;
             t.Add(($"{FunRow(r)}_title", s?.Title ?? ""));
+            var who = s == null || showing == null ? "" : SetByWords(s, showing, setBy?.Invoke(s.Id));
             t.Add(($"{FunRow(r)}_txt", s == null ? "" : because != null ? because.Idle
-                : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  this map runs its own" : s.Words));
+                : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  this map runs its own" : who != "" ? $"{who}  ·  {s.Words}" : s.Words));
             c.Add((FunRow(r), "used", s != null && (armsRace || !Fun.ArmsRaceOnly(s)))); // friendly fire's three are Arms Race's: Deathmatch is free-for-all, Wingman runs Valve's
             c.Add((FunRow(r), "idle", idle));
-            c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // content v4_5_0: a setting off its default stands out
+            c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // a setting off its default stands out
             for (var k = 1; k <= Fun.ChoicesPerRow; k++)
             {
                 var choice = s != null && k <= s.Choices.Length ? s.Choices[k - 1] : null;
@@ -557,6 +570,22 @@ public static class HudMenu
             }
         }
         return (t, c);
+    }
+
+    /// <summary>The words of the Fun page's two fixed rows - the grenade drops and catch-up, ordinary fun settings with rows of their own - as
+    /// variables on gg_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default.</summary>
+    public const string DropsWordsVar = "osfdrops", CatchUpWordsVar = "osfcatch";
+
+    public static List<(string Name, string Text)> FixedRowWords(Func<string, string?> value, Func<string, string?>? setBy = null)
+    {
+        string Words(string id, string words)
+        {
+            if (Fun.Find(id) is not { } s) return words;
+            var who = SetByWords(s, Fun.Showing(s, value), setBy?.Invoke(s.Id));
+            return who == "" ? words : $"{who}  ·  {words}";
+        }
+        return [(DropsWordsVar, Words("drops", "A grenade for every player at each spawn")),
+            (CatchUpWordsVar, Words("catchup", "Boosts for players behind the leader, a bounty on a runaway one"))];
     }
 
     /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing - the grid's
@@ -574,21 +603,20 @@ public static class HudMenu
     }
 
     /// <summary>What the restart button says after its first click: press it again, and the seconds left of
-    /// the bridge's 30 s window, counting down every second; content v3_2_0 also makes it blink fast while armed (.gg-restart.armed).</summary>
+    /// the bridge's 30 s window, counting down every second; the stylesheet also makes it blink fast while armed (.gg-restart.armed).</summary>
     public static string RestartAgain(int seconds) => $"Press again within {seconds} s";
 
-    /// <summary>The game page: the match length that is set, and the restart button's two-click state - restartSeconds is what is left of
-    /// the confirmation window after the first click (0: not armed).</summary>
+    /// <summary>The game page: the match length that is set (and who set it, while it is not the default), and the restart button's two-click
+    /// state - restartSeconds is what is left of the confirmation window after the first click (0: not armed).</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Game(HudState s, int restartSeconds)
     {
         var armed = restartSeconds > 0;
         var t = new List<(string, string)>
         {
-            ("gg_set_time_now", s.RoundMinutes > 0 ? $"Matches last {s.RoundMinutes} minutes" : "Match length"),
+            ("gg_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
             ("gg_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
             ("gg_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),
-            (NewMapsNow, NewMapsLine(s.NewMaps)), // content v3_1_0 (HudView.NewIds)
         };
         var c = new List<(string, string, bool)>
         {
@@ -606,7 +634,7 @@ public static class HudMenu
     }
 
     /// <summary>The mode a card's Play plays its map in: the filter's, else the server's when that mode has it too, else the first mode that has it.
-    /// Its label and colour on the card (content v4_4_0) say this mode.</summary>
+    /// Its label and colour on the card say this mode.</summary>
     public static string PlayMode(HudCatalog.Entry m, string filter, string serverMode) =>
         filter != "" && m.RankIn(filter) >= 0 ? filter : serverMode != "" && m.RankIn(serverMode) >= 0 ? serverMode : m.FirstMode;
 
@@ -625,8 +653,8 @@ public static class HudMenu
             {
                 case "up": return $"!up {m.Arg}";
                 case "down": return $"!down {m.Arg}";
-                case "big": return $"!down {m.Arg} big"; // content v3_1_0's Too big: a Dislike's reason (one command for it)
-                case "ads": return $"!down {m.Arg} ads"; // content v3_2_0
+                case "big": return $"!down {m.Arg} big"; // an older content's Too big: a Dislike's reason (one command for it)
+                case "ads": return $"!down {m.Arg} ads"; // ...and its Ads
                 case "play":
                     if (m.Key == s.Key && s.Key != "" && vote is not { Open: true, Round: > 0 }) return null; // the map that is on: Keep on the vote, nothing outside one
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
@@ -696,7 +724,7 @@ public static class HudThumbs
     public static bool IsThumbClass(string cls) => cls.Length > 2 && cls[0] == 't' && cls[1] is 'h' or 'l' && cls[2..].All(char.IsAsciiDigit);
 }
 
-/// <summary>The picture on request (content v4_2_0): a map with no picture in the addon has a button on its card, and its Workshop preview shows in
+/// <summary>The picture on request: a map with no picture in the addon has a button on its card, and its Workshop preview shows in
 /// the game's own message panel (PrintToCenterHtml), which unlike a custom HUD may load web pictures; the window goes short meanwhile, because it
 /// is drawn above that panel. The picture comes from Steam's own image CDN, scaled by Steam: nothing of ours is asked, and the panel shows
 /// the 336x189 whole. Measured in a real client on production, 2026-11-02: the panel is 300 px wide at x 810-1110, y 750-908 at 1920x1080 and
@@ -721,6 +749,7 @@ public static class HudPreview
     /// <summary>The message: the picture and nothing after it, since a picture that fails to load takes the rest with it.</summary>
     public static string Html(string url) => $"<img src='{url}'>";
 
-    /// <summary>The window's row a card is on, as the class on gg_screen that keeps it and collapses the other: pic1 or pic2.</summary>
-    public static string RowClass(int card) => card <= HudBrowser.PerPageTyping ? "pic1" : "pic2";
+    /// <summary>The window's rows of cards a card is on, as the class on gg_screen that keeps them and collapses the others: pic1 for cards 1-4,
+    /// pic2 for 5-8, pic3 for the ballot's 9 and 10.</summary>
+    public static string RowClass(int card) => card <= HudBrowser.PerPageTyping ? "pic1" : card <= HudBrowser.PerPage ? "pic2" : "pic3";
 }

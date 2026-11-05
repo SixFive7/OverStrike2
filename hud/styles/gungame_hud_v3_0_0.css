@@ -302,60 +302,12 @@ Label
 	vertical-align: center;
 }
 
-.gg-votes
-{
-	width: 100%;
-	flow-children: right;
-	margin-top: 10px;
-}
-
-.gg-chip
-{
-	height: 26px;
-	flow-children: right;
-	padding: 0px 10px;
-	margin-right: 6px;
-	border-radius: 3px;
-	background-color: #FFFFFF0D;
-	border: 1px solid #FFFFFF14;
-}
-
-.gg-chip-num
-{
-	margin-left: 8px;
-	vertical-align: center;
-	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 15px;
-}
-
-.gg-chip-up .gg-chip-num
-{
-	color: gg-up;
-}
-
-.gg-chip-down .gg-chip-num
-{
-	color: gg-down;
-}
-
 .gg-you
 {
 	margin-left: 6px;
 	vertical-align: center;
 	font-size: 12px;
 	color: gg-faint;
-}
-
-.gg-screen.voted-up .gg-chip-up
-{
-	background-color: #7BD88F24;
-	border: 1px solid #7BD88F80;
-}
-
-.gg-screen.voted-down .gg-chip-down
-{
-	background-color: #F07C6B24;
-	border: 1px solid #F07C6B80;
 }
 
 .gg-screen.voted-up .gg-you
@@ -615,15 +567,15 @@ Label
 .gg-win-head
 {
 	width: 100%;
-	height: 92px;
+	height: 76px;
 	flow-children: right;
 	padding: 0px 24px 0px 32px;
 }
 
 .gg-emblem
 {
-	width: 60px;
-	height: 60px;
+	width: 52px;
+	height: 52px;
 	vertical-align: center;
 	border-radius: 5px;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F6D27E ), to( gg-gold-deep ) );
@@ -651,7 +603,7 @@ Label
 .gg-title
 {
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
-	font-size: 34px;
+	font-size: 30px;
 	letter-spacing: 3px;
 	text-transform: uppercase;
 	color: #FFFFFF;
@@ -775,11 +727,6 @@ Label
 	border-bottom: 2px solid gg-gold;
 }
 
-.gg-screen.page-rules #gg_tab_rules
-{
-	border-bottom: 2px solid gg-gold;
-}
-
 .gg-screen.page-start #gg_tab_start .gg-tab-text
 {
 	color: #FFFFFF;
@@ -790,37 +737,12 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-screen.page-rules #gg_tab_rules .gg-tab-text
-{
-	color: #FFFFFF;
-}
-
 .gg-screen.page-maps #gg_tab_maps
 {
 	border-bottom: 2px solid gg-gold;
 }
 
 .gg-screen.page-maps #gg_tab_maps .gg-tab-text
-{
-	color: #FFFFFF;
-}
-
-.gg-screen.page-queue #gg_tab_queue
-{
-	border-bottom: 2px solid gg-gold;
-}
-
-.gg-screen.page-queue #gg_tab_queue .gg-tab-text
-{
-	color: #FFFFFF;
-}
-
-.gg-screen.page-game #gg_tab_game
-{
-	border-bottom: 2px solid gg-gold;
-}
-
-.gg-screen.page-game #gg_tab_game .gg-tab-text
 {
 	color: #FFFFFF;
 }
@@ -838,11 +760,6 @@ Label
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
-	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/knife.vtex" );
-	background-size: 520px 260px;
-	background-position: 112% 118%;
-	background-repeat: no-repeat;
-	background-img-opacity: 0.035;
 }
 
 .gg-page
@@ -863,17 +780,7 @@ Label
 	visibility: visible;
 }
 
-.gg-screen.page-rules .gg-page-rules
-{
-	visibility: visible;
-}
-
 .gg-screen.page-maps .gg-page-maps
-{
-	visibility: visible;
-}
-
-.gg-screen.page-queue .gg-page-queue
 {
 	visibility: visible;
 }
@@ -1066,33 +973,7 @@ Label
 	color: gg-dim;
 }
 
-/* rules: three sections in two columns */
-
-.gg-page-rules
-{
-	flow-children: right;
-}
-
-.gg-rules-col
-{
-	width: 330px;
-	height: 100%;
-	flow-children: down;
-	margin-right: 28px;
-}
-
-.gg-rules-col-wide
-{
-	width: fill-parent-flow( 1 );
-	margin-right: 0px;
-}
-
-.gg-rule
-{
-	width: 100%;
-	flow-children: down;
-	margin-bottom: 34px;
-}
+/* a page's section heads and bullets */
 
 .gg-rule-head
 {
@@ -1120,19 +1001,6 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-rline
-{
-	visibility: collapse;
-	width: 100%;
-	flow-children: right;
-	margin-bottom: 11px;
-}
-
-.gg-rline.used
-{
-	visibility: visible;
-}
-
 .gg-bullet
 {
 	width: 6px;
@@ -1140,14 +1008,6 @@ Label
 	margin: 9px 12px 0px 4px;
 	border-radius: 50%;
 	background-color: gg-gold;
-}
-
-.gg-rline-txt
-{
-	width: fill-parent-flow( 1 );
-	font-size: 16px;
-	line-height: 24px;
-	color: gg-text;
 }
 
 /* -- the live column -- */
@@ -1323,12 +1183,6 @@ Label
 	color: gg-dim;
 }
 
-/* The holder's button says "I'm done": a touch warmer, it is their map. */
-.gg-screen.holder .gg-act
-{
-	border: 1px solid gg-gold-hi;
-}
-
 /* -- foot -- */
 
 .gg-win-foot
@@ -1412,7 +1266,7 @@ Label
 
 .gg-mbar-filters
 {
-	margin-bottom: 14px;
+	margin-bottom: 10px;
 }
 
 .gg-mbar-label
@@ -1649,340 +1503,12 @@ Label
 	width: 12px;
 }
 
-/* the cards: four in a row, two rows */
+/* the grid of cards: rows of them (the cards themselves: the v4_6_0 section) */
 .gg-grid
 {
 	width: 100%;
 	height: fill-parent-flow( 1 );
 	flow-children: down;
-}
-
-.gg-grid-row
-{
-	width: 100%;
-	flow-children: right;
-	margin-bottom: 12px;
-}
-
-.gg-mcard
-{
-	visibility: collapse;
-	width: 280px;
-	height: 228px;
-	margin-right: 12px;
-	flow-children: down;
-	border-radius: 5px;
-	border: 1px solid #FFFFFF14;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0D ), to( #FFFFFF05 ) );
-	transition-property: border, background-color;
-	transition-duration: 0.12s;
-}
-
-.gg-mcard.used
-{
-	visibility: visible;
-}
-
-.gg-mcard:hover
-{
-	border: 1px solid #FFFFFF33;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF14 ), to( #FFFFFF08 ) );
-}
-
-.gg-mcard.now
-{
-	border: 1px solid gg-gold;
-	box-shadow: #E9B44C33 0px 0px 14px 0px;
-}
-
-/* The picture: the two classes the plugin sets on it (th and tl, the map's picture number) pick its rule in gungame_hud_thumbs.css. */
-.gg-mthumb
-{
-	width: 100%;
-	height: 132px;
-	border-radius: 5px 5px 0px 0px;
-	background-color: gradient( linear, 0% 0%, 100% 100%, from( #1C2530 ), to( #0D1218 ) );
-	background-size: cover;
-	background-position: 50% 50%;
-	background-repeat: no-repeat;
-}
-
-.gg-mthumb-shade
-{
-	width: 100%;
-	height: 100%;
-	border-radius: 5px 5px 0px 0px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.35, #00000000 ), color-stop( 0.7, #00000000 ), to( #000000B3 ) );
-}
-
-.gg-mrank
-{
-	margin: 8px 0px 0px 8px;
-	padding: 2px 8px;
-	border-radius: 3px;
-	background-color: #000000B3;
-	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 13px;
-	color: #FFFFFF;
-}
-
-.gg-mcard.official .gg-mrank
-{
-	font-family: Stratum2, 'Arial Unicode MS';
-	font-size: 11px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-	color: gg-gold-hi;
-}
-
-.gg-mtags
-{
-	horizontal-align: right;
-	flow-children: down;
-	margin: 8px 8px 0px 0px;
-}
-
-.gg-mtag
-{
-	visibility: collapse;
-	horizontal-align: right;
-	margin-bottom: 4px;
-	padding: 2px 8px;
-	border-radius: 3px;
-	font-size: 10px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-}
-
-.gg-mtag-now
-{
-	background-color: gg-gold;
-	color: #14100A;
-}
-
-.gg-mtag-queued
-{
-	background-color: #7BD88FE6;
-	color: #0C1A10;
-}
-
-.gg-mcard.now .gg-mtag-now
-{
-	visibility: visible;
-}
-
-.gg-mcard.queued .gg-mtag-queued
-{
-	visibility: visible;
-}
-
-/* A broken or crashed map says so across the bottom of its picture. */
-.gg-mwarn
-{
-	visibility: collapse;
-	width: 100%;
-	vertical-align: bottom;
-	padding: 4px 10px;
-	font-size: 12px;
-	font-weight: bold;
-	color: #FFFFFF;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-mcard.crashed .gg-mwarn
-{
-	visibility: visible;
-	background-color: #C9831ED9;
-}
-
-.gg-mcard.broken .gg-mwarn
-{
-	visibility: visible;
-	background-color: #C2412FE6;
-}
-
-.gg-mbody
-{
-	width: 100%;
-	height: fill-parent-flow( 1 );
-	flow-children: down;
-	padding: 8px 12px 8px 12px;
-}
-
-.gg-mname
-{
-	width: 100%;
-	height: 21px;
-	font-size: 16px;
-	font-weight: bold;
-	color: #FFFFFF;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-mmeta
-{
-	width: 100%;
-	flow-children: right;
-	margin-top: 2px;
-}
-
-.gg-msize
-{
-	width: fill-parent-flow( 1 );
-	font-size: 13px;
-	color: gg-dim;
-}
-
-.gg-mvotes
-{
-	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 13px;
-	color: gg-dim;
-}
-
-.gg-mcard.liked .gg-mvotes
-{
-	color: gg-up;
-}
-
-.gg-mcard.disliked .gg-mvotes
-{
-	color: gg-down;
-}
-
-.gg-macts
-{
-	width: 100%;
-	height: 30px;
-	flow-children: right;
-	margin-top: 9px;
-}
-
-.gg-mplay
-{
-	width: fill-parent-flow( 1 );
-	height: 100%;
-	border-radius: 3px;
-	border: 1px solid #E9B44C80;
-	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C2E ), to( #E9B44C12 ) );
-	transition-property: background-color, border;
-	transition-duration: 0.12s;
-}
-
-.gg-mplay:hover
-{
-	border: 1px solid gg-gold-hi;
-	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C52 ), to( #E9B44C1F ) );
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-mplay:active
-{
-	sound: "UIPanorama.generic_button_press";
-}
-
-.gg-mplay-text
-{
-	horizontal-align: center;
-	vertical-align: center;
-	font-size: 12px;
-	font-weight: bold;
-	letter-spacing: 1.5px;
-	text-transform: uppercase;
-	color: gg-gold-hi;
-}
-
-.gg-mcard.risky .gg-mplay
-{
-	border: 1px solid #C9831EB3;
-	background-color: #C9831E1F;
-}
-
-.gg-mcard.risky .gg-mplay-text
-{
-	color: #F2B45A;
-}
-
-.gg-mcard.confirm .gg-mplay
-{
-	border: 1px solid #F07C6B;
-	background-color: #C2412F59;
-}
-
-.gg-mcard.confirm .gg-mplay-text
-{
-	color: #FFFFFF;
-}
-
-.gg-mcard.now .gg-mplay
-{
-	opacity: 0.5;
-	border: 1px solid #FFFFFF1F;
-	background-color: #FFFFFF08;
-}
-
-.gg-mcard.now .gg-mplay-text
-{
-	color: gg-dim;
-}
-
-.gg-mvote
-{
-	width: 34px;
-	height: 100%;
-	margin-left: 6px;
-	border-radius: 3px;
-	border: 1px solid #FFFFFF1A;
-	background-color: #FFFFFF08;
-	transition-property: background-color, border;
-	transition-duration: 0.12s;
-}
-
-.gg-mvote:hover
-{
-	border: 1px solid #FFFFFF4D;
-	background-color: #FFFFFF17;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-mvote:active
-{
-	sound: "UIPanorama.generic_button_press";
-}
-
-.gg-mvote .gg-chev
-{
-	horizontal-align: center;
-}
-
-.gg-mcard.liked .gg-mvote-up
-{
-	border: 1px solid #7BD88FB3;
-	background-color: #7BD88F2E;
-}
-
-.gg-mcard.disliked .gg-mvote-down
-{
-	border: 1px solid #F07C6BB3;
-	background-color: #F07C6B2E;
-}
-
-.gg-mempty
-{
-	visibility: collapse;
-	horizontal-align: center;
-	margin-top: 120px;
-	font-size: 16px;
-	color: gg-dim;
-}
-
-.gg-mempty.used
-{
-	visibility: visible;
 }
 
 /* pages */
@@ -2042,173 +1568,6 @@ Label
 	letter-spacing: 1px;
 	text-align: center;
 	color: gg-text;
-}
-
-/* ---- the queue page -------------------------------------------------------------------------------------------------- */
-
-.gg-page-queue
-{
-	flow-children: down;
-}
-
-.gg-qhead
-{
-	width: 100%;
-	height: 34px;
-	flow-children: right;
-	margin-bottom: 10px;
-}
-
-.gg-qmine
-{
-	width: fill-parent-flow( 1 );
-	vertical-align: center;
-	font-size: 15px;
-	color: gg-dim;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-qcancelall
-{
-	height: 100%;
-	padding: 0px 14px;
-	border-radius: 4px;
-	border: 1px solid #F07C6B80;
-	background-color: #F07C6B14;
-}
-
-.gg-qcancelall:hover
-{
-	border: 1px solid #F07C6B;
-	background-color: #F07C6B2E;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-qcancelall.off
-{
-	visibility: collapse;
-}
-
-.gg-qlist
-{
-	width: 100%;
-	flow-children: down;
-}
-
-.gg-qrow
-{
-	visibility: collapse;
-	width: 100%;
-	height: 44px;
-	flow-children: right;
-	margin-bottom: 4px;
-	padding: 0px 12px;
-	border-radius: 4px;
-	border: 1px solid #FFFFFF0F;
-	background-color: #FFFFFF06;
-}
-
-.gg-qrow.used
-{
-	visibility: visible;
-}
-
-.gg-qrow.mine
-{
-	border: 1px solid #E9B44C66;
-	background-color: #E9B44C12;
-}
-
-.gg-qpos
-{
-	width: 34px;
-	vertical-align: center;
-	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
-	font-size: 18px;
-	color: gg-gold;
-}
-
-.gg-qmain
-{
-	width: fill-parent-flow( 1 );
-	vertical-align: center;
-	flow-children: down;
-}
-
-.gg-qmap
-{
-	width: 100%;
-	font-size: 15px;
-	font-weight: bold;
-	color: #FFFFFF;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-qwho
-{
-	font-size: 12px;
-	color: gg-dim;
-}
-
-.gg-qyours
-{
-	visibility: collapse;
-	vertical-align: center;
-	margin-right: 10px;
-	padding: 2px 8px;
-	border-radius: 3px;
-	background-color: gg-gold;
-	font-size: 10px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-	color: #14100A;
-}
-
-.gg-qrow.mine .gg-qyours
-{
-	visibility: visible;
-}
-
-.gg-qcancel
-{
-	visibility: collapse;
-	height: 28px;
-	vertical-align: center;
-	padding: 0px 12px;
-	border-radius: 3px;
-	border: 1px solid #F07C6B80;
-	background-color: #F07C6B14;
-}
-
-.gg-qrow.mine .gg-qcancel
-{
-	visibility: visible;
-}
-
-.gg-qcancel:hover
-{
-	border: 1px solid #F07C6B;
-	background-color: #F07C6B2E;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-qcancel-text
-{
-	vertical-align: center;
-	font-size: 11px;
-	font-weight: bold;
-	letter-spacing: 2px;
-	text-transform: uppercase;
-	color: #F6A497;
-}
-
-.gg-qempty
-{
-	margin-top: 24px;
-	font-size: 16px;
 }
 
 /* ---- the game page -------------------------------------------------------------------------------------------------- */
@@ -2398,7 +1757,7 @@ Label
 }
 
 
-/* ==== release v3_0_0 (2026-10-21): the HUD is the whole interface ================================================== */
+/* ==== release v3_0_0: the HUD is the whole interface ================================================== */
 
 /* ---- the board as a click action panel: the vote buttons are the window's own (.gg-vote), Next is .gg-act ---------- */
 
@@ -2822,7 +2181,7 @@ Label
 	color: gg-gold-hi;
 }
 
-/* ---- the queue page's Previous button ---------------------------------------------------------------------------------- */
+/* ---- the Previous button: the map before this one, to the vote (on the Maps page) ------------------------------------------------------- */
 
 .gg-qprev
 {
@@ -2867,11 +2226,7 @@ Label
 	width: 0%;
 }
 
-/* ==== content v3_1_0 (2026-10-22), on the same path: the too-big vote, the new-maps setting, How it works ======================= */
-/* A panel new here gets words from the plugin only once the player's game has clicked a button that only this content has
-   (HudView.NewIds): a game that still holds the v3_0_0 content must never be sent a panel it lacks. Until then those panels stay
-   collapsed - .c31 on gg_screen says their words are coming. Every other new state is a class on a panel v3_0_0 has too (gg_global,
-   gg_screen, the cards), which an older game simply has no rule for. */
+/* ==== content v3_1_0's pieces: the too-big vote's row, How it works ========================================================= */
 
 /* ---- the board: Too big, a slim row under Like and Dislike ---- */
 
@@ -2914,7 +2269,7 @@ Label
 	color: gg-down;
 }
 
-.gg-screen.c31 .gg-bigvote .gg-vote-num
+.gg-board .gg-bigvote .gg-vote-num
 {
 	visibility: visible;
 }
@@ -2930,86 +2285,11 @@ Label
 	color: #FFFFFF;
 }
 
-/* ---- the cards: a third vote button, and a Too big tag on the picture of a map that is too big ---- */
-
-.gg-mvote
-{
-	width: 30px;
-	margin-left: 5px;
-}
-
-.gg-mplay-text
-{
-	font-size: 11px;
-	letter-spacing: 1px;
-}
-
-.gg-mbig-text
-{
-	horizontal-align: center;
-	vertical-align: center;
-	font-size: 10px;
-	font-weight: bold;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
-	color: gg-dim;
-}
-
-.gg-mcard.bigvoted .gg-mbig
-{
-	border: 1px solid #F07C6BB3;
-	background-color: #F07C6B2E;
-}
-
-.gg-mcard.bigvoted .gg-mbig-text
-{
-	color: #FFFFFF;
-}
-
-.gg-mtag-big
-{
-	background-color: #F07C6BE6;
-	color: #1A0C0A;
-}
-
-.gg-mcard.big .gg-mtag-big
-{
-	visibility: visible;
-}
-
-/* ---- the game page: four settings now ---- */
+/* ---- the game page: its settings ---- */
 
 .gg-set
 {
 	margin-bottom: 18px;
-}
-
-.gg-set-new-now
-{
-	visibility: collapse;
-}
-
-.gg-screen.c31 .gg-set-new-now
-{
-	visibility: visible;
-}
-
-.gg-global.nm-always #gg_set_new_always
-{
-	border: 1px solid gg-gold;
-	background-color: #E9B44C2E;
-}
-
-.gg-global.nm-half #gg_set_new_half
-{
-	border: 1px solid gg-gold;
-	background-color: #E9B44C2E;
-}
-
-.gg-global.nm-never #gg_set_new_never
-{
-	border: 1px solid gg-gold;
-	background-color: #E9B44C2E;
 }
 
 /* ---- How it works: five sections across the whole window ---- */
@@ -3022,16 +2302,6 @@ Label
 .gg-screen.page-how .gg-live
 {
 	visibility: collapse;
-}
-
-.gg-screen.page-how #gg_tab_how
-{
-	border-bottom: 2px solid gg-gold;
-}
-
-.gg-screen.page-how #gg_tab_how .gg-tab-text
-{
-	color: #FFFFFF;
 }
 
 .gg-page-how
@@ -3048,7 +2318,7 @@ Label
 	margin-bottom: 12px;
 }
 
-.gg-screen.c31 .gg-how
+.gg-page-how .gg-how
 {
 	visibility: visible;
 }
@@ -3084,10 +2354,7 @@ Label
 	color: gg-text;
 }
 
-/* ==== content v3_2_0 (2026-10-24), on the same path again: the Ads vote, the Fun page, two more Help rows, the restart button's blink ==== */
-/* The same rule as v3_1_0's, one level up: a panel new here gets words from the plugin only once the player's game has clicked a button
-   that only this content has (HudView.NewIds32), and stays collapsed until then - .c32 on gg_screen says its words are coming. The rest
-   is classes on panels the older contents have too (gg_screen, the cards, the restart button), which they simply have no rule for. */
+/* ==== content v3_2_0's pieces: the Ads vote's row, the Fun page, the restart button's blink ========================================== */
 
 /* ---- the board: Too big and Ads side by side under Like and Dislike ---- */
 
@@ -3143,7 +2410,7 @@ Label
 	color: #C79BFF;
 }
 
-.gg-screen.c32 .gg-adsvote .gg-vote-num
+.gg-board .gg-adsvote .gg-vote-num
 {
 	visibility: visible;
 }
@@ -3159,54 +2426,7 @@ Label
 	color: #FFFFFF;
 }
 
-/* ---- the cards: an Ads button beside Big (four small buttons now, so a little narrower), an Ads tag on the picture ---- */
-
-.gg-mvote
-{
-	width: 26px;
-	margin-left: 4px;
-}
-
-.gg-mplay-text
-{
-	font-size: 10px;
-	letter-spacing: 0.5px;
-}
-
-.gg-mads-text
-{
-	horizontal-align: center;
-	vertical-align: center;
-	font-size: 10px;
-	font-weight: bold;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
-	color: gg-dim;
-}
-
-.gg-mcard.adsvoted .gg-mads
-{
-	border: 1px solid #B98CFFB3;
-	background-color: #A66BFF2E;
-}
-
-.gg-mcard.adsvoted .gg-mads-text
-{
-	color: #FFFFFF;
-}
-
-.gg-mtag-ads
-{
-	background-color: #B98CFFE6;
-	color: #150A22;
-}
-
-.gg-mcard.ads .gg-mtag-ads
-{
-	visibility: visible;
-}
-
-/* ---- Help: a fifth row for Voting (Ads) and Game (Fun), and a little less space per row so the page keeps inside the window ---- */
+/* ---- Help: a little less space per row, so the page keeps inside the window ---- */
 
 .gg-group
 {
@@ -3218,17 +2438,7 @@ Label
 	padding: 1px 0px;
 }
 
-.gg-crow.gg-crow-c32
-{
-	visibility: collapse;
-}
-
-.gg-screen.c32 .gg-crow-c32.used
-{
-	visibility: visible;
-}
-
-/* ---- the restart button: a fast blink while it waits for its second click (the owner's 14a); the words count the seconds down ---- */
+/* ---- the restart button: a fast blink while it waits for its second click; the words count the seconds down ---- */
 
 @keyframes 'gg-blink'
 {
@@ -3245,9 +2455,9 @@ Label
 	animation-iteration-count: infinite;
 }
 
-/* ---- the Fun page: seventeen rows of up to three choices across the whole window - the live column steps aside. Its height:
-   14 + 8 px of padding, the note's line and 8 px, and nine rows of 62 + 2 px in its longer column - inside the 633 px the pages have
-   (--selftest's estimate: 625). A row that does nothing at the moment (Instakill and Grenades while friendly fire is off) is dimmed. ---- */
+/* ---- the Fun page: sixteen rows of up to three choices, and the grenade drops' and catch-up's, across the whole window - the live column steps
+   aside. Its height: 14 + 8 px of padding, the line of the note and Random and Default, and nine rows of 60 + 1 px in its longer column - inside the
+   609 px the pages have under the sub-tabs. A row that does nothing at the moment (Instakill and Grenades while friendly fire is off) is dimmed. ---- */
 
 .gg-screen.page-fun .gg-page-fun
 {
@@ -3283,7 +2493,7 @@ Label
 	color: gg-dim;
 }
 
-.gg-screen.c32 .gg-fun-note
+.gg-page-fun .gg-fun-note
 {
 	visibility: visible;
 }
@@ -3307,20 +2517,20 @@ Label
 	padding-left: 14px;
 }
 
-/* A row: its title and its choices on one line, its words under them across the column (content v4_1_0: seventeen rows, nine in the right column). */
+/* A row: its title and its choices on one line, its words under them across the column. */
 .gg-frow
 {
 	visibility: collapse;
 	width: 100%;
-	height: 62px;
+	height: 60px;
 	flow-children: down;
-	margin-bottom: 2px;
+	margin-bottom: 1px;
 	padding-left: 12px;
 	border-left: 3px solid #E9B44C59;
 }
 
-/* Content v4_1_0: the grenade drops, moved here from the Game page. Its words are the layout's and its state gg_global's, so it needs no proof that
-   the game has this content; in another game mode .gg-set-nades hides it, below. */
+/* The grenade drops and catch-up: rows of their own, their state on gg_global, their words variables on it (osfdrops, osfcatch); in another game
+   mode .gg-set-nades and .gg-set-catchup hide them, below. */
 .gg-frow-nades
 {
 	visibility: visible;
@@ -3345,7 +2555,7 @@ Label
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.c32 .gg-frow.used
+.gg-page-fun .gg-frow.used
 {
 	visibility: visible;
 }
@@ -3403,9 +2613,9 @@ Label
 }
 
 
-/* ---- Over Strike 2 (content v4_0_0 - v3_2_0 never shipped): our maps and the vote and the version check and the mode ---------------- */
+/* ---- our maps, the vote, the mode ---------------------------------------------------------------------------------------------------- */
 
-/* Our maps: the chip beside Official and the tag on a card's picture (ours.json). */
+/* Our maps: the chip beside Official and the OUR MAP tag (ours.json). */
 .gg-mtag-ours
 {
 	visibility: collapse;
@@ -3439,43 +2649,7 @@ Label
 	visibility: visible;
 }
 
-/* The sort and search row gives its height to the vote's title, so the two rows of cards keep theirs; the filters row keeps the count. */
-.gg-screen.voting .gg-page-maps .gg-mbar
-{
-	height: 0px;
-	margin-bottom: 0px;
-}
-
-.gg-screen.voting .gg-page-maps .gg-mbar-filters
-{
-	height: 34px;
-	margin-bottom: 8px;
-}
-
-.gg-screen.voting .gg-mbar .gg-seg
-{
-	visibility: collapse;
-}
-
-.gg-screen.voting .gg-mbar .gg-search
-{
-	visibility: collapse;
-}
-
-.gg-screen.voting .gg-mbar .gg-mbar-label
-{
-	visibility: collapse;
-}
-
-.gg-screen.voting .gg-mbar .gg-mbar-sep
-{
-	visibility: collapse;
-}
-
-.gg-screen.voting .gg-mbar .gg-chipb
-{
-	visibility: collapse;
-}
+/* The browser's own controls step aside while the ballot shows (the v4_6_0 section). */
 
 .gg-screen.voting .gg-mvote
 {
@@ -3504,7 +2678,7 @@ Label
 	border: 2px solid gg-gold;
 }
 
-/* The grenade drops are Arms Race's own too (#27 c): Deathmatch and Wingman players buy theirs. */
+/* The grenade drops are Arms Race's own too: Deathmatch and Wingman players buy theirs. */
 .gg-global.mode-deathmatch .gg-set-nades
 {
 	visibility: collapse;
@@ -3515,7 +2689,7 @@ Label
 	visibility: collapse;
 }
 
-/* The match length is Arms Race's own (#27 c): Deathmatch runs Valve's 10 minutes and Wingman rounds. */
+/* The match length is Arms Race's own: Deathmatch runs Valve's 10 minutes and Wingman rounds. */
 .gg-global.mode-deathmatch .gg-set-time
 {
 	visibility: collapse;
@@ -3666,57 +2840,7 @@ Label
 	transition-duration: 0s;
 }
 
-/* The HUD version check (HudVote.cs): this layout is v4_5_0 - level 45. At a join (vjoin) a server above it (svge46) or below it (svlt45)
-   says so and the same level says nothing. An older layout has none of this and gets the note instead - which this one hides (vold). */
-.gg-ver
-{
-	width: 760px;
-	horizontal-align: center;
-	vertical-align: top;
-	margin-top: 120px;
-	flow-children: down;
-}
-
-.gg-ver-old
-{
-	visibility: collapse;
-	width: 100%;
-	padding: 10px 16px;
-	font-size: 16px;
-	font-weight: bold;
-	color: #FFFFFF;
-	background-color: #B3261ED9;
-	border-radius: 4px;
-	text-align: center;
-}
-
-.gg-ver-new
-{
-	visibility: collapse;
-	width: 100%;
-	padding: 10px 16px;
-	font-size: 16px;
-	font-weight: bold;
-	color: #FFFFFF;
-	background-color: #8A5A00D9;
-	border-radius: 4px;
-	text-align: center;
-}
-
-.gg-global.svge46 .gg-screen.vjoin .gg-ver-old
-{
-	visibility: visible;
-}
-
-.gg-global.svlt45 .gg-screen.vjoin .gg-ver-new
-{
-	visibility: visible;
-}
-
-.gg-screen.vold .gg-note
-{
-	visibility: collapse;
-}
+/* The window's foot: this content's version and the server's. */
 
 .gg-foot-ver
 {
@@ -3888,16 +3012,6 @@ Label
 .gg-screen.page-sync .gg-live
 {
 	visibility: collapse;
-}
-
-.gg-screen.page-sync #gg_tab_sync
-{
-	border-bottom: 2px solid gg-gold;
-}
-
-.gg-screen.page-sync #gg_tab_sync .gg-tab-text
-{
-	color: #FFFFFF;
 }
 
 .gg-dnow
@@ -4982,9 +4096,9 @@ Label
 	color: gg-faint;
 }
 
-/* ---- content v4_4_0 (2026-11-03): the vote, the cards' modes, a Dislike's reasons in place, the Fun page's Random and Default, the Our maps glow ----
-   The modes' colours: Arms Race the HUD's own gold, Deathmatch red, Wingman blue - the label on a card's picture and the band over it come from the
-   card's mode-* class (HudVote.CardModeClasses), the same three names gg_global carries, here on the cards. */
+/* ---- the vote's pieces, the cards' modes, a Dislike's reasons in place, the Fun page's Random and Default, Our maps' glow ----
+   The modes' colours: Arms Race the HUD's own gold, Deathmatch red, Wingman blue - the label on a card's picture and its band come from the card's
+   mode-* class (HudVote.CardModeClasses), the same three names gg_global carries, here on the cards. */
 
 @define gg-ar: #E9B44C;
 @define gg-dm: #E8534A;
@@ -5083,16 +4197,6 @@ Label
 	visibility: collapse;
 }
 
-.gg-mcard .gg-mbig
-{
-	visibility: collapse;
-}
-
-.gg-mcard .gg-mads
-{
-	visibility: collapse;
-}
-
 .gg-vbtn
 {
 	visibility: collapse;
@@ -5134,19 +4238,6 @@ Label
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-vbrowse
-{
-	visibility: visible;
-	border: 1px solid gg-gold;
-	background-color: #E9B44C2E;
-	box-shadow: #E9B44C40 0px 0px 12px 0px;
-}
-
-.gg-screen.voting .gg-vbrowse .gg-vbtn-text
-{
-	color: gg-gold-hi;
-}
-
 .gg-screen.vrandom .gg-vrandom
 {
 	border: 2px solid gg-gold;
@@ -5183,51 +4274,6 @@ Label
 	visibility: visible;
 }
 
-.gg-vbanner
-{
-	visibility: collapse;
-	width: 100%;
-	height: 36px;
-	flow-children: right;
-	margin-bottom: 6px;
-	padding: 0px 10px;
-	border-radius: 4px;
-	border: 1px solid #E9B44C66;
-	background-color: #E9B44C1A;
-}
-
-.gg-screen.vbrowse .gg-vbanner
-{
-	visibility: visible;
-}
-
-.gg-vbanner .gg-rule-mark
-{
-	vertical-align: center;
-}
-
-.gg-vbanner-text
-{
-	width: fill-parent-flow( 1 );
-	margin-left: 10px;
-	vertical-align: center;
-	font-size: 14px;
-	font-weight: bold;
-	color: gg-text;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-screen.vbrowse .gg-vback
-{
-	visibility: visible;
-}
-
-.gg-screen.vbrowse .gg-page-maps .gg-mbar-filters
-{
-	visibility: collapse;
-}
-
 .gg-ours-wrap
 {
 	vertical-align: center;
@@ -5262,17 +4308,11 @@ Label
 	width: 100%;
 	height: 28px;
 	border-radius: 14px;
-	background-color: #E9B44C0A;
-	box-shadow: #E9B44C2E 0px 0px 6px 0px;
+	background-color: #E9B44C1F;
+	box-shadow: #E9B44C80 0px 0px 10px 1px;
 	transition-property: box-shadow, background-color;
 	transition-duration: 1.2s;
 	transition-timing-function: ease-in-out;
-}
-
-.gg-screen.opulse .gg-ours-glow
-{
-	background-color: #E9B44C2E;
-	box-shadow: #E9B44CEB 0px 0px 18px 3px;
 }
 
 .gg-screen.fl-ours .gg-ours-glow
@@ -5463,15 +4503,8 @@ Label
 	vertical-align: center;
 }
 
-/* ---- content v4_5_0 (2026-11-03, the owner's later rules): where the votes go, the waiting line, Remove mine, the line back to a vote, the lock,
-   the Fun page's Catch-up row and its changed marks. The shares are eleven classes, w0 ... w10 (tenths of the votes cast), on a card and on a
-   strip segment alike. ---- */
-
-.gg-vhead
-{
-	width: 100%;
-	flow-children: right;
-}
+/* ---- where the votes go, the waiting line, the line back to a vote, the lock, the Fun page's Catch-up row and its changed marks. The shares
+   are eleven classes, w0 ... w10 (tenths of the votes cast), on a card and on a strip segment alike. ---- */
 
 .gg-vwait
 {
@@ -5703,28 +4736,6 @@ Label
 	background-color: gg-wm;
 }
 
-.gg-mvoters
-{
-	visibility: collapse;
-	max-width: 160px;
-	horizontal-align: right;
-	vertical-align: bottom;
-	margin: 0px 8px 12px 0px;
-	padding: 2px 7px;
-	border-radius: 3px;
-	background-color: #0A0D11D9;
-	font-size: 12px;
-	font-weight: bold;
-	color: #FFFFFF;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.gg-screen.voting .gg-mcard.vhas .gg-mvoters
-{
-	visibility: visible;
-}
-
 .gg-mtag-lead
 {
 	visibility: collapse;
@@ -5758,47 +4769,6 @@ Label
 .gg-screen.voting .gg-mcard.vtie
 {
 	border: 2px solid #FFB547;
-}
-
-.gg-munq
-{
-	visibility: collapse;
-	width: 108px;
-	height: 100%;
-	margin-left: 6px;
-	border-radius: 3px;
-	border: 1px solid #E8534A99;
-	background-color: #E8534A1F;
-	transition-property: background-color, border;
-	transition-duration: 0.12s;
-}
-
-.gg-munq:hover
-{
-	border: 1px solid #FF7A70;
-	background-color: #E8534A40;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-munq:active
-{
-	sound: "UIPanorama.generic_button_press";
-}
-
-.gg-munq-text
-{
-	horizontal-align: center;
-	vertical-align: center;
-	font-size: 11px;
-	font-weight: bold;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	color: #FFD2CE;
-}
-
-.gg-screen.voting .gg-mcard.vmine .gg-munq
-{
-	visibility: visible;
 }
 
 .gg-vaway
@@ -5910,4 +4880,1581 @@ Label
 .gg-global.mode-wingman .gg-set-catchup
 {
 	visibility: collapse;
+}
+
+/* ---- content v4_6_0: five tabs with sub-tabs, the cards on their side with every tag, the ballot's header and its ten cards, the Players page, the
+   HUD check's version button, the outdated banner, a restart in the window's foot ---------------------------------------------------------------- */
+
+/* -- the tabs: START, MAPS, FUN, SERVER, HELP; a main tab is lit for every page under it -- */
+
+.gg-tab
+{
+	padding: 0px 24px;
+}
+
+.gg-screen.page-players #gg_tab_server
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-players #gg_tab_server .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-game #gg_tab_server
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-game #gg_tab_server .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-sync #gg_tab_server
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-sync #gg_tab_server .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+.gg-screen.page-how #gg_tab_help
+{
+	border-bottom: 2px solid gg-gold;
+}
+
+.gg-screen.page-how #gg_tab_help .gg-tab-text
+{
+	color: #FFFFFF;
+}
+
+/* -- the sub-tabs: a segmented row under the tabs, and what the page is for at its right -- */
+
+.gg-subs
+{
+	width: 100%;
+	height: 40px;
+	flow-children: right;
+	padding: 0px 34px;
+	border-bottom: 1px solid gg-line;
+	background-color: #FFFFFF04;
+}
+
+.gg-subs-group
+{
+	visibility: collapse;
+	height: 28px;
+	vertical-align: center;
+	flow-children: right;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1F;
+}
+
+.gg-screen.page-maps .gg-subs-maps
+{
+	visibility: visible;
+}
+
+.gg-screen.page-players .gg-subs-server
+{
+	visibility: visible;
+}
+
+.gg-screen.page-game .gg-subs-server
+{
+	visibility: visible;
+}
+
+.gg-screen.page-sync .gg-subs-server
+{
+	visibility: visible;
+}
+
+.gg-screen.page-help .gg-subs-help
+{
+	visibility: visible;
+}
+
+.gg-screen.page-how .gg-subs-help
+{
+	visibility: visible;
+}
+
+.gg-stab
+{
+	height: 100%;
+	padding: 0px 15px;
+	border-right: 1px solid #FFFFFF14;
+	transition-property: background-color;
+	transition-duration: 0.12s;
+}
+
+.gg-stab:hover
+{
+	background-color: #FFFFFF12;
+	sound: "UIPanorama.submenu_rollover";
+}
+
+.gg-stab:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-stab-text
+{
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-dim;
+}
+
+.gg-stab:hover .gg-stab-text
+{
+	color: gg-text;
+}
+
+/* MAPS, Vote exists only while a vote is on; MAPS, Browse is lit while the browser shows. */
+.gg-stab-vote
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-stab-vote
+{
+	visibility: visible;
+}
+
+.gg-screen.vbrowse .gg-stab-vote
+{
+	visibility: visible;
+}
+
+.gg-screen.page-maps #gg_v_browse
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-maps #gg_v_browse .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.voting #gg_v_browse
+{
+	background-color: #00000000;
+}
+
+.gg-screen.voting #gg_v_browse .gg-stab-text
+{
+	color: gg-dim;
+}
+
+.gg-screen.voting #gg_v_back
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.voting #gg_v_back .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.page-players #gg_sub_players
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-players #gg_sub_players .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.page-game #gg_tab_game
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-game #gg_tab_game .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.page-sync #gg_tab_sync
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-sync #gg_tab_sync .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.page-help #gg_sub_help
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-help #gg_sub_help .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.page-how #gg_tab_how
+{
+	background-color: #E9B44C2E;
+}
+
+.gg-screen.page-how #gg_tab_how .gg-stab-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-subcap
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	margin-left: 16px;
+	font-size: 12px;
+	color: gg-faint;
+	text-align: right;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* -- SERVER, Players: who is on, and which HUD their game shows; across the whole window -- */
+
+.gg-screen.page-players .gg-page-players
+{
+	visibility: visible;
+}
+
+.gg-screen.page-players .gg-live
+{
+	visibility: collapse;
+}
+
+.gg-page-players
+{
+	flow-children: down;
+	padding: 14px 34px 8px 34px;
+}
+
+.gg-psum
+{
+	margin-bottom: 10px;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-phead
+{
+	width: 100%;
+	height: 24px;
+	flow-children: right;
+	border-bottom: 1px solid gg-line;
+}
+
+.gg-prow
+{
+	width: 100%;
+	height: 29px;
+	flow-children: right;
+	border-bottom: 1px solid #FFFFFF0A;
+}
+
+.gg-pname
+{
+	width: 300px;
+	vertical-align: center;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-pteam
+{
+	width: 80px;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	color: gg-dim;
+}
+
+.gg-phud
+{
+	width: 400px;
+	height: 100%;
+	flow-children: right;
+}
+
+.gg-phud-ok
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: gg-up;
+}
+
+.gg-phud-old
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: #F0B44C;
+}
+
+.gg-phud-chk
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: gg-down;
+}
+
+.gg-pvote
+{
+	width: 160px;
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-pfor
+{
+	width: fill-parent-flow( 1 );
+	vertical-align: center;
+	font-size: 13px;
+	color: gg-dim;
+	text-align: right;
+}
+
+.gg-phead .gg-phl
+{
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2.2px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-plegend
+{
+	margin-top: 10px;
+	font-size: 12px;
+	color: gg-faint;
+}
+
+/* -- the cards on their side: the band of the mode, the picture, then the name and every tag that applies in two lines; the browser's eight are
+   577 x 110 with a 196 x 110 picture, the ballot's ten 577 x 92 with a 164 x 92 one (two of them and 14 px between fill the page's 1,172 px, borders and all) -- */
+
+.gg-grid-row
+{
+	width: 100%;
+	flow-children: right-wrap;
+	margin-bottom: 0px;
+}
+
+.gg-mcard
+{
+	visibility: collapse;
+	width: 577px;
+	height: 110px;
+	margin-bottom: 6px;
+	border-radius: 5px;
+	border: 1px solid #FFFFFF14;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0D ), to( #FFFFFF05 ) );
+	transition-property: border, background-color;
+	transition-duration: 0.12s;
+}
+
+.gg-mcard-l
+{
+	margin-right: 14px;
+}
+
+.gg-mcard.used
+{
+	visibility: visible;
+}
+
+.gg-mcard:hover
+{
+	border: 1px solid #FFFFFF33;
+}
+
+.gg-mcard.now
+{
+	border: 1px solid gg-gold;
+	box-shadow: #E9B44C33 0px 0px 14px 0px;
+}
+
+.gg-mrow
+{
+	width: 100%;
+	height: 100%;
+	flow-children: right;
+}
+
+.gg-mband
+{
+	visibility: visible;
+	width: 4px;
+	height: 100%;
+	vertical-align: top;
+	border-radius: 5px 0px 0px 5px;
+	background-color: #FFFFFF14;
+}
+
+/* The picture: the two classes the plugin sets on it (th and tl, the map's picture number) pick its rule in gungame_hud_thumbs.css. */
+.gg-mthumb
+{
+	width: 196px;
+	height: 100%;
+	background-color: gradient( linear, 0% 0%, 100% 100%, from( #1C2530 ), to( #0D1218 ) );
+	background-size: cover;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.gg-mthumb-shade
+{
+	width: 100%;
+	height: 100%;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.35, #00000000 ), color-stop( 0.7, #00000000 ), to( #000000B3 ) );
+}
+
+.gg-mrank
+{
+	margin: 6px 0px 0px 6px;
+	padding: 2px 7px;
+	border-radius: 3px;
+	background-color: #000000B3;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 12px;
+	color: #FFFFFF;
+}
+
+.gg-mcard.official .gg-mrank
+{
+	font-family: Stratum2, 'Arial Unicode MS';
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-mmode
+{
+	margin: 0px 0px 6px 6px;
+	padding: 2px 7px;
+	font-size: 10px;
+}
+
+.gg-mcard.broken .gg-mmode
+{
+	margin-bottom: 25px;
+}
+
+.gg-mcard.crashed .gg-mmode
+{
+	margin-bottom: 25px;
+}
+
+/* A broken or crashed map says so across the bottom of its picture. */
+.gg-mwarn
+{
+	visibility: collapse;
+	width: 100%;
+	vertical-align: bottom;
+	padding: 3px 8px;
+	font-size: 11px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-mcard.crashed .gg-mwarn
+{
+	visibility: visible;
+	background-color: #C9831ED9;
+}
+
+.gg-mcard.broken .gg-mwarn
+{
+	visibility: visible;
+	background-color: #C2412FE6;
+}
+
+.gg-mbody
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+	padding: 7px 12px 0px 12px;
+}
+
+.gg-mline
+{
+	width: 100%;
+	flow-children: right;
+}
+
+.gg-mname
+{
+	width: fill-parent-flow( 1 );
+	height: 20px;
+	font-size: 16px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-msize
+{
+	margin-left: 10px;
+	vertical-align: bottom;
+	font-size: 12px;
+	color: gg-dim;
+}
+
+.gg-mwho
+{
+	visibility: collapse;
+	width: 100%;
+	font-size: 12px;
+	color: gg-dim;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Every tag that applies, in the order of their precedence (MapTags), in two lines at most beside the picture. */
+.gg-mtags
+{
+	width: 100%;
+	height: 38px;
+	margin-top: 5px;
+	flow-children: right-wrap;
+	overflow: clip;
+}
+
+.gg-mtag
+{
+	visibility: collapse;
+	margin: 0px 5px 4px 0px;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2.3px;
+	text-transform: uppercase;
+	color: #10141A;
+}
+
+.gg-mtag-next
+{
+	background-color: #FFD47E;
+	color: #10141A;
+}
+
+.gg-mtag-lead
+{
+	background-color: #E9B44C;
+	color: #10141A;
+}
+
+.gg-mtag-tie
+{
+	background-color: #FFB547;
+	color: #10141A;
+}
+
+.gg-mtag-now
+{
+	background-color: #E9B44C;
+	color: #10141A;
+}
+
+.gg-mtag-big
+{
+	background-color: #F07C6B;
+	color: #10141A;
+}
+
+.gg-mtag-ads
+{
+	background-color: #F07C6B;
+	color: #10141A;
+}
+
+.gg-mtag-queued
+{
+	background-color: #F1EDE5;
+	color: #10141A;
+}
+
+.gg-mtag-ours
+{
+	background-color: #4FD6A2;
+	color: #10141A;
+}
+
+.gg-mtag.t-liked
+{
+	background-color: #7BD88F;
+}
+
+.gg-mtag.t-upload
+{
+	background-color: #63D8E8;
+}
+
+.gg-mtag.t-updated
+{
+	background-color: #A6EAF2;
+}
+
+.gg-mtag.t-trending
+{
+	background-color: #CFD6DE;
+}
+
+.gg-mtag.t-toprated
+{
+	background-color: #CFD6DE;
+}
+
+.gg-mtag.t-popular
+{
+	background-color: #CFD6DE;
+}
+
+.gg-mtag.t-newtous
+{
+	background-color: #B48CFF;
+}
+
+.gg-mcard.now .gg-mtag-now
+{
+	visibility: visible;
+}
+
+.gg-mcard.big .gg-mtag-big
+{
+	visibility: visible;
+}
+
+.gg-mcard.ads .gg-mtag-ads
+{
+	visibility: visible;
+}
+
+.gg-mcard.ours .gg-mtag-ours
+{
+	visibility: visible;
+	background-color: #4FD6A2;
+}
+
+.gg-screen.voting .gg-mcard.queued .gg-mtag-queued
+{
+	visibility: visible;
+}
+
+.gg-screen.voting .gg-mcard.now .gg-mtag-next
+{
+	visibility: visible;
+	background-color: #FFD47E;
+	color: #10141A;
+}
+
+.gg-mcard.t-liked .gg-mtag.t-liked
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-upload .gg-mtag.t-upload
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-updated .gg-mtag.t-updated
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-trending .gg-mtag.t-trending
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-toprated .gg-mtag.t-toprated
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-popular .gg-mtag.t-popular
+{
+	visibility: visible;
+}
+
+.gg-mcard.t-newtous .gg-mtag.t-newtous
+{
+	visibility: visible;
+}
+
+/* The browser card's actions: Play, the likes, the arrows - a row at the foot of the card, beside the picture. */
+.gg-macts
+{
+	width: 353px;
+	height: 28px;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 8px 212px;
+	flow-children: right;
+}
+
+.gg-mplay
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	border-radius: 3px;
+	border: 1px solid #E9B44C80;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C2E ), to( #E9B44C12 ) );
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-mplay:hover
+{
+	border: 1px solid gg-gold-hi;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C52 ), to( #E9B44C1F ) );
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-mplay:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-mplay-text
+{
+	horizontal-align: center;
+	vertical-align: center;
+	font-size: 12px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: gg-gold-hi;
+}
+
+.gg-mcard.risky .gg-mplay
+{
+	border: 1px solid #C9831EB3;
+	background-color: #C9831E1F;
+}
+
+.gg-mcard.risky .gg-mplay-text
+{
+	color: #F2B45A;
+}
+
+.gg-mcard.confirm .gg-mplay
+{
+	border: 1px solid #F07C6B;
+	background-color: #C2412F59;
+}
+
+.gg-mcard.confirm .gg-mplay-text
+{
+	color: #FFFFFF;
+}
+
+.gg-mcard.now .gg-mplay
+{
+	opacity: 0.5;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
+}
+
+.gg-mcard.now .gg-mplay-text
+{
+	color: gg-dim;
+}
+
+.gg-mscore
+{
+	visibility: collapse;
+}
+
+.gg-mpop
+{
+	visibility: collapse;
+}
+
+.gg-mvotes
+{
+	min-width: 44px;
+	margin-left: 8px;
+	vertical-align: center;
+	text-align: right;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: gg-dim;
+}
+
+.gg-mcard.liked .gg-mvotes
+{
+	color: gg-up;
+}
+
+.gg-mcard.disliked .gg-mvotes
+{
+	color: gg-down;
+}
+
+.gg-mvote
+{
+	width: 34px;
+	height: 100%;
+	margin-left: 6px;
+	border-radius: 3px;
+	border: 1px solid #FFFFFF1A;
+	background-color: #FFFFFF08;
+	transition-property: background-color, border;
+	transition-duration: 0.12s;
+}
+
+.gg-mvote:hover
+{
+	border: 1px solid #FFFFFF4D;
+	background-color: #FFFFFF17;
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+.gg-mvote:active
+{
+	sound: "UIPanorama.generic_button_press";
+}
+
+.gg-mvote .gg-chev
+{
+	horizontal-align: center;
+}
+
+.gg-mcard.liked .gg-mvote-up
+{
+	border: 1px solid #7BD88FB3;
+	background-color: #7BD88F2E;
+}
+
+.gg-mcard.disliked .gg-mvote-down
+{
+	border: 1px solid #F07C6BB3;
+	background-color: #F07C6B2E;
+}
+
+.gg-mempty
+{
+	visibility: collapse;
+	horizontal-align: center;
+	margin-top: 120px;
+	font-size: 16px;
+	color: gg-dim;
+}
+
+.gg-mempty.used
+{
+	visibility: visible;
+}
+
+/* The picture on request: its button over the middle of the picture, above everything else on the card. */
+.gg-mpic
+{
+	width: 150px;
+	height: 30px;
+	horizontal-align: left;
+	vertical-align: center;
+	margin-left: 27px;
+	padding: 0px;
+}
+
+.gg-mpic-text
+{
+	horizontal-align: center;
+}
+
+/* A Dislike's reasons over the browser card's picture: six small buttons in three rows. */
+.gg-whycard
+{
+	padding: 5px 5px 0px 6px;
+	border-radius: 5px 0px 0px 5px;
+}
+
+.gg-whycard-title
+{
+	margin-bottom: 2px;
+	font-size: 13px;
+}
+
+.gg-whycard .gg-whyib
+{
+	height: 24px;
+	margin: 0px 3px 3px 0px;
+}
+
+.gg-whycard .gg-whyib-text
+{
+	font-size: 11px;
+}
+
+/* The browser's Previous: the map before this one, to the vote (it stood on the old Queue page). */
+.gg-mbar-filters .gg-qprev
+{
+	height: 28px;
+	vertical-align: center;
+	margin: 0px 12px 0px 0px;
+}
+
+/* -- the pager: Next pulses while more pages follow, Prev while this is not the first page (a panel behind the words, on opacity) -- */
+
+@keyframes 'gg-pgpulse'
+{
+	0% { opacity: 0; }
+	50% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+.gg-pgb-glow
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 3px;
+	background-color: #E9B44C40;
+	opacity: 0;
+	animation-name: gg-pgpulse;
+	animation-duration: 1.6s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
+
+.gg-pgb.off .gg-pgb-glow
+{
+	visibility: collapse;
+}
+
+.gg-pgb-text
+{
+	horizontal-align: center;
+}
+
+/* -- the ballot (voting on gg_screen): its header, then ten cards in two columns of five, the most votes first -- */
+
+.gg-screen.voting .gg-page-maps
+{
+	padding: 10px 34px 4px 34px;
+}
+
+.gg-screen.voting .gg-page-maps .gg-mbar
+{
+	visibility: collapse;
+}
+
+.gg-vhead
+{
+	visibility: collapse;
+	width: 100%;
+	height: 76px;
+	flow-children: right;
+	margin-bottom: 6px;
+}
+
+.gg-screen.voting .gg-vhead
+{
+	visibility: visible;
+}
+
+.gg-vhead-main
+{
+	width: fill-parent-flow( 1 );
+	height: 100%;
+	flow-children: down;
+}
+
+.gg-vhead-top
+{
+	width: 100%;
+	height: 36px;
+	flow-children: right;
+}
+
+.gg-vote-title
+{
+	vertical-align: center;
+	margin-bottom: 0px;
+}
+
+.gg-vwait
+{
+	vertical-align: center;
+	margin: 0px 0px 0px 18px;
+}
+
+.gg-vhead-row
+{
+	width: 100%;
+	height: 32px;
+	flow-children: right;
+	margin-top: 4px;
+}
+
+.gg-vstrip
+{
+	width: 360px;
+	vertical-align: center;
+	margin-top: 0px;
+}
+
+.gg-clocks
+{
+	width: 430px;
+	height: 100%;
+	flow-children: down;
+	padding-top: 4px;
+}
+
+.gg-clock
+{
+	width: 100%;
+	height: 30px;
+	flow-children: right;
+}
+
+.gg-clock-key
+{
+	width: 84px;
+	vertical-align: center;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-faint;
+}
+
+.gg-clock-bar
+{
+	width: 110px;
+	height: 6px;
+	vertical-align: center;
+	border-radius: 3px;
+	background-color: #FFFFFF14;
+}
+
+.gg-clock-fill
+{
+	width: 0%;
+	height: 100%;
+	border-radius: 3px;
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), to( gg-gold ) );
+	transition-property: width;
+	transition-duration: 0.9s;
+}
+
+.gg-clock-bar.w1 .gg-clock-fill
+{
+	width: 10%;
+}
+
+.gg-clock-bar.w2 .gg-clock-fill
+{
+	width: 20%;
+}
+
+.gg-clock-bar.w3 .gg-clock-fill
+{
+	width: 30%;
+}
+
+.gg-clock-bar.w4 .gg-clock-fill
+{
+	width: 40%;
+}
+
+.gg-clock-bar.w5 .gg-clock-fill
+{
+	width: 50%;
+}
+
+.gg-clock-bar.w6 .gg-clock-fill
+{
+	width: 60%;
+}
+
+.gg-clock-bar.w7 .gg-clock-fill
+{
+	width: 70%;
+}
+
+.gg-clock-bar.w8 .gg-clock-fill
+{
+	width: 80%;
+}
+
+.gg-clock-bar.w9 .gg-clock-fill
+{
+	width: 90%;
+}
+
+.gg-clock-bar.w10 .gg-clock-fill
+{
+	width: 100%;
+}
+
+.gg-clock-text
+{
+	width: fill-parent-flow( 1 );
+	margin-left: 10px;
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-clock-idle .gg-clock-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.voting .gg-mcard
+{
+	height: 92px;
+	margin-bottom: 5px;
+}
+
+.gg-screen.voting .gg-mthumb
+{
+	width: 164px;
+}
+
+.gg-screen.voting .gg-mrank
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mbody
+{
+	padding: 8px 74px 0px 12px;
+}
+
+.gg-screen.voting .gg-msize
+{
+	visibility: collapse;
+}
+
+.gg-screen.voting .gg-mwho
+{
+	visibility: visible;
+}
+
+.gg-screen.voting .gg-mtags
+{
+	margin-top: 4px;
+}
+
+/* The share of the votes as a bar under the row, beside the picture. */
+.gg-mvbar
+{
+	visibility: collapse;
+	width: 405px;
+	height: 4px;
+	horizontal-align: right;
+	vertical-align: bottom;
+	background-color: #0000006B;
+}
+
+.gg-screen.voting .gg-mvbar
+{
+	visibility: visible;
+}
+
+/* A ballot card is one button: a click votes, a click on your own takes it back. The count stands at its right like a score, and the mouse on the
+   card shows who voted for it over its picture. */
+.gg-screen.voting .gg-macts
+{
+	width: 100%;
+	height: 100%;
+	margin: 0px;
+	flow-children: none;
+}
+
+.gg-screen.voting .gg-mplay
+{
+	width: 100%;
+	height: 100%;
+	border-radius: 5px;
+	border: 1px solid #00000000;
+	background-color: #00000000;
+}
+
+.gg-screen.voting .gg-mplay:hover
+{
+	border: 1px solid #FFFFFF33;
+	background-color: #FFFFFF08;
+}
+
+.gg-screen.voting .gg-mscore
+{
+	visibility: visible;
+	width: 62px;
+	horizontal-align: right;
+	vertical-align: top;
+	margin-top: 16px;
+	text-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 28px;
+	color: #FFFFFF;
+}
+
+.gg-screen.voting .gg-mplay-text
+{
+	width: 62px;
+	horizontal-align: right;
+	vertical-align: top;
+	margin-top: 54px;
+	text-align: center;
+	font-size: 9px;
+	letter-spacing: 1.5px;
+	color: gg-faint;
+}
+
+.gg-screen.voting .gg-mcard.confirm .gg-mscore
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.voting .gg-mcard.confirm .gg-mplay-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.voting .gg-mcard.now .gg-mplay-text
+{
+	color: gg-gold-hi;
+}
+
+.gg-screen.voting .gg-mvotes
+{
+	visibility: collapse;
+}
+
+.gg-mpop
+{
+	width: 164px;
+	height: 100%;
+	horizontal-align: left;
+	margin-left: 4px;
+	flow-children: down;
+	padding: 10px 10px 0px 10px;
+	background-color: #07090CED;
+}
+
+.gg-screen.voting .gg-mplay:hover .gg-mpop
+{
+	visibility: visible;
+}
+
+.gg-mpop-title
+{
+	visibility: collapse;
+	horizontal-align: center;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2.3px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-mcard.vhas .gg-mpop-title
+{
+	visibility: visible;
+}
+
+.gg-mpop-none
+{
+	horizontal-align: center;
+	margin-top: 26px;
+	font-size: 12px;
+	color: gg-dim;
+}
+
+.gg-mcard.vhas .gg-mpop-none
+{
+	visibility: collapse;
+}
+
+.gg-mpop-names
+{
+	width: 100%;
+	margin-top: 5px;
+	font-size: 13px;
+	font-weight: bold;
+	color: #FFFFFF;
+	text-align: center;
+}
+
+.gg-screen.voting .gg-mpic
+{
+	margin-left: 11px;
+}
+
+.gg-screen.voting .gg-pager
+{
+	height: 26px;
+}
+
+.gg-screen.pic3 .gg-grid-row1
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic3 .gg-grid-row2
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic1 .gg-grid-row3
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic2 .gg-grid-row3
+{
+	visibility: collapse;
+}
+
+.gg-screen.pic3 .gg-win
+{
+	height: 590px;
+	vertical-align: top;
+	margin-top: 130px;
+}
+
+/* -- the HUD check's gold button: its id names this content (HudCheck.VersionButton); it stands in for the live column's button while the
+   server waits for this game's first click (vcheck) -- */
+
+.gg-hudver
+{
+	visibility: collapse;
+}
+
+.gg-screen.vcheck .gg-hudver
+{
+	visibility: visible;
+}
+
+.gg-screen.vcheck #gg_btn_act
+{
+	visibility: collapse;
+}
+
+/* -- the outdated banner: latest-N on gg_global names the newest content the server knows; from 47 up it is newer than this one (v4_6_0) -- */
+
+.gg-outdated
+{
+	visibility: collapse;
+	horizontal-align: center;
+	vertical-align: top;
+	margin-top: 118px;
+	padding: 7px 18px;
+	border-radius: 4px;
+	background-color: #B3261EE6;
+	box-shadow: gg-shadow;
+}
+
+.gg-screen.win .gg-outdated
+{
+	margin-top: 44px;
+}
+
+.gg-outdated-text
+{
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.gg-global.latest-47 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-48 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-49 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-50 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-51 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-52 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-53 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-54 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-55 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-56 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-57 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-58 .gg-outdated
+{
+	visibility: visible;
+}
+
+.gg-global.latest-59 .gg-outdated
+{
+	visibility: visible;
+}
+
+/* -- the window's foot: a restart coming (its words and its countdown), and the freeze while a vote holds everybody -- */
+
+.gg-rstrip
+{
+	visibility: collapse;
+	vertical-align: center;
+	flow-children: right;
+}
+
+.gg-global.rst .gg-rstrip
+{
+	visibility: visible;
+}
+
+.gg-rst-text
+{
+	max-width: 560px;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #FF8A70;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gg-rst-secs
+{
+	margin-left: 10px;
+	vertical-align: center;
+	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
+	font-size: 13px;
+	color: #FFFFFF;
+}
+
+.gg-foot-frozen
+{
+	visibility: collapse;
+	margin-left: 14px;
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	color: gg-gold;
+}
+
+.gg-screen.vlock .gg-foot-frozen
+{
+	visibility: visible;
+}
+
+/* -- SERVER, Sync: the background download on a row of its own -- */
+
+.gg-dbg
+{
+	visibility: collapse;
+	font-weight: bold;
+	color: gg-gold-hi;
+}
+
+.gg-screen.osdqbg .gg-dbg
+{
+	visibility: visible;
+}
+
+/* -- HELP, How it works, a little tighter: the sub-tab row takes 40 px of the window's height -- */
+
+.gg-page-how
+{
+	padding: 16px 34px 8px 34px;
+}
+
+.gg-how
+{
+	margin-bottom: 8px;
+}
+
+.gg-how .gg-rule-head
+{
+	margin-bottom: 4px;
+}
+
+.gg-hline
+{
+	margin-bottom: 3px;
+}
+
+.gg-hline-txt
+{
+	font-size: 14px;
+	line-height: 19px;
 }

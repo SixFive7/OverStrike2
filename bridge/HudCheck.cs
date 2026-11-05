@@ -1,23 +1,23 @@
-// The HUD check: whether a player's game has this release's HUD loaded. MultiAddonManager already makes everybody download the addon,
-// but whether the layout loaded the server cannot see - a game that kept an older copy (the owner's did, on 2026-10-07) shows nothing
-// and says nothing. The only proof is a click: a Button press in the window reaches the server (OnCustomHudClicked) only from a game
-// that has the layout and shows it. So a player the server has not seen click on this release gets the window with one gold button,
-// "Click to play"; any click in it verifies them, for good on this release (the bridge keeps it per SteamID and release). One who has
-// not clicked HudCheck.GraceSeconds after their first spawn on a map is told in chat what to do, and disconnected.
+// The HUD check: whether a player's game shows this server's HUD, and which content of it. MultiAddonManager makes everybody download the addon,
+// but whether the layout loaded the server cannot see - a game that kept an older copy shows nothing and says nothing - and a layout cannot send
+// anything by itself (CS2 drops a layout with scripts in it). The only proof is a click: a Button press in the window reaches the server
+// (OnCustomHudClicked) only from a game that has the layout and shows it. So a player not seen clicking since their last real join gets the window
+// with one gold button, "Click to play". From content v4_6_0 on that button's id carries the content (VersionButton: gg_hudver_v4_6_0), so its click
+// proves the exact version; an older content's gold button is the live column's action button, whose click counts as "older"; any other button
+// verifies the HUD without saying which. One who has not clicked GraceSeconds after their first spawn on a map is told in chat what to do, and
+// with HUD_CHECK=enforce disconnected; with warn only told.
 //
-// Shared like Hud.cs: the bridge persists the verifications and the mode and tests all of this in --selftest; the GunGameWelcome plugin
-// runs HudGate per map. Plain BCL only.
+// A verification lives in memory, per connection: the plugin keeps it, the bridge keeps it for the players on the server and serves only those,
+// and both forget it at the player's next real join (a reconnecting player may have a new HUD). Nothing of it is written to a file.
 //
-// The safety interlock: nobody had proven a real click reaches the server when this was written, and a check whose clicks never
-// arrive would throw everybody out. So the mode (HUD_CHECK on the bridge) starts at dryrun - warn and log, never disconnect - and
-// dryrun turns itself into enforce only once a real click has been verified on that very release: a new layout release (which could be
-// broken, as v2_1_0 was) is back in dry run until somebody's click proves it. No fresh state from the bridge means off: no kicks.
+// Shared like Hud.cs: the bridge serves the mode and the verifications and tests all of this in --selftest; the plugin runs HudGate per map. Plain
+// BCL only. No fresh state from the bridge means off: no kicks.
 using System.Globalization;
 using System.Text.Json;
 
 public static class HudCheck
 {
-    public enum Mode { Off, DryRun, Enforce }
+    public enum Mode { Off, Warn, Enforce }
 
     public const double GraceSeconds = 90;  // from a player's first spawn on a map: the map has loaded and the team is picked by then
     public const double WarnSeconds = 15;   // the chat warning, this long before the disconnect
@@ -25,38 +25,71 @@ public static class HudCheck
     public const int ReasonMax = 127;       // a disconnect reason travels as SteamNetworkingSockets' close reason: 128 bytes with its NUL
     public const int LineMax = 127;         // what a private chat line may take here
 
-    /// <summary>The gold button's words while a player is being checked (the contextual button, set from the server: no new layout).</summary>
+    /// <summary>The gold button's words while a player is being checked: the live column's action button of the contents before v4_6_0 (set from
+    /// the server); from v4_6_0 on, the version button's own fixed words are the same.</summary>
     public const string ActText = "Click to play", ActSub = "One click shows the server your HUD works";
 
+    /// <summary>HUD_CHECK: off, warn (tell, never disconnect) or enforce. "dryrun", the word the plugins before v4_6_0 know for warn, reads as warn.</summary>
     public static Mode Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
     {
-        "dryrun" or "dry-run" or "dry" or "test" => Mode.DryRun,
+        "warn" or "dryrun" or "dry-run" or "dry" or "test" => Mode.Warn,
         "enforce" or "on" => Mode.Enforce,
         _ => Mode.Off,
     };
 
-    public static string Name(Mode mode) => mode switch { Mode.DryRun => "dryrun", Mode.Enforce => "enforce", _ => "off" };
+    public static string Name(Mode mode) => mode switch { Mode.Warn => "warn", Mode.Enforce => "enforce", _ => "off" };
 
-    /// <summary>The mode in force for a release: dryrun becomes enforce once a real click has been verified on that release.</summary>
-    public static Mode Effective(Mode configured, IReadOnlyDictionary<string, string> proofs, string release) =>
-        configured == Mode.DryRun && proofs.ContainsKey(release) ? Mode.Enforce : configured;
+    /// <summary>The mode as the live state carries it: warn as "dryrun", which a plugin before v4_6_0 reads as its dry run - and without a release's
+    /// proof, which no bridge serves any more, a dry run never disconnects anybody either.</summary>
+    public static string WireName(Mode mode) => mode == Mode.Warn ? "dryrun" : Name(mode);
 
-    /// <summary>The plugin's view: the effective mode, or off while it has no fresh state from the bridge. "Fresh" is the age of the
-    /// bridge's last answer, NOT of the last change in it: until 2026-10-11 the plugin measured the latter, so on a quiet server the check
-    /// went off every ten seconds and back on with the next vote - 2026-10-08 shows it flapping through a whole evening.</summary>
-    public static Mode ModeOf(HudState? state, double stateAgeSeconds, string release) =>
-        state == null || stateAgeSeconds > StaleSeconds ? Mode.Off : Effective(Parse(state.CheckMode), state.Proofs, release);
+    /// <summary>The plugin's view: the mode the bridge serves, or off while it has no fresh state from the bridge. "Fresh" is the age of the bridge's
+    /// last answer, not of the last change in it: on a quiet server nothing changes for minutes.</summary>
+    public static Mode ModeOf(HudState? state, double stateAgeSeconds) =>
+        state == null || stateAgeSeconds > StaleSeconds ? Mode.Off : Parse(state.CheckMode);
 
-    /// <summary>Verified on this release, as far as the bridge knows.</summary>
-    public static bool IsVerified(HudState? state, long account, string release) =>
-        state != null && state.Verified.TryGetValue(account, out var r) && r == release;
+    /// <summary>Verified since the player's last real join, as far as the bridge knows.</summary>
+    public static bool IsVerified(HudState? state, long account) => state != null && state.Verified.ContainsKey(account);
 
-    /// <summary>"v2_1_1": what a release looks like (Hud.Release) - the only argument !hudok takes.</summary>
+    /// <summary>"v2_1_1": what a release or a content looks like (Hud.Release, Hud.Content).</summary>
     public static bool IsRelease(string text)
     {
         var parts = text.Length > 1 && text[0] == 'v' ? text[1..].Split('_') : [];
         return parts.Length == 3 && parts.All(p => p.Length is > 0 and <= 3 && p.All(char.IsAsciiDigit));
     }
+
+    /// <summary>What a game's HUD is known as after the check's click: a content (v4_6_0, from its version button), Older (an older content's gold
+    /// button), or Hud.Release (verified, which content not known - the click was another button, or a plugin before v4_6_0 sent it).</summary>
+    public const string Older = "older";
+
+    /// <summary>Whether !hudok may carry this: a content or release, or Older.</summary>
+    public static bool IsVersionWord(string text) => text == Older || IsRelease(text);
+
+    /// <summary>The version button: the gold "Click to play" of the HUD check, whose id names the content that has it. The layout may put it
+    /// anywhere (the welcome window's close button could carry it one day): any button with this prefix proves its content.</summary>
+    public const string VersionPrefix = "gg_hudver_";
+
+    public static string VersionButton(string content) => VersionPrefix + content;
+
+    /// <summary>The content a version button proves, or null for any other button.</summary>
+    public static string? VersionOf(string buttonId) =>
+        buttonId.StartsWith(VersionPrefix, StringComparison.Ordinal) && IsRelease(buttonId[VersionPrefix.Length..]) ? buttonId[VersionPrefix.Length..] : null;
+
+    /// <summary>A content as a number: v4_6_0 is 46; 0 for anything else.</summary>
+    public static int LevelOf(string version) =>
+        IsRelease(version) && version[1..].Split('_') is [var major, var minor, _] && int.TryParse(major, out var a) && int.TryParse(minor, out var b) ? a * 10 + b : 0;
+
+    /// <summary>A HUD other than the server's own as the Players page says it: older, its content not known (Hud.Release: a click on a button
+    /// that names none), or not seen yet ("": no click since the last real join).</summary>
+    public static string VersionWords(string version) => version == Older ? "older - restart CS2" : version == "" ? "not seen yet"
+        : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - restart CS2" : version;
+
+    /// <summary>The note a player whose HUD is older than the server's gets at its click.</summary>
+    public static string OutdatedNote(string version) =>
+        $"Your HUD is {(version == Older ? "older than the server's" : version)} - the server has {Hud.Content}: quit CS2 and start it again, and Steam updates it";
+
+    /// <summary>Whether a known version is older than this server's content.</summary>
+    public static bool IsOutdated(string version) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < HudVote.ContentLevel;
 
     /// <summary>What an anonymous visit to the item's Workshop page says about it: true - Steam shows it to everybody (HTTP 200, its title
     /// reads "Steam Workshop::..."); false - the page Steam shows a visitor instead, which is what everybody but the owner gets while the
@@ -81,7 +114,7 @@ public static class HudCheck
     public const string OldErrorTitle = "<title>Steam Community :: Error</title>", NewErrorTitle = "<title>Steam Workshop</title>";
 
     /// <summary>The setting that keeps a plugin off the item's page for good, by hand included: HUD_ITEM_PAGE=off, what a test copy of the server runs
-    /// with: nobody is on it, and its restarts must not add visits (the owner, 2026-11-02). It still reads the Web API, and without a visit it never
+    /// with: nobody is on it, and its restarts must not add visits. It still reads the Web API, and without a visit it never
     /// has a verdict: joiners download the item as ever, and the HUD check's interlock stays off for ReviewWindow after an upload.</summary>
     public const string PageVariable = "HUD_ITEM_PAGE";
 
@@ -164,16 +197,15 @@ public static class HudCheck
     public const string BackNews = "The HUD is back on Steam: everybody gets the menu again at the next map change - or now, by reconnecting (console: retry).",
         BackChat = "[HUD] The menu is back: you get it at the next map change, or now by reconnecting (console: retry).";
 
-    /// <summary>The click's message to the bridge: verified on this release.</summary>
-    public static string Command(string release) => "!hudok " + release;
+    /// <summary>The click's message to the bridge: verified, and which HUD (IsVersionWord).</summary>
+    public static string Command(string version) => "!hudok " + version;
 
     public static string ItemUrl(string addon) => "steamcommunity.com/sharedfiles/filedetails/?id=" + addon;
 
     /// <summary>The disconnect reason, at most ReasonMax characters with a ten-digit item id.</summary>
     public static string Reason(string addon) => $"HUD missing: 1) subscribe {ItemUrl(addon)} 2) quit CS2 3) let Steam update 4) rejoin";
 
-    /// <summary>How a player opens the window again: chat commands are gone since v3_0_0 (a typed !gg only gets Hud.ChatOff), and
-    /// TAB + E opens the menu in every HUD_TAB mode but off (HudTab.cs). Until 2026-10-24 these lines still said "!gg".</summary>
+    /// <summary>How a player opens the window again: TAB + E opens the menu in every HUD_TAB mode but off (HudTab.cs).</summary>
     public const string Reopen = "hold TAB, press E";
 
     /// <summary>The window has just opened for a player the server has not seen click.</summary>
@@ -181,10 +213,10 @@ public static class HudCheck
 
     public const string Thanks = "HUD check: thanks - your HUD works. Have fun!";
 
-    /// <summary>The warning before the disconnect (dry run: the same, saying nobody is disconnected yet).</summary>
-    public static string[] Warning(string addon, int seconds, bool dryRun) =>
+    /// <summary>The warning before the disconnect (warn: the same, saying nobody is disconnected).</summary>
+    public static string[] Warning(string addon, int seconds, bool warnOnly) =>
     [
-        dryRun ? "HUD check (test - nobody is disconnected yet): no click from your HUD. Click any button in the window (" + Reopen + ")."
+        warnOnly ? "HUD check (nobody is disconnected): no click from your HUD. Click any button in the window (" + Reopen + ")."
                : $"HUD check: no click from your HUD yet - you are disconnected in {seconds.ToString(CultureInfo.InvariantCulture)} s. Click any button in the window ({Reopen}).",
         $"No window? Then your game lacks this server's HUD: 1) subscribe {ItemUrl(addon)}",
         "2) quit CS2  3) let Steam finish the download  4) start CS2 and rejoin",
@@ -195,7 +227,7 @@ public static class HudCheck
 /// --selftest drives it on a handed clock; the plugin's ItemWatch does the fetching. Since 2026-11-01 the Web API (GetPublishedFileDetails, api.steampowered.com) is the signal, read every minute: its
 /// verdict says gone, private or banned, and a change in time_updated or hcontent_file says a new version went up. The item's page on
 /// the community site - the only thing that shows Valve's review - is visited only right after such a change, then at most every 15
-/// minutes while it is not shown (the owner, 2026-11-02: nothing may risk his address or his Steam account), for ReviewWindow after the
+/// minutes while it is not shown (nothing may put the account that runs the server at risk), for ReviewWindow after the
 /// change, and at a plugin start only if the Web API's time_updated is that recent (an upload may be under review). A visit the site
 /// refuses (429: no verdict) leaves it alone for an hour, and until a verdict comes joiners need not download the item for ReviewAssumed after
 /// the upload: reviews have taken 9 to 63 minutes, and a new player without the menu is better off than one held at a download that cannot
@@ -222,7 +254,7 @@ public sealed class ItemPlan
     /// <summary>The latest readable page verdict since the Web API's last change: true shown, false not shown, null none yet.</summary>
     public bool? SinceChange { get; private set; }
 
-    /// <summary>Page visits since the plugin loaded, and since the last change - the count the owner wants kept small.</summary>
+    /// <summary>Page visits since the plugin loaded, and since the last change - a count kept small on purpose.</summary>
     public int Visits { get; private set; }
     public int VisitsSinceChange { get; private set; }
 
@@ -303,7 +335,7 @@ public sealed class ItemPlan
 }
 
 /// <summary>One map's worth of the check in the plugin, per player slot: whose clock runs, who was warned, whose time is up. Every map
-/// change reconnects everybody, so it starts over then; a verification is kept by the bridge and never needs repeating.</summary>
+/// change reconnects everybody, so it starts over then; a verification lasts until the player's next real join.</summary>
 public sealed class HudGate
 {
     public enum Act { Warn, Kick, WouldKick }
@@ -328,11 +360,14 @@ public sealed class HudGate
 
     public void Verified(int slot) => waiting.Remove(slot);
 
+    /// <summary>The seconds this slot's clock has left (the Players page says it); 0 when nothing waits.</summary>
+    public int SecondsLeft(int slot, DateTime now) => waiting.TryGetValue(slot, out var s) && !s.Ended ? Math.Max(0, (int)Math.Ceiling((s.Due - now).TotalSeconds)) : 0;
+
     public void Gone(int slot) { waiting.Remove(slot); spawned.Remove(slot); }
 
     public void MapStarted() { waiting.Clear(); spawned.Clear(); }
 
-    /// <summary>The check has just become stricter (off to dry run, or dry run to enforce): everybody still waiting gets a full grace
+    /// <summary>The check has just become stricter (off to warn, or warn to enforce): everybody still waiting gets a full grace
     /// period from now, so nobody who ignored the dry run is thrown out on the spot. Returns their slots, for the window.</summary>
     public List<int> Rearm(DateTime now)
     {
@@ -340,7 +375,7 @@ public sealed class HudGate
         return waiting.Keys.ToList();
     }
 
-    /// <summary>What is due now: the warning WarnSeconds before the end, then the disconnect - or, in a dry run, only the log line.
+    /// <summary>What is due now: the warning WarnSeconds before the end, then the disconnect - or, with warn, only the log line.
     /// Verified players leave the list; with the check off nothing happens at all.</summary>
     public List<(int Slot, Act Act, int Seconds)> Frame(DateTime now, HudCheck.Mode mode, Func<long, bool> verified)
     {

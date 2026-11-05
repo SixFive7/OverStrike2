@@ -7,6 +7,9 @@ using OverStrike2;
 //
 //   - when the vote freezes everybody (FreezePlan.cs): only on this map's fresh word from the bridge, freed when the bridge goes quiet or one
 //     vote has frozen everybody for too long, and everybody at the same tick;
+//   - whom the spawn cloak hides (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn, and never again in a life that left it,
+//     attacked or saw a vote freeze start or end; and what the cloak puts back (CloakBook): every entity that leaves a hidden player, as it
+//     looked before - never as it looked hidden, also when it goes from one hidden player to another;
 //   - where the HUD addon's id comes from (HudAddon.cs): the new variable, its old name only while the new one is not set at all;
 //   - the block file (bridge/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
@@ -68,6 +71,114 @@ void Eq<T>(T actual, T expected, string what) =>
     Check(plan.Tick(11, true, when.AddSeconds(6), map, when.AddSeconds(6)) && plan.Frozen && plan.Since == when.AddSeconds(6), "freeze: the next round freezes on its own clock");
     // MapVote.HardCapSeconds (180), the countdown after it (CHANGE_DELAY_SECONDS, 8 by default) and a margin; the plugin polls once a second
     Check(FreezePlan.MaxSeconds >= 180 + 60 && FreezePlan.StaleSeconds >= 5, "freeze: the cap leaves the longest vote and its countdown room; staleness allows a few lost polls");
+}
+
+// ---- the spawn cloak (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn hides its player; leaving it, an attack and a vote
+// freeze's start or end spend the cloak for the rest of the life ----
+{
+    const double R = SpawnCloakPlan.Radius, H = SpawnCloakPlan.Height;
+    var plan = new SpawnCloakPlan();
+    plan.Spawned(1, 100);
+    Check(!plan.Hides(1, 100, 500, 500, 0, true, true) && plan.Describe(1, 500, 500, 0) == "not placed yet",
+        "spawn cloak: nothing in the spawn's own tick - the game may still be placing the pawn - and no spawn point yet");
+    Check(!plan.Hides(1, 101, 500, 500, 0, false, true), "spawn cloak: the first look a tick later takes the spawn point; the window shut: seen");
+    Check(plan.Hides(1, 102, 500, 500, 0, true, true), "spawn cloak: the window open on the spawn: hidden");
+    Check(!plan.Hides(1, 103, 500, 500, 0, false, true) && plan.Ready(1), "spawn cloak: the window shut: seen, and the cloak not spent");
+    Check(plan.Hides(1, 104, 500, 500, 0, true, true), "spawn cloak: ...the window open again on the spawn: hidden again");
+    Check(plan.Hides(1, 105, 545, 545, 0, true, true), "spawn cloak: a step aside (63 units diagonally) is still the spawn");
+    Check(plan.Hides(1, 106, 500, 500 + R, 0, true, true), $"spawn cloak: exactly {R:0} units away is still the spawn");
+    Check(plan.Hides(1, 107, 500, 500, 57, true, true), "spawn cloak: a jump on the spot (57 units up) is still the spawn");
+    Check(plan.Describe(1, 520, 500, 0).StartsWith("on its spawn, 20 units away"), $"spawn cloak: the console says how far: {plan.Describe(1, 520, 500, 0)}");
+    Check(!plan.Hides(1, 108, 500 + R + 1, 500, 0, true, true) && plan.SpentBecause(1) == SpawnCloakPlan.Left,
+        $"spawn cloak: {R + 1:0} units away is off the spawn: seen, and the life's cloak spent for leaving");
+    Check(!plan.Hides(1, 109, 500, 500, 0, true, true) && plan.Describe(1, 500, 500, 0) == $"spent: {SpawnCloakPlan.Left}",
+        "spawn cloak: back on the spot with the window open: still seen - a life that left never hides again");
+
+    plan.Spawned(1, 200);
+    Check(plan.Ready(1) && plan.Hides(1, 201, -30, 10, 0, true, true), "spawn cloak: a respawn is a new life on a spawn of its own; the window open at the first look: hidden");
+    Check(!plan.Hides(1, 202, -30, 10, H + 1, true, true) && plan.SpentBecause(1) == SpawnCloakPlan.Left, $"spawn cloak: {H + 1:0} units up (a lift, a jump pad) is off the spawn too");
+
+    plan.Spawned(1, 300);
+    Check(!plan.Hides(1, 301, 0, 0, 0, true, false) && plan.Ready(1), "spawn cloak: not allowed (Wingman, a freeze): seen, and nothing spent by it");
+    Check(plan.Hides(1, 302, 0, 0, 0, true, true), "spawn cloak: ...allowed again: hidden");
+    Check(plan.Spend(1, SpawnCloakPlan.Attacked) && !plan.Spend(1, SpawnCloakPlan.Hurt) && plan.SpentBecause(1) == SpawnCloakPlan.Attacked,
+        "spawn cloak: an attack spends the life's cloak, once - the first reason stays");
+    Check(!plan.Hides(1, 303, 0, 0, 0, true, true), "spawn cloak: an attacker is seen, on the spawn and with the window open");
+
+    plan.Spawned(1, 400);
+    plan.Spawned(2, 400);
+    Check(plan.Hides(1, 401, 0, 0, 0, true, true) && !plan.Hides(2, 401, 100, 100, 0, false, true), "spawn cloak: one hidden, one not, before a freeze");
+    Check(plan.Freeze(true) && !plan.Freeze(true), "spawn cloak: a freeze's start is seen once");
+    Check(plan.SpentBecause(1) == SpawnCloakPlan.FreezeStarted && plan.SpentBecause(2) == SpawnCloakPlan.FreezeStarted && !plan.Hides(1, 402, 0, 0, 0, true, true),
+        "spawn cloak: a freeze's start spends every life's cloak, hidden or not");
+    plan.Spawned(3, 410);
+    Check(!plan.Hides(3, 411, 0, 0, 0, true, false) && plan.Ready(3), "spawn cloak: a life that begins during the freeze is not hidden while it lasts");
+    Check(plan.Freeze(false) && plan.SpentBecause(3) == SpawnCloakPlan.FreezeEnded && !plan.Hides(3, 412, 0, 0, 0, true, true),
+        "spawn cloak: ...and the freeze's end spends that life's cloak too");
+    plan.Spawned(3, 420);
+    Check(plan.Hides(3, 421, 0, 0, 0, true, true), "spawn cloak: the next life after a freeze hides again");
+
+    var open = new List<int>();
+    plan.Unspent(open);
+    Check(open.SequenceEqual([3]), $"spawn cloak: only the lives whose cloak is not spent are looked at ({string.Join(",", open)})");
+    plan.Ended(3);
+    Check(!plan.Ready(3) && plan.SpentBecause(3) == null && !plan.Hides(3, 422, 0, 0, 0, true, true) && plan.Describe(3, 0, 0, 0) == "no life" && !plan.Spend(3, SpawnCloakPlan.Attacked),
+        "spawn cloak: a death or a disconnect ends the life: nothing to hide, nothing to spend");
+    plan.Spawned(4, 500);
+    plan.Freeze(true);
+    plan.MapStarted();
+    plan.Unspent(open);
+    Check(open.Count == 0 && !plan.Freeze(false), "spawn cloak: a new map forgets every life, and starts with no freeze");
+    Check(!SpawnCloakPlan.Off(0, 0, 0, R, 0, H) && !SpawnCloakPlan.Off(0, 0, 0, 0, -R, -H) && SpawnCloakPlan.Off(0, 0, 0, R * 0.8, R * 0.8, 0),
+        "spawn cloak: the spawn is a cylinder - Radius sideways in every direction, Height up and down");
+    Check(R >= 2 * 32 && R <= 4 * 32 && H >= 57, "spawn cloak: a few player widths (the hull is 32 units wide), and room for a jump on the spot");
+}
+
+// ---- what the cloak puts back (CloakPlan.cs, CloakBook): every entity that leaves a hidden player, as it looked before the cloak ----
+{
+    var book = new CloakBook<string>();
+    void Hold(uint handle, int slot, string before) { if (!book.Hold(handle, slot)) book.Add(handle, slot, before); }
+
+    book.Begin();
+    Hold(10, 1, "pawn seen");
+    Hold(11, 1, "gun seen");
+    Check(book.End().Count == 0 && book.Count == 2 && book.Of(1) == 2, "cloak book: a hidden player's pawn and gun, each with its look from before");
+    book.Begin();
+    Check(book.Hold(10, 1) && book.Hold(11, 1) && book.End().Count == 0, "cloak book: held again, nothing is taken again (a hidden look never becomes a before) and nothing goes back");
+
+    book.Begin();
+    Hold(10, 1, "pawn hidden");
+    Hold(12, 1, "grenade seen");
+    var back = book.End().ToList();
+    Check(back.Count == 1 && back[0] == (11u, 1, "gun seen") && book.Count == 2, "cloak book: a dropped gun goes back as it looked before; a pickup comes in");
+    Check(book.Held(1).Order().SequenceEqual(["grenade seen", "pawn seen"]), "cloak book: the pawn keeps the look it had before the first pass");
+
+    book.Begin();
+    Hold(20, 2, "pawn 2 seen");
+    Check(book.Hold(12, 2), "cloak book: a grenade another hidden player held is in the book already");
+    book.Hold(10, 1);
+    Check(book.End().Count == 0 && book.Of(2) == 2 && book.Of(1) == 1, "cloak book: going from one hidden player to another, nothing goes back");
+
+    book.Begin();
+    book.Keep(2); // an error while holding player 2: what they had stays as it is
+    book.Hold(10, 1);
+    Check(book.End().Count == 0 && book.Of(2) == 2, "cloak book: a pass that could not hold a player keeps all of theirs - nothing goes back half-way");
+
+    book.Begin();
+    book.Hold(10, 1);
+    var looks = book.End().Select(g => g.Before).Order().ToList();
+    Check(looks.SequenceEqual(["grenade seen", "pawn 2 seen"]), $"cloak book: a player seen again: all of theirs back as it looked before any cloak ({string.Join(", ", looks)})");
+
+    book.Begin();
+    book.Hold(10, 1);
+    Check(!book.Hold(10 | 1u << 15, 1), "cloak book: the same index with another serial is another entity");
+    book.Add(10 | 1u << 15, 1, "new entity seen");
+    Check(book.Handles(1).SetEquals([10u, 10 | 1u << 15]), "cloak book: the handles a slot holds");
+    Check(book.Clear().Count == 2 && book.Count == 0, "cloak book: the unload puts everything back");
+    book.Add(30, 3, "x");
+    book.Forget();
+    Check(book.Count == 0 && book.End().Count == 0, "cloak book: a new map forgets everything and puts nothing back");
+    Check(((CloakWhy.Ghost | CloakWhy.Spawn) & ~CloakWhy.Ghost) == CloakWhy.Spawn, "cloak: one reason ends, the other still hides");
 }
 
 // ---- where the HUD addon's id comes from (HudAddon.cs) ----
