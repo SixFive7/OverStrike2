@@ -318,5 +318,35 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before = saved
 
+# ---- compose.yml and its installer: everything they name is in the checkout, and they ship what the deploy scripts ship
+import re  # noqa: E402
+
+DEPLOY = os.path.join(os2.REPO, "deploy")
+compose = open(os.path.join(DEPLOY, "compose.yml"), encoding="utf-8").read()
+dockerfile = open(os.path.join(DEPLOY, "installer", "Dockerfile"), encoding="utf-8").read()
+install = open(os.path.join(DEPLOY, "installer", "install.sh"), encoding="utf-8").read()
+named = sorted(set(re.findall(r"(\.\./[\w./-]+?)(?=:|\s|$)", compose)))
+check("compose: every file of the checkout it mounts or builds from is there (%d)" % len(named),
+      named and all(os.path.exists(os.path.normpath(os.path.join(DEPLOY, p))) for p in named)
+      and os.path.isfile(os.path.join(os2.REPO, "bridge", "Dockerfile")) and "dockerfile: deploy/installer/Dockerfile" in compose)
+copied = [s for line in re.findall(r"^COPY (?!--from)(.+)$", dockerfile, re.M) for s in line.split()[:-1]]
+check("installer: every source its Dockerfile copies from the checkout is there (%d)" % len(copied),
+      copied and all(os.path.exists(os.path.join(os2.REPO, s)) for s in copied))
+plugin_files = re.search(r"COPY --from=build (/out/plugin/\S+(?: /out/plugin/\S+)*) /payload/plugins/OverStrike2/", dockerfile)
+check("installer: the plugin's files are the ones deploy/plugin.py ships (%s)" % (plugin_files.group(1) if plugin_files else "none"),
+      plugin_files and sorted(p.rsplit("/", 1)[1] for p in plugin_files.group(1).split()) == sorted(P.ship_list()))
+hand, first = re.search(r"for f in ([\w. ]+); do\s+put \"/payload/data", install), re.search(r"for f in ([\w. ]+); do\s+if \[ -e", install)
+check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as data.py ships them",
+      hand and first and set(hand.group(1).split()) | set(first.group(1).split()) == set(D.SETS["bridge"][2])
+      and set(first.group(1).split()) == D.FIRST_ONLY)
+check("installer: the programs and the launcher go to the program volume, pre.sh also to the top of the game's",
+      all(f"/overstrike2/{n}" in install for n in list(S.PROGRAMS) + ["pre.sh"]) and "/game/pre.sh" in install)
+mounts = {"/etc/overstrike2/overstrike2.jsonc": "the settings file", "program:/home/steam/overstrike2:ro": "pre.sh's OS2_SERVER",
+          "plugins:/home/steam/cs2-plugins:ro": "paths.plugins", "data:/data": "paths.bridgeData",
+          "target: /home/steam/workshop-sync": "paths.syncWork", "sync-state:/home/steam/sync-state": "paths.syncState"}
+check("compose: the settings file, the program volume and the data paths are where the defaults look (%s)"
+      % ", ".join(v for k, v in mounts.items() if k not in compose), all(k in compose for k in mounts)
+      and "/home/steam/overstrike2/os2-server" in open(os.path.join(os2.REPO, S.LAUNCHER), encoding="utf-8").read())
+
 print("\n%d failure(s)" % len(FAILS))
 sys.exit(1 if FAILS else 0)

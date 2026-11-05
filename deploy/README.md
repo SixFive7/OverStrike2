@@ -21,6 +21,10 @@ environment (`"env:NAME"` values). Nothing here prints a credential.
 
 Without `--apply`, the copying scripts only show what would change. Every script ships committed files only.
 
+A host that builds everything itself needs none of these: [`compose.yml`](compose.yml) builds the bridge and an installer image
+(`installer/`), which puts the plugin, both programs and `pre.sh` into the volumes the other services mount
+([docs/install.md](../docs/install.md)).
+
 ## The bridge image
 
 The compose file names the image under `localhost/`, a registry no pull can reach, and never pulls it:

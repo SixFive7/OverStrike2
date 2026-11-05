@@ -1,0 +1,149 @@
+# Over Strike 2 on one Docker host, everything built on it: the game server (joedwards32/cs2), the bridge, the Workshop sync, and an
+# installer that builds the plugin and the server programs and puts them into the volumes. Quick start (docs/install.md), in deploy/:
+#
+#   cp overstrike2.example.jsonc overstrike2.jsonc     # your settings (docs/settings.md)
+#   cp example.env .env                               # your secrets: the RCON password and the bridge's secret
+#   docker compose up -d --build
+#
+# Updating: git pull, then docker compose up -d --build. The installer runs again, and the game server's restart watcher takes the new
+# programs, pre.sh and plugin in by itself: at the end of the match, or at once with nobody on. Needs Docker Engine 26 or newer with
+# Compose 2.27 or newer (a volume subpath). The volumes are Docker's own; the game's holds the game (about 75 GB) and the Workshop maps.
+
+name: overstrike2
+
+configs:
+  overstrike2:
+    file: ./overstrike2.jsonc # your settings: every part reads them at /etc/overstrike2/overstrike2.jsonc
+
+services:
+
+  cs2:
+    image: docker.io/joedwards32/cs2
+    restart: always
+    depends_on:
+      installer:
+        condition: service_completed_successfully
+    stop_grace_period: 1m
+    ports:
+      - 27015:27015/udp # game traffic and server queries; RCON stays inside, only the bridge uses it
+    volumes:
+      - game:/home/steam/cs2-dedicated # SteamCMD's install and the Workshop maps; pre.sh at its top (the installer's)
+      - depotcache:/home/steam/Steam/depotcache # the Steam client's verified Workshop manifests, kept across recreates
+      - program:/home/steam/overstrike2:ro # os2-server, which pre.sh copies out and runs before every engine start
+      - plugins:/home/steam/cs2-plugins:ro # the plugin, copied into the game before every engine start (paths.plugins)
+      - data:/data:ro # the bridge's data: the keep set's inputs for the restart watcher (paths.bridgeData)
+      - ../server/gamemode_armsrace_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_armsrace_server.cfg:ro # each mode's overrides, run after Valve's mode cfg on every map load
+      - ../server/gamemode_deathmatch_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_deathmatch_server.cfg:ro
+      - ../server/gamemode_competitive2v2_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_competitive2v2_server.cfg:ro # Wingman
+    configs:
+      - source: overstrike2
+        target: /etc/overstrike2/overstrike2.jsonc
+    environment: # the game image's own variables; everything of ours is in the settings file
+      TZ: ${TZ:-Etc/UTC} # local time: the daily restart and the logs
+      SRCDS_TOKEN: ${SRCDS_TOKEN:-} # a Game Server Login Token lists the server publicly; empty runs unlisted (direct connects work)
+      CS2_SERVERNAME: ${CS2_SERVERNAME:-Over Strike 2}
+      CS2_RCONPW: ${CS2_RCONPW:?set CS2_RCONPW in deploy/.env}
+      OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET:?set OVERSTRIKE2_BRIDGE_SECRET in deploy/.env} # bridge.secret reads it
+      CS2_PW: ""
+      CS2_MAXPLAYERS: 10
+      CS2_GAMETYPE: 1 # gun game
+      CS2_GAMEMODE: 0 # Arms Race
+      CS2_MAPGROUP: mg_armsrace
+      CS2_STARTMAP: ar_shoots # always boot to a stock map (server.startMap), so a crash on a Workshop map never restarts into it
+      CS2_SERVER_HIBERNATE: 0
+      CS2_LAN: 0
+      CS2_LOG: "on"
+      CS2_LOG_HTTP_URL: http://bridge:8080/log/${OVERSTRIKE2_BRIDGE_SECRET} # every log line to the bridge: <bridge.url>/log/<bridge.secret>
+      CS2_LOG_FILE: 0
+      CS2_LOG_ECHO: 1 # log events in the console too: the restart watcher reads match ends there
+      CS2_ADDITIONAL_ARGS: -condebug # the console in console.log, for the restart watcher
+      TV_ENABLE: 0
+      TV_DELAY: "" # empty on purpose: with a value the image appends a line to every gamemode cfg, and one of Valve's has no final newline
+
+  bridge:
+    build: ../bridge
+    image: localhost/overstrike2-bridge # "localhost/": never fetched from a public registry
+    pull_policy: build
+    restart: always
+    depends_on:
+      installer:
+        condition: service_completed_successfully
+    stop_grace_period: 10s
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000" # the owner of the data volume (the installer's), the same user as the game image's
+    volumes:
+      - data:/data # state.json, votes.json, queues.json, and the map lists the sync writes
+    configs:
+      - source: overstrike2
+        target: /etc/overstrike2/overstrike2.jsonc
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      RCON_HOST: cs2
+      RCON_PORT: 27015
+      RCON_PASSWORD: ${CS2_RCONPW}
+      LOG_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET}
+      OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET}
+      MAPS_FILE: /data/maps.json # the lists on the data volume: the sync replaces them, the bridge reads them again within seconds
+      BROKEN_FILE: /data/broken.json
+      START_MAP: ar_shoots # the same as CS2_STARTMAP
+      HUD_TAB: down # the board takes the mouse while TAB is held; off
+      HUD_CHECK: warn # off, warn, or enforce: disconnect a player whose game has not loaded the HUD
+      DISCOVERY_STOCK: 10 # per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
+      ADMIN_STEAMIDS: "" # SteamID64s of the players who may use the admin commands, comma-separated
+
+  sync: # the Workshop sync: finds, downloads, scans and load-tests new maps and lists the ones that pass; leave it out to run without
+    image: docker.io/joedwards32/cs2 # the game server's image: its SteamCMD and the libraries a test engine needs
+    entrypoint:
+      - /home/steam/overstrike2/os2-sync
+      - serve
+    init: true # SteamCMD and the test engine are child processes
+    restart: always
+    depends_on:
+      installer:
+        condition: service_completed_successfully
+    stop_grace_period: 1m
+    volumes:
+      - game:/home/steam/cs2-dedicated:ro # the game server's install: the test engine runs from links into it
+      - type: volume
+        source: game
+        target: /home/steam/workshop-sync # staging, the test tree and the hand-overs: in the game's volume, so a take-in is one rename (paths.syncWork)
+        volume:
+          subpath: workshop-sync
+      - sync-state:/home/steam/sync-state # the Web API ledger, the state and the reports (paths.syncState)
+      - data:/data # the bridge's data, read-write: the sync publishes the map lists there
+      - program:/home/steam/overstrike2:ro # os2-sync
+      - ./secrets:/run/secrets:ro # steam-webapi-key.txt, your Steam Web API key (sync.webApiKey); without it, no discovery
+      - ../server/gamemode_armsrace_server.cfg:/home/steam/sync-cfg/gamemode_armsrace_server.cfg:ro # the test engine loads maps as the game server does (paths.syncCfg)
+    configs:
+      - source: overstrike2
+        target: /etc/overstrike2/overstrike2.jsonc
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET} # bridge.secret reads it
+
+  installer: # builds the plugin and the programs, puts them into the volumes, exits; the others wait for it
+    build:
+      context: ..
+      dockerfile: deploy/installer/Dockerfile
+    image: localhost/overstrike2-installer
+    pull_policy: build
+    restart: "no"
+    volumes:
+      - program:/overstrike2
+      - plugins:/plugins
+      - game:/game
+      - data:/data
+      - depotcache:/depotcache
+      - sync-state:/sync-state
+
+volumes:
+  game:
+  depotcache:
+  program:
+  plugins:
+  data:
+  sync-state:

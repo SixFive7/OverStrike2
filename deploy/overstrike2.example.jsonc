@@ -39,6 +39,9 @@
   "restarts": {
     "daily": "07:00",                      // local time (the containers' TZ), only while nobody is on; "off" for none
   },
+  "paths": {
+    "syncCfg": "/home/steam/sync-cfg",     // the mode cfgs the sync's test engine loads maps with (deploy/compose.yml mounts them there)
+  },
   "sync": {
     "webApiKey": "file:/run/secrets/steam-webapi-key.txt",   // your Steam Web API key; without one, discovery and the ratings are skipped
     "excludeCreators": [],                 // SteamID64s of authors whose maps you list by hand (your own)

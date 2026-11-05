@@ -1,0 +1,13 @@
+# The build context of the installer image (deploy/compose.yml) is the whole repository; its Dockerfile copies only these sources.
+*
+!core
+!server
+!bridge
+!plugin
+!deploy/installer
+server/*.py
+server/*.cfg
+**/bin
+**/obj
+**/SelfTest
+**/*.SelfTest
