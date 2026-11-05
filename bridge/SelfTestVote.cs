@@ -278,6 +278,32 @@ static partial class Program
             Run(60);
             Check("...until its own time is up too", BuildHud(clock).News == "");
 
+            // ---- the transport (HudTransport.cs): countdowns as end times, so a state that only counts down does not change ----
+            Fresh();
+            foreach (var p in new[] { alice, bob }) Join(p);
+            Announce("a line", 60); Tell(alice.Item2, "a note", 30);
+            MatchEnd();
+            Click(alice, Ballot!.Options.First(o => o.Source == VoteSource.Rolled).N); // a vote open, Bob still to vote: its clock runs
+            string EndTimesText() => BuildHud(clock).Encode(endTimes: true) + BuildVoteState(clock).Encode(endTimes: true);
+            string SecondsText() => BuildHud(clock).Encode() + BuildVoteState(clock).Encode();
+            var (t1, l1) = (EndTimesText(), SecondsText());
+            Run(1);
+            var (t2, l2) = (EndTimesText(), SecondsText());
+            Check("The change-driven text: a second of countdown changes nothing in it - its end times stand - while the seconds' text changes", t1 == t2 && l1 != l2);
+            var asOf = HudState.Decode(t2)!.AsOf(HudState.Ms(clock));
+            var bySeconds = HudState.Decode(l2)!;
+            Check("...counted down from its end times it says what the seconds' text says: the news, the note, the vote's clock",
+                asOf.News == bySeconds.News && asOf.NewsFor == bySeconds.NewsFor && asOf.Notes[2001] == bySeconds.Notes[2001]
+                && VoteState.Decode(t2).AsOf(HudState.Ms(clock)).SecondsLeft == VoteState.Decode(l2).SecondsLeft && VoteState.Decode(t2).Round == Ballot!.Round);
+            Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(61))).News == ""
+                && !HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(clock.AddSeconds(90))).SecondsLeft == 0);
+            PublishHud(); var published = HudVersion; PublishHud();
+            Check("A state published again unchanged keeps its version", HudVersion == published);
+            Announce("another line", 10); PublishHud();
+            Check("...a change takes the next one; every answer starts with it and the bridge's clock, and a poll without a change gets a few bytes",
+                HudVersion == published + 1 && StateAnswer().Split('\n')[1].StartsWith($"{Hud.VersionLine}\t{HudVersion}\t") && UnchangedAnswer().EndsWith($"{Hud.Unchanged}\n") && UnchangedAnswer().Length < 80
+                && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.News == "another line");
+
             // ---- during the vote: picks go on it, a click changes or takes back a vote ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara, dan }) Join(p); // four on: the vote stays open while three of them vote

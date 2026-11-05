@@ -49,11 +49,12 @@ static partial class Program
     /// <summary>The notices still on, into the live state: the news and each note with their seconds left; expired notes go.</summary>
     static void PutNotices(HudState h, DateTime now)
     {
-        if (NewsShown(now) is { Text: not "" } news) (h.News, h.NewsFor) = (news.Text, (int)Math.Ceiling((news.Until - now).TotalSeconds));
+        if (NewsShown(now) is { Text: not "" } news) (h.News, h.NewsFor, h.NewsUntilMs) = (news.Text, (int)Math.Ceiling((news.Until - now).TotalSeconds), HudState.Ms(news.Until));
         foreach (var (account, (text, until)) in NoteFor.ToList())
         {
             if (now >= until) { NoteFor.Remove(account); continue; }
             h.Notes[account] = (text, (int)Math.Ceiling((until - now).TotalSeconds));
+            h.NoteUntilMs[account] = HudState.Ms(until);
         }
     }
 

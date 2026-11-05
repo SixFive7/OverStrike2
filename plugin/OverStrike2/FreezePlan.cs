@@ -13,7 +13,7 @@ namespace OverStrike2;
 ///     MapVote.HardCapSeconds, and its countdown a few seconds more, so only a bridge stuck on one answer gets there.</summary>
 public sealed class FreezePlan
 {
-    public const double StaleSeconds = 10, MaxSeconds = 300;
+    public const double StaleSeconds = 40, MaxSeconds = 300; // Hud.LongPollSeconds (25) and 15 more: an idle long poll answers every Hud.LongPollSeconds
 
     /// <summary>Why everybody is frozen or free now: Vote frozen; Over no vote freezes anybody; Stale the bridge has not answered for
     /// StaleSeconds; OldMap the bridge has not answered since this map started; TooLong this round has been frozen for MaxSeconds.</summary>

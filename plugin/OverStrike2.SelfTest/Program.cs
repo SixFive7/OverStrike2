@@ -84,6 +84,11 @@ void Eq<T>(T actual, T expected, string what) =>
     Check(!plan.Hides(1, 101, 500, 500, 0, false, true), "spawn cloak: the first look a tick later takes the spawn point; the window shut: seen");
     Check(plan.Hides(1, 102, 500, 500, 0, true, true), "spawn cloak: the window open on the spawn: hidden");
     Check(!plan.Hides(1, 103, 500, 500, 0, false, true) && plan.Ready(1), "spawn cloak: the window shut: seen, and the cloak not spent");
+    var late = new SpawnCloakPlan();
+    late.Spawned(9, 1000); late.Hides(9, 1001, 0, 0, 0, true, true);
+    var limit = (long)(SpawnCloakPlan.LimitSeconds * SpawnCloakPlan.TicksPerSecond);
+    Check(late.Hides(9, 1000 + limit, 0, 0, 0, true, true) && !late.Hides(9, 1001 + limit, 0, 0, 0, true, true) && !late.Ready(9)
+        && !late.Hides(9, 1002 + limit, 0, 0, 0, true, true), $"spawn cloak: {SpawnCloakPlan.LimitSeconds:0} s after the spawn it is spent for the life, window open or not");
     Check(plan.Hides(1, 104, 500, 500, 0, true, true), "spawn cloak: ...the window open again on the spawn: hidden again");
     Check(plan.Hides(1, 105, 545, 545, 0, true, true), "spawn cloak: a step aside (63 units diagonally) is still the spawn");
     Check(plan.Hides(1, 106, 500, 500 + R, 0, true, true), $"spawn cloak: exactly {R:0} units away is still the spawn");

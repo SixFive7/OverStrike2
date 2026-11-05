@@ -129,6 +129,7 @@ static partial class Program
             h.ChangeMap = Clip(Label(c.Map), 40);
             h.ChangeBy = c.By;
             h.ChangeIn = Math.Max(0, (int)Math.Ceiling((c.FiresAt - now).TotalSeconds));
+            h.ChangeAtMs = HudState.Ms(c.FiresAt);
         }
         return h;
     }

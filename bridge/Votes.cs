@@ -135,7 +135,7 @@ static partial class Program
         foreach (var (id, asked) in WhyOpen.ToList())
         {
             if (now >= asked.Until.AddSeconds(DownReasons.PopupGraceSeconds)) { WhyOpen.Remove(id); continue; }
-            if (now < asked.Until && AccountId(id) is > 0 and var account) h.Why[account] = (Clip(Label(asked.Map), 40), (int)Math.Ceiling((asked.Until - now).TotalSeconds));
+            if (now < asked.Until && AccountId(id) is > 0 and var account) { h.Why[account] = (Clip(Label(asked.Map), 40), (int)Math.Ceiling((asked.Until - now).TotalSeconds)); h.WhyUntilMs[account] = HudState.Ms(asked.Until); }
         }
     }
 

@@ -443,7 +443,7 @@ static partial class Program
         var v = new VoteState { Mode = mode.Id, ModeName = mode.Name };
         var humans = Math.Max(PresentIds(now).Count, 1);
         foreach (var m in Modes.All) v.Modes.Add(new VoteState.ModeInfo(m.Id, m.Name, m.MaxPlayers, m.Suits(humans)));
-        if (Ballot is not { Open: true } && now < VoteWaitUntil) v.WaitFor = (int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds);
+        if (Ballot is not { Open: true } && now < VoteWaitUntil) (v.WaitFor, v.WaitUntilMs) = ((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds), HudState.Ms(VoteWaitUntil));
         if (Ballot is not { } b) return v;
         var count = VotePresent(b, now);
         v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded;
@@ -451,8 +451,12 @@ static partial class Program
         v.Freeze = b.Open || (Pending is { } p && p == b.Change);
         v.SecondsLeft = b.Open ? Math.Max(0, (int)Math.Ceiling((VoteEnds(b) - now).TotalSeconds))
             : Pending is { } q && q == b.Change ? Math.Max(0, (int)Math.Ceiling((q.FiresAt - now).TotalSeconds)) : 0;
+        v.EndsAtMs = b.Open ? HudState.Ms(VoteEnds(b)) : Pending is { } q2 && q2 == b.Change ? HudState.Ms(q2.FiresAt) : 0; // the plugin counts down from these (HudTransport.cs)
         if (b.Open && MapVote.InactivitySeconds > 0 && b.EverybodySince != null)
+        {
             (v.Inactivity, v.ResetBy) = (Math.Min(Math.Max(1, (int)Math.Ceiling((SettleEnd(b) - now).TotalSeconds)), Math.Max(1, v.SecondsLeft)), b.LastBy);
+            v.InactivityAtMs = HudState.Ms(SettleEnd(b));
+        }
         (v.Present, v.Cast) = (count, b.Choices.Count);
         // who voted what, by name (the cards' chips, the hover), and who has not voted yet (the waiting line): the log stream's players, the fakes of a test too
         string NameOf(string id) => Players.TryGetValue(id, out var pl) && pl.Name != "" ? Clip(pl.Name, 24) : id;

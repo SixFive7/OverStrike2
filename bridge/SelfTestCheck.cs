@@ -16,8 +16,9 @@ static partial class Program
             HudCheck.WireName(HudCheck.Mode.Warn) == "dryrun" && HudCheck.WireName(HudCheck.Mode.Enforce) == "enforce" && HudCheck.WireName(HudCheck.Mode.Off) == "off"
             && Enum.GetValues<HudCheck.Mode>().All(m => HudCheck.Parse(HudCheck.WireName(m)) == m && HudCheck.Parse(HudCheck.Name(m)) == m));
         var live = new HudState { CheckMode = "enforce" };
-        Check("HUD check: no state, or one older than 10 s, means off - a silent bridge never gets anybody disconnected; a fresh one says the mode, no proof needed",
-            HudCheck.ModeOf(null, 0) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 11) == HudCheck.Mode.Off && HudCheck.ModeOf(live, 1) == HudCheck.Mode.Enforce
+        Check($"HUD check: no state, or no answer for {HudCheck.StaleSeconds:0} s (an idle long poll answers every {Hud.LongPollSeconds} s), means off - a silent bridge never gets anybody disconnected; a fresh one says the mode, no proof needed",
+            HudCheck.ModeOf(null, 0) == HudCheck.Mode.Off && HudCheck.ModeOf(live, HudCheck.StaleSeconds + 1) == HudCheck.Mode.Off && HudCheck.ModeOf(live, Hud.LongPollSeconds + 1) == HudCheck.Mode.Enforce
+            && HudCheck.ModeOf(live, 1) == HudCheck.Mode.Enforce
             && HudCheck.ModeOf(new HudState { CheckMode = "dryrun" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
 
         // ---- the version button: its id names the content that has it ----

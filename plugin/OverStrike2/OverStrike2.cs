@@ -21,7 +21,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); with the HUD drawn a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "4.7.1";
+    public const string Version = "5.0.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";

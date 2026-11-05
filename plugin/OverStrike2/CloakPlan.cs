@@ -22,7 +22,8 @@ public enum CloakWhy
 ///   - this life is still on its spawn: never more than Radius from the point it spawned at, sideways, nor Height up or down. The point is
 ///     taken one tick after the spawn, once the game has placed the pawn;
 ///   - this life has not attacked: no shot, swing or throw, and no damage dealt to anybody;
-///   - no vote freeze is on, and none has started or ended during this life.
+///   - no vote freeze is on, and none has started or ended during this life;
+///   - the life is younger than LimitSeconds: the cloak covers a menu session at the spawn, never camping there (one constant).
 /// Leaving the spawn, attacking and a freeze's start or end spend the life's cloak: it does not come back until the next spawn, not even back on
 /// the spot, so nobody walks somewhere and turns it on again, and nobody hides again after a fight. Closing the window only ends it until the
 /// window opens again.
@@ -34,8 +35,11 @@ public sealed class SpawnCloakPlan
 {
     public const double Radius = 64, Height = 72;
 
+    /// <summary>How long after its spawn a life may be cloaked at all, and the game's ticks a second (CS2 runs at 64).</summary>
+    public const double LimitSeconds = 60, TicksPerSecond = 64;
+
     public const string Left = "left their spawn", Attacked = "attacked", Hurt = "dealt damage", FreezeStarted = "a vote freeze started",
-        FreezeEnded = "a vote freeze ended";
+        FreezeEnded = "a vote freeze ended", TimedOut = "60 s after the spawn";
 
     sealed class Life
     {
@@ -86,6 +90,7 @@ public sealed class SpawnCloakPlan
             (life.Placed, life.X, life.Y, life.Z) = (true, x, y, z);
         }
         if (Off(life.X, life.Y, life.Z, x, y, z)) { life.Spent = Left; return false; }
+        if (tick - life.SpawnTick > LimitSeconds * TicksPerSecond) { life.Spent = TimedOut; return false; }
         return windowOpen && allowed;
     }
 

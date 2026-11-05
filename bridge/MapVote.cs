@@ -86,6 +86,7 @@ public sealed class VoteState
     public bool MatchEnded;                           // the match is over: Keep reads "Play this map again", and nobody voting is Random
     public bool Freeze;                               // everybody frozen: the vote is open, or its result counts down to a map change
     public int Inactivity;                            // everybody has voted: the inactivity timer's seconds left, never more than SecondsLeft (MapVote.InactivitySeconds; 0: not counting)
+    public long EndsAtMs, InactivityAtMs, WaitUntilMs; // the end times behind SecondsLeft, Inactivity and WaitFor, unix milliseconds (0: none): the change-driven text carries these (AsOf)
     public string ResetBy = "";                       // ...and who reset it last (with Inactivity only)
     public long Starter;                              // the account that called it (0 at a match end)
     public List<Option> Options = new();              // in screen order - the most votes first - Random last
@@ -98,15 +99,30 @@ public sealed class VoteState
     static VoteSource? Source(string s) => s switch { "picked" => VoteSource.Picked, "rolled" => VoteSource.Rolled, "random" => VoteSource.Random, "keep" => VoteSource.Keep, _ => null };
 
     /// <summary>The lines, to append to HudState's text (no header of their own).</summary>
-    public string Encode()
+    /// <summary>The vote as it stands at this moment (unix milliseconds on the bridge's clock): its clocks worked out from their end times. A text
+    /// without end times (an older bridge) is as it came.</summary>
+    public VoteState AsOf(long nowMs)
+    {
+        var v = (VoteState)MemberwiseClone();
+        int Secs(long until) => (int)Math.Ceiling((until - nowMs) / 1000.0);
+        if (EndsAtMs > 0) v.SecondsLeft = Math.Max(0, Secs(EndsAtMs));
+        if (InactivityAtMs > 0) v.Inactivity = Math.Min(Math.Max(1, Secs(InactivityAtMs)), Math.Max(1, v.SecondsLeft));
+        if (WaitUntilMs > 0) v.WaitFor = Math.Max(0, Secs(WaitUntilMs));
+        return v;
+    }
+
+    /// <summary>endTimes: the change-driven text - end times in place of the seconds that count down (HudTransport.cs).</summary>
+    public string Encode(bool endTimes = false)
     {
         var s = new StringBuilder();
         void Line(params object[] fields) => s.Append(string.Join('\t', fields.Select(f => f is string t ? Hud.Clean(t) : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
         if (Mode != "") Line("mode", Mode, ModeName);
         foreach (var m in Modes) Line("mi", m.Id, m.Name, m.MaxPlayers, m.Offered ? 1 : 0);
-        if (WaitFor > 0) Line("mvwait", WaitFor);
+        if (WaitFor > 0 && endTimes) Line("mvwaitat", WaitUntilMs);
+        else if (WaitFor > 0) Line("mvwait", WaitFor);
         if (Round <= 0) return s.ToString();
-        Line("mv", Round, Open ? "open" : "done", SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", Starter, Freeze ? 1 : 0, Inactivity, Hud.Clean(ResetBy, 24));
+        Line("mv", Round, Open ? "open" : "done", endTimes ? 0 : SecondsLeft, Present, Cast, MatchEnded ? "end" : "mid", Starter, Freeze ? 1 : 0, endTimes ? (Inactivity > 0 ? 1 : 0) : Inactivity, Hud.Clean(ResetBy, 24));
+        if (endTimes) Line("mvt", EndsAtMs, Inactivity > 0 ? InactivityAtMs : 0);
         foreach (var o in Options) Line("mvo", o.N, o.Mode, Source(o.Source), o.Arg, o.Key, Hud.Clean(o.Label, 40), o.Size, o.Votes, o.Who, MapTags.Clean(o.Tags));
         foreach (var (account, n) in Choices) Line("mvv", account, n);
         foreach (var (n, names) in Voters) if (names.Count > 0) Line(["mvn", n, .. names.Select(x => (object)Hud.Clean(x, 24))]);
@@ -130,6 +146,8 @@ public sealed class VoteState
                 case "mode": (v.Mode, v.ModeName) = (Str(f, 1), Str(f, 2)); break;
                 case "mi" when Str(f, 1) != "": v.Modes.Add(new ModeInfo(Str(f, 1), Str(f, 2), Int(f, 3), Int(f, 4) == 1)); break;
                 case "mvwait": v.WaitFor = Math.Max(0, Int(f, 1)); break;
+                case "mvwaitat" when Long(f, 1) > 0: (v.WaitFor, v.WaitUntilMs) = (1, Long(f, 1)); break;
+                case "mvt": (v.EndsAtMs, v.InactivityAtMs) = (Math.Max(0, Long(f, 1)), Math.Max(0, Long(f, 2))); break;
                 case "mv" when Long(f, 1) > 0:
                     (v.Round, v.Open, v.SecondsLeft, v.Present, v.Cast, v.MatchEnded, v.Starter, v.Freeze, v.Inactivity, v.ResetBy) =
                         (Long(f, 1), Str(f, 2) == "open", Int(f, 3), Int(f, 4), Int(f, 5), Str(f, 6) == "end", Math.Max(0, Long(f, 7)), Int(f, 8) == 1, Math.Max(0, Int(f, 9)), Str(f, 10));

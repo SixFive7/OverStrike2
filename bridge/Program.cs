@@ -21,7 +21,7 @@ static partial class Program
     static readonly bool RandomOnStart = Env("RANDOM_ON_START", "1") is "1" or "true" or "yes", // roll a map when a new server process has loaded its start map
         GuideOnJoin = Env("GUIDE_ON_JOIN", "1") is "1" or "true" or "yes";                         // ask the plugin to show the guide on every real join
     static HudTab.Mode HudTabMode = HudTab.Parse(Env("HUD_TAB", HudTab.Name(HudTab.Default))); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
-    static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "off")); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce
+    static HudCheck.Mode HudCheckMode = HudCheck.Parse(Env("HUD_CHECK", "warn")); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce; warn by default, so every player's HUD version is learned at their first click
     static readonly HashSet<long> Admins = Env("ADMIN_STEAMIDS", "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(AccountId).ToHashSet();
     static readonly List<MapInfo> Officials = Env("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night") // installed on the server, loaded with changelevel
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
@@ -81,7 +81,10 @@ static partial class Program
         Log($"listening on port {HttpPort}, rcon {RconHost}:{RconPort}, {Maps.Count} maps + {Officials.Count} official, {Broken.Count} broken, {Packs.Count} non-maps, {Removed.Count} gone from the Workshop, {Blocked.Count} blocked, {Admins.Count} admins, {Votes.Count} maps with votes, state {statePath}");
         InMaintenance();
         foreach (var work in Loop.GetConsumingEnumerable())
+        {
             try { work(); } catch (Exception e) { Log("error: " + e); }
+            PublishHudSafe(); // HudTransport.cs: what changed goes to the plugin at once
+        }
         return 0;
     }
 
@@ -108,7 +111,12 @@ static partial class Program
     static void Handle(HttpListenerContext c)
     {
         var path = c.Request.Url?.AbsolutePath;
-        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) { HudPolled(Draws(c.Request.Url?.Query)); Reply(c, HudText); return; } // the HUD plugin, once a second
+        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) // the HUD plugin: a long poll with its version (HudTransport.cs), or an older plugin's poll once a second
+        {
+            HudPolled(Draws(c.Request.Url?.Query));
+            if (HudVersionAsked(c.Request.Url?.Query) is { } have) HudLongPoll(c, have); else Reply(c, HudText);
+            return;
+        }
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
@@ -263,9 +271,10 @@ static partial class Program
     static void HudClick(HttpListenerContext c)
     {
         var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
+        var versioned = HudVersionAsked(c.Request.Url?.Query) != null; // a plugin that long-polls gets the state in the long poll's form (HudTransport.cs)
         var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { HudAct(body); } finally { RefreshHud(); done.TrySetResult(HudText); } });
-        Reply(c, done.Task.Wait(2000) ? done.Task.Result : HudText);
+        Post(() => { try { HudAct(body); } finally { RefreshHud(); PublishHudSafe(); done.TrySetResult(versioned ? StateAnswer() : HudText); } });
+        Reply(c, done.Task.Wait(2000) ? done.Task.Result : versioned ? StateAnswer() : HudText);
     }
 
     /// <summary>"[U:1:n]\tname\t!up": the player clicked (or typed a chat command, which the plugin turns into the same click). Only what

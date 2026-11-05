@@ -51,8 +51,8 @@ sealed class HudScreen
     CCSCustomHudLayout? entity;
     bool worldReady;
 
-    HudState? state;                                  // the bridge's newest state; null until the first answer
-    VoteState vote = new();                           // the end-of-match vote and the modes, off the same text (MapVote.cs)
+    HudState? stateRaw, state;                        // the bridge's newest state as it came (end times), and as of this frame (its countdowns worked out); null until the first answer
+    VoteState voteRaw = new(), vote = new();          // the vote and the modes, off the same text (MapVote.cs): as it came, and as of this frame
     readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round; negative while mid-match)
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
@@ -960,11 +960,17 @@ sealed class HudScreen
         if (bridge?.Take(now, humans.Count > 0 || AlwaysPoll, Drawn) is { } text && text != lastStateText && HudState.Decode(text) is { } fresh)
         {
             lastStateText = text;
-            state = fresh;
-            vote = VoteState.Decode(text);
+            stateRaw = fresh;
+            voteRaw = VoteState.Decode(text);
             stateAt = now;
-            changeAt = fresh.ChangeIn >= 0 ? now.AddSeconds(fresh.ChangeIn) : DateTime.MaxValue;
+            changeAt = fresh.ChangeAtMs > 0 ? DateTime.UnixEpoch.AddMilliseconds(fresh.ChangeAtMs - (bridge?.ClockOffsetMs ?? 0))
+                : fresh.ChangeIn >= 0 ? now.AddSeconds(fresh.ChangeIn) : DateTime.MaxValue;
         }
+        // The countdowns, worked out here every frame from the state's end times (BridgeLink, the bridge's HudTransport.cs): the bridge sends a
+        // new state only when something changes.
+        var bridgeNow = bridge?.BridgeNowMs(now) ?? HudState.Ms(now);
+        state = stateRaw?.AsOf(bridgeNow);
+        vote = voteRaw.AsOf(bridgeNow);
         if (bridge?.TakeCatalog(now, state?.CatalogVersion ?? 0) is { } listText && HudCatalog.Decode(listText) is { } list) catalog = list;
         if (bridge?.TakeDash(now, state?.DashVersion ?? 0) is { } dashText && HudDash.Decode(dashText) is { } block) dash = block;
         if (bridge?.TakeSearch(now, state?.SearchVersion ?? 0) is { } searchText && HudSearch.Decode(searchText) is { } index)

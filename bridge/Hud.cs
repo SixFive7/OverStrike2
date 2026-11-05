@@ -44,6 +44,11 @@ public static class Hud
     /// index, and POSTs a player's click.</summary>
     public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";
 
+    /// <summary>The live state's long poll (the bridge's HudTransport.cs, the plugin's BridgeLink.cs): how long the bridge holds a poll that has the
+    /// newest version before it answers that nothing changed; the version line every answer starts with; the word of an answer without a change.</summary>
+    public const int LongPollSeconds = 25;
+    public const string VersionLine = "ver", Unchanged = "unchanged";
+
     /// <summary>The query the plugin adds to its GET of the live state: whether it draws the HUD (draw=1) or runs undrawn (draw=0, no addon). Only
     /// a drawing plugin makes the bridge open votes (the bridge's HudActive); a poll without it is an older plugin's, which counts as drawing.</summary>
     public const string DrawQuery = "draw";
@@ -233,7 +238,33 @@ public sealed class HudState
     public int BgPercent = -1;                          // ...its progress, 0-100, -1 before any
     public string BgTitle = "";                         // ...and its title
 
-    public string Encode()
+    /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
+    /// carries these instead of the seconds, which would change it every second; the plugin counts down from them itself (AsOf).</summary>
+    public long ChangeAtMs, NewsUntilMs;
+    public Dictionary<long, long> NoteUntilMs = new(), WhyUntilMs = new();
+
+    /// <summary>Unix milliseconds of a moment, as the end times carry it.</summary>
+    public static long Ms(DateTime t) => new DateTimeOffset(DateTime.SpecifyKind(t, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
+
+    /// <summary>The state as it stands at this moment (unix milliseconds on the bridge's clock): every countdown worked out from its end time, what has
+    /// run out gone. A text without end times (an older bridge) is as it came.</summary>
+    public HudState AsOf(long nowMs)
+    {
+        var h = (HudState)MemberwiseClone();
+        int Secs(long until) => (int)Math.Ceiling((until - nowMs) / 1000.0);
+        if (ChangeAtMs > 0) h.ChangeIn = Math.Max(0, Secs(ChangeAtMs));
+        if (NewsUntilMs > 0 && Secs(NewsUntilMs) is var news) (h.News, h.NewsFor) = news > 0 ? (News, news) : ("", 0);
+        h.Notes = new(Notes);
+        foreach (var (account, until) in NoteUntilMs)
+            if (Secs(until) is > 0 and var left && Notes.TryGetValue(account, out var note)) h.Notes[account] = (note.Text, left); else h.Notes.Remove(account);
+        h.Why = new(Why);
+        foreach (var (account, until) in WhyUntilMs)
+            if (Secs(until) is > 0 and var left && Why.TryGetValue(account, out var why)) h.Why[account] = (why.Map, left); else h.Why.Remove(account);
+        if (RestartAt > 0) h.RestartIn = Math.Max(0, Secs(RestartAt * 1000));
+        return h;
+    }
+
+    public string Encode(bool endTimes = false)
     {
         var s = new StringBuilder(Magic).Append('\n');
         void Line(params object[] fields) => s.Append(string.Join('\t', fields.Select(f => f is string t ? Hud.Clean(t) : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
@@ -242,18 +273,21 @@ public sealed class HudState
         if (Loading) Line("loading");
         foreach (var (id, v) in MyVotes) Line("vote", id, v);
         foreach (var (map, up, down) in Top.Take(ListLength)) Line("top", map, up, down);
-        if (ChangeIn >= 0) Line("change", ChangeMap, ChangeBy, ChangeIn);
+        if (ChangeIn >= 0 && endTimes) Line("changeat", ChangeMap, ChangeBy, ChangeAtMs);
+        else if (ChangeIn >= 0) Line("change", ChangeMap, ChangeBy, ChangeIn);
         if (RoundMinutes > 0) Line("set", RoundMinutes, RoundBy); // an older plugin reads the first field
         if (CatalogVersion > 0) Line("cat", CatalogVersion);
         if (CheckMode != "") Line("chk", CheckMode);
         foreach (var (account, version) in Verified) Line("ok", account, version);
         if (TabMode != "") Line("tab", TabMode);
-        if (News != "" && NewsFor > 0) s.Append("news\t").Append(NewsFor.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(News, 240)).Append('\n');
+        if (News != "" && NewsFor > 0)
+            s.Append(endTimes ? "newsat\t" : "news\t").Append((endTimes ? NewsUntilMs : NewsFor).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(News, 240)).Append('\n');
         foreach (var (account, (text, secs)) in Notes)
             if (text != "" && secs > 0)
-                s.Append("note\t").Append(account.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(secs.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(text, 140)).Append('\n');
+                s.Append(endTimes ? "noteat\t" : "note\t").Append(account.ToString(CultureInfo.InvariantCulture)).Append('\t')
+                    .Append((endTimes ? NoteUntilMs.GetValueOrDefault(account) : secs).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(text, 140)).Append('\n');
         foreach (var (account, (map, secs)) in Why)
-            if (secs > 0) Line("why", account, secs, map);    // an older plugin skips it
+            if (secs > 0) Line(endTimes ? "whyat" : "why", account, endTimes ? WhyUntilMs.GetValueOrDefault(account) : secs, map); // an older plugin skips it
         if (PrevArg != "") Line("prev", PrevArg, PrevLabel);
         if (SearchVersion > 0) Line("srch", SearchVersion);
         if (NewMaps != "") Line("newmaps", NewMaps);         // an older plugin skips the lines it does not know
@@ -261,7 +295,7 @@ public sealed class HudState
         if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
-            .Append(RestartIn.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(RestartWords, 240)).Append('\n');
+            .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(RestartWords, 240)).Append('\n');
         if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two
         return s.ToString();
     }
@@ -286,6 +320,10 @@ public sealed class HudState
                 case "vote": if (Long(f, 1) is >= 0 and var id) s.MyVotes[id] = HudCatalog.Carried(Int(f, 2)); break;
                 case "top": if (s.Top.Count < ListLength) s.Top.Add((Str(f, 1), Int(f, 2), Int(f, 3))); break;
                 case "change": (s.ChangeMap, s.ChangeBy, s.ChangeIn) = (Str(f, 1), Str(f, 2), Int(f, 3)); break;
+                case "changeat" when Long(f, 3) > 0: (s.ChangeMap, s.ChangeBy, s.ChangeIn, s.ChangeAtMs) = (Str(f, 1), Str(f, 2), 0, Long(f, 3)); break;
+                case "newsat" when Long(f, 1) > 0: (s.NewsFor, s.News, s.NewsUntilMs) = (1, Str(f, 2), Long(f, 1)); break;
+                case "noteat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Notes[Long(f, 1)] = (Str(f, 3), 1); s.NoteUntilMs[Long(f, 1)] = Long(f, 2); break;
+                case "whyat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), 1); s.WhyUntilMs[Long(f, 1)] = Long(f, 2); break;
                 case "set": (s.RoundMinutes, s.RoundBy) = (Int(f, 1), Str(f, 2)); break;
                 case "cat": s.CatalogVersion = Long(f, 1); break;
                 case "chk": s.CheckMode = Str(f, 1); break;

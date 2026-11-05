@@ -21,7 +21,7 @@ public static class HudCheck
 
     public const double GraceSeconds = 90;  // from a player's first spawn on a map: the map has loaded and the team is picked by then
     public const double WarnSeconds = 15;   // the chat warning, this long before the disconnect
-    public const double StaleSeconds = 10;  // a bridge state older than this switches the check off - no state, no kicks
+    public const double StaleSeconds = Hud.LongPollSeconds + 15; // no answer from the bridge for this long switches the check off - no state, no kicks (an idle long poll answers every LongPollSeconds)
     public const int ReasonMax = 127;       // a disconnect reason travels as SteamNetworkingSockets' close reason: 128 bytes with its NUL
     public const int LineMax = 127;         // what a private chat line may take here
 

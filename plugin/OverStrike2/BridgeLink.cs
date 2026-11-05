@@ -2,8 +2,11 @@ using System.Text;
 
 namespace OverStrike2;
 
-/// <summary>The HUD's line to the bridge, over the stack network the log push already uses: GET /hud/&lt;secret&gt;?draw=1 (or draw=0, Hud.DrawQuery) for the
-/// live state (once a second while anyone is on the server), GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt; for a click. The address
+/// <summary>The HUD's line to the bridge, over the stack network the log push already uses - the plugin's one place for it (the bridge's is
+/// HudTransport.cs). The live state is a long poll, GET /hud/&lt;secret&gt;?v=&lt;version&gt;&amp;draw=1 (or draw=0, Hud.DrawQuery): the bridge answers when its
+/// state changes, or after Hud.LongPollSeconds that nothing did; every answer starts with its version and the bridge's clock, and its countdowns
+/// are end times the HUD counts down itself (HudState.AsOf). A bridge that answers without a version (an older one) is polled once a second as
+/// before. GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt;?v=1 for a click, answered with the state after it. The address
 /// and the secret come from the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;), so there is nothing new
 /// to configure.
 ///
@@ -11,9 +14,18 @@ namespace OverStrike2;
 /// touches the engine off its thread.</summary>
 sealed class BridgeLink
 {
-    public const double PollSeconds = 1;
+    public const double PollSeconds = 1; // an older bridge's poll
 
-    readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(3) };
+    readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(10) };                                // clicks, the catalog, the index, the Sync block
+    readonly HttpClient poll = new() { Timeout = TimeSpan.FromSeconds(Hud.LongPollSeconds + 15) };          // the long poll: the bridge holds it up to LongPollSeconds
+    long version = -1;   // the version of the newest state taken; -1 none yet
+    bool legacy;         // the bridge answered without a version: an older one, polled once a second
+
+    /// <summary>The bridge's clock less ours, in milliseconds, from its newest answer: the HUD counts the state's end times against the bridge's clock.</summary>
+    public long ClockOffsetMs { get; private set; }
+
+    /// <summary>The time the bridge's clock says it is now, as the HUD counts its countdowns (unix milliseconds).</summary>
+    public long BridgeNowMs(DateTime now) => HudState.Ms(now) + ClockOffsetMs;
     readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl;
     readonly List<(Task<string?> Task, DateTime Sent)> acts = new();
     Task<string?>? fetch, catalogFetch, searchFetch, dashFetch;
@@ -50,19 +62,30 @@ sealed class BridgeLink
         string? newest = null;
         if (fetch is { IsCompleted: true } done)
         {
-            if (Result(done) is { } polled) { newest = polled; StateAsOf = Max(StateAsOf, fetchSent); }
+            if (Result(done) is { } polled)
+            {
+                if (Versioned(polled, out var text)) { if (text != null) newest = text; StateAsOf = Max(StateAsOf, DateTime.UtcNow); } // a long poll's answer: as of now
+                else { legacy = true; newest = polled; StateAsOf = Max(StateAsOf, fetchSent); }
+                nextFetch = legacy ? fetchSent.AddSeconds(PollSeconds) : now;
+            }
+            else nextFetch = now.AddSeconds(PollSeconds); // no answer: try again in a second
             fetch = null;
         }
         foreach (var act in acts.Where(a => a.Task.IsCompleted).ToList())
         {
-            if (Result(act.Task) is { } answered) { newest = answered; StateAsOf = Max(StateAsOf, act.Sent); }
+            if (Result(act.Task) is { } answered)
+            {
+                if (Versioned(answered, out var text)) { if (text != null) newest = text; }
+                else newest = answered;
+                StateAsOf = Max(StateAsOf, act.Sent);
+            }
             acts.Remove(act);
         }
         if (wanted && fetch == null && now >= nextFetch)
         {
-            nextFetch = now.AddSeconds(PollSeconds);
             fetchSent = DateTime.UtcNow;
-            fetch = GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}");
+            fetch = legacy ? GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}", http)
+                : GetText($"{stateUrl}?v={version}&{Hud.DrawQuery}={(draws ? 1 : 0)}", poll);
         }
         return newest;
     }
@@ -135,6 +158,24 @@ sealed class BridgeLink
 
     static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
+    /// <summary>An answer in the long poll's form: its version line read - the version kept, the clocks' difference noted - and the state it carries,
+    /// or null when it says nothing changed or is older than the one already taken. False: an older bridge's answer, without a version.</summary>
+    bool Versioned(string answer, out string? state)
+    {
+        state = null;
+        var lines = answer.Split('\n', 4);
+        if (lines.Length < 2 || !lines[0].StartsWith(HudState.Magic, StringComparison.Ordinal) || lines[1].Split('\t') is not [Hud.VersionLine, var v, var clock]) return false;
+        if (long.TryParse(clock, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var ms))
+            ClockOffsetMs = ms - HudState.Ms(DateTime.UtcNow);
+        if (!long.TryParse(v, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n)) return true;
+        if (lines.Length > 2 && lines[2].TrimEnd('\r') == Hud.Unchanged) { version = Math.Max(version, n); return true; }
+        if (n < version) return true; // a slower answer that an older state rode on
+        version = n;
+        state = answer;
+        legacy = false;
+        return true;
+    }
+
     string? Result(Task<string?> t)
     {
         if (t.IsCompletedSuccessfully && t.Result is { } text) { Failures = 0; LastAnswer = DateTime.UtcNow; return text; }
@@ -143,16 +184,18 @@ sealed class BridgeLink
         return null;
     }
 
-    async Task<string?> GetText(string url)
+    Task<string?> GetText(string url) => GetText(url, http);
+
+    async Task<string?> GetText(string url, HttpClient client)
     {
-        using var response = await http.GetAsync(url).ConfigureAwait(false);
+        using var response = await client.GetAsync(url).ConfigureAwait(false);
         return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync().ConfigureAwait(false) : throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
     }
 
     async Task<string?> Post(string body)
     {
         using var content = new StringContent(body, Encoding.UTF8, "text/plain");
-        using var response = await http.PostAsync(actUrl, content).ConfigureAwait(false);
+        using var response = await http.PostAsync(legacy ? actUrl : actUrl + "?v=1", content).ConfigureAwait(false);
         return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync().ConfigureAwait(false) : throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
     }
 }
