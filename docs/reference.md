@@ -326,8 +326,8 @@ dislike. The health page counts the marks per reason. The answer to a plain Disl
 ## Fun settings
 
 Anybody switches them, at any time, a vote open or not, for everybody, until the map changes; a map that sets its own value of a setting keeps it until a player changes
-it, and gets it back. After 10 minutes with nobody on they all go back to their defaults, like at every map end. A change says on screen for everybody and in chat who
-made it. A setting off its default stands out on the page, and names who set it.
+it, and gets it back. After 10 minutes with nobody on they all go back to their defaults, like at every map end. A change is one message for everybody, the same for every setting: the top line,
+chat and the TAB board's Lately list say who made it and that it lasts until the map changes. A setting off its default stands out on the page, and its row names who set it.
 
 | Word | Setting | Choices |
 |---|---|---|
@@ -355,14 +355,15 @@ switched. Ghost hides a player the way the [spawn cloak](#in-game-hud) does (`Cl
 like convars, so they are undone like one.
 
 **Random** (`!fun random`) sets every setting the page shows in the mode that is on to one of its own choices, each equally likely, and catch-up on three times in four - never a
-combination the page would not make. **Default** (`!fun default`) is what 10 minutes with nobody on does: everything back to its default. Either says in chat, in one line for
-everybody, who did it and what changed.
+combination the page would not make. **Default** (`!fun default`) is what 10 minutes with nobody on does: everything back to its default. Either is one message like a single change:
+who did it and what changed.
 
 **Every combination works together:** the fun settings touch no convar twice, so any mix of them is simply each one's own values, and `--selftest` walks every combination there
 is - 884,736 in Arms Race, 27,648 in Deathmatch and Wingman - checking that each reads back as made, that the page calls idle exactly what does nothing then, and that Random hands
 out each allowed one. One combination is refused: **Moon gravity with Super jump High**, a jump about 506 units high, nine times a normal one, out over the walls of most maps. The
-page, chat and `gg_fun` refuse the second of the two with the reason ("Super jump cannot be High while Gravity is Moon: together they throw players out of most maps"), and Random
-keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep working under headshots only.
+page greys the second of the two, and the mouse on it shows the reason beside it ("Super jump cannot be High while Gravity is Moon: together they throw players out of most maps"); a
+click on it does nothing. A click made just as the other setting changed, before the grey could be seen, is refused at that button for 8 seconds, saying who changed what ("Cara just
+set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. Chat and `gg_fun` refuse it with the reason too, and Random keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep working under headshots only.
 
 ## Catch-up
 

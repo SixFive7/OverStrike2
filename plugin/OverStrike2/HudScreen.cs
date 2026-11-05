@@ -54,7 +54,6 @@ sealed partial class HudScreen
     readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round; negative while mid-match)
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
-    readonly Random dice = new();                     // the Fun page's Random
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
     readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: an older content's version banner for a while, and the Players page's time on
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
@@ -87,8 +86,6 @@ sealed partial class HudScreen
     // a game does not have takes nothing in it - and keeps what it needs for its own pages (HudView.StaticClasses' c31 and c32, the svge/svlt
     // version classes and vjoin).
     int latestSent;                                      // the level of the latest-N class on gg_global (HudVote.LatestClass): turned off when it moves
-    readonly Dictionary<string, ConVar?> funVars = new(); // the fun page's convars (Fun.cs), found once
-    const float FunCheckSeconds = 0.5f;                  // a fun change is made a frame after the click (gg_fun); looked at after this long
     bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it (none without an addon)
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped
@@ -131,7 +128,7 @@ sealed partial class HudScreen
         var count = 0;
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
-                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
+                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(FunClicks), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
                      typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
@@ -314,6 +311,7 @@ sealed partial class HudScreen
         browsers.Remove(slot);
         cards.Remove(slot);
         localNotes.Remove(slot);
+        funClicks.Gone(slot);
         restartArmed.Remove(slot);
         rematchArmed.Remove(slot);
         cuCards.Remove(slot);
@@ -379,6 +377,7 @@ sealed partial class HudScreen
         browsers.Remove(slot);
         cards.Remove(slot);
         localNotes.Remove(slot);
+        funClicks.Gone(slot);
         restartArmed.Remove(slot);
         rematchArmed.Remove(slot);
         cuCards.Remove(slot);
@@ -480,34 +479,7 @@ sealed partial class HudScreen
             }
         }
         if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account, search).Count)) { Server.NextFrame(Frame); return; }
-        if (buttonId is HudMenu.FunRandom or HudMenu.FunDefault)
-        {
-            var which = buttonId == HudMenu.FunRandom ? Fun.RandomWord : Fun.DefaultWord;
-            SayForAll(player, $"!fun {which}"); // so menu users learn the chat way
-            FunAll(player, which);
-            Server.NextFrame(Frame);
-            return;
-        }
-        if (HudMenu.FunClick(buttonId) is { } fun)
-        {
-            // The settings module makes the change (gg_fun): it owns the server's settings - the baseline, the put-back at the map's end and the
-            // block a player's change is exempt from; the grenade drops and catch-up are fun settings like the rest, its effects. Once the value is
-            // there the centre of the screen says who switched what, and chat says it as the command, under the player's name.
-            var (setting, choice) = fun;
-            var slot = player.Slot;
-            var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-            if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) { LocalNote(slot, $"{setting.Title} is Arms Race's own - not in {mode.Name}"); Server.NextFrame(Frame); return; }
-            if (Fun.Showing(setting, FunValue) == choice) { LocalNote(slot, $"{setting.Title}: {choice.Label} already"); Server.NextFrame(Frame); return; }
-            if (Fun.Refusal(setting, choice, FunValue) is { } why) { LocalNote(slot, why); Server.NextFrame(Frame); return; } // a Clash
-            Server.NextFrame(() => Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""));
-            plugin.AddTimer(FunCheckSeconds, () =>
-            {
-                if (Fun.Showing(setting, FunValue) == choice) { Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart()); SayForAll(player, Fun.ChatWords(setting, choice)); }
-                else LocalNote(slot, $"{setting.Title} did not switch: the server's settings module did not take it");
-                Frame();
-            });
-            return;
-        }
+        if (FunClicked(player, buttonId, now)) return; // the Fun page (HudScreenFun.cs)
         if (buttonId == WorkshopCard.Play) { Download(player); Server.NextFrame(Frame); return; }
         ArmGameButtons(player, buttonId, now);
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
@@ -749,20 +721,7 @@ sealed partial class HudScreen
                 Play(player, account, cmd.Arg, Say, Bridge);
                 return;
             case ChatCommands.Kind.Fun:
-                var parts = cmd.Arg.Split(' ');
-                if (Fun.Find(parts[0]) is not { } setting || Fun.Find(setting, parts[1]) is not { } choice) return;
-                // what the Fun page leaves out outside Arms Race (HudMenu.FunPage), chat leaves alone too
-                if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) { Say($"{setting.Title} is Arms Race's own - not in {mode.Name}"); return; }
-                var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-                if (Fun.Showing(setting, FunValue) == choice) { Say($"{setting.Title}: {choice.Label} already"); return; }
-                if (Fun.Refusal(setting, choice, FunValue) is { } refused) { Say(refused); return; } // a Clash
-                Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\"");
-                plugin.AddTimer(FunCheckSeconds, () =>
-                {
-                    // the player's own line in chat says the command already: the centre of the screen says who switched what
-                    if (Fun.Showing(setting, FunValue) == choice) Centre?.Invoke(name, Fun.CentreLine("", setting, choice).TrimStart());
-                    else Say($"{setting.Title} did not switch");
-                });
+                FunTyped(player, cmd.Arg); // the same change as a click on the Fun page (HudScreenFun.cs)
                 return;
             case ChatCommands.Kind.Vote:
                 var k = int.Parse(cmd.Arg);
@@ -899,10 +858,7 @@ sealed partial class HudScreen
             log.LogInformation("Over Strike 2 HUD: TAB switched off - {Count} TAB cursor(s) released", tab.ReleaseAll().Count);
         foreach (var (id, text2) in HudView.StaticTexts()) Text(id, id == "gg_b_cmds" ? HudTab.BoardLine(tabMode) : text2);
         foreach (var (id, cls, on) in HudView.StaticClasses()) Class(id, cls, on);
-        var (funTexts, funClasses) = HudMenu.FunPage(FunValue, mode.ArmsRace, FunSetBy); // the server's settings and who set them, the same for everybody
-        foreach (var (id, text2) in funTexts) Text(id, text2);
-        foreach (var (id, cls, on) in funClasses) Class(id, cls, on);
-        foreach (var (name, words) in HudMenu.FixedRowWords(FunValue, FunSetBy)) Var(HudView.Global, name, words); // the grenade drops' and catch-up's rows
+        FunFrame(now); // the Fun page, the same for everybody
         var shown = state ?? new HudState();
         var ownNews = now < localNews.Until; // the news line of the older contents: the plugin's own line wins while it lasts
         foreach (var (id, text2) in HudView.Texts(shown, vote)) if (!(ownNews && id == "gg_news_text")) Text(id, text2);
@@ -943,7 +899,6 @@ sealed partial class HudScreen
         Var(HudView.Global, HudVote.VersionVar, TestLevel is { } faked ? HudVote.ContentOfLevel(faked) : Hud.Content); // css_gghud level fakes the version's name too
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words
-        foreach (var (id, cls, on) in HudVote.FixedRowClasses(FunValue, mode.ArmsRace)) Class(id, cls, on); // the Fun page's grenade drops and catch-up rows, lit
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
         foreach (var p in humans)
         {
@@ -979,6 +934,7 @@ sealed partial class HudScreen
             foreach (var page in Enum.GetValues<HudSlots.Page>()) Class(HudView.Screen, "page-" + page.ToString().ToLowerInvariant(), view.Window && view.Page == page, p);
             if (view.Window) Menu(p, view.Page, shown, account, now);
             if (view.Window) DashFrame(p); // the Sync page's words and classes, for every open window: ready before its tab is clicked
+            if (view.Window) FunBubbles(p, now); // the Fun page's bubbles, for every open window too
             // The window's cursor, or the board's while TAB is held. During a hold a player who joined has no HUD, so no window to close: nothing takes their mouse.
             var capture = (view.Capture || tab.Cursor(p.Slot)) && (addonRequired || keptMenu.Contains(account));
             if (captured.GetValueOrDefault(p.Slot) != capture)
@@ -1060,33 +1016,6 @@ sealed partial class HudScreen
     int[]? SeenOrder(int slot, int page, DateTime now) =>
         drawnOrder.TryGetValue(slot, out var d) && d.Round == vote.Round && d.Page == page ? ((now - d.ChangedAt).TotalSeconds < HudVote.ReSortSeconds ? d.Before : d.Now) : null;
 
-    /// <summary>The Fun page's Random or Default, from a click or from !fun random / !fun default: Random draws every setting the page shows in this
-    /// mode from its own choices (Fun.Randomized; catch-up on three times in four), Default puts every one back to its first choice - gg_fun reset,
-    /// the reset after 10 minutes with nobody on. The same commands a click on each row runs, a frame later; one chat line for everybody says what
-    /// changed, and the centre of the screen who did it.</summary>
-    void FunAll(CCSPlayerController player, string which)
-    {
-        var name = Hud.Clean(player.PlayerName, 32).Replace("\"", "'");
-        if (which == Fun.DefaultWord)
-        {
-            Server.NextFrame(() =>
-            {
-                Server.ExecuteCommand($"{Fun.ResetCommand} \"{name}\"");
-                Server.PrintToChatAll(" " + Fun.DefaultLine(name));
-                Centre?.Invoke(name, "put every fun setting back to normal");
-            });
-            return;
-        }
-        var changed = Fun.Randomized(dice.Next, mode.ArmsRace).Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
-        Server.NextFrame(() =>
-        {
-            foreach (var (setting, choice) in Fun.InSafeOrder(changed)) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{name}\""); // back to Normal first: no Clash on the way
-            Server.PrintToChatAll(" " + Fun.RandomLine(name, changed));
-            var parts = Fun.Changes(changed);
-            Centre?.Invoke(name, parts.Count == 0 ? "rolled the fun settings: nothing changed" : "rolled the fun settings: " + string.Join(", ", parts));
-        });
-    }
-
     /// <summary>The picture of the map with this key: its two classes, none for no key or a map without one.</summary>
     string[] ThumbOf(string key) => key != "" && catalog?.Find(key) is { } entry ? HudThumbs.Classes(entry) : [];
 
@@ -1152,17 +1081,6 @@ sealed partial class HudScreen
         return rows;
     }
 
-    /// <summary>Where the fun page's values come from: the settings module (convars and its effects); without it, the engine's convars.</summary>
-    public Func<string, string?>? FunSource { get; set; }
-
-    /// <summary>Who set each fun setting that is off its default, by the setting's id: the settings module's word (gg_fun's last argument); null
-    /// while nobody is known. The settings module sets it at its load.</summary>
-    public Func<string, string?>? FunSetBy { get; set; }
-
-
-    /// <summary>A fun change for everybody, centre screen for Fun.CentreSeconds: set by the plugin, which owns the centre panel.</summary>
-    public Action<string, string>? Centre { get; set; }
-
     /// <summary>A vote freezes everybody: the window stays open until the freeze is over, and nothing closes it. The freeze's own decision (FreezePlan), not the bridge's last word: a
     /// lost bridge frees the windows at the moment it frees the pawns. Set by the plugin at its load.</summary>
     public Func<bool>? Frozen { get; set; }
@@ -1176,18 +1094,6 @@ sealed partial class HudScreen
 
     /// <summary>Whether this slot has the window open now (the spawn cloak reads it).</summary>
     public bool WindowOpen(int slot) => slots.WindowOpen(slot);
-
-    /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
-    string? FunValue(string name)
-    {
-        if (FunSource != null) return FunSource(name);
-        if (!funVars.TryGetValue(name, out var cv))
-        {
-            try { cv = ConVar.Find(name); } catch (Exception) { cv = null; }
-            funVars[name] = cv;
-        }
-        try { return cv?.StringValue; } catch (Exception) { return null; }
-    }
 
     readonly Dictionary<(string, string), string> globalVars = new();
 

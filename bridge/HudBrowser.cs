@@ -526,20 +526,20 @@ public static class HudMenu
     public const string FunNote = "gg_fun_note";
 
     /// <summary>The line at the top of the Fun page (every row alike, the grenade drops too).</summary>
-    public const string FunNoteText = "Anybody switches these, for everybody. Everything lasts until the map changes (or 10 minutes with nobody on); the centre of the screen says who.";
+    public const string FunNoteText = "Anybody switches these, for everybody. Everything lasts until the map changes (or 10 minutes with nobody on); the top of the screen says who.";
 
     public static string FunRow(int r) => $"gg_f{r}";
 
     public static string FunButton(int r, int c) => $"gg_f{r}_{c}";
 
-    /// <summary>A setting off its default, with who set it: "Moon - set by Alice", the words of its row; "" while it is at its default or nobody is
-    /// known to have set it.</summary>
-    public static string SetByWords(Fun.Setting s, Fun.Choice showing, string? by) => showing == s.Normal || string.IsNullOrWhiteSpace(by) ? "" : $"{showing.Label} - set by {Hud.Clean(by, 32)}";
+    /// <summary>A setting off its default, with who set it: "Moon - Set by Alice", the words of its row; "" while it is at its default or nobody is
+    /// known to have set it. On the page alone: the change's own message said it in chat and on the board.</summary>
+    public static string SetByWords(Fun.Setting s, Fun.Choice showing, string? by) => showing == s.Normal || string.IsNullOrWhiteSpace(by) ? "" : $"{showing.Label} - Set by {Hud.Clean(by, 32)}";
 
     /// <summary>The Fun page as the live values have it: each row's title and words (with a word when the map runs its own value, and who set a
-    /// setting that is off its default), each choice's label, the choice showing lit; rows and choices beyond the settings collapse. A row that does
-    /// nothing at the moment (Instakill and Grenades while friendly fire is off: Fun.Idle) says so instead of its words and is dimmed (idle); its
-    /// buttons still work. setBy: who set a setting, by its id (the settings module's word); null: nobody known.</summary>
+    /// setting that is off its default), each choice's label, the choice showing lit, a choice that cannot be made greyed (off: FunWhy says why); rows
+    /// and choices beyond the settings collapse. A row that does nothing at the moment (Instakill and Grenades while friendly fire is off: Fun.Idle) says
+    /// so instead of its words and is dimmed (idle); its buttons still work. setBy: who set a setting, by its id (the settings module's word); null: nobody known.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) FunPage(Func<string, string?> value, bool armsRace = true,
         Func<string, string?>? setBy = null)
     {
@@ -547,14 +547,14 @@ public static class HudMenu
         var c = new List<(string, string, bool)>();
         for (var r = 1; r <= Fun.Rows; r++)
         {
-            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null; // the grid's sixteen; the grenade drops and catch-up have fixed rows
+            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null; // the grenade drops and catch-up are the last two, like any other: a content before v4.6.0 lacks those rows, and has fixed ones of its own
             var showing = s == null ? null : Fun.Showing(s, value);
             var because = s == null ? null : Fun.IdleBecause(s, value);
             var idle = because != null;
             t.Add(($"{FunRow(r)}_title", s?.Title ?? ""));
             var who = s == null || showing == null ? "" : SetByWords(s, showing, setBy?.Invoke(s.Id));
             t.Add(($"{FunRow(r)}_txt", s == null ? "" : because != null ? because.Idle
-                : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  this map runs its own" : who != "" ? $"{who}  ·  {s.Words}" : s.Words));
+                : showing == s.Normal && Fun.OwnValues(s, value).Count > 0 ? $"{s.Words}  ·  This map runs its own" : who != "" ? $"{who}  ·  {s.Words}" : s.Words));
             c.Add((FunRow(r), "used", s != null && (armsRace || !Fun.ArmsRaceOnly(s)))); // friendly fire's three are Arms Race's: Deathmatch is free-for-all, Wingman runs Valve's
             c.Add((FunRow(r), "idle", idle));
             c.Add((FunRow(r), "changed", s != null && showing != s.Normal)); // a setting off its default stands out
@@ -564,13 +564,22 @@ public static class HudMenu
                 t.Add(($"{FunButton(r, k)}_txt", choice?.Label ?? ""));
                 c.Add((FunButton(r, k), "used", choice != null));
                 c.Add((FunButton(r, k), "on", choice != null && choice == showing));
+                c.Add((FunButton(r, k), "off", s != null && choice != null && Fun.Impossible(s, choice, value)));
             }
         }
         return (t, c);
     }
 
-    /// <summary>The words of the Fun page's two fixed rows - the grenade drops and catch-up, ordinary fun settings with rows of their own - as
-    /// variables on gg_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default.</summary>
+    /// <summary>The variable a row's bubbles read: a greyed choice's reason, or what a refused click there says.</summary>
+    public static string FunWhyVar(int r) => $"osfw{r}";
+
+    /// <summary>What each row's bubbles say as the live values have it: why its greyed choice cannot be made (Fun.Refusal), "" on a row with none. One a row is enough: there is one clash
+    /// (Fun.Clashes), and it greys one choice of a row.</summary>
+    public static List<(string Name, string Text)> FunWhy(Func<string, string?> value) =>
+        Fun.Settings.Take(Fun.Rows).Select((s, i) => (FunWhyVar(i + 1), s.Choices.Where(c => Fun.Impossible(s, c, value)).Select(c => Fun.Refusal(s, c, value)).FirstOrDefault() ?? "")).ToList();
+
+    /// <summary>The words of the two fixed rows of the contents before v4.6.0 - the grenade drops and catch-up, which this content has as rows gg_f17 and gg_f18 - as
+    /// variables on gg_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default. One plugin drives every content.</summary>
     public const string DropsWordsVar = "osfdrops", CatchUpWordsVar = "osfcatch";
 
     public static List<(string Name, string Text)> FixedRowWords(Func<string, string?> value, Func<string, string?>? setBy = null)
@@ -586,7 +595,7 @@ public static class HudMenu
     }
 
     /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing - the grid's
-    /// rows, and the grenade drops' and catch-up's fixed rows (ordinary fun settings).</summary>
+    /// rows, and the grenade drops' and catch-up's fixed rows of the contents before v4.6.0, which are the same settings.</summary>
     public static (Fun.Setting Setting, Fun.Choice Choice)? FunClick(string buttonId)
     {
         var fixedRow = buttonId switch { NadesOn => ("drops", "on"), NadesOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };

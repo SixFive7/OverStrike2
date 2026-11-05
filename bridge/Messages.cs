@@ -197,6 +197,7 @@ public static class Messages
         FunChanged = new("fun", "Fun: one setting changed (catch-up and the grenade drops the same)", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunRandom = new("funrandom", "Fun: Random", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunDefault = new("fundefault", "Fun: Default", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
+        FunRefused = new("funno", "A Fun click refused: its bubble at the button (FunClicks), so no line on the window's page", Surface.None, Who.Nobody, Who.Player, Who.Player, You, 8, false),
         GameChanger = new("blocked", "A map's game-changer undone", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         // catch-up
         CatchUpBoost = new("boost", "Catch-up's boost", Surface.Card, Who.Player, Who.Player, Who.Player, CatchUp, 5, false),
@@ -230,7 +231,7 @@ public static class Messages
     public static readonly Kind[] All =
     [
         Welcome, Tagline, WelcomeBack, NowPlaying, Joined, Outdated, Newer, Hold, HoldBack, HoldNoMenu, CheckClick, CheckWarning, VoteWindow, VoteStarted, VoteInactivity, VoteLimit,
-        VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, GameChanger, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
+        VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, FunRefused, GameChanger, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
         DownloadFailed, WorkshopDownload, PlayAsksFirst, WhyDislike, RestartAfterMatch, RestartCountdown, GameUpdate, Updated, UpdatedJoiner, PlayerRestart, MatchRestart, News,
         ServerDown, CrashNote, Answer, CommandReply, VoteClick,
     ];

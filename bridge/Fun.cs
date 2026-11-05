@@ -1,7 +1,7 @@
 // The fun settings: a page of the in-game menu where anybody switches a few game settings
 // live, for everybody - low gravity, bunny hopping, no fall damage, the grenade drops, catch-up and so on. Every row is the same kind of switch: every change lasts until the map changes (the grenade drops too), the bridge's
-// reset after 10 minutes with nobody on puts them all back (gg_fun reset), and every change shows on the centre screen for everybody
-// with its command in chat - no news-line copy.
+// reset after 10 minutes with nobody on puts them all back (gg_fun reset), and every change is one message for everybody - the top line, chat
+// and the TAB board (Messages.FunChanged, FunRandom, FunDefault) - which says who, so a setting's own "Set by" stays on the page.
 //
 // Shared like Hud.cs: the bridge's --selftest checks all of it, the plugin's HUD draws the page and asks for a change, and its settings
 // module makes it (gg_fun) - the part that owns the server's game settings: their baseline, the put-back at every map end, and the
@@ -74,8 +74,8 @@ public static class Fun
     public const string Command = "gg_fun";
     public const string ResetCommand = Command + " reset";
 
-    public const int Rows = 16, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons (Over Strike 2's content);
-                                                   // the grenade drops and catch-up, the 17th and 18th setting, have fixed rows of their own (HudMenu.FunClick)
+    public const int Rows = 18, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons; the contents before v4.6.0 have sixteen,
+                                                   // and the grenade drops and catch-up, the 17th and 18th setting, as fixed rows of their own (HudMenu.FunClick)
 
     static (string, string)[] Set(params (string, string)[] sets) => sets;
 
@@ -203,22 +203,39 @@ public static class Fun
         new("gravity", "moon", "jump", "high", "together they throw players out of most maps"),
     ];
 
-    /// <summary>Why this choice may not be made with the other settings as they show now (a Clash): "Super jump cannot be High while Gravity
-    /// is Moon: together they throw players out of most maps". Null when it may. The words alone, for every surface but chat.</summary>
-    public static string? Refusal(Setting s, Choice c, Func<string, string?> value) => RefusalLine(s, c, value) is { } line ? M.Plain(line) : null;
-
-    /// <summary>The same refusal with its functional parts marked (M): what chat says, and a message's one text (Post).</summary>
-    public static string? RefusalLine(Setting s, Choice c, Func<string, string?> value)
+    /// <summary>The clash that stands in the way of this choice with the other settings as they show now, and the setting that causes it.</summary>
+    static (Clash Clash, Setting Other)? Blocked(Setting s, Choice c, Func<string, string?> value)
     {
         foreach (var x in Clashes)
         {
             var (mine, theirs, theirChoice) = x.Setting == s.Id && x.Choice == c.Id ? (true, x.Other, x.OtherChoice)
                 : x.Other == s.Id && x.OtherChoice == c.Id ? (true, x.Setting, x.Choice) : (false, "", "");
-            if (mine && Find(theirs) is { } other && Showing(other, value).Id == theirChoice)
-                return M.Refused($"{M.A(s.Title)} cannot be {M.V(c.Label)} while {M.A(other.Title)} is {M.V(Showing(other, value).Label)}: {x.Why}");
+            if (mine && Find(theirs) is { } other && Showing(other, value).Id == theirChoice) return (x, other);
         }
         return null;
     }
+
+    /// <summary>Why this choice may not be made with the other settings as they show now (a Clash): "Super jump cannot be High while Gravity
+    /// is Moon: together they throw players out of most maps". Null when it may. The words alone, for every surface but chat.</summary>
+    public static string? Refusal(Setting s, Choice c, Func<string, string?> value) => RefusalLine(s, c, value) is { } line ? M.Plain(line) : null;
+
+    /// <summary>The same refusal with its functional parts marked (M): what chat says, and a message's one text (Post).</summary>
+    public static string? RefusalLine(Setting s, Choice c, Func<string, string?> value) =>
+        Blocked(s, c, value) is var (x, other) ? M.Refused($"{M.A(s.Title)} cannot be {M.V(c.Label)} while {M.A(other.Title)} is {M.V(Showing(other, value).Label)}: {x.Why}") : null;
+
+    /// <summary>The same refusal for a click nobody could have known would be refused, the other setting having changed a moment before it: who changed
+    /// what, marked (M) - "Cara just set Gravity to Moon, so Super jump cannot be High". setBy: who set a setting, by its id, as the page says it;
+    /// nobody known: "Gravity just went to Moon, ...". Null when the choice may be made.</summary>
+    public static string? RefusedJust(Setting s, Choice c, Func<string, string?> value, Func<string, string?>? setBy)
+    {
+        if (Blocked(s, c, value) is not var (_, other)) return null;
+        var by = setBy?.Invoke(other.Id);
+        var now = M.V(Showing(other, value).Label);
+        return M.Refused($"{(string.IsNullOrWhiteSpace(by) ? $"{M.A(other.Title)} just went to {now}" : $"{M.N(Hud.Clean(by, 32))} just set {M.A(other.Title)} to {now}")}, so {M.A(s.Title)} cannot be {M.V(c.Label)}");
+    }
+
+    /// <summary>A choice the page greys: it may not be made now, and it is not the one showing (a map that runs both of a Clash keeps them lit, as it is).</summary>
+    public static bool Impossible(Setting s, Choice c, Func<string, string?> value) => Blocked(s, c, value) != null && Showing(s, value) != c;
 
     /// <summary>The first clash a whole combination holds (setting id to choice id; a setting left out is its Normal), or null.</summary>
     public static Clash? ClashIn(Func<string, string> choiceOf) => Clashes.FirstOrDefault(x => choiceOf(x.Setting) == x.Choice && choiceOf(x.Other) == x.OtherChoice);
@@ -249,68 +266,111 @@ public static class Fun
     public static List<(Setting Setting, Choice Choice)> InSafeOrder(IEnumerable<(Setting Setting, Choice Choice)> changes) =>
         changes.OrderBy(x => x.Choice == x.Setting.Normal ? 0 : 1).ToList();
 
-    /// <summary>The one chat line for everybody after Random: who, and what changed (at most so many characters; the rest counted).</summary>
+    /// <summary>The message after Random (Messages.FunRandom): who, and what changed, its parts marked for chat - "Bob rolled: gravity low, bunny hopping on" - at most so many
+    /// characters of words; the rest counted.</summary>
     public static string RandomLine(string who, List<(Setting Setting, Choice Choice)> changed, int max = 200)
     {
-        var parts = Changes(changed);
-        if (parts.Count == 0) return $"{who} rolled the fun settings: nothing changed";
-        var line = $"{who} rolled the fun settings: ";
-        for (var i = 0; i < parts.Count; i++)
+        if (changed.Count == 0) return $"{M.N(who)} rolled: nothing changed";
+        var line = $"{M.N(who)} rolled: ";
+        for (var i = 0; i < changed.Count; i++)
         {
-            var next = (i > 0 ? ", " : "") + parts[i];
-            if (line.Length + next.Length + 12 > max) return line + $" and {parts.Count - i} more";
+            var next = (i > 0 ? ", " : "") + $"{M.A(changed[i].Setting.Title.ToLowerInvariant())} {M.V(changed[i].Choice.Label.ToLowerInvariant())}";
+            if (M.Plain(line).Length + M.Plain(next).Length + 12 > max) return line + $" and {changed.Count - i} more";
             line += next;
         }
         return line;
     }
 
-    /// <summary>What a Random or a Default changed, as the lines and the centre notice say it: "gravity low", "grenade drops off", "catch-up off".</summary>
-    public static List<string> Changes(List<(Setting Setting, Choice Choice)> changed) =>
-        changed.Select(x => $"{x.Setting.Title.ToLowerInvariant()} {x.Choice.Label.ToLowerInvariant()}").ToList();
+    /// <summary>The message after Default (Messages.FunDefault).</summary>
+    public static string DefaultLine(string who) => $"{M.N(who)} put every fun setting back to normal";
 
-    /// <summary>The one chat line for everybody after Default.</summary>
-    public static string DefaultLine(string who) => $"{who} put every fun setting back to normal";
+    /// <summary>A setting off its default lasts this long, as its message says it.</summary>
+    public const string UntilMapChange = "Until the map changes";
 
-    /// <summary>The centre-screen notice of a fun change (content-free: the game's centre panel, for everybody, 10 s):
-    /// "Remy turned Vampire on", "Remy set Gravity to Low", "Remy put Gravity back to normal".</summary>
-    public static string CentreLine(string who, Setting s, Choice c) =>
-        c == s.Normal && s.Choices.Length > 2 ? $"{who} put {s.Title} back to normal"
-        : c.Id is "on" or "off" ? $"{who} turned {s.Title} {c.Id}" : $"{who} set {s.Title} to {c.Label}";
-
-    /// <summary>How long a fun change stays centre screen, for everybody.</summary>
-    public const int CentreSeconds = 10;
-
-    /// <summary>The command a change is, as chat says it under the player's name - !gravity low, !drops off.</summary>
-    public static string ChatWords(Setting s, Choice c) => $"!{s.Id} {c.Id}";
+    /// <summary>The message of one fun change (Messages.FunChanged), every setting alike, the grenade drops and catch-up too; its parts marked for chat: "Remy set Gravity to Moon
+    /// - Until the map changes", "Remy turned Catch-up off - Until the map changes", "Remy put Gravity back to normal", "Remy turned Vampire off" (back at its default: nothing to wait for).</summary>
+    public static string ChangedLine(string who, Setting s, Choice c)
+    {
+        var words = c == s.Normal && (s.Choices.Length > 2 || c.Id is not ("on" or "off")) ? $"put {M.A(s.Title)} back to normal"
+            : c.Id is "on" or "off" ? $"turned {M.A(s.Title)} {M.V(c.Id)}" : $"set {M.A(s.Title)} to {M.V(c.Label)}";
+        return $"{M.N(who)} {words}{(c == s.Normal ? "" : $" - {UntilMapChange}")}";
+    }
 }
 
-/// <summary>A fun change as the game's centre panel shows it, to everybody, for Fun.CentreSeconds: who, in gold, over
-/// what changed, wrapped to the panel's width (it wraps at about 31 characters and scrolls past five lines; measured 2026-10-04).</summary>
-public static class FunNotice
+/// <summary>What a click on a Fun choice comes to, and the bubble it leaves at that button: an error stands beside the click, not elsewhere on the page. An impossible choice is greyed for everybody (Fun.Impossible, class off) and stays a Button, so the mouse on it shows
+/// why (osfw{r}, HudMenu.FunWhy); a click on one that has been grey long enough to be seen is ignored. A click on one that went grey a moment ago was made before the player could see it:
+/// refused, and that button alone says who changed what for RefusedSeconds (class refused, for that player; the same bubble, no hover needed). Free of CounterStrikeSharp: the plugin hands it
+/// the clock and sends what it returns; --selftest walks it.</summary>
+public sealed class FunClicks
 {
-    public const int Width = 30, Lines = 4;
+    public const double RefusedSeconds = 8;
 
-    public static string Html(string who, string what) =>
-        $"<font color='#E9B44C'><b>{Esc(Hud.Clean(who, 32))}</b></font><br>{string.Join("<br>", Wrap(Hud.Clean(what, 400), Width, Lines).Select(Esc))}";
+    /// <summary>The grey is on the player's screen, and seen, this long after the change: a frame (a quarter of a second), the network, a hand already on its way.</summary>
+    public const double SeenSeconds = 2;
 
-    static string Esc(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    /// <summary>The first content with the grey and the bubbles: a game on an older one has neither, and its note says what they say.</summary>
+    public const int BubbleLevel = 46;
 
-    /// <summary>Words into lines of at most width characters, at most max lines; what does not fit ends the last line with "...".</summary>
-    public static List<string> Wrap(string text, int width, int max)
+    /// <summary>Go: ask the settings module. Lit: the choice that shows already. Seen: greyed for long enough, ignored. Refused: refuse it now, saying who changed what.</summary>
+    public enum Verdict { Go, Lit, Seen, Refused }
+
+    readonly Dictionary<string, DateTime> greySince = new(StringComparer.Ordinal);                       // button -> since when it has been grey
+    readonly Dictionary<int, (string Button, string Var, string Words, DateTime Until)> refused = new(); // slot -> that player's refused click
+    readonly Dictionary<int, HashSet<string>> touched = new();                                           // slot -> the buttons that ever had class refused for it
+    readonly Dictionary<int, HashSet<string>> spoken = new();                                            // slot -> the variables that ever had words for it
+
+    /// <summary>Every frame, from the page's class off: whether this button is grey now.</summary>
+    public void Grey(string button, bool on, DateTime now)
     {
-        var lines = new List<string>();
-        var line = "";
-        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        if (on) greySince.TryAdd(button, now);
+        else greySince.Remove(button);
+    }
+
+    public Verdict Click(string button, Fun.Setting s, Fun.Choice c, Func<string, string?> value, DateTime now) =>
+        Fun.Showing(s, value) == c ? Verdict.Lit
+        : !Fun.Impossible(s, c, value) ? Verdict.Go
+        : greySince.TryGetValue(button, out var since) && (now - since).TotalSeconds >= SeenSeconds ? Verdict.Seen : Verdict.Refused;
+
+    /// <summary>This player's click on this button of this setting is refused: the bubble says so for RefusedSeconds; a newer refusal replaces it. words may carry marks: a bubble has plain words.</summary>
+    public void Refuse(int slot, string button, Fun.Setting s, string words, DateTime now)
+    {
+        refused[slot] = (button, HudMenu.FunWhyVar(Array.IndexOf(Fun.Settings, s) + 1), M.Plain(words), now.AddSeconds(RefusedSeconds));
+        (touched.TryGetValue(slot, out var mine) ? mine : touched[slot] = new(StringComparer.Ordinal)).Add(button);
+    }
+
+    /// <summary>A player left the slot: their refusal goes. What was touched stays, so the next player in it gets the class off and the words emptied.</summary>
+    public void Gone(int slot) => refused.Remove(slot);
+
+    (string Button, string Var, string Words)? Active(int slot, DateTime now)
+    {
+        if (!refused.TryGetValue(slot, out var r)) return null;
+        if (now < r.Until) return (r.Button, r.Var, r.Words);
+        refused.Remove(slot);
+        return null;
+    }
+
+    /// <summary>The class refused for this player: on at the refused button while it lasts, off on every other one it was ever on. Only those: a button never refused is never sent one.</summary>
+    public List<(string Id, string Class, bool On)> Classes(int slot, DateTime now)
+    {
+        if (!touched.TryGetValue(slot, out var buttons)) return [];
+        var at = Active(slot, now)?.Button;
+        return buttons.Select(b => (b, "refused", b == at)).ToList();
+    }
+
+    /// <summary>The bubbles' words for this player, out of what the page says for everybody (HudMenu.FunWhy): the refused button's row says who changed what while it lasts. A variable that never
+    /// had words for this player is not sent: its bubble cannot show, and the entity's per-player lists stay short.</summary>
+    public List<(string Name, string Text)> Words(int slot, IEnumerable<(string Name, string Text)> why, DateTime now)
+    {
+        var mine = spoken.TryGetValue(slot, out var had) ? had : spoken[slot] = new(StringComparer.Ordinal);
+        var active = Active(slot, now);
+        var words = new List<(string, string)>();
+        foreach (var (name, text) in why)
         {
-            if (line.Length > 0 && line.Length + 1 + word.Length > width) { lines.Add(line); line = ""; }
-            line = line.Length == 0 ? word : line + " " + word;
+            var says = active is { } a && a.Var == name ? a.Words : text;
+            if (says != "") mine.Add(name);
+            if (mine.Contains(name)) words.Add((name, says));
         }
-        if (line.Length > 0) lines.Add(line);
-        if (lines.Count <= max) return lines;
-        var kept = lines.Take(max).ToList();
-        var last = kept[^1];
-        kept[^1] = (last.Length + 4 > width ? last[..Math.Max(0, width - 4)] : last) + " ...";
-        return kept;
+        return words;
     }
 }
 

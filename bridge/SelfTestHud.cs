@@ -268,7 +268,8 @@ static partial class Program
                 // it works', and no plugin since sends them), the two fifth Help rows (sent nothing since Hud.HelpMore emptied), the new-maps setting's
                 // buttons and line (the setting is gone: its line only ever got an empty text), each card's Too big, Ads and Remove mine (nothing is sent
                 // to them; their marks are a Dislike's reasons, and there is no queue to remove a request from).
-                var expectedRetired = new HashSet<string> { "gg_tab_queue", "gg_q_mine", "gg_q_cancelall", "gg_q_empty", "gg_tab_rules", "gg_c3_5", "gg_c3_5_cmd", "gg_c3_5_txt",
+                // The fixed rows of the Fun page too: the grenade drops and catch-up are rows of the grid now, and the plugin still listens to the older contents' buttons.
+                var expectedRetired = new HashSet<string> { HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.CatchUpOn, HudMenu.CatchUpOff, "gg_tab_queue", "gg_q_mine", "gg_q_cancelall", "gg_q_empty", "gg_tab_rules", "gg_c3_5", "gg_c3_5_cmd", "gg_c3_5_txt",
                     "gg_c4_5", "gg_c4_5_cmd", "gg_c4_5_txt", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever, "gg_set_new_now" };
                 for (var r = 1; r <= 10; r++) foreach (var part in new[] { "", "_pos", "_map", "_who", "_cancel" }) expectedRetired.Add($"gg_qr{r}{part}");
                 for (var s = 1; s <= 3; s++) { expectedRetired.Add($"gg_r{s}_title"); for (var l = 1; l <= 4; l++) { expectedRetired.Add($"gg_r{s}_{l}"); expectedRetired.Add($"gg_r{s}_{l}_txt"); } }
@@ -350,25 +351,27 @@ static partial class Program
             var fixedWords = Regex.Matches(noComments, @"\btext=""([^""]*)""").Select(m => m.Groups[1].Value).ToList();
             var fixedCommands = fixedWords.SelectMany(w => Regex.Matches(w, @"![a-z]+").Select(m => m.Value)).ToList();
             Check($"The layout's own words name only primaries ({string.Join(" ", fixedCommands)})", fixedCommands.Count > 0 && fixedCommands.All(w => ChatCommands.Find(w) != null));
-            var gamePage = noComments[noComments.IndexOf("gg-page-game", StringComparison.Ordinal)..noComments.IndexOf("gg-page-help", StringComparison.Ordinal)];
-            var funOnwards = noComments[noComments.IndexOf("gg-page-fun", StringComparison.Ordinal)..];
-            var bigRow = Array.FindIndex(Fun.Settings, s => s.Id == "nades") + 1;
-            Check("The grenade drops moved from the Game page to the Fun page, above Big grenades, under the same button ids, and is Arms Race's alone",
-                !gamePage.Contains(HudMenu.NadesOn) && funOnwards.Contains(HudMenu.NadesOn) && funOnwards.IndexOf(HudMenu.NadesOff, StringComparison.Ordinal) < funOnwards.IndexOf($"id=\"{HudMenu.FunRow(bigRow)}\"", StringComparison.Ordinal)
-                && Regex.IsMatch(funOnwards, @"class=""gg-frow gg-frow-nades gg-set-nades""") && Regex.IsMatch(rules, @"\.gg-frow-nades\s*\{\s*visibility:\s*visible;")
-                && Regex.IsMatch(rules, @"\.gg-global\.mode-deathmatch \.gg-set-nades") && Regex.IsMatch(rules, @"\.gg-global\.mode-wingman \.gg-set-nades")
-                && Regex.IsMatch(rules, $@"\.gg-global\.nd-on #{HudMenu.NadesOn}") && Regex.IsMatch(rules, $@"\.gg-global\.nd-off #{HudMenu.NadesOff}"));
             var dropsOff = new Dictionary<string, string>(stock) { [Fun.Drops] = "0" };
-            Check("...lit from gg_global, which every content has, off the drops' fun setting: on is one class, off the other, and outside Arms Race neither",
-                HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+            var dropsRow = Array.FindIndex(Fun.Settings, s => s.Id == "drops") + 1;
+            var catchUpRow = Array.FindIndex(Fun.Settings, s => s.Id == "catchup") + 1;
+            Check("The grenade drops and catch-up are rows of the grid like any other, gg_f17 and gg_f18, Arms Race's alone; the layout has no fixed row left",
+                (dropsRow, catchUpRow) == (17, 18) && !noComments.Contains(HudMenu.NadesOn) && !noComments.Contains(HudMenu.CatchUpOn) && !noComments.Contains($"{{s:{HudMenu.DropsWordsVar}}}") && !noComments.Contains($"{{s:{HudMenu.CatchUpWordsVar}}}")
+                && !Regex.IsMatch(rules, @"\.nd-on|\.nd-off|\.cu-on|\.cu-off|gg-set-nades|gg-set-catchup")
+                && new[] { dropsRow, catchUpRow }.All(r => HudMenu.FunPage(cv => stock.GetValueOrDefault(cv)).Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "used").On
+                    && !HudMenu.FunPage(cv => stock.GetValueOrDefault(cv), armsRace: false).Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "used").On));
+            Check("...and a content before v4.6.0 keeps its fixed rows, one plugin driving them: their buttons are the same settings, lit from gg_global, which every content has - on is one class, off the other, and outside Arms Race neither",
+                HudMenu.FunClick(HudMenu.NadesOn) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.NadesOff) is ({ Id: "drops" }, { Id: "off" })
+                && HudMenu.FunClick(HudMenu.CatchUpOn) is ({ Id: "catchup" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.CatchUpOff) is ({ Id: "catchup" }, { Id: "off" })
+                && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
                 && HudVote.FixedRowClasses(cv => dropsOff.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+                && HudVote.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudVote.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
                 && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), false).All(x => !x.On) && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).All(x => x.Id == HudView.Global));
 
             // ---- the Fun page and the Ads buttons, as the plugin fills and reads them ----
             var stockPage = HudMenu.FunPage(cv => stock.GetValueOrDefault(cv));
             bool FC(string id, string cls) => stockPage.Classes.Single(x => x.Id == id && x.Class == cls).On;
             string FT(string id) => stockPage.Texts.Single(x => x.Id == id).Text;
-            Check($"Fun page: a row per setting of the grid ({Math.Min(Fun.Settings.Length, Fun.Rows)} of {Fun.Rows}; the grenade drops and catch-up have fixed rows), the rest collapsed; a button per choice, the rest collapsed; on a stock server every first choice lit",
+            Check($"Fun page: a row per setting ({Fun.Settings.Length} of the layout's {Fun.Rows}), the rest collapsed; a button per choice, the rest collapsed; on a stock server every first choice lit",
                 Enumerable.Range(1, Fun.Rows).All(r => FC(HudMenu.FunRow(r), "used") == r <= Fun.Settings.Length)
                 && Fun.Settings.Take(Fun.Rows).Select((s, i) => Enumerable.Range(1, Fun.ChoicesPerRow).All(k => FC(HudMenu.FunButton(i + 1, k), "used") == k <= s.Choices.Length
                     && FC(HudMenu.FunButton(i + 1, k), "on") == (k == 1) && FT($"{HudMenu.FunButton(i + 1, k)}_txt") == (k <= s.Choices.Length ? s.Choices[k - 1].Label : ""))).All(x => x)
@@ -379,7 +382,7 @@ static partial class Program
             var bhopRow = Array.FindIndex(Fun.Settings, s => s.Id == "bhop") + 1;
             Check("Fun page: Moon gravity lights Moon; a map's own air acceleration lights bunny hopping's Off and says the map runs its own",
                 moonPage.Classes.Single(x => x.Id == HudMenu.FunButton(gravityRow, 3) && x.Class == "on").On && !moonPage.Classes.Single(x => x.Id == HudMenu.FunButton(gravityRow, 1) && x.Class == "on").On
-                && moonPage.Classes.Single(x => x.Id == HudMenu.FunButton(bhopRow, 1) && x.Class == "on").On && moonPage.Texts.Single(x => x.Id == $"{HudMenu.FunRow(bhopRow)}_txt").Text.EndsWith("this map runs its own"));
+                && moonPage.Classes.Single(x => x.Id == HudMenu.FunButton(bhopRow, 1) && x.Class == "on").On && moonPage.Texts.Single(x => x.Id == $"{HudMenu.FunRow(bhopRow)}_txt").Text.EndsWith("  ·  This map runs its own"));
             Check("Fun page: a click names its setting and choice, and nothing else does (the size chips are gg_fl_*, the note a label)",
                 HudMenu.FunClick(HudMenu.FunButton(gravityRow, 2)) is ({ Id: "gravity" }, { Id: "low" }) && HudMenu.FunClick(HudMenu.FunButton(gravityRow, 1)) is (_, { Id: "normal" })
                 && HudMenu.FunClick(HudMenu.FunButton(Fun.Rows + 1, 1)) == null && HudMenu.FunClick(HudMenu.FunButton(2, 3)) == null
@@ -439,12 +442,12 @@ static partial class Program
                 && Fun.Randomized(n => n - 1, armsRace: true).Single(x => x.Setting.Id == "jump").Choice == Fun.Find("jump")!.Normal);
             var gravity = Fun.Find("gravity")!;
             var everyChange = Fun.Settings.Select(s => (s, s.Choices[^1])).ToList();
-            Check("...and its one chat line says who and what changed, the rest counted past 200 characters; Default's says what it did",
-                Fun.RandomLine("Remy", [(gravity, Fun.Find(gravity, "low")!), (Fun.Find("drops")!, Fun.Find(Fun.Find("drops")!, "off")!)]) == "Remy rolled the fun settings: gravity low, grenade drops off"
-                && Fun.RandomLine("Remy", []) == "Remy rolled the fun settings: nothing changed" && Fun.RandomLine("Remy", everyChange) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
-                && Fun.DefaultLine("Remy") == "Remy put every fun setting back to normal"
-                && Fun.RandomLine("Remy", [(Fun.Find("catchup")!, Fun.Find(Fun.Find("catchup")!, "off")!)]) == "Remy rolled the fun settings: catch-up off");
-            // The Fun page's height (sixteen rows in two columns of eight, and the two fixed rows): the pages have PagesHeight px (the window's 820 less
+            Check("...and its one message says who and what changed, the rest counted past 200 characters; Default's says what it did",
+                M.Plain(Fun.RandomLine("Remy", [(gravity, Fun.Find(gravity, "low")!), (Fun.Find("drops")!, Fun.Find(Fun.Find("drops")!, "off")!)])) == "Remy rolled: gravity low, grenade drops off"
+                && M.Plain(Fun.RandomLine("Remy", [])) == "Remy rolled: nothing changed" && M.Plain(Fun.RandomLine("Remy", everyChange)) is { Length: <= 200 } longLine && longLine.EndsWith(" more")
+                && M.Plain(Fun.DefaultLine("Remy")) == "Remy put every fun setting back to normal"
+                && M.Plain(Fun.RandomLine("Remy", [(Fun.Find("catchup")!, Fun.Find(Fun.Find("catchup")!, "off")!)])) == "Remy rolled: catch-up off");
+            // The Fun page's height (eighteen rows in two columns of nine): the pages have PagesHeight px (the window's 820 less
             // its rule, head, tabs, sub-tabs and foot); the Fun page spends its padding, the note's line (about 1.3 times its type) and margin, and a column's rows
             // with their margins. A row holds its title line (the buttons' height, at least 1.3 times the title's type) over its words (1.3 times
             // their type).
@@ -461,14 +464,14 @@ static partial class Program
             var funParsed = funPad.Success && funNote.Success && funRowCss.Success && funTop.Success && funTitle.Success && funTxt.Success && funButton.Success && funTopCss.Success && funAllCss.Success;
             var funXml = xml[xml.IndexOf("gg-page-fun", StringComparison.Ordinal)..];
             var funSplit = funXml.IndexOf("gg-fcol-right", StringComparison.Ordinal);
-            var perColumn = Math.Max(Regex.Matches(funXml[..funSplit], @"class=""gg-frow[ ""]").Count, Regex.Matches(funXml[funSplit..], @"class=""gg-frow[ ""]").Count); // the grenade drops' row makes the right column the longer
+            var perColumn = Math.Max(Regex.Matches(funXml[..funSplit], @"class=""gg-frow[ ""]").Count, Regex.Matches(funXml[funSplit..], @"class=""gg-frow[ ""]").Count);
             // the note's line: the taller of the note and Random's and Default's buttons, and its row's margin (a real client showed the
             // last row under the window's foot with 40 px buttons and an 8 px margin there: 22 px past what fitted)
             var funTopLine = funParsed ? Math.Max((int)Math.Ceiling(Px(funNote, 2) * 1.3), Px(funAllCss, 1)) + Px(funTopCss, 1) : 0;
             var funHeight = funParsed ? Px(funPad, 1) + Px(funPad, 2) + funTopLine + perColumn * (Px(funRowCss, 1) + Px(funRowCss, 2)) : int.MaxValue;
             var rowNeeds = funParsed ? Math.Max(Px(funTop, 1), Math.Max((int)Math.Ceiling(Px(funTitle, 1) * 1.3), Px(funButton, 1))) + Px(funTxt, 1) + (int)Math.Ceiling(Px(funTxt, 2) * 1.3) : int.MaxValue;
-            Check($"Fun page fits the window: about {funHeight} px of the pages' {PagesHeight} for its {Fun.Rows} rows and the grenade drops ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
-                funHeight <= PagesHeight && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 + 1 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
+            Check($"Fun page fits the window: about {funHeight} px of the pages' {PagesHeight} for its {Fun.Rows} rows ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
+                funHeight <= PagesHeight && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
             // ---- content v4.4.0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
             var voteCat = new HudCatalog { Version = 1 };
             voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));
@@ -494,12 +497,12 @@ static partial class Program
             var changedPage = HudMenu.FunPage(cv => lowGravity.GetValueOrDefault(cv));
             var gravityRow2 = Array.FindIndex(Fun.Settings, s => s.Id == "gravity") + 1;
             var setBy = HudMenu.FunPage(cv => lowGravity.GetValueOrDefault(cv), true, id => id == "gravity" ? "Alice" : "Bob");
-            Check("Fun page: who set a setting that is off its default is in its row's words (Low - set by Alice); a setting at its default says nobody, whoever set it; the fixed rows too",
-                setBy.Texts.Single(x => x.Id == $"{HudMenu.FunRow(gravityRow2)}_txt").Text.StartsWith("Low - set by Alice  ·  ")
-                && Enumerable.Range(1, Fun.Rows).Where(r => r != gravityRow2).All(r => !setBy.Texts.Single(x => x.Id == $"{HudMenu.FunRow(r)}_txt").Text.Contains("set by"))
-                && HudMenu.FixedRowWords(cv => cv == Fun.Drops ? "0" : stock.GetValueOrDefault(cv), id => "Bob").Single(x => x.Name == HudMenu.DropsWordsVar).Text.StartsWith("Off - set by Bob")
-                && !HudMenu.FixedRowWords(cv => stock.GetValueOrDefault(cv), id => "Bob").Any(x => x.Text.Contains("set by"))
-                && noComments.Contains($"text=\"{{s:{HudMenu.DropsWordsVar}}}\"") && noComments.Contains($"text=\"{{s:{HudMenu.CatchUpWordsVar}}}\"") && !noComments.Contains("Stays as you set it"));
+            Check("Fun page: who set a setting that is off its default is in its row's words (Low - Set by Alice); a setting at its default says nobody, whoever set it; an older content's fixed rows too",
+                setBy.Texts.Single(x => x.Id == $"{HudMenu.FunRow(gravityRow2)}_txt").Text.StartsWith("Low - Set by Alice  ·  ")
+                && Enumerable.Range(1, Fun.Rows).Where(r => r != gravityRow2).All(r => !setBy.Texts.Single(x => x.Id == $"{HudMenu.FunRow(r)}_txt").Text.Contains("Set by"))
+                && HudMenu.FixedRowWords(cv => cv == Fun.Drops ? "0" : stock.GetValueOrDefault(cv), id => "Bob").Single(x => x.Name == HudMenu.DropsWordsVar).Text.StartsWith("Off - Set by Bob")
+                && !HudMenu.FixedRowWords(cv => stock.GetValueOrDefault(cv), id => "Bob").Any(x => x.Text.Contains("Set by"))
+                && !noComments.Contains("Stays as you set it"));
             Check("Game page: a match length that is not the default says who set it; the default says nobody",
                 HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 0).Texts.Single(x => x.Id == "gg_set_time_now").Text == "Matches last 10 minutes - Set by Bob"
                 && HudMenu.Game(new HudState { RoundMinutes = 60 }, 0).Texts.Single(x => x.Id == "gg_set_time_now").Text == "Matches last 60 minutes"
@@ -508,18 +511,6 @@ static partial class Program
                 changedPage.Classes.Single(x => x.Id == HudMenu.FunRow(gravityRow2) && x.Class == "changed").On
                 && Enumerable.Range(1, Fun.Rows).Where(r => r != gravityRow2).All(r => !changedPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On)
                 && Enumerable.Range(1, Fun.Rows).All(r => !stockPage.Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "changed").On));
-            var vampire = Fun.Find("vampire")!;
-            Check("The centre notice of a fun change: who in gold, what changed under it, wrapped to the panel, names escaped",
-                Fun.CentreLine("Alice", vampire, Fun.Find(vampire, "on")!) == "Alice turned Vampire on" && Fun.CentreLine("Remy", gravity, Fun.Find(gravity, "low")!) == "Remy set Gravity to Low"
-                && Fun.CentreLine("Remy", gravity, gravity.Normal) == "Remy put Gravity back to normal" && FunNotice.Html("<b>x</b>", "turned Vampire on") == "<font color='#E9B44C'><b>&lt;b&gt;x&lt;/b&gt;</b></font><br>turned Vampire on"
-                && FunNotice.Wrap(string.Join(" ", Enumerable.Repeat("gravity low,", 30)), FunNotice.Width, FunNotice.Lines) is { Count: FunNotice.Lines } wrapped && wrapped.All(l => l.Length <= FunNotice.Width) && wrapped[^1].EndsWith(" ...")
-                && Fun.CentreSeconds == 10);
-            Check("Catch-up's row: its two buttons prove content v4.5.0, its state is cu-on or cu-off on gg_global, and the page leaves it out outside Arms Race",
-                noComments.Contains($"<Button id=\"{HudMenu.CatchUpOn}\"") && noComments.Contains($"<Button id=\"{HudMenu.CatchUpOff}\"") && noComments.Contains("class=\"gg-frow gg-frow-catchup gg-set-catchup\"")
-                && HudVote.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudVote.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
-                && HudVote.FixedRowClasses(cv => "1", false).All(x => !x.On)
-                && Regex.IsMatch(rules, @"\.gg-global\.mode-deathmatch \.gg-set-catchup\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(rules, @"\.gg-global\.mode-wingman \.gg-set-catchup\s*\{\s*visibility:\s*collapse;")
-                && Regex.IsMatch(rules, @"\.gg-global\.cu-on #gg_set_catchup_on\s*\{") && Regex.IsMatch(rules, @"\.gg-global\.cu-off #gg_set_catchup_off\s*\{"));
             string[] v45Classes = ["vlead", "vtie", "vhas", "vstrip", "vlock", "changed", "vrand", .. Enumerable.Range(0, 11).Select(k => $"w{k}")];
             var v45Unstyled = v45Classes.Where(cls => !Regex.IsMatch(rules, $@"\.{Regex.Escape(cls)}\b")).ToList();
             Check($"Where the votes go: its classes each have a rule{(v45Unstyled.Count > 0 ? ": none for " + string.Join(", ", v45Unstyled) : "")}; the layout holds every card's bar and its voters on pointing, the strip's nine segments and the waiting line",

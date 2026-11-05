@@ -58,8 +58,8 @@ static partial class Program
     static void RulesSelfTest(Action<string, bool> Check)
     {
         // ---- the fun page: the settings ----
-        Check($"Fun page: {Fun.Settings.Length} settings - the layout's {Fun.Rows} rows and the two fixed rows of the grenade drops and catch-up - each with 2 or {Fun.ChoicesPerRow} choices, the first setting nothing (no player's change) - or, On by default, every convar of the setting to the server's own value",
-            Fun.Settings.Length == Fun.Rows + 2 && Fun.Settings[^2].Id == "drops" && Fun.Settings[^1].Id == "catchup" && Fun.Settings.All(s => s.Choices.Length is >= 2 and <= Fun.ChoicesPerRow && s.Choices.Skip(1).All(c => c.Sets.Length > 0)
+        Check($"Fun page: {Fun.Settings.Length} settings - the layout's {Fun.Rows} rows, the grenade drops and catch-up the last two - each with 2 or {Fun.ChoicesPerRow} choices, the first setting nothing (no player's change) - or, On by default, every convar of the setting to the server's own value",
+            Fun.Settings.Length == Fun.Rows && Fun.Settings[^2].Id == "drops" && Fun.Settings[^1].Id == "catchup" && Fun.Settings.All(s => s.Choices.Length is >= 2 and <= Fun.ChoicesPerRow && s.Choices.Skip(1).All(c => c.Sets.Length > 0)
                 && (s.Normal.Sets.Length == 0 || (Fun.ConVarsOf(s).All(cv => s.Normal.Sets.Any(x => x.ConVar == cv)) && s.Normal.Sets.All(x => s.Stock.Any(y => y.ConVar == x.ConVar && Fun.Same(y.Value, x.Value)))))));
         var onByDefault = Fun.Settings.Where(s => s.Normal.Sets.Length > 0).ToList();
         Check($"Fun page: friendly fire, Instakill, the grenade drops and catch-up are the settings On by default ({string.Join(", ", onByDefault.Select(s => s.Id))}), each On or Off - Grenades x{Fun.GrenadeShare} is Off by default; Instakill and Grenades x{Fun.GrenadeShare} need friendly fire on",
@@ -104,10 +104,8 @@ static partial class Program
         else Console.WriteLine($"skip the server cfg checks: {ServerCfgFile} not found");
         Check("Values compare as the game prints them: 301.993 is 301.993377, false is 0, TRUE is 1, 5.2 is 5.200000; 12 is not 100",
             Fun.Same("301.993", "301.993377") && Fun.Same("false", "0") && Fun.Same("TRUE", "1") && Fun.Same("5.2", "5.200000") && !Fun.Same("12", "100") && !Fun.Same("0", "1") && !Fun.Same(null, "1"));
-        Check("A change says itself on the centre screen and, as its command, in chat (no news-line copy) - every row alike, the grenade drops and catch-up too",
-            Fun.CentreLine("Remy", Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "low")!) == "Remy set Gravity to Low" && Fun.CentreLine("Remy", Fun.Find("gravity")!, Fun.Find("gravity")!.Normal) == "Remy put Gravity back to normal"
-            && Fun.CentreLine("Remy", Fun.Find("drops")!, Fun.Find(Fun.Find("drops")!, "off")!) == "Remy turned Grenade drops off" && Fun.ChatWords(Fun.Find("catchup")!, Fun.Find(Fun.Find("catchup")!, "off")!) == "!catchup off"
-            && Fun.Settings.All(s => s.Choices.All(c => ChatCommands.Parse(Fun.ChatWords(s, c)) is { Kind: ChatCommands.Kind.Fun } p && p.Arg == $"{s.Id} {c.Id}")));
+        Check("A setting's own word in chat (!gravity low) is that change, every row alike, the grenade drops and catch-up too",
+            ChatCommands.Parse("!catchup off") is { Kind: ChatCommands.Kind.Fun, Arg: "catchup off" } && Fun.Settings.All(s => s.Choices.All(c => ChatCommands.Parse($"!{s.Id} {c.Id}") is { Kind: ChatCommands.Kind.Fun } p && p.Arg == $"{s.Id} {c.Id}")));
 
         // ---- the fun page: a map's worth of player changes, on a dictionary standing in for the game's convars ----
         var live = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

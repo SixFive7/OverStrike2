@@ -604,7 +604,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     }
 
     /// <summary>gg_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a player's change from the menu's fun page or chat (the HUD runs it, naming who
-    /// asked; once the value has landed the centre of the screen says who switched what, and chat says it as the command). gg_fun reset
+    /// asked; once the value has landed its message says who switched what: Messages.FunChanged). gg_fun reset
     /// ["who"]: every player change undone and every effect at its default - the bridge's reset after 10 minutes with nobody on, and the
     /// page's Default. Bare gg_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
     [ConsoleCommand(Fun.Command, "Fun settings: gg_fun <setting> <choice> [who] | gg_fun reset [who] | gg_fun")]

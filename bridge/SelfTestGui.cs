@@ -232,7 +232,7 @@ static partial class Program
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),
             ("!restart", "Game: Restart the server (twice)", HudMenu.Command(HudMenu.Restart, catalog, live, mine, 1, DateTime.UtcNow), "!restart"),
             ("!rematch", "Game: Restart the match (twice)", HudMenu.Command(HudMenu.Rematch, catalog, live, mine, 1, DateTime.UtcNow), "!rematch"),
-            ("!nades on|off", "Fun: Grenade drops (a fun setting)", HudMenu.NadesOn + " " + HudMenu.NadesOff, "gg_set_nades_on gg_set_nades_off"),
+            ("!nades on|off", "Fun: Grenade drops (a fun setting)", HudMenu.FunClick(HudMenu.FunButton(17, 1)) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.FunButton(17, 2)) is ({ Id: "drops" }, { Id: "off" }) ? "gg_f17_1 gg_f17_2" : null, "gg_f17_1 gg_f17_2"),
             ("!gg !info", "Board: Open full menu; TAB + E", HudView.BoardOpen, "gg_b_open"),
             ("!help !maps", "Help page", HudView.Tabs.First(t => t.Page == HudSlots.Page.Help).Id, "gg_tab_help"),
         };

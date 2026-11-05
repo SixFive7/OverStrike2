@@ -480,8 +480,8 @@ public static class HudVote
         return null;
     }
 
-    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
-    /// settings, in Arms Race only (the rows are Arms Race's own).</summary>
+    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
+    /// settings, in Arms Race only (the rows are Arms Race's own). This content has them as rows of the grid (HudMenu.FunPage) and no rule for these classes.</summary>
     public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
     {
         bool? On(string id) => !armsRace || Fun.Find(id) is not { } s ? null : Fun.Showing(s, value).Id == "on";
