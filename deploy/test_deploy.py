@@ -318,17 +318,38 @@ with tempfile.TemporaryDirectory() as tmp:
     finally:
         S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before = saved
 
-# ---- compose.yml and its installer: everything they name is in the checkout, and they ship what the deploy scripts ship
+# ---- the bridge's build context: bridge/ and core/ as the repository lays them out, the Dockerfile at bridge/Dockerfile
+import io  # noqa: E402
 import re  # noqa: E402
+import tarfile  # noqa: E402
+
+saved_clean = os2.clean_tree
+try:
+    os2.clean_tree = lambda paths: "test"      # the context is HEAD's either way; a dirty tree is refused in real use
+    _commit, ctx = B.Bridge.context(None)
+finally:
+    os2.clean_tree = saved_clean
+names = set(tarfile.open(fileobj=io.BytesIO(ctx)).getnames())
+check("bridge context: bridge/ and core/ at their own paths, the Dockerfile at bridge/Dockerfile, no bin/obj and no core self-test",
+      {"bridge/Dockerfile", "bridge/GunGameBridge.csproj", "bridge/maps.json", "core/OverStrike2.Core.csproj", "core/Settings.cs"} <= names
+      and not [n for n in names if n.startswith("core/SelfTest") or "/bin/" in n or "/obj/" in n] and B.DOCKERFILE == "bridge/Dockerfile")
+bridge_df = open(os.path.join(os2.REPO, "bridge", "Dockerfile"), encoding="utf-8").read()
+sources = [s.rstrip("/") for line in re.findall(r"^COPY (?!--from)(.+)$", bridge_df, re.M) for s in line.split()[:-1]]
+check("bridge context: every source the Dockerfile copies is in it (%s)" % ", ".join(sources),
+      sources and all(s in names or any(n.startswith(s + "/") for n in names) for s in sources))
+
+# ---- compose.yml and its installer: everything they name is in the checkout, and they ship what the deploy scripts ship
 
 DEPLOY = os.path.join(os2.REPO, "deploy")
 compose = open(os.path.join(DEPLOY, "compose.yml"), encoding="utf-8").read()
 dockerfile = open(os.path.join(DEPLOY, "installer", "Dockerfile"), encoding="utf-8").read()
 install = open(os.path.join(DEPLOY, "installer", "install.sh"), encoding="utf-8").read()
 named = sorted(set(re.findall(r"(\.\./[\w./-]+?)(?=:|\s|$)", compose)))
-check("compose: every file of the checkout it mounts or builds from is there (%d)" % len(named),
+dockerfiles = re.findall(r"^\s+dockerfile: (\S+)", compose, re.M)   # relative to the context, the repository root (context: ..)
+check("compose: every file of the checkout it mounts or builds from is there (%d, and the Dockerfiles %s)" % (len(named), ", ".join(dockerfiles)),
       named and all(os.path.exists(os.path.normpath(os.path.join(DEPLOY, p))) for p in named)
-      and os.path.isfile(os.path.join(os2.REPO, "bridge", "Dockerfile")) and "dockerfile: deploy/installer/Dockerfile" in compose)
+      and sorted(dockerfiles) == ["bridge/Dockerfile", "deploy/installer/Dockerfile"] and compose.count("context: ..") == 2
+      and all(os.path.isfile(os.path.join(os2.REPO, d)) for d in dockerfiles))
 copied = [s for line in re.findall(r"^COPY (?!--from)(.+)$", dockerfile, re.M) for s in line.split()[:-1]]
 check("installer: every source its Dockerfile copies from the checkout is there (%d)" % len(copied),
       copied and all(os.path.exists(os.path.join(os2.REPO, s)) for s in copied))

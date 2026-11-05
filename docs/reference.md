@@ -483,7 +483,7 @@ pushes its log with `logaddress_add_http`: a `POST` per tick, one or more lines,
 cd bridge
 dotnet build                     # zero warnings expected
 dotnet run -- --selftest         # the parser, the lists, the queue, the votes, the dice, the HUD, the rules; exit 1 on failure
-docker build -t localhost/overstrike2-bridge .
+docker build -t localhost/overstrike2-bridge -f Dockerfile ..   # the context is the repository root: the bridge takes core/ too
 ```
 
 Native AOT does not cross-compile between operating systems, so the image's build stage is the Linux publish. To run the bridge

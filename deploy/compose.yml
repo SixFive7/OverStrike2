@@ -61,7 +61,9 @@ services:
       TV_DELAY: "" # empty on purpose: with a value the image appends a line to every gamemode cfg, and one of Valve's has no final newline
 
   bridge:
-    build: ../bridge
+    build:
+      context: .. # the repository: the bridge's sources and core/, which it shares with the server programs
+      dockerfile: bridge/Dockerfile
     image: localhost/overstrike2-bridge # "localhost/": never fetched from a public registry
     pull_policy: build
     restart: always

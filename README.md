@@ -262,7 +262,7 @@ cd bridge && dotnet build && dotnet run -- --selftest        # the bridge, the s
 cd plugin/OverStrike2 && dotnet build -c Release              # the plugin (warnings are errors)
 cd plugin/OverStrike2.SelfTest && dotnet run                  # the grenade logic
 cd plugin/CatchUp/SelfTest && dotnet run                      # the catch-up rules, replayed against a real match's log
-docker build -t localhost/overstrike2-bridge bridge           # the bridge's image (native AOT inside the SDK image)
+docker build -t localhost/overstrike2-bridge -f bridge/Dockerfile .   # the bridge's image (native AOT inside the SDK image; it takes core/ too)
 docker run --rm -v "$PWD/server:/repo:ro" -w /repo python:3.9-slim python test_update_watch.py   # the restart watcher
 python server/test_workshop_sync.py                           # the Workshop sync
 python bridge/search-index.py --check                         # the search text is in step with the map list

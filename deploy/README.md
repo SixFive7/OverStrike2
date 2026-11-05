@@ -8,7 +8,7 @@ environment (`"env:NAME"` values). Nothing here prints a credential.
 | Script | Does | Restarts |
 |---|---|---|
 | `bridge.py check` | what would ship, the running bridge and its image, players, the server lock | nothing |
-| `bridge.py build [--tag T]` | builds the committed `bridge/` with WSL containers or Docker at below normal priority, saves the image and loads it into the server's Docker as `<image>:<commit>` and `<image>:candidate` (or `:T`) | nothing |
+| `bridge.py build [--tag T]` | builds the committed `bridge/` and `core/` with WSL containers or Docker at below normal priority, saves the image and loads it into the server's Docker as `<image>:<commit>` and `<image>:candidate` (or `:T`) | nothing |
 | `bridge.py build-remote [--tag T]` | the same image, built by the server's Docker from an uploaded build context | nothing |
 | `bridge.py swap` / `update` / `rollback` | replaces the bridge container's image with `:candidate` (`update` = check, build, swap), verified, keeping the old one as `:previous`; a stopped bridge is swapped too and started on the new image | the bridge alone, for seconds; nobody is disconnected |
 | `bridge.py promote` | points `:latest` at `:candidate` without touching a container, for a redeploy of the whole stack (the bridge's compose service changed, or the first switch to this image) | nothing until the redeploy - which restarts the game server too |

@@ -2,7 +2,7 @@
 """The bridge's image, built here and shipped to the server's Docker - no registry, no CI.
 
     python deploy/bridge.py check                 read-only: what would ship, the running bridge, players, the server lock
-    python deploy/bridge.py build [--tag T]       build the committed bridge/ locally, save it, load it into the server's Docker
+    python deploy/bridge.py build [--tag T]       build the committed bridge/ and core/ locally, save it, load it into the server's Docker
     python deploy/bridge.py build-remote [--tag T]   the same image, built by the server's Docker from an uploaded context
     python deploy/bridge.py images                read-only: the bridge image's tags on the server
     python deploy/bridge.py swap                  recreate the bridge container on <image>:candidate, verified; the game keeps running
@@ -17,7 +17,8 @@ Tags on the server: <image>:<commit> for every build (immutable), <image>:candid
 --tag builds <image>:<T> instead and leaves candidate alone (a test build).
 
 The local build engine is build.engine in the private config: "wslc" (WSL containers) or "docker". The build runs at below
-normal priority. What ships is the committed bridge/ at HEAD, never uncommitted files.
+normal priority. What ships is the committed bridge/ and core/ at HEAD (the context is the repository's layout of the two; the
+Dockerfile is bridge/Dockerfile), never uncommitted files.
 
 The swap does for the bridge alone what compose would do, so nobody is disconnected: the container is stopped, renamed aside,
 created anew under its own name from its own inspect (environment, labels - compose's included, so it stays in its stack -
@@ -46,6 +47,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import os2  # noqa: E402
 
 BELOW_NORMAL, NO_WINDOW = 0x00004000, 0x08000000
+SOURCES = ["bridge", "core"]        # the build context: the bridge, and core/, the library it shares with the server programs
+DOCKERFILE = "bridge/Dockerfile"    # within that context
 
 INNER_GET = "import sys,urllib.request;print(urllib.request.urlopen(sys.argv[1],timeout=5).read().decode())"
 INNER_RCON = r"""
@@ -73,22 +76,26 @@ class Bridge:
     # ---- what ships
 
     def context(self):
-        """The committed bridge/ at HEAD as a tar, without what bridge/.dockerignore keeps out."""
-        commit = os2.clean_tree(["bridge"])
-        raw = subprocess.run(["git", "-C", os2.REPO, "archive", "--format=tar", "HEAD:bridge"], capture_output=True).stdout
+        """The build context as a tar: the committed bridge/ and core/ (the library it shares with the server programs) at HEAD, as
+        the repository lays them out - the Dockerfile is bridge/Dockerfile - without what bridge/.dockerignore keeps out (in either)
+        and without core's self-test."""
+        commit = os2.clean_tree(SOURCES)
+        raw = subprocess.run(["git", "-C", os2.REPO, "archive", "--format=tar", "HEAD", "--", *SOURCES], capture_output=True).stdout
         src = tarfile.open(fileobj=io.BytesIO(raw))
         names = {m.name for m in src.getmembers()}
         ignore = []
-        if ".dockerignore" in names:
-            ignore = [l.strip().rstrip("/") for l in src.extractfile(".dockerignore").read().decode().splitlines()
+        if "bridge/.dockerignore" in names:
+            ignore = [l.strip().rstrip("/") for l in src.extractfile("bridge/.dockerignore").read().decode().splitlines()
                       if l.strip() and not l.startswith("#")]
+        left_out = [f"{d}/{p}" for d in SOURCES for p in ignore] + ["core/SelfTest"]
         out = io.BytesIO()
         with tarfile.open(fileobj=out, mode="w") as dst:
             for m in src.getmembers():
-                if any(m.name == p or m.name.startswith(p + "/") for p in ignore):
+                if any(m.name == p or m.name.startswith(p + "/") for p in left_out):
                     continue
                 dst.addfile(m, src.extractfile(m) if m.isfile() else None)
-        os2.log(f"build context: the committed bridge/ at {commit} ({len(out.getvalue()) // 1024} KB), left out: {', '.join(ignore) or 'nothing'}")
+        os2.log(f"build context: the committed {' and '.join(s + '/' for s in SOURCES)} at {commit} ({len(out.getvalue()) // 1024} KB), "
+                f"left out: {', '.join(left_out)}")
         return commit, out.getvalue()
 
     # ---- build
@@ -106,7 +113,8 @@ class Bridge:
                                   subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=flags))[1]
         os2.log(f"building {image} locally with {engine} (below normal priority)")
         t0 = time.time()
-        r = run([engine, "build", "-t", image, "-l", f"org.opencontainers.image.revision={commit}", "-l", "org.opencontainers.image.title=Over Strike 2 bridge", work], "build")
+        r = run([engine, "build", "-t", image, "-f", os.path.join(work, *DOCKERFILE.split("/")), "-l", f"org.opencontainers.image.revision={commit}",
+                 "-l", "org.opencontainers.image.title=Over Strike 2 bridge", work], "build")
         if r.returncode != 0:
             os2.fail(f"{engine} build: exit {r.returncode}\n" + (r.stdout + r.stderr)[-3000:])
         os2.log(f"built in {time.time() - t0:.0f} s; saving")
@@ -128,7 +136,7 @@ class Bridge:
     def build_remote(self, tag):
         commit, ctx = self.context()
         image = f"{self.repo}:{tag or commit}"
-        q = {"t": image, "rm": "1", "forcerm": "1",
+        q = {"t": image, "dockerfile": DOCKERFILE, "rm": "1", "forcerm": "1",
              "labels": json.dumps({"org.opencontainers.image.revision": commit, "org.opencontainers.image.title": "Over Strike 2 bridge"})}
         if self.cfg.get("build.network_host", False):
             q["networkmode"] = "host"
@@ -155,8 +163,8 @@ class Bridge:
 
     def check(self):
         commit = os2.git("rev-parse", "--short=12", "HEAD")
-        dirty = os2.git("status", "--porcelain", "--", "bridge")
-        os2.log(f"would ship: the committed bridge/ at {commit}" + (" (uncommitted changes in bridge/ are NOT shipped - commit first)" if dirty else ""))
+        dirty = os2.git("status", "--porcelain", "--", *SOURCES)
+        os2.log(f"would ship: the committed bridge/ and core/ at {commit}" + (" (uncommitted changes there are NOT shipped - commit first)" if dirty else ""))
         address = self.cfg.get("server.address", "")
         if address:
             on = os2.humans(address)
