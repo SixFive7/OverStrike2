@@ -146,7 +146,7 @@ static partial class Program
             && !p6.VisitDue(t.AddMinutes(1)) && Do(() => p6.VisitNow(t.AddMinutes(2))) && p6.VisitDue(t.AddMinutes(2)) && Do(p6.VisitStarted) && Do(() => p6.PageAnswer(true, t.AddMinutes(2)))
             && !p6.VisitDue(t.AddMinutes(18)));
         static bool Do(Action a) { a(); return true; }
-        // Steam's not-shown page (#19): the old Error page and since 2026-10-31 an HTTP 500 titled "Steam Workshop".
+        // Steam's not-shown page: the old Error page and since 2026-10-31 an HTTP 500 titled "Steam Workshop".
         const string NewPage = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Steam Workshop</title><link rel=\"stylesheet\" href=\"x.css\"></head><body><div id=\"root\"></div></body></html>";
         Check("HUD check (#19): Steam's new HTTP 500 page titled \"Steam Workshop\" means not shown to everybody; a 500 without that title (an outage) is still no verdict",
             HudCheck.PagePublic(500, NewPage) == false && HudCheck.PagePublic(500, "<html><head><title>500 Internal Server Error</title></head></html>") == null

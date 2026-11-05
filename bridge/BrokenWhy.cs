@@ -1,8 +1,8 @@
-// Why a map is broken (the owner, 2026-11-01, #8 and #11): every broken map says why, on its HUD card, in the confirm before anyone loads
+// Why a map is broken: every broken map says why, on its HUD card, in the confirm before anyone loads
 // it - "may restart the server" only where that is true. broken.json's entries carry a short "reason" for the maps that
 // break something else (adverts, a player's HUD); a crasher without one keeps "crashed N of N test loads and may restart the server".
 //
-// And the maps that crash the players' games rather than the server (#6): 3 or more players timing out within 60 s of entering a map,
+// And the maps that crash the players' games rather than the server: 3 or more players timing out within 60 s of entering a map,
 // while the server keeps answering (their disconnects reach the log, so it is up), mark that map broken by itself - kept in state.json
 // with its reason, never rolled, a pick asks to confirm with that reason, its ballot card shows it. A Workshop update of the map lifts the
 // mark (CrashWatch.cs).

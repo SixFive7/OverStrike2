@@ -16,7 +16,7 @@
 //     gg-updated\t1\t<kind>\t<words>         or what it is updated to as players read it ("CS2 1.41.9.5"); may be empty
 //   Both answer "ok: ..." when taken and "refused: ..." when not, like POST /quitting (CrashWatch.cs), which still comes right before the quit.
 //
-// Before: a warning on the news line that stays until the restart - a newer line covers it while it lasts, then it comes back - with its
+// Before: a warning on the top line that stays until the restart - a newer line covers it while it lasts, then it comes back - with its
 // countdown, and the restart in the live state (HudState's rst line: the kind, when, the seconds left and the moment it goes, the words), in parts
 // each surface draws in its own way. Each step is said once in chat and on the board, by the catalogue's row for it (Messages.cs; SayRestart): waiting for the match's end the status
 // banner, a CS2 update the top line instead, both until the restart; counting down the countdown banner. A restart at the match's end opens no vote at that match end - the server goes
@@ -151,7 +151,7 @@ static partial class Program
         return r.GoesAt == null ? $"{k.Why}: the server restarts at the end of this match - {k.After}" : $"{k.Why}: the server restarts in {M.V(left)} - {k.After}";
     }
 
-    /// <summary>The words a line about this restart starts with, however much is left: the news line that starts so is this restart's, and follows its countdown.</summary>
+    /// <summary>The words a line about this restart starts with, however much is left: the top line that starts so is this restart's, and follows its countdown.</summary>
     static string RestartStem(RestartNotice r, (string Kind, string Why, string After) k) => r.Kind == PlayerKind ? $"{r.By} is restarting the server" : $"{k.Why}: the server restarts";
 
     /// <summary>A restart announced, or starting to count down: said once, in chat and on the board, by the catalogue's row for this step.</summary>
@@ -161,7 +161,7 @@ static partial class Program
         Post(kind, RestartLine(r, r.GoesAt is { } at ? LeftWords(at, now) : "")!, seconds: seconds);
     }
 
-    /// <summary>Into the live state: the restart coming, in its parts, and its warning on the news line while no newer line covers it - with the
+    /// <summary>Into the live state: the restart coming, in its parts, and its warning on the top line while no newer line covers it - with the
     /// countdown of this moment, also where the line on is the warning as it was announced.</summary>
     static void PutRestart(HudState h, DateTime now)
     {

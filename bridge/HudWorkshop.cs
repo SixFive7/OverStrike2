@@ -1,4 +1,4 @@
-// Playing a Workshop map that is not on the list (2026-10-21): a player types its id on the menu's keyboard, or pastes a link in chat,
+// Playing a Workshop map that is not on the list: a player types its id on the menu's keyboard, or pastes a link in chat,
 // and the map browser shows a card for it instead of an empty page. The plugin asks the Steam Web API about the item first (the game server reaches Steam; the bridge stays off the internet) and refuses one that is gone, private, banned or not for CS2, saying so. Otherwise one click downloads
 // it into the server's own Workshop cache with MultiAddonManager's mm_download_addon - nothing changes for anybody meanwhile - and only
 // once it is installed does the plugin ask the bridge for the change (!map <id>), so the map loads at once instead of stalling the server

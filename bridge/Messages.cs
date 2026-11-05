@@ -287,8 +287,7 @@ public static class Messages
         return shown;
     }
 
-    /// <summary>One line more for a board's list, a key's older version out, the oldest out at LatelyKeep. Returns whether the line is new to chat too (a line
-    /// with a key says so only when asked: its chat copy has its own step).</summary>
+    /// <summary>One line more for a board's list, a key's older version out, the oldest out at LatelyKeep.</summary>
     public static void AddLately(List<LatelyLine> lines, LatelyLine line)
     {
         if (line.Key != "") lines.RemoveAll(l => l.Key == line.Key && l.Account == line.Account);

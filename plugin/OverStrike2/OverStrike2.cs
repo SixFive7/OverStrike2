@@ -8,16 +8,13 @@ using Part = OverStrike2.Core.Part;
 namespace OverStrike2;
 
 /// <summary>The server's one CounterStrikeSharp plugin: the HUD and the menu, the chat commands, the vote's freeze, the grenade drops, the
-/// settings module and the fun page, catch-up and the game modes. Its interface comes in one of two forms, chosen by the cs2 service's
-/// Hud.AddonVariable (OS2_HUD_ADDON; HudAddon.cs reads the old name too, until the next release):
-///
-///   - set (the Workshop id of the published HUD addon): the HUD - the full menu (maps with full-text search on an on-screen keyboard, unlisted
-///     Workshop ids, the queue, settings, help, rules), the board beside the scoreboard as a click action panel while TAB is held, a now-playing
-///     card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Hud.cs; the layout is the Workshop addon in
-///     hud/, which MultiAddonManager hands out. A real join gets the welcome window, until its X.
+/// settings module and the fun page, catch-up and the game modes. Its interface is the HUD: the full menu (maps with full-text search on an
+/// on-screen keyboard, unlisted Workshop ids, the vote, settings, help), the board beside the scoreboard as a click action panel while TAB is held,
+/// a now-playing card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Hud.cs;
+/// the layout is the Workshop addon in hud/, which MultiAddonManager hands out. A real join gets the welcome window, until its X.
 ///
 /// The bridge decides when to show the welcome (a real join, read off the log) and asks over RCON with css_guide. Chat: a line that starts with
-/// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); with the HUD drawn a pasted Workshop link opens its card.</summary>
+/// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
     public const string Version = "5.0.0";
@@ -62,7 +59,7 @@ public class OverStrike2Plugin : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         AddCommandListener("say", OnSay);
         AddCommandListener("say_team", OnSay);
-        // The modules' console commands keep their names (gg_fun, mapreset_*), so the bridge and the restart watcher talk to them as before.
+        // The bridge and the restart watcher talk to the modules by their console commands (gg_fun, mapreset_*).
         settings = new Settings(this, Logger);
         settings.Load(hotReload);
         RegisterConsoleCommandAttributeHandlers(settings);
@@ -180,7 +177,7 @@ public class OverStrike2Plugin : BasePlugin
     }
 
     /// <summary>A player's chat line. It always shows as they typed it: the plugin only reads it (a / line is CounterStrikeSharp's silent trigger,
-    /// which hides it). A line that starts with ! or / is a chat command, a bare number a vote while one is open; with the HUD drawn a Workshop
+    /// which hides it). A line that starts with ! or / is a chat command, a bare number a vote while one is open; a Workshop
     /// link or id opens that item in the menu, which is the one thing worth pasting: the keyboard cannot paste.</summary>
     HookResult OnSay(CCSPlayerController? player, CommandInfo info)
     {

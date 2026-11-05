@@ -20,7 +20,7 @@
 // as on the server's disk when it is liked, ours, or within the first KeepTop - KeptMargin of a list - the margin covers a list that moved since
 // the server last stored it - unless the restart watcher's report covers it and says it is not there, or workshop.json says its content changed
 // since the version the sync accepts (loading it would download the update first). Without ratings.json there is no keep set to go by, and
-// every eligible listed map counts, as before the keep set.
+// every eligible listed map counts.
 //
 // Fresh: uploaded in the last FreshDays (NEW UPLOAD), or its content changed in the last FreshDays and that content passed the sync's test
 // (UPDATED). Without workshop.json no map is fresh.
@@ -311,7 +311,7 @@ static partial class Program
         return MapTags.Join(tags);
     }
 
-    /// <summary>The news line's few words of why: " (liked by us)", or nothing.</summary>
+    /// <summary>The top line's few words of why: " (liked by us)", or nothing.</summary>
     static string WhyNote(MapInfo m) => MapTags.WhyWords(TagsOf(m), picked: false) is { Length: > 0 } w ? $" ({w})" : "";
 
     /// <summary>The health page's line about the Workshop's numbers and the kept maps.</summary>

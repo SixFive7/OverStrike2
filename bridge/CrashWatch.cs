@@ -1,5 +1,5 @@
-// The crash counter, working at last (open since 2026-10-05). It used to wait for a change of the X-Server-Instance-Token, which CS2 does
-// not renew per process, so a map that took the live server down was never marked. Now it reads RCON status's "spawn" line - how many maps
+// The crash counter. A change of the X-Server-Instance-Token cannot tell a crash: CS2 does not renew it per process, so a map that took the live
+// server down would never be marked. It reads RCON status's "spawn" line - how many maps
 // this server PROCESS has loaded, 1 for its boot map - a few seconds after every map start, and once when the bridge starts. Within one
 // process every map start raises it by one (measured: ten map starts after a boot, spawn 10), so a reading that has
 // not risen since the one before means a new process, and the map that was on (or loading) when the old one went is a crash, unless:

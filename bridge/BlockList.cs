@@ -51,7 +51,7 @@ public static class BlockList
         return due;
     }
 
-    /// <summary>What a blocked setting is called on the news line: players' words, not the convar's.</summary>
+    /// <summary>What a blocked setting is called on the top line: players' words, not the convar's.</summary>
     public static string Label(string convar) => convar.ToLowerInvariant() switch
     {
         "game_type" or "game_mode" => "the game mode",
@@ -76,7 +76,7 @@ public static class BlockList
         _ => convar,
     };
 
-    /// <summary>The news line: what the map tried to change, and that it was undone. At most 240 characters.</summary>
+    /// <summary>The top line: what the map tried to change, and that it was undone. At most 240 characters.</summary>
     public static string Notice(List<string> labels)
     {
         var list = labels.Count switch { 0 => "a setting", 1 => labels[0], _ => string.Join(", ", labels.Take(labels.Count - 1)) + " and " + labels[^1] };

@@ -699,7 +699,7 @@ public static class HudMenu
 /// pictures outright (its window is the one that may not load http or https, 47 forms tested on 2026-11-01), so every thumbnail is in the
 /// Workshop addon - each map's Workshop preview as a small JPEG, which the resource compiler stores as it is, or for an official map the
 /// game's own screenshot - and the card picks one with classes. Maps that are not listed yet ship theirs too (hud/thumbs.py --ahead), so
-/// a map the nightly sync lists later has its picture without a new HUD; a map uploaded after that release has the card's plain backdrop until the next one.
+/// a map the sync lists later has its picture without a new HUD; a map uploaded after that release has the card's plain backdrop until the next one.
 ///
 /// Two classes per picture, not one per map: the game interns every class name the server ever sets on the layout entity, for the
 /// entity's whole life and for all players together, and takes no more than 1,024 (the server logs "The maximum number of class names

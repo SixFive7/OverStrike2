@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The HUD's knife icon, hud/images/knife.png: an original drawing, made here from straight lines and curves - no game art, so the
-public repository alone can rebuild the HUD (the owner's 9 a, 2026-11-02; until content v4.1.0 the icon came from CS2's own HUD art).
+public repository alone can rebuild the HUD.
 White on transparent, tip to the right: the stylesheet washes it gold or dark, and turns it for the emblem. Needs Pillow.
 
     python hud/knife.py

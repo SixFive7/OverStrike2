@@ -1,4 +1,4 @@
-// "Our maps" (the owner, 2026-11-01): the maps the server's owner made or publishes get a section of their own - a filter on the HUD's
+// "Our maps": the maps the server's owner made or publishes get a section of their own - a filter on the HUD's
 // map browser and a tag on their cards. Which maps they are is data, never code: ours.json beside maps.json (on the
 // /data volume, like every list), read again while the bridge runs (Reload.cs). Adding a map later is a data change only: its entry on
 // maps.json (or any listed id) and its id here.

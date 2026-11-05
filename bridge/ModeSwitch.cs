@@ -205,7 +205,7 @@ static partial class Program
         Log($"reset: nobody on for over {ResetEmptyMinutes} min in {from} - back to {Modes.Default.Name} on {Label(Pending!.Map)}");
     }
 
-    /// <summary>The mode's name after a map's label when it is not the mode the server is in: what the ballot and the news line show.</summary>
+    /// <summary>The mode's name after a map's label when it is not the mode the server is in: what the ballot and the top line show.</summary>
     static string ModeTag(MapInfo m) => ModeOf(m).Id == CurrentMode.Id ? "" : $" - {ModeOf(m).Name}";
 
     /// <summary>The health page's line about the modes.</summary>

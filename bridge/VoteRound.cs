@@ -131,7 +131,7 @@ static partial class Program
     const double RefusedQuietSeconds = 10;
     static readonly Dictionary<string, DateTime> RefusedSaid = new();
 
-    /// <summary>Nobody may call a vote now and this player tried: their own line says why, and chat and the board name them, for everybody (the owner's note).</summary>
+    /// <summary>Nobody may call a vote now and this player tried: their own line says why, and chat and the board name them, for everybody.</summary>
     static void RefuseCall(string by, string steamId, (string You, string All) no, DateTime now)
     {
         Log($"vote: {by} {steamId} tried to call one - {no.You}");
@@ -151,7 +151,7 @@ static partial class Program
     static string VoteLineKey(MatchVote b) => $"vote{b.Round}";
 
     /// <summary>What every vote says in chat and on the board, one line of at most Messages.ChatLineMax characters: what this player did, who has voted and who still
-    /// has to (the owner's note), each list as many names as fit and +N after them. Half the room for each, and what one leaves goes to the other.</summary>
+    /// has to, each list as many names as fit and +N after them. Half the room for each, and what one leaves goes to the other.</summary>
     static string VoteLine(MatchVote b, string what, DateTime now)
     {
         var voted = b.Choices.Keys.Select(VoterName).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();

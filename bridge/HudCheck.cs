@@ -111,7 +111,7 @@ public static class HudCheck
     /// else). That page comes in two forms: Steam's old Error page, HTTP 200 titled "Steam Community :: Error" ("There was a problem
     /// accessing the item", 2026-10-07, and still on 2026-11-01 for gg_moonglass's update), and since 2026-10-31 Steam's new Workshop page,
     /// an HTTP 500 titled just "Steam Workshop" - gg_vinceville showed it for over 50 minutes under review, and an id that does not exist
-    /// gets it too. Until GunGameWelcome 3.1.3 a 500 was no verdict, so an item hidden that way never dropped the requirement (#19).
+    /// gets it too, and an item hidden that way must drop the requirement.
     /// A 500 without that title (an outage page) stays no verdict. The Web API reports a held item as public: it is only the second
     /// signal (ItemApi).</summary>
     public static bool? PagePublic(int status, string? html)
@@ -180,7 +180,7 @@ public static class HudCheck
     public enum Cause { Unknown, Review, Unavailable }
 
     // ---- the words players get while the HUD is not handed out ----
-    // Who sees what: a player who still has the HUD sees the news line; one who joined while it was not required has no HUD at all, so
+    // Who sees what: a player who still has the HUD sees the banner; one who joined while it was not required has no HUD at all, so
     // chat is the only way to reach them - one private line at their first spawn, and a line for everybody when it is dropped and back.
 
     /// <summary>The status banner when joiners stop getting the HUD: its headline and its line. Who is on keeps the HUD on the map that is on and loses it at the next map change,

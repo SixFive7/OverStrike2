@@ -297,7 +297,7 @@ static partial class Program
                 HudVote.StartLine(VoteState.Decode("mv\t9\topen\t8\t3\t0\tend\t0\t1\n")) == "Match over" && ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow")
                 && !ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds + 1}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow") && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vlow")
                 && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, clock).Classes is var browserPage && browserPage.Contains((HudView.Screen, "vdone", false)) && browserPage.Contains((HudView.Screen, "vlow", false)));
-            Check("A risky card's lock, in the owner's capitals: Locked - Click to unlock, then Click again - Vote anyway",
+            Check("A risky card's lock, with its capitals: Locked - Click to unlock, then Click again - Vote anyway",
                 HudMenu.Locked == "Locked - Click to unlock" && HudMenu.Unlocked == "Click again - Vote anyway" && Capitals([HudMenu.Locked, HudMenu.Unlocked]));
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",
                 Sections.Lower($"Bob voted for {M.A("aim_x - by Somebody")} - {M.V("1 of 2")} voted") == null && Sections.Lower("Bob voted for aim_x - by Somebody") == "by Somebody");

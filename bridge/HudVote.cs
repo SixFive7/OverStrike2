@@ -268,7 +268,7 @@ public static class HudVote
     /// <summary>The inactivity timer as a line of its own says it, for the contents before v4.6.0: Inactivity timer 4 s - Reset by Bob.</summary>
     public static string InactivityLine(VoteState v) => $"Inactivity timer {v.Inactivity} s{(v.ResetBy != "" ? $" - Reset by {Hud.Clean(v.ResetBy, 24)}" : "")}";
 
-    /// <summary>Who started the vote, in the window nobody can close: where the owner wants it, in place of a top line. A match end's vote has nobody.</summary>
+    /// <summary>Who started the vote, in the window nobody can close, in place of a top line. A match end's vote has nobody.</summary>
     public static string StartLine(VoteState v) => v.StarterName != "" ? $"Started by {Hud.Clean(v.StarterName, 24)}" : v.MatchEnded ? "Match over" : "";
 
     /// <summary>The words of the ballot header's two rows. The limit: its digits and how many have voted. The second row: the inactivity timer while the vote is open -

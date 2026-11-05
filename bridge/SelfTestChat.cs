@@ -251,14 +251,14 @@ static partial class Program
     /// <summary>A marked line as chat shows it, with letters for its colours (FakeColours).</summary>
     static string Coloured(string marked) => M.Render(marked, FakeColours);
 
-    /// <summary>The owner's functional colours (his picks of 2026-11-05): every line chat can answer a command with has its parts apart, its sections start with a capital, it fits, and
+    /// <summary>The functional colours: every line chat can answer a command with has its parts apart, its sections start with a capital, it fits, and
     /// what is Lime can be typed. The words themselves are checked above.</summary>
     static void ChatColoursSelfTest(Action<string, bool> Check)
     {
         string T(string line) => Coloured(ChatCommands.Teach(ChatCommands.Parse(line))!);
         string U(string word) => Coloured(ChatCommands.UsageOf(word));
 
-        Check("Chat's colours: the owner's own line - a name in its team's colour, an argument, a value, the words between in the chat's own",
+        Check("Chat's colours: a whole line - a name in its team's colour, an argument, a value, the words between in the chat's own",
             Coloured($"{M.N("Alice")} set {M.A("gravity")} to {M.V("Moon")} - Until the map changes") == "τAliceπ set αgravityπ to νMoonπ - Until the map changes");
         Check("...a name nobody on the server has stays in the colour around it; a refusal's and a done line's words have their own, their parts as ever",
             Coloured($"{M.N("Bob")} set it") == "Bobπ set it" && Coloured(M.Refused($"No {M.A("x")} here")) == "ρNo αxρ here" && Coloured(M.Done($"Your vote: {M.A("y")}")) == "δYour vote: αyδ");

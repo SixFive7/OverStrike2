@@ -60,7 +60,7 @@ sealed partial class HudScreen
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
     readonly Dictionary<int, WorkshopCard> cards = new(); // slot -> that player's card for an unlisted Workshop id
-    (string Text, DateTime Until) localNews = ("", default);  // the news line from here, not the bridge: the restart watcher, the block's notices, the item check
+    (string Text, DateTime Until) localNews = ("", default);  // the older contents' news line from here, not the bridge: the restart watcher, the block's notices, the item check
     readonly Dictionary<int, (string Text, DateTime Until, string Cat)> localNotes = new(); // slot -> a note from here: no line to the bridge
     readonly Dictionary<int, HudBrowser> browsers = new();   // slot -> that player's map browser (sort, filters, page)
     readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
@@ -299,7 +299,7 @@ sealed partial class HudScreen
 
     public void Gone(int slot)
     {
-        // The HUD this player's game showed is forgotten here too, not only at css_guide's real join (which GUIDE_ON_JOIN=0 never sends): a real leave
+        // The HUD this player's game showed is forgotten here too, not only at css_guide's real join (which bridge.guideOnJoin off never sends): a real leave
         // forgets it, and through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read.
         if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving) hudSeen.Remove(Account(leaving));
         slots.Gone(slot);
@@ -933,8 +933,8 @@ sealed partial class HudScreen
         MarkChanged();
     }
 
-    /// <summary>The menu page a player has open, for that player only - and only while it is open: the map browser's eight cards, the
-    /// queue with their own requests' cancel buttons, or the game settings. Everything else on the window is the same for all.</summary>
+    /// <summary>The menu page a player has open, for that player only - and only while it is open: the map browser's cards, the
+    /// ballot, or the game settings. Everything else on the window is the same for all.</summary>
     void Menu(CCSPlayerController p, HudSlots.Page page, HudState shown, long account, DateTime now)
     {
         var (texts, classes) = page switch

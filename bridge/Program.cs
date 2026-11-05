@@ -561,7 +561,7 @@ static partial class Program
         if (S.History.Count > HistoryLength) S.History.RemoveRange(0, S.History.Count - HistoryLength);
     }
 
-    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice (RANDOM_ON_START) - the start roll, one of the
+    /// <summary>Every tick: once per server start, 5 s after the start map has loaded, the dice (bridge.randomOnStart) - the start roll, one of the
     /// automatic changes. Waits out the maintenance flag, a change under way and a vote that is open (whose result settles it: CloseBallot); probes
     /// RCON with a status first (every 10 s until it answers), and the debt stays open until a change command has actually gone out (FireChange).
     /// The status also says which map is loaded: on any other map than START_MAP there is nothing to roll, and a debt from BridgeStart rolls only
@@ -1161,7 +1161,7 @@ static partial class Program
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
         SettingsSelfTest(Check); // SelfTestSettings.cs: the settings file, else the environment, and the line that says which
         MessagesSelfTest(Check); // SelfTestMessages.cs: the catalogue, the marks, the capitals, the routing, the wire, the views
-        PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter, the picture on request
+        PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
         RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the discovery stock, the disk, queues.json and the watcher's report

@@ -1,7 +1,7 @@
 // The in-game HUD - the server's interface, with the chat commands beside it (ChatCommands.cs): one
 // custom_hud_layout window (the menu: maps with full-text search and an on-screen keyboard, the vote, game settings, help and how it works,
 // beside the live map state), the board beside the scoreboard while TAB is held (the click action panel: Start a vote, likes, the menu), a
-// now-playing card, a map-change banner, the news line everybody sees and the note only its player sees. Shared like Guide.cs: the bridge
+// now-playing card, a map-change banner, the top line everybody sees and the line only its player sees. Shared like Guide.cs: the bridge
 // compiles this file (it builds the live state, and --selftest drives everything here on a handed clock), and the OverStrike2 plugin links it
 // in and puts it on screen. Plain BCL only: no CounterStrikeSharp type, no reflection (the bridge is native AOT).
 //
@@ -19,7 +19,7 @@ public static class Hud
     /// <summary>The release in the layout's and the stylesheets' file names (hud/layout/gungame_hud_{ReleaseFile}.xml, hud/styles/gungame_hud_{ReleaseFile}.css,
     /// hud/styles/gungame_hud_thumbs_{ReleaseFile}.css): the one place a version keeps its old form, because every content shipped so far has only these files
     /// and the plugin must keep asking for them. CS2 caches a layout by its path for the whole game session, so a player who still has an older release
-    /// loaded never gets it served for a new one: a new release is a new path (README "Building and publishing the HUD addon").</summary>
+    /// loaded never gets it served for a new one: a new release is a new path (hud/PUBLISH.md).</summary>
     public const string ReleaseFile = "v3_0_0";
 
     /// <summary>The layout's content on that path: the version on HudVote.Contents' last line, so a release adds that one line. A content update keeps the path, so games holding older contents of the same release stay in
@@ -228,7 +228,7 @@ public sealed class HudState
     public string CheckMode = "";                       // the HUD check as configured (HUD_CHECK: off, warn - "dryrun" on the wire - or enforce); empty from an older bridge
     public Dictionary<long, string> Verified = new();   // account id -> the HUD its game showed at the check's click since its last real join (HudCheck.VersionWord), players on the server only
     public string TabMode = "";                         // the TAB chord (HUD_TAB: off, menu, on); empty from an older bridge
-    public string News = "";                            // the news line everybody sees (a pick, a skip vote, the queue moving, a crash)...
+    public string News = "";                            // the news line of the contents before v4.6.0, which everybody sees...
     public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left
     public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Votes.cs)
@@ -243,7 +243,7 @@ public sealed class HudState
     public string RestartWhen = "";                     // ...match-end (at the end of this match) or now
     public int RestartIn = -1;                          // ...its seconds left, -1 while it waits for the match's end
     public long RestartAt;                              // ...the moment it goes, unix seconds (0 while it waits for the match's end): the end time a countdown counts to
-    public string RestartWords = "";                    // ...and the warning in words, as the news line says it
+    public string RestartWords = "";                    // ...and the warning in words, as the top line says it
     public long BgId;                                   // the restart watcher's background download (the bridge's RandomQueue.cs): the map's Workshop id, 0 none
     public int BgPercent = -1;                          // ...its progress, 0-100, -1 before any
     public string BgTitle = "";                         // ...and its title
@@ -511,7 +511,7 @@ public static class HudView
 
     public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
 
-    /// <summary>The board's one line about the vote (its old queue line), about this many characters at the most (the mock review).</summary>
+    /// <summary>The board's one line about the vote, about this many characters at the most.</summary>
     public const int QueueLineMax = 52;
 
     /// <summary>The board's vote line: the vote that is on, its result, the wait before the next one, or how to call one.</summary>
@@ -521,7 +521,7 @@ public static class HudView
         : v.Result is { } r ? Hud.Clean($"The vote {(v.Kept ? "kept" : "chose")} {r.Label}", QueueLineMax) : "The vote is over";
 
     /// <summary>The live texts, the same for everybody. The board (b) and the window's live column (w) show the same facts; the column also lists
-    /// the vote's leading cards (its old queue rows) and the most liked maps, the board has the one vote line.</summary>
+    /// the vote's leading cards and the most liked maps, the board has the one vote line.</summary>
     public static List<(string Id, string Text)> Texts(HudState s, VoteState? v = null)
     {
         var map = s.Map == "" ? "Waiting for the server" : s.Map;
@@ -760,7 +760,7 @@ public static class HudView
     };
 }
 
-/// <summary>Who has what on screen, per player slot, kept free of CounterStrikeSharp like GuidePanel so the bridge's --selftest can drive
+/// <summary>Who has what on screen, per player slot, kept free of CounterStrikeSharp so the bridge's --selftest can drive
 /// it on a handed clock. The plugin feeds it events and asks Frame for the wanted view of every slot, then sends only the difference.
 ///
 /// The window opens at every login once the player has spawned (or after WaitLimitSeconds) and stays until its X: it is the welcome, and the X is the

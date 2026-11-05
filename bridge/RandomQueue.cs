@@ -4,7 +4,7 @@
 //  - On the disk: an official map always; a kept map (Popularity.cs: the keep set, which the server stores); a stock entry the restart watcher
 //    reports (POST /ready). The ballot's favourites and other modes' cards are kept maps on the disk; its fresh card a fresh one of those or of
 //    the stock's; its surprise the stock's; Random and the automatic changes any of them (RandomNext). Only when none is left do the dice roll
-//    over every eligible map (RandomPick), as before there was a stock - the one case that can still download.
+//    over every eligible map (RandomPick) - the one case that can still download.
 //  - The stock: per mode a lane of StockSize (10; DISCOVERY_STOCK sets 0 to 40, 0 turns it off) kept in state.json. Each entry is rolled with
 //    the dice of a random pick (RollIn: the too-big group 1 time in 100, the last maps played left out, weighted by the points) from the mode's
 //    listed maps the keep set does not hold, never shown on a ballot or played here (S.Met), whose current Workshop content passed the sync's

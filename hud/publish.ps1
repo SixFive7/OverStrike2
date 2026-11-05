@@ -1,7 +1,7 @@
 # The HUD's Workshop item, through the Steam client that is running and logged in on this PC (the publisher never sees a password).
 #
-# NEVER another HUD Workshop item, under any name (AGENTS.md, "cs2 in-game HUD - NEVER create another Workshop item"; user decision
-# 2026-10-21). There is one HUD item, 3823993566, named in workshop_id.txt, and a release - only with the user's go for it - is a
+# NEVER another HUD Workshop item, under any name: Valve holds new items for moderation, and near-identical new items in place of an update are what
+# it frowns on. There is one HUD item, 3823993566, named in workshop_id.txt, and a release - only with the user's go for it - is a
 # content update of that item. Every update waits in Valve's moderation queue. This script and the publisher have no create path: an
 # empty or missing workshop_id.txt is refused, and an upload needs -UserApprovedUpdate.
 #
