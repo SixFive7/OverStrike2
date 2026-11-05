@@ -18,7 +18,7 @@ You need:
 ```sh
 git clone <this repository's URL> OverStrike2
 cd OverStrike2/deploy
-cp overstrike2.example.jsonc overstrike2.jsonc   # your settings: docs/settings.md has every key
+cp overstrike2.example.jsonc overstrike2.jsonc   # your settings: docs/settings.md has every key; hud.addon is required
 cp example.env .env                              # your secrets: CS2_RCONPW and OVERSTRIKE2_BRIDGE_SECRET at least
 mkdir secrets                                    # optional: your Steam Web API key in secrets/steam-webapi-key.txt
 docker compose up -d --build
@@ -27,6 +27,10 @@ docker compose up -d --build
 The first start takes a while: SteamCMD downloads the game, and the installer builds the plugin and the programs. `docker compose logs
 -f cs2` shows the game server; it is ready when it reports its map. Players join with `connect <your address>:27015` in the console.
 `overstrike2.jsonc`, `.env` and `secrets/` stay yours: they are gitignored.
+
+`hud.addon` in your settings is required, and the example has the public HUD's id. Without a usable one, or with a settings file that
+cannot be used, the game server does not start: `docker compose logs cs2` shows an `ALERT` line that says why and how to fix it, and
+Docker keeps trying. Fix the file, then `docker compose up -d --force-recreate cs2 sync bridge`.
 
 ## Updating
 

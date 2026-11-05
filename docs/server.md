@@ -22,16 +22,19 @@ The image's entry script sources `pre.sh` right before it launches the engine. `
 ([`server/OverStrike2.Server/pre.sh`](../server/OverStrike2.Server/pre.sh)) is a launcher: it copies the program from where it is
 shipped (`OS2_SERVER`, else `/home/steam/overstrike2/os2-server`; a read-only or no-exec mount cannot run it) to
 `<game>/update-watch/os2-server`, runs `install`, and starts `watch` in the background. A failure costs the plugin layer and the
-watcher, never the server.
+watcher, never the server, with one exception, because a server without the HUD cannot exist: when `install` refuses the settings file
+(no usable `hud.addon`, or no file it can use; [settings.md](settings.md#how-each-part-reads-it)) it logs one `ALERT` line and exits
+with code 78, and on exactly that code `pre.sh` ends the image's entry script. The engine does not start, Docker's restart policy tries
+again, and the log says why. `watch` and `organize` refuse the same way; `doctor` and `version` still work and say so.
 
 ## The HUD addon
 
-With `hud.addon` set, `install` loads MultiAddonManager and has the server mount the HUD's Workshop item (`mm_extra_addons`). Every map
+`install` loads MultiAddonManager and has the server mount the HUD's Workshop item, `hud.addon` (`mm_extra_addons`). Every map
 change then carries it to every client - a changelevel to an official map included, which dropped a client-only addon
 (`mm_client_extra_addons`) every time - at the cost of one reconnect per change (an official map change took 5-6 s) and about 5 MiB of
 the server's memory. The server's copy is not downloaded again at a mount (`mm_addon_mount_download 0`): clients use their own Steam
 copy, which works even while the server's copy is one release behind. A client that has the addon is not sent it again within the
-server process (`mm_cache_clients_with_addons 1`). Empty `hud.addon`: MultiAddonManager is not loaded at all.
+server process (`mm_cache_clients_with_addons 1`). `hud.addon` is required: the program does not run without it (above).
 
 ## When the server restarts
 

@@ -496,7 +496,7 @@ fall back on those variables when there is no file or the file cannot be used, a
 ## The plugin layer
 
 Before every engine start `os2-server install` puts in the pinned Metamod, CounterStrikeSharp (with its .NET runtime) and MultiAddonManager once per version, re-applies the `gameinfo.gi` search path (every game update rewrites that file), has MultiAddonManager
-mount the HUD's Workshop item (`hud.addon`, [server.md](server.md#the-hud-addon)), and copies every plugin folder in. Nothing in it can stop the launch: every failure is a logged warning and a server without that component. With `plugin.enabled` false it only removes the search path, and the server runs vanilla - the
+mount the HUD's Workshop item (`hud.addon`, [server.md](server.md#the-hud-addon)), and copies every plugin folder in. Only a settings file with no usable `hud.addon` stops the launch ([server.md](server.md#how-it-starts)): every other failure is a logged warning and a server without that component. With `plugin.enabled` false it only removes the search path, and the server runs vanilla - the
 switch for the days after a game update breaks Metamod or CounterStrikeSharp. The bridge goes on rolling maps then. To bump a pin: change the version in `server/OverStrike2.Server/Install.cs`, build the plugin against the same CounterStrikeSharp version, and ship both.
 
 ## Log-line grammar
