@@ -51,7 +51,8 @@ The rules are said in the menu's How it works and Help pages, and `--selftest` h
 
 Only through [deploy/](deploy/), with the private config, and only committed code. What restarts what: data files reload by
 themselves; a bridge swap disconnects nobody; the plugin, `pre.sh` and the game server's settings need a game server restart,
-which disconnects everybody: the watcher does it at once with nobody on, at the end of the match with players on (docs/server.md).
+which disconnects everybody: by hand only at 0 players; the watcher's announced restart is exempt, at once with nobody on, at the end
+of the match with players on (docs/server.md).
 
 ## cs2 in-game HUD — NEVER create another Workshop item
 
