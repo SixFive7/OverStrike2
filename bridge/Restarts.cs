@@ -126,8 +126,7 @@ static partial class Program
     {
         if (RestartDue is not { } r || RestartKind(r.Kind) is not { } k) return null;
         if (r.GoesAt is not { } at) return $"{k.Why}: the server restarts at the end of this match - {k.After}";
-        var left = (int)Math.Ceiling((at - now).TotalSeconds);
-        return left > 0 ? $"{k.Why}: the server restarts in {MapVote.Left(left)} - {k.After}" : $"{k.Why}: the server restarts in a moment - {k.After}";
+        return $"{k.Why}: the server restarts in {Hud.LeftToken} - {k.After}"; // the HUD counts it down from the end time (Hud.LeftToken)
     }
 
     /// <summary>Into the live state: the restart coming, in its parts, and its warning on the news line while no newer line covers it - with the
@@ -136,8 +135,9 @@ static partial class Program
     {
         if (RestartDue is not { } r || RestartLine(now) is not { } line || RestartKind(r.Kind) is not { } k) return;
         h.RestartKind = r.Kind; h.RestartWhen = r.When; h.RestartWords = line;
-        if (r.GoesAt is { } at) (h.RestartIn, h.RestartAt) = (Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)), new DateTimeOffset(at).ToUnixTimeSeconds());
-        if (h.News == "" || h.News.StartsWith(k.Why + ": the server restarts", StringComparison.Ordinal)) (h.News, h.NewsFor) = (line, Math.Max(h.NewsFor, 2)); // refreshed every tick while it stands
+        if (r.GoesAt is { } at) (h.RestartIn, h.RestartAt) = (Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)), HudState.Ms(at) / 1000); // on the same clock as every other end time (HudState.Ms)
+        if (h.News == "" || h.News.StartsWith(k.Why + ": the server restarts", StringComparison.Ordinal)) // refreshed every tick while it stands
+            (h.News, h.NewsFor, h.NewsUntilMs) = (line, Math.Max(h.NewsFor, 2), HudState.Ms(r.GoesAt ?? r.NoticeAt.AddHours(3))); // a fixed end: the state stays the same
     }
 
     /// <summary>A match ended (OnMatchEnd): a restart waiting for it starts its countdown, and no vote opens - an open one is dropped. True when it did.</summary>

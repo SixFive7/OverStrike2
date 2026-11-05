@@ -946,7 +946,8 @@ sealed class HudScreen
         var command = HudView.Command(buttonId, state, vote);
         if (command == null) return $"button {buttonId} sends nothing for account {account} (state {(state == null ? "unknown" : "known")})";
         if (bridge == null) return "no bridge link";
-        bridge.Act(account, "HUDtest", command);
+        var name = Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account)?.PlayerName ?? "HUDtest"; // the player's own name: the bridge keeps it
+        bridge.Act(account, name, command);
         return $"sent {command} for account {account}; the bridge's answer arrives with the next frame";
     }
 
@@ -1028,7 +1029,7 @@ sealed class HudScreen
         latestSent = level;
         foreach (var (name, words) in HudView.PlayersPage(PlayerRows(humans, now))) Var(HudView.Global, name, words); // SERVER, Players
         foreach (var (id, cls, on) in HudVote.ModeClasses(mode.Id)) Class(id, cls, on);
-        Var(HudView.Global, HudVote.VersionVar, Hud.Content);
+        Var(HudView.Global, HudVote.VersionVar, TestLevel is { } faked ? HudVote.ContentOfLevel(faked) : Hud.Content); // css_gghud level fakes the version's name too
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words
         foreach (var (id, cls, on) in HudVote.FixedRowClasses(FunValue, mode.ArmsRace)) Class(id, cls, on); // the Fun page's grenade drops and catch-up rows, lit

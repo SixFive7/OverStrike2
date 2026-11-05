@@ -345,9 +345,9 @@ static partial class Program
                 h1.News == "A CS2 update: the server restarts at the end of this match - restart CS2 afterwards" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
                 && h1.RestartIn == -1 && h1.RestartAt == 0 && h1.RestartWords == h1.News);
             Announce("P1 turned Vampire on", 5);
-            var covered = BuildHud(clock).News == "P1 turned Vampire on";
+            var covered = BuildHud(clock).FillLeft(BuildHud(clock).News) == "P1 turned Vampire on";
             Run(6);
-            Check("...a newer line covers it while it lasts, and it comes back", covered && BuildHud(clock).News.StartsWith("A CS2 update"));
+            Check("...a newer line covers it while it lasts, and it comes back", covered && BuildHud(clock).FillLeft(BuildHud(clock).News).StartsWith("A CS2 update"));
             Run(30);
             ClearNotices();
             Check("...the watcher's reminder changes nothing and says nothing new", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0").StartsWith("ok") && Told.Count == 0 && RestartDue is { GoesAt: null });
@@ -360,7 +360,11 @@ static partial class Program
                 ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
                 && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - restart CS2 afterwards");
             Run(5);
-            Check("...counting down, the news line with it", HudState.Decode(BuildHud(clock).Encode())!.RestartIn == 25 && BuildHud(clock).News.Contains("restarts in 25 s"));
+            Check("...counting down, the news line with it", HudState.Decode(BuildHud(clock).Encode())!.RestartIn == 25 && BuildHud(clock).FillLeft(BuildHud(clock).News).Contains("restarts in 25 s"));
+            Check("...and in the change-driven text its words stand still while it counts down - the HUD fills the countdown in from the end time",
+                BuildHud(clock).Encode(endTimes: true) == BuildHud(clock.AddSeconds(1)).Encode(endTimes: true)
+                && HudState.Decode(BuildHud(clock).Encode(endTimes: true))!.AsOf(HudState.Ms(clock)).News.Contains("restarts in 25 s")
+                && HudState.Decode(BuildHud(clock).Encode(endTimes: true))!.AsOf(HudState.Ms(clock.AddSeconds(30))).RestartWords.Contains("restarts in a moment")); // the news line itself ends at the restart's moment
             ApplyQuitNotice("gg-quit\t1\tupdate");
             Check("The quit's notice: the restart is happening - the warning goes", RestartDue == null && HudState.Decode(BuildHud(clock).Encode())!.RestartKind == "");
             Check("After the reconnect: \"Updated to ...\" on the news line - CS2's new version from what was installed and what is now",
@@ -373,7 +377,7 @@ static partial class Program
             ClearNotices(); Join(players[6]);
             Check("...not later", !Said("Updated to"));
             Check("An update of ours: back in a minute; afterwards no fingerprint on the screen; the words as sent work too; a refused gg-updated changes nothing",
-                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).News == "An Over Strike 2 update: the server restarts in 30 s - back in a minute"
+                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).FillLeft(BuildHud(clock).News) == "An Over Strike 2 update: the server restarts in 30 s - back in a minute"
                 && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
                 && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - welcome back"
                 && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6");
@@ -382,7 +386,7 @@ static partial class Program
                 && RestartDue == null && NewsNow.Text.Contains("no restart after all"));
             StartVote(players[0].Item1, players[0].Item2);
             Check("A restart now while a vote is open drops the vote", Ballot is { Open: true } && ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t45").StartsWith("ok") && Ballot == null
-                && BuildHud(clock).News.StartsWith("The daily restart: the server restarts in 45 s"));
+                && BuildHud(clock).FillLeft(BuildHud(clock).News).StartsWith("The daily restart: the server restarts in 45 s"));
             Run(RestartStaleMinutes * 60 + 60);
             Check($"A countdown {RestartStaleMinutes} minutes past its end without the server going down is over", RestartDue == null && BuildHud(clock).RestartKind == "");
             Check("The live state's restart and background lines read back, and a state without them has none",

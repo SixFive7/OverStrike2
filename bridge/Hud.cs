@@ -49,6 +49,10 @@ public static class Hud
     public const int LongPollSeconds = 25;
     public const string VersionLine = "ver", Unchanged = "unchanged";
 
+    /// <summary>Where a restart's warning says how long is left: the HUD puts the countdown there from the restart's end time (HudState.AsOf), so
+    /// the words stay the same while they count down; a plugin that long-polls no version gets them filled in by the bridge.</summary>
+    public const string LeftToken = "{left}";
+
     /// <summary>The query the plugin adds to its GET of the live state: whether it draws the HUD (draw=1) or runs undrawn (draw=0, no addon). Only
     /// a drawing plugin makes the bridge open votes (the bridge's HudActive); a poll without it is an older plugin's, which counts as drawing.</summary>
     public const string DrawQuery = "draw";
@@ -261,11 +265,17 @@ public sealed class HudState
         foreach (var (account, until) in WhyUntilMs)
             if (Secs(until) is > 0 and var left && Why.TryGetValue(account, out var why)) h.Why[account] = (why.Map, left); else h.Why.Remove(account);
         if (RestartAt > 0) h.RestartIn = Math.Max(0, Secs(RestartAt * 1000));
+        (h.News, h.RestartWords) = (h.FillLeft(h.News), h.FillLeft(h.RestartWords));
         return h;
     }
 
+    /// <summary>A restart's words with its countdown filled in from RestartIn: in so long, or in a moment once it is due.</summary>
+    public string FillLeft(string words) => !words.Contains(Hud.LeftToken, StringComparison.Ordinal) ? words
+        : words.Replace(Hud.LeftToken, RestartIn > 0 ? MapVote.Left(RestartIn) : "a moment", StringComparison.Ordinal);
+
     public string Encode(bool endTimes = false)
     {
+        var (news, restartWords) = endTimes ? (News, RestartWords) : (FillLeft(News), FillLeft(RestartWords)); // counted down by the HUD itself, or filled in now
         var s = new StringBuilder(Magic).Append('\n');
         void Line(params object[] fields) => s.Append(string.Join('\t', fields.Select(f => f is string t ? Hud.Clean(t) : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
         Line("maps", Maps);
@@ -280,8 +290,8 @@ public sealed class HudState
         if (CheckMode != "") Line("chk", CheckMode);
         foreach (var (account, version) in Verified) Line("ok", account, version);
         if (TabMode != "") Line("tab", TabMode);
-        if (News != "" && NewsFor > 0)
-            s.Append(endTimes ? "newsat\t" : "news\t").Append((endTimes ? NewsUntilMs : NewsFor).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(News, 240)).Append('\n');
+        if (news != "" && NewsFor > 0)
+            s.Append(endTimes ? "newsat\t" : "news\t").Append((endTimes ? NewsUntilMs : NewsFor).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(news, 240)).Append('\n');
         foreach (var (account, (text, secs)) in Notes)
             if (text != "" && secs > 0)
                 s.Append(endTimes ? "noteat\t" : "note\t").Append(account.ToString(CultureInfo.InvariantCulture)).Append('\t')
@@ -295,7 +305,7 @@ public sealed class HudState
         if (Ads > 0) Line("ads", Ads);                     // an older plugin skips it
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
-            .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(RestartWords, 240)).Append('\n');
+            .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(restartWords, 240)).Append('\n');
         if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two
         return s.ToString();
     }

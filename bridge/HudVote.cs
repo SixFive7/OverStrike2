@@ -92,6 +92,9 @@ public static class HudVote
     /// <summary>The dialog variables on gg_global that the layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
     public const string VersionVar = "osver", ModeVar = "osmode";
 
+    /// <summary>A content's name for its level, as the banner says it: 47 is v4_7_0 (ContentLevel 46 is Hud.Content, v4_6_0).</summary>
+    public static string ContentOfLevel(int level) => $"v{(level / 10).ToString(CultureInfo.InvariantCulture)}_{(level % 10).ToString(CultureInfo.InvariantCulture)}_0";
+
     /// <summary>How long after a real join an older content's version banner shows (vjoin).</summary>
     public const double JoinSeconds = 15;
 
