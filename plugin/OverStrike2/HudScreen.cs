@@ -481,15 +481,6 @@ sealed partial class HudScreen
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
     }
 
-    /// <summary>A line for everybody that reads like this player's own chat line, in CS2's own format (Cstrike_Chat_All: " [ALL] name: text"):
-    /// what a click on a ballot card says, as if they had typed the command. A frame later, like everything a click starts.</summary>
-    void SayForAll(CCSPlayerController player, string words)
-    {
-        var colour = player.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist ? ChatColors.ForTeam(player.Team) : ChatColors.Default;
-        var line = $" [ALL] {colour}{Hud.Clean(player.PlayerName, 32).Replace('%', ' ')}{ChatColors.Default}: {words}";
-        Server.NextFrame(() => Server.PrintToChatAll(line));
-    }
-
     /// <summary>Work in the map browser while a vote is open - a page, a sort, a filter, a search - resets the vote's inactivity timer (the bridge's
     /// !mvb). Scrolling and hovering never reach the server, so they cannot count.</summary>
     void Busy(CCSPlayerController player, long account) { if (vote is { Open: true, Round: > 0 }) Act(player, account, MapVote.Busy(vote.Round)); }
