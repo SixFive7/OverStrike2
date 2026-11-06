@@ -27,10 +27,10 @@ sealed partial class HudScreen
     }
 
     /// <summary>css_gghud level &lt;n&gt;: the server's content level as the version classes show it - latest-N, which from v4.6.0 on lights the
-    /// outdated banner of every content below N, and the svge/svlt of v4.5.0's join banner (the client harness); null is the real one.</summary>
+    /// outdated banner of every content below N, and the svge/svlt of the join banners of v4.0.0 to v4.5.0 (the client harness); null is the real one.</summary>
     public int? TestLevel { get; set; }
 
-    /// <summary>css_gghud level: a real join again for that account's slot, so v4.5.0's join banner shows for a while (the client harness).</summary>
+    /// <summary>css_gghud level: a real join again for that account's slot, so the join banner of v4.0.0 to v4.5.0 shows for a while (the client harness).</summary>
     public string Rejoin(long account)
     {
         if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is not { } p) return $"no player [U:1:{account}]";

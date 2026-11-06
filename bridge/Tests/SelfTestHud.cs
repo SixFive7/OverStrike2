@@ -299,6 +299,13 @@ static partial class Program
                     sent.All(id => ids.Contains(id) || inUse.Any(s => s.Contains(id))));
             }
             else Console.WriteLine($"skip the content checks: one of {string.Join(", ", readFiles)} not found");
+            // The one thing an older content than OldestLevel still gets: its red "yours is older" at a join. Each content with a join banner names, in its own
+            // layout, the class that lights that line - svge and its level + 1 - and the server sets it.
+            var bannerContents = HudVote.Contents.Where(c => c.Level >= HudVote.JoinBannerFirst && c.Level <= HudVote.OldestLevel).ToList();
+            Check($"Every content with a join banner ({string.Join(", ", bannerContents.Select(c => c.Version))}) has its red \"yours is older\" and the class its layout names for it, svge(its level + 1), is on at this server",
+                bannerContents.Count > 0 && bannerContents.All(c => File.Exists(ReferenceFile(c.Version)) && File.ReadAllText(ReferenceFile(c.Version)) is var x
+                    && x.Contains("class=\"gg-ver-old\"") && x.Contains("yours is older") && x.Contains($"svge{c.Level + 1}")
+                    && HudVote.VersionClasses().Single(v => v.Class == $"svge{c.Level + 1}").On));
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);

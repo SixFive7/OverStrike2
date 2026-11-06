@@ -52,7 +52,7 @@ sealed partial class HudScreen
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
-    readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: v4.5.0's version banner for a while, and the Players page's time on
+    readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: the version banner of v4.0.0 to v4.5.0 for a while, and the Players page's time on
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)

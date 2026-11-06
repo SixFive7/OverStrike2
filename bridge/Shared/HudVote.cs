@@ -4,8 +4,8 @@
 //
 // The version classes need no click and no word from the client. latest-N on gg_global names the newest content the server knows, and every
 // content from v4.6.0 on shows its outdated banner for an N above its own. v4.5.0, the one content before it still drawn for (OldestLevel), reads
-// svge46 (the server's level is above its own) and svlt45 (below it) at a join instead. The server's version name rides in the dialog variable
-// osver on gg_global, which the labels inherit.
+// svge46 (the server's level is above its own) and svlt45 (below it) at a join instead, and the contents from v4.0.0 to v4.4.0 still get their
+// svge41 ... svge45: their red "yours is older" banner. The server's version name rides in the dialog variable osver on gg_global, which the labels inherit.
 //
 // Shared like Hud.cs (plain BCL): the plugin draws it, the bridge's --selftest checks it.
 using System.Globalization;
@@ -32,11 +32,16 @@ public static class HudVote
     /// <summary>The server's content as a number: the level on Contents' last line.</summary>
     public static int ContentLevel => Contents[^1].Level;
 
-    /// <summary>The oldest content the plugin still draws for, by its level: v4.5.0. Nothing is sent for what only an older content reads - its join banner's
-    /// version classes, and the marks, counts and clicks of the Too big and Ads buttons the contents up to v4.3.0 show - so a game holding one runs on what it
-    /// shares with v4.5.0 and shows no banner of its own. v4.5.0 is also the last content whose banner reads svge/svlt (VersionClasses): they go when this
-    /// moves past it.</summary>
+    /// <summary>The oldest content the plugin still draws for, by its level: v4.5.0. Nothing is sent for what only an older content reads - the marks, counts and
+    /// clicks of the Too big and Ads buttons the contents up to v4.3.0 show, the "yours is newer" half of their join banners - but their red "yours is older"
+    /// (JoinBannerFirst), so a game holding one runs on what it shares with v4.5.0 and is told at a join to update. v4.5.0 is also the last content whose
+    /// banner reads svge/svlt (VersionClasses).</summary>
     public const int OldestLevel = 45;
+
+    /// <summary>The first content with a join banner, v4.0.0: each content from it to v4.5.0, of level L, shows "yours is older" in red under svge(L + 1) - sent
+    /// for every one of them, so a game still holding an older content than OldestLevel is told to quit CS2 and let Steam update it - and "yours is newer" under
+    /// svlt(L), sent for v4.5.0 alone (no server this plugin runs is older than the contents below it).</summary>
+    public const int JoinBannerFirst = 40;
 
     /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
     /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-99, the next 53 releases. A stylesheet
@@ -58,17 +63,19 @@ public static class HudVote
         return Contents[0].Version;
     }
 
-    /// <summary>How long after a real join v4.5.0's version banner shows (vjoin).</summary>
+    /// <summary>How long after a real join the version banner of a content from v4.0.0 to v4.5.0 shows (vjoin).</summary>
     public const double JoinSeconds = 15;
 
-    /// <summary>The version classes on gg_global for everybody: the newest content the server knows (latest-N), and what v4.5.0's banner reads at a join
-    /// (vjoin on gg_screen, for JoinSeconds) - svge46 while the server's level is above its own, "yours is older", and svlt45 while it is below, "yours is
-    /// newer". The plugin turns the latest class it sent before off itself when the level moves (css_gghud level).</summary>
+    /// <summary>The version classes on gg_global for everybody: the newest content the server knows (latest-N), and what the banners of v4.0.0 to v4.5.0 read
+    /// at a join (vjoin on gg_screen, for JoinSeconds, JoinBannerFirst) - svge41 ... svge46 while the server's level is above that content's, its red "yours is
+    /// older", and svlt45 while it is below v4.5.0's, "yours is newer". The plugin turns the latest class it sent before off itself when the level moves
+    /// (css_gghud level).</summary>
     public static List<(string Id, string Class, bool On)> VersionClasses() => VersionClasses(ContentLevel);
 
     /// <summary>The same for a level css_gghud level fakes.</summary>
     public static List<(string Id, string Class, bool On)> VersionClasses(int level) =>
-        [(HudView.Global, $"svge{OldestLevel + 1}", level > OldestLevel), (HudView.Global, $"svlt{OldestLevel}", level < OldestLevel), (HudView.Global, LatestClass(level), true)];
+        [.. Enumerable.Range(JoinBannerFirst + 1, OldestLevel + 1 - JoinBannerFirst).Select(k => (HudView.Global, $"svge{k}", level >= k)), // "yours is older": v4.0.0's svge41 ... v4.5.0's svge46
+         (HudView.Global, $"svlt{OldestLevel}", level < OldestLevel), (HudView.Global, LatestClass(level), true)];
 
     /// <summary>The game mode's classes on gg_global (mode-armsrace, mode-deathmatch, mode-wingman): the layouts hide what is Arms Race's own outside
     /// it - friendly fire's rows on the Fun page, the match length on the Game page.</summary>

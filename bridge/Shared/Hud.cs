@@ -27,7 +27,8 @@ public static class Hud
     /// the plugin sends what this content has, and an older content simply lacks what it lacks (a panel a game does not have takes nothing in
     /// it). What v4.5.0, the oldest content still drawn for (HudVote.OldestLevel), needs to show its own pages keeps coming: its page classes, c31 and
     /// c32 (it holds the panels those two uncover) and the svge/svlt version classes its join banner reads; nothing comes for what only a content before
-    /// it reads. The newest content a server knows rides on gg_global as one class, latest-N (HudVote.LatestClass); from v4.6.0 on every content shows
+    /// it reads but its red "yours is older" class (HudVote.JoinBannerFirst). The newest content a server knows rides on gg_global as one class, latest-N
+    /// (HudVote.LatestClass); from v4.6.0 on every content shows
     /// its own outdated banner for an N above its own. The version a player's game holds comes from the HUD check's click (HudCheck.VersionButton).
     /// hud/reference/ holds every shipped content's layout, and --selftest holds this one to those still drawn for.</summary>
     public static string Content => HudVote.Contents[^1].Version;
