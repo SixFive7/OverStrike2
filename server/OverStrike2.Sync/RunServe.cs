@@ -109,22 +109,20 @@ public sealed partial class SyncRun
         L($"serve: {want.Count} map(s) of the keep set the game server lacks or stores in an older version ({want.Count(newer.Contains)}) - downloading them for it"
           + (handed.Count > 0 ? $" ({handed.Count} handed over from the staging folder first)" : ""));
         var budget = new DownloadBudget(State, Day0);
-        var steam = Seams.SteamCmd(Cfg, Staging, Path.Combine(Cfg.WorkDir, "steamcmd.log"), Clock);
-        bool started = false;
-        int row = 0, denied = 0;
+        var session = Session(budget);
         try
         {
             for (var step = 0; step < want.Count; step++)
             {
                 var wid = want[step];
                 var (ok, why) = budget.Allows(wid);
+                if (!ok && budget.DayOver)
+                {
+                    rep["stop"] = why;
+                    break;
+                }
                 if (!ok)
                 {
-                    if (why.Contains("no more downloads", StringComparison.Ordinal))
-                    {
-                        rep["stop"] = why;
-                        break;
-                    }
                     L($"serve: {wid}: {why}");
                     continue;
                 }
@@ -140,24 +138,13 @@ public sealed partial class SyncRun
                     rep["stop"] = "somebody was on the server until the deadline";
                     break;
                 }
-                if (started && Clock.Now() - tWait > 300)
+                if (session.Ready(Clock.Now() - tWait) is { } noLogin)
                 {
-                    steam.Stop();
-                    started = false;
-                }
-                if (!started)
-                {
-                    (started, why) = steam.Start();
-                    if (!started)
-                    {
-                        rep["stop"] = $"SteamCMD did not log in anonymously: {why}";
-                        if (SteamCmdWords.StopRx().IsMatch(why))
-                            budget.RefuseForToday($"SteamCMD answered '{why}'");
-                        break;
-                    }
+                    rep["stop"] = noLogin;
+                    break;
                 }
                 var t = Clock.Now();
-                var (good, reason, nbytes) = steam.Download(wid);
+                var (good, reason, nbytes) = session.Download(wid);
                 if (good && Staged(wid))
                 {
                     var onDisk = Handover.FolderBytes(Path.Combine(Content, wid));
@@ -165,7 +152,7 @@ public sealed partial class SyncRun
                     budget.Spend(size, wid);
                     Bump(rep, "downloads", 1);
                     Bump(rep, "dl_bytes", size);
-                    (row, denied) = (0, 0);
+                    session.Worked();
                     var rec = State.Item(wid) ?? [];
                     // SteamCMD names the item in its acf 1.0-1.4 s after it says Success (looking at once missed 136 of 160): wait for its
                     // entry of this version, else hand it over once SteamCMD has quit
@@ -195,36 +182,11 @@ public sealed partial class SyncRun
                 else
                 {
                     List(rep, "failed").Add(Node.Array(wid, reason));
-                    row++;
-                    budget.Fail();
                     Event(wid, "failed", $"Its download failed ({reason}).");
                     L($"serve: the download of {wid} failed: {reason}");
-                    if (SteamCmdWords.AccessDeniedRx().IsMatch(reason))
-                        denied++;
-                    if (SteamCmdWords.StopRx().IsMatch(reason) || denied >= 2)
+                    if (session.Failed(wid, reason) is { } stop)
                     {
-                        rep["stop"] = $"SteamCMD answered '{reason}'{(denied >= 2 ? " twice in a row" : "")} - no more downloads today";
-                        budget.RefuseForToday($"SteamCMD answered '{reason}'");
-                        break;
-                    }
-                    if (row >= 3)
-                    {
-                        rep["stop"] = "3 downloads in a row failed";
-                        break;
-                    }
-                    if (reason.StartsWith(SteamCmdWords.Stall, StringComparison.Ordinal))
-                    {
-                        if (Stalled(wid, reason, budget))
-                        {
-                            rep["stop"] = $"SteamCMD stalled twice in this run ({reason}) - no more downloads in it";
-                            break;
-                        }
-                        steam.Stop();                            // a fresh session for the next map: a stall alone is routine
-                        started = false;
-                    }
-                    else if (reason.Contains("not running", StringComparison.Ordinal) || reason.Contains("stdin", StringComparison.Ordinal))
-                    {
-                        rep["stop"] = $"SteamCMD stopped answering ({reason})";
+                        rep["stop"] = stop;
                         break;
                     }
                 }
@@ -234,7 +196,7 @@ public sealed partial class SyncRun
         }
         finally
         {
-            steam.Stop();
+            session.End();
             State.Save();
         }
         foreach (var (wid, rec, bytes) in later)                // SteamCMD has quit: its acf names them now
@@ -266,6 +228,9 @@ public sealed partial class SyncRun
         L($"serve: {Node.Str(rep["ok"])} handed over ({Text.Mb(Node.Int(rep["bytes"]))}), {Node.Arr(rep["failed"]).Count} failed, {Node.Str(rep["left"])} still missing"
           + (Node.Truthy(rep["stop"]) ? $" - stopped: {Node.Str(rep["stop"])}" : ""));
     }
+
+    /// <summary>A SteamCMD session for a downloading step, on the day's budget.</summary>
+    SteamSession Session(DownloadBudget budget) => new(Seams.SteamCmd(Cfg, Staging, Path.Combine(Cfg.WorkDir, "steamcmd.log"), Clock), budget, Stalled, L);
 
     /// <summary>A SteamCMD stall on `wid`: booked (the run's list, the day's count of the map), logged. True when it is the run's second - the
     /// downloads stop then; one alone is routine, and the mail speaks of stalls only from two in a run, or two of one map in a day.</summary>

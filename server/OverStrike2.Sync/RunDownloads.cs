@@ -34,9 +34,8 @@ public sealed partial class SyncRun
             Limits(budget);
             return 0;
         }
-        var steam = Seams.SteamCmd(Cfg, Staging, Path.Combine(Cfg.WorkDir, "steamcmd.log"), Clock);
-        var started = false;
-        int row = 0, denied = 0, got = 0;
+        var session = Session(budget);
+        var got = 0;
         var done = new HashSet<string>();
         try
         {
@@ -47,13 +46,13 @@ public sealed partial class SyncRun
                 OnMap(wid, got, Math.Min(todo.Count, Cfg.Batch));
                 var rec = State.Item(wid)!;
                 (allowed, why) = budget.Allows(wid);
+                if (!allowed && budget.DayOver)
+                {
+                    dl["stop"] = why;
+                    break;
+                }
                 if (!allowed)
                 {
-                    if (why.Contains("no more downloads", StringComparison.Ordinal))
-                    {
-                        dl["stop"] = why;
-                        break;
-                    }
                     List(dl, "braked").Add(wid);           // downloaded twice today already: a bug somewhere, not again today
                     continue;
                 }
@@ -68,26 +67,13 @@ public sealed partial class SyncRun
                     dl["stop"] = "somebody was on the server until the deadline";
                     break;
                 }
-                if (started && Clock.Now() - tWait > 300)
+                if (session.Ready(Clock.Now() - tWait) is { } noLogin)
                 {
-                    steam.Stop();                          // a long wait: a fresh login rather than a session gone stale
-                    started = false;
-                }
-                if (!started)
-                {
-                    (started, why) = steam.Start();
-                    if (!started)
-                    {
-                        dl["stop"] = $"SteamCMD did not log in anonymously: {why}";
-                        Errors.Add(Node.Str(dl["stop"]));
-                        if (SteamCmdWords.StopRx().IsMatch(why))
-                            budget.RefuseForToday($"SteamCMD answered '{why}'");
-                        break;
-                    }
-                    L($"SteamCMD: {why}");
+                    dl["stop"] = noLogin;
+                    break;
                 }
                 var t = Clock.Now();
-                var (good, reason, nbytes) = steam.Download(wid);
+                var (good, reason, nbytes) = session.Download(wid);
                 if (good && Staged(wid))
                 {
                     rec["attempts"] = 0;                   // the tries of a content version: this one is here
@@ -102,14 +88,12 @@ public sealed partial class SyncRun
                     rec["loads"] = Node.Str(rec["why"]) == "changed" ? new JsonArray() : Node.Truthy(rec["loads"]) ? rec["loads"]!.DeepClone() : new JsonArray();
                     foreach (var stale in new[] { "scan", "verdict", "decided", "detail", "evidence" })
                         rec.Remove(stale);
-                    (row, denied) = (0, 0);
+                    session.Worked();
                     L($"downloaded {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Text.Fixed(Clock.Now() - t, 0)} s");
                 }
                 else
                 {
                     List(dl, "failed").Add(Node.Array(wid, reason));
-                    row++;
-                    budget.Fail();
                     var attempts = Node.Int(rec["attempts"]) + 1;
                     rec["attempts"] = attempts;
                     Event(wid, "failed", $"Its download failed ({reason}), {attempts} of 3 tries.");
@@ -117,34 +101,10 @@ public sealed partial class SyncRun
                     rec["evidence"] = $"SteamCMD could not download it ({reason}), {attempts} of 3 tries";
                     L($"download of {wid} failed: {reason}");
                     if (SteamCmdWords.AccessDeniedRx().IsMatch(reason))
+                        rec["status"] = "failed";              // this item, for now; Steam will not hand it out
+                    if (session.Failed(wid, reason) is { } stop)
                     {
-                        rec["status"] = "failed";          // this item, for now; Steam will not hand it out
-                        denied++;
-                    }
-                    if (SteamCmdWords.StopRx().IsMatch(reason) || denied >= 2)
-                    {
-                        dl["stop"] = $"SteamCMD answered '{reason}'{(denied >= 2 ? " twice in a row" : "")} - no more downloads today";
-                        budget.RefuseForToday($"SteamCMD answered '{reason}'");
-                        break;
-                    }
-                    if (row >= 3)
-                    {
-                        dl["stop"] = "3 downloads in a row failed - no more in this run";
-                        break;
-                    }
-                    if (reason.StartsWith(SteamCmdWords.Stall, StringComparison.Ordinal))
-                    {
-                        if (Stalled(wid, reason, budget))
-                        {
-                            dl["stop"] = $"SteamCMD stalled twice in this run ({reason}) - no more downloads in it";
-                            break;
-                        }
-                        steam.Stop();                     // a fresh session for the next map: a stall alone is routine
-                        started = false;
-                    }
-                    else if (reason.Contains("not running", StringComparison.Ordinal) || reason.Contains("stdin", StringComparison.Ordinal))
-                    {
-                        dl["stop"] = $"SteamCMD stopped answering ({reason})";
+                        dl["stop"] = stop;
                         break;
                     }
                 }
@@ -155,7 +115,7 @@ public sealed partial class SyncRun
         }
         finally
         {
-            steam.Stop();
+            session.End();
             State.Save();
         }
         dl["queued_left"] = todo.Count(w => !done.Contains(w));

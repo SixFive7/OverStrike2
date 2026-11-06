@@ -198,7 +198,7 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
     public (bool Ok, string Reason, long Bytes) Download(string wid)
     {
         if (proc is null || proc.HasExited)
-            return (false, "SteamCMD is not running", 0);
+            return (false, SteamCmdWords.NotRunning, 0);
         try
         {
             proc.StandardInput.BaseStream.Write(Encoding.UTF8.GetBytes($"workshop_download_item 730 {wid}\n"));
@@ -206,7 +206,7 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
         }
         catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException)
         {
-            return (false, $"SteamCMD's stdin: {e.Message}", 0);
+            return (false, $"{SteamCmdWords.Stdin} {e.Message}", 0);
         }
         var rx = new Regex($"Success\\. Downloaded item {wid} to \"[^\"]*\" \\(\\d+ bytes\\)|ERROR! Download item {wid} failed \\([^)]*\\)");
         var text = ReadUntil(rx, DownloadTimeout);
@@ -269,6 +269,9 @@ public static partial class SteamCmdWords
 
     /// <summary>SteamCmdProcess.Download's answer when SteamCMD said nothing about the item in time: a stall.</summary>
     public const string Stall = "no result within";
+
+    /// <summary>Its answers when there is no SteamCMD to ask any more: the process has ended, or its stdin is gone.</summary>
+    public const string NotRunning = "SteamCMD is not running", Stdin = "SteamCMD's stdin:";
 }
 
 /// <summary>The day's downloads, booked in state.json's "downloads" (so a restart of the service cannot reset them, and every run of the day
@@ -293,10 +296,13 @@ public sealed class DownloadBudget
         Today = today;
     }
 
-    /// <summary>(ok, why): no when Steam pushed back today; for a map, no when it was downloaded DownloadsPerMapDay times today already.</summary>
+    /// <summary>Steam pushed back today: no more downloads until tomorrow.</summary>
+    public bool DayOver => Node.Truthy(Today["stop"]);
+
+    /// <summary>(ok, why): no when Steam pushed back today (DayOver); for a map, no when it was downloaded DownloadsPerMapDay times today already.</summary>
     public (bool Ok, string Why) Allows(string? wid = null)
     {
-        if (Node.Truthy(Today["stop"]))
+        if (DayOver)
             return (false, $"no more downloads today: {Node.Str(Today["stop"])}");
         if (wid is not null && Node.Int(Node.Get(Today["maps"], wid)) >= DownloadsPerMapDay)
             return (false, $"downloaded {DownloadsPerMapDay} times today already - not again today (the bug brake)");
