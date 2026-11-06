@@ -175,7 +175,7 @@ static partial class Program
     static MapInfo? DrawKept(Modes.Mode mode, HashSet<string> taken)
     {
         var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && KeptOnDisk(m)).ToList();
-        if (RollIn(pool, Dice.NextDouble() < TooBigChance) is not { } r || !taken.Add(Key(r.Pick))) return null;
+        if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 
@@ -185,7 +185,7 @@ static partial class Program
         var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && IsFresh(m) && KeptOnDisk(m)).ToList();
         var have = pool.Select(Key).ToHashSet();
         pool.AddRange(StockOnDisk(mode, taken).Where(m => IsFresh(m) && have.Add(Key(m))));
-        if (RollIn(pool, Dice.NextDouble() < TooBigChance) is not { } r || !taken.Add(Key(r.Pick))) return null;
+        if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 

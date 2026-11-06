@@ -51,31 +51,19 @@ static partial class Program
     static MapInfo? RandomPick(Modes.Mode? inMode = null, ISet<string>? exclude = null)
     {
         inMode ??= CurrentMode; // ModeSwitch.cs: a roll is in one mode - the server's, unless the ballot asks for another
-        var eligible = PoolOf(inMode).Where(m => CanRoll(m, exclude)).ToList();
-        var bigFirst = Dice.NextDouble() < TooBigChance;
-        if (RollIn(eligible, bigFirst) is not { } r) return null;
-        if (!SelfTesting) Log($"dice: {inMode.Name}, {(r.Big ? "too big" : "not too big")}{(r.Big != bigFirst ? " (the other group was empty)" : "")}: {r.Candidates} candidates -> {Label(r.Pick)}");
+        var eligible = PoolOf(inMode).Where(m => CanRoll(m, exclude)).ToList(); // MapStanding.cs
+        if (RollIn(eligible) is not { } r) return null;
+        if (!SelfTesting) Log($"dice: {inMode.Name}, {(r.Big ? "too big" : "not too big")}{(r.OtherGroup ? " (the other group was empty)" : "")}: {r.Candidates} candidates -> {Label(r.Pick)}");
         return r.Pick;
     }
 
-    /// <summary>The rule every random pick applies to a candidate, as the dice have always applied it: not the map that is on, no crash on
-    /// record, not on the broken list, no player crashes, not a non-map, not gone from the Workshop, not blocked, not marked as showing ads,
-    /// and not in <paramref name="exclude"/> (the ballot's own maps). The stock (RandomQueue.cs) rolls with it and checks it again when an
-    /// entry is used.</summary>
-    static bool CanRoll(MapInfo m, ISet<string>? exclude = null)
-    {
-        var current = S.Map != null ? Key(S.Map) : S.LogName; // by workshop id when the bridge picked it, else by the name the server logs
-        var key = Key(m);
-        return key != current && m.Name != current && S.Crashes.GetValueOrDefault(key) == 0 && !Broken.ContainsKey(key) && !S.PlayerCrashes.ContainsKey(key)
-            && !IsPack(m) && !IsRemoved(m) && !IsBlocked(m) && AdsVotes(key) == 0 && exclude?.Contains(key) != true;
-    }
-
-    /// <summary>The dice inside one list of eligible maps: the too-big group when <paramref name="bigFirst"/> (TooBigChance of the time),
-    /// the other group when that one is empty; the last RecentCount maps played left out while anything else is left; weighted by Weight.
-    /// Null for an empty list. One Dice draw, after the caller's: RandomPick, RandomNext, the ballot's cards and the stock roll the same way.</summary>
-    static (MapInfo Pick, bool Big, int Candidates)? RollIn(List<MapInfo> list, bool bigFirst)
+    /// <summary>The dice inside one list of eligible maps: the too-big group TooBigChance of the time and the rest otherwise, the other group when
+    /// that one is empty (OtherGroup); the last RecentCount maps played left out while anything else is left; weighted by Weight. Null for an empty
+    /// list. Two Dice draws, the group's and the pick's: RandomPick, RandomNext, the ballot's cards and the stock all roll this way.</summary>
+    static (MapInfo Pick, bool Big, bool OtherGroup, int Candidates)? RollIn(List<MapInfo> list)
     {
         if (list.Count == 0) return null;
+        var bigFirst = Dice.NextDouble() < TooBigChance;
         var (group, big) = (list.Where(m => TooBig(m) == bigFirst).ToList(), bigFirst);
         if (group.Count == 0) (group, big) = (list, !bigFirst); // that group is empty: the other one, which is then the whole list
         var recent = S.History.TakeLast(RecentCount).Select(Key).ToHashSet();
@@ -86,6 +74,6 @@ static partial class Program
         var pick = group[^1];
         for (var i = 0; i < group.Count; i++)
             if ((roll -= weights[i]) < 0) { pick = group[i]; break; }
-        return (pick, big, group.Count);
+        return (pick, big, big != bigFirst, group.Count);
     }
 }

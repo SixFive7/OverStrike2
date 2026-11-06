@@ -25,10 +25,7 @@ static partial class Program
         var list = root.ValueKind == JsonValueKind.Array ? root : root.ValueKind == JsonValueKind.Object && root.TryGetProperty("maps", out var m) ? m : default;
         if (list.ValueKind != JsonValueKind.Array) return ids;
         foreach (var e in list.EnumerateArray())
-        {
-            var v = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("id", out var i) ? i : e;
-            if (v.ValueKind is JsonValueKind.Number or JsonValueKind.String && long.TryParse(JsonText(v), out var id) && id > 0) ids.Add(id);
-        }
+            if (EntryId(e) is { } id) ids.Add(id);
         return ids;
     }
 

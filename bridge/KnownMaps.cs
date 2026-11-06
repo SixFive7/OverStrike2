@@ -30,24 +30,46 @@ static partial class Program
     static string Detail(MapInfo m, string why) => why == "" ? Detail(m) : Detail(m) is { Length: > 0 } d ? $"{d[..^1]}, {why})" : $" ({why})";
     static string Size(MapInfo m) => m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB";
 
-    // ---- a map by its key ----
+    // ---- a map by its key: one lookup over every list ----
 
     /// <summary>Every map the server knows, in every mode: Arms Race's list and official maps, the other modes' Workshop lists and official pools.</summary>
     static IEnumerable<MapInfo> AllKnown => Maps.Concat(Officials).Concat(Modes.All.Where(m => !m.ArmsRace).SelectMany(PoolOf));
 
+    static ListsKey? knownFor;
+    static Dictionary<string, MapInfo> knownByKey = new();   // key -> the first entry AllKnown has for it
+    static Dictionary<string, long> updatedByKey = new();    // key -> the newest Workshop update time any list carries for it
+
+    /// <summary>The lookup, made again when a list moved (ListsKey, Popularity.cs: which lists, and how long each is).</summary>
+    static Dictionary<string, MapInfo> KnownByKey()
+    {
+        var lists = ListsNow();
+        if (knownFor == lists) return knownByKey;
+        var byKey = new Dictionary<string, MapInfo>();
+        var updated = new Dictionary<string, long>();
+        foreach (var m in AllKnown)
+        {
+            var key = Key(m);
+            byKey.TryAdd(key, m);
+            if (m.Updated > updated.GetValueOrDefault(key)) updated[key] = m.Updated;
+        }
+        (knownByKey, updatedByKey, knownFor) = (byKey, updated, lists);
+        return byKey;
+    }
+
+    /// <summary>The map with this key in any mode's list, or null.</summary>
+    static MapInfo? KnownMap(string key) => KnownByKey().GetValueOrDefault(key);
+
     /// <summary>A map key as a player reads it: the map's label in whichever mode lists it - a Deathmatch or Wingman map by its name, not its Workshop
     /// id (B13) - else the key itself.</summary>
-    static string NameOfKey(string key) => AllKnown.FirstOrDefault(m => Key(m) == key) is { } m ? Label(m) : key;
+    static string NameOfKey(string key) => KnownMap(key) is { } m ? Label(m) : key;
 
-    /// <summary>A map's Workshop update time as the lists carry it (MapInfo.Updated), 0 when none of them does.</summary>
-    static long UpdatedOf(string key) => AllKnown.Where(m => Key(m) == key).Select(m => m.Updated).DefaultIfEmpty(0).Max();
+    /// <summary>A Workshop id as the log names it: its map's label, else "workshop &lt;id&gt;".</summary>
+    static string NameOf(string id) => KnownMap(id) is { } m ? Label(m) : $"workshop {id}";
 
-    /// <summary>Every Workshop map the server lists: maps.json and the other modes' lists, whose maps the menu browses too.</summary>
-    static IEnumerable<MapInfo> AllListed => Maps.Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(ModeWorkshop));
-
-    static string NameOf(string id) => AllListed.FirstOrDefault(m => m.Id.ToString() == id) is { } m ? Label(m) : $"workshop {id}";
-
-    /// <summary>The map a vote key stands for: a map any mode lists or an official map, else an unlisted workshop id.</summary>
-    static MapInfo MapOf(string key) => AllKnown.FirstOrDefault(m => Key(m) == key)
+    /// <summary>The map a key stands for: a map any mode lists or an official map, else an unlisted workshop id.</summary>
+    static MapInfo MapOf(string key) => KnownMap(key)
         ?? new MapInfo(0, long.TryParse(key, out var n) ? n : 0, long.TryParse(key, out _) ? $"workshop {key}" : key, 0);
+
+    /// <summary>A map's Workshop update time as the lists carry it (MapInfo.Updated) - the newest, when several do - and 0 when none of them does.</summary>
+    static long UpdatedOf(string key) { KnownByKey(); return updatedByKey.GetValueOrDefault(key); }
 }

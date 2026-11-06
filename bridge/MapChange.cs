@@ -32,7 +32,7 @@ static partial class Program
         StartRollOwed = false; // the server has left its start map one way or another
         ModeReloads = 0;       // ModeSwitch.cs: a new change may load once more for its mode
         S.Map = change.Map; S.PickedBy = change.By;
-        AnnouncePending = true; AnnounceDeadline = now.AddMinutes(LoadMinutes); AnnounceSentAt = now; LoadBehindDownload = false;
+        AwaitLoad(now);
         Save();
         if (Unlisted(change.Map)) // the bridge stays off the internet: only loading proves an unlisted id is a map
             Announce($"{Clip(Label(change.Map), 40)} is not on the list: if nothing happens within a minute it is no playable map - Start a vote to replace it", 60);
@@ -40,6 +40,12 @@ static partial class Program
 
     public const int LoadMinutes = 10;            // a change that has not logged its map start in this long is given up...
     public const int LoadBehindDownloadMinutes = 30; // ...unless the restart watcher reports a background download it may wait behind: then up to this long
+
+    /// <summary>A map command went out: its map start is awaited from now, LoadMinutes at the most (LoadDeadline).</summary>
+    static void AwaitLoad(DateTime now)
+    {
+        AnnouncePending = true; AnnounceDeadline = now.AddMinutes(LoadMinutes); AnnounceSentAt = now; LoadBehindDownload = false;
+    }
 
     // ---- the change that counts down ----
 

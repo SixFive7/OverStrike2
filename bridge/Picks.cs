@@ -30,21 +30,7 @@ static partial class Program
         SelectMap(by, steamId, prev, now);
     }
 
-    const int PickConfirmSeconds = 30; // same window as Restart: one confirmation idiom, one number to remember
-
-    /// <summary>What is on record against this map, or null when nothing is. Two sources, the swept list first because it is the
-    /// stronger evidence: BROKEN_FILE, maps that crashed the server on every test load, then the live per-map crash counter.</summary>
-    static string? PickRecord(MapInfo map)
-    {
-        var key = Key(map);
-        var tests = Broken.GetValueOrDefault(key);
-        var why = ReasonOf(key); // BrokenWhy.cs: broken.json's reason, or a player-crash mark
-        return S.PlayerCrashes.ContainsKey(key) ? $"is broken: {why}"
-            : tests > 0 ? $"crashed {tests} of {tests} test loads and may restart the server"
-            : Broken.ContainsKey(key) ? (why != "" ? $"is broken: {why}" : "is on the broken list")
-            : S.Crashes.GetValueOrDefault(key) is var crashes && crashes > 0 ? $"crashed the server {crashes} time(s)"
-            : null;
-    }
+    const int PickConfirmSeconds = (int)HudBrowser.ConfirmSeconds; // the window of Restart's second click too: one confirmation idiom, one number to remember
 
     /// <summary>The note that asks for the confirmation: which map, what is on record, and how to agree to it, in the words of the card's lock (HudMenu.Unlocked; Previous
     /// is a button of its own). The label is clipped at 34 characters, so the "click it again" half always fits however long the map is called.</summary>
@@ -59,7 +45,7 @@ static partial class Program
     /// holds the pick back, or null to let it through. The ballot card shows the same record to everybody (HudVote.Cards).</summary>
     static string? ConfirmGate(MapInfo map, string steamId, DateTime now, string again = "Play")
     {
-        if (PickRecord(map) is not { } record) { PickConfirms.Remove(steamId); return null; }                                   // nothing on record: straight through
+        if (RecordWords(map) is not { } record) { PickConfirms.Remove(steamId); return null; }                                   // nothing on record: straight through
         if (PickConfirms.TryGetValue(steamId, out var armed) && armed.Key == Key(map) && now <= armed.Until) { PickConfirms.Remove(steamId); return null; } // confirmed in time
         PickConfirms[steamId] = (Key(map), now.AddSeconds(PickConfirmSeconds));
         return PickConfirmNote(map, record, again);

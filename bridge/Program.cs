@@ -45,9 +45,9 @@ static partial class Program
         if (BridgeConfig.StopCode(BridgeConfig.Settings) is { } refused) return refused; // settings it cannot use, or none: its line said why
         if (RconPassword == "" || LogSecret == "") { Log("server.rconPassword and bridge.secret must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
-        (Broken, Packs) = LoadLists();
+        TakeBrokenLists(LoadLists());               // BrokenList.cs: broken.json, read once for its four lists
         LoadRemoved();
-        LoadBlocked();
+        Log(ReadBlockedFile());                     // Blocked.cs: blocked.json, beside broken.json's own blocked maps
         Log(ReloadSearch(SearchFile));              // SearchIndex.cs: the map browser's full-text index - read here, then watched like the others
         Log(ReloadSizes(SizesFile));                // Sizes.cs: each map's measured size, for the too-big rule - read here, then watched like the others
         foreach (var mode in Modes.All.Where(m => !m.ArmsRace)) Log(ReloadModeMaps(mode)); // ModeSwitch.cs: the other modes' Workshop lists - read here, then watched like the others

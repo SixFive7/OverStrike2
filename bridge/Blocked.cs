@@ -28,34 +28,28 @@ static partial class Program
         return M.Refused($"{M.A(Clip(name, 40))} ({id}) {Clip(reason, 48)} - It is blocked."); // at most 40 + 14 + 48 + 17 = 119 characters
     }
 
-    /// <summary>A list of blocked maps - blocked.json's, a plain list or an object holding it under "blocked"; broken.json's "blocked": objects with a
-    /// positive "id", and "name", "map" (the map name the server logs) and "reason"; a bare id or a missing reason still blocks, with "is on the blocked
-    /// list". No list, none.</summary>
-    static Dictionary<string, (string, string, string)> ParseBlocked(string json)
+    /// <summary>blocked.json's text: a plain list, or an object holding it under "blocked" (ParseBlockedList). Malformed JSON throws to the caller.</summary>
+    static Dictionary<string, (string Name, string Map, string Reason)> ParseBlocked(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        return ParseBlockedList(root.ValueKind != JsonValueKind.Object ? root : root.TryGetProperty("blocked", out var list) ? list : default);
+    }
+
+    /// <summary>A list of blocked maps - blocked.json's, or broken.json's "blocked": objects with a positive "id", and "name", "map" (the map name
+    /// the server logs) and "reason"; a bare id or a missing reason still blocks, with "is on the blocked list". Not an array: none.</summary>
+    static Dictionary<string, (string Name, string Map, string Reason)> ParseBlockedList(JsonElement list)
     {
         var blocked = new Dictionary<string, (string, string, string)>();
-        using var doc = JsonDocument.Parse(json);
-        var list = doc.RootElement;
-        if (list.ValueKind == JsonValueKind.Object && !list.TryGetProperty("blocked", out list)) return blocked;
         if (list.ValueKind != JsonValueKind.Array) return blocked;
         foreach (var e in list.EnumerateArray())
         {
-            var id = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("id", out var i) ? i : e;
-            if (id.ValueKind is not (JsonValueKind.Number or JsonValueKind.String) || !long.TryParse(JsonText(id), out var n) || n <= 0) continue;
-            string Field(string key) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String
-                ? Hud.Clean(JsonText(v), 120) : "";
+            if (EntryId(e) is not { } n) continue;
+            string Field(string key) => Hud.Clean(EntryText(e, key), 120);
             var name = Field("name");
             blocked[n.ToString()] = (name != "" ? name : $"workshop {n}", Field("map"), Field("reason") is { Length: > 0 } r ? r : "is on the blocked list");
         }
         return blocked;
-    }
-
-    static void LoadBlocked()
-    {
-        BlockedInBroken = new();
-        if (BrokenFile != "" && File.Exists(BrokenFile))
-            try { BlockedInBroken = ParseBlocked(File.ReadAllText(BrokenFile)); } catch (Exception e) { Log($"blocked list: {BrokenFile} unreadable ({e.Message})"); }
-        Log(ReadBlockedFile());
     }
 
     /// <summary>blocked.json read (at start, and whenever it changes): a file that does not parse keeps what was read; a missing one is no maps.</summary>

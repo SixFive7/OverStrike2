@@ -20,20 +20,18 @@ static partial class Program
     const double PlayerCrashSeconds = 60;       // ...timing out within this long of entering the map
     const int ReasonMax = 45;                   // what a reason may take: the note's 140 less a 34-character label and the words around it (the card shows ~38)
 
-    /// <summary>Crash key -> reason, out of broken.json's "maps" (or "broken") array: an object's "reason", keyed like ParseBroken.</summary>
-    static Dictionary<string, string> ParseReasons(string json)
+    static Dictionary<string, string> ParseReasons(string json) { using var doc = JsonDocument.Parse(json); return ParseReasons(doc.RootElement); }
+
+    /// <summary>Crash key -> reason, out of broken.json's crashers (BrokenArray: "maps", or "broken"; a bare array carries none): an object's
+    /// "reason", keyed like ParseBroken.</summary>
+    static Dictionary<string, string> ParseReasons(JsonElement root)
     {
         var reasons = new Dictionary<string, string>();
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        var list = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("maps", out var m) ? m
-            : root.ValueKind == JsonValueKind.Object && root.TryGetProperty("broken", out var b) ? b : default;
-        if (list.ValueKind != JsonValueKind.Array) return reasons;
+        if (root.ValueKind != JsonValueKind.Object || BrokenArray(root) is not { ValueKind: JsonValueKind.Array } list) return reasons;
         foreach (var e in list.EnumerateArray())
         {
             if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty("reason", out var r) || r.ValueKind != JsonValueKind.String) continue;
-            var key = e.TryGetProperty("id", out var i) && i.ValueKind is JsonValueKind.Number or JsonValueKind.String ? JsonText(i)
-                : e.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? JsonText(n) : "";
+            var key = EntryKey(e, orName: true);
             var why = Hud.Clean(r.GetString() ?? "", ReasonMax).Trim();
             if (key != "" && why != "") reasons[key] = why;
         }

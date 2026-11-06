@@ -162,7 +162,7 @@ static partial class Program
         popularity.Clear();
         foreach (var mode in Modes.All)
         {
-            var keys = (mode.ArmsRace ? Maps : ModeWorkshop(mode)).Where(m => !m.Official).Select(Key).Distinct().ToList();
+            var keys = WorkshopOf(mode).Select(Key).Distinct().ToList();
             var trend = RatingTrend.GetValueOrDefault(mode.Id) ?? [];
             var place = trend.Select((id, i) => (id, i)).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.First().i);
             WorkshopEntry? W(string k) => WorkshopInfo.GetValueOrDefault(k);
@@ -215,9 +215,6 @@ static partial class Program
     static KeptKey? keptFor;
     static KeptMaps kept = new();
 
-    /// <summary>What the keep set leaves off the lists: anything on broken.json's lists, blocked, gone from the Workshop, with a crash on record.</summary>
-    static bool KeepsetBad(MapInfo m) => Broken.ContainsKey(Key(m)) || IsPack(m) || IsRemoved(m) || IsBlocked(m) || S.Crashes.GetValueOrDefault(Key(m)) > 0 || S.PlayerCrashes.ContainsKey(Key(m));
-
     static KeptMaps Kept()
     {
         var now = new KeptKey(ListsNow(), Broken, Broken.Count, Packs, Packs.Count, Removed, Removed.Count, Blocked, Blocked.Count, S, S.Crashes.Count, S.PlayerCrashes.Count, Votes, CatalogVersion);
@@ -229,7 +226,7 @@ static partial class Program
         if (RatingsKnown)
             foreach (var mode in Modes.All)
             {
-                var playable = (mode.ArmsRace ? Maps : ModeWorkshop(mode)).Where(m => !m.Official && !KeepsetBad(m)).Select(Key).Distinct().ToList();
+                var playable = WorkshopOf(mode).Where(m => !Bad(m)).Select(Key).Distinct().ToList(); // MapStanding.cs: nothing against it
                 var place = playable.Select((key, i) => (key, i)).ToDictionary(x => x.key, x => x.i);
                 var rated = playable.Where(x => RatingScores.TryGetValue(x, out var s) && s.Score != null).OrderByDescending(x => RatingScores[x].Score).ThenBy(x => place[x]).Take(KeepTop).ToList();
                 var subscribed = playable.Where(x => RatingScores.TryGetValue(x, out var s) && s.Subs != null).OrderByDescending(x => RatingScores[x].Subs).ThenBy(x => place[x]).Take(KeepTop).ToList();

@@ -132,6 +132,33 @@ static partial class Program
             Check("A legal but shapeless file marks nothing broken instead of throwing",
                 ParseBroken("{}").Count == 0 && ParseBroken("[]").Count == 0 && ParseBroken("""{"maps":5}""").Count == 0 && ParseBroken("""{"broken":[]}""").Count == 0);
             Check("Array entries that are neither an id nor a name are skipped", ParseBroken("""[{"rank":7}, null, true, [1]]""").Count == 0);
+            Check("broken.json is read once for its four lists - the crashers, their reasons, the non-maps, the maps it blocks - and a bare array of crashers blocks none of them",
+                ParseBrokenFile("""{"maps":[{"id":7,"crashes":3,"reason":"advertises"},{"name":"ar_y"}],"packs":[8,{"id":"10","name":"a pack"}],"blocked":[{"id":9,"reason":"kicks everybody"},11]}""")
+                    is { Broken.Count: 2, Reasons.Count: 1, Packs.Count: 2, Blocked.Count: 2 } four && four.Reasons["7"] == "advertises" && four.Packs["10"] == "a pack"
+                    && four.Blocked["9"].Reason == "kicks everybody" && four.Blocked["11"] == ("workshop 11", "", "is on the blocked list")
+                && ParseBrokenFile("[7, 9]") is { Broken.Count: 2, Reasons.Count: 0, Packs.Count: 0, Blocked.Count: 0 });
+
+            // ---- a map's standing (MapStanding.cs): every fact against a map, and the four questions asked of them agree ----
+            {
+                var sample = Maps.Take(600).ToList();
+                (S, Broken, Packs, Removed, Blocked) = (new State(), new(), new(), new(), new());
+                for (var i = 0; i < sample.Count; i++)
+                {
+                    var k = Key(sample[i]);
+                    if (i % 7 == 1) Broken[k] = i % 2;
+                    if (i % 11 == 2) Packs[k] = sample[i].Name;
+                    if (i % 13 == 3) Removed[k] = Workshop.Removed;
+                    if (i % 17 == 4) Blocked[k] = (sample[i].Name, "", "kicks everybody");
+                    if (i % 19 == 5) S.Crashes[k] = 1;
+                    if (i % 23 == 6) S.PlayerCrashes[k] = "crashed 3 players' games within 60 s";
+                }
+                bool KeptOffBefore(MapInfo m) => Broken.ContainsKey(Key(m)) || IsPack(m) || IsRemoved(m) || IsBlocked(m) || S.Crashes.GetValueOrDefault(Key(m)) > 0 || S.PlayerCrashes.ContainsKey(Key(m));
+                Check($"A map's standing, over {sample.Count} maps with every fact against some: Bad is the keep set's rule as it was, and is exactly Unplayable or a record against it; Risky is exactly having its words; the dice roll nothing Bad",
+                    sample.All(m => Bad(m) == KeptOffBefore(m) && Bad(m) == (Unplayable(m) != null || RecordWords(m) != null) && Risky(Key(m)) == (RecordWords(m) != null)
+                        && (!CanRoll(m) || !Bad(m)) && CanRoll(m) == (!Bad(m) && AdsVotes(Key(m)) == 0))
+                    && sample.Count(Bad) is > 100 and < 500);
+                (S, Broken, Packs, Removed, Blocked) = (new State(), new(), new(), new(), new());
+            }
 
             // ---- the confirmation gate in front of a pick, on a handed clock so expiry needs no waiting ----
             var clock = new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc);
@@ -148,7 +175,7 @@ static partial class Program
             Check("A broken map is held back first, and its note says what is on record and how to agree to it",
                 ask is { } w && w.Contains(Label(bad)[..Math.Min(34, Label(bad).Length)]) && w.Contains("crashed 3 of 3 test loads and may restart the server")
                     && M.Plain(w).Contains($"Click again within {PickConfirmSeconds} s to vote anyway"));
-            var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, PickRecord(m)!, "Previous"); }).ToList();
+            var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, RecordWords(m)!, "Previous"); }).ToList();
             Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => M.Plain(n).Length)})", notes.All(n => M.Plain(n).Length <= NoticeLength));
             Broken = new Dictionary<string, int> { [Key(bad)] = 3, [Key(bad2)] = 3 };
             PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
@@ -179,7 +206,7 @@ static partial class Program
                 ConfirmGate(bad, p1, clock) is { } c1 && c1.Contains("crashed the server 2 time(s)") && ConfirmGate(bad, p1, clock.AddSeconds(10)) is null);
             Broken = new Dictionary<string, int> { [Key(bad)] = 3 };
             Check("A map that is both swept-broken and has crashed live reads as broken, the stronger evidence",
-                PickRecord(bad) is { } both && both.Contains("test loads"));
+                RecordWords(bad) is { } both && both.Contains("test loads"));
 
             // ---- the dice must never walk a broken map past a gate nobody was shown ----
             S = new State();
@@ -282,7 +309,8 @@ static partial class Program
             // ---- the committed list itself: broken.json beside maps.json, when the selftest runs where both are ----
             if (File.Exists("broken.json"))
             {
-                var (cb, cp) = LoadLists("broken.json");
+                var (cb, reasons, cp, _) = LoadLists("broken.json");
+                BrokenReasons = reasons; // what the confirms below say
                 Check($"broken.json loads: {cb.Count} broken maps, {cp.Count} non-maps, none on both lists", cb.Count > 0 && cp.Count > 0 && cb.Keys.All(k => !cp.ContainsKey(k)));
                 Check($"No non-map is on maps.json: the {Maps.Count} listed are all maps", Maps.All(m => !cp.ContainsKey(Key(m))));
                 Packs = cp;
@@ -290,14 +318,14 @@ static partial class Program
                 Check($"Every committed non-map's refusal fits the note line untrimmed and claims only that it is no playable map (longest {lines.Max(l => l.Length)})",
                     lines.All(l => l.Length <= NoticeLength && l.EndsWith(NotAMap) && !l.Contains("skin pack")));
                 Packs = new(); Broken = cb; S = new State(); PickConfirms.Clear();
-                var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, PickRecord(m)!))).ToList();
+                var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, RecordWords(m)!))).ToList();
                 Console.WriteLine("broken.json confirm notes: " + string.Join(" | ", listedCrashers.Select(c => c.Line)));
                 Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise",
                     listedCrashers.All(c => M.Plain(c.Line).Length <= NoticeLength && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
                         : !c.Line.Contains("restart the server") && (BrokenReasons.TryGetValue(Key(c.Map), out var rw) ? c.Line.Contains($"is broken: {rw}") : c.Line.Contains("is on the broken list")))));
                 var offList = cb.Keys.Where(k => long.TryParse(k, out var id) && Maps.All(m => m.Id != id)).ToList();
                 Check($"A committed crasher that is not on the list ({offList.Count}) still asks to confirm when its bare id is picked",
-                    offList.All(k => Find(k) is [var u] && Unlisted(u) && PickRecord(u) is { } w && w.Contains("may restart the server")));
+                    offList.All(k => Find(k) is [var u] && Unlisted(u) && RecordWords(u) is { } w && w.Contains("may restart the server")));
                 Broken = new(); S = new State(); PickConfirms.Clear();
             }
             else Console.WriteLine("skip broken.json checks: no broken.json beside maps.json");

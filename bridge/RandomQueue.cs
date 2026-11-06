@@ -85,8 +85,7 @@ static partial class Program
         var wantFresh = fresh.Count > 0 && lane.Count(e => e.Fresh) < (StockSize + 1) / 2;
         var list = wantFresh ? fresh : all.Where(m => !IsFresh(m)).ToList();
         if (list.Count == 0) list = all;
-        var bigFirst = Dice.NextDouble() < TooBigChance;
-        if (RollIn(list, bigFirst) is not { } r) return false;
+        if (RollIn(list) is not { } r) return false;
         lane.Add(new StockEntry(Key(r.Pick), Weight(r.Pick), TooBig(r.Pick), IsFresh(r.Pick), Now()));
         if (!SelfTesting) Log($"stock {mode.Id}: rolled {Label(r.Pick)} ({(IsFresh(r.Pick) ? "fresh" : "the long tail")}, {(r.Big ? "too big" : "not too big")}, {r.Candidates} candidates) as #{lane.Count} of {StockSize}");
         return true;
@@ -163,8 +162,7 @@ static partial class Program
     {
         inMode ??= CurrentMode;
         var pool = OnDiskPool(inMode, exclude);
-        var bigFirst = Dice.NextDouble() < TooBigChance;
-        if (RollIn(pool, bigFirst) is not { } r)
+        if (RollIn(pool) is not { } r)
         {
             Log($"dice: nothing of {inMode.Name} on the server's disk is eligible - the dice roll over every eligible map");
             return RandomPick(inMode, exclude);

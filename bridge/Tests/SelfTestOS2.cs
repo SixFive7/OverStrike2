@@ -18,12 +18,12 @@ static partial class Program
         Broken = ParseBroken(brokenJson);
         BrokenReasons = reasons;
         MapInfo M(long id) => new(100 + (int)id, id, $"map {id}", 10);
-        var crasher = PickRecord(M(1));
-        var ads = PickRecord(M(2));
-        var bare = PickRecord(M(3));
+        var crasher = RecordWords(M(1));
+        var ads = RecordWords(M(2));
+        var bare = RecordWords(M(3));
         Check("The confirm (#11): a crasher says it may restart the server; a map broken some other way says why and never that it may restart the server",
             crasher == "crashed 3 of 3 test loads and may restart the server" && ads == "is broken: advertises another server" && bare == "is on the broken list"
-            && !ads!.Contains("restart") && !bare!.Contains("restart") && PickRecord(M(9)) == null);
+            && !ads!.Contains("restart") && !bare!.Contains("restart") && RecordWords(M(9)) == null);
         var longest = global::M.Plain(PickConfirmNote(new MapInfo(1, 1, new string('w', 60), 1), $"is broken: {new string('r', ReasonMax)}"));
         Check($"The confirm note with the longest label and the longest reason fits the HUD's note line ({longest.Length} of {NoticeLength})", longest.Length <= NoticeLength);
 
@@ -44,7 +44,7 @@ static partial class Program
         PlayerLeftMap("e", "NETWORK_DISCONNECT_TIMEDOUT", t.AddSeconds(55));
         Check("Player crashes (#6): two timeouts, a leave and a late timeout mark nothing; the third timeout within 60 s of entering marks the map, with its reason",
             afterTwo == 0 && lateNone == 0 && S.PlayerCrashes.TryGetValue(Key(on), out var why) && why == "crashed 3 players' games within 60 s"
-            && PickRecord(on) == $"is broken: {why}" && ReasonOf(Key(on)) == why);
+            && RecordWords(on) == $"is broken: {why}" && ReasonOf(Key(on)) == why);
         PlayerCrashMapStarted();
         PlayerEnteredMap("x", t);
         PlayerLeftMap("x", "NETWORK_DISCONNECT_SHUTDOWN", t.AddSeconds(5));

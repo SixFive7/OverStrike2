@@ -101,23 +101,17 @@ static partial class Program
         return $"maps: {list.Count} maps from {path} (were {count}: {added} new, {gone} gone)";
     }
 
-    /// <summary>broken.json again - every list it carries: the crashers, the non-maps and the blocked maps.</summary>
+    /// <summary>broken.json again - every list it carries (BrokenList.cs): the crashers, their reasons, the non-maps and the blocked maps.</summary>
     static string ReloadBroken(string path)
     {
-        Dictionary<string, int> broken; Dictionary<string, string> packs; Dictionary<string, (string, string, string)> blocked;
-        try
-        {
-            var json = File.ReadAllText(path);
-            (broken, packs, blocked) = (ParseBroken(json), ParsePacks(json), ParseBlocked(json));
-            BrokenReasons = ParseReasons(json);
-        }
+        BrokenLists lists;
+        try { lists = ParseBrokenFile(File.ReadAllText(path)); }
         catch (Exception e) { return $"broken list: {path} unreadable ({Clip(e.Message, 120)}) - kept the lists loaded"; }
         var before = Unplayables();
-        (Broken, Packs, BlockedInBroken) = (broken, packs, blocked);
-        Blocked = MergeBlocked(); // Blocked.cs: with blocked.json's
+        TakeBrokenLists(lists);
         CatalogVersion++;
         var acted = AfterListChange(before);
-        return $"broken list: {broken.Count} crashers, {packs.Count} non-maps, {blocked.Count} blocked from {path}{acted}";
+        return $"broken list: {lists.Broken.Count} crashers, {lists.Packs.Count} non-maps, {lists.Blocked.Count} blocked from {path}{acted}";
     }
 
     /// <summary>/data/removed.json again, when something other than the bridge changed it.</summary>

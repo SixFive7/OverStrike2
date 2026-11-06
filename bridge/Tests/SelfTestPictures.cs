@@ -106,6 +106,11 @@ static partial class Program
         Check("By name: an official map of another mode by its whole name", Find("de_dust2") is [{ Official: true, Mode: Modes.DeathmatchId }]);
         Check("By id: an Arms Race map's id stays Arms Race's", Find(ar.Id.ToString()).All(m => m.Mode == ""));
         Check("A crash notice names another mode's map by its name, not its Workshop id (B13)", NameOfKey("3070000099") == "only_in_dm" && NameOfKey("de_dust2") == "de_dust2 (official)");
+        var updatedBefore = UpdatedOf("3070000099");
+        ModeMaps[inDm.Id] = [.. ModeMaps[inDm.Id].Select(m => m.Id == 3070000099 ? m with { Name = "renamed_in_dm", Updated = 1_790_000_000 } : m)];
+        Check("The lookup by key follows a list that moves: the new name and the new update time, at once; the newest update time of any list counts",
+            updatedBefore == 0 && NameOfKey("3070000099") == "renamed_in_dm" && MapOf("3070000099").Name == "renamed_in_dm" && UpdatedOf("3070000099") == 1_790_000_000
+            && NameOf("3070000099") == "renamed_in_dm" && NameOf("3070000098") == "workshop 3070000098" && MapOf("3070000098") is { Rank: 0, Id: 3070000098, Name: "workshop 3070000098" });
         var catalog = BuildCatalog();
         Check("The catalog: a map in two lists is one entry with both places, a map of another mode has its own, an official map of other modes too",
             catalog.Find(Key(ar)) is { RankDm: 1, RankAr: > 0, RankWm: -1 } && catalog.Find("3070000099") is { RankAr: -1, RankDm: 2, Arg: "3070000099" } && catalog.Find("de_dust2") is { RankAr: -1, RankDm: 0, Official: true, Arg: "de_dust2" }

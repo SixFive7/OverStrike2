@@ -41,6 +41,9 @@ static partial class Program
 
     static List<MapInfo> ModeWorkshop(Modes.Mode mode) => ModeMaps.GetValueOrDefault(mode.Id)?.Where(m => !m.Official).ToList() ?? [];
 
+    /// <summary>A mode's listed Workshop maps: Arms Race's maps.json, another mode's maps-&lt;mode&gt;.json without its official extras.</summary>
+    static IEnumerable<MapInfo> WorkshopOf(Modes.Mode mode) => (mode.ArmsRace ? Maps : ModeWorkshop(mode)).Where(m => !m.Official);
+
     /// <summary>maps-&lt;mode&gt;.json read (at start, and whenever it changes): a JSON array in maps.json's entry shape. An entry needs an id
     /// (> 0) and a name, or "official": true and a name; anything else is skipped. Missing means the official maps only. Kept as it was when
     /// it does not parse, or when it holds less than half the Workshop maps loaded.</summary>
@@ -156,7 +159,7 @@ static partial class Program
         var line = Modes.PrepareLine(want);
         if (Send(line) == null || Send($"changelevel {map.Name}") is not { } reply) { Log("mode: RCON did not take the second load"); return; }
         Log($"{line}; changelevel {map.Name} -> {reply}");
-        AnnouncePending = true; AnnounceDeadline = Now().AddMinutes(10);
+        AwaitLoad(Now()); // MapChange.cs: its own map start, from now
         LastNamedMapStart = default; // the second load's map start must not pass for the first load's second line (it came 3 s later, live)
         Announce($"{Label(map)} loads once more, in {want.Name}", 10);
     }

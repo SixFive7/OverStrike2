@@ -71,7 +71,7 @@ static partial class Program
     /// each entry with its name and tags.</summary>
     static List<SyncWords.RandomQueue> StockNow()
     {
-        var byKey = AllKnown.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        var byKey = KnownByKey();
         return Modes.All.Select(m => new SyncWords.RandomQueue(m.Id, LaneOf(m).Count(e => Downloaded(e.Key)), LaneOf(m).Count,
             LaneOf(m).Select(e => new SyncWords.StockMap(e.Key, byKey.TryGetValue(e.Key, out var x) ? x.Name : e.Key, Downloaded(e.Key), byKey.TryGetValue(e.Key, out var y) ? TagsOf(y) : "")).ToList())).ToList();
     }
@@ -79,7 +79,7 @@ static partial class Program
     /// <summary>Each map's tags by its Workshop id, for the sync's maps the bridge has on a list: "" for the rest.</summary>
     static Func<string, string> TagsById()
     {
-        var byKey = AllKnown.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        var byKey = KnownByKey();
         return id => byKey.TryGetValue(id, out var m) ? TagsOf(m) : "";
     }
 

@@ -1,4 +1,6 @@
-// What the readers of the data files share: a value as text or as a number, a whole field of an object, and the version every file states.
+// What the readers of the data files share: a value as text or as a number, a whole field of an object, the version every file states, and
+// a list entry's key - a number, a string, or an object carrying "id" - which every list of maps (broken.json's, blocked.json, ours.json) is
+// made of.
 using System.Globalization;
 using System.Text.Json;
 
@@ -20,4 +22,20 @@ static partial class Program
         if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("not an object");
         if (root.TryGetProperty("version", out var v) && JsonNumber(v) is not 1) throw new InvalidDataException($"not version 1 of {what}");
     }
+
+    /// <summary>A list entry's key as text: a number or a string as it stands, an object's "id" (a number or a string) - or, orName, an object's
+    /// "name" when it has no such id (an official map goes by its name). "" for anything else.</summary>
+    static string EntryKey(JsonElement e, bool orName = false)
+    {
+        var v = e.ValueKind != JsonValueKind.Object ? e
+            : e.TryGetProperty("id", out var i) && i.ValueKind is JsonValueKind.Number or JsonValueKind.String ? i
+            : orName && e.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n : default;
+        return v.ValueKind is JsonValueKind.Number or JsonValueKind.String ? JsonText(v) : "";
+    }
+
+    /// <summary>A list entry's Workshop id: its key when that is a positive whole number, else null.</summary>
+    static long? EntryId(JsonElement e) => long.TryParse(EntryKey(e), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n > 0 ? n : null;
+
+    /// <summary>A list entry's field as text, "" when the entry is no object or the field no string.</summary>
+    static string EntryText(JsonElement e, string name) => e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? JsonText(v) : "";
 }
