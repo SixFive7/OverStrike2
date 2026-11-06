@@ -39,7 +39,7 @@ static class SettingsDocs
                 }
                 node = (JsonObject)section["properties"]!;
             }
-            var p = new JsonObject { ["description"] = key.Doc + (key.Replaces is "(new)" ? "" : " Replaces " + key.Replaces + ".") };
+            var p = new JsonObject { ["description"] = key.Doc };
             switch (key.Type)
             {
                 case "boolean":
@@ -102,7 +102,7 @@ static class SettingsDocs
         var sb = new StringBuilder();
         foreach (var group in Settings.Keys.GroupBy(k => k.Path.Split('.')[0]))
         {
-            sb.Append("\n### `").Append(group.Key).Append("`\n\n| Key | Type | Default | Read by | Replaces | What |\n|---|---|---|---|---|---|\n");
+            sb.Append("\n### `").Append(group.Key).Append("`\n\n| Key | Type | Default | Read by | What |\n|---|---|---|---|---|\n");
             foreach (var k in group)
             {
                 var readers = string.Join(", ", new[] { (Part.Bridge, "bridge"), (Part.Plugin, "plugin"), (Part.Server, "server"), (Part.Sync, "sync") }
@@ -110,7 +110,7 @@ static class SettingsDocs
                 var type = k.Choices != null ? string.Join(" \\| ", k.Choices) : k.Type + (k.Min is { } lo ? $", {lo.ToString(CultureInfo.InvariantCulture)}..{k.Max!.Value.ToString(CultureInfo.InvariantCulture)}" : "");
                 sb.Append("| `").Append(k.Path).Append("` | ").Append(type).Append(" | ").Append(k.Required != null ? "(required)" : k.Default.Length == 0 ? "(empty)" : "`" + k.Default.Replace("|", "\\|") + "`")
                   .Append(" | ").Append(readers)
-                  .Append(" | ").Append(k.Replaces).Append(" | ").Append(k.Doc.Replace("|", "\\|")).Append(k.Secret ? " A secret: write it as a reference." : "").Append(" |\n");
+                  .Append(" | ").Append(k.Doc.Replace("|", "\\|")).Append(k.Secret ? " A secret: write it as a reference." : "").Append(" |\n");
             }
         }
         return sb.ToString();

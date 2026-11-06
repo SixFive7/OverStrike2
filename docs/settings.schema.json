@@ -19,29 +19,29 @@
       "type": "object",
       "properties": {
         "name": {
-          "description": "The server's name in the sync's mails and on the dashboard (the image's CS2_SERVERNAME is the one players see). Replaces SYNC_SERVER_NAME.",
+          "description": "The server's name in the sync's mails and on the dashboard (the image's CS2_SERVERNAME is the one players see).",
           "type": "string",
           "default": "CS2 server"
         },
         "host": {
-          "description": "How the bridge and the sync reach the game server: its container's name on their network. Replaces RCON_HOST, SYNC_GAME_HOST.",
+          "description": "How the bridge and the sync reach the game server: its container's name on their network.",
           "type": "string",
           "default": "cs2"
         },
         "port": {
-          "description": "The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same. Replaces RCON_PORT, SYNC_GAME_PORT.",
+          "description": "The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same.",
           "type": "integer",
           "default": 27015,
           "minimum": 1,
           "maximum": 65535
         },
         "rconPassword": {
-          "description": "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too. Replaces RCON_PASSWORD, CS2_RCONPW.",
+          "description": "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too.",
           "type": "string",
           "default": "env:CS2_RCONPW"
         },
         "startMap": {
-          "description": "The map a server start loads; the image's CS2_STARTMAP must say the same. Replaces START_MAP.",
+          "description": "The map a server start loads; the image's CS2_STARTMAP must say the same.",
           "type": "string",
           "default": "ar_shoots"
         }
@@ -52,24 +52,24 @@
       "type": "object",
       "properties": {
         "url": {
-          "description": "How the game server (the plugin, the restart watcher) and the sync reach the bridge. Replaces CS2_BRIDGE_URL, SYNC_BRIDGE_URL, CS2_LOG_HTTP_URL.",
+          "description": "How the game server (the plugin, the restart watcher) and the sync reach the bridge.",
           "type": "string",
           "default": "http://bridge:8080"
         },
         "port": {
-          "description": "The port the bridge listens on. Replaces HTTP_PORT.",
+          "description": "The port the bridge listens on.",
           "type": "integer",
           "default": 8080,
           "minimum": 1,
           "maximum": 65535
         },
         "secret": {
-          "description": "The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>. Replaces LOG_SECRET, CS2_BRIDGE_SECRET, SYNC_BRIDGE_SECRET.",
+          "description": "The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>.",
           "type": "string",
           "default": ""
         },
         "officialMaps": {
-          "description": "The official maps the votes and the random picks may offer. Replaces OFFICIAL_MAPS.",
+          "description": "The official maps the votes and the random picks may offer.",
           "type": "array",
           "items": {
             "type": "string"
@@ -82,21 +82,21 @@
           ]
         },
         "discoveryStock": {
-          "description": "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long. Replaces DISCOVERY_STOCK.",
+          "description": "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
           "type": "integer",
           "default": 10,
           "minimum": 0,
           "maximum": 40
         },
         "changeDelaySeconds": {
-          "description": "The countdown before a map change. Replaces CHANGE_DELAY_SECONDS.",
+          "description": "The countdown before a map change.",
           "type": "integer",
           "default": 8,
           "minimum": 0,
           "maximum": 120
         },
         "restartCooldownSeconds": {
-          "description": "The least time between two !restart requests. Replaces RESTART_COOLDOWN_SECONDS.",
+          "description": "The least time between two !restart requests.",
           "type": "integer",
           "default": 300,
           "minimum": 0,
@@ -109,12 +109,12 @@
       "type": "object",
       "properties": {
         "addon": {
-          "description": "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load. Replaces OS2_HUD_ADDON, GUNGAME_HUD_ADDON.",
+          "description": "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load.",
           "type": "string",
           "pattern": "^([0-9]+|env:.+|file:.+)$"
         },
         "tab": {
-          "description": "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. Replaces HUD_TAB.",
+          "description": "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
           "type": "string",
           "default": "down",
           "enum": [
@@ -123,7 +123,7 @@
           ]
         },
         "check": {
-          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. Replaces HUD_CHECK.",
+          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click.",
           "type": "string",
           "default": "warn",
           "enum": [
@@ -133,7 +133,7 @@
           ]
         },
         "itemPage": {
-          "description": "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). Replaces HUD_ITEM_PAGE.",
+          "description": "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
           "type": "boolean",
           "default": true
         }
@@ -147,7 +147,7 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "description": "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla. Replaces CS2_PLUGINS.",
+          "description": "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
           "type": "boolean",
           "default": true
         }
@@ -158,18 +158,18 @@
       "type": "object",
       "properties": {
         "daily": {
-          "description": "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it. Replaces CS2_RESTART_AT, SYNC_DAILY_RESTART.",
+          "description": "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
           "type": "string",
           "pattern": "^(([01]?[0-9]|2[0-3]):[0-5][0-9]|off)$",
           "default": "07:00"
         },
         "updates": {
-          "description": "Restart for a new CS2 build: at the end of the match, or at once with nobody on. Replaces CS2_AUTOUPDATE.",
+          "description": "Restart for a new CS2 build: at the end of the match, or at once with nobody on.",
           "type": "boolean",
           "default": true
         },
         "updateCheckMinutes": {
-          "description": "How often Valve is asked whether the build is current. Replaces CS2_AUTOUPDATE_CHECK_MINUTES.",
+          "description": "How often Valve is asked whether the build is current.",
           "type": "integer",
           "default": 30,
           "minimum": 10,
@@ -181,19 +181,19 @@
           "default": true
         },
         "freezeRecovery": {
-          "description": "Kill a frozen engine so Docker starts it again. Replaces CS2_FREEZE_RECOVERY.",
+          "description": "Kill a frozen engine so Docker starts it again.",
           "type": "boolean",
           "default": true
         },
         "freezeGraceSeconds": {
-          "description": "The silence before that kill. Replaces CS2_FREEZE_GRACE_SECONDS.",
+          "description": "The silence before that kill.",
           "type": "integer",
           "default": 10,
           "minimum": 5,
           "maximum": 600
         },
         "downloadRestart": {
-          "description": "Restart an engine process whose Workshop downloads are stuck, only while nobody is on. Replaces CS2_WORKSHOP_RESTART.",
+          "description": "Restart an engine process whose Workshop downloads are stuck, only while nobody is on.",
           "type": "boolean",
           "default": true
         }
@@ -204,7 +204,7 @@
       "type": "object",
       "properties": {
         "layout": {
-          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone. Replaces CS2_MAPS_LAYOUT.",
+          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
           "type": "string",
           "default": "folders",
           "enum": [
@@ -213,7 +213,7 @@
           ]
         },
         "delete": {
-          "description": "At every engine start, delete the maps outside the keep set; dryrun lists them only. Replaces CS2_MAPS_DELETE.",
+          "description": "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
           "type": "string",
           "default": "on",
           "enum": [
@@ -223,12 +223,12 @@
           ]
         },
         "backgroundDownloads": {
-          "description": "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play. Replaces CS2_READY.",
+          "description": "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
           "type": "boolean",
           "default": true
         },
         "downloadLine": {
-          "description": "Say on the HUD's top line what the server downloads for a waiting player, with its progress. Replaces CS2_DOWNLOAD_LINE.",
+          "description": "Say on the HUD's top line what the server downloads for a waiting player, with its progress.",
           "type": "boolean",
           "default": true
         }
@@ -239,31 +239,31 @@
       "type": "object",
       "properties": {
         "enabled": {
-          "description": "Runs at all; a manual run (run-now) works either way. Replaces SYNC_ENABLED.",
+          "description": "Runs at all; a manual run (run-now) works either way.",
           "type": "boolean",
           "default": true
         },
         "publish": {
-          "description": "Write the results into the bridge's data; false runs every step and writes nothing. Replaces SYNC_PUBLISH.",
+          "description": "Write the results into the bridge's data; false runs every step and writes nothing.",
           "type": "boolean",
           "default": true
         },
         "runHours": {
-          "description": "The longest run; the next starts while nobody plays and work waits. Replaces SYNC_RUN_HOURS.",
+          "description": "The longest run; the next starts while nobody plays and work waits.",
           "type": "integer",
           "default": 3,
           "minimum": 1,
           "maximum": 12
         },
         "apiEveryHours": {
-          "description": "Discovery, the check and the ratings at most this often. Replaces SYNC_API_EVERY_HOURS.",
+          "description": "Discovery, the check and the ratings at most this often.",
           "type": "integer",
           "default": 4,
           "minimum": 1,
           "maximum": 48
         },
         "tags": {
-          "description": "The Workshop tags searched. Replaces SYNC_TAGS.",
+          "description": "The Workshop tags searched.",
           "type": "array",
           "items": {
             "type": "string"
@@ -275,7 +275,7 @@
           ]
         },
         "excludeIds": {
-          "description": "Workshop ids that are never candidates (the HUD item, hud.addon, never is). Replaces SYNC_EXCLUDE_IDS.",
+          "description": "Workshop ids that are never candidates (the HUD item, hud.addon, never is).",
           "type": "array",
           "items": {
             "type": "string"
@@ -283,7 +283,7 @@
           "default": []
         },
         "excludeCreators": {
-          "description": "SteamID64s of Workshop authors whose maps are listed by hand (your own). Replaces SYNC_EXCLUDE_CREATORS.",
+          "description": "SteamID64s of Workshop authors whose maps are listed by hand (your own).",
           "type": "array",
           "items": {
             "type": "string"
@@ -291,97 +291,97 @@
           "default": []
         },
         "changedSince": {
-          "description": "A listed map updated after this day (YYYY-MM-DD) counts as changed at its first check; empty: none does. Replaces SYNC_CHANGED_SINCE.",
+          "description": "A listed map updated after this day (YYYY-MM-DD) counts as changed at its first check; empty: none does.",
           "type": "string",
           "default": ""
         },
         "modeBackfill": {
-          "description": "Listed Arms Race maps that carry a mode's tag join that mode's list too, untested in it. Replaces SYNC_MODE_BACKFILL.",
+          "description": "Listed Arms Race maps that carry a mode's tag join that mode's list too, untested in it.",
           "type": "boolean",
           "default": false
         },
         "apiRunCap": {
-          "description": "Web API calls in one run, at most (never above sync.apiDayCap). Replaces SYNC_API_RUN_CAP.",
+          "description": "Web API calls in one run, at most (never above sync.apiDayCap).",
           "type": "integer",
           "default": 500,
           "minimum": 0,
           "maximum": 10000
         },
         "apiDayCap": {
-          "description": "Web API calls in any 24 hours, at most; 10,000 is the hard limit (10% of Valve's daily allowance per key). Replaces SYNC_API_DAY_CAP.",
+          "description": "Web API calls in any 24 hours, at most; 10,000 is the hard limit (10% of Valve's daily allowance per key).",
           "type": "integer",
           "default": 10000,
           "minimum": 0,
           "maximum": 10000
         },
         "maxPages": {
-          "description": "Discovery's pages of 100, at most. Replaces SYNC_MAX_PAGES.",
+          "description": "Discovery's pages of 100, at most.",
           "type": "integer",
           "default": 200,
           "minimum": 1,
           "maximum": 2000
         },
         "downloadPauseSeconds": {
-          "description": "The pause between two SteamCMD downloads; at least 2 s. Replaces SYNC_DOWNLOAD_PAUSE.",
+          "description": "The pause between two SteamCMD downloads; at least 2 s.",
           "type": "number",
           "default": 2,
           "minimum": 2,
           "maximum": 600
         },
         "holdSeconds": {
-          "description": "How long the test engine must hold a map with two bots for a pass. Replaces SYNC_HOLD_SECONDS.",
+          "description": "How long the test engine must hold a map with two bots for a pass.",
           "type": "integer",
           "default": 20,
           "minimum": 5,
           "maximum": 300
         },
         "batch": {
-          "description": "Downloads per batch; a batch is downloaded, tested and published before the next. Replaces SYNC_BATCH.",
+          "description": "Downloads per batch; a batch is downloaded, tested and published before the next.",
           "type": "integer",
           "default": 100,
           "minimum": 1,
           "maximum": 1500
         },
         "quietMinutes": {
-          "description": "How long the server must have had nobody on before a run, after somebody was seen or the service started. Replaces SYNC_QUIET_MINUTES.",
+          "description": "How long the server must have had nobody on before a run, after somebody was seen or the service started.",
           "type": "integer",
           "default": 10,
           "minimum": 0,
           "maximum": 240
         },
         "testPort": {
-          "description": "The test engine's port inside the sync's container. Replaces SYNC_TEST_PORT.",
+          "description": "The test engine's port inside the sync's container.",
           "type": "integer",
           "default": 27215,
           "minimum": 1024,
           "maximum": 65535
         },
         "engineStartsMax": {
-          "description": "Test engine starts in one run, at most; each is an anonymous game-server logon. Replaces SYNC_ENGINE_STARTS_MAX.",
+          "description": "Test engine starts in one run, at most; each is an anonymous game-server logon.",
           "type": "integer",
           "default": 200,
           "minimum": 1,
           "maximum": 400
         },
         "ratings": {
-          "description": "Fetch the Workshop's scores, subscriptions and trend once a day (the keep set's top lists). Replaces SYNC_RATINGS.",
+          "description": "Fetch the Workshop's scores, subscriptions and trend once a day (the keep set's top lists).",
           "type": "boolean",
           "default": true
         },
         "handover": {
-          "description": "Hand the keep set's maps and their tested updates over to the game server. Replaces SYNC_HANDOVER.",
+          "description": "Hand the keep set's maps and their tested updates over to the game server.",
           "type": "boolean",
           "default": true
         },
         "diskLowGb": {
-          "description": "Less free space than this on the game's volume is a problem for the mail. Replaces SYNC_DISK_LOW_GB.",
+          "description": "Less free space than this on the game's volume is a problem for the mail.",
           "type": "integer",
           "default": 100,
           "minimum": 1,
           "maximum": 100000
         },
         "webApiKey": {
-          "description": "The Steam Web API key, for discovery and the ratings; without one those steps are skipped. Replaces STEAM_WEBAPI_KEY_FILE.",
+          "description": "The Steam Web API key, for discovery and the ratings; without one those steps are skipped.",
           "type": "string",
           "default": "file:/run/secrets/steam-webapi-key.txt"
         },
@@ -389,24 +389,24 @@
           "type": "object",
           "properties": {
             "smtpHost": {
-              "description": "The SMTP relay for the problem mails; empty: no mail. Replaces SYNC_SMTP_HOST.",
+              "description": "The SMTP relay for the problem mails; empty: no mail.",
               "type": "string",
               "default": ""
             },
             "smtpPort": {
-              "description": "Its port (STARTTLS when offered). Replaces SYNC_SMTP_PORT.",
+              "description": "Its port (STARTTLS when offered).",
               "type": "integer",
               "default": 25,
               "minimum": 1,
               "maximum": 65535
             },
             "from": {
-              "description": "The mails' sender. Replaces SYNC_MAIL_FROM.",
+              "description": "The mails' sender.",
               "type": "string",
               "default": ""
             },
             "to": {
-              "description": "The mails' recipients. Replaces SYNC_MAIL_TO.",
+              "description": "The mails' recipients.",
               "type": "array",
               "items": {
                 "type": "string"
@@ -414,7 +414,7 @@
               "default": []
             },
             "dashboardUrl": {
-              "description": "The dashboard's address every problem mail points to. Replaces SYNC_DASHBOARD_URL.",
+              "description": "The dashboard's address every problem mail points to.",
               "type": "string",
               "default": ""
             }
@@ -428,7 +428,7 @@
       "type": "object",
       "properties": {
         "apiGapSeconds": {
-          "description": "Each program's Steam Web API calls go one at a time, at least this long after the last one ended; never under 2 s. Replaces SYNC_API_GAP_SECONDS.",
+          "description": "Each program's Steam Web API calls go one at a time, at least this long after the last one ended; never under 2 s.",
           "type": "number",
           "default": 2,
           "minimum": 2,
@@ -441,47 +441,47 @@
       "type": "object",
       "properties": {
         "bridgeData": {
-          "description": "The bridge's data folder: read-write in the bridge and the sync, read-only in the game server - mounted at the same path in all three. Replaces STATE_DIR, CS2_BRIDGE_DATA, SYNC_BRIDGE_DATA.",
+          "description": "The bridge's data folder: read-write in the bridge and the sync, read-only in the game server - mounted at the same path in all three.",
           "type": "string",
           "default": "/data"
         },
         "gameDir": {
-          "description": "The game server's install (the image's STEAMAPPDIR); the sync mounts it read-only at the same path. Replaces STEAMAPPDIR, SYNC_GAME_DIR.",
+          "description": "The game server's install (the image's STEAMAPPDIR); the sync mounts it read-only at the same path.",
           "type": "string",
           "default": "/home/steam/cs2-dedicated"
         },
         "handover": {
-          "description": "The hand-over folder as the game server sees it: inside paths.gameDir, so a take-in is one rename. Replaces CS2_HANDOVER_DIR.",
+          "description": "The hand-over folder as the game server sees it: inside paths.gameDir, so a take-in is one rename.",
           "type": "string",
           "default": "/home/steam/cs2-dedicated/workshop-sync/handover"
         },
         "syncState": {
-          "description": "The sync's state, ledger, reports and backups (kept, backed up). Replaces SYNC_STATE_DIR.",
+          "description": "The sync's state, ledger, reports and backups (kept, backed up).",
           "type": "string",
           "default": "/home/steam/sync-state"
         },
         "syncWork": {
-          "description": "The sync's staging, test engine tree and hand-overs (<it>/handover is paths.handover in the game server); on the game's volume. Replaces SYNC_WORK_DIR.",
+          "description": "The sync's staging, test engine tree and hand-overs (<it>/handover is paths.handover in the game server); on the game's volume.",
           "type": "string",
           "default": "/home/steam/workshop-sync"
         },
         "syncCfg": {
-          "description": "Mode cfgs copied over the test engine's own; empty: none. Replaces SYNC_CFG_DIR.",
+          "description": "Mode cfgs copied over the test engine's own; empty: none.",
           "type": "string",
           "default": ""
         },
         "steamCmd": {
-          "description": "SteamCMD in the sync's container (the image's own). Replaces SYNC_STEAMCMD.",
+          "description": "SteamCMD in the sync's container (the image's own).",
           "type": "string",
           "default": "/home/steam/steamcmd/steamcmd.sh"
         },
         "depotcache": {
-          "description": "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing. Replaces CS2_DEPOTCACHE, SYNC_DEPOTCACHE.",
+          "description": "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing.",
           "type": "string",
           "default": "/home/steam/Steam/depotcache"
         },
         "plugins": {
-          "description": "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start. Replaces CS2_PLUGINS_SRC.",
+          "description": "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
           "type": "string",
           "default": "/home/steam/cs2-plugins"
         }
