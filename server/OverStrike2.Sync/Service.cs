@@ -148,7 +148,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 catch (Exception e) when (e is not StopRequested)   // the service must outlive any one run
                 {
                     log.Line($"the manual run failed: {Text.Of(e)}\n{e}");
-                    log.Line($"mail {Mail.MailCrash(cfg, clock, e, true, seams.SendMail, log.Line)}");
+                    log.Line($"mail {Issues.MailCrash(cfg, clock, e, true, seams.SendMail, log.Line)}");
                 }
                 shown = null;
             }
@@ -208,7 +208,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     catch (Exception e) when (e is not StopRequested)
                     {
                         log.Line($"the run failed: {Text.Of(e)}\n{e}");
-                        log.Line($"mail {Mail.MailCrash(cfg, clock, e, false, seams.SendMail, log.Line)}");
+                        log.Line($"mail {Issues.MailCrash(cfg, clock, e, false, seams.SendMail, log.Line)}");
                         idleUntil = clock.Now() + IdleWait;
                     }
                     shown = null;

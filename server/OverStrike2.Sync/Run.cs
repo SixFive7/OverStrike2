@@ -304,8 +304,8 @@ public sealed partial class SyncRun
             State.Save();
         }
         var stopped = api.StopReason ?? (Ledger.Data is not null ? Ledger.Stopped(Day0) : null);
-        if (stopped is not null && Mail.PushbackRx().IsMatch(stopped))   // Steam said stop: no downloads either, today
-            new DownloadBudget(State, Day0).RefuseForToday($"the Web API answered {Mail.ShortStop(stopped)}");
+        if (stopped is not null && Issues.PushbackRx().IsMatch(stopped))   // Steam said stop: no downloads either, today
+            new DownloadBudget(State, Day0).RefuseForToday($"the Web API answered {Issues.ShortStop(stopped)}");
         // 2c. THE HAND-OVER: the keep set's maps the game server lacks or stores in an older version, handed over before any test
         Phase("serve");
         Serve();
@@ -329,7 +329,7 @@ public sealed partial class SyncRun
             var before = Report["published"] as JsonObject;
             before = (JsonObject?)before?.DeepClone();
             Publish(outcomes, first ? removedNow : [], details);
-            Report["published"] = Mail.MergePublished(before, Report["published"] as JsonObject)?.DeepClone();
+            Report["published"] = RunReport.MergePublished(before, Report["published"] as JsonObject)?.DeepClone();
             VerdictsToReport = [];                        // the check's verdicts go to the bridge once a run
             first = false;
             CleanupStaging();
@@ -447,7 +447,7 @@ public sealed partial class SyncRun
             Report["api_stop"] = stop;
         var path = Path.Combine(Cfg.StateDir, "reports", $"{Day0}-{Clock.Local(T0).ToString("HHmm", CultureInfo.InvariantCulture)}{(Manual ? "-manual" : "")}.json");
         Report["report_path"] = path;
-        var (subject, body) = Mail.Text(Report, Cfg);
+        var (subject, body) = RunReport.Summary(Report, Cfg);
         Report["mail_subject"] = subject;
         try
         {
@@ -484,9 +484,9 @@ public sealed partial class SyncRun
             {
             }
         }
-        var issues = Mail.IssuesOf(Report);
+        var issues = Issues.Of(Report);
         Report["issues"] = Node.Strings(issues.Select(i => i.What));
-        Report["mail"] = Mail.MailIssues(Cfg, Clock, issues, Report, Seams.SendMail, L);
+        Report["mail"] = Issues.Mail(Cfg, Clock, issues, Report, Seams.SendMail, L);
         L($"mail {Node.Str(Report["mail"])}{(issues.Count > 0 ? "" : $" - this run's report: {path[..^5]}.txt")}");
         try                                                 // again, now with the mail's outcome in it
         {

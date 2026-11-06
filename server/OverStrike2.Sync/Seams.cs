@@ -32,7 +32,7 @@ public sealed class Seams
     public Func<IWorkshopApi, IReadOnlyList<string>, double, Func<double>, Action<string>, (Dictionary<string, JsonObject>, List<string>)> Check { get; set; } = Discovery.Check;
 
     /// <summary>A problem mail: (config, subject, body) - null when sent, else why not.</summary>
-    public Func<SyncConfig, string, string, string?> SendMail { get; set; } = Mail.Send;
+    public Func<SyncConfig, string, string, string?> SendMail { get; set; } = Smtp.Send;
 
     /// <summary>THE KEEP SET (Core's KeepSet, the restart watcher's too), with the rules of the config (its queues as long as
     /// bridge.discoveryStock, as the watcher's); the sync never trusts it with an exception.</summary>

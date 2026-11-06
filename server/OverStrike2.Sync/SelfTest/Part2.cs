@@ -43,7 +43,7 @@ static class Part2
         Bridge(root);
         Engines();
         WholeRun(root);
-        Issues(root);
+        ProblemMail(root);
         StatusFile();
         Join();
         Stops();
@@ -268,9 +268,9 @@ static class Part2
     }
 
     // ---- the issues-only mail: what counts, what does not, the words, once a day per problem
-    static void Issues(string root)
+    static void ProblemMail(string root)
     {
-        Check("issues: a run that ended at its deadline, or waited for players, is no problem", Mail.IssuesOf(Quiet).Count == 0);
+        Check("issues: a run that ended at its deadline, or waited for players, is no problem", Issues.Of(Quiet).Count == 0);
         var cases = new (string Extra, string Key)[]
         {
             ("""{"api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day"}""", "steam-webapi"),
@@ -290,7 +290,7 @@ static class Part2
         };
         foreach (var (extra, key) in cases)
         {
-            var got = Mail.IssuesOf(QuietWith(O(extra).Select(kv => (kv.Key, kv.Value)).ToArray()));
+            var got = Issues.Of(QuietWith(O(extra).Select(kv => (kv.Key, kv.Value)).ToArray()));
             Check($"issues: {key} counts ({(got.Count > 0 ? Text.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
         }
         var sentMails = new List<(string Subject, string Body)>();
@@ -313,26 +313,26 @@ static class Part2
               SyncConfig.From(Settings.Parse(withKey, Part.Sync, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "https://dash.example/");
         icfg.DashboardUrl = "https://dash.example/";
         var ic = new FakeClock(T0);
-        var probs = Mail.IssuesOf(QuietWith(("api_stop", "Steam's Web API answered HTTP 429 to QueryFiles"), ("report_path", "/x/r.json")));
-        var out1 = Mail.MailIssues(icfg, C(ic), probs, QuietWith(("report_path", "/x/r.json")), Hooks.SendMail, Log.Line);
+        var probs = Issues.Of(QuietWith(("api_stop", "Steam's Web API answered HTTP 429 to QueryFiles"), ("report_path", "/x/r.json")));
+        var out1 = Issues.Mail(icfg, C(ic), probs, QuietWith(("report_path", "/x/r.json")), Hooks.SendMail, Log.Line);
         Check("issues: a problem is mailed - what went wrong, what the sync did, the dashboard, the report",
               out1.StartsWith("sent", StringComparison.Ordinal) && sentMails.Count == 1 && sentMails[0].Body.Contains("What went wrong: Steam's Web API pushed back")
               && sentMails[0].Body.Contains("What the sync did: Every Web API step stopped") && sentMails[0].Body.Contains("The dashboard: https://dash.example/")
               && sentMails[0].Body.Contains("/x/r.txt") && sentMails[0].Subject.Contains("pushed back"));
         ic.T += 3600;
-        var out2 = Mail.MailIssues(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
+        var out2 = Issues.Mail(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
         Check("issues: the same problem an hour later is not mailed again", out2.StartsWith("NOT sent: every problem", StringComparison.Ordinal) && sentMails.Count == 1);
-        var probs2 = probs.Concat(Mail.IssuesOf(QuietWith(("disk", O("{\"low\": \"50 GB free\"}"))))).ToList();
-        var out3 = Mail.MailIssues(icfg, C(ic), probs2, Quiet, Hooks.SendMail, Log.Line);
+        var probs2 = probs.Concat(Issues.Of(QuietWith(("disk", O("{\"low\": \"50 GB free\"}"))))).ToList();
+        var out3 = Issues.Mail(icfg, C(ic), probs2, Quiet, Hooks.SendMail, Log.Line);
         Check("issues: a new problem is mailed, the ongoing one named as still going on", out3.StartsWith("sent", StringComparison.Ordinal) && sentMails.Count == 2
               && sentMails[1].Body.Contains("disk is running low") && sentMails[1].Body.Contains("Still going on, mailed already in the last day: Steam's Web API"));
         ic.T += 21 * 3600;
-        Mail.MailIssues(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
+        Issues.Mail(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
         Check("issues: a problem that persists is mailed again once a day", sentMails.Count == 3);
-        Check("issues: no problem, no mail", Mail.MailIssues(icfg, C(ic), [], Quiet, Hooks.SendMail, Log.Line).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && sentMails.Count == 3);
-        var crash = Mail.MailCrash(icfg, C(ic), new ValueError("boom"), false, Hooks.SendMail, Log.Line);
+        Check("issues: no problem, no mail", Issues.Mail(icfg, C(ic), [], Quiet, Hooks.SendMail, Log.Line).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && sentMails.Count == 3);
+        var crash = Issues.MailCrash(icfg, C(ic), new ValueError("boom"), false, Hooks.SendMail, Log.Line);
         Check("issues: a run that crashed is mailed from the service", crash.StartsWith("sent", StringComparison.Ordinal) && sentMails[^1].Body.Contains("The run failed: ValueError('boom')"));
-        Check("issues: ...once a day too", Mail.MailCrash(icfg, C(ic), new ValueError("boom 2"), false, Hooks.SendMail, Log.Line).StartsWith("NOT sent: every problem", StringComparison.Ordinal));
+        Check("issues: ...once a day too", Issues.MailCrash(icfg, C(ic), new ValueError("boom 2"), false, Hooks.SendMail, Log.Line).StartsWith("NOT sent: every problem", StringComparison.Ordinal));
         Hooks.SendMail = realSend;
     }
 
@@ -542,16 +542,16 @@ static class Part2
         Check($"stall: one stall is routine - a fresh SteamCMD session, the next map at once, the downloads go on ({T.Show(FakeSteam.Asked.Take(3))}, {FakeSteam.Logins - logins5} logins)",
               FakeSteam.Asked.Take(3).SequenceEqual(["5001", "5002", "5003"]) && !Node.StrOr(Node.Get(rep5["downloads"], "stop")).Contains("stalled")
               && stalls5.SequenceEqual([("5001", 1L)]) && FakeSteam.Logins - logins5 >= 2);
-        Check("stall: ... and nothing about SteamCMD for the mail", !Mail.IssuesOf(rep5).Any(i => i.Key.StartsWith("steamcmd", StringComparison.Ordinal)));
+        Check("stall: ... and nothing about SteamCMD for the mail", !Issues.Of(rep5).Any(i => i.Key.StartsWith("steamcmd", StringComparison.Ordinal)));
         AddItems(("6001", 99500, "stall 6001"), ("6002", 99400, "stall 6002"), ("6003", 99300, "stall 6003"));
         (FakeSteam.Asked, FakeSteam.Answers) = ([], new() { ["6001"] = SteamCmdWords.Stall + " 15m00s", ["6002"] = SteamCmdWords.Stall + " 15m00s" });
         var rep6 = W.Run(cfg3, new FakeClock(T0 + 6 * 86400)).Run();
-        var keys6 = Mail.IssuesOf(rep6).Select(i => i.Key).ToList();
+        var keys6 = Issues.Of(rep6).Select(i => i.Key).ToList();
         Check($"stall: a second stall in a run ends its downloads (6003 not asked) and is a problem for the mail ({Node.StrOr(Node.Get(rep6["downloads"], "stop"), "None")})",
               FakeSteam.Asked.Take(2).SequenceEqual(["6001", "6002"]) && !FakeSteam.Asked.Contains("6003") && Node.StrOr(Node.Get(rep6["downloads"], "stop")).Contains("stalled twice")
               && keys6.Count(k => k == "steamcmd-stalls") == 1 && !keys6.Contains("steamcmd"));
         Check("stall: one map stalling twice in a day is a problem too; once is not",
-              Mail.IssuesOf(O("{\"stalls\": [[\"7001\", 2]]}")).Select(i => i.Key).SequenceEqual(["steamcmd-stalls"]) && Mail.IssuesOf(O("{\"stalls\": [[\"7001\", 1]]}")).Count == 0);
+              Issues.Of(O("{\"stalls\": [[\"7001\", 2]]}")).Select(i => i.Key).SequenceEqual(["steamcmd-stalls"]) && Issues.Of(O("{\"stalls\": [[\"7001\", 1]]}")).Count == 0);
         FakeSteam.Answers = [];
     }
 
@@ -575,7 +575,7 @@ static class Part2
         Check($"check: ... at the next check still in its check, but no second event: the bridge holds the verdict ({GoneEvents(r8)})",
               Node.Eq(Node.Get(r8.Report["check"], "removed"), A("[[\"11\", \"removed\"]]")) && GoneEvents(r8) == 1);
         Check($"issues: verdicts that do not reach the bridge are a problem for the mail - nothing else tells it ({Node.StrOr(Node.Get(r8.Report["published"], "verdicts"), "None")})",
-              Mail.IssuesOf(r8.Report).Any(i => i.Key == "verdicts-not-reported"));
+              Issues.Of(r8.Report).Any(i => i.Key == "verdicts-not-reported"));
         Hooks.Check = (_, _, _, _, _) => ([], []);
         File.Delete(Path.Combine(RunData, "removed.json"));
     }

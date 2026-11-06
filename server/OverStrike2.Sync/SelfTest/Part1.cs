@@ -625,7 +625,7 @@ static class Part1
     static void MailAndBacklog()
     {
         var r = R();
-        var (subject, body) = Mail.Text(r, Cfg());
+        var (subject, body) = RunReport.Summary(r, Cfg());
         Check("mail: a stop is in the subject and the body", subject.Contains("STOPPED: HTTP 429") && body.Contains("STOPPED: Steam's Web API answered HTTP 429"));
         Check("mail: the limits are reported", body.Contains("Web API calls this run 3 of 500, last 24 h 3 of 10000"));
         var items = O("""
@@ -646,7 +646,7 @@ static class Part1
               Node.Float(both["hours"]) == 22 && Node.Int(both["per_day"]) == 2554 && Node.Int(both["days"]) == 3);
         Check("backlog: a pace measured counts", Node.Int(Verdicts.BacklogStats(big, bigIds, 60.0)["days"]) == 4);
         var r2 = With(r, ("api_stop", null), ("backlog", bs), ("backlog_until", " (until about 2026-11-04)"));
-        var (_, body2) = Mail.Text(r2, Cfg());
+        var (_, body2) = RunReport.Summary(r2, Cfg());
         Check("mail: the backlog's size, per mode, and its estimate", body2.Contains("Backlog: 6 item(s) waiting") && body2.Contains("Deathmatch 4, Wingman 2, Arms Race 2")
               && body2.Contains("until about 2026-11-04") && body2.Contains("strictly by subscribers"));
         var rows = Node.Strings(Enumerable.Range(0, 60).Select(i => $"PASS     map{i} ({i}) - wingman, loads as x in 1s").Append("CRASHER  bad (1) - crashes the server"));
@@ -656,17 +656,17 @@ static class Part1
                           ["modes"] = new JsonObject { ["wingman"] = new JsonArray(Enumerable.Range(0, 60).Select(i => (JsonNode?)new JsonArray(i.ToString(), "m")).ToArray()) },
                           ["files"] = Node.Strings(["maps-wingman.json"]),
                       }));
-        var (_, body3) = Mail.Text(r3, Cfg());
+        var (_, body3) = RunReport.Summary(r3, Cfg());
         Check("mail: a long run gives counts, what did not pass, a taste of what did", body3.Contains("60 PASS, 1 CRASHER.") && body3.Contains("CRASHER  bad (1)")
               && body3.Contains("and 50 more passes") && !body3.Contains("map30 "));
         Check("mail: a long mode list is counted", body3.Contains("maps-wingman.json  60 new maps"));
         var split = Enumerable.Range(0, 41).Select(i => $"PASS{(char)(0x1C + i % 4)}map{i}").ToList();
-        var (_, body4) = Mail.Text(With(r, ("api_stop", null), ("tests", new JsonObject { ["rows"] = Node.Strings(split) })), Cfg());
+        var (_, body4) = RunReport.Summary(With(r, ("api_stop", null), ("tests", new JsonObject { ["rows"] = Node.Strings(split) })), Cfg());
         Check("mail: a row's first word ends where core's SearchText.Split ends it - at U+001C to U+001F too, as search.json's words do",
               body4.Contains("   41 PASS."));
-        Check("mail: a run says when it started", Mail.Text(With(r, ("started_hm", "03:30")), Cfg()).Subject.Contains("(the run of 03:30)"));
+        Check("mail: a run says when it started", RunReport.Summary(With(r, ("started_hm", "03:30")), Cfg()).Subject.Contains("(the run of 03:30)"));
         // the publish steps of a run add up
-        var mp = Mail.MergePublished(O("""{"listed": [["1", 1, "a", 5]], "modes": {"wingman": [["2", "b"]]}, "files": ["maps.json"], "reload": "x"}"""),
+        var mp = RunReport.MergePublished(O("""{"listed": [["1", 1, "a", 5]], "modes": {"wingman": [["2", "b"]]}, "files": ["maps.json"], "reload": "x"}"""),
                                      O("""{"listed": [["3", 2, "c", 5]], "modes": {"wingman": [["4", "d"]], "deathmatch": [["5", "e"]]}, "files": ["maps.json", "search.json"], "reload": "y"}"""))!;
         Check("publish: a run's batches add up", Node.Arr(mp["listed"]).Select(x => Node.Str(x![0])).SequenceEqual(["1", "3"])
               && Node.Arr(mp["modes"]!["wingman"]).Select(x => Node.Str(x![0])).SequenceEqual(["2", "4"]) && Node.StrList(mp["files"]) is ["maps.json", "search.json"]
