@@ -49,17 +49,17 @@ Every part of the interface, as a real game client draws it against a test copy 
 <!-- hud-index:begin - the screenshot script fills the Page column; keep this table's parts in step with the HUD, and keep these two markers -->
 | Part | What it shows | Page |
 |---|---|---|
-| The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu, Lately | to come |
-| START | The welcome, at every join until its X | to come |
-| MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | to come |
-| MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | to come |
-| FUN | The fun settings, off their default, idle, refused | to come |
-| SERVER, Players | Who is on, and which HUD their game shows | to come |
-| SERVER, Game | The match length, and the two restarts: the match or the whole server | to come |
-| SERVER, Sync | The Workshop sync's dashboard: now, the queue, the history | to come |
-| HELP, Help | Where everything is | to come |
-| HELP, How it works | Every rule of the vote and every chance of a random pick | to come |
-| Every kind of on-screen message | One gallery: how each message looks and where on the screen it appears | to come |
+| The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu, Lately | [board](docs/hud/board.md) |
+| START | The welcome, at every join until its X | [start](docs/hud/start.md) |
+| MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | [maps-browse](docs/hud/maps-browse.md) |
+| MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | [maps-vote](docs/hud/maps-vote.md) |
+| FUN | The fun settings, off their default, idle, refused | [fun](docs/hud/fun.md) |
+| SERVER, Players | Who is on, and which HUD their game shows | [server-players](docs/hud/server-players.md) |
+| SERVER, Game | The match length, and the two restarts: the match or the whole server | [server-game](docs/hud/server-game.md) |
+| SERVER, Sync | The Workshop sync's dashboard: now, the queue, the history | [server-sync](docs/hud/server-sync.md) |
+| HELP, Help | Where everything is | [help](docs/hud/help.md) |
+| HELP, How it works | Every rule of the vote and every chance of a random pick | [how](docs/hud/how.md) |
+| Every kind of on-screen message | One gallery: how each message looks and where on the screen it appears | [the gallery](docs/hud/messages.html) |
 <!-- hud-index:end -->
 
 ## Configure
