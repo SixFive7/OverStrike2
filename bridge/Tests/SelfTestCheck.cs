@@ -30,20 +30,20 @@ static partial class Program
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
             HudVersion.LevelOf("v4.5.0") == 45 && HudVersion.LevelOf("v4.6.0") == 46 && HudVersion.LevelOf("older") == 0 && HudVersion.IsOutdated("v4.5.0") && HudVersion.IsOutdated(HudVersion.Older)
-            && !HudVersion.IsBefore("v4.6.0", HudVote.CardsLevel) && HudVersion.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudVersion.IsOutdated(HudVersion.Content) && !HudVersion.IsOutdated("v4.7.0") && !HudVersion.IsOutdated(HudVersion.Unknown) && !HudVersion.IsOutdated("")
+            && !HudVersion.IsBefore("v4.6.0", HudVote.CardsLevel) && HudVersion.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudVersion.IsOutdated(HudVersion.Content) && !HudVersion.IsOutdated("v9.0.0") && !HudVersion.IsOutdated(HudVersion.Unknown) && !HudVersion.IsOutdated("")
             && HudVersion.Words("v4.5.0") == "v4.5.0 - Restart CS2" && HudVersion.Words(HudVersion.Older) == "older - Restart CS2" && HudVersion.Words(HudVersion.Unknown) == "version unknown"
-            && HudVersion.Words("") == "not seen yet" && HudVersion.Words("v4.7.0") == "v4.7.0");
+            && HudVersion.Words("") == "not seen yet" && HudVersion.Words("v9.0.0") == "v9.0.0");
         Check("HUD check: a level is a content's line in the table, never its digits: a version with no line - a patch, v4.10.0, v5.0.0, v14.5.27 - is newer than this code knows, and a word that is no version stays refused",
             new[] { "v4.6.1", "v4.10.0", "v5.0.0", "v14.5.27" }.Where(v => HudVersion.Contents.All(c => c.Version != v)).All(v => HudVersion.IsWord(v) && HudVersion.LevelOf(v) == HudVersion.Newer && !HudVersion.IsOutdated(v) && HudVersion.Words(v) == v)
             && new[] { "v14.5", "14.5.27", "v14.x.27", "v14.5.27.1", "newer" }.All(w => !HudVersion.IsWord(w) && HudVersion.LevelOf(w) == 0));
         var roll = HudView.PlayersPage([new("Alice", "CT", HudVersion.Content, 0, "voted", "42 min"), new("Bob", "T", "v4.5.0", 0, "waiting", "5 min"),
-            new("Cleo", "T", HudVersion.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4.7.0", 0, "", "-"), new("Eve", "SPEC", HudVersion.Unknown, 0, "", "3 min"),
+            new("Cleo", "T", HudVersion.Older, 0, "", "1 h 05"), new("Dan", "CT", "v9.0.0", 0, "", "-"), new("Eve", "SPEC", HudVersion.Unknown, 0, "", "3 min"),
             new("Finn", "T", "", 0, "", "0 min"), new("Gus", "CT", "", 12, "", "0 min")]);
         string Roll(string name) => roll.Single(w => w.Name == name).Text;
         Check("HUD check: the Players page counts each HUD once - the server's, older, newer, of unknown content, not seen yet (the check's clock among those) - and says each row's",
             Roll(HudView.PlayersSummaryVar) == $"7 on the server  ·  1 on the server's HUD, {HudVersion.Content}  ·  2 older  ·  1 newer  ·  1 unknown  ·  2 not seen yet"
             && Roll("ospl1a") == "Alice" && Roll("ospl1c") == HudVersion.Content && Roll("ospl1o") == "" && Roll("ospl1d") == "voted" && Roll("ospl1e") == "42 min"
-            && Roll("ospl2c") == "" && Roll("ospl2o") == "v4.5.0 - Restart CS2" && Roll("ospl3o") == "older - Restart CS2" && Roll("ospl4o") == "v4.7.0"
+            && Roll("ospl2c") == "" && Roll("ospl2o") == "v4.5.0 - Restart CS2" && Roll("ospl3o") == "older - Restart CS2" && Roll("ospl4o") == "v9.0.0"
             && Roll("ospl5o") == "version unknown" && Roll("ospl6o") == "not seen yet" && Roll("ospl7o") == "" && Roll("ospl7k") == "HUD check: 12 s left"
             && Roll("ospl8a") == "" && Roll("ospl8o") == "" && HudView.PlayersPage([])[0] == (HudView.PlayersSummaryVar, "Nobody on the server"));
         Check("HUD check: Steam's Error page means not shown to everybody, a Workshop page means shown, a 429 or anything else means no verdict",

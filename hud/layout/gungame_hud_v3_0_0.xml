@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.6.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.7.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on gg_global or gg_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -16,7 +16,7 @@
     2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN, SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
        each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
-       tiles, five across and two down. A line on any page lies over the foot of its body (gg-wl). The window's X is the HUD check's version button while the check waits (gg_hudver_v4.6.0): its id tells the server which
+       tiles, five across and two down. A line on any page lies over the foot of its body (gg-wl). The window's X is the HUD check's version button while the check waits (gg_hudver_v4.7.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (gg-banner), the status banner (gg-ban), the outdated and
@@ -61,17 +61,6 @@
 							<Panel class="gg-chev gg-chev-down" />
 							<Label class="gg-vote-word" text="Dislike" />
 							<Label id="gg_b_down" class="gg-vote-num" text="{s:text}" />
-						</Button>
-					</Panel>
-					<!-- The old Too big and Ads row stays hidden (its counts still come) -->
-					<Panel class="gg-bigrow">
-						<Button id="gg_b_vbig" class="gg-bigvote">
-							<Label class="gg-vote-word" text="Too big" />
-							<Label id="gg_b_big" class="gg-vote-num" text="{s:text}" />
-						</Button>
-						<Button id="gg_b_vads" class="gg-adsvote">
-							<Label class="gg-vote-word" text="Ads" />
-							<Label id="gg_b_ads" class="gg-vote-num" text="{s:text}" />
 						</Button>
 					</Panel>
 					<Label id="gg_b_you" class="gg-you" text="{s:text}" />
@@ -125,7 +114,7 @@
 							<Panel class="gg-x gg-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="gg_hudver_v4.6.0" class="gg-close gg-hudver">
+						<Button id="gg_hudver_v4.7.0" class="gg-close gg-hudver">
 							<Panel class="gg-x gg-x-a" />
 							<Panel class="gg-x gg-x-b" />
 						</Button>
@@ -1097,7 +1086,7 @@
 						<Panel class="gg-rstrip"><Label id="gg_rst_text" text="{s:text}" /><Label id="gg_rst_secs" text="{s:text}" /></Panel>
 						<Label class="gg-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="gg-mbar-fill" />
-						<Label class="gg-foot-ver" text="HUD v4.6.0  ·  Server {s:osver}" />
+						<Label class="gg-foot-ver" text="HUD v4.7.0  ·  Server {s:osver}" />
 						<Panel class="gg-drain">
 							<Label class="gg-drain-word" text="Closes when idle" />
 							<Panel class="gg-drain-track"><Panel class="gg-drain-fill" /></Panel>
@@ -1148,15 +1137,15 @@
 						</Panel>
 					</Panel>
 					<!-- The same look with this content's own words, which no server can change. gg_global's latest-N names the newest content the server
-					     knows: from 47 up it is newer than this one, and this banner stays while it is -->
+					     knows: from 48 up it is newer than this one, and this banner stays while it is -->
 					<Panel class="gg-outdated gg-sb tone-problem" hittest="false">
 						<Panel class="gg-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="gg-titles" hittest="false">
 							<Label class="gg-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="gg-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.6.0  ·  The server's {s:osver}" />
+							<Label class="gg-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.7.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
-					<!-- And up to 45 it is older than this one: for a while after a join (vjoin on gg_screen) this banner says so -->
+					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on gg_screen) this banner says so -->
 					<Panel class="gg-newer gg-sb tone-problem" hittest="false">
 						<Panel class="gg-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="gg-titles" hittest="false">

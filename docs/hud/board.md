@@ -18,13 +18,13 @@ A real game client draws every picture here against a test copy of the server, t
 
 The message: Why the dislike? (the reasons). Where it goes: 7a the window, its own page (Centre-centre (needs an answer)).
 
-## The board with my mark: Too big lit, You marked this map too big
+## The board with my mark: You marked this map too big (the dislike's reason)
 
-![The board with my mark: Too big lit, You marked this map too big](img/board-big.jpg)
+![The board with my mark: You marked this map too big (the dislike's reason)](img/board-big.jpg)
 
-## The board with my mark: Ads lit, You marked this map: ads
+## The board with my mark: You marked this map: ads (the dislike's reason)
 
-![The board with my mark: Ads lit, You marked this map: ads](img/board-ads.jpg)
+![The board with my mark: You marked this map: ads (the dislike's reason)](img/board-ads.jpg)
 
 ## The board in the wait after a vote: Start a vote off, its words say how long
 

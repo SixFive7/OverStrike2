@@ -629,7 +629,7 @@ R("board-liked", "The board with your like on the map that is on", section=S_BOA
 R("board-why", "Why the dislike? under the TAB cursor", pick="Why the dislike? (the reasons)", today="the same small dialog, under the board's cursor", bridge=W_LIKE, steps=[press("gg_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()],
   cleanup=[con("-showscores", 1500), press("gg_b_vup")], when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
 
-for _id, _b, _w in (("board-big", "gg_b_vbig", "Too big lit, You marked this map too big"), ("board-ads", "gg_b_vads", "Ads lit, You marked this map: ads")):
+for _id, _b, _w in (("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)")):
     R(_id, f"The board with my mark: {_w}", section=S_BOARD, bridge=W_LIKE, steps=[press(_b), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
       when="2 s after +showscores; the opposite vote takes the mark back", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
 
@@ -818,7 +818,7 @@ RCON_ALLOWED = ("ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud sho
                 "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel ")
 CHANGELEVEL_ALLOWED = ("ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno")   # official maps: the client loads them without CS2's download dialog
 CON_ALLOWED = re.compile(r"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$")
-BRIDGE_BUTTONS = re.compile(r"^(gg_b_next|gg_b_vup|gg_b_vdown|gg_btn_up|gg_btn_down|gg_m\d+_(play|up|down)|gg_set_time_\d+|gg_v_random|gg_v_browse|gg_v_back)$")
+BRIDGE_BUTTONS = re.compile(r"^(gg_b_next|gg_b_vup|gg_b_vdown|gg_btn_up|gg_btn_down|gg_m\d+_(play|up|down)|gg_why_\d+|gg_set_time_\d+|gg_v_random|gg_v_browse|gg_v_back)$")
 BRIDGE_SAYS = re.compile(r"^say !(play|up|down|next|map)\b")
 NEVER_BUTTONS = ("gg_ws_play",)  # downloads to the server
 

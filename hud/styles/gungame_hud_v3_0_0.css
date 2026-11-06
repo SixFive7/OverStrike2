@@ -821,12 +821,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on gg_global names the newest content the server knows; from 47 up it is newer than this one (v4.6.0), and the banner stays while it is. */
-.gg-global.latest-47 .gg-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on gg_global names the newest content the server knows; from 48 up it is newer than this one (v4.7.0), and the banner stays while it is. */
 .gg-global.latest-48 .gg-outdated
 {
 	visibility: visible;
@@ -1087,7 +1082,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 45 the server knows an older content than this one. For a while after a join only (vjoin on gg_screen). */
+/* The newer banner: up to 46 the server knows an older content than this one. For a while after a join only (vjoin on gg_screen). */
 .gg-global.latest-40 .gg-screen.vjoin .gg-newer
 {
 	visibility: visible;
@@ -1114,6 +1109,11 @@ Label
 }
 
 .gg-global.latest-45 .gg-screen.vjoin .gg-newer
+{
+	visibility: visible;
+}
+
+.gg-global.latest-46 .gg-screen.vjoin .gg-newer
 {
 	visibility: visible;
 }
@@ -2928,64 +2928,7 @@ Label
 	width: 0%;
 }
 
-/* ==== content v3.1.0's pieces: the too-big vote's row, How it works ========================================================= */
-
-/* ---- the board: Too big, a slim row under Like and Dislike ---- */
-
-.gg-bigvote
-{
-	width: 100%;
-	height: 30px;
-	margin-top: 8px;
-	flow-children: right;
-	padding: 0px 14px;
-	border-radius: 4px;
-	border: 1px solid #FFFFFF1A;
-	background-color: #FFFFFF0A;
-	transition-property: background-color, border;
-	transition-duration: 0.12s;
-}
-
-.gg-bigvote:hover
-{
-	background-color: #FFFFFF17;
-	border: 1px solid #FFFFFF40;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-bigvote:active
-{
-	sound: "UIPanorama.generic_button_press";
-}
-
-.gg-bigvote .gg-vote-word
-{
-	margin-left: 0px;
-	font-size: 12px;
-}
-
-.gg-bigvote .gg-vote-num
-{
-	visibility: collapse;
-	font-size: 16px;
-	color: gg-down;
-}
-
-.gg-board .gg-bigvote .gg-vote-num
-{
-	visibility: visible;
-}
-
-.gg-screen.voted-big .gg-bigvote
-{
-	background-color: #F07C6B26;
-	border: 1px solid #F07C6BB3;
-}
-
-.gg-screen.voted-big .gg-bigvote .gg-vote-word
-{
-	color: #FFFFFF;
-}
+/* ==== content v3.1.0's pieces: How it works ==================================================================================== */
 
 /* ---- the game page: its settings ---- */
 
@@ -3056,77 +2999,7 @@ Label
 	color: gg-text;
 }
 
-/* ==== content v3.2.0's pieces: the Ads vote's row, the Fun page, the restart button's blink ========================================== */
-
-/* ---- the board: Too big and Ads side by side under Like and Dislike ---- */
-
-.gg-bigrow
-{
-	width: 100%;
-	flow-children: right;
-	margin-top: 8px;
-}
-
-.gg-bigrow .gg-bigvote
-{
-	width: fill-parent-flow( 1 );
-	margin-top: 0px;
-}
-
-.gg-adsvote
-{
-	width: fill-parent-flow( 1 );
-	height: 30px;
-	margin-left: 8px;
-	flow-children: right;
-	padding: 0px 14px;
-	border-radius: 4px;
-	border: 1px solid #FFFFFF1A;
-	background-color: #FFFFFF0A;
-	transition-property: background-color, border;
-	transition-duration: 0.12s;
-}
-
-.gg-adsvote:hover
-{
-	background-color: #FFFFFF17;
-	border: 1px solid #FFFFFF40;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.gg-adsvote:active
-{
-	sound: "UIPanorama.generic_button_press";
-}
-
-.gg-adsvote .gg-vote-word
-{
-	margin-left: 0px;
-	font-size: 12px;
-}
-
-.gg-adsvote .gg-vote-num
-{
-	visibility: collapse;
-	font-size: 16px;
-	color: #C79BFF;
-}
-
-.gg-board .gg-adsvote .gg-vote-num
-{
-	visibility: visible;
-}
-
-.gg-screen.voted-ads .gg-adsvote
-{
-	background-color: #A66BFF26;
-	border: 1px solid #B98CFFB3;
-}
-
-.gg-screen.voted-ads .gg-adsvote .gg-vote-word
-{
-	color: #FFFFFF;
-}
+/* ==== content v3.2.0's pieces: the Fun page, the restart button's blink ========================================================= */
 
 /* ---- Help: a little less space per row, so the page keeps inside the window ---- */
 
@@ -4825,11 +4698,6 @@ Label
 .gg-mcard.crashed .gg-mmode
 {
 	margin-bottom: 30px;
-}
-
-.gg-board .gg-bigrow
-{
-	visibility: collapse;
 }
 
 .gg-vbtn

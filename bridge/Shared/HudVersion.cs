@@ -29,6 +29,7 @@ public static class HudVersion
         ("v4.4.0", 44),
         ("v4.5.0", 45),
         ("v4.6.0", 46),
+        ("v4.7.0", 47),
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so games holding older contents
@@ -76,7 +77,7 @@ public static class HudVersion
          (HudView.Global, $"svlt{Oldest}", level < Oldest), (HudView.Global, LatestClass(level), true)];
 
     /// <summary>A content's name for its level, as the banner says it: its line in Contents. css_gghud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (47 is v4.7.0 while v4.6.0 is the last line). Between two lines
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (48 is v4.8.0 while v4.7.0 is the last line). Between two lines
     /// it is the older of them, and below the first line the first.</summary>
     public static string OfLevel(int level)
     {
