@@ -33,12 +33,15 @@ static class SettingsTests
         var pluginNone = Settings.Load(Part.Plugin, noFile, FakeEnv);
         Check("settings: no file, for the plugin - fatal, and it names no hud.addon", pluginNone.Fatal is { } pluginFatal
               && pluginFatal.StartsWith($"no settings file at {noFile} - hud.addon: missing", StringComparison.Ordinal) && pluginNone.Troubled);
-        var none = Settings.Load(Part.Server, noFile, FakeEnv);
-        Check("settings: no file, for the server programs - fatal, it names no hud.addon; the rest its default, and a warning says so",
-              none.Fatal is { } noFileFatal && noFileFatal.StartsWith("no settings file at", StringComparison.Ordinal) && noFileFatal.Contains("hud.addon: missing", StringComparison.Ordinal)
-              && none.Warnings.Count >= 1 && none.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && none.Warnings.Skip(1).All(w => w.StartsWith("sync.webApiKey", StringComparison.Ordinal))
-              && none.Server.Port == 27015
-              && none.Restarts.Daily == new TimeOfDay(7, 0) && none.Sync.ApiDayCap == 10000 && none.Source == "(defaults)");
+        foreach (var part in new[] { Part.Server, Part.Sync })
+        {
+            var none = Settings.Load(part, noFile, FakeEnv);
+            Check($"settings: no file, for {(part == Part.Server ? "os2-server" : "os2-sync")} - fatal, it names no hud.addon; the rest its default, and a warning says so",
+                  none.Fatal is { } noFileFatal && noFileFatal.StartsWith("no settings file at", StringComparison.Ordinal) && noFileFatal.Contains("hud.addon: missing", StringComparison.Ordinal)
+                  && none.Warnings.Count >= 1 && none.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && none.Warnings.Skip(1).All(w => w.StartsWith("sync.webApiKey", StringComparison.Ordinal))
+                  && none.Server.Port == 27015
+                  && none.Restarts.Daily == new TimeOfDay(7, 0) && none.Sync.ApiDayCap == 10000 && none.Source == "(defaults)");
+        }
         var asDir = Path.Combine(Path.GetTempPath(), "os2-settings-dir-" + Environment.ProcessId);
         Directory.CreateDirectory(asDir);
         var dir = Settings.Load(Part.Server, asDir, FakeEnv);
@@ -53,7 +56,7 @@ static class SettingsTests
         string? Inline(string name, string? value, string? named = null) =>
             name == Settings.ContentVariable ? value : name == Settings.PathVariable ? named : FakeEnv(name);
         string Unread(string path) => path == Settings.DefaultPath ? throw new InvalidOperationException("the file was read: " + path) : FakeFiles(path);
-        foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server })
+        foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server, Part.Sync })
         {
             foreach (var (how, given) in new[] { ("named nothing", (string?)null), ("named the default path, as the programs do when told no other", Settings.DefaultPath) })
             {
@@ -90,7 +93,7 @@ static class SettingsTests
 
         // ---- the example file: every reader takes it as it is
         var example = File.ReadAllText(Path.Combine(root, "deploy", "overstrike2.example.jsonc"));
-        foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server })
+        foreach (var part in new[] { Part.Bridge, Part.Plugin, Part.Server, Part.Sync })
         {
             var s = Read(example, part);
             Check($"settings: deploy/overstrike2.example.jsonc for the {part}: no problem, no warning ({string.Join("; ", s.Problems.Concat(s.Warnings))})",
@@ -115,7 +118,7 @@ static class SettingsTests
               && s2.Problems.Any(p => p.StartsWith("sync.apiDayCap: 20000 is above the hard limit 10000", StringComparison.Ordinal)));
         Check("settings: a gap under 2 s between Web API calls becomes 2 s", s2.Steam.ApiGapSeconds == 2 && s2.Problems.Any(p => p.StartsWith("steam.apiGapSeconds", StringComparison.Ordinal)));
         Check("settings: a whole number wanted, a fraction given: the default", s2.Sync.RunHours == 3 && s2.Problems.Any(p => p.StartsWith("sync.runHours: 2.5 is not a whole number", StringComparison.Ordinal)));
-        var s3 = Read("""{ "schema": 1, "sync": { "apiDayCap": 1000, "apiRunCap": 9000 } }""", Part.Server);
+        var s3 = Read("""{ "schema": 1, "sync": { "apiDayCap": 1000, "apiRunCap": 9000 } }""", Part.Sync);
         Check("settings: a run's cap above the day's is clamped to it", s3.Sync.ApiRunCap == 1000 && s3.Problems.Any(p => p.Contains("clamped to it", StringComparison.Ordinal)));
         var sk = Read("""{ "schema": 1, "hud": { "check": "dryrun", "tab": "menu" }, "bridge": { "discoveryStock": 0 }, "plugin": { "grenadeWin": true } }""");
         Check($"settings: hud.check is off, warn or enforce (dryrun is none of them); hud.tab is off or down; a stock of 0 is the stock off; grenade-to-win is gone ({string.Join("; ", sk.Problems.Concat(sk.Warnings))})",
@@ -133,9 +136,14 @@ static class SettingsTests
 
         // ---- each reader checks its own keys only
         var bad = """{ "schema": 1, "bridge": { "port": "x" }, "sync": { "batch": "x" } }""";
-        Check("settings: the server program leaves the bridge's port alone, the bridge its own wrong port is a problem",
-              Read(bad, Part.Server).Problems.Count == 1 && Read(bad, Part.Bridge).Problems.Count == 1 && Read(bad, Part.Plugin).Problems.Count == 0
-              && Read(bad, Part.Bridge).Problems[0].StartsWith("bridge.port", StringComparison.Ordinal));
+        Check("settings: os2-server leaves the bridge's port and the sync's batch alone, the bridge and os2-sync each see their own wrong value",
+              Read(bad, Part.Server).Problems.Count == 0 && Read(bad, Part.Plugin).Problems.Count == 0
+              && Read(bad, Part.Bridge).Problems is [{ } bridgeSays] && bridgeSays.StartsWith("bridge.port", StringComparison.Ordinal)
+              && Read(bad, Part.Sync).Problems is [{ } syncSays] && syncSays.StartsWith("sync.batch", StringComparison.Ordinal));
+        var mixed = Read("""{ "schema": 1, "hud": { "addon": "3823993566" }, "paths": { "syncWork": "relative" }, "maps": { "delete": "maybe" } }""", Part.Server);
+        Check($"settings: ...so a wrong sync path is os2-sync's problem alone, and os2-server's doctor lists its own keys ({string.Join("; ", mixed.Problems)})",
+              mixed.Problems is [{ } own] && own.StartsWith("maps.delete", StringComparison.Ordinal) && !mixed.Describe().Any(d => d.StartsWith("sync.", StringComparison.Ordinal) || d.StartsWith("paths.sync", StringComparison.Ordinal))
+              && Read("""{ "schema": 1, "paths": { "syncWork": "relative" } }""", Part.Sync).Problems is [{ } syncOwn] && syncOwn.StartsWith("paths.syncWork", StringComparison.Ordinal));
 
         // ---- unknown keys warn, never stop
         var s5 = Read("""{ "schema": 1, "$schema": "./settings.schema.json", "server": { "nmae": "x" }, "future": { "a": 1 }, "restarts": 5, "hud": { "addon": "3823993566" } }""");
@@ -151,7 +159,7 @@ static class SettingsTests
         Check("settings: env: and file: references - read, the file trimmed; an unset variable is empty and a warning",
               s6.Server.RconPassword == "rcon-secret-value" && s6.Sync.WebApiKey == "0123456789ABCDEF0123456789ABCDEF" && s6.Bridge.Secret == ""
               && s6.Warnings.Any(w => w.Contains("NOT_SET is not set", StringComparison.Ordinal)));
-        var s7 = Read("""{ "schema": 1, "sync": { "webApiKey": "file:/no/such/file" } }""", Part.Server);
+        var s7 = Read("""{ "schema": 1, "sync": { "webApiKey": "file:/no/such/file" } }""", Part.Sync);
         Check("settings: a file reference that finds nothing is empty and a warning - the sync then skips the steps that need a key",
               s7.Sync.WebApiKey == "" && s7.Warnings.Any(w => w.StartsWith("sync.webApiKey: /no/such/file could not be read", StringComparison.Ordinal)));
         var s8 = Read("""{ "schema": 1, "sync": { "webApiKey": "not-a-key" }, "bridge": { "secret": "has spaces" } }""");
@@ -186,7 +194,7 @@ static class SettingsTests
             ("a number, not a string", """{ "schema": 1, "hud": { "addon": 3823993566 } }""", "not a string"),
         })
         {
-            foreach (var part in new[] { Part.Plugin, Part.Server })
+            foreach (var part in new[] { Part.Plugin, Part.Server, Part.Sync })
             {
                 var s = Read(text, part);
                 Check($"hud.addon: {what}, for the {part} - the file cannot be used, the words name the key and what it must hold, never the value ({s.Fatal})",
@@ -197,7 +205,7 @@ static class SettingsTests
         }
         const string withAddon = """{ "schema": 1, "hud": { "addon": "3823993566" } }""";
         Check("hud.addon: a Workshop id, for every reader - the file can be used",
-              new[] { Part.Bridge, Part.Plugin, Part.Server, Part.All }.All(p => Read(withAddon, p) is { Fatal: null, Problems.Count: 0 }) && Read(withAddon, Part.Server).Hud.Addon == "3823993566");
+              new[] { Part.Bridge, Part.Plugin, Part.Server, Part.Sync, Part.All }.All(p => Read(withAddon, p) is { Fatal: null, Problems.Count: 0 }) && Read(withAddon, Part.Server).Hud.Addon == "3823993566");
         Check("hud.addon: by reference too, as any string value: env:, and file: trimmed", Read("""{ "schema": 1, "hud": { "addon": "env:TEST_HUD_ITEM" } }""", Part.Server) is { Fatal: null, Hud.Addon: "3823993566" }
               && Read("""{ "schema": 1, "hud": { "addon": "file:/x/hud.txt" } }""", Part.Server, p => p == "/x/hud.txt" ? " 3823993566\n" : throw new FileNotFoundException(p)) is { Fatal: null, Hud.Addon: "3823993566" });
         Check("hud.addon: the bridge does not read it - a file without it, or with a wrong one, is the bridge's as ever, not even a problem",

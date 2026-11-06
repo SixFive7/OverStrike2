@@ -307,10 +307,10 @@ static class Part2
         // the dashboard's address is a settings key now (sync.mail.dashboardUrl): a file in the state folder means nothing
         var withFile = new JsonObject { ["schema"] = 1, ["paths"] = new JsonObject { ["syncState"] = "/" + icfg.StateDir.Replace('\\', '/').TrimStart('/') } }.ToJsonString();
         Check("issues: the dashboard's address is SYNC_DASHBOARD_URL alone - a <state>/dashboard-url file means nothing",
-              SyncConfig.From(Settings.Parse(withFile, Part.Server, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "");
+              SyncConfig.From(Settings.Parse(withFile, Part.Sync, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "");
         var withKey = """{ "schema": 1, "sync": { "mail": { "dashboardUrl": "https://dash.example/" } } }""";
         Check("issues: ... and set there, it is the one the mails point to",
-              SyncConfig.From(Settings.Parse(withKey, Part.Server, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "https://dash.example/");
+              SyncConfig.From(Settings.Parse(withKey, Part.Sync, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "https://dash.example/");
         icfg.DashboardUrl = "https://dash.example/";
         var ic = new FakeClock(T0);
         var probs = Mail.IssuesOf(QuietWith(("api_stop", "Steam's Web API answered HTTP 429 to QueryFiles"), ("report_path", "/x/r.json")));

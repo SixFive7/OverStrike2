@@ -36,7 +36,7 @@ static class NewChecks
     }
 
     static Settings Parse(string json, Dictionary<string, string>? files = null) =>
-        Settings.Parse(json, Part.Server, _ => null, p => files is not null && files.TryGetValue(p, out var t) ? t : throw new FileNotFoundException(p));
+        Settings.Parse(json, Part.Sync, _ => null, p => files is not null && files.TryGetValue(p, out var t) ? t : throw new FileNotFoundException(p));
 
     // ---- the settings file: every key the sync reads reaches its config; the HUD item; the values no environment variable had
     static void SettingsFile(string root)

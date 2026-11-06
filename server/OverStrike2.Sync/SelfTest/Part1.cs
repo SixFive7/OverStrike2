@@ -13,7 +13,7 @@ static class Part1
 {
     public const string N = "2026-11-01";
 
-    static Settings ReadSettings(string json) => Settings.Parse(json, Part.Server, _ => null, path => throw new FileNotFoundException(path));
+    static Settings ReadSettings(string json) => Settings.Parse(json, Part.Sync, _ => null, path => throw new FileNotFoundException(path));
 
     public static void Run()
     {
@@ -269,7 +269,7 @@ static class Part1
         }
         // the key now comes through the settings file (sync.webApiKey, "file:PATH" by default): a missing or malformed file is no key
         static string KeyFrom(string path) => SyncConfig.From(Settings.Parse(new JsonObject { ["schema"] = 1, ["sync"] = new JsonObject { ["webApiKey"] = "file:" + path } }.ToJsonString(),
-                                                                             Part.Server, _ => null), _ => null).WebApiKey;
+                                                                             Part.Sync, _ => null), _ => null).WebApiKey;
         Check("key: a malformed secret file reads as no key", KeyFrom(Path.Combine(root, "nokey")) == "");
         File.WriteAllText(Path.Combine(root, "key.txt"), Key + "\n");
         Check("key: the secret file's key is read, whitespace stripped", KeyFrom(Path.Combine(root, "key.txt")) == Key);

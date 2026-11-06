@@ -5,14 +5,16 @@ using System.Text.Json.Nodes;
 
 namespace OverStrike2.Core;
 
-/// <summary>The programs that read the settings file. Each one checks the keys it uses and leaves the others alone.</summary>
+/// <summary>The programs that read the settings file: the bridge, the plugin, os2-server (the restart watcher and the maps folder, in the game
+/// server's container) and os2-sync (the Workshop sync). Each one checks the keys it uses and leaves the others alone.</summary>
 [Flags]
 public enum Part
 {
     Bridge = 1,
     Plugin = 2,
     Server = 4,
-    All = Bridge | Plugin | Server,
+    Sync = 8,
+    All = Bridge | Plugin | Server | Sync,
 }
 
 /// <summary>A local time of day, "07:00"; null in a setting means off.</summary>
@@ -38,8 +40,8 @@ public readonly record struct TimeOfDay(int Hour, int Minute)
     }
 }
 
-/// <summary>THE SETTINGS FILE: one structured file every part reads - the bridge, the plugin and the server program (the restart watcher
-/// and the Workshop sync). JSON with comments and trailing commas: its text in <see cref="ContentVariable"/>, or a file at
+/// <summary>THE SETTINGS FILE: one structured file every part reads - the bridge, the plugin, os2-server and os2-sync (<see cref="Part"/>).
+/// JSON with comments and trailing commas: its text in <see cref="ContentVariable"/>, or a file at
 /// <see cref="DefaultPath"/> in each container (OVERSTRIKE2_SETTINGS points a test elsewhere). docs/settings.md describes every key;
 /// docs/settings.schema.json is made from the same table as this reader (<see cref="Keys"/>), and the self-test holds the two to each other.
 ///
@@ -211,7 +213,7 @@ public sealed class Settings
 
     void CrossChecks()
     {
-        if ((Reader & Part.Server) != 0 && Sync.ApiRunCap > Sync.ApiDayCap)
+        if ((Reader & Part.Sync) != 0 && Sync.ApiRunCap > Sync.ApiDayCap)
         {
             Problems.Add($"sync.apiRunCap: {Sync.ApiRunCap} is above sync.apiDayCap ({Sync.ApiDayCap}) - clamped to it");
             Sync.ApiRunCap = Sync.ApiDayCap;
@@ -467,158 +469,158 @@ public sealed class Settings
             set(s, v);
         }, s => get(s)?.ToString() ?? "off");
 
-    const Part BS = Part.Bridge | Part.Server;
-    const Part PS = Part.Plugin | Part.Server;
+    // Who reads a key, as the docs' "Read by" column names them: the bridge, the plugin, os2-server ("server") and os2-sync ("sync").
+    const Part B = Part.Bridge, P = Part.Plugin, S = Part.Server, Y = Part.Sync;
 
     /// <summary>EVERY KEY OF THE FILE, in the order the docs list them.</summary>
     public static readonly Key[] Keys =
     [
         // server: the game server, as the other parts see it
-        Str("server.name", BS, "CS2 server", "SYNC_SERVER_NAME", "The server's name in the sync's mails and on the dashboard (the image's CS2_SERVERNAME is the one players see).",
+        Str("server.name", Y, "CS2 server", "SYNC_SERVER_NAME", "The server's name in the sync's mails and on the dashboard (the image's CS2_SERVERNAME is the one players see).",
             s => s.Server.Name, (s, v) => s.Server.Name = v),
-        Str("server.host", BS, "cs2", "RCON_HOST, SYNC_GAME_HOST", "How the bridge and the sync reach the game server: its container's name on their network.",
+        Str("server.host", B | Y, "cs2", "RCON_HOST, SYNC_GAME_HOST", "How the bridge and the sync reach the game server: its container's name on their network.",
             s => s.Server.Host, (s, v) => s.Server.Host = v, v => v.Length > 0, "a host name"),
-        Int("server.port", BS, 27015, 1, 65535, "RCON_PORT, SYNC_GAME_PORT", "The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same.",
+        Int("server.port", B | S | Y, 27015, 1, 65535, "RCON_PORT, SYNC_GAME_PORT", "The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same.",
             s => s.Server.Port, (s, v) => s.Server.Port = v),
-        Str("server.rconPassword", BS, "env:CS2_RCONPW", "RCON_PASSWORD, CS2_RCONPW", "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too.",
+        Str("server.rconPassword", B | S, "env:CS2_RCONPW", "RCON_PASSWORD, CS2_RCONPW", "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too.",
             s => s.Server.RconPassword, (s, v) => s.Server.RconPassword = v, secret: true),
-        Str("server.startMap", BS, "ar_shoots", "START_MAP", "The map a server start loads; the image's CS2_STARTMAP must say the same.",
+        Str("server.startMap", B | S, "ar_shoots", "START_MAP", "The map a server start loads; the image's CS2_STARTMAP must say the same.",
             s => s.Server.StartMap, (s, v) => s.Server.StartMap = v, v => v.Length > 0, "a map name"),
 
         // bridge
-        Str("bridge.url", PS, "http://bridge:8080", "CS2_BRIDGE_URL, SYNC_BRIDGE_URL, CS2_LOG_HTTP_URL", "How the game server (the plugin, the restart watcher) and the sync reach the bridge.",
+        Str("bridge.url", P | S | Y, "http://bridge:8080", "CS2_BRIDGE_URL, SYNC_BRIDGE_URL, CS2_LOG_HTTP_URL", "How the game server (the plugin, the restart watcher) and the sync reach the bridge.",
             s => s.Bridge.Url, (s, v) => s.Bridge.Url = v.TrimEnd('/'), v => v.StartsWith("http://", StringComparison.Ordinal) || v.StartsWith("https://", StringComparison.Ordinal), "an http(s) URL"),
-        Int("bridge.port", Part.Bridge, 8080, 1, 65535, "HTTP_PORT", "The port the bridge listens on.",
+        Int("bridge.port", B, 8080, 1, 65535, "HTTP_PORT", "The port the bridge listens on.",
             s => s.Bridge.Port, (s, v) => s.Bridge.Port = v),
         Str("bridge.secret", Part.All, "", "LOG_SECRET, CS2_BRIDGE_SECRET, SYNC_BRIDGE_SECRET", "The secret in the bridge's addresses (/log, /ready, /quitting, /removed, /reload ...): letters and digits. The image's CS2_LOG_HTTP_URL ends in /log/<it>.",
             s => s.Bridge.Secret, (s, v) => s.Bridge.Secret = v, v => v.Length == 0 || v.All(char.IsAsciiLetterOrDigit), "letters and digits", secret: true),
-        List("bridge.officialMaps", Part.Bridge, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "OFFICIAL_MAPS", "The official maps the votes and the random picks may offer.",
+        List("bridge.officialMaps", B, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "OFFICIAL_MAPS", "The official maps the votes and the random picks may offer.",
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
-        Int("bridge.discoveryStock", BS, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
+        Int("bridge.discoveryStock", B | S | Y, 10, 0, 40, "DISCOVERY_STOCK", "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
-        Int("bridge.changeDelaySeconds", Part.Bridge, 8, 0, 120, "CHANGE_DELAY_SECONDS", "The countdown before a map change.",
+        Int("bridge.changeDelaySeconds", B, 8, 0, 120, "CHANGE_DELAY_SECONDS", "The countdown before a map change.",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),
-        Int("bridge.restartCooldownSeconds", Part.Bridge, 300, 0, 86400, "RESTART_COOLDOWN_SECONDS", "The least time between two !restart requests.",
+        Int("bridge.restartCooldownSeconds", B, 300, 0, 86400, "RESTART_COOLDOWN_SECONDS", "The least time between two !restart requests.",
             s => s.Bridge.RestartCooldownSeconds, (s, v) => s.Bridge.RestartCooldownSeconds = v),
 
         // hud: the in-game menu
-        Must("hud.addon", PS, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load.",
+        Must("hud.addon", P | S | Y, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load.",
              "the Workshop id of the HUD addon, digits only", "^([0-9]+|env:.+|file:.+)$", s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, Digits, "digits"),
-        Choice("hud.tab", Part.Bridge, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
+        Choice("hud.tab", B, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
             s => s.Hud.Tab, (s, v) => s.Hud.Tab = v),
-        Choice("hud.check", Part.Bridge, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click.",
+        Choice("hud.check", B, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click.",
             s => s.Hud.Check, (s, v) => s.Hud.Check = v),
-        Bool("hud.itemPage", Part.Plugin, true, "HUD_ITEM_PAGE", "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
+        Bool("hud.itemPage", P, true, "HUD_ITEM_PAGE", "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
             s => s.Hud.ItemPage, (s, v) => s.Hud.ItemPage = v),
 
         // plugin: the game server's own layer
-        Bool("plugin.enabled", Part.Server, true, "CS2_PLUGINS", "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
+        Bool("plugin.enabled", S, true, "CS2_PLUGINS", "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
             s => s.Plugin.Enabled, (s, v) => s.Plugin.Enabled = v),
 
         // restarts: the restart watcher
-        Time("restarts.daily", Part.Server, "07:00", "CS2_RESTART_AT, SYNC_DAILY_RESTART", "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
+        Time("restarts.daily", S | Y, "07:00", "CS2_RESTART_AT, SYNC_DAILY_RESTART", "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
             s => s.Restarts.Daily, (s, v) => s.Restarts.Daily = v),
-        Bool("restarts.updates", Part.Server, true, "CS2_AUTOUPDATE", "Restart for a new CS2 build: at the end of the match, or at once with nobody on.",
+        Bool("restarts.updates", S, true, "CS2_AUTOUPDATE", "Restart for a new CS2 build: at the end of the match, or at once with nobody on.",
             s => s.Restarts.Updates, (s, v) => s.Restarts.Updates = v),
-        Int("restarts.updateCheckMinutes", Part.Server, 30, 10, 1440, "CS2_AUTOUPDATE_CHECK_MINUTES", "How often Valve is asked whether the build is current.",
+        Int("restarts.updateCheckMinutes", S, 30, 10, 1440, "CS2_AUTOUPDATE_CHECK_MINUTES", "How often Valve is asked whether the build is current.",
             s => s.Restarts.UpdateCheckMinutes, (s, v) => s.Restarts.UpdateCheckMinutes = v),
-        Bool("restarts.newVersions", Part.Server, true, "(new)", "Restart for a deployed new version of the server's own parts the same way: at the end of the match, or at once with nobody on.",
+        Bool("restarts.newVersions", S, true, "(new)", "Restart for a deployed new version of the server's own parts the same way: at the end of the match, or at once with nobody on.",
             s => s.Restarts.NewVersions, (s, v) => s.Restarts.NewVersions = v),
-        Bool("restarts.freezeRecovery", Part.Server, true, "CS2_FREEZE_RECOVERY", "Kill a frozen engine so Docker starts it again.",
+        Bool("restarts.freezeRecovery", S, true, "CS2_FREEZE_RECOVERY", "Kill a frozen engine so Docker starts it again.",
             s => s.Restarts.FreezeRecovery, (s, v) => s.Restarts.FreezeRecovery = v),
-        Int("restarts.freezeGraceSeconds", Part.Server, 10, 5, 600, "CS2_FREEZE_GRACE_SECONDS", "The silence before that kill.",
+        Int("restarts.freezeGraceSeconds", S, 10, 5, 600, "CS2_FREEZE_GRACE_SECONDS", "The silence before that kill.",
             s => s.Restarts.FreezeGraceSeconds, (s, v) => s.Restarts.FreezeGraceSeconds = v),
-        Bool("restarts.downloadRestart", Part.Server, true, "CS2_WORKSHOP_RESTART", "Restart an engine process whose Workshop downloads are stuck, only while nobody is on.",
+        Bool("restarts.downloadRestart", S, true, "CS2_WORKSHOP_RESTART", "Restart an engine process whose Workshop downloads are stuck, only while nobody is on.",
             s => s.Restarts.DownloadRestart, (s, v) => s.Restarts.DownloadRestart = v),
 
         // maps: the server's own Workshop maps
-        Choice("maps.layout", Part.Server, "folders", ["folders", "off"], "CS2_MAPS_LAYOUT", "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
+        Choice("maps.layout", S, "folders", ["folders", "off"], "CS2_MAPS_LAYOUT", "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
             s => s.Maps.Layout, (s, v) => s.Maps.Layout = v),
-        Choice("maps.delete", Part.Server, "on", ["on", "dryrun", "off"], "CS2_MAPS_DELETE", "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
+        Choice("maps.delete", S, "on", ["on", "dryrun", "off"], "CS2_MAPS_DELETE", "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
             s => s.Maps.Delete, (s, v) => s.Maps.Delete = v),
-        Bool("maps.backgroundDownloads", Part.Server, true, "CS2_READY", "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
+        Bool("maps.backgroundDownloads", S, true, "CS2_READY", "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
             s => s.Maps.BackgroundDownloads, (s, v) => s.Maps.BackgroundDownloads = v),
-        Bool("maps.downloadLine", Part.Server, true, "CS2_DOWNLOAD_LINE", "Say on the HUD's top line what the server downloads for a waiting player, with its progress.",
+        Bool("maps.downloadLine", S, true, "CS2_DOWNLOAD_LINE", "Say on the HUD's top line what the server downloads for a waiting player, with its progress.",
             s => s.Maps.DownloadLine, (s, v) => s.Maps.DownloadLine = v),
 
         // sync: the Workshop sync
-        Bool("sync.enabled", Part.Server, true, "SYNC_ENABLED", "Runs at all; a manual run (run-now) works either way.",
+        Bool("sync.enabled", Y, true, "SYNC_ENABLED", "Runs at all; a manual run (run-now) works either way.",
             s => s.Sync.Enabled, (s, v) => s.Sync.Enabled = v),
-        Bool("sync.publish", Part.Server, true, "SYNC_PUBLISH", "Write the results into the bridge's data; false runs every step and writes nothing.",
+        Bool("sync.publish", Y, true, "SYNC_PUBLISH", "Write the results into the bridge's data; false runs every step and writes nothing.",
             s => s.Sync.Publish, (s, v) => s.Sync.Publish = v),
-        Int("sync.runHours", Part.Server, 3, 1, 12, "SYNC_RUN_HOURS", "The longest run; the next starts while nobody plays and work waits.",
+        Int("sync.runHours", Y, 3, 1, 12, "SYNC_RUN_HOURS", "The longest run; the next starts while nobody plays and work waits.",
             s => s.Sync.RunHours, (s, v) => s.Sync.RunHours = v),
-        Int("sync.apiEveryHours", Part.Server, 4, 1, 48, "SYNC_API_EVERY_HOURS", "Discovery, the check and the ratings at most this often.",
+        Int("sync.apiEveryHours", Y, 4, 1, 48, "SYNC_API_EVERY_HOURS", "Discovery, the check and the ratings at most this often.",
             s => s.Sync.ApiEveryHours, (s, v) => s.Sync.ApiEveryHours = v),
-        List("sync.tags", Part.Server, "[\"Armsrace\", \"Deathmatch\", \"Wingman\"]", "SYNC_TAGS", "The Workshop tags searched.",
+        List("sync.tags", Y, "[\"Armsrace\", \"Deathmatch\", \"Wingman\"]", "SYNC_TAGS", "The Workshop tags searched.",
             s => s.Sync.Tags, (s, v) => s.Sync.Tags = v, v => v.Length > 0, "a tag"),
-        List("sync.excludeIds", Part.Server, "[]", "SYNC_EXCLUDE_IDS", "Workshop ids that are never candidates (the HUD item, hud.addon, never is).",
+        List("sync.excludeIds", Y, "[]", "SYNC_EXCLUDE_IDS", "Workshop ids that are never candidates (the HUD item, hud.addon, never is).",
             s => s.Sync.ExcludeIds, (s, v) => s.Sync.ExcludeIds = v, Digits, "a Workshop id"),
-        List("sync.excludeCreators", Part.Server, "[]", "SYNC_EXCLUDE_CREATORS", "SteamID64s of Workshop authors whose maps are listed by hand (your own).",
+        List("sync.excludeCreators", Y, "[]", "SYNC_EXCLUDE_CREATORS", "SteamID64s of Workshop authors whose maps are listed by hand (your own).",
             s => s.Sync.ExcludeCreators, (s, v) => s.Sync.ExcludeCreators = v, SteamId64, "a SteamID64"),
-        Str("sync.changedSince", Part.Server, "", "SYNC_CHANGED_SINCE", "A listed map updated after this day (YYYY-MM-DD) counts as changed at its first check; empty: none does.",
+        Str("sync.changedSince", Y, "", "SYNC_CHANGED_SINCE", "A listed map updated after this day (YYYY-MM-DD) counts as changed at its first check; empty: none does.",
             s => s.Sync.ChangedSince, (s, v) => s.Sync.ChangedSince = v, Date, "a YYYY-MM-DD date"),
-        Bool("sync.modeBackfill", Part.Server, false, "SYNC_MODE_BACKFILL", "Listed Arms Race maps that carry a mode's tag join that mode's list too, untested in it.",
+        Bool("sync.modeBackfill", Y, false, "SYNC_MODE_BACKFILL", "Listed Arms Race maps that carry a mode's tag join that mode's list too, untested in it.",
             s => s.Sync.ModeBackfill, (s, v) => s.Sync.ModeBackfill = v),
-        Int("sync.apiRunCap", Part.Server, 500, 0, 10000, "SYNC_API_RUN_CAP", "Web API calls in one run, at most (never above sync.apiDayCap).",
+        Int("sync.apiRunCap", Y, 500, 0, 10000, "SYNC_API_RUN_CAP", "Web API calls in one run, at most (never above sync.apiDayCap).",
             s => s.Sync.ApiRunCap, (s, v) => s.Sync.ApiRunCap = v, clampHigh: true),
-        Int("sync.apiDayCap", Part.Server, 10000, 0, 10000, "SYNC_API_DAY_CAP", "Web API calls in any 24 hours, at most; 10,000 is the hard limit (10% of Valve's daily allowance per key).",
+        Int("sync.apiDayCap", Y, 10000, 0, 10000, "SYNC_API_DAY_CAP", "Web API calls in any 24 hours, at most; 10,000 is the hard limit (10% of Valve's daily allowance per key).",
             s => s.Sync.ApiDayCap, (s, v) => s.Sync.ApiDayCap = v, clampHigh: true),
-        Int("sync.maxPages", Part.Server, 200, 1, 2000, "SYNC_MAX_PAGES", "Discovery's pages of 100, at most.",
+        Int("sync.maxPages", Y, 200, 1, 2000, "SYNC_MAX_PAGES", "Discovery's pages of 100, at most.",
             s => s.Sync.MaxPages, (s, v) => s.Sync.MaxPages = v),
-        Num("sync.downloadPauseSeconds", Part.Server, 2, 2, 600, "SYNC_DOWNLOAD_PAUSE", "The pause between two SteamCMD downloads; at least 2 s.",
+        Num("sync.downloadPauseSeconds", Y, 2, 2, 600, "SYNC_DOWNLOAD_PAUSE", "The pause between two SteamCMD downloads; at least 2 s.",
             s => s.Sync.DownloadPauseSeconds, (s, v) => s.Sync.DownloadPauseSeconds = v, clampLow: true),
-        Int("sync.holdSeconds", Part.Server, 20, 5, 300, "SYNC_HOLD_SECONDS", "How long the test engine must hold a map with two bots for a pass.",
+        Int("sync.holdSeconds", Y, 20, 5, 300, "SYNC_HOLD_SECONDS", "How long the test engine must hold a map with two bots for a pass.",
             s => s.Sync.HoldSeconds, (s, v) => s.Sync.HoldSeconds = v),
-        Int("sync.batch", Part.Server, 100, 1, 1500, "SYNC_BATCH", "Downloads per batch; a batch is downloaded, tested and published before the next.",
+        Int("sync.batch", Y, 100, 1, 1500, "SYNC_BATCH", "Downloads per batch; a batch is downloaded, tested and published before the next.",
             s => s.Sync.Batch, (s, v) => s.Sync.Batch = v),
-        Int("sync.quietMinutes", Part.Server, 10, 0, 240, "SYNC_QUIET_MINUTES", "How long the server must have had nobody on before a run, after somebody was seen or the service started.",
+        Int("sync.quietMinutes", Y, 10, 0, 240, "SYNC_QUIET_MINUTES", "How long the server must have had nobody on before a run, after somebody was seen or the service started.",
             s => s.Sync.QuietMinutes, (s, v) => s.Sync.QuietMinutes = v),
-        Int("sync.testPort", Part.Server, 27215, 1024, 65535, "SYNC_TEST_PORT", "The test engine's port inside the sync's container.",
+        Int("sync.testPort", Y, 27215, 1024, 65535, "SYNC_TEST_PORT", "The test engine's port inside the sync's container.",
             s => s.Sync.TestPort, (s, v) => s.Sync.TestPort = v),
-        Int("sync.engineStartsMax", Part.Server, 200, 1, 400, "SYNC_ENGINE_STARTS_MAX", "Test engine starts in one run, at most; each is an anonymous game-server logon.",
+        Int("sync.engineStartsMax", Y, 200, 1, 400, "SYNC_ENGINE_STARTS_MAX", "Test engine starts in one run, at most; each is an anonymous game-server logon.",
             s => s.Sync.EngineStartsMax, (s, v) => s.Sync.EngineStartsMax = v),
-        Bool("sync.ratings", Part.Server, true, "SYNC_RATINGS", "Fetch the Workshop's scores, subscriptions and trend once a day (the keep set's top lists).",
+        Bool("sync.ratings", Y, true, "SYNC_RATINGS", "Fetch the Workshop's scores, subscriptions and trend once a day (the keep set's top lists).",
             s => s.Sync.Ratings, (s, v) => s.Sync.Ratings = v),
-        Bool("sync.handover", Part.Server, true, "SYNC_HANDOVER", "Hand the keep set's maps and their tested updates over to the game server.",
+        Bool("sync.handover", Y, true, "SYNC_HANDOVER", "Hand the keep set's maps and their tested updates over to the game server.",
             s => s.Sync.Handover, (s, v) => s.Sync.Handover = v),
-        Int("sync.diskLowGb", Part.Server, 100, 1, 100000, "SYNC_DISK_LOW_GB", "Less free space than this on the game's volume is a problem for the mail.",
+        Int("sync.diskLowGb", Y, 100, 1, 100000, "SYNC_DISK_LOW_GB", "Less free space than this on the game's volume is a problem for the mail.",
             s => s.Sync.DiskLowGb, (s, v) => s.Sync.DiskLowGb = v),
-        Str("sync.webApiKey", Part.Server, "file:/run/secrets/steam-webapi-key.txt", "STEAM_WEBAPI_KEY_FILE", "The Steam Web API key, for discovery and the ratings; without one those steps are skipped.",
+        Str("sync.webApiKey", Y, "file:/run/secrets/steam-webapi-key.txt", "STEAM_WEBAPI_KEY_FILE", "The Steam Web API key, for discovery and the ratings; without one those steps are skipped.",
             s => s.Sync.WebApiKey, (s, v) => s.Sync.WebApiKey = v, v => v.Length == 0 || (v.Length == 32 && v.All(char.IsAsciiHexDigit)), "a 32-character hex key", secret: true),
-        Str("sync.mail.smtpHost", Part.Server, "", "SYNC_SMTP_HOST", "The SMTP relay for the problem mails; empty: no mail.",
+        Str("sync.mail.smtpHost", Y, "", "SYNC_SMTP_HOST", "The SMTP relay for the problem mails; empty: no mail.",
             s => s.Sync.Mail.SmtpHost, (s, v) => s.Sync.Mail.SmtpHost = v),
-        Int("sync.mail.smtpPort", Part.Server, 25, 1, 65535, "SYNC_SMTP_PORT", "Its port (STARTTLS when offered).",
+        Int("sync.mail.smtpPort", Y, 25, 1, 65535, "SYNC_SMTP_PORT", "Its port (STARTTLS when offered).",
             s => s.Sync.Mail.SmtpPort, (s, v) => s.Sync.Mail.SmtpPort = v),
-        Str("sync.mail.from", Part.Server, "", "SYNC_MAIL_FROM", "The mails' sender.",
+        Str("sync.mail.from", Y, "", "SYNC_MAIL_FROM", "The mails' sender.",
             s => s.Sync.Mail.From, (s, v) => s.Sync.Mail.From = v),
-        List("sync.mail.to", Part.Server, "[]", "SYNC_MAIL_TO", "The mails' recipients.",
+        List("sync.mail.to", Y, "[]", "SYNC_MAIL_TO", "The mails' recipients.",
             s => s.Sync.Mail.To, (s, v) => s.Sync.Mail.To = v, v => v.Contains('@'), "an address"),
-        Str("sync.mail.dashboardUrl", Part.Server, "", "SYNC_DASHBOARD_URL", "The dashboard's address every problem mail points to.",
+        Str("sync.mail.dashboardUrl", Y, "", "SYNC_DASHBOARD_URL", "The dashboard's address every problem mail points to.",
             s => s.Sync.Mail.DashboardUrl, (s, v) => s.Sync.Mail.DashboardUrl = v),
 
         // steam: the Steam Web API, per program
-        Num("steam.apiGapSeconds", PS, 2, 2, 600, "SYNC_API_GAP_SECONDS", "Each program's Steam Web API calls go one at a time, at least this long after the last one ended; never under 2 s.",
+        Num("steam.apiGapSeconds", P | S | Y, 2, 2, 600, "SYNC_API_GAP_SECONDS", "Each program's Steam Web API calls go one at a time, at least this long after the last one ended; never under 2 s.",
             s => s.Steam.ApiGapSeconds, (s, v) => s.Steam.ApiGapSeconds = v, clampLow: true),
 
         // paths: where each part finds its files, inside its container
-        Str("paths.bridgeData", BS, "/data", "STATE_DIR, CS2_BRIDGE_DATA, SYNC_BRIDGE_DATA", "The bridge's data folder: read-write in the bridge and the sync, read-only in the game server - mounted at the same path in all three.",
+        Str("paths.bridgeData", B | S | Y, "/data", "STATE_DIR, CS2_BRIDGE_DATA, SYNC_BRIDGE_DATA", "The bridge's data folder: read-write in the bridge and the sync, read-only in the game server - mounted at the same path in all three.",
             s => s.Paths.BridgeData, (s, v) => s.Paths.BridgeData = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.gameDir", Part.Server, "/home/steam/cs2-dedicated", "STEAMAPPDIR, SYNC_GAME_DIR", "The game server's install (the image's STEAMAPPDIR); the sync mounts it read-only at the same path.",
+        Str("paths.gameDir", S | Y, "/home/steam/cs2-dedicated", "STEAMAPPDIR, SYNC_GAME_DIR", "The game server's install (the image's STEAMAPPDIR); the sync mounts it read-only at the same path.",
             s => s.Paths.GameDir, (s, v) => s.Paths.GameDir = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.handover", Part.Server, "/home/steam/cs2-dedicated/workshop-sync/handover", "CS2_HANDOVER_DIR", "The hand-over folder as the game server sees it: inside paths.gameDir, so a take-in is one rename.",
+        Str("paths.handover", S, "/home/steam/cs2-dedicated/workshop-sync/handover", "CS2_HANDOVER_DIR", "The hand-over folder as the game server sees it: inside paths.gameDir, so a take-in is one rename.",
             s => s.Paths.Handover, (s, v) => s.Paths.Handover = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.syncState", Part.Server, "/home/steam/sync-state", "SYNC_STATE_DIR", "The sync's state, ledger, reports and backups (kept, backed up).",
+        Str("paths.syncState", Y, "/home/steam/sync-state", "SYNC_STATE_DIR", "The sync's state, ledger, reports and backups (kept, backed up).",
             s => s.Paths.SyncState, (s, v) => s.Paths.SyncState = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.syncWork", Part.Server, "/home/steam/workshop-sync", "SYNC_WORK_DIR", "The sync's staging, test engine tree and hand-overs (<it>/handover is paths.handover in the game server); on the game's volume.",
+        Str("paths.syncWork", Y, "/home/steam/workshop-sync", "SYNC_WORK_DIR", "The sync's staging, test engine tree and hand-overs (<it>/handover is paths.handover in the game server); on the game's volume.",
             s => s.Paths.SyncWork, (s, v) => s.Paths.SyncWork = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.syncCfg", Part.Server, "", "SYNC_CFG_DIR", "Mode cfgs copied over the test engine's own; empty: none.",
+        Str("paths.syncCfg", Y, "", "SYNC_CFG_DIR", "Mode cfgs copied over the test engine's own; empty: none.",
             s => s.Paths.SyncCfg, (s, v) => s.Paths.SyncCfg = v, v => v.Length == 0 || v.StartsWith('/'), "an absolute path"),
-        Str("paths.steamCmd", Part.Server, "/home/steam/steamcmd/steamcmd.sh", "SYNC_STEAMCMD", "SteamCMD in the sync's container (the image's own).",
+        Str("paths.steamCmd", Y, "/home/steam/steamcmd/steamcmd.sh", "SYNC_STEAMCMD", "SteamCMD in the sync's container (the image's own).",
             s => s.Paths.SteamCmd, (s, v) => s.Paths.SteamCmd = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.depotcache", Part.Server, "/home/steam/Steam/depotcache", "CS2_DEPOTCACHE, SYNC_DEPOTCACHE", "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing.",
+        Str("paths.depotcache", S | Y, "/home/steam/Steam/depotcache", "CS2_DEPOTCACHE, SYNC_DEPOTCACHE", "Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing.",
             s => s.Paths.Depotcache, (s, v) => s.Paths.Depotcache = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.plugins", Part.Server, "/home/steam/cs2-plugins", "CS2_PLUGINS_SRC", "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
+        Str("paths.plugins", S, "/home/steam/cs2-plugins", "CS2_PLUGINS_SRC", "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
             s => s.Paths.Plugins, (s, v) => s.Paths.Plugins = v, v => v.StartsWith('/'), "an absolute path"),
     ];
 
@@ -718,7 +720,7 @@ public sealed class Settings
             sb.Append("\n### `").Append(group.Key).Append("`\n\n| Key | Type | Default | Read by | Replaces | What |\n|---|---|---|---|---|---|\n");
             foreach (var k in group)
             {
-                var readers = string.Join(", ", new[] { (Part.Bridge, "bridge"), (Part.Plugin, "plugin"), (Part.Server, "server") }
+                var readers = string.Join(", ", new[] { (Part.Bridge, "bridge"), (Part.Plugin, "plugin"), (Part.Server, "server"), (Part.Sync, "sync") }
                     .Where(r => (k.Readers & r.Item1) != 0).Select(r => r.Item2));
                 var type = k.Choices != null ? string.Join(" \\| ", k.Choices) : k.Type + (k.Min is { } lo ? $", {lo.ToString(CultureInfo.InvariantCulture)}..{k.Max!.Value.ToString(CultureInfo.InvariantCulture)}" : "");
                 sb.Append("| `").Append(k.Path).Append("` | ").Append(type).Append(" | ").Append(k.Required != null ? "(required)" : k.Default.Length == 0 ? "(empty)" : "`" + k.Default.Replace("|", "\\|") + "`")

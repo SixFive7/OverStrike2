@@ -68,7 +68,7 @@ public sealed class SyncConfig
     /// <summary>The status file, in the bridge's data.</summary>
     public string StatusFile => Path.Combine(BridgeData, "sync-status.json");
 
-    /// <summary>The settings for the sync, and the image's variables it falls back on.</summary>
+    /// <summary>The settings for the sync, and a warning where the image's own variables say otherwise.</summary>
     public static SyncConfig From(Settings s, Func<string, string?>? env = null)
     {
         env ??= Environment.GetEnvironmentVariable;
@@ -121,9 +121,7 @@ public sealed class SyncConfig
         c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Py.Digits));
         if (Py.Digits(c.HudAddon))
             c.Exclude.Add(c.HudAddon);                          // the HUD item is never a candidate
-        foreach (var p in s.Problems.Concat(s.Warnings).Where(x => x.StartsWith("sync.", StringComparison.Ordinal) || x.StartsWith("paths.", StringComparison.Ordinal)
-                                                                   || x.StartsWith("steam.", StringComparison.Ordinal) || x.StartsWith("no settings file", StringComparison.Ordinal)
-                                                                   || x.StartsWith("schema", StringComparison.Ordinal)))
+        foreach (var p in s.Problems.Concat(s.Warnings))   // read as Part.Sync: the sync's own keys only
             c.BootWarnings.Add("settings: " + p);
         if (env("STEAMAPPDIR") is { Length: > 0 } dir && dir.TrimEnd('/') != s.Paths.GameDir.TrimEnd('/'))
             c.BootWarnings.Add($"the image's STEAMAPPDIR is {dir} but paths.gameDir says {s.Paths.GameDir}: the sync reads {s.Paths.GameDir}");

@@ -102,7 +102,7 @@ public sealed class ServerConfig
             KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),   // the bridge's stock lanes are the keep set's queues
             Bridge = s.Bridge.Secret.Length > 0 ? (s.Bridge.Url.TrimEnd('/'), s.Bridge.Secret) : null,
         };
-        foreach (var p in s.Problems.Concat(s.Warnings).Where(x => !x.StartsWith("sync.", StringComparison.Ordinal)))   // the sync's keys are its own business
+        foreach (var p in s.Problems.Concat(s.Warnings))   // read as Part.Server: this program's own keys only
             c.BootWarnings.Add("settings: " + p);
         if (env("CS2_PORT") is { Length: > 0 } port && port.Trim() != s.Server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))
             c.BootWarnings.Add($"the image's CS2_PORT is {port.Trim()} but server.port says {s.Server.Port}: the watcher asks port {s.Server.Port}");
