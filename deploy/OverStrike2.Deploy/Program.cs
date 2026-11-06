@@ -20,6 +20,7 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
   probe <verb> ...                                    the client harness's server half: the lock, RCON, the probe plugin
   testcopy <verb> ...                                 the insecure test copy of the game server and the candidate bridge
   bridgepost <verb> ...                               what only the watcher or other players send a candidate bridge
+  rehearse <verb> ...                                 the release rehearsal: production aside, the candidate as a throwaway stack
   --selftest [suite...]                               every offline check (deploy, release, check, testcopy, testcopy-bridge, bridgepost, ...)
 
   every command takes --config FILE (default: $OVERSTRIKE2_CONFIG, else .private/config.toml)
@@ -82,6 +83,8 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
                 return TestCopy.Command(rest);
             case "bridgepost":
                 return BridgePost.Command(rest);
+            case "rehearse":
+                return Rehearse.Command(rest);
             case "--selftest":
                 return SelfTest.Command(rest);
             default:

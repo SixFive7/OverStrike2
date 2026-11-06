@@ -107,6 +107,7 @@ static partial class SelfTest
         ("bridgepost", BridgePostTests.Run),
         ("base", BaseTests.Run),
         ("thumbs", ThumbsTests.Run),
+        ("rehearse", RehearseTests.Run),
     ];
 
     public static int Command(string[] args)
