@@ -107,14 +107,14 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     string BlockedFile => Path.Combine(plugin.ModuleDirectory, Modes.BlockFile);
 
     // ---- the game mode (docs/reference.md) ----
-    Modes.Mode? gameMode;                   // os_mode: the mode the server loads in; null until told (then the live convars at a map start)
-    Modes.Mode blockMode = Modes.ArmsRace;  // whose block list is on now
-    Modes.Mode? loadedIn;                   // the mode the map that is on was loaded in (its game_type/game_mode at the start)
+    readonly ModePlan modes = new();        // os_mode's mode, the one the map that is on was loaded in, and whose block list is on (ModePlan.cs)
+    Modes.Mode? modeAtLoad;                 // a load while a map is on found that map in another mode than Arms Race: the modules hear of it in Ready
 
     /// <summary>The mode in force for the features: the one the map that is on was loaded in.</summary>
-    public Modes.Mode Mode => blockMode;
+    public Modes.Mode Mode => modes.On;
 
-    /// <summary>Raised when a mode's features go on (at the map start that loads it, or at once when the map that is on is in it).</summary>
+    /// <summary>Raised when a mode's features go on (at the map start that loads it, or at once when the map that is on is in it, or - for a
+    /// load while a map is on - when the host is ready for it).</summary>
     public event Action<Modes.Mode>? ModeApplied;
 
     /// <summary>os_mode &lt;id&gt; (the bridge: before every map change, with the convars, and after every map start): game_type and
@@ -122,24 +122,24 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     /// and Arms Race-only features follow at the next map start, or at once when the map that is on was loaded in that mode.</summary>
     public string SetMode(Modes.Mode m)
     {
-        gameMode = m;
+        var was = modes.On;
+        var now = modes.Tell(m);
         KeepModeValues();
-        if (loadedIn?.Id == m.Id && blockMode.Id != m.Id) { UseMode(m, "now: the map that is on is in it"); return $"mode {m.Id}: on now"; }
-        return blockMode.Id == m.Id ? $"mode {m.Id}: on already" : $"mode {m.Id}: game_type {m.GameType}, game_mode {m.GameMode} kept; its block list and features at the next map start";
+        if (now != null) { UseMode(now, was, "now: the map that is on is in it"); return $"mode {m.Id}: on now"; }
+        return modes.On.Id == m.Id ? $"mode {m.Id}: on already" : $"mode {m.Id}: game_type {m.GameType}, game_mode {m.GameMode} kept; its block list and features at the next map start";
     }
 
     /// <summary>The mode's game_type and game_mode as the baseline the put-back and the block keep.</summary>
     void KeepModeValues()
     {
-        if (gameMode is not { } m) return;
+        if (modes.Told is not { } m) return;
         foreach (var (name, value) in new[] { ("game_type", m.GameType), ("game_mode", m.GameMode) })
             if (managed.TryGetValue(name, out var x) || extra.TryGetValue(name, out x)) x.Baseline = value.ToString();
     }
 
-    void UseMode(Modes.Mode m, string why)
+    /// <summary>The plan switched to m: its block list read, and the modules told.</summary>
+    void UseMode(Modes.Mode m, Modes.Mode was, string why)
     {
-        var was = blockMode;
-        blockMode = m;
         ReadBlocked();
         BuildExtra();
         log.LogInformation("Over Strike 2 settings: mode {Mode} ({Why}) - {Blocked}{Was}", m.Name, why, blockedFrom, was.Id != m.Id ? $"; was {was.Name}" : "");
@@ -148,22 +148,29 @@ sealed class Settings(BasePlugin plugin, ILogger log)
 
     static int IntOf(string? text) => int.TryParse(text, out var n) ? n : text?.Trim().ToLowerInvariant() is "true" ? 1 : 0;
 
+    /// <summary>The map that is on started, or the plugin loaded while it is on: the mode its live game_type and game_mode select (ModePlan).
+    /// The mode the plan switched to, or null.</summary>
+    Modes.Mode? MapMode() => modes.Started(IntOf(Value("game_type")), IntOf(Value("game_mode")));
+
     /// <summary>The block's list as it must act now: the game type and mode always the mode's own values (os_mode), whatever the list in
     /// force says - between os_mode and the next map start the old mode's list is still on.</summary>
-    IEnumerable<BlockList.Entry> BlockedNow() => gameMode is not { } m ? blocked
+    IEnumerable<BlockList.Entry> BlockedNow() => modes.Told is not { } m ? blocked
         : blocked.Select(e => e.ConVar.Equals("game_type", StringComparison.OrdinalIgnoreCase) ? e with { Value = m.GameType.ToString() }
             : e.ConVar.Equals("game_mode", StringComparison.OrdinalIgnoreCase) ? e with { Value = m.GameMode.ToString() } : e);
 
     public void Load(bool hotReload)
     {
         map = Server.MapName ?? "";
+        // At a server start the plugin loads before the first map and before the command line has run (console.log: the plugins load
+        // two seconds before "Loading map"): game_type would still read 0 then. Any other load - CounterStrikeSharp's hot reload, or
+        // css_plugins load/reload, which passes hotReload false - happens while a map is on. That map's start has passed, so the mode is
+        // decided here as its start decided it, before anything below reads the block list: a load on a Deathmatch or Wingman map would
+        // otherwise keep Arms Race's list and features on it until the next map start.
+        var midMap = hotReload || !string.IsNullOrEmpty(map);
+        if (midMap) modeAtLoad = MapMode();
         ReadEngineCfgs();
         ReadBlocked();
         BuildManagedSet();
-        // At a server start the plugin loads before the first map and before the command line has run (console.log: the plugins load
-        // two seconds before "Loading map"): game_type would still read 0 then. Any other load - CounterStrikeSharp's hot reload, or
-        // css_plugins load/reload, which passes hotReload false - happens while a map is on.
-        var midMap = hotReload || !string.IsNullOrEmpty(map);
         if (midMap) TakeBaselineMidMap();
         else { baselinePending = true; baselineFrom = "pending: taken when the first map ends"; }
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
@@ -176,6 +183,16 @@ sealed class Settings(BasePlugin plugin, ILogger log)
             "{Fun} fun settings ({FunVars} convars and effects; {On} on by default); baseline {From}.",
             ModuleVersion, managed.Count, listed, fromBuild, leftToCfg, leftAlone, notGame, notFound, alsoWatched, blockedFrom, Fun.Settings.Length, Fun.AllConVars.Count(),
             string.Join(", ", Fun.EffectsOn.Select(e => e.Effect)), baselineFrom);
+        if (modeAtLoad is { } m) log.LogInformation("Over Strike 2 settings: mode {Mode} (loaded while {Map} is on, which was loaded in it) - {Blocked}", m.Name, map, blockedFrom);
+    }
+
+    /// <summary>The host has wired its modules to ModeApplied: a load while a map in another mode than Arms Race is on tells them that mode
+    /// now - the grenade drops, catch-up and the HUD follow it as they did from that map's start - not at the next map start.</summary>
+    public void Ready()
+    {
+        if (modeAtLoad is not { } m) return;
+        modeAtLoad = null;
+        ModeApplied?.Invoke(m);
     }
 
     // ---- what is managed ----------------------------------------------------------------------------------------------------
@@ -355,11 +372,11 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         try
         {
-            blocked = Modes.Blocked(File.ReadAllText(BlockedFile), blockMode, out var errors);
+            blocked = Modes.Blocked(File.ReadAllText(BlockedFile), modes.On, out var errors);
             foreach (var error in errors) log.LogWarning("Over Strike 2 settings: {File}: {Error}", Modes.BlockFile, error);
             var unknown = blocked.Where(b => FindVar(b.ConVar) == null).Select(b => b.ConVar).ToList();
             if (unknown.Count > 0) log.LogWarning("Over Strike 2 settings: {File}: unknown to this build, not blocked: {List}", Modes.BlockFile, string.Join(", ", unknown));
-            blockedFrom = $"{blocked.Count - unknown.Count} game-changers blocked ({Modes.BlockFile}, {blockMode.Name}'s values{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})";
+            blockedFrom = $"{blocked.Count - unknown.Count} game-changers blocked ({Modes.BlockFile}, {modes.On.Name}'s values{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})";
         }
         catch (Exception e)
         {
@@ -550,16 +567,11 @@ sealed class Settings(BasePlugin plugin, ILogger log)
     void OnMapStart(string name)
     {
         MapEnding = false;
-        // The mode this map loaded in - its live game_type/game_mode - not the one the bridge told (os_mode): a changelevel from a Workshop
-        // map to an official one can bring back the convars CS2 saved before, the mode included (measured 2026-11-01: de_dust2 told
-        // Deathmatch came up in Arms Race). The bridge then loads it once more in the told mode; until that load, this map keeps its own
-        // mode's block list and features, so Deathmatch's values are never forced onto an Arms Race map. Convars that are none of our
-        // modes fall back to the told mode; without an os_mode since the plugin loaded (a server start, a reload) the live mode is the told
-        // one too.
-        loadedIn = Modes.FromConVars(IntOf(Value("game_type")), IntOf(Value("game_mode")));
-        if (gameMode == null && loadedIn != null) gameMode = loadedIn;
-        if ((loadedIn ?? gameMode) is { } m && blockMode.Id != m.Id)
-            UseMode(m, gameMode != null && gameMode.Id != m.Id ? $"the start of {name}, which loaded in {m.Name} although {gameMode.Name} was told" : $"the start of {name}");
+        // The mode this map loaded in - its live game_type/game_mode - not the one the bridge told (os_mode): ModePlan.cs says why. Without
+        // an os_mode since the plugin loaded (a server start) the live mode is the told one too.
+        var was = modes.On;
+        if (MapMode() is { } m)
+            UseMode(m, was, modes.Told is { } told && told.Id != m.Id ? $"the start of {name}, which loaded in {m.Name} although {told.Name} was told" : $"the start of {name}");
         var missedEnd = !endSeenSinceStart;
         endSeenSinceStart = false;
         var before = map;

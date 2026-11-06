@@ -33,6 +33,8 @@
          Fun.Same, which Program.cs stands in for (the real one is the bridge's, tested there). -->
     <Compile Include="..\..\bridge\Shared\Modes.cs" Link="Modes.cs" />
     <Compile Include="..\..\bridge\Shared\BlockList.cs" Link="BlockList.cs" />
+    <!-- Which game mode the settings module acts in, at a map start, at os_mode and at a load while a map is on. -->
+    <Compile Include="..\OverStrike2\ModePlan.cs" Link="ModePlan.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
   </ItemGroup>
 

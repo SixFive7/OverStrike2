@@ -335,6 +335,63 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     }
 }
 
+// ---- the game mode (ModePlan.cs): whose block list and Arms Race-only features are on. A plugin loaded while a map is on (a reload, css_plugins
+// load) decides at its load as one loaded before that map decided at its start; it used to stay in Arms Race until the next map start - Arms
+// Race's list forced onto a Deathmatch or Wingman map, the grenade drops and catch-up on ----
+{
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var file = File.Exists(Path.Combine(plugin, Modes.BlockFile)) ? File.ReadAllText(Path.Combine(plugin, Modes.BlockFile)) : null;
+    static ModePlan FromStart(Modes.Mode m) // loaded at the server's start: the boot map in Arms Race, then os_mode and the start of a map in m
+    {
+        var plan = new ModePlan();
+        plan.Started(Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode);
+        plan.Tell(m);
+        plan.Started(m.GameType, m.GameMode);
+        return plan;
+    }
+    foreach (var m in Modes.All)
+    {
+        var fresh = FromStart(m);
+        var load = new ModePlan(); // a reload's new instance, on that map
+        var before = load.On;
+        var switched = load.Started(m.GameType, m.GameMode); // what Settings.Load asks while a map is on
+        Check(before == Modes.ArmsRace && load.On == m && fresh.On == m && load.LoadedIn == fresh.LoadedIn && load.Told == fresh.Told,
+            $"mode: a plugin loaded while a {m.Name} map is on acts in {m.Name}, as one loaded before that map does (on {load.On.Name}, told {load.Told?.Name})");
+        Check(switched == (m.ArmsRace ? null : m), $"...and switches the list and the features over from Arms Race, where every load starts, only for another mode ({m.Name})");
+        if (file != null)
+            Check(Modes.Blocked(file, load.On, out _).SequenceEqual(Modes.Blocked(file, fresh.On, out _)), $"...with the block list of a plugin loaded before that map: {m.Name}'s");
+    }
+    if (file != null)
+        Check(Modes.All.Where(m => !m.ArmsRace).All(m => !Modes.Blocked(file, m, out _).SequenceEqual(Modes.Blocked(file, Modes.ArmsRace, out _))),
+            "mode: Deathmatch's and Wingman's block lists are not Arms Race's, which a load kept on every map before");
+    var casual = new ModePlan();
+    Check(casual.Started(0, 0) == null && casual.On == Modes.ArmsRace && casual.LoadedIn == null, "mode: a load on a map in none of our modes (Casual) keeps Arms Race, as a map start does");
+    var dm = new ModePlan();
+    dm.Started(Modes.Deathmatch.GameType, Modes.Deathmatch.GameMode);
+    Check(dm.Tell(Modes.Deathmatch) == null && dm.On == Modes.Deathmatch, "mode: after a load on a Deathmatch map, the bridge's os_mode deathmatch finds it on already");
+    Check(dm.Tell(Modes.Wingman) == null && dm.On == Modes.Deathmatch && dm.Told == Modes.Wingman && dm.Started(Modes.Wingman.GameType, Modes.Wingman.GameMode) == Modes.Wingman,
+        "mode: os_mode wingman keeps Deathmatch's list on until the Wingman map starts");
+    var back = FromStart(Modes.Deathmatch);
+    back.Tell(Modes.Deathmatch);
+    Check(back.Started(Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode) == Modes.ArmsRace && back.Told == Modes.Deathmatch,
+        "mode: a map told Deathmatch that comes up in Arms Race (a changelevel's saved convars) gets Arms Race's list until the bridge loads it again");
+    // The plan's caller: Settings.Load asks it before it reads the block list, the way OnMapStart does, and the host lets the modules hear of it.
+    var settingsCs = Path.Combine(plugin, "Settings.cs");
+    var hostCs = Path.Combine(plugin, "OverStrike2.cs");
+    if (File.Exists(settingsCs) && File.Exists(hostCs))
+    {
+        var code = File.ReadAllText(settingsCs);
+        var load = code[code.IndexOf("public void Load(bool hotReload)", StringComparison.Ordinal)..];
+        load = load[..load.IndexOf("\n    }\n", StringComparison.Ordinal)];
+        var host = File.ReadAllText(hostCs);
+        Check(load.IndexOf("modeAtLoad = MapMode();", StringComparison.Ordinal) is >= 0 and var at && at < load.IndexOf("ReadBlocked();", StringComparison.Ordinal)
+            && code.Contains("if (MapMode() is { } m)", StringComparison.Ordinal), "mode: Settings.Load decides by the map that is on, as OnMapStart does, before it reads the block list");
+        Check(host.IndexOf("settings.Ready();", StringComparison.Ordinal) > host.IndexOf("settings.ModeApplied +=", StringComparison.Ordinal),
+            "mode: the plugin tells its modules a load's mode once they follow ModeApplied");
+    }
+    else Console.WriteLine($"(no {settingsCs}: the settings module's use of the mode is not checked)");
+}
+
 // ---- ConVarNames: the game convars the running build has, asked of the build itself. What can go wrong on a server is a missing or strange
 // file and a strange answer, and each of those must leave exactly the embedded list. ----
 

@@ -101,6 +101,7 @@ public class OverStrike2Plugin : BasePlugin
             }
             else if (effect.Equals(Fun.CatchUp, StringComparison.OrdinalIgnoreCase)) CatchUpFollows($"its fun setting {(on ? "on" : "off")}");
         };
+        settings.Ready(); // a load while a Deathmatch or Wingman map is on: the modules follow that map's mode now, as from its start
         hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects - the grenade drops and catch-up among them - included
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
         catchUp.Show = (player, boost, lines, html, seconds) =>
