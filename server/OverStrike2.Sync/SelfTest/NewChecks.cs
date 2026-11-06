@@ -118,11 +118,11 @@ static class NewChecks
     static void Formats()
     {
         var tricky = O("""
-            {"f": [0.1, 1e16, 1.5e-07, 1793500000.0, 0.547, 2.675, 1e-05, 123456789.125, -0.0, 1e15], "s": "a\"b\\c\nd\te\u0001\u007fé‮😀",
+            {"f": [0.1, 1e16, 1.5e-07, 1793500000.0, 0.547, 2.675, 1e-05, 123456789.125, -0.0, 1e15], "s": "a\"b\\c\nd\te\u0001\u007fé\u202e😀",
              "n": null, "t": true, "e": [], "o": {}, "i": [1, -2, 12345678901234]}
             """);
         Check("json: compact as the sync's own files (Python's separators, floats, ensure_ascii off)",
-              Py.Compact(tricky) == "{\"f\":[0.1,1e+16,1.5e-07,1793500000.0,0.547,2.675,1e-05,123456789.125,-0.0,1000000000000000.0],\"s\":\"a\\\"b\\\\c\\nd\\te\\u0001\u007fé‮\U0001f600\",\"n\":null,\"t\":true,\"e\":[],\"o\":{},\"i\":[1,-2,12345678901234]}");
+              Py.Compact(tricky) == "{\"f\":[0.1,1e+16,1.5e-07,1793500000.0,0.547,2.675,1e-05,123456789.125,-0.0,1000000000000000.0],\"s\":\"a\\\"b\\\\c\\nd\\te\\u0001\u007fé\u202E\U0001f600\",\"n\":null,\"t\":true,\"e\":[],\"o\":{},\"i\":[1,-2,12345678901234]}");
         Check("json: indent 0 (search.json) and the default separators (the hand-over marker) as Python writes them",
               Py.Dumps(O("{\"a\": [1, {\"b\": \"c\"}], \"d\": {}}"), 0) == "{\n\"a\": [\n1,\n{\n\"b\": \"c\"\n}\n],\n\"d\": {}\n}"
               && Py.Dumps(O("{\"a\": [1, 2], \"b\": {\"c\": null}}")) == "{\"a\": [1, 2], \"b\": {\"c\": null}}"
@@ -134,7 +134,7 @@ static class NewChecks
         Check("words: sizes as the Python sync's mb()",
               string.Join("|", new long[] { 0, 1048575, 1572864, 1073741824, 1342177280, 1610612736, 5L << 30 }.Select(b => Text.Mb(b))) == "0 MB|1 MB|2 MB|1.0 GB|1.2 GB|1.5 GB|5.0 GB");
         Check("words: clean() and the search text as Python's - control characters, bidi overrides, a cut at a word, by code points",
-              Text.Clean("  a\u0000b‮c\t\td  " + string.Concat(Enumerable.Repeat("word ", 30)), 50) == "a bc d word word word word word word word word…"
+              Text.Clean("  a\u0000b\u202Ec\t\td  " + string.Concat(Enumerable.Repeat("word ", 30)), 50) == "a bc d word word word word word word word word…"
               && Text.Clean(string.Concat(Enumerable.Repeat("\U0001F600", 30)) + " tail", 20) == string.Concat(Enumerable.Repeat("\U0001f600", 20)) + "…"
               && Verdicts.SearchBlob("Big  Map!", "77", ["Arms Race", "Wingman"], "A <b>bold</b> map\nwith lines") == "big map! 77 arms race wingman a <b>bold</b> map with lines");
     }
