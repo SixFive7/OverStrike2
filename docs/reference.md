@@ -463,8 +463,8 @@ Thousands of community maps include some that break things, so every broken map 
 
 A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
 lacks. What v4.5.0, the content before it, needs for its own pages keeps coming (`HudVersion.Oldest`); nothing comes for what only an older content reads but its red "yours is older" at a join
-(from v4.0.0 on, `HudVersion.JoinBannerFirst`), so a game holding one of those runs on what it shares with v4.5.0 and is told to update, and its Too big and Ads buttons (up to v4.3.0) do nothing. Every
-shipped layout is kept in `hud/reference/`, and `--selftest` holds the new one to those still drawn for. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
+(from v4.0.0 on, `HudVersion.JoinBannerFirst`), so a game holding one of those runs on what it shares with v4.5.0 and is told to update, and its Too big and Ads buttons (up to v4.3.0) do nothing. `hud/reference/`
+keeps the shipped layouts `--selftest` reads - those still drawn for, the one this content replaced, those with a join banner - and the self-test holds the new one to them. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
 banner stays and names both versions; a newer game's shows for 15 s at the join.
 
@@ -634,7 +634,7 @@ The rules are said in the menu: its How it works and Help pages and the start pa
 | `plugin/OverStrike2/` | The plugin; `blocked.txt` the block list, `convars.txt` the floor of game convars the plugin watches; at every start it adds what the running build has beyond it (`ConVarNames.cs`). |
 | `plugin/CatchUp/` | The catch-up boosts and their self-test; the plugin compiles them in. |
 | `core/` | The library the parts share, and its self-test. |
-| `hud/` | The HUD addon ([`hud/PUBLISH.md`](../hud/PUBLISH.md)); `reference/` the shipped layouts; `thumbs.py` makes the map pictures, which are never committed. |
+| `hud/` | The HUD addon ([`hud/PUBLISH.md`](../hud/PUBLISH.md)); `reference/` the shipped layouts the self-test reads; `thumbs.py` makes the map pictures, which are never committed. |
 | `maps/` | Our own maps' generators and their Workshop publisher ([`maps/README.md`](../maps/README.md)). |
 | `server/` | The two programs, with the launcher `pre.sh` and their self-tests, and each game mode's cfg. |
 | `deploy/` | A host that builds everything itself (`compose.yml`), and building and shipping from a workstation, with a private config. |

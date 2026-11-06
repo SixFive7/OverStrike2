@@ -247,16 +247,17 @@ static partial class Program
                 Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
             // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and the ones still drawn for
-            //      (HudVersion.Oldest on) keep what their own pages need. hud/reference/ keeps every shipped layout; these checks read the ones still drawn
-            //      for, the one this content replaces and every one with a join banner ----
+            //      (HudVersion.Oldest on) keep what their own pages need. hud/reference/ keeps the shipped layouts these checks read and no other: the ones
+            //      still drawn for, the one this content replaces, every one with a join banner. A missing one fails; every older layout is in git ----
             var shippedContents = HudVersion.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
             static string ReferenceFile(string content) => $"../hud/reference/gungame_hud_{content}.xml";
             var inUseContents = HudVersion.Contents.SkipLast(1).Where(c => c.Level >= HudVersion.Oldest).Select(c => c.Version).ToArray(); // the shipped contents still drawn for
             var bannerContents = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest).ToList(); // the contents with a join banner
-            var readContents = inUseContents.Append(shippedContents[^1]).ToHashSet();
-            Check($"hud/reference/ holds the layout of every shipped content in the table ({shippedContents.Length}) and no other: a release adds its line and keeps the layout it replaces",
-                Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet().SetEquals(shippedContents));
-            if (readContents.All(c => File.Exists(ReferenceFile(c))))
+            var readContents = inUseContents.Append(shippedContents[^1]).Concat(bannerContents.Select(c => c.Version)).ToHashSet();
+            var kept = Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet();
+            Check($"hud/reference/ holds the shipped layouts these checks read ({string.Join(", ", readContents.Order(StringComparer.Ordinal))}) and no other: a release keeps the layout it replaces, and a missing one fails{(kept.SetEquals(readContents) ? "" : $": missing {string.Join(" ", readContents.Except(kept))}; read by nothing {string.Join(" ", kept.Except(readContents))}")}",
+                kept.SetEquals(readContents));
+            if (readContents.All(c => File.Exists(ReferenceFile(c)))) // else the check above has failed
             {
                 static HashSet<string> IdsOf(string file) => Regex.Matches(File.ReadAllText(file), @"\bid=""([^""]+)""").Select(x => x.Groups[1].Value).ToHashSet();
                 Check($"The shipped contents still drawn for ({string.Join(", ", inUseContents)}) include their stylesheet as gungame_hud_{Hud.ReleaseFile}: the file names keep the old form, and the plugin keeps asking for the one layout those contents have",
