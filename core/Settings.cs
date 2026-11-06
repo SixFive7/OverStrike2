@@ -25,7 +25,7 @@ public readonly record struct TimeOfDay(int Hour, int Minute)
     {
         value = null;
         var t = (text ?? "").Trim().ToLowerInvariant();
-        if (t is "off" or "none")
+        if (t == "off")
             return true;
         var parts = t.Split(':');
         if (parts.Length == 2 && parts[0].Length is 1 or 2 && parts[1].Length == 2 && int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var h)
@@ -47,11 +47,11 @@ public readonly record struct TimeOfDay(int Hour, int Minute)
 /// out of its range keeps the default and is a <see cref="Problems"/> line - a typo must never silently widen a safety limit; a hard
 /// limit clamps. A key nobody knows is a <see cref="Warnings"/> line, never fatal, so a part one release ahead never stops another.
 /// A file that cannot be read, is no JSON object or names a schema this code does not know sets <see cref="Fatal"/>: every value is
-/// then its default, and the program decides (the server programs refuse to run on it, <see cref="RefusedExit"/>). So does a required
-/// key (<see cref="Key.Required"/>: hud.addon, "a server without the HUD cannot exist") that is missing, empty or wrong, for the readers
-/// of that key: there is no default to run on, and the rest of the file is still read, for doctor to show. A string value "env:NAME" is
-/// read from the environment variable NAME and "file:PATH" from that file (trimmed) - the way a secret stays where it is kept: the
-/// image's own variables (CS2_RCONPW, ...) or a mounted secret file.</summary>
+/// then its default, and no part runs on it (the server programs and the bridge exit <see cref="RefusedExit"/>, the plugin does not
+/// load). So do no settings at all, and a required key (<see cref="Key.Required"/>: hud.addon, "a server without the HUD cannot exist")
+/// that is missing, empty or wrong, for the readers of that key: there is no default to run on, and the rest of the file is still read,
+/// for doctor to show. A string value "env:NAME" is read from the environment variable NAME and "file:PATH" from that file (trimmed) -
+/// the way a secret stays where it is kept: the image's own variables (CS2_RCONPW, ...) or a mounted secret file.</summary>
 public sealed class Settings
 {
     public const int Schema = 1;
@@ -101,9 +101,8 @@ public sealed class Settings
     /// <summary>The settings for one reader. Where from, the first that says: a file named for a test (path, which is what --settings gives,
     /// else OVERSTRIKE2_SETTINGS); the file's text in <see cref="ContentVariable"/>, by the same rules and the same fatal path as a file;
     /// the file at <see cref="DefaultPath"/>. Naming DefaultPath is naming nothing: it is what a caller passes that was told no other.
-    /// Nothing at all: every value is its default, and a warning says so. For the bridge and the plugin that is all: they fall back on the
-    /// environment while there are no settings (bridge/Shared/SettingsSource.cs). The server programs have nothing to fall back on, so for them it
-    /// is one more way of having no hud.addon: <see cref="Fatal"/>. Never throws.</summary>
+    /// Nothing at all: every value is its default, a warning says so, and <see cref="Fatal"/> too - no part runs without its settings, and
+    /// for a reader of hud.addon it names that key as well. Never throws.</summary>
     public static Settings Load(Part reader, string? path = null, Func<string, string?>? env = null, Func<string, string>? readFile = null)
     {
         env ??= Environment.GetEnvironmentVariable;
@@ -127,7 +126,8 @@ public sealed class Settings
             var s = Parse("{ \"schema\": " + Schema + " }", reader, env, readFile);   // the defaults, their references read
             s.Source = "(defaults)";
             s.Warnings.Insert(0, $"no settings file at {path}: every value is its default");
-            s.Fatal = (reader & Part.Server) != 0 && s.Fatal is { } missing ? $"no settings file at {path} - {missing}" : null;
+            var none = path == DefaultPath ? $"no settings file at {path} and no {ContentVariable}" : $"no settings file at {path}";
+            s.Fatal = s.Fatal is { } missing ? $"{none} - {missing}" : none;
             return s;
         }
         catch (Exception e)
@@ -223,6 +223,29 @@ public sealed class Settings
     {
         foreach (var key in Keys.Where(k => (k.Readers & Reader) != 0))
             yield return $"{key.Path} = {(key.Secret ? (string.IsNullOrEmpty(key.Show(this)) ? "(empty)" : "(set)") : key.Show(this))}";
+    }
+
+    /// <summary>Whether <see cref="StartLine"/> is worth a warning rather than a plain note: settings that cannot be used, or a problem in them.</summary>
+    public bool Troubled => Fatal != null || Problems.Count > 0;
+
+    /// <summary>The one line the bridge and the plugin log at their start - where their settings came from, and the keys with a problem or
+    /// a warning by name only, never a value (core's reasons can quote what the file says): "settings: the settings file
+    /// /etc/overstrike2/overstrike2.jsonc - 1 problem (server.port)", "settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT", or
+    /// why they stop.</summary>
+    public string StartLine =>
+        !Found ? $"settings: {Fatal} - not starting: no part runs without its settings"
+        : Fatal is { } why ? $"settings: {Where} cannot be used ({why}) - not starting: no part runs on settings it cannot use"
+        : $"settings: {Where}{Named("problem", Problems)}{Named("warning", Warnings)}";
+
+    string Where => Source == ContentSource ? Source : $"the settings file {Source}";
+
+    /// <summary>" - 2 problems (server.port, bridge.port)": the keys by name, each once - every line of a key starts with it.</summary>
+    static string Named(string what, List<string> lines)
+    {
+        if (lines.Count == 0)
+            return "";
+        var keys = lines.Select(l => l.IndexOf(':') is var i and > 0 ? l[..i] : "?").Distinct();
+        return $" - {lines.Count} {what}{(lines.Count == 1 ? "" : "s")} ({string.Join(", ", keys)})";
     }
 
     static IEnumerable<string> Prefixes(string path)
@@ -386,12 +409,10 @@ public sealed class Settings
         }, get, Required: rule, Pattern: pattern);
 
     static Key Choice(string path, Part readers, string def, string[] choices, string replaces, string doc, Func<Settings, string> get,
-                      Action<Settings, string> set, Dictionary<string, string>? aliases = null) =>
+                      Action<Settings, string> set) =>
         new(path, readers, "string", def, replaces, doc, false, (s, n, c) =>
         {
             var t = Text(n, c).Trim().ToLowerInvariant();
-            if (aliases != null && aliases.TryGetValue(t, out var meant))
-                t = meant;                                   // an old name of a choice
             if (!choices.Contains(t))
                 throw new InvalidOperationException($"'{Clip(t)}' is not one of {string.Join(", ", choices)}");
             set(s, t);
@@ -459,7 +480,7 @@ public sealed class Settings
             s => s.Server.Host, (s, v) => s.Server.Host = v, v => v.Length > 0, "a host name"),
         Int("server.port", BS, 27015, 1, 65535, "RCON_PORT, SYNC_GAME_PORT", "The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same.",
             s => s.Server.Port, (s, v) => s.Server.Port = v),
-        Str("server.rconPassword", BS, "", "RCON_PASSWORD, CS2_RCONPW", "The RCON password. Write \"env:CS2_RCONPW\": the image needs it as that variable anyway.",
+        Str("server.rconPassword", BS, "env:CS2_RCONPW", "RCON_PASSWORD, CS2_RCONPW", "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too.",
             s => s.Server.RconPassword, (s, v) => s.Server.RconPassword = v, secret: true),
         Str("server.startMap", BS, "ar_shoots", "START_MAP", "The map a server start loads; the image's CS2_STARTMAP must say the same.",
             s => s.Server.StartMap, (s, v) => s.Server.StartMap = v, v => v.Length > 0, "a map name"),
@@ -481,12 +502,12 @@ public sealed class Settings
             s => s.Bridge.RestartCooldownSeconds, (s, v) => s.Bridge.RestartCooldownSeconds = v),
 
         // hud: the in-game menu
-        Must("hud.addon", PS, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run.",
+        Must("hud.addon", PS, "OS2_HUD_ADDON, GUNGAME_HUD_ADDON", "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load.",
              "the Workshop id of the HUD addon, digits only", "^([0-9]+|env:.+|file:.+)$", s => s.Hud.Addon, (s, v) => s.Hud.Addon = v, Digits, "digits"),
         Choice("hud.tab", Part.Bridge, "down", ["off", "down"], "HUD_TAB", "The TAB chord: down puts the board down while TAB is held; off leaves TAB alone.",
             s => s.Hud.Tab, (s, v) => s.Hud.Tab = v),
-        Choice("hud.check", Part.Bridge, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn.",
-            s => s.Hud.Check, (s, v) => s.Hud.Check = v, new() { ["dryrun"] = "warn" }),
+        Choice("hud.check", Part.Bridge, "warn", ["off", "warn", "enforce"], "HUD_CHECK", "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click.",
+            s => s.Hud.Check, (s, v) => s.Hud.Check = v),
         Bool("hud.itemPage", Part.Plugin, true, "HUD_ITEM_PAGE", "Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy).",
             s => s.Hud.ItemPage, (s, v) => s.Hud.ItemPage = v),
 

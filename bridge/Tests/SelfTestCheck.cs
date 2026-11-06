@@ -116,9 +116,8 @@ static partial class Program
         var neverVisited = new ItemPlan();
         neverVisited.ApiAnswer(old, t);
         neverVisited.ApiAnswer(v, c0);
-        Check($"HUD item page off ({HudCheck.PageVariable}=off, a test copy): only that word turns it off; with no visit at all joiners download the item as ever, and nobody can be disconnected for it until the window is over",
-            HudCheck.PageOff("off") && HudCheck.PageOff(" OFF ") && !HudCheck.PageOff("") && !HudCheck.PageOff(null) && !HudCheck.PageOff("on")
-            && neverVisited.Required(true, c0.AddMinutes(5)) && !neverVisited.Public(c0.AddMinutes(5)));
+        Check("HUD item page off (hud.itemPage false, a test copy): with no visit at all joiners download the item as ever, and nobody can be disconnected for it until the window is over",
+            neverVisited.Required(true, c0.AddMinutes(5)) && !neverVisited.Public(c0.AddMinutes(5)));
         var p2 = new ItemPlan();
         p2.ApiAnswer(v, c0);
         p2.VisitStarted();

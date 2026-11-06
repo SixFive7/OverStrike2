@@ -160,7 +160,7 @@ public static class Program
         var p2 = config.Paths;
         foreach (var (what, path) in new[] { ("game", p2.GameDir), ("bridge data", p2.BridgeData), ("hand-overs", p2.Handover), ("depotcache", p2.Depotcache), ("plugins", p2.Plugins), ("state", p2.StateDir) })
             w.WriteLine($"path {what}: {path} {(Directory.Exists(path) ? "(there)" : "(MISSING)")}");
-        w.WriteLine($"bridge: {(config.Bridge is { } br ? br.Base : "none (bridge.url and bridge.secret, or the image's CS2_LOG_HTTP_URL)")}");
+        w.WriteLine($"bridge: {(config.Bridge is { } br ? br.Base : "none (bridge.secret is empty)")}");
         w.WriteLine($"RCON password: {(config.RconPassword.Length > 0 ? "set" : "EMPTY - no restart can happen")}");
         var installed = Installed.Read(p2.InstalledFile);
         w.WriteLine(installed is { } i

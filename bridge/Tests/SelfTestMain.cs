@@ -9,13 +9,14 @@ static partial class Program
     /// with the directory left behind.</summary>
     static int SelfTest()
     {
-        var stateDirBefore = StateDir; // part one's picks open votes, whose cards come from the random queues, which save: into a scratch directory
+        var (stateDirBefore, mapsBefore, brokenBefore) = (StateDir, MapsFile, BrokenFile); // part one's picks open votes, whose cards come from the random queues, which save: into a scratch directory
         var scratch = Path.Combine(Path.GetTempPath(), $"os2-selftest-main-{Environment.ProcessId}");
-        try { Directory.CreateDirectory(scratch); StateDir = scratch; return SelfTestRun(); }
+        // The lists are the committed ones beside the sources (run from bridge/), whatever the settings say, and no broken list: its checks bring their own.
+        try { Directory.CreateDirectory(scratch); (StateDir, MapsFile, BrokenFile) = (scratch, "maps.json", ""); return SelfTestRun(); }
         catch (Exception e) { Console.WriteLine($"FAIL the self-test stopped on an exception: {e}"); Console.WriteLine("SELFTEST FAILED"); return 1; }
         finally
         {
-            StateDir = stateDirBefore;
+            (StateDir, MapsFile, BrokenFile) = (stateDirBefore, mapsBefore, brokenBefore);
             try { if (Directory.Exists(scratch)) Directory.Delete(scratch, true); } catch (Exception e) { Console.WriteLine($"selftest: could not remove {scratch}: {e.Message}"); }
         }
     }

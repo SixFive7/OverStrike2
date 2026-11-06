@@ -16,9 +16,6 @@ RUN dotnet publish bridge/GunGameBridge.csproj -c Release -r linux-x64 --no-rest
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled
 COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=build /out/GunGameBridge /app/GunGameBridge
-COPY bridge/maps.json /app/maps.json
-# the map browser's full-text index (--search-index keeps it in step), read from beside whichever maps.json MAPS_FILE names
-COPY bridge/search.json /app/search.json
-ENV MAPS_FILE=/app/maps.json STATE_DIR=/data HTTP_PORT=8080
+# everything else comes from the settings: the data files in paths.bridgeData, the port in bridge.port
 EXPOSE 8080
 ENTRYPOINT ["/app/GunGameBridge"]

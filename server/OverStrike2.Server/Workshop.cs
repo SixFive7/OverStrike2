@@ -384,7 +384,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
     {
         if (ws.Watch.Bridge.Address is null)
         {
-            Log.Once("ready-endpoint", "ready: no bridge address (bridge.url and bridge.secret, or the image's CS2_LOG_HTTP_URL) - the bridge counts every queued map as on disk", 21600);
+            Log.Once("ready-endpoint", "ready: no bridge address (bridge.secret is empty) - the bridge counts every queued map as on disk", 21600);
             return null;
         }
         var current = CurrentLine(now);

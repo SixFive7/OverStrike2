@@ -13,7 +13,9 @@ namespace OverStrike2;
 /// subscriptions, favorited, lifetime_subscriptions, lifetime_favorited, views, tags), and a held item answers result 1, visibility 0 and
 /// banned 0 like a shown one. So the item's page, the one place Valve's review shows, stays the project's one recorded exception to "the
 /// Web API only": visited only when ItemPlan (HudCheck.cs) says so - right after the Web API shows a change, then at most every 15 minutes
-/// while it is not shown, for 3 hours - never with the visit switched off (hud.itemPage false, or HudCheck.PageVariable off without the settings file), as on a test copy, and always with an honest User-Agent
+/// while it is not shown, for 3 hours - never with the visit switched off (hud.itemPage false), as on a test copy: nobody is on it, and its
+/// restarts must not add visits; it still reads the Web API, and without a visit it has no verdict, so joiners download the item as ever and
+/// the HUD check's interlock stays off for ReviewWindow after an upload - and always with an honest User-Agent
 /// naming the project (SteamWebApi.UserAgent). The page is read as HudCheck.PagePublic says (Steam's old Error page and its new HTTP 500
 /// page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam
 /// already.</summary>
@@ -25,7 +27,7 @@ sealed class ItemWatch
     readonly string? url;
     readonly long id;
     readonly ItemPlan plan = new();
-    readonly bool pageOff;      // hud.itemPage false, or HUD_ITEM_PAGE off without the settings file (PluginSetup)
+    readonly bool pageOff;      // hud.itemPage false (PluginSetup)
     readonly string pageSwitch; // ...and the switch's name, for the notes
     Task<(int Status, string? Html)>? pending;
     Task<HudCheck.ItemApi?>? apiPending;

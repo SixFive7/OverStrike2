@@ -571,8 +571,8 @@ with `maps.json`.
 
 ## Configuration
 
-Every part reads one settings file: its text inline, in the environment variable `OVERSTRIKE2_SETTINGS_CONTENT`, or the file `/etc/overstrike2/overstrike2.jsonc` ([how it gets into the containers](settings.md#how-the-file-gets-into-the-containers)). [settings.md](settings.md) has every key, its default and the variable it replaces, and the game image's own variables. `hud.addon` is required: without a usable one the game server does not start ([server.md](server.md#how-it-starts)). Until the install step writes that file, the bridge and the plugin
-fall back on those variables when there is no file at all - a file they cannot use stops them, as it stops the server programs - and each logs at its start which one it used, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example; [`deploy/compose.yml`](../deploy/compose.yml) mounts the file and
+Every part reads one settings file: its text inline, in the environment variable `OVERSTRIKE2_SETTINGS_CONTENT`, or the file `/etc/overstrike2/overstrike2.jsonc` ([how it gets into the containers](settings.md#how-the-file-gets-into-the-containers)). [settings.md](settings.md) has every key, its default and the variable it replaces, and the game image's own variables. `hud.addon` is required: without a usable one the game server does not start ([server.md](server.md#how-it-starts)). No part runs without its
+settings or on settings it cannot use, and the variables they replaced stand in for nothing; the bridge and the plugin log at their start where theirs came from, never a value. [`deploy/overstrike2.example.jsonc`](../deploy/overstrike2.example.jsonc) is a complete example; [`deploy/compose.yml`](../deploy/compose.yml) mounts the file and
 [`deploy/compose.example.yml`](../deploy/compose.example.yml) has the text inline.
 
 ## The plugin layer
@@ -612,7 +612,8 @@ On the live server only the published HUD ever runs, in a plain client. It reads
 documentation's screenshots by script ([tools/client/docshots/](../tools/client/docshots/docshots.py)); its offline tests are in AGENTS.md's list.
 
 **The bridge alone.** Native AOT does not cross-compile between operating systems, so the image's build stage is the Linux publish: `docker build -t localhost/overstrike2-bridge -f bridge/Dockerfile .` from the repository root. To run the bridge on Windows against a local
-server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:8080/log/dev"`, set `RCON_HOST=127.0.0.1`, `RCON_PASSWORD`, `LOG_SECRET=dev` and `STATE_DIR`, and `dotnet run`. The self-test reads the plugin's and the HUD's files from beside `bridge/`; set
+server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:8080/log/dev"`, write a settings file with `server.host` 127.0.0.1, `server.rconPassword`, `bridge.secret` dev and
+`paths.bridgeData` (a folder holding the data files, written from the drive's root: `/os2-data`), set `OVERSTRIKE2_SETTINGS` to it, and `dotnet run`. The self-test reads the plugin's and the HUD's files from beside `bridge/`; set
 `OVERSTRIKE2_COMPOSE_FILE` to your compose file to have it checked as well.
 
 ### Keeping the rules in sync

@@ -20,14 +20,12 @@
     <Compile Include="..\OverStrike2\ConVarNames.cs" Link="ConVarNames.cs" />
     <!-- The Web API's one door (one request at a time, 2 s apart, an honest User-Agent). -->
     <Compile Include="..\OverStrike2\SteamWebApi.cs" Link="SteamWebApi.cs" />
-    <!-- When the vote freezes everybody, on a handed clock; and where the HUD addon's id comes from. -->
+    <!-- When the vote freezes everybody, on a handed clock. -->
     <Compile Include="..\OverStrike2\FreezePlan.cs" Link="FreezePlan.cs" />
     <!-- The Players page's time on: whose it is. -->
     <Compile Include="..\OverStrike2\JoinTimes.cs" Link="JoinTimes.cs" />
-    <Compile Include="..\OverStrike2\HudAddon.cs" Link="HudAddon.cs" />
-    <!-- Where the plugin's settings come from: the settings file (core's reader), else the environment. -->
+    <!-- The plugin's settings: core's reader, and what the plugin takes from it. -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
-    <Compile Include="..\..\bridge\Shared\SettingsSource.cs" Link="SettingsSource.cs" />
     <Compile Include="..\OverStrike2\PluginSetup.cs" Link="PluginSetup.cs" />
     <!-- Whom the spawn cloak hides, on handed ticks and positions, and which entities the cloak has painted and puts back. -->
     <Compile Include="..\OverStrike2\CloakPlan.cs" Link="CloakPlan.cs" />

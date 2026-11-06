@@ -362,9 +362,14 @@ static class ScenarioTests
 
         Scenario.NewBridge = () => null;
         Check("Q7: no bridge configured: the notice says so and the quit goes as before", new HttpBridge(null).Post("quitting", "gg-quit\t1\tdaily\n", 8) == ("none", null));
-        Check("Q7: ... and the watcher reads the bridge's address from bridge.url and bridge.secret, else from the log push's own address",
-              ServerConfig.BridgeEndpoint("http://bridge:8080", "s3cret", null) == ("http://bridge:8080", "s3cret")
-              && ServerConfig.BridgeEndpoint("http://bridge:8080", "", null) is null);
+        static ServerConfig With(string more, Func<string, string?> env) =>
+            ServerConfig.From(Core.Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }" + more + " }", Core.Part.Server, env), env);
+        Check("Q7: ... and the watcher reads the bridge's address from bridge.url and bridge.secret alone - the log push's address stands in for nothing",
+              With(", \"bridge\": { \"url\": \"http://bridge:8080/\", \"secret\": \"s3cret\" }", _ => null).Bridge == ("http://bridge:8080", "s3cret")
+              && With(", \"bridge\": { \"url\": \"http://bridge:8080\" }", n => n == "CS2_LOG_HTTP_URL" ? "http://bridge:8080/log/d4ab" : null).Bridge is null);
+        Check("Q7: the RCON password is the image's CS2_RCONPW when server.rconPassword is left out, the file's when it names one",
+              With("", n => n == "CS2_RCONPW" ? "imagepw" : null).RconPassword == "imagepw"
+              && With(", \"server\": { \"rconPassword\": \"filepw\" }", n => n == "CS2_RCONPW" ? "imagepw" : null).RconPassword == "filepw");
     }
 
     /// <summary>J. RCON not listening yet at boot (refused about a second after A2S first answered, as measured). A session that never

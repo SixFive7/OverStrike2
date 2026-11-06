@@ -42,21 +42,18 @@ public class OverStrike2Plugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        // The plugin's own settings: the settings file's, else the cs2 service's environment until the install step writes the file (PluginSetup.cs,
-        // SettingsSource.cs). A file it cannot use: it does not load, as the server programs refuse that file. Thrown before anything is registered,
-        // so CounterStrikeSharp marks the plugin failed and nothing of it runs.
-        var source = SettingsSource.Load(Part.Plugin);
-        if (source.Refusal != null)
+        // The plugin's own settings (PluginSetup.cs). Settings it cannot use, or none at all: it does not load, as the server programs refuse
+        // them. Thrown before anything is registered, so CounterStrikeSharp marks the plugin failed and nothing of it runs.
+        var own = Core.Settings.Load(Part.Plugin);
+        if (own.Fatal != null)
         {
-            Logger.LogCritical("Over Strike 2 {Settings}", source.Line);
-            throw new InvalidOperationException("Over Strike 2 does not load: " + source.Line);
+            Logger.LogCritical("Over Strike 2 {Settings}", own.StartLine);
+            throw new InvalidOperationException("Over Strike 2 does not load: " + own.StartLine);
         }
-        var setup = source.FromFile ? PluginSetup.FromFile(source.File)
-            : PluginSetup.FromEnvironment(Environment.GetEnvironmentVariable, Hud.AddonVariable, Hud.OldAddonVariable, HudCheck.PageVariable, HudCheck.PageOff);
-        if (source.Troubled) Logger.LogWarning("Over Strike 2 {Settings}", source.Line); // where the settings came from - no value in it
-        else Logger.LogInformation("Over Strike 2 {Settings}", source.Line);
+        var setup = PluginSetup.FromFile(own);
+        if (own.Troubled) Logger.LogWarning("Over Strike 2 {Settings}", own.StartLine); // where the settings came from - no value in it
+        else Logger.LogInformation("Over Strike 2 {Settings}", own.StartLine);
         addon = setup.Addon;
-        if (setup.AddonFrom == Hud.OldAddonVariable) Logger.LogWarning("Over Strike 2: the HUD addon comes from {Old}, the old name of {Variable} - rename it; the old name is read until the next release", Hud.OldAddonVariable, Hud.AddonVariable);
         SteamWebApi.Gap = TimeSpan.FromSeconds(setup.ApiGapSeconds);
         SteamWebApi.UserAgent = SteamWebApi.AgentOf(Version);
         hud = new HudScreen(this, Logger, hotReload, setup);

@@ -36,14 +36,6 @@ public static class Hud
     /// <summary>The layout as the client looks it up: the SOURCE path, extension included. Anything else spawns fine and shows nothing.</summary>
     public const string Layout = "panorama/layout/custom_game/gungame_hud_" + ReleaseFile + ".xml";
 
-    /// <summary>The switch, on the cs2 service: the Workshop id of the published HUD addon. Empty (the default) draws no HUD - the plugin
-    /// answers chat commands in chat and shows the small centre welcome panel, and pre.sh does not even load MultiAddonManager.</summary>
-    public const string AddonVariable = "OS2_HUD_ADDON";
-
-    /// <summary>The switch's old name, read only while AddonVariable is not set at all: a one-time fallback for a deployment that still says
-    /// it the old way, to be removed in the next release.</summary>
-    public const string OldAddonVariable = "GUNGAME_HUD_ADDON";
-
     /// <summary>Paths on the bridge's HTTP port, followed by LOG_SECRET: the plugin GETs the live state, the map catalog and the search
     /// index, and POSTs a player's click.</summary>
     public const string StatePath = "/hud/", ActPath = "/act/", CatalogPath = "/catalog/", SearchPath = "/search/", DashPath = "/dash/";

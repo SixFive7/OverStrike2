@@ -5,15 +5,15 @@ using System.Text.Json;
 
 static partial class Program
 {
-    // ---- configuration: the settings file, else the environment until the install step writes it (BridgeConfig.cs, SettingsSource.cs) ----
-    static string StateDir = BridgeConfig.Values.StateDir; // not readonly: --selftest points it at a scratch directory
+    // ---- configuration: the settings (BridgeConfig.cs) ----
+    static string StateDir = BridgeConfig.Values.StateDir, // not readonly: --selftest points these three at a scratch directory and the committed lists
+        MapsFile = BridgeConfig.Values.MapsFile, BrokenFile = BridgeConfig.Values.BrokenFile;
     static readonly string RconHost = BridgeConfig.Values.RconHost, RconPassword = BridgeConfig.Values.RconPassword, LogSecret = BridgeConfig.Values.LogSecret,
-        MapsFile = BridgeConfig.Values.MapsFile, BrokenFile = BridgeConfig.Values.BrokenFile,
         StartMap = BridgeConfig.Values.StartMap; // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
     static readonly int RconPort = BridgeConfig.Values.RconPort, HttpPort = BridgeConfig.Values.HttpPort,
         ChangeDelay = BridgeConfig.Values.ChangeDelay, RestartCooldown = BridgeConfig.Values.RestartCooldown;
     static HudTab.Mode HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
-    static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn (dryrun reads as warn) or enforce; warn by default, so every player's HUD version is learned at their first click
+    static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn or enforce; warn by default, so every player's HUD version is learned at their first click
     static readonly List<MapInfo> Officials = BridgeConfig.Values.OfficialMaps // installed on the server, loaded with changelevel
         .Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
 
@@ -40,9 +40,9 @@ static partial class Program
     {
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--search-index", .. var rest]) return SearchIndexFile.Command(rest); // SearchIndexFile.cs: the committed search.json, written or checked
-        Log(BridgeConfig.Source.Line);              // where the settings came from - no value in it
-        if (BridgeConfig.StopCode(BridgeConfig.Source) is { } refused) return refused; // a settings file it cannot use: its line said why
-        if (RconPassword == "" || LogSecret == "") { Log(BridgeConfig.Source.FromFile ? "server.rconPassword and bridge.secret must be set" : "RCON_PASSWORD and LOG_SECRET must be set"); return 2; }
+        Log(BridgeConfig.Settings.StartLine);       // where the settings came from - no value in it
+        if (BridgeConfig.StopCode(BridgeConfig.Settings) is { } refused) return refused; // settings it cannot use, or none: its line said why
+        if (RconPassword == "" || LogSecret == "") { Log("server.rconPassword and bridge.secret must be set"); return 2; }
         Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
         (Broken, Packs) = LoadLists();
         LoadRemoved();

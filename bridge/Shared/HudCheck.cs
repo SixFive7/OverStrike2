@@ -127,13 +127,6 @@ public static class HudCheck
 
     public const string OldErrorTitle = "<title>Steam Community :: Error</title>", NewErrorTitle = "<title>Steam Workshop</title>";
 
-    /// <summary>The setting that keeps a plugin off the item's page for good, by hand included: HUD_ITEM_PAGE=off, what a test copy of the server runs
-    /// with: nobody is on it, and its restarts must not add visits. It still reads the Web API, and without a visit it never
-    /// has a verdict: joiners download the item as ever, and the HUD check's interlock stays off for ReviewWindow after an upload.</summary>
-    public const string PageVariable = "HUD_ITEM_PAGE";
-
-    public static bool PageOff(string? value) => string.Equals(value?.Trim(), "off", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>The Web API's view of the HUD item (GetPublishedFileDetails, api.steampowered.com: anonymous, and not rate-limited like the
     /// community site that answers the page visits with 429 half the time): its Workshop verdict (Workshop.Ok, Removed, Hidden, Banned),
     /// when it last changed (time_updated, unix seconds) and its content's handle (hcontent_file). It cannot see moderation - a held item

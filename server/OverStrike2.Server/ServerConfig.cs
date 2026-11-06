@@ -51,8 +51,8 @@ public sealed record ServerPaths
     };
 }
 
-/// <summary>What the watcher and the maps folder read from the settings file, with the image's own variables where the image needs them
-/// (the RCON password, the log push's address). A test builds one by hand.</summary>
+/// <summary>What the watcher and the maps folder read from the settings, and the image's own variables they are held to (BootWarnings). A
+/// test builds one by hand.</summary>
 public sealed class ServerConfig
 {
     public required ServerPaths Paths { get; init; }
@@ -70,13 +70,13 @@ public sealed class ServerConfig
     public string HudAddon { get; set; } = "";                 // hud.addon, which the settings require: the program never runs without it
     public bool PluginLayer { get; set; } = true;              // plugin.enabled
     public int Port { get; set; } = 27015;                     // server.port
-    public string RconPassword { get; set; } = "";             // server.rconPassword, else the image's CS2_RCONPW
+    public string RconPassword { get; set; } = "";             // server.rconPassword: the image's CS2_RCONPW by default
     public double ApiGap { get; set; } = WebApiDoor.MinimumGap;    // steam.apiGapSeconds
-    public (string Base, string Secret)? Bridge { get; set; }  // bridge.url and bridge.secret, else the log push's own address
+    public (string Base, string Secret)? Bridge { get; set; }  // bridge.url and bridge.secret; none while the secret is empty
     public KeepRules KeepRules { get; set; } = KeepRules.Default;
     public List<string> BootWarnings { get; } = [];            // logged when the watcher starts
 
-    /// <summary>The settings for the server program, and the image's variables it falls back on.</summary>
+    /// <summary>The settings for the server program, and a warning wherever the image's own variables say otherwise.</summary>
     public static ServerConfig From(Settings s, Func<string, string?>? env = null)
     {
         env ??= Environment.GetEnvironmentVariable;
@@ -100,10 +100,8 @@ public sealed class ServerConfig
             RconPassword = s.Server.RconPassword,
             ApiGap = s.Steam.ApiGapSeconds,
             KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),   // the bridge's stock lanes are the keep set's queues
+            Bridge = s.Bridge.Secret.Length > 0 ? (s.Bridge.Url.TrimEnd('/'), s.Bridge.Secret) : null,
         };
-        if (c.RconPassword.Length == 0 && env("CS2_RCONPW") is { Length: > 0 } pw)
-            c.RconPassword = pw;                                // the image's own variable: it needs it anyway
-        c.Bridge = BridgeEndpoint(s.Bridge.Url, s.Bridge.Secret, env("CS2_LOG_HTTP_URL"));
         foreach (var p in s.Problems.Concat(s.Warnings).Where(x => !x.StartsWith("sync.", StringComparison.Ordinal)))   // the sync's keys are its own business
             c.BootWarnings.Add("settings: " + p);
         if (env("CS2_PORT") is { Length: > 0 } port && port.Trim() != s.Server.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))
@@ -112,21 +110,15 @@ public sealed class ServerConfig
             c.BootWarnings.Add($"the image's STEAMAPPDIR is {dir} but paths.gameDir says {s.Paths.GameDir}");
         if (env("CS2_STARTMAP") is { Length: > 0 } map && map.Trim() != s.Server.StartMap)
             c.BootWarnings.Add($"the image's CS2_STARTMAP is {map.Trim()} but server.startMap says {s.Server.StartMap}");
-        if (s.Bridge.Secret.Length > 0 && BridgeEndpoint("", "", env("CS2_LOG_HTTP_URL")) is { } push && (push.Base != s.Bridge.Url.TrimEnd('/') || push.Secret != s.Bridge.Secret))
-            c.BootWarnings.Add($"the image's CS2_LOG_HTTP_URL does not name bridge.url and bridge.secret (it says {push.Base}/log/..., the settings {s.Bridge.Url.TrimEnd('/')} and their secret)");
+        if (c.Bridge is { } bridge && LogPush(env("CS2_LOG_HTTP_URL")) is { } push && push != bridge)
+            c.BootWarnings.Add($"the image's CS2_LOG_HTTP_URL does not name bridge.url and bridge.secret (it says {push.Base}/log/..., the settings {bridge.Base} and their secret)");
         return c;
     }
 
-    /// <summary>(base URL, secret) of the bridge: bridge.url with bridge.secret, else the log push's own address (the image's
-    /// CS2_LOG_HTTP_URL, http://&lt;bridge&gt;:&lt;port&gt;/log/&lt;secret&gt;, which its templating may write with \/). Null when neither
-    /// says.</summary>
-    public static (string Base, string Secret)? BridgeEndpoint(string url, string secret, string? logUrl)
-    {
-        if (url.Length > 0 && secret.Length > 0)
-            return (url.TrimEnd('/'), secret);
-        var m = LogUrl().Match((logUrl ?? "").Trim().Replace("\\/", "/"));
-        return m.Success ? (m.Groups[1].Value, m.Groups[2].Value) : null;
-    }
+    /// <summary>(base URL, secret) of the bridge as the image's log push names it (CS2_LOG_HTTP_URL, http://&lt;bridge&gt;:&lt;port&gt;/log/&lt;secret&gt;,
+    /// which its templating may write with \/), or null: what bridge.url and bridge.secret are held to.</summary>
+    public static (string Base, string Secret)? LogPush(string? logUrl) =>
+        LogUrl().Match((logUrl ?? "").Trim().Replace("\\/", "/")) is { Success: true } m ? (m.Groups[1].Value, m.Groups[2].Value) : null;
 
     static Regex LogUrl() => new(@"^(https?://[^/\s]+)/log/([A-Za-z0-9]+)$");
 }

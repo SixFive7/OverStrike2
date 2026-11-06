@@ -13,8 +13,8 @@ left are the game image's own, the ones the image needs before any of our code r
 - **A key you leave out has its default**, except `hud.addon`, which is required (below). The tables below give every key, its default
   and the variable it replaces.
 - **Secrets stay where they are kept.** A string `"env:NAME"` is read from the environment variable `NAME`, and `"file:PATH"` from
-  that file, trimmed. The RCON password, for instance, is `"env:CS2_RCONPW"`: the game image needs that variable anyway, so the
-  bridge's container gets the same variable and nobody writes the password twice. A reference that finds nothing is an empty
+  that file, trimmed. The RCON password, for instance, is `"env:CS2_RCONPW"`, its default: the game image needs that variable anyway, so
+  the bridge's container gets the same variable and nobody writes the password twice. A reference that finds nothing is an empty
   value and a warning.
 
 ## How the file gets into the containers
@@ -71,23 +71,22 @@ Either way, a change takes effect when the containers are created again (a redep
   only warns about it.
 - **`hud.addon` is required: a server without the HUD cannot exist.** Missing, empty or not digits, the file cannot be used by the
   parts that read it (the plugin and the server programs), as in the next point. There is no built-in id: the example file holds the
-  public HUD's, and `OS2_HUD_ADDON` and `GUNGAME_HUD_ADDON` no longer stand in for it in the server programs. This looks at the file
-  only, never at Steam: while Valve holds the HUD's item the game keeps playing, and one player without the HUD gets a warning only
-  (`hud.check`, `warn` by default).
+  public HUD's. This looks at the file only, never at Steam: while Valve holds the HUD's item the game keeps playing, and one player
+  without the HUD gets a warning only (`hud.check`, `warn` by default).
 - **A file that cannot be read, is no JSON object or names a schema the part does not know is not used at all.** `os2-server` and
   `os2-sync` then do nothing: one `ALERT` line says why and how to fix it, and they exit with code 78. The bridge and the plugin refuse
   it the same way: the bridge exits with code 78, the plugin does not load, and their `settings:` line says why. `doctor` and `version` still
-  work and say so. No file at all is the same for them: it names no `hud.addon`. On that code from `os2-server install`, `pre.sh` stops
+  work and say so. No settings at all are the same, for every part. On that code from `os2-server install`, `pre.sh` stops
   the container's start: the engine does not start, Docker's restart policy tries again 5 minutes later, and the log says why. All but one
   of the programs' other failures cost the plugin layer and the watcher, never the server ([server.md](server.md#how-it-starts)).
-- **Until the install step writes the file, the bridge and the plugin fall back on their old variables.** With no settings anywhere
-  they read the environment variables the file replaces (the "Replaces" column) exactly as before; with a file they can use, they read
-  the file alone. Settings they cannot use are never a reason to fall back: as above, they stop. Each logs which at its start - `settings: the settings file <path>`, naming the
-  keys with a problem or a warning, or `settings: the environment (<why>)` - and never a value. With the file, the bridge's map list
-  and broken list have no key of their own: they are `maps.json` and `broken.json` in `paths.bridgeData`.
+- **Only the settings count.** The environment variables they replaced (the "Replaces" column) stand in for nothing in any part. The
+  bridge and the plugin log at their start where their settings came from - `settings: the settings file <path>` or `settings: the
+  environment variable OVERSTRIKE2_SETTINGS_CONTENT`, naming the keys with a problem or a warning - and never a value. The bridge's map
+  list and broken list have no key of their own: they are `maps.json` and `broken.json` in `paths.bridgeData`.
 
 The parts also check the file against the image's own variables at start, and log any disagreement: `server.port` against
-`CS2_PORT`, `server.startMap` against `CS2_STARTMAP`, and `bridge.url` and `bridge.secret` against `CS2_LOG_HTTP_URL`.
+`CS2_PORT`, `server.startMap` against `CS2_STARTMAP`, and `bridge.url` and `bridge.secret` against `CS2_LOG_HTTP_URL`. Those
+variables only ever warn: the settings decide.
 
 ## The game image's own variables
 
@@ -108,7 +107,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `server.name` | string | `CS2 server` | bridge, server | SYNC_SERVER_NAME | The server's name in the sync's mails and on the dashboard (the image's CS2_SERVERNAME is the one players see). |
 | `server.host` | string | `cs2` | bridge, server | RCON_HOST, SYNC_GAME_HOST | How the bridge and the sync reach the game server: its container's name on their network. |
 | `server.port` | integer, 1..65535 | `27015` | bridge, server | RCON_PORT, SYNC_GAME_PORT | The game server's port: A2S (UDP) and RCON (TCP). The image's CS2_PORT must say the same. |
-| `server.rconPassword` | string | (empty) | bridge, server | RCON_PASSWORD, CS2_RCONPW | The RCON password. Write "env:CS2_RCONPW": the image needs it as that variable anyway. A secret: write it as a reference. |
+| `server.rconPassword` | string | `env:CS2_RCONPW` | bridge, server | RCON_PASSWORD, CS2_RCONPW | The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too. A secret: write it as a reference. |
 | `server.startMap` | string | `ar_shoots` | bridge, server | START_MAP | The map a server start loads; the image's CS2_STARTMAP must say the same. |
 
 ### `bridge`
@@ -127,9 +126,9 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 
 | Key | Type | Default | Read by | Replaces | What |
 |---|---|---|---|---|---|
-| `hud.addon` | string | (required) | plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run. |
+| `hud.addon` | string | (required) | plugin, server | OS2_HUD_ADDON, GUNGAME_HUD_ADDON | Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load. |
 | `hud.tab` | off \| down | `down` | bridge | HUD_TAB | The TAB chord: down puts the board down while TAB is held; off leaves TAB alone. |
-| `hud.check` | off \| warn \| enforce | `warn` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn. |
+| `hud.check` | off \| warn \| enforce | `warn` | bridge | HUD_CHECK | The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. |
 | `hud.itemPage` | boolean | `true` | plugin | HUD_ITEM_PAGE | Visit the HUD item's Workshop page to see whether Steam shows it to everybody (off on a test copy). |
 
 ### `plugin`

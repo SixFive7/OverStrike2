@@ -36,9 +36,9 @@
           "maximum": 65535
         },
         "rconPassword": {
-          "description": "The RCON password. Write \"env:CS2_RCONPW\": the image needs it as that variable anyway. Replaces RCON_PASSWORD, CS2_RCONPW.",
+          "description": "The RCON password: by default the image's own CS2_RCONPW, which it needs anyway, so the bridge's container gets that variable too. Replaces RCON_PASSWORD, CS2_RCONPW.",
           "type": "string",
-          "default": ""
+          "default": "env:CS2_RCONPW"
         },
         "startMap": {
           "description": "The map a server start loads; the image's CS2_STARTMAP must say the same. Replaces START_MAP.",
@@ -109,7 +109,7 @@
       "type": "object",
       "properties": {
         "addon": {
-          "description": "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run. Replaces OS2_HUD_ADDON, GUNGAME_HUD_ADDON.",
+          "description": "Required: a server without the HUD cannot exist. The Workshop id of the HUD addon, digits only: the game server mounts it, and every client downloads it and keeps it across every map change. Missing, empty or not digits, the file cannot be used: the server programs refuse to run and the plugin does not load. Replaces OS2_HUD_ADDON, GUNGAME_HUD_ADDON.",
           "type": "string",
           "pattern": "^([0-9]+|env:.+|file:.+)$"
         },
@@ -123,7 +123,7 @@
           ]
         },
         "check": {
-          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. dryrun, its old name, still means warn. Replaces HUD_CHECK.",
+          "description": "The HUD check: warn a player not seen clicking in the HUD of this release, and with enforce disconnect them; warn by default, so every player's HUD version is learned at their first click. Replaces HUD_CHECK.",
           "type": "string",
           "default": "warn",
           "enum": [

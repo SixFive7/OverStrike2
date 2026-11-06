@@ -1,26 +1,23 @@
-// The bridge's configuration: every value it reads at its start, from the settings file when there is one (SettingsSource.cs), else from
-// its environment variables as before. A settings file it cannot use stops it (StopCode).
-using System.Globalization;
+// The bridge's configuration: every value it reads at its start, from the settings (core/Settings.cs). Settings it cannot use, or none at all,
+// stop it (StopCode).
 using CoreSettings = OverStrike2.Core.Settings;
 using Part = OverStrike2.Core.Part;
 
 /// <summary>THE BRIDGE'S CONFIGURATION, made once at the start. Program's fields take every value from <see cref="Values"/> - a class of
 /// its own, so no part of the partial Program can read it before it is made. The settings file's keys are those whose readers include the
-/// bridge (docs/settings.md); MAPS_FILE and BROKEN_FILE have no key: with the file they are maps.json and broken.json in paths.bridgeData.
-/// Main logs <see cref="Source"/>'s line.</summary>
+/// bridge (docs/settings.md); its map list and broken list are maps.json and broken.json in paths.bridgeData. Main logs
+/// <see cref="Settings"/>' StartLine.</summary>
 static class BridgeConfig
 {
-    public static readonly SettingsSource Source = SettingsSource.Load(Part.Bridge);
-    public static readonly BridgeValues Values = Source.FromFile || Source.Refusal != null ? BridgeValues.FromFile(Source.File) // a refused file: its defaults, which Main never uses
-        : BridgeValues.FromEnvironment(Environment.GetEnvironmentVariable);
+    public static readonly CoreSettings Settings = CoreSettings.Load(Part.Bridge);
+    public static readonly BridgeValues Values = BridgeValues.FromFile(Settings);   // settings it cannot use: their defaults, which Main never uses
 
-    /// <summary>The exit code the bridge stops with before anything else, or null to start: a settings file it cannot use (SettingsSource.Refusal) is
-    /// the server programs' code, 78.</summary>
-    public static int? StopCode(SettingsSource source) => source.Refusal != null ? CoreSettings.RefusedExit : null;
+    /// <summary>The exit code the bridge stops with before anything else, or null to start: settings it cannot use, or none at all
+    /// (Settings.Fatal), stop it with the server programs' code, 78.</summary>
+    public static int? StopCode(CoreSettings settings) => settings.Fatal != null ? CoreSettings.RefusedExit : null;
 }
 
-/// <summary>Every value the bridge reads at its start. Without the settings file each comes from its environment variable, read exactly as
-/// before the file existed - a number that is no number stops the start.</summary>
+/// <summary>Every value the bridge reads at its start.</summary>
 sealed record BridgeValues
 {
     public string StateDir { get; init; } = "";
@@ -39,7 +36,7 @@ sealed record BridgeValues
     public List<string> OfficialMaps { get; init; } = [];
     public int DiscoveryStock { get; init; }
 
-    /// <summary>The settings file's values (paths.bridgeData is an absolute path in the container, so its files are joined with '/').</summary>
+    /// <summary>The settings' values (paths.bridgeData is an absolute path in the container, so its files are joined with '/').</summary>
     public static BridgeValues FromFile(CoreSettings s) => new()
     {
         StateDir = s.Paths.BridgeData,
@@ -58,29 +55,4 @@ sealed record BridgeValues
         OfficialMaps = [.. s.Bridge.OfficialMaps],
         DiscoveryStock = s.Bridge.DiscoveryStock,
     };
-
-    /// <summary>The environment's values, as the bridge has always read them: an empty variable counts as unset.</summary>
-    public static BridgeValues FromEnvironment(Func<string, string?> env)
-    {
-        string E(string key, string fallback) => env(key) is { Length: > 0 } v ? v : fallback;
-        static List<string> Names(string v) => [.. v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
-        return new()
-        {
-            StateDir = E("STATE_DIR", "/data"),
-            RconHost = E("RCON_HOST", "cs2"),
-            RconPort = int.Parse(E("RCON_PORT", "27015"), CultureInfo.InvariantCulture),
-            RconPassword = E("RCON_PASSWORD", ""),
-            LogSecret = E("LOG_SECRET", ""),
-            MapsFile = E("MAPS_FILE", "maps.json"),
-            BrokenFile = E("BROKEN_FILE", ""),
-            StartMap = E("START_MAP", "ar_shoots"),
-            HttpPort = int.Parse(E("HTTP_PORT", "8080"), CultureInfo.InvariantCulture),
-            ChangeDelay = int.Parse(E("CHANGE_DELAY_SECONDS", "8"), CultureInfo.InvariantCulture),
-            RestartCooldown = int.Parse(E("RESTART_COOLDOWN_SECONDS", "300"), CultureInfo.InvariantCulture),
-            Tab = E("HUD_TAB", HudTab.Name(HudTab.Default)),
-            Check = E("HUD_CHECK", "warn"),
-            OfficialMaps = Names(E("OFFICIAL_MAPS", "ar_baggage,ar_pool_day,ar_shoots,ar_shoots_night")),
-            DiscoveryStock = Math.Clamp(int.TryParse(E("DISCOVERY_STOCK", "10"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 10, 0, 40),
-        };
-    }
 }

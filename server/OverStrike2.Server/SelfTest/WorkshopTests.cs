@@ -386,8 +386,8 @@ static class WorkshopTests
         Check("J9: a stuck result marks the process broken (job 6), and nothing more starts in it", s.W.Workshop.Broken is not null);
         s.Step(60);
         Check("J9: ... nothing more", Downloads9(s)[^1] == "mm_download_addon 902" && Downloads9(s).Count(c => c == "mm_download_addon 902") == 2);
-        Check("J9: bridge_endpoint reads CS2_LOG_HTTP_URL as the image templates it",
-              ServerConfig.BridgeEndpoint("http://bridge:8080", "", "http:\\/\\/bridge:8080\\/log\\/d4ab") == ("http://bridge:8080", "d4ab"));
+        Check("J9: the log push's address is read as the image templates it, for the check against bridge.url and bridge.secret",
+              ServerConfig.LogPush("http:\\/\\/bridge:8080\\/log\\/d4ab") == ("http://bridge:8080", "d4ab") && ServerConfig.LogPush("http://bridge:8080/nolog") is null);
         Scenario.NewBridge = () => null;
     }
 

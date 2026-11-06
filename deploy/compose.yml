@@ -84,18 +84,8 @@ services:
         target: /etc/overstrike2/overstrike2.jsonc
     environment:
       TZ: ${TZ:-Etc/UTC}
-      RCON_HOST: cs2
-      RCON_PORT: 27015
-      RCON_PASSWORD: ${CS2_RCONPW}
-      LOG_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET}
       CS2_RCONPW: ${CS2_RCONPW} # server.rconPassword reads it; without it the bridge refuses to start
       OVERSTRIKE2_BRIDGE_SECRET: ${OVERSTRIKE2_BRIDGE_SECRET} # bridge.secret reads it
-      MAPS_FILE: /data/maps.json # the lists on the data volume: the sync replaces them, the bridge reads them again within seconds
-      BROKEN_FILE: /data/broken.json
-      START_MAP: ar_shoots # the same as CS2_STARTMAP
-      HUD_TAB: down # the board takes the mouse while TAB is held; off
-      HUD_CHECK: warn # off, warn, or enforce: disconnect a player whose game has not loaded the HUD
-      DISCOVERY_STOCK: 10 # per mode, maps new to the server rolled ahead and downloaded in the background; 0 for none
 
   sync: # the Workshop sync: finds, downloads, scans and load-tests new maps and lists the ones that pass; leave it out to run without
     image: docker.io/joedwards32/cs2 # the game server's image: its SteamCMD and the libraries a test engine needs

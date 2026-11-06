@@ -25,15 +25,16 @@ static class SettingsTests
     {
         // ---- the file's place, and none at all
         var noFile = Path.Combine(root, "no-such-dir", "overstrike2.jsonc");
-        foreach (var part in new[] { Part.Bridge, Part.Plugin })
-        {
-            var fallsBack = Settings.Load(part, noFile, FakeEnv);
-            Check($"settings: no file, for the {part} (it falls back on the environment) - every value its default, and a warning says so",
-                  fallsBack.Fatal is null && fallsBack.Warnings.Count == 1 && fallsBack.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal)
-                  && fallsBack.Server.Port == 27015 && fallsBack.Source == "(defaults)");
-        }
+        var bridgeNone = Settings.Load(Part.Bridge, noFile, FakeEnv);
+        Check("settings: no file, for the bridge - fatal, as for every part: nothing to run on; the rest its default, and a warning says so",
+              bridgeNone is { Fatal: { } bridgeFatal, Found: false, Source: "(defaults)" } && bridgeFatal == $"no settings file at {noFile}"
+              && bridgeNone.Warnings.Count == 1 && bridgeNone.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && bridgeNone.Server.Port == 27015
+              && bridgeNone.StartLine == $"settings: no settings file at {noFile} - not starting: no part runs without its settings");
+        var pluginNone = Settings.Load(Part.Plugin, noFile, FakeEnv);
+        Check("settings: no file, for the plugin - fatal, and it names no hud.addon", pluginNone.Fatal is { } pluginFatal
+              && pluginFatal.StartsWith($"no settings file at {noFile} - hud.addon: missing", StringComparison.Ordinal) && pluginNone.Troubled);
         var none = Settings.Load(Part.Server, noFile, FakeEnv);
-        Check("settings: no file, for the server programs (nothing to fall back on) - fatal, it names no hud.addon; the rest its default, and a warning says so",
+        Check("settings: no file, for the server programs - fatal, it names no hud.addon; the rest its default, and a warning says so",
               none.Fatal is { } noFileFatal && noFileFatal.StartsWith("no settings file at", StringComparison.Ordinal) && noFileFatal.Contains("hud.addon: missing", StringComparison.Ordinal)
               && none.Warnings.Count >= 1 && none.Warnings[0].StartsWith("no settings file at", StringComparison.Ordinal) && none.Warnings.Skip(1).All(w => w.StartsWith("sync.webApiKey", StringComparison.Ordinal))
               && none.Server.Port == 27015
@@ -69,8 +70,9 @@ static class SettingsTests
         Check("settings: ... and so does OVERSTRIKE2_SETTINGS", pathSays is { Fatal: null, Source: "/x/test.jsonc" } && pathSays.Server.Port == 27017);
         var emptyVar = Settings.Load(Part.Server, null, n => Inline(n, ""), p => p == Settings.DefaultPath ? inFile["/x/test.jsonc"] : throw new FileNotFoundException(p));
         Check("settings: an empty variable is no variable: the file at the default path", emptyVar is { Fatal: null, Found: true, Source: Settings.DefaultPath } && emptyVar.Server.Port == 27017);
-        var noneAnywhere = Settings.Load(Part.Plugin, null, n => Inline(n, null), p => throw new FileNotFoundException(p));
-        Check("settings: neither variable nor file: not found, the defaults", noneAnywhere is { Fatal: null, Found: false, Source: "(defaults)" });
+        var noneAnywhere = Settings.Load(Part.Bridge, null, n => Inline(n, null), p => throw new FileNotFoundException(p));
+        Check("settings: neither variable nor file: not found, the defaults - and fatal, naming both places",
+              noneAnywhere is { Found: false, Source: "(defaults)" } && noneAnywhere.Fatal == $"no settings file at {Settings.DefaultPath} and no {Settings.ContentVariable}");
         foreach (var (what, text, why) in new[]
         {
             ("no JSON", "{ nope, value-of-the-variable", "not JSON"),
@@ -116,8 +118,9 @@ static class SettingsTests
         var s3 = Read("""{ "schema": 1, "sync": { "apiDayCap": 1000, "apiRunCap": 9000 } }""", Part.Server);
         Check("settings: a run's cap above the day's is clamped to it", s3.Sync.ApiRunCap == 1000 && s3.Problems.Any(p => p.Contains("clamped to it", StringComparison.Ordinal)));
         var sk = Read("""{ "schema": 1, "hud": { "check": "dryrun", "tab": "menu" }, "bridge": { "discoveryStock": 0 }, "plugin": { "grenadeWin": true } }""");
-        Check($"settings: hud.check's old name dryrun means warn; hud.tab is off or down; a stock of 0 is the stock off; grenade-to-win is gone ({string.Join("; ", sk.Problems.Concat(sk.Warnings))})",
-              sk.Hud.Check == "warn" && sk.Hud.Tab == "down" && sk.Problems.Any(p => p.StartsWith("hud.tab: 'menu' is not one of off, down", StringComparison.Ordinal))
+        Check($"settings: hud.check is off, warn or enforce (dryrun is none of them); hud.tab is off or down; a stock of 0 is the stock off; grenade-to-win is gone ({string.Join("; ", sk.Problems.Concat(sk.Warnings))})",
+              sk.Hud.Check == "warn" && sk.Problems.Any(p => p.StartsWith("hud.check: 'dryrun' is not one of off, warn, enforce", StringComparison.Ordinal))
+              && sk.Hud.Tab == "down" && sk.Problems.Any(p => p.StartsWith("hud.tab: 'menu' is not one of off, down", StringComparison.Ordinal))
               && sk.Bridge.DiscoveryStock == 0 && sk.Warnings.Any(w => w.StartsWith("plugin.grenadeWin: no such setting", StringComparison.Ordinal)));
         Check("keep: the keep set's queues are as long as the discovery stock - 10 by default, shorter for a shorter stock, nothing for none",
               KeepRules.ForStock(10).MinQueue == 10 && KeepRules.ForStock(40).MinQueue == 10 && KeepRules.ForStock(4).MinQueue == 4 && KeepRules.ForStock(0).MinQueue == 0
@@ -209,10 +212,21 @@ static class SettingsTests
         Check("hud.addon: the example file says it is required, and offers no way to run without it", !example.Contains("no HUD", StringComparison.OrdinalIgnoreCase) && example.Contains("required", StringComparison.Ordinal));
 
         // ---- the times
-        Check("settings: times - 07:00, 7:05 and off; not 24:00, 7:5 or 0700",
+        Check("settings: times - 07:00, 7:05 and off; not 24:00, 7:5, 0700 or none",
               TimeOfDay.TryParse("07:00", out var a) && a == new TimeOfDay(7, 0) && TimeOfDay.TryParse("7:05", out var b) && b == new TimeOfDay(7, 5)
               && TimeOfDay.TryParse("Off", out var c) && c is null && !TimeOfDay.TryParse("24:00", out _) && !TimeOfDay.TryParse("7:5", out _)
-              && !TimeOfDay.TryParse("0700", out _));
+              && !TimeOfDay.TryParse("0700", out _) && !TimeOfDay.TryParse("none", out _));
+
+        // ---- the line the bridge and the plugin log at their start: where from, the keys by name, never a value
+        var lineFile = Settings.Load(Part.Bridge, "/x/line.jsonc", FakeEnv, _ => """{ "schema": 1, "server": { "port": "27x", "host": "secret-host" }, "bridge": { "nope": 1 } }""");
+        Check($"settings: the start line names the file and the keys with a problem or a warning, never what they hold ({lineFile.StartLine})",
+              lineFile.StartLine == "settings: the settings file /x/line.jsonc - 1 problem (server.port) - 1 warning (bridge.nope)" && lineFile.Troubled);
+        var lineVar = Settings.Load(Part.Bridge, null, n => Inline(n, inlineText), Unread);
+        Check("settings: ...the variable by its name", lineVar.StartLine == "settings: the environment variable OVERSTRIKE2_SETTINGS_CONTENT" && !lineVar.Troubled);
+        var lineBad = Settings.Load(Part.Plugin, "/x/line.jsonc", FakeEnv, _ => """{ "schema": 1, "hud": { "addon": "letters-in-the-file" } }""");
+        Check($"settings: ...settings that cannot be used: why, and that the part does not start ({lineBad.StartLine})",
+              lineBad.StartLine.StartsWith("settings: the settings file /x/line.jsonc cannot be used (hud.addon: not digits", StringComparison.Ordinal)
+              && lineBad.StartLine.EndsWith(" - not starting: no part runs on settings it cannot use", StringComparison.Ordinal) && !lineBad.StartLine.Contains("letters-in-the-file", StringComparison.Ordinal));
 
         // ---- the docs and the schema are made from the same table
         var schemaFile = Path.Combine(root, "docs", "settings.schema.json");
