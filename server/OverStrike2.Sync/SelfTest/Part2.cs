@@ -68,9 +68,9 @@ static class Part2
         Directory.CreateDirectory(data);
         const string liveMaps = "[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}, {\"rank\": 2, \"id\": 222, \"name\": \"b\", \"sizeMb\": 7}]";
         const string liveBroken = "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [{\"id\": 3659287341}], \"blocked\": []}";
-        File.WriteAllText(Path.Combine(data, "maps.json"), Py.DumpsFile(A(liveMaps), 1));
-        File.WriteAllText(Path.Combine(data, "broken.json"), Py.DumpsFile(O(liveBroken), 2));
-        File.WriteAllText(Path.Combine(data, "search.json"), Py.DumpsFile(O("{\"111\": \"a 111\", \"222\": \"b 222\"}"), 0));
+        File.WriteAllText(Path.Combine(data, "maps.json"), Node.DumpsFile(A(liveMaps), 1));
+        File.WriteAllText(Path.Combine(data, "broken.json"), Node.DumpsFile(O(liveBroken), 2));
+        File.WriteAllText(Path.Combine(data, "search.json"), Node.DumpsFile(O("{\"111\": \"a 111\", \"222\": \"b 222\"}"), 0));
         var nt = W.Run(Cfg(), new FakeClock(1793500000.0));
         nt.Ledger.Load();
         nt.State.Load();
@@ -99,17 +99,17 @@ static class Part2
                    [("222", "removed")], new Dictionary<string, JsonObject>());
         var after = (JsonArray)Read(Path.Combine(data, "maps.json"))!;
         Check("run: the pass is appended to the live maps.json as #3",
-              Py.Eq(new JsonArray(after.Take(2).Select(e => e?.DeepClone()).ToArray()), A(liveMaps)) && Py.Int(after[2]!["id"]) == 901 && Py.Int(after[2]!["rank"]) == 3);
+              Node.Eq(new JsonArray(after.Take(2).Select(e => e?.DeepClone()).ToArray()), A(liveMaps)) && Node.Int(after[2]!["id"]) == 901 && Node.Int(after[2]!["rank"]) == 3);
         var brokenNow = Read(Path.Combine(data, "broken.json"))!;
         Check("run: the pack joined broken.json's packs, the removed seed untouched",
-              Py.Arr(brokenNow["packs"]).Select(p => Py.Int(p!["id"])).SequenceEqual([902L]) && Py.Eq(brokenNow["removed"], A("[{\"id\": 3659287341}]")));
-        Check("run: the Wingman list is created with the pass", Py.Arr(Read(Path.Combine(data, "maps-wingman.json"))).Select(e => Py.Int(e!["id"])).SequenceEqual([901L]));
+              Node.Arr(brokenNow["packs"]).Select(p => Node.Int(p!["id"])).SequenceEqual([902L]) && Node.Eq(brokenNow["removed"], A("[{\"id\": 3659287341}]")));
+        Check("run: the Wingman list is created with the pass", Node.Arr(Read(Path.Combine(data, "maps-wingman.json"))).Select(e => Node.Int(e!["id"])).SequenceEqual([901L]));
         Check("run: the verdicts went to /removed, then the files were reloaded",
               srv.Got.Select(g => g.Path).SequenceEqual(["/removed/s3cr3t", "/reload/s3cr3t"]) && srv.Got[0].Body.Contains("222\tremoved"));
         Check("run: the old files are backed up", Directory.GetDirectories(Path.Combine(nt.Cfg.StateDir, "backups")).Length == 1);
         Check("run: search.json, written after the reload (the reload does not read it), holds the new map",
-              ((JsonObject)Read(Path.Combine(data, "search.json"))!).ContainsKey("901") && Py.StrList(Py.Get(nt.Report["published"], "files")).Contains("search.json"));
-        Check("run: both items are marked published", Py.Str(passRec["status"]) == "published" && Py.Str(packRec["status"]) == "published");
+              ((JsonObject)Read(Path.Combine(data, "search.json"))!).ContainsKey("901") && Node.StrList(Node.Get(nt.Report["published"], "files")).Contains("search.json"));
+        Check("run: both items are marked published", Node.Str(passRec["status"]) == "published" && Node.Str(packRec["status"]) == "published");
         // a file that changed under the plan is planned again; a result that is not the live files plus additions is refused
         var nt2 = W.Run(Cfg(), new FakeClock(1793500100.0));
         nt2.Ledger.Load();
@@ -117,15 +117,15 @@ static class Part2
         var rec3 = O("{\"title\": \"third\", \"tags\": [\"Armsrace\"], \"size\": 1048576, \"subs\": 1, \"status\": \"tested\", \"verdict\": \"pass\", \"updated\": 1}");
         var grown = (JsonArray)after.DeepClone();
         grown.Add(O("{\"rank\": 4, \"id\": 950, \"name\": \"added by the release\", \"sizeMb\": 1}"));
-        File.WriteAllText(Path.Combine(data, "maps.json"), Py.DumpsFile(grown, 1));
+        File.WriteAllText(Path.Combine(data, "maps.json"), Node.DumpsFile(grown, 1));
         nt2.Publish([new("903", "pass", O("{\"level\": \"y\"}"), rec3)], [], new Dictionary<string, JsonObject>());
         var nowMaps = (JsonArray)Read(Path.Combine(data, "maps.json"))!;
         Check("run: a maps.json that grew meanwhile is merged into, never written from the older copy",
-              Py.Eq(new JsonArray(nowMaps.Take(4).Select(e => e?.DeepClone()).ToArray()), grown) && Py.Int(nowMaps[4]!["id"]) == 903 && Py.Int(nowMaps[4]!["rank"]) == 5);
+              Node.Eq(new JsonArray(nowMaps.Take(4).Select(e => e?.DeepClone()).ToArray()), grown) && Node.Int(nowMaps[4]!["id"]) == 903 && Node.Int(nowMaps[4]!["rank"]) == 5);
         nt.Finish();
         var repTxt = Directory.GetFiles(Path.Combine(nt.Cfg.StateDir, "reports"), "*.txt");
         Check("run: the report and its text are written; a run without a problem mails nothing",
-              repTxt.Length > 0 && Py.Str(nt.Report["mail"]).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && Py.Arr(nt.Report["issues"]).Count == 0);
+              repTxt.Length > 0 && Node.Str(nt.Report["mail"]).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && Node.Arr(nt.Report["issues"]).Count == 0);
         (BridgeUrl, BridgeSecret) = ("", "");
     }
 
@@ -219,9 +219,9 @@ static class Part2
         Directory.CreateDirectory(RunData);
         (State, Work, Data) = (Path.Combine(RunRoot, "state"), Path.Combine(RunRoot, "work"), RunData);
         Directory.CreateDirectory(State);
-        File.WriteAllText(Path.Combine(RunData, "maps.json"), Py.DumpsFile(A("[{\"rank\": 1, \"id\": 11, \"name\": \"a\", \"sizeMb\": 5}]"), 1));
-        File.WriteAllText(Path.Combine(RunData, "broken.json"), Py.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
-        File.WriteAllText(Path.Combine(RunData, "search.json"), Py.DumpsFile(O("{\"11\": \"a 11\"}"), 0));
+        File.WriteAllText(Path.Combine(RunData, "maps.json"), Node.DumpsFile(A("[{\"rank\": 1, \"id\": 11, \"name\": \"a\", \"sizeMb\": 5}]"), 1));
+        File.WriteAllText(Path.Combine(RunData, "broken.json"), Node.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
+        File.WriteAllText(Path.Combine(RunData, "search.json"), Node.DumpsFile(O("{\"11\": \"a 11\"}"), 0));
         var items = new JsonObject();
         for (var i = 0; i < 7; i++)
             items[(1000 + i).ToString()] = RunItem(i);
@@ -237,21 +237,21 @@ static class Part2
         FakeSteam.Answers = [];
         Check("run: a new upload first, then strictly by subscribers", FakeSteam.Asked.Take(5).SequenceEqual(["2000", "1006", "1005", "1004", "1003"]));
         Check("run: every download was tested", Loads.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(FakeSteam.Asked.Take(5).OrderBy(x => x, StringComparer.Ordinal)));
-        Check("run: 5 downloads in batches of 2: 3 logins, one engine for each batch with work", FakeSteam.Logins == 3 && Py.Int(Py.Get(rep["downloads"], "ok")) == 5);
-        Check("run: Steam's push-back ends it, with the reason", Py.StrOr(Py.Get(rep["downloads"], "stop")).Contains("Rate Limit Exceeded"));
-        var wing = Py.Arr(Read(Path.Combine(RunData, "maps-wingman.json")));
+        Check("run: 5 downloads in batches of 2: 3 logins, one engine for each batch with work", FakeSteam.Logins == 3 && Node.Int(Node.Get(rep["downloads"], "ok")) == 5);
+        Check("run: Steam's push-back ends it, with the reason", Node.StrOr(Node.Get(rep["downloads"], "stop")).Contains("Rate Limit Exceeded"));
+        var wing = Node.Arr(Read(Path.Combine(RunData, "maps-wingman.json")));
         Check("run: every batch published (5 maps on the list, the report adds them up)",
-              wing.Count == 5 && Py.Arr(Py.Get(Py.Get(rep["published"], "modes"), "wingman")).Count == 5 && Py.StrList(Py.Get(rep["published"], "files")).Contains("maps-wingman.json"));
+              wing.Count == 5 && Node.Arr(Node.Get(Node.Get(rep["published"], "modes"), "wingman")).Count == 5 && Node.StrList(Node.Get(rep["published"], "files")).Contains("maps-wingman.json"));
         Check("run: staging is empty again", Directory.GetFileSystemEntries(Path.Combine(RunRoot, "work", "staging", "steamapps", "workshop", "content", "730")).Length == 0);
         StateAfter = (JsonObject)Read(StateFile)!;
-        Check("run: the rest waits, the day's book says 5", Py.Int(Py.Get(Py.Get(StateAfter["downloads"], "2026-11-01"), "items")) == 5
-              && Py.Obj(StateAfter["items"]).Count(kv => Py.Str(Py.Get(kv.Value, "status")) is "queued" or "retry") == 3);
-        Check("run: the mail's estimate counts what is left", Py.Int(Py.Get(rep["backlog"], "items")) == 3
-              && File.ReadAllText(Py.Slice(Py.Str(rep["report_path"]), 0, -5) + ".txt").Contains("Backlog: 3 item(s)"));
-        Check("run: the state remembers the run, and when the API steps last ran", Py.Float(Py.Get(StateAfter["last_run"], "ended")) > 0 && Py.Float(StateAfter["last_api"]) == T0);
-        Check("run: the estimate counts on the day without the restarts' stretches", Py.Float(Py.Get(rep["backlog"], "hours")) == 22);
+        Check("run: the rest waits, the day's book says 5", Node.Int(Node.Get(Node.Get(StateAfter["downloads"], "2026-11-01"), "items")) == 5
+              && Node.Obj(StateAfter["items"]).Count(kv => Node.Str(Node.Get(kv.Value, "status")) is "queued" or "retry") == 3);
+        Check("run: the mail's estimate counts what is left", Node.Int(Node.Get(rep["backlog"], "items")) == 3
+              && File.ReadAllText(Node.Slice(Node.Str(rep["report_path"]), 0, -5) + ".txt").Contains("Backlog: 3 item(s)"));
+        Check("run: the state remembers the run, and when the API steps last ran", Node.Float(Node.Get(StateAfter["last_run"], "ended")) > 0 && Node.Float(StateAfter["last_api"]) == T0);
+        Check("run: the estimate counts on the day without the restarts' stretches", Node.Float(Node.Get(rep["backlog"], "hours")) == 22);
         Check("run: Steam's push-back is a problem the mail names (not sent here: no SMTP host)",
-              Py.StrList(rep["issues"]).Any(i => i.Contains("SteamCMD pushed back")) && Py.Str(rep["mail"]).StartsWith("NOT sent: no SMTP host", StringComparison.Ordinal));
+              Node.StrList(rep["issues"]).Any(i => i.Contains("SteamCMD pushed back")) && Node.Str(rep["mail"]).StartsWith("NOT sent: no SMTP host", StringComparison.Ordinal));
     }
 
     public static readonly JsonObject Quiet = O("""
@@ -291,7 +291,7 @@ static class Part2
         foreach (var (extra, key) in cases)
         {
             var got = Mail.IssuesOf(QuietWith(O(extra).Select(kv => (kv.Key, kv.Value)).ToArray()));
-            Check($"issues: {key} counts ({(got.Count > 0 ? Py.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
+            Check($"issues: {key} counts ({(got.Count > 0 ? Node.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
         }
         var sentMails = new List<(string Subject, string Body)>();
         var realSend = Hooks.SendMail;
@@ -351,19 +351,19 @@ static class Part2
             var kind = v switch
             {
                 null => "null", JsonObject => "dict", JsonArray => "list",
-                _ when Py.IsString(v) => "str", _ when Py.IsBool(v) => "bool", _ when Py.Integer(v) is not null => "int", _ when Py.IsNumber(v) => "float", _ => "?",
+                _ when Node.IsString(v) => "str", _ when Node.IsBool(v) => "bool", _ when Node.Integer(v) is not null => "int", _ when Node.IsNumber(v) => "float", _ => "?",
             };
             if (!kinds.Split('|').Contains(kind))
                 out_.Add($"{where}.{key} is {kind}");
             return v;
         }
         Need(doc, "schema", "int", "");
-        if (Py.Integer(Py.Get(doc, "schema")) != 1)
+        if (Node.Integer(Node.Get(doc, "schema")) != 1)
             out_.Add("schema is not 1");
         Need(doc, "updated", "int", "");
         var now = Need(doc, "now", "dict", "") ?? new JsonObject();
-        if (Py.Str(now["state"]) is not ("idle" or "waiting" or "discovery" or "check" or "ratings" or "serve" or "download" or "test" or "publish" or "stopped"))
-            out_.Add($"now.state is {Py.Str(now["state"])}");
+        if (Node.Str(now["state"]) is not ("idle" or "waiting" or "discovery" or "check" or "ratings" or "serve" or "download" or "test" or "publish" or "stopped"))
+            out_.Add($"now.state is {Node.Str(now["state"])}");
         Need(now, "why", "str", "now");
         foreach (var (key, fields) in new (string, (string, string)[])[]
                  {
@@ -393,7 +393,7 @@ static class Part2
             Need(byMode, mode, "int", "queue.byMode");
         }
         Need(queue, "eta", "int|null", "queue");
-        var next = Py.Arr(Need(queue, "next", "list", "queue"));
+        var next = Node.Arr(Need(queue, "next", "list", "queue"));
         if (next.Count > 25)
             out_.Add($"queue.next holds {next.Count}");
         foreach (var e in next)
@@ -403,29 +403,29 @@ static class Part2
         Need(serve, "missing", "int", "queue.serve");
         Need(serve, "bytes", "int", "queue.serve");
         var keep = Need(doc, "keep", "dict", "");
-        foreach (var e in Py.Arr(Need(keep, "parts", "list", "keep")))
+        foreach (var e in Node.Arr(Need(keep, "parts", "list", "keep")))
         {
-            if (Py.Str(Py.Get(e, "part")) is not ("up" or "rated" or "popular" or "subscribed" or "own" or "hud" or "queues"))
-                out_.Add($"keep.parts[].part is {Py.Str(Py.Get(e, "part"))}");
+            if (Node.Str(Node.Get(e, "part")) is not ("up" or "rated" or "popular" or "subscribed" or "own" or "hud" or "queues"))
+                out_.Add($"keep.parts[].part is {Node.Str(Node.Get(e, "part"))}");
             foreach (var (f, kind) in new[] { ("mode", "str"), ("count", "int"), ("onDisk", "int"), ("gb", "int|float") })
                 Need(e, f, kind, "keep.parts[]");
         }
         Need(keep, "totalGb", "int|float", "keep");
         var hist = Need(doc, "history", "dict", "");
-        var runs = Py.Arr(Need(hist, "runs", "list", "history"));
-        var maps = Py.Arr(Need(hist, "maps", "list", "history"));
+        var runs = Node.Arr(Need(hist, "runs", "list", "history"));
+        var maps = Node.Arr(Need(hist, "maps", "list", "history"));
         if (runs.Count > 50 || maps.Count > 200)
             out_.Add($"history holds {runs.Count} runs, {maps.Count} maps");
         foreach (var e in runs)
             foreach (var f in new[] { "started", "ended", "kind", "downloads", "bytes", "pass", "rejected", "listed", "removed", "stop" })
-                if (!Py.Has(e, f))
+                if (!Node.Has(e, f))
                     out_.Add($"history.runs[].{f} missing");
         foreach (var e in maps)
         {
             foreach (var (f, kind) in new[] { ("at", "int"), ("id", "str"), ("name", "str"), ("mode", "str"), ("event", "str"), ("why", "str") })
                 Need(e, f, kind, "history.maps[]");
-            if (Py.Str(Py.Get(e, "event")) is not ("listed" or "broken" or "removed" or "changed" or "handed-over" or "failed"))
-                out_.Add($"history.maps[].event is {Py.Str(Py.Get(e, "event"))}");
+            if (Node.Str(Node.Get(e, "event")) is not ("listed" or "broken" or "removed" or "changed" or "handed-over" or "failed"))
+                out_.Add($"history.maps[].event is {Node.Str(Node.Get(e, "event"))}");
         }
         return out_;
     }
@@ -438,34 +438,34 @@ static class Part2
         var problems = StatusProblems(sdoc);
         Check($"status: the run wrote sync-status.json into the bridge's data, schema 1 ({T.Show(problems.Take(4))})", problems.Count == 0);
         var now = sdoc["now"]!;
-        Check("status: after the run it says idle, no map, no step, no run", Py.Str(now["state"]) == "idle" && now["map"] is null && now["step"] is null && now["run"] is null
-              && Py.Str(now["why"]).Contains("has ended"));
+        Check("status: after the run it says idle, no map, no step, no run", Node.Str(now["state"]) == "idle" && now["map"] is null && now["step"] is null && now["run"] is null
+              && Node.Str(now["why"]).Contains("has ended"));
         Check("status: written atomically - no tmp file left beside it", !Directory.GetFiles(RunData).Any(f => Path.GetFileName(f).StartsWith(".sync-status", StringComparison.Ordinal)));
         var today = sdoc["today"]!;
-        Check("status: today's counts - 5 downloads, 5 passes, the day's API calls", (Py.Int(today["downloads"]), Py.Int(today["pass"])) == (5, 5) && Py.Integer(today["apiCalls"]) is not null);
+        Check("status: today's counts - 5 downloads, 5 passes, the day's API calls", (Node.Int(today["downloads"]), Node.Int(today["pass"])) == (5, 5) && Node.Integer(today["apiCalls"]) is not null);
         var totals = sdoc["totals"]!;
         Check("status: the totals and the lists - 5 tested, 5 passed, 5 on the Wingman list, 1 on Arms Race",
-              (Py.Int(totals["tested"]), Py.Int(totals["pass"]), Py.Int(totals["listed"]!["wingman"]), Py.Int(totals["listed"]!["armsrace"])) == (5, 5, 5, 1));
+              (Node.Int(totals["tested"]), Node.Int(totals["pass"]), Node.Int(totals["listed"]!["wingman"]), Node.Int(totals["listed"]!["armsrace"])) == (5, 5, 5, 1));
         var queue = sdoc["queue"]!;
-        Check("status: the queue - the 3 left, in the order the downloads take them, each with why", Py.Int(queue["total"]) == 3
-              && Py.Arr(queue["next"]).Select(e => Py.Str(e!["id"])).SequenceEqual(["1002", "1001", "1000"]) && Py.Arr(queue["next"]).All(e => Py.Truthy(e!["why"]))
-              && Py.Int(queue["byMode"]!["wingman"]) == 3 && Py.Float(queue["eta"]) > T0);
+        Check("status: the queue - the 3 left, in the order the downloads take them, each with why", Node.Int(queue["total"]) == 3
+              && Node.Arr(queue["next"]).Select(e => Node.Str(e!["id"])).SequenceEqual(["1002", "1001", "1000"]) && Node.Arr(queue["next"]).All(e => Node.Truthy(e!["why"]))
+              && Node.Int(queue["byMode"]!["wingman"]) == 3 && Node.Float(queue["eta"]) > T0);
         var run0 = sdoc["history"]!["runs"]![0]!;
         Check("status: the run's history line - manual, 5 downloads, 5 passed, 5 listed, Steam's push-back as its stop",
-              Py.Str(run0["kind"]) == "manual" && (Py.Int(run0["downloads"]), Py.Int(run0["pass"]), Py.Int(run0["listed"])) == (5, 5, 5) && Py.StrOr(run0["stop"]).Contains("Rate Limit"));
-        var ev = Py.Arr(sdoc["history"]!["maps"]);
-        var kinds = ev.Select(e => Py.Str(e!["event"])).Distinct().OrderBy(x => x, StringComparer.Ordinal);
+              Node.Str(run0["kind"]) == "manual" && (Node.Int(run0["downloads"]), Node.Int(run0["pass"]), Node.Int(run0["listed"])) == (5, 5, 5) && Node.StrOr(run0["stop"]).Contains("Rate Limit"));
+        var ev = Node.Arr(sdoc["history"]!["maps"]);
+        var kinds = ev.Select(e => Node.Str(e!["event"])).Distinct().OrderBy(x => x, StringComparer.Ordinal);
         Check($"status: the map events, newest first - 5 listed, the failed download ({T.Show(kinds)})",
-              ev.Count(e => Py.Str(e!["event"]) == "listed") == 5 && ev.Any(e => Py.Str(e!["event"]) == "failed" && Py.Str(e["id"]) == "1002")
-              && ev.Select(e => Py.Int(e!["at"])).SequenceEqual(ev.Select(e => Py.Int(e!["at"])).OrderByDescending(x => x)));
-        Check("status: the day's failed downloads are counted", Py.Int(today["failedDownloads"]) == 1);
+              ev.Count(e => Node.Str(e!["event"]) == "listed") == 5 && ev.Any(e => Node.Str(e!["event"]) == "failed" && Node.Str(e["id"]) == "1002")
+              && ev.Select(e => Node.Int(e!["at"])).SequenceEqual(ev.Select(e => Node.Int(e!["at"])).OrderByDescending(x => x)));
+        Check("status: the day's failed downloads are counted", Node.Int(today["failedDownloads"]) == 1);
         var stObj = new Status(RunCfg, C(new FakeClock(T0)), Log.Line) { Path = Path.Combine(RunData, "tick-status.json"), TickSeconds = 0.05 };
         stObj.Set(("state", "download"), ("why", "x"));
         stObj.StartTicker();
         Thread.Sleep(400);
         stObj.StopTicker();
         var tick = Read(stObj.Path)!;
-        Check("status: the ticker writes the file while a run is active, and stops", Py.Str(tick["now"]!["state"]) == "download" && !stObj.Ticking);
+        Check("status: the ticker writes the file while a run is active, and stops", Node.Str(tick["now"]!["state"]) == "download" && !stObj.Ticking);
     }
 
     // ---- somebody joins during a test: the engine stops at once, nothing runs until the quiet time is over
@@ -497,7 +497,7 @@ static class Part2
         };
         var rep2 = nj.Run();
         Check("join: the engine went down when somebody joined", SpyEngine.All.Count > 0 && SpyEngine.All[0].Stops >= 1 && SpyEngine.All[0].Starts >= 2);
-        Check("join: it waited until 10 minutes after they left, and then finished the batch", slept.Sum() >= 600 && Py.Arr(Py.Get(rep2["tests"], "rows")).Count == 3);
+        Check("join: it waited until 10 minutes after they left, and then finished the batch", slept.Sum() >= 600 && Node.Arr(Node.Get(rep2["tests"], "rows")).Count == 3);
         Hooks.TestEngine = (_, _, _, _, _) => new FakeEngine();
         Hooks.TestLoad = (_, wid, _, _, _, stop, _) => FakeLoad(wid, stop);
     }
@@ -519,11 +519,11 @@ static class Part2
         (cfg3.Batch, cfg3.DownloadPause) = (10, 0);
         var rep3 = W.Run(cfg3, new FakeClock(T0 + 2 * 86400)).Run();
         var state3 = (JsonObject)Read(StateFile)!;
-        Check("stop: one access-denied item is failed, the next one goes on", Py.Str(state3["items"]!["3001"]!["status"]) == "failed" && Py.Str(state3["items"]!["3002"]!["status"]) == "published");
+        Check("stop: one access-denied item is failed, the next one goes on", Node.Str(state3["items"]!["3001"]!["status"]) == "failed" && Node.Str(state3["items"]!["3002"]!["status"]) == "published");
         Check("stop: a rate limit ends the downloads, the next item is not asked for",
-              Py.StrOr(Py.Get(rep3["downloads"], "stop")).Contains("Rate Limit Exceeded") && Py.Str(state3["items"]!["3004"]!["status"]) == "queued");
+              Node.StrOr(Node.Get(rep3["downloads"], "stop")).Contains("Rate Limit Exceeded") && Node.Str(state3["items"]!["3004"]!["status"]) == "queued");
         var rep4 = W.Run(cfg3, new FakeClock(T0 + 2 * 86400 + 3600)).Run();
-        Check("stop: a later run that day downloads nothing", Py.Int(Py.Get(rep4["downloads"], "ok")) == 0 && Py.StrOr(Py.Get(rep4["downloads"], "stop")).Contains("Rate Limit Exceeded"));
+        Check("stop: a later run that day downloads nothing", Node.Int(Node.Get(rep4["downloads"], "ok")) == 0 && Node.StrOr(Node.Get(rep4["downloads"], "stop")).Contains("Rate Limit Exceeded"));
         FakeSteam.Answers = [];
     }
 
@@ -538,17 +538,17 @@ static class Part2
         (FakeSteam.Asked, FakeSteam.Answers) = ([], new() { ["5001"] = SteamCmdWords.Stall + " 15m00s" });
         var logins5 = FakeSteam.Logins;
         var rep5 = W.Run(cfg3, new FakeClock(T0 + 5 * 86400)).Run();
-        var stalls5 = Py.Arr(rep5["stalls"]).Select(x => (Py.Str(x![0]), Py.Int(x[1]))).ToList();
+        var stalls5 = Node.Arr(rep5["stalls"]).Select(x => (Node.Str(x![0]), Node.Int(x[1]))).ToList();
         Check($"stall: one stall is routine - a fresh SteamCMD session, the next map at once, the downloads go on ({T.Show(FakeSteam.Asked.Take(3))}, {FakeSteam.Logins - logins5} logins)",
-              FakeSteam.Asked.Take(3).SequenceEqual(["5001", "5002", "5003"]) && !Py.StrOr(Py.Get(rep5["downloads"], "stop")).Contains("stalled")
+              FakeSteam.Asked.Take(3).SequenceEqual(["5001", "5002", "5003"]) && !Node.StrOr(Node.Get(rep5["downloads"], "stop")).Contains("stalled")
               && stalls5.SequenceEqual([("5001", 1L)]) && FakeSteam.Logins - logins5 >= 2);
         Check("stall: ... and nothing about SteamCMD for the mail", !Mail.IssuesOf(rep5).Any(i => i.Key.StartsWith("steamcmd", StringComparison.Ordinal)));
         AddItems(("6001", 99500, "stall 6001"), ("6002", 99400, "stall 6002"), ("6003", 99300, "stall 6003"));
         (FakeSteam.Asked, FakeSteam.Answers) = ([], new() { ["6001"] = SteamCmdWords.Stall + " 15m00s", ["6002"] = SteamCmdWords.Stall + " 15m00s" });
         var rep6 = W.Run(cfg3, new FakeClock(T0 + 6 * 86400)).Run();
         var keys6 = Mail.IssuesOf(rep6).Select(i => i.Key).ToList();
-        Check($"stall: a second stall in a run ends its downloads (6003 not asked) and is a problem for the mail ({Py.StrOr(Py.Get(rep6["downloads"], "stop"), "None")})",
-              FakeSteam.Asked.Take(2).SequenceEqual(["6001", "6002"]) && !FakeSteam.Asked.Contains("6003") && Py.StrOr(Py.Get(rep6["downloads"], "stop")).Contains("stalled twice")
+        Check($"stall: a second stall in a run ends its downloads (6003 not asked) and is a problem for the mail ({Node.StrOr(Node.Get(rep6["downloads"], "stop"), "None")})",
+              FakeSteam.Asked.Take(2).SequenceEqual(["6001", "6002"]) && !FakeSteam.Asked.Contains("6003") && Node.StrOr(Node.Get(rep6["downloads"], "stop")).Contains("stalled twice")
               && keys6.Count(k => k == "steamcmd-stalls") == 1 && !keys6.Contains("steamcmd"));
         Check("stall: one map stalling twice in a day is a problem too; once is not",
               Mail.IssuesOf(O("{\"stalls\": [[\"7001\", 2]]}")).Select(i => i.Key).SequenceEqual(["steamcmd-stalls"]) && Mail.IssuesOf(O("{\"stalls\": [[\"7001\", 1]]}")).Count == 0);
@@ -564,17 +564,17 @@ static class Part2
         var cfg7 = Cfg();
         (cfg7.Batch, cfg7.DownloadPause) = (1, 0);
         cfg7.Lower(O("{\"api\": true}"));
-        static int GoneEvents(SyncRun run) => Py.Arr(Py.Get(run.State.Data["history"], "maps")).Count(e => Py.Str(e!["id"]) == "11" && Py.Str(e["event"]) == "removed");
+        static int GoneEvents(SyncRun run) => Node.Arr(Node.Get(run.State.Data["history"], "maps")).Count(e => Node.Str(e!["id"]) == "11" && Node.Str(e["event"]) == "removed");
         var r7 = W.Run(cfg7, new FakeClock(T0 + 7 * 86400));
         r7.Run();
         Check($"check: a listed map gone from the Workshop is in the run's check, and says so in the history ({GoneEvents(r7)})",
-              Py.Eq(Py.Get(r7.Report["check"], "removed"), A("[[\"11\", \"removed\"]]")) && GoneEvents(r7) == 1);
+              Node.Eq(Node.Get(r7.Report["check"], "removed"), A("[[\"11\", \"removed\"]]")) && GoneEvents(r7) == 1);
         File.WriteAllText(Path.Combine(RunData, "removed.json"), "{\"checked\": \"x\", \"verdicts\": {\"11\": \"removed\"}}");
         var r8 = W.Run(cfg7, new FakeClock(T0 + 7 * 86400 + 3600));
         r8.Run();
         Check($"check: ... at the next check still in its check, but no second event: the bridge holds the verdict ({GoneEvents(r8)})",
-              Py.Eq(Py.Get(r8.Report["check"], "removed"), A("[[\"11\", \"removed\"]]")) && GoneEvents(r8) == 1);
-        Check($"issues: verdicts that do not reach the bridge are a problem for the mail - nothing else tells it ({Py.StrOr(Py.Get(r8.Report["published"], "verdicts"), "None")})",
+              Node.Eq(Node.Get(r8.Report["check"], "removed"), A("[[\"11\", \"removed\"]]")) && GoneEvents(r8) == 1);
+        Check($"issues: verdicts that do not reach the bridge are a problem for the mail - nothing else tells it ({Node.StrOr(Node.Get(r8.Report["published"], "verdicts"), "None")})",
               Mail.IssuesOf(r8.Report).Any(i => i.Key == "verdicts-not-reported"));
         Hooks.Check = (_, _, _, _, _) => ([], []);
         File.Delete(Path.Combine(RunData, "removed.json"));
@@ -625,16 +625,16 @@ static class Part2
         var wj = O(WorkshopText);
         var maps = (JsonObject)wj["maps"]!;
         Check("workshop.json: the check writes it - version 1, every listed map with the Workshop's numbers as the check saw them",
-              Py.Int(wj["version"]) == 1 && Py.Integer(wj["written"]) == (long)(T0 + 9 * 86400) && maps.Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(["21", "22", "23", "24"])
-              && Py.Eq(maps["21"], O("""{"created": 100, "updated": 500, "content": "921", "subs": 5, "lifetime": 7, "favs": 2, "lifetimeFavs": 3, "views": 11, "passed": 500}"""))
-              && Py.IsString(maps["21"]!["content"]) && Py.Integer(maps["21"]!["passed"]) is not null);
+              Node.Int(wj["version"]) == 1 && Node.Integer(wj["written"]) == (long)(T0 + 9 * 86400) && maps.Select(kv => kv.Key).OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(["21", "22", "23", "24"])
+              && Node.Eq(maps["21"], O("""{"created": 100, "updated": 500, "content": "921", "subs": 5, "lifetime": 7, "favs": 2, "lifetimeFavs": 3, "views": 11, "passed": 500}"""))
+              && Node.IsString(maps["21"]!["content"]) && Node.Integer(maps["21"]!["passed"]) is not null);
         Check("workshop.json: passed is the version the sync accepts - a changed map still waiting for its test keeps the old one, our own map has its newest",
-              (Py.Int(maps["24"]!["updated"]), Py.Int(maps["24"]!["passed"])) == (800, 400) && (Py.Int(maps["23"]!["updated"]), Py.Int(maps["23"]!["passed"])) == (700, 700));
-        Check($"workshop.json: a passing test of a map's new content moves its passed up to it ({Py.Dumps(maps["22"])})",
-              (Py.Int(maps["22"]!["updated"]), Py.Int(maps["22"]!["passed"])) == (900, 900) && Loads.Contains("22"));
+              (Node.Int(maps["24"]!["updated"]), Node.Int(maps["24"]!["passed"])) == (800, 400) && (Node.Int(maps["23"]!["updated"]), Node.Int(maps["23"]!["passed"])) == (700, 700));
+        Check($"workshop.json: a passing test of a map's new content moves its passed up to it ({Node.Dumps(maps["22"])})",
+              (Node.Int(maps["22"]!["updated"]), Node.Int(maps["22"]!["passed"])) == (900, 900) && Loads.Contains("22"));
         var ex = O(new Service(cfgw, C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
         Check("export: the random queues as queues.json holds them - its lanes and the open ballot's requests",
-              Py.Eq(ex["queues"], queues) && Py.StrList(ex["queues"]!["random"]!["armsrace-new"]) is ["21"] && Py.StrList(ex["queues"]!["requested"]) is ["24"]);
+              Node.Eq(ex["queues"], queues) && Node.StrList(ex["queues"]!["random"]!["armsrace-new"]) is ["21"] && Node.StrList(ex["queues"]!["requested"]) is ["24"]);
         Check("workshop.json: the bridge's own reader (bridge/Popularity.cs) reads it as meant - every map, its numbers, whether its current content passed", () =>
         {
             var program = System.Reflection.Assembly.Load("GunGameBridge").GetType("Program", true)!;

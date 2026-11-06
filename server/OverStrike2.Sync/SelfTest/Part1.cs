@@ -72,7 +72,7 @@ static class Part1
             led.Reserve(today, "GetPublishedFileDetails");
         Check("ledger: no cap per day but the 24 h one: call 601 of a day goes", led.Reserve(today, "QueryFiles") >= 0);
         var file = Read(lp)!;
-        Check("ledger: every reserved call is on disk, counted under its day", Py.Arr(file["calls"]).Count == 601 && Py.Eq(file["days"], new JsonObject { [today] = 601 })
+        Check("ledger: every reserved call is on disk, counted under its day", Node.Arr(file["calls"]).Count == 601 && Node.Eq(file["days"], new JsonObject { [today] = 601 })
               && !((JsonObject)file).ContainsKey("nights"));
         var (led2, _) = W.Ledger(lp, t: clock.T);
         Check("ledger: the day's count survives a restart (a new process reads the file)", led2.Count(today) == 601);
@@ -298,18 +298,18 @@ static class Part1
         cfg.WebApiKey = Key;
         var known = new Dictionary<string, string> { ["7"] = "listed", ["6"] = "listed", ["5"] = "listed" };
         var d = Discovery.Discover(api, cfg, known, st, C(clock).Day(), clock.T + 3600, () => clock.T);
-        Check("discovery: page 1 new, page 2 all known -> stops after 2 pages", Py.Int(d["pages"]) == 2 && Py.StrList(d["new"]) is ["10", "9", "8"]);
-        Check("discovery: says why it stopped", Py.Str(d["stop"]).Contains("page 2 held nothing new"));
+        Check("discovery: page 1 new, page 2 all known -> stops after 2 pages", Node.Int(d["pages"]) == 2 && Node.StrList(d["new"]) is ["10", "9", "8"]);
+        Check("discovery: says why it stopped", Node.Str(d["stop"]).Contains("page 2 held nothing new"));
         Check("discovery: the cursor of page 1 is sent with page 2", sent[1].Url.Contains("cursor=c2"));
         Check("discovery: new items are remembered as queued with their details",
-              Py.Str(st.Item("9")!["status"]) == "queued" && Py.Int(st.Item("9")!["size"]) == 1048576 && Py.Str(st.Item("9")!["ws"]) == "ok");
+              Node.Str(st.Item("9")!["status"]) == "queued" && Node.Int(st.Item("9")!["size"]) == 1048576 && Node.Str(st.Item("9")!["ws"]) == "ok");
         (api, sent, _) = ApiWith(led, clock, [Page([11, 10, 9], "c2"), Page([8, 7], "c3")]);
         d = Discovery.Discover(api, cfg, known, st, C(clock).Day(), clock.T + 3600, () => clock.T);
-        Check("discovery: the next day, an item seen before is not new (stop after the page with only id 11 new)", Py.StrList(d["new"]) is ["11"] && Py.Int(d["pages"]) == 2);
+        Check("discovery: the next day, an item seen before is not new (stop after the page with only id 11 new)", Node.StrList(d["new"]) is ["11"] && Node.Int(d["pages"]) == 2);
         cfg.MaxPages = 1;
         (api, sent, _) = ApiWith(led, clock, [Page([20, 21], "c2"), Page([22], "")]);
         d = Discovery.Discover(api, cfg, new Dictionary<string, string>(), st, C(clock).Day(), clock.T + 3600, () => clock.T);
-        Check("discovery: SYNC_MAX_PAGES bounds it", Py.Int(d["pages"]) == 1 && Py.Str(d["stop"]).Contains("sync.maxPages"));
+        Check("discovery: SYNC_MAX_PAGES bounds it", Node.Int(d["pages"]) == 1 && Node.Str(d["stop"]).Contains("sync.maxPages"));
     }
 
     // ---- the check: removed, changed, the 10 % guard
@@ -326,7 +326,7 @@ static class Part1
         var j = Discovery.JudgeListed(det, listed, st, cfg);
         Check("check: gone, hidden and banned are told apart", j.Removed.OrderBy(x => x.Id).SequenceEqual([("101", "removed"), ("102", "hidden"), ("103", "banned")]));
         Check("check: a map updated since SYNC_CHANGED_SINCE is changed at the first check", j.Changed is ["104"]);
-        Check("check: the others get a baseline", Py.Int(st.Baseline["100"]) == 1700000000 && !st.Baseline.ContainsKey("104"));
+        Check("check: the others get a baseline", Node.Int(st.Baseline["100"]) == 1700000000 && !st.Baseline.ContainsKey("104"));
         det["100"]["time_updated"] = 1700000500;
         j = Discovery.JudgeListed(det, listed, st, cfg);
         Check("check: later, a map updated past its baseline is changed", j.Changed.Contains("100"));
@@ -482,24 +482,24 @@ static class Part1
         Directory.CreateDirectory(itemDir);
         File.WriteAllBytes(Path.Combine(itemDir, "1_dir.vpk"), VpkOf(("maps/adtest.vpk", inner), ("materials/x.vmat_c", "m"u8.ToArray())));
         var s = Scan.Item(itemDir);
-        Check("scan: a map VPK is found and named", Py.Str(s["verdict"]) == "map" && Py.StrList(s["maps"]) is ["adtest"]);
-        Check("scan: its entity lump's connect with a client-command entity makes it a client connect", Py.Str(s["advert"]) == "client connect");
+        Check("scan: a map VPK is found and named", Node.Str(s["verdict"]) == "map" && Node.StrList(s["maps"]) is ["adtest"]);
+        Check("scan: its entity lump's connect with a client-command entity makes it a client connect", Node.Str(s["advert"]) == "client connect");
         var itemDir2 = Path.Combine(root, "item1b");
         Directory.CreateDirectory(itemDir2);
         File.WriteAllBytes(Path.Combine(itemDir2, "1b_dir.vpk"), VpkOf(("maps/adtest.vpk", VpkOf(("maps/adtest/entities/default_ents.vents_c", resource)))));
-        Check("scan: a 'say connect' in the entity lump is a chat advert", Py.Str(Scan.Item(itemDir2)["advert"]) == "chat advert");
+        Check("scan: a 'say connect' in the entity lump is a chat advert", Node.Str(Scan.Item(itemDir2)["advert"]) == "chat advert");
         var packDir = Path.Combine(root, "item2");
         Directory.CreateDirectory(packDir);
         File.WriteAllBytes(Path.Combine(packDir, "2_dir.vpk"), VpkOf(("models/a/b.vmdl_c", "x"u8.ToArray()), ("models/a/c.vmdl_c", "y"u8.ToArray())));
-        Check("scan: models and no map is a pack", Py.Str(Scan.Item(packDir)["verdict"]) == "pack");
+        Check("scan: models and no map is a pack", Node.Str(Scan.Item(packDir)["verdict"]) == "pack");
         var emptyDir = Path.Combine(root, "item3");
         Directory.CreateDirectory(emptyDir);
         File.WriteAllBytes(Path.Combine(emptyDir, "3_dir.vpk"), VpkOf(("materials/a/b.vmat_c", "x"u8.ToArray())));
-        Check("scan: no map and no models is empty", Py.Str(Scan.Item(emptyDir)["verdict"]) == "empty");
+        Check("scan: no map and no models is empty", Node.Str(Scan.Item(emptyDir)["verdict"]) == "empty");
         var legacyDir = Path.Combine(root, "item4");
         Directory.CreateDirectory(legacyDir);
         File.WriteAllBytes(Path.Combine(legacyDir, "4_legacy.bin"), "x"u8.ToArray());
-        Check("scan: only a _legacy.bin is a CS:GO-era upload", Py.Str(Scan.Item(legacyDir)["verdict"]) == "legacy");
+        Check("scan: only a _legacy.bin is a CS:GO-era upload", Node.Str(Scan.Item(legacyDir)["verdict"]) == "legacy");
     }
 
     static (string Kind, JsonObject Detail) Fv(string rec) => Verdicts.Final(O(rec), N);
@@ -509,20 +509,20 @@ static class Part1
     {
         const string ok = "\"scan\": {\"verdict\": \"map\", \"maps\": [\"x\"], \"advert\": null}";
         Check("verdict: a pass", Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"pass\", \"level\": \"x\", \"mode\": \"armsrace\"}}]}}").Kind == "pass");
-        Check("verdict: a pass after a crash is a (flaky) pass", Py.Truthy(Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"crash\"}}, {{\"verdict\": \"pass\", \"level\": \"x\"}}]}}").Detail["flaky"]));
+        Check("verdict: a pass after a crash is a (flaky) pass", Node.Truthy(Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"crash\"}}, {{\"verdict\": \"pass\", \"level\": \"x\"}}]}}").Detail["flaky"]));
         Check("verdict: one crash is not a verdict yet", Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"crash\"}}]}}").Kind == "pending");
         var (k, d) = Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"crash\"}}, {{\"verdict\": \"crash\"}}, {{\"verdict\": \"crash\"}}]}}");
-        Check("verdict: 3 of 3 crashes is a crasher with crashes 3", k == "crasher" && Py.Int(d["crashes"]) == 3 && Py.Str(d["evidence"]).Contains("all 3"));
+        Check("verdict: 3 of 3 crashes is a crasher with crashes 3", k == "crasher" && Node.Int(d["crashes"]) == 3 && Node.Str(d["evidence"]).Contains("all 3"));
         (k, d) = Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"freeze\"}}, {{\"verdict\": \"rejected\"}}, {{\"verdict\": \"rejected\"}}]}}");
-        Check("verdict: 1 freeze of 3 is a crasher with crashes 1", k == "crasher" && Py.Int(d["crashes"]) == 1 && Py.Str(d["evidence"]).Contains("1 of 3"));
+        Check("verdict: 1 freeze of 3 is a crasher with crashes 1", k == "crasher" && Node.Int(d["crashes"]) == 1 && Node.Str(d["evidence"]).Contains("1 of 3"));
         Check("verdict: 3 error maps make a non-map", Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"errormap\"}}, {{\"verdict\": \"errormap\"}}, {{\"verdict\": \"errormap\"}}]}}").Kind == "nonmap");
         var stub = "{\"verdict\": \"rejected\", \"level\": \"de_dust2\"}";
-        Check("verdict: a stock map instead of its own is a stub", Py.Str(Fv($"{{{ok}, \"loads\": [{stub}, {stub}, {stub}]}}").Detail["kind"]) == "stub");
+        Check("verdict: a stock map instead of its own is a stub", Node.Str(Fv($"{{{ok}, \"loads\": [{stub}, {stub}, {stub}]}}").Detail["kind"]) == "stub");
         var abort = "{\"verdict\": \"abort\"}";
         Check("verdict: an aborted load does not count", Fv($"{{{ok}, \"loads\": [{abort}, {abort}, {abort}, {abort}, {abort}]}}").Kind == "pending");
         Check("verdict: a pack never loads", Fv("{\"scan\": {\"verdict\": \"pack\", \"models\": 3}}").Kind == "nonmap");
         (k, d) = Fv("{\"scan\": {\"verdict\": \"map\", \"maps\": [\"x\"], \"advert\": \"chat advert\", \"advert_sample\": \"say connect 203.0.113.4\"}, \"loads\": [{\"verdict\": \"pass\"}]}");
-        Check("verdict: a loading map with a chat advert goes on broken.json", k == "advert" && Py.Str(d["reason"]) == "advertises another server");
+        Check("verdict: a loading map with a chat advert goes on broken.json", k == "advert" && Node.Str(d["reason"]) == "advertises another server");
         (k, _) = Fv("{\"scan\": {\"verdict\": \"map\", \"maps\": [\"x\"], \"advert\": \"server connect\"}, \"loads\": [{\"verdict\": \"pass\", \"level\": \"x\"}]}");
         Check("verdict: a server-side connect alone is still a pass", k == "pass");
         (k, _) = Fv($"{{{ok}, \"loads\": [{{\"verdict\": \"pass\", \"chat\": [\"connect 203.0.113.8:27015\"]}}]}}");
@@ -532,7 +532,7 @@ static class Part1
 
     public static JsonObject Rec(string wid, string[] tags, long subs, string? title = null) => new()
     {
-        ["title"] = title ?? $"map {wid}", ["tags"] = Py.Strings(tags), ["size"] = 41L << 20, ["subs"] = subs, ["lifetime"] = subs, ["description"] = "nice map", ["preview"] = "p",
+        ["title"] = title ?? $"map {wid}", ["tags"] = Node.Strings(tags), ["size"] = 41L << 20, ["subs"] = subs, ["lifetime"] = subs, ["description"] = "nice map", ["preview"] = "p",
     };
 
     // What the Python sync wrote for this fixture, byte for byte (its json.dumps with indent 1 and 2, made by Python when the port was written)
@@ -569,46 +569,46 @@ static class Part1
         var (texts, summary) = Verdicts.PlanPublish(files, st, N, Outcomes(), [("111", "removed")], true, details);
         var newmaps = A(texts["maps.json"]);
         Check("publish: Arms Race passes are appended, most subscribed first, ranks go on",
-              newmaps.Skip(2).Select(e => (Py.Int(e!["rank"]), Py.Int(e["id"]))).SequenceEqual([(3L, 902L), (4L, 901L)]) && Py.Eq(new JsonArray(newmaps.Take(2).Select(e => e?.DeepClone()).ToArray()), A(maps)));
+              newmaps.Skip(2).Select(e => (Node.Int(e!["rank"]), Node.Int(e["id"]))).SequenceEqual([(3L, 902L), (4L, 901L)]) && Node.Eq(new JsonArray(newmaps.Take(2).Select(e => e?.DeepClone()).ToArray()), A(maps)));
         Check("publish: maps.json is written in its own format (indent 1, a final newline)", texts["maps.json"] == ExpectMaps);
-        Check("publish: sizeMb in whole MB", Py.Int(newmaps[2]!["sizeMb"]) == 41);
-        Check("publish: search.json gets the new maps", O(texts["search.json"]).ContainsKey("902") && Py.Str(O(texts["search.json"])["902"]).Contains("nice"));
+        Check("publish: sizeMb in whole MB", Node.Int(newmaps[2]!["sizeMb"]) == 41);
+        Check("publish: search.json gets the new maps", O(texts["search.json"]).ContainsKey("902") && Node.Str(O(texts["search.json"])["902"]).Contains("nice"));
         var nb = O(texts["broken.json"]);
-        Check("publish: a pack goes on packs with its kind", Py.Arr(nb["packs"]).Select(p => Py.Int(p!["id"])).SequenceEqual([904L]) && Py.Str(nb["packs"]![0]!["kind"]) == "pack");
-        Check("publish: a crasher and an advert go on maps", Py.Arr(nb["maps"]).Select(e => Py.Int(e!["id"])).ToHashSet().SetEquals([905L, 906L, 222L]));
-        Check("publish: the advert has its reason, crashes 0", Py.Str(Py.Arr(nb["maps"]).First(e => Py.Int(e!["id"]) == 906)!["reason"]) == "posts a gambling ad");
-        Check("publish: a listed map that turned bad keeps its rank on broken.json", Py.Int(Py.Arr(nb["maps"]).First(e => Py.Int(e!["id"]) == 222)!["rank"]) == 2);
-        Check("publish: a listed map gone from the Workshop goes to the bridge as a verdict, never into broken.json", Py.Arr(nb["removed"]).Count == 0);
-        Check("publish: ...but it is in the summary, for the bridge's report and the mail", Py.Eq(summary["removed"], A("[[\"111\", 1, \"a\", \"removed\"]]")));
+        Check("publish: a pack goes on packs with its kind", Node.Arr(nb["packs"]).Select(p => Node.Int(p!["id"])).SequenceEqual([904L]) && Node.Str(nb["packs"]![0]!["kind"]) == "pack");
+        Check("publish: a crasher and an advert go on maps", Node.Arr(nb["maps"]).Select(e => Node.Int(e!["id"])).ToHashSet().SetEquals([905L, 906L, 222L]));
+        Check("publish: the advert has its reason, crashes 0", Node.Str(Node.Arr(nb["maps"]).First(e => Node.Int(e!["id"]) == 906)!["reason"]) == "posts a gambling ad");
+        Check("publish: a listed map that turned bad keeps its rank on broken.json", Node.Int(Node.Arr(nb["maps"]).First(e => Node.Int(e!["id"]) == 222)!["rank"]) == 2);
+        Check("publish: a listed map gone from the Workshop goes to the bridge as a verdict, never into broken.json", Node.Arr(nb["removed"]).Count == 0);
+        Check("publish: ...but it is in the summary, for the bridge's report and the mail", Node.Eq(summary["removed"], A("[[\"111\", 1, \"a\", \"removed\"]]")));
         Check("publish: broken.json keeps its format (indent 2)", texts["broken.json"] == ExpectBroken);
         var dm = A(texts["maps-deathmatch.json"]);
         var wm = A(texts["maps-wingman.json"]);
         Check("publish: the Deathmatch list gets the pass tagged Deathmatch, in the maps.json shape",
-              dm.Select(e => Py.Int(e!["id"])).SequenceEqual([901L]) && ((JsonObject)dm[0]!).Select(kv => kv.Key).ToHashSet().SetEquals(["rank", "id", "name", "sizeMb"]));
-        Check("publish: the Wingman list gets the Wingman pass (rank by popularity)", wm.Select(e => Py.Int(e!["id"])).SequenceEqual([903L]));
-        Check("publish: the removed listed map is not backfilled into a mode list", wm.All(e => Py.Int(e!["id"]) != 111));
+              dm.Select(e => Node.Int(e!["id"])).SequenceEqual([901L]) && ((JsonObject)dm[0]!).Select(kv => kv.Key).ToHashSet().SetEquals(["rank", "id", "name", "sizeMb"]));
+        Check("publish: the Wingman list gets the Wingman pass (rank by popularity)", wm.Select(e => Node.Int(e!["id"])).SequenceEqual([903L]));
+        Check("publish: the removed listed map is not backfilled into a mode list", wm.All(e => Node.Int(e!["id"]) != 111));
         var files2 = Files(maps, broken, "[{\"rank\": 1, \"id\": 7, \"name\": \"q\", \"sizeMb\": 1}, {\"name\": \"de_dust2\", \"official\": true}]", "[]", null);
         var details2 = new Dictionary<string, JsonObject> { ["111"] = O("{\"publishedfileid\": \"111\", \"result\": 1, \"tags\": [{\"tag\": \"Deathmatch\"}], \"subscriptions\": 9}") };
         var (texts2, _) = Verdicts.PlanPublish(files2, st, N, [], [], true, details2);
         var dm2 = A(texts2["maps-deathmatch.json"]);
         Check("publish: backfill adds a listed map that carries the tag, keeps the old entries and the official one",
-              dm2.Where(e => Py.Truthy(e!["id"])).Select(e => Py.Int(e!["id"])).SequenceEqual([111L, 7L]) && Py.Eq(dm2[^1], O("{\"name\": \"de_dust2\", \"official\": true}")));
+              dm2.Where(e => Node.Truthy(e!["id"])).Select(e => Node.Int(e!["id"])).SequenceEqual([111L, 7L]) && Node.Eq(dm2[^1], O("{\"name\": \"de_dust2\", \"official\": true}")));
         Check("publish: nothing to write when nothing changed", Verdicts.PlanPublish(files2, st, N, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
         // blocked.json: the maps blocked for good, a file of their own - known, never a candidate, never published by a test
         var fb = Files(maps, broken, "[]", "[]", search, "[{\"id\": 902, \"name\": \"b\", \"map\": \"b\", \"reason\": \"kicks everybody\"}, 905]");
         var (tb, _) = Verdicts.PlanPublish(fb, st, N, Outcomes(), [], true, details);
         Check("blocked.json: a blocked map that passed is not appended, a blocked crasher not added to broken.json",
-              A(tb["maps.json"]).All(e => Py.Int(e!["id"]) != 902) && Py.Arr(O(tb["broken.json"])["maps"]).All(e => Py.Int(e!["id"]) != 905));
+              A(tb["maps.json"]).All(e => Node.Int(e!["id"]) != 902) && Node.Arr(O(tb["broken.json"])["maps"]).All(e => Node.Int(e!["id"]) != 905));
         Check("blocked.json: its ids are known, as broken:blocked; without the file nothing is",
               fb.KnownIds(Cfg()).GetValueOrDefault("902") == "broken:blocked" && fb.KnownIds(Cfg()).GetValueOrDefault("905") == "broken:blocked" && !files.KnownIds(Cfg()).ContainsKey("902"));
         var se = O(texts["search.json"]);
         Check("publish: search.json gets the mode lists' new maps too, whatever their mode",
-              se.ContainsKey("903") && Py.Str(se["903"]).Contains("nice") && Py.Str(se["903"]).Contains("wingman") && texts["search.json"] == ExpectSearch);
+              se.ContainsKey("903") && Node.Str(se["903"]).Contains("nice") && Node.Str(se["903"]).Contains("wingman") && texts["search.json"] == ExpectSearch);
         st.Items["7"] = O("{\"title\": \"q old\", \"tags\": [\"Deathmatch\"], \"description\": \"red walls\"}");
         var files3 = Files(maps, broken, "[{\"rank\": 1, \"id\": 7, \"name\": \"q\", \"sizeMb\": 1}, {\"name\": \"de_dust2\", \"official\": true}]", "[]", search);
         var (texts3, _) = Verdicts.PlanPublish(files3, st, N, [], [], false, new Dictionary<string, JsonObject>());
         Check("publish: a map on a mode list before search.json covered it gets its text from the state, the other texts stay, an official entry gets none",
-              texts3.ContainsKey("search.json") && Py.Eq(O(texts3["search.json"]), O("{\"111\": \"a 111\", \"222\": \"b 222\", \"7\": \"q 7 deathmatch red walls\"}")) && texts3.Keys.SequenceEqual(["search.json"]));
+              texts3.ContainsKey("search.json") && Node.Eq(O(texts3["search.json"]), O("{\"111\": \"a 111\", \"222\": \"b 222\", \"7\": \"q 7 deathmatch red walls\"}")) && texts3.Keys.SequenceEqual(["search.json"]));
         files3.Search = O(texts3["search.json"]);
         Check("publish: ...and then there is nothing to write", Verdicts.PlanPublish(files3, st, N, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
     }
@@ -642,25 +642,25 @@ static class Part1
         var all = items.Select(kv => kv.Key).ToList();
         Check("backlog: strictly by subscribers across the modes", Verdicts.OrderBacklog(items, all).SequenceEqual(["1", "5", "2", "4", "3", "6"]));
         var bs = Verdicts.BacklogStats(items, all);
-        Check("backlog: counted per mode", Py.Int(bs["items"]) == 6 && Py.Eq(bs["by_mode"], O("{\"armsrace\": 2, \"deathmatch\": 4, \"wingman\": 2}")));
+        Check("backlog: counted per mode", Node.Int(bs["items"]) == 6 && Node.Eq(bs["by_mode"], O("{\"armsrace\": 2, \"deathmatch\": 4, \"wingman\": 2}")));
         var big = new JsonObject();
         for (var i = 0; i < 5255; i++)
             big[i.ToString()] = O("{\"tags\": [\"Wingman\"], \"subs\": 1, \"size\": 104857600}");
         var bigIds = big.Select(kv => kv.Key).ToList();
         var both = Verdicts.BacklogStats(big, bigIds);
         Check("backlog: no time windows, about 22 h a day at 31 s a map, 2,554 a day - no daily cap: 3 days for the backlog of 2026-11-01",
-              Py.Float(both["hours"]) == 22 && Py.Int(both["per_day"]) == 2554 && Py.Int(both["days"]) == 3);
-        Check("backlog: a pace measured counts", Py.Int(Verdicts.BacklogStats(big, bigIds, 60.0)["days"]) == 4);
+              Node.Float(both["hours"]) == 22 && Node.Int(both["per_day"]) == 2554 && Node.Int(both["days"]) == 3);
+        Check("backlog: a pace measured counts", Node.Int(Verdicts.BacklogStats(big, bigIds, 60.0)["days"]) == 4);
         var r2 = With(r, ("api_stop", null), ("backlog", bs), ("backlog_until", " (until about 2026-11-04)"));
         var (_, body2) = Mail.Text(r2, Cfg());
         Check("mail: the backlog's size, per mode, and its estimate", body2.Contains("Backlog: 6 item(s) waiting") && body2.Contains("Deathmatch 4, Wingman 2, Arms Race 2")
               && body2.Contains("until about 2026-11-04") && body2.Contains("strictly by subscribers"));
-        var rows = Py.Strings(Enumerable.Range(0, 60).Select(i => $"PASS     map{i} ({i}) - wingman, loads as x in 1s").Append("CRASHER  bad (1) - crashes the server"));
+        var rows = Node.Strings(Enumerable.Range(0, 60).Select(i => $"PASS     map{i} ({i}) - wingman, loads as x in 1s").Append("CRASHER  bad (1) - crashes the server"));
         var r3 = With(r, ("api_stop", null), ("tests", new JsonObject { ["rows"] = rows }),
                       ("published", new JsonObject
                       {
                           ["modes"] = new JsonObject { ["wingman"] = new JsonArray(Enumerable.Range(0, 60).Select(i => (JsonNode?)new JsonArray(i.ToString(), "m")).ToArray()) },
-                          ["files"] = Py.Strings(["maps-wingman.json"]),
+                          ["files"] = Node.Strings(["maps-wingman.json"]),
                       }));
         var (_, body3) = Mail.Text(r3, Cfg());
         Check("mail: a long run gives counts, what did not pass, a taste of what did", body3.Contains("60 PASS, 1 CRASHER.") && body3.Contains("CRASHER  bad (1)")
@@ -670,9 +670,9 @@ static class Part1
         // the publish steps of a run add up
         var mp = Mail.MergePublished(O("""{"listed": [["1", 1, "a", 5]], "modes": {"wingman": [["2", "b"]]}, "files": ["maps.json"], "reload": "x"}"""),
                                      O("""{"listed": [["3", 2, "c", 5]], "modes": {"wingman": [["4", "d"]], "deathmatch": [["5", "e"]]}, "files": ["maps.json", "search.json"], "reload": "y"}"""))!;
-        Check("publish: a run's batches add up", Py.Arr(mp["listed"]).Select(x => Py.Str(x![0])).SequenceEqual(["1", "3"])
-              && Py.Arr(mp["modes"]!["wingman"]).Select(x => Py.Str(x![0])).SequenceEqual(["2", "4"]) && Py.StrList(mp["files"]) is ["maps.json", "search.json"]
-              && Py.Str(mp["reload"]) == "y" && Py.Eq(mp["modes"]!["deathmatch"], A("[[\"5\", \"e\"]]")));
+        Check("publish: a run's batches add up", Node.Arr(mp["listed"]).Select(x => Node.Str(x![0])).SequenceEqual(["1", "3"])
+              && Node.Arr(mp["modes"]!["wingman"]).Select(x => Node.Str(x![0])).SequenceEqual(["2", "4"]) && Node.StrList(mp["files"]) is ["maps.json", "search.json"]
+              && Node.Str(mp["reload"]) == "y" && Node.Eq(mp["modes"]!["deathmatch"], A("[[\"5\", \"e\"]]")));
         Check("service: a backlog waits while anything is queued or staged without a verdict",
               Service.BacklogWaits(O("{\"items\": {\"1\": {\"status\": \"queued\"}}}")) && Service.BacklogWaits(O("{\"items\": {\"1\": {\"status\": \"tested\"}}}"))
               && !Service.BacklogWaits(O("{\"items\": {\"1\": {\"status\": \"tested\", \"verdict\": \"pass\"}, \"2\": {\"status\": \"published\"}}}")));

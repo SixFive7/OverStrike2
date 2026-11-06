@@ -38,10 +38,10 @@ public static class Discovery
             var page = new List<string>();
             foreach (var item in items)
             {
-                var wid = Py.StrOr(item["publishedfileid"]);
-                if (!Py.Digits(wid) || known.ContainsKey(wid) || state.Item(wid) is not null)
+                var wid = Node.StrOr(item["publishedfileid"]);
+                if (!Node.Digits(wid) || known.ContainsKey(wid) || state.Item(wid) is not null)
                     continue;
-                if (cfg.ExcludeCreators.Contains(Py.StrOr(item["creator"])))
+                if (cfg.ExcludeCreators.Contains(Node.StrOr(item["creator"])))
                     continue;                       // listed by hand (sync.excludeCreators): never a candidate, never "new"
                 state.Remember(item, day, "new");
                 page.Add(wid);
@@ -64,7 +64,7 @@ public static class Discovery
             }
             cursor = next;
         }
-        return new JsonObject { ["pages"] = pages, ["seen"] = seen, ["new"] = Py.Strings(fresh), ["total"] = total, ["stop"] = stop };
+        return new JsonObject { ["pages"] = pages, ["seen"] = seen, ["new"] = Node.Strings(fresh), ["total"] = total, ["stop"] = stop };
     }
 
     /// <summary>GetPublishedFileDetails for `ids`, 100 a call. Returns ({id: item}, ids not asked because of the clock or given up).</summary>
@@ -124,7 +124,7 @@ public static class Discovery
                 removed.Add((wid, verdict));
                 continue;
             }
-            var updated = Py.Int(item["time_updated"]);
+            var updated = Node.Int(item["time_updated"]);
             if (!baseline.TryGetPropertyValue(wid, out var known) || known is null)
             {
                 if (updated > epoch)
@@ -132,7 +132,7 @@ public static class Discovery
                 else
                     baseline[wid] = updated;
             }
-            else if (updated > Py.Int(known))
+            else if (updated > Node.Int(known))
                 changed.Add(wid);
         }
         var asked = listed.Count - missing;

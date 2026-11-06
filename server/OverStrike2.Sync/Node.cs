@@ -14,7 +14,7 @@ public sealed class BadDataException(string message) : Exception(message);
 /// the files the bridge reads are compared byte for byte: truthiness and int() and str() of JSON values, Python's float repr, round() and
 /// "%.Nf" (correctly rounded, ties to even, on the exact binary value), code-point lengths and slices, and json.dumps with ensure_ascii
 /// off (indent 0, 1, 2 or compact).</summary>
-public static class Py
+public static class Node
 {
     // ------------------------------------------------------------------------------------------------ JSON values as Python reads them
 

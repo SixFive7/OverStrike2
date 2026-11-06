@@ -217,7 +217,7 @@ public static partial class Farm
         var gameinfo = Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(csgoSrc, "gameinfo.gi")));
         var vanilla = string.Join("\n", gameinfo.Split('\n').Where(l => !l.Contains("csgo/addons/metamod", StringComparison.Ordinal)));
         File.WriteAllText(Path.Combine(csgoDst, "gameinfo.gi"), vanilla);
-        return $"test tree built in {Py.Fixed(clock.Now() - t0, 1)} s: {copied} engine files copied, the plugins' search path "
+        return $"test tree built in {Node.Fixed(clock.Now() - t0, 1)} s: {copied} engine files copied, the plugins' search path "
                + $"{(vanilla != gameinfo ? "removed" : "absent")}, log addresses removed from {scrubbed} cfg file(s)";
     }
 
@@ -234,7 +234,7 @@ public static partial class Farm
         foreach (var dir in Directory.EnumerateDirectories("/proc"))
         {
             var pid = Path.GetFileName(dir);
-            if (!Py.Digits(pid) || !int.TryParse(pid, out var n) || n == Environment.ProcessId)
+            if (!Node.Digits(pid) || !int.TryParse(pid, out var n) || n == Environment.ProcessId)
                 continue;
             string? exe;
             try
@@ -368,9 +368,9 @@ public sealed class TestEngine : ITestEngine
                 if (Regex.IsMatch(listing, "https?://"))
                 {
                     Stop();
-                    return (false, $"the test engine has a log address ({Py.Cut(listing.Trim(), 80)}) - it must never push anything");
+                    return (false, $"the test engine has a log address ({Node.Cut(listing.Trim(), 80)}) - it must never push anything");
                 }
-                return (true, $"test engine up in {Py.Fixed(timeout - (end - clock.Now()), 0)} s (start {Starts} of this run)");
+                return (true, $"test engine up in {Node.Fixed(timeout - (end - clock.Now()), 0)} s (start {Starts} of this run)");
             }
         }
         Stop();
@@ -464,7 +464,7 @@ public static partial class TestLoad
     {
         var c = ChatRx().Match(line);
         if (c.Success)
-            chat.Add(Py.Cut((c.Groups[1].Success && c.Groups[1].Value.Length > 0 ? c.Groups[1].Value : c.Groups[2].Value).Trim(), 200));
+            chat.Add(Node.Cut((c.Groups[1].Success && c.Groups[1].Value.Length > 0 ? c.Groups[1].Value : c.Groups[2].Value).Trim(), 200));
     }
 
     /// <summary>One test load. Returns a record with verdict pass | errormap | crash | freeze | rejected | kick | abort (somebody came on the
@@ -498,7 +498,7 @@ public static partial class TestLoad
                 {
                     // the engine's own Steam client fetches a newer copy than SteamCMD's: counted in the day's downloads
                     var size = amount * (d.Groups[3].Value switch { "KB" => 1 << 10, "MB" => 1 << 20, _ => 1 << 30 });
-                    rec["engine_download"] = Math.Max((long)Math.Truncate(size), Py.Int(rec["engine_download"]));
+                    rec["engine_download"] = Math.Max((long)Math.Truncate(size), Node.Int(rec["engine_download"]));
                     limit = 300;
                 }
                 if (mounted is null && line.Contains($"Mounting addon '{wid}'", StringComparison.Ordinal))
@@ -512,7 +512,7 @@ public static partial class TestLoad
                 }
                 Chat(chat, line);
             }
-            rec["levels_seen"] = Py.Strings(seen.Take(6));
+            rec["levels_seen"] = Node.Strings(seen.Take(6));
             if (level == "error" || fresh.Any(l => l.Contains("Error map!", StringComparison.Ordinal)))
                 return Done(rec, "errormap", "the engine loaded its error map: nothing in the item it can load");
             if (!engine.Alive())
@@ -530,7 +530,7 @@ public static partial class TestLoad
                 return Done(rec, "abort", "somebody came on the game server");
             if (level is not null && A2sIs(info.Map, level))
             {
-                rec["load_s"] = Py.Round(clock.Now() - t0, 1);
+                rec["load_s"] = Node.Round(clock.Now() - t0, 1);
                 rec["level"] = level;
                 loaded = true;
                 break;
@@ -546,7 +546,7 @@ public static partial class TestLoad
                 foreignSince = null;
         }
         if (!loaded)
-            return Done(rec, "rejected", $"no level of its own ({LevelsSaid(levels)}) within {Py.D(limit)} s; levels seen {(seen.Count > 0 ? string.Join(", ", seen.Take(4)) : "none")}");
+            return Done(rec, "rejected", $"no level of its own ({LevelsSaid(levels)}) within {Node.D(limit)} s; levels seen {(seen.Count > 0 ? string.Join(", ", seen.Take(4)) : "none")}");
         engine.Rcon("bot_join_after_player 0; bot_quota_mode normal; bot_quota 2");
         var bots = new List<int>();
         var end = clock.Now() + hold;
@@ -558,7 +558,7 @@ public static partial class TestLoad
             foreach (var line in fresh)
                 Chat(chat, line);
             if (!engine.Alive())
-                return Done(rec, "crash", $"the test engine went down {Py.D(hold - (end - clock.Now()))} s into the map");
+                return Done(rec, "crash", $"the test engine went down {Node.D(hold - (end - clock.Now()))} s into the map");
             var info = engine.A2s();
             if (info is null)
             {
@@ -573,12 +573,12 @@ public static partial class TestLoad
                 return Done(rec, "abort", "somebody came on the game server");
         }
         engine.Rcon("bot_quota 0");
-        var kicks = lines.Where(l => KickRx().IsMatch(l) && !NoiseRx().IsMatch(l)).Select(l => Py.Cut(l.Trim(), 160)).ToList();
+        var kicks = lines.Where(l => KickRx().IsMatch(l) && !NoiseRx().IsMatch(l)).Select(l => Node.Cut(l.Trim(), 160)).ToList();
         rec["bots"] = bots.Count > 0 ? bots[^1] : 0;
-        rec["chat"] = Py.Strings(chat.Take(8));
+        rec["chat"] = Node.Strings(chat.Take(8));
         if (kicks.Count > 0 && bots.Count > 0 && bots.Max() > 0 && bots[^1] == 0)
-            return Done(rec, "kick", $"the bots were thrown off the server ({Py.Cut(kicks[0], 100)})");
-        return Done(rec, "pass", $"loads as {Py.Str(rec["level"])} in {Py.Fixed(Py.Float(rec["load_s"]), 0)} s and held {hold} s (bots {Py.Str(rec["bots"])})");
+            return Done(rec, "kick", $"the bots were thrown off the server ({Node.Cut(kicks[0], 100)})");
+        return Done(rec, "pass", $"loads as {Node.Str(rec["level"])} in {Node.Fixed(Node.Float(rec["load_s"]), 0)} s and held {hold} s (bots {Node.Str(rec["bots"])})");
     }
 
     static string LevelsSaid(List<string> levels) => levels.Count > 0 ? string.Join(", ", levels.Take(3)) : "none in its VPK";

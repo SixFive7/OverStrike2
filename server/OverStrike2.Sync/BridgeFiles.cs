@@ -34,19 +34,19 @@ public sealed class BridgeData
         var path = Path.Combine(dataDir, "maps.json");
         var raw = File.ReadAllBytes(path);
         d.Raw["maps.json"] = raw;
-        if (Py.Parse(raw, path) is not JsonArray maps || maps.Count == 0)
+        if (Node.Parse(raw, path) is not JsonArray maps || maps.Count == 0)
             throw new BadDataException($"{path} holds no map list");
         d.Maps = maps;
         path = Path.Combine(dataDir, "broken.json");
         raw = File.ReadAllBytes(path);
         d.Raw["broken.json"] = raw;
-        if (Py.Parse(raw, path) is not JsonObject broken)
+        if (Node.Parse(raw, path) is not JsonObject broken)
             throw new BadDataException($"{path} is not the object form");
         d.Broken = broken;
         path = Path.Combine(dataDir, "blocked.json");
         if (File.Exists(path))
         {
-            var blocked = Py.Parse(File.ReadAllBytes(path), path);
+            var blocked = Node.Parse(File.ReadAllBytes(path), path);
             var entries = blocked is JsonObject bo ? bo["blocked"] : blocked;
             if (entries is not JsonArray list)
                 throw new BadDataException($"{path} is not a list of blocked maps");
@@ -61,7 +61,7 @@ public sealed class BridgeData
             {
                 raw = File.ReadAllBytes(path);
                 d.Raw[name] = raw;
-                if (Py.Parse(raw, path) is not JsonArray list)
+                if (Node.Parse(raw, path) is not JsonArray list)
                     throw new BadDataException($"{path} is not a list");
                 d.ModeLists[mode] = list;
             }
@@ -69,7 +69,7 @@ public sealed class BridgeData
                 d.ModeLists[mode] = [];
         }
         path = Path.Combine(dataDir, "search.json");
-        d.Search = Py.ReadJson(path) as JsonObject;
+        d.Search = Node.ReadJson(path) as JsonObject;
         if (d.Search is not null)
         {
             try
@@ -89,10 +89,10 @@ public sealed class BridgeData
     {
         var out_ = new Dictionary<string, string>();
         foreach (var section in new[] { "maps", "packs", "removed", "blocked" })
-            foreach (var entry in Py.Arr(broken[section]))
+            foreach (var entry in Node.Arr(broken[section]))
             {
-                var wid = Py.Str(entry is JsonObject o ? o["id"] : entry);
-                if (Py.Digits(wid))
+                var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
+                if (Node.Digits(wid))
                     out_.TryAdd(wid, section);
             }
         return out_;
@@ -104,8 +104,8 @@ public sealed class BridgeData
         var out_ = new HashSet<string>();
         foreach (var entry in Blocked)
         {
-            var wid = Py.Str(entry is JsonObject o ? o["id"] : entry);
-            if (Py.Digits(wid))
+            var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
+            if (Node.Digits(wid))
                 out_.Add(wid);
         }
         return out_;
@@ -113,7 +113,7 @@ public sealed class BridgeData
 
     /// <summary>The ids of maps.json's entries, in order.</summary>
     public static IEnumerable<string> Ids(JsonArray list) =>
-        list.OfType<JsonObject>().Select(m => Py.Str(m.TryGetPropertyValue("id", out var v) ? v : "")).Where(Py.Digits);
+        list.OfType<JsonObject>().Select(m => Node.Str(m.TryGetPropertyValue("id", out var v) ? v : "")).Where(Node.Digits);
 
     /// <summary>Every id with a verdict of ours already: listed (any mode), on broken.json or blocked.json, or excluded by the settings.</summary>
     public Dictionary<string, string> KnownIds(SyncConfig cfg)
@@ -167,7 +167,7 @@ public sealed class SyncState(string path)
 
     public SyncState Load()
     {
-        var data = Py.ReadJson(Path);
+        var data = Node.ReadJson(Path);
         if (data is null && File.Exists(Path))
             throw new BadDataException($"{Path} does not parse - fix or delete it");
         if (data is JsonObject o)
@@ -179,7 +179,7 @@ public sealed class SyncState(string path)
         return this;
     }
 
-    public void Save() => Files.WriteAtomic(Path, Py.Compact(Data) + "\n", FileModes.Private);
+    public void Save() => Files.WriteAtomic(Path, Node.Compact(Data) + "\n", FileModes.Private);
 
     public JsonObject? Item(string wid) => Items[wid] as JsonObject;
 
@@ -189,13 +189,13 @@ public sealed class SyncState(string path)
     /// <summary>An item's Workshop numbers as the check saw them (result 1; a map gone or hidden keeps what was seen before).</summary>
     public void NoteWorkshop(string wid, JsonObject item)
     {
-        if (Py.Int(item["result"]) != 1)
+        if (Node.Int(item["result"]) != 1)
             return;
         Workshop[wid] = new JsonObject
         {
-            ["created"] = Py.Int(item["time_created"]), ["updated"] = Py.Int(item["time_updated"]), ["content"] = Py.StrOr(item["hcontent_file"]),
-            ["subs"] = Py.Int(item["subscriptions"]), ["lifetime"] = Py.Int(item["lifetime_subscriptions"]), ["favs"] = Py.Int(item["favorited"]),
-            ["lifetimeFavs"] = Py.Int(item["lifetime_favorited"]), ["views"] = Py.Int(item["views"]),
+            ["created"] = Node.Int(item["time_created"]), ["updated"] = Node.Int(item["time_updated"]), ["content"] = Node.StrOr(item["hcontent_file"]),
+            ["subs"] = Node.Int(item["subscriptions"]), ["lifetime"] = Node.Int(item["lifetime_subscriptions"]), ["favs"] = Node.Int(item["favorited"]),
+            ["lifetimeFavs"] = Node.Int(item["lifetime_favorited"]), ["views"] = Node.Int(item["views"]),
         };
     }
 
@@ -204,32 +204,32 @@ public sealed class SyncState(string path)
     /// one is queued for the new one.</summary>
     public JsonObject Remember(JsonObject item, string day, string why)
     {
-        var wid = Py.Str(item["publishedfileid"]);
+        var wid = Node.Str(item["publishedfileid"]);
         if (Items[wid] is not JsonObject rec)
         {
             rec = new JsonObject { ["first"] = day, ["status"] = "queued", ["why"] = why, ["attempts"] = 0, ["tests"] = 0 };
             Items[wid] = rec;
         }
-        var newer = Py.Int(item["time_updated"]) > Py.Int(rec["updated"]);
+        var newer = Node.Int(item["time_updated"]) > Node.Int(rec["updated"]);
         var verdictOf = (JsonObject)item.DeepClone();
         if (!verdictOf.ContainsKey("result"))
             verdictOf["result"] = 1;
         rec["title"] = Text.ItemName(item);
-        rec["tags"] = Py.Strings(Text.ItemTags(item));
-        rec["size"] = Py.Int(item["file_size"]);
-        rec["created"] = Py.Int(item["time_created"]);
-        rec["updated"] = Py.Int(item["time_updated"]);
-        rec["subs"] = Py.Int(item["subscriptions"]);
-        rec["lifetime"] = Py.Int(item["lifetime_subscriptions"]);
-        rec["filename"] = Py.Truthy(item["filename"]) ? item["filename"]!.DeepClone() : "";
-        rec["app"] = Py.Int(item["consumer_appid"]);
-        rec["creator"] = Py.StrOr(item["creator"]);
+        rec["tags"] = Node.Strings(Text.ItemTags(item));
+        rec["size"] = Node.Int(item["file_size"]);
+        rec["created"] = Node.Int(item["time_created"]);
+        rec["updated"] = Node.Int(item["time_updated"]);
+        rec["subs"] = Node.Int(item["subscriptions"]);
+        rec["lifetime"] = Node.Int(item["lifetime_subscriptions"]);
+        rec["filename"] = Node.Truthy(item["filename"]) ? item["filename"]!.DeepClone() : "";
+        rec["app"] = Node.Int(item["consumer_appid"]);
+        rec["creator"] = Node.StrOr(item["creator"]);
         rec["ws"] = Text.WorkshopVerdict(verdictOf);
-        rec["preview"] = Py.Truthy(item["preview_url"]) ? item["preview_url"]!.DeepClone() : "";
-        rec["description"] = Py.Cut(Text.CleanDescription(Py.StrOr(item["file_description"])), 300);
+        rec["preview"] = Node.Truthy(item["preview_url"]) ? item["preview_url"]!.DeepClone() : "";
+        rec["description"] = Node.Cut(Text.CleanDescription(Node.StrOr(item["file_description"])), 300);
         if (newer)
             rec["attempts"] = 0;
-        if (why == "changed" && (Py.Str(rec["status"]) is "published" or "pass" || (newer && Py.Str(rec["status"]) == "failed")))
+        if (why == "changed" && (Node.Str(rec["status"]) is "published" or "pass" || (newer && Node.Str(rec["status"]) == "failed")))
         {
             rec["status"] = "queued";
             rec["why"] = "changed";
@@ -240,6 +240,6 @@ public sealed class SyncState(string path)
     /// <summary>Whether this version of a map failed its test today. A version that fails stays ahead of the baseline, so every check finds the
     /// map changed for as long as the Workshop keeps it: this is what holds it to one test a day.</summary>
     public bool FailedToday(string wid, JsonObject item, string day) =>
-        Item(wid) is { } rec && Py.Str(rec["decided"]) == day && Py.Truthy(rec["verdict"]) && Py.Str(rec["verdict"]) != "pass"
-        && Py.Int(item["time_updated"]) <= Py.Int(rec["updated"]);
+        Item(wid) is { } rec && Node.Str(rec["decided"]) == day && Node.Truthy(rec["verdict"]) && Node.Str(rec["verdict"]) != "pass"
+        && Node.Int(item["time_updated"]) <= Node.Int(rec["updated"]);
 }

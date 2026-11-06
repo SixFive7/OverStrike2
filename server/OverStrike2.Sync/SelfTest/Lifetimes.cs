@@ -78,9 +78,9 @@ static class Lifetimes
         Directory.CreateDirectory(Data);
         var listed = items.Where(kv => unlisted is null || !unlisted.Contains(kv.Key)).ToList();
         var maps = new JsonArray(listed.Select((kv, i) => (JsonNode?)O($"{{\"rank\": {i + 1}, \"id\": {kv.Key}, \"name\": \"m{kv.Key}\", \"sizeMb\": 5}}")).ToArray());
-        File.WriteAllText(Path.Combine(Data, "maps.json"), Py.DumpsFile(maps, 1));
-        File.WriteAllText(Path.Combine(Data, "broken.json"), Py.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
-        File.WriteAllText(Path.Combine(Data, "search.json"), Py.DumpsFile(new JsonObject(listed.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
+        File.WriteAllText(Path.Combine(Data, "maps.json"), Node.DumpsFile(maps, 1));
+        File.WriteAllText(Path.Combine(Data, "broken.json"), Node.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
+        File.WriteAllText(Path.Combine(Data, "search.json"), Node.DumpsFile(new JsonObject(listed.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
         Json(Path.Combine(W.State, "state.json"), new JsonObject { ["schema"] = 1, ["items"] = items, ["baseline"] = baseline, ["downloads"] = new JsonObject(), ["last_api"] = lastApi });
         var cfg = Cfg();
         cfg.DownloadPause = 0;
@@ -90,7 +90,7 @@ static class Lifetimes
     static JsonObject Saved() => (JsonObject)Read(Path.Combine(W.State, "state.json"))!;
 
     static int Events(JsonObject state, string wid, string evt) =>
-        Py.Arr(Py.Get(state["history"], "maps")).Count(e => Py.Str(e!["id"]) == wid && Py.Str(e["event"]) == evt);
+        Node.Arr(Node.Get(state["history"], "maps")).Count(e => Node.Str(e!["id"]) == wid && Node.Str(e["event"]) == evt);
 
     // ---- a ledger as the deployed Python sync wrote it: "nights", no "days". It must keep counting, or the check and the ratings stop at the switch
     static void OldLedger()
@@ -107,8 +107,8 @@ static class Lifetimes
         led.Reserve("2026-11-05", "QueryFiles");
         var saved = (JsonObject)Read(path)!;
         Check("old ledger: ... the next write says \"days\", goes on counting, and keeps the calls and the stops",
-              !saved.ContainsKey("nights") && Py.Int(Py.Get(saved["days"], "2026-11-05")) == 473 && Py.Int(Py.Get(saved["days"], "2026-11-04")) == 31
-              && Py.Arr(saved["calls"]).Count == 3 && Py.Str(Py.Get(saved["stops"], "2026-11-04")) == "HTTP 429");
+              !saved.ContainsKey("nights") && Node.Int(Node.Get(saved["days"], "2026-11-05")) == 473 && Node.Int(Node.Get(saved["days"], "2026-11-04")) == 31
+              && Node.Arr(saved["calls"]).Count == 3 && Node.Str(Node.Get(saved["stops"], "2026-11-04")) == "HTTP 429");
         var again = new ApiLedger(path, 10000, C(fc));
         again.Load();
         Check("old ledger: ... and that file reads back", again.Broken is null && again.Count("2026-11-05") == 473 && again.Last24h() == 3);
@@ -147,16 +147,16 @@ static class Lifetimes
         };
         var report = W.Run(cfg, new FakeClock(T0 + 60), false).Run();
         var st = Saved();
-        JsonNode? Field(string wid, string key) => Py.Get(Py.Get(st["items"], wid), key);
-        var packs = Py.Arr(((JsonObject)Read(Path.Combine(Data, "broken.json"))!)["packs"]).Select(p => Py.Str(p!["id"])).ToList();
-        Check($"left behind: a verdict whose publish never came is published, its folder long gone ({Py.Str(Field("530", "status"))}, packs {T.Show(packs)})",
-              Py.Str(Field("530", "status")) == "published" && packs.Contains("530") && !FakeSteam.Asked.Contains("530"));
-        Check($"left behind: a map waiting for its test, its download gone, is downloaded and tested after all ({Py.Str(Field("531", "status"))}, {T.Show(FakeSteam.Asked)})",
-              FakeSteam.Asked.Contains("531") && Py.Str(Field("531", "verdict")) == "pass" && Py.Int(Py.Get(st["baseline"], "531")) == U1);
-        Check($"left behind: ... also one that had a load already ({Py.Str(Field("532", "status"))}, {T.Show(FakeSteam.Asked)})", FakeSteam.Asked.Contains("532") && Py.Str(Field("532", "verdict")) == "pass");
+        JsonNode? Field(string wid, string key) => Node.Get(Node.Get(st["items"], wid), key);
+        var packs = Node.Arr(((JsonObject)Read(Path.Combine(Data, "broken.json"))!)["packs"]).Select(p => Node.Str(p!["id"])).ToList();
+        Check($"left behind: a verdict whose publish never came is published, its folder long gone ({Node.Str(Field("530", "status"))}, packs {T.Show(packs)})",
+              Node.Str(Field("530", "status")) == "published" && packs.Contains("530") && !FakeSteam.Asked.Contains("530"));
+        Check($"left behind: a map waiting for its test, its download gone, is downloaded and tested after all ({Node.Str(Field("531", "status"))}, {T.Show(FakeSteam.Asked)})",
+              FakeSteam.Asked.Contains("531") && Node.Str(Field("531", "verdict")) == "pass" && Node.Int(Node.Get(st["baseline"], "531")) == U1);
+        Check($"left behind: ... also one that had a load already ({Node.Str(Field("532", "status"))}, {T.Show(FakeSteam.Asked)})", FakeSteam.Asked.Contains("532") && Node.Str(Field("532", "verdict")) == "pass");
         Check($"left behind: a map waiting for its test with its download there is tested without a new one ({T.Show(loads)})",
-              !FakeSteam.Asked.Contains("533") && loads.Contains("533") && Py.Str(Field("533", "verdict")) == "pass");
-        Check("left behind: the run says nothing of these as errors", Py.Arr(report["errors"]).Count == 0);
+              !FakeSteam.Asked.Contains("533") && loads.Contains("533") && Node.Str(Field("533", "verdict")) == "pass");
+        Check("left behind: the run says nothing of these as errors", Node.Arr(report["errors"]).Count == 0);
         Check("left behind: running.json goes: no run of the Python that wrote it is going, and this program writes none", !File.Exists(Path.Combine(W.State, "running.json")));
     }
 
@@ -182,42 +182,42 @@ static class Lifetimes
         string Seen()
         {
             var st = Saved();
-            var r = Py.Obj(Py.Get(st["items"], "501"));
-            return $"{FakeSteam.Asked.Count} downloads, {loads.Count} loads, status {Py.Str(r["status"])}, verdict {Py.Str(r["verdict"])}, {Events(st, "501", "changed")} changed events";
+            var r = Node.Obj(Node.Get(st["items"], "501"));
+            return $"{FakeSteam.Asked.Count} downloads, {loads.Count} loads, status {Node.Str(r["status"])}, verdict {Node.Str(r["verdict"])}, {Events(st, "501", "changed")} changed events";
         }
         Step(T0);
         var first = Saved();
-        var rec = Py.Obj(Py.Get(first["items"], "501"));
+        var rec = Node.Obj(Node.Get(first["items"], "501"));
         Check($"failed version: tested at the check that saw it ({Seen()})",
-              FakeSteam.Asked.Count == 1 && loads.Count == 3 && Py.Str(rec["verdict"]) == "crasher" && Py.Str(rec["status"]) == "published"
-              && Py.Int(Py.Get(first["baseline"], "501")) == U0 && Events(first, "501", "changed") == 1);
+              FakeSteam.Asked.Count == 1 && loads.Count == 3 && Node.Str(rec["verdict"]) == "crasher" && Node.Str(rec["status"]) == "published"
+              && Node.Int(Node.Get(first["baseline"], "501")) == U0 && Events(first, "501", "changed") == 1);
         var later = Step(T0 + 4 * Hour + 60);
         Check($"failed version: the next check the same day downloads and tests nothing ({Seen()})", FakeSteam.Asked.Count == 1 && loads.Count == 3);
         Check("failed version: ... its report still says the Workshop's version is not the accepted one",
-              Py.StrList(Py.Get(later["check"], "changed")).Contains("501"));
+              Node.StrList(Node.Get(later["check"], "changed")).Contains("501"));
         var afterSecond = Saved();
         Check($"failed version: ... nothing waits and no event says it is tested again ({Seen()})",
               !Service.BacklogWaits(afterSecond) && Events(afterSecond, "501", "changed") == 1);
         var third = Step(T0 + 8 * Hour + 120);
         var afterThird = Saved();
         Check($"failed version: ... nor at the check after it: no run to do with the map until tomorrow ({Seen()})",
-              FakeSteam.Asked.Count == 1 && !Service.BacklogWaits(afterThird) && !Py.StrList(Py.Get(third["downloads"], "braked")).Contains("501"));
+              FakeSteam.Asked.Count == 1 && !Service.BacklogWaits(afterThird) && !Node.StrList(Node.Get(third["downloads"], "braked")).Contains("501"));
         Step(T0 + 14 * Hour);                          // 04:33 the next day
         var nextDay = Saved();
         Check($"failed version: the next day it is tested once more, and the history says why ({Seen()})",
-              FakeSteam.Asked.Count == 2 && loads.Count == 6 && Py.Str(Py.Get(Py.Get(nextDay["items"], "501"), "decided")) == C(fc).Day()
-              && Py.Arr(Py.Get(nextDay["history"], "maps")).Any(e => Py.Str(e!["event"]) == "changed" && Py.Str(e["why"]).Contains("once a day")));
+              FakeSteam.Asked.Count == 2 && loads.Count == 6 && Node.Str(Node.Get(Node.Get(nextDay["items"], "501"), "decided")) == C(fc).Day()
+              && Node.Arr(Node.Get(nextDay["history"], "maps")).Any(e => Node.Str(e!["event"]) == "changed" && Node.Str(e["why"]).Contains("once a day")));
         Step(T0 + 18 * Hour + 60);
         Check($"failed version: ... and not a second time that day ({Seen()})", FakeSteam.Asked.Count == 2 && loads.Count == 6);
         version = U2;
         Step(T0 + 22 * Hour + 120);
         Check($"failed version: a newer version the same day is new content: tested at once ({Seen()})",
-              FakeSteam.Asked.Count == 3 && loads.Count == 9 && Py.Int(Py.Get(Py.Get(Saved()["items"], "501"), "updated")) == U2);
+              FakeSteam.Asked.Count == 3 && loads.Count == 9 && Node.Int(Node.Get(Node.Get(Saved()["items"], "501"), "updated")) == U2);
         verdict = "pass";
         Step(T0 + 38 * Hour);                          // 04:33 the day after
         var passed = Saved();
         Check($"failed version: a re-test that passes moves the baseline ({Seen()})",
-              FakeSteam.Asked.Count == 4 && Py.Int(Py.Get(passed["baseline"], "501")) == U2 && Py.Str(Py.Get(Py.Get(passed["items"], "501"), "verdict")) == "pass");
+              FakeSteam.Asked.Count == 4 && Node.Int(Node.Get(passed["baseline"], "501")) == U2 && Node.Str(Node.Get(Node.Get(passed["items"], "501"), "verdict")) == "pass");
         Step(T0 + 42 * Hour + 60);
         Check($"failed version: ... and it is not changed any more ({Seen()})", FakeSteam.Asked.Count == 4 && !Service.BacklogWaits(Saved()));
     }
@@ -296,7 +296,7 @@ static class Lifetimes
         JsonObject? first = null;
         var status = new Status(cfg, C(fc), Log.Line) { Wrote = doc => first ??= doc };
         new SyncRun(cfg, C(fc), Hooks, Log, true, status: status, door: new WebApiDoor(cfg.ApiGap, fc)).Run();
-        Check($"status: a run's first picture already has the state's totals ({Py.Str(Py.Get(first?["totals"], "tested"))} tested)", Py.Int(Py.Get(first?["totals"], "tested")) == 1);
+        Check($"status: a run's first picture already has the state's totals ({Node.Str(Node.Get(first?["totals"], "tested"))} tested)", Node.Int(Node.Get(first?["totals"], "tested")) == 1);
     }
 
     // ---- the history's downloads are what was downloaded: a hand-over of what was staged already is none
@@ -304,9 +304,9 @@ static class Lifetimes
     {
         var clock = C(new FakeClock(T0));
         var staged = Status.RunEntry(O("{\"serve\": {\"ok\": 3, \"bytes\": 3000, \"failed\": []}}"), clock);
-        Check("status: a run's history - 3 handed over without a new download are 0 downloads, 0 bytes", Py.Int(staged["downloads"]) == 0 && Py.Int(staged["bytes"]) == 0);
+        Check("status: a run's history - 3 handed over without a new download are 0 downloads, 0 bytes", Node.Int(staged["downloads"]) == 0 && Node.Int(staged["bytes"]) == 0);
         var both = Status.RunEntry(O("{\"downloads\": {\"ok\": 2, \"bytes\": 200}, \"serve\": {\"ok\": 3, \"bytes\": 3000, \"downloads\": 1, \"dl_bytes\": 1000}}"), clock);
-        Check("status: a run's history - the test's downloads and serve's own", Py.Int(both["downloads"]) == 3 && Py.Int(both["bytes"]) == 1200);
+        Check("status: a run's history - the test's downloads and serve's own", Node.Int(both["downloads"]) == 3 && Node.Int(both["bytes"]) == 1200);
     }
 
     // ---- the download tries are per content version
@@ -318,37 +318,37 @@ static class Lifetimes
         Hooks.TestLoad = (_, wid, _, _, _, _, _) => Load(wid, "pass");
         FakeSteam.Answers = new() { ["502"] = Fails };
         var fc = new FakeClock(T0);
-        JsonObject Rec() => Py.Obj(Py.Get(Saved()["items"], "502"));
-        string Seen() => $"attempts {Py.Str(Rec()["attempts"])}, status {Py.Str(Rec()["status"])}: {Py.Str(Rec()["evidence"])}";
+        JsonObject Rec() => Node.Obj(Node.Get(Saved()["items"], "502"));
+        string Seen() => $"attempts {Node.Str(Rec()["attempts"])}, status {Node.Str(Rec()["status"])}: {Node.Str(Rec()["evidence"])}";
         W.Run(cfg, fc, false).Run();
         Check($"tries: a map downloaded 3 times in its life has its full 3 tries for a new version ({Seen()})",
-              Py.Int(Rec()["attempts"]) == 1 && Py.Str(Rec()["status"]) == "retry" && Py.Str(Rec()["evidence"]).Contains("1 of 3 tries"));
+              Node.Int(Rec()["attempts"]) == 1 && Node.Str(Rec()["status"]) == "retry" && Node.Str(Rec()["evidence"]).Contains("1 of 3 tries"));
         fc.T = T0 + 1800;
         W.Run(cfg, fc, false).Run();
         fc.T = T0 + 3600;
         W.Run(cfg, fc, false).Run();
         Check($"tries: the third failure of one version is the last ({Seen()})",
-              Py.Int(Rec()["attempts"]) == 3 && Py.Str(Rec()["status"]) == "failed" && Py.Str(Rec()["evidence"]).Contains("3 of 3 tries"));
+              Node.Int(Rec()["attempts"]) == 3 && Node.Str(Rec()["status"]) == "failed" && Node.Str(Rec()["evidence"]).Contains("3 of 3 tries"));
         var asked = FakeSteam.Asked.Count;
         fc.T = T0 + 4 * Hour + 60;
         W.Run(cfg, fc, false).Run();
-        Check($"tries: ... the same version is not tried again ({Seen()})", FakeSteam.Asked.Count == asked && Py.Str(Rec()["status"]) == "failed");
+        Check($"tries: ... the same version is not tried again ({Seen()})", FakeSteam.Asked.Count == asked && Node.Str(Rec()["status"]) == "failed");
         version = U2;
         FakeSteam.Answers = [];
         fc.T = T0 + 8 * Hour + 120;
         W.Run(cfg, fc, false).Run();
         var after = Saved();
         Check($"tries: a newer version is downloaded and tested after all ({Seen()})",
-              FakeSteam.Asked.Count == asked + 1 && Py.Int(Py.Get(after["baseline"], "502")) == U2 && Py.Str(Rec()["verdict"]) == "pass");
-        Check($"tries: a download that worked leaves no tries counted ({Seen()})", Py.Int(Rec()["attempts"]) == 0);
+              FakeSteam.Asked.Count == asked + 1 && Node.Int(Node.Get(after["baseline"], "502")) == U2 && Node.Str(Rec()["verdict"]) == "pass");
+        Check($"tries: a download that worked leaves no tries counted ({Seen()})", Node.Int(Rec()["attempts"]) == 0);
         var rec = Listed(U1, ("attempts", 2), ("status", "retry"));
         var st = new SyncState(Path.Combine(W.State, "other.json"));
         st.Items["503"] = rec;
         st.Remember(Details("503", U2), "2026-11-01", "new");
-        Check("tries: a map that waits for its download has its tries back when a newer version appears", Py.Int(rec["attempts"]) == 0 && Py.Str(rec["status"]) == "retry");
+        Check("tries: a map that waits for its download has its tries back when a newer version appears", Node.Int(rec["attempts"]) == 0 && Node.Str(rec["status"]) == "retry");
         rec["attempts"] = 2;
         st.Remember(Details("503", U2), "2026-11-01", "new");
-        Check("tries: ... the same version keeps them", Py.Int(rec["attempts"]) == 2);
+        Check("tries: ... the same version keeps them", Node.Int(rec["attempts"]) == 2);
     }
 
     // ---- a state the old count left: a "5 of 3 tries" comes back for one more go, a real "3 of 3" stays
@@ -364,11 +364,11 @@ static class Lifetimes
         Hooks.TestLoad = (_, wid, _, _, _, _, _) => Load(wid, "pass");
         W.Run(cfg, new FakeClock(T0), false).Run();
         var st = Saved();
-        JsonNode? Field(string wid, string key) => Py.Get(Py.Get(st["items"], wid), key);
-        Check($"old counts: 5 of 3 tries is downloaded and tested after all ({Py.Str(Field("504", "status"))}, {T.Show(FakeSteam.Asked)})",
-              FakeSteam.Asked.Contains("504") && Py.Str(Field("504", "verdict")) == "pass" && Py.Int(Py.Get(st["baseline"], "504")) == U1);
-        Check($"old counts: a real 3 of 3 of this version stays failed ({Py.Str(Field("505", "status"))})", !FakeSteam.Asked.Contains("505") && Py.Str(Field("505", "status")) == "failed");
-        Check("old counts: a published map's count is cleared and the map left alone", Py.Int(Field("506", "attempts")) == 0 && !FakeSteam.Asked.Contains("506") && Py.Str(Field("506", "status")) == "published");
+        JsonNode? Field(string wid, string key) => Node.Get(Node.Get(st["items"], wid), key);
+        Check($"old counts: 5 of 3 tries is downloaded and tested after all ({Node.Str(Field("504", "status"))}, {T.Show(FakeSteam.Asked)})",
+              FakeSteam.Asked.Contains("504") && Node.Str(Field("504", "verdict")) == "pass" && Node.Int(Node.Get(st["baseline"], "504")) == U1);
+        Check($"old counts: a real 3 of 3 of this version stays failed ({Node.Str(Field("505", "status"))})", !FakeSteam.Asked.Contains("505") && Node.Str(Field("505", "status")) == "failed");
+        Check("old counts: a published map's count is cleared and the map left alone", Node.Int(Field("506", "attempts")) == 0 && !FakeSteam.Asked.Contains("506") && Node.Str(Field("506", "status")) == "published");
     }
 
     // ---- every publish copies the lists to backups/<stamp>/: the newest few stay
@@ -386,7 +386,7 @@ static class Lifetimes
         run.State.Items["511"] = pass;
         run.Publish([new("511", "pass", O("{\"level\": \"x\"}"), pass)], [], new Dictionary<string, JsonObject>());
         var stamps = Directory.GetDirectories(folder).Select(p => Path.GetFileName(p)!).Where(n => n != "keep-me").OrderBy(n => n, StringComparer.Ordinal).ToList();
-        var own = Path.GetFileName(Py.Str(Py.Get(run.Report["published"], "backup")));
+        var own = Path.GetFileName(Node.Str(Node.Get(run.Report["published"], "backup")));
         Check($"backups: a publish leaves the newest {SyncRun.BackupsKept}, its own among them ({stamps.Count}, oldest {stamps[0]})",
               stamps.Count == SyncRun.BackupsKept && stamps.Contains(own) && stamps[0] == "20261006-120000" && File.Exists(Path.Combine(folder, own, "maps.json")));
         Check("backups: a folder that is no backup is left alone", File.Exists(Path.Combine(folder, "keep-me", "note.txt")));
@@ -420,7 +420,7 @@ static class Lifetimes
         var json = Directory.GetFiles(folder, "*.json").Select(p => Path.GetFileNameWithoutExtension(p)!).Where(n => !n.StartsWith("probe", StringComparison.Ordinal)).OrderBy(n => n, StringComparer.Ordinal).ToList();
         var text = Directory.GetFiles(folder, "*.txt").Select(p => Path.GetFileNameWithoutExtension(p)!).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Check($"reports: a run's end leaves the newest {SyncRun.ReportsKept} with their texts, its own among them ({json.Count} and {text.Count})",
-              json.Count == SyncRun.ReportsKept && text.Count == SyncRun.ReportsKept + 1 && File.Exists(Py.Str(run.Report["report_path"])) && !json.Contains("2026-10-01-0000"));
+              json.Count == SyncRun.ReportsKept && text.Count == SyncRun.ReportsKept + 1 && File.Exists(Node.Str(run.Report["report_path"])) && !json.Contains("2026-10-01-0000"));
         Check($"reports: the names older versions gave theirs go the same way ({json[0]})", !json.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)) && !text.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)));
         Check("reports: what is no report of a run is left alone", File.Exists(Path.Combine(folder, "notes.md")) && File.Exists(Path.Combine(folder, "probe-2026-09-01-manual-0310.json")));
         Check($"reports: the status file's history can still start from them ({Status.SeedRuns(W.State, clock).Count} of {Status.Runs})",

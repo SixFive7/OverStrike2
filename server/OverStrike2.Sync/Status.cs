@@ -95,7 +95,7 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
             try
             {
                 var doc = Doc();
-                OverStrike2.Core.Files.WriteAtomic(Path, Py.Compact(doc) + "\n", FileModes.Private);
+                OverStrike2.Core.Files.WriteAtomic(Path, Node.Compact(doc) + "\n", FileModes.Private);
                 Wrote?.Invoke(doc);
                 if (failed is not null)
                     log($"status: {Path} written again");
@@ -156,21 +156,21 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
     /// <summary>A run's line in the status file's history, from its report (the ones written before the status file existed too).</summary>
     public static JsonObject RunEntry(JsonObject r, SyncClock clock)
     {
-        JsonObject dl = Py.Obj(r["downloads"]), sv = Py.Obj(r["serve"]), t = Py.Obj(r["tests"]), pub = Py.Obj(r["published"]);
-        var rows = Py.StrList(t["rows"]);
-        var stop = new[] { dl["stop"], t["stop"], sv["stop"], r["api_stop"] }.FirstOrDefault(Py.Truthy) is { } s ? Py.Str(s) : null;
+        JsonObject dl = Node.Obj(r["downloads"]), sv = Node.Obj(r["serve"]), t = Node.Obj(r["tests"]), pub = Node.Obj(r["published"]);
+        var rows = Node.StrList(t["rows"]);
+        var stop = new[] { dl["stop"], t["stop"], sv["stop"], r["api_stop"] }.FirstOrDefault(Node.Truthy) is { } s ? Node.Str(s) : null;
         return new JsonObject
         {
-            ["started"] = Unix(clock, r["started"]), ["ended"] = Unix(clock, r["ended"]), ["kind"] = Py.Truthy(r["manual"]) ? "manual" : "auto",
-            ["downloads"] = Py.Int(dl["ok"]) + Py.Int(sv["downloads"]),   // serve's own count, there once it downloaded: its ok also has what was staged already
-            ["bytes"] = Py.Int(dl["bytes"]) + Py.Int(sv["dl_bytes"]),
+            ["started"] = Unix(clock, r["started"]), ["ended"] = Unix(clock, r["ended"]), ["kind"] = Node.Truthy(r["manual"]) ? "manual" : "auto",
+            ["downloads"] = Node.Int(dl["ok"]) + Node.Int(sv["downloads"]),   // serve's own count, there once it downloaded: its ok also has what was staged already
+            ["bytes"] = Node.Int(dl["bytes"]) + Node.Int(sv["dl_bytes"]),
             ["pass"] = rows.Count(x => x.StartsWith("PASS", StringComparison.Ordinal)), ["rejected"] = rows.Count(x => !x.StartsWith("PASS", StringComparison.Ordinal)),
-            ["listed"] = Py.Arr(pub["listed"]).Count + Py.Obj(pub["modes"]).Sum(kv => Py.Arr(kv.Value).Count),
-            ["removed"] = Py.Arr(Py.Get(r["check"], "removed")).Count, ["stop"] = stop is null ? null : Py.Cut(stop, 200),
+            ["listed"] = Node.Arr(pub["listed"]).Count + Node.Obj(pub["modes"]).Sum(kv => Node.Arr(kv.Value).Count),
+            ["removed"] = Node.Arr(Node.Get(r["check"], "removed")).Count, ["stop"] = stop is null ? null : Node.Cut(stop, 200),
         };
     }
 
-    static JsonNode? Unix(SyncClock clock, JsonNode? stamp) => clock.UnixOf(stamp is null ? null : Py.Str(stamp)) is { } u ? (long)u : null;
+    static JsonNode? Unix(SyncClock clock, JsonNode? stamp) => clock.UnixOf(stamp is null ? null : Node.Str(stamp)) is { } u ? (long)u : null;
 
     /// <summary>The history's runs from the reports kept so far, newest first: what the status file starts with.</summary>
     public static JsonArray SeedRuns(string stateDir, SyncClock clock)
@@ -188,12 +188,12 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         var runs = new List<JsonObject>();
         foreach (var name in names)
         {
-            if (Py.ReadJson(System.IO.Path.Combine(folder, name)) is JsonObject r && Py.Truthy(r["started"]) && Py.Truthy(r["ended"]))
+            if (Node.ReadJson(System.IO.Path.Combine(folder, name)) is JsonObject r && Node.Truthy(r["started"]) && Node.Truthy(r["ended"]))
                 runs.Add(RunEntry(r, clock));
             if (runs.Count >= Runs)
                 break;
         }
-        return new JsonArray(runs.OrderBy(e => -Py.Float(e["started"])).Cast<JsonNode?>().ToArray());
+        return new JsonArray(runs.OrderBy(e => -Node.Float(e["started"])).Cast<JsonNode?>().ToArray());
     }
 
     /// <summary>armsrace | deathmatch | wingman: the list a map is on, else the first of its Workshop tags; armsrace when neither says.</summary>
@@ -201,9 +201,9 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
     {
         if (listed is not null && wid is not null && listed.TryGetValue(wid, out var mode))
             return mode;
-        var tags = Py.Get(rec, "tags");
+        var tags = Node.Get(rec, "tags");
         foreach (var (m, tag, _, _, _) in GameModes.All)
-            if (Py.In(tags, tag))
+            if (Node.In(tags, tag))
                 return m;
         return "armsrace";
     }

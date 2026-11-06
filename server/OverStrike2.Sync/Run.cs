@@ -130,11 +130,11 @@ public sealed class SyncRun
     public void OnMap(string wid, int done, int total)
     {
         var rec = State.Item(wid) ?? [];
-        var name = Text.Clean(Py.StrOr(rec["title"]), 80);
+        var name = Text.Clean(Node.StrOr(rec["title"]), 80);
         Status.Set(("map", new JsonObject
         {
             ["id"] = wid, ["name"] = name.Length > 0 ? name : ListedName.GetValueOrDefault(wid, ""), ["mode"] = Status.ListMode(rec, ListedMode, wid),
-            ["sizeMb"] = (Py.Int(rec["size"]) is var size && size != 0 ? size : ListedSize.GetValueOrDefault(wid)) >> 20,
+            ["sizeMb"] = (Node.Int(rec["size"]) is var size && size != 0 ? size : ListedSize.GetValueOrDefault(wid)) >> 20,
         }), ("step", new JsonObject { ["done"] = done, ["total"] = total }));
         Status.Rebuild(this);
         Status.Write();
@@ -152,7 +152,7 @@ public sealed class SyncRun
                 hist["maps"] = maps;
             }
             var rec = State.Item(wid) ?? [];
-            var name = Text.Clean(Py.StrOr(rec["title"]), 80);
+            var name = Text.Clean(Node.StrOr(rec["title"]), 80);
             maps.Add(new JsonObject
             {
                 ["at"] = (long)Math.Truncate(Clock.Now()), ["id"] = wid, ["name"] = name.Length > 0 ? name : ListedName.GetValueOrDefault(wid, ""),
@@ -199,7 +199,7 @@ public sealed class SyncRun
             }
             if (!said)
             {
-                var minutes = Py.D(Math.Floor(Cfg.Quiet / 60));
+                var minutes = Node.D(Math.Floor(Cfg.Quiet / 60));
                 L($"{what}: waiting - " + (h is null ? "the game server does not answer A2S" : h > 0 ? $"{h} human(s) on the game server"
                     : flag ? "the bridge's maintenance flag is set" : $"somebody was on the server {Text.Hms(Clock.Now() - HumanAt!.Value)} ago"));
                 said = true;
@@ -281,7 +281,7 @@ public sealed class SyncRun
         var key = Cfg.WebApiKey.Length > 0 ? Cfg.WebApiKey : null;
         var api = new SteamApi(Ledger, Day0, door, key, Seams.WebApi, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
         Api = api;
-        var lastApi = Py.Float(State.Data["last_api"]);
+        var lastApi = Node.Float(State.Data["last_api"]);
         var apiDue = (Cfg.ForceApi || Clock.Now() - lastApi >= Cfg.ApiEvery || !Service.BacklogWaits(State.Data)) && !Cfg.SkipApi;
         var details = new Dictionary<string, JsonObject>();
         var removedNow = new List<(string Id, string Verdict)>();
@@ -307,7 +307,7 @@ public sealed class SyncRun
                 {
                     var d = Discovery.Discover(api, Cfg, known, State, Day0, Deadline - 1800, Clock.Now);
                     Report["discovery"] = d;
-                    L($"discovery: {Py.Str(d["pages"])} page(s), {Py.Str(d["seen"])} seen, {Py.Arr(d["new"]).Count} new ({Py.Str(d["stop"])})");
+                    L($"discovery: {Node.Str(d["pages"])} page(s), {Node.Str(d["seen"])} seen, {Node.Arr(d["new"]).Count} new ({Node.Str(d["stop"])})");
                 }
                 catch (StopApiException stop)
                 {
@@ -340,10 +340,10 @@ public sealed class SyncRun
             var judged = details.Count > 0 ? Discovery.JudgeListed(details, listed, State, Cfg) : ([], [], listed.Count, false);
             removedNow = judged.Suspicious ? [] : [.. judged.Removed];
             // the bridge's verdicts so far (removed.json is this sync's, kept by the bridge): a map that goes is an event once
-            var bridgeVerdicts = Py.Get(Py.ReadJson(Path.Combine(Cfg.BridgeData, "removed.json")), "verdicts") as JsonObject ?? [];
-            var newly = removedNow.Where(rv => !(bridgeVerdicts[rv.Id] is { } v && Py.IsString(v) && Py.Str(v) == rv.Verdict)).ToList();
-            chk["removed"] = new JsonArray(removedNow.Select(rv => (JsonNode?)Py.Array(rv.Id, rv.Verdict)).ToArray());
-            chk["changed"] = Py.Strings(judged.Changed);
+            var bridgeVerdicts = Node.Get(Node.ReadJson(Path.Combine(Cfg.BridgeData, "removed.json")), "verdicts") as JsonObject ?? [];
+            var newly = removedNow.Where(rv => !(bridgeVerdicts[rv.Id] is { } v && Node.IsString(v) && Node.Str(v) == rv.Verdict)).ToList();
+            chk["removed"] = new JsonArray(removedNow.Select(rv => (JsonNode?)Node.Array(rv.Id, rv.Verdict)).ToArray());
+            chk["changed"] = Node.Strings(judged.Changed);
             chk["suspicious"] = judged.Suspicious;
             if (!judged.Suspicious)
                 VerdictsToReport = listed.Where(details.ContainsKey).Select(w => (w, Text.WorkshopVerdict(details[w]))).ToList();
@@ -359,20 +359,20 @@ public sealed class SyncRun
                     continue;
                 }
                 var before = State.Item(wid);
-                var was = before is null ? null : Py.Str(before["status"]);
-                var sameFailed = before is not null && Py.Truthy(before["verdict"]) && Py.Str(before["verdict"]) != "pass"
-                                 && Py.Int(item["time_updated"]) <= Py.Int(before["updated"]);
+                var was = before is null ? null : Node.Str(before["status"]);
+                var sameFailed = before is not null && Node.Truthy(before["verdict"]) && Node.Str(before["verdict"]) != "pass"
+                                 && Node.Int(item["time_updated"]) <= Node.Int(before["updated"]);
                 var rec = State.Remember(item, Day0, "changed");
-                if (Py.Str(rec["status"]) == "queued" && was != "queued")   // one event when it is queued, not one at every check it waits
+                if (Node.Str(rec["status"]) == "queued" && was != "queued")   // one event when it is queued, not one at every check it waits
                     Event(wid, "changed", sameFailed ? "This version failed its test: it is tested again, once a day." : "It changed on the Workshop: it is tested again.");
             }
             if (failedToday.Count > 0)
-                chk["failed_today"] = Py.Strings(failedToday);
+                chk["failed_today"] = Node.Strings(failedToday);
             foreach (var (wid, verdict) in newly)         // one event when a map goes, not one at every check
                 Event(wid, "removed", $"The Workshop says it is {(verdict == "removed" ? "gone" : verdict)}: it is blocked.");
             foreach (var wid in queueHead)
                 if (details.TryGetValue(wid, out var item))
-                    State.Remember(item, Day0, Py.StrOr(State.Item(wid)?["why"], "new"));
+                    State.Remember(item, Day0, Node.StrOr(State.Item(wid)?["why"], "new"));
             foreach (var (wid, item) in details)
                 State.NoteWorkshop(wid, item);
             State.Save();
@@ -410,8 +410,8 @@ public sealed class SyncRun
             Phase("publish");
             var decided = new HashSet<string>(outcomes.Select(o => o.Id));
             foreach (var (wid, node) in State.Items)
-                if (!decided.Contains(wid) && node is JsonObject rec && Py.Truthy(rec["verdict"]) && Py.Str(rec["status"]) is "tested" or "downloaded")
-                    outcomes.Add(new Verdicts.Outcome(wid, Py.Str(rec["verdict"]), Py.Obj(rec["detail"]), rec));
+                if (!decided.Contains(wid) && node is JsonObject rec && Node.Truthy(rec["verdict"]) && Node.Str(rec["status"]) is "tested" or "downloaded")
+                    outcomes.Add(new Verdicts.Outcome(wid, Node.Str(rec["verdict"]), Node.Obj(rec["detail"]), rec));
             var before = Report["published"] as JsonObject;
             before = (JsonObject?)before?.DeepClone();
             Publish(outcomes, first ? removedNow : [], details);
@@ -419,8 +419,8 @@ public sealed class SyncRun
             VerdictsToReport = [];                        // the check's verdicts go to the bridge once a run
             first = false;
             CleanupStaging();
-            JsonObject dl = Py.Obj(Report["downloads"]), t = Py.Obj(Report["tests"]);
-            if (got == 0 || Py.Truthy(dl["stop"]) || Py.Truthy(t["stop"]) || Left() < 300)
+            JsonObject dl = Node.Obj(Report["downloads"]), t = Node.Obj(Report["tests"]);
+            if (got == 0 || Node.Truthy(dl["stop"]) || Node.Truthy(t["stop"]) || Left() < 300)
                 break;
             try
             {
@@ -450,55 +450,55 @@ public sealed class SyncRun
         var tags = new HashSet<string>(Cfg.Tags);
         foreach (var (wid, node) in items)
         {
-            if (node is not JsonObject rec || Py.Str(rec["status"]) is not ("queued" or "retry"))
+            if (node is not JsonObject rec || Node.Str(rec["status"]) is not ("queued" or "retry"))
                 continue;
             if (only is not null && !only.Contains(wid))
                 continue;
-            if (known.ContainsKey(wid) && Py.Str(rec["why"]) != "changed")
+            if (known.ContainsKey(wid) && Node.Str(rec["why"]) != "changed")
             {
                 rec["status"] = "known";
                 continue;
             }
-            if (Py.Str(rec["ws"]) != "ok" || !(Py.IsNumber(rec["app"]) && KeepSet.Number(rec["app"]) is 0 or 730))
+            if (Node.Str(rec["ws"]) != "ok" || !(Node.IsNumber(rec["app"]) && KeepSet.Number(rec["app"]) is 0 or 730))
                 continue;
-            if (Py.Truthy(rec["creator"]) && Cfg.ExcludeCreators.Contains(Py.Str(rec["creator"])))
+            if (Node.Truthy(rec["creator"]) && Cfg.ExcludeCreators.Contains(Node.Str(rec["creator"])))
             {
                 rec["status"] = "skipped";
                 rec["evidence"] = "listed by hand (its author is in sync.excludeCreators)";
                 continue;
             }
-            if (Py.Truthy(rec["filename"]))
+            if (Node.Truthy(rec["filename"]))
             {
                 rec["status"] = "skipped";
-                rec["evidence"] = $"a CS:GO-era upload (its Workshop file is {Py.Cut(Py.Str(rec["filename"]), 60)}): no CS2 map, not downloaded";
+                rec["evidence"] = $"a CS:GO-era upload (its Workshop file is {Node.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded";
                 continue;
             }
-            if (!Py.StrList(rec["tags"]).Any(tags.Contains))
+            if (!Node.StrList(rec["tags"]).Any(tags.Contains))
                 continue;
-            if (Py.Str(rec["why"]) == "changed")
+            if (Node.Str(rec["why"]) == "changed")
                 changed.Add(wid);
-            else if (now - Py.Int(rec["created"]) < 14 * Day)
+            else if (now - Node.Int(rec["created"]) < 14 * Day)
                 fresh.Add(wid);
             else
                 backlog.Add(wid);
         }
-        fresh = fresh.OrderBy(w => -Py.Int(Py.Get(items[w], "created"))).ToList();
+        fresh = fresh.OrderBy(w => -Node.Int(Node.Get(items[w], "created"))).ToList();
         changed = changed.OrderBy(w => Verdicts.PopularityKey(items[w], w)).ToList();
         var ordered = fresh.Concat(changed).Concat(Verdicts.OrderBacklog(items, backlog)).ToList();
-        var scores = Py.Obj(Py.Get(State.Data["ratings"], "scores"));
+        var scores = Node.Obj(Node.Get(State.Data["ratings"], "scores"));
         var cuts = TopCutoffs();
         double? Best(string wid)
         {
             var v = scores[wid];
             var s = v is JsonArray a ? a.Count > 0 ? a[0] : null : v;
             var n = v is JsonArray b && b.Count > 3 ? b[3] : null;
-            if (!(Py.IsNumber(s) || Py.IsBool(s)))
+            if (!(Node.IsNumber(s) || Node.IsBool(s)))
                 return null;
-            var score = Py.Float(s);
-            var itemTags = Py.Get(items[wid], "tags");
+            var score = Node.Float(s);
+            var itemTags = Node.Get(items[wid], "tags");
             foreach (var (tag, c) in cuts)
             {
-                if (Py.In(itemTags, tag) && ((c.Score is null || score >= c.Score) || (Py.Integer(n) is { } subs && (c.Subs is null || subs >= c.Subs)) || c.Popular.Contains(wid)))
+                if (Node.In(itemTags, tag) && ((c.Score is null || score >= c.Score) || (Node.Integer(n) is { } subs && (c.Subs is null || subs >= c.Subs)) || c.Popular.Contains(wid)))
                     return score;
             }
             return null;
@@ -525,13 +525,13 @@ public sealed class SyncRun
         {
             var inputs = KeepInputs();
             var keep = SafeKeepSet(inputs, Clock.Now());
-            var trend = Py.Obj(Py.Get(inputs.GetValueOrDefault("ratings.json"), "trend"));
+            var trend = Node.Obj(Node.Get(inputs.GetValueOrDefault("ratings.json"), "trend"));
             var c = new Dictionary<string, (double?, long?, HashSet<string>)>();
             if (keep.Scored > 0)
             {
                 foreach (var (mode, tag, _, _, _) in GameModes.All)
                 {
-                    var order = Py.StrList(trend[mode]);
+                    var order = Node.StrList(trend[mode]);
                     var last = keep.Lists.TryGetValue(mode, out var l) ? l.Popular ?? [] : [];
                     var upto = last.Count >= Cfg.KeepRules.Top && order.Contains(last[^1]) ? order.IndexOf(last[^1]) + 1 : order.Count;
                     var (score, subs) = keep.Cutoff.TryGetValue(mode, out var co) ? co : (null, null);
@@ -564,10 +564,10 @@ public sealed class SyncRun
             rep["skipped"] = "sync.ratings is off";
             return;
         }
-        var age = Clock.Now() - Py.Float(st["fetched"]);
-        var sample = Py.Obj(st["scores"]).Select(kv => kv.Value).Take(50).ToList();
+        var age = Clock.Now() - Node.Float(st["fetched"]);
+        var sample = Node.Obj(st["scores"]).Select(kv => kv.Value).Take(50).ToList();
         var whole = sample.Count > 0 && sample.All(v => v is JsonArray a && a.Count > 3)
-                    && GameModes.All.All(m => Py.Get(st["trend"], m.Mode) is JsonArray);
+                    && GameModes.All.All(m => Node.Get(st["trend"], m.Mode) is JsonArray);
         if (whole && age < RatingsEvery)
         {
             rep["skipped"] = $"fetched {Text.Hms(age)} ago, again after {Text.Hms(RatingsEvery)}";
@@ -576,13 +576,13 @@ public sealed class SyncRun
             return;
         }
         var tags = new HashSet<string>(Cfg.Tags);
-        var waiting = State.Items.Where(kv => kv.Value is JsonObject r && Py.Str(r["status"]) is "queued" or "retry" && Py.Str(r["ws"]) == "ok"
-                                             && Py.StrList(r["tags"]).Any(tags.Contains)).Select(kv => kv.Key).ToList();
+        var waiting = State.Items.Where(kv => kv.Value is JsonObject r && Node.Str(r["status"]) is "queued" or "retry" && Node.Str(r["ws"]) == "ok"
+                                             && Node.StrList(r["tags"]).Any(tags.Contains)).Select(kv => kv.Key).ToList();
         var ids = listed.Concat(waiting).Distinct().ToList();
         var inputs = KeepInputs();
         var members = new Dictionary<string, HashSet<string>>();
         foreach (var (mode, _, _, _, name) in GameModes.All)
-            members[mode] = [.. Py.Arr(inputs.GetValueOrDefault(name)).OfType<JsonObject>().Select(e => Py.StrOr(e["id"])).Where(Py.Digits)];
+            members[mode] = [.. Node.Arr(inputs.GetValueOrDefault(name)).OfType<JsonObject>().Select(e => Node.StrOr(e["id"])).Where(Node.Digits)];
         var got = new Dictionary<string, JsonArray>();
         var trend = new Dictionary<string, List<string>>();
         var walked = new Dictionary<string, (int Read, int Listed)>();
@@ -610,7 +610,7 @@ public sealed class SyncRun
             }
             foreach (var (mode, tag, _, _, _) in GameModes.All)
             {
-                if (Py.Truthy(rep["stop"]))
+                if (Node.Truthy(rep["stop"]))
                     break;
                 var order = new List<string>();
                 var cursor = "*";
@@ -644,13 +644,13 @@ public sealed class SyncRun
             rep["stop"] = stop.Message;
             L($"ratings stopped: {stop.Message}");
         }
-        var complete = !Py.Truthy(rep["stop"]) && failed == 0 && trend.Count == GameModes.All.Length;
+        var complete = !Node.Truthy(rep["stop"]) && failed == 0 && trend.Count == GameModes.All.Length;
         var gotObject = new JsonObject();
         foreach (var (k, v) in got)
             gotObject[k] = v.DeepClone();
         var trendObject = new JsonObject();
         foreach (var (k, v) in trend)
-            trendObject[k] = Py.Strings(v);
+            trendObject[k] = Node.Strings(v);
         if (complete)
         {
             st["scores"] = gotObject;
@@ -662,14 +662,14 @@ public sealed class SyncRun
         {
             if (got.Count > 0)
             {
-                var merged = Py.Obj(st["scores"]?.DeepClone());
+                var merged = Node.Obj(st["scores"]?.DeepClone());
                 foreach (var (k, v) in gotObject)
                     merged[k] = v?.DeepClone();
                 st["scores"] = merged;
             }
             if (trend.Count > 0)
             {
-                var merged = Py.Obj(st["trend"]?.DeepClone());
+                var merged = Node.Obj(st["trend"]?.DeepClone());
                 foreach (var (k, v) in trendObject)
                     merged[k] = v?.DeepClone();
                 st["trend"] = merged;
@@ -687,7 +687,7 @@ public sealed class SyncRun
             walkedObject[m] = new JsonArray(v.Read, v.Listed);
         rep["trend"] = walkedObject;
         rep["trend_days"] = TrendDays;
-        L($"ratings: {got.Count} of {ids.Count} scored with their subscriptions ({listed.Count} listed, {waiting.Count} waiting) in {Py.Str(rep["calls"])} call(s); "
+        L($"ratings: {got.Count} of {ids.Count} scored with their subscriptions ({listed.Count} listed, {waiting.Count} waiting) in {Node.Str(rep["calls"])} call(s); "
           + $"Most Popular over {TrendDays} days: {(walked.Count > 0 ? string.Join(", ", walked.Select(kv => $"{kv.Key} {kv.Value.Read} read, {kv.Value.Listed} listed")) : "none")}"
           + $"{(complete ? "" : " - INCOMPLETE, the old time kept")}");
         State.Save();
@@ -700,12 +700,12 @@ public sealed class SyncRun
     /// "trend": {mode: [ids in Most Popular order]}, "trend_days": days}.</summary>
     public void WriteRatings(JsonObject st)
     {
-        var text = Py.Compact(new JsonObject
+        var text = Node.Compact(new JsonObject
         {
-            ["version"] = 1, ["fetched"] = Py.Truthy(st["fetched"]) ? st["fetched"]!.DeepClone() : 0,
+            ["version"] = 1, ["fetched"] = Node.Truthy(st["fetched"]) ? st["fetched"]!.DeepClone() : 0,
             ["source"] = "IPublishedFileService/GetDetails vote_data and subscriptions; QueryFiles RankedByTrend",
-            ["trend_days"] = Py.Truthy(st["trend_days"]) ? st["trend_days"]!.DeepClone() : TrendDays,
-            ["scores"] = Py.Truthy(st["scores"]) ? st["scores"]!.DeepClone() : new JsonObject(), ["trend"] = Py.Truthy(st["trend"]) ? st["trend"]!.DeepClone() : new JsonObject(),
+            ["trend_days"] = Node.Truthy(st["trend_days"]) ? st["trend_days"]!.DeepClone() : TrendDays,
+            ["scores"] = Node.Truthy(st["scores"]) ? st["scores"]!.DeepClone() : new JsonObject(), ["trend"] = Node.Truthy(st["trend"]) ? st["trend"]!.DeepClone() : new JsonObject(),
         }) + "\n";
         if (!Cfg.Publish)
         {
@@ -731,10 +731,10 @@ public sealed class SyncRun
         var back = new List<string>();
         foreach (var (wid, node) in State.Items)
         {
-            if (node is not JsonObject rec || Py.Int(rec["attempts"]) <= 3)
+            if (node is not JsonObject rec || Node.Int(rec["attempts"]) <= 3)
                 continue;
             rec["attempts"] = 0;
-            if (Py.Str(rec["status"]) == "failed")
+            if (Node.Str(rec["status"]) == "failed")
             {
                 rec["status"] = "queued";
                 rec.Remove("evidence");
@@ -756,7 +756,7 @@ public sealed class SyncRun
         var back = new List<string>();
         foreach (var (wid, node) in State.Items)
         {
-            if (node is not JsonObject rec || Py.Truthy(rec["verdict"]) || Py.Str(rec["status"]) is not ("downloaded" or "tested") || Staged(wid))
+            if (node is not JsonObject rec || Node.Truthy(rec["verdict"]) || Node.Str(rec["status"]) is not ("downloaded" or "tested") || Staged(wid))
                 continue;
             rec["status"] = "queued";
             back.Add(wid);
@@ -790,10 +790,10 @@ public sealed class SyncRun
         var back = new List<string>();
         foreach (var (wid, node) in State.Items)
         {
-            if (node is not JsonObject rec || Py.Str(rec["status"]) != "skipped" || !Py.StrOr(rec["evidence"]).Contains("download cap", StringComparison.Ordinal))
+            if (node is not JsonObject rec || Node.Str(rec["status"]) != "skipped" || !Node.StrOr(rec["evidence"]).Contains("download cap", StringComparison.Ordinal))
                 continue;
             rec["status"] = "queued";
-            rec["requeued"] = $"{Day0}: no daily download cap any more ({Py.StrOr(rec["evidence"])})";
+            rec["requeued"] = $"{Day0}: no daily download cap any more ({Node.StrOr(rec["evidence"])})";
             rec.Remove("skip_cap");
             back.Add(wid);
         }
@@ -807,7 +807,7 @@ public sealed class SyncRun
 
     JsonObject ServeReport() => Section("serve", () => new JsonObject { ["ok"] = 0, ["bytes"] = 0, ["failed"] = new JsonArray() });
 
-    static void Bump(JsonObject o, string key, long by) => o[key] = Py.Int(o[key]) + by;
+    static void Bump(JsonObject o, string key, long by) => o[key] = Node.Int(o[key]) + by;
 
     static JsonArray List(JsonObject o, string key)
     {
@@ -834,8 +834,8 @@ public sealed class SyncRun
     bool AcfNames(string wid, JsonObject rec)
     {
         var entry = Handover.AcfEntries(StagingAcf, wid);
-        return entry is { } e && new[] { "size", "timeupdated", "manifest" }.All(k => Py.Digits(e.Installed.GetValueOrDefault(k)))
-               && long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) >= Py.Int(rec["updated"]);
+        return entry is { } e && new[] { "size", "timeupdated", "manifest" }.All(k => Node.Digits(e.Installed.GetValueOrDefault(k)))
+               && long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) >= Node.Int(rec["updated"]);
     }
 
     /// <summary>THE HAND-OVER, for what is missing or outdated (Handover.ServeWants): the keep set's maps the game server does not store - the
@@ -900,12 +900,12 @@ public sealed class SyncRun
         {
             var rec = State.Item(wid) ?? [];
             var entry = Handover.AcfEntries(StagingAcf, wid);
-            if (entry is not { } e || !Py.Digits(e.Installed.GetValueOrDefault("timeupdated"))
-                || long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) < Py.Int(rec["updated"]))
+            if (entry is not { } e || !Node.Digits(e.Installed.GetValueOrDefault("timeupdated"))
+                || long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) < Node.Int(rec["updated"]))
                 continue;                                  // no entry in SteamCMD's acf, or an older version: downloaded again below
             var bytes = Handover.FolderBytes(Path.Combine(Content, wid));
-            var (done, words) = HandOverSafe(wid, Py.StrOr(rec["title"]));
-            L($"serve: {wid} {Py.Cut(Py.StrOr(rec["title"]), 40)} was staged already, {words}");
+            var (done, words) = HandOverSafe(wid, Node.StrOr(rec["title"]));
+            L($"serve: {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} was staged already, {words}");
             if (done)
             {
                 Bump(rep, "ok", 1);
@@ -990,9 +990,9 @@ public sealed class SyncRun
                         }
                         Clock.Sleep(1);
                     }
-                    var (done, words) = fresh ? HandOverSafe(wid, Py.StrOr(rec["title"]))
+                    var (done, words) = fresh ? HandOverSafe(wid, Node.StrOr(rec["title"]))
                         : (false, "SteamCMD's acf does not name this version yet - handed over once it has quit");
-                    L($"serve: {wid} {Py.Cut(Py.StrOr(rec["title"]), 40)} downloaded in {Py.Fixed(Clock.Now() - t, 0)} s, {words}");
+                    L($"serve: {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} downloaded in {Node.Fixed(Clock.Now() - t, 0)} s, {words}");
                     if (done)
                     {
                         Bump(rep, "ok", 1);
@@ -1005,7 +1005,7 @@ public sealed class SyncRun
                 }
                 else
                 {
-                    List(rep, "failed").Add(Py.Array(wid, reason));
+                    List(rep, "failed").Add(Node.Array(wid, reason));
                     row++;
                     budget.Fail();
                     Event(wid, "failed", $"Its download failed ({reason}).");
@@ -1050,10 +1050,10 @@ public sealed class SyncRun
         }
         foreach (var (wid, rec, bytes) in later)                // SteamCMD has quit: its acf names them now
         {
-            var (done, words) = HandOverSafe(wid, Py.StrOr(rec["title"]));
+            var (done, words) = HandOverSafe(wid, Node.StrOr(rec["title"]));
             L($"serve: {wid} after SteamCMD quit: {words}{(done ? "" : " - it stays staged for the next run")}");
             if (!done)
-                List(rep, "handover_failed").Add(Py.Array(wid, words));
+                List(rep, "handover_failed").Add(Node.Array(wid, words));
             if (done)
             {
                 Bump(rep, "ok", 1);
@@ -1062,7 +1062,7 @@ public sealed class SyncRun
                 Event(wid, "handed-over", (newer.Contains(wid) ? "Its newer version downloaded" : "Downloaded") + $" and handed over to the game server ({Text.Mb(bytes)}).");
             }
             else
-                List(rep, "failed").Add(Py.Array(wid, words));
+                List(rep, "failed").Add(Node.Array(wid, words));
         }
         try                                               // SteamCMD writes its acf from memory: it named the early ones again
         {
@@ -1074,8 +1074,8 @@ public sealed class SyncRun
         var waitingNow = Handover.Pending(Cfg.HandoverDir);
         rep["left"] = want.Count(w => !waitingNow.ContainsKey(w));
         Limits(budget);
-        L($"serve: {Py.Str(rep["ok"])} handed over ({Text.Mb(Py.Int(rep["bytes"]))}), {Py.Arr(rep["failed"]).Count} failed, {Py.Str(rep["left"])} still missing"
-          + (Py.Truthy(rep["stop"]) ? $" - stopped: {Py.Str(rep["stop"])}" : ""));
+        L($"serve: {Node.Str(rep["ok"])} handed over ({Text.Mb(Node.Int(rep["bytes"]))}), {Node.Arr(rep["failed"]).Count} failed, {Node.Str(rep["left"])} still missing"
+          + (Node.Truthy(rep["stop"]) ? $" - stopped: {Node.Str(rep["stop"])}" : ""));
     }
 
     /// <summary>A SteamCMD stall on `wid`: booked (the run's list, the day's count of the map), logged. True when it is the run's second - the
@@ -1167,7 +1167,7 @@ public sealed class SyncRun
                     if (!started)
                     {
                         dl["stop"] = $"SteamCMD did not log in anonymously: {why}";
-                        Errors.Add(Py.Str(dl["stop"]));
+                        Errors.Add(Node.Str(dl["stop"]));
                         if (SteamCmdWords.StopRx().IsMatch(why))
                             budget.RefuseForToday($"SteamCMD answered '{why}'");
                         break;
@@ -1187,18 +1187,18 @@ public sealed class SyncRun
                     Bump(dl, "bytes", size);
                     rec["status"] = "downloaded";
                     rec["downloaded"] = Day0;
-                    rec["loads"] = Py.Str(rec["why"]) == "changed" ? new JsonArray() : Py.Truthy(rec["loads"]) ? rec["loads"]!.DeepClone() : new JsonArray();
+                    rec["loads"] = Node.Str(rec["why"]) == "changed" ? new JsonArray() : Node.Truthy(rec["loads"]) ? rec["loads"]!.DeepClone() : new JsonArray();
                     foreach (var stale in new[] { "scan", "verdict", "decided", "detail", "evidence" })
                         rec.Remove(stale);
                     (row, denied) = (0, 0);
-                    L($"downloaded {wid} {Py.Cut(Py.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Py.Fixed(Clock.Now() - t, 0)} s");
+                    L($"downloaded {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Node.Fixed(Clock.Now() - t, 0)} s");
                 }
                 else
                 {
-                    List(dl, "failed").Add(Py.Array(wid, reason));
+                    List(dl, "failed").Add(Node.Array(wid, reason));
                     row++;
                     budget.Fail();
-                    var attempts = Py.Int(rec["attempts"]) + 1;
+                    var attempts = Node.Int(rec["attempts"]) + 1;
                     rec["attempts"] = attempts;
                     Event(wid, "failed", $"Its download failed ({reason}), {attempts} of 3 tries.");
                     rec["status"] = attempts < 3 ? "retry" : "failed";
@@ -1275,7 +1275,7 @@ public sealed class SyncRun
             if (only is not null && !only.Contains(wid))
                 continue;
             var rec = State.Item(wid);
-            if (rec is null || Py.Str(rec["status"]) is not ("downloaded" or "tested"))
+            if (rec is null || Node.Str(rec["status"]) is not ("downloaded" or "tested"))
                 continue;
             if (!rec.ContainsKey("scan"))
             {
@@ -1285,7 +1285,7 @@ public sealed class SyncRun
                 }
                 catch (Exception e) when (e is not StopRequested)   // a malformed upload must not end the run
                 {
-                    rec["scan"] = new JsonObject { ["verdict"] = "unknown", ["names"] = new JsonArray(), ["error"] = Py.Cut(Mail.Repr(e), 200) };
+                    rec["scan"] = new JsonObject { ["verdict"] = "unknown", ["names"] = new JsonArray(), ["error"] = Node.Cut(Mail.Repr(e), 200) };
                 }
             }
             work.Add(wid);
@@ -1319,7 +1319,7 @@ public sealed class SyncRun
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                     t["stop"] = $"the test tree could not be built: {e.Message}";
-                    Errors.Add(Py.Str(t["stop"]));
+                    Errors.Add(Node.Str(t["stop"]));
                     toLoad = [];
                 }
                 Engine = Seams.TestEngine(Cfg, Cfg.WorkDir, Cfg.Home, Clock, L);
@@ -1365,14 +1365,14 @@ public sealed class SyncRun
                                 }
                                 needStart = false;
                             }
-                            var levels = Py.StrList(Py.Get(rec["scan"], "maps"));
-                            var load = Seams.TestLoad(Engine, wid, levels, Py.StrList(rec["tags"]), Cfg.Hold, () => (Humans() ?? 0) > 0, Clock);
+                            var levels = Node.StrList(Node.Get(rec["scan"], "maps"));
+                            var load = Seams.TestLoad(Engine, wid, levels, Node.StrList(rec["tags"]), Cfg.Hold, () => (Humans() ?? 0) > 0, Clock);
                             List(rec, "loads").Add(load);
-                            rec["tests"] = Py.Int(rec["tests"]) + 1;
+                            rec["tests"] = Node.Int(rec["tests"]) + 1;
                             rec["status"] = "tested";
-                            if (Py.Truthy(load["engine_download"]))
+                            if (Node.Truthy(load["engine_download"]))
                             {
-                                budget.SpendBytes(Py.Int(load["engine_download"]));
+                                budget.SpendBytes(Node.Int(load["engine_download"]));
                                 try                         // what the engine loaded is its own copy: scan that one
                                 {
                                     rec["scan"] = Seams.ScanItem(Path.Combine(Content, wid));
@@ -1380,22 +1380,22 @@ public sealed class SyncRun
                                 catch (Exception e) when (e is not StopRequested)
                                 {
                                     if (rec["scan"] is JsonObject scan)
-                                        scan["rescan_error"] = Py.Cut(Mail.Repr(e), 200);
+                                        scan["rescan_error"] = Node.Cut(Mail.Repr(e), 200);
                                 }
-                                L($"{wid}: the test engine fetched its own copy ({Text.Mb(Py.Int(load["engine_download"]))}) - scanned again");
+                                L($"{wid}: the test engine fetched its own copy ({Text.Mb(Node.Int(load["engine_download"]))}) - scanned again");
                             }
                             State.Save();
-                            L($"{wid} load {Py.Arr(rec["loads"]).Count}: {Py.Str(load["verdict"])} - {Py.Str(load["reason"])}");
-                            if (Py.Str(load["verdict"]) is "errormap" or "crash" or "freeze")
+                            L($"{wid} load {Node.Arr(rec["loads"]).Count}: {Node.Str(load["verdict"])} - {Node.Str(load["reason"])}");
+                            if (Node.Str(load["verdict"]) is "errormap" or "crash" or "freeze")
                                 needStart = true;          // a fresh engine: the old one is down or stuck on the error map
-                            if (Py.Str(load["verdict"]) == "abort")
+                            if (Node.Str(load["verdict"]) == "abort")
                             {
                                 Engine.Stop();             // somebody joined: nothing of ours runs beside them
                                 needStart = true;
                                 break;
                             }
                         }
-                        if (Py.Truthy(t["stop"]))
+                        if (Node.Truthy(t["stop"]))
                             break;
                         var (k2, d2) = Verdicts.Final(rec, Day0);
                         if (k2 != "pending")
@@ -1420,15 +1420,15 @@ public sealed class SyncRun
                 if (k is "kind" or "detail" or "evidence" or "reason" or "level" or "mode" or "crashes" or "sample")
                     kept[k] = v?.DeepClone();
             rec["detail"] = kept;
-            var title = Py.Cut(Py.StrOr(rec["title"]), 48);
+            var title = Node.Cut(Node.StrOr(rec["title"]), 48);
             if (kind == "pass")
-                rows.Add($"PASS     {title} ({wid}) - {Py.Str(detail["mode"])}, loads as {Py.Str(detail["level"])} in {Py.Str(detail["load_s"])}s");
+                rows.Add($"PASS     {title} ({wid}) - {Node.Str(detail["mode"])}, loads as {Node.Str(detail["level"])} in {Node.Str(detail["load_s"])}s");
             else if (kind == "nonmap")
-                rows.Add($"NON-MAP  {title} ({wid}) - {Py.Cut(detail.ContainsKey("detail") ? Py.Str(detail["detail"]) : "", 110)}");
+                rows.Add($"NON-MAP  {title} ({wid}) - {Node.Cut(detail.ContainsKey("detail") ? Node.Str(detail["detail"]) : "", 110)}");
             else if (kind == "advert")
-                rows.Add($"ADVERT   {title} ({wid}) - {Py.Str(detail["reason"])}: {Py.Cut(Py.StrOr(detail["sample"]), 80)}");
+                rows.Add($"ADVERT   {title} ({wid}) - {Node.Str(detail["reason"])}: {Node.Cut(Node.StrOr(detail["sample"]), 80)}");
             else
-                rows.Add($"{Py.LeftPad(kind.ToUpperInvariant(), 8)} {title} ({wid}) - {Py.Cut(detail.ContainsKey("evidence") ? Py.Str(detail["evidence"]) : "", 110)}");
+                rows.Add($"{Node.LeftPad(kind.ToUpperInvariant(), 8)} {title} ({wid}) - {Node.Cut(detail.ContainsKey("evidence") ? Node.Str(detail["evidence"]) : "", 110)}");
         }
         var pending = work.Where(w => State.Item(w)?["verdict"] is null).ToList();
         if (pending.Count > 0)
@@ -1477,7 +1477,7 @@ public sealed class SyncRun
         if (verdicts.Count > 0)
         {
             pub["verdicts"] = ReportVerdicts(verdicts);
-            L($"Workshop verdicts of {verdicts.Count} listed map(s) to the bridge: {Py.Str(pub["verdicts"])}");
+            L($"Workshop verdicts of {verdicts.Count} listed map(s) to the bridge: {Node.Str(pub["verdicts"])}");
         }
         if (texts.Count == 0)
         {
@@ -1506,7 +1506,7 @@ public sealed class SyncRun
         if (problems.Count > 0)
         {
             pub["skipped"] = $"NOT written - the result would not be the live files plus additions: {string.Join("; ", problems)}";
-            Errors.Add(Py.Str(pub["skipped"]));
+            Errors.Add(Node.Str(pub["skipped"]));
             return;
         }
         var stamp = Clock.Local().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
@@ -1526,7 +1526,7 @@ public sealed class SyncRun
             }
             Files.WriteAtomic(path, texts[name], FileModes.Shared);
             var back = File.ReadAllBytes(path);
-            if (!SameBytes(back, Py.Utf8(texts[name])))
+            if (!SameBytes(back, Node.Utf8(texts[name])))
                 Errors.Add($"{name} does not read back as written");
             else if (Verdicts.MergeProblems(name, files.Raw.GetValueOrDefault(name), System.Text.Encoding.UTF8.GetString(back)).Count > 0)
                 Errors.Add($"{name}: the written file is not the old one plus additions");
@@ -1540,9 +1540,9 @@ public sealed class SyncRun
         // wait for the next change; written now, the bridge's own watch reads it about 10 s later
         if (texts.ContainsKey("search.json"))
             WriteOne("search.json");
-        pub["files"] = Py.Strings(written);
+        pub["files"] = Node.Strings(written);
         pub["backup"] = backup;
-        L($"published {string.Join(", ", written)}; bridge: {Py.Str(pub["reload"])}");
+        L($"published {string.Join(", ", written)}; bridge: {Node.Str(pub["reload"])}");
         PruneBackups(Path.GetDirectoryName(backup)!, stamp);
         MarkPublished(outcomes, BridgeData.Read(Cfg.BridgeData));
     }
@@ -1608,7 +1608,7 @@ public sealed class SyncRun
             var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/removed/{Cfg.BridgeSecret}", VerdictsBody(verdicts), "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the report failed (HTTP Error {status}) - the next check reports again";
-            var said = Py.Cut(text.Trim(), 300);
+            var said = Node.Cut(text.Trim(), 300);
             return said.Length > 0 ? said : $"HTTP {status}";
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException or System.Net.Sockets.SocketException)
@@ -1619,26 +1619,26 @@ public sealed class SyncRun
 
     public void MarkPublished(IReadOnlyList<Verdicts.Outcome> outcomes, BridgeData files)
     {
-        var listed = new HashSet<string>(files.Maps.OfType<JsonObject>().Select(m => Py.Str(m["id"])));
+        var listed = new HashSet<string>(files.Maps.OfType<JsonObject>().Select(m => Node.Str(m["id"])));
         foreach (var (_, entries) in files.ModeLists)
-            listed.UnionWith(entries.OfType<JsonObject>().Select(m => Py.Str(m["id"])));
+            listed.UnionWith(entries.OfType<JsonObject>().Select(m => Node.Str(m["id"])));
         var on = BridgeData.BrokenIds(files.Broken);
         foreach (var o in outcomes)
         {
             var (wid, kind, detail, rec) = (o.Id, o.Kind, o.Detail, o.Rec);
-            if ((listed.Contains(wid) || on.ContainsKey(wid)) && Py.Str(rec["status"]) != "published")
+            if ((listed.Contains(wid) || on.ContainsKey(wid)) && Node.Str(rec["status"]) != "published")
             {
                 if (kind == "pass" && listed.Contains(wid))
-                    Event(wid, "listed", $"It passed its test: it loads as {Py.StrOr(detail["level"], "its own map")}.");
+                    Event(wid, "listed", $"It passed its test: it loads as {Node.StrOr(detail["level"], "its own map")}.");
                 else if (on.ContainsKey(wid))
-                    Event(wid, "broken", new[] { detail["evidence"], detail["detail"], detail["reason"] }.FirstOrDefault(Py.Truthy) is { } why ? Py.Str(why) : kind);
+                    Event(wid, "broken", new[] { detail["evidence"], detail["detail"], detail["reason"] }.FirstOrDefault(Node.Truthy) is { } why ? Node.Str(why) : kind);
             }
             if (listed.Contains(wid) || on.ContainsKey(wid))
                 rec["status"] = "published";
-            else if (kind == "pass" && Py.Str(rec["why"]) == "changed")
+            else if (kind == "pass" && Node.Str(rec["why"]) == "changed")
                 rec["status"] = "published";
             if (kind == "pass")
-                State.Baseline[wid] = Py.Int(rec["updated"]);
+                State.Baseline[wid] = Node.Int(rec["updated"]);
         }
         State.Save();
         WriteWorkshop(files);
@@ -1655,8 +1655,8 @@ public sealed class SyncRun
     /// tested here, the newest the check saw. 0 while the map's Workshop numbers are not known. Written by the check and by every publish.</summary>
     public void WriteWorkshop(BridgeData files)
     {
-        var own = new HashSet<string>(Py.Arr(Py.Get(Py.ReadJson(Path.Combine(Cfg.BridgeData, "ours.json")), "maps")).OfType<JsonObject>()
-                                          .Select(e => Py.Str(e["id"])).Where(Py.Digits));
+        var own = new HashSet<string>(Node.Arr(Node.Get(Node.ReadJson(Path.Combine(Cfg.BridgeData, "ours.json")), "maps")).OfType<JsonObject>()
+                                          .Select(e => Node.Str(e["id"])).Where(Node.Digits));
         var maps = new JsonObject();
         foreach (var wid in files.Listed())
         {
@@ -1665,19 +1665,19 @@ public sealed class SyncRun
                 var rec = State.Item(wid) ?? [];
                 w = new JsonObject
                 {
-                    ["created"] = Py.Int(rec["created"]), ["updated"] = Py.Int(rec["updated"]), ["content"] = "", ["subs"] = Py.Int(rec["subs"]),
-                    ["lifetime"] = Py.Int(rec["lifetime"]), ["favs"] = 0, ["lifetimeFavs"] = 0, ["views"] = 0,
+                    ["created"] = Node.Int(rec["created"]), ["updated"] = Node.Int(rec["updated"]), ["content"] = "", ["subs"] = Node.Int(rec["subs"]),
+                    ["lifetime"] = Node.Int(rec["lifetime"]), ["favs"] = 0, ["lifetimeFavs"] = 0, ["views"] = 0,
                 };
             }
             var entry = (JsonObject)w.DeepClone();
-            var updated = Py.Int(entry["updated"]);
-            var accepted = Py.Int(State.Baseline[wid]);
+            var updated = Node.Int(entry["updated"]);
+            var accepted = Node.Int(State.Baseline[wid]);
             if (own.Contains(wid))
                 accepted = Math.Max(accepted, updated);
             entry["passed"] = updated > 0 ? accepted : 0;
             maps[wid] = entry;
         }
-        var text = Py.Compact(new JsonObject { ["version"] = 1, ["written"] = (long)Math.Truncate(Clock.Now()), ["maps"] = maps }) + "\n";
+        var text = Node.Compact(new JsonObject { ["version"] = 1, ["written"] = (long)Math.Truncate(Clock.Now()), ["maps"] = maps }) + "\n";
         if (!Cfg.Publish)
             return;
         try
@@ -1699,7 +1699,7 @@ public sealed class SyncRun
             var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/reload/{Cfg.BridgeSecret}", "", "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the reload request failed (HTTP Error {status}): the bridge reads the files again by itself within about 10 s";
-            var said = Py.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);
+            var said = Node.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);
             return said.Length > 0 ? said : $"HTTP {status}";
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException or System.Net.Sockets.SocketException)
@@ -1717,7 +1717,7 @@ public sealed class SyncRun
     {
         if (!Directory.Exists(Content))
             return;
-        var done = Directory.EnumerateFileSystemEntries(Content).Select(p => Path.GetFileName(p)!).Where(w => Py.Truthy(State.Item(w)?["verdict"])).ToList();
+        var done = Directory.EnumerateFileSystemEntries(Content).Select(p => Path.GetFileName(p)!).Where(w => Node.Truthy(State.Item(w)?["verdict"])).ToList();
         if (done.Count == 0)
             return;
         if (Cfg.Handover && Cfg.Publish)
@@ -1735,15 +1735,15 @@ public sealed class SyncRun
             {
                 var rec = State.Item(wid) ?? [];
                 var entry = has.ContainsKey(wid) ? Handover.AcfEntries(StagingAcf, wid) : null;   // the staged copy's version, as SteamCMD names it
-                var stagedT = entry is { } e && Py.Digits(e.Installed.GetValueOrDefault("timeupdated")) ? long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) : 0;
+                var stagedT = entry is { } e && Node.Digits(e.Installed.GetValueOrDefault("timeupdated")) ? long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) : 0;
                 var newer = has.TryGetValue(wid, out var stored) && stagedT > stored;
-                if (Py.Str(rec["verdict"]) != "pass" || !keep.All.Contains(wid) || (has.ContainsKey(wid) && !newer) || pending.ContainsKey(wid) || Cfg.Exclude.Contains(wid))
+                if (Node.Str(rec["verdict"]) != "pass" || !keep.All.Contains(wid) || (has.ContainsKey(wid) && !newer) || pending.ContainsKey(wid) || Cfg.Exclude.Contains(wid))
                     continue;
-                var (ok, why) = HandOverSafe(wid, rec["title"] is null ? null : Py.Str(rec["title"]));
-                L($"hand-over {wid} {Py.Cut(Py.StrOr(rec["title"]), 40)} (tested, in the keep set{(newer ? ", newer than the server's copy" : "")}): {why}"
+                var (ok, why) = HandOverSafe(wid, rec["title"] is null ? null : Node.Str(rec["title"]));
+                L($"hand-over {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} (tested, in the keep set{(newer ? ", newer than the server's copy" : "")}): {why}"
                   + (ok ? "" : " - it stays staged: the next run's serve hands it over"));
                 if (!ok)
-                    List(rep, "handover_failed").Add(Py.Array(wid, why));
+                    List(rep, "handover_failed").Add(Node.Array(wid, why));
                 done.Remove(wid);                          // handed over, or kept for the next run - never deleted while the keep set wants it
                 if (ok)
                 {
@@ -1787,8 +1787,8 @@ public sealed class SyncRun
         {
             Queue(new Dictionary<string, string>(), new Dictionary<string, JsonObject>());   // the backlog as it is at the end of the run, for the mail
             Report["backlog"] = Backlog?.DeepClone();
-            if (Backlog is not null && Py.Truthy(Backlog["days"]))
-                Report["backlog_until"] = $" (until about {Clock.Day(Clock.Now() + Py.Int(Backlog["days"]) * Day)})";
+            if (Backlog is not null && Node.Truthy(Backlog["days"]))
+                Report["backlog_until"] = $" (until about {Clock.Day(Clock.Now() + Node.Int(Backlog["days"]) * Day)})";
         }
         catch (Exception e) when (e is not StopRequested)
         {
@@ -1814,7 +1814,7 @@ public sealed class SyncRun
         Report["mail_subject"] = subject;
         try
         {
-            Files.WriteAtomic(path, Py.DumpsFile(Report, 1), FileModes.Private);
+            Files.WriteAtomic(path, Node.DumpsFile(Report, 1), FileModes.Private);
             Files.WriteAtomic(path[..^5] + ".txt", subject + "\n\n" + body + "\n", FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -1822,8 +1822,8 @@ public sealed class SyncRun
             L($"report not written: {e.Message}");
         }
         PruneReports(Path.GetDirectoryName(path)!, Path.GetFileName(path));
-        var idle = !(Py.Truthy(Py.Get(Report["downloads"], "ok")) || Py.Truthy(Py.Get(Report["tests"], "rows")) || Py.Truthy(Py.Get(Report["published"], "files"))
-                     || Py.Truthy(Report["errors"]) || Py.Truthy(Py.Get(Report["serve"], "ok")));
+        var idle = !(Node.Truthy(Node.Get(Report["downloads"], "ok")) || Node.Truthy(Node.Get(Report["tests"], "rows")) || Node.Truthy(Node.Get(Report["published"], "files"))
+                     || Node.Truthy(Report["errors"]) || Node.Truthy(Node.Get(Report["serve"], "ok")));
         Report["idle"] = idle;
         if (Native.DiskFree(Cfg.GameDir) is { } free)       // the disk, and the game server's last deletion, for the problems below
         {
@@ -1832,10 +1832,10 @@ public sealed class SyncRun
                 disk["low"] = $"{Text.Mb(free)} free on the game's volume (the mark is {Text.Mb(Cfg.DiskLow)})";
             Report["disk"] = disk;
         }
-        if (Py.ReadJson(Path.Combine(Cfg.WatcherDir, "keep.json")) is JsonObject wk && Py.Truthy(wk["problems"]) && Py.StrOr(wk["delete"], "on") != "off")
+        if (Node.ReadJson(Path.Combine(Cfg.WatcherDir, "keep.json")) is JsonObject wk && Node.Truthy(wk["problems"]) && Node.StrOr(wk["delete"], "on") != "off")
             Report["watcher_keep"] = new JsonObject
             {
-                ["computed"] = Py.StrOr(wk["computed"], "?"), ["problems"] = new JsonArray(Py.Arr(wk["problems"]).Take(5).Select(p => p?.DeepClone()).ToArray()),
+                ["computed"] = Node.StrOr(wk["computed"], "?"), ["problems"] = new JsonArray(Node.Arr(wk["problems"]).Take(5).Select(p => p?.DeepClone()).ToArray()),
             };
         if (Cfg.Publish && !File.Exists(Path.Combine(Cfg.BridgeData, WorkshopFile)))
         {
@@ -1848,12 +1848,12 @@ public sealed class SyncRun
             }
         }
         var issues = Mail.IssuesOf(Report);
-        Report["issues"] = Py.Strings(issues.Select(i => i.What));
+        Report["issues"] = Node.Strings(issues.Select(i => i.What));
         Report["mail"] = Mail.MailIssues(Cfg, Clock, issues, Report, Seams.SendMail, L);
-        L($"mail {Py.Str(Report["mail"])}{(issues.Count > 0 ? "" : $" - this run's report: {path[..^5]}.txt")}");
+        L($"mail {Node.Str(Report["mail"])}{(issues.Count > 0 ? "" : $" - this run's report: {path[..^5]}.txt")}");
         try                                                 // again, now with the mail's outcome in it
         {
-            Files.WriteAtomic(path, Py.DumpsFile(Report, 1), FileModes.Private);
+            Files.WriteAtomic(path, Node.DumpsFile(Report, 1), FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -1862,10 +1862,10 @@ public sealed class SyncRun
         try
         {
             var hist = State.Section("history");
-            if (!Py.Truthy(hist["runs"]))
+            if (!Node.Truthy(hist["runs"]))
                 hist["runs"] = Status.SeedRuns(Cfg.StateDir, Clock);
-            var started = Clock.UnixOf(Py.Str(Report["started"]));
-            var runs = Py.Arr(hist["runs"]).Where(e => !(Py.Get(e, "started") is { } s && started is { } st && Py.Float(s) == st)).Select(e => e?.DeepClone()).ToList();
+            var started = Clock.UnixOf(Node.Str(Report["started"]));
+            var runs = Node.Arr(hist["runs"]).Where(e => !(Node.Get(e, "started") is { } s && started is { } st && Node.Float(s) == st)).Select(e => e?.DeepClone()).ToList();
             runs.Insert(0, Status.RunEntry(Report, Clock));
             hist["runs"] = new JsonArray(runs.Take(Status.Runs).ToArray());
         }
@@ -1888,17 +1888,17 @@ public sealed class SyncRun
     {
         var items = State.Items;
         var day = Clock.Day();
-        var book = Py.Obj(Py.Get(State.Data["downloads"], day));
-        var decided = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Py.Str(r["decided"]) == day && Py.Truthy(r["verdict"])).ToList();
+        var book = Node.Obj(Node.Get(State.Data["downloads"], day));
+        var decided = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Str(r["decided"]) == day && Node.Truthy(r["verdict"])).ToList();
         var today = new JsonObject
         {
-            ["downloads"] = Py.Int(book["items"]), ["bytes"] = Py.Int(book["bytes"]), ["pass"] = decided.Count(r => Py.Str(r["verdict"]) == "pass"),
-            ["rejected"] = decided.Count(r => Py.Str(r["verdict"]) != "pass"), ["failedDownloads"] = Py.Int(book["failed"]),
+            ["downloads"] = Node.Int(book["items"]), ["bytes"] = Node.Int(book["bytes"]), ["pass"] = decided.Count(r => Node.Str(r["verdict"]) == "pass"),
+            ["rejected"] = decided.Count(r => Node.Str(r["verdict"]) != "pass"), ["failedDownloads"] = Node.Int(book["failed"]),
             ["apiCalls"] = Ledger.Data is not null ? Ledger.Count(day) : 0,
         };
-        if (Py.Truthy(book["stop"]))
-            today["stop"] = Py.Cut(Py.Str(book["stop"]), 200);
-        var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Py.Truthy(r["verdict"])).Select(r => Py.Str(r["verdict"])).ToList();
+        if (Node.Truthy(book["stop"]))
+            today["stop"] = Node.Cut(Node.Str(book["stop"]), 200);
+        var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Truthy(r["verdict"])).Select(r => Node.Str(r["verdict"])).ToList();
         BridgeData? files;
         try
         {
@@ -1916,12 +1916,12 @@ public sealed class SyncRun
             foreach (var (mode, entries) in new[] { ("armsrace", files.Maps), ("deathmatch", files.ModeLists["deathmatch"]), ("wingman", files.ModeLists["wingman"]) })
                 foreach (var entry in entries.OfType<JsonObject>())
                 {
-                    var id = Py.StrOr(entry["id"]);
-                    if (!Py.Digits(id))
+                    var id = Node.StrOr(entry["id"]);
+                    if (!Node.Digits(id))
                         continue;
                     listed.TryAdd(id, mode);
-                    sizes.TryAdd(id, Py.Int(entry["sizeMb"]) << 20);
-                    names.TryAdd(id, Text.Clean(Py.StrOr(entry["name"]), 80));
+                    sizes.TryAdd(id, Node.Int(entry["sizeMb"]) << 20);
+                    names.TryAdd(id, Text.Clean(Node.StrOr(entry["name"]), 80));
                 }
         }
         (ListedMode, ListedSize, ListedName) = (listed, sizes, names);
@@ -1934,7 +1934,7 @@ public sealed class SyncRun
                 ["armsrace"] = files?.Maps.Count ?? 0, ["deathmatch"] = files?.ModeLists["deathmatch"].Count ?? 0, ["wingman"] = files?.ModeLists["wingman"].Count ?? 0,
             },
         };
-        long SizeOf(string wid) => sizes.TryGetValue(wid, out var s) && s != 0 ? s : Py.Int(Py.Get(items[wid], "size"));
+        long SizeOf(string wid) => sizes.TryGetValue(wid, out var s) && s != 0 ? s : Node.Int(Node.Get(items[wid], "size"));
         // the queue, in the order the downloads take it
         var order = Queue(files?.KnownIds(Cfg) ?? new Dictionary<string, string>(), new Dictionary<string, JsonObject>());
         string Why(string wid)
@@ -1945,24 +1945,24 @@ public sealed class SyncRun
                 return "it changed on the Workshop since its test";
             if (QFresh.Contains(wid))
                 return "a new upload";
-            return $"by popularity: {Py.Int(Py.Get(items[wid], "subs"))} subscribers";
+            return $"by popularity: {Node.Int(Node.Get(items[wid], "subs"))} subscribers";
         }
         var pace = Pace() ?? Verdicts.PaceDefault;
         var byMode = new JsonObject();
         foreach (var (mode, tag, _, _, _) in GameModes.All)
-            byMode[mode] = order.Count(w => Py.In(Py.Get(items[w], "tags"), tag));
+            byMode[mode] = order.Count(w => Node.In(Node.Get(items[w], "tags"), tag));
         var queue = new JsonObject
         {
-            ["total"] = order.Count, ["bytes"] = order.Sum(w => Py.Int(Py.Get(items[w], "size"))), ["byMode"] = byMode,
+            ["total"] = order.Count, ["bytes"] = order.Sum(w => Node.Int(Node.Get(items[w], "size"))), ["byMode"] = byMode,
             ["eta"] = order.Count > 0 ? (long)Math.Truncate(Clock.Now() + order.Count * pace * Day / (Verdicts.HoursADay * 3600.0)) : null,
             ["next"] = new JsonArray(order.Take(Status.Next).Select(w => (JsonNode?)new JsonObject
             {
-                ["id"] = w, ["name"] = Text.Clean(Py.StrOr(Py.Get(items[w], "title")), 80), ["mode"] = Status.ListMode(items[w], listed, w),
-                ["sizeMb"] = Py.Int(Py.Get(items[w], "size")) >> 20, ["why"] = Why(w),
+                ["id"] = w, ["name"] = Text.Clean(Node.StrOr(Node.Get(items[w], "title")), 80), ["mode"] = Status.ListMode(items[w], listed, w),
+                ["sizeMb"] = Node.Int(Node.Get(items[w], "size")) >> 20, ["why"] = Why(w),
             }).ToArray()),
         };
         // the keep set: its parts as the game server stores them, and what the sync still has to hand over; the HUD item is hud.addon
-        var hud = Py.Digits(Cfg.HudAddon) ? Cfg.HudAddon : "";
+        var hud = Node.Digits(Cfg.HudAddon) ? Cfg.HudAddon : "";
         var keep = SafeKeepSet(KeepInputs(), Clock.Now(), hud);
         var has = Handover.ServerMaps(Cfg.GameDir);
         var pending = Handover.Pending(Cfg.HandoverDir);
@@ -1979,7 +1979,7 @@ public sealed class SyncRun
             var p = new JsonObject
             {
                 ["part"] = name, ["mode"] = mode, ["count"] = list.Count, ["onDisk"] = list.Count(has.ContainsKey),
-                ["gb"] = Py.Round(list.Sum(w => (double)SizeOf(w)) / (1L << 30), 1),
+                ["gb"] = Node.Round(list.Sum(w => (double)SizeOf(w)) / (1L << 30), 1),
             };
             if (queueName is not null)
                 p["queue"] = queueName;
@@ -2001,17 +2001,17 @@ public sealed class SyncRun
             Part("queues", "", keep.Requested, "requested");
         var keepOut = new JsonObject
         {
-            ["parts"] = parts, ["totalGb"] = Py.Round(keep.All.Sum(w => (double)SizeOf(w)) / (1L << 30), 1), ["count"] = keep.All.Count,
+            ["parts"] = parts, ["totalGb"] = Node.Round(keep.All.Sum(w => (double)SizeOf(w)) / (1L << 30), 1), ["count"] = keep.All.Count,
             ["onDisk"] = keep.All.Count(has.ContainsKey),
-            ["problems"] = Py.Strings(keep.Problems.Where(p => !(p.StartsWith("no HUD item", StringComparison.Ordinal) && hud.Length == 0)).Take(5)),
+            ["problems"] = Node.Strings(keep.Problems.Where(p => !(p.StartsWith("no HUD item", StringComparison.Ordinal) && hud.Length == 0)).Take(5)),
         };
         var hist = State.Section("history");
-        if (!Py.Truthy(hist["runs"]))
+        if (!Node.Truthy(hist["runs"]))
             hist["runs"] = Status.SeedRuns(Cfg.StateDir, Clock);
         var history = new JsonObject
         {
-            ["runs"] = new JsonArray(Py.Arr(hist["runs"]).Take(Status.Runs).Select(e => e?.DeepClone()).ToArray()),
-            ["maps"] = new JsonArray(Py.Arr(hist["maps"]).Reverse().Take(Status.Maps).Select(e => e?.DeepClone()).ToArray()),
+            ["runs"] = new JsonArray(Node.Arr(hist["runs"]).Take(Status.Runs).Select(e => e?.DeepClone()).ToArray()),
+            ["maps"] = new JsonArray(Node.Arr(hist["maps"]).Reverse().Take(Status.Maps).Select(e => e?.DeepClone()).ToArray()),
         };
         return new JsonObject { ["today"] = today, ["totals"] = totals, ["queue"] = queue, ["keep"] = keepOut, ["history"] = history };
     }

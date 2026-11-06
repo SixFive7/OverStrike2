@@ -159,7 +159,7 @@ static class Part3
                 ["version"] = 1, ["fetched"] = KT - 60, ["scores"] = scores,
                 ["trend"] = new JsonObject
                 {
-                    ["armsrace"] = Py.Strings(Enumerable.Range(60, 70).Select(r => (100 + r).ToString())), ["deathmatch"] = Py.Strings(["310", "311", "999"]), ["wingman"] = new JsonArray(),
+                    ["armsrace"] = Node.Strings(Enumerable.Range(60, 70).Select(r => (100 + r).ToString())), ["deathmatch"] = Node.Strings(["310", "311", "999"]), ["wingman"] = new JsonArray(),
                 },
             },
             ["queues.json"] = O("{\"version\": 1, \"random\": {\"armsrace-new\": [\"120\"], \"deathmatch\": [\"301\"]}, \"requested\": [\"150\"]}"),
@@ -169,12 +169,12 @@ static class Part3
 
     public static Dictionary<string, JsonNode?> Inputs(JsonObject data) => data.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
 
-    static string Same(KeepSetResult k) => Py.Compact(new JsonObject
+    static string Same(KeepSetResult k) => Node.Compact(new JsonObject
     {
-        ["up"] = Py.Strings(k.Up), ["top"] = new JsonObject(k.Top.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Py.Strings(kv.Value)))),
-        ["own"] = Py.Strings(k.Own), ["hud"] = Py.Strings(k.Hud), ["requested"] = Py.Strings(k.Requested), ["all"] = Py.Strings(k.All.OrderBy(x => x, StringComparer.Ordinal)),
-        ["scored"] = k.Scored, ["problems"] = Py.Strings(k.Problems),
-        ["queues"] = new JsonObject(k.Queues.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Py.Strings(kv.Value)))),
+        ["up"] = Node.Strings(k.Up), ["top"] = new JsonObject(k.Top.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Node.Strings(kv.Value)))),
+        ["own"] = Node.Strings(k.Own), ["hud"] = Node.Strings(k.Hud), ["requested"] = Node.Strings(k.Requested), ["all"] = Node.Strings(k.All.OrderBy(x => x, StringComparer.Ordinal)),
+        ["scored"] = k.Scored, ["problems"] = Node.Strings(k.Problems),
+        ["queues"] = new JsonObject(k.Queues.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Node.Strings(kv.Value)))),
     });
 
     // ---- the keep set: Core's KeepSet, shared with the restart watcher
@@ -212,10 +212,10 @@ static class Part3
             """)]);
         var got = api.Votes(["11", "12", "13"]);
         Check("votes: the score, the votes and the subscriptions of what the Workshop has; result 15 and no vote_data give none",
-              got.Count == 1 && Py.Eq(got["11"], A("[0.547, 14, 3, 0]")));
+              got.Count == 1 && Node.Eq(got["11"], A("[0.547, 14, 3, 0]")));
         Check("votes: one keyed GET to IPublishedFileService/GetDetails with includevotes, counted in the ledger as GetDetails",
               sent.Count == 1 && sent[0].Url.StartsWith(SteamApi.VotesUrl, StringComparison.Ordinal) && sent[0].Url.Contains("key=" + Key) && sent[0].Url.Contains("includevotes=true")
-              && sent[0].Url.Contains("publishedfileids%5B2%5D=13") && Py.Str(((JsonArray)led.Data!["calls"]!)[^1]![1]) == "GetDetails");
+              && sent[0].Url.Contains("publishedfileids%5B2%5D=13") && Node.Str(((JsonArray)led.Data!["calls"]!)[^1]![1]) == "GetDetails");
     }
 
     static SyncRun nn = null!;
@@ -247,33 +247,33 @@ static class Part3
         nn.State.Load();
         nn.RequeueSizeSkips();
         Check("the 223: every map skipped as too big for an old daily cap is queued again, 160 GB too - there is no cap now; a CS:GO-era skip stays",
-              Py.Str(nn.State.Item("140")!["status"]) == "queued" && Py.Str(nn.State.Item("141")!["status"]) == "queued" && Py.Str(nn.State.Item("142")!["status"]) == "skipped"
-              && Py.Int(nn.Report["requeued"]) == 2);
+              Node.Str(nn.State.Item("140")!["status"]) == "queued" && Node.Str(nn.State.Item("141")!["status"]) == "queued" && Node.Str(nn.State.Item("142")!["status"]) == "skipped"
+              && Node.Int(nn.Report["requeued"]) == 2);
         var vapi = new VoteApi(new() { ["143"] = 0.99, ["144"] = 0.01, ["140"] = 0.5, ["105"] = 0.7 },
                                trends: new() { ["Armsrace"] = ["999", "105", "106"], ["Deathmatch"] = ["301"], ["Wingman"] = [] });
         nn.Ratings(vapi, ["105", "106"]);
         var rj = Read(Path.Combine(sdata, "ratings.json"))!;
         Check("ratings: the listed maps and every map waiting for its test, scored with their subscriptions and written to the bridge's data with the time",
-              vapi.Asked.ToHashSet().SetEquals(["105", "106", "140", "141", "143", "144"]) && Py.Int(rj["version"]) == 1 && Py.Float(rj["fetched"]) == KT
-              && Py.Eq(rj["scores"]!["143"], A("[0.99, 1, 0, 5]")) && Py.Truthy(Py.Get(nn.Report["ratings"], "complete")));
+              vapi.Asked.ToHashSet().SetEquals(["105", "106", "140", "141", "143", "144"]) && Node.Int(rj["version"]) == 1 && Node.Float(rj["fetched"]) == KT
+              && Node.Eq(rj["scores"]!["143"], A("[0.99, 1, 0, 5]")) && Node.Truthy(Node.Get(nn.Report["ratings"], "complete")));
         Check("ratings: each mode's Most Popular order over 30 days, by its tag",
-              Py.Eq(rj["trend"], O("{\"armsrace\": [\"999\", \"105\", \"106\"], \"deathmatch\": [\"301\"], \"wingman\": []}")) && Py.Int(rj["trend_days"]) == 30
+              Node.Eq(rj["trend"], O("{\"armsrace\": [\"999\", \"105\", \"106\"], \"deathmatch\": [\"301\"], \"wingman\": []}")) && Node.Int(rj["trend_days"]) == 30
               && vapi.Tags.OrderBy(x => x.Tag, StringComparer.Ordinal).SequenceEqual([("Armsrace", 30), ("Deathmatch", 30), ("Wingman", 30)]));
         nn.Ratings(new VoteApi([]), ["105"]);
-        Check("ratings: once a day - not again within RATINGS_EVERY", Py.Str(Py.Get(nn.Report["ratings"], "skipped")).Contains("fetched"));
+        Check("ratings: once a day - not again within RATINGS_EVERY", Node.Str(Node.Get(nn.Report["ratings"], "skipped")).Contains("fetched"));
         ((JsonObject)nn.State.Data["ratings"]!)["fetched"] = KT - 2 * 86400;
         nn.Report.Remove("ratings");
         nn.Ratings(new VoteApi(new() { ["105"] = 0.1 }, stopAfter: 0), ["105"]);
         Check("ratings: cut short by a stop - the old scores kept, with their old time",
-              Py.Float(nn.State.Data["ratings"]!["fetched"]) == KT - 2 * 86400 && !Py.Truthy(Py.Get(nn.Report["ratings"], "complete"))
-              && Py.Float(nn.State.Data["ratings"]!["scores"]!["143"]![0]) == 0.99);
+              Node.Float(nn.State.Data["ratings"]!["fetched"]) == KT - 2 * 86400 && !Node.Truthy(Node.Get(nn.Report["ratings"], "complete"))
+              && Node.Float(nn.State.Data["ratings"]!["scores"]!["143"]![0]) == 0.99);
         var saved = nn.State.Data["ratings"]!.DeepClone();
         ((JsonObject)nn.State.Data["ratings"]!)["fetched"] = KT;
         ((JsonObject)nn.State.Data["ratings"]!).Remove("trend");
         nn.Report.Remove("ratings");
         nn.Ratings(new VoteApi(new() { ["105"] = 0.7 }, trends: new() { ["Armsrace"] = ["105"] }), ["105"]);
         Check("ratings: at once when a list is missing (kept before the lists were three), however fresh",
-              Py.Truthy(Py.Get(nn.Report["ratings"], "complete")) && ((JsonObject)nn.State.Data["ratings"]!).ContainsKey("trend"));
+              Node.Truthy(Node.Get(nn.Report["ratings"], "complete")) && ((JsonObject)nn.State.Data["ratings"]!).ContainsKey("trend"));
         nn.State.Data["ratings"] = saved;
         ((JsonObject)nn.State.Data["ratings"]!)["fetched"] = KT;
         var ratings = (JsonObject)kdata["ratings.json"]!.DeepClone();
@@ -323,15 +323,15 @@ static class Part3
         var mk = Read(Path.Combine(hdir, "305.json"))!;
         Check($"hand-over: the folder moved, the manifest copied, the marker names its acf entries and what the folder holds ({words})",
               ok && File.Exists(Path.Combine(hdir, "305", "305_dir.vpk")) && File.ReadAllText(Path.Combine(hdir, "305.manifest")) == "M"
-              && Py.Eq(mk["installed"], O("{\"size\": \"4\", \"timeupdated\": \"77\", \"manifest\": \"555\"}")) && Py.Str(mk["details"]!["latest_manifest"]) == "555"
-              && (Py.Int(mk["files"]), Py.Int(mk["bytes"])) == (1, 4) && !Directory.Exists(Path.Combine(stg, "content", "730", "305"))
+              && Node.Eq(mk["installed"], O("{\"size\": \"4\", \"timeupdated\": \"77\", \"manifest\": \"555\"}")) && Node.Str(mk["details"]!["latest_manifest"]) == "555"
+              && (Node.Int(mk["files"]), Node.Int(mk["bytes"])) == (1, 4) && !Directory.Exists(Path.Combine(stg, "content", "730", "305"))
               && Handover.AcfItems(Path.Combine(stg, "appworkshop_730.acf")).Count == 0);
         Check("hand-over: what waits in the folder", Handover.Pending(hdir) is { Count: 1 } p && p["305"] == 4);
         Check("hand-over: nothing staged, nothing handed over", !Handover.HandOver(Path.Combine(swork, "staging"), hdir, "306", "", "", KT, Log.Line).Ok);
         // the one contract the two programs share: os2-server's MapsFolder takes in what the sync handed over
         Check("hand-over: os2-server reads the sync's marker as complete",
               MapsFolder.ReadMarker(Path.Combine(hdir, "305.json"), "305").Record is not null
-              && MapsFolder.FolderStats(Path.Combine(hdir, "305")) == (Py.Int(mk["files"]), Py.Int(mk["bytes"])));
+              && MapsFolder.FolderStats(Path.Combine(hdir, "305")) == (Node.Int(mk["files"]), Node.Int(mk["bytes"])));
     }
 
     // ---- serve: the keep set's maps the server does not store are fetched and handed over; what it stores, or waits, is not
@@ -367,15 +367,15 @@ static class Part3
             .Except(["110", "120", "150", "301", "900", "305"]).OrderBy(x => x, StringComparer.Ordinal).ToList();
         var diff = missing.Append("305").Except(handed).Concat(handed.Except(missing.Append("305"))).ToList();
         var serveRep = (JsonObject)ns.Report["serve"]!.DeepClone();
-        serveRep["diff"] = Py.Strings(diff);
-        Check($"serve: every keep-set map the server lacks is fetched and handed over ({missing.Count}), 160 GB too, never one it stores or one waiting already ({Py.Dumps(serveRep)})",
+        serveRep["diff"] = Node.Strings(diff);
+        Check($"serve: every keep-set map the server lacks is fetched and handed over ({missing.Count}), 160 GB too, never one it stores or one waiting already ({Node.Dumps(serveRep)})",
               handed.SequenceEqual(missing.Append("305").OrderBy(x => x, StringComparer.Ordinal)) && !FakeSteam.Asked.Intersect(["110", "301", "900", "305"]).Any()
-              && Py.Int(ns.Report["serve"]!["ok"]) == missing.Count);
+              && Node.Int(ns.Report["serve"]!["ok"]) == missing.Count);
         FakeSteam.Asked = [];
         var ns2 = W.Run(ncfg2, new FakeClock(KT + 60));
         ns2.State.Load();
         ns2.Serve();
-        Check("serve: a second run fetches nothing more", FakeSteam.Asked.Count == 0 && Py.Int(ns2.Report["serve"]!["missing"]) == 0);
+        Check("serve: a second run fetches nothing more", FakeSteam.Asked.Count == 0 && Node.Int(ns2.Report["serve"]!["missing"]) == 0);
         // serve also fetches the stored keep-set maps the Workshop has a newer accepted version of - and only those
         var stateFile = Path.Combine(sstate, "state.json");
         var savedState = File.ReadAllText(stateFile);       // the runs below save it: the later tests get it back as it was
@@ -395,13 +395,13 @@ static class Part3
         guard["items"]!["120"] = O("{\"verdict\": \"crasher\", \"status\": \"published\", \"why\": \"changed\", \"updated\": 30}");
         Check("serve: nor one whose last test failed (120: the Workshop's version now is the one that crashed)",
               !Handover.ServeWants(keep7, Handover.ServerMaps(sgame), Handover.Pending(hdir), guard, ncfg2).Outdated.Contains("120"));
-        Check("serve: the status file counts them", Py.Int(ns7.StatusHeavy()["queue"]!["serve"]!["outdated"]) == 2);
+        Check("serve: the status file counts them", Node.Int(ns7.StatusHeavy()["queue"]!["serve"]!["outdated"]) == 2);
         ns7.Serve();
         Check($"serve: ...both are downloaded and handed over, nothing else ({T.Show(FakeSteam.Asked)})",
               FakeSteam.Asked.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(["110", "900"]) && new[] { "110", "900" }.All(Handover.Pending(hdir).ContainsKey)
-              && Py.Int(ns7.Report["serve"]!["outdated"]) == 2 && Py.Int(ns7.Report["serve"]!["ok"]) == 2);
+              && Node.Int(ns7.Report["serve"]!["outdated"]) == 2 && Node.Int(ns7.Report["serve"]!["ok"]) == 2);
         Check("serve: the history says it was the newer version",
-              Py.Arr(ns7.State.Data["history"]!["maps"]).Any(e => Py.Str(e!["id"]) == "110" && Py.Str(e["why"]).Contains("newer version")));
+              Node.Arr(ns7.State.Data["history"]!["maps"]).Any(e => Node.Str(e!["id"]) == "110" && Node.Str(e["why"]).Contains("newer version")));
         FakeSteam.Asked = [];
         var ns8 = W.Run(ncfg2, new FakeClock(KT + 100));
         ns8.State.Load();
@@ -448,16 +448,16 @@ static class Part3
         var s3 = (JsonObject)ns3.Report["serve"]!;
         var waiting = Handover.Pending(hdir);
         var s3show = (JsonObject)s3.DeepClone();
-        s3show["asked"] = Py.Strings(FakeSteam.Asked);
-        Check($"serve: a map staged already with SteamCMD's entry is handed over without a download; an older staged version and one not staged are downloaded ({Py.Dumps(s3show)})",
-              waiting.ContainsKey(sa) && !FakeSteam.Asked.Contains(sa) && Py.Int(s3["staged"]) == 1
+        s3show["asked"] = Node.Strings(FakeSteam.Asked);
+        Check($"serve: a map staged already with SteamCMD's entry is handed over without a download; an older staged version and one not staged are downloaded ({Node.Dumps(s3show)})",
+              waiting.ContainsKey(sa) && !FakeSteam.Asked.Contains(sa) && Node.Int(s3["staged"]) == 1
               && FakeSteam.Asked.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(new[] { sb, sc, sd }.OrderBy(x => x, StringComparer.Ordinal)));
         Check("serve: SteamCMD's acf late - every download is handed over once it has quit, none lost",
-              new[] { sb, sc, sd }.All(waiting.ContainsKey) && Py.Int(s3["ok"]) == 4 && Py.Arr(s3["failed"]).Count == 0);
+              new[] { sb, sc, sd }.All(waiting.ContainsKey) && Node.Int(s3["ok"]) == 4 && Node.Arr(s3["failed"]).Count == 0);
         Check("serve: the staging acf names none of the handed-over maps afterwards",
               !Handover.AcfItems(Path.Combine(stg, "appworkshop_730.acf")).Keys.Intersect([sa, sb, sc, sd]).Any());
         Check("serve: the marker of the re-downloaded map carries the new version, not the staged one",
-              Py.Str(Read(Path.Combine(hdir, sb + ".json"))!["installed"]!["timeupdated"]) == "200");
+              Node.Str(Read(Path.Combine(hdir, sb + ".json"))!["installed"]!["timeupdated"]) == "200");
         var (se, sf) = ("998", missing[4]);                 // sf: downloaded once today (sd twice: the brake holds it)
         Unhand(sf);
         Stage(sf);
@@ -484,9 +484,9 @@ static class Part3
             ns9.State.Items[w] = Merged(ns9.State.Item(w), ("verdict", "pass"), ("status", "tested"), ("title", "t" + w));
         ns9.CleanupStaging();
         Check("cleanup: a tested update newer than the server's copy is handed over (110), one as old as it is removed (120)",
-              Handover.Pending(hdir).ContainsKey("110") && Py.Str(Read(Path.Combine(hdir, "110.json"))!["installed"]!["timeupdated"]) == "40"
+              Handover.Pending(hdir).ContainsKey("110") && Node.Str(Read(Path.Combine(hdir, "110.json"))!["installed"]!["timeupdated"]) == "40"
               && !Directory.Exists(Path.Combine(stg, "content", "730", "120")) && !Handover.Pending(hdir).ContainsKey("120")
-              && Py.Arr(ns9.State.Data["history"]!["maps"]).Any(e => Py.Str(e!["id"]) == "110" && Py.Str(e["why"]).Contains("replaces the older copy")));
+              && Node.Arr(ns9.State.Data["history"]!["maps"]).Any(e => Node.Str(e!["id"]) == "110" && Node.Str(e["why"]).Contains("replaces the older copy")));
         Unhand("110");
         WriteStagingAcf([]);
         File.WriteAllText(stateFile, savedState);
@@ -546,8 +546,8 @@ static class Part3
               TestLoad.ModeOf(["Wingman"]) == ("wingman", 0, 2) && TestLoad.ModeOf([]) == ("armsrace", 1, 0) && Status.ListMode(O("{\"tags\": [\"Deathmatch\"]}")) == "deathmatch");
         DownEngine.Sent.Clear();
         var got = TestLoad.Load(new DownEngine(), "4242", ["de_x"], ["Wingman"], 20, () => false, C(new FakeClock(KT)));
-        Check($"test_load (the real one): the map asked for in its mode, a crash reported - no exception ({Py.StrOr(got["verdict"], "None")})",
-              Py.Str(got["verdict"]) == "crash" && DownEngine.Sent.SequenceEqual(["game_type 0; game_mode 2; host_workshop_map 4242"]));
+        Check($"test_load (the real one): the map asked for in its mode, a crash reported - no exception ({Node.StrOr(got["verdict"], "None")})",
+              Node.Str(got["verdict"]) == "crash" && DownEngine.Sent.SequenceEqual(["game_type 0; game_mode 2; host_workshop_map 4242"]));
     }
 
     // ---- a reshaped input (a list where an object is read, a string, an object of the wrong things) is logged and counted, never a crash
@@ -573,7 +573,7 @@ static class Part3
         nsr.State.Load();
         nsr.Serve();
         Check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
-              Py.StrOr(Py.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Py.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
+              Node.StrOr(Node.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Node.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
         // The keep set is compiled in from Core, so it cannot be missing; these two hold what a missing one must mean: a keep set that could
         // not be computed is empty, says why, and serve hands over nothing on it
         Hooks.KeepSet = (_, _, _, _) => throw new FileNotFoundException("OverStrike2.Core's KeepSet is not loadable");
@@ -583,8 +583,8 @@ static class Part3
         var nb = W.Run(ncfg2, new FakeClock(KT + 500));
         nb.State.Load();
         nb.Serve();
-        Check("no keep set: serve hands over nothing and names it as an error",Py.StrOr(Py.Get(nb.Report["serve"], "skipped")).Contains("could not be computed")
-              && Py.StrList(nb.Report["errors"]).Any(e => e.Contains("KeepSet")));
+        Check("no keep set: serve hands over nothing and names it as an error",Node.StrOr(Node.Get(nb.Report["serve"], "skipped")).Contains("could not be computed")
+              && Node.StrList(nb.Report["errors"]).Any(e => e.Contains("KeepSet")));
         Hooks.KeepSet = realKeep;
     }
 }

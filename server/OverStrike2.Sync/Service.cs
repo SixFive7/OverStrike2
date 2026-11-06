@@ -16,12 +16,12 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     /// <summary>Anything for a day's run to do: an item still to download, or one staged without a verdict.</summary>
     public static bool BacklogWaits(JsonObject state)
     {
-        foreach (var (_, node) in Py.Obj(state["items"]))
+        foreach (var (_, node) in Node.Obj(state["items"]))
         {
             if (node is not JsonObject rec)
                 continue;
-            var status = Py.Str(rec["status"]);
-            if (status is "queued" or "retry" or "downloaded" || (status == "tested" && !Py.Truthy(rec["verdict"])))
+            var status = Node.Str(rec["status"]);
+            if (status is "queued" or "retry" or "downloaded" || (status == "tested" && !Node.Truthy(rec["verdict"])))
                 return true;
         }
         return false;
@@ -63,10 +63,10 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     /// <summary>A run has work: maps to download or test (and Steam has not stopped today's downloads), or discovery and the check are due.</summary>
     public static bool WorkWaits(SyncConfig cfg, SyncClock clock, JsonObject state)
     {
-        var book = Py.Obj(Py.Get(state["downloads"], clock.Day()));
-        if (BacklogWaits(state) && !Py.Truthy(book["stop"]))
+        var book = Node.Obj(Node.Get(state["downloads"], clock.Day()));
+        if (BacklogWaits(state) && !Node.Truthy(book["stop"]))
             return true;
-        return clock.Now() - Py.Float(state["last_api"]) >= cfg.ApiEvery;
+        return clock.Now() - Node.Float(state["last_api"]) >= cfg.ApiEvery;
     }
 
     /// <summary>When the service looks again after a run that did nothing. Something stopped it - a join, the deadline, a failed download, a
@@ -76,11 +76,11 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     public static double IdleUntil(SyncConfig cfg, SyncClock clock, JsonObject report, JsonNode? lastApi)
     {
         var now = clock.Now();
-        var stopped = new[] { "downloads", "tests", "serve" }.Any(step => Py.Truthy(Py.Get(report[step], "stop")) || Py.Truthy(Py.Get(report[step], "failed")))
-                      || Py.Truthy(Py.Get(report["tests"], "waiting_verdict")) || Py.Truthy(Py.Get(report["published"], "skipped"));
+        var stopped = new[] { "downloads", "tests", "serve" }.Any(step => Node.Truthy(Node.Get(report[step], "stop")) || Node.Truthy(Node.Get(report[step], "failed")))
+                      || Node.Truthy(Node.Get(report["tests"], "waiting_verdict")) || Node.Truthy(Node.Get(report["published"], "skipped"));
         if (stopped)
             return now + IdleWait;
-        return Math.Max(now + IdleWait, Math.Min(Py.Float(lastApi) + cfg.ApiEvery, clock.AtTime(new TimeOfDay(0, 0), now + 86400)));
+        return Math.Max(now + IdleWait, Math.Min(Node.Float(lastApi) + cfg.ApiEvery, clock.AtTime(new TimeOfDay(0, 0), now + 86400)));
     }
 
     SyncRun NewRun(SyncConfig runCfg, bool manual, Status status) => new(runCfg, clock, seams, log, manual, status: status, door: door);
@@ -130,7 +130,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
             var trigger = Path.Combine(cfg.StateDir, "run-now");
             if (File.Exists(trigger))
             {
-                var overrides = Py.ReadJson(trigger) as JsonObject ?? [];
+                var overrides = Node.ReadJson(trigger) as JsonObject ?? [];
                 try
                 {
                     File.Delete(trigger);
@@ -167,7 +167,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 var flag = File.Exists(Path.Combine(cfg.BridgeData, "maintenance"));
                 if (h is null or > 0 || flag)
                     seen = clock.Now();
-                var minutes = Py.D(Math.Floor(cfg.Quiet / 60));
+                var minutes = Node.D(Math.Floor(cfg.Quiet / 60));
                 if (why is null && h is null)
                     (why, words) = ("the game server does not answer A2S", "The game server does not answer, so the sync waits.");
                 else if (why is null && h > 0)
@@ -177,14 +177,14 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                         ? ($"the service started {Text.Hms(clock.Now() - started)} ago, and it cannot know who just left", $"The sync has just started: it waits until the server has been empty for {minutes} minutes.")
                         : ($"somebody was on the server {Text.Hms(clock.Now() - seen)} ago (or the maintenance flag)",
                            flag ? "The server is in maintenance, so the sync waits." : $"Somebody played a moment ago: the sync waits until the server has been empty for {minutes} minutes.");
-                var st = Py.ReadJson(Path.Combine(cfg.StateDir, "state.json")) as JsonObject ?? [];
+                var st = Node.ReadJson(Path.Combine(cfg.StateDir, "state.json")) as JsonObject ?? [];
                 if (why is null && !WorkWaits(cfg, clock, st))
                 {
                     why = "nothing to do: no backlog, discovery and the check not due";
-                    var book = Py.Obj(Py.Get(st["downloads"], clock.Day()));
-                    var due = clock.Hm(Py.Float(st["last_api"]) + cfg.ApiEvery);
-                    if (BacklogWaits(st) && Py.Truthy(book["stop"]))
-                        (state, words) = ("stopped", $"Steam asked for a pause today ({Text.Clean(Py.Str(book["stop"]), 120)}): the downloads go on tomorrow; the next Workshop check is at {due}.");
+                    var book = Node.Obj(Node.Get(st["downloads"], clock.Day()));
+                    var due = clock.Hm(Node.Float(st["last_api"]) + cfg.ApiEvery);
+                    if (BacklogWaits(st) && Node.Truthy(book["stop"]))
+                        (state, words) = ("stopped", $"Steam asked for a pause today ({Text.Clean(Node.Str(book["stop"]), 120)}): the downloads go on tomorrow; the next Workshop check is at {due}.");
                     else
                         (state, words) = ("idle", $"Nothing to do: no maps are waiting, and the next Workshop check is at {due}.");
                 }
@@ -202,7 +202,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     {
                         var run = NewRun(cfg.Clone(), false, status);
                         var report = run.Run();
-                        if (Py.Truthy(report["idle"]))
+                        if (Node.Truthy(report["idle"]))
                             idleUntil = IdleUntil(cfg, clock, report, run.State.Data["last_api"]);
                     }
                     catch (Exception e) when (e is not StopRequested)
@@ -239,10 +239,10 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
         var counts = new JsonObject();
         foreach (var (_, node) in st.Items)
         {
-            var status = Py.Str(Py.Get(node, "status"));
-            counts[status] = Py.Int(counts[status]) + 1;
+            var status = Node.Str(Node.Get(node, "status"));
+            counts[status] = Node.Int(counts[status]) + 1;
         }
-        return Py.Dumps(new JsonObject
+        return Node.Dumps(new JsonObject
         {
             ["api_last_24h"] = ledger.Data is not null ? ledger.Last24h() : null, ["api_today"] = ledger.Count(clock.Day()),
             ["api_stop_today"] = ledger.Data is not null ? ledger.Stopped(clock.Day()) : null, ["items"] = counts, ["last_run"] = st.Data["last_run"]?.DeepClone(),
@@ -258,30 +258,30 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     {
         var st = new SyncState(Path.Combine(cfg.StateDir, "state.json")).Load();
         var files = BridgeData.Read(cfg.BridgeData);
-        var mine = new HashSet<string>(st.Items.Where(kv => Py.Str(Py.Get(kv.Value, "status")) == "published").Select(kv => kv.Key));
+        var mine = new HashSet<string>(st.Items.Where(kv => Node.Str(Node.Get(kv.Value, "status")) == "published").Select(kv => kv.Key));
         JsonObject Entry(JsonObject m, JsonObject rec) => new()
         {
-            ["id"] = Py.Int(m["id"]), ["rank"] = m["rank"]?.DeepClone(), ["name"] = m["name"]?.DeepClone(), ["sizeMb"] = m["sizeMb"]?.DeepClone(),
+            ["id"] = Node.Int(m["id"]), ["rank"] = m["rank"]?.DeepClone(), ["name"] = m["name"]?.DeepClone(), ["sizeMb"] = m["sizeMb"]?.DeepClone(),
             ["subscriptions"] = rec["subs"]?.DeepClone(), ["lifetime"] = rec["lifetime"]?.DeepClone(),
-            ["updated"] = DateTimeOffset.FromUnixTimeSeconds(Py.Int(rec["updated"])).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
-            ["tags"] = Py.Truthy(rec["tags"]) ? rec["tags"]!.DeepClone() : new JsonArray(), ["description"] = Py.StrOr(rec["description"]), ["preview"] = Py.StrOr(rec["preview"]),
+            ["updated"] = DateTimeOffset.FromUnixTimeSeconds(Node.Int(rec["updated"])).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            ["tags"] = Node.Truthy(rec["tags"]) ? rec["tags"]!.DeepClone() : new JsonArray(), ["description"] = Node.StrOr(rec["description"]), ["preview"] = Node.StrOr(rec["preview"]),
         };
         var maps = new JsonArray();
-        foreach (var m in files.Maps.OfType<JsonObject>().Where(m => mine.Contains(Py.Str(m["id"]))))
-            maps.Add(Entry(m, st.Item(Py.Str(m["id"])) ?? []));
+        foreach (var m in files.Maps.OfType<JsonObject>().Where(m => mine.Contains(Node.Str(m["id"]))))
+            maps.Add(Entry(m, st.Item(Node.Str(m["id"])) ?? []));
         var modes = new JsonObject();
         foreach (var (mode, entries) in files.ModeLists)
-            modes[mode] = new JsonArray(entries.OfType<JsonObject>().Where(m => mine.Contains(Py.Str(m["id"]))).Select(m => (JsonNode?)Entry(m, st.Item(Py.Str(m["id"])) ?? [])).ToArray());
+            modes[mode] = new JsonArray(entries.OfType<JsonObject>().Where(m => mine.Contains(Node.Str(m["id"]))).Select(m => (JsonNode?)Entry(m, st.Item(Node.Str(m["id"])) ?? [])).ToArray());
         var broken = new JsonArray();
         foreach (var section in new[] { "maps", "packs" })
-            foreach (var e in Py.Arr(files.Broken[section]).OfType<JsonObject>().Where(e => mine.Contains(Py.Str(e["id"]))))
+            foreach (var e in Node.Arr(files.Broken[section]).OfType<JsonObject>().Where(e => mine.Contains(Node.Str(e["id"]))))
             {
                 var copy = (JsonObject)e.DeepClone();
                 copy["section"] = section;
                 broken.Add(copy);
             }
-        var queues = Py.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the random queues, as the bridge wrote them
-        return Py.Dumps(new JsonObject
+        var queues = Node.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the random queues, as the bridge wrote them
+        return Node.Dumps(new JsonObject
         {
             ["generated"] = clock.Stamp(), ["maps.json"] = maps, ["modes"] = modes, ["broken.json"] = broken, ["queues"] = queues?.DeepClone(),
         }, 1);

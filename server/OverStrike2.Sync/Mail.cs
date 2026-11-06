@@ -26,14 +26,14 @@ public static partial class Mail
     public static string ShortStop(string? text)
     {
         var m = ShortRx().Match(text ?? "");
-        return m.Success ? m.Value : Py.Cut(text ?? "", 60);
+        return m.Success ? m.Value : Node.Cut(text ?? "", 60);
     }
 
-    static string S(JsonNode? v) => Py.Str(v);
-    static long I(JsonNode? v) => Py.Int(v);
-    static string Or(JsonNode? v, string fallback) => Py.Truthy(v) ? Py.Str(v) : fallback;
-    static string Get(JsonObject o, string key, string fallback) => o.ContainsKey(key) ? Py.Str(o[key]) : fallback;
-    static long N(JsonObject o, string key) => o.ContainsKey(key) ? Py.Int(o[key]) : 0;
+    static string S(JsonNode? v) => Node.Str(v);
+    static long I(JsonNode? v) => Node.Int(v);
+    static string Or(JsonNode? v, string fallback) => Node.Truthy(v) ? Node.Str(v) : fallback;
+    static string Get(JsonObject o, string key, string fallback) => o.ContainsKey(key) ? Node.Str(o[key]) : fallback;
+    static long N(JsonObject o, string key) => o.ContainsKey(key) ? Node.Int(o[key]) : 0;
 
     /// <summary>A run's publish steps as one: what each batch's publish reported, added up, for the report and the mail.</summary>
     public static JsonObject? MergePublished(JsonObject? before, JsonObject? now)
@@ -45,28 +45,28 @@ public static partial class Mail
         {
             if (value is JsonArray list)
             {
-                var have = Py.Arr(out_[key]).Select(x => x?.DeepClone()).ToList();
+                var have = Node.Arr(out_[key]).Select(x => x?.DeepClone()).ToList();
                 if (key == "files")
-                    have.AddRange(list.Where(x => !have.Any(h => Py.Eq(h, x))).Select(x => x?.DeepClone()));
+                    have.AddRange(list.Where(x => !have.Any(h => Node.Eq(h, x))).Select(x => x?.DeepClone()));
                 else
                     have.AddRange(list.Select(x => x?.DeepClone()));
                 out_[key] = new JsonArray(have.ToArray());
             }
             else if (key == "modes" && value is JsonObject modes)
             {
-                var merged = Py.Obj(out_["modes"]?.DeepClone());
+                var merged = Node.Obj(out_["modes"]?.DeepClone());
                 foreach (var (mode, rows) in modes)
-                    merged[mode] = new JsonArray(Py.Arr(merged[mode]).Select(x => x?.DeepClone()).Concat(Py.Arr(rows).Select(x => x?.DeepClone())).ToArray());
+                    merged[mode] = new JsonArray(Node.Arr(merged[mode]).Select(x => x?.DeepClone()).Concat(Node.Arr(rows).Select(x => x?.DeepClone())).ToArray());
                 out_["modes"] = merged;
             }
             else if (key == "backfill" && value is JsonObject fill)
             {
-                var merged = Py.Obj(out_["backfill"]?.DeepClone());
+                var merged = Node.Obj(out_["backfill"]?.DeepClone());
                 foreach (var (mode, n) in fill)
-                    merged[mode] = Py.Int(merged[mode]) + Py.Int(n);
+                    merged[mode] = Node.Int(merged[mode]) + Node.Int(n);
                 out_["backfill"] = merged;
             }
-            else if (!(value is null || (Py.IsString(value) && value.GetValue<string>().Length == 0) || (value is JsonObject o && o.Count == 0)))
+            else if (!(value is null || (Node.IsString(value) && value.GetValue<string>().Length == 0) || (value is JsonObject o && o.Count == 0)))
                 out_[key] = value.DeepClone();
         }
         return out_;
@@ -77,24 +77,24 @@ public static partial class Mail
     {
         var lines = new List<string>();
         void W(string s) => lines.Add(s);
-        var stop = r["api_stop"] is { } st && Py.Truthy(st) ? Py.Str(st) : null;
+        var stop = r["api_stop"] is { } st && Node.Truthy(st) ? Node.Str(st) : null;
         var head = new List<string>();
-        var pub = Py.Obj(r["published"]);
-        var listedRows = Py.Arr(pub["listed"]);
+        var pub = Node.Obj(r["published"]);
+        var listedRows = Node.Arr(pub["listed"]);
         if (listedRows.Count > 0)
             head.Add($"{listedRows.Count} new Arms Race map{(listedRows.Count == 1 ? "" : "s")} listed");
         foreach (var mode in new[] { "deathmatch", "wingman" })
         {
-            var n = Py.Arr(Py.Get(pub["modes"], mode)).Count;
+            var n = Node.Arr(Node.Get(pub["modes"], mode)).Count;
             if (n > 0)
                 head.Add($"{n} new {char.ToUpperInvariant(mode[0])}{mode[1..]} map{(n == 1 ? "" : "s")}");
         }
-        var nb = Py.Arr(pub["broken"]).Count + Py.Arr(pub["packs"]).Count;
+        var nb = Node.Arr(pub["broken"]).Count + Node.Arr(pub["packs"]).Count;
         if (nb > 0)
             head.Add($"{nb} on broken.json");
-        if (Py.Arr(pub["removed"]).Count > 0)
-            head.Add($"{Py.Arr(pub["removed"]).Count} gone from the Workshop");
-        var manual = Py.Truthy(r["manual"]);
+        if (Node.Arr(pub["removed"]).Count > 0)
+            head.Add($"{Node.Arr(pub["removed"]).Count} gone from the Workshop");
+        var manual = Node.Truthy(r["manual"]);
         var subject = $"{cfg.ServerName} Workshop sync {S(r["day"])}{(manual ? " (manual run)" : $" (the run of {Get(r, "started_hm", "?")})")}: "
                       + $"{(head.Count > 0 ? string.Join(", ", head) : "nothing new")}{(stop is not null ? $" - STOPPED: {ShortStop(stop)}" : "")}";
         W($"{cfg.ServerName} - the Workshop sync, a run of {S(r["day"])} ({Get(r, "started_hm", "?")} to {Get(r, "ended_hm", "?")}). It runs whenever nobody plays; one mail a day, the reports of every run in");
@@ -107,67 +107,67 @@ public static partial class Mail
             W("server errors). The next day starts again from the ledger's counts.");
             W("");
         }
-        foreach (var line in Py.Arr(r["notes"]))
+        foreach (var line in Node.Arr(r["notes"]))
             W($"NOTE: {S(line)}");
-        if (Py.Truthy(r["notes"]))
+        if (Node.Truthy(r["notes"]))
             W("");
-        var d = Py.Obj(r["discovery"]);
+        var d = Node.Obj(r["discovery"]);
         W("1. Find new maps (IPublishedFileService/QueryFiles, the Web API key):");
-        if (Py.Truthy(d["skipped"]))
+        if (Node.Truthy(d["skipped"]))
             W($"   skipped: {S(d["skipped"])}");
         else
-            W($"   {N(d, "pages")} page(s), {N(d, "seen")} item(s) seen, {Py.Arr(d["new"]).Count} new ({Or(d["stop"], "-")}); the Workshop holds {Or(d["total"], "?")} items with these tags.");
-        var c = Py.Obj(r["check"]);
+            W($"   {N(d, "pages")} page(s), {N(d, "seen")} item(s) seen, {Node.Arr(d["new"]).Count} new ({Or(d["stop"], "-")}); the Workshop holds {Or(d["total"], "?")} items with these tags.");
+        var c = Node.Obj(r["check"]);
         W("2. Check the listed maps (ISteamRemoteStorage/GetPublishedFileDetails, no key):");
-        if (Py.Truthy(c["skipped"]))
+        if (Node.Truthy(c["skipped"]))
             W($"   skipped: {S(c["skipped"])}");
         else
         {
-            W($"   {N(c, "asked")} id(s) asked in {N(c, "calls")} call(s): {Py.Arr(c["removed"]).Count} gone from the Workshop, {Py.Arr(c["changed"]).Count} changed since last seen"
-              + $"{(Py.Truthy(c["left"]) ? $", {S(c["left"])} not answered" : "")}.");
-            if (Py.Truthy(c["suspicious"]))
+            W($"   {N(c, "asked")} id(s) asked in {N(c, "calls")} call(s): {Node.Arr(c["removed"]).Count} gone from the Workshop, {Node.Arr(c["changed"]).Count} changed since last seen"
+              + $"{(Node.Truthy(c["left"]) ? $", {S(c["left"])} not answered" : "")}.");
+            if (Node.Truthy(c["suspicious"]))
                 W("   NOT BELIEVED: more than 10% of the maps came back gone - nothing was marked removed in this run.");
         }
-        var rt = Py.Obj(r["ratings"]);
+        var rt = Node.Obj(r["ratings"]);
         W("2b. Ratings (IPublishedFileService/GetDetails with vote_data, the Web API key; the keep set's top lists):");
-        if (Py.Truthy(rt["skipped"]))
+        if (Node.Truthy(rt["skipped"]))
             W($"   {S(rt["skipped"])}.");
         else if (rt.Count > 0)
             W($"   {N(rt, "scored")} of {N(rt, "asked")} scored in {N(rt, "calls")} call(s): {N(rt, "listed")} listed, {N(rt, "waiting")} waiting for their test"
-              + $"{(Py.Truthy(rt["complete"]) ? "" : $" - INCOMPLETE ({(Py.Truthy(rt["stop"]) ? S(rt["stop"]) : $"{N(rt, "failed")} failed")}), the old scores' time kept")}.");
-        var sv = Py.Obj(r["serve"]);
+              + $"{(Node.Truthy(rt["complete"]) ? "" : $" - INCOMPLETE ({(Node.Truthy(rt["stop"]) ? S(rt["stop"]) : $"{N(rt, "failed")} failed")}), the old scores' time kept")}.");
+        var sv = Node.Obj(r["serve"]);
         W("2c. For the game server (the keep set's maps it does not store, downloaded and handed over; it takes them in at its next start):");
-        if (Py.Truthy(sv["skipped"]))
+        if (Node.Truthy(sv["skipped"]))
             W($"   skipped: {S(sv["skipped"])}");
         else if (sv.Count > 0)
             W($"   {N(sv, "missing")} missing of the keep set, {N(sv, "ok")} handed over ({Sync.Text.Mb(N(sv, "bytes"))}), {N(sv, "tested")} tested in this run and handed over, "
-              + $"{Py.Arr(sv["failed"]).Count} failed, {N(sv, "left")} still missing{(Py.Truthy(sv["stop"]) ? $"; stopped: {S(sv["stop"])}" : "")}.");
-        if (Py.Truthy(r["requeued"]))
+              + $"{Node.Arr(sv["failed"]).Count} failed, {N(sv, "left")} still missing{(Node.Truthy(sv["stop"]) ? $"; stopped: {S(sv["stop"])}" : "")}.");
+        if (Node.Truthy(r["requeued"]))
             W($"   {S(r["requeued"])} map(s) skipped as too big for an older download cap are queued again (they fit today's).");
-        var dl = Py.Obj(r["downloads"]);
+        var dl = Node.Obj(r["downloads"]);
         W("3. Downloads (SteamCMD, anonymous login):");
-        if (Py.Truthy(dl["skipped"]))
+        if (Node.Truthy(dl["skipped"]))
             W($"   skipped: {S(dl["skipped"])}");
         else
         {
-            var failed = Py.Arr(dl["failed"]);
-            var firstFails = string.Join("; ", failed.Take(5).Select(f => $"{S(Py.Arr(f).ElementAtOrDefault(0))}: {S(Py.Arr(f).ElementAtOrDefault(1))}"));
+            var failed = Node.Arr(dl["failed"]);
+            var firstFails = string.Join("; ", failed.Take(5).Select(f => $"{S(Node.Arr(f).ElementAtOrDefault(0))}: {S(Node.Arr(f).ElementAtOrDefault(1))}"));
             W($"   {N(dl, "ok")} downloaded ({Sync.Text.Mb(N(dl, "bytes"))}), {failed.Count} failed{(failed.Count > 0 ? $" ({firstFails})" : "")}; {N(dl, "queued_left")} still queued for later runs.");
-            if (Py.Truthy(dl["stop"]))
+            if (Node.Truthy(dl["stop"]))
                 W($"   stopped: {S(dl["stop"])}");
         }
-        var t = Py.Obj(r["tests"]);
+        var t = Node.Obj(r["tests"]);
         W("4. Scan and load test (a test copy of the server, no plugins, its own anonymous logon):");
-        if (Py.Truthy(t["skipped"]))
+        if (Node.Truthy(t["skipped"]))
             W($"   skipped: {S(t["skipped"])}");
-        var rows = Py.StrList(t["rows"]);
+        var rows = Node.StrList(t["rows"]);
         var passes = rows.Where(x => x.StartsWith("PASS", StringComparison.Ordinal)).ToList();
         if (rows.Count > MailRows)                   // a long run: the counts, what did not pass, a taste of what did; the report has them all
         {
             var counts = new List<(string Word, int N)>();
             foreach (var row in rows)
             {
-                var word = Py.Words(row).FirstOrDefault() ?? "";
+                var word = Node.Words(row).FirstOrDefault() ?? "";
                 var at = counts.FindIndex(x => x.Word == word);
                 if (at >= 0)
                     counts[at] = (word, counts[at].N + 1);
@@ -185,73 +185,73 @@ public static partial class Mail
         else
             foreach (var row in rows)
                 W($"   {row}");
-        if (Py.Truthy(t["stop"]))
+        if (Node.Truthy(t["stop"]))
             W($"   stopped: {S(t["stop"])}");
         W("5. Published into the bridge's data:");
-        if (Py.Truthy(pub["skipped"]))
+        if (Node.Truthy(pub["skipped"]))
             W($"   skipped: {S(pub["skipped"])}");
-        else if (!Py.Truthy(pub["files"]) && !Py.Truthy(pub["verdicts"]))
+        else if (!Node.Truthy(pub["files"]) && !Node.Truthy(pub["verdicts"]))
             W("   nothing to publish.");
         else
         {
-            foreach (var row in listedRows.Take(MailRows).Select(Py.Arr))
+            foreach (var row in listedRows.Take(MailRows).Select(Node.Arr))
                 W($"   maps.json  #{S(row.ElementAtOrDefault(1))} {S(row.ElementAtOrDefault(2))} ({S(row.ElementAtOrDefault(0))}, {I(row.ElementAtOrDefault(3))} MB)");
             if (listedRows.Count > MailRows)
                 W($"   maps.json  ... and {listedRows.Count - MailRows} more");
-            foreach (var (mode, modeRows) in Py.Obj(pub["modes"]).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            foreach (var (mode, modeRows) in Node.Obj(pub["modes"]).OrderBy(kv => kv.Key, StringComparer.Ordinal))
             {
                 var fname = mode == "deathmatch" ? "maps-deathmatch.json" : "maps-wingman.json";
-                var list = Py.Arr(modeRows);
+                var list = Node.Arr(modeRows);
                 if (list.Count > MailRows / 2)
                 {
                     W($"   {fname}  {list.Count} new maps (all in the report)");
                     continue;
                 }
-                foreach (var row in list.Select(Py.Arr))
+                foreach (var row in list.Select(Node.Arr))
                     W($"   {fname}  {S(row.ElementAtOrDefault(1))} ({S(row.ElementAtOrDefault(0))})");
             }
-            foreach (var (mode, n) in Py.Obj(pub["backfill"]).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            foreach (var (mode, n) in Node.Obj(pub["backfill"]).OrderBy(kv => kv.Key, StringComparer.Ordinal))
                 W($"   {(mode == "deathmatch" ? "maps-deathmatch.json" : "maps-wingman.json")}: {I(n)} listed Arms Race map(s) that carry the {char.ToUpperInvariant(mode[0])}{mode[1..]} tag");
-            foreach (var row in Py.Arr(pub["broken"]).Select(Py.Arr))
+            foreach (var row in Node.Arr(pub["broken"]).Select(Node.Arr))
                 W($"   broken.json maps   {S(row.ElementAtOrDefault(1))} ({S(row.ElementAtOrDefault(0))}): {S(row.ElementAtOrDefault(3))}");
-            var packs = Py.Arr(pub["packs"]);
-            foreach (var row in packs.Take(MailRows).Select(Py.Arr))
+            var packs = Node.Arr(pub["packs"]);
+            foreach (var row in packs.Take(MailRows).Select(Node.Arr))
                 W($"   broken.json packs  {S(row.ElementAtOrDefault(1))} ({S(row.ElementAtOrDefault(0))}): {S(row.ElementAtOrDefault(2))}");
             if (packs.Count > MailRows)
                 W($"   broken.json packs  ... and {packs.Count - MailRows} more");
-            foreach (var row in Py.Arr(pub["removed"]).Select(Py.Arr))
+            foreach (var row in Node.Arr(pub["removed"]).Select(Node.Arr))
                 W($"   gone from the Workshop  #{S(row.ElementAtOrDefault(1))} {S(row.ElementAtOrDefault(2))} ({S(row.ElementAtOrDefault(0))}): {S(row.ElementAtOrDefault(3))}");
-            if (Py.Truthy(pub["verdicts"]))
+            if (Node.Truthy(pub["verdicts"]))
                 W($"   the check's verdicts, handed to the bridge (POST /removed): {S(pub["verdicts"])}");
-            W($"   files: {string.Join(", ", Py.StrList(pub["files"]))}; bridge: {Or(pub["reload"], "not asked")}");
+            W($"   files: {string.Join(", ", Node.StrList(pub["files"]))}; bridge: {Or(pub["reload"], "not asked")}");
             if (listedRows.Count > 0)
             {
                 W("   The new maps have no size class yet (sizes.json is measured on the PC) and no picture until the next HUD");
                 W("   content update.");
             }
         }
-        var lim = Py.Obj(r["limits"]);
+        var lim = Node.Obj(r["limits"]);
         W("");
         W($"Limits: Web API calls this run {Get(lim, "api_run", "None")} of {Get(lim, "api_run_cap", "None")}, last 24 h {Get(lim, "api_24h", "None")} of {Get(lim, "api_day_cap", "None")} "
-          + $"(10% of Valve's 100,000), at least {Py.Fixed(lim.ContainsKey("api_gap") ? Py.Float(lim["api_gap"]) : 2, 0)} s apart;");
-        W($"downloads today {Get(lim, "dl_items", "None")}, {Sync.Text.Mb(Py.Int(lim["dl_bytes"]))}{(Py.Truthy(lim["dl_engine"]) ? $" (with {I(lim["dl_engine"])} copies the test engine fetched itself)" : "")} "
+          + $"(10% of Valve's 100,000), at least {Node.Fixed(lim.ContainsKey("api_gap") ? Node.Float(lim["api_gap"]) : 2, 0)} s apart;");
+        W($"downloads today {Get(lim, "dl_items", "None")}, {Sync.Text.Mb(Node.Int(lim["dl_bytes"]))}{(Node.Truthy(lim["dl_engine"]) ? $" (with {I(lim["dl_engine"])} copies the test engine fetched itself)" : "")} "
           + $"- no daily cap: only Steam's push-back stops them; test-engine starts {Get(lim, "engine_starts", "None")} of {Get(lim, "engine_starts_max", "None")}.");
-        var bl = Py.Obj(r["backlog"]);
-        if (Py.Truthy(bl["items"]))
+        var bl = Node.Obj(r["backlog"]);
+        if (Node.Truthy(bl["items"]))
         {
             var eta = Or(r["backlog_until"], "");
-            var byMode = Py.Obj(bl["by_mode"]);
-            W($"Backlog: {I(bl["items"])} item(s) waiting, {Sync.Text.Mb(Py.Int(bl["bytes"]))} (Deathmatch {N(byMode, "deathmatch")}, Wingman {N(byMode, "wingman")}, Arms Race {N(byMode, "armsrace")} - one item can carry several tags), taken");
-            W($"the ones the keep set wants first, new uploads next, then strictly by subscribers. About {N(bl, "days")} more day(s){eta}: {Py.Fixed(bl.ContainsKey("pace") ? Py.Float(bl["pace"]) : Verdicts.PaceDefault, 0)} s a map");
-            W($"(download and test), about {Py.Fixed(Py.Float(bl["hours"]), 0)} h a day while nobody plays (no time windows), so about {(Py.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day; every hour somebody");
+            var byMode = Node.Obj(bl["by_mode"]);
+            W($"Backlog: {I(bl["items"])} item(s) waiting, {Sync.Text.Mb(Node.Int(bl["bytes"]))} (Deathmatch {N(byMode, "deathmatch")}, Wingman {N(byMode, "wingman")}, Arms Race {N(byMode, "armsrace")} - one item can carry several tags), taken");
+            W($"the ones the keep set wants first, new uploads next, then strictly by subscribers. About {N(bl, "days")} more day(s){eta}: {Node.Fixed(bl.ContainsKey("pace") ? Node.Float(bl["pace"]) : Verdicts.PaceDefault, 0)} s a map");
+            W($"(download and test), about {Node.Fixed(Node.Float(bl["hours"]), 0)} h a day while nobody plays (no time windows), so about {(Node.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day; every hour somebody");
             W("plays comes off it. No daily download cap: only time and the test speed set it.");
         }
-        if (Py.Truthy(r["waited"]))
-            W($"Waited: {string.Join("; ", Py.StrList(r["waited"]))}.");
-        if (Py.Truthy(r["errors"]))
+        if (Node.Truthy(r["waited"]))
+            W($"Waited: {string.Join("; ", Node.StrList(r["waited"]))}.");
+        if (Node.Truthy(r["errors"]))
         {
             W("");
-            foreach (var e in Py.StrList(r["errors"]))
+            foreach (var e in Node.StrList(r["errors"]))
                 W($"ERROR: {e}");
         }
         W("");
@@ -268,16 +268,16 @@ public static partial class Mail
     {
         var out_ = new List<Issue>();
         void Add(string key, string what, string did) => out_.Add(new Issue(key, what, did));
-        if (r["api_stop"] is { } apiStop && Py.Truthy(apiStop))
+        if (r["api_stop"] is { } apiStop && Node.Truthy(apiStop))
         {
-            var api = Py.Str(apiStop);
+            var api = Node.Str(apiStop);
             Add("steam-webapi", $"Steam's Web API pushed back: {Sync.Text.Clean(api, 220)}.",
                 $"Every Web API step stopped for the rest of the day{(PushbackRx().IsMatch(api) ? ", and the downloads with them" : "")}; the next day's runs try again by themselves.");
         }
-        JsonObject dl = Py.Obj(r["downloads"]), sv = Py.Obj(r["serve"]), t = Py.Obj(r["tests"]);
+        JsonObject dl = Node.Obj(r["downloads"]), sv = Node.Obj(r["serve"]), t = Node.Obj(r["tests"]);
         foreach (var (name, part) in new[] { ("the test downloads", dl), ("the hand-over downloads", sv) })
         {
-            var stop = Py.Truthy(part["stop"]) ? Py.Str(part["stop"]) : "";
+            var stop = Node.Truthy(part["stop"]) ? Node.Str(part["stop"]) : "";
             if (stop.Contains("SteamCMD answered", StringComparison.Ordinal) || stop.Contains("no more downloads today", StringComparison.Ordinal))
                 Add("steamcmd-pushback", $"SteamCMD pushed back during {name}: {Sync.Text.Clean(stop, 220)}.", "No more downloads today; they resume tomorrow by themselves.");
             else if (stop.Contains("in a row failed", StringComparison.Ordinal))
@@ -289,47 +289,47 @@ public static partial class Mail
                 Add("handovers-waiting", $"The game server has not taken in its hand-overs: {Sync.Text.Clean(stop, 160)}.",
                     "No more hand-overs until it does; its next engine start takes them in.");
         }
-        var stalls = Py.Arr(r["stalls"]).OfType<JsonArray>().Where(s => s.Count == 2).Select(s => (Id: Py.Str(s[0]), N: Py.Float(s[1]), Text: Py.Str(s[1]))).ToList();
+        var stalls = Node.Arr(r["stalls"]).OfType<JsonArray>().Where(s => s.Count == 2).Select(s => (Id: Node.Str(s[0]), N: Node.Float(s[1]), Text: Node.Str(s[1]))).ToList();
         var again = stalls.Where(s => s.N >= 2).ToList();
         if (stalls.Count >= 2 || again.Count > 0)      // one stall is routine: a fresh session took the next map
             Add("steamcmd-stalls", $"SteamCMD stalled {(stalls.Count >= 2 ? "twice in this run" : "on the same map twice today")}: {string.Join(", ", stalls.Take(6).Select(s => $"{s.Id} ({s.Text} today)"))}.",
                 stalls.Count >= 2 ? "This run's downloads stopped at the second stall; a map is tried 3 times at most, and the next run starts SteamCMD afresh."
                     : "The next map got a fresh session; that map is tried again later, 3 times at most.");
-        if (Py.Truthy(t["engine_failed"]))
-            Add("test-engine", $"The test engine did not start: {Sync.Text.Clean(Py.Str(t["engine_failed"]), 220)}.",
+        if (Node.Truthy(t["engine_failed"]))
+            Add("test-engine", $"The test engine did not start: {Sync.Text.Clean(Node.Str(t["engine_failed"]), 220)}.",
                 "This run's tests stopped; the downloaded maps wait in the staging folder for the next run.");
-        else if (Py.Truthy(t["stop"]) && !RoutineStopRx().IsMatch(Py.Str(t["stop"])))
-            Add("tests-stopped", $"The tests stopped early: {Sync.Text.Clean(Py.Str(t["stop"]), 220)}.", "The maps without a verdict wait for the next run.");
+        else if (Node.Truthy(t["stop"]) && !RoutineStopRx().IsMatch(Node.Str(t["stop"])))
+            Add("tests-stopped", $"The tests stopped early: {Sync.Text.Clean(Node.Str(t["stop"]), 220)}.", "The maps without a verdict wait for the next run.");
         foreach (var name in new[] { "discovery", "ratings" })
         {
-            var skipped = Py.Truthy(Py.Get(r[name], "skipped")) ? Py.Str(Py.Get(r[name], "skipped")) : "";
+            var skipped = Node.Truthy(Node.Get(r[name], "skipped")) ? Node.Str(Node.Get(r[name], "skipped")) : "";
             if (skipped.StartsWith("failed", StringComparison.Ordinal))
                 Add($"{name}-failed", $"The {name} step failed: {Sync.Text.Clean(skipped, 200)}.", "The run went on without it; the next one tries again.");
         }
-        var verdicts = Py.Truthy(Py.Get(r["published"], "verdicts")) ? Py.Str(Py.Get(r["published"], "verdicts")) : "";
+        var verdicts = Node.Truthy(Node.Get(r["published"], "verdicts")) ? Node.Str(Node.Get(r["published"], "verdicts")) : "";
         if (verdicts.StartsWith("the report failed", StringComparison.Ordinal) || verdicts.StartsWith("not reported", StringComparison.Ordinal))
             Add("verdicts-not-reported", $"The Workshop check's verdicts did not reach the bridge: {Sync.Text.Clean(verdicts, 220)}.",
                 "Maps gone from the Workshop are not blocked until a check reaches it; the next check (every sync.apiEveryHours) reports again.");
-        if (Py.Truthy(Py.Get(r["check"], "suspicious")))
+        if (Node.Truthy(Node.Get(r["check"], "suspicious")))
             Add("check-not-believed", "More than 10% of the listed maps came back gone from the Workshop - not believed.",
                 "Nothing was marked removed; the bridge's own rule refuses it too.");
-        var failedHandovers = Py.Arr(sv["handover_failed"]);
+        var failedHandovers = Node.Arr(sv["handover_failed"]);
         if (failedHandovers.Count > 0)
             Add("handover-failed", $"{failedHandovers.Count} hand-over(s) to the game server failed: "
-                + $"{Sync.Text.Clean(string.Join("; ", failedHandovers.Take(5).Select(f => $"{S(Py.Arr(f).ElementAtOrDefault(0))} {S(Py.Arr(f).ElementAtOrDefault(1))}")), 300)}.",
+                + $"{Sync.Text.Clean(string.Join("; ", failedHandovers.Take(5).Select(f => $"{S(Node.Arr(f).ElementAtOrDefault(0))} {S(Node.Arr(f).ElementAtOrDefault(1))}")), 300)}.",
                 "Each map stays staged; the next run hands it over, or downloads it again.");
-        if (Py.Truthy(Py.Get(r["disk"], "low")))
-            Add("disk-low", $"The disk is running low: {S(Py.Get(r["disk"], "low"))}.", "Nothing yet - the sync keeps working; make room, or raise the dataset's quota.");
-        var wk = Py.Obj(r["watcher_keep"]);
-        if (Py.Truthy(wk["problems"]))
+        if (Node.Truthy(Node.Get(r["disk"], "low")))
+            Add("disk-low", $"The disk is running low: {S(Node.Get(r["disk"], "low"))}.", "Nothing yet - the sync keeps working; make room, or raise the dataset's quota.");
+        var wk = Node.Obj(r["watcher_keep"]);
+        if (Node.Truthy(wk["problems"]))
         {
-            var problems = Py.StrList(wk["problems"]);
-            Add($"deletion-refused:{Py.Cut(DigitsRx().Replace(problems[0], "#"), 60)}",
+            var problems = Node.StrList(wk["problems"]);
+            Add($"deletion-refused:{Node.Cut(DigitsRx().Replace(problems[0], "#"), 60)}",
                 $"The game server's deletion at its engine start of {Get(wk, "computed", "?")} refused: {Sync.Text.Clean(string.Join("; ", problems.Take(3)), 300)}.",
                 "It deleted nothing and kept every map; it tries again at its next engine start.");
         }
-        foreach (var e in Py.StrList(r["errors"]))
-            Add($"error:{Py.Cut(DigitsRx().Replace(e, "#"), 80)}", $"An error: {Sync.Text.Clean(e, 300)}.", "The run went on with its other steps.");
+        foreach (var e in Node.StrList(r["errors"]))
+            Add($"error:{Node.Cut(DigitsRx().Replace(e, "#"), 80)}", $"An error: {Sync.Text.Clean(e, 300)}.", "The run went on with its other steps.");
         return out_;
     }
 
@@ -337,18 +337,18 @@ public static partial class Mail
     public static (string Subject, string Body) IssueMail(List<Issue> issues, List<Issue> ongoing, JsonObject r, SyncConfig cfg)
     {
         var when = $"{Get(r, "day", "?")} {Get(r, "started_hm", "?")}-{Get(r, "ended_hm", "?")}";
-        var subject = $"{cfg.ServerName} Workshop sync: {Py.Cut(issues[0].What, 90).TrimEnd('.')}{(issues.Count > 1 ? $" (and {issues.Count - 1} more)" : "")}";
+        var subject = $"{cfg.ServerName} Workshop sync: {Node.Cut(issues[0].What, 90).TrimEnd('.')}{(issues.Count > 1 ? $" (and {issues.Count - 1} more)" : "")}";
         var lines = new List<string>
         {
-            $"The Workshop sync of {cfg.ServerName} ran into {(issues.Count == 1 ? "a problem" : $"{issues.Count} problems")} in its {(Py.Truthy(r["manual"]) ? "manual " : "")}run of {when}.", "",
+            $"The Workshop sync of {cfg.ServerName} ran into {(issues.Count == 1 ? "a problem" : $"{issues.Count} problems")} in its {(Node.Truthy(r["manual"]) ? "manual " : "")}run of {when}.", "",
         };
         foreach (var i in issues)
             lines.AddRange([$"What went wrong: {i.What}", $"What the sync did: {i.Did}", ""]);
         if (ongoing.Count > 0)
             lines.AddRange([$"Still going on, mailed already in the last day: {string.Join(" | ", ongoing.Select(i => i.What))}", ""]);
         lines.Add($"The dashboard: {(cfg.DashboardUrl.Length > 0 ? cfg.DashboardUrl : "the HUD's Sync tab")}");
-        var report = Py.Truthy(r["report_path"]) ? Py.Str(r["report_path"]) : null;
-        lines.Add($"This run's full report: {(report is not null ? Py.Slice(report, 0, -5) + ".txt" : "?")}");
+        var report = Node.Truthy(r["report_path"]) ? Node.Str(r["report_path"]) : null;
+        lines.Add($"This run's full report: {(report is not null ? Node.Slice(report, 0, -5) + ".txt" : "?")}");
         lines.Add("Runs without a problem send no mail; their reports stay in the reports folder and on the dashboard.");
         return (subject, string.Join("\n", lines));
     }
@@ -360,9 +360,9 @@ public static partial class Mail
         if (issues.Count == 0)
             return "NOT sent: no problem in this run (the mail is for problems only)";
         var path = Path.Combine(cfg.StateDir, "mail-sent.json");
-        var sent = Py.ReadJson(path) as JsonObject ?? [];
+        var sent = Node.ReadJson(path) as JsonObject ?? [];
         var now = clock.Now();
-        var fresh = issues.Where(i => now - Py.Float(sent[i.Key]) >= MailEvery).ToList();
+        var fresh = issues.Where(i => now - Node.Float(sent[i.Key]) >= MailEvery).ToList();
         if (fresh.Count == 0)
             return $"NOT sent: every problem of this run was mailed in the last {Sync.Text.Hms(MailEvery)}";
         var ongoing = issues.Where(i => !fresh.Contains(i)).ToList();
@@ -372,11 +372,11 @@ public static partial class Mail
             return $"NOT sent: {why}";
         foreach (var i in fresh)
             sent[i.Key] = now;
-        foreach (var key in sent.Where(kv => now - Py.Float(kv.Value) > 14 * 86400).Select(kv => kv.Key).ToList())
+        foreach (var key in sent.Where(kv => now - Node.Float(kv.Value) > 14 * 86400).Select(kv => kv.Key).ToList())
             sent.Remove(key);
         try
         {
-            OverStrike2.Core.Files.WriteAtomic(path, Py.DumpsFile(sent, 1), FileModes.Private);
+            OverStrike2.Core.Files.WriteAtomic(path, Node.DumpsFile(sent, 1), FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -555,7 +555,7 @@ public static partial class Mail
             {
                 var l = Line();
                 if (l.Length < 3 || !int.TryParse(l[..3], NumberStyles.None, CultureInfo.InvariantCulture, out var code))
-                    throw new SmtpException($"a reply that is no SMTP: {Py.Cut(l, 80)}");
+                    throw new SmtpException($"a reply that is no SMTP: {Node.Cut(l, 80)}");
                 lines.Add(l.Length > 4 ? l[4..] : "");
                 if (l.Length < 4 || l[3] != '-')
                     return (code, lines);

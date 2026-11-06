@@ -296,19 +296,19 @@ public sealed class DownloadBudget
     /// <summary>(ok, why): no when Steam pushed back today; for a map, no when it was downloaded DownloadsPerMapDay times today already.</summary>
     public (bool Ok, string Why) Allows(string? wid = null)
     {
-        if (Py.Truthy(Today["stop"]))
-            return (false, $"no more downloads today: {Py.Str(Today["stop"])}");
-        if (wid is not null && Py.Int(Py.Get(Today["maps"], wid)) >= DownloadsPerMapDay)
+        if (Node.Truthy(Today["stop"]))
+            return (false, $"no more downloads today: {Node.Str(Today["stop"])}");
+        if (wid is not null && Node.Int(Node.Get(Today["maps"], wid)) >= DownloadsPerMapDay)
             return (false, $"downloaded {DownloadsPerMapDay} times today already - not again today (the bug brake)");
         return (true, "");
     }
 
-    public void RefuseForToday(string why) => Today["stop"] = Py.Cut(why, 200);
+    public void RefuseForToday(string why) => Today["stop"] = Node.Cut(why, 200);
 
     public void Spend(long bytes, string? wid = null)
     {
-        Today["items"] = Py.Int(Today["items"]) + 1;
-        Today["bytes"] = Py.Int(Today["bytes"]) + Math.Max(0, bytes);
+        Today["items"] = Node.Int(Today["items"]) + 1;
+        Today["bytes"] = Node.Int(Today["bytes"]) + Math.Max(0, bytes);
         if (wid is not null)
         {
             if (Today["maps"] is not JsonObject maps)
@@ -316,11 +316,11 @@ public sealed class DownloadBudget
                 maps = new JsonObject();
                 Today["maps"] = maps;
             }
-            maps[wid] = Py.Int(maps[wid]) + 1;
+            maps[wid] = Node.Int(maps[wid]) + 1;
         }
     }
 
-    public void Fail() => Today["failed"] = Py.Int(Today["failed"]) + 1;
+    public void Fail() => Today["failed"] = Node.Int(Today["failed"]) + 1;
 
     /// <summary>A SteamCMD stall on this map: booked for the day, and how many it has had today.</summary>
     public long Stall(string wid)
@@ -330,18 +330,18 @@ public sealed class DownloadBudget
             stalls = new JsonObject();
             Today["stalls"] = stalls;
         }
-        stalls[wid] = Py.Int(stalls[wid]) + 1;
-        return Py.Int(stalls[wid]);
+        stalls[wid] = Node.Int(stalls[wid]) + 1;
+        return Node.Int(stalls[wid]);
     }
 
     /// <summary>The test engine's own copy of an item SteamCMD already fetched: volume, not another item.</summary>
     public void SpendBytes(long bytes)
     {
-        Today["bytes"] = Py.Int(Today["bytes"]) + Math.Max(0, bytes);
-        Today["engine"] = Py.Int(Today["engine"]) + 1;
+        Today["bytes"] = Node.Int(Today["bytes"]) + Math.Max(0, bytes);
+        Today["engine"] = Node.Int(Today["engine"]) + 1;
     }
 
-    public long Items => Py.Int(Today["items"]);
-    public long Bytes => Py.Int(Today["bytes"]);
-    public long Engine => Py.Int(Today["engine"]);
+    public long Items => Node.Int(Today["items"]);
+    public long Bytes => Node.Int(Today["bytes"]);
+    public long Engine => Node.Int(Today["engine"]);
 }

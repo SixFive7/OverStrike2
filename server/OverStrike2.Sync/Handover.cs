@@ -110,8 +110,8 @@ public static class Handover
             return out_;
         }
         foreach (var name in names)
-            if (name.EndsWith(".json", StringComparison.Ordinal) && Py.Digits(name[..^5]))
-                out_[name[..^5]] = Py.ReadJson(Path.Combine(folder, name)) is JsonObject rec ? Py.Int(rec["bytes"]) : 0;
+            if (name.EndsWith(".json", StringComparison.Ordinal) && Node.Digits(name[..^5]))
+                out_[name[..^5]] = Node.ReadJson(Path.Combine(folder, name)) is JsonObject rec ? Node.Int(rec["bytes"]) : 0;
         return out_;
     }
 
@@ -123,8 +123,8 @@ public static class Handover
     public static (List<string> Missing, List<string> Outdated) ServeWants(KeepSetResult keep, IReadOnlyDictionary<string, long> has,
                                                                            IReadOnlyDictionary<string, long> pending, JsonObject state, SyncConfig cfg)
     {
-        var baseline = Py.Obj(state["baseline"]);
-        var items = Py.Obj(state["items"]);
+        var baseline = Node.Obj(state["baseline"]);
+        var items = Node.Obj(state["items"]);
         var own = new HashSet<string>(keep.Own);
         var only = cfg.OnlyIds;
         var all = new List<string>(keep.Up);
@@ -138,14 +138,14 @@ public static class Handover
         {
             if (!has.TryGetValue(wid, out var stored))
                 continue;
-            var rec = Py.Obj(items[wid]);
-            if (!own.Contains(wid) && Py.Str(rec["why"]) == "changed" && Py.Str(rec["status"]) is "queued" or "retry" or "downloaded" or "tested")
+            var rec = Node.Obj(items[wid]);
+            if (!own.Contains(wid) && Node.Str(rec["why"]) == "changed" && Node.Str(rec["status"]) is "queued" or "retry" or "downloaded" or "tested")
                 continue;                                     // its new version waits for its test
-            if (!own.Contains(wid) && rec["verdict"] is not null && Py.Str(rec["verdict"]) != "pass")
+            if (!own.Contains(wid) && rec["verdict"] is not null && Node.Str(rec["verdict"]) != "pass")
                 continue;                                     // its last test failed: the Workshop's version now is the one that did
-            var accepted = Py.Int(baseline[wid]);
+            var accepted = Node.Int(baseline[wid]);
             if (own.Contains(wid))
-                accepted = Math.Max(accepted, Py.Int(rec["updated"]));
+                accepted = Math.Max(accepted, Node.Int(rec["updated"]));
             if (accepted > stored)
                 outdated.Add(wid);
         }
@@ -172,7 +172,7 @@ public static class Handover
         var content = Path.Combine(root, "content", "730", wid);
         var acf = Path.Combine(root, "appworkshop_730.acf");
         var entries = AcfEntries(acf, wid);
-        if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Py.Digits(e.Installed.GetValueOrDefault(k))))
+        if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Node.Digits(e.Installed.GetValueOrDefault(k))))
             return (false, "SteamCMD's acf has no complete entry for it");
         if (!Directory.Exists(content) || IsLink(content))
             return (false, "its folder is not in the staging folder");
@@ -204,7 +204,7 @@ public static class Handover
             ["installed"] = new JsonObject { ["size"] = e.Installed["size"], ["timeupdated"] = e.Installed["timeupdated"], ["manifest"] = gid },
             ["details"] = details, ["created"] = (long)Math.Truncate(now),
         };
-        Files.WriteAtomic(Path.Combine(folder, wid + ".json"), Py.Dumps(marker) + "\n", FileModes.Private);
+        Files.WriteAtomic(Path.Combine(folder, wid + ".json"), Node.Dumps(marker) + "\n", FileModes.Private);
         try
         {
             AcfForget(acf, [wid]);
@@ -232,7 +232,7 @@ public static class Handover
         var pending = Pending(handoverDir);
         var ghosts = named.Keys.Where(w => !Directory.Exists(Path.Combine(content, w))).ToList();
         var copies = (Directory.Exists(content) ? Directory.EnumerateFileSystemEntries(content).Select(p => Path.GetFileName(p)!).ToList() : [])
-            .Where(w => pending.ContainsKey(w) && Py.Str(Py.Get(items[w], "status")) != "downloaded" && !IsLink(Path.Combine(content, w))).ToList();
+            .Where(w => pending.ContainsKey(w) && Node.Str(Node.Get(items[w], "status")) != "downloaded" && !IsLink(Path.Combine(content, w))).ToList();
         if (ghosts.Count == 0 && copies.Count == 0)
             return (0, 0);
         AcfForget(acf, ghosts.Concat(copies.Where(named.ContainsKey)));

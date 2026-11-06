@@ -311,7 +311,7 @@ public static partial class Scan
         }
         foreach (var category in new[] { "gambling ad", "chat advert", "client connect", "server connect" })
             if (found.TryGetValue(category, out var sample))
-                return (category, Py.Cut(sample, 160));
+                return (category, Node.Cut(sample, 160));
         return (null, null);
     }
 
@@ -346,7 +346,7 @@ public static partial class Scan
         var res = new JsonObject
         {
             ["verdict"] = "unknown", ["maps"] = new JsonArray(), ["models"] = 0, ["files"] = 0, ["bytes"] = Handover.FolderBytes(folder),
-            ["names"] = Py.Strings(names.Take(30)), ["advert"] = null, ["advert_sample"] = null,
+            ["names"] = Node.Strings(names.Take(30)), ["advert"] = null, ["advert_sample"] = null,
         };
         if (trees.Count == 0)
         {
@@ -376,7 +376,7 @@ public static partial class Scan
                 var low = entry.Path.ToLowerInvariant();
                 if (low.StartsWith("maps/", StringComparison.Ordinal) && low.EndsWith(".vpk", StringComparison.Ordinal) && low.Count(c => c == '/') == 1)
                 {
-                    maps.Add(Py.Slice(entry.Path, 5, -4));
+                    maps.Add(Node.Slice(entry.Path, 5, -4));
                     var innerBytes = vpk.Read(entry, 1L << 30);
                     if (innerBytes is not { Length: > 0 })
                         continue;
@@ -410,7 +410,7 @@ public static partial class Scan
             verdict = maps.Count > 0 ? "map" : models > 0 ? "pack" : "empty";
         var (advert, sample) = AdvertOf(commands, clientCommand);
         res["verdict"] = verdict;
-        res["maps"] = Py.Strings(maps);
+        res["maps"] = Node.Strings(maps);
         res["models"] = models;
         res["files"] = files;
         res["advert"] = advert;

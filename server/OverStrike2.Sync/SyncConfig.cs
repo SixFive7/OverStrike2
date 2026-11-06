@@ -80,7 +80,7 @@ public sealed class SyncConfig
             RunHours = s.Sync.RunHours,
             ApiEvery = s.Sync.ApiEveryHours * 3600.0,
             Tags = s.Sync.Tags.Select(t => t.Trim()).Where(t => t.Length > 0).ToList(),
-            ExcludeCreators = new HashSet<string>(s.Sync.ExcludeCreators.Where(Py.Digits)),
+            ExcludeCreators = new HashSet<string>(s.Sync.ExcludeCreators.Where(Node.Digits)),
             ChangedSince = s.Sync.ChangedSince,
             ModeBackfill = s.Sync.ModeBackfill,
             ApiDayCap = Math.Clamp(s.Sync.ApiDayCap, 0, HardApiDayCap),
@@ -118,8 +118,8 @@ public sealed class SyncConfig
             KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),
         };
         c.ApiRunCap = Math.Clamp(s.Sync.ApiRunCap, 0, c.ApiDayCap);
-        c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Py.Digits));
-        if (Py.Digits(c.HudAddon))
+        c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Node.Digits));
+        if (Node.Digits(c.HudAddon))
             c.Exclude.Add(c.HudAddon);                          // the HUD item is never a candidate
         foreach (var p in s.Problems.Concat(s.Warnings))   // read as Part.Sync: the sync's own keys only
             c.BootWarnings.Add("settings: " + p);
@@ -145,11 +145,11 @@ public sealed class SyncConfig
     /// cadence) or false (not at all in this run); only_ids (this run takes only these maps).</summary>
     public void Lower(JsonObject overrides)
     {
-        if (Py.Integer(overrides["api_run_cap"]) is { } runCap && runCap >= 0)
+        if (Node.Integer(overrides["api_run_cap"]) is { } runCap && runCap >= 0)
             ApiRunCap = (int)Math.Min(ApiRunCap, runCap);
-        if (Py.Integer(overrides["max_pages"]) is { } pages && pages >= 0)
+        if (Node.Integer(overrides["max_pages"]) is { } pages && pages >= 0)
             MaxPages = (int)Math.Min(MaxPages, pages);
-        if (Py.Integer(overrides["batch"]) is { } batch && batch >= 0)
+        if (Node.Integer(overrides["batch"]) is { } batch && batch >= 0)
             Batch = (int)Math.Min(Batch, batch);
         if (IsFalse(overrides["publish"]))
             Publish = false;
@@ -160,14 +160,14 @@ public sealed class SyncConfig
         if (IsFalse(overrides["api"]))
             SkipApi = true;
         if (overrides["only_ids"] is JsonArray only)
-            OnlyIds = only.Select(Py.Str).Where(Py.Digits).ToList();
+            OnlyIds = only.Select(Node.Str).Where(Node.Digits).ToList();
     }
 
-    static bool IsTrue(JsonNode? v) => Py.IsBool(v) && v!.GetValue<bool>();
-    static bool IsFalse(JsonNode? v) => Py.IsBool(v) && !v!.GetValue<bool>();
+    static bool IsTrue(JsonNode? v) => Node.IsBool(v) && v!.GetValue<bool>();
+    static bool IsFalse(JsonNode? v) => Node.IsBool(v) && !v!.GetValue<bool>();
 
     /// <summary>The run-now file's limits as one line, for the log.</summary>
-    public static string Describe(JsonObject overrides) => overrides.Count == 0 ? "no overrides" : Py.Dumps(overrides);
+    public static string Describe(JsonObject overrides) => overrides.Count == 0 ? "no overrides" : Node.Dumps(overrides);
 
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
         $"runs of {RunHours} h, the API every {Text.Hms(ApiEvery)}, caps {ApiRunCap} a run and {ApiDayCap} in 24 h, {ApiGap} s apart");

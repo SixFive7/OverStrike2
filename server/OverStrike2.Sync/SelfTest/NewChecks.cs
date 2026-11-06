@@ -72,7 +72,7 @@ static class NewChecks
         noDay.ChangedSince = "";
         var det = new Dictionary<string, JsonObject> { ["5"] = O("{\"publishedfileid\": \"5\", \"result\": 1, \"time_updated\": 1793000000}") };
         var j = Discovery.JudgeListed(det, ["5"], st, noDay);
-        Check("settings: with no sync.changedSince no listed map counts as changed at its first check", j.Changed.Count == 0 && Py.Int(st.Baseline["5"]) == 1793000000);
+        Check("settings: with no sync.changedSince no listed map counts as changed at its first check", j.Changed.Count == 0 && Node.Int(st.Baseline["5"]) == 1793000000);
         // restarts.daily off: nothing to keep clear of
         var off = Cfg();
         off.DailyRestart = null;
@@ -87,8 +87,8 @@ static class NewChecks
         cfg.HudAddon = "3823993566";
         var run = W.Run(cfg, new FakeClock(Part2.T0));
         var heavy = run.StatusHeavy();
-        var hud = Py.Arr(heavy["keep"]!["parts"]).First(p => Py.Str(p!["part"]) == "hud");
-        Check("status: the keep set's HUD item is hud.addon", Py.Int(hud!["count"]) == 1 && !Py.StrList(heavy["keep"]!["problems"]).Any(p => p.StartsWith("no HUD item", StringComparison.Ordinal)));
+        var hud = Node.Arr(heavy["keep"]!["parts"]).First(p => Node.Str(p!["part"]) == "hud");
+        Check("status: the keep set's HUD item is hud.addon", Node.Int(hud!["count"]) == 1 && !Node.StrList(heavy["keep"]!["problems"]).Any(p => p.StartsWith("no HUD item", StringComparison.Ordinal)));
     }
 
     // ---- the keep set's queue rule follows the discovery stock (bridge.discoveryStock), as the restart watcher's does: the bridge's lanes
@@ -122,15 +122,15 @@ static class NewChecks
              "n": null, "t": true, "e": [], "o": {}, "i": [1, -2, 12345678901234]}
             """);
         Check("json: compact as the sync's own files (Python's separators, floats, ensure_ascii off)",
-              Py.Compact(tricky) == "{\"f\":[0.1,1e+16,1.5e-07,1793500000.0,0.547,2.675,1e-05,123456789.125,-0.0,1000000000000000.0],\"s\":\"a\\\"b\\\\c\\nd\\te\\u0001\u007fé\u202E\U0001f600\",\"n\":null,\"t\":true,\"e\":[],\"o\":{},\"i\":[1,-2,12345678901234]}");
+              Node.Compact(tricky) == "{\"f\":[0.1,1e+16,1.5e-07,1793500000.0,0.547,2.675,1e-05,123456789.125,-0.0,1000000000000000.0],\"s\":\"a\\\"b\\\\c\\nd\\te\\u0001\u007fé\u202E\U0001f600\",\"n\":null,\"t\":true,\"e\":[],\"o\":{},\"i\":[1,-2,12345678901234]}");
         Check("json: indent 0 (search.json) and the default separators (the hand-over marker) as Python writes them",
-              Py.Dumps(O("{\"a\": [1, {\"b\": \"c\"}], \"d\": {}}"), 0) == "{\n\"a\": [\n1,\n{\n\"b\": \"c\"\n}\n],\n\"d\": {}\n}"
-              && Py.Dumps(O("{\"a\": [1, 2], \"b\": {\"c\": null}}")) == "{\"a\": [1, 2], \"b\": {\"c\": null}}"
-              && Py.Dumps(new JsonObject { ["x"] = 1793500000.0, ["y"] = 2L }) == "{\"x\": 1793500000.0, \"y\": 2}");
+              Node.Dumps(O("{\"a\": [1, {\"b\": \"c\"}], \"d\": {}}"), 0) == "{\n\"a\": [\n1,\n{\n\"b\": \"c\"\n}\n],\n\"d\": {}\n}"
+              && Node.Dumps(O("{\"a\": [1, 2], \"b\": {\"c\": null}}")) == "{\"a\": [1, 2], \"b\": {\"c\": null}}"
+              && Node.Dumps(new JsonObject { ["x"] = 1793500000.0, ["y"] = 2L }) == "{\"x\": 1793500000.0, \"y\": 2}");
         var cases = new (double X, int D)[] { (0.25, 1), (0.35, 1), (2.675, 2), (1.25, 1), (2.5, 0), (3.5, 0), (1342177280 / 1073741824.0, 1), (0.125, 2), (-0.04, 1), (99.95, 1) };
         Check("numbers: \"%.Nf\" and round() as Python's - the exact binary value, ties to even",
-              string.Join("|", cases.Select(c => Py.Fixed(c.X, c.D))) == "0.2|0.3|2.67|1.2|2|4|1.2|0.12|-0.0|100.0"
-              && string.Join("|", cases.Select(c => Py.Repr(Py.Round(c.X, c.D)))) == "0.2|0.3|2.67|1.2|2.0|4.0|1.2|0.12|-0.0|100.0");
+              string.Join("|", cases.Select(c => Node.Fixed(c.X, c.D))) == "0.2|0.3|2.67|1.2|2|4|1.2|0.12|-0.0|100.0"
+              && string.Join("|", cases.Select(c => Node.Repr(Node.Round(c.X, c.D)))) == "0.2|0.3|2.67|1.2|2.0|4.0|1.2|0.12|-0.0|100.0");
         Check("words: sizes as the Python sync's mb()",
               string.Join("|", new long[] { 0, 1048575, 1572864, 1073741824, 1342177280, 1610612736, 5L << 30 }.Select(b => Text.Mb(b))) == "0 MB|1 MB|2 MB|1.0 GB|1.2 GB|1.5 GB|5.0 GB");
         Check("words: clean() and the search text as Python's - control characters, bidi overrides, a cut at a word, by code points",
@@ -184,7 +184,7 @@ static class NewChecks
         catch (StopApiException)
         {
         }
-        Check("api: a keyed call without the key is neither sent nor counted in the ledger", sent2.Count == 0 && Py.Arr(led2.Data!["calls"]).Count == 0 && led2.Count(C(clock2).Day()) == 0);
+        Check("api: a keyed call without the key is neither sent nor counted in the ledger", sent2.Count == 0 && Node.Arr(led2.Data!["calls"]).Count == 0 && led2.Count(C(clock2).Day()) == 0);
     }
 
     static (int Code, string Said) Quiet(Func<int> run)

@@ -50,7 +50,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
             Data = new JsonObject { ["schema"] = 1, ["calls"] = new JsonArray(), ["days"] = new JsonObject(), ["stops"] = new JsonObject() };
             return;
         }
-        var data = Py.ReadJson(Path);
+        var data = Node.ReadJson(Path);
         if (data is JsonObject older && !older.ContainsKey("days") && older["nights"] is JsonObject nights)
         {
             older.Remove("nights");
@@ -68,7 +68,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
         Data = o;
     }
 
-    public void Save() => Files.WriteAtomic(Path, Py.Compact(Data) + "\n", FileModes.Private);
+    public void Save() => Files.WriteAtomic(Path, Node.Compact(Data) + "\n", FileModes.Private);
 
     static double Time(JsonNode? call) => call is JsonArray a && a.Count > 0 && KeepSet.Number(a[0]) is { } t ? t : double.NegativeInfinity;
 
@@ -90,19 +90,19 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
     public int Last24h(double? now = null)
     {
         var t = now ?? clock.Now();
-        return Py.Arr(Data?["calls"]).Count(c => t - Time(c) < Day);
+        return Node.Arr(Data?["calls"]).Count(c => t - Time(c) < Day);
     }
 
-    public long Count(string day) => Py.Int(Py.Get(Data?["days"], day));
+    public long Count(string day) => Node.Int(Node.Get(Data?["days"], day));
 
-    public string? Stopped(string day) => Py.Truthy(Py.Get(Data?["stops"], day)) ? Py.Str(Py.Get(Data?["stops"], day)) : null;
+    public string? Stopped(string day) => Node.Truthy(Node.Get(Data?["stops"], day)) ? Node.Str(Node.Get(Data?["stops"], day)) : null;
 
     public void Stop(string day, string why)
     {
         if (Data is null)
             return;
         var stops = (JsonObject)Data["stops"]!;
-        if (!Py.Truthy(stops[day]))
+        if (!Node.Truthy(stops[day]))
         {
             stops[day] = why;
             Save();
@@ -121,7 +121,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
         if (Last24h(now) >= DayCap)
             throw new StopApiException($"the cap of {DayCap} Web API calls in 24 hours is reached");
         var calls = (JsonArray)Data["calls"]!;
-        calls.Add(new JsonArray(Py.Round(now, 3), api, null));
+        calls.Add(new JsonArray(Node.Round(now, 3), api, null));
         ((JsonObject)Data["days"]!)[day] = Count(day) + 1;
         Save();
         return calls.Count - 1;
@@ -219,7 +219,7 @@ public sealed class SteamApi : IWorkshopApi
             {
                 if (attempts > RetryWait.Length)
                     throw;
-                log($"Web API {api} failed ({Redact(e.Message)}) - trying again in {Py.D(RetryWait[attempts - 1])} s");
+                log($"Web API {api} failed ({Redact(e.Message)}) - trying again in {Node.D(RetryWait[attempts - 1])} s");
                 sleep(RetryWait[attempts - 1]);
             }
         }
@@ -291,7 +291,7 @@ public sealed class SteamApi : IWorkshopApi
             Errors5xxRow = 0;
             try
             {
-                return Py.Parse(Encoding.UTF8.GetString(answer.Body), api);
+                return Node.Parse(Encoding.UTF8.GetString(answer.Body), api);
             }
             catch (BadDataException)
             {
@@ -318,19 +318,19 @@ public sealed class SteamApi : IWorkshopApi
         return sb.ToString();
     }
 
-    static JsonObject Response(JsonNode? reply) => Py.Truthy(Py.Get(reply, "response")) ? Py.Obj(Py.Get(reply, "response")) : [];
+    static JsonObject Response(JsonNode? reply) => Node.Truthy(Node.Get(reply, "response")) ? Node.Obj(Node.Get(reply, "response")) : [];
 
     public (List<JsonObject> Items, string NextCursor, long Total) QueryFiles(IReadOnlyList<string> tags, string cursor, int perPage)
     {
         var p = new List<(string, string)>
         {
-            ("query_type", "1"), ("cursor", cursor), ("numperpage", Py.D(perPage)), ("appid", "730"), ("filetype", "0"), ("match_all_tags", "false"),
+            ("query_type", "1"), ("cursor", cursor), ("numperpage", Node.D(perPage)), ("appid", "730"), ("filetype", "0"), ("match_all_tags", "false"),
             ("return_tags", "true"), ("return_metadata", "true"), ("return_short_description", "false"), ("strip_description_bbcode", "true"),
         };
         p.AddRange(tags.Select((t, i) => ($"requiredtags[{i}]", t)));
         var response = Response(Call("QueryFiles", QueryUrl, query: p));
-        var items = Py.Arr(response["publishedfiledetails"]).OfType<JsonObject>().ToList();
-        return (items, Py.StrOr(response["next_cursor"]), Py.Int(response["total"]));
+        var items = Node.Arr(response["publishedfiledetails"]).OfType<JsonObject>().ToList();
+        return (items, Node.StrOr(response["next_cursor"]), Node.Int(response["total"]));
     }
 
     /// <summary>{id: [score, votes up, votes down, subscriptions]} of the items the Workshop has (result 1): IPublishedFileService/GetDetails
@@ -342,12 +342,12 @@ public sealed class SteamApi : IWorkshopApi
         p.AddRange(ids.Select((w, i) => ($"publishedfileids[{i}]", w)));
         var reply = Call("GetDetails", VotesUrl, query: p);
         var out_ = new Dictionary<string, JsonArray>();
-        foreach (var item in Py.Arr(Response(reply)["publishedfiledetails"]))
+        foreach (var item in Node.Arr(Response(reply)["publishedfiledetails"]))
         {
-            var wid = Py.StrOr(Py.Get(item, "publishedfileid"));
-            var vote = Py.Get(item, "vote_data");
-            if (Py.Digits(wid) && Py.Int(Py.Get(item, "result")) == 1 && vote is JsonObject v && (Py.IsNumber(v["score"]) || Py.IsBool(v["score"])))
-                out_[wid] = new JsonArray(Py.Round(Py.Float(v["score"]), 6), Py.Int(v["votes_up"]), Py.Int(v["votes_down"]), Py.Int(Py.Get(item, "subscriptions")));
+            var wid = Node.StrOr(Node.Get(item, "publishedfileid"));
+            var vote = Node.Get(item, "vote_data");
+            if (Node.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && (Node.IsNumber(v["score"]) || Node.IsBool(v["score"])))
+                out_[wid] = new JsonArray(Node.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
         }
         return out_;
     }
@@ -358,25 +358,25 @@ public sealed class SteamApi : IWorkshopApi
     {
         var p = new List<(string, string)>
         {
-            ("query_type", "3"), ("days", Py.D(days)), ("cursor", cursor), ("numperpage", Py.D(perPage)), ("appid", "730"), ("filetype", "0"),
+            ("query_type", "3"), ("days", Node.D(days)), ("cursor", cursor), ("numperpage", Node.D(perPage)), ("appid", "730"), ("filetype", "0"),
             ("requiredtags[0]", tag), ("ids_only", "true"),
         };
         var response = Response(Call("QueryFiles", QueryUrl, query: p));
-        var ids = Py.Arr(response["publishedfiledetails"]).OfType<JsonObject>().Where(i => Py.Digits(Py.StrOr(i["publishedfileid"])))
-            .Select(i => Py.Str(i["publishedfileid"])).ToList();
-        return (ids, Py.StrOr(response["next_cursor"]), Py.Int(response["total"]));
+        var ids = Node.Arr(response["publishedfiledetails"]).OfType<JsonObject>().Where(i => Node.Digits(Node.StrOr(i["publishedfileid"])))
+            .Select(i => Node.Str(i["publishedfileid"])).ToList();
+        return (ids, Node.StrOr(response["next_cursor"]), Node.Int(response["total"]));
     }
 
     public Dictionary<string, JsonObject> Details(IReadOnlyList<string> ids)
     {
-        var form = new List<(string, string)> { ("itemcount", Py.D(ids.Count)) };
+        var form = new List<(string, string)> { ("itemcount", Node.D(ids.Count)) };
         form.AddRange(ids.Select((w, i) => ($"publishedfileids[{i}]", w)));
         var reply = Call("GetPublishedFileDetails", DetailsUrl, data: form);
         var out_ = new Dictionary<string, JsonObject>();
-        foreach (var item in Py.Arr(Response(reply)["publishedfiledetails"]).OfType<JsonObject>())
+        foreach (var item in Node.Arr(Response(reply)["publishedfiledetails"]).OfType<JsonObject>())
         {
-            var wid = Py.StrOr(item["publishedfileid"]);
-            if (Py.Digits(wid))
+            var wid = Node.StrOr(item["publishedfileid"]);
+            if (Node.Digits(wid))
                 out_[wid] = item;
         }
         return out_;

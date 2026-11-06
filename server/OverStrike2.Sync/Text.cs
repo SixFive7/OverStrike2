@@ -22,19 +22,19 @@ public static partial class Text
         var text = CtrlRx().Replace(value ?? "", " ");
         text = BidiRx().Replace(text, "");
         text = WsRx().Replace(text, " ").Trim();
-        if (limit is { } n && n > 0 && Py.Len(text) > n)
+        if (limit is { } n && n > 0 && Node.Len(text) > n)
         {
-            var cut = Py.Cut(text, n).TrimEnd();
-            var space = Py.RFind(cut, " ");
+            var cut = Node.Cut(text, n).TrimEnd();
+            var space = Node.RFind(cut, " ");
             if (space > n * 0.6)
-                cut = Py.Cut(cut, space).TrimEnd();
+                cut = Node.Cut(cut, space).TrimEnd();
             text = cut.TrimEnd(',', ';', ':', '.', '-') + "…";
         }
         return text;
     }
 
     /// <summary>Clean of a JSON value: Python's clean(str(value)), "" for none.</summary>
-    public static string Clean(JsonNode? value, int? limit = null) => Clean(value is null ? "" : Py.Str(value), limit);
+    public static string Clean(JsonNode? value, int? limit = null) => Clean(value is null ? "" : Node.Str(value), limit);
 
     /// <summary>A Workshop description as plain text: its pictures, BBCode and HTML tags out, its entities read.</summary>
     public static string CleanDescription(string? raw)
@@ -46,25 +46,25 @@ public static partial class Text
     }
 
     /// <summary>maps.json's sizeMb: whole MB, rounded half up, never 0 (the bridge would announce '(0 MB)').</summary>
-    public static long SizeMb(JsonNode? bytes) => Math.Max(1, (long)Math.Truncate(Py.Int(bytes) / 1048576.0 + 0.5));
+    public static long SizeMb(JsonNode? bytes) => Math.Max(1, (long)Math.Truncate(Node.Int(bytes) / 1048576.0 + 0.5));
 
     public static string ItemName(JsonNode? item)
     {
-        var name = Clean(WebUtility.HtmlDecode(Py.StrOr(Py.Get(item, "title"))));
-        return name.Length > 0 ? name : $"Workshop item {Py.Str(Py.Get(item, "publishedfileid"))}";
+        var name = Clean(WebUtility.HtmlDecode(Node.StrOr(Node.Get(item, "title"))));
+        return name.Length > 0 ? name : $"Workshop item {Node.Str(Node.Get(item, "publishedfileid"))}";
     }
 
     public static List<string> ItemTags(JsonNode? item) =>
-        Py.Arr(Py.Get(item, "tags")).OfType<JsonObject>().Where(t => Py.Truthy(t["tag"])).Select(t => Py.Str(t["tag"])).ToList();
+        Node.Arr(Node.Get(item, "tags")).OfType<JsonObject>().Where(t => Node.Truthy(t["tag"])).Select(t => Node.Str(t["tag"])).ToList();
 
     /// <summary>ok | removed | hidden | banned, as the bridge's own check reads the same reply.</summary>
     public static string WorkshopVerdict(JsonNode? item)
     {
-        if (!Py.Truthy(item) || Py.Int(Py.Get(item, "result")) != 1)
+        if (!Node.Truthy(item) || Node.Int(Node.Get(item, "result")) != 1)
             return "removed";
-        if (Py.Truthy(Py.Get(item, "banned")))
+        if (Node.Truthy(Node.Get(item, "banned")))
             return "banned";
-        if (Py.Int(Py.Get(item, "visibility")) != 0)
+        if (Node.Int(Node.Get(item, "visibility")) != 0)
             return "hidden";
         return "ok";
     }
@@ -74,6 +74,6 @@ public static partial class Text
 
     /// <summary>"1.4 GB" from a gigabyte on, else "730 MB" (Python's "%.1f" and "%.0f": ties to even).</summary>
     public static string Mb(double bytes) => bytes >= 1073741824
-        ? Py.Fixed(bytes / 1073741824.0, 1) + " GB"
-        : Py.Fixed(bytes / 1048576.0, 0) + " MB";
+        ? Node.Fixed(bytes / 1073741824.0, 1) + " GB"
+        : Node.Fixed(bytes / 1048576.0, 0) + " MB";
 }
