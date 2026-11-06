@@ -81,7 +81,7 @@ class Release:
         self.cfg, self.dry = cfg, dry
         self.d = d or os2.Docker(cfg)
         self.humans_a2s = humans or (lambda: os2.humans(cfg.get("server.address", required=True)))
-        self.run = run or (lambda argv: subprocess.run(argv, cwd=OS2_DIR).returncode)
+        self.run = run or (lambda argv: subprocess.run(argv, cwd=OS2_DIR, env=child_env(cfg)).returncode)
         self.sleep, self.fetch = sleep, fetch or fetch_details
         self.game = cfg.get("bridge.game_container", required=True)
         self.bridge_name = cfg.get("bridge.container", required=True)
@@ -89,7 +89,7 @@ class Release:
         self.lock = cfg.get("server.lock_file", "")
         self.flag = os.path.join(cfg.get("bridge.data_dir", required=True), "maintenance")
         self.verify_with = cfg.get("release.verify", None) or (   # deploy/check.py verify, on the config this release runs with
-            [sys.executable, "-I", CHECK, "verify"] + (["--config", cfg.path] if getattr(cfg, "path", None) else []))
+            [sys.executable, "-I", CHECK, "verify"] + (["--config", os.path.abspath(cfg.path)] if getattr(cfg, "path", None) else []))
         self.took_lock = self.set_flag = False
         self.record = []
 
@@ -344,6 +344,14 @@ class Release:
                     raise Stop("REFUSED: the held-item check does not read NOT shown - the server would not recognise an item under review")
                 return seen
         raise Stop("REFUSED: the held-item check's answer did not reach the plugin's log within a minute")
+
+
+def child_env(cfg):
+    """The environment of the deploy scripts a release runs (plugin.py ship, workshop.py, the check): this one's, with OVERSTRIKE2_CONFIG
+    naming the config the release itself runs on - absolute, since they run in the repository's root - so a release started with
+    --config ships and checks that same deployment. None (this environment as it is) for a config without a path."""
+    path = getattr(cfg, "path", None)
+    return {**os.environ, "OVERSTRIKE2_CONFIG": os.path.abspath(path)} if path else None
 
 
 def workshop_item():

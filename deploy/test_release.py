@@ -240,8 +240,12 @@ try:
     T = Test(verify="none")
     r, out = go(T, lambda: T.release().live("rel", True, False))
     check("live: no release.verify - deploy/check.py verify runs, on the config this release runs with; ALL GOOD, the lock released",
-          r == 0 and T.runs[-1] == [sys.executable, "-I", os.path.join(HERE, "check.py"), "verify", "--config", "the-private-config.toml"]
+          r == 0 and T.runs[-1] == [sys.executable, "-I", os.path.join(HERE, "check.py"), "verify", "--config", os.path.abspath("the-private-config.toml")]
           and os.path.isfile(T.runs[-1][2]) and "the deployment's check: ALL GOOD" in out and not os.path.exists(T.lock))
+    env = R.child_env(Cfg({}, path="the-private-config.toml"))
+    check("the deploy scripts a release runs read the release's own config: OVERSTRIKE2_CONFIG, made absolute, the rest of the environment kept",
+          env["OVERSTRIKE2_CONFIG"] == os.path.abspath("the-private-config.toml") and env.get("PATH") == os.environ.get("PATH")
+          and R.child_env(Cfg({}, path=None)) is None)
     T = Test(verify="none")
     T.run = lambda argv: (T.runs.append(argv), 1 if argv[2] == os.path.join(HERE, "check.py") else 0)[1]
     r, out = go(T, lambda: T.release().live("rel", True, False))
