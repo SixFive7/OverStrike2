@@ -22,6 +22,8 @@
     <Compile Include="..\OverStrike2\SteamWebApi.cs" Link="SteamWebApi.cs" />
     <!-- When the vote freezes everybody, on a handed clock; and where the HUD addon's id comes from. -->
     <Compile Include="..\OverStrike2\FreezePlan.cs" Link="FreezePlan.cs" />
+    <!-- The Players page's time on: whose it is. -->
+    <Compile Include="..\OverStrike2\JoinTimes.cs" Link="JoinTimes.cs" />
     <Compile Include="..\OverStrike2\HudAddon.cs" Link="HudAddon.cs" />
     <!-- Where the plugin's settings come from: the settings file (core's reader), else the environment. -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />

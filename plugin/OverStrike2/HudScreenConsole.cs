@@ -34,7 +34,7 @@ sealed partial class HudScreen
     public string Rejoin(long account)
     {
         if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is not { } p) return $"no player [U:1:{account}]";
-        joinedAt[p.Slot] = DateTime.UtcNow;
+        joins.Joined(account, DateTime.UtcNow);
         Server.NextFrame(Frame);
         return $"join banner for {p.PlayerName} for {HudVote.JoinSeconds:0} s (server level {TestLevel ?? HudVote.ContentLevel})";
     }

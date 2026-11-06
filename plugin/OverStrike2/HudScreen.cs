@@ -52,7 +52,7 @@ sealed partial class HudScreen
     readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
     readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
-    readonly Dictionary<int, DateTime> joinedAt = new(); // slot -> a real join: the version banner of v4.0.0 to v4.5.0 for a while, and the Players page's time on
+    readonly JoinTimes joins = new();                 // each account's last real join: the version banner of v4.0.0 to v4.5.0 for a while, and the Players page's time on
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
@@ -113,7 +113,7 @@ sealed partial class HudScreen
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
                      typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(FunClicks), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
-                     typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan) })
+                     typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan), typeof(JoinTimes) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
@@ -146,7 +146,7 @@ sealed partial class HudScreen
     public void Joined(CCSPlayerController player, bool first)
     {
         slots.Joined(player.Slot, first, player.PawnIsAlive, DateTime.UtcNow);
-        joinedAt[player.Slot] = DateTime.UtcNow;
+        joins.Joined(Account(player), DateTime.UtcNow);
         hudSeen.Remove(Account(player)); // a real join: the HUD check asks again - a reconnecting player may have a new HUD
         Post(Messages.Tagline, Hud.Headline, Account(player));
         if (player.PawnIsAlive) { worldReady = true; Server.NextFrame(EnsureEntity); }

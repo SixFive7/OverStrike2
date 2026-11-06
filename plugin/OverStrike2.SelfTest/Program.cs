@@ -15,6 +15,9 @@ using OverStrike2;
 //   - where the plugin's settings come from (PluginSetup.cs, bridge/Shared/SettingsSource.cs): the settings file when there is one that can be
 //     used, else the environment as before - and the line that says which, with no value in it;
 //   - the block file (bridge/Shared/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
+//   - which game mode the settings module acts in (ModePlan.cs): at a map start, at os_mode, and at a load while a map is on, which ends where a
+//     plugin loaded before that map is;
+//   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
 //   - the Steam Web API's one door (SteamWebApi.cs): one request at a time, 2 s apart, each saying who asks.
@@ -390,6 +393,32 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
             "mode: the plugin tells its modules a load's mode once they follow ModeApplied");
     }
     else Console.WriteLine($"(no {settingsCs}: the settings module's use of the mode is not checked)");
+}
+
+// ---- the Players page's time on (JoinTimes.cs): by account. A map change disconnects everybody, and a player's time goes on through it whatever
+// slot they come back in; kept by slot, a player who took a slot somebody else left showed that player's time until their own real join ----
+{
+    var t0 = new DateTime(2026, 11, 6, 20, 0, 0, DateTimeKind.Utc);
+    var joins = new JoinTimes();
+    joins.Joined(1001, t0); // a real join (css_guide)
+    Check(joins.Since(1001, t0.AddMinutes(30)) == TimeSpan.FromMinutes(30), "time on: a player's time goes on through a map change's reconnect, with nothing said at it");
+    Check(joins.Since(1002, t0.AddMinutes(31)) == null, "time on: a player in a slot somebody else left shows none of theirs before their own real join");
+    joins.Joined(1002, t0.AddMinutes(32));
+    Check(joins.Since(1002, t0.AddMinutes(40)) == TimeSpan.FromMinutes(8) && joins.Since(1001, t0.AddMinutes(40)) == TimeSpan.FromMinutes(40),
+        "time on: ...which starts their own, and the player before keeps theirs");
+    joins.Joined(1001, t0.AddMinutes(45));
+    Check(joins.Since(1001, t0.AddMinutes(46)) == TimeSpan.FromMinutes(1), "time on: a real join again starts over");
+    joins.Joined(-1, t0);
+    Check(joins.Since(-1, t0.AddMinutes(1)) == null, "time on: a player whose account the game has not told has none");
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var screen = Directory.Exists(plugin) ? Directory.GetFiles(plugin, "HudScreen*.cs").Order(StringComparer.Ordinal).ToList() : [];
+    if (screen.Count > 0)
+    {
+        var code = string.Join("\n", screen.Select(File.ReadAllText)); // the class, in all its files
+        Check(code.Contains("joins.Joined(Account(player), ", StringComparison.Ordinal) && Regex.Matches(code, @"joins\.Since\(account, now\)").Count == 2,
+            "time on: the HUD takes it by account at css_guide, and reads it so for the join banner and the Players page");
+    }
+    else Console.WriteLine("(no HudScreen*.cs beside this project: where the HUD's time on comes from is not checked)");
 }
 
 // ---- ConVarNames: the game convars the running build has, asked of the build itself. What can go wrong on a server is a missing or strange

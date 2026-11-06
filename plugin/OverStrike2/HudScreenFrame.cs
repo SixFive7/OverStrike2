@@ -112,7 +112,7 @@ sealed partial class HudScreen
             Class(HudView.Screen, "pinned", view.Window && view.Pinned, p); // the welcome closes only by its X: its foot has no idle bar
             Class(HudView.Screen, "toast-1", view.Toast == 1, p);
             Class(HudView.Screen, "toast-in", view.ToastIn, p);
-            var joined = joinedAt.TryGetValue(p.Slot, out var at) && (now - at).TotalSeconds < HudVote.JoinSeconds;
+            var joined = joins.Since(account, now) is { } joinedFor && joinedFor.TotalSeconds < HudVote.JoinSeconds;
             Class(HudView.Screen, "vjoin", joined, p);                                      // the join banner of v4.0.0 to v4.5.0 (svge/svlt)
             var vv = VoteView(p.Slot);
             var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
@@ -240,8 +240,7 @@ sealed partial class HudScreen
             var team = p.Team switch { CsTeam.CounterTerrorist => "CT", CsTeam.Terrorist => "T", _ => "SPEC" };
             var checking = checkMode != HudCheck.Mode.Off && gate.Checking(p.Slot) ? gate.SecondsLeft(p.Slot, now) : 0;
             var voted = vote is { Open: true, Round: > 0 } ? vote.ChoiceOf(account) > 0 ? "voted" : "waiting" : "";
-            var since = joinedAt.TryGetValue(p.Slot, out var at) ? now - at : (TimeSpan?)null;
-            rows.Add(new HudView.PlayerRow(p.PlayerName, team, VersionOf(account), checking, voted, HudView.OnFor(since)));
+            rows.Add(new HudView.PlayerRow(p.PlayerName, team, VersionOf(account), checking, voted, HudView.OnFor(joins.Since(account, now))));
         }
         return rows;
     }
