@@ -25,6 +25,15 @@ static partial class Program
         var big = new HudSearch();
         big.Set("k", new string('a', 5000));
         Check($"Search: one map's text is kept to {HudSearch.MaxText} characters", big.TextOf("k")!.Length == HudSearch.MaxText);
+        // search.json's texts are lowered by core's rule (SearchText: Python's lower()), which makes İ an i with a combining dot above and a capital
+        // sigma at a word's end a final sigma; .NET's lower case keeps İ, so "FUN GAME AİM" was found by no typed word
+        var turkish = new HudSearch();
+        turkish.Set("5", OverStrike2.Core.SearchText.Of("FUN GAME AİM", "5", ["Classic"]));
+        turkish.Set("6", OverStrike2.Core.SearchText.Of("ΟΔΥΣΣΕΑΣ", "6", []));
+        Check("Search: names, search.json's texts and typed words are lowered by search.json's own rule - \"aim\" finds FUN GAME AİM by its name and by its text, the start of a Greek word typed in capitals finds the word",
+            HudSearch.Normal("FUN GAME AİM") == "fun game aim" && turkish.TextOf("5") == "fun game aim 5 classic" && turkish.Score("5", "FUN GAME AİM", HudSearch.Words("aim")) >= 100
+            && turkish.Score("5", "", HudSearch.Words("AİM")) > 0 && HudSearch.Words("ΟΔΥΣ") is ["οδυσ"] && turkish.Score("6", "ΟΔΥΣΣΕΑΣ", HudSearch.Words("ΟΔΥΣ")) >= 100
+            && turkish.Score("6", "", HudSearch.Words("οδυσσεασ")) > 0);
 
         // ---- the keyboard (HudKeyboard) ----
         var keys = HudKeyboard.Keys().ToList();
@@ -60,6 +69,12 @@ static partial class Program
         b.Query = "aim";
         Check("A search finds by description too, best match first under the default sort: AIM Map before Claim the hill",
             b.Matches(catalog, 1, index).Select(m => m.Name).SequenceEqual(["AIM Map", "Claim the hill"]));
+        var withAim = new HudCatalog { Version = 2, Maps = [.. catalog.Maps, new("3600000001", "16", 16, 3600000001, "FUN GAME AİM", 12, false, -1, 0, 0, 0)] };
+        index.Set("3600000001", OverStrike2.Core.SearchText.Of("FUN GAME AİM", "3600000001", []));
+        var typing = new HudBrowser();
+        foreach (var k in new[] { HudKeyboard.Open, "gg_kb_a", "gg_kb_i", "gg_kb_m" }) typing.Click(k, 0);
+        Check("The keyboard's \"aim\" finds FUN GAME AİM with the other aim maps: its name and its text are lowered as search.json's are",
+            typing.Matches(withAim, 1, index).Select(m => m.Name).Order(StringComparer.Ordinal).SequenceEqual(["AIM Map", "Claim the hill", "FUN GAME AİM"]));
         b.Query = "1015";
         Check("A number is also a rank", b.Matches(catalog, 1, index) is [{ Rank: 1015 }]);
         b.Query = "3681294731";

@@ -66,9 +66,9 @@ public sealed class HudBrowser
 
     List<HudCatalog.Entry> Work(HudCatalog catalog, long account, HudSearch? search)
     {
-        var q = Hud.Clean(Query, HudSearch.MaxQuery).Trim().ToLowerInvariant();
+        var q = Hud.Clean(Query, HudSearch.MaxQuery).Trim();
         if (WorkshopQuery(catalog) != null) return []; // a Workshop id no listed map has: its card answers it, alone (map cards under it ran off the page)
-        var words = HudSearch.Words(q);
+        var words = HudSearch.Words(q); // lowered as search.json's texts are (HudSearch.Normal)
         var index = search ?? new HudSearch();
         IEnumerable<HudCatalog.Entry> hits = catalog.Maps;
         if (Size != Band.All) hits = hits.Where(m => !m.Official && BandOf(m.SizeMb) == Size);

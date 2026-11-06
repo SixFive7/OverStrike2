@@ -22,6 +22,8 @@
     <Compile Include="..\..\bridge\Shared\*.cs" LinkBase="Shared" />
     <!-- The settings file: core's reader, compiled in as source like the bridge's files (no second DLL beside the plugin). -->
     <Compile Include="..\..\core\Settings.cs" Link="Core\Settings.cs" />
+    <!-- The rule search.json's texts are written by: the map browser's search lowers names and typed words the same way (bridge/Shared/HudSearch.cs). -->
+    <Compile Include="..\..\core\SearchText.cs" Link="Core\SearchText.cs" />
     <!-- The catch-up module: its rules, config and game half compiled in as source; its config beside the DLL. -->
     <Compile Include="..\CatchUp\CatchUpConfig.cs" Link="CatchUp\CatchUpConfig.cs" />
     <Compile Include="..\CatchUp\CatchUpRules.cs" Link="CatchUp\CatchUpRules.cs" />
