@@ -26,7 +26,7 @@ public static partial class Mail
     public static string ShortStop(string? text)
     {
         var m = ShortRx().Match(text ?? "");
-        return m.Success ? m.Value : Node.Cut(text ?? "", 60);
+        return m.Success ? m.Value : Sync.Text.Cut(text ?? "", 60);
     }
 
     static string S(JsonNode? v) => Node.Str(v);
@@ -167,7 +167,7 @@ public static partial class Mail
             var counts = new List<(string Word, int N)>();
             foreach (var row in rows)
             {
-                var word = Node.Words(row).FirstOrDefault() ?? "";
+                var word = OverStrike2.Core.SearchText.Split(row).FirstOrDefault() ?? "";
                 var at = counts.FindIndex(x => x.Word == word);
                 if (at >= 0)
                     counts[at] = (word, counts[at].N + 1);
@@ -233,7 +233,7 @@ public static partial class Mail
         var lim = Node.Obj(r["limits"]);
         W("");
         W($"Limits: Web API calls this run {Get(lim, "api_run", "None")} of {Get(lim, "api_run_cap", "None")}, last 24 h {Get(lim, "api_24h", "None")} of {Get(lim, "api_day_cap", "None")} "
-          + $"(10% of Valve's 100,000), at least {Node.Fixed(lim.ContainsKey("api_gap") ? Node.Float(lim["api_gap"]) : 2, 0)} s apart;");
+          + $"(10% of Valve's 100,000), at least {Sync.Text.Fixed(lim.ContainsKey("api_gap") ? Node.Float(lim["api_gap"]) : 2, 0)} s apart;");
         W($"downloads today {Get(lim, "dl_items", "None")}, {Sync.Text.Mb(Node.Int(lim["dl_bytes"]))}{(Node.Truthy(lim["dl_engine"]) ? $" (with {I(lim["dl_engine"])} copies the test engine fetched itself)" : "")} "
           + $"- no daily cap: only Steam's push-back stops them; test-engine starts {Get(lim, "engine_starts", "None")} of {Get(lim, "engine_starts_max", "None")}.");
         var bl = Node.Obj(r["backlog"]);
@@ -242,8 +242,8 @@ public static partial class Mail
             var eta = Or(r["backlog_until"], "");
             var byMode = Node.Obj(bl["by_mode"]);
             W($"Backlog: {I(bl["items"])} item(s) waiting, {Sync.Text.Mb(Node.Int(bl["bytes"]))} (Deathmatch {N(byMode, "deathmatch")}, Wingman {N(byMode, "wingman")}, Arms Race {N(byMode, "armsrace")} - one item can carry several tags), taken");
-            W($"the ones the keep set wants first, new uploads next, then strictly by subscribers. About {N(bl, "days")} more day(s){eta}: {Node.Fixed(bl.ContainsKey("pace") ? Node.Float(bl["pace"]) : Verdicts.PaceDefault, 0)} s a map");
-            W($"(download and test), about {Node.Fixed(Node.Float(bl["hours"]), 0)} h a day while nobody plays (no time windows), so about {(Node.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day; every hour somebody");
+            W($"the ones the keep set wants first, new uploads next, then strictly by subscribers. About {N(bl, "days")} more day(s){eta}: {Sync.Text.Fixed(bl.ContainsKey("pace") ? Node.Float(bl["pace"]) : Verdicts.PaceDefault, 0)} s a map");
+            W($"(download and test), about {Sync.Text.Fixed(Node.Float(bl["hours"]), 0)} h a day while nobody plays (no time windows), so about {(Node.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day; every hour somebody");
             W("plays comes off it. No daily download cap: only time and the test speed set it.");
         }
         if (Node.Truthy(r["waited"]))
@@ -324,12 +324,12 @@ public static partial class Mail
         if (Node.Truthy(wk["problems"]))
         {
             var problems = Node.StrList(wk["problems"]);
-            Add($"deletion-refused:{Node.Cut(DigitsRx().Replace(problems[0], "#"), 60)}",
+            Add($"deletion-refused:{Sync.Text.Cut(DigitsRx().Replace(problems[0], "#"), 60)}",
                 $"The game server's deletion at its engine start of {Get(wk, "computed", "?")} refused: {Sync.Text.Clean(string.Join("; ", problems.Take(3)), 300)}.",
                 "It deleted nothing and kept every map; it tries again at its next engine start.");
         }
         foreach (var e in Node.StrList(r["errors"]))
-            Add($"error:{Node.Cut(DigitsRx().Replace(e, "#"), 80)}", $"An error: {Sync.Text.Clean(e, 300)}.", "The run went on with its other steps.");
+            Add($"error:{Sync.Text.Cut(DigitsRx().Replace(e, "#"), 80)}", $"An error: {Sync.Text.Clean(e, 300)}.", "The run went on with its other steps.");
         return out_;
     }
 
@@ -337,7 +337,7 @@ public static partial class Mail
     public static (string Subject, string Body) IssueMail(List<Issue> issues, List<Issue> ongoing, JsonObject r, SyncConfig cfg)
     {
         var when = $"{Get(r, "day", "?")} {Get(r, "started_hm", "?")}-{Get(r, "ended_hm", "?")}";
-        var subject = $"{cfg.ServerName} Workshop sync: {Node.Cut(issues[0].What, 90).TrimEnd('.')}{(issues.Count > 1 ? $" (and {issues.Count - 1} more)" : "")}";
+        var subject = $"{cfg.ServerName} Workshop sync: {Sync.Text.Cut(issues[0].What, 90).TrimEnd('.')}{(issues.Count > 1 ? $" (and {issues.Count - 1} more)" : "")}";
         var lines = new List<string>
         {
             $"The Workshop sync of {cfg.ServerName} ran into {(issues.Count == 1 ? "a problem" : $"{issues.Count} problems")} in its {(Node.Truthy(r["manual"]) ? "manual " : "")}run of {when}.", "",
@@ -348,7 +348,7 @@ public static partial class Mail
             lines.AddRange([$"Still going on, mailed already in the last day: {string.Join(" | ", ongoing.Select(i => i.What))}", ""]);
         lines.Add($"The dashboard: {(cfg.DashboardUrl.Length > 0 ? cfg.DashboardUrl : "the HUD's Sync tab")}");
         var report = Node.Truthy(r["report_path"]) ? Node.Str(r["report_path"]) : null;
-        lines.Add($"This run's full report: {(report is not null ? Node.Slice(report, 0, -5) + ".txt" : "?")}");
+        lines.Add($"This run's full report: {(report is not null ? report[..^5] + ".txt" : "?")}");
         lines.Add("Runs without a problem send no mail; their reports stay in the reports folder and on the dashboard.");
         return (subject, string.Join("\n", lines));
     }
@@ -385,14 +385,11 @@ public static partial class Mail
         return $"sent: {subject}";
     }
 
-    /// <summary>Python's repr() of an exception, as the mail names a run that crashed.</summary>
-    public static string Repr(Exception e) => $"{e.GetType().Name}('{e.Message}')";
-
     /// <summary>A run that ended in an exception has no report: its problem is mailed from here, once a day at most.</summary>
     public static string MailCrash(SyncConfig cfg, SyncClock clock, Exception error, bool manual, Func<SyncConfig, string, string, string?> send, Action<string> log)
     {
         var r = new JsonObject { ["day"] = clock.Day(), ["manual"] = manual, ["started_hm"] = "?", ["ended_hm"] = clock.Hm() };
-        return MailIssues(cfg, clock, [new Issue($"run-failed:{error.GetType().Name}", $"The run failed: {Sync.Text.Clean(Repr(error), 300)}.",
+        return MailIssues(cfg, clock, [new Issue($"run-failed:{error.GetType().Name}", $"The run failed: {Sync.Text.Clean(Sync.Text.Of(error), 300)}.",
                                                  $"The service went on; it starts the next run after {Sync.Text.Hms(Service.IdleWait)}.")], r, send, log);
     }
 
@@ -555,7 +552,7 @@ public static partial class Mail
             {
                 var l = Line();
                 if (l.Length < 3 || !int.TryParse(l[..3], NumberStyles.None, CultureInfo.InvariantCulture, out var code))
-                    throw new SmtpException($"a reply that is no SMTP: {Node.Cut(l, 80)}");
+                    throw new SmtpException($"a reply that is no SMTP: {Sync.Text.Cut(l, 80)}");
                 lines.Add(l.Length > 4 ? l[4..] : "");
                 if (l.Length < 4 || l[3] != '-')
                     return (code, lines);

@@ -247,7 +247,7 @@ static class Part2
         Check("run: the rest waits, the day's book says 5", Node.Int(Node.Get(Node.Get(StateAfter["downloads"], "2026-11-01"), "items")) == 5
               && Node.Obj(StateAfter["items"]).Count(kv => Node.Str(Node.Get(kv.Value, "status")) is "queued" or "retry") == 3);
         Check("run: the mail's estimate counts what is left", Node.Int(Node.Get(rep["backlog"], "items")) == 3
-              && File.ReadAllText(Node.Slice(Node.Str(rep["report_path"]), 0, -5) + ".txt").Contains("Backlog: 3 item(s)"));
+              && File.ReadAllText(Node.Str(rep["report_path"])[..^5] + ".txt").Contains("Backlog: 3 item(s)"));
         Check("run: the state remembers the run, and when the API steps last ran", Node.Float(Node.Get(StateAfter["last_run"], "ended")) > 0 && Node.Float(StateAfter["last_api"]) == T0);
         Check("run: the estimate counts on the day without the restarts' stretches", Node.Float(Node.Get(rep["backlog"], "hours")) == 22);
         Check("run: Steam's push-back is a problem the mail names (not sent here: no SMTP host)",
@@ -291,7 +291,7 @@ static class Part2
         foreach (var (extra, key) in cases)
         {
             var got = Mail.IssuesOf(QuietWith(O(extra).Select(kv => (kv.Key, kv.Value)).ToArray()));
-            Check($"issues: {key} counts ({(got.Count > 0 ? Node.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
+            Check($"issues: {key} counts ({(got.Count > 0 ? Text.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
         }
         var sentMails = new List<(string Subject, string Body)>();
         var realSend = Hooks.SendMail;
@@ -418,7 +418,7 @@ static class Part2
             out_.Add($"history holds {runs.Count} runs, {maps.Count} maps");
         foreach (var e in runs)
             foreach (var f in new[] { "started", "ended", "kind", "downloads", "bytes", "pass", "rejected", "listed", "removed", "stop" })
-                if (!Node.Has(e, f))
+                if (e is not JsonObject eo || !eo.ContainsKey(f))
                     out_.Add($"history.runs[].{f} missing");
         foreach (var e in maps)
         {

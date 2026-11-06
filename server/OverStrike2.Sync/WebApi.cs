@@ -121,7 +121,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
         if (Last24h(now) >= DayCap)
             throw new StopApiException($"the cap of {DayCap} Web API calls in 24 hours is reached");
         var calls = (JsonArray)Data["calls"]!;
-        calls.Add(new JsonArray(Node.Round(now, 3), api, null));
+        calls.Add(new JsonArray(Math.Round(now, 3), api, null));
         ((JsonObject)Data["days"]!)[day] = Count(day) + 1;
         Save();
         return calls.Count - 1;
@@ -219,7 +219,7 @@ public sealed class SteamApi : IWorkshopApi
             {
                 if (attempts > RetryWait.Length)
                     throw;
-                log($"Web API {api} failed ({Redact(e.Message)}) - trying again in {Node.D(RetryWait[attempts - 1])} s");
+                log($"Web API {api} failed ({Redact(e.Message)}) - trying again in {(long)RetryWait[attempts - 1]} s");
                 sleep(RetryWait[attempts - 1]);
             }
         }
@@ -324,7 +324,7 @@ public sealed class SteamApi : IWorkshopApi
     {
         var p = new List<(string, string)>
         {
-            ("query_type", "1"), ("cursor", cursor), ("numperpage", Node.D(perPage)), ("appid", "730"), ("filetype", "0"), ("match_all_tags", "false"),
+            ("query_type", "1"), ("cursor", cursor), ("numperpage", perPage.ToString(CultureInfo.InvariantCulture)), ("appid", "730"), ("filetype", "0"), ("match_all_tags", "false"),
             ("return_tags", "true"), ("return_metadata", "true"), ("return_short_description", "false"), ("strip_description_bbcode", "true"),
         };
         p.AddRange(tags.Select((t, i) => ($"requiredtags[{i}]", t)));
@@ -346,8 +346,8 @@ public sealed class SteamApi : IWorkshopApi
         {
             var wid = Node.StrOr(Node.Get(item, "publishedfileid"));
             var vote = Node.Get(item, "vote_data");
-            if (Node.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && (Node.IsNumber(v["score"]) || Node.IsBool(v["score"])))
-                out_[wid] = new JsonArray(Node.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
+            if (Text.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && (Node.IsNumber(v["score"]) || Node.IsBool(v["score"])))
+                out_[wid] = new JsonArray(Math.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
         }
         return out_;
     }
@@ -358,25 +358,25 @@ public sealed class SteamApi : IWorkshopApi
     {
         var p = new List<(string, string)>
         {
-            ("query_type", "3"), ("days", Node.D(days)), ("cursor", cursor), ("numperpage", Node.D(perPage)), ("appid", "730"), ("filetype", "0"),
+            ("query_type", "3"), ("days", days.ToString(CultureInfo.InvariantCulture)), ("cursor", cursor), ("numperpage", perPage.ToString(CultureInfo.InvariantCulture)), ("appid", "730"), ("filetype", "0"),
             ("requiredtags[0]", tag), ("ids_only", "true"),
         };
         var response = Response(Call("QueryFiles", QueryUrl, query: p));
-        var ids = Node.Arr(response["publishedfiledetails"]).OfType<JsonObject>().Where(i => Node.Digits(Node.StrOr(i["publishedfileid"])))
+        var ids = Node.Arr(response["publishedfiledetails"]).OfType<JsonObject>().Where(i => Text.Digits(Node.StrOr(i["publishedfileid"])))
             .Select(i => Node.Str(i["publishedfileid"])).ToList();
         return (ids, Node.StrOr(response["next_cursor"]), Node.Int(response["total"]));
     }
 
     public Dictionary<string, JsonObject> Details(IReadOnlyList<string> ids)
     {
-        var form = new List<(string, string)> { ("itemcount", Node.D(ids.Count)) };
+        var form = new List<(string, string)> { ("itemcount", ids.Count.ToString(CultureInfo.InvariantCulture)) };
         form.AddRange(ids.Select((w, i) => ($"publishedfileids[{i}]", w)));
         var reply = Call("GetPublishedFileDetails", DetailsUrl, data: form);
         var out_ = new Dictionary<string, JsonObject>();
         foreach (var item in Node.Arr(Response(reply)["publishedfiledetails"]).OfType<JsonObject>())
         {
             var wid = Node.StrOr(item["publishedfileid"]);
-            if (Node.Digits(wid))
+            if (Text.Digits(wid))
                 out_[wid] = item;
         }
         return out_;

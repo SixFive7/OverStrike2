@@ -31,7 +31,7 @@ public static class Verdicts
         if (sv is "pack" or "empty" or "legacy" or "unknown")
         {
             var kind = sv switch { "pack" => "pack", "empty" => "empty", "legacy" => "legacy", _ => "stub" };
-            var names = Node.Cut(string.Join(", ", Node.StrList(scan["names"])), 120);
+            var names = Text.Cut(string.Join(", ", Node.StrList(scan["names"])), 120);
             var detail = kind switch
             {
                 "pack" => $"no maps/<name>.vpk in its VPK, only {Node.Str(scan["models"])} compiled models - an asset pack (workshop sync {day})",
@@ -52,18 +52,18 @@ public static class Verdicts
             if (advert is not null && AdvertReason.TryGetValue(advert, out var reason))
                 return ("advert", new JsonObject
                 {
-                    ["reason"] = reason, ["sample"] = Node.Clone(scan["advert_sample"]), ["evidence"] = string.Format(AdvertEvidence[advert], day),
+                    ["reason"] = reason, ["sample"] = scan["advert_sample"]?.DeepClone(), ["evidence"] = string.Format(AdvertEvidence[advert], day),
                 });
             var chat = loads.SelectMany(l => Node.StrList(l["chat"])).Where(c => Scan.AdRx().IsMatch(c) || Scan.SayConnectRx().IsMatch("say " + c)).ToList();
             if (chat.Count > 0)
                 return ("advert", new JsonObject
                 {
                     ["reason"] = Scan.AdRx().IsMatch(chat[0]) ? "posts a gambling ad" : "advertises another server", ["sample"] = chat[0],
-                    ["evidence"] = $"showed an advert in chat on a test load: {Node.Cut(chat[0], 80)} (workshop sync {day})",
+                    ["evidence"] = $"showed an advert in chat on a test load: {Text.Cut(chat[0], 80)} (workshop sync {day})",
                 });
             return ("pass", new JsonObject
             {
-                ["level"] = Node.Clone(first["level"]), ["mode"] = Node.Clone(first["mode"]), ["load_s"] = Node.Clone(first["load_s"]), ["flaky"] = passAt > 0,
+                ["level"] = first["level"]?.DeepClone(), ["mode"] = first["mode"]?.DeepClone(), ["load_s"] = first["load_s"]?.DeepClone(), ["flaky"] = passAt > 0,
                 ["before"] = Node.Strings(verdicts.Take(passAt)),
             });
         }
@@ -122,7 +122,7 @@ public static class Verdicts
         var days = wids.Count > 0 ? (wids.Count + perDay - 1) / perDay : 0;
         return new JsonObject
         {
-            ["items"] = wids.Count, ["bytes"] = total, ["by_mode"] = byMode, ["days"] = days, ["pace"] = Node.Round(p, 1), ["hours"] = Node.Round(hours, 1),
+            ["items"] = wids.Count, ["bytes"] = total, ["by_mode"] = byMode, ["days"] = days, ["pace"] = Math.Round(p, 1), ["hours"] = Math.Round(hours, 1),
             ["per_day"] = perDay,
         };
     }
@@ -200,7 +200,7 @@ public static class Verdicts
         foreach (var m in maps.OfType<JsonObject>())
         {
             var id = Node.Str(m.TryGetPropertyValue("id", out var v) ? v : "");
-            if (Node.Digits(id))
+            if (Text.Digits(id))
                 listed[id] = m;
         }
         var on = BridgeData.BrokenIds(broken);
@@ -229,17 +229,17 @@ public static class Verdicts
             var name = Text.Clean(Node.StrOr(rec["title"]));
             if (name.Length == 0)
                 name = $"Workshop item {wid}";
-            JsonNode? rank = listed.TryGetValue(wid, out var lm) ? Node.Clone(lm["rank"]) : null;
+            JsonNode? rank = listed.TryGetValue(wid, out var lm) ? lm["rank"]?.DeepClone() : null;
             var placed = on.TryGetValue(wid, out var where) && where is "maps" or "packs" or "blocked";
             if (kind is "crasher" or "kick" or "advert" && !placed)
             {
                 var entry = new JsonObject
                 {
-                    ["id"] = long.Parse(wid), ["rank"] = rank, ["name"] = name, ["crashes"] = Node.Int(detail["crashes"]), ["evidence"] = Node.Clone(detail["evidence"]),
+                    ["id"] = long.Parse(wid), ["rank"] = rank, ["name"] = name, ["crashes"] = Node.Int(detail["crashes"]), ["evidence"] = detail["evidence"]?.DeepClone(),
                 };
                 if (kind == "advert")
                 {
-                    entry["reason"] = Node.Clone(detail["reason"]);
+                    entry["reason"] = detail["reason"]?.DeepClone();
                     S("advert").Add(Node.Array(wid, name, detail["reason"], detail["sample"]));
                 }
                 else if (kind == "kick")
@@ -252,9 +252,9 @@ public static class Verdicts
             {
                 Section("packs").Add(new JsonObject
                 {
-                    ["id"] = long.Parse(wid), ["name"] = name, ["kind"] = Node.Clone(detail["kind"]), ["evidence"] = "confirmed by test", ["phrase"] = null,
-                    ["detail"] = Node.Clone(detail["detail"]), ["list"] = "sync", ["formerRank"] = null, ["spareRank"] = null,
-                    ["preview"] = Node.Truthy(rec["preview"]) ? Node.Clone(rec["preview"]) : "", ["description"] = Text.Clean(Node.StrOr(rec["description"]), 200),
+                    ["id"] = long.Parse(wid), ["name"] = name, ["kind"] = detail["kind"]?.DeepClone(), ["evidence"] = "confirmed by test", ["phrase"] = null,
+                    ["detail"] = detail["detail"]?.DeepClone(), ["list"] = "sync", ["formerRank"] = null, ["spareRank"] = null,
+                    ["preview"] = Node.Truthy(rec["preview"]) ? rec["preview"]?.DeepClone() : "", ["description"] = Text.Clean(Node.StrOr(rec["description"]), 200),
                 });
                 on[wid] = "packs";
                 S("packs").Add(Node.Array(wid, name, detail["kind"], detail["detail"]));
@@ -262,10 +262,10 @@ public static class Verdicts
             else if (kind == "nonmap" && listed.ContainsKey(wid) && !placed)
             {
                 // a listed map whose update turned it into a non-map: gate it like a crasher (a pick asks to confirm)
-                var listedName = Node.Truthy(listed[wid]["name"]) ? Node.Clone(listed[wid]["name"]) : name;
+                var listedName = Node.Truthy(listed[wid]["name"]) ? listed[wid]["name"]?.DeepClone() : name;
                 Section("maps").Add(new JsonObject
                 {
-                    ["id"] = long.Parse(wid), ["rank"] = rank, ["name"] = listedName, ["crashes"] = 0, ["evidence"] = Node.Clone(detail["detail"]),
+                    ["id"] = long.Parse(wid), ["rank"] = rank, ["name"] = listedName, ["crashes"] = 0, ["evidence"] = detail["detail"]?.DeepClone(),
                     ["reason"] = "is no longer a playable map",
                 });
                 on[wid] = "maps";
@@ -311,7 +311,7 @@ public static class Verdicts
             foreach (var e in current.OfType<JsonObject>())
             {
                 var id = Node.Str(e.TryGetPropertyValue("id", out var v) ? v : "");
-                if (Node.Digits(id))
+                if (Text.Digits(id))
                     entries[id] = (JsonObject)e.DeepClone();
                 else if (Node.Truthy(e["official"]))
                     entries["official:" + Node.Str(e["name"])] = (JsonObject)e.DeepClone();
@@ -337,9 +337,9 @@ public static class Verdicts
                     {
                         entries[wid] = new JsonObject
                         {
-                            ["id"] = long.Parse(wid), ["name"] = Node.Truthy(m["name"]) ? Node.Clone(m["name"]) : Text.ItemName(item), ["sizeMb"] = Node.Int(m["sizeMb"]),
+                            ["id"] = long.Parse(wid), ["name"] = Node.Truthy(m["name"]) ? m["name"]?.DeepClone() : Text.ItemName(item), ["sizeMb"] = Node.Int(m["sizeMb"]),
                         };
-                        pop[wid] = new JsonObject { ["subs"] = Node.Clone(item["subscriptions"]), ["lifetime"] = Node.Clone(item["lifetime_subscriptions"]) };
+                        pop[wid] = new JsonObject { ["subs"] = item["subscriptions"]?.DeepClone(), ["lifetime"] = item["lifetime_subscriptions"]?.DeepClone() };
                         if (summary["backfill"] is not JsonObject fill)
                         {
                             fill = new JsonObject();
@@ -349,7 +349,7 @@ public static class Verdicts
                     }
                 }
             }
-            foreach (var wid in entries.Keys.Where(Node.Digits).ToList())
+            foreach (var wid in entries.Keys.Where(Text.Digits).ToList())
             {
                 if (pop.ContainsKey(wid))
                     continue;
@@ -357,18 +357,18 @@ public static class Verdicts
                 var old = state.Item(wid) ?? [];
                 pop[wid] = new JsonObject
                 {
-                    ["subs"] = item.ContainsKey("subscriptions") ? Node.Clone(item["subscriptions"]) : Node.Clone(old["subs"]),
-                    ["lifetime"] = item.ContainsKey("lifetime_subscriptions") ? Node.Clone(item["lifetime_subscriptions"]) : Node.Clone(old["lifetime"]),
+                    ["subs"] = item.ContainsKey("subscriptions") ? item["subscriptions"]?.DeepClone() : old["subs"]?.DeepClone(),
+                    ["lifetime"] = item.ContainsKey("lifetime_subscriptions") ? item["lifetime_subscriptions"]?.DeepClone() : old["lifetime"]?.DeepClone(),
                 };
             }
-            var ids = entries.Keys.Where(Node.Digits).OrderBy(w => (-Node.Int(pop[w]["subs"]), -Node.Int(pop[w]["lifetime"]), long.Parse(w))).ToList();
+            var ids = entries.Keys.Where(Text.Digits).OrderBy(w => (-Node.Int(pop[w]["subs"]), -Node.Int(pop[w]["lifetime"]), long.Parse(w))).ToList();
             var newList = new JsonArray();
             for (var k = 0; k < ids.Count; k++)
                 newList.Add(new JsonObject
                 {
-                    ["rank"] = k + 1, ["id"] = long.Parse(ids[k]), ["name"] = Node.Clone(entries[ids[k]]["name"]), ["sizeMb"] = Node.Int(entries[ids[k]]["sizeMb"]),
+                    ["rank"] = k + 1, ["id"] = long.Parse(ids[k]), ["name"] = entries[ids[k]]["name"]?.DeepClone(), ["sizeMb"] = Node.Int(entries[ids[k]]["sizeMb"]),
                 });
-            foreach (var key in entries.Keys.Where(k => !Node.Digits(k)))
+            foreach (var key in entries.Keys.Where(k => !Text.Digits(k)))
                 newList.Add(entries[key].DeepClone());
             if (current.Count > 0 && newList.Count < current.Count)
                 newList = (JsonArray)current.DeepClone();       // never shrink (the bridge refuses a list that drops below half anyway)
@@ -398,7 +398,7 @@ public static class Verdicts
                 foreach (var e in list)
                 {
                     var wid = e is JsonObject eo ? Node.Str(eo.TryGetPropertyValue("id", out var v) ? v : "") : "";
-                    if (!Node.Digits(wid) || search.ContainsKey(wid))
+                    if (!Text.Digits(wid) || search.ContainsKey(wid))
                         continue;
                     var rec = recs.TryGetValue(wid, out var r) ? r : state.Item(wid) ?? [];
                     var name = Node.Truthy(Node.Get(e, "name")) ? Node.Str(Node.Get(e, "name")) : Node.StrOr(rec["title"]);

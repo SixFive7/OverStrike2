@@ -127,12 +127,9 @@ static class NewChecks
               Node.Dumps(O("{\"a\": [1, {\"b\": \"c\"}], \"d\": {}}"), 0) == "{\n\"a\": [\n1,\n{\n\"b\": \"c\"\n}\n],\n\"d\": {}\n}"
               && Node.Dumps(O("{\"a\": [1, 2], \"b\": {\"c\": null}}")) == "{\"a\": [1, 2], \"b\": {\"c\": null}}"
               && Node.Dumps(new JsonObject { ["x"] = 1793500000.0, ["y"] = 2L }) == "{\"x\": 1793500000.0, \"y\": 2}");
-        var cases = new (double X, int D)[] { (0.25, 1), (0.35, 1), (2.675, 2), (1.25, 1), (2.5, 0), (3.5, 0), (1342177280 / 1073741824.0, 1), (0.125, 2), (-0.04, 1), (99.95, 1) };
-        Check("numbers: \"%.Nf\" and round() as Python's - the exact binary value, ties to even",
-              string.Join("|", cases.Select(c => Node.Fixed(c.X, c.D))) == "0.2|0.3|2.67|1.2|2|4|1.2|0.12|-0.0|100.0"
-              && string.Join("|", cases.Select(c => Node.Repr(Node.Round(c.X, c.D)))) == "0.2|0.3|2.67|1.2|2.0|4.0|1.2|0.12|-0.0|100.0");
-        Check("words: sizes as the Python sync's mb()",
-              string.Join("|", new long[] { 0, 1048575, 1572864, 1073741824, 1342177280, 1610612736, 5L << 30 }.Select(b => Text.Mb(b))) == "0 MB|1 MB|2 MB|1.0 GB|1.2 GB|1.5 GB|5.0 GB");
+        Check("words: sizes in MB below a gigabyte and in GB with one decimal from one on, numbers for people with their decimals",
+              string.Join("|", new long[] { 0, 1048575, 1572864, 1073741824, 1342177280, 1610612736, 5L << 30 }.Select(Text.Mb)) == "0 MB|1 MB|2 MB|1.0 GB|1.3 GB|1.5 GB|5.0 GB"
+              && Text.Fixed(12, 1) == "12.0" && Text.Fixed(2.675, 2) == "2.67" && Text.Fixed(7.5, 0) == "8");
         Check("words: clean() and the search text as Python's - control characters, bidi overrides, a cut at a word, by code points",
               Text.Clean("  a\u0000b\u202Ec\t\td  " + string.Concat(Enumerable.Repeat("word ", 30)), 50) == "a bc d word word word word word word word word…"
               && Text.Clean(string.Concat(Enumerable.Repeat("\U0001F600", 30)) + " tail", 20) == string.Concat(Enumerable.Repeat("\U0001f600", 20)) + "…"

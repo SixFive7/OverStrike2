@@ -163,7 +163,7 @@ public sealed class SyncRun
         }
         catch (Exception e) when (e is not StopRequested)
         {
-            L($"status: an event of {wid} not kept ({Mail.Repr(e)})");
+            L($"status: an event of {wid} not kept ({Text.Of(e)})");
         }
     }
 
@@ -199,7 +199,7 @@ public sealed class SyncRun
             }
             if (!said)
             {
-                var minutes = Node.D(Math.Floor(Cfg.Quiet / 60));
+                var minutes = (long)(Cfg.Quiet / 60);
                 L($"{what}: waiting - " + (h is null ? "the game server does not answer A2S" : h > 0 ? $"{h} human(s) on the game server"
                     : flag ? "the bridge's maintenance flag is set" : $"somebody was on the server {Text.Hms(Clock.Now() - HumanAt!.Value)} ago"));
                 said = true;
@@ -470,7 +470,7 @@ public sealed class SyncRun
             if (Node.Truthy(rec["filename"]))
             {
                 rec["status"] = "skipped";
-                rec["evidence"] = $"a CS:GO-era upload (its Workshop file is {Node.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded";
+                rec["evidence"] = $"a CS:GO-era upload (its Workshop file is {Text.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded";
                 continue;
             }
             if (!Node.StrList(rec["tags"]).Any(tags.Contains))
@@ -582,7 +582,7 @@ public sealed class SyncRun
         var inputs = KeepInputs();
         var members = new Dictionary<string, HashSet<string>>();
         foreach (var (mode, _, _, _, name) in GameModes.All)
-            members[mode] = [.. Node.Arr(inputs.GetValueOrDefault(name)).OfType<JsonObject>().Select(e => Node.StrOr(e["id"])).Where(Node.Digits)];
+            members[mode] = [.. Node.Arr(inputs.GetValueOrDefault(name)).OfType<JsonObject>().Select(e => Node.StrOr(e["id"])).Where(Text.Digits)];
         var got = new Dictionary<string, JsonArray>();
         var trend = new Dictionary<string, List<string>>();
         var walked = new Dictionary<string, (int Read, int Listed)>();
@@ -834,7 +834,7 @@ public sealed class SyncRun
     bool AcfNames(string wid, JsonObject rec)
     {
         var entry = Handover.AcfEntries(StagingAcf, wid);
-        return entry is { } e && new[] { "size", "timeupdated", "manifest" }.All(k => Node.Digits(e.Installed.GetValueOrDefault(k)))
+        return entry is { } e && new[] { "size", "timeupdated", "manifest" }.All(k => Text.Digits(e.Installed.GetValueOrDefault(k)))
                && long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) >= Node.Int(rec["updated"]);
     }
 
@@ -900,12 +900,12 @@ public sealed class SyncRun
         {
             var rec = State.Item(wid) ?? [];
             var entry = Handover.AcfEntries(StagingAcf, wid);
-            if (entry is not { } e || !Node.Digits(e.Installed.GetValueOrDefault("timeupdated"))
+            if (entry is not { } e || !Text.Digits(e.Installed.GetValueOrDefault("timeupdated"))
                 || long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) < Node.Int(rec["updated"]))
                 continue;                                  // no entry in SteamCMD's acf, or an older version: downloaded again below
             var bytes = Handover.FolderBytes(Path.Combine(Content, wid));
             var (done, words) = HandOverSafe(wid, Node.StrOr(rec["title"]));
-            L($"serve: {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} was staged already, {words}");
+            L($"serve: {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} was staged already, {words}");
             if (done)
             {
                 Bump(rep, "ok", 1);
@@ -992,7 +992,7 @@ public sealed class SyncRun
                     }
                     var (done, words) = fresh ? HandOverSafe(wid, Node.StrOr(rec["title"]))
                         : (false, "SteamCMD's acf does not name this version yet - handed over once it has quit");
-                    L($"serve: {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} downloaded in {Node.Fixed(Clock.Now() - t, 0)} s, {words}");
+                    L($"serve: {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} downloaded in {Text.Fixed(Clock.Now() - t, 0)} s, {words}");
                     if (done)
                     {
                         Bump(rep, "ok", 1);
@@ -1191,7 +1191,7 @@ public sealed class SyncRun
                     foreach (var stale in new[] { "scan", "verdict", "decided", "detail", "evidence" })
                         rec.Remove(stale);
                     (row, denied) = (0, 0);
-                    L($"downloaded {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Node.Fixed(Clock.Now() - t, 0)} s");
+                    L($"downloaded {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} ({Text.Mb(size)}) in {Text.Fixed(Clock.Now() - t, 0)} s");
                 }
                 else
                 {
@@ -1285,7 +1285,7 @@ public sealed class SyncRun
                 }
                 catch (Exception e) when (e is not StopRequested)   // a malformed upload must not end the run
                 {
-                    rec["scan"] = new JsonObject { ["verdict"] = "unknown", ["names"] = new JsonArray(), ["error"] = Node.Cut(Mail.Repr(e), 200) };
+                    rec["scan"] = new JsonObject { ["verdict"] = "unknown", ["names"] = new JsonArray(), ["error"] = Text.Cut(Text.Of(e), 200) };
                 }
             }
             work.Add(wid);
@@ -1380,7 +1380,7 @@ public sealed class SyncRun
                                 catch (Exception e) when (e is not StopRequested)
                                 {
                                     if (rec["scan"] is JsonObject scan)
-                                        scan["rescan_error"] = Node.Cut(Mail.Repr(e), 200);
+                                        scan["rescan_error"] = Text.Cut(Text.Of(e), 200);
                                 }
                                 L($"{wid}: the test engine fetched its own copy ({Text.Mb(Node.Int(load["engine_download"]))}) - scanned again");
                             }
@@ -1420,15 +1420,15 @@ public sealed class SyncRun
                 if (k is "kind" or "detail" or "evidence" or "reason" or "level" or "mode" or "crashes" or "sample")
                     kept[k] = v?.DeepClone();
             rec["detail"] = kept;
-            var title = Node.Cut(Node.StrOr(rec["title"]), 48);
+            var title = Text.Cut(Node.StrOr(rec["title"]), 48);
             if (kind == "pass")
                 rows.Add($"PASS     {title} ({wid}) - {Node.Str(detail["mode"])}, loads as {Node.Str(detail["level"])} in {Node.Str(detail["load_s"])}s");
             else if (kind == "nonmap")
-                rows.Add($"NON-MAP  {title} ({wid}) - {Node.Cut(detail.ContainsKey("detail") ? Node.Str(detail["detail"]) : "", 110)}");
+                rows.Add($"NON-MAP  {title} ({wid}) - {Text.Cut(detail.ContainsKey("detail") ? Node.Str(detail["detail"]) : "", 110)}");
             else if (kind == "advert")
-                rows.Add($"ADVERT   {title} ({wid}) - {Node.Str(detail["reason"])}: {Node.Cut(Node.StrOr(detail["sample"]), 80)}");
+                rows.Add($"ADVERT   {title} ({wid}) - {Node.Str(detail["reason"])}: {Text.Cut(Node.StrOr(detail["sample"]), 80)}");
             else
-                rows.Add($"{Node.LeftPad(kind.ToUpperInvariant(), 8)} {title} ({wid}) - {Node.Cut(detail.ContainsKey("evidence") ? Node.Str(detail["evidence"]) : "", 110)}");
+                rows.Add($"{kind.ToUpperInvariant().PadRight(8)} {title} ({wid}) - {Text.Cut(detail.ContainsKey("evidence") ? Node.Str(detail["evidence"]) : "", 110)}");
         }
         var pending = work.Where(w => State.Item(w)?["verdict"] is null).ToList();
         if (pending.Count > 0)
@@ -1526,7 +1526,7 @@ public sealed class SyncRun
             }
             Files.WriteAtomic(path, texts[name], FileModes.Shared);
             var back = File.ReadAllBytes(path);
-            if (!SameBytes(back, Node.Utf8(texts[name])))
+            if (!SameBytes(back, System.Text.Encoding.UTF8.GetBytes(texts[name])))
                 Errors.Add($"{name} does not read back as written");
             else if (Verdicts.MergeProblems(name, files.Raw.GetValueOrDefault(name), System.Text.Encoding.UTF8.GetString(back)).Count > 0)
                 Errors.Add($"{name}: the written file is not the old one plus additions");
@@ -1608,7 +1608,7 @@ public sealed class SyncRun
             var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/removed/{Cfg.BridgeSecret}", VerdictsBody(verdicts), "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the report failed (HTTP Error {status}) - the next check reports again";
-            var said = Node.Cut(text.Trim(), 300);
+            var said = Text.Cut(text.Trim(), 300);
             return said.Length > 0 ? said : $"HTTP {status}";
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException or System.Net.Sockets.SocketException)
@@ -1656,7 +1656,7 @@ public sealed class SyncRun
     public void WriteWorkshop(BridgeData files)
     {
         var own = new HashSet<string>(Node.Arr(Node.Get(Node.ReadJson(Path.Combine(Cfg.BridgeData, "ours.json")), "maps")).OfType<JsonObject>()
-                                          .Select(e => Node.Str(e["id"])).Where(Node.Digits));
+                                          .Select(e => Node.Str(e["id"])).Where(Text.Digits));
         var maps = new JsonObject();
         foreach (var wid in files.Listed())
         {
@@ -1699,7 +1699,7 @@ public sealed class SyncRun
             var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/reload/{Cfg.BridgeSecret}", "", "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the reload request failed (HTTP Error {status}): the bridge reads the files again by itself within about 10 s";
-            var said = Node.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);
+            var said = Text.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);
             return said.Length > 0 ? said : $"HTTP {status}";
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException or System.Net.Sockets.SocketException)
@@ -1735,12 +1735,12 @@ public sealed class SyncRun
             {
                 var rec = State.Item(wid) ?? [];
                 var entry = has.ContainsKey(wid) ? Handover.AcfEntries(StagingAcf, wid) : null;   // the staged copy's version, as SteamCMD names it
-                var stagedT = entry is { } e && Node.Digits(e.Installed.GetValueOrDefault("timeupdated")) ? long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) : 0;
+                var stagedT = entry is { } e && Text.Digits(e.Installed.GetValueOrDefault("timeupdated")) ? long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) : 0;
                 var newer = has.TryGetValue(wid, out var stored) && stagedT > stored;
                 if (Node.Str(rec["verdict"]) != "pass" || !keep.All.Contains(wid) || (has.ContainsKey(wid) && !newer) || pending.ContainsKey(wid) || Cfg.Exclude.Contains(wid))
                     continue;
                 var (ok, why) = HandOverSafe(wid, rec["title"] is null ? null : Node.Str(rec["title"]));
-                L($"hand-over {wid} {Node.Cut(Node.StrOr(rec["title"]), 40)} (tested, in the keep set{(newer ? ", newer than the server's copy" : "")}): {why}"
+                L($"hand-over {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} (tested, in the keep set{(newer ? ", newer than the server's copy" : "")}): {why}"
                   + (ok ? "" : " - it stays staged: the next run's serve hands it over"));
                 if (!ok)
                     List(rep, "handover_failed").Add(Node.Array(wid, why));
@@ -1792,7 +1792,7 @@ public sealed class SyncRun
         }
         catch (Exception e) when (e is not StopRequested)
         {
-            L($"backlog not counted: {Mail.Repr(e)}");
+            L($"backlog not counted: {Text.Of(e)}");
         }
         Report["ended"] = Clock.Stamp();
         Report["ended_hm"] = Clock.Hm();
@@ -1871,7 +1871,7 @@ public sealed class SyncRun
         }
         catch (Exception e) when (e is not StopRequested)
         {
-            L($"status: the run's history line not kept ({Mail.Repr(e)})");
+            L($"status: the run's history line not kept ({Text.Of(e)})");
         }
         try
         {
@@ -1897,7 +1897,7 @@ public sealed class SyncRun
             ["apiCalls"] = Ledger.Data is not null ? Ledger.Count(day) : 0,
         };
         if (Node.Truthy(book["stop"]))
-            today["stop"] = Node.Cut(Node.Str(book["stop"]), 200);
+            today["stop"] = Text.Cut(Node.Str(book["stop"]), 200);
         var verdicts = items.Select(kv => kv.Value).OfType<JsonObject>().Where(r => Node.Truthy(r["verdict"])).Select(r => Node.Str(r["verdict"])).ToList();
         BridgeData? files;
         try
@@ -1917,7 +1917,7 @@ public sealed class SyncRun
                 foreach (var entry in entries.OfType<JsonObject>())
                 {
                     var id = Node.StrOr(entry["id"]);
-                    if (!Node.Digits(id))
+                    if (!Text.Digits(id))
                         continue;
                     listed.TryAdd(id, mode);
                     sizes.TryAdd(id, Node.Int(entry["sizeMb"]) << 20);
@@ -1962,7 +1962,7 @@ public sealed class SyncRun
             }).ToArray()),
         };
         // the keep set: its parts as the game server stores them, and what the sync still has to hand over; the HUD item is hud.addon
-        var hud = Node.Digits(Cfg.HudAddon) ? Cfg.HudAddon : "";
+        var hud = Text.Digits(Cfg.HudAddon) ? Cfg.HudAddon : "";
         var keep = SafeKeepSet(KeepInputs(), Clock.Now(), hud);
         var has = Handover.ServerMaps(Cfg.GameDir);
         var pending = Handover.Pending(Cfg.HandoverDir);
@@ -1979,7 +1979,7 @@ public sealed class SyncRun
             var p = new JsonObject
             {
                 ["part"] = name, ["mode"] = mode, ["count"] = list.Count, ["onDisk"] = list.Count(has.ContainsKey),
-                ["gb"] = Node.Round(list.Sum(w => (double)SizeOf(w)) / (1L << 30), 1),
+                ["gb"] = Math.Round(list.Sum(w => (double)SizeOf(w)) / (1L << 30), 1),
             };
             if (queueName is not null)
                 p["queue"] = queueName;
@@ -2001,7 +2001,7 @@ public sealed class SyncRun
             Part("queues", "", keep.Requested, "requested");
         var keepOut = new JsonObject
         {
-            ["parts"] = parts, ["totalGb"] = Node.Round(keep.All.Sum(w => (double)SizeOf(w)) / (1L << 30), 1), ["count"] = keep.All.Count,
+            ["parts"] = parts, ["totalGb"] = Math.Round(keep.All.Sum(w => (double)SizeOf(w)) / (1L << 30), 1), ["count"] = keep.All.Count,
             ["onDisk"] = keep.All.Count(has.ContainsKey),
             ["problems"] = Node.Strings(keep.Problems.Where(p => !(p.StartsWith("no HUD item", StringComparison.Ordinal) && hud.Length == 0)).Take(5)),
         };

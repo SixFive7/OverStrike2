@@ -80,7 +80,7 @@ public sealed class SyncConfig
             RunHours = s.Sync.RunHours,
             ApiEvery = s.Sync.ApiEveryHours * 3600.0,
             Tags = s.Sync.Tags.Select(t => t.Trim()).Where(t => t.Length > 0).ToList(),
-            ExcludeCreators = new HashSet<string>(s.Sync.ExcludeCreators.Where(Node.Digits)),
+            ExcludeCreators = new HashSet<string>(s.Sync.ExcludeCreators.Where(Text.Digits)),
             ChangedSince = s.Sync.ChangedSince,
             ModeBackfill = s.Sync.ModeBackfill,
             ApiDayCap = Math.Clamp(s.Sync.ApiDayCap, 0, HardApiDayCap),
@@ -118,8 +118,8 @@ public sealed class SyncConfig
             KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),
         };
         c.ApiRunCap = Math.Clamp(s.Sync.ApiRunCap, 0, c.ApiDayCap);
-        c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Node.Digits));
-        if (Node.Digits(c.HudAddon))
+        c.Exclude = new HashSet<string>(s.Sync.ExcludeIds.Where(Text.Digits));
+        if (Text.Digits(c.HudAddon))
             c.Exclude.Add(c.HudAddon);                          // the HUD item is never a candidate
         foreach (var p in s.Problems.Concat(s.Warnings))   // read as Part.Sync: the sync's own keys only
             c.BootWarnings.Add("settings: " + p);
@@ -160,7 +160,7 @@ public sealed class SyncConfig
         if (IsFalse(overrides["api"]))
             SkipApi = true;
         if (overrides["only_ids"] is JsonArray only)
-            OnlyIds = only.Select(Node.Str).Where(Node.Digits).ToList();
+            OnlyIds = only.Select(Node.Str).Where(Text.Digits).ToList();
     }
 
     static bool IsTrue(JsonNode? v) => Node.IsBool(v) && v!.GetValue<bool>();

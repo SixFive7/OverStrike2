@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -10,17 +9,14 @@ namespace OverStrike2.Sync;
 /// <summary>A value of a data file that is not what its reader takes. Nothing is published or assumed on it.</summary>
 public sealed class BadDataException(string message) : Exception(message);
 
-/// <summary>The Python sync's semantics, where the port has to keep them exactly - the files it wrote are read by this program now, and
-/// the files the bridge reads are compared byte for byte: truthiness and int() and str() of JSON values, Python's float repr, round() and
-/// "%.Nf" (correctly rounded, ties to even, on the exact binary value), code-point lengths and slices, and json.dumps with ensure_ascii
-/// off (indent 0, 1, 2 or compact).</summary>
+/// <summary>The values of the sync's JSON files and of Steam's answers, read the way the sync's files have always held them: a missing key
+/// or a value of another kind reads as none, a whole number as a long wherever it is written as one, Steam's numbers that come as text
+/// (file_size) as numbers; and the JSON the sync writes.</summary>
 public static class Node
 {
-    // ------------------------------------------------------------------------------------------------ JSON values as Python reads them
+    // ------------------------------------------------------------------------------------------------ reading values
 
     public static JsonNode? Get(JsonNode? obj, string key) => obj is JsonObject o && o.TryGetPropertyValue(key, out var v) ? v : null;
-
-    public static bool Has(JsonNode? obj, string key) => obj is JsonObject o && o.ContainsKey(key);
 
     public static JsonObject Obj(JsonNode? v) => v as JsonObject ?? [];
 
@@ -32,13 +28,12 @@ public static class Node
 
     public static bool IsBool(JsonNode? v) => v is JsonValue jv && jv.GetValueKind() is JsonValueKind.True or JsonValueKind.False;
 
-    /// <summary>A whole JSON number (as Python's int is), else null.</summary>
+    /// <summary>A whole JSON number, else null (5.0 too: the files write whole numbers whole).</summary>
     public static long? Integer(JsonNode? v) => KeepSet.Integer(v);
 
-    /// <summary>A JSON string's text, else null.</summary>
-    public static string? Text(JsonNode? v) => IsString(v) ? v!.GetValue<string>() : null;
+    static string? StringOf(JsonNode? v) => IsString(v) ? v!.GetValue<string>() : null;
 
-    /// <summary>Python's bool(x) of a JSON value: null, false, 0, "", [] and {} are false.</summary>
+    /// <summary>Whether a value is set: null, false, 0, "", [] and {} are not.</summary>
     public static bool Truthy(JsonNode? v) => v switch
     {
         null => false,
@@ -55,8 +50,8 @@ public static class Node
         _ => true,
     };
 
-    /// <summary>Python's int(x or 0): a falsy value is 0, a number is cut toward zero, true is 1, a string of a whole number is read
-    /// (whitespace around it allowed). Anything else (where Python would raise) is 0.</summary>
+    /// <summary>A value as a whole number: an unset one is 0, a number is cut toward zero, true is 1, the text of a whole number is read
+    /// (whitespace around it allowed). Anything else is 0.</summary>
     public static long Int(JsonNode? v)
     {
         if (!Truthy(v))
@@ -67,12 +62,12 @@ public static class Node
             return n;
         if (KeepSet.Number(v) is { } d)
             return double.IsFinite(d) ? (long)Math.Truncate(d) : 0;
-        if (Text(v) is { } s && long.TryParse(s.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var p))
+        if (StringOf(v) is { } s && long.TryParse(s.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var p))
             return p;
         return 0;
     }
 
-    /// <summary>Python's float(x or 0), 0 where Python would raise.</summary>
+    /// <summary>A value as a number: an unset one is 0, true is 1, the text of a number is read. Anything else is 0.</summary>
     public static double Float(JsonNode? v)
     {
         if (!Truthy(v))
@@ -81,12 +76,12 @@ public static class Node
             return 1;
         if (KeepSet.Number(v) is { } d)
             return d;
-        if (Text(v) is { } s && double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
+        if (StringOf(v) is { } s && double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
             return p;
         return 0;
     }
 
-    /// <summary>Python's str(x): a string as it is, a whole number in digits, a float as repr, True/False, None.</summary>
+    /// <summary>A value as text: a string as it is, a number in its digits, True or False, None for null, anything else as JSON.</summary>
     public static string Str(JsonNode? v)
     {
         if (v is null)
@@ -108,13 +103,10 @@ public static class Node
         return Dumps(v, null, ", ", ": ");
     }
 
-    /// <summary>Python's str(x or ""): "" for a falsy value.</summary>
+    /// <summary>A value as text, or the fallback ("" unless given) when it is not set.</summary>
     public static string StrOr(JsonNode? v, string fallback = "") => Truthy(v) ? Str(v) : fallback;
 
-    /// <summary>A string of ASCII digits (Python's isdigit, as the sync uses it for ids).</summary>
-    public static bool Digits(string? s) => !string.IsNullOrEmpty(s) && s.All(char.IsAsciiDigit);
-
-    /// <summary>Python's == of two JSON values: objects regardless of their keys' order, numbers by value (1 == 1.0, True == 1).</summary>
+    /// <summary>Two values equal as values: objects whatever their keys' order, numbers by value (1 is 1.0, true is 1).</summary>
     public static bool Eq(JsonNode? a, JsonNode? b)
     {
         if (a is null || b is null)
@@ -148,7 +140,7 @@ public static class Node
 
     static double? NumLike(JsonNode v) => IsBool(v) ? (v.GetValue<bool>() ? 1 : 0) : KeepSet.Number(v);
 
-    /// <summary>A key for a set of JSON values the way Python's set() tells them apart (1 and 1.0 alike).</summary>
+    /// <summary>A key that is the same for two values Eq calls equal (1 and 1.0 alike), for telling values apart in a set.</summary>
     public static string SetKey(JsonNode? v) => v switch
     {
         null => "None",
@@ -157,21 +149,19 @@ public static class Node
         _ => "j:" + Dumps(v, null, ",", ":"),
     };
 
-    public static JsonNode? Clone(JsonNode? v) => v?.DeepClone();
-
     /// <summary>A JSON array of strings.</summary>
     public static JsonArray Strings(IEnumerable<string> items) => new(items.Select(s => (JsonNode?)JsonValue.Create(s)).ToArray());
 
     /// <summary>A JSON array of these values, each cloned (a node has one parent).</summary>
-    public static JsonArray Array(params JsonNode?[] items) => new(items.Select(Clone).ToArray());
+    public static JsonArray Array(params JsonNode?[] items) => new(items.Select(v => v?.DeepClone()).ToArray());
 
-    /// <summary>The strings of a JSON array (Python's [str(x) for x in ...]); [] for anything else.</summary>
+    /// <summary>The texts (Str) of a JSON array's values; [] for anything else.</summary>
     public static List<string> StrList(JsonNode? v) => v is JsonArray a ? a.Select(Str).ToList() : [];
 
-    /// <summary>Python's `x in list` of a string in a JSON list.</summary>
+    /// <summary>Whether a JSON array holds this string.</summary>
     public static bool In(JsonNode? list, string s) => list is JsonArray a && a.Any(e => IsString(e) && e!.GetValue<string>() == s);
 
-    /// <summary>The bridge's file contents parsed (UTF-8, strict): BadDataException when it is no JSON.</summary>
+    /// <summary>A data file's bytes parsed (UTF-8, strict): BadDataException when it is no JSON.</summary>
     public static JsonNode? Parse(byte[] raw, string what)
     {
         string text;
@@ -190,7 +180,7 @@ public static class Node
     {
         try
         {
-            return JsonNode.Parse(text.StartsWith('﻿') ? text[1..] : text);
+            return JsonNode.Parse(text.StartsWith((char)0xFEFF) ? text[1..] : text);
         }
         catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException)
         {
@@ -198,7 +188,7 @@ public static class Node
         }
     }
 
-    /// <summary>Python's read_json(path, default): the file's JSON, or null when it is missing or does not parse.</summary>
+    /// <summary>A JSON file, or null when it is missing or does not parse.</summary>
     public static JsonNode? ReadJson(string path)
     {
         try
@@ -293,124 +283,6 @@ public static class Node
             sb.Append(digits, 0, point).Append('.').Append(digits, point, digits.Length - point);
         return sb.ToString();
     }
-
-    /// <summary>Python's "%.Nf" % x: the exact binary value, correctly rounded to N decimals, ties to even.</summary>
-    public static string Fixed(double x, int decimals)
-    {
-        if (double.IsNaN(x))
-            return "nan";
-        if (double.IsInfinity(x))
-            return x > 0 ? "inf" : "-inf";
-        var negative = double.IsNegative(x);
-        var bits = BitConverter.DoubleToInt64Bits(Math.Abs(x));
-        var exponent = (int)((bits >> 52) & 0x7FF);
-        var mantissa = bits & 0xFFFFFFFFFFFFFL;
-        if (exponent == 0)
-            exponent = 1;                            // subnormal
-        else
-            mantissa |= 1L << 52;
-        exponent -= 1075;                            // x = mantissa * 2^exponent
-        var scaled = new BigInteger(mantissa) * BigInteger.Pow(10, decimals);
-        BigInteger q;
-        if (exponent >= 0)
-            q = scaled << exponent;
-        else
-        {
-            q = scaled >> -exponent;
-            var rest = scaled - (q << -exponent);
-            var half = BigInteger.One << (-exponent - 1);
-            if (rest > half || (rest == half && !q.IsEven))
-                q += 1;
-        }
-        var digits = q.ToString(CultureInfo.InvariantCulture).PadLeft(decimals + 1, '0');
-        var text = decimals == 0 ? digits : digits[..^decimals] + "." + digits[^decimals..];
-        return (negative ? "-" : "") + text;          // Python keeps the sign of a negative that rounds to zero: "-0.0"
-    }
-
-    /// <summary>Python's round(x, n): correctly rounded, ties to even.</summary>
-    public static double Round(double x, int decimals) =>
-        double.IsFinite(x) ? double.Parse(Fixed(x, decimals), CultureInfo.InvariantCulture) : x;
-
-    /// <summary>Python's "%d" % x of a number: cut toward zero.</summary>
-    public static string D(double x) => ((long)Math.Truncate(x)).ToString(CultureInfo.InvariantCulture);
-
-    public static string D(long x) => x.ToString(CultureInfo.InvariantCulture);
-
-    // ------------------------------------------------------------------------------------------------ text by code points, as Python counts
-
-    static int[] Points(string s)
-    {
-        var list = new List<int>(s.Length);
-        for (var i = 0; i < s.Length; i++)
-        {
-            if (char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-            {
-                list.Add(char.ConvertToUtf32(s[i], s[i + 1]));
-                i++;
-            }
-            else
-                list.Add(s[i]);
-        }
-        return list.ToArray();
-    }
-
-    static string FromPoints(ReadOnlySpan<int> points)
-    {
-        var sb = new StringBuilder(points.Length);
-        foreach (var p in points)
-        {
-            if (p >= 0x10000)
-                sb.Append(char.ConvertFromUtf32(p));
-            else
-                sb.Append((char)p);
-        }
-        return sb.ToString();
-    }
-
-    /// <summary>Python's len(s): code points.</summary>
-    public static int Len(string s)
-    {
-        var n = 0;
-        for (var i = 0; i < s.Length; i++)
-        {
-            if (char.IsHighSurrogate(s[i]) && i + 1 < s.Length && char.IsLowSurrogate(s[i + 1]))
-                i++;
-            n++;
-        }
-        return n;
-    }
-
-    /// <summary>Python's s[:n].</summary>
-    public static string Cut(string s, int n)
-    {
-        if (n >= s.Length && Len(s) <= n)
-            return s;
-        var p = Points(s);
-        return n >= p.Length ? s : FromPoints(p.AsSpan(0, Math.Max(0, n)));
-    }
-
-    /// <summary>Python's s[start:end] (end null: to the end; negative counts from the end).</summary>
-    public static string Slice(string s, int start, int? end = null)
-    {
-        var p = Points(s);
-        int Fix(int i) => i < 0 ? Math.Max(0, p.Length + i) : Math.Min(i, p.Length);
-        var a = Fix(start);
-        var b = end is { } e ? Fix(e) : p.Length;
-        return b <= a ? "" : FromPoints(p.AsSpan(a, b - a));
-    }
-
-    /// <summary>Python's s.rfind(sub) in code points.</summary>
-    public static int RFind(string s, string sub)
-    {
-        var i = s.LastIndexOf(sub, StringComparison.Ordinal);
-        return i < 0 ? -1 : Len(s[..i]);
-    }
-
-    /// <summary>Python's str.split() without arguments: runs of whitespace, no empty parts.</summary>
-    public static string[] Words(string s) => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-
-    /// <summary>Python's "%-8s" % s.</summary>
-    public static string LeftPad(string s, int width) => Len(s) >= width ? s : s + new string(' ', width - Len(s));
 
     // ------------------------------------------------------------------------------------------------ json.dumps
 
@@ -542,7 +414,4 @@ public static class Node
         }
         sb.Append('"');
     }
-
-    /// <summary>Text as UTF-8 bytes, a lone surrogate replaced (Python would refuse to encode it).</summary>
-    public static byte[] Utf8(string s) => Encoding.UTF8.GetBytes(s);
 }

@@ -311,7 +311,7 @@ public static partial class Scan
         }
         foreach (var category in new[] { "gambling ad", "chat advert", "client connect", "server connect" })
             if (found.TryGetValue(category, out var sample))
-                return (category, Node.Cut(sample, 160));
+                return (category, Text.Cut(sample, 160));
         return (null, null);
     }
 
@@ -376,7 +376,7 @@ public static partial class Scan
                 var low = entry.Path.ToLowerInvariant();
                 if (low.StartsWith("maps/", StringComparison.Ordinal) && low.EndsWith(".vpk", StringComparison.Ordinal) && low.Count(c => c == '/') == 1)
                 {
-                    maps.Add(Node.Slice(entry.Path, 5, -4));
+                    maps.Add(entry.Path[5..^4]);                    // its ends checked above, both ASCII
                     var innerBytes = vpk.Read(entry, 1L << 30);
                     if (innerBytes is not { Length: > 0 })
                         continue;

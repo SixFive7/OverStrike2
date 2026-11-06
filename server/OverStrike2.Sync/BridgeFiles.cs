@@ -92,7 +92,7 @@ public sealed class BridgeData
             foreach (var entry in Node.Arr(broken[section]))
             {
                 var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
-                if (Node.Digits(wid))
+                if (Text.Digits(wid))
                     out_.TryAdd(wid, section);
             }
         return out_;
@@ -105,7 +105,7 @@ public sealed class BridgeData
         foreach (var entry in Blocked)
         {
             var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
-            if (Node.Digits(wid))
+            if (Text.Digits(wid))
                 out_.Add(wid);
         }
         return out_;
@@ -113,7 +113,7 @@ public sealed class BridgeData
 
     /// <summary>The ids of maps.json's entries, in order.</summary>
     public static IEnumerable<string> Ids(JsonArray list) =>
-        list.OfType<JsonObject>().Select(m => Node.Str(m.TryGetPropertyValue("id", out var v) ? v : "")).Where(Node.Digits);
+        list.OfType<JsonObject>().Select(m => Node.Str(m.TryGetPropertyValue("id", out var v) ? v : "")).Where(Text.Digits);
 
     /// <summary>Every id with a verdict of ours already: listed (any mode), on broken.json or blocked.json, or excluded by the settings.</summary>
     public Dictionary<string, string> KnownIds(SyncConfig cfg)
@@ -226,7 +226,7 @@ public sealed class SyncState(string path)
         rec["creator"] = Node.StrOr(item["creator"]);
         rec["ws"] = Text.WorkshopVerdict(verdictOf);
         rec["preview"] = Node.Truthy(item["preview_url"]) ? item["preview_url"]!.DeepClone() : "";
-        rec["description"] = Node.Cut(Text.CleanDescription(Node.StrOr(item["file_description"])), 300);
+        rec["description"] = Text.Cut(Text.CleanDescription(Node.StrOr(item["file_description"])), 300);
         if (newer)
             rec["attempts"] = 0;
         if (why == "changed" && (Node.Str(rec["status"]) is "published" or "pass" || (newer && Node.Str(rec["status"]) == "failed")))

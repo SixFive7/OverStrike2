@@ -118,7 +118,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
             }
             catch (Exception e) when (e is not StopRequested)
             {
-                log.Line($"status: the idle picture not rebuilt ({Mail.Repr(e)})");
+                log.Line($"status: the idle picture not rebuilt ({Text.Of(e)})");
             }
             status.Set(("state", state), ("why", why), ("map", null), ("step", null), ("run", null));
             status.Write();
@@ -147,7 +147,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 }
                 catch (Exception e) when (e is not StopRequested)   // the service must outlive any one run
                 {
-                    log.Line($"the manual run failed: {Mail.Repr(e)}\n{e}");
+                    log.Line($"the manual run failed: {Text.Of(e)}\n{e}");
                     log.Line($"mail {Mail.MailCrash(cfg, clock, e, true, seams.SendMail, log.Line)}");
                 }
                 shown = null;
@@ -167,7 +167,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 var flag = File.Exists(Path.Combine(cfg.BridgeData, "maintenance"));
                 if (h is null or > 0 || flag)
                     seen = clock.Now();
-                var minutes = Node.D(Math.Floor(cfg.Quiet / 60));
+                var minutes = (long)(cfg.Quiet / 60);
                 if (why is null && h is null)
                     (why, words) = ("the game server does not answer A2S", "The game server does not answer, so the sync waits.");
                 else if (why is null && h > 0)
@@ -207,7 +207,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     }
                     catch (Exception e) when (e is not StopRequested)
                     {
-                        log.Line($"the run failed: {Mail.Repr(e)}\n{e}");
+                        log.Line($"the run failed: {Text.Of(e)}\n{e}");
                         log.Line($"mail {Mail.MailCrash(cfg, clock, e, false, seams.SendMail, log.Line)}");
                         idleUntil = clock.Now() + IdleWait;
                     }

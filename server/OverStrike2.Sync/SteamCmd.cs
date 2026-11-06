@@ -303,7 +303,7 @@ public sealed class DownloadBudget
         return (true, "");
     }
 
-    public void RefuseForToday(string why) => Today["stop"] = Node.Cut(why, 200);
+    public void RefuseForToday(string why) => Today["stop"] = Text.Cut(why, 200);
 
     public void Spend(long bytes, string? wid = null)
     {

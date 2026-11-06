@@ -666,6 +666,10 @@ static class Part1
         Check("mail: a long run gives counts, what did not pass, a taste of what did", body3.Contains("60 PASS, 1 CRASHER.") && body3.Contains("CRASHER  bad (1)")
               && body3.Contains("and 50 more passes") && !body3.Contains("map30 "));
         Check("mail: a long mode list is counted", body3.Contains("maps-wingman.json  60 new maps"));
+        var split = Enumerable.Range(0, 41).Select(i => $"PASS{(char)(0x1C + i % 4)}map{i}").ToList();
+        var (_, body4) = Mail.Text(With(r, ("api_stop", null), ("tests", new JsonObject { ["rows"] = Node.Strings(split) })), Cfg());
+        Check("mail: a row's first word ends where core's SearchText.Split ends it - at U+001C to U+001F too, as search.json's words do",
+              body4.Contains("   41 PASS."));
         Check("mail: a run says when it started", Mail.Text(With(r, ("started_hm", "03:30")), Cfg()).Subject.Contains("(the run of 03:30)"));
         // the publish steps of a run add up
         var mp = Mail.MergePublished(O("""{"listed": [["1", 1, "a", 5]], "modes": {"wingman": [["2", "b"]]}, "files": ["maps.json"], "reload": "x"}"""),

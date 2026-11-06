@@ -110,7 +110,7 @@ public static class Handover
             return out_;
         }
         foreach (var name in names)
-            if (name.EndsWith(".json", StringComparison.Ordinal) && Node.Digits(name[..^5]))
+            if (name.EndsWith(".json", StringComparison.Ordinal) && Text.Digits(name[..^5]))
                 out_[name[..^5]] = Node.ReadJson(Path.Combine(folder, name)) is JsonObject rec ? Node.Int(rec["bytes"]) : 0;
         return out_;
     }
@@ -172,7 +172,7 @@ public static class Handover
         var content = Path.Combine(root, "content", "730", wid);
         var acf = Path.Combine(root, "appworkshop_730.acf");
         var entries = AcfEntries(acf, wid);
-        if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Node.Digits(e.Installed.GetValueOrDefault(k))))
+        if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Text.Digits(e.Installed.GetValueOrDefault(k))))
             return (false, "SteamCMD's acf has no complete entry for it");
         if (!Directory.Exists(content) || IsLink(content))
             return (false, "its folder is not in the staging folder");

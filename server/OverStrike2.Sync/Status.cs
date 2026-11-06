@@ -124,9 +124,9 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         }
         catch (Exception e) when (e is not StopRequested)
         {
-            var why = $"rebuild: {Mail.Repr(e)}";
+            var why = $"rebuild: {Text.Of(e)}";
             if (failed != why)
-                log($"status: not rebuilt ({Mail.Repr(e)}) - the last picture stays");
+                log($"status: not rebuilt ({Text.Of(e)}) - the last picture stays");
             failed = why;
         }
     }
@@ -166,7 +166,7 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
             ["bytes"] = Node.Int(dl["bytes"]) + Node.Int(sv["dl_bytes"]),
             ["pass"] = rows.Count(x => x.StartsWith("PASS", StringComparison.Ordinal)), ["rejected"] = rows.Count(x => !x.StartsWith("PASS", StringComparison.Ordinal)),
             ["listed"] = Node.Arr(pub["listed"]).Count + Node.Obj(pub["modes"]).Sum(kv => Node.Arr(kv.Value).Count),
-            ["removed"] = Node.Arr(Node.Get(r["check"], "removed")).Count, ["stop"] = stop is null ? null : Node.Cut(stop, 200),
+            ["removed"] = Node.Arr(Node.Get(r["check"], "removed")).Count, ["stop"] = stop is null ? null : Text.Cut(stop, 200),
         };
     }
 

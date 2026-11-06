@@ -39,7 +39,7 @@ public static class Discovery
             foreach (var item in items)
             {
                 var wid = Node.StrOr(item["publishedfileid"]);
-                if (!Node.Digits(wid) || known.ContainsKey(wid) || state.Item(wid) is not null)
+                if (!Text.Digits(wid) || known.ContainsKey(wid) || state.Item(wid) is not null)
                     continue;
                 if (cfg.ExcludeCreators.Contains(Node.StrOr(item["creator"])))
                     continue;                       // listed by hand (sync.excludeCreators): never a candidate, never "new"
