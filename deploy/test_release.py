@@ -30,8 +30,8 @@ FILES = {"OverStrike2.dll": "a" * 64, "OverStrike2.pdb": "b" * 64, "blocked.txt"
 
 
 class Cfg:
-    def __init__(self, values):
-        self.values = values
+    def __init__(self, values, path="the-private-config.toml"):
+        self.values, self.path = values, path
 
     def get(self, dotted, default=None, required=False):
         return self.values.get(dotted, default)
@@ -239,8 +239,13 @@ try:
           and os.path.exists(T.lock))
     T = Test(verify="none")
     r, out = go(T, lambda: T.release().live("rel", True, False))
-    check("live: no check configured - exit 0, said in the record, the lock released", r == 0 and "the deployment's check: none configured" in out
-          and not os.path.exists(T.lock))
+    check("live: no release.verify - deploy/check.py verify runs, on the config this release runs with; ALL GOOD, the lock released",
+          r == 0 and T.runs[-1] == [sys.executable, "-I", os.path.join(HERE, "check.py"), "verify", "--config", "the-private-config.toml"]
+          and os.path.isfile(T.runs[-1][2]) and "the deployment's check: ALL GOOD" in out and not os.path.exists(T.lock))
+    T = Test(verify="none")
+    T.run = lambda argv: (T.runs.append(argv), 1 if argv[2] == os.path.join(HERE, "check.py") else 0)[1]
+    r, out = go(T, lambda: T.release().live("rel", True, False))
+    check("live: deploy/check.py verify says look - exit 1, the lock kept", r == 1 and "the deployment's check: LOOK" in out and os.path.exists(T.lock))
 
     # ---- --no-plugin: the swap alone
     T = Test()

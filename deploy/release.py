@@ -17,8 +17,8 @@ live - after the release passed its tests (and after publish, when it has HUD co
   6. the new engine: a new container start, A2S answering, OverStrike2 <version> LOADED, the files in the game container those
      of the build (sha256), and the HUD item (hud/workshop_id.txt) among the addons the server hands out - mounted by the server
      (mm_extra_addons) or sent to the clients alone (mm_client_extra_addons);
-  7. the flag off - in a finally, so a failure halfway never leaves it on - the deployment's own check (release.verify in the
-     private config), the lock released (kept after a failure, and the way back printed);
+  7. the flag off - in a finally, so a failure halfway never leaves it on - the deployment's check (deploy/check.py verify, or
+     release.verify in the private config), the lock released (kept after a failure, and the way back printed);
   8. the record's lines, for the deployment's own log.
   --no-plugin: steps 1-3 and 7 only - the swap alone, nothing restarts.
 
@@ -34,8 +34,9 @@ publish - a content update of the one HUD item (hud/workshop_id.txt; a new item 
 
 --dry-run: every check that only reads; nothing that writes - no lock, no swap, no copy, no flag, no quit, no upload.
 
-release.verify, optional: the deployment's own check after `live`, as a command (["python", "-I", "/path/check.py", "verify"]) or
-the path of a Python script; exit 0 means all good. Without it the record says the check was not run.
+The deployment's check after `live` is deploy/check.py verify with the same private config: read-only, exit 0 means all good.
+release.verify, optional, names another check to run in its place: a command (["python", "-I", "/path/check.py", "verify"]) or the
+path of a Python script.
 """
 import argparse
 import json
@@ -54,7 +55,7 @@ import plugin as plugin_mod  # noqa: E402
 
 OS2_DIR = os2.REPO
 OWNER = "Over Strike 2 release (deploy/release.py)"
-VERIFY = None   # release.verify's default; a deployment's own wrapper may set it
+CHECK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check.py")   # the deployment's check unless release.verify names another
 PLUGIN_DIR = "/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/" + plugin_mod.NAME
 CSS_LOGS = "/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/logs"
 NO_SUCH_ITEM = "3999999999"
@@ -87,7 +88,8 @@ class Release:
         self.repo = cfg.get("bridge.image", "localhost/overstrike2-bridge")
         self.lock = cfg.get("server.lock_file", "")
         self.flag = os.path.join(cfg.get("bridge.data_dir", required=True), "maintenance")
-        self.verify_with = cfg.get("release.verify", None) or VERIFY
+        self.verify_with = cfg.get("release.verify", None) or (   # deploy/check.py verify, on the config this release runs with
+            [sys.executable, "-I", CHECK, "verify"] + (["--config", cfg.path] if getattr(cfg, "path", None) else []))
         self.took_lock = self.set_flag = False
         self.record = []
 
@@ -217,7 +219,7 @@ class Release:
                 self.record.append("flag off")
         verdict = self.verify()
         self.record.append(f"the deployment's check: {verdict}")
-        if verdict not in ("ALL GOOD", "none configured"):
+        if verdict != "ALL GOOD":
             ok = False
         if ok:
             self.drop_lock()
@@ -276,12 +278,9 @@ class Release:
         log(f"back: {line}, {shown}, {len(files)} file(s) as built")
 
     def verify(self):
-        """The deployment's own check (release.verify): 'ALL GOOD', 'LOOK ...', 'NOT RUN' (named but missing: a failure), or
-        'none configured' (check the server by hand; not a failure)."""
+        """The deployment's check (deploy/check.py verify, or release.verify): 'ALL GOOD', 'LOOK ...', or 'NOT RUN' (its script is
+        missing: a failure)."""
         cmd = self.verify_with
-        if not cmd:
-            log("no release.verify in the private config - check the server by hand")
-            return "none configured"
         argv = list(cmd) if isinstance(cmd, (list, tuple)) else [sys.executable, "-I", cmd]
         script = next((a for a in argv[1:] if a.endswith(".py")), None)
         if script and not os.path.isfile(script):
