@@ -7,9 +7,9 @@ using OverStrike2.Core.SelfTest;
 var root = T.Root();
 if (args.Contains("--write"))
 {
-    File.WriteAllText(Path.Combine(root, "docs", "settings.schema.json"), Settings.JsonSchema());
+    File.WriteAllText(Path.Combine(root, "docs", "settings.schema.json"), SettingsDocs.JsonSchema());
     var md = Path.Combine(root, "docs", "settings.md");
-    File.WriteAllText(md, T.WithKeys(File.ReadAllText(md), Settings.KeysMarkdown()));
+    File.WriteAllText(md, T.WithKeys(File.ReadAllText(md), SettingsDocs.KeysMarkdown()));
     Console.WriteLine("wrote docs/settings.schema.json and the key tables of docs/settings.md");
 }
 try

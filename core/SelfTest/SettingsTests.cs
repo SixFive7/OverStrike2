@@ -239,11 +239,11 @@ static class SettingsTests
         // ---- the docs and the schema are made from the same table
         var schemaFile = Path.Combine(root, "docs", "settings.schema.json");
         Check("settings: docs/settings.schema.json is the one the table makes (dotnet run --project core/SelfTest -- --write)",
-              File.Exists(schemaFile) && File.ReadAllText(schemaFile).ReplaceLineEndings("\n") == Settings.JsonSchema());
+              File.Exists(schemaFile) && File.ReadAllText(schemaFile).ReplaceLineEndings("\n") == SettingsDocs.JsonSchema());
         var mdFile = Path.Combine(root, "docs", "settings.md");
         Check("settings: docs/settings.md's key tables are the ones the table makes",
-              File.Exists(mdFile) && KeysBlock(File.ReadAllText(mdFile).ReplaceLineEndings("\n")) == Settings.KeysMarkdown().Trim('\n'));
-        var schema = JsonNode.Parse(Settings.JsonSchema())!;
+              File.Exists(mdFile) && KeysBlock(File.ReadAllText(mdFile).ReplaceLineEndings("\n")) == SettingsDocs.KeysMarkdown().Trim('\n'));
+        var schema = JsonNode.Parse(SettingsDocs.JsonSchema())!;
         Check("settings: the schema holds every key of the table, and its default (a required key has none)", Settings.Keys.All(k =>
         {
             JsonNode? n = schema["properties"];
