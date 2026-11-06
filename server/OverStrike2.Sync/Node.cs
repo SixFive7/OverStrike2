@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
 
@@ -11,7 +12,7 @@ public sealed class BadDataException(string message) : Exception(message);
 
 /// <summary>The values of the sync's JSON files and of Steam's answers, read the way the sync's files have always held them: a missing key
 /// or a value of another kind reads as none, a whole number as a long wherever it is written as one, Steam's numbers that come as text
-/// (file_size) as numbers; and the JSON the sync writes.</summary>
+/// (file_size) as numbers; and the sync's JSON, written as System.Text.Json writes it.</summary>
 public static class Node
 {
     // ------------------------------------------------------------------------------------------------ reading values
@@ -81,7 +82,7 @@ public static class Node
         return 0;
     }
 
-    /// <summary>A value as text: a string as it is, a number in its digits, True or False, None for null, anything else as JSON.</summary>
+    /// <summary>A value as text: a string as it is, a number as JSON writes it, True or False, None for null, anything else as JSON.</summary>
     public static string Str(JsonNode? v)
     {
         if (v is null)
@@ -97,10 +98,10 @@ public static class Node
                 case JsonValueKind.False:
                     return "False";
                 case JsonValueKind.Number:
-                    return NumberText(jv);
+                    return jv.ToJsonString();
             }
         }
-        return Dumps(v, null, ", ", ": ");
+        return Compact(v);
     }
 
     /// <summary>A value as text, or the fallback ("" unless given) when it is not set.</summary>
@@ -146,7 +147,7 @@ public static class Node
         null => "None",
         JsonValue when NumLike(v) is { } d => "n:" + d.ToString("R", CultureInfo.InvariantCulture),
         JsonValue when IsString(v) => "s:" + v.GetValue<string>(),
-        _ => "j:" + Dumps(v, null, ",", ":"),
+        _ => "j:" + Compact(v),
     };
 
     /// <summary>A JSON array of strings.</summary>
@@ -193,7 +194,7 @@ public static class Node
     {
         try
         {
-            return JsonNode.Parse(File.ReadAllText(path));
+            return JsonNode.Parse(System.IO.File.ReadAllText(path));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException
                                       or DecoderFallbackException)
@@ -202,216 +203,21 @@ public static class Node
         }
     }
 
-    // ------------------------------------------------------------------------------------------------ numbers as Python writes them
+    // ------------------------------------------------------------------------------------------------ writing JSON
 
-    static string NumberText(JsonValue jv)
-    {
-        if (jv.TryGetValue<JsonElement>(out var el))
-        {
-            var raw = el.GetRawText();
-            if (raw.IndexOfAny(['.', 'e', 'E']) < 0)
-                return raw.StartsWith("-0", StringComparison.Ordinal) && raw.Trim('-', '0').Length == 0 ? "0" : raw;
-            return Repr(double.Parse(raw, CultureInfo.InvariantCulture));
-        }
-        if (jv.TryGetValue<long>(out var l))
-            return l.ToString(CultureInfo.InvariantCulture);
-        if (jv.TryGetValue<int>(out var i))
-            return i.ToString(CultureInfo.InvariantCulture);
-        if (jv.TryGetValue<ulong>(out var u))
-            return u.ToString(CultureInfo.InvariantCulture);
-        if (jv.TryGetValue<double>(out var d))
-            return Repr(d);
-        if (jv.TryGetValue<float>(out var f))
-            return Repr(f);
-        if (jv.TryGetValue<decimal>(out var m))
-            return Repr((double)m);
-        return jv.ToJsonString();
-    }
+    // text as it is - names in every script stay readable in a file and in a diff - but for what JSON must escape; the encoder escapes a few
+    // more (a character beyond the BMP, a C1 control, a line separator), which every reader takes back as the same text
+    static readonly JavaScriptEncoder Escapes = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+    static readonly JsonSerializerOptions OneLine = new() { Encoder = Escapes };
+    static readonly JsonSerializerOptions[] Indents = [.. Enumerable.Range(0, 3).Select(n => new JsonSerializerOptions { Encoder = Escapes, WriteIndented = true, IndentSize = n, NewLine = "\n" })];
 
-    /// <summary>Python's repr(float): the shortest digits that read back, fixed notation from 1e-4 to below 1e16 (always with a point),
-    /// else 1.5e-07, 1e+16.</summary>
-    public static string Repr(double d)
-    {
-        if (double.IsNaN(d))
-            return "NaN";
-        if (double.IsInfinity(d))
-            return d > 0 ? "Infinity" : "-Infinity";
-        if (d == 0)
-            return double.IsNegative(d) ? "-0.0" : "0.0";
-        var r = Math.Abs(d).ToString("R", CultureInfo.InvariantCulture);
-        string digits;
-        int point;                                   // the value is 0.<digits> * 10^point
-        var e = r.IndexOfAny(['E', 'e']);
-        if (e >= 0)
-        {
-            var mant = r[..e];
-            var exp = int.Parse(r[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
-            var dot = mant.IndexOf('.');
-            digits = mant.Replace(".", "");
-            point = (dot < 0 ? mant.Length : dot) + exp;
-        }
-        else
-        {
-            var dot = r.IndexOf('.');
-            var intPart = dot < 0 ? r : r[..dot];
-            var frac = dot < 0 ? "" : r[(dot + 1)..];
-            digits = intPart + frac;
-            point = intPart.Length;
-        }
-        var lead = digits.Length - digits.TrimStart('0').Length;
-        digits = digits.TrimStart('0');
-        point -= lead;
-        digits = digits.TrimEnd('0');
-        if (digits.Length == 0)
-            digits = "0";
-        var sb = new StringBuilder();
-        if (d < 0)
-            sb.Append('-');
-        var decExp = point - 1;
-        if (decExp < -4 || decExp >= 16)
-        {
-            sb.Append(digits[0]);
-            if (digits.Length > 1)
-                sb.Append('.').Append(digits, 1, digits.Length - 1);
-            sb.Append('e').Append(decExp < 0 ? '-' : '+').Append(Math.Abs(decExp).ToString("00", CultureInfo.InvariantCulture));
-        }
-        else if (point <= 0)
-            sb.Append("0.").Append('0', -point).Append(digits);
-        else if (point >= digits.Length)
-            sb.Append(digits).Append('0', point - digits.Length).Append(".0");
-        else
-            sb.Append(digits, 0, point).Append('.').Append(digits, point, digits.Length - point);
-        return sb.ToString();
-    }
+    /// <summary>A value's JSON on one line, without spaces: the sync's own files, its log lines and its words.</summary>
+    public static string Compact(JsonNode? node) => node?.ToJsonString(OneLine) ?? "null";
 
-    // ------------------------------------------------------------------------------------------------ json.dumps
+    /// <summary>A value's JSON with each member and each item on a line of its own, `indent` (0 to 2) spaces a level.</summary>
+    public static string Indented(JsonNode? node, int indent) => node?.ToJsonString(Indents[indent]) ?? "null";
 
-    /// <summary>json.dumps(obj, ensure_ascii=False, indent=indent) - indent null with separators (", ", ": ") as json.dumps' default, or the
-    /// compact (",", ":") the sync's own files use.</summary>
-    public static string Dumps(JsonNode? node, int? indent = null, string itemSep = ", ", string keySep = ": ")
-    {
-        var sb = new StringBuilder();
-        if (indent is not null)
-            itemSep = ",";
-        Write(sb, node, indent, itemSep, keySep, 0);
-        return sb.ToString();
-    }
-
-    /// <summary>json.dumps(obj, separators=(",", ":"), ensure_ascii=False).</summary>
-    public static string Compact(JsonNode? node) => Dumps(node, null, ",", ":");
-
-    /// <summary>The sync's dumps(obj, indent): json.dumps(obj, indent=indent, ensure_ascii=False) and a final newline.</summary>
-    public static string DumpsFile(JsonNode? node, int indent = 1) => Dumps(node, indent) + "\n";
-
-    static void Write(StringBuilder sb, JsonNode? node, int? indent, string itemSep, string keySep, int depth)
-    {
-        switch (node)
-        {
-            case null:
-                sb.Append("null");
-                return;
-            case JsonObject o:
-                if (o.Count == 0)
-                {
-                    sb.Append("{}");
-                    return;
-                }
-                sb.Append('{');
-                var first = true;
-                foreach (var (k, v) in o)
-                {
-                    if (!first)
-                        sb.Append(itemSep);
-                    first = false;
-                    NewLine(sb, indent, depth + 1);
-                    Quote(sb, k);
-                    sb.Append(keySep);
-                    Write(sb, v, indent, itemSep, keySep, depth + 1);
-                }
-                NewLine(sb, indent, depth);
-                sb.Append('}');
-                return;
-            case JsonArray a:
-                if (a.Count == 0)
-                {
-                    sb.Append("[]");
-                    return;
-                }
-                sb.Append('[');
-                for (var i = 0; i < a.Count; i++)
-                {
-                    if (i > 0)
-                        sb.Append(itemSep);
-                    NewLine(sb, indent, depth + 1);
-                    Write(sb, a[i], indent, itemSep, keySep, depth + 1);
-                }
-                NewLine(sb, indent, depth);
-                sb.Append(']');
-                return;
-            case JsonValue jv:
-                switch (jv.GetValueKind())
-                {
-                    case JsonValueKind.String:
-                        Quote(sb, jv.GetValue<string>());
-                        return;
-                    case JsonValueKind.True:
-                        sb.Append("true");
-                        return;
-                    case JsonValueKind.False:
-                        sb.Append("false");
-                        return;
-                    case JsonValueKind.Number:
-                        sb.Append(NumberText(jv));
-                        return;
-                    default:
-                        sb.Append("null");
-                        return;
-                }
-        }
-    }
-
-    static void NewLine(StringBuilder sb, int? indent, int depth)
-    {
-        if (indent is { } n)
-            sb.Append('\n').Append(' ', n * depth);
-    }
-
-    static void Quote(StringBuilder sb, string s)
-    {
-        sb.Append('"');
-        foreach (var c in s)
-        {
-            switch (c)
-            {
-                case '"':
-                    sb.Append("\\\"");
-                    break;
-                case '\\':
-                    sb.Append("\\\\");
-                    break;
-                case '\n':
-                    sb.Append("\\n");
-                    break;
-                case '\r':
-                    sb.Append("\\r");
-                    break;
-                case '\t':
-                    sb.Append("\\t");
-                    break;
-                case '\b':
-                    sb.Append("\\b");
-                    break;
-                case '\f':
-                    sb.Append("\\f");
-                    break;
-                default:
-                    if (c < 0x20)
-                        sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
-                    else
-                        sb.Append(c);
-                    break;
-            }
-        }
-        sb.Append('"');
-    }
+    /// <summary>A file of the bridge's data: Indented and a final newline. Each list keeps the indent it has always had - maps.json and the mode
+    /// lists 1, broken.json 2, search.json 0 - so a diff of one shows the maps that changed.</summary>
+    public static string File(JsonNode? node, int indent) => Indented(node, indent) + "\n";
 }

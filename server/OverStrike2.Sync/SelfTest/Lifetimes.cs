@@ -78,9 +78,9 @@ static class Lifetimes
         Directory.CreateDirectory(Data);
         var listed = items.Where(kv => unlisted is null || !unlisted.Contains(kv.Key)).ToList();
         var maps = new JsonArray(listed.Select((kv, i) => (JsonNode?)O($"{{\"rank\": {i + 1}, \"id\": {kv.Key}, \"name\": \"m{kv.Key}\", \"sizeMb\": 5}}")).ToArray());
-        File.WriteAllText(Path.Combine(Data, "maps.json"), Node.DumpsFile(maps, 1));
-        File.WriteAllText(Path.Combine(Data, "broken.json"), Node.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
-        File.WriteAllText(Path.Combine(Data, "search.json"), Node.DumpsFile(new JsonObject(listed.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
+        File.WriteAllText(Path.Combine(Data, "maps.json"), Node.File(maps, 1));
+        File.WriteAllText(Path.Combine(Data, "broken.json"), Node.File(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
+        File.WriteAllText(Path.Combine(Data, "search.json"), Node.File(new JsonObject(listed.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)$"m{kv.Key}"))), 0));
         Json(Path.Combine(W.State, "state.json"), new JsonObject { ["schema"] = 1, ["items"] = items, ["baseline"] = baseline, ["downloads"] = new JsonObject(), ["last_api"] = lastApi });
         var cfg = Cfg();
         cfg.DownloadPause = 0;

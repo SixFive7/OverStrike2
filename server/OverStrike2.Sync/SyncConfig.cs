@@ -167,7 +167,7 @@ public sealed class SyncConfig
     static bool IsFalse(JsonNode? v) => Node.IsBool(v) && !v!.GetValue<bool>();
 
     /// <summary>The run-now file's limits as one line, for the log.</summary>
-    public static string Describe(JsonObject overrides) => overrides.Count == 0 ? "no overrides" : Node.Dumps(overrides);
+    public static string Describe(JsonObject overrides) => overrides.Count == 0 ? "no overrides" : Node.Compact(overrides);
 
     public override string ToString() => string.Create(CultureInfo.InvariantCulture,
         $"runs of {RunHours} h, the API every {Text.Hms(ApiEvery)}, caps {ApiRunCap} a run and {ApiDayCap} in 24 h, {ApiGap} s apart");

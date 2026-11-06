@@ -1814,7 +1814,7 @@ public sealed class SyncRun
         Report["mail_subject"] = subject;
         try
         {
-            Files.WriteAtomic(path, Node.DumpsFile(Report, 1), FileModes.Private);
+            Files.WriteAtomic(path, Node.File(Report, 1), FileModes.Private);
             Files.WriteAtomic(path[..^5] + ".txt", subject + "\n\n" + body + "\n", FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -1853,7 +1853,7 @@ public sealed class SyncRun
         L($"mail {Node.Str(Report["mail"])}{(issues.Count > 0 ? "" : $" - this run's report: {path[..^5]}.txt")}");
         try                                                 // again, now with the mail's outcome in it
         {
-            Files.WriteAtomic(path, Node.DumpsFile(Report, 1), FileModes.Private);
+            Files.WriteAtomic(path, Node.File(Report, 1), FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

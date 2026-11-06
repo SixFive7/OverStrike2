@@ -135,7 +135,8 @@ folder, which the containers mount read-only at `/home/steam/overstrike2` ([depl
 a container of its own (the game server's image: its SteamCMD, the libraries a test engine needs). Its steps are discovery, the check,
 the ratings, the hand-over to the game server, downloads, the scan, the load tests and the publish, with their limits, stops and mail
 ([the Workshop sync](reference.md#the-workshop-sync)). Its files - the state, the Web API ledger, the reports, the hand-overs, the
-bridge's files - keep the formats of the sync before it, byte for byte, so a server that switches carries on with what it has. It reads the
+bridge's files - keep their keys and the shapes of their values, so every reader takes them as it always has, and the bridge's lists keep
+their layout (a map a line), so a diff of one shows the maps that changed. It reads the
 settings file (`sync.*`, `paths.*`, `server.*`, `bridge.*`, `hud.addon`, `restarts.daily`, `steam.apiGapSeconds`); HOME is the
 image's own. Every Steam Web API call goes through the program's one door (one at a time, `steam.apiGapSeconds` apart, also from one
 run to the next) and is booked in the ledger before it is sent. Its keep set is the restart watcher's: the same code, with the queues
@@ -164,6 +165,6 @@ dotnet publish server/OverStrike2.Sync -c Release -r linux-x64 -o <folder>      
 dotnet publish server/OverStrike2.Sync/SelfTest -c Release -r linux-x64 -o <folder>   # the self-test, to run in the game image
 ```
 
-The self-test holds the sync's rules and the settings file, the file formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the
+The self-test holds the sync's rules and the settings file, the JSON it writes (read back as written, the lists' layout) and its words, the program's one Web API door, the
 command line, the SMTP client, SteamCMD's driver against a stand-in, the test tree, and a hand-over taken in by the restart watcher's
 own code.

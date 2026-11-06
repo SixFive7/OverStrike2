@@ -376,7 +376,7 @@ public static partial class Mail
             sent.Remove(key);
         try
         {
-            OverStrike2.Core.Files.WriteAtomic(path, Node.DumpsFile(sent, 1), FileModes.Private);
+            OverStrike2.Core.Files.WriteAtomic(path, Node.File(sent, 1), FileModes.Private);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

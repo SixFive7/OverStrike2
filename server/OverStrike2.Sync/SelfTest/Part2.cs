@@ -68,9 +68,9 @@ static class Part2
         Directory.CreateDirectory(data);
         const string liveMaps = "[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}, {\"rank\": 2, \"id\": 222, \"name\": \"b\", \"sizeMb\": 7}]";
         const string liveBroken = "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [{\"id\": 3659287341}], \"blocked\": []}";
-        File.WriteAllText(Path.Combine(data, "maps.json"), Node.DumpsFile(A(liveMaps), 1));
-        File.WriteAllText(Path.Combine(data, "broken.json"), Node.DumpsFile(O(liveBroken), 2));
-        File.WriteAllText(Path.Combine(data, "search.json"), Node.DumpsFile(O("{\"111\": \"a 111\", \"222\": \"b 222\"}"), 0));
+        File.WriteAllText(Path.Combine(data, "maps.json"), Node.File(A(liveMaps), 1));
+        File.WriteAllText(Path.Combine(data, "broken.json"), Node.File(O(liveBroken), 2));
+        File.WriteAllText(Path.Combine(data, "search.json"), Node.File(O("{\"111\": \"a 111\", \"222\": \"b 222\"}"), 0));
         var nt = W.Run(Cfg(), new FakeClock(1793500000.0));
         nt.Ledger.Load();
         nt.State.Load();
@@ -117,7 +117,7 @@ static class Part2
         var rec3 = O("{\"title\": \"third\", \"tags\": [\"Armsrace\"], \"size\": 1048576, \"subs\": 1, \"status\": \"tested\", \"verdict\": \"pass\", \"updated\": 1}");
         var grown = (JsonArray)after.DeepClone();
         grown.Add(O("{\"rank\": 4, \"id\": 950, \"name\": \"added by the release\", \"sizeMb\": 1}"));
-        File.WriteAllText(Path.Combine(data, "maps.json"), Node.DumpsFile(grown, 1));
+        File.WriteAllText(Path.Combine(data, "maps.json"), Node.File(grown, 1));
         nt2.Publish([new("903", "pass", O("{\"level\": \"y\"}"), rec3)], [], new Dictionary<string, JsonObject>());
         var nowMaps = (JsonArray)Read(Path.Combine(data, "maps.json"))!;
         Check("run: a maps.json that grew meanwhile is merged into, never written from the older copy",
@@ -219,9 +219,9 @@ static class Part2
         Directory.CreateDirectory(RunData);
         (State, Work, Data) = (Path.Combine(RunRoot, "state"), Path.Combine(RunRoot, "work"), RunData);
         Directory.CreateDirectory(State);
-        File.WriteAllText(Path.Combine(RunData, "maps.json"), Node.DumpsFile(A("[{\"rank\": 1, \"id\": 11, \"name\": \"a\", \"sizeMb\": 5}]"), 1));
-        File.WriteAllText(Path.Combine(RunData, "broken.json"), Node.DumpsFile(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
-        File.WriteAllText(Path.Combine(RunData, "search.json"), Node.DumpsFile(O("{\"11\": \"a 11\"}"), 0));
+        File.WriteAllText(Path.Combine(RunData, "maps.json"), Node.File(A("[{\"rank\": 1, \"id\": 11, \"name\": \"a\", \"sizeMb\": 5}]"), 1));
+        File.WriteAllText(Path.Combine(RunData, "broken.json"), Node.File(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
+        File.WriteAllText(Path.Combine(RunData, "search.json"), Node.File(O("{\"11\": \"a 11\"}"), 0));
         var items = new JsonObject();
         for (var i = 0; i < 7; i++)
             items[(1000 + i).ToString()] = RunItem(i);
@@ -630,7 +630,7 @@ static class Part2
               && Node.IsString(maps["21"]!["content"]) && Node.Integer(maps["21"]!["passed"]) is not null);
         Check("workshop.json: passed is the version the sync accepts - a changed map still waiting for its test keeps the old one, our own map has its newest",
               (Node.Int(maps["24"]!["updated"]), Node.Int(maps["24"]!["passed"])) == (800, 400) && (Node.Int(maps["23"]!["updated"]), Node.Int(maps["23"]!["passed"])) == (700, 700));
-        Check($"workshop.json: a passing test of a map's new content moves its passed up to it ({Node.Dumps(maps["22"])})",
+        Check($"workshop.json: a passing test of a map's new content moves its passed up to it ({Node.Compact(maps["22"])})",
               (Node.Int(maps["22"]!["updated"]), Node.Int(maps["22"]!["passed"])) == (900, 900) && Loads.Contains("22"));
         var ex = O(new Service(cfgw, C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
         Check("export: the random queues as queues.json holds them - its lanes and the open ballot's requests",

@@ -242,7 +242,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
             var status = Node.Str(Node.Get(node, "status"));
             counts[status] = Node.Int(counts[status]) + 1;
         }
-        return Node.Dumps(new JsonObject
+        return Node.Indented(new JsonObject
         {
             ["api_last_24h"] = ledger.Data is not null ? ledger.Last24h() : null, ["api_today"] = ledger.Count(clock.Day()),
             ["api_stop_today"] = ledger.Data is not null ? ledger.Stopped(clock.Day()) : null, ["items"] = counts, ["last_run"] = st.Data["last_run"]?.DeepClone(),
@@ -281,7 +281,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 broken.Add(copy);
             }
         var queues = Node.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the random queues, as the bridge wrote them
-        return Node.Dumps(new JsonObject
+        return Node.Indented(new JsonObject
         {
             ["generated"] = clock.Stamp(), ["maps.json"] = maps, ["modes"] = modes, ["broken.json"] = broken, ["queues"] = queues?.DeepClone(),
         }, 1);

@@ -368,7 +368,7 @@ static class Part3
         var diff = missing.Append("305").Except(handed).Concat(handed.Except(missing.Append("305"))).ToList();
         var serveRep = (JsonObject)ns.Report["serve"]!.DeepClone();
         serveRep["diff"] = Node.Strings(diff);
-        Check($"serve: every keep-set map the server lacks is fetched and handed over ({missing.Count}), 160 GB too, never one it stores or one waiting already ({Node.Dumps(serveRep)})",
+        Check($"serve: every keep-set map the server lacks is fetched and handed over ({missing.Count}), 160 GB too, never one it stores or one waiting already ({Node.Compact(serveRep)})",
               handed.SequenceEqual(missing.Append("305").OrderBy(x => x, StringComparer.Ordinal)) && !FakeSteam.Asked.Intersect(["110", "301", "900", "305"]).Any()
               && Node.Int(ns.Report["serve"]!["ok"]) == missing.Count);
         FakeSteam.Asked = [];
@@ -449,7 +449,7 @@ static class Part3
         var waiting = Handover.Pending(hdir);
         var s3show = (JsonObject)s3.DeepClone();
         s3show["asked"] = Node.Strings(FakeSteam.Asked);
-        Check($"serve: a map staged already with SteamCMD's entry is handed over without a download; an older staged version and one not staged are downloaded ({Node.Dumps(s3show)})",
+        Check($"serve: a map staged already with SteamCMD's entry is handed over without a download; an older staged version and one not staged are downloaded ({Node.Compact(s3show)})",
               waiting.ContainsKey(sa) && !FakeSteam.Asked.Contains(sa) && Node.Int(s3["staged"]) == 1
               && FakeSteam.Asked.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(new[] { sb, sc, sd }.OrderBy(x => x, StringComparer.Ordinal)));
         Check("serve: SteamCMD's acf late - every download is handed over once it has quit, none lost",

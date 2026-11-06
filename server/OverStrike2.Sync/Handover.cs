@@ -204,7 +204,7 @@ public static class Handover
             ["installed"] = new JsonObject { ["size"] = e.Installed["size"], ["timeupdated"] = e.Installed["timeupdated"], ["manifest"] = gid },
             ["details"] = details, ["created"] = (long)Math.Truncate(now),
         };
-        Files.WriteAtomic(Path.Combine(folder, wid + ".json"), Node.Dumps(marker) + "\n", FileModes.Private);
+        Files.WriteAtomic(Path.Combine(folder, wid + ".json"), Node.Compact(marker) + "\n", FileModes.Private);
         try
         {
             AcfForget(acf, [wid]);

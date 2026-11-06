@@ -277,7 +277,7 @@ public static class Verdicts
             if (listed.TryGetValue(wid, out var m))
                 S("removed").Add(Node.Array(wid, m["rank"], Node.Truthy(m["name"]) ? m["name"] : "", verdict));
         if (!Node.Eq(broken, files.Broken))
-            outTexts["broken.json"] = Node.DumpsFile(broken, 2);
+            outTexts["broken.json"] = Node.File(broken, 2);
         // maps.json: the Arms Race passes that are new, appended in popularity order (a number, once given, keeps its map)
         var newAr = outcomes.Where(o => o.Kind == "pass" && !listed.ContainsKey(o.Id) && !on.ContainsKey(o.Id) && Node.In(o.Rec["tags"], "Armsrace"))
             .OrderBy(o => PopularityKey(o.Rec, o.Id)).ToList();
@@ -299,9 +299,9 @@ public static class Verdicts
         }
         if (newAr.Count > 0)
         {
-            outTexts["maps.json"] = Node.DumpsFile(maps, 1);
+            outTexts["maps.json"] = Node.File(maps, 1);
             if (search is not null)
-                outTexts["search.json"] = Node.DumpsFile(search, 0);
+                outTexts["search.json"] = Node.File(search, 0);
         }
         // the mode lists: the maps.json entry shape, rank 1..N by popularity, never shrinking
         foreach (var (mode, tag, _, _, fname) in GameModes.All.Skip(1))
@@ -374,7 +374,7 @@ public static class Verdicts
                 newList = (JsonArray)current.DeepClone();       // never shrink (the bridge refuses a list that drops below half anyway)
             if (!Node.Eq(newList, current) && newList.Count > 0)
             {
-                outTexts[fname] = Node.DumpsFile(newList, 1);
+                outTexts[fname] = Node.File(newList, 1);
                 ModeRows(summary, mode);
                 if (summary["mode_totals"] is not JsonObject totals)
                 {
@@ -407,7 +407,7 @@ public static class Verdicts
                 }
             }
             if (missing > 0)
-                outTexts["search.json"] = Node.DumpsFile(search, 0);
+                outTexts["search.json"] = Node.File(search, 0);
         }
         return (outTexts, summary);
     }
