@@ -710,8 +710,6 @@ public sealed class SyncRun
         if (!Cfg.Publish)
         {
             Section("ratings", () => [])["file"] = "not written (sync.publish is off)";
-            if (Cfg.DryRun)
-                WouldPublish.Write(Cfg, Clock, "ratings.json", text, L);
             return;
         }
         try
@@ -1469,17 +1467,6 @@ public sealed class SyncRun
         {
             pub["skipped"] = $"sync.publish is off (would write {(texts.Count > 0 ? string.Join(", ", texts.Keys.OrderBy(x => x, StringComparer.Ordinal)) : "no file")}"
                              + $"{(verdicts.Count > 0 ? $", and report {verdicts.Count} verdicts" : "")})";
-            if (Cfg.DryRun)
-            {
-                var where = new List<string>();
-                foreach (var (name, text) in texts)
-                    if (WouldPublish.Write(Cfg, Clock, name, text, L) is { } path)
-                        where.Add(path);
-                if (verdicts.Count > 0 && WouldPublish.Write(Cfg, Clock, "removed.txt", VerdictsBody(verdicts), L) is { } vpath)
-                    where.Add(vpath);
-                pub["would_publish"] = Py.Strings(where);
-                L($"dry run: would publish {string.Join(", ", where)}");
-            }
             return;
         }
         if (!WaitForNobody("publish"))
@@ -1692,11 +1679,7 @@ public sealed class SyncRun
         }
         var text = Py.Compact(new JsonObject { ["version"] = 1, ["written"] = (long)Math.Truncate(Clock.Now()), ["maps"] = maps }) + "\n";
         if (!Cfg.Publish)
-        {
-            if (Cfg.DryRun)
-                WouldPublish.Write(Cfg, Clock, WorkshopFile, text, L);
             return;
-        }
         try
         {
             Files.WriteAtomic(Path.Combine(Cfg.BridgeData, WorkshopFile), text, FileModes.Shared);

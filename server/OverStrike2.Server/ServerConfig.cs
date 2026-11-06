@@ -12,10 +12,9 @@ public sealed record ServerPaths
     public required string Handover { get; init; }         // the sync's hand-overs, inside GameDir: a take-in is one rename
     public required string Depotcache { get; init; }       // the Steam client's verified manifests (~/Steam/depotcache)
     public required string Plugins { get; init; }          // the CounterStrikeSharp plugins to install, one folder each (read-only)
-    public string? State { get; init; }                    // the state folder, when it is not GameDir/update-watch (an observing run's)
     public string? Logs { get; init; }                     // the Steam client's logs, when they are not beside the depotcache
 
-    public string StateDir => State ?? Path.Combine(GameDir, "update-watch");   // the counters, the records, the lists of deletions
+    public string StateDir => Path.Combine(GameDir, "update-watch");   // the counters, the records, the lists of deletions
     public string StateFile => Path.Combine(StateDir, "state.json");
     public string LockFile => Path.Combine(StateDir, "lock");
     public string InstalledFile => Path.Combine(GameDir, "update-watch", "installed.json");   // what `install` put in place for this engine

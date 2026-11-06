@@ -59,10 +59,7 @@ namespace OverStrike2.Server;
 /// restart that did not install the new version latches for that version. Freeze kills >= 3 min apart, &lt;= 10 per 24 h; a kill after which
 /// the server never answers within 10 min is a miss, and 2 latch the freeze breaker. A state file that will not parse, a state folder that
 /// is not writable, no RCON password, Valve unreachable, steam.inf missing, A2S silence, or A2S and RCON disagreeing about players: each
-/// means "no action", never "act".
-///
-/// THE OBSERVING WATCHER (watch --observe), for a run beside the acting one: its own state folder, and it does nothing - every action is a
-/// log line saying what it would have done.</summary>
+/// means "no action", never "act".</summary>
 public sealed partial class Watch
 {
     public const double Tick = 1.0;
@@ -94,7 +91,6 @@ public sealed partial class Watch
     public IEngine Engine { get; }
     public IBridge Bridge { get; }
     public IValve Valve { get; }
-    public bool Observe { get; }
     public string SettingsPath { get; init; } = Core.Settings.DefaultPath;
     public Func<string, string?> Env { get; init; } = Environment.GetEnvironmentVariable;
     public Func<bool> Stopping { get; init; } = () => false;
@@ -144,15 +140,14 @@ public sealed partial class Watch
     public double Started { get; }
     public WorkshopJobs Workshop { get; }
 
-    public Watch(ServerConfig config, IClock clock, TimeZoneInfo zone, Log log, IEngine engine, IBridge bridge, IValve valve, bool observe = false)
+    public Watch(ServerConfig config, IClock clock, TimeZoneInfo zone, Log log, IEngine engine, IBridge bridge, IValve valve)
     {
         Config = config;
         Clock = clock;
         Zone = zone;
         Log = log;
-        Observe = observe;
-        Engine = observe ? new ObservingEngine(engine, log) : engine;
-        Bridge = observe ? new ObservingBridge(bridge, log) : bridge;
+        Engine = engine;
+        Bridge = bridge;
         Valve = valve;
         (State, Fault) = WatchState.Load(config.Paths.StateFile);
         DirFault = WatchState.PersistenceSelftest(config.Paths.StateDir);
@@ -779,12 +774,6 @@ public sealed partial class Watch
             return false;
         }
         (Due, warned, announced) = (null, false, null);   // done: no "no longer due" line while the container goes down
-        if (Observe)
-        {
-            GoingDown = null;
-            Log.Line("OBSERVE: the acting watcher restarts the engine here");
-            return true;
-        }
         for (var i = 0; i < QuitTimeout * 2; i++)
         {
             if (Engine.Pid() is null)
@@ -853,8 +842,6 @@ public sealed partial class Watch
         GoingDown = now;
         Engine.Kill(pid, why);
         signatureAt = null;
-        if (Observe)
-            GoingDown = null;
     }
 
     // ------------------------------------------------------------------------------------------------------------ the loop
@@ -992,7 +979,7 @@ public sealed partial class Watch
     {
         foreach (var w in Config.BootWarnings)
             Log.Line("WARNING: " + w);
-        Log.Line($"started{(Observe ? " OBSERVING (no action of its own, state in " + Config.Paths.StateDir + ")" : "")}: updates {(Config.Updates ? "on" : "OFF")} (Valve check every {Rules.Hms(Config.CheckEvery)}), "
+        Log.Line($"started: updates {(Config.Updates ? "on" : "OFF")} (Valve check every {Rules.Hms(Config.CheckEvery)}), "
                  + $"new versions {(Config.NewVersions ? InstalledNow is { } i ? $"on (installed {i.Fingerprint})" : "on, but no record of what install put in place - not detected" : "OFF")}, "
                  + $"daily restart {Config.Daily?.ToString() ?? "off"}, freeze recovery {(Config.FreezeRecovery ? "on" : "OFF")} (after {Config.FreezeGrace} s of silence: A2S after the error-map "
                  + $"signature, or A2S and RCON on {Rules.SilentPolls}+ polls each without it); planned restarts >= {Rules.PlannedMinGap / 60:0} min apart and <= {Rules.PlannedMaxPerDay} per 24 h, "

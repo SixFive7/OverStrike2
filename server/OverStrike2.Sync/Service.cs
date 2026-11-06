@@ -91,7 +91,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
         Directory.CreateDirectory(cfg.StateDir);
         log.File = Path.Combine(cfg.StateDir, "sync.log");
         log.Line($"service start (version {Program.Version}): no time windows - a run whenever nobody plays and there is work, at most {cfg.RunHours} h each, never "
-                 + $"around the {cfg.DailyRestart?.ToString() ?? "(off)"} restart; {(cfg.Enabled ? "enabled" : "DISABLED (sync.enabled false)")}{(cfg.DryRun ? ", A DRY RUN (nothing written for anybody else, no mail)" : "")}, "
+                 + $"around the {cfg.DailyRestart?.ToString() ?? "(off)"} restart; {(cfg.Enabled ? "enabled" : "DISABLED (sync.enabled false)")}, "
                  + $"Web API key {(cfg.WebApiKey.Length > 0 ? "present" : "absent")}, caps: {cfg.ApiRunCap} calls a run, {cfg.ApiDayCap} in 24 h, discovery and the check every "
                  + $"{Text.Hms(cfg.ApiEvery)}; downloads: no daily cap, Steam's push-back stops them, a map at most {DownloadBudget.DownloadsPerMapDay} times a day");
         foreach (var w in cfg.BootWarnings)

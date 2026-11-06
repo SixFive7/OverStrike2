@@ -8,13 +8,12 @@ and the image's own variables where the image needs them.
 | Command | What it does |
 |---|---|
 | `os2-server install --from <file>` | Before every engine start: the plugin layer (Metamod, CounterStrikeSharp and MultiAddonManager at their pinned versions, the `gameinfo.gi` search path, the plugins copied in), the HUD addon's delivery (below), the rotation of an overgrown `console.log`, the maps folder, and a record of what it put in place. `<file>` is the program as shipped, which the watcher watches for a new version. |
-| `os2-server organize [--dry-run]` | The maps folder, the hand-over and the deletion (below). `--dry-run` changes nothing and writes its list and `keep.json` into its own state folder; a download not yet moved into its type's folder counts as the real run would count it. |
-| `os2-server watch [--observe]` | The restart watcher, for the life of the container. `--observe` watches beside the acting watcher and does nothing: every action is a log line saying what it would have done, and its counters live in a state folder of its own. |
+| `os2-server organize` | The maps folder, the hand-over and the deletion (below). |
+| `os2-server watch` | The restart watcher, for the life of the container. |
 | `os2-server doctor` | What the program sees: the settings as read, the paths, the installed version and the one on disk, the watcher's counters. |
 | `os2-server version` | Its version. |
 
-Every command takes `--settings <file>` (else `OVERSTRIKE2_SETTINGS`, else the file's text in `OVERSTRIKE2_SETTINGS_CONTENT`, else `/etc/overstrike2/overstrike2.jsonc`); `watch --observe` and
-`organize --dry-run` take `--state <folder>` (else `<paths.gameDir>/update-watch/observe`).
+Every command takes `--settings <file>` (else `OVERSTRIKE2_SETTINGS`, else the file's text in `OVERSTRIKE2_SETTINGS_CONTENT`, else `/etc/overstrike2/overstrike2.jsonc`).
 
 ## How it starts
 
@@ -124,7 +123,7 @@ dotnet publish server/OverStrike2.Server/SelfTest -c Release -r linux-x64 -o <fo
 ```
 
 The self-test drives the watcher's own loop on a fake clock with a fake engine and a fake bridge: its rules, the restarts above,
-both download collisions, the install, the observing run.
+both download collisions, the install.
 
 `python deploy/server.py build` publishes both programs (this one and [os2-sync](#the-workshop-sync-os2-sync)) and runs both
 self-tests, with `--image` in the game image too; `ship --apply` puts `os2-server`, `os2-sync` and `pre.sh` in the server's program
@@ -156,20 +155,7 @@ bridge's discovery stock takes only maps whose current content passed (`passed` 
 | `os2-sync doctor` | What it sees: the settings as read, the paths, whether there is a key, the bridge, the mail. |
 | `os2-sync version` | Its version. |
 
-Every command takes `--settings <file>`. `serve` and `once` also take:
-
-- `--dry-run`: publishing off, and nothing written for anybody else - no file in the bridge's data (the status file goes to the state
-  folder), nothing posted to the bridge, no mail. What it would publish - each file, the check's verdicts, a problem mail - goes to
-  `<state>/would-publish/<local time>-<name>`, to compare with what the live sync publishes. Unless told otherwise it keeps to folders
-  and a port of its own: `<paths.syncState>/dry-run`, `<paths.syncWork>/dry-run` and `sync.testPort` + 10.
-- `--state <folder>` and `--work <folder>`: the state folder (ledger, state, reports) and the work folder (staging, test tree,
-  hand-overs), else `paths.syncState` and `paths.syncWork`.
-- `--test-port <n>`: the test engine's port, else `sync.testPort`.
-- `--no-handover`: no downloads for the game server in this run.
-
-**A shadow run** beside the live sync is a `--dry-run`: it shares no ledger, staging, test tree, hand-over folder or test port with the
-live one. It still downloads with SteamCMD (into its own staging, as the same user, so not while the live sync's SteamCMD runs) and
-starts a test engine of its own (each an anonymous logon); `--no-handover` leaves out the keep set's downloads for the game server.
+Every command takes `--settings <file>`.
 
 ```sh
 dotnet build server/OverStrike2.Sync
@@ -178,6 +164,6 @@ dotnet publish server/OverStrike2.Sync -c Release -r linux-x64 -o <folder>      
 dotnet publish server/OverStrike2.Sync/SelfTest -c Release -r linux-x64 -o <folder>   # the self-test, to run in the game image
 ```
 
-The self-test holds the sync's rules and the settings file, the file formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the dry run, the
+The self-test holds the sync's rules and the settings file, the file formats it keeps byte for byte (JSON, numbers, words), the program's one Web API door, the
 command line, the SMTP client, SteamCMD's driver against a stand-in, the test tree, and a hand-over taken in by the restart watcher's
 own code.

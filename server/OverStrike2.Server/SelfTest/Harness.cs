@@ -202,8 +202,7 @@ sealed class Scenario
 
     public static DateTimeOffset At(int y, int mo, int d, int h, int mi, int s) => new(y, mo, d, h, mi, s, Cest);
 
-    public static Scenario Make(DateTimeOffset start, (string, int?, string?)? verdict = null, bool observe = false, Action<ServerConfig>? tune = null,
-                                Installed? installed = null, string? state = null)
+    public static Scenario Make(DateTimeOffset start, (string, int?, string?)? verdict = null, Action<ServerConfig>? tune = null, Installed? installed = null)
     {
         var stateDir = Path.Combine(Root, "update-watch");
         if (Directory.Exists(stateDir))
@@ -216,9 +215,9 @@ sealed class Scenario
         if (verdict is { } v)
             valve.Answer = _ => v;
         var log = new Log("test", clock, Paris, _ => { });
-        var config = Copy(Template, state is null ? null : Template.Paths with { State = state });
+        var config = Copy(Template);
         tune?.Invoke(config);
-        var w = new Watch(config, clock, Paris, log, eng, bridge, valve, observe)
+        var w = new Watch(config, clock, Paris, log, eng, bridge, valve)
         {
             SettingsPath = Path.Combine(Root, "settings.jsonc"),
             Env = _ => null,

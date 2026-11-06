@@ -25,9 +25,8 @@ namespace OverStrike2.Server;
 /// link, its folder - in armsrace, deathmatch, wingman and other; never own, never hud, never a queued or a requested map, whatever the
 /// keep set says. Refused, with the reason in the log, whenever the keep set names a problem (KeepSet). Every run writes its list to
 /// update-watch/deleted-&lt;time&gt;-&lt;done | dryrun | refused&gt;.tsv and logs the count, the size and the volume's free space before and
-/// after. A dry run (organize --dry-run, the observing run's) changes nothing at all: it reads the tree as it is and writes its list and its
-/// keep.json into its own state folder.</summary>
-public sealed partial class MapsFolder(ServerConfig config, Log log, IClock clock, TimeZoneInfo zone, bool dryRun = false)
+/// after.</summary>
+public sealed partial class MapsFolder(ServerConfig config, Log log, IClock clock, TimeZoneInfo zone)
 {
     public static readonly string[] MapTypes = ["armsrace", "deathmatch", "wingman", "own", "hud", "other"];
     public static readonly string[] DeleteTypes = ["armsrace", "deathmatch", "wingman", "other"];   // never own, never hud
@@ -134,8 +133,6 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
             var types = Types();
             if (!types.Values.Any(t => t.Kind == "armsrace"))
                 return "maps folder: the bridge's lists are not readable - left as it is";
-            if (dryRun)
-                return "maps folder (dry run): " + DryRun(content, mapsDir, types);
             foreach (var kind in MapTypes)
                 Directory.CreateDirectory(Path.Combine(mapsDir, kind));
             var where = Where(mapsDir, onlyDirs: false);
@@ -515,7 +512,7 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         var record = new JsonObject
         {
             ["computed"] = TimeZoneInfo.ConvertTime(clock.Now, zone).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
-            ["delete"] = dryRun ? "observe" : config.MapsDelete,
+            ["delete"] = config.MapsDelete,
             ["problems"] = new JsonArray(keep.Problems.Select(p => (JsonNode)p).ToArray()),
             ["summary"] = summary,
             ["cutoff"] = cutoff,
@@ -670,59 +667,6 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
     {
         var title = types.TryGetValue(id, out var t) ? t.Title.Replace('\t', ' ') : "";
         return title.Length > 0 ? title : Path.GetFileName(path).Split('-', 2)[^1];
-    }
-
-    /// <summary>The dry run: the tree as it is, read only. The complete hand-overs it would take in are protected as the real run's are;
-    /// the list and keep.json go into this run's own state folder. Words for the summary line.</summary>
-    string DryRun(string content, string mapsDir, Dictionary<string, (string Kind, string Title)> types)
-    {
-        Dictionary<string, long> sizes = [];
-        try
-        {
-            sizes = KeyValues.Sizes(File.ReadAllText(P.WorkshopAcf));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-        }
-        var where = Where(mapsDir, onlyDirs: true);
-        var handovers = new List<string>();
-        try
-        {
-            foreach (var name in Directory.EnumerateFiles(P.Handover, "*.json").Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal))
-                if (Digits(name![..^5]) && ReadMarker(Path.Combine(P.Handover, name), name[..^5]).Record is not null)
-                    handovers.Add(name[..^5]);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-        }
-        var keep = KeepSetNow();
-        var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Requested).Concat(keep.Queues.Values.SelectMany(q => q)).Concat(handovers));
-        // What Steam downloaded since the last run is still a real folder in content/730: the real run moves it into its type's folder
-        // first, so it counts here as if it had been moved.
-        var fresh = Directory.Exists(content)
-            ? Directory.EnumerateDirectories(content).Select(d => Path.GetFileName(d)!).Where(n => Digits(n) && !IsLink(Path.Combine(content, n))).OrderBy(x => x, StringComparer.Ordinal).ToList()
-            : [];
-        foreach (var id in fresh)
-            where.TryAdd(id, [Path.Combine(content, id)]);
-        var onDisk = where.ToDictionary(kv => kv.Key, kv => sizes.GetValueOrDefault(kv.Key));
-        var summary = Summary(keep, onDisk, ListedSizes());
-        var gone = Unkept(mapsDir, keep.All, protect);
-        foreach (var id in fresh)
-        {
-            var kind = types.TryGetValue(id, out var t) ? t.Kind : "other";
-            if (DeleteTypes.Contains(kind) && !keep.All.Contains(id) && !protect.Contains(id) && !gone.Any(g => g.Id == id))
-                gone.Add((kind, id, Path.Combine(content, id)));
-        }
-        gone = [.. gone.OrderBy(g => Array.IndexOf(DeleteTypes, g.Kind)).ThenBy(g => g.Id, StringComparer.Ordinal)];
-        LogKeep(keep, summary);
-        WriteKeepFile(keep, summary);
-        var rows = gone.Select(g => (g.Kind, g.Id, Title: RowTitle(types, g.Id, g.Path), Mb: sizes.GetValueOrDefault(g.Id) / 1000000)).ToList();
-        var listed = WriteList(rows, "observe");
-        var would = config.MapsDelete == "on" && keep.Problems.Count == 0 ? "would delete them" : config.MapsDelete != "on" ? $"maps.delete is {config.MapsDelete}" : "would refuse: " + string.Join("; ", keep.Problems);
-        var line = $"{gone.Count} map(s) outside the keep set ({Gib(gone.Sum(g => (double)sizes.GetValueOrDefault(g.Id)))}), {would}; {fresh.Count} new download(s) counted as moved in; "
-                   + $"{handovers.Count} complete hand-over(s); the list: {listed}";
-        log.Line("maps folder (dry run): " + line);
-        return line;
     }
 
     /// <summary>Replace the workshop acf: first a copy of the old one beside it (appworkshop_730.acf.bak-&lt;local time&gt;-&lt;why&gt;; the newest

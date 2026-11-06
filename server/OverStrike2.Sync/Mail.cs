@@ -367,11 +367,6 @@ public static partial class Mail
             return $"NOT sent: every problem of this run was mailed in the last {Sync.Text.Hms(MailEvery)}";
         var ongoing = issues.Where(i => !fresh.Contains(i)).ToList();
         var (subject, body) = IssueMail(fresh, ongoing, r, cfg);
-        if (cfg.DryRun)
-        {
-            WouldPublish.Write(cfg, clock, "mail.txt", subject + "\n\n" + body + "\n", log);
-            return $"NOT sent: a dry run (it would have mailed: {subject})";
-        }
         var why = send(cfg, subject, body);
         if (why is not null)
             return $"NOT sent: {why}";

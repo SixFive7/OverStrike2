@@ -14,8 +14,8 @@ using static OverStrike2.Sync.SelfTest.W;
 namespace OverStrike2.Sync.SelfTest;
 
 /// <summary>What the port brings new: the settings file, the Python sync's formats it must keep byte for byte, the program's one Web API
-/// door, the dry run for a shadow run, the command line, the SMTP client, and - in the game image - SteamCMD's driver, the test tree, and
-/// the whole hand-over taken in by the restart watcher's own code.</summary>
+/// door, the command line, the SMTP client, and - in the game image - SteamCMD's driver, the test tree, and the whole hand-over taken in
+/// by the restart watcher's own code.</summary>
 static class NewChecks
 {
     public static void Run()
@@ -25,7 +25,6 @@ static class NewChecks
         StockRule();
         Formats();
         DoorAndLedger(root);
-        DryRun(root);
         Cli(root);
         SmtpClient();
         TailLines(root);
@@ -163,46 +162,6 @@ static class NewChecks
         Check("api: a keyed call without the key is neither sent nor counted in the ledger", sent2.Count == 0 && Py.Arr(led2.Data!["calls"]).Count == 0 && led2.Count(C(clock2).Day()) == 0);
     }
 
-    // ---- the dry run (a shadow run's): nothing for anybody else - no file in the bridge's data, no post to the bridge, no mail; what it would
-    // publish in its own state folder
-    static void DryRun(string root)
-    {
-        using var srv = new MiniHttp();
-        var cfg = Cfg();
-        (cfg.StateDir, cfg.WorkDir, cfg.BridgeData) = (Path.Combine(root, "dry-state"), Path.Combine(root, "dry-work"), Path.Combine(root, "dry-data"));
-        (cfg.BridgeUrl, cfg.BridgeSecret, cfg.DryRun, cfg.Publish) = ($"http://127.0.0.1:{srv.Port}", "s3cr3t", true, false);
-        Directory.CreateDirectory(cfg.BridgeData);
-        var maps = Py.DumpsFile(A("[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}]"), 1);
-        File.WriteAllText(Path.Combine(cfg.BridgeData, "maps.json"), maps);
-        File.WriteAllText(Path.Combine(cfg.BridgeData, "broken.json"), Py.DumpsFile(O("{\"maps\": [], \"packs\": []}"), 2));
-        var run = W.Run(cfg, new FakeClock(Part2.T0));
-        run.State.Load();
-        run.VerdictsToReport = [("111", "removed")];
-        var rec = O("{\"title\": \"dry map\", \"tags\": [\"Armsrace\"], \"size\": 1048576, \"subs\": 3, \"status\": \"tested\", \"verdict\": \"pass\", \"updated\": 5}");
-        run.Publish([new("901", "pass", O("{\"level\": \"x\"}"), rec)], [], new Dictionary<string, JsonObject>());
-        var would = Directory.Exists(cfg.WouldPublishDir) ? Directory.GetFiles(cfg.WouldPublishDir).Select(Path.GetFileName).ToList() : [];
-        Check($"dry run: what it would publish is in its state folder, the bridge's data untouched, nothing posted ({T.Show(would)})",
-              would.Any(n => n!.EndsWith("-maps.json", StringComparison.Ordinal)) && would.Any(n => n!.EndsWith("-removed.txt", StringComparison.Ordinal))
-              && File.ReadAllText(Path.Combine(cfg.BridgeData, "maps.json")) == maps && srv.Got.Count == 0 && Py.Str(Py.Get(run.Report["published"], "skipped")).StartsWith("sync.publish is off", StringComparison.Ordinal)
-              && A(File.ReadAllText(Directory.GetFiles(cfg.WouldPublishDir, "*-maps.json")[0])).Count == 2);
-        Check("dry run: the status file goes to its state folder, not the bridge's data", cfg.StatusFile == Path.Combine(cfg.StateDir, "sync-status.json"));
-        var live = Cfg();
-        var (liveState, liveWork, livePort) = (live.StateDir, live.WorkDir, live.TestPort);
-        var shadow = Program.Options(live, true, null, null, null, false);
-        var told = Program.Options(Cfg(), true, Path.Combine(root, "s2"), Path.Combine(root, "w2"), 27400, true);
-        Check("dry run: without --state, --work and --test-port it keeps to folders and a port of its own, never the live sync's",
-              shadow.StateDir == Path.Combine(liveState, "dry-run") && shadow.WorkDir == Path.Combine(liveWork, "dry-run") && shadow.TestPort == livePort + 10
-              && shadow.DryRun && !shadow.Publish && told.StateDir == Path.Combine(root, "s2") && told.WorkDir == Path.Combine(root, "w2") && told.TestPort == 27400 && !told.Handover);
-        var mailed = new List<string>();
-        var said = Mail.MailIssues(cfg, C(new FakeClock(Part2.T0)), [new Issue("k", "a problem", "nothing")], Part2.QuietWith(), (_, s, _) =>
-        {
-            mailed.Add(s);
-            return null;
-        }, Log.Line);
-        Check("dry run: a problem is not mailed - the mail it would send is in its state folder",
-              mailed.Count == 0 && said.StartsWith("NOT sent: a dry run", StringComparison.Ordinal) && Directory.GetFiles(cfg.WouldPublishDir, "*-mail.txt").Length == 1);
-    }
-
     static (int Code, string Said) Quiet(Func<int> run)
     {
         var (o, e) = (Console.Out, Console.Error);
@@ -225,6 +184,9 @@ static class NewChecks
     {
         Check("cli: an argument it does not know exits at once (2), so does a command", Quiet(() => Program.Main(["serve", "--nonsense"])).Code == 2
               && Quiet(() => Program.Main(["nonsense"])).Code == 2 && Quiet(() => Program.Main(["once", "{not json"])).Code == 2);
+        string[][] gone = [["serve", "--dry-run"], ["once", "--dry-run"], ["serve", "--state", root], ["once", "--work", root], ["serve", "--test-port", "27400"], ["once", "--no-handover"]];
+        Check("cli: --dry-run, --state, --work, --test-port and --no-handover are gone: each exits at once (2), so an old command line never starts a run in their place",
+              gone.All(a => Quiet(() => Program.Main(a)).Code == 2));
         var (code, said) = Quiet(() => Program.Main(["version"]));
         Check("cli: version", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal));
         var file = Path.Combine(root, "cli.jsonc");
@@ -249,21 +211,21 @@ static class NewChecks
         (code, said) = Quiet(() => Program.Main(["once", "--settings", Path.Combine(root, "no-such-file.jsonc")]));
         Check("cli: no settings file at all: the same", code == Settings.RefusedExit && said.Contains("no settings file at") && said.Contains("hud.addon: missing"));
         File.WriteAllText(file, "{ \"schema\": 1 }");
-        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
+        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file]));
         Check("cli: doctor still works with no hud.addon, and says so", code == 1 && said.Contains("NOT USABLE: hud.addon: missing") && said.Contains("Web API key:"));
         (code, said) = Quiet(() => Program.Main(["version", "--settings", file]));
         Check("cli: version too", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal) && said.Contains("settings: NOT USABLE - hud.addon: missing"));
-        File.WriteAllText(file, "// a comment\n{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"sync\": { \"webApiKey\": \"\" }, }");
-        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
-        Check("cli: doctor says what it sees, the key without its value", code == 0 && said.Contains("Web API key: absent") && said.Contains("cli-state") && said.Contains("the HUD item: 3823993566"));
+        File.WriteAllText(file, "// a comment\n{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"sync\": { \"webApiKey\": \"\" }, \"paths\": { \"syncState\": \"/cli-state\" }, }");
+        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file]));
+        Check("cli: doctor says what it sees, the key without its value", code == 0 && said.Contains("Web API key: absent") && said.Contains("path state: /cli-state ") && said.Contains("the HUD item: 3823993566"));
         (code, said) = Quiet(() => Program.Main(["version", "--settings", file]));
         Check("cli: version with a good file: its one line", code == 0 && said.StartsWith("os2-sync ", StringComparison.Ordinal) && !said.Contains("NOT USABLE"));
         var (savedContent, savedPath) = (Environment.GetEnvironmentVariable(Settings.ContentVariable), Environment.GetEnvironmentVariable(Settings.PathVariable));
         Environment.SetEnvironmentVariable(Settings.PathVariable, null);
         Environment.SetEnvironmentVariable(Settings.ContentVariable, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"sync\": { \"webApiKey\": \"\" } }");
-        (code, said) = Quiet(() => Program.Main(["doctor", "--state", Path.Combine(root, "cli-state")]));
+        (code, said) = Quiet(() => Program.Main(["doctor"]));
         Check($"cli: {Settings.ContentVariable} is read like the file, and doctor names it", code == 0 && said.Contains($"settings: {Settings.ContentSource}") && said.Contains("the HUD item: 3823993566"));
-        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file, "--state", Path.Combine(root, "cli-state")]));
+        (code, said) = Quiet(() => Program.Main(["doctor", "--settings", file]));
         Check("cli: --settings wins over it, for a test", code == 0 && said.Contains($"settings: {file}"));
         Environment.SetEnvironmentVariable(Settings.ContentVariable, "{ \"schema\": 1 }");
         (code, said) = Quiet(() => Program.Main(["once"]));

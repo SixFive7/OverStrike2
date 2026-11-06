@@ -36,6 +36,9 @@ static class WorkshopTests
         Check("CLI: --warmup-reset (what an older pre.sh still calls) is gone", Quiet(() => Program.Main(["watch", "--warmup-reset"])).Code == 2);
         Check("CLI: an argument it does not know exits at once (2) - never the watcher's loop in the foreground of pre.sh",
               Quiet(() => Program.Main(["organize", "--observe"])).Code == 2 && Quiet(() => Program.Main(["nonsense"])).Code == 2);
+        Check("CLI: watch --observe, organize --dry-run and --state are gone: each exits at once (2), so an old command line runs neither the watcher nor the real organize",
+              Quiet(() => Program.Main(["watch", "--observe"])).Code == 2 && Quiet(() => Program.Main(["organize", "--dry-run"])).Code == 2
+              && Quiet(() => Program.Main(["organize", "--state", Dir("cli-state")])).Code == 2);
         var off = Path.Combine(Dir("cli"), "off.jsonc");
         File.WriteAllText(off, "{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }, \"restarts\": { \"updates\": false, \"newVersions\": false, \"freezeRecovery\": false, \"downloadRestart\": false, \"daily\": \"off\" }, \"maps\": { \"backgroundDownloads\": false, \"downloadLine\": false } }");
         var (code, said) = Quiet(() => Program.Main(["watch", "--settings", off]));

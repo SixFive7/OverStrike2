@@ -275,24 +275,5 @@ static class OrganizeTests
         line = Mf().Organize();
         C($"KM: no keep set to trust (its inputs of a shape it does not read): --organize deletes nothing, a new download stays ({line})",
           () => safe.Problems.Count > 0 && before.All(Stored().Contains) && Stored().Contains("190") && line.Contains("refused"));
-        // the dry run of an observing run: the tree as it is, nothing touched, its list and keep.json in its own folder
-        WriteData();
-        Put(Path.Combine(content, "195"), "195");            // a download since the last run: a real folder in content/730
-        var observe = Scenario.Copy(config, config.Paths with { State = Path.Combine(t4, "observe") });
-        var treeBefore = Snapshot(t4);
-        line = new MapsFolder(observe, log, SystemClock.Instance, Scenario.Paris, dryRun: true).Organize();
-        var dryList = Directory.EnumerateFiles(Path.Combine(t4, "observe"), "deleted-*-observe.tsv").Select(File.ReadAllText).FirstOrDefault() ?? "";
-        C($"dry run: nothing in the tree changes, and its list and keep.json go into its own state folder ({line})",
-          () => Snapshot(t4).Where(e => !e.StartsWith("observe", StringComparison.Ordinal)).SequenceEqual(treeBefore.Where(e => !e.StartsWith("observe", StringComparison.Ordinal)))
-                && dryList.Length > 0 && File.Exists(Path.Combine(t4, "observe", "keep.json")) && line.Contains("would delete them"));
-        C($"dry run: a download not yet moved into its type's folder counts as the real run would count it ({dryList.Replace("\n", " | ").Replace('\t', ' ')})",
-          () => dryList.Contains("other\t195\t195\t0") && line.Contains("1 new download(s) counted as moved in"));
     }
-
-    /// <summary>Every path under a folder with its size and its link target: what "nothing changed" compares.</summary>
-    static List<string> Snapshot(string root) =>
-        [.. Directory.EnumerateFileSystemEntries(root, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 })
-            .Select(p => $"{Path.GetRelativePath(root, p)}|{(MapsFolder.LinkTarget(p) ?? (File.Exists(p) ? new FileInfo(p).Length.ToString() : "dir"))}")
-            .Where(e => !e.StartsWith("update-watch", StringComparison.Ordinal))
-            .OrderBy(x => x, StringComparer.Ordinal)];
 }

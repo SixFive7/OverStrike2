@@ -60,17 +60,13 @@ public sealed class SyncConfig
     public string HudAddon { get; set; } = "";                     // hud.addon: the HUD item, for the dashboard's keep set
     public string Home { get; set; } = "/home/steam";              // the image's HOME: SteamCMD's and the test engine's
     public List<string>? OnlyIds { get; set; }                     // a run-now's {"only_ids": [...]}
-    public bool DryRun { get; set; }                               // os2-sync --dry-run: nothing written for anybody else, no mail
     public KeepRules KeepRules { get; set; } = KeepRules.Default;  // the keep set's limits: its queues as long as bridge.discoveryStock, the restart watcher's too
-    public string? StatusFileOverride { get; set; }
     public List<string> BootWarnings { get; } = [];
 
     public string HandoverDir => HandoverFolder ?? Path.Combine(WorkDir, "handover");
     public string WatcherDir => Path.Combine(GameDir, "update-watch");   // the restart watcher's folder: keep.json, its last keep set
-    /// <summary>The status file: the bridge's data, or the state folder when nothing may be written for anybody else.</summary>
-    public string StatusFile => StatusFileOverride ?? (DryRun ? Path.Combine(StateDir, "sync-status.json") : Path.Combine(BridgeData, "sync-status.json"));
-    /// <summary>Where a dry run puts what it would have published.</summary>
-    public string WouldPublishDir => Path.Combine(StateDir, "would-publish");
+    /// <summary>The status file, in the bridge's data.</summary>
+    public string StatusFile => Path.Combine(BridgeData, "sync-status.json");
 
     /// <summary>The settings for the sync, and the image's variables it falls back on.</summary>
     public static SyncConfig From(Settings s, Func<string, string?>? env = null)

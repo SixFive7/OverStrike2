@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
@@ -22,21 +21,10 @@ public static class Program
         options:
           --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS; else the file's text in OVERSTRIKE2_SETTINGS_CONTENT;
                                   else /etc/overstrike2/overstrike2.jsonc)
-          --dry-run              publishing off and nothing written for anybody else: no file in the bridge's data (the status file goes
-                                  to the state folder), nothing posted to the bridge, no mail; what it would publish goes to
-                                  <state>/would-publish/. Its own folders and port unless given: <paths.syncState>/dry-run,
-                                  <paths.syncWork>/dry-run, sync.testPort + 10
-          --state DIR             the sync's state folder (else paths.syncState): its ledger, state and reports
-          --work DIR              the sync's work folder (else paths.syncWork): its staging, test tree and hand-overs
-          --test-port N           the test engine's port (else sync.testPort)
-          --no-handover           no hand-overs to the game server in this run (sync.handover false)
         exit code 78: the settings file cannot be used (hud.addon is required): nothing done
         """;
 
     public static string Version => typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
-
-    /// <summary>A dry run's test engine listens this far from sync.testPort, so it never meets the live sync's.</summary>
-    public const int DryRunPortOffset = 10;
 
     public static int Main(string[] args)
     {
@@ -47,31 +35,13 @@ public static class Program
             return args.Length == 0 ? 2 : 0;
         }
         var command = args[0];
-        string? settingsArg = null, stateArg = null, workArg = null, onceJson = null;
-        int? testPort = null;
-        bool dryRun = false, noHandover = false;
+        string? settingsArg = null, onceJson = null;
         for (var i = 1; i < args.Length; i++)
         {
             switch (args[i])
             {
                 case "--settings" when i + 1 < args.Length:
                     settingsArg = args[++i];
-                    break;
-                case "--state" when i + 1 < args.Length:
-                    stateArg = args[++i];
-                    break;
-                case "--work" when i + 1 < args.Length:
-                    workArg = args[++i];
-                    break;
-                case "--test-port" when i + 1 < args.Length && int.TryParse(args[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port is >= 1024 and <= 65535:
-                    testPort = port;
-                    i++;
-                    break;
-                case "--dry-run" when command is "serve" or "once":
-                    dryRun = true;
-                    break;
-                case "--no-handover" when command is "serve" or "once":
-                    noHandover = true;
                     break;
                 default:
                     if (command == "once" && onceJson is null && !args[i].StartsWith("--", StringComparison.Ordinal))
@@ -114,7 +84,7 @@ public static class Program
         var stoppable = StoppableClock.Instance;
         var clock = new SyncClock(stoppable, zone);
         var log = new SyncLog(clock);
-        var cfg = Options(SyncConfig.From(settings, env), dryRun, stateArg, workArg, testPort, noHandover);
+        var cfg = SyncConfig.From(settings, env);
         if (command == "doctor")
             return Doctor(settings, cfg, zone);
         if (settings.Fatal is { } fatal)
@@ -156,29 +126,6 @@ public static class Program
             Console.Error.WriteLine($"os2-sync {command}: {e.Message}");
             return 1;
         }
-    }
-
-    /// <summary>The command line's options over the settings. A dry run never shares the live sync's ledger, staging, test tree or test port,
-    /// even without --state, --work and --test-port: &lt;paths.syncState&gt;/dry-run, &lt;paths.syncWork&gt;/dry-run, sync.testPort + 10.</summary>
-    public static SyncConfig Options(SyncConfig cfg, bool dryRun, string? state, string? work, int? testPort, bool noHandover)
-    {
-        if (dryRun)
-        {
-            cfg.DryRun = true;
-            cfg.Publish = false;
-            cfg.StateDir = Path.Combine(cfg.StateDir, "dry-run");
-            cfg.WorkDir = Path.Combine(cfg.WorkDir, "dry-run");
-            cfg.TestPort = cfg.TestPort + DryRunPortOffset <= 65535 ? cfg.TestPort + DryRunPortOffset : cfg.TestPort - DryRunPortOffset;
-        }
-        if (state is not null)
-            cfg.StateDir = Path.GetFullPath(state);
-        if (work is not null)
-            cfg.WorkDir = Path.GetFullPath(work);
-        if (testPort is { } tp)
-            cfg.TestPort = tp;
-        if (noHandover)
-            cfg.Handover = false;
-        return cfg;
     }
 
     /// <summary>What this program sees, for a person: the settings as read, the paths, the key, the bridge.</summary>

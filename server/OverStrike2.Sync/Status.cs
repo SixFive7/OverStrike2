@@ -208,23 +208,3 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         return "armsrace";
     }
 }
-
-/// <summary>A dry run's record of what it would have published (os2-sync --dry-run): &lt;state&gt;/would-publish/&lt;local stamp&gt;-&lt;file&gt;.</summary>
-public static class WouldPublish
-{
-    public static string? Write(SyncConfig cfg, SyncClock clock, string name, string text, Action<string> log)
-    {
-        try
-        {
-            Directory.CreateDirectory(cfg.WouldPublishDir);
-            var path = Path.Combine(cfg.WouldPublishDir, $"{clock.Local().ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture)}-{name}");
-            OverStrike2.Core.Files.WriteAtomic(path, text, FileModes.Private);
-            return path;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            log($"dry run: {name} not written to {cfg.WouldPublishDir} ({e.Message})");
-            return null;
-        }
-    }
-}

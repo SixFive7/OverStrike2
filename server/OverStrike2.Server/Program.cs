@@ -11,16 +11,13 @@ public static class Program
         os2-server <command> [options]
           install [--from PATH]   the plugin layer, the HUD addon's delivery and the maps folder, before the engine starts (what pre.sh
                                   runs); PATH is this program's own file as shipped, which the watcher watches for a new version
-          organize [--dry-run]    the maps folder, the hand-over and the deletion; --dry-run changes nothing and writes its list into
-                                  its own state folder
-          watch [--observe]       the restart watcher, for the life of the container (pre.sh starts it in the background); --observe
-                                  watches beside the acting one and does nothing: every action is a log line
+          organize                the maps folder, the hand-over and the deletion
+          watch                   the restart watcher, for the life of the container (pre.sh starts it in the background)
           doctor                  what this program sees: the settings, the paths, the versions, the watcher's state
           version                 this program's version
         options:
           --settings PATH         the settings file (else OVERSTRIKE2_SETTINGS; else the file's text in OVERSTRIKE2_SETTINGS_CONTENT;
                                   else /etc/overstrike2/overstrike2.jsonc)
-          --state DIR            the state folder of an observing or dry run (else <paths.gameDir>/update-watch/observe)
         exit code 78: the settings cannot be used (hud.addon is required), or install found no MultiAddonManager: pre.sh does not start the engine
         """;
 
@@ -35,8 +32,7 @@ public static class Program
             return args.Length == 0 ? 2 : 0;
         }
         var command = args[0];
-        string? settingsArg = null, from = null, stateArg = null;
-        bool observe = false, dryRun = false;
+        string? settingsArg = null, from = null;
         for (var i = 1; i < args.Length; i++)
         {
             switch (args[i])
@@ -46,15 +42,6 @@ public static class Program
                     break;
                 case "--from" when i + 1 < args.Length && command == "install":
                     from = args[++i];
-                    break;
-                case "--state" when i + 1 < args.Length:
-                    stateArg = args[++i];
-                    break;
-                case "--observe" when command == "watch":
-                    observe = true;
-                    break;
-                case "--dry-run" when command == "organize":
-                    dryRun = true;
                     break;
                 default:
                     // never the watcher's loop in the foreground of pre.sh, which waits for it before the engine starts
@@ -88,8 +75,6 @@ public static class Program
             return Settings.RefusedExit;
         }
         var config = ServerConfig.From(settings, env);
-        if (observe || dryRun)
-            config = WithState(config, stateArg ?? Path.Combine(config.Paths.StateDir, "observe"));
         try
         {
             switch (command)
@@ -99,10 +84,10 @@ public static class Program
                         log.Line("WARNING: " + w);
                     return new Install(config, log, new HttpDownloader(clock), env, clock, zone).Run(from, settingsPath);
                 case "organize":
-                    log.Line(new MapsFolder(config, log, clock, zone, dryRun).Organize());
+                    log.Line(new MapsFolder(config, log, clock, zone).Organize());
                     return 0;
                 default:
-                    return WatchMain(config, settingsPath, env, clock, zone, log, observe);
+                    return WatchMain(config, settingsPath, env, clock, zone, log);
             }
         }
         catch (Exception e)   // never die silently: the 44-hour outage happened because nobody was told
@@ -112,26 +97,12 @@ public static class Program
         }
     }
 
-    static ServerConfig WithState(ServerConfig c, string state)
-    {
-        var copy = new ServerConfig
-        {
-            Paths = c.Paths with { State = state },
-            Updates = c.Updates, CheckEvery = c.CheckEvery, NewVersions = c.NewVersions, Daily = c.Daily, FreezeRecovery = c.FreezeRecovery,
-            FreezeGrace = c.FreezeGrace, DownloadRestart = c.DownloadRestart, MapsLayout = c.MapsLayout, MapsDelete = c.MapsDelete,
-            BackgroundDownloads = c.BackgroundDownloads, DownloadLine = c.DownloadLine, HudAddon = c.HudAddon, PluginLayer = c.PluginLayer,
-            Port = c.Port, RconPassword = c.RconPassword, ApiGap = c.ApiGap, Bridge = c.Bridge, KeepRules = c.KeepRules,
-        };
-        copy.BootWarnings.AddRange(c.BootWarnings);
-        return copy;
-    }
-
     /// <summary>Whether every job of the watcher's loop is switched off: the restarts, and the Workshop jobs (the download restart, the background
     /// downloads, the download line), which run beside them.</summary>
     public static bool NothingToDo(ServerConfig c) =>
         !(c.Updates || c.NewVersions || c.FreezeRecovery || c.Daily is not null || c.DownloadRestart || c.BackgroundDownloads || c.DownloadLine);
 
-    static int WatchMain(ServerConfig config, string settingsPath, Func<string, string?> env, IClock clock, TimeZoneInfo zone, Log log, bool observe)
+    static int WatchMain(ServerConfig config, string settingsPath, Func<string, string?> env, IClock clock, TimeZoneInfo zone, Log log)
     {
         if (NothingToDo(config))
         {
@@ -160,7 +131,7 @@ public static class Program
         using (lockFile)
         {
             var engine = new LocalEngine(config.Port, config.RconPassword, clock, log);
-            var watch = new Watch(config, clock, zone, log, engine, new HttpBridge(config.Bridge), new ValveApi(new WebApiDoor(config.ApiGap, clock)), observe)
+            var watch = new Watch(config, clock, zone, log, engine, new HttpBridge(config.Bridge), new ValveApi(new WebApiDoor(config.ApiGap, clock)))
             {
                 SettingsPath = settingsPath,
                 Env = env,
