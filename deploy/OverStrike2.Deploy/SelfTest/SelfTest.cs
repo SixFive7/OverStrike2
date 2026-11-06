@@ -105,6 +105,7 @@ static partial class SelfTest
         ("testcopy-bridge", TestCopyBridgeTests.Run),
         ("bridgepost", BridgePostTests.Run),
         ("base", BaseTests.Run),
+        ("thumbs", ThumbsTests.Run),
     ];
 
     public static int Command(string[] args)

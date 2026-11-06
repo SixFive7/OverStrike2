@@ -373,6 +373,7 @@ static class ServerShip
 
 /// <summary>The Steam Workshop items: the HUD addon and our own maps, through the Steam client logged in on this PC (deploy/workshop.py).
 ///
+///     workshop hud-thumbs [args...]     the menu's map pictures (the thumbs command, with these arguments)
 ///     workshop hud-build [--no-thumbs]  compile the addon with the CS2 Workshop Tools (hud/build.ps1)
 ///     workshop hud-query | hud-public   read-only: the item as Steam has it / whether everybody can see it
 ///     workshop hud-publish --note "..." --user-approved-update
@@ -394,14 +395,16 @@ static class Workshop
 
     public static int Command(string[] args)
     {
-        var a = new Args(args, "workshop hud-build|hud-query|hud-public|hud-publish|map [--no-thumbs] [--note N] [--user-approved-update] [--config FILE] ...",
+        var a = new Args(args, "workshop hud-thumbs|hud-build|hud-query|hud-public|hud-publish|map [--no-thumbs] [--note N] [--user-approved-update] [--config FILE] ...",
                          flags: ["--no-thumbs", "--user-approved-update"], options: ["--note", "--config"]);
-        var command = a.Choice(["hud-build", "hud-query", "hud-public", "hud-publish", "map"]);
-        var rest = a.Rest();   // what map hands on
+        var command = a.Choice(["hud-thumbs", "hud-build", "hud-query", "hud-public", "hud-publish", "map"]);
+        var rest = a.Rest();   // what hud-thumbs and map hand on
         var cfg = new Config(a.Opt("--config"));
         var hud = Repo.P("hud");
         switch (command)
         {
+            case "hud-thumbs":
+                return Thumbs.Command([.. rest]);
             case "hud-build":
                 return RunScript(PsArgv(Path.Combine(hud, "build.ps1"), a.Flag("--no-thumbs") ? ["-NoThumbs"] : [], cfg));
             case "hud-query":

@@ -454,4 +454,7 @@ static class Fmt
         }
         return b.ToString();
     }
+
+    /// <summary>urllib.parse.quote_plus(s): quote with spaces as plus signs.</summary>
+    public static string QuotePlus(string s) => Quote(s, " ").Replace(' ', '+');
 }

@@ -12,7 +12,8 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
   data [--apply] [--force]                            the bridge's hand-made data files
   plugin build|ship [--apply]                         the game server's plugin
   server build [--image] | ship [--apply] [--force]   os2-server, os2-sync, pre.sh and the mode cfgs
-  workshop hud-build|hud-query|hud-public|hud-publish|map ...   the Workshop items
+  workshop hud-thumbs|hud-build|hud-query|hud-public|hud-publish|map ...   the Workshop items
+  thumbs [--export F] [--queues F] [--ahead F] [--workers N]                 the HUD's map pictures
   release live <tag> [--no-plugin] [--under-lock] [--dry-run]               a release on the server
   release publish --note N --client-test RUN [--under-lock] [--dry-run]     a content update of the HUD item
   check guard [--allow-kick] | verify                 before and after a redeploy of the whole stack (read-only)
@@ -73,6 +74,8 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
                 return Release.Command(rest);
             case "check":
                 return Check.Command(rest);
+            case "thumbs":
+                return Thumbs.Command(rest);
             case "probe":
                 return Probe.Command(rest);
             case "testcopy":
