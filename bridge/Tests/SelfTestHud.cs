@@ -204,7 +204,7 @@ static partial class Program
             // the counts of the board's old Too big and Ads row, which this content keeps collapsed (.gg-board .gg-bigrow, checked below) as v4.5.0 does: nothing feeds them
             string[] hiddenRow = ["gg_b_big", "gg_b_ads"];
             var buttons = HudView.Tabs.Select(t => t.Id).Where(id => !olderButtons.Contains(id)).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct])
-                .Concat([HudCheck.VersionButton(Hud.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault,
+                .Concat([HudVersion.Button(HudVersion.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault,
                     HudBrowser.OursButton])
                 .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton))
                 .Concat(HudBrowser.ModeButtons.Select(b => b.Id)).Concat(HudDash.LayoutButtons)
@@ -228,7 +228,7 @@ static partial class Program
             Check("Layout: the buttons are Buttons", buttons.All(b => Regex.IsMatch(xml, $@"<Button\b[^>]*\bid=""{b}""")));
             var classes = sentClasses.Select(c => c.Class).Concat(screenClasses).Distinct().ToList();
             var unstyled = classes.Where(c => !Regex.IsMatch(css, $@"\.{Regex.Escape(c)}\b") && !HudView.OlderContentClasses.Contains(c)).ToList();
-            Check($"Stylesheet: every class the plugin sets has a rule ({classes.Count}; {HudView.OlderContentClasses.Length} only for the contents before {Hud.Content}: {string.Join(" ", HudView.OlderContentClasses)}){(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}",
+            Check($"Stylesheet: every class the plugin sets has a rule ({classes.Count}; {HudView.OlderContentClasses.Length} only for the contents before {HudVersion.Content}: {string.Join(" ", HudView.OlderContentClasses)}){(unstyled.Count > 0 ? ": none for " + string.Join(", ", unstyled) : "")}",
                 unstyled.Count == 0 && HudView.OlderContentClasses.All(c => !Regex.IsMatch(Regex.Replace(css, @"/\*.*?\*/", "", RegexOptions.Singleline), $@"\.{Regex.Escape(c)}\b")));
             Check("Layout: only Panel, Label, Image and Button (anything else makes the host refuse the whole layout)",
                 Regex.Matches(xml, @"<([A-Za-z]+)\b").Select(x => x.Groups[1].Value).All(t => t is "root" or "styles" or "include" or "Panel" or "Label" or "Image" or "Button"));
@@ -250,11 +250,11 @@ static partial class Program
                 Regex.IsMatch(rules, $@"\.gg-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.gg-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
 
             // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and the ones still drawn for
-            //      (HudVote.OldestLevel on) keep what their own pages need. hud/reference/ keeps every shipped layout; these checks read the ones still drawn
+            //      (HudVersion.Oldest on) keep what their own pages need. hud/reference/ keeps every shipped layout; these checks read the ones still drawn
             //      for and the one this content replaces ----
-            var shippedContents = HudVote.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
+            var shippedContents = HudVersion.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
             static string ReferenceFile(string content) => $"../hud/reference/gungame_hud_{content}.xml";
-            var inUseContents = HudVote.Contents.SkipLast(1).Where(c => c.Level >= HudVote.OldestLevel).Select(c => c.Version).ToArray(); // the shipped contents still drawn for
+            var inUseContents = HudVersion.Contents.SkipLast(1).Where(c => c.Level >= HudVersion.Oldest).Select(c => c.Version).ToArray(); // the shipped contents still drawn for
             var readFiles = inUseContents.Append(shippedContents[^1]).Distinct().Select(ReferenceFile).ToList();
             Check($"hud/reference/ holds the layout of every shipped content in the table ({shippedContents.Length}) and no other: a release adds its line and keeps the layout it replaces",
                 Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet().SetEquals(shippedContents));
@@ -282,30 +282,30 @@ static partial class Program
                 // The message system's picks: the news line, the note and the lede; the fixed Fun rows (ordinary rows now); the reasons in place (one dialog now).
                 foreach (var id in olderPanels) expectedRetired.Add(id);
                 foreach (var place in new[] { "w", "b", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8" }) for (var r = 1; r <= DownReasons.All.Length; r++) expectedRetired.Add($"gg_why{place}_{r}");
-                Check($"Content {Hud.Content}: it keeps every panel of {shippedContents[^1]} ({last.Count}) but the {retired.Count} it retires, each for a reason (the Queue and Rules pages, the fifth Help rows, the new-maps setting, the cards' Too big, Ads and Remove mine){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
+                Check($"Content {HudVersion.Content}: it keeps every panel of {shippedContents[^1]} ({last.Count}) but the {retired.Count} it retires, each for a reason (the Queue and Rules pages, the fifth Help rows, the new-maps setting, the cards' Too big, Ads and Remove mine){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
-                Check($"Content {Hud.Content}: what the plugin sends a panel the retired ones are not among, but the Previous button's (kept, on the Maps page) - nothing goes to a panel this content lacks but the older contents' own",
+                Check($"Content {HudVersion.Content}: what the plugin sends a panel the retired ones are not among, but the Previous button's (kept, on the Maps page) - nothing goes to a panel this content lacks but the older contents' own",
                     !sent.Any(id => retired.Contains(id) && !olderPanels.Contains(id)) && ids.Contains(HudMenu.Previous) && ids.Contains("gg_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "gg_vidle" or "gg_vlim")).ToList();
-                Check($"Content {Hud.Content}: it adds {added.Count} panels - the version button, the two cards of the ballot's second column foot, each card's score and line, the sub-tabs, the clocks, the restart's words - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}",
-                    added.Contains(HudCheck.VersionButton(Hud.Content)) && added.Contains(HudMenu.Card(MapVote.PageCards)) && addedIdle.Count == 0);
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panels - the version button, the two cards of the ballot's second column foot, each card's score and line, the sub-tabs, the clocks, the restart's words - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}",
+                    added.Contains(HudVersion.Button(HudVersion.Content)) && added.Contains(HudMenu.Card(MapVote.PageCards)) && addedIdle.Count == 0);
                 // Every content still drawn for keeps what its pages need: the page classes, which every one has a rule for under their old names; c31 and
                 // c32, on for everybody; and the svge/svlt of its join banner. What it lacks - the Players page, the ballot's ten cards, the sub-tabs - it simply lacks.
                 var olderPages = new[] { "page-start", "page-maps", "page-game", "page-help", "page-fun" };
                 Check($"Every content still drawn for ({string.Join(", ", inUseContents)}) goes on as it was: the pages it has keep their classes, c31 and c32 are on for everybody, the cards it has keep their ids (gg_m1 ... gg_m8)",
                     olderPages.All(c => screenClasses.Contains(c)) && HudView.StaticClasses().Contains((HudView.Screen, "c31", true)) && HudView.StaticClasses().Contains((HudView.Screen, "c32", true))
                     && inUse.All(s => Enumerable.Range(1, HudBrowser.PerPage).All(k => s.Contains(HudMenu.Card(k)) && ids.Contains(HudMenu.Card(k)))));
-                Check($"Content: the plugin sends what this content has (no panel waits for a click to prove a content): every text and class goes to every game alike, to a panel of this content or of one still drawn for - none only a content before {HudVote.ContentOfLevel(HudVote.OldestLevel)} has",
+                Check($"Content: the plugin sends what this content has (no panel waits for a click to prove a content): every text and class goes to every game alike, to a panel of this content or of one still drawn for - none only a content before {HudVersion.OfLevel(HudVersion.Oldest)} has",
                     sent.All(id => ids.Contains(id) || inUse.Any(s => s.Contains(id))));
             }
             else Console.WriteLine($"skip the content checks: one of {string.Join(", ", readFiles)} not found");
-            // The one thing an older content than OldestLevel still gets: its red "yours is older" at a join. Each content with a join banner names, in its own
+            // The one thing an older content than HudVersion.Oldest still gets: its red "yours is older" at a join. Each content with a join banner names, in its own
             // layout, the class that lights that line - svge and its level + 1 - and the server sets it.
-            var bannerContents = HudVote.Contents.Where(c => c.Level >= HudVote.JoinBannerFirst && c.Level <= HudVote.OldestLevel).ToList();
+            var bannerContents = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest).ToList();
             Check($"Every content with a join banner ({string.Join(", ", bannerContents.Select(c => c.Version))}) has its red \"yours is older\" and the class its layout names for it, svge(its level + 1), is on at this server",
                 bannerContents.Count > 0 && bannerContents.All(c => File.Exists(ReferenceFile(c.Version)) && File.ReadAllText(ReferenceFile(c.Version)) is var x
                     && x.Contains("class=\"gg-ver-old\"") && x.Contains("yours is older") && x.Contains($"svge{c.Level + 1}")
-                    && HudVote.VersionClasses().Single(v => v.Class == $"svge{c.Level + 1}").On));
+                    && HudVersion.Classes().Single(v => v.Class == $"svge{c.Level + 1}").On));
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----
             var noComments = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
@@ -345,7 +345,7 @@ static partial class Program
                 && noComments.Contains($"text=\"{{s:{HudView.SubCaptionVar}}}\"") && noComments.Contains($"text=\"{{s:{HudView.PlayersSummaryVar}}}\"")
                 && HudView.PlayersPage([]).All(w => noComments.Contains($"text=\"{{s:{w.Name}}}\"")) && HudView.PlayersPage([]).Count == 1 + 7 * HudView.PlayerRows);
             Check("The HUD check's version button is the window's X: its id names this content, and it stands in for the plain close button while the server does not know the version (vcheck)",
-                noComments.Contains($"<Button id=\"{HudCheck.VersionButton(Hud.Content)}\" class=\"gg-close gg-hudver\">") && Regex.IsMatch(rules, @"\.gg-screen\.vcheck \.gg-hudver\s*\{\s*visibility:\s*visible;")
+                noComments.Contains($"<Button id=\"{HudVersion.Button(HudVersion.Content)}\" class=\"gg-close gg-hudver\">") && Regex.IsMatch(rules, @"\.gg-screen\.vcheck \.gg-hudver\s*\{\s*visibility:\s*visible;")
                 && Regex.IsMatch(rules, @"\.gg-screen\.vcheck #gg_btn_close\s*\{\s*visibility:\s*collapse;") && Regex.Matches(noComments, @"id=""gg_hudver_").Count == 1);
             Check("A restart coming shows in the window's foot, its words and its countdown; the freeze says so there too",
                 Regex.IsMatch(rules, @"\.gg-global\.rst \.gg-rstrip\s*\{\s*visibility:\s*visible;") && ids.Contains("gg_rst_text") && ids.Contains("gg_rst_secs")
@@ -545,7 +545,7 @@ static partial class Program
             // The Help page's height with its tighter rows (1 px a row each way, 4 + 5 px a group): the budget of the check above with those numbers.
             static int LinesTight(Hud.Row r) => (int)Math.Ceiling((r.Also == "" ? r.Words : $"{r.Words}  ·  {r.Also}").Length / 60.0);
             var helpTight = Hud.Help.Sum(g => g.Rows.Sum(r => LinesTight(r) * 19 + 2) + 10);
-            Check($"Help with content {Hud.Content}: about {helpTight} px of its {HelpHeight} with its tighter rows", helpTight <= HelpHeight && Regex.IsMatch(rules, @"\.gg-crow\s*\{\s*padding:\s*1px 0px;"));
+            Check($"Help with content {HudVersion.Content}: about {helpTight} px of its {HelpHeight} with its tighter rows", helpTight <= HelpHeight && Regex.IsMatch(rules, @"\.gg-crow\s*\{\s*padding:\s*1px 0px;"));
 
             // ---- the thumbnails: a rule per map the menu can show, each its own map's picture, out of a few class names ----
             var thumbClasses = new HashSet<string>();
@@ -589,12 +589,12 @@ static partial class Program
             // ---- the game's own limit: one layout entity interns at most 1,024 panel ids and 1,024 class names that the server sets, for
             // its whole life and for all players together. Past it the server logs "The maximum number of ... has been reached" and the
             // client's behaviour is unknown. Every class the plugin sets has a rule (checked above), so the stylesheets bound it - but for the latest-N rules, which are for
-            // later servers: this server sets one, its own level (HudVote.VersionClasses), and a later one sets another. ----
+            // later servers: this server sets one, its own level (HudVersion.Classes), and a later one sets another. ----
             var styleClasses = Regex.Matches(rules, @"([^{}]+)\{").SelectMany(x => Regex.Matches(x.Groups[1].Value, @"\.([A-Za-z_][\w-]*)").Select(y => y.Groups[1].Value)).Where(c => !Regex.IsMatch(c, @"^latest-\d+$"))
-                .Concat(thumbClasses).Concat(HudView.OlderContentClasses).Concat(HudVote.VersionClasses().Select(c => c.Class)).ToHashSet(); // with what goes only to older contents
+                .Concat(thumbClasses).Concat(HudView.OlderContentClasses).Concat(HudVersion.Classes().Select(c => c.Class)).ToHashSet(); // with what goes only to older contents
             Check($"Limit: at most 1,024 class names and 1,024 panel ids per entity - the server can set {styleClasses.Count} classes with the ones only the older contents get, the layout {ids.Count} ids (both under 900)",
                 styleClasses.Count < 900 && ids.Count < 900);
-            Check("Limit: of the latest-N names the server sets one, its own level", HudVote.VersionClasses().Count(c => c.Class.StartsWith("latest-", StringComparison.Ordinal)) == 1);
+            Check("Limit: of the latest-N names the server sets one, its own level", HudVersion.Classes().Count(c => c.Class.StartsWith("latest-", StringComparison.Ordinal)) == 1);
             Check("A value starting with # (a rank, a name) is kept from being read as a localization token, and nothing else is touched",
                 Hud.Plain("#5") == "\u2060#5" && Hud.Plain("Map #5") == "Map #5" && Hud.Plain("") == "");
         }

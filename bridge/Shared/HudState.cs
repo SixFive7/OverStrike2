@@ -174,7 +174,7 @@ public sealed class HudState
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
                 case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
-                case "ok" when Long(f, 1) >= 0 && HudCheck.IsVersionWord(Str(f, 2)): s.Verified[Long(f, 1)] = HudCheck.Normal(Str(f, 2)); break;
+                case "ok" when Long(f, 1) >= 0 && HudVersion.IsWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
                 case "topl" when Str(f, 4) != "": (s.TopAtMs, s.TopUntilMs, s.TopCat, s.TopText) = (Long(f, 1), Long(f, 2), Str(f, 3), Str(f, 4)); break;
                 case "ban" when Str(f, 3) != "": (s.BanTone, s.BanUntilMs, s.BanHead, s.BanLine) = (Str(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4)); break;
                 case "notec" when Long(f, 1) >= 0: s.NoteCats[Long(f, 1)] = Str(f, 2); break;

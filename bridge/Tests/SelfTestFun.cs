@@ -225,7 +225,7 @@ static partial class Program
             replaced && theirs && bubbles.Classes(later, at).SequenceEqual([(highButton, "refused", false)]) && bubbles.Words(later, HudMenu.FunWhy(stockValues), at).SequenceEqual([(jumpVar, "")]));
 
         Check("A game on a content before v4.6.0 has neither grey nor bubble, so its note says it; v4.6.0 and a game whose content is not known do have them",
-            HudCheck.IsBefore("v4.5.0", FunClicks.BubbleLevel) && HudCheck.IsBefore(HudCheck.Older, FunClicks.BubbleLevel) && !HudCheck.IsBefore("v4.6.0", FunClicks.BubbleLevel) && !HudCheck.IsBefore(Hud.Release, FunClicks.BubbleLevel) && !HudCheck.IsBefore("", FunClicks.BubbleLevel));
+            HudVersion.IsBefore("v4.5.0", FunClicks.BubbleLevel) && HudVersion.IsBefore(HudVersion.Older, FunClicks.BubbleLevel) && !HudVersion.IsBefore("v4.6.0", FunClicks.BubbleLevel) && !HudVersion.IsBefore(HudVersion.Unknown, FunClicks.BubbleLevel) && !HudVersion.IsBefore("", FunClicks.BubbleLevel));
 
         // ---- what the layout holds for it ----
         if (File.Exists(HudLayoutFile) && File.Exists(HudStyleFile))

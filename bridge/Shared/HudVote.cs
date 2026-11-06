@@ -1,81 +1,15 @@
 // Over Strike 2's screens that every HUD content can show: the vote for the next map - the only way a player changes the map; the bridge's side
 // in VoteRound.cs and MapVote.cs - drawn on the Maps page's cards, so a game still holding an older content can vote too, during Valve's review of
-// an update and until it has downloaded it; the HUD's version classes; and why a player disliked a map (DownReasons).
-//
-// The version classes need no click and no word from the client. latest-N on gg_global names the newest content the server knows, and every
-// content from v4.6.0 on shows its outdated banner for an N above its own. v4.5.0, the one content before it still drawn for (OldestLevel), reads
-// svge46 (the server's level is above its own) and svlt45 (below it) at a join instead, and the contents from v4.0.0 to v4.4.0 still get their
-// svge41 ... svge45: their red "yours is older" banner. The server's version name rides in the dialog variable osver on gg_global, which the labels inherit.
+// an update and until it has downloaded it; a card's mode and tags; and why a player disliked a map (DownReasons). The HUD's version classes are
+// HudVersion's.
 //
 // Shared like Hud.cs (plain BCL): the plugin draws it, the bridge's --selftest checks it.
 using System.Globalization;
 
 public static class HudVote
 {
-    /// <summary>Every HUD content that has shipped, and on the last line the one this code is for: its version and its level. The level is the number the layouts
-    /// and the version classes know a content by (svge/svlt, latest-N). It is a release's place in line and says nothing about the version's digits: a shipped
-    /// content keeps its number for good, because its layout and stylesheet hold it, and a release adds one line with the next number, whatever its version says
-    /// (hud/PUBLISH.md). Hud.Content and ContentLevel read the last line. A version with no line is newer than this code knows (HudCheck.LevelOf).</summary>
-    public static readonly (string Version, int Level)[] Contents =
-    [
-        ("v3.0.0", 30),
-        ("v3.1.0", 31),
-        ("v4.0.0", 40),
-        ("v4.1.0", 41),
-        ("v4.2.0", 42),
-        ("v4.3.0", 43),
-        ("v4.4.0", 44),
-        ("v4.5.0", 45),
-        ("v4.6.0", 46),
-    ];
-
-    /// <summary>The server's content as a number: the level on Contents' last line.</summary>
-    public static int ContentLevel => Contents[^1].Level;
-
-    /// <summary>The oldest content the plugin still draws for, by its level: v4.5.0. Nothing is sent for what only an older content reads - the marks, counts and
-    /// clicks of the Too big and Ads buttons the contents up to v4.3.0 show, the "yours is newer" half of their join banners - but their red "yours is older"
-    /// (JoinBannerFirst), so a game holding one runs on what it shares with v4.5.0 and is told at a join to update. v4.5.0 is also the last content whose
-    /// banner reads svge/svlt (VersionClasses).</summary>
-    public const int OldestLevel = 45;
-
-    /// <summary>The first content with a join banner, v4.0.0: each content from it to v4.5.0, of level L, shows "yours is older" in red under svge(L + 1) - sent
-    /// for every one of them, so a game still holding an older content than OldestLevel is told to quit CS2 and let Steam update it - and "yours is newer" under
-    /// svlt(L), sent for v4.5.0 alone (no server this plugin runs is older than the contents below it).</summary>
-    public const int JoinBannerFirst = 40;
-
-    /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
-    /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast: this one for latest-47 ... latest-99, the next 53 releases. A stylesheet
-    /// never changes once it has shipped, so a release that raises LatestLast widens only its own content and later ones (hud/PUBLISH.md).</summary>
-    public const int LatestLast = 99;
-    public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
-
-    /// <summary>The dialog variables on gg_global that the layouts' labels inherit: the server's HUD version and the game mode's name.</summary>
-    public const string VersionVar = "osver", ModeVar = "osmode";
-
-    /// <summary>A content's name for its level, as the banner says it: its line in Contents. css_gghud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (47 is v4.7.0 while v4.6.0 is the last line). Between two lines
-    /// it is the older of them, and below the first line the first.</summary>
-    public static string ContentOfLevel(int level)
-    {
-        var (last, top) = Contents[^1];
-        if (level > top) return last[1..].Split('.') is [var major, var minor, _] ? $"v{major}.{(int.Parse(minor, CultureInfo.InvariantCulture) + level - top).ToString(CultureInfo.InvariantCulture)}.0" : last;
-        for (var i = Contents.Length - 1; i > 0; i--) if (Contents[i].Level <= level) return Contents[i].Version;
-        return Contents[0].Version;
-    }
-
-    /// <summary>How long after a real join the version banner of a content from v4.0.0 to v4.5.0 shows (vjoin).</summary>
-    public const double JoinSeconds = 15;
-
-    /// <summary>The version classes on gg_global for everybody: the newest content the server knows (latest-N), and what the banners of v4.0.0 to v4.5.0 read
-    /// at a join (vjoin on gg_screen, for JoinSeconds, JoinBannerFirst) - svge41 ... svge46 while the server's level is above that content's, its red "yours is
-    /// older", and svlt45 while it is below v4.5.0's, "yours is newer". The plugin turns the latest class it sent before off itself when the level moves
-    /// (css_gghud level).</summary>
-    public static List<(string Id, string Class, bool On)> VersionClasses() => VersionClasses(ContentLevel);
-
-    /// <summary>The same for a level css_gghud level fakes.</summary>
-    public static List<(string Id, string Class, bool On)> VersionClasses(int level) =>
-        [.. Enumerable.Range(JoinBannerFirst + 1, OldestLevel + 1 - JoinBannerFirst).Select(k => (HudView.Global, $"svge{k}", level >= k)), // "yours is older": v4.0.0's svge41 ... v4.5.0's svge46
-         (HudView.Global, $"svlt{OldestLevel}", level < OldestLevel), (HudView.Global, LatestClass(level), true)];
+    /// <summary>The dialog variable on gg_global that the layouts' labels inherit for the game mode's name.</summary>
+    public const string ModeVar = "osmode";
 
     /// <summary>The game mode's classes on gg_global (mode-armsrace, mode-deathmatch, mode-wingman): the layouts hide what is Arms Race's own outside
     /// it - friendly fire's rows on the Fun page, the match length on the Game page.</summary>
@@ -224,10 +158,10 @@ public static class HudVote
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
     public static string TabLabel(VoteState v) => v.Open ? $"Vote  ·  {v.SecondsLeft} s" : "Vote";
 
-    /// <summary>The ballot's cards a page for a game holding this HUD (HudCheck.IsVersionWord): a content before v4.6.0 has eight cards
+    /// <summary>The ballot's cards a page for a game holding this HUD (HudVersion.IsWord): a content before v4.6.0 has eight cards
     /// (HudBrowser.PerPage), so a game known to hold one gets pages of eight and reaches every option on its pager; any other - this content, a newer
     /// one, or one not known (no HUD check's click yet, or HUD_CHECK off) - pages of MapVote.PageCards.</summary>
-    public static int CardsFor(string version) => HudCheck.IsBefore(version, CardsLevel) ? HudBrowser.PerPage : MapVote.PageCards;
+    public static int CardsFor(string version) => HudVersion.IsBefore(version, CardsLevel) ? HudBrowser.PerPage : MapVote.PageCards;
 
     /// <summary>The first content with the ballot's ten cards and catch-up's card under the crosshair: a game on an older one gets eight cards a page and the centre panel.</summary>
     public const int CardsLevel = 46;

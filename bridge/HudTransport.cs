@@ -18,7 +18,7 @@ static partial class Program
 
     static readonly object HudLock = new();
     static string HudTextNow = new HudState().Encode(endTimes: true); // the change-driven text: end times, no seconds left
-    static long HudVersion = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond; // starts new with every bridge, so a plugin always takes the first answer
+    static long HudTextVersion = DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond; // starts new with every bridge, so a plugin always takes the first answer
     static readonly List<(HttpListenerContext Request, DateTime Until)> HudWaiting = new();
 
     /// <summary>After every piece of work on the event loop: the state again, and when it changed, the next version and every waiting poll answered.
@@ -31,7 +31,7 @@ static partial class Program
         lock (HudLock)
         {
             var changed = text != HudTextNow;
-            if (changed) { HudTextNow = text; HudVersion++; }
+            if (changed) { HudTextNow = text; HudTextVersion++; }
             var due = DateTime.UtcNow;
             for (var i = HudWaiting.Count - 1; i >= 0; i--)
                 if (changed || due >= HudWaiting[i].Until) { wake.Add((HudWaiting[i].Request, changed)); HudWaiting.RemoveAt(i); }
@@ -55,7 +55,7 @@ static partial class Program
     {
         lock (HudLock)
         {
-            if (have == HudVersion) { HudWaiting.Add((c, DateTime.UtcNow.AddSeconds(LongPollSeconds))); return; }
+            if (have == HudTextVersion) { HudWaiting.Add((c, DateTime.UtcNow.AddSeconds(LongPollSeconds))); return; }
         }
         Answer(c, StateAnswer());
     }
@@ -71,7 +71,7 @@ static partial class Program
         lock (HudLock) return $"{HudState.Magic}\n{VersionLine()}{Hud.Unchanged}\n";
     }
 
-    static string VersionLine() => $"{Hud.VersionLine}\t{HudVersion.ToString(CultureInfo.InvariantCulture)}\t{HudState.Ms(DateTime.UtcNow).ToString(CultureInfo.InvariantCulture)}\n";
+    static string VersionLine() => $"{Hud.VersionLine}\t{HudTextVersion.ToString(CultureInfo.InvariantCulture)}\t{HudState.Ms(DateTime.UtcNow).ToString(CultureInfo.InvariantCulture)}\n";
 
     static void Answer(HttpListenerContext c, string body)
     {

@@ -156,7 +156,7 @@ def head_version(path, pattern):
     return m.group(1) if m else "?"
 
 
-_CONTENTS = re.findall(r'\("(v[\d.]+)", (\d+)\),', head_file("bridge/HudVote.cs") or "")   # HudVote.Contents: its last line is the committed content; the rows fake the versions around it
+_CONTENTS = re.findall(r'\("(v[\d.]+)", (\d+)\),', head_file("bridge/HudVersion.cs") or "")   # HudVersion.Contents: its last line is the committed content; the rows fake the versions around it
 CONTENT, LEVEL = (_CONTENTS[-1][0], int(_CONTENTS[-1][1])) if _CONTENTS else ("?", 0)      # 46 is v4.6.0: css_gghud level and css_gghud content take this number
 
 
@@ -941,7 +941,7 @@ def validate():
         errors.append("the test name is a real name")
     content_level = CONTENT
     if CONTENT == "?" or LEVEL <= 0:
-        errors.append("bridge/HudVote.cs's Contents cannot be read: the rows fake the versions around its last line")
+        errors.append("bridge/Shared/HudVersion.cs's Contents cannot be read: the rows fake the versions around its last line")
     if not any(b.startswith("gg_hudver_") for b in buttons):
         errors.append("no version button (gg_hudver_...) in the committed layout")
     info = {"picks": picks, "by_name": by_name, "buttons": buttons, "named": named, "commit": head_commit(), "content": content_level,

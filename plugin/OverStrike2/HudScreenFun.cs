@@ -65,7 +65,7 @@ sealed partial class HudScreen
         if (HudMenu.FunClick(buttonId) is not { } fun) return false;
         var (setting, choice) = fun;
         var (slot, account) = (player.Slot, Account(player));
-        var older = HudCheck.IsBefore(VersionOf(account), FunClicks.BubbleLevel);
+        var older = HudVersion.IsBefore(VersionOf(account), FunClicks.BubbleLevel);
         if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) FunRefuse(slot, account, buttonId, setting, ChatReply.NotInMode(setting, mode.Name)); // a page from before the mode changed: its row is gone now
         else
             switch (funClicks.Click(buttonId, setting, choice, FunValue, now))
@@ -90,7 +90,7 @@ sealed partial class HudScreen
     /// <summary>A click refused: the bubble at that button says why for a while, and that player's chat and board. A content before v4.6.0 has no bubble: the answer's own line, its note. line: marked (M).</summary>
     void FunRefuse(int slot, long account, string button, Fun.Setting setting, string line)
     {
-        if (HudCheck.IsBefore(VersionOf(account), FunClicks.BubbleLevel)) { Post(Messages.Answer, line, account); return; }
+        if (HudVersion.IsBefore(VersionOf(account), FunClicks.BubbleLevel)) { Post(Messages.Answer, line, account); return; }
         funClicks.Refuse(slot, button, setting, line, DateTime.UtcNow);
         Post(Messages.FunRefused, line, account);
     }

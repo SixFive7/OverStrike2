@@ -4,7 +4,7 @@
 /// it on a handed clock. The plugin feeds it events and asks Frame for the wanted view of every slot, then sends only the difference.
 ///
 /// The window opens at every login once the player has spawned (or after WaitLimitSeconds) and stays until its X: it is the welcome, and the X is the
-/// HUD check's first click (HudCheck.VersionButton). Opened any other way it takes the mouse - and with it the player's movement - which is why it closes itself
+/// HUD check's first click (HudVersion.Button). Opened any other way it takes the mouse - and with it the player's movement - which is why it closes itself
 /// after IdleCloseSeconds without a click. Damage, death and a respawn never close it: nothing protects a player while it is open but the vote's freeze. Everybody
 /// gets the "now playing" card at their first spawn on each map.
 ///

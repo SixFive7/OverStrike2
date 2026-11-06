@@ -36,7 +36,7 @@ sealed partial class HudScreen
         if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is not { } p) return $"no player [U:1:{account}]";
         joins.Joined(account, DateTime.UtcNow);
         Server.NextFrame(Frame);
-        return $"join banner for {p.PlayerName} for {HudVote.JoinSeconds:0} s (server level {TestLevel ?? HudVote.ContentLevel})";
+        return $"join banner for {p.PlayerName} for {HudVersion.JoinSeconds:0} s (server level {TestLevel ?? HudVersion.Level})";
     }
 
     /// <summary>css_gghud show &lt;account&gt; &lt;page&gt;: the window on that page for that account, as if they had clicked their way there - for
@@ -63,7 +63,7 @@ sealed partial class HudScreen
     public string SetContent(long account, int level)
     {
         if (level <= 0) hudSeen.Remove(account);
-        else hudSeen[account] = level == 1 ? HudCheck.Older : HudVote.ContentOfLevel(level);
+        else hudSeen[account] = level == 1 ? HudVersion.Older : HudVersion.OfLevel(level);
         Server.NextFrame(Frame);
         return $"account {account}: HUD {(level <= 0 ? "not seen" : hudSeen[account])}";
     }

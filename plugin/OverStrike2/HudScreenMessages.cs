@@ -87,7 +87,7 @@ sealed partial class HudScreen
     readonly Dictionary<int, (string Head, string[] Rows, bool Bad, DateTime From, DateTime Until)> cuCards = new();
 
     /// <summary>Whether this player's game holds a content with the catch-up card: known by its version button (HudCheck), and not older. Any other gets the centre panel.</summary>
-    public bool HasCards(CCSPlayerController p) => VersionOf(Account(p)) is var v && v != "" && v != Hud.Release && !HudCheck.IsBefore(v, HudVote.CardsLevel);
+    public bool HasCards(CCSPlayerController p) => VersionOf(Account(p)) is var v && v != "" && v != HudVersion.Unknown && !HudVersion.IsBefore(v, HudVote.CardsLevel);
 
     /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds, a row per item, green for a boost and red for a bounty; the same in that player's chat.</summary>
     public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds)

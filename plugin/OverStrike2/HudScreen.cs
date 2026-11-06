@@ -36,7 +36,7 @@ sealed partial class HudScreen
     readonly HudSlots slots = new();
     readonly string addon;                            // the Workshop item the server hands out (hud.addon): its link is in the check's messages
     readonly HudGate gate = new();                    // the HUD check on this map (HudCheck.cs)
-    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudCheck.IsVersionWord); the bridge keeps the same for the players on the server
+    readonly Dictionary<long, string> hudSeen = new(); // account -> the HUD its game showed at the check's click since its last real join (HudVersion.IsWord); the bridge keeps the same for the players on the server
     readonly ItemWatch item;                          // whether Steam shows the item to everybody yet: nobody is disconnected until it does
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
@@ -69,10 +69,10 @@ sealed partial class HudScreen
     readonly Dictionary<int, bool> captured = new();
     readonly Dictionary<int, DateTime> resendAt = new(); // slot -> forget what it has (and send it again) at this time
 
-    // Every content on the layout path (Hud.Content) is sent the same: what this content has. An older content simply lacks what it lacks - a panel
-    // a game does not have takes nothing in it - and v4.5.0, the oldest still drawn for (HudVote.OldestLevel), keeps what it needs for its own pages
+    // Every content on the layout path (HudVersion.Content) is sent the same: what this content has. An older content simply lacks what it lacks - a panel
+    // a game does not have takes nothing in it - and v4.5.0, the oldest still drawn for (HudVersion.Oldest), keeps what it needs for its own pages
     // (HudView.StaticClasses' c31 and c32, the svge/svlt version classes and vjoin).
-    int latestSent;                                      // the level of the latest-N class on gg_global (HudVote.LatestClass): turned off when it moves
+    int latestSent;                                      // the level of the latest-N class on gg_global (HudVersion.LatestClass): turned off when it moves
     bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped

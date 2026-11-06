@@ -22,27 +22,27 @@ static partial class Program
             && HudCheck.ModeOf(new HudState { CheckMode = "dryrun" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
 
         // ---- the version button: its id names the content that has it ----
-        Check("HUD check: the version button's id names its content, written gg_hudver_v4.7.0 or gg_hudver_v4_7_0 and read as v4.7.0 either way; any other button names none, and a malformed one is no version button",
-            HudCheck.VersionButton(Hud.Content).StartsWith(HudCheck.VersionPrefix, StringComparison.Ordinal) && HudCheck.VersionOf(HudCheck.VersionButton(Hud.Content)) == Hud.Content
-            && HudCheck.VersionOf("gg_hudver_v4.7.0") == "v4.7.0" && HudCheck.VersionOf("gg_hudver_v4_7_0") == "v4.7.0" && HudCheck.VersionOf("gg_hudver_v4_7.0") == null && HudCheck.VersionOf("gg_hudver_x") == null && HudCheck.VersionOf(HudView.ButtonAct) == null && HudCheck.VersionOf("gg_tab_maps") == null);
-        Check("HUD check: what !hudok carries - a content, older, or the release (which content not known), each version in the one form or the old - and nothing else",
-            new[] { Hud.Content, "v4.5.0", "v4_5_0", HudCheck.Older, Hud.Release }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
+        Check("HUD check: the version button's id names its content, gg_hudver_v4.7.0; any other button names none, and a malformed one or the old form gg_hudver_v4_7_0 is no version button",
+            HudVersion.Button(HudVersion.Content).StartsWith(HudVersion.ButtonPrefix, StringComparison.Ordinal) && HudVersion.OfButton(HudVersion.Button(HudVersion.Content)) == HudVersion.Content
+            && HudVersion.OfButton("gg_hudver_v4.7.0") == "v4.7.0" && HudVersion.OfButton("gg_hudver_v4_7_0") == null && HudVersion.OfButton("gg_hudver_v4_7.0") == null && HudVersion.OfButton("gg_hudver_x") == null && HudVersion.OfButton(HudView.ButtonAct) == null && HudVersion.OfButton("gg_tab_maps") == null);
+        Check("HUD check: what !hudok carries - a content, older, or unknown (which content not known), each version in the one form - and nothing else, the old form v4_5_0 neither",
+            new[] { HudVersion.Content, "v4.5.0", HudVersion.Older, HudVersion.Unknown }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction(HudCheck.Command("v4_5_0")) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
-            HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46 && HudCheck.LevelOf("older") == 0 && HudCheck.IsOutdated("v4.5.0") && HudCheck.IsOutdated(HudCheck.Older)
-            && !HudCheck.IsBefore("v4.6.0", HudVote.CardsLevel) && HudCheck.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudCheck.IsOutdated(Hud.Content) && !HudCheck.IsOutdated("v4.7.0") && !HudCheck.IsOutdated(Hud.Release) && !HudCheck.IsOutdated("")
-            && HudCheck.VersionWords("v4.5.0") == "v4.5.0 - Restart CS2" && HudCheck.VersionWords(HudCheck.Older) == "older - Restart CS2" && HudCheck.VersionWords(Hud.Release) == "version unknown"
-            && HudCheck.VersionWords("") == "not seen yet" && HudCheck.VersionWords("v4.7.0") == "v4.7.0");
+            HudVersion.LevelOf("v4.5.0") == 45 && HudVersion.LevelOf("v4.6.0") == 46 && HudVersion.LevelOf("older") == 0 && HudVersion.IsOutdated("v4.5.0") && HudVersion.IsOutdated(HudVersion.Older)
+            && !HudVersion.IsBefore("v4.6.0", HudVote.CardsLevel) && HudVersion.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudVersion.IsOutdated(HudVersion.Content) && !HudVersion.IsOutdated("v4.7.0") && !HudVersion.IsOutdated(HudVersion.Unknown) && !HudVersion.IsOutdated("")
+            && HudVersion.Words("v4.5.0") == "v4.5.0 - Restart CS2" && HudVersion.Words(HudVersion.Older) == "older - Restart CS2" && HudVersion.Words(HudVersion.Unknown) == "version unknown"
+            && HudVersion.Words("") == "not seen yet" && HudVersion.Words("v4.7.0") == "v4.7.0");
         Check("HUD check: a level is a content's line in the table, never its digits: a version with no line - a patch, v4.10.0, v5.0.0, v14.5.27 - is newer than this code knows, and a word that is no version stays refused",
-            new[] { "v4.6.1", "v4.10.0", "v5.0.0", "v14.5.27" }.Where(v => HudVote.Contents.All(c => c.Version != v)).All(v => HudCheck.IsVersionWord(v) && HudCheck.LevelOf(v) == HudCheck.NewerLevel && !HudCheck.IsOutdated(v) && HudCheck.VersionWords(v) == v)
-            && new[] { "v14.5", "14.5.27", "v14.x.27", "v14.5.27.1", "newer" }.All(w => !HudCheck.IsVersionWord(w) && HudCheck.LevelOf(w) == 0));
-        var roll = HudView.PlayersPage([new("Alice", "CT", Hud.Content, 0, "voted", "42 min"), new("Bob", "T", "v4.5.0", 0, "waiting", "5 min"),
-            new("Cleo", "T", HudCheck.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4.7.0", 0, "", "-"), new("Eve", "SPEC", Hud.Release, 0, "", "3 min"),
+            new[] { "v4.6.1", "v4.10.0", "v5.0.0", "v14.5.27" }.Where(v => HudVersion.Contents.All(c => c.Version != v)).All(v => HudVersion.IsWord(v) && HudVersion.LevelOf(v) == HudVersion.Newer && !HudVersion.IsOutdated(v) && HudVersion.Words(v) == v)
+            && new[] { "v14.5", "14.5.27", "v14.x.27", "v14.5.27.1", "newer" }.All(w => !HudVersion.IsWord(w) && HudVersion.LevelOf(w) == 0));
+        var roll = HudView.PlayersPage([new("Alice", "CT", HudVersion.Content, 0, "voted", "42 min"), new("Bob", "T", "v4.5.0", 0, "waiting", "5 min"),
+            new("Cleo", "T", HudVersion.Older, 0, "", "1 h 05"), new("Dan", "CT", "v4.7.0", 0, "", "-"), new("Eve", "SPEC", HudVersion.Unknown, 0, "", "3 min"),
             new("Finn", "T", "", 0, "", "0 min"), new("Gus", "CT", "", 12, "", "0 min")]);
         string Roll(string name) => roll.Single(w => w.Name == name).Text;
         Check("HUD check: the Players page counts each HUD once - the server's, older, newer, of unknown content, not seen yet (the check's clock among those) - and says each row's",
-            Roll(HudView.PlayersSummaryVar) == $"7 on the server  ·  1 on the server's HUD, {Hud.Content}  ·  2 older  ·  1 newer  ·  1 unknown  ·  2 not seen yet"
-            && Roll("ospl1a") == "Alice" && Roll("ospl1c") == Hud.Content && Roll("ospl1o") == "" && Roll("ospl1d") == "voted" && Roll("ospl1e") == "42 min"
+            Roll(HudView.PlayersSummaryVar) == $"7 on the server  ·  1 on the server's HUD, {HudVersion.Content}  ·  2 older  ·  1 newer  ·  1 unknown  ·  2 not seen yet"
+            && Roll("ospl1a") == "Alice" && Roll("ospl1c") == HudVersion.Content && Roll("ospl1o") == "" && Roll("ospl1d") == "voted" && Roll("ospl1e") == "42 min"
             && Roll("ospl2c") == "" && Roll("ospl2o") == "v4.5.0 - Restart CS2" && Roll("ospl3o") == "older - Restart CS2" && Roll("ospl4o") == "v4.7.0"
             && Roll("ospl5o") == "version unknown" && Roll("ospl6o") == "not seen yet" && Roll("ospl7o") == "" && Roll("ospl7k") == "HUD check: 12 s left"
             && Roll("ospl8a") == "" && Roll("ospl8o") == "" && HudView.PlayersPage([])[0] == (HudView.PlayersSummaryVar, "Nobody on the server"));
@@ -176,12 +176,10 @@ static partial class Program
             HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
             && lines.Append(reason).All(l => !l.Contains("!gg") && !l.Contains("/gg") && !l.Contains("!info")));
         Check("HUD check: a release or a content looks like v2.1.1 or v14.5.27, and the old form is not one",
-            HudCheck.IsRelease(R) && HudCheck.IsRelease(Hud.Release) && HudCheck.IsRelease(Hud.Content) && HudCheck.IsRelease("v14.5.27") && !HudCheck.IsRelease("v2.1") && !HudCheck.IsRelease("2.1.1")
-            && !HudCheck.IsRelease("v2.1.1.1") && !HudCheck.IsRelease("v2.x.1") && !HudCheck.IsRelease("v2_1_1"));
-        Check("HUD check: Normal reads the old form into the one form and leaves everything else as it is; nothing but it reads the old form",
-            HudCheck.Normal("v4_6_0") == "v4.6.0" && HudCheck.Normal("v14_5_27") == "v14.5.27" && HudCheck.Normal("v4.6.0") == "v4.6.0" && HudCheck.Normal(HudCheck.Older) == HudCheck.Older && HudCheck.Normal("") == ""
-            && HudCheck.Normal("v4_6") == "v4_6" && HudCheck.Normal("v4_6.0") == "v4_6.0" && HudCheck.Normal("gg_tab_maps") == "gg_tab_maps"
-            && HudCheck.LevelOf("v4_6_0") == 0 && HudCheck.LevelOf(HudCheck.Normal("v4_6_0")) == 46);
+            HudVersion.Is(R) && HudVersion.Is(HudVersion.Unknown) && HudVersion.Is(HudVersion.Content) && HudVersion.Is("v14.5.27") && !HudVersion.Is("v2.1") && !HudVersion.Is("2.1.1")
+            && !HudVersion.Is("v2.1.1.1") && !HudVersion.Is("v2.x.1") && !HudVersion.Is("v2_1_1"));
+        Check("HUD check: the old form is no version word - no content and no plugin has sent it since content v4.6.0 and plugin 5.0.0",
+            !HudVersion.IsWord("v4_6_0") && !HudVersion.IsWord("v14_5_27") && HudVersion.LevelOf("v4_6_0") == 0 && HudVersion.IsWord("v4.6.0") && HudVersion.IsWord(HudVersion.Older));
 
         // ---- the clock (HudGate), on a handed clock ----
         List<(int Slot, HudGate.Act Act, int Seconds, double At)> Run(HudGate g, HudCheck.Mode mode, HashSet<long> verified, double from, double to, Action<double>? at = null)
@@ -227,7 +225,7 @@ static partial class Program
         Check("HUD check: a new map (everybody reconnects) starts the clock over", gate.Spawned(6, 106, false, t0.AddSeconds(400)) && gate.Checking(6));
         gate.Gone(6);
         Check("HUD check: a player who left is forgotten", !gate.Checking(6) && Run(gate, HudCheck.Mode.Enforce, [], 400, 600).Count == 0);
-        var mixed = new HudState { Verified = { [201] = Hud.Content, [202] = HudCheck.Older } };
+        var mixed = new HudState { Verified = { [201] = HudVersion.Content, [202] = HudVersion.Older } };
         var clockGate = new HudGate();
         clockGate.Spawned(7, 107, false, t0);
         Check("HUD check: verified is any HUD the bridge has for the player since their last real join; the Players page reads the check's clock",
@@ -235,10 +233,10 @@ static partial class Program
             && clockGate.SecondsLeft(7, t0.AddSeconds(30)) == (int)HudCheck.GraceSeconds - 30 && clockGate.SecondsLeft(8, t0) == 0);
 
         // ---- the codec: the mode and the verifications reach the plugin; no proof lines any more ----
-        var sent = new HudState { CheckMode = "dryrun", Verified = { [201] = Hud.Content, [202] = HudCheck.Older, [203] = Hud.Release } };
+        var sent = new HudState { CheckMode = "dryrun", Verified = { [201] = HudVersion.Content, [202] = HudVersion.Older, [203] = HudVersion.Unknown } };
         var got = HudState.Decode(sent.Encode() + "proof\tv2.1.1\tx\nok\tx\tv2.1.1\nok\t204\tnewer\nok\t205\tv4_5_0\n")!;
-        Check("HUD check: the state carries the mode and the verifications with their HUDs, an older bridge's word in the one form, and drops malformed ones (an old bridge's proof lines are skipped)",
-            got.CheckMode == "dryrun" && got.Verified.Count == 4 && got.Verified[201] == Hud.Content && got.Verified[202] == HudCheck.Older && got.Verified[203] == Hud.Release && got.Verified[205] == "v4.5.0"
+        Check("HUD check: the state carries the mode and the verifications with their HUDs, and drops malformed ones and the old form (an old bridge's proof lines are skipped)",
+            got.CheckMode == "dryrun" && got.Verified.Count == 3 && got.Verified[201] == HudVersion.Content && got.Verified[202] == HudVersion.Older && got.Verified[203] == HudVersion.Unknown && !got.Verified.ContainsKey(205)
             && !sent.Encode().Contains("proof\t"));
 
         // ---- the bridge: only a click verifies, in memory, for the players on the server, forgotten at a real join or a real departure ----
@@ -257,20 +255,20 @@ static partial class Program
             HudSeen.Clear(); ClearNotices();
             foreach (var (id, name) in new[] { ("[U:1:5001]", "Alice"), ("[U:1:5002]", "Bob"), ("[U:1:5003]", "Cara"), ("[U:1:5009]", "Mallory") })
                 Ingest($"10/07/2026 - 12:00:00.000 - \"{name}<2><{id}><CT>\" entered the game", null);
-            Command("Mallory", "[U:1:5009]", HudCheck.Command(Hud.Content));
+            Command("Mallory", "[U:1:5009]", HudCheck.Command(HudVersion.Content));
             Check("HUD check: !hudok typed in chat verifies nobody", HudSeen.Count == 0);
-            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(Hud.Content)}");
-            HudAct($"[U:1:5002]\tBob\t{HudCheck.Command(HudCheck.Older)}");
-            HudAct($"[U:1:5003]\tCara\t{HudCheck.Command(Hud.Release)}");
-            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(Hud.Release)}"); // a later click on another button: the version stays known
-            HudAct("[U:1:5005]\tEd\t!hudok v3_0_0"); // the word an older plugin sends: the same as the release's
-            HudAct("[U:1:5006]\tFay\t!hudok v4_5_0"); // an older form of a known content: kept, shown and compared in the one form
+            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(HudVersion.Content)}");
+            HudAct($"[U:1:5002]\tBob\t{HudCheck.Command(HudVersion.Older)}");
+            HudAct($"[U:1:5003]\tCara\t{HudCheck.Command(HudVersion.Unknown)}");
+            HudAct($"[U:1:5001]\tAlice\t{HudCheck.Command(HudVersion.Unknown)}"); // a later click on another button: the version stays known
+            HudAct("[U:1:5005]\tEd\t!hudok v3_0_0"); // the old form, which no plugin since 5.0.0 sends: refused at the door
+            HudAct("[U:1:5006]\tFay\t!hudok v4_5_0");
             var served = HudState.Decode(BuildHud(clock).Encode())!;
             var joinNews = NewsNow.Text;
             Check("HUD check: a click verifies its player with the HUD it proved (the version button's content, an older content's gold button, or unknown), and a known one is kept",
-                served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == Hud.Content && served.Verified.GetValueOrDefault(5002) == HudCheck.Older
-                && served.Verified.GetValueOrDefault(5003) == Hud.Release && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn
-                && served.Verified.GetValueOrDefault(5005) == Hud.Release && served.Verified.GetValueOrDefault(5006) == "v4.5.0" && HudSeen["[U:1:5006]"] == "v4.5.0");
+                served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == HudVersion.Content && served.Verified.GetValueOrDefault(5002) == HudVersion.Older
+                && served.Verified.GetValueOrDefault(5003) == HudVersion.Unknown && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn
+                && !served.Verified.ContainsKey(5005) && !served.Verified.ContainsKey(5006) && !HudSeen.ContainsKey("[U:1:5006]"));
             Check("HUD check: the first click with a known HUD says for everybody which one the player brought, in CS2's plain centre text, chat and on the board; an outdated one gets no note, its own banner says it",
                 joinNews.Contains("joined with") && served.Centres.Any(c => M.Plain(c.Text).Contains("joined with")) && served.Says.Any(l => M.Plain(l.Text).Contains("joined with")) && served.Lately.Any(l => l.Text.Contains("joined with"))
                 && HudView.NoteOf(served, 5002) == "" && HudView.NoteOf(served, 5001) == "");

@@ -158,7 +158,7 @@ so the files must be in place **before** CS2 starts - the harness installs them 
 7. **The window**: `cs2client.ps1 rcon -Rcon "css_guide <account> first"` opens it on its Start page for this account only (what a
    first-time player sees), then `shot -Name window` after 2-3 s. `<account>` is the n of the client's `[U:1:n]`, the account Steam is
    logged in with. While the server waits for this game's first click the window's X is the version button, so
-   `css_gghud press <account> <its id>` closes it as a player would (the id is `HudCheck.VersionButton`'s, in the layout beside
+   `css_gghud press <account> <its id>` closes it as a player would (the id is `HudVersion.Button`'s, in the layout beside
    `gg_btn_close`), and `css_gghud release` ends it at once. `gg_notice <seconds> <text>` puts a line on everybody's top line, in chat and
    on the board's Lately list.
 8. **Stop the client**: `cs2client.ps1 stop`. Check `loose HUD files: removed N loose HUD file(s) ...`; `cs2client.ps1 check` must say

@@ -145,11 +145,11 @@ static partial class Program
             && HudVote.PageClick(twelve, HudBrowser.LastButton, 0) == 1 && HudVote.PageClick(twelve, "gg_m1_play", 0) == null && HudVote.PageOf(twelve, 12) == 0 && HudVote.PageOf(twelve, 11) == 1
             && HudVote.Click(twelve, HudVote.RandomButton) == $"!mv 1793600000 {MapVote.RandomOption}" && HudVote.BrowseLine(twelve).Contains("30 s left"));
         // ---- a game known to hold a content before v4.6.0 has eight cards: its pages are of eight, so its pager reaches every option ----
-        var old8 = HudVote.CardsFor(HudCheck.Older);
+        var old8 = HudVote.CardsFor(HudVersion.Older);
         var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: old8);
         var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: old8);
-        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {Hud.Content} (older, or v4.5.0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
-            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { Hud.Content, "v4.6.0", "v4.7.0", Hud.Release, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
+        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {HudVersion.Content} (older, or v4.5.0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
+            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { HudVersion.Content, "v4.6.0", "v4.7.0", HudVersion.Unknown, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
             && HudVote.Pages(twelve, old8) == 2 && !C(oldFirst, "gg_m9", "used") && C(oldFirst, "gg_m8", "used") && P(oldFirst.Texts, "gg_m9_name") == ""
             && P(oldFirst.Texts, "gg_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "gg_m1_name") == P(first.Texts, "gg_m9_name")
             && HudVote.Click(twelve, "gg_m1_play", 1, -1, null, old8) == MapVote.Click(twelve.Round, twelve.Maps[old8].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, old8) == 1
@@ -216,38 +216,38 @@ static partial class Program
         Check("The wait after a vote rides the state without a vote ('mvwait'); option lines without a vote line are no vote, and freeze nothing",
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
-        var levels = HudVote.VersionClasses();
-        var bannered = HudVote.Contents.Where(c => c.Level >= HudVote.JoinBannerFirst && c.Level <= HudVote.OldestLevel).ToList(); // the contents with a join banner: v4.0.0 ... v4.5.0
+        var levels = HudVersion.Classes();
+        var bannered = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest).ToList(); // the contents with a join banner: v4.0.0 ... v4.5.0
         bool Lit(List<(string Id, string Class, bool On)> classes, string name) => classes.Single(x => x.Class == name).On;
-        Check($"The version classes: content {Hud.Content} is level {HudVote.ContentLevel}; the newest content the server knows is one class, {HudVote.LatestClass(HudVote.ContentLevel)}; every content with a join banner ({bannered[0].Version} to {bannered[^1].Version}) gets its red \"yours is older\", svge(its level + 1), the older ones too; \"yours is newer\" only v4.5.0's, svlt45",
-            HudCheck.LevelOf(Hud.Content) == HudVote.ContentLevel && HudVote.ContentOfLevel(HudVote.ContentLevel) == Hud.Content
-            && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVote.ContentLevel}"
-            && HudVote.OldestLevel == HudCheck.LevelOf("v4.5.0") && HudVote.JoinBannerFirst == HudCheck.LevelOf("v4.0.0") && bannered.Count == 6
+        Check($"The version classes: content {HudVersion.Content} is level {HudVersion.Level}; the newest content the server knows is one class, {HudVersion.LatestClass(HudVersion.Level)}; every content with a join banner ({bannered[0].Version} to {bannered[^1].Version}) gets its red \"yours is older\", svge(its level + 1), the older ones too; \"yours is newer\" only v4.5.0's, svlt45",
+            HudVersion.LevelOf(HudVersion.Content) == HudVersion.Level && HudVersion.OfLevel(HudVersion.Level) == HudVersion.Content
+            && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVersion.Level}"
+            && HudVersion.Oldest == HudVersion.LevelOf("v4.5.0") && HudVersion.JoinBannerFirst == HudVersion.LevelOf("v4.0.0") && bannered.Count == 6
             && bannered.All(c => Lit(levels, $"svge{c.Level + 1}")) && levels.Count(x => x.Class.StartsWith("svge", StringComparison.Ordinal)) == bannered.Count
             && levels.Where(x => x.Class.StartsWith("svlt", StringComparison.Ordinal)).Select(x => x.Class).SequenceEqual(["svlt45"]) && !Lit(levels, "svlt45") && levels.Count == bannered.Count + 2
-            && !Lit(HudVote.VersionClasses(HudVote.OldestLevel), "svge46") && !Lit(HudVote.VersionClasses(HudVote.OldestLevel), "svlt45") && Lit(HudVote.VersionClasses(HudVote.OldestLevel), "svge45") // a server at v4.5.0: nothing for v4.5.0, "older" for v4.4.0
-            && Lit(HudVote.VersionClasses(HudVote.OldestLevel - 1), "svlt45") && !Lit(HudVote.VersionClasses(HudVote.OldestLevel - 1), "svge45")                                                       // ...at v4.4.0: "newer" for v4.5.0, nothing for v4.4.0
+            && !Lit(HudVersion.Classes(HudVersion.Oldest), "svge46") && !Lit(HudVersion.Classes(HudVersion.Oldest), "svlt45") && Lit(HudVersion.Classes(HudVersion.Oldest), "svge45") // a server at v4.5.0: nothing for v4.5.0, "older" for v4.4.0
+            && Lit(HudVersion.Classes(HudVersion.Oldest - 1), "svlt45") && !Lit(HudVersion.Classes(HudVersion.Oldest - 1), "svge45")                                                       // ...at v4.4.0: "newer" for v4.5.0, nothing for v4.4.0
             && levels.All(x => x.Id == HudView.Global));
-        var table = HudVote.Contents;
-        var byOne = HudCheck.LevelOf("v4.0.0"); // the levels before v4.0.0 skip; from it on each release is the next number
-        Check($"The table of contents: {table.Length} lines, the last this content ({Hud.Content}, level {HudVote.ContentLevel}); every version readable and there once; the levels rise, by one from level {byOne} on, so the next release is {HudVote.ContentLevel + 1} whatever its digits; the shipped ones keep their numbers",
-            table.Any(c => c.Version == Hud.Content) && table[^1] == (Hud.Content, HudVote.ContentLevel) && table.All(c => HudCheck.IsRelease(c.Version)) && table.Select(c => c.Version).Distinct().Count() == table.Length
+        var table = HudVersion.Contents;
+        var byOne = HudVersion.LevelOf("v4.0.0"); // the levels before v4.0.0 skip; from it on each release is the next number
+        Check($"The table of contents: {table.Length} lines, the last this content ({HudVersion.Content}, level {HudVersion.Level}); every version readable and there once; the levels rise, by one from level {byOne} on, so the next release is {HudVersion.Level + 1} whatever its digits; the shipped ones keep their numbers",
+            table.Any(c => c.Version == HudVersion.Content) && table[^1] == (HudVersion.Content, HudVersion.Level) && table.All(c => HudVersion.Is(c.Version)) && table.Select(c => c.Version).Distinct().Count() == table.Length
             && table.Zip(table.Skip(1)).All(p => p.Second.Level > p.First.Level && (p.First.Level < byOne || p.Second.Level == p.First.Level + 1))
-            && byOne == 40 && HudCheck.LevelOf("v4.5.0") == 45 && HudCheck.LevelOf("v4.6.0") == 46 && table[0] == ("v3.0.0", 30)); // the contents no longer drawn for keep their lines
+            && byOne == 40 && HudVersion.LevelOf("v4.5.0") == 45 && HudVersion.LevelOf("v4.6.0") == 46 && table[0] == ("v3.0.0", 30)); // the contents no longer drawn for keep their lines
         Check("A content's name for its level: its line, both ways; above the table a name no line has, which reads as newer (css_gghud level fakes a newer server); between two lines the older, below the table the first",
-            table.All(c => HudVote.ContentOfLevel(c.Level) == c.Version && HudCheck.LevelOf(c.Version) == c.Level)
-            && new[] { 1, 2 }.All(up => HudCheck.IsRelease(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) && HudCheck.LevelOf(HudVote.ContentOfLevel(HudVote.ContentLevel + up)) == HudCheck.NewerLevel)
-            && HudVote.ContentOfLevel(HudVote.ContentLevel + 1) != HudVote.ContentOfLevel(HudVote.ContentLevel + 2) && HudVote.ContentOfLevel(35) == "v3.1.0" && HudVote.ContentOfLevel(2) == "v3.0.0");
-        Check($"Room for the next release: this content's level ({HudVote.ContentLevel}) is below LatestLast ({HudVote.LatestLast}), so its stylesheet can still show the banner for what comes next; at the end, raise LatestLast and this stylesheet's rules with it (hud/PUBLISH.md)",
-            HudVote.ContentLevel < HudVote.LatestLast);
+            table.All(c => HudVersion.OfLevel(c.Level) == c.Version && HudVersion.LevelOf(c.Version) == c.Level)
+            && new[] { 1, 2 }.All(up => HudVersion.Is(HudVersion.OfLevel(HudVersion.Level + up)) && HudVersion.LevelOf(HudVersion.OfLevel(HudVersion.Level + up)) == HudVersion.Newer)
+            && HudVersion.OfLevel(HudVersion.Level + 1) != HudVersion.OfLevel(HudVersion.Level + 2) && HudVersion.OfLevel(35) == "v3.1.0" && HudVersion.OfLevel(2) == "v3.0.0");
+        Check($"Room for the next release: this content's level ({HudVersion.Level}) is below LatestLast ({HudVersion.LatestLast}), so its stylesheet can still show the banner for what comes next; at the end, raise LatestLast and this stylesheet's rules with it (hud/PUBLISH.md)",
+            HudVersion.Level < HudVersion.LatestLast);
         if (File.Exists(HudStyleFile))
         {
             var css = File.ReadAllText(HudStyleFile);
             var xml = File.ReadAllText(HudLayoutFile);
-            var banners = Enumerable.Range(HudVote.ContentLevel + 1, Math.Max(0, HudVote.LatestLast - HudVote.ContentLevel)).ToList();
-            Check($"The outdated banner in this layout ({Hud.Content}): persistent under latest-{HudVote.ContentLevel + 1} ... latest-{HudVote.LatestLast}, never under its own level or below; its own version and the server's in its words",
-                banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVote.ContentLevel} ")
-                && xml.Contains($"Yours {Hud.Content}") && xml.Contains("{s:" + HudVote.VersionVar + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {Hud.Content}"));
+            var banners = Enumerable.Range(HudVersion.Level + 1, Math.Max(0, HudVersion.LatestLast - HudVersion.Level)).ToList();
+            Check($"The outdated banner in this layout ({HudVersion.Content}): persistent under latest-{HudVersion.Level + 1} ... latest-{HudVersion.LatestLast}, never under its own level or below; its own version and the server's in its words",
+                banners.All(n => css.Contains($".gg-global.latest-{n} .gg-outdated")) && !css.Contains($".gg-global.latest-{HudVersion.Level} ")
+                && xml.Contains($"Yours {HudVersion.Content}") && xml.Contains("{s:" + HudVersion.Var + "}") && xml.Contains("{s:" + HudVote.ModeVar + "}") && xml.Contains($"HUD {HudVersion.Content}"));
         }
         (S, Broken, BrokenReasons) = (sBefore, brokenBefore, reasonsBefore);
         try { Directory.Delete(StateDir, true); } catch (IOException) { }

@@ -11,27 +11,27 @@ sealed partial class HudScreen
     /// <summary>Seen clicking since the player's last real join: here, or by the bridge (which keeps it through a plugin reload).</summary>
     bool Verified(long account) => hudSeen.ContainsKey(account) || HudCheck.IsVerified(state, account);
 
-    /// <summary>The HUD a player's game showed at the check's click (HudCheck.IsVersionWord), "" while not seen: here, else the bridge's word.</summary>
-    string VersionOf(long account) => hudSeen.TryGetValue(account, out var v) && v != Hud.Release ? v
-        : state?.Verified.TryGetValue(account, out var b) == true && b != Hud.Release ? b : hudSeen.ContainsKey(account) || state?.Verified.ContainsKey(account) == true ? Hud.Release : "";
+    /// <summary>The HUD a player's game showed at the check's click (HudVersion.IsWord), "" while not seen: here, else the bridge's word.</summary>
+    string VersionOf(long account) => hudSeen.TryGetValue(account, out var v) && v != HudVersion.Unknown ? v
+        : state?.Verified.TryGetValue(account, out var b) == true && b != HudVersion.Unknown ? b : hudSeen.ContainsKey(account) || state?.Verified.ContainsKey(account) == true ? HudVersion.Unknown : "";
 
     /// <summary>The check's window for a slot: the welcome window, until its X.</summary>
     void Prompt(int slot, DateTime now) => slots.Check(slot, now);
 
     /// <summary>The server does not yet know which HUD this player's game shows: the window's X is the version button.</summary>
-    bool WantsVersion(long account) => VersionOf(account) is var v && (v == "" || v == Hud.Release);
+    bool WantsVersion(long account) => VersionOf(account) is var v && (v == "" || v == HudVersion.Unknown);
 
     /// <summary>An account's first click since its last real join, or the one that says which HUD it is: verified here at once, and at the bridge
     /// (!hudok with the version, which only this real click sends - never css_gghud click, never chat). A known version is never forgotten for an
-    /// unknown one (Hud.Release).</summary>
+    /// unknown one (HudVersion.Unknown).</summary>
     void Verify(CCSPlayerController player, long account, bool wasChecked, string version)
     {
         if (account <= 0) return;
-        if (version == Hud.Release && hudSeen.TryGetValue(account, out var known)) version = known;
+        if (version == HudVersion.Unknown && hudSeen.TryGetValue(account, out var known)) version = known;
         hudSeen[account] = version;
         gate.Verified(player.Slot);
         bridge?.Act(account, player.PlayerName, HudCheck.Command(version));
-        log.LogInformation("Over Strike 2 HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Version})", player.PlayerName, account, version == Hud.Release ? "which content not known" : version);
+        log.LogInformation("Over Strike 2 HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Version})", player.PlayerName, account, version == HudVersion.Unknown ? "which content not known" : version);
     }
 
     /// <summary>The check's mode now: what the bridge says (HUD_CHECK: off, warn, enforce), off without a fresh state, and never more than warn

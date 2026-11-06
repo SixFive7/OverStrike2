@@ -2,10 +2,10 @@
 // but whether the layout loaded the server cannot see - a game that kept an older copy shows nothing and says nothing - and a layout cannot send
 // anything by itself (CS2 drops a layout with scripts in it). The only proof is a click: a Button press in the window reaches the server
 // (OnCustomHudClicked) only from a game that has the layout and shows it. So a player not seen clicking since their last real join gets the window
-// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (VersionButton: gg_hudver_v4.6.0), so its click
-// proves the exact version; an older content's gold button is the live column's action button, whose click counts as "older"; any other button
-// verifies the HUD without saying which. One who has not clicked GraceSeconds after their first spawn on a map is told in chat what to do, and
-// with HUD_CHECK=enforce disconnected; with warn only told.
+// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (HudVersion.Button: gg_hudver_v4.6.0), so its
+// click proves the exact version; an older content's gold button is the live column's action button, whose click counts as older; any other
+// button verifies the HUD without saying which (HudVersion.Older, Unknown). One who has not clicked GraceSeconds after their first spawn on a map is
+// told in chat what to do, and with HUD_CHECK=enforce disconnected; with warn only told.
 //
 // A verification lives in memory, per connection: the plugin keeps it, the bridge keeps it for the players on the server and serves only those,
 // and both forget it at the player's next real join (a reconnecting player may have a new HUD). Nothing of it is written to a file.
@@ -50,60 +50,6 @@ public static class HudCheck
 
     /// <summary>Verified since the player's last real join, as far as the bridge knows.</summary>
     public static bool IsVerified(HudState? state, long account) => state != null && state.Verified.ContainsKey(account);
-
-    /// <summary>"v2.1.1", "v14.5.27": what a release or a content looks like (Hud.Release, Hud.Content), and the one form everything shows, logs and compares.</summary>
-    public static bool IsRelease(string text)
-    {
-        var parts = text.Length > 1 && text[0] == 'v' ? text[1..].Split('.') : [];
-        return parts.Length == 3 && parts.All(p => p.Length is > 0 and <= 3 && p.All(char.IsAsciiDigit));
-    }
-
-    /// <summary>A version word in the one form: "v4_6_0" reads as "v4.6.0", anything else comes back as it is. The only reader of the old form, used where a
-    /// word comes in - a version button's id, a click's !hudok, the live state's ok lines: what a game or a plugin from before the new form sends lasts until
-    /// Steam or the next restart updates it. Nothing past those doors sees the old form.</summary>
-    public static string Normal(string text) => !text.Contains('.') && text.Replace('_', '.') is var dotted && IsRelease(dotted) ? dotted : text;
-
-    /// <summary>What a game's HUD is known as after the check's click: a content (v4.6.0, from its version button), Older (an older content's gold
-    /// button), or Hud.Release (verified, which content not known - the click was another button, or a plugin before v4.6.0 sent it).</summary>
-    public const string Older = "older";
-
-    /// <summary>Whether !hudok may carry this: a content or release, or Older.</summary>
-    public static bool IsVersionWord(string text) => text == Older || IsRelease(Normal(text));
-
-    /// <summary>The version button: the gold "Click to play" of the HUD check, whose id names the content that has it. The layout may put it
-    /// anywhere (the welcome window's close button could carry it one day): any button with this prefix proves its content.</summary>
-    public const string VersionPrefix = "gg_hudver_";
-
-    /// <summary>The version button's id for a content: the one place that says the id's form, gg_hudver_v4.6.0, and --selftest holds the layout's one id to it.
-    /// That CS2 takes a dot in a panel id is not proven until a real client has loaded this layout. If it does not, this line becomes
-    /// VersionPrefix + content.Replace('.', '_') and the layout's id follows; VersionOf reads both.</summary>
-    public static string VersionButton(string content) => VersionPrefix + content;
-
-    /// <summary>The content a version button proves, in the one form whichever way its id writes it, or null for any other button.</summary>
-    public static string? VersionOf(string buttonId) =>
-        buttonId.StartsWith(VersionPrefix, StringComparison.Ordinal) && Normal(buttonId[VersionPrefix.Length..]) is var content && IsRelease(content) ? content : null;
-
-    /// <summary>The level of a version with no line in HudVote.Contents: newer than this bridge or plugin knows, so above every level there is.</summary>
-    public const int NewerLevel = int.MaxValue;
-
-    /// <summary>A content as a number: its line in HudVote.Contents, never its digits (v4.6.0 is 46); NewerLevel for a version with no line; 0 for a word that is no version.</summary>
-    public static int LevelOf(string version)
-    {
-        if (!IsRelease(version)) return 0;
-        foreach (var (known, level) in HudVote.Contents) if (known == version) return level;
-        return NewerLevel;
-    }
-
-    /// <summary>A HUD other than the server's own as the Players page says it: older, its content not known (Hud.Release: a click on a button
-    /// that names none), or not seen yet ("": no click since the last real join).</summary>
-    public static string VersionWords(string version) => version == Older ? "older - Restart CS2" : version == "" ? "not seen yet"
-        : version == Hud.Release ? "version unknown" : LevelOf(version) < HudVote.ContentLevel ? $"{version} - Restart CS2" : version;
-
-    /// <summary>Whether a known version is older than this server's content.</summary>
-    public static bool IsOutdated(string version) => IsBefore(version, HudVote.ContentLevel);
-
-    /// <summary>Whether this version is known to be a content older than this level: a shipped one below it, or the old word for "too old to say which".</summary>
-    public static bool IsBefore(string version, int level) => version == Older || IsRelease(version) && version != Hud.Release && LevelOf(version) < level;
 
     /// <summary>What an anonymous visit to the item's Workshop page says about it: true - Steam shows it to everybody (HTTP 200, its title
     /// reads "Steam Workshop::..."); false - the page Steam shows a visitor instead, which is what everybody but the owner gets while the
@@ -200,7 +146,7 @@ public static class HudCheck
     /// <summary>CS2's alert text before the disconnect, two short lines (warn: the same, saying nobody is disconnected).</summary>
     public static string Alert(int seconds, bool warnOnly) => M.Lines("HUD check: No click yet", warnOnly ? "Close the window with its X" : $"Click any button within {seconds.ToString(CultureInfo.InvariantCulture)} s");
 
-    /// <summary>The click's message to the bridge: verified, and which HUD (IsVersionWord).</summary>
+    /// <summary>The click's message to the bridge: verified, and which HUD (HudVersion.IsWord).</summary>
     public static string Command(string version) => "!hudok " + version;
 
     public static string ItemUrl(string addon) => "steamcommunity.com/sharedfiles/filedetails/?id=" + addon;

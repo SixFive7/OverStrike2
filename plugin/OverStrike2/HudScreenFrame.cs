@@ -80,13 +80,13 @@ sealed partial class HudScreen
             foreach (var slot in voteOpened) slots.VoteOver(slot, now);
             voteOpened.Clear();
         }
-        var level = TestLevel ?? HudVote.ContentLevel;
-        if (latestSent != 0 && latestSent != level) Class(HudView.Global, HudVote.LatestClass(latestSent), false); // the newest content the server knows moved
-        foreach (var (id, cls, on) in HudVote.VersionClasses(level)) Class(id, cls, on);
+        var level = TestLevel ?? HudVersion.Level;
+        if (latestSent != 0 && latestSent != level) Class(HudView.Global, HudVersion.LatestClass(latestSent), false); // the newest content the server knows moved
+        foreach (var (id, cls, on) in HudVersion.Classes(level)) Class(id, cls, on);
         latestSent = level;
         foreach (var (name, words) in HudView.PlayersPage(PlayerRows(humans, now))) Var(HudView.Global, name, words); // SERVER, Players
         foreach (var (id, cls, on) in HudVote.ModeClasses(mode.Id)) Class(id, cls, on);
-        Var(HudView.Global, HudVote.VersionVar, TestLevel is { } faked ? HudVote.ContentOfLevel(faked) : Hud.Content); // css_gghud level fakes the version's name too
+        Var(HudView.Global, HudVersion.Var, TestLevel is { } faked ? HudVersion.OfLevel(faked) : HudVersion.Content); // css_gghud level fakes the version's name too
         Var(HudView.Global, HudVote.ModeVar, mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) Var(HudView.Global, name, words); // the popup's words
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
@@ -112,7 +112,7 @@ sealed partial class HudScreen
             Class(HudView.Screen, "pinned", view.Window && view.Pinned, p); // the welcome closes only by its X: its foot has no idle bar
             Class(HudView.Screen, "toast-1", view.Toast == 1, p);
             Class(HudView.Screen, "toast-in", view.ToastIn, p);
-            var joined = joins.Since(account, now) is { } joinedFor && joinedFor.TotalSeconds < HudVote.JoinSeconds;
+            var joined = joins.Since(account, now) is { } joinedFor && joinedFor.TotalSeconds < HudVersion.JoinSeconds;
             Class(HudView.Screen, "vjoin", joined, p);                                      // the join banner of v4.0.0 to v4.5.0 (svge/svlt)
             var vv = VoteView(p.Slot);
             var browsing = vote is { Round: > 0, Open: true } && vv.Browse;

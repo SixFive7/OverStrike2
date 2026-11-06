@@ -23,7 +23,6 @@ static partial class Program
     {
         var f = body.Trim().Split('\t');
         if (f.Length != 3 || !SteamId3Rx().IsMatch(f[0]) || !(Hud.IsAction(f[2]) || MapVote.IsAction(f[2]))) { Log($"hud: refused '{Hud.Clean(body, 80)}'"); return false; }
-        if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) f[2] = HudCheck.Command(HudCheck.Normal(f[2][7..])); // an older plugin's word, in the one form from here on
         var name = Hud.Clean(f[1], 64) is { Length: > 0 } n ? n : "?";
         Log($"hud: {name} {f[0]} clicked {f[2]}");
         Present(f[0], name);
@@ -32,13 +31,13 @@ static partial class Program
         return true;
     }
 
-    /// <summary>The HUD check's verifications, in memory and per connection: SteamID -> the HUD its game showed (HudCheck.IsVersionWord). A real join
+    /// <summary>The HUD check's verifications, in memory and per connection: SteamID -> the HUD its game showed (HudVersion.IsWord). A real join
     /// and a real departure forget the player (OnJoin, Depart): a reconnecting player may have a new HUD. The live state carries the players on the
     /// server only; nothing of it is written to a file.</summary>
     static readonly Dictionary<string, string> HudSeen = new();
 
     /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4.6.0), Older (an
-    /// older content's gold button), or Hud.Release (which one not known: another button, or a plugin before v4.6.0, which sends its release). A
+    /// older content's gold button), or HudVersion.Unknown (which one not known: a click on another button). A
     /// known version is never forgotten for an unknown one. The first click after a real join that names the version says which HUD the player brought
     /// (Messages.Joined: the centre text, chat and the board); an outdated HUD shows its own banner. Only the plugin's OnCustomHudClicked sends it - typing it
     /// in chat does nothing.</summary>
@@ -46,12 +45,12 @@ static partial class Program
     {
         if (AccountId(steamId) <= 0) return;
         var had = HudSeen.GetValueOrDefault(steamId);
-        if (had != null && (had == version || version == Hud.Release)) return;
+        if (had != null && (had == version || version == HudVersion.Unknown)) return;
         HudSeen[steamId] = version;
-        var known = version != Hud.Release;
+        var known = version != HudVersion.Unknown;
         Log($"hud check: {name} {steamId} verified{(known ? $", HUD {version}" : "")}");
         if (!known) return;
-        Post(Messages.Joined, $"{M.N(Clip(name, 32))} joined with {(version == HudCheck.Older ? "an older HUD" : $"HUD {M.V(version)}")}");
+        Post(Messages.Joined, $"{M.N(Clip(name, 32))} joined with {(version == HudVersion.Older ? "an older HUD" : $"HUD {M.V(version)}")}");
     }
 
     /// <summary>The verifications of the players on the server, as the live state carries them: account -> the HUD its game showed.</summary>

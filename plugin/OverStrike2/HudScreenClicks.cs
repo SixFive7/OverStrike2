@@ -14,13 +14,13 @@ sealed partial class HudScreen
         if (!Live || player is not { IsValid: true, IsBot: false } || layout is not { IsValid: true } || layout.Index != entity!.Index) return;
         var now = DateTime.UtcNow;
         // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the gold button said
-        // "Click to play": from v4.6.0 on its id names the content (HudCheck.VersionButton), an older content's is the live column's action button,
+        // "Click to play": from v4.6.0 on its id names the content (HudVersion.Button), an older content's is the live column's action button,
         // which counts as an older HUD. That click is the check and closes the window - it must not roll a map as !next would.
         var who = Account(player);
         var wasChecked = gate.Checking(player.Slot);
-        var proved = HudCheck.VersionOf(buttonId);
-        var version = proved ?? (wasChecked && buttonId == HudView.ButtonAct ? HudCheck.Older : Hud.Release);
-        if (!Verified(who) || (version != Hud.Release && VersionOf(who) != version)) Verify(player, who, wasChecked, version);
+        var proved = HudVersion.OfButton(buttonId);
+        var version = proved ?? (wasChecked && buttonId == HudView.ButtonAct ? HudVersion.Older : HudVersion.Unknown);
+        if (!Verified(who) || (version != HudVersion.Unknown && VersionOf(who) != version)) Verify(player, who, wasChecked, version);
         if ((wasChecked && buttonId == HudView.ButtonAct) || proved != null) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
         if (HudVote.WhyClick(buttonId) is { } reason)
         {

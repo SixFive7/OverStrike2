@@ -469,11 +469,11 @@ static partial class Program
                 && VoteState.Decode(t2).AsOf(HudState.Ms(clock)).SecondsLeft == VoteState.Decode(l2).SecondsLeft && VoteState.Decode(t2).Round == Ballot!.Round);
             Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(61))).News == ""
                 && !HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(clock.AddSeconds(90))).SecondsLeft == 0);
-            PublishHud(); var published = HudVersion; PublishHud();
-            Check("A state published again unchanged keeps its version", HudVersion == published);
+            PublishHud(); var published = HudTextVersion; PublishHud();
+            Check("A state published again unchanged keeps its version", HudTextVersion == published);
             Announce("Another line", 10); PublishHud();
             Check("...a change takes the next one; every answer starts with it and the bridge's clock, and a poll without a change gets a few bytes",
-                HudVersion == published + 1 && StateAnswer().Split('\n')[1].StartsWith($"{Hud.VersionLine}\t{HudVersion}\t") && UnchangedAnswer().EndsWith($"{Hud.Unchanged}\n") && UnchangedAnswer().Length < 80
+                HudTextVersion == published + 1 && StateAnswer().Split('\n')[1].StartsWith($"{Hud.VersionLine}\t{HudTextVersion}\t") && UnchangedAnswer().EndsWith($"{Hud.Unchanged}\n") && UnchangedAnswer().Length < 80
                 && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.News == "Another line");
 
             // ---- during the vote: picks go on it, a click changes or takes back a vote ----

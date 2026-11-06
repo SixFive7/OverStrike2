@@ -214,7 +214,7 @@ public static class HudView
     }
 
     /// <summary>One row of the Players page (SERVER, Players): a player on the server, their team, the HUD their game showed at the HUD check's
-    /// click (HudCheck.IsVersionWord: a content, older, or Hud.Release for a HUD whose content is not known; "" not seen yet), the check's seconds
+    /// click (HudVersion.IsWord: a content, older, or HudVersion.Unknown for a HUD whose content is not known; "" not seen yet), the check's seconds
     /// left while it waits for that click, their vote while one is open, and how long they have been on.</summary>
     public sealed record PlayerRow(string Name, string Team, string Version, int CheckSeconds, string Vote, string OnFor);
 
@@ -229,14 +229,14 @@ public static class HudView
         var w = new List<(string, string)>();
         static string Var(int k, char f) => $"{PlayersVar}{k.ToString(CultureInfo.InvariantCulture)}{f}";
         var seen = rows.Where(r => r.CheckSeconds <= 0).Select(r => r.Version).ToList();
-        var current = seen.Count(v => v == Hud.Content);
-        var older = seen.Count(HudCheck.IsOutdated);
-        var newer = seen.Count(v => HudCheck.LevelOf(v) > HudVote.ContentLevel);
-        var unknown = seen.Count(v => v == Hud.Release);
+        var current = seen.Count(v => v == HudVersion.Content);
+        var older = seen.Count(HudVersion.IsOutdated);
+        var newer = seen.Count(v => HudVersion.LevelOf(v) > HudVersion.Level);
+        var unknown = seen.Count(v => v == HudVersion.Unknown);
         var unseen = rows.Count - current - older - newer - unknown;
         w.Add((PlayersSummaryVar, rows.Count == 0 ? "Nobody on the server" : string.Join("  ·  ", new[]
         {
-            $"{rows.Count} on the server", current > 0 ? $"{current} on the server's HUD, {Hud.Content}" : "", older > 0 ? $"{older} older" : "",
+            $"{rows.Count} on the server", current > 0 ? $"{current} on the server's HUD, {HudVersion.Content}" : "", older > 0 ? $"{older} older" : "",
             newer > 0 ? $"{newer} newer" : "", unknown > 0 ? $"{unknown} unknown" : "", unseen > 0 ? $"{unseen} not seen yet" : "",
             rows.Count > PlayerRows ? $"the first {PlayerRows} here" : "",
         }.Where(x => x != ""))));
@@ -244,11 +244,11 @@ public static class HudView
         {
             var r = k <= rows.Count ? rows[k - 1] : null;
             var checking = r is { CheckSeconds: > 0 };
-            var mine = r != null && !checking && r.Version == Hud.Content;
+            var mine = r != null && !checking && r.Version == HudVersion.Content;
             w.Add((Var(k, 'a'), r == null ? "" : Hud.Clean(r.Name, 32)));
             w.Add((Var(k, 'b'), r?.Team ?? ""));
             w.Add((Var(k, 'c'), mine ? r!.Version : ""));
-            w.Add((Var(k, 'o'), r == null || mine || checking ? "" : HudCheck.VersionWords(r.Version)));
+            w.Add((Var(k, 'o'), r == null || mine || checking ? "" : HudVersion.Words(r.Version)));
             w.Add((Var(k, 'k'), checking ? $"HUD check: {r!.CheckSeconds} s left" : ""));
             w.Add((Var(k, 'd'), r?.Vote ?? ""));
             w.Add((Var(k, 'e'), r?.OnFor ?? ""));
