@@ -137,16 +137,6 @@ static partial class Program
         else RecordCrash(boot.Before, $"the server came back without a quit ({what})");
     }
 
-    /// <summary>Every map the server knows, in every mode: Arms Race's list and official maps, the other modes' Workshop lists and official pools.</summary>
-    static IEnumerable<MapInfo> AllKnown => Maps.Concat(Officials).Concat(Modes.All.Where(m => !m.ArmsRace).SelectMany(PoolOf));
-
-    /// <summary>A map key as a player reads it: the map's label in whichever mode lists it - a Deathmatch or Wingman map by its name, not its Workshop
-    /// id (B13) - else the key itself.</summary>
-    static string NameOfKey(string key) => AllKnown.FirstOrDefault(m => Key(m) == key) is { } m ? Label(m) : key;
-
-    /// <summary>A map's Workshop update time as the lists carry it (MapInfo.Updated), 0 when none of them does.</summary>
-    static long UpdatedOf(string key) => AllKnown.Where(m => Key(m) == key).Select(m => m.Updated).DefaultIfEmpty(0).Max();
-
     /// <summary>A mark set now remembers the Workshop update it was set under.</summary>
     static void StampMark(string key) { if (UpdatedOf(key) is > 0 and var t) S.CrashStamps[key] = t; else S.CrashStamps.Remove(key); }
 

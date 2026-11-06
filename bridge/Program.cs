@@ -16,6 +16,7 @@ static partial class Program
     static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn or enforce; warn by default, so every player's HUD version is learned at their first click
     static readonly List<MapInfo> Officials = BridgeConfig.Values.OfficialMaps // installed on the server, loaded with changelevel
         .Select(n => new MapInfo(0, 0, n, 0, true)).ToList();
+    static string DataDir => Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? "."; // the data files' folder: beside maps.json (/data in the stack)
 
     // ---- runtime state (only touched from the event-loop thread) ----
     static List<MapInfo> Maps = new();

@@ -97,17 +97,7 @@ static partial class Program
     static long LastRound;
     static DateTime VoteWaitUntil; // nobody calls a vote before this (MapVote.WaitSeconds after the last one)
 
-    /// <summary>The players present: in game by the log stream, or reloading inside the load grace. One who left is not.</summary>
-    static HashSet<string> PresentIds(DateTime now) => Players.Where(kv => kv.Value.GoneSince == null
-        && (kv.Value.ReloadSince is not { } r || (now - r).TotalSeconds <= ReloadGraceSeconds)).Select(kv => kv.Key).ToHashSet();
-
     static int VotePresent(MatchVote b, DateTime now) => Math.Max(PresentIds(now).Count, b.PresentAtOpen);
-
-    /// <summary>The key the map that is on goes by: its own, or the name the server logs when the bridge did not pick it.</summary>
-    static string CurrentKey => S.Map != null ? Key(S.Map) : S.LogName ?? "";
-
-    /// <summary>The map that is on, in the mode it is on in.</summary>
-    static bool IsOn(MapInfo m) => CurrentKey != "" && Key(m) == CurrentKey && ModeOf(m).Id == CurrentMode.Id;
 
     static string OptionKey(BallotOption o) => o.Source == VoteSource.Keep ? CurrentKey : o.Map is { } m ? Key(m) : "";
 

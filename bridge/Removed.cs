@@ -47,11 +47,6 @@ static partial class Program
 
     static void RecomputeRemoved() => Removed = Checked.Verdicts.Where(kv => kv.Value != Workshop.Ok).ToDictionary(kv => kv.Key, kv => kv.Value);
 
-    /// <summary>Every Workshop map the server lists: maps.json and the other modes' lists, whose maps the menu browses too.</summary>
-    static IEnumerable<MapInfo> AllListed => Maps.Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(ModeWorkshop));
-
-    static string NameOf(string id) => AllListed.FirstOrDefault(m => m.Id.ToString() == id) is { } m ? Label(m) : $"workshop {id}";
-
     /// <summary>A report from the Workshop sync, on the event loop: keep it, log every change, and act on maps that just went (AfterListChange).
     /// Returns a line for the sync's log.</summary>
     static string ApplyRemovedReport(string body)

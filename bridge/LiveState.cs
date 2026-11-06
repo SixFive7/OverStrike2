@@ -1,6 +1,5 @@
 // The HUD's live state as the bridge builds it - the state text, the map catalog - and whether a plugin that draws the HUD is polling.
 // HudTransport.cs serves them.
-using System.Globalization;
 
 static partial class Program
 {
@@ -85,9 +84,6 @@ static partial class Program
             if (long.TryParse(id, out var n)) c.Refused[n] = (name, reason.StartsWith("is on the blocked list") ? reason : $"{reason} - It is blocked");
         return c;
     }
-
-    /// <summary>What a chat command takes to name this map and nothing else: a listed map's rank, an official map's name, else the id.</summary>
-    static string ArgOf(MapInfo m) => m.Official ? m.Name : m.Rank > 0 && InArmsRace(m) ? m.Rank.ToString(CultureInfo.InvariantCulture) : m.Id.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>The live state for the HUD (Hud.cs): the map that is on, who or what picked it, its likes, the most liked maps, a change
     /// counting down, a restart coming, the background download, the notes and the news. Rebuilt every tick.</summary>

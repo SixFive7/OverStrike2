@@ -1,4 +1,6 @@
-// Who is on the server, from the log stream alone.
+// Who is on the server: the log stream says it, and RCON status has the last word when the stream knew nobody.
+using System.Text.RegularExpressions;
+
 static partial class Program
 {
     public const int ReloadGraceSeconds = 600;    // a map change logs every player as disconnected; reloading (and downloading) the next map may take this long
@@ -55,4 +57,15 @@ static partial class Program
     {
         foreach (var p in Players.Values) if (p.GoneSince == null) p.ReloadSince ??= now;
     }
+
+    /// <summary>The players present: in game by the log stream, or reloading inside the load grace. One who left is not.</summary>
+    static HashSet<string> PresentIds(DateTime now) => Players.Where(kv => kv.Value.GoneSince == null
+        && (kv.Value.ReloadSince is not { } r || (now - r).TotalSeconds <= ReloadGraceSeconds)).Select(kv => kv.Key).ToHashSet();
+
+    [GeneratedRegex(@"^players\s*:\s*(\d+) humans", RegexOptions.Multiline)] private static partial Regex HumansRx();
+
+    /// <summary>Humans on the server. The connect/disconnect stream answers it for free; when that set is empty - the bridge may have started
+    /// mid-map and missed the joins - one RCON status settles it, and its "players : N humans" line is well inside the first response packet.</summary>
+    static int Humans() => Players.Values.Count(p => p.GoneSince == null && p.ReloadSince == null) is var n && n > 0 ? n
+        : Send("status") is { } reply && HumansRx().Match(reply) is { Success: true } m ? int.Parse(m.Groups[1].Value) : 0;
 }

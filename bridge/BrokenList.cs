@@ -1,16 +1,8 @@
-// The maps the bridge knows: how chat and the HUD name them, the broken-map list and the non-maps (broken.json), and what makes a map
-// unplayable.
+// The broken-map list and the non-maps (broken.json), and what makes a map unplayable.
 using System.Text.Json;
 
 static partial class Program
 {
-    static string CurrentLabel() => S.Map != null ? Label(S.Map) : S.LogName ?? "?";
-
-    /// <summary>How chat names a map: "#12 aim_redline_fps", "ar_baggage (official)", or "workshop 3736209605" for an unlisted one (rank 0, not official).</summary>
-    static string Label(MapInfo m) => m.Official ? $"{m.Name} (official)" : m.Rank > 0 && InArmsRace(m) ? $"#{m.Rank} {m.Name}" : m.Name; // another mode's list numbers are its own: no "#n" there
-    static string Key(MapInfo m) => m.Official ? m.Name : m.Id.ToString(); // crash-counter key; an official map's name is also what the server logs
-    static bool Unlisted(MapInfo m) => m.Rank == 0 && !m.Official;
-
     // ---- the broken-map list and the non-maps: data on the /data volume beside maps.json, never code ----
 
     /// <summary>Reads BROKEN_FILE (--selftest hands it other paths) once, for both lists it carries: the broken maps ("maps") and the
@@ -79,8 +71,6 @@ static partial class Program
         return packs;
     }
 
-    static string JsonText(JsonElement e) => ((e.ValueKind == JsonValueKind.String ? e.GetString() : e.GetRawText()) ?? "").Trim();
-
     /// <summary>Why a map cannot be played at all, or null - the one check for a map asked for, a card on the ballot, a change
     /// counting down and a list that changed: blocked, gone from the Workshop, or no playable map (a pack). Each refusal says why.</summary>
     static string? Unplayable(MapInfo m) => IsBlocked(m) ? BlockedRefusal(m) : IsRemoved(m) ? RemovedRefusal(m) : IsPack(m) ? PackRefusal(m) : null;
@@ -102,12 +92,6 @@ static partial class Program
         var name = Packs.TryGetValue(m.Id.ToString(), out var listed) ? listed : m.Name;
         return M.Refused($"{M.A(name[..Math.Min(60, name.Length)])} {NotAMap}");
     }
-
-    static string Detail(MapInfo m) => m.Official ? "" : Unlisted(m) ? " (size unknown, first load can take a while)" : $" ({Size(m)}{(m.SizeMb >= 400 ? ", first load takes a while" : "")})";
-
-    /// <summary>Detail with the map's first "why" tag in words (MapTags) inside it: " (41 MB, trending on the Workshop)".</summary>
-    static string Detail(MapInfo m, string why) => why == "" ? Detail(m) : Detail(m) is { Length: > 0 } d ? $"{d[..^1]}, {why})" : $" ({why})";
-    static string Size(MapInfo m) => m.SizeMb >= 1000 ? $"{m.SizeMb / 1000.0:0.0} GB" : $"{m.SizeMb} MB";
 
     static int Playable => Maps.Count(m => !IsPack(m)); // what chat counts as "maps": every listed one except a non-map
 }

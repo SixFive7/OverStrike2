@@ -200,17 +200,11 @@ static partial class Program
         if (!AutoRoll("Match over")) Log("match end: no map is eligible to roll"); // no plugin draws a vote (or nothing to put on one): the dice
     }
 
-    [GeneratedRegex(@"^players\s*:\s*(\d+) humans", RegexOptions.Multiline)] private static partial Regex HumansRx();
     [GeneratedRegex(@"^loaded spawngroup\(\s*1\)\s*:\s*SV:\s*\[1:\s*([^|\]\s]+)\s*\|", RegexOptions.Multiline)] private static partial Regex StatusMapRx();
 
     /// <summary>The map RCON status reports as loaded: its first spawngroup, "loaded spawngroup(  1)  : SV:  [1: ar_shoots | main lump | mapload]"
     /// (CS2 1.41.8.8, 2026-10-05). Null when the reply has no such line.</summary>
     static string? StatusMap(string status) => StatusMapRx().Match(status) is { Success: true } m ? m.Groups[1].Value : null;
-
-    /// <summary>Humans on the server. The connect/disconnect stream answers it for free; when that set is empty - the bridge may have started
-    /// mid-map and missed the joins - one RCON status settles it, and its "players : N humans" line is well inside the first response packet.</summary>
-    static int Humans() => Players.Values.Count(p => p.GoneSince == null && p.ReloadSince == null) is var n && n > 0 ? n
-        : Send("status") is { } reply && HumansRx().Match(reply) is { Success: true } m ? int.Parse(m.Groups[1].Value) : 0;
 
     static bool StartRollOwed;                             // a (re)started server: roll once, after its start map (TryStartRoll)
     static bool StartRollNeedsProof;                       // owed by BridgeStart: roll only if RCON status says the start map is loaded

@@ -50,7 +50,6 @@ static partial class Program
     static long WorkshopWritten;                                                 // ...and when the sync wrote it
     static int NumbersStamp;                                                     // moves whenever either file is taken: the tables below start again
 
-    static string DataDir => Path.GetDirectoryName(Path.GetFullPath(MapsFile)) ?? ".";
     static string RatingsFile => Path.Combine(DataDir, "ratings.json");
     static string WorkshopFile => Path.Combine(DataDir, "workshop.json");
 
@@ -58,17 +57,6 @@ static partial class Program
     static bool RatingsKnown => RatingScores.Count > 0 || RatingTrend.Count > 0;
 
     static long NowUnix => new DateTimeOffset(Now()).ToUnixTimeSeconds();
-
-    static double? JsonNumber(JsonElement e) => e.ValueKind == JsonValueKind.Number && e.TryGetDouble(out var d) ? d
-        : e.ValueKind == JsonValueKind.String && double.TryParse(e.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : null;
-
-    static long Whole(JsonElement o, string name) => o.ValueKind == JsonValueKind.Object && o.TryGetProperty(name, out var v) && JsonNumber(v) is { } d ? (long)d : 0;
-
-    static void NeedVersion1(JsonElement root, string what)
-    {
-        if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("not an object");
-        if (root.TryGetProperty("version", out var v) && JsonNumber(v) is not 1) throw new InvalidDataException($"not version 1 of {what}");
-    }
 
     /// <summary>ratings.json's three parts. A score entry is [score, votes up, votes down, subscriptions] or a bare score; anything else is skipped.
     /// Another version, or a file that is not an object, throws to the caller.</summary>

@@ -29,7 +29,6 @@
 // ladder and catch-up's count over.
 using System.Globalization;
 using System.Net;
-using System.Text;
 
 static partial class Program
 {
@@ -77,15 +76,6 @@ static partial class Program
     static void RestartNoticeRequest(HttpListenerContext c) => OnLoop(c, ApplyRestartNotice, "restart notice");
 
     static void UpdatedRequest(HttpListenerContext c) => OnLoop(c, ApplyUpdated, "updated");
-
-    /// <summary>A POST body handed to the event loop, where the state lives, and its answer sent back within 5 s.</summary>
-    static void OnLoop(HttpListenerContext c, Func<string, string> apply, string what)
-    {
-        var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { done.TrySetResult(apply(body)); } catch (Exception e) { Log($"{what}: " + e); done.TrySetResult("error: " + e.Message); } });
-        Reply(c, done.Task.Wait(5000) ? done.Task.Result : "busy: the bridge did not get to it within 5 s");
-    }
 
     static (string Kind, string Why, string After)? RestartKind(string kind) =>
         kind == PlayerKind ? (PlayerKind, "A player's restart", "Back in a minute") : RestartKinds.FirstOrDefault(k => k.Kind == RestartWord(kind)) is { Kind: not null } k ? k : null;
