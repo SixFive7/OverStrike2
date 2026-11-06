@@ -47,6 +47,7 @@ python -I tools/client/probe/test_testcopy.py                   # the client har
 python -I tools/client/probe/test_testcopy_bridge.py            # its candidate bridge
 python -I tools/client/probe/test_bridgepost.py                 # what only the watcher or other players say to a candidate bridge
 python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
+python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)
 ```
 
 The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number
@@ -84,10 +85,15 @@ everything and match the code:
   pages, the vote and its ballot states, the map browser, the Fun page, the Sync page and whatever comes next - so anyone can see
   how the HUD looks in game before installing it. The index lives in [README.md](README.md); the pages and their pictures live
   under [docs/](docs/), not all in the README.
-- **Every kind of on-screen message, in one gallery:** a single self-contained HTML file with a screenshot of each notification
-  type - how it looks and where on the screen it appears - from which the owner picks the types to keep and how to merge them.
+- **Every kind of on-screen message, in one gallery:** a single HTML file, [docs/hud/messages.html](docs/hud/messages.html), with a
+  screenshot of each notification type - how it looks and where on the screen it appears - from which the owner picks the types to keep
+  and how to merge them. Its pictures are files of their own under `docs/hud/img/gallery/`, which it links by relative path: it never
+  carries a picture inside it.
 - **Updated in the same change:** a change that alters what players see updates the affected screenshots and text in the same
   release. It is not done until its documentation matches.
+- **Only the pictures that changed:** the history keeps every picture forever, so a retake commits only those that really show something
+  else. `tools/client/docshots/publish.py` compares each with the committed one, all but what differs on every shot - clocks, timers,
+  counters, a ballot's random maps, the game world behind a panel - and leaves the committed bytes of the rest untouched.
 - **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
   production, driven by script so every page and state can be reached without anybody playing
   ([tools/client/](tools/client/README.md#the-documentations-screenshots)).

@@ -310,7 +310,10 @@ docstring has every option. A session:
 4. **Review** every picture by eye (`docshots\review_sheet.py` makes contact sheets; `maskview.py` checks a mask's box on a real frame; a
    retake's rows go into the main run with `merge_fix.py`, then `--remask`), list them in `<res>\reviewed.txt`, then
    `docshots\publish.py --out <run folder>`: the pages under `docs/hud/`, the gallery, README's index, every picture into
-   `tools/scan/allow.txt` with its hash.
+   `tools/scan/allow.txt` with its hash. Only the pictures that really changed are written: each is compared with the committed one on
+   what it is about (its window, the big vote window or its crop), all but what differs on every shot (`docshots.volatile_boxes`: the
+   clocks, timers and counters, the ballot's random tiles), and one that shows the same keeps its committed bytes; `--all` writes every
+   one anew. The gallery links its pictures, files of their own under `docs/hud/img/gallery/`.
 5. **Back**: `client.sh stop`, `docname.py unload`, `testcopy.py rm`, `bridge-rm`, `bridge-restore`, `restore`, `probe.py unlock`.
 
 ## Files

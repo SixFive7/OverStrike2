@@ -276,6 +276,22 @@ C_VHEAD = Box(100, 250, 1820, 352, "v")
 C_CLOCKS = Box(1040, 252, 1820, 350, "v")
 C_SETROW = Box(360, 320, 900, 430)
 
+# A retake against the committed pictures (publish.py): a picture counts as changed only where it shows something else, not where it
+# differs on every shot. What a frame is about: the window, the big vote window, or the row's crop (WINDOW, VOTE_WINDOW, compare_region);
+# what differs on every shot - clocks, timers, counters, names that change by themselves - is left out (volatile_boxes): these boxes
+# for every window of a kind, and a row's own (Row.volatile). Anything else that differs is a real change, so a box stays as tight as its
+# clock: a word, a style or a layout changed anywhere else shows in the comparison. Measured on the committed pictures at 1080p.
+WINDOW = Box(340, 130, 1580, 950)                       # the normal window
+VOTE_WINDOW = Box(80, 80, 1840, 1000, "v")             # the big vote window
+V_MAPCOUNT = Box(548, 179, 770, 199)                    # the window's header: "3751 WORKSHOP MAPS", a count the sync moves
+V_IDLE = Box(1248, 914, 1558, 942)                      # the window's foot: "CLOSES WHEN IDLE" and its draining bar
+V_VOTE_MAPCOUNT = Box(296, 130, 470, 147, "v")          # the big window's header count
+V_VOTE_SUBTAB = Box(112, 216, 312, 237, "v")            # "VOTE - 51 S", the vote's seconds on its sub-tab, and BROWSE beside it, which moves as the seconds' words narrow
+V_VOTE_TILES = Box(110, 352, 1810, 918, "v")            # the ballot's tiles: rolled at random for every vote - their maps, pictures, names, votes
+V_ONFOR = Box(1470, 362, 1558, 382)                     # SERVER, Players: the first row's ON FOR, a timer
+V_HUD_COLUMN = Box(748, 362, 1110, 382)                 # SERVER, Players: the first row's HUD column, where the check counts its seconds
+V_SYNC_BODY = Box(362, 298, 1558, 908)                  # SERVER, Sync: the sync's own live status, queue and history - every word a value of the moment
+
 
 # ---------------------------------------------------------------- the steps: what a row does, in order ---------------------------------------------------
 
@@ -423,6 +439,7 @@ class Row:
     stand_in: bool = False                      # the message's real words on its real panel, sent with gg_notice
     words_from: tuple = ()                      # (path at HEAD, words that must still be there)
     renamed: bool = False                       # its own words name the client, where no mask can go: only with --renamed
+    volatile: tuple = ()                        # boxes that differ on every shot beyond those of its window's kind (volatile_boxes)
 
 
 ROWS: list[Row] = []
@@ -442,7 +459,8 @@ R("check-click-to-play", "The welcome window at a real join, while the HUD check
   when="5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
   crop=C_X, masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
 R("players-check", "SERVER > Players while the check waits: HUD check: N s left in the HUD column", section=S_WINDOW,
-  after="check-click-to-play", steps=[show("players"), pause(1), shoot()], when="1 s after the show returns; show is no click", masks=(M_PLAYER1,), names=PLAYERS)
+  after="check-click-to-play", steps=[show("players"), pause(1), shoot()], when="1 s after the show returns; show is no click", masks=(M_PLAYER1,), names=PLAYERS,
+  volatile=(V_ONFOR, V_HUD_COLUMN))
 R("check-warning", "The warning before the disconnect, in CS2's alert box; under HUD_CHECK warn its words say to close the window", pick="HUD check: the disconnect warning",
   today="CS2's alert text 10b, 15 s, and its chat lines (the words of enforce take HUD_CHECK=enforce, which no verb sets)",
   after="players-check", steps=[RELEASE, pause(50), shoot(n=2)], when="about 80 s after the first spawn, 5 s into the 15 s; the window closed by css_gghud release, which is no click, since it hides the box",
@@ -538,9 +556,9 @@ R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair"
 R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick="The leader's bounty", today="the card 3d, as picked, 5 s; that player's chat", steps=[rb(f"gg_catchup show {ACCOUNT} lead 4", expect=r"catchup: showed"), pause(2.4), shoot()],
   when="as catchup-boost", crop=C_CARD, win=False)
 R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section=S_WINDOW, steps=[show("start"), press("gg_tab_server"), pause(1), shoot()],
-  when="1 s after the click returns", masks=(M_PLAYER1,), names=PLAYERS)
+  when="1 s after the click returns", masks=(M_PLAYER1,), names=PLAYERS, volatile=(V_ONFOR,))
 R("players-older", "SERVER > Players: an older HUD: older - restart CS2 (css_gghud content 1)", section=S_WINDOW, steps=[content(1), show("players"), pause(1), shoot()], cleanup=[content(LEVEL)],
-  when="1 s after the show returns", masks=(M_PLAYER1,), names=PLAYERS)
+  when="1 s after the show returns", masks=(M_PLAYER1,), names=PLAYERS, volatile=(V_ONFOR,))
 R("page-game", "SERVER > Game: the match length, the two restarts", section=S_WINDOW, steps=[show("players"), press("gg_tab_game"), pause(1), shoot()], when="1 s after the click returns",
   crop=C_SETROW, masks=(BLUR_SETBY,), names=real("a bridge state that carries a set-by: that place is blurred"))
 R("game-restart-armed", "SERVER > Game: the restart after its first click, Press again; the line says click again", pick="The answer to your own click: refused, click again, already set",
@@ -549,10 +567,11 @@ R("game-restart-armed", "SERVER > Game: the restart after its first click, Press
 R("game-time-10", "SERVER > Game: Matches last 10 minutes - Set by, the lit button", section=S_WINDOW, bridge=W_TIME,
   steps=[show("game"), post("act", "0", "time10"), pause(2), shoot()], cleanup=[post("act", "0", "time60"), pause(NEWS_GONE), post("fake-off"), RELEASE], when="about 4 s after a fake player's click, so the page and the top line name a test name; the cleanup waits out the line that puts it back", crop=C_SETROW, names=TEST_NAME,
   avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudBrowser.cs", "Matches last"))
-R("page-sync", "SERVER > Sync: what the map sync does, its queue, its history", section=S_WINDOW, steps=[show("sync"), pause(1), shoot()], when="1 s after the show returns. Live numbers and Workshop map names; no player name in the block (bridge/SyncDash.cs)")
+R("page-sync", "SERVER > Sync: what the map sync does, its queue, its history", section=S_WINDOW, steps=[show("sync"), pause(1), shoot()], when="1 s after the show returns. Live numbers and Workshop map names; no player name in the block (bridge/SyncDash.cs)",
+  volatile=(V_SYNC_BODY,))
 for _id, _b, _w in (("sync-queue-next", "gg_osdq_next", "the queue's next page"), ("sync-history-next", "gg_osdr_next", "the history's next page"), ("sync-maps-next", "gg_osdm_next", "the map events' next page"),
                     ("sync-maps-last", "gg_osdm_last", "the map events' last page")):
-    R(_id, f"SERVER > Sync: {_w}", section=S_WINDOW, after="page-sync", steps=[press(_b), pause(1), shoot()], when="1 s after the click returns")
+    R(_id, f"SERVER > Sync: {_w}", section=S_WINDOW, after="page-sync", steps=[press(_b), pause(1), shoot()], when="1 s after the click returns", volatile=(V_SYNC_BODY,))
 R("page-help", "HELP > Help: where everything is", section=S_WINDOW, after="page-sync", steps=[press("gg_tab_help"), pause(1), shoot()], when="1 s after the click returns")
 R("page-how", "HELP > How it works: every rule and chance of a map pick", section=S_WINDOW, after="page-help", steps=[press("gg_tab_how"), pause(1), shoot()], cleanup=[press("gg_sub_help")], when="1 s after the click returns")
 
@@ -1101,6 +1120,58 @@ def paint_name(im, box, mask, s):
     for c in mask.text:
         d.text((x, y), c, fill=mask.color, font=font, anchor="lm")
         x += font.getlength(c) + spacing
+
+
+def compare_region(row, w, h, crop=False):
+    """The part of a picture a retake is compared on, in its pixels: a crop file whole; a frame by its window, its big vote window, its crop, or
+    whole when it has none of these."""
+    if crop:
+        b = place(row.crop, w, h) if row.crop else (0, 0, w, h)
+        return (0, 0, b[2] - b[0], b[3] - b[1])
+    if row.win == "vote":
+        return place(VOTE_WINDOW, w, h)
+    if row.win:
+        return place(WINDOW, w, h)
+    return place(row.crop, w, h) if row.crop else (0, 0, w, h)
+
+
+def volatile_boxes(row, w, h, crop=False):
+    """What differs on every shot in a picture of this row, in its pixels: its window kind's clocks and counters, and the row's own boxes. In a crop
+    file the boxes are moved to the crop's corner and cut to it."""
+    boxes = list(row.volatile)
+    if row.win == "vote":
+        boxes += [V_VOTE_MAPCOUNT, V_VOTE_SUBTAB, C_CLOCKS, V_VOTE_TILES]
+    elif row.win:
+        boxes += [V_MAPCOUNT, V_IDLE]
+    out = [place(b, w, h) for b in boxes]
+    if crop and row.crop:
+        cx0, cy0, cx1, cy1 = place(row.crop, w, h)
+        out = [(max(x0, cx0) - cx0, max(y0, cy0) - cy0, min(x1, cx1) - cx0, min(y1, cy1) - cy0) for x0, y0, x1, y1 in out]
+    return [b for b in out if b[2] > b[0] and b[3] > b[1]]
+
+
+SAME_LEVEL, SAME_BLOCK = 48, 8    # a pixel differs by more than 48 of 255 in a channel; an 8x8 block counts when 8 of its 64 pixels do
+
+
+def same_picture(new, old, region, volatile=()):
+    """Whether two pictures show the same within region, all but the volatile boxes: (True, words) or (False, where they differ). JPEG's noise and a
+    translucent panel over a game world that differs behind it stay under SAME_LEVEL; a changed word, style or layout moves whole blocks."""
+    from PIL import Image, ImageChops, ImageDraw
+    if new.size != old.size:
+        return False, f"size {new.size[0]}x{new.size[1]}, committed {old.size[0]}x{old.size[1]}"
+    diff = ImageChops.difference(new.convert("RGB"), old.convert("RGB")).crop(region)
+    level = diff.split()
+    mask = ImageChops.lighter(ImageChops.lighter(level[0], level[1]), level[2]).point(lambda v: 255 if v > SAME_LEVEL else 0)
+    if volatile:
+        draw = ImageDraw.Draw(mask)
+        for x0, y0, x1, y1 in volatile:
+            draw.rectangle((x0 - region[0], y0 - region[1], x1 - region[0] - 1, y1 - region[1] - 1), fill=0)
+    w, h = mask.size
+    blocks = mask.resize((max(1, w // SAME_BLOCK), max(1, h // SAME_BLOCK)), Image.BOX)   # each block's share of differing pixels, 0-255
+    hot = blocks.point(lambda v: 255 if v * 64 >= SAME_BLOCK * 255 else 0).getbbox()
+    if hot is None:
+        return True, "the same, all but what differs on every shot"
+    return False, f"differs at {region[0] + hot[0] * SAME_BLOCK},{region[1] + hot[1] * SAME_BLOCK} - {region[0] + hot[2] * SAME_BLOCK},{region[1] + hot[3] * SAME_BLOCK}"
 
 
 def kept_masks(row):
@@ -2109,8 +2180,48 @@ def _selfcheck(info):
     for res in RESOLUTIONS:
         w, h = parse_res(res)
         for r in ROWS:
-            for x0, y0, x1, y1 in [*(mask_box(m, w, h) for m in r.masks if m.box), *([place(r.crop, w, h)] if r.crop else [])]:
+            for x0, y0, x1, y1 in [*(mask_box(m, w, h) for m in r.masks if m.box), *([place(r.crop, w, h)] if r.crop else []), compare_region(r, w, h),
+                                   *volatile_boxes(r, w, h)]:
                 check(x1 > x0 and y1 > y0 and x0 >= 0 and y0 >= 0 and x1 <= w and y1 <= h, f"{res}, {r.id}: box {x0, y0, x1, y1} off the frame")
+
+    # a retake against the committed picture (publish.py): the same within noise and the volatile boxes, a real change anywhere else
+    rows = {r.id: r for r in ROWS}
+    w, h = 1920, 1080
+    shot = Image.effect_noise((w, h), 30).convert("RGB")
+    jpeg_again = io.BytesIO()
+    shot.save(jpeg_again, "JPEG", quality=85, subsampling=0)
+    again = Image.open(io.BytesIO(jpeg_again.getvalue())).convert("RGB")
+    help_row, players_row, vote_row = rows["page-help"], rows["page-players"], rows["vote-open"]
+    region = compare_region(help_row, w, h)
+    check(same_picture(again, shot, region, volatile_boxes(help_row, w, h))[0], "same_picture: the same frame through JPEG at quality 85 counts as changed")
+
+    def painted(base, box, colour=(250, 250, 250)):
+        from PIL import ImageDraw
+        im = base.copy()
+        ImageDraw.Draw(im).rectangle((box[0], box[1], box[2] - 1, box[3] - 1), fill=colour)   # a box is half-open, as place() gives it
+        return im
+
+    word = (900, 500, 960, 512)                              # a word's size, inside the window, outside every volatile box
+    check(not same_picture(painted(shot, word), shot, region, volatile_boxes(help_row, w, h))[0], "same_picture: a changed word in the window counts as the same")
+    clock = place(V_IDLE, w, h)
+    check(same_picture(painted(shot, (clock[0] + 4, clock[1] + 4, clock[2] - 4, clock[3] - 4)), shot, region, volatile_boxes(help_row, w, h))[0],
+          "same_picture: the idle bar's change counts as changed")
+    onfor = place(V_ONFOR, w, h)
+    check(same_picture(painted(shot, onfor), shot, compare_region(players_row, w, h), volatile_boxes(players_row, w, h))[0]
+          and not same_picture(painted(shot, onfor), shot, compare_region(help_row, w, h), volatile_boxes(help_row, w, h))[0],
+          "same_picture: a row's own volatile box is not its alone")
+    outside = (10, 10, 200, 200)                               # the radar, outside the window: a frame is compared by its window
+    check(same_picture(painted(shot, outside), shot, region, volatile_boxes(help_row, w, h))[0], "same_picture: the world outside the window counts")
+    tiles = place(V_VOTE_TILES, w, h)
+    check(same_picture(painted(shot, (tiles[0] + 50, tiles[1] + 50, tiles[0] + 400, tiles[1] + 200)), shot, compare_region(vote_row, w, h), volatile_boxes(vote_row, w, h))[0],
+          "same_picture: the ballot's random tiles count")
+    check(not same_picture(shot.resize((1280, 720)), shot, region)[0], "same_picture: another size counts as the same")
+    crop_row = rows["chat-unknown"]
+    cb = place(crop_row.crop, w, h)
+    look, look_again = shot.crop(cb), again.crop(cb)
+    check(same_picture(look_again, look, compare_region(crop_row, w, h, crop=True), volatile_boxes(crop_row, w, h, crop=True))[0]
+          and not same_picture(painted(look_again, (20, 20, 80, 32)), look, compare_region(crop_row, w, h, crop=True), volatile_boxes(crop_row, w, h, crop=True))[0],
+          "same_picture: a crop compared whole")
 
     # the --only chain: a row's ancestors run first, as setup, and take no picture
     plan, _ = build_plan(["vote-kept"], True)
@@ -2229,6 +2340,7 @@ def _selfcheck(info):
     print(f"  --dry-run at {len(RESOLUTIONS)} resolutions, with and without --bridge-copy: only the verbs {ALL_VERBS} and, with the copy, bridgepost.py's, every shot -MaxWidth 0, no real name; estimated minutes with the copy: "
           + ", ".join(f"{k} {v}" for k, v in estimates.items()))
     print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only")
+    print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world behind; changed by a word anywhere else")
     print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb")
     print("  NOT checked, and not checkable offline: anything against a real client or server")
     return 0
