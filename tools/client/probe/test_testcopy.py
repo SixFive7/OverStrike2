@@ -236,13 +236,17 @@ except SystemExit:
     refused = True
 check("run --env refuses the settings text: it holds secrets", refused)
 
-# 11. restore: production back on the endpoint saved at prep, or the flag stays on
+# 11. restore: production back on the endpoint saved at prep, running what its plugins folder holds, or the flag stays on
 up = dict(ins("running"), NetworkSettings={"Networks": net})
-for saved, want_ok, what in ((up, True, "the same container on the saved endpoint"),
-                             (dict(up, NetworkSettings={"Networks": {"game": dict(net["game"], MacAddress="02:00:00:00:00:65")}}), False, "another MAC than at prep"),
-                             (None, False, "no saved inspect")):
+installed = {"answer": "files 4 differ 0"}
+probe.exec_in = lambda container, cmd, env=None, timeout=120: calls.append(("exec", container, cmd[-1][:40])) or installed["answer"]
+for saved, plugins, want_ok, what in ((up, "files 4 differ 0", True, "the same container on the saved endpoint, its own plugins in the game's tree"),
+                                      (dict(up, NetworkSettings={"Networks": {"game": dict(net["game"], MacAddress="02:00:00:00:00:65")}}), "files 4 differ 0", False, "another MAC than at prep"),
+                                      (None, "files 4 differ 0", False, "no saved inspect"),
+                                      (up, "DIFF OverStrike2/OverStrike2.dll\nfiles 4 differ 1", False, "a plugin in the game's tree that is not its plugins folder's")):
     state.clear(); calls.clear()
     state["cs2-prod-aside"] = [up]
+    installed["answer"] = plugins
     tc.FLAG.write_text("x"); tc.FLAG_MINE.write_text("1")
     if saved is None:
         tc.PROD_SAVED.unlink(missing_ok=True)
@@ -251,6 +255,8 @@ for saved, want_ok, what in ((up, True, "the same container on the saved endpoin
     with contextlib.redirect_stdout(io.StringIO()):
         tc.cmd_restore()
     check(f"restore, {what}: the flag {'removed' if want_ok else 'left on'}", tc.FLAG.exists() != want_ok and tc.FLAG_MINE.exists() != want_ok)
+check("restore: the plugins compared in production itself, its plugins folder against the game's tree",
+      any(c[0] == "exec" and c[1] == "cs2" and c[2].startswith("cd /home/steam/cs2-plugins") for c in calls))
 
 shutil.rmtree(tmp)
 print("failures:", fails)

@@ -132,7 +132,14 @@ so the files must be in place **before** CS2 starts - the harness installs them 
 3. **The insecure test copy**: `python -I tools\client\probe\testcopy.py prep` (refuses with a human on A2S; sets the bridge's
    maintenance flag; production stopped by Docker - no RCON quit, which lets the restart policy start it again underneath - and
    renamed aside), then `testcopy.py run` (a test copy from production's own inspect - same image, plugins and HUD addon - with
-   `-insecure` added; it waits until A2S answers with VAC off).
+   `-insecure` added; it waits until A2S answers with VAC off). **The plugin of the same commit**, when the HUD build needs it: before
+   `run` (before `prep` too: it builds while production still runs), `testcopy.py plugin <commit>` - the commit must be on main. It builds
+   the plugin from that commit as committed (`git archive` of `plugin/`, `bridge/` and `core/` into the state folder, `dotnet build -c
+   Release`) and stages what `deploy/plugin.py` ships of it in a folder beside production's plugins folder (`<its bind's source>-candidate`,
+   written by a short-lived helper container: production's other plugin folders as they are, `OverStrike2` replaced, each file checked
+   against the build). `run` then mounts that folder in the place of production's plugins folder, which no test ever writes, and checks
+   that the copy's game tree holds the staged DLL and the plugin is loaded. `testcopy.py status` says which plugin a copy gets;
+   `plugin-rm` goes back to production's.
 4. **Hand out no addon on the copy**: `cs2client.ps1 rcon -Rcon 'mm_extra_addons ""; mm_client_extra_addons ""'` - both lists: the
    server mounts the HUD item through `mm_extra_addons` (older launchers sent it through `mm_client_extra_addons`); empty both, and the copy
    hands out nothing whichever launcher it runs. While the server hands the Workshop addon out, the client mounts it and **its** copy of
@@ -157,8 +164,9 @@ so the files must be in place **before** CS2 starts - the harness installs them 
 8. **Stop the client**: `cs2client.ps1 stop`. Check `loose HUD files: removed N loose HUD file(s) ...`; `cs2client.ps1 check` must say
    OK afterwards (it finds any loose file left).
 9. **Production back**: `testcopy.py rm`, then `testcopy.py restore` (production renamed back and started; waits for A2S with VAC ON;
-   checks its network endpoint against the inspect saved at prep, and the plugins; removes the maintenance flag only when all that
-   holds). Then `probe.py unlock`.
+   checks its network endpoint against the inspect saved at prep, and that its start copied its own plugins folder into the game's tree,
+   file for file - the copy ran its plugin from the same tree; removes the maintenance flag only when all that holds, and then a staged
+   plugin's folder). Then `probe.py unlock`.
 
 **What cannot be done from here:** clicks - the tabs, the buttons, the TAB board, the keyboard. That includes CS2's own **Confirm
 Workshop Download** dialog: joining a server that is on a Workshop map this PC does not have, the client asks before fetching it, nobody
@@ -182,7 +190,7 @@ player's second `act restart` quits the server 10 s later unless `quit-notice` c
 
 **Three traps on the test copy:** `css_plugins reload OverStrike2` leaves the old instance's listeners running: one chat line gets several
 answers, and the instances remove each other's layout entity (`gghud: no HUD entity`), so test a new plugin on a fresh copy
-(`testcopy.py rm`, the plugin in its folder, `testcopy.py run`). Removing the maintenance flag rolls the dice within a second, and the
+(`testcopy.py rm`, `testcopy.py plugin <commit>`, `testcopy.py run`). Removing the maintenance flag rolls the dice within a second, and the
 roll is usually a Workshop map, which puts the client in the dialog above; `changelevel <official map>`, then `disconnect` and `connect` in
 the client's console, gets it back. A press's RCON call returns some seconds after the press has happened, so start a burst of
 screenshots (`Save-Cs2Screenshot` in a loop, about 3 a second; 20 a second at 480 px wide through `[Cs2Harness.Native]::CaptureWindow`)
@@ -302,9 +310,9 @@ docstring has every option. A session:
 1. **The build under test**, from a clean checkout of the commit the pictures show: `OUT=<session folder> docshots/build_docs.sh <checkout> <map pictures>`
    - the plugin, the bridge's image `docs-<commit12>` (`deploy/bridge.py build`), the HUD into its own addon (`docshots\build_hud.ps1`,
    `os2docs`).
-2. **The server** under the lock: `probe.py lock`, `testcopy.py prep`, `bridge-prep`, `bridge-run docs-<commit12> --keep-flag`, `run`,
-   the addon lists emptied (step 4 above), `docshots\docname.py load`. The copy runs the plugin in production's plugins folder: pictures of
-   another plugin build need that build in a plugins folder mounted into the copy alone, which these scripts do not set up.
+2. **The server** under the lock: `probe.py lock`, `testcopy.py plugin <commit>` (the plugin of the commit the pictures show; step 3
+   above), `testcopy.py prep`, `bridge-prep`, `bridge-run docs-<commit12> --keep-flag`, `run`, the addon lists emptied (step 4 above),
+   `docshots\docname.py load`.
 3. **A client per resolution**: `docshots/client.sh start <WxH>`, then `OUT=... BUILT=<commit> docshots/run_res.sh <WxH> full` - the full
    table at 1920x1080 for the docs; `docshots/review_all.sh` the review set at the other six, for the owner's review only.
 4. **Review** every picture by eye (`docshots\review_sheet.py` makes contact sheets; `maskview.py` checks a mask's box on a real frame; a
@@ -325,7 +333,7 @@ docstring has every option. A session:
 | `watchdog.ps1` | The guard (above). |
 | `Cs2Native.cs` | The Win32 side, compiled by the module with `Add-Type` into the state folder's `bin\` (keyed by its hash). |
 | `probe\probe.py`, `probe\GgClientProbe\` | The server half: the private config, the server lock, the Docker API and RCON for the verbs; and the probe plugin for tests that need the server to show this client something. |
-| `probe\testcopy.py` | The insecure test copy of production for loose-file and console tests (`prep`, `run [--env K=V]`, `status`, `rm`, `restore`), and a candidate bridge beside it - a new bridge image on a copy of the bridge's data, production's bridge set aside and its state never written (`bridge-prep`, `bridge-run <tag>`, `bridge-rm`, `bridge-restore`; the order is in its docstring). `run` sets the watcher's automatic actions, the deletion and the HUD item's page off in the copy's `OVERSTRIKE2_SETTINGS_CONTENT`, and a candidate bridge has production's text in its environment; `--env` reaches only the image's own variables. |
+| `probe\testcopy.py` | The insecure test copy of production for loose-file and console tests (`prep`, `run [--env K=V]`, `status`, `rm`, `restore`), a candidate bridge beside it - a new bridge image on a copy of the bridge's data, production's bridge set aside and its state never written (`bridge-prep`, `bridge-run <tag>`, `bridge-rm`, `bridge-restore`; the order is in its docstring) - and the plugin of a commit of main on the copy, production's plugins folder never written (`plugin <commit>`, `plugin-rm`). `run` sets the watcher's automatic actions, the deletion and the HUD item's page off in the copy's `OVERSTRIKE2_SETTINGS_CONTENT`, and a candidate bridge has production's text in its environment; `--env` reaches only the image's own variables. |
 | `probe\bridgepost.py` | What only the restart watcher or other players say to the bridge, to a candidate bridge on a test copy only. |
 | `probe\test_*.py`, `probe\simconfig.py` | The offline tests: an in-memory Docker, a made-up private config, no server (AGENTS.md runs them). |
 | `docshots\` | The documentation's screenshots: `docshots.py` and its `messages.txt`, `publish.py`, the session's scripts, GgDocName. |

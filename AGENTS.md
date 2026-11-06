@@ -45,6 +45,7 @@ python -I deploy/test_release.py
 python -I deploy/test_check.py                                  # the guard before a redeploy and the check after one, offline too
 python -I tools/client/probe/test_testcopy.py                   # the client harness's test copy of the server, offline
 python -I tools/client/probe/test_testcopy_bridge.py            # its candidate bridge
+python -I tools/client/probe/test_testcopy_plugin.py            # the plugin of a commit of main on it
 python -I tools/client/probe/test_bridgepost.py                 # what only the watcher or other players say to a candidate bridge
 python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
 python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)

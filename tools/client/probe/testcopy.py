@@ -48,6 +48,22 @@ Production's state.json is never written by a candidate: production's bridge is 
 the copy, and the copy helper mounts production's data read-only. A Workshop sync that posts to the bridge's name reaches the candidate,
 which writes into the copy.
 
+THE PLUGIN OF A COMMIT OF MAIN on the test copy, so a plugin change meets the client before it ships: the copy mounts a staged plugins
+folder in place of production's, and production's own plugins folder is never written. Production's game server copies its plugins into
+the game's tree at every start, and the copy does the same from the staged folder, so production's next start - restore - puts its own
+plugin back; restore checks that it did. Any time under the lock, before prep too (it builds while production still runs), and before run:
+
+  python -I testcopy.py plugin <commit>  the plugin built from <commit>, which must be on main (origin/main or main): plugin/, bridge/ and
+                                         core/ as committed (git archive) into the state folder, dotnet build -c Release there; what
+                                         deploy/plugin.py ships of it (the DLL, its .pdb, the config files the project declares) staged by a
+                                         short-lived helper container (the game image as root, no network) in <plugins dir>-candidate, beside
+                                         production's plugins folder as the game server's bind names it: production's other plugin folders as
+                                         they are, its OverStrike2 folder replaced, owned as production's folder is, checked byte for byte.
+                                         From then on run mounts it in the copy's place of the plugins folder, and checks that the copy runs
+                                         that DLL
+  python -I testcopy.py plugin-rm        the staged folder deleted (a helper), and run mounts production's plugins folder again; refuses while
+                                         a test copy mounts it. restore does it by itself once production is back and runs its own plugin
+
 THE SETTINGS TEXT. The watcher and the plugin read the settings text, production's environment variable OVERSTRIKE2_SETTINGS_CONTENT. So
 run sets SETTINGS_OFF on that text in the copy's environment: the watcher's automatic actions, the deletion and the Workshop page visits
 off, every other value production's. A text that cannot be read stops the copy before it is created, because a copy without its
@@ -57,7 +73,7 @@ older programs, which read the variables in OFF) gets OFF alone.
 Prints no secret: the saved inspects (they hold the RCON password and the bridge's secret) stay in the harness's state folder
 (probe.state_dir(), testcopy/) and are deleted once production is itself again.
 """
-import copy, json, re, socket, sys, time
+import copy, hashlib, io, json, os, re, shlex, shutil, socket, subprocess, sys, tarfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -77,6 +93,11 @@ STATE = probe.state_dir() / "testcopy"
 PROD_SAVED = STATE / "prod-inspect.json"
 FLAG_MINE = STATE / "flag-set-by-testcopy"
 BRIDGE_SAVED = STATE / "bridge-inspect.json"
+STAGED = STATE / "plugin-staged.json"                 # the staged plugin: its commit, folder, files and their hashes (no secret in it)
+BUILDS = STATE / "plugin-build"                       # the commits' exports and builds, one folder each
+PLUGIN = "OverStrike2"                                # the plugin's folder, DLL and name (deploy/plugin.py's NAME)
+PLUGINS_AT = "/home/steam/cs2-plugins"                # paths.plugins' default (core/Settings.cs): where the game server reads the plugins to install
+GAME_DIR_AT = "/home/steam/cs2-dedicated"             # paths.gameDir's default: the game's install, its plugins under game/csgo/addons/counterstrikesharp
 TEST_LABEL = "cs2.test-config"
 TAG = "insecure client-test copy (tools/client/probe/testcopy.py): -insecure, restart watcher off"
 BRIDGE_TAG = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data"
@@ -222,6 +243,13 @@ def settings_for_copy(entry):
 def body(extra=None):
     d = json.loads(PROD_SAVED.read_text())
     c, h = d["Config"], copy.deepcopy(d["HostConfig"])
+    staged = staged_plugin()
+    if staged:   # the staged plugins folder in the place of production's, its options (read-only) kept
+        at = plugins_at(d)
+        src = bind_source(d, at)
+        if not src or staged["dir"] != copy_dir(src) or swap_bind(h, at, src, staged["dir"]) != 1:
+            sys.exit(f"REFUSED: the staged plugin cannot take the place of production's plugins folder at {at} - no copy, which would run "
+                     "production's plugin (plugin-rm, then plugin <commit> again)")
     over = {**OFF, **(extra or {})}
     env = [settings_for_copy(e) if e.startswith(CONTENT + "=") else e
            for e in c["Env"] if e.split("=", 1)[0] not in over and not e.startswith("CS2_ADDITIONAL_ARGS=")]
@@ -265,12 +293,18 @@ def cmd_run(argv=()):
     new = body(extra)
     if any(e.startswith(CONTENT + "=") for e in new["Env"]):
         log("production holds the settings text: the copy has it with", ", ".join(f"{s}.{k}" for s, v in SETTINGS_OFF.items() for k in v), "overridden")
+    staged = staged_plugin()
+    log(f"plugin: the build of {staged['commit'][:12]}, staged, in the place of production's plugins folder" if staged else "plugin: production's")
     st, b = probe.req(f"/containers/create?name={GAME}", "POST", new)
     log("create test copy ->", st, json.loads(b).get("Id", "")[:12])
     st, _ = probe.req(f"/containers/{GAME}/start", "POST")
     log("start ->", st, "net", pinned(inspect(GAME)))
     i, t = wait_a2s(0, 480)
     log(f"A2S after {t:.0f} s:", i, "- VAC OFF, the insecure test copy is up" if i and i[3] == 0 else "- NOT an insecure server: check before any insecure client joins")
+    if staged and i:
+        time.sleep(5)
+        ok, words = plugin_on_copy(staged)
+        log(words if ok else words + " - LOOK before testing: the copy does not run the staged plugin")
 
 
 def cmd_status():
@@ -284,6 +318,8 @@ def cmd_status():
     print(f"{ASIDE}:", "none" if a is None else a["State"]["Status"])
     print("A2S:", a2s(), "(name, map, humans, VAC)")
     print("maintenance flag:", FLAG.exists(), "(set by testcopy)" if FLAG_MINE.exists() else "")
+    s = staged_plugin()
+    print("plugin for a copy:", f"the build of {s['commit'][:12]}, staged {s['staged']} ({len(s['files'])} files)" if s else "production's (none staged)")
 
 
 def cmd_rm():
@@ -323,8 +359,10 @@ def cmd_restore():
     time.sleep(5)
     plugins = [l.strip() for l in probe.rcon("css_plugins list").splitlines() if "LOADED" in l]
     log("plugins:", plugins)
+    ok_plugins, words = plugins_as_installed(d)   # its start copied its own plugins over whatever a copy ran
+    log("production's plugins in the game's tree:", words, "- OK: what its plugins folder holds" if ok_plugins else "- NOT WHAT ITS PLUGINS FOLDER HOLDS: look now")
     if FLAG_MINE.exists():
-        if i and i[3] == 1 and ok_net:
+        if i and i[3] == 1 and ok_net and ok_plugins:
             FLAG.unlink(missing_ok=True)
             FLAG_MINE.unlink()
             log("maintenance flag removed")
@@ -332,20 +370,29 @@ def cmd_restore():
             log("maintenance flag LEFT ON: production is not verified")
     if ok_net:
         PROD_SAVED.unlink(missing_ok=True)   # it holds secrets; production is itself again
+    staged = staged_plugin()
+    if staged and ok_net and ok_plugins:
+        remove_staged(staged)
 
 
 # ---------------------------------------------------------------------------------------------------- the candidate bridge
 
-def data_mount(d):
-    """The host folder a bridge container has at /data (a bind), or None."""
+def bind_source(d, target):
+    """The host folder a container has at `target` (a bind), or None."""
+    target = target.rstrip("/")
     for b in (d.get("HostConfig") or {}).get("Binds") or []:
         src, _, rest = b.partition(":")
-        if rest.split(":")[0] == "/data":
+        if rest.split(":")[0].rstrip("/") == target:
             return src
     for m in (d.get("HostConfig") or {}).get("Mounts") or []:
-        if m.get("Target") == "/data" and m.get("Type") == "bind":
+        if (m.get("Target") or "").rstrip("/") == target and m.get("Type") == "bind":
             return m.get("Source")
-    return next((m.get("Source") for m in d.get("Mounts") or [] if m.get("Destination") == "/data" and m.get("Type") == "bind"), None)
+    return next((m.get("Source") for m in d.get("Mounts") or [] if (m.get("Destination") or "").rstrip("/") == target and m.get("Type") == "bind"), None)
+
+
+def data_mount(d):
+    """The host folder a bridge container has at /data (a bind), or None."""
+    return bind_source(d, "/data")
 
 
 def copy_dir(src):
@@ -355,12 +402,12 @@ def copy_dir(src):
     return src.rstrip("/") + "-candidate"
 
 
-def helper(name, binds, script):
-    """One short-lived container from the game image, as root, without a network: runs `script` with `binds`, is removed, and
-    returns (exit code, its output)."""
-    image = json.loads(PROD_SAVED.read_text())["Image"]
+def helper(name, binds, script, image=None):
+    """One short-lived container from the game image (production's, as saved at prep, unless `image`), as root, without a network: runs
+    `script` with `binds`, is removed, and returns (exit code, its output)."""
+    image = image or json.loads(PROD_SAVED.read_text())["Image"]
     st, b = probe.req(f"/containers/create?name={name}", "POST",
-                      {"Image": image, "User": "0:0", "Entrypoint": ["/bin/bash", "-c"], "Cmd": [script], "Labels": {TEST_LABEL: "helper: " + name},
+                      {"Image": image, "User": "0:0", "Entrypoint": ["/bin/bash", "-c"], "Cmd": [script], "Labels": {**EXTRA_LABELS, TEST_LABEL: "helper: " + name},
                        "HostConfig": {"Binds": binds, "NetworkMode": "none", "RestartPolicy": {"Name": "no"}}})
     cid = json.loads(b).get("Id", "")
     try:
@@ -499,11 +546,250 @@ def cmd_bridge_restore():
         BRIDGE_SAVED.unlink(missing_ok=True)   # it holds secrets; production's bridge is itself again
 
 
+# ---------------------------------------------------------------------------------------------------- the plugin of a commit
+
+def env_of(d, name):
+    return next((e.split("=", 1)[1] for e in (d.get("Config") or {}).get("Env") or [] if e.startswith(name + "=")), None)
+
+
+def setting_path(d, key, default, older=None):
+    """paths.<key> as the game server reads it: its settings text, else (no text: the older programs) the variable `older`, else the default."""
+    text = env_of(d, CONTENT)
+    if text is not None:
+        try:
+            value = ((jsonc(text) or {}).get("paths") or {}).get(key)
+        except (ValueError, AttributeError):
+            value = None
+    else:
+        value = env_of(d, older) if older else None
+    return value.rstrip("/") if isinstance(value, str) and value.startswith("/") else default
+
+
+def plugins_at(d):
+    """Where the game server reads the plugins it installs at every start (paths.plugins)."""
+    return setting_path(d, "plugins", PLUGINS_AT, "CS2_PLUGINS_SRC")
+
+
+def game_plugins_dir(d):
+    """CounterStrikeSharp's plugins in the game's tree, where every start copies them to (paths.gameDir, os2-server's CopyPlugins)."""
+    return setting_path(d, "gameDir", GAME_DIR_AT, "STEAMAPPDIR") + "/game/csgo/addons/counterstrikesharp/plugins"
+
+
+def swap_bind(h, target, src, new_src):
+    """HostConfig h with its bind of `src` at `target` taken from `new_src` instead, its options kept; returns how many it changed."""
+    target, n = target.rstrip("/"), 0
+    if h.get("Binds"):
+        binds = []
+        for b in h["Binds"]:
+            s, _, rest = b.partition(":")
+            if s == src and rest.split(":")[0].rstrip("/") == target:
+                b, n = new_src + ":" + rest, n + 1
+            binds.append(b)
+        h["Binds"] = binds
+    for m in h.get("Mounts") or []:
+        if m.get("Type") == "bind" and m.get("Source") == src and (m.get("Target") or "").rstrip("/") == target:
+            m["Source"], n = new_src, n + 1
+    return n
+
+
+def staged_plugin():
+    """The staged plugin's record, or None."""
+    return json.loads(STAGED.read_text()) if STAGED.exists() else None
+
+
+def production_inspect():
+    """Production's game server: the inspect saved at prep while it is aside, else the running container (only read); never a copy's."""
+    if PROD_SAVED.exists() and inspect(ASIDE) is not None:
+        return json.loads(PROD_SAVED.read_text())
+    d = inspect(GAME)
+    if d is None or is_test(d):
+        sys.exit(f"REFUSED: production's game server is neither aside (with the inspect prep saved) nor {GAME} - no plugin staged")
+    return d
+
+
+def git(*args, timeout=120, text=True):
+    return subprocess.run(["git", "-C", str(probe.REPO), *args], capture_output=True, text=text, stdin=subprocess.DEVNULL, timeout=timeout)
+
+
+def commit_of_main(rev):
+    """The full id of `rev`, which must be a commit on main (origin/main or main); exits otherwise."""
+    r = git("rev-parse", "--verify", "--quiet", rev + "^{commit}")
+    sha = r.stdout.strip()
+    if r.returncode != 0 or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        sys.exit(f"REFUSED: {rev!r} is no commit of this repository")
+    if not any(git("merge-base", "--is-ancestor", sha, ref).returncode == 0 for ref in ("origin/main", "main")):
+        sys.exit(f"REFUSED: {sha[:12]} is not on main (origin/main or main) - only a commit of main goes on a test copy")
+    return sha
+
+
+BUILD_FLAGS = 0x00004000 | 0x08000000 if os.name == "nt" else 0   # below normal priority, no window (deploy/plugin.py's)
+
+
+def build_plugin(sha):
+    """{file name: bytes}: the plugin built from commit sha as committed - plugin/, bridge/ and core/ (what it compiles) exported with git
+    archive into the state folder and built there with dotnet build -c Release (warnings are errors) - and of its output what deploy/plugin.py
+    ships: the DLL, its .pdb and the config files the project declares."""
+    where = BUILDS / sha[:12]
+    for old in (BUILDS.iterdir() if BUILDS.exists() else []):   # one build kept: this one, and its log
+        shutil.rmtree(old, ignore_errors=True)
+    where.mkdir(parents=True)
+    r = git("archive", "--format=tar", sha, "plugin", "bridge", "core", timeout=300, text=False)
+    if r.returncode != 0:
+        sys.exit(f"REFUSED: git archive {sha[:12]} failed: {r.stderr.decode(errors='replace').strip()[:300]}")
+    with tarfile.open(fileobj=io.BytesIO(r.stdout)) as tar:
+        tar.extractall(where, filter="data")
+    build_log = where / "build.log"
+    log(f"building the plugin of {sha[:12]} (dotnet build -c Release; its log: {build_log.name} in the state folder)")
+    with open(build_log, "wb") as out:   # a file, not a pipe: nothing the build leaves running can hold this call open
+        code = subprocess.run(["dotnet", "build", f"plugin/{PLUGIN}", "-c", "Release", "-nologo", "-nodeReuse:false", "-p:UseSharedCompilation=false"],
+                              cwd=where, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, creationflags=BUILD_FLAGS).returncode
+    if code != 0:
+        tail = build_log.read_text(encoding="utf-8", errors="replace").splitlines()[-12:]
+        sys.exit(f"REFUSED: the plugin of {sha[:12]} does not build:\n" + "\n".join(tail))
+    from plugin import declared_content   # deploy/plugin.py: the config files that ship beside the DLL
+    out_dir = where / "plugin" / PLUGIN / "bin" / "Release" / "net10.0"
+    declared = declared_content((where / "plugin" / PLUGIN / f"{PLUGIN}.csproj").read_text(encoding="utf-8"))
+    names = [f"{PLUGIN}.dll", f"{PLUGIN}.pdb"] + [n for n in declared if (out_dir / n).exists()]
+    if not all((out_dir / n).exists() for n in names[:2]):
+        sys.exit(f"REFUSED: the build of {sha[:12]} left no {PLUGIN}.dll and .pdb")
+    return {n: (out_dir / n).read_bytes() for n in names}
+
+
+def plugin_tar(files):
+    """The plugin's folder as a tar: <PLUGIN>/ and its files."""
+    buf, now = io.BytesIO(), int(time.time())
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        d = tarfile.TarInfo(PLUGIN)
+        d.type, d.mode, d.mtime = tarfile.DIRTYPE, 0o755, now
+        tar.addfile(d)
+        for name, data in sorted(files.items()):
+            f = tarfile.TarInfo(f"{PLUGIN}/{name}")
+            f.size, f.mode, f.mtime = len(data), 0o644, now
+            tar.addfile(f, io.BytesIO(data))
+    return buf.getvalue()
+
+
+class Helper:
+    """A short-lived container from the game image, as root and without a network, held open (it sleeps) for several commands and a file
+    upload; removed on the way out, whatever happened."""
+
+    def __init__(self, name, image, binds):
+        self.name, self.image, self.binds, self.cid = name, image, binds, ""
+
+    def __enter__(self):
+        st, b = probe.req(f"/containers/create?name={self.name}", "POST",
+                          {"Image": self.image, "User": "0:0", "Entrypoint": ["/bin/bash", "-c"], "Cmd": ["sleep 900"],
+                           "Labels": {**EXTRA_LABELS, TEST_LABEL: "helper: " + self.name},
+                           "HostConfig": {"Binds": self.binds, "NetworkMode": "none", "RestartPolicy": {"Name": "no"}}})
+        self.cid = json.loads(b).get("Id", "")
+        if not self.cid:
+            sys.exit(f"REFUSED: the helper {self.name} was not created ({st})")
+        probe.req(f"/containers/{self.cid}/start", "POST")
+        return self
+
+    def run(self, script):
+        """(exit code, output) of one bash script in the helper."""
+        out = probe.exec_in(self.cid, ["/bin/bash", "-c", "( " + script + " ) 2>&1; echo EXIT=$?"], timeout=600)
+        m = re.search(r"EXIT=(\d+)\s*$", out)
+        return (int(m.group(1)) if m else -1), re.sub(r"EXIT=\d+\s*$", "", out).strip()
+
+    def put(self, data, path):
+        probe.req(f"/containers/{self.cid}/archive?path={path}", "PUT", data, "application/x-tar", timeout=300)
+
+    def __exit__(self, *exc):
+        if self.cid:
+            probe.req(f"/containers/{self.cid}?force=true", "DELETE")
+        return False
+
+
+def cmd_plugin(argv=()):
+    probe.need_lock()
+    args = list(argv)
+    if len(args) != 1 or args[0].startswith("-"):
+        sys.exit("usage: testcopy.py plugin <commit of main>")
+    sha = commit_of_main(args[0])
+    prod = production_inspect()
+    at = plugins_at(prod)
+    src = bind_source(prod, at)
+    if not src:
+        sys.exit(f"REFUSED: production's game server has no bind at {at}, its plugins folder - nothing to take the place of")
+    dst = copy_dir(src)
+    files = build_plugin(sha)
+    want = {f"./{PLUGIN}/{n}": hashlib.sha256(b).hexdigest() for n, b in files.items()}
+    log(f"built: {', '.join(f'{n} ({len(b):,} bytes)' for n, b in files.items())}")
+    with Helper(f"{GAME}-plugin-stage", prod["Image"], [f"{src}:/src:ro", f"{dst}:/dst"]) as h:
+        code, out = h.run(f"set -e; find /dst -mindepth 1 -delete; cp -a /src/. /dst/; rm -rf -- '/dst/{PLUGIN}'")
+        if code != 0:
+            sys.exit(f"REFUSED: the staged folder could not be made (exit {code}): {out[-300:]}")
+        h.put(plugin_tar(files), "/dst")
+        code, out = h.run("set -e; chown -R --reference=/src /dst; chmod -R u+rwX,go+rX,go-w /dst; cd /dst; "
+                          "find . -type f -print0 | sort -z | xargs -0 -r sha256sum")
+    got = {path: digest for digest, path in (l.split(None, 1) for l in out.splitlines() if re.fullmatch(r"[0-9a-f]{64}\s+\S.*", l))}
+    mine = {k: v for k, v in got.items() if k.startswith(f"./{PLUGIN}/")}
+    if code != 0 or mine != want:
+        sys.exit(f"REFUSED: the staged folder does not hold the build byte for byte (exit {code}; {len(mine)} of {len(want)} files as built) - "
+                 "run plugin-rm, then plugin again")
+    others = sorted({k.split("/")[1] for k in got if not k.startswith(f"./{PLUGIN}/")})
+    STATE.mkdir(parents=True, exist_ok=True)
+    STAGED.write_text(json.dumps({"commit": sha, "dir": dst, "image": prod["Image"], "staged": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                  "files": {n: hashlib.sha256(b).hexdigest() for n, b in files.items()}, "others": others}, indent=1))
+    log(f"staged in <plugins>-candidate: {PLUGIN} of {sha[:12]} ({len(files)} files, each as built)"
+        + (f", production's other plugin folders as they are: {', '.join(others)}" if others else ", no other plugin folder")
+        + ". The next run mounts it in the place of production's plugins folder")
+
+
+def plugin_on_copy(staged):
+    """(ok, words): whether the test copy's game tree holds the staged DLL and CounterStrikeSharp has the plugin loaded."""
+    d = inspect(GAME)
+    out = probe.exec_in(GAME, ["sha256sum", f"{game_plugins_dir(d)}/{PLUGIN}/{PLUGIN}.dll"]).strip()
+    have = out.split()[0] if out else ""
+    loaded = [l.strip() for l in probe.rcon("css_plugins list").splitlines() if PLUGIN in l and "LOADED" in l and "UNLOADED" not in l]
+    same = have == staged["files"][f"{PLUGIN}.dll"]
+    ok = same and bool(loaded)
+    return ok, (f"plugin on the copy: {'the' if ok else 'NOT the'} build of {staged['commit'][:12]} - "
+                f"{'its' if same else 'another'} DLL in the game's tree, {loaded[0] if loaded else PLUGIN + ' not loaded'}")
+
+
+def plugins_as_installed(d):
+    """(ok, words): whether the game's tree holds what this container's plugins folder holds, file for file - its start copies them there."""
+    at, tree = plugins_at(d), game_plugins_dir(d)
+    script = (f"cd {shlex.quote(at)} || exit 3; n=0; bad=0; while IFS= read -r -d '' f; do n=$((n+1)); "
+              f"cmp -s \"$f\" {shlex.quote(tree)}/\"${{f#./}}\" || {{ bad=$((bad+1)); echo \"DIFF ${{f#./}}\"; }}; "
+              "done < <(find . -mindepth 2 -type f ! -path './.*' -print0); echo \"files $n differ $bad\"")
+    out = probe.exec_in(GAME, ["bash", "-c", script]).strip()
+    m = re.search(r"files (\d+) differ (\d+)", out)
+    return bool(m) and m.group(2) == "0", " | ".join(out.splitlines()[-4:]) or "no answer"
+
+
+def remove_staged(staged):
+    """The staged folder deleted by a helper (its parent mounted, the folder by its own name), and the record."""
+    parent, _, name = staged["dir"].rstrip("/").rpartition("/")
+    if not name.endswith("-candidate") or not parent.startswith("/"):
+        sys.exit(f"REFUSED: {staged['dir']!r} is not a staged folder")
+    code, out = helper(f"{GAME}-plugin-rm", [f"{parent}:/p"], f"rm -rf -- '/p/{name}' && echo removed", image=staged["image"])
+    log(f"the staged plugin <plugins>-candidate: exit {code}, {(out.splitlines() or ['?'])[-1]}")
+    if code == 0:
+        STAGED.unlink(missing_ok=True)
+
+
+def cmd_plugin_rm():
+    probe.need_lock()
+    s = staged_plugin()
+    if s is None:
+        log("no plugin staged")
+        return
+    d = inspect(GAME)
+    if is_test(d) and bind_source(d, plugins_at(d)) == s["dir"]:
+        sys.exit("REFUSED: the test copy mounts the staged folder - rm it first")
+    remove_staged(s)
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     verbs = {"prep": cmd_prep, "run": cmd_run, "status": cmd_status, "rm": cmd_rm, "restore": cmd_restore,
-             "bridge-prep": cmd_bridge_prep, "bridge-run": cmd_bridge_run, "bridge-rm": cmd_bridge_rm, "bridge-restore": cmd_bridge_restore}
+             "bridge-prep": cmd_bridge_prep, "bridge-run": cmd_bridge_run, "bridge-rm": cmd_bridge_rm, "bridge-restore": cmd_bridge_restore,
+             "plugin": cmd_plugin, "plugin-rm": cmd_plugin_rm}
     if len(sys.argv) < 2 or sys.argv[1] not in verbs:
         print(__doc__)
         sys.exit(0 if len(sys.argv) < 2 else 1)
-    verbs[sys.argv[1]](sys.argv[2:]) if sys.argv[1] in ("run", "bridge-run") else verbs[sys.argv[1]]()
+    verbs[sys.argv[1]](sys.argv[2:]) if sys.argv[1] in ("run", "bridge-run", "plugin") else verbs[sys.argv[1]]()
