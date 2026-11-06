@@ -1,0 +1,81 @@
+The on-screen messages of Over Strike 2's HUD, as the message system has them: one line each, under its heading - who sees it and for
+how long in brackets, then the surface it goes on. docshots.py holds its table of screenshots to this list (every message has a row) and
+publish.py's gallery (docs/hud/messages.html) takes its headings and its words from it; a message NOT SHOWN has a row that says why.
+A change to the message system changes this list, the table and the pictures together.
+
+MESSAGES (48)
+
+JOINING
+
+- Welcome window, at every login [one player, needs an answer; until its X]: 7a the window, its own page (Centre-centre (needs an answer)).
+- Join tagline [one player; 3 s]: a line on the window's page (Inside the window); also a line in chat.
+- Welcome-back card [one player; 8 s]: a line on the window's page (Inside the window).
+- Now-playing card, at each map's first spawn [everybody; 8 s]: 3c the map's own picture (Our card: centre, under the crosshair); also listed on the TAB board.
+- "Erik joined with HUD v4_6_0" [everybody; 8 s]: 9a one line (CS2 plain centre text (PrintToCenter): white words, bottom centre, works without our HUD); also a line in chat; also listed on the TAB board.
+
+YOUR HUD AND ITS VERSION
+
+- Your HUD is out of date: the banner that stays [one player; until the HUD is updated]: 4e status banner: stays up, readable (Top centre).
+- Your HUD is out of date: the warning at the join [one player; 15 s]: NOT SHOWN.
+- Your HUD is newer than the server's [one player; 15 s]: 4e status banner: stays up, readable (Top centre).
+- The HUD not shown by Steam, and back [everybody; 45 s / 30 s]: 4e status banner: stays up, readable (Top centre).
+- HUD check: Click to play [one player, needs an answer; until a click, or the disconnect]: 7a the window, its own page (Centre-centre (needs an answer)).
+- HUD check: the disconnect warning [one player; 15 s]: 10b two lines: the warning, then what to do (CS2 alert text (PrintToCenterAlert): white words, red bars, just above the plain text); also a line in chat.
+
+THE VOTE
+
+- The vote: everybody's window opens and freezes [everybody, needs an answer; 60 s at most]: 7a the window, its own page (Centre-centre (needs an answer)).
+- The vote started: the line for everybody [everybody; 60 s]: NOT SHOWN; also a line in chat; also listed on the TAB board.
+- Inactivity timer, and who reset it [everybody; while everybody has voted]: a line on the window's page (Inside the window).
+- The 60 s limit [everybody; while the vote runs]: a line on the window's page (Inside the window).
+- Waiting for: the players who have not voted [everybody; while somebody has not voted]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+- The vote line for a closed window [one player; while the vote runs]: NOT SHOWN.
+- The vote decided, and the change counting down [everybody; until the change]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+- The vote kept the map [everybody; 8 s]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+- You cannot call a vote yet [one player; 8 s]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+
+FUN AND GAME SETTINGS
+
+- Fun: one setting changed [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Fun: Random [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Fun: Default [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Catch-up or grenade drops switched [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- "set by <name>" on settings that are not default [everybody; while set]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+- A map's game-changer undone [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Catch-up's boost [one player; 5 s (was 2 s)]: 3d a stack of slim rows (Our card: centre, under the crosshair); also a line in chat; also listed on the TAB board.
+- The leader's bounty [one player; 5 s]: 3d a stack of slim rows (Our card: centre, under the crosshair); also a line in chat.
+
+MAPS, PICTURES AND DOWNLOADS
+
+- A map's picture, on request [one player; 30 s]: NOT SHOWN.
+- Map change counting down [everybody; while counting]: 6b countdown with the map's picture (Top centre); also a line in chat; also listed on the TAB board.
+- The server downloading a map [everybody; refreshed every 2 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Finishing a background download first [everybody; while it runs]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- A download failed [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- A Workshop card downloading to the server [one player; while it downloads]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+- Play asks first (a broken or crashed map) [one player, needs an answer; 30 s]: a line on the window's page (Inside the window).
+- Why the dislike? (the reasons) [one player, needs an answer; until answered (optional)]: 7a the window, its own page (Centre-centre (needs an answer)).
+
+RESTARTS AND UPDATES
+
+- The server restarts after this match [everybody; until the restart]: 4e status banner: stays up, readable (Top centre); also a line in chat; also listed on the TAB board.
+- The restart counting down (10 s) [everybody; 10 s]: 6b countdown with the map's picture (Top centre); also a line in chat; also listed on the TAB board. It has no map of its own, so the picture is of the map that is on.
+- A CS2 update: update your game [everybody; until the restart]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- "Updated to vX" after the reconnect [everybody; 60 s; joiners for 10 min]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- A player's !restart [everybody; 30 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+
+SERVER NEWS AND HEALTH
+
+- A plain news item (Previous, the match length, new maps, a mode's reload) [everybody; 8 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- The server went down on a map [everybody; 30 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- The joiner's crash note [one player; 30 s, for 10 min after a crash]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+
+ANSWERS TO YOUR OWN CLICKS
+
+- The answer to your own click: refused, click again, already set [one player; 8 s]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
+
+THE CHAT INTERFACE
+
+- Command replies: unknown command, an alias taught, !help's list [one player; as CS2 keeps chat]: a chat line with functional colours (Chat: the chat interface).
+- Lines for everybody: a vote clicked on a card [everybody; as CS2 keeps chat]: NOT SHOWN; also a line in chat; also listed on the TAB board.
+- "This server uses the menu: press TAB" (only without our HUD) [one player; once]: 10b two lines: the warning, then what to do (CS2 alert text (PrintToCenterAlert): white words, red bars, just above the plain text); also a line in chat; also listed on the TAB board.

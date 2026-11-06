@@ -43,6 +43,10 @@ dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop s
 python -I deploy/test_deploy.py                                 # the deploy scripts, with no server and no Docker
 python -I deploy/test_release.py
 python -I deploy/test_check.py                                  # the guard before a redeploy and the check after one, offline too
+python -I tools/client/probe/test_testcopy.py                   # the client harness's test copy of the server, offline
+python -I tools/client/probe/test_testcopy_bridge.py            # its candidate bridge
+python -I tools/client/probe/test_bridgepost.py                 # what only the watcher or other players say to a candidate bridge
+python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
 ```
 
 The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number
@@ -85,7 +89,11 @@ everything and match the code:
 - **Updated in the same change:** a change that alters what players see updates the affected screenshots and text in the same
   release. It is not done until its documentation matches.
 - **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
-  production, driven by script so every page and state can be reached without anybody playing.
+  production, driven by script so every page and state can be reached without anybody playing
+  ([tools/client/](tools/client/README.md#the-documentations-screenshots)).
+- **The client test harness keeps the account safe:** it never touches cs2.exe's memory, refuses any launch its VAC self-check finds
+  unsafe, and runs loose HUD files only with `-insecure` against the insecure test copy ([tools/client/](tools/client/README.md#vac-safety-read-first)).
+  Weaken none of its checks.
 - **Still public:** test names only - no player names, Steam ids, addresses or anything else of the deployment in a picture.
   Workshop map previews may show in these screenshots as the HUD shows them - the one exception
   to "No other authors' pictures", which still holds for everything else. Every picture is a binary file, reviewed into

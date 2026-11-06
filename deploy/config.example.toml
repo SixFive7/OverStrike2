@@ -50,3 +50,8 @@ verify = []                               # optional: a check run after release.
 
 [workshop]
 cs2_dir = ""                              # the local "Counter-Strike Global Offensive" folder ("" = found through Steam)
+
+[client]                                  # tools/client: the CS2 client test harness, its test copy of the server and the documentation's screenshots
+private_names = []                        # optional: names that must never reach a screenshot, a command or a log - the client's own Steam name is found by itself
+[client.test_labels]                      # optional: labels every test container gets (the test copy, a candidate bridge), e.g. a container monitor's mute
+# "monitor.mute" = "true"

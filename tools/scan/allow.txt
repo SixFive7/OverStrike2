@@ -37,6 +37,8 @@ token server/OverStrike2.Sync/SelfTest/*.cs 0123456789ABCDEF0123456789ABCDEF  # 
 
 # Made-up values in the self-tests
 hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-tests and a comment); the real one stays private
+steamid tools/client/* \[U:1:424242\d\d\]  # the client test harness's made-up accounts: the test copy's fake players and HUDtest (bridgepost.py) and its tests' client; test names only, no such players
+mac tools/client/probe/test_*.py 02:00:00:00:00:\d\d  # made-up, locally administered MACs: a container's pinned endpoint in the harness's offline tests
 
 # The zone the tests run in
 timezone core/SelfTest/TimeTests.cs Europe/Paris  # a zone with European summer time the core self-test's clock changes need; not the deployment's

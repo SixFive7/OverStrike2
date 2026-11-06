@@ -55,7 +55,8 @@ has the server mount it, so every player who joins gets the addon (they do not s
 
 ## 4. What to look at in game
 
-The same list for every release, in a real client against a test copy of the server. What the release brings goes in the change note and the Workshop description.
+The same list for every release, in a real client against a test copy of the server: [tools/client/](../tools/client/README.md#testing-an-unpublished-hud-build)
+runs it, its run folder is what `release.py publish --client-test` asks for. What the release brings goes in the change note and the Workshop description.
 
 1. **A join:** the welcome opens by itself on START and stays until its X, through damage, death and a respawn. The X has "Close this to play" beside it while the server waits for this
    game's first click, and that click shows the HUD's version on SERVER, Players.

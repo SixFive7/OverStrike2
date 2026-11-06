@@ -606,8 +606,10 @@ commit runs.
 | `server/OverStrike2.Server/SelfTest`, `server/OverStrike2.Sync/SelfTest` | The two programs, their Linux-only checks in the game image ([server.md](server.md#build-and-test)) |
 | `dotnet run -- --search-index --check` in `bridge/` | The search text is in step with the map list |
 
-**A real client.** A layout cannot be fully tested without the game, so a new HUD is also tried in a real CS2 client before a release: a private harness, not in this repository because it drives its owner's own client and server, starts the client with no window on
-screen, joins a test copy of the server, loads the local HUD build there with VAC off, takes screenshots, and drives the menu through server-side clicks. On the live server only the published HUD ever runs, in a plain client.
+**A real client.** A layout cannot be fully tested without the game, so a new HUD is also tried in a real CS2 client before a release: the harness in [tools/client/](../tools/client/README.md) starts the client of whoever works at that PC with no window on
+screen, no sound and no focus, joins a test copy of the server, loads the local HUD build there with VAC off, takes screenshots, and drives the menu through server-side clicks.
+On the live server only the published HUD ever runs, in a plain client. It reads the server from the private config, as the deploy scripts do, and takes the
+documentation's screenshots by script ([tools/client/docshots/](../tools/client/docshots/docshots.py)); its offline tests are in AGENTS.md's list.
 
 **The bridge alone.** Native AOT does not cross-compile between operating systems, so the image's build stage is the Linux publish: `docker build -t localhost/overstrike2-bridge -f bridge/Dockerfile .` from the repository root. To run the bridge on Windows against a local
 server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:8080/log/dev"`, set `RCON_HOST=127.0.0.1`, `RCON_PASSWORD`, `LOG_SECRET=dev` and `STATE_DIR`, and `dotnet run`. The self-test reads the plugin's and the HUD's files from beside `bridge/`; set
@@ -636,3 +638,4 @@ The rules are said in the menu: its How it works and Help pages and the start pa
 | `server/` | The two programs, with the launcher `pre.sh` and their self-tests, and each game mode's cfg. |
 | `deploy/` | A host that builds everything itself (`compose.yml`), and building and shipping from a workstation, with a private config. |
 | `tools/scan/` | The scanner the hooks run. |
+| `tools/client/` | The CS2 client test harness, the insecure test copy of the server and a candidate bridge beside it, and the documentation's screenshots ([README](../tools/client/README.md)). |
