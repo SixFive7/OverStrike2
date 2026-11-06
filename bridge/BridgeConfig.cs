@@ -63,7 +63,6 @@ sealed record BridgeValues
     public static BridgeValues FromEnvironment(Func<string, string?> env)
     {
         string E(string key, string fallback) => env(key) is { Length: > 0 } v ? v : fallback;
-        static bool Yes(string v) => v is "1" or "true" or "yes";
         static List<string> Names(string v) => [.. v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
         return new()
         {
