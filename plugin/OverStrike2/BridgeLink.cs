@@ -5,21 +5,19 @@ namespace OverStrike2;
 /// <summary>The HUD's line to the bridge, over the stack network the log push already uses - the plugin's one place for it (the bridge's is
 /// HudTransport.cs). The live state is a long poll, GET /hud/&lt;secret&gt;?v=&lt;version&gt;&amp;draw=1 (or draw=0, Hud.DrawQuery): the bridge answers when its
 /// state changes, or after Hud.LongPollSeconds that nothing did; every answer starts with its version and the bridge's clock, and its countdowns
-/// are end times the HUD counts down itself (HudState.AsOf). A bridge that answers without a version (an older one) is polled once a second as
-/// before. GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt;?v=1 for a click, answered with the state after it. The address
-/// and the secret are the settings file's bridge.url and bridge.secret, or without the file the cs2 service's own CS2_LOG_HTTP_URL
-/// (http://bridge:8080/log/&lt;secret&gt;) - PluginSetup.cs.
+/// are end times the HUD counts down itself (HudState.AsOf). GET /catalog/, /search/ and /dash/ when their versions move, POST /act/&lt;secret&gt;?v=1
+/// for a click, answered with the state after it in the same form. The address and the secret are the settings file's bridge.url and
+/// bridge.secret, or without the file the cs2 service's own CS2_LOG_HTTP_URL (http://bridge:8080/log/&lt;secret&gt;) - PluginSetup.cs.
 ///
 /// Every request runs on the thread pool and only ever hands back a string; the game thread picks it up in Take, so nothing here
 /// touches the engine off its thread.</summary>
 sealed class BridgeLink
 {
-    public const double PollSeconds = 1; // an older bridge's poll
+    public const double PollSeconds = 1; // a poll that got no answer in the long poll's form is sent again this much later
 
     readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(10) };                                // clicks, the catalog, the index, the Sync block
     readonly HttpClient poll = new() { Timeout = TimeSpan.FromSeconds(Hud.LongPollSeconds + 15) };          // the long poll: the bridge holds it up to LongPollSeconds
     long version = -1;   // the version of the newest state taken; -1 none yet
-    bool legacy;         // the bridge answered without a version: an older one, polled once a second
     bool? sentDraws;     // what the last poll told the bridge about drawing the HUD (Hud.DrawQuery); null: no poll yet
 
     /// <summary>The bridge's clock less ours, in milliseconds, from its newest answer: the HUD counts the state's end times against the bridge's clock.</summary>
@@ -30,7 +28,7 @@ sealed class BridgeLink
     readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl;
     readonly List<(Task<string?> Task, DateTime Sent)> acts = new();
     Task<string?>? fetch, catalogFetch, searchFetch, dashFetch;
-    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry, fetchSent;
+    DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry;
     long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked;
 
     public int Failures { get; private set; }          // in a row; reset by any answer
@@ -55,21 +53,20 @@ sealed class BridgeLink
         string? newest = null;
         if (fetch is { IsCompleted: true } done)
         {
-            if (Result(done) is { } polled)
+            if (Result(done) is { } polled && Versioned(polled, out var text))
             {
-                if (Versioned(polled, out var text)) { if (text != null) newest = text; StateAsOf = Max(StateAsOf, DateTime.UtcNow); } // a long poll's answer: as of now
-                else { legacy = true; newest = polled; StateAsOf = Max(StateAsOf, fetchSent); }
-                nextFetch = legacy ? fetchSent.AddSeconds(PollSeconds) : now;
+                if (text != null) newest = text;
+                StateAsOf = Max(StateAsOf, DateTime.UtcNow); // a long poll's answer: as of now
+                nextFetch = now;
             }
-            else nextFetch = now.AddSeconds(PollSeconds); // no answer: try again in a second
+            else nextFetch = now.AddSeconds(PollSeconds); // no answer, or none in the long poll's form: try again in a second
             fetch = null;
         }
         foreach (var act in acts.Where(a => a.Task.IsCompleted).ToList())
         {
-            if (Result(act.Task) is { } answered)
+            if (Result(act.Task) is { } answered && Versioned(answered, out var text))
             {
-                if (Versioned(answered, out var text)) { if (text != null) newest = text; }
-                else newest = answered;
+                if (text != null) newest = text;
                 StateAsOf = Max(StateAsOf, act.Sent);
             }
             acts.Remove(act);
@@ -83,10 +80,8 @@ sealed class BridgeLink
         }
         if (wanted && fetch == null && now >= nextFetch)
         {
-            fetchSent = DateTime.UtcNow;
             sentDraws = draws;
-            fetch = legacy ? GetText($"{stateUrl}?{Hud.DrawQuery}={(draws ? 1 : 0)}", http)
-                : GetText($"{stateUrl}?v={version}&{Hud.DrawQuery}={(draws ? 1 : 0)}", poll);
+            fetch = GetText($"{stateUrl}?v={version}&{Hud.DrawQuery}={(draws ? 1 : 0)}", poll);
         }
         return newest;
     }
@@ -160,7 +155,7 @@ sealed class BridgeLink
     static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
     /// <summary>An answer in the long poll's form: its version line read - the version kept, the clocks' difference noted - and the state it carries,
-    /// or null when it says nothing changed or is older than the one already taken. False: an older bridge's answer, without a version.</summary>
+    /// or null when it says nothing changed or is older than the one already taken. False: no answer in that form (no state in it).</summary>
     bool Versioned(string answer, out string? state)
     {
         state = null;
@@ -173,7 +168,6 @@ sealed class BridgeLink
         if (n < version) return true; // a slower answer that an older state rode on
         version = n;
         state = answer;
-        legacy = false;
         return true;
     }
 
@@ -196,7 +190,7 @@ sealed class BridgeLink
     async Task<string?> Post(string body)
     {
         using var content = new StringContent(body, Encoding.UTF8, "text/plain");
-        using var response = await http.PostAsync(legacy ? actUrl : actUrl + "?v=1", content).ConfigureAwait(false);
+        using var response = await http.PostAsync(actUrl + "?v=1", content).ConfigureAwait(false);
         return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync().ConfigureAwait(false) : throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
     }
 }

@@ -106,7 +106,7 @@ static partial class Program
         string T(string id) => cardsNow.Texts.Single(x => x.Id == id).Text;
         bool On(string id, string cls) => cardsNow.Classes.Single(x => x.Id == id && x.Class == cls).On;
         Check("The vote on the cards: each card its mode (label and colour), votes and who picked it, the player's own vote lit, the picked one tagged, Random on its own button without a number, the cards after the maps empty; everybody frozen",
-            ballot is { Freeze: true, MatchEnded: false, Starter: 1001 } && T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes") == "1 vote  ·  Picked by Alice" && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name") == ""
+            ballot is { Freeze: true, MatchEnded: false } && T("gg_m1_name") == "#12 aim_x" && T("gg_m1_votes") == "1 vote  ·  Picked by Alice" && T("gg_m2_rank").EndsWith("Deathmatch") && T("gg_m3_name") == ""
             && On("gg_m1", "confirm") && !On("gg_m2", "confirm") && On("gg_m1", "queued") && !On("gg_m2", "queued") && !On("gg_m4", "used") && !On("gg_m3", "used") && T("gg_m1_play_text") == "Your vote"
             && On("gg_m1", "mode-armsrace") && On("gg_m2", "mode-deathmatch") && !On("gg_m2", "mode-armsrace") && Modes.All.All(m => !On("gg_m3", $"mode-{m.Id}"))
             && cardsNow.Vars.Single(x => x.Name == HudVote.RandomVar).Text == "Random  ·  0 votes" && !On(HudView.Screen, "vrandom") && !On(HudView.Screen, "vpages") && !On(HudView.Screen, "vmore")
@@ -131,7 +131,7 @@ static partial class Program
         string P(List<(string Id, string Text)> t, string id) => t.Single(x => x.Id == id).Text;
         bool C((List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) d, string id, string cls) => d.Classes.Single(x => x.Id == id && x.Class == cls).On;
         Check($"Twelve cards: {HudVote.Pages(twelve)} pages of {MapVote.PageCards} - in the order the bridge sends them (the most votes first); the pager and the hint for the next page impossible to miss, the Next button's pulse on",
-            twelve is { MatchEnded: false, Starter: 1002 } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "gg_m1_rank") == "Keep" && P(first.Texts, "gg_m1_play_text") == "Keep"
+            twelve is { MatchEnded: false } && twelve.Maps.Count == 12 && HudVote.Pages(twelve) == 2 && P(first.Texts, "gg_m1_rank") == "Keep" && P(first.Texts, "gg_m1_play_text") == "Keep"
             && P(first.Texts, "gg_m1_name") == "Keep playing this map" && P(first.Texts, "gg_m1_size") == "#5 aim_on"
             && P(first.Texts, "gg_m2_name") == "#77 aim_added" && P(first.Texts, "gg_m2_votes").Contains("Picked by Cara") && P(first.Texts, "gg_m2_play_text") == "Your vote"
             && P(first.Texts, "gg_m2_who") == "9 MB  ·  Picked by Cara" && P(first.Texts, "gg_m2_score") == $"1/{twelve.Present}" && P(first.Texts, "gg_m10_name") == "#29 map_9"

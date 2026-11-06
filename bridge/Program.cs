@@ -78,13 +78,21 @@ static partial class Program
         foreach (var work in Loop.GetConsumingEnumerable())
         {
             try { work(); } catch (Exception e) { Log("error: " + e); }
-            PublishHudSafe(); // HudTransport.cs: what changed goes to the plugin at once
+            AfterWork();
         }
         return 0;
     }
 
     static void Log(string message) => Console.WriteLine($"{DateTime.Now:HH:mm:ss} {message}");
     static void Post(Action work) => Loop.Add(work);
+
+    /// <summary>After every piece of work on the event loop, what changed goes to the plugin at once: the menu's map list first, when its version
+    /// moved (LiveState.cs), then the state that names that version (HudTransport.cs). Neither may end the loop.</summary>
+    static void AfterWork()
+    {
+        try { RefreshCatalog(); } catch (Exception e) { Log("hud: rebuilding the map list failed: " + e.Message); }
+        PublishHudSafe();
+    }
     static Action<int, Action> After = (ms, work) => Task.Delay(ms).ContinueWith(_ => Post(work)); // --selftest swaps in a timer on its own clock
 
     static void Save() => WriteAtomic(Path.Combine(StateDir, "state.json"), JsonSerializer.Serialize(S, Ctx.Default.State));
@@ -132,7 +140,7 @@ static partial class Program
         Step("a restart's notice", () => RestartTick(now));          // Restarts.cs: a restart's notice that has run out
         Step("the data files", WatchTick);                           // Reload.cs
         Step("the sync's status", () => SyncTick(now));              // SyncDash.cs: the sync's status file, the Sync page's block and the website's files
-        Step("the live state", RefreshHud);
+        Step("the menu's map list", RefreshCatalog);                 // LiveState.cs, as after every piece of work (AfterWork)
     }
 
     static bool SelfTesting; // --selftest: the dice roll tens of thousands of times without a log line each

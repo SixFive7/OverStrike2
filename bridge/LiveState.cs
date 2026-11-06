@@ -1,11 +1,10 @@
-// The HUD's live state as the bridge builds it - the state text, the map catalog - and whether a plugin that draws the HUD is polling.
-// HudTransport.cs serves them.
+// The HUD's live state as the bridge builds it - the state (BuildHud, and the vote's lines: VoteRound.cs), the map catalog - and whether a
+// plugin that draws the HUD is polling. HudTransport.cs publishes the state and serves the polls.
 
 static partial class Program
 {
     // ---- the HUD: the plugin reads the live state here and sends players' clicks back (see Hud.cs) ----
 
-    static volatile string HudText = new HudState().Encode(); // rebuilt on the event loop every tick and after every click; read by the HTTP thread
     static long hudPolledTicks;                              // when the plugin last asked for it (UTC ticks, written by the HTTP thread)
     const int HudActiveSeconds = Hud.LongPollSeconds + 15; // a poll counts when it arrives, and the bridge then holds it up to LongPollSeconds: on a quiet stretch the last arrival is that old
 
@@ -22,14 +21,16 @@ static partial class Program
     /// <summary>A hold: the plugin's last poll said it draws nothing. Nobody may call a vote then: it freezes everybody, over a ballot not everybody can see.</summary>
     static Func<bool> HudHeld = () => Interlocked.Read(ref hudHeldTicks) > Interlocked.Read(ref hudPolledTicks) && DateTime.UtcNow.Ticks - Interlocked.Read(ref hudHeldTicks) < TimeSpan.FromSeconds(HudActiveSeconds).Ticks;
 
-    /// <summary>Whether a poll's query says its plugin draws the HUD: draw=0 does not; draw=1 and a poll without the word (an older plugin) do.</summary>
+    /// <summary>Whether a poll's query says its plugin draws the HUD: draw=0 does not, draw=1 does.</summary>
     static bool Draws(string? query) => !(query ?? "").TrimStart('?').Split('&').Contains($"{Hud.DrawQuery}=0");
 
-    static void RefreshHud()
+    /// <summary>After every piece of work on the event loop, before the state is published (Program.cs): the menu's map list again when its
+    /// version moved, so the plugin that reads a new version in the state fetches that version's list - never the one before it.</summary>
+    static void RefreshCatalog()
     {
-        var now = Now();
-        HudText = BuildHud(now).Encode() + BuildVoteState(now).Encode(); // VoteRound.cs: the vote and the modes ride at its end (MapVote.cs)
-        if (catalogBuilt != CatalogVersion) { CatalogText = BuildCatalog().Encode(); catalogBuilt = CatalogVersion; }
+        if (catalogBuilt == CatalogVersion) return;
+        CatalogText = BuildCatalog().Encode();
+        catalogBuilt = CatalogVersion;
     }
 
     /// <summary>The menu's map list: every listed and official map with its size, the broken-list verdict, the live crash counter and

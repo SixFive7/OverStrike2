@@ -47,7 +47,7 @@ static partial class Program
                         t.Work();
                     }
                     clock = step;
-                    Tick();
+                    Tick(); AfterWork(); // what the event loop does with each tick
                 }
             }
             void Line(string ev) => Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - {ev}", null);

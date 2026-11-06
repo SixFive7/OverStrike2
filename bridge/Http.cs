@@ -17,10 +17,11 @@ static partial class Program
     static void Handle(HttpListenerContext c)
     {
         var path = c.Request.Url?.AbsolutePath;
-        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) // the HUD plugin: a long poll with its version (HudTransport.cs), or an older plugin's poll once a second
+        if (c.Request.HttpMethod == "GET" && path == Hud.StatePath + LogSecret) // the HUD plugin: a long poll with its version (HudTransport.cs)
         {
             HudPolled(Draws(c.Request.Url?.Query));
-            if (HudVersionAsked(c.Request.Url?.Query) is { } have) HudLongPoll(c, have); else Reply(c, HudText);
+            if (HudVersionAsked(c.Request.Url?.Query) is { } have) HudLongPoll(c, have);
+            else Answer(c, StateAnswer()); // no version: the plugin tells of a hold beginning or ending (draw=0/1) and wants no wait; the state as it is now
             return;
         }
         if (c.Request.HttpMethod == "GET" && path == Hud.CatalogPath + LogSecret) { Reply(c, CatalogText); return; }        // the menu's map list, when its version moved

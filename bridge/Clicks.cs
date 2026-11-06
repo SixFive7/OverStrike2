@@ -5,15 +5,15 @@ using System.Text;
 
 static partial class Program
 {
-    /// <summary>The plugin's POST of a click. Runs on the event loop like a chat line, and answers with the state after it, so the
-    /// HUD shows the new vote at once. A loop that is busy for over 2 s gets the old state back instead; the next poll catches up.</summary>
+    /// <summary>The plugin's POST of a click. Runs on the event loop like a chat line, and answers with the state after it in the long poll's
+    /// form (HudTransport.cs), so the HUD shows the new vote at once. A loop that is busy for over 2 s gets the state as it is instead; the long
+    /// poll brings the rest.</summary>
     static void HudClick(HttpListenerContext c)
     {
         var body = new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var versioned = HudVersionAsked(c.Request.Url?.Query) != null; // a plugin that long-polls gets the state in the long poll's form (HudTransport.cs)
         var done = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Post(() => { try { HudAct(body); } finally { RefreshHud(); PublishHudSafe(); done.TrySetResult(versioned ? StateAnswer() : HudText); } });
-        Reply(c, done.Task.Wait(2000) ? done.Task.Result : versioned ? StateAnswer() : HudText);
+        Post(() => { try { HudAct(body); } finally { AfterWork(); done.TrySetResult(StateAnswer()); } });
+        Reply(c, done.Task.Wait(2000) ? done.Task.Result : StateAnswer());
     }
 
     /// <summary>"[U:1:n]\tname\t!up": the player clicked (or typed a chat command, which the plugin turns into the same click). Only what

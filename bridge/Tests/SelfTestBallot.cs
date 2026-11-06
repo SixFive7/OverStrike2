@@ -41,7 +41,7 @@ static partial class Program
                         t.Work();
                     }
                     clock = step;
-                    Tick();
+                    Tick(); AfterWork(); // what the event loop does with each tick
                 }
             }
             void Line(string ev) => Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - {ev}", null);
@@ -226,7 +226,7 @@ static partial class Program
             Check("...everything shown is remembered: every card's map is no longer new to us, and each card the dice put on it has its showing - not the map that is on",
                 b.Options.Where(o => o.Map != null).All(o => S.Met.Contains(Key(o.Map!))) && b.Options.Where(o => o.Source == VoteSource.Rolled).All(o => S.Shown.ContainsKey(Key(o.Map!)) && o.ShownAt > 0)
                 && !S.Shown.ContainsKey(Key(Ar(201))));
-            var wire = VoteState.Decode(HudTextNow());
+            var wire = LiveVote();
             Check("...the cards' tags ride the live state (mvo field 11), as they were when each went on: the surprise NEW TO US, the fresh card NEW UPLOAD or UPDATED, the favourites the Workshop's lists",
                 wire.Options.Single(o => o.Key == surpriseKey).Tags.Contains("newtous") && wire.Options.Single(o => o.Key == freshKey).Tags.Split(',').Intersect(["upload", "updated"]).Any()
                 && favourites.All(f => wire.Options.Single(o => o.Key == Key(f.Map!)).Tags.Split(',').Intersect(["trending", "toprated", "popular"]).Any())
@@ -286,7 +286,7 @@ static partial class Program
                 order.Count == MapVote.PageCards - 2 && replaced.SequenceEqual(order) && order[^2] == SurpriseOrder && order[^1] == FreshOrder);
             Check("...the Deathmatch card keeps its place and number; the last pick, with no random card of the mode left, opens a second page",
                 b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && b.Options.Count(o => o.Source == VoteSource.Picked) == picks
-                && b.Options.Max(o => o.Source == VoteSource.Random ? 0 : o.N) == MapVote.PageCards + 1 && HudVote.Pages(VoteState.Decode(HudTextNow())) == 2);
+                && b.Options.Max(o => o.Source == VoteSource.Random ? 0 : o.N) == MapVote.PageCards + 1 && HudVote.Pages(LiveVote()) == 2);
 
             // ---- Random takes a map on the disk ----
             Fresh();
@@ -305,12 +305,12 @@ static partial class Program
             try
             {
                 StartVote(players[0].Item1, players[0].Item2);
-                var v1 = VoteState.Decode(HudTextNow());
+                var v1 = LiveVote();
                 Check("Both timers on the wire: while somebody has not voted, the vote's limit counts (SecondsLeft) and the inactivity timer does not",
                     v1.Open && v1.SecondsLeft == MapVote.Seconds && v1.Inactivity == 0 && v1.ResetBy == "");
                 Run(20);
                 foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, 1));
-                var v2 = VoteState.Decode(HudTextNow());
+                var v2 = LiveVote();
                 Check("...once everybody has voted, both: the inactivity timer with who reset it, and the limit's seconds left",
                     v2.Open && v2.Inactivity == MapVote.InactivitySeconds && v2.ResetBy == "P3" && v2.SecondsLeft == MapVote.Seconds - 20);
                 Fresh();
@@ -318,7 +318,7 @@ static partial class Program
                 StartVote(players[0].Item1, players[0].Item2);
                 Run(MapVote.Seconds - 3);
                 foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, 1));
-                var v3 = VoteState.Decode(HudTextNow());
+                var v3 = LiveVote();
                 Check("...near the limit the inactivity timer shows no more than the limit leaves: the limit closes it first",
                     v3.Open && v3.SecondsLeft == 3 && v3.Inactivity == 3 && v3.ResetBy == "P3");
                 Run(3);
@@ -453,12 +453,13 @@ static partial class Program
             Fresh();
             Join(players[0]); Join(players[1]);
             OpenBallot(clock, 2);
-            RefreshHud();
-            var roundShown = VoteState.Decode(HudText).Round;
+            var roundShown = LiveVote().Round;
             Ballot!.Options[1].N = Ballot.Options[0].N; // two cards under one number: counting the votes at the vote's end throws
-            Run(MapVote.Seconds + 1);
+            QueueTickAt = clock.AddSeconds(MapVote.Seconds); // the stock is due in the very tick the vote's limit is: a step after the vote's timer
+            Run(MapVote.Seconds);
             Check("A vote whose timer throws is dropped: nobody stays frozen", Ballot == null && !BuildVoteState(clock).Freeze);
-            Check("...and the rest of that tick ran: the live state says so", roundShown > 0 && VoteState.Decode(HudText).Round == 0);
+            Check("...and the rest of that tick ran: the stock is looked at after the vote's timer, and the live state says no vote is on",
+                roundShown > 0 && QueueTickAt > clock && LiveVote().Round == 0);
 
             Fresh();
             Join(players[0]); Join(players[1]);
@@ -495,7 +496,6 @@ static partial class Program
             Check("...so a match end in a quiet stretch opens the vote, and the dice do not change the map without one", Ballot is { Open: true, MatchEnded: true } && Pending == null);
             EndBallot("the test goes on");
 
-            string HudTextNow() { RefreshHud(); return HudText; }
         }
         finally
         {

@@ -48,7 +48,7 @@ static partial class Program
                         t.Work();
                     }
                     clock = step;
-                    Tick();
+                    Tick(); AfterWork(); // what the event loop does with each tick
                 }
             }
             void Line(string ev) // a log line; a "Loading map" one is also the fake server loading that map
@@ -610,9 +610,9 @@ static partial class Program
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) Join(p);
             Go(alice, 1); Land(); Talk(bob, "!up"); Run(1);
-            var hud = HudState.Decode(HudText)!;
-            var hudVote = VoteState.Decode(HudText);
-            Console.WriteLine("hud: " + HudText.Replace('\n', '|').Replace('\t', ' '));
+            var hud = LiveHud();
+            var hudVote = LiveVote();
+            Console.WriteLine("hud: " + Published().Replace('\n', '|').Replace('\t', ' '));
             Check("The HUD state names the map, what picked it, its likes and who liked what, and the most liked maps",
                 hud.Map == Clip(Label(m[1]), 40) && hud.By == "the vote" && (hud.Up, hud.Down) == (1, 0) && hud.MyVotes.GetValueOrDefault(1002) == 1 && hud.Maps == Playable
                 && hud.Top is [var liked] && liked.Up == 1 && liked.Map == Clip(Label(m[1]), 36));
@@ -624,8 +624,8 @@ static partial class Program
                 !HudAct("[U:1:1003]\tCara\t!rcon quit") && !HudAct("[U:1:1003]\tCara\t!map aim") && !HudAct("[U:1:1003]\tCara\t!map 5; quit")
                 && !HudAct("[U:1:1003]\tCara\t!up 12 x") && !HudAct("[U:1:1003]\tCara\t!time 30") && !HudAct("[U:1:1003]\tCara\t!cancel 5") && !HudAct("[U:1:1003]\tCara\t!done")
                 && !HudAct("1003\tCara\t!up") && !HudAct("[U:1:1003]\t!up") && !HudAct("") && Pending == null && Tally(Key(m[1])) == (2, 0));
-            Run(1); // the next tick rebuilds the state and, the likes having moved, the catalog
-            hud = HudState.Decode(HudText)!;
+            Run(1); // the next tick rebuilds the catalog, the likes having moved
+            hud = LiveHud();
             Check("The match length and the catalog's version ride along", hud.RoundMinutes == S.RoundMinutes && hud.CatalogVersion == CatalogVersion);
             var catalog = HudCatalog.Decode(CatalogText)!;
             Check($"The menu's catalog: every listed and official map of every mode once ({catalog.Maps.Count}), with its likes and whose they are",
@@ -638,15 +638,21 @@ static partial class Program
             Check("A menu click on a card acts like the chat command: Cara's dislike on map 4 by its rank", HudAct($"[U:1:1003]\tCara\t!down {Rank(4)}")
                 && Tally(Key(m[4])) == (0, 1) && CatalogVersion > version);
             Run(1);
-            Check("...and the catalog the plugin fetches next shows it", HudCatalog.Decode(CatalogText)!.MyVote(1003, Key(m[4])) == -1 && HudState.Decode(HudText)!.CatalogVersion == CatalogVersion);
+            Check("...and the catalog the plugin fetches next shows it", HudCatalog.Decode(CatalogText)!.MyVote(1003, Key(m[4])) == -1 && LiveHud().CatalogVersion == CatalogVersion);
+            CatalogVersion++; // what a map start, a vote opening or a reload does, between two ticks
+            var named = HudState.Decode(Published())!.CatalogVersion;
+            var listHad = HudCatalog.Decode(CatalogText)!.Version;
+            AfterWork(); // what the event loop does after every piece of work
+            Check("The menu's map list is never behind the state that names its version: after every piece of work the list is made again first, then the state goes out",
+                named == CatalogVersion && listHad < named && HudCatalog.Decode(CatalogText)!.Version == CatalogVersion && LiveHud().CatalogVersion == CatalogVersion);
             Check("!time by click sets the match length", HudAct("[U:1:1003]\tCara\t!time 10") && S.RoundMinutes == 10 && HudAct("[U:1:1003]\tCara\t!time 60") && S.RoundMinutes == 60);
             Run(MapVote.WaitSeconds); Go(bob, 2); Run(2);
-            hud = HudState.Decode(HudText)!;
+            hud = LiveHud();
             Check($"A change counting down: the banner gets its map, what picked it and the seconds left ({hud.ChangeIn}), and nobody gets a button for it",
-                hud.ChangeMap == Clip(Label(m[2]), 40) && hud.ChangeBy == "the vote" && hud.ChangeIn is > 0 and < 8 && HudView.Action(hud, VoteState.Decode(HudText)).Command == null);
+                hud.ChangeMap == Clip(Label(m[2]), 40) && hud.ChangeBy == "the vote" && hud.ChangeIn is > 0 and < 8 && HudView.Action(hud, LiveVote()).Command == null);
             Check("The state's text round-trips through the codec unchanged", HudState.Decode(hud.Encode())!.Encode() == hud.Encode());
             Land(); Run(2);
-            hud = HudState.Decode(HudText)!;
+            hud = LiveHud();
             Check("Once it has loaded: its map is on, the change is over", hud.Map == Clip(Label(m[2]), 40) && hud.ChangeIn == -1 && !hud.Loading);
 
             // ---- maps gone from the Workshop (Removed.cs): refused, never rolled, off an open ballot, unblocked when they come back ----

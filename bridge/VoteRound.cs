@@ -471,7 +471,7 @@ static partial class Program
         var count = M.V($"{votes} of {present}");
         if (o.Source == VoteSource.Keep)
         {
-            b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40), CurrentMode.Id);
+            b.Result = new VoteState.Outcome(o.N, how, Clip(CurrentLabel(), 40));
             b.KeptUntil = now.AddSeconds(MapVote.KeptSeconds);
             Save();
             Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {KeepWords(b).ToLowerInvariant()} - {CurrentLabel()}");
@@ -487,7 +487,7 @@ static partial class Program
         target ??= RandomNext(b.FillMode); // Random - or a card whose map has become unplayable since: the dice over the maps on the disk (RandomQueue.cs)
         if (target == null) { Log("vote: nothing eligible to load - the map stays"); Ballot = null; return; }
         var change = new Change(target, "the vote");
-        b.Result = new VoteState.Outcome(o.N, how, Clip(Label(target), 40), ModeOf(target).Id);
+        b.Result = new VoteState.Outcome(o.N, how, Clip(Label(target), 40));
         b.Change = change;
         Save();
         Log($"vote: round {b.Round} decided ({how}, {votes} of {cast} vote(s), {present} present): {o.N}. {OptionLabel(b, o)} -> {Label(target)} in {ModeOf(target).Name}");
@@ -524,20 +524,16 @@ static partial class Program
         return gone.Count;
     }
 
-    /// <summary>The vote and the modes, for the live state (the lines VoteState.Encode adds after HudState's): the cards with the most votes first.
+    /// <summary>The vote, for the live state (the lines VoteState.Encode adds after HudState's): the cards with the most votes first.
     /// While it is open both timers are on the wire: SecondsLeft, the vote's limit, always; Inactivity and who reset it once everybody has voted,
     /// never more than SecondsLeft - the limit closes it first. Decided, SecondsLeft is the countdown: the change's, or the window's when it kept the map.</summary>
     static VoteState BuildVoteState(DateTime now)
     {
-        var mode = CurrentMode;
-        var v = new VoteState { Mode = mode.Id, ModeName = mode.Name };
-        var humans = Math.Max(PresentIds(now).Count, 1);
-        foreach (var m in Modes.All) v.Modes.Add(new VoteState.ModeInfo(m.Id, m.Name, m.MaxPlayers, m.Suits(humans)));
+        var v = new VoteState();
         if (Ballot is not { Open: true } && now < VoteWaitUntil) (v.WaitFor, v.WaitUntilMs) = ((int)Math.Ceiling((VoteWaitUntil - now).TotalSeconds), HudState.Ms(VoteWaitUntil));
         if (Ballot is not { } b) return v;
         var count = VotePresent(b, now);
         v.Round = b.Round; v.Open = b.Open; v.MatchEnded = b.MatchEnded;
-        v.Starter = b.Starter != "" ? Math.Max(0, AccountId(b.Starter)) : 0;
         v.StarterName = b.StarterName;
         var counting = b.Open ? VoteEnds(b) : b.KeptUntil ?? (Pending is { } p && p == b.Change ? p.FiresAt : (DateTime?)null);
         v.Freeze = b.Open || b.KeptUntil != null || (Pending != null && Pending == b.Change);
@@ -557,7 +553,7 @@ static partial class Program
         foreach (var o in b.Options.OrderBy(o => o.Source == VoteSource.Random).ThenByDescending(Votes).ThenBy(o => o.Order))
         {
             var keep = o.Source == VoteSource.Keep;
-            v.Options.Add(new VoteState.Option(o.N, o.Mode.Id, o.Source, o.Map is { } m ? ArgOf(m) : "", OptionKey(o),
+            v.Options.Add(new VoteState.Option(o.N, o.Mode.Id, o.Source, OptionKey(o),
                 keep ? KeepWords(b) : o.Map is { } l ? Clip(Label(l), 40) : "Random",
                 keep ? Clip(CurrentLabel(), 40) : o.Map is { Official: false, Rank: > 0 } s ? Size(s) : "",
                 Votes(o), Names(o.Pickers.Select(x => Clip(x.Name, 16)).Distinct()), o.Tags));
