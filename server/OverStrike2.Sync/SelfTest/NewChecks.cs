@@ -24,6 +24,7 @@ static class NewChecks
         SettingsFile(root);
         StockRule();
         Formats();
+        SearchTexts();
         DoorAndLedger(root);
         Cli(root);
         SmtpClient();
@@ -136,6 +137,30 @@ static class NewChecks
               Text.Clean("  a\u0000b‮c\t\td  " + string.Concat(Enumerable.Repeat("word ", 30)), 50) == "a bc d word word word word word word word word…"
               && Text.Clean(string.Concat(Enumerable.Repeat("\U0001F600", 30)) + " tail", 20) == string.Concat(Enumerable.Repeat("\U0001f600", 20)) + "…"
               && Verdicts.SearchBlob("Big  Map!", "77", ["Arms Race", "Wingman"], "A <b>bold</b> map\nwith lines") == "big map! 77 arms race wingman a <b>bold</b> map with lines");
+    }
+
+    // ---- search.json has two writers and one rule (core's SearchText): this sync, on a server, and the bridge's --search-index
+    // (bridge/SearchIndexFile.cs), for the repository's file. Every code point - alone, after a capital (the final sigma) and inside a word -
+    // makes the same text through both, as a title and as a tag; and the bridge, which reads a map's name off maps.json after Text.Clean, gets
+    // from it the sync's text of the title as it came
+    static void SearchTexts()
+    {
+        var bridgeText = System.Reflection.Assembly.Load("GunGameBridge").GetType("SearchIndexFile", true)!
+            .GetMethod("TextOf", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!
+            .CreateDelegate<Func<string, string, IEnumerable<string>, string>>();
+        var differ = new List<string>();
+        for (var cp = 0; cp <= 0x10FFFF; cp++)
+        {
+            var c = cp is >= 0xD800 and <= 0xDFFF ? ((char)cp).ToString() : char.ConvertFromUtf32(cp); // a lone surrogate too
+            var word = "a" + c + "b";
+            var same = new[] { c, "A" + c, word }.All(t => Verdicts.SearchBlob(t, "1", [], "") == bridgeText(t, "1", []))
+                       && Verdicts.SearchBlob("x", "1", [word], "") == bridgeText("x", "1", [word])
+                       && bridgeText(Text.Clean(word), "1", []) == Verdicts.SearchBlob(word, "1", [], "");
+            if (!same)
+                differ.Add($"U+{cp:X4}");
+        }
+        Check($"search.json: the sync and the bridge's --search-index make the same text of every code point, in a title and a tag ({0x110000 - differ.Count} of {0x110000}"
+              + (differ.Count > 0 ? $"; not {string.Join(" ", differ.Take(12))}" : "") + ")", differ.Count == 0);
     }
 
     // ---- one door per program: the gap holds from one run's last call to the next run's first; a call without its key reserves nothing

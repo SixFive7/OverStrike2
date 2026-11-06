@@ -7,15 +7,16 @@
 // repository's maps.json (the Arms Race list: the other modes' maps get theirs on the server). deploy/data.py copies it to a server that has
 // none yet.
 //
-// The texts are Python's, because every committed text was made by Python, and a regenerated file must not change a byte: Python's
-// str.lower() (İ becomes i and a combining dot, where .NET keeps it; a capital sigma that ends a word becomes the final sigma), its
-// str.split() (U+001C-U+001F are whitespace too), lengths in code points, and json.dumps(indent=0, ensure_ascii=False) with a final
-// newline. A value Python would only have str()-ed into a text - an id, a name or a tag that is neither text nor a whole number - is refused.
-// Plain BCL, no bridge state: Main hands the arguments over before it reads anything.
+// A new map's text follows core's SearchText, the one rule the sync follows when it adds a text on a server (the Python sync's: each part
+// cleaned as the sync cleans a title, then Python's str.lower() and str.split()). The file is written as Python wrote it, because every
+// committed text was made by Python and a regenerated file must not change a byte: lengths in code points, and json.dumps(indent=0,
+// ensure_ascii=False) with a final newline. A value Python would only have str()-ed into a text - an id, a name or a tag that is neither text
+// nor a whole number - is refused. Plain BCL, no bridge state: Main hands the arguments over before it reads anything.
 using System.Globalization;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using OverStrike2.Core;
 
 static class SearchIndexFile
 {
@@ -170,14 +171,9 @@ static class SearchIndexFile
 
     // ---- the index ----
 
-    /// <summary>The words a search finds a map by: its name's, its Workshop id, its tags' - lower case, one space between.</summary>
-    public static string TextOf(string name, string id, IEnumerable<string> tags)
-    {
-        var words = Words(Lower(name));
-        words.Add(id);
-        foreach (var tag in tags) words.AddRange(Words(Lower(tag)));
-        return string.Join(' ', words);
-    }
+    /// <summary>The words a search finds a map by: its name's, its Workshop id, its tags' - core's SearchText.Of, as the sync makes them on a
+    /// server, without a description.</summary>
+    public static string TextOf(string name, string id, IEnumerable<string> tags) => SearchText.Of(name, id, tags);
 
     /// <summary>search.json's content for these maps, in their order: a known map keeps its text, a new one - or one whose text is empty -
     /// gets its own.</summary>
@@ -213,7 +209,7 @@ static class SearchIndexFile
         if (missing.Count == 0 && stray.Count == 0 && !keys.SequenceEqual(listed)) found.Add("the texts are not in maps.json's order");
         var notText = index.Where(e => e.Text == null).Select(e => e.Key).ToList();
         if (notText.Count > 0) found.Add($"{notText.Count} value(s) that are not text, e.g. {Some(notText)}");
-        var noId = index.Where(e => e.Text != null && !Words(e.Text).Contains(e.Key)).Select(e => e.Key).ToList();
+        var noId = index.Where(e => e.Text != null && !SearchText.Split(e.Text).Contains(e.Key)).Select(e => e.Key).ToList();
         if (noId.Count > 0) found.Add($"{noId.Count} text(s) without their own Workshop id, e.g. {Some(noId)}");
         var tooLong = index.Where(e => e.Text != null && Len(e.Text) > MaxText).Select(e => e.Key).ToList();
         if (tooLong.Count > 0) found.Add($"{tooLong.Count} text(s) over {MaxText} characters - more than a title, an id and tags, e.g. {Some(tooLong)}");
@@ -260,43 +256,6 @@ static class SearchIndexFile
         s.Append('"');
     }
 
-    // ---- Python's text rules ----
-
-    /// <summary>Python's str.lower(): every code point's full lower case - İ (U+0130) becomes i and a combining dot above, where .NET keeps
-    /// it - and a capital sigma that ends a word becomes the final sigma (Unicode's Final_Sigma, which .NET's casing does not apply).</summary>
-    public static string Lower(string text)
-    {
-        var points = Points(text);
-        var s = new StringBuilder(text.Length);
-        for (var i = 0; i < points.Count; i++)
-        {
-            var c = points[i];
-            if (c == 0x3A3) s.Append(FinalSigma(points, i) ? (char)0x3C2 : (char)0x3C3); // the final sigma, else the small sigma
-            else if (c == 0x130) s.Append('i').Append((char)0x307);                    // i and the combining dot above
-            else if (c is >= 0xD800 and <= 0xDFFF) s.Append((char)c); // a lone surrogate stays as it is, as in Python
-            else s.Append(Rune.ToLowerInvariant(new Rune(c)).ToString());
-        }
-        return s.ToString();
-    }
-
-    /// <summary>Python's str.split(): the runs between whitespace, where Python's whitespace also has U+001C-U+001F (.NET's does not).</summary>
-    public static List<string> Words(string text)
-    {
-        var words = new List<string>();
-        var start = -1;
-        for (var i = 0; i <= text.Length; i++)
-        {
-            var space = i == text.Length || IsSpace(text[i]);
-            if (!space && start < 0) start = i;
-            else if (space && start >= 0) { words.Add(text[start..i]); start = -1; }
-        }
-        return words;
-    }
-
-    static bool IsSpace(char c) =>
-        (int)c is (>= 0x09 and <= 0x0D) or (>= 0x1C and <= 0x20) or 0x85 or 0xA0 or 0x1680 or (>= 0x2000 and <= 0x200A) or 0x2028 or 0x2029 or 0x202F
-            or 0x205F or 0x3000;
-
     /// <summary>Python's len(): code points, a surrogate pair one.</summary>
     static int Len(string text)
     {
@@ -305,46 +264,4 @@ static class SearchIndexFile
             if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1])) i++;
         return n;
     }
-
-    static List<int> Points(string text)
-    {
-        var points = new List<int>(text.Length);
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-            {
-                points.Add(char.ConvertToUtf32(text[i], text[i + 1]));
-                i++;
-            }
-            else points.Add(text[i]);
-        }
-        return points;
-    }
-
-    /// <summary>Unicode's Final_Sigma, as CPython tests it: a cased letter before the sigma (case-ignorable ones between are skipped), and
-    /// none after it.</summary>
-    static bool FinalSigma(List<int> points, int at)
-    {
-        var j = at - 1;
-        while (j >= 0 && CaseIgnorable(points[j])) j--;
-        if (j < 0 || !Cased(points[j])) return false;
-        j = at + 1;
-        while (j < points.Count && CaseIgnorable(points[j])) j++;
-        return j == points.Count || !Cased(points[j]);
-    }
-
-    /// <summary>Unicode's Case_Ignorable: marks, format characters, modifier letters and symbols, and what sits inside a word without
-    /// ending it - apostrophes, full stops, colons (Word_Break MidLetter, MidNumLet and Single_Quote).</summary>
-    static bool CaseIgnorable(int c) =>
-        CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.NonSpacingMark or UnicodeCategory.EnclosingMark or UnicodeCategory.Format
-            or UnicodeCategory.ModifierLetter or UnicodeCategory.ModifierSymbol
-        || c is 0x27 or 0x2E or 0x3A or 0xB7 or 0x387 or 0x55F or 0x5F4 or 0x2018 or 0x2019 or 0x2024 or 0x2027 or 0xFE13 or 0xFE52 or 0xFE55
-            or 0xFF07 or 0xFF0E or 0xFF1A;
-
-    /// <summary>Unicode's Cased, where Final_Sigma asks it (it skips the case-ignorable ones first): upper, lower and title case letters, and
-    /// the few others with a case - the ordinal indicators, the Roman numerals and the circled and squared Latin letters.</summary>
-    static bool Cased(int c) =>
-        CharUnicodeInfo.GetUnicodeCategory(c) is UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter
-        || c is 0xAA or 0xBA or (>= 0x2160 and <= 0x217F) or (>= 0x24B6 and <= 0x24E9) or (>= 0x1F130 and <= 0x1F149) or (>= 0x1F150 and <= 0x1F169)
-            or (>= 0x1F170 and <= 0x1F189);
 }

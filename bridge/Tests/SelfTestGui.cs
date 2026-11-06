@@ -275,12 +275,11 @@ static partial class Program
         }
         finally { File.Delete(tmp); Search = new(); SearchText = new HudSearch().Encode(); }
 
-        // ---- the committed index's writer and checker (SearchIndexFile.cs, --search-index): Python's rules, byte for byte ----
+        // ---- the committed index's writer and checker (SearchIndexFile.cs, --search-index): the file as Python wrote it, byte for byte; a new
+        // map's text by core's SearchText, whose rule core's self-test holds and the sync's runs every code point through, the sync's way and this ----
         const char DotAbove = (char)0x307, UnitSeparator = (char)0x1F;
         Check("--search-index: a new map's text is its name's words in lower case, its id, then its tags' words - with Python's lower() and split()",
-            SearchIndexFile.TextOf("FUN GAME AİM", "7", ["Classic", $"Arms{UnitSeparator}Race", "  "]) == $"fun game ai{DotAbove}m 7 classic arms race"
-            && SearchIndexFile.Lower("ΟΔΥΣΣΕΑΣ: Σ'ΑΓΑΠΩ ΑΣ'Α Σ") == "οδυσσεας: σ'αγαπω ασ'α σ"
-            && SearchIndexFile.Words($"a{(char)0x1C}b{(char)0xA0}c{(char)0x2028}d{(char)0x3000}") is ["a", "b", "c", "d"]);
+            SearchIndexFile.TextOf("FUN GAME AİM", "7", ["Classic", $"Arms{UnitSeparator}Race", "  "]) == $"fun game ai{DotAbove}m 7 classic arms race");
         Check("--search-index: a known map keeps its text, an empty one is made again, a map that left loses its line - in maps.json's order",
             SearchIndexFile.Build([("1", "One"), ("2", "Two"), ("3", null)], [("2", "kept 2"), ("3", "three 3"), ("9", "gone 9"), ("1", "")],
                 new Dictionary<string, List<string>> { ["1"] = ["Arms Race"] }) is [("1", "one 1 arms race"), ("2", "kept 2"), ("3", "three 3")]);

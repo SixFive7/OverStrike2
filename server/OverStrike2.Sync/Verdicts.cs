@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -95,16 +96,9 @@ public static class Verdicts
         });
     }
 
-    /// <summary>The search text of a map: lowercased words.</summary>
-    public static string SearchBlob(string name, string wid, IEnumerable<string> tags, string description)
-    {
-        var parts = Py.Words(Text.Clean(name).ToLowerInvariant()).ToList();
-        parts.Add(wid);
-        foreach (var tag in tags)
-            parts.AddRange(Py.Words(Text.Clean(tag).ToLowerInvariant()));
-        parts.AddRange(Py.Words(Py.Cut(Text.Clean(description).ToLowerInvariant(), 800)));
-        return string.Join(" ", parts.Where(p => p.Length > 0));
-    }
+    /// <summary>The search text of a map: core's SearchText.Of, the rule the bridge's --search-index follows too - its name's words, its
+    /// id, its tags' words, and the start of its description's.</summary>
+    public static string SearchBlob(string name, string wid, IEnumerable<string> tags, string description) => SearchText.Of(name, wid, tags, description);
 
     /// <summary>Most subscribed first, then most subscribed ever, then the oldest id.</summary>
     public static (long, long, long) PopularityKey(JsonNode? rec, string wid) =>

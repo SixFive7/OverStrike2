@@ -20,6 +20,7 @@ try
     TimeTests.Run();
     KeepSetTests.Run();
     FilesTests.Run();
+    SearchTextTests.Run();
 }
 finally
 {
