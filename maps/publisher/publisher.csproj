@@ -8,4 +8,9 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>mappublisher</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- What both Workshop publishers share: the Steam calls (CreateItem is this one's own, in Program.cs), the session, the VPK; and the plugin's reading of an item's page. -->
+    <Compile Include="..\..\tools\workshop\Workshop.cs" Link="Workshop.cs" />
+    <Compile Include="..\..\bridge\Shared\SteamPage.cs" Link="SteamPage.cs" />
+  </ItemGroup>
 </Project>
