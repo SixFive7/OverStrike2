@@ -5,8 +5,8 @@ using System.Text;
 
 namespace CatchUp;
 
-/// <summary>What one life gets: a catch-up boost, the leader's bounty, or nothing. Decided at spawn, with the spawn's message; with
-/// RecalculateOnKill decided again after every change to the ladder, silently, by the mid-life rules (Rules.Recalculate).</summary>
+/// <summary>What one life gets: a catch-up boost, the leader's bounty, or nothing. Decided at spawn, with the spawn's message, and decided
+/// again after every change to the ladder, silently, by the mid-life rules (Rules.Recalculate).</summary>
 public sealed record Boost
 {
     public static readonly Boost None = new();
@@ -59,7 +59,7 @@ public readonly record struct HitInput(
 /// <summary>What to do with it: block it, or let it through with this damage.</summary>
 public readonly record struct HitResult(bool Block, float Damage, bool SecondChanceUsed, bool OneHit);
 
-/// <summary>A life's boost decided again in its middle (RecalculateOnKill): the boost from now on; the health it holds, a fraction of the
+/// <summary>A life's boost decided again in its middle: the boost from now on; the health it holds, a fraction of the
 /// spawn health that never goes down within the life; its maximum health, never lower than it was - the ceiling regeneration and lifesteal
 /// fill, raised when the health grows while the current health is left alone; and whether the tier (or the bounty's step) changed, the cue
 /// for the log's one line.</summary>
@@ -67,6 +67,13 @@ public readonly record struct MidLife(Boost Boost, double Health, int MaxHealth,
 
 public static class Rules
 {
+    /// <summary>A value cut in the middle of a life (HoldHealth) is rounded down to a multiple of this - whole 5% steps - so the numbers stay
+    /// readable.</summary>
+    public const double RoundTo = 0.05;
+
+    /// <summary>When the spawn's message comes: right after the boost, or at the first spawn after joining once the join tagline is gone.</summary>
+    public const double MessageDelaySeconds = 0.25, FirstSpawnDelaySeconds = 3;
+
     /// <summary>The tier for a gap, or null below the first.</summary>
     public static TierConfig? TierFor(IReadOnlyList<TierConfig> tiers, int behind)
     {
@@ -81,17 +88,17 @@ public static class Rules
         lead < b.MinLead ? 0 : Math.Min(b.Max, b.PerStep * (lead / b.StepKills));
 
     /// <summary>How many times faster a player kills the leader than the leader kills them, on paper (same aim, same gun): their
-    /// effective health (health, plus lifesteal's share of the leader's health over a duel) over the damage they take, times the damage
-    /// they deal, times the leader's bounty. 1 is an even fight.</summary>
-    public static double DuelFactor(double health, double lifesteal, double damageDealt, double damageTaken, double bounty, bool lifestealCounts) =>
-        (1 + health + (lifestealCounts ? lifesteal : 0)) * (1 + damageDealt) * (1 + bounty) / (1 + damageTaken);
+    /// effective health (health, plus lifesteal, which returns that share of the leader's health over a duel) over the damage they take,
+    /// times the damage they deal, times the leader's bounty. 1 is an even fight.</summary>
+    public static double DuelFactor(double health, double lifesteal, double damageDealt, double damageTaken, double bounty) =>
+        (1 + health + lifesteal) * (1 + damageDealt) * (1 + bounty) / (1 + damageTaken);
 
     /// <summary>The boost for this player now, by the standings: the leader may get a bounty, everybody else their tier as the table gives
     /// it. A teammate of the leader (teammateOfLeader: the same team, no free-for-all) never fights the leader, so the duel factor the log
     /// shows for them leaves the leader's bounty out.</summary>
     public static Boost Decide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader = false)
     {
-        if (!c.Enabled || s.Players < 2) return Boost.None;
+        if (s.Players < 2) return Boost.None;
         var bounty = s.Leader == 0 ? 0 : BountyFor(c.Bounty, s.Lead);
         if (id == s.Leader) return new Boost { Lead = s.Lead, Bounty = bounty };
         return ForGap(c, s.Behind(id), teammateOfLeader ? 0 : bounty);
@@ -108,16 +115,16 @@ public static class Rules
             Health = t.Health, DamageTaken = t.DamageTaken, DamageDealt = t.DamageDealt, Lifesteal = t.Lifesteal,
             RegenPerSecond = t.RegenPerSecond, RegenDelaySeconds = t.RegenDelaySeconds, SecondChance = t.SecondChance,
             ExtraProtection = t.ExtraSpawnProtectionSeconds, InfiniteAmmo = t.InfiniteAmmo, OneHitMelee = t.OneHitKnifeAndTaser,
-            Factor = DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, leaderBounty, c.Balance.LifestealCounts),
+            Factor = DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, leaderBounty),
         };
     }
 
     /// <summary>What a player's own four values multiply to: the duel factor without the leader's bounty.</summary>
-    public static double Own(double health, double lifesteal, double damageDealt, double damageTaken, bool lifestealCounts) =>
-        DuelFactor(health, lifesteal, damageDealt, damageTaken, 0, lifestealCounts);
+    public static double Own(double health, double lifesteal, double damageDealt, double damageTaken) =>
+        DuelFactor(health, lifesteal, damageDealt, damageTaken, 0);
 
     /// <summary>The own factor of a boost.</summary>
-    public static double Own(Boost b, bool lifestealCounts) => Own(b.Health, b.Lifesteal, b.DamageDealt, b.DamageTaken, lifestealCounts);
+    public static double Own(Boost b) => Own(b.Health, b.Lifesteal, b.DamageDealt, b.DamageTaken);
 
     /// <summary>A new decision for a life that holds more health than it gives (lifeHealth, a fraction of the spawn health): health is never
     /// lowered within a life, so it stays, and damage taken, damage dealt and lifesteal share what is left of the decision's own factor - scaled
@@ -126,33 +133,29 @@ public static class Rules
     /// that factor all three are zero. Everything else is the decision's: regeneration, the second chance, infinite ammo, the one-hit knife
     /// and Zeus, the bounty. A life that holds no more health than the decision gives gets the decision as it is. leaderBounty: the bounty on
     /// this player's hits on the leader, for the factor the log shows (0 for the leader and his teammates).</summary>
-    public static Boost HoldHealth(BalanceConfig b, Boost decided, double lifeHealth, double leaderBounty)
+    public static Boost HoldHealth(Boost decided, double lifeHealth, double leaderBounty)
     {
         if (lifeHealth <= decided.Health + 1e-9) return decided;
-        var lsc = b.LifestealCounts;
-        var target = Own(decided, lsc);
+        var target = Own(decided);
         var floor = 1 + lifeHealth; // the held health's share of the factor
         var limit = new[] { -decided.DamageTaken, decided.DamageDealt, decided.Lifesteal };
         var part = new double[3];   // resistance (as a positive share), damage, lifesteal
-        if (!lsc) part[2] = decided.Lifesteal; // outside the factor: as the decision gives it
-        double Given() => Own(lifeHealth, part[2], part[1], -part[0], lsc);
+        double Given() => Own(lifeHealth, part[2], part[1], -part[0]);
         if (target > floor + 1e-9)
         {
-            var lifestealFactor = lsc ? (floor + decided.Lifesteal) / floor : 1;
+            var lifestealFactor = (floor + decided.Lifesteal) / floor;
             var all = lifestealFactor * (1 + decided.DamageDealt) / (1 + decided.DamageTaken);
             var k = all > 1 + 1e-12 ? Math.Clamp(Math.Log(target / floor) / Math.Log(all), 0, 1) : 0;
             part[0] = 1 - Math.Pow(1 + decided.DamageTaken, k);
             part[1] = Math.Pow(1 + decided.DamageDealt, k) - 1;
-            if (lsc) part[2] = floor * (Math.Pow(lifestealFactor, k) - 1);
-            for (var i = 0; i < 3; i++)
-                if (lsc || i != 2) part[i] = Math.Min(limit[i], Down(part[i], b.RoundTo));
-            for (var grew = b.RoundTo > 0; grew;)
+            part[2] = floor * (Math.Pow(lifestealFactor, k) - 1);
+            for (var i = 0; i < 3; i++) part[i] = Math.Min(limit[i], Down(part[i], RoundTo));
+            for (var grew = true; grew;)
             {
                 grew = false;
                 for (var i = 0; i < 3; i++)
                 {
-                    if (!lsc && i == 2) continue;
-                    var next = Math.Round(part[i] + b.RoundTo, 6);
+                    var next = Math.Round(part[i] + RoundTo, 6);
                     if (next > limit[i] + 1e-9) continue;
                     var was = part[i];
                     part[i] = next;
@@ -173,11 +176,11 @@ public static class Rules
     public static Boost Redecide(CatchUpConfig c, Standings s, ulong id, bool teammateOfLeader, double lifeHealth, double spawnProtection)
     {
         var decided = Decide(c, s, id, teammateOfLeader);
-        var bounty = !c.Enabled || s.Players < 2 || s.Leader == 0 || id == s.Leader || teammateOfLeader ? 0 : BountyFor(c.Bounty, s.Lead);
-        return HoldHealth(c.Balance, decided, lifeHealth, bounty) with { ExtraProtection = spawnProtection };
+        var bounty = s.Players < 2 || s.Leader == 0 || id == s.Leader || teammateOfLeader ? 0 : BountyFor(c.Bounty, s.Lead);
+        return HoldHealth(decided, lifeHealth, bounty) with { ExtraProtection = spawnProtection };
     }
 
-    /// <summary>One life after a change to the ladder (RecalculateOnKill), from its boost now (current), the health it holds (lifeHealth),
+    /// <summary>One life after a change to the ladder, from its boost now (current), the health it holds (lifeHealth),
     /// its spawn health (baseHealth) and its maximum health: the new boost; health only ever up - a higher maximum, which regeneration and
     /// lifesteal fill, never a cut, and never a heal of the current health; and whether the tier changed. The message and the spawn
     /// protection stay the spawn's: a change in the middle of a life is silent.</summary>
@@ -189,12 +192,7 @@ public static class Rules
         return new MidLife(next, grows ? next.Health : lifeHealth, max, current.Step != next.Step);
     }
 
-    static double Down(double value, double step)
-    {
-        if (value <= 0) return 0;
-        if (step <= 0) return value;
-        return Math.Round(Math.Floor(value / step + 1e-9) * step, 6);
-    }
+    static double Down(double value, double step) => value <= 0 ? 0 : Math.Round(Math.Floor(value / step + 1e-9) * step, 6);
 
     /// <summary>The damage multiplier for an enemy hit: the attacker's damage, the victim's resistance and the victim's bounty.</summary>
     public static float Multiplier(Boost attacker, Boost victim) =>
@@ -267,7 +265,6 @@ public static class Rules
     public static double ProtectedUntil(double spawnedAt, double gameProtection, Boost b) =>
         b.ExtraProtection > 0 ? spawnedAt + Math.Max(0, gameProtection) + b.ExtraProtection : spawnedAt;
 
-    /// <summary>Seconds after the spawn until the message: the first spawn after joining waits FirstSpawnDelaySeconds, any other DelaySeconds.</summary>
-    public static double MessageDelay(MessageConfig m, bool firstSinceJoin) =>
-        firstSinceJoin ? Math.Max(m.DelaySeconds, m.FirstSpawnDelaySeconds) : m.DelaySeconds;
+    /// <summary>Seconds after the spawn until the message: the first spawn after joining waits FirstSpawnDelaySeconds, any other MessageDelaySeconds.</summary>
+    public static double MessageDelay(bool firstSinceJoin) => firstSinceJoin ? FirstSpawnDelaySeconds : MessageDelaySeconds;
 }

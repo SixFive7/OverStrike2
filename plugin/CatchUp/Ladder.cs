@@ -47,8 +47,9 @@ public static class Weapons
 
 /// <summary>Everybody's progress up the Arms Race ladder in this match, in kills (level x KillsPerLevel + kills on the level), and the
 /// gun each one holds. The game exposes no ladder position (the ladder itself, CCSGameModeRules_ArmsRace.m_WeaponSequence, cannot be
-/// read: a vector of strings), so this counts it from the kills, by the rules in ProgressConfig - CS2's, as five real matches show them
-/// (the self-test replays them: 543 of 543 gun kills made with the gun this puts in the killer's hands).
+/// read: a vector of strings), so this counts it from the kills, by CS2's own rules as this server's match logs show them (the self-test
+/// replays one match of 2026-09-19 and four of 2026-11-04: 543 of 543 gun kills made with the gun this puts in the killer's hands). They are
+/// the game's, so none of them is a setting: a rule other than the game's makes every count after it wrong.
 ///
 /// Besides the level and the kills on it the game keeps a third number: the rung of the gun in hand (Held). It is the level's gun,
 /// except after a team kill: the killer goes down a level but keeps the gun he had until he dies, and his kills with it count on the
@@ -65,11 +66,9 @@ public sealed class Ladder
     readonly Dictionary<ulong, Rec> players = new();
     readonly Dictionary<string, int> rungOf = new(StringComparer.Ordinal);
     readonly HashSet<string> ambiguous = new(StringComparer.Ordinal); // a gun seen on two rungs this match: it places nobody
-    ProgressConfig cfg;
 
-    public Ladder(ProgressConfig cfg) => this.cfg = cfg;
-
-    public void Configure(ProgressConfig config) => cfg = config;
+    /// <summary>Kills a gun level takes, as Arms Race counts them.</summary>
+    public const int KillsPerLevel = 2;
 
     /// <summary>True once a match was seen from its start; until then nothing is decided (a load in the middle of a match waits).</summary>
     public bool Tracking { get; private set; }
@@ -105,7 +104,7 @@ public sealed class Ladder
     /// <summary>Something the counter cannot follow happened to this player (a team change): their next gun kill places them.</summary>
     public void Untrust(ulong id) => Get(id).Trusted = false;
 
-    public int Progress(ulong id) => players.TryGetValue(id, out var r) ? r.Level * cfg.KillsPerLevel + r.Kills : 0;
+    public int Progress(ulong id) => players.TryGetValue(id, out var r) ? r.Level * KillsPerLevel + r.Kills : 0;
 
     public (int Level, int Kills, bool Trusted) State(ulong id) =>
         players.TryGetValue(id, out var r) ? (r.Level, r.Kills, r.Trusted) : (0, 0, false);
@@ -126,9 +125,10 @@ public sealed class Ladder
     /// does. Returns a line for the log when the kill placed the killer on its gun's rung, or showed a gun on two rungs; else null.
     ///
     /// The killer: a gun, an HE grenade or a Zeus adds a kill, and the last kill of a level moves them up with the new level's gun; a
-    /// knife moves them up a level and keeps the kills on it. The victim: an enemy's knife takes them down a level and keeps the kills
-    /// (at level 0 the kill on it goes instead), an enemy's Zeus takes one kill (from 0 kills a level, with one kill on it); either way
-    /// they respawn with their level's gun.
+    /// knife moves them up a level and keeps the kills on it (level 5 + 1 becomes 6 + 1), with the new level's gun. On the last level, the
+    /// golden knife, only a knife kill counts. The victim: an enemy's knife takes them down a level and keeps the kills (7 + 1 becomes
+    /// 6 + 1; at level 0 the kill on it goes instead), an enemy's Zeus takes one kill (7 + 0 becomes 6 + 1; nothing at 0 + 0); either
+    /// way they respawn with their level's gun.
     ///
     /// Only a player counted since the start teaches a rung, and such a player is never moved: their count is the one the replayed
     /// matches prove right. If one of them kills on another rung with a gun already learned, the ladder holds that gun twice (or the
@@ -140,16 +140,16 @@ public sealed class Ladder
         var v = Get(victim);
         var note = Learn(k, weapon, kind);
 
-        if (kind == WeaponKind.Knife && cfg.KnifeKillLevelsUp)
+        if (kind == WeaponKind.Knife)
         {
             k.Level++; // the kills on the level kept
             k.Held = k.Level;
         }
         // No gun and no kill on the level yet: the golden knife, where only a knife kill counts. With one kill on the level, this
         // kill finished it and the game swapped the gun for the knife before reporting the kill: it counts.
-        else if (!(cfg.LastLevelOnlyKnife && kind != WeaponKind.Gun && !killerHasGun && k.Kills == 0))
+        else if (!(kind != WeaponKind.Gun && !killerHasGun && k.Kills == 0))
         {
-            if (++k.Kills >= cfg.KillsPerLevel)
+            if (++k.Kills >= KillsPerLevel)
             {
                 k.Level++;
                 k.Kills = 0;
@@ -157,14 +157,14 @@ public sealed class Ladder
             }
         }
 
-        if (kind == WeaponKind.Knife && cfg.KnifeDeathDemotes) Demote(v);
-        else if (kind == WeaponKind.Taser && cfg.TaserDeathCostsKill)
+        if (kind == WeaponKind.Knife) Demote(v);
+        else if (kind == WeaponKind.Taser)
         {
             if (v.Kills > 0) v.Kills--;
             else if (v.Level > 0)
             {
                 v.Level--;
-                v.Kills = cfg.KillsPerLevel - 1;
+                v.Kills = KillsPerLevel - 1;
             }
         }
         v.Held = v.Level; // the victim respawns with the level's gun
@@ -172,40 +172,36 @@ public sealed class Ladder
     }
 
     /// <summary>A team kill under friendly fire (not free-for-all, where a teammate is an enemy). The killer goes down a level, the kills on
-    /// it kept - at level 0 the kill on it goes instead - (TeamKillDemotes), and keeps the gun in hand until he dies: his kills with it
-    /// count on the lower level. The victim loses nothing, and respawns with their level's gun. Returns the log's line, and apart from it
-    /// the note of Kill's kind when the gun placed the killer or showed a gun on two rungs (else null): a team kill's gun names the rung
-    /// in hand as well as an enemy kill's.</summary>
+    /// it kept (9 + 1 becomes 8 + 1; at level 0 the kill on it goes instead), as Arms Race punishes it, and keeps the gun in hand until he
+    /// dies: his kills with it count on the lower level. The victim loses nothing, and respawns with their level's gun. A count that ignored
+    /// team kills would run past the golden knife: 38 and 40 of 32 were measured for two teammates, with friendly fire and Instakill on.
+    /// Returns the log's line, and apart from it the note of Kill's kind when the gun placed the killer or showed a gun on two rungs (else
+    /// null): a team kill's gun names the rung in hand as well as an enemy kill's.</summary>
     public (string Line, string? Note) TeamKill(ulong killer, ulong victim, string? weapon)
     {
         var k = Get(killer);
         var note = Learn(k, weapon, Weapons.Kind(weapon));
         var was = (k.Level, k.Kills);
-        if (cfg.TeamKillDemotes) Demote(k);
+        Demote(k);
         var v = Get(victim);
         v.Held = v.Level;
-        var line = $"team-killed with {Weapons.Name(weapon)}: " + (cfg.TeamKillDemotes
-            ? $"down from level {was.Level} + {was.Kills} to level {k.Level} + {k.Kills}" + (k.Held != k.Level ? $", the level-{k.Held} gun in hand until death" : "")
-            : "the count kept");
+        var line = $"team-killed with {Weapons.Name(weapon)}: down from level {was.Level} + {was.Kills} to level {k.Level} + {k.Kills}"
+                   + (k.Held != k.Level ? $", the level-{k.Held} gun in hand until death" : "");
         return (line, note);
     }
 
     /// <summary>A death no enemy caused: the world, a fall, drowning, the kill command, a team change. At level 0 the kill on the level
-    /// goes, as CS2 does it. Above level 0 CS2 was never seen, so SuicideDemotes keeps CS:GO's rule (down a level, its kills gone) and
-    /// the player's next gun kill places them, whatever the game did. They respawn with their level's gun.</summary>
+    /// goes, as CS2 does it. Above level 0 CS2 was never seen, so this keeps CS:GO's rule (down a level, its kills gone) and the player's
+    /// next gun kill places them, whatever the game did. They respawn with their level's gun.</summary>
     public void Suicide(ulong id)
     {
         var r = Get(id);
         if (r.Level > 0)
         {
-            if (cfg.SuicideDemotes)
-            {
-                r.Level--;
-                r.Kills = 0;
-            }
+            r.Level--;
             r.Trusted = false;
         }
-        else if (cfg.SuicideDemotes) r.Kills = 0;
+        r.Kills = 0;
         r.Held = r.Level;
     }
 
@@ -241,7 +237,7 @@ public sealed class Ladder
         var placed = $"placed on level {rung} by a {name} kill (counted {k.Level})";
         k.Level = rung;
         k.Held = rung;
-        k.Kills = Math.Min(k.Kills, cfg.KillsPerLevel - 1);
+        k.Kills = Math.Min(k.Kills, KillsPerLevel - 1);
         return placed;
     }
 

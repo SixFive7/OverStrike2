@@ -1,34 +1,22 @@
 // The catch-up module's settings: catchup.json beside the plugin DLL. Plain BCL (System.Text.Json), no CounterStrikeSharp type,
-// so the self-test compiles this file in source. Every number the owner may want to tune lives here, never in the rules.
+// so the self-test compiles this file in source. The file holds what is tuned - the boost table and the leader's bounty; how the game
+// counts the ladder, the mid-life cut's steps and the message's timing are the rules', in the code (Ladder, Rules, Words).
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace CatchUp;
 
-/// <summary>Everything that can be tuned, with the defaults the module ships with. catchup.json holds the same values (the self-test
-/// fails when they drift apart). A missing or unreadable file means these defaults, and the log says which.</summary>
+/// <summary>What can be tuned, with the defaults the module ships with. catchup.json holds the same values (the self-test fails when they
+/// drift apart). A missing or unreadable file means these defaults, and the log says which. A key the module does not read - one an older
+/// file still holds - is ignored.</summary>
 public sealed class CatchUpConfig
 {
     public const string FileName = "catchup.json";
-
-    /// <summary>Master switch. Off: no boost, no bounty, no message; the kill counting still runs, so switching it on mid-match works.</summary>
-    public bool Enabled { get; set; } = true;
-
-    /// <summary>Decide every living player's boost again a frame after each change to the ladder (a kill, a team kill, a demotion, a death
-    /// without an enemy, a player leaving or changing team), not only at spawn: a boost shrinks as soon as its
-    /// gap closes, so it cannot carry a streak, and grows when the leader pulls away. Within a life health only goes up (a higher maximum; the
-    /// current health is never cut), and when the boost shrinks the other three values take the cut (Rules.HoldHealth); spawn protection and
-    /// the message stay the spawn's. Off: decided at spawn only, kept for the life.</summary>
-    public bool RecalculateOnKill { get; set; } = true;
 
     /// <summary>The boosts by kills behind the leader, lowest first. A player gets the last tier whose MinBehind they reach.</summary>
     public List<TierConfig> Tiers { get; set; } = DefaultTiers();
 
     public BountyConfig Bounty { get; set; } = new();
-    public BalanceConfig Balance { get; set; } = new();
-    public ProgressConfig Progress { get; set; } = new();
-    public MessageConfig Message { get; set; } = new();
-    public EffectsConfig Effects { get; set; } = new();
 
     /// <summary>Curve B: one tier per gap from 2 to 8+, little boost near the top and much more far behind.
     /// The own factor of each, (1 + health + lifesteal) x (1 + damage dealt) / (1 + damage taken), follows the steep quadratic 1 + 0.10 x
@@ -95,19 +83,11 @@ public sealed class CatchUpConfig
     {
         Tiers ??= DefaultTiers();
         Bounty ??= new();
-        Balance ??= new();
-        Progress ??= new();
-        Message ??= new();
-        Effects ??= new();
         Tiers.RemoveAll(t => t == null);
         foreach (var t in Tiers) t.Normalize(notes);
         if (Tiers.Select(t => t.MinBehind).Distinct().Count() != Tiers.Count) notes.Add("two tiers with the same MinBehind: the later one wins");
         Tiers = Tiers.OrderBy(t => t.MinBehind).GroupBy(t => t.MinBehind).Select(g => g.Last()).ToList();
         Bounty.Normalize(notes);
-        Balance.Normalize(notes);
-        Progress.Normalize(notes);
-        Message.Normalize(notes);
-        Effects.Normalize(notes);
     }
 
     internal static double Clamp(double value, double min, double max, string name, List<string> notes)
@@ -197,104 +177,5 @@ public sealed class BountyConfig
         StepKills = CatchUpConfig.Clamp(StepKills, 1, 1000, "Bounty.StepKills", notes);
         PerStep = CatchUpConfig.Clamp(PerStep, 0, 2, "Bounty.PerStep", notes);
         Max = CatchUpConfig.Clamp(Max, 0, 2, "Bounty.Max", notes);
-    }
-}
-
-/// <summary>How a boost's values are weighed against each other: the duel factor the log shows (Rules.DuelFactor) and the mid-life cut
-/// (Rules.HoldHealth).</summary>
-public sealed class BalanceConfig
-{
-    /// <summary>Lifesteal counts as health in the duel factor (in a duel it returns that share of the leader's health).</summary>
-    public bool LifestealCounts { get; set; } = true;
-
-    /// <summary>A value cut in the middle of a life (Rules.HoldHealth) is rounded down to a multiple of this (0.05 = whole 5% steps), so
-    /// the numbers stay readable.</summary>
-    public double RoundTo { get; set; } = 0.05;
-
-    internal void Normalize(List<string> notes)
-    {
-        RoundTo = CatchUpConfig.Clamp(RoundTo, 0, 0.5, "Balance.RoundTo", notes);
-    }
-}
-
-/// <summary>How Arms Race moves a player up and down its ladder, as the kill counter models it. The defaults are CS2's rules as this
-/// server's own match logs show them: the self-test replays one match of 2026-09-19 and four of 2026-11-04, and 543 of 543 gun kills were made
-/// with the gun the model puts in the killer's hands.</summary>
-public sealed class ProgressConfig
-{
-    public int KillsPerLevel { get; set; } = 2;
-
-    /// <summary>A knife kill moves the killer up a level, the kills on the level kept (level 5 + 1 becomes 6 + 1), with the new level's gun.</summary>
-    public bool KnifeKillLevelsUp { get; set; } = true;
-
-    /// <summary>Killed by an enemy's knife: down one level, the kills on it kept (7 + 1 becomes 6 + 1); at level 0 the kill on it goes instead.</summary>
-    public bool KnifeDeathDemotes { get; set; } = true;
-
-    /// <summary>Killed by an enemy's Zeus: one kill of progress lost (7 + 0 becomes 6 + 1; nothing at 0 + 0).</summary>
-    public bool TaserDeathCostsKill { get; set; } = true;
-
-    /// <summary>Death without an enemy (the world, a fall, drowning, a team change): at level 0 the kill on the level goes, as CS2 does it.
-    /// Above level 0 CS2 was never seen: down one level with its kills, as in CS:GO's Arms Race, and placed again by the next gun kill, so
-    /// the count heals whatever the game did.</summary>
-    public bool SuicideDemotes { get; set; } = true;
-
-    /// <summary>A team kill (friendly fire, without free-for-all): the killer down one level, the kills on it kept (9 + 1 becomes 8 + 1; at
-    /// level 0 the kill on it goes instead), as Arms Race punishes it. The killer keeps the gun in hand, the old level's, until he dies, and
-    /// kills with it count on the lower level. The victim loses nothing. Ignoring team kills lets the counts run past the golden knife: 38 and
-    /// 40 of 32 were measured for two teammates, with friendly fire and Instakill on.</summary>
-    public bool TeamKillDemotes { get; set; } = true;
-
-    /// <summary>On the last level (the golden knife) only a knife kill counts.</summary>
-    public bool LastLevelOnlyKnife { get; set; } = true;
-
-    internal void Normalize(List<string> notes)
-    {
-        KillsPerLevel = CatchUpConfig.Clamp(KillsPerLevel, 1, 10, "Progress.KillsPerLevel", notes);
-    }
-}
-
-/// <summary>The private centre-screen message at spawn.</summary>
-public sealed class MessageConfig
-{
-    public bool ToBoosted { get; set; } = true;
-    public bool ToLeader { get; set; } = true;
-
-    /// <summary>How long it stays up (the centre panel's own duration, whole seconds) before it fades.</summary>
-    public int Seconds { get; set; } = 2;
-
-    /// <summary>After a spawn, once the boost is applied.</summary>
-    public double DelaySeconds { get; set; } = 0.25;
-
-    /// <summary>The first spawn after joining waits this long, for the join tagline to clear.</summary>
-    public double FirstSpawnDelaySeconds { get; set; } = 3.0;
-
-    /// <summary>The centre panel wraps at about 31 characters and scrolls taller content (measured 2026-10-04): stay inside these.</summary>
-    public int LineWidth { get; set; } = 28;
-
-    public int MaxLines { get; set; } = 5;
-
-    internal void Normalize(List<string> notes)
-    {
-        Seconds = CatchUpConfig.Clamp(Seconds, 1, 10, "Message.Seconds", notes);
-        DelaySeconds = CatchUpConfig.Clamp(DelaySeconds, 0, 10, "Message.DelaySeconds", notes);
-        FirstSpawnDelaySeconds = CatchUpConfig.Clamp(FirstSpawnDelaySeconds, 0, 30, "Message.FirstSpawnDelaySeconds", notes);
-        LineWidth = CatchUpConfig.Clamp(LineWidth, 16, 80, "Message.LineWidth", notes);
-        MaxLines = CatchUpConfig.Clamp(MaxLines, 1, 12, "Message.MaxLines", notes);
-    }
-}
-
-/// <summary>Timing of the effects in game.</summary>
-public sealed class EffectsConfig
-{
-    /// <summary>After a spawn, before the boost is decided and applied: the game sets the spawn health and loadout first.</summary>
-    public double ApplyDelaySeconds { get; set; } = 0.1;
-
-    /// <summary>How often regeneration is applied.</summary>
-    public double RegenTickSeconds { get; set; } = 0.5;
-
-    internal void Normalize(List<string> notes)
-    {
-        ApplyDelaySeconds = CatchUpConfig.Clamp(ApplyDelaySeconds, 0, 2, "Effects.ApplyDelaySeconds", notes);
-        RegenTickSeconds = CatchUpConfig.Clamp(RegenTickSeconds, 0.1, 5, "Effects.RegenTickSeconds", notes);
     }
 }

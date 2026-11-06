@@ -7,6 +7,9 @@ namespace CatchUp;
 /// <summary>The words: the private message (packed for the centre panel), one sentence for a log or a chat line, and the log line.</summary>
 public static class Words
 {
+    /// <summary>The centre panel wraps at about 31 characters and scrolls taller content (measured 2026-10-04): its lines stay inside these.</summary>
+    public const int LineWidth = 28, MaxLines = 5;
+
     static string Pct(double fraction) => Math.Round(Math.Abs(fraction) * 100).ToString(CultureInfo.InvariantCulture) + "%";
     static string Sec(double seconds) => Math.Round(seconds, 1).ToString(CultureInfo.InvariantCulture);
     static string Kills(int n) => n == 1 ? "1 kill" : $"{n} kills";
@@ -50,14 +53,14 @@ public static class Words
     /// <summary>The centre-panel lines: the reason first, then the items, wrapped at commas. Tries long words with the reason on a line
     /// of its own, then short words, then short words with the short reason inline; the first that fits MaxLines x LineWidth wins,
     /// else the last. Empty when there is nothing to say.</summary>
-    public static string[] Lines(Boost b, MessageConfig m)
+    public static string[] Lines(Boost b)
     {
         if (Items(b, false).Count == 0) return [];
         string[]? last = null;
         foreach (var (shortWords, inline) in new[] { (false, false), (true, false), (true, true) })
         {
-            var lines = Pack(Why(b, shortWords && inline), Items(b, shortWords), m.LineWidth, inline);
-            if (lines.Length <= m.MaxLines && lines.All(l => l.Length <= m.LineWidth)) return lines;
+            var lines = Pack(Why(b, shortWords && inline), Items(b, shortWords), LineWidth, inline);
+            if (lines.Length <= MaxLines && lines.All(l => l.Length <= LineWidth)) return lines;
             last = lines;
         }
         return last!;
@@ -120,7 +123,7 @@ public static class Words
         return string.Create(CultureInfo.InvariantCulture, $"{who} spawns {Kills(b.KillsBehind)} behind {standing}: tier {b.Tier}+: {string.Join(", ", parts)}; duel factor {b.Factor:0.00}");
     }
 
-    /// <summary>The server log's line for a boost whose tier (or bounty step) changed in the middle of a life (RecalculateOnKill), for
+    /// <summary>The server log's line for a boost whose tier (or bounty step) changed in the middle of a life, for
     /// example "P2's boost changes mid-life, tier 8+ -> tier 5+: +120% health held (100, at most 220), -5% damage taken, +10% damage, ...;
     /// duel factor 3.06 - 5 kills behind (leader P1 20, them 15, 4 players)". maxHealth is the life's maximum after the change. The
     /// standing comes last, so no line of this kind reads as a spawn's (Decision).</summary>

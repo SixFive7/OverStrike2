@@ -22,8 +22,8 @@ public class OverStrike2Plugin : BasePlugin
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
 
-    /// <summary>How long a catch-up message stays centre screen: sent every tick, since the game's centre panel goes within a second of its last
-    /// message whatever duration it names. At least this long; longer when the catch-up module asks for more.</summary>
+    /// <summary>How long a catch-up message stays: the card under the crosshair, or the centre panel, sent every tick since the game's centre
+    /// panel goes within a second of its last message whatever duration it names.</summary>
     const double CatchUpMessageSeconds = 5;
 
     HudScreen? hud;
@@ -101,10 +101,10 @@ public class OverStrike2Plugin : BasePlugin
         settings.Ready(); // a load while a Deathmatch or Wingman map is on: the modules follow that map's mode now, as from its start
         hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects - the grenade drops and catch-up among them - included
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
-        catchUp.Show = (player, boost, lines, html, seconds) =>
+        catchUp.Show = (player, boost, html) =>
         {
-            if (hud.HasCards(player)) { hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Items(boost, false), boost.IsBounty, Math.Max(seconds, CatchUpMessageSeconds)); return; }
-            boosts[player.Slot] = (html, DateTime.UtcNow.AddSeconds(Math.Max(seconds, CatchUpMessageSeconds))); // sent every tick for its seconds (OnTick)
+            if (hud.HasCards(player)) { hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Items(boost, false), boost.IsBounty, CatchUpMessageSeconds); return; }
+            boosts[player.Slot] = (html, DateTime.UtcNow.AddSeconds(CatchUpMessageSeconds)); // sent every tick for its seconds (OnTick)
             player.PrintToCenterHtml(html);
         };
         Logger.LogInformation("Over Strike 2 {Version}: HUD (Workshop addon {Addon}), {Command} from the bridge, TAB, the chat commands, the vote's freeze.", ModuleVersion, addon, Guide.Command);
