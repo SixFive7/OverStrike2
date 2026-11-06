@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- os2-deploy: the deploy tooling in one program - the private config, the Docker API, A2S and careful copies, and the commands that ship
+       the bridge, the plugin, the server programs and the data files, a release, the stack's guard and verify, the HUD's map pictures, the
+       client harness's server half and the release rehearsal. Run from the repository's root with "dotnet run (project) deploy/OverStrike2.Deploy",
+       then two dashes and the command; deploy/README.md has every command, and the argument selftest with two dashes in front runs every offline
+       check. A workstation tool: never shipped to the server. Two packages, both MIT: YamlDotNet reads a compose file, SkiaSharp makes the
+       map pictures (its native library for Windows, macOS and Linux comes with it). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>OverStrike2.Deploy</RootNamespace>
+    <AssemblyName>os2-deploy</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- core/: the one A2S query the bridge and the server program ask too. -->
+    <ProjectReference Include="..\..\core\OverStrike2.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+    <PackageReference Include="SkiaSharp" Version="4.151.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />
+  </ItemGroup>
+
+</Project>
