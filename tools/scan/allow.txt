@@ -2,7 +2,8 @@
 #   <rule> <path glob> <regex the matched text must fully match>  # why it is not private
 #   binary <path> <sha256>  # what the file is and why it may be public
 # Rules: ipv4 ipv6 mac host-path share user-path drive-path steam64 steamid e-mail token hex16 timezone phone id-number
-# cdn-route clock-time quote owner-ref, or * for any.
+# cdn-route clock-time quote owner-ref bidi, or * for any. A bidi entry's regex matches the whole line the character is on, trimmed, so it
+# allows that line only.
 # Allowed without an entry: loopback and unspecified addresses, the documentation ranges (192.0.2.0/24, 198.51.100.0/24,
 # 203.0.113.0/24, 2001:db8::/32) and e-mail addresses at example.com/.org/.net or .example/.invalid/.test.
 
@@ -71,6 +72,8 @@ owner-ref plugin/CatchUp/*.cs the owner's (?:42 d|70|91|2026)  # decision refere
 owner-ref plugin/CatchUp/SelfTest/Program.cs the owner's (?:42 d|70|91)  # the same decisions, in CatchUp's self-test's older versions
 owner-ref docs/reference.md the owner's (?:rules|47 a|45 a|43 c|42 d|40 c|27|2026)  # decision references in the reference's older versions
 owner-ref AGENTS.md the owner's 94 b  # a decision reference in an older AGENTS.md (the screenshots' map previews)
+bidi server/workshop-sync.py BIDI_RX = re\.compile\("\[\u202a-\u202e\u2066-\u2069\]"\)  # the Python sync's pattern of the bidi controls it took out of titles, its characters written raw; the file left at the C# port
+bidi server/OverStrike2.Sync/SelfTest/NewChecks.cs .*(?:\x5cu007f\xe9\u202e(?:\U0001f600|\x5cU0001f600)|a\x5cu0000b\u202ec\x5ct\x5ctd).*  # the sync self-test's fixtures of a right-to-left override in its older versions, the character written raw; escapes since
 
 # The documentation's screenshots (docshots.py, a real client against a test copy): each looked at for names, Steam ids and addresses; test names only
 binary docs/hud/img/board-ads.jpg 1fadfc0a3c29a694a334456428a660ad5636bc767c23679b88aef39e2361e37e  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only

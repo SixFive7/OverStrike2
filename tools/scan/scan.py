@@ -15,8 +15,8 @@ Three layers, all of which must pass:
   2. The public rules in this file: any IPv4/IPv6 address, MAC address, host path (/mnt/...), network share, local user path,
      Steam id, e-mail address, token-shaped secret, IANA time zone, phone or national id number, mention of an internet
      provider or a compose hosts block, clock time beside a date, quoted words of the owner, a reference to one of the owner's
-     numbered decisions (in the folders OWNER_REF_PATHS names), compiled Valve file (*_c, .vpk), and any binary file not
-     reviewed in allow.txt.
+     numbered decisions (in the folders OWNER_REF_PATHS names), raw bidi control character, compiled Valve file (*_c, .vpk), and
+     any binary file not reviewed in allow.txt.
      Documentation addresses (RFC 5737, RFC 3849), loopback and example.com are allowed by design.
   3. The private denylist: the deployment's own names, domains, addresses and secrets. It lives outside this repository
      (.private/scan-deny.txt, gitignored, or the file OVERSTRIKE2_SCAN_DENY names), because listing those values here would
@@ -81,6 +81,10 @@ RULES = [
 # folders whose pass is done; the others join OWNER_REF_PATHS as theirs lands. Commit messages are history and are not checked.
 OWNER_REF = re.compile(r"\b[Tt]he owner's (?:\d+(?:\.\d+)?(?: ?[a-z])?\b|decisions?\b|rules?\b)|\b[Uu]ser decision\b|\bowner's decision\b")
 OWNER_REF_PATHS = ("server/*", "deploy/*", "tools/*", "core/*", "docs/*", "README.md", "AGENTS.md", "hud/PUBLISH.md", "maps/*", "plugin/CatchUp/*")
+# a raw bidirectional control character - LRE, RLE, PDF, LRO, RLO (U+202A-U+202E), LRI, RLI, FSI, PDI (U+2066-U+2069) - in committed text: it
+# is invisible, and it shows a reader the text in another order than a compiler or a parser takes it (Trojan Source, CVE-2021-42574). Code
+# writes one as an escape ("\u202e", (char)0x202E). Its allow entries match the whole line it is on, trimmed, so each allows its own line only
+RE_BIDI = re.compile("[\u202a-\u202e\u2066-\u2069]")
 DOC_V4 = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
 DOC_V6 = ipaddress.ip_network("2001:db8::/32")
 VALVE_COMPILED = re.compile(r"(?i)(_c|\.vpk)$")
@@ -179,7 +183,7 @@ class Scan:
         excerpt = line.strip()
         if secret:
             excerpt = excerpt.replace(text, "<redacted>")
-        self.findings.append(f"{where}: {rule}: {shown}  |  {excerpt[:MAX_LINE]}")
+        self.findings.append(visible(f"{where}: {rule}: {shown}  |  {excerpt[:MAX_LINE]}"))
 
     def text(self, path, content, where=None):
         """Every rule over one text: a file's content, a commit message, an identity."""
@@ -215,6 +219,9 @@ class Scan:
                 for m in OWNER_REF.finditer(line):
                     if not self.allow.allows("owner-ref", path, m.group(0)):
                         self.add(at, "owner-ref", m.group(0), line)
+            for m in RE_BIDI.finditer(line):
+                if not self.allow.allows("bidi", path, line.strip()):
+                    self.add(at, "bidi", f"U+{ord(m.group(0)):04X} (write it as an escape)", line)
             for rule, rx in self.deny.patterns:
                 for m in rx.finditer(line):
                     if not self.deny.allowed(path, m.group(0)):
@@ -225,16 +232,23 @@ class Scan:
                         self.add(at, rule, m.group(0), line, secret=True)
 
     def blob(self, path, data, where=None):
+        if RE_BIDI.search(path):
+            self.findings.append(visible(f"{where or path}: bidi: a bidi control character in the file's name - rename it"))
         if VALVE_COMPILED.search(path):
-            self.findings.append(f"{where or path}: valve-compiled: a compiled Valve resource or package - build it from source, never commit it")
+            self.findings.append(visible(f"{where or path}: valve-compiled: a compiled Valve resource or package - build it from source, never commit it"))
         if b"\0" in data[:8192] or not _utf8(data):
             self.items += 1
             digest = hashlib.sha256(data).hexdigest()
             if (path, digest) not in self.allow.binaries:
-                self.findings.append(f"{where or path}: binary: not reviewed - add 'binary {path} {digest}  # what it is and why it may be public' to "
-                                     f"tools/scan/allow.txt once checked (no extracted game files, no other authors' art, nothing private)")
+                self.findings.append(visible(f"{where or path}: binary: not reviewed - add 'binary {path} {digest}  # what it is and why it may be public' to "
+                                             f"tools/scan/allow.txt once checked (no extracted game files, no other authors' art, nothing private)"))
             return
         self.text(path, data.decode("utf-8"), where)
+
+
+def visible(text):
+    """A finding as it is stored: each bidi control character named, so the report shows its line in the order a parser reads it."""
+    return RE_BIDI.sub(lambda m: f"<U+{ord(m.group(0)):04X}>", text)
 
 
 def _utf8(data):

@@ -49,6 +49,7 @@ python -I tools/client/probe/test_testcopy_plugin.py            # the plugin of 
 python -I tools/client/probe/test_bridgepost.py                 # what only the watcher or other players say to a candidate bridge
 python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
 python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)
+python -I tools/scan/test_scan.py                               # the scanner's rule against raw bidi control characters, offline
 ```
 
 The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number

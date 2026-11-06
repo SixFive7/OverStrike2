@@ -142,7 +142,7 @@ The HUD is one Workshop item, updated in place: every new version waits for Valv
 ## Keeping this repository clean
 
 This repository is public, and the server it was built for is not. A pre-commit and a pre-push hook run [`tools/scan/scan.py`](tools/scan/scan.py): gitleaks for secrets, and rules against addresses, host paths, shares, local paths, Steam ids,
-e-mail addresses, compiled game files and unreviewed binaries, plus a private denylist kept outside the repository. Enable the hooks once per clone:
+e-mail addresses, raw bidi control characters, compiled game files and unreviewed binaries, plus a private denylist kept outside the repository. Enable the hooks once per clone:
 
 ```sh
 git config core.hooksPath .githooks
