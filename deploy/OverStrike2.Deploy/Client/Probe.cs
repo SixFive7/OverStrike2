@@ -87,6 +87,7 @@ for k,c in enumerate(sys.argv[1:]):
     // the seams the self-tests replace: the one door to the Docker API, RCON, the lock check, the clock
     public Func<string, string, JsonNode?, byte[]?, string, double, Reply> Req;
     public Func<string[], string> Rcon;
+    public Func<string, IReadOnlyList<string>, Dictionary<string, string>?, double, string> Exec;
     public Action NeedLock;
     public Action<double> Sleep = s => Thread.Sleep(TimeSpan.FromSeconds(s));
     public Func<double> Now = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
@@ -96,6 +97,7 @@ for k,c in enumerate(sys.argv[1:]):
         this.configPath = configPath;
         Req = RealReq;
         Rcon = RealRcon;
+        Exec = RealExec;
         NeedLock = RealNeedLock;
     }
 
@@ -247,7 +249,10 @@ for k,c in enumerate(sys.argv[1:]):
     public static string Demux(byte[] raw) => Encoding.UTF8.GetString(DockerBase.Demux(raw, strict: true));
 
     /// <summary>One exec in a container, its output (stdout and stderr) as text. env: variables for this exec alone - how a secret travels.</summary>
-    public string ExecIn(string container, IReadOnlyList<string> cmd, Dictionary<string, string>? env = null, double timeout = 120)
+    public string ExecIn(string container, IReadOnlyList<string> cmd, Dictionary<string, string>? env = null, double timeout = 120) =>
+        Exec(container, cmd, env, timeout);
+
+    string RealExec(string container, IReadOnlyList<string> cmd, Dictionary<string, string>? env, double timeout)
     {
         var body = new JsonObject { ["AttachStdout"] = true, ["AttachStderr"] = true, ["Cmd"] = new JsonArray(cmd.Select(c => (JsonNode?)c).ToArray()) };
         if (env is { Count: > 0 })

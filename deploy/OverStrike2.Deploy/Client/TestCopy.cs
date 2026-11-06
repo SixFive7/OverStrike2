@@ -29,6 +29,13 @@ namespace OverStrike2.Deploy;
 ///     testcopy bridge-rm        a Docker stop and delete the candidate (refuses a bridge without the candidate's label), then the copy
 ///     testcopy bridge-restore   production's bridge renamed back and started; checks it is the same container, on its IP and MAC
 ///
+/// THE PLUGIN OF A COMMIT OF MAIN on the test copy: the copy mounts a staged plugins folder in place of production's, and production's own
+/// plugins folder is never written. Production's start copies its own plugins into the game's tree, which restore checks.
+///     testcopy plugin &lt;commit&gt;  the plugin built from &lt;commit&gt; (on main: origin/main or main), plugin/, bridge/ and core/ as committed;
+///                               what plugin ship ships of it staged by a helper (the game image as root, no network) in &lt;plugins dir&gt;-candidate,
+///                               beside production's plugins folder: production's other plugin folders as they are, checked byte for byte
+///     testcopy plugin-rm        the staged folder deleted; refused while a test copy mounts it. restore does it once production runs its own
+///
 /// Prints no secret: the saved inspects (they hold the RCON password and the bridge's secret) stay in the harness's state folder and are
 /// deleted once production is itself again.</summary>
 sealed class TestCopy
@@ -54,7 +61,20 @@ sealed class TestCopy
     public readonly string Game, Bridge, Aside, BridgeAside, BridgeRepo, Flag, Host;
     public readonly int Port;
     public readonly Dictionary<string, string> ExtraLabels;
-    public readonly string State, ProdSaved, FlagMine, BridgeSaved;
+    public readonly string State, ProdSaved, FlagMine, BridgeSaved, Staged, Builds;
+    public const string PluginName = "OverStrike2";                   // the plugin's folder, DLL and name
+    public const string PluginsAt = "/home/steam/cs2-plugins";        // paths.plugins' default: where the game server reads the plugins to install
+    public const string GameDirAt = "/home/steam/cs2-dedicated";      // paths.gameDir's default: the game's install
+
+    /// <summary>git -C &lt;repository&gt; args: (exit code, stdout).</summary>
+    public Func<string[], (int Code, string Out)> Git = args =>
+    {
+        var r = Proc.Capture(["git", "-C", Repo.Root, .. args], timeoutSeconds: 300);
+        return (r.Code, r.Out);
+    };
+
+    /// <summary>The plugin built from a commit: {file name: bytes} of what plugin ship ships of it.</summary>
+    public Func<string, Dictionary<string, byte[]>> BuildPlugin;
 
     public Func<double, A2sAnswer?> A2sAsk;
     public Func<int, double, (A2sAnswer? Answer, double Waited)> WaitA2s;
@@ -73,6 +93,9 @@ sealed class TestCopy
         ProdSaved = Path.Combine(State, "prod-inspect.json");
         FlagMine = Path.Combine(State, "flag-set-by-testcopy");
         BridgeSaved = Path.Combine(State, "bridge-inspect.json");
+        Staged = Path.Combine(State, "plugin-staged.json");            // the staged plugin: its commit, folder, files and their hashes (no secret in it)
+        Builds = Path.Combine(State, "plugin-build");                  // the commits' exports and builds, one folder each
+        BuildPlugin = RealBuildPlugin;
         A2sAsk = timeout => A2s.Full(Host, Port, timeout);
         WaitA2s = RealWaitA2s;
     }
@@ -223,6 +246,14 @@ sealed class TestCopy
         var d = Json.Parse(File.ReadAllText(ProdSaved, Encoding.UTF8)) as JsonObject ?? [];
         var c = Json.Obj(d, "Config");
         var h = d["HostConfig"]?.DeepClone() as JsonObject ?? [];
+        if (StagedPlugin() is { } staged)   // the staged plugins folder in the place of production's, its options (read-only) kept
+        {
+            var at = PluginsAtOf(d);
+            var src = BindSource(d, at);
+            if (string.IsNullOrEmpty(src) || Json.Str(staged, "dir") != CopyDirOrNull(src) || SwapBind(h, at, src, Json.Str(staged, "dir")!) != 1)
+                throw Out.Stop($"REFUSED: the staged plugin cannot take the place of production's plugins folder at {at} - no copy, which would run "
+                               + "production's plugin (plugin-rm, then plugin <commit> again)");
+        }
         var over = new Dictionary<string, string>(Off);
         foreach (var (k, v) in extra ?? [])
             over[k] = v;
@@ -282,12 +313,20 @@ sealed class TestCopy
         var body = Body(extra);
         if (Json.Arr(body, "Env").Any(e => Json.PyStr(e).StartsWith(Content + "=", StringComparison.Ordinal)))
             Log("production holds the settings text: the copy has it with", string.Join(", ", SettingsOff.SelectMany(s => ((JsonObject)s.Value!).Select(k => $"{s.Key}.{k.Key}"))), "overridden");
+        var stagedNow = StagedPlugin();
+        Log(stagedNow is not null ? $"plugin: the build of {Py.Slice(Json.Str(stagedNow, "commit"), 0, 12)}, staged, in the place of production's plugins folder" : "plugin: production's");
         var created = H.Call($"/containers/create?name={Game}", "POST", body);
         Log("create test copy ->", created.Status, Py.Slice(Json.Str(created.Json, "Id") ?? "", 0, 12));
         var st = H.Call($"/containers/{Game}/start", "POST").Status;
         Log("start ->", st, "net", Py.Repr(Pinned(Inspect(Game))));
         var (i, t) = WaitA2s(0, 480);
         Log($"A2S after {Fmt.Fixed(t, 0)} s:", Py.Repr(i), i is { Vac: 0 } ? "- VAC OFF, the insecure test copy is up" : "- NOT an insecure server: check before any insecure client joins");
+        if (stagedNow is not null && i is not null)
+        {
+            H.Sleep(5);
+            var (ok, words) = PluginOnCopy(stagedNow);
+            Log(ok ? words : words + " - LOOK before testing: the copy does not run the staged plugin");
+        }
     }
 
     public void CmdStatus()
@@ -303,6 +342,8 @@ sealed class TestCopy
         Out.Print($"{Aside}: " + (a is null ? "none" : StatusOf(a)));
         Out.Print($"A2S: {Py.Repr(A2sNow())} (name, map, humans, VAC)");
         Out.Print($"maintenance flag: {Py.Str(File.Exists(Flag))} {(File.Exists(FlagMine) ? "(set by testcopy)" : "")}");
+        var s = StagedPlugin();
+        Out.Print("plugin for a copy: " + (s is not null ? $"the build of {Py.Slice(Json.Str(s, "commit"), 0, 12)}, staged {Json.Str(s, "staged")} ({Json.Obj(s, "files").Count} files)" : "production's (none staged)"));
     }
 
     public void CmdRm()
@@ -344,9 +385,11 @@ sealed class TestCopy
         H.Sleep(5);
         var plugins = Py.SplitLines(H.Rcon(["css_plugins list"])).Where(l => l.Contains("LOADED", StringComparison.Ordinal)).Select(Py.Strip).ToList();
         Log("plugins:", Py.Repr(plugins));
+        var (okPlugins, installed) = PluginsAsInstalled(d);   // its start copied its own plugins over whatever a copy ran
+        Log("production's plugins in the game's tree:", installed, okPlugins ? "- OK: what its plugins folder holds" : "- NOT WHAT ITS PLUGINS FOLDER HOLDS: look now");
         if (File.Exists(FlagMine))
         {
-            if (i is { Vac: 1 } && okNet)
+            if (i is { Vac: 1 } && okNet && okPlugins)
             {
                 File.Delete(Flag);
                 File.Delete(FlagMine);
@@ -357,25 +400,32 @@ sealed class TestCopy
         }
         if (okNet)
             File.Delete(ProdSaved);   // it holds secrets; production is itself again
+        if (StagedPlugin() is { } stagedThen && okNet && okPlugins)
+            RemoveStaged(stagedThen);
     }
 
     // -------------------------------------------------------------------------------------------------- the candidate bridge
 
-    /// <summary>The host folder a bridge container has at /data (a bind), or null.</summary>
-    public static string? DataMount(JsonNode? d)
+    /// <summary>The host folder a container has at target (a bind), or null.</summary>
+    public static string? BindSource(JsonNode? d, string target)
     {
+        target = target.TrimEnd('/');
         foreach (var b in Json.Arr(d, "HostConfig", "Binds").Select(Json.PyStr))
         {
             var colon = b.IndexOf(':');
             var (src, rest) = colon < 0 ? (b, "") : (b[..colon], b[(colon + 1)..]);
-            if (rest.Split(':')[0] == "/data")
+            if (rest.Split(':')[0].TrimEnd('/') == target)
                 return src;
         }
         foreach (var m in Json.Arr(d, "HostConfig", "Mounts"))
-            if (Json.Str(m, "Target") == "/data" && Json.Str(m, "Type") == "bind")
+            if ((Json.Str(m, "Target") ?? "").TrimEnd('/') == target && Json.Str(m, "Type") == "bind")
                 return Json.Str(m, "Source");
-        return Json.Arr(d, "Mounts").Where(m => Json.Str(m, "Destination") == "/data" && Json.Str(m, "Type") == "bind").Select(m => Json.Str(m, "Source")).FirstOrDefault();
+        return Json.Arr(d, "Mounts").Where(m => (Json.Str(m, "Destination") ?? "").TrimEnd('/') == target && Json.Str(m, "Type") == "bind")
+                   .Select(m => Json.Str(m, "Source")).FirstOrDefault();
     }
+
+    /// <summary>The host folder a bridge container has at /data (a bind), or null.</summary>
+    public static string? DataMount(JsonNode? d) => BindSource(d, "/data");
 
     /// <summary>Where the candidate's copy goes: beside production's data, &lt;src&gt;-candidate. Never production's own folder.</summary>
     public static string CopyDir(string? src)
@@ -385,14 +435,27 @@ sealed class TestCopy
         return src.TrimEnd('/') + "-candidate";
     }
 
+    static string? CopyDirOrNull(string? src)
+    {
+        try
+        {
+            return CopyDir(src);
+        }
+        catch (Exit)
+        {
+            return null;
+        }
+    }
+
     /// <summary>One short-lived container from the game image, as root, without a network: runs script with binds, is removed, and returns
     /// (exit code, its output).</summary>
-    public (int Code, string Output) Helper(string name, IReadOnlyList<string> binds, string script, string? image = null, Dictionary<string, string>? labels = null)
+    public (int Code, string Output) Helper(string name, IReadOnlyList<string> binds, string script, string? image = null)
     {
         image ??= Json.Str(Json.Parse(File.ReadAllText(ProdSaved, Encoding.UTF8)), "Image") ?? "";
-        var labelObject = new JsonObject { [TestLabel] = "helper: " + name };
-        foreach (var (k, v) in labels ?? [])
+        var labelObject = new JsonObject();
+        foreach (var (k, v) in ExtraLabels)
             labelObject[k] = v;
+        labelObject[TestLabel] = "helper: " + name;
         var created = H.Call($"/containers/create?name={name}", "POST", new JsonObject
         {
             ["Image"] = image, ["User"] = "0:0", ["Entrypoint"] = new JsonArray("/bin/bash", "-c"), ["Cmd"] = new JsonArray(script), ["Labels"] = labelObject,
@@ -558,12 +621,297 @@ sealed class TestCopy
             File.Delete(BridgeSaved);   // it holds secrets; production's bridge is itself again
     }
 
-    public const string Doc = "testcopy prep | run [--env K=V] | status | rm | restore | bridge-prep | bridge-run <tag> [--keep-flag] | bridge-rm | bridge-restore";
+    // ---------------------------------------------------------------------------------------------------- the plugin of a commit
+
+    /// <summary>paths.&lt;key&gt; as the game server reads it: its settings text, else (no text: the older programs) the variable older, else the
+    /// default.</summary>
+    static string SettingPath(JsonNode? d, string key, string dflt, string? older = null)
+    {
+        var text = InspectOf.EnvOrNull(d, Content);
+        string? value;
+        if (text is not null)
+        {
+            try
+            {
+                value = Json.AsStr(Json.At(Json.At(Json.Jsonc(text), "paths"), key));
+            }
+            catch (JsonSyntaxError)
+            {
+                value = null;
+            }
+        }
+        else
+            value = older is not null ? InspectOf.EnvOrNull(d, older) : null;
+        return value is not null && value.StartsWith('/') ? value.TrimEnd('/') : dflt;
+    }
+
+    /// <summary>Where the game server reads the plugins it installs at every start (paths.plugins).</summary>
+    public static string PluginsAtOf(JsonNode? d) => SettingPath(d, "plugins", PluginsAt, "CS2_PLUGINS_SRC");
+
+    /// <summary>CounterStrikeSharp's plugins in the game's tree, where every start copies them to (paths.gameDir, os2-server's CopyPlugins).</summary>
+    public static string GamePluginsDir(JsonNode? d) => SettingPath(d, "gameDir", GameDirAt, "STEAMAPPDIR") + "/game/csgo/addons/counterstrikesharp/plugins";
+
+    /// <summary>HostConfig h with its bind of src at target taken from newSrc instead, its options kept; how many it changed.</summary>
+    static int SwapBind(JsonObject h, string target, string src, string newSrc)
+    {
+        target = target.TrimEnd('/');
+        var n = 0;
+        if (h["Binds"] is JsonArray binds && binds.Count > 0)
+        {
+            var output = new JsonArray();
+            foreach (var b in binds.Select(Json.PyStr))
+            {
+                var colon = b.IndexOf(':');
+                var (s, rest) = colon < 0 ? (b, "") : (b[..colon], b[(colon + 1)..]);
+                if (s == src && rest.Split(':')[0].TrimEnd('/') == target)
+                {
+                    output.Add(newSrc + ":" + rest);
+                    n++;
+                }
+                else
+                    output.Add(b);
+            }
+            h["Binds"] = output;
+        }
+        foreach (var m in Json.Arr(h, "Mounts").OfType<JsonObject>())
+        {
+            if (Json.Str(m, "Type") == "bind" && Json.Str(m, "Source") == src && (Json.Str(m, "Target") ?? "").TrimEnd('/') == target)
+            {
+                m["Source"] = newSrc;
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /// <summary>The staged plugin's record, or null.</summary>
+    public JsonObject? StagedPlugin() => File.Exists(Staged) ? Json.Parse(File.ReadAllText(Staged, Encoding.UTF8)) as JsonObject : null;
+
+    /// <summary>Production's game server: the inspect saved at prep while it is aside, else the running container (only read); never a copy's.</summary>
+    JsonObject ProductionInspect()
+    {
+        if (File.Exists(ProdSaved) && Inspect(Aside) is not null)
+            return Json.Parse(File.ReadAllText(ProdSaved, Encoding.UTF8)) as JsonObject ?? [];
+        var d = Inspect(Game);
+        if (d is null || IsTest(d))
+            throw Out.Stop($"REFUSED: production's game server is neither aside (with the inspect prep saved) nor {Game} - no plugin staged");
+        return d;
+    }
+
+    /// <summary>The full id of rev, which must be a commit on main (origin/main or main); refused otherwise.</summary>
+    public string CommitOfMain(string rev)
+    {
+        var (code, output) = Git(["rev-parse", "--verify", "--quiet", rev + "^{commit}"]);
+        var sha = Py.Strip(output);
+        if (code != 0 || !Regex.IsMatch(sha, "^[0-9a-f]{40}$"))
+            throw Out.Stop($"REFUSED: {Py.Repr(rev)} is no commit of this repository");
+        if (!new[] { "origin/main", "main" }.Any(r => Git(["merge-base", "--is-ancestor", sha, r]).Code == 0))
+            throw Out.Stop($"REFUSED: {sha[..12]} is not on main (origin/main or main) - only a commit of main goes on a test copy");
+        return sha;
+    }
+
+    /// <summary>{file name: bytes}: the plugin built from commit sha as committed - plugin/, bridge/ and core/ exported with git archive into the
+    /// state folder and built there with dotnet build -c Release (warnings are errors), its output in a log file, not a pipe - and of its output
+    /// what plugin ship ships: the DLL, its .pdb and the config files the project declares.</summary>
+    Dictionary<string, byte[]> RealBuildPlugin(string sha)
+    {
+        var where = Path.Combine(Builds, sha[..12]);
+        if (Directory.Exists(Builds))
+            foreach (var old in Directory.EnumerateDirectories(Builds))   // one build kept: this one, and its log
+                SelfTest.Remove(old);
+        Directory.CreateDirectory(where);
+        var tar = Proc.CaptureBytes(["git", "-C", Repo.Root, "archive", "--format=tar", sha, "plugin", "bridge", "core"]);
+        if (tar.Code != 0)
+            throw Out.Stop($"REFUSED: git archive {sha[..12]} failed");
+        System.Formats.Tar.TarFile.ExtractToDirectory(new MemoryStream(tar.Out), where, overwriteFiles: true);
+        Log($"building the plugin of {sha[..12]} (dotnet build -c Release; its log: build.log in the state folder)");
+        var code = Proc.RunToFile($"dotnet build plugin/{PluginName} -c Release -nologo -nodeReuse:false -p:UseSharedCompilation=false", where, "build.log", below: true);
+        if (code != 0)
+        {
+            var tail = Py.SplitLines(File.ReadAllText(Path.Combine(where, "build.log"))).TakeLast(12);
+            throw Out.Stop($"REFUSED: the plugin of {sha[..12]} does not build:\n" + string.Join("\n", tail));
+        }
+        var outDir = Path.Combine(where, "plugin", PluginName, "bin", "Release", "net10.0");
+        var declared = Plugin.DeclaredContent(File.ReadAllText(Path.Combine(where, "plugin", PluginName, PluginName + ".csproj"), Encoding.UTF8));
+        List<string> names = [PluginName + ".dll", PluginName + ".pdb", .. declared.Where(n => File.Exists(Path.Combine(outDir, n)))];
+        if (!names.Take(2).All(n => File.Exists(Path.Combine(outDir, n))))
+            throw Out.Stop($"REFUSED: the build of {sha[..12]} left no {PluginName}.dll and .pdb");
+        return names.ToDictionary(n => n, n => File.ReadAllBytes(Path.Combine(outDir, n)));
+    }
+
+    /// <summary>The plugin's folder as a tar: &lt;PluginName&gt;/ and its files.</summary>
+    public byte[] PluginTar(Dictionary<string, byte[]> files)
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds((long)H.Now());
+        var buf = new MemoryStream();
+        using (var tar = new System.Formats.Tar.TarWriter(buf, System.Formats.Tar.TarEntryFormat.Pax, leaveOpen: true))
+        {
+            tar.WriteEntry(new System.Formats.Tar.PaxTarEntry(System.Formats.Tar.TarEntryType.Directory, PluginName) { Mode = (UnixFileMode)0b111_101_101, ModificationTime = now });
+            foreach (var (name, data) in files.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                tar.WriteEntry(new System.Formats.Tar.PaxTarEntry(System.Formats.Tar.TarEntryType.RegularFile, $"{PluginName}/{name}")
+                {
+                    Mode = (UnixFileMode)0b110_100_100, ModificationTime = now, DataStream = new MemoryStream(data),
+                });
+        }
+        return buf.ToArray();
+    }
+
+    /// <summary>A short-lived container from the game image, as root and without a network, held open (it sleeps) for several commands and a
+    /// file upload; removed on the way out, whatever happened.</summary>
+    sealed class HelperSession : IDisposable
+    {
+        readonly TestCopy tc;
+        readonly string cid;
+
+        public HelperSession(TestCopy tc, string name, string image, IReadOnlyList<string> binds)
+        {
+            this.tc = tc;
+            var labels = new JsonObject();
+            foreach (var (k, v) in tc.ExtraLabels)
+                labels[k] = v;
+            labels[TestLabel] = "helper: " + name;
+            var created = tc.H.Call($"/containers/create?name={name}", "POST", new JsonObject
+            {
+                ["Image"] = image, ["User"] = "0:0", ["Entrypoint"] = new JsonArray("/bin/bash", "-c"), ["Cmd"] = new JsonArray("sleep 900"), ["Labels"] = labels,
+                ["HostConfig"] = new JsonObject { ["Binds"] = new JsonArray(binds.Select(b => (JsonNode?)b).ToArray()), ["NetworkMode"] = "none", ["RestartPolicy"] = new JsonObject { ["Name"] = "no" } },
+            });
+            cid = Json.Str(created.Json, "Id") ?? "";
+            if (cid.Length == 0)
+                throw Out.Stop($"REFUSED: the helper {name} was not created ({created.Status})");
+            tc.H.Call($"/containers/{cid}/start", "POST");
+        }
+
+        /// <summary>(exit code, output) of one bash script in the helper.</summary>
+        public (int Code, string Output) Run(string script)
+        {
+            var output = tc.H.ExecIn(cid, ["/bin/bash", "-c", "( " + script + " ) 2>&1; echo EXIT=$?"], timeout: 600);
+            var m = Regex.Match(output, @"EXIT=(\d+)\s*$");
+            return (m.Success ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : -1, Py.Strip(Regex.Replace(output, @"EXIT=\d+\s*$", "")));
+        }
+
+        public void Put(byte[] data, string path) => tc.H.Call($"/containers/{cid}/archive?path={path}", "PUT", raw: data, ctype: "application/x-tar", timeout: 300);
+
+        public void Dispose() => tc.H.Call($"/containers/{cid}?force=true", "DELETE");
+    }
+
+    public void CmdPlugin(IReadOnlyList<string> argv)
+    {
+        H.NeedLock();
+        if (argv.Count != 1 || argv[0].StartsWith('-'))
+            throw Out.Stop("usage: os2-deploy testcopy plugin <commit of main>");
+        var sha = CommitOfMain(argv[0]);
+        var prod = ProductionInspect();
+        var at = PluginsAtOf(prod);
+        var src = BindSource(prod, at);
+        if (string.IsNullOrEmpty(src))
+            throw Out.Stop($"REFUSED: production's game server has no bind at {at}, its plugins folder - nothing to take the place of");
+        var dst = CopyDir(src);
+        var files = BuildPlugin(sha);
+        var want = files.ToDictionary(kv => $"./{PluginName}/{kv.Key}", kv => Repo.Sha256(kv.Value));
+        Log("built: " + string.Join(", ", files.Select(kv => $"{kv.Key} ({kv.Value.Length.ToString("N0", CultureInfo.InvariantCulture)} bytes)")));
+        int code;
+        string output;
+        using (var h = new HelperSession(this, $"{Game}-plugin-stage", Json.Str(prod, "Image") ?? "", [$"{src}:/src:ro", $"{dst}:/dst"]))
+        {
+            (code, output) = h.Run($"set -e; find /dst -mindepth 1 -delete; cp -a /src/. /dst/; rm -rf -- '/dst/{PluginName}'");
+            if (code != 0)
+                throw Out.Stop($"REFUSED: the staged folder could not be made (exit {code}): {Py.Slice(output, -300)}");
+            h.Put(PluginTar(files), "/dst");
+            (code, output) = h.Run("set -e; chown -R --reference=/src /dst; chmod -R u+rwX,go+rX,go-w /dst; cd /dst; "
+                                   + "find . -type f -print0 | sort -z | xargs -0 -r sha256sum");
+        }
+        var got = new Dictionary<string, string>();
+        foreach (var l in Py.SplitLines(output).Where(l => Regex.IsMatch(l, @"^[0-9a-f]{64}\s+\S.*$")))
+        {
+            var parts = l.Split((char[])[' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries);
+            got[Py.Strip(parts[1])] = parts[0];
+        }
+        var mine = got.Where(kv => kv.Key.StartsWith($"./{PluginName}/", StringComparison.Ordinal)).ToDictionary();
+        if (code != 0 || mine.Count != want.Count || mine.Any(kv => want.GetValueOrDefault(kv.Key) != kv.Value))
+            throw Out.Stop($"REFUSED: the staged folder does not hold the build byte for byte (exit {code}; {mine.Count(kv => want.GetValueOrDefault(kv.Key) == kv.Value)} of {want.Count} files as built) - "
+                           + "run plugin-rm, then plugin again");
+        var others = got.Keys.Where(k => !k.StartsWith($"./{PluginName}/", StringComparison.Ordinal)).Select(k => k.Split('/')[1]).Distinct().Order(StringComparer.Ordinal).ToList();
+        Directory.CreateDirectory(State);
+        File.WriteAllText(Staged, Json.Dumps(new JsonObject
+        {
+            ["commit"] = sha, ["dir"] = dst, ["image"] = Json.Str(prod, "Image"),
+            ["staged"] = Out.Clock().ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
+            ["files"] = new JsonObject(files.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Repo.Sha256(kv.Value)))),
+            ["others"] = new JsonArray(others.Select(o => (JsonNode?)o).ToArray()),
+        }, indent: 1));
+        Log($"staged in <plugins>-candidate: {PluginName} of {sha[..12]} ({files.Count} files, each as built)"
+            + (others.Count > 0 ? $", production's other plugin folders as they are: {string.Join(", ", others)}" : ", no other plugin folder")
+            + ". The next run mounts it in the place of production's plugins folder");
+    }
+
+    /// <summary>(ok, words): whether the test copy's game tree holds the staged DLL and CounterStrikeSharp has the plugin loaded.</summary>
+    public (bool Ok, string Words) PluginOnCopy(JsonObject staged)
+    {
+        var d = Inspect(Game);
+        var output = Py.Strip(H.ExecIn(Game, ["sha256sum", $"{GamePluginsDir(d)}/{PluginName}/{PluginName}.dll"]));
+        var have = output.Length > 0 ? output.Split((char[])[' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)[0] : "";
+        var loaded = Py.SplitLines(H.Rcon(["css_plugins list"])).Where(l => l.Contains(PluginName, StringComparison.Ordinal) && l.Contains("LOADED", StringComparison.Ordinal)
+                                                                            && !l.Contains("UNLOADED", StringComparison.Ordinal)).Select(Py.Strip).ToList();
+        var same = have == Json.Str(staged, "files", PluginName + ".dll");
+        var ok = same && loaded.Count > 0;
+        return (ok, $"plugin on the copy: {(ok ? "the" : "NOT the")} build of {Py.Slice(Json.Str(staged, "commit"), 0, 12)} - "
+                    + $"{(same ? "its" : "another")} DLL in the game's tree, {(loaded.Count > 0 ? loaded[0] : PluginName + " not loaded")}");
+    }
+
+    /// <summary>shlex.quote: a word bash reads as itself.</summary>
+    static string ShQuote(string s) =>
+        s.Length > 0 && s.All(c => char.IsAsciiLetterOrDigit(c) || "@%+=:,./-_".Contains(c)) ? s : "'" + s.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+
+    /// <summary>(ok, words): whether the game's tree holds what this container's plugins folder holds, file for file - its start copies them there.</summary>
+    (bool Ok, string Words) PluginsAsInstalled(JsonNode? d)
+    {
+        var (at, tree) = (PluginsAtOf(d), GamePluginsDir(d));
+        var script = $"cd {ShQuote(at)} || exit 3; n=0; bad=0; while IFS= read -r -d '' f; do n=$((n+1)); "
+                     + $"cmp -s \"$f\" {ShQuote(tree)}/\"${{f#./}}\" || {{ bad=$((bad+1)); echo \"DIFF ${{f#./}}\"; }}; "
+                     + "done < <(find . -mindepth 2 -type f ! -path './.*' -print0); echo \"files $n differ $bad\"";
+        var output = Py.Strip(H.ExecIn(Game, ["bash", "-c", script]));
+        var m = Regex.Match(output, @"files (\d+) differ (\d+)");
+        var words = string.Join(" | ", Py.SplitLines(output).TakeLast(4));
+        return (m.Success && m.Groups[2].Value == "0", words.Length > 0 ? words : "no answer");
+    }
+
+    /// <summary>The staged folder deleted by a helper (its parent mounted, the folder by its own name), and the record.</summary>
+    void RemoveStaged(JsonObject staged)
+    {
+        var dir = (Json.Str(staged, "dir") ?? "").TrimEnd('/');
+        var slash = dir.LastIndexOf('/');
+        var (parent, name) = slash < 0 ? ("", dir) : (dir[..slash], dir[(slash + 1)..]);
+        if (!name.EndsWith("-candidate", StringComparison.Ordinal) || !parent.StartsWith('/'))
+            throw Out.Stop($"REFUSED: {Py.Repr(Json.Str(staged, "dir"))} is not a staged folder");
+        var (code, output) = Helper($"{Game}-plugin-rm", [$"{parent}:/p"], $"rm -rf -- '/p/{name}' && echo removed", image: Json.Str(staged, "image"));
+        Log($"the staged plugin <plugins>-candidate: exit {code}, {(Py.SplitLines(output).LastOrDefault() ?? "?")}");
+        if (code == 0)
+            File.Delete(Staged);
+    }
+
+    public void CmdPluginRm()
+    {
+        H.NeedLock();
+        var s = StagedPlugin();
+        if (s is null)
+        {
+            Log("no plugin staged");
+            return;
+        }
+        var d = Inspect(Game);
+        if (IsTest(d) && BindSource(d, PluginsAtOf(d)) == Json.Str(s, "dir"))
+            throw Out.Stop("REFUSED: the test copy mounts the staged folder - rm it first");
+        RemoveStaged(s);
+    }
+
+
+    public const string Doc = "testcopy prep | run [--env K=V] | status | rm | restore | bridge-prep | bridge-run <tag> [--keep-flag] | bridge-rm | bridge-restore"
+                              + " | plugin <commit of main> | plugin-rm";
 
     public static int Command(string[] argv)
     {
         var (args, config) = Harness.TakeConfig(argv);
-        string[] verbs = ["prep", "run", "status", "rm", "restore", "bridge-prep", "bridge-run", "bridge-rm", "bridge-restore"];
+        string[] verbs = ["prep", "run", "status", "rm", "restore", "bridge-prep", "bridge-run", "bridge-rm", "bridge-restore", "plugin", "plugin-rm"];
         if (args.Count == 0 || !verbs.Contains(args[0]))
         {
             Out.Print("usage: os2-deploy " + Doc);
@@ -582,6 +930,8 @@ sealed class TestCopy
             case "bridge-run": tc.CmdBridgeRun(rest); break;
             case "bridge-rm": tc.CmdBridgeRm(); break;
             case "bridge-restore": tc.CmdBridgeRestore(); break;
+            case "plugin": tc.CmdPlugin(rest); break;
+            case "plugin-rm": tc.CmdPluginRm(); break;
         }
         return 0;
     }

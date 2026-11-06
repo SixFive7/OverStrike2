@@ -307,15 +307,28 @@ static class TestCopyTests
             }
             check("run --env refuses the settings text: it holds secrets", Exits(() => TestCopy.EnvOverrides(["--env", TestCopy.Content + "=x"])) is not null);
 
-            // 11. restore: production back on the endpoint saved at prep, or the flag stays on
+            // 11. restore: production back on the endpoint saved at prep, running what its plugins folder holds, or the flag stays on
             var up = Ins("running");
             up["NetworkSettings"] = new JsonObject { ["Networks"] = net.DeepClone() };
             var otherMac = (JsonObject)up.DeepClone();
             otherMac["NetworkSettings"]!["Networks"]!["game"]!["MacAddress"] = Mac65;
-            foreach (var (saved, wantOk, what) in new[] { ((JsonObject?)up, true, "the same container on the saved endpoint"), (otherMac, false, "another MAC than at prep"), (null, false, "no saved inspect") })
+            var installed = "files 4 differ 0";
+            h.Exec = (container, cmd, env, timeout) =>
+            {
+                calls.Add(["exec", container, Py.Slice(cmd[^1], 0, 40)]);
+                return installed;
+            };
+            foreach (var (saved, plugins, wantOk, what) in new[]
+                     {
+                         ((JsonObject?)up, "files 4 differ 0", true, "the same container on the saved endpoint, its own plugins in the game's tree"),
+                         (otherMac, "files 4 differ 0", false, "another MAC than at prep"),
+                         (null, "files 4 differ 0", false, "no saved inspect"),
+                         (up, "DIFF OverStrike2/OverStrike2.dll\nfiles 4 differ 1", false, "a plugin in the game's tree that is not its plugins folder's"),
+                     })
             {
                 Reset();
                 state["cs2-prod-aside"] = [(JsonObject)up.DeepClone()];
+                installed = plugins;
                 File.WriteAllText(tc.Flag, "x");
                 File.WriteAllText(tc.FlagMine, "1");
                 if (saved is null)
@@ -325,6 +338,8 @@ static class TestCopyTests
                 Quiet(tc.CmdRestore);
                 check($"restore, {what}: the flag {(wantOk ? "removed" : "left on")}", File.Exists(tc.Flag) != wantOk && File.Exists(tc.FlagMine) != wantOk);
             }
+            check("restore: the plugins compared in production itself, its plugins folder against the game's tree",
+                  calls.Any(c => c[0] == "exec" && c[1] == "cs2" && c[2].StartsWith("cd /home/steam/cs2-plugins", StringComparison.Ordinal)));
         }
         finally
         {

@@ -245,6 +245,22 @@ static class Proc
         return (r.Code, r.All);
     };
 
+    /// <summary>A command line run by the system's shell in cwd, its output and errors into a file there - a file, not a pipe, so nothing the
+    /// command leaves running can hold this call open. Its exit code.</summary>
+    public static int RunToFile(string command, string cwd, string logName, bool below = false)
+    {
+        var psi = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo("cmd.exe") { Arguments = $"/d /s /c \"{command} > {logName} 2>&1\"" }
+            : new ProcessStartInfo("/bin/sh") { ArgumentList = { "-c", $"{command} > {logName} 2>&1" } };
+        psi.UseShellExecute = false;
+        psi.CreateNoWindow = true;
+        psi.WorkingDirectory = cwd;
+        Console.Out.Flush();
+        using var p = Start(psi, below);
+        p.WaitForExit();
+        return p.ExitCode;
+    }
+
     /// <summary>This environment as a mutable copy, to hand a child with a few variables changed.</summary>
     public static Dictionary<string, string?> Environment()
     {

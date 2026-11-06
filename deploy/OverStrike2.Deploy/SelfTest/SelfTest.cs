@@ -103,6 +103,7 @@ static partial class SelfTest
         ("check", CheckTests.Run),
         ("testcopy", TestCopyTests.Run),
         ("testcopy-bridge", TestCopyBridgeTests.Run),
+        ("testcopy-plugin", TestCopyPluginTests.Run),
         ("bridgepost", BridgePostTests.Run),
         ("base", BaseTests.Run),
         ("thumbs", ThumbsTests.Run),
