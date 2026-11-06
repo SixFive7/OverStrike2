@@ -639,4 +639,5 @@ The rules are said in the menu: its How it works and Help pages and the start pa
 | `server/` | The two programs, with the launcher `pre.sh` and their self-tests, and each game mode's cfg. |
 | `deploy/` | A host that builds everything itself (`compose.yml`), and building and shipping from a workstation, with a private config. |
 | `tools/scan/` | The scanner the hooks run. |
+| `tools/workshop/` | What the HUD's and the maps' Workshop scripts share: `FindCs2.ps1` finds CS2 on this PC, `Workshop.cs` holds the Steam calls (no create path) and the VPK both publishers compile in. |
 | `tools/client/` | The CS2 client test harness, the insecure test copy of the server and a candidate bridge beside it, and the documentation's screenshots ([README](../tools/client/README.md)). |

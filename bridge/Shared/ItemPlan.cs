@@ -77,7 +77,7 @@ public sealed class ItemPlan
         VisitsSinceChange++;
     }
 
-    /// <summary>The visit's verdict (HudCheck.PagePublic): shown ends the visits; not shown plans the next in VisitEvery; unreadable (429, an error) in RefusedWait.</summary>
+    /// <summary>The visit's verdict (SteamPage.Shown): shown ends the visits; not shown plans the next in VisitEvery; unreadable (429, an error) in RefusedWait.</summary>
     public void PageAnswer(bool? verdict, DateTime now)
     {
         if (verdict != null) SinceChange = verdict; else Refused = true;

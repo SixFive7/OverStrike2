@@ -75,19 +75,8 @@ if (-not $NoThumbs) {
     Write-Output "OK      pictures: $kept as the last release shipped them, $new new, $remade regenerated on purpose ($(Split-Path -Leaf $regenList))"
 }
 
-if (-not $Cs2) {
-    $roots = @("C:\Program Files (x86)\Steam")
-    $vdf = "C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf"
-    if (Test-Path $vdf) {
-        foreach ($line in (Select-String -Path $vdf -Pattern '"path"\s+"(.+?)"' -AllMatches)) {
-            foreach ($m in $line.Matches) { $roots += $m.Groups[1].Value.Replace('\\', '\') }
-        }
-    }
-    foreach ($r in $roots) {
-        $candidate = Join-Path $r "steamapps\common\Counter-Strike Global Offensive"
-        if (Test-Path $candidate) { $Cs2 = $candidate; break }
-    }
-}
+. (Join-Path $src "..\tools\workshop\FindCs2.ps1")
+$Cs2 = Find-Cs2 $Cs2
 if (-not $Cs2 -or -not (Test-Path $Cs2)) { Write-Output "Counter-Strike 2 not found. Pass -Cs2 <path to 'Counter-Strike Global Offensive'>"; exit 1 }
 Write-Output "CS2: $Cs2"
 

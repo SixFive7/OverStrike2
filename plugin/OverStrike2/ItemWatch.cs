@@ -16,7 +16,7 @@ namespace OverStrike2;
 /// while it is not shown, for 3 hours - never with the visit switched off (hud.itemPage false), as on a test copy: nobody is on it, and its
 /// restarts must not add visits; it still reads the Web API, and without a visit it has no verdict, so joiners download the item as ever and
 /// the HUD check's interlock stays off for ReviewWindow after an upload - and always with an honest User-Agent
-/// naming the project (SteamWebApi.UserAgent). The page is read as HudCheck.PagePublic says (Steam's old Error page and its new HTTP 500
+/// naming the project (SteamWebApi.UserAgent). The page is read as SteamPage.Shown says (Steam's old Error page and its new HTTP 500
 /// page both mean not shown). Everything is fetched on the thread pool and only ever hands back a verdict. The game server reaches Steam
 /// already.</summary>
 sealed class ItemWatch
@@ -54,7 +54,7 @@ sealed class ItemWatch
         {
             pending = null;
             var (status, html) = done.IsCompletedSuccessfully ? done.Result : (0, null);
-            var verdict = HudCheck.PagePublic(status, html);
+            var verdict = SteamPage.Shown(status, html);
             plan.PageAnswer(verdict, now);
             note = verdict switch
             {
@@ -114,7 +114,7 @@ sealed class ItemWatch
         if (pageOff) return $"{other}: no visit - {pageSwitch} is off here";
         var (status, html) = await Fetch("https://" + HudCheck.ItemUrl(other.ToString(CultureInfo.InvariantCulture))).ConfigureAwait(false);
         var title = html == null ? "-" : System.Text.RegularExpressions.Regex.Match(html, "<title>([^<]*)</title>").Groups[1].Value;
-        var verdict = HudCheck.PagePublic(status, html);
+        var verdict = SteamPage.Shown(status, html);
         var a = await AskApi(other).ConfigureAwait(false);
         return $"{other}: page HTTP {status}, title '{title}' -> {(verdict == true ? "shown to everybody" : verdict == false ? "NOT shown" : "no verdict")}; " +
                $"Web API {(a is { } x ? $"{x.Verdict}, updated {Local(x.TimeUpdated)}" : "no answer")}";
@@ -127,7 +127,7 @@ sealed class ItemWatch
         using var response = await http.GetAsync(address, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         var status = (int)response.StatusCode;
         if (!response.IsSuccessStatusCode && status != 500) return (status, null); // 429 and the like: nothing worth reading
-        // Read the page's head only: the title is all PagePublic looks at, and Steam's new 500 page is a 172 KB client-side app.
+        // Read the page's head only: the title is all SteamPage.Shown looks at, and Steam's new 500 page is a 172 KB client-side app.
         await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
         var buffer = new byte[PageBytesMax];
         var total = 0;

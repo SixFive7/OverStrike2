@@ -47,9 +47,9 @@ static partial class Program
             && Roll("ospl5o") == "version unknown" && Roll("ospl6o") == "not seen yet" && Roll("ospl7o") == "" && Roll("ospl7k") == "HUD check: 12 s left"
             && Roll("ospl8a") == "" && Roll("ospl8o") == "" && HudView.PlayersPage([])[0] == (HudView.PlayersSummaryVar, "Nobody on the server"));
         Check("HUD check: Steam's Error page means not shown to everybody, a Workshop page means shown, a 429 or anything else means no verdict",
-            HudCheck.PagePublic(200, "<html><head><title>Steam Community :: Error</title></head><body>There was a problem accessing the item.</body></html>") == false
-            && HudCheck.PagePublic(200, "<html><head><title>Steam Workshop::Over Strike 2 HUD</title></head></html>") == true
-            && HudCheck.PagePublic(429, null) == null && HudCheck.PagePublic(200, "<html>maintenance</html>") == null && HudCheck.PagePublic(500, "<title>Steam Workshop::x</title>") == null);
+            SteamPage.Shown(200, "<html><head><title>Steam Community :: Error</title></head><body>There was a problem accessing the item.</body></html>") == false
+            && SteamPage.Shown(200, "<html><head><title>Steam Workshop::Over Strike 2 HUD</title></head></html>") == true
+            && SteamPage.Shown(429, null) == null && SteamPage.Shown(200, "<html>maintenance</html>") == null && SteamPage.Shown(500, "<title>Steam Workshop::x</title>") == null);
 
         // ---- the Web API's answer (#19) ----
         const string Held = "{\"response\":{\"result\":1,\"resultcount\":1,\"publishedfiledetails\":[{\"publishedfileid\":\"3831242232\",\"result\":1,\"creator\":\"76561190000000001\",\"file_size\":\"11134577\",\"hcontent_file\":\"7434112514802144923\",\"title\":\"gg_vinceville\",\"time_created\":1793000000,\"time_updated\":1793000000,\"visibility\":0,\"banned\":0,\"ban_reason\":\"\"}]}}";
@@ -148,8 +148,8 @@ static partial class Program
         // Steam's not-shown page: the old Error page and since 2026-10-31 an HTTP 500 titled "Steam Workshop".
         const string NewPage = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Steam Workshop</title><link rel=\"stylesheet\" href=\"x.css\"></head><body><div id=\"root\"></div></body></html>";
         Check("HUD check (#19): Steam's new HTTP 500 page titled \"Steam Workshop\" means not shown to everybody; a 500 without that title (an outage) is still no verdict",
-            HudCheck.PagePublic(500, NewPage) == false && HudCheck.PagePublic(500, "<html><head><title>500 Internal Server Error</title></head></html>") == null
-            && HudCheck.PagePublic(500, null) == null && HudCheck.PagePublic(502, NewPage) == null && HudCheck.PagePublic(200, NewPage) == null);
+            SteamPage.Shown(500, NewPage) == false && SteamPage.Shown(500, "<html><head><title>500 Internal Server Error</title></head></html>") == null
+            && SteamPage.Shown(500, null) == null && SteamPage.Shown(502, NewPage) == null && SteamPage.Shown(200, NewPage) == null);
 
         // ---- the words while the HUD is not handed out ----
         var causes = new[] { HudCheck.Cause.Review, HudCheck.Cause.Unavailable, HudCheck.Cause.Unknown };

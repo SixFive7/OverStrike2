@@ -7,4 +7,9 @@
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- What both Workshop publishers share: the Steam calls (no create path), the session, the VPK; and the plugin's reading of an item's page. -->
+    <Compile Include="..\..\tools\workshop\Workshop.cs" Link="Workshop.cs" />
+    <Compile Include="..\..\bridge\Shared\SteamPage.cs" Link="SteamPage.cs" />
+  </ItemGroup>
 </Project>

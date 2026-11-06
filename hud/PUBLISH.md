@@ -34,7 +34,9 @@ powershell -File hud\publish.ps1 -Note "What changed" -UserApprovedUpdate # ONLY
 ```
 
 `publish.ps1` builds the publisher (`publisher\`, the Steamworks UGC API through CS2's own `steam_api64.dll`; it never sees a
-password: it attaches to the running Steam client), packs the built addon and uploads it as a content update. It refuses without
+password: it attaches to the running Steam client), packs the built addon and uploads it as a content update. Its Steam calls and the VPK it packs
+are the ones the maps' publisher uses ([`tools/workshop/`](../tools/workshop/)), which declare no create path; `build.ps1` and `publish.ps1` find CS2
+the same way too. It refuses without
 `-UserApprovedUpdate`, without a change note, and whenever `workshop_id.txt` names no item. The title and the description live in
 `publisher\Program.cs` (`Title`, `Description`) and are set again on every update, so a change to them goes out with the next
 content update; the item's preview image is `hud\workshop_preview.jpg`: the Fun page as a test client drew it, on a plain ground, with no other

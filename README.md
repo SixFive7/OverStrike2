@@ -121,6 +121,7 @@ All of it, part by part: [The parts](docs/reference.md#the-parts).
 | [`maps/`](maps/) | Our own maps: one generator per map and the Workshop publisher |
 | [`deploy/`](deploy/) | [`compose.yml`](deploy/compose.yml) with its installer, for a host that builds everything itself; [`compose.example.yml`](deploy/compose.example.yml) and the scripts, for a host a workstation ships to, where every deployment value comes from a private config |
 | [`tools/scan/`](tools/scan/) | The scanner that keeps secrets and private details out of this repository |
+| [`tools/workshop/`](tools/workshop/) | What the HUD's and the maps' Workshop scripts share: finding CS2 on this PC, the Steam calls and the VPK |
 | [`docs/`](docs/) | [install.md](docs/install.md), [settings.md](docs/settings.md), [server.md](docs/server.md), [reference.md](docs/reference.md) |
 
 ## Build and test
