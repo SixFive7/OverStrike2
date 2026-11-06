@@ -33,8 +33,7 @@ public interface IWorkshopApi
 
 /// <summary>Every Web API call this tool makes, persisted BEFORE it is sent (&lt;state&gt;/api-ledger.json): the rolling 24 h cap, the count
 /// per day, the day's stop - so a crash never loses one, and a restart cannot resume a stop. An unreadable ledger means no calls at all.
-/// The per-run cap is SteamApi's. The Python sync called the count per day "nights" until late in its life: such a file is read as it is
-/// and says "days" from its next write, so a server that switches keeps the 24-hour cap's memory.</summary>
+/// The per-run cap is SteamApi's.</summary>
 public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
 {
     public const double Day = 86400;
@@ -51,11 +50,6 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
             return;
         }
         var data = Node.ReadJson(Path);
-        if (data is JsonObject older && !older.ContainsKey("days") && older["nights"] is JsonObject nights)
-        {
-            older.Remove("nights");
-            older["days"] = nights;
-        }
         if (data is not JsonObject o || o["calls"] is not JsonArray calls || o["days"] is not JsonObject
             || calls.Any(c => c is not JsonArray a || a.Count == 0 || KeepSet.Number(a[0]) is null))
         {

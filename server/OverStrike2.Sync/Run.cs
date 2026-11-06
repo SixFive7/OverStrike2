@@ -10,7 +10,7 @@ namespace OverStrike2.Sync;
 public sealed class SyncRun
 {
     public const int BackupsKept = 10;               // the newest publishes' copies of the bridge's lists, about 1 MB each, on the backed-up volume
-    public const int ReportsKept = 100;              // the newest runs' reports; at least Status.Runs, which the status file's history starts from
+    public const int ReportsKept = 100;              // the newest runs' reports, each with its text
     public const int QueueCheck = 3000;              // the check (step 2) asks the Workshop about this many of the download queue's head
     public const double RatingsEvery = 20 * 3600;    // the ratings are fetched again once this old: once a day, by whichever run comes then
     public const int TrendDays = 30;                 // Most Popular's window: the trend over the last 30 days
@@ -271,10 +271,7 @@ public sealed class SyncRun
             Finish();
             return Report;
         }
-        RequeueSizeSkips();
-        ClearLifetimeCounts();
         RequeueLostDownloads();
-        ForgetRunningFile();
         var known = files.KnownIds(Cfg);
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
@@ -723,31 +720,6 @@ public sealed class SyncRun
         }
     }
 
-    /// <summary>"attempts" used to count every download of a map's life, so a map updated a few times was "failed" at its next single failure
-    /// ("5 of 3 tries"). It is the tries of one content version now and never goes over 3, so a count above 3 is an old one: it goes, and a map
-    /// it failed has its tries back. (A count of exactly 3 cannot be told from three real failures; that map waits for its next version.)</summary>
-    public void ClearLifetimeCounts()
-    {
-        var back = new List<string>();
-        foreach (var (wid, node) in State.Items)
-        {
-            if (node is not JsonObject rec || Node.Int(rec["attempts"]) <= 3)
-                continue;
-            rec["attempts"] = 0;
-            if (Node.Str(rec["status"]) == "failed")
-            {
-                rec["status"] = "queued";
-                rec.Remove("evidence");
-                back.Add(wid);
-            }
-        }
-        if (back.Count > 0)
-        {
-            State.Save();
-            L($"queued again: {back.Count} map(s) failed by a count of every download of their life, not by three tries of one version");
-        }
-    }
-
     /// <summary>A map that waits for its test with its download gone from the staging folder can never get a verdict: the work folder is disposable,
     /// and a hand-over can take a staged map. It is downloaded again, or it would count as waiting for good. One with a verdict waits only for its
     /// publish (the step after the tests takes it), which needs no folder.</summary>
@@ -766,43 +738,6 @@ public sealed class SyncRun
             State.Save();
             L($"queued again: {back.Count} map(s) waiting for their test with their download gone from the staging folder");
         }
-    }
-
-    /// <summary>The Python sync kept &lt;state&gt;/running.json while a run was going, for anyone about to touch the server, and a killed run left it
-    /// behind. This program writes none and nothing reads it, so one that is here says a run is going that no longer is.</summary>
-    public void ForgetRunningFile()
-    {
-        try
-        {
-            File.Delete(Path.Combine(Cfg.StateDir, "running.json"));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            L($"running.json not removed: {e.Message}");
-        }
-    }
-
-    /// <summary>A map skipped as bigger than a whole day's download cap is queued again - the 223 popular maps the old caps parked (800 MB,
-    /// then 3 GB a night) - and nothing is skipped for its size any more: there is no daily cap. They are tested like the rest, by
-    /// popularity, the ones the keep set wants first.</summary>
-    public void RequeueSizeSkips()
-    {
-        var back = new List<string>();
-        foreach (var (wid, node) in State.Items)
-        {
-            if (node is not JsonObject rec || Node.Str(rec["status"]) != "skipped" || !Node.StrOr(rec["evidence"]).Contains("download cap", StringComparison.Ordinal))
-                continue;
-            rec["status"] = "queued";
-            rec["requeued"] = $"{Day0}: no daily download cap any more ({Node.StrOr(rec["evidence"])})";
-            rec.Remove("skip_cap");
-            back.Add(wid);
-        }
-        if (back.Count > 0)
-        {
-            State.Save();
-            L($"queued again: {back.Count} map(s) skipped as too big for an old daily download cap - there is none any more");
-        }
-        Report["requeued"] = back.Count;
     }
 
     JsonObject ServeReport() => Section("serve", () => new JsonObject { ["ok"] = 0, ["bytes"] = 0, ["failed"] = new JsonArray() });
@@ -1862,11 +1797,9 @@ public sealed class SyncRun
         try
         {
             var hist = State.Section("history");
-            if (!Node.Truthy(hist["runs"]))
-                hist["runs"] = Status.SeedRuns(Cfg.StateDir, Clock);
-            var started = Clock.UnixOf(Node.Str(Report["started"]));
-            var runs = Node.Arr(hist["runs"]).Where(e => !(Node.Get(e, "started") is { } s && started is { } st && Node.Float(s) == st)).Select(e => e?.DeepClone()).ToList();
-            runs.Insert(0, Status.RunEntry(Report, Clock));
+            var started = (long)Math.Truncate(T0);
+            var runs = Node.Arr(hist["runs"]).Where(e => Node.Float(Node.Get(e, "started")) != started).Select(e => e?.DeepClone()).ToList();
+            runs.Insert(0, Status.RunEntry(Report, started, (long)Math.Truncate(Clock.Now())));
             hist["runs"] = new JsonArray(runs.Take(Status.Runs).ToArray());
         }
         catch (Exception e) when (e is not StopRequested)
@@ -2006,8 +1939,6 @@ public sealed class SyncRun
             ["problems"] = Node.Strings(keep.Problems.Where(p => !(p.StartsWith("no HUD item", StringComparison.Ordinal) && hud.Length == 0)).Take(5)),
         };
         var hist = State.Section("history");
-        if (!Node.Truthy(hist["runs"]))
-            hist["runs"] = Status.SeedRuns(Cfg.StateDir, Clock);
         var history = new JsonObject
         {
             ["runs"] = new JsonArray(Node.Arr(hist["runs"]).Take(Status.Runs).Select(e => e?.DeepClone()).ToArray()),

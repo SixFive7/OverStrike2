@@ -72,15 +72,9 @@ static class Part1
             led.Reserve(today, "GetPublishedFileDetails");
         Check("ledger: no cap per day but the 24 h one: call 601 of a day goes", led.Reserve(today, "QueryFiles") >= 0);
         var file = Read(lp)!;
-        Check("ledger: every reserved call is on disk, counted under its day", Node.Arr(file["calls"]).Count == 601 && Node.Eq(file["days"], new JsonObject { [today] = 601 })
-              && !((JsonObject)file).ContainsKey("nights"));
+        Check("ledger: every reserved call is on disk, counted under its day", Node.Arr(file["calls"]).Count == 601 && Node.Eq(file["days"], new JsonObject { [today] = 601 }));
         var (led2, _) = W.Ledger(lp, t: clock.T);
         Check("ledger: the day's count survives a restart (a new process reads the file)", led2.Count(today) == 601);
-        var old = Path.Combine(root, "ledger-old.json");
-        Json(old, new JsonObject { ["schema"] = 1, ["calls"] = new JsonArray(), ["nights"] = new JsonObject { [today] = 3 }, ["stops"] = new JsonObject() });
-        var (led3, _) = W.Ledger(old, t: clock.T);
-        Check("ledger: a file with the old key 'nights' and no 'days' is read as it is - its count is the day's",
-              led3.Data is not null && led3.Broken is null && led3.Count(today) == 3);
         var (capped, sentC, _) = ApiWith(W.Ledger(Path.Combine(root, "ledger-run.json")).Ledger, new FakeClock(1793500000.0), Many(J("{\"response\": {}}"), 5));
         capped.RunCap = 3;
         for (var i = 0; i < 3; i++)

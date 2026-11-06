@@ -235,8 +235,8 @@ static class Part3
         Directory.CreateDirectory(Depotcache);
         Json(Path.Combine(sstate, "state.json"), O("""
             {"schema": 1, "items": {
-              "140": {"status": "skipped", "evidence": "1.5 GB: more than a whole night's download cap (800 MB)", "size": 1073741824, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
-              "141": {"status": "skipped", "evidence": "160.0 GB: more than a whole day's download cap (150.0 GB)", "size": 171798691840, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
+              "140": {"status": "queued", "why": "new", "size": 1073741824, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
+              "141": {"status": "queued", "why": "new", "size": 171798691840, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
               "142": {"status": "skipped", "evidence": "a CS:GO-era upload (its Workshop file is x): no CS2 map, not downloaded", "size": 1, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1},
               "143": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 999, "created": 1, "lifetime": 1},
               "144": {"status": "queued", "why": "new", "size": 5, "tags": ["Armsrace"], "ws": "ok", "app": 730, "subs": 1, "created": 1, "lifetime": 1}},
@@ -245,10 +245,6 @@ static class Part3
         var ncfg = Cfg();
         nn = W.Run(ncfg, new FakeClock(KT));
         nn.State.Load();
-        nn.RequeueSizeSkips();
-        Check("the 223: every map skipped as too big for an old daily cap is queued again, 160 GB too - there is no cap now; a CS:GO-era skip stays",
-              Node.Str(nn.State.Item("140")!["status"]) == "queued" && Node.Str(nn.State.Item("141")!["status"]) == "queued" && Node.Str(nn.State.Item("142")!["status"]) == "skipped"
-              && Node.Int(nn.Report["requeued"]) == 2);
         var vapi = new VoteApi(new() { ["143"] = 0.99, ["144"] = 0.01, ["140"] = 0.5, ["105"] = 0.7 },
                                trends: new() { ["Armsrace"] = ["999", "105", "106"], ["Deathmatch"] = ["301"], ["Wingman"] = [] });
         nn.Ratings(vapi, ["105", "106"]);

@@ -59,18 +59,6 @@ public sealed class SyncClock(IClock clock, TimeZoneInfo zone)
         return Seconds(LocalTime.At(DateOnly.FromDateTime(local.DateTime), hhmm, Zone));
     }
 
-    /// <summary>A report's local stamp as a unix time (Python's time.mktime of it), or null.</summary>
-    public double? UnixOf(string? stamp)
-    {
-        if (stamp is null || !DateTime.TryParseExact(stamp, "yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
-            return null;
-        local = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
-        if (Zone.IsInvalidTime(local))
-            local = local.AddHours(1);
-        var offset = Zone.IsAmbiguousTime(local) ? Zone.GetAmbiguousTimeOffsets(local).Max() : Zone.GetUtcOffset(local);
-        return Math.Floor(Seconds(new DateTimeOffset(local, offset)));
-    }
-
     public void Sleep(double seconds)
     {
         if (seconds > 0)

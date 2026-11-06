@@ -142,8 +142,6 @@ public static partial class Mail
         else if (sv.Count > 0)
             W($"   {N(sv, "missing")} missing of the keep set, {N(sv, "ok")} handed over ({Sync.Text.Mb(N(sv, "bytes"))}), {N(sv, "tested")} tested in this run and handed over, "
               + $"{Node.Arr(sv["failed"]).Count} failed, {N(sv, "left")} still missing{(Node.Truthy(sv["stop"]) ? $"; stopped: {S(sv["stop"])}" : "")}.");
-        if (Node.Truthy(r["requeued"]))
-            W($"   {S(r["requeued"])} map(s) skipped as too big for an older download cap are queued again (they fit today's).");
         var dl = Node.Obj(r["downloads"]);
         W("3. Downloads (SteamCMD, anonymous login):");
         if (Node.Truthy(dl["skipped"]))

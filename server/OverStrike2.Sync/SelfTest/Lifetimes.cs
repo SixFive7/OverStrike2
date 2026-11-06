@@ -31,7 +31,6 @@ static class Lifetimes
 
     public static void Run()
     {
-        OldLedger();
         LeftBehind();
         FailedVersion();
         NoOpRuns();
@@ -39,7 +38,6 @@ static class Lifetimes
         FirstPicture();
         HistoryCounts();
         Tries();
-        OldCounts();
         Backups();
         Reports();
         Hooks.Check = (_, _, _, _, _) => ([], []);
@@ -92,38 +90,8 @@ static class Lifetimes
     static int Events(JsonObject state, string wid, string evt) =>
         Node.Arr(Node.Get(state["history"], "maps")).Count(e => Node.Str(e!["id"]) == wid && Node.Str(e["event"]) == evt);
 
-    // ---- a ledger as the deployed Python sync wrote it: "nights", no "days". It must keep counting, or the check and the ratings stop at the switch
-    static void OldLedger()
-    {
-        var path = Path.Combine(Dir("old-ledger"), "api-ledger.json");
-        var calls = $"[[{T0 - 600}, \"GetPublishedFileDetails\", 200], [{T0 - 300}, \"QueryFiles\", null], [{T0 - 2 * 86400}, \"QueryFiles\", 200]]";
-        File.WriteAllText(path, $"{{\"schema\": 1, \"calls\": {calls}, \"nights\": {{\"2026-11-05\": 472, \"2026-11-04\": 31}}, \"stops\": {{\"2026-11-04\": \"HTTP 429\"}}}}\n");
-        var fc = new FakeClock(T0);
-        var led = new ApiLedger(path, 10000, C(fc));
-        led.Load();
-        Check($"old ledger: \"nights\" and no \"days\" parses ({led.Broken ?? "no problem"})", led.Broken is null && led.Data is not null);
-        Check("old ledger: ... its count per day is the day's count", led.Count("2026-11-05") == 472 && led.Count("2026-11-04") == 31);
-        Check("old ledger: ... its calls still count for the 24-hour cap, its stops still stop", led.Last24h() == 2 && led.Stopped("2026-11-04") == "HTTP 429");
-        led.Reserve("2026-11-05", "QueryFiles");
-        var saved = (JsonObject)Read(path)!;
-        Check("old ledger: ... the next write says \"days\", goes on counting, and keeps the calls and the stops",
-              !saved.ContainsKey("nights") && Node.Int(Node.Get(saved["days"], "2026-11-05")) == 473 && Node.Int(Node.Get(saved["days"], "2026-11-04")) == 31
-              && Node.Arr(saved["calls"]).Count == 3 && Node.Str(Node.Get(saved["stops"], "2026-11-04")) == "HTTP 429");
-        var again = new ApiLedger(path, 10000, C(fc));
-        again.Load();
-        Check("old ledger: ... and that file reads back", again.Broken is null && again.Count("2026-11-05") == 473 && again.Last24h() == 3);
-        File.WriteAllText(path, "{\"schema\": 1, \"calls\": [], \"days\": {\"2026-11-05\": 5}, \"nights\": {\"2026-11-05\": 9}, \"stops\": {}}\n");
-        var both = new ApiLedger(path, 10000, C(fc));
-        both.Load();
-        Check("old ledger: where both are there, \"days\" counts", both.Broken is null && both.Count("2026-11-05") == 5);
-        File.WriteAllText(path, "{\"schema\": 1, \"calls\": [], \"nights\": 5, \"stops\": {}}\n");
-        var bad = new ApiLedger(path, 10000, C(fc));
-        bad.Load();
-        Check("old ledger: \"nights\" of another shape is still no ledger: no Web API call until it is fixed", bad.Broken is not null && bad.Data is null);
-    }
-
-    // ---- what a run of the deployed Python left in the state (all of these were in the real state file when it was stopped): a verdict whose
-    // publish never came, a map waiting for its test with its download gone, a map waiting for its test with its download there, running.json
+    // ---- what a run cut short leaves in the state (a run killed, a work folder lost): a verdict whose publish never came, a map waiting for
+    // its test with its download gone, one that had a load already, a map waiting for its test with its download there
     static void LeftBehind()
     {
         var cfg = World("left-behind", new JsonObject
@@ -137,7 +105,6 @@ static class Lifetimes
             ["533"] = Listed(U1, ("status", "downloaded"), ("downloaded", "2026-11-05"), ("loads", new JsonArray())),
         }, new JsonObject { ["531"] = U0, ["533"] = U1 }, T0, new HashSet<string> { "530", "532", "533" });
         T.Put(Path.Combine(Work, "staging", "steamapps", "workshop", "content", "730", "533", "533_dir.vpk"), "x");
-        T.Put(Path.Combine(W.State, "running.json"), "{\"night\": \"2026-11-05\", \"phase\": \"downloads\", \"since\": \"then\", \"pid\": 7}");
         Hooks.Check = (_, ids, _, _, _) => (ids.ToDictionary(i => i, i => Details(i, U1)), []);
         var loads = new List<string>();
         Hooks.TestLoad = (_, wid, _, _, _, _, _) =>
@@ -157,7 +124,6 @@ static class Lifetimes
         Check($"left behind: a map waiting for its test with its download there is tested without a new one ({T.Show(loads)})",
               !FakeSteam.Asked.Contains("533") && loads.Contains("533") && Node.Str(Field("533", "verdict")) == "pass");
         Check("left behind: the run says nothing of these as errors", Node.Arr(report["errors"]).Count == 0);
-        Check("left behind: running.json goes: no run of the Python that wrote it is going, and this program writes none", !File.Exists(Path.Combine(W.State, "running.json")));
     }
 
     // ---- a listed map whose new version fails its test: tested once when it is seen, then at most once a day, and nothing waits in between
@@ -302,10 +268,9 @@ static class Lifetimes
     // ---- the history's downloads are what was downloaded: a hand-over of what was staged already is none
     static void HistoryCounts()
     {
-        var clock = C(new FakeClock(T0));
-        var staged = Status.RunEntry(O("{\"serve\": {\"ok\": 3, \"bytes\": 3000, \"failed\": []}}"), clock);
+        var staged = Status.RunEntry(O("{\"serve\": {\"ok\": 3, \"bytes\": 3000, \"failed\": []}}"), 0, 0);
         Check("status: a run's history - 3 handed over without a new download are 0 downloads, 0 bytes", Node.Int(staged["downloads"]) == 0 && Node.Int(staged["bytes"]) == 0);
-        var both = Status.RunEntry(O("{\"downloads\": {\"ok\": 2, \"bytes\": 200}, \"serve\": {\"ok\": 3, \"bytes\": 3000, \"downloads\": 1, \"dl_bytes\": 1000}}"), clock);
+        var both = Status.RunEntry(O("{\"downloads\": {\"ok\": 2, \"bytes\": 200}, \"serve\": {\"ok\": 3, \"bytes\": 3000, \"downloads\": 1, \"dl_bytes\": 1000}}"), 0, 0);
         Check("status: a run's history - the test's downloads and serve's own", Node.Int(both["downloads"]) == 3 && Node.Int(both["bytes"]) == 1200);
     }
 
@@ -351,26 +316,6 @@ static class Lifetimes
         Check("tries: ... the same version keeps them", Node.Int(rec["attempts"]) == 2);
     }
 
-    // ---- a state the old count left: a "5 of 3 tries" comes back for one more go, a real "3 of 3" stays
-    static void OldCounts()
-    {
-        var cfg = World("old-counts", new JsonObject
-        {
-            ["504"] = Listed(U1, ("status", "failed"), ("attempts", 5), ("why", "changed"), ("evidence", "SteamCMD could not download it (x), 5 of 3 tries")),
-            ["505"] = Listed(U1, ("status", "failed"), ("attempts", 3), ("why", "changed"), ("evidence", "SteamCMD could not download it (x), 3 of 3 tries")),
-            ["506"] = Listed(U1, ("attempts", 7)),
-        }, new JsonObject { ["504"] = U0, ["505"] = U0, ["506"] = U1 }, T0 - 5 * Hour);
-        Hooks.Check = (_, ids, _, _, _) => (ids.ToDictionary(i => i, i => Details(i, U1)), []);
-        Hooks.TestLoad = (_, wid, _, _, _, _, _) => Load(wid, "pass");
-        W.Run(cfg, new FakeClock(T0), false).Run();
-        var st = Saved();
-        JsonNode? Field(string wid, string key) => Node.Get(Node.Get(st["items"], wid), key);
-        Check($"old counts: 5 of 3 tries is downloaded and tested after all ({Node.Str(Field("504", "status"))}, {T.Show(FakeSteam.Asked)})",
-              FakeSteam.Asked.Contains("504") && Node.Str(Field("504", "verdict")) == "pass" && Node.Int(Node.Get(st["baseline"], "504")) == U1);
-        Check($"old counts: a real 3 of 3 of this version stays failed ({Node.Str(Field("505", "status"))})", !FakeSteam.Asked.Contains("505") && Node.Str(Field("505", "status")) == "failed");
-        Check("old counts: a published map's count is cleared and the map left alone", Node.Int(Field("506", "attempts")) == 0 && !FakeSteam.Asked.Contains("506") && Node.Str(Field("506", "status")) == "published");
-    }
-
     // ---- every publish copies the lists to backups/<stamp>/: the newest few stay
     static void Backups()
     {
@@ -397,7 +342,6 @@ static class Lifetimes
     {
         var cfg = World("reports", new JsonObject { ["520"] = Listed(U0) }, new JsonObject { ["520"] = U0 }, T0);
         var folder = Path.Combine(W.State, "reports");
-        var clock = new SyncClock(new FakeClock(T0), Paris);
         for (var i = 0; i < 130; i++)
         {
             var stem = $"2026-10-{1 + i / 24:00}-{i % 24:00}00{(i % 2 == 0 ? "" : "-manual")}";
@@ -423,7 +367,5 @@ static class Lifetimes
               json.Count == SyncRun.ReportsKept && text.Count == SyncRun.ReportsKept + 1 && File.Exists(Node.Str(run.Report["report_path"])) && !json.Contains("2026-10-01-0000"));
         Check($"reports: the names older versions gave theirs go the same way ({json[0]})", !json.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)) && !text.Any(n => n.StartsWith("2026-09", StringComparison.Ordinal)));
         Check("reports: what is no report of a run is left alone", File.Exists(Path.Combine(folder, "notes.md")) && File.Exists(Path.Combine(folder, "probe-2026-09-01-manual-0310.json")));
-        Check($"reports: the status file's history can still start from them ({Status.SeedRuns(W.State, clock).Count} of {Status.Runs})",
-              SyncRun.ReportsKept >= Status.Runs && Status.SeedRuns(W.State, clock).Count == Status.Runs);
     }
 }
