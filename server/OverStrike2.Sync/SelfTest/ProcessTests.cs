@@ -25,15 +25,15 @@ static class ProcessTests
         var stopRoot = Dir("engine-stop");
         var real = new SyncClock(SystemClock.Instance, Paris);
         var te = new TestEngine(Cfg(), stopRoot, stopRoot, real, Log.Line) { QuitWait = 0, StopWait = 1 };
-        var wrapper = Native.StartSession(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
+        var wrapper = ProcessGroup.Start(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
         te.Adopt(wrapper);
         Thread.Sleep(1000);
         var stopPgid = wrapper.Id;
-        Check("engine stop: the group is up before the stop", Native.GroupAlive(stopPgid));
+        Check("engine stop: the group is up before the stop", Posix.GroupAlive(stopPgid));
         te.Stop();
-        Check("engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group", !Native.GroupAlive(stopPgid) && !te.HasProcess);
+        Check("engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group", !Posix.GroupAlive(stopPgid) && !te.HasProcess);
         var going = new TestEngine(Cfg(), stopRoot, stopRoot, new SyncClock(new EndingClock(RunTests.T0, RunTests.T0), Paris), Log.Line);   // every wait of this clock throws at once
-        var frozen = Native.StartSession(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
+        var frozen = ProcessGroup.Start(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
         going.Adopt(frozen);
         Thread.Sleep(1000);
         var frozenPgid = frozen.Id;
@@ -46,9 +46,9 @@ static class ProcessTests
         {
             wentUp = true;
         }
-        for (var i = 0; i < 30 && Native.GroupAlive(frozenPgid); i++)
+        for (var i = 0; i < 30 && Posix.GroupAlive(frozenPgid); i++)
             Thread.Sleep(100);
-        Check("engine stop under a SIGTERM: the signals still go, and no frozen engine stays", !Native.GroupAlive(frozenPgid) && !going.HasProcess);
+        Check("engine stop under a SIGTERM: the signals still go, and no frozen engine stays", !Posix.GroupAlive(frozenPgid) && !going.HasProcess);
         Check("engine stop under a SIGTERM: ... and the stop goes on up", wentUp);
         var treeBin = Path.Combine(stopRoot, "farm", "game", "bin");
         Directory.CreateDirectory(treeBin);
@@ -122,7 +122,7 @@ static class ProcessTests
               !stall.Ok && stall.Reason == SteamCmdWords.Stall + " 1s" && stall.Reason.StartsWith(SteamCmdWords.Stall, StringComparison.Ordinal));
         var pid = typeof(SteamCmdProcess).GetField("proc", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(steam) is Process p ? p.Id : -1;
         steam.Stop();
-        Check("steamcmd: the stop takes the whole process group, a child that ignores quit too", pid > 0 && !Native.GroupAlive(pid));
+        Check("steamcmd: the stop takes the whole process group, a child that ignores quit too", pid > 0 && !Posix.GroupAlive(pid));
         // the first session leaves a child in a session of its own that holds its output for 2 s after it is gone; the next one answers
         // after 3 s - a reader of the first that ended the second's wait would make that login fail
         var late = Path.Combine(dir, "steamcmd-late.sh");

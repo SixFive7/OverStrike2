@@ -48,7 +48,7 @@ public static partial class Snapshots
         return false;
     }
 
-    static bool Writable(string dir) => Directory.Exists(dir) && Native.MayWrite(dir);
+    static bool Writable(string dir) => Directory.Exists(dir) && Core.Posix.MayWrite(dir);
 
     /// <summary>What content_log.txt says about the download sources: the lines that tell the stuck state apart.</summary>
     public static List<string> ContentLogSummary(string text)

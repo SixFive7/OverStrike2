@@ -446,7 +446,7 @@ public sealed partial class SyncRun
         var idle = !(Node.Truthy(Node.Get(Report["downloads"], "ok")) || Node.Truthy(Node.Get(Report["tests"], "rows")) || Node.Truthy(Node.Get(Report["published"], "files"))
                      || Node.Truthy(Report["errors"]) || Node.Truthy(Node.Get(Report["serve"], "ok")));
         Report["idle"] = idle;
-        if (Native.DiskFree(Cfg.GameDir) is { } free)       // the disk, and the game server's last deletion, for the problems below
+        if (Posix.DiskFree(Cfg.GameDir) is { } free)       // the disk, and the game server's last deletion, for the problems below
         {
             var disk = new JsonObject { ["free"] = free };
             if (free < Cfg.DiskLow)

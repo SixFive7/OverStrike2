@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -16,52 +16,12 @@ public interface ISteamCmd
     void Stop();
 }
 
-/// <summary>The few libc calls the sync needs: signals to a process group, its liveness, a volume's free space; and a process started in a
-/// session of its own.</summary>
-public static partial class Native
+/// <summary>A process started in a session of its own, so its whole group can be signalled (Posix.SignalGroup).</summary>
+public static class ProcessGroup
 {
-    [LibraryImport("libc", EntryPoint = "kill", SetLastError = true)]
-    private static partial int KillCall(int pid, int sig);
-
-    [LibraryImport("libc", EntryPoint = "statvfs", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static unsafe partial int StatVfs(string path, byte* buf);
-
-    public const int SigTerm = 15, SigKill = 9, Eperm = 1;
-
-    /// <summary>kill(2); false when it failed.</summary>
-    public static bool Signal(int pid, int sig) => OperatingSystem.IsLinux() && KillCall(pid, sig) == 0;
-
-    /// <summary>killpg(2), as kill(-pgid).</summary>
-    public static bool SignalGroup(int pgid, int sig) => OperatingSystem.IsLinux() && pgid > 0 && KillCall(-pgid, sig) == 0;
-
-    /// <summary>Is anything left of this process group? Its leader's exit is not the group's: the engine's wrapper (cs2.sh) dies at a
-    /// SIGTERM, a frozen engine under it does not, and it keeps the port: a stop that believed the wrapper would leave the next engine no
-    /// port to answer on.</summary>
-    public static bool GroupAlive(int pgid)
-    {
-        if (!OperatingSystem.IsLinux() || pgid <= 0)
-            return false;
-        if (KillCall(-pgid, 0) == 0)
-            return true;
-        return Marshal.GetLastPInvokeError() == Eperm;
-    }
-
-    /// <summary>Bytes free for an unprivileged user on the volume holding `path` (statvfs f_bavail * f_frsize), or null.</summary>
-    public static unsafe long? DiskFree(string path)
-    {
-        if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
-            return null;
-        var buf = stackalloc byte[256];                     // glibc x86_64 struct statvfs: 11 unsigned longs and 6 ints
-        if (StatVfs(path, buf) != 0)
-            return null;
-        var frsize = *(ulong*)(buf + 8);
-        var bavail = *(ulong*)(buf + 32);
-        return (long)(frsize * bavail);
-    }
-
     /// <summary>A process in a session of its own (setsid), so its whole group can be signalled: the program, its arguments, a folder to
     /// start in, its environment. With stdin and stdout piped when asked.</summary>
-    public static Process StartSession(IReadOnlyList<string> argv, string cwd, IDictionary<string, string>? env, bool pipes)
+    public static Process Start(IReadOnlyList<string> argv, string cwd, IDictionary<string, string>? env, bool pipes)
     {
         var psi = new ProcessStartInfo("setsid") { WorkingDirectory = cwd, UseShellExecute = false };
         foreach (var a in argv)
@@ -180,7 +140,7 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
         Log(Encoding.UTF8.GetBytes($"\n==== {clock.Local().ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} SteamCMD session (anonymous)\n"));
         var fresh = new Output();
         output = fresh;
-        proc = Native.StartSession(["bash", "-c", "exec \"$@\" 2>&1", "steamcmd", exe, "+force_install_dir", installDir, "+login", "anonymous"], "/tmp", env, true);
+        proc = ProcessGroup.Start(["bash", "-c", "exec \"$@\" 2>&1", "steamcmd", exe, "+force_install_dir", installDir, "+login", "anonymous"], "/tmp", env, true);
         var p = proc;
         new Thread(() => Reader(p, fresh, Log)) { IsBackground = true, Name = "steamcmd-out" }.Start();
         var text = ReadUntil(new Regex("Steam>|" + SteamCmdWords.LoginFailRx.ToString(), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), LoginTimeout);
@@ -240,9 +200,9 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
         catch (Exception e) when (e is IOException or ObjectDisposedException or InvalidOperationException)
         {
         }
-        if (Native.GroupAlive(pid))      // steamcmd.sh may be gone with its binary still running under it
+        if (Posix.GroupAlive(pid))      // steamcmd.sh may be gone with its binary still running under it
         {
-            Native.SignalGroup(pid, Native.SigKill);
+            Posix.SignalGroup(pid, Posix.SigKill);
             try
             {
                 proc.WaitForExit(10000);
@@ -250,7 +210,7 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
             catch (InvalidOperationException)
             {
             }
-            for (var i = 0; i < 50 && Native.GroupAlive(pid); i++)   // the whole group, not only its leader: a new session starts clean
+            for (var i = 0; i < 50 && Posix.GroupAlive(pid); i++)   // the whole group, not only its leader: a new session starts clean
                 Thread.Sleep(200);
         }
         proc.Dispose();

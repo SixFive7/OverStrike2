@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -104,7 +105,7 @@ public sealed class TestEngine : ITestEngine
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
         }
-        proc = Native.StartSession(["bash", "-c", "log=$1; shift; ulimit -c 0; exec \"$@\" </dev/null >>\"$log\" 2>&1", "engine", stdoutLog, .. args], TreeGame, env, false);
+        proc = ProcessGroup.Start(["bash", "-c", "log=$1; shift; ulimit -c 0; exec \"$@\" </dev/null >>\"$log\" 2>&1", "engine", stdoutLog, .. args], TreeGame, env, false);
         var end = clock.Now() + timeout;
         while (clock.Now() < end)
         {
@@ -158,12 +159,12 @@ public sealed class TestEngine : ITestEngine
             {
             }
         }
-        foreach (var sig in new[] { Native.SigTerm, Native.SigKill })
+        foreach (var sig in new[] { Posix.SigTerm, Posix.SigKill })
         {
-            if (!Native.GroupAlive(pgid))
+            if (!Posix.GroupAlive(pgid))
                 break;
-            Native.SignalGroup(pgid, sig);
-            for (var i = 0; i < StopWait && Native.GroupAlive(pgid) && Waited(); i++)
+            Posix.SignalGroup(pgid, sig);
+            for (var i = 0; i < StopWait && Posix.GroupAlive(pgid) && Waited(); i++)
             {
             }
         }

@@ -244,7 +244,7 @@ public sealed partial class MapsFolder
             words.Add($"{counts["redundant"]} hand-over(s) not needed, {counts["incomplete"]} left alone");
         if (delete)
         {
-            var before = Native.DiskFree(mapsDir);
+            var before = Posix.DiskFree(mapsDir);
             var listed = WriteList(rows, "done");
             var failed = 0;
             foreach (var (_, id, path) in gone)
@@ -262,7 +262,7 @@ public sealed partial class MapsFolder
                     log.Line($"maps folder: {path} not deleted ({e.Message})");
                 }
             }
-            var after = Native.DiskFree(mapsDir);
+            var after = Posix.DiskFree(mapsDir);
             log.Line($"maps folder: DELETED {gone.Count - failed} map(s) outside the keep set, {Gib(volume)} ({byType}){(failed > 0 ? $", {failed} failed" : "")}; "
                      + $"free on the volume {(before is { } b ? Gib(b) : "?")} -> {(after is { } a ? Gib(a) : "?")} (a copy-on-write volume may free it later); the list: {listed}");
             words.Add($"{gone.Count - failed} deleted ({Gib(volume)})");

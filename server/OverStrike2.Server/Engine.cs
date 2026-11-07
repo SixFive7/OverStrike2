@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Text;
 using OverStrike2.Core;
 
@@ -29,39 +28,6 @@ public interface IEngine
 
     /// <summary>Seconds since the process started, or null.</summary>
     double? Age(int pid);
-}
-
-static partial class Native
-{
-    [LibraryImport("libc", EntryPoint = "kill", SetLastError = true)]
-    private static partial int KillCall(int pid, int sig);
-
-    [LibraryImport("libc", EntryPoint = "statvfs", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static unsafe partial int StatVfs(string path, byte* buf);
-
-    [LibraryImport("libc", EntryPoint = "access", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static partial int Access(string path, int mode);
-
-    public const int SigTerm = 15, SigKill = 9;
-
-    /// <summary>access(2) with W_OK: may this user write there? (Not on Linux: assumed.)</summary>
-    public static bool MayWrite(string path) => !OperatingSystem.IsLinux() || Access(path, 2) == 0;
-
-    /// <summary>kill(2); false when it failed (no such process, not ours).</summary>
-    public static bool Signal(int pid, int sig) => OperatingSystem.IsLinux() && KillCall(pid, sig) == 0;
-
-    /// <summary>Bytes free for an unprivileged user on the volume holding `path` (statvfs f_bavail * f_frsize), or null.</summary>
-    public static unsafe long? DiskFree(string path)
-    {
-        if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture != Architecture.X64)
-            return null;
-        var buf = stackalloc byte[256];                     // glibc x86_64 struct statvfs: 11 unsigned longs and 6 ints
-        if (StatVfs(path, buf) != 0)
-            return null;
-        var frsize = *(ulong*)(buf + 8);
-        var bavail = *(ulong*)(buf + 32);
-        return (long)(frsize * bavail);
-    }
 }
 
 /// <summary>The real engine: 127.0.0.1 and /proc.</summary>
@@ -141,9 +107,9 @@ public sealed class LocalEngine(int port, string password, IClock clock, Log log
     public void Kill(int pid, string why)
     {
         log.Line($"killing the engine (pid {pid}): {why}");
-        foreach (var (sig, wait) in new[] { (Native.SigTerm, 10), (Native.SigKill, 5) })
+        foreach (var (sig, wait) in new[] { (Posix.SigTerm, 10), (Posix.SigKill, 5) })
         {
-            if (!Native.Signal(pid, sig))
+            if (!Posix.Signal(pid, sig))
                 return;
             for (var i = 0; i < wait * 2; i++)
             {

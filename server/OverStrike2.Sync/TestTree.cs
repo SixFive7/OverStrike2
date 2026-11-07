@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -151,7 +152,7 @@ public static partial class TestTree
             {
                 continue;
             }
-            if (exe is not null && exe.StartsWith(prefix, StringComparison.Ordinal) && Native.Signal(n, Native.SigKill))
+            if (exe is not null && exe.StartsWith(prefix, StringComparison.Ordinal) && Posix.Signal(n, Posix.SigKill))
                 killed++;
         }
         if (killed > 0)

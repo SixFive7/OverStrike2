@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -6,17 +5,8 @@ using System.Text.Json.Nodes;
 namespace OverStrike2.Core;
 
 /// <summary>Careful file writes: a reader sees the old file or the new one, and after a crash the new one is on disk.</summary>
-public static partial class Files
+public static class Files
 {
-    [LibraryImport("libc", EntryPoint = "open", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
-    private static partial int Open(string path, int flags);
-
-    [LibraryImport("libc", EntryPoint = "fsync", SetLastError = true)]
-    private static partial int Fsync(int fd);
-
-    [LibraryImport("libc", EntryPoint = "close")]
-    private static partial int Close(int fd);
-
     /// <summary>Write beside the target, flush it to disk, rename it over the target, then flush the folder (on Linux), so the rename
     /// itself survives a crash. unixMode: the new file's permissions (Linux), else the umask's. On Windows - builds and self-tests only - something
     /// else can hold the target or the new file for a moment (a scanner, by all signs) and the move fails with "access denied", so it is tried again
@@ -44,15 +34,7 @@ public static partial class Files
                 Thread.Sleep(20);
             }
         }
-        if (OperatingSystem.IsLinux())
-        {
-            var fd = Open(folder, 0);
-            if (fd >= 0)
-            {
-                Fsync(fd);
-                Close(fd);
-            }
-        }
+        Posix.FsyncFolder(folder);
     }
 
     public static void WriteAtomic(string path, string text, UnixFileMode? unixMode = null) => WriteAtomic(path, Encoding.UTF8.GetBytes(text), unixMode);
