@@ -89,6 +89,7 @@ public static class A2s
 public sealed class Rcon : IDisposable
 {
     public const int Auth = 3, ExecCommand = 2, AuthResponse = 2, ResponseValue = 0;
+    public const int MaxPacket = 1 << 20;
 
     readonly TcpClient tcp;
     readonly NetworkStream stream;
@@ -112,13 +113,14 @@ public sealed class Rcon : IDisposable
         return buf;
     }
 
-    /// <summary>The next packet from a stream: (id, type, body). Throws IOException for a closed stream or an implausible size.</summary>
+    /// <summary>The next packet from a stream: (id, type, body). Throws IOException for a closed stream or an implausible size (above
+    /// MaxPacket).</summary>
     public static (int Id, int Type, string Body) Read(Stream s)
     {
         Span<byte> head = stackalloc byte[4];
         s.ReadExactly(head);
         var size = BinaryPrimitives.ReadInt32LittleEndian(head);
-        if (size is < 10 or > 65536)
+        if (size is < 10 or > MaxPacket)
             throw new IOException($"an implausible RCON packet size {size}");
         var buf = new byte[size];
         s.ReadExactly(buf);

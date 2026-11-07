@@ -65,7 +65,7 @@ static class NetTests
         {
             try
             {
-                Rcon.Read(new MemoryStream([0x01, 0x00, 0x01, 0x00, 0, 0, 0, 0]));
+                Rcon.Read(new MemoryStream([0x01, 0x00, 0x10, 0x00, 0, 0, 0, 0]));   // 1 MiB and a byte
                 return false;
             }
             catch (IOException)
