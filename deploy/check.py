@@ -418,7 +418,7 @@ class Check:
             h = d.exec_in(n["game"], ["python3", "-c", bridge_mod.INNER_GET, f"http://{n['bridge']}:{os2.bridge_port(game, b)}/health/{secret}"]) or ""
             first = h.strip().splitlines()[0] if h.strip() else "(no answer)"
             m = re.search(r"log pushes (\d+)", h)
-            say(h.startswith("os2-health"), f"bridge /health from {n['game']}: " + (first.replace(secret, "<secret>") if secret else first))
+            say(h.startswith(bridge_mod.HEALTH_WORDS), f"bridge /health from {n['game']}: " + (first.replace(secret, "<secret>") if secret else first))
             say(bool(m) and int(m.group(1)) > 0, f"log pushes reaching the bridge: {m.group(1) if m else '?'} (0 right after a boot is normal for a minute)")
 
         # 4. the settings text and the secrets: in every place, the same - compared, never printed

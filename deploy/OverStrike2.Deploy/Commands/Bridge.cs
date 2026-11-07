@@ -197,6 +197,13 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
 
     // ---- swap
 
+    /// <summary>GET /health's first words: the bridge's own (core/BridgeWire.cs), and a bridge's from before release 191 (gg-health), which a rollback
+    /// goes back to - so a rollback's bridge is seen to be up as any other.</summary>
+    public static readonly string[] HealthWords = [Core.BridgeWire.HealthWord, "gg-health"];
+
+    /// <summary>Whether an answer of GET /health is a bridge's (HealthWords).</summary>
+    public static bool IsHealth(string answer) => HealthWords.Any(w => answer.StartsWith(w, StringComparison.Ordinal));
+
     public JsonObject CreateBody(JsonObject old, JsonObject oldImage, string newImageId)
     {
         var c = Json.Obj(old, "Config");
@@ -288,7 +295,7 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
         else
             Out.Log($"{Game} untouched: container {Py.Slice(Json.Str(game, "Id"), 0, 12)}, started {Py.Slice(Json.Str(game, "State", "StartedAt"), 0, 19)}Z");
         var h = Health(fresh);
-        if (!h.StartsWith(Core.BridgeWire.HealthWord, StringComparison.Ordinal))
+        if (!IsHealth(h))
             return [.. problems, "GET /health from the game container: " + Py.Slice(Py.Strip(h), 0, 200)];
         if (Pushes(h) == 0)   // say something, so the server has a line to push
         {

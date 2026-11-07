@@ -465,7 +465,7 @@ sealed class Check
             var h = docker.ExecIn(n["game"], ["python3", "-c", Bridge.InnerGet, Core.BridgeWire.Url($"http://{n["bridge"]}:{InspectOf.BridgePort(game, b)}", Core.BridgeWire.Health, secret)]) ?? "";
             var first = Py.Strip(h).Length > 0 ? Py.SplitLines(Py.Strip(h))[0] : "(no answer)";
             var m = Regex.Match(h, @"log pushes (\d+)");
-            Say(h.StartsWith(Core.BridgeWire.HealthWord, StringComparison.Ordinal), $"bridge /health from {n["game"]}: " + (secret.Length > 0 ? first.Replace(secret, "<secret>", StringComparison.Ordinal) : first));
+            Say(Bridge.IsHealth(h), $"bridge /health from {n["game"]}: " + (secret.Length > 0 ? first.Replace(secret, "<secret>", StringComparison.Ordinal) : first));
             Say(m.Success && long.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) > 0,
                 $"log pushes reaching the bridge: {(m.Success ? m.Groups[1].Value : "?")} (0 right after a boot is normal for a minute)");
         }

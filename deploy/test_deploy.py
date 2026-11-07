@@ -229,6 +229,12 @@ try:
     check("swap, a game container without them: the bridge's own LOG_SECRET, HTTP_PORT and RCON_PASSWORD, as before",
           r == 0 and gets and all(g == "http://bridge:8080/health/s" for g in gets) and says and says[0][3] == "p")
 
+    # a rollback to a bridge from before release 191: its /health begins gg-health, and the swap takes it as up; anything else is no bridge's
+    f = FakeDocker(health="gg-health 1\nlog pushes 3\n")
+    check("swap, a bridge from before release 191 (gg-health): up, as any other - a rollback to one goes through", swap(f) == 0)
+    f = FakeDocker(health="Not Found\n")
+    check("swap, a /health that is no bridge's: not up - the old bridge put back", swap(f) == 1)
+
     # a stopped bridge with no pinned IP: nothing to recreate it on - refused before any change
     f = FakeDocker(bridge_running=False, pinned=False)
     r = swap(f)

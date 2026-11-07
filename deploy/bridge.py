@@ -68,6 +68,8 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
 """
 
 
+HEALTH_WORDS = ("os2-health", "gg-health")   # GET /health's first word: the bridge's, and a bridge's from before release 191, which a rollback goes back to
+
 class Bridge:
     def __init__(self, cfg):
         self.cfg, self.d = cfg, os2.Docker(cfg)
@@ -247,7 +249,7 @@ class Bridge:
         else:
             os2.log(f"{self.game} untouched: container {game['Id'][:12]}, started {game['State']['StartedAt'][:19]}Z")
         h = self.health(new)
-        if not h.startswith("os2-health"):
+        if not h.startswith(HEALTH_WORDS):
             return problems + ["GET /health from the game container: " + h.strip()[:200]]
         pushes = lambda text: int(m.group(1)) if (m := re.search(r"log pushes (\d+)", text)) else 0
         if pushes(h) == 0:  # say something, so the server has a line to push
