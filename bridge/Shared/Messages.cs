@@ -10,20 +10,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-/// <summary>Where a message shows. Window: the window on its own page. Line: a line on the window's page (the player's own, or the page's own place for it).
-/// Card: our card under the crosshair. Plain: CS2's plain centre text. Alert: CS2's alert text. Banner: the status banner. Top: the top line. Countdown: the
-/// countdown banner. None: no surface of its own, chat or the board only.</summary>
-public enum Surface { None, Window, Line, Card, Plain, Alert, Banner, Top, Countdown }
-
-/// <summary>Who sees a copy: nobody, the player it is about, or everybody.</summary>
-public enum Who { Nobody, Player, Everybody }
-
-public sealed record Category(string Id, string Name)
-{
-    /// <summary>The class that colours the top line's tab, the window line's bar and eyebrow.</summary>
-    public string Class => "cat-" + Id;
-}
-
 public static class Messages
 {
     public const int ChatLineMax = 120; // characters a chat line holds on a 1920x1080 screen

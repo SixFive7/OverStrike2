@@ -92,7 +92,7 @@ public static class HudView
     }
 
     /// <summary>The classes the plugin sends only for v4.5.0, which this content's stylesheet has no rule for: c31 and c32 (StaticClasses), its news line and
-    /// note (news, note), and its fixed Fun rows' marks (nd-on, nd-off, cu-on, cu-off: HudVote.FixedRowClasses).</summary>
+    /// note (news, note), and its fixed Fun rows' marks (nd-on, nd-off, cu-on, cu-off: HudMenu.FixedRowClasses).</summary>
     public static readonly string[] OlderContentClasses = ["c31", "c32", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
 
     /// <summary>The panels only v4.5.0 has of the contents still drawn for: its news line, its note, its lede.</summary>

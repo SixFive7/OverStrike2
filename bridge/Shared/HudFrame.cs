@@ -202,7 +202,7 @@ public sealed class HudFrame
             if (cls == "off") funClicks.Grey(id, on, w.Now);
         }
         foreach (var (name, words) in HudMenu.FixedRowWords(w.FunValue, w.FunSetBy)) screen.Var(HudView.Global, name, words);
-        foreach (var (id, cls, on) in HudVote.FixedRowClasses(w.FunValue, w.Mode.ArmsRace)) screen.Class(id, cls, on);
+        foreach (var (id, cls, on) in HudMenu.FixedRowClasses(w.FunValue, w.Mode.ArmsRace)) screen.Class(id, cls, on);
         return HudMenu.FunWhy(w.FunValue);
     }
 

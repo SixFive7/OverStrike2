@@ -194,7 +194,7 @@ static partial class Program
                 .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("gg_rst_secs").Append("gg_cu_head")
                 .Concat(Enumerable.Range(1, 6).Select(k => $"gg_cu_{k}")).ToList();
             List<(string Id, string Class, bool On)> sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
-                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
+                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
                 .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"gg_cu_{k}", "used", true), ($"gg_cu_{k}", "good", true), ($"gg_cu_{k}", "bad", false) })).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
@@ -362,10 +362,10 @@ static partial class Program
             Check("...and a content before v4.6.0 keeps its fixed rows, one plugin driving them: their buttons are the same settings, lit from gg_global, which every content has - on is one class, off the other, and outside Arms Race neither",
                 HudMenu.FunClick(HudMenu.DropsOn) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.DropsOff) is ({ Id: "drops" }, { Id: "off" })
                 && HudMenu.FunClick(HudMenu.CatchUpOn) is ({ Id: "catchup" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.CatchUpOff) is ({ Id: "catchup" }, { Id: "off" })
-                && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
-                && HudVote.FixedRowClasses(cv => dropsOff.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
-                && HudVote.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudVote.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
-                && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), false).All(x => !x.On) && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).All(x => x.Id == HudView.Global));
+                && HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+                && HudMenu.FixedRowClasses(cv => dropsOff.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
+                && HudMenu.FixedRowClasses(cv => cv == Fun.CatchUp ? "0" : "1", true).Single(x => x.Class == "cu-off").On && !HudMenu.FixedRowClasses(cv => "1", true).Single(x => x.Class == "cu-off").On
+                && HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), false).All(x => !x.On) && HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).All(x => x.Id == HudView.Global));
 
             // ---- the Fun page and the Ads buttons, as the plugin fills and reads them ----
             var stockPage = HudMenu.FunPage(cv => stock.GetValueOrDefault(cv));

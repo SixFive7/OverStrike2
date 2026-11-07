@@ -114,8 +114,8 @@ static partial class Program
         Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, rows of the page like any other; an older content's fixed rows lit from them, its buttons the same choices",
             Fun.Find("drops") is { } dr && Fun.ArmsRaceOnly(dr) && Fun.IsEffect(Fun.Drops) && Fun.Find("catchup") is { } cu && Fun.ArmsRaceOnly(cu) && Fun.IsEffect(Fun.CatchUp)
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")
-            && HudVote.FixedRowClasses(c => c == Fun.Drops ? "0" : "1", true) is var fr && fr.Single(x => x.Class == "nd-off").On && fr.Single(x => x.Class == "cu-on").On
-            && HudVote.FixedRowClasses(c => "1", false).All(x => !x.On)
+            && HudMenu.FixedRowClasses(c => c == Fun.Drops ? "0" : "1", true) is var fr && fr.Single(x => x.Class == "nd-off").On && fr.Single(x => x.Class == "cu-on").On
+            && HudMenu.FixedRowClasses(c => "1", false).All(x => !x.On)
             && HudMenu.FunClick(HudMenu.DropsOff) is { Setting.Id: "drops", Choice.Id: "off" } && HudMenu.FunClick(HudMenu.CatchUpOn) is { Setting.Id: "catchup", Choice.Id: "on" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 1)) is { Setting.Id: "drops", Choice.Id: "on" } && HudMenu.FunClick(HudMenu.FunButton(18, 2)) is { Setting.Id: "catchup", Choice.Id: "off" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 3)) == null && HudMenu.FunClick(HudMenu.FunButton(19, 1)) == null);

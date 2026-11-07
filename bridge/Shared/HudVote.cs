@@ -347,16 +347,6 @@ public static class HudVote
         return null;
     }
 
-    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
-    /// settings, in Arms Race only (the rows are Arms Race's own). This content has them as rows of the grid (HudMenu.FunPage) and no rule for these classes.</summary>
-    public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
-    {
-        bool? On(string id) => !armsRace || Fun.Find(id) is not { } s ? null : Fun.Showing(s, value).Id == "on";
-        var (drops, catchUp) = (On("drops"), On("catchup"));
-        return [(HudView.Global, "nd-on", drops == true), (HudView.Global, "nd-off", drops == false), (HudView.Global, "cu-on", catchUp == true), (HudView.Global, "cu-off", catchUp == false)];
-    }
-
-
     /// <summary>A click on card k's Play while the vote is open, on this player's page: !mv &lt;round&gt; &lt;n&gt;; Random's button likewise; a click on the
     /// card (or Random) this player's vote is on takes it back, !mv &lt;round&gt; 0; null for anything else (the card's arrows do nothing then).
     /// account: the player's; -1 when not known, which never takes a vote back. order: the option numbers this player's cards showed (Order), so a

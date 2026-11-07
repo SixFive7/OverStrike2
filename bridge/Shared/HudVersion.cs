@@ -135,8 +135,9 @@ public static class HudVersion
     /// <summary>The prefix of a version button's id. The layout may put the button anywhere (it is the welcome window's X): any button with this prefix proves its content.</summary>
     public const string ButtonPrefix = "gg_hudver_";
 
-    /// <summary>A content's version button: gg_hudver_v4.6.0, the one place that says the id's form; --selftest holds the layout's one id to it. A real
-    /// client has loaded v4.6.0's (the release of 2026-11-05), so CS2 takes the dot in it.</summary>
+    /// <summary>A content's version button: gg_hudver_v4.7.0, the one place that says the id's form; --selftest holds the layout's one id to it. v4.6.0's layout,
+    /// which has its own, loads in a real client (the documentation's screenshots); a click on it is in the bridge's log as that version (hud check: ... verified,
+    /// HUD v4.6.0).</summary>
     public static string Button(string content) => ButtonPrefix + content;
 
     /// <summary>The content a version button proves, or null for any other button.</summary>

@@ -228,6 +228,15 @@ public static class HudMenu
             (CatchUpWordsVar, Words("catchup", "Boosts for players behind the leader, a bounty on a runaway one"))];
     }
 
+    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
+    /// settings, in Arms Race only (the rows are Arms Race's own). This content has them as rows of the grid (HudMenu.FunPage) and no rule for these classes.</summary>
+    public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
+    {
+        bool? On(string id) => !armsRace || Fun.Find(id) is not { } s ? null : Fun.Showing(s, value).Id == "on";
+        var (drops, catchUp) = (On("drops"), On("catchup"));
+        return [(HudView.Global, "nd-on", drops == true), (HudView.Global, "nd-off", drops == false), (HudView.Global, "cu-on", catchUp == true), (HudView.Global, "cu-off", catchUp == false)];
+    }
+
     /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing - the grid's
     /// rows, and the grenade drops' and catch-up's fixed rows of the contents before v4.6.0, which are the same settings.</summary>
     public static (Fun.Setting Setting, Fun.Choice Choice)? FunClick(string buttonId)
