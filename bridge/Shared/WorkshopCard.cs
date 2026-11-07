@@ -1,5 +1,7 @@
 // Playing a Workshop map that is not on the list: a player types its id on the menu's keyboard, or pastes a link in chat,
-// and the map browser shows a card for it instead of an empty page. The plugin asks the Steam Web API about the item first (the game server reaches Steam; the bridge stays off the internet) and refuses one that is gone, private, banned or not for CS2, saying so. Otherwise one click downloads
+// and the map browser shows a card for it instead of an empty page. The server's own refusals come first (ServerRefusal: the catalog's, and
+// our own HUD's item); then the plugin asks the Steam Web API about the item (the game server reaches Steam; the bridge stays off the internet)
+// and refuses one that is gone, private, banned or not for CS2, saying so. Otherwise one click downloads
 // it into the server's own Workshop cache with MultiAddonManager's mm_download_addon - nothing changes for anybody meanwhile - and only
 // once it is installed does the plugin ask the bridge for the change (!map <id>), so the map loads at once instead of stalling the server
 // on a download. The card shows each step and the download's progress. Shared like Hud.cs: the bridge's --selftest drives all of it;
@@ -26,6 +28,21 @@ public sealed class WorkshopCard
 
     /// <summary>How long a typed id must hold still before the Workshop is asked: a 10-digit id is typed through 7, 8 and 9 digits first.</summary>
     public static readonly TimeSpan Settle = TimeSpan.FromSeconds(1.2);
+
+    /// <summary>The refusal's claim for an item with no map in it. Deliberately neutral: the bridge's list mixes skin packs, configs, sound packs
+    /// and empty uploads, and "skin pack" was false for most of them. True of every one: it is not a playable map, and the server cannot load it.</summary>
+    public const string NotAMap = "isn't a playable map - It can't be loaded";
+
+    /// <summary>What the card calls our own HUD's Workshop item.</summary>
+    public const string HudItemName = "Over Strike 2 HUD";
+
+    /// <summary>The server's own refusal of an id, decided before the Workshop is asked: the catalog's (HudCatalog.Refused: a non-map, a blocked
+    /// map, one gone from the Workshop), else our own item that is no map - the HUD's, hudItem, which the plugin reads from the settings
+    /// (hud.addon, the one place its id lives). No list of the bridge's names the HUD: the sync never tests it, as it is never a candidate,
+    /// and the Workshop calls it a CS2 item like any map. Null: nothing against it here.</summary>
+    public static (string Name, string Why)? ServerRefusal(long id, HudCatalog? catalog, string hudItem) =>
+        catalog != null && catalog.Refused.TryGetValue(id, out var no) ? no
+        : hudItem != "" && id.ToString(CultureInfo.InvariantCulture) == hudItem ? (HudItemName, NotAMap) : null;
 
     /// <summary>A query that is a Workshop id: digits only, MinIdDigits to MaxIdDigits of them. Null for anything else.</summary>
     public static long? IdOf(string query)
@@ -57,8 +74,8 @@ public sealed class WorkshopCard
         Item = null; Named = ""; Why = ""; Percent = 0; SteamBusy = false;
     }
 
-    /// <summary>The server's own refusal (HudCatalog.Refused: a non-map, a blocked map, one gone from the Workshop) - decided before the
-    /// Workshop is asked, so nothing is downloaded for a map the bridge would refuse anyway.</summary>
+    /// <summary>The server's own refusal (ServerRefusal: the catalog's - a non-map, a blocked map, one gone from the Workshop - or our own
+    /// HUD's item) - decided before the Workshop is asked, so nothing is downloaded for a map the server would refuse anyway.</summary>
     public void Refuse(string name, string why)
     {
         if (At != Step.Checking) return;

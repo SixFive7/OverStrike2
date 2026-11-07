@@ -26,7 +26,9 @@ using OverStrike2;
 //   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
-//   - the Steam Web API's one door (SteamWebApi.cs): one request at a time, 2 s apart, each saying who asks.
+//   - the Steam Web API's one door (SteamWebApi.cs): one request at a time, 2 s apart, each saying who asks;
+//   - the card for a typed Workshop id (WorkshopCard.ServerRefusal): the server's own refusals before the Workshop is asked, the HUD's own
+//     item (the settings' hud.addon) among them.
 //
 // Run with `dotnet run -c Release`; exit code 0 means every case passed.
 
@@ -297,6 +299,27 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     SteamWebApi.Gap = gapBefore;
     Check(floored == TimeSpan.FromSeconds(2) && raised == TimeSpan.FromSeconds(5) && gapBefore == TimeSpan.FromSeconds(2),
         "settings: the Web API's door takes the gap from the settings, never under 2 s (2 s until set)");
+}
+
+// ---- the card for a typed or pasted Workshop id (HudScreenClicks.WorkshopCards): the server's own refusals come before the Workshop is asked -
+// the catalog's, and our HUD's own item, its id the settings' hud.addon - so the HUD is never offered as a map to download and play ----
+{
+    static string NoFile(string p) => throw new FileNotFoundException(p);
+    var settings = OverStrike2.Core.Settings.Load(OverStrike2.Core.Part.Plugin, null, _ => null,
+        p => p == OverStrike2.Core.Settings.DefaultPath ? """{ "schema": 1, "hud": { "addon": "3900000777" }, "bridge": { "secret": "abc" } }""" : NoFile(p));
+    var setup = PluginSetup.FromFile(settings);
+    var card = new WorkshopCard();
+    card.Show(3900000777);
+    if (WorkshopCard.ServerRefusal(card.Id, null, setup.Addon) is { } no) card.Refuse(no.Name, no.Why);
+    Check(settings.Fatal == null && setup.Addon == "3900000777" && card.At == WorkshopCard.Step.Refused && card.Named == WorkshopCard.HudItemName && card.Why == WorkshopCard.NotAMap,
+        "workshop card: our HUD's own item, by the settings' hud.addon, is refused as no map before the Workshop is asked - with no catalog yet too");
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var clicksCs = Path.Combine(plugin, "HudScreenClicks.cs");
+    var screenCs = Path.Combine(plugin, "HudScreen.cs");
+    Check(File.Exists(clicksCs) && File.Exists(screenCs)
+        && Regex.IsMatch(File.ReadAllText(clicksCs), @"case WorkshopCard\.Step\.Checking:\s*if \(WorkshopCard\.ServerRefusal\(card\.Id, catalog, addon\) is \{ \} no\) card\.Refuse\(no\.Name, no\.Why\);")
+        && File.ReadAllText(screenCs).Contains("addon = setup.Addon;", StringComparison.Ordinal),
+        "workshop card: the plugin asks ServerRefusal first, with the catalog and the HUD's item from the settings (hud.addon), before the Workshop");
 }
 
 // ---- the block file (bridge/Shared/Modes.cs): every game mode's value in one file ----

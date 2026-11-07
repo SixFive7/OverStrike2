@@ -167,6 +167,22 @@ static partial class Program
             && blockedCard.Classes().Contains((WorkshopCard.Play, "off", true)));
         blockedCard.Checked(items[3232901690]);
         Check("...and a late Workshop answer does not undo the refusal", blockedCard.At == WorkshopCard.Step.Refused);
+        // our own HUD's item: no list of the bridge's names it (the sync never tests it) and the Workshop calls it a CS2 item like any map
+        const string hudItem = "3900000777"; // made up: the plugin takes the real one from the settings (hud.addon)
+        var refusing = new HudCatalog();
+        refusing.Refused[3369214545] = ("CS2 Aim Map", NotAMap);
+        Check("The server's own refusal, before the Workshop is asked: the catalog's, else our own HUD's item (the settings' hud.addon) as no map - also with no catalog yet; nothing for a map, nor without a HUD item",
+            WorkshopCard.ServerRefusal(3369214545, refusing, hudItem) == ("CS2 Aim Map", NotAMap) && WorkshopCard.ServerRefusal(3900000777, refusing, hudItem) == (WorkshopCard.HudItemName, NotAMap)
+            && WorkshopCard.ServerRefusal(3900000777, null, hudItem) == (WorkshopCard.HudItemName, NotAMap) && WorkshopCard.ServerRefusal(3232901690, refusing, hudItem) == null
+            && WorkshopCard.ServerRefusal(3900000777, refusing, "") == null && WorkshopCard.ServerRefusal(3900000778, null, hudItem) == null);
+        var hudCard = new WorkshopCard();
+        hudCard.Show(3900000777);
+        if (WorkshopCard.ServerRefusal(hudCard.Id, refusing, hudItem) is { } own) hudCard.Refuse(own.Name, own.Why);
+        hudCard.Checked(items[3232901690]); // were the Workshop asked after all: a CS2 item it calls playable
+        Check("...so the card for the HUD's own item says it is no map: no Download and play, whatever the Workshop says",
+            hudCard.At == WorkshopCard.Step.Refused && hudCard.Texts().Single(t => t.Id == "gg_ws_title").Text == "Over Strike 2 HUD"
+            && hudCard.Texts().Single(t => t.Id == "gg_ws_status").Text == "Not playable: it isn't a playable map - It can't be loaded."
+            && hudCard.Texts().Single(t => t.Id == "gg_ws_play_text").Text == "" && hudCard.Classes().Contains((WorkshopCard.Play, "off", true)));
         if (Maps.FirstOrDefault(m => !m.Official) is not { } listedGone) Console.WriteLine("skip the catalog's refusals: no maps loaded");
         else
         {

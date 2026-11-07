@@ -121,7 +121,7 @@ sealed partial class HudScreen
             switch (card.At)
             {
                 case WorkshopCard.Step.Checking:
-                    if (catalog != null && catalog.Refused.TryGetValue(card.Id, out var no)) card.Refuse(no.Name, no.Why); // the server's own no: nothing to ask
+                    if (WorkshopCard.ServerRefusal(card.Id, catalog, addon) is { } no) card.Refuse(no.Name, no.Why); // the server's own no, the HUD's item too: nothing to ask
                     else if (now - card.Since < WorkshopCard.Settle) break;                                                   // still being typed
                     else if (plays.Ask(card.Id, now) is { Done: true } answer) card.Checked(answer.Item, answer.Error);
                     break;

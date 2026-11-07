@@ -72,7 +72,8 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 **A map that is not listed.** Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the
 Workshop about it (the plugin, through the public Web API), and **Download and play** fetches it into the server's own Workshop cache,
 with the progress on the card, while nobody's game is interrupted (`WorkshopCard.cs`, `WorkshopPlay.cs`). Once it is installed it is
-selected like any map: to the vote.
+selected like any map: to the vote. What the server refuses anyway is refused on the card before the Workshop is asked: a non-map, a
+blocked map or one gone from the Workshop, and the HUD's own item (`hud.addon`), which is no map either.
 
 **The pictures** are inside the addon, because CS2 refuses web pictures in a custom HUD: each map's Workshop preview as a small JPEG, an
 official map's the game's own screenshot. A map listed after the release that shipped its picture shows the card's plain backdrop. Each map

@@ -86,9 +86,8 @@ static partial class Program
     /// unlike a broken map this is a refusal, never a confirm, and it is decided before any RCON command is built.</summary>
     static bool IsNonMap(MapInfo m) => !m.Official && NonMaps.ContainsKey(m.Id.ToString());
 
-    /// <summary>The refusal's claim. Deliberately neutral: the list mixes skin packs, configs, sound packs and empty uploads, and
-    /// "skin pack" was false for most of them. True of every one: it is not a playable map, and the server cannot load it.</summary>
-    const string NotAMap = "isn't a playable map - It can't be loaded";
+    /// <summary>The refusal's claim, the card's words too (WorkshopCard.NotAMap).</summary>
+    const string NotAMap = WorkshopCard.NotAMap;
 
     /// <summary>The refusal, named from the packs list so a bare id still reads as the item it is. The name is clipped at 60
     /// characters, so the line fits untrimmed whatever the item is called and "it can't be loaded" is never the part cut off.</summary>
