@@ -11,6 +11,7 @@ namespace OverStrike2;
 sealed partial class HudScreen : HudFrame.IScreen
 {
     int budget;                                       // engine calls this frame may still make; the rest go out in the next one
+    HudIds.Names? names;                              // the screen the frame draws on: this one, each panel under every name it has (HudIds)
     const int FrameBudget = 600;
 
     // What the entity holds already, so a frame only sends differences. Cleared whenever the entity is new.
@@ -85,7 +86,11 @@ sealed partial class HudScreen : HudFrame.IScreen
 
     // ---- the screen the frame draws on (HudFrame.IScreen): for everybody (slot -1), or for the human the frame draws in that slot ----
 
-    /// <summary>A dialog variable on a panel (gg_global's {s:osver}, gg_screen's popup words), which the layout's labels inherit.</summary>
+    /// <summary>The prefixes a panel goes out under for this slot (HudIds.Of): for everybody, every content still drawn for; for a player, the
+    /// content their HUD check learned, or every one still drawn for while it has not said. The frame draws on HudIds.Names, which asks this.</summary>
+    string[] PrefixesFor(int slot) => slot != HudFrame.Everybody && drawing.TryGetValue(slot, out var p) ? HudIds.Of(VersionOf(Account(p))) : HudIds.Drawn;
+
+    /// <summary>A dialog variable on a panel (os_global's {s:osver}, os_screen's popup words), which the layout's labels inherit.</summary>
     public void Var(string id, string name, string text, int slot = HudFrame.Everybody)
     {
         if (slot == HudFrame.Everybody)

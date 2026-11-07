@@ -34,18 +34,18 @@ public sealed class HudBrowser
 
     /// <summary>Button ids of the browser's own controls.</summary>
     public static readonly (string Id, SortBy Sort)[] SortButtons =
-        [("gg_sort_rank", SortBy.Rank), ("gg_sort_votes", SortBy.Votes), ("gg_sort_name", SortBy.Name), ("gg_sort_size", SortBy.Size)];
+        [("os_sort_rank", SortBy.Rank), ("os_sort_votes", SortBy.Votes), ("os_sort_name", SortBy.Name), ("os_sort_size", SortBy.Size)];
     public static readonly (string Id, Band Band)[] BandButtons =
-        [("gg_fl_all", Band.All), ("gg_fl_tiny", Band.Tiny), ("gg_fl_small", Band.Small), ("gg_fl_mid", Band.Mid), ("gg_fl_large", Band.Large)];
-    /// <summary>The mode filter's chips (content v4.2.0): their state is a class on gg_screen (ModeClass), so nothing is sent to these panels.</summary>
+        [("os_fl_all", Band.All), ("os_fl_tiny", Band.Tiny), ("os_fl_small", Band.Small), ("os_fl_mid", Band.Mid), ("os_fl_large", Band.Large)];
+    /// <summary>The mode filter's chips (content v4.2.0): their state is a class on os_screen (ModeClass), so nothing is sent to these panels.</summary>
     public static readonly (string Id, string Mode)[] ModeButtons =
-        [("gg_fm_all", ""), ("gg_fm_ar", Modes.ArmsRaceId), ("gg_fm_dm", Modes.DeathmatchId), ("gg_fm_wm", Modes.WingmanId)];
+        [("os_fm_all", ""), ("os_fm_ar", Modes.ArmsRaceId), ("os_fm_dm", Modes.DeathmatchId), ("os_fm_wm", Modes.WingmanId)];
 
-    /// <summary>The class on gg_screen that lights a mode chip.</summary>
+    /// <summary>The class on os_screen that lights a mode chip.</summary>
     public static string ModeClass(string mode) => mode == "" ? "fm-all" : $"fm-{mode}";
 
-    public const string LikedButton = "gg_fl_liked", OfficialButton = "gg_fl_official", OursButton = "gg_fl_ours", ClearButton = "gg_q_clear",
-        FirstButton = "gg_pg_first", PrevButton = "gg_pg_prev", NextButton = "gg_pg_next", LastButton = "gg_pg_last";
+    public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
+        FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
     // (the pager's Next pulses while more pages follow, Prev while this is not the first page: the stylesheet's, off the buttons' "off" class)
 
     /// <summary>The maps this player's filters and search let through, in this player's order. Officials have no rank: they sort after

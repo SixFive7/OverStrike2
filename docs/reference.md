@@ -420,7 +420,7 @@ is - 884,736 in Arms Race, 27,648 in Deathmatch and Wingman - checking that each
 out each allowed one. One combination is refused: **Moon gravity with Super jump High**, a jump about 506 units high, nine times a normal one, out over the walls of most maps. The
 page greys the second of the two, and the mouse on it shows the reason beside it ("Super jump cannot be High while Gravity is Moon: together they throw players out of most maps"); a
 click on it does nothing. A click made just as the other setting changed, before the grey could be seen, is refused at that button for 8 seconds, saying who changed what ("Cara just
-set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. Chat and `gg_fun` refuse it with the reason too, and Random keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep working under headshots only.
+set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. Chat and `os_fun` refuse it with the reason too, and Random keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep working under headshots only.
 
 ## Catch-up
 
@@ -475,7 +475,10 @@ Thousands of community maps include some that break things, so every broken map 
 A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
 lacks. What v4.5.0, the content before it, needs for its own pages keeps coming (`HudVersion.Oldest`); nothing comes for what only an older content reads but its red "yours is older" at a join
 (from v4.0.0 on, `HudVersion.JoinBannerFirst`), so a game holding one of those runs on what it shares with v4.5.0 and is told to update, and its Too big and Ads buttons (up to v4.3.0) do nothing. `hud/reference/`
-keeps the shipped layouts `--selftest` reads - those still drawn for and the one this content replaced - and the self-test holds the new one to them. The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
+keeps the shipped layouts `--selftest` reads - those still drawn for and the one this content replaced - and the self-test holds the new one to them.
+From content v4.8.0 on every panel's id begins `os_` and every class `os-`; the contents shipped before it have theirs baked in with `gg_` and `gg-`,
+so the plugin sends a panel for everybody under both names, and a player's under the name of the content their HUD check learned (both while it has not),
+and a click from an older content is read by its id with our prefix (`bridge/Shared/HudIds.cs`). The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
 banner stays and names both versions; a newer game's shows for 15 s at the join.
 

@@ -25,7 +25,7 @@ live - after the release passed its tests (and after publish, when it has HUD co
 publish - a content update of the one HUD item (hud/workshop_id.txt; a new item is never created):
   1. --client-test names the real-client test's run folder (with its shots/): the update ships only once a real client saw it work;
   2. the server lock, as for live;
-  3. the held-item check on the live server: css_gghud page 3999999999 - an id that does not exist - must read "NOT shown" in the
+  3. the held-item check on the live server: os_hud page 3999999999 - an id that does not exist - must read "NOT shown" in the
      plugin's log, or the server would not recognise Steam's page for an item under review and would hold joiners at a download
      that cannot succeed;
   4. deploy/workshop.py hud-publish --note ... --user-approved-update (hud/build.ps1 first, by hand);
@@ -58,6 +58,7 @@ OWNER = "Over Strike 2 release (deploy/release.py)"
 CHECK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check.py")   # the deployment's check unless release.verify names another
 PLUGIN_DIR = "/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/plugins/" + plugin_mod.NAME
 CSS_LOGS = "/home/steam/cs2-dedicated/game/csgo/addons/counterstrikesharp/logs"
+OLD_HUD_COMMAND = "css_gghud"   # os_hud in a plugin from before release 191, which a release's held-item check may still find live
 NO_SUCH_ITEM = "3999999999"
 PLAYERS_RX = re.compile(r"^\s*players\s*:\s*([0-9]+)\s+humans,\s*([0-9]+)\s+bots", re.M)   # CS2 1.41's status
 ADDON_LISTS = ("mm_extra_addons", "mm_client_extra_addons")   # mounted by the server; sent to the clients alone
@@ -329,11 +330,18 @@ class Release:
             self.drop_lock()
 
     def held_check(self):
-        """css_gghud page <an id that does not exist>: the plugin's verdict, from its log a few seconds later, must be NOT shown."""
+        """os_hud page <an id that does not exist>: the plugin's verdict, from its log a few seconds later, must be NOT shown. This runs against
+        the plugin that is live before a release ships its own: one from before release 191 knows the command by its old word, css_gghud, and
+        answers os_hud as an unknown command - then the check asks it by that word (OLD_HUD_COMMAND)."""
         key = f"HUD item probe: {NO_SUCH_ITEM}"
         grep = lambda: [l for l in (self.d.exec_in(self.game, ["python3", "-c", INNER_GREP, CSS_LOGS, key]) or "").splitlines() if key in l]
         old = len(grep())
-        log(f"held-item check: css_gghud page {NO_SUCH_ITEM} -> {(self.rcon(f'css_gghud page {NO_SUCH_ITEM}') or '').strip()[:160]}")
+        word = "os_hud"
+        reply = (self.rcon(f"{word} page {NO_SUCH_ITEM}") or "").strip()
+        if "unknown command" in reply.lower():
+            word = OLD_HUD_COMMAND
+            reply = (self.rcon(f"{word} page {NO_SUCH_ITEM}") or "").strip()
+        log(f"held-item check: {word} page {NO_SUCH_ITEM} -> {reply[:160]}")
         for _ in range(12):
             self.sleep(5)
             lines = grep()

@@ -61,7 +61,7 @@ public class OverStrike2Plugin : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         AddCommandListener("say", OnSay);
         AddCommandListener("say_team", OnSay);
-        // The settings module posts through the HUD (the block's notice); its console commands are gg_fun, which the HUD and the bridge's reset
+        // The settings module posts through the HUD (the block's notice); its console commands are os_fun, which the HUD and the bridge's reset
         // send, and os_settings and os_block, an operator's.
         settings = new GameSettings(this, Logger, (kind, text) => hud?.Post(kind, text), setup.TestBots);
         settings.Load(hotReload);
@@ -220,81 +220,81 @@ public class OverStrike2Plugin : BasePlugin
     }
 
     /// <summary>Server console / RCON (the restart watcher, os2-server): a line for everybody on the top line, in chat and on the board, for that many seconds.</summary>
-    [ConsoleCommand("gg_notice", "Over Strike 2: a line for everybody on the HUD's top line, in chat and on the TAB board: gg_notice <seconds> <text>")]
+    [ConsoleCommand("os_notice", "Over Strike 2: a line for everybody on the HUD's top line, in chat and on the TAB board: os_notice <seconds> <text>")]
     [CommandHelper(minArgs: 2, usage: "<seconds> <text>", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnNoticeCommand(CCSPlayerController? caller, CommandInfo command)
     {
         var parts = command.ArgString.Trim().Split(' ', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length < 2 || !int.TryParse(parts[0], out var seconds)) { command.ReplyToCommand("gg_notice: <seconds> <text>"); return; }
-        command.ReplyToCommand(hud == null ? "gg_notice: no HUD" : $"gg_notice: {hud.Notice(parts[1].Trim('"'), seconds)}");
+        if (parts.Length < 2 || !int.TryParse(parts[0], out var seconds)) { command.ReplyToCommand("os_notice: <seconds> <text>"); return; }
+        command.ReplyToCommand(hud == null ? "os_notice: no HUD" : $"os_notice: {hud.Notice(parts[1].Trim('"'), seconds)}");
     }
 
     /// <summary>Server console / RCON: what the HUD is doing - the entity, the bridge link, the last state, who has the window open.
-    /// "css_gghud click &lt;account id&gt; &lt;button id&gt;" sends what that button would, for that account, without a client.</summary>
-    [ConsoleCommand("css_gghud", "Over Strike 2 HUD: status; 'click <account> <button>' tries a button; 'tab off|down|bridge' sets TAB; 'release' gives every cursor back; 'item' visits the HUD item's page now; 'page <id>' tries the item check on any item")]
+    /// "os_hud click &lt;account id&gt; &lt;button id&gt;" sends what that button would, for that account, without a client.</summary>
+    [ConsoleCommand("os_hud", "Over Strike 2 HUD: status; 'click <account> <button>' tries a button; 'tab off|down|bridge' sets TAB; 'release' gives every cursor back; 'item' visits the HUD item's page now; 'page <id>' tries the item check on any item")]
     [CommandHelper(minArgs: 0, usage: "[click <account id> <button id> | tab off|down|bridge | release | item | page <id> | show <account> <page> | content <account> <level> | level <n> [account] | press <account> <button>]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnStatusCommand(CCSPlayerController? caller, CommandInfo command)
     {
-        if (hud == null) { command.ReplyToCommand("gghud: not loaded"); return; }
+        if (hud == null) { command.ReplyToCommand("os_hud: not loaded"); return; }
         var verb = command.ArgCount > 1 ? command.GetArg(1).ToLowerInvariant() : "";
-        if (verb == "centre") // the client harness: how CS2's plain centre text holds - css_gghud centre <resend seconds> <seconds> <text>
+        if (verb == "centre") // the client harness: how CS2's plain centre text holds - os_hud centre <resend seconds> <seconds> <text>
         {
-            command.ReplyToCommand(command.ArgCount < 5 || !double.TryParse(command.GetArg(2), out var every) || !double.TryParse(command.GetArg(3), out var length) ? "gghud: centre <resend seconds> <seconds> <text>"
-                : $"gghud: {hud.TestCentre(every, length, command.GetArg(4), false)}");
+            command.ReplyToCommand(command.ArgCount < 5 || !double.TryParse(command.GetArg(2), out var every) || !double.TryParse(command.GetArg(3), out var length) ? "os_hud: centre <resend seconds> <seconds> <text>"
+                : $"os_hud: {hud.TestCentre(every, length, command.GetArg(4), false)}");
             return;
         }
         if (verb == "tab")
         {
             var arg = command.ArgCount > 2 ? command.GetArg(2).ToLowerInvariant() : "";
-            command.ReplyToCommand(arg is "off" or "down" ? $"gghud: {hud.SetTab(arg)}" : arg == "bridge" ? $"gghud: {hud.SetTab(null)}" : "gghud: tab off | down | bridge");
+            command.ReplyToCommand(arg is "off" or "down" ? $"os_hud: {hud.SetTab(arg)}" : arg == "bridge" ? $"os_hud: {hud.SetTab(null)}" : "os_hud: tab off | down | bridge");
             return;
         }
         if (verb == "release")
         {
-            command.ReplyToCommand($"gghud: {hud.ReleaseAll()}");
+            command.ReplyToCommand($"os_hud: {hud.ReleaseAll()}");
             return;
         }
         if (verb == "item") // after publishing an update: visit the item's Workshop page now, not in up to 2 minutes
         {
-            command.ReplyToCommand($"gghud: {hud.CheckItemNow()}");
+            command.ReplyToCommand($"os_hud: {hud.CheckItemNow()}");
             return;
         }
         if (verb == "page") // any item: what the item check would make of its page and Web API answer now - changes nothing
         {
-            command.ReplyToCommand(command.ArgCount < 3 || !long.TryParse(command.GetArg(2), out var probe) || probe <= 0 ? "gghud: page <workshop id>" : $"gghud: {hud.ProbeItem(probe)}");
+            command.ReplyToCommand(command.ArgCount < 3 || !long.TryParse(command.GetArg(2), out var probe) || probe <= 0 ? "os_hud: page <workshop id>" : $"os_hud: {hud.ProbeItem(probe)}");
             return;
         }
         if (verb == "show") // the client harness: the window on a page for one account (it cannot click)
         {
-            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "gghud: show <account id> <page>"
-                : $"gghud: {hud.ShowFor(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
+            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "os_hud: show <account id> <page>"
+                : $"os_hud: {hud.ShowFor(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
             return;
         }
-        if (verb == "level") // the client harness: the version check's server level faked (css_gghud level <n> [account]), and the join banner again
+        if (verb == "level") // the client harness: the version check's server level faked (os_hud level <n> [account]), and the join banner again
         {
             hud.TestLevel = command.ArgCount > 2 && int.TryParse(command.GetArg(2), out var lv) && lv > 0 ? lv : null;
-            command.ReplyToCommand(command.ArgCount > 3 && Hud.AccountId(command.GetArg(3)) > 0 ? $"gghud: {hud.Rejoin(Hud.AccountId(command.GetArg(3)))}"
-                : $"gghud: server level {(hud.TestLevel?.ToString() ?? "real")}");
+            command.ReplyToCommand(command.ArgCount > 3 && Hud.AccountId(command.GetArg(3)) > 0 ? $"os_hud: {hud.Rejoin(Hud.AccountId(command.GetArg(3)))}"
+                : $"os_hud: server level {(hud.TestLevel?.ToString() ?? "real")}");
             return;
         }
         if (verb == "content") // the client harness: which content that account's game holds (normally a click proves it)
         {
-            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 || !int.TryParse(command.GetArg(3), out var level) ? "gghud: content <account id> <level>"
-                : $"gghud: {hud.SetContent(Hud.AccountId(command.GetArg(2)), level)}");
+            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 || !int.TryParse(command.GetArg(3), out var level) ? "os_hud: content <account id> <level>"
+                : $"os_hud: {hud.SetContent(Hud.AccountId(command.GetArg(2)), level)}");
             return;
         }
-        if (verb == "press") // the client harness: a click through the real click path (css_gghud press <account> <button>)
+        if (verb == "press") // the client harness: a click through the real click path (os_hud press <account> <button>)
         {
-            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "gghud: press <account id> <button id>"
-                : $"gghud: {hud.Press(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
+            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "os_hud: press <account id> <button id>"
+                : $"os_hud: {hud.Press(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
             return;
         }
         if (verb == "click")
         {
-            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "gghud: click <account id> <button id>"
-                : $"gghud: {hud.SimulateClick(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
+            command.ReplyToCommand(command.ArgCount < 4 || Hud.AccountId(command.GetArg(2)) < 0 ? "os_hud: click <account id> <button id>"
+                : $"os_hud: {hud.SimulateClick(Hud.AccountId(command.GetArg(2)), command.GetArg(3))}");
             return;
         }
-        command.ReplyToCommand($"gghud: addon {addon}, {(freeze?.Frozen == true ? "everybody frozen for the vote" : "nobody frozen")}, {hud.Status()}");
+        command.ReplyToCommand($"os_hud: addon {addon}, {(freeze?.Frozen == true ? "everybody frozen for the vote" : "nobody frozen")}, {hud.Status()}");
     }
 }

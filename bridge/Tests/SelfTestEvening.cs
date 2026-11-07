@@ -177,10 +177,10 @@ static partial class Program
             // ---- the restart watcher's notice: the engine segfaults on quit and its echo dies with the process ----
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             h.Join(alice); Go(alice, 3); Land(); h.Run(10);
-            Check("The restart watcher's notice: refused unless it is gg-quit 1 with a kind",
-                ApplyQuitNotice("hello\n").StartsWith("refused") && ApplyQuitNotice("gg-quit\t2\tdaily").StartsWith("refused") && ApplyQuitNotice("gg-quit\t1\t").StartsWith("refused") && !S.CleanShutdown);
+            Check("The restart watcher's notice: refused unless it is os2-quit 1 with a kind",
+                ApplyQuitNotice("hello\n").StartsWith("refused") && ApplyQuitNotice("os2-quit\t2\tdaily").StartsWith("refused") && ApplyQuitNotice("os2-quit\t1\t").StartsWith("refused") && !S.CleanShutdown);
             Check("...a notice is the echo: the process is going down cleanly, the start roll owed, the map forgotten",
-                ApplyQuitNotice("gg-quit\t1\tdaily") == "ok: going down" && S.CleanShutdown && StartRollOwed && S.Map == null);
+                ApplyQuitNotice("os2-quit\t1\tdaily") == "ok: going down" && S.CleanShutdown && StartRollOwed && S.Map == null);
             S.PickedBy = "a marker the echo must leave alone";
             h.Line("rcon from \"127.0.0.1:33908\": command \"quit\"");
             Check("...an echo that arrives as well changes nothing", S.PickedBy == "a marker the echo must leave alone" && S.CleanShutdown);
@@ -193,8 +193,8 @@ static partial class Program
             var (mapOnBefore, logBefore) = (S.Map, S.LogName);
             S.Mode = Modes.DeathmatchId;
             Check("A notice the watcher takes back (its quit could not be delivered): the server stays up, nothing is clean any more",
-                ApplyQuitNotice("gg-quit\t1\tdaily") == "ok: going down" && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: cancelled" && !S.CleanShutdown
-                && ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: nothing was announced");
+                ApplyQuitNotice("os2-quit\t1\tdaily") == "ok: going down" && ApplyQuitNotice("os2-quit\t1\tcancel\tdaily") == "ok: cancelled" && !S.CleanShutdown
+                && ApplyQuitNotice("os2-quit\t1\tcancel\tdaily") == "ok: nothing was announced");
             Check("...and the bridge knows what is on again: the map, its name in the log, its mode, and no start roll is owed",
                 mapOnBefore == m[3] && S.Map == m[3] && S.LogName == logBefore && S.Mode == Modes.DeathmatchId && !StartRollOwed);
             S.Mode = Modes.ArmsRaceId;
@@ -204,10 +204,10 @@ static partial class Program
 
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             h.Join(alice); Go(alice, 3); Land(); h.Run(10);
-            ApplyQuitNotice("gg-quit\t1\tdaily");
+            ApplyQuitNotice("os2-quit\t1\tdaily");
             h.Line("Loading map \"ar_shoots\""); h.Line("Started:  \"\"");
             Check("A map start after the notice says for itself what is on: a late take-back brings nothing back",
-                ApplyQuitNotice("gg-quit\t1\tcancel\tdaily") == "ok: nothing was announced" && S.Map != m[3]);
+                ApplyQuitNotice("os2-quit\t1\tcancel\tdaily") == "ok: nothing was announced" && S.Map != m[3]);
 
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             h.Join(alice); Go(alice, 3); Land(); h.Run(10);
@@ -709,13 +709,13 @@ static partial class Program
             var goneCat = HudCatalog.Decode(new HudCatalog { Version = 1, Maps = [goneCard] }.Encode())!;
             var goneView = HudMenu.Maps(goneCat, new HudState(), new HudBrowser(), 1001, h.Clock);
             Check("The HUD's map card shows a removed map as unavailable: the warning, the button, the red strip - and not as risky",
-                goneCat.Maps is [{ Removed: true, Risky: false }] && goneView.Texts.Contains(("gg_m1_warn", "Removed from the Workshop"))
-                && goneView.Texts.Contains(("gg_m1_play_text", "Unavailable")) && goneView.Classes.Contains(("gg_m1", "broken", true)));
+                goneCat.Maps is [{ Removed: true, Risky: false }] && goneView.Texts.Contains(("os_m1_warn", "Removed from the Workshop"))
+                && goneView.Texts.Contains(("os_m1_play_text", "Unavailable")) && goneView.Classes.Contains(("os_m1", "broken", true)));
             var goneBrowser = new HudBrowser();
             Check("...its Play sends the !map the bridge refuses (saying why), without arming a confirmation",
-                HudMenu.Command("gg_m1_play", goneCat, new HudState(), goneBrowser, 1001, h.Clock) == $"!map {goneCard.Arg}" && goneBrowser.ConfirmKey == "");
+                HudMenu.Command("os_m1_play", goneCat, new HudState(), goneBrowser, 1001, h.Clock) == $"!map {goneCard.Arg}" && goneBrowser.ConfirmKey == "");
             Check("...and an older bridge's twelve-column line reads as not removed",
-                HudCatalog.Decode("gg-catalog\t1\nm\tk\t5\t5\t123\tname\t10\t0\t-1\t0\t0\t0\n")!.Maps is [{ Removed: false }]);
+                HudCatalog.Decode("os2-catalog\t1\nm\tk\t5\t5\t123\tname\t10\t0\t-1\t0\t0\t0\n")!.Maps is [{ Removed: false }]);
             WorkshopCheck = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
             Check("The bridge's catalog marks it", BuildCatalog().Maps.FirstOrDefault(x => x.Id == goneMap.Id) is { Removed: true });
             WorkshopCheck = new(); RecomputeRemoved();
@@ -793,7 +793,7 @@ static partial class Program
             Check("...and marks as read only what it read: a changed file it did not read is still read by the watch, the one it read is not read twice",
                 readsA == 1 && readsB == 1);
             WatchStop();
-            Check("GET /health says what the bridge has loaded", HealthText() is var health && health.StartsWith("gg-health\n")
+            Check("GET /health says what the bridge has loaded", HealthText() is var health && health.StartsWith("os2-health\n")
                 && health.Contains($"maps {Maps.Count} + {Officials.Count} official") && health.Contains("crash watch: spawn") && health.Contains("search: "));
             Broken = new(); NonMaps = new(); WorkshopCheck = new(); Removed = new(); Blocked = new();
 
@@ -809,7 +809,7 @@ static partial class Program
             Check("A player who joins, alive: the window opens after the spawn delay, on its start page, and takes the mouse",
                 !At(win, 1, 1).Window && At(win, 1, 1.6) is { Window: true, Page: HudSlots.Page.Start, Capture: true, Toast: 0, Returning: false });
             Check($"...and stays until its X: no idle close after {HudSlots.IdleCloseSeconds} s, no drain bar, and its foot says nothing about idling (pinned)", At(win, 1, 1.6 + HudSlots.IdleCloseSeconds * 5) is { Capture: true, Draining: false, Pinned: true });
-            win.Click(1, "gg_tab_how", t0.AddSeconds(10));
+            win.Click(1, "os_tab_how", t0.AddSeconds(10));
             Check("A tab switches the page and it still stays", At(win, 1, 200) is { Page: HudSlots.Page.How, Capture: true, Draining: false });
             win.Spawned(1, t0.AddSeconds(201));
             Check("A death and a respawn never close it", At(win, 1, 202) is { Window: true, Capture: true });
@@ -818,7 +818,7 @@ static partial class Program
             var idle = new HudSlots();
             idle.Show(1, HudSlots.Page.Fun, t0);
             Check("The menu, opened any other way: its drain bar starts a moment later, and it is not pinned", !At(idle, 1, HudSlots.DrainAfterOpenSeconds - 0.1).Draining && At(idle, 1, HudSlots.DrainAfterOpenSeconds + 0.1) is { Draining: true, Pinned: false });
-            idle.Click(1, "gg_tab_how", t0.AddSeconds(10));
+            idle.Click(1, "os_tab_how", t0.AddSeconds(10));
             Check("A tab restarts the drain bar and keeps the window up", At(idle, 1, 10.1) is { Page: HudSlots.Page.How, Draining: false } && At(idle, 1, 10.4).Draining);
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",
                 At(idle, 1, 10 + HudSlots.IdleCloseSeconds - 0.1).Capture && At(idle, 1, 10 + HudSlots.IdleCloseSeconds + 0.1) is { Capture: false, WindowIn: false, Window: true }
@@ -829,7 +829,7 @@ static partial class Program
             idle.Click(1, HudView.ButtonClose, t0.AddSeconds(61));
             Check("The close button closes it", At(idle, 1, 61.1) is { Capture: false, WindowIn: false } && !At(idle, 1, 61.5).Window);
             idle.Show(1, HudSlots.Page.Start, t0.AddSeconds(62)); idle.Close(1, t0.AddSeconds(63));
-            Check("css_gghud release closes it too", !At(idle, 1, 63.5).Window && idle.Idle);
+            Check("os_hud release closes it too", !At(idle, 1, 63.5).Window && idle.Idle);
             idle.Click(1, HudView.ButtonUp, t0.AddSeconds(64));
             Check("A click from a player without the window open does nothing", !At(idle, 1, 64.1).Window);
             idle.Show(1, HudSlots.Page.Start, t0.AddSeconds(70));

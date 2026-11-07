@@ -20,9 +20,9 @@ static partial class Program
             && HudCheck.ModeOf(new HudState { CheckMode = "warn" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
 
         // ---- the version button: its id names the content that has it ----
-        Check("HUD check: the version button's id names its content, gg_hudver_v4.7.0; any other button names none, and a malformed one or the old form gg_hudver_v4_7_0 is no version button",
+        Check("HUD check: the version button's id names its content, os_hudver_v4.7.0; any other button names none, and a malformed one or the old form os_hudver_v4_7_0 is no version button",
             HudVersion.Button(HudVersion.Content).StartsWith(HudVersion.ButtonPrefix, StringComparison.Ordinal) && HudVersion.OfButton(HudVersion.Button(HudVersion.Content)) == HudVersion.Content
-            && HudVersion.OfButton("gg_hudver_v4.7.0") == "v4.7.0" && HudVersion.OfButton("gg_hudver_v4_7_0") == null && HudVersion.OfButton("gg_hudver_v4_7.0") == null && HudVersion.OfButton("gg_hudver_x") == null && HudVersion.OfButton(HudView.ButtonAct) == null && HudVersion.OfButton("gg_tab_maps") == null);
+            && HudVersion.OfButton("os_hudver_v4.7.0") == "v4.7.0" && HudVersion.OfButton("os_hudver_v4_7_0") == null && HudVersion.OfButton("os_hudver_v4_7.0") == null && HudVersion.OfButton("os_hudver_x") == null && HudVersion.OfButton(HudView.ButtonAct) == null && HudVersion.OfButton("os_tab_maps") == null);
         Check("HUD check: what !hudok carries - a content, older, or unknown (which content not known), each version in the one form - and nothing else, the old form v4_5_0 neither",
             new[] { HudVersion.Content, "v4.5.0", HudVersion.Older, HudVersion.Unknown }.All(v => Hud.IsAction(HudCheck.Command(v))) && !Hud.IsAction(HudCheck.Command("v4_5_0")) && !Hud.IsAction("!hudok") && !Hud.IsAction("!hudok x")
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
@@ -303,7 +303,7 @@ static partial class Program
             && Enum.GetValues<HudTab.Mode>().All(m => HudTab.Parse(HudTab.Name(m)) == m));
         var lines = Enum.GetValues<HudTab.Mode>().Select(HudTab.BoardLine).ToList();
         Check($"TAB: the board's command line fits it in both modes (longest {lines.Max(l => l.Length)}, the old one 52)", lines.All(l => l.Length <= 56)
-            && HudTab.BoardLine(HudTab.Mode.Off) == HudView.StaticTexts().First(t => t.Id == "gg_b_cmds").Text);
+            && HudTab.BoardLine(HudTab.Mode.Off) == HudView.StaticTexts().First(t => t.Id == "os_b_cmds").Text);
 
         var tab = new HudTab();
         Check("TAB off: nothing, whatever is pressed",
@@ -341,7 +341,7 @@ static partial class Program
         var hit = tab.Release(7) && !tab.Release(7) && !tab.Cursor(7);
         tab.Gone(8);
         var all = tab.ReleaseAll();
-        Check("TAB: a hit or death takes the cursor back (once), leaving forgets the slot, css_gghud release (and switching TAB off) takes every cursor back",
+        Check("TAB: a hit or death takes the cursor back (once), leaving forgets the slot, os_hud release (and switching TAB off) takes every cursor back",
             hit && !tab.Cursor(8) && all.SequenceEqual([9]) && !tab.CursorSlots().Any());
         tab = new HudTab();
         tab.Buttons(10, TAB, 0, HudTab.Mode.Down, t0);

@@ -1,4 +1,4 @@
-// Clicks from the TAB screen (hud.tab in the settings, css_gghud tab <mode> live) - server side only, on the published layout: no new
+// Clicks from the TAB screen (hud.tab in the settings, os_hud tab <mode> live) - server side only, on the published layout: no new
 // Workshop item or version.
 //
 // While TAB is held the client shows the board beside the scoreboard by itself (the layout's HUD_SCOREBOARD_VISIBLE rule). A custom HUD
@@ -12,7 +12,7 @@
 // comes up. Off switches TAB off: the board shows while TAB is held, nothing takes the mouse.
 //
 // No time limit: a limit ended a TAB cursor with TAB still held, and that click went to the game as a shot. A TAB cursor ends on events
-// only: TAB coming up, a hit, death, leaving, a map change, the menu window opening, the plugin unloading, and css_gghud release. One that
+// only: TAB coming up, a hit, death, leaving, a map change, the menu window opening, the plugin unloading, and os_hud release. One that
 // ever sticks (a TAB-up the server never saw) goes with the next tap of TAB. Shared like Hud.cs: the bridge serves the mode and tests all
 // of this; the plugin runs it. Plain BCL.
 public sealed class HudTab
@@ -28,7 +28,7 @@ public sealed class HudTab
 
     public static string Name(Mode mode) => mode == Mode.Down ? "down" : "off";
 
-    /// <summary>The board's command line (gg_b_cmds): says how TAB works while it does.</summary>
+    /// <summary>The board's command line (os_b_cmds): says how TAB works while it does.</summary>
     public static string BoardLine(Mode mode) => mode == Mode.Down ? "Click a button  ·  TAB + E: the full menu" : "Hold TAB: the live board";
 
     sealed class Slot
@@ -73,7 +73,7 @@ public sealed class HudTab
         return true;
     }
 
-    /// <summary>Every TAB cursor off (css_gghud release, TAB switched off). Returns the slots that had one.</summary>
+    /// <summary>Every TAB cursor off (os_hud release, TAB switched off). Returns the slots that had one.</summary>
     public List<int> ReleaseAll()
     {
         var had = slots.Where(x => x.Value.Cursor).Select(x => x.Key).ToList();

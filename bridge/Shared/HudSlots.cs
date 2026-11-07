@@ -112,7 +112,7 @@ public sealed class HudSlots
         s.OpenAt = now.AddSeconds(SpawnDelaySeconds);
     }
 
-    /// <summary>The window closed, the welcome too (css_gghud release, the way out if a window ever sticks).</summary>
+    /// <summary>The window closed, the welcome too (os_hud release, the way out if a window ever sticks).</summary>
     public void Close(int slot, DateTime now)
     {
         var s = Of(slot);

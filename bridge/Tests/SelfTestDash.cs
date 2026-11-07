@@ -121,7 +121,7 @@ static partial class Program
         Check("...takes only names that start with osd, lists it declared, a known tone (or none), and skips anything else",
             junk != null && junk.Version == 7 && junk.Words.Count == 1 && junk.Words["osdgood"] == "yes" && junk.Classes.Count == 1 && junk.Classes["osdlit"]
             && junk.Lists.Count == 1 && junk.Lists[0].PageSize == 3 && junk.Lists[0].Rows.Single().Tone == "" && junk.Lists[0].Rows.Single().Fields.Single() == "one"
-            && HudDash.Decode("gg-hud\t1\n") == null && HudDash.Decode(null) == null);
+            && HudDash.Decode("os2-hud\t1\n") == null && HudDash.Decode(null) == null);
         Check("The live state carries the block's version, an older plugin skips it",
             HudState.Decode(new HudState { DashVersion = 9 }.Encode())!.DashVersion == 9 && HudState.Decode(new HudState().Encode())!.DashVersion == 0);
 
@@ -133,12 +133,12 @@ static partial class Program
             v1.W["osdq1a"] == "1" && v1.W["osdq1b"] == "queued_map_1" && v1.W["osdq6a"] == "6" && v1.C["osdq6"] && v1.W["osdqpn"] == "1" && v1.W["osdqps"] == "5" && v1.C["osdqfirst"] && !v1.C["osdqlast"]
             && !v1.C["osdqnone"] && v1.C["osdr1hot"] && !v1.C["osdr1ok"] && v1.C["osdm1bad"] && !v1.C["osdm1ok"] && v1.W["osdstate"] == "Fetching maps for the server" && v1.C["osdbusy"]);
         Check("...a pager's Next moves that list alone, Last goes to its last page, where the rows it lacks are empty and off",
-            HudDash.Click(back, "gg_osdq_next", pages) && V().W["osdq1a"] == "7" && V().W["osdmpn"] == "1"
-            && HudDash.Click(back, "gg_osdq_last", pages) && V() is var vl && vl.W["osdq1a"] == "25" && vl.W["osdq2a"] == "" && vl.W["osdq2b"] == "" && !vl.C["osdq2"] && vl.C["osdq1"] && vl.C["osdqlast"] && !vl.C["osdqfirst"]
-            && HudDash.Click(back, "gg_osdq_next", pages) && pages["osdq"] == 4 && HudDash.Click(back, "gg_osdq_first", pages) && pages["osdq"] == 0 && HudDash.Click(back, "gg_osdq_prev", pages) && pages["osdq"] == 0);
+            HudDash.Click(back, "os_osdq_next", pages) && V().W["osdq1a"] == "7" && V().W["osdmpn"] == "1"
+            && HudDash.Click(back, "os_osdq_last", pages) && V() is var vl && vl.W["osdq1a"] == "25" && vl.W["osdq2a"] == "" && vl.W["osdq2b"] == "" && !vl.C["osdq2"] && vl.C["osdq1"] && vl.C["osdqlast"] && !vl.C["osdqfirst"]
+            && HudDash.Click(back, "os_osdq_next", pages) && pages["osdq"] == 4 && HudDash.Click(back, "os_osdq_first", pages) && pages["osdq"] == 0 && HudDash.Click(back, "os_osdq_prev", pages) && pages["osdq"] == 0);
         Check("...anything but a pager of a list the block has is no pager click, and the menu's own buttons are not taken",
-            !HudDash.Click(back, "gg_osdx_next", pages) && !HudDash.Click(back, "gg_osdq_up", pages) && !HudDash.Click(back, HudDash.Tab, pages) && !HudDash.Click(back, "gg_pg_next", pages)
-            && !HudDash.Click(null, "gg_osdq_next", pages) && !HudDash.Click(back, "gg_m1_play", pages));
+            !HudDash.Click(back, "os_osdx_next", pages) && !HudDash.Click(back, "os_osdq_up", pages) && !HudDash.Click(back, HudDash.Tab, pages) && !HudDash.Click(back, "os_pg_next", pages)
+            && !HudDash.Click(null, "os_osdq_next", pages) && !HudDash.Click(back, "os_m1_play", pages));
         pages["osdm"] = 2;
         var shrunk = HudDash.Decode(D(DashSample(updated, queued: 3, events: 5), now).Encode());
         var (sw, sc) = HudDash.View(shrunk, pages);
@@ -228,8 +228,8 @@ static partial class Program
         if (!File.Exists(HudLayoutFile) || !File.Exists(HudStyleFile)) { Console.WriteLine($"skip the Sync page's layout checks: {HudLayoutFile} or {HudStyleFile} not found"); return; }
         var xml = Regex.Replace(File.ReadAllText(HudLayoutFile), "<!--.*?-->", "", RegexOptions.Singleline);
         var css = Regex.Replace(File.ReadAllText(HudStyleFile), @"/\*.*?\*/", "", RegexOptions.Singleline);
-        var from = xml.IndexOf("class=\"gg-page gg-page-sync\"", StringComparison.Ordinal);
-        var to = xml.IndexOf("class=\"gg-live\"", StringComparison.Ordinal);
+        var from = xml.IndexOf("class=\"os-page os-page-sync\"", StringComparison.Ordinal);
+        var to = xml.IndexOf("class=\"os-live\"", StringComparison.Ordinal);
         var syncPage = from > 0 && to > from ? xml[from..to] : "";
         var labelled = Regex.Matches(syncPage, @"\{s:(osd[a-z0-9]+)\}").Select(m => m.Groups[1].Value).ToHashSet();
         var everywhere = Regex.Matches(xml, @"\{s:(osd[a-z0-9]+)\}").Select(m => m.Groups[1].Value).ToHashSet();
@@ -257,12 +257,12 @@ static partial class Program
         Check($"...{sentClasses.Count} class names at most, well inside the 1,024 the game takes for the whole HUD", sentClasses.Count <= 160);
         var pageButtons = Regex.Matches(syncPage, @"<Button\b[^>]*\bid=""([^""]+)""").Select(m => m.Groups[1].Value).Append(HudDash.Tab).ToHashSet();
         Check("...its buttons are exactly the sub-tab and the pagers the plugin pages (HudDash.LayoutButtons), and nothing else on the page has an id",
-            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"gg-stab\">"));
+            pageButtons.SetEquals(HudDash.LayoutButtons) && Regex.Matches(syncPage, @"\bid=""").Count == HudDash.LayoutButtons.Length - 1 && xml.Contains($"<Button id=\"{HudDash.Tab}\" class=\"os-stab\">"));
         Check($"...a row for each line of a page: {SyncWords.QueueRows} in the queue, {SyncWords.RunRows} runs, {SyncWords.MapRows} map events",
-            Regex.Matches(syncPage, @"class=""gg-dqrow gg-dq\d""").Count == SyncWords.QueueRows && Regex.Matches(syncPage, @"class=""gg-drrow gg-dr\d""").Count == SyncWords.RunRows
-            && Regex.Matches(syncPage, @"class=""gg-dmrow gg-dm\d""").Count == SyncWords.MapRows);
+            Regex.Matches(syncPage, @"class=""os-dqrow os-dq\d""").Count == SyncWords.QueueRows && Regex.Matches(syncPage, @"class=""os-drrow os-dr\d""").Count == SyncWords.RunRows
+            && Regex.Matches(syncPage, @"class=""os-dmrow os-dm\d""").Count == SyncWords.MapRows);
         Check("...the page takes the whole window (the live column steps aside) and its tab is lit while it is open",
-            Regex.IsMatch(css, @"\.gg-screen\.page-sync \.gg-live\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.gg-screen\.page-sync \.gg-page-sync\s*\{\s*visibility:\s*visible;")
-            && Regex.IsMatch(css, @"\.gg-screen\.page-sync #gg_tab_sync\s*\{"));
+            Regex.IsMatch(css, @"\.os-screen\.page-sync \.os-live\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.os-screen\.page-sync \.os-page-sync\s*\{\s*visibility:\s*visible;")
+            && Regex.IsMatch(css, @"\.os-screen\.page-sync #os_tab_sync\s*\{"));
     }
 }

@@ -45,7 +45,7 @@ static partial class Program
                 S.Map = Maps[200]; S.LogName = Maps[200].Name; S.Mode = Modes.ArmsRaceId; // the map that is on: ar_201, kept by nobody
             }
             MapInfo Ar(int rank) => Maps[rank - 1];
-            void ReportAllStock() { FillStock(); ApplyReady("gg-ready\t1\n" + string.Join("\n", Modes.All.SelectMany(m => LaneOf(m).Select(e => e.Key))) + "\n"); }
+            void ReportAllStock() { FillStock(); ApplyReady("os2-ready\t1\n" + string.Join("\n", Modes.All.SelectMany(m => LaneOf(m).Select(e => e.Key))) + "\n"); }
             var players = Enumerable.Range(1, 9).Select(i => ($"P{i}", $"[U:1:{3000 + i}]")).ToArray();
 
             // ---- the Workshop's numbers: ratings.json and workshop.json, version 1 ----
@@ -287,10 +287,10 @@ static partial class Program
             // ---- the restart notices, as the server program's watcher sends them ----
             Fresh();
             foreach (var p in players.Take(3)) h.Join(p);
-            Check("A restart notice: refused unless it is gg-restart 1 with a known kind, match-end or now, and whole seconds",
-                ApplyRestartNotice("hello").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\thud\tnow\t5").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tgame-update\tlater\t5").StartsWith("refused")
-                && ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\tsoon").StartsWith("refused") && RestartDue == null);
-            Check("...a CS2 update due at the match's end: taken", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0\n").StartsWith("ok: game-update restart at the end of this match"));
+            Check("A restart notice: refused unless it is os2-restart 1 with a known kind, match-end or now, and whole seconds",
+                ApplyRestartNotice("hello").StartsWith("refused") && ApplyRestartNotice("os2-restart\t1\thud\tnow\t5").StartsWith("refused") && ApplyRestartNotice("os2-restart\t1\tgame-update\tlater\t5").StartsWith("refused")
+                && ApplyRestartNotice("os2-restart\t1\tgame-update\tnow\tsoon").StartsWith("refused") && RestartDue == null);
+            Check("...a CS2 update due at the match's end: taken", ApplyRestartNotice("os2-restart\t1\tgame-update\tmatch-end\t0\n").StartsWith("ok: game-update restart at the end of this match"));
             var h1 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("...the warning stands on the news line, and the live state has it in its parts: kind, when, no countdown yet (-1), the words - which tell players to restart CS2 afterwards",
                 h1.News == "A CS2 update: the server restarts at the end of this match - Restart CS2 afterwards, and Steam updates it" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
@@ -301,14 +301,14 @@ static partial class Program
             Check("...a newer line covers it while it lasts, and it comes back", covered && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).StartsWith("A CS2 update"));
             h.Run(30);
             ClearNotices();
-            Check("...the watcher's reminder changes nothing and says nothing new", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0").StartsWith("ok") && Told.Count == 0 && RestartDue is { GoesAt: null });
+            Check("...the watcher's reminder changes nothing and says nothing new", ApplyRestartNotice("os2-restart\t1\tgame-update\tmatch-end\t0").StartsWith("ok") && Told.Count == 0 && RestartDue is { GoesAt: null });
             Check("...a vote may still be called before the match's end", CannotCall(h.Clock) == null);
             h.MatchEnd();
             var h2 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("At the match's end: no vote opens - the server goes down under it - nobody may call one, and the warning says in a moment until the watcher's countdown comes",
                 Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards, and Steam updates it" && CannotCall(h.Clock) is { } refusal && refusal.StartsWith("The server restarts now"));
             Check("...the watcher's countdown: seconds left and the moment it goes, on the news line and in the live state",
-                ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(h.Clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
+                ApplyRestartNotice("os2-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(h.Clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
                 && hn.RestartAt == Unix(h.Clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards, and Steam updates it");
             h.Run(5);
             Check("...counting down, the news line with it", HudState.Decode(BuildHud(h.Clock).Encode())!.RestartIn == 25 && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).Contains("restarts in 25 s"));
@@ -316,10 +316,10 @@ static partial class Program
                 BuildHud(h.Clock).Encode(endTimes: true) == BuildHud(h.Clock.AddSeconds(1)).Encode(endTimes: true)
                 && HudState.Decode(BuildHud(h.Clock).Encode(endTimes: true))!.AsOf(HudState.Ms(h.Clock)).News.Contains("restarts in 25 s")
                 && HudState.Decode(BuildHud(h.Clock).Encode(endTimes: true))!.AsOf(HudState.Ms(h.Clock.AddSeconds(30))).RestartWords.Contains("restarts in a moment")); // the news line itself ends at the restart's moment
-            ApplyQuitNotice("gg-quit\t1\tupdate");
+            ApplyQuitNotice("os2-quit\t1\tupdate");
             Check("The quit's notice: the restart is happening - the warning goes", RestartDue == null && HudState.Decode(BuildHud(h.Clock).Encode())!.RestartKind == "");
             Check("After the reconnect: \"Updated to ...\" on the news line - CS2's new version from what was installed and what is now",
-                ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n") == "ok: Updated to CS2 1.41.9.5 - Welcome back" && NewsNow.Text == "Updated to CS2 1.41.9.5 - Welcome back");
+                ApplyUpdated("os2-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n") == "ok: Updated to CS2 1.41.9.5 - Welcome back" && NewsNow.Text == "Updated to CS2 1.41.9.5 - Welcome back");
             ClearNotices();
             h.Run(60);
             h.Join(players[5]);
@@ -327,19 +327,19 @@ static partial class Program
             h.Run(UpdatedNoticeMinutes * 60);
             ClearNotices(); h.Join(players[6]);
             Check("...not later", !h.Said("Updated to"));
-            Check("An update of ours: back in a minute; afterwards no fingerprint on the screen; the words as sent work too; a refused gg-updated changes nothing",
-                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
-                && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
-                && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
-                && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6 - Welcome back");
+            Check("An update of ours: back in a minute; afterwards no fingerprint on the screen; the words as sent work too; a refused os2-updated changes nothing",
+                ApplyRestartNotice("os2-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
+                && ApplyUpdated("os2-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
+                && ApplyUpdated("os2-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
+                && ApplyUpdated("os2-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6 - Welcome back");
             Check("The watcher's words alone (core's BridgeWire): no other spelling of a kind or a when is taken",
-                ApplyRestartNotice("gg-restart\t1\tours\tmatchend\t0").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tupdate\tnow\t5").StartsWith("refused")
-                && ApplyRestartNotice("gg-restart\t1\tour-update\tmatchend\t0").StartsWith("refused")
+                ApplyRestartNotice("os2-restart\t1\tours\tmatchend\t0").StartsWith("refused") && ApplyRestartNotice("os2-restart\t1\tupdate\tnow\t5").StartsWith("refused")
+                && ApplyRestartNotice("os2-restart\t1\tour-update\tmatchend\t0").StartsWith("refused")
                 && ApplyRestartNotice(BridgeWire.RestartBody(BridgeWire.OurUpdate, BridgeWire.AtMatchEnd, 0)).StartsWith("ok: our-update restart") && RestartDue is { Kind: "our-update", When: "match-end" });
-            Check("A cancel takes it back, and says so", ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tcancel\tour-update") == "ok: cancelled"
+            Check("A cancel takes it back, and says so", ApplyRestartNotice("os2-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyRestartNotice("os2-restart\t1\tcancel\tour-update") == "ok: cancelled"
                 && RestartDue == null && NewsNow.Text.Contains("no restart after all"));
             StartVote(players[0].Item1, players[0].Item2);
-            Check("A restart now while a vote is open drops the vote", Ballot is { Open: true } && ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t45").StartsWith("ok") && Ballot == null
+            Check("A restart now while a vote is open drops the vote", Ballot is { Open: true } && ApplyRestartNotice("os2-restart\t1\tdaily\tnow\t45").StartsWith("ok") && Ballot == null
                 && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).StartsWith("The daily restart: the server restarts in 45 s"));
             h.Run(RestartStaleMinutes * 60 + 60);
             Check($"A countdown {RestartStaleMinutes} minutes past its end without the server going down is over", RestartDue == null && BuildHud(h.Clock).RestartKind == "");
@@ -353,17 +353,17 @@ static partial class Program
             foreach (var p in players.Take(2)) h.Join(p);
             FillStock();
             var bgMap = LaneOf(Modes.ArmsRace)[0].Key;
-            ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t40\tA long title\n");
+            ApplyReady($"os2-ready\t1\ncurrent\t{bgMap}\t40\tA long title\n");
             var h3 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("While the watcher downloads in the background nothing goes on the news line, and the live state carries no line of it nothing reads",
                 BackgroundNow() is { Percent: 40, Title: "A long title" } bg && bg.Id == bgMap && h3.News == "" && !BuildHud(h.Clock).Encode().Contains("bgdl"));
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
             h.Run(ChangeDelay);
-            Check("A change goes out while a background download runs: the hold keeps the watcher from starting another meanwhile", LoadPending && ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t45\tA long title\n").EndsWith("; hold: a map is loading"));
-            for (var t = 0; t < LoadMinutes * 60 + 30; t += 60) { h.Run(60); ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t50\tA long title\n"); }
+            Check("A change goes out while a background download runs: the hold keeps the watcher from starting another meanwhile", LoadPending && ApplyReady($"os2-ready\t1\ncurrent\t{bgMap}\t45\tA long title\n").EndsWith("; hold: a map is loading"));
+            for (var t = 0; t < LoadMinutes * 60 + 30; t += 60) { h.Run(60); ApplyReady($"os2-ready\t1\ncurrent\t{bgMap}\t50\tA long title\n"); }
             Check($"...its load is not given up after {LoadMinutes} minutes when the watcher reported a background download it may wait behind", LoadPending);
-            ApplyReady("gg-ready\t1\n");
+            ApplyReady("os2-ready\t1\n");
             h.Run((LoadBehindDownloadMinutes - LoadMinutes - 3) * 60);
             Check($"...nor once that download is over: the map's own download follows it - up to {LoadBehindDownloadMinutes} minutes after the change went out", LoadPending);
             h.Run(4 * 60);

@@ -14,21 +14,21 @@ static class BridgeWireTests
             && new[] { BridgeWire.Log, BridgeWire.Health, BridgeWire.Ready, BridgeWire.Quitting, BridgeWire.RestartNotice, BridgeWire.Updated, BridgeWire.Removed, BridgeWire.Reload }
                 .Distinct().Count() == 8);
         Check("bridge wire: the watcher's ready report - its head, the ids a line, the background download's line, its title one line",
-            BridgeWire.ReadyBody(["901", "902"], BridgeWire.CurrentLine("903", 40, "A\ttitle\nwith breaks")) == "gg-ready\t1\n901\n902\ncurrent\t903\t40\tA title with breaks\n"
-            && BridgeWire.ReadyBody([], null) == "gg-ready\t1\n" && BridgeWire.CurrentLine("903", null, "") == "current\t903\t-\t");
+            BridgeWire.ReadyBody(["901", "902"], BridgeWire.CurrentLine("903", 40, "A\ttitle\nwith breaks")) == "os2-ready\t1\n901\n902\ncurrent\t903\t40\tA title with breaks\n"
+            && BridgeWire.ReadyBody([], null) == "os2-ready\t1\n" && BridgeWire.CurrentLine("903", null, "") == "current\t903\t-\t");
         Check("bridge wire: the quit notice and its cancel, with the watcher's own kind",
-            BridgeWire.QuitBody("daily") == "gg-quit\t1\tdaily\n" && BridgeWire.QuitCancelBody("update") == "gg-quit\t1\tcancel\tupdate\n");
+            BridgeWire.QuitBody("daily") == "os2-quit\t1\tdaily\n" && BridgeWire.QuitCancelBody("update") == "os2-quit\t1\tcancel\tupdate\n");
         Check("bridge wire: a restart coming, and taken back - the kinds and the whens as the bridge words them",
-            BridgeWire.RestartBody(BridgeWire.GameUpdate, BridgeWire.AtMatchEnd, 0) == "gg-restart\t1\tgame-update\tmatch-end\t0\n"
-            && BridgeWire.RestartBody(BridgeWire.Daily, BridgeWire.AtOnce, 30) == "gg-restart\t1\tdaily\tnow\t30\n"
-            && BridgeWire.RestartCancelBody(BridgeWire.OurUpdate) == "gg-restart\t1\tcancel\tour-update\n" && BridgeWire.Downloads == "downloads");
+            BridgeWire.RestartBody(BridgeWire.GameUpdate, BridgeWire.AtMatchEnd, 0) == "os2-restart\t1\tgame-update\tmatch-end\t0\n"
+            && BridgeWire.RestartBody(BridgeWire.Daily, BridgeWire.AtOnce, 30) == "os2-restart\t1\tdaily\tnow\t30\n"
+            && BridgeWire.RestartCancelBody(BridgeWire.OurUpdate) == "os2-restart\t1\tcancel\tour-update\n" && BridgeWire.Downloads == "downloads");
         Check("bridge wire: a restart done, from what to what; the sync's verdicts a line each",
-            BridgeWire.UpdatedBody(BridgeWire.GameUpdate, "1.41.9.4", "1.41.9.5") == "gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n"
-            && BridgeWire.RemovedBody([("5", "ok"), ("7", "banned")]) == "gg-removed\t1\n5\tok\n7\tbanned\n" && BridgeWire.RemovedBody([]) == "gg-removed\t1\n"
-            && BridgeWire.HealthWord == "gg-health");
+            BridgeWire.UpdatedBody(BridgeWire.GameUpdate, "1.41.9.4", "1.41.9.5") == "os2-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n"
+            && BridgeWire.RemovedBody([("5", "ok"), ("7", "banned")]) == "os2-removed\t1\n5\tok\n7\tbanned\n" && BridgeWire.RemovedBody([]) == "os2-removed\t1\n"
+            && BridgeWire.HealthWord == "os2-health");
         Check("bridge wire: a body's fields after its message and version 1, trimmed; another message or version has none",
-            BridgeWire.Fields("gg-quit\t1\t daily \r\nmore", BridgeWire.QuitWord) is ["daily"] && BridgeWire.Fields("gg-quit\t1", BridgeWire.QuitWord) is []
-            && BridgeWire.Fields("gg-quit\t2\tdaily", BridgeWire.QuitWord) is null && BridgeWire.Fields("gg-restart\t1\tdaily", BridgeWire.QuitWord) is null
+            BridgeWire.Fields("os2-quit\t1\t daily \r\nmore", BridgeWire.QuitWord) is ["daily"] && BridgeWire.Fields("os2-quit\t1", BridgeWire.QuitWord) is []
+            && BridgeWire.Fields("os2-quit\t2\tdaily", BridgeWire.QuitWord) is null && BridgeWire.Fields("os2-restart\t1\tdaily", BridgeWire.QuitWord) is null
             && BridgeWire.Fields("", BridgeWire.QuitWord) is null);
     }
 }

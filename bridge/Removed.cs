@@ -1,7 +1,7 @@
 // Maps gone from the Workshop (Workshop.cs): which ones, where that comes from, and what the bridge does about one.
 //
 // One source: the Workshop sync asks the Steam Web API every 4 hours and posts its verdicts to /removed/<secret> (BridgeWire.RemovedBody: "id\tverdict"
-// a line after "gg-removed\t1"); they are kept in /data/removed.json.
+// a line after "os2-removed\t1"); they are kept in /data/removed.json.
 // A removed map is refused (Play, chat), never rolled, leaves an open ballot, stops a countdown to it, and the HUD's browser shows it as
 // unavailable. If the map that is ON is removed, nobody new could download it, so the dice roll another at once (AutoRoll).
 using System.Globalization;

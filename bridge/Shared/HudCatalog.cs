@@ -7,7 +7,7 @@ using System.Text;
 /// whenever any of it changes (a vote, a crash); the live state carries the version, so the plugin fetches this again only then.</summary>
 public sealed class HudCatalog
 {
-    public const string Magic = "gg-catalog\t1";
+    public const string Magic = "os2-catalog\t1";
 
     /// <summary>Key: what the bridge counts votes and crashes by (an official map's name, otherwise the Workshop id). Arg: what a chat
     /// command takes to name it unambiguously (the rank of a ranked map, an official map's name, the id of an unlisted one).

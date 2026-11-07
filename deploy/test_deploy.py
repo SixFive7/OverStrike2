@@ -38,7 +38,7 @@ class FakeDocker:
     """The Docker Engine API calls bridge.py makes, on containers and tags kept in memory. old_engine: a stopped container keeps
     its MAC only in Config.MacAddress (engines before API 1.44), not on its network endpoint."""
 
-    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="gg-health 1\nlog pushes 3\n", bare=False):
+    def __init__(self, bridge_running=True, old_engine=False, pinned=True, health="os2-health 1\nlog pushes 3\n", bare=False):
         self.old_engine, self.health_text, self.calls, self.n, self.execs = old_engine, health, [], 0, []
         self.refs = {"localhost/overstrike2-bridge:latest": "sha256:image-old-00000", "localhost/overstrike2-bridge:candidate": "sha256:image-new-00000"}
         self.images = {i: {"Id": i, "Config": {"Env": ["PATH=/usr/bin"], "Labels": {"org.opencontainers.image.title": "x"}}}
@@ -125,7 +125,7 @@ class FakeDocker:
     def exec_in(self, container, argv, timeout=60):
         self.execs.append(argv)
         if argv[2] == B.INNER_RCON:   # something said on the server: its log push reaches the bridge
-            self.health_text = "gg-health 1\nlog pushes 1\n"
+            self.health_text = "os2-health 1\nlog pushes 1\n"
         return self.health_text
 
     def writes(self):
@@ -208,7 +208,7 @@ try:
     check("swap, running on the target already: nothing to do, nothing written", swap(f) == 0 and f.writes() == [])
 
     # the settings are an environment variable: a new container made from the old one's inspect has them, on a read-only root too
-    f = FakeDocker(bare=True, health="gg-health 1\nlog pushes 3\n")
+    f = FakeDocker(bare=True, health="os2-health 1\nlog pushes 3\n")
     r = swap(f)
     new = f.find("bridge")
     check("swap, the settings in the environment: the new bridge has them byte for byte, its root still read-only, and nothing but the inspect was needed",
@@ -216,13 +216,13 @@ try:
           and not any("archive" in c[1] for c in f.calls))
 
     # a bridge with no secret in its environment: the game container's are used
-    f = FakeDocker(bare=True, health="gg-health 1\nlog pushes 0\n")
+    f = FakeDocker(bare=True, health="os2-health 1\nlog pushes 0\n")
     r = swap(f)
     gets = [a[3] for a in f.execs if a[2] == B.INNER_GET]
     says = [a for a in f.execs if a[2] == B.INNER_RCON]
     check("swap, no LOG_SECRET and no RCON_PASSWORD in the bridge: /health with the secret and port of the game's CS2_LOG_HTTP_URL, RCON with its CS2_RCONPW",
           r == 0 and gets and all(g == "http://bridge:8090/health/fromthegame" for g in gets) and says and says[0][3] == "gamepw")
-    f = FakeDocker(health="gg-health 1\nlog pushes 0\n")
+    f = FakeDocker(health="os2-health 1\nlog pushes 0\n")
     r = swap(f)
     gets = [a[3] for a in f.execs if a[2] == B.INNER_GET]
     says = [a for a in f.execs if a[2] == B.INNER_RCON]

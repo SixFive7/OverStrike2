@@ -87,7 +87,7 @@ static class WorkshopTests
     static void Line()
     {
         var sent = new List<string>();
-        var eng = new FakeEngine(Path.Combine(Dir("line"), "console.log")) { OnRcon = (c, _) => { sent.Add(c); return (true, "gg_notice: shown"); } };
+        var eng = new FakeEngine(Path.Combine(Dir("line"), "console.log")) { OnRcon = (c, _) => { sent.Add(c); return (true, "os_notice: shown"); } };
         var data = Dir("bridge0");
         File.WriteAllText(Path.Combine(data, "maps-deathmatch.json"), "[{\"rank\": 1, \"id\": 900, \"name\": \"Bastion\", \"sizeMb\": 155}]");
         var config = Scenario.Template with { Paths = Scenario.Template.Paths with { BridgeData = data } };
@@ -99,7 +99,7 @@ static class WorkshopTests
         ln.Step(103.5, 0);
         Check("line: nothing with nobody on", sent.Count == 0);
         ln.Step(103.5, 2);
-        Check($"line: the name and its size once it has taken 3 s ({Show(sent)})", sent.Count == 1 && sent[0].StartsWith("gg_notice 4 ") && sent[0].Contains("Bastion") && sent[0].Contains("155 MB"));
+        Check($"line: the name and its size once it has taken 3 s ({Show(sent)})", sent.Count == 1 && sent[0].StartsWith("os_notice 4 ") && sent[0].Contains("Bastion") && sent[0].Contains("155 MB"));
         ln.Step(104.5, 2);
         Check("line: not more often than every 2 s", sent.Count == 1);
         ln.Staged = id => id == "900" ? (155L << 20) / 2 : 0;
@@ -128,7 +128,7 @@ static class WorkshopTests
         ln.Started("900", 400.0);
         ln.Failed("900", "No Connection");
         ln.Step(402.0, 3);
-        Check($"line: a failure says so once, and what to do ({sent[^1]})", sent[^1].StartsWith("gg_notice 10 ") && sent[^1].Contains("could not download Bastion: No Connection"));
+        Check($"line: a failure says so once, and what to do ({sent[^1]})", sent[^1].StartsWith("os_notice 10 ") && sent[^1].Contains("could not download Bastion: No Connection"));
         n = sent.Count;
         ln.Step(405.0, 3);
         Check("line: then nothing more", sent.Count == n);
@@ -329,7 +329,7 @@ static class WorkshopTests
         s.Step(30);
         Check($"background downloads: the request first: {Show(Fetches(s))}", Fetches(s).SequenceEqual(["mm_download_addon 900"]));
         Check("background downloads: the bridge hears which queued maps are on disk, at its /ready/<secret>",
-              s.Bridge.Posts.Count > 0 && s.Bridge.Posts[0] == ("ready", "gg-ready\t1\n901\n"));
+              s.Bridge.Posts.Count > 0 && s.Bridge.Posts[0] == ("ready", "os2-ready\t1\n901\n"));
         s.Eng.Write("[MultiAddonManager] Addon download started for 900");
         s.Eng.Write("[MultiAddonManager] Downloading addon 900: 10.00/100.00 MB (10.00%)");
         s.Step(10);

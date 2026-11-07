@@ -38,22 +38,22 @@ static partial class Program
             Order() == "ar one,arena,ar_baggage,dm one,dm and wm,wm one,de_inferno");
         var wholeCount = b.Matches(back, 1).Count;
         Check("Mode filter: the Deathmatch chip lists Deathmatch's maps in its own order, a map in two lists among them, its officials last, from the first page",
-            b.Click("gg_fm_dm", wholeCount) && b.Mode == Modes.DeathmatchId && b.Page == 0 && Order() == "dm one,arena,dm and wm,de_inferno");
-        Check("Mode filter: Wingman's", b.Click("gg_fm_wm", wholeCount) && Order() == "wm one,dm and wm,de_inferno");
-        Check("Mode filter: Arms Race's", b.Click("gg_fm_ar", wholeCount) && Order() == "ar one,arena,ar_baggage");
+            b.Click("os_fm_dm", wholeCount) && b.Mode == Modes.DeathmatchId && b.Page == 0 && Order() == "dm one,arena,dm and wm,de_inferno");
+        Check("Mode filter: Wingman's", b.Click("os_fm_wm", wholeCount) && Order() == "wm one,dm and wm,de_inferno");
+        Check("Mode filter: Arms Race's", b.Click("os_fm_ar", wholeCount) && Order() == "ar one,arena,ar_baggage");
         b.Query = "arena";
         var search = new HudSearch();
         Check("Mode filter: a search looks in the mode shown, and in every mode with All on",
-            b.Matches(back, 1, search).Single().Name == "arena" && b.Click("gg_fm_wm", wholeCount) | true && b.Matches(back, 1, search).Count == 0 && b.Click("gg_fm_all", wholeCount) && b.Matches(back, 1, search).Single().Name == "arena");
+            b.Matches(back, 1, search).Single().Name == "arena" && b.Click("os_fm_wm", wholeCount) | true && b.Matches(back, 1, search).Count == 0 && b.Click("os_fm_all", wholeCount) && b.Matches(back, 1, search).Single().Name == "arena");
         b.Query = "";
         var same = b.Matches(back, 1);
         Check("Mode filter: the list is worked out once for a state of the browser, and again when any of it moves",
-            ReferenceEquals(same, b.Matches(back, 1)) && !ReferenceEquals(same, b.Matches(back, 2)) && b.Click("gg_fm_dm", wholeCount) && b.Matches(back, 1).Count != same.Count);
+            ReferenceEquals(same, b.Matches(back, 1)) && !ReferenceEquals(same, b.Matches(back, 2)) && b.Click("os_fm_dm", wholeCount) && b.Matches(back, 1).Count != same.Count);
         b.Find("3000000003");
         Check("A pasted link searches every mode", b.Mode == "" && b.Matches(back, 1).Single().Name == "dm one");
         b = new HudBrowser();
         var classes = HudMenu.Maps(back, new HudState(), b, 1, DateTime.UtcNow).Classes;
-        Check("Mode filter: its chips are lit by classes on gg_screen, which every content has; nothing is sent to the chips",
+        Check("Mode filter: its chips are lit by classes on os_screen, which every content has; nothing is sent to the chips",
             HudBrowser.ModeButtons.All(m => classes.Any(c => c.Id == HudView.Screen && c.Class == HudBrowser.ModeClass(m.Mode) && c.On == (m.Mode == ""))) && !classes.Any(c => HudBrowser.ModeButtons.Any(m => m.Id == c.Id)));
 
         // ---- what a card's Play asks for ----
@@ -70,7 +70,7 @@ static partial class Program
 
         // ---- the pictures ----
         var cards = HudMenu.Maps(back, new HudState(), new HudBrowser { Mode = Modes.WingmanId }, 1, DateTime.UtcNow);
-        Check("A card says its list: Wingman's and Deathmatch's numbers are their own", cards.Texts.Single(t => t.Id == "gg_m1_rank").Text == "Wingman #1" && cards.Texts.Single(t => t.Id == "gg_m3_rank").Text == "Official");
+        Check("A card says its list: Wingman's and Deathmatch's numbers are their own", cards.Texts.Single(t => t.Id == "os_m1_rank").Text == "Wingman #1" && cards.Texts.Single(t => t.Id == "os_m3_rank").Text == "Official");
         var numbered = new HudCatalog.Entry(HudThumbList.Keys[0], "1", 1, long.Parse(HudThumbList.Keys[0]), "has one", 1, false, -1, 0, 0, 0);
         var plain2 = new HudCatalog.Entry("4000000000", "4000000000", 2, 4000000000, "uploaded later", 1, false, -1, 0, 0, 0);
         var off = new HudCatalog.Entry("ar_shoots", "ar_shoots", 0, 0, "ar_shoots", 0, true, -1, 0, 0, 0);
@@ -79,7 +79,7 @@ static partial class Program
         Check("A map with a picture in the addon has its two classes on its card; a map uploaded later has none, and no button for one: pictures are not clickable",
             thumbsOf[0].Classes.Length == 2 && thumbsOf[1].Classes.Length == 0 && !HudMenu.Maps(pics, new HudState(), new HudBrowser(), 1, DateTime.UtcNow).Classes.Any(c => c.Class is "nopic" or "picopen"));
         Check("Every official map of every mode has a picture number", Modes.All.SelectMany(m => m.Official).All(HudThumbs.Has));
-        Check("The mode chips get nothing from the server: their state is classes on gg_screen", !classes.Any(c => HudBrowser.ModeButtons.Any(m => m.Id == c.Id)));
+        Check("The mode chips get nothing from the server: their state is classes on os_screen", !classes.Any(c => HudBrowser.ModeButtons.Any(m => m.Id == c.Id)));
 
         // ---- the layout and the stylesheet ----
         const string layoutFile = "../hud/layout/gungame_hud_" + Hud.ReleaseFile + ".xml", styleFile = "../hud/styles/gungame_hud_" + Hud.ReleaseFile + ".css";
@@ -87,9 +87,9 @@ static partial class Program
         {
             var xml = Regex.Replace(File.ReadAllText(layoutFile), "<!--.*?-->", "", RegexOptions.Singleline);
             var css = File.ReadAllText(styleFile);
-            Check("Layout: the mode chips, each lit by its class on gg_screen",
-                HudBrowser.ModeButtons.All(m => xml.Contains($"<Button id=\"{m.Id}\" class=\"gg-chipb gg-chipm-{(m.Mode == "" ? "all" : m.Mode)}\">") && css.Contains($".gg-screen.{HudBrowser.ModeClass(m.Mode)} .gg-chipm-{(m.Mode == "" ? "all" : m.Mode)}")));
-            Check("The standalone picture is gone from the layout and the stylesheet: no button on a card, no rule that shrinks the window for one", !xml.Contains("gg-mpic") && !css.Contains("gg-mpic") && !css.Contains(".pic1") && !css.Contains("picopen"));
+            Check("Layout: the mode chips, each lit by its class on os_screen",
+                HudBrowser.ModeButtons.All(m => xml.Contains($"<Button id=\"{m.Id}\" class=\"os-chipb os-chipm-{(m.Mode == "" ? "all" : m.Mode)}\">") && css.Contains($".os-screen.{HudBrowser.ModeClass(m.Mode)} .os-chipm-{(m.Mode == "" ? "all" : m.Mode)}")));
+            Check("The standalone picture is gone from the layout and the stylesheet: no button on a card, no rule that shrinks the window for one", !xml.Contains("os-mpic") && !css.Contains("os-mpic") && !css.Contains(".pic1") && !css.Contains("picopen"));
         }
         else Console.WriteLine($"skip the picture layout checks: {layoutFile} not found");
     }

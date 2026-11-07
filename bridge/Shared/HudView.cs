@@ -6,27 +6,27 @@ using System.Globalization;
 /// sends what changed since the last time.</summary>
 public static class HudView
 {
-    /// <summary>Panel ids the plugin addresses. The layout's root may not carry an id, so global classes go on gg_global and a player's
-    /// own state (window open, page, toast, banner) on gg_screen inside it.</summary>
-    public const string Global = "gg_global", Screen = "gg_screen";
+    /// <summary>Panel ids the plugin addresses. The layout's root may not carry an id, so global classes go on os_global and a player's
+    /// own state (window open, page, toast, banner) on os_screen inside it.</summary>
+    public const string Global = "os_global", Screen = "os_screen";
 
-    public const string ButtonClose = "gg_btn_close", ButtonUp = "gg_btn_up", ButtonDown = "gg_btn_down", ButtonAct = "gg_btn_act";
+    public const string ButtonClose = "os_btn_close", ButtonUp = "os_btn_up", ButtonDown = "os_btn_down", ButtonAct = "os_btn_act";
 
     /// <summary>The board's buttons (TAB): your like on the map that is on, Start a vote, and the full menu.</summary>
-    public const string BoardUp = "gg_b_vup", BoardDown = "gg_b_vdown", BoardNext = "gg_b_next", BoardOpen = "gg_b_open";
+    public const string BoardUp = "os_b_vup", BoardDown = "os_b_vdown", BoardNext = "os_b_next", BoardOpen = "os_b_open";
 
-    public const string TabHow = "gg_tab_how", TabFun = "gg_tab_fun", TabGame = "gg_tab_game", TabMaps = "gg_tab_maps";
+    public const string TabHow = "os_tab_how", TabFun = "os_tab_fun", TabGame = "os_tab_game", TabMaps = "os_tab_maps";
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
     /// BrowseButton), FUN, SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
     /// tabs of the contents before v4.6.0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
     /// Rules tab opens How it works, where its words went; its Queue tab does nothing (there is no queue).</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
-        [("gg_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("gg_tab_help", HudSlots.Page.Help),
-         (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("gg_tab_server", HudSlots.Page.Players),
-         ("gg_sub_players", HudSlots.Page.Players), ("gg_sub_help", HudSlots.Page.Help), ("gg_tab_rules", HudSlots.Page.How)];
+        [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
+         (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("os_tab_server", HudSlots.Page.Players),
+         ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help), ("os_tab_rules", HudSlots.Page.How)];
 
-    /// <summary>The caption beside the sub-tabs, per page (a variable on gg_screen, SubCaptionVar): what the page is for; the Maps page's says
+    /// <summary>The caption beside the sub-tabs, per page (a variable on os_screen, SubCaptionVar): what the page is for; the Maps page's says
     /// whether a Play adds to the vote that is on.</summary>
     public const string SubCaptionVar = "ossub";
 
@@ -48,46 +48,46 @@ public static class HudView
     {
         var t = new List<(string, string)>
         {
-            ("gg_w_headline", Hud.Headline), ("gg_w_hint", Hud.MenuHint),
-            ("gg_b_cmds", HudTab.BoardLine(HudTab.Mode.Off)),
+            ("os_w_headline", Hud.Headline), ("os_w_hint", Hud.MenuHint),
+            ("os_b_cmds", HudTab.BoardLine(HudTab.Mode.Off)),
         };
         for (var i = 0; i < Hud.Steps.Length; i++)
         {
-            t.Add(($"gg_s{i + 1}_title", Hud.Steps[i].Title));
-            t.Add(($"gg_s{i + 1}_cmd", Hud.Steps[i].Command));
-            t.Add(($"gg_s{i + 1}_txt", Hud.Steps[i].Words));
+            t.Add(($"os_s{i + 1}_title", Hud.Steps[i].Title));
+            t.Add(($"os_s{i + 1}_cmd", Hud.Steps[i].Command));
+            t.Add(($"os_s{i + 1}_txt", Hud.Steps[i].Words));
         }
         for (var g = 0; g < Hud.Help.Length; g++)
         {
-            t.Add(($"gg_c{g + 1}_name", Hud.Help[g].Name));
+            t.Add(($"os_c{g + 1}_name", Hud.Help[g].Name));
             for (var r = 0; r < Hud.RowsPerGroup; r++)
             {
                 var row = r < Hud.Help[g].Rows.Length ? Hud.Help[g].Rows[r] : null;
-                t.Add(($"gg_c{g + 1}_{r + 1}_cmd", row?.Command ?? ""));
-                t.Add(($"gg_c{g + 1}_{r + 1}_txt", row == null ? "" : row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
+                t.Add(($"os_c{g + 1}_{r + 1}_cmd", row?.Command ?? ""));
+                t.Add(($"os_c{g + 1}_{r + 1}_txt", row == null ? "" : row.Also == "" ? row.Words : $"{row.Words}  ·  {row.Also}"));
             }
         }
         for (var s = 0; s < Hud.HowSections; s++)
         {
             var how = s < Hud.How.Length ? Hud.How[s] : null;
-            t.Add(($"gg_h{s + 1}_title", how?.Title ?? ""));
-            for (var l = 0; l < Hud.HowLines; l++) t.Add(($"gg_h{s + 1}_{l + 1}_txt", how != null && l < how.Lines.Length ? how.Lines[l] : ""));
+            t.Add(($"os_h{s + 1}_title", how?.Title ?? ""));
+            for (var l = 0; l < Hud.HowLines; l++) t.Add(($"os_h{s + 1}_{l + 1}_txt", how != null && l < how.Lines.Length ? how.Lines[l] : ""));
         }
         t.Add((HudMenu.FunNote, HudMenu.FunNoteText));
-        t.Add(("gg_w_back_eyebrow", "Now playing"));
-        t.Add(("gg_w_back_hint", LikeHint));
+        t.Add(("os_w_back_eyebrow", "Now playing"));
+        t.Add(("os_w_back_hint", LikeHint));
         return t;
     }
 
-    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest. And c31 and c32 on gg_screen, for
+    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest. And c31 and c32 on os_screen, for
     /// everybody: the contents before v4.6.0 show their How it works, Fun and Help rows only under them, and every content in use holds those panels.</summary>
     public static List<(string Id, string Class, bool On)> StaticClasses()
     {
         var c = new List<(string, string, bool)> { (Screen, "c31", true), (Screen, "c32", true) };
         for (var g = 0; g < Hud.Help.Length; g++)
-            for (var r = 0; r < Hud.RowsPerGroup; r++) c.Add(($"gg_c{g + 1}_{r + 1}", "used", r < Hud.Help[g].Rows.Length));
+            for (var r = 0; r < Hud.RowsPerGroup; r++) c.Add(($"os_c{g + 1}_{r + 1}", "used", r < Hud.Help[g].Rows.Length));
         for (var s = 0; s < Hud.HowSections; s++)
-            for (var l = 0; l < Hud.HowLines; l++) c.Add(($"gg_h{s + 1}_{l + 1}", "used", s < Hud.How.Length && l < Hud.How[s].Lines.Length));
+            for (var l = 0; l < Hud.HowLines; l++) c.Add(($"os_h{s + 1}_{l + 1}", "used", s < Hud.How.Length && l < Hud.How[s].Lines.Length));
         return c;
     }
 
@@ -96,7 +96,7 @@ public static class HudView
     public static readonly string[] OlderContentClasses = ["c31", "c32", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
 
     /// <summary>The panels only v4.5.0 has of the contents still drawn for: its news line, its note, its lede.</summary>
-    public static readonly string[] OlderContentTexts = ["gg_news_text", "gg_note_text", "gg_w_lede"];
+    public static readonly string[] OlderContentTexts = ["os_news_text", "os_note_text", "os_w_lede"];
 
     public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
 
@@ -120,44 +120,44 @@ public static class HudView
         var t = new List<(string, string)>();
         foreach (var p in new[] { "b", "w" })
         {
-            t.Add(($"gg_{p}_map", map));
-            t.Add(($"gg_{p}_by", byline));
-            t.Add(($"gg_{p}_up", s.Up.ToString(CultureInfo.InvariantCulture)));
-            t.Add(($"gg_{p}_down", s.Down.ToString(CultureInfo.InvariantCulture)));
-            t.Add(($"gg_{p}_status", status));
+            t.Add(($"os_{p}_map", map));
+            t.Add(($"os_{p}_by", byline));
+            t.Add(($"os_{p}_up", s.Up.ToString(CultureInfo.InvariantCulture)));
+            t.Add(($"os_{p}_down", s.Down.ToString(CultureInfo.InvariantCulture)));
+            t.Add(($"os_{p}_status", status));
         }
         var leading = Leading(v);
         for (var i = 0; i < HudState.ListLength; i++)
         {
             var n = i < leading.Count ? leading[i] : null;
-            t.Add(($"gg_w_n{i + 1}", n?.Label ?? ""));
-            t.Add(($"gg_w_nw{i + 1}", n == null ? "" : $"{n.Votes} vote{(n.Votes == 1 ? "" : "s")}"));
+            t.Add(($"os_w_n{i + 1}", n?.Label ?? ""));
+            t.Add(($"os_w_nw{i + 1}", n == null ? "" : $"{n.Votes} vote{(n.Votes == 1 ? "" : "s")}"));
             var top = i < s.Top.Count ? s.Top[i] : ("", 0, 0);
-            t.Add(($"gg_w_t{i + 1}", top.Item1));
-            t.Add(($"gg_w_ts{i + 1}", top.Item1 == "" ? "" : $"+{top.Item2}{(top.Item3 > 0 ? $" -{top.Item3}" : "")}"));
+            t.Add(($"os_w_t{i + 1}", top.Item1));
+            t.Add(($"os_w_ts{i + 1}", top.Item1 == "" ? "" : $"+{top.Item2}{(top.Item3 > 0 ? $" -{top.Item3}" : "")}"));
         }
-        t.Add(("gg_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
-        t.Add(("gg_w_tempty", "No likes yet. Like a map: its card's up arrow."));
-        t.Add(("gg_b_queue", VoteLine(v)));
-        t.Add(("gg_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
-        t.Add(("gg_news_text", s.NewsFor > 0 ? s.News : ""));
-        t.Add(("gg_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
-        t.Add(("gg_w_lede", ""));
-        t.Add(("gg_w_back", string.Join("  ·  ", new[] { map, byline, Hud.Tally(s.Up, s.Down) }.Where(x => x != ""))));
-        t.Add(("gg_w_crash", s.CrashNote));
-        t.Add(("gg_top_tab", Messages.CategoryOf(s.TopCat)?.Name ?? ""));
-        t.Add(("gg_top_text", s.TopText));
-        t.Add(("gg_ban_head", s.BanHead));
-        t.Add(("gg_ban_line", s.BanLine));
-        t.Add(("gg_w_maps", s.Maps > 0 ? $"{s.Maps} Workshop maps" : "Workshop maps"));
+        t.Add(("os_w_nempty", v is { Round: > 0 } ? "No votes yet: click a card on the Maps page." : "No vote on. Play on a map puts it to the vote."));
+        t.Add(("os_w_tempty", "No likes yet. Like a map: its card's up arrow."));
+        t.Add(("os_b_queue", VoteLine(v)));
+        t.Add(("os_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
+        t.Add(("os_news_text", s.NewsFor > 0 ? s.News : ""));
+        t.Add(("os_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
+        t.Add(("os_w_lede", ""));
+        t.Add(("os_w_back", string.Join("  ·  ", new[] { map, byline, Hud.Tally(s.Up, s.Down) }.Where(x => x != ""))));
+        t.Add(("os_w_crash", s.CrashNote));
+        t.Add(("os_top_tab", Messages.CategoryOf(s.TopCat)?.Name ?? ""));
+        t.Add(("os_top_text", s.TopText));
+        t.Add(("os_ban_head", s.BanHead));
+        t.Add(("os_ban_line", s.BanLine));
+        t.Add(("os_w_maps", s.Maps > 0 ? $"{s.Maps} Workshop maps" : "Workshop maps"));
         var countdown = CountdownOf(s);
-        t.Add(("gg_k_eyebrow", countdown?.Eyebrow ?? ""));
-        t.Add(("gg_k_map", countdown?.Title ?? ""));
-        t.Add(("gg_k_by", countdown?.Line ?? ""));
-        t.Add(("gg_k_secs", countdown == null ? "" : Countdown(countdown.Value.Seconds)));
-        t.Add(("gg_t_map", map));
-        t.Add(("gg_t_by", byline == "" ? Hud.Tally(s.Up, s.Down) : $"{byline}  ·  {Hud.Tally(s.Up, s.Down)}"));
-        t.Add(("gg_t_hint", LikeHint));
+        t.Add(("os_k_eyebrow", countdown?.Eyebrow ?? ""));
+        t.Add(("os_k_map", countdown?.Title ?? ""));
+        t.Add(("os_k_by", countdown?.Line ?? ""));
+        t.Add(("os_k_secs", countdown == null ? "" : Countdown(countdown.Value.Seconds)));
+        t.Add(("os_t_map", map));
+        t.Add(("os_t_by", byline == "" ? Hud.Tally(s.Up, s.Down) : $"{byline}  ·  {Hud.Tally(s.Up, s.Down)}"));
+        t.Add(("os_t_hint", LikeHint));
         return t;
     }
 
@@ -177,15 +177,15 @@ public static class HudView
         var leading = Leading(v).Count;
         for (var i = 0; i < HudState.ListLength; i++)
         {
-            c.Add(($"gg_w_row_n{i + 1}", "used", i < leading));
-            c.Add(($"gg_w_row_t{i + 1}", "used", i < s.Top.Count));
+            c.Add(($"os_w_row_n{i + 1}", "used", i < leading));
+            c.Add(($"os_w_row_t{i + 1}", "used", i < s.Top.Count));
         }
-        c.Add(("gg_w_nempty", "used", leading == 0));
-        c.Add(("gg_w_tempty", "used", s.Top.Count == 0));
+        c.Add(("os_w_nempty", "used", leading == 0));
+        c.Add(("os_w_tempty", "used", s.Top.Count == 0));
         return c;
     }
 
-    public const string TopPanel = "gg_top", BannerPanel = "gg_ban", LinePanel = "gg_wl";
+    public const string TopPanel = "os_top", BannerPanel = "os_ban", LinePanel = "os_wl";
     public static readonly string[] Tones = ["problem", "warning", "done", "info"];
 
     /// <summary>What the countdown banner shows: a map change, Restart match or a restart counting down. Logo: the project's logo in the picture's place.</summary>
@@ -221,7 +221,7 @@ public static class HudView
     public const int PlayerRows = 16;
     public const string PlayersVar = "ospl", PlayersSummaryVar = "ospsum";
 
-    /// <summary>The Players page's words, as variables on gg_global that the page's labels inherit: osplNa the name, osplNb the team, osplNc the HUD
+    /// <summary>The Players page's words, as variables on os_global that the page's labels inherit: osplNa the name, osplNb the team, osplNc the HUD
     /// when it is the server's own, osplNo an older or unknown one, osplNk the HUD check's clock, osplNd the vote, osplNe how long on; ospsum the
     /// line over them. The rows the list does not reach are empty.</summary>
     public static List<(string Name, string Text)> PlayersPage(IReadOnlyList<PlayerRow> rows)
@@ -285,17 +285,17 @@ public static class HudView
         var note = NoteOf(s, account);
         return
         [
-            ("gg_w_hello", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : $"Welcome, {Hud.Clean(name, 32)}"),
-            ("gg_t_eyebrow", "Now playing"),
-            ("gg_wl_eyebrow", note == "" ? "" : Messages.CategoryOf(s.NoteCats.GetValueOrDefault(account, ""))?.Name ?? Messages.You.Name),
-            ("gg_wl_text", note),
-            ("gg_b_you", mine > 0 ? "You liked this map" : mine == HudCatalog.TooBigVote ? "You marked this map too big" : mine == HudCatalog.AdsVote ? "You marked this map: ads"
+            ("os_w_hello", welcomeBack ? $"Welcome back, {Hud.Clean(name, 32)}" : $"Welcome, {Hud.Clean(name, 32)}"),
+            ("os_t_eyebrow", "Now playing"),
+            ("os_wl_eyebrow", note == "" ? "" : Messages.CategoryOf(s.NoteCats.GetValueOrDefault(account, ""))?.Name ?? Messages.You.Name),
+            ("os_wl_text", note),
+            ("os_b_you", mine > 0 ? "You liked this map" : mine == HudCatalog.TooBigVote ? "You marked this map too big" : mine == HudCatalog.AdsVote ? "You marked this map: ads"
                 : mine < DownReasons.Plain && DownReasons.Of(mine) is { } why ? $"You disliked this map: {why.Short}" : mine < 0 ? "You disliked this map" : "Like it or not?"),
-            ("gg_btn_act_text", text),
-            ("gg_btn_act_sub", sub),
-            ("gg_b_next_text", text),
-            ("gg_b_next_sub", sub),
-            ("gg_note_text", NoteOf(s, account)),
+            ("os_btn_act_text", text),
+            ("os_btn_act_sub", sub),
+            ("os_b_next_text", text),
+            ("os_b_next_sub", sub),
+            ("os_note_text", NoteOf(s, account)),
         ];
     }
 
@@ -304,7 +304,7 @@ public static class HudView
         var mine = s.MyVotes.GetValueOrDefault(account);
         var (_, _, command) = Action(s, v);
         if (v?.WaitFor > 0 && v is not { Round: > 0 }) command = null; // the wait after a vote: it looks off, and a click still gets its answer with the time left
-        var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4.1.0): classes on gg_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
+        var asked = s.Why.TryGetValue(account, out var why) ? why.For : 0; // the popup (content v4.1.0): classes on os_screen, for which an older game has no rule; the drain line a second in, so a second Dislike starts it again
         var cat = s.NoteCats.GetValueOrDefault(account, Messages.You.Id);
         var note = NoteOf(s, account) != "";
         List<(string Id, string Class, bool On)> c = [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
@@ -321,8 +321,8 @@ public static class HudView
         for (var k = 1; k <= Messages.LatelyRows; k++)
         {
             var row = k <= rows.Count ? rows[k - 1] : null;
-            t.Add(($"gg_bl_w{k}", row?.Text ?? ""));
-            t.Add(($"gg_bl_t{k}", row == null ? "" : Messages.Ago(row.AtMs, nowMs)));
+            t.Add(($"os_bl_w{k}", row?.Text ?? ""));
+            t.Add(($"os_bl_t{k}", row == null ? "" : Messages.Ago(row.AtMs, nowMs)));
         }
         return t;
     }
@@ -330,7 +330,7 @@ public static class HudView
     public static List<(string Id, string Class, bool On)> LatelyClasses(HudState s, long account)
     {
         var count = Messages.LatelyFor(s.Lately, account).Count;
-        return Enumerable.Range(1, Messages.LatelyRows).Select(k => ($"gg_bl_r{k}", "used", k <= count)).ToList();
+        return Enumerable.Range(1, Messages.LatelyRows).Select(k => ($"os_bl_r{k}", "used", k <= count)).ToList();
     }
 
     /// <summary>A click, as the plugin receives it: the action it asks the bridge for, or null for the buttons that only work the window.

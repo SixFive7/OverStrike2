@@ -48,8 +48,8 @@ static partial class Program
         SpawnSeen = null; SpawnSeenStarts = 0; MapStarts = 0; LastStartName = null; SpawnStarts.Clear(); CrashNotice = ""; CrashNoticeUntil = default; GoingDownAt = default;
     }
 
-    /// <summary>POST /quitting/&lt;secret&gt;: the restart watcher, right before it sends a planned quit - "gg-quit\t1\t&lt;kind&gt;" (daily,
-    /// update, version, workshop: BridgeWire.QuitBody) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;".
+    /// <summary>POST /quitting/&lt;secret&gt;: the restart watcher, right before it sends a planned quit - "os2-quit\t1\t&lt;kind&gt;" (daily,
+    /// update, version, workshop: BridgeWire.QuitBody) - and once more if that quit could not be delivered after all - "os2-quit\t1\tcancel\t&lt;kind&gt;".
     /// The notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
     /// a freeze kill it sends no notice for, so a freeze still counts as the crash it is. Runs on the event loop.</summary>
     static void QuitNoticeRequest(HttpListenerContext c) => OnLoop(c, ApplyQuitNotice, "quitting");

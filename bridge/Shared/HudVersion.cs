@@ -6,10 +6,10 @@
 // number. A game's HUD is known by the HUD check's click (HudCheck.cs): the version button's id names its content (Button), an older content's
 // gold button says Older, and any other button says Unknown.
 //
-// The classes need no click: latest-N on gg_global names the newest content the server knows, and every content from v4.6.0 on shows its
+// The classes need no click: latest-N on os_global names the newest content the server knows, and every content from v4.6.0 on shows its
 // outdated banner for an N above its own. v4.5.0, the one content before it still drawn for (Oldest), reads svge46 (the server's level is
 // above its own) and svlt45 (below it) at a join instead, and the contents from v4.0.0 to v4.4.0 still get their svge41 ... svge45: their
-// red "yours is older" banner. The server's version name rides in the dialog variable osver on gg_global, which the labels inherit.
+// red "yours is older" banner. The server's version name rides in the dialog variable osver on os_global, which the labels inherit.
 using System.Globalization;
 
 public static class HudVersion
@@ -30,6 +30,7 @@ public static class HudVersion
         ("v4.5.0", 45),
         ("v4.6.0", 46),
         ("v4.7.0", 47),
+        ("v4.8.0", 48),
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so games holding older contents
@@ -57,27 +58,27 @@ public static class HudVersion
     /// <summary>How long after a real join the version banner of a content from v4.0.0 to v4.5.0 shows (vjoin).</summary>
     public const double JoinSeconds = 15;
 
-    /// <summary>The newest HUD content the server knows, as one class on gg_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
+    /// <summary>The newest HUD content the server knows, as one class on os_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
     /// itself, from its own stylesheet, for each N from its own level + 1 to LatestLast. A stylesheet never changes once it has shipped, so a release that
     /// raises LatestLast widens only its own content and later ones (hud/PUBLISH.md).</summary>
     public const int LatestLast = 99;
     public static string LatestClass(int level) => $"latest-{level.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The dialog variable on gg_global that the layouts' labels inherit for the server's HUD version.</summary>
+    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version.</summary>
     public const string Var = "osver";
 
-    /// <summary>The version classes on gg_global for everybody: the newest content the server knows (latest-N), and what the banners of v4.0.0 to v4.5.0 read
-    /// at a join (vjoin on gg_screen, for JoinSeconds) - svge41 ... svge46 while the server's level is above that content's, its red "yours is older", and
+    /// <summary>The version classes on os_global for everybody: the newest content the server knows (latest-N), and what the banners of v4.0.0 to v4.5.0 read
+    /// at a join (vjoin on os_screen, for JoinSeconds) - svge41 ... svge46 while the server's level is above that content's, its red "yours is older", and
     /// svlt45 while it is below v4.5.0's, "yours is newer". The plugin turns the latest class it sent before off itself when the level moves.</summary>
     public static List<(string Id, string Class, bool On)> Classes() => Classes(Level);
 
-    /// <summary>The same at a level css_gghud level fakes.</summary>
+    /// <summary>The same at a level os_hud level fakes.</summary>
     public static List<(string Id, string Class, bool On)> Classes(int level) =>
         [.. Enumerable.Range(JoinBannerFirst + 1, Oldest + 1 - JoinBannerFirst).Select(k => (HudView.Global, $"svge{k}", level >= k)), // "yours is older": v4.0.0's svge41 ... v4.5.0's svge46
          (HudView.Global, $"svlt{Oldest}", level < Oldest), (HudView.Global, LatestClass(level), true)];
 
-    /// <summary>A content's name for its level, as the banner says it: its line in Contents. css_gghud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (48 is v4.8.0 while v4.7.0 is the last line). Between two lines
+    /// <summary>A content's name for its level, as the banner says it: its line in Contents. os_hud level and content also ask for levels no line has. Above the
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (49 is v4.9.0 while v4.8.0 is the last line). Between two lines
     /// it is the older of them, and below the first line the first.</summary>
     public static string OfLevel(int level)
     {
@@ -132,10 +133,11 @@ public static class HudVersion
 
     // ---- the version button: the gold "Click to play" of the HUD check, whose id names the content that has it ----
 
-    /// <summary>The prefix of a version button's id. The layout may put the button anywhere (it is the welcome window's X): any button with this prefix proves its content.</summary>
-    public const string ButtonPrefix = "gg_hudver_";
+    /// <summary>The prefix of a version button's id, ours (a shipped content's begins gg_hudver_, made ours by HudIds before a click is read). The layout may put
+    /// the button anywhere (it is the welcome window's X): any button with this prefix proves its content.</summary>
+    public const string ButtonPrefix = "os_hudver_";
 
-    /// <summary>A content's version button: gg_hudver_v4.7.0, the one place that says the id's form; --selftest holds the layout's one id to it. v4.6.0's layout,
+    /// <summary>A content's version button: os_hudver_v4.8.0, the one place that says the id's form; --selftest holds the layout's one id to it. v4.6.0's layout,
     /// which has its own, loads in a real client (the documentation's screenshots); a click on it is in the bridge's log as that version (hud check: ... verified,
     /// HUD v4.6.0).</summary>
     public static string Button(string content) => ButtonPrefix + content;

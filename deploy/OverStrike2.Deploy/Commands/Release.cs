@@ -31,7 +31,7 @@ sealed class ReleaseStop(string message) : Exception(message);
 /// publish - a content update of the one HUD item (a new item is never created):
 ///   1. --client-test names the real-client test's run folder (with its shots/): the update ships only once a real client saw it work;
 ///   2. the server lock, as for live;
-///   3. the held-item check on the live server: css_gghud page 3999999999 must read "NOT shown" in the plugin's log;
+///   3. the held-item check on the live server: os_hud page 3999999999 must read "NOT shown" in the plugin's log;
 ///   4. workshop hud-publish --note ... --user-approved-update (hud/build.ps1 first, by hand);
 ///   5. the item's time_updated from the keyless Web API, one call at a time, a minute apart, until it moves (the upload) and moves again
 ///      (Valve's approval) or --wait-minutes pass.
@@ -415,13 +415,25 @@ sealed class Release
         }
     }
 
-    /// <summary>css_gghud page &lt;an id that does not exist&gt;: the plugin's verdict, from its log a few seconds later, must be NOT shown.</summary>
+    /// <summary>os_hud in a plugin from before release 191, which a release's held-item check may still find live.</summary>
+    public const string OldHudCommand = "css_gghud";
+
+    /// <summary>os_hud page &lt;an id that does not exist&gt;: the plugin's verdict, from its log a few seconds later, must be NOT shown. This runs against
+    /// the plugin that is live before a release ships its own: one from before release 191 knows the command by its old word, css_gghud, and answers
+    /// os_hud as an unknown command - then the check asks it by that word (OldHudCommand).</summary>
     string HeldCheck()
     {
         var key = $"HUD item probe: {NoSuchItem}";
         List<string> Grep() => Py.SplitLines(D.ExecIn(game, ["python3", "-c", InnerGrep, CssLogs, key]) ?? "").Where(l => l.Contains(key, StringComparison.Ordinal)).ToList();
         var old = Grep().Count;
-        Log($"held-item check: css_gghud page {NoSuchItem} -> {Py.Slice(Py.Strip(Rcon($"css_gghud page {NoSuchItem}") ?? ""), 0, 160)}");
+        var word = "os_hud";
+        var reply = Py.Strip(Rcon($"{word} page {NoSuchItem}") ?? "");
+        if (reply.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+        {
+            word = OldHudCommand;
+            reply = Py.Strip(Rcon($"{word} page {NoSuchItem}") ?? "");
+        }
+        Log($"held-item check: {word} page {NoSuchItem} -> {Py.Slice(reply, 0, 160)}");
         for (var k = 0; k < 12; k++)
         {
             sleep(5);

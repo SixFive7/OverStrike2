@@ -39,12 +39,13 @@ class Cfg:
 
 class FakeDocker:
     """The calls release.py makes: inspect, and exec in the game container - RCON (by bridge.py's INNER_RCON), the files' hashes,
-    the plugin's log. A quit restarts the game container; css_gghud page writes its probe line to the log."""
+    the plugin's log. A quit restarts the game container; os_hud page writes its probe line to the log."""
 
     def __init__(self, test):
         self.t, self.rcon_sent, self.started, self.n = test, [], "start-1", 1
         self.loaded = '[#2:LOADED]: "OverStrike2" (4.7.1) by the authors'
         self.hashes, self.probe, self.log = dict(FILES), "page HTTP 500, title 'Steam Workshop' -> NOT shown; Web API ok", []
+        self.old_plugin = False   # a plugin from before release 191, which knows os_hud by its old word only
         self.lists = {"mm_extra_addons": "", "mm_client_extra_addons": HUD}
         self.env = ["CS2_RCONPW=pw-secret", "RCON_PORT=27015"]
         self.bridge_env, self.bridge_image = [], "sha256:image-old-0000"   # a bridge on the settings file: no secret in its environment
@@ -72,9 +73,11 @@ class FakeDocker:
                 return self.loaded + "\n[#1:LOADED]: \"Other\" (1.0)\n"
             if command in self.lists:
                 return '%s = %s\n' % (command, self.lists[command])
-            if command.startswith("css_gghud page"):
+            if command.startswith(("css_gghud page" if self.old_plugin else "os_hud page")):
                 self.log.append("OverStrike2 HUD item probe: %s: %s" % (R.NO_SUCH_ITEM, self.probe))
                 return "probing ... the answer goes to the server log"
+            if command.startswith(("os_hud " if self.old_plugin else "css_gghud ")):
+                return "Unknown command '%s'!" % command.split()[0]
             return ""
         if argv[2] == R.INNER_SHA:
             return json.dumps({f: self.hashes.get(f) for f in argv[4:] if f in self.hashes}) + "\n"
@@ -284,10 +287,17 @@ try:
     r, out = go(T, lambda: T.release(fetch=fetches([100, 100, 200, 200, 200, 300])).publish("v9: what changed", run_dir, False, 120))
     check("publish: the held-item check read NOT shown, then the upload with the note and the update's flag",
           r == 0 and any(a[-4:] == ["hud-publish", "--note", "v9: what changed", "--user-approved-update"] for a in T.runs)
-          and "css_gghud page " + R.NO_SUCH_ITEM in [c for c, _p, _f in T.d.rcon_sent])
+          and "os_hud page " + R.NO_SUCH_ITEM in [c for c, _p, _f in T.d.rcon_sent])
     check("publish: time_updated polled one call at a time, a minute apart, until it moved twice",
           len(T.api) == 6 and T.sleeps.count(60) == 5 and "the upload: time_updated" in out and "Valve's approval, most likely" in out)
     check("publish: the record's line, and the lock released", "RECORD - publish" in out and "release-test-run" in out and not os.path.exists(T.lock))
+    T = Test()
+    T.d.old_plugin = True
+    r, out = go(T, lambda: T.release(fetch=fetches([100, 100, 200, 200, 200, 300])).publish("v9: what changed", run_dir, False, 120))
+    sent = [c for c, _p, _f in T.d.rcon_sent]
+    check("publish: a live plugin from before release 191 answers os_hud as unknown - the held-item check asks it by its old word, and reads NOT shown",
+          r == 0 and "os_hud page " + R.NO_SUCH_ITEM in sent and "css_gghud page " + R.NO_SUCH_ITEM in sent and sent.index("os_hud page " + R.NO_SUCH_ITEM) < sent.index("css_gghud page " + R.NO_SUCH_ITEM)
+          and "held-item check: css_gghud page" in out)
     T = Test()
     T.d.probe = "page HTTP 200, title 'Steam Workshop :: x' -> shown to everybody"
     r, out = go(T, lambda: T.release(fetch=fetches([100])).publish("note", run_dir, False, 120))

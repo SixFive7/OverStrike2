@@ -7,7 +7,7 @@ using System.Text;
 /// needs no serializer context for it and both ends share one tested codec. The vote's own lines follow it (VoteState, MapVote.cs).</summary>
 public sealed class HudState
 {
-    public const string Magic = "gg-hud\t1";
+    public const string Magic = "os2-hud\t1";
     public const int ListLength = 5;    // the board and the live column have five rows for the vote's leading cards and five for the most liked maps
 
     public int Maps;                                    // playable maps on the list, as the help counts them

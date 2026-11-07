@@ -80,9 +80,9 @@ The message: The vote started: the line for everybody. Where it goes: NOT SHOWN;
 
 The message: Waiting for: the players who have not voted. Where it goes: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
 
-## The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)
+## The ballot's pager: Page 1 of 2, the hint for the other page (os_hud content fakes an older game's pages of eight)
 
-![The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)](img/vote-pager.jpg)
+![The ballot's pager: Page 1 of 2, the hint for the other page (os_hud content fakes an older game's pages of eight)](img/vote-pager.jpg)
 
 ## The limit clock red and pulsing in its last 10 seconds
 

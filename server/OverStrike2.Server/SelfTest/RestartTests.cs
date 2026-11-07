@@ -109,22 +109,22 @@ static class RestartTests
         (s.Eng.Humans, s.Eng.Hud) = (3, true);
         s.Step(120);
         Check($"U1: a CS2 update with players on: the bridge hears at once that the server restarts at the end of the match ({Show(Notices(s).Select(n => n.TrimEnd()))})",
-              Notices(s).FirstOrDefault() == "gg-restart\t1\tgame-update\tmatch-end\t10\n" && !s.Has("quit"));
+              Notices(s).FirstOrDefault() == "os2-restart\t1\tgame-update\tmatch-end\t10\n" && !s.Has("quit"));
         Check("U1: ... and the bridge shows it: no line of the watcher's own on the HUD or in chat", s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0);
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");
         s.Step(5);
         Check($"U1: at the end of the match the bridge counts down {Watch.RestartCountdown} s, and the quit waits for it",
-              Notices(s).Contains($"gg-restart\t1\tgame-update\tnow\t{Watch.RestartCountdown}\n") && !s.Has("quit") && s.W.CountdownUntil is not null);
+              Notices(s).Contains($"os2-restart\t1\tgame-update\tnow\t{Watch.RestartCountdown}\n") && !s.Has("quit") && s.W.CountdownUntil is not null);
         s.Step(8);
         Check($"U1: ... then the quit notice and the quit ({Show(order.Select(o => o.Split(':')[0].Replace("\t", " ")))})",
-              order.Count >= 4 && order[^2] == "quitting: gg-quit\t1\tupdate\n" && order[^1] == "quit" && s.W.State.Pending?.Kind == "update");
+              order.Count >= 4 && order[^2] == "quitting: os2-quit\t1\tupdate\n" && order[^1] == "quit" && s.W.State.Pending?.Kind == "update");
 
         // U2. a CS2 update with nobody on: at once
         order.Clear();
         s = Recorded(At(4, 15, 0, 0), ("stale", 14189, null));
         s.Step(30);
         Check($"U2: a CS2 update with nobody on: at once - the bridge told, the quit notice, the quit ({Show(order.Select(o => o.Replace("\t", " ").TrimEnd()))})",
-              order.SequenceEqual(["restart-notice: gg-restart\t1\tgame-update\tnow\t0\n", "quitting: gg-quit\t1\tupdate\n", "quit"]));
+              order.SequenceEqual(["restart-notice: os2-restart\t1\tgame-update\tnow\t0\n", "quitting: os2-quit\t1\tupdate\n", "quit"]));
 
         // U3. the announcement again every 5 minutes while it waits (a bridge swapped in the meantime knows it too)
         s = Recorded(At(4, 15, 0, 0), ("stale", 14189, null));
@@ -141,7 +141,7 @@ static class RestartTests
         s.W.VerdictAt = 0;
         s.Step(5);
         Check($"U4: a restart that is no longer due is taken back ({Show(Notices(s).Select(n => n.TrimEnd().Replace("\t", " ")))})",
-              Notices(s)[^1] == "gg-restart\t1\tcancel\tgame-update\n" && s.W.Due is null && !s.Has("quit"));
+              Notices(s)[^1] == "os2-restart\t1\tcancel\tgame-update\n" && s.W.Due is null && !s.Has("quit"));
 
         // U5. the bridge does not take the quit notice when the countdown is over: no quit, and it waits for the next match end again
         var takeQuit = false;
@@ -152,7 +152,7 @@ static class RestartTests
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");
         s.Step(40);
         Check("U5: the countdown is over but the bridge does not take the quit notice: no quit, and the restart waits for the next match end again",
-              !s.Has("quit") && s.W.Due is { Kind: "update" } && s.W.CountdownUntil is null && Notices(s)[^1] == "gg-restart\t1\tgame-update\tmatch-end\t10\n");
+              !s.Has("quit") && s.W.Due is { Kind: "update" } && s.W.CountdownUntil is null && Notices(s)[^1] == "os2-restart\t1\tgame-update\tmatch-end\t10\n");
         takeQuit = true;
         s.Step(70);
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");
@@ -167,7 +167,7 @@ static class RestartTests
         s.Carry(st);
         s.Step(5);
         Check($"U6: after an update restart, once the engine answers: the bridge hears the build it went from and to ({Show(s.Bridge.Bodies("updated").Select(b => b.TrimEnd().Replace("\t", " ")))})",
-              s.Bridge.Bodies("updated").SequenceEqual(["gg-updated\t1\tgame-update\t1.41.8.7\t1.41.8.8\n"]) && s.W.State.UpdateMisses == 0);
+              s.Bridge.Bodies("updated").SequenceEqual(["os2-updated\t1\tgame-update\t1.41.8.7\t1.41.8.8\n"]) && s.W.State.UpdateMisses == 0);
         var failing = 0;
         Scenario.NewBridge = () => new FakeBridge { Reply = (what, _) => what == "updated" && failing++ < 2 ? null : "ok" };
         s = Scenario.Make(At(4, 15, 0, 0));
@@ -196,11 +196,11 @@ static class RestartTests
               s.W.Due is null && !s.Has("quit"));
         s.Step(70);
         Check($"V1: ... once it has been still for {Watch.VersionSettle:0} s, a restart is due for it",
-              s.W.Due is { Kind: "version" } && s.W.VersionDue?.Total == v2.Fingerprint && Notices(s).FirstOrDefault() == "gg-restart\t1\tour-update\tmatch-end\t10\n");
+              s.W.Due is { Kind: "version" } && s.W.VersionDue?.Total == v2.Fingerprint && Notices(s).FirstOrDefault() == "os2-restart\t1\tour-update\tmatch-end\t10\n");
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");
         s.Step(15);
         Check($"V1: with players on: at the end of the match, counted down, then the quit ({Show(order.TakeLast(3).Select(o => o.Split(':')[0]))})",
-              Notices(s).Contains($"gg-restart\t1\tour-update\tnow\t{Watch.RestartCountdown}\n") && order[^1] == "quitting: gg-quit\t1\tversion\n" && s.Has("quit"));
+              Notices(s).Contains($"os2-restart\t1\tour-update\tnow\t{Watch.RestartCountdown}\n") && order[^1] == "quitting: os2-quit\t1\tversion\n" && s.Has("quit"));
         Check("V1: ... recorded with the version the engine ran and the one on disk", s.W.State.Pending is { Kind: "version" } p && p.Installed == v1.Fingerprint && p.Source == v2.Fingerprint);
         var st = s.W.State.Copy();
 
@@ -209,7 +209,7 @@ static class RestartTests
         s.Carry(st);
         s.Step(70);
         Check($"V2: after the version restart, once the engine answers: the bridge hears our parts' version it went from and to ({Show(s.Bridge.Bodies("updated").Select(b => b.TrimEnd().Replace("\t", " ")))})",
-              s.Bridge.Bodies("updated").SequenceEqual([$"gg-updated\t1\tour-update\t{v1.Fingerprint}\t{v2.Fingerprint}\n"]) && s.Lines.Any(l => l.StartsWith("new version installed")));
+              s.Bridge.Bodies("updated").SequenceEqual([$"os2-updated\t1\tour-update\t{v1.Fingerprint}\t{v2.Fingerprint}\n"]) && s.Lines.Any(l => l.StartsWith("new version installed")));
         Check("V2: ... and no restart is due any more", s.W.Due is null && !s.Has("quit"));
 
         // V3. a version restart that did not install the new version: no restart for it again (no loop); a newer one re-arms
@@ -237,7 +237,7 @@ static class RestartTests
         Put(PluginDll, "plugin v2");
         s.Step(200);
         Check($"V4: a new version with nobody on: at once ({Show(order.Select(o => o.Replace("\t", " ").TrimEnd()))})",
-              order.SequenceEqual(["restart-notice: gg-restart\t1\tour-update\tnow\t0\n", "quitting: gg-quit\t1\tversion\n", "quit"]));
+              order.SequenceEqual(["restart-notice: os2-restart\t1\tour-update\tnow\t0\n", "quitting: os2-quit\t1\tversion\n", "quit"]));
         Parts();
 
         // V5. the version on disk goes back to the installed one before the restart: no longer due, and the bridge hears that
@@ -250,7 +250,7 @@ static class RestartTests
         Parts();
         s.Step(70);
         Check($"V5: back to the installed version before the match ended: no longer due, the notice taken back (due was {due})",
-              due == "version" && s.W.Due is null && Notices(s)[^1] == "gg-restart\t1\tcancel\tour-update\n");
+              due == "version" && s.W.Due is null && Notices(s)[^1] == "os2-restart\t1\tcancel\tour-update\n");
 
         // V6. restarts.newVersions false: never
         s = Scenario.Make(At(4, 15, 0, 0), installed: v1, tune: c => c with { NewVersions = false });
@@ -271,7 +271,7 @@ static class RestartTests
         Put(PluginDll, "plugin v3, half of it");             // the next deploy is writing
         s.Step(70);                                          // the watcher has had its look
         Check($"V8: a deploy begins while a version restart waits: it is no longer due until what is on disk is still, and the bridge hears that (due was {dueBefore})",
-              dueBefore == "version" && s.W.VersionDue is null && s.W.Due is null && Notices(s)[^1] == "gg-restart\t1\tcancel\tour-update\n");
+              dueBefore == "version" && s.W.VersionDue is null && s.W.Due is null && Notices(s)[^1] == "os2-restart\t1\tcancel\tour-update\n");
         s.Eng.Write(gameOver);
         s.Step(15);
         Check("V8: ... so a match end in that window quits nothing", !s.Has("quit") && s.W.CountdownUntil is null);
@@ -353,7 +353,7 @@ static class RestartTests
         s.Eng.Humans = 0;
         s.Step(30);
         Check("D1: ... the moment the server is empty: the bridge told it goes now, then the quit",
-              Notices(s).SequenceEqual(["gg-restart\t1\tdaily\tnow\t0\n"]) && s.Has("quit") && s.W.State.DoneDay == "2026-10-04");
+              Notices(s).SequenceEqual(["os2-restart\t1\tdaily\tnow\t0\n"]) && s.Has("quit") && s.W.State.DoneDay == "2026-10-04");
 
         // D2. a planned restart of another kind inside the daily window counts as the day's: no second restart that morning
         s = Scenario.Make(At(4, 7, 10, 0), ("stale", 14189, null));

@@ -15,7 +15,7 @@ public sealed class WorkshopCard
     public enum Step { None, Checking, Refused, Ready, Waiting, Downloading, Installed, Requested, Failed }
 
     public const int MinIdDigits = 7, MaxIdDigits = 12; // a Workshop id; shorter numbers are ranks on the list
-    public const string Panel = "gg_ws", Play = "gg_ws_play", Bar = "gg_ws_bar";
+    public const string Panel = "os_ws", Play = "os_ws_play", Bar = "os_ws_bar";
 
     public long Id { get; private set; }
     public Step At { get; private set; }
@@ -107,7 +107,7 @@ public sealed class WorkshopCard
 
     static string Size(long bytes) => bytes <= 0 ? "" : bytes >= 1_000_000_000 ? $"{bytes / 1e9:0.0} GB" : $"{Math.Max(1, (bytes + 500_000) / 1_000_000)} MB";
 
-    /// <summary>The card's words, for the panels gg_ws_*.</summary>
+    /// <summary>The card's words, for the panels os_ws_*.</summary>
     public List<(string Id, string Text)> Texts()
     {
         var title = Item?.Title is { Length: > 0 } t ? t : Named != "" ? Named : $"Workshop item {Id}";
@@ -133,7 +133,7 @@ public sealed class WorkshopCard
             Step.Installed or Step.Requested => "Requested",
             _ => "",
         };
-        return [("gg_ws_title", title), ("gg_ws_info", info), ("gg_ws_status", status), ("gg_ws_play_text", button)];
+        return [("os_ws_title", title), ("os_ws_info", info), ("os_ws_status", status), ("os_ws_play_text", button)];
     }
 
     /// <summary>The card's classes: shown at all, its step, the bar in tenths, and whether Play takes a click.</summary>

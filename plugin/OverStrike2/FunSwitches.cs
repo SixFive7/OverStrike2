@@ -26,7 +26,7 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
 
     public bool EffectOn(string name) => Fun.Same(Value(name), "1");
 
-    /// <summary>Who set a fun setting that is off its default (gg_fun's last argument), or null: at its default, or not known.</summary>
+    /// <summary>Who set a fun setting that is off its default (os_fun's last argument), or null: at its default, or not known.</summary>
     public string? SetBy(string settingId) => setBy.GetValueOrDefault(settingId);
 
     /// <summary>A player's value is in this convar now: it is exempt from the block and kept out of the baseline.</summary>
@@ -59,7 +59,7 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
         return true;
     }
 
-    /// <summary>A player's change from the fun page, chat or gg_fun: the writes it takes, made (FunState.Apply: a convar whose value the game
+    /// <summary>A player's change from the fun page, chat or os_fun: the writes it takes, made (FunState.Apply: a convar whose value the game
     /// refuses is no player's), and who made it noted until the setting is back at its default. The line for the log and the console's reply.</summary>
     public string Apply(Fun.Setting setting, Fun.Choice choice, string by, DateTime now)
     {

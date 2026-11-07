@@ -73,7 +73,7 @@ check("guard: --allow-kick goes with players on, and says so",
 class Stand:
     """The calls check.py makes on OverStrike2's Docker: inspect, the container list, an exec in the game server. Any other call fails."""
 
-    def __init__(self, containers, health="gg-health 1\nlog pushes 3\n", images=None):
+    def __init__(self, containers, health="os2-health 1\nlog pushes 3\n", images=None):
         self.containers, self.health, self.execs = containers, health, []
         self.images = images if images is not None else {"localhost/overstrike2-bridge:latest": {"Id": "sha256:bridge-image"},
                                                          "docker.io/joedwards32/cs2": {"Id": "sha256:game-image"}}
@@ -329,7 +329,7 @@ def grouped(c):
     return c
 
 
-def run_verify(c, values=None, health="gg-health 1\nlog pushes 3\n", audit=AUDIT_OK, a2s=(0, 1), extra=None, audit_env=True):
+def run_verify(c, values=None, health="os2-health 1\nlog pushes 3\n", audit=AUDIT_OK, a2s=(0, 1), extra=None, audit_env=True):
     """verify's exit code, every word it printed, the stand-in Docker, and the audit's runs."""
     containers = {GAME: c["game"], BRIDGE: c["bridge"]}
     if c.get("sync") is not None:
@@ -380,7 +380,7 @@ c = grouped(after())
 c["bridge"]["Config"]["Labels"] = {}
 code, out, *_ = run_verify(c)
 check("verify: a bridge outside the game server's compose project - look", code == 1 and "LOOK  bridge belongs to compose project None" in out)
-code, out, *_ = run_verify(grouped(after()), health="gg-health 1\nlog pushes 0\n")
+code, out, *_ = run_verify(grouped(after()), health="os2-health 1\nlog pushes 0\n")
 check("verify: no log push reaching the bridge - look", code == 1 and "LOOK  log pushes reaching the bridge: 0" in out)
 code, out, *_ = run_verify(grouped(after()), health="Traceback: refused at /health/" + BS)
 check("verify: a failed health request - look, and the secret in its words is not printed", code == 1 and "LOOK  bridge /health" in out and BS not in out)

@@ -49,7 +49,7 @@ sealed partial class HudScreen
         foreach (var p in humans) drawing[p.Slot] = p;
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, localNews, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow);
-        frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this);
+        frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, names ??= new HudIds.Names(this, PrefixesFor)); // every panel under each content's name
         MarkChanged();
     }
 

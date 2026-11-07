@@ -68,23 +68,23 @@ static partial class Program
 
             // ---- the watcher's report ----
             var ar = Lane(Modes.ArmsRace).Select(e => e.Key).ToList();
-            Check("A watcher's report: refused unless it is gg-ready 1", ApplyReady("hello\n1\n").StartsWith("refused") && ApplyReady("gg-ready\t2\n").StartsWith("refused"));
-            var answer = ApplyReady($"gg-ready\t1\n{ar[2]}\n{ar[4]}\nnot-an-id\n");
+            Check("A watcher's report: refused unless it is os2-ready 1", ApplyReady("hello\n1\n").StartsWith("refused") && ApplyReady("os2-ready\t2\n").StartsWith("refused"));
+            var answer = ApplyReady($"os2-ready\t1\n{ar[2]}\n{ar[4]}\nnot-an-id\n");
             Check("...else every id it names is on the disk, the rest of what queues.json named is not, and no background download is said", answer.StartsWith("ok: 2 on disk")
                 && Downloaded(ar[2]) && Downloaded(ar[4]) && !Downloaded(ar[0]) && ReportedMissing(ar[0]) && !ReportedMissing(Key(Ar(1))) && BackgroundNow() == null);
-            ApplyReady($"gg-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t63\tLake Aim\twith a tab\n");
+            ApplyReady($"os2-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t63\tLake Aim\twith a tab\n");
             Check("...a current line is the background download: its id, its percent, its title with spaces (and a tab, made a space)",
                 BackgroundNow() is { Percent: 63, Title: "Lake Aim with a tab" } bg && bg.Id == ar[0] && SyncWords.BackgroundWords(bg) == "Background download: Lake Aim with a tab, 63%"
                 && StockHealth().Contains("Background download: Lake Aim with a tab, 63%"));
-            ApplyReady($"gg-ready\t1\ncurrent\t{ar[0]}\t-\t\n");
+            ApplyReady($"os2-ready\t1\ncurrent\t{ar[0]}\t-\t\n");
             Check("...a percent of '-' is none yet, an empty title the Workshop id; a percent over 100 is 100; no current line, nothing downloading",
                 BackgroundNow() is { Percent: null } b2 && SyncWords.BackgroundWords(b2) == $"Background download: Workshop item {ar[0]}, starting"
-                && ApplyReady($"gg-ready\t1\ncurrent\t{ar[0]}\t250\tx\n") != "" && BackgroundNow()?.Percent == 100
-                && ApplyReady("gg-ready\t1\ncurrent\tnot-an-id\t5\tx\n") != "" && BackgroundNow() == null && ApplyReady("gg-ready\t1\n") != "" && BackgroundNow() == null);
+                && ApplyReady($"os2-ready\t1\ncurrent\t{ar[0]}\t250\tx\n") != "" && BackgroundNow()?.Percent == 100
+                && ApplyReady("os2-ready\t1\ncurrent\tnot-an-id\t5\tx\n") != "" && BackgroundNow() == null && ApplyReady("os2-ready\t1\n") != "" && BackgroundNow() == null);
             Check("The report's answer says hold while a map change counts down or loads, and nothing else - an open vote is no reason (its maps come first instead)",
-                !ApplyReady("gg-ready\t1\n").Contains("hold") && (Pending = new Change(Maps[0], "test")) != null && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map change is counting down")
-                && (Pending = null) == null && (LoadPending = true) && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map is loading") && !(LoadPending = false));
-            ApplyReady($"gg-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t10\tx\n");
+                !ApplyReady("os2-ready\t1\n").Contains("hold") && (Pending = new Change(Maps[0], "test")) != null && ApplyReady("os2-ready\t1\n").EndsWith("; hold: a map change is counting down")
+                && (Pending = null) == null && (LoadPending = true) && ApplyReady("os2-ready\t1\n").EndsWith("; hold: a map is loading") && !(LoadPending = false));
+            ApplyReady($"os2-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t10\tx\n");
             h.Clock = h.Clock.AddMinutes(ReadyFreshMinutes + 1);
             Check($"A report older than {ReadyFreshMinutes} minutes counts for nothing: no stock entry is on the disk, the background download is not said, the kept maps still count",
                 !ReadyKnown && !Downloaded(ar[2]) && BackgroundNow() == null && KeptOnDisk(Ar(1)) && StockOnDisk(Modes.ArmsRace, null).Count == 0);
@@ -101,7 +101,7 @@ static partial class Program
             Check("...a kept map whose Workshop content changed since its tested version is not: loading it would download the update first", !KeptOnDisk(Ar(5)) && IsKept(Ar(5)));
             ExportQueues();
             var lane = Lane(Modes.ArmsRace).Select(e => e.Key).ToList();
-            ApplyReady($"gg-ready\t1\n{lane[1]}\n{lane[3]}\n");
+            ApplyReady($"os2-ready\t1\n{lane[1]}\n{lane[3]}\n");
             Check("With a fresh report: the stock entries it names are on the disk, in their lane's order; the rest are not",
                 StockOnDisk(Modes.ArmsRace, null).Select(Key).SequenceEqual([lane[1], lane[3]]) && StockWords().StartsWith("armsrace 2/10"));
             var plain = Maps.Skip(100).First(m => Modes.All.All(md => Lane(md).All(e => e.Key != Key(m)))); // kept by nobody, in no lane
@@ -117,7 +117,7 @@ static partial class Program
                 takes.All(m => KeptOnDisk(m) || lane.Contains(Key(m))) && takes.Any(m => KeptOnDisk(m)));
             lane = Lane(Modes.ArmsRace).Select(e => e.Key).ToList(); // the lane as it is now: a take above may have used an entry up
             ExportQueues();
-            ApplyReady($"gg-ready\t1\n{lane[1]}\n{lane[3]}\n");
+            ApplyReady($"os2-ready\t1\n{lane[1]}\n{lane[3]}\n");
             var all = Maps.ToList();
             foreach (var m in all.Take(100)) S.Crashes[Key(m)] = 1; // every kept map crashed: only the stock's two downloaded entries are left on the disk
             var taken = RandomNext();
@@ -150,7 +150,7 @@ static partial class Program
             ExportQueues();
             var (stale, young) = (Lane(Modes.ArmsRace)[0], Lane(Modes.ArmsRace)[1]);
             Lane(Modes.ArmsRace)[0] = stale with { At = h.Clock.AddHours(-NotReadyDropHours - 1) };
-            ApplyReady("gg-ready\t1\n");
+            ApplyReady("os2-ready\t1\n");
             FillStock();
             // The entry goes, not the map: the lane is topped up at its end, where the dice may roll the same map again (here 1 in the 935 maps of the
             // long tail it came from).
@@ -181,7 +181,7 @@ static partial class Program
 
             // ---- the open ballot's maps go first in queues.json: the watcher starts on them the moment the vote opens ----
             Fresh(); FillStock();
-            ApplyReady($"gg-ready\t1\n{string.Join("\n", Lane(Modes.ArmsRace).Select(e => e.Key))}\n");
+            ApplyReady($"os2-ready\t1\n{string.Join("\n", Lane(Modes.ArmsRace).Select(e => e.Key))}\n");
             Check($"A vote opens with a page of {MapVote.PageCards} cards (no map known to be on: no Keep card)", OpenBallot(h.Clock, 2) && Ballot is { } b && b.Options.Count(o => o.Source == VoteSource.Rolled) == MapVote.PageCards);
             var rolled = Ballot!.Options.Where(o => o.Map is { Official: false }).ToList();
             var voted = rolled.Skip(2).First();

@@ -203,7 +203,7 @@ static class ScenarioTests
         (s.Eng.Humans, s.Eng.Hud) = (3, true);
         s.Step(300);
         Check("E2: an update with players on and no bridge: no line of the watcher's own, no quit mid-match",
-              s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0 && !s.Has("quit") && s.Eng.Cmds.All(c => !c.StartsWith("gg_notice ", StringComparison.Ordinal)));
+              s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0 && !s.Has("quit") && s.Eng.Cmds.All(c => !c.StartsWith("os_notice ", StringComparison.Ordinal)));
         s.Eng.Write("L 10/04/2026 - 15:00:00: Game Over: gungameprogressive mg_armsrace ar_shoots score 0:0 after 15 min");   // the stamp is not read
         s.Step(10);
         Check("E2: the quit after Game Over, unannounced", s.Has("quit") && s.Eng.Notices.Count == 0 && s.Eng.Chat.Count == 0);
@@ -308,7 +308,7 @@ static class ScenarioTests
         var s = Recorded(At(4, 6, 59, 50));
         s.Step(40);
         Check($"Q1: the daily restart tells the bridge first, then quits: {Show(order.Select(o => o.Split(':')[0]))}",
-              order.SequenceEqual(["restart-notice: gg-restart\t1\tdaily\tnow\t0\n", "quitting: gg-quit\t1\tdaily\n", "quit"]) && s.W.State.DoneDay == "2026-10-04");
+              order.SequenceEqual(["restart-notice: os2-restart\t1\tdaily\tnow\t0\n", "quitting: os2-quit\t1\tdaily\n", "quit"]) && s.W.State.DoneDay == "2026-10-04");
 
         order.Clear();
         fail = new HttpRequestException("Connection refused");
@@ -354,15 +354,15 @@ static class ScenarioTests
         s.Step(40);
         var quitBodies = order.Where(o => o.StartsWith("quitting: ", StringComparison.Ordinal)).Select(o => o["quitting: ".Length..]).Take(2).ToList();
         Check($"Q5: the bridge took the notice but the quit could not be delivered: the notice is taken back ({Show(quitBodies.Select(b => b.TrimEnd('\n').Replace('\t', ' ')))})",
-              quitBodies.SequenceEqual(["gg-quit\t1\tdaily\n", "gg-quit\t1\tcancel\tdaily\n"]) && s.Eng.Killed.Count == 0
-              && order.Contains("restart-notice: gg-restart\t1\tcancel\tdaily\n"));
+              quitBodies.SequenceEqual(["os2-quit\t1\tdaily\n", "os2-quit\t1\tcancel\tdaily\n"]) && s.Eng.Killed.Count == 0
+              && order.Contains("restart-notice: os2-restart\t1\tcancel\tdaily\n"));
 
         order.Clear();
         s = FrozenAfter(30);
         Check("Q6: a freeze kill sends no notice - the bridge records it as the crash it is", s.Eng.Killed.Count == 1 && order.Count == 0);
 
         Scenario.NewBridge = () => null;
-        Check("Q7: no bridge configured: the notice says so and the quit goes as before", new HttpBridge(null).Post("quitting", "gg-quit\t1\tdaily\n", 8) == ("none", null));
+        Check("Q7: no bridge configured: the notice says so and the quit goes as before", new HttpBridge(null).Post("quitting", "os2-quit\t1\tdaily\n", 8) == ("none", null));
         static ServerConfig With(string more, Func<string, string?> env) =>
             ServerConfig.From(Core.Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"3823993566\" }" + more + " }", Core.Part.Server, env), env);
         Check("Q7: ... and the watcher reads the bridge's address from bridge.url and bridge.secret alone - the log push's address stands in for nothing",

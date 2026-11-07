@@ -44,7 +44,7 @@ sealed partial class HudScreen
         Server.NextFrame(Frame);
     }
 
-    /// <summary>gg_notice from the restart watcher: a line for everybody, for this long. Its kind says its words: a download's line, or plain news. A download's refreshed line goes
+    /// <summary>os_notice from the restart watcher: a line for everybody, for this long. Its kind says its words: a download's line, or plain news. A download's refreshed line goes
     /// to chat only when it starts and at each quarter.</summary>
     public string Notice(string text, int seconds)
     {
@@ -90,7 +90,7 @@ sealed partial class HudScreen
         Post(bad ? Messages.Bounty : Messages.CatchUpBoost, bad ? M.Refused(line) : M.Done(line), Account(player), seconds: seconds);
     }
 
-    /// <summary>css_gghud centre: how CS2's plain centre text holds, for the client harness: that text for that many seconds, sent again every so many seconds.</summary>
+    /// <summary>os_hud centre: how CS2's plain centre text holds, for the client harness: that text for that many seconds, sent again every so many seconds.</summary>
     public string TestCentre(double every, double seconds, string text, bool alert)
     {
         CentreResendSeconds = Math.Max(0, every);

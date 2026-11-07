@@ -117,7 +117,7 @@ static class PublishTests
         var one = W.Run(Cfg(), new FakeClock(1793500000.0));
         var (reached, ans) = one.ReportVerdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")]);
         Check("bridge: the verdicts go to POST /removed/<secret> in the plugin's format (magic line, id TAB verdict)",
-              srv.Got[0].Path == "/removed/s3cr3t" && srv.Got[0].Body == "gg-removed\t1\n111\tok\n222\tremoved\n333\thidden\n" && (srv.Got[0].ContentType ?? "").StartsWith("text/plain", StringComparison.Ordinal));
+              srv.Got[0].Path == "/removed/s3cr3t" && srv.Got[0].Body == "os2-removed\t1\n111\tok\n222\tremoved\n333\thidden\n" && (srv.Got[0].ContentType ?? "").StartsWith("text/plain", StringComparison.Ordinal));
         Check("bridge: its answer is kept for the report, and it arrived", reached && ans.StartsWith("3 checked", StringComparison.Ordinal));
         Check("bridge: POST /reload/<secret> after a publish", one.Reload() == "reload: maps: 9 maps" && srv.Got[1].Path == "/reload/s3cr3t");
         var data = Data;

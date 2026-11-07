@@ -247,7 +247,7 @@ class Bridge:
         else:
             os2.log(f"{self.game} untouched: container {game['Id'][:12]}, started {game['State']['StartedAt'][:19]}Z")
         h = self.health(new)
-        if not h.startswith("gg-health"):
+        if not h.startswith("os2-health"):
             return problems + ["GET /health from the game container: " + h.strip()[:200]]
         pushes = lambda text: int(m.group(1)) if (m := re.search(r"log pushes (\d+)", text)) else 0
         if pushes(h) == 0:  # say something, so the server has a line to push

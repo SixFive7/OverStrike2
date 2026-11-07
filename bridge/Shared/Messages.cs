@@ -134,7 +134,7 @@ public static class Messages
     /// <summary>A section's words with their first letter a capital.</summary>
     public static string Capital(string words) => words.Length > 0 && char.IsLower(words[0]) ? char.ToUpperInvariant(words[0]) + words[1..] : words;
 
-    /// <summary>What a line from the restart watcher (gg_notice) is, by its words: a download's line - the key its refreshed lines share, and which quarter of it this is, for chat - or plain news.</summary>
+    /// <summary>What a line from the restart watcher (os_notice) is, by its words: a download's line - the key its refreshed lines share, and which quarter of it this is, for chat - or plain news.</summary>
     public static (Kind Kind, string Key, int Step) OfNotice(string line)
     {
         var name = line.IndexOfAny([':', '(']) is > 0 and var end ? line[..end].TrimEnd() : "";

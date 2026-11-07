@@ -31,7 +31,7 @@ static class DeployTests
         readonly Dictionary<string, JsonObject> images = [];
         public readonly Dictionary<string, JsonObject> Containers = [];
 
-        public FakeDocker(bool bridgeRunning = true, bool oldEngine = false, bool pinned = true, string health = "gg-health 1\nlog pushes 3\n", bool bare = false)
+        public FakeDocker(bool bridgeRunning = true, bool oldEngine = false, bool pinned = true, string health = "os2-health 1\nlog pushes 3\n", bool bare = false)
         {
             this.oldEngine = oldEngine;
             HealthText = health;
@@ -162,7 +162,7 @@ static class DeployTests
         {
             Execs.Add([.. argv]);
             if (argv[2] == Bridge.InnerRcon)   // something said on the server: its log push reaches the bridge
-                HealthText = "gg-health 1\nlog pushes 1\n";
+                HealthText = "os2-health 1\nlog pushes 1\n";
             return HealthText;
         }
 
@@ -305,7 +305,7 @@ static class DeployTests
         check("swap, running on the target already: nothing to do, nothing written", Is(Swap(f), 0) && f.Writes().Count == 0);
 
         // the settings are an environment variable: a new container made from the old one's inspect has them, on a read-only root too
-        f = new FakeDocker(bare: true, health: "gg-health 1\nlog pushes 3\n");
+        f = new FakeDocker(bare: true, health: "os2-health 1\nlog pushes 3\n");
         r = Swap(f);
         created = f.Find("bridge")!;
         check("swap, the settings in the environment: the new bridge has them byte for byte, its root still read-only, and nothing but the inspect was needed",
@@ -313,13 +313,13 @@ static class DeployTests
               && Json.AsBool(Json.At(created, "HostConfig", "ReadonlyRootfs")) == true && !f.Calls.Any(c => c.Route.Contains("archive", StringComparison.Ordinal)));
 
         // a bridge with no secret in its environment: the game container's are used
-        f = new FakeDocker(bare: true, health: "gg-health 1\nlog pushes 0\n");
+        f = new FakeDocker(bare: true, health: "os2-health 1\nlog pushes 0\n");
         r = Swap(f);
         var gets = f.Execs.Where(a => a[2] == Bridge.InnerGet).Select(a => a[3]).ToList();
         var says = f.Execs.Where(a => a[2] == Bridge.InnerRcon).ToList();
         check("swap, no LOG_SECRET and no RCON_PASSWORD in the bridge: /health with the secret and port of the game's CS2_LOG_HTTP_URL, RCON with its CS2_RCONPW",
               Is(r, 0) && gets.Count > 0 && gets.All(g => g == "http://bridge:8090/health/fromthegame") && says.Count > 0 && says[0][3] == "gamepw");
-        f = new FakeDocker(health: "gg-health 1\nlog pushes 0\n");
+        f = new FakeDocker(health: "os2-health 1\nlog pushes 0\n");
         r = Swap(f);
         gets = f.Execs.Where(a => a[2] == Bridge.InnerGet).Select(a => a[3]).ToList();
         says = f.Execs.Where(a => a[2] == Bridge.InnerRcon).ToList();

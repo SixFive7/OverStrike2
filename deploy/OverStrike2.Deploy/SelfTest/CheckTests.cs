@@ -28,7 +28,7 @@ static class CheckTests
     }
 
     /// <summary>The calls a check makes on the Docker API: inspect, the container list, an exec in the game server. Any other call fails.</summary>
-    sealed class Stand(Dictionary<string, JsonObject> containers, string health = "gg-health 1\nlog pushes 3\n", Dictionary<string, JsonObject>? images = null) : DockerBase
+    sealed class Stand(Dictionary<string, JsonObject> containers, string health = "os2-health 1\nlog pushes 3\n", Dictionary<string, JsonObject>? images = null) : DockerBase
     {
         public readonly Dictionary<string, JsonObject> Containers = containers;
         public readonly List<(string Name, List<string> Argv)> Execs = [];
@@ -166,7 +166,7 @@ static class CheckTests
 
     /// <summary>verify's exit code, every word it printed, the stand-in Docker, and the audit's runs.</summary>
     static (object? Code, string Out, Stand Stand, List<(List<string> Argv, Dictionary<string, string?> Env)> Runs) RunVerify(
-        Dictionary<string, JsonObject?> c, Dictionary<string, object?>? values = null, string health = "gg-health 1\nlog pushes 3\n", Check.AuditResult? audit = null,
+        Dictionary<string, JsonObject?> c, Dictionary<string, object?>? values = null, string health = "os2-health 1\nlog pushes 3\n", Check.AuditResult? audit = null,
         (int, int)? a2s = null, bool noA2s = false, Dictionary<string, JsonObject>? extra = null, bool auditEnv = true)
     {
         var containers = new Dictionary<string, JsonObject> { [GAME] = c["game"]!, [BRIDGE] = c["bridge"]! };
@@ -413,7 +413,7 @@ static class CheckTests
             c["bridge"]!["Config"]!["Labels"] = new JsonObject();
             (code, output, _, _) = RunVerify(c);
             check("verify: a bridge outside the game server's compose project - look", code is 1 && output.Contains("LOOK  bridge belongs to compose project None"));
-            (code, output, _, _) = RunVerify(Grouped(After()), health: "gg-health 1\nlog pushes 0\n");
+            (code, output, _, _) = RunVerify(Grouped(After()), health: "os2-health 1\nlog pushes 0\n");
             check("verify: no log push reaching the bridge - look", code is 1 && output.Contains("LOOK  log pushes reaching the bridge: 0"));
             (code, output, _, _) = RunVerify(Grouped(After()), health: "Traceback: refused at /health/" + BS);
             check("verify: a failed health request - look, and the secret in its words is not printed", code is 1 && output.Contains("LOOK  bridge /health") && !output.Contains(BS));

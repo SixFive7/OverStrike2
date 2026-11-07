@@ -29,14 +29,14 @@ public sealed class HudFrame
         bool TabCursor = false, bool KeptMenu = false);
 
     /// <summary>What the frame draws from: the live state as of this frame (its countdowns worked out) and the vote; the map list, the search index and the Sync
-    /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (css_gghud level fakes it); the older
+    /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (os_hud level fakes it); the older
     /// contents' news line of the plugin's own; whether a vote holds everybody's window (its freeze) and whether joiners get the HUD (no hold); the Fun page's
     /// values and who set them; now, by the plugin's clock and the bridge's.</summary>
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
         (string Text, DateTime Until) LocalNews, bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy,
         DateTime Now, long BridgeNowMs);
 
-    int latestSent; // the level of the latest-N class on gg_global: turned off when it moves
+    int latestSent; // the level of the latest-N class on os_global: turned off when it moves
 
     /// <summary>A new entity has nothing on it yet: every class goes out again.</summary>
     public void Forget() => latestSent = 0;
@@ -44,18 +44,18 @@ public sealed class HudFrame
     public void Draw(World w, IReadOnlyList<Human> humans, HudSlots slots, Func<int, HudPlayer> playerOf, FunClicks funClicks, IScreen screen)
     {
         var (s, vote, now) = (w.State, w.Vote, w.Now);
-        foreach (var (id, text) in HudView.StaticTexts()) screen.Text(id, id == "gg_b_cmds" ? HudTab.BoardLine(w.TabMode) : text);
+        foreach (var (id, text) in HudView.StaticTexts()) screen.Text(id, id == "os_b_cmds" ? HudTab.BoardLine(w.TabMode) : text);
         foreach (var (id, cls, on) in HudView.StaticClasses()) screen.Class(id, cls, on);
         var funWhy = FunPage(w, funClicks, screen);
         var ownNews = now < w.LocalNews.Until; // the news line of the older contents: the plugin's own line wins while it lasts
-        foreach (var (id, text) in HudView.Texts(s, vote)) if (!(ownNews && id == "gg_news_text")) screen.Text(id, text);
+        foreach (var (id, text) in HudView.Texts(s, vote)) if (!(ownNews && id == "os_news_text")) screen.Text(id, text);
         foreach (var (id, cls, on) in HudView.Classes(s, vote)) if (!(ownNews && cls == "news")) screen.Class(id, cls, on);
-        if (ownNews) { screen.Text("gg_news_text", w.LocalNews.Text); screen.Class(HudView.Global, "news", true); }
+        if (ownNews) { screen.Text("os_news_text", w.LocalNews.Text); screen.Class(HudView.Global, "news", true); }
         var (prevTexts, prevClasses) = HudMenu.PreviousButton(s); // the Maps page's Previous
         foreach (var (id, text) in prevTexts) screen.Text(id, text);
         foreach (var (id, cls, on) in prevClasses) screen.Class(id, cls, on);
-        screen.Pictures(Everybody, [("gg_t_thumb", ThumbOf(w.Catalog, s.Key)), ("gg_k_thumb", ThumbOf(w.Catalog, s.ChangeKey))]); // the now-playing card's and the countdown's
-        screen.Text("gg_rst_secs", HudView.RestartCountdown(s, now)); // a restart coming: its countdown from its end time, by our own clock
+        screen.Pictures(Everybody, [("os_t_thumb", ThumbOf(w.Catalog, s.Key)), ("os_k_thumb", ThumbOf(w.Catalog, s.ChangeKey))]); // the now-playing card's and the countdown's
+        screen.Text("os_rst_secs", HudView.RestartCountdown(s, now)); // a restart coming: its countdown from its end time, by our own clock
 
         // Every vote opens everybody's window on the ballot - a player who joins meanwhile too - and holds it while everybody is frozen: while it is open, and
         // while its result counts down to a map change. Nothing closes it then (the plugin's VoteLocked). When the freeze ends, the windows it opened close for
@@ -95,7 +95,7 @@ public sealed class HudFrame
         if (p.Note is { } note && now < note.Until) { s.Notes[account] = (note.Text, (int)Math.Ceiling((note.Until - now).TotalSeconds)); s.NoteCats[account] = note.Cat; }
         // Being checked: the gold button says "Click to play" and is shown even while a map change hides its usual action.
         foreach (var (id, text) in HudView.PlayerTexts(s, account, h.Name, view.Returning, vote))
-            screen.Text(id, h.Checking && id == "gg_btn_act_text" ? HudCheck.ActText : h.Checking && id == "gg_btn_act_sub" ? HudCheck.ActSub : text, slot);
+            screen.Text(id, h.Checking && id == "os_btn_act_text" ? HudCheck.ActText : h.Checking && id == "os_btn_act_sub" ? HudCheck.ActSub : text, slot);
         foreach (var (id, cls, on) in HudView.PlayerClasses(s, account, vote)) screen.Class(id, cls, on && !(h.Checking && cls == "act-off"), slot);
         foreach (var (id, text) in HudView.LatelyTexts(s, account, w.BridgeNowMs)) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in HudView.LatelyClasses(s, account)) screen.Class(id, cls, on, slot);
@@ -161,7 +161,7 @@ public sealed class HudFrame
         screen.Pictures(slot, HudMenu.Thumbs(w.Catalog, p.Browser, h.Account, w.Search));
     }
 
-    /// <summary>The ballot's page for this player: its texts and classes, and its variables on gg_screen (Random's button, the hint for the other pages, the
+    /// <summary>The ballot's page for this player: its texts and classes, and its variables on os_screen (Random's button, the hint for the other pages, the
     /// header's clocks). The order of its cards is remembered as drawn: a re-sort keeps the order before it for HudVote.ReSortSeconds (SeenOrder).</summary>
     static (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) BallotPage(World w, Human h, HudPlayer p, int perPage, IScreen screen)
     {
@@ -216,14 +216,14 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "cu", on, slot);
         screen.Class(HudView.Screen, "cu-in", shown, slot);
         screen.Class(HudView.Screen, "cu-run", shown, slot);
-        screen.Text("gg_cu_head", on ? card.Head : "", slot);
+        screen.Text("os_cu_head", on ? card.Head : "", slot);
         for (var k = 1; k <= CatchUpRows; k++)
         {
             var row = on && k <= card.Rows.Length ? card.Rows[k - 1] : "";
-            screen.Text($"gg_cu_{k}", row, slot);
-            screen.Class($"gg_cu_{k}", "used", row != "", slot);
-            screen.Class($"gg_cu_{k}", "good", row != "" && !card.Bad, slot);
-            screen.Class($"gg_cu_{k}", "bad", row != "" && card.Bad, slot);
+            screen.Text($"os_cu_{k}", row, slot);
+            screen.Class($"os_cu_{k}", "used", row != "", slot);
+            screen.Class($"os_cu_{k}", "good", row != "" && !card.Bad, slot);
+            screen.Class($"os_cu_{k}", "bad", row != "" && card.Bad, slot);
         }
     }
 

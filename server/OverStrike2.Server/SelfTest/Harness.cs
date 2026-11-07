@@ -8,7 +8,7 @@ namespace OverStrike2.Server.SelfTest;
 sealed class FakeEngine : IEngine
 {
     public int? PidValue = 4242;
-    public bool A2s = true, RconUp = true, Hud;          // Hud: the plugin answers gg_notice (a published HUD is on)
+    public bool A2s = true, RconUp = true, Hud;          // Hud: the plugin answers os_notice (a published HUD is on)
     public int Humans, AliveProbes;
     public string Version = "1.41.8.8";
     public readonly List<string> Chat = [], Cmds = [], Killed = [];
@@ -37,13 +37,13 @@ sealed class FakeEngine : IEngine
             Write($"L 10/04/2026 - 07:00:00: rcon from \"127.0.0.1:5555\": command \"{c}\"");
         if (c.StartsWith("say ", StringComparison.Ordinal))
             Chat.Add(c[5..^1]);
-        if (c.StartsWith("gg_notice ", StringComparison.Ordinal) && Hud)
+        if (c.StartsWith("os_notice ", StringComparison.Ordinal) && Hud)
         {
-            var rest = c["gg_notice ".Length..];
+            var rest = c["os_notice ".Length..];
             var space = rest.IndexOf(' ');
             var text = rest[(space + 1)..].Trim('"');
             Notices.Add((int.Parse(rest[..space]), text));
-            return (true, $"gg_notice: shown for {rest[..space]} s: {text}");
+            return (true, $"os_notice: shown for {rest[..space]} s: {text}");
         }
         if (c == "quit")
             PidValue = null;

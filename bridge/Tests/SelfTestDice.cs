@@ -235,7 +235,7 @@ static partial class Program
         var whyState = HudState.Decode(BuildHud(Now()).Encode())!;
         Check("The catalog and the live state carry the reason; the board says it; the card lights Dislike; an older plugin's sign reads a dislike",
             whyCatalog.MyVote(1002, Key(whyCard)) == HudCatalog.SlowVote && whyState.MyVotes[1002] == HudCatalog.SmallVote && whyState.Down == 1
-            && HudView.PlayerTexts(whyState, 1002, "Bob", false).Single(x => x.Id == "gg_b_you").Text == "You disliked this map: too small"
+            && HudView.PlayerTexts(whyState, 1002, "Bob", false).Single(x => x.Id == "os_b_you").Text == "You disliked this map: too small"
             && HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-down").On && Math.Sign(whyState.MyVotes[1002]) == -1);
         var whySaved = Likes[Key(whyCard)][bobId];
         LoadLikes();
@@ -339,9 +339,9 @@ static partial class Program
         h.Run(ResetEmptyMinutes * 60 - 5);
         Check($"Nobody on for just under {ResetEmptyMinutes} min: nothing is reset yet", !h.Sent.Contains(FunResetCommand));
         h.Run(70);
-        Check($"Past {ResetEmptyMinutes} min: every fun setting - the grenade drops and catch-up too - back with gg_fun reset alone",
-            h.Sent.Contains("status") && h.Sent.Count(x => x == FunResetCommand) == 1 && FunResetCommand == "gg_fun reset \"the server\""
-            && !h.Sent.Any(x => x.StartsWith("gg_nades") || x.StartsWith("gg_catchup")));
+        Check($"Past {ResetEmptyMinutes} min: every fun setting - the grenade drops and catch-up too - back with os_fun reset alone",
+            h.Sent.Contains("status") && h.Sent.Count(x => x == FunResetCommand) == 1 && FunResetCommand == "os_fun reset \"the server\""
+            && !h.Sent.Any(x => x.StartsWith("os_catchup")));
         h.Run(1800);
         Check("...once per empty spell, however long it lasts", h.Sent.Count(x => x == FunResetCommand) == 1);
         h.Join(alice); h.Run(5); h.Leave(alice, "NETWORK_DISCONNECT_DISCONNECT_BY_USER");

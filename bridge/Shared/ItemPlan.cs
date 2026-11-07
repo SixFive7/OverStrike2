@@ -84,7 +84,7 @@ public sealed class ItemPlan
         NextVisit = verdict == true ? DateTime.MaxValue : now + (verdict == null ? RefusedWait : VisitEvery);
     }
 
-    /// <summary>css_gghud item: one visit now, whatever the Web API says (a window just long enough for it).</summary>
+    /// <summary>os_hud item: one visit now, whatever the Web API says (a window just long enough for it).</summary>
     public void VisitNow(DateTime now)
     {
         NextVisit = now;

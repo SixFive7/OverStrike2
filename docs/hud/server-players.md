@@ -8,9 +8,9 @@ A real game client draws every picture here against a test copy of the server, t
 
 ![SERVER &gt; Players: the player, the team, the HUD of the check's click, how long on](img/page-players.jpg)
 
-## SERVER > Players: an older HUD: older - restart CS2 (css_gghud content 1)
+## SERVER > Players: an older HUD: older - restart CS2 (os_hud content 1)
 
-![SERVER &gt; Players: an older HUD: older - restart CS2 (css_gghud content 1)](img/players-older.jpg)
+![SERVER &gt; Players: an older HUD: older - restart CS2 (os_hud content 1)](img/players-older.jpg)
 
 ## SERVER > Players while the check waits: HUD check: N s left in the HUD column
 

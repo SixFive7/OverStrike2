@@ -2,7 +2,7 @@
 // but whether the layout loaded the server cannot see - a game that kept an older copy shows nothing and says nothing - and a layout cannot send
 // anything by itself (CS2 drops a layout with scripts in it). The only proof is a click: a Button press in the window reaches the server
 // (OnCustomHudClicked) only from a game that has the layout and shows it. So a player not seen clicking since their last real join gets the window
-// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (HudVersion.Button: gg_hudver_v4.6.0), so its
+// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (HudVersion.Button: os_hudver_v4.6.0), so its
 // click proves the exact version; an older content's gold button is the live column's action button, whose click counts as older; any other
 // button verifies the HUD without saying which (HudVersion.Older, Unknown). One who has not clicked GraceSeconds after their first spawn on a map is
 // told in chat what to do, and with hud.check enforce disconnected; with warn only told.

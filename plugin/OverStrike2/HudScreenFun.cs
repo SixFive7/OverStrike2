@@ -4,7 +4,7 @@ using CounterStrikeSharp.API.Core;
 namespace OverStrike2;
 
 /// <summary>The Fun page's clicks: what it shows every frame is HudFrame's (../../bridge/Shared/HudMenu.cs: FunPage, FunWhy), what a click on it comes to FunClicks' (../../bridge/Shared/FunClicks.cs), the same
-/// change typed in chat, and Random and Default. The settings module makes every change, in process, a frame after the click or the line (FunSet, FunReset; gg_fun does the same from the
+/// change typed in chat, and Random and Default. The settings module makes every change, in process, a frame after the click or the line (FunSet, FunReset; os_fun does the same from the
 /// console): it owns the server's settings - the baseline, the put-back at the map's end and the block a player's change is exempt from; the grenade drops and catch-up are fun settings like
 /// the rest, its effects. Once the value is there one message says who switched what, the same for every setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB
 /// board, for everybody). A setting's "Set by" stays on the page: the message said it. One plugin drives every content: a content before v4.6.0 has sixteen rows and two fixed ones, greys
@@ -17,11 +17,11 @@ sealed partial class HudScreen
     /// <summary>Where the fun page's values come from: the settings module (convars and its effects). Set at the plugin's load.</summary>
     public Func<string, string?>? FunSource { get; set; }
 
-    /// <summary>Who set each fun setting that is off its default, by the setting's id: the settings module's word (gg_fun's last argument); null
+    /// <summary>Who set each fun setting that is off its default, by the setting's id: the settings module's word (os_fun's last argument); null
     /// while nobody is known. The settings module sets it at its load.</summary>
     public Func<string, string?>? FunSetBy { get; set; }
 
-    /// <summary>Makes a fun change now, in the name of who asked: the settings module's own (Settings.ChangeFun, which gg_fun runs too). Set at its load.</summary>
+    /// <summary>Makes a fun change now, in the name of who asked: the settings module's own (Settings.ChangeFun, which os_fun runs too). Set at its load.</summary>
     public Func<Fun.Setting, Fun.Choice, string, string>? FunSet { get; set; }
 
     /// <summary>Every player change undone and every effect at its default, in the name of who asked: the settings module's (Settings.ResetFun). Set at its load.</summary>

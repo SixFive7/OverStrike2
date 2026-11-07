@@ -9,7 +9,7 @@ using OverStrike2.Core;
 
 public sealed class HudSearch
 {
-    public const string Magic = "gg-search\t1";
+    public const string Magic = "os2-search\t1";
     public const int MaxQuery = 40;          // the keyboard stops there; the query box shows it whole
     public const int MaxText = 2000;         // per map, after normalising: name, tags and the description's start
 

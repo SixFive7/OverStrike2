@@ -174,15 +174,15 @@ public sealed partial class Watch
         return ok;
     }
 
-    /// <summary>A line for everybody on the HUD's top line (the plugin's server-only gg_notice, which answers "gg_notice: shown for N s:
+    /// <summary>A line for everybody on the HUD's top line (the plugin's server-only os_notice, which answers "os_notice: shown for N s:
     /// ..."); chat gets it only when the plugin does not answer.</summary>
     public bool Notice(string text, int seconds)
     {
         var line = Words.ChatSafe(text, 240);
         if (line.Length == 0)
             return true;
-        var reply = (Engine.Rcon($"gg_notice {seconds} \"{line}\"").Reply ?? "").Trim();
-        if (reply.StartsWith("gg_notice: shown", StringComparison.Ordinal))
+        var reply = (Engine.Rcon($"os_notice {seconds} \"{line}\"").Reply ?? "").Trim();
+        if (reply.StartsWith("os_notice: shown", StringComparison.Ordinal))
         {
             Log.Line($"hud: {line} ({seconds} s)");
             return true;

@@ -39,10 +39,10 @@ static partial class Program
         var keys = HudKeyboard.Keys().ToList();
         Check($"Keyboard: 26 letters, 10 digits, space, backspace, clear and done - {keys.Count} keys, each its own button", keys.Count == 40 && keys.Distinct().Count() == 40);
         Check("Keyboard: a key types its character; backspace, clear and space edit; space never first or twice; nothing past the limit",
-            HudKeyboard.Press("", "gg_kb_g") == "g" && HudKeyboard.Press("g", "gg_kb_7") == "g7" && HudKeyboard.Press("ab", HudKeyboard.Back) == "a" && HudKeyboard.Press("", HudKeyboard.Back) == ""
+            HudKeyboard.Press("", "os_kb_g") == "g" && HudKeyboard.Press("g", "os_kb_7") == "g7" && HudKeyboard.Press("ab", HudKeyboard.Back) == "a" && HudKeyboard.Press("", HudKeyboard.Back) == ""
             && HudKeyboard.Press("abc", HudKeyboard.Clear) == "" && HudKeyboard.Press("", HudKeyboard.Space) == "" && HudKeyboard.Press("ab ", HudKeyboard.Space) == "ab "
-            && HudKeyboard.Press("ab", HudKeyboard.Space) == "ab " && HudKeyboard.Press(new string('x', HudSearch.MaxQuery), "gg_kb_y") == new string('x', HudSearch.MaxQuery)
-            && HudKeyboard.Press("ab", "gg_m1_play") == null && HudKeyboard.CharOf("gg_kb_Q") == null && HudKeyboard.CharOf("gg_kb_q") == 'q');
+            && HudKeyboard.Press("ab", HudKeyboard.Space) == "ab " && HudKeyboard.Press(new string('x', HudSearch.MaxQuery), "os_kb_y") == new string('x', HudSearch.MaxQuery)
+            && HudKeyboard.Press("ab", "os_m1_play") == null && HudKeyboard.CharOf("os_kb_Q") == null && HudKeyboard.CharOf("os_kb_q") == 'q');
 
         // ---- the map browser with full-text search and the keyboard ----
         var catalog = new HudCatalog
@@ -60,7 +60,7 @@ static partial class Program
         index.Set("3681294731", "fy glass 3681294731 classic custom a simple map with glass floors");
         index.Set("123", "claim the hill deathmatch");
         var b = new HudBrowser();
-        foreach (var k in new[] { HudKeyboard.Open, "gg_kb_f", "gg_kb_l", "gg_kb_o", "gg_kb_o", "gg_kb_r", "gg_kb_s" }) b.Click(k, 0);
+        foreach (var k in new[] { HudKeyboard.Open, "os_kb_f", "os_kb_l", "os_kb_o", "os_kb_o", "os_kb_r", "os_kb_s" }) b.Click(k, 0);
         Check("Keyboard in the browser: the search box opens it, keys type the query, the page goes back to the first",
             b.Keyboard && b.Query == "floors" && b.Matches(catalog, 1, index) is [{ Name: "Fy_glass" }]);
         b.Page = 3; b.Click(HudKeyboard.Back, 4);
@@ -72,7 +72,7 @@ static partial class Program
         var withAim = new HudCatalog { Version = 2, Maps = [.. catalog.Maps, new("3600000001", "16", 16, 3600000001, "FUN GAME AİM", 12, false, -1, 0, 0, 0)] };
         index.Set("3600000001", OverStrike2.Core.SearchText.Of("FUN GAME AİM", "3600000001", []));
         var typing = new HudBrowser();
-        foreach (var k in new[] { HudKeyboard.Open, "gg_kb_a", "gg_kb_i", "gg_kb_m" }) typing.Click(k, 0);
+        foreach (var k in new[] { HudKeyboard.Open, "os_kb_a", "os_kb_i", "os_kb_m" }) typing.Click(k, 0);
         Check("The keyboard's \"aim\" finds FUN GAME AİM with the other aim maps: its name and its text are lowered as search.json's are",
             typing.Matches(withAim, 1, index).Select(m => m.Name).Order(StringComparer.Ordinal).SequenceEqual(["AIM Map", "Claim the hill", "FUN GAME AİM"]));
         b.Query = "1015";
@@ -82,7 +82,7 @@ static partial class Program
         b.Query = "3232901690";
         var (wt, wc) = HudMenu.Maps(catalog, new HudState(), b, 1, DateTime.UtcNow, index);
         Check("A Workshop id not on the list is the card's alone: no map cards under it (they ran off the page), no empty-page message",
-            b.WorkshopQuery(catalog) == 3232901690 && b.Matches(catalog, 1, index).Count == 0 && !wc.Single(c => c.Id == "gg_m_empty").On && wt.Single(t => t.Id == "gg_m_empty").Text == "");
+            b.WorkshopQuery(catalog) == 3232901690 && b.Matches(catalog, 1, index).Count == 0 && !wc.Single(c => c.Id == "os_m_empty").On && wt.Single(t => t.Id == "os_m_empty").Text == "");
         var settle = new WorkshopCard();
         var typedAt = new DateTime(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc);
         settle.Show(3232901, typedAt); settle.Show(3232901, typedAt.AddSeconds(5));
@@ -92,7 +92,7 @@ static partial class Program
         b.Query = "glass"; b.Keyboard = true;
         var (kt, kc) = HudMenu.Maps(catalog, new HudState(), b, 1, DateTime.UtcNow, index);
         Check("The search box shows the query with a caret while the keyboard is open, and the keyboard's class is on the player's screen",
-            kt.Single(t => t.Id == "gg_q_text").Text == "glass|" && kc.Contains((HudView.Screen, "kbd", true)) && kc.Contains(("gg_q_search", "used", true)));
+            kt.Single(t => t.Id == "os_q_text").Text == "glass|" && kc.Contains((HudView.Screen, "kbd", true)) && kc.Contains(("os_q_search", "used", true)));
 
         // ---- the card for a Workshop id that is not on the list (WorkshopCard) ----
         Check("Workshop ids: 7 to 12 digits; a shorter number is a rank, anything else is no id",
@@ -118,19 +118,19 @@ static partial class Program
             && items[444].Refusal!.Contains("not a Counter-Strike 2 item") && WorkshopItem.Parse("{}").Count == 0);
         var card = new WorkshopCard();
         card.Show(3232901690);
-        Check("Card: asking Steam first - nothing to click yet", card.At == WorkshopCard.Step.Checking && card.Texts().Single(t => t.Id == "gg_ws_status").Text.Contains("Asking the Workshop")
+        Check("Card: asking Steam first - nothing to click yet", card.At == WorkshopCard.Step.Checking && card.Texts().Single(t => t.Id == "os_ws_status").Text.Contains("Asking the Workshop")
             && card.Classes().Contains((WorkshopCard.Play, "off", true)) && card.Classes().Contains((WorkshopCard.Panel, "used", true)));
         card.Checked(items[3232901690]);
         Check("...a playable item: its title and size, and one button to download and play it",
-            card.At == WorkshopCard.Step.Ready && card.Texts().Single(t => t.Id == "gg_ws_title").Text == "Glass War" && card.Texts().Single(t => t.Id == "gg_ws_info").Text.Contains("138 MB")
-            && card.Texts().Single(t => t.Id == "gg_ws_play_text").Text == "Download and play" && card.Classes().Contains((WorkshopCard.Play, "off", false)));
+            card.At == WorkshopCard.Step.Ready && card.Texts().Single(t => t.Id == "os_ws_title").Text == "Glass War" && card.Texts().Single(t => t.Id == "os_ws_info").Text.Contains("138 MB")
+            && card.Texts().Single(t => t.Id == "os_ws_play_text").Text == "Download and play" && card.Classes().Contains((WorkshopCard.Play, "off", false)));
         card.Started(queued: true);
-        Check("...another download running: it waits its turn", card.At == WorkshopCard.Step.Waiting && card.Texts().Single(t => t.Id == "gg_ws_status").Text.Contains("starts right after"));
+        Check("...another download running: it waits its turn", card.At == WorkshopCard.Step.Waiting && card.Texts().Single(t => t.Id == "os_ws_status").Text.Contains("starts right after"));
         card.Progress(0, steamBusy: true);
         Check("...Steam's once-a-boot cache check first: the card says so instead of a stuck bar",
-            card.At == WorkshopCard.Step.Downloading && card.Texts().Single(t => t.Id == "gg_ws_status").Text.Contains("15 minutes") && card.Classes().Contains((WorkshopCard.Bar, "p0", true)));
+            card.At == WorkshopCard.Step.Downloading && card.Texts().Single(t => t.Id == "os_ws_status").Text.Contains("15 minutes") && card.Classes().Contains((WorkshopCard.Bar, "p0", true)));
         card.Progress(47, steamBusy: false);
-        Check("...then the download, its progress in tenths on the bar", card.Texts().Single(t => t.Id == "gg_ws_status").Text.Contains("47%") && card.Classes().Contains((WorkshopCard.Bar, "p4", true))
+        Check("...then the download, its progress in tenths on the bar", card.Texts().Single(t => t.Id == "os_ws_status").Text.Contains("47%") && card.Classes().Contains((WorkshopCard.Bar, "p4", true))
             && card.Classes().Count(c => c.Id == WorkshopCard.Bar && c.On) == 1);
         card.Progress(100, steamBusy: false);
         Check("...never 100% before it is really installed", card.Percent == 99);
@@ -140,12 +140,12 @@ static partial class Program
         var refused = new WorkshopCard();
         refused.Show(222); refused.Checked(items[222]);
         Check("A private item is refused with its reason, and its card has no button", refused.At == WorkshopCard.Step.Refused
-            && refused.Texts().Single(t => t.Id == "gg_ws_status").Text.StartsWith("Not playable: it is not public") && refused.Classes().Contains((WorkshopCard.Play, "off", true)));
+            && refused.Texts().Single(t => t.Id == "os_ws_status").Text.StartsWith("Not playable: it is not public") && refused.Classes().Contains((WorkshopCard.Play, "off", true)));
         var failed = new WorkshopCard();
         failed.Show(3232901690); failed.Checked(null, "the Workshop did not answer");
         Check("No answer from Steam: the card says so; a failed download can be tried again",
-            failed.At == WorkshopCard.Step.Failed && failed.Texts().Single(t => t.Id == "gg_ws_status").Text.Contains("did not answer")
-            && Retry(items[3232901690]) is { At: WorkshopCard.Step.Failed } again && again.Texts().Single(t => t.Id == "gg_ws_play_text").Text == "Try again" && again.Classes().Contains((WorkshopCard.Play, "off", false)));
+            failed.At == WorkshopCard.Step.Failed && failed.Texts().Single(t => t.Id == "os_ws_status").Text.Contains("did not answer")
+            && Retry(items[3232901690]) is { At: WorkshopCard.Step.Failed } again && again.Texts().Single(t => t.Id == "os_ws_play_text").Text == "Try again" && again.Classes().Contains((WorkshopCard.Play, "off", false)));
         static WorkshopCard Retry(WorkshopItem item) { var c = new WorkshopCard(); c.Show(item.Id); c.Checked(item); c.Started(false); c.Failed("Steam said 'Failure'"); return c; }
         card.Show(null);
         Check("Clearing the query takes the card away", card.At == WorkshopCard.Step.None && card.Classes().Contains((WorkshopCard.Panel, "used", false)));
@@ -162,8 +162,8 @@ static partial class Program
         blockedCard.Show(3076804331);
         blockedCard.Refuse("glassbox", catBack.Refused[3076804331].Why);
         Check("Card: a blocked id is refused at once in the server's words, under its own name, with no button and no Workshop question",
-            blockedCard.At == WorkshopCard.Step.Refused && blockedCard.Item == null && blockedCard.Texts().Single(t => t.Id == "gg_ws_title").Text == "glassbox"
-            && blockedCard.Texts().Single(t => t.Id == "gg_ws_status").Text == "Not playable: it kicked every player off the server (2026-10-20) - It is blocked."
+            blockedCard.At == WorkshopCard.Step.Refused && blockedCard.Item == null && blockedCard.Texts().Single(t => t.Id == "os_ws_title").Text == "glassbox"
+            && blockedCard.Texts().Single(t => t.Id == "os_ws_status").Text == "Not playable: it kicked every player off the server (2026-10-20) - It is blocked."
             && blockedCard.Classes().Contains((WorkshopCard.Play, "off", true)));
         blockedCard.Checked(items[3232901690]);
         Check("...and a late Workshop answer does not undo the refusal", blockedCard.At == WorkshopCard.Step.Refused);
@@ -180,9 +180,9 @@ static partial class Program
         if (WorkshopCard.ServerRefusal(hudCard.Id, refusing, hudItem) is { } own) hudCard.Refuse(own.Name, own.Why);
         hudCard.Checked(items[3232901690]); // were the Workshop asked after all: a CS2 item it calls playable
         Check("...so the card for the HUD's own item says it is no map: no Download and play, whatever the Workshop says",
-            hudCard.At == WorkshopCard.Step.Refused && hudCard.Texts().Single(t => t.Id == "gg_ws_title").Text == "Over Strike 2 HUD"
-            && hudCard.Texts().Single(t => t.Id == "gg_ws_status").Text == "Not playable: it isn't a playable map - It can't be loaded."
-            && hudCard.Texts().Single(t => t.Id == "gg_ws_play_text").Text == "" && hudCard.Classes().Contains((WorkshopCard.Play, "off", true)));
+            hudCard.At == WorkshopCard.Step.Refused && hudCard.Texts().Single(t => t.Id == "os_ws_title").Text == "Over Strike 2 HUD"
+            && hudCard.Texts().Single(t => t.Id == "os_ws_status").Text == "Not playable: it isn't a playable map - It can't be loaded."
+            && hudCard.Texts().Single(t => t.Id == "os_ws_play_text").Text == "" && hudCard.Classes().Contains((WorkshopCard.Play, "off", true)));
         if (Maps.FirstOrDefault(m => !m.Official) is not { } listedGone) Console.WriteLine("skip the catalog's refusals: no maps loaded");
         else
         {
@@ -222,9 +222,9 @@ static partial class Program
             && HudView.Command(HudView.BoardNext, free) == "!next" && HudView.Command(HudView.BoardNext, free, open) == HudView.OpenVote
             && HudView.Command(HudView.BoardNext, free, waiting) == "!next" && HudView.Command(HudView.BoardNext, new HudState { ChangeIn = 3 }) == null);
         Check("Board: the button's words in each case - start one, the vote on, the wait after one - and none of them a typed command",
-            HudView.PlayerTexts(free, 2, "Bob", false).Single(t => t.Id == "gg_b_next_text").Text == "Start a vote"
-            && HudView.PlayerTexts(free, 2, "Bob", false, open).Single(t => t.Id == "gg_b_next_text").Text.Contains("The vote is on")
-            && HudView.PlayerTexts(free, 2, "Bob", false, waiting).Single(t => t.Id == "gg_b_next_sub").Text == "The next one can start in 1 min 20 s"
+            HudView.PlayerTexts(free, 2, "Bob", false).Single(t => t.Id == "os_b_next_text").Text == "Start a vote"
+            && HudView.PlayerTexts(free, 2, "Bob", false, open).Single(t => t.Id == "os_b_next_text").Text.Contains("The vote is on")
+            && HudView.PlayerTexts(free, 2, "Bob", false, waiting).Single(t => t.Id == "os_b_next_sub").Text == "The next one can start in 1 min 20 s"
             && HudView.PlayerClasses(free, 2, waiting).Contains((HudView.Screen, "act-off", true)) && HudView.PlayerClasses(free, 2).Contains((HudView.Screen, "act-off", false))
             && new VoteState?[] { null, open, waiting }.Select(v => HudView.Action(free, v)).All(a => !a.Text.Contains('!') && !a.Sub.Contains('!')));
         var leading = VoteState.Decode("mv\t1793900001\topen\t20\t3\t3\tmid\t2\t1\nmvo\t2\tarmsrace\tpicked\t44\t44\t#44 aim_aim\t\t2\tAlice\nmvo\t1\tarmsrace\tkeep\t\tk\tKeep playing this map\t#5 x\t1\t\nmvo\t99\tarmsrace\trandom\t\t\tRandom\t\t0\t\n");
@@ -233,16 +233,16 @@ static partial class Program
         string LT(string id) => lt.Single(t => t.Id == id).Text;
         Check("Board and live column: the vote in one line, its leading cards in the rows below it; outside a vote how to call one, or the wait",
             HudView.VoteLine(null) == "No vote on: Play on a map, or Start a vote" && HudView.VoteLine(leading) == "The vote is on: 20 s left  ·  3 of 3 voted"
-            && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("gg_b_queue") == HudView.VoteLine(leading)
-            && LT("gg_w_n1") == "#44 aim_aim" && LT("gg_w_nw1") == "2 votes" && LT("gg_w_n2") == "Keep playing this map" && LT("gg_w_nw2") == "1 vote" && LT("gg_w_n3") == ""
-            && lc.Contains(("gg_w_row_n2", "used", true)) && lc.Contains(("gg_w_row_n3", "used", false)) && lc.Contains(("gg_w_nempty", "used", false))
-            && HudView.Classes(free).Contains(("gg_w_nempty", "used", true)) && HudView.VoteLine(leading).Length <= HudView.VoteLineMax);
+            && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("os_b_queue") == HudView.VoteLine(leading)
+            && LT("os_w_n1") == "#44 aim_aim" && LT("os_w_nw1") == "2 votes" && LT("os_w_n2") == "Keep playing this map" && LT("os_w_nw2") == "1 vote" && LT("os_w_n3") == ""
+            && lc.Contains(("os_w_row_n2", "used", true)) && lc.Contains(("os_w_row_n3", "used", false)) && lc.Contains(("os_w_nempty", "used", false))
+            && HudView.Classes(free).Contains(("os_w_nempty", "used", true)) && HudView.VoteLine(leading).Length <= HudView.VoteLineMax);
 
         // ---- every chat command, and where the menu has it now (the README's checklist says the same) ----
         var live = new HudState { Map = "#1 AIM Map", Key = "3084291314", PrevArg = "7", PrevLabel = "#7 Claim the hill" };
         var mine = new HudBrowser();
         var page = mine.PageOf(mine.Matches(catalog, 1, index));
-        string? Card(int k, string part) => HudMenu.Command($"gg_m{k}_{part}", catalog, live, mine, 1, DateTime.UtcNow, index);
+        string? Card(int k, string part) => HudMenu.Command($"os_m{k}_{part}", catalog, live, mine, 1, DateTime.UtcNow, index);
         var claim = page.FindIndex(m => m.Name == "Claim the hill") + 1;
         var rows = new (string Chat, string Where, string? Sends, string Expected)[]
         {
@@ -250,7 +250,7 @@ static partial class Program
             ("!map <unlisted Workshop id>", "Maps: the keyboard's digits, the item's card", WorkshopCard.IdOf("3232901690")?.ToString(), "3232901690"),
             ("!next", "Board or menu: Start a vote", HudView.Command(HudView.BoardNext, new HudState { Map = "x" }), "!next"),
             ("!previous !prev !back", "Previous", HudMenu.Command(HudMenu.Previous, catalog, live, mine, 1, DateTime.UtcNow), "!previous"),
-            ("!find <words>", "Maps: Search and the keyboard", HudKeyboard.Press("", "gg_kb_a"), "a"),
+            ("!find <words>", "Maps: Search and the keyboard", HudKeyboard.Press("", "os_kb_a"), "a"),
             ("!up", "Board or menu: Like", HudView.Command(HudView.BoardUp, live), "!up"),
             ("!down", "Board or menu: Dislike", HudView.Command(HudView.ButtonDown, live), "!down"),
             ("!up <map>", "Maps: a card's up arrow", Card(claim, "up"), "!up 7"),
@@ -261,11 +261,11 @@ static partial class Program
             ("!time 10|60", "Game: Match length", HudMenu.Command(HudMenu.Time10, catalog, live, mine, 1, DateTime.UtcNow) + " " + HudMenu.Command(HudMenu.Time60, catalog, live, mine, 1, DateTime.UtcNow), "!time 10 !time 60"),
             ("!restart", "Game: Restart the server (twice)", HudMenu.Command(HudMenu.Restart, catalog, live, mine, 1, DateTime.UtcNow), "!restart"),
             ("!rematch", "Game: Restart the match (twice)", HudMenu.Command(HudMenu.Rematch, catalog, live, mine, 1, DateTime.UtcNow), "!rematch"),
-            ("!nades on|off", "Fun: Grenade drops (a fun setting)", HudMenu.FunClick(HudMenu.FunButton(17, 1)) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.FunButton(17, 2)) is ({ Id: "drops" }, { Id: "off" }) ? "gg_f17_1 gg_f17_2" : null, "gg_f17_1 gg_f17_2"),
-            ("!gg !info", "Board: Open full menu; TAB + E", HudView.BoardOpen, "gg_b_open"),
-            ("!help !maps", "Help page", HudView.Tabs.First(t => t.Page == HudSlots.Page.Help).Id, "gg_tab_help"),
+            ("!nades on|off", "Fun: Grenade drops (a fun setting)", HudMenu.FunClick(HudMenu.FunButton(17, 1)) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.FunButton(17, 2)) is ({ Id: "drops" }, { Id: "off" }) ? "os_f17_1 os_f17_2" : null, "os_f17_1 os_f17_2"),
+            ("!gg !info", "Board: Open full menu; TAB + E", HudView.BoardOpen, "os_b_open"),
+            ("!help !maps", "Help page", HudView.Tabs.First(t => t.Page == HudSlots.Page.Help).Id, "os_tab_help"),
         };
-        static List<HudCatalog.Entry> Sorted(HudCatalog c, HudSearch i) { var v = new HudBrowser(); v.Click("gg_sort_votes", 0); return v.Matches(c, 1, i); }
+        static List<HudCatalog.Entry> Sorted(HudCatalog c, HudSearch i) { var v = new HudBrowser(); v.Click("os_sort_votes", 0); return v.Matches(c, 1, i); }
         foreach (var (chat, where, sends, expected) in rows)
             Check($"Menu instead of chat: {chat} -> {where}", sends == expected && (!expected.StartsWith('!') || Hud.IsAction(expected.Split(' ')[0] == "!time" ? "!time 10" : expected)));
         Check("!rcon is gone, not moved: no button asks for a server command, and the bridge refuses one on /act",
@@ -291,7 +291,7 @@ static partial class Program
         finally { S = savedS; Pending = savedPending; ClearNotices(); }
 
         // ---- the search index file (search.json beside maps.json), read again whenever it changes ----
-        var tmp = Path.Combine(Path.GetTempPath(), $"gg-search-{Environment.ProcessId}.json");
+        var tmp = Path.Combine(Path.GetTempPath(), $"os-search-{Environment.ProcessId}.json");
         try
         {
             File.WriteAllText(tmp, JsonSerializer.Serialize(new Dictionary<string, string> { ["3084291314"] = "AIM Map: classic deathmatch", ["123"] = "Claim the hill" }, Ctx.Default.DictionaryStringString));

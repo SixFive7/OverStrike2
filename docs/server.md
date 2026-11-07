@@ -93,11 +93,11 @@ The watcher posts plain text to the bridge at `<bridge.url>/<path>/<bridge.secre
 
 | Path | Body | When |
 |---|---|---|
-| `/restart-notice/` | `gg-restart\t1\t<kind>\t<when>\t<seconds>` | `kind`: `game-update`, `our-update`, `daily`, `downloads`. `when`: `match-end` (the restart waits for the end of the current match; `seconds` is the countdown that will follow it, 10) or `now` (the quit follows in `seconds`: 10 at a match end, 0 with nobody on). The match-end notice comes again every 5 minutes while the restart waits. |
-| `/restart-notice/` | `gg-restart\t1\tcancel\t<kind>` | The announced restart is off: no longer due, or its quit could not be delivered. |
-| `/quitting/` | `gg-quit\t1\t<kind>`, `gg-quit\t1\tcancel\t<kind>` | Right before the quit (`kind`: `update`, `version`, `daily`, `workshop`); the cancel when the quit could not be delivered. A freeze kill sends nothing: it is the crash it looks like. |
-| `/updated/` | `gg-updated\t1\t<what>\t<from>\t<to>` | After a planned restart, once the engine answers: `game-update` with the CS2 builds, `our-update` with the versions of our parts. Tried again every minute, up to 10 times. |
-| `/ready/` | `gg-ready\t1`, then one Workshop id a line; while a background download runs, a last line `current\t<id>\t<percent or ->\t<title>` | The maps `queues.json` names that are on the server's disk, at least every 2 minutes and whenever that or the download's progress changes. An answer that ends in `; hold: <why>` holds the next background download. |
+| `/restart-notice/` | `os2-restart\t1\t<kind>\t<when>\t<seconds>` | `kind`: `game-update`, `our-update`, `daily`, `downloads`. `when`: `match-end` (the restart waits for the end of the current match; `seconds` is the countdown that will follow it, 10) or `now` (the quit follows in `seconds`: 10 at a match end, 0 with nobody on). The match-end notice comes again every 5 minutes while the restart waits. |
+| `/restart-notice/` | `os2-restart\t1\tcancel\t<kind>` | The announced restart is off: no longer due, or its quit could not be delivered. |
+| `/quitting/` | `os2-quit\t1\t<kind>`, `os2-quit\t1\tcancel\t<kind>` | Right before the quit (`kind`: `update`, `version`, `daily`, `workshop`); the cancel when the quit could not be delivered. A freeze kill sends nothing: it is the crash it looks like. |
+| `/updated/` | `os2-updated\t1\t<what>\t<from>\t<to>` | After a planned restart, once the engine answers: `game-update` with the CS2 builds, `our-update` with the versions of our parts. Tried again every minute, up to 10 times. |
+| `/ready/` | `os2-ready\t1`, then one Workshop id a line; while a background download runs, a last line `current\t<id>\t<percent or ->\t<title>` | The maps `queues.json` names that are on the server's disk, at least every 2 minutes and whenever that or the download's progress changes. An answer that ends in `; hold: <why>` holds the next background download. |
 
 ## Downloads a player waits for
 

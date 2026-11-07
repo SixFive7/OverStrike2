@@ -3,7 +3,7 @@
 // walked through, the way the page, chat and Random make them. A combination is the union of its choices' convar writes; the walk sets each one on a stock
 // server's values and checks that it reads back as made, that the page calls idle exactly what does nothing then, that it holds a Clash
 // exactly where Fun.Clashes says (the one rule Random obeys), that Random hands out every clash-free combination and no clashing one, and
-// that the page, chat and gg_fun refuse exactly the clicks that would make a clash. The live check on a test copy (every setting read back,
+// that the page, chat and os_fun refuse exactly the clicks that would make a clash. The live check on a test copy (every setting read back,
 // the engine, bots playing) is the release's, in the client test's notes. FunPageSelfTest then holds what the page and the messages say about it:
 // every section's capital, one message for a change, impossible choices greyed, a refusal at the button that was clicked.
 using System.Collections.Concurrent;
@@ -108,7 +108,7 @@ static partial class Program
             && Fun.Refusal(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "moon")!, c => c == "sv_jump_impulse" ? "450" : null) == "Gravity cannot be Moon while Super jump is High: together they throw players out of most maps"
             && Fun.Refusal(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "low")!, c => c == "sv_jump_impulse" ? "450" : null) == null);
         var jumpBack = Fun.InSafeOrder([(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "moon")!), (Fun.Find("jump")!, Fun.Find("jump")!.Normal)]);
-        Check("Random makes its changes back to Normal first, so gg_fun meets no clash on the way (Super jump down before the gravity goes to Moon)",
+        Check("Random makes its changes back to Normal first, so os_fun meets no clash on the way (Super jump down before the gravity goes to Moon)",
             jumpBack[0].Setting.Id == "jump" && jumpBack[1].Setting.Id == "gravity");
         Check("The first choice of the grenade drops and of catch-up is On", Fun.Find("drops")!.Normal.Id == "on" && Fun.Find("catchup")!.Normal.Id == "on");
         Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, rows of the page like any other; an older content's fixed rows lit from them, its buttons the same choices",
@@ -179,7 +179,7 @@ static partial class Program
         Check("The page greys what cannot be made, for everybody, and its row's variable says why: Moon gravity greys Super jump's High, Super jump High greys Gravity's Moon; nothing on a stock server, and nothing while a map runs both (they are lit, as they are)",
             Page(moonValues).Grey.SequenceEqual([highButton]) && Page(moonValues).Why.SequenceEqual([(HudMenu.FunWhyVar(jumpRow), reasonHigh)])
             && Page(highValues).Grey.SequenceEqual([moonButton]) && Page(highValues).Why.SequenceEqual([(HudMenu.FunWhyVar(gravityRow), reasonMoon)])
-            && HudMenu.FunRowOf(HudMenu.FunWhyVar(jumpRow)) == $"gg_f{jumpRow}"
+            && HudMenu.FunRowOf(HudMenu.FunWhyVar(jumpRow)) == $"os_f{jumpRow}"
             && Page(stockValues).Grey.Count == 0 && Page(stockValues).Why.Count == 0 && Page(bothValues).Grey.Count == 0 && Page(bothValues).Why.Count == 0
             && HudMenu.FunPage(stockValues).Classes.Count(x => x.Class == "off") == Fun.Rows * Fun.ChoicesPerRow && HudMenu.FunWhy(stockValues).Select(x => x.Name).SequenceEqual(Enumerable.Range(1, Fun.Rows).Select(r => $"osfw{r}")));
 
@@ -236,10 +236,10 @@ static partial class Program
             var missing = Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Where(k => !Regex.IsMatch(xml,
                 $@"<Button id=""{HudMenu.FunButton(r, k)}""[^>]*>\s*<Label id=""{HudMenu.FunButton(r, k)}_txt""[^>]*/>\s*</Button>")).Select(k => HudMenu.FunButton(r, k))).ToList();
             var lineless = Enumerable.Range(1, Fun.Rows).Where(r => !Regex.IsMatch(xml,
-                $@"<Label id=""gg_f{r}_txt"" class=""gg-frow-txt"" text=""\{{s:text\}}"" />\s*<Label class=""gg-fwhy"" text=""\{{s:{HudMenu.FunWhyVar(r)}\}}"" />")).Select(r => $"gg_f{r}").ToList();
+                $@"<Label id=""os_f{r}_txt"" class=""os-frow-txt"" text=""\{{s:text\}}"" />\s*<Label class=""os-fwhy"" text=""\{{s:{HudMenu.FunWhyVar(r)}\}}"" />")).Select(r => $"os_f{r}").ToList();
             Check($"The layout: each of the page's {Fun.Rows * Fun.ChoicesPerRow} choices is a Button, and each row has its reason line, which reads its row's variable{(missing.Count + lineless.Count > 0 ? ": not " + string.Join(", ", missing.Concat(lineless).Take(6)) : "")}; the stylesheet greys off, shows the reason in place of the row's words under clash, and edges a refused click's button",
-                missing.Count == 0 && lineless.Count == 0 && Regex.IsMatch(css, @"\.gg-funb\.off\s*\{") && Regex.IsMatch(css, @"\.gg-frow\.clash \.gg-fwhy\s*\{\s*visibility:\s*visible;")
-                && Regex.IsMatch(css, @"\.gg-frow\.clash \.gg-frow-txt\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.gg-funb\.refused\s*\{") && !css.Contains("gg-ftip"));
+                missing.Count == 0 && lineless.Count == 0 && Regex.IsMatch(css, @"\.os-funb\.off\s*\{") && Regex.IsMatch(css, @"\.os-frow\.clash \.os-fwhy\s*\{\s*visibility:\s*visible;")
+                && Regex.IsMatch(css, @"\.os-frow\.clash \.os-frow-txt\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.os-funb\.refused\s*\{") && !css.Contains("os-ftip"));
         }
         else Console.WriteLine($"skip the Fun page's layout check: {HudLayoutFile} or {HudStyleFile} not found");
     }

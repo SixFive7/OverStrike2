@@ -287,7 +287,7 @@ static partial class Program
                 Check("Voting: who has not voted, the limit's digits and how many have, the inactivity row waiting; votes/present on the tiles; the limit's bar at its step",
                     Header(w1) == "Started by Alice | Waiting for: Eve, Fay | 38 s | 4 of 6 voted | Inactivity timer |  | Starts when everybody has voted"
                     && ClassOn(w1, HudView.Screen, "voting") && !ClassOn(w1, HudView.Screen, "vdone") && !ClassOn(w1, HudView.Screen, "vlow")
-                    && StepOf(w1, HudVote.LimitBar) == "w6" && StepOf(w1, HudVote.IdleBar) == "w0" && TextOf(w1, "gg_m1_score") == "3/6" && TextOf(w1, "gg_m2_score") == "1/6" && TextOf(w1, "gg_m3_score") == "0/6");
+                    && StepOf(w1, HudVote.LimitBar) == "w6" && StepOf(w1, HudVote.IdleBar) == "w0" && TextOf(w1, "os_m1_score") == "3/6" && TextOf(w1, "os_m2_score") == "1/6" && TextOf(w1, "os_m3_score") == "0/6");
                 h.Run(11);
                 Click(eve, winA); Click(fay, winB);
                 var w2 = WinState();
@@ -302,7 +302,7 @@ static partial class Program
                 var decidedHud = BuildHud(h.Clock);
                 Check("Decided, the change counting down: who won and how, the second row counts down on its own bar, vdone, the winner lit, Next map; everybody frozen",
                     Header(w4d) == $"Started by Alice | {won} won (4 of 6) - Picked by the vote |  |  | Changing in | {ChangeDelay} s | " && w4d is { Open: false, Freeze: true, Kept: false } && w4d.DoneSeconds == ChangeDelay
-                    && ClassOn(w4d, HudView.Screen, "vdone") && !ClassOn(w4d, HudView.Screen, "vlow") && ClassOn(w4d, "gg_m1", "now") && TextOf(w4d, "gg_m1_play_text") == "Next map" && TextOf(w4d, "gg_m2_play_text") == ""
+                    && ClassOn(w4d, HudView.Screen, "vdone") && !ClassOn(w4d, HudView.Screen, "vlow") && ClassOn(w4d, "os_m1", "now") && TextOf(w4d, "os_m1_play_text") == "Next map" && TextOf(w4d, "os_m2_play_text") == ""
                     && StepOf(w4d, HudVote.IdleBar) == "w10" && StepOf(w4d, HudVote.LimitBar) == "w0");
                 Check("...chat and the board say it, once, with its count of everybody present; no top line over the window, no second line for the change",
                     M.Plain(decidedHud.Says[^1].Text) is var decidedLine && decidedLine.StartsWith("Everybody has voted: ") && decidedLine.EndsWith($"(4 of 6) - Changing in {ChangeDelay} s") && decidedHud.TopText == ""
@@ -324,7 +324,7 @@ static partial class Program
                 var keptHud = BuildHud(h.Clock);
                 Check($"Kept the map: for {MapVote.KeptSeconds} s the window says so and closes in that time, vdone, the card lit, everybody frozen; no change, no top line; chat and the board say it",
                     Header(w6) == $"Started by Bob | The vote kept {keptLabel} (4 of 6) |  |  | Closes in | {MapVote.KeptSeconds} s | " && w6 is { Open: false, Freeze: true, Kept: true, DoneSeconds: MapVote.KeptSeconds }
-                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "gg_m1", "now") && TextOf(w6, "gg_m1_score") == "4/6" && TextOf(w6, "gg_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == "w10"
+                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "os_m1", "now") && TextOf(w6, "os_m1_score") == "4/6" && TextOf(w6, "os_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == "w10"
                     && Pending is null && S.Map == keptMap && keptHud.TopText == "" && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)")
                     && HudView.VoteLine(w6) == Hud.Clean($"The vote kept {keptLabel}", HudView.VoteLineMax));
                 Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(h.Clock).Encode(endTimes: true)).AsOf(HudState.Ms(h.Clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);
@@ -481,7 +481,7 @@ static partial class Program
             var p7Card = LiveVote();
             var p7Slot = p7Card.Maps.FindIndex(o => o.Key == Key(p7)) + 1;
             Check("...a click on the card her vote is on takes it back (!mv <round> 0), and on another card moves it",
-                HudVote.Click(p7Card, $"gg_m{p7Slot}_play", 0, 2001) == MapVote.Click(p7Card.Round, 0) && HudVote.Click(p7Card, $"gg_m{p7Slot}_play", 0, 2002) == MapVote.Click(p7Card.Round, p7Card.Maps[p7Slot - 1].N)
+                HudVote.Click(p7Card, $"os_m{p7Slot}_play", 0, 2001) == MapVote.Click(p7Card.Round, 0) && HudVote.Click(p7Card, $"os_m{p7Slot}_play", 0, 2002) == MapVote.Click(p7Card.Round, p7Card.Maps[p7Slot - 1].N)
                 && HudVote.Click(p7Card, HudVote.RandomButton, 0, 2001) == MapVote.Click(p7Card.Round, MapVote.RandomOption));
             var two0 = Opt(2).Map!;
             ClearNotices(); Pick(bob, two0);

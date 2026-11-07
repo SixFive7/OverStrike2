@@ -157,27 +157,27 @@ static partial class Program
             var cls = HudView.Classes(seen);
             Check("The views: the top line's category and the banner's tone are one class each, the crash note's line shows", On(cls, HudView.Global, "top") && On(cls, HudView.TopPanel, "cat-maps") && !On(cls, HudView.TopPanel, "cat-fun")
                 && On(cls, HudView.Global, "ban") && On(cls, HudView.BannerPanel, "tone-done") && !On(cls, HudView.BannerPanel, "tone-problem") && On(cls, HudView.Global, "crash")
-                && HudView.Texts(seen).Single(t => t.Id == "gg_top_tab").Text == "Maps");
+                && HudView.Texts(seen).Single(t => t.Id == "os_top_tab").Text == "Maps");
             string K(HudState st, string id) => HudView.Texts(st).Single(t => t.Id == id).Text;
             var change = new HudState { ChangeMap = "Lake", ChangeBy = "Bob", ChangeIn = 8 };
             var restart = new HudState { RestartKind = "player", RestartWhen = "now", RestartIn = 10, RestartBy = "Remy", RestartAfter = "Back in a minute - Reconnect then (console: retry)" };
             var daily = new HudState { RestartKind = "daily", RestartWhen = "now", RestartIn = 10, RestartAfter = "Back in a minute" };
             var waitsForEnd = new HudState { RestartKind = "daily", RestartWhen = "match-end" };
             Check("The countdown banner: a map change with its picture, a restart with the logo naming who pressed it, none while it waits for the match's end",
-                K(change, "gg_k_eyebrow") == "Map change" && K(change, "gg_k_map") == "Lake" && K(change, "gg_k_by") == "Picked by Bob" && K(change, "gg_k_secs") == "8" && !On(HudView.Classes(change), HudView.Global, "cd-logo")
-                && K(restart, "gg_k_eyebrow") == "Server" && K(restart, "gg_k_map") == "Remy is restarting the server" && K(restart, "gg_k_secs") == "10" && On(HudView.Classes(restart), HudView.Global, "cd-logo") && On(HudView.Classes(restart), HudView.Global, "changing")
-                && K(daily, "gg_k_map") == "The server restarts in 10 s" && K(waitsForEnd, "gg_k_map") == "" && !On(HudView.Classes(waitsForEnd), HudView.Global, "changing"));
+                K(change, "os_k_eyebrow") == "Map change" && K(change, "os_k_map") == "Lake" && K(change, "os_k_by") == "Picked by Bob" && K(change, "os_k_secs") == "8" && !On(HudView.Classes(change), HudView.Global, "cd-logo")
+                && K(restart, "os_k_eyebrow") == "Server" && K(restart, "os_k_map") == "Remy is restarting the server" && K(restart, "os_k_secs") == "10" && On(HudView.Classes(restart), HudView.Global, "cd-logo") && On(HudView.Classes(restart), HudView.Global, "changing")
+                && K(daily, "os_k_map") == "The server restarts in 10 s" && K(waitsForEnd, "os_k_map") == "" && !On(HudView.Classes(waitsForEnd), HudView.Global, "changing"));
             var late = new HudState { Lately = [new(60_000, 0, "", "Old"), new(120_000, 5, "", "Mine"), new(150_000, 6, "", "Not mine"), new(180_000, 0, "k", "Newer"), new(170_000, 0, "k", "Older")] };
             var rows = HudView.LatelyTexts(late, 5, 240_000);
             string R(string id) => rows.Single(t => t.Id == id).Text;
-            Check("The board's Lately: the three most recent of this player's, a key's newest only, with how long ago", R("gg_bl_w1") == "Newer" && R("gg_bl_t1") == "1 min" && R("gg_bl_w2") == "Mine" && R("gg_bl_t2") == "2 min" && R("gg_bl_w3") == "Old" && R("gg_bl_t3") == "3 min"
+            Check("The board's Lately: the three most recent of this player's, a key's newest only, with how long ago", R("os_bl_w1") == "Newer" && R("os_bl_t1") == "1 min" && R("os_bl_w2") == "Mine" && R("os_bl_t2") == "2 min" && R("os_bl_w3") == "Old" && R("os_bl_t3") == "3 min"
                 && Messages.Ago(0, 30_000) == "Now" && Messages.Ago(0, 7_200_000) == "2 h" && HudView.LatelyClasses(new HudState(), 1).All(c => !c.On));
             var noted = new HudState { Notes = new() { [7] = ("Refused", 3) }, NoteCats = new() { [7] = "vote" } };
             var pc = HudView.PlayerClasses(noted, 7);
             Check("The window's line: the player's note, its category's colour and eyebrow", On(pc, HudView.Screen, "wl") && On(pc, HudView.LinePanel, "cat-vote") && !On(HudView.PlayerClasses(noted, 8), HudView.Screen, "wl")
-                && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "gg_wl_eyebrow").Text == "Vote" && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "gg_wl_text").Text == "Refused");
-            Check("The welcome: its large text greets the player, welcome back for a returning one; the tagline stands beside the title in the window's head", HudView.PlayerTexts(new HudState(), 1, "Bob", true).Single(t => t.Id == "gg_w_hello").Text == "Welcome back, Bob"
-                && HudView.PlayerTexts(new HudState(), 1, "Bob", false).Single(t => t.Id == "gg_w_hello").Text == "Welcome, Bob" && HudView.StaticTexts().Single(t => t.Id == "gg_w_headline").Text == "Over the top - On the Huis");
+                && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "os_wl_eyebrow").Text == "Vote" && HudView.PlayerTexts(noted, 7, "x", false).Single(t => t.Id == "os_wl_text").Text == "Refused");
+            Check("The welcome: its large text greets the player, welcome back for a returning one; the tagline stands beside the title in the window's head", HudView.PlayerTexts(new HudState(), 1, "Bob", true).Single(t => t.Id == "os_w_hello").Text == "Welcome back, Bob"
+                && HudView.PlayerTexts(new HudState(), 1, "Bob", false).Single(t => t.Id == "os_w_hello").Text == "Welcome, Bob" && HudView.StaticTexts().Single(t => t.Id == "os_w_headline").Text == "Over the top - On the Huis");
 
             // ---- the plugin hands the views the vote, which only its source can show: without it the board says no vote is on, and the wait looks live ----
             const string screen = "../plugin/OverStrike2/HudScreen.cs";

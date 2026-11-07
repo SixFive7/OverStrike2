@@ -197,7 +197,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             var why = f.Why.Replace("%", "").Trim();
             var text = Core.Words.ChatSafe($"The server could not download {Title(f.Id, now)}: {(why.Length > 0 ? why : "no reason given")} - Pick another map", 240);
             log.Line($"hud: {text}");
-            engine.Rcon($"gg_notice 10 \"{text}\"");
+            engine.Rcon($"os_notice 10 \"{text}\"");
             sent = now;
             return;
         }
@@ -211,6 +211,6 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         if (told.Add(newest))
             log.Line($"hud: {line}");
         sent = now;
-        engine.Rcon($"gg_notice {Hold} \"{line}\"");
+        engine.Rcon($"os_notice {Hold} \"{line}\"");
     }
 }

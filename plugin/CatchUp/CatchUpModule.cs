@@ -24,10 +24,6 @@ public sealed class CatchUpModule
     /// <summary>The server command (console and RCON only): status, reload, on, off, show, give.</summary>
     public const string Command = "os_catchup";
 
-    /// <summary>The command's old word, answered the same: the documentation's screenshot tools still send it (tools/client/docshots and
-    /// os2-deploy docshots).</summary>
-    const string OldCommand = "gg_catchup";
-
     sealed class Life
     {
         public int Serial;
@@ -103,7 +99,6 @@ public sealed class CatchUpModule
         plugin.RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnTakeDamage);
         plugin.AddTimer(RegenTickSeconds, Tick, TimerFlags.REPEAT);
         plugin.AddCommand(Command, "Arms Race catch-up: os_catchup [status | reload | on | off | show <player> <behind | lead N> | give <player> <behind | lead N>]", OnCommand);
-        plugin.AddCommand(OldCommand, $"Arms Race catch-up: the old word of {Command}", OnCommand);
         WarmUp();
         log.LogInformation("CatchUp: {Summary}; {State}", summary,
             hotReload ? "loaded during a map: counting starts at the next match" : "counting starts at the first match");

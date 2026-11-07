@@ -5,14 +5,14 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The settings module's console commands, server only (RCON and the server console): gg_fun, which the HUD and the bridge send,
+/// <summary>The settings module's console commands, server only (RCON and the server console): os_fun, which the HUD and the bridge send,
 /// and os_settings and os_block, an operator's look at the put-back and the block.</summary>
 sealed partial class GameSettings
 {
-    /// <summary>gg_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a change from the console, as the HUD makes a player's in process (ChangeFun).
-    /// gg_fun reset ["who"]: every player change undone and every effect at its default - the bridge's reset after 10 minutes with nobody on
-    /// (ResetFun). Bare gg_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
-    [ConsoleCommand(Fun.Command, "Fun settings: gg_fun <setting> <choice> [who] | gg_fun reset [who] | gg_fun")]
+    /// <summary>os_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a change from the console, as the HUD makes a player's in process (ChangeFun).
+    /// os_fun reset ["who"]: every player change undone and every effect at its default - the bridge's reset after 10 minutes with nobody on
+    /// (ResetFun). Bare os_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
+    [ConsoleCommand(Fun.Command, "Fun settings: os_fun <setting> <choice> [who] | os_fun reset [who] | os_fun")]
     [CommandHelper(minArgs: 0, usage: "[<setting> <choice> | reset] [who]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnFun(CCSPlayerController? player, CommandInfo command)
     {
@@ -29,7 +29,7 @@ sealed partial class GameSettings
         }
         if (Fun.Find(verb) is not { } setting || command.ArgCount < 3 || Fun.Find(setting, command.GetArg(2)) is not { } choice)
         {
-            command.ReplyToCommand("fun: gg_fun <setting> <choice> [who] - " + string.Join("; ", Fun.Settings.Select(s => $"{s.Id} {string.Join("|", s.Choices.Select(c => c.Id))}")));
+            command.ReplyToCommand("fun: os_fun <setting> <choice> [who] - " + string.Join("; ", Fun.Settings.Select(s => $"{s.Id} {string.Join("|", s.Choices.Select(c => c.Id))}")));
             return;
         }
         command.ReplyToCommand($"fun: {ChangeFun(setting, choice, command.ArgCount > 3 ? command.GetArg(3) : "Console")}");

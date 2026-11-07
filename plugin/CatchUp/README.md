@@ -35,8 +35,7 @@ or loaded on its own.
 
 ## The console command
 
-`os_catchup`, from the server console or RCON only; a client typing it gets nothing. Its old word, `gg_catchup`, does the same: the
-documentation's screenshot tools still send it.
+`os_catchup`, from the server console or RCON only; a client typing it gets nothing.
 
 | Command | Effect |
 |---|---|

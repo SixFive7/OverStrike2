@@ -22,7 +22,7 @@ sealed partial class HudScreen
     bool WantsVersion(long account) => VersionOf(account) is var v && (v == "" || v == HudVersion.Unknown);
 
     /// <summary>An account's first click since its last real join, or the one that says which HUD it is: verified here at once, and at the bridge
-    /// (!hudok with the version, which only this real click sends - never css_gghud click, never chat). A known version is never forgotten for an
+    /// (!hudok with the version, which only this real click sends - never os_hud click, never chat). A known version is never forgotten for an
     /// unknown one (HudVersion.Unknown).</summary>
     void Verify(CCSPlayerController player, long account, bool wasChecked, string version)
     {
@@ -105,14 +105,14 @@ sealed partial class HudScreen
         Post(Messages.HoldNoMenu, HudCheck.NoMenuChat(droppedCause, item.Updated), Account(player));
     }
 
-    /// <summary>css_gghud item: the item's page visited now; says what the last visit found and whether joiners must download it.</summary>
+    /// <summary>os_hud item: the item's page visited now; says what the last visit found and whether joiners must download it.</summary>
     public string CheckItemNow()
     {
         item.Soon();
-        return $"one item page visit due now, by hand (the answer shows in css_gghud in a few seconds); so far: {item.Describe(DateTime.UtcNow)}, addon {(addonRequired ? "required of joiners" : "NOT required")}";
+        return $"one item page visit due now, by hand (the answer shows in os_hud in a few seconds); so far: {item.Describe(DateTime.UtcNow)}, addon {(addonRequired ? "required of joiners" : "NOT required")}";
     }
 
-    /// <summary>css_gghud page &lt;id&gt;: what the item check would make of any item's page and Web API answer right now - logged when the
+    /// <summary>os_hud page &lt;id&gt;: what the item check would make of any item's page and Web API answer right now - logged when the
     /// answers are in (a few seconds); changes nothing.</summary>
     public string ProbeItem(long other)
     {

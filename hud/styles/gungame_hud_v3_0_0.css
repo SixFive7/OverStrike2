@@ -10,78 +10,78 @@
   quoted; no comma selectors - one selector per rule, even where that repeats a block; pictures only as background-image.
 
   One layout entity takes 1,024 class names, and the self-test holds every name in these stylesheets under 900 ("Limit:"). So a panel that has an id and
-  needs no class of its own for anything else is named by its id (#gg_k_map): an id costs no class name.
+  needs no class of its own for anything else is named by its id (#os_k_map): an id costs no class name.
 
   Look: CS2's own HUD language - dark frosted panels (world-blur), Stratum2, small letter-spaced labels - with one accent, the gold of
   the golden knife, close to the game's own T colour.
 */
 
-@define gg-gold: #E9B44C;
-@define gg-gold-hi: #FFD47E;
-@define gg-gold-deep: #B97C22;
-@define gg-text: #F1EDE5;
-@define gg-dim: #A9B1B9;
-@define gg-faint: #76818B;   /* 4.5:1 on the darkest panel (it was #6F7A84, 4.0:1) */
-@define gg-line: #FFFFFF14;
-@define gg-up: #7BD88F;
-@define gg-down: #F07C6B;
-@define gg-blur: gaussian( 6, 6, 2 );
-@define gg-card: gradient( linear, 0% 0%, 0% 100%, from( #12171DF2 ), to( #0A0D11F4 ) );
-@define gg-shadow: #000000a6 0px 12px 36px 0px;
+@define os-gold: #E9B44C;
+@define os-gold-hi: #FFD47E;
+@define os-gold-deep: #B97C22;
+@define os-text: #F1EDE5;
+@define os-dim: #A9B1B9;
+@define os-faint: #76818B;   /* 4.5:1 on the darkest panel (it was #6F7A84, 4.0:1) */
+@define os-line: #FFFFFF14;
+@define os-up: #7BD88F;
+@define os-down: #F07C6B;
+@define os-blur: gaussian( 6, 6, 2 );
+@define os-card: gradient( linear, 0% 0%, 0% 100%, from( #12171DF2 ), to( #0A0D11F4 ) );
+@define os-shadow: #000000a6 0px 12px 36px 0px;
 
 /* ---- the frame ---------------------------------------------------------------------------------------------------- */
 
-.gg-root
+.os-root
 {
 	width: 100%;
 	height: 100%;
 }
 
-.gg-global
+.os-global
 {
 	width: 100%;
 	height: 100%;
 }
 
-.gg-screen
+.os-screen
 {
 	width: 100%;
 	height: 100%;
 }
 
-/* Every label's defaults. A bare type selector on purpose: `.gg-root Label` (one class + a type, 0,1,1) outranked every one-class
+/* Every label's defaults. A bare type selector on purpose: `.os-root Label` (one class + a type, 0,1,1) outranked every one-class
    rule (0,1,0) and flattened the whole HUD to 15px off-white in game (2026-10-04 screenshots; found by the v3.0.0 mock review).
    This stylesheet applies only to this layout's panels, so the bare selector touches nothing of CS2's own HUD. */
 Label
 {
 	font-family: Stratum2, 'Arial Unicode MS';
 	font-size: 15px;
-	color: gg-text;
+	color: os-text;
 }
 
 /* ---- shared pieces ------------------------------------------------------------------------------------------------ */
 
-.gg-eyebrow
+.os-eyebrow
 {
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-label
+.os-label
 {
 	font-size: 11px;
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 	margin-top: 16px;
 	margin-bottom: 6px;
 }
 
-.gg-map
+.os-map
 {
 	width: 100%;
 	font-size: 22px;
@@ -91,31 +91,31 @@ Label
 	white-space: nowrap;
 }
 
-.gg-by
+.os-by
 {
 	width: 100%;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 	margin-top: 3px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-status
+.os-status
 {
 	width: 100%;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 	margin-top: 10px;
 }
 
-.gg-cmd
+.os-cmd
 {
 	font-family: Stratum2 Mono, 'Arial Unicode MS';
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-knife
+.os-knife
 {
 	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/knife.vtex" );
 	background-size: contain;
@@ -124,7 +124,7 @@ Label
 }
 
 /* The project's logo: a picture in the addon, as the knife. */
-.gg-logo
+.os-logo
 {
 	background-image: url( "s2r://panorama/styles/custom_game/gungame_hud/logo.vtex" );
 	background-size: contain;
@@ -132,23 +132,23 @@ Label
 	background-position: 50% 50%;
 }
 
-.gg-knife-small
+.os-knife-small
 {
 	width: 28px;
 	height: 14px;
 	vertical-align: center;
-	wash-color: gg-gold;
+	wash-color: os-gold;
 }
 
 /* A pulsing dot: "this is live". Keyframes on opacity are the one kind that runs in a custom HUD. */
-@keyframes 'gg-pulse'
+@keyframes 'os-pulse'
 {
 	0% { opacity: 1; }
 	50% { opacity: 0.25; }
 	100% { opacity: 1; }
 }
 
-.gg-live-dot
+.os-live-dot
 {
 	width: 7px;
 	height: 7px;
@@ -156,47 +156,47 @@ Label
 	border-radius: 50%;
 	background-color: #FF5A4E;
 	box-shadow: #FF5A4E99 0px 0px 6px 1px;
-	animation-name: gg-pulse;
+	animation-name: os-pulse;
 	animation-duration: 1.6s;
 	animation-timing-function: ease-in-out;
 	animation-iteration-count: infinite;
 }
 
 /* While the next map loads the dot turns gold: everyone is about to reconnect. */
-.gg-global.loading .gg-live-dot
+.os-global.loading .os-live-dot
 {
-	background-color: gg-gold;
+	background-color: os-gold;
 	box-shadow: #E9B44C99 0px 0px 6px 1px;
 }
 
 /* Up and down chevrons, drawn with two borders of a turned square: no font is trusted with arrows. */
-.gg-chev
+.os-chev
 {
 	width: 8px;
 	height: 8px;
 	vertical-align: center;
 	margin-top: 4px;
-	border-top: 2px solid gg-up;
-	border-left: 2px solid gg-up;
+	border-top: 2px solid os-up;
+	border-left: 2px solid os-up;
 	transform: rotateZ( 45deg );
 }
 
-.gg-chev-down
+.os-chev-down
 {
 	margin-top: -4px;
-	border-top: 2px solid gg-down;
-	border-left: 2px solid gg-down;
+	border-top: 2px solid os-down;
+	border-left: 2px solid os-down;
 	transform: rotateZ( 225deg );
 }
 
 /* Lists: up next, most liked. Rows the plugin does not mark "used" collapse. */
-.gg-list
+.os-list
 {
 	width: 100%;
 	flow-children: down;
 }
 
-.gg-row
+.os-row
 {
 	visibility: collapse;
 	width: 100%;
@@ -204,21 +204,21 @@ Label
 	flow-children: right;
 }
 
-.gg-row.used
+.os-row.used
 {
 	visibility: visible;
 }
 
-.gg-row-num
+.os-row-num
 {
 	width: 20px;
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 12px;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-row-map
+.os-row-map
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
@@ -227,33 +227,33 @@ Label
 	white-space: nowrap;
 }
 
-.gg-row-side
+.os-row-side
 {
 	max-width: 140px;
 	margin-left: 10px;
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 	text-align: right;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-row-score
+.os-row-score
 {
 	font-weight: bold;
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-empty
+.os-empty
 {
 	visibility: collapse;
 	width: 100%;
 	font-size: 13px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-empty.used
+.os-empty.used
 {
 	visibility: visible;
 }
@@ -262,7 +262,7 @@ Label
 
 /* Its left edge 24 px right of CS2's scoreboard, which spans the screen's centre +- 475 px at 1080p: so it stays near the centre on a wide screen too, where the
    screen's edge is far away. x moves a panel from where its alignment puts it (Valve's own scoreboard does the same with y): half the board, 196, plus 499. */
-.gg-board
+.os-board
 {
 	visibility: collapse;
 	width: 392px;
@@ -271,20 +271,20 @@ Label
 	x: 695px;
 	flow-children: down;
 	padding: 16px 18px 14px 18px;
-	background-color: gg-card;
-	border-left: 3px solid gg-gold;
+	background-color: os-card;
+	border-left: 3px solid os-gold;
 	border-radius: 4px;
-	box-shadow: gg-shadow;
-	world-blur: gg-blur;
+	box-shadow: os-shadow;
+	world-blur: os-blur;
 }
 
 /* HUD_SCOREBOARD_VISIBLE is the client's own class on the HUD root while the scoreboard is up: no server round trip. */
-.HUD_SCOREBOARD_VISIBLE .gg-global.ready .gg-board
+.HUD_SCOREBOARD_VISIBLE .os-global.ready .os-board
 {
 	visibility: visible;
 }
 
-.HUD_SCOREBOARD_VISIBLE .gg-global.ready .gg-screen.win .gg-board
+.HUD_SCOREBOARD_VISIBLE .os-global.ready .os-screen.win .os-board
 {
 	visibility: collapse;
 }
@@ -292,7 +292,7 @@ Label
 /* A narrower screen leaves less room beside the scoreboard: the board shrinks, and hangs from the screen's right edge, which holds whatever ui-scale does to x.
    16:10 is 1,728 px wide at 1080 high: 392 x 92 % + 4 px to the edge leaves the same centre + 499. 4:3 is 1,440 wide, about 245 px beside the scoreboard: narrower
    and at 70 % the board takes 238 + 4 px of them, with the words at the size they have always had there. */
-.AspectRatio16x10 .gg-board
+.AspectRatio16x10 .os-board
 {
 	horizontal-align: right;
 	x: 0px;
@@ -300,7 +300,7 @@ Label
 	ui-scale: 92%;
 }
 
-.AspectRatio4x3 .gg-board
+.AspectRatio4x3 .os-board
 {
 	horizontal-align: right;
 	x: 0px;
@@ -309,85 +309,85 @@ Label
 	ui-scale: 70%;
 }
 
-.gg-board-head
+.os-board-head
 {
 	width: 100%;
 	flow-children: right;
 	margin-bottom: 2px;
 }
 
-.gg-board-title
+.os-board-title
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 8px;
 	vertical-align: center;
 }
 
-.gg-you
+.os-you
 {
 	margin-left: 6px;
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.voted-up .gg-you
+.os-screen.voted-up .os-you
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.voted-down .gg-you
+.os-screen.voted-down .os-you
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-board-foot
+.os-board-foot
 {
 	width: 100%;
 	flow-children: down;
 	margin-top: 14px;
 	padding-top: 10px;
-	border-top: 1px solid gg-line;
+	border-top: 1px solid os-line;
 }
 
-#gg_b_cmds
+#os_b_cmds
 {
 	font-family: Stratum2 Mono, 'Arial Unicode MS';
 	font-size: 11px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_b_count
+#os_b_count
 {
 	margin-top: 4px;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 }
 
 /* Lately at the board's foot: a list's rows, how long ago and the words, which take two lines at most. */
-.gg-board-foot .gg-label
+.os-board-foot .os-label
 {
 	margin-top: 0px;
 	margin-bottom: 0px;
 }
 
-.gg-board-foot .gg-row
+.os-board-foot .os-row
 {
 	height: fit-children;
 	margin-top: 6px;
 }
 
-.gg-board-foot .gg-row-num
+.os-board-foot .os-row-num
 {
 	width: 44px;
 	vertical-align: top;
 	font-family: Stratum2, 'Arial Unicode MS';
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	white-space: nowrap;
 }
 
-.gg-board-foot .gg-row-map
+.os-board-foot .os-row-map
 {
 	max-height: 34px;
 	margin-left: 8px;
@@ -400,7 +400,7 @@ Label
 /* ---- 2. the card stack: centre, under the crosshair ------------------------------------------------------------------- */
 
 /* Its bottom edge at y 730 (1,080 - 350), just above CS2's centre boxes, growing upward: the layout's first panel lies lowest. It draws above the window. */
-.gg-cardstack
+.os-cardstack
 {
 	horizontal-align: center;
 	vertical-align: bottom;
@@ -409,7 +409,7 @@ Label
 }
 
 /* 3c, now playing: the map's own picture, what kind (the eyebrow), the map, its votes, a hint. Its margin parts it from a card above it, and goes when it collapses. */
-.gg-toast
+.os-toast
 {
 	visibility: collapse;
 	width: 460px;
@@ -417,10 +417,10 @@ Label
 	horizontal-align: center;
 	margin-top: 6px;
 	flow-children: right;
-	background-color: gg-card;
+	background-color: os-card;
 	border-radius: 4px;
-	box-shadow: gg-shadow;
-	world-blur: gg-blur;
+	box-shadow: os-shadow;
+	world-blur: os-blur;
 	opacity: 0;
 	transform: translateY( 12px );
 	transition-property: opacity, transform;
@@ -428,19 +428,19 @@ Label
 	transition-timing-function: ease-out;
 }
 
-.gg-screen.toast-1 .gg-toast
+.os-screen.toast-1 .os-toast
 {
 	visibility: visible;
 }
 
-.gg-screen.toast-in .gg-toast
+.os-screen.toast-in .os-toast
 {
 	opacity: 1;
 	transform: translateY( 0px );
 }
 
 /* The two classes the plugin sets on it (th and tl, the map's picture number) pick its rule in gungame_hud_thumbs.css, which sets the picture alone. */
-#gg_t_thumb
+#os_t_thumb
 {
 	width: 185px;
 	height: 100%;
@@ -451,7 +451,7 @@ Label
 	background-repeat: no-repeat;
 }
 
-.gg-toast-body
+.os-toast-body
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
@@ -459,7 +459,7 @@ Label
 	padding: 12px 16px 0px 16px;
 }
 
-#gg_t_map
+#os_t_map
 {
 	width: 100%;
 	margin-top: 4px;
@@ -470,29 +470,29 @@ Label
 	white-space: nowrap;
 }
 
-#gg_t_hint
+#os_t_hint
 {
 	width: 100%;
 	margin-top: 6px;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 /* 3d, catch-up: a slim card in its colour, a row per boost or downside, a line that runs out. Visibility cannot animate, so cu shows it and cu-in fades it in. */
-.gg-cu
+.os-cu
 {
 	visibility: collapse;
 	width: 440px;
 	horizontal-align: center;
 	flow-children: down;
 	padding: 8px 14px 5px 12px;
-	background-color: gg-card;
+	background-color: os-card;
 	border-left: 4px solid #FFD700;
 	border-radius: 4px;
-	box-shadow: gg-shadow;
-	world-blur: gg-blur;
+	box-shadow: os-shadow;
+	world-blur: os-blur;
 	opacity: 0;
 	transform: translateY( 12px );
 	transition-property: opacity, transform;
@@ -500,18 +500,18 @@ Label
 	transition-timing-function: ease-out;
 }
 
-.gg-screen.cu .gg-cu
+.os-screen.cu .os-cu
 {
 	visibility: visible;
 }
 
-.gg-screen.cu-in .gg-cu
+.os-screen.cu-in .os-cu
 {
 	opacity: 1;
 	transform: translateY( 0px );
 }
 
-#gg_cu_head
+#os_cu_head
 {
 	width: 100%;
 	color: #FFD700;
@@ -519,41 +519,41 @@ Label
 	white-space: nowrap;
 }
 
-.gg-cu-row
+.os-cu-row
 {
 	visibility: collapse;
 	width: 100%;
 	margin-top: 2px;
 	font-size: 14px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-cu-row.used
+.os-cu-row.used
 {
 	visibility: visible;
 }
 
-.gg-cu-row.good
+.os-cu-row.good
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-cu-row.bad
+.os-cu-row.bad
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-cu .gg-why-track
+.os-cu .os-why-track
 {
 	height: 2px;
 	margin-top: 7px;
 }
 
 /* Fills to empty over 5 s from the moment cu-run comes. Panorama takes a transition's length from the state it leaves: the 5 s here run the line out, the 0 s below put it back at once. */
-.gg-cu-fill
+.os-cu-fill
 {
 	width: 100%;
 	height: 100%;
@@ -566,7 +566,7 @@ Label
 	transition-timing-function: linear;
 }
 
-.gg-screen.cu-run .gg-cu-fill
+.os-screen.cu-run .os-cu-fill
 {
 	transform: scaleX( 0 );
 	transition-property: transform;
@@ -576,7 +576,7 @@ Label
 /* ---- 3. the top stack: top centre, under CS2's timer ---------------------------------------------------------------------- */
 
 /* Each panel collapses while it is not on, and the ones under it move up. Above the open window (which starts at y 130) there is room for one line. */
-.gg-topstack
+.os-topstack
 {
 	horizontal-align: center;
 	vertical-align: top;
@@ -584,13 +584,13 @@ Label
 	flow-children: down;
 }
 
-.gg-screen.win .gg-topstack
+.os-screen.win .os-topstack
 {
 	margin-top: 84px;
 }
 
 /* 6b, a change counting down: the picture, the eyebrow, the map, who picked it, the gold seconds. */
-.gg-banner
+.os-banner
 {
 	visibility: collapse;
 	width: 640px;
@@ -598,25 +598,25 @@ Label
 	horizontal-align: center;
 	margin-bottom: 8px;
 	flow-children: right;
-	background-color: gg-card;
-	border-top: 2px solid gg-gold;
+	background-color: os-card;
+	border-top: 2px solid os-gold;
 	border-radius: 4px;
-	box-shadow: gg-shadow;
-	world-blur: gg-blur;
+	box-shadow: os-shadow;
+	world-blur: os-blur;
 }
 
-.gg-global.changing .gg-banner
+.os-global.changing .os-banner
 {
 	visibility: visible;
 }
 
-.gg-screen.win .gg-banner
+.os-screen.win .os-banner
 {
 	visibility: collapse;
 }
 
 /* The two classes the plugin sets on it pick its picture, as on the card above. */
-#gg_k_thumb
+#os_k_thumb
 {
 	width: 160px;
 	height: 100%;
@@ -627,13 +627,13 @@ Label
 	background-repeat: no-repeat;
 }
 
-/* A countdown with no map of its own (a restart, cd-logo on gg_global): the logo on the plain backdrop, whatever picture classes the panel still has. */
-.gg-global.cd-logo #gg_k_thumb
+/* A countdown with no map of its own (a restart, cd-logo on os_global): the logo on the plain backdrop, whatever picture classes the panel still has. */
+.os-global.cd-logo #os_k_thumb
 {
 	background-image: none;
 }
 
-#gg_k_thumb .gg-logo
+#os_k_thumb .os-logo
 {
 	visibility: collapse;
 	width: 90px;
@@ -641,12 +641,12 @@ Label
 	margin-left: 35px;
 }
 
-.gg-global.cd-logo #gg_k_thumb .gg-logo
+.os-global.cd-logo #os_k_thumb .os-logo
 {
 	visibility: visible;
 }
 
-.gg-banner-text
+.os-banner-text
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
@@ -655,7 +655,7 @@ Label
 	padding-top: 14px;
 }
 
-#gg_k_map
+#os_k_map
 {
 	width: 100%;
 	margin-top: 2px;
@@ -666,15 +666,15 @@ Label
 	white-space: nowrap;
 }
 
-.gg-banner-count
+.os-banner-count
 {
 	width: 76px;
 	height: 100%;
 	border-radius: 0px 4px 4px 0px;
-	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F4C868 ), to( gg-gold-deep ) );
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #F4C868 ), to( os-gold-deep ) );
 }
 
-#gg_k_secs
+#os_k_secs
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -683,9 +683,9 @@ Label
 	color: #1A1408;
 }
 
-/* 4e, a state that stays up: a solid tone with a round white icon, a headline and a line of what to do, left-aligned, up to 820 px. Three panels share it: gg-ban with the server's
-   words and tone, gg-outdated and gg-newer with this content's own. Above the open window none of them: the rule below outranks all the ones that show them. */
-.gg-sb
+/* 4e, a state that stays up: a solid tone with a round white icon, a headline and a line of what to do, left-aligned, up to 820 px. Three panels share it: os-ban with the server's
+   words and tone, os-outdated and os-newer with this content's own. Above the open window none of them: the rule below outranks all the ones that show them. */
+.os-sb
 {
 	visibility: collapse;
 	max-width: 820px;
@@ -699,37 +699,37 @@ Label
 	box-shadow: #00000099 0px 12px 36px 0px;
 }
 
-.gg-global.ban .gg-ban
+.os-global.ban .os-ban
 {
 	visibility: visible;
 }
 
-#gg_screen.win .gg-sb
+#os_screen.win .os-sb
 {
 	visibility: collapse;
 }
 
-.gg-sb.tone-problem
+.os-sb.tone-problem
 {
 	background-color: #B3261EF0;
 }
 
-.gg-sb.tone-warning
+.os-sb.tone-warning
 {
 	background-color: #9A6200F0;
 }
 
-.gg-sb.tone-done
+.os-sb.tone-done
 {
 	background-color: #2F7D4FF0;
 }
 
-.gg-sb.tone-info
+.os-sb.tone-info
 {
 	background-color: #2B5F9EF0;
 }
 
-.gg-sb-ic
+.os-sb-ic
 {
 	width: 30px;
 	height: 30px;
@@ -738,7 +738,7 @@ Label
 	background-color: #FFFFFFF2;
 }
 
-.gg-sb-ic Label
+.os-sb-ic Label
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -747,23 +747,23 @@ Label
 }
 
 /* The icon: "!" for a problem and a warning, "i" for news, for a good end a tick drawn with two borders of a turned box (no font is trusted with it); each named by its tone, in the tone's colour. */
-.gg-sb-ic .tone-problem
+.os-sb-ic .tone-problem
 {
 	color: #B3261E;
 }
 
-.gg-sb.tone-warning .gg-sb-ic .tone-problem
+.os-sb.tone-warning .os-sb-ic .tone-problem
 {
 	color: #9A6200;
 }
 
-.gg-sb-ic .tone-info
+.os-sb-ic .tone-info
 {
 	visibility: collapse;
 	color: #2B5F9E;
 }
 
-.gg-sb-ic .tone-done
+.os-sb-ic .tone-done
 {
 	visibility: collapse;
 	width: 10px;
@@ -776,33 +776,33 @@ Label
 	transform: rotateZ( 45deg );
 }
 
-.gg-sb.tone-info .gg-sb-ic .tone-problem
+.os-sb.tone-info .os-sb-ic .tone-problem
 {
 	visibility: collapse;
 }
 
-.gg-sb.tone-info .gg-sb-ic .tone-info
+.os-sb.tone-info .os-sb-ic .tone-info
 {
 	visibility: visible;
 }
 
-.gg-sb.tone-done .gg-sb-ic .tone-problem
+.os-sb.tone-done .os-sb-ic .tone-problem
 {
 	visibility: collapse;
 }
 
-.gg-sb.tone-done .gg-sb-ic .tone-done
+.os-sb.tone-done .os-sb-ic .tone-done
 {
 	visibility: visible;
 }
 
-.gg-sb .gg-titles
+.os-sb .os-titles
 {
 	width: fit-children;
 	margin-left: 14px;
 }
 
-.gg-sb-head
+.os-sb-head
 {
 	max-width: 740px;
 	font-size: 19px;
@@ -813,7 +813,7 @@ Label
 	white-space: nowrap;
 }
 
-.gg-sb-line
+.os-sb-line
 {
 	max-width: 740px;
 	margin-top: 1px;
@@ -821,328 +821,328 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on gg_global names the newest content the server knows; from 48 up it is newer than this one (v4.7.0), and the banner stays while it is. */
-.gg-global.latest-48 .gg-outdated
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 49 up it is newer than this one (v4.8.0), and the banner stays while it is. */
+.os-global.latest-49 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-49 .gg-outdated
+.os-global.latest-50 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-50 .gg-outdated
+.os-global.latest-51 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-51 .gg-outdated
+.os-global.latest-52 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-52 .gg-outdated
+.os-global.latest-53 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-53 .gg-outdated
+.os-global.latest-54 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-54 .gg-outdated
+.os-global.latest-55 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-55 .gg-outdated
+.os-global.latest-56 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-56 .gg-outdated
+.os-global.latest-57 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-57 .gg-outdated
+.os-global.latest-58 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-58 .gg-outdated
+.os-global.latest-59 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-59 .gg-outdated
+.os-global.latest-60 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-60 .gg-outdated
+.os-global.latest-61 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-61 .gg-outdated
+.os-global.latest-62 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-62 .gg-outdated
+.os-global.latest-63 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-63 .gg-outdated
+.os-global.latest-64 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-64 .gg-outdated
+.os-global.latest-65 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-65 .gg-outdated
+.os-global.latest-66 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-66 .gg-outdated
+.os-global.latest-67 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-67 .gg-outdated
+.os-global.latest-68 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-68 .gg-outdated
+.os-global.latest-69 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-69 .gg-outdated
+.os-global.latest-70 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-70 .gg-outdated
+.os-global.latest-71 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-71 .gg-outdated
+.os-global.latest-72 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-72 .gg-outdated
+.os-global.latest-73 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-73 .gg-outdated
+.os-global.latest-74 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-74 .gg-outdated
+.os-global.latest-75 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-75 .gg-outdated
+.os-global.latest-76 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-76 .gg-outdated
+.os-global.latest-77 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-77 .gg-outdated
+.os-global.latest-78 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-78 .gg-outdated
+.os-global.latest-79 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-79 .gg-outdated
+.os-global.latest-80 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-80 .gg-outdated
+.os-global.latest-81 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-81 .gg-outdated
+.os-global.latest-82 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-82 .gg-outdated
+.os-global.latest-83 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-83 .gg-outdated
+.os-global.latest-84 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-84 .gg-outdated
+.os-global.latest-85 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-85 .gg-outdated
+.os-global.latest-86 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-86 .gg-outdated
+.os-global.latest-87 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-87 .gg-outdated
+.os-global.latest-88 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-88 .gg-outdated
+.os-global.latest-89 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-89 .gg-outdated
+.os-global.latest-90 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-90 .gg-outdated
+.os-global.latest-91 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-91 .gg-outdated
+.os-global.latest-92 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-92 .gg-outdated
+.os-global.latest-93 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-93 .gg-outdated
+.os-global.latest-94 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-94 .gg-outdated
+.os-global.latest-95 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-95 .gg-outdated
+.os-global.latest-96 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-96 .gg-outdated
+.os-global.latest-97 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-97 .gg-outdated
+.os-global.latest-98 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-98 .gg-outdated
+.os-global.latest-99 .os-outdated
 {
 	visibility: visible;
 }
 
-.gg-global.latest-99 .gg-outdated
+/* The newer banner: up to 47 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+.os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-/* The newer banner: up to 46 the server knows an older content than this one. For a while after a join only (vjoin on gg_screen). */
-.gg-global.latest-40 .gg-screen.vjoin .gg-newer
+.os-global.latest-41 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-41 .gg-screen.vjoin .gg-newer
+.os-global.latest-42 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-42 .gg-screen.vjoin .gg-newer
+.os-global.latest-43 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-43 .gg-screen.vjoin .gg-newer
+.os-global.latest-44 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-44 .gg-screen.vjoin .gg-newer
+.os-global.latest-45 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-45 .gg-screen.vjoin .gg-newer
+.os-global.latest-46 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
-.gg-global.latest-46 .gg-screen.vjoin .gg-newer
+.os-global.latest-47 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
 
 /* 4d, the top line: a dark strip, a tab in its category's colour, one line of 16 px white words up to 900 px (26 of padding, 12 between, about 96 for the longest tab). */
-.gg-top
+.os-top
 {
 	visibility: collapse;
 	max-width: 900px;
 	horizontal-align: center;
 	flow-children: right;
 	padding: 8px 18px 8px 8px;
-	background-color: gg-card;
+	background-color: os-card;
 	border-radius: 4px;
-	box-shadow: gg-shadow;
-	world-blur: gg-blur;
+	box-shadow: os-shadow;
+	world-blur: os-blur;
 }
 
-.gg-global.top .gg-top
+.os-global.top .os-top
 {
 	visibility: visible;
 }
 
-#gg_top_tab
+#os_top_tab
 {
 	vertical-align: center;
 	padding: 4px 9px;
 	border-radius: 3px;
-	background-color: gg-gold;
+	background-color: os-gold;
 	font-size: 11px;
 	font-weight: bold;
 	letter-spacing: 2.2px;
@@ -1150,7 +1150,7 @@ Label
 	color: #10141A;
 }
 
-#gg_top_text
+#os_top_text
 {
 	max-width: 766px;
 	margin-left: 12px;
@@ -1161,49 +1161,49 @@ Label
 	white-space: nowrap;
 }
 
-.gg-top.cat-join #gg_top_tab
+.os-top.cat-join #os_top_tab
 {
 	background-color: #E9B44C;
 }
 
-.gg-top.cat-hud #gg_top_tab
+.os-top.cat-hud #os_top_tab
 {
 	background-color: #F07C6B;
 }
 
-.gg-top.cat-vote #gg_top_tab
+.os-top.cat-vote #os_top_tab
 {
 	background-color: #FFD47E;
 }
 
-.gg-top.cat-fun #gg_top_tab
+.os-top.cat-fun #os_top_tab
 {
 	background-color: #7BD88F;
 }
 
-.gg-top.cat-maps #gg_top_tab
+.os-top.cat-maps #os_top_tab
 {
 	background-color: #63D8E8;
 }
 
-.gg-top.cat-server #gg_top_tab
+.os-top.cat-server #os_top_tab
 {
 	background-color: #F0B44C;
 }
 
-.gg-top.cat-catchup #gg_top_tab
+.os-top.cat-catchup #os_top_tab
 {
 	background-color: #FFD700;
 }
 
-.gg-top.cat-you #gg_top_tab
+.os-top.cat-you #os_top_tab
 {
 	background-color: #F1EDE5;
 }
 
 /* ---- 4. the window -------------------------------------------------------------------------------------------------- */
 
-.gg-dim
+.os-dim
 {
 	visibility: collapse;
 	width: 100%;
@@ -1215,17 +1215,17 @@ Label
 	transition-timing-function: ease-out;
 }
 
-.gg-screen.win .gg-dim
+.os-screen.win .os-dim
 {
 	visibility: visible;
 }
 
-.gg-screen.win-in .gg-dim
+.os-screen.win-in .os-dim
 {
 	opacity: 1;
 }
 
-.gg-win
+.os-win
 {
 	visibility: collapse;
 	width: 1240px;
@@ -1240,7 +1240,7 @@ Label
 	border: 1px solid #FFFFFF12;
 	border-radius: 5px;
 	box-shadow: #000000b3 0px 24px 72px 0px;
-	world-blur: gg-blur;
+	world-blur: os-blur;
 	opacity: 0;
 	transform: translateY( 22px ) scale3d( 0.985, 0.985, 1 );
 	transition-property: opacity, transform;
@@ -1248,30 +1248,30 @@ Label
 	transition-timing-function: ease-out;
 }
 
-.gg-screen.win .gg-win
+.os-screen.win .os-win
 {
 	visibility: visible;
 	sound: "UIPanorama.submenu_dropdown_select";
 }
 
-.gg-screen.win-in .gg-win
+.os-screen.win-in .os-win
 {
 	opacity: 1;
 	transform: none;
 }
 
-.gg-win-rule
+.os-win-rule
 {
 	width: 100%;
 	height: 3px;
 	border-radius: 5px 5px 0px 0px;
-	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), color-stop( 0.5, gg-gold-hi ), to( gg-gold-deep ) );
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( os-gold-deep ), color-stop( 0.5, os-gold-hi ), to( os-gold-deep ) );
 	box-shadow: #E9B44C66 0px 0px 14px 0px;
 }
 
 /* -- head -- */
 
-.gg-win-head
+.os-win-head
 {
 	width: 100%;
 	height: 76px;
@@ -1280,14 +1280,14 @@ Label
 }
 
 /* The project's logo in the window's head, 60 px, where the knife was */
-.gg-win-head .gg-logo
+.os-win-head .os-logo
 {
 	width: 60px;
 	height: 60px;
 	vertical-align: center;
 }
 
-.gg-titles
+.os-titles
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
@@ -1295,7 +1295,7 @@ Label
 	margin-left: 18px;
 }
 
-.gg-title
+.os-title
 {
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 30px;
@@ -1306,44 +1306,44 @@ Label
 }
 
 /* The title and, beside it, the tagline */
-.gg-title-row
+.os-title-row
 {
 	flow-children: right;
 }
 
-#gg_w_headline
+#os_w_headline
 {
 	vertical-align: center;
 	margin-left: 16px;
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 22px;
 	letter-spacing: 1px;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 	text-shadow: 0px 2px 6px 1 #00000080;
 }
 
-.gg-subtitle
+.os-subtitle
 {
 	flow-children: right;
 	margin-top: 1px;
 }
 
-.gg-sub
+.os-sub
 {
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-sub-dot
+.os-sub-dot
 {
 	margin: 0px 10px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-close
+.os-close
 {
 	width: 42px;
 	height: 42px;
@@ -1355,132 +1355,132 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-close:hover
+.os-close:hover
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C1F;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-close:active
+.os-close:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-x
+.os-x
 {
 	width: 18px;
 	height: 2px;
 	horizontal-align: center;
 	vertical-align: center;
-	background-color: gg-dim;
+	background-color: os-dim;
 }
 
-.gg-x-a
+.os-x-a
 {
 	transform: rotateZ( 45deg );
 }
 
-.gg-x-b
+.os-x-b
 {
 	transform: rotateZ( -45deg );
 }
 
-.gg-close:hover .gg-x
+.os-close:hover .os-x
 {
 	background-color: #FFFFFF;
 }
 
 /* -- tabs -- */
 
-.gg-tabs
+.os-tabs
 {
 	width: 100%;
 	height: 48px;
 	flow-children: right;
 	padding: 0px 18px;
-	border-bottom: 1px solid gg-line;
+	border-bottom: 1px solid os-line;
 }
 
-.gg-tab
+.os-tab
 {
 	height: 100%;
 	padding: 0px 16px;
 	border-bottom: 2px solid #00000000;
 }
 
-.gg-tab:hover
+.os-tab:hover
 {
 	sound: "UIPanorama.submenu_rollover";
 }
 
-.gg-tab-text
+.os-tab-text
 {
 	vertical-align: center;
 	font-size: 14px;
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-tab:hover .gg-tab-text
+.os-tab:hover .os-tab-text
 {
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-screen.page-start #gg_tab_start
+.os-screen.page-start #os_tab_start
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-help #gg_tab_help
+.os-screen.page-help #os_tab_help
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-start #gg_tab_start .gg-tab-text
-{
-	color: #FFFFFF;
-}
-
-.gg-screen.page-help #gg_tab_help .gg-tab-text
+.os-screen.page-start #os_tab_start .os-tab-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.page-maps #gg_tab_maps
+.os-screen.page-help #os_tab_help .os-tab-text
 {
-	border-bottom: 2px solid gg-gold;
+	color: #FFFFFF;
 }
 
-.gg-screen.page-maps #gg_tab_maps .gg-tab-text
+.os-screen.page-maps #os_tab_maps
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-maps #os_tab_maps .os-tab-text
 {
 	color: #FFFFFF;
 }
 
 /* -- body: the pages on the left, the live column on the right -- */
 
-.gg-win-body
+.os-win-body
 {
 	width: 100%;
 	height: fill-parent-flow( 1 );
 }
 
-.gg-win-flow
+.os-win-flow
 {
 	width: 100%;
 	height: 100%;
 	flow-children: right;
 }
 
-.gg-pages
+.os-pages
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
 }
 
-.gg-page
+.os-page
 {
 	visibility: collapse;
 	width: 100%;
@@ -1488,47 +1488,47 @@ Label
 	padding: 26px 34px 20px 34px;
 }
 
-.gg-screen.page-start .gg-page-start
+.os-screen.page-start .os-page-start
 {
 	visibility: visible;
 }
 
-.gg-screen.page-help .gg-page-help
+.os-screen.page-help .os-page-help
 {
 	visibility: visible;
 }
 
-.gg-screen.page-maps .gg-page-maps
+.os-screen.page-maps .os-page-maps
 {
 	visibility: visible;
 }
 
-.gg-screen.page-game .gg-page-game
+.os-screen.page-game .os-page-game
 {
 	visibility: visible;
 }
 
 /* The map browser takes the whole width: the live column steps aside while it is open. */
-.gg-screen.page-maps .gg-live
+.os-screen.page-maps .os-live
 {
 	visibility: collapse;
 }
 
 /* start */
 
-.gg-page-start
+.os-page-start
 {
 	flow-children: down;
 }
 
 /* The welcome's first row: the greeting, as large text (the logo and the tagline are in the window's head) */
-.gg-wel-hero
+.os-wel-hero
 {
 	width: 100%;
 	flow-children: down;
 }
 
-#gg_w_hello
+#os_w_hello
 {
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 38px;
@@ -1537,24 +1537,24 @@ Label
 }
 
 /* The two lines under the tagline, in the window's inline style: a 3 px bar in the category's colour, an eyebrow, the words. The welcome back (Join), and a crash that just happened (Server). */
-.gg-wback
+.os-wback
 {
 	visibility: collapse;
 	width: 100%;
 	flow-children: down;
 	margin-top: 12px;
 	padding: 9px 16px 10px 14px;
-	border-left: 3px solid gg-gold;
+	border-left: 3px solid os-gold;
 	border-radius: 4px;
 	background-color: #FFFFFF0B;
 }
 
-.gg-screen.wback .gg-wback
+.os-screen.wback .os-wback
 {
 	visibility: visible;
 }
 
-.gg-wcrash
+.os-wcrash
 {
 	visibility: collapse;
 	width: 100%;
@@ -1566,17 +1566,17 @@ Label
 	background-color: #FFFFFF0B;
 }
 
-.gg-global.crash .gg-wcrash
+.os-global.crash .os-wcrash
 {
 	visibility: visible;
 }
 
-.gg-wcrash .gg-eyebrow
+.os-wcrash .os-eyebrow
 {
 	color: #F0B44C;
 }
 
-#gg_w_back
+#os_w_back
 {
 	width: 100%;
 	margin-top: 3px;
@@ -1584,15 +1584,15 @@ Label
 	color: #FFFFFF;
 }
 
-#gg_w_back_hint
+#os_w_back_hint
 {
 	width: 100%;
 	margin-top: 2px;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_w_crash
+#os_w_crash
 {
 	width: 100%;
 	margin-top: 3px;
@@ -1600,14 +1600,14 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-steps
+.os-steps
 {
 	width: 100%;
 	flow-children: right;
 	margin-top: 28px;
 }
 
-.gg-step
+.os-step
 {
 	width: 238px;
 	height: 176px;
@@ -1619,30 +1619,30 @@ Label
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF0C ), to( #FFFFFF04 ) );
 }
 
-.gg-step-head
+.os-step-head
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-step-num
+.os-step-num
 {
 	width: 28px;
 	height: 28px;
 	border-radius: 50%;
-	border: 2px solid gg-gold;
+	border: 2px solid os-gold;
 }
 
-.gg-step-num Label
+.os-step-num Label
 {
 	horizontal-align: center;
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 14px;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-step-title
+.os-step-title
 {
 	margin-left: 10px;
 	vertical-align: center;
@@ -1653,7 +1653,7 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-step-cmd
+.os-step-cmd
 {
 	margin-top: 18px;
 	padding: 5px 10px;
@@ -1663,46 +1663,46 @@ Label
 	font-size: 18px;
 }
 
-.gg-step-txt
+.os-step-txt
 {
 	width: 100%;
 	margin-top: 14px;
 	font-size: 14px;
 	line-height: 20px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_w_hint
+#os_w_hint
 {
 	margin-top: 36px;
 	padding-left: 12px;
 	border-left: 2px solid #E9B44C80;
 	font-size: 14px;
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* help: five groups, a gutter for the group's name, then where to click and what it does */
 
-.gg-page-help
+.os-page-help
 {
 	flow-children: down;
 	padding-top: 14px;
 }
 
-.gg-group
+.os-group
 {
 	width: 100%;
 	flow-children: right;
 	padding: 6px 0px 7px 0px;
-	border-bottom: 1px solid gg-line;
+	border-bottom: 1px solid os-line;
 }
 
-.gg-group-last
+.os-group-last
 {
 	border-bottom: 0px solid #00000000;
 }
 
-.gg-group-name
+.os-group-name
 {
 	width: 92px;
 	margin-top: 3px;
@@ -1710,16 +1710,16 @@ Label
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-group-rows
+.os-group-rows
 {
 	width: fill-parent-flow( 1 );
 	flow-children: down;
 }
 
-.gg-crow
+.os-crow
 {
 	visibility: collapse;
 	width: 100%;
@@ -1727,43 +1727,43 @@ Label
 	padding: 2px 0px;
 }
 
-.gg-crow.used
+.os-crow.used
 {
 	visibility: visible;
 }
 
-.gg-crow-cmd
+.os-crow-cmd
 {
 	width: 214px;
 	font-size: 15px;
 }
 
-.gg-crow-txt
+.os-crow-txt
 {
 	width: fill-parent-flow( 1 );
 	font-size: 14px;
 	line-height: 19px;
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* a page's section heads and bullets */
 
-.gg-rule-head
+.os-rule-head
 {
 	width: 100%;
 	flow-children: right;
 	margin-bottom: 10px;
 }
 
-.gg-rule-mark
+.os-rule-mark
 {
 	width: 4px;
 	height: 22px;
 	border-radius: 2px;
-	background-color: gg-gold;
+	background-color: os-gold;
 }
 
-.gg-rule-title
+.os-rule-title
 {
 	margin-left: 12px;
 	vertical-align: center;
@@ -1774,53 +1774,53 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-bullet
+.os-bullet
 {
 	width: 6px;
 	height: 6px;
 	margin: 9px 12px 0px 4px;
 	border-radius: 50%;
-	background-color: gg-gold;
+	background-color: os-gold;
 }
 
 /* -- the live column -- */
 
-.gg-live
+.os-live
 {
 	width: 420px;
 	height: 100%;
 	flow-children: down;
 	padding: 20px 26px 16px 26px;
-	border-left: 1px solid gg-line;
+	border-left: 1px solid os-line;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #FFFFFF08 ), to( #FFFFFF02 ) );
 }
 
-.gg-live-head
+.os-live-head
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-live-head .gg-label
+.os-live-head .os-label
 {
 	width: fill-parent-flow( 1 );
 	margin-top: 0px;
 	margin-bottom: 4px;
 }
 
-#gg_w_map
+#os_w_map
 {
 	font-size: 26px;
 }
 
-.gg-vote-buttons
+.os-vote-buttons
 {
 	width: 100%;
 	flow-children: right;
 	margin-top: 14px;
 }
 
-.gg-vote
+.os-vote
 {
 	width: fill-parent-flow( 1 );
 	height: 46px;
@@ -1833,24 +1833,24 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-vote-up
+.os-vote-up
 {
 	margin-right: 10px;
 }
 
-.gg-vote:hover
+.os-vote:hover
 {
 	background-color: #FFFFFF17;
 	border: 1px solid #FFFFFF40;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-vote:active
+.os-vote:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-vote-word
+.os-vote-word
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 12px;
@@ -1859,49 +1859,49 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-vote-num
+.os-vote-num
 {
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 20px;
 }
 
-.gg-vote-up .gg-vote-num
+.os-vote-up .os-vote-num
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-vote-down .gg-vote-num
+.os-vote-down .os-vote-num
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.voted-up .gg-vote-up
+.os-screen.voted-up .os-vote-up
 {
 	background-color: #7BD88F26;
 	border: 1px solid #7BD88FB3;
 }
 
-.gg-screen.voted-down .gg-vote-down
+.os-screen.voted-down .os-vote-down
 {
 	background-color: #F07C6B26;
 	border: 1px solid #F07C6BB3;
 }
 
-.gg-screen.voted-up .gg-vote-up .gg-vote-word
+.os-screen.voted-up .os-vote-up .os-vote-word
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.voted-down .gg-vote-down .gg-vote-word
+.os-screen.voted-down .os-vote-down .os-vote-word
 {
 	color: #FFFFFF;
 }
 
-.gg-act
+.os-act
 {
 	width: 100%;
 	height: 56px;
@@ -1915,65 +1915,65 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-act:hover
+.os-act:hover
 {
-	border: 1px solid gg-gold-hi;
+	border: 1px solid os-gold-hi;
 	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C4D ), to( #E9B44C1A ) );
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-act:active
+.os-act:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-act-text
+.os-act-text
 {
 	font-size: 15px;
 	font-weight: bold;
 	letter-spacing: 1.5px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-act-sub
+.os-act-sub
 {
 	margin-top: 2px;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* Nothing to click while a change is under way. */
-.gg-screen.act-off .gg-act
+.os-screen.act-off .os-act
 {
 	opacity: 0.45;
 	border: 1px solid #FFFFFF1A;
 	background-color: #FFFFFF08;
 }
 
-.gg-screen.act-off .gg-act-text
+.os-screen.act-off .os-act-text
 {
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* -- foot -- */
 
-.gg-win-foot
+.os-win-foot
 {
 	width: 100%;
 	height: 44px;
 	flow-children: right;
 	padding: 0px 34px 0px 34px;
-	border-top: 1px solid gg-line;
+	border-top: 1px solid os-line;
 }
 
-.gg-drain
+.os-drain
 {
 	vertical-align: center;
 	flow-children: right;
 }
 
-.gg-drain-word
+.os-drain-word
 {
 	margin-right: 12px;
 	vertical-align: center;
@@ -1981,10 +1981,10 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-drain-track
+.os-drain-track
 {
 	width: 160px;
 	height: 3px;
@@ -1994,12 +1994,12 @@ Label
 }
 
 /* The idle close, drawn: a gold line that empties over 30 s (HudSlots.IdleCloseSeconds) and refills on every click. */
-.gg-drain-fill
+.os-drain-fill
 {
 	width: 100%;
 	height: 100%;
 	border-radius: 2px;
-	background-color: gg-gold;
+	background-color: os-gold;
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
@@ -2008,7 +2008,7 @@ Label
 }
 
 /* Panorama takes a transition's length from the state it leaves (seen in a real client, 2026-11-02): the 30 s above run the line out, this 0 s puts it back at once. */
-.gg-screen.draining .gg-drain-fill
+.os-screen.draining .os-drain-fill
 {
 	transform: scaleX( 0 );
 	transition-property: transform;
@@ -2017,13 +2017,13 @@ Label
 
 /* ---- the menu's map browser (page-maps): a toolbar of sorts and filters, eight cards, pages ---------------------------- */
 
-.gg-page-maps
+.os-page-maps
 {
 	flow-children: down;
 	padding: 14px 34px 10px 34px;
 }
 
-.gg-mbar
+.os-mbar
 {
 	width: 100%;
 	height: 34px;
@@ -2031,12 +2031,12 @@ Label
 	margin-bottom: 8px;
 }
 
-.gg-mbar-filters
+.os-mbar-filters
 {
 	margin-bottom: 10px;
 }
 
-.gg-mbar-label
+.os-mbar-label
 {
 	width: 46px;
 	vertical-align: center;
@@ -2044,16 +2044,16 @@ Label
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-mbar-fill
+.os-mbar-fill
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
 }
 
-.gg-mbar-sep
+.os-mbar-sep
 {
 	width: 1px;
 	height: 20px;
@@ -2063,7 +2063,7 @@ Label
 }
 
 /* sort: one segmented control */
-.gg-seg
+.os-seg
 {
 	height: 100%;
 	flow-children: right;
@@ -2072,7 +2072,7 @@ Label
 	background-color: #FFFFFF08;
 }
 
-.gg-seg-btn
+.os-seg-btn
 {
 	height: 100%;
 	flow-children: right;
@@ -2082,63 +2082,63 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-seg-btn:hover
+.os-seg-btn:hover
 {
 	background-color: #FFFFFF12;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-seg-btn:active
+.os-seg-btn:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-seg-text
+.os-seg-text
 {
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-seg-btn.on
+.os-seg-btn.on
 {
 	background-color: #E9B44C24;
 }
 
-.gg-seg-btn.on .gg-seg-text
+.os-seg-btn.on .os-seg-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
 /* The direction mark: shown on the sort that is on, turned round when it runs the other way. */
-.gg-seg-dir
+.os-seg-dir
 {
 	visibility: collapse;
 	width: 6px;
 	height: 6px;
 	vertical-align: center;
 	margin: -3px 0px 0px 9px;
-	border-right: 2px solid gg-gold-hi;
-	border-bottom: 2px solid gg-gold-hi;
+	border-right: 2px solid os-gold-hi;
+	border-bottom: 2px solid os-gold-hi;
 	transform: rotateZ( 45deg );
 }
 
-.gg-seg-btn.on .gg-seg-dir
+.os-seg-btn.on .os-seg-dir
 {
 	visibility: visible;
 }
 
-.gg-seg-btn.desc .gg-seg-dir
+.os-seg-btn.desc .os-seg-dir
 {
 	margin-top: 4px;
 	transform: rotateZ( 225deg );
 }
 
 /* filters: the size chips, liked by me, official */
-.gg-chipb
+.os-chipb
 {
 	height: 28px;
 	vertical-align: center;
@@ -2152,51 +2152,51 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-chipb:hover
+.os-chipb:hover
 {
 	border: 1px solid #FFFFFF59;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-chipb:active
+.os-chipb:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-chipb-text
+.os-chipb-text
 {
 	vertical-align: center;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-chipb.on
+.os-chipb.on
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-chipb.on .gg-chipb-text
+.os-chipb.on .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
-#gg_fl_liked .gg-chev
+#os_fl_liked .os-chev
 {
 	margin: 4px 8px 0px 0px;
 }
 
-#gg_m_count
+#os_m_count
 {
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 13px;
 	letter-spacing: 1px;
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* search: what !find set, and a cross to drop it; the hint while there is none */
-.gg-search
+.os-search
 {
 	height: 100%;
 	flow-children: right;
@@ -2205,29 +2205,29 @@ Label
 	border: 1px solid #FFFFFF12;
 }
 
-.gg-search.used
+.os-search.used
 {
 	border: 1px solid #E9B44C80;
 	background-color: #E9B44C14;
 }
 
-.gg-search-label
+.os-search-label
 {
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-search.used .gg-search-label
+.os-search.used .os-search-label
 {
 	font-size: 11px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-search-text
+.os-search-text
 {
 	visibility: collapse;
 	max-width: 260px;
@@ -2239,12 +2239,12 @@ Label
 	white-space: nowrap;
 }
 
-.gg-search.used .gg-search-text
+.os-search.used .os-search-text
 {
 	visibility: visible;
 }
 
-.gg-search-clear
+.os-search-clear
 {
 	visibility: collapse;
 	width: 26px;
@@ -2254,24 +2254,24 @@ Label
 	border-radius: 3px;
 }
 
-.gg-search.used .gg-search-clear
+.os-search.used .os-search-clear
 {
 	visibility: visible;
 }
 
-.gg-search-clear:hover
+.os-search-clear:hover
 {
 	background-color: #FFFFFF14;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-search-clear .gg-x
+.os-search-clear .os-x
 {
 	width: 12px;
 }
 
 /* the grid of cards: rows of them (the cards themselves: the v4.6.0 section) */
-.gg-grid
+.os-grid
 {
 	width: 100%;
 	height: fill-parent-flow( 1 );
@@ -2279,14 +2279,14 @@ Label
 }
 
 /* pages */
-.gg-pager
+.os-pager
 {
 	horizontal-align: center;
 	height: 34px;
 	flow-children: right;
 }
 
-.gg-pgb
+.os-pgb
 {
 	height: 100%;
 	margin: 0px 4px;
@@ -2298,34 +2298,34 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-pgb:hover
+.os-pgb:hover
 {
 	border: 1px solid #FFFFFF59;
 	background-color: #FFFFFF14;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-pgb:active
+.os-pgb:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-pgb.off
+.os-pgb.off
 {
 	opacity: 0.3;
 }
 
-.gg-pgb-text
+.os-pgb-text
 {
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_pg_text
+#os_pg_text
 {
 	min-width: 180px;
 	vertical-align: center;
@@ -2334,31 +2334,31 @@ Label
 	font-size: 14px;
 	letter-spacing: 1px;
 	text-align: center;
-	color: gg-text;
+	color: os-text;
 }
 
 /* ---- the game page -------------------------------------------------------------------------------------------------- */
 
-.gg-page-game
+.os-page-game
 {
 	flow-children: down;
 }
 
-.gg-set
+.os-set
 {
 	width: 100%;
 	flow-children: down;
 	margin-bottom: 26px;
 }
 
-.gg-set-head
+.os-set-head
 {
 	width: 100%;
 	flow-children: right;
 	margin-bottom: 6px;
 }
 
-.gg-set-title
+.os-set-title
 {
 	margin-left: 12px;
 	vertical-align: center;
@@ -2369,25 +2369,25 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-rule-mark-red
+.os-rule-mark-red
 {
-	background-color: gg-down;
+	background-color: os-down;
 }
 
-#gg_set_time_now
+#os_set_time_now
 {
 	margin-left: 16px;
 	font-size: 14px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-set-btns
+.os-set-btns
 {
 	flow-children: right;
 	margin: 12px 0px 0px 16px;
 }
 
-.gg-setb
+.os-setb
 {
 	width: 160px;
 	height: 40px;
@@ -2399,25 +2399,25 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-setb:hover
+.os-setb:hover
 {
 	border: 1px solid #FFFFFF59;
 	background-color: #FFFFFF17;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-setb:active
+.os-setb:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-setb.on
+.os-setb.on
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C2E;
 }
 
-.gg-setb-text
+.os-setb-text
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -2425,10 +2425,10 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-restart
+.os-restart
 {
 	width: 440px;
 	height: 62px;
@@ -2442,26 +2442,26 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-restart:hover
+.os-restart:hover
 {
 	border: 1px solid #F07C6B;
 	background-color: #F07C6B24;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-restart:active
+.os-restart:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-restart.armed
+.os-restart.armed
 {
 	border: 1px solid #FF8A75;
 	background-color: #C2412F66;
 	box-shadow: #F07C6B59 0px 0px 16px 0px;
 }
 
-.gg-restart-text
+.os-restart-text
 {
 	font-size: 15px;
 	font-weight: bold;
@@ -2470,20 +2470,20 @@ Label
 	color: #F6A497;
 }
 
-.gg-restart.armed .gg-restart-text
+.os-restart.armed .os-restart-text
 {
 	color: #FFFFFF;
 }
 
-.gg-restart-sub
+.os-restart-sub
 {
 	margin-top: 2px;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 }
 
 /* The whole server and the match, side by side on the page's 734 px beside the live column; a sub-line may take two lines there. */
-.gg-set-btns .gg-restart
+.os-set-btns .os-restart
 {
 	width: 360px;
 	height: 66px;
@@ -2491,14 +2491,14 @@ Label
 	padding: 8px 14px 0px 14px;
 }
 
-#gg_set_rematch
+#os_set_rematch
 {
 	margin-left: 14px;
 }
 
 /* ---- the board's way in: a button below it (a click from the scoreboard may not reach a custom HUD; !gg always does) ---- */
 
-.gg-board-open
+.os-board-open
 {
 	width: 100%;
 	height: 36px;
@@ -2510,13 +2510,13 @@ Label
 	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C33 ), to( #E9B44C0F ) );
 }
 
-.gg-board-open:hover
+.os-board-open:hover
 {
-	border: 1px solid gg-gold-hi;
+	border: 1px solid os-gold-hi;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-board-open-text
+.os-board-open-text
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
@@ -2524,10 +2524,10 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-board-open-key
+.os-board-open-key
 {
 	vertical-align: center;
 	padding: 2px 8px;
@@ -2540,43 +2540,43 @@ Label
 
 /* ==== release v3.0.0: the HUD is the whole interface ================================================== */
 
-/* ---- the board as a click action panel: the vote buttons are the window's own (.gg-vote), Next is .gg-act ---------- */
+/* ---- the board as a click action panel: the vote buttons are the window's own (.os-vote), Next is .os-act ---------- */
 
-.gg-board .gg-vote-buttons
+.os-board .os-vote-buttons
 {
 	margin-top: 12px;
 }
 
-.gg-board .gg-vote
+.os-board .os-vote
 {
 	height: 40px;
 }
 
-.gg-board .gg-you
+.os-board .os-you
 {
 	margin-left: 0px;
 	margin-top: 6px;
 }
 
-#gg_b_queue
+#os_b_queue
 {
 	width: 100%;
 	font-size: 13px;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 /* ---- the search box: one button that opens the keyboard, and the clear button ------------------------------------------ */
 
-#gg_q_kbd
+#os_q_kbd
 {
 	height: 100%;
 	flow-children: right;
 	padding: 0px 4px 0px 0px;
 }
 
-.gg-search-key
+.os-search-key
 {
 	vertical-align: center;
 	margin-right: 10px;
@@ -2584,23 +2584,23 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-screen.kbd .gg-search
+.os-screen.kbd .os-search
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C1F;
 }
 
-.gg-screen.kbd .gg-search-text
+.os-screen.kbd .os-search-text
 {
 	visibility: visible;
 }
 
 /* ---- the keyboard: four rows of keys between the toolbar and the cards; while it is open, one row of cards ------------- */
 
-.gg-kbd
+.os-kbd
 {
 	visibility: collapse;
 	horizontal-align: center;
@@ -2611,39 +2611,39 @@ Label
 	border-radius: 4px;
 }
 
-.gg-screen.kbd .gg-kbd
+.os-screen.kbd .os-kbd
 {
 	visibility: visible;
 }
 
-.gg-screen.kbd #gg_m5
+.os-screen.kbd #os_m5
 {
 	visibility: collapse;
 }
 
-.gg-screen.kbd #gg_m6
+.os-screen.kbd #os_m6
 {
 	visibility: collapse;
 }
 
-.gg-screen.kbd #gg_m7
+.os-screen.kbd #os_m7
 {
 	visibility: collapse;
 }
 
-.gg-screen.kbd #gg_m8
+.os-screen.kbd #os_m8
 {
 	visibility: collapse;
 }
 
-.gg-kbd-row
+.os-kbd-row
 {
 	horizontal-align: center;
 	flow-children: right;
 	margin-bottom: 6px;
 }
 
-.gg-key
+.os-key
 {
 	width: 76px;
 	height: 40px;
@@ -2655,37 +2655,37 @@ Label
 	transition-duration: 0.08s;
 }
 
-.gg-key:hover
+.os-key:hover
 {
 	background-color: #FFFFFF24;
 	border: 1px solid #FFFFFF59;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-key:active
+.os-key:active
 {
 	background-color: #E9B44C40;
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-key-wide
+.os-key-wide
 {
 	width: 120px;
 }
 
-#gg_kb_space
+#os_kb_space
 {
 	width: 200px;
 }
 
-.gg-key-done
+.os-key-done
 {
 	width: 200px;
 	border: 1px solid #E9B44C99;
 	background-color: #E9B44C24;
 }
 
-.gg-key-text
+.os-key-text
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -2696,7 +2696,7 @@ Label
 
 /* ---- the card for a Workshop id that is not on the list -------------------------------------------------------------------- */
 
-.gg-ws
+.os-ws
 {
 	visibility: collapse;
 	width: 100%;
@@ -2708,46 +2708,46 @@ Label
 	background-color: #FFFFFF0A;
 }
 
-.gg-ws.used
+.os-ws.used
 {
 	visibility: visible;
 }
 
-.gg-ws.ready
+.os-ws.ready
 {
 	border: 1px solid #E9B44C99;
 }
 
-.gg-ws.refused
+.os-ws.refused
 {
 	border: 1px solid #F07C6BB3;
 	background-color: #F07C6B14;
 }
 
-.gg-ws.failed
+.os-ws.failed
 {
 	border: 1px solid #F07C6BB3;
 	background-color: #F07C6B14;
 }
 
-.gg-ws.installed
+.os-ws.installed
 {
 	border: 1px solid #7BD88FB3;
 }
 
-.gg-ws.requested
+.os-ws.requested
 {
 	border: 1px solid #7BD88FB3;
 	background-color: #7BD88F14;
 }
 
-.gg-ws-body
+.os-ws-body
 {
 	width: fill-parent-flow( 1 );
 	flow-children: down;
 }
 
-#gg_ws_title
+#os_ws_title
 {
 	margin-top: 4px;
 	font-size: 20px;
@@ -2757,21 +2757,21 @@ Label
 	white-space: nowrap;
 }
 
-#gg_ws_info
+#os_ws_info
 {
 	margin-top: 2px;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_ws_status
+#os_ws_status
 {
 	margin-top: 8px;
 	font-size: 14px;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-ws-bar
+.os-ws-bar
 {
 	visibility: collapse;
 	width: 100%;
@@ -2781,76 +2781,76 @@ Label
 	background-color: #FFFFFF14;
 }
 
-.gg-ws.downloading .gg-ws-bar
+.os-ws.downloading .os-ws-bar
 {
 	visibility: visible;
 }
 
-.gg-ws.installed .gg-ws-bar
+.os-ws.installed .os-ws-bar
 {
 	visibility: visible;
 }
 
-.gg-ws-fill
+.os-ws-fill
 {
 	width: 0%;
 	height: 100%;
 	border-radius: 3px;
-	background-color: gg-gold;
+	background-color: os-gold;
 }
 
-.gg-ws-bar.p1 .gg-ws-fill
+.os-ws-bar.p1 .os-ws-fill
 {
 	width: 10%;
 }
 
-.gg-ws-bar.p2 .gg-ws-fill
+.os-ws-bar.p2 .os-ws-fill
 {
 	width: 20%;
 }
 
-.gg-ws-bar.p3 .gg-ws-fill
+.os-ws-bar.p3 .os-ws-fill
 {
 	width: 30%;
 }
 
-.gg-ws-bar.p4 .gg-ws-fill
+.os-ws-bar.p4 .os-ws-fill
 {
 	width: 40%;
 }
 
-.gg-ws-bar.p5 .gg-ws-fill
+.os-ws-bar.p5 .os-ws-fill
 {
 	width: 50%;
 }
 
-.gg-ws-bar.p6 .gg-ws-fill
+.os-ws-bar.p6 .os-ws-fill
 {
 	width: 60%;
 }
 
-.gg-ws-bar.p7 .gg-ws-fill
+.os-ws-bar.p7 .os-ws-fill
 {
 	width: 70%;
 }
 
-.gg-ws-bar.p8 .gg-ws-fill
+.os-ws-bar.p8 .os-ws-fill
 {
 	width: 80%;
 }
 
-.gg-ws-bar.p9 .gg-ws-fill
+.os-ws-bar.p9 .os-ws-fill
 {
 	width: 90%;
 }
 
-.gg-ws-bar.p10 .gg-ws-fill
+.os-ws-bar.p10 .os-ws-fill
 {
 	width: 100%;
-	background-color: gg-up;
+	background-color: os-up;
 }
 
-.gg-ws-play
+.os-ws-play
 {
 	width: 220px;
 	height: 46px;
@@ -2861,18 +2861,18 @@ Label
 	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C40 ), to( #E9B44C14 ) );
 }
 
-.gg-ws-play:hover
+.os-ws-play:hover
 {
-	border: 1px solid gg-gold-hi;
+	border: 1px solid os-gold-hi;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-ws-play.off
+.os-ws-play.off
 {
 	opacity: 0.4;
 }
 
-#gg_ws_play_text
+#os_ws_play_text
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -2880,12 +2880,12 @@ Label
 	font-weight: bold;
 	letter-spacing: 1.5px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
 /* ---- the Previous button: the map before this one, to the vote (on the Maps page) ------------------------------------------------------- */
 
-.gg-qprev
+.os-qprev
 {
 	height: 100%;
 	margin-right: 10px;
@@ -2895,12 +2895,12 @@ Label
 	background-color: #E9B44C14;
 }
 
-.gg-qprev.off
+.os-qprev.off
 {
 	opacity: 0.4;
 }
 
-#gg_q_prev_text
+#os_q_prev_text
 {
 	max-width: 330px;
 	vertical-align: center;
@@ -2908,22 +2908,22 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-ws.checking
+.os-ws.checking
 {
 	border: 1px solid #FFFFFF33;
 }
 
-.gg-ws.waiting
+.os-ws.waiting
 {
 	border: 1px solid #E9B44C66;
 }
 
-.gg-ws-bar.p0 .gg-ws-fill
+.os-ws-bar.p0 .os-ws-fill
 {
 	width: 0%;
 }
@@ -2932,30 +2932,30 @@ Label
 
 /* ---- the game page: its settings ---- */
 
-.gg-set
+.os-set
 {
 	margin-bottom: 18px;
 }
 
 /* ---- How it works: five sections across the whole window ---- */
 
-.gg-screen.page-how .gg-page-how
+.os-screen.page-how .os-page-how
 {
 	visibility: visible;
 }
 
-.gg-screen.page-how .gg-live
+.os-screen.page-how .os-live
 {
 	visibility: collapse;
 }
 
-.gg-page-how
+.os-page-how
 {
 	flow-children: down;
 	padding: 22px 34px 14px 34px;
 }
 
-.gg-how
+.os-how
 {
 	visibility: collapse;
 	width: 100%;
@@ -2963,17 +2963,17 @@ Label
 	margin-bottom: 12px;
 }
 
-.gg-page-how .gg-how
+.os-page-how .os-how
 {
 	visibility: visible;
 }
 
-.gg-how .gg-rule-head
+.os-how .os-rule-head
 {
 	margin-bottom: 6px;
 }
 
-.gg-hline
+.os-hline
 {
 	visibility: collapse;
 	width: 100%;
@@ -2981,50 +2981,50 @@ Label
 	margin-bottom: 4px;
 }
 
-.gg-hline.used
+.os-hline.used
 {
 	visibility: visible;
 }
 
-.gg-hline .gg-bullet
+.os-hline .os-bullet
 {
 	margin: 8px 12px 0px 4px;
 }
 
-.gg-hline-txt
+.os-hline-txt
 {
 	width: fill-parent-flow( 1 );
 	font-size: 15px;
 	line-height: 21px;
-	color: gg-text;
+	color: os-text;
 }
 
 /* ==== content v3.2.0's pieces: the Fun page, the restart button's blink ========================================================= */
 
 /* ---- Help: a little less space per row, so the page keeps inside the window ---- */
 
-.gg-group
+.os-group
 {
 	padding: 4px 0px 5px 0px;
 }
 
-.gg-crow
+.os-crow
 {
 	padding: 1px 0px;
 }
 
 /* ---- the restart button: a fast blink while it waits for its second click; the words count the seconds down ---- */
 
-@keyframes 'gg-blink'
+@keyframes 'os-blink'
 {
 	0% { opacity: 1; }
 	50% { opacity: 0.3; }
 	100% { opacity: 1; }
 }
 
-.gg-restart.armed
+.os-restart.armed
 {
-	animation-name: gg-blink;
+	animation-name: os-blink;
 	animation-duration: 0.3s;
 	animation-timing-function: linear;
 	animation-iteration-count: infinite;
@@ -3035,66 +3035,66 @@ Label
    and nine rows of 60 + 1 px: 597 of the 609 px the pages have under the sub-tabs. A row that does nothing at the moment (Instakill and Grenades while friendly
    fire is off) is dimmed. ---- */
 
-.gg-screen.page-fun .gg-page-fun
+.os-screen.page-fun .os-page-fun
 {
 	visibility: visible;
 }
 
-.gg-screen.page-fun .gg-live
+.os-screen.page-fun .os-live
 {
 	visibility: collapse;
 }
 
-.gg-screen.page-fun #gg_tab_fun
+.os-screen.page-fun #os_tab_fun
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-fun #gg_tab_fun .gg-tab-text
+.os-screen.page-fun #os_tab_fun .os-tab-text
 {
 	color: #FFFFFF;
 }
 
-.gg-page-fun
+.os-page-fun
 {
 	flow-children: down;
 	padding: 14px 34px 8px 34px;
 }
 
-.gg-fun-note
+.os-fun-note
 {
 	visibility: collapse;
 	margin-bottom: 8px;
 	font-size: 14px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-page-fun .gg-fun-note
+.os-page-fun .os-fun-note
 {
 	visibility: visible;
 }
 
-.gg-fcols
+.os-fcols
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-fcol
+.os-fcol
 {
 	width: 50%;
 	flow-children: down;
 	padding-right: 14px;
 }
 
-.gg-fcol-right
+.os-fcol-right
 {
 	padding-right: 0px;
 	padding-left: 14px;
 }
 
 /* A row: its title and its choices on one line, its words under them across the column. */
-.gg-frow
+.os-frow
 {
 	visibility: collapse;
 	width: 100%;
@@ -3106,17 +3106,17 @@ Label
 	overflow: noclip;
 }
 
-.gg-page-fun .gg-frow.used
+.os-page-fun .os-frow.used
 {
 	visibility: visible;
 }
 
-.gg-frow.idle
+.os-frow.idle
 {
 	opacity: 0.5;
 }
 
-.gg-frow-top
+.os-frow-top
 {
 	width: 100%;
 	height: 36px;
@@ -3124,7 +3124,7 @@ Label
 	overflow: noclip;
 }
 
-.gg-frow-title
+.os-frow-title
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
@@ -3135,17 +3135,17 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-frow-txt
+.os-frow-txt
 {
 	width: 100%;
 	margin-top: 2px;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-funb
+.os-funb
 {
 	visibility: collapse;
 	width: 96px;
@@ -3154,38 +3154,38 @@ Label
 	overflow: noclip;
 }
 
-.gg-funb.used
+.os-funb.used
 {
 	visibility: visible;
 }
 
-.gg-funb.on
+.os-funb.on
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C2E;
 }
 
 /* A choice that cannot be set is greyed (off), and the mouse on it shows why: a bubble to the left of the button, inside its own row (two lines fit the row's 60 px), so it covers
    only that row's other choice and hides no other setting, not even the one that causes the clash. A refusal nobody could know in advance (refused, for 8 s): the same bubble, red-edged, no hover needed. */
-.gg-funb.off
+.os-funb.off
 {
 	border: 1px solid #FFFFFF14;
 	background-color: #FFFFFF05;
 }
 
-.gg-funb.off .gg-setb-text
+.os-funb.off .os-setb-text
 {
 	color: #FFFFFF40;
 }
 
-.gg-funb.off:hover
+.os-funb.off:hover
 {
 	border: 1px solid #F0B44C80;
 	background-color: #FFFFFF05;
 }
 
 /* Why a choice cannot be made, or why this player's click was refused just now: the row's own second line, in amber, in place of who set it (class clash on the row) */
-.gg-fwhy
+.os-fwhy
 {
 	visibility: collapse;
 	width: 100%;
@@ -3196,18 +3196,18 @@ Label
 	white-space: nowrap;
 }
 
-.gg-frow.clash .gg-fwhy
+.os-frow.clash .os-fwhy
 {
 	visibility: visible;
 }
 
-.gg-frow.clash .gg-frow-txt
+.os-frow.clash .os-frow-txt
 {
 	visibility: collapse;
 }
 
 /* The button a refused click landed on: edged in red while its reason stands */
-.gg-funb.refused
+.os-funb.refused
 {
 	border: 1px solid #F07C6B;
 }
@@ -3215,70 +3215,70 @@ Label
 /* ---- our maps, the vote, the mode ---------------------------------------------------------------------------------------------------- */
 
 /* Our maps: the chip beside Official and the OUR MAP tag (ours.json). */
-.gg-mtag-ours
+.os-mtag-ours
 {
 	visibility: collapse;
 }
 
-.gg-mtag-next
+.os-mtag-next
 {
 	visibility: collapse;
 }
 
-.gg-mcard.ours .gg-mtag-ours
+.os-mcard.ours .os-mtag-ours
 {
 	visibility: visible;
 	background-color: #3F8CFFD9;
 }
 
-/* The end-of-match vote on the Maps page (voting on gg_screen): the cards are the ballot and the browser's own controls step aside. */
-.gg-vote-title
+/* The end-of-match vote on the Maps page (voting on os_screen): the cards are the ballot and the browser's own controls step aside. */
+.os-vote-title
 {
 	visibility: collapse;
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 26px;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 	margin-bottom: 6px;
 }
 
-.gg-screen.voting .gg-vote-title
+.os-screen.voting .os-vote-title
 {
 	visibility: visible;
 }
 
 /* The browser's own controls step aside while the ballot shows (the v4.6.0 section). */
 
-.gg-screen.voting .gg-mvote
+.os-screen.voting .os-mvote
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-pgb
+.os-screen.voting .os-pgb
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-mtag-now
+.os-screen.voting .os-mtag-now
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-mcard.now .gg-mtag-next
+.os-screen.voting .os-mcard.now .os-mtag-next
 {
 	visibility: visible;
-	background-color: gg-gold;
+	background-color: os-gold;
 	color: #000000;
 }
 
 /* The match length is Arms Race's own: Deathmatch runs Valve's 10 minutes and Wingman rounds. */
-.gg-global.mode-deathmatch .gg-set-time
+.os-global.mode-deathmatch .os-set-time
 {
 	visibility: collapse;
 }
 
-.gg-global.mode-wingman .gg-set-time
+.os-global.mode-wingman .os-set-time
 {
 	visibility: collapse;
 }
@@ -3286,7 +3286,7 @@ Label
 /* Content v4.1.0: why the dislike. The reasons of a Dislike, for 15 s (DownReasons.PopupSeconds), for its player alone: one small dialog at the centre, over the crosshair on purpose,
    and only while the player has a cursor: the window open, or TAB held. Without one it is laid out but not drawn, and no world-blur either, so its 15 s and its line keep running.
    It takes no mouse of its own (HudView.PlayerClasses, the bridge's Votes.cs): a click needs that cursor, so it never stops anybody playing; the words come as dialog variables its labels inherit. */
-.gg-why
+.os-why
 {
 	visibility: collapse;
 	width: 440px;
@@ -3295,65 +3295,65 @@ Label
 	flow-children: down;
 	padding: 14px 16px 12px 16px;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #12171DF8 ), to( #0A0D11FA ) );
-	border-top: 2px solid gg-gold;
+	border-top: 2px solid os-gold;
 	border-radius: 5px;
 	box-shadow: #000000B0 0px 16px 48px 0px;
 	opacity: 0;
 }
 
-.gg-screen.why .gg-why
+.os-screen.why .os-why
 {
 	visibility: visible;
 }
 
-.gg-screen.why.win .gg-why
+.os-screen.why.win .os-why
 {
 	opacity: 1;
-	world-blur: gg-blur;
+	world-blur: os-blur;
 }
 
-.HUD_SCOREBOARD_VISIBLE .gg-screen.why .gg-why
+.HUD_SCOREBOARD_VISIBLE .os-screen.why .os-why
 {
 	opacity: 1;
-	world-blur: gg-blur;
+	world-blur: os-blur;
 }
 
-.gg-why-title
+.os-why-title
 {
 	font-family: Stratum2 Bold Condensed, 'Arial Unicode MS';
 	font-size: 20px;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-why-map
+.os-why-map
 {
 	width: 100%;
 	margin-bottom: 8px;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 /* Six reasons, two across: 198 + 8 + 198 of the 408 px inside; the second of a row has no margin to wrap on. */
-#gg_why_2
+#os_why_2
 {
 	margin-right: 0px;
 }
 
-#gg_why_4
+#os_why_4
 {
 	margin-right: 0px;
 }
 
-#gg_why_6
+#os_why_6
 {
 	margin-right: 0px;
 }
 
-.gg-whyb
+.os-whyb
 {
 	width: 198px;
 	height: 34px;
@@ -3367,47 +3367,47 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-whyb:hover
+.os-whyb:hover
 {
 	border: 1px solid #FFFFFF59;
 	background-color: #FFFFFF17;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-whyb:active
+.os-whyb:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-whyb-text
+.os-whyb-text
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
 	font-size: 13px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-whyb-word
+.os-whyb-word
 {
 	vertical-align: center;
 	margin-left: 8px;
 	font-size: 11px;
 	font-weight: bold;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-why-hint
+.os-why-hint
 {
 	width: 100%;
 	margin-top: 5px;
 	font-size: 11px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-why-track
+.os-why-track
 {
 	width: 100%;
 	height: 3px;
@@ -3416,12 +3416,12 @@ Label
 	background-color: #FFFFFF14;
 }
 
-.gg-why-fill
+.os-why-fill
 {
 	width: 100%;
 	height: 100%;
 	border-radius: 2px;
-	background-color: gg-gold;
+	background-color: os-gold;
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
@@ -3431,7 +3431,7 @@ Label
 
 /* One second after it opens (HudView.PlayerClasses), so a second Dislike's popup starts the line again. Panorama takes a transition's length from
    the state it leaves (seen in a real client, 2026-11-02): the 14 s above run the line out, this 0 s puts it back at once. */
-.gg-screen.why-run .gg-why-fill
+.os-screen.why-run .os-why-fill
 {
 	transform: scaleX( 0 );
 	transition-property: transform;
@@ -3440,89 +3440,89 @@ Label
 
 /* The window's foot: this content's version and the server's. */
 
-.gg-foot-ver
+.os-foot-ver
 {
 	margin-left: 18px;
 	margin-right: 18px;
 	font-size: 11px;
-	color: gg-faint;
+	color: os-faint;
 	vertical-align: center;
 }
 
 /* ---- content v4.2.0: the mode filter -------------------------------------------------- */
 
-/* The mode filter: which modes' maps the page lists. Its chips' state is a class on gg_screen, which every content has. */
-.gg-mbar-label-mode
+/* The mode filter: which modes' maps the page lists. Its chips' state is a class on os_screen, which every content has. */
+.os-mbar-label-mode
 {
 	margin-left: 18px;
 }
 
-.gg-screen.fm-all .gg-chipm-all
+.os-screen.fm-all .os-chipm-all
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-screen.fm-all .gg-chipm-all .gg-chipb-text
+.os-screen.fm-all .os-chipm-all .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.fm-armsrace .gg-chipm-armsrace
+.os-screen.fm-armsrace .os-chipm-armsrace
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-screen.fm-armsrace .gg-chipm-armsrace .gg-chipb-text
+.os-screen.fm-armsrace .os-chipm-armsrace .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.fm-deathmatch .gg-chipm-deathmatch
+.os-screen.fm-deathmatch .os-chipm-deathmatch
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-screen.fm-deathmatch .gg-chipm-deathmatch .gg-chipb-text
+.os-screen.fm-deathmatch .os-chipm-deathmatch .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.fm-wingman .gg-chipm-wingman
+.os-screen.fm-wingman .os-chipm-wingman
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-screen.fm-wingman .gg-chipm-wingman .gg-chipb-text
+.os-screen.fm-wingman .os-chipm-wingman .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
 /* ---- the Sync page (content v4.3.0): the Workshop sync's dashboard ----------------------------------------------------
-   Words from {s:osd...} variables on gg_screen, state from classes on gg_screen (HudDash.cs): the look of the state (osdbusy, osdwait, osdidle,
+   Words from {s:osd...} variables on os_screen, state from classes on os_screen (HudDash.cs): the look of the state (osdbusy, osdwait, osdidle,
    osdstop), the file's age (osdold, osdnone), the progress bar in steps of 5 % (osdp0 ... osdp100), and per list the rows in use (osdq1 ...), their
    colour (osdm3ok ...), the page (osdqfirst, osdqlast) and an empty list (osdqnone). It takes the whole window: the live column steps aside. */
 
-.gg-page-sync
+.os-page-sync
 {
 	flow-children: down;
 	padding: 18px 30px 12px 30px;
 }
 
-.gg-screen.page-sync .gg-page-sync
+.os-screen.page-sync .os-page-sync
 {
 	visibility: visible;
 }
 
-.gg-screen.page-sync .gg-live
+.os-screen.page-sync .os-live
 {
 	visibility: collapse;
 }
 
-.gg-dnow
+.os-dnow
 {
 	width: 100%;
 	flow-children: down;
@@ -3533,14 +3533,14 @@ Label
 	background-color: #FFFFFF06;
 }
 
-.gg-dnow-top
+.os-dnow-top
 {
 	width: 100%;
 	height: 30px;
 	flow-children: right;
 }
 
-.gg-dtitle
+.os-dtitle
 {
 	margin-left: 12px;
 	vertical-align: center;
@@ -3548,41 +3548,41 @@ Label
 	font-size: 20px;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-ddot
+.os-ddot
 {
 	width: 10px;
 	height: 10px;
 	margin-left: 16px;
 	vertical-align: center;
 	border-radius: 5px;
-	background-color: gg-faint;
+	background-color: os-faint;
 }
 
-.gg-screen.osdbusy .gg-ddot
+.os-screen.osdbusy .os-ddot
 {
-	background-color: gg-up;
+	background-color: os-up;
 	box-shadow: #7BD88F99 0px 0px 8px 0px;
 }
 
-.gg-screen.osdwait .gg-ddot
+.os-screen.osdwait .os-ddot
 {
-	background-color: gg-gold;
+	background-color: os-gold;
 }
 
-.gg-screen.osdidle .gg-ddot
+.os-screen.osdidle .os-ddot
 {
-	background-color: gg-faint;
+	background-color: os-faint;
 }
 
-.gg-screen.osdstop .gg-ddot
+.os-screen.osdstop .os-ddot
 {
-	background-color: gg-down;
+	background-color: os-down;
 }
 
-.gg-dstate
+.os-dstate
 {
 	margin-left: 10px;
 	vertical-align: center;
@@ -3591,71 +3591,71 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-screen.osdnone .gg-dstate
+.os-screen.osdnone .os-dstate
 {
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-dage
+.os-dage
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 16px;
 	vertical-align: center;
 	text-align: right;
 	font-size: 13px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-screen.osdold .gg-dage
+.os-screen.osdold .os-dage
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-dwhy
+.os-dwhy
 {
 	width: 100%;
 	margin-top: 4px;
 	font-size: 14px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-dnow-cols
+.os-dnow-cols
 {
 	width: 100%;
 	flow-children: right;
 	margin-top: 6px;
 }
 
-.gg-dnow-col
+.os-dnow-col
 {
 	width: fill-parent-flow( 1 );
 	flow-children: down;
 }
 
-.gg-dnow-col2
+.os-dnow-col2
 {
 	margin-left: 24px;
 }
 
-.gg-dmap
+.os-dmap
 {
 	visibility: collapse;
 	width: 100%;
 	font-size: 15px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-screen.osdmapon .gg-dmap
+.os-screen.osdmapon .os-dmap
 {
 	visibility: visible;
 }
 
-.gg-dbar
+.os-dbar
 {
 	visibility: collapse;
 	width: 100%;
@@ -3664,12 +3664,12 @@ Label
 	margin-top: 3px;
 }
 
-.gg-screen.osdbar .gg-dbar
+.os-screen.osdbar .os-dbar
 {
 	visibility: visible;
 }
 
-.gg-dbar-track
+.os-dbar-track
 {
 	width: fill-parent-flow( 1 );
 	height: 6px;
@@ -3678,168 +3678,168 @@ Label
 	background-color: #FFFFFF14;
 }
 
-.gg-dbar-fill
+.os-dbar-fill
 {
 	width: 0%;
 	height: 100%;
 	border-radius: 3px;
-	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), to( gg-gold-hi ) );
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( os-gold-deep ), to( os-gold-hi ) );
 }
 
-.gg-screen.osdp0 .gg-dbar-fill
+.os-screen.osdp0 .os-dbar-fill
 {
 	width: 0%;
 }
 
-.gg-screen.osdp5 .gg-dbar-fill
+.os-screen.osdp5 .os-dbar-fill
 {
 	width: 5%;
 }
 
-.gg-screen.osdp10 .gg-dbar-fill
+.os-screen.osdp10 .os-dbar-fill
 {
 	width: 10%;
 }
 
-.gg-screen.osdp15 .gg-dbar-fill
+.os-screen.osdp15 .os-dbar-fill
 {
 	width: 15%;
 }
 
-.gg-screen.osdp20 .gg-dbar-fill
+.os-screen.osdp20 .os-dbar-fill
 {
 	width: 20%;
 }
 
-.gg-screen.osdp25 .gg-dbar-fill
+.os-screen.osdp25 .os-dbar-fill
 {
 	width: 25%;
 }
 
-.gg-screen.osdp30 .gg-dbar-fill
+.os-screen.osdp30 .os-dbar-fill
 {
 	width: 30%;
 }
 
-.gg-screen.osdp35 .gg-dbar-fill
+.os-screen.osdp35 .os-dbar-fill
 {
 	width: 35%;
 }
 
-.gg-screen.osdp40 .gg-dbar-fill
+.os-screen.osdp40 .os-dbar-fill
 {
 	width: 40%;
 }
 
-.gg-screen.osdp45 .gg-dbar-fill
+.os-screen.osdp45 .os-dbar-fill
 {
 	width: 45%;
 }
 
-.gg-screen.osdp50 .gg-dbar-fill
+.os-screen.osdp50 .os-dbar-fill
 {
 	width: 50%;
 }
 
-.gg-screen.osdp55 .gg-dbar-fill
+.os-screen.osdp55 .os-dbar-fill
 {
 	width: 55%;
 }
 
-.gg-screen.osdp60 .gg-dbar-fill
+.os-screen.osdp60 .os-dbar-fill
 {
 	width: 60%;
 }
 
-.gg-screen.osdp65 .gg-dbar-fill
+.os-screen.osdp65 .os-dbar-fill
 {
 	width: 65%;
 }
 
-.gg-screen.osdp70 .gg-dbar-fill
+.os-screen.osdp70 .os-dbar-fill
 {
 	width: 70%;
 }
 
-.gg-screen.osdp75 .gg-dbar-fill
+.os-screen.osdp75 .os-dbar-fill
 {
 	width: 75%;
 }
 
-.gg-screen.osdp80 .gg-dbar-fill
+.os-screen.osdp80 .os-dbar-fill
 {
 	width: 80%;
 }
 
-.gg-screen.osdp85 .gg-dbar-fill
+.os-screen.osdp85 .os-dbar-fill
 {
 	width: 85%;
 }
 
-.gg-screen.osdp90 .gg-dbar-fill
+.os-screen.osdp90 .os-dbar-fill
 {
 	width: 90%;
 }
 
-.gg-screen.osdp95 .gg-dbar-fill
+.os-screen.osdp95 .os-dbar-fill
 {
 	width: 95%;
 }
 
-.gg-screen.osdp100 .gg-dbar-fill
+.os-screen.osdp100 .os-dbar-fill
 {
 	width: 100%;
 }
 
-.gg-dstep
+.os-dstep
 {
 	margin-left: 12px;
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 13px;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-dline
+.os-dline
 {
 	width: 100%;
 	margin-top: 3px;
 	font-size: 13px;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-dfaint
+.os-dfaint
 {
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-dcols
+.os-dcols
 {
 	width: 100%;
 	height: fill-parent-flow( 1 );
 	flow-children: right;
 }
 
-.gg-dcol
+.os-dcol
 {
 	height: 100%;
 	flow-children: down;
 }
 
-.gg-dcol-queue
+.os-dcol-queue
 {
 	width: 540px;
 	padding-right: 18px;
-	border-right: 1px solid gg-line;
+	border-right: 1px solid os-line;
 }
 
-.gg-dcol-hist
+.os-dcol-hist
 {
 	width: fill-parent-flow( 1 );
 	padding-left: 18px;
 }
 
-.gg-dhead
+.os-dhead
 {
 	width: 100%;
 	height: 26px;
@@ -3847,54 +3847,54 @@ Label
 	margin-bottom: 4px;
 }
 
-.gg-dhead-maps
+.os-dhead-maps
 {
 	margin-top: 8px;
 }
 
-.gg-dlabel
+.os-dlabel
 {
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2.5px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-dshown
+.os-dshown
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 12px;
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dpager
+.os-dpager
 {
 	height: 100%;
 	flow-children: right;
 }
 
-.gg-screen.osdqfirst.osdqlast .gg-dpager-q
+.os-screen.osdqfirst.osdqlast .os-dpager-q
 {
 	visibility: collapse;
 }
 
-.gg-screen.osdrfirst.osdrlast .gg-dpager-r
+.os-screen.osdrfirst.osdrlast .os-dpager-r
 {
 	visibility: collapse;
 }
 
-.gg-screen.osdmfirst.osdmlast .gg-dpager-m
+.os-screen.osdmfirst.osdmlast .os-dpager-m
 {
 	visibility: collapse;
 }
 
-.gg-dpgb
+.os-dpgb
 {
 	height: 100%;
 	margin-left: 4px;
@@ -3906,34 +3906,34 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-dpgb:hover
+.os-dpgb:hover
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C1F;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-dpgb:active
+.os-dpgb:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-dpgb-text
+.os-dpgb-text
 {
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-dpgb:hover .gg-dpgb-text
+.os-dpgb:hover .os-dpgb-text
 {
 	color: #FFFFFF;
 }
 
-.gg-dpgtext
+.os-dpgtext
 {
 	min-width: 64px;
 	margin-left: 6px;
@@ -3942,50 +3942,50 @@ Label
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 13px;
 	text-align: center;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-screen.osdqfirst #gg_osdq_prev
+.os-screen.osdqfirst #os_osdq_prev
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdqlast #gg_osdq_next
+.os-screen.osdqlast #os_osdq_next
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdrfirst #gg_osdr_prev
+.os-screen.osdrfirst #os_osdr_prev
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdrlast #gg_osdr_next
+.os-screen.osdrlast #os_osdr_next
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdmfirst #gg_osdm_first
+.os-screen.osdmfirst #os_osdm_first
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdmfirst #gg_osdm_prev
+.os-screen.osdmfirst #os_osdm_prev
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdmlast #gg_osdm_next
+.os-screen.osdmlast #os_osdm_next
 {
 	opacity: 0.3;
 }
 
-.gg-screen.osdmlast #gg_osdm_last
+.os-screen.osdmlast #os_osdm_last
 {
 	opacity: 0.3;
 }
 
-.gg-dqhead
+.os-dqhead
 {
 	width: 100%;
 	margin-top: 2px;
@@ -3994,14 +3994,14 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-dlist
+.os-dlist
 {
 	width: 100%;
 	flow-children: down;
 	margin-top: 6px;
 }
 
-.gg-dqrow
+.os-dqrow
 {
 	visibility: collapse;
 	width: 100%;
@@ -4010,232 +4010,232 @@ Label
 	border-bottom: 1px solid #FFFFFF0A;
 }
 
-.gg-dqpos
+.os-dqpos
 {
 	width: 30px;
 	vertical-align: center;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 13px;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-dqmain
+.os-dqmain
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
 	flow-children: down;
 }
 
-.gg-dqtop
+.os-dqtop
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-dqname
+.os-dqname
 {
 	max-width: 300px;
 	font-size: 14px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dqmeta
+.os-dqmeta
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 10px;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dqwhy
+.os-dqwhy
 {
 	width: 100%;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-screen.osdq1 .gg-dq1
+.os-screen.osdq1 .os-dq1
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq2 .gg-dq2
+.os-screen.osdq2 .os-dq2
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq3 .gg-dq3
+.os-screen.osdq3 .os-dq3
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq4 .gg-dq4
+.os-screen.osdq4 .os-dq4
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq5 .gg-dq5
+.os-screen.osdq5 .os-dq5
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq6 .gg-dq6
+.os-screen.osdq6 .os-dq6
 {
 	visibility: visible;
 }
 
-.gg-screen.osdq1ok .gg-dq1 .gg-dqname
+.os-screen.osdq1ok .os-dq1 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq1bad .gg-dq1 .gg-dqname
+.os-screen.osdq1bad .os-dq1 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq1hot .gg-dq1 .gg-dqname
+.os-screen.osdq1hot .os-dq1 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq1dim .gg-dq1 .gg-dqname
+.os-screen.osdq1dim .os-dq1 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdq2ok .gg-dq2 .gg-dqname
+.os-screen.osdq2ok .os-dq2 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq2bad .gg-dq2 .gg-dqname
+.os-screen.osdq2bad .os-dq2 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq2hot .gg-dq2 .gg-dqname
+.os-screen.osdq2hot .os-dq2 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq2dim .gg-dq2 .gg-dqname
+.os-screen.osdq2dim .os-dq2 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdq3ok .gg-dq3 .gg-dqname
+.os-screen.osdq3ok .os-dq3 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq3bad .gg-dq3 .gg-dqname
+.os-screen.osdq3bad .os-dq3 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq3hot .gg-dq3 .gg-dqname
+.os-screen.osdq3hot .os-dq3 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq3dim .gg-dq3 .gg-dqname
+.os-screen.osdq3dim .os-dq3 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdq4ok .gg-dq4 .gg-dqname
+.os-screen.osdq4ok .os-dq4 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq4bad .gg-dq4 .gg-dqname
+.os-screen.osdq4bad .os-dq4 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq4hot .gg-dq4 .gg-dqname
+.os-screen.osdq4hot .os-dq4 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq4dim .gg-dq4 .gg-dqname
+.os-screen.osdq4dim .os-dq4 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdq5ok .gg-dq5 .gg-dqname
+.os-screen.osdq5ok .os-dq5 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq5bad .gg-dq5 .gg-dqname
+.os-screen.osdq5bad .os-dq5 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq5hot .gg-dq5 .gg-dqname
+.os-screen.osdq5hot .os-dq5 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq5dim .gg-dq5 .gg-dqname
+.os-screen.osdq5dim .os-dq5 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdq6ok .gg-dq6 .gg-dqname
+.os-screen.osdq6ok .os-dq6 .os-dqname
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdq6bad .gg-dq6 .gg-dqname
+.os-screen.osdq6bad .os-dq6 .os-dqname
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdq6hot .gg-dq6 .gg-dqname
+.os-screen.osdq6hot .os-dq6 .os-dqname
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdq6dim .gg-dq6 .gg-dqname
+.os-screen.osdq6dim .os-dq6 .os-dqname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-dempty
+.os-dempty
 {
 	visibility: collapse;
 	width: 100%;
 	margin-top: 6px;
 	font-size: 13px;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdqnone .gg-dqempty
+.os-screen.osdqnone .os-dqempty
 {
 	visibility: visible;
 }
 
-.gg-screen.osdrnone .gg-drempty
+.os-screen.osdrnone .os-drempty
 {
 	visibility: visible;
 }
 
-.gg-screen.osdmnone .gg-dmempty
+.os-screen.osdmnone .os-dmempty
 {
 	visibility: visible;
 }
 
-.gg-drrow
+.os-drrow
 {
 	visibility: collapse;
 	width: 100%;
@@ -4244,115 +4244,115 @@ Label
 	border-bottom: 1px solid #FFFFFF0A;
 }
 
-.gg-drtop
+.os-drtop
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-drwhen
+.os-drwhen
 {
 	font-size: 13px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-drend
+.os-drend
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 12px;
 	text-align: right;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-drwhat
+.os-drwhat
 {
 	width: 100%;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-screen.osdr1 .gg-dr1
+.os-screen.osdr1 .os-dr1
 {
 	visibility: visible;
 }
 
-.gg-screen.osdr1hot .gg-dr1 .gg-drwhen
+.os-screen.osdr1hot .os-dr1 .os-drwhen
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdr1ok .gg-dr1 .gg-drend
+.os-screen.osdr1ok .os-dr1 .os-drend
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdr1bad .gg-dr1 .gg-drend
+.os-screen.osdr1bad .os-dr1 .os-drend
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdr1dim .gg-dr1 .gg-drend
+.os-screen.osdr1dim .os-dr1 .os-drend
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdr2 .gg-dr2
-{
-	visibility: visible;
-}
-
-.gg-screen.osdr2hot .gg-dr2 .gg-drwhen
-{
-	color: gg-gold-hi;
-}
-
-.gg-screen.osdr2ok .gg-dr2 .gg-drend
-{
-	color: gg-up;
-}
-
-.gg-screen.osdr2bad .gg-dr2 .gg-drend
-{
-	color: gg-down;
-}
-
-.gg-screen.osdr2dim .gg-dr2 .gg-drend
-{
-	color: gg-faint;
-}
-
-.gg-screen.osdr3 .gg-dr3
+.os-screen.osdr2 .os-dr2
 {
 	visibility: visible;
 }
 
-.gg-screen.osdr3hot .gg-dr3 .gg-drwhen
+.os-screen.osdr2hot .os-dr2 .os-drwhen
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdr3ok .gg-dr3 .gg-drend
+.os-screen.osdr2ok .os-dr2 .os-drend
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdr3bad .gg-dr3 .gg-drend
+.os-screen.osdr2bad .os-dr2 .os-drend
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdr3dim .gg-dr3 .gg-drend
+.os-screen.osdr2dim .os-dr2 .os-drend
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-dmrow
+.os-screen.osdr3 .os-dr3
+{
+	visibility: visible;
+}
+
+.os-screen.osdr3hot .os-dr3 .os-drwhen
+{
+	color: os-gold-hi;
+}
+
+.os-screen.osdr3ok .os-dr3 .os-drend
+{
+	color: os-up;
+}
+
+.os-screen.osdr3bad .os-dr3 .os-drend
+{
+	color: os-down;
+}
+
+.os-screen.osdr3dim .os-dr3 .os-drend
+{
+	color: os-faint;
+}
+
+.os-dmrow
 {
 	visibility: collapse;
 	width: 100%;
@@ -4361,258 +4361,258 @@ Label
 	border-bottom: 1px solid #FFFFFF0A;
 }
 
-.gg-dmat
+.os-dmat
 {
 	width: 104px;
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dmev
+.os-dmev
 {
 	width: 92px;
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dmname
+.os-dmname
 {
 	max-width: 180px;
 	vertical-align: center;
 	font-size: 13px;
 	font-weight: bold;
-	color: gg-text;
+	color: os-text;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-dmwhy
+.os-dmwhy
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 10px;
 	vertical-align: center;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.gg-screen.osdm1 .gg-dm1
+.os-screen.osdm1 .os-dm1
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm1ok .gg-dm1 .gg-dmev
+.os-screen.osdm1ok .os-dm1 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm1bad .gg-dm1 .gg-dmev
+.os-screen.osdm1bad .os-dm1 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm1hot .gg-dm1 .gg-dmev
+.os-screen.osdm1hot .os-dm1 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm1dim .gg-dm1 .gg-dmname
+.os-screen.osdm1dim .os-dm1 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm2 .gg-dm2
+.os-screen.osdm2 .os-dm2
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm2ok .gg-dm2 .gg-dmev
+.os-screen.osdm2ok .os-dm2 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm2bad .gg-dm2 .gg-dmev
+.os-screen.osdm2bad .os-dm2 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm2hot .gg-dm2 .gg-dmev
+.os-screen.osdm2hot .os-dm2 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm2dim .gg-dm2 .gg-dmname
+.os-screen.osdm2dim .os-dm2 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm3 .gg-dm3
+.os-screen.osdm3 .os-dm3
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm3ok .gg-dm3 .gg-dmev
+.os-screen.osdm3ok .os-dm3 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm3bad .gg-dm3 .gg-dmev
+.os-screen.osdm3bad .os-dm3 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm3hot .gg-dm3 .gg-dmev
+.os-screen.osdm3hot .os-dm3 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm3dim .gg-dm3 .gg-dmname
+.os-screen.osdm3dim .os-dm3 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm4 .gg-dm4
+.os-screen.osdm4 .os-dm4
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm4ok .gg-dm4 .gg-dmev
+.os-screen.osdm4ok .os-dm4 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm4bad .gg-dm4 .gg-dmev
+.os-screen.osdm4bad .os-dm4 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm4hot .gg-dm4 .gg-dmev
+.os-screen.osdm4hot .os-dm4 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm4dim .gg-dm4 .gg-dmname
+.os-screen.osdm4dim .os-dm4 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm5 .gg-dm5
+.os-screen.osdm5 .os-dm5
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm5ok .gg-dm5 .gg-dmev
+.os-screen.osdm5ok .os-dm5 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm5bad .gg-dm5 .gg-dmev
+.os-screen.osdm5bad .os-dm5 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm5hot .gg-dm5 .gg-dmev
+.os-screen.osdm5hot .os-dm5 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm5dim .gg-dm5 .gg-dmname
+.os-screen.osdm5dim .os-dm5 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm6 .gg-dm6
+.os-screen.osdm6 .os-dm6
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm6ok .gg-dm6 .gg-dmev
+.os-screen.osdm6ok .os-dm6 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm6bad .gg-dm6 .gg-dmev
+.os-screen.osdm6bad .os-dm6 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm6hot .gg-dm6 .gg-dmev
+.os-screen.osdm6hot .os-dm6 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm6dim .gg-dm6 .gg-dmname
+.os-screen.osdm6dim .os-dm6 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm7 .gg-dm7
+.os-screen.osdm7 .os-dm7
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm7ok .gg-dm7 .gg-dmev
+.os-screen.osdm7ok .os-dm7 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm7bad .gg-dm7 .gg-dmev
+.os-screen.osdm7bad .os-dm7 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm7hot .gg-dm7 .gg-dmev
+.os-screen.osdm7hot .os-dm7 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm7dim .gg-dm7 .gg-dmname
+.os-screen.osdm7dim .os-dm7 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-screen.osdm8 .gg-dm8
+.os-screen.osdm8 .os-dm8
 {
 	visibility: visible;
 }
 
-.gg-screen.osdm8ok .gg-dm8 .gg-dmev
+.os-screen.osdm8ok .os-dm8 .os-dmev
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-screen.osdm8bad .gg-dm8 .gg-dmev
+.os-screen.osdm8bad .os-dm8 .os-dmev
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-screen.osdm8hot .gg-dm8 .gg-dmev
+.os-screen.osdm8hot .os-dm8 .os-dmev
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdm8dim .gg-dm8 .gg-dmname
+.os-screen.osdm8dim .os-dm8 .os-dmname
 {
-	color: gg-faint;
+	color: os-faint;
 }
 
 /* ---- the vote's pieces, the cards' modes, the Fun page's Random and Default, Our maps' glow ----
    The modes' colours: Arms Race the HUD's own gold, Deathmatch red, Wingman blue - the label on a card's picture and its band come from the card's
-   mode-* class (HudVote.CardModeClasses), the same three names gg_global carries, here on the cards. */
+   mode-* class (HudVote.CardModeClasses), the same three names os_global carries, here on the cards. */
 
-@define gg-ar: #E9B44C;
-@define gg-dm: #E8534A;
-@define gg-wm: #4C9BFF;
+@define os-ar: #E9B44C;
+@define os-dm: #E8534A;
+@define os-wm: #4C9BFF;
 
-.gg-mband
+.os-mband
 {
 	visibility: collapse;
 	width: 100%;
@@ -4621,7 +4621,7 @@ Label
 	border-radius: 5px 5px 0px 0px;
 }
 
-.gg-mmode
+.os-mmode
 {
 	visibility: collapse;
 	horizontal-align: left;
@@ -4636,71 +4636,71 @@ Label
 	color: #14100A;
 }
 
-.gg-mcard.mode-armsrace .gg-mband
+.os-mcard.mode-armsrace .os-mband
 {
 	visibility: visible;
-	background-color: gg-ar;
+	background-color: os-ar;
 }
 
-.gg-mcard.mode-armsrace .gg-mmode-armsrace
+.os-mcard.mode-armsrace .os-mmode-armsrace
 {
 	visibility: visible;
-	background-color: gg-ar;
+	background-color: os-ar;
 	color: #14100A;
 }
 
-.gg-mcard.mode-armsrace .gg-mbody
+.os-mcard.mode-armsrace .os-mbody
 {
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #E9B44C14 ), to( #E9B44C05 ) );
 }
 
-.gg-mcard.mode-deathmatch .gg-mband
+.os-mcard.mode-deathmatch .os-mband
 {
 	visibility: visible;
-	background-color: gg-dm;
+	background-color: os-dm;
 }
 
-.gg-mcard.mode-deathmatch .gg-mmode-deathmatch
+.os-mcard.mode-deathmatch .os-mmode-deathmatch
 {
 	visibility: visible;
-	background-color: gg-dm;
+	background-color: os-dm;
 	color: #FFFFFF;
 }
 
-.gg-mcard.mode-deathmatch .gg-mbody
+.os-mcard.mode-deathmatch .os-mbody
 {
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #E8534A14 ), to( #E8534A05 ) );
 }
 
-.gg-mcard.mode-wingman .gg-mband
+.os-mcard.mode-wingman .os-mband
 {
 	visibility: visible;
-	background-color: gg-wm;
+	background-color: os-wm;
 }
 
-.gg-mcard.mode-wingman .gg-mmode-wingman
+.os-mcard.mode-wingman .os-mmode-wingman
 {
 	visibility: visible;
-	background-color: gg-wm;
+	background-color: os-wm;
 	color: #FFFFFF;
 }
 
-.gg-mcard.mode-wingman .gg-mbody
+.os-mcard.mode-wingman .os-mbody
 {
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #4C9BFF14 ), to( #4C9BFF05 ) );
 }
 
-.gg-mcard.broken .gg-mmode
+.os-mcard.broken .os-mmode
 {
 	margin-bottom: 30px;
 }
 
-.gg-mcard.crashed .gg-mmode
+.os-mcard.crashed .os-mmode
 {
 	margin-bottom: 30px;
 }
 
-.gg-vbtn
+.os-vbtn
 {
 	visibility: collapse;
 	height: 30px;
@@ -4714,57 +4714,57 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-vbtn:hover
+.os-vbtn:hover
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-vbtn:active
+.os-vbtn:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-vbtn-text
+.os-vbtn-text
 {
 	vertical-align: center;
 	font-size: 13px;
 	font-weight: bold;
 	letter-spacing: 1px;
 	text-transform: uppercase;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-screen.voting .gg-vrandom
+.os-screen.voting .os-vrandom
 {
 	visibility: visible;
 }
 
-.gg-screen.vrandom .gg-vrandom
+.os-screen.vrandom .os-vrandom
 {
-	border: 2px solid gg-gold;
+	border: 2px solid os-gold;
 	background-color: #E9B44C40;
 }
 
-.gg-screen.voting .gg-ours-wrap
+.os-screen.voting .os-ours-wrap
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting.vpages .gg-pgb
+.os-screen.voting.vpages .os-pgb
 {
 	visibility: visible;
 }
 
-.gg-vmore
+.os-vmore
 {
 	visibility: collapse;
 	vertical-align: center;
 	margin-left: 14px;
 	padding: 4px 12px;
 	border-radius: 4px;
-	background-color: gg-gold;
+	background-color: os-gold;
 	font-size: 13px;
 	font-weight: bold;
 	letter-spacing: 1px;
@@ -4772,41 +4772,41 @@ Label
 	color: #14100A;
 }
 
-.gg-screen.voting.vmore .gg-vmore
+.os-screen.voting.vmore .os-vmore
 {
 	visibility: visible;
 }
 
-.gg-ours-wrap
+.os-ours-wrap
 {
 	vertical-align: center;
 	margin-right: 6px;
 }
 
-.gg-ours-wrap .gg-chipb-ours
+.os-ours-wrap .os-chipb-ours
 {
 	margin-right: 0px;
 	border: 1px solid #E9B44C8C;
 	background-color: #14171CF0;
 }
 
-.gg-ours-wrap .gg-chipb-ours .gg-chipb-text
+.os-ours-wrap .os-chipb-ours .os-chipb-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-ours-wrap .gg-chipb-ours.on
+.os-ours-wrap .os-chipb-ours.on
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	background-color: #E9B44C26;
 }
 
-.gg-ours-wrap .gg-chipb-ours.on .gg-chipb-text
+.os-ours-wrap .os-chipb-ours.on .os-chipb-text
 {
 	color: #FFFFFF;
 }
 
-.gg-ours-glow
+.os-ours-glow
 {
 	width: 100%;
 	height: 28px;
@@ -4818,32 +4818,32 @@ Label
 	transition-timing-function: ease-in-out;
 }
 
-.gg-screen.fl-ours .gg-ours-glow
+.os-screen.fl-ours .os-ours-glow
 {
 	opacity: 0;
 }
 
-.gg-whygrid
+.os-whygrid
 {
 	width: 100%;
 	flow-children: right-wrap;
 }
 
-.gg-funtop
+.os-funtop
 {
 	width: 100%;
 	flow-children: right;
 	margin-bottom: 0px;
 }
 
-.gg-funtop .gg-fun-note
+.os-funtop .os-fun-note
 {
 	width: fill-parent-flow( 1 );
 	margin-bottom: 0px;
 	vertical-align: center;
 }
 
-.gg-funallb
+.os-funallb
 {
 	width: 120px;
 	height: 26px;
@@ -4854,7 +4854,7 @@ Label
 /* ---- where the votes go, the waiting line, the lock, the Fun page's changed marks. The shares
    are eleven classes, w0 ... w10 (tenths of the votes cast), on a card and on a strip segment alike. ---- */
 
-.gg-vwait
+.os-vwait
 {
 	visibility: collapse;
 	width: fill-parent-flow( 1 );
@@ -4867,12 +4867,12 @@ Label
 	white-space: nowrap;
 }
 
-.gg-screen.voting .gg-vwait
+.os-screen.voting .os-vwait
 {
 	visibility: visible;
 }
 
-.gg-vstrip
+.os-vstrip
 {
 	visibility: collapse;
 	width: 440px;
@@ -4885,12 +4885,12 @@ Label
 	background-color: #FFFFFF0F;
 }
 
-.gg-screen.voting.vstrip .gg-vstrip
+.os-screen.voting.vstrip .os-vstrip
 {
 	visibility: visible;
 }
 
-.gg-vseg
+.os-vseg
 {
 	visibility: collapse;
 	width: 0%;
@@ -4900,97 +4900,97 @@ Label
 	transition-duration: 0.3s;
 }
 
-.gg-vseg.used
+.os-vseg.used
 {
 	visibility: visible;
 }
 
-.gg-vseg.w0
+.os-vseg.w0
 {
 	width: 0px;
 }
 
-.gg-vseg.w1
+.os-vseg.w1
 {
 	width: fill-parent-flow( 1.0 );
 }
 
-.gg-vseg.w2
+.os-vseg.w2
 {
 	width: fill-parent-flow( 2.0 );
 }
 
-.gg-vseg.w3
+.os-vseg.w3
 {
 	width: fill-parent-flow( 3.0 );
 }
 
-.gg-vseg.w4
+.os-vseg.w4
 {
 	width: fill-parent-flow( 4.0 );
 }
 
-.gg-vseg.w5
+.os-vseg.w5
 {
 	width: fill-parent-flow( 5.0 );
 }
 
-.gg-vseg.w6
+.os-vseg.w6
 {
 	width: fill-parent-flow( 6.0 );
 }
 
-.gg-vseg.w7
+.os-vseg.w7
 {
 	width: fill-parent-flow( 7.0 );
 }
 
-.gg-vseg.w8
+.os-vseg.w8
 {
 	width: fill-parent-flow( 8.0 );
 }
 
-.gg-vseg.w9
+.os-vseg.w9
 {
 	width: fill-parent-flow( 9.0 );
 }
 
-.gg-vseg.w10
+.os-vseg.w10
 {
 	width: fill-parent-flow( 10.0 );
 }
 
-.gg-vseg.mode-armsrace
+.os-vseg.mode-armsrace
 {
-	background-color: gg-ar;
+	background-color: os-ar;
 }
 
-.gg-vseg.mode-deathmatch
+.os-vseg.mode-deathmatch
 {
-	background-color: gg-dm;
+	background-color: os-dm;
 }
 
-.gg-vseg.mode-wingman
+.os-vseg.mode-wingman
 {
-	background-color: gg-wm;
+	background-color: os-wm;
 }
 
-.gg-vseg.vrand
+.os-vseg.vrand
 {
 	background-color: #A7B0BD;
 }
 
-.gg-vseg.vlead
+.os-vseg.vlead
 {
 	border: 2px solid #FFFFFF;
 }
 
-.gg-vseg.vtie
+.os-vseg.vtie
 {
 	border: 2px solid #FFB547;
 }
 
-.gg-vseg-text
+.os-vseg-text
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -5001,7 +5001,7 @@ Label
 	white-space: nowrap;
 }
 
-.gg-mvbar
+.os-mvbar
 {
 	visibility: collapse;
 	width: 100%;
@@ -5010,120 +5010,120 @@ Label
 	background-color: #000000A6;
 }
 
-.gg-screen.voting .gg-mvbar
+.os-screen.voting .os-mvbar
 {
 	visibility: visible;
 }
 
-.gg-mvbar-fill
+.os-mvbar-fill
 {
 	width: 0%;
 	height: 100%;
-	background-color: gg-ar;
+	background-color: os-ar;
 	transition-property: width;
 	transition-duration: 0.3s;
 }
 
-.gg-mcard.w1 .gg-mvbar-fill
+.os-mcard.w1 .os-mvbar-fill
 {
 	width: 10%;
 }
 
-.gg-mcard.w2 .gg-mvbar-fill
+.os-mcard.w2 .os-mvbar-fill
 {
 	width: 20%;
 }
 
-.gg-mcard.w3 .gg-mvbar-fill
+.os-mcard.w3 .os-mvbar-fill
 {
 	width: 30%;
 }
 
-.gg-mcard.w4 .gg-mvbar-fill
+.os-mcard.w4 .os-mvbar-fill
 {
 	width: 40%;
 }
 
-.gg-mcard.w5 .gg-mvbar-fill
+.os-mcard.w5 .os-mvbar-fill
 {
 	width: 50%;
 }
 
-.gg-mcard.w6 .gg-mvbar-fill
+.os-mcard.w6 .os-mvbar-fill
 {
 	width: 60%;
 }
 
-.gg-mcard.w7 .gg-mvbar-fill
+.os-mcard.w7 .os-mvbar-fill
 {
 	width: 70%;
 }
 
-.gg-mcard.w8 .gg-mvbar-fill
+.os-mcard.w8 .os-mvbar-fill
 {
 	width: 80%;
 }
 
-.gg-mcard.w9 .gg-mvbar-fill
+.os-mcard.w9 .os-mvbar-fill
 {
 	width: 90%;
 }
 
-.gg-mcard.w10 .gg-mvbar-fill
+.os-mcard.w10 .os-mvbar-fill
 {
 	width: 100%;
 }
 
-.gg-mcard.mode-deathmatch .gg-mvbar-fill
+.os-mcard.mode-deathmatch .os-mvbar-fill
 {
-	background-color: gg-dm;
+	background-color: os-dm;
 }
 
-.gg-mcard.mode-wingman .gg-mvbar-fill
+.os-mcard.mode-wingman .os-mvbar-fill
 {
-	background-color: gg-wm;
+	background-color: os-wm;
 }
 
-.gg-mtag-lead
+.os-mtag-lead
 {
 	visibility: collapse;
-	background-color: gg-gold;
+	background-color: os-gold;
 	color: #14100A;
 }
 
-.gg-mtag-tie
+.os-mtag-tie
 {
 	visibility: collapse;
 	background-color: #FFB547;
 	color: #14100A;
 }
 
-.gg-screen.voting .gg-mcard.vlead .gg-mtag-lead
+.os-screen.voting .os-mcard.vlead .os-mtag-lead
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mcard.vtie .gg-mtag-tie
+.os-screen.voting .os-mcard.vtie .os-mtag-tie
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mcard.vlead
+.os-screen.voting .os-mcard.vlead
 {
 	border: 1px solid #E9B44C80;
 }
 
-.gg-screen.voting .gg-mcard.vtie
+.os-screen.voting .os-mcard.vtie
 {
 	border: 2px solid #FFB547;
 }
 
-.gg-screen.vlock .gg-close
+.os-screen.vlock .os-close
 {
 	visibility: collapse;
 }
 
-.gg-frow-dot
+.os-frow-dot
 {
 	visibility: collapse;
 	width: 9px;
@@ -5131,22 +5131,22 @@ Label
 	margin: 0px 0px 0px 8px;
 	vertical-align: center;
 	border-radius: 50%;
-	background-color: gg-gold;
+	background-color: os-gold;
 	box-shadow: #E9B44C99 0px 0px 6px 0px;
 }
 
-.gg-frow.changed .gg-frow-dot
+.os-frow.changed .os-frow-dot
 {
 	visibility: visible;
 }
 
-.gg-frow.changed .gg-funb.on
+.os-frow.changed .os-funb.on
 {
-	border: 1px solid gg-gold-hi;
-	background-color: gg-gold;
+	border: 1px solid os-gold-hi;
+	background-color: os-gold;
 }
 
-.gg-frow.changed .gg-funb.on .gg-setb-text
+.os-frow.changed .os-funb.on .os-setb-text
 {
 	color: #14100A;
 }
@@ -5156,64 +5156,64 @@ Label
 
 /* -- the tabs: START, MAPS, FUN, SERVER, HELP; a main tab is lit for every page under it -- */
 
-.gg-tab
+.os-tab
 {
 	padding: 0px 24px;
 }
 
-.gg-screen.page-players #gg_tab_server
+.os-screen.page-players #os_tab_server
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-players #gg_tab_server .gg-tab-text
-{
-	color: #FFFFFF;
-}
-
-.gg-screen.page-game #gg_tab_server
-{
-	border-bottom: 2px solid gg-gold;
-}
-
-.gg-screen.page-game #gg_tab_server .gg-tab-text
+.os-screen.page-players #os_tab_server .os-tab-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.page-sync #gg_tab_server
+.os-screen.page-game #os_tab_server
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-sync #gg_tab_server .gg-tab-text
+.os-screen.page-game #os_tab_server .os-tab-text
 {
 	color: #FFFFFF;
 }
 
-.gg-screen.page-how #gg_tab_help
+.os-screen.page-sync #os_tab_server
 {
-	border-bottom: 2px solid gg-gold;
+	border-bottom: 2px solid os-gold;
 }
 
-.gg-screen.page-how #gg_tab_help .gg-tab-text
+.os-screen.page-sync #os_tab_server .os-tab-text
+{
+	color: #FFFFFF;
+}
+
+.os-screen.page-how #os_tab_help
+{
+	border-bottom: 2px solid os-gold;
+}
+
+.os-screen.page-how #os_tab_help .os-tab-text
 {
 	color: #FFFFFF;
 }
 
 /* -- the sub-tabs: a segmented row under the tabs, and what the page is for at its right -- */
 
-.gg-subs
+.os-subs
 {
 	width: 100%;
 	height: 40px;
 	flow-children: right;
 	padding: 0px 34px;
-	border-bottom: 1px solid gg-line;
+	border-bottom: 1px solid os-line;
 	background-color: #FFFFFF04;
 }
 
-.gg-subs-group
+.os-subs-group
 {
 	visibility: collapse;
 	height: 28px;
@@ -5223,37 +5223,37 @@ Label
 	border: 1px solid #FFFFFF1F;
 }
 
-.gg-screen.page-maps .gg-subs-maps
+.os-screen.page-maps .os-subs-maps
 {
 	visibility: visible;
 }
 
-.gg-screen.page-players .gg-subs-server
+.os-screen.page-players .os-subs-server
 {
 	visibility: visible;
 }
 
-.gg-screen.page-game .gg-subs-server
+.os-screen.page-game .os-subs-server
 {
 	visibility: visible;
 }
 
-.gg-screen.page-sync .gg-subs-server
+.os-screen.page-sync .os-subs-server
 {
 	visibility: visible;
 }
 
-.gg-screen.page-help .gg-subs-help
+.os-screen.page-help .os-subs-help
 {
 	visibility: visible;
 }
 
-.gg-screen.page-how .gg-subs-help
+.os-screen.page-how .os-subs-help
 {
 	visibility: visible;
 }
 
-.gg-stab
+.os-stab
 {
 	height: 100%;
 	padding: 0px 15px;
@@ -5262,135 +5262,135 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-stab:hover
+.os-stab:hover
 {
 	background-color: #FFFFFF12;
 	sound: "UIPanorama.submenu_rollover";
 }
 
-.gg-stab:active
+.os-stab:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-stab-text
+.os-stab-text
 {
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-stab:hover .gg-stab-text
+.os-stab:hover .os-stab-text
 {
-	color: gg-text;
+	color: os-text;
 }
 
 /* MAPS, Vote exists only while a vote is on; MAPS, Browse is lit while the browser shows. */
-.gg-stab-vote
+.os-stab-vote
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-stab-vote
+.os-screen.voting .os-stab-vote
 {
 	visibility: visible;
 }
 
-.gg-screen.vbrowse .gg-stab-vote
+.os-screen.vbrowse .os-stab-vote
 {
 	visibility: visible;
 }
 
-.gg-screen.page-maps #gg_v_browse
+.os-screen.page-maps #os_v_browse
 {
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.page-maps #gg_v_browse .gg-stab-text
+.os-screen.page-maps #os_v_browse .os-stab-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.voting #gg_v_browse
+.os-screen.voting #os_v_browse
 {
 	background-color: #00000000;
 }
 
-.gg-screen.voting #gg_v_browse .gg-stab-text
+.os-screen.voting #os_v_browse .os-stab-text
 {
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-screen.voting #gg_v_back
-{
-	background-color: #E9B44C2E;
-}
-
-.gg-screen.voting #gg_v_back .gg-stab-text
-{
-	color: gg-gold-hi;
-}
-
-.gg-screen.page-players #gg_sub_players
+.os-screen.voting #os_v_back
 {
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.page-players #gg_sub_players .gg-stab-text
+.os-screen.voting #os_v_back .os-stab-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.page-game #gg_tab_game
-{
-	background-color: #E9B44C2E;
-}
-
-.gg-screen.page-game #gg_tab_game .gg-stab-text
-{
-	color: gg-gold-hi;
-}
-
-.gg-screen.page-sync #gg_tab_sync
+.os-screen.page-players #os_sub_players
 {
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.page-sync #gg_tab_sync .gg-stab-text
+.os-screen.page-players #os_sub_players .os-stab-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.page-help #gg_sub_help
-{
-	background-color: #E9B44C2E;
-}
-
-.gg-screen.page-help #gg_sub_help .gg-stab-text
-{
-	color: gg-gold-hi;
-}
-
-.gg-screen.page-how #gg_tab_how
+.os-screen.page-game #os_tab_game
 {
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.page-how #gg_tab_how .gg-stab-text
+.os-screen.page-game #os_tab_game .os-stab-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-subcap
+.os-screen.page-sync #os_tab_sync
+{
+	background-color: #E9B44C2E;
+}
+
+.os-screen.page-sync #os_tab_sync .os-stab-text
+{
+	color: os-gold-hi;
+}
+
+.os-screen.page-help #os_sub_help
+{
+	background-color: #E9B44C2E;
+}
+
+.os-screen.page-help #os_sub_help .os-stab-text
+{
+	color: os-gold-hi;
+}
+
+.os-screen.page-how #os_tab_how
+{
+	background-color: #E9B44C2E;
+}
+
+.os-screen.page-how #os_tab_how .os-stab-text
+{
+	color: os-gold-hi;
+}
+
+.os-subcap
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
 	margin-left: 16px;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 	text-align: right;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -5398,41 +5398,41 @@ Label
 
 /* -- SERVER, Players: who is on, and which HUD their game shows; across the whole window -- */
 
-.gg-screen.page-players .gg-page-players
+.os-screen.page-players .os-page-players
 {
 	visibility: visible;
 }
 
-.gg-screen.page-players .gg-live
+.os-screen.page-players .os-live
 {
 	visibility: collapse;
 }
 
-.gg-page-players
+.os-page-players
 {
 	flow-children: down;
 	padding: 14px 34px 8px 34px;
 }
 
-.gg-psum
+.os-psum
 {
 	margin-bottom: 10px;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-phead
+.os-phead
 {
 	width: 100%;
 	height: 24px;
 	flow-children: right;
-	border-bottom: 1px solid gg-line;
+	border-bottom: 1px solid os-line;
 }
 
-.gg-prow
+.os-prow
 {
 	width: 100%;
 	height: 29px;
@@ -5440,7 +5440,7 @@ Label
 	border-bottom: 1px solid #FFFFFF0A;
 }
 
-.gg-pname
+.os-pname
 {
 	width: 300px;
 	vertical-align: center;
@@ -5451,32 +5451,32 @@ Label
 	white-space: nowrap;
 }
 
-.gg-pteam
+.os-pteam
 {
 	width: 80px;
 	vertical-align: center;
 	font-size: 12px;
 	font-weight: bold;
 	letter-spacing: 1px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-phud
+.os-phud
 {
 	width: 400px;
 	height: 100%;
 	flow-children: right;
 }
 
-.gg-phud-ok
+.os-phud-ok
 {
 	vertical-align: center;
 	font-size: 14px;
 	font-weight: bold;
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-phud-old
+.os-phud-old
 {
 	vertical-align: center;
 	font-size: 14px;
@@ -5484,59 +5484,59 @@ Label
 	color: #F0B44C;
 }
 
-.gg-phud-chk
+.os-phud-chk
 {
 	vertical-align: center;
 	font-size: 14px;
 	font-weight: bold;
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-pvote
+.os-pvote
 {
 	width: 160px;
 	vertical-align: center;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-pfor
+.os-pfor
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 	text-align: right;
 }
 
-.gg-phead .gg-phl
+.os-phead .os-phl
 {
 	vertical-align: center;
 	font-size: 11px;
 	font-weight: bold;
 	letter-spacing: 2.2px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-plegend
+.os-plegend
 {
 	margin-top: 10px;
 	font-size: 12px;
-	color: gg-faint;
+	color: os-faint;
 }
 
 /* -- the cards on their side: the band of the mode, the picture, then the name and every tag that applies in two lines; the browser's eight are
    577 x 110 with a 196 x 110 picture (two of them and 14 px between fill the page's 1,172 px, borders and all). The ballot's ten stand upright, below -- */
 
-.gg-grid-row
+.os-grid-row
 {
 	width: 100%;
 	flow-children: right-wrap;
 	margin-bottom: 0px;
 }
 
-.gg-mcard
+.os-mcard
 {
 	visibility: collapse;
 	width: 577px;
@@ -5549,35 +5549,35 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-mcard-l
+.os-mcard-l
 {
 	margin-right: 14px;
 }
 
-.gg-mcard.used
+.os-mcard.used
 {
 	visibility: visible;
 }
 
-.gg-mcard:hover
+.os-mcard:hover
 {
 	border: 1px solid #FFFFFF33;
 }
 
-.gg-mcard.now
+.os-mcard.now
 {
-	border: 1px solid gg-gold;
+	border: 1px solid os-gold;
 	box-shadow: #E9B44C33 0px 0px 14px 0px;
 }
 
-.gg-mrow
+.os-mrow
 {
 	width: 100%;
 	height: 100%;
 	flow-children: right;
 }
 
-.gg-mband
+.os-mband
 {
 	visibility: visible;
 	width: 4px;
@@ -5588,7 +5588,7 @@ Label
 }
 
 /* The picture: the two classes the plugin sets on it (th and tl, the map's picture number) pick its rule in gungame_hud_thumbs.css. */
-.gg-mthumb
+.os-mthumb
 {
 	width: 196px;
 	height: 100%;
@@ -5598,14 +5598,14 @@ Label
 	background-repeat: no-repeat;
 }
 
-.gg-mthumb-shade
+.os-mthumb-shade
 {
 	width: 100%;
 	height: 100%;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #00000059 ), color-stop( 0.35, #00000000 ), color-stop( 0.7, #00000000 ), to( #000000B3 ) );
 }
 
-.gg-mrank
+.os-mrank
 {
 	margin: 6px 0px 0px 6px;
 	padding: 2px 7px;
@@ -5616,35 +5616,35 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-mcard.official .gg-mrank
+.os-mcard.official .os-mrank
 {
 	font-family: Stratum2, 'Arial Unicode MS';
 	font-size: 11px;
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-mmode
+.os-mmode
 {
 	margin: 0px 0px 6px 6px;
 	padding: 2px 7px;
 	font-size: 10px;
 }
 
-.gg-mcard.broken .gg-mmode
+.os-mcard.broken .os-mmode
 {
 	margin-bottom: 25px;
 }
 
-.gg-mcard.crashed .gg-mmode
+.os-mcard.crashed .os-mmode
 {
 	margin-bottom: 25px;
 }
 
 /* A broken or crashed map says so across the bottom of its picture. */
-.gg-mwarn
+.os-mwarn
 {
 	visibility: collapse;
 	width: 100%;
@@ -5657,19 +5657,19 @@ Label
 	white-space: nowrap;
 }
 
-.gg-mcard.crashed .gg-mwarn
+.os-mcard.crashed .os-mwarn
 {
 	visibility: visible;
 	background-color: #C9831ED9;
 }
 
-.gg-mcard.broken .gg-mwarn
+.os-mcard.broken .os-mwarn
 {
 	visibility: visible;
 	background-color: #C2412FE6;
 }
 
-.gg-mbody
+.os-mbody
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
@@ -5677,13 +5677,13 @@ Label
 	padding: 7px 12px 0px 12px;
 }
 
-.gg-mline
+.os-mline
 {
 	width: 100%;
 	flow-children: right;
 }
 
-.gg-mname
+.os-mname
 {
 	width: fill-parent-flow( 1 );
 	height: 20px;
@@ -5694,26 +5694,26 @@ Label
 	white-space: nowrap;
 }
 
-.gg-msize
+.os-msize
 {
 	margin-left: 10px;
 	vertical-align: bottom;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-mwho
+.os-mwho
 {
 	visibility: collapse;
 	width: 100%;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 /* Every tag that applies, in the order of their precedence (MapTags), in two lines at most beside the picture. */
-.gg-mtags
+.os-mtags
 {
 	width: 100%;
 	height: 38px;
@@ -5722,7 +5722,7 @@ Label
 	overflow: clip;
 }
 
-.gg-mtag
+.os-mtag
 {
 	visibility: collapse;
 	margin: 0px 5px 4px 0px;
@@ -5735,159 +5735,159 @@ Label
 	color: #10141A;
 }
 
-.gg-mtag-next
+.os-mtag-next
 {
 	background-color: #FFD47E;
 	color: #10141A;
 }
 
-.gg-mtag-lead
+.os-mtag-lead
 {
 	background-color: #E9B44C;
 	color: #10141A;
 }
 
-.gg-mtag-tie
+.os-mtag-tie
 {
 	background-color: #FFB547;
 	color: #10141A;
 }
 
-.gg-mtag-now
+.os-mtag-now
 {
 	background-color: #E9B44C;
 	color: #10141A;
 }
 
-.gg-mtag-big
+.os-mtag-big
 {
 	background-color: #F07C6B;
 	color: #10141A;
 }
 
-.gg-mtag-ads
+.os-mtag-ads
 {
 	background-color: #F07C6B;
 	color: #10141A;
 }
 
-.gg-mtag-queued
+.os-mtag-queued
 {
 	background-color: #F1EDE5;
 	color: #10141A;
 }
 
-.gg-mtag-ours
+.os-mtag-ours
 {
 	background-color: #4FD6A2;
 	color: #10141A;
 }
 
-.gg-mtag.t-liked
+.os-mtag.t-liked
 {
 	background-color: #7BD88F;
 }
 
-.gg-mtag.t-upload
+.os-mtag.t-upload
 {
 	background-color: #63D8E8;
 }
 
-.gg-mtag.t-updated
+.os-mtag.t-updated
 {
 	background-color: #A6EAF2;
 }
 
-.gg-mtag.t-trending
+.os-mtag.t-trending
 {
 	background-color: #CFD6DE;
 }
 
-.gg-mtag.t-toprated
+.os-mtag.t-toprated
 {
 	background-color: #CFD6DE;
 }
 
-.gg-mtag.t-popular
+.os-mtag.t-popular
 {
 	background-color: #CFD6DE;
 }
 
-.gg-mtag.t-newtous
+.os-mtag.t-newtous
 {
 	background-color: #B48CFF;
 }
 
-.gg-mcard.now .gg-mtag-now
+.os-mcard.now .os-mtag-now
 {
 	visibility: visible;
 }
 
-.gg-mcard.big .gg-mtag-big
+.os-mcard.big .os-mtag-big
 {
 	visibility: visible;
 }
 
-.gg-mcard.ads .gg-mtag-ads
+.os-mcard.ads .os-mtag-ads
 {
 	visibility: visible;
 }
 
-.gg-mcard.ours .gg-mtag-ours
+.os-mcard.ours .os-mtag-ours
 {
 	visibility: visible;
 	background-color: #4FD6A2;
 }
 
-.gg-screen.voting .gg-mcard.queued .gg-mtag-queued
+.os-screen.voting .os-mcard.queued .os-mtag-queued
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mcard.now .gg-mtag-next
+.os-screen.voting .os-mcard.now .os-mtag-next
 {
 	visibility: visible;
 	background-color: #FFD47E;
 	color: #10141A;
 }
 
-.gg-mcard.t-liked .gg-mtag.t-liked
+.os-mcard.t-liked .os-mtag.t-liked
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-upload .gg-mtag.t-upload
+.os-mcard.t-upload .os-mtag.t-upload
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-updated .gg-mtag.t-updated
+.os-mcard.t-updated .os-mtag.t-updated
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-trending .gg-mtag.t-trending
+.os-mcard.t-trending .os-mtag.t-trending
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-toprated .gg-mtag.t-toprated
+.os-mcard.t-toprated .os-mtag.t-toprated
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-popular .gg-mtag.t-popular
+.os-mcard.t-popular .os-mtag.t-popular
 {
 	visibility: visible;
 }
 
-.gg-mcard.t-newtous .gg-mtag.t-newtous
+.os-mcard.t-newtous .os-mtag.t-newtous
 {
 	visibility: visible;
 }
 
 /* The browser card's actions: Play, the likes, the arrows - a row at the foot of the card, beside the picture. */
-.gg-macts
+.os-macts
 {
 	width: 353px;
 	height: 28px;
@@ -5897,7 +5897,7 @@ Label
 	flow-children: right;
 }
 
-.gg-mplay
+.os-mplay
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
@@ -5908,19 +5908,19 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-mplay:hover
+.os-mplay:hover
 {
-	border: 1px solid gg-gold-hi;
+	border: 1px solid os-gold-hi;
 	background-color: gradient( linear, 0% 0%, 100% 0%, from( #E9B44C52 ), to( #E9B44C1F ) );
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-mplay:active
+.os-mplay:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-mplay-text
+.os-mplay-text
 {
 	horizontal-align: center;
 	vertical-align: center;
@@ -5928,54 +5928,54 @@ Label
 	font-weight: bold;
 	letter-spacing: 1.5px;
 	text-transform: uppercase;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-mcard.risky .gg-mplay
+.os-mcard.risky .os-mplay
 {
 	border: 1px solid #C9831EB3;
 	background-color: #C9831E1F;
 }
 
-.gg-mcard.risky .gg-mplay-text
+.os-mcard.risky .os-mplay-text
 {
 	color: #F2B45A;
 }
 
-.gg-mcard.confirm .gg-mplay
+.os-mcard.confirm .os-mplay
 {
 	border: 1px solid #F07C6B;
 	background-color: #C2412F59;
 }
 
-.gg-mcard.confirm .gg-mplay-text
+.os-mcard.confirm .os-mplay-text
 {
 	color: #FFFFFF;
 }
 
-.gg-mcard.now .gg-mplay
+.os-mcard.now .os-mplay
 {
 	opacity: 0.5;
 	border: 1px solid #FFFFFF1F;
 	background-color: #FFFFFF08;
 }
 
-.gg-mcard.now .gg-mplay-text
+.os-mcard.now .os-mplay-text
 {
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-mscore
-{
-	visibility: collapse;
-}
-
-.gg-mpop
+.os-mscore
 {
 	visibility: collapse;
 }
 
-.gg-mvotes
+.os-mpop
+{
+	visibility: collapse;
+}
+
+.os-mvotes
 {
 	min-width: 44px;
 	margin-left: 8px;
@@ -5983,20 +5983,20 @@ Label
 	text-align: right;
 	font-family: Stratum2 Bold Monodigit, 'Arial Unicode MS';
 	font-size: 13px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-mcard.liked .gg-mvotes
+.os-mcard.liked .os-mvotes
 {
-	color: gg-up;
+	color: os-up;
 }
 
-.gg-mcard.disliked .gg-mvotes
+.os-mcard.disliked .os-mvotes
 {
-	color: gg-down;
+	color: os-down;
 }
 
-.gg-mvote
+.os-mvote
 {
 	width: 34px;
 	height: 100%;
@@ -6008,51 +6008,51 @@ Label
 	transition-duration: 0.12s;
 }
 
-.gg-mvote:hover
+.os-mvote:hover
 {
 	border: 1px solid #FFFFFF4D;
 	background-color: #FFFFFF17;
 	sound: "UIPanorama.generic_button_rollover";
 }
 
-.gg-mvote:active
+.os-mvote:active
 {
 	sound: "UIPanorama.generic_button_press";
 }
 
-.gg-mvote .gg-chev
+.os-mvote .os-chev
 {
 	horizontal-align: center;
 }
 
-.gg-mcard.liked .gg-mvote-up
+.os-mcard.liked .os-mvote-up
 {
 	border: 1px solid #7BD88FB3;
 	background-color: #7BD88F2E;
 }
 
-.gg-mcard.disliked .gg-mvote-down
+.os-mcard.disliked .os-mvote-down
 {
 	border: 1px solid #F07C6BB3;
 	background-color: #F07C6B2E;
 }
 
-#gg_m_empty
+#os_m_empty
 {
 	visibility: collapse;
 	horizontal-align: center;
 	margin-top: 120px;
 	font-size: 16px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-#gg_m_empty.used
+#os_m_empty.used
 {
 	visibility: visible;
 }
 
 /* The browser's Previous: the map before this one, to the vote (it stood on the old Queue page). */
-.gg-mbar-filters .gg-qprev
+.os-mbar-filters .os-qprev
 {
 	height: 28px;
 	vertical-align: center;
@@ -6061,79 +6061,79 @@ Label
 
 /* -- the pager: Next pulses while more pages follow, Prev while this is not the first page (a panel behind the words, on opacity) -- */
 
-@keyframes 'gg-pgpulse'
+@keyframes 'os-pgpulse'
 {
 	0% { opacity: 0; }
 	50% { opacity: 1; }
 	100% { opacity: 0; }
 }
 
-.gg-pgb-glow
+.os-pgb-glow
 {
 	width: 100%;
 	height: 100%;
 	border-radius: 3px;
 	background-color: #E9B44C40;
 	opacity: 0;
-	animation-name: gg-pgpulse;
+	animation-name: os-pgpulse;
 	animation-duration: 1.6s;
 	animation-timing-function: ease-in-out;
 	animation-iteration-count: infinite;
 }
 
-.gg-pgb.off .gg-pgb-glow
+.os-pgb.off .os-pgb-glow
 {
 	visibility: collapse;
 }
 
-.gg-pgb-text
+.os-pgb-text
 {
 	horizontal-align: center;
 }
 
-/* -- the ballot (voting on gg_screen): a bigger window, its header with the two clocks, then ten upright tiles, five across and two down, the most votes first.
+/* -- the ballot (voting on os_screen): a bigger window, its header with the two clocks, then ten upright tiles, five across and two down, the most votes first.
    The header and the tile words are the server's in every state: voting, everybody voted, decided or kept (vdone), the last 10 s (vlow) -- */
 
-.gg-screen.voting .gg-win
+.os-screen.voting .os-win
 {
 	width: 1760px;
 	height: 920px;
 }
 
-.AspectRatio16x10 .gg-screen.voting .gg-win
+.AspectRatio16x10 .os-screen.voting .os-win
 {
 	ui-scale: 92%;
 }
 
-.AspectRatio4x3 .gg-screen.voting .gg-win
+.AspectRatio4x3 .os-screen.voting .os-win
 {
 	ui-scale: 80%;
 }
 
 /* This window cannot be closed, so it does not close when idle either. */
 /* The welcome closes only by its X: no idle words, no drain bar */
-.gg-screen.pinned .gg-drain
+.os-screen.pinned .os-drain
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-drain
+.os-screen.voting .os-drain
 {
 	visibility: collapse;
 }
 
 /* 1,692 x 693 px inside: the header 92 and 6 under it, two rows of tiles 568 with their margins, the pager 26. */
-.gg-screen.voting .gg-page-maps
+.os-screen.voting .os-page-maps
 {
 	padding: 12px 34px 4px 34px;
 }
 
-.gg-screen.voting .gg-page-maps .gg-mbar
+.os-screen.voting .os-page-maps .os-mbar
 {
 	visibility: collapse;
 }
 
-.gg-vhead
+.os-vhead
 {
 	visibility: collapse;
 	width: 100%;
@@ -6142,38 +6142,38 @@ Label
 	margin-bottom: 6px;
 }
 
-.gg-screen.voting .gg-vhead
+.os-screen.voting .os-vhead
 {
 	visibility: visible;
 }
 
-.gg-vhead-main
+.os-vhead-main
 {
 	width: fill-parent-flow( 1 );
 	height: 100%;
 	flow-children: down;
 }
 
-.gg-vhead-top
+.os-vhead-top
 {
 	width: 100%;
 	height: 36px;
 	flow-children: right;
 }
 
-.gg-vote-title
+.os-vote-title
 {
 	vertical-align: center;
 	margin-bottom: 0px;
 }
 
-.gg-vwait
+.os-vwait
 {
 	vertical-align: center;
 	margin: 0px 0px 0px 18px;
 }
 
-.gg-vhead-row
+.os-vhead-row
 {
 	width: 100%;
 	height: 40px;
@@ -6181,38 +6181,38 @@ Label
 	margin-top: 4px;
 }
 
-#gg_v_random
+#os_v_random
 {
 	width: 160px;
 	height: 34px;
 	padding: 0px;
 }
 
-#gg_v_random .gg-vbtn-text
+#os_v_random .os-vbtn-text
 {
 	horizontal-align: center;
 }
 
-.gg-vstrip
+.os-vstrip
 {
 	width: 240px;
 	vertical-align: center;
 	margin-top: 0px;
 }
 
-.gg-vhead-row .gg-vwait
+.os-vhead-row .os-vwait
 {
 	margin-left: 14px;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.vdone .gg-vhead-row .gg-vwait
+.os-screen.vdone .os-vhead-row .os-vwait
 {
 	font-size: 20px;
 }
 
 /* The two clocks, each a row: what it counts, the big digits, the bar, the words. */
-.gg-clocks
+.os-clocks
 {
 	width: 760px;
 	height: 100%;
@@ -6220,14 +6220,14 @@ Label
 	padding-top: 2px;
 }
 
-.gg-clock
+.os-clock
 {
 	width: 100%;
 	height: 44px;
 	flow-children: right;
 }
 
-.gg-clock-key
+.os-clock-key
 {
 	width: 150px;
 	vertical-align: center;
@@ -6235,10 +6235,10 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-faint;
+	color: os-faint;
 }
 
-.gg-clock-big
+.os-clock-big
 {
 	width: 76px;
 	vertical-align: center;
@@ -6247,12 +6247,12 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-clock-idle .gg-clock-big
+.os-clock-idle .os-clock-big
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-clock-bar
+.os-clock-bar
 {
 	width: 300px;
 	height: 10px;
@@ -6264,12 +6264,12 @@ Label
 /* The fill is a transform, which animates: the server only ever moves it to the next step (w0 ... w10), and each step's transition lasts as long as the step, so the bar moves
    steadily, cannot drift, and is right at once for a late joiner. Limit: a step of 6 s; Inactivity: a step of 1 s. Panorama takes a transition's length from the state it leaves:
    w0's 0 s make the next vote's first w10 full at once, and the inactivity timer's reset refills in its 1 s. */
-.gg-clock-fill
+.os-clock-fill
 {
 	width: 100%;
 	height: 100%;
 	border-radius: 5px;
-	background-color: gradient( linear, 0% 0%, 100% 0%, from( gg-gold-deep ), to( gg-gold ) );
+	background-color: gradient( linear, 0% 0%, 100% 0%, from( os-gold-deep ), to( os-gold ) );
 	transform-origin: 0% 50%;
 	transform: scaleX( 0 );
 	transition-property: transform;
@@ -6277,69 +6277,69 @@ Label
 	transition-duration: 6s;
 }
 
-.gg-clock-bar.w1 .gg-clock-fill
+.os-clock-bar.w1 .os-clock-fill
 {
 	transform: scaleX( 0.1 );
 }
 
-.gg-clock-bar.w2 .gg-clock-fill
+.os-clock-bar.w2 .os-clock-fill
 {
 	transform: scaleX( 0.2 );
 }
 
-.gg-clock-bar.w3 .gg-clock-fill
+.os-clock-bar.w3 .os-clock-fill
 {
 	transform: scaleX( 0.3 );
 }
 
-.gg-clock-bar.w4 .gg-clock-fill
+.os-clock-bar.w4 .os-clock-fill
 {
 	transform: scaleX( 0.4 );
 }
 
-.gg-clock-bar.w5 .gg-clock-fill
+.os-clock-bar.w5 .os-clock-fill
 {
 	transform: scaleX( 0.5 );
 }
 
-.gg-clock-bar.w6 .gg-clock-fill
+.os-clock-bar.w6 .os-clock-fill
 {
 	transform: scaleX( 0.6 );
 }
 
-.gg-clock-bar.w7 .gg-clock-fill
+.os-clock-bar.w7 .os-clock-fill
 {
 	transform: scaleX( 0.7 );
 }
 
-.gg-clock-bar.w8 .gg-clock-fill
+.os-clock-bar.w8 .os-clock-fill
 {
 	transform: scaleX( 0.8 );
 }
 
-.gg-clock-bar.w9 .gg-clock-fill
+.os-clock-bar.w9 .os-clock-fill
 {
 	transform: scaleX( 0.9 );
 }
 
-.gg-clock-bar.w10 .gg-clock-fill
+.os-clock-bar.w10 .os-clock-fill
 {
 	transform: scaleX( 1 );
 }
 
-.gg-clock-bar.w0 .gg-clock-fill
+.os-clock-bar.w0 .os-clock-fill
 {
 	transform: scaleX( 0 );
 	transition-duration: 0s;
 }
 
-#gg_vidle .gg-clock-fill
+#os_vidle .os-clock-fill
 {
 	transition-duration: 1s;
-	background-color: gg-gold-hi;
+	background-color: os-gold-hi;
 }
 
-.gg-clock-text
+.os-clock-text
 {
 	width: fill-parent-flow( 1 );
 	margin-left: 14px;
@@ -6352,100 +6352,100 @@ Label
 }
 
 /* The last 10 s: the limit's digits turn red and pulse. */
-.gg-screen.vlow .gg-clock-big
+.os-screen.vlow .os-clock-big
 {
 	color: #F07C6B;
-	animation-name: gg-pulse;
+	animation-name: os-pulse;
 	animation-duration: 1s;
 	animation-timing-function: ease-in-out;
 	animation-iteration-count: infinite;
 }
 
-.gg-screen.vlow .gg-clock-idle .gg-clock-big
+.os-screen.vlow .os-clock-idle .os-clock-big
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 	animation-name: none;
 }
 
 /* Decided or kept: the limit's row goes, and the other clock, grown, counts down the change. */
-.gg-screen.vdone .gg-clock
+.os-screen.vdone .os-clock
 {
 	visibility: collapse;
 }
 
-.gg-screen.vdone .gg-clock-idle
+.os-screen.vdone .os-clock-idle
 {
 	visibility: visible;
 	height: 88px;
 }
 
-.gg-screen.vdone .gg-clock-big
+.os-screen.vdone .os-clock-big
 {
 	width: 120px;
 	font-size: 44px;
 }
 
-.gg-screen.vdone .gg-clock-bar
+.os-screen.vdone .os-clock-bar
 {
 	height: 14px;
 }
 
 /* The tiles: the picture at nearly its full size, who voted and the count on it, the name, its line and every tag under it. The fifth of a row has no margin to wrap on: 5 x 330 + 4 x 10 fill the 1,692 px. */
-.gg-screen.voting .gg-mcard
+.os-screen.voting .os-mcard
 {
 	width: 330px;
 	height: 276px;
 	margin: 0px 10px 8px 0px;
 }
 
-.gg-screen.voting #gg_m5
+.os-screen.voting #os_m5
 {
 	margin-right: 0px;
 }
 
-.gg-screen.voting #gg_m10
+.os-screen.voting #os_m10
 {
 	margin-right: 0px;
 }
 
-.gg-screen.voting .gg-mrow
+.os-screen.voting .os-mrow
 {
 	flow-children: down;
 }
 
-.gg-screen.voting .gg-mband
+.os-screen.voting .os-mband
 {
 	width: 100%;
 	height: 3px;
 	border-radius: 5px 5px 0px 0px;
 }
 
-.gg-screen.voting .gg-mthumb
+.os-screen.voting .os-mthumb
 {
 	width: 328px;
 	height: 185px;
 }
 
-.gg-screen.voting .gg-mthumb-shade
+.os-screen.voting .os-mthumb-shade
 {
 	height: 80px;
 	vertical-align: bottom;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #0A0D1100 ), to( #0A0D11E6 ) );
 }
 
-.gg-screen.voting .gg-mrank
+.os-screen.voting .os-mrank
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-mmode
+.os-screen.voting .os-mmode
 {
 	vertical-align: top;
 	margin: 8px 0px 0px 8px;
 }
 
 /* Who voted here, at the foot of the picture. */
-.gg-mnames
+.os-mnames
 {
 	visibility: collapse;
 	width: 200px;
@@ -6459,51 +6459,51 @@ Label
 	white-space: nowrap;
 }
 
-.gg-screen.voting .gg-mnames
+.os-screen.voting .os-mnames
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mcard.broken .gg-mnames
+.os-screen.voting .os-mcard.broken .os-mnames
 {
 	margin-bottom: 30px;
 }
 
-.gg-screen.voting .gg-mcard.crashed .gg-mnames
+.os-screen.voting .os-mcard.crashed .os-mnames
 {
 	margin-bottom: 30px;
 }
 
-.gg-screen.voting .gg-mbody
+.os-screen.voting .os-mbody
 {
 	width: 100%;
 	height: fill-parent-flow( 1 );
 	padding: 5px 10px 0px 10px;
 }
 
-.gg-screen.voting .gg-mname
+.os-screen.voting .os-mname
 {
 	height: 21px;
 	font-size: 17px;
 }
 
-.gg-screen.voting .gg-msize
+.os-screen.voting .os-msize
 {
 	visibility: collapse;
 }
 
-.gg-screen.voting .gg-mwho
+.os-screen.voting .os-mwho
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mtags
+.os-screen.voting .os-mtags
 {
 	margin-top: 3px;
 }
 
 /* The share of the votes as a bar along the picture's foot. */
-.gg-mvbar
+.os-mvbar
 {
 	visibility: collapse;
 	width: 405px;
@@ -6513,7 +6513,7 @@ Label
 	background-color: #0000006B;
 }
 
-.gg-screen.voting .gg-mvbar
+.os-screen.voting .os-mvbar
 {
 	visibility: visible;
 	width: 328px;
@@ -6524,7 +6524,7 @@ Label
 
 /* A tile is one button: a click votes, a click on your own takes it back. The count stands on the picture's right like the game-end screen's, and the mouse on the tile shows
    who voted for it over its picture. */
-.gg-screen.voting .gg-macts
+.os-screen.voting .os-macts
 {
 	width: 100%;
 	height: 100%;
@@ -6532,7 +6532,7 @@ Label
 	flow-children: none;
 }
 
-.gg-screen.voting .gg-mplay
+.os-screen.voting .os-mplay
 {
 	width: 100%;
 	height: 100%;
@@ -6541,13 +6541,13 @@ Label
 	background-color: #00000000;
 }
 
-.gg-screen.voting .gg-mplay:hover
+.os-screen.voting .os-mplay:hover
 {
 	border: 1px solid #FFFFFF33;
 	background-color: #FFFFFF08;
 }
 
-.gg-screen.voting .gg-mscore
+.os-screen.voting .os-mscore
 {
 	visibility: visible;
 	width: 110px;
@@ -6561,7 +6561,7 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-screen.voting .gg-mplay-text
+.os-screen.voting .os-mplay-text
 {
 	width: 110px;
 	horizontal-align: right;
@@ -6571,36 +6571,36 @@ Label
 	text-align: right;
 	font-size: 10px;
 	letter-spacing: 1.5px;
-	color: gg-text;
+	color: os-text;
 }
 
-.gg-screen.voting .gg-mcard.confirm
+.os-screen.voting .os-mcard.confirm
 {
-	border: 2px solid gg-gold;
+	border: 2px solid os-gold;
 	background-color: #E9B44C2E;
 }
 
-.gg-screen.voting .gg-mcard.confirm .gg-mscore
+.os-screen.voting .os-mcard.confirm .os-mscore
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.voting .gg-mcard.confirm .gg-mplay-text
+.os-screen.voting .os-mcard.confirm .os-mplay-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.voting .gg-mcard.now .gg-mplay-text
+.os-screen.voting .os-mcard.now .os-mplay-text
 {
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.voting .gg-mvotes
+.os-screen.voting .os-mvotes
 {
 	visibility: collapse;
 }
 
-.gg-mpop
+.os-mpop
 {
 	width: 328px;
 	height: 188px;
@@ -6611,12 +6611,12 @@ Label
 	background-color: #07090CED;
 }
 
-.gg-screen.voting .gg-mplay:hover .gg-mpop
+.os-screen.voting .os-mplay:hover .os-mpop
 {
 	visibility: visible;
 }
 
-.gg-mpop-title
+.os-mpop-title
 {
 	visibility: collapse;
 	horizontal-align: center;
@@ -6624,28 +6624,28 @@ Label
 	font-weight: bold;
 	letter-spacing: 2.3px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-mcard.vhas .gg-mpop-title
+.os-mcard.vhas .os-mpop-title
 {
 	visibility: visible;
 }
 
-.gg-mpop-none
+.os-mpop-none
 {
 	horizontal-align: center;
 	margin-top: 26px;
 	font-size: 12px;
-	color: gg-dim;
+	color: os-dim;
 }
 
-.gg-mcard.vhas .gg-mpop-none
+.os-mcard.vhas .os-mpop-none
 {
 	visibility: collapse;
 }
 
-.gg-mpop-names
+.os-mpop-names
 {
 	width: 100%;
 	margin-top: 5px;
@@ -6656,21 +6656,21 @@ Label
 }
 
 /* Decided or kept: the tiles step back, the map to come stands out. */
-.gg-screen.vdone .gg-mcard
+.os-screen.vdone .os-mcard
 {
 	opacity: 0.4;
 	transition-property: opacity;
 	transition-duration: 0.3s;
 }
 
-.gg-screen.vdone .gg-mcard.now
+.os-screen.vdone .os-mcard.now
 {
 	opacity: 1;
-	border: 2px solid gg-gold;
+	border: 2px solid os-gold;
 	box-shadow: #E9B44C66 0px 0px 24px 0px;
 }
 
-.gg-screen.voting .gg-pager
+.os-screen.voting .os-pager
 {
 	height: 26px;
 }
@@ -6678,24 +6678,24 @@ Label
 /* -- Play asks first, a browser card's: a risky map's whole picture locks (risky); the first click (confirm) opens the padlock and starts a line that runs out over the 30 s
    the click stays armed. When they pass, the class goes: the padlock shuts, the line is full again. The padlock is a picture in the addon, as the knife -- */
 
-.gg-mlock
+.os-mlock
 {
 	visibility: collapse;
 	width: 100%;
 	height: 100%;
 }
 
-.gg-mcard.risky .gg-mlock
+.os-mcard.risky .os-mlock
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mlock
+.os-screen.voting .os-mlock
 {
 	visibility: collapse;
 }
 
-.gg-mlock-shut
+.os-mlock-shut
 {
 	width: 100%;
 	height: 100%;
@@ -6709,7 +6709,7 @@ Label
 	transition-duration: 0.25s;
 }
 
-.gg-mlock-open
+.os-mlock-open
 {
 	width: 64px;
 	height: 64px;
@@ -6723,19 +6723,19 @@ Label
 	transition-duration: 0.25s;
 }
 
-.gg-mcard.confirm .gg-mlock-shut
+.os-mcard.confirm .os-mlock-shut
 {
 	opacity: 0;
 }
 
-.gg-mcard.confirm .gg-mlock-open
+.os-mcard.confirm .os-mlock-open
 {
 	opacity: 1;
 	transform: none;
 }
 
 /* Laid out before the click, so the transition has something to run on. */
-.gg-mlock-line
+.os-mlock-line
 {
 	visibility: collapse;
 	width: 100%;
@@ -6744,22 +6744,22 @@ Label
 	background-color: #FFFFFF14;
 }
 
-.gg-mcard.risky .gg-mlock-line
+.os-mcard.risky .os-mlock-line
 {
 	visibility: visible;
 }
 
-.gg-screen.voting .gg-mlock-line
+.os-screen.voting .os-mlock-line
 {
 	visibility: collapse;
 }
 
 /* Panorama takes a transition's length from the state it leaves: the 30 s here run the line out, the 0 s below put it back at once. */
-.gg-mlock-fill
+.os-mlock-fill
 {
 	width: 100%;
 	height: 100%;
-	background-color: gg-gold-hi;
+	background-color: os-gold-hi;
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
@@ -6767,101 +6767,101 @@ Label
 	transition-duration: 30s;
 }
 
-.gg-mcard.confirm .gg-mlock-fill
+.os-mcard.confirm .os-mlock-fill
 {
 	transform: scaleX( 0 );
 	transition-duration: 0s;
 }
 
-.gg-mcard.risky.confirm .gg-mplay
+.os-mcard.risky.confirm .os-mplay
 {
-	border: 1px solid gg-gold-hi;
+	border: 1px solid os-gold-hi;
 	background-color: #C9831E;
 }
 
-.gg-mcard.risky.confirm .gg-mplay-text
+.os-mcard.risky.confirm .os-mplay-text
 {
 	letter-spacing: 1.1px;
 	color: #14100A;
 }
 
 /* On the ballot a risky map's tile is a tile: confirm is your vote there. */
-.gg-screen.voting .gg-mcard.risky.confirm .gg-mplay
+.os-screen.voting .os-mcard.risky.confirm .os-mplay
 {
 	border: 1px solid #00000000;
 	background-color: #00000000;
 }
 
-.gg-screen.voting .gg-mcard.risky.confirm .gg-mplay-text
+.os-screen.voting .os-mcard.risky.confirm .os-mplay-text
 {
 	letter-spacing: 1.5px;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
 /* -- the HUD check's version button: the window's X while the server waits for this game's first click (vcheck), its id naming this content (HudCheck.VersionButton),
    with words beside it. The vote's freeze takes both away, as it does the plain X. The live column's action button steps aside meanwhile: in every content the plugin
    sends it "Click to play" while the check waits, and a click on it counts as an older content's -- */
 
-.gg-hudver
+.os-hudver
 {
 	visibility: collapse;
 }
 
-.gg-closeword
+.os-closeword
 {
 	visibility: collapse;
 	margin-right: 12px;
 	vertical-align: center;
 	font-size: 13px;
 	font-weight: bold;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.vcheck .gg-hudver
+.os-screen.vcheck .os-hudver
 {
 	visibility: visible;
 }
 
-.gg-screen.vcheck .gg-closeword
+.os-screen.vcheck .os-closeword
 {
 	visibility: visible;
 }
 
-.gg-screen.vcheck #gg_btn_close
+.os-screen.vcheck #os_btn_close
 {
 	visibility: collapse;
 }
 
-.gg-screen.vcheck #gg_btn_act
+.os-screen.vcheck #os_btn_act
 {
 	visibility: collapse;
 }
 
-.gg-screen.vlock .gg-hudver
+.os-screen.vlock .os-hudver
 {
 	visibility: collapse;
 }
 
-.gg-screen.vlock .gg-closeword
+.os-screen.vlock .os-closeword
 {
 	visibility: collapse;
 }
 
 /* -- the window's foot: a restart coming (its words and its countdown), and the freeze while a vote holds everybody -- */
 
-.gg-rstrip
+.os-rstrip
 {
 	visibility: collapse;
 	vertical-align: center;
 	flow-children: right;
 }
 
-.gg-global.rst .gg-rstrip
+.os-global.rst .os-rstrip
 {
 	visibility: visible;
 }
 
-#gg_rst_text
+#os_rst_text
 {
 	max-width: 560px;
 	vertical-align: center;
@@ -6874,7 +6874,7 @@ Label
 	white-space: nowrap;
 }
 
-#gg_rst_secs
+#os_rst_secs
 {
 	margin-left: 10px;
 	vertical-align: center;
@@ -6883,7 +6883,7 @@ Label
 	color: #FFFFFF;
 }
 
-.gg-foot-frozen
+.os-foot-frozen
 {
 	visibility: collapse;
 	margin-left: 14px;
@@ -6892,60 +6892,60 @@ Label
 	font-weight: bold;
 	letter-spacing: 2px;
 	text-transform: uppercase;
-	color: gg-gold;
+	color: os-gold;
 }
 
-.gg-screen.vlock .gg-foot-frozen
+.os-screen.vlock .os-foot-frozen
 {
 	visibility: visible;
 }
 
 /* -- SERVER, Sync: the background download on a row of its own -- */
 
-.gg-dbg
+.os-dbg
 {
 	visibility: collapse;
 	font-weight: bold;
-	color: gg-gold-hi;
+	color: os-gold-hi;
 }
 
-.gg-screen.osdqbg .gg-dbg
+.os-screen.osdqbg .os-dbg
 {
 	visibility: visible;
 }
 
 /* -- HELP, How it works, a little tighter: the sub-tab row takes 40 px of the window's height -- */
 
-.gg-page-how
+.os-page-how
 {
 	padding: 16px 34px 8px 34px;
 }
 
-.gg-how
+.os-how
 {
 	margin-bottom: 8px;
 }
 
-.gg-how .gg-rule-head
+.os-how .os-rule-head
 {
 	margin-bottom: 4px;
 }
 
-.gg-hline
+.os-hline
 {
 	margin-bottom: 3px;
 }
 
-.gg-hline-txt
+.os-hline-txt
 {
 	font-size: 14px;
 	line-height: 19px;
 }
 
 /* -- a line on any page: the inline style on one line, over the foot of the window's body, not shifting the page, on a solid dark so it reads over the cards.
-   Its category (cat-* on gg_wl) colours its bar and its eyebrow -- */
+   Its category (cat-* on os_wl) colours its bar and its eyebrow -- */
 
-.gg-wl
+.os-wl
 {
 	visibility: collapse;
 	width: 100%;
@@ -6953,23 +6953,23 @@ Label
 	vertical-align: bottom;
 	flow-children: right;
 	padding: 0px 16px 0px 14px;
-	border-top: 1px solid gg-line;
-	border-left: 3px solid gg-gold;
+	border-top: 1px solid os-line;
+	border-left: 3px solid os-gold;
 	background-color: #0A0D11;
 }
 
-.gg-screen.wl .gg-wl
+.os-screen.wl .os-wl
 {
 	visibility: visible;
 }
 
-#gg_wl_eyebrow
+#os_wl_eyebrow
 {
 	margin-right: 12px;
 	vertical-align: center;
 }
 
-#gg_wl_text
+#os_wl_text
 {
 	width: fill-parent-flow( 1 );
 	vertical-align: center;
@@ -6979,82 +6979,82 @@ Label
 	white-space: nowrap;
 }
 
-.gg-wl.cat-join
+.os-wl.cat-join
 {
 	border-left: 3px solid #E9B44C;
 }
 
-.gg-wl.cat-join #gg_wl_eyebrow
+.os-wl.cat-join #os_wl_eyebrow
 {
 	color: #E9B44C;
 }
 
-.gg-wl.cat-hud
+.os-wl.cat-hud
 {
 	border-left: 3px solid #F07C6B;
 }
 
-.gg-wl.cat-hud #gg_wl_eyebrow
+.os-wl.cat-hud #os_wl_eyebrow
 {
 	color: #F07C6B;
 }
 
-.gg-wl.cat-vote
+.os-wl.cat-vote
 {
 	border-left: 3px solid #FFD47E;
 }
 
-.gg-wl.cat-vote #gg_wl_eyebrow
+.os-wl.cat-vote #os_wl_eyebrow
 {
 	color: #FFD47E;
 }
 
-.gg-wl.cat-fun
+.os-wl.cat-fun
 {
 	border-left: 3px solid #7BD88F;
 }
 
-.gg-wl.cat-fun #gg_wl_eyebrow
+.os-wl.cat-fun #os_wl_eyebrow
 {
 	color: #7BD88F;
 }
 
-.gg-wl.cat-maps
+.os-wl.cat-maps
 {
 	border-left: 3px solid #63D8E8;
 }
 
-.gg-wl.cat-maps #gg_wl_eyebrow
+.os-wl.cat-maps #os_wl_eyebrow
 {
 	color: #63D8E8;
 }
 
-.gg-wl.cat-server
+.os-wl.cat-server
 {
 	border-left: 3px solid #F0B44C;
 }
 
-.gg-wl.cat-server #gg_wl_eyebrow
+.os-wl.cat-server #os_wl_eyebrow
 {
 	color: #F0B44C;
 }
 
-.gg-wl.cat-catchup
+.os-wl.cat-catchup
 {
 	border-left: 3px solid #FFD700;
 }
 
-.gg-wl.cat-catchup #gg_wl_eyebrow
+.os-wl.cat-catchup #os_wl_eyebrow
 {
 	color: #FFD700;
 }
 
-.gg-wl.cat-you
+.os-wl.cat-you
 {
 	border-left: 3px solid #F1EDE5;
 }
 
-.gg-wl.cat-you #gg_wl_eyebrow
+.os-wl.cat-you #os_wl_eyebrow
 {
 	color: #F1EDE5;
 }

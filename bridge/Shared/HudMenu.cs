@@ -2,28 +2,28 @@
 using System.Globalization;
 
 /// <summary>The menu's pages as texts and classes for one player, out of the catalog, the live state and that player's browser, and a
-/// click on them as the chat command it stands for. Card k (1-10) is panel gg_m{k}; its parts are gg_m{k}_*. The browser shows the first eight,
+/// click on them as the chat command it stands for. Card k (1-10) is panel os_m{k}; its parts are os_m{k}_*. The browser shows the first eight,
 /// the ballot ten.</summary>
 public static class HudMenu
 {
     public const int Cards = MapVote.PageCards > HudBrowser.PerPage ? MapVote.PageCards : HudBrowser.PerPage;
 
     /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4.6.0).</summary>
-    public const string DropsOn = "gg_set_nades_on", DropsOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
-        Restart = "gg_set_restart", Rematch = "gg_set_rematch", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
+    public const string DropsOn = "os_set_nades_on", DropsOff = "os_set_nades_off", Time10 = "os_set_time_10", Time60 = "os_set_time_60",
+        Restart = "os_set_restart", Rematch = "os_set_rematch", Previous = "os_q_prev", BoardOpen = HudView.BoardOpen;
 
     /// <summary>The Fun page's Random and Default (!fun random, !fun default).</summary>
-    public const string FunRandom = "gg_fun_random", FunDefault = "gg_fun_default";
+    public const string FunRandom = "os_fun_random", FunDefault = "os_fun_default";
 
     /// <summary>The Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
-    public const string CatchUpOn = "gg_set_catchup_on", CatchUpOff = "gg_set_catchup_off";
+    public const string CatchUpOn = "os_set_catchup_on", CatchUpOff = "os_set_catchup_off";
 
     /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4.6.0 still has. The setting is gone - every ballot
     /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Clicks.cs).</summary>
-    public const string NewAlways = "gg_set_new_always", NewHalf = "gg_set_new_half", NewNever = "gg_set_new_never";
+    public const string NewAlways = "os_set_new_always", NewHalf = "os_set_new_half", NewNever = "os_set_new_never";
 
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
-    public static string Card(int k) => $"gg_m{k}";
+    public static string Card(int k) => $"os_m{k}";
 
     /// <summary>What a card calls its place in the list: Arms Race's maps a number, the other modes' a number in their own list.</summary>
     static string RankText(HudCatalog.Entry m, string filter)
@@ -80,14 +80,14 @@ public static class HudMenu
         var page = b.PageOf(matches);
         var total = catalog?.Maps.Count ?? 0;
         var workshop = b.WorkshopQuery(catalog) != null;
-        t.Add(("gg_m_count", catalog == null ? "Loading the map list..." : matches.Count == total ? $"{total} maps" : $"{matches.Count} of {total} maps"));
-        t.Add(("gg_pg_text", $"Page {b.Page + 1} of {b.PagesFor(matches.Count)}"));
-        t.Add(("gg_q_text", b.Keyboard ? b.Query + "|" : b.Query));
-        t.Add(("gg_q_hint", b.Query == "" && !b.Keyboard ? "name, tag, description or Workshop ID" : ""));
-        t.Add(("gg_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
+        t.Add(("os_m_count", catalog == null ? "Loading the map list..." : matches.Count == total ? $"{total} maps" : $"{matches.Count} of {total} maps"));
+        t.Add(("os_pg_text", $"Page {b.Page + 1} of {b.PagesFor(matches.Count)}"));
+        t.Add(("os_q_text", b.Keyboard ? b.Query + "|" : b.Query));
+        t.Add(("os_q_hint", b.Query == "" && !b.Keyboard ? "name, tag, description or Workshop ID" : ""));
+        t.Add(("os_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
             : b.Liked ? "You have not liked a map yet: the up arrow on a card likes it." : b.Ours ? "No map of ours on the list yet." : "No map matches these filters."));
-        c.Add(("gg_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
-        c.Add(("gg_q_search", "used", b.Query != ""));
+        c.Add(("os_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
+        c.Add(("os_q_search", "used", b.Query != ""));
         c.Add((HudView.Screen, "kbd", b.Keyboard));
         c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
         c.Add((HudView.Screen, "vlow", false));
@@ -150,18 +150,18 @@ public static class HudMenu
     /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; the contents before v4.6.0 have it, under the
     /// same ids, on their Queue page.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
-        ([("gg_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
+        ([("os_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
 
     // ---- the Fun page: a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
 
-    public const string FunNote = "gg_fun_note";
+    public const string FunNote = "os_fun_note";
 
     /// <summary>The line at the top of the Fun page (every row alike, the grenade drops too).</summary>
     public const string FunNoteText = "Anybody switches these, for everybody. Everything lasts until the map changes (or 10 minutes with nobody on); the top of the screen says who.";
 
-    public static string FunRow(int r) => $"gg_f{r}";
+    public static string FunRow(int r) => $"os_f{r}";
 
-    public static string FunButton(int r, int c) => $"gg_f{r}_{c}";
+    public static string FunButton(int r, int c) => $"os_f{r}_{c}";
 
     /// <summary>A setting off its default, with who set it: "Moon - Set by Alice", the words of its row; "" while it is at its default or nobody is
     /// known to have set it. On the page alone: the change's own message said it in chat and on the board.</summary>
@@ -204,16 +204,16 @@ public static class HudMenu
     /// <summary>The variable a row's bubbles read: a greyed choice's reason, or what a refused click there says.</summary>
     public static string FunWhyVar(int r) => $"osfw{r}";
 
-    /// <summary>The row a reason's variable belongs to (osfw2 -> gg_f2): it takes class clash while that reason shows, as its own second line.</summary>
-    public static string FunRowOf(string whyVar) => $"gg_f{whyVar[4..]}";
+    /// <summary>The row a reason's variable belongs to (osfw2 -> os_f2): it takes class clash while that reason shows, as its own second line.</summary>
+    public static string FunRowOf(string whyVar) => $"os_f{whyVar[4..]}";
 
     /// <summary>What each row's bubbles say as the live values have it: why its greyed choice cannot be made (Fun.Refusal), "" on a row with none. One a row is enough: there is one clash
     /// (Fun.Clashes), and it greys one choice of a row.</summary>
     public static List<(string Name, string Text)> FunWhy(Func<string, string?> value) =>
         Fun.Settings.Take(Fun.Rows).Select((s, i) => (FunWhyVar(i + 1), s.Choices.Where(c => Fun.Impossible(s, c, value)).Select(c => Fun.Refusal(s, c, value)).FirstOrDefault() ?? "")).ToList();
 
-    /// <summary>The words of the two fixed rows of the contents before v4.6.0 - the grenade drops and catch-up, which this content has as rows gg_f17 and gg_f18 - as
-    /// variables on gg_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default. One plugin drives every content.</summary>
+    /// <summary>The words of the two fixed rows of the contents before v4.6.0 - the grenade drops and catch-up, which this content has as rows os_f17 and os_f18 - as
+    /// variables on os_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default. One plugin drives every content.</summary>
     public const string DropsWordsVar = "osfdrops", CatchUpWordsVar = "osfcatch";
 
     public static List<(string Name, string Text)> FixedRowWords(Func<string, string?> value, Func<string, string?>? setBy = null)
@@ -228,7 +228,7 @@ public static class HudMenu
             (CatchUpWordsVar, Words("catchup", "Boosts for players behind the leader, a bounty on a runaway one"))];
     }
 
-    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on gg_global - nd-on/off and cu-on/off - from their fun
+    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on os_global - nd-on/off and cu-on/off - from their fun
     /// settings, in Arms Race only (the rows are Arms Race's own). This content has them as rows of the grid (HudMenu.FunPage) and no rule for these classes.</summary>
     public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
     {
@@ -243,16 +243,16 @@ public static class HudMenu
     {
         var fixedRow = buttonId switch { DropsOn => ("drops", "on"), DropsOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };
         if (fixedRow.Item1 != "" && Fun.Find(fixedRow.Item1) is { } fs && Fun.Find(fs, fixedRow.Item2) is { } fc) return (fs, fc);
-        var parts = buttonId.StartsWith("gg_f", StringComparison.Ordinal) ? buttonId[4..].Split('_') : [];
+        var parts = buttonId.StartsWith("os_f", StringComparison.Ordinal) ? buttonId[4..].Split('_') : [];
         if (parts.Length != 2 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var r)
-            || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null; // gg_fl_* are the size chips, gg_fun_note a label
+            || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null; // os_fl_* are the size chips, os_fun_note a label
         if (r < 1 || r > Math.Min(Fun.Rows, Fun.Settings.Length)) return null;
         var s = Fun.Settings[r - 1];
         return k >= 1 && k <= s.Choices.Length ? (s, s.Choices[k - 1]) : null;
     }
 
     /// <summary>What a restart button says after its first click: press it again, and the seconds left of
-    /// the bridge's 30 s window, counting down every second; the stylesheet also makes it blink fast while armed (.gg-restart.armed).</summary>
+    /// the bridge's 30 s window, counting down every second; the stylesheet also makes it blink fast while armed (.os-restart.armed).</summary>
     public static string RestartAgain(int seconds) => $"Press again within {seconds} s";
 
     /// <summary>Whether the state says the bridge will refuse a click on this restart button: its first click then has nothing to arm, and the player's note says why. The whole
@@ -267,12 +267,12 @@ public static class HudMenu
         var (armed, rearmed) = (restartSeconds > 0, rematchSeconds > 0);
         var t = new List<(string, string)>
         {
-            ("gg_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
-            ("gg_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
-            ("gg_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
+            ("os_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
+            ("os_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
+            ("os_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),
-            ("gg_set_rematch_text", rearmed ? RestartAgain(rematchSeconds) : "Restart the match"),
-            ("gg_set_rematch_sub", rearmed ? "Starts the match over for everybody, 10 s after your click" : "Starts this match over, for everybody. Asks to confirm."),
+            ("os_set_rematch_text", rearmed ? RestartAgain(rematchSeconds) : "Restart the match"),
+            ("os_set_rematch_sub", rearmed ? "Starts the match over for everybody, 10 s after your click" : "Starts this match over, for everybody. Asks to confirm."),
         };
         var c = new List<(string, string, bool)>
         {
@@ -298,7 +298,7 @@ public static class HudMenu
     /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick.</summary>
     public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null)
     {
-        if (buttonId.StartsWith("gg_m") && buttonId.Length > 5 && char.IsDigit(buttonId[4]) && catalog != null && s != null)
+        if (buttonId.StartsWith("os_m") && buttonId.Length > 5 && char.IsDigit(buttonId[4]) && catalog != null && s != null)
         {
             var under = buttonId.IndexOf('_', 4);
             if (under < 0 || !int.TryParse(buttonId[4..under], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1 || k > Cards) return null;

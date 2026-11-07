@@ -2,33 +2,33 @@
 // what waits in its queue, and what it did. Shared like Hud.cs (plain BCL): the bridge writes every word of it (SyncDash.cs builds the block it
 // serves on /dash/<secret>), the plugin pages it and puts it on screen, and --selftest drives both halves.
 //
-// The plugin passes the block through without knowing what it says. Every word is a dialog variable on gg_screen whose name starts with osd,
-// which the page's labels inherit ({s:osdstate}); every state is a class on gg_screen (osdbusy, osdp35, osdq3 ...). Nothing is sent to a panel
+// The plugin passes the block through without knowing what it says. Every word is a dialog variable on os_screen whose name starts with osd,
+// which the page's labels inherit ({s:osdstate}); every state is a class on os_screen (osdbusy, osdp35, osdq3 ...). Nothing is sent to a panel
 // of the page itself, so a game that holds an older content - which has neither the tab nor the labels - goes on as it was, as with content
 // v4.1.0's popup. The block's lists are paged per player: the plugin keeps each player's page of each list and sends that player the rows on it,
 // as the variables <list><row><field> (osdq3b: the third row on this player's page of the queue, its second field), the class <list><row> while
-// that row holds something and <list><row><tone> for its colour. The pagers' buttons (gg_osdq_prev ...) are all it reads back. So a new word,
+// that row holds something and <list><row><tone> for its colour. The pagers' buttons (os_osdq_prev ...) are all it reads back. So a new word,
 // number or row is a bridge update alone; only a new panel needs a HUD release.
 using System.Globalization;
 using System.Text;
 
 public sealed class HudDash
 {
-    public const string Magic = "gg-dash\t1";
+    public const string Magic = "os2-dash\t1";
 
     /// <summary>Every variable and class the block may set starts with this, so it can never touch one of the menu's own.</summary>
     public const string Prefix = "osd";
 
     /// <summary>The page's tab (content v4.3.0).</summary>
-    public const string Tab = "gg_tab_sync";
+    public const string Tab = "os_tab_sync";
 
     /// <summary>What the plugin takes from one block at most: it is the bridge's, but a broken one must not flood the engine.</summary>
     public const int MaxWords = 120, MaxClasses = 200, MaxLists = 6, MaxRows = 400, MaxFields = 6, MaxPageSize = 12, MaxText = 200;
 
-    /// <summary>A row's colour: a class <list><row><tone> on gg_screen while that row shows it.</summary>
+    /// <summary>A row's colour: a class <list><row><tone> on os_screen while that row shows it.</summary>
     public static readonly string[] Tones = ["ok", "bad", "dim", "hot"];
 
-    /// <summary>A pager's buttons: gg_<list>_<op>.</summary>
+    /// <summary>A pager's buttons: os_<list>_<op>.</summary>
     public static readonly string[] PagerOps = ["first", "prev", "next", "last"];
 
     /// <summary>The lists the layout of content v4.3.0 has rows for: the queue's next maps, the runs and the map events (SyncWords fills them).</summary>
@@ -62,7 +62,7 @@ public sealed class HudDash
     public static string Field(int k) => ((char)('a' + k)).ToString();
 
     /// <summary>A pager button's id.</summary>
-    public static string Button(string list, string op) => $"gg_{list}_{op}";
+    public static string Button(string list, string op) => $"os_{list}_{op}";
 
     public string Encode()
     {
@@ -108,7 +108,7 @@ public sealed class HudDash
     /// <summary>A click on a pager's button: that player's page of that list moves (pages: list -> page, 0-based). True when it was one.</summary>
     public static bool Click(HudDash? d, string buttonId, Dictionary<string, int> pages)
     {
-        if (d == null || !buttonId.StartsWith("gg_", StringComparison.Ordinal)) return false;
+        if (d == null || !buttonId.StartsWith("os_", StringComparison.Ordinal)) return false;
         var under = buttonId.IndexOf('_', 3);
         if (under < 0) return false;
         var (name, op) = (buttonId[3..under], buttonId[(under + 1)..]);

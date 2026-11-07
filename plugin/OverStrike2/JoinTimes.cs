@@ -1,6 +1,6 @@
 namespace OverStrike2;
 
-/// <summary>When each player last really joined - css_guide, which the bridge sends on a real join, or css_gghud level for the client harness -
+/// <summary>When each player last really joined - css_guide, which the bridge sends on a real join, or os_hud level for the client harness -
 /// for the Players page's time on and the join banner of the contents v4.0.0 to v4.5.0 (HudScreen). Kept by account, never by slot: a map
 /// change disconnects everybody, and a player's time goes on through its reconnect whatever slot they come back in, while a player who takes a
 /// slot somebody else left has none of theirs - only their own, from their own real join. No CounterStrikeSharp type in it: the self-test

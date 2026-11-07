@@ -8,15 +8,15 @@ using System.Globalization;
 
 public static class HudVote
 {
-    /// <summary>The dialog variable on gg_global that the layouts' labels inherit for the game mode's name.</summary>
+    /// <summary>The dialog variable on os_global that the layouts' labels inherit for the game mode's name.</summary>
     public const string ModeVar = "osmode";
 
-    /// <summary>The game mode's classes on gg_global (mode-armsrace, mode-deathmatch, mode-wingman): the layouts hide what is Arms Race's own outside
+    /// <summary>The game mode's classes on os_global (mode-armsrace, mode-deathmatch, mode-wingman): the layouts hide what is Arms Race's own outside
     /// it - friendly fire's rows on the Fun page, the match length on the Game page.</summary>
     public static List<(string Id, string Class, bool On)> ModeClasses(string mode) =>
         Modes.All.Select(m => (HudView.Global, $"mode-{m.Id}", m.Id == mode)).ToList();
 
-    /// <summary>A card's mode, as classes on the card (the label on its picture and its colour - the same three names as gg_global's, on another
+    /// <summary>A card's mode, as classes on the card (the label on its picture and its colour - the same three names as os_global's, on another
     /// panel): mode-armsrace, mode-deathmatch, mode-wingman, exactly one on for a card in use.</summary>
     public static IEnumerable<(string Id, string Class, bool On)> CardModeClasses(string card, string? mode) =>
         Modes.All.Select(m => (card, $"mode-{m.Id}", m.Id == mode));
@@ -40,9 +40,9 @@ public static class HudVote
 
     // ---- the vote's own buttons: Random in the ballot's header, the MAPS sub-tabs Browse and Vote (v4.6.0; before it, a button and a banner) ----
 
-    public const string RandomButton = "gg_v_random", BrowseButton = "gg_v_browse", BackButton = "gg_v_back";
+    public const string RandomButton = "os_v_random", BrowseButton = "os_v_browse", BackButton = "os_v_back";
 
-    /// <summary>The dialog variables on gg_screen the vote's labels inherit, per player: Random's button, the hint that more cards are on the other pages,
+    /// <summary>The dialog variables on os_screen the vote's labels inherit, per player: Random's button, the hint that more cards are on the other pages,
     /// the line over the map browser while it adds to the vote (the contents before v4.6.0), the Vote sub-tab's label, and the ballot's header: who started
     /// the vote, the limit's digits and line, the second row's key, digits and line (the inactivity timer, or the countdown once decided).</summary>
     public const string RandomVar = "osvrand", MoreVar = "osvmore", BrowseVar = "osvleft", TabVar = "osvtab", LimitVar = "osvlim", IdleVar = "osvidle",
@@ -55,13 +55,13 @@ public static class HudVote
     public static string HoverVar(int k) => $"osvh{k.ToString(CultureInfo.InvariantCulture)}";
     public static string StripVar(int i) => $"osvs{i.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The ballot header's two clocks: the limit's bar (gg_vlim) and the inactivity timer's (gg_vidle), each filled by one of w0 ... w10.</summary>
-    public const string LimitBar = "gg_vlim", IdleBar = "gg_vidle";
+    /// <summary>The ballot header's two clocks: the limit's bar (os_vlim) and the inactivity timer's (os_vidle), each filled by one of w0 ... w10.</summary>
+    public const string LimitBar = "os_vlim", IdleBar = "os_vidle";
 
     /// <summary>The summary strip's segments: one panel each, the options with votes, the most first. A segment's class is its count of votes
     /// (CountClasses), which the stylesheet makes its weight in the strip (fill-parent-flow), so the segments always fill the strip exactly.</summary>
     public const int StripSegments = 9;
-    public static string Segment(int i) => $"gg_vs{i.ToString(CultureInfo.InvariantCulture)}";
+    public static string Segment(int i) => $"os_vs{i.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>A share as one of eleven classes, w0 ... w10 - tenths of the votes cast: a card's bar and a strip segment's width (the same names
     /// on both, so the eleven cost eleven of the 1,024 class names).</summary>
@@ -71,7 +71,7 @@ public static class HudVote
     /// <summary>A strip segment's votes as the same eleven classes, w0 ... w10 - its count, not a share (ten and more are w10): its weight in the strip.</summary>
     public static IEnumerable<(string Id, string Class, bool On)> CountClasses(string id, int votes) => StepClasses(id, $"w{Math.Clamp(votes, 0, 10).ToString(CultureInfo.InvariantCulture)}");
 
-    /// <summary>How long one class of the limit's bar lasts: its transition in the stylesheet takes as long (.gg-clock-fill), so the bar moves steadily and is
+    /// <summary>How long one class of the limit's bar lasts: its transition in the stylesheet takes as long (.os-clock-fill), so the bar moves steadily and is
     /// right to within a second. Ten of them are the limit.</summary>
     public const int LimitStepSeconds = MapVote.Seconds / 10;
 
@@ -152,7 +152,7 @@ public static class HudVote
             v.Inactivity > 0 ? $"{v.Inactivity.ToString(CultureInfo.InvariantCulture)} s" : "",
             v.Inactivity <= 0 ? "Starts when everybody has voted" : v.ResetBy != "" ? $"Reset by {Hud.Clean(v.ResetBy, 24)}" : "");
 
-    /// <summary>The last seconds of the limit, when its digits turn red and pulse (vlow on gg_screen).</summary>
+    /// <summary>The last seconds of the limit, when its digits turn red and pulse (vlow on os_screen).</summary>
     public const int LowSeconds = 10;
 
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
@@ -189,7 +189,7 @@ public static class HudVote
     /// <summary>The vote on the Maps page's cards, a page of them, the most votes first: option k of this page on card k, each with its mode (a label on
     /// the picture and the card's colour), its map, its votes and who picked it, every tag that applies, its record when it is risky; this player's
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
-    /// hint for the other pages are variables on gg_screen, and the pager's classes on gg_screen too. perPage: that player's page size (CardsFor).</summary>
+    /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size (CardsFor).</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
         VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards)
     {
@@ -203,16 +203,16 @@ public static class HudVote
         page = Math.Clamp(page, 0, pages - 1);
         var shown = PageOptions(v, page, perPage);
         var rest = maps.Count - (page + 1) * perPage;
-        t.Add(("gg_m_count", done ? $"{DoneLine(v)} - {(v.Kept ? "Closes in" : "Changing in")} {v.SecondsLeft} s"
+        t.Add(("os_m_count", done ? $"{DoneLine(v)} - {(v.Kept ? "Closes in" : "Changing in")} {v.SecondsLeft} s"
             : v.Inactivity > 0 ? $"Everybody has voted  ·  {InactivityLine(v)}"
             : $"Vote for the next map: {v.SecondsLeft} s left  ·  {v.Cast} of {v.Present} voted{(v.Waiting.Count > 0 && v.Waiting.Count <= 2 ? $"  ·  Waiting for {string.Join(" and ", v.Waiting)}" : "")}"));
         var counted = v.Options.Where(o => o.Votes > 0).ToList();
         var most = counted.Count == 0 ? 0 : counted.Max(o => o.Votes);
         var tied = counted.Count(o => o.Votes == most) > 1;
-        t.Add(("gg_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
+        t.Add(("os_pg_text", pages > 1 ? $"Page {page + 1} of {pages}  ·  {maps.Count} maps{(rest > 0 ? $": {rest} more on the next page" : "")}"
             : mine > 0 ? "Your vote is lit - Click another card to change it, yours to take it back" : "Click a card's Vote"));
-        t.Add(("gg_m_empty", ""));
-        c.Add(("gg_m_empty", "used", false));
+        t.Add(("os_m_empty", ""));
+        c.Add(("os_m_empty", "used", false));
         c.Add((HudView.Screen, "voting", true));
         c.Add((HudView.Screen, "vdone", done));                      // decided or kept: the limit's row goes, the second row counts down, the tiles dim but the winner
         c.Add((HudView.Screen, "vlow", v.Open && v.SecondsLeft <= LowSeconds));
@@ -325,20 +325,20 @@ public static class HudVote
         };
     }
 
-    /// <summary>The line over the map browser while it adds to the vote (the contents before v4.6.0: a banner; a variable on gg_screen).</summary>
+    /// <summary>The line over the map browser while it adds to the vote (the contents before v4.6.0: a banner; a variable on os_screen).</summary>
     public static string BrowseLine(VoteState v) => $"The vote is on  ·  {v.SecondsLeft} s left  ·  A map's Play puts it on the vote, with your vote";
 
     /// <summary>The page a card of this option is on (an added map's, for its adder to see it).</summary>
     public static int PageOf(VoteState v, int n, int perPage = MapVote.PageCards) => Math.Max(0, v.Maps.FindIndex(o => o.N == n)) / perPage;
 
-    /// <summary>The dialog variable on gg_screen that the popup inherits, for each player: the map it asks about. The reasons' words are oswhy1 ... on
-    /// gg_global, the same for everybody, their chat words oswhyw1 ... and their short words oswhys1 ...; nothing is sent to the popup's own panels.</summary>
+    /// <summary>The dialog variable on os_screen that the popup inherits, for each player: the map it asks about. The reasons' words are oswhy1 ... on
+    /// os_global, the same for everybody, their chat words oswhyw1 ... and their short words oswhys1 ...; nothing is sent to the popup's own panels.</summary>
     public const string WhyVar = "oswhy";
 
     /// <summary>The popup's buttons, one per reason, in DownReasons' order: k from 1.</summary>
-    public static string WhyButton(int k) => $"gg_why_{k.ToString(CultureInfo.InvariantCulture)}";
+    public static string WhyButton(int k) => $"os_why_{k.ToString(CultureInfo.InvariantCulture)}";
 
-    /// <summary>The popup's fixed words, as the dialog variables on gg_global that its labels inherit.</summary>
+    /// <summary>The popup's fixed words, as the dialog variables on os_global that its labels inherit.</summary>
     public static List<(string Name, string Text)> WhyWords() =>
         DownReasons.All.SelectMany((r, i) => new[] { ($"{WhyVar}{i + 1}", r.Label), ($"{WhyVar}w{i + 1}", r.Word), ($"{WhyVar}s{i + 1}", ShortLabel(r)) }).ToList();
 
@@ -363,7 +363,7 @@ public static class HudVote
         if (!v.Open || v.Round <= 0) return null;
         string Toggle(int n) => MapVote.Click(v.Round, account >= 0 && v.ChoiceOf(account) == n ? 0 : n);
         if (buttonId == RandomButton) return v.Random is { } r ? Toggle(r.N) : null;
-        if (!buttonId.StartsWith("gg_m", StringComparison.Ordinal) || !buttonId.EndsWith("_play", StringComparison.Ordinal)) return null;
+        if (!buttonId.StartsWith("os_m", StringComparison.Ordinal) || !buttonId.EndsWith("_play", StringComparison.Ordinal)) return null;
         if (!int.TryParse(buttonId[4..^5], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1 || k > HudMenu.Cards) return null;
         if (order != null) return k <= order.Count && v.Numbered(order[k - 1]) is { Source: not VoteSource.Random } seen ? Toggle(seen.N) : null;
         var shown = PageOptions(v, page, perPage);

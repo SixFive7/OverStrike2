@@ -507,17 +507,17 @@ static class InstallTests
         }
         var bridge = new HttpBridge(($"http://127.0.0.1:{port}", "abc123"));
         var server = Task.Run(() => seen.Add(Serve("200 OK", "ok: going down")));
-        var told = bridge.Post("quitting", "gg-quit\t1\tdaily\n", 5);
+        var told = bridge.Post("quitting", "os2-quit\t1\tdaily\n", 5);
         server.Wait(5000);
         Check($"bridge: POST /quitting/<secret> with the notice as plain text, and its 'ok' read as taken ({told.Told})",
-              told == ("ok", "ok: going down") && seen.Count == 1 && seen[0].StartsWith("POST /quitting/abc123 HTTP/1.1") && seen[0].EndsWith("gg-quit\t1\tdaily\n")
+              told == ("ok", "ok: going down") && seen.Count == 1 && seen[0].StartsWith("POST /quitting/abc123 HTTP/1.1") && seen[0].EndsWith("os2-quit\t1\tdaily\n")
               && seen[0].Contains("text/plain"));
         server = Task.Run(() => seen.Add(Serve("404 Not Found", "Not Found")));
-        told = bridge.Post("restart-notice", "gg-restart\t1\tdaily\tnow\t0\n", 5);
+        told = bridge.Post("restart-notice", "os2-restart\t1\tdaily\tnow\t0\n", 5);
         server.Wait(5000);
         Check($"bridge: an older bridge's 404 page is no 'ok': not taken ({told.Reply})", told.Told == "failed" && told.Reply!.Contains("Not Found"));
         listener.Stop();
-        told = bridge.Post("quitting", "gg-quit\t1\tdaily\n", 2);
+        told = bridge.Post("quitting", "os2-quit\t1\tdaily\n", 2);
         Check($"bridge: no bridge listening: not taken, and the secret is never in the words ({told.Reply})", told.Told == "failed" && !told.Reply!.Contains("abc123"));
     }
 

@@ -25,7 +25,7 @@ public static class BridgeWire
     public static string Url(string root, string address, string secret) => $"{root.TrimEnd('/')}/{address}/{secret}";
 
     // ---- the bodies ----
-    public const string HealthWord = "gg-health", ReadyWord = "gg-ready", QuitWord = "gg-quit", RestartWord = "gg-restart", UpdatedWord = "gg-updated", RemovedWord = "gg-removed";
+    public const string HealthWord = "os2-health", ReadyWord = "os2-ready", QuitWord = "os2-quit", RestartWord = "os2-restart", UpdatedWord = "os2-updated", RemovedWord = "os2-removed";
     public const string Version = "1";
     public const string Cancel = "cancel";      // a quit or a restart announced that does not happen after all
     public const string Current = "current";    // the ready report's line of the background download
@@ -37,7 +37,7 @@ public static class BridgeWire
     /// <summary>When a restart goes: at the end of the match that is on, or now (its countdown in the notice's seconds).</summary>
     public const string AtMatchEnd = "match-end", AtOnce = "now";
 
-    /// <summary>A body's first line: its message and the version, "gg-ready\t1".</summary>
+    /// <summary>A body's first line: its message and the version, "os2-ready\t1".</summary>
     public static string Head(string word) => $"{word}\t{Version}";
 
     /// <summary>The watcher's report (POST /ready): the maps the queues name that it found on the disk, one Workshop id a line, and the background

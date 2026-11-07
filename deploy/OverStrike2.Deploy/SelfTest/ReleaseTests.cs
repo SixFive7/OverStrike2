@@ -16,7 +16,7 @@ static class ReleaseTests
     static string scratch = "", verifyOk = "", verifyBad = "";
 
     /// <summary>The calls a release makes: inspect, and exec in the game container - RCON, the files' hashes, the plugin's log. A quit
-    /// restarts the game container; css_gghud page writes its probe line to the log.</summary>
+    /// restarts the game container; os_hud page writes its probe line to the log.</summary>
     sealed class FakeDocker(Test t) : DockerBase
     {
         public readonly List<(string Command, string Password, bool Flag)> RconSent = [];
@@ -25,6 +25,7 @@ static class ReleaseTests
         public string Loaded = "[#2:LOADED]: \"OverStrike2\" (4.7.1) by the authors";
         public readonly Dictionary<string, string> Hashes = new(Files);
         public string ProbeAnswer = "page HTTP 500, title 'Steam Workshop' -> NOT shown; Web API ok";
+        public bool OldPlugin;   // a plugin from before release 191, which knows os_hud by its old word only
         public readonly List<string> Log = [];
         public Dictionary<string, string> Lists = new() { ["mm_extra_addons"] = "", ["mm_client_extra_addons"] = Hud };
         public string[] Env = ["CS2_RCONPW=pw-secret", "RCON_PORT=27015"];
@@ -65,11 +66,13 @@ static class ReleaseTests
                     return Loaded + "\n[#1:LOADED]: \"Other\" (1.0)\n";
                 if (Lists.TryGetValue(command, out var list))
                     return $"{command} = {list}\n";
-                if (command.StartsWith("css_gghud page", StringComparison.Ordinal))
+                if (command.StartsWith(OldPlugin ? "css_gghud page" : "os_hud page", StringComparison.Ordinal))
                 {
                     Log.Add($"OverStrike2 HUD item probe: {Release.NoSuchItem}: {ProbeAnswer}");
                     return "probing ... the answer goes to the server log";
                 }
+                if (command.StartsWith(OldPlugin ? "os_hud " : "css_gghud ", StringComparison.Ordinal))
+                    return $"Unknown command '{command.Split(' ')[0]}'!";
                 return "";
             }
             if (argv[2] == Release.InnerSha)
@@ -342,10 +345,17 @@ static class ReleaseTests
             (r, output) = Go(() => t.Release(fetch: Fetches(t, 100, 100, 200, 200, 200, 300)).Publish("v9: what changed", runDir, false, 120));
             check("publish: the held-item check read NOT shown, then the upload with the note and the update's flag",
                   r == "0" && t.Runs.Any(a => a.Count >= 4 && a.TakeLast(4).SequenceEqual(["hud-publish", "--note", "v9: what changed", "--user-approved-update"]))
-                  && Sent(t).Contains("css_gghud page " + Release.NoSuchItem));
+                  && Sent(t).Contains("os_hud page " + Release.NoSuchItem));
             check("publish: time_updated polled one call at a time, a minute apart, until it moved twice",
                   t.Api.Count == 6 && t.Sleeps.Count(s => s == 60) == 5 && output.Contains("the upload: time_updated") && output.Contains("Valve's approval, most likely"));
             check("publish: the record's line, and the lock released", output.Contains("RECORD - publish") && output.Contains("release-test-run") && !File.Exists(t.Lock));
+            t = new Test();
+            t.D.OldPlugin = true;
+            (r, output) = Go(() => t.Release(fetch: Fetches(t, 100, 100, 200, 200, 200, 300)).Publish("v9: what changed", runDir, false, 120));
+            var asked = Sent(t);
+            check("publish: a live plugin from before release 191 answers os_hud as unknown - the held-item check asks it by its old word, and reads NOT shown",
+                  r == "0" && asked.Contains("os_hud page " + Release.NoSuchItem) && asked.Contains("css_gghud page " + Release.NoSuchItem)
+                  && asked.IndexOf("os_hud page " + Release.NoSuchItem) < asked.IndexOf("css_gghud page " + Release.NoSuchItem) && output.Contains("held-item check: css_gghud page"));
             t = new Test();
             t.D.ProbeAnswer = "page HTTP 200, title 'Steam Workshop :: x' -> shown to everybody";
             (r, output) = Go(() => t.Release(fetch: Fetches(t, 100)).Publish("note", runDir, false, 120));

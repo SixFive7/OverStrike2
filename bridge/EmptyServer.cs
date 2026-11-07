@@ -1,11 +1,11 @@
 // An empty server: once no human has been connected for more than ResetEmptyMinutes (10), the Fun page's changes are undone - the grenade drops
-// and catch-up among them, ordinary fun settings - with gg_fun reset over RCON, and the server goes back to Arms Race (ModeSwitch.cs).
+// and catch-up among them, ordinary fun settings - with os_fun reset over RCON, and the server goes back to Arms Race (ModeSwitch.cs).
 
 static partial class Program
 {
     public const int ResetEmptyMinutes = 10;   // nobody connected for longer than this: the fun settings go back to their defaults
 
-    /// <summary>The Fun page's changes undone (the settings module's gg_fun reset, Fun.cs): every row back to its first choice - the grenade drops
+    /// <summary>The Fun page's changes undone (the settings module's os_fun reset, Fun.cs): every row back to its first choice - the grenade drops
     /// and catch-up too. They last until the map changes anyway; an empty server puts them back sooner, like the other settings.</summary>
     public const string FunResetCommand = Fun.ResetCommand + " \"the server\"";
 

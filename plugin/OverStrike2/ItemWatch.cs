@@ -97,7 +97,7 @@ sealed class ItemWatch
     /// <summary>When the item last changed, local time ("01:23"), if the Web API has said.</summary>
     public string? Updated => plan.Api is { TimeUpdated: > 0 } a ? Local(a.TimeUpdated) : null;
 
-    /// <summary>css_gghud item: one page visit now, by hand.</summary>
+    /// <summary>os_hud item: one page visit now, by hand.</summary>
     public void Soon() => plan.VisitNow(DateTime.UtcNow);
 
     public string Describe(DateTime now) =>
@@ -107,7 +107,7 @@ sealed class ItemWatch
         (plan.ChangedAt == DateTime.MinValue ? ", no change seen" : $", change at {plan.ChangedAt.ToLocalTime():HH:mm} ({plan.VisitsSinceChange} visit(s) since; " +
             (now < plan.WindowUntil && plan.NextVisit != DateTime.MaxValue ? $"next at {plan.NextVisit.ToLocalTime():HH:mm})" : "no more planned)"));
 
-    /// <summary>css_gghud page &lt;id&gt;: one visit to any item's page and one Web API question, with what this watch would make of them -
+    /// <summary>os_hud page &lt;id&gt;: one visit to any item's page and one Web API question, with what this watch would make of them -
     /// changes nothing. How the page check is tried against items Steam hides. By hand only.</summary>
     public async Task<string> Probe(long other)
     {

@@ -1,10 +1,10 @@
 // The fun settings: a page of the in-game menu where anybody switches a few game settings
 // live, for everybody - low gravity, bunny hopping, no fall damage, the grenade drops, catch-up and so on. Every row is the same kind of switch: every change lasts until the map changes (the grenade drops too), the bridge's
-// reset after 10 minutes with nobody on puts them all back (gg_fun reset), and every change is one message for everybody - the top line, chat
+// reset after 10 minutes with nobody on puts them all back (os_fun reset), and every change is one message for everybody - the top line, chat
 // and the TAB board (Messages.FunChanged, FunRandom, FunDefault) - which says who, so a setting's own "Set by" stays on the page.
 //
 // Shared like Hud.cs: the bridge's --selftest checks all of it, the plugin's HUD draws the page and asks for a change, and its settings
-// module makes it (gg_fun) - the part that owns the server's game settings: their baseline, the put-back at every map end, and the
+// module makes it (os_fun) - the part that owns the server's game settings: their baseline, the put-back at every map end, and the
 // game-changers no map may set (BlockList.cs). A player's change is never blocked, and never becomes the baseline. Plain BCL only.
 //
 // What "Normal" means: no player's change. On most maps that is the server's own value; a map that sets its own (fs_highsky's low
@@ -69,9 +69,9 @@ public static class Fun
     /// <summary>Vampire's heal: what a hit worth that much damage leaves the attacker with.</summary>
     public static int Heal(int health, int damage) => Math.Clamp(health + Math.Max(0, damage), 0, VampireCap) is var h && h > health ? h : health;
 
-    /// <summary>The server command the settings module registers: gg_fun &lt;setting&gt; &lt;choice&gt; ["who"] | gg_fun reset ["who"] | gg_fun.
+    /// <summary>The server command the settings module registers: os_fun &lt;setting&gt; &lt;choice&gt; ["who"] | os_fun reset ["who"] | os_fun.
     /// Server only: the bridge runs it for its reset after nobody has been on for 10 minutes (the plugin's own clicks apply in-process).</summary>
-    public const string Command = "gg_fun";
+    public const string Command = "os_fun";
     public const string ResetCommand = Command + " reset";
 
     public const int Rows = 18, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons; the contents before v4.6.0 have sixteen,
@@ -194,7 +194,7 @@ public static class Fun
     public static bool Idle(Setting s, Func<string, string?> value) => IdleBecause(s, value) != null;
 
     /// <summary>Two choices never on together (every combination of the fun settings is checked: --selftest walks
-    /// them all): the page, chat, gg_fun and Random each refuse the second of them, saying why. Moon gravity with Super jump makes a jump
+    /// them all): the page, chat, os_fun and Random each refuse the second of them, saying why. Moon gravity with Super jump makes a jump
     /// about 506 units high (450 squared over twice 200), nine times a normal one - out over the walls and the skybox of most maps.</summary>
     public sealed record Clash(string Setting, string Choice, string Other, string OtherChoice, string Why);
 
@@ -262,7 +262,7 @@ public static class Fun
     }
 
     /// <summary>The order Random's changes are made in: the ones back to Normal first, so no change on the way meets a Clash the end result does
-    /// not hold (gg_fun refuses one: Super jump back to Normal before the gravity goes to Moon).</summary>
+    /// not hold (os_fun refuses one: Super jump back to Normal before the gravity goes to Moon).</summary>
     public static List<(Setting Setting, Choice Choice)> InSafeOrder(IEnumerable<(Setting Setting, Choice Choice)> changes) =>
         changes.OrderBy(x => x.Choice == x.Setting.Normal ? 0 : 1).ToList();
 

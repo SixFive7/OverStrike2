@@ -12,6 +12,7 @@ sealed partial class HudScreen
     void OnClicked(CCSPlayerController player, CCSCustomHudLayout layout, string buttonId)
     {
         if (!Live || player is not { IsValid: true, IsBot: false } || layout is not { IsValid: true } || layout.Index != entity!.Index) return;
+        buttonId = HudIds.ToOurs(buttonId); // a shipped content's button has its own id (HudIds): ours from here on
         var now = DateTime.UtcNow;
         // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the gold button said
         // "Click to play": from v4.6.0 on its id names the content (HudVersion.Button), an older content's is the live column's action button,
@@ -70,7 +71,7 @@ sealed partial class HudScreen
             // !map during a vote; its line says so in chat), and goes back to the ballot's last page, where the map appears for everybody.
             var browsing = me.Browser;
             if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account, search).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
-            if (buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
+            if (buttonId.StartsWith("os_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
                 && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
                 Act(player, account, add);

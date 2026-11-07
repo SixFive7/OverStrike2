@@ -83,21 +83,21 @@ static partial class Program
 
             // ---- the watcher and a player's restart ----
             Fresh();
-            Check("The watcher cannot name a player's restart", ApplyRestartNotice($"gg-restart\t1\t{PlayerKind}\tnow\t5").StartsWith("refused: the kind is") && ApplyUpdated($"gg-updated\t1\t{PlayerKind}\t").StartsWith("refused: the kind is") && RestartDue == null);
+            Check("The watcher cannot name a player's restart", ApplyRestartNotice($"os2-restart\t1\t{PlayerKind}\tnow\t5").StartsWith("refused: the kind is") && ApplyUpdated($"os2-updated\t1\t{PlayerKind}\t").StartsWith("refused: the kind is") && RestartDue == null);
             Twice(alice, "!restart");
-            Check("...nor take one back", ApplyRestartNotice($"gg-restart\t1\tcancel\t{PlayerKind}").StartsWith("refused") && RestartDue is { Kind: PlayerKind });
+            Check("...nor take one back", ApplyRestartNotice($"os2-restart\t1\tcancel\t{PlayerKind}").StartsWith("refused") && RestartDue is { Kind: PlayerKind });
             Check("A player's countdown stands whatever the watcher sends: a notice, a reminder, a cancel of its own, the note of an update",
-                ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t10").StartsWith("ok: daily restart: a player's restart goes first") && ApplyRestartNotice("gg-restart\t1\tdaily\tmatch-end\t10").StartsWith("ok")
-                && ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyUpdated("gg-updated\t1\tdaily\t").StartsWith("ok") && RestartDue is { Kind: PlayerKind, By: "Alice" });
+                ApplyRestartNotice("os2-restart\t1\tdaily\tnow\t10").StartsWith("ok: daily restart: a player's restart goes first") && ApplyRestartNotice("os2-restart\t1\tdaily\tmatch-end\t10").StartsWith("ok")
+                && ApplyRestartNotice("os2-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyUpdated("os2-updated\t1\tdaily\t").StartsWith("ok") && RestartDue is { Kind: PlayerKind, By: "Alice" });
             h.Run(PressedSeconds + 1);
             Check("...and its quit goes", h.Sent.Contains("quit"));
             Fresh();
-            ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t30");
+            ApplyRestartNotice("os2-restart\t1\tdaily\tnow\t30");
             ClearNotices();
             Twice(alice, "!restart");
             Check("The watcher's countdown is not replaced by a player's", h.Said("The server restarts in 30 s already") && RestartDue is { Kind: "daily" } && !h.Sent.Contains("quit"));
             Fresh();
-            ApplyRestartNotice("gg-restart\t1\tdaily\tmatch-end\t10");
+            ApplyRestartNotice("os2-restart\t1\tdaily\tmatch-end\t10");
             Twice(alice, "!restart");
             Check("A restart that waits for the match's end gives way to a player's", RestartDue is { Kind: PlayerKind, GoesAt: not null });
 
@@ -105,7 +105,7 @@ static partial class Program
             foreach (var (kind, why, after) in RestartKinds)
             {
                 Fresh();
-                ApplyRestartNotice($"gg-restart\t1\t{kind}\tmatch-end\t10");
+                ApplyRestartNotice($"os2-restart\t1\t{kind}\tmatch-end\t10");
                 var waiting = $"{why}: the server restarts at the end of this match - {after}";
                 var waits = Live();
                 var isUpdate = kind == "game-update";
@@ -129,7 +129,7 @@ static partial class Program
                 ClearNotices();
             }
             Fresh();
-            ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5");
+            ApplyUpdated("os2-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5");
             Check("Updated to ...: the top line, chat and the board for a minute, with a capital after the dash; the value marked for chat",
                 Live().TopText == "Updated to CS2 1.41.9.5 - Welcome back" && Live().TopUntilMs == HudState.Ms(h.Clock.AddSeconds(Messages.Updated.Seconds))
                 && OnBoard("Updated to CS2 1.41.9.5 - Welcome back") && SaysNow.Any(l => l.Text == $"Updated to {M.V("CS2 1.41.9.5")} - Welcome back"));
@@ -278,11 +278,11 @@ static partial class Program
             var page = HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 0, 0);
             string T(string id) => page.Texts.Single(x => x.Id == id).Text;
             Check("Game page: both restarts say what they are, unarmed; a length not the default says who set it, with a capital",
-                T("gg_set_rematch_text") == "Restart the match" && T("gg_set_restart_text") == "Restart the server" && T("gg_set_time_now") == "Matches last 10 minutes - Set by Bob"
+                T("os_set_rematch_text") == "Restart the match" && T("os_set_restart_text") == "Restart the server" && T("os_set_time_now") == "Matches last 10 minutes - Set by Bob"
                 && !page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
             page = HudMenu.Game(new HudState(), 0, 7);
             Check("...Restart match after its first click: press again, its seconds, armed; the other button is not",
-                T("gg_set_rematch_text") == "Press again within 7 s" && page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && T("gg_set_restart_text") == "Restart the server" && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
+                T("os_set_rematch_text") == "Press again within 7 s" && page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && T("os_set_restart_text") == "Restart the server" && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
             Check("...the button sends !rematch, which the bridge takes from a click", HudMenu.Command(HudMenu.Rematch, null, new HudState(), browser, 1, h.Clock) == "!rematch" && Hud.IsAction("!rematch") && HudAct("[U:1:4003]\tCara\t!rematch"));
             Check("...the chat command is the same click, and teaches its aliases", ChatCommands.Parse("!rematch") is { Kind: ChatCommands.Kind.Bridge, Arg: "!rematch", Typed: "" } && M.Plain(ChatCommands.Teach(ChatCommands.Parse("!rr"))) == "You typed !rr - Ran !rematch");
             var vote = new VoteState { Round = 3 };

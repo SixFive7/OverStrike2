@@ -3,17 +3,17 @@
 //
 //   POST /restart-notice/<secret>, one line, tab-separated - what the server program's watcher sends (server/OverStrike2.Server, Watch.cs), in
 //   core's words (BridgeWire.RestartBody):
-//     gg-restart\t1\t<kind>\t<when>\t<seconds>
+//     os2-restart\t1\t<kind>\t<when>\t<seconds>
 //       kind     game-update (a CS2 update), our-update (an update of ours), daily (the daily restart), downloads (stuck Workshop downloads)
 //       when     match-end (when the match that is on ends) or now
 //       seconds  whole seconds, 0 or more: with now, the countdown to the quit; with match-end, the time from the match's end to the quit
 //                (the watcher sends 0, and at the match's end a second notice: now, with its countdown)
-//     gg-restart\t1\tcancel\t<kind>     the restart announced does not happen after all
+//     os2-restart\t1\tcancel\t<kind>     the restart announced does not happen after all
 //     A match-end notice the bridge has already (the watcher sends it again now and then) changes nothing.
 //   POST /updated/<secret>, once the new engine is up (BridgeWire.UpdatedBody):
-//     gg-updated\t1\t<kind>\t<from>\t<to>   what was installed and what is now: CS2's versions for game-update, our version's fingerprint for
+//     os2-updated\t1\t<kind>\t<from>\t<to>   what was installed and what is now: CS2's versions for game-update, our version's fingerprint for
 //                                          our-update (the note then names no number)
-//     gg-updated\t1\t<kind>\t<words>         or what it is updated to as players read it ("CS2 1.41.9.5"; the client harness's bridgepost.py); may be empty
+//     os2-updated\t1\t<kind>\t<words>         or what it is updated to as players read it ("CS2 1.41.9.5"; the client harness's bridgepost.py); may be empty
 //   Both answer "ok: ..." when taken and "refused: ..." when not, like POST /quitting (CrashWatch.cs), which still comes right before the quit.
 //
 // Before: a warning on the top line that stays until the restart - a newer line covers it while it lasts, then it comes back - with its

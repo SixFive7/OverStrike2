@@ -70,7 +70,7 @@ static partial class Program
         Check("Fun page: a setting that needs another names one that exists, and a choice of it, never itself; its idle words fit the words' label",
             Fun.Settings.Where(s => s.Needs != null).All(s => s.Needs!.All(n => n.Setting != s.Id && Fun.Find(n.Setting) is { } other && Fun.Find(other, n.Choice) != null
                 && other.Needs?.Any(m => m.Setting == s.Id) != true && n.Idle.Length is > 0 and <= 90 && !Regex.IsMatch(n.Idle, @"\d"))));
-        Check("Fun page: ids plain and unique (they travel in gg_fun's arguments); titles, words and button labels fit their labels",
+        Check("Fun page: ids plain and unique (they travel in os_fun's arguments); titles, words and button labels fit their labels",
             Fun.Settings.Select(s => s.Id).Distinct().Count() == Fun.Settings.Length
             && Fun.Settings.All(s => Regex.IsMatch(s.Id, "^[a-z]+$") && s.Choices.All(c => Regex.IsMatch(c.Id, "^[a-z]+$")) && s.Choices.Select(c => c.Id).Distinct().Count() == s.Choices.Length
                 && s.Title.Length <= 16 && s.Words.Length <= 90 && s.Choices.All(c => c.Label.Length <= 8)));
@@ -227,7 +227,7 @@ static partial class Program
                 new[] { "weapon_accuracy_nospread", "sv_disable_radar", "game_type", "game_mode", "sv_cheats" }.All(n => committed.Any(e => e.ConVar == n)));
             var movement = committed.Where(e => BlockList.Movement.Contains(e.ConVar, StringComparer.OrdinalIgnoreCase)).Select(e => e.ConVar).ToList();
             Check($"blocked.txt leaves the movement settings bhop and surf maps need alone ({BlockList.Movement.Length}){(movement.Count > 0 ? ": but blocks " + string.Join(", ", movement) : "")}", movement.Count == 0);
-            Check("blocked.txt leaves the bridge's match length and every plugin's own settings alone", !committed.Any(e => e.ConVar is "mp_roundtime" || e.ConVar.StartsWith("gg_") || e.ConVar.StartsWith("css_") || e.ConVar.StartsWith("mm_")));
+            Check("blocked.txt leaves the bridge's match length and every plugin's own settings alone", !committed.Any(e => e.ConVar is "mp_roundtime" || e.ConVar.StartsWith("os_") || e.ConVar.StartsWith("css_") || e.ConVar.StartsWith("mm_")));
             Check("blocked.txt leaves friendly fire to the maps: a map that sets its own keeps it for its match", !committed.Any(e => e.ConVar is "mp_friendlyfire" || e.ConVar.StartsWith("ff_damage_")));
             if (File.Exists(ConVarsFile))
             {

@@ -17,7 +17,7 @@
 //    maps on the open ballot, the most votes first - the watcher downloads those before anything else; "random", the lanes under the keys the watcher
 //    and the keep set read: Arms Race's under both "armsrace-new" and "armsrace-original" (the keep set wants each of its four at least 10 long),
 //    "deathmatch" and "wingman". Written atomically, only on change.
-//  - The watcher's report (POST /ready/<secret>, BridgeWire.ReadyBody): "gg-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
+//  - The watcher's report (POST /ready/<secret>, BridgeWire.ReadyBody): "os2-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
 //    downloads - "current\t<id>\t<percent>\t<title>" (a whole percent 0-100, or "-" before any progress; the title last, the rest of the line): the
 //    background download, which the Sync page and the website show. No fresh report for ReadyFreshMinutes: no stock entry counts as on the disk,
 //    the kept maps still do. Its answer says "; hold: <why>" while a change counts down or a map loads - Steam's client runs one Workshop download

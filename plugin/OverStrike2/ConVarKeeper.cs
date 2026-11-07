@@ -25,7 +25,7 @@ sealed class ConVarKeeper(string moduleDirectory, ILogger log) : IConVars
         "sv_versus_screen_scene_id", "logaddress_token_secret",
         "mp_roundtime", // the bridge's match length (10 or 60 minutes), sent over RCON 2 s after every map start; also set by the mode cfg
     };
-    static readonly string[] NeverPrefix = ["css_", "gg_", "mm_", "tv_", "nav_"];
+    static readonly string[] NeverPrefix = ["css_", "os_", "mm_", "tv_", "nav_"];
 
     /// <summary>Also watched, though not game convars: the engine convars Workshop maps were found setting (a scan of the commands in every
     /// cached map) - madebypichet's network rates, aim_notairu's cfg, de_genshin_impact, aim_snow_tundra's

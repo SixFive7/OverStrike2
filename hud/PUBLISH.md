@@ -46,7 +46,7 @@ authors' pictures.
 recognises Steam's page for a held item, publishes, and waits for the upload and Valve's approval ([deploy/README.md](../deploy/README.md)).
 
 While an update waits for Valve, go easy on the item's page: nothing may risk the owner's address or Steam account. The Web API (`time_updated`,
-`hcontent_file`) is the signal, and the plugin's `css_gghud` says what it knows without a request from you. At most one visit to the page every 15
+`hcontent_file`) is the signal, and the plugin's `os_hud` says what it knows without a request from you. At most one visit to the page every 15
 minutes, and after a 429 none for an hour; the plugin keeps to the same. Reviews have taken 9 to 63 minutes.
 
 ## 3. The server's setting
@@ -77,7 +77,7 @@ runs it, its run folder is what `release.py publish --client-test` asks for. Wha
 10. **HELP:** Help and How it works, every row filled.
 11. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.
 12. **A map change:** the countdown banner says what comes and who picked it, with the map's picture; at the first spawn the now-playing card under the crosshair.
-13. **An older game:** its banner says it is out of date and names both versions (`css_gghud level` fakes a newer server), and a game holding the older content still works.
+13. **An older game:** its banner says it is out of date and names both versions (`os_hud level` fakes a newer server), and a game holding the older content still works.
 14. **Every message** of the [catalogue](../docs/reference.md#in-game-hud) against the gallery in the [README's index](../README.md#the-hud-page-by-page): how it looks, and where on the screen.
 
 ## Visibility
@@ -92,7 +92,8 @@ checks the item and never disconnects players over the HUD while Steam does not 
 CS2 caches a layout by its path for a whole game session, so a layout release needs new file names: raise `Hud.ReleaseFile` in
 `bridge/Shared/Hud.cs` and rename `layout/gungame_hud_<ReleaseFile>.xml` and the stylesheets to match (`thumbs.py`, `build.ps1`, the plugin
 and `--selftest` follow `Hud.ReleaseFile`; those names keep the old form, `v3_0_0`, because every shipped content has only those files). A content update keeps the path and the file names. It adds one line to `HudVersion.Contents` in `bridge/Shared/HudVersion.cs`, its version and the next level (after v4.7.0 comes 48, whether the version is v4.8.0, v4.7.1 or v14.5.27), which `HudVersion.Content` and `HudVersion.Level` read. It puts that version in the layout, in its words and its version button's id, starts the stylesheet's banner rules one level higher,
-and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to, with the layouts of the contents still drawn for
+and copies the layout it replaces into `reference/`, which `--selftest` holds the new one to (by each panel's id with our prefix: `os_` from v4.8.0 on,
+`gg_` before it, `bridge/Shared/HudIds.cs`), with the layouts of the contents still drawn for
 (`HudVersion.Oldest` on: v4.5.0 now; raising it is what drops an older content). `reference/` keeps those and no other, and `--selftest` fails on
 one missing: a layout no check reads any more leaves it, and git keeps it. The red "yours is older" of the contents before v4.5.0 is sent with no layout
 of theirs to hold it to. Build, publish while nobody plays,

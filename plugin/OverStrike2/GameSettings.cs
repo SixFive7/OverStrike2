@@ -7,7 +7,7 @@ namespace OverStrike2;
 
 /// <summary>The steward of the server's game settings: it puts back, when a map ends, every game setting the map changed (ConVarKeeper.cs);
 /// it blocks the game-changers no map may set at all (GameChangerBlock.cs); and it makes the players' changes from the menu's fun page
-/// (FunSwitches.cs, gg_fun), which last until the map changes and never become the baseline nor get blocked. It acts in the game mode the map
+/// (FunSwitches.cs, os_fun), which last until the map changes and never become the baseline nor get blocked. It acts in the game mode the map
 /// that is on was loaded in (ModePlan.cs), and its console commands are in GameSettingsConsole.cs.
 ///
 /// Why it is needed (measured live on 2026-10-22, CS2 1.41.9.1/14191): <c>host_workshop_map</c> - how the bridge loads every Workshop map -
@@ -75,9 +75,9 @@ sealed partial class GameSettings
     /// <summary>Who set a fun setting that is off its default, or null: the HUD's fun page says it.</summary>
     public string? SetBy(string settingId) => fun.SetBy(settingId);
 
-    /// <summary>A change of a fun setting, made now: what gg_fun &lt;setting&gt; &lt;choice&gt; does, and what the HUD does in process for a player's
+    /// <summary>A change of a fun setting, made now: what os_fun &lt;setting&gt; &lt;choice&gt; does, and what the HUD does in process for a player's
     /// click on the Fun page or their chat command (HudScreen.FunSet), a frame after it. Its convars or its effect written, who set it kept while
-    /// it is off its default; a Clash refused (the page and chat say it before they get here). Returns what was done, in gg_fun's words.</summary>
+    /// it is off its default; a Clash refused (the page and chat say it before they get here). Returns what was done, in os_fun's words.</summary>
     public string ChangeFun(Fun.Setting setting, Fun.Choice choice, string by)
     {
         if (Fun.Refusal(setting, choice, fun.Value) is { } why)
@@ -90,7 +90,7 @@ sealed partial class GameSettings
         return line;
     }
 
-    /// <summary>The Fun page's Default, made now: every player change undone and every effect at its default, as gg_fun reset does
+    /// <summary>The Fun page's Default, made now: every player change undone and every effect at its default, as os_fun reset does
     /// (HudScreen.FunReset).</summary>
     public string ResetFun(string by) => UndoFun($"reset by {by}");
 
