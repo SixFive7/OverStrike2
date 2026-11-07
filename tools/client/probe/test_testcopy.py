@@ -258,6 +258,18 @@ for saved, plugins, want_ok, what in ((up, "files 4 differ 0", True, "the same c
 check("restore: the plugins compared in production itself, its plugins folder against the game's tree",
       any(c[0] == "exec" and c[1] == "cs2" and c[2].startswith("cd /home/steam/cs2-plugins") for c in calls))
 
+# 12. probe.py unload on a test copy keeps the server lock: production is still aside; on production it releases it
+probe.exec_in_game = lambda cmd: "ls: cannot access '/tmp/ggprobe': No such file or directory"
+for test, kept, what in ((True, True, "a test copy: the lock kept"), (False, False, "production: the lock released")):
+    state.clear()
+    state["cs2"] = [ins("running", test=test)]
+    probe.lock_path().unlink(missing_ok=True)
+    with contextlib.redirect_stdout(io.StringIO()):
+        probe.cmd_lock("unload test")
+        probe.cmd_unload()
+    check(f"probe.py unload on {what}", probe.lock_path().exists() == kept)
+probe.lock_path().unlink(missing_ok=True)
+
 shutil.rmtree(tmp)
 print("failures:", fails)
 sys.exit(1 if fails else 0)

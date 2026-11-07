@@ -140,12 +140,17 @@ so the files must be in place **before** CS2 starts - the harness installs them 
    against the build). `run` then mounts that folder in the place of production's plugins folder, which no test ever writes, and checks
    that the copy's game tree holds the staged DLL and the plugin is loaded. `testcopy.py status` says which plugin a copy gets;
    `plugin-rm` goes back to production's.
-4. **Hand out no addon on the copy**: `cs2client.ps1 rcon -Rcon 'mm_extra_addons ""; mm_client_extra_addons ""'` - both lists: the
-   server mounts the HUD item through `mm_extra_addons` (older launchers sent it through `mm_client_extra_addons`); empty both, and the copy
-   hands out nothing whichever launcher it runs. While the server hands the Workshop addon out, the client mounts it and **its** copy of
-   the layout wins over the loose files: a client on the copy then shows the published layout with the loose build in place. The plugin
-   writes the list only when the item's state changes, so the empty list stays for the test - until a map load puts `mm_extra_addons`
-   back.
+4. **Hand out no addon on the copy**, before the client starts: `cs2client.ps1 rcon -Rcon 'mm_extra_addons ""; mm_client_extra_addons "";
+   changelevel <the start map>'`, one line - both lists (the server mounts the HUD item through `mm_extra_addons`, older launchers sent it
+   through `mm_client_extra_addons`), then a map load. While the server hands the Workshop addon out, the client mounts it and **its** copy
+   of the layout wins over the loose files: a client on the copy then shows the published layout with the loose build in place. **A level
+   keeps the addons it was loaded with**: emptying the lists alone leaves the level that is on handing the item to every client that joins
+   it (`S2C_CONNECTION ... [addons:'<item>']` in the client's log, then `Mounting addon`), and a `changelevel` on its own puts
+   `mm_extra_addons` back - emptied in the same line as the map change, the new level has none, and the list stays empty (measured
+   2026-11-07) - but on a copy that has just started the plugin writes the list itself at its first look at the item, so read
+   `mm_extra_addons` after the load and do it again if it is back. Check the client's log (`cs2client.ps1 log -Pattern S2C_CONNECTION`):
+   `[addons:'']`. Start the client only then - Panorama keeps the layout it loaded for the whole game session - and give it
+   `-IncludeThumbs`: without the item it has no map pictures but the build's.
 5. **Start with the build**: `cs2client.ps1 start -Connect default -HudLocal -AllowServerLock -Purpose "verify HUD <release>"`.
    `-HudLocal` makes it an insecure session; the start checks A2S and refuses unless the server at that address is not VAC-secured.
    It copies every compiled file (`*_c`) under `game\csgo_addons\gungame_hud\panorama\` - layout, stylesheets, textures - into
@@ -241,7 +246,7 @@ python -I tools\client\probe\probe.py lock "<purpose>"                  # the se
 python -I tools\client\probe\probe.py load                              # build, copy to <game>:/tmp/ggprobe, css_plugins load
 python -I tools\client\probe\probe.py html <account> 20 "<b>hello</b>"  # or "@file.html"; re-sent every tick for 20 s
 python -I tools\client\probe\probe.py htmlfile <account> 20 long.html
-python -I tools\client\probe\probe.py unload                            # unload, delete /tmp/ggprobe, verify, release the lock
+python -I tools\client\probe\probe.py unload                            # unload, delete /tmp/ggprobe, verify, release the lock (kept on a test copy)
 ```
 
 What centre-screen HTML can do: pictures from URLs show; one message holds about 1,500 bytes; the panel has a fixed size.
@@ -311,7 +316,7 @@ docstring has every option. A session:
    - the plugin, the bridge's image `docs-<commit12>` (`deploy/bridge.py build`), the HUD into its own addon (`docshots\build_hud.ps1`,
    `os2docs`).
 2. **The server** under the lock: `probe.py lock`, `testcopy.py plugin <commit>` (the plugin of the commit the pictures show; step 3
-   above), `testcopy.py prep`, `bridge-prep`, `bridge-run docs-<commit12> --keep-flag`, `run`, the addon lists emptied (step 4 above),
+   above), `testcopy.py prep`, `bridge-prep`, `bridge-run docs-<commit12> --keep-flag`, `run`, the addon lists emptied with a map load (step 4 above),
    `docshots\docname.py load`.
 3. **A client per resolution**: `docshots/client.sh start <WxH>`, then `OUT=... BUILT=<commit> docshots/run_res.sh <WxH> full` - the full
    table at 1920x1080 for the docs; `docshots/review_all.sh` the review set at the other six, for the owner's review only.

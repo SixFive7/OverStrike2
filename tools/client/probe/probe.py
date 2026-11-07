@@ -20,7 +20,8 @@ is ever written to the plugins folder, and a restart drops the probe anyway: it 
   python -I probe.py stop                             clear the probe's messages
   python -I probe.py clientcmd <account> <command>    ExecuteClientCommand (only FCVAR_CLIENT_CAN_EXECUTE commands run)
   python -I probe.py rcon "<command>" ["<command>" ...]   server console commands, each one's answer printed
-  python -I probe.py unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock
+  python -I probe.py unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock - kept while
+                                                      the game server is a test copy (testcopy.py restore first)
   python -I probe.py status                           the probe's state on the server and the lock
   python -I probe.py config                           what the harness reads from the private config, as JSON (no credential in it)
   python -I probe.py server                           the running containers that publish the server's port, and the game container, as JSON
@@ -42,6 +43,7 @@ import os2  # noqa: E402  (the private config and the Docker Engine API, as the 
 from check import jsonc  # noqa: E402,F401  (deploy/check.py's: the settings text's syntax, for testcopy.py and bridgepost.py)
 
 OWNER = "cs2 client test harness (tools/client)"   # the lock's first line is "owner: " and this
+TEST_LABEL = "cs2.test-config"               # the label of every container testcopy.py makes: a test copy, never production
 PROJECT = HERE / "GgClientProbe"
 DLL = PROJECT / "bin" / "Release" / "net10.0" / "GgClientProbe.dll"
 REMOTE_DIR = "/tmp/ggprobe"
@@ -353,6 +355,10 @@ def cmd_unload():
     print(f"{game()}:{REMOTE_DIR}:", files)
     if still or "No such file" not in files:
         sys.exit("the probe is NOT fully gone - check by hand before releasing the lock")
+    g = inspect(game())
+    if (((g or {}).get("Config") or {}).get("Labels") or {}).get(TEST_LABEL):
+        print("server lock kept: the game server is a test copy, and production is back only after testcopy.py rm and restore (then probe.py unlock)")
+        return
     cmd_unlock()
 
 

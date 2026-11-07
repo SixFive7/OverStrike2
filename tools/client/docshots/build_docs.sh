@@ -3,7 +3,7 @@
 # docs-<commit12> on the server (deploy/bridge.py build, with the private config and the Docker API key in the environment, never printed), the HUD in
 # its own addon with its map pictures (build_hud.ps1). The three run side by side; their logs go to $OUT/logs/build-<commit12>/.
 #   OUT=<session folder> build_docs.sh <clean checkout> <folder of the map pictures (hud/thumbs.py's)>
-: "${OUT:?set OUT to the session's output folder}"
+: "${OUT:?set OUT to the output folder of the session}"
 D="$(cd "$(dirname "$0")" && pwd)"
 W="${1:?the clean checkout of the commit under test}"
 T="${2:?the folder of the map pictures}"

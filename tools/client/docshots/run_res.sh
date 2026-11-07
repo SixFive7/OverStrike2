@@ -3,7 +3,7 @@
 # --keep-raw, the build's commit recorded. OUT: the session's output folder (required; never inside the repository's tracked tree), BUILT: the commit the
 # session's plugin, bridge and HUD were built from (required). Its log goes to $OUT/logs/run-<WxH>.log.
 D="$(cd "$(dirname "$0")" && pwd)"
-: "${OUT:?set OUT to the session's output folder}" "${BUILT:?set BUILT to the commit the build under test came from}"
+: "${OUT:?set OUT to the output folder of the session}" "${BUILT:?set BUILT to the commit the build under test came from}"
 RUN_OUT="$OUT/docs"
 EXTRA=""
 [ "$2" = "review" ] && RUN_OUT="$OUT/review" && EXTRA="--review-set"
