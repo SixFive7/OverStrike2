@@ -99,13 +99,13 @@ static class OrganizeTests
         var log = new Log("test", SystemClock.Instance, Scenario.Paris, _ => { });
         var mf = new MapsFolder(Config(tree, data, "500"), log, SystemClock.Instance, Scenario.Paris);
         var line = mf.Organize();
-        string Look(string id) => Path.GetFullPath(Path.Combine(content, MapsFolder.LinkTarget(Path.Combine(content, id)) ?? "?"));
+        string Look(string id) => Path.GetFullPath(Path.Combine(content, Files.LinkTarget(Path.Combine(content, id)) ?? "?"));
         C($"organize: an Arms Race map, also on Deathmatch, is Arms Race's ({line})", () => Look("100") == Path.Combine(maps, "armsrace", "100-de_dust_2_remake"));
         C("organize: Deathmatch, Wingman with no ASCII in its title, own before the list, the HUD, not listed",
           () => Look("200") == Path.Combine(maps, "deathmatch", "200-bastion") && Look("300") == Path.Combine(maps, "wingman", "300")
                 && Look("400") == Path.Combine(maps, "own", "400-my_map") && Look("500") == Path.Combine(maps, "hud", "500-hud"));
         C("organize: the link is relative, the file readable through it",
-          () => !Path.IsPathRooted(MapsFolder.LinkTarget(Path.Combine(content, "100"))!) && File.ReadAllText(Path.Combine(content, "100", "100_dir.vpk")) == "x");
+          () => !Path.IsPathRooted(Files.LinkTarget(Path.Combine(content, "100"))!) && File.ReadAllText(Path.Combine(content, "100", "100_dir.vpk")) == "x");
         C("organize: an item no list names goes to other", () => Look("600") == Path.Combine(maps, "other", "600"));
         C("organize: the index lists them", () => File.ReadAllText(Path.Combine(maps, "INDEX.tsv")).Contains("armsrace\t100\tDe Dust 2 (remake)!"));
         C("organize: a second run changes nothing", () => mf.Organize() == "maps folder: in order");
@@ -113,7 +113,7 @@ static class OrganizeTests
         Item(content, "100", "new");
         line = mf.Organize();
         C($"organize: Steam's real folder (an update replaced the link) replaces the old copy ({line})",
-          () => File.ReadAllText(Path.Combine(maps, "armsrace", "100-de_dust_2_remake", "100_dir.vpk")) == "new" && MapsFolder.IsLink(Path.Combine(content, "100")));
+          () => File.ReadAllText(Path.Combine(maps, "armsrace", "100-de_dust_2_remake", "100_dir.vpk")) == "new" && Files.IsLink(Path.Combine(content, "100")));
         Item(content, "700");
         mf.Organize();
         C("organize: a new download goes to other until the lists name it", () => Look("700") == Path.Combine(maps, "other", "700"));
@@ -125,7 +125,7 @@ static class OrganizeTests
         C($"organize: a folder that lost its link gets it back ({line})", () => Look("200") == Path.Combine(maps, "deathmatch", "200-bastion"));
         Directory.Delete(Path.Combine(maps, "deathmatch", "200-bastion"), true);
         line = mf.Organize();
-        C($"organize: a link to nothing goes - Steam fetches the map again when it is wanted ({line})", () => !MapsFolder.Lexists(Path.Combine(content, "200")));
+        C($"organize: a link to nothing goes - Steam fetches the map again when it is wanted ({line})", () => !Files.Lexists(Path.Combine(content, "200")));
         var fresh = Dir("orgfresh");
         var freshLine = new MapsFolder(Config(fresh, data, "500"), log, SystemClock.Instance, Scenario.Paris).Organize();
         C($"organize: a new volume, no Steam folder yet: its line and an empty index, not a stop ({freshLine})",
@@ -228,7 +228,7 @@ static class OrganizeTests
         line = Mf().Organize();
         var acfNow = File.ReadAllText(config.Paths.WorkshopAcf);
         C($"organize: a complete hand-over is taken in: its type's folder, its link, its acf entries, its manifest, its marker gone ({line})",
-          () => Path.GetFullPath(Path.Combine(content, MapsFolder.LinkTarget(Path.Combine(content, "150"))!)) == Path.Combine(maps, "deathmatch", "150-top_rated")
+          () => Path.GetFullPath(Path.Combine(content, Files.LinkTarget(Path.Combine(content, "150"))!)) == Path.Combine(maps, "deathmatch", "150-top_rated")
                 && File.ReadAllText(Path.Combine(content, "150", "150_dir.vpk")) == "handed" && KeyValues.Installed(acfNow).GetValueOrDefault("150") == 3000
                 && acfNow.Contains("\"latest_manifest\"\t\t\"9150\"") && File.ReadAllText(Path.Combine(depot, "730_9150.manifest")) == "MANIFEST"
                 && !File.Exists(Path.Combine(hand, "150.json")) && !Directory.Exists(Path.Combine(hand, "150")));
@@ -250,7 +250,7 @@ static class OrganizeTests
         line = Mf().Organize();
         acfNow = File.ReadAllText(config.Paths.WorkshopAcf);
         C($"organize: deletion on: the maps outside the keep set go - folder, link, acf entries ({line})",
-          () => Stored().SequenceEqual(["100", "102", "150", "400", "500"]) && !MapsFolder.Lexists(Path.Combine(content, "101")) && !MapsFolder.Lexists(Path.Combine(content, "103"))
+          () => Stored().SequenceEqual(["100", "102", "150", "400", "500"]) && !Files.Lexists(Path.Combine(content, "101")) && !Files.Lexists(Path.Combine(content, "103"))
                 && !KeyValues.Installed(acfNow).ContainsKey("101") && !acfNow.Contains("\"103\"") && Lists().Any(n => n.EndsWith("-done.tsv")));
         C("organize: never the own map, the HUD, the queued map or the upvoted one", () => new[] { "100", "102", "400", "500" }.All(Stored().Contains));
         WriteData(new()

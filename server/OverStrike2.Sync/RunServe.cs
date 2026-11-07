@@ -1,6 +1,7 @@
 // A run's hand-over: the keep set's maps the game server lacks or stores older, downloaded and handed over; the staging folder's clean-up.
 using System.Globalization;
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -92,7 +93,7 @@ public sealed partial class SyncRun
             if (entry is not { } e || !Text.Digits(e.Installed.GetValueOrDefault("timeupdated"))
                 || long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) < Node.Int(rec["updated"]))
                 continue;                                  // no entry in SteamCMD's acf, or an older version: downloaded again below
-            var bytes = Handover.FolderBytes(Path.Combine(Content, wid));
+            var bytes = Files.FolderStats(Path.Combine(Content, wid)).Bytes;
             var (done, words) = HandOverSafe(wid, Node.StrOr(rec["title"]));
             L($"serve: {wid} {Text.Cut(Node.StrOr(rec["title"]), 40)} was staged already, {words}");
             if (done)
@@ -147,7 +148,7 @@ public sealed partial class SyncRun
                 var (good, reason, nbytes) = session.Download(wid);
                 if (good && Staged(wid))
                 {
-                    var onDisk = Handover.FolderBytes(Path.Combine(Content, wid));
+                    var onDisk = Files.FolderStats(Path.Combine(Content, wid)).Bytes;
                     var size = Math.Max(nbytes, onDisk);
                     budget.Spend(size, wid);
                     Bump(rep, "downloads", 1);
@@ -303,7 +304,7 @@ public sealed partial class SyncRun
             try
             {
                 var path = Path.Combine(Content, wid);
-                if (Handover.IsLink(path))
+                if (Files.IsLink(path))
                     File.Delete(path);
                 else
                     Directory.Delete(path, true);

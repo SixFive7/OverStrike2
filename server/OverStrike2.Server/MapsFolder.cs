@@ -67,35 +67,6 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         return types;
     }
 
-    public static string? LinkTarget(string path)
-    {
-        try
-        {
-            return new FileInfo(path).LinkTarget;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    public static bool IsLink(string path) => LinkTarget(path) != null;
-    public static bool Lexists(string path) => IsLink(path) || File.Exists(path) || Directory.Exists(path);
-
-    static void RemoveTree(string path)
-    {
-        try
-        {
-            if (IsLink(path))
-                File.Delete(path);
-            else
-                Directory.Delete(path, true);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
-
     Dictionary<string, List<string>> Where(string mapsDir, bool onlyDirs)
     {
         var where = new Dictionary<string, List<string>>();
@@ -151,7 +122,7 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
                     var link = Path.Combine(rel, kind, folder);
                     where.TryGetValue(id, out var holders);
                     holders ??= [];
-                    if (LinkTarget(path) is { } current0)
+                    if (Files.LinkTarget(path) is { } current0)
                     {
                         var current = Path.GetFullPath(Path.Combine(content, current0));
                         if (!Directory.Exists(current))
@@ -165,7 +136,7 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
                         else if (current == target && current0 == link)
                         {
                             foreach (var other in holders.Where(h => h != target))
-                                RemoveTree(other);
+                                Files.RemoveTree(other, quiet: true);
                             continue;
                         }
                         else
@@ -178,18 +149,18 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
                             continue;
                         }
                     }
-                    if (Directory.Exists(path) && !IsLink(path))
+                    if (Directory.Exists(path) && !Files.IsLink(path))
                     {
                         foreach (var old in holders)             // what Steam just wrote is the newer copy
                         {
-                            RemoveTree(old);
+                            Files.RemoveTree(old, quiet: true);
                             counts["replaced"]++;
                         }
                         Directory.Move(path, target);
                         Directory.CreateSymbolicLink(path, link);
                         counts["moved"]++;
                     }
-                    else if (!Lexists(path) && holders.Count > 0)
+                    else if (!Files.Lexists(path) && holders.Count > 0)
                     {
                         var keep = holders.Contains(target) ? target : holders[0];   // a folder that lost its link
                         if (keep != target)

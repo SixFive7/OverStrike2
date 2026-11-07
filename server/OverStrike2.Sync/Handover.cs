@@ -46,47 +46,6 @@ public static class Handover
         }
     }
 
-    /// <summary>(files, bytes) of everything under a folder - what a hand-over's marker names, counted exactly as the restart watcher counts
-    /// it before it takes the hand-over in (MapsFolder.FolderStats; the self-test holds the two to each other).</summary>
-    public static (long Files, long Bytes) FolderStats(string path)
-    {
-        long files = 0, total = 0;
-        try
-        {
-            foreach (var f in Directory.EnumerateFiles(path, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 }))
-            {
-                try
-                {
-                    total += new FileInfo(f).Length;
-                    files++;
-                }
-                catch (IOException)
-                {
-                }
-            }
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-        }
-        return (files, total);
-    }
-
-    public static long FolderBytes(string path) => FolderStats(path).Bytes;
-
-    public static bool IsLink(string path)
-    {
-        try
-        {
-            return new FileInfo(path).LinkTarget is not null;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    public static bool Lexists(string path) => IsLink(path) || File.Exists(path) || Directory.Exists(path);
-
     /// <summary>{id: timeupdated} of the Workshop maps the game server stores: in its acf, with a folder behind content/730/&lt;id&gt; (its
     /// relative links resolve on this read-only mount of the same tree).</summary>
     public static Dictionary<string, long> ServerMaps(string gameDir)
@@ -152,14 +111,6 @@ public static class Handover
         return (missing, outdated);
     }
 
-    static void RemoveTree(string path)
-    {
-        if (IsLink(path))
-            File.Delete(path);
-        else
-            Directory.Delete(path, true);
-    }
-
     /// <summary>THE HAND-OVER: a staged download moved to the game server's hand-over folder instead of being deleted. &lt;folder&gt;/&lt;id&gt;/ is
     /// its content (one rename: the staging folder and the hand-over folder are on the game volume, the server's maps too), &lt;id&gt;.manifest
     /// the Steam client's verified manifest of it (SteamCMD keeps it in its depotcache, byte-identical to the one the game server's own
@@ -174,17 +125,17 @@ public static class Handover
         var entries = AcfEntries(acf, wid);
         if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Text.Digits(e.Installed.GetValueOrDefault(k))))
             return (false, "SteamCMD's acf has no complete entry for it");
-        if (!Directory.Exists(content) || IsLink(content))
+        if (!Directory.Exists(content) || Files.IsLink(content))
             return (false, "its folder is not in the staging folder");
-        var (files, bytes) = FolderStats(content);
+        var (files, bytes) = Files.FolderStats(content);
         if (files == 0)
             return (false, "its folder is empty");
         Directory.CreateDirectory(folder);
         foreach (var stale in new[] { Path.Combine(folder, wid + ".json"), Path.Combine(folder, wid), Path.Combine(folder, wid + ".manifest") })
         {
-            if (Directory.Exists(stale) && !IsLink(stale))
+            if (Directory.Exists(stale) && !Files.IsLink(stale))
                 Directory.Delete(stale, true);                     // an older hand-over the server never took in
-            else if (Lexists(stale))
+            else if (Files.Lexists(stale))
                 File.Delete(stale);
         }
         Directory.Move(content, Path.Combine(folder, wid));
@@ -232,7 +183,7 @@ public static class Handover
         var pending = Pending(handoverDir);
         var ghosts = named.Keys.Where(w => !Directory.Exists(Path.Combine(content, w))).ToList();
         var copies = (Directory.Exists(content) ? Directory.EnumerateFileSystemEntries(content).Select(p => Path.GetFileName(p)!).ToList() : [])
-            .Where(w => pending.ContainsKey(w) && Node.Str(Node.Get(items[w], "status")) != "downloaded" && !IsLink(Path.Combine(content, w))).ToList();
+            .Where(w => pending.ContainsKey(w) && Node.Str(Node.Get(items[w], "status")) != "downloaded" && !Files.IsLink(Path.Combine(content, w))).ToList();
         if (ghosts.Count == 0 && copies.Count == 0)
             return (0, 0);
         AcfForget(acf, ghosts.Concat(copies.Where(named.ContainsKey)));
@@ -240,7 +191,7 @@ public static class Handover
         {
             try
             {
-                RemoveTree(Path.Combine(content, wid));
+                Files.RemoveTree(Path.Combine(content, wid));
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {

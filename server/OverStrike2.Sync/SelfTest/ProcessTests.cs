@@ -181,11 +181,11 @@ static class ProcessTests
         var line = TestTree.Build(game, work, cfgDir, new SyncClock(SystemClock.Instance, Paris));
         var farm = Path.Combine(work, "farm", "game");
         Check($"test tree: links into the game, the engine's files copied, the cfgs without log addresses, gameinfo without the plugins ({line})",
-              !Handover.IsLink(Path.Combine(farm, "cs2.sh")) && File.Exists(Path.Combine(farm, "cs2.sh")) && Handover.IsLink(Path.Combine(farm, "other.txt"))
-              && !Handover.IsLink(Path.Combine(farm, "bin", "linuxsteamrt64", "cs2")) && File.Exists(Path.Combine(farm, "bin", "linuxsteamrt64", "libengine.so"))
-              && !File.Exists(Path.Combine(farm, "bin", "linuxsteamrt64", "x.log")) && Handover.IsLink(Path.Combine(farm, "bin", "linuxsteamrt64", "steamapps"))
+              !Files.IsLink(Path.Combine(farm, "cs2.sh")) && File.Exists(Path.Combine(farm, "cs2.sh")) && Files.IsLink(Path.Combine(farm, "other.txt"))
+              && !Files.IsLink(Path.Combine(farm, "bin", "linuxsteamrt64", "cs2")) && File.Exists(Path.Combine(farm, "bin", "linuxsteamrt64", "libengine.so"))
+              && !File.Exists(Path.Combine(farm, "bin", "linuxsteamrt64", "x.log")) && Files.IsLink(Path.Combine(farm, "bin", "linuxsteamrt64", "steamapps"))
               && new FileInfo(Path.Combine(farm, "bin", "linuxsteamrt64", "steamapps")).LinkTarget == Path.Combine(work, "staging", "steamapps")
-              && Handover.IsLink(Path.Combine(farm, "bin", "other")) && Handover.IsLink(Path.Combine(farm, "csgo", "maps"))
+              && Files.IsLink(Path.Combine(farm, "bin", "other")) && Files.IsLink(Path.Combine(farm, "csgo", "maps"))
               && !Directory.Exists(Path.Combine(farm, "csgo", "addons")) && !File.Exists(Path.Combine(farm, "csgo", "console.log"))
               && File.ReadAllText(Path.Combine(farm, "csgo", "cfg", "server.cfg")) == TestTree.TestServerCfg
               && File.ReadAllText(Path.Combine(farm, "csgo", "cfg", "sub", "a.cfg")) == "a 1\nb 2"

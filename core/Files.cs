@@ -39,6 +39,65 @@ public static class Files
 
     public static void WriteAtomic(string path, string text, UnixFileMode? unixMode = null) => WriteAtomic(path, Encoding.UTF8.GetBytes(text), unixMode);
 
+    /// <summary>(files, bytes) of everything under a folder, links not followed: what the sync's hand-over marker names, counted the same
+    /// way again by the restart watcher before it takes the hand-over in.</summary>
+    public static (long Files, long Bytes) FolderStats(string path)
+    {
+        long files = 0, total = 0;
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(path, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 }))
+            {
+                try
+                {
+                    total += new FileInfo(f).Length;
+                    files++;
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+        }
+        return (files, total);
+    }
+
+    /// <summary>Where a link points (as written in it, relative or not), or null: no link, or nothing that can be read.</summary>
+    public static string? LinkTarget(string path)
+    {
+        try
+        {
+            return new FileInfo(path).LinkTarget;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    public static bool IsLink(string path) => LinkTarget(path) != null;
+
+    /// <summary>Whether anything is at the path, a link to nothing included.</summary>
+    public static bool Lexists(string path) => IsLink(path) || File.Exists(path) || Directory.Exists(path);
+
+    /// <summary>A folder gone with everything in it, or a link gone - never what it points to. quiet: what cannot go stays, and nothing is
+    /// thrown; else the IOException or UnauthorizedAccessException is the caller's.</summary>
+    public static void RemoveTree(string path, bool quiet = false)
+    {
+        try
+        {
+            if (IsLink(path))
+                File.Delete(path);
+            else
+                Directory.Delete(path, true);
+        }
+        catch (Exception e) when (quiet && e is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
     /// <summary>A JSON file as a node, or null when it is missing or does not parse.</summary>
     public static JsonNode? ReadJson(string path)
     {

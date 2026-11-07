@@ -9,30 +9,6 @@ namespace OverStrike2.Server;
 /// from content/730, like a download of Steam's own.</summary>
 public sealed partial class MapsFolder
 {
-    /// <summary>(files, bytes) of everything under a folder.</summary>
-    public static (long Files, long Bytes) FolderStats(string path)
-    {
-        long files = 0, total = 0;
-        try
-        {
-            foreach (var f in Directory.EnumerateFiles(path, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 }))
-            {
-                try
-                {
-                    total += new FileInfo(f).Length;
-                    files++;
-                }
-                catch (IOException)
-                {
-                }
-            }
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-        }
-        return (files, total);
-    }
-
     /// <summary>A hand-over marker of a complete hand-over (the sync writes it last): its record, or why not.</summary>
     public static (JsonObject? Record, string? Why) ReadMarker(string marker, string id)
     {
@@ -106,9 +82,9 @@ public sealed partial class MapsFolder
             holders ??= [];
             try
             {
-                if (!Directory.Exists(folder) || IsLink(folder))
+                if (!Directory.Exists(folder) || Files.IsLink(folder))
                 {
-                    var moved = holders.Where(h => FolderStats(h) == want).ToList();
+                    var moved = holders.Where(h => Files.FolderStats(h) == want).ToList();
                     if (moved.Count == 0)
                     {
                         counts["incomplete"]++;
@@ -119,7 +95,7 @@ public sealed partial class MapsFolder
                 }
                 else
                 {
-                    if (FolderStats(folder) != want)
+                    if (Files.FolderStats(folder) != want)
                     {
                         counts["incomplete"]++;
                         log.Line($"hand-over {id}: its folder does not hold the {want.Item1} files and {want.Item2} bytes its marker names - left alone");
@@ -127,7 +103,7 @@ public sealed partial class MapsFolder
                     }
                     if (installedNow.GetValueOrDefault(id) >= stamp && holders.Count > 0)
                     {
-                        RemoveTree(folder);                              // the server's own copy is as new: nothing to take in
+                        Files.RemoveTree(folder, quiet: true);                              // the server's own copy is as new: nothing to take in
                         foreach (var path in new[] { marker, manifest })
                             if (File.Exists(path))
                                 File.Delete(path);
@@ -142,13 +118,13 @@ public sealed partial class MapsFolder
                     }
                     Directory.Move(folder, target);
                     foreach (var path in aside)
-                        RemoveTree(path);
+                        Files.RemoveTree(path, quiet: true);
                 }
                 var link = Path.Combine(content, id);
-                if (IsLink(link))
+                if (Files.IsLink(link))
                     File.Delete(link);
                 else if (Directory.Exists(link))
-                    RemoveTree(link);
+                    Files.RemoveTree(link, quiet: true);
                 Directory.CreateSymbolicLink(link, Path.GetRelativePath(content, target));
                 where[id] = [target];
                 var det = (JsonObject)rec["details"]!;

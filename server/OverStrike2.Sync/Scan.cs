@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -345,7 +346,7 @@ public static partial class Scan
         var (names, trees) = ItemVpks(folder);
         var res = new JsonObject
         {
-            ["verdict"] = "unknown", ["maps"] = new JsonArray(), ["models"] = 0, ["files"] = 0, ["bytes"] = Handover.FolderBytes(folder),
+            ["verdict"] = "unknown", ["maps"] = new JsonArray(), ["models"] = 0, ["files"] = 0, ["bytes"] = Files.FolderStats(folder).Bytes,
             ["names"] = Node.Strings(names.Take(30)), ["advert"] = null, ["advert_sample"] = null,
         };
         if (trees.Count == 0)

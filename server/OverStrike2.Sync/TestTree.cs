@@ -59,7 +59,7 @@ public static partial class TestTree
         var treeRoot = Path.Combine(workDir, "farm");          // the tree's folder keeps the name it has on every server
         var dst = Path.Combine(treeRoot, "game");
         var stage = Path.Combine(workDir, "staging");
-        if (Handover.IsLink(treeRoot))
+        if (Files.IsLink(treeRoot))
             File.Delete(treeRoot);
         else if (Directory.Exists(treeRoot))
             Directory.Delete(treeRoot, true);
@@ -82,7 +82,7 @@ public static partial class TestTree
         foreach (var path in Directory.EnumerateFileSystemEntries(Path.Combine(src, "bin", "linuxsteamrt64")))
         {
             var name = Path.GetFileName(path);
-            if (name is "steamapps" or "steam_appid.txt" || name.EndsWith(".log", StringComparison.Ordinal) || Handover.IsLink(path) || !File.Exists(path))
+            if (name is "steamapps" or "steam_appid.txt" || name.EndsWith(".log", StringComparison.Ordinal) || Files.IsLink(path) || !File.Exists(path))
                 continue;
             File.Copy(path, Path.Combine(dst, "bin", "linuxsteamrt64", name), true);
             copied++;

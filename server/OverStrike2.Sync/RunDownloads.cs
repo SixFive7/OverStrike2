@@ -1,5 +1,6 @@
 // A run's downloads: one batch of the queue on one anonymous SteamCMD login.
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -77,7 +78,7 @@ public sealed partial class SyncRun
                 if (good && Staged(wid))
                 {
                     rec["attempts"] = 0;                   // the tries of a content version: this one is here
-                    var onDisk = Handover.FolderBytes(Path.Combine(Content, wid));
+                    var onDisk = Files.FolderStats(Path.Combine(Content, wid)).Bytes;
                     var size = Math.Max(nbytes, onDisk);
                     budget.Spend(size, wid);
                     Bump(dl, "ok", 1);

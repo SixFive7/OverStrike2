@@ -74,7 +74,7 @@ public sealed class TestEngine : ITestEngine
         Directory.CreateDirectory(sdk);
         var link = Path.Combine(sdk, "steamclient.so");
         var client = Path.Combine(Path.GetDirectoryName(cfg.SteamCmd) ?? "", "linux64", "steamclient.so");
-        if (!Handover.Lexists(link) && File.Exists(client))
+        if (!Files.Lexists(link) && File.Exists(client))
             File.CreateSymbolicLink(link, client);
         try
         {

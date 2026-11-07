@@ -196,7 +196,7 @@ static class HandOverTests
         // the one contract the two programs share: os2-server's MapsFolder takes in what the sync handed over
         Check("hand-over: os2-server reads the sync's marker as complete",
               MapsFolder.ReadMarker(Path.Combine(hdir, "305.json"), "305").Record is not null
-              && MapsFolder.FolderStats(Path.Combine(hdir, "305")) == (Node.Int(mk["files"]), Node.Int(mk["bytes"])));
+              && Files.FolderStats(Path.Combine(hdir, "305")) == (Node.Int(mk["files"]), Node.Int(mk["bytes"])));
     }
 
     // ---- serve: the keep set's maps the server does not store are fetched and handed over; what it stores, or waits, is not
@@ -466,7 +466,7 @@ static class HandOverTests
         var said = new MapsFolder(config, log, clock, Paris).Organize();
         var stored = Handover.ServerMaps(game);
         var link = Path.Combine(serverWs, "content", "730", "4100");
-        Check(name, () => ok && stored.TryGetValue("4100", out var t) && t == 1790000000 && Handover.IsLink(link)
+        Check(name, () => ok && stored.TryGetValue("4100", out var t) && t == 1790000000 && Files.IsLink(link)
                           && File.Exists(Path.Combine(link, "maps", "inner.txt")) && File.Exists(Path.Combine(serverDepot, "730_424242.manifest"))
                           && !File.Exists(Path.Combine(handover, "4100.json")) && KeyValues.Entries(File.ReadAllText(Path.Combine(serverWs, "appworkshop_730.acf")), "4100") is { } e
                           && e.Details.GetValueOrDefault("timetouched") == "1790000001" && words.StartsWith("handed over", StringComparison.Ordinal) && said.Length > 0);

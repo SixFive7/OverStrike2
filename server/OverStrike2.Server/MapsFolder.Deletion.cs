@@ -22,7 +22,7 @@ public sealed partial class MapsFolder
             foreach (var path in Directory.EnumerateFileSystemEntries(dir).OrderBy(x => x, StringComparer.Ordinal))
             {
                 var id = Path.GetFileName(path).Split('-', 2)[0];
-                if (Digits(id) && !keep.Contains(id) && !protect.Contains(id) && Directory.Exists(path) && !IsLink(path))
+                if (Digits(id) && !keep.Contains(id) && !protect.Contains(id) && Directory.Exists(path) && !Files.IsLink(path))
                     gone.Add((kind, id, path));
             }
         }
@@ -252,7 +252,7 @@ public sealed partial class MapsFolder
                 try
                 {
                     var link = Path.Combine(content, id);
-                    if (IsLink(link))
+                    if (Files.IsLink(link))
                         File.Delete(link);
                     Directory.Delete(path, true);
                 }
