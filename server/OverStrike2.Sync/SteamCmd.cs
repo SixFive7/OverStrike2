@@ -88,10 +88,17 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
 {
     [GeneratedRegex("\\x1b\\[[0-9;]*m")] private static partial Regex AnsiRx();
 
-    readonly object gate = new();
-    readonly List<byte> buffer = [];
+    /// <summary>One session's output as its reader has it so far, and whether it has ended. Each session has its own: the reader of one that
+    /// ended reads on until its pipe closes, which can be after the next session has started.</summary>
+    sealed class Output
+    {
+        public readonly object Gate = new();
+        public readonly List<byte> Buffer = [];
+        public bool Ended;
+    }
+
+    Output output = new();
     Process? proc;
-    bool eof;
 
     public int LoginTimeout { get; set; } = 240;
     public int DownloadTimeout { get; set; } = 900;
@@ -110,7 +117,7 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
         }
     }
 
-    void Reader(Process p)
+    static void Reader(Process p, Output o, Action<ReadOnlySpan<byte>> log)
     {
         var s = p.StandardOutput.BaseStream;
         var chunk = new byte[65536];
@@ -119,21 +126,21 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
             int n;
             while ((n = s.Read(chunk, 0, chunk.Length)) > 0)
             {
-                Log(chunk.AsSpan(0, n));
-                lock (gate)
+                log(chunk.AsSpan(0, n));
+                lock (o.Gate)
                 {
-                    buffer.AddRange(chunk.AsSpan(0, n).ToArray());
-                    Monitor.PulseAll(gate);
+                    o.Buffer.AddRange(chunk.AsSpan(0, n).ToArray());
+                    Monitor.PulseAll(o.Gate);
                 }
             }
         }
         catch (Exception e) when (e is IOException or ObjectDisposedException)
         {
         }
-        lock (gate)
+        lock (o.Gate)
         {
-            eof = true;
-            Monitor.PulseAll(gate);
+            o.Ended = true;
+            Monitor.PulseAll(o.Gate);
         }
     }
 
@@ -141,22 +148,23 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
     string? ReadUntil(Regex rx, double timeout)
     {
         var end = clock.Now() + timeout;
-        lock (gate)
+        var o = output;
+        lock (o.Gate)
         {
             while (true)
             {
-                var text = AnsiRx().Replace(Encoding.UTF8.GetString(buffer.ToArray()), "");
+                var text = AnsiRx().Replace(Encoding.UTF8.GetString(o.Buffer.ToArray()), "");
                 if (rx.IsMatch(text))
                 {
-                    buffer.Clear();
+                    o.Buffer.Clear();
                     return text;
                 }
-                if (eof)
+                if (o.Ended)
                     return null;
                 var left = end - clock.Now();
                 if (left <= 0)
                     return null;
-                Monitor.Wait(gate, TimeSpan.FromSeconds(Math.Min(1.0, left)));
+                Monitor.Wait(o.Gate, TimeSpan.FromSeconds(Math.Min(1.0, left)));
                 if (clock.Clock is StoppableClock s)
                     s.Check();
             }
@@ -170,14 +178,11 @@ public sealed partial class SteamCmdProcess(string exe, string installDir, strin
         if (!string.IsNullOrEmpty(home))
             env["HOME"] = home;
         Log(Encoding.UTF8.GetBytes($"\n==== {clock.Local().ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)} SteamCMD session (anonymous)\n"));
-        lock (gate)
-        {
-            buffer.Clear();
-            eof = false;
-        }
+        var fresh = new Output();
+        output = fresh;
         proc = Native.StartSession(["bash", "-c", "exec \"$@\" 2>&1", "steamcmd", exe, "+force_install_dir", installDir, "+login", "anonymous"], "/tmp", env, true);
         var p = proc;
-        new Thread(() => Reader(p)) { IsBackground = true, Name = "steamcmd-out" }.Start();
+        new Thread(() => Reader(p, fresh, Log)) { IsBackground = true, Name = "steamcmd-out" }.Start();
         var text = ReadUntil(new Regex("Steam>|" + SteamCmdWords.LoginFailRx.ToString(), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant), LoginTimeout);
         if (text is null)
         {

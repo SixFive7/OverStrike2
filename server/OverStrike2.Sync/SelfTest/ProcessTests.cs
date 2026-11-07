@@ -80,7 +80,8 @@ static class ProcessTests
         if (!OperatingSystem.IsLinux())
         {
             foreach (var name in new[] { "steamcmd: the anonymous login, a download, a failure", "steamcmd: an item it says nothing about is a stall, after its timeout",
-                                         "steamcmd: the stop takes the whole process group, a child that ignores quit too" })
+                                         "steamcmd: the stop takes the whole process group, a child that ignores quit too",
+                                         "steamcmd: a session that ended cannot end the next one's wait, though its output outlives it" })
                 Linux(name, () => false);
             return;
         }
@@ -122,6 +123,34 @@ static class ProcessTests
         var pid = typeof(SteamCmdProcess).GetField("proc", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(steam) is Process p ? p.Id : -1;
         steam.Stop();
         Check("steamcmd: the stop takes the whole process group, a child that ignores quit too", pid > 0 && !Native.GroupAlive(pid));
+        // the first session leaves a child in a session of its own that holds its output for 2 s after it is gone; the next one answers
+        // after 3 s - a reader of the first that ended the second's wait would make that login fail
+        var late = Path.Combine(dir, "steamcmd-late.sh");
+        File.WriteAllText(late, """
+            #!/bin/bash
+            if [ ! -e "$(dirname "$0")/first-done" ]; then
+              touch "$(dirname "$0")/first-done"
+              setsid sleep 2 &
+            else
+              sleep 3
+            fi
+            echo "Connecting anonymously to Steam Public...OK"
+            printf 'Steam>'
+            while read -r cmd a b; do
+              case "$cmd" in
+                quit) exit 0;;
+              esac
+            done
+
+            """);
+        File.SetUnixFileMode(late, (UnixFileMode)0b111_101_101);
+        var twice = new SteamCmdProcess(late, Path.Combine(dir, "staging"), Path.Combine(dir, "steamcmd.log"), dir, clock) { LoginTimeout = 20 };
+        var first = twice.Start();
+        twice.Stop();
+        var second = twice.Start();
+        twice.Stop();
+        Check($"steamcmd: a session that ended cannot end the next one's wait, though its output outlives it ({first.Why}; {second.Why})",
+              first.Ok && second.Ok);
     }
 
     // ---- the test tree: links into the game's install, the engine's own files copied, no log address, no plugins
