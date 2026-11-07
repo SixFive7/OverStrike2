@@ -167,4 +167,7 @@ The checks read the map source; the compiled map is first seen in a game client 
 - **Build 5** fixes those: the stair holes are worked out from a player's box, the barn's north door is at the east end, the
   ceilings under upper floors are dark wood with the light 40 under them, every spawn faces open space, the cover stands off the
   paths (a wall has a gap for one), and grass stands on the mud's edge. `walkcheck.py` gained the stair and door walks, and
-  `checks.py` the facing of spawns, the paths and the floors' own height.
+  `checks.py` the facing of spawns, the paths and the floors' own height. Published on 2026-11-07 as the next version of the item,
+  with `publish.ps1 -Update` (the upload took 7 s). Right after it a visitor got Steam's error page; then Steam turned this address's
+  visits away (HTTP 429) for about 7 minutes; then the page showed the item with build 4's size and picture. Valve's review ended
+  about 9 minutes after the upload, when the item's `time_updated` moved, and the page then showed build 5 (5.816 MB).
