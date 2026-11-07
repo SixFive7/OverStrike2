@@ -448,8 +448,8 @@ works as the Fun page's: a change lasts until the map changes, the page says who
 | Bot war | Off, On | They leave the players alone and fight each other (`bot_ignore_players`) |
 | Name tag | None, Bot, Zombie | A word before every bot's name (`bot_prefix`) |
 
-Bots and Fill to both set the count, so one of them shows a number at a time. Difficulty, the weapon rules and the name tag are what a bot gets as it joins,
-so a change of one while bots play has them join again (`bot_kick`, then the count again).
+Bots and Fill to both set the count, so one of them shows a number at a time. The side, difficulty, the weapon rules and the name tag are what a bot gets
+as it joins, so a change of one while bots play has them join again (`bot_kick`, then the count again).
 
 **Presets** set every bot setting at once - their picks, the rest back to normal: **Zombie horde** (8 expert bots with knives, tagged ZOMBIE, quiet),
 **Sniper duel** (1 expert bot with snipers), **Target practice** (8 easy bots, frozen, holding their fire), **Copycats** (4 bots copying the player who

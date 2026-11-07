@@ -26,6 +26,9 @@ static partial class Program
             && Fun.Showing(fill, new Dictionary<string, string> { ["bot_quota"] = "8", ["bot_quota_mode"] = "fill" }.GetValueOrDefault).Id == "8"
             && Fun.Showing(bots, new Dictionary<string, string> { ["bot_quota"] = "8", ["bot_quota_mode"] = "fill" }.GetValueOrDefault).Id == "off");
 
+        Check("Bots: the side, difficulty, the weapon rules and the name tag are what a bot takes as it joins, so a change of one has the bots that play join again; the counts, the chatter and the behaviours work on them as they are",
+            Bots.Settings.Where(Bots.Rejoins).Select(s => s.Id).Order().SequenceEqual(["botlevel", "bottag", "botteam", "botweapons"]));
+
         // ---- what a mode cannot make ----
         var weapons = Bots.Find("botweapons")!;
         Check("Bots: Arms Race greys every weapon rule - its ladder hands out the weapons, to the bots too - and lets Any stand; Deathmatch and Wingman take them all",

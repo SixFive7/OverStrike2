@@ -44,7 +44,7 @@ mp_match_end_restart               *         1           1         // 5 items; t
 mp_match_end_changelevel           *         0           0         // 1 item; a changelevel at the match end would go past the bridge's vote
 mp_warmup_pausetimer               *         0           0         // 7 items set 1: warmup never ends, so the match never starts
 sv_allow_votes                     *         0           0         // 4 items turn the F1/F2 votes on (kick, change level), which the server switched off: the bridge's vote is the vote
-bot_quota                          *         0           0         // 37 items add bots, and Valve's Deathmatch and Wingman add their own; this server runs none (CounterStrikeSharp #1446)
+bot_quota                          *         0           0         // 37 items add bots, and Valve's Deathmatch and Wingman add their own; no map's play here (CounterStrikeSharp #1446) - a player's, from FUN, Bots, are a choice
 bot_quota_mode                     *         normal      normal    // fill_with_minimum adds a bot even at bot_quota 0 (seen live in Deathmatch); Arms Race's own is fill
 
 // ---- weapons outside the ladder ----

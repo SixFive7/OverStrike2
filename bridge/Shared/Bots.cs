@@ -11,8 +11,8 @@
 //
 // A choice that cannot apply in the mode that is on is greyed, with the reason on its row (Unavailable): the weapon rules in Arms Race, whose
 // ladder hands every player, bots too, each rung's weapon - a bot that may not use a pistol would leave the ladder's pistol rung holstered and
-// knife its way up instead - and a number of bots the mode has no room for (Wingman's 4 players). Difficulty, the name tag and the weapon rules
-// are what a bot gets as it joins, so a change of one while bots play has them join again (Rejoins: bot_kick, then the count again).
+// knife its way up instead - and a number of bots the mode has no room for (Wingman's 4 players). The side, difficulty, the name tag and the
+// weapon rules are what a bot gets as it joins, so a change of one while bots play has them join again (Rejoins: bot_kick, then the count again).
 //
 // Shared like Fun.cs: the bridge's --selftest checks it, the plugin's HUD draws the page (HudBots.cs) and its settings module makes the changes.
 // Plain BCL only. Every convar here is one this CS2 build has (plugin/OverStrike2/convars.txt; --selftest holds them to it).
@@ -82,8 +82,9 @@ public static class Bots
             Set(("bot_prefix", ""))),
     ];
 
-    /// <summary>The bot settings a bot takes as it joins: a change of one while bots play has them join again (bot_kick, then the count again).</summary>
-    public static bool Rejoins(Fun.Setting s) => s.Id is "botlevel" or "botweapons" or "bottag";
+    /// <summary>The bot settings a bot takes as it joins - the side it joins (bot_join_team), its difficulty, its weapon rules, its name: a change of one while
+    /// bots play has them join again (bot_kick, then the count again), or the bots already in would keep the old one.</summary>
+    public static bool Rejoins(Fun.Setting s) => s.Id is "botteam" or "botlevel" or "botweapons" or "bottag";
 
     /// <summary>The two rows that set how many bots play: both write bot_quota and bot_quota_mode.</summary>
     public static bool IsCount(Fun.Setting s) => s.Id is "bots" or "botfill";

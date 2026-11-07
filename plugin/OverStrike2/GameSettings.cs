@@ -99,7 +99,7 @@ sealed partial class GameSettings
         return line;
     }
 
-    /// <summary>The bots that play join again, to take what a bot takes as it joins - difficulty, the weapon rules, the name tag (Bots.Rejoins): bot_kick, then
+    /// <summary>The bots that play join again, to take what a bot takes as it joins - the side, difficulty, the weapon rules, the name tag (Bots.Rejoins): bot_kick, then
     /// the count again, in one console line so the count comes after the kick whatever the kick does to it. Nothing while no bot plays.</summary>
     public void RejoinBots()
     {
