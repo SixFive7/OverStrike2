@@ -14,6 +14,13 @@
 // knife its way up instead - and a number of bots the mode has no room for (Wingman's 4 players). The side, difficulty, the name tag and the
 // weapon rules are what a bot gets as it joins, so a change of one while bots play has them join again (Rejoins: bot_kick, then the count again).
 //
+// Two rows do more than their bot convar, because the game would otherwise break their promise. Side lifts the team-size limit and the team
+// balance while a side is set (mp_limitteams 0, mp_autoteambalance 0, put back with it): the server's mp_limitteams 1 lets a team hold one player
+// more than the other, so with Side T against a lone player on CT only two bots of four could join - the live lab saw it - and the balance would
+// move bots across at a round start. Bot war's bot_ignore_players keeps the players out of what the bots see ("Bots will not see non-bot
+// players"): a bot never aims at one, but its shots at another bot, its grenades and its fire still hurt a player in the way - the lab lost its
+// player to one within 25 seconds - so while it is on the plugin's damage hook refuses a bot's damage to a player (Spares).
+//
 // Shared like Fun.cs: the bridge's --selftest checks it, the plugin's HUD draws the page (HudBots.cs) and its settings module makes the changes.
 // Plain BCL only. Every convar here is one this CS2 build has (plugin/OverStrike2/convars.txt; --selftest holds them to it).
 public static class Bots
@@ -34,6 +41,9 @@ public static class Bots
     /// <summary>The weapon rule that lets the bots fight with these kinds alone, every other bot_allow_* off: none of them is knives only.</summary>
     static (string, string)[] Only(params string[] kinds) => [.. WeaponKinds.Select(k => (k, kinds.Contains(k) ? "1" : "0"))];
 
+    /// <summary>Every bot on one side: bot_join_team, and the team-size limit and the team balance off, so the side takes every bot asked for and keeps them.</summary>
+    static (string, string)[] OnSide(string team) => Set(("bot_join_team", team), ("mp_limitteams", "0"), ("mp_autoteambalance", "0"));
+
     static (string, string)[] Count(int n, string mode) => Set(("bot_quota", n.ToString(System.Globalization.CultureInfo.InvariantCulture)), ("bot_quota_mode", mode));
 
     /// <summary>The page, in order. The first choice of each is Normal: it sets nothing, so it shows the server's own. Bots and Fill to both set bot_quota and
@@ -43,13 +53,13 @@ public static class Bots
         // the bots: how many, which side, how good, with what, how they talk
         new("bots", "Bots", "How many bots play beside the players. Off: none, as ever",
             [new("off", "Off", []), new("1", "1", Count(1, "normal")), new("2", "2", Count(2, "normal")), new("4", "4", Count(4, "normal")), new("8", "8", Count(8, "normal"))],
-            Set(("bot_quota", "0"))),
+            Set(("bot_quota", "0"), ("bot_quota_mode", "fill"))), // Arms Race's own fill; Deathmatch's and Wingman's server cfgs set normal
         new("botfill", "Fill to", "Bots fill the game up to this many players, and make room as players join",
             [new("off", "Off", []), new("4", "4", Count(4, "fill")), new("8", "8", Count(8, "fill")), new("12", "12", Count(12, "fill")), new("16", "16", Count(16, "fill"))],
-            Set(("bot_quota", "0"))),
-        new("botteam", "Side", "Which side the bots join",
-            [new("any", "Any", []), new("t", "T", Set(("bot_join_team", "T"))), new("ct", "CT", Set(("bot_join_team", "CT")))],
-            Set(("bot_join_team", "any"))),
+            Set(("bot_quota", "0"), ("bot_quota_mode", "fill"))),
+        new("botteam", "Side", "Which side every bot joins - the teams may be uneven while one is set",
+            [new("any", "Any", []), new("t", "T", OnSide("T")), new("ct", "CT", OnSide("CT"))],
+            Set(("bot_join_team", "any"), ("mp_limitteams", "1"), ("mp_autoteambalance", "1"))), // the server cfgs' 1 and 1 (Arms Race's and Wingman's)
         new("botlevel", "Difficulty", "How well the bots aim, react and think",
             [new("normal", "Normal", []), new("easy", "Easy", Set(("bot_difficulty", "0"))), new("hard", "Hard", Set(("bot_difficulty", "2"))), new("expert", "Expert", Set(("bot_difficulty", "3")))],
             Set(("bot_difficulty", "1"))),
@@ -74,13 +84,21 @@ public static class Bots
         new("botmimic", "Copycats", "The bots copy every move of the player who switched it on",
             [new("off", "Off", []), new("on", "On", Set(("bot_mimic", ThePlayer)))],
             Set(("bot_mimic", "0"))),
-        new("botwar", "Bot war", "The bots leave the players alone and fight each other",
+        new("botwar", "Bot war", "The bots fight each other and leave the players alone, stray shots included",
             [new("off", "Off", []), new("on", "On", Set(("bot_ignore_players", "1")))],
             Set(("bot_ignore_players", "0"))),
         new("bottag", "Name tag", "A word before every bot's name",
             [new("none", "None", []), new("bot", "Bot", Set(("bot_prefix", "BOT"))), new("zombie", "Zombie", Set(("bot_prefix", "ZOMBIE")))],
             Set(("bot_prefix", ""))),
     ];
+
+    /// <summary>Whether Bot war is on: the bots see no player (bot_ignore_players), as the live values have it.</summary>
+    public static bool War(Func<string, string?> value) => Find("botwar") is { } s && Fun.Showing(s, value).Id == "on";
+
+    /// <summary>Whether the plugin's damage hook refuses this damage (BotWarGuard): a bot's, to a player, while Bot war is on - bot_ignore_players only keeps the
+    /// players out of what the bots see, and their shots at each other, their grenades and their fire would still hurt a player in the way. A player's damage
+    /// to a bot, and a bot's to a bot, land as ever. botWar is asked only for a bot's damage to a player.</summary>
+    public static bool Spares(Func<bool> botWar, bool attackerIsBot, bool victimIsBot) => attackerIsBot && !victimIsBot && botWar();
 
     /// <summary>The bot settings a bot takes as it joins - the side it joins (bot_join_team), its difficulty, its weapon rules, its name: a change of one while
     /// bots play has them join again (bot_kick, then the count again), or the bots already in would keep the old one.</summary>

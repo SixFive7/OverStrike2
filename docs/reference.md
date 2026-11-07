@@ -437,7 +437,7 @@ works as the Fun page's: a change lasts until the map changes, the page says who
 |---|---|---|
 | Bots | Off, 1, 2, 4, 8 | That many bots beside the players (`bot_quota`, `bot_quota_mode normal`) |
 | Fill to | Off, 4, 8, 12, 16 | Bots fill the game up to that many players, and make room as players join (`bot_quota_mode fill`) |
-| Side | Any, T, CT | Which side the bots join (`bot_join_team`) |
+| Side | Any, T, CT | Which side every bot joins (`bot_join_team`), with the team-size limit and the team balance off while one is set (`mp_limitteams 0`, `mp_autoteambalance 0`) |
 | Difficulty | Normal, Easy, Hard, Expert | How well they aim, react and think (`bot_difficulty`) |
 | Weapons | Any, Knives, Pistols, Shotguns, Snipers | What they may fight with (`bot_allow_*`; Knives: none of them) |
 | Chatter | Normal, Radio, Quiet | What they say on the radio (`bot_chatter`) |
@@ -445,11 +445,18 @@ works as the Fun page's: a change lasts until the map changes, the page says who
 | Crouch | Off, On | They crouch wherever they go (`bot_crouch`) |
 | Movement | Normal, Walk, Frozen | They only walk, or stay where they stand (`bot_walk`, `bot_freeze`) |
 | Copycats | Off, On | They copy every move of the player who switched it on (`bot_mimic`, that player's entity index) |
-| Bot war | Off, On | They leave the players alone and fight each other (`bot_ignore_players`) |
+| Bot war | Off, On | They fight each other and leave the players alone (`bot_ignore_players`), stray shots included: the plugin refuses a bot's damage to a player |
 | Name tag | None, Bot, Zombie | A word before every bot's name (`bot_prefix`) |
 
 Bots and Fill to both set the count, so one of them shows a number at a time. The side, difficulty, the weapon rules and the name tag are what a bot gets
 as it joins, so a change of one while bots play has them join again (`bot_kick`, then the count again).
+
+Two rows do more than their bot convar, because the game alone would break their promise. **Side**: the server's `mp_limitteams 1` lets a team hold one
+player more than the other, so with Side T against one player on CT only two bots of four would join T, and `mp_autoteambalance` would move bots across at a
+round start; while a side is set both are off, and they come back with it - at Any, Default, the map's end and a reload. A map with too few spawn points
+for a side can still hold bots out ("Team is full"). **Bot war**: `bot_ignore_players` only keeps the players out of what the bots see ("Bots will not see
+non-bot players") - a bot never aims at one, but its shots at another bot, its grenades and its fire still hurt a player in the way. While it is on, the
+plugin's damage hook refuses a bot's damage to a player (`BotWarGuard.cs`, the rule `Bots.Spares`); a player's shots at the bots land as ever.
 
 **Presets** set every bot setting at once - their picks, the rest back to normal: **Zombie horde** (8 expert bots with knives, tagged ZOMBIE, quiet),
 **Sniper duel** (1 expert bot with snipers), **Target practice** (8 easy bots, frozen, holding their fire), **Copycats** (4 bots copying the player who

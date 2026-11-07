@@ -28,6 +28,45 @@ static partial class Program
 
         Check("Bots: the side, difficulty, the weapon rules and the name tag are what a bot takes as it joins, so a change of one has the bots that play join again; the counts, the chatter and the behaviours work on them as they are",
             Bots.Settings.Where(Bots.Rejoins).Select(s => s.Id).Order().SequenceEqual(["botlevel", "bottag", "botteam", "botweapons"]));
+        var funConVars = Fun.Settings.SelectMany(Fun.ConVarsOf).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var botOwners = Bots.Settings.SelectMany(s => Fun.ConVarsOf(s).Select(c => (c, s.Id))).GroupBy(x => x.c, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1).Select(g => g.Key).Order().ToList();
+        Check("Bots: no bot row touches a convar of the Fun page's, and no two touch one but the two counts (bot_quota and bot_quota_mode); each row's stock covers its convars",
+            !Bots.Settings.SelectMany(Fun.ConVarsOf).Any(funConVars.Contains) && botOwners.SequenceEqual(["bot_quota", "bot_quota_mode"])
+            && Bots.Settings.All(s => s.Stock.Select(x => x.ConVar).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(Fun.ConVarsOf(s))));
+
+        // ---- Side: every bot on the side asked for (the live lab: Side T and Bots 4 against one player on CT put 2 bots in, under mp_limitteams 1) ----
+        var side = Bots.Find("botteam")!;
+        Check("Bots: Side T and CT put every bot on that side - bot_join_team, with the team-size limit and the team balance off (mp_limitteams 0, mp_autoteambalance 0); Any sets nothing",
+            side.Choices.Select(c => c.Id).SequenceEqual(["any", "t", "ct"]) && side.Normal.Sets.Length == 0
+            && side.Choices.Skip(1).All(c => c.Sets.Length == 3 && c.Sets.Contains(("mp_limitteams", "0")) && c.Sets.Contains(("mp_autoteambalance", "0")))
+            && Fun.Find(side, "t")!.Sets.Contains(("bot_join_team", "T")) && Fun.Find(side, "ct")!.Sets.Contains(("bot_join_team", "CT")));
+        var sideT = new Dictionary<string, string> { ["bot_join_team"] = "T", ["mp_limitteams"] = "0", ["mp_autoteambalance"] = "false" };
+        var limitBack = new Dictionary<string, string> { ["bot_join_team"] = "T", ["mp_limitteams"] = "1", ["mp_autoteambalance"] = "true" };
+        Check("Bots: Side shows T while all three hold (a bool convar reads false), and Any once the limit is back, whatever bot_join_team says",
+            Fun.Showing(side, sideT.GetValueOrDefault).Id == "t" && Fun.Showing(side, limitBack.GetValueOrDefault).Id == "any");
+        foreach (var cfg in new[] { ServerCfgFile, "../server/gamemode_competitive2v2_server.cfg" })
+        {
+            if (!File.Exists(cfg)) continue;
+            var lines = File.ReadAllLines(cfg).Select(l => l.Split("//")[0].Trim()).Where(l => l != "").Select(l => l.Split(' ', 2, StringSplitOptions.TrimEntries))
+                .Where(p => p.Length == 2).GroupBy(p => p[0], StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Last()[1], StringComparer.OrdinalIgnoreCase);
+            Check($"Bots: Side's stock is what {Path.GetFileName(cfg)} sets - the team-size limit and the team balance it puts back with Any",
+                side.Stock.Where(x => x.ConVar.StartsWith("mp_", StringComparison.Ordinal)).All(x => lines.TryGetValue(x.ConVar, out var v) && Fun.Same(v, x.Value)));
+        }
+
+        // ---- Bot war: the bots see no player, and the plugin keeps their stray shots off the players (the live lab lost its player to one in 25 s) ----
+        var asked = 0;
+        bool WarOn() { asked++; return true; }
+        bool WarOff() { asked++; return false; }
+        Check("Bots: while Bot war is on, a bot's damage to a player is refused; a player's to a bot, a bot's to a bot and a player's to a player land; with it off everything lands",
+            Bots.Spares(WarOn, attackerIsBot: true, victimIsBot: false) && !Bots.Spares(WarOn, false, true) && !Bots.Spares(WarOn, true, true) && !Bots.Spares(WarOn, false, false)
+            && !Bots.Spares(WarOff, true, false));
+        asked = 0;
+        Bots.Spares(WarOn, false, true); Bots.Spares(WarOn, true, true); Bots.Spares(WarOn, false, false);
+        Check("Bots: the damage hook reads Bot war only for a bot's damage to a player", asked == 0);
+        Check("Bots: Bot war is on while bot_ignore_players is, as the live values have it (1 or true), and off otherwise",
+            Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "1" }.GetValueOrDefault) && Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "true" }.GetValueOrDefault)
+            && !Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "0" }.GetValueOrDefault) && !Bots.War(_ => null));
 
         // ---- what a mode cannot make ----
         var weapons = Bots.Find("botweapons")!;

@@ -708,7 +708,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Directory.CreateDirectory(dir);
     File.WriteAllText(Path.Combine(dir, Modes.BlockFile), "bot_quota  *  0  0  // bots\nbot_quota_mode  *  normal  normal  // bots\n");
     var cvars = new FakeConVars();
-    foreach (var (name, value) in new[] { ("bot_quota", "0"), ("bot_quota_mode", "fill"), ("bot_difficulty", "1"), ("bot_mimic", "0"), ("sv_gravity", "800") })
+    foreach (var (name, value) in new[] { ("bot_quota", "0"), ("bot_quota_mode", "fill"), ("bot_difficulty", "1"), ("bot_mimic", "0"), ("sv_gravity", "800"),
+                 ("bot_join_team", "any"), ("mp_limitteams", "1"), ("mp_autoteambalance", "1") })
         cvars.Values[name] = cvars.Baselines[name] = value;
     var said = new List<string>();
     var switches = new FunSwitches(cvars.Value, cvars.Write);
@@ -750,6 +751,20 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     cvars.Values["bot_quota"] = "5"; // a map's own bots
     block.Hold("de_dust2", null, Modes.ArmsRace);
     Check(cvars.Values["bot_quota"] == "0" && said.SequenceEqual(["This map tried to change bots - Undone: the server keeps its own rules."]), "bots: a map's own bots are blocked and said, as ever");
+
+    // Side: every bot on the side asked for - the team-size limit and the team balance off while it is set, and back with it (Default, the map's end)
+    switches.Apply(B("botteam"), C("botteam", "t"), "Remy", at);
+    switches.Apply(B("bots"), C("bots", "4"), "Remy", at);
+    Check(cvars.Values["bot_join_team"] == "T" && cvars.Values["mp_limitteams"] == "0" && cvars.Values["mp_autoteambalance"] == "0" && Fun.Showing(B("botteam"), switches.Value).Id == "t"
+          && switches.SetBy("botteam") == "Remy",
+        "bots: Side T puts every bot on T - bot_join_team T, mp_limitteams 0 and mp_autoteambalance 0 - set by Remy");
+    var sideDefault = switches.Undo("bot default by Dan", at, Bots.Settings);
+    Check(cvars.Values["bot_join_team"] == "any" && cvars.Values["mp_limitteams"] == "1" && cvars.Values["mp_autoteambalance"] == "1" && cvars.Values["bot_quota"] == "0",
+        $"bots: the Bots page's Default puts the team-size limit and the team balance back with the side ({string.Join(", ", sideDefault)})");
+    switches.Apply(B("botteam"), C("botteam", "ct"), "Cara", at);
+    switches.Undo("the end of the map", at);
+    Check(cvars.Values["bot_join_team"] == "any" && cvars.Values["mp_limitteams"] == "1" && cvars.Values["mp_autoteambalance"] == "1" && said.Count == 1,
+        "bots: ...and so does the map's end, without a word");
     Directory.Delete(dir, true);
 
     // The settings module's side, read from its source: a console's Copycats refused (no player), the bots joining again after a setting they take as they join
@@ -757,6 +772,23 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var settingsCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettings.cs");
     var consoleCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettingsConsole.cs");
     var hostCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "OverStrike2.cs");
+    var guardCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "BotWarGuard.cs");
+    if (File.Exists(guardCs) && File.Exists(hostCs))
+    {
+        // Bot war: bot_ignore_players keeps the players out of what the bots see, and the damage hook keeps their stray shots, grenades and fire off the players
+        var guard = File.ReadAllText(guardCs);
+        var host = File.ReadAllText(hostCs);
+        int At(string text) => host.IndexOf(text, StringComparison.Ordinal);
+        Check(guard.Contains("plugin.RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnTakeDamage);", StringComparison.Ordinal)
+              && guard.Contains("if (!Bots.Spares(war, attacker.IsBot, victim.IsBot)) return HookResult.Continue;", StringComparison.Ordinal)
+              && guard.IndexOf("return HookResult.Stop;", StringComparison.Ordinal) > guard.IndexOf("if (!Bots.Spares(", StringComparison.Ordinal)
+              && !guard.Contains("HookResult.Handled", StringComparison.Ordinal),
+            "bots: Bot war's damage hook refuses what Bots.Spares spares, with Stop - catch-up's hook after it never sees a hit that did not land");
+        Check(At("new BotWarGuard(this, Logger, () => Bots.War(settings.FunValue)).Load();") is var g && g > At("freeze.Load();") && At("freeze.Load();") > 0
+              && g < At("catchUp.Load(hotReload);"),
+            "bots: the plugin registers Bot war's damage hook after the vote's freeze, which keeps the first word, and before catch-up's");
+    }
+    else Check(false, "bots: Bot war's damage hook and the host are read from their source");
     if (File.Exists(settingsCs) && File.Exists(consoleCs) && File.Exists(hostCs))
     {
         var code = File.ReadAllText(settingsCs);
