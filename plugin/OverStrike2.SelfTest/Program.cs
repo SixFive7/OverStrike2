@@ -550,6 +550,13 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(!HudVote.CatchUpCard("", true) && HudVote.CatchUpCard(now, true) && HudVote.CatchUpCard(HudVersion.Unknown, true),
         "catch-up: ...and for a joiner while Steam does not hand the item out who has not clicked in it - one who has, has a HUD");
     Check(HudVote.CardsFor("") == MapVote.PageCards && HudVote.CatchUpCard("", false), "catch-up: a game not seen yet takes the card as the ballot takes its ten cards");
+    string[] boost7 = ["+95% health", "-35% damage taken", "+35% damage", "25% lifesteal", "Regeneration", "A second chance", "+3 s spawn protection", "Infinite ammo", "One-hit knife and Zeus"];
+    var rows7 = HudFrame.CatchUpRowsOf(boost7);
+    Check(rows7.Length == HudFrame.CatchUpRows && string.Join("  ·  ", rows7) == string.Join("  ·  ", boost7) && rows7[^1] == "Infinite ammo  ·  One-hit knife and Zeus" && rows7.All(r => r.Length <= 50),
+        $"catch-up: a 7+ boost's nine items on the card's six rows, the last ones two to a row - its infinite ammo and one-hit knife no longer cut off ({string.Join(" | ", rows7)})");
+    string[] boost5 = ["+50% health", "-25% damage taken", "+20% damage", "10% lifesteal", "Regeneration", "A second chance", "+2 s spawn protection"];
+    Check(HudFrame.CatchUpRowsOf(boost5) is { Length: 6 } rows5 && rows5[^1] == "A second chance  ·  +2 s spawn protection" && HudFrame.CatchUpRowsOf(boost5[..3]).SequenceEqual(boost5[..3])
+          && HudFrame.CatchUpRowsOf(["+20% damage taken (a bounty)"]).Length == 1, "catch-up: a 5+ boost's seven items, its last two on one row; three items, or the bounty's one, a row each");
     var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
     var hostCs = Path.Combine(plugin, "OverStrike2.cs");
     var messagesCs = Path.Combine(plugin, "HudScreenMessages.cs");

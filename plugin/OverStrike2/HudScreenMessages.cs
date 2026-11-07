@@ -83,7 +83,7 @@ sealed partial class HudScreen
     /// panel), a row per item, green for a boost and red for a bounty; the same line in that player's chat either way.</summary>
     public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds, bool card = true)
     {
-        var rows = items.Select(Messages.Capital).Take(HudFrame.CatchUpRows).ToArray();
+        var rows = HudFrame.CatchUpRowsOf([.. items.Select(Messages.Capital)]);
         var now = DateTime.UtcNow;
         if (card) Player(player.Slot).CatchUp = (head, rows, bad, now, now.AddSeconds(seconds));
         var line = $"{head}: {string.Join("  ·  ", rows)}";

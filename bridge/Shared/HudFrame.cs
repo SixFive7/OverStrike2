@@ -230,6 +230,18 @@ public sealed class HudFrame
     /// <summary>The rows catch-up's card has.</summary>
     public const int CatchUpRows = 6;
 
+    /// <summary>A boost's items as the card's rows: one an item while they fit, else the last ones two to a row ("A second chance  ·  +3 s spawn protection"),
+    /// so no item of up to twelve is lost - a 7+ boost has nine, its infinite ammo and one-hit knife among the last. A row holds about 50 characters (14 px
+    /// on the card's 440 px).</summary>
+    public static string[] CatchUpRowsOf(IReadOnlyList<string> items)
+    {
+        var doubles = Math.Clamp(items.Count - CatchUpRows, 0, CatchUpRows);
+        var singles = Math.Min(items.Count, CatchUpRows - doubles);
+        var rows = items.Take(singles).ToList();
+        for (var i = singles; i < items.Count; i += 2) rows.Add(string.Join("  ·  ", items.Skip(i).Take(i == items.Count - 1 ? 1 : 2)));
+        return [.. rows];
+    }
+
     /// <summary>The Players page's rows (SERVER, Players): every human on the server, by name - their team, the HUD their game showed (the check's click), the
     /// check's clock while it waits for that click, their vote while one is open, and how long they have been on since their last real join.</summary>
     static List<HudView.PlayerRow> PlayerRows(IReadOnlyList<Human> humans, VoteState vote) =>
