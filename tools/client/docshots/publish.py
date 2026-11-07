@@ -8,8 +8,10 @@ picture reviewed into tools/scan/allow.txt with its hash. Writes the working tre
 
 The history keeps every picture forever, so a retake commits only the pictures that really changed. Each picture is compared with the committed one at
 its path (docshots.same_picture): on what it is about - its window, the big vote window, or its crop - and all but what differs on every shot - the
-clocks, timers and counters docshots.volatile_boxes names, JPEG's noise, the game world behind a panel. A picture that shows the same keeps its committed
-bytes; only one that differs is written anew. --all writes every picture anew (a change to the HUD's whole look, say). Pictures no page and no message uses
+clocks, timers, counters and random tiles docshots.volatile_boxes names, JPEG's noise, the game world dimmed behind a translucent panel. Not the game
+world a crop shows around a panel: the board, the top line's messages, the banners and their gallery pictures are cut with a margin of the game
+around them, which differs in every run, so a retake flags them even when the panel is the same - look at each beside the committed one, and keep the
+committed file when only the world changed. A picture that shows the same keeps its committed bytes; only one that differs is written anew. --all writes every picture anew (a change to the HUD's whole look, say). Pictures no page and no message uses
 any more are removed.
 
 It refuses unless <out>/<res>/reviewed.txt names every picture the run wrote, one file name a line: the review is by eye, for names, ids and addresses, and

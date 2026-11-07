@@ -1215,7 +1215,8 @@ SAME_LEVEL, SAME_BLOCK = 48, 8    # a pixel differs by more than 48 of 255 in a 
 
 def same_picture(new, old, region, volatile=()):
     """Whether two pictures show the same within region, all but the volatile boxes: (True, words) or (False, where they differ). JPEG's noise and a
-    translucent panel over a game world that differs behind it stay under SAME_LEVEL; a changed word, style or layout moves whole blocks."""
+    translucent panel over a game world that differs behind it stay under SAME_LEVEL; a changed word, style or layout moves whole blocks. The game world
+    a crop shows around a panel, at full strength, does not: a region that takes in a margin of the game is flagged in every retake."""
     from PIL import Image, ImageChops, ImageDraw
     if new.size != old.size:
         return False, f"size {new.size[0]}x{new.size[1]}, committed {old.size[0]}x{old.size[1]}"
@@ -2475,7 +2476,7 @@ def _selfcheck(info):
     print(f"  --dry-run at {len(RESOLUTIONS)} resolutions, with and without --bridge-copy: only the verbs {ALL_VERBS} and, with the copy, bridgepost.py's, every shot -MaxWidth 0, no real name; estimated minutes with the copy: "
           + ", ".join(f"{k} {v}" for k, v in estimates.items()))
     print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only")
-    print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world behind; changed by a word anywhere else")
+    print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world dimmed behind a panel; changed by a word anywhere else")
     print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb")
     print("  NOT checked, and not checkable offline: anything against a real client or server")
     return 0
