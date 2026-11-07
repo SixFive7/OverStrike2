@@ -6,7 +6,7 @@ static partial class Program
 {
     /// <summary>broken.json's four lists: the crashers (crash key -> how many test loads crashed), the reasons given for them (BrokenWhy.cs), the
     /// non-maps (Workshop id -> name) and the maps it blocks, beside blocked.json's own (Blocked.cs).</summary>
-    sealed record BrokenLists(Dictionary<string, int> Broken, Dictionary<string, string> Reasons, Dictionary<string, string> Packs,
+    sealed record BrokenLists(Dictionary<string, int> Broken, Dictionary<string, string> Reasons, Dictionary<string, string> NonMaps,
         Dictionary<string, (string Name, string Map, string Reason)> Blocked);
 
     static BrokenLists NoBrokenLists => new(new(), new(), new(), new());
@@ -16,7 +16,7 @@ static partial class Program
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
-        return new(ParseBroken(root), ParseReasons(root), ParsePacks(root),
+        return new(ParseBroken(root), ParseReasons(root), ParseNonMaps(root),
             ParseBlockedList(root.ValueKind == JsonValueKind.Object && root.TryGetProperty("blocked", out var blocked) ? blocked : default));
     }
 
@@ -31,7 +31,7 @@ static partial class Program
         try
         {
             var lists = ParseBrokenFile(File.ReadAllText(path));
-            Log($"broken list: {lists.Broken.Count} maps marked broken, {lists.Packs.Count} non-maps refused and {lists.Blocked.Count} blocked, from {path}");
+            Log($"broken list: {lists.Broken.Count} maps marked broken, {lists.NonMaps.Count} non-maps refused and {lists.Blocked.Count} blocked, from {path}");
             return lists;
         }
         catch (Exception e) { Log($"broken list: {path} unreadable ({e.Message}) - no map is marked broken, no non-map is refused"); return NoBrokenLists; }
@@ -40,7 +40,7 @@ static partial class Program
     /// <summary>broken.json's lists in force, its blocked maps merged with blocked.json's.</summary>
     static void TakeBrokenLists(BrokenLists lists)
     {
-        (Broken, BrokenReasons, Packs, BlockedInBroken) = (lists.Broken, lists.Reasons, lists.Packs, lists.Blocked);
+        (Broken, BrokenReasons, NonMaps, BlockedInBroken) = (lists.Broken, lists.Reasons, lists.NonMaps, lists.Blocked);
         Blocked = MergeBlocked();
     }
 
@@ -64,13 +64,13 @@ static partial class Program
         return broken;
     }
 
-    static Dictionary<string, string> ParsePacks(string json) { using var doc = JsonDocument.Parse(json); return ParsePacks(doc.RootElement); }
+    static Dictionary<string, string> ParseNonMaps(string json) { using var doc = JsonDocument.Parse(json); return ParseNonMaps(doc.RootElement); }
 
     /// <summary>Workshop id -> name for every non-map (the array keeps its first name, "packs"): the "packs" array beside "maps". An entry is an id (number or string) or an
     /// object with "id" and, for the refusal line, "name"; anything without a positive numeric id is skipped, and no "packs" array
     /// means no packs. Keyed by id alone, because the id is what reaches a pack whether or not maps.json still lists it: typing it
     /// bare is the hole that taking a pack out of maps.json does not close.</summary>
-    static Dictionary<string, string> ParsePacks(JsonElement root)
+    static Dictionary<string, string> ParseNonMaps(JsonElement root)
     {
         var packs = new Dictionary<string, string>();
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("packs", out var list) || list.ValueKind != JsonValueKind.Array) return packs;
@@ -84,7 +84,7 @@ static partial class Program
     /// viewmodel packs and empty uploads (the name predates the wider list). host_workshop_map on one finds nothing to load: the
     /// server drops into CS2's "error" map and freezes with the process still running, or hangs. There is nothing to agree to, so
     /// unlike a broken map this is a refusal, never a confirm, and it is decided before any RCON command is built.</summary>
-    static bool IsPack(MapInfo m) => !m.Official && Packs.ContainsKey(m.Id.ToString());
+    static bool IsNonMap(MapInfo m) => !m.Official && NonMaps.ContainsKey(m.Id.ToString());
 
     /// <summary>The refusal's claim. Deliberately neutral: the list mixes skin packs, configs, sound packs and empty uploads, and
     /// "skin pack" was false for most of them. True of every one: it is not a playable map, and the server cannot load it.</summary>
@@ -92,11 +92,11 @@ static partial class Program
 
     /// <summary>The refusal, named from the packs list so a bare id still reads as the item it is. The name is clipped at 60
     /// characters, so the line fits untrimmed whatever the item is called and "it can't be loaded" is never the part cut off.</summary>
-    static string PackRefusal(MapInfo m)
+    static string NonMapRefusal(MapInfo m)
     {
-        var name = Packs.TryGetValue(m.Id.ToString(), out var listed) ? listed : m.Name;
+        var name = NonMaps.TryGetValue(m.Id.ToString(), out var listed) ? listed : m.Name;
         return M.Refused($"{M.A(name[..Math.Min(60, name.Length)])} {NotAMap}");
     }
 
-    static int Playable => Maps.Count(m => !IsPack(m)); // what chat counts as "maps": every listed one except a non-map
+    static int Playable => Maps.Count(m => !IsNonMap(m)); // what chat counts as "maps": every listed one except a non-map
 }

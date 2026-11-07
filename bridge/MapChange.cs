@@ -44,7 +44,7 @@ static partial class Program
     /// <summary>A map command went out: its map start is awaited from now, LoadMinutes at the most (LoadDeadline).</summary>
     static void AwaitLoad(DateTime now)
     {
-        AnnouncePending = true; AnnounceDeadline = now.AddMinutes(LoadMinutes); AnnounceSentAt = now; LoadBehindDownload = false;
+        LoadPending = true; LoadUntil = now.AddMinutes(LoadMinutes); LoadSentAt = now; LoadBehindDownload = false;
     }
 
     // ---- the change that counts down ----
@@ -60,7 +60,7 @@ static partial class Program
     }
 
     /// <summary>The dice's automatic change (one helper for the four): the start roll, the empty server's way back to Arms Race, a map gone from
-    /// the Workshop, a map that crashes the players' games - the times nobody can vote. A map on the server's disk (RandomQueue.cs). Lead says why.
+    /// the Workshop, a map that crashes the players' games - the times nobody can vote. A map on the server's disk (Stock.cs). Lead says why.
     /// False: nothing to roll.</summary>
     static bool AutoRoll(string lead, Modes.Mode? mode = null)
     {
@@ -71,16 +71,16 @@ static partial class Program
 
     static void LoadDeadline(DateTime now)
     {
-        if (AnnouncePending && BackgroundNow() is { } behind && !LoadBehindDownload)
+        if (LoadPending && BackgroundNow() is { } behind && !LoadBehindDownload)
         {
             LoadBehindDownload = true;
             Log($"load: {(S.Map != null ? Label(S.Map) : "?")} may wait behind the background download of {behind.Id} - it has {LoadBehindDownloadMinutes} min to start");
         }
-        if (AnnouncePending && now >= AnnounceDeadline && LoadBehindDownload && AnnounceDeadline < AnnounceSentAt.AddMinutes(LoadBehindDownloadMinutes))
-            AnnounceDeadline = AnnounceSentAt.AddMinutes(LoadBehindDownloadMinutes);
-        if (AnnouncePending && now >= AnnounceDeadline)
+        if (LoadPending && now >= LoadUntil && LoadBehindDownload && LoadUntil < LoadSentAt.AddMinutes(LoadBehindDownloadMinutes))
+            LoadUntil = LoadSentAt.AddMinutes(LoadBehindDownloadMinutes);
+        if (LoadPending && now >= LoadUntil)
         {
-            AnnouncePending = false;
+            LoadPending = false;
             Log($"load timed out: {(S.Map != null ? Label(S.Map) : "?")} never logged a map start");
             if (S.Map != null) Announce($"{Label(S.Map)} never finished loading");
             S.Map = null; S.PickedBy = null;

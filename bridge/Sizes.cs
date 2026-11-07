@@ -9,7 +9,7 @@
 //
 // A random pick is any map the dice choose (the vote's random cards and its Random, and the automatic changes: the start roll, the way back
 // to Arms Race, a map gone from the Workshop or crashing the players' games) - never a map a player selected. It takes a map on the server's
-// disk (RandomQueue.cs: RandomNext), so it loads at once; the rules are these.
+// disk (Stock.cs: RandomNext), so it loads at once; the rules are these.
 using System.Text.Json;
 
 static partial class Program
@@ -68,10 +68,10 @@ static partial class Program
     static int? AreaOf(MapInfo m) => Sizes.TryGetValue(Key(m), out var e) ? e.M2 : null;
 
     /// <summary>How many players marked this map too big.</summary>
-    static int TooBigVotes(string key) => Votes.TryGetValue(key, out var v) ? v.Values.Count(x => x == TooBigVote) : 0;
+    static int TooBigVotes(string key) => Likes.TryGetValue(key, out var v) ? v.Values.Count(x => x == TooBigVote) : 0;
 
     /// <summary>How many players marked this map as showing ads or sending players away: one is enough to keep it out of random picks.</summary>
-    static int AdsVotes(string key) => Votes.TryGetValue(key, out var v) ? v.Values.Count(x => x == AdsVote) : 0;
+    static int AdsVotes(string key) => Likes.TryGetValue(key, out var v) ? v.Values.Count(x => x == AdsVote) : 0;
 
     /// <summary>Too big: measured XL, or marked too big by at least one player. An unmeasured map is not too big.</summary>
     static bool TooBig(MapInfo m) => SizeClass(m) == "XL" || TooBigVotes(Key(m)) > 0;
@@ -79,7 +79,7 @@ static partial class Program
     /// <summary>The health page's lines about random picks.</summary>
     static string SelectionHealth() =>
         $"random picks: too big {Maps.Count(TooBig)} (XL {Maps.Count(m => SizeClass(m) == "XL")}, "
-        + $"marked {Votes.Count(kv => kv.Value.Values.Any(x => x == TooBigVote))}) - 1 pick in {Math.Round(1 / TooBigChance)}; "
-        + $"marked ads {Votes.Count(kv => kv.Value.Values.Any(x => x == AdsVote))} (never rolled); "
+        + $"marked {Likes.Count(kv => kv.Value.Values.Any(x => x == TooBigVote))}) - 1 pick in {Math.Round(1 / TooBigChance)}; "
+        + $"marked ads {Likes.Count(kv => kv.Value.Values.Any(x => x == AdsVote))} (never rolled); "
         + $"sizes {Sizes.Count} measured (S<={SizeBounds.S}, M<={SizeBounds.M}, L<={SizeBounds.L} m²)";
 }

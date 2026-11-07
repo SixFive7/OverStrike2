@@ -158,7 +158,7 @@ static partial class Program
             Check("...nothing goes out before its end, and the banner counts", !h.Sent.Contains("mp_restartgame 1") && Live().RematchIn == 1);
             h.Run(1.5);
             Check("...then mp_restartgame 1 over RCON, and the countdown is over", h.Sent.Contains("mp_restartgame 1") && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
-            Check("...the map, its picker, the mode and a clean state stay: this is no restart of the server, and no map change", S.Map == onMap && !S.CleanShutdown && !h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("host_workshop_map")) && !AnnouncePending);
+            Check("...the map, its picker, the mode and a clean state stay: this is no restart of the server, and no map change", S.Map == onMap && !S.CleanShutdown && !h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("host_workshop_map")) && !LoadPending);
             ClearNotices();
             Click(bob, "!rematch");
             Check($"...the next one waits: {RematchWaitSeconds} s from the second click", h.Said("The match was just restarted - Wait") && RematchConfirmBy == "");
@@ -178,7 +178,7 @@ static partial class Program
             Twice(alice, "!rematch");
             Check("Refused while a map change counts down", h.Said("Already changing to") && h.Said("- Wait for it") && RematchDue == null);
             Fresh();
-            AnnouncePending = true; AnnounceDeadline = h.Clock.AddMinutes(5);
+            LoadPending = true; LoadUntil = h.Clock.AddMinutes(5);
             ClearNotices();
             Twice(alice, "!rematch");
             Check("Refused while a map loads", h.Said("The next map is still loading - Wait for it") && RematchDue == null);

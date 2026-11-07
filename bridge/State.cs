@@ -18,7 +18,7 @@ sealed class State
     public string? RoundBy { get; set; }              // who set a match length that is not the default
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
     public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (BrokenWhy.cs)
-    public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (RandomQueue.cs)
+    public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (Stock.cs)
     public Dictionary<string, List<long>> Shown { get; set; } = new();       // map key -> when it was a card on a ballot (unix seconds), the last ShownFadeDays (VoteRound.cs)
     public HashSet<string> Met { get; set; } = new();                        // every map shown on a ballot or played here: NEW TO US is the rest
 }

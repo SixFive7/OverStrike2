@@ -245,7 +245,7 @@ static partial class Program
         if (RematchDue is { } rematch) return $"{rematch.By} is restarting the match already - It goes in {LeftWords(rematch.At, now)}";
         if (RestartDue is { GoesAt: { } at } && at > now.AddSeconds(-RestartStaleMinutes * 60)) return $"The server restarts {(at > now ? $"in {LeftWords(at, now)}" : "now")} - No restart of the match";
         if (Pending is { } p) return $"Already changing to {Clip(Label(p.Map), 40)} - Wait for it";
-        if (AnnouncePending) return "The next map is still loading - Wait for it";
+        if (LoadPending) return "The next map is still loading - Wait for it";
         if (Ballot != null) return "The vote for the next map is on - It decides first";
         if (now < MatchEndUntil) return "This match has just ended - The next one starts by itself";
         if (now < RematchWaitUntil) return $"The match was just restarted - Wait {(int)Math.Ceiling((RematchWaitUntil - now).TotalSeconds)} s before asking again";
@@ -286,7 +286,7 @@ static partial class Program
     {
         if (RematchDue != due) return; // a match end, a map start, the server going down
         RematchDue = null;
-        if (Pending != null || AnnouncePending) { Log($"rematch: a map change came first - {due.By}'s restart of the match does not go out"); return; }
+        if (Pending != null || LoadPending) { Log($"rematch: a map change came first - {due.By}'s restart of the match does not go out"); return; }
         var reply = Send("mp_restartgame 1");
         Log($"rematch by {due.By}: mp_restartgame 1 -> {reply ?? "(rcon failed)"}");
         if (reply == null) Post(Messages.News, M.Refused("The server did not answer - The match did not restart"));

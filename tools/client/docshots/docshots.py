@@ -804,7 +804,7 @@ R("hover-only", "What only a mouse hover shows: who voted on a tile (gg-mpop), a
   reason="css_gghud press clicks through the server; nothing moves the hidden client's mouse, whose CS2 never has focus (HARNESS.md). vote-my-vote shows the names at the foot of a tile, which need no hover.")
 R("sync-looks", "SERVER > Sync in its other looks: running with a progress bar, waiting, stopped, old or no word from the sync, a background download", section=S_WINDOW, status=NOT, today="the real sync's own status (SyncDash): page-sync shows whichever it is in at that moment",
   reason="Only the sync's status file sets them. No verb fakes one, and writing that file is state on production's volume.")
-R("loading-dot", "The Live dot gold while a new map's announcement is pending", section=S_BOARD, status=NOT, today="the stylesheet's .gg-global.loading .gg-live-dot, off AnnouncePending",
+R("loading-dot", "The Live dot gold while a new map's announcement is pending", section=S_BOARD, status=NOT, today="the stylesheet's .gg-global.loading .gg-live-dot, off LoadPending",
   reason="It stands from a change until the map is announced, nearly all of it while the client is on its loading screen; no verb holds it.")
 
 

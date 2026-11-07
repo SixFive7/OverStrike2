@@ -286,7 +286,7 @@ static partial class Program
             Coloured(ChatReply.MenuOn("Maps")) == "δThe menu is open on αMapsδ" && Coloured(ChatReply.YourVote("#12 aim_x")) == "δYour vote: α#12 aim_xδ"
             && Coloured(ChatReply.Already(jump, Fun.Find(jump, "high")!)) == "αSuper jumpπ: νHighπ already" && Coloured(ChatReply.Matches(3)) == "ν3π maps match - The menu shows them: click αPlayπ on one");
         Check("The bridge's refusals of a map are LightRed too, the map an argument and a mode's limits values",
-            Coloured(BlockedRefusal(new MapInfo(0, 5, "x", 0))) == "ραxρ (5) is on the blocked list - It is blocked." && Coloured(PackRefusal(new MapInfo(0, 6, "y", 0))) == $"ραyρ {NotAMap}"
+            Coloured(BlockedRefusal(new MapInfo(0, 5, "x", 0))) == "ραxρ (5) is on the blocked list - It is blocked." && Coloured(NonMapRefusal(new MapInfo(0, 6, "y", 0))) == $"ραyρ {NotAMap}"
             && Coloured(ModeFullLine(Modes.Wingman, 5)).StartsWith($"ρνWingmanρ takes ν{Modes.Wingman.MaxPlayers} playersρ, and ν5ρ are on - Not this map now"));
 
         var wire = new HudState();
@@ -335,7 +335,7 @@ static partial class Program
         lines.AddRange([ChatReply.ChangeUnderWay, ChatReply.VoteOn, ChatReply.VoteWindowStays, ChatReply.NoVote, ChatReply.CardOpen, ChatReply.ListLoading, ChatReply.NoLine,
             ChatReply.MenuOn("Maps"), ChatReply.Searching("dust"), ChatReply.Searching(new string('x', 200)), ChatReply.NoMatch("dust"), ChatReply.NoMatch(new string('x', 200)), ChatReply.Matches(3), ChatReply.YourVote("#12 aim_x"), ChatReply.YourVote(new string('x', 200))]);
         var longMap = new MapInfo(0, 7, "aim_" + new string('w', 96), 0);
-        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), PackRefusal(longMap), ModeFullLine(Modes.Wingman, 5), M.Refused(NewMapsGoneNote)]);
+        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(Modes.Wingman, 5), M.Refused(NewMapsGoneNote)]);
 
         var capitals = lines.Where(l => Sections.Lower(l) != null).Select(l => Sections.Lower(l)!).Distinct().ToList();
         Check($"All {lines.Count} chat lines: every section starts with a capital{(capitals.Count > 0 ? "; not: " + string.Join(" | ", capitals.Take(6)) : "")}", capitals.Count == 0);

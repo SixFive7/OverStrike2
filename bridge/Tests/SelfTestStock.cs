@@ -1,4 +1,4 @@
-// --selftest, the disk and the discovery stock (RandomQueue.cs): what counts as on the server's disk, the stock's lanes - rolled from the maps
+// --selftest, the disk and the discovery stock (Stock.cs): what counts as on the server's disk, the stock's lanes - rolled from the maps
 // new to us whose content the sync tested, half fresh, used up when shown or played, re-checked, kept in state.json - queues.json for the
 // restart watcher, and its report with the background download. Runs in the harness (SelfTestHarness.cs), on its own lists and Workshop
 // numbers.
@@ -6,7 +6,7 @@ using System.Text.Json;
 
 static partial class Program
 {
-    static void RandomQueueSelfTest(Action<string, bool> Check)
+    static void StockSelfTest(Action<string, bool> Check)
     {
         var h = new Harness("rq", new DateTime(2026, 11, 3, 18, 0, 0, DateTimeKind.Utc));
         try
@@ -75,7 +75,7 @@ static partial class Program
             ApplyReady($"gg-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t63\tLake Aim\twith a tab\n");
             Check("...a current line is the background download: its id, its percent, its title with spaces (and a tab, made a space)",
                 BackgroundNow() is { Percent: 63, Title: "Lake Aim with a tab" } bg && bg.Id == ar[0] && SyncWords.BackgroundWords(bg) == "Background download: Lake Aim with a tab, 63%"
-                && QueueHealth().Contains("Background download: Lake Aim with a tab, 63%"));
+                && StockHealth().Contains("Background download: Lake Aim with a tab, 63%"));
             ApplyReady($"gg-ready\t1\ncurrent\t{ar[0]}\t-\t\n");
             Check("...a percent of '-' is none yet, an empty title the Workshop id; a percent over 100 is 100; no current line, nothing downloading",
                 BackgroundNow() is { Percent: null } b2 && SyncWords.BackgroundWords(b2) == $"Background download: Workshop item {ar[0]}, starting"
@@ -83,7 +83,7 @@ static partial class Program
                 && ApplyReady("gg-ready\t1\ncurrent\tnot-an-id\t5\tx\n") != "" && BackgroundNow() == null && ApplyReady("gg-ready\t1\n") != "" && BackgroundNow() == null);
             Check("The report's answer says hold while a map change counts down or loads, and nothing else - an open vote is no reason (its maps come first instead)",
                 !ApplyReady("gg-ready\t1\n").Contains("hold") && (Pending = new Change(Maps[0], "test")) != null && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map change is counting down")
-                && (Pending = null) == null && (AnnouncePending = true) && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map is loading") && !(AnnouncePending = false));
+                && (Pending = null) == null && (LoadPending = true) && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map is loading") && !(LoadPending = false));
             ApplyReady($"gg-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t10\tx\n");
             h.Clock = h.Clock.AddMinutes(ReadyFreshMinutes + 1);
             Check($"A report older than {ReadyFreshMinutes} minutes counts for nothing: no stock entry is on the disk, the background download is not said, the kept maps still count",
@@ -94,9 +94,9 @@ static partial class Program
             Check($"On the disk without a report: an official map, a kept map inside the first {KeepTop - KeptMargin} of a list; not one past it, not a map nobody keeps, not a stock entry",
                 KeptOnDisk(PoolOf(Modes.Deathmatch).First(m => m.Official)) && KeptOnDisk(Ar(1)) && KeptOnDisk(Ar(90)) && !KeptOnDisk(Ar(91)) && IsKept(Ar(100)) && !KeptOnDisk(Ar(300))
                 && !IsKept(Ar(300)) && StockOnDisk(Modes.ArmsRace, null).Count == 0);
-            Votes[Key(Ar(300))] = new() { ["[U:1:7]"] = 1 }; Ours = [Ar(301).Id];
+            Likes[Key(Ar(300))] = new() { ["[U:1:7]"] = 1 }; Ours = [Ar(301).Id];
             Check("...a liked map and our own map are kept and on the disk, whatever the lists say", IsKept(Ar(300)) && KeptOnDisk(Ar(300)) && IsKept(Ar(301)) && KeptOnDisk(Ar(301)));
-            Votes = new(); Ours = new();
+            Likes = new(); Ours = new();
             WorkshopInfo[Key(Ar(5))] = WorkshopInfo[Key(Ar(5))] with { Updated = Unix(h.Clock.AddHours(-2)) }; NumbersStamp++;
             Check("...a kept map whose Workshop content changed since its tested version is not: loading it would download the update first", !KeptOnDisk(Ar(5)) && IsKept(Ar(5)));
             ExportQueues();
@@ -135,7 +135,7 @@ static partial class Program
             S.Met.Add(head); FillStock();
             Check("A stock entry shown (or played) is used up: gone from its lane at the next look, which rolls a new one - never the same map", Lane(Modes.ArmsRace).All(e => e.Key != head) && Lane(Modes.ArmsRace).Count == StockSize);
             head = Lane(Modes.ArmsRace)[0].Key;
-            Votes[head] = new() { ["[U:1:5]"] = AdsVote }; FillStock();
+            Likes[head] = new() { ["[U:1:5]"] = AdsVote }; FillStock();
             Check("An entry a player marked as showing ads since its roll is dropped", Lane(Modes.ArmsRace).All(e => e.Key != head));
             head = Lane(Modes.ArmsRace)[0].Key;
             S.Crashes[head] = 1; FillStock();
@@ -165,10 +165,10 @@ static partial class Program
             {
                 Lane(Modes.ArmsRace).RemoveAll(e => e.Key == target.Key);
                 Lane(Modes.ArmsRace).Insert(0, target with { Weight = Weight(targetMap) });
-                Votes[target.Key] = new() { ["[U:1:6]"] = DownReasons.Plain }; // a dislike: a quarter of the odds
+                Likes[target.Key] = new() { ["[U:1:6]"] = DownReasons.Plain }; // a dislike: a quarter of the odds
                 FillStock();
                 if (Lane(Modes.ArmsRace)[0].Key == target.Key) kept++; // kept in its place: a new roll of the same map would come at the lane's end
-                Votes = new();
+                Likes = new();
             }
             Check($"A dislike since its roll keeps an entry with the odds it left it: {kept} of {trials} kept, a quarter expected", kept is > 420 and < 580);
 
@@ -194,9 +194,9 @@ static partial class Program
             ExportQueues();
             file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
             Check("...and nothing once the vote is gone", file.Requested.Count == 0);
-            Check("The health page says how many of each lane are on disk", QueueHealth().StartsWith($"stock of {StockSize} per mode: ") && QueueHealth().Contains("armsrace ") && QueueHealth().Contains(" s ago"));
+            Check("The health page says how many of each lane are on disk", StockHealth().StartsWith($"stock of {StockSize} per mode: ") && StockHealth().Contains("armsrace ") && StockHealth().Contains(" s ago"));
             ReadyAt = default;
-            Check("...and that no report came yet", QueueHealth().Contains("no report from the restart watcher yet"));
+            Check("...and that no report came yet", StockHealth().Contains("no report from the restart watcher yet"));
         }
         finally { h.Dispose(); }
     }

@@ -45,7 +45,7 @@ static partial class Program
     static DateTime ReadyAt;                    // when that report came (the bridge's clock)
     static HashSet<string> ExportedIds = new(); // the maps queues.json names now
     static string QueuesWritten = "";           // queues.json as last written, without its time: written again only when it changes
-    static DateTime QueueTickAt;
+    static DateTime StockTickAt;
 
     /// <summary>The background download running now, by the watcher's last report: the map, its progress (null before any) and its title.</summary>
     public sealed record Download(string Id, int? Percent, string Title);
@@ -172,10 +172,10 @@ static partial class Program
     }
 
     /// <summary>From Tick: the stock checked, topped up and queues.json refreshed every 10 s.</summary>
-    static void QueueTick(DateTime now)
+    static void StockTick(DateTime now)
     {
-        if (now < QueueTickAt) return;
-        QueueTickAt = now.AddSeconds(10);
+        if (now < StockTickAt) return;
+        StockTickAt = now.AddSeconds(10);
         FillStock();
     }
 
@@ -241,13 +241,13 @@ static partial class Program
     /// runs one Workshop download at a time - measured on a test copy on 2026-11-03: a map change's 449 MB started only when the 350 MB in the
     /// background had ended, 8 s later - and one already running cannot be stopped, so the watcher asks right before it starts one. A change
     /// counting down, a map loading (it may be downloading). An open vote is no reason: its maps are what the watcher fetches first.</summary>
-    static string? HoldWhy() => Pending != null ? "a map change is counting down" : AnnouncePending ? "a map is loading" : null;
+    static string? HoldWhy() => Pending != null ? "a map change is counting down" : LoadPending ? "a map is loading" : null;
 
     /// <summary>"armsrace 7/10, deathmatch 10/10, wingman 9/10" - each lane's entries on the disk of its entries.</summary>
     static string StockWords() => string.Join(", ", Modes.All.Select(m => $"{m.Id} {LaneOf(m).Count(e => Downloaded(e.Key))}/{LaneOf(m).Count}"));
 
     /// <summary>The health page's line about the disk and the stock.</summary>
-    static string QueueHealth() => $"stock of {StockSize} per mode: " + (ReadyAt == default ? string.Join(", ", Modes.All.Select(m => $"{m.Id} {LaneOf(m).Count}")) + "; no report from the restart watcher yet"
+    static string StockHealth() => $"stock of {StockSize} per mode: " + (ReadyAt == default ? string.Join(", ", Modes.All.Select(m => $"{m.Id} {LaneOf(m).Count}")) + "; no report from the restart watcher yet"
         : StockWords() + $" on disk by the watcher's report {(Now() - ReadyAt).TotalSeconds:0} s ago{(ReadyKnown ? "" : " (stale: no stock entry counts as on the disk)")}")
         + $"; on the open ballot {BallotMaps().Count}" + (BackgroundNow() is { } d ? $"; {SyncWords.BackgroundWords(d)} ({d.Id})" : "");
 }
@@ -255,7 +255,7 @@ static partial class Program
 /// <summary>One entry of a stock lane (state.json): the map's key, its weight and too-big mark when it was rolled, whether it was fresh, and when.</summary>
 sealed record StockEntry(string Key, double Weight, bool Big, bool Fresh, DateTime At);
 
-/// <summary>/data/queues.json, version 1 (RandomQueue.cs): the stock's lanes by the four keys the watcher and the keep set read - Workshop ids - and
+/// <summary>/data/queues.json, version 1 (Stock.cs): the stock's lanes by the four keys the watcher and the keep set read - Workshop ids - and
 /// the Workshop ids on the open ballot ("requested", the name the watcher reads first).</summary>
 sealed class QueuesFile
 {

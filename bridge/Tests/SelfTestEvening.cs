@@ -1,4 +1,4 @@
-// --selftest, part two: a pick is a vote (the vote, its freeze and its wait, end to end), likes, the weighted dice, !previous,
+// --selftest, an evening of play end to end: a pick is a vote (the vote, its freeze and its wait), likes, the weighted dice, !previous,
 // the crash watch, the start roll, the maintenance flag and the on-screen guide. Everything runs in the harness (SelfTestHarness.cs) - a handed clock,
 // the bridge's timers on it, every RCON command recorded - with a fake server whose RCON status follows its map loads, so a whole evening of
 // play - joins, map loads, match ends, departures - replays in milliseconds and the same way every time. The vote's own rules in detail are SelfTestVote.cs's.
@@ -6,7 +6,7 @@ using System.Text.Json;
 
 static partial class Program
 {
-    static void QueueSelfTest(Action<string, bool> Check)
+    static void EveningSelfTest(Action<string, bool> Check)
     {
         var h = new Harness("queue", new DateTime(2026, 10, 4, 20, 0, 0, DateTimeKind.Utc));
         var guideReply = "";
@@ -219,7 +219,7 @@ static partial class Program
             Fresh(); statusMap = "bsp"; statusSpawn = 3;
             h.Join(alice); Go(alice, 3); Land(); h.Run(10);
             Go(alice, 4); h.Run(ChangeDelay);
-            Check("(the change to the next map has gone out)", AnnouncePending && S.Map == m[4]);
+            Check("(the change to the next map has gone out)", LoadPending && S.Map == m[4]);
             Crash(); h.Run(20);
             Check("A process that dies while a map loads is that map's crash", S.Crashes.GetValueOrDefault(Key(m[4])) == 1 && S.Crashes.Count == 1);
 
@@ -273,7 +273,7 @@ static partial class Program
             Land(); h.Run(61); Go(dan, 1); Land(); h.Run(30); Go(alice, 2);
             Check("(a change counts down when the server restarts)", Pending?.Map == m[2]);
             S.CleanShutdown = true; Session("token-3"); h.Line("Loading map \"ar_shoots\""); h.Run(4);
-            Check("A restarted server's start map ends the change that died with the old process, and the server is left alone for 5 s", Pending == null && !AnnouncePending);
+            Check("A restarted server's start map ends the change that died with the old process, and the server is left alone for 5 s", Pending == null && !LoadPending);
             h.Run(2);
             Check("...then the dice roll: there is no queue to serve any more", Pending is { Auto: true } && h.Said("Server started - Rolling the dice"));
 
@@ -335,7 +335,7 @@ static partial class Program
             h.Join(alice); h.Run(5); Go(alice, 1); h.Run(ChangeDelay + 120); // the change went out; the download stalls
             Confirm(alice); h.Run(PressedSeconds + 1); h.Quiet();
             Restart(clean: true); h.Run(6);
-            Check("Restart path 2, !restart on a stuck load: the boot is not taken for the stuck map", !h.Said($"Now on {Label(m[1])}") && S.Map?.Name == "ar_shoots" && !AnnouncePending);
+            Check("Restart path 2, !restart on a stuck load: the boot is not taken for the stuck map", !h.Said($"Now on {Label(m[1])}") && S.Map?.Name == "ar_shoots" && !LoadPending);
             Check("...and the dice roll", Rolled());
 
             Fresh(); statusMap = "ar_shoots"; Session("prod");
@@ -445,30 +445,30 @@ static partial class Program
             Check("...for a Dislike as well", Tally(key) == (1, 1) && h.Said("You dislike") && h.Said("already"));
             h.Quiet(); h.Talk(alice, "!down");
             Check("The opposite vote takes yours back first: Alice's like is gone, nothing is cast, and the note says how to dislike",
-                Tally(key) == (0, 1) && !Votes[key].ContainsKey("[U:1:1001]") && h.Said("Your like of") && h.Said("is removed - Dislike it again to add a dislike"));
+                Tally(key) == (0, 1) && !Likes[key].ContainsKey("[U:1:1001]") && h.Said("Your like of") && h.Said("is removed - Dislike it again to add a dislike"));
             h.Quiet(); h.Talk(alice, "!down");
-            Check("...the next Dislike casts it: one vote per player per map", Tally(key) == (0, 2) && Votes[key]["[U:1:1001]"] == -1 && h.Said("You disliked"));
+            Check("...the next Dislike casts it: one vote per player per map", Tally(key) == (0, 2) && Likes[key]["[U:1:1001]"] == -1 && h.Said("You disliked"));
             h.Quiet(); h.Talk(alice, "!up");
             Check("...and back the same way: a Like takes the dislike back", Tally(key) == (0, 1) && h.Said("Your dislike of") && h.Said("Like it again to add a like"));
             h.Quiet(); h.Talk(alice, "!up");
-            Check("...and the next Like casts it", Tally(key) == (1, 1) && Votes[key].Count == 2 && h.Said("You liked"));
+            Check("...and the next Like casts it", Tally(key) == (1, 1) && Likes[key].Count == 2 && h.Said("You liked"));
             h.Talk(cara, $"!up {Rank(2)}"); h.Talk(bob, $"!up {Rank(2)}"); h.Talk(alice, $"!up {Rank(2)}"); h.Talk(cara, $"!up {Rank(3)}"); h.Talk(bob, $"!up {Rank(3)}");
             h.Talk(alice, $"!down {Rank(3)}"); h.Talk(cara, $"!up {Rank(4)}"); h.Talk(bob, $"!up {Rank(4)}");
             Check("!up <number> votes on any map", Tally(Key(m[2])) == (3, 0) && Tally(Key(m[4])) == (2, 0) && Tally(Key(m[3])) == (2, 1));
-            var saved = Votes.ToDictionary(kv => kv.Key, kv => kv.Value.ToDictionary(x => x.Key, x => x.Value));
-            LoadVotes();
+            var saved = Likes.ToDictionary(kv => kv.Key, kv => kv.Value.ToDictionary(x => x.Key, x => x.Value));
+            LoadLikes();
             Check("Votes persist: votes.json reads back exactly, and no .tmp is left behind",
-                Votes.Count == saved.Count && saved.All(kv => Votes[kv.Key].Count == kv.Value.Count && kv.Value.All(x => Votes[kv.Key][x.Key] == x.Value))
-                && !Directory.EnumerateFiles(Path.GetDirectoryName(Path.GetFullPath(VotesPath))!).Any(f => Path.GetFileName(f).Contains(".tmp")));
+                Likes.Count == saved.Count && saved.All(kv => Likes[kv.Key].Count == kv.Value.Count && kv.Value.All(x => Likes[kv.Key][x.Key] == x.Value))
+                && !Directory.EnumerateFiles(Path.GetDirectoryName(Path.GetFullPath(LikesPath))!).Any(f => Path.GetFileName(f).Contains(".tmp")));
             var top = TopRows();
             Console.WriteLine("top: " + string.Join(" | ", top.Select(r => $"{Label(r.Map)} +{r.Up} -{r.Down}")));
             Check("The most liked list (the board's live column; the menu's Likes sort shows them all): most likes first, fewer dislikes breaking the tie",
                 top[0].Map == m[2] && top[0].Up == 3 && top.FindIndex(r => r.Map == m[4]) is > 0 and var i4 && top.FindIndex(r => r.Map == m[3]) > i4);
             h.Talk(cara, $"!up {Rank(4)}"); h.Talk(bob, $"!up {Rank(4)}");
             Check("The same vote again leaves a map's votes as they were", Tally(Key(m[4])) == (2, 0));
-            File.WriteAllText(VotesPath, "{ not json");
-            LoadVotes();
-            Check("An unreadable votes.json is set aside, never overwritten", Votes.Count == 0 && Directory.GetFiles(h.Dir, "votes.json.bad-*").Length == 1);
+            File.WriteAllText(LikesPath, "{ not json");
+            LoadLikes();
+            Check("An unreadable votes.json is set aside, never overwritten", Likes.Count == 0 && Directory.GetFiles(h.Dir, "votes.json.bad-*").Length == 1);
 
             // ---- the weights, exactly as the sentence says ----
             Fresh();
@@ -476,7 +476,7 @@ static partial class Program
             double W(int up, int down, MapInfo? on = null)
             {
                 var target = on ?? mid;
-                Votes = new() { [Key(target)] = Enumerable.Range(0, up).Select(i => ($"[U:1:{9000 + i}]", 1)).Concat(Enumerable.Range(0, down).Select(i => ($"[U:1:{9500 + i}]", -1))).ToDictionary(x => x.Item1, x => x.Item2) };
+                Likes = new() { [Key(target)] = Enumerable.Range(0, up).Select(i => ($"[U:1:{9000 + i}]", 1)).Concat(Enumerable.Range(0, down).Select(i => ($"[U:1:{9500 + i}]", -1))).ToDictionary(x => x.Item1, x => x.Item2) };
                 return Weight(target);
             }
             var w0 = W(0, 0);
@@ -484,12 +484,12 @@ static partial class Program
             Check($"One downvote quarters it ({W(0, 1) / w0:0.###}x): twice as strong as an upvote, the other way", Math.Abs(W(0, 1) / w0 - 0.25) < 1e-9);
             Check("One of each halves it", Math.Abs(W(1, 1) / w0 - 0.5) < 1e-9);
             Check($"Upvotes stop counting at {UpvoteCap} ({W(7, 0) / w0:0}x)", Math.Abs(W(7, 0) / w0 - Math.Pow(2, UpvoteCap)) < 1e-9);
-            Votes = new();
+            Likes = new();
             Check($"A map's place on the list is no weight any more: without the Workshop's ratings #1 weighs what the last map (#{Maps.Count}) does - its popularity sets the points (SelfTestBallot.cs)",
                 Math.Abs(Weight(Maps[0]) / Weight(Maps[^1]) - 1) < 1e-9 && Math.Abs(Weight(mid) / Weight(Maps[^1]) - 1) < 1e-9);
             var realMaps = Maps;
             Maps = Enumerable.Range(1, 12).Select(i => new MapInfo(i, 5_000_000 + i, $"fixture_{i}", 10)).ToList();
-            Votes = new() { [Key(Maps[11])] = new() { ["[U:1:1]"] = 1 }, [Key(Maps[0])] = new() { ["[U:1:1]"] = -1 } };
+            Likes = new() { [Key(Maps[11])] = new() { ["[U:1:1]"] = 1 }, [Key(Maps[0])] = new() { ["[U:1:1]"] = -1 } };
             var weights = Maps.ToDictionary(x => x, Weight);
             var draws = Enumerable.Range(0, 60000).Select(_ => RandomPick()!).GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count() / 60000.0);
             var worst = Maps.Max(x => Math.Abs(draws.GetValueOrDefault(x) / (weights[x] / weights.Values.Sum()) - 1));
@@ -500,11 +500,11 @@ static partial class Program
             Check("...and fall back to the whole pool when nothing else is", RandomPick() is not null);
             S.History = new();
             Maps = [new MapInfo(1, 6_000_001, "huge_liked", 900), new MapInfo(2, 6_000_002, "huge", 900), new MapInfo(3, 6_000_003, "small", 10)];
-            Votes = new() { [Key(Maps[0])] = new() { ["[U:1:1]"] = 1 } };
+            Likes = new() { [Key(Maps[0])] = new() { ["[U:1:1]"] = 1 } };
             var bigRolls = Enumerable.Range(0, 300).Select(_ => RandomPick()!.Name).ToHashSet();
             Check("A map's download size is no reason either way: a 900 MB map nobody liked is rolled like a 10 MB one",
                 bigRolls.Contains("huge_liked") && bigRolls.Contains("huge") && bigRolls.Contains("small"));
-            Maps = realMaps; Votes = new();
+            Maps = realMaps; Likes = new();
 
             // ---- the guide on a real join, never on a map change's reconnect; nothing broadcast to greet a newcomer ----
             Fresh();
@@ -569,7 +569,7 @@ static partial class Program
             Check("The match length and the catalog's version ride along", hud.RoundMinutes == S.RoundMinutes && hud.CatalogVersion == CatalogVersion);
             var catalog = HudCatalog.Decode(CatalogText)!;
             Check($"The menu's catalog: every listed and official map of every mode once ({catalog.Maps.Count}), with its likes and whose they are",
-                catalog.Maps.Count == Maps.Where(x => !IsPack(x)).Concat(Officials).Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(PoolOf).Where(x => !IsPack(x) && !IsBlocked(x))).Select(Key).Distinct().Count()
+                catalog.Maps.Count == Maps.Where(x => !IsNonMap(x)).Concat(Officials).Concat(Modes.All.Where(x => !x.ArmsRace).SelectMany(PoolOf).Where(x => !IsNonMap(x) && !IsBlocked(x))).Select(Key).Distinct().Count()
                 && catalog.Maps.Select(x => x.Key).Distinct().Count() == catalog.Maps.Count
                 && catalog.Maps.First(x => x.Key == Key(m[1])) is { Up: 2, Down: 0 } && catalog.MyVote(1003, Key(m[1])) == 1 && catalog.MyVote(1001, Key(m[1])) == 0
                 && catalog.Maps.Where(x => x.Official).All(x => x.Arg == x.Name && Hud.IsAction("!map " + x.Arg))
@@ -600,7 +600,7 @@ static partial class Program
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             var goneMap = m[3];
             var goneId = goneMap.Id.ToString();
-            Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
+            WorkshopCheck = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
             h.Quiet();
             h.Talk(alice, $"!map {Rank(3)}");
             Check("A map gone from the Workshop is refused by number, with what happened and what to do, and no vote opens",
@@ -612,10 +612,10 @@ static partial class Program
                 Maps.All(x => { Removed = new() { [x.Id.ToString()] = Workshop.Removed }; return M.Plain(RemovedRefusal(x)).Length <= 120; }));
             RecomputeRemoved();
             var dicePool = Maps.Where(x => x.Rank > 0).Take(400).ToList();
-            Checked = new() { Verdicts = dicePool.Skip(3).Take(390).ToDictionary(x => x.Id.ToString(), _ => Workshop.Removed) }; RecomputeRemoved();
+            WorkshopCheck = new() { Verdicts = dicePool.Skip(3).Take(390).ToDictionary(x => x.Id.ToString(), _ => Workshop.Removed) }; RecomputeRemoved();
             var goneRolls = Enumerable.Range(0, 2000).Select(_ => RandomPick()).Where(x => x != null).Select(x => x!).ToList();
             Check($"The dice never roll a map gone from the Workshop ({Removed.Count} of them, 2,000 rolls)", goneRolls.Count > 0 && goneRolls.All(x => !IsRemoved(x)));
-            Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
+            WorkshopCheck = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
 
             // the sync's report (the one Workshop checker): a map coming back, a map on an open ballot going, the map that is on going
             var answer = ApplyRemovedReport(RemovedBody([(goneMap.Id, Workshop.Ok)]));
@@ -632,7 +632,7 @@ static partial class Program
             var ob2 = Ballot;
             Check("A map on an open ballot that the sync finds gone leaves it, the votes on it with it (one playable check)",
                 ob2 is { Open: true } && ob2.Options.All(o => o.Map != m[5]) && ob2.Options.Any(o => o.Map == m[6]) && !ob2.Choices.ContainsKey("[U:1:1002]") && answer.Contains("1 newly blocked"));
-            Check("...and Checked keeps the verdict, so a restarted bridge still knows", Checked.Verdicts.GetValueOrDefault(m[5].Id.ToString()) == Workshop.Removed);
+            Check("...and removed.json keeps the verdict, so a restarted bridge still knows", WorkshopCheck.Verdicts.GetValueOrDefault(m[5].Id.ToString()) == Workshop.Removed);
             var sixN = ob2!.Options.First(o => o.Map == m[6]).N;
             VoteFor(alice, sixN); VoteFor(bob, sixN);
             var landing = Pending?.Map;
@@ -646,11 +646,11 @@ static partial class Program
             Check("A report calling 30 of 200 maps gone (more than 10%) is not believed: nothing changes",
                 answer.StartsWith("ignored") && Removed.Count == before);
             Check("An empty or garbled report changes nothing either", ApplyRemovedReport("not a report").StartsWith("ignored") && Removed.Count == before);
-            Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
+            WorkshopCheck = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
             S.History.Add(goneMap);
             h.Talk(cara, "!previous");
             Check("!previous refuses a map gone from the Workshop", h.Said("was removed from the Workshop - Nobody can download it"));
-            Checked = new(); RecomputeRemoved();
+            WorkshopCheck = new(); RecomputeRemoved();
 
             Check("The report survives its codec, and keeps only well-formed lines",
                 DecodeRemovedReport(RemovedBody([(5, Workshop.Ok), (7, Workshop.Banned)]) + "x\tok\n9\tmaybe\n-1\tok\n") is [(5, "ok"), (7, "banned")]);
@@ -703,9 +703,9 @@ static partial class Program
                 HudMenu.Command("gg_m1_play", goneCat, new HudState(), goneBrowser, 1001, h.Clock) == $"!map {goneCard.Arg}" && goneBrowser.ConfirmKey == "");
             Check("...and an older bridge's twelve-column line reads as not removed",
                 HudCatalog.Decode("gg-catalog\t1\nm\tk\t5\t5\t123\tname\t10\t0\t-1\t0\t0\t0\n")!.Maps is [{ Removed: false }]);
-            Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
+            WorkshopCheck = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
             Check("The bridge's catalog marks it", BuildCatalog().Maps.FirstOrDefault(x => x.Id == goneMap.Id) is { Removed: true });
-            Checked = new(); RecomputeRemoved();
+            WorkshopCheck = new(); RecomputeRemoved();
 
             // ---- the data files are read again while the bridge runs (Reload.cs): a new maps.json or broken.json needs no restart ----
             Fresh();
@@ -736,13 +736,13 @@ static partial class Program
             File.WriteAllText(brokenPath, $$"""{"maps":[{"id":{{m[2].Id}},"crashes":2}],"packs":[{"id":{{m[5].Id}},"name":"a skin pack"}],"blocked":[{"id":{{m[6].Id}},"name":"{{m[6].Name}}","reason":"froze the server"}]}""");
             h.Quiet(); reloaded = ReloadBroken(brokenPath); h.Run(1);
             Check("A new broken.json is taken while the bridge runs: its crashers, non-maps and blocked maps, all at once",
-                Broken.ContainsKey(m[2].Id.ToString()) && IsPack(m[5]) && IsBlocked(m[6]) && reloaded.Contains("2 newly unplayable, 0 playable again"));
+                Broken.ContainsKey(m[2].Id.ToString()) && IsNonMap(m[5]) && IsBlocked(m[6]) && reloaded.Contains("2 newly unplayable, 0 playable again"));
             Check("...the cards of the maps that just became unplayable - a non-map too (packs re-checked) - leave the open ballot",
                 Ballot is { Open: true } rb2 && rb2.Options.All(o => o.Map != m[5] && o.Map != m[6]));
             h.Quiet(); h.Talk(bob, $"!map {Rank(6)}");
             Check("...and a map it blocks is refused at once, in its own words", h.Said("froze the server - It is blocked."));
             File.WriteAllText(brokenPath, "{\"maps\":[");
-            Check("A broken.json that does not parse changes nothing", ReloadBroken(brokenPath).Contains("unreadable") && IsBlocked(m[6]) && IsPack(m[5]));
+            Check("A broken.json that does not parse changes nothing", ReloadBroken(brokenPath).Contains("unreadable") && IsBlocked(m[6]) && IsNonMap(m[5]));
 
             // the watch: a file that changed and then held still for one look is read again, once; the bridge's own write is not read back
             var reads = 0;
@@ -782,9 +782,9 @@ static partial class Program
             WatchStop();
             Check("GET /health says what the bridge has loaded", HealthText() is var health && health.StartsWith("gg-health\n")
                 && health.Contains($"maps {Maps.Count} + {Officials.Count} official") && health.Contains("crash watch: spawn") && health.Contains("search: "));
-            Broken = new(); Packs = new(); Checked = new(); Removed = new(); Blocked = new();
+            Broken = new(); NonMaps = new(); WorkshopCheck = new(); Removed = new(); Blocked = new();
 
-            SelectionSelfTest(Check, h, Fresh); // SelfTestSelection.cs
+            DiceSelfTest(Check, h, Fresh); // SelfTestDice.cs
 
             // ---- the welcome panel, measured, and its timing as the plugin drives it ----
             var t0 = h.Clock;

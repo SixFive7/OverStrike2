@@ -16,15 +16,15 @@ static partial class Program
     static void ResetAll()
     {
         // the lists, as the run loaded them, and what is worked out of them
-        Maps = SelfTestMaps; ModeMaps.Clear(); Broken = new(); BrokenReasons = new(); Packs = new(); BlockedOwn = new(); BlockedInBroken = new(); Blocked = new();
-        Checked = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
+        Maps = SelfTestMaps; ModeMaps.Clear(); Broken = new(); BrokenReasons = new(); NonMaps = new(); BlockedOwn = new(); BlockedInBroken = new(); Blocked = new();
+        WorkshopCheck = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
         RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); NumbersStamp++;
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new();
         CatalogVersion++; // the menu's map list is made again
         // what the bridge keeps (state.json, votes.json), and who is on
-        S = new State(); Votes = new(); Players.Clear(); PickConfirms.Clear(); HudSeen.Clear(); WhyOpen.Clear(); RefusedSaid.Clear();
+        S = new State(); Likes = new(); Players.Clear(); PickConfirms.Clear(); HudSeen.Clear(); WhyOpen.Clear(); RefusedSaid.Clear();
         // the map change, the vote, the server's life, the crash watch, the empty server, the modes, the restarts
-        Pending = null; AnnouncePending = false; AnnounceDeadline = default; AnnounceSentAt = default; LoadBehindDownload = false; MatchEndUntil = default;
+        Pending = null; LoadPending = false; LoadUntil = default; LoadSentAt = default; LoadBehindDownload = false; MatchEndUntil = default;
         Ballot = null; LastRound = 0; VoteWaitUntil = default;
         StartRollOwed = false; StartRollNeedsProof = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default; MaintenanceOn = false;
         ResetCrashWatch(); BeforeQuit = null; enteredOnThisMap.Clear(); timedOutOnThisMap.Clear();
@@ -33,7 +33,7 @@ static partial class Program
         RestartDue = null; RematchDue = null; UpdatedNotice = ""; UpdatedNoticeUntil = default;
         RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; RematchConfirmBy = ""; RematchConfirmUntil = default; RematchWaitUntil = default;
         // the stock and the watcher's report, the data files' watch, the Sync page, the plugin's polls, the messages
-        StockSize = BridgeConfig.Values.DiscoveryStock; ReadyIds = new(); CoveredIds = new(); ReadyAt = default; ExportedIds = new(); QueuesWritten = ""; QueueTickAt = default; Background = null;
+        StockSize = BridgeConfig.Values.DiscoveryStock; ReadyIds = new(); CoveredIds = new(); ReadyAt = default; ExportedIds = new(); QueuesWritten = ""; StockTickAt = default; Background = null;
         WatchStop();
         SyncDoc?.Dispose(); SyncDoc = null; SyncStamp = null; SyncReadAt = default; SyncProblem = ""; dashBody = ""; webWritten = ""; webPage = ""; webWrittenAt = default; syncTicks = 0;
         hudPolledTicks = 0; hudHeldTicks = 0;

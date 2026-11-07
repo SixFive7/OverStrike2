@@ -16,7 +16,7 @@ sealed class RemovedFile
 
 static partial class Program
 {
-    static RemovedFile Checked = new();                    // the sync's verdicts, /data/removed.json
+    static RemovedFile WorkshopCheck = new();              // the sync's last check: its verdicts and when, /data/removed.json
     static Dictionary<string, string> Removed = new();     // in force: workshop id -> verdict, for every map nobody can download
     const int ImplausiblePercent = 10;                      // a report calling more than this share of 50+ ids gone is not believed
 
@@ -31,21 +31,21 @@ static partial class Program
     /// <summary>At start: the sync's last verdicts out of /data. Missing: nothing is gone from the Workshop until its first report.</summary>
     static void LoadRemoved()
     {
-        Checked = new();
+        WorkshopCheck = new();
         if (File.Exists(RemovedPath))
-            try { Checked = JsonSerializer.Deserialize(File.ReadAllText(RemovedPath), Ctx.Default.RemovedFile) ?? new(); }
+            try { WorkshopCheck = JsonSerializer.Deserialize(File.ReadAllText(RemovedPath), Ctx.Default.RemovedFile) ?? new(); }
             catch (Exception e) { Log($"removed list: {RemovedPath} unreadable ({e.Message}) - nothing counts as gone until the next report"); }
         RecomputeRemoved();
-        Log($"removed list: {Removed.Count} map(s) blocked - {Checked.Verdicts.Count} id(s) in the last Workshop check{(Checked.Checked != "" ? $" of {Checked.Checked}" : " (none yet)")}");
+        Log($"removed list: {Removed.Count} map(s) blocked - {WorkshopCheck.Verdicts.Count} id(s) in the last Workshop check{(WorkshopCheck.Checked != "" ? $" of {WorkshopCheck.Checked}" : " (none yet)")}");
     }
 
     static void SaveRemoved()
     {
-        WriteAtomic(RemovedPath, JsonSerializer.Serialize(Checked, Ctx.Default.RemovedFile));
+        WriteAtomic(RemovedPath, JsonSerializer.Serialize(WorkshopCheck, Ctx.Default.RemovedFile));
         NoteOwnWrite(RemovedPath); // the watch (Reload.cs) is not to read the bridge's own write back
     }
 
-    static void RecomputeRemoved() => Removed = Checked.Verdicts.Where(kv => kv.Value != Workshop.Ok).ToDictionary(kv => kv.Key, kv => kv.Value);
+    static void RecomputeRemoved() => Removed = WorkshopCheck.Verdicts.Where(kv => kv.Value != Workshop.Ok).ToDictionary(kv => kv.Key, kv => kv.Value);
 
     /// <summary>The sync's report out of its body: lines with a positive id and a known verdict (Workshop.cs), the last one per id; anything else is
     /// dropped, and a body that is no report in version 1 has none.</summary>
@@ -72,8 +72,8 @@ static partial class Program
             return $"ignored: {gone} of {report.Count} gone is implausible";
         }
         var before = new Dictionary<string, string>(Removed);
-        foreach (var (id, v) in report) Checked.Verdicts[id.ToString()] = v;
-        Checked.Checked = Now().ToString("o");
+        foreach (var (id, v) in report) WorkshopCheck.Verdicts[id.ToString()] = v;
+        WorkshopCheck.Checked = Now().ToString("o");
         SaveRemoved();
         RecomputeRemoved();
         var newly = Removed.Keys.Where(id => !before.ContainsKey(id)).ToList();
@@ -98,7 +98,7 @@ static partial class Program
             if (Ballot is { Open: false } decided && decided.Change == p) Ballot = null; // everybody unfreezes
             Announce($"{Clip(why, 120)} - The change is off.");
         }
-        if (Pending == null && !AnnouncePending && Ballot is not { Open: true } && S.Map is { } on && IsRemoved(on) && newly.Contains(Key(on))
+        if (Pending == null && !LoadPending && Ballot is not { Open: true } && S.Map is { } on && IsRemoved(on) && newly.Contains(Key(on))
             && !AutoRoll($"{Clip(Label(on), 40)} {Workshop.Reason(Removed[Key(on)])} - Nobody new can download it"))
             Log("workshop check: the map that is on is gone, and no map is eligible to roll");
     }

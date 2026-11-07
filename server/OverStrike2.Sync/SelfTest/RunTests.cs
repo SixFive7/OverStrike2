@@ -400,7 +400,7 @@ static class RunTests
               Node.Eq(ex["queues"], queues) && Node.StrList(ex["queues"]!["random"]!["armsrace-new"]) is ["21"] && Node.StrList(ex["queues"]!["requested"]) is ["24"]);
         Check("workshop.json: the bridge's own reader (bridge/Popularity.cs) reads it as meant - every map, its numbers, whether its current content passed", () =>
         {
-            var program = System.Reflection.Assembly.Load("GunGameBridge").GetType("Program", true)!;
+            var program = System.Reflection.Assembly.Load("os2-bridge").GetType("Program", true)!;
             var parse = program.GetMethod("ParseWorkshop", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
             var result = parse.Invoke(null, [WorkshopText])!;
             var read = (System.Collections.IDictionary)result.GetType().GetField("Item1")!.GetValue(result)!;

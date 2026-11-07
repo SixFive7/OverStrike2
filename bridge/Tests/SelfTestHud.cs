@@ -541,7 +541,7 @@ static partial class Program
                 var thumbRules = Regex.Matches(thumbCss, @"^\.(th\d+)\.(tl\d+)\s*\{\s*background-image:\s*url\(\s*""([^""]+)""\s*\);\s*\}", RegexOptions.Multiline)
                     .ToDictionary(x => x.Groups[1].Value + "." + x.Groups[2].Value, x => x.Groups[3].Value);
                 thumbClasses = thumbRules.Keys.SelectMany(k => k.Split('.')).ToHashSet();
-                var shown = Maps.Where(x => !IsPack(x)).Concat(Officials).Select(x => new HudCatalog.Entry("", "", x.Rank, x.Id, x.Name, x.SizeMb, x.Official, -1, 0, 0, 0)).ToList();
+                var shown = Maps.Where(x => !IsNonMap(x)).Concat(Officials).Select(x => new HudCatalog.Entry("", "", x.Rank, x.Id, x.Name, x.SizeMb, x.Official, -1, 0, 0, 0)).ToList();
                 static string Rule(HudCatalog.Entry x) => string.Join(".", HudThumbs.Classes(x));
                 // Every map the menu shows has its own picture. The hand-picked maps after the 1,000 most-subscribed - the 16 glass maps of
                 // 2026-10-21, #1001-#1016 - got theirs with layout release v3.0.0: a map listed after a release has none until the next one

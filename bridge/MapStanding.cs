@@ -8,10 +8,10 @@ static partial class Program
 {
     /// <summary>Why a map cannot be played at all, or null - the one check for a map asked for, a card on the ballot, a change
     /// counting down and a list that changed: blocked, gone from the Workshop, or no playable map (a pack). Each refusal says why.</summary>
-    static string? Unplayable(MapInfo m) => IsBlocked(m) ? BlockedRefusal(m) : IsRemoved(m) ? RemovedRefusal(m) : IsPack(m) ? PackRefusal(m) : null;
+    static string? Unplayable(MapInfo m) => IsBlocked(m) ? BlockedRefusal(m) : IsRemoved(m) ? RemovedRefusal(m) : IsNonMap(m) ? NonMapRefusal(m) : null;
 
     /// <summary>Unplayable, as a yes or no, by the map's key: a Workshop map's key is its id, which the three lists go by.</summary>
-    static bool IsUnplayable(MapInfo m, string key) => !m.Official && (Blocked.ContainsKey(key) || Removed.ContainsKey(key) || Packs.ContainsKey(key));
+    static bool IsUnplayable(MapInfo m, string key) => !m.Official && (Blocked.ContainsKey(key) || Removed.ContainsKey(key) || NonMaps.ContainsKey(key));
 
     /// <summary>Something on record against the map with this key: a player-crash mark, the broken list, a crash of the server.</summary>
     static bool Risky(string key) => S.PlayerCrashes.ContainsKey(key) || Broken.ContainsKey(key) || S.Crashes.GetValueOrDefault(key) > 0;
@@ -34,7 +34,7 @@ static partial class Program
     static bool Bad(MapInfo m) { var key = Key(m); return IsUnplayable(m, key) || Risky(key); }
 
     /// <summary>The rule every random pick applies to a candidate: not the map that is on, nothing against it (Bad), not marked as showing ads, and
-    /// not in <paramref name="exclude"/> (the ballot's own maps). The stock (RandomQueue.cs) rolls with it and checks it again when an entry is used.
+    /// not in <paramref name="exclude"/> (the ballot's own maps). The stock (Stock.cs) rolls with it and checks it again when an entry is used.
     /// It runs for every candidate of every roll, so it goes by the key alone.</summary>
     static bool CanRoll(MapInfo m, ISet<string>? exclude = null)
     {

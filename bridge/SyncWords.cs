@@ -8,13 +8,13 @@ using System.Text.Json;
 static class SyncWords
 {
     /// <summary>A lane of the stock: its mode, its maps on the server's disk by the watcher's report, its length, and its entries.</summary>
-    public sealed record RandomQueue(string Name, int Ready, int Total, List<StockMap>? Maps = null);
+    public sealed record StockLane(string Name, int Ready, int Total, List<StockMap>? Maps = null);
 
     /// <summary>A stock entry: its Workshop id, its name, whether it is on the disk, its tags.</summary>
     public sealed record StockMap(string Id, string Name, bool Ready, string Tags);
 
-    /// <summary>What the words are made of: the sync's file, the stock (Random), the watcher's background download, and each map's tags by id.</summary>
-    public sealed record Input(JsonElement? Status, DateTime ReadAt, string Problem, List<RandomQueue> Random, bool RandomKnown, DateTime RandomAt, int RandomLength, DateTime Now,
+    /// <summary>What the words are made of: the sync's file, the stock, the watcher's background download, and each map's tags by id.</summary>
+    public sealed record Input(JsonElement? Status, DateTime ReadAt, string Problem, List<StockLane> Stock, bool StockKnown, DateTime ReportAt, int StockLength, DateTime Now,
         Program.Download? Background = null, Func<string, string>? Tags = null);
 
     /// <summary>A map's name with its first "why" tag in words after it: "Lake (liked by us)".</summary>
@@ -184,9 +184,9 @@ static class SyncWords
             handed > 0 ? $"{N(handed)} handed over for the next restart" : ""));
         // the stock's line, and while the restart watcher downloads in the background, that download first: one line that fits beside the queue (the
         // layout wraps it once at most)
-        var rand = input.Random.Select(q => $"{RandomName(q.Name)} {(input.RandomKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
-        var stock = input.Random.Count == 0 ? "" : input.RandomKnown ? "Stock on disk for the ballots: " + Join(rand) : $"Discovery stock: {Join(rand)}  ·  disk not reported";
-        W("osdqrand", input.Background is { } bg ? $"{BackgroundWords(bg)}{(input.Random.Count == 0 ? "" : input.RandomKnown ? $"  ·  stock on disk {input.Random.Sum(q => q.Ready)} of {input.Random.Sum(q => q.Total)}" : "")}"
+        var lanes = input.Stock.Select(q => $"{LaneName(q.Name)} {(input.StockKnown ? $"{q.Ready}/{q.Total}" : $"{q.Total}")}").ToArray();
+        var stock = input.Stock.Count == 0 ? "" : input.StockKnown ? "Stock on disk for the ballots: " + Join(lanes) : $"Discovery stock: {Join(lanes)}  ·  disk not reported";
+        W("osdqrand", input.Background is { } bg ? $"{BackgroundWords(bg)}{(input.Stock.Count == 0 ? "" : input.StockKnown ? $"  ·  stock on disk {input.Stock.Sum(q => q.Ready)} of {input.Stock.Sum(q => q.Total)}" : "")}"
             : stock); // the contents before v4.6.0: the background download folded into the stock's line
         W("osdqstock", stock);                                                                  // from v4.6.0: the stock's line...
         W("osdqbg", input.Background is { } running ? BackgroundWords(running) : "");             // ...and the background download on a row of its own
@@ -226,7 +226,7 @@ static class SyncWords
     }
 
     /// <summary>A stock lane's name as a player reads it: its mode's.</summary>
-    public static string RandomName(string lane) => ModeName(lane) is { Length: > 0 } name ? name : lane;
+    public static string LaneName(string lane) => ModeName(lane) is { Length: > 0 } name ? name : lane;
 
     /// <summary>The background download in words: "Background download: Lake Aim, 63%" - its title, else its Workshop id.</summary>
     public static string BackgroundWords(Program.Download d) =>
@@ -253,15 +253,15 @@ static class SyncWords
             foreach (var (name, on) in dash.Classes.Where(c => !c.Key.StartsWith("osdp", StringComparison.Ordinal))) w.WriteBoolean(name[HudDash.Prefix.Length..], on);
             w.WriteEndObject();
             w.WriteStartObject("random");
-            w.WriteBoolean("known", input.RandomKnown);
-            if (input.RandomAt != default) w.WriteNumber("reportAt", (long)(input.RandomAt - DateTime.UnixEpoch).TotalSeconds);
-            w.WriteNumber("length", input.RandomLength);
+            w.WriteBoolean("known", input.StockKnown);
+            if (input.ReportAt != default) w.WriteNumber("reportAt", (long)(input.ReportAt - DateTime.UnixEpoch).TotalSeconds);
+            w.WriteNumber("length", input.StockLength);
             w.WriteStartArray("queues");
-            foreach (var q in input.Random)
+            foreach (var q in input.Stock)
             {
                 w.WriteStartObject();
                 w.WriteString("name", q.Name);
-                w.WriteString("label", RandomName(q.Name));
+                w.WriteString("label", LaneName(q.Name));
                 w.WriteNumber("ready", q.Ready);
                 w.WriteNumber("total", q.Total);
                 w.WriteStartArray("maps");

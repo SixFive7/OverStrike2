@@ -35,7 +35,7 @@ static partial class Program
         const long updated = 1793725560; // a Tuesday, six minutes past five in the afternoon, UTC
         var now = DateTime.UnixEpoch.AddSeconds(updated + 30);
         var zone = TimeZoneInfo.Utc;
-        List<SyncWords.RandomQueue> rq = [new(Modes.ArmsRaceId, 7, 10, [new("3900000001", "stock_one", true, "upload,newtous"), new("3900000002", "stock_two", false, "newtous")]),
+        List<SyncWords.StockLane> rq = [new(Modes.ArmsRaceId, 7, 10, [new("3900000001", "stock_one", true, "upload,newtous"), new("3900000002", "stock_two", false, "newtous")]),
             new(Modes.DeathmatchId, 10, 10), new(Modes.WingmanId, 9, 10)];
         string FakeTags(string id) => id == "3800000001" ? "liked,trending" : id == "3900000003" ? "upload,newtous" : "";
         SyncWords.Input In(string? json, DateTime at, string problem = "", bool known = true, Download? background = null) =>

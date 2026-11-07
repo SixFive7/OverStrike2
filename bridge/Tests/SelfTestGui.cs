@@ -170,10 +170,10 @@ static partial class Program
         if (Maps.FirstOrDefault(m => !m.Official) is not { } listedGone) Console.WriteLine("skip the catalog's refusals: no maps loaded");
         else
         {
-            var (packs, blocked, removed) = (Packs, Blocked, Removed);
+            var (nonMaps, blocked, removed) = (NonMaps, Blocked, Removed);
             try
             {
-                Packs = new Dictionary<string, string> { ["3369214545"] = "CS2 Aim Map" };
+                NonMaps = new Dictionary<string, string> { ["3369214545"] = "CS2 Aim Map" };
                 Blocked = new() { ["3076804331"] = ("glassbox", "glassboxfinal", "kicked every player off the server (2026-10-20)"), ["123456789"] = ("x", "", "is on the blocked list") };
                 Removed = new Dictionary<string, string> { ["987654321"] = Workshop.Removed, [listedGone.Id.ToString()] = Workshop.Removed };
                 var built = BuildCatalog();
@@ -182,7 +182,7 @@ static partial class Program
                     && built.Refused[123456789].Why == "is on the blocked list" && built.Refused[987654321].Why.EndsWith("Nobody can download it")
                     && !built.Refused.ContainsKey(listedGone.Id) && built.Maps.Single(m => m.Id == listedGone.Id).Removed);
             }
-            finally { (Packs, Blocked, Removed) = (packs, blocked, removed); }
+            finally { (NonMaps, Blocked, Removed) = (nonMaps, blocked, removed); }
         }
 
         // ---- the live state's new lines: the news, the notes, the previous map, the search index's version ----

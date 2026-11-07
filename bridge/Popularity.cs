@@ -208,19 +208,19 @@ static partial class Program
         public readonly HashSet<string> All = new(), Sure = new();                                           // kept; kept and counting as on the disk
     }
 
-    readonly record struct KeptKey(ListsKey Lists, object Broken, int BrokenCount, object Packs, int PacksCount, object Removed, int RemovedCount, object Blocked,
-        int BlockedCount, State S, int Crashes, int PlayerCrashes, object Votes, long Catalog);
+    readonly record struct KeptKey(ListsKey Lists, object Broken, int BrokenCount, object NonMaps, int PacksCount, object Removed, int RemovedCount, object Blocked,
+        int BlockedCount, State S, int Crashes, int PlayerCrashes, object Likes, long Catalog);
 
     static KeptKey? keptFor;
     static KeptMaps kept = new();
 
     static KeptMaps Kept()
     {
-        var now = new KeptKey(ListsNow(), Broken, Broken.Count, Packs, Packs.Count, Removed, Removed.Count, Blocked, Blocked.Count, S, S.Crashes.Count, S.PlayerCrashes.Count, Votes, CatalogVersion);
+        var now = new KeptKey(ListsNow(), Broken, Broken.Count, NonMaps, NonMaps.Count, Removed, Removed.Count, Blocked, Blocked.Count, S, S.Crashes.Count, S.PlayerCrashes.Count, Likes, CatalogVersion);
         if (keptFor == now) return kept;
         keptFor = now;
         var k = new KeptMaps();
-        foreach (var key in Votes.Where(v => v.Value.Values.Any(x => x > 0)).Select(v => v.Key)) { k.All.Add(key); k.Sure.Add(key); } // liked: every map with an up vote
+        foreach (var key in Likes.Where(v => v.Value.Values.Any(x => x > 0)).Select(v => v.Key)) { k.All.Add(key); k.Sure.Add(key); } // liked: every map with an up vote
         foreach (var id in Ours) { k.All.Add(id.ToString()); k.Sure.Add(id.ToString()); }
         if (RatingsKnown)
             foreach (var mode in Modes.All)

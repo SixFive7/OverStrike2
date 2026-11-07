@@ -678,12 +678,12 @@ static partial class Program
             Land();
             Check("After it lands the bridge reads the mode, finds Arms Race, and loads the map once more in Deathmatch",
                 h.Sent.Contains("game_type") && h.Sent.Contains("os_mode deathmatch;game_type 1;game_mode 2") && h.Sent.IndexOf($"changelevel {dmo.Name}") == h.Sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1
-                && AnnouncePending && h.Said($"{Label(dmo)} loads once more, in Deathmatch") && ModeReloads == 1);
+                && LoadPending && h.Said($"{Label(dmo)} loads once more, in Deathmatch") && ModeReloads == 1);
             Check("...official to official, so this time nothing is restored: the server is in Deathmatch", (gameType, gameMode) == (1, 2));
             h.Sent.Clear(); h.Run(1); // an empty server loads an official map again within seconds (3 s, live on 2026-11-01)
             h.Line($"Loading map \"{dmo.Name}\""); h.Line("Started:  \"\"");
             h.Run(2);
-            Check("The second load lands, the mode is right, and nothing loads a third time", !AnnouncePending && S.Map == dmo && h.Sent.Contains("game_type") && !h.Sent.Any(c => c.StartsWith("changelevel")));
+            Check("The second load lands, the mode is right, and nothing loads a third time", !LoadPending && S.Map == dmo && h.Sent.Contains("game_type") && !h.Sent.Any(c => c.StartsWith("changelevel")));
             Check("...and it is still the vote's map", S.PickedBy == "the vote");
 
             // ---- the same with the plugin on, as on the live server: its block has the told values back in the convars before the bridge asks,
@@ -706,12 +706,12 @@ static partial class Program
             Land();
             Check($"...the plugin's reply alone has it load once more in Deathmatch ({string.Join(" | ", h.Sent)})",
                 h.Sent.Contains("os_mode deathmatch") && h.Sent.IndexOf($"changelevel {dmp.Name}") == h.Sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1 && h.Sent.Contains($"changelevel {dmp.Name}")
-                && AnnouncePending && h.Said($"{Label(dmp)} loads once more, in Deathmatch") && ModeReloads == 1 && S.Mode == "deathmatch");
+                && LoadPending && h.Said($"{Label(dmp)} loads once more, in Deathmatch") && ModeReloads == 1 && S.Mode == "deathmatch");
             h.Sent.Clear(); h.Run(1);
             h.Line($"Loading map \"{dmp.Name}\""); h.Line("Started:  \"\"");
             h.Run(2);
             Check("...the second load is in Deathmatch: the plugin says on already, and nothing loads a third time",
-                fakeLoaded == Modes.Deathmatch && !AnnouncePending && S.Map == dmp && h.Sent.Contains("os_mode deathmatch") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 1);
+                fakeLoaded == Modes.Deathmatch && !LoadPending && S.Map == dmp && h.Sent.Contains("os_mode deathmatch") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 1);
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Settle(); h.MatchEnd();
             var wgn = OptOf(o => o.Mode == Modes.Wingman);
@@ -721,13 +721,13 @@ static partial class Program
             h.Sent.Clear();
             Land();
             Check("Official to official in another mode restores nothing: the plugin says on already, and it loads once",
-                wgm.Official && fakeLoaded == Modes.Wingman && S.Mode == "wingman" && S.Map == wgm && h.Sent.Contains("os_mode wingman") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 0 && !AnnouncePending);
+                wgm.Official && fakeLoaded == Modes.Wingman && S.Mode == "wingman" && S.Map == wgm && h.Sent.Contains("os_mode wingman") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 0 && !LoadPending);
             Fresh();
             fakePlugin = true; fakeLoadsAs = Modes.Deathmatch;
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[2]); Land();
             Check("A Workshop map the plugin says came up in another mode is left as it is: one load, and the mode as told",
-                h.Sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !AnnouncePending);
+                h.Sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !LoadPending);
 
             // ---- the defaults: Arms Race after a restart, and after 10 minutes with nobody on ----
             Fresh();
@@ -762,7 +762,7 @@ static partial class Program
             var wOpt = OptOf(o => o.Mode == Modes.Wingman);
             Click(alice, wOpt); Click(bob, wOpt); Click(cara, wOpt);
             h.Run(ChangeDelay);
-            Check("A Wingman change goes out", S.Mode == "wingman" && (gameType, gameMode) == (0, 2) && AnnouncePending);
+            Check("A Wingman change goes out", S.Mode == "wingman" && (gameType, gameMode) == (0, 2) && LoadPending);
             h.Sent.Clear(); h.Run(600);
             Check("...and never logs its map start: after the load timeout the server is told Arms Race again",
                 S.Mode == "armsrace" && h.Sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && (gameType, gameMode) == (1, 0));
@@ -831,9 +831,9 @@ static partial class Program
             var neutral = Math.Pow(2, PopularityPoints * NeutralPopularity);
             Check($"Deathmatch's dice: Valve's official maps count as {OfficialPopularity} popular, a Workshop map without ratings as {NeutralPopularity}; 30000 rolls land within 15% of every share (worst {worst:P1})",
                 pool.Where(x => x.Official).All(x => Math.Abs(Weight(x) - official) < 1e-9) && pool.Where(x => !x.Official).All(x => Math.Abs(Weight(x) - neutral) < 1e-9) && worst < 0.15);
-            Votes[Key(pool.First(x => x.Name == "dm_two"))] = new() { [alice.Item2] = 1, [bob.Item2] = 1 };
+            Likes[Key(pool.First(x => x.Name == "dm_two"))] = new() { [alice.Item2] = 1, [bob.Item2] = 1 };
             Check("...and the votes count there as everywhere: two upvotes, four times the odds", Math.Abs(Weight(pool.First(x => x.Name == "dm_two")) - 4 * neutral) < 1e-9);
-            S.Crashes["de_dust2"] = 1; Broken["de_mirage"] = 3; Votes["de_inferno"] = new() { [alice.Item2] = AdsVote };
+            S.Crashes["de_dust2"] = 1; Broken["de_mirage"] = 3; Likes["de_inferno"] = new() { [alice.Item2] = AdsVote };
             Blocked["3070000001"] = ("dm_one", "dm_one", "test"); S.Map = pool.First(x => x.Name == "de_nuke");
             var never = new[] { "de_dust2", "de_mirage", "de_inferno", "3070000001", "de_nuke" };
             Check("...and the exclusions too: never a crasher, a broken or blocked map, one marked Ads, nor the map that is on",

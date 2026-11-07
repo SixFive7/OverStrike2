@@ -72,8 +72,8 @@ static partial class Program
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
         else if (cmd == "!next") StartVote(name, steamId, arg == "random"); // VoteRound.cs: Start a vote; "!next random" is !random's
         else if (cmd == "!previous") Previous(name, steamId);
-        else if (cmd == "!up") Vote(name, steamId, arg, +1);
-        else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Vote(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Likes.cs: with its reason, if it names one
+        else if (cmd == "!up") Like(name, steamId, arg, +1);
+        else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Like(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Likes.cs: with its reason, if it names one
         else if (cmd == "!newmaps") NewMapsGone(name, steamId);           // NewMapsGone: the setting is gone; an older content's buttons hear so
         else if (cmd == MapVote.Verb) CastBallot(name, steamId, arg);    // VoteRound.cs: a vote on the ballot (a click only)
         else if (cmd == MapVote.BusyVerb) VoteBusy(name, steamId, arg);  // VoteRound.cs: the map browser at work during the vote: the inactivity timer starts again

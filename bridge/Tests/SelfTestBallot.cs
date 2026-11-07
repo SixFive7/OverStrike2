@@ -93,11 +93,11 @@ static partial class Program
 
             // ---- the points: popularity, likes, dislikes, and the step back of a card shown ----
             var w0 = Weight(Ar(50));
-            Votes[Key(Ar(50))] = new() { ["[U:1:1]"] = 1 };
+            Likes[Key(Ar(50))] = new() { ["[U:1:1]"] = 1 };
             var liked = Weight(Ar(50));
-            Votes[Key(Ar(50))] = new() { ["[U:1:1]"] = DownReasons.Plain };
+            Likes[Key(Ar(50))] = new() { ["[U:1:1]"] = DownReasons.Plain };
             var disliked = Weight(Ar(50));
-            Votes = new();
+            Likes = new();
             Check($"The points: a like is a point (twice the odds), a dislike takes {DislikePoints} (a quarter)", Math.Abs(liked / w0 - 2) < 1e-9 && Math.Abs(disliked / w0 - 0.25) < 1e-9);
             var now = Unix(h.Clock);
             S.Shown[Key(Ar(50))] = [now];
@@ -122,9 +122,9 @@ static partial class Program
             S.Crashes[Key(Ar(3))] = 1;
             Check("...a map with a crash on record leaves the lists, and the next one moves up - as the keep set does it", !IsKept(Ar(3)) && IsKept(Ar(101)));
             S.Crashes.Clear();
-            Votes[Key(Ar(390))] = new() { ["[U:1:1]"] = 1, ["[U:1:2]"] = -1 }; Ours = [Ar(391).Id];
+            Likes[Key(Ar(390))] = new() { ["[U:1:1]"] = 1, ["[U:1:2]"] = -1 }; Ours = [Ar(391).Id];
             Check("...every map with a like is kept, however many dislikes it has, and every map of ours", IsKept(Ar(390)) && IsKept(Ar(391)) && KeptOnDisk(Ar(390)) && KeptOnDisk(Ar(391)));
-            Votes = new(); Ours = new();
+            Likes = new(); Ours = new();
 
             // ---- the tags ----
             Check("The tags' table: ids unique and plain, chips of 12 characters at most in upper case, every colour #RRGGBB, every family known; in precedence order - the vote's state, a caution, then why",
@@ -135,13 +135,13 @@ static partial class Program
             Check("...the wire: known ids only, each once, in precedence order; the first why tag in words, a player's pick left out where the line names the player; two chips a card",
                 MapTags.Join(["newtous", "zzz", "big", "liked", "big"]) == "big,liked,newtous" && MapTags.Clean("trending, liked;x") == "trending" && MapTags.FirstWhy("big,picked,liked")?.Id == "picked"
                 && MapTags.WhyWords("big,picked,liked", picked: false) == "liked by us" && MapTags.WhyWords("big,ads") == "" && MapTags.Chips("big,liked,trending").Select(t => t.Id).SequenceEqual(["big", "liked"]));
-            Sizes[Key(Ar(1))] = new SizeEntry(20000, "XL"); Votes[Key(Ar(1))] = new() { ["[U:1:1]"] = 1 };
+            Sizes[Key(Ar(1))] = new SizeEntry(20000, "XL"); Likes[Key(Ar(1))] = new() { ["[U:1:1]"] = 1 };
             Check("A map's tags: too big, liked, the Workshop's three lists, new to us - in that order; a recent upload, a tested recent update; officials are no discovery",
                 TagsOf(Ar(1)) == "big,liked,trending,toprated,popular,newtous" && TagsOf(Ar(5)).StartsWith("upload,") && TagsOf(Ar(7)).StartsWith("updated,") && TagsOf(Ar(310)) == "upload,newtous"
                 && TagsOf(Ar(400)) == "newtous" && TagsOf(PoolOf(Modes.Deathmatch).First(m => m.Official)) == "" && TagsOf(Ar(400), picked: true) == "picked,newtous");
-            Votes[Key(Ar(1))]["[U:1:2]"] = -1; Votes[Key(Ar(1))]["[U:1:3]"] = AdsVote;
+            Likes[Key(Ar(1))]["[U:1:2]"] = -1; Likes[Key(Ar(1))]["[U:1:3]"] = AdsVote;
             Check("...liked only with more likes than dislikes; an ads mark is a caution", TagsOf(Ar(1)) == "big,ads,trending,toprated,popular,newtous");
-            Sizes = new(); Votes = new();
+            Sizes = new(); Likes = new();
             WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(h.Clock.AddDays(-9)) }; NumbersStamp++;
             Check("...a recent update the sync has not tested is no UPDATED (and the map is not on the disk at its current version)", !TagsOf(Ar(7)).Contains("updated") && !KeptOnDisk(Ar(7)));
             WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(h.Clock.AddDays(-5)) }; NumbersStamp++;
@@ -360,20 +360,20 @@ static partial class Program
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
             h.Run(ChangeDelay);
-            Check("A change goes out while a background download runs: the hold keeps the watcher from starting another meanwhile", AnnouncePending && ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t45\tA long title\n").EndsWith("; hold: a map is loading"));
+            Check("A change goes out while a background download runs: the hold keeps the watcher from starting another meanwhile", LoadPending && ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t45\tA long title\n").EndsWith("; hold: a map is loading"));
             for (var t = 0; t < LoadMinutes * 60 + 30; t += 60) { h.Run(60); ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t50\tA long title\n"); }
-            Check($"...its load is not given up after {LoadMinutes} minutes when the watcher reported a background download it may wait behind", AnnouncePending);
+            Check($"...its load is not given up after {LoadMinutes} minutes when the watcher reported a background download it may wait behind", LoadPending);
             ApplyReady("gg-ready\t1\n");
             h.Run((LoadBehindDownloadMinutes - LoadMinutes - 3) * 60);
-            Check($"...nor once that download is over: the map's own download follows it - up to {LoadBehindDownloadMinutes} minutes after the change went out", AnnouncePending);
+            Check($"...nor once that download is over: the map's own download follows it - up to {LoadBehindDownloadMinutes} minutes after the change went out", LoadPending);
             h.Run(4 * 60);
-            Check("...then a load that still has not come is given up, as ever", !AnnouncePending);
+            Check("...then a load that still has not come is given up, as ever", !LoadPending);
             Fresh();
             foreach (var p in players.Take(2)) h.Join(p);
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
             h.Run(ChangeDelay + LoadMinutes * 60 + 5);
-            Check($"Without a background download a load that never comes is given up after {LoadMinutes} minutes, as before", !AnnouncePending);
+            Check($"Without a background download a load that never comes is given up after {LoadMinutes} minutes, as before", !LoadPending);
 
             // ---- the words: How it works and Help say what the code does ----
             var how = string.Join(" ", Hud.How.SelectMany(r => r.Lines.Prepend(r.Title)));
@@ -416,11 +416,11 @@ static partial class Program
             OpenBallot(h.Clock, 2);
             var roundShown = LiveVote().Round;
             Ballot!.Options[1].N = Ballot.Options[0].N; // two cards under one number: counting the votes at the vote's end throws
-            QueueTickAt = h.Clock.AddSeconds(MapVote.Seconds); // the stock is due in the very tick the vote's limit is: a step after the vote's timer
+            StockTickAt = h.Clock.AddSeconds(MapVote.Seconds); // the stock is due in the very tick the vote's limit is: a step after the vote's timer
             h.Run(MapVote.Seconds);
             Check("A vote whose timer throws is dropped: nobody stays frozen", Ballot == null && !BuildVoteState(h.Clock).Freeze);
             Check("...and the rest of that tick ran: the stock is looked at after the vote's timer, and the live state says no vote is on",
-                roundShown > 0 && QueueTickAt > h.Clock && LiveVote().Round == 0);
+                roundShown > 0 && StockTickAt > h.Clock && LiveVote().Round == 0);
 
             Fresh();
             h.Join(players[0]); h.Join(players[1]);
@@ -436,7 +436,7 @@ static partial class Program
             // ---- the board's Most liked names a map of any mode ----
             Fresh();
             var likedElsewhere = ModeMaps[Modes.DeathmatchId][0];
-            Votes[Key(likedElsewhere)] = new() { [players[0].Item2] = 1 };
+            Likes[Key(likedElsewhere)] = new() { [players[0].Item2] = 1 };
             Check("Most liked names a map only Deathmatch or Wingman lists by its name, not as \"workshop <id>\"", TopRows() is [{ Map: { Name: "dm_1" } }]);
 
             // ---- a plugin on a quiet server: its long poll counts when it arrives, and the bridge then holds it up to Hud.LongPollSeconds ----

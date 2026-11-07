@@ -22,16 +22,16 @@ static partial class Program
     // ---- runtime state (only touched from the event-loop thread) ----
     static List<MapInfo> Maps = new();
     static Dictionary<string, int> Broken = new(); // crash key -> how many test loads crashed, from BROKEN_FILE; empty switches the warning off
-    static Dictionary<string, string> Packs = new(); // workshop id -> name of every item with no playable map in it (skin, config and sound packs, empty uploads), from BROKEN_FILE's "packs"; empty switches the refusal off
+    static Dictionary<string, string> NonMaps = new(); // workshop id -> name of every item with no playable map in it (skin, config and sound packs, empty uploads), from BROKEN_FILE's "packs"; empty switches the refusal off
     static State S = new();
     static Rcon Rc = null!;
     static Func<string, string?> Send = command => Rc.Exec(command); // the one door to the game server: every RCON command goes through it (--selftest records instead)
     static readonly BlockingCollection<Action> Loop = new();
     static readonly List<IDisposable> Signals = new();
     static Change? Pending;                         // a map change counting down CHANGE_DELAY_SECONDS
-    static bool AnnouncePending;                   // a change was sent and its map-start line is still to come
-    static DateTime AnnounceDeadline;              // ...and when the bridge gives up waiting for it
-    static DateTime AnnounceSentAt;                // ...and when it was sent (a load behind a background download waits longer: MapChange.cs)
+    static bool LoadPending;                       // a change was sent and its map-start line is still to come
+    static DateTime LoadUntil;                     // ...and when the bridge gives up waiting for it
+    static DateTime LoadSentAt;                    // ...and when it was sent (a load behind a background download waits longer: MapChange.cs)
     static bool LoadBehindDownload;                // ...and whether the restart watcher reported a background download during it
     static readonly Dictionary<string, (string Key, DateTime Until)> PickConfirms = new(); // SteamID -> the risky map it clicked once, and until when the second click counts
     static DateTime MatchEndUntil;                 // debounce: one match end is one decision, however many lines the server logs for it
@@ -58,7 +58,7 @@ static partial class Program
         var statePath = Path.Combine(StateDir, "state.json");
         if (File.Exists(statePath)) S = JsonSerializer.Deserialize(File.ReadAllText(statePath), Ctx.Default.State) ?? new();
         ExpireMarks();                              // CrashWatch.cs: marks whose maps got a Workshop update while the bridge was down
-        LoadVotes();
+        LoadLikes();
         ModeProbing = true;                         // ModeSwitch.cs: ask the server which mode it is in, once RCON answers
         Rc = new Rcon(RconHost, RconPort, RconPassword);
         foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT })
@@ -66,13 +66,13 @@ static partial class Program
         // A clean quit is the server's, seen by this bridge - never the bridge's own stop, which would let the first crash after a bridge-only
         // restart pass for a quit; the crash watch reads the running process at start instead.
         S.CleanShutdown = false;
-        FillStock();                                // RandomQueue.cs: the discovery stock rolled ahead, so the watcher fetches it in the background
+        FillStock();                                // Stock.cs: the discovery stock rolled ahead, so the watcher fetches it in the background
         BridgeStart();
         After(SpawnBaselineDelayMs, SpawnBaseline); // CrashWatch.cs
         WatchStart(DataFiles());                    // Reload.cs: maps.json, broken.json, removed.json and search.json are read again when they change
         StartHttp();
         Clock = new Timer(_ => Post(Tick), null, 1000, 1000);
-        Log($"listening on port {HttpPort}, rcon {RconHost}:{RconPort}, {Maps.Count} maps + {Officials.Count} official, {Broken.Count} broken, {Packs.Count} non-maps, {Removed.Count} gone from the Workshop, {Blocked.Count} blocked, {Votes.Count} maps with votes, state {statePath}");
+        Log($"listening on port {HttpPort}, rcon {RconHost}:{RconPort}, {Maps.Count} maps + {Officials.Count} official, {Broken.Count} broken, {NonMaps.Count} non-maps, {Removed.Count} gone from the Workshop, {Blocked.Count} blocked, {Likes.Count} maps liked or disliked, state {statePath}");
         InMaintenance();
         foreach (var work in Loop.GetConsumingEnumerable())
         {
@@ -128,7 +128,7 @@ static partial class Program
         Step("the mode's probe", () => ProbeModeIfDue(now));         // ModeSwitch.cs: which mode the server is in, when the bridge does not know
         BallotTick(now);                                             // VoteRound.cs: the vote's timer, and voters who left; it never throws
         Step("the start roll", () => TryStartRoll(now));
-        Step("the stock", () => QueueTick(now));                     // RandomQueue.cs: the stock checked and topped up, queues.json refreshed
+        Step("the stock", () => StockTick(now));                     // Stock.cs: the stock checked and topped up, queues.json refreshed
         Step("a restart's notice", () => RestartTick(now));          // Restarts.cs: a restart's notice that has run out
         Step("the data files", WatchTick);                           // Reload.cs
         Step("the sync's status", () => SyncTick(now));              // SyncDash.cs: the sync's status file, the Sync page's block and the website's files

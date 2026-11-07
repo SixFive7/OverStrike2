@@ -38,10 +38,10 @@ static partial class Program
         }
         GoingDownAt = now;
         BeforeQuit = new(S.Map, S.PickedBy, S.LogName, S.Mode, ModeBeforeChange, RestartDue, StartRollOwed, StartRollNeedsProof, StartMapAt);
-        if ((Pending?.Map ?? (AnnouncePending ? S.Map : null)) is { } gone) Log($"restart: the change to {Label(gone)} dies with the old process");
+        if ((Pending?.Map ?? (LoadPending ? S.Map : null)) is { } gone) Log($"restart: the change to {Label(gone)} dies with the old process");
         Log($"restart: the server is quitting ({source}) - a clean quit; the start roll is owed once its start map has loaded");
         S.CleanShutdown = true;
-        Pending = null; AnnouncePending = false;
+        Pending = null; LoadPending = false;
         S.Map = null; S.PickedBy = null; S.LogName = null; // the restarted server will be on its start map
         EndBallot("the server is restarting"); ModeAtServerStart(); // VoteRound.cs, ModeSwitch.cs: it boots in Arms Race
         RestartGoing(); // Restarts.cs: a restart announced is happening
@@ -99,14 +99,14 @@ static partial class Program
         LastNamedMapStart = now;
         EndBallot("a map started during the vote"); // VoteRound.cs: an open vote is over; a decided one has landed
         var start = logName.Equals(StartMap, StringComparison.OrdinalIgnoreCase);
-        var underChange = AnnouncePending || Pending != null;
-        var ours = AnnouncePending && now < AnnounceDeadline && S.Map != null && !(start && !IsStartMap(S.Map));
+        var underChange = LoadPending || Pending != null;
+        var ours = LoadPending && now < LoadUntil && S.Map != null && !(start && !IsStartMap(S.Map));
         var restarted = !ours && start && underChange;
         if (restarted)
         {
             var gone = Pending?.Map ?? S.Map;
             Log($"restart: the server came up on {StartMap} instead of {(gone != null ? Label(gone) : "?")} - that change died with the old process");
-            Pending = null; AnnouncePending = false;
+            Pending = null; LoadPending = false;
             S.LogName = null; // attribution starts over below
         }
         AllReloading(now); MatchEndUntil = default; RematchDue = null; // fresh map: everyone reconnects into it, and it has a match of its own
@@ -117,7 +117,7 @@ static partial class Program
         if (S.RoundMinutes != DefaultRoundMinutes && CurrentMode.ArmsRace) After(2000, ApplyMatchLength); // the mode cfg just reset mp_roundtime; put the chosen value back (Arms Race only)
         if (ours && S.Map != null) // the change we asked for has loaded (ours implies S.Map; repeated for the null analysis)
         {
-            AnnouncePending = false;
+            LoadPending = false;
             S.LogName = logName;
             Remember(S.Map); // the HUD's now-playing card says what is on, at everybody's spawn
         }
@@ -160,7 +160,7 @@ static partial class Program
     static void TryStartRoll(DateTime now)
     {
         if (!StartRollOwed || StartMapAt == default || now < StartMapAt.AddMilliseconds(StartRollDelayMs) || now < StartRollRetryAt) return;
-        if (InMaintenance() || Pending != null || AnnouncePending || Ballot != null) return;
+        if (InMaintenance() || Pending != null || LoadPending || Ballot != null) return;
         StartRollRetryAt = now.AddSeconds(10);
         if (Send("status") is not { } status) { Log("start: RCON not answering yet - start roll again in 10 s"); return; }
         var on = StatusMap(status);
@@ -187,7 +187,7 @@ static partial class Program
         MatchEndUntil = now.AddSeconds(30);
         if (RestartAtMatchEnd(now)) return; // Restarts.cs: a restart was waiting for this match's end - no vote, the server goes down
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }
-        if (AnnouncePending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
+        if (LoadPending) { Log("match end: the next map is still loading - that was the old map's match"); return; }
         if (Ballot is { Open: true } running)
         {
             if (!running.MatchEnded) { running.MatchEnded = true; Log("match end: the vote that is open decides as a match end's from now (Play this map again; nobody voting is Random)"); }

@@ -419,7 +419,7 @@ finally:
     os2.clean_tree = saved_clean
 names = set(tarfile.open(fileobj=io.BytesIO(ctx)).getnames())
 check("bridge context: bridge/ and core/ at their own paths, the Dockerfile at bridge/Dockerfile, no bin/obj and no core self-test",
-      {"bridge/Dockerfile", "bridge/GunGameBridge.csproj", "bridge/maps.json", "core/OverStrike2.Core.csproj", "core/Settings.cs"} <= names
+      {"bridge/Dockerfile", "bridge/OverStrike2.Bridge.csproj", "bridge/maps.json", "core/OverStrike2.Core.csproj", "core/Settings.cs"} <= names
       and not [n for n in names if n.startswith("core/SelfTest") or "/bin/" in n or "/obj/" in n] and B.DOCKERFILE == "bridge/Dockerfile")
 bridge_df = open(os.path.join(os2.REPO, "bridge", "Dockerfile"), encoding="utf-8").read()
 sources = [s.rstrip("/") for line in re.findall(r"^COPY (?!--from)(.+)$", bridge_df, re.M) for s in line.split()[:-1]]

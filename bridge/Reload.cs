@@ -110,7 +110,7 @@ static partial class Program
         TakeBrokenLists(lists);
         CatalogVersion++;
         var acted = AfterListChange(before);
-        return $"broken list: {lists.Broken.Count} crashers, {lists.Packs.Count} non-maps, {lists.Blocked.Count} blocked from {path}{acted}";
+        return $"broken list: {lists.Broken.Count} crashers, {lists.NonMaps.Count} non-maps, {lists.Blocked.Count} blocked from {path}{acted}";
     }
 
     /// <summary>/data/removed.json again, when something other than the bridge changed it.</summary>
@@ -120,15 +120,15 @@ static partial class Program
         try { file = File.Exists(RemovedPath) ? JsonSerializer.Deserialize(File.ReadAllText(RemovedPath), Ctx.Default.RemovedFile) ?? new() : new(); }
         catch (Exception e) { return $"removed list: {RemovedPath} unreadable ({Clip(e.Message, 120)}) - kept the verdicts loaded"; }
         var before = Unplayables();
-        Checked = file;
+        WorkshopCheck = file;
         RecomputeRemoved();
         CatalogVersion++;
         var acted = AfterListChange(before);
-        return $"removed list: {Checked.Verdicts.Count} verdict(s) from {RemovedPath}, {Removed.Count} map(s) gone from the Workshop{acted}";
+        return $"removed list: {WorkshopCheck.Verdicts.Count} verdict(s) from {RemovedPath}, {Removed.Count} map(s) gone from the Workshop{acted}";
     }
 
     /// <summary>The Workshop ids no player can play now: gone from the Workshop, blocked, or no map (a pack).</summary>
-    static HashSet<string> Unplayables() => Removed.Keys.Concat(Blocked.Keys).Concat(Packs.Keys).ToHashSet();
+    static HashSet<string> Unplayables() => Removed.Keys.Concat(Blocked.Keys).Concat(NonMaps.Keys).ToHashSet();
 
     /// <summary>What changes at once when a list moved: every map that has just become unplayable - gone, blocked or found to be no map - leaves an
     /// open ballot and stops a countdown, and the map that is on, if it has just gone from the Workshop, makes way for the dice (Removed.cs,

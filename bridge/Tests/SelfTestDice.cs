@@ -1,10 +1,10 @@
 // --selftest, the random-pick rules (Sizes.cs, Dice.cs): the too-big maps and the 1% rule, the too-big vote, the ads vote, a dislike's reasons and its
-// popup, sizes.json, the retired new-maps setting's buttons, and the reset once nobody has been on for 10 minutes. Runs in the queue's harness
-// (SelfTestQueue.cs): its handed clock, its recorded RCON, its log lines.
+// popup, sizes.json, the retired new-maps setting's buttons, and the reset once nobody has been on for 10 minutes. Runs in the evening's harness
+// (SelfTestEvening.cs): its handed clock, its recorded RCON, its log lines.
 
 static partial class Program
 {
-    static void SelectionSelfTest(Action<string, bool> Check, Harness h, Action Fresh)
+    static void DiceSelfTest(Action<string, bool> Check, Harness h, Action Fresh)
     {
         var (alice, bob) = (("Alice", "[U:1:1001]"), ("Bob", "[U:1:1002]"));
         var realMaps = Maps;
@@ -62,7 +62,7 @@ static partial class Program
         Sizes = Maps.ToDictionary(Key, _ => new SizeEntry(20000, "XL"));
         Check("Every eligible map too big: the too-big group rolls every time (the other group is empty)", Rolls(500).All(TooBig));
         S.Crashes[Key(Maps[4])] = 1;
-        Votes = new() { [Key(Maps[5])] = new() { ["[U:1:1]"] = 1 } };
+        Likes = new() { [Key(Maps[5])] = new() { ["[U:1:1]"] = 1 } };
         var allBig = Rolls(30000);
         Check("...without its exclusions lifted: a crashed too-big map is never rolled", allBig.All(x => Key(x) != Key(Maps[4])));
         var counts = allBig.GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count() / 30000.0);
@@ -71,18 +71,18 @@ static partial class Program
         Check($"...nor its weights changed: within the group every map within 15% of its share, the liked one twice as likely (worst {worst:P1})", worst < 0.15);
         S.History = Maps.Take(10).ToList();
         Check("...nor the recent rule: the last 10 maps played wait while others are left in the group", Rolls(1000).All(x => !S.History.Contains(x)));
-        S = new State(); Votes = new();
+        S = new State(); Likes = new();
         Sizes = new();
-        Votes = new() { [Key(Maps[12])] = new() { ["[U:1:5]"] = TooBigVote } };
+        Likes = new() { [Key(Maps[12])] = new() { ["[U:1:5]"] = TooBigVote } };
         Check("A too-big vote marks a map too big, and counts as a downvote everywhere a vote counts",
             TooBig(Maps[12]) && TooBigVotes(Key(Maps[12])) == 1 && Tally(Key(Maps[12])) == (0, 1) && Math.Abs(Weight(Maps[12]) / Weight(Maps[11]) - 0.25) < 0.01);
         var votedShare = Rolls(60000).Count(x => x == Maps[12]) / 60000.0;
         Check($"...so it comes up in about 1 random pick in 100 ({votedShare:P2} of 60000), not 1 in 24", votedShare is > 0.0075 and < 0.0125);
-        Votes = new(); S = new State();
+        Likes = new(); S = new State();
 
         // ---- an ads vote: the map is never a random pick, whatever the list or the group ----
         var marked = Maps[4];
-        Votes = new() { [Key(marked)] = new() { ["[U:1:5]"] = AdsVote } };
+        Likes = new() { [Key(marked)] = new() { ["[U:1:5]"] = AdsVote } };
         var adsRolls = Rolls(5000);
         Check($"A map with an ads vote is never a random pick: 5000 rolls over the {Maps.Count} maps, every other one came up, that one never",
             adsRolls.All(x => x != marked) && Maps.Where(x => x != marked).All(adsRolls.Contains));
@@ -92,9 +92,9 @@ static partial class Program
         Check("An ads vote counts as that player's dislike everywhere a vote counts, and does not make a map too big",
             Tally(Key(marked)) == (0, 1) && !TooBig(marked) && AdsVotes(Key(marked)) == 1 && TooBigVotes(Key(marked)) == 0);
         var adsWeight = Weight(marked);
-        Votes[Key(marked)]["[U:1:5]"] = -1;
+        Likes[Key(marked)]["[U:1:5]"] = -1;
         Check("...it weighs exactly like a plain dislike", Math.Abs(Weight(marked) - adsWeight) < 1e-12);
-        Votes = new(); S = new State();
+        Likes = new(); S = new State();
         Maps = realMaps;
 
         // ---- the too-big mark, from the board and the cards (!down big, !down <map> big; !toobig is gone) ----
@@ -102,27 +102,27 @@ static partial class Program
         h.Join(alice); h.Join(bob);
         var small = Maps.Where(x => x.SizeMb < 400).ToList(); // small maps: their notes stay short
         var on = small[30];
-        (S.Map, S.LogName, AnnouncePending) = (on, on.Name, false); // the map that is on
+        (S.Map, S.LogName, LoadPending) = (on, on.Name, false); // the map that is on
         h.Quiet(); h.Talk(alice, "!down big");
         Check("!down big marks the map that is on too big - that player's dislike - and the note says what it does",
-            Votes[Key(on)]["[U:1:1001]"] == TooBigVote && Tally(Key(on)) == (0, 1) && TooBig(on) && h.Said($"You marked {Label(on)} too big") && h.Said("1 time in 100"));
+            Likes[Key(on)]["[U:1:1001]"] == TooBigVote && Tally(Key(on)) == (0, 1) && TooBig(on) && h.Said($"You marked {Label(on)} too big") && h.Said("1 time in 100"));
         h.Quiet(); h.Talk(alice, "!down big");
-        Check("The same again changes nothing and says so", Votes[Key(on)]["[U:1:1001]"] == TooBigVote && TooBig(on) && h.Said("already: too big") && !h.Said("took back"));
-        int VoteOf(string key, string id) => Votes.TryGetValue(key, out var v) ? v.GetValueOrDefault(id) : 0;
+        Check("The same again changes nothing and says so", Likes[Key(on)]["[U:1:1001]"] == TooBigVote && TooBig(on) && h.Said("already: too big") && !h.Said("took back"));
+        int VoteOf(string key, string id) => Likes.TryGetValue(key, out var v) ? v.GetValueOrDefault(id) : 0;
         h.Quiet(); h.Talk(alice, "!up");
         Check("A Like takes the too-big vote back first, and the mark goes with it: no vote, nothing cast",
             VoteOf(Key(on), "[U:1:1001]") == 0 && !TooBig(on) && h.Said("Your dislike (too big) of") && h.Said("Like it again to add a like"));
         h.Quiet(); h.Talk(alice, "!up");
         Check("...the next Like casts it", VoteOf(Key(on), "[U:1:1001]") == 1 && h.Said("You liked"));
         h.Talk(bob, "!down"); h.Quiet(); h.Talk(bob, "!down big");
-        Check("A dislike turns into a too-big vote", Votes[Key(on)]["[U:1:1002]"] == TooBigVote && h.Said("changed your mark") && h.Said("to too big")
+        Check("A dislike turns into a too-big vote", Likes[Key(on)]["[U:1:1002]"] == TooBigVote && h.Said("changed your mark") && h.Said("to too big")
             && h.Said("(1 too big)"));
         h.Quiet(); h.Talk(bob, "!down");
-        Check("...a plain Dislike keeps that reason and says so", Votes[Key(on)]["[U:1:1002]"] == TooBigVote && h.Said("already: too big"));
+        Check("...a plain Dislike keeps that reason and says so", Likes[Key(on)]["[U:1:1002]"] == TooBigVote && h.Said("already: too big"));
         h.Talk(bob, "!down meh");
-        Check("...and !down meh puts it back to the plain one: still one vote per player per map", Votes[Key(on)]["[U:1:1002]"] == -1 && Votes[Key(on)].Count == 2 && !TooBig(on));
+        Check("...and !down meh puts it back to the plain one: still one vote per player per map", Likes[Key(on)]["[U:1:1002]"] == -1 && Likes[Key(on)].Count == 2 && !TooBig(on));
         h.Talk(bob, $"!down {small[40].Rank} big");
-        Check("!down <number> big marks any map's card", Votes[Key(small[40])]["[U:1:1002]"] == TooBigVote && TooBig(small[40]));
+        Check("!down <number> big marks any map's card", Likes[Key(small[40])]["[U:1:1002]"] == TooBigVote && TooBig(small[40]));
         var catalog = HudCatalog.Decode(BuildCatalog().Encode())!;
         var card = catalog.Maps.First(x => x.Key == Key(small[40]));
         Check("The menu's catalog carries the too-big mark and the vote as a too-big vote (-2)", card.TooBig && card.Big == 1 && card.Down == 1
@@ -136,24 +136,24 @@ static partial class Program
         Check("A click may send the too-big mark - and an older content's new-maps buttons their three words - and nothing like them that is free-form; !toobig is no click any more",
             new[] { "!down big", "!down 12 big", "!down ar_baggage big", "!newmaps always", "!newmaps half", "!newmaps never" }.All(Hud.IsAction)
             && new[] { "!toobig", "!toobig 12", "!down aim big", "!down 12 13 big", "!newmaps", "!newmaps sometimes", "!newmaps always; quit", "!newmaps ALWAYS" }.All(x => !Hud.IsAction(x)));
-        Votes = new();
+        Likes = new();
 
         // ---- the ads mark from the board and the cards (!down ads, !down <map> ads) ----
         Fresh();
         h.Join(alice); h.Join(bob);
         var adsOn = small[50];
-        (S.Map, S.LogName, AnnouncePending) = (adsOn, adsOn.Name, false);
+        (S.Map, S.LogName, LoadPending) = (adsOn, adsOn.Name, false);
         h.Quiet(); h.Talk(alice, "!down ads");
         Check("!down ads marks the map that is on as showing ads - that player's dislike - and the note says what it does",
-            Votes[Key(adsOn)]["[U:1:1001]"] == AdsVote && Tally(Key(adsOn)) == (0, 1) && AdsVotes(Key(adsOn)) == 1 && h.Said($"You marked {Label(adsOn)}: ads") && h.Said("never a random pick"));
+            Likes[Key(adsOn)]["[U:1:1001]"] == AdsVote && Tally(Key(adsOn)) == (0, 1) && AdsVotes(Key(adsOn)) == 1 && h.Said($"You marked {Label(adsOn)}: ads") && h.Said("never a random pick"));
         h.Quiet(); h.Talk(alice, "!down ads");
-        Check("The same again changes nothing and says so", Votes[Key(adsOn)]["[U:1:1001]"] == AdsVote && h.Said("already: ads") && !h.Said("took back"));
+        Check("The same again changes nothing and says so", Likes[Key(adsOn)]["[U:1:1001]"] == AdsVote && h.Said("already: ads") && !h.Said("took back"));
         h.Quiet(); h.Talk(alice, "!up");
         Check("A Like takes the ads vote back first, and its mark with it", VoteOf(Key(adsOn), "[U:1:1001]") == 0 && AdsVotes(Key(adsOn)) == 0 && h.Said("Your dislike (ads) of"));
         h.Talk(alice, "!up");
         Check("...the next Like casts it", VoteOf(Key(adsOn), "[U:1:1001]") == 1);
         h.Talk(bob, "!down big"); h.Quiet(); h.Talk(bob, "!down ads");
-        Check("A too-big vote turns into an ads vote: still one vote per player per map", Votes[Key(adsOn)]["[U:1:1002]"] == AdsVote && Votes[Key(adsOn)].Count == 2
+        Check("A too-big vote turns into an ads vote: still one vote per player per map", Likes[Key(adsOn)]["[U:1:1002]"] == AdsVote && Likes[Key(adsOn)].Count == 2
             && h.Said("changed your mark") && h.Said("to ads") && h.Said("(1 ads)"));
         h.Quiet(); h.Talk(alice, "!down big");
         Check("...a too-big vote on a liked map takes the like back first, and says how to mark it", VoteOf(Key(adsOn), "[U:1:1001]") == 0 && h.Said("!down big again to dislike it: too big"));
@@ -161,7 +161,7 @@ static partial class Program
         Check("...the next one casts it, and the tally names both kinds", h.Said("now +0 -2 (1 too big, 1 ads)"));
         var cardMap = small[60];
         h.Talk(bob, $"!down {cardMap.Rank} ads");
-        Check("!down <number> ads marks any map's card", Votes[Key(cardMap)]["[U:1:1002]"] == AdsVote);
+        Check("!down <number> ads marks any map's card", Likes[Key(cardMap)]["[U:1:1002]"] == AdsVote);
         var adsCatalogText = BuildCatalog().Encode();
         var adsCatalog = HudCatalog.Decode(adsCatalogText)!;
         Check("The menu's catalog carries the ads votes on a map (field 18) and the player's vote as an ads vote (-3)",
@@ -178,14 +178,14 @@ static partial class Program
         Check("Players can still pick a map marked ads: a pick is a vote with it on the ballot and her vote on it",
             Ballot is { Open: true } adsVote && adsVote.Options.Single(o => o.Map == cardMap).N == adsVote.Choices["[U:1:1001]"] && h.Said("Alice put"));
         Ballot = null;
-        Votes = new();
+        Likes = new();
 
         // ---- a downvote's reason (DownReasons): chat steers it directly, and it is kept per vote ----
         Fresh();
         h.Join(alice); h.Join(bob);
         var whyOn = small[70];
         var whyKey = Key(whyOn);
-        (S.Map, S.LogName, AnnouncePending) = (whyOn, whyOn.Name, false);
+        (S.Map, S.LogName, LoadPending) = (whyOn, whyOn.Name, false);
         const string aliceId = "[U:1:1001]", bobId = "[U:1:1002]";
         Check("The reasons: the plain one first, then too big and ads, each value a downvote the codecs carry; words plain, no number among them",
             DownReasons.All[0] is { Word: "meh", Value: DownReasons.Plain, Label: "I did not like the map" } && DownReasons.All[1].Value == TooBigVote && DownReasons.All[1].Label == "Map too big"
@@ -194,29 +194,29 @@ static partial class Program
             && DownReasons.All.All(r => r.Word.All(char.IsAsciiLetterLower) && !Hud.IsMapArg(r.Word)) && DownReasons.Words == "big, ads, small, broken or slow");
         h.Quiet(); h.Talk(alice, "!down");
         Check("A plain !down counts at once as 'I did not like the map', and its note says how to give a reason",
-            Votes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1) && h.Said("You disliked") && h.Said("Why? !down big, ads, small, broken or slow"));
+            Likes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1) && h.Said("You disliked") && h.Said("Why? !down big, ads, small, broken or slow"));
         h.Quiet(); h.Talk(alice, "!down big");
-        Check("!down big: that mark, now too big - no second mark", Votes[whyKey][aliceId] == TooBigVote && Votes[whyKey].Count == 1 && TooBig(whyOn) && TooBigVotes(whyKey) == 1 && h.Said("changed your mark") && h.Said("to too big"));
+        Check("!down big: that mark, now too big - no second mark", Likes[whyKey][aliceId] == TooBigVote && Likes[whyKey].Count == 1 && TooBig(whyOn) && TooBigVotes(whyKey) == 1 && h.Said("changed your mark") && h.Said("to too big"));
         h.Quiet(); h.Talk(alice, "!down big");
-        Check("...the same reason again changes nothing and says so", Votes[whyKey][aliceId] == TooBigVote && Tally(whyKey) == (0, 1) && h.Said("already") && !h.Said("took back"));
+        Check("...the same reason again changes nothing and says so", Likes[whyKey][aliceId] == TooBigVote && Tally(whyKey) == (0, 1) && h.Said("already") && !h.Said("took back"));
         h.Quiet(); h.Talk(alice, "!down ads");
-        Check("!down ads: out of random picks, and no longer too big", Votes[whyKey][aliceId] == AdsVote && AdsVotes(whyKey) == 1 && !TooBig(whyOn) && Tally(whyKey) == (0, 1) && h.Said("to ads"));
+        Check("!down ads: out of random picks, and no longer too big", Likes[whyKey][aliceId] == AdsVote && AdsVotes(whyKey) == 1 && !TooBig(whyOn) && Tally(whyKey) == (0, 1) && h.Said("to ads"));
         foreach (var r in DownReasons.All.Where(r => r.Value < AdsVote))
         {
             h.Quiet(); h.Talk(alice, $"!down {r.Word}");
             Check($"!down {r.Word}: kept with the vote, a dislike and nothing more ({r.Label})",
-                Votes[whyKey][aliceId] == r.Value && Tally(whyKey) == (0, 1) && !TooBig(whyOn) && AdsVotes(whyKey) == 0 && Math.Abs(Weight(whyOn) - Weight(new MapInfo(whyOn.Rank, 1, "unvoted", 1)) * 0.25) < 1e-9 && h.Said($"to {r.Short}"));
+                Likes[whyKey][aliceId] == r.Value && Tally(whyKey) == (0, 1) && !TooBig(whyOn) && AdsVotes(whyKey) == 0 && Math.Abs(Weight(whyOn) - Weight(new MapInfo(whyOn.Rank, 1, "unvoted", 1)) * 0.25) < 1e-9 && h.Said($"to {r.Short}"));
         }
         h.Quiet(); h.Talk(alice, "!down meh");
-        Check("!down meh puts a reason back to the plain one", Votes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1));
+        Check("!down meh puts a reason back to the plain one", Likes[whyKey][aliceId] == DownReasons.Plain && Tally(whyKey) == (0, 1));
         h.Quiet(); h.Talk(alice, "!down");
-        Check("...and a plain !down on a plain downvote changes nothing and says it is down already", Votes[whyKey][aliceId] == DownReasons.Plain && h.Said("You dislike") && h.Said("already") && !h.Said("took back"));
+        Check("...and a plain !down on a plain downvote changes nothing and says it is down already", Likes[whyKey][aliceId] == DownReasons.Plain && h.Said("You dislike") && h.Said("already") && !h.Said("took back"));
         h.Quiet(); h.Talk(alice, "!up");
         Check("The opposite vote takes it back first: no vote, and the note says how to like it", VoteOf(whyKey, aliceId) == 0 && Tally(whyKey) == (0, 0) && h.Said("Your dislike of") && h.Said("Like it again to add a like"));
         h.Quiet(); h.Talk(alice, "!up");
         Check("...the next Like casts it", VoteOf(whyKey, aliceId) == 1 && Tally(whyKey) == (1, 0) && h.Said("You liked"));
         h.Quiet(); h.Talk(alice, "!up");
-        Check("...and the same vote again says it is up already", Votes[whyKey][aliceId] == 1 && h.Said("You like") && h.Said("already"));
+        Check("...and the same vote again says it is up already", Likes[whyKey][aliceId] == 1 && h.Said("You like") && h.Said("already"));
         h.Quiet(); h.Talk(alice, "!down big");
         Check("A reason on a liked map takes the like back first and says how to dislike it with that reason: nothing cast, no question",
             VoteOf(whyKey, aliceId) == 0 && h.Said("Your like of") && h.Said("!down big again to dislike it: too big") && !WhyOpen.ContainsKey(aliceId) && !TooBig(whyOn));
@@ -226,24 +226,24 @@ static partial class Program
         Check("...and two Likes step it back up: none, then a like", VoteOf(whyKey, aliceId) == 1 && !TooBig(whyOn));
         var whyCard = small[71];
         h.Quiet(); h.Talk(bob, $"!down {whyCard.Rank} big");
-        Check("!down <number> big: a mark on that map with its reason at once, in the too-big words", Votes[Key(whyCard)][bobId] == TooBigVote && h.Said($"You marked {Label(whyCard)} too big") && !h.Said("Why?"));
+        Check("!down <number> big: a mark on that map with its reason at once, in the too-big words", Likes[Key(whyCard)][bobId] == TooBigVote && h.Said($"You marked {Label(whyCard)} too big") && !h.Said("Why?"));
         h.Quiet(); h.Talk(bob, $"!down {whyCard.Rank} slow");
-        Check("...and another reason changes it", Votes[Key(whyCard)][bobId] == HudCatalog.SlowVote && Votes[Key(whyCard)].Count == 1 && h.Said("to runs badly"));
+        Check("...and another reason changes it", Likes[Key(whyCard)][bobId] == HudCatalog.SlowVote && Likes[Key(whyCard)].Count == 1 && h.Said("to runs badly"));
         h.Quiet(); h.Talk(bob, "!down small");
-        Check("!down small with no vote yet: a new vote with that reason, and no question", Votes[whyKey][bobId] == HudCatalog.SmallVote && h.Said($"You disliked {Label(whyOn)}: too small") && !h.Said("Why?"));
+        Check("!down small with no vote yet: a new vote with that reason, and no question", Likes[whyKey][bobId] == HudCatalog.SmallVote && h.Said($"You disliked {Label(whyOn)}: too small") && !h.Said("Why?"));
         var whyCatalog = HudCatalog.Decode(BuildCatalog().Encode())!;
         var whyState = HudState.Decode(BuildHud(Now()).Encode())!;
         Check("The catalog and the live state carry the reason; the board says it; the card lights Dislike; an older plugin's sign reads a dislike",
             whyCatalog.MyVote(1002, Key(whyCard)) == HudCatalog.SlowVote && whyState.MyVotes[1002] == HudCatalog.SmallVote && whyState.Down == 1
             && HudView.PlayerTexts(whyState, 1002, "Bob", false).Single(x => x.Id == "gg_b_you").Text == "You disliked this map: too small"
             && HudView.PlayerClasses(whyState, 1002).Single(x => x.Class == "voted-down").On && Math.Sign(whyState.MyVotes[1002]) == -1);
-        var whySaved = Votes[Key(whyCard)][bobId];
-        LoadVotes();
-        Check("The reason is in votes.json: it reads back with the vote", Votes[Key(whyCard)][bobId] == whySaved && HealthText().Contains("down votes: ") && HealthText().Contains("1 too small") && HealthText().Contains("1 runs badly"));
+        var whySaved = Likes[Key(whyCard)][bobId];
+        LoadLikes();
+        Check("The reason is in votes.json: it reads back with the vote", Likes[Key(whyCard)][bobId] == whySaved && HealthText().Contains("down votes: ") && HealthText().Contains("1 too small") && HealthText().Contains("1 runs badly"));
         Check("A click may say a reason, with or without its map, and nothing like it that is free-form",
             new[] { "!down big", "!down ads", "!down meh", "!down 12 big", "!down 3084291314 slow", "!down ar_baggage small" }.All(Hud.IsAction)
             && new[] { "!down bad", "!down big 12", "!down 12 13", "!down 12 big x", "!down aim", "!up big", "!toobig big", "!down BIG", "!down  big", "!down big;quit" }.All(x => !Hud.IsAction(x))
-            && HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} ads") && Votes[Key(whyCard)][aliceId] == AdsVote && !HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} rubbish"));
+            && HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} ads") && Likes[Key(whyCard)][aliceId] == AdsVote && !HudAct($"{aliceId}\tAlice\t!down {whyCard.Rank} rubbish"));
         Check("What chat may say after !down, as the bridge takes it: a map, a reason, or both in either order",
             DownReasons.Normal("") == "" && DownReasons.Normal("12") == "12" && DownReasons.Normal("big") == "big" && DownReasons.Normal("12 big") == "12 big" && DownReasons.Normal("big 12") == "12 big"
             && DownReasons.Normal("rubbish") == null && DownReasons.Normal("12 13") == null && DownReasons.Split("12 big") is ("12", { Word: "big" }) && DownReasons.Split("big") is ("", { Word: "big" }) && DownReasons.Split("12") is ("12", null) && DownReasons.Split("") is ("", null));
@@ -253,7 +253,7 @@ static partial class Program
             && ChatCommands.Parse("!down rubbish") is { Kind: ChatCommands.Kind.Usage, Name: "!down" } && Hud.IsAction(chatDown.Arg) && ChatCommands.UsageOf("!down").Contains(DownReasons.Words));
         var fullNote = $"You disliked {Clip(new string('w', 64), PlainVoteLabel)}, now +99 -99 (99 too big, 99 ads). Why? !down {DownReasons.Words}";
         Check($"The plain downvote's note fits the note line with a long name and a long tally ({fullNote.Length} of {Messages.LineMax})", fullNote.Length <= Messages.LineMax);
-        Votes = new();
+        Likes = new();
 
         // ---- the popup: a plain Dislike opens it, a reason, its time or a map change closes it; the vote counted all along ----
         Fresh();
@@ -261,38 +261,38 @@ static partial class Program
         var askOn = small[72];
         var askCard = small[73];
         var askOther = small[74];
-        (S.Map, S.LogName, AnnouncePending) = (askOn, askOn.Name, false);
+        (S.Map, S.LogName, LoadPending) = (askOn, askOn.Name, false);
         HudState Live() => HudState.Decode(BuildHud(Now()).Encode())!;
         bool Cls(HudState s, long a, string c) => HudView.PlayerClasses(s, a).Single(x => x.Class == c).On;
         h.Talk(alice, "!down");
         var asking = Live();
         Check($"A plain Dislike counts at once, and that player's popup asks about that map for {DownReasons.PopupSeconds} s; nobody else's opens; the line under it is not running yet",
-            Votes[Key(askOn)][aliceId] == DownReasons.Plain && asking.Why[1001] == (Clip(Label(askOn), 40), (int)DownReasons.PopupSeconds) && !asking.Why.ContainsKey(1002)
+            Likes[Key(askOn)][aliceId] == DownReasons.Plain && asking.Why[1001] == (Clip(Label(askOn), 40), (int)DownReasons.PopupSeconds) && !asking.Why.ContainsKey(1002)
             && Cls(asking, 1001, "why") && !Cls(asking, 1001, "why-run") && !Cls(asking, 1002, "why"));
         h.Run(2);
         Check("...two seconds on the line runs, and the seconds count down", Live().Why[1001].For == (int)DownReasons.PopupSeconds - 2 && Cls(Live(), 1001, "why") && Cls(Live(), 1001, "why-run"));
         h.Quiet();
-        Check("A click on a reason updates that mark - the popup's click is !down big, the same words a typist uses: no second mark, and the popup closes", HudAct($"{aliceId}\tAlice\t!down big") && Votes[Key(askOn)][aliceId] == TooBigVote
-            && Votes[Key(askOn)].Count == 1 && Tally(Key(askOn)) == (0, 1) && TooBig(askOn) && !Live().Why.ContainsKey(1001) && !Cls(Live(), 1001, "why") && h.Said("to too big"));
+        Check("A click on a reason updates that mark - the popup's click is !down big, the same words a typist uses: no second mark, and the popup closes", HudAct($"{aliceId}\tAlice\t!down big") && Likes[Key(askOn)][aliceId] == TooBigVote
+            && Likes[Key(askOn)].Count == 1 && Tally(Key(askOn)) == (0, 1) && TooBig(askOn) && !Live().Why.ContainsKey(1001) && !Cls(Live(), 1001, "why") && h.Said("to too big"));
         h.Quiet(); h.Talk(alice, "!down");
-        Check("A plain Dislike on a reason keeps it, says so and does not ask again", Votes[Key(askOn)][aliceId] == TooBigVote && !Live().Why.ContainsKey(1001) && h.Said("dislike") && h.Said("already: too big"));
+        Check("A plain Dislike on a reason keeps it, says so and does not ask again", Likes[Key(askOn)][aliceId] == TooBigVote && !Live().Why.ContainsKey(1001) && h.Said("dislike") && h.Said("already: too big"));
         h.Quiet(); h.Talk(alice, "!up");
         Check("A Like takes it back and asks nothing", VoteOf(Key(askOn), aliceId) == 0 && !Live().Why.ContainsKey(1001) && !Cls(Live(), 1001, "why"));
         h.Talk(alice, "!down");
-        Check("...and a Dislike after that is a plain one that asks again", Votes[Key(askOn)][aliceId] == DownReasons.Plain && Live().Why.ContainsKey(1001));
+        Check("...and a Dislike after that is a plain one that asks again", Likes[Key(askOn)][aliceId] == DownReasons.Plain && Live().Why.ContainsKey(1001));
         h.Run(2);
         var whyLeft = Live().Why[1001].For;
         h.Quiet(); h.Talk(alice, "!down");
-        Check("A second Dislike changes nothing, and the popup goes on running: the same mark, the same seconds left", Votes[Key(askOn)][aliceId] == DownReasons.Plain && Live().Why[1001].For == whyLeft && Cls(Live(), 1001, "why") && h.Said("already") && !h.Said("took back"));
+        Check("A second Dislike changes nothing, and the popup goes on running: the same mark, the same seconds left", Likes[Key(askOn)][aliceId] == DownReasons.Plain && Live().Why[1001].For == whyLeft && Cls(Live(), 1001, "why") && h.Said("already") && !h.Said("took back"));
         h.Quiet(); h.Talk(alice, "!down ads");
-        Check("While it is open the same words set the reason, with no second vote, and close it", Votes[Key(askOn)][aliceId] == AdsVote && Votes[Key(askOn)].Count == 1 && !Live().Why.ContainsKey(1001));
+        Check("While it is open the same words set the reason, with no second vote, and close it", Likes[Key(askOn)][aliceId] == AdsVote && Likes[Key(askOn)].Count == 1 && !Live().Why.ContainsKey(1001));
         h.Talk(alice, $"!down {askCard.Rank}");
         var onCard = Live();
-        Check("A card's down arrow asks about that card's map, not the map that is on", onCard.Why[1001].Map == Clip(Label(askCard), 40) && Votes[Key(askCard)][aliceId] == DownReasons.Plain && Votes[Key(askOn)][aliceId] == AdsVote);
+        Check("A card's down arrow asks about that card's map, not the map that is on", onCard.Why[1001].Map == Clip(Label(askCard), 40) && Likes[Key(askCard)][aliceId] == DownReasons.Plain && Likes[Key(askOn)][aliceId] == AdsVote);
         h.Quiet(); h.Talk(alice, $"!down {askOther.Rank} big");
-        Check("...a reason that names another map goes there and leaves the question open", Votes[Key(askOther)][aliceId] == TooBigVote && Live().Why[1001].Map == Clip(Label(askCard), 40));
+        Check("...a reason that names another map goes there and leaves the question open", Likes[Key(askOther)][aliceId] == TooBigVote && Live().Why[1001].Map == Clip(Label(askCard), 40));
         h.Quiet(); h.Talk(alice, "!down big");
-        Check("...and the words with no map go to the map it asks about", Votes[Key(askCard)][aliceId] == TooBigVote && Votes[Key(askOn)][aliceId] == AdsVote && !Live().Why.ContainsKey(1001));
+        Check("...and the words with no map go to the map it asks about", Likes[Key(askCard)][aliceId] == TooBigVote && Likes[Key(askOn)][aliceId] == AdsVote && !Live().Why.ContainsKey(1001));
         h.Talk(alice, $"!up {askCard.Rank}"); h.Talk(alice, $"!down {askCard.Rank}");
         var whyAgain = Live().Why.ContainsKey(1001);
         h.Talk(alice, $"!up {askCard.Rank}");
@@ -301,20 +301,20 @@ static partial class Program
         var asked = false;
         foreach (var said in noAsk) { h.Talk(bob, said); asked |= Live().Why.ContainsKey(1002); }
         Check($"No popup when a reason is given, or for any other vote: {string.Join(", ", noAsk)}", !asked);
-        Votes = new();
+        Likes = new();
         h.Talk(alice, "!down"); h.Run(DownReasons.PopupSeconds + 0.5);
-        Check("Its time up, it leaves the screen, and the vote stays 'I did not like the map'", !Live().Why.ContainsKey(1001) && Votes[Key(askOn)][aliceId] == DownReasons.Plain);
+        Check("Its time up, it leaves the screen, and the vote stays 'I did not like the map'", !Live().Why.ContainsKey(1001) && Likes[Key(askOn)][aliceId] == DownReasons.Plain);
         HudAct($"{aliceId}\tAlice\t!down slow");
-        Check("...a click already on its way still lands", Votes[Key(askOn)][aliceId] == HudCatalog.SlowVote);
-        Votes = new();
+        Check("...a click already on its way still lands", Likes[Key(askOn)][aliceId] == HudCatalog.SlowVote);
+        Likes = new();
         var askedCard = askCard;
         h.Talk(alice, $"!down {askedCard.Rank}"); h.Run(DownReasons.PopupSeconds + DownReasons.PopupGraceSeconds + 1); h.Quiet();
         HudAct($"{aliceId}\tAlice\t!down big");
         Check("...a later one is a typed !down big: it goes to the map that is on, and the card's map keeps its plain dislike",
-            Votes[Key(askedCard)][aliceId] == DownReasons.Plain && Votes[Key(askOn)][aliceId] == TooBigVote);
+            Likes[Key(askedCard)][aliceId] == DownReasons.Plain && Likes[Key(askOn)][aliceId] == TooBigVote);
         Check("!reason is gone: the popup's click and a typist's line are the same !down <reason>", new[] { "!reason big", "!reason meh" }.All(x => !Hud.IsAction(x))
             && new[] { "!down big", "!down meh", "!down slow", "!down 12 big" }.All(Hud.IsAction) && new[] { "!down BIG", "!down big 12 x", "!toobig", "!ads" }.All(x => !Hud.IsAction(x)));
-        Votes = new();
+        Likes = new();
         h.Talk(alice, "!down big"); h.Talk(alice, "!down meh"); h.Talk(alice, "!up"); h.Talk(alice, "!down");
         var carried = Live();
         var whyLine = BuildHud(Now()).Encode().Split('\n').Single(l => l.StartsWith("why\t"));
@@ -322,8 +322,8 @@ static partial class Program
             whyLine.Split('\t').Length == 4 && whyLine.StartsWith("why\t1001\t") && carried.Why.Count == 1 && !new HudState { Why = new() { [1] = ("x", 0) } }.Encode().Contains("why\t")
             && HudState.Decode(HudState.Magic + "\nwhy\tx\t3\tm\nwhy\t5\t0\tm\nwhy\t6\t3\tm\n")!.Why.Keys.SequenceEqual([6L]));
         OnMapStart("some_other_map");
-        Check("A map change closes it: nothing on screen survives one, and the vote stays", !Live().Why.ContainsKey(1001) && Votes[Key(askOn)][aliceId] == DownReasons.Plain);
-        Votes = new();
+        Check("A map change closes it: nothing on screen survives one, and the vote stays", !Live().Why.ContainsKey(1001) && Likes[Key(askOn)][aliceId] == DownReasons.Plain);
+        Likes = new();
 
         // ---- the new-maps setting is gone: an older content's three buttons answer so, and change nothing ----
         Fresh();
@@ -368,6 +368,6 @@ static partial class Program
         h.Run(70);
         Check("...until status answers with nobody on", h.Sent.Contains(FunResetCommand));
         Check("GET /health says the too-big maps and the sizes", HealthText().Contains("random picks: too big") && HealthText().Contains("sizes 0 measured"));
-        Maps = realMaps; Votes = new(); S = new State(); Sizes = new();
+        Maps = realMaps; Likes = new(); S = new State(); Sizes = new();
     }
 }

@@ -56,9 +56,9 @@ static partial class Program
                 _ => at with { Wm = rank },
             };
         }
-        foreach (var m in Maps.Where(m => !IsPack(m) && !IsBlocked(m)).Concat(Officials)) Place(m, Modes.ArmsRace);
+        foreach (var m in Maps.Where(m => !IsNonMap(m) && !IsBlocked(m)).Concat(Officials)) Place(m, Modes.ArmsRace);
         foreach (var mode in Modes.All.Where(x => !x.ArmsRace))
-            foreach (var m in PoolOf(mode).Where(m => !IsPack(m) && !IsBlocked(m))) Place(m, mode);
+            foreach (var m in PoolOf(mode).Where(m => !IsNonMap(m) && !IsBlocked(m))) Place(m, mode);
         foreach (var key in order)
         {
             var (m, ar, dm, wm) = places[key];
@@ -67,7 +67,7 @@ static partial class Program
                 S.Crashes.GetValueOrDefault(key), up, down, IsRemoved(m), TooBig(m), SizeClass(m) ?? "", AreaOf(m) ?? 0, TooBigVotes(key), AdsVotes(key),
                 IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs) - read by place, so a new field only ever goes at the end
         }
-        foreach (var (key, votes) in Votes)
+        foreach (var (key, votes) in Likes)
             foreach (var (sid, value) in votes)
                 if (AccountId(sid) is > 0 and var account)
                 {
@@ -79,7 +79,7 @@ static partial class Program
         var listed = c.Maps.Select(m => m.Id).ToHashSet();
         foreach (var (id, verdict) in Removed)
             if (long.TryParse(id, out var n) && !listed.Contains(n)) c.Refused[n] = ("", $"{Workshop.Reason(verdict)} - Nobody can download it");
-        foreach (var (id, name) in Packs)
+        foreach (var (id, name) in NonMaps)
             if (long.TryParse(id, out var n)) c.Refused[n] = (name, NotAMap);
         foreach (var (id, (name, _, reason)) in Blocked)
             if (long.TryParse(id, out var n)) c.Refused[n] = (name, reason.StartsWith("is on the blocked list") ? reason : $"{reason} - It is blocked");
@@ -98,13 +98,13 @@ static partial class Program
             By = S.PickedBy ?? "",
             Size = S.Map is { Official: false, Rank: > 0 } m ? Size(m) : "",
             Key = key,
-            Loading = AnnouncePending,
+            Loading = LoadPending,
             Status = Pending is { } p ? $"Changing to {Clip(Label(p.Map), 32)}"
                 : Ballot is { Open: true } ? "Vote for the next map"
                 : "Plays until its match ends - Or start a vote",
         };
         (h.Up, h.Down) = key == "" ? (0, 0) : Tally(key);
-        if (key != "" && Votes.TryGetValue(key, out var votes))
+        if (key != "" && Likes.TryGetValue(key, out var votes))
             foreach (var (id, value) in votes) if (AccountId(id) is >= 0 and var account) h.MyVotes[account] = value;
         h.Top = TopRows().Take(HudState.ListLength).Select(r => (Clip(Label(r.Map), 36), r.Up, r.Down)).ToList();
         h.RoundMinutes = S.RoundMinutes;
@@ -120,7 +120,7 @@ static partial class Program
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Likes.cs: the Dislike popups that are open
         PutRestart(h, now); // Restarts.cs: a restart coming, with its countdown
-        if (BackgroundNow() is { } bg) (h.BgId, h.BgPercent, h.BgTitle) = (long.TryParse(bg.Id, out var bgId) ? bgId : 0, bg.Percent ?? -1, bg.Title); // RandomQueue.cs
+        if (BackgroundNow() is { } bg) (h.BgId, h.BgPercent, h.BgTitle) = (long.TryParse(bg.Id, out var bgId) ? bgId : 0, bg.Percent ?? -1, bg.Title); // Stock.cs
         if (Pending is { } c)
         {
             h.ChangeMap = Clip(Label(c.Map), 40);

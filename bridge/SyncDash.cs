@@ -3,7 +3,7 @@
 //
 // The sync writes /data/sync-status.json (schema 1: now, today, totals, queue, keep, history; atomically, at every phase change, every 15 s in
 // a run and every 60 s otherwise). The bridge reads it whenever it changed (every StatusLookSeconds), adds what only it knows - the discovery
-// stock and how many of its maps the restart watcher reports on the server's disk, the background download the watcher runs (RandomQueue.cs),
+// stock and how many of its maps the restart watcher reports on the server's disk, the background download the watcher runs (Stock.cs),
 // and each map's tags (MapTags) - and makes two things of it:
 //   - the menu's Sync page: the block the plugin pages and passes through (HudDash.cs), on GET /dash/<secret>, its version in the live state;
 //   - the website: /data/web/index.html (dashboard.html, built in) and /data/web/dashboard.json, which a static web server behind a login
@@ -69,10 +69,10 @@ static partial class Program
 
     /// <summary>The stock as the dashboard shows it: a lane per mode, its entries the watcher's last report names on the disk out of its length, and
     /// each entry with its name and tags.</summary>
-    static List<SyncWords.RandomQueue> StockNow()
+    static List<SyncWords.StockLane> StockNow()
     {
         var byKey = KnownByKey();
-        return Modes.All.Select(m => new SyncWords.RandomQueue(m.Id, LaneOf(m).Count(e => Downloaded(e.Key)), LaneOf(m).Count,
+        return Modes.All.Select(m => new SyncWords.StockLane(m.Id, LaneOf(m).Count(e => Downloaded(e.Key)), LaneOf(m).Count,
             LaneOf(m).Select(e => new SyncWords.StockMap(e.Key, byKey.TryGetValue(e.Key, out var x) ? x.Name : e.Key, Downloaded(e.Key), byKey.TryGetValue(e.Key, out var y) ? TagsOf(y) : "")).ToList())).ToList();
     }
 

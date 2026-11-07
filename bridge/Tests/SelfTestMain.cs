@@ -121,9 +121,9 @@ static partial class Program
 
             // ---- BROKEN_FILE as data: the file shapes it accepts ----
             Check("An empty path and a missing file both load as two empty lists, which is what switches both features off",
-                LoadLists("") is { Broken.Count: 0, Packs.Count: 0 } && LoadLists("no-such-broken-file.json") is { Broken.Count: 0, Packs.Count: 0 });
+                LoadLists("") is { Broken.Count: 0, NonMaps.Count: 0 } && LoadLists("no-such-broken-file.json") is { Broken.Count: 0, NonMaps.Count: 0 });
             var configured = LoadLists();
-            Console.WriteLine($"BROKEN_FILE={(BrokenFile == "" ? "(unset)" : BrokenFile)} -> {configured.Broken.Count} maps marked broken, {configured.Packs.Count} non-maps refused");
+            Console.WriteLine($"BROKEN_FILE={(BrokenFile == "" ? "(unset)" : BrokenFile)} -> {configured.Broken.Count} maps marked broken, {configured.NonMaps.Count} non-maps refused");
             Check("A bare array of ids parses, numbers and strings alike",
                 ParseBroken("""[3084291314, "3453526792"]""") is { Count: 2 } bare && bare["3084291314"] == 0 && bare["3453526792"] == 0);
             Check("The generated object form parses, crash counts and official names and all",
@@ -134,30 +134,30 @@ static partial class Program
             Check("Array entries that are neither an id nor a name are skipped", ParseBroken("""[{"rank":7}, null, true, [1]]""").Count == 0);
             Check("broken.json is read once for its four lists - the crashers, their reasons, the non-maps, the maps it blocks - and a bare array of crashers blocks none of them",
                 ParseBrokenFile("""{"maps":[{"id":7,"crashes":3,"reason":"advertises"},{"name":"ar_y"}],"packs":[8,{"id":"10","name":"a pack"}],"blocked":[{"id":9,"reason":"kicks everybody"},11]}""")
-                    is { Broken.Count: 2, Reasons.Count: 1, Packs.Count: 2, Blocked.Count: 2 } four && four.Reasons["7"] == "advertises" && four.Packs["10"] == "a pack"
+                    is { Broken.Count: 2, Reasons.Count: 1, NonMaps.Count: 2, Blocked.Count: 2 } four && four.Reasons["7"] == "advertises" && four.NonMaps["10"] == "a pack"
                     && four.Blocked["9"].Reason == "kicks everybody" && four.Blocked["11"] == ("workshop 11", "", "is on the blocked list")
-                && ParseBrokenFile("[7, 9]") is { Broken.Count: 2, Reasons.Count: 0, Packs.Count: 0, Blocked.Count: 0 });
+                && ParseBrokenFile("[7, 9]") is { Broken.Count: 2, Reasons.Count: 0, NonMaps.Count: 0, Blocked.Count: 0 });
 
             // ---- a map's standing (MapStanding.cs): every fact against a map, and the four questions asked of them agree ----
             {
                 var sample = Maps.Take(600).ToList();
-                (S, Broken, Packs, Removed, Blocked) = (new State(), new(), new(), new(), new());
+                (S, Broken, NonMaps, Removed, Blocked) = (new State(), new(), new(), new(), new());
                 for (var i = 0; i < sample.Count; i++)
                 {
                     var k = Key(sample[i]);
                     if (i % 7 == 1) Broken[k] = i % 2;
-                    if (i % 11 == 2) Packs[k] = sample[i].Name;
+                    if (i % 11 == 2) NonMaps[k] = sample[i].Name;
                     if (i % 13 == 3) Removed[k] = Workshop.Removed;
                     if (i % 17 == 4) Blocked[k] = (sample[i].Name, "", "kicks everybody");
                     if (i % 19 == 5) S.Crashes[k] = 1;
                     if (i % 23 == 6) S.PlayerCrashes[k] = "crashed 3 players' games within 60 s";
                 }
-                bool KeptOffBefore(MapInfo m) => Broken.ContainsKey(Key(m)) || IsPack(m) || IsRemoved(m) || IsBlocked(m) || S.Crashes.GetValueOrDefault(Key(m)) > 0 || S.PlayerCrashes.ContainsKey(Key(m));
+                bool KeptOffBefore(MapInfo m) => Broken.ContainsKey(Key(m)) || IsNonMap(m) || IsRemoved(m) || IsBlocked(m) || S.Crashes.GetValueOrDefault(Key(m)) > 0 || S.PlayerCrashes.ContainsKey(Key(m));
                 Check($"A map's standing, over {sample.Count} maps with every fact against some: Bad is the keep set's rule as it was, and is exactly Unplayable or a record against it; Risky is exactly having its words; the dice roll nothing Bad",
                     sample.All(m => Bad(m) == KeptOffBefore(m) && Bad(m) == (Unplayable(m) != null || RecordWords(m) != null) && Risky(Key(m)) == (RecordWords(m) != null)
                         && (!CanRoll(m) || !Bad(m)) && CanRoll(m) == (!Bad(m) && AdsVotes(Key(m)) == 0))
                     && sample.Count(Bad) is > 100 and < 500);
-                (S, Broken, Packs, Removed, Blocked) = (new State(), new(), new(), new(), new());
+                (S, Broken, NonMaps, Removed, Blocked) = (new State(), new(), new(), new(), new());
             }
 
             // ---- the confirmation gate in front of a pick, on a handed clock so expiry needs no waiting ----
@@ -216,11 +216,11 @@ static partial class Program
 
             // ---- non-maps (skin, config and sound packs, empty uploads): refused outright - by rank, name, bare workshop id or URL - never confirmed, never rolled ----
             Check("The packs array parses: ids as numbers or strings, a name when there is one, entries without a usable id skipped",
-                ParsePacks("""{"maps":[],"packs":[3469279579,"3316991421",{"id":3391281371,"name":"Goku SS2 v1/ v2"},{"name":"no id"},{"id":"x"},{"id":-4},null,true]}""")
+                ParseNonMaps("""{"maps":[],"packs":[3469279579,"3316991421",{"id":3391281371,"name":"Goku SS2 v1/ v2"},{"name":"no id"},{"id":"x"},{"id":-4},null,true]}""")
                     is { Count: 3 } pk && pk["3391281371"] == "Goku SS2 v1/ v2" && pk["3469279579"] == "workshop 3469279579" && pk.ContainsKey("3316991421"));
             Check("No packs array, an empty or shapeless one, or a bare-array file means no packs - and the broken maps beside them still load",
-                ParsePacks("""{"maps":[{"id":1,"crashes":3}]}""").Count == 0 && ParsePacks("""{"packs":[]}""").Count == 0
-                && ParsePacks("""{"packs":{"id":1}}""").Count == 0 && ParsePacks("[3469279579]").Count == 0
+                ParseNonMaps("""{"maps":[{"id":1,"crashes":3}]}""").Count == 0 && ParseNonMaps("""{"packs":[]}""").Count == 0
+                && ParseNonMaps("""{"packs":{"id":1}}""").Count == 0 && ParseNonMaps("[3469279579]").Count == 0
                 && ParseBroken("""{"maps":[{"id":1,"crashes":3}],"packs":[2]}""") is { Count: 1 } beside && beside["1"] == 3);
 
             // Every RCON command the bridge would send, recorded instead of sent: what lands in `sent` is everything the server would have
@@ -230,12 +230,12 @@ static partial class Program
             var door = Send;
             Send = command => { sent.Add(command); return ""; };
             void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; Ballot = null; VoteWaitUntil = default; PickMap(who, id, query); }
-            static Dictionary<string, string> PacksOf(IEnumerable<MapInfo> ms) => ms.Where(m => !m.Official).GroupBy(Key).ToDictionary(g => g.Key, g => g.First().Name);
+            static Dictionary<string, string> NonMapsOf(IEnumerable<MapInfo> ms) => ms.Where(m => !m.Official).GroupBy(Key).ToDictionary(g => g.Key, g => g.First().Name);
             S = new State(); Broken = new(); PickConfirms.Clear(); Players.Clear();
             var listed = Maps.Skip(200).First(); // a pack maps.json still lists, as the live list does today
             const long hole = 9_876_543_211;     // a pack maps.json does not list: only its id can reach it
             Check("test fixture for the unlisted pack is genuinely absent from maps.json", Maps.All(m => m.Id != hole));
-            Packs = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
+            NonMaps = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
 
             Pick(fine.Rank.ToString());
             Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the older contents' news line, so the silence below means something",
@@ -243,7 +243,7 @@ static partial class Program
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",
-                Told is [var byRank] && byRank == M.Plain(PackRefusal(listed)) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
+                Told is [var byRank] && byRank == M.Plain(NonMapRefusal(listed)) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
             Check("The refusal sends the server nothing at all: no chat, no host_workshop_map, no changelevel, no vote, nothing pending",
                 sent.Count == 0 && Pending is null && Ballot is null && NewsNow.Text == "");
             Pick(listed.Id.ToString());
@@ -259,19 +259,19 @@ static partial class Program
             Pick($"{Maps.Count + 1}");
             Check($"A number past the list ({Maps.Count + 1}) gets the plain answer", Told is [var past] && past.Contains("No map is") && Pending is null);
 
-            Packs = new();
+            NonMaps = new();
             Pick(listed.Rank.ToString());
             var rankAgain = Pending;
             Pick($"{hole}");
             Check("With an empty packs list the same rank and the same bare id load like any map: the feature is off",
                 rankAgain is { } r0 && r0.Map == listed && Pending is { } h0 && h0.Map.Id == hole && Unlisted(h0.Map) && !Told.Any(c => c.Contains(NotAMap)));
 
-            Packs = PacksOf(eligible.Skip(3).Take(300));
+            NonMaps = NonMapsOf(eligible.Skip(3).Take(300));
             var packRolls = Enumerable.Range(0, 4000).Select(_ => RandomPick()!).ToList();
-            Check($"The dice never roll one of the {Packs.Count} packs", packRolls.All(m => !IsPack(m)));
-            Check($"The banner counts only real maps: {Playable} of {Maps.Count} listed", Playable == Maps.Count - Packs.Count);
+            Check($"The dice never roll one of the {NonMaps.Count} packs", packRolls.All(m => !IsNonMap(m)));
+            Check($"The banner counts only real maps: {Playable} of {Maps.Count} listed", Playable == Maps.Count - NonMaps.Count);
 
-            Packs = PacksOf([listed]);
+            NonMaps = NonMapsOf([listed]);
             Broken = new Dictionary<string, int> { [Key(bad)] = 3 };
             PickConfirms.Clear();
             Pick(bad.Rank.ToString());
@@ -281,18 +281,18 @@ static partial class Program
                 asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to vote anyway") && Pending is { } conf && conf.Map == bad);
             Pick(listed.Rank.ToString());
             Check("...while the pack beside it is still refused, with no confirm offered", Told is [var still] && still.Contains(NotAMap) && !still.Contains("again within") && Pending is null);
-            Packs = new Dictionary<string, string> { [Key(bad)] = bad.Name };
+            NonMaps = new Dictionary<string, string> { [Key(bad)] = bad.Name };
             PickConfirms.Clear();
             Pick(bad.Rank.ToString());
             Check("An id on both lists is refused, not confirmed: a pack has nothing to agree to",
                 Told is [var onBoth] && onBoth.Contains(NotAMap) && Pending is null && PickConfirms.Count == 0);
 
-            var refusals = Maps.Select(m => { Packs = PacksOf([m]); return PackRefusal(m); }).ToList();
-            Packs = new Dictionary<string, string> { [$"{hole}"] = new string('W', 200) };
-            refusals.Add(PackRefusal(new MapInfo(0, hole, "", 0)));
+            var refusals = Maps.Select(m => { NonMaps = NonMapsOf([m]); return NonMapRefusal(m); }).ToList();
+            NonMaps = new Dictionary<string, string> { [$"{hole}"] = new string('W', 200) };
+            refusals.Add(NonMapRefusal(new MapInfo(0, hole, "", 0)));
             Check($"The refusal fits the note line untrimmed for every listed name and a 200-character one (longest {refusals.Max(l => l.Length)})",
                 refusals.All(l => l.Length <= Messages.LineMax));
-            Packs = new Dictionary<string, string> { [$"{hole}"] = """Jo"ri; quit""" };
+            NonMaps = new Dictionary<string, string> { [$"{hole}"] = """Jo"ri; quit""" };
             Pick($"{hole}");
             Check("A pack name full of quotes and semicolons reaches nothing but the note: the server gets no command at all", Told.Count == 1 && sent.Count == 0);
 
@@ -300,7 +300,7 @@ static partial class Program
             var kinds = new (string Kind, string Name)[] { ("skin pack", "ORENTI | Assets | RANDOM MODELS"),
                 ("config", "Ultimate Low Latency & High FPS [CS2 Professional Config] by Vahanator"), ("sound pack", "Counterstrike 2 Quake Sounds"),
                 ("empty upload", "Aim_Test"), ("single-file stub", "Mirage Silent") };
-            Packs = kinds.Select((k, i) => (Key: $"{hole + 1 + i}", k.Name)).ToDictionary(p => p.Key, p => p.Name);
+            NonMaps = kinds.Select((k, i) => (Key: $"{hole + 1 + i}", k.Name)).ToDictionary(p => p.Key, p => p.Name);
             var kindLines = kinds.Select((k, i) => { Pick($"{hole + 1 + i}"); return (k.Kind, k.Name, Line: Told.Count == 1 ? Told[0] : $"{Told.Count} notes"); }).ToList();
             Console.WriteLine("refusal by kind: " + string.Join(" | ", kindLines.Select(k => $"{k.Kind}: {k.Line}")));
             Check("A config, a sound pack, an empty upload and a stub get the same neutral line as a skin pack, and none is called a skin pack",
@@ -313,11 +313,11 @@ static partial class Program
                 BrokenReasons = reasons; // what the confirms below say
                 Check($"broken.json loads: {cb.Count} broken maps, {cp.Count} non-maps, none on both lists", cb.Count > 0 && cp.Count > 0 && cb.Keys.All(k => !cp.ContainsKey(k)));
                 Check($"No non-map is on maps.json: the {Maps.Count} listed are all maps", Maps.All(m => !cp.ContainsKey(Key(m))));
-                Packs = cp;
-                var lines = cp.Keys.Select(k => PackRefusal(new MapInfo(0, long.Parse(k), "", 0))).ToList();
+                NonMaps = cp;
+                var lines = cp.Keys.Select(k => NonMapRefusal(new MapInfo(0, long.Parse(k), "", 0))).ToList();
                 Check($"Every committed non-map's refusal fits the note line untrimmed and claims only that it is no playable map (longest {lines.Max(l => l.Length)})",
                     lines.All(l => l.Length <= Messages.LineMax && l.EndsWith(NotAMap) && !l.Contains("skin pack")));
-                Packs = new(); Broken = cb; S = new State(); PickConfirms.Clear();
+                NonMaps = new(); Broken = cb; S = new State(); PickConfirms.Clear();
                 var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, RecordWords(m)!))).ToList();
                 Console.WriteLine("broken.json confirm notes: " + string.Join(" | ", listedCrashers.Select(c => c.Line)));
                 Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise",
@@ -329,9 +329,9 @@ static partial class Program
                 Broken = new(); S = new State(); PickConfirms.Clear();
             }
             else Console.WriteLine("skip broken.json checks: no broken.json beside maps.json");
-            Send = door; Packs = new(); Pending = null; Ballot = null; VoteWaitUntil = default; ClearNotices(); Players.Clear();
+            Send = door; NonMaps = new(); Pending = null; Ballot = null; VoteWaitUntil = default; ClearNotices(); Players.Clear();
             S = new State(); Broken = new(); PickConfirms.Clear(); // the checks below this block read the unbroken wording
-            QueueSelfTest(Check); // SelfTestQueue.cs: picks as votes, likes, the weighted dice, !previous, the start roll, crashes, maintenance, the guide
+            EveningSelfTest(Check); // SelfTestEvening.cs: picks as votes, likes, the weighted dice, !previous, the start roll, crashes, maintenance, the guide
             VoteSelfTest(Check);  // SelfTestVote.cs: the vote for the next map and the game modes
         }
         else Console.WriteLine($"skip maps checks: {MapsFile} not found");
@@ -353,7 +353,7 @@ static partial class Program
         PicturesSelfTest(Check); // SelfTestPictures.cs: every mode's maps, the mode filter
         ChatSelfTest(Check); // SelfTestChat.cs: the chat commands' words, the aliases, the fun words, the vote's bare number
         RconSelfTest(Check); // SelfTestRcon.cs: a map command is never sent twice
-        RandomQueueSelfTest(Check); // SelfTestRandomQueue.cs: the discovery stock, the disk, queues.json and the watcher's report
+        StockSelfTest(Check); // SelfTestStock.cs: the discovery stock, the disk, queues.json and the watcher's report
         BallotSelfTest(Check); // SelfTestBallot.cs: the Workshop's numbers, popularity, the kept maps, the points, the tags, the recipe, restarts
         MatchSelfTest(Check);  // SelfTestMatch.cs: a player's restart, Restart match, the match length for the match that is on
         DashSelfTest(Check); // SelfTestDash.cs: the Sync page's block, its words out of the sync's file, the website's data, the layout's labels

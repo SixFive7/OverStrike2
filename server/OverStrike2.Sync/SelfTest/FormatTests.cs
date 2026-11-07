@@ -43,7 +43,7 @@ static class FormatTests
     // from it the sync's text of the title as it came
     internal static void SearchTexts()
     {
-        var bridgeText = System.Reflection.Assembly.Load("GunGameBridge").GetType("SearchIndexFile", true)!
+        var bridgeText = System.Reflection.Assembly.Load("os2-bridge").GetType("SearchIndexFile", true)!
             .GetMethod("TextOf", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!
             .CreateDelegate<Func<string, string, IEnumerable<string>, string>>();
         var differ = new List<string>();

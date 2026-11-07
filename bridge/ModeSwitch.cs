@@ -148,7 +148,7 @@ static partial class Program
         if (!differ && !notLoaded) return;
         var on = differ ? Modes.FromConVars(cv!.Value.Type, cv.Value.Mode) : null; // what the convars say, when they still differ
         var came = !differ ? "another mode, the plugin says" : on?.Name ?? $"game_type {cv!.Value.Type}, game_mode {cv.Value.Mode}";
-        if (S.Map is not { Official: true } map || ModeReloads > 0 || Pending != null || AnnouncePending)
+        if (S.Map is not { Official: true } map || ModeReloads > 0 || Pending != null || LoadPending)
         {
             Log($"mode: {CurrentLabel()} came up in {came}, not {want.Name} - left as it is");
             if (on != null) { S.Mode = on.Id; Save(); }
@@ -201,7 +201,7 @@ static partial class Program
     static DateTime ModeResetRetryAt;
     static void ModeBackToDefault(DateTime now)
     {
-        if (CurrentMode.ArmsRace || Pending != null || AnnouncePending || now < ModeResetRetryAt || InMaintenance()) return;
+        if (CurrentMode.ArmsRace || Pending != null || LoadPending || now < ModeResetRetryAt || InMaintenance()) return;
         ModeResetRetryAt = now.AddMinutes(1);
         var from = CurrentMode.Name;
         if (!AutoRoll($"Nobody on for {ResetEmptyMinutes} minutes - Back to {Modes.Default.Name}", Modes.Default)) { Log($"reset: no {Modes.Default.Name} map is eligible to roll - asking again in a minute"); return; }

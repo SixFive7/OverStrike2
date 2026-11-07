@@ -531,7 +531,7 @@ static class DeployTests
         }
         var committedDockerfile = Repo.Show("HEAD", "bridge/Dockerfile");
         check("bridge context: bridge/ and core/ at their own paths, the Dockerfile at bridge/Dockerfile, no bin/obj and no core self-test",
-              new[] { "bridge/Dockerfile", "bridge/GunGameBridge.csproj", "bridge/maps.json", "core/OverStrike2.Core.csproj", "core/Settings.cs" }.All(names.Contains)
+              new[] { "bridge/Dockerfile", "bridge/OverStrike2.Bridge.csproj", "bridge/maps.json", "core/OverStrike2.Core.csproj", "core/Settings.cs" }.All(names.Contains)
               && !names.Any(x => x.StartsWith("core/SelfTest", StringComparison.Ordinal) || x.Contains("/bin/") || x.Contains("/obj/")) && Bridge.Dockerfile == "bridge/Dockerfile"
               && dockerfileInTar is not null && committedDockerfile is not null && dockerfileInTar.AsSpan().SequenceEqual(committedDockerfile));
         var bridgeDf = File.ReadAllText(Repo.P("bridge", "Dockerfile"));

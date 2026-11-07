@@ -323,7 +323,7 @@ one that is not; an empty group hands the pick to the other.
 map on the broken list; a non-map; a blocked map; a map gone from the Workshop; a map a player marked **Ads**. Anybody can still put a map marked Ads
 to the vote.
 
-**Only what is on the server's disk**, so whichever card wins loads at once (`RandomQueue.cs`). On the disk means: an official map; a **kept map** (the
+**Only what is on the server's disk**, so whichever card wins loads at once (`Stock.cs`). On the disk means: an official map; a **kept map** (the
 [keep set](#what-the-server-keeps)) when it is liked, ours or within the first 90 of one of its mode's lists - the margin covers a list that moved since
 the server last stored it - unless the restart watcher's report says it is not there, or its content changed since the version the sync accepts; or a
 **stock entry** the watcher reports. Only when none of those is eligible do the dice roll over every eligible map. Without `ratings.json` (no sync, or

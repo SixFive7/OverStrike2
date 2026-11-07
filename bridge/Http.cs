@@ -31,7 +31,7 @@ static partial class Program
         // The other programs' words to the bridge, each address from core's BridgeWire.cs, as they send them:
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Removed) + LogSecret) { RemovedReport(c); return; }      // the Workshop sync: what Steam says about the listed maps
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Reload) + LogSecret) { ReloadRequest(c); return; }       // read the data files again now (Reload.cs)
-        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Ready) + LogSecret) { ReadyReport(c); return; }          // the restart watcher: the queued maps on disk (RandomQueue.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Ready) + LogSecret) { ReadyReport(c); return; }          // the restart watcher: the queued maps on disk (Stock.cs)
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Quitting) + LogSecret) { QuitNoticeRequest(c); return; } // the restart watcher, right before its planned quit (CrashWatch.cs)
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.RestartNotice) + LogSecret) { RestartNoticeRequest(c); return; } // the restart watcher: a restart coming, or not after all (Restarts.cs)
         if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Updated) + LogSecret) { UpdatedRequest(c); return; }     // the restart watcher: the new engine is up, and what it is (Restarts.cs)
@@ -62,13 +62,13 @@ static partial class Program
             BridgeWire.HealthWord,
             $"started {StartedUtc:yyyy-MM-ddTHH:mm:ssZ}",
             $"log pushes {Interlocked.Read(ref logPosts)}" + (last == 0 ? ", none yet" : $", the last {(DateTime.UtcNow - new DateTime(last, DateTimeKind.Utc)).TotalSeconds:0} s ago"),
-            $"maps {Maps.Count} + {Officials.Count} official; broken {Broken.Count}, non-maps {Packs.Count}, gone from the Workshop {Removed.Count}, blocked {Blocked.Count}",
+            $"maps {Maps.Count} + {Officials.Count} official; broken {Broken.Count}, non-maps {NonMaps.Count}, gone from the Workshop {Removed.Count}, blocked {Blocked.Count}",
             $"map {CurrentLabel()}",
             $"crash watch: spawn {(SpawnSeen?.ToString() ?? "not read yet")}, {S.Crashes.Count} map(s) with crashes",
             $"search: {Search.Count} maps indexed, version {Search.Version}",
             SelectionHealth(),
             NumbersHealth(),
-            QueueHealth(),
+            StockHealth(),
             ReasonHealth(),
             ModeHealth(),
             VoteHealth(),
