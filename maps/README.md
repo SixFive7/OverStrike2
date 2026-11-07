@@ -3,7 +3,8 @@
 Three Arms Race maps, each generated from a script: the geometry, the props, the spawns and the breakable glass are all code.
 Each folder holds `generate.py` (writes the Hammer map source into the CS2 Workshop Tools' content folder), `build.py`
 (generates, then compiles, lights and packs the map with the Workshop Tools), `preview.py` (renders the Workshop preview from
-the generated layout), `workshop.json` (the Workshop item's title, description and tags) and `workshop_id.txt` (the item).
+the generated layout), `workshop.json` (the Workshop item's title, description and tags, and the addon folder its build is in: the
+publisher uploads that folder, and refuses another) and `workshop_id.txt` (the item).
 `vmapkit.py` holds what the generators share: the ids and the writer of the Hammer map source. `build_map.py` is what every `build.py`
 runs, with the map's own settings, and `previewkit.py` the renderer every `preview.py` draws with. [gg_glasspire](gg_glasspire/README.md)
 and [gg_moonglass](gg_moonglass/README.md) have a README of their own: what the script builds, how the shipped build was compiled and

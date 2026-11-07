@@ -2,10 +2,14 @@
 // Steam client that is running and logged in on this PC - it never sees a password: SteamAPI_Init attaches to that client, exactly as
 // the HUD's publisher does (hud/publisher/: no create path by design, and nothing here touches it or its item).
 //
-// A map folder holds workshop.json - the item's title, description and tags, and the map's name - and, once the item exists,
-// workshop_id.txt. create writes workshop_id.txt the moment Steam has made the item, before anything is uploaded, and refuses to run
-// while it names an item: a failed upload is retried with update, never with a second item for the same map (Valve frowns on
-// near-identical new items; AGENTS.md, the HUD's rule).
+// A map folder holds workshop.json - the item's title, description and tags, the map's name, and the addon folder its build is in
+// (game/csgo_addons/<addon>; the map's name when it names none) - and, once the item exists, workshop_id.txt. create writes
+// workshop_id.txt the moment Steam has made the item, before anything is uploaded, and refuses to run while it names an item: a failed
+// upload is retried with update, never with a second item for the same map (Valve frowns on near-identical new items; AGENTS.md, the
+// HUD's rule). The addon is the build the item carries: a map may be built into a staging folder (build.py --addon) while the published
+// build is under review, and the folder of the map's own name may hold an older build. create and update refuse an addon folder that is
+// not the one workshop.json names - record a new build's folder there first, so the next update uploads that build again; pack only says
+// so.
 //
 // What a CS2 map item holds - read off 197 map items in steamapps/workshop/content/730/:
 //   <id>.vpk          the compiled addon's game folder (game/csgo_addons/<addon>/) packed: addoninfo.txt (180 of the 197), the map
@@ -117,7 +121,7 @@ static class Program
             throw new Refusal($"{idFile} holds '{File.ReadAllText(idFile).Trim()}', not an item id - fix it by hand first.");
         var item = Item.Load(mapDir);
         CheckPreview(preview);
-        var content = Pack(item, addon, staging, 0); // everything is checked and packed before an item exists; 0.vpk is renamed below
+        var content = Pack(item, addon, staging, 0, upload: true); // everything is checked and packed before an item exists; 0.vpk is renamed below
         return Session((ugc, utils, steamId) =>
         {
             Console.WriteLine($"creating a new Workshop item for '{item.Title}' (app {App}) as account {steamId & 0xFFFFFFFF} ({steamId})");
@@ -162,7 +166,7 @@ static class Program
         var item = Item.Load(mapDir);
         var keepPreview = preview == "-";
         if (!keepPreview) CheckPreview(preview);
-        var content = Pack(item, addon, staging, id);
+        var content = Pack(item, addon, staging, id, upload: true);
         return Session((ugc, utils, steamId) =>
         {
             Console.WriteLine($"a new version of {id} ('{item.Title}') as account {steamId & 0xFFFFFFFF}; the visibility is left as it is");
@@ -250,10 +254,18 @@ static class Program
     }
 
     /// <summary>The content folder Steam uploads: &lt;id&gt;.vpk and publish_data.txt. Only those are ever deleted from it, and anything
-    /// else in it is refused (Steam would upload it too). The VPK is read back and checked before it is used.</summary>
-    static string Pack(Item item, string addon, string outDir, ulong id)
+    /// else in it is refused (Steam would upload it too). The VPK is read back and checked before it is used. upload: for create and
+    /// update, which refuse an addon folder other than the one workshop.json names; a pack only says so.</summary>
+    static string Pack(Item item, string addon, string outDir, ulong id, bool upload = false)
     {
         addon = Path.GetFullPath(addon);
+        var folder = Path.GetFileName(addon.TrimEnd('\\', '/'));
+        if (!folder.Equals(item.Addon, StringComparison.OrdinalIgnoreCase))
+        {
+            var why = $"{addon} is not the addon folder workshop.json names ({item.Addon}): that is the build the item carries";
+            if (upload) throw new Refusal(why + $" - record {folder} as \"addon\" in workshop.json first, so the next update uploads this build too");
+            Console.WriteLine($"note: {why}");
+        }
         if (!Directory.Exists(addon)) throw new Refusal($"no compiled addon at {addon} (the Workshop Tools compile one into game\\csgo_addons\\<addon>)");
         var mapVpk = Path.Combine(addon, "maps", item.Map + ".vpk");
         if (!File.Exists(mapVpk)) throw new Refusal($"{mapVpk} is missing - the compiled map is what the item is for");
@@ -443,20 +455,21 @@ static class Program
 
 sealed class Refusal(string message) : Exception(message);
 
-/// <summary>What the Workshop shows for one map: workshop.json in its folder, checked against Steam's limits before anything is sent.</summary>
-sealed record Item(string Title, string Description, string[] Tags, string Map)
+/// <summary>What the Workshop shows for one map: workshop.json in its folder, checked against Steam's limits before anything is sent; and
+/// the addon folder (under game/csgo_addons) whose build the item carries - the map's name when workshop.json names none.</summary>
+sealed record Item(string Title, string Description, string[] Tags, string Map, string Addon)
 {
     public static Item Load(string mapDir)
     {
         var path = Path.Combine(mapDir, "workshop.json");
-        if (!File.Exists(path)) throw new Refusal($"no {path} (title, description, tags, map)");
+        if (!File.Exists(path)) throw new Refusal($"no {path} (title, description, tags, map, addon)");
         using var doc = JsonDocument.Parse(File.ReadAllText(path));
         var root = doc.RootElement;
         string Str(string name) => root.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
         var tags = root.TryGetProperty("tags", out var t) && t.ValueKind == JsonValueKind.Array
             ? t.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString() ?? "").ToArray() : [];
-        var item = new Item(Str("title"), Str("description"), tags,
-            Str("map") is { Length: > 0 } m ? m : Path.GetFileName(Path.GetFullPath(mapDir).TrimEnd('\\', '/')));
+        var map = Str("map") is { Length: > 0 } m ? m : Path.GetFileName(Path.GetFullPath(mapDir).TrimEnd('\\', '/'));
+        var item = new Item(Str("title"), Str("description"), tags, map, Str("addon") is { Length: > 0 } a ? a : map);
         var why = item.Title.Trim() == "" ? "no title"
             : Encoding.UTF8.GetByteCount(item.Title) > 128 ? "a title over 128 bytes"
             : Encoding.UTF8.GetByteCount(item.Description) > 7999 ? "a description over 8,000 bytes"
@@ -464,9 +477,10 @@ sealed record Item(string Title, string Description, string[] Tags, string Map)
             : item.Tags.FirstOrDefault(x => x.Trim() == "" || x.Contains(',') || x.Length > 255) is { } bad ? $"a bad tag '{bad}'"
             : item.Tags.Sum(x => Encoding.UTF8.GetByteCount(x) + 1) > 1024 ? "tags over 1,024 bytes together"
             : !Regex.IsMatch(item.Map, "^[a-z0-9_]+$") ? $"a map name '{item.Map}' that is not lower-case letters, digits and _"
+            : !Regex.IsMatch(item.Addon, @"^[A-Za-z0-9_][A-Za-z0-9_.\-]*$") ? $"an addon '{item.Addon}' that is no folder name under game\\csgo_addons"
             : null;
         if (why != null) throw new Refusal($"{path} has {why}");
-        Console.WriteLine($"item: '{item.Title}', map {item.Map}, tags {string.Join(", ", item.Tags)}, description {item.Description.Length} characters");
+        Console.WriteLine($"item: '{item.Title}', map {item.Map}, addon {item.Addon}, tags {string.Join(", ", item.Tags)}, description {item.Description.Length} characters");
         return item;
     }
 }

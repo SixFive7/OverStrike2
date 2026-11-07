@@ -7,10 +7,12 @@
 #   ... -Map gg_glasspire -Query | -Public | -Watch                                                        # read-only: Steam's view, a visitor's view, the moderation watcher
 #   ... -List                                                                                              # every item of the account, read-only
 #
-# A map folder holds workshop.json (title, description, tags, map) and, once the item exists, workshop_id.txt - written by -Create
-# the moment Steam has made the item, so a failed upload is retried with -Update and never makes a second item.
+# A map folder holds workshop.json (title, description, tags, map, addon) and, once the item exists, workshop_id.txt - written by
+# -Create the moment Steam has made the item, so a failed upload is retried with -Update and never makes a second item.
 # -Preview defaults to maps\<map>\workshop_preview.jpg (1280x720, under 1 MB); -Update without -Preview keeps the item's.
-# -Addon defaults to <CS2>\game\csgo_addons\<map>, where the Workshop Tools compile the map.
+# -Addon defaults to <CS2>\game\csgo_addons\<addon>: the addon folder workshop.json names, whose build the item carries (a staging
+# folder, say, where build.py --addon compiled it; the map's own name when workshop.json names none). -Create and -Update refuse any
+# other folder: record a new build's folder in workshop.json first.
 
 param(
     [string]$Map = "",
@@ -52,7 +54,10 @@ $dir = Join-Path $maps $Map
 if (-not (Test-Path (Join-Path $dir "workshop.json"))) { Write-Output "No $dir\workshop.json."; exit 2 }
 $idFile = Join-Path $dir "workshop_id.txt"
 $id = if (Test-Path $idFile) { (Get-Content $idFile -Raw).Trim() } else { "" }
-if (-not $Addon) { $Addon = Join-Path $Cs2 "game\csgo_addons\$Map" }
+if (-not $Addon) {
+    $recorded = (Get-Content -LiteralPath (Join-Path $dir "workshop.json") -Raw | ConvertFrom-Json).addon   # the build the item carries
+    $Addon = Join-Path $Cs2 ("game\csgo_addons\" + $(if ($recorded) { $recorded } else { $Map }))
+}
 $staging = Join-Path $out "content-$Map"
 
 if ($Query -or $Public -or $Watch) {
