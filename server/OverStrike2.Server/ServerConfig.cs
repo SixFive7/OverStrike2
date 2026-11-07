@@ -51,30 +51,35 @@ public sealed record ServerPaths
     };
 }
 
-/// <summary>What the watcher and the maps folder read from the settings, and the image's own variables they are held to (BootWarnings). A
-/// test builds one by hand.</summary>
-public sealed class ServerConfig
+/// <summary>What the watcher and the maps folder read from the settings, and the image's own variables they are held to (BootWarnings).
+/// Made by From alone, so every value is the settings' - their defaults are the table's (core/Settings.cs), never a second copy here; a test
+/// changes one with `with`.</summary>
+public sealed record ServerConfig
 {
-    public required ServerPaths Paths { get; init; }
-    public bool Updates { get; set; } = true;                  // restarts.updates
-    public double CheckEvery { get; set; } = 1800;             // restarts.updateCheckMinutes, in seconds
-    public bool NewVersions { get; set; } = true;              // restarts.newVersions
-    public TimeOfDay? Daily { get; set; } = new TimeOfDay(7, 0);   // restarts.daily
-    public bool FreezeRecovery { get; set; } = true;           // restarts.freezeRecovery
-    public int FreezeGrace { get; set; } = 10;                 // restarts.freezeGraceSeconds
-    public bool DownloadRestart { get; set; } = true;          // restarts.downloadRestart
-    public string MapsLayout { get; set; } = "folders";        // maps.layout
-    public string MapsDelete { get; set; } = "on";             // maps.delete
-    public bool BackgroundDownloads { get; set; } = true;      // maps.backgroundDownloads
-    public bool DownloadLine { get; set; } = true;             // maps.downloadLine
-    public string HudAddon { get; set; } = "";                 // hud.addon, which the settings require: the program never runs without it
-    public bool PluginLayer { get; set; } = true;              // plugin.enabled
-    public int Port { get; set; } = 27015;                     // server.port
-    public string RconPassword { get; set; } = "";             // server.rconPassword: the image's CS2_RCONPW by default
-    public double ApiGap { get; set; } = WebApiDoor.MinimumGap;    // steam.apiGapSeconds
-    public (string Base, string Secret)? Bridge { get; set; }  // bridge.url and bridge.secret; none while the secret is empty
-    public KeepRules KeepRules { get; set; } = KeepRules.Default;
-    public List<string> BootWarnings { get; } = [];            // logged when the watcher starts
+    ServerConfig()
+    {
+    }
+
+    public ServerPaths Paths { get; init; } = null!;
+    public bool Updates { get; init; }                         // restarts.updates
+    public double CheckEvery { get; init; }                    // restarts.updateCheckMinutes, in seconds
+    public bool NewVersions { get; init; }                     // restarts.newVersions
+    public TimeOfDay? Daily { get; init; }                     // restarts.daily
+    public bool FreezeRecovery { get; init; }                  // restarts.freezeRecovery
+    public int FreezeGrace { get; init; }                      // restarts.freezeGraceSeconds
+    public bool DownloadRestart { get; init; }                 // restarts.downloadRestart
+    public string MapsLayout { get; init; } = "";              // maps.layout
+    public string MapsDelete { get; init; } = "";              // maps.delete
+    public bool BackgroundDownloads { get; init; }             // maps.backgroundDownloads
+    public bool DownloadLine { get; init; }                    // maps.downloadLine
+    public string HudAddon { get; init; } = "";                // hud.addon, which the settings require: the program never runs without it
+    public bool PluginLayer { get; init; }                     // plugin.enabled
+    public int Port { get; init; }                             // server.port
+    public string RconPassword { get; init; } = "";            // server.rconPassword: the image's CS2_RCONPW by default
+    public double ApiGap { get; init; }                        // steam.apiGapSeconds
+    public (string Base, string Secret)? Bridge { get; init; } // bridge.url and bridge.secret; none while the secret is empty
+    public KeepRules KeepRules { get; init; } = KeepRules.Default;   // the keep set's limits, its queues as long as bridge.discoveryStock
+    public List<string> BootWarnings { get; init; } = [];      // logged when the watcher starts
 
     /// <summary>The settings for the server program, and a warning wherever the image's own variables say otherwise.</summary>
     public static ServerConfig From(Settings s, Func<string, string?>? env = null)

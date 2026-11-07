@@ -251,7 +251,7 @@ static class RestartTests
               due == "version" && s.W.Due is null && Notices(s)[^1] == "gg-restart\t1\tcancel\tour-update\n");
 
         // V6. restarts.newVersions false: never
-        s = Scenario.Make(At(4, 15, 0, 0), installed: v1, tune: c => c.NewVersions = false);
+        s = Scenario.Make(At(4, 15, 0, 0), installed: v1, tune: c => c with { NewVersions = false });
         s.Step(20);
         Put(PluginDll, "plugin v2");
         s.Step(300);

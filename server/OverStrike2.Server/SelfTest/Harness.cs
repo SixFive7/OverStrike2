@@ -168,7 +168,7 @@ sealed class Scenario
     {
         Root = T.Dir("uw");
         T.Put(Path.Combine(Root, "game", "csgo", "steam.inf"), SteamInf);
-        Template = new ServerConfig
+        Template = ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, n => n == "CS2_RCONPW" ? "secret" : null), _ => null) with
         {
             Paths = new ServerPaths
             {
@@ -179,25 +179,15 @@ sealed class Scenario
                 Plugins = Path.Combine(Root, "plugins"),
                 Logs = Path.Combine(Root, "steamlogs-none"),
             },
-            RconPassword = "secret",
         };
     }
 
     /// <summary>A copy of the template with other paths.</summary>
-    public static void Paths(Func<ServerPaths, ServerPaths> change) => Template = Copy(Template, change(Template.Paths));
-
-    public static ServerConfig Copy(ServerConfig c, ServerPaths? paths = null) => new()
-    {
-        Paths = paths ?? c.Paths,
-        Updates = c.Updates, CheckEvery = c.CheckEvery, NewVersions = c.NewVersions, Daily = c.Daily, FreezeRecovery = c.FreezeRecovery,
-        FreezeGrace = c.FreezeGrace, DownloadRestart = c.DownloadRestart, MapsLayout = c.MapsLayout, MapsDelete = c.MapsDelete,
-        BackgroundDownloads = c.BackgroundDownloads, DownloadLine = c.DownloadLine, HudAddon = c.HudAddon, PluginLayer = c.PluginLayer,
-        Port = c.Port, RconPassword = c.RconPassword, ApiGap = c.ApiGap, Bridge = c.Bridge, KeepRules = c.KeepRules,
-    };
+    public static void Paths(Func<ServerPaths, ServerPaths> change) => Template = Template with { Paths = change(Template.Paths) };
 
     public static DateTimeOffset At(int y, int mo, int d, int h, int mi, int s) => new(y, mo, d, h, mi, s, Cest);
 
-    public static Scenario Make(DateTimeOffset start, (string, int?, string?)? verdict = null, Action<ServerConfig>? tune = null, Installed? installed = null)
+    public static Scenario Make(DateTimeOffset start, (string, int?, string?)? verdict = null, Func<ServerConfig, ServerConfig>? tune = null, Installed? installed = null)
     {
         var stateDir = Path.Combine(Root, "update-watch");
         if (Directory.Exists(stateDir))
@@ -211,8 +201,7 @@ sealed class Scenario
             valve.Answer = _ => v;
         var lines = new List<string>();
         var log = new Log("test", clock, Paris, lines.Add);
-        var config = Copy(Template);
-        tune?.Invoke(config);
+        var config = tune is null ? Template : tune(Template);
         var w = new Watch(config, clock, Paris, log, eng, bridge, valve)
         {
             SettingsPath = Path.Combine(Root, "settings.jsonc"),

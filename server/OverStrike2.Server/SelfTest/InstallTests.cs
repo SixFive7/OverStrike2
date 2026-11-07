@@ -53,12 +53,15 @@ static class InstallTests
         var csgo = Path.Combine(game, "game", "csgo");
         Put(Path.Combine(csgo, "gameinfo.gi"), Gameinfo);
         var plugins = Dir("install-plugins");
-        var config = Scenario.Copy(Scenario.Template, new ServerPaths
+        var config = Scenario.Template with
         {
-            GameDir = game, BridgeData = Dir("install-data"), Handover = Path.Combine(game, "handover"),
-            Depotcache = Path.Combine(game, "depotcache"), Plugins = plugins,
-        });
-        config.HudAddon = "3823993566";
+            Paths = new ServerPaths
+            {
+                GameDir = game, BridgeData = Dir("install-data"), Handover = Path.Combine(game, "handover"),
+                Depotcache = Path.Combine(game, "depotcache"), Plugins = plugins,
+            },
+            HudAddon = "3823993566",
+        };
         var lines = new List<string>();
         var log = new Log("test", SystemClock.Instance, Scenario.Paris, lines.Add);
         var downloads = new LocalDownloads();
@@ -150,17 +153,15 @@ static class InstallTests
         Check($"install: no MultiAddonManager after its download failed: the HUD cannot reach anybody - one ALERT, exit {Settings.RefusedExit}, nothing done after it",
               rc == Settings.RefusedExit && !File.Exists(vdf) && lines.Count(l => l.StartsWith("ALERT")) == 1
               && lines.Any(l => l.StartsWith("ALERT: MultiAddonManager is not installed") && l.Contains("the engine does not start")) && !lines.Any(l => l.StartsWith("maps folder:")));
-        config.PluginLayer = false;
-        rc = install.Run(from, settings);
+        var vanilla = new Install(config with { PluginLayer = false }, log, downloads, _ => null, SystemClock.Instance, Scenario.Paris);
+        rc = vanilla.Run(from, settings);
         Check("install: ... plugin.enabled false, the emergency switch, does not ask for it", rc == 0);
-        config.PluginLayer = true;
         downloads.Files[Install.MamUrl] = mamUrl;
         lines.Clear();
         rc = install.Run(from, settings);
         Check("install: ... and the next start tries the download again, and goes on", rc == 0 && File.Exists(vdf) && lines.Any(l => l.Contains("HUD on (Workshop addon 3823993566)")));
-        config.PluginLayer = false;
         lines.Clear();
-        install.Run(from, settings);
+        vanilla.Run(from, settings);
         Check("install: plugin.enabled false - the search path goes, vanilla server, the files stay on disk",
               !File.ReadAllText(Path.Combine(csgo, "gameinfo.gi")).Contains("metamod") && lines.Any(l => l.StartsWith("SUMMARY: plugin layer off"))
               && File.Exists(Path.Combine(csgo, "addons", "metamod", ".pre.sh-installed-" + Install.MetamodVersion)));

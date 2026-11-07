@@ -68,20 +68,18 @@ static class OrganizeTests
         File.WriteAllText(Path.Combine(content, id, id + "_dir.vpk"), text);
     }
 
-    static ServerConfig Config(string root, string data, string hud) => Scenario.Copy(Scenario.Template, new ServerPaths
+    static ServerConfig Config(string root, string data, string hud) => Scenario.Template with
     {
-        GameDir = root,
-        BridgeData = data,
-        Handover = Path.Combine(root, "handover"),
-        Depotcache = Path.Combine(root, "depotcache"),
-        Plugins = Path.Combine(root, "plugins"),
-    }) is var c ? Tune(c, hud) : null!;
-
-    static ServerConfig Tune(ServerConfig c, string hud)
-    {
-        c.HudAddon = hud;
-        return c;
-    }
+        Paths = new ServerPaths
+        {
+            GameDir = root,
+            BridgeData = data,
+            Handover = Path.Combine(root, "handover"),
+            Depotcache = Path.Combine(root, "depotcache"),
+            Plugins = Path.Combine(root, "plugins"),
+        },
+        HudAddon = hud,
+    };
 
     /// <summary>The maps folder: real folders per type, links in content/730, new downloads moved in, nothing lost.</summary>
     static void Folders()
@@ -133,8 +131,7 @@ static class OrganizeTests
           () => !freshLine.Contains("stopped") && File.ReadAllText(Path.Combine(fresh, "maps", "INDEX.tsv")) == "type\tid\ttitle\tMB\n" && !Directory.Exists(Contents(fresh)));
         var none = new MapsFolder(Config(tree, Path.Combine(tree, "nothing-here"), "500"), log, SystemClock.Instance, Scenario.Paris);
         C("organize: no lists, nothing touched", () => none.Organize().Contains("not readable"));
-        var off = Config(tree, data, "500");
-        off.MapsLayout = "off";
+        var off = Config(tree, data, "500") with { MapsLayout = "off" };
         C("organize: maps.layout off leaves Steam's layout alone", () => new MapsFolder(off, log, SystemClock.Instance, Scenario.Paris).Organize().StartsWith("maps folder: off"));
     }
 
@@ -191,9 +188,7 @@ static class OrganizeTests
         }
         WriteData();
         File.WriteAllText(Path.Combine(ws, "appworkshop_730.acf"), acf);
-        var config = Config(t4, data, "500");
-        config.MapsDelete = "dryrun";
-        config.KeepRules = new KeepRules { Top = 1, MinTop = 1, MinQueue = 1 };
+        var config = Config(t4, data, "500") with { MapsDelete = "dryrun", KeepRules = new KeepRules { Top = 1, MinTop = 1, MinQueue = 1 } };
         var log = new Log("test", SystemClock.Instance, Scenario.Paris, _ => { });
         MapsFolder Mf() => new(config, log, SystemClock.Instance, Scenario.Paris);
         var stateDir = config.Paths.StateDir;
@@ -244,7 +239,7 @@ static class OrganizeTests
         line = Mf().Organize();
         C($"organize: a hand-over of a map the server has as new already is dropped ({line})",
           () => !Directory.Exists(Path.Combine(hand, "150")) && !File.Exists(Path.Combine(hand, "150.json")) && line.Contains("1 hand-over(s) not needed"));
-        config.MapsDelete = "on";
+        config = config with { MapsDelete = "on" };
         var oldRatings = (JsonObject)ratings.DeepClone();
         oldRatings["fetched"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 5 * 86400;
         WriteData(new() { ["ratings.json"] = oldRatings.ToJsonString() });

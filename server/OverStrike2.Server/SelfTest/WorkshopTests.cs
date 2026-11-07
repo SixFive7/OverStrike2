@@ -41,15 +41,14 @@ static class WorkshopTests
         Check($"CLI: every job of the watcher off - nothing to do, the watcher does not start ({code})", code == 0 && said.Contains("nothing to do"));
         var allOff = ServerConfig.From(Settings.Parse(File.ReadAllText(off), Part.Server, _ => null), _ => null);
         Check("CLI: ... that is all seven switches: the settings file's", Program.NothingToDo(allOff));
-        foreach (var (name, on) in new (string, Action<ServerConfig>)[]
+        foreach (var (name, on) in new (string, Func<ServerConfig, ServerConfig>)[]
         {
-            ("restarts.updates", c => c.Updates = true), ("restarts.newVersions", c => c.NewVersions = true), ("restarts.freezeRecovery", c => c.FreezeRecovery = true),
-            ("restarts.daily", c => c.Daily = new TimeOfDay(7, 0)), ("restarts.downloadRestart", c => c.DownloadRestart = true),
-            ("maps.backgroundDownloads", c => c.BackgroundDownloads = true), ("maps.downloadLine", c => c.DownloadLine = true),
+            ("restarts.updates", c => c with { Updates = true }), ("restarts.newVersions", c => c with { NewVersions = true }), ("restarts.freezeRecovery", c => c with { FreezeRecovery = true }),
+            ("restarts.daily", c => c with { Daily = new TimeOfDay(7, 0) }), ("restarts.downloadRestart", c => c with { DownloadRestart = true }),
+            ("maps.backgroundDownloads", c => c with { BackgroundDownloads = true }), ("maps.downloadLine", c => c with { DownloadLine = true }),
         })
         {
-            var one = ServerConfig.From(Settings.Parse(File.ReadAllText(off), Part.Server, _ => null), _ => null);
-            on(one);
+            var one = on(allOff);
             Check($"CLI: ... {name} alone on is a job for the watcher", !Program.NothingToDo(one));
         }
         var broken = Path.Combine(Dir("cli2"), "broken.jsonc");
@@ -83,14 +82,14 @@ static class WorkshopTests
         }
     }
 
-    /// <summary>N2. the download line: what is said, when, and to nobody when nobody is on.</summary>
+    /// <summary>The download line: what is said, when, and to nobody when nobody is on.</summary>
     static void Line()
     {
         var sent = new List<string>();
         var eng = new FakeEngine(Path.Combine(Dir("line"), "console.log")) { OnRcon = (c, _) => { sent.Add(c); return (true, "gg_notice: shown"); } };
         var data = Dir("bridge0");
         File.WriteAllText(Path.Combine(data, "maps-deathmatch.json"), "[{\"rank\": 1, \"id\": 900, \"name\": \"Bastion\", \"sizeMb\": 155}]");
-        var config = Scenario.Copy(Scenario.Template, Scenario.Template.Paths with { BridgeData = data });
+        var config = Scenario.Template with { Paths = Scenario.Template.Paths with { BridgeData = data } };
         var log = new Log("test", new FakeClock(At(4, 15, 0, 0)), Scenario.Paris, _ => { });
         var ln = new DownloadLine(config, eng, log);
         ln.ConsoleLine("11/01 08:45:57 [Workshop] Updating 900: state 3", 100.0);
@@ -188,7 +187,7 @@ static class WorkshopTests
         var logs = Dir("wslog1");
         Scenario.Paths(p => p with { Logs = logs });
         File.WriteAllText(Wslog, "");
-        void Off(ServerConfig c) => (c.Daily, c.Updates) = (null, false);
+        static ServerConfig Off(ServerConfig c) => c with { Daily = null, Updates = false };
         var s = Scenario.Make(At(4, 15, 0, 0), tune: Off);
         (s.Eng.Hud, s.Eng.Humans) = (true, 1);
         BrokenDownload(s);
@@ -264,7 +263,7 @@ static class WorkshopTests
             + "[x] No target sources connected\n");
         Scenario.Paths(p => p with { Logs = logs, Depotcache = depot });
         File.WriteAllText(Wslog, "");
-        void Off(ServerConfig c) => (c.Daily, c.Updates) = (null, false);
+        static ServerConfig Off(ServerConfig c) => c with { Daily = null, Updates = false };
 
         // O4. a download that ends "No Connection" marks the process broken AT ONCE, and the Steam client's logs are kept
         var s = Scenario.Make(At(4, 15, 0, 0), tune: Off);

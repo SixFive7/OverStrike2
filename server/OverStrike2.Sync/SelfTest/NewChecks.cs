@@ -472,7 +472,7 @@ static class NewChecks
         var (ok, words) = Handover.HandOver(staging, handover, "4100", "Taken In", depot, Part2.T0, Log.Line);
         var serverDepot = Path.Combine(root, "ti-server-depot");
         Directory.CreateDirectory(serverDepot);
-        var config = new ServerConfig
+        var config = ServerConfig.From(new OverStrike2.Core.Settings(), _ => null) with
         {
             Paths = new ServerPaths { GameDir = game, BridgeData = data, Handover = handover, Depotcache = serverDepot, Plugins = Path.Combine(root, "ti-plugins") },
             MapsDelete = "off",

@@ -75,7 +75,7 @@ static class PureTests
         Check("freeze: another map started loading", !Rules.FreezeConfirmed(1200, 1000, 999, true, true, 90));
         Check("freeze: silence began long after the signature", !Rules.FreezeConfirmed(1500, 1000, 1100, true, false, 90));
         Check("freeze (path a): no signature -> no path-a kill", !Rules.FreezeConfirmed(99999, null, 0, true, false, 90));
-        Check("freeze: the default grace is 10 s", new ServerConfig { Paths = Scenario.Template.Paths }.FreezeGrace == 10 && new Settings().Restarts.FreezeGraceSeconds == 10);
+        Check("freeze: the default grace is 10 s", ServerConfig.From(new Settings(), _ => null).FreezeGrace == 10 && new Settings().Restarts.FreezeGraceSeconds == 10);
         Check("freeze (path a) at 10 s: 10 s of silence after the signature -> kill", Rules.FreezeConfirmed(1010, 1000, 1000, true, false, 10));
         Check("freeze (path a) at 10 s: 9 s -> no kill", !Rules.FreezeConfirmed(1009, 1000, 1000, true, false, 10));
         Check("polling: A2S every 2 s with a 1 s timeout, so the 10 s grace spans several polls",
