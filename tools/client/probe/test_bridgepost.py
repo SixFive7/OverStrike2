@@ -53,6 +53,8 @@ def req(path, method="GET", body=None, ctype=None, timeout=None):
         return 201, json.dumps({"Id": "e1"})
     if method == "POST" and path.startswith("/exec/"):
         url = next(e for e in execs[-1]["Env"] if e.startswith("OS2_BRIDGE_URL=")).split("=", 1)[1]
+        if "/hud/" in url and execs[-1]["Cmd"][-1] == bp.GET_VOTE_LINES:
+            return 200, (state["lines"] + "\n").encode()  # GET_VOTE_LINES passes on every line of the vote (held below against a real server)
         if "/hud/" in url:
             return 200, (state["mv"] + "\n").encode()    # GET_VOTE passes on the vote's line alone (held below against a real server)
         if "/log/" in url:
@@ -104,6 +106,24 @@ def refused(why, *argv):
 # every send, the OK path first
 code, out = run("check")
 check(code is None and "all checks hold" in out and not execs, "check: all hold, nothing sent")
+
+# names-check: a private name among the vote's names in the bridge's state refuses, without printing it; test names pass
+real_private_names = probe.private_names
+probe.private_names = lambda: ["Realname", "Other Person"]
+state["lines"] = "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1\nmvw\tAlice\tHUDtest\nmvs\tHUDtest"
+code, out = run("names-check")
+check(code is None and "no private name" in out and "3 line(s)" in out and "Realname" not in out, f"names-check: test names only - it passes ({out.strip()!r})")
+for lines, where in (("mvw\tHUDtest\tREALNAME", "the waiting names, in another case"), ("mvs\tOther Person", "who started it")):
+    state["lines"] = "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1\n" + lines
+    code, out = run("names-check")
+    check(isinstance(code, str) and "REFUSED" in code and "realname" not in code.lower() and "other person" not in code.lower() and "realname" not in out.lower(),
+          f"names-check: a private name among {where} - refused, the name printed nowhere ({code!r})")
+probe.private_names = lambda: []
+code, out = run("names-check")
+check(isinstance(code, str) and "REFUSED" in code, f"names-check: no private name known to check against - refused ({code!r})")
+probe.private_names = real_private_names
+state.pop("lines")
+execs.clear()
 
 code, out = run("restart", "our-update", "match-end", "0")
 e = execs[-1]
@@ -243,6 +263,8 @@ code, out, err = inner("/log/x", bp.POST, "line one\nline two")
 check(code == 0 and out.strip() == "200" and Bridge.got[-1][1] == "line one\nline two", f"POST with an empty answer, and a body of two lines: {out!r} {err[-200:]!r}")
 code, out, err = inner("/hud/x", bp.GET_VOTE)
 check(code == 0 and out.strip() == "mv\t77\topen\t50", f"GET_VOTE gives the vote's line alone, however long the state: {out[:80]!r} {err[-200:]!r}")
+code, out, err = inner("/hud/x", bp.GET_VOTE_LINES)
+check(code == 0 and out.strip().splitlines() == ["mvo\t1\tHUDtest", "mv\t77\topen\t50"], f"GET_VOTE_LINES gives every line of the vote and nothing else: {out[:80]!r} {err[-200:]!r}")
 server.shutdown()
 
 shutil.rmtree(tmp)

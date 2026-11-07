@@ -187,7 +187,8 @@ session with `-Console`, the client console types chat too: `cmd -Cmd "say !help
 **What only the bridge's own callers say: `probe\bridgepost.py`.** The restart watcher's notices - a restart announced or taken back
 (`restart`, `restart-cancel`), an update done (`updated`), its quit notice (`quit-notice`) - and other players: fake players who join,
 leave, time out, click and vote (`fake-on`, `fake-off`, `fake-crash`, `act`, `vote`), and the real client out of the bridge's lists and back
-(`client-off`, `client-on`). **A candidate bridge on a test copy only**: before every call it checks the server lock, the copy's label, the
+(`client-off`, `client-on`); and `names-check`, which refuses when a private name - the client's own Steam name, `client.private_names` - is among
+the vote's names in the bridge's state, printing none. **A candidate bridge on a test copy only**: before every call it checks the server lock, the copy's label, the
 candidate's label and its `-candidate` data, and production and its bridge aside and stopped, and refuses otherwise; no verb takes a route
 or free text. The call goes from inside the game container to the bridge's container by name, the secret from the candidate's own inspect,
 in the exec's environment, never printed. A notice counting down (`restart ... now`) blocks every vote until `restart-cancel`; a fake

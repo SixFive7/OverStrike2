@@ -34,7 +34,10 @@ warning from the join, the vote's clocks and words from its opening or its close
 
 NAMES: the pictures are public, so test names only. Best of all the client plays under the test name: GgDocName (this folder), a throwaway plugin on the test copy
 only, makes the server call it Alice, and --renamed says so (the run checks it with ggd_name): then no mask is needed for a name, only the avatar is blurred (and CS2's
-scoreboard, for its avatars), and the rows whose own words name the client - a fun change typed in chat - can run. Without it: every frame gets the CS2 team counter's
+scoreboard, for its avatars), and the rows whose own words name the client - a fun change typed in chat - can run. The bridge is another matter: it knows
+the client by the name of the game log's connect line, the Steam name, until the client's next chat line or click under the test name. So the ballots' waiting
+names keep their paint under --renamed (Mask.keep), HUDtest's vote tells the bridge the test name first (bridgepost.py client-on), and every row that opens a
+vote runs bridgepost.py names-check before its picture, which refuses when a private name is among the vote's names. Without it: every frame gets the CS2 team counter's
 avatar and the chat zone blurred (the player's own chat lines carry the name) before it is written; a row whose subject is chat blurs only what is above its lines.
 Where a row would show the client's own name, the row says so in its names field and paints a test name over it, by a box at 1080p scaled by the height (words
 drift up to 5 % in width between resolutions, so a mask takes a whole label, or blurs where a label's words change). The boxes marked UNSEEN come from the
@@ -207,10 +210,11 @@ class Mask:
     y1: float = 975
     bold: bool = True
     drift: bool = False      # the box's left edge follows WORD_DRIFT: words before it on the line are narrower at the small resolutions
+    keep: bool = False       # kept under --renamed too: a name the bridge has from the game's log (a connect line), which GgDocName does not change
 
 
-def paint(x0, y0, x1, y1, text, color=(245, 245, 245), size=13, spacing=0, align="l", anchor="c", bold=True, drift=False):
-    return Mask("paint", Box(x0, y0, x1, y1, anchor), text, color, size, spacing, align, bold=bold, drift=drift)
+def paint(x0, y0, x1, y1, text, color=(245, 245, 245), size=13, spacing=0, align="l", anchor="c", bold=True, drift=False, keep=False):
+    return Mask("paint", Box(x0, y0, x1, y1, anchor), text, color, size, spacing, align, bold=bold, drift=drift, keep=keep)
 
 
 WORD_DRIFT = {(1280, 720): -10, (1680, 1050): -4, (1600, 1200): -5, (2560, 1080): -3}   # at about 130 px of words from the line's start (measured on the ballot's label); the rest: 0
@@ -251,8 +255,8 @@ M_GREET_BACK = paint(482, 333, 900, 355, "WELCOME BACK, ALICE", GOLD, 13, 3)
 # The ballot's big window: x 80-1840, y 80-1000, scaled at 16:10 and 4:3 (anchor v); its body starts at 247, its header row by row: the title and osvstart y 259-295, Random, the strip
 # and osvwait y 299-339, the limit's clock y 261-305 and the inactivity's y 305-349, each x 1046-1806 with its words from 1586. The first tile: x 114-444 from y 357, its picture y 361-546.
 M_PLAYER1_VOTE = paint(112, 314, 190, 336, ME, size=13, anchor="v")                    # Players in the big window: 80 + 34, 247 + 14 + the summary and the head
-M_VWAIT1 = paint(296, 304, 1040, 334, f"Waiting for: {ME}", GOLD_HI, 15, anchor="v")   # the whole label: no strip yet, so it starts after Random's button, at x 299 (seen at 1080p, 2026-11-05)
-M_VWAIT2 = paint(296, 304, 1040, 334, f"Waiting for: {ME}, HUDtest", GOLD_HI, 15, anchor="v")
+M_VWAIT1 = paint(296, 304, 1040, 334, f"Waiting for: {ME}", GOLD_HI, 15, anchor="v", keep=True)   # the whole label: no strip yet, so it starts after Random's button, at x 299 (seen at 1080p, 2026-11-05)
+M_VWAIT2 = paint(296, 304, 1040, 334, f"Waiting for: {ME}, HUDtest", GOLD_HI, 15, anchor="v", keep=True)   # the bridge's waiting names: sorted, as it sorts them
 BLUR_VWAIT_TAIL = blur(905, 304, 1048, 334, "v")                                       # the strip is on: Everyone has voted  ·  Inactivity timer 4 s - reset by <own>; a number in the words, so no whole label to paint
 BLUR_VSTART = blur(400, 262, 1040, 292, "v")                                           # osvstart: empty on main, "Started by <own>" once branch wt/votedata lands
 M_VSTART = paint(348, 264, 1040, 290, f"Started by {ME}", (245, 245, 245), 13, anchor="v")   # osvstart, the whole label, from x 350 (seen at 1080p, 2026-11-05): a vote the client started
@@ -586,9 +590,9 @@ R("fun-default", "The top line: Fun's Default, and who", pick="Fun: Default", to
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True, words_from=("bridge/Fun.cs", "DefaultLine"))
 R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any other", pick="Catch-up or grenade drops switched", today="the top line 4d, the catalogue's FunChanged, 10 s; chat and the board too", steps=[con("say !catchup off"), pause(1.5), shoot()], cleanup=[RESET_FUN],
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True)
-R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick="Catch-up's boost", today="the card 3d, as picked, 5 s; that player's chat and board", steps=[rb(f"gg_catchup show {ACCOUNT} 5", expect=r"catchup: showed"), pause(2.4), shoot()],
-  when="about 1.6 s after the command has run in the background: gg_catchup show sends what a real spawn's boost sends", crop=C_CARD, win=False)
-R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick="The leader's bounty", today="the card 3d, as picked, 5 s; that player's chat", steps=[rb(f"gg_catchup show {ACCOUNT} lead 4", expect=r"catchup: showed"), pause(2.4), shoot()],
+R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick="Catch-up's boost", today="the card 3d, as picked, 5 s; that player's chat and board", steps=[rb(f"os_catchup show {ACCOUNT} 5", expect=r"catchup: showed"), pause(2.4), shoot()],
+  when="about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop=C_CARD, win=False)
+R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick="The leader's bounty", today="the card 3d, as picked, 5 s; that player's chat", steps=[rb(f"os_catchup show {ACCOUNT} lead 4", expect=r"catchup: showed"), pause(2.4), shoot()],
   when="as catchup-boost", crop=C_CARD, win=False)
 R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section=S_WINDOW, steps=[show("start"), press("gg_tab_server"), pause(1), shoot()],
   when="1 s after the click returns", masks=(M_PLAYER1,), names=PLAYERS, volatile=(V_ONFOR,))
@@ -678,7 +682,7 @@ _V1_VOTED = (BLUR_NEWS_WIN, M_VSTART, M_VRESET, BLUR_TILE1_NAMES)   # the strip 
 _V1_NAMES = real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + UNSEEN
 _V1_NAMES_VOTED = real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + UNSEEN
 R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick="The vote: everybody's window opens and freezes", today="the big vote window, as picked; its feeds still move",
-  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("gg_b_next"), vote_opened(), show("vote", bg=True), until("vote", 7.5), shoot()],
+  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("gg_b_next"), vote_opened(), show("vote", bg=True), post("names-check"), until("vote", 7.5), shoot()],
   when="about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
   masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick="The 60 s limit", today="a line on the window's page, as picked", after="vote-open", bridge=W_VOTE, steps=[shoot()], when="the next frame",
@@ -687,29 +691,31 @@ R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has vot
   when="about 4 s after the click, Keep (tile 1): the inactivity timer runs 5 s from the vote", crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-inactivity", "The inactivity timer, and who reset it", pick="Inactivity timer, and who reset it", today="a line on the window's page, as picked", after="vote-my-vote", bridge=W_VOTE, steps=[shoot()], when="the next frame, about 6.5 s after the click",
   crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick="The vote kept the map", today="a line on the window's page, as picked, 8 s; chat and the board too", after="vote-inactivity", bridge=W_VOTE, steps=[until("press", 7), vote_closed(), until("press", 8), shoot(n=2)],
+R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick="The vote kept the map", today="a line on the window's page, as picked, 8 s; chat and the board too", after="vote-inactivity", bridge=W_VOTE, steps=[until("press", 8), shoot(n=2), until("press", 10), vote_closed()],
   when="from 8 s after the click: decided about 7 s after it (the command, then the inactivity timer's 5 s), the window stays 8 s", crop=C_VHEAD, masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES), names=real("who started it, the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudVote.cs", "The vote kept"))
 R("vote-cannot-call", "The answer to a Start a vote in the wait after a vote: when the next one can start", pick="You cannot call a vote yet", today="a line on the window's page, as picked, 8 s; chat and the board name who tried",
-  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), until("closed", 26.5), click("gg_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE],
+  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), until("closed", 23), click("gg_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE],
   when="about 5 s after the click, which goes out 25 s after the vote closed, so the line says 1 min 35 s; inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
   crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN, words_from=("bridge/VoteRound.cs", "You can call a vote again in"), volatile=(V_LINE_WAIT, V_START_WAIT))
 R("board-wait", "The board in the wait after a vote: Start a vote off, its words say how long", section=S_BOARD, after="vote-cannot-call", bridge=W_VOTE,
-  steps=[*_LATELY, guard(100), until("closed", 58), con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
+  steps=[*_LATELY, guard(100), until("closed", 55), con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
   when="2 s after +showscores, about 61 s after the vote closed, so its words say 59 s; inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
   crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT, *V_BOARD_WAIT))
-R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("gg_b_next"), vote_opened(), press("gg_v_browse", bg=True), until("vote", 9), shoot()],
+R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("gg_b_next"), vote_opened(), press("gg_v_browse", bg=True), post("names-check"), until("vote", 9), shoot()],
   when="about 11 s into the vote: the sub-tab says 49 s, the top line that says who started it (8 s) gone", masks=(BLUR_NEWS_WIN,), names=NEWS_VOTE + UNSEEN, avatar=AVATAR_OVER_NEWS)
 R("vote-picked-card", "The ballot with a map a player put on it: PICKED, picked by, their vote on it", section=S_VOTE, after="vote-browse", bridge=W_VOTE, steps=[press("gg_v_back", bg=True), pause(3), con("say !play ar_baggage"), pause(0.3), shoot()],
   when="about 2 s after the line, inside the 5 s of the inactivity timer. An official map, so the client loads it without a dialog", masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO, M_VRESET),
   names=real("the first tile's voter and picked by, the header's reset by and the top line: blurred; the clock's reset by: a test name is painted over it") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-decided", "The vote decided: NEXT MAP, The vote chose ... changing in N s, the top line, everybody still frozen", pick="The vote decided, and the change counting down", today="the ballot's words and the top line 4d; the countdown banner stays hidden under the window",
-  after="vote-picked-card", bridge=W_VOTE + "; " + W_MAP, steps=[vote_closed(), pause(2.5), shoot(n=3)], when="from about 7 s after the line: decided at 5 s, the change goes out at 13 s", crop=C_VHEAD, masks=(M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO),
+  after="vote-picked-card", bridge=W_VOTE + "; " + W_MAP, steps=[pause(2.5), shoot(n=3), vote_closed()], when="from about 7 s after the line: decided at 5 s, the change goes out at 13 s; the vote counts as closed after the frames", crop=C_VHEAD, masks=(M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO),
   names=real("the first tile's voter and picked by: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/VoteRound.cs", "Everybody has voted:"))
 R("now-playing", "The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn", pick="Now-playing card, at each map's first spawn", today="the card 3c, as picked, 8 s; picked by the vote: a Change's by is only ever the vote or the dice",
   after="vote-decided", bridge=W_VOTE + "; " + W_MAP, steps=[wait_ingame(), pause(3), con("jointeam 2 1", 1000), rb("css_gghud release", expect=r"released:"), pause(6), shoot(n=3)], cleanup=[content(LEVEL)],
   when="three frames from about 9 s after the team is joined: CS2 restarts the match after a map change (Match restarting in 3, 2, 1), the spawn after it, and the card comes 1.5 s after the spawn, for 8 s", crop=C_CARD, win=False)
 R("vote-started-line", "The ballot's header: Started by HUDtest, the real line under a test name", pick="The vote started: the line for everybody", today="NOT SHOWN on a surface of its own: the header of the window that opens, as the owner's note asks; chat and the board keep the line",
-  bridge=W_VOTE, steps=[vote_gap(), click("gg_b_next", who=FAKE_ACCOUNT, bg=True), vote_opened(), pause(3.5), shoot()], when="about 5 s after the click goes out", crop=C_VHEAD, masks=(M_VWAIT2,),
+  bridge=W_VOTE, steps=[vote_gap(), post("client-on", ACCOUNT), click("gg_b_next", who=FAKE_ACCOUNT, bg=True), vote_opened(), until("vote", 2.5), post("names-check"), shoot()],
+  when="about 6 s after the click goes out. The bridge is told the client's test name first: the map change before reconnected it under its Steam name, and the waiting names are the bridge's",
+  crop=C_VHEAD, masks=(M_VWAIT2,),
   names=real("the waiting line after HUDtest: a test name is painted over it") + UNSEEN, words_from=("bridge/VoteRound.cs", "started a vote for the next map"), win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-random-lit", "The ballot: my vote on Random, its button lit", section=S_VOTE, after="vote-started-line", bridge=W_VOTE, steps=[press("gg_v_random", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m1_play", bg=True)],
   when="about 5 s after the click. The cleanup moves the vote to Keep at once, also after a failure: Random winning would roll a Workshop map, and the client would hang in CS2's download dialog", names=TEST_NAME + ": Waiting for: HUDtest", win="vote", avatar=AVATAR_OVER_NEWS)
@@ -720,7 +726,7 @@ R("vote-pager", "The ballot's pager: Page 1 of 2, the hint for the other page (c
   volatile=(V_VOTE_PAGER_NEXT,))
 R("vote-players", "SERVER > Players during a vote: who has voted", section=S_WINDOW, after="vote-pager", bridge=W_VOTE, steps=[show("players", bg=True), pause(3.5), shoot()], when="about 5 s after the send, about 45 s into the vote",
   masks=(M_PLAYER1_VOTE,), names=PLAYERS + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), until("vote", 50.5), shoot()], cleanup=[content(LEVEL), until("vote", 62), vote_closed(), until("vote", 72)],
+R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), until("vote", 50.5), shoot()], cleanup=[content(LEVEL), until("vote", 72), vote_closed()],
   when="about 51 s into the vote, 9 s left; the cleanup waits for its 60 s to end, and for its window, which stays 8 s after", crop=C_CLOCKS, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 
 # ---- what only the bridge's own callers can say: bridgepost.py, to a candidate bridge on a test copy and nothing else. The real senders' notices, fake players' clicks ------------
@@ -862,8 +868,8 @@ def section_of(row, by_name):
 
 # ---------------------------------------------------------------- the checks every invocation runs -----------------------------------------------------
 
-POST_VERBS = ("restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "check")   # bridgepost.py's
-RCON_ALLOWED = ("ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ", "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "gg_catchup ",
+POST_VERBS = ("restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check")   # bridgepost.py's
+RCON_ALLOWED = ("ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ", "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "os_catchup ",
                 "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel ")
 CHANGELEVEL_ALLOWED = ("ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno")   # official maps: the client loads them without CS2's download dialog
 CON_ALLOWED = re.compile(r"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$")
@@ -1224,8 +1230,9 @@ def same_picture(new, old, region, volatile=()):
 
 
 def kept_masks(row):
-    """The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars)."""
-    return [m for m in row.masks if not RENAMED or m == BLUR_SCOREBOARD]
+    """The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars) and those over a name the
+    bridge has from the game's log (Mask.keep): GgDocName renames the client on the server, but the bridge learned its name at the connect."""
+    return [m for m in row.masks if not RENAMED or m == BLUR_SCOREBOARD or m.keep]
 
 
 def apply_masks(im, row):
@@ -2037,6 +2044,9 @@ if verb == "shot":
     shutil.copyfile(os.environ["FAKE_PNG"], dst)
     print(f"{dst}  ok {res} (from {res}) mean=72,7")
 elif verb == "post":
+    if a[1:2] == ["names-check"] and fail == "names-check":
+        print("REFUSED: 1 private name(s) among the vote's names in the bridge's state - nothing may be shot")
+        sys.exit(1)
     print(f"12:00:00 /x: {' '.join(a[1:])} -> 200 ok: heard, /log/{os.environ['FAKE_TOKEN']}")
 elif verb == "log":
     if "-Pattern" in a:
@@ -2078,7 +2088,7 @@ elif verb == "rcon":
         print("fun: reset - done")
     elif c.startswith("gg_fun"):
         print("fun: gravity moon by Bob: sv_gravity 200")
-    elif c.startswith("gg_catchup"):
+    elif c.startswith("os_catchup"):
         print(f"catchup: showed {name}: words")
     elif c.startswith("os_mode"):
         print("os_mode: mode deathmatch: kept")
@@ -2156,6 +2166,22 @@ def deep_check(info, check):
         check(not real_name_in(local_paths_out(log)) and ACCOUNT not in log and HOST not in log and "hunter2" not in log and FAKE_TOKEN not in log, "deep check: the run's log holds a secret, a name or the address")
         check((work / "out" / "index.html").exists(), "deep check: no index")
 
+        # a ballot whose bridge names the client by a private name: the row stops before its picture
+        shutil.rmtree(work / "out", ignore_errors=True)
+        shutil.rmtree(calls)
+        calls.mkdir()
+        os.environ["FAKE_FAIL"] = "names-check"
+        plan, _ = build_plan(["vote-started-line"], True)
+        sys.stdout = io.StringIO()
+        doer = Doer(res, work / "out", False)
+        failed = walk(doer, plan)
+        doer.write_pictures(plan, info)
+        sys.stdout = real_stdout
+        launched = [json.loads(f.read_text(encoding="utf-8")) for f in calls.iterdir()]
+        check("vote-started-line" in failed, f"deep check: a refused names-check did not fail its row: {sorted(failed)}")
+        check(not any(c[0] == "shot" and "vote-started-line" in c[c.index("-Name") + 1] for c in launched), "deep check: a ballot was shot after its names-check refused")
+        os.environ.pop("FAKE_FAIL", None)
+
         # a vote that does not open: the chain stops before its clicks count
         shutil.rmtree(work / "out", ignore_errors=True)
         shutil.rmtree(calls)
@@ -2223,6 +2249,23 @@ def _selfcheck(info):
     def check(ok, words):
         if not ok:
             fails.append(words)
+
+    # no real name from the bridge: every ballot a row opens is checked (names-check) before its first picture, and the paints over the bridge's names
+    # stay under --renamed
+    for r in ROWS:
+        kinds = [(s.kind, s.text) for s in r.steps]
+        if ("vote_opened", "") in kinds:
+            first_shot = next((i for i, k in enumerate(kinds) if k[0] == "shoot"), len(kinds))
+            check(any(k == ("post", "names-check") for k in kinds[kinds.index(("vote_opened", "")):first_shot]), f"{r.id} opens a vote and shoots it before a names-check")
+    global RENAMED
+    was = RENAMED
+    RENAMED = True
+    try:
+        for r in ROWS:
+            check(all(m in kept_masks(r) for m in r.masks if m.keep), f"{r.id}: a paint over a name the bridge has is dropped under --renamed")
+        check(M_VWAIT1.keep and M_VWAIT2.keep, "the waiting lines' paints are not marked keep")
+    finally:
+        RENAMED = was
 
     # the messages, by their own words in the file: validate() has held the rows to them; said again here so the check names them
     picks = info["picks"]

@@ -23,6 +23,8 @@ free text body from the command line. The calls go from inside the game containe
     python bridgepost.py act <fake 0-3> <word>              /act: that fake player's click: next, random, previous, restart, rematch, time10 or time60
     python bridgepost.py vote <fake 0-3> <card>             /act: that fake player's click on the open vote's card, its number on the wire: Keep 1, the rest 2 up (the round from
                                                             GET /hud, which it waits up to 8 s for: a click and a log push go through the bridge's one loop)
+    python bridgepost.py names-check                        the vote's lines of the bridge's state (who voted, who has not, who started it): refuses when a
+                                                            private name is among them - the client's own Steam name or client.private_names - printing none
     python bridgepost.py check                              the checks above, nothing sent
 
 A notice with `when now` counts down to a quit that only the restart watcher would send, and a test copy has none: cancel it (restart-cancel) when the picture is
@@ -51,6 +53,9 @@ POST = ("import os,sys,urllib.request as u;r=u.Request(os.environ['OS2_BRIDGE_UR
 # the vote's line of the state, and nothing else of it: the rest has players' names in it
 GET_VOTE = ("import os,urllib.request as u;a=u.urlopen(os.environ['OS2_BRIDGE_URL'],timeout=8);"
             "print('\\n'.join(l for l in a.read().decode('utf-8','replace').splitlines() if l.startswith('mv\\t')))")
+# the vote's lines of the state, every one (mv, mvw who has not voted, mvs who started it, ...): the names a ballot shows. Never printed by this file
+GET_VOTE_LINES = ("import os,urllib.request as u;a=u.urlopen(os.environ['OS2_BRIDGE_URL'],timeout=8);"
+                  "print('\\n'.join(l for l in a.read().decode('utf-8','replace').splitlines() if l.startswith('mv')))")
 
 
 def env_of(d, name):
@@ -144,6 +149,18 @@ def main(argv):
     b = gate()
     if verb == "check":
         print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside")
+    elif verb == "names-check":
+        # The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (GgDocName) reaches the
+        # bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before a picture.
+        secret, port = route(b)
+        lines = exec_in_copy(f"http://{testcopy.BRIDGE}:{port}/hud/{secret}", ["python3", "-c", GET_VOTE_LINES], secret).splitlines()
+        names = probe.private_names()
+        if not names:
+            sys.exit("REFUSED: no private name is known to check against (Steam names no logged-in account, client.private_names is empty)")
+        hits = [n for n in names if any(n.lower() in line.lower() for line in lines)]
+        if hits:
+            sys.exit(f"REFUSED: {len(hits)} private name(s) among the vote's names in the bridge's state - nothing may be shot")
+        print(f"no private name among the vote's names ({len(lines)} line(s) of the vote in the bridge's state)")
     elif verb == "restart":
         if len(args) != 3 or args[0] not in KINDS or args[1] not in WHEN or not args[2].isdigit():
             sys.exit(f"usage: restart <{'|'.join(KINDS)}> <{'|'.join(WHEN)}> <seconds>")
