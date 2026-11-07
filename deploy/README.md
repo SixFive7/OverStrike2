@@ -49,3 +49,25 @@ The scripts take the bridge's secret from the game container's `CS2_LOG_HTTP_URL
 variables, and fall back on the bridge's `LOG_SECRET` and `RCON_PASSWORD`. The settings of a deployment like `compose.example.yml` are an environment
 variable, `OVERSTRIKE2_SETTINGS_CONTENT`, so a swap keeps them with the rest of the container's configuration, as does anything else that recreates a container
 from its inspect. Compose's inline `configs: content:` would not do: a read-only service never runs with it, and such a recreate loses it (docs/settings.md).
+
+## os2-deploy: the same tools in C#
+
+[`OverStrike2.Deploy/`](OverStrike2.Deploy/) is one program, `os2-deploy`, that does what these scripts and
+[tools/client/](../tools/client/README.md)'s Python do - the same commands, private config, words and exit codes - for the day the
+Python goes. Until that switch the scripts above stay the documented way; the program is checked against them.
+
+```sh
+dotnet run --project deploy/OverStrike2.Deploy -- <command> ...      # from the repository's root; or build once and run bin/.../os2-deploy
+```
+
+| Command | The Python it replaces |
+|---|---|
+| `bridge check\|build\|images\|swap\|update\|rollback [--tag T]` | `bridge.py` (no `build-remote` or `promote`: nothing used them) |
+| `data [--apply] [--force]`, `plugin build\|ship`, `server build\|ship`, `workshop ...` | `data.py bridge`, `plugin.py`, `server.py`, `workshop.py` |
+| `thumbs ...` | `hud/thumbs.py`, its pictures pixel for pixel |
+| `release live\|publish ...`, `check guard\|verify` | `release.py`, `check.py` |
+| `probe`, `testcopy`, `bridgepost` | `tools/client/probe/`'s three |
+| `docshots ...` (and `docshots publish\|name\|merge\|maskview\|sheets`) | `tools/client/docshots/`'s docshots.py, publish.py, docname.py, merge_fix.py, maskview.py, review_sheet.py |
+| `rehearse prep\|backup\|stage\|up\|compose\|down\|restore\|clean\|logs\|sh\|rcon\|ship\|status` | the release rehearsal: production's game server, bridge and sync set aside under the server lock with nobody on, this checkout's builds run as a throwaway stack (`[rehearse]` in the config), everything put back |
+
+`os2-deploy --selftest` runs every case of the Python tests, ported under the same names (`--selftest <suite>` one of them).

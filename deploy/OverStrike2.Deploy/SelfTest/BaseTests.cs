@@ -74,7 +74,7 @@ name = "two"
         check($"toml: a broken text is an error, not a guess ({errors} of 6)", errors == 6);
         var example = Toml.Parse(File.ReadAllText(Repo.P("deploy", "config.example.toml")));
         check("toml: deploy/config.example.toml reads, every table of it",
-              new[] { "docker", "build", "bridge", "server", "check", "stack", "release", "workshop", "client" }.All(example.ContainsKey));
+              new[] { "docker", "build", "bridge", "server", "check", "stack", "release", "workshop", "client", "rehearse" }.All(example.ContainsKey));
 
         // ---- the config: a dotted name, env: from the environment, a required value
         var scratch = SelfTest.Scratch("base-config-");

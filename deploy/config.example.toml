@@ -55,3 +55,10 @@ cs2_dir = ""                              # the local "Counter-Strike Global Off
 private_names = []                        # optional: names that must never reach a screenshot, a command or a log - the client's own Steam name is found by itself
 [client.test_labels]                      # optional: labels every test container gets (the test copy, a candidate bridge), e.g. a container monitor's mute
 # "monitor.mute" = "true"
+
+[rehearse]                                # os2-deploy rehearse: the candidate run as a throwaway stack on production's network (everything else from production's inspects)
+manager = ""                              # the stack manager's API, with docker.headers: POST <manager>/stacks/create/standalone/string, GET <manager>/stacks, DELETE <manager>/stacks/<id>
+endpoint = ""                             # the manager's id of the Docker environment the stack runs on
+dir = ""                                  # optional: the rehearsal's folder on the host ("" = "rehearsal" beside the bridge's data folder)
+stack = ""                                # optional: the throwaway stack's name ("" = <bridge.game_container>-rehearsal)
+test_port = 27216                         # optional: the sync's own test port in the rehearsal (sync.testPort)
