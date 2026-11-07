@@ -355,23 +355,141 @@ def seg_dist(x, y, a, b):
     return math.hypot(x - a[0] - t * ax, y - a[1] - t * ay)
 
 
+SUB = 4          # round a pond a cell is SUB x SUB smaller ones: 16 units
+MUD = 0.92       # the mud reaches this much of a pond's radius
+CUT_TOL = 0.75   # a vertex within this of the mud's circle counts as on it: the cut passes through it, no sliver beside it
+
+
+def rect_minus(p, r):
+    """The rectangle of cells p = (i0, j0, i1, j1) less r, as rectangles."""
+    if r[0] >= p[2] or p[0] >= r[2] or r[1] >= p[3] or p[1] >= r[3]:
+        return [p]
+    out = []
+    if p[0] < r[0]:
+        out.append((p[0], p[1], r[0], p[3]))
+    if r[2] < p[2]:
+        out.append((r[2], p[1], p[2], p[3]))
+    x0, x1 = max(p[0], r[0]), min(p[2], r[2])
+    if p[1] < r[1]:
+        out.append((x0, p[1], x1, r[1]))
+    if r[3] < p[3]:
+        out.append((x0, r[3], x1, p[3]))
+    return out
+
+
 class Terrain:
-    """The height field over the whole terrain: grid vertices, each triangle's height, and the closed chunk meshes."""
+    """The ground: a height field over the whole terrain, its triangles, and the closed meshes it is built of.
+
+    It is a grid of GRID cells, each two triangles, and finer round the ponds, so that a pond's bowl, its waterline and the
+    edge of its mud come out round: there every cell within a pond's radius and 16 is cut into SUB x SUB smaller ones, the
+    ring of cells round those fans its triangles out to the finer vertices on its inner edge, and the triangles the mud's
+    circle crosses are cut along it. Vertices are named on the fine lattice, (I, J) = SUB times a grid corner's, and a cut's
+    by the edge it cuts, so two triangles that share an edge share its vertices and every mesh is closed. Each pond's
+    rectangle of cells, ring and all, is one mesh; the rest of the ground is CHUNK x CHUNK squares of cells less those."""
 
     def __init__(self):
         self.n = int(2 * OUTER / GRID)
         self.h = [[ground(-OUTER + i * GRID, -OUTER + j * GRID) for j in range(self.n + 1)] for i in range(self.n + 1)]
+        self.hf = {}                 # (I, J) -> the height of a fine lattice point
+        self.cutv = {}               # ('c', a, b) -> where the mud's circle cuts the edge a-b: (x, y, z, normal)
+        self.tris = {}               # (i, j) -> the cell's triangles
+        self.fine = set()            # the cells cut SUB x SUB
+        self.pond_rects = []         # each pond's rectangle of cells (i0, j0, i1, j1): its fine cells and the ring round them
+        for (cx, cy, R, D) in PONDS:
+            i0, i1 = self.cell(cx - R - 16), self.cell(cx + R + 16) + 1
+            j0, j1 = self.cell(cy - R - 16), self.cell(cy + R + 16) + 1
+            self.fine |= {(i, j) for i in range(i0, i1) for j in range(j0, j1)}
+            self.pond_rects.append((i0 - 1, j0 - 1, i1 + 1, j1 + 1))
 
-    def diag(self, i, j):
-        return (i + j) % 2 == 0      # True: split a-c, else b-d
+    def cell(self, x):
+        return min(self.n - 1, max(0, int((x + OUTER) // GRID)))
+
+    def H(self, I, J):
+        """The height of the fine lattice point (I, J)."""
+        if I % SUB == 0 and J % SUB == 0:
+            return self.h[I // SUB][J // SUB]
+        if (I, J) not in self.hf:
+            self.hf[(I, J)] = ground(-OUTER + I * GRID / SUB, -OUTER + J * GRID / SUB)
+        return self.hf[(I, J)]
+
+    def point(self, k):
+        """A vertex's (x, y, z)."""
+        if k[0] == 'c':
+            return self.cutv[k][:3]
+        return (-OUTER + k[0] * GRID / SUB, -OUTER + k[1] * GRID / SUB, self.H(*k))
+
+    def normal(self, k):
+        """A top vertex's normal, for smooth shading: from the slope across the grid round a grid corner, across the fine
+        lattice round a finer vertex, and between its edge's ends for a cut."""
+        if k[0] == 'c':
+            return self.cutv[k][3]
+        I, J = k
+        n = self.n
+        if I % SUB == 0 and J % SUB == 0:
+            i, j = I // SUB, J // SUB
+            hx = (self.h[min(n, i + 1)][j] - self.h[max(0, i - 1)][j]) / (GRID * (min(n, i + 1) - max(0, i - 1)))
+            hy = (self.h[i][min(n, j + 1)] - self.h[i][max(0, j - 1)]) / (GRID * (min(n, j + 1) - max(0, j - 1)))
+        else:
+            hx = (self.H(I + 1, J) - self.H(I - 1, J)) / (2 * GRID / SUB)
+            hy = (self.H(I, J + 1) - self.H(I, J - 1)) / (2 * GRID / SUB)
+        return norm((-hx, -hy, 1.0))
+
+    def cell_tris(self, i, j):
+        """The cell's triangles, as fine lattice points, counter-clockwise from above: two of them, SUB x SUB times two in a
+        fine cell, or a fan from a corner out to the finer vertices on an edge it shares with a fine cell."""
+        if (i, j) in self.tris:
+            return self.tris[(i, j)]
+        S = SUB
+        I0, J0, I1, J1 = i * S, j * S, (i + 1) * S, (j + 1) * S
+        if (i, j) in self.fine:
+            out = []
+            for I in range(I0, I1):
+                for J in range(J0, J1):
+                    a, b, c, d = (I, J), (I + 1, J), (I + 1, J + 1), (I, J + 1)
+                    out += [(a, b, c), (a, c, d)] if (I + J) % 2 == 0 else [(a, b, d), (b, c, d)]
+        else:
+            south = [(I, J0) for I in range(I0 + 1, I1)] if (i, j - 1) in self.fine else []
+            east = [(I1, J) for J in range(J0 + 1, J1)] if (i + 1, j) in self.fine else []
+            north = [(I, J1) for I in range(I1 - 1, I0, -1)] if (i, j + 1) in self.fine else []
+            west = [(I0, J) for J in range(J1 - 1, J0, -1)] if (i - 1, j) in self.fine else []
+            a, b, c, d = (I0, J0), (I1, J0), (I1, J1), (I0, J1)
+            if not (south or east or north or west):
+                out = [(a, b, c), (a, c, d)] if (i + j) % 2 == 0 else [(a, b, d), (b, c, d)]
+            else:
+                poly = [a] + south + [b] + east + [c] + north + [d] + west
+                free = {a: not (south or west), b: not (south or east), c: not (north or east), d: not (north or west)}
+                k = poly.index(next(q for q in (a, b, c, d) if free[q]))
+                poly = poly[k:] + poly[:k]
+                out = [(poly[0], poly[m], poly[m + 1]) for m in range(1, len(poly) - 1)]
+        self.tris[(i, j)] = out
+        return out
 
     def z(self, x, y):
-        """the height of the triangulated surface at (x, y)."""
+        """The height of the triangulated surface at (x, y)."""
         fx, fy = (x + OUTER) / GRID, (y + OUTER) / GRID
         i, j = min(self.n - 1, max(0, int(fx))), min(self.n - 1, max(0, int(fy)))
-        u, v = fx - i, fy - j
-        a, b, c, d = self.h[i][j], self.h[i + 1][j], self.h[i + 1][j + 1], self.h[i][j + 1]
-        if self.diag(i, j):        # triangles (a,b,c) and (a,c,d)
+        if (i, j) in self.fine:
+            gx, gy = fx * SUB, fy * SUB
+            I, J = min((i + 1) * SUB - 1, max(i * SUB, int(gx))), min((j + 1) * SUB - 1, max(j * SUB, int(gy)))
+            u, v = gx - I, gy - J
+            a, b, c, d = self.H(I, J), self.H(I + 1, J), self.H(I + 1, J + 1), self.H(I, J + 1)
+            split_ac = (I + J) % 2 == 0
+        elif any(q in self.fine for q in ((i - 1, j), (i + 1, j), (i, j - 1), (i, j + 1))):
+            best = None
+            for t in self.cell_tris(i, j):
+                (x0, y0, z0), (x1, y1, z1), (x2, y2, z2) = (self.point(k) for k in t)
+                den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2)
+                w0 = ((y1 - y2) * (x - x2) + (x2 - x1) * (y - y2)) / den
+                w1 = ((y2 - y0) * (x - x2) + (x0 - x2) * (y - y2)) / den
+                w2 = 1 - w0 - w1
+                if best is None or min(w0, w1, w2) > best[0]:
+                    best = (min(w0, w1, w2), w0 * z0 + w1 * z1 + w2 * z2)
+            return best[1]
+        else:
+            u, v = fx - i, fy - j
+            a, b, c, d = self.h[i][j], self.h[i + 1][j], self.h[i + 1][j + 1], self.h[i][j + 1]
+            split_ac = (i + j) % 2 == 0
+        if split_ac:               # triangles (a,b,c) and (a,c,d)
             return a + u * (b - a) + v * (c - b) if u >= v else a + u * (c - d) + v * (d - a)
         return a + u * (b - a) + v * (d - a) if u + v <= 1 else c + (1 - u) * (d - c) + (1 - v) * (b - c)
 
@@ -379,10 +497,11 @@ class Terrain:
         zs = [self.z(x + dx, y + dy) for dx in (-r, 0, r) for dy in (-r, 0, r)]
         return min(zs), max(zs)
 
-    def material(self, x, y):
-        for (cx, cy, R, D) in PONDS:
-            if math.hypot(x - cx, y - cy) < 0.92 * R:
-                return M['MUD']
+    def material(self, x, y, mud=True):
+        if mud:
+            for (cx, cy, R, D) in PONDS:
+                if math.hypot(x - cx, y - cy) < MUD * R:
+                    return M['MUD']
         if max(abs(x), abs(y)) > HALF + 48:
             return M['GRASS2']
         for path in PATHS:
@@ -391,71 +510,100 @@ class Terrain:
                     return M['DIRT']
         return M['GRASS']
 
-    def triangles(self, i, j):
-        """The cell's two triangles, as grid corners."""
-        a, b, c, d = (i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)
-        return [(a, b, c), (a, c, d)] if self.diag(i, j) else [(a, b, d), (b, c, d)]
+    def cut(self, a, b, pond):
+        """The vertex where the mud's circle round pond crosses the edge a-b."""
+        key = ('c',) + tuple(sorted((a, b)))
+        if key not in self.cutv:
+            (cx, cy, R, D) = pond
+            pa, pb = self.point(a), self.point(b)
+            dx, dy, ex, ey = pa[0] - cx, pa[1] - cy, pb[0] - pa[0], pb[1] - pa[1]
+            A, B, C = ex * ex + ey * ey, 2 * (dx * ex + dy * ey), dx * dx + dy * dy - (MUD * R) ** 2
+            root = math.sqrt(B * B - 4 * A * C)
+            t = next(t for t in ((-B - root) / (2 * A), (-B + root) / (2 * A)) if 0 < t < 1)
+            na, nb = self.normal(a), self.normal(b)
+            nm = norm(tuple(na[k] + t * (nb[k] - na[k]) for k in range(3)))
+            self.cutv[key] = (pa[0] + t * ex, pa[1] + t * ey, pa[2] + t * (pb[2] - pa[2]), nm)
+        return key
 
-    def border(self, mat):
-        """The middle of every triangle edge in the play area with mat on one side and another material on the other."""
-        sides = {}
-        for i in range(self.n):
-            for j in range(self.n):
-                for t in self.triangles(i, j):
-                    x = sum(-OUTER + q[0] * GRID for q in t) / 3
-                    y = sum(-OUTER + q[1] * GRID for q in t) / 3
-                    if max(abs(x), abs(y)) > HALF:
-                        continue
-                    m = self.material(x, y) == mat
-                    for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
-                        sides.setdefault(tuple(sorted(e)), []).append(m)
-        return sorted(((-OUTER + (p[0] + q[0]) * GRID / 2, -OUTER + (p[1] + q[1]) * GRID / 2))
-                      for (p, q), ms in sides.items() if len(ms) == 2 and ms[0] != ms[1])
+    def pieces(self, tri):
+        """A triangle's faces and their materials: in two along the mud's circle where that crosses it, the mud inside."""
+        pts = [self.point(k) for k in tri]
+        for pond in PONDS:
+            (cx, cy, R, D) = pond
+            sides = []
+            for p in pts:
+                d = math.hypot(p[0] - cx, p[1] - cy) - MUD * R
+                sides.append(0 if abs(d) <= CUT_TOL else (1 if d > 0 else -1))
+            if -1 in sides and 1 in sides:
+                walk = []
+                for e in range(3):
+                    walk.append((tri[e], sides[e]))
+                    if sides[e] * sides[(e + 1) % 3] < 0:
+                        walk.append((self.cut(tri[e], tri[(e + 1) % 3], pond), 0))
+                a, b = [k for k, (_, s) in enumerate(walk) if s == 0]
+                out = []
+                for part in (walk[a:b + 1], walk[b:] + walk[:a + 1]):
+                    poly = [k for k, _ in part]
+                    if any(s < 0 for _, s in part):
+                        out.append((poly, M['MUD']))
+                    else:
+                        q = [self.point(k) for k in poly]
+                        out.append((poly, self.material(sum(p[0] for p in q) / len(q), sum(p[1] for p in q) / len(q), mud=False)))
+                return out
+            if -1 in sides:
+                return [(list(tri), M['MUD'])]
+            if 1 not in sides and math.hypot(sum(p[0] for p in pts) / 3 - cx, sum(p[1] for p in pts) / 3 - cy) < MUD * R:
+                return [(list(tri), M['MUD'])]
+        x, y = sum(p[0] for p in pts) / 3, sum(p[1] for p in pts) / 3
+        return [(list(tri), self.material(x, y, mud=False))]
+
+    def tiles(self):
+        """The ground's meshes, as rectangles of cells: each pond's, then the CHUNK x CHUNK squares less those."""
+        out = list(self.pond_rects)
+        for i0 in range(0, self.n, CHUNK):
+            for j0 in range(0, self.n, CHUNK):
+                parts = [(i0, j0, min(self.n, i0 + CHUNK), min(self.n, j0 + CHUNK))]
+                for r in self.pond_rects:
+                    parts = [q for p in parts for q in rect_minus(p, r)]
+                out += parts
+        return out
 
     def build(self, L):
-        n = self.n
-        vnorm = {}
-        for i in range(n + 1):
-            for j in range(n + 1):
-                hx = (self.h[min(n, i + 1)][j] - self.h[max(0, i - 1)][j]) / (GRID * (min(n, i + 1) - max(0, i - 1)))
-                hy = (self.h[i][min(n, j + 1)] - self.h[i][max(0, j - 1)]) / (GRID * (min(n, j + 1) - max(0, j - 1)))
-                vnorm[(i, j)] = norm((-hx, -hy, 1.0))
-        for i0 in range(0, n, CHUNK):
-            for j0 in range(0, n, CHUNK):
-                i1, j1 = min(n, i0 + CHUNK), min(n, j0 + CHUNK)
-                vid, verts, vn = {}, [], []
+        for (i0, j0, i1, j1) in self.tiles():
+            vid, verts, vn = {}, [], []
 
-                def V(i, j, top):
-                    key = (i, j, top)
-                    if key not in vid:
-                        vid[key] = len(verts)
-                        verts.append((-OUTER + i * GRID, -OUTER + j * GRID, self.h[i][j] if top else T_BOTTOM))
-                        vn.append(vnorm[(i, j)] if top else (0, 0, -1))
-                    return vid[key]
-                faces, mats, sm, lms = [], [], [], []
-                outside = max(abs(-OUTER + (i0 + CHUNK / 2) * GRID), abs(-OUTER + (j0 + CHUNK / 2) * GRID)) > HALF + 256
-                for i in range(i0, i1):
-                    for j in range(j0, j1):
-                        a, b, c, d = V(i, j, 1), V(i + 1, j, 1), V(i + 1, j + 1, 1), V(i, j + 1, 1)
-                        for t in ([(a, b, c), (a, c, d)] if self.diag(i, j) else [(a, b, d), (b, c, d)]):
-                            faces.append(list(t))
-                            mats.append(self.material(sum(verts[q][0] for q in t) / 3, sum(verts[q][1] for q in t) / 3))
+            def V(k, top):
+                if (k, top) not in vid:
+                    vid[(k, top)] = len(verts)
+                    x, y, z = self.point(k)
+                    verts.append((x, y, z if top else T_BOTTOM))
+                    vn.append(self.normal(k) if top else (0, 0, -1))
+                return vid[(k, top)]
+            faces, mats, sm, lms = [], [], [], []
+            outside = max(abs(-OUTER + (i0 + i1) / 2 * GRID), abs(-OUTER + (j0 + j1) / 2 * GRID)) > HALF + 256
+            for i in range(i0, i1):
+                for j in range(j0, j1):
+                    for t in self.cell_tris(i, j):
+                        for poly, mat in self.pieces(t):
+                            faces.append([V(k, 1) for k in poly])
+                            mats.append(mat)
                             sm.append(True)
                             lms.append(-1 if outside else 0)
-                # the sides, then the flat underside: a closed solid
-                ring = [(i, j0) for i in range(i0, i1)] + [(i1, j) for j in range(j0, j1)] + \
-                       [(i, j1) for i in range(i1, i0, -1)] + [(i0, j) for j in range(j1, j0, -1)]
-                for k, (pi, pj) in enumerate(ring):
-                    qi, qj = ring[(k + 1) % len(ring)]
-                    faces.append([V(pi, pj, 0), V(qi, qj, 0), V(qi, qj, 1), V(pi, pj, 1)])
-                    mats.append(M['NODRAW'])
-                    sm.append(False)
-                    lms.append(-2)
-                faces.append([V(pi, pj, 0) for (pi, pj) in reversed(ring)])
+            # the sides, then the flat underside: a closed solid
+            ring = [(i, j0) for i in range(i0, i1)] + [(i1, j) for j in range(j0, j1)] + \
+                   [(i, j1) for i in range(i1, i0, -1)] + [(i0, j) for j in range(j1, j0, -1)]
+            ring = [(i * SUB, j * SUB) for i, j in ring]
+            for k, p in enumerate(ring):
+                q = ring[(k + 1) % len(ring)]
+                faces.append([V(p, 0), V(q, 0), V(q, 1), V(p, 1)])
                 mats.append(M['NODRAW'])
                 sm.append(False)
                 lms.append(-2)
-                L.add(verts, faces, mats, 'terrain', lm=lms, vn=vn, smooth=sm)
+            faces.append([V(p, 0) for p in reversed(ring)])
+            mats.append(M['NODRAW'])
+            sm.append(False)
+            lms.append(-2)
+            L.add(verts, faces, mats, 'terrain', lm=lms, vn=vn, smooth=sm)
 
 
 # ---------------------------------------------------------------- buildings: the union of boxes on the building's own grid
@@ -979,12 +1127,16 @@ def build_layout():
         key = rnd.choice(['poplar', 'maple2', 'oak', 'cypress', 'card1', 'card2', 'card3'])
         L.prop(key, (x, y, ter.zrange(x, y, 16)[0] - 6), rnd.uniform(0, 360), rnd.uniform(0.9, 1.2),
                'card' if key.startswith('card') else 'tree')
-    # tall grass where the ponds' mud meets the grass: the ground's triangles give that edge straight lines, the tufts break them
+    # tall grass in clumps along the edge of each pond's mud, every 64 or so round it
     tufts = random.Random(11)
-    for x, y in ter.border(M['MUD']):
-        for _ in range(2):
-            px, py = x + tufts.uniform(-12, 12), y + tufts.uniform(-12, 12)
-            L.prop('tallgrass', (px, py, ter.zrange(px, py, 8)[0] - 1), tufts.uniform(0, 360), tufts.uniform(1.0, 1.4), 'grass')
+    for (cx, cy, R, D) in PONDS:
+        n = round(2 * math.pi * MUD * R / 64)
+        for k in range(n):
+            a = 2 * math.pi * (k + tufts.uniform(-0.3, 0.3)) / n
+            for _ in range(2):
+                r = MUD * R + tufts.uniform(-10, 14)
+                px, py = cx + r * math.cos(a) + tufts.uniform(-8, 8), cy + r * math.sin(a) + tufts.uniform(-8, 8)
+                L.prop('tallgrass', (px, py, ter.zrange(px, py, 8)[0] - 1), tufts.uniform(0, 360), tufts.uniform(1.0, 1.4), 'grass')
     # the player clip at the edge of the field, and the skybox shell round everything
     c = HALF
     for lo, hi in [((-c - 16, -c - 16), (c + 16, -c)), ((-c - 16, c), (c + 16, c + 16)), ((-c - 16, -c), (-c, c)), ((c, -c), (c + 16, c))]:

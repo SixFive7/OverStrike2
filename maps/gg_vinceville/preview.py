@@ -77,6 +77,7 @@ def main():
     tris = []      # (triangle, colour, face id, a point behind the face: it is turned away from it)
     fid = 0
     plane_ids = {}  # a building is many small faces on one grid: one id per plane and material, so outlines show its edges only
+    grid, outer = lay['grid'], lay['outer']
     for si, s in enumerate(lay['solids']):
         vs = np.array(s['verts'], float)
         c = vs.mean(0)
@@ -88,7 +89,17 @@ def main():
                 cx, cy = pts[:, 0].mean(), pts[:, 1].mean()
                 if cut(cx, cy):
                     continue
-            if s['tag'] == 'building':
+                # one id per triangle of the grid and material: the ground's finer faces round the ponds are outlined
+                # where the grid's triangles and the materials meet, as everywhere else
+                i, u = divmod((cx + outer) / grid, 1)
+                j, v = divmod((cy + outer) / grid, 1)
+                half_ = (u < v) if (i + j) % 2 == 0 else (u + v > 1)
+                key = ('ground', int(i), int(j), half_, m)
+                if key not in plane_ids:
+                    fid += 1
+                    plane_ids[key] = fid
+                face_id = plane_ids[key]
+            elif s['tag'] == 'building':
                 n = np.cross(pts[1] - pts[0], pts[2] - pts[0])
                 n = n / np.linalg.norm(n)
                 key = (si, m, tuple(np.round(n, 3)), round(float(np.dot(n, pts[0])), 2))
