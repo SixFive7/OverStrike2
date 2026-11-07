@@ -1,5 +1,6 @@
 // A run's picture for the status file: today, the totals, the queue, the keep set, the history.
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 

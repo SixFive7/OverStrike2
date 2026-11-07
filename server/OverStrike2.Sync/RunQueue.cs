@@ -32,7 +32,7 @@ public sealed partial class SyncRun
                     rec["status"] = "known";
                 continue;
             }
-            if (Node.Str(rec["ws"]) != "ok" || !(Node.IsNumber(rec["app"]) && KeepSet.Number(rec["app"]) is 0 or 730))
+            if (Node.Str(rec["ws"]) != "ok" || !(Node.IsNumber(rec["app"]) && Node.Number(rec["app"]) is 0 or 730))
                 continue;
             if (Node.Truthy(rec["creator"]) && Cfg.ExcludeCreators.Contains(Node.Str(rec["creator"])))
             {

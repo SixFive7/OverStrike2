@@ -57,7 +57,7 @@ public static class KeepSet
 
     /// <summary>The keep set's inputs: the bridge's data files by name, each null when it is missing or does not parse.</summary>
     public static Dictionary<string, JsonNode?> Inputs(string dataDir) =>
-        InputFiles.ToDictionary(n => n, n => Files.ReadJson(Path.Combine(dataDir, n)));
+        InputFiles.ToDictionary(n => n, n => Node.ReadJson(Path.Combine(dataDir, n)));
 
     /// <summary>A keep set that holds nothing and says why: what a caller acts on when the set cannot be computed (nothing deleted,
     /// nothing handed over). Its one problem starts "the keep set could not be computed".</summary>
@@ -102,7 +102,7 @@ public static class KeepSet
 
         var lists = new Dictionary<string, List<string>>();
         foreach (var (mode, file) in Modes)
-            lists[mode] = NeedList(file).OfType<JsonObject>().Select(e => Digits(e["id"])).OfType<string>().Distinct().ToList();
+            lists[mode] = NeedList(file).OfType<JsonObject>().Select(e => Node.Id(e["id"])).OfType<string>().Distinct().ToList();
         if (lists["armsrace"].Count == 0 && !problems.Contains("maps.json is missing or unreadable"))
             problems.Add("maps.json lists no map");
 
@@ -110,26 +110,26 @@ public static class KeepSet
         var broken = NeedObject("broken.json");
         foreach (var section in new[] { "maps", "packs", "removed", "blocked" })
             foreach (var entry in broken[section] as JsonArray ?? [])
-                if (Digits(entry is JsonObject o ? o["id"] : entry) is { } wid)
+                if (Node.Id(entry is JsonObject o ? o["id"] : entry) is { } wid)
                     bad.Add(wid);
         var blocked = inputs.TryGetValue("blocked.json", out var bl) ? bl : null;   // optional: without it, more stays
         var blockedEntries = blocked is JsonObject bo ? bo["blocked"] : blocked;
         foreach (var entry in blockedEntries as JsonArray ?? [])
-            if (Digits(entry is JsonObject o ? o["id"] : entry) is { } wid)
+            if (Node.Id(entry is JsonObject o ? o["id"] : entry) is { } wid)
                 bad.Add(wid);
         foreach (var (wid, verdict) in NeedObject("removed.json")["verdicts"] as JsonObject ?? [])
-            if (PyStr(verdict) != "ok")
+            if (Node.Str(verdict) != "ok")
                 bad.Add(wid);
         var bridge = NeedObject("state.json");
         foreach (var (wid, count) in bridge["crashes"] as JsonObject ?? [])
-            if (Integer(count) is > 0)
+            if (Node.Integer(count) is > 0)
                 bad.Add(wid);
         foreach (var (wid, _) in bridge["playerCrashes"] as JsonObject ?? [])
             bad.Add(wid);
 
         var up = new HashSet<string>();
         foreach (var (key, value) in NeedObject("votes.json"))
-            if (IsDigits(key) && value is JsonObject votes && votes.Any(v => Integer(v.Value) is > 0))
+            if (IsDigits(key) && value is JsonObject votes && votes.Any(v => Node.Integer(v.Value) is > 0))
                 up.Add(key);
 
         var ratings = NeedObject("ratings.json");
@@ -139,16 +139,16 @@ public static class KeepSet
             foreach (var (wid, value) in scoreTable)
             {
                 var score = value is JsonArray a && a.Count > 0 ? a[0] : value;
-                if (IsDigits(wid) && Number(score) is { } d)
+                if (IsDigits(wid) && Node.Number(score) is { } d)
                     scores[wid] = d;
                 var count = value is JsonArray b && b.Count > 3 ? b[3] : null;
-                if (IsDigits(wid) && Integer(count) is { } n)
+                if (IsDigits(wid) && Node.Integer(count) is { } n)
                     subs[wid] = n;
             }
         var trend = ratings["trend"] as JsonObject ?? [];
         if (ratings.Count > 0)
         {
-            var fetched = Number(ratings["fetched"]);
+            var fetched = Node.Number(ratings["fetched"]);
             double? age = fetched is { } f ? now.ToUnixTimeMilliseconds() / 1000.0 - f : null;
             if (age is null || age > rules.RatingsMaxAge)
                 problems.Add($"ratings.json is {(age is { } a ? $"{(long)Math.Floor(a / 3600)} h" : "of no known age")} old (at most {(long)(rules.RatingsMaxAge / 3600)} h)");
@@ -169,7 +169,7 @@ public static class KeepSet
             if (order is null)
                 problems.Add($"ratings.json has no Most Popular order for {mode}");
             var (bestRated, bestSubscribed, bestPopular) = TopLists(playable, w => scores.TryGetValue(w, out var d) ? d : null,
-                                                                    w => subs.TryGetValue(w, out var n) ? n : null, (order ?? []).Select(PyStr), rules.Top);
+                                                                    w => subs.TryGetValue(w, out var n) ? n : null, (order ?? []).Select(Node.Str), rules.Top);
             three[mode] = (bestRated, bestSubscribed, bestPopular);
             top[mode] = bestRated.Concat(bestSubscribed).Concat(bestPopular).Distinct().ToList();
             cutoff[mode] = (bestRated.Count >= rules.Top ? scores[bestRated[^1]] : null, bestSubscribed.Count >= rules.Top ? subs[bestSubscribed[^1]] : null);
@@ -178,25 +178,25 @@ public static class KeepSet
                     problems.Add($"the {mode} {what} list holds {ids.Count} maps ({playable.Count} playable listed)");
         }
 
-        var own = new HashSet<string>((NeedObject("ours.json")["maps"] as JsonArray ?? []).OfType<JsonObject>().Select(e => Digits(e["id"])).OfType<string>());
+        var own = new HashSet<string>((NeedObject("ours.json")["maps"] as JsonArray ?? []).OfType<JsonObject>().Select(e => Node.Id(e["id"])).OfType<string>());
         if (own.Count == 0)
             problems.Add("ours.json names no own map");
         var hudIds = IsDigits(hud) ? new HashSet<string> { hud } : [];
         if (hudIds.Count == 0)
             problems.Add("no HUD item is set");
         var queues = NeedObject("queues.json");
-        if (queues.Count > 0 && Number(queues["version"]) != 1)
+        if (queues.Count > 0 && Node.Number(queues["version"]) != 1)
             problems.Add("queues.json is not version 1");
         var random = queues["random"] as JsonObject ?? [];
         var qs = new Dictionary<string, List<string>>();
         foreach (var name in QueueNames)
         {
-            var entries = random[name] is JsonArray q ? q.Select(PyStr).ToList() : [];
+            var entries = random[name] is JsonArray q ? q.Select(Node.Str).ToList() : [];
             if (entries.Count < rules.MinQueue)
                 problems.Add($"the {name} queue holds {entries.Count} entries (at least {rules.MinQueue})");
             qs[name] = entries.Where(IsDigits).ToList();
         }
-        var requested = queues["requested"] is JsonArray req ? req.Select(Digits).OfType<string>().ToList() : [];
+        var requested = queues["requested"] is JsonArray req ? req.Select(Node.Id).OfType<string>().ToList() : [];
         var every = new HashSet<string>(up);
         every.UnionWith(own);
         every.UnionWith(hudIds);
@@ -227,60 +227,5 @@ public static class KeepSet
         return (rated, subscribed, popular);
     }
 
-    // ---- JSON as the keep set reads it: an id is a string of digits or a positive whole number
-
     static bool IsDigits(string? s) => !string.IsNullOrEmpty(s) && s.All(char.IsAsciiDigit);
-
-    /// <summary>An id: a JSON string of digits, or a positive whole number; else null.</summary>
-    public static string? Digits(JsonNode? v)
-    {
-        if (v is not JsonValue jv)
-            return null;
-        if (jv.GetValueKind() == JsonValueKind.String)
-            return IsDigits(jv.GetValue<string>()) ? jv.GetValue<string>() : null;
-        return Integer(v) is long n && n > 0 ? n.ToString(CultureInfo.InvariantCulture) : null;
-    }
-
-    /// <summary>A whole JSON number (written without a point or an exponent), else null. True and false are no numbers.</summary>
-    public static long? Integer(JsonNode? v)
-    {
-        if (v is JsonValue jv && jv.GetValueKind() == JsonValueKind.Number && jv.TryGetValue<JsonElement>(out var el))
-        {
-            var raw = el.GetRawText();
-            if (raw.IndexOfAny(['.', 'e', 'E']) < 0 && long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n))
-                return n;
-            return null;
-        }
-        if (v is JsonValue made && made.GetValueKind() == JsonValueKind.Number)   // a value made in code, not parsed: its .NET type says
-        {
-            if (made.TryGetValue<int>(out var i))
-                return i;
-            if (made.TryGetValue<long>(out var l))
-                return l;
-            if (made.TryGetValue<uint>(out var u))
-                return u;
-        }
-        return null;
-    }
-
-    /// <summary>Any JSON number, else null.</summary>
-    public static double? Number(JsonNode? v)
-    {
-        if (v is not JsonValue jv || jv.GetValueKind() != JsonValueKind.Number)
-            return null;
-        if (jv.TryGetValue<double>(out var d))
-            return d;
-        return Integer(v) is long n ? n : jv.TryGetValue<float>(out var f) ? f : jv.TryGetValue<decimal>(out var m) ? (double)m : null;
-    }
-
-    /// <summary>A JSON value as text: a string as it is, a number as written, true and false, null as "None".</summary>
-    public static string PyStr(JsonNode? v) => v switch
-    {
-        null => "None",
-        JsonValue jv when jv.GetValueKind() == JsonValueKind.String => jv.GetValue<string>(),
-        JsonValue jv when jv.GetValueKind() == JsonValueKind.True => "True",
-        JsonValue jv when jv.GetValueKind() == JsonValueKind.False => "False",
-        JsonValue jv when jv.TryGetValue<JsonElement>(out var el) => el.GetRawText(),
-        _ => v.ToJsonString(),
-    };
 }

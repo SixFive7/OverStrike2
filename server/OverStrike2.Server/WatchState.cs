@@ -65,7 +65,7 @@ public sealed class WatchState
     static bool Int(JsonNode? n, out long v)
     {
         v = 0;
-        return n is JsonValue jv && jv.GetValueKind() == JsonValueKind.Number && KeepSet.Integer(n) is { } i && (v = i) == i;
+        return n is JsonValue jv && jv.GetValueKind() == JsonValueKind.Number && Node.Integer(n) is { } i && (v = i) == i;
     }
 
     /// <summary>(state, null) or (defaults, why).</summary>

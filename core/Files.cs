@@ -1,6 +1,4 @@
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace OverStrike2.Core;
 
@@ -95,19 +93,6 @@ public static class Files
         }
         catch (Exception e) when (quiet && e is IOException or UnauthorizedAccessException)
         {
-        }
-    }
-
-    /// <summary>A JSON file as a node, or null when it is missing or does not parse.</summary>
-    public static JsonNode? ReadJson(string path)
-    {
-        try
-        {
-            return JsonNode.Parse(File.ReadAllText(path));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return null;
         }
     }
 }

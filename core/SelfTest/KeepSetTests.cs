@@ -140,9 +140,9 @@ static class KeepSetTests
         Check("keep: the empty set says why, so nothing is deleted or handed over on it", KeepSet.Empty("x").Problems.SequenceEqual(["the keep set could not be computed: x"])
               && KeepSet.Empty("x").All.Count == 0);
         Check("keep: ids - digit strings and positive whole numbers; not 0, -5, 1.0, true or text",
-              KeepSet.Digits(JsonValue.Create("123")) == "123" && KeepSet.Digits(JsonNode.Parse("123")) == "123" && KeepSet.Digits(JsonNode.Parse("0")) is null
-              && KeepSet.Digits(JsonNode.Parse("-5")) is null && KeepSet.Digits(JsonNode.Parse("1.0")) is null && KeepSet.Digits(JsonNode.Parse("true")) is null
-              && KeepSet.Digits(JsonValue.Create("ar_baggage")) is null && KeepSet.Digits(JsonValue.Create("0")) == "0");
+              Node.Id(JsonValue.Create("123")) == "123" && Node.Id(JsonNode.Parse("123")) == "123" && Node.Id(JsonNode.Parse("0")) is null
+              && Node.Id(JsonNode.Parse("-5")) is null && Node.Id(JsonNode.Parse("1.0")) is null && Node.Id(JsonNode.Parse("true")) is null
+              && Node.Id(JsonValue.Create("ar_baggage")) is null && Node.Id(JsonValue.Create("0")) == "0");
 
         // the inputs from a data folder: each file by name, null when it is missing or does not parse
         var dir = Temp("keepdata");

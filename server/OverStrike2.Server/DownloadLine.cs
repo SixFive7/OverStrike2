@@ -131,10 +131,10 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             namesAt = now;
             var found = new Dictionary<string, (string, long)>();
             foreach (var file in new[] { "maps-wingman.json", "maps-deathmatch.json", "maps.json" })
-                if (Files.ReadJson(Path.Combine(config.Paths.BridgeData, file)) is JsonArray list)
+                if (Node.ReadJson(Path.Combine(config.Paths.BridgeData, file)) is JsonArray list)
                     foreach (var entry in list)
-                        if (entry is JsonObject o && KeepSet.Digits(o["id"]) is { } id)
-                            found[id] = (MapsFolder.Str(o["name"]), (KeepSet.Integer(o["sizeMb"]) ?? 0) << 20);
+                        if (entry is JsonObject o && Node.Id(o["id"]) is { } id)
+                            found[id] = (MapsFolder.Str(o["name"]), (Node.Integer(o["sizeMb"]) ?? 0) << 20);
             names = found;
         }
         return names;

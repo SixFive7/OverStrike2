@@ -23,7 +23,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
         }
         var data = Node.ReadJson(Path);
         if (data is not JsonObject o || o["calls"] is not JsonArray calls || o["days"] is not JsonObject
-            || calls.Any(c => c is not JsonArray a || a.Count == 0 || KeepSet.Number(a[0]) is null))
+            || calls.Any(c => c is not JsonArray a || a.Count == 0 || Node.Number(a[0]) is null))
         {
             Broken = $"{Path} does not parse - no Web API call until it is fixed or deleted";
             Data = null;
@@ -36,7 +36,7 @@ public sealed class ApiLedger(string path, int dayCap, SyncClock clock)
 
     public void Save() => Files.WriteAtomic(Path, Node.Compact(Data) + "\n", FileModes.Private);
 
-    static double Time(JsonNode? call) => call is JsonArray a && a.Count > 0 && KeepSet.Number(a[0]) is { } t ? t : double.NegativeInfinity;
+    static double Time(JsonNode? call) => call is JsonArray a && a.Count > 0 && Node.Number(a[0]) is { } t ? t : double.NegativeInfinity;
 
     void Prune(double now)
     {

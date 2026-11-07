@@ -99,10 +99,10 @@ public sealed partial class MapsFolder
     {
         var sizes = new Dictionary<string, long>();
         foreach (var (_, file) in KeepSet.Modes)
-            if (Files.ReadJson(Path.Combine(P.BridgeData, file)) is JsonArray list)
+            if (Node.ReadJson(Path.Combine(P.BridgeData, file)) is JsonArray list)
                 foreach (var e in list)
-                    if (e is JsonObject o && KeepSet.Digits(o["id"]) is { } id)
-                        sizes.TryAdd(id, KeepSet.Integer(o["sizeMb"]) ?? 0);
+                    if (e is JsonObject o && Node.Id(o["id"]) is { } id)
+                        sizes.TryAdd(id, Node.Integer(o["sizeMb"]) ?? 0);
         return sizes;
     }
 

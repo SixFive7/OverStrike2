@@ -1,6 +1,7 @@
 // The sync's self-test: the scan: what a download holds, and its advert rules.
 using System.Text;
 using static OverStrike2.Sync.SelfTest.T;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync.SelfTest;
 

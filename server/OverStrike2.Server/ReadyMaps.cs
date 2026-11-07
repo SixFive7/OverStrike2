@@ -56,12 +56,12 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         var stamp = (info.LastWriteTimeUtc, info.Length);
         if (stamp != queuesStamp)
         {
-            var data = Files.ReadJson(path) as JsonObject;
+            var data = Node.ReadJson(path) as JsonObject;
             var ids = new List<string>();
             if (data?["requested"] is JsonArray req)
-                ids.AddRange(req.Select(KeepSet.PyStr).Where(Digits));
+                ids.AddRange(req.Select(Node.Str).Where(Digits));
             var lanes = data?["random"] is JsonObject random
-                ? random.Select(kv => kv.Value is JsonArray a ? a.Select(KeepSet.PyStr).Where(Digits).ToList() : null).Where(l => l != null).Select(l => l!).ToList()
+                ? random.Select(kv => kv.Value is JsonArray a ? a.Select(Node.Str).Where(Digits).ToList() : null).Where(l => l != null).Select(l => l!).ToList()
                 : [];
             for (var i = 0; i < (lanes.Count == 0 ? 0 : lanes.Max(l => l.Count)); i++)
                 ids.AddRange(lanes.Where(l => i < l.Count).Select(l => l[i]));

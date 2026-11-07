@@ -44,8 +44,8 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         return s.TrimEnd('_', '.', '-', '+');
     }
 
-    /// <summary>A JSON value as text (KeepSet.PyStr), "" for none.</summary>
-    public static string Str(JsonNode? v) => v is null ? "" : KeepSet.PyStr(v);
+    /// <summary>A JSON value as text (Node.Str), "" for none.</summary>
+    public static string Str(JsonNode? v) => v is null ? "" : Node.Str(v);
 
     static bool Digits(string s) => s.Length > 0 && s.All(char.IsAsciiDigit);
 
@@ -55,14 +55,14 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         var types = new Dictionary<string, (string, string)>();
         if (config.HudAddon.Length > 0)
             types[config.HudAddon] = ("hud", "hud");
-        if (Files.ReadJson(Path.Combine(P.BridgeData, "ours.json")) is JsonObject ours && ours["maps"] is JsonArray own)
+        if (Node.ReadJson(Path.Combine(P.BridgeData, "ours.json")) is JsonObject ours && ours["maps"] is JsonArray own)
             foreach (var e in own)
-                if (e is JsonObject o && KeepSet.Digits(o["id"]) is { } id)
+                if (e is JsonObject o && Node.Id(o["id"]) is { } id)
                     types.TryAdd(id, ("own", Str(o["name"])));
         foreach (var (kind, file) in new[] { ("armsrace", "maps.json"), ("deathmatch", "maps-deathmatch.json"), ("wingman", "maps-wingman.json") })
-            if (Files.ReadJson(Path.Combine(P.BridgeData, file)) is JsonArray list)
+            if (Node.ReadJson(Path.Combine(P.BridgeData, file)) is JsonArray list)
                 foreach (var e in list)
-                    if (e is JsonObject o && KeepSet.Digits(o["id"]) is { } id)
+                    if (e is JsonObject o && Node.Id(o["id"]) is { } id)
                         types.TryAdd(id, (kind, Str(o["name"])));
         return types;
     }

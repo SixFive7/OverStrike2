@@ -3,16 +3,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Text.Json.Nodes;
-using OverStrike2.Core;
 
-namespace OverStrike2.Sync;
+namespace OverStrike2.Core;
 
 /// <summary>A value of a data file that is not what its reader takes. Nothing is published or assumed on it.</summary>
 public sealed class BadDataException(string message) : Exception(message);
 
-/// <summary>The values of the sync's JSON files and of Steam's answers, read the way the sync's files have always held them: a missing key
-/// or a value of another kind reads as none, a whole number as a long wherever it is written as one, Steam's numbers that come as text
-/// (file_size) as numbers; and the sync's JSON, written as System.Text.Json writes it.</summary>
+/// <summary>JSON values as the programs read them - the bridge's data files, the sync's own, the watcher's state, Steam's answers: a missing
+/// key or a value of another kind reads as none, a whole number as a long wherever it is written as one, Steam's numbers that come as text
+/// (file_size) as numbers, an id as a string of digits or a positive whole number; and the sync's JSON, written as System.Text.Json writes it.
+/// The keep set, os2-server and os2-sync read them here.</summary>
 public static class Node
 {
     // ------------------------------------------------------------------------------------------------ reading values
@@ -29,8 +29,50 @@ public static class Node
 
     public static bool IsBool(JsonNode? v) => v is JsonValue jv && jv.GetValueKind() is JsonValueKind.True or JsonValueKind.False;
 
-    /// <summary>A whole JSON number, else null (5.0 too: the files write whole numbers whole).</summary>
-    public static long? Integer(JsonNode? v) => KeepSet.Integer(v);
+    /// <summary>A whole JSON number (written without a point or an exponent), else null. True and false are no numbers.</summary>
+    public static long? Integer(JsonNode? v)
+    {
+        if (v is JsonValue jv && jv.GetValueKind() == JsonValueKind.Number && jv.TryGetValue<JsonElement>(out var el))
+        {
+            var raw = el.GetRawText();
+            if (raw.IndexOfAny(['.', 'e', 'E']) < 0 && long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n))
+                return n;
+            return null;
+        }
+        if (v is JsonValue made && made.GetValueKind() == JsonValueKind.Number)   // a value made in code, not parsed: its .NET type says
+        {
+            if (made.TryGetValue<int>(out var i))
+                return i;
+            if (made.TryGetValue<long>(out var l))
+                return l;
+            if (made.TryGetValue<uint>(out var u))
+                return u;
+        }
+        return null;
+    }
+
+    /// <summary>Any JSON number, else null.</summary>
+    public static double? Number(JsonNode? v)
+    {
+        if (v is not JsonValue jv || jv.GetValueKind() != JsonValueKind.Number)
+            return null;
+        if (jv.TryGetValue<double>(out var d))
+            return d;
+        return Integer(v) is long n ? n : jv.TryGetValue<float>(out var f) ? f : jv.TryGetValue<decimal>(out var m) ? (double)m : null;
+    }
+
+    /// <summary>An id: a JSON string of digits, or a positive whole number; else null.</summary>
+    public static string? Id(JsonNode? v)
+    {
+        if (v is not JsonValue jv)
+            return null;
+        if (jv.GetValueKind() == JsonValueKind.String)
+            return AllDigits(jv.GetValue<string>()) ? jv.GetValue<string>() : null;
+        return Integer(v) is long n && n > 0 ? n.ToString(CultureInfo.InvariantCulture) : null;
+    }
+
+    static bool AllDigits(string? s) => !string.IsNullOrEmpty(s) && s.All(char.IsAsciiDigit);
+
 
     static string? StringOf(JsonNode? v) => IsString(v) ? v!.GetValue<string>() : null;
 
@@ -45,7 +87,7 @@ public static class Node
             JsonValueKind.String => jv.GetValue<string>().Length > 0,
             JsonValueKind.True => true,
             JsonValueKind.False => false,
-            JsonValueKind.Number => (KeepSet.Number(jv) ?? 0) != 0,
+            JsonValueKind.Number => (Number(jv) ?? 0) != 0,
             _ => false,
         },
         _ => true,
@@ -59,9 +101,9 @@ public static class Node
             return 0;
         if (IsBool(v))
             return 1;
-        if (KeepSet.Integer(v) is { } n)
+        if (Integer(v) is { } n)
             return n;
-        if (KeepSet.Number(v) is { } d)
+        if (Number(v) is { } d)
             return double.IsFinite(d) ? (long)Math.Truncate(d) : 0;
         if (StringOf(v) is { } s && long.TryParse(s.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var p))
             return p;
@@ -75,7 +117,7 @@ public static class Node
             return 0;
         if (IsBool(v))
             return 1;
-        if (KeepSet.Number(v) is { } d)
+        if (Number(v) is { } d)
             return d;
         if (StringOf(v) is { } s && double.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
             return p;
@@ -139,7 +181,7 @@ public static class Node
         return false;
     }
 
-    static double? NumLike(JsonNode v) => IsBool(v) ? (v.GetValue<bool>() ? 1 : 0) : KeepSet.Number(v);
+    static double? NumLike(JsonNode v) => IsBool(v) ? (v.GetValue<bool>() ? 1 : 0) : Number(v);
 
     /// <summary>A key that is the same for two values Eq calls equal (1 and 1.0 alike), for telling values apart in a set.</summary>
     public static string SetKey(JsonNode? v) => v switch

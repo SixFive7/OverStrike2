@@ -1,5 +1,6 @@
 // A run's tests: the scan of every staged download, then the load tests of the maps on the test engine, to a verdict.
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 

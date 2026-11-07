@@ -24,7 +24,7 @@ static class FormatTests
         var cafe = "Caf" + (char)0xE9 + " " + (char)0x4E2D;
         Check("json: text stays as it is but for what JSON must escape, so names in every script stay readable; whole numbers stay whole",
               Node.Compact(new JsonObject { ["s"] = cafe + " q\"b\\", ["n"] = 5L, ["t"] = 1793500000.0, ["m"] = 0.5 }) == "{\"s\":\"" + cafe + " q\\\"b\\\\\",\"n\":5,\"t\":1793500000,\"m\":0.5}"
-              && KeepSet.Integer(J(Node.Compact(new JsonObject { ["t"] = 1793500000.0 }))["t"]) == 1793500000);
+              && Node.Integer(J(Node.Compact(new JsonObject { ["t"] = 1793500000.0 }))["t"]) == 1793500000);
         Check("json: the bridge's lists keep their layout - a member or an item a line, indent 0 (search.json), 1 (maps.json) or 2 (broken.json), a final newline",
               Node.File(O("{\"a\": [1, {\"b\": \"c\"}], \"d\": {}}"), 0) == "{\n\"a\": [\n1,\n{\n\"b\": \"c\"\n}\n],\n\"d\": {}\n}\n"
               && Node.File(A("[{\"rank\": 1, \"id\": 5}]"), 1) == "[\n {\n  \"rank\": 1,\n  \"id\": 5\n }\n]\n" && Node.File(O("{\"maps\": []}"), 2) == "{\n  \"maps\": []\n}\n");

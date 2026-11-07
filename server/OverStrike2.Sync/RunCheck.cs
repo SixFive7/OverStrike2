@@ -1,5 +1,6 @@
 // A run's discovery and check: the Workshop's new maps found, every listed map and the head of the download queue asked about.
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 

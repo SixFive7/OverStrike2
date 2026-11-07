@@ -21,20 +21,16 @@ public sealed partial class MapsFolder
         {
             return (null, $"its marker does not parse ({e.Message})");
         }
-        if (rec is not JsonObject o || KeepSet.Integer(o["version"]) != 1 || Str(o["id"]) != id)
+        if (rec is not JsonObject o || Node.Integer(o["version"]) != 1 || Str(o["id"]) != id)
             return (null, $"its marker is not a version-1 hand-over of {id}");
-        if (o["installed"] is not JsonObject inst || !new[] { "size", "timeupdated", "manifest" }.All(k => Digits(Falsy(inst[k]))))
+        if (o["installed"] is not JsonObject inst || !new[] { "size", "timeupdated", "manifest" }.All(k => Digits(Node.StrOr(inst[k]))))
             return (null, "its marker has no complete WorkshopItemsInstalled entry");
-        if (o["details"] is not JsonObject det || !new[] { "manifest", "timeupdated" }.All(k => Digits(Falsy(det[k]))))
+        if (o["details"] is not JsonObject det || !new[] { "manifest", "timeupdated" }.All(k => Digits(Node.StrOr(det[k]))))
             return (null, "its marker has no complete WorkshopItemDetails entry");
-        if (KeepSet.Integer(o["files"]) is not { } files || KeepSet.Integer(o["bytes"]) is null || files <= 0)
+        if (Node.Integer(o["files"]) is not { } files || Node.Integer(o["bytes"]) is null || files <= 0)
             return (null, "its marker does not say what the folder holds");
         return (o, null);
     }
-
-    /// <summary>A JSON value as text, "" for a missing, empty, zero or false one.</summary>
-    static string Falsy(JsonNode? v) => v is null || (v is JsonValue jv && ((jv.GetValueKind() == JsonValueKind.String && jv.GetValue<string>().Length == 0)
-        || jv.GetValueKind() == JsonValueKind.False || (KeepSet.Number(v) is { } n && n == 0))) ? "" : Str(v);
 
     sealed record Finish(string Id, string Marker, string? Manifest, string Gid);
 
@@ -72,12 +68,12 @@ public sealed partial class MapsFolder
                 log.Line($"hand-over {id}: left alone - {why}");
                 continue;
             }
-            var (kind, title) = types.TryGetValue(id, out var t) ? t : ("other", Falsy(rec["title"]));
+            var (kind, title) = types.TryGetValue(id, out var t) ? t : ("other", Node.StrOr(rec["title"]));
             var slug = Slug(title);
             var target = Path.Combine(mapsDir, kind, slug.Length > 0 ? $"{id}-{slug}" : id);
             var inst = (JsonObject)rec["installed"]!;
             var stamp = long.Parse(Str(inst["timeupdated"]), CultureInfo.InvariantCulture);
-            var want = (KeepSet.Integer(rec["files"])!.Value, KeepSet.Integer(rec["bytes"])!.Value);
+            var want = (Node.Integer(rec["files"])!.Value, Node.Integer(rec["bytes"])!.Value);
             where.TryGetValue(id, out var holders);
             holders ??= [];
             try
@@ -130,7 +126,7 @@ public sealed partial class MapsFolder
                 var det = (JsonObject)rec["details"]!;
                 var installedEntry = new[] { "size", "timeupdated", "manifest" }.Select(k => (k, Str(inst[k]))).ToList();
                 var detailsEntry = new[] { "manifest", "timeupdated", "timetouched", "latest_timeupdated", "latest_manifest" }
-                    .Where(k => Digits(Falsy(det[k]))).Select(k => (k, Str(det[k]))).ToList();
+                    .Where(k => Digits(Node.StrOr(det[k]))).Select(k => (k, Str(det[k]))).ToList();
                 add[id] = (installedEntry, detailsEntry);
                 finish.Add(new Finish(id, marker, File.Exists(manifest) ? manifest : null, Str(inst["manifest"])));
                 counts["taken"]++;

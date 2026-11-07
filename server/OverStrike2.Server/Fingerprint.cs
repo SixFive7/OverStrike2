@@ -44,10 +44,10 @@ public sealed record Installed(VersionParts Parts, long At, string? ServerFrom)
 
     public static Installed? Read(string path)
     {
-        var n = Files.ReadJson(path) as JsonObject;
-        if (n is null || KeepSet.Integer(n["version"]) != 1 || VersionParts.FromJson(n["parts"]) is not { } parts)
+        var n = Node.ReadJson(path) as JsonObject;
+        if (n is null || Node.Integer(n["version"]) != 1 || VersionParts.FromJson(n["parts"]) is not { } parts)
             return null;
-        return new Installed(parts, KeepSet.Integer(n["at"]) ?? 0, n["serverFrom"] is JsonValue sf ? sf.GetValue<string>() : null);
+        return new Installed(parts, Node.Integer(n["at"]) ?? 0, n["serverFrom"] is JsonValue sf ? sf.GetValue<string>() : null);
     }
 
     public void Write(string path)
