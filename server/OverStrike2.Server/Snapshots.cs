@@ -107,7 +107,7 @@ public static partial class Snapshots
             var summary = new List<string>
             {
                 $"why: {why}",
-                $"engine pid: {(pid?.ToString(CultureInfo.InvariantCulture) ?? "None")}, running for {(age is { } a ? Rules.Hms(a) : "?")}",
+                $"engine pid: {(pid?.ToString(CultureInfo.InvariantCulture) ?? "None")}, running for {(age is { } a ? Core.Words.Hm(a) : "?")}",
                 $"depotcache {w.Config.Paths.Depotcache}: {(count?.ToString(CultureInfo.InvariantCulture) ?? "None")} manifests, {(mounted ? "a mounted volume" : "NOT a mounted volume")}, {(writable ? "writable" : "NOT writable")}",
                 $"copied from {logs}: {(copied.Count > 0 ? string.Join(", ", copied) : "nothing")}",
                 "",

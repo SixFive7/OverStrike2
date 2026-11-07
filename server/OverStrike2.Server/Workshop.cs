@@ -45,7 +45,7 @@ public static partial class Downloads
         : Math.Max(1, Math.Round(bytes / (1L << 20), MidpointRounding.ToEven)).ToString("0", CultureInfo.InvariantCulture) + " MB";
 }
 
-/// <summary>A download somebody waits for, or job 9's: since when, when last seen, and its bytes when MultiAddonManager says them.</summary>
+/// <summary>A download somebody waits for, or a background download: since when, when last seen, and its bytes when MultiAddonManager says them.</summary>
 public sealed class Active
 {
     public double Since, Seen;
@@ -53,7 +53,7 @@ public sealed class Active
     public bool Engine;            // the engine itself waits for it: a map change does
 }
 
-/// <summary>JOB 8, THE DOWNLOAD LINE: which downloads run, and the top line about the newest one somebody waits for. Fed from console.log
+/// <summary>THE DOWNLOAD LINE: which downloads run, and the top line about the newest one somebody waits for. Fed from console.log
 /// (ConsoleLine) and the Steam client's workshop log (Started, Finished, Failed); Step sends the line. A failed RCON call only skips an
 /// update. While the map a player waits for queues behind a background download (Steam runs one at a time and one running cannot be
 /// stopped), the line says so, with that one's progress.</summary>
@@ -218,7 +218,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         return $"Server is downloading {name} - The map changes when it is ready";
     }
 
-    /// <summary>The line, every Every seconds while somebody waits for a download: `own` holds job 9's download nobody waits for.</summary>
+    /// <summary>The line, every Every seconds while somebody waits for a download: `own` holds the background download nobody waits for.</summary>
     public void Step(double now, int humans, IReadOnlySet<string>? own = null)
     {
         if (!config.DownloadLine)
@@ -255,10 +255,10 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
     }
 }
 
-/// <summary>JOB 9, THE QUEUED MAPS IN THE BACKGROUND: the maps the bridge's random queues and the open ballot play next (queues.json), on
-/// disk before anybody asks - downloaded with MultiAddonManager's mm_download_addon, one at a time, also while people play, and silently
-/// (job 8's line is for downloads somebody waits for). Never while a download somebody waits for runs, nor in a process whose downloads are
-/// broken (job 6: a stuck result marks it). Every look, and at least every ReportEvery, the bridge hears which of them are on disk (POST
+/// <summary>THE BACKGROUND DOWNLOADS: the maps the bridge's random queues and the open ballot play next (queues.json), on disk before
+/// anybody asks - downloaded with MultiAddonManager's mm_download_addon, one at a time, also while people play, and silently (the download
+/// line is for downloads somebody waits for). Never while a download somebody waits for runs, nor in a process whose downloads are broken
+/// (a stuck result marks it, for the download restart). Every look, and at least every ReportEvery, the bridge hears which of them are on disk (POST
 /// /ready), and which one downloads now with its progress (the report's "current" line); its random picks take what is on disk first.</summary>
 public sealed class ReadyMaps(WorkshopJobs ws)
 {
@@ -424,7 +424,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
                     DownloadCount++;
                     FailedIds[cur.Id] = (0, now + RetryAfter);    // should the acf not show it, not again at once: no download loop
                     LookAt = 0;                                   // look again at once: the bridge hears of it now
-                    Log.Line($"ready: {cur.Id} downloaded in the background in {Rules.Hms(now - cur.Sent)} ({DownloadCount} this engine process)");
+                    Log.Line($"ready: {cur.Id} downloaded in the background in {Words.Hm(now - cur.Sent)} ({DownloadCount} this engine process)");
                 }
                 else
                 {
@@ -439,7 +439,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
             if (Current is { } still && now - still.Sent > ItemTimeout)
             {
                 FailedIds[still.Id] = ((FailedIds.TryGetValue(still.Id, out var f) ? f.Tries : 0) + 1, now + RetryAfter);
-                Log.Line($"ready: no result for {still.Id} after {Rules.Hms(ItemTimeout)} - tried again later");
+                Log.Line($"ready: no result for {still.Id} after {Words.Hm(ItemTimeout)} - tried again later");
                 Current = null;
             }
         }
@@ -477,8 +477,9 @@ public sealed class ReadyMaps(WorkshopJobs ws)
     }
 }
 
-/// <summary>Job 9 and the download line, a state machine stepped once per watcher tick - never blocking it for longer than one RCON command
-/// or one report to the bridge. And job 6's mark: a process whose downloads say it has no download source left is broken for good.</summary>
+/// <summary>The background downloads and the download line, a state machine stepped once per watcher tick - never blocking it for longer
+/// than one RCON command or one report to the bridge. And the download restart's mark: a process whose downloads say it has no download
+/// source left is broken for good.</summary>
 public sealed class WorkshopJobs
 {
     public Watch Watch { get; }
@@ -528,7 +529,7 @@ public sealed class WorkshopJobs
         return total;
     }
 
-    /// <summary>The downloads nobody waits for: job 9's - unless the engine itself waits for it (a pick of the very map it was fetching:
+    /// <summary>The downloads nobody waits for: the background download - unless the engine itself waits for it (a pick of the very map it was fetching:
     /// then it is the player's download, and the line shows it).</summary>
     public HashSet<string> Own()
     {
@@ -543,7 +544,7 @@ public sealed class WorkshopJobs
         if (Broken is not null)
             return;
         Broken = (now, why);
-        Watch.Log.Line($"WARNING: workshop downloads are broken in this engine process ({why}) - a restart is due as soon as nobody is on (at most one per {Rules.Hms(Rules.WorkshopRestartGap)}, {Rules.WorkshopRestartMax} per 24 h)");
+        Watch.Log.Line($"WARNING: workshop downloads are broken in this engine process ({why}) - a restart is due as soon as nobody is on (at most one per {Words.Hm(Rules.WorkshopRestartGap)}, {Rules.WorkshopRestartMax} per 24 h)");
         Snapshots.SteamLogs(Watch, why, Watch.ArmedPid);   // before any restart: a recreate would lose them
     }
 
@@ -583,7 +584,7 @@ public sealed class WorkshopJobs
         Ready.Step(now, events);
     }
 
-    /// <summary>Every download that is not job 9's: job 8's line, and job 6's broken mark for it.</summary>
+    /// <summary>Every download that is not a background download: the download line, and the download restart's mark for it.</summary>
     void StepPlayers(double now, List<DownloadEvent> events)
     {
         var own = Own();

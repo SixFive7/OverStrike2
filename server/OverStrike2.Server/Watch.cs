@@ -7,23 +7,23 @@ namespace OverStrike2.Server;
 
 /// <summary>THE RESTART WATCHER (os2-server watch): restarts the game server when it needs it, between matches, and never in a loop.
 /// pre.sh starts it in the background right before the engine starts, and it lives as long as the container. Its jobs, each behind its
-/// own switch (9 never restarts anything):
-///   1. UPDATES (restarts.updates). The image's entry script runs SteamCMD only when the container starts, so a Valve patch left a server
+/// own switch (the last two never restart anything):
+///   UPDATES (restarts.updates). The image's entry script runs SteamCMD only when the container starts, so a Valve patch left a server
 ///      rejecting every client for ~44 hours ("Bad host version"). Every restarts.updateCheckMinutes this asks Valve's UpToDateCheck
 ///      whether the installed build is current, and restarts the engine when it is not: at the end of the current match with players on,
 ///      at once with nobody on.
-///   1b. NEW VERSIONS (restarts.newVersions). A deployed new version of our own parts - the plugins, this program, pre.sh, the mode cfgs,
+///   NEW VERSIONS (restarts.newVersions). A deployed new version of our own parts - the plugins, this program, pre.sh, the mode cfgs,
 ///      the settings the engine side reads (Fingerprint) - restarts the engine the same way, once what is on disk has been still for
 ///      VersionSettle: at the end of the match with players on, at once with nobody on.
 ///      Both are announced: the bridge hears of the restart when it becomes due (POST /restart-notice, "match-end") and at the match end
 ///      (a countdown of RestartCountdown s, "now"), shows it to the players and holds its own map change; after the restart, once the
 ///      engine answers, it hears what changed (POST /updated). A bridge that does not take the notice: nobody is warned - the watcher
 ///      words nothing for players, and without the bridge the menu is dead anyway.
-///   2. DAILY RESTART (restarts.daily, local time). Once a day, and only while nobody is on (A2S and RCON) - never a kick, never a match
+///   DAILY RESTART (restarts.daily, local time). Once a day, and only while nobody is on (A2S and RCON) - never a kick, never a match
 ///      end. With players on it waits; a day they stay on until DailyWindow after the slot has none. It is the moment the hand-overs are
 ///      taken in and the maps outside the keep set go (organize, at every engine start). A planned restart of another kind inside the
 ///      window counts as the day's.
-///   3. FREEZE RECOVERY (restarts.freezeRecovery). A frozen engine never exits, so Docker never restarts it; this kills it after
+///   FREEZE RECOVERY (restarts.freezeRecovery). A frozen engine never exits, so Docker never restarts it; this kills it after
 ///      restarts.freezeGraceSeconds of silence, on either of two paths:
 ///      a. The error-map signature. Some workshop items drive the engine into its `error` map ("Level loading started for 'error'",
 ///         "LoopInit: in "error" map", "Assertion Failed in function LoopInit()"): measured, 27 of 27 such freezes printed that signature
@@ -35,12 +35,12 @@ namespace OverStrike2.Server;
 ///         killed it, and never after a `quit`/`_restart` from anyone else shows in console.log (the bridge's !restart quits too).
 ///      Why 10 s and no map-load exemption: 368 healthy map loads (327 fresh downloads, up to 2.9 GB) kept A2S quiet for 2 s at most - the
 ///      old map keeps answering while a workshop map downloads, and the load itself is the only silent stretch.
-///   6. DOWNLOAD RESTART (restarts.downloadRestart). An engine process whose Steam client has dropped every download source never gets one
-///      back: every download ends "No Connection". Any download that says so - job 9's or a player's - marks the process broken at once,
+///   DOWNLOAD RESTART (restarts.downloadRestart). An engine process whose Steam client has dropped every download source never gets one
+///      back: every download ends "No Connection". Any download that says so - a background download or a player's - marks the process broken at once,
 ///      and a restart is due only while nobody is on, at most one per 2 h and 3 per 24 h; past that it only warns. The Steam client's logs
 ///      are copied to update-watch/steamlogs/ the moment it is marked.
-///   8. THE DOWNLOAD LINE (maps.downloadLine): DownloadLine.
-///   9. THE QUEUED MAPS IN THE BACKGROUND (maps.backgroundDownloads): ReadyMaps.
+///   THE DOWNLOAD LINE (maps.downloadLine): DownloadLine.
+///   THE BACKGROUND DOWNLOADS (maps.backgroundDownloads): ReadyMaps.
 ///
 /// HOW A RESTART HAPPENS. Planned: RCON `quit` - the engine exits, the image's entry script reaches its end and Docker's restart policy
 /// runs it again, the only thing that re-runs SteamCMD (`_restart` would relaunch the binary in place and update nothing). Right before the
@@ -173,7 +173,7 @@ public sealed partial class Watch
     }
 
     /// <summary>A line for everybody on the HUD's top line (the plugin's server-only gg_notice, which answers "gg_notice: shown for N s:
-    /// ..."); chat gets it only where there is no HUD to show it.</summary>
+    /// ..."); chat gets it only when the plugin does not answer.</summary>
     public bool Notice(string text, int seconds)
     {
         var line = Words.ChatSafe(text, 240);
@@ -247,11 +247,11 @@ public sealed partial class Watch
                     State.FreezeMisses++;
                     if (State.FreezeMisses >= Rules.FreezeMaxMisses)
                         State.FreezeTripped = (long)now;
-                    Log.Line($"ALERT: the server has not answered A2S {Rules.Hms(now - pending.At)} after the freeze kill (miss {State.FreezeMisses} of {Rules.FreezeMaxMisses}"
+                    Log.Line($"ALERT: the server has not answered A2S {Words.Hm(now - pending.At)} after the freeze kill (miss {State.FreezeMisses} of {Rules.FreezeMaxMisses}"
                              + (State.FreezeTripped != 0 ? $", FREEZE BREAKER LATCHED - delete {Config.Paths.StateFile} to re-arm" : "") + ")");
                 }
                 else
-                    Log.Line($"WARNING: the {pending.Kind} restart was not followed by an A2S answer within {Rules.Hms(RecoverWithin)}");
+                    Log.Line($"WARNING: the {pending.Kind} restart was not followed by an A2S answer within {Words.Hm(RecoverWithin)}");
                 Save();
             }
             return;
@@ -452,7 +452,7 @@ public sealed partial class Watch
         if (answer.Answer == "unknown")
         {
             checkBackoff = Math.Min(21600, Math.Max(Config.CheckEvery, checkBackoff * 2));
-            Log.Once("valve", $"WARNING: cannot establish whether {dotted} ({v}) is current - {answer.Why}. No action; next try in {Rules.Hms(Config.CheckEvery + checkBackoff)}");
+            Log.Once("valve", $"WARNING: cannot establish whether {dotted} ({v}) is current - {answer.Why}. No action; next try in {Words.Hm(Config.CheckEvery + checkBackoff)}");
         }
         else
         {
@@ -729,13 +729,13 @@ public sealed partial class Watch
         {
             noticeFailing ??= now;
             if (now - noticeFailing >= QuitNoticePatience)
-                Log.Line($"WARNING: the bridge has not taken the quit notice for {Rules.Hms(now - noticeFailing.Value)} ({why}) - the {kind} restart goes ahead without it: a false crash mark can be cleared");
+                Log.Line($"WARNING: the bridge has not taken the quit notice for {Words.Hm(now - noticeFailing.Value)} ({why}) - the {kind} restart goes ahead without it: a false crash mark can be cleared");
             else
             {
                 noticeRetry = now + QuitNoticeRetry;
                 Log.Once("quit-notice", $"WARNING: the bridge did not take the quit notice ({why}) - not quitting yet: without it the bridge would book a crash on an innocent map "
                                         + $"(the quit's echo dies with the process). The {kind} restart stays due; the notice is tried again every {QuitNoticeRetry:0} s, and the "
-                                        + $"restart goes ahead without it after {Rules.Hms(QuitNoticePatience)}", 900);
+                                        + $"restart goes ahead without it after {Words.Hm(QuitNoticePatience)}", 900);
                 return false;
             }
         }
@@ -977,12 +977,12 @@ public sealed partial class Watch
     {
         foreach (var w in Config.BootWarnings)
             Log.Line("WARNING: " + w);
-        Log.Line($"started: updates {(Config.Updates ? "on" : "OFF")} (Valve check every {Rules.Hms(Config.CheckEvery)}), "
+        Log.Line($"started: updates {(Config.Updates ? "on" : "OFF")} (Valve check every {Words.Hm(Config.CheckEvery)}), "
                  + $"new versions {(Config.NewVersions ? InstalledNow is { } i ? $"on (installed {i.Fingerprint})" : "on, but no record of what install put in place - not detected" : "OFF")}, "
                  + $"daily restart {Config.Daily?.ToString() ?? "off"}, freeze recovery {(Config.FreezeRecovery ? "on" : "OFF")} (after {Config.FreezeGrace} s of silence: A2S after the error-map "
                  + $"signature, or A2S and RCON on {Rules.SilentPolls}+ polls each without it); planned restarts >= {Rules.PlannedMinGap / 60:0} min apart and <= {Rules.PlannedMaxPerDay} per 24 h, "
                  + $"freeze kills >= {Rules.FreezeMinGap / 60:0} min apart and <= {Rules.FreezeMaxPerDay} per 24 h");
-        Log.Line("workshop: download restart " + (Config.DownloadRestart ? $"on (only at 0 humans, <= 1 per {Rules.Hms(Rules.WorkshopRestartGap)} and {Rules.WorkshopRestartMax} per 24 h)" : "off")
+        Log.Line("workshop: download restart " + (Config.DownloadRestart ? $"on (only at 0 humans, <= 1 per {Words.Hm(Rules.WorkshopRestartGap)} and {Rules.WorkshopRestartMax} per 24 h)" : "off")
                  + ", the queued maps in the background " + (Config.BackgroundDownloads ? Bridge.Address is { } addr ? $"on, reported to the bridge at {addr}" : "on, no bridge address" : "off")
                  + ", maps outside the keep set at engine start: " + Config.MapsDelete switch { "on" => "deleted", "dryrun" => "listed only (dry run)", _ => "kept" });
         LogDepotcache();

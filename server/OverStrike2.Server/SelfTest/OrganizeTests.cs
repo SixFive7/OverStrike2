@@ -5,21 +5,21 @@ using static OverStrike2.Server.SelfTest.T;
 
 namespace OverStrike2.Server.SelfTest;
 
-/// <summary>THE MAPS FOLDER (N3), the acf edit (K2), THE HAND-OVER and THE DELETION (N4) and a keep set that cannot be computed (KM). Links
+/// <summary>THE MAPS FOLDER, the acf edit, THE HAND-OVER and THE DELETION, and a keep set that cannot be computed. Links
 /// and renames on one file system: the checks need Linux, and say SKIP elsewhere.</summary>
 static class OrganizeTests
 {
     public static void Run()
     {
-        // K2. acf edit: hand-overs added, maps dropped, SizeOnDisk the sum again, every section in id order; a file it cannot reproduce: none
+        // the acf edit: hand-overs added, maps dropped, SizeOnDisk the sum again, every section in id order; a file it cannot reproduce: none
         List<(string, string)> inst = [("size", "5"), ("timeupdated", "3000"), ("manifest", "9")];
         List<(string, string)> det = [("manifest", "9"), ("timeupdated", "3000"), ("timetouched", "3001"), ("latest_timeupdated", "3000"), ("latest_manifest", "9")];
         var edited = KeyValues.Edit(WorkshopTests.Acf, new Dictionary<string, (List<(string, string)>, List<(string, string)>)> { ["150"] = (inst, det) }, ["222"]);
-        Check("K2: acf_edit adds a hand-over's two entries in id order, drops the other map's, SizeOnDisk 10 + 5",
+        Check("acf edit: KeyValues.Edit adds a hand-over's two entries in id order, drops the other map's, SizeOnDisk 10 + 5",
               edited is not null && KeyValues.Installed(edited) is { Count: 2 } i && i["111"] == 1000 && i["150"] == 3000 && edited.Contains("\"SizeOnDisk\"\t\t\"15\"")
               && edited.IndexOf("\"111\"", StringComparison.Ordinal) < edited.IndexOf("\"150\"", StringComparison.Ordinal) && edited.Contains("\"latest_manifest\"\t\t\"9\"")
               && !edited.Contains("\"222\"") && KeyValues.Dump(KeyValues.Parse(edited)) == edited);
-        Check("K2: acf_edit refuses a file it cannot reproduce byte for byte",
+        Check("acf edit: KeyValues.Edit refuses a file it cannot reproduce byte for byte",
               KeyValues.Edit(WorkshopTests.Acf.Replace("\t\t\"730\"", " \"730\""), null, ["111"]) is null);
         LinuxOnly(Folders);
         LinuxOnly(HandOverAndDeletion);
@@ -83,7 +83,7 @@ static class OrganizeTests
         return c;
     }
 
-    /// <summary>N3. the maps folder: real folders per type, links in content/730, new downloads moved in, nothing lost.</summary>
+    /// <summary>The maps folder: real folders per type, links in content/730, new downloads moved in, nothing lost.</summary>
     static void Folders()
     {
         var tree = Dir("orgtree");
@@ -144,8 +144,8 @@ static class OrganizeTests
         File.WriteAllText(Path.Combine(folder, id + "_dir.vpk"), text);
     }
 
-    /// <summary>N4. organize with the keep set: a hand-over taken in; the deletion as a dry run, then for real, never the protected maps;
-    /// refused when the keep set is not to be trusted. KM: a keep set that cannot be computed deletes nothing.</summary>
+    /// <summary>Organize with the keep set: a hand-over taken in; the deletion as a dry run, then for real, never the protected maps;
+    /// refused when the keep set is not to be trusted; a keep set that cannot be computed deletes nothing.</summary>
     static void HandOverAndDeletion()
     {
         var t4 = Dir("tree4");
@@ -203,11 +203,11 @@ static class OrganizeTests
 
         var line = Mf().Organize();
         var lists = Lists();
-        C($"N4: a dry run lists the maps outside the keep set and deletes nothing ({line})",
+        C($"organize: a dry run lists the maps outside the keep set and deletes nothing ({line})",
           () => Stored().SequenceEqual(items.Where(x => x != "150")) && lists.Count > 0 && lists[^1].EndsWith("-dryrun.tsv")
                 && File.ReadAllLines(Path.Combine(stateDir, lists[^1])).Skip(1).SequenceEqual(["armsrace\t101\tNot Kept\t1073", "other\t103\t103\t1073"]));
         var keep = JsonNode.Parse(File.ReadAllText(config.Paths.KeepFile))!;
-        C("N4: keep.json: the parts, their sizes, the delete mode, no problems",
+        C("organize: keep.json: the parts, their sizes, the delete mode, no problems",
           () => keep["delete"]!.GetValue<string>() == "dryrun" && keep["problems"]!.AsArray().Count == 0
                 && keep["parts"]!["up"]!.AsArray().Select(x => x!.GetValue<string>()).SequenceEqual(["100"])
                 && keep["parts"]!["top deathmatch"]!.AsArray().Select(x => x!.GetValue<string>()).SequenceEqual(["150"])
@@ -231,49 +231,49 @@ static class OrganizeTests
         File.WriteAllText(Path.Combine(hand, "170.json"), m170.ToJsonString());
         line = Mf().Organize();
         var acfNow = File.ReadAllText(config.Paths.WorkshopAcf);
-        C($"N4: a complete hand-over is taken in: its type's folder, its link, its acf entries, its manifest, its marker gone ({line})",
+        C($"organize: a complete hand-over is taken in: its type's folder, its link, its acf entries, its manifest, its marker gone ({line})",
           () => Path.GetFullPath(Path.Combine(content, MapsFolder.LinkTarget(Path.Combine(content, "150"))!)) == Path.Combine(maps, "deathmatch", "150-top_rated")
                 && File.ReadAllText(Path.Combine(content, "150", "150_dir.vpk")) == "handed" && KeyValues.Installed(acfNow).GetValueOrDefault("150") == 3000
                 && acfNow.Contains("\"latest_manifest\"\t\t\"9150\"") && File.ReadAllText(Path.Combine(depot, "730_9150.manifest")) == "MANIFEST"
                 && !File.Exists(Path.Combine(hand, "150.json")) && !Directory.Exists(Path.Combine(hand, "150")));
-        C("N4: a hand-over without its marker, and one whose folder does not match it, are left alone",
+        C("organize: a hand-over without its marker, and one whose folder does not match it, are left alone",
           () => Directory.Exists(Path.Combine(hand, "160")) && Directory.Exists(Path.Combine(hand, "170")) && File.Exists(Path.Combine(hand, "170.json")));
-        C("N4: the acf was backed up before the edit", () => Directory.EnumerateFiles(ws).Any(n => n.EndsWith("-organize", StringComparison.Ordinal)));
+        C("organize: the acf was backed up before the edit", () => Directory.EnumerateFiles(ws).Any(n => n.EndsWith("-organize", StringComparison.Ordinal)));
         Put(Path.Combine(hand, "150"), "150", "handed");
         File.WriteAllText(Path.Combine(hand, "150.json"), marker.ToJsonString());
         line = Mf().Organize();
-        C($"N4: a hand-over of a map the server has as new already is dropped ({line})",
+        C($"organize: a hand-over of a map the server has as new already is dropped ({line})",
           () => !Directory.Exists(Path.Combine(hand, "150")) && !File.Exists(Path.Combine(hand, "150.json")) && line.Contains("1 hand-over(s) not needed"));
         config.MapsDelete = "on";
         var oldRatings = (JsonObject)ratings.DeepClone();
         oldRatings["fetched"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 5 * 86400;
         WriteData(new() { ["ratings.json"] = oldRatings.ToJsonString() });
         line = Mf().Organize();
-        C($"N4: deletion on, but the ratings are 5 days old: refused, nothing deleted ({line})", () => Stored().Contains("101") && Stored().Contains("103") && line.Contains("refused"));
+        C($"organize: deletion on, but the ratings are 5 days old: refused, nothing deleted ({line})", () => Stored().Contains("101") && Stored().Contains("103") && line.Contains("refused"));
         WriteData();
         line = Mf().Organize();
         acfNow = File.ReadAllText(config.Paths.WorkshopAcf);
-        C($"N4: deletion on: the maps outside the keep set go - folder, link, acf entries ({line})",
+        C($"organize: deletion on: the maps outside the keep set go - folder, link, acf entries ({line})",
           () => Stored().SequenceEqual(["100", "102", "150", "400", "500"]) && !MapsFolder.Lexists(Path.Combine(content, "101")) && !MapsFolder.Lexists(Path.Combine(content, "103"))
                 && !KeyValues.Installed(acfNow).ContainsKey("101") && !acfNow.Contains("\"103\"") && Lists().Any(n => n.EndsWith("-done.tsv")));
-        C("N4: never the own map, the HUD, the queued map or the upvoted one", () => new[] { "100", "102", "400", "500" }.All(Stored().Contains));
+        C("organize: never the own map, the HUD, the queued map or the upvoted one", () => new[] { "100", "102", "400", "500" }.All(Stored().Contains));
         WriteData(new()
         {
             ["votes.json"] = "{}",
             ["queues.json"] = "{\"version\": 1, \"random\": {\"armsrace-new\": [], \"armsrace-original\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"requested\": []}",
         });
         line = Mf().Organize();
-        C($"N4: an empty queue is a reason to refuse: 100 and 102 stay ({line})", () => Stored().Contains("100") && Stored().Contains("102") && line.Contains("refused"));
+        C($"organize: an empty queue is a reason to refuse: 100 and 102 stay ({line})", () => Stored().Contains("100") && Stored().Contains("102") && line.Contains("refused"));
         Put(Path.Combine(content, "180"), "180");
         Mf().Organize();
-        C("N4: CS2_MAPS_DELETE=off-style refusals keep a new download too", () => Stored().Contains("180"));
-        // KM. a keep set that cannot be computed (an input of a shape it does not read): it says why, and nothing is deleted
+        C("organize: a refusal keeps a new download too", () => Stored().Contains("180"));
+        // a keep set that cannot be computed (an input of a shape it does not read): it says why, and nothing is deleted
         WriteData(new() { ["ratings.json"] = "[1, 2, 3]" });
         var safe = KeepSet.Safe(KeepSet.Inputs(data), DateTimeOffset.UtcNow, "500", null, config.KeepRules);
         var before = Stored();
         Put(Path.Combine(content, "190"), "190");
         line = Mf().Organize();
-        C($"KM: no keep set to trust (its inputs of a shape it does not read): --organize deletes nothing, a new download stays ({line})",
+        C($"organize: no keep set to trust (its inputs of a shape it does not read): nothing deleted, a new download stays ({line})",
           () => safe.Problems.Count > 0 && before.All(Stored().Contains) && Stored().Contains("190") && line.Contains("refused"));
     }
 }

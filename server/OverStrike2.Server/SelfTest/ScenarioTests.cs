@@ -3,8 +3,8 @@ using static OverStrike2.Server.SelfTest.T;
 namespace OverStrike2.Server.SelfTest;
 
 /// <summary>The scenarios: the real Watch loop with a fake clock and a fake engine - both freeze paths, the loop protection, the planned
-/// restarts, the quit notice, the console probe at boot. The old watcher's tests, check for check (same names); where a restart now
-/// announces itself to the bridge first (POST /restart-notice), the check says so.</summary>
+/// restarts, the quit notice, the console probe at boot. Where a restart announces itself to the bridge first (POST /restart-notice), the
+/// check says so.</summary>
 static class ScenarioTests
 {
     static DateTimeOffset At(int d, int h, int m, int s) => Scenario.At(2026, 10, d, h, m, s);
@@ -194,7 +194,7 @@ static class ScenarioTests
         s.Step(Rules.DailyWindow + 120);
         s.Eng.Humans = 0;
         s.Step(60);
-        Check("E1: players on until DAILY_WINDOW after the slot: no daily restart that day", !s.Has("quit") && s.W.State.DoneDay != "2026-10-04");
+        Check("E1: players on until Rules.DailyWindow after the slot: no daily restart that day", !s.Has("quit") && s.W.State.DoneDay != "2026-10-04");
 
         // E2. an update restart with players on - the restart that goes at a match end. No bridge to announce it to: nobody is warned, the
         //     watcher says nothing of its own on the HUD or in chat; the quit at the match end

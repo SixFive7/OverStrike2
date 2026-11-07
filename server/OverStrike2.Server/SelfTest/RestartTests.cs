@@ -32,7 +32,7 @@ static class RestartTests
 
     public static void Run()
     {
-        Scenario.Paths(p => p with { BridgeData = Dir("bridge-empty") });   // no queues: job 9 stays out of these
+        Scenario.Paths(p => p with { BridgeData = Dir("bridge-empty") });   // no queues: the background downloads stay out of these
         Fingerprints();
         Updates();
         NewVersions();

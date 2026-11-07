@@ -18,7 +18,7 @@ sealed class FakeClock(DateTimeOffset start) : IClock
 }
 
 /// <summary>The engine as the scenarios need it: A2S and RCON that answer or not, a console.log the echo probe proves, a process that
-/// quits or is killed. The hooks stand in other behaviour, the way the old watcher's tests replaced its functions.</summary>
+/// quits or is killed. The hooks stand in other behaviour.</summary>
 sealed class FakeEngine : IEngine
 {
     public int? PidValue = 4242;
@@ -142,7 +142,7 @@ sealed class FakeValve : IValve
 }
 
 /// <summary>The scenarios' world: a game install under a test folder (steam.inf, console.log, the workshop folder), the bridge's data,
-/// and the knobs the old watcher's tests turned (Template). Make() is their scenario(): a fresh state folder, a fresh clock,
+/// and the knobs the tests turn (Template). Make() is a scenario: a fresh state folder, a fresh clock,
 /// engine and bridge, and a Watch on them.</summary>
 sealed class Scenario
 {
@@ -163,7 +163,7 @@ sealed class Scenario
     public const string SteamInf = "ClientVersion=2000924\nServerVersion=2000924\nPatchVersion=1.41.8.8\nProductName=cs2\nappID=730\nServerAppID=2347773\n"
                                    + "SourceRevision=11076591\nVersionDate=Oct 02 2026\nVersionTime=14:45:21\n";
 
-    /// <summary>The world, once: the old watcher's tests' ROOT.</summary>
+    /// <summary>The world, once.</summary>
     public static void Setup()
     {
         Root = T.Dir("uw");
@@ -183,7 +183,7 @@ sealed class Scenario
         };
     }
 
-    /// <summary>A copy of the template with other paths: the old watcher's tests set the paths one by one.</summary>
+    /// <summary>A copy of the template with other paths.</summary>
     public static void Paths(Func<ServerPaths, ServerPaths> change) => Template = Copy(Template, change(Template.Paths));
 
     public static ServerConfig Copy(ServerConfig c, ServerPaths? paths = null) => new()
@@ -234,7 +234,7 @@ sealed class Scenario
 
     public string StateFile => W.Config.Paths.StateFile;
 
-    /// <summary>The old watcher's tests' "the container came back": the state of another run written to this one's file, and read again.</summary>
+    /// <summary>The container came back: the state of another run written to this one's file, and read again.</summary>
     public void Carry(WatchState state)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(StateFile)!);

@@ -4,8 +4,8 @@ using static OverStrike2.Server.SelfTest.T;
 
 namespace OverStrike2.Server.SelfTest;
 
-/// <summary>The acf and the workshop log, the program's command line, job 8's download line, the Web API door, job 6's download restart
-/// and the stuck state's evidence, job 9's background downloads - and the two collisions of a player's pick with job 9's download.</summary>
+/// <summary>The acf and the workshop log, the program's command line, the download line, the Web API door, the download restart and the
+/// stuck state's evidence, the background downloads - and the two collisions of a player's pick with a background download.</summary>
 static class WorkshopTests
 {
     public const string Acf = "\"AppWorkshop\"\n{\n\t\"appid\"\t\t\"730\"\n\t\"SizeOnDisk\"\t\t\"30\"\n\t\"WorkshopItemsInstalled\"\n\t{\n"
@@ -20,20 +20,16 @@ static class WorkshopTests
 
     public static void Run()
     {
-        // ---- K-M: the acf and the workshop log; the prefetch is gone
-        Check("K: an acf round-trips byte-identical through kv_parse/kv_dump", KeyValues.Dump(KeyValues.Parse(Acf)) == Acf);
-        Check("K: acf_installed reads ids and timeupdated", KeyValues.Installed(Acf) is { Count: 2 } inst && inst["111"] == 1000 && inst["222"] == 2000);
+        // ---- K-L: the acf and the workshop log
+        Check("K: an acf round-trips byte-identical through KeyValues.Parse and Dump", KeyValues.Dump(KeyValues.Parse(Acf)) == Acf);
+        Check("K: KeyValues.Installed reads ids and timeupdated", KeyValues.Installed(Acf) is { Count: 2 } inst && inst["111"] == 1000 && inst["222"] == 2000);
         var ev = Downloads.Events(["[2001-01-01 12:00:00] [AppID 730] Download item 333 requested by app",
                                    "[2001-01-01 12:14:53] [AppID 730] Download item 333 result : OK",
                                    "[2001-01-01 12:14:54] [AppID 730] Download item 444 result : No Connection", "noise"]);
         Check("L: workshop_log download lines parse",
               ev.SequenceEqual([new DownloadEvent("333", "requested", ""), new DownloadEvent("333", "result", "OK"), new DownloadEvent("444", "result", "No Connection")]));
-        Check("M: no prefetch - its plan, its list, its Workshop details, its window and its restart are gone",
-              !Kinds.Planned.Contains("prefetch") && !Settings.Keys.Any(k => k.Path.Contains("prefetch", StringComparison.OrdinalIgnoreCase))
-              && !new WatchState().ToJson().Contains("prefetch"));
         Directory.CreateDirectory(Path.Combine(WsDir, "content", "730", "111"));
         File.WriteAllText(Path.Combine(WsDir, "appworkshop_730.acf"), Acf);
-        Check("CLI: --warmup-reset (what an older pre.sh still calls) is gone", Quiet(() => Program.Main(["watch", "--warmup-reset"])).Code == 2);
         Check("CLI: an argument it does not know exits at once (2) - never the watcher's loop in the foreground of pre.sh",
               Quiet(() => Program.Main(["organize", "--observe"])).Code == 2 && Quiet(() => Program.Main(["nonsense"])).Code == 2);
         Check("CLI: watch --observe, organize --dry-run and --state are gone: each exits at once (2), so an old command line runs neither the watcher nor the real organize",
@@ -65,7 +61,7 @@ static class WorkshopTests
         Door();
         DownloadRestart();
         Stuck();
-        Job9();
+        BackgroundDownloads();
         Collisions();
     }
 
@@ -242,7 +238,7 @@ static class WorkshopTests
     const string CancelChunk = "[x] [AppID 730] Update canceled: Failed updating depot 730 while downloading chunk \"a5e8\" (Failure) (Content unavailable) \"No Download Source\"";
     const string CancelEmpty = "[x] [AppID 730] Update canceled: Failed updating depot 730 while starting download (No connection to content servers)";
 
-    /// <summary>S-T: the stuck state: no futile retry, the evidence saved; no prefetch restart any more.</summary>
+    /// <summary>S: the stuck state: no futile retry, the evidence saved.</summary>
     static void Stuck()
     {
         Check("S: the cancel line parses as its own event",
@@ -299,13 +295,6 @@ static class WorkshopTests
             s.Step(3);
             Check($"O5: {label} -> {(stuck ? "broken at once" : "not broken")}", stuck ? s.W.Workshop.Broken is not null : s.W.Workshop.Broken is null);
         }
-        // T. no restart before a prefetch any more, and no prefetch: from 03:20 to 03:35, nobody on, an old engine - nothing
-        s = Scenario.Make(At(13, 3, 20, 0));
-        s.Step(900);
-        Check("T: 03:25 and 03:30 with nobody on -> no restart and no download",
-              !s.Has("quit") && !s.Eng.Cmds.Any(c => c.StartsWith("mm_download_addon", StringComparison.Ordinal)) && s.W.State.Restarts.Count == 0);
-        Check("T: no warm-up either: a new engine process downloads nothing of its own at its start",
-              !s.Eng.Cmds.Any(c => c.StartsWith("mm_download_addon", StringComparison.Ordinal) || c.StartsWith("host_workshop_map", StringComparison.Ordinal)));
     }
 
     /// <summary>What the engine's Steam client does after a download: the acf names it, its folder is there.</summary>
@@ -321,11 +310,11 @@ static class WorkshopTests
         Directory.CreateDirectory(Path.Combine(WsDir, "content", "730", id));
     }
 
-    static List<string> Downloads9(Scenario s) => s.Eng.Cmds.Where(c => c.StartsWith("mm_download_addon", StringComparison.Ordinal)).ToList();
+    static List<string> Fetches(Scenario s) => s.Eng.Cmds.Where(c => c.StartsWith("mm_download_addon", StringComparison.Ordinal)).ToList();
 
-    /// <summary>J9. job 9: the queued maps downloaded in the background - the open ballot's first, then the queues' entries in play order;
+    /// <summary>The background downloads: the queued maps - the open ballot's first, then the queues' entries in play order;
     /// one at a time; silent; never beside a download somebody waits for; the bridge told what is on disk.</summary>
-    static void Job9()
+    static void BackgroundDownloads()
     {
         var j9 = Dir("j9data");
         File.WriteAllText(Path.Combine(j9, "queues.json"), "{\"version\": 1, \"random\": {\"armsrace-new\": [\"901\", \"902\"], \"armsrace-original\": [\"903\"], "
@@ -338,62 +327,62 @@ static class WorkshopTests
         var s = Scenario.Make(At(4, 15, 0, 0));
         (s.Eng.Hud, s.Eng.Humans) = (true, 2);
         s.Step(30);
-        Check($"J9: the request first: {Show(Downloads9(s))}", Downloads9(s).SequenceEqual(["mm_download_addon 900"]));
-        Check("J9: the bridge hears which queued maps are on disk, at its /ready/<secret>",
+        Check($"background downloads: the request first: {Show(Fetches(s))}", Fetches(s).SequenceEqual(["mm_download_addon 900"]));
+        Check("background downloads: the bridge hears which queued maps are on disk, at its /ready/<secret>",
               s.Bridge.Posts.Count > 0 && s.Bridge.Posts[0] == ("ready", "gg-ready\t1\n901\n"));
         s.Eng.Write("[MultiAddonManager] Addon download started for 900");
         s.Eng.Write("[MultiAddonManager] Downloading addon 900: 10.00/100.00 MB (10.00%)");
         s.Step(10);
-        Check("J9: silent - no news line about it, with players on", s.Eng.Notices.Count == 0);
+        Check("background downloads: silent - no news line about it, with players on", s.Eng.Notices.Count == 0);
         Ws("[x] [AppID 730] Download item 900 requested by app", "[x] [AppID 730] Download item 900 result : OK");
         Landed("900");
         s.Step(25);
-        Check($"J9: one at a time - after its result the next missing one, in play order (903, not 902): {Show(Downloads9(s))}",
-              Downloads9(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
+        Check($"background downloads: one at a time - after its result the next missing one, in play order (903, not 902): {Show(Fetches(s))}",
+              Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
         s.Eng.Write("[Workshop] Updating 903: state 1");
         s.Step(10);
-        Check($"J9: a player's pick of the map it is fetching: the line shows it ({Show(s.Eng.Notices.TakeLast(1))})", s.Eng.Notices.Any(x => x.Text.Contains("903")));
+        Check($"background downloads: a player's pick of the map it is fetching: the line shows it ({Show(s.Eng.Notices.TakeLast(1))})", s.Eng.Notices.Any(x => x.Text.Contains("903")));
         Ws("[x] [AppID 730] Download item 903 result : OK");
         Landed("903");
         s.Eng.Write("[Workshop] Loading custom game \"903\" with map \"x\"");
         s.Eng.Write("[Workshop] Updating 999: state 1");
         s.Step(30);
-        Check($"J9: while a download somebody waits for runs, nothing new starts: {Show(Downloads9(s))}", Downloads9(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
+        Check($"background downloads: while a download somebody waits for runs, nothing new starts: {Show(Fetches(s))}", Fetches(s).SequenceEqual(["mm_download_addon 900", "mm_download_addon 903"]));
         s.Eng.Write("[Workshop] Updating 999: state 5");
         s.Step(25);
-        Check($"J9: ... and once it is done, the next: {Show(Downloads9(s))}", Downloads9(s)[^1] == "mm_download_addon 904");
+        Check($"background downloads: ... and once it is done, the next: {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 904");
         hold = true;
         Ws("[x] [AppID 730] Download item 904 result : OK");
         Landed("904");
         s.Step(45);
-        Check($"J9: the bridge says hold (a vote, a change counting down, a map loading): nothing new starts: {Show(Downloads9(s))}", Downloads9(s)[^1] == "mm_download_addon 904");
+        Check($"background downloads: the bridge says hold (a vote, a change counting down, a map loading): nothing new starts: {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 904");
         hold = false;
         s.Step(25);
-        Check($"J9: ... and once it does not, the next one goes (905): {Show(Downloads9(s))}", Downloads9(s)[^1] == "mm_download_addon 905");
+        Check($"background downloads: ... and once it does not, the next one goes (905): {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 905");
         Ws("[x] [AppID 730] Download item 905 result : OK");
         Landed("905");
         s.Step(25);
-        Check($"J9: ... then the one after it in play order (902, the second round): {Show(Downloads9(s))}", Downloads9(s)[^1] == "mm_download_addon 902");
+        Check($"background downloads: ... then the one after it in play order (902, the second round): {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 902");
         Ws("[x] [AppID 730] Download item 902 result : Busy");
         s.Step(25);
-        Check($"J9: a failure is tried again later, and nothing is left to fetch now: {Show(Downloads9(s))}",
-              Downloads9(s)[^1] == "mm_download_addon 902" && s.W.Workshop.Ready.FailedIds["902"].Tries == 1);
+        Check($"background downloads: a failure is tried again later, and nothing is left to fetch now: {Show(Fetches(s))}",
+              Fetches(s)[^1] == "mm_download_addon 902" && s.W.Workshop.Ready.FailedIds["902"].Tries == 1);
         s.W.Workshop.Ready.FailedIds["902"] = (1, 0);
         s.Step(25);
-        Check($"J9: its retry: {Show(Downloads9(s))}", Downloads9(s)[^1] == "mm_download_addon 902");
+        Check($"background downloads: its retry: {Show(Fetches(s))}", Fetches(s)[^1] == "mm_download_addon 902");
         Ws("[x] [AppID 730] Download item 902 result : No Connection");
         s.Step(5);
-        Check("J9: a stuck result marks the process broken (job 6), and nothing more starts in it", s.W.Workshop.Broken is not null);
+        Check("background downloads: a stuck result marks the process broken (the download restart's mark), and nothing more starts in it", s.W.Workshop.Broken is not null);
         s.Step(60);
-        Check("J9: ... nothing more", Downloads9(s)[^1] == "mm_download_addon 902" && Downloads9(s).Count(c => c == "mm_download_addon 902") == 2);
-        Check("J9: the log push's address is read as the image templates it, for the check against bridge.url and bridge.secret",
+        Check("background downloads: ... nothing more", Fetches(s)[^1] == "mm_download_addon 902" && Fetches(s).Count(c => c == "mm_download_addon 902") == 2);
+        Check("settings: the log push's address is read as the image templates it, for the check against bridge.url and bridge.secret",
               ServerConfig.LogPush("http:\\/\\/bridge:8080\\/log\\/d4ab") == ("http://bridge:8080", "d4ab") && ServerConfig.LogPush("http://bridge:8080/nolog") is null);
         Scenario.NewBridge = () => null;
     }
 
-    /// <summary>X. A player picks a map while job 9 downloads one in the background. Steam runs one Workshop download at a time and one already
-    /// running cannot be stopped. (1) The chosen map is the one job 9 is fetching: it becomes the player's download, with no second
-    /// download, and the line shows its progress. (2) Job 9 is fetching another map: the change waits for it, the line says so ("finishing the
+    /// <summary>X. A player picks a map while a background download runs. Steam runs one Workshop download at a time and one already
+    /// running cannot be stopped. (1) The chosen map is the one the background download fetches: it becomes the player's download, with no second
+    /// download, and the line shows its progress. (2) The background download fetches another map: the change waits for it, the line says so ("finishing the
     /// background download of X first", with its percent), then shows the chosen map's progress. In both: no double download, no stuck change,
     /// and the hold is released afterwards. And (3) the ready report names the background download in flight, with its progress.</summary>
     static void Collisions()
@@ -412,12 +401,12 @@ static class WorkshopTests
         Scenario.NewBridge = () => new FakeBridge { Reply = (what, _) => what == "ready" ? "ok: 0 on disk" + (hold is null ? "" : "; hold: " + hold) : "ok" };
         Scenario.Paths(p => p with { BridgeData = data });
 
-        // (1) the chosen map is the one job 9 is fetching
+        // (1) the chosen map is the one the background download fetches
         Queues("910", "911");
         var s = Scenario.Make(At(4, 15, 0, 0));
         (s.Eng.Hud, s.Eng.Humans) = (true, 2);
         s.Step(30);
-        Check($"X1: job 9 fetches the first queued map ({Show(Downloads9(s))})", Downloads9(s).SequenceEqual(["mm_download_addon 910"]));
+        Check($"X1: the background download fetches the first queued map ({Show(Fetches(s))})", Fetches(s).SequenceEqual(["mm_download_addon 910"]));
         s.Eng.Write("[MultiAddonManager] Addon download started for 910");
         s.Eng.Write("[MultiAddonManager] Downloading addon 910: 30.00/100.00 MB (30.00%)");
         s.Step(4);
@@ -425,11 +414,11 @@ static class WorkshopTests
         Ws("[x] [AppID 730] Download item 910 requested by app");
         s.Eng.Write("[Workshop] Updating 910: state 1");
         s.Step(6);
-        Check($"X1: the chosen map is the one job 9 fetches: it is the player's download now, and the line shows its progress ({Show(s.Eng.Notices.TakeLast(1).Select(x => x.Text))})",
+        Check($"X1: the chosen map is the one the background download fetches: it is the player's download now, and the line shows its progress ({Show(s.Eng.Notices.TakeLast(1).Select(x => x.Text))})",
               s.Eng.Notices.Count > 0 && s.Eng.Notices[^1].Text.Contains("Server is downloading Chosen Too: 30 percent"));
         s.Step(30);
-        Check($"X1: ... no second download of it, and no new one beside it ({Show(Downloads9(s))})",
-              Downloads9(s).SequenceEqual(["mm_download_addon 910"]) && !s.Eng.Cmds.Any(c => c.StartsWith("host_workshop_map", StringComparison.Ordinal)));
+        Check($"X1: ... no second download of it, and no new one beside it ({Show(Fetches(s))})",
+              Fetches(s).SequenceEqual(["mm_download_addon 910"]) && !s.Eng.Cmds.Any(c => c.StartsWith("host_workshop_map", StringComparison.Ordinal)));
         Ws("[x] [AppID 730] Download item 910 result : OK");
         s.Eng.Write("[MultiAddonManager] Addon 910 downloaded successfully");
         Landed("910");
@@ -437,18 +426,18 @@ static class WorkshopTests
         s.Step(5);
         Check("X1: ... once it is in, nothing hangs: no background download in flight, no line left", s.W.Workshop.Ready.Current is null && s.W.Workshop.Line.ActiveDownloads.Count == 0);
         s.Step(25);
-        Check($"X1: ... the bridge's hold keeps the next one back ({Show(Downloads9(s))})", Downloads9(s).Count == 1);
+        Check($"X1: ... the bridge's hold keeps the next one back ({Show(Fetches(s))})", Fetches(s).Count == 1);
         hold = null;
         s.Step(25);
-        Check($"X1: ... and once it is released, the next queued map goes ({Show(Downloads9(s))})", Downloads9(s)[^1] == "mm_download_addon 911");
+        Check($"X1: ... and once it is released, the next queued map goes ({Show(Fetches(s))})", Fetches(s)[^1] == "mm_download_addon 911");
 
-        // (2) job 9 is fetching another map
+        // (2) the background download fetches another map
         Queues("920", "921");
         File.WriteAllText(Path.Combine(WsDir, "appworkshop_730.acf"), Acf);
         s = Scenario.Make(At(4, 16, 0, 0));
         (s.Eng.Hud, s.Eng.Humans) = (true, 2);
         s.Step(30);
-        Check($"X2: job 9 fetches the first queued map ({Show(Downloads9(s))})", Downloads9(s).SequenceEqual(["mm_download_addon 920"]));
+        Check($"X2: the background download fetches the first queued map ({Show(Fetches(s))})", Fetches(s).SequenceEqual(["mm_download_addon 920"]));
         s.Eng.Write("[MultiAddonManager] Addon download started for 920");
         s.Eng.Write("[MultiAddonManager] Downloading addon 920: 63.00/100.00 MB (63.00%)");
         s.Step(12);                                          // the next look reports it
@@ -459,11 +448,11 @@ static class WorkshopTests
         Ws("[x] [AppID 730] Download item 950 requested by app");
         s.Eng.Write("[Workshop] Updating 950: state 1");
         s.Step(6);
-        Check($"X2: another map is chosen while job 9 fetches: the line says the background download finishes first, with its progress ({Show(s.Eng.Notices.TakeLast(1).Select(x => x.Text))})",
+        Check($"X2: another map is chosen while the background download fetches: the line says the background download finishes first, with its progress ({Show(s.Eng.Notices.TakeLast(1).Select(x => x.Text))})",
               s.Eng.Notices.Count > 0 && s.Eng.Notices[^1].Text.Contains("finishing the background download of Background Map first (63 percent) - Then The Pick"));
         s.Step(30);
-        Check($"X2: ... no second download beside it, and none of the chosen map by the watcher ({Show(Downloads9(s))})",
-              Downloads9(s).SequenceEqual(["mm_download_addon 920"]));
+        Check($"X2: ... no second download beside it, and none of the chosen map by the watcher ({Show(Fetches(s))})",
+              Fetches(s).SequenceEqual(["mm_download_addon 920"]));
         Ws("[x] [AppID 730] Download item 920 result : OK");
         s.Eng.Write("[MultiAddonManager] Addon 920 downloaded successfully");
         Landed("920");
@@ -481,7 +470,7 @@ static class WorkshopTests
         Check("X2: ... when that is in too, nothing hangs: no line, no background download in flight", s.W.Workshop.Line.ActiveDownloads.Count == 0 && s.W.Workshop.Ready.Current is null);
         hold = null;
         s.Step(25);
-        Check($"X2: ... and once the hold is released, the next queued map goes: no stuck change ({Show(Downloads9(s))})", Downloads9(s)[^1] == "mm_download_addon 921");
+        Check($"X2: ... and once the hold is released, the next queued map goes: no stuck change ({Show(Fetches(s))})", Fetches(s)[^1] == "mm_download_addon 921");
         Scenario.NewBridge = () => null;
     }
 }

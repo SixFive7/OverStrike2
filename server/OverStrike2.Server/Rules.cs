@@ -151,8 +151,6 @@ public static class Rules
     /// ago: an age changes every second, and LogOnce would take every line for a new one.</summary>
     public static string AtClock(double t, TimeZoneInfo tz) => LocalTime.Clock(At(t), tz);
 
-    public static string Hms(double seconds) => Words.Hm(seconds);
-
     public static double? NextSlot(double after, TimeOfDay? hhmm, TimeZoneInfo tz) =>
         LocalTime.NextSlot(At(after), hhmm, tz) is { } s ? Watch.Seconds(s) : null;
 
@@ -208,7 +206,7 @@ public static class Rules
         if (mine.Count >= WorkshopRestartMax)
             return $"{mine.Count} download restart(s) in the last 24 h, the cap is {WorkshopRestartMax}";
         if (mine.Count > 0 && now - mine.Max() < WorkshopRestartGap)
-            return $"the last download restart was at {AtClock(mine.Max(), tz)}, the floor is {Hms(WorkshopRestartGap)}";
+            return $"the last download restart was at {AtClock(mine.Max(), tz)}, the floor is {Words.Hm(WorkshopRestartGap)}";
         var last = state.Restarts.Where(e => Kinds.IsPlanned(e.Kind)).Select(e => (double)e.At).DefaultIfEmpty(0).Max();
         if (last > 0 && now - last >= 0 && now - last < PlannedMinGap)
             return $"a planned restart was at {AtClock(last, tz)}, the floor is {PlannedMinGap:0} s";

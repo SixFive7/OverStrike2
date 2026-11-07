@@ -45,7 +45,7 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         return s.TrimEnd('_', '.', '-', '+');
     }
 
-    /// <summary>A JSON value as Python's str() of it, "" for none.</summary>
+    /// <summary>A JSON value as text (KeepSet.PyStr), "" for none.</summary>
     public static string Str(JsonNode? v) => v is null ? "" : KeepSet.PyStr(v);
 
     static bool Digits(string s) => s.Length > 0 && s.All(char.IsAsciiDigit);
@@ -291,7 +291,7 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
         return (o, null);
     }
 
-    /// <summary>Python's str(x or ""): a missing, empty, zero or false value is "".</summary>
+    /// <summary>A JSON value as text, "" for a missing, empty, zero or false one.</summary>
     static string Falsy(JsonNode? v) => v is null || (v is JsonValue jv && ((jv.GetValueKind() == JsonValueKind.String && jv.GetValue<string>().Length == 0)
         || jv.GetValueKind() == JsonValueKind.False || (KeepSet.Number(v) is { } n && n == 0))) ? "" : Str(v);
 
