@@ -179,6 +179,7 @@ static class InstallTests
         Downloader(log, lines, config);
         Bridge();
         Launcher(root);
+        ModeCfgs(root);
     }
 
     /// <summary>A server without the HUD cannot exist: install, watch and organize refuse a settings file with no usable hud.addon - or with none
@@ -426,6 +427,30 @@ static class InstallTests
         listener.Stop();
         told = bridge.Post("quitting", "gg-quit\t1\tdaily\n", 2);
         Check($"bridge: no bridge listening: not taken, and the secret is never in the words ({told.Reply})", told.Told == "failed" && !told.Reply!.Contains("abc123"));
+    }
+
+    /// <summary>The three mode cfgs (server/gamemode_*_server.cfg: Arms Race, Deathmatch, Wingman) set 23 of their settings alike, each in its
+    /// own file - one cfg that the three exec is untested, and the server mounts each file on its own. So a setting all three set holds one
+    /// value in all three, but for those named here, which differ on purpose: a change to one of them is made in all three.</summary>
+    static void ModeCfgs(string root)
+    {
+        var folder = Path.Combine(root, "server");
+        string[] files = root.Length == 0 || !Directory.Exists(folder) ? [] : Directory.GetFiles(folder, "gamemode_*_server.cfg").Order(StringComparer.Ordinal).ToArray();
+        if (files.Length == 0)
+        {
+            Skips++;
+            Console.WriteLine("SKIP mode cfgs: the settings the three share (not run from the repository)");
+            return;
+        }
+        string[] onPurpose = ["mp_warmuptime"]; // Wingman warms up for 15 s, the other two for 1 s (which the engine makes 5)
+        var cfgs = files.Select(f => File.ReadAllLines(f).Select(l => l.Split("//")[0].Trim()).Where(l => l.Length > 0)
+                                     .Select(l => l.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                     .GroupBy(p => p[0]).ToDictionary(g => g.Key, g => g.Select(p => p.Length > 1 ? p[1] : "").ToList())).ToList();
+        var shared = cfgs.Skip(1).Aggregate(cfgs[0].Keys.ToHashSet(), (s, c) => { s.IntersectWith(c.Keys); return s; });
+        var twice = cfgs.SelectMany(c => c.Where(kv => kv.Value.Count > 1).Select(kv => kv.Key)).ToList();
+        var apart = shared.Where(k => !onPurpose.Contains(k) && cfgs.Select(c => c[k][0]).Distinct().Count() > 1).Order(StringComparer.Ordinal).ToList();
+        Check($"mode cfgs: the {shared.Count(k => !onPurpose.Contains(k))} settings all three set hold one value in all three, and no file sets one twice ({Show(apart.Concat(twice))})",
+              files.Length == 3 && shared.Count > 0 && apart.Count == 0 && twice.Count == 0);
     }
 
     /// <summary>The launcher: what pre.sh is now - a copy of the program, install, then the watcher in the background; and, on Linux, what it does
