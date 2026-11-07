@@ -96,10 +96,10 @@ public sealed class Tail : ILines
     }
 }
 
-/// <summary>4b. THE TEST COPY OF THE SERVER: a second engine from a read-only view of the game server's install - a disposable tree of
+/// <summary>THE TEST COPY OF THE SERVER: a second engine from a read-only view of the game server's install - a disposable tree of
 /// links, the engine's few files copied, no plugins - with its own port, RCON password, join password and Workshop folder (the staging
 /// folder), its own anonymous game-server logon, no log push and no access to anything the game server uses.</summary>
-public static partial class Farm
+public static partial class TestTree
 {
     public const string TestServerCfg = """
         // Written by os2-sync for its test engine on every start. Not the game server's server.cfg: no log address.
@@ -148,13 +148,13 @@ public static partial class Farm
     {
         var t0 = clock.Now();
         var src = Path.Combine(gameDir, "game");
-        var farmRoot = Path.Combine(workDir, "farm");
-        var dst = Path.Combine(farmRoot, "game");
+        var treeRoot = Path.Combine(workDir, "farm");          // the tree's folder keeps the name it has on every server
+        var dst = Path.Combine(treeRoot, "game");
         var stage = Path.Combine(workDir, "staging");
-        if (Handover.IsLink(farmRoot))
-            File.Delete(farmRoot);
-        else if (Directory.Exists(farmRoot))
-            Directory.Delete(farmRoot, true);
+        if (Handover.IsLink(treeRoot))
+            File.Delete(treeRoot);
+        else if (Directory.Exists(treeRoot))
+            Directory.Delete(treeRoot, true);
         Directory.CreateDirectory(Path.Combine(dst, "bin", "linuxsteamrt64"));
         Directory.CreateDirectory(Path.Combine(stage, "steamapps", "workshop"));
         foreach (var path in Directory.EnumerateFileSystemEntries(src))
@@ -222,12 +222,12 @@ public static partial class Farm
 
     /// <summary>Kill any engine still running from the test tree (a run that died without stopping it): it would hold the port, and the tree
     /// is about to be rebuilt under it. Matched on its executable's path, read from /proc. Returns the count.</summary>
-    public static int KillStale(string farmRoot, SyncClock clock)
+    public static int KillStale(string treeRoot, SyncClock clock)
     {
         if (!Directory.Exists("/proc"))
             return 0;
         var killed = 0;
-        var prefix = Path.Join(farmRoot, "");
+        var prefix = Path.Join(treeRoot, "");
         if (!prefix.EndsWith('/'))
             prefix += "/";
         foreach (var dir in Directory.EnumerateDirectories("/proc"))
@@ -253,7 +253,7 @@ public static partial class Farm
     }
 }
 
-/// <summary>The test copy: one engine process at a time, started from the farm on its own port with its own passwords.</summary>
+/// <summary>The test copy: one engine process at a time, started from the test tree on its own port with its own passwords.</summary>
 public sealed class TestEngine : ITestEngine
 {
     public static readonly (string GameType, string GameMode, string Group, string StartMap) ArmsRace = ("1", "0", "mg_armsrace", "ar_shoots");
@@ -264,7 +264,7 @@ public sealed class TestEngine : ITestEngine
     readonly string workDir, home;
     readonly SyncClock clock;
     readonly Action<string> log;
-    public string FarmGame { get; }
+    public string TreeGame { get; }
     public string Console { get; }
     public int Port { get; }
     readonly string password = RandomNumberGenerator.GetHexString(32, true);
@@ -280,8 +280,8 @@ public sealed class TestEngine : ITestEngine
         this.home = home;
         this.clock = clock;
         this.log = log;
-        FarmGame = Path.Combine(workDir, "farm", "game");
-        Console = Path.Combine(FarmGame, "csgo", "console.log");
+        TreeGame = Path.Combine(workDir, "farm", "game");
+        Console = Path.Combine(TreeGame, "csgo", "console.log");
         Port = cfg.TestPort;
     }
 
@@ -311,7 +311,7 @@ public sealed class TestEngine : ITestEngine
     public (bool Ok, string Why) Start(int timeout)
     {
         Stop();
-        var stale = Farm.KillStale(Path.GetDirectoryName(FarmGame)!, clock);   // whatever still holds the port: a new engine would never answer
+        var stale = TestTree.KillStale(Path.GetDirectoryName(TreeGame)!, clock);   // whatever still holds the port: a new engine would never answer
         if (stale > 0)
             log($"killed {stale} test engine(s) still running from the test tree");
         if (Starts >= cfg.EngineStartsMax)
@@ -352,7 +352,7 @@ public sealed class TestEngine : ITestEngine
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
         }
-        proc = Native.StartSession(["bash", "-c", "log=$1; shift; ulimit -c 0; exec \"$@\" </dev/null >>\"$log\" 2>&1", "engine", stdoutLog, .. args], FarmGame, env, false);
+        proc = Native.StartSession(["bash", "-c", "log=$1; shift; ulimit -c 0; exec \"$@\" </dev/null >>\"$log\" 2>&1", "engine", stdoutLog, .. args], TreeGame, env, false);
         var end = clock.Now() + timeout;
         while (clock.Now() < end)
         {
@@ -429,7 +429,7 @@ public sealed class TestEngine : ITestEngine
     }
 }
 
-/// <summary>4b. One test load of an item that is in the staging folder, on the test engine: PASS when a level of its own loads, A2S reports
+/// <summary>One test load of an item that is in the staging folder, on the test engine: PASS when a level of its own loads, A2S reports
 /// it and the engine holds it for the hold time with two bots; FAIL on the error map, a crash, a freeze (A2S silent 45 s), a stock map
 /// instead of its own (a stub), no level of its own in time, or the bots thrown off.</summary>
 public static partial class TestLoad

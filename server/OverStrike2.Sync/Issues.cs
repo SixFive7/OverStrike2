@@ -33,8 +33,8 @@ public static partial class Issues
     /// failed, the check's verdicts not reaching the bridge, and any other error. The key groups a problem that persists.</summary>
     public static List<Issue> Of(JsonObject r)
     {
-        var out_ = new List<Issue>();
-        void Add(string key, string what, string did) => out_.Add(new Issue(key, what, did));
+        var result = new List<Issue>();
+        void Add(string key, string what, string did) => result.Add(new Issue(key, what, did));
         if (r["api_stop"] is { } apiStop && Node.Truthy(apiStop))
         {
             var api = Node.Str(apiStop);
@@ -99,7 +99,7 @@ public static partial class Issues
         }
         foreach (var e in Node.StrList(r["errors"]))
             Add($"error:{Text.Cut(DigitsRx().Replace(e, "#"), 80)}", $"An error: {Text.Clean(e, 300)}.", "The run went on with its other steps.");
-        return out_;
+        return result;
     }
 
     /// <summary>(subject, body) of a problem mail: what went wrong, what the sync did, the dashboard, the run's report.</summary>

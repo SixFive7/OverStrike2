@@ -6,7 +6,7 @@ namespace OverStrike2.Sync;
 public sealed partial class SyncRun
 {
     /// <summary>The status file's parts but "now", from this run's state (and ledger).</summary>
-    public JsonObject StatusHeavy()
+    public JsonObject StatusPicture()
     {
         var items = State.Items;
         var day = Clock.Day();

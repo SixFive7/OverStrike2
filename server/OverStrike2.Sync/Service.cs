@@ -3,7 +3,7 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
-/// <summary>THE SERVICE (os2-sync serve): no time windows - a run starts whenever the game server has had nobody on for sync.quietMinutes and
+/// <summary>THE SERVICE (os2-sync serve): a run starts whenever the game server has had nobody on for sync.quietMinutes and
 /// there is work (maps waiting for a download or a test, or the API steps due), lasts sync.runHours, and is cut short before the game
 /// server's daily restart. After a run that did nothing it waits (IdleUntil). &lt;state&gt;/run-now (any content, or JSON with lower
 /// limits; {"api": true} runs the API steps whatever their cadence) starts a manual run at once.</summary>

@@ -71,7 +71,7 @@ public sealed partial class Vpk
             return [];
         var pos = ver == 2 ? 28 : 12;
         long dataStart = pos + (long)tree;
-        var out_ = new List<VpkEntry>();
+        var result = new List<VpkEntry>();
         try
         {
             while (true)
@@ -103,7 +103,7 @@ public sealed partial class Vpk
                         var preload = buf.AsSpan(pos, Math.Max(0, Math.Min(pre, buf.Length - pos))).ToArray();
                         pos += pre;
                         var full = folder.Trim().Length > 0 ? $"{folder}/{name}.{ext}" : $"{name}.{ext}";
-                        out_.Add(new VpkEntry(full, arch, off, length, preload, dataStart));
+                        result.Add(new VpkEntry(full, arch, off, length, preload, dataStart));
                     }
                 }
             }
@@ -111,7 +111,7 @@ public sealed partial class Vpk
         catch (Exception e) when (e is FormatException or ArgumentOutOfRangeException or IndexOutOfRangeException)
         {
         }
-        return out_;
+        return result;
     }
 
     /// <summary>An entry's bytes, or null: longer than the limit, or not readable.</summary>
@@ -148,7 +148,7 @@ public sealed partial class Vpk
     }
 }
 
-/// <summary>4a. THE SCAN: what a Workshop download holds - a map, a model pack, an empty upload or a CS:GO-era one - and the commands its
+/// <summary>THE SCAN: what a Workshop download holds - a map, a model pack, an empty upload or a CS:GO-era one - and the commands its
 /// entity lump and cfg files carry (connect &lt;ip&gt;, `say connect ...`, gambling promo codes).</summary>
 public static partial class Scan
 {
@@ -265,7 +265,7 @@ public static partial class Scan
     /// <summary>The commands in a blob: its runs of 4 or more printable bytes, split at ; and line ends, trimmed.</summary>
     public static List<string> CommandsIn(byte[] bytes)
     {
-        var out_ = new List<string>();
+        var result = new List<string>();
         var i = 0;
         while (i < bytes.Length)
         {
@@ -284,10 +284,10 @@ public static partial class Scan
             {
                 var p = part.Trim();
                 if (p.Length > 0)
-                    out_.Add(p);
+                    result.Add(p);
             }
         }
-        return out_;
+        return result;
     }
 
     /// <summary>(category, sample), or (null, null):

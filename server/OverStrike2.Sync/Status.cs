@@ -68,14 +68,14 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
     {
         lock (gate)
         {
-            var out_ = new JsonObject { ["schema"] = 1, ["updated"] = (long)Math.Truncate(clock.Now()), ["now"] = now.DeepClone() };
+            var result = new JsonObject { ["schema"] = 1, ["updated"] = (long)Math.Truncate(clock.Now()), ["now"] = now.DeepClone() };
             foreach (var (key, empty) in new (string, JsonNode)[]
                      {
                          ("today", new JsonObject()), ("totals", new JsonObject()), ("queue", new JsonObject()),
                          ("keep", new JsonObject { ["parts"] = new JsonArray(), ["totalGb"] = 0.0 }), ("history", new JsonObject { ["runs"] = new JsonArray(), ["maps"] = new JsonArray() }),
                      })
-                out_[key] = heavy.TryGetPropertyValue(key, out var v) ? v?.DeepClone() : empty;
-            return out_;
+                result[key] = heavy.TryGetPropertyValue(key, out var v) ? v?.DeepClone() : empty;
+            return result;
         }
     }
 
@@ -109,7 +109,7 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         heavyAt = clock.Now();
         try
         {
-            var fresh = run.StatusHeavy();
+            var fresh = run.StatusPicture();
             lock (gate)
                 heavy = fresh;
         }

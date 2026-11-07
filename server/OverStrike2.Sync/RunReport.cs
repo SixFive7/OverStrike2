@@ -18,36 +18,36 @@ public static class RunReport
     {
         if (before is null || before.Count == 0)
             return now;
-        var out_ = (JsonObject)before.DeepClone();
+        var result = (JsonObject)before.DeepClone();
         foreach (var (key, value) in now ?? [])
         {
             if (value is JsonArray list)
             {
-                var have = Node.Arr(out_[key]).Select(x => x?.DeepClone()).ToList();
+                var have = Node.Arr(result[key]).Select(x => x?.DeepClone()).ToList();
                 if (key == "files")
                     have.AddRange(list.Where(x => !have.Any(h => Node.Eq(h, x))).Select(x => x?.DeepClone()));
                 else
                     have.AddRange(list.Select(x => x?.DeepClone()));
-                out_[key] = new JsonArray(have.ToArray());
+                result[key] = new JsonArray(have.ToArray());
             }
             else if (key == "modes" && value is JsonObject modes)
             {
-                var merged = Node.Obj(out_["modes"]?.DeepClone());
+                var merged = Node.Obj(result["modes"]?.DeepClone());
                 foreach (var (mode, rows) in modes)
                     merged[mode] = new JsonArray(Node.Arr(merged[mode]).Select(x => x?.DeepClone()).Concat(Node.Arr(rows).Select(x => x?.DeepClone())).ToArray());
-                out_["modes"] = merged;
+                result["modes"] = merged;
             }
             else if (key == "backfill" && value is JsonObject fill)
             {
-                var merged = Node.Obj(out_["backfill"]?.DeepClone());
+                var merged = Node.Obj(result["backfill"]?.DeepClone());
                 foreach (var (mode, n) in fill)
                     merged[mode] = Node.Int(merged[mode]) + Node.Int(n);
-                out_["backfill"] = merged;
+                result["backfill"] = merged;
             }
             else if (!(value is null || (Node.IsString(value) && value.GetValue<string>().Length == 0) || (value is JsonObject o && o.Count == 0)))
-                out_[key] = value.DeepClone();
+                result[key] = value.DeepClone();
         }
-        return out_;
+        return result;
     }
 
     /// <summary>A run's report as text, from its report `r`: its title and its body (the run's .txt beside its .json).</summary>

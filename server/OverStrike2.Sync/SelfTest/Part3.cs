@@ -373,7 +373,7 @@ static class Part3
         guard["items"]!["120"] = O("{\"verdict\": \"crasher\", \"status\": \"published\", \"why\": \"changed\", \"updated\": 30}");
         Check("serve: nor one whose last test failed (120: the Workshop's version now is the one that crashed)",
               !Handover.ServeWants(keep7, Handover.ServerMaps(sgame), Handover.Pending(hdir), guard, ncfg2).Outdated.Contains("120"));
-        Check("serve: the status file counts them", Node.Int(ns7.StatusHeavy()["queue"]!["serve"]!["outdated"]) == 2);
+        Check("serve: the status file counts them", Node.Int(ns7.StatusPicture()["queue"]!["serve"]!["outdated"]) == 2);
         ns7.Serve();
         Check($"serve: ...both are downloaded and handed over, nothing else ({T.Show(FakeSteam.Asked)})",
               FakeSteam.Asked.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(["110", "900"]) && new[] { "110", "900" }.All(Handover.Pending(hdir).ContainsKey)

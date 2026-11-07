@@ -87,28 +87,28 @@ public sealed class BridgeData
     /// <summary>{id: section} of broken.json's lists (maps, packs, removed, blocked), the first section an id is in.</summary>
     public static Dictionary<string, string> BrokenIds(JsonObject broken)
     {
-        var out_ = new Dictionary<string, string>();
+        var result = new Dictionary<string, string>();
         foreach (var section in new[] { "maps", "packs", "removed", "blocked" })
             foreach (var entry in Node.Arr(broken[section]))
             {
                 var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
                 if (Text.Digits(wid))
-                    out_.TryAdd(wid, section);
+                    result.TryAdd(wid, section);
             }
-        return out_;
+        return result;
     }
 
     /// <summary>The ids on blocked.json: the maps blocked for good, by hand.</summary>
     public HashSet<string> BlockedIds()
     {
-        var out_ = new HashSet<string>();
+        var result = new HashSet<string>();
         foreach (var entry in Blocked)
         {
             var wid = Node.Str(entry is JsonObject o ? o["id"] : entry);
             if (Text.Digits(wid))
-                out_.Add(wid);
+                result.Add(wid);
         }
-        return out_;
+        return result;
     }
 
     /// <summary>The ids of maps.json's entries, in order.</summary>
@@ -146,7 +146,7 @@ public sealed class BridgeData
 }
 
 /// <summary>&lt;state&gt;/state.json: the items this tool has seen and what it decided, the update baseline, the day's downloads, the ratings,
-/// the history, the last run. Kept in the shape the Python sync wrote: this program reads the file it left, and the other way round.</summary>
+/// the history, the last run. Read and written as a JSON object, not as classes: a key this version does not read stays as it was.</summary>
 public sealed class SyncState(string path)
 {
     public string Path { get; } = path;
@@ -155,7 +155,7 @@ public sealed class SyncState(string path)
     public JsonObject Items => Section("items");
     public JsonObject Baseline => Section("baseline");
 
-    /// <summary>A section of the state, made when it is missing (Python's setdefault).</summary>
+    /// <summary>A section of the state, made when it is missing.</summary>
     public JsonObject Section(string name)
     {
         if (Data[name] is JsonObject o)

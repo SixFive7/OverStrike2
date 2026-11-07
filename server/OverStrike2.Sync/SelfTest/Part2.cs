@@ -169,10 +169,10 @@ static class Part2
             Thread.Sleep(100);
         Check("engine stop under a SIGTERM: the signals still go, and no frozen engine stays", !Native.GroupAlive(frozenPgid) && !going.HasProcess);
         Check("engine stop under a SIGTERM: ... and the stop goes on up", wentUp);
-        var farmBin = Path.Combine(stopRoot, "farm", "game", "bin");
-        Directory.CreateDirectory(farmBin);
-        File.Copy("/bin/sleep", Path.Combine(farmBin, "cs2"));
-        var stale = Process.Start(Path.Combine(farmBin, "cs2"), "300");
+        var treeBin = Path.Combine(stopRoot, "farm", "game", "bin");
+        Directory.CreateDirectory(treeBin);
+        File.Copy("/bin/sleep", Path.Combine(treeBin, "cs2"));
+        var stale = Process.Start(Path.Combine(treeBin, "cs2"), "300");
         File.WriteAllText(Path.Combine(stopRoot, "farm", "game", "cs2.sh"), "#!/bin/bash\nsleep 300\n");
         File.SetUnixFileMode(Path.Combine(stopRoot, "farm", "game", "cs2.sh"), (UnixFileMode)0b111_101_101);
         Thread.Sleep(300);
@@ -187,7 +187,7 @@ static class Part2
         Hooks.SteamCmd = (_, staging, _, _) => new FakeSteam(staging);
         Hooks.TestEngine = (_, _, _, _, _) => new FakeEngine();
         Hooks.ScanItem = _ => O("{\"verdict\": \"map\", \"maps\": [\"lvl\"], \"models\": 0, \"files\": 1, \"names\": []}");
-        Hooks.BuildFarm = (_, _, _, _) => "test tree built";
+        Hooks.BuildTestTree = (_, _, _, _) => "test tree built";
         Hooks.KillStaleEngines = (_, _) => 0;
         Hooks.PatchVersion = _ => "1.41.9.4";
         Hooks.Check = (_, _, _, _, _) => ([], []);
@@ -363,12 +363,12 @@ static class Part2
     /// <summary>What in `doc` breaks schema 1 (the dashboard's contract: fields may be added, never renamed or dropped).</summary>
     public static List<string> StatusProblems(JsonNode? doc)
     {
-        var out_ = new List<string>();
+        var result = new List<string>();
         JsonNode? Need(JsonNode? obj, string key, string kinds, string where)
         {
             if (obj is not JsonObject o || !o.ContainsKey(key))
             {
-                out_.Add($"{where}.{key} missing");
+                result.Add($"{where}.{key} missing");
                 return null;
             }
             var v = o[key];
@@ -378,16 +378,16 @@ static class Part2
                 _ when Node.IsString(v) => "str", _ when Node.IsBool(v) => "bool", _ when Node.Integer(v) is not null => "int", _ when Node.IsNumber(v) => "float", _ => "?",
             };
             if (!kinds.Split('|').Contains(kind))
-                out_.Add($"{where}.{key} is {kind}");
+                result.Add($"{where}.{key} is {kind}");
             return v;
         }
         Need(doc, "schema", "int", "");
         if (Node.Integer(Node.Get(doc, "schema")) != 1)
-            out_.Add("schema is not 1");
+            result.Add("schema is not 1");
         Need(doc, "updated", "int", "");
         var now = Need(doc, "now", "dict", "") ?? new JsonObject();
         if (Node.Str(now["state"]) is not ("idle" or "waiting" or "discovery" or "check" or "ratings" or "serve" or "download" or "test" or "publish" or "stopped"))
-            out_.Add($"now.state is {Node.Str(now["state"])}");
+            result.Add($"now.state is {Node.Str(now["state"])}");
         Need(now, "why", "str", "now");
         foreach (var (key, fields) in new (string, (string, string)[])[]
                  {
@@ -419,7 +419,7 @@ static class Part2
         Need(queue, "eta", "int|null", "queue");
         var next = Node.Arr(Need(queue, "next", "list", "queue"));
         if (next.Count > 25)
-            out_.Add($"queue.next holds {next.Count}");
+            result.Add($"queue.next holds {next.Count}");
         foreach (var e in next)
             foreach (var (f, kind) in new[] { ("id", "str"), ("name", "str"), ("mode", "str"), ("sizeMb", "int"), ("why", "str") })
                 Need(e, f, kind, "queue.next[]");
@@ -430,7 +430,7 @@ static class Part2
         foreach (var e in Node.Arr(Need(keep, "parts", "list", "keep")))
         {
             if (Node.Str(Node.Get(e, "part")) is not ("up" or "rated" or "popular" or "subscribed" or "own" or "hud" or "queues"))
-                out_.Add($"keep.parts[].part is {Node.Str(Node.Get(e, "part"))}");
+                result.Add($"keep.parts[].part is {Node.Str(Node.Get(e, "part"))}");
             foreach (var (f, kind) in new[] { ("mode", "str"), ("count", "int"), ("onDisk", "int"), ("gb", "int|float") })
                 Need(e, f, kind, "keep.parts[]");
         }
@@ -439,19 +439,19 @@ static class Part2
         var runs = Node.Arr(Need(hist, "runs", "list", "history"));
         var maps = Node.Arr(Need(hist, "maps", "list", "history"));
         if (runs.Count > 50 || maps.Count > 200)
-            out_.Add($"history holds {runs.Count} runs, {maps.Count} maps");
+            result.Add($"history holds {runs.Count} runs, {maps.Count} maps");
         foreach (var e in runs)
             foreach (var f in new[] { "started", "ended", "kind", "downloads", "bytes", "pass", "rejected", "listed", "removed", "stop" })
                 if (e is not JsonObject eo || !eo.ContainsKey(f))
-                    out_.Add($"history.runs[].{f} missing");
+                    result.Add($"history.runs[].{f} missing");
         foreach (var e in maps)
         {
             foreach (var (f, kind) in new[] { ("at", "int"), ("id", "str"), ("name", "str"), ("mode", "str"), ("event", "str"), ("why", "str") })
                 Need(e, f, kind, "history.maps[]");
             if (Node.Str(Node.Get(e, "event")) is not ("listed" or "broken" or "removed" or "changed" or "handed-over" or "failed"))
-                out_.Add($"history.maps[].event is {Node.Str(Node.Get(e, "event"))}");
+                result.Add($"history.maps[].event is {Node.Str(Node.Get(e, "event"))}");
         }
-        return out_;
+        return result;
     }
 
     // ---- the status file for the in-game dashboard (schema 1): written by the run into the bridge's data, atomically

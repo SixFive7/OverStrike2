@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace OverStrike2.Sync;
 
-/// <summary>1. Discovery and 2. the check.</summary>
+/// <summary>Discovery and the check: the Workshop's new maps found, the listed maps asked about and judged.</summary>
 public static class Discovery
 {
     public const int DetailsBatch = 100;
@@ -101,7 +101,7 @@ public static class Discovery
             ? SyncClock.Seconds(new DateTimeOffset(d, TimeSpan.Zero))
             : double.PositiveInfinity;
 
-    /// <summary>The step 2 verdicts for the listed maps: {"removed": [(id, verdict)], "changed": [ids], "missing": n, "suspicious": bool}.
+    /// <summary>The check's verdicts for the listed maps: {"removed": [(id, verdict)], "changed": [ids], "missing": n, "suspicious": bool}.
     /// Updates the baseline for every map that is unchanged. More than 10% of 50 or more gone is not believed (the bridge's own rule).</summary>
     public static (List<(string Id, string Verdict)> Removed, List<string> Changed, int Missing, bool Suspicious) JudgeListed(
         IReadOnlyDictionary<string, JsonObject> details, IReadOnlyList<string> listed, SyncState state, SyncConfig cfg)

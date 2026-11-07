@@ -361,21 +361,21 @@ static class Part1
     /// <summary>A valid LZ4 block of literals only: compressor stand-in for the test.</summary>
     public static byte[] Lz4Literals(byte[] data)
     {
-        var out_ = new List<byte>();
+        var result = new List<byte>();
         var lit = data.Length;
-        out_.Add((byte)((lit >= 15 ? 15 : lit) << 4));
+        result.Add((byte)((lit >= 15 ? 15 : lit) << 4));
         if (lit >= 15)
         {
             var n = lit - 15;
             while (n >= 255)
             {
-                out_.Add(255);
+                result.Add(255);
                 n -= 255;
             }
-            out_.Add((byte)n);
+            result.Add((byte)n);
         }
-        out_.AddRange(data);
-        return out_.ToArray();
+        result.AddRange(data);
+        return result.ToArray();
     }
 
     static byte[] U32(long v) => BitConverter.GetBytes((uint)v);

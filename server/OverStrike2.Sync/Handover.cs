@@ -99,7 +99,7 @@ public static class Handover
     /// <summary>{id: bytes} of the complete hand-overs the game server has not taken in yet (their markers).</summary>
     public static Dictionary<string, long> Pending(string folder)
     {
-        var out_ = new Dictionary<string, long>();
+        var result = new Dictionary<string, long>();
         IEnumerable<string> names;
         try
         {
@@ -107,12 +107,12 @@ public static class Handover
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            return out_;
+            return result;
         }
         foreach (var name in names)
             if (name.EndsWith(".json", StringComparison.Ordinal) && Text.Digits(name[..^5]))
-                out_[name[..^5]] = Node.ReadJson(Path.Combine(folder, name)) is JsonObject rec ? Node.Int(rec["bytes"]) : 0;
-        return out_;
+                result[name[..^5]] = Node.ReadJson(Path.Combine(folder, name)) is JsonObject rec ? Node.Int(rec["bytes"]) : 0;
+        return result;
     }
 
     /// <summary>What serve fetches for the game server, in order: (missing, outdated). missing: the keep set's maps it does not store - the

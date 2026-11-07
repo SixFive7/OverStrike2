@@ -36,8 +36,8 @@ public static partial class Native
     public static bool SignalGroup(int pgid, int sig) => OperatingSystem.IsLinux() && pgid > 0 && KillCall(-pgid, sig) == 0;
 
     /// <summary>Is anything left of this process group? Its leader's exit is not the group's: the engine's wrapper (cs2.sh) dies at a
-    /// SIGTERM, a frozen engine under it does not, and it keeps the port (one map froze one night, the stop believed the wrapper, and the
-    /// next engine never answered, which ended the night's run with 1h37m of its window left).</summary>
+    /// SIGTERM, a frozen engine under it does not, and it keeps the port: a stop that believed the wrapper would leave the next engine no
+    /// port to answer on.</summary>
     public static bool GroupAlive(int pgid)
     {
         if (!OperatingSystem.IsLinux() || pgid <= 0)
@@ -275,7 +275,7 @@ public static partial class SteamCmdWords
 }
 
 /// <summary>The day's downloads, booked in state.json's "downloads" (so a restart of the service cannot reset them, and every run of the day
-/// shares them). No daily cap: only Steam's push-back stops them - a SteamCMD rate-limit answer or two Access Denied in a row end the day's
+/// shares them). Only Steam's push-back stops them - a SteamCMD rate-limit answer or two Access Denied in a row end the day's
 /// downloads (RefuseForToday, kept here), and a run ends its own at 3 failures in a row. The bug brake instead of a volume cap: a map
 /// downloaded DownloadsPerMapDay times today is not downloaded again today.</summary>
 public sealed class DownloadBudget

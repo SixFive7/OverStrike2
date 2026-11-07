@@ -6,7 +6,7 @@ namespace OverStrike2.Sync;
 
 public sealed partial class SyncRun
 {
-    /// <summary>2b. Once every RatingsEvery - and at once when the ratings kept lack a list the keep set needs - the three lists the keep set
+    /// <summary>The ratings: once every RatingsEvery - and at once when the ratings kept lack a list the keep set needs - the three lists the keep set
     /// takes each mode's best from: the Workshop's score (vote_data.score) and the current subscriptions of every listed map, every mode, and
     /// of every map still waiting for its test (GetDetails with includevotes, 100 a call); and each mode's Most Popular order, Steam's trend
     /// over the last TrendDays days (QueryFiles RankedByTrend by the mode's tag, pages of 100 until TrendWant of the mode's listed maps were in

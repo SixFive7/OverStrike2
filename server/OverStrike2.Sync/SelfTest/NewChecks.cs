@@ -30,7 +30,7 @@ static class NewChecks
         SmtpClient();
         TailLines(root);
         SteamCmdDriver(root);
-        TestTree(root);
+        TreeBuild(root);
         TakenIn(root);
         Stopping();
     }
@@ -86,7 +86,7 @@ static class NewChecks
         Directory.CreateDirectory(cfg.BridgeData);
         cfg.HudAddon = "3823993566";
         var run = W.Run(cfg, new FakeClock(Part2.T0));
-        var heavy = run.StatusHeavy();
+        var heavy = run.StatusPicture();
         var hud = Node.Arr(heavy["keep"]!["parts"]).First(p => Node.Str(p!["part"]) == "hud");
         Check("status: the keep set's HUD item is hud.addon", Node.Int(hud!["count"]) == 1 && !Node.StrList(heavy["keep"]!["problems"]).Any(p => p.StartsWith("no HUD item", StringComparison.Ordinal)));
     }
@@ -397,7 +397,7 @@ static class NewChecks
     }
 
     // ---- the test tree: links into the game's install, the engine's own files copied, no log address, no plugins
-    static void TestTree(string root)
+    static void TreeBuild(string root)
     {
         if (!OperatingSystem.IsLinux())
         {
@@ -421,7 +421,7 @@ static class NewChecks
         Put(Path.Combine(game, "game", "csgo", "cfg", "sub", "a.cfg"), "a 1\nLOGADDRESS_ADD x\nb 2");
         Put(Path.Combine(game, "game", "csgo", "gameinfo.gi"), "\t\t\tGame\tcsgo/addons/metamod\n\t\t\tGame\tcsgo\n");
         Put(Path.Combine(cfgDir, "gamemode_armsrace_server.cfg"), "mp_x 1\n");
-        var line = Farm.Build(game, work, cfgDir, new SyncClock(SystemClock.Instance, Paris));
+        var line = TestTree.Build(game, work, cfgDir, new SyncClock(SystemClock.Instance, Paris));
         var farm = Path.Combine(work, "farm", "game");
         Check($"test tree: links into the game, the engine's files copied, the cfgs without log addresses, gameinfo without the plugins ({line})",
               !Handover.IsLink(Path.Combine(farm, "cs2.sh")) && File.Exists(Path.Combine(farm, "cs2.sh")) && Handover.IsLink(Path.Combine(farm, "other.txt"))
@@ -430,7 +430,7 @@ static class NewChecks
               && new FileInfo(Path.Combine(farm, "bin", "linuxsteamrt64", "steamapps")).LinkTarget == Path.Combine(work, "staging", "steamapps")
               && Handover.IsLink(Path.Combine(farm, "bin", "other")) && Handover.IsLink(Path.Combine(farm, "csgo", "maps"))
               && !Directory.Exists(Path.Combine(farm, "csgo", "addons")) && !File.Exists(Path.Combine(farm, "csgo", "console.log"))
-              && File.ReadAllText(Path.Combine(farm, "csgo", "cfg", "server.cfg")) == Farm.TestServerCfg
+              && File.ReadAllText(Path.Combine(farm, "csgo", "cfg", "server.cfg")) == TestTree.TestServerCfg
               && File.ReadAllText(Path.Combine(farm, "csgo", "cfg", "sub", "a.cfg")) == "a 1\nb 2"
               && File.Exists(Path.Combine(farm, "csgo", "cfg", "gamemode_armsrace_server.cfg"))
               && File.ReadAllText(Path.Combine(farm, "csgo", "gameinfo.gi")) == "\t\t\tGame\tcsgo\n"

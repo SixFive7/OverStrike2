@@ -106,8 +106,8 @@ public static class Verdicts
     /// <summary>The backlog, strictly most subscribed first, whatever the mode. An item tagged for several modes is one item.</summary>
     public static List<string> OrderBacklog(JsonObject items, IEnumerable<string> wids) => wids.OrderBy(w => PopularityKey(items[w], w)).ToList();
 
-    /// <summary>How much is waiting and how long it takes: {"items", "bytes", "by_mode", "days", "pace", "hours", "per_day"}. With no daily
-    /// caps and no time windows one thing bounds a day: HoursADay at the pace measured (or PaceDefault) - every hour somebody plays comes on
+    /// <summary>How much is waiting and how long it takes: {"items", "bytes", "by_mode", "days", "pace", "hours", "per_day"}. One thing
+    /// bounds a day: HoursADay at the pace measured (or PaceDefault) - every hour somebody plays comes on
     /// top.</summary>
     public static JsonObject BacklogStats(JsonObject items, IReadOnlyList<string> wids, double? pace = null)
     {

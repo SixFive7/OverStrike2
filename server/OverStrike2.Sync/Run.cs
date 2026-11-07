@@ -5,13 +5,13 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
-/// <summary>ONE RUN of the sync: discovery, the check and the ratings (when due), the hand-over (2c), then downloads, tests and the publish
+/// <summary>ONE RUN of the sync: discovery, the check and the ratings (when due), the hand-over, then downloads, tests and the publish
 /// in batches until the backlog or the run ends, or Steam pushes back; its report, its mail (problems only) and its line in the history.</summary>
 public sealed partial class SyncRun
 {
     public const int BackupsKept = 10;               // the newest publishes' copies of the bridge's lists, about 1 MB each, on the backed-up volume
     public const int ReportsKept = 100;              // the newest runs' reports, each with its text
-    public const int QueueCheck = 3000;              // the check (step 2) asks the Workshop about this many of the download queue's head
+    public const int QueueCheck = 3000;              // the check asks the Workshop about this many of the download queue's head
     public const double RatingsEvery = 20 * 3600;    // the ratings are fetched again once this old: once a day, by whichever run comes then
     public const int TrendDays = 30;                 // Most Popular's window: the trend over the last 30 days
     public const int TrendPages = 20;                // pages of 100 a mode's Most Popular walk reads at most...
@@ -284,7 +284,7 @@ public sealed partial class SyncRun
             DiscoverStep(api, known);
             Phase("check");
             (details, removedNow) = CheckStep(api, files, known, listed);
-            // 2b. the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
+            // the ratings: the Workshop's score of every listed map and of every map waiting for its test, once a day
             Phase("ratings");
             Ratings(api, listed);
             if (api.StopReason is { } r2)
@@ -295,10 +295,10 @@ public sealed partial class SyncRun
         var stopped = api.StopReason ?? (Ledger.Data is not null ? Ledger.Stopped(Day0) : null);
         if (stopped is not null && Issues.PushbackRx().IsMatch(stopped))   // Steam said stop: no downloads either, today
             new DownloadBudget(State, Day0).RefuseForToday($"the Web API answered {Issues.ShortStop(stopped)}");
-        // 2c. THE HAND-OVER: the keep set's maps the game server lacks or stores in an older version, handed over before any test
+        // THE HAND-OVER: the keep set's maps the game server lacks or stores in an older version, handed over before any test
         Phase("serve");
         Serve();
-        // 3.-5. downloads, tests and the publish, in batches: a long run publishes as it goes, and staging stays small
+        // downloads, tests and the publish, in batches: a long run publishes as it goes, and staging stays small
         var first = true;
         while (true)
         {

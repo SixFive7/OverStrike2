@@ -286,7 +286,7 @@ public sealed class SteamApi : IWorkshopApi
         });
     }
 
-    /// <summary>Python's urllib.parse.urlencode: quote_plus of every name and value, joined with &amp;.</summary>
+    /// <summary>Names and values percent-encoded as a form wants them (a space as +), joined with &amp;: the bytes Steam has always been sent.</summary>
     public static string UrlEncode(IEnumerable<(string, string)> pairs) => string.Join("&", pairs.Select(p => QuotePlus(p.Item1) + "=" + QuotePlus(p.Item2)));
 
     public static string QuotePlus(string s)
@@ -327,15 +327,15 @@ public sealed class SteamApi : IWorkshopApi
         var p = new List<(string, string)> { ("includevotes", "true"), ("short_description", "true"), ("includetags", "false"), ("appid", "730") };
         p.AddRange(ids.Select((w, i) => ($"publishedfileids[{i}]", w)));
         var reply = Call("GetDetails", VotesUrl, query: p);
-        var out_ = new Dictionary<string, JsonArray>();
+        var result = new Dictionary<string, JsonArray>();
         foreach (var item in Node.Arr(Response(reply)["publishedfiledetails"]))
         {
             var wid = Node.StrOr(Node.Get(item, "publishedfileid"));
             var vote = Node.Get(item, "vote_data");
             if (Text.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && Node.IsNumber(v["score"]))
-                out_[wid] = new JsonArray(Math.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
+                result[wid] = new JsonArray(Math.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
         }
-        return out_;
+        return result;
     }
 
     /// <summary>(ids, next cursor, total): one page of the Workshop's Most Popular for a tag - QueryFiles with query_type 3 (RankedByTrend)
@@ -358,14 +358,14 @@ public sealed class SteamApi : IWorkshopApi
         var form = new List<(string, string)> { ("itemcount", ids.Count.ToString(CultureInfo.InvariantCulture)) };
         form.AddRange(ids.Select((w, i) => ($"publishedfileids[{i}]", w)));
         var reply = Call("GetPublishedFileDetails", DetailsUrl, data: form);
-        var out_ = new Dictionary<string, JsonObject>();
+        var result = new Dictionary<string, JsonObject>();
         foreach (var item in Node.Arr(Response(reply)["publishedfiledetails"]).OfType<JsonObject>())
         {
             var wid = Node.StrOr(item["publishedfileid"]);
             if (Text.Digits(wid))
-                out_[wid] = item;
+                result[wid] = item;
         }
-        return out_;
+        return result;
     }
 
     static readonly HttpClient Http = new(new SocketsHttpHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(30) };

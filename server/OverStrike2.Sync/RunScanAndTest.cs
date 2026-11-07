@@ -57,7 +57,7 @@ public sealed partial class SyncRun
                     L($"killed {stale} test engine(s) left running from an earlier run");
                 try
                 {
-                    L(Seams.BuildFarm(Cfg.GameDir, Cfg.WorkDir, Cfg.CfgDir, Clock));
+                    L(Seams.BuildTestTree(Cfg.GameDir, Cfg.WorkDir, Cfg.CfgDir, Clock));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
