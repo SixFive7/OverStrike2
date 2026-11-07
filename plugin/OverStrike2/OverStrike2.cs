@@ -27,9 +27,9 @@ public class OverStrike2Plugin : BasePlugin
     const double CatchUpMessageSeconds = 5;
 
     HudScreen? hud;
-    Nades? nades;            // the grenade drops
+    GrenadeDrops? drops;     // the grenade drops
     GameSettings? settings;  // a map's settings put back, the game-changers block, the fun page's changes and effects
-    Effects? effects;        // the fun page's effects Vampire, Ghost and no recoil
+    FunEffects? effects;     // the fun page's effects Vampire, Ghost and no recoil
     Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), os_cloak's
     CatchUp.CatchUpModule? catchUp; // the Arms Race catch-up boosts
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
@@ -66,11 +66,11 @@ public class OverStrike2Plugin : BasePlugin
         settings = new GameSettings(this, Logger, (kind, text) => hud?.Post(kind, text));
         settings.Load(hotReload);
         RegisterConsoleCommandAttributeHandlers(settings);
-        nades = new Nades(this, Logger, () => settings.EffectOn(Fun.Drops));
-        nades.Load();
+        drops = new GrenadeDrops(this, Logger, () => settings.EffectOn(Fun.Drops));
+        drops.Load();
         cloak = new Cloak(this, Logger);
         cloak.Load();
-        effects = new Effects(this, Logger, settings.EffectOn, cloak);
+        effects = new FunEffects(this, Logger, settings.EffectOn, cloak);
         effects.Load();
         freeze = new VoteFreeze(this, Logger, () => hud);
         freeze.Load(); // before catch-up: its damage hook has the first word while everybody is frozen
@@ -82,17 +82,17 @@ public class OverStrike2Plugin : BasePlugin
         // catch-up, their fun settings: each runs while its setting is on and the map is Arms Race.
         settings.ModeApplied += mode =>
         {
-            nades.ModeAllows = mode.ArmsRace;
+            drops.ModeAllows = mode.ArmsRace;
             CatchUpFollows($"{mode.Name} loaded");
             hud.SetMode(mode);
-            Logger.LogInformation("Over Strike 2: {Mode} - grenade drops {Nades}, catch-up {CatchUp}", mode.Name,
+            Logger.LogInformation("Over Strike 2: {Mode} - grenade drops {Drops}, catch-up {CatchUp}", mode.Name,
                 !mode.ArmsRace ? "off (Arms Race's own)" : settings.EffectOn(Fun.Drops) ? "on" : "off (the fun setting)", catchUpOn ? "on" : mode.ArmsRace ? "off (the fun setting)" : "off (Arms Race's own)");
         };
         settings.EffectChanged += (effect, on) =>
         {
             if (effect.Equals(Fun.Drops, StringComparison.OrdinalIgnoreCase))
             {
-                if (!settings.Ending) nades.Switched(on); // the undo at a map's end hands nothing to the players of the map that goes
+                if (!settings.Ending) drops.Switched(on); // the undo at a map's end hands nothing to the players of the map that goes
                 Logger.LogInformation("Over Strike 2: grenade drops {State} (the fun setting){Mode}", on ? "on" : "off", settings.Mode.ArmsRace ? "" : $" - Arms Race's own, so off in {settings.Mode.Name} anyway");
             }
             else if (effect.Equals(Fun.CatchUp, StringComparison.OrdinalIgnoreCase)) CatchUpFollows($"its fun setting {(on ? "on" : "off")}");

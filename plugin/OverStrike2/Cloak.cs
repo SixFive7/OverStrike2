@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The cloak: a player hidden from everybody else, all of them, and put back exactly as they were. The fun page's Ghost (Effects.cs),
+/// <summary>The cloak: a player hidden from everybody else, all of them, and put back exactly as they were. The fun page's Ghost (FunEffects.cs),
 /// the spawn cloak (SpawnCloak, below) and os_cloak hide use it, each with its own reason (CloakWhy); a player is seen again once none holds.
 ///
 /// What other players see of a player, and what hides it (CounterStrikeSharp 1.0.379; every field below is networked on CS2 1.41.9.x, by

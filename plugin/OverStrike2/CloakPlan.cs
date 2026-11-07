@@ -10,7 +10,7 @@ namespace OverStrike2;
 public enum CloakWhy
 {
     None = 0,
-    Ghost = 1, // the fun page's Ghost: a kill (Effects.cs)
+    Ghost = 1, // the fun page's Ghost: a kill (FunEffects.cs)
     Spawn = 2, // the spawn cloak: the menu window open on the spawn (SpawnCloakPlan)
     Test = 4,  // os_cloak hide, from the console: to look at the hide from another player's game
 }

@@ -22,7 +22,7 @@ namespace OverStrike2;
 /// Writes only fields the game writes itself (health, max health, the recoil index; the cloak's are its own, Cloak.cs), each marked changed
 /// for the network the way CounterStrikeSharp marks any field. The client harness cannot shoot, so it cannot make a
 /// ghost; os_cloak hide makes the same hide to look at, and bots that kill each other make ghosts too.</summary>
-sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloak cloak)
+sealed class FunEffects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloak cloak)
 {
     readonly Dictionary<int, int> ghosts = new(); // slot -> the kill that made them a ghost: a newer kill takes over, and only its own timer ends it
     int kills;                                     // every ghost's kill counted, never reset - so no timer of an older kill, or life, ends a newer one

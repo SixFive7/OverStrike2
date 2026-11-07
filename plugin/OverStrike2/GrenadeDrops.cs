@@ -11,7 +11,7 @@ namespace OverStrike2;
 ///
 /// On or off is the fun page's "drops" setting (Fun.Drops, os2_drops), kept by the settings module like every other fun setting: on by default,
 /// back on at every map end and at the reset after nobody has been on. Arms Race's only: off in another mode, whatever the setting says.</summary>
-sealed class Nades(BasePlugin plugin, ILogger log, Func<bool> dropsOn)
+sealed class GrenadeDrops(BasePlugin plugin, ILogger log, Func<bool> dropsOn)
 {
     const string Grenade = "weapon_hegrenade";
     const float GiveDelay = 0.3f; // The mode equips the progression weapon right after spawn; hand out the grenade once that is done.
