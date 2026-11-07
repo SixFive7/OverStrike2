@@ -8,14 +8,15 @@ sealed record Box(double X0, double Y0, double X1, double Y1, string Anchor = "c
 
 readonly record struct Rgb3(int R, int G, int B);
 
-/// <summary>blur, paint (a flat fill and a test name in the HUD's look), chat (the chat zone down to y1).</summary>
+/// <summary>blur, paint (a flat fill and a test name in the HUD's look), chat (the chat zone down to y1). Drift: the box's left edge follows
+/// WordDrift. Keep: kept under --renamed too - a name the bridge has from the game's log (a connect line), which GgDocName does not change.</summary>
 sealed record Mask(string Kind, Box? Box = null, string Text = "", Rgb3? Colour = null, double Size = 13, double Spacing = 0, string Align = "l",
-                   double Y1 = 975, bool Bold = true, bool Drift = false)
+                   double Y1 = 975, bool Bold = true, bool Drift = false, bool Keep = false)
 {
     public Rgb3 Color => Colour ?? new Rgb3(245, 245, 245);
 }
 
-/// <summary>rcon, rcon_bg, con, post, pause, shoot, mark, wait_log, vote_gap, vote_closed, guard.</summary>
+/// <summary>rcon, rcon_bg, con, post, pause, shoot, mark, wait_log, vote_gap, vote_closed, vote_opened, pressed, until, guard.</summary>
 sealed record Step(string Kind, string Text = "", double Seconds = 0, string Expect = "", string Button = "", int N = 1, double Gap = 0,
                    bool Parallel = false, int WaitMs = 300);
 
@@ -62,22 +63,20 @@ static partial class DocShots
     public static readonly string[] Resolutions = ["1920x1080", "1280x720", "1680x1050", "1600x1200", "2560x1080", "2560x1440", "3840x2160"];
     public static readonly string[] AllVerbs = ["rcon", "cmd", "shot", "log"];
 
-    // what the estimate counts (seconds), as the earlier runs' logs have it
-    public const double TRcon = 10.5, TShot = 2.5, TCon = 1.7, TLog = 2.0, TWaitLog = 40.0;
-    // The rows' waits were tuned to an RCON call whose command ran about 2.5 s after its launch and which returned after about 10.5 s. The harness's
-    // rcon verb runs its command about 1.4 s after the launch and returns in under 2 s, so the real run keeps the tuned pace: each RCON call starts
-    // RconDelay late, and a waited one returns no sooner than TRcon after its step began. Retune the rows and drop these two together, never one
-    // alone: a vote's rows, the HUD check's warning and the short messages' shots are timed against them.
-    public const double RconDelay = 1.1;
+    // what the estimate counts (seconds), as the harness's verbs take them: rcon (RCON inside the game container) 1.7 s, its command about TCmd after
+    // the launch (measured 2026-11-06); a shot 2.5 s, its frame TFrame after the launch
+    public const double TRcon = 1.7, TShot = 2.5, TCon = 1.7, TLog = 2.0, TWaitLog = 40.0;
+    public const double TCmd = 1.4, TFrame = 1.7;
     public const double TPost = 2.0;      // a bridgepost call: not timed yet, a guess; a vote is two execs
     public const int VoteGap = 125;       // MapVote.WaitSeconds, 120, and a little
     public const int NewsGone = 9;        // Notices.NewsSeconds, 8, and a little: the line that says a notice was taken back
+    public const int ChatGone = 20;       // CS2's chat box fades 16-19 s after its last line, older lines with it (measured 2026-11-07): a chat row waits out the rows before it
 
     // ---------------------------------------------------------------- geometry: boxes at 1080p, placed by the height
 
     static Mask PaintM(double x0, double y0, double x1, double y1, string text, Rgb3? color = null, double size = 13, double spacing = 0, string align = "l",
-                       string anchor = "c", bool bold = true, bool drift = false) =>
-        new("paint", new Box(x0, y0, x1, y1, anchor), text, color ?? new Rgb3(245, 245, 245), size, spacing, align, Bold: bold, Drift: drift);
+                       string anchor = "c", bool bold = true, bool drift = false, bool keep = false) =>
+        new("paint", new Box(x0, y0, x1, y1, anchor), text, color ?? new Rgb3(245, 245, 245), size, spacing, align, Bold: bold, Drift: drift, Keep: keep);
 
     static Mask BlurM(double x0, double y0, double x1, double y1, string anchor = "c") => new("blur", new Box(x0, y0, x1, y1, anchor));
 
@@ -99,8 +98,8 @@ static partial class DocShots
     public static readonly Mask MGreetBack = PaintM(482, 333, 900, 355, "WELCOME BACK, ALICE", Gold, 13, 3);
     // The ballot's big window: x 80-1840, y 80-1000, scaled at 16:10 and 4:3 (anchor v).
     public static readonly Mask MPlayer1Vote = PaintM(112, 314, 190, 336, Me, size: 13, anchor: "v");                          // Players in the big window
-    public static readonly Mask MVWait1 = PaintM(296, 304, 1040, 334, $"Waiting for: {Me}", GoldHi, 15, anchor: "v");          // the whole label, from x 299
-    public static readonly Mask MVWait2 = PaintM(296, 304, 1040, 334, $"Waiting for: {Me}, HUDtest", GoldHi, 15, anchor: "v");
+    public static readonly Mask MVWait1 = PaintM(296, 304, 1040, 334, $"Waiting for: {Me}", GoldHi, 15, anchor: "v", keep: true);          // the whole label, from x 299
+    public static readonly Mask MVWait2 = PaintM(296, 304, 1040, 334, $"Waiting for: {Me}, HUDtest", GoldHi, 15, anchor: "v", keep: true); // the bridge's waiting names, sorted as it sorts them
     public static readonly Mask BlurVWaitTail = BlurM(905, 304, 1048, 334, "v");                                              // the strip is on: a number in the words
     public static readonly Mask BlurVStart = BlurM(400, 262, 1040, 292, "v");                                                 // osvstart
     public static readonly Mask MVStart = PaintM(348, 264, 1040, 290, $"Started by {Me}", new Rgb3(245, 245, 245), 13, anchor: "v");   // osvstart, the whole label
@@ -120,11 +119,20 @@ static partial class DocShots
     public static readonly Box VMapCount = new(548, 179, 770, 199);               // the window's header: "3751 WORKSHOP MAPS", a count the sync moves
     public static readonly Box VIdle = new(1248, 914, 1558, 942);                 // the window's foot: "CLOSES WHEN IDLE" and its draining bar
     public static readonly Box VVoteMapCount = new(296, 130, 470, 147, "v");      // the big window's header count
-    public static readonly Box VVoteSubtab = new(112, 216, 312, 237, "v");        // "VOTE - 51 S", the vote's seconds on its sub-tab, and BROWSE beside it
+    public static readonly Box VVoteSubtab = new(112, 214, 322, 242, "v");        // "VOTE - 51 S", the vote's seconds on its sub-tab, and BROWSE beside it, which moves as the seconds' words narrow
     public static readonly Box VVoteTiles = new(110, 352, 1810, 918, "v");        // the ballot's tiles: rolled at random for every vote
     public static readonly Box VOnFor = new(1470, 362, 1558, 382);                // SERVER, Players: the first row's ON FOR, a timer
     public static readonly Box VHudColumn = new(748, 362, 1110, 382);             // SERVER, Players: the first row's HUD column, where the check counts its seconds
     public static readonly Box VSyncBody = new(362, 298, 1558, 908);              // SERVER, Sync: the sync's own live status, queue and history
+    public static readonly Box VBoardMapCount = new(1476, 654, 1560, 671);        // the board's foot: "3731 maps", the count the sync moves (VMapCount's on the board)
+    public static readonly Box[] VBoardWait = [new(1596, 488, 1646, 504), new(1603, 551, 1652, 567)];   // board-wait: the seconds of "The next one can start in 59 s" and of the vote's line
+    public static readonly Box VLineWait = new(590, 876, 625, 898);               // vote-cannot-call: the seconds of "You can call a vote again in 1 min 35 s"
+    public static readonly Box VBrowserHead = new(1176, 352, 1560, 390);          // the map browser's Previous: <the map before> and its "8129 maps": the history and the count the sync moves
+    public static readonly Box VStartWait = new(1312, 506, 1500, 528);            // START's live column in the wait after a vote: "The next one can start in 1 min 16 s"
+    public static readonly Box VStripNames = new(296, 302, 1040, 336, "v");       // the ballot's strip: a segment per card with votes, named after the card's map - rolled at random
+    public static readonly Box VRestartSeconds = new(400, 494, 600, 512);         // SERVER, Game: the restart armed, "PRESS AGAIN WITHIN 25 S" - its seconds, and its words pulse
+    public static readonly Box VTopEdge = new(470, 126, 1450, 140);               // the top line above the window reaches into its frame: its words follow the match's age
+    public static readonly Box VVotePagerNext = new(1024, 914, 1096, 956, "v");   // the ballot's pager: Next pulses while more pages follow (.gg-pgb-glow, 1.6 s)
 
     /// <summary>The Mask and Box constants by their names in docshots.py, for maskview.</summary>
     public static readonly Dictionary<string, object> Named = new()
@@ -136,12 +144,13 @@ static partial class DocShots
         ["C_ALERT"] = CAlert, ["C_CARD"] = CCard, ["C_LINE"] = CLine, ["C_CHAT"] = CChat, ["C_BOARD"] = CBoard, ["C_WHY"] = CWhy, ["C_X"] = CX, ["C_VHEAD"] = CVHead,
         ["C_CLOCKS"] = CClocks, ["C_SETROW"] = CSetRow, ["WINDOW"] = Window, ["VOTE_WINDOW"] = VoteWindow, ["V_MAPCOUNT"] = VMapCount, ["V_IDLE"] = VIdle,
         ["V_VOTE_MAPCOUNT"] = VVoteMapCount, ["V_VOTE_SUBTAB"] = VVoteSubtab, ["V_VOTE_TILES"] = VVoteTiles, ["V_ONFOR"] = VOnFor, ["V_HUD_COLUMN"] = VHudColumn,
-        ["V_SYNC_BODY"] = VSyncBody,
+        ["V_SYNC_BODY"] = VSyncBody, ["V_BOARD_MAPCOUNT"] = VBoardMapCount, ["V_LINE_WAIT"] = VLineWait, ["V_BROWSER_HEAD"] = VBrowserHead, ["V_START_WAIT"] = VStartWait,
+        ["V_STRIP_NAMES"] = VStripNames, ["V_RESTART_SECONDS"] = VRestartSeconds, ["V_TOP_EDGE"] = VTopEdge, ["V_VOTE_PAGER_NEXT"] = VVotePagerNext,
     };
 
     // ---------------------------------------------------------------- the steps: what a row does, in order
 
-    /// <summary>An RCON command, waited for (about 10.5 s).</summary>
+    /// <summary>An RCON command, waited for (about 1.7 s); the next step follows at once.</summary>
     static Step Rc(string cmd, string expect = "") => new("rcon", cmd, Expect: expect);
 
     /// <summary>An RCON command in the background: the shots behind it see what it does.</summary>
@@ -173,6 +182,23 @@ static partial class DocShots
     static Step VoteGapStep() => new("vote_gap");
 
     static Step VoteClosedStep() => new("vote_closed");
+
+    /// <summary>Right after the step that opens a vote: from here the vote's clocks count (Until("vote", ...)).</summary>
+    static Step VoteOpened() => new("vote_opened");
+
+    public static readonly Dictionary<string, string> Anchors = new()
+    {
+        ["join"] = "the client's last jointeam returned", ["vote"] = "the vote opened (vote_opened)", ["closed"] = "the last vote closed (vote_closed)",
+        ["press"] = "the last marked press (pressed)",
+    };
+
+    /// <summary>Right after a press whose effect comes later or lasts a while (a card's vote and its inactivity timer, a dislike and its 15 s dialog).</summary>
+    static Step Pressed() => new("pressed");
+
+    /// <summary>Sleep until seconds after the anchor (Anchors), at once if that has passed: for a picture that depends on how long ago it happened, not on
+    /// how fast the calls before it were.</summary>
+    static Step Until(string anchor, double seconds) =>
+        Anchors.ContainsKey(anchor) ? new("until", anchor, Seconds: seconds) : throw new ArgumentException($"until: no anchor {anchor}");
 
     static Step Guard(double maxAge) => new("guard", Seconds: maxAge);
 
@@ -240,9 +266,15 @@ static partial class DocShots
     static void Browser(string id, string button, string shows, List<Step>? cleanup = null, string after = "page-maps") =>
         R(id, $"MAPS > Browse: {shows}", section: SMaps, after: after, steps: [Press(button), Pause(1), Shoot()], cleanup: cleanup ?? [], when: "1 s after the click returns");
 
+    /// <summary>On a map of that mode, the team joined, and the new map's card under the crosshair gone (it comes 1.5 s after the spawn, for 8 s).</summary>
     static List<Step> ToMode(string mode, int gameType, int gameMode, string mapName) =>
         [Release, Rc($"os_mode {mode}", "os_mode: "), Rc($"game_type {gameType}"), Rc($"game_mode {gameMode}"), Mark(), Rc($"changelevel {mapName}"), WaitIngame(), Pause(6),
-         Con("jointeam 2 1", 1500), Content(Level)];
+         Con("jointeam 2 1", 1500), Content(Level), Until("join", 12)];
+
+    /// <summary>A public CS2 map that stays off the list: Aim Botz - Aim Training (CS2), tagged Cs2, Map and Custom - no Armsrace, Deathmatch or Wingman tag,
+    /// which is all the sync's discovery searches (sync.tags), so it is never taken in, and with millions of subscribers it stays public. Not the HUD's own
+    /// item: the server refuses that one as no map (WorkshopCard.ServerRefusal, 49901da).</summary>
+    const string UnlistedMap = "3070244462";
 
     static List<Row> BuildRows()
     {
@@ -259,7 +291,8 @@ static partial class DocShots
           @volatile: [VOnFor, VHudColumn]);
         R("check-warning", "The warning before the disconnect, in CS2's alert box; under HUD_CHECK warn its words say to close the window", pick: "HUD check: the disconnect warning",
           today: "CS2's alert text 10b, 15 s, and its chat lines (the words of enforce take HUD_CHECK=enforce, which no verb sets)",
-          after: "players-check", steps: [Release, Pause(50), Shoot(n: 2)], when: "about 80 s after the first spawn, 5 s into the 15 s; the window closed by css_gghud release, which is no click, since it hides the box",
+          after: "players-check", steps: [Release, Until("join", 78), Shoot(n: 2)],
+          when: "from about 80 s after the team is joined, the first spawn a second after it: the warning comes 15 s before the check's 90 s (HudCheck.GraceSeconds, WarnSeconds), so 4-7 s into it; the window closed by css_gghud release, which is no click, since it hides the box",
           crop: CAlert, win: Win.None, wordsFrom: ("bridge/HudCheck.cs", "HUD check: No click yet"));
         R("joined-hud-version", "CS2's plain centre text: who joined with which HUD", pick: "\"Erik joined with HUD v4_6_0\"", today: "CS2's plain centre text 9a, 8 s, held by sending it again, with its chat and board copies",
           standIn: true, wordsFrom: ("bridge/Program.cs", "joined with"), after: "check-warning", steps: [Rb($"css_gghud centre 3 8 \"Erik joined with HUD {ContentName}\"", "sent again"), Pause(3.5), Shoot(n: 2)], cleanup: [Content(Level)],
@@ -290,35 +323,40 @@ static partial class DocShots
 
         // ---- the welcome window, in both forms
         R("join-tagline", "The welcome window at a return: the tagline's line at the foot of its page, for 3 s", pick: "Join tagline", today: "a line on the window's page, as picked, and a chat copy; the same words are the page's large text",
-          steps: [Release, Rb($"css_guide {Account} back", "guide: showing"), Pause(2.4), Shoot()], when: "about 4 s after the send: the window opens 1.5 s after the command, the line ends 3 s after it",
+          steps: [Release, Rb($"css_guide {Account} back", "guide: showing"), Pause(4.5), Shoot()],
+          when: "about 6 s after the send: the window opens about 2.5 s after the command (HudSlots.SpawnDelaySeconds 1.5, then the HUD's next frame; 4-4.5 s after the verb's launch, measured 2026-11-07)",
           crop: CLine, masks: [MGreetBack], names: Greeting + Unseen);
         R("welcome-back", "The welcome window at a return: Welcome back, the map that is on, its likes, the hint", pick: "Welcome-back card", today: "the window's page, the wback panel, as picked",
           after: "join-tagline", steps: [Pause(0.5), Shoot()], cleanup: [Release], when: "the next frame, about 7 s after the send: it stands until the X", masks: [MGreetBack], names: Greeting + Unseen);
         R("welcome-first", "The welcome window at a first login: until its X", pick: "Welcome window, at every login", today: "7a, as picked: every login, until its X",
-          steps: [Rc($"css_guide {Account} first", "guide: showing"), Pause(1), Shoot()], cleanup: [Release], when: "1 s after the call returns: the window opens 1.5 s after the command", masks: [MGreet], names: Greeting + Unseen);
+          steps: [Rc($"css_guide {Account} first", "guide: showing"), Pause(3.5), Shoot()], cleanup: [Release],
+          when: "3.5 s after the call returns: the window opens about 2.5 s after the command (join-tagline)", masks: [MGreet], names: Greeting + Unseen);
 
         // ---- chat
         var chatNames = Real("the player's own typed line above the reply (its team colour): blurred");
         R("chat-unknown", "Chat: an unknown command", pick: "Command replies: unknown command, an alias taught, !help's list", today: "a private chat line, as picked",
-          steps: [Con("say !foo"), Pause(1), Shoot()], when: "about 1 s after the line", crop: CChat, chat: true, win: Win.None, masks: [ChatAbove(1)], names: chatNames, wordsFrom: ("bridge/ChatCommands.cs", "Unknown command"));
+          steps: [Pause(ChatGone), Con("say !foo"), Pause(1), Shoot()], when: "about 1 s after the line", crop: CChat, chat: true, win: Win.None, masks: [ChatAbove(1)], names: chatNames, wordsFrom: ("bridge/ChatCommands.cs", "Unknown command"));
         R("chat-alias-help", "Chat: an alias taught, !help's list, and the Help page it opens", pick: "Command replies: unknown command, an alias taught, !help's list",
           today: "private chat lines beside the window, which covers chat from x 340", steps: [Con("say !commands"), Pause(1.5), Shoot()], cleanup: [Release],
           when: "about 1.5 s after the line: the teach line and five lines of the list", crop: CChat, chat: true, masks: [ChatAbove(6)], names: chatNames, wordsFrom: ("bridge/ChatCommands.cs", "You typed"));
         R("chat-refused", "Chat: a refusal with its reason", pick: "The answer to your own click: refused, click again, already set", today: "a private chat line, as picked",
-          steps: [Rc("gg_fun gravity moon \"Bob\"", "fun: "), Con("say !jump high"), Pause(1), Shoot()], cleanup: [ResetFun], when: "about 1 s after the line", crop: CChat, chat: true, win: Win.None,
+          steps: [Rc("gg_fun gravity moon \"Bob\"", "fun: "), Pause(ChatGone), Con("say !jump high"), Pause(1), Shoot()], cleanup: [ResetFun],
+          when: "about 1 s after the line, the lines of !commands gone first", crop: CChat, chat: true, win: Win.None,
           masks: [ChatAbove(1)], names: chatNames, wordsFrom: ("bridge/Fun.cs", "together they throw players out of most maps"));
 
         // ---- the window's pages, each by its tab through the real click path: a press on a closed window does nothing and still says pressed, so each opens it first
         R("page-start", "START: the logo and the large text, the steps, the live column, the gold Start a vote", section: SWindow, steps: [Show("start"), Press("gg_tab_start"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [MGreet], names: Greeting + Unseen);
         R("top-over-window", "The top line above the open window: one line, 84 px from the top", section: SWindow, after: "page-start", standIn: true,
-          steps: [Note(10, "Bob set the match length to 10 minutes - From the next match"), Pause(2.5), Shoot()], when: "about 4 s after the send", crop: CTopWin, masks: [MGreet], names: Greeting + Unseen, avatar: AvatarOverNews,
+          steps: [Note(10, "Bob set the match length to 10 minutes - From the next match"), Pause(2.5), Shoot()], cleanup: [Pause(6)],
+          when: "about 4 s after the send; the cleanup waits out the note's 10 s, which the next page's frame would show above its window", crop: CTopWin, masks: [MGreet], names: Greeting + Unseen, avatar: AvatarOverNews,
           wordsFrom: ("bridge/Program.cs", "set the match length to"));
         R("page-fun", "FUN: every setting at its default, the note, Random and Default", section: SWindow, steps: [Show("start"), Press("gg_tab_fun"), Pause(1), Shoot()], when: "1 s after the click returns");
         R("fun-set-by", "FUN: Gravity Moon, its row marked: Moon - set by Bob", pick: "\"set by <name>\" on settings that are not default", today: "a line on the Fun page's row, as picked; no chat or board copy yet",
           after: "page-fun", steps: [Rc("gg_fun gravity moon \"Bob\"", "fun: "), Show("fun"), Pause(1), Shoot()], when: "1 s after the show returns", names: TestName + ": gg_fun's who");
         R("fun-refused", "FUN: Super jump High clicked just as Moon gravity greys it: the bubble at the button says why", pick: "The answer to your own click: refused, click again, already set",
           today: "the bubble at the button (FunClicks), as the owner's note asks; only a click within 2 s of the grey gets one, later ones nothing: the grey has said it", after: "fun-set-by",
-          steps: [Rc("gg_fun gravity normal \"Bob\"", "fun: "), Rb($"gg_fun gravity moon \"Bob\"; css_gghud press {Account} gg_f2_2", "fun: "), Pause(3.5), Shoot()], when: "about 5 s after the send, one line for both so the click comes within the 2 s: the bubble stands 8 s",
+          steps: [Pause(4), Rc("gg_fun gravity normal \"Bob\"", "fun: "), Rb($"gg_fun gravity moon \"Bob\"; css_gghud press {Account} gg_f2_2", "fun: "), Pause(3.5), Shoot()],
+          when: "about 5 s after the send, one line for both so the click comes within the 2 s: the bubble stands 8 s. The 4 s first: the chat box has faded since top-over-window's line, so fun-already's chat holds this row's lines alone",
           names: TestName + ": gg_fun's who", wordsFrom: ("bridge/Fun.cs", "together they throw players out of most maps"));
         R("fun-refused-tip", "FUN: a greyed choice, and a refused click answered at its button", section: SWindow, today: "the layout's gg-ftip with the page's bubble words, .off and .refused", after: "fun-refused", steps: [Shoot()], when: "the next frame, inside the bubble's 8 s", names: TestName + ": gg_fun's who");
         R("fun-already", "Chat: a setting typed that is on already: the reply says so", pick: "The answer to your own click: refused, click again, already set", today: "a private chat line; a click on a lit choice says nothing on this content: its look says it",
@@ -347,11 +385,12 @@ static partial class DocShots
         R("page-game", "SERVER > Game: the match length, the two restarts", section: SWindow, steps: [Show("players"), Press("gg_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns",
           crop: CSetRow, masks: [BlurSetBy], names: Real("a bridge state that carries a set-by: that place is blurred"));
         R("game-restart-armed", "SERVER > Game: the restart after its first click, Press again; the line says click again", pick: "The answer to your own click: refused, click again, already set",
-          today: "a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps: [Pause(31), Show("game"), Press("gg_set_restart", bg: true), Pause(3.5), Shoot()],
-          when: "about 5 s after the one click. The 31 s first: a click within 30 s of an earlier one would be the second", crop: CLine, wordsFrom: ("bridge/Restarts.cs", "A restart kicks everyone"));
+          today: "a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps: [Pause(31), Show("game"), Press("gg_set_restart", bg: true), Pressed(), Pause(3.5), Shoot()],
+          when: "about 5 s after the one click. The 31 s first: a click within 30 s of an earlier one would be the second", crop: CLine, wordsFrom: ("bridge/Restarts.cs", "A restart kicks everyone"), @volatile: [VRestartSeconds]);
         R("game-time-10", "SERVER > Game: Matches last 10 minutes - Set by, the lit button", section: SWindow, bridge: WTime,
-          steps: [Show("game"), Post("act", "0", "time10"), Pause(2), Shoot()], cleanup: [Post("act", "0", "time60"), Pause(NewsGone), Post("fake-off"), Release], when: "about 4 s after a fake player's click, so the page and the top line name a test name; the cleanup waits out the line that puts it back", crop: CSetRow, names: TestName,
-          avatar: AvatarOverNews, wordsFrom: ("bridge/HudBrowser.cs", "Matches last"));
+          steps: [Show("game"), Post("act", "0", "time10"), Pause(2), Shoot()], cleanup: [Post("act", "0", "time60"), Pause(NewsGone), Post("fake-off"), Release, Until("press", 33)],
+          when: "about 4 s after a fake player's click, so the page and the top line name a test name; the cleanup waits out the line that puts it back, and the restart's armed line (30 s), which the next page's foot would show", crop: CSetRow, names: TestName,
+          avatar: AvatarOverNews, wordsFrom: ("bridge/HudBrowser.cs", "Matches last"), @volatile: [VRestartSeconds, VTopEdge]);
         R("page-sync", "SERVER > Sync: what the map sync does, its queue, its history", section: SWindow, steps: [Show("sync"), Pause(1), Shoot()], when: "1 s after the show returns. Live numbers and Workshop map names; no player name in the block (bridge/SyncDash.cs)",
           @volatile: [VSyncBody]);
         foreach (var (id, b, w) in new[] { ("sync-queue-next", "gg_osdq_next", "the queue's next page"), ("sync-history-next", "gg_osdr_next", "the history's next page"), ("sync-maps-next", "gg_osdm_next", "the map events' next page"),
@@ -385,11 +424,13 @@ static partial class DocShots
         R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section: SMaps, after: "page-maps",
           steps: [Con("say 3369214545"), Pause(3), Shoot()], cleanup: [Press("gg_q_clear")], when: "3 s after the line: the server's own no needs no Workshop question", wordsFrom: ("bridge/broken.json", "3369214545"));
         R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: Asking the Workshop, then Download and play. NEVER clicked: it downloads to the server", section: SMaps, after: "page-maps",
-          steps: [Con("say 3823993566"), Pause(0.3), Shoot(n: 3)], cleanup: [Press("gg_q_clear")], when: "from about 2 s after the line, serially: the Web API answers within a few seconds (the HUD item's public id)");
+          steps: [Con($"say {UnlistedMap}"), Pause(0.3), Shoot(n: 3)], cleanup: [Press("gg_q_clear")],
+          when: "from about 2 s after the line, serially: the Web API answers within a few seconds (Aim Botz, a public CS2 map on none of the lists)");
         R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section: SMaps, after: "page-maps", bridge: WLike, steps: [Press("gg_m2_up", bg: true), Pause(3.5), Shoot()], cleanup: [Press("gg_m2_down")],
           when: "about 5 s after the click: the line lasts 8 s");
         R("why-card", "Why the dislike?: the small dialog at the centre", pick: "Why the dislike? (the reasons)", today: "one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after: "page-maps",
-          bridge: WLike, steps: [Press("gg_m3_down", bg: true), Pause(3.5), Shoot()], cleanup: [Press("gg_m3_up")], when: "about 5 s after the click: it stands 15 s", crop: CWhy);
+          bridge: WLike, steps: [Press("gg_m3_down", bg: true), Pause(3.5), Shoot()], cleanup: [Press("gg_m3_up"), Pause(NewsGone)],
+          when: "about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop: CWhy);
         R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section: SMaps, after: "page-maps", bridge: WGuard, steps: [Con("say !find jb_moti2"), Pause(2), Shoot()],
           when: "2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", wordsFrom: ("bridge/broken.json", "\"jb_moti2\""));
         R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick: "Play asks first (a broken or crashed map)",
@@ -401,14 +442,14 @@ static partial class DocShots
         List<Step> lately = [Note(10, "Bob set the match length to 10 minutes - From the next match", bg: false), Note(10, "Cara set the match length to 60 minutes - From the next match", bg: false),
                              Note(10, "Erik set the match length to 10 minutes - From the next match", bg: false)];
         R("board-default", "The board beside the scoreboard: your like, Start a vote, the vote line, the full menu, Lately", section: SBoard, steps: [Release, .. lately, Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500)],
-          when: "2 s after +showscores", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board);
+          when: "2 s after +showscores", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount]);
         R("board-liked", "The board with your like on the map that is on", section: SBoard, bridge: WLike, steps: [Press("gg_b_vup"), .. lately, Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500), Press("gg_b_vdown")],
-          when: "2 s after +showscores", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board);
+          when: "2 s after +showscores", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount]);
         R("board-why", "Why the dislike? under the TAB cursor", pick: "Why the dislike? (the reasons)", today: "the same small dialog, under the board's cursor", bridge: WLike, steps: [Press("gg_b_vdown", bg: true), Con("+showscores", 1000), Pause(1), Shoot()],
           cleanup: [Con("-showscores", 1500), Press("gg_b_vup")], when: "about 4.5 s after the click: it stands 15 s", crop: CWhy, win: Win.None, masks: [BlurScoreboard], names: board);
         foreach (var (id, b, w) in new[] { ("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)") })
             R(id, $"The board with my mark: {w}", section: SBoard, bridge: WLike, steps: [Press(b), .. lately, Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500), Press("gg_b_vup")],
-              when: "2 s after +showscores; the opposite vote takes the mark back", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board);
+              when: "2 s after +showscores; the opposite vote takes the mark back", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount]);
 
         // ---- the vote. Solo first (nobody but the client present, so everybody has voted once it does), the fake's last: HUDtest stays present in the bridge's memory
         Mask[] v1Masks = [BlurNewsWin, MVStart, MVWait1];
@@ -416,45 +457,52 @@ static partial class DocShots
         var v1Names = Real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + Unseen;
         var v1NamesVoted = Real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + Unseen;
         R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick: "The vote: everybody's window opens and freezes", today: "the big vote window, as picked; its feeds still move",
-          bridge: WVote, steps: [VoteGapStep(), Rc("mp_restartgame 1"), Pause(3), Click("gg_b_next"), Show("vote", bg: true), Pause(0.5), Shoot()], when: "about 10 s into the vote; the show's reply says whether a vote opened. A fresh match first: the run's second half must not meet the 60-minute match end",
+          bridge: WVote, steps: [VoteGapStep(), Rc("mp_restartgame 1"), Pause(5), Click("gg_b_next"), VoteOpened(), Show("vote", bg: true), Post("names-check"), Until("vote", 7.5), Shoot()],
+          when: "about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
           masks: v1Masks, names: v1Names, win: Win.Vote, avatar: AvatarOverNews);
         R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick: "The 60 s limit", today: "a line on the window's page, as picked", after: "vote-open", bridge: WVote, steps: [Shoot()], when: "the next frame",
           crop: CClocks, masks: v1Masks, names: v1Names, win: Win.Vote, avatar: AvatarOverNews);
-        R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section: SVote, after: "vote-limit", bridge: WVote, steps: [Press("gg_m1_play", bg: true), Pause(2.5), Shoot()],
+        R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section: SVote, after: "vote-limit", bridge: WVote, steps: [Press("gg_m1_play", bg: true), Pressed(), Pause(2.5), Shoot()],
           when: "about 4 s after the click, Keep (tile 1): the inactivity timer runs 5 s from the vote", crop: CVHead, masks: v1Voted, names: v1NamesVoted, win: Win.Vote, avatar: AvatarOverNews);
         R("vote-inactivity", "The inactivity timer, and who reset it", pick: "Inactivity timer, and who reset it", today: "a line on the window's page, as picked", after: "vote-my-vote", bridge: WVote, steps: [Shoot()], when: "the next frame, about 6.5 s after the click",
           crop: CVHead, masks: v1Voted, names: v1NamesVoted, win: Win.Vote, avatar: AvatarOverNews);
-        R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick: "The vote kept the map", today: "a line on the window's page, as picked, 8 s; chat and the board too", after: "vote-inactivity", bridge: WVote, steps: [VoteClosedStep(), Pause(1), Shoot(n: 2)],
-          when: "the next frames: decided about 7.5 s after the click, the window stays 8 s", crop: CVHead, masks: [BlurNewsWin, MVStart, BlurTile1Names], names: Real("who started it, the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews, wordsFrom: ("bridge/HudVote.cs", "The vote kept"));
+        R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick: "The vote kept the map", today: "a line on the window's page, as picked, 8 s; chat and the board too", after: "vote-inactivity", bridge: WVote, steps: [Until("press", 8), Shoot(n: 2), Until("press", 10), VoteClosedStep()],
+          when: "from 8 s after the click: decided about 7 s after it (the command, then the inactivity timer's 5 s), the window stays 8 s", crop: CVHead, masks: [BlurNewsWin, MVStart, BlurTile1Names], names: Real("who started it, the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews, wordsFrom: ("bridge/HudVote.cs", "The vote kept"));
         R("vote-cannot-call", "The answer to a Start a vote in the wait after a vote: when the next one can start", pick: "You cannot call a vote yet", today: "a line on the window's page, as picked, 8 s; chat and the board name who tried",
-          after: "vote-kept", bridge: WVote, steps: [Pause(8), Show("start"), Guard(100), Click("gg_b_next", bg: true), Pause(3.5), Shoot()], cleanup: [Release], when: "about 5 s after the click, inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
-          crop: CLine, masks: [MGreet], names: Greeting + Unseen, wordsFrom: ("bridge/VoteRound.cs", "You can call a vote again in"));
+          after: "vote-kept", bridge: WVote, steps: [Pause(8), Show("start"), Guard(100), Until("closed", 23), Click("gg_b_next", bg: true), Pause(3.5), Shoot()], cleanup: [Release],
+          when: "about 5 s after the click, which goes out 25 s after the vote closed, so the line says 1 min 35 s; inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
+          crop: CLine, masks: [MGreet], names: Greeting + Unseen, wordsFrom: ("bridge/VoteRound.cs", "You can call a vote again in"), @volatile: [VLineWait, VStartWait]);
         R("board-wait", "The board in the wait after a vote: Start a vote off, its words say how long", section: SBoard, after: "vote-cannot-call", bridge: WVote,
-          steps: [.. lately, Guard(100), Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500)], when: "2 s after +showscores, inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
-          crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board);
-        R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section: SVote, bridge: WVote, steps: [Mark(), VoteGapStep(), Click("gg_b_next"), Press("gg_v_browse", bg: true), Pause(3.5), Shoot()],
-          when: "about 5 s after the click", masks: [BlurNewsWin], names: NewsVote + Unseen, avatar: AvatarOverNews);
+          steps: [.. lately, Guard(100), Until("closed", 55), Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500)],
+          when: "2 s after +showscores, about 61 s after the vote closed, so its words say 59 s; inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
+          crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount, .. VBoardWait]);
+        R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section: SVote, bridge: WVote, steps: [Mark(), VoteGapStep(), Click("gg_b_next"), VoteOpened(), Press("gg_v_browse", bg: true), Post("names-check"), Until("vote", 9), Shoot()],
+          when: "about 11 s into the vote: the sub-tab says 49 s, the top line that says who started it (8 s) gone", masks: [BlurNewsWin], names: NewsVote + Unseen, avatar: AvatarOverNews);
         R("vote-picked-card", "The ballot with a map a player put on it: PICKED, picked by, their vote on it", section: SVote, after: "vote-browse", bridge: WVote, steps: [Press("gg_v_back", bg: true), Pause(3), Con("say !play ar_baggage"), Pause(0.3), Shoot()],
           when: "about 2 s after the line, inside the 5 s of the inactivity timer. An official map, so the client loads it without a dialog", masks: [BlurNewsWin, MVStart, BlurTile1Names, BlurTile1Who, MVReset],
           names: Real("the first tile's voter and picked by, the header's reset by and the top line: blurred; the clock's reset by: a test name is painted over it") + Unseen, win: Win.Vote, avatar: AvatarOverNews);
         R("vote-decided", "The vote decided: NEXT MAP, The vote chose ... changing in N s, the top line, everybody still frozen", pick: "The vote decided, and the change counting down", today: "the ballot's words and the top line 4d; the countdown banner stays hidden under the window",
-          after: "vote-picked-card", bridge: WVote + "; " + WMap, steps: [VoteClosedStep(), Pause(2.5), Shoot(n: 3)], when: "from about 7 s after the line: decided at 5 s, the change goes out at 13 s", crop: CVHead, masks: [MVStart, BlurTile1Names, BlurTile1Who],
+          after: "vote-picked-card", bridge: WVote + "; " + WMap, steps: [Pause(2.5), Shoot(n: 3), VoteClosedStep()], when: "from about 7 s after the line: decided at 5 s, the change goes out at 13 s; the vote counts as closed after the frames", crop: CVHead, masks: [MVStart, BlurTile1Names, BlurTile1Who],
           names: Real("the first tile's voter and picked by: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews, wordsFrom: ("bridge/VoteRound.cs", "Everybody has voted:"));
         R("now-playing", "The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn", pick: "Now-playing card, at each map's first spawn", today: "the card 3c, as picked, 8 s; picked by the vote: a Change's by is only ever the vote or the dice",
-          after: "vote-decided", bridge: WVote + "; " + WMap, steps: [WaitIngame(), Pause(3), Con("jointeam 2 1", 1000), Rb("css_gghud release", "released:"), Pause(3), Shoot(n: 3)], cleanup: [Content(Level)], when: "six frames from the moment the client is in game: the card comes 1.5 s after the spawn, for 8 s", crop: CCard, win: Win.None);
+          after: "vote-decided", bridge: WVote + "; " + WMap, steps: [WaitIngame(), Pause(3), Con("jointeam 2 1", 1000), Rb("css_gghud release", "released:"), Pause(6), Shoot(n: 3)], cleanup: [Content(Level)],
+          when: "three frames from about 9 s after the team is joined: CS2 restarts the match after a map change (Match restarting in 3, 2, 1), the spawn after it, and the card comes 1.5 s after the spawn, for 8 s", crop: CCard, win: Win.None);
         R("vote-started-line", "The ballot's header: Started by HUDtest, the real line under a test name", pick: "The vote started: the line for everybody", today: "NOT SHOWN on a surface of its own: the header of the window that opens, as the owner's note asks; chat and the board keep the line",
-          bridge: WVote, steps: [VoteGapStep(), Click("gg_b_next", who: FakeAccount, bg: true), Pause(3.5), Shoot()], when: "about 5 s after the click goes out", crop: CVHead, masks: [MVWait2],
+          bridge: WVote, steps: [VoteGapStep(), Post("client-on", Account), Click("gg_b_next", who: FakeAccount, bg: true), VoteOpened(), Until("vote", 2.5), Post("names-check"), Shoot()],
+          when: "about 6 s after the click goes out. The bridge is told the client's test name first: the map change before reconnected it under its Steam name, and the waiting names are the bridge's",
+          crop: CVHead, masks: [MVWait2],
           names: Real("the waiting line after HUDtest: a test name is painted over it") + Unseen, wordsFrom: ("bridge/VoteRound.cs", "started a vote for the next map"), win: Win.Vote, avatar: AvatarOverNews);
         R("vote-random-lit", "The ballot: my vote on Random, its button lit", section: SVote, after: "vote-started-line", bridge: WVote, steps: [Press("gg_v_random", bg: true), Pause(3.5), Shoot()], cleanup: [Press("gg_m1_play", bg: true)],
           when: "about 5 s after the click. The cleanup moves the vote to Keep at once, also after a failure: Random winning would roll a Workshop map, and the client would hang in CS2's download dialog", names: TestName + ": Waiting for: HUDtest", win: Win.Vote, avatar: AvatarOverNews);
         R("vote-waiting", "The ballot: Waiting for: HUDtest, my vote on Keep, 1 of 2 voted", pick: "Waiting for: the players who have not voted", today: "a line on the window's page, as picked; no chat or board copy yet", after: "vote-random-lit", bridge: WVote, steps: [Pause(3.5), Shoot()],
           when: "about 5 s after the cleanup's click", crop: CVHead, masks: [BlurTile1Names], names: Real("the voter's name on the first tile: blurred; Waiting for: HUDtest stays") + Unseen, win: Win.Vote, avatar: AvatarOverNews);
         R("vote-pager", "The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)", section: SVote, after: "vote-waiting", bridge: WVote, steps: [Rb($"css_gghud content {Account} {Level - 1}", @"account \d+: HUD"), Pause(3.5), Shoot()],
-          when: "about 5 s after the send", masks: [BlurTile1Names], names: Real("the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews);
+          when: "about 5 s after the send", masks: [BlurTile1Names], names: Real("the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews,
+          @volatile: [VVotePagerNext]);
         R("vote-players", "SERVER > Players during a vote: who has voted", section: SWindow, after: "vote-pager", bridge: WVote, steps: [Show("players", bg: true), Pause(3.5), Shoot()], when: "about 5 s after the send, about 45 s into the vote",
           masks: [MPlayer1Vote], names: Players + Unseen, win: Win.Vote, avatar: AvatarOverNews);
-        R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section: SVote, today: "the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after: "vote-players", bridge: WVote, steps: [Show("vote", bg: true), Pause(6), Shoot()], cleanup: [Content(Level), Pause(3), VoteClosedStep()],
-          when: "about 55 s into the vote; the cleanup waits for its 60 s to end", crop: CClocks, masks: [BlurTile1Names], names: Real("the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews);
+        R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section: SVote, today: "the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after: "vote-players", bridge: WVote, steps: [Show("vote", bg: true), Until("vote", 50.5), Shoot()], cleanup: [Content(Level), Until("vote", 72), VoteClosedStep()],
+          when: "about 51 s into the vote, 9 s left; the cleanup waits for its 60 s to end, and for its window, which stays 8 s after", crop: CClocks, masks: [BlurTile1Names], names: Real("the voter's name on the first tile: blurred") + Unseen, win: Win.Vote, avatar: AvatarOverNews);
 
         // ---- what only the bridge's own callers can say: bridgepost, to a candidate bridge on a test copy and nothing else. The real senders' notices, fake players' clicks
         R("restart-after-match", "The status banner: the server restarts after this match", pick: "The server restarts after this match", today: "the status banner 4e, from the bridge's RestartDue, as picked; chat and the board too", bridge: WNotice,
@@ -464,7 +512,8 @@ static partial class DocShots
           steps: [Post("restart", "daily", "now", "12"), Pause(2), Shoot(n: 2)], cleanup: [Post("restart-cancel", "daily"), Pause(NewsGone)],
           when: "about 4 s and 6.5 s into 12 s: the real one counts 10 (Watch.RestartCountdown), a little more here so that a slow call still shows digits; only the restart watcher would quit, and a test copy has none", crop: CBan, win: Win.None, wordsFrom: ("bridge/Restarts.cs", "the server restarts in"));
         R("window-restart-strip", "The window's foot: a restart coming, its words and its countdown", section: SWindow, today: "gg-rstrip, from HudState.RestartKind", bridge: WNotice,
-          steps: [Post("restart", "daily", "now", "30"), Show("start", bg: true), Pause(3.5), Shoot()], cleanup: [Post("restart-cancel", "daily"), Release], when: "about 5 s after the show goes out, of 30 s; the release outlasts the line that takes it back", crop: CLine, masks: [MGreet], names: Greeting + Unseen);
+          steps: [Post("restart", "daily", "now", "30"), Show("start", bg: true), Pause(3.5), Shoot()], cleanup: [Post("restart-cancel", "daily"), Release], when: "about 5 s after the show goes out, of 30 s; the release outlasts the line that takes it back", crop: CLine, masks: [MGreet], names: Greeting + Unseen,
+          @volatile: [VStartWait]);
         R("top-cs2-update", "The top line: a CS2 update: the server restarts at this match's end, and restart CS2 afterwards", pick: "A CS2 update: update your game", today: "the top line 4d, as picked, until the restart: the watcher's own notice; chat and the board too", bridge: WNotice,
           steps: [Post("restart", "game-update", "match-end", "0"), Pause(2), Shoot()], cleanup: [Post("restart-cancel", "game-update"), Pause(NewsGone)], when: "about 4 s after the notice; the cleanup takes it back and waits out the line that says so", crop: CTop, win: Win.None, wordsFrom: ("bridge/Restarts.cs", "A CS2 update"));
         R("top-updated", "The top line: Updated to CS2 1.41.9.6 - Welcome back", pick: "\"Updated to vX\" after the reconnect", today: "the top line 4d, as picked, 60 s: the watcher's own notice; chat and the board too", bridge: WNotice,
@@ -477,7 +526,7 @@ static partial class DocShots
           steps: [VoteGapStep(), Post("fake-off"), Post("fake-on", "4"), Post("client-off", Account), Post("act", "0", "next"), Post("vote", "0", "1"), Post("vote", "1", "2"), Post("vote", "2", "3"), Pause(1), Shoot(), Post("vote", "2", "1"), Pause(1), Shoot()],
           cleanup: [Post("vote", "0", "1"), Post("vote", "1", "1"), Post("vote", "2", "1"), Post("vote", "3", "1")],
           when: "a second after the third vote, and a second after one more moves to Keep (card 1). The fourth fake does not vote, so the inactivity timer does not run; the bridge takes the client for gone, so only test names are in its lines. The cleanup moves every vote to Keep: a tie is drawn by the dice, and a rolled Workshop map would hang the client in CS2's download dialog",
-          crop: CVHead, names: TestName + ": the client is out of the bridge's lists", win: Win.Vote, avatar: AvatarOverNews);
+          crop: CVHead, names: TestName + ": the client is out of the bridge's lists", win: Win.Vote, avatar: AvatarOverNews, @volatile: [VStripNames]);
         R("chat-vote-clicked", "A vote clicked on a card, in chat: who voted, and who still has to", pick: "Lines for everybody: a vote clicked on a card", today: "NOT SHOWN on a surface of its own: chat and the board", after: "vote-tie-lead", bridge: WVote + "; " + WNotice,
           steps: [Post("restart", "daily", "now", "30"), Pause(1), Shoot()], cleanup: [Post("restart-cancel", "daily"), Pause(NewsGone), VoteClosedStep(), Post("client-on", Account), Post("fake-off")],
           when: "a second after a restart's notice has ended the vote: the big window covers chat, which comes back with the lines still there. The cleanup takes the notice back and has the client present again", crop: CChat, chat: true, win: Win.None, masks: [ChatAbove(6)], names: TestName + ": the client is out of the bridge's lists", wordsFrom: ("bridge/VoteRound.cs", "voted to keep"));

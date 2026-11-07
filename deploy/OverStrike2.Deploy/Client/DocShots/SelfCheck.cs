@@ -32,6 +32,11 @@ static partial class DocShots
                 Print($"{dst}  ok {res} (from {res}) mean=72,7");
                 break;
             case "post":
+                if (a.Length > 1 && a[1] == "names-check" && fail == "names-check")
+                {
+                    Print("REFUSED: 1 private name(s) among the vote's names in the bridge's state - nothing may be shot");
+                    return 1;
+                }
                 Print($"12:00:00 /x: {string.Join(" ", a.Skip(1))} -> 200 ok: heard, /log/{Env("FAKE_TOKEN")}");
                 break;
             case "log":
@@ -170,6 +175,24 @@ static partial class DocShots
                   && !log.Contains("hunter2", StringComparison.Ordinal) && !log.Contains(FakeToken, StringComparison.Ordinal), "deep check: the run's log holds a secret, a name or the address");
             check(File.Exists(Path.Combine(output, "index.html")), "deep check: no index");
 
+            // a ballot whose bridge names the client by a private name: the row stops before its picture
+            Directory.Delete(output, true);
+            Directory.Delete(calls, true);
+            Directory.CreateDirectory(calls);
+            Environment.SetEnvironmentVariable("FAKE_FAIL", "names-check");
+            (plan, _) = BuildPlan(["vote-started-line"], true);
+            Console.SetOut(new StringWriter());
+            using (var doer = new Doer(res, output, false))
+            {
+                failed = Walk(doer, plan);
+                doer.WritePictures(plan, info);
+            }
+            Console.SetOut(realOut);
+            launched = Launched(calls);
+            check(failed.Contains("vote-started-line"), $"deep check: a refused names-check did not fail its row: {string.Join(", ", failed.Order(StringComparer.Ordinal))}");
+            check(!launched.Any(c => c[0] == "shot" && c[c.IndexOf("-Name") + 1].Contains("vote-started-line", StringComparison.Ordinal)), "deep check: a ballot was shot after its names-check refused");
+            Environment.SetEnvironmentVariable("FAKE_FAIL", null);
+
             // a vote that does not open: the chain stops before its clicks count
             Directory.Delete(output, true);
             Directory.Delete(calls, true);
@@ -254,6 +277,31 @@ static partial class DocShots
         {
             if (!ok)
                 fails.Add(words);
+        }
+
+        // no real name from the bridge: every ballot a row opens is checked (names-check) before its first picture, and the paints over the bridge's
+        // names stay under --renamed
+        foreach (var r in Rows)
+        {
+            var kinds = r.Steps.Select(st => (st.Kind, st.Text)).ToList();
+            var opened = kinds.IndexOf(("vote_opened", ""));
+            if (opened >= 0)
+            {
+                var firstShot = kinds.FindIndex(k => k.Kind == "shoot") is var f and >= 0 ? f : kinds.Count;
+                Check(kinds.Skip(opened).Take(Math.Max(0, firstShot - opened)).Any(k => k == ("post", "names-check")), $"{r.Id} opens a vote and shoots it before a names-check");
+            }
+        }
+        var wasRenamed = Renamed;
+        Renamed = true;
+        try
+        {
+            foreach (var r in Rows)
+                Check(r.Masks.Where(m => m.Keep).All(m => KeptMasks(r).Contains(m)), $"{r.Id}: a paint over a name the bridge has is dropped under --renamed");
+            Check(MVWait1.Keep && MVWait2.Keep, "the waiting lines' paints are not marked keep");
+        }
+        finally
+        {
+            Renamed = wasRenamed;
         }
 
         // the messages, by their own words in the file: Validate has held the rows to them; said again here so the check names them

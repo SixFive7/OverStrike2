@@ -173,6 +173,8 @@ static partial class DocShots
     public static List<Px> VolatileBoxes(Row row, int w, int h, bool crop = false)
     {
         var boxes = new List<Box>(row.Volatile);
+        if (BrowserRows.Contains(row.Id))
+            boxes.Add(VBrowserHead);
         if (row.Win == Win.Vote)
             boxes.AddRange([VVoteMapCount, VVoteSubtab, CClocks, VVoteTiles]);
         else if (row.Win == Win.Window)
@@ -303,8 +305,12 @@ static partial class DocShots
 
     // ---------------------------------------------------------------- a frame as it may be published
 
-    /// <summary>The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars).</summary>
-    static IEnumerable<Mask> KeptMasks(Row row) => row.Masks.Where(m => !Renamed || m == BlurScoreboard);
+    /// <summary>The rows that show the map browser: its Previous and its count differ on every shot (VBrowserHead).</summary>
+    static HashSet<string> BrowserRows => [.. Rows.Where(r => r.Section == SMaps).Select(r => r.Id), "why-card", "play-asks-first", "vote-browse"];
+
+    /// <summary>The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars) and those over a
+    /// name the bridge has from the game's log (Mask.Keep): GgDocName renames the client on the server, but the bridge learned its name at the connect.</summary>
+    static IEnumerable<Mask> KeptMasks(Row row) => row.Masks.Where(m => !Renamed || m == BlurScoreboard || m.Keep);
 
     /// <summary>The frame as it may be published: the avatar, chat (or what the row's chat mask says), the row's own; under --renamed the avatar and
     /// the scoreboard alone.</summary>

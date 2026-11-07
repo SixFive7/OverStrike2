@@ -260,7 +260,7 @@ static class Publish
                 {
                     var stem = Path.GetFileNameWithoutExtension(Json.Str(f, "file") ?? "");
                     var link = pics.Put($"{Img}/{stem}.jpg", Picture(Path.Combine(resDir, Json.Str(f, "file") ?? "")), 85, DocShots.CompareRegion(r, w, h), DocShots.VolatileBoxes(r, w, h));
-                    lines.AddRange([$"![{Py.HtmlEscape(r.Shows)}]({link})", ""]);
+                    lines.AddRange([$"![{Py.HtmlEscape(r.Shows, quote: false)}]({link})", ""]);   // Markdown alt text: < > & escaped, quotes as they are
                 }
                 if (r.Pick.Length > 0)
                     lines.AddRange([$"The message: {byName[r.Pick].Name}. Where it goes: {byName[r.Pick].Surfaces}", ""]);

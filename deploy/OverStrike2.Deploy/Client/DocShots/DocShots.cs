@@ -177,7 +177,7 @@ static partial class DocShots
 
     // ---------------------------------------------------------------- the checks every invocation runs
 
-    static readonly string[] PostVerbs = ["restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "check"];
+    static readonly string[] PostVerbs = ["restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check"];
     static readonly string[] RconAllowed = ["ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ",
         "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "os_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
     static readonly string[] ChangelevelAllowed = ["ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno"];   // official maps: no download dialog
@@ -550,6 +550,9 @@ static partial class DocShots
         public abstract void WaitLog(Step s);
         public abstract void VoteGap();
         public abstract void VoteClosed();
+        public abstract void VoteOpened();
+        public abstract void Pressed();
+        public abstract void Until(Step s);
         public abstract void Guard(Step s);
         public abstract void Shoot(Step s, List<string> names, Row row);
         public abstract void SetupShoot(Step s);
@@ -574,6 +577,7 @@ static partial class DocShots
         public double Clock;
         double busy, closedAt;
         public int Frames;
+        readonly Dictionary<string, double?> at = new() { ["join"] = null, ["vote"] = null, ["closed"] = null, ["press"] = null };   // until's anchors (Anchors)
 
         public override void Say(string text = "") => stream.WriteLine(text);
 
@@ -615,6 +619,8 @@ static partial class DocShots
         public override void Con(Step s)
         {
             Clock += TCon + s.WaitMs / 1000.0;
+            if (s.Text.StartsWith("jointeam", StringComparison.Ordinal))
+                at["join"] = Clock;
             Say($"  $ {Cmdline(ConArgv(s.Text, s.WaitMs))}");
         }
 
@@ -622,6 +628,26 @@ static partial class DocShots
         {
             Clock += TPost;
             Say($"  $ {Cmdline(PostArgv(s.Text))}    a candidate bridge on a test copy or it refuses; a refusal fails the row");
+        }
+
+        public override void Until(Step s)
+        {
+            var when = at[s.Text];
+            if (when is not null)
+                Clock = Math.Max(Clock, when.Value + s.Seconds);
+            Say($"  sleep until {Py.G(s.Seconds)} s after {Anchors[s.Text]}" + (when is not null ? "" : " (not yet in this plan: the row fails)"));
+        }
+
+        public override void VoteOpened()
+        {
+            at["vote"] = Clock;
+            Say("  (the vote has opened: its clocks count from here)");
+        }
+
+        public override void Pressed()
+        {
+            at["press"] = Clock;
+            Say("  (the press is marked: what it starts counts from here)");
         }
 
         public override void Pause(double seconds)
@@ -652,6 +678,7 @@ static partial class DocShots
         public override void VoteClosed()
         {
             closedAt = Clock;
+            at["closed"] = Clock;
             Say("  (the vote has closed: the wait starts)");
         }
 
@@ -741,6 +768,7 @@ static partial class DocShots
         (Spawned P, string Path, string Label, string Expect)? bg;
         int markLine;
         double closedAt = Now();      // a run may follow another's vote: the first vote gap waits it out
+        readonly Dictionary<string, double?> at = new() { ["join"] = null, ["vote"] = null, ["closed"] = null, ["press"] = null };   // until's anchors (Anchors), as this run met them
         bool voteSeen;
         public readonly Dictionary<string, List<string>> FramesShot = [];
         public readonly Dictionary<string, string> Failed = [];
@@ -820,23 +848,36 @@ static partial class DocShots
         public override void Rcon(Step s)
         {
             JoinBg();
-            var began = Now();
-            Sleep(RconDelay);           // the pace the rows were tuned to (RconDelay)
             var text = RunVerb(RconArgv(s.Text), 60, $"rcon {s.Text}");
             if (s.Expect.Length > 0 && !Regex.IsMatch(text, s.Expect))
                 throw new RowFailed($"rcon {s.Text}: the reply does not say /{s.Expect}/: {Py.Slice(Scrub(Py.Strip(text)), 0, 300)}");
-            Sleep(Math.Max(0.0, began + TRcon - Now()));
         }
 
         public override void RconBg(Step s)
         {
             JoinBg();
-            Sleep(RconDelay);
             var (p, path) = Launch(RconArgv(s.Text));
             bg = (p, path, $"rcon {s.Text}", s.Expect);
         }
 
-        public override void Con(Step s) => RunVerb(ConArgv(s.Text, s.WaitMs), 30, $"cmd {s.Text}");
+        public override void Con(Step s)
+        {
+            RunVerb(ConArgv(s.Text, s.WaitMs), 30, $"cmd {s.Text}");
+            if (s.Text.StartsWith("jointeam", StringComparison.Ordinal))
+                at["join"] = Now();
+        }
+
+        public override void Until(Step s)
+        {
+            var when = at[s.Text] ?? throw new RowFailed($"until: {Anchors[s.Text]} has not happened in this run");
+            var wait = when + s.Seconds - Now();
+            if (wait > 0)
+                Sleep(wait);
+        }
+
+        public override void VoteOpened() => at["vote"] = Now();
+
+        public override void Pressed() => at["press"] = Now();
 
         public override void Post(Step s) => RunVerb(PostArgv(s.Text), 60, $"post {s.Text}");
 
@@ -876,6 +917,7 @@ static partial class DocShots
         public override void VoteClosed()
         {
             closedAt = Now();
+            at["closed"] = closedAt;
             voteSeen = true;
         }
 
@@ -1080,6 +1122,15 @@ static partial class DocShots
             case "vote_closed":
                 runner.VoteClosed();
                 break;
+            case "vote_opened":
+                runner.VoteOpened();
+                break;
+            case "pressed":
+                runner.Pressed();
+                break;
+            case "until":
+                runner.Until(s);
+                break;
             case "guard":
                 runner.Guard(s);
                 break;
@@ -1239,6 +1290,9 @@ static partial class DocShots
         "vote_gap" => $"wait out the {VoteGap} s after a vote",
         "vote_closed" => "(the vote has closed)",
         "guard" => $"refuse unless a vote closed under {Py.G(s.Seconds)} s ago",
+        "vote_opened" => "(the vote has opened)",
+        "pressed" => "(the press is marked)",
+        "until" => $"sleep until {Py.G(s.Seconds)} s after {Anchors[s.Text]}",
         _ => throw new InvalidOperationException(s.Kind),
     };
 
@@ -1280,7 +1334,7 @@ static partial class DocShots
             }
             var p = new Printer(res, output, stream);
             Walk(p, plan);
-            stream.WriteLine($"-------- {res}: {plan.Count(e => e.Mode == "shoot")} rows, {p.Frames} frames at full size, about {Py.F0(p.Clock / 60)} min by the earlier runs' timings "
+            stream.WriteLine($"-------- {res}: {plan.Count(e => e.Mode == "shoot")} rows, {p.Frames} frames at full size, about {Py.F0(p.Clock / 60)} min by the verbs' timings (T_RCON, T_SHOT, ...) "
                          + $"(-MaxMinutes in the start command: 120), {notes.Count} not run.");
         }
         stream.Flush();
