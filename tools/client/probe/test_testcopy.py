@@ -140,7 +140,7 @@ check("rm: refuses production, no stop", refused and not any(c[0] in ("POST", "D
 
 # 7. run --env: one more image variable for the copy alone, never a credential
 tc.PROD_SAVED.parent.mkdir(parents=True, exist_ok=True)
-tc.PROD_SAVED.write_text(json.dumps({"Image": "sha256:img", "Config": {"Env": ["CS2_MAPGROUP=mg_armsrace", "CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug"],
+tc.PROD_SAVED.write_text(json.dumps({"Image": "sha256:img", "Config": {"Env": ["CS2_MAPGROUP=mg_armsrace", "CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug", tc.CONTENT + "={}"],
                                                                   "Labels": {}}, "HostConfig": {"RestartPolicy": {"Name": "always"}}}))
 b = tc.body(tc.env_overrides(["--env", "CS2_MAPGROUP=mg_ar_shoots"]))
 check("run --env: the copy gets CS2_MAPGROUP=mg_ar_shoots instead of production's, and -insecure",
@@ -160,12 +160,12 @@ check("run without --env: the copy as before", tc.body()["Env"].count("CS2_MAPGR
 
 # 7b. the copy on production's own network endpoint, from production's inspect: its networks, pinned IP, MAC and aliases
 net = {"game": {"IPAMConfig": {"IPv4Address": "192.0.2.100"}, "MacAddress": "02:00:00:00:00:64", "Aliases": ["cs2", "game"], "IPAddress": "192.0.2.100"}}
-tc.PROD_SAVED.write_text(json.dumps({"Image": "sha256:img", "Config": {"Env": [], "Labels": {}}, "HostConfig": {}, "NetworkSettings": {"Networks": net}}))
+tc.PROD_SAVED.write_text(json.dumps({"Image": "sha256:img", "Config": {"Env": [tc.CONTENT + "={}"], "Labels": {}}, "HostConfig": {}, "NetworkSettings": {"Networks": net}}))
 check("run: the copy's endpoint is production's - network, IP, MAC and aliases from its inspect",
       tc.body()["NetworkingConfig"]["EndpointsConfig"] == {"game": {"IPAMConfig": {"IPv4Address": "192.0.2.100"}, "MacAddress": "02:00:00:00:00:64", "Aliases": ["cs2", "game"]}})
 check("pinned: (network, IP, MAC)", tc.pinned({"NetworkSettings": {"Networks": net}}) == [("game", "192.0.2.100", "02:00:00:00:00:64")])
 
-# 8. run against a production without the settings text: the variables do the work, nothing else is touched
+# 8. a production without the settings text gets no copy: no program reads anything else that turns the watcher off
 tc.wait_a2s = lambda want, limit: (("srv", "m", 0, want), 1)
 PROD = {"Image": "sha256:img", "Config": {"Env": ["CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug"], "Labels": {}}, "HostConfig": {"RestartPolicy": {"Name": "always"}}}
 
@@ -181,11 +181,12 @@ def steps():
 
 
 run_copy(PROD)
-tc.cmd_run()
-check("run, no settings text in production: create and start as ever", steps() == ["/containers/create", "/containers/cs2/start"])
-check("run, no settings text in production: the variables that do the work are in the copy's environment, and nothing else is added",
-      all(f"{k}={v}" in state["created_body"]["Env"] for k, v in tc.OFF.items()) and "CS2_ADDITIONAL_ARGS=-condebug -insecure" in state["created_body"]["Env"]
-      and not any(e.startswith(tc.CONTENT) for e in state["created_body"]["Env"]))
+try:
+    tc.cmd_run(); refused = None
+except SystemExit as e:
+    refused = str(e)
+check("run, no settings text in production: refused, nothing created", refused and "REFUSED" in refused and "no settings text" in refused and not steps())
+check("the older programs' variables are gone: a copy's environment is production's but for -insecure and --env", not hasattr(tc, "OFF"))
 
 # 9. run against a production on the settings text: its text, with the automatic actions off, in the copy's environment
 TEXT = '''{

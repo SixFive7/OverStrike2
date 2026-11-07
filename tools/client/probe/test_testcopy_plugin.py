@@ -131,7 +131,7 @@ def refused(fn, *a):
         return str(e)
 
 
-def production(status="running", text=None, mounts=False):
+def production(status="running", text='{ "schema": 1 }', mounts=False):
     env = ["CS2_RCONPW=pw"] + ([tc.CONTENT + "=" + text] if text else [])
     binds = [f"{PLUGINS}:/home/steam/cs2-plugins:ro", "/srv/overstrike2/bridge:/data:ro", "/srv/cs2:/home/steam/cs2-dedicated"]
     host = {"RestartPolicy": {"Name": "always"}}

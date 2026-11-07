@@ -74,8 +74,8 @@ plugin back; restore checks that it did. Any time under the lock, before prep to
 THE SETTINGS TEXT. The watcher and the plugin read the settings text, production's environment variable OVERSTRIKE2_SETTINGS_CONTENT. So
 run sets SETTINGS_OFF on that text in the copy's environment: the watcher's automatic actions, the deletion and the Workshop page visits
 off, every other value production's. A text that cannot be read stops the copy before it is created, because a copy without its
-overrides is production. A candidate bridge has production's text in its environment as it is. A production without that variable (the
-older programs, which read the variables in OFF) gets OFF alone.
+overrides is production, and so does a production without the text: no program reads anything else that would turn the watcher off
+(the older programs' variables are read by none). A candidate bridge has production's text in its environment as it is.
 
 Prints no secret: the saved inspects (they hold the RCON password and the bridge's secret) stay in the harness's state folder
 (probe.state_dir(), testcopy/) and are deleted once production is itself again.
@@ -110,14 +110,12 @@ DOWNLOADS = ("maps", "backgroundDownloads")           # run --downloads: the one
 TEST_LABEL = probe.TEST_LABEL                         # cs2.test-config: a test copy, a candidate, a helper - never production
 TAG = "insecure client-test copy (tools/client/probe/testcopy.py): -insecure, restart watcher off"
 BRIDGE_TAG = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data"
-OFF = {"CS2_FREEZE_RECOVERY": "0", "CS2_AUTOUPDATE": "0", "CS2_RESTART_AT": "off", "CS2_WARMUP": "0", "CS2_PREFETCH_AT": "off",
-       "CS2_PREFETCH_RESTART": "0",
-       "HUD_ITEM_PAGE": "off"}  # the plugin never visits the HUD item's page from a test copy: a copy's restarts must not add visits
 CONTENT = "OVERSTRIKE2_SETTINGS_CONTENT"           # the settings text in every container's environment
 SETTINGS_OFF = {"restarts": {"updates": False, "newVersions": False, "freezeRecovery": False, "daily": "off", "downloadRestart": False},
                 "maps": {"delete": "off", "backgroundDownloads": False, "downloadLine": False},
-                "hud": {"itemPage": False}}   # OFF's work in the settings text: with restarts and these maps keys off the watcher exits at once (run
-                                                # --downloads keeps maps.backgroundDownloads production's: the watcher then stays up for it)
+                "hud": {"itemPage": False}}   # with restarts and these maps keys off the watcher exits at once (run --downloads keeps
+                                                # maps.backgroundDownloads production's: the watcher then stays up for it); no visit to the HUD
+                                                # item's page from a copy
 
 
 def log(*a):
@@ -269,7 +267,9 @@ def body(extra=None, downloads=False, bridge_copy=None):
         if src and (copy_dir(src) != bridge_copy or swap_bind(h, at, src, bridge_copy) != 1):
             sys.exit(f"REFUSED: the candidate bridge's data is not the copy beside the bridge data production's game server reads at {at} - "
                      "no copy, which would read production's bridge data beside a candidate")
-    over = {**OFF, **(extra or {})}
+    if not any(e.startswith(CONTENT + "=") for e in c["Env"]):
+        sys.exit("REFUSED: production has no settings text - nothing would turn the copy's restart watcher off, so no copy")
+    over = dict(extra or {})
     keep = (DOWNLOADS,) if downloads else ()
     env = [settings_for_copy(e, keep) if e.startswith(CONTENT + "=") else e
            for e in c["Env"] if e.split("=", 1)[0] not in over and not e.startswith("CS2_ADDITIONAL_ARGS=")]
