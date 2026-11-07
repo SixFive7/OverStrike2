@@ -248,12 +248,11 @@ static partial class Program
 
             // ---- every content on one path: the plugin sends what this content has, an older content lacks what it lacks, and the ones still drawn for
             //      (HudVersion.Oldest on) keep what their own pages need. hud/reference/ keeps the shipped layouts these checks read and no other: the ones
-            //      still drawn for, the one this content replaces, every one with a join banner. A missing one fails; every older layout is in git ----
+            //      still drawn for and the one this content replaces. A missing one fails; every older layout is in git ----
             var shippedContents = HudVersion.Contents.SkipLast(1).Select(c => c.Version).ToArray(); // the table's lines but this content's
             static string ReferenceFile(string content) => $"../hud/reference/gungame_hud_{content}.xml";
             var inUseContents = HudVersion.Contents.SkipLast(1).Where(c => c.Level >= HudVersion.Oldest).Select(c => c.Version).ToArray(); // the shipped contents still drawn for
-            var bannerContents = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest).ToList(); // the contents with a join banner
-            var readContents = inUseContents.Append(shippedContents[^1]).Concat(bannerContents.Select(c => c.Version)).ToHashSet();
+            var readContents = inUseContents.Append(shippedContents[^1]).ToHashSet();
             var kept = Directory.GetFiles("../hud/reference", "gungame_hud_*.xml").Select(f => Path.GetFileNameWithoutExtension(f)["gungame_hud_".Length..]).ToHashSet();
             Check($"hud/reference/ holds the shipped layouts these checks read ({string.Join(", ", readContents.Order(StringComparer.Ordinal))}) and no other: a release keeps the layout it replaces, and a missing one fails{(kept.SetEquals(readContents) ? "" : $": missing {string.Join(" ", readContents.Except(kept))}; read by nothing {string.Join(" ", kept.Except(readContents))}")}",
                 kept.SetEquals(readContents));
@@ -286,10 +285,11 @@ static partial class Program
                 Check($"Content: the plugin sends what this content has (no panel waits for a click to prove a content): every text and class goes to every game alike, to a panel of this content or of one still drawn for - none only a content before {HudVersion.OfLevel(HudVersion.Oldest)} has",
                     sent.All(id => ids.Contains(id) || inUse.Any(s => s.Contains(id))));
             }
-            // The one thing an older content than HudVersion.Oldest still gets: its red "yours is older" at a join. Each content with a join banner names, in its own
-            // layout, the class that lights that line - svge and its level + 1 - and the server sets it.
-            Check($"Every content with a join banner ({string.Join(", ", bannerContents.Select(c => c.Version))}) has its red \"yours is older\" and the class its layout names for it, svge(its level + 1), is on at this server",
-                bannerContents.Count > 0 && bannerContents.All(c => File.Exists(ReferenceFile(c.Version)) && File.ReadAllText(ReferenceFile(c.Version)) is var x
+            // The join banner of a content still drawn for: its layout names the class that lights its red "yours is older" - svge and its level + 1 - and the server
+            // sets it. The contents before (v4.0.0 to v4.4.0) get theirs too (HudVersion.Classes), with no layout here to hold them to.
+            var bannered = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest && inUseContents.Contains(c.Version)).ToList();
+            Check($"Every content still drawn for with a join banner ({string.Join(", ", bannered.Select(c => c.Version))}) has its red \"yours is older\" and the class its layout names for it, svge(its level + 1), is on at this server",
+                bannered.Count > 0 && bannered.All(c => File.Exists(ReferenceFile(c.Version)) && File.ReadAllText(ReferenceFile(c.Version)) is var x
                     && x.Contains("class=\"gg-ver-old\"") && x.Contains("yours is older") && x.Contains($"svge{c.Level + 1}")
                     && HudVersion.Classes().Single(v => v.Class == $"svge{c.Level + 1}").On));
 

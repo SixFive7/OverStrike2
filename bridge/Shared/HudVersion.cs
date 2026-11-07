@@ -36,8 +36,8 @@ public static class HudVersion
     /// stay in use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all: it sends what this content has,
     /// and an older content simply lacks what it lacks (a panel a game does not have takes nothing in it). What v4.5.0, the oldest content still drawn for (Oldest),
     /// needs to show its own pages keeps coming: its page classes, c31 and c32 (it holds the panels those two uncover) and the svge/svlt classes its join banner
-    /// reads; nothing comes for what only a content before it reads but its red "yours is older" class (JoinBannerFirst). hud/reference/ keeps the shipped layouts
-    /// --selftest holds this one to.</summary>
+    /// reads; nothing comes for what only a content before it reads but its red "yours is older" class (JoinBannerFirst). hud/reference/ keeps the layouts
+    /// --selftest holds this one to: the contents still drawn for and the one this content replaces.</summary>
     public static string Content => Contents[^1].Version;
 
     /// <summary>The server's content as a number: the level on Contents' last line.</summary>
