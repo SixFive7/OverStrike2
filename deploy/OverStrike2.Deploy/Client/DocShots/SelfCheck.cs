@@ -558,7 +558,7 @@ static partial class DocShots
         Out.Print($"  --dry-run at {Resolutions.Length} resolutions, with and without --bridge-copy: only the verbs ('rcon', 'cmd', 'shot', 'log') and, with the copy, bridgepost's, every shot -MaxWidth 0, no real name; estimated minutes with the copy: "
                   + string.Join(", ", estimates.Select(e => $"{e.Res} {e.Minutes}")));
         Out.Print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only");
-        Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world behind; changed by a word anywhere else");
+        Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world dimmed behind a panel; changed by a word anywhere else");
         Out.Print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb");
         Out.Print("  NOT checked, and not checkable offline: anything against a real client or server");
         return 0;

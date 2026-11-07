@@ -191,7 +191,8 @@ static partial class DocShots
     const int SameLevel = 48, SameBlock = 8;   // a pixel differs by more than 48 of 255 in a channel; an 8x8 block counts when 8 of its 64 pixels do
 
     /// <summary>Whether two pictures show the same within region, all but the volatile boxes: (true, words) or (false, where they differ). JPEG's noise
-    /// and a translucent panel over a game world that differs behind it stay under SameLevel; a changed word, style or layout moves whole blocks.</summary>
+    /// and a translucent panel over a game world that differs behind it stay under SameLevel; a changed word, style or layout moves whole blocks. The game
+    /// world a crop shows around a panel, at full strength, does not: a region that takes in a margin of the game is flagged in every retake.</summary>
     public static (bool Same, string Words) SamePicture(Rgb newer, Rgb old, Px region, IReadOnlyList<Px>? volatileBoxes = null)
     {
         if (newer.Width != old.Width || newer.Height != old.Height)

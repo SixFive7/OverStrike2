@@ -12,7 +12,11 @@ namespace OverStrike2.Deploy;
 ///     os2-deploy docshots publish --relink [--repo &lt;checkout&gt;]       a gallery that still carries its pictures inside it: each one a file of its own, linked
 ///
 /// The history keeps every picture forever, so a retake commits only the pictures that really changed: each is compared with the committed one at its
-/// path (DocShots.SamePicture) on what it is about, all but what differs on every shot; a picture that shows the same keeps its committed bytes. --all
+/// path (DocShots.SamePicture) on what it is about, all but what differs on every shot - the clocks, timers, counters and random tiles VolatileBoxes
+/// names, JPEG's noise, the game world dimmed behind a translucent panel. Not the game world a crop shows around a panel: the board, the top line's
+/// messages, the banners and their gallery pictures are cut with a margin of the game around them, which differs in every run, so a retake flags them
+/// even when the panel is the same - look at each beside the committed one, and keep the committed file when only the world changed. A picture that
+/// shows the same keeps its committed bytes. --all
 /// writes every picture anew. Pictures no page and no message uses any more are removed. It refuses unless &lt;out&gt;/&lt;res&gt;/reviewed.txt names every
 /// picture the run wrote. The pages' pictures go in as JPEG at full size (quality 85, no chroma subsampling), a page takes a row's first and last frame;
 /// the gallery's are files of their own under docs/hud/img/gallery/: how a message looks (the crop) and where it is (the frame, 800 px wide, marked).</summary>
