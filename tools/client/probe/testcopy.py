@@ -17,11 +17,16 @@ game, so the stop ends it with SIGKILL after the grace period, as every redeploy
   python -I testcopy.py prep             refuses with a human on A2S or without the harness's server lock; maintenance flag on (the bridge
                                          makes no automatic map change, counts no crash); production's inspect saved; a Docker stop (no RCON
                                          quit), renamed aside to <game>-prod-aside only once it is exited
-  python -I testcopy.py run [--env K=V]  the test copy: production's inspect, the same image, plugins and HUD addon, with -insecure added to
+  python -I testcopy.py run [--env K=V] [--downloads]
+                                         the test copy: production's inspect, the same image, plugins and HUD addon, with -insecure added to
                                          CS2_ADDITIONAL_ARGS, the restart watcher's automatic actions off, restart policy "no", the labels
                                          cs2.test-config + client.test_labels + a poisoned compose config-hash, production's network endpoint;
                                          waits until A2S answers with VAC off. --env K=V (repeatable) sets one more of the image's variables for
-                                         this copy alone - CS2_MAPGROUP=mg_ar_shoots, say; never a password, secret or token
+                                         this copy alone - CS2_MAPGROUP=mg_ar_shoots, say; never a password, secret or token. --downloads keeps
+                                         maps.backgroundDownloads at production's value (on by default): the restart watcher stays up for the
+                                         stock's background downloads alone - into the game's tree, as production makes them - and sends the
+                                         bridge its ready reports (the Sync page's stock on disk). Refused while production's watcher has a
+                                         restart of its own to judge (its state's pending record), which the copy's watcher would judge instead
   python -I testcopy.py status           A2S (VAC flag), which container is the game server, whether production is aside
   python -I testcopy.py rm               a Docker stop (no RCON quit) and delete the test copy (refuses a game container without the test label)
   python -I testcopy.py restore          production renamed back and started; waits for A2S with VAC ON and a map; checks its network endpoint
@@ -46,7 +51,9 @@ bridge-rm, bridge-restore, restore (which refuses while production's bridge is n
 
 Production's state.json is never written by a candidate: production's bridge is stopped while it is aside, the candidate's /data is
 the copy, and the copy helper mounts production's data read-only. A Workshop sync that posts to the bridge's name reaches the candidate,
-which writes into the copy.
+which writes into the copy. A test copy run beside a candidate reads the candidate's copy, read-only as production's game server reads
+production's data (paths.bridgeData): what the copy's programs read of the bridge's data - the queues the watcher downloads, the lists -
+is what the candidate writes. A candidate started after run leaves the copy on production's data.
 
 THE PLUGIN OF A COMMIT OF MAIN on the test copy, so a plugin change meets the client before it ships: the copy mounts a staged plugins
 folder in place of production's, and production's own plugins folder is never written. Production's game server copies its plugins into
@@ -98,6 +105,8 @@ BUILDS = STATE / "plugin-build"                       # the commits' exports and
 PLUGIN = "OverStrike2"                                # the plugin's folder, DLL and name (deploy/plugin.py's NAME)
 PLUGINS_AT = "/home/steam/cs2-plugins"                # paths.plugins' default (core/Settings.cs): where the game server reads the plugins to install
 GAME_DIR_AT = "/home/steam/cs2-dedicated"             # paths.gameDir's default: the game's install, its plugins under game/csgo/addons/counterstrikesharp
+BRIDGE_DATA_AT = "/data"                              # paths.bridgeData's default: the bridge's data, read-only in the game server
+DOWNLOADS = ("maps", "backgroundDownloads")           # run --downloads: the one switch of SETTINGS_OFF a copy may keep at production's value
 TEST_LABEL = probe.TEST_LABEL                         # cs2.test-config: a test copy, a candidate, a helper - never production
 TAG = "insecure client-test copy (tools/client/probe/testcopy.py): -insecure, restart watcher off"
 BRIDGE_TAG = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data"
@@ -107,7 +116,8 @@ OFF = {"CS2_FREEZE_RECOVERY": "0", "CS2_AUTOUPDATE": "0", "CS2_RESTART_AT": "off
 CONTENT = "OVERSTRIKE2_SETTINGS_CONTENT"           # the settings text in every container's environment
 SETTINGS_OFF = {"restarts": {"updates": False, "newVersions": False, "freezeRecovery": False, "daily": "off", "downloadRestart": False},
                 "maps": {"delete": "off", "backgroundDownloads": False, "downloadLine": False},
-                "hud": {"itemPage": False}}   # OFF's work in the settings text: with restarts and these two maps keys off the watcher exits at once
+                "hud": {"itemPage": False}}   # OFF's work in the settings text: with restarts and these maps keys off the watcher exits at once (run
+                                                # --downloads keeps maps.backgroundDownloads production's: the watcher then stays up for it)
 
 
 def log(*a):
@@ -226,9 +236,10 @@ def cmd_prep():
     log(f"production renamed to {ASIDE} ->", st, inspect(ASIDE)["State"]["Status"])
 
 
-def settings_for_copy(entry):
-    """Production's settings text, an entry of its Env, with SETTINGS_OFF set on it. Its comments go, if it has any; references (env:, file:)
-    stay for the copy to read. Exits on a text that cannot be read: a copy without its overrides is production."""
+def settings_for_copy(entry, keep=()):
+    """Production's settings text, an entry of its Env, with SETTINGS_OFF set on it - but the (section, key) pairs in `keep`, which stay
+    production's. Its comments go, if it has any; references (env:, file:) stay for the copy to read. Exits on a text that cannot be read: a
+    copy without its overrides is production."""
     try:
         settings = jsonc(entry.split("=", 1)[1])
     except ValueError:
@@ -236,11 +247,13 @@ def settings_for_copy(entry):
     if not isinstance(settings, dict):
         sys.exit("REFUSED: production's settings text cannot be read - no test copy without its overrides")
     for section, values in SETTINGS_OFF.items():
-        settings.setdefault(section, {}).update(values)
+        settings.setdefault(section, {}).update({k: v for k, v in values.items() if (section, k) not in keep})
     return f"{CONTENT}={json.dumps(settings)}"
 
 
-def body(extra=None):
+def body(extra=None, downloads=False, bridge_copy=None):
+    """The test copy's create body. `downloads`: maps.backgroundDownloads stays production's (run --downloads). `bridge_copy`: a candidate
+    bridge's data folder, which the copy reads in the place of production's bridge data."""
     d = json.loads(PROD_SAVED.read_text())
     c, h = d["Config"], copy.deepcopy(d["HostConfig"])
     staged = staged_plugin()
@@ -250,8 +263,15 @@ def body(extra=None):
         if not src or staged["dir"] != copy_dir(src) or swap_bind(h, at, src, staged["dir"]) != 1:
             sys.exit(f"REFUSED: the staged plugin cannot take the place of production's plugins folder at {at} - no copy, which would run "
                      "production's plugin (plugin-rm, then plugin <commit> again)")
+    if bridge_copy:   # beside a candidate bridge: the candidate's copy of the bridge's data in the place of production's, read-only as it is
+        at = bridge_data_at(d)
+        src = bind_source(d, at)
+        if src and (copy_dir(src) != bridge_copy or swap_bind(h, at, src, bridge_copy) != 1):
+            sys.exit(f"REFUSED: the candidate bridge's data is not the copy beside the bridge data production's game server reads at {at} - "
+                     "no copy, which would read production's bridge data beside a candidate")
     over = {**OFF, **(extra or {})}
-    env = [settings_for_copy(e) if e.startswith(CONTENT + "=") else e
+    keep = (DOWNLOADS,) if downloads else ()
+    env = [settings_for_copy(e, keep) if e.startswith(CONTENT + "=") else e
            for e in c["Env"] if e.split("=", 1)[0] not in over and not e.startswith("CS2_ADDITIONAL_ARGS=")]
     args = next((e.split("=", 1)[1] for e in c["Env"] if e.startswith("CS2_ADDITIONAL_ARGS=")), "")
     env += [f"{k}={v}" for k, v in over.items()] + [f"CS2_ADDITIONAL_ARGS={(args + ' -insecure').strip()}"]
@@ -281,18 +301,72 @@ def env_overrides(argv):
     return out
 
 
+def bridge_data_at(d):
+    """Where the game server reads the bridge's data (paths.bridgeData)."""
+    return setting_path(d, "bridgeData", BRIDGE_DATA_AT)
+
+
+def watcher_pending(d):
+    """Whether production's restart watcher has a restart of its own recorded - update-watch/state.json's "pending", which the next watcher
+    to start judges: True, False (no record, or no state yet), None when it cannot be read. Read by a helper, the game's tree read-only."""
+    src = bind_source(d, setting_path(d, "gameDir", GAME_DIR_AT, "STEAMAPPDIR"))
+    if not src:
+        return None
+    code, out = helper(f"{GAME}-watch-read", [f"{src}:/g:ro"], "cat /g/update-watch/state.json 2>/dev/null || echo '{}'")
+    try:
+        state = json.loads(out) if code == 0 else None
+    except ValueError:
+        state = None
+    return None if not isinstance(state, dict) else state.get("pending") is not None
+
+
+def downloads_words(d):
+    """run --downloads: production's own maps.backgroundDownloads, in words. Exits when a copy cannot keep it: no settings text, or a
+    restart of production's watcher still to be judged (the copy's watcher would judge it in its place, with the copy's versions)."""
+    text = env_of(d, CONTENT)
+    if text is None:
+        sys.exit("REFUSED: --downloads keeps a value of production's settings text, and production has none")
+    try:
+        value = ((jsonc(text) or {}).get("maps") or {}).get("backgroundDownloads", True)
+    except (ValueError, AttributeError):
+        sys.exit("REFUSED: production's settings text cannot be read - no test copy without its overrides")
+    pending = watcher_pending(d)
+    if pending is None:
+        sys.exit("REFUSED: --downloads: production's restart watcher state (update-watch/state.json) cannot be read - no watcher on the copy")
+    if pending:
+        sys.exit("REFUSED: --downloads: production's restart watcher has a restart of its own to judge (update-watch/state.json, pending) - "
+                 "a copy's watcher would judge it in its place; run the copy without --downloads")
+    if value is True:
+        return "maps.backgroundDownloads at production's value (on): the restart watcher stays up for the background downloads alone and reports to the bridge"
+    return f"maps.backgroundDownloads is {json.dumps(value)} in production too: the copy's restart watcher still has nothing to do and exits"
+
+
 def cmd_run(argv=()):
     probe.need_lock()
-    extra = env_overrides(argv)
+    argv = list(argv)
+    downloads = "--downloads" in argv
+    extra = env_overrides([a for a in argv if a != "--downloads"])
     if inspect(ASIDE) is None:
         sys.exit("REFUSED: production is not aside - run prep first")
     if inspect(GAME) is not None:
         sys.exit(f"REFUSED: a {GAME} container exists")
+    prod = json.loads(PROD_SAVED.read_text())
+    cand = inspect(BRIDGE)
+    bridge_copy = data_mount(cand) if is_test(cand) else None
+    if is_test(cand) and not bridge_copy:
+        sys.exit("REFUSED: the candidate bridge has no bind at /data - no copy beside it")
+    said = downloads_words(prod) if downloads else None
     if extra:
         log("for this copy alone:", ", ".join(f"{k}={v}" for k, v in extra.items()))
-    new = body(extra)
+    new = body(extra, downloads, bridge_copy)
     if any(e.startswith(CONTENT + "=") for e in new["Env"]):
-        log("production holds the settings text: the copy has it with", ", ".join(f"{s}.{k}" for s, v in SETTINGS_OFF.items() for k in v), "overridden")
+        log("production holds the settings text: the copy has it with",
+            ", ".join(f"{s}.{k}" for s, v in SETTINGS_OFF.items() for k in v if not (downloads and (s, k) == DOWNLOADS)), "overridden")
+    if said:
+        log(said)
+    if bridge_copy:
+        log("beside the candidate bridge: the copy reads its copy of the bridge's data (<data>-candidate) in the place of production's"
+            if bind_source(prod, bridge_data_at(prod)) else "beside the candidate bridge: production's game server reads no bridge data, nor does the copy")
     staged = staged_plugin()
     log(f"plugin: the build of {staged['commit'][:12]}, staged, in the place of production's plugins folder" if staged else "plugin: production's")
     st, b = probe.req(f"/containers/create?name={GAME}", "POST", new)

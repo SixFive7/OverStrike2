@@ -1,6 +1,8 @@
 """Offline test of testcopy.py's prep, rm and run against an in-memory Docker: no RCON quit, the rename only once production has exited,
 never a credential as an override; the copy on production's own network endpoint; without a settings text in production run works on the
-variables, with one the copy's environment holds production's text with the automatic actions off, or there is no copy.
+variables, with one the copy's environment holds production's text with the automatic actions off, or there is no copy; run --downloads
+keeps the background downloads production's only while production's watcher has nothing of its own to judge; beside a candidate bridge
+the copy reads the candidate's copy of the bridge's data.
 
     python -I tools/client/probe/test_testcopy.py
 """
@@ -235,6 +237,103 @@ try:
 except SystemExit:
     refused = True
 check("run --env refuses the settings text: it holds secrets", refused)
+
+# 10b. run --downloads: maps.backgroundDownloads production's, so the watcher stays up for it alone; never while production's watcher has a
+# restart of its own to judge (its state's pending record), never without the settings text
+helped = []
+watch_state = {"text": '{"schema": 1, "pending": null}\n', "code": 0}
+real_helper = tc.helper
+
+
+def fake_helper(name, binds, script, image=None):
+    helped.append((name, binds, script))
+    return watch_state["code"], watch_state["text"]
+
+
+tc.helper = fake_helper
+GAMEDIR = {"Binds": ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata:/data:ro"], "RestartPolicy": {"Name": "always"}}
+
+
+def run_out(prod, argv):
+    run_copy(prod)
+    helped.clear()
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            tc.cmd_run(argv)
+        return None, out.getvalue()
+    except SystemExit as e:
+        return str(e), out.getvalue()
+
+
+DL = dict(SWITCHED, HostConfig=GAMEDIR)
+refused, said = run_out(DL, ["--downloads"])
+copy_settings = json.loads(next(e for e in state["created_body"]["Env"] if e.startswith(tc.CONTENT + "=")).split("=", 1)[1])
+check("run --downloads: maps.backgroundDownloads left as production has it (absent: core's default, on), every other switch still off",
+      refused is None and copy_settings["maps"] == {"delete": "off", "downloadLine": False}
+      and copy_settings["restarts"] == {"daily": "off", "updates": False, "newVersions": False, "freezeRecovery": False, "downloadRestart": False}
+      and copy_settings["hud"]["itemPage"] is False)
+check("run --downloads: says so, and the overridden keys it names leave it out",
+      "maps.backgroundDownloads at production's value (on)" in said and "maps.delete, maps.downloadLine, hud.itemPage overridden" in said and "theBridgeSecret" not in said)
+check("run --downloads: production's watcher state read by a helper with the game's tree read-only, before anything is created",
+      [(n, b) for n, b, _ in helped] == [("cs2-watch-read", ["/srv/game:/g:ro"])] and "update-watch/state.json" in helped[0][2])
+OFF_IN_PROD = dict(DL, Config=dict(DL["Config"], Env=[e if not e.startswith(tc.CONTENT + "=") else tc.CONTENT + "=" + TEXT.replace('"schema": 1,', '"schema": 1, "maps": { "backgroundDownloads": false },') for e in DL["Config"]["Env"]]))
+refused, said = run_out(OFF_IN_PROD, ["--downloads"])
+copy_settings = json.loads(next(e for e in state["created_body"]["Env"] if e.startswith(tc.CONTENT + "=")).split("=", 1)[1])
+check("run --downloads, production has it off: the copy too, and it says the watcher still exits",
+      refused is None and copy_settings["maps"]["backgroundDownloads"] is False and "still has nothing to do" in said)
+for text, code, why in (('{"schema": 1, "pending": {"kind": "version", "at": 1}}\n', 0, "a restart of its own to judge"), ("not json", 0, "cannot be read"),
+                        ("", 1, "cannot be read")):
+    watch_state.update(text=text, code=code)
+    refused, said = run_out(DL, ["--downloads"])
+    check(f"run --downloads refuses when production's watcher state has {why}, nothing created", refused and "REFUSED" in refused and why in refused and not steps())
+watch_state.update(text="{}\n", code=0)
+refused, said = run_out(DL, ["--downloads"])
+check("run --downloads with no watcher state yet: taken", refused is None and steps() == ["/containers/create", "/containers/cs2/start"])
+refused, said = run_out(dict(PROD, HostConfig=GAMEDIR), ["--downloads"])
+check("run --downloads refuses a production without the settings text, nothing created", refused and "has none" in refused and not steps())
+refused, said = run_out(DL, ["--downloads", "--env", "CS2_MAPGROUP=mg_ar_shoots"])
+check("run --downloads with --env: both taken", refused is None and "CS2_MAPGROUP=mg_ar_shoots" in state["created_body"]["Env"])
+refused, said = run_out(DL, [])
+copy_settings = json.loads(next(e for e in state["created_body"]["Env"] if e.startswith(tc.CONTENT + "=")).split("=", 1)[1])
+check("run without --downloads: no helper, the downloads off as ever", not helped and copy_settings["maps"]["backgroundDownloads"] is False)
+
+# 10c. beside a candidate bridge the copy reads the candidate's copy of the bridge's data, read-only as production reads production's
+CAND = {"Id": "cand", "Config": {"Labels": {tc.TEST_LABEL: tc.BRIDGE_TAG}}, "HostConfig": {"Binds": ["/srv/bdata-candidate:/data"]}, "State": {"Status": "running"}}
+
+
+def binds_beside(cand, prod=DL):
+    run_copy(prod)
+    if cand:
+        state["bridge"] = [cand]
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            tc.cmd_run([])
+        return None, state["created_body"]["HostConfig"].get("Binds"), out.getvalue()
+    except SystemExit as e:
+        return str(e), None, out.getvalue()
+
+
+refused, binds, said = binds_beside(CAND)
+check("run beside a candidate: the bridge data at /data is the candidate's copy, its read-only kept; the game's tree as it is",
+      refused is None and binds == ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata-candidate:/data:ro"] and "<data>-candidate" in said and "/srv/" not in said)
+refused, binds, said = binds_beside(None)
+check("run without a candidate: production's bridge data", refused is None and binds == GAMEDIR["Binds"] and "candidate" not in said)
+refused, binds, said = binds_beside(dict(CAND, Config={"Labels": {}}))
+check("run beside production's own bridge: production's bridge data", refused is None and binds == GAMEDIR["Binds"])
+refused, binds, said = binds_beside(dict(CAND, HostConfig={"Binds": ["/elsewhere:/data"]}))
+check("run beside a candidate whose data is not the copy beside production's: refused, nothing created", refused and "REFUSED" in refused and not steps())
+refused, binds, said = binds_beside(dict(CAND, HostConfig={"Binds": []}))
+check("run beside a candidate without a /data bind: refused, nothing created", refused and "REFUSED" in refused and not steps())
+MOVED = dict(DL, HostConfig={"Binds": ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata:/bridge:ro"]},
+             Config=dict(DL["Config"], Env=[e if not e.startswith(tc.CONTENT + "=") else tc.CONTENT + "=" + TEXT.replace('"schema": 1,', '"schema": 1, "paths": { "bridgeData": "/bridge" },') for e in DL["Config"]["Env"]]))
+refused, binds, said = binds_beside(CAND, MOVED)
+check("run beside a candidate, paths.bridgeData elsewhere: the bind there is the one swapped", refused is None and binds == ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata-candidate:/bridge:ro"])
+refused, binds, said = binds_beside(CAND, dict(DL, HostConfig={"Binds": ["/srv/game:/home/steam/cs2-dedicated"]}))
+check("run beside a candidate, production reads no bridge data: nothing to swap, and it says so", refused is None and binds == ["/srv/game:/home/steam/cs2-dedicated"] and "reads no bridge data" in said)
+state.pop("bridge", None)
+tc.helper = real_helper
 
 # 11. restore: production back on the endpoint saved at prep, running what its plugins folder holds, or the flag stays on
 up = dict(ins("running"), NetworkSettings={"Networks": net})
