@@ -415,10 +415,12 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         "fun: Laser guns' blocked convars hold a player's choice, so the block leaves them alone; its no-recoil half is an effect");
     refuse.Add("sv_jump_impulse");
     var no = switches.Apply(S("jump"), C("jump", "high"), "Eve", at);
-    Check(no.EndsWith("; refused sv_jump_impulse") && switches.SetBy("jump") == null && live["sv_jump_impulse"] == "301.993", $"fun: a change the game refuses names nobody as its setter ({no})");
+    Check(no.EndsWith("; refused sv_jump_impulse") && switches.SetBy("jump") == null && live["sv_jump_impulse"] == "301.993"
+        && !switches.Chosen("sv_jump_impulse") && !switches.Before.ContainsKey("sv_jump_impulse"),
+        $"fun: a change the game refuses names nobody as its setter, and is no player's choice - the block still watches the convar ({no})");
     switches.Apply(S("gravity"), C("gravity", "normal"), "Remy", at);
     Check(live["sv_gravity"] == "800" && switches.SetBy("gravity") == null && !switches.Chosen("sv_gravity"), "fun: Normal puts the value from before back, and nobody set it");
-    Check(switches.Describe().EndsWith("bhop turbo, aim on, vampire on, drops off") && switches.Showing().StartsWith("gravity normal, jump normal, bhop turbo,"),
+    Check(switches.Describe() == "bhop turbo, aim on, vampire on, drops off" && switches.Showing().StartsWith("gravity normal, jump normal, bhop turbo,"),
         $"fun: what the console says of them ({switches.Describe()})");
     told.Clear();
     var undone = switches.Undo("the end of the map", at);

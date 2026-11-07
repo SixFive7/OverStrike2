@@ -113,31 +113,32 @@ static partial class Program
         live["sv_enablebunnyhopping"] = "false"; live["sv_autobunnyhopping"] = "false"; // the game prints a bool as true/false
         string? V(string cv) => live.TryGetValue(cv, out var v) ? v : null;
         void Do(List<(string ConVar, string Value)> writes) { foreach (var (cv, v) in writes) live[cv] = v; }
+        bool W(string cv, string v) { live[cv] = v; return true; } // a game that takes every value
         var fun = new FunState();
         var gravity = Fun.Find("gravity")!;
         var bhop = Fun.Find("bhop")!;
         Check("Every setting starts at its first choice on a map that sets nothing", Fun.Settings.All(s => Fun.Showing(s, V) == s.Normal) && !Fun.AllConVars.Any(fun.Chosen));
-        Do(fun.Apply(gravity, Fun.Find(gravity, "low")!, V));
+        fun.Apply(gravity, Fun.Find(gravity, "low")!, V, W);
         Check("Low gravity: sv_gravity 400, what it was remembered, and the convar a player's now (exempt from the block)",
             live["sv_gravity"] == "400" && fun.Before["sv_gravity"] == "800" && fun.Chosen("sv_gravity") && Fun.Showing(gravity, V).Id == "low");
-        Do(fun.Apply(gravity, Fun.Find(gravity, "moon")!, V));
+        fun.Apply(gravity, Fun.Find(gravity, "moon")!, V, W);
         Check("...Moon after Low keeps what it was before any player (800), not Low's 400", live["sv_gravity"] == "200" && fun.Before["sv_gravity"] == "800");
-        Do(fun.Apply(gravity, gravity.Normal, V));
+        fun.Apply(gravity, gravity.Normal, V, W);
         Check("...and Normal puts that back and makes it the map's again", live["sv_gravity"] == "800" && !fun.Chosen("sv_gravity") && Fun.Showing(gravity, V) == gravity.Normal);
         live["sv_gravity"] = "132.8"; // fs_highsky's own
         Check("A map's own value that no choice has reads as Normal, and the page can say it is the map's own",
             Fun.Showing(gravity, V) == gravity.Normal && Fun.OwnValues(gravity, V) is [("sv_gravity", "132.8")]);
-        Do(fun.Apply(gravity, Fun.Find(gravity, "low")!, V)); Do(fun.Apply(gravity, gravity.Normal, V));
+        fun.Apply(gravity, Fun.Find(gravity, "low")!, V, W); fun.Apply(gravity, gravity.Normal, V, W);
         Check("...a player's detour through Low gives the map its own 132.8 back", live["sv_gravity"] == "132.8" && !fun.Chosen("sv_gravity"));
         live["sv_airaccelerate"] = "2000"; // a surf map's own
-        Do(fun.Apply(bhop, Fun.Find(bhop, "on")!, V));
+        fun.Apply(bhop, Fun.Find(bhop, "on")!, V, W);
         Check("Bunny hopping On: hopping and no stamina, a surf map's own air acceleration (2000) left alone",
             live["sv_autobunnyhopping"] == "1" && live["sv_enablebunnyhopping"] == "1" && live["sv_staminajumpcost"] == "0" && live["sv_airaccelerate"] == "2000" && Fun.Showing(bhop, V).Id == "on");
-        Do(fun.Apply(bhop, Fun.Find(bhop, "turbo")!, V));
+        fun.Apply(bhop, Fun.Find(bhop, "turbo")!, V, W);
         Check("...Turbo: air acceleration 100, and the page shows Turbo rather than On (the more specific choice)", live["sv_airaccelerate"] == "100" && Fun.Showing(bhop, V).Id == "turbo");
-        Do(fun.Apply(bhop, Fun.Find(bhop, "on")!, V));
+        fun.Apply(bhop, Fun.Find(bhop, "on")!, V, W);
         Check("...back to On: the surf map's 2000 again, hopping still on", live["sv_airaccelerate"] == "2000" && live["sv_autobunnyhopping"] == "1" && Fun.Showing(bhop, V).Id == "on" && !fun.Chosen("sv_airaccelerate"));
-        Do(fun.Apply(gravity, Fun.Find(gravity, "moon")!, V));
+        fun.Apply(gravity, Fun.Find(gravity, "moon")!, V, W);
         Check("What players changed, for the console", fun.Describe(V) == "gravity moon, bhop on");
         Do(fun.Reset(V));
         Check("The reset (a map's end, or nobody on for 10 minutes): every player change back to how the map had it, nothing a player's any more",
@@ -145,7 +146,34 @@ static partial class Program
             && live["sv_airaccelerate"] == "2000" && !Fun.AllConVars.Any(fun.Chosen) && fun.Reset(V).Count == 0 && fun.Describe(V) == "no player changes");
         var none = new FunState();
         Check("A choice that is so already writes nothing, and a convar the game does not have is never remembered",
-            none.Apply(gravity, gravity.Normal, V).Count == 0 && none.Apply(Fun.Find("ffa")!, Fun.Find(Fun.Find("ffa")!, "on")!, _ => null) is [("mp_teammates_are_enemies", "1")] && !none.Chosen("mp_teammates_are_enemies"));
+            none.Apply(gravity, gravity.Normal, V, W).Count == 0 && none.Apply(Fun.Find("ffa")!, Fun.Find(Fun.Find("ffa")!, "on")!, _ => null, (_, _) => true) is [("mp_teammates_are_enemies", "1", true)]
+            && !none.Chosen("mp_teammates_are_enemies"));
+
+        // ---- a value the game refuses: Laser guns on a server that holds weapon_accuracy_nospread to its own value ----
+        var aim = Fun.Find("aim")!;
+        var held = new FunState();
+        var tried = held.Apply(aim, Fun.Find(aim, "on")!, V, (cv, v) => cv != "weapon_accuracy_nospread" && W(cv, v));
+        Check("A value the game refuses is no player's choice: Laser guns with weapon_accuracy_nospread held - the air spread and no recoil a player's, the spread as it was and nothing remembered of it",
+            tried.Count == 3 && tried.Single(w => w.ConVar == "weapon_accuracy_nospread") is { Value: "1", Took: false } && live["weapon_accuracy_nospread"] == "0"
+            && !held.Chosen("weapon_accuracy_nospread") && !held.Before.ContainsKey("weapon_accuracy_nospread") && held.Chosen("weapon_air_spread_scale") && held.Chosen(Fun.NoRecoil));
+        var watched = new[] { new BlockList.Entry("weapon_accuracy_nospread", null, "no spread"), new BlockList.Entry("weapon_air_spread_scale", null, "accurate jumping") };
+        live["weapon_accuracy_nospread"] = "1"; // and later the map sets it itself
+        Check("...so the game-changers block still watches it: a map that sets it later is put back, the air spread a player chose is left alone",
+            BlockList.Due(watched, V, cv => cv == "weapon_accuracy_nospread" ? "0" : "1", held.Chosen) is [{ Entry.ConVar: "weapon_accuracy_nospread", Now: "1", Want: "0" }]);
+        live["weapon_accuracy_nospread"] = "0";
+        var notBack = held.Apply(aim, aim.Normal, V, (_, _) => false);
+        Check("A put-back the game refuses leaves the convar a player's, its value from before kept for the next try",
+            notBack.Count == 2 && notBack.All(w => !w.Took) && held.Chosen("weapon_air_spread_scale") && live["weapon_air_spread_scale"] == "0" && held.Before["weapon_air_spread_scale"] == "1");
+        held.Apply(aim, aim.Normal, V, W);
+        Check("...and once it takes, the map's own again: nothing a player's", live["weapon_air_spread_scale"] == "1" && live[Fun.NoRecoil] == "0" && !Fun.AllConVars.Any(held.Chosen));
+        var jump = Fun.Find("jump")!;
+        var bounded = new FunState();
+        var jumpWas = live["sv_jump_impulse"];
+        var clamped = bounded.Apply(jump, Fun.Find(jump, "high")!, V, (cv, v) => { live[cv] = "350"; return false; }); // a game that holds it to a bound of its own
+        Check("A value the game refuses but moves all the same (to a bound of its own) is a player's: what it was remembered, so Normal and the undo put it back",
+            clamped is [("sv_jump_impulse", "450", false)] && live["sv_jump_impulse"] == "350" && bounded.Chosen("sv_jump_impulse") && bounded.Before["sv_jump_impulse"] == jumpWas);
+        bounded.Apply(jump, jump.Normal, V, W);
+        Check("...and Normal puts back the map's own", live["sv_jump_impulse"] == jumpWas && !bounded.Chosen("sv_jump_impulse"));
 
         // ---- friendly fire's three: On by default (the server cfg), Off a player's change, and the two that need it idle while it is off ----
         var ff = Fun.Find("ff")!;
@@ -156,16 +184,16 @@ static partial class Program
         Check($"Friendly fire and Instakill start On, Grenades x{Fun.GrenadeShare} Off, on a map that sets nothing (the server cfg's values), and none is idle",
             new[] { ff, instakill }.All(s => Fun.Showing(s, V) == s.Normal && s.Normal.Id == "on" && !Fun.Idle(s, V) && Fun.OwnValues(s, V).Count == 0)
             && Fun.Showing(ffnades, V) == ffnades.Normal && ffnades.Normal.Id == "off" && !Fun.Idle(ffnades, V) && Fun.OwnValues(ffnades, V).Count == 0);
-        Do(team.Apply(ff, Fun.Find(ff, "off")!, V));
+        team.Apply(ff, Fun.Find(ff, "off")!, V, W);
         Check("Friendly fire Off: mp_friendlyfire 0, a player's until the map changes - and the two that need it show idle, still On",
             live["mp_friendlyfire"] == "0" && team.Chosen("mp_friendlyfire") && Fun.Showing(ff, V).Id == "off" && Fun.Idle(instakill, V) && Fun.Idle(ffnades, V)
             && Fun.Showing(instakill, V).Id == "on" && Fun.Showing(ffnades, V).Id == "off");
-        Do(team.Apply(instakill, Fun.Find(instakill, "off")!, V));
+        team.Apply(instakill, Fun.Find(instakill, "off")!, V, W);
         Check("...Instakill Off while idle: bullets and the rest 1, an enemy's damage, ready for when friendly fire is back",
             live["ff_damage_reduction_bullets"] == "1" && live["ff_damage_reduction_other"] == "1" && Fun.Showing(instakill, V).Id == "off" && Fun.Idle(instakill, V));
-        Do(team.Apply(ff, ff.Normal, V));
+        team.Apply(ff, ff.Normal, V, W);
         Check("...friendly fire On again: 1, nothing idle, Instakill still Off", Fun.Same(live["mp_friendlyfire"], "1") && !Fun.Idle(instakill, V) && Fun.Showing(instakill, V).Id == "off");
-        Do(team.Apply(ffnades, Fun.Find(ffnades, "on")!, V));
+        team.Apply(ffnades, Fun.Find(ffnades, "on")!, V, W);
         Check($"Grenades x{Fun.GrenadeShare} On: ff_damage_reduction_grenade {Fun.GrenadeShare}, a player's", live["ff_damage_reduction_grenade"] == Fun.GrenadeShare && Fun.Showing(ffnades, V).Id == "on" && team.Chosen("ff_damage_reduction_grenade"));
         Do(team.Reset(V));
         Check($"The reset puts all three back to the server's own (friendly fire on, {Fun.InstakillShare}, grenades 1), nothing a player's",
@@ -173,7 +201,7 @@ static partial class Program
             && live["ff_damage_reduction_grenade"] == "1" && !Fun.AllConVars.Any(team.Chosen));
         live["mp_friendlyfire"] = "false"; // one of the maps that turn friendly fire off themselves
         Check("A map that turns friendly fire off shows Off, and the two that need it idle", Fun.Showing(ff, V).Id == "off" && Fun.Idle(instakill, V) && Fun.Idle(ffnades, V));
-        Do(team.Apply(ff, ff.Normal, V));
+        team.Apply(ff, ff.Normal, V, W);
         Check("...a player's On there turns it on (On sets the cfg's value; it is not 'no change'), and the map's end gives the map its own off back",
             Fun.Same(live["mp_friendlyfire"], "1") && Fun.Showing(ff, V).Id == "on" && team.Reset(V) is [("mp_friendlyfire", "false")]);
         live["mp_friendlyfire"] = "1"; live["ff_damage_reduction_bullets"] = "0.33"; // a map's own share, which no choice has

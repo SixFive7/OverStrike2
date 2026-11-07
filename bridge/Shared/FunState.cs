@@ -3,7 +3,7 @@
 /// <summary>The players' changes on the map that is on, kept by the settings module: for every convar a player changed, what it was before the
 /// first such change on this map. That is what Normal (and the reset of all of them) puts back, so a map's own value survives a player's
 /// detour; and while a convar holds a player's value it is exempt from the game-changers block (BlockList.cs) and kept out of the
-/// baseline. Free of CounterStrikeSharp: the plugin hands it the live values and makes the writes it returns.</summary>
+/// baseline. Free of CounterStrikeSharp: the plugin hands it the live values and the write, which says whether the game took a value.</summary>
 public sealed class FunState
 {
     readonly Dictionary<string, string> before = new(StringComparer.OrdinalIgnoreCase);
@@ -14,24 +14,34 @@ public sealed class FunState
     /// <summary>A player's value is in this convar now (it is exempt from the block, and is put back at the map's end).</summary>
     public bool Chosen(string convar) => before.ContainsKey(convar);
 
-    /// <summary>A player picked this choice: the writes it takes - each convar the choice sets gets its value (and its value from before
-    /// is remembered, the first time on this map), every other convar of the setting that a player had changed gets its value from before
-    /// back and is no longer a player's. Values that are right already are not written.</summary>
-    public List<(string ConVar, string Value)> Apply(Fun.Setting setting, Fun.Choice choice, Func<string, string?> value)
+    /// <summary>A player picked this choice: each convar the choice sets gets its value, every other convar of the setting that a player had
+    /// changed gets its value from before back - every value read first, then each written through write, which says whether the game took
+    /// it. A convar becomes a player's (its value from before remembered, the first time on this map) when its value took or was so already,
+    /// or when the game kept a value of its own that is not the one before (a bound), so Normal and the undo still put it back; a value the
+    /// game refuses outright leaves the convar as it was, and so does its standing - no player's choice, so the game-changers block still
+    /// watches it. A convar is the map's again only when its value from before took. Values that are right already are not written. The
+    /// writes made, each with whether it took.</summary>
+    public List<(string ConVar, string Value, bool Took)> Apply(Fun.Setting setting, Fun.Choice choice, Func<string, string?> value, Func<string, string, bool> write)
     {
-        var writes = new List<(string, string)>();
-        foreach (var convar in Fun.ConVarsOf(setting))
+        var plan = Fun.ConVarsOf(setting).Select(convar => (ConVar: convar, Now: value(convar),
+            Set: choice.Sets.Where(x => x.ConVar.Equals(convar, StringComparison.OrdinalIgnoreCase)).Select(x => x.Value).FirstOrDefault())).ToList();
+        var writes = new List<(string, string, bool)>();
+        foreach (var (convar, now, set) in plan)
         {
-            var now = value(convar);
-            var set = choice.Sets.Where(x => x.ConVar.Equals(convar, StringComparison.OrdinalIgnoreCase)).Select(x => x.Value).FirstOrDefault();
             if (set != null)
             {
-                if (!before.ContainsKey(convar) && now != null) before[convar] = now;
-                if (!Fun.Same(now, set)) writes.Add((convar, set));
+                if ((Fun.Same(now, set) || Write(convar, set) || !Fun.Same(value(convar), now)) && now != null) before.TryAdd(convar, now);
             }
-            else if (before.Remove(convar, out var was) && !Fun.Same(now, was)) writes.Add((convar, was));
+            else if (before.TryGetValue(convar, out var was) && (Fun.Same(now, was) || Write(convar, was))) before.Remove(convar);
         }
         return writes;
+
+        bool Write(string convar, string to)
+        {
+            var took = write(convar, to);
+            writes.Add((convar, to, took));
+            return took;
+        }
     }
 
     /// <summary>Every player change undone: each changed convar back to its value from before (the bridge's reset after 10 minutes with

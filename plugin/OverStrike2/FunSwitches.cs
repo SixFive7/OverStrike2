@@ -59,12 +59,12 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
         return true;
     }
 
-    /// <summary>A player's change from the fun page, chat or gg_fun: the writes it takes (FunState.Apply), made, and who made it noted until
-    /// the setting is back at its default. The line for the log and the console's reply.</summary>
+    /// <summary>A player's change from the fun page, chat or gg_fun: the writes it takes, made (FunState.Apply: a convar whose value the game
+    /// refuses is no player's), and who made it noted until the setting is back at its default. The line for the log and the console's reply.</summary>
     public string Apply(Fun.Setting setting, Fun.Choice choice, string by, DateTime now)
     {
-        var writes = fun.Apply(setting, choice, Value);
-        var refused = writes.Where(w => !Write(w.ConVar, w.Value)).Select(w => w.ConVar).ToList();
+        var writes = fun.Apply(setting, choice, Value, Write);
+        var refused = writes.Where(w => !w.Took).Select(w => w.ConVar).ToList();
         if (choice == setting.Normal) setBy.Remove(setting.Id); else if (refused.Count == 0) setBy[setting.Id] = by;
         var line = $"{setting.Id} {choice.Id} by {by}: {(writes.Count == 0 ? "nothing to change" : string.Join(", ", writes.Select(w => $"{w.ConVar} {w.Value}")))}{(refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "")}";
         Last = $"{now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)} {line}";
