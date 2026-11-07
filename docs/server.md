@@ -81,6 +81,10 @@ Five parts, each a SHA-256 of what it is made of:
 A difference is a new version once what is on disk has been still for 2 minutes: a deploy in progress is not one. A file touched
 but not changed is the same version. `os2-server doctor` shows both versions and which parts differ.
 
+After the restart a new cfg brings, RCON reads what the cfgs set, with one exception to expect: `mp_warmuptime` reads 5 on Arms Race
+and Deathmatch, whose cfgs set 1 - the engine raises it to its floor of 5 s (seen after release 188's restart, 2026-11-07). Wingman's
+15 stands.
+
 ## The bridge's side
 
 The watcher posts plain text to the bridge at `<bridge.url>/<path>/<bridge.secret>` (else the address in the image's
