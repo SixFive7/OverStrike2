@@ -41,6 +41,7 @@ static class BridgePostTests
             var execs = new List<JsonObject>();
             var lockHeld = true;
             var mv = "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1";
+            var voteLines = "";
             var answer = "ok: taken at {url}";
             var containers = World();
             Reply Req(string path, string method, JsonNode? body, byte[]? raw, string ctype, double timeout)
@@ -59,6 +60,8 @@ static class BridgePostTests
                 if (method == "POST" && path.StartsWith("/exec/", StringComparison.Ordinal))
                 {
                     var url = Json.Arr(execs[^1], "Env").Select(Json.PyStr).First(e => e.StartsWith("OS2_BRIDGE_URL=", StringComparison.Ordinal)).Split('=', 2)[1];
+                    if (url.Contains("/hud/") && Json.PyStr(Json.Arr(execs[^1], "Cmd")[^1]) == BridgePost.GetVoteLines)
+                        return Reply.Of(200, voteLines + "\n");   // GET_VOTE_LINES passes on every line of the vote (held below against a real server)
                     if (url.Contains("/hud/"))
                         return Reply.Of(200, mv + "\n");    // GET_VOTE passes on the vote's line alone (held below against a real server)
                     if (url.Contains("/log/"))
@@ -112,6 +115,28 @@ static class BridgePostTests
             // every send, the OK path first
             var (code, output) = RunBp("check");
             check("check: all hold, nothing sent", code is null && output.Contains("all checks hold") && execs.Count == 0);
+
+            // names-check: a private name among the vote's names in the bridge's state refuses, without printing it; test names pass
+            var realPrivateNames = h.PrivateNames;
+            h.PrivateNames = () => ["Realname", "Other Person"];
+            voteLines = "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1\nmvw\tAlice\tHUDtest\nmvs\tHUDtest";
+            (code, output) = RunBp("names-check");
+            check($"names-check: test names only - it passes ({Py.Repr(Py.Strip(output))})",
+                  code is null && output.Contains("no private name") && output.Contains("3 line(s)") && !output.Contains("Realname"));
+            foreach (var (namesAt, where) in new[] { ("mvw\tHUDtest\tREALNAME", "the waiting names, in another case"), ("mvs\tOther Person", "who started it") })
+            {
+                voteLines = "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1\n" + namesAt;
+                (code, output) = RunBp("names-check");
+                check($"names-check: a private name among {where} - refused, the name printed nowhere ({Py.Repr(code)})",
+                      code is string refusedWords && refusedWords.Contains("REFUSED") && !refusedWords.Contains("realname", StringComparison.OrdinalIgnoreCase)
+                      && !refusedWords.Contains("other person", StringComparison.OrdinalIgnoreCase) && !output.Contains("realname", StringComparison.OrdinalIgnoreCase));
+            }
+            h.PrivateNames = () => [];
+            (code, output) = RunBp("names-check");
+            check($"names-check: no private name known to check against - refused ({Py.Repr(code)})", code is string noNames && noNames.Contains("REFUSED"));
+            h.PrivateNames = realPrivateNames;
+            voteLines = "";
+            execs.Clear();
 
             (code, output) = RunBp("restart", "our-update", "match-end", "0");
             var e = execs[^1];
@@ -311,7 +336,7 @@ static class BridgePostTests
             var post = Inner("/restart-notice/x", BridgePost.Post, "gg-restart\t1\tcancel\tdaily");
             if (post is null)
             {
-                SelfTest.Skip("the inner programs: no Python on this PC to run them with (3 checks)", 3);
+                SelfTest.Skip("the inner programs: no Python on this PC to run them with (4 checks)", 4);
                 return;
             }
             var (code, output, err) = post.Value;
@@ -323,6 +348,9 @@ static class BridgePostTests
             (code, output, err) = Inner("/hud/x", BridgePost.GetVote)!.Value;
             check($"GET_VOTE gives the vote's line alone, however long the state: {Py.Repr(Py.Slice(output, 0, 80))} {Py.Repr(Py.Slice(err, -200))}",
                   code == 0 && Py.Strip(output) == "mv\t77\topen\t50");
+            (code, output, err) = Inner("/hud/x", BridgePost.GetVoteLines)!.Value;
+            check($"GET_VOTE_LINES gives every line of the vote and nothing else: {Py.Repr(Py.Slice(output, 0, 80))} {Py.Repr(Py.Slice(err, -200))}",
+                  code == 0 && Py.SplitLines(Py.Strip(output)).SequenceEqual(["mvo\t1\tHUDtest", "mv\t77\topen\t50"]));
         }
         finally
         {

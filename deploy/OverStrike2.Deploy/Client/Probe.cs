@@ -92,6 +92,8 @@ for k,c in enumerate(sys.argv[1:]):
     public Action NeedLock;
     public Action<double> Sleep = s => Thread.Sleep(TimeSpan.FromSeconds(s));
     public Func<double> Now = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+    /// <summary>Names that must never reach a picture, a command or a log: the client's own Steam name, and client.private_names.</summary>
+    public Func<List<string>> PrivateNames;
 
     public Harness(string? configPath = null)
     {
@@ -100,6 +102,7 @@ for k,c in enumerate(sys.argv[1:]):
         Rcon = RealRcon;
         Exec = RealExec;
         NeedLock = RealNeedLock;
+        PrivateNames = RealPrivateNames;
     }
 
     // ---------------------------------------------------------------------------------------------------------- the deployment
@@ -210,8 +213,7 @@ for k,c in enumerate(sys.argv[1:]):
         return name.Success && Py.Strip(name.Groups[1].Value).Length > 0 ? [name.Groups[1].Value] : [];
     }
 
-    /// <summary>Names that must never reach a picture, a command or a log: the client's own Steam name, and client.private_names.</summary>
-    public List<string> PrivateNames()
+    List<string> RealPrivateNames()
     {
         var names = SteamNames();
         if (HasConfig)

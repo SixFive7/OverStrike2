@@ -23,6 +23,9 @@ namespace OverStrike2.Deploy;
 ///     bridgepost client-on &lt;account&gt;                /log: a chat line under the test name
 ///     bridgepost act &lt;fake 0-3&gt; &lt;word&gt;              /act: that fake player's click: next, random, previous, restart, rematch, time10, time60
 ///     bridgepost vote &lt;fake 0-3&gt; &lt;card&gt;             /act: that fake player's click on the open vote's card
+///     bridgepost names-check                        the vote's lines of the bridge's state (who voted, who has not, who started it): refuses
+///                                                   when a private name is among them - the client's own Steam name or client.private_names -
+///                                                   printing none
 ///     bridgepost check                              the checks above, nothing sent</summary>
 sealed class BridgePost(TestCopy tc)
 {
@@ -45,6 +48,10 @@ sealed class BridgePost(TestCopy tc)
     /// <summary>The vote's line of the state, and nothing else of it: the rest has players' names in it.</summary>
     public const string GetVote = "import os,urllib.request as u;a=u.urlopen(os.environ['OS2_BRIDGE_URL'],timeout=8);"
                                   + "print('\\n'.join(l for l in a.read().decode('utf-8','replace').splitlines() if l.startswith('mv\\t')))";
+    /// <summary>The vote's lines of the state, every one (mv, mvw who has not voted, mvs who started it, ...): the names a ballot shows. Never
+    /// printed by this class.</summary>
+    public const string GetVoteLines = "import os,urllib.request as u;a=u.urlopen(os.environ['OS2_BRIDGE_URL'],timeout=8);"
+                                       + "print('\\n'.join(l for l in a.read().decode('utf-8','replace').splitlines() if l.startswith('mv')))";
 
     readonly Harness h = tc.H;
 
@@ -148,7 +155,7 @@ sealed class BridgePost(TestCopy tc)
         : throw Out.Stop($"a fake player is 0-{Fakes.Length - 1}, not {arg}");
 
     public const string Doc = "bridgepost restart <kind> <when> <seconds> | restart-cancel <kind> | updated <kind> <words...> | quit-notice | fake-on [n] | fake-off | "
-                              + "fake-crash | client-off <account> | client-on <account> | act <fake 0-3> <word> | vote <fake 0-3> <card> | check";
+                              + "fake-crash | client-off <account> | client-on <account> | act <fake 0-3> <word> | vote <fake 0-3> <card> | names-check | check";
 
     public void Main(IReadOnlyList<string> argv)
     {
@@ -163,6 +170,20 @@ sealed class BridgePost(TestCopy tc)
         {
             case "check":
                 Out.Print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside");
+                break;
+            case "names-check":
+                // The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (GgDocName) reaches
+                // the bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before
+                // a picture.
+                var (secret, port) = Route(b);
+                var voteLines = Py.SplitLines(ExecInCopy($"http://{tc.Bridge}:{port}/hud/{secret}", ["python3", "-c", GetVoteLines], secret));
+                var privateNames = h.PrivateNames();
+                if (privateNames.Count == 0)
+                    throw Out.Stop("REFUSED: no private name is known to check against (Steam names no logged-in account, client.private_names is empty)");
+                var hits = privateNames.Where(nm => voteLines.Any(l => l.Contains(nm, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (hits.Count > 0)
+                    throw Out.Stop($"REFUSED: {hits.Count} private name(s) among the vote's names in the bridge's state - nothing may be shot");
+                Out.Print($"no private name among the vote's names ({voteLines.Count} line(s) of the vote in the bridge's state)");
                 break;
             case "restart":
                 if (args.Count != 3 || !Kinds.Contains(args[0]) || !When.Contains(args[1]) || !Py.IsDigits(args[2]))
