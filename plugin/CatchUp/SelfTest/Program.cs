@@ -2,10 +2,11 @@ using System.Globalization;
 using System.Text.Json;
 using CatchUp;
 
-// CatchUp.SelfTest - every decision of the catch-up module, without a game server: the config and its file, the tiers and the
-// bounty, the duel factor, each hit, the healing, the Arms Race kill counter (its rules case by case, nine real players' runs, and five
-// whole real matches replayed), the boost decided again in the middle of a life, the message and its timing. CatchUpConfig.cs,
-// CatchUpRules.cs, Ladder.cs and CatchUpWords.cs are compiled in as source; CatchUpModule.cs (the game half) is not: the plugin's build compiles it.
+// CatchUp.SelfTest - every decision of the catch-up module, without a game server: the config and its file (and the players' copy of its
+// numbers in docs/reference.md), the tiers and the bounty, the duel factor, each hit, the healing, the Arms Race kill counter (its rules
+// case by case, nine real players' runs, and five whole real matches replayed), the boost decided again in the middle of a life, the
+// message and its timing. CatchUpConfig.cs, CatchUpRules.cs, Ladder.cs and CatchUpWords.cs are compiled in as source; CatchUpModule.cs
+// (the game half) is not: the plugin's build compiles it.
 //
 // Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the tier table, the panels and the mid-life cut.
 
@@ -167,6 +168,52 @@ void Run(string what, string[] ladder, string start, params string[] steps)
         """);
     o.Normalize(older);
     Check(older.Count == 0 && o.ToJson() == d.ToJson(), "an older file still loads: its switches, the counter's rules, the message's timing and the cap mean nothing now");
+
+    // ---- the players' table in docs/reference.md (Catch-up) holds the code's tiers, and its bounty sentence the code's bounty: read back
+    // number by number, so the page cannot drift from catchup.json. Its words may change; its numbers may not ----
+    var docs = Path.Combine(here, "reference.md");
+    Check(File.Exists(docs), "docs/reference.md is copied beside the test");
+    if (File.Exists(docs))
+    {
+        var text = File.ReadAllText(docs).Replace("\r", "");
+        var section = text.IndexOf("\n## Catch-up\n", StringComparison.Ordinal) is >= 0 and var s0 ? text[s0..] : "";
+        section = section.IndexOf("\n## ", 5, StringComparison.Ordinal) is > 0 and var s1 ? section[..s1] : section;
+        var lines = section.Split('\n');
+        var rows = lines.Where(l => l.StartsWith("| ", StringComparison.Ordinal) && l.Length > 2 && char.IsDigit(l[2])).ToList();
+        Eq(lines.FirstOrDefault(l => l.StartsWith("| Kills behind", StringComparison.Ordinal)) ?? "", "| Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |",
+            "docs: the catch-up table's columns");
+        static double Pct(string cell) => cell == "" ? 0 : double.Parse(cell.TrimStart('+', '-').TrimEnd('%'), CultureInfo.InvariantCulture) / 100;
+        var read = new List<TierConfig>();
+        var also = (Second: false, Protection: 0.0, Ammo: false, Knife: false);
+        foreach (var row in rows)
+        {
+            var cells = row.Trim().Trim('|').Split('|').Select(c => c.Trim()).ToArray();
+            if (cells.Length != 7) { Check(false, $"docs: a catch-up row has 7 cells ({row})"); continue; }
+            var regen = System.Text.RegularExpressions.Regex.Match(cells[5], @"^(\d+)% a second, after (\d+) s");
+            if (cells[6] != "the same") // the same extras as the row above
+            {
+                var protection = System.Text.RegularExpressions.Regex.Match(cells[6], @"(\d+) s more spawn protection");
+                also = (cells[6].Contains("a second chance"), protection.Success ? double.Parse(protection.Groups[1].Value, CultureInfo.InvariantCulture) : 0,
+                        cells[6].Contains("infinite ammo"), cells[6].Contains("a one-hit knife and Zeus"));
+            }
+            read.Add(new TierConfig
+            {
+                MinBehind = int.Parse(cells[0].Split(' ')[0], CultureInfo.InvariantCulture), Health = Pct(cells[1]), DamageTaken = 0.0 - Pct(cells[2]), DamageDealt = Pct(cells[3]),
+                Lifesteal = Pct(cells[4]), RegenPerSecond = regen.Success ? double.Parse(regen.Groups[1].Value, CultureInfo.InvariantCulture) / 100 : 0,
+                RegenDelaySeconds = regen.Success ? double.Parse(regen.Groups[2].Value, CultureInfo.InvariantCulture) : 0,
+                SecondChance = also.Second, ExtraSpawnProtectionSeconds = also.Protection, InfiniteAmmo = also.Ammo, OneHitKnifeAndTaser = also.Knife,
+            });
+        }
+        string Table(List<TierConfig> tiers) => string.Join("\n", tiers.Select(t =>
+            $"{t.MinBehind} | {t.Health:0.00} | {t.DamageTaken:0.00} | {t.DamageDealt:0.00} | {t.Lifesteal:0.00} | {t.RegenPerSecond:0.00}/{t.RegenDelaySeconds:0} | {t.SecondChance} {t.ExtraSpawnProtectionSeconds:0} {t.InfiniteAmmo} {t.OneHitKnifeAndTaser}"));
+        Eq(Table(read), Table(f.Tiers), "docs: the catch-up table holds catchup.json's tiers, number by number - kills behind, health, damage taken and dealt, lifesteal, regeneration and its wait, the extras");
+        Check(rows.Count > 0 && rows[^1].StartsWith($"| {f.Tiers[^1].MinBehind} and more |", StringComparison.Ordinal) && rows.SkipLast(1).All(r => !r.Contains(" and more |", StringComparison.Ordinal)),
+            "docs: ...the last tier, and only it, reads 'and more'");
+        var bounty = System.Text.RegularExpressions.Regex.Match(section, @"A leader (\d+) kills or more ahead of second place takes more damage from enemies: (\d+)% for every (\d+) kills of lead, up to (\d+)%");
+        Check(bounty.Success && int.Parse(bounty.Groups[1].Value) == f.Bounty.MinLead && Math.Abs(int.Parse(bounty.Groups[2].Value) / 100.0 - f.Bounty.PerStep) < 1e-9
+              && int.Parse(bounty.Groups[3].Value) == f.Bounty.StepKills && Math.Abs(int.Parse(bounty.Groups[4].Value) / 100.0 - f.Bounty.Max) < 1e-9,
+            "docs: the bounty's sentence holds catchup.json's bounty - from what lead, how much for how many kills of lead, the most");
+    }
 
     var missing = new List<string>();
     var m = CatchUpConfig.Load(Path.Combine(here, "no-such-file.json"), missing);
