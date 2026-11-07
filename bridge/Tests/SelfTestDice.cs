@@ -330,7 +330,7 @@ static partial class Program
         h.Join(alice);
         h.Quiet(); h.Talk(alice, "!newmaps half");
         Check("The new-maps setting is gone: an older content's button answers what took its place, says nothing on the news line, and the live state carries no setting",
-            h.Said(NewMapsGoneNote) && NewsNow.Text == "" && HudState.Decode(BuildHud(Now()).Encode())!.NewMaps == "" && !BuildHud(Now()).Encode().Contains("newmaps")
+            h.Said(NewMapsGoneNote) && NewsNow.Text == "" && !BuildHud(Now()).Encode().Contains("newmaps")
             && HudMenu.Command(HudMenu.NewHalf, null, new HudState(), new HudBrowser(), 1, Now()) == "!newmaps half");
 
         // ---- the reset: nobody on for more than 10 minutes, and the fun settings (the grenade drops and catch-up among them) go back ----

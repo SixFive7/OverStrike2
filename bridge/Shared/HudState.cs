@@ -30,16 +30,12 @@ public sealed class HudState
     public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Likes.cs)
     public string PrevLabel = "", PrevArg = "";         // the map before this one, for the Previous button
     public long SearchVersion;                          // the search index's version: the plugin fetches it again when this moves
-    public string NewMaps = "";                         // the new-maps setting of an older bridge (always, half or never); the setting is gone, so empty
     public long DashVersion;                            // the Sync page's block (HudDash): the plugin fetches it again when this moves
     public string RestartKind = "";                     // a restart coming (the bridge's Restarts.cs): game-update (a CS2 update), our-update, daily, downloads; "" none
     public string RestartWhen = "";                     // ...match-end (at the end of this match) or now
     public int RestartIn = -1;                          // ...its seconds left, -1 while it waits for the match's end
     public long RestartAt;                              // ...the moment it goes, unix seconds (0 while it waits for the match's end): the end time a countdown counts to
     public string RestartWords = "";                    // ...and the warning in words, as the top line says it
-    public long BgId;                                   // the restart watcher's background download (the bridge's RandomQueue.cs): the map's Workshop id, 0 none
-    public int BgPercent = -1;                          // ...its progress, 0-100, -1 before any
-    public string BgTitle = "";                         // ...and its title
     public string TopText = "", TopCat = "";            // the top line (Messages.cs): the words and the category's id...
     public long TopAtMs, TopUntilMs;                    // ...since when and until when, unix milliseconds
     public string BanTone = "", BanHead = "", BanLine = ""; // the status banner: its tone (problem, warning, done, info), headline and line...
@@ -118,11 +114,9 @@ public sealed class HudState
             if (secs > 0) Line(endTimes ? "whyat" : "why", account, endTimes ? WhyUntilMs.GetValueOrDefault(account) : secs, map); // an older plugin skips it
         if (PrevArg != "") Line("prev", PrevArg, PrevLabel);
         if (SearchVersion > 0) Line("srch", SearchVersion);
-        if (NewMaps != "") Line("newmaps", NewMaps);         // an older plugin skips the lines it does not know
         if (DashVersion > 0) Line("dash", DashVersion);    // an older plugin skips it
         if (RestartKind != "") s.Append("rst\t").Append(Hud.Clean(RestartKind, 12)).Append('\t').Append(Hud.Clean(RestartWhen, 12)).Append('\t')
             .Append((endTimes && RestartAt > 0 ? 0 : RestartIn).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(RestartAt.ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(restartWords, 240)).Append('\n');
-        if (BgId > 0) Line("bgdl", BgId, BgPercent, BgTitle); // an older plugin skips these two and everything after them
         void Raw(string name, params object[] fields) => s.Append(name).Append('\t').Append(string.Join('\t', fields.Select(f => f is string t ? t : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
         if (TopText != "") Raw("topl", TopAtMs, TopUntilMs, Hud.Clean(TopCat, 12), Hud.Clean(TopText, Messages.TopMax));
         if (BanHead != "") Raw("ban", Hud.Clean(BanTone, 12), BanUntilMs, Hud.Clean(BanHead, 80), Hud.Clean(BanLine, Messages.TopMax));
@@ -170,10 +164,8 @@ public sealed class HudState
                 case "why" when Long(f, 1) >= 0 && Int(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), Int(f, 2)); break;
                 case "prev": (s.PrevArg, s.PrevLabel) = (Str(f, 1), Str(f, 2)); break;
                 case "srch": s.SearchVersion = Long(f, 1); break;
-                case "newmaps": s.NewMaps = Str(f, 1); break;
                 case "dash": s.DashVersion = Long(f, 1); break;
                 case "rst" when Str(f, 1) != "": (s.RestartKind, s.RestartWhen, s.RestartIn, s.RestartAt, s.RestartWords) = (Str(f, 1), Str(f, 2), f.Length > 3 && int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ri) ? ri : -1, Math.Max(0, Long(f, 4)), Str(f, 5)); break;
-                case "bgdl" when Long(f, 1) > 0: (s.BgId, s.BgPercent, s.BgTitle) = (Long(f, 1), f.Length > 2 && int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var bp) ? Math.Clamp(bp, -1, 100) : -1, Str(f, 3)); break;
                 case "ok" when Long(f, 1) >= 0 && HudVersion.IsWord(Str(f, 2)): s.Verified[Long(f, 1)] = Str(f, 2); break;
                 case "topl" when Str(f, 4) != "": (s.TopAtMs, s.TopUntilMs, s.TopCat, s.TopText) = (Long(f, 1), Long(f, 2), Str(f, 3), Str(f, 4)); break;
                 case "ban" when Str(f, 3) != "": (s.BanTone, s.BanUntilMs, s.BanHead, s.BanLine) = (Str(f, 1), Math.Max(0, Long(f, 2)), Str(f, 3), Str(f, 4)); break;

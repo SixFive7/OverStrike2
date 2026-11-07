@@ -120,7 +120,6 @@ static partial class Program
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Likes.cs: the Dislike popups that are open
         PutRestart(h, now); // Restarts.cs: a restart coming, with its countdown
-        if (BackgroundNow() is { } bg) (h.BgId, h.BgPercent, h.BgTitle) = (long.TryParse(bg.Id, out var bgId) ? bgId : 0, bg.Percent ?? -1, bg.Title); // Stock.cs
         if (Pending is { } c)
         {
             h.ChangeMap = Clip(Label(c.Map), 40);

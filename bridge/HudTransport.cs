@@ -7,7 +7,8 @@
 // GET /hud/<secret>?v=<version> is a long poll: the bridge answers at once when its version is another, or holds the request until the state
 // changes, LongPollSeconds at the most, and then answers that nothing did - a few bytes. Every answer starts with a line the plugin reads first,
 // ver<TAB><version><TAB><the bridge's clock, unix milliseconds>, so it can count against the bridge's clock. A click (POST /act/<secret>?v=1)
-// answers with the state after it in the same form. A plugin that sends no version gets the old text with its seconds, once a poll.
+// answers with the state after it in the same form. A poll without a version - the plugin telling of a hold beginning or ending - is answered at once with
+// the state as it is now.
 using System.Globalization;
 using System.Net;
 

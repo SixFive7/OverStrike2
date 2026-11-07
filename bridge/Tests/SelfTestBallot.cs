@@ -343,20 +343,20 @@ static partial class Program
                 && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).StartsWith("The daily restart: the server restarts in 45 s"));
             h.Run(RestartStaleMinutes * 60 + 60);
             Check($"A countdown {RestartStaleMinutes} minutes past its end without the server going down is over", RestartDue == null && BuildHud(h.Clock).RestartKind == "");
-            Check("The live state's restart and background lines read back, and a state without them has none",
-                HudState.Decode(new HudState { RestartKind = "downloads", RestartWhen = "now", RestartIn = 7, RestartAt = 1793000000, RestartWords = "x\ty", BgId = 3001, BgPercent = 42, BgTitle = "Lake" }.Encode())
-                    is { RestartKind: "downloads", RestartWhen: "now", RestartIn: 7, RestartAt: 1793000000, RestartWords: "x y", BgId: 3001, BgPercent: 42, BgTitle: "Lake" }
-                && HudState.Decode(new HudState().Encode()) is { RestartKind: "", RestartIn: -1, BgId: 0, BgPercent: -1 });
+            Check("The live state's restart line reads back, and a state without it has none",
+                HudState.Decode(new HudState { RestartKind = "downloads", RestartWhen = "now", RestartIn = 7, RestartAt = 1793000000, RestartWords = "x\ty" }.Encode())
+                    is { RestartKind: "downloads", RestartWhen: "now", RestartIn: 7, RestartAt: 1793000000, RestartWords: "x y" }
+                && HudState.Decode(new HudState().Encode()) is { RestartKind: "", RestartIn: -1 });
 
-            // ---- the background download: the live state carries it, a load behind it waits longer ----
+            // ---- the background download: nothing on the news line, and a load behind it waits longer ----
             Fresh();
             foreach (var p in players.Take(2)) h.Join(p);
             FillStock();
             var bgMap = LaneOf(Modes.ArmsRace)[0].Key;
             ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t40\tA long title\n");
             var h3 = HudState.Decode(BuildHud(h.Clock).Encode())!;
-            Check("While the watcher downloads in the background the live state says what and how far (bgdl), and nothing goes on the news line",
-                h3.BgId.ToString() == bgMap && h3.BgPercent == 40 && h3.BgTitle == "A long title" && h3.News == "");
+            Check("While the watcher downloads in the background nothing goes on the news line, and the live state carries no line of it nothing reads",
+                BackgroundNow() is { Percent: 40, Title: "A long title" } bg && bg.Id == bgMap && h3.News == "" && !BuildHud(h.Clock).Encode().Contains("bgdl"));
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
             h.Run(ChangeDelay);
