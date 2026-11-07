@@ -17,8 +17,9 @@ namespace OverStrike2.Deploy;
 ///
 ///   --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list, each entry with its preview. Without it:
 ///                   bridge/maps.json, Arms Race's list as the repository has it, with no previews
-///   --queues FILE   the bridge's queues.json: the maps its random queues will put on the next ballots, first in line for a picture. An
-///                   export that carries the queues itself ("queues") needs no --queues
+///   --queues FILE   the bridge's queues.json: the maps its stock will put on the next ballots and the maps on an open ballot, first in line
+///                   for a picture. An export that carries the queues itself ("queues") needs no --queues. Queues that are not queues.json
+///                   version 2 (an older bridge's) count as none: one line says so, and the run goes on without the head start
 ///   --ahead FILE    a JSON array of {"id", "preview"}: maps that are not listed yet but will be, most popular first
 ///
 /// Writes hud/thumbs/&lt;id&gt;.jpg (336x189, quality 82; gitignored, other authors' pictures - a JPEG that exists is kept as it is),
@@ -285,11 +286,16 @@ static class HudThumbList
         return (ids, previews);
     }
 
-    /// <summary>The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order.</summary>
+    /// <summary>The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order. Anything
+    /// else - an older bridge's version 1, a file with no version, not an object - is no queues: one line says so, and the run goes on without the
+    /// head start. The pictures delete nothing, so stopping would protect nothing; a part of the file of another shape is empty.</summary>
     public static List<string> FromQueues(JsonNode? queues)
     {
         if (queues is not JsonObject o || !o.ContainsKey("version") || Json.AsLong(o["version"]) != 2)
-            throw Out.Stop("the queues are not queues.json version 2");
+        {
+            Out.Print("the queues are not queues.json version 2 (an older bridge's?) - taken as none: the next ballots' maps get no head start");
+            return [];
+        }
         var stock = Json.Obj(queues, "stock");
         var keys = Json.Arr(queues, "ballot").Select(Json.PyStr).ToList();
         foreach (var (_, list) in stock.OrderBy(kv => kv.Key, StringComparer.Ordinal))
@@ -366,7 +372,7 @@ static class HudThumbList
         var queues = queuesPath is not null ? ReadJson(queuesPath) : export is JsonObject eo && eo.TryGetPropertyValue("queues", out var qn) ? qn : null;
         var queued = queues is not null ? FromQueues(queues) : [];
         if (queues is null)
-            Out.Print("no random queues (--queues, or an export that carries them): the next ballots' maps get no head start");
+            Out.Print("no queues (--queues, or an export that carries them): the next ballots' maps get no head start");
         var ahead = aheadPath is not null ? (ReadJson(aheadPath) as JsonArray ?? []) : [];
         Directory.CreateDirectory(outDir);
         var keys = KnownKeys(listFile);

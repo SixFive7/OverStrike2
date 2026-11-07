@@ -10,7 +10,8 @@ each at least 2 s after the last one ended, as every Web API caller of the proje
                   and the other modes' (its "modes") - each entry with its preview. Without it: bridge/maps.json, Arms Race's list as the
                   repository has it, with no previews, so every missing one is asked of the Web API
   --queues FILE   the bridge's queues.json: the maps its stock will put on the next ballots and the maps on an open ballot,
-                  first in line for a picture. An export that carries the queues itself ("queues") needs no --queues
+                  first in line for a picture. An export that carries the queues itself ("queues") needs no --queues. Queues that are
+                  not queues.json version 2 (an older bridge's) count as none: one line says so, and the run goes on without the head start
   --ahead FILE    a JSON array of {"id", "preview"}: maps that are not listed yet but will be, most popular first, so their pictures can
                   ship before they are listed
   bridge/Shared/Modes.cs the official maps of every mode
@@ -233,12 +234,15 @@ def from_export(export):
 
 
 def from_queues(queues):
-    """The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order."""
+    """The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order. Anything
+    else - an older bridge's version 1, a file with no version, not an object - is no queues: one line says so, and the run goes on without
+    the head start. The pictures delete nothing, so stopping would protect nothing; a part of the file of another shape is empty, as in the port."""
     if not isinstance(queues, dict) or queues.get("version") != 2:
-        sys.exit("the queues are not queues.json version 2")
-    stock = queues.get("stock") or {}
-    ballot = queues.get("ballot") or []
-    keys = list(ballot) + [k for lane in sorted(stock) for k in stock[lane]]
+        print("the queues are not queues.json version 2 (an older bridge's?) - taken as none: the next ballots' maps get no head start", flush=True)
+        return []
+    stock = queues.get("stock") if isinstance(queues.get("stock"), dict) else {}
+    ballot = queues.get("ballot") if isinstance(queues.get("ballot"), list) else []
+    keys = list(ballot) + [k for lane in sorted(stock) for k in (stock[lane] if isinstance(stock[lane], list) else [])]
     return [str(k) for k in keys if str(k).isdigit()]
 
 
@@ -278,7 +282,7 @@ def main():
     queues = json.loads(Path(a.queues).read_text(encoding="utf-8")) if a.queues else (export or {}).get("queues")
     queued = from_queues(queues) if queues is not None else []
     if queues is None:
-        print("no random queues (--queues, or an export that carries them): the next ballots' maps get no head start", flush=True)
+        print("no queues (--queues, or an export that carries them): the next ballots' maps get no head start", flush=True)
     ahead = json.loads(Path(a.ahead).read_text(encoding="utf-8")) if a.ahead else []
     OUT.mkdir(exist_ok=True)
     keys = known_keys()

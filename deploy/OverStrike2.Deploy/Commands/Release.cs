@@ -31,7 +31,8 @@ sealed class ReleaseStop(string message) : Exception(message);
 /// publish - a content update of the one HUD item (a new item is never created):
 ///   1. --client-test names the real-client test's run folder (with its shots/): the update ships only once a real client saw it work;
 ///   2. the server lock, as for live;
-///   3. the held-item check on the live server: os_hud page 3999999999 must read "NOT shown" in the plugin's log;
+///   3. the held-item check on the live server: os_hud page 3999999999 must read "NOT shown" in the plugin's log (asked as css_gghud too when
+///      the answer is not the plugin's os_hud: - a plugin from before release 191);
 ///   4. workshop hud-publish --note ... --user-approved-update (hud/build.ps1 first, by hand);
 ///   5. the item's time_updated from the keyless Web API, one call at a time, a minute apart, until it moves (the upload) and moves again
 ///      (Valve's approval) or --wait-minutes pass.
@@ -419,8 +420,9 @@ sealed class Release
     public const string OldHudCommand = "css_gghud";
 
     /// <summary>os_hud page &lt;an id that does not exist&gt;: the plugin's verdict, from its log a few seconds later, must be NOT shown. This runs against
-    /// the plugin that is live before a release ships its own: one from before release 191 knows the command by its old word, css_gghud, and answers
-    /// os_hud as an unknown command - then the check asks it by that word (OldHudCommand).</summary>
+    /// the plugin that is live before a release ships its own: one from before release 191 knows the command only by its old word, css_gghud. So
+    /// whenever the reply is not the plugin's own answer (it begins os_hud:) - an unknown command, however the engine words it, or no answer at
+    /// all - the check asks by that word too (OldHudCommand). A reply decides nothing: the verdict is the plugin's log line.</summary>
     string HeldCheck()
     {
         var key = $"HUD item probe: {NoSuchItem}";
@@ -428,8 +430,9 @@ sealed class Release
         var old = Grep().Count;
         var word = "os_hud";
         var reply = Py.Strip(Rcon($"{word} page {NoSuchItem}") ?? "");
-        if (reply.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+        if (!reply.Contains("os_hud:", StringComparison.Ordinal))
         {
+            Log($"held-item check: {word} page {NoSuchItem} -> {(reply.Length > 0 ? Py.Slice(reply, 0, 160) : "(no answer)")} - not the plugin's os_hud: answer, asked as {OldHudCommand} too");
             word = OldHudCommand;
             reply = Py.Strip(Rcon($"{word} page {NoSuchItem}") ?? "");
         }

@@ -27,7 +27,7 @@ publish - a content update of the one HUD item (hud/workshop_id.txt; a new item 
   2. the server lock, as for live;
   3. the held-item check on the live server: os_hud page 3999999999 - an id that does not exist - must read "NOT shown" in the
      plugin's log, or the server would not recognise Steam's page for an item under review and would hold joiners at a download
-     that cannot succeed;
+     that cannot succeed (asked as css_gghud too when the answer is not the plugin's os_hud: - a plugin from before release 191);
   4. deploy/workshop.py hud-publish --note ... --user-approved-update (hud/build.ps1 first, by hand);
   5. the item's time_updated from the Web API's keyless GetPublishedFileDetails, one call at a time, a minute apart, until it
      moves (the upload) and moves again (Valve's approval) or --wait-minutes pass.
@@ -331,14 +331,16 @@ class Release:
 
     def held_check(self):
         """os_hud page <an id that does not exist>: the plugin's verdict, from its log a few seconds later, must be NOT shown. This runs against
-        the plugin that is live before a release ships its own: one from before release 191 knows the command by its old word, css_gghud, and
-        answers os_hud as an unknown command - then the check asks it by that word (OLD_HUD_COMMAND)."""
+        the plugin that is live before a release ships its own: one from before release 191 knows the command only by its old word, css_gghud.
+        So whenever the reply is not the plugin's own answer (it begins os_hud:) - an unknown command, however the engine words it, or no
+        answer at all - the check asks by that word too (OLD_HUD_COMMAND). A reply decides nothing: the verdict is the plugin's log line."""
         key = f"HUD item probe: {NO_SUCH_ITEM}"
         grep = lambda: [l for l in (self.d.exec_in(self.game, ["python3", "-c", INNER_GREP, CSS_LOGS, key]) or "").splitlines() if key in l]
         old = len(grep())
         word = "os_hud"
         reply = (self.rcon(f"{word} page {NO_SUCH_ITEM}") or "").strip()
-        if "unknown command" in reply.lower():
+        if "os_hud:" not in reply:
+            log(f"held-item check: {word} page {NO_SUCH_ITEM} -> {reply[:160] or '(no answer)'} - not the plugin's os_hud: answer, asked as {OLD_HUD_COMMAND} too")
             word = OLD_HUD_COMMAND
             reply = (self.rcon(f"{word} page {NO_SUCH_ITEM}") or "").strip()
         log(f"held-item check: {word} page {NO_SUCH_ITEM} -> {reply[:160]}")

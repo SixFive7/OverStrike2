@@ -2,8 +2,9 @@ using System.Text.Json.Nodes;
 
 namespace OverStrike2.Deploy;
 
-/// <summary>The map pictures' logic, offline (hud/thumbs.py had no tests): the bars a preview has baked in, the preview's own upload, the
-/// lists and the queues in their order. The picture work itself was held to Pillow's, pixel for pixel, on real previews.</summary>
+/// <summary>The map pictures' logic, offline (hud/thumbs.py had no tests; hud/test_thumbs.py now holds its reading of the queues to the same
+/// cases as here): the bars a preview has baked in, the preview's own upload, the lists and the queues in their order. The picture work itself
+/// was held to Pillow's, pixel for pixel, on real previews.</summary>
 static class ThumbsTests
 {
     static Rgb Picture(int w, int h, Func<int, int, (byte R, byte G, byte B)> at)
@@ -52,9 +53,15 @@ static class ThumbsTests
               ranked.Select(e => Json.PyStr(e["id"])).SequenceEqual(["2", "4", "3", "1"]));
         var (ids, previews) = Thumbs.FromExport(Json.O("""{"maps.json": [{"id": "1", "rank": 1, "preview": "p1"}], "modes": {"wingman": [{"id": "3"}], "deathmatch": [{"id": "2", "preview": "p2"}]}}"""));
         check("export: Arms Race's list first, then every mode's in their names' order, with their previews", ids.SequenceEqual(["1", "2", "3"]) && previews.Count == 2 && previews["2"] == "p2");
-        check("queues: the open ballot's first, then every random queue in its name's order, numbers or text",
-              Thumbs.FromQueues(Json.O("""{"version": 2, "ballot": ["9"], "stock": {"b": ["7", 8], "a": ["6", "x"]}}""")).SequenceEqual(["9", "6", "7", "8"])
-              && SelfTest.Refusal(() => Thumbs.FromQueues(Json.O("""{"version": 1, "requested": ["9"], "random": {"a": ["6"]}}"""))) is { } r && r.Contains("version 2")
-              && SelfTest.Refusal(() => Thumbs.FromQueues(Json.O("""{"stock": {"a": ["6"]}}"""))) is { } r2 && r2.Contains("version 2"));
+        var (v2, v2Exit, v2Said) = SelfTest.Capture(() => Thumbs.FromQueues(Json.O("""{"version": 2, "ballot": ["9"], "stock": {"b": ["7", 8], "a": ["6", "x"], "c": {"no": "lane"}}}""")));
+        check("queues: the open ballot's first, then every lane of the stock in its name's order, numbers or text; a lane of another shape is empty; nothing said",
+              v2 is { } got && got.SequenceEqual(["9", "6", "7", "8"]) && v2Exit is null && v2Said == "");
+        foreach (var (name, text) in new[] { ("an older bridge's (version 1)", """{"version": 1, "requested": ["9"], "random": {"a": ["6"]}}"""),
+                                             ("one with no version", """{"stock": {"a": ["6"]}}"""), ("not an object", """["9"]""") })
+        {
+            var (queued, exit, said) = SelfTest.Capture(() => Thumbs.FromQueues(Json.Parse(text)));
+            check($"queues: {name} is no queues - one line says so, and the run goes on with no head start",
+                  queued is { Count: 0 } && exit is null && Py.SplitLines(said).Count == 1 && said.Contains("not queues.json version 2", StringComparison.Ordinal));
+        }
     }
 }
