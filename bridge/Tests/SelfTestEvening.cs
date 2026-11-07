@@ -386,6 +386,19 @@ static partial class Program
             BridgeStart(); h.Run(30);
             Check("...nor when RCON status does not say which map is on: a bridge start rolls only on proof", Pending == null);
 
+            // ---- a bridge that starts with the maintenance flag beside its state.json, and a server that boots beside it on its start map - a test copy's
+            // candidate bridge on a copy of production's data made with the flag (testcopy bridge-run --keep-flag), or a release's restart under the flag ----
+            Fresh(); S.ServerToken = "prod"; S.Map = Officials.First(o => o.Name == StartMap); S.LogName = StartMap; statusMap = StartMap;
+            File.WriteAllText(MaintenanceFile, "");
+            BridgeStart(); h.Run(30);
+            Restart(clean: false); h.Run(30);
+            Check("The maintenance flag at a bridge's start, and a server booting beside it on its start map with no quit before: no roll, no map command, no crash counted - the roll stays owed",
+                Pending == null && !h.Said("Rolling the dice") && !h.Sent.Any(c => c.StartsWith("host_workshop_map") || c.StartsWith("changelevel")) && S.Crashes.Count == 0 && StartRollOwed);
+            h.Join(alice); h.Run(5); h.MatchEnd(); h.Run(5);
+            Check("...nor at a match end with a player on", Pending == null && Ballot == null);
+            File.Delete(MaintenanceFile); h.Run(2);
+            Check("...and once the flag is gone, the owed roll goes out", Rolled());
+
             // ---- the maintenance flag: no automatic change of any kind; a vote a player calls still decides, as a pick always did ----
             Fresh();
             foreach (var p in new[] { alice, bob }) h.Join(p);
