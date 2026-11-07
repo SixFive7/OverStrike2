@@ -118,6 +118,27 @@ services:
         var s = Json.Parse(Scalar(root, "services", "sync", "environment", Check.Content) ?? "{}");
         check("the settings: maps.delete dryrun, the daily restart given, no HUD item page visits",
               Json.Str(s, "maps", "delete") == "dryrun" && Json.Str(s, "restarts", "daily") == "05:30" && Json.AsBool(Json.At(s, "hud", "itemPage")) == false);
+        check("production's maps folder left alone: maps.layout off, so the start's organize returns before it moves, links, takes in or deletes a map and before any acf write",
+              Json.Str(s, "maps", "layout") == "off");
+        check("nothing points at production's hand-over folder: paths.handover is the rehearsal's own, the game server's view of its sync's work copy",
+              Json.Str(s, "paths", "handover") == "/home/steam/cs2-dedicated/workshop-sync/rehearsal/handover" && Json.Str(s, "paths", "handover") != Rehearse.HandoverAt
+              && Rehearse.RehearsalHandover("/srv/game/workshop-sync/handover/") == "/srv/game/workshop-sync/rehearsal/handover"
+              && Json.Str(s, "paths", "handover")![..^"/rehearsal/handover".Length] + "/rehearsal" == "/home/steam/cs2-dedicated/workshop-sync/rehearsal");
+        var withPaths = Compose.Replace("\"schema\": 1,", "\"schema\": 1, \"paths\": { \"handover\": \"/srv/game/workshop-sync/handover\" }, \"maps\": { \"layout\": \"folders\" },", StringComparison.Ordinal);
+        var (_, settingsWithPaths) = Rehearse.ComposeText(withPaths, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused");
+        var sp = Json.Parse(settingsWithPaths);
+        check("a production that names its own hand-over folder and layout folders: the rehearsal's hand-over beside it, the layout off all the same",
+              Json.Str(sp, "paths", "handover") == "/srv/game/workshop-sync/rehearsal/handover" && Json.Str(sp, "maps", "layout") == "off");
+        var stageFlagOff = Rehearse.StageScript("rehearsal", true, false, Rehearse.SyncCopies);
+        var stageFlagKept = Rehearse.StageScript("rehearsal", true, true, Rehearse.SyncCopies);
+        check("stage: the maintenance flag prep set goes from the bridge's copy, so the candidate starts as production would without it",
+              stageFlagOff.Contains("cp -a /b/. $R/bridge/; rm -f $R/bridge/maintenance; ", StringComparison.Ordinal));
+        check("stage --keep-flag: the flag stays in the copy, the copy made all the same - the candidate starts under it",
+              !stageFlagKept.Contains("maintenance", StringComparison.Ordinal) && stageFlagKept.Contains("cp -a /b/. $R/bridge/", StringComparison.Ordinal)
+              && stageFlagKept.Replace(" ", "", StringComparison.Ordinal) == stageFlagOff.Replace("rm -f $R/bridge/maintenance; ", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal));
+        check("stage: the sync's work copy gets an empty hand-over folder of its own, and production's hand-overs are never copied into it",
+              Rehearse.SyncCopies.Contains("mkdir -p /w/rehearsal/handover;", StringComparison.Ordinal) && Rehearse.SyncCopies.Contains("rehearsal|handover|farm) ;;", StringComparison.Ordinal)
+              && stageFlagOff.EndsWith(Rehearse.SyncCopies + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90", StringComparison.Ordinal));
         check("the sync isolated by settings: its state and work on copies, its own test port, no hand-over, nothing published, no mail",
               Json.Str(s, "paths", "syncState") == "/home/steam/sync-state/rehearsal" && Json.Str(s, "paths", "syncWork") == "/home/steam/workshop-sync/rehearsal"
               && Json.AsLong(Json.At(s, "sync", "testPort")) == 27216 && Json.AsBool(Json.At(s, "sync", "handover")) == false && Json.AsBool(Json.At(s, "sync", "publish")) == false

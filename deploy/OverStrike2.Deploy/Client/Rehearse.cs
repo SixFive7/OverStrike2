@@ -11,16 +11,19 @@ namespace OverStrike2.Deploy;
 /// file - runs as a throwaway stack on production's network, IPs and MACs, and everything comes back. Under the harness's server lock, with
 /// nobody on. Prints no secret.
 ///
-///     rehearse prep                   the lock held; 0 humans; production's game server, bridge and sync aside (testcopy prep and bridge-prep,
+///     rehearse prep [--keep-flag]     the lock held; 0 humans; production's game server, bridge and sync aside (testcopy prep and bridge-prep,
 ///                                     the sync stopped and renamed); its records backed up; the files staged
 ///     rehearse backup                 only the records: os2-server's state in the game's tree (update-watch), its listings, the Workshop manifest
-///     rehearse stage                  only the files, in the rehearsal folder: os2-server, os2-sync and pre.sh (server build's), the mode cfgs,
-///                                     the plugin (plugin build's), a copy of the bridge's data; the sync's state copied and its work folder made
+///     rehearse stage [--keep-flag]    only the files, in the rehearsal folder: os2-server, os2-sync and pre.sh (server build's), the mode cfgs,
+///                                     the plugin (plugin build's), a copy of the bridge's data - without the maintenance flag prep set, unless
+///                                     --keep-flag: the candidate bridge then starts under it (no start roll, no match-end change, no crash
+///                                     count) until it goes; the sync's state copied and its work folder made, with an empty hand-over folder
 ///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
-///                                     settings: maps.delete dryrun, restarts.daily, hud.itemPage off, and the sync isolated - paths.syncState
-///                                     and paths.syncWork on copies, sync.testPort, sync.handover and sync.publish off, no mail
+///                                     settings: maps.delete dryrun, restarts.daily, hud.itemPage off, production's maps folder left alone -
+///                                     maps.layout off and paths.handover the rehearsal's own - and the sync isolated - paths.syncState and
+///                                     paths.syncWork on copies, sync.testPort, sync.handover and sync.publish off, no mail
 ///     rehearse compose [...]          read-only: what up would create, written to the harness's state folder, its changes named
 ///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label)
 ///     rehearse restore                records back, production's three containers back (testcopy's checks: its endpoint, its own plugins)
@@ -175,7 +178,24 @@ sealed class Rehearse
         }
     }
 
-    void Stage()
+    /// <summary>The sync's copies, in stage's helper (/s its state, /w its work folder): the state copied, the work folder made but its hand-overs, the
+    /// engine farm and earlier copies, and an empty hand-over folder in it - the rehearsal's paths.handover (ComposeText), so its game server and its
+    /// sync pair up on a folder of their own, and nothing points at production's.</summary>
+    public const string SyncCopies = "mkdir -p /s/rehearsal /w/rehearsal; find /s/rehearsal /w/rehearsal -mindepth 1 -delete; "
+                                     + "for f in /s/*; do [ \"$(basename \"$f\")\" = rehearsal ] || cp -a \"$f\" /s/rehearsal/; done; "
+                                     + "for f in /w/*; do case \"$(basename \"$f\")\" in rehearsal|handover|farm) ;; *) cp -a \"$f\" /w/rehearsal/;; esac; done; "
+                                     + "mkdir -p /w/rehearsal/handover; chown --reference=/s /s/rehearsal; chown --reference=/w /w/rehearsal /w/rehearsal/handover; ";
+
+    /// <summary>stage's script in its helper (/r the rehearsal folder's parent, /b production's bridge data read-only, /pl production's plugins
+    /// read-only): production's bridge data copied in - the maintenance flag prep set on it deleted from the copy unless keepFlag - production's
+    /// other plugins beside the staged one, the owners set, then the sync's copies.</summary>
+    public static string StageScript(string name, bool plugins, bool keepFlag, string syncCopies) =>
+        $"set -e; R=/r/{name}; mkdir -p $R/bridge; find $R/bridge -mindepth 1 -delete; cp -a /b/. $R/bridge/; " + (keepFlag ? "" : "rm -f $R/bridge/maintenance; ")
+        + (plugins ? $"for f in /pl/*; do [ \"$(basename \"$f\")\" = {Plugin.Name} ] || cp -a \"$f\" $R/plugins/; done; " : "")
+        + "chown -R --reference=/b $R/bridge; chown --reference=/r $R $R/overstrike2 $R/plugins $R/cfg; " + syncCopies
+        + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90";
+
+    void Stage(bool keepFlag = false)
     {
         h.NeedLock();
         var (game, bridge) = (Game(), BridgeInspect());
@@ -198,10 +218,7 @@ sealed class Rehearse
             var work = TestCopy.BindSource(sync, SettingPath(sync, "syncWork", SyncWorkAt));
             if (state is null || work is null)
                 throw Out.Stop("REFUSED: production's sync has no bind for its state or its work folder");
-            syncCopies = $"mkdir -p /s/rehearsal /w/rehearsal; find /s/rehearsal /w/rehearsal -mindepth 1 -delete; "
-                         + "for f in /s/*; do [ \"$(basename \"$f\")\" = rehearsal ] || cp -a \"$f\" /s/rehearsal/; done; "
-                         + "for f in /w/*; do case \"$(basename \"$f\")\" in rehearsal|handover|farm) ;; *) cp -a \"$f\" /w/rehearsal/;; esac; done; "
-                         + "chown --reference=/s /s/rehearsal; chown --reference=/w /w/rehearsal; ";
+            syncCopies = SyncCopies;
         }
         var plugins = TestCopy.BindSource(game, TestCopy.PluginsAtOf(game));
         var binds = new List<string> { $"{dir[..dir.LastIndexOf('/')]}:/r", $"{BridgeData(bridge)}:/b:ro" };
@@ -213,12 +230,8 @@ sealed class Rehearse
             binds.Add($"{TestCopy.BindSource(sync, SettingPath(sync, "syncWork", SyncWorkAt))}:/w");
         }
         var name = dir[(dir.LastIndexOf('/') + 1)..];
-        var (code, output) = StageHelper(binds, files, name, game,
-            $"set -e; R=/r/{name}; mkdir -p $R/bridge; find $R/bridge -mindepth 1 -delete; cp -a /b/. $R/bridge/; rm -f $R/bridge/maintenance; "
-            + (plugins is not null ? $"for f in /pl/*; do [ \"$(basename \"$f\")\" = {Plugin.Name} ] || cp -a \"$f\" $R/plugins/; done; " : "")
-            + "chown -R --reference=/b $R/bridge; chown --reference=/r $R $R/overstrike2 $R/plugins $R/cfg; " + syncCopies
-            + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90");
-        Log("stage:", code, $"(programs built at {Json.Str(record, "commit")})");
+        var (code, output) = StageHelper(binds, files, name, game, StageScript(name, plugins is not null, keepFlag, syncCopies));
+        Log("stage:", code, $"(programs built at {Json.Str(record, "commit")})" + (keepFlag ? "; the maintenance flag kept in the bridge's copy: the candidate starts under it" : ""));
         Out.Print(output);
         if (code != 0)
             throw Out.Stop("REFUSED: staging failed");
@@ -277,7 +290,7 @@ sealed class Rehearse
         return buf.ToArray();
     }
 
-    void Prep()
+    void Prep(bool keepFlag = false)
     {
         h.NeedLock();
         var d = tc.Inspect(tc.Game);
@@ -294,7 +307,7 @@ sealed class Rehearse
         tc.CmdBridgePrep();
         SyncAside();
         Backup();
-        Stage();
+        Stage(keepFlag);
     }
 
     // ------------------------------------------------------------------------------------------------------- the compose file
@@ -302,6 +315,17 @@ sealed class Rehearse
     /// <summary>The candidate's compose text, made a rehearsal: production's folders replaced by the rehearsal's, a test secret in the place
     /// of the bridge's, the bridge on its tag, the test labels, production's network as an external one, and the settings with the
     /// rehearsal's values. (compose text, settings text); the settings text holds secrets, and neither is ever printed.</summary>
+    public const string HandoverAt = "/home/steam/cs2-dedicated/workshop-sync/handover";   // paths.handover's default: <paths.syncWork>/handover as the game server sees it
+
+    /// <summary>The rehearsal's paths.handover: production's (or the default) one folder up, then rehearsal/handover - in the game server's view the
+    /// hand-over folder of the sync's work copy (paths.syncWork/rehearsal), which stage makes empty.</summary>
+    public static string RehearsalHandover(string? production)
+    {
+        var at = production is { Length: > 0 } p && p.StartsWith('/') ? p.TrimEnd('/') : HandoverAt;
+        var parent = at[..at.LastIndexOf('/')];
+        return (parent.Length > 0 ? parent : "") + "/rehearsal/handover";
+    }
+
     public static (string Compose, string Settings) ComposeText(string text, Dictionary<string, string> replace, string secret, string network, string bridgeImage,
                                                                Dictionary<string, string> labels, string daily, int testPort, bool viaFile, string settingsFile)
     {
@@ -330,7 +354,14 @@ sealed class Rehearse
             throw Out.Stop("REFUSED: the compose file's settings text cannot be read");
         }
         JsonObject Section(JsonObject o, string name) => o[name] as JsonObject ?? (JsonObject)(o[name] = new JsonObject());
+        // production's maps folder left alone: the rehearsal's game server shares production's game tree, and its start's organize (os2-server's
+        // MapsFolder) moves, links and renames maps there, writes maps/INDEX.tsv and takes hand-overs in - Steam's acf rewritten, its backup beside
+        // it - whatever maps.delete says, so dryrun alone does not keep the candidate's untested code off it. maps.layout off returns before any of
+        // it; the cost: no deletion list of what the release's first start would delete (maps.delete dryrun stays, inert while the layout is off).
+        // And the hand-over folder is the rehearsal's own, empty (stage), beside its sync's work copy as production's is beside production's:
+        // nothing points at production's.
         Section(settings, "maps")["delete"] = "dryrun";
+        Section(settings, "maps")["layout"] = "off";
         Section(settings, "restarts")["daily"] = daily;
         Section(settings, "hud")["itemPage"] = false;
         var sync = Section(settings, "sync");
@@ -341,6 +372,7 @@ sealed class Rehearse
         var paths = Section(settings, "paths");
         paths["syncState"] = (Json.AsStr(paths["syncState"]) is { Length: > 0 } st && st.StartsWith('/') ? st.TrimEnd('/') : SyncStateAt) + "/rehearsal";
         paths["syncWork"] = (Json.AsStr(paths["syncWork"]) is { Length: > 0 } wk && wk.StartsWith('/') ? wk.TrimEnd('/') : SyncWorkAt) + "/rehearsal";
+        paths["handover"] = RehearsalHandover(Json.AsStr(paths["handover"]));
         var settingsOut = Json.Dumps(settings, indent: 1);
 
         foreach (var key in root.Children.Keys.OfType<YamlScalarNode>().Where(k => k.Value is { } v && (v == "configs" || v.StartsWith("x-", StringComparison.Ordinal))).ToList())
@@ -485,7 +517,8 @@ sealed class Rehearse
         foreach (var (from, to) in Replacements(game, bridge))
             Log($"  {from} -> {to}");
         var s = Json.Parse(settings);
-        Log($"  settings: maps.delete {Json.Str(s, "maps", "delete")}, restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
+        Log($"  settings: maps.delete {Json.Str(s, "maps", "delete")}, maps.layout {Json.Str(s, "maps", "layout")}, paths.handover {Json.Str(s, "paths", "handover")}, "
+            + $"restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
             + $"sync.publish {Json.PyStr(Json.At(s, "sync", "publish"))}, sync.handover {Json.PyStr(Json.At(s, "sync", "handover"))}, sync.testPort {Json.PyStr(Json.At(s, "sync", "testPort"))}, "
             + $"sync.mail.smtpHost {Py.Repr(Json.Str(s, "sync", "mail", "smtpHost"))}, paths.syncState {Json.Str(s, "paths", "syncState")}, paths.syncWork {Json.Str(s, "paths", "syncWork")}");
         Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}");
@@ -645,8 +678,12 @@ sealed class Rehearse
         }
     }
 
-    public const string Doc = "rehearse prep | backup | stage | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] | compose (the same options) | down | restore | clean | "
+    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] | compose (the same options) | down | restore | clean | "
                               + "logs <cs2|bridge|sync> <seconds> [regex] | sh <cs2|bridge|sync> \"<cmd>\" [user] | rcon \"<cmd>\"... | ship <file> [name] | status";
+
+    /// <summary>prep's and stage's one option: --keep-flag, and nothing else.</summary>
+    static bool KeepFlag(List<string> args) =>
+        args.Skip(1).All(a => a == "--keep-flag") ? args.Contains("--keep-flag") : throw Out.Stop("usage: os2-deploy rehearse prep|stage [--keep-flag]");
 
     public static int Command(string[] argv)
     {
@@ -666,9 +703,9 @@ sealed class Rehearse
                               : throw Out.Stop("usage: os2-deploy " + Doc);
         switch (args[0])
         {
-            case "prep": r.Prep(); break;
+            case "prep": r.Prep(KeepFlag(args)); break;
             case "backup": r.Backup(); break;
-            case "stage": r.Stage(); break;
+            case "stage": r.Stage(KeepFlag(args)); break;
             case "up":
             case "compose":
                 var via = Opt("--via", "env")!;
