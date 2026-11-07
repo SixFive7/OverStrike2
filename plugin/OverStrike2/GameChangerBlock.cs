@@ -154,6 +154,6 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
     /// <summary>The block for the console: where the list came from, how often it held, the last time.</summary>
     public string Describe => $"{From}; {total} block(s) since load, the last {last}";
 
-    /// <summary>Every listed convar and what it must keep now.</summary>
-    public string List => string.Join(", ", blocked.Select(b => $"{b.ConVar} {b.Value ?? convars.Baseline(b.ConVar) ?? "?"}"));
+    /// <summary>Every listed convar and what it must keep now, game_type and game_mode the told mode's (Now): what Hold acts on.</summary>
+    public string ListFor(Modes.Mode? told) => string.Join(", ", Now(told).Select(b => $"{b.ConVar} {b.Value ?? convars.Baseline(b.ConVar) ?? "?"}"));
 }

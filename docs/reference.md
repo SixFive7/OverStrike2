@@ -293,10 +293,13 @@ after every server restart and after 10 minutes with nobody on. **Deathmatch** a
 
 Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
 playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin
-with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command. A map several modes list plays in the mode the
-map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode that does. Each mode has its own
-server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`). The grenade drops, the match
-length, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere.
+with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`
+first. A `changelevel` from a Workshop map to an official one brings back the mode CS2 saved on the way to the Workshop maps (`host_workshop_map` and a
+change from an official map bring back nothing), so such a map can come up in the old mode: it is then loaded once more in its own, by the bridge a few
+seconds after the start of a change it made, and by the plugin 8 s after the start of any other (`plugin/OverStrike2/ModePlan.cs`). A map several
+modes list plays in the mode the map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode
+that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`).
+The grenade drops, the match length, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere.
 
 ## Random picks
 

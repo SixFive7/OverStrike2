@@ -15,7 +15,8 @@ using OverStrike2;
 //     variables they replaced, no load without them - and the line that says where they came from, with no value in it;
 //   - the block file (bridge/Shared/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
 //   - which game mode the settings module acts in (ModePlan.cs): at a map start, at os_mode, and at a load while a map is on, which ends where a
-//     plugin loaded before that map is;
+//     plugin loaded before that map is; and an operator's switch (ModePlan.Again, ModeHandover): a map CS2 brought another mode back under is
+//     loaded once more in the told one, the way the bridge loads its own, and a reload keeps the plan rather than the convars the block holds;
 //   - the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar, what the block leaves to a
 //     player, and the undo that puts a map's own value back; and a reload (FunHandover): the instance that goes undoes every change, the next
 //     one says so;
@@ -360,17 +361,17 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     static ModePlan FromStart(Modes.Mode m) // loaded at the server's start: the boot map in Arms Race, then os_mode and the start of a map in m
     {
         var plan = new ModePlan();
-        plan.Started(Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode);
+        plan.Started("ar_baggage", true, Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode);
         plan.Tell(m);
-        plan.Started(m.GameType, m.GameMode);
+        plan.Started("aim_pillar", false, m.GameType, m.GameMode);
         return plan;
     }
     foreach (var m in Modes.All)
     {
         var fresh = FromStart(m);
-        var load = new ModePlan(); // a reload's new instance, on that map
+        var load = new ModePlan(); // a reload's new instance, on that map, with nothing handed over
         var before = load.On;
-        var switched = load.Started(m.GameType, m.GameMode); // what GameSettings.Load asks while a map is on
+        var switched = load.Started("aim_pillar", false, m.GameType, m.GameMode); // what GameSettings.Load asks while a map is on
         Check(before == Modes.ArmsRace && load.On == m && fresh.On == m && load.LoadedIn == fresh.LoadedIn && load.Told == fresh.Told,
             $"mode: a plugin loaded while a {m.Name} map is on acts in {m.Name}, as one loaded before that map does (on {load.On.Name}, told {load.Told?.Name})");
         Check(switched == (m.ArmsRace ? null : m), $"...and switches the list and the features over from Arms Race, where every load starts, only for another mode ({m.Name})");
@@ -381,16 +382,16 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         Check(Modes.All.Where(m => !m.ArmsRace).All(m => !Modes.Blocked(file, m, out _).SequenceEqual(Modes.Blocked(file, Modes.ArmsRace, out _))),
             "mode: Deathmatch's and Wingman's block lists are not Arms Race's, which a load kept on every map before");
     var casual = new ModePlan();
-    Check(casual.Started(0, 0) == null && casual.On == Modes.ArmsRace && casual.LoadedIn == null, "mode: a load on a map in none of our modes (Casual) keeps Arms Race, as a map start does");
+    Check(casual.Started("cs_office", true, 0, 0) == null && casual.On == Modes.ArmsRace && casual.LoadedIn == null, "mode: a load on a map in none of our modes (Casual) keeps Arms Race, as a map start does");
     var dm = new ModePlan();
-    dm.Started(Modes.Deathmatch.GameType, Modes.Deathmatch.GameMode);
+    dm.Started("de_dust2", true, Modes.Deathmatch.GameType, Modes.Deathmatch.GameMode);
     Check(dm.Tell(Modes.Deathmatch) == null && dm.On == Modes.Deathmatch, "mode: after a load on a Deathmatch map, the bridge's os_mode deathmatch finds it on already");
-    Check(dm.Tell(Modes.Wingman) == null && dm.On == Modes.Deathmatch && dm.Told == Modes.Wingman && dm.Started(Modes.Wingman.GameType, Modes.Wingman.GameMode) == Modes.Wingman,
+    Check(dm.Tell(Modes.Wingman) == null && dm.On == Modes.Deathmatch && dm.Told == Modes.Wingman && dm.Started("de_inferno", true, Modes.Wingman.GameType, Modes.Wingman.GameMode) == Modes.Wingman,
         "mode: os_mode wingman keeps Deathmatch's list on until the Wingman map starts");
     var back = FromStart(Modes.Deathmatch);
     back.Tell(Modes.Deathmatch);
-    Check(back.Started(Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode) == Modes.ArmsRace && back.Told == Modes.Deathmatch,
-        "mode: a map told Deathmatch that comes up in Arms Race (a changelevel's saved convars) gets Arms Race's list until the bridge loads it again");
+    Check(back.Started("de_dust2", true, Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode) == Modes.ArmsRace && back.Told == Modes.Deathmatch && back.Again == Modes.Deathmatch,
+        "mode: a map told Deathmatch that comes up in Arms Race (a changelevel's saved convars) gets Arms Race's list until it is loaded again, in Deathmatch");
     // The plan's caller: GameSettings.Load asks it before it reads the block list, the way OnMapStart does, and the host lets the modules hear of it.
     var settingsCs = Path.Combine(plugin, "GameSettings.cs");
     var hostCs = Path.Combine(plugin, "OverStrike2.cs");
@@ -401,10 +402,149 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         var load = code[code.IndexOf("public void Load(bool hotReload)", StringComparison.Ordinal)..];
         load = load[..load.IndexOf("\n    }\n", StringComparison.Ordinal)];
         var host = File.ReadAllText(hostCs);
-        Check(load.IndexOf("modeAtLoad = MapMode();", StringComparison.Ordinal) is >= 0 and var at && at < load.IndexOf("block.Read(", StringComparison.Ordinal)
-            && code.Contains("if (MapMode() is { } m)", StringComparison.Ordinal), "mode: GameSettings.Load decides by the map that is on, as OnMapStart does, before it reads the block list");
+        Check(load.IndexOf("modeAtLoad = MapMode(map);", StringComparison.Ordinal) is >= 0 and var at && at < load.IndexOf("block.Read(", StringComparison.Ordinal)
+            && load.IndexOf("TakeMode()", StringComparison.Ordinal) is >= 0 and var take && take < at
+            && code.Contains("if (MapMode(name) is { } m)", StringComparison.Ordinal), "mode: GameSettings.Load takes the plan handed over, else decides by the map that is on as OnMapStart does, before it reads the block list");
         Check(host.IndexOf("settings.Ready();", StringComparison.Ordinal) > host.IndexOf("settings.ModeApplied +=", StringComparison.Ordinal),
             "mode: the plugin tells its modules a load's mode once they follow ModeApplied");
+    }
+}
+
+// ---- an operator's mode switch (ModePlan.Again, ModeHandover; GameSettings.OnMapStart, LoadAgain, SetMode, Load, Unload): os_mode wingman, game_type 0,
+// game_mode 2 and changelevel de_inferno, each its own command. Live on plugin 5.1.0 (2026-11-07), from aim_deagle - a Workshop map the dice had loaded
+// from ar_baggage - de_inferno came up in Arms Race: on a changelevel from a Workshop map to an official one CS2 brings back the convars it saved on the
+// way from an official map to a Workshop map, game_type and game_mode with them. The plugin kept Arms Race's list, right for the game that ran, while
+// its block held game_type and game_mode at Wingman's, as told; a plugin reload then read those and put Wingman's list on the Arms Race game. The same
+// commands from de_dust2 came up in Wingman. Now the map is loaded once more in the told mode, and a reload keeps the plan ----
+{
+    var dir = Path.Combine(Path.GetTempPath(), $"os2-mode-selftest-{Environment.ProcessId}");
+    Directory.CreateDirectory(dir);
+    File.WriteAllText(Path.Combine(dir, Modes.BlockFile), "game_type  1  1  0  // the game mode\ngame_mode  0  2  2  // the game mode\n");
+    var cs2 = new FakeCs2(); // the server's start: Arms Race
+    var plan = new ModePlan();
+    var block = new GameChangerBlock(dir, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, cs2.ConVars, new FunSwitches(cs2.ConVars.Value, cs2.ConVars.Write), _ => { });
+    Modes.Mode? Start(string command, string map, bool official) // a map command, and the map's start as GameSettings.OnMapStart takes it
+    {
+        cs2.Load(command, map, official);
+        var switched = plan.Started(map, official, cs2.GameType, cs2.GameMode);
+        block.Read(plan.On);
+        return switched;
+    }
+    string ModeNow() => $"{cs2.GameType}/{cs2.GameMode}";
+
+    Start("map", "ar_baggage", true);
+    Start("host_workshop_map", "aim_deagle", false); // the dice: CS2 saves Arms Race on the way
+    Check(plan.On == Modes.ArmsRace && plan.Again == null && cs2.Saved == "1/0", "operator: a Workshop map loaded from an official one, in Arms Race (CS2 saves the convars on the way there)");
+    cs2.ConVars.Values["game_type"] = "0";
+    block.Hold("aim_deagle", null, plan.Told);
+    Check(ModeNow() == "1/0", "operator: game_type set before os_mode is the block's to undo - it holds the mode told, Arms Race's - so os_mode goes first");
+    Check(plan.Tell(Modes.Wingman) == null && plan.On == Modes.ArmsRace && plan.Told == Modes.Wingman, "operator: os_mode wingman on the Workshop map: Wingman's list and features at the next map start");
+    (cs2.ConVars.Values["game_type"], cs2.ConVars.Values["game_mode"]) = ("0", "2"); // game_type 0, game_mode 2
+    block.Hold("aim_deagle", null, plan.Told);
+    Check(ModeNow() == "0/2", "operator: ...then game_type 0 and game_mode 2 stay: the block holds the told mode's values, so it undoes nothing between the commands");
+
+    Check(Start("changelevel", "de_inferno", true) == null && ModeNow() == "1/0" && plan.LoadedIn == Modes.ArmsRace && plan.On == Modes.ArmsRace && plan.Restored,
+        $"operator: changelevel de_inferno, a Workshop map to an official one: CS2 brings Arms Race back, and the map keeps Arms Race's list, the game it runs ({ModeNow()})");
+    Check(plan.Again == Modes.Wingman && plan.Describe() == "in Arms Race (Wingman told: de_inferno came up in Arms Race right after a Workshop map, and loads once more in Wingman)",
+        $"operator: ...and it is to be loaded once more in Wingman, as os_settings says ({plan.Describe()})");
+    block.Hold("de_inferno", null, plan.Told);
+    Check(ModeNow() == "0/2" && block.ListFor(plan.Told) == "game_type 0, game_mode 2" && block.ListFor(null) == "game_type 1, game_mode 0",
+        "operator: the block holds Wingman's game_type and game_mode meanwhile - the convars name Wingman, not the game played - and os_block shows them as it holds them");
+
+    // A reload now. On 5.1.0 the new instance read those convars and took Wingman for the game; the plan handed over keeps Arms Race's list on.
+    var fromConVars = new ModePlan();
+    fromConVars.Started("de_inferno", true, 0, 2);
+    var t = new DateTime(2026, 11, 7, 5, 55, 26, DateTimeKind.Utc);
+    ModeHandover.Put(plan, 21.5, t);
+    var taken = ModeHandover.Take("de_inferno", 22.0, t.AddSeconds(4));
+    Check(fromConVars.On == Modes.Wingman && taken is { } h && h.On == Modes.ArmsRace && h.Told == Modes.Wingman && h.LoadedIn == Modes.ArmsRace && h.Again == Modes.Wingman && h.Save() == plan.Save(),
+        $"operator: a reload meanwhile takes the plan handed over - Arms Race's list on, Wingman told, the second load still due - where the convars would have said Wingman ({taken?.Describe()})");
+    ModeHandover.Put(plan, 21.5, t);
+    Check(ModeHandover.Take("de_inferno", 22.0, t.AddSeconds(4)) != null && ModeHandover.Take("de_inferno", 22.0, t.AddSeconds(5)) == null, "operator: ...taken once");
+    ModeHandover.Put(plan, 21.5, t);
+    Check(ModeHandover.Take("de_dust2", 22.0, t.AddSeconds(4)) == null, "operator: ...never on another map");
+    ModeHandover.Put(plan, 21.5, t);
+    Check(ModeHandover.Take("de_inferno", 3.0, t.AddSeconds(30)) == null, "operator: ...nor on the same map loaded again since (its clock started anew)");
+    ModeHandover.Put(plan, 21.5, t);
+    Check(ModeHandover.Take("de_inferno", 900.0, t + ModeHandover.Fresh + TimeSpan.FromSeconds(1)) == null && ModePlan.Parse("de_inferno 1 1") == null && ModePlan.Parse(new ModePlan().Save()) is { Map: "", On.Id: Modes.ArmsRaceId },
+        $"operator: ...nor more than {ModeHandover.Fresh.TotalMinutes:0} minutes later; a broken plan is none");
+
+    // The bridge's word after the start (SyncMode: os_mode with the mode its probe read - the block's Wingman) changes nothing; a stale one calls it off.
+    var stale = ModePlan.Parse(plan.Save())!;
+    Check(plan.Tell(Modes.Wingman) == null && plan.Again == Modes.Wingman && stale.Tell(Modes.ArmsRace) == null && stale.On == Modes.ArmsRace && stale.Again == null && stale.Loading() == null,
+        "operator: the bridge's os_mode wingman after the start leaves the second load due; an os_mode armsrace calls it off, and the map stays in Arms Race, its list and its convars");
+
+    // The time comes (ModePlan.AgainAfterSeconds): the told mode's convars, then the map command - official to official, which brings nothing back.
+    var line = plan.Loading();
+    Check(line == "game_type 0;game_mode 2;changelevel de_inferno" && plan.Again == null && plan.LoadingIn == Modes.Wingman && plan.Loading() == null
+          && plan.Describe() == "in Arms Race (Wingman told: de_inferno is loading once more, in Wingman)", $"operator: the second load: {line}, once ({plan.Describe()})");
+    var command = cs2.Run(line ?? "", official: true);
+    Check(command == "changelevel" && plan.Started("de_inferno", true, cs2.GameType, cs2.GameMode) == Modes.Wingman
+          && plan.On == Modes.Wingman && plan.LoadedIn == Modes.Wingman && !plan.Restored && plan.Again == null && plan.LoadingIn == null && plan.Describe() == "in Wingman",
+        $"operator: ...comes up in Wingman: Wingman's list and features, and no third load ({ModeNow()}, {plan.Describe()})");
+
+    // changelevel and host_workshop_map: the plugin takes them alike, at the map start, by the live convars; CS2 does not. It saves the convars on a
+    // host_workshop_map from an official map, as they are then (the mode set right before it included), and brings them back only on a changelevel
+    // (or map) from a Workshop map to an official one.
+    var cs2b = new FakeCs2();
+    var p2 = new ModePlan();
+    Modes.Mode? Start2(string command, string map, bool official, Modes.Mode? told = null) // os_mode, game_type and game_mode first, then the map command
+    {
+        if (told != null) { p2.Tell(told); (cs2b.ConVars.Values["game_type"], cs2b.ConVars.Values["game_mode"]) = (told.GameType.ToString(), told.GameMode.ToString()); }
+        cs2b.Load(command, map, official);
+        return p2.Started(map, official, cs2b.GameType, cs2b.GameMode);
+    }
+    Start2("map", "ar_shoots", true);
+    Check(Start2("changelevel", "de_inferno", true, Modes.Wingman) == Modes.Wingman && p2.Again == null,
+        "operator: the same commands from an official map (live from de_dust2): official to official brings nothing back - Wingman at once, no second load");
+    Check(Start2("host_workshop_map", "aim_pillar", false, Modes.Deathmatch) == Modes.Deathmatch && p2.Again == null && cs2b.Saved == "1/2",
+        "operator: os_mode deathmatch and host_workshop_map, as the bridge loads every Workshop map: nothing brought back - Deathmatch at once (CS2 saves it on the way)");
+    Check(Start2("host_workshop_map", "aim_deagle", false, Modes.ArmsRace) == Modes.ArmsRace && p2.Again == null && cs2b.Saved == "1/2",
+        "operator: Workshop map to Workshop map: nothing saved, nothing brought back");
+    Check(Start2("changelevel", "de_dust2", true, Modes.Deathmatch) == Modes.Deathmatch && p2.LoadedIn == Modes.Deathmatch && p2.Restored && p2.Again == null,
+        "operator: a Workshop map to an official one, told the mode CS2 brings back (Deathmatch, saved on the way out): nothing to load again");
+    Check(Start2("host_workshop_map", "aim_pillar", false, Modes.ArmsRace) == Modes.ArmsRace && cs2b.Saved == "1/0" && Start2("changelevel", "de_nuke", true, Modes.Wingman) == null
+          && p2.LoadedIn == Modes.ArmsRace && p2.On == Modes.ArmsRace && p2.Again == Modes.Wingman,
+        "operator: told another mode than the one brought back: Arms Race's list on the Arms Race game, and a second load due in Wingman - for the bridge's changes too");
+    Check(Start2("changelevel", "de_nuke", true, Modes.Wingman) == Modes.Wingman && p2.Again == null && p2.On == Modes.Wingman && !p2.Restored,
+        "operator: the bridge's own second load of a change it made (2-4 s after the start, before the plugin's wait ends) lands first: one start after an official map, nothing more to load");
+    Directory.Delete(dir, true);
+
+    // The wiring, read from the source: the start arms the wait, which a map change ends; the wait's end asks again and loads; the reply while the
+    // plugin's own second load is out keeps the bridge from loading it a third time; a reload hands the plan on.
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var settingsCs = Path.Combine(plugin, "GameSettings.cs");
+    var serverLifeCs = Path.Combine(plugin, "..", "..", "bridge", "ServerLife.cs");
+    Check(File.Exists(settingsCs) && File.Exists(serverLifeCs), "operator: the settings module and the bridge's map start are read from their source");
+    if (File.Exists(settingsCs) && File.Exists(serverLifeCs))
+    {
+        var code = File.ReadAllText(settingsCs);
+        string Body(string head) { var b = code[code.IndexOf(head, StringComparison.Ordinal)..]; return b[..b.IndexOf("\n    }\n", StringComparison.Ordinal)]; }
+        var start = Body("void OnMapStart(string name)");
+        var arm = Body("void ArmAgain(string name, string why)");
+        var loadAgain = Body("void LoadAgain(string name)");
+        var setMode = Body("public string SetMode(Modes.Mode m)");
+        var unload = Body("public void Unload()");
+        var hold = Body("void HoldTold(Modes.Mode m)");
+        Check(start.IndexOf("MapMode(name)", StringComparison.Ordinal) is >= 0 and var decided && decided < start.IndexOf("if (modes.Again is { } again)", StringComparison.Ordinal)
+              && start.Contains("ArmAgain(name, ", StringComparison.Ordinal)
+              && arm.Contains("plugin.AddTimer((float)ModePlan.AgainAfterSeconds, () => LoadAgain(name), TimerFlags.STOP_ON_MAPCHANGE);", StringComparison.Ordinal),
+            "operator: a map start that finds the second load due arms the wait, which any map change ends - the bridge's own second load included");
+        Check(start.Contains("Server.NextFrame(() => HoldTold(again));", StringComparison.Ordinal)
+              && hold.Contains("keeper.Write(\"game_type\", m.GameType.ToString());", StringComparison.Ordinal) && hold.Contains("keeper.Write(\"game_mode\", m.GameMode.ToString());", StringComparison.Ordinal),
+            "operator: ...and puts the told mode's game_type and game_mode back on the map's first frame, before the bridge's probe of a start it did not ask for reads them");
+        Check(loadAgain.IndexOf("modes.Loading()", StringComparison.Ordinal) is >= 0 and var asked && asked < loadAgain.IndexOf("Server.ExecuteCommand(line);", StringComparison.Ordinal)
+              && loadAgain.Contains("post(Messages.News, $\"{name} loads once more, in {mode.Name}\");", StringComparison.Ordinal),
+            "operator: the wait's end asks the plan again before it loads, and says so in the bridge's words");
+        Check(setMode.Contains("kept; its block list and features at the next map start\"", StringComparison.Ordinal)
+              && setMode.Contains("is loading once more, in it\"", StringComparison.Ordinal) && !setMode[setMode.IndexOf("modes.LoadingIn", StringComparison.Ordinal)..].Split('\n')[0].Contains("at the next map start", StringComparison.Ordinal),
+            "operator: os_mode's reply keeps the words the bridge loads a map again on, but not while the plugin's own second load is out");
+        Check(unload.IndexOf("ModeHandover.Put(modes, Server.CurrentTime, ", StringComparison.Ordinal) is >= 0 and var put && put < unload.IndexOf("fun.Undo(", StringComparison.Ordinal)
+              && code.Contains("ModeHandover.Take(map, Server.CurrentTime, ", StringComparison.Ordinal),
+            "operator: the unload hands the plan on before anything can stop it, and the load takes it");
+        var life = File.ReadAllText(serverLifeCs);
+        Check(life.Contains("After(1500, SyncMode);", StringComparison.Ordinal) && ModePlan.AgainAfterSeconds >= 1.5 + 5,
+            $"operator: the plugin waits {ModePlan.AgainAfterSeconds} s, well past the bridge's own second load of a change it made (1.5 s after the start it sees, and a few RCON answers)");
     }
 }
 
@@ -872,6 +1012,44 @@ sealed class FakeConVars : IConVars
     }
 
     void Revert() { foreach (var (name, value) in CheatDefaults) Values[name] = value; }
+}
+
+/// <summary>CS2's map commands as measured (../bridge/ModeSwitch.cs, SyncMode): a host_workshop_map from an official map saves the convars as they are
+/// then, and a changelevel (or map) from a Workshop map to an official one brings the saved ones back, game_type and game_mode with them; nothing else
+/// saves or brings back anything. It starts as the server does, in Arms Race on an official map.</summary>
+sealed class FakeCs2
+{
+    public readonly FakeConVars ConVars = new();
+    bool onOfficial = true;
+    (string Type, string Mode)? saved;
+
+    public FakeCs2() { ConVars.Values["game_type"] = "1"; ConVars.Values["game_mode"] = "0"; }
+
+    public int GameType => int.Parse(ConVars.Values["game_type"]);
+    public int GameMode => int.Parse(ConVars.Values["game_mode"]);
+
+    /// <summary>The game_type/game_mode CS2 holds to bring back, or null.</summary>
+    public string? Saved => saved is { } s ? $"{s.Type}/{s.Mode}" : null;
+
+    public void Load(string command, string map, bool official)
+    {
+        if (command == "host_workshop_map" && onOfficial) saved = (ConVars.Values["game_type"], ConVars.Values["game_mode"]);
+        if (command is "changelevel" or "map" && official && !onOfficial && saved is { } s) (ConVars.Values["game_type"], ConVars.Values["game_mode"]) = s;
+        onOfficial = official;
+    }
+
+    /// <summary>A console line such as the second load's: its convars set in order, then its map command. Returns that command.</summary>
+    public string Run(string line, bool official)
+    {
+        foreach (var part in line.Split(';'))
+        {
+            var words = part.Trim().Split(' ', 2);
+            if (words.Length < 2) continue;
+            if (words[0] is "changelevel" or "map" or "host_workshop_map") { Load(words[0], words[1], official); return words[0]; }
+            ConVars.Values[words[0]] = words[1];
+        }
+        return "";
+    }
 }
 
 /// <summary>A logger that keeps every line it is given, for the checks on what a module said.</summary>

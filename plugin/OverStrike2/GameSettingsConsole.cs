@@ -55,7 +55,7 @@ sealed partial class GameSettings
             return;
         }
         var diffs = keeper.Differences();
-        command.ReplyToCommand($"os_settings: {OverStrike2Plugin.Version}, in {modes.On.Name}{(modes.Told is { } told && told.Id != modes.On.Id ? $" ({told.Name} told, from the next map start)" : "")}, {keeper.Describe}");
+        command.ReplyToCommand($"os_settings: {OverStrike2Plugin.Version}, {modes.Describe()}, {keeper.Describe}");
         command.ReplyToCommand($"os_settings: the list: {keeper.ListFrom}");
         command.ReplyToCommand($"os_settings: last: {keeper.LastRestore}");
         command.ReplyToCommand(diffs.Count == 0 ? "os_settings: nothing differs from the baseline"
@@ -65,8 +65,8 @@ sealed partial class GameSettings
         if (keeper.Stubborn.Count > 0) command.ReplyToCommand("os_settings: refused a put-back: " + string.Join(", ", keeper.Stubborn));
     }
 
-    /// <summary>os_block: the game-changers block's list for the mode in force, each with what it keeps. os_block reload: blocked.txt read again,
-    /// no rebuild needed.</summary>
+    /// <summary>os_block: the game-changers block's list for the mode in force, each with what it keeps - game_type and game_mode the told mode's,
+    /// as the block keeps them (os_mode), also while the old mode's list is still on. os_block reload: blocked.txt read again, no rebuild needed.</summary>
     [ConsoleCommand("os_block", "Over Strike 2 settings: the game-changers block's list; 'reload' reads blocked.txt again")]
     [CommandHelper(minArgs: 0, usage: "[reload]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnBlock(CCSPlayerController? player, CommandInfo command)
@@ -77,6 +77,7 @@ sealed partial class GameSettings
             keeper.Extra(Extras);
             log.LogInformation("Over Strike 2 settings: {Blocked}", block.From);
         }
-        command.ReplyToCommand($"os_block: {block.From}: {block.List}");
+        var told = modes.Told is { } t && t.Id != modes.On.Id ? $"; game_type and game_mode {t.Name}'s, as told" : "";
+        command.ReplyToCommand($"os_block: {block.From}{told}: {block.ListFor(modes.Told)}");
     }
 }
