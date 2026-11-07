@@ -7,7 +7,8 @@ using System.Text.RegularExpressions;
 namespace OverStrike2.Deploy;
 
 /// <summary>tools/client/probe/test_bridgepost.py, ported: it sends only with a test copy, the candidate on its copy of the data and
-/// production aside; the secret never reaches the output; the bodies are the bridge's own format; and the two programs it runs inside the
+/// production aside - or the release rehearsal's own stack, its bridge on the rehearsal folder's copy, never production's data, and production
+/// aside; the secret never reaches the output; the bodies are the bridge's own format; and the two programs it runs inside the
 /// game container do what they say, against a local server (run with this PC's Python).</summary>
 static class BridgePostTests
 {
@@ -26,8 +27,19 @@ static class BridgePostTests
         {
             ["cs2"] = C(labels: new JsonObject { [TestCopy.TestLabel] = "copy" }),
             ["bridge"] = C(labels: new JsonObject { [TestCopy.TestLabel] = TestCopy.BridgeTag }, env: [$"LOG_SECRET={Secret}", "HTTP_PORT=8081"], binds: ["/data/bridge-candidate:/data:rw"]),
-            ["cs2-prod-aside"] = C("exited"), ["bridge-prod-aside"] = C("exited"),
+            ["cs2-prod-aside"] = C("exited"), ["bridge-prod-aside"] = C("exited", binds: ["/data/bridge:/data"]),
         };
+    }
+
+    /// <summary>The rehearsal's stack (rehearse up): its label on the game server and the bridge, the bridge's /data the rehearsal folder's bridge/
+    /// copy - "rehearsal" beside production's data folder, /data/bridge - and production's game server and bridge aside, exited.</summary>
+    static Dictionary<string, JsonObject> RehearsalWorld(string data = "/data/rehearsal/bridge")
+    {
+        var w = World();
+        foreach (var name in new[] { "cs2", "bridge" })
+            w[name]["Config"]!["Labels"] = new JsonObject { [TestCopy.TestLabel] = Rehearse.Purpose, ["monitor.mute"] = "true" };
+        w["bridge"]["HostConfig"]!["Binds"] = new JsonArray($"{data}:/data:rw");
+        return w;
     }
 
     static string TupleRepr(string[] items) => "(" + string.Join(", ", items.Select(Py.ReprStr)) + (items.Length == 1 ? ",)" : ")");
@@ -243,6 +255,81 @@ static class BridgePostTests
                 change(containers);
                 Refused(why);
             }
+            containers = World();
+
+            // the release rehearsal's own stack: taken as the candidate is, and refused wherever its bridge could be production's or reach production's data
+            var bridgepostPy = File.ReadAllText(Repo.P("tools", "client", "probe", "bridgepost.py"));
+            check("the rehearsal's label is os2-deploy rehearse's own (Rehearse.cs's Purpose)",
+                  Rehearse.Purpose == "the release rehearsal" && bridgepostPy.Contains($"REHEARSAL_TAG = \"{Rehearse.Purpose}\"", StringComparison.Ordinal));
+            containers = RehearsalWorld();
+            before = execs.Count;
+            (code, output) = RunBp("check");
+            check($"the rehearsal's stack: all checks hold, nothing sent ({Py.Repr(Py.Strip(output))})",
+                  code is null && output.Contains("all checks hold: the rehearsal's stack") && execs.Count == before);
+            (code, output) = RunBp("restart", "our-update", "match-end", "0");
+            check("the rehearsal's stack: a send goes to its bridge by name, the secret unprinted",
+                  code is null && execs.Count == before + 1 && Json.Arr(execs[^1], "Env").Select(Json.PyStr).SequenceEqual([$"OS2_BRIDGE_URL=http://bridge:8081/restart-notice/{Secret}"])
+                  && !output.Contains(Secret));
+            containers = RehearsalWorld();
+            containers["bridge"]["HostConfig"]!["Binds"] = new JsonArray();
+            containers["bridge"]["Mounts"] = new JsonArray(new JsonObject { ["Type"] = "bind", ["Source"] = "/data/rehearsal/bridge/", ["Destination"] = "/data" });
+            (code, output) = RunBp("check");
+            check($"the rehearsal's bridge/ copy as a mount, with a trailing slash: all checks hold ({Py.Repr(code)})", code is null && output.Contains("all checks hold"));
+
+            foreach (var (why, start, change) in new (string, Func<Dictionary<string, JsonObject>>, Action<Dictionary<string, JsonObject>>?)[]
+                     {
+                         ("the rehearsal's bridge on production's data folder", () => RehearsalWorld("/data/bridge"), null),
+                         ("the rehearsal's bridge on a folder inside production's data folder", () => RehearsalWorld("/data/bridge/rehearsal/bridge"), null),
+                         ("the rehearsal's bridge on the candidate's copy", () => RehearsalWorld("/data/bridge-candidate"), null),
+                         ("the rehearsal's bridge on the rehearsal folder itself, not its bridge/ copy", () => RehearsalWorld("/data/rehearsal"), null),
+                         ("the rehearsal's bridge without a /data bind", () => RehearsalWorld(), w => w["bridge"]["HostConfig"]!["Binds"] = new JsonArray()),
+                         ("production's bridge beside the rehearsal's game server", () => RehearsalWorld("/data/bridge"), w => w["bridge"]["Config"]!["Labels"] = new JsonObject()),
+                         ("the rehearsal's bridge beside a test copy that is not the rehearsal's", () => RehearsalWorld(),
+                          w => w["cs2"]["Config"]!["Labels"] = new JsonObject { [TestCopy.TestLabel] = "copy" }),
+                         ("the candidate beside the rehearsal's game server", World, w => w["cs2"]["Config"]!["Labels"] = new JsonObject { [TestCopy.TestLabel] = Rehearse.Purpose }),
+                         ("the candidate's label on the rehearsal folder's bridge/ copy", World, w => w["bridge"]["HostConfig"]!["Binds"] = new JsonArray("/data/rehearsal/bridge:/data:rw")),
+                         ("the rehearsal's bridge is stopped", () => RehearsalWorld(), w => w["bridge"]["State"]!["Status"] = "exited"),
+                         ("the rehearsal's game server is stopped", () => RehearsalWorld(), w => w["cs2"]["State"]!["Status"] = "exited"),
+                         ("the rehearsal's stack, production's bridge not aside", () => RehearsalWorld(), w => w.Remove("bridge-prod-aside")),
+                         ("the rehearsal's stack, production's bridge aside but running", () => RehearsalWorld(), w => w["bridge-prod-aside"]["State"]!["Status"] = "running"),
+                         ("the rehearsal's stack, production's bridge aside without a /data bind: no rehearsal folder to know", () => RehearsalWorld(),
+                          w => w["bridge-prod-aside"]["HostConfig"]!["Binds"] = new JsonArray()),
+                         ("the rehearsal's stack, production's game server not aside", () => RehearsalWorld(), w => w.Remove("cs2-prod-aside")),
+                         ("the rehearsal's stack, production's game server aside but running", () => RehearsalWorld(), w => w["cs2-prod-aside"]["State"]!["Status"] = "running"),
+                     })
+            {
+                containers = start();
+                change?.Invoke(containers);
+                Refused(why);
+            }
+
+            // rehearse.dir names the rehearsal's folder: its bridge/ copy and no other, and never production's data folder, inside it or around it
+            var data = ((Config)h.Cfg).Data;
+            var rehearse = new Dictionary<string, object?> { ["dir"] = "/srv/os2/rehearsal" };
+            data["rehearse"] = rehearse;
+            containers = RehearsalWorld("/srv/os2/rehearsal/bridge");
+            (code, output) = RunBp("check");
+            check($"rehearse.dir names the rehearsal folder: its bridge/ copy at /data - all checks hold ({Py.Repr(code)})", code is null && output.Contains("all checks hold"));
+            containers = RehearsalWorld();
+            Refused("rehearse.dir names another folder: the copy beside production's data folder is not the rehearsal's");
+            rehearse["dir"] = "/srv/os2";
+            containers = RehearsalWorld("/srv/os2/bridge");
+            containers["bridge-prod-aside"]["HostConfig"]!["Binds"] = new JsonArray("/srv/os2/bridge:/data");
+            Refused("rehearse.dir whose bridge/ is production's data folder: the rehearsal's bridge on production's data");
+            rehearse["dir"] = "/data/bridge/rehearsal";
+            containers = RehearsalWorld("/data/bridge/rehearsal/bridge");
+            Refused("rehearse.dir inside production's data folder");
+            rehearse["dir"] = "/srv/os2";
+            containers = RehearsalWorld("/srv/os2/bridge");
+            containers["bridge-prod-aside"]["HostConfig"]!["Binds"] = new JsonArray("/srv/os2/data/bridge:/data");
+            Refused("rehearse.dir around production's data folder, its bridge/ copy beside it: the rehearsal's clean would remove production's data with it");
+            foreach (var folder in new[] { "srv/os2/rehearsal", "/srv/../rehearsal", "/rehearsal" })
+            {
+                rehearse["dir"] = folder;
+                containers = RehearsalWorld(folder + "/bridge");
+                Refused($"rehearse.dir {Py.ReprStr(folder)} is no place for the rehearsal's folder");
+            }
+            data.Remove("rehearse");
             containers = World();
 
             // bad arguments: no free route, no free text

@@ -1,14 +1,18 @@
 """What only the restart watcher or other players can send the bridge, sent by hand, for the screenshots no harness verb reaches: a restart announced, an
-update's notice, fake voters. TEST COPY AND CANDIDATE BRIDGE ONLY: production's bridge never hears any of it. Before every send all of this must hold:
+update's notice, fake voters. A TEST COPY AND THE CANDIDATE BRIDGE, OR THE RELEASE REHEARSAL'S OWN STACK, ONLY: production's bridge never hears any of it.
+Before every send all of this must hold:
 
   - the harness holds the server lock;
-  - the game server's container is a test copy and running (its cs2.test-config label, testcopy.py run);
-  - the bridge's container is the candidate and running (its own label, testcopy.py bridge-run), with its /data on the -candidate copy;
+  - the game server's container is a test copy and running (its cs2.test-config label: testcopy.py run, or os2-deploy rehearse up);
+  - the bridge's container is the candidate and running (its own label, testcopy.py bridge-run), with its /data on the -candidate copy - or the
+    rehearsal's bridge and running (os2-deploy rehearse up: the rehearsal's label, on the game server too), with its /data on the rehearsal folder's
+    bridge/ copy (rehearse.dir, else "rehearsal" beside production's bridge data folder: os2-deploy rehearse's own rule), never production's data folder,
+    inside it or around it;
   - production's game server and production's bridge are both aside, exited.
 
-So what these verbs change lands in the candidate's copy of the data, and goes with it (testcopy.py bridge-rm). Only the routes below, and no verb takes a route or a
-free text body from the command line. The calls go from inside the game container, the way the game server's own log push does, to the bridge's container name
-(bridge.container in the private config), which the checks above make the candidate. The secret travels in the exec's environment and is never printed.
+So what these verbs change lands in the candidate's copy of the data or the rehearsal's, and goes with it (testcopy.py bridge-rm, os2-deploy rehearse clean).
+Only the routes below, and no verb takes a route or a free text body from the command line. The calls go from inside the game container, the way the game server's own log push does, to the bridge's container name
+(bridge.container in the private config), which the checks above make the candidate or the rehearsal's bridge. The secret travels in the exec's environment and is never printed.
 
     python bridgepost.py restart <kind> <when> <seconds>    /restart-notice: os2-restart 1 <kind> <when> <seconds>
                                                             kind: game-update, our-update, daily, downloads; when: match-end, now
@@ -44,6 +48,7 @@ FAKES = [("Test A", "[U:1:42424251]"), ("Test B", "[U:1:42424252]"), ("Test C", 
 CLIENT_NAME = "Alice"                         # docshots.py's test name for the real client, in what the bridge says about them
 ACTS = {"next": "!next", "random": "!next random", "previous": "!previous", "restart": "!restart", "rematch": "!rematch", "time10": "!time 10", "time60": "!time 60"}   # bridge/Hud.cs's Actions, those a picture needs
 HUDTEST = ("HUDtest", "[U:1:42424243]")       # plugin/OverStrike2's os_hud click for docshots.py's account that is not on the server
+REHEARSAL_TAG = "the release rehearsal"       # os2-deploy rehearse's test label on every container of its stack (deploy/.../Client/Rehearse.cs's Purpose)
 KINDS = ("game-update", "our-update", "daily", "downloads")
 WHEN = ("match-end", "now")
 ROUND_TRIES, ROUND_WAIT = 5, 2.0
@@ -66,8 +71,29 @@ def refuse(why):
     sys.exit(f"REFUSED: {why} - nothing sent")
 
 
+def label(d):
+    """A container's test label (cs2.test-config), or None: production's containers have none."""
+    return (((d or {}).get("Config") or {}).get("Labels") or {}).get(testcopy.TEST_LABEL)
+
+
+def rehearsal_data(prod_data):
+    """Where the rehearsal's bridge has its /data, for production's bridge data folder: the rehearsal folder's bridge/ copy, the folder being rehearse.dir
+    when it names one, else "rehearsal" beside production's data folder (os2-deploy rehearse's own rule, Rehearse.Folder). None when that is no place for
+    it: not absolute, a "..", too near the root, or production's data folder, inside it or around it."""
+    prod = (prod_data or "").rstrip("/")
+    if not prod.startswith("/"):
+        return None
+    folder = probe.cfg().get("rehearse.dir", "") or prod.rpartition("/")[0] + "/rehearsal"
+    if not folder.startswith("/") or ".." in folder.split("/") or folder.rstrip("/").count("/") < 2:
+        return None
+    folder = folder.rstrip("/")
+    if folder == prod or folder.startswith(prod + "/") or prod.startswith(folder + "/"):
+        return None
+    return folder + "/bridge"
+
+
 def gate():
-    """Every check of this file's first paragraph; returns the candidate's inspect."""
+    """Every check of this file's first paragraph; returns the bridge's inspect: the candidate's or the rehearsal's."""
     probe.need_lock()
     game = testcopy.inspect(testcopy.GAME)
     if game is None or not testcopy.is_test(game):
@@ -75,13 +101,23 @@ def gate():
     if game["State"]["Status"] != "running":
         refuse("the test copy is not running")
     b = testcopy.inspect(testcopy.BRIDGE)
-    if b is None or ((b.get("Config") or {}).get("Labels") or {}).get(testcopy.TEST_LABEL) != testcopy.BRIDGE_TAG:
-        refuse(f"{testcopy.BRIDGE} is not the candidate")
+    tag = label(b)
+    if tag not in (testcopy.BRIDGE_TAG, REHEARSAL_TAG):
+        refuse(f"{testcopy.BRIDGE} is neither the candidate nor the rehearsal's bridge")
+    rehearsal = tag == REHEARSAL_TAG
+    if rehearsal != (label(game) == REHEARSAL_TAG):   # one test: the rehearsal's stack, or a test copy and the candidate
+        refuse(f"{testcopy.GAME} and {testcopy.BRIDGE} are not of one test: the rehearsal's label is on one of them only")
+    who = "the rehearsal's bridge" if rehearsal else "the candidate"
     if b["State"]["Status"] != "running":
-        refuse("the candidate is not running")
+        refuse(f"{who} is not running")
     data = testcopy.data_mount(b)
-    if not data or not data.rstrip("/").endswith("-candidate"):
+    if not rehearsal and (not data or not data.rstrip("/").endswith("-candidate")):
         refuse("the candidate's /data is not its copy")
+    if rehearsal:
+        aside = testcopy.inspect(testcopy.BRIDGE_ASIDE)
+        own = rehearsal_data(testcopy.data_mount(aside) if aside else None)
+        if not data or own is None or data.rstrip("/") != own:
+            refuse("the rehearsal's bridge does not have the rehearsal folder's bridge/ copy at /data")
     for name, what in ((testcopy.ASIDE, "production's game server"), (testcopy.BRIDGE_ASIDE, "production's bridge")):
         d = testcopy.inspect(name)
         if d is None or d["State"]["Status"] != "exited":
@@ -148,7 +184,8 @@ def main(argv):
     verb, args = argv[0], argv[1:]
     b = gate()
     if verb == "check":
-        print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside")
+        print("all checks hold: " + ("the rehearsal's stack, its bridge on the rehearsal folder's copy of the data" if label(b) == REHEARSAL_TAG
+                                      else "a test copy, the candidate on its copy of the data") + ", production and its bridge aside")
     elif verb == "names-check":
         # The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (OsDocName) reaches the
         # bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before a picture.

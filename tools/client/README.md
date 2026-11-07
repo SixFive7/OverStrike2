@@ -191,10 +191,12 @@ session with `-Console`, the client console types chat too: `cmd -Cmd "say !help
 (`restart`, `restart-cancel`), an update done (`updated`), its quit notice (`quit-notice`) - and other players: fake players who join,
 leave, time out, click and vote (`fake-on`, `fake-off`, `fake-crash`, `act`, `vote`), and the real client out of the bridge's lists and back
 (`client-off`, `client-on`); and `names-check`, which refuses when a private name - the client's own Steam name, `client.private_names` - is among
-the vote's names in the bridge's state, printing none. **A candidate bridge on a test copy only**: before every call it checks the server lock, the copy's label, the
-candidate's label and its `-candidate` data, and production and its bridge aside and stopped, and refuses otherwise; no verb takes a route
-or free text. The call goes from inside the game container to the bridge's container by name, the secret from the candidate's own inspect,
-in the exec's environment, never printed. A notice counting down (`restart ... now`) blocks every vote until `restart-cancel`; a fake
+the vote's names in the bridge's state, printing none. **A candidate bridge on a test copy, or the release rehearsal's own stack, only**: before every call it checks
+the server lock, the copy's label, the candidate's label and its `-candidate` data - or the rehearsal's label on both the game server and the
+bridge (`os2-deploy rehearse up`) and the bridge's data on the rehearsal folder's `bridge/` copy (`rehearse.dir`, else `rehearsal` beside
+production's bridge data folder), never production's data folder, inside it or around it - and production and its bridge aside and stopped,
+and refuses otherwise; no verb takes a route or free text. The call goes from inside the game container to the bridge's container by name,
+the secret from the bridge's own inspect, in the exec's environment, never printed. A notice counting down (`restart ... now`) blocks every vote until `restart-cancel`; a fake
 player's second `act restart` quits the server 10 s later unless `quit-notice` comes first.
 
 **Three traps on the test copy:** `css_plugins reload OverStrike2` leaves the old instance's listeners running: one chat line gets several
@@ -343,6 +345,6 @@ docstring has every option. A session:
 | `Cs2Native.cs` | The Win32 side, compiled by the module with `Add-Type` into the state folder's `bin\` (keyed by its hash). |
 | `probe\probe.py`, `probe\OsClientProbe\` | The server half: the private config, the server lock, the Docker API and RCON for the verbs; and the probe plugin for tests that need the server to show this client something. |
 | `probe\testcopy.py` | The insecure test copy of production for loose-file and console tests (`prep`, `run [--env K=V] [--downloads]`, `status`, `rm`, `restore`), a candidate bridge beside it - a new bridge image on a copy of the bridge's data, production's bridge set aside and its state never written, the copy reading the candidate's data (`bridge-prep`, `bridge-run <tag>`, `bridge-rm`, `bridge-restore`; the order is in its docstring) - and the plugin of a commit of main on the copy, production's plugins folder never written (`plugin <commit>`, `plugin-rm`). `run` sets the watcher's automatic actions, the deletion and the HUD item's page off in the copy's `OVERSTRIKE2_SETTINGS_CONTENT`, and `maps.layout` off, so the copy's start organizes nothing in production's maps folder (no hand-over taken in, no map moved or deleted, no write of Steam's `appworkshop_730.acf`) (a production without that text gets no copy: nothing else turns the watcher off), and a candidate bridge has production's text in its environment; `--env` reaches only the image's own variables. `--downloads` keeps the stock's background downloads production's, so the watcher stays up for them and sends the bridge its ready reports (a bridge check: the Sync page's stock on disk, a background download); refused while production's watcher has a restart of its own to judge. |
-| `probe\bridgepost.py` | What only the restart watcher or other players say to the bridge, to a candidate bridge on a test copy only. |
+| `probe\bridgepost.py` | What only the restart watcher or other players say to the bridge, to a candidate bridge on a test copy or the release rehearsal's own stack only. |
 | `probe\test_*.py`, `probe\simconfig.py` | The offline tests: an in-memory Docker, a made-up private config, no server (AGENTS.md runs them). |
 | `docshots\` | The documentation's screenshots: `docshots.py` and its `messages.txt`, `publish.py`, the session's scripts, OsDocName. |

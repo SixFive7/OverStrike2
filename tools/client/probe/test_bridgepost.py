@@ -1,5 +1,5 @@
-"""Offline test of bridgepost.py against an in-memory Docker: it sends only with a test copy, the candidate on its copy of the data and production aside; the secret
-never reaches the output; the bodies are the bridge's own format; and the two programs it runs inside the game container do what they say, against a local server.
+"""Offline test of bridgepost.py against an in-memory Docker: it sends only with a test copy, the candidate on its copy of the data and production aside - or
+the release rehearsal's own stack, its bridge on the rehearsal folder's copy, never production's data, and production aside; the secret never reaches the output; the bodies are the bridge's own format; and the two programs it runs inside the game container do what they say, against a local server.
 
     python -I tools/client/probe/test_bridgepost.py
 """
@@ -25,6 +25,7 @@ tmp = simconfig.make("bp-sim-")
 SECRET = "s3cr3t-log-word"
 TEST_LABEL = "cs2.test-config"
 BRIDGE_TAG = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data"
+REHEARSAL = "the release rehearsal"           # os2-deploy rehearse's label on every container of its stack
 CLIENT = "42424242"                           # a made-up account for the real client, in what the bridge is told about it
 execs, lock = [], {"held": True}
 state = {"mv": "mv\t1793900000\topen\t55\t2\t0\tmid\t\t1", "answer": "ok: taken at {url}"}
@@ -35,7 +36,17 @@ def world():
         return {"Id": "x" * 64, "State": {"Status": status}, "Config": {"Labels": labels or {}, "Env": list(env)}, "HostConfig": {"Binds": list(binds)}, "Mounts": []}
     return {"cs2": c(labels={TEST_LABEL: "copy"}),
             "bridge": c(labels={TEST_LABEL: BRIDGE_TAG}, env=[f"LOG_SECRET={SECRET}", "HTTP_PORT=8081"], binds=["/data/bridge-candidate:/data:rw"]),
-            "cs2-prod-aside": c("exited"), "bridge-prod-aside": c("exited")}
+            "cs2-prod-aside": c("exited"), "bridge-prod-aside": c("exited", binds=["/data/bridge:/data"])}
+
+
+def rehearsal_world(data="/data/rehearsal/bridge"):
+    """The rehearsal's stack (os2-deploy rehearse up): its label on the game server and the bridge, the bridge's /data the rehearsal folder's bridge/
+    copy - "rehearsal" beside production's data folder, /data/bridge - and production's game server and bridge aside, exited."""
+    w = world()
+    for name in ("cs2", "bridge"):
+        w[name]["Config"]["Labels"] = {TEST_LABEL: REHEARSAL, "monitor.mute": "true"}
+    w["bridge"]["HostConfig"]["Binds"] = [f"{data}:/data:rw"]
+    return w
 
 
 containers = world()
@@ -215,6 +226,85 @@ for why, change in (("cs2 is production", lambda w: w["cs2"]["Config"].update(La
     refused(why)
 containers.clear()
 containers.update(world())
+
+
+# the release rehearsal's own stack: taken as the candidate is, and refused wherever its bridge could be production's or reach production's data
+def use(w):
+    containers.clear()
+    containers.update(w)
+
+
+rehearse_cs = (simconfig.REPO / "deploy" / "OverStrike2.Deploy" / "Client" / "Rehearse.cs").read_text(encoding="utf-8")
+check(bp.REHEARSAL_TAG == REHEARSAL and f'Purpose = "{REHEARSAL}";' in rehearse_cs, "the rehearsal's label is os2-deploy rehearse's own (Rehearse.cs's Purpose)")
+use(rehearsal_world())
+before = len(execs)
+code, out = run("check")
+check(code is None and "all checks hold: the rehearsal's stack" in out and len(execs) == before, f"the rehearsal's stack: all checks hold, nothing sent ({out.strip()!r})")
+code, out = run("restart", "our-update", "match-end", "0")
+check(code is None and len(execs) == before + 1 and execs[-1]["Env"] == [f"OS2_BRIDGE_URL=http://bridge:8081/restart-notice/{SECRET}"] and SECRET not in out,
+      "the rehearsal's stack: a send goes to its bridge by name, the secret unprinted")
+w = rehearsal_world()
+w["bridge"]["HostConfig"]["Binds"] = []
+w["bridge"]["Mounts"] = [{"Type": "bind", "Source": "/data/rehearsal/bridge/", "Destination": "/data"}]
+use(w)
+code, out = run("check")
+check(code is None and "all checks hold" in out, f"the rehearsal's bridge/ copy as a mount, with a trailing slash: all checks hold ({code!r})")
+
+
+def unlabel(w, name):
+    w[name]["Config"]["Labels"] = {}
+
+
+for why, base, change in (
+        ("the rehearsal's bridge on production's data folder", rehearsal_world("/data/bridge"), None),
+        ("the rehearsal's bridge on a folder inside production's data folder", rehearsal_world("/data/bridge/rehearsal/bridge"), None),
+        ("the rehearsal's bridge on the candidate's copy", rehearsal_world("/data/bridge-candidate"), None),
+        ("the rehearsal's bridge on the rehearsal folder itself, not its bridge/ copy", rehearsal_world("/data/rehearsal"), None),
+        ("the rehearsal's bridge without a /data bind", rehearsal_world(), lambda w: w["bridge"]["HostConfig"].update(Binds=[])),
+        ("production's bridge beside the rehearsal's game server", rehearsal_world("/data/bridge"), lambda w: unlabel(w, "bridge")),
+        ("the rehearsal's bridge beside a test copy that is not the rehearsal's", rehearsal_world(), lambda w: w["cs2"]["Config"].update(Labels={TEST_LABEL: "copy"})),
+        ("the candidate beside the rehearsal's game server", world(), lambda w: w["cs2"]["Config"].update(Labels={TEST_LABEL: REHEARSAL})),
+        ("the candidate's label on the rehearsal folder's bridge/ copy", world(), lambda w: w["bridge"]["HostConfig"].update(Binds=["/data/rehearsal/bridge:/data:rw"])),
+        ("the rehearsal's bridge is stopped", rehearsal_world(), lambda w: w["bridge"]["State"].update(Status="exited")),
+        ("the rehearsal's game server is stopped", rehearsal_world(), lambda w: w["cs2"]["State"].update(Status="exited")),
+        ("the rehearsal's stack, production's bridge not aside", rehearsal_world(), lambda w: w.pop("bridge-prod-aside")),
+        ("the rehearsal's stack, production's bridge aside but running", rehearsal_world(), lambda w: w["bridge-prod-aside"]["State"].update(Status="running")),
+        ("the rehearsal's stack, production's bridge aside without a /data bind: no rehearsal folder to know", rehearsal_world(),
+         lambda w: w["bridge-prod-aside"]["HostConfig"].update(Binds=[])),
+        ("the rehearsal's stack, production's game server not aside", rehearsal_world(), lambda w: w.pop("cs2-prod-aside")),
+        ("the rehearsal's stack, production's game server aside but running", rehearsal_world(), lambda w: w["cs2-prod-aside"]["State"].update(Status="running"))):
+    if change:
+        change(base)
+    use(base)
+    refused(why)
+
+# rehearse.dir names the rehearsal's folder: its bridge/ copy and no other, and never production's data folder, inside it or around it
+rehearse = probe.cfg().data.setdefault("rehearse", {})
+rehearse["dir"] = "/srv/os2/rehearsal"
+use(rehearsal_world("/srv/os2/rehearsal/bridge"))
+code, out = run("check")
+check(code is None and "all checks hold" in out, f"rehearse.dir names the rehearsal folder: its bridge/ copy at /data - all checks hold ({code!r})")
+use(rehearsal_world())
+refused("rehearse.dir names another folder: the copy beside production's data folder is not the rehearsal's")
+rehearse["dir"] = "/srv/os2"
+w = rehearsal_world("/srv/os2/bridge")
+w["bridge-prod-aside"]["HostConfig"]["Binds"] = ["/srv/os2/bridge:/data"]
+use(w)
+refused("rehearse.dir whose bridge/ is production's data folder: the rehearsal's bridge on production's data")
+rehearse["dir"] = "/data/bridge/rehearsal"
+use(rehearsal_world("/data/bridge/rehearsal/bridge"))
+refused("rehearse.dir inside production's data folder")
+rehearse["dir"] = "/srv/os2"
+w = rehearsal_world("/srv/os2/bridge")
+w["bridge-prod-aside"]["HostConfig"]["Binds"] = ["/srv/os2/data/bridge:/data"]
+use(w)
+refused("rehearse.dir around production's data folder, its bridge/ copy beside it: the rehearsal's clean would remove production's data with it")
+for folder in ("srv/os2/rehearsal", "/srv/../rehearsal", "/rehearsal"):
+    rehearse["dir"] = folder
+    use(rehearsal_world(folder + "/bridge"))
+    refused(f"rehearse.dir {folder!r} is no place for the rehearsal's folder")
+probe.cfg().data.pop("rehearse")
+use(world())
 
 # bad arguments: no free route, no free text
 for args in (("restart", "nuke", "now", "5"), ("restart", "daily", "soon", "5"), ("restart", "daily", "now", "x"), ("updated", "daily", "a;b"), ("fake-on", "9"), ("fake-on", "x"), ("act", "0"), ("act", "7", "next"), ("act", "0", "quit"), ("act", "0", "!rcon x"), ("client-off",), ("client-on", "x"),

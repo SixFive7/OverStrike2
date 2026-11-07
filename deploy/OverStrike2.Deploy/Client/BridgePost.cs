@@ -5,12 +5,14 @@ using System.Text.RegularExpressions;
 namespace OverStrike2.Deploy;
 
 /// <summary>What only the restart watcher or other players can send the bridge, sent by hand, for the screenshots no harness verb reaches
-/// (tools/client/probe/bridgepost.py, ported): a restart announced, an update's notice, fake voters. TEST COPY AND CANDIDATE BRIDGE ONLY:
-/// production's bridge never hears any of it. Before every send all of this must hold: the harness holds the server lock; the game server's
-/// container is a test copy and running; the bridge's container is the candidate and running, with its /data on the -candidate copy;
-/// production's game server and production's bridge are both aside, exited. Only the routes below, and no verb takes a route or a free text
-/// body from the command line. The calls go from inside the game container to the bridge's container name; the secret travels in the
-/// exec's environment and is never printed.
+/// (tools/client/probe/bridgepost.py, ported): a restart announced, an update's notice, fake voters. A TEST COPY AND THE CANDIDATE BRIDGE, OR
+/// THE RELEASE REHEARSAL'S OWN STACK, ONLY: production's bridge never hears any of it. Before every send all of this must hold: the harness holds
+/// the server lock; the game server's container is a test copy and running; the bridge's container is the candidate and running, with its /data
+/// on the -candidate copy - or the rehearsal's bridge and running (rehearse up: the rehearsal's label, on the game server too), with its /data on
+/// the rehearsal folder's bridge/ copy (Rehearse.Folder: rehearse.dir, else "rehearsal" beside production's bridge data folder), never
+/// production's data folder, inside it or around it; production's game server and production's bridge are both aside, exited. Only the routes
+/// below, and no verb takes a route or a free text body from the command line. The calls go from inside the game container to the bridge's
+/// container name; the secret travels in the exec's environment and is never printed.
 ///
 ///     bridgepost restart &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;    /restart-notice: os2-restart 1 &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;
 ///     bridgepost restart-cancel &lt;kind&gt;              /restart-notice: os2-restart 1 cancel &lt;kind&gt;
@@ -57,7 +59,15 @@ sealed class BridgePost(TestCopy tc)
 
     static Exit Refuse(string why) => Out.Stop($"REFUSED: {why} - nothing sent");
 
-    /// <summary>Every check of the first paragraph; returns the candidate's inspect.</summary>
+    /// <summary>A container's test label (cs2.test-config), or null: production's containers have none.</summary>
+    static string? Label(JsonNode? d) => d is null ? null : Json.AsStr(InspectOf.Labels(d)[TestCopy.TestLabel]);
+
+    /// <summary>Where the rehearsal's bridge has its /data, for production's bridge data folder: the rehearsal folder's bridge/ copy, by the
+    /// rehearsal's own rule (Rehearse.Folder); null when that is no place for it - production's data folder, inside it or around it among them.</summary>
+    string? RehearsalData(string? prodData) =>
+        prodData is { Length: > 0 } p && p.StartsWith('/') && Rehearse.Folder(h.Cfg.Str("rehearse.dir"), p) is (var dir, null) ? dir + "/bridge" : null;
+
+    /// <summary>Every check of the first paragraph; returns the bridge's inspect: the candidate's or the rehearsal's.</summary>
     JsonObject Gate()
     {
         h.NeedLock();
@@ -67,13 +77,25 @@ sealed class BridgePost(TestCopy tc)
         if (Json.Str(game, "State", "Status") != "running")
             throw Refuse("the test copy is not running");
         var b = tc.Inspect(tc.Bridge);
-        if (b is null || Json.AsStr(InspectOf.Labels(b)[TestCopy.TestLabel]) != TestCopy.BridgeTag)
-            throw Refuse($"{tc.Bridge} is not the candidate");
+        var tag = Label(b);
+        if (b is null || (tag != TestCopy.BridgeTag && tag != Rehearse.Purpose))
+            throw Refuse($"{tc.Bridge} is neither the candidate nor the rehearsal's bridge");
+        var rehearsal = tag == Rehearse.Purpose;
+        if (rehearsal != (Label(game) == Rehearse.Purpose))   // one test: the rehearsal's stack, or a test copy and the candidate
+            throw Refuse($"{tc.Game} and {tc.Bridge} are not of one test: the rehearsal's label is on one of them only");
+        var who = rehearsal ? "the rehearsal's bridge" : "the candidate";
         if (Json.Str(b, "State", "Status") != "running")
-            throw Refuse("the candidate is not running");
+            throw Refuse($"{who} is not running");
         var data = TestCopy.DataMount(b);
-        if (string.IsNullOrEmpty(data) || !data.TrimEnd('/').EndsWith("-candidate", StringComparison.Ordinal))
+        if (!rehearsal && (string.IsNullOrEmpty(data) || !data.TrimEnd('/').EndsWith("-candidate", StringComparison.Ordinal)))
             throw Refuse("the candidate's /data is not its copy");
+        if (rehearsal)
+        {
+            var aside = tc.Inspect(tc.BridgeAside);
+            var own = RehearsalData(aside is null ? null : TestCopy.DataMount(aside));
+            if (string.IsNullOrEmpty(data) || own is null || data.TrimEnd('/') != own)
+                throw Refuse("the rehearsal's bridge does not have the rehearsal folder's bridge/ copy at /data");
+        }
         foreach (var (name, what) in new[] { (tc.Aside, "production's game server"), (tc.BridgeAside, "production's bridge") })
         {
             var d = tc.Inspect(name);
@@ -169,7 +191,8 @@ sealed class BridgePost(TestCopy tc)
         switch (verb)
         {
             case "check":
-                Out.Print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside");
+                Out.Print("all checks hold: " + (Label(b) == Rehearse.Purpose ? "the rehearsal's stack, its bridge on the rehearsal folder's copy of the data"
+                                                 : "a test copy, the candidate on its copy of the data") + ", production and its bridge aside");
                 break;
             case "names-check":
                 // The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (OsDocName) reaches

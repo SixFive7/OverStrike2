@@ -172,6 +172,33 @@ services:
         check("stage --keep-flag: the flag stays in the copy, the copy made all the same - the candidate starts under it",
               !stageFlagKept.Contains("maintenance", StringComparison.Ordinal) && stageFlagKept.Contains("cp -a /b/. $R/bridge/", StringComparison.Ordinal)
               && stageFlagKept.Replace(" ", "", StringComparison.Ordinal) == stageFlagOff.Replace("rm -f $R/bridge/maintenance; ", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal));
+        // the rehearsal's folder (Rehearse.Folder, bridgepost's gate too): "rehearsal" beside production's data folder, or rehearse.dir - never
+        // production's data folder, inside it or around it, which clean would remove whole
+        check("the folder: \"rehearsal\" beside production's data folder, or rehearse.dir as it names one",
+              Rehearse.Folder("", "/srv/os2/bridge/") == ("/srv/os2/rehearsal", null) && Rehearse.Folder("/srv/rehearsals/os2/", "/srv/os2/bridge") == ("/srv/rehearsals/os2", null));
+        check("the folder: none on production's data folder, inside it or around it, nor one that is no place",
+              new[] { ("", "/srv/os2/rehearsal"), ("/srv/os2/bridge", "/srv/os2/bridge"), ("/srv/os2/bridge/r", "/srv/os2/bridge"), ("/srv/os2", "/srv/os2/data/bridge"),
+                      ("srv/os2/r", "/srv/os2/bridge"), ("/srv/../r", "/srv/os2/bridge"), ("/r", "/srv/os2/bridge"), ("", "/bridge"), ("", "bridge") }
+                  .All(c => Rehearse.Folder(c.Item1, c.Item2).Why is not null));
+        // a rehearsal held for the live lab's client: insecure, bots of RCON's own - both off unless asked for
+        check("by default the rehearsal is production's: no -insecure anywhere, no plugin.testBots",
+              Scalar(root, "services", "cs2", "environment", "CS2_ADDITIONAL_ARGS") is null && !compose.Contains("-insecure", StringComparison.Ordinal)
+              && Json.At(s, "plugin", "testBots") is null);
+        var withArgs = Compose.Replace("      CS2_MAXPLAYERS: 10\n", "      CS2_MAXPLAYERS: 10\n      CS2_ADDITIONAL_ARGS: -condebug\n", StringComparison.Ordinal);
+        var (heldCompose, heldText) = Rehearse.ComposeText(withArgs, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused",
+                                                           insecure: true, testBots: true);
+        var held = Load(heldCompose);
+        var heldSettings = Json.Parse(heldText);
+        check("--insecure: -insecure after the game server's own arguments, in the game server alone",
+              Scalar(held, "services", "cs2", "environment", "CS2_ADDITIONAL_ARGS") == "-condebug -insecure"
+              && Scalar(held, "services", "bridge", "environment", "CS2_ADDITIONAL_ARGS") is null && Scalar(held, "services", "sync", "environment", "CS2_ADDITIONAL_ARGS") is null);
+        var (bareCompose, _) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused", insecure: true);
+        check("--insecure on a game server with no arguments of its own: -insecure alone",
+              Scalar(Load(bareCompose), "services", "cs2", "environment", "CS2_ADDITIONAL_ARGS") == "-insecure");
+        check("--test-bots: plugin.testBots on in the one settings text, every other override as without it",
+              Json.AsBool(Json.At(heldSettings, "plugin", "testBots")) == true && Json.Str(heldSettings, "maps", "layout") == "off"
+              && Json.AsBool(Json.At(heldSettings, "maps", "preview")) == true && Json.Str(heldSettings, "paths", "handover") == Json.Str(s, "paths", "handover")
+              && Json.Obj(Json.Parse(File.ReadAllText(Repo.P("docs", "settings.schema.json"))), "properties", "plugin", "properties").ContainsKey("testBots"));
         check("stage: the preview's folder made in the rehearsal folder, emptied and writable for the game server's user",
               stageFlagOff.StartsWith("set -e; R=/r/rehearsal; mkdir -p $R/bridge $R/preview; find $R/bridge $R/preview -mindepth 1 -delete; chmod 777 $R/preview; ", StringComparison.Ordinal)
               && stageFlagKept.Contains("chmod 777 $R/preview", StringComparison.Ordinal));
