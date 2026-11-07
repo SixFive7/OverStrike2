@@ -438,7 +438,7 @@ boost shrinks the other values take the cut. A leader 2 kills or more ahead of s
 
 The module counts the ladder from the match's kills, since the game exposes no ladder position, by CS2's own rules as real matches show them: a team kill under friendly fire takes the
 killer down a level, and every kill goes to the plugin's log as `CatchUp: kill:` with both teams and both counts after it. Its self-test replays real match logs against them. `!catchup off`
-switches it off for everybody until the map changes; `gg_catchup` is the console's word.
+switches it off for everybody until the map changes; `os_catchup` is the console's word.
 
 ## Broken maps
 

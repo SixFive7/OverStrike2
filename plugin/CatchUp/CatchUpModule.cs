@@ -22,7 +22,11 @@ namespace CatchUp;
 public sealed class CatchUpModule
 {
     /// <summary>The server command (console and RCON only): status, reload, on, off, show, give.</summary>
-    public const string Command = "gg_catchup";
+    public const string Command = "os_catchup";
+
+    /// <summary>The command's old word, answered the same: the documentation's screenshot tools still send it (tools/client/docshots and
+    /// os2-deploy docshots).</summary>
+    const string OldCommand = "gg_catchup";
 
     sealed class Life
     {
@@ -47,7 +51,7 @@ public sealed class CatchUpModule
     readonly HashSet<int> boostedLastLife = new();
     bool switchedOn = true;
     bool recalculation;  // a recalculation is queued for the next frame
-    bool stopped;        // too many errors in a short time: off until 'gg_catchup on' or a reload
+    bool stopped;        // too many errors in a short time: off until 'os_catchup on' or a reload
     int faults;          // errors in the current window
     DateTime faultWindow;
     int serial;
@@ -76,7 +80,7 @@ public sealed class CatchUpModule
     bool Active => switchedOn && !stopped;
 
     /// <summary>The host's switch: on while catch-up's fun setting is on and the map that is on is Arms Race (the plugin's CatchUpFollows).
-    /// On also clears a stop after errors, as 'gg_catchup on' does.</summary>
+    /// On also clears a stop after errors, as 'os_catchup on' does.</summary>
     public void Switch(bool on)
     {
         switchedOn = on;
@@ -98,7 +102,8 @@ public sealed class CatchUpModule
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         plugin.RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnTakeDamage);
         plugin.AddTimer(RegenTickSeconds, Tick, TimerFlags.REPEAT);
-        plugin.AddCommand(Command, "Arms Race catch-up: gg_catchup [status | reload | on | off | show <player> <behind | lead N> | give <player> <behind | lead N>]", OnCommand);
+        plugin.AddCommand(Command, "Arms Race catch-up: os_catchup [status | reload | on | off | show <player> <behind | lead N> | give <player> <behind | lead N>]", OnCommand);
+        plugin.AddCommand(OldCommand, $"Arms Race catch-up: the old word of {Command}", OnCommand);
         WarmUp();
         log.LogInformation("CatchUp: {Summary}; {State}", summary,
             hotReload ? "loaded during a map: counting starts at the next match" : "counting starts at the first match");
@@ -673,7 +678,7 @@ public sealed class CatchUpModule
         if (faults == FaultsToStop && !stopped)
         {
             stopped = true;
-            log.LogError("CatchUp: {Count} errors in {Minutes} minutes - the boosts are off until 'gg_catchup on' or a plugin reload", faults, FaultWindowMinutes);
+            log.LogError("CatchUp: {Count} errors in {Minutes} minutes - the boosts are off until 'os_catchup on' or a plugin reload", faults, FaultWindowMinutes);
         }
     }
 

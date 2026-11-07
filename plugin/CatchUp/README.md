@@ -11,7 +11,7 @@ or loaded on its own.
 | `Ladder.cs` | The kill counter (`Ladder`), the standings and the weapon names, free of CounterStrikeSharp too. |
 | `CatchUpWords.cs` | The words: the message's lines, one sentence for chat and the log, the log's lines. |
 | `CatchUpConfig.cs` | The settings and their defaults; reads `catchup.json` and never throws: a missing or unreadable file means the defaults, and the log says so. |
-| `CatchUpModule.cs` | The game half: registers the events through the host, applies what the rules decide, the `gg_catchup` command. |
+| `CatchUpModule.cs` | The game half: registers the events through the host, applies what the rules decide, the `os_catchup` command. |
 | `catchup.json` | The tuned numbers - the boost table and the bounty - equal to the built-in defaults (the self-test fails when they drift apart). It ships beside the plugin's DLL. |
 | `SelfTest/` | `dotnet run`: every decision without a game server, and the kill counter against five whole real matches (`armsrace-*.txt`, anonymised). `-- --table` also prints the tier table, the panels and the mid-life cut. |
 
@@ -27,23 +27,24 @@ or loaded on its own.
   frame later or on a timer.
 - For the host: `Show` is how the message is shown (the player, the boost and the centre panel's HTML of it) - the plugin draws the
   HUD's card there, or the centre panel for a game not known to hold the card, and keeps either up 5 s; `Switch(on)` is catch-up's fun
-  setting, which the plugin turns on while the setting is on and the map is Arms Race; `Status()` is what `gg_catchup` prints.
+  setting, which the plugin turns on while the setting is on and the map is Arms Race; `Status()` is what `os_catchup` prints.
 - It registers the events `round_start`, `player_spawn`, `player_death`, `player_hurt`, `weapon_fire`, `player_team` and
   `player_disconnect` (all post), the listeners `OnClientPutInServer`, `OnMapStart` and `OnPlayerTakeDamagePre`, one repeating timer
-  (regeneration's, every 0.5 s) and the server command `gg_catchup`. All of them coexist with the host's own handlers.
+  (regeneration's, every 0.5 s) and the server command `os_catchup`. All of them coexist with the host's own handlers.
 - It reads one file, `catchup.json` at the path the host passes, and logs through the host's logger.
 
 ## The console command
 
-`gg_catchup`, from the server console or RCON only; a client typing it gets nothing.
+`os_catchup`, from the server console or RCON only; a client typing it gets nothing. Its old word, `gg_catchup`, does the same: the
+documentation's screenshot tools still send it.
 
 | Command | Effect |
 |---|---|
-| `gg_catchup` | The status: on or off and why, counting this match (rungs learned, placements) or waiting for a match start, free-for-all, headshots only and the game's spawn protection; then top, second, leader, lead and bounty, and per player their progress, level, kills behind and what this life has. |
-| `gg_catchup reload` | Reads `catchup.json` again; the next spawns use it. |
-| `gg_catchup on` / `off` | Until the plugin reloads, or catch-up's fun setting switches it. `on` also clears a stop after errors. Lives already boosted keep their health. |
-| `gg_catchup show <player> <behind>` or `<player> lead <n>` | Shows that player, now, what a gap (or a lead) gives. Changes nothing. |
-| `gg_catchup give <player> <behind>` or `<player> lead <n>` | Also gives their current life that boost - health, protection from now on, every effect - kept until they die and not decided again: to try the effects with two players. |
+| `os_catchup` | The status: on or off and why, counting this match (rungs learned, placements) or waiting for a match start, free-for-all, headshots only and the game's spawn protection; then top, second, leader, lead and bounty, and per player their progress, level, kills behind and what this life has. |
+| `os_catchup reload` | Reads `catchup.json` again; the next spawns use it. |
+| `os_catchup on` / `off` | Until the plugin reloads, or catch-up's fun setting switches it. `on` also clears a stop after errors. Lives already boosted keep their health. |
+| `os_catchup show <player> <behind>` or `<player> lead <n>` | Shows that player, now, what a gap (or a lead) gives. Changes nothing. |
+| `os_catchup give <player> <behind>` or `<player> lead <n>` | Also gives their current life that boost - health, protection from now on, every effect - kept until they die and not decided again: to try the effects with two players. |
 
 `<player>` is `#<slot>`, an account id, `[U:1:<id>]` or a SteamID64.
 
@@ -108,7 +109,7 @@ the gun the counter puts in the killer's hands.
 ## Errors and the log
 
 Every handler catches. The first three errors of a 10-minute window are logged with their stack; 20 within 10 minutes switch the effects
-off until `gg_catchup on` or a plugin reload, rather than repeating a throw at every hit.
+off until `os_catchup on` or a plugin reload, rather than repeating a throw at every hit.
 
 Every log line starts `CatchUp:` - at load (the tiers, the methods compiled ahead), at each match start, every kill with both players'
 teams and counts after it (`CatchUp: kill:`), a team kill's demotion, a placement or a gun seen on two rungs, every spawn that gets a boost
@@ -129,6 +130,6 @@ Out-of-range values are clamped and logged (`CatchUp config: ...`); names in any
 section or a value the file leaves out keeps its default, and a key the module does not read is ignored.
 
 **A number changed on a running server** needs no build and no restart: edit the `catchup.json` beside the plugin's DLL in the game's
-plugin folder - the file the module reads - and run `gg_catchup reload`. The plugin's folder is copied into the game before every engine
+plugin folder - the file the module reads - and run `os_catchup reload`. The plugin's folder is copied into the game before every engine
 start, so make the same change to this folder's `catchup.json` and ship it with the plugin (`deploy/plugin.py`), or the next start puts
 the old one back.
