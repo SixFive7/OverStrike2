@@ -50,6 +50,7 @@ python -I tools/client/probe/test_bridgepost.py                 # what only the 
 python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
 python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)
 python -I tools/scan/test_scan.py                               # the scanner's rule against raw bidi control characters, offline
+python -I maps/selfcheck.py                                     # only for changes under maps/: each map and its preview as committed (maps/README.md)
 ```
 
 The rules are said in the menu's How it works and Help pages, and `--selftest` holds them to the code, number for number

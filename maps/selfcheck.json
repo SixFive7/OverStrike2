@@ -1,0 +1,42 @@
+{
+  "about": "What each map's generate.py writes, by sha256, as maps/selfcheck.py checks it; written by selfcheck.py --record with the Python, numpy and Pillow named here.",
+  "recorded_with": {
+    "python": "3.14.10",
+    "numpy": "2.4.5",
+    "pillow": "13.0.0"
+  },
+  "maps": {
+    "gg_glasspire": {
+      "layout.json": "75a262db2f0517920f72a8f20cbe916473411ec247f88669090001f31bb3b6a8",
+      "cs2/content/csgo_addons/gg_glasspire/maps/gg_glasspire.vmap": "e8f0bea951ec3cda7372b2ba3af970ee56ca70d0fe6dcaacd0700c9ab105e40f",
+      "cs2/content/csgo_addons/gg_glasspire/materials/gg_glasspire/glass_floor.vmat": "7e907ec1f63bf63be510bf55e5383e2877b17fbabbad75eacd07ca35b8fca61f",
+      "cs2/content/csgo_addons/gg_glasspire/materials/gg_glasspire/glass_window.vmat": "cc63613c00f786ce912825a8286c39086f9f6549bb1bc9b480166a36ecacd07b",
+      "cs2/game/csgo_addons/gg_glasspire/addoninfo.txt": "40e6d2e43a8eab6a4875946d919dc252dc091842ec91e0e3939a1a2a1a494e5b"
+    },
+    "gg_moonglass": {
+      "layout.json": "76c69c5a56dad86fcda9a54b013dca17a89c822171b8b2fbd2273183ee86073c",
+      "cs2/content/csgo_addons/gg_moonglass/maps/gg_moonglass.vmap": "f197f8f5a7ce304606234af5aa10eeabc50109261535551675b2f847c2c8f20e",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/earth.vmat": "d97f2be3cfb6c9686145e01c4a698e001643c4d2e2ee5e2c2f752ea494764266",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/earth_color.png": "c6585f0190116ec1eebed9a0096f90483e10cc032dcc13b10b2070ae9b5dd2d0",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_clear.vmat": "f92318bb62ca39d33de2a3e0a3e78edd1f3997779783e6efb93192351c47c644",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_floor.vmat": "6c6f56585eb65eb1d40c9e1b3da67f26f95c7767aa4197203538dab5c83a30fb",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_frost.vmat": "24595ba5ff7719f8ade402005a7d737c2a8b9a12de4917938e5c1fc01c225881",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_green.vmat": "6bcd529e0913045ebfedaaf29c69b27df675ba113893237809deb714c6a44070",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_thick.vmat": "d50aa31780141a78337e1f9cd8d3f5e433f228ed0b07a817ecec489a3f50a1b4",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/glass_tint.vmat": "a011243b7a696631d7df99cd590594a3a6ff07a4a6c5562c1f81dfcdf9d64517",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/module_white.vmat": "d7b6edd457208a4fac3971952e2ee2940069563a1eae84b645d112deff2044cc",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/module_white_color.png": "b59b405db60dbbd578a96911657e94871ba72c91329dbb3dcba87f0b01126cf4",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/module_white_normal.png": "f87bdb045ac5d460f8c1668e85ea82ba842d63e48ccc76a32bf72a5bf19d325d",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/regolith.vmat": "899443ea7283402d727c3347ce58d85a08ffcf00413d935e34a186f6e8b4972d",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/regolith_color.png": "fe2340192c3d17ae76adc8a4c2063118e49b3508e8411bf7263002bb5bf4cced",
+      "cs2/content/csgo_addons/gg_moonglass/materials/gg_moonglass/regolith_normal.png": "b8272114e0416f667627da09a8330c96b99a770ea9cf89802a23fe72b7d2c329",
+      "cs2/game/csgo_addons/gg_moonglass/addoninfo.txt": "c37451cc9e9f3abb024a29f94942b58bc284c9a1573f77c73939d1707c5754d1"
+    },
+    "gg_vinceville": {
+      "layout.json": "5f7405d6f7cc0f6e67c10e74f1f2db2225354a2035b6d2e2efbd278fdd4e000c",
+      "cs2/content/csgo_addons/gg_vinceville/maps/gg_vinceville.vmap": "8c3054d5883d8e6e2f7d0b434af532e38473b73ab3fda3c05a512caaf96f2a7b",
+      "cs2/game/csgo_addons/gg_vinceville/addoninfo.txt": "234fbde436a0ecf37b824adfcc1fdb5c9b6cad797aad1687aa183a466b37ec98",
+      "cs2/game/csgo_addons/gg_vinceville/postprocess/postprocess_filmic_underwater.vpost_c": "a0ef43327c2afab9a854d4ad85bb5a08f1349ae4f57984547f874cd107749604"
+    }
+  }
+}
