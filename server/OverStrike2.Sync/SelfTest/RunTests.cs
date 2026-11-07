@@ -413,4 +413,25 @@ static class RunTests
         (State, Work, Data) = saved;
         Hooks.Check = (_, _, _, _, _) => ([], []);
     }
+
+    // ---- the status picture only looks: the queue it shows leaves every item's status as it was; the queue of a run's step marks them
+    internal static void PictureOnly()
+    {
+        var root = Dir("picture-only");
+        var saved = (State, Work, Data);
+        (State, Work, Data) = (Path.Combine(root, "state"), Path.Combine(root, "work"), Path.Combine(root, "data"));
+        Directory.CreateDirectory(Data);
+        Json(Path.Combine(Data, "maps.json"), A("""[{"rank": 1, "id": 31, "name": "a", "sizeMb": 1}]"""));
+        Json(Path.Combine(Data, "broken.json"), O("""{"schema": "x", "maps": [], "packs": []}"""));
+        var run = W.Run(Cfg(), new FakeClock(T0));
+        run.State.Items["31"] = O("""{"status": "queued", "why": "new", "ws": "ok", "app": 730, "tags": ["Armsrace"]}""");
+        run.State.Items["32"] = O("""{"status": "queued", "why": "new", "ws": "ok", "app": 730, "tags": ["Armsrace"], "filename": "old.bin"}""");
+        run.StatusPicture();
+        var looked = (Node.Str(run.State.Item("31")!["status"]), Node.Str(run.State.Item("32")!["status"]));
+        run.Queue(BridgeData.Read(Data).KnownIds(run.Cfg));
+        var marked = (Node.Str(run.State.Item("31")!["status"]), Node.Str(run.State.Item("32")!["status"]));
+        Check($"status: the picture only looks - a listed map and a CS:GO-era upload stay queued ({looked}), a step's queue marks them ({marked})",
+              looked == ("queued", "queued") && marked == ("known", "skipped"));
+        (State, Work, Data) = saved;
+    }
 }

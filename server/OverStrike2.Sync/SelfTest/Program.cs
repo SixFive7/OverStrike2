@@ -37,6 +37,7 @@ try
     RunTests.Stalls();
     RunTests.Gone();
     RunTests.WorkshopJson();
+    RunTests.PictureOnly();
     ServiceTests.Clock();
     HandOverTests.Acf(root);
     var kdata = HandOverTests.KData();

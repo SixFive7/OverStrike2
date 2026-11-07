@@ -7,10 +7,11 @@ namespace OverStrike2.Sync;
 public sealed partial class SyncRun
 {
     /// <summary>The download queue, best first: items created in the last 14 days (newest first), then listed maps changed since we last saw
-    /// them, then everything else we have seen (most subscribed first) - and before all of them, best score first, a waiting map whose
-    /// Workshop score would put it among its mode's best (the keep set's top lists), so the maps that will stay on the server are tested
-    /// before the rest.</summary>
-    public List<string> Queue(IReadOnlyDictionary<string, string> known)
+    /// them, then everything else we have seen (most subscribed first) - and before all of them, best score first, a waiting map whose Workshop
+    /// score would put it among its mode's best (the keep set's top lists), so the maps that will stay on the server are tested before the
+    /// rest. It marks what it leaves out for good - listed already (known), an excluded author's or a CS:GO-era upload (skipped) - unless it is
+    /// asked only to look (mark false: the status picture).</summary>
+    public List<string> Queue(IReadOnlyDictionary<string, string> known, bool mark = true)
     {
         var items = State.Items;
         var only = Cfg.OnlyIds;
@@ -27,21 +28,22 @@ public sealed partial class SyncRun
                 continue;
             if (known.ContainsKey(wid) && Node.Str(rec["why"]) != "changed")
             {
-                rec["status"] = "known";
+                if (mark)
+                    rec["status"] = "known";
                 continue;
             }
             if (Node.Str(rec["ws"]) != "ok" || !(Node.IsNumber(rec["app"]) && KeepSet.Number(rec["app"]) is 0 or 730))
                 continue;
             if (Node.Truthy(rec["creator"]) && Cfg.ExcludeCreators.Contains(Node.Str(rec["creator"])))
             {
-                rec["status"] = "skipped";
-                rec["evidence"] = "listed by hand (its author is in sync.excludeCreators)";
+                if (mark)
+                    (rec["status"], rec["evidence"]) = ("skipped", "listed by hand (its author is in sync.excludeCreators)");
                 continue;
             }
             if (Node.Truthy(rec["filename"]))
             {
-                rec["status"] = "skipped";
-                rec["evidence"] = $"a CS:GO-era upload (its Workshop file is {Text.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded";
+                if (mark)
+                    (rec["status"], rec["evidence"]) = ("skipped", $"a CS:GO-era upload (its Workshop file is {Text.Cut(Node.Str(rec["filename"]), 60)}): no CS2 map, not downloaded");
                 continue;
             }
             if (!Node.StrList(rec["tags"]).Any(tags.Contains))
