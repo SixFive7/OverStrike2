@@ -166,6 +166,12 @@ public static class HudVote
     /// <summary>The first content with the ballot's ten cards and catch-up's card under the crosshair: a game on an older one gets eight cards a page and the centre panel.</summary>
     public const int CardsLevel = 46;
 
+    /// <summary>Whether a game shows catch-up's card under the crosshair, or needs CS2's own centre panel (HudVersion.IsWord): the panel for a game known to
+    /// hold a content before v4.6.0, and for one that may hold no HUD at all - a player who joined while Steam does not hand the item out (mayHaveNoHud) and
+    /// has not clicked in it ("": not seen). Any other game - this content, a newer one, or one whose content no click has named yet - shows the card, as the
+    /// ballot takes it (CardsFor); a game the window's X has not been clicked in is one of those. The card's chat line reaches every one of them.</summary>
+    public static bool CatchUpCard(string version, bool mayHaveNoHud) => !HudVersion.IsBefore(version, CardsLevel) && !(mayHaveNoHud && version == "");
+
     /// <summary>The ballot's pages: perPage cards a page (CardsFor). Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v, int perPage = MapVote.PageCards) => Math.Max(1, (v.Maps.Count + perPage - 1) / perPage);
 

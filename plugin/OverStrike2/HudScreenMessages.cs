@@ -75,15 +75,17 @@ sealed partial class HudScreen
 
     // ---- catch-up's card: chat and the board through Post, the rows in the player's record (HudFrame draws them) ----
 
-    /// <summary>Whether this player's game holds a content with the catch-up card: known by its version button (HudCheck), and not older. Any other gets the centre panel.</summary>
-    public bool HasCards(CCSPlayerController p) => VersionOf(Account(p)) is var v && v != "" && v != HudVersion.Unknown && !HudVersion.IsBefore(v, HudVote.CardsLevel);
+    /// <summary>Whether this player's game shows the catch-up card (HudVote.CatchUpCard): any game but one known to hold a content before v4.6.0, and one that may hold
+    /// no HUD at all - joined while Steam does not hand the item out, and not seen clicking in it. Those get CS2's centre panel.</summary>
+    public bool HasCards(CCSPlayerController p) => HudVote.CatchUpCard(VersionOf(Account(p)), !addonRequired && !keptMenu.Contains(Account(p)));
 
-    /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds, a row per item, green for a boost and red for a bounty; the same in that player's chat.</summary>
-    public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds)
+    /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds (card: the player's game shows the card - else the plugin sends CS2's centre
+    /// panel), a row per item, green for a boost and red for a bounty; the same line in that player's chat either way.</summary>
+    public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds, bool card = true)
     {
         var rows = items.Select(Messages.Capital).Take(HudFrame.CatchUpRows).ToArray();
         var now = DateTime.UtcNow;
-        Player(player.Slot).CatchUp = (head, rows, bad, now, now.AddSeconds(seconds));
+        if (card) Player(player.Slot).CatchUp = (head, rows, bad, now, now.AddSeconds(seconds));
         var line = $"{head}: {string.Join("  ·  ", rows)}";
         Post(bad ? Messages.Bounty : Messages.CatchUpBoost, bad ? M.Refused(line) : M.Done(line), Account(player), seconds: seconds);
     }

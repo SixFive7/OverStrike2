@@ -21,6 +21,8 @@ using OverStrike2;
 //     one says so;
 //   - the game-changers block when a map turns cheats on (GameChangerBlock.cs, CheatsRevert.cs): the engine's revert of every cheat-flagged
 //     setting is part of the block's one undo, said once, naming cheats;
+//   - catch-up's card or CS2's centre panel (HudVote.CatchUpCard): the card for any game but one known to hold an older content or one that may hold
+//     no HUD, and the chat line either way;
 //   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
@@ -533,6 +535,37 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && !later.Covers("mp_damage_headshot_only", false, t.AddSeconds(1)) && !later.Covers("sv_cheats", true, t.AddSeconds(1)) && !new CheatsRevert().Open(t),
         "cheats: only cheat-flagged settings, only within the revert's window after the block turned cheats off");
     Directory.Delete(dir, true);
+}
+
+// ---- catch-up's card or CS2's centre panel (HudVote.CatchUpCard, HudScreen.HasCards, the plugin's Show): a game the window's X has not been clicked in
+// yet takes the card, as the ballot takes it - live, a v4.7.0 game 14 s after its join got the centre panel, and no chat line. The centre panel is for a
+// game known to hold a content before v4.6.0, and for one that may hold no HUD (a joiner while Steam does not hand the item out, not seen clicking); the
+// chat line comes either way ----
+{
+    var now = HudVersion.OfLevel(HudVersion.Level);
+    Check(HudVote.CatchUpCard("", false) && HudVote.CatchUpCard(HudVersion.Unknown, false) && HudVote.CatchUpCard(now, false) && HudVote.CatchUpCard(HudVersion.OfLevel(HudVote.CardsLevel), false),
+        $"catch-up: the card for a game not seen clicking yet, one whose click named no content, this content ({now}) and the first with the card");
+    Check(!HudVote.CatchUpCard(HudVersion.OfLevel(HudVote.CardsLevel - 1), false) && !HudVote.CatchUpCard(HudVersion.Older, false),
+        "catch-up: CS2's centre panel for a game known to hold a content before v4.6.0 (its click said which, or that it is older)");
+    Check(!HudVote.CatchUpCard("", true) && HudVote.CatchUpCard(now, true) && HudVote.CatchUpCard(HudVersion.Unknown, true),
+        "catch-up: ...and for a joiner while Steam does not hand the item out who has not clicked in it - one who has, has a HUD");
+    Check(HudVote.CardsFor("") == MapVote.PageCards && HudVote.CatchUpCard("", false), "catch-up: a game not seen yet takes the card as the ballot takes its ten cards");
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var hostCs = Path.Combine(plugin, "OverStrike2.cs");
+    var messagesCs = Path.Combine(plugin, "HudScreenMessages.cs");
+    Check(File.Exists(hostCs) && File.Exists(messagesCs), "catch-up: the host and the HUD's messages are read from their source");
+    if (File.Exists(hostCs) && File.Exists(messagesCs))
+    {
+        var host = File.ReadAllText(hostCs);
+        var show = host[host.IndexOf("catchUp.Show = ", StringComparison.Ordinal)..];
+        show = show[..show.IndexOf("};", StringComparison.Ordinal)];
+        var messages = File.ReadAllText(messagesCs);
+        Check(show.IndexOf("hud.ShowCatchUp(", StringComparison.Ordinal) is >= 0 and var chat && chat < show.IndexOf("if (card) return;", StringComparison.Ordinal)
+              && show.IndexOf("PrintToCenterHtml", StringComparison.Ordinal) > show.IndexOf("if (card) return;", StringComparison.Ordinal)
+              && messages.Contains("HudVote.CatchUpCard(VersionOf(Account(p)), !addonRequired && !keptMenu.Contains(Account(p)))", StringComparison.Ordinal)
+              && messages.Contains("if (card) Player(player.Slot).CatchUp = ", StringComparison.Ordinal),
+            "catch-up: the message posts its chat line before it picks the card or the centre panel, and the card is drawn only for a game that shows it");
+    }
 }
 
 // ---- the Players page's time on (JoinTimes.cs): by account. A map change disconnects everybody, and a player's time goes on through it whatever

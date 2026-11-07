@@ -419,8 +419,9 @@ set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. 
 ## Catch-up
 
 In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a card under the crosshair says what it is and how many kills behind they are, a
-green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game not known to hold a content with that card, because
-[the window's X](#the-huds-version-and-the-hud-check) has not said which it holds yet, gets a centre panel instead. The numbers are `plugin/CatchUp/catchup.json`; the module is [`plugin/CatchUp/`](../plugin/CatchUp/).
+green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game known to hold a content before v4.6.0, which has no
+such card, gets CS2's centre panel instead, as does a player who joined while Steam does not hand the HUD out and has not clicked in it; the chat line comes either way. A game
+[the window's X](#the-huds-version-and-the-hud-check) has not said anything about yet gets the card, as the ballot takes it. The numbers are `plugin/CatchUp/catchup.json`; the module is [`plugin/CatchUp/`](../plugin/CatchUp/).
 
 | Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
 |---|---|---|---|---|---|---|

@@ -104,7 +104,10 @@ public class OverStrike2Plugin : BasePlugin
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
         catchUp.Show = (player, boost, html) =>
         {
-            if (hud.HasCards(player)) { hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Items(boost, false), boost.IsBounty, CatchUpMessageSeconds); return; }
+            // The card under the crosshair, or CS2's centre panel for a game that shows no card (HudScreen.HasCards); the same line in that player's chat either way.
+            var card = hud.HasCards(player);
+            hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Items(boost, false), boost.IsBounty, CatchUpMessageSeconds, card);
+            if (card) return;
             boosts[player.Slot] = (html, DateTime.UtcNow.AddSeconds(CatchUpMessageSeconds)); // sent every tick for its seconds (OnTick)
             player.PrintToCenterHtml(html);
         };
