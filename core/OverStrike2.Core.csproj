@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- What the bridge, the plugin and the server program share: the settings file, RCON, A2S, Valve's KeyValues, the Steam Web API's one
-       door, careful file writes, local time, the keep set. No packages, and safe for trimming and native AOT (the bridge is native AOT,
-       the plugin runs in CounterStrikeSharp's .NET 10). -->
+  <!-- What the bridge, the plugin and the two server programs, os2-server and os2-sync, share: the settings file, the bridge's wire, RCON
+       and A2S, Valve's KeyValues and steam.inf, the Workshop's folders, the Steam Web API's one door, the JSON values as the programs read
+       them, careful file writes and libc's calls, a log's tail, the clock and local time, the keep set, the search texts and the words.
+       No packages, and safe for trimming and native AOT (the bridge is native AOT, the plugin runs in CounterStrikeSharp's .NET 10). -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -10,7 +11,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- LibraryImport's generated marshalling: the folder fsync in Files.WriteAtomic -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- LibraryImport's generated marshalling and statvfs's buffer: the libc calls in Posix.cs -->
     <RootNamespace>OverStrike2.Core</RootNamespace>
     <AssemblyName>OverStrike2.Core</AssemblyName>
   </PropertyGroup>
