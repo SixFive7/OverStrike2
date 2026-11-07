@@ -51,7 +51,7 @@ public static class Program
         if (command == "version")
         {
             System.Console.WriteLine($"os2-server {Version} (.NET {Environment.Version}, {RuntimeInformation.RuntimeIdentifier})");
-            if (Settings.Load(Part.Server, Fingerprint.SettingsPath(settingsArg, env), env).Fatal is { } unusable)
+            if (Settings.Load(Part.Server, Settings.PathFor(settingsArg, env), env).Fatal is { } unusable)
                 System.Console.WriteLine($"settings: NOT USABLE - {unusable} (os2-server doctor says more)");
             return 0;
         }
@@ -60,7 +60,7 @@ public static class Program
             System.Console.Error.WriteLine($"os2-server: unknown command '{command}' - nothing done\n\n{Usage}");
             return 2;
         }
-        var settingsPath = Fingerprint.SettingsPath(settingsArg, env);
+        var settingsPath = Settings.PathFor(settingsArg, env);
         var settings = Settings.Load(Part.Server, settingsPath, env);
         var zone = LocalTime.Zone();
         var clock = SystemClock.Instance;

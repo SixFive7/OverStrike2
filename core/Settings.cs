@@ -99,6 +99,10 @@ public sealed class Settings
 
     public Part Reader { get; private set; } = Part.All;
 
+    /// <summary>The settings file a program reads: the one it was named (--settings), else OVERSTRIKE2_SETTINGS, else <see cref="DefaultPath"/>
+    /// - which is naming nothing: Load then takes the settings' text in <see cref="ContentVariable"/> first.</summary>
+    public static string PathFor(string? given, Func<string, string?> env) => given ?? (env(PathVariable) is { Length: > 0 } p ? p : DefaultPath);
+
     /// <summary>The settings for one reader. Where from, the first that says: a file named for a test (path, which is what --settings gives,
     /// else OVERSTRIKE2_SETTINGS); the file's text in <see cref="ContentVariable"/>, by the same rules and the same fatal path as a file;
     /// the file at <see cref="DefaultPath"/>. Naming DefaultPath is naming nothing: it is what a caller passes that was told no other.
@@ -108,7 +112,7 @@ public sealed class Settings
     {
         env ??= Environment.GetEnvironmentVariable;
         readFile ??= File.ReadAllText;
-        path ??= env(PathVariable) is { Length: > 0 } p ? p : DefaultPath;
+        path = PathFor(path, env);
         if (path == DefaultPath && env(ContentVariable) is { Length: > 0 } content)
         {
             var inline = Parse(content, reader, env, readFile);

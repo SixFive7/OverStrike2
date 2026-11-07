@@ -56,7 +56,7 @@ public static class Program
         if (command == "version")
         {
             Console.WriteLine($"os2-sync {Version} (.NET {Environment.Version}, {RuntimeInformation.RuntimeIdentifier})");
-            if (Settings.Load(Part.Sync, settingsArg ?? (env(Settings.PathVariable) is { Length: > 0 } given ? given : Settings.DefaultPath), env).Fatal is { } unusable)
+            if (Settings.Load(Part.Sync, Settings.PathFor(settingsArg, env), env).Fatal is { } unusable)
                 Console.WriteLine($"settings: NOT USABLE - {unusable} (os2-sync doctor says more)");
             return 0;
         }
@@ -78,7 +78,7 @@ public static class Program
                 return 2;
             }
         }
-        var settingsPath = settingsArg ?? (env(Settings.PathVariable) is { Length: > 0 } p ? p : Settings.DefaultPath);
+        var settingsPath = Settings.PathFor(settingsArg, env);
         var settings = Settings.Load(Part.Sync, settingsPath, env);
         var zone = LocalTime.Zone();
         var stoppable = StoppableClock.Instance;

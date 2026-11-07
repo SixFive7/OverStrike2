@@ -71,10 +71,6 @@ public static class Fingerprint
 
     public static string Hex(byte[] data) => Convert.ToHexStringLower(SHA256.HashData(data));
 
-    /// <summary>The settings file to read: --settings, else OVERSTRIKE2_SETTINGS, else the default path.</summary>
-    public static string SettingsPath(string? given, Func<string, string?> env) =>
-        given ?? (env(Core.Settings.PathVariable) is { Length: > 0 } p ? p : Core.Settings.DefaultPath);
-
     static IEnumerable<string> CfgFiles(ServerPaths p) =>
         Directory.Exists(p.CfgDir) ? Directory.EnumerateFiles(p.CfgDir, "*_server.cfg").OrderBy(x => x, StringComparer.Ordinal) : [];
 
