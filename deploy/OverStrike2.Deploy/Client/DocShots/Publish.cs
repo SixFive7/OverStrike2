@@ -13,10 +13,10 @@ namespace OverStrike2.Deploy;
 ///
 /// The history keeps every picture forever, so a retake commits only the pictures that really changed: each is compared with the committed one at its
 /// path (DocShots.SamePicture) on what it is about, all but what differs on every shot - the clocks, timers, counters and random tiles VolatileBoxes
-/// names, JPEG's noise, the game world dimmed behind a translucent panel. Not the game world a crop shows around a panel: the board, the top line's
-/// messages, the banners and their gallery pictures are cut with a margin of the game around them, which differs in every run, so a retake flags them
-/// even when the panel is the same - look at each beside the committed one, and keep the committed file when only the world changed. A picture that
-/// shows the same keeps its committed bytes. --all
+/// names, JPEG's noise, the game world dimmed behind a translucent panel, and the game a crop takes in around its panel: the top line's pill, the
+/// banners, the board and the reasons dialog are compared on the panel alone (DocShots.PanelOf), and a panel found at another width is a change. Over
+/// the game a gallery's where picture, which shows its look's crop smaller, goes as its look goes. A picture that shows the same keeps its committed
+/// bytes. --all
 /// writes every picture anew. Pictures no page and no message uses any more are removed. It refuses unless &lt;out&gt;/&lt;res&gt;/reviewed.txt names every
 /// picture the run wrote. The pages' pictures go in as JPEG at full size (quality 85, no chroma subsampling), a page takes a row's first and last frame;
 /// the gallery's are files of their own under docs/hud/img/gallery/: how a message looks (the crop) and where it is (the frame, 800 px wide, marked).</summary>
@@ -77,26 +77,32 @@ static class Publish
     {
         public readonly HashSet<string> Used = [];
         public readonly List<string> Kept = [], Changed = [], New = [];
+        public string Last = "";   // what the last Put did: kept, changed or new
 
-        /// <summary>rel: the path under the repository; im: the picture to publish; region and volatile: what a comparison looks at and leaves out, in
-        /// im's pixels. Returns the path relative to docs/hud/, for a link.</summary>
-        public string Put(string rel, Rgb im, int quality, Px region, IReadOnlyList<Px>? volatileBoxes = null)
+        /// <summary>rel: the path under the repository; im: the picture to publish; region, volatile and panel (DocShots.PanelOf): what a comparison
+        /// looks at and leaves out, in im's pixels. follow: the verdict of the picture this one shows smaller (a gallery's where, its look's: true kept,
+        /// false written), which decides instead of a comparison at the small size. Returns the path relative to docs/hud/, for a link.</summary>
+        public string Put(string rel, Rgb im, int quality, Px region, IReadOnlyList<Px>? volatileBoxes = null, DocShots.Panel? panel = null, bool? follow = null)
         {
             var path = Path.Combine(repo, rel);
             Used.Add(rel);
             if (File.Exists(path) && !allAnew)
             {
-                var old = Pictures.Open(path);
-                var (same, why) = DocShots.SamePicture(im, old, region, volatileBoxes);
+                var (same, why) = follow is { } verdict ? (verdict, "as its look") : DocShots.SamePicture(im, Pictures.Open(path), region, volatileBoxes, panel);
                 if (same)
                 {
                     Kept.Add(rel);
+                    Last = "kept";
                     return rel[(Docs.Length + 1)..];
                 }
                 Changed.Add($"{rel} ({why})");
+                Last = "changed";
             }
             else
+            {
                 New.Add(rel);
+                Last = "new";
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllBytes(path, Encode(im, quality));
             return rel[(Docs.Length + 1)..];
@@ -263,7 +269,8 @@ static class Publish
                 foreach (var f in got.Count <= 2 ? got : [got[0], got[^1]])      // a page takes a row's first and last frame: the gallery and the owner's review have them all
                 {
                     var stem = Path.GetFileNameWithoutExtension(Json.Str(f, "file") ?? "");
-                    var link = pics.Put($"{Img}/{stem}.jpg", Picture(Path.Combine(resDir, Json.Str(f, "file") ?? "")), 85, DocShots.CompareRegion(r, w, h), DocShots.VolatileBoxes(r, w, h));
+                    var link = pics.Put($"{Img}/{stem}.jpg", Picture(Path.Combine(resDir, Json.Str(f, "file") ?? "")), 85, DocShots.CompareRegion(r, w, h), DocShots.VolatileBoxes(r, w, h),
+                                        DocShots.PanelOf(r, w, h));
                     lines.AddRange([$"![{Py.HtmlEscape(r.Shows, quote: false)}]({link})", ""]);   // Markdown alt text: < > & escaped, quotes as they are
                 }
                 if (r.Pick.Length > 0)
@@ -303,14 +310,19 @@ static class Publish
                     var stem = Path.GetFileNameWithoutExtension(Json.Str(f, "file") ?? "");
                     var full = Path.Combine(resDir, Json.Str(f, "file") ?? "");
                     Px? box = r.Crop is not null ? DocShots.Place(r.Crop, w, h) : null;
+                    bool? follow = null;
                     if (Json.Str(f, "crop") is { Length: > 0 } cropFile)
                     {
                         var look = Picture(Path.Combine(resDir, cropFile));
-                        var lookLink = pics.Put($"{GalleryImg}/{stem}-look.jpg", look, 85, DocShots.CompareRegion(r, w, h, crop: true), DocShots.VolatileBoxes(r, w, h, crop: true));
+                        var lookLink = pics.Put($"{GalleryImg}/{stem}-look.jpg", look, 85, DocShots.CompareRegion(r, w, h, crop: true), DocShots.VolatileBoxes(r, w, h, crop: true),
+                                                DocShots.PanelOf(r, w, h, crop: true));
+                        if (DocShots.PanelOf(r, w, h) is not null)   // over the game the where shows the look's crop, smaller: it goes as its look goes (a window's shows the window)
+                            follow = pics.Last switch { "kept" => true, "changed" => false, _ => null };
                         parts.Add($"<figure><img src=\"{Py.HtmlEscape(lookLink)}\" alt=\"{Py.HtmlEscape(stem)}\"><figcaption>How it looks: {Py.HtmlEscape(r.Shows)}</figcaption></figure>");
                     }
                     var where = Picture(full, WhereWidth, box);
-                    var link = pics.Put($"{GalleryImg}/{stem}-where.jpg", where, 75, Scaled(DocShots.CompareRegion(r, w, h), fWhere), DocShots.VolatileBoxes(r, w, h).Select(v => Scaled(v, fWhere)).ToList());
+                    var link = pics.Put($"{GalleryImg}/{stem}-where.jpg", where, 75, Scaled(DocShots.CompareRegion(r, w, h), fWhere), DocShots.VolatileBoxes(r, w, h).Select(v => Scaled(v, fWhere)).ToList(),
+                                        follow: follow);
                     parts.Add($"<figure><img class=\"where\" src=\"{Py.HtmlEscape(link)}\" alt=\"{Py.HtmlEscape(stem)} on the screen\"><figcaption>Where: {Py.HtmlEscape(r.Shows)}</figcaption></figure>");
                     pictured = true;
                     break;      // one frame a row is enough for the gallery; the pages have them all

@@ -190,13 +190,107 @@ static partial class DocShots
 
     const int SameLevel = 48, SameBlock = 8;   // a pixel differs by more than 48 of 255 in a channel; an 8x8 block counts when 8 of its 64 pixels do
 
+    // A crop's panel, for a retake's comparison: a crop over the game takes in a margin of the game around its panel, and the game differs in every
+    // run, so a retake compares the panel alone (SamePicture's panel). PanelCentred: a box centred on the screen's middle - the top line's pill, the
+    // banners - found in each picture from a point of its flat background: its half-width where that colour ends on both sides (the nearer end, so a
+    // dark game beyond one side does not widen it), its top and bottom where the colour ends just inside both its ends; an end is PanelGap pixels off
+    // the colour in a row, so a committed JPEG's noise does not end it early. A box of another width in the two pictures is a change; the rows compared
+    // are those both pictures' boxes cover (a banner's draining bar, a translucent edge). Where none is found at that point, the whole region decides.
+    // PanelFixed: the panel's own rectangle where it never moves (the board, the reasons dialog). Only rows over the game: a window's crop is inside
+    // the window, where no game shows.
+    static (Box Crop, Box Probe)[] PanelCentred => [(CTop, new Box(960, 156, 961, 157)), (CBan, new Box(960, 156, 961, 157))];   // read when used: Table.cs's boxes are set by then
+    static (Box Crop, Box Panel)[] PanelFixed => [(CBoard, new Box(1462, 241, 1851, 832)), (CWhy, new Box(742, 429, 1178, 648))];   // the board's last 16 px left out: its foot's height moved
+    const int PanelTol = 4, PanelInset = 4, PanelColour = 36, PanelMin = 12, PanelGap = 4;   // px at 1080: width difference allowed, the edge left out; a colour's
+                                                                                               // spread; the least half-width; the pixels off the colour that end it
+
+    /// <summary>What a picture of a row is compared on inside its region (PanelOf): centred, its point in Geo's X0, Y0; or fixed, Geo the box - in the
+    /// picture's pixels (a crop file's from the crop's corner).</summary>
+    public sealed record Panel(string Kind, Px Geo, int Tol, int Inset);
+
+    /// <summary>The panel a picture of this row is compared on inside its region, or null: the whole region.</summary>
+    public static Panel? PanelOf(Row row, int w, int h, bool crop = false)
+    {
+        if (row.Crop is null || row.Win != Win.None)
+            return null;
+        var (ox, oy) = crop ? (Place(row.Crop, w, h).X0, Place(row.Crop, w, h).Y0) : (0, 0);
+        var s = h / 1080.0;
+        int tol = Math.Max(1, Py.Round(PanelTol * s)), inset = Math.Max(1, Py.Round(PanelInset * s));
+        foreach (var (c, probe) in PanelCentred)
+            if (row.Crop == c)
+            {
+                var p = Place(probe, w, h);
+                return new Panel("centred", new Px(p.X0 - ox, p.Y0 - oy, p.X0 - ox, p.Y0 - oy), tol, inset);
+            }
+        foreach (var (c, box) in PanelFixed)
+            if (row.Crop == c)
+            {
+                var b = Place(box, w, h);
+                return new Panel("fixed", new Px(b.X0 - ox, b.Y0 - oy, b.X1 - ox, b.Y1 - oy), tol, inset);
+            }
+        return null;
+    }
+
+    /// <summary>The panel's rectangle in a picture, or null when its point is not on a flat box: see PanelCentred.</summary>
+    public static Px? FindPanel(Rgb im, Panel panel)
+    {
+        if (panel.Kind == "fixed")
+            return panel.Geo;
+        int w = im.Width, h = im.Height, px = panel.Geo.X0, py = panel.Geo.Y0;
+        if (px < 0 || px >= w || py < 0 || py >= h)
+            return null;
+        var c0 = (py * w + px) * 3;
+        int cr = im.Pixels[c0], cg = im.Pixels[c0 + 1], cb = im.Pixels[c0 + 2];
+        bool Same(int x, int y)
+        {
+            var p = (y * w + x) * 3;
+            return Math.Max(Math.Max(Math.Abs(im.Pixels[p] - cr), Math.Abs(im.Pixels[p + 1] - cg)), Math.Abs(im.Pixels[p + 2] - cb)) <= PanelColour;
+        }
+        (int X, int Y) Reach(int x, int y, int dx, int dy)   // the last pixel of the colour from (x, y) on, stepping (dx, dy), before PanelGap pixels in a row are off it
+        {
+            var (lx, ly, off) = (x, y, 0);
+            while (x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h && off < PanelGap)
+            {
+                (x, y) = (x + dx, y + dy);
+                if (Same(x, y))
+                    (lx, ly, off) = (x, y, 0);
+                else
+                    off++;
+            }
+            return (lx, ly);
+        }
+        int left = Reach(px, py, -1, 0).X, right = Reach(px, py, 1, 0).X;
+        var half = Math.Min(px - left, right - px);
+        if (half < PanelMin)
+            return null;
+        int x0 = px - half, x1 = px + half + 1;
+        var (tops, bottoms) = (new List<int>(), new List<int>());
+        foreach (var xv in new[] { x0 + panel.Inset, x1 - 1 - panel.Inset })
+        {
+            tops.Add(Reach(xv, py, 0, -1).Y);
+            bottoms.Add(Reach(xv, py, 0, 1).Y);
+        }
+        return new Px(x0, tops.Max(), x1, bottoms.Min() + 1);
+    }
+
     /// <summary>Whether two pictures show the same within region, all but the volatile boxes: (true, words) or (false, where they differ). JPEG's noise
-    /// and a translucent panel over a game world that differs behind it stay under SameLevel; a changed word, style or layout moves whole blocks. The game
-    /// world a crop shows around a panel, at full strength, does not: a region that takes in a margin of the game is flagged in every retake.</summary>
-    public static (bool Same, string Words) SamePicture(Rgb newer, Rgb old, Px region, IReadOnlyList<Px>? volatileBoxes = null)
+    /// and a translucent panel over a game world that differs behind it stay under SameLevel; a changed word, style or layout moves whole blocks. The game a
+    /// crop shows around its panel, at full strength, does not: with a panel (PanelOf) only the panel is compared, when both pictures have it at one place
+    /// and size, else the whole region.</summary>
+    public static (bool Same, string Words) SamePicture(Rgb newer, Rgb old, Px region, IReadOnlyList<Px>? volatileBoxes = null, Panel? panel = null)
     {
         if (newer.Width != old.Width || newer.Height != old.Height)
             return (false, $"size {newer.Width}x{newer.Height}, committed {old.Width}x{old.Height}");
+        var inside = "";
+        if (panel is not null && FindPanel(newer, panel) is { } ra && FindPanel(old, panel) is { } rb)
+        {
+            if (Math.Abs(ra.X0 - rb.X0) > panel.Tol || Math.Abs(ra.X1 - rb.X1) > panel.Tol)
+                return (false, $"the panel's width: {ra.X0} - {ra.X1}, committed {rb.X0} - {rb.X1}");
+            var ins = panel.Inset;
+            var r = new Px(Math.Max(region.X0, Math.Max(ra.X0 + ins, rb.X0 + ins)), Math.Max(region.Y0, Math.Max(ra.Y0 + ins, rb.Y0 + ins)),
+                           Math.Min(region.X1, Math.Min(ra.X1 - ins, rb.X1 - ins)), Math.Min(region.Y1, Math.Min(ra.Y1 - ins, rb.Y1 - ins)));
+            if (r.X1 > r.X0 && r.Y1 > r.Y0)
+                (region, inside) = (r, " inside its panel");
+        }
         int rw = region.X1 - region.X0, rh = region.Y1 - region.Y0;
         var mask = new byte[rw * rh];
         for (var y = 0; y < rh; y++)
@@ -224,8 +318,8 @@ static partial class DocShots
                     maxY = Math.Max(maxY, y);
                 }
         if (maxX < 0)
-            return (true, "the same, all but what differs on every shot");
-        return (false, $"differs at {region.X0 + minX * SameBlock},{region.Y0 + minY * SameBlock} - {region.X0 + (maxX + 1) * SameBlock},{region.Y0 + (maxY + 1) * SameBlock}");
+            return (true, $"the same{inside}, all but what differs on every shot");
+        return (false, $"differs{inside} at {region.X0 + minX * SameBlock},{region.Y0 + minY * SameBlock} - {region.X0 + (maxX + 1) * SameBlock},{region.Y0 + (maxY + 1) * SameBlock}");
     }
 
     /// <summary>Pillow's rectangle fill on a one-band picture: x0..x1 and y0..y1 inclusive, cut to the picture.</summary>

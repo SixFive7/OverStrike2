@@ -116,6 +116,29 @@ static class PublishTests
 
             var (code5, out5) = RunPublish(picked.Select((rid, i) => (rid, i)).ToDictionary(x => x.rid, x => Frame(x.i)), "--all");
             check("--all writes every picture anew", code5 == 0 && out5.Contains("0 kept as committed", StringComparison.Ordinal));
+
+            // a message over the game: the top line's pill, retaken over another game - its look and where kept; a changed word in it - both written anew
+            Rgb PillFrame(Rgb world, Px? pillWord = null)
+            {
+                var im = new Rgb(W, H, (byte[])world.Pixels.Clone());
+                DocShots.Rectangle(im, 730, 150, 1190, 186, new Rgb3(37, 43, 45));
+                DocShots.Rectangle(im, 738, 158, 800, 178, new Rgb3(233, 182, 79));
+                DocShots.Rectangle(im, 820, 165, 1150, 172, new Rgb3(235, 235, 235));
+                if (pillWord is { } pw)
+                    DocShots.Rectangle(im, pw.X0, pw.Y0, pw.X1, pw.Y1, new Rgb3(37, 43, 45));
+                return im;
+            }
+            var (gameA, gameB) = (DocShots.Noise(W, H, 25, 11), DocShots.Noise(W, H, 25, 12));
+            RunPublish(new() { ["top-plain"] = PillFrame(gameA) });
+            var t1 = Hashes();
+            var (codeT2, _) = RunPublish(new() { ["top-plain"] = PillFrame(gameB) });
+            var t2 = Hashes();
+            const string lookPic = "docs/hud/img/gallery/top-plain-look.jpg", wherePic = "docs/hud/img/gallery/top-plain-where.jpg";
+            check("a pill retaken over another game: its look and where keep their committed bytes",
+                  codeT2 == 0 && t1.ContainsKey(lookPic) && t2[lookPic] == t1[lookPic] && t2[wherePic] == t1[wherePic]);
+            var (codeT3, _) = RunPublish(new() { ["top-plain"] = PillFrame(gameB, new Px(1000, 165, 1040, 172)) });
+            var t3 = Hashes();
+            check("a changed word in the pill: its look and its where written anew", codeT3 == 0 && t3[lookPic] != t1[lookPic] && t3[wherePic] != t1[wherePic]);
         }
         finally
         {

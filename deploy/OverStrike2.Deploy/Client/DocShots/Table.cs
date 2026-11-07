@@ -133,6 +133,8 @@ static partial class DocShots
     public static readonly Box VRestartSeconds = new(400, 494, 600, 512);         // SERVER, Game: the restart armed, "PRESS AGAIN WITHIN 25 S" - its seconds, and its words pulse
     public static readonly Box VTopEdge = new(470, 126, 1450, 140);               // the top line above the window reaches into its frame: its words follow the match's age
     public static readonly Box VVotePagerNext = new(1024, 914, 1096, 956, "v");   // the ballot's pager: Next pulses while more pages follow (.gg-pgb-glow, 1.6 s)
+    public static readonly Box VWhyBar = new(740, 632, 1185, 642);                // the reasons dialog's bar, which drains for its 15 s
+    public static readonly Box VBannerMap = new(800, 184, 1203, 206);             // the map change banner's map: rolled at random (its picture beside it is left of the banner's panel)
 
     /// <summary>The Mask and Box constants by their names in docshots.py, for maskview.</summary>
     public static readonly Dictionary<string, object> Named = new()
@@ -145,7 +147,7 @@ static partial class DocShots
         ["C_CLOCKS"] = CClocks, ["C_SETROW"] = CSetRow, ["WINDOW"] = Window, ["VOTE_WINDOW"] = VoteWindow, ["V_MAPCOUNT"] = VMapCount, ["V_IDLE"] = VIdle,
         ["V_VOTE_MAPCOUNT"] = VVoteMapCount, ["V_VOTE_SUBTAB"] = VVoteSubtab, ["V_VOTE_TILES"] = VVoteTiles, ["V_ONFOR"] = VOnFor, ["V_HUD_COLUMN"] = VHudColumn,
         ["V_SYNC_BODY"] = VSyncBody, ["V_BOARD_MAPCOUNT"] = VBoardMapCount, ["V_LINE_WAIT"] = VLineWait, ["V_BROWSER_HEAD"] = VBrowserHead, ["V_START_WAIT"] = VStartWait,
-        ["V_STRIP_NAMES"] = VStripNames, ["V_RESTART_SECONDS"] = VRestartSeconds, ["V_TOP_EDGE"] = VTopEdge, ["V_VOTE_PAGER_NEXT"] = VVotePagerNext,
+        ["V_STRIP_NAMES"] = VStripNames, ["V_RESTART_SECONDS"] = VRestartSeconds, ["V_TOP_EDGE"] = VTopEdge, ["V_VOTE_PAGER_NEXT"] = VVotePagerNext, ["V_WHY_BAR"] = VWhyBar, ["V_BANNER_MAP"] = VBannerMap,
     };
 
     // ---------------------------------------------------------------- the steps: what a row does, in order
@@ -430,7 +432,7 @@ static partial class DocShots
           when: "about 5 s after the click: the line lasts 8 s");
         R("why-card", "Why the dislike?: the small dialog at the centre", pick: "Why the dislike? (the reasons)", today: "one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after: "page-maps",
           bridge: WLike, steps: [Press("gg_m3_down", bg: true), Pause(3.5), Shoot()], cleanup: [Press("gg_m3_up"), Pause(NewsGone)],
-          when: "about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop: CWhy);
+          when: "about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop: CWhy, @volatile: [VWhyBar]);
         R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section: SMaps, after: "page-maps", bridge: WGuard, steps: [Con("say !find jb_moti2"), Pause(2), Shoot()],
           when: "2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", wordsFrom: ("bridge/broken.json", "\"jb_moti2\""));
         R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick: "Play asks first (a broken or crashed map)",
@@ -446,7 +448,7 @@ static partial class DocShots
         R("board-liked", "The board with your like on the map that is on", section: SBoard, bridge: WLike, steps: [Press("gg_b_vup"), .. lately, Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500), Press("gg_b_vdown")],
           when: "2 s after +showscores", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount]);
         R("board-why", "Why the dislike? under the TAB cursor", pick: "Why the dislike? (the reasons)", today: "the same small dialog, under the board's cursor", bridge: WLike, steps: [Press("gg_b_vdown", bg: true), Con("+showscores", 1000), Pause(1), Shoot()],
-          cleanup: [Con("-showscores", 1500), Press("gg_b_vup")], when: "about 4.5 s after the click: it stands 15 s", crop: CWhy, win: Win.None, masks: [BlurScoreboard], names: board);
+          cleanup: [Con("-showscores", 1500), Press("gg_b_vup")], when: "about 4.5 s after the click: it stands 15 s", crop: CWhy, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VWhyBar]);
         foreach (var (id, b, w) in new[] { ("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)") })
             R(id, $"The board with my mark: {w}", section: SBoard, bridge: WLike, steps: [Press(b), .. lately, Con("+showscores", 1500), Pause(2), Shoot()], cleanup: [Con("-showscores", 1500), Press("gg_b_vup")],
               when: "2 s after +showscores; the opposite vote takes the mark back", crop: CBoard, win: Win.None, masks: [BlurScoreboard], names: board, @volatile: [VBoardMapCount]);
@@ -547,7 +549,8 @@ static partial class DocShots
           when: "about 3.5 s after a fake player's second click, of 10 s: the cleanup's quit notice must reach the bridge before the 10 s are up", crop: CBan, win: Win.None, wordsFrom: ("bridge/Restarts.cs", "is restarting the server in"));
         R("map-change-banner", "The countdown banner with the map's picture", pick: "Map change counting down", today: "the countdown 6b, as picked; a vote's change keeps everybody's window over it, so this is the dice's own: three players timing out on a map mark it and roll, called off in time. Marks the map in the candidate's data: once per copy and map (ar_pool_day, then ar_shoots_night on 2026-11-05)", bridge: WMap + "; state.json: the map's player-crash mark; " + WFakes,
           steps: [.. ToMode("armsrace", 1, 0, "ar_shoots_night"), Post("fake-off"), Post("fake-on", "3"), Rb("css_gghud release", "released:"), Pause(3), Post("fake-crash"), Pause(1.5), Shoot()], cleanup: [Post("quit-notice"), Post("fake-off"), .. ToMode("armsrace", 1, 0, StartMap)],
-          when: "about 3.5 s after the third time-out, of 8 s: the cleanup's quit notice must reach the bridge before the 8 s are up: the change would hang the client in CS2's download dialog", crop: CBan, win: Win.None, names: TestName);
+          when: "about 3.5 s after the third time-out, of 8 s: the cleanup's quit notice must reach the bridge before the 8 s are up: the change would hang the client in CS2's download dialog", crop: CBan, win: Win.None, names: TestName,
+          @volatile: [VBannerMap]);
 
         // ---- what cannot be shot yet
         R("hud-hold", "The status banner: Steam is not showing the HUD, and back", pick: "The HUD not shown by Steam, and back", status: Not, today: "the status banner 4e, set by the plugin's own PostBanner only",

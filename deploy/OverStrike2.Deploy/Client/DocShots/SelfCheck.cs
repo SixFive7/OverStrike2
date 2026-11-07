@@ -407,6 +407,31 @@ static partial class DocShots
             Check(SamePicture(lookAgain, look, CompareRegion(cropRow, w, h, crop: true), VolatileBoxes(cropRow, w, h, crop: true)).Same
                   && !SamePicture(Painted(lookAgain, new Px(20, 20, 80, 32)), look, CompareRegion(cropRow, w, h, crop: true), VolatileBoxes(cropRow, w, h, crop: true)).Same,
                   "same_picture: a crop compared whole");
+
+            // a crop over the game: the top line's pill on two different games - its panel alone compared, its width a change, no pill the whole region
+            var topRow = rows["top-plain"];
+            var otherGame = Noise(w, h, 30, 2);
+            Rgb Pill(Rgb b, int half = 230, Px? word = null)
+            {
+                var im = new Rgb(b.Width, b.Height, (byte[])b.Pixels.Clone());
+                Rectangle(im, 960 - half, 150, 960 + half, 186, new Rgb3(37, 43, 45));
+                Rectangle(im, 960 - half + 8, 158, 960 - half + 70, 178, new Rgb3(233, 182, 79));    // its tag
+                Rectangle(im, 960 - half + 90, 165, 960 + half - 40, 172, new Rgb3(235, 235, 235));  // its words
+                if (word is { } wd)
+                    Rectangle(im, wd.X0, wd.Y0, wd.X1, wd.Y1, new Rgb3(37, 43, 45));
+                return im;
+            }
+            var (tp, tr, tv) = (PanelOf(topRow, w, h), CompareRegion(topRow, w, h), VolatileBoxes(topRow, w, h));
+            Check(!SamePicture(Pill(otherGame), Pill(shot), tr, tv).Same, "same_picture: the game around a pill, without its panel, counts as a change (the old rule)");
+            Check(SamePicture(Pill(otherGame), Pill(shot), tr, tv, tp).Same, "same_picture: the same pill over another game counts as changed");
+            Check(!SamePicture(Pill(otherGame, word: new Px(1000, 165, 1040, 172)), Pill(shot), tr, tv, tp).Same, "same_picture: a changed word in the pill counts as the same");
+            Check(!SamePicture(Pill(otherGame, half: 260), Pill(shot), tr, tv, tp).Same, "same_picture: a wider pill counts as the same");
+            Check(!SamePicture(otherGame, Pill(shot), tr, tv, tp).Same, "same_picture: a pill gone counts as the same");
+            var tcb = Place(topRow.Crop!, w, h);
+            Check(SamePicture(Pill(otherGame).Crop(tcb.X0, tcb.Y0, tcb.X1, tcb.Y1), Pill(shot).Crop(tcb.X0, tcb.Y0, tcb.X1, tcb.Y1), CompareRegion(topRow, w, h, crop: true),
+                              VolatileBoxes(topRow, w, h, crop: true), PanelOf(topRow, w, h, crop: true)).Same, "same_picture: a crop file's pill over another game counts as changed");
+            Check(PanelOf(rows["page-help"], w, h) is null && PanelOf(rows["chat-unknown"], w, h) is null && PanelOf(rows["why-card"], w, h) is null,
+                  "panel_of: a window's crop, a chat crop or a frame without a crop gets a panel");
         }
 
         // the --only chain: a row's ancestors run first, as setup, and take no picture
@@ -558,7 +583,7 @@ static partial class DocShots
         Out.Print($"  --dry-run at {Resolutions.Length} resolutions, with and without --bridge-copy: only the verbs ('rcon', 'cmd', 'shot', 'log') and, with the copy, bridgepost's, every shot -MaxWidth 0, no real name; estimated minutes with the copy: "
                   + string.Join(", ", estimates.Select(e => $"{e.Res} {e.Minutes}")));
         Out.Print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only");
-        Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world dimmed behind a panel; changed by a word anywhere else");
+        Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else");
         Out.Print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb");
         Out.Print("  NOT checked, and not checkable offline: anything against a real client or server");
         return 0;
