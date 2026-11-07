@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""gg_moonglass - generates a CS2 gun game map: a moon base under a faceted glass dome, glass almost everywhere.
+"""gg_moonglass - generates an Arms Race map for CS2: a moon base under a faceted glass dome, glass almost everywhere.
 
-v2 (2026-11-01, less light and more glass than v1): about 30 % less sun, sky
-and lamp light, auto exposure capped at 0.65-1.6 (was 0.7-2.0), darker panels and glass; and 1,000+ panes instead of 511 -
-a finer dome, glass mini-mazes, booths and climbable kiosks on the open ground, a glass ring at z 384, a glass roof and
-pavilion on the hub, double-skinned tunnels.
+More than 1,000 panes: a finely faceted dome, glass mini-mazes, booths and climbable kiosks on the open ground, a glass ring
+at z 384, a glass roof and pavilion on the hub, double-skinned tunnels. The light is kept low against the glare of so much
+glass: a dim sun, sky and lamps, auto exposure held between 0.65 and 1.6, darkish panels and glass.
 
 Writes the Hammer map source, the addon's own materials and their generated textures into the CS2 Workshop Tools' content
 folder:
@@ -70,7 +69,7 @@ SKY = 'materials/skybox/sky_black.vmat'
 TILE = {M_REGOLITH: 256, M_WHITE: 256, M_WALL: 192}
 
 # glass: (dust colour, dust opacity, transmission tint, roughness, surface property), health and thickness per kind of pane
-GLASS = {   # v2: every tint a little darker than v1's, against the glare
+GLASS = {   # every tint a little dark, against the glare
     'glass_clear.vmat': ('0.660000 0.780000 0.880000', 0.10, '0.620000 0.780000 0.900000', 0.04, 'glass'),
     'glass_tint.vmat': ('0.060000 0.080000 0.100000', 0.42, '0.220000 0.270000 0.320000', 0.06, 'glass'),
     'glass_frost.vmat': ('0.800000 0.830000 0.860000', 0.84, '0.600000 0.640000 0.680000', 0.45, 'plastic_solid'),
@@ -594,7 +593,7 @@ def build_layout():
     core = ngon(0, 0, 150, 8, math.pi / 8)
     L.solid(prism(hub, L1 - 16, L1), {'top': M_FLOORMETAL, 'bottom': M_WHITE, 'side': M_WHITE}, 'hubfloor')
     L.solid(prism(core, L2 - 16, L2), {'top': M_FLOORMETAL, 'bottom': M_WHITE, 'side': M_WHITE}, 'hubroof')
-    for i in range(8):   # v2: the roof deck's outer ring is glass floor
+    for i in range(8):   # the roof deck's outer ring is glass floor
         L.pane(prism([core[i], hub[i], hub[(i + 1) % 8], core[(i + 1) % 8]], L2 - 8, L2), G_FLOOR, 'hubroofglass')
     L.floor(L1, ngon(0, 0, HUB_R - 30, 8, math.pi / 8))
     for (x, y) in hub:
@@ -630,7 +629,7 @@ def build_layout():
             d = p1 - p0
             out = V(-d[1], d[0], 0)
         L.pane(slab([p0 + V(0, 0, z0), p1 + V(0, 0, z0), p1 + V(0, 0, z1), p0 + V(0, 0, z1)], THICK[mat], outward=out), mat, kind)
-    # v2: a glass screen round the ground-floor console, glass walls splitting the upper storey into four rooms
+    # a glass screen round the ground-floor console, glass walls splitting the upper storey into four rooms
     for k in range(4):
         a = math.pi / 2 * k
         u, w = V(math.cos(a), math.sin(a), 0), V(-math.sin(a), math.cos(a), 0)
@@ -638,7 +637,7 @@ def build_layout():
         pane_wall(c - w * 48, c + w * 48, 0, 112, [G_FROST, G_TINT][k % 2], 'hubscreen', out=u)
         for row, (z0, z1, mat) in enumerate(((L1, L1 + 80, [G_FROST, G_TINT][k % 2]), (L1 + 80, L2 - 16, [G_THICK, G_CLEAR][k % 2]))):
             pane_wall(u * 84, u * 200, z0, z1, mat, 'hubroom', out=w)
-    # v2: a glass pavilion on the roof deck, doors to the sky bridges (north and south), a frosted pyramid roof
+    # a glass pavilion on the roof deck, doors to the sky bridges (north and south), a frosted pyramid roof
     pav = ngon(0, 0, 112, 8, math.pi / 8)
     for i in range(8):
         (x0, y0), (x1, y1) = pav[i], pav[(i + 1) % 8]
@@ -708,12 +707,12 @@ def build_layout():
             L.solid(beam(u * r0 + w * side * 68 + V(0, 0, z), u * r1 + w * side * 68 + V(0, 0, z), 8, 24), M_METAL, 'bridgebeam')
     for q in range(4):
         bridge(math.radians(45 + 90 * q), HUB_A - 4, RING_IN, L1, 'bridge')
-    ring_c = 480 - 56 / math.cos(math.pi / 8)          # v2 ring at 384: its outer corners meet the sky ramps' tops
+    ring_c = 480 - 56 / math.cos(math.pi / 8)          # the ring at 384: its outer corners meet the sky ramps' tops
     ring_in = ring_c - 56 / math.cos(math.pi / 8)
     for sa in (math.pi / 2, -math.pi / 2):
         bridge(sa, HUB_A - 4, ring_in + 2, L2, 'skybridge')
 
-    # ---- v2: an octagonal glass ring at 384 round the hub, joining the two sky ramps; glass rails both sides
+    # ---- an octagonal glass ring at 384 round the hub, joining the two sky ramps; glass rails both sides
     oc = [V(*polar(1, math.radians(45 * k)), 0) for k in range(8)]
     for k in range(8):
         d0, d1 = oc[k], oc[(k + 1) % 8]
@@ -748,7 +747,7 @@ def build_layout():
             for side in (-1, 1):
                 L.solid(prism([tuple((u * a + w * side * 76)[:2]), tuple((u * b + w * side * 76)[:2]),
                                tuple((u * b + w * side * 88)[:2]), tuple((u * a + w * side * 88)[:2])], 0, 16), M_WHITE, 'tunnelsill')
-                # v2: two skins (84 and 60 out from the axis), each in two rows; the inner skin on its own sill
+                # two skins (84 and 60 out from the axis), each in two rows; the inner skin on its own sill
                 L.solid(prism([tuple((u * a + w * side * 50)[:2]), tuple((u * b + w * side * 50)[:2]),
                                tuple((u * b + w * side * 62)[:2]), tuple((u * a + w * side * 62)[:2])], 0, 16), M_METAL, 'tunnelsill')
                 for layer, off in ((0, 84), (1, 62)):
@@ -817,7 +816,7 @@ def build_layout():
     L.solid(prism(obox(600, -72, 0, 128, 40), 0, 40), {'top': M_METAL, 'bottom': M_WHITE, 'side': M_WHITE}, 'bench')
     L.solid(prism(obox(600, 72, 0, 128, 40), 0, 40), {'top': M_METAL, 'bottom': M_WHITE, 'side': M_WHITE}, 'bench')
     glass_wall((704, -64), (704, 64), 16, 128, V(1, 0, 0), [G_FROST], 'labpartition')
-    glass_wall((560, -40), (560, 40), 16, 128, V(1, 0, 0), [G_TINT], 'labpartition')   # v2
+    glass_wall((560, -40), (560, 40), 16, 128, V(1, 0, 0), [G_TINT], 'labpartition')
 
     # ---- south: the habitat, a long octagonal module lying on the ground, glass on the upper sides, open ends
     ap, sd = 112, 112 * math.tan(math.pi / 8)
@@ -829,7 +828,7 @@ def build_layout():
             (u0, z0), (u1, z1) = prof[f], prof[(f + 1) % 8]
             face = [V(u0, ya, z0), V(u1, ya, z1), V(u1, yb, z1), V(u0, yb, z0)]
             out = V((u0 + u1) / 2, 0, (z0 + z1) / 2 - ap)
-            if f in (2, 3, 5, 6):   # v2: every window face in two panes along the module
+            if f in (2, 3, 5, 6):   # every window face in two panes along the module
                 for half in range(2):
                     y0_, y1_ = ya + (yb - ya) * half / 2, ya + (yb - ya) * (half + 1) / 2
                     hf = [V(u0, y0_, z0), V(u1, y0_, z1), V(u1, y1_, z1), V(u0, y1_, z0)]
@@ -861,7 +860,7 @@ def build_layout():
         L.solid(prism(ngon(x, y, r, 16), 0, h), {'top': M_WHITE, 'bottom': M_WHITE, 'side': M_WHITE}, 'tank')
         L.solid(frustum(ngon(x, y, r, 16), h, h + 40, 0.55), M_WHITE, 'tank')
         L.solid(prism(ngon(x, y, r + 6, 16), h * 0.3, h * 0.3 + 12), M_METAL, 'tankband')
-    glass_wall((-650, 0), (-560, 0), 16, 144, V(0, 1, 0), [G_THICK], 'pumproom')   # v2: a thick screen inside
+    glass_wall((-650, 0), (-560, 0), 16, 144, V(0, 1, 0), [G_THICK], 'pumproom')   # a thick screen inside
     pipes = [(V(-850, 72, 120), V(-704, 72, 120)), (V(-850, -96, 96), V(-704, -96, 96)), (V(-640, 244, 80), V(-640, 120, 80)),
              (V(-860, 150, 300), V(-860, -160, 236))]
     for p, q in pipes:
@@ -871,7 +870,7 @@ def build_layout():
         ring = [p + (math.cos(2 * math.pi * i / 8) * w + math.sin(2 * math.pi * i / 8) * upv) * 14 for i in range(8)]
         L.solid(extrude(ring, q - p), M_WHITE, 'pipe')
 
-    # ---- rocks by the wall (v2: the mid-field rocks, canisters and v1's twelve partitions gave way to the mazes)
+    # ---- rocks by the wall (the open ground between the modules holds the glass mazes, below)
     rng = np.random.default_rng(5)
     for (r, deg) in [(600, 52), (600, 140), (610, 232), (600, 322), (900, 8), (900, 82), (900, 98), (900, 172),
                      (900, 188), (900, 262), (900, 278), (900, 352)]:
@@ -884,7 +883,7 @@ def build_layout():
         if r > 800:
             L.solid(shape, M_REGOLITH, 'rock', tint=(150, 150, 155))
 
-    # ---- v2: the open ground between the modules - climbable glass kiosks, glass booths, glass mini-mazes
+    # ---- the open ground between the modules - climbable glass kiosks, glass booths, glass mini-mazes
     occ = []
     for sd_ in L.solids:
         if sd_['tag'] in ('ground', 'outside', 'skybox', 'earth', 'domeclip', 'strut', 'wall'):
@@ -1009,7 +1008,7 @@ def build_layout():
             n_maze += 1
     print(f'open ground: {n_kiosk} kiosks, {n_booth} booths, {n_maze} maze walls')
 
-    # ---- v2: glass stalls under the ring catwalk: a two-row radial pane from every ring post out to the wall
+    # ---- glass stalls under the ring catwalk: a two-row radial pane from every ring post out to the wall
     for k in range(24):
         a = math.radians(k * 15)
         u = V(math.cos(a), math.sin(a), 0)
@@ -1230,7 +1229,7 @@ def main():
     lp = args.layout or os.path.join(content, 'maps', NAME + '_layout.json')
     with open(lp, 'w', encoding='utf-8') as f:
         json.dump(layout, f)
-    kinds, mats_n, hp = {}, {}, {}
+    kinds, mats_n = {}, {}
     for p in L.panes:
         kinds[p['kind']] = kinds.get(p['kind'], 0) + 1
         mats_n[os.path.basename(p['mat'])] = mats_n.get(os.path.basename(p['mat']), 0) + 1

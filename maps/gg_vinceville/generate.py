@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""gg_vinceville - generates a CS2 gun game map: small houses scattered over a big grassy field, with clusters of trees,
-shallow ponds and plenty of corners to ambush (and taser) people in.
-Build 2 (2026-11-01): every staircase walkable without crouching or jumping (see walkcheck.py).
-Build 3 (2026-11-01): wide doors and little furniture, a cellar under every house, a sewer under the field
-joining every building (stairs down in the barn and the shed, four manholes in the field), ponds deep enough to
-swim in (Valve's ar_pool_day setup: a deep func_water and an underwater post-processing volume), two to three
-times the vegetation, and no tree, bush, hedge or grass with any collision.
+"""gg_vinceville - generates an Arms Race map for CS2: small houses scattered over a big grassy field, with clusters of
+trees, ponds and plenty of corners to ambush (and taser) people in. Wide doors and little furniture, a cellar under every
+house, a sewer under the field joining every building (stairs down in the barn and the shed, four manholes in the field),
+ponds deep enough to swim in (Valve's ar_pool_day setup: a deep func_water and an underwater post-processing volume), and
+trees, bushes, hedges and grass in plenty, none of them with any collision. Every staircase is walkable without crouching
+or jumping (walkcheck.py checks it).
 
 Writes the Hammer map source into the CS2 Workshop Tools' content folder:
 
@@ -704,7 +703,7 @@ class House:
     def _hole(steps, rect, axis, ceiling):
         """the opening in the slab above: wherever a standing player (72 tall, 2 to spare) on a step would reach the
         slab's underside, plus a player's depth (32) and 4 to spare round that step, so the head never clips the edge.
-        (Build 1 opened only 8 past the step: there you had to crouch to get past the fifth step.)"""
+        (8 past the step is too little: a player would have to crouch to get past the fifth step.)"""
         x0, y0, x1, y1 = rect
         a0, a1 = (x0, x1) if axis == 'x' else (y0, y1)
         high = [(s0, s1) for (s0, s1, top) in steps if top + HEAD > ceiling]
@@ -878,7 +877,7 @@ class House:
         self.P.floor((x0 + 8, ya + 12, x1 - 8, yb), 0, 'porch')
 
 
-# ---------------------------------------------------------------- the buildings (build 3: wide doors, few small pieces of
+# ---------------------------------------------------------------- the buildings (wide doors, few small pieces of
 # furniture against the walls, 64-wide stairs with clear ends, a cellar under every house with a door to the sewer)
 def farmhouse(plinth):
     """H1: two storeys of red brick, an attic and a cellar; 432 x 336."""
@@ -1043,7 +1042,7 @@ def green_house(plinth):
     hole = h.stairs((112, -136, 176, 80), 'y', +1, 0, SH, hole_level=SH, first=34)
     h.rail(104, hole[1], 112, 40, SH)
     h.rail(104, hole[1] - 8, 176, hole[1], SH)
-    hole2 = h.cellar_stairs((112, -88, 176, 80), 'y', +1)
+    h.cellar_stairs((112, -88, 176, 80), 'y', +1)
     h.anchor(0, 76, -110, 'stairs up: foot')
     h.anchor(SH, 76, 92, 'stairs up: top')
     h.anchor(0, 76, 62, 'cellar stairs: top')
@@ -1246,7 +1245,7 @@ def barn_shed(z_sewer):
         P.box((px - 5, -D2 - 4, -4), (px + 5, -D2 + 6, rz(-D2 + 1) + 4), M['TRIM'], 'barnpost')
     lean_roof(P, W2, yb, zb_, yf, zf_, 8, M['CORR'], 'barnroof')
     # the hatch: stairs down southwards along the west wall, from the back to under the open front
-    info = hatch(P, -120, D2 - T, 'y', -1, -4, z_sewer, tail=40)
+    hatch(P, -120, D2 - T, 'y', -1, -4, z_sewer, tail=40)
     P.anchor(-4, -56, 76, 'hatch: top')
     P.anchor(-4, 20, -70, 'barn front')
     for (x, y, z, rot) in [(100, 76, 0, 0), (100, 76, 32, 0), (110, -40, 0, 1)]:
@@ -1281,7 +1280,7 @@ def tool_shed(z_sewer):
     lean_wall(P, 'x', W2 - T, W2, 28, D2 - T, -2, rz, m, 'shedwall')
     lean_roof(P, W2, yb, zb_, yf, zf_, 8, M['CORR'], 'shedroof', over=12)
     # the hatch: stairs down westwards along the north wall, from the east end
-    info = hatch(P, 104, 40, 'x', -1, -2, z_sewer, tail=10)
+    hatch(P, 104, 40, 'x', -1, -2, z_sewer, tail=10)
     P.anchor(-2, -80, -40, 'shed door')
     P.anchor(-2, 80, -24, 'hatch: top')
     P.prop('crate', (-90, 44, -2), 20)
@@ -1612,7 +1611,7 @@ def well(L, x, y, ter):
     L.box((x - 34, y - 34, g - 24), (x + 34, y + 34, g - 2), M['MUD'], 'well')
 
 
-# ---------------------------------------------------------------- stairs down (hatches) and the sewer (build 3)
+# ---------------------------------------------------------------- stairs down (hatches) and the sewer
 def hatch(P, x0, y0, axis, sign, z_top, z_bot, width=64, run=14, tail=0, mat=None, wall=None):
     """Straight stairs down from a floor (z_top) to the sewer's walkway (z_bot), built in a Part (local frame).
     The top edge's centre is (x0, y0); the stairs descend along axis ('x'|'y') in direction sign. Solid steps, side walls
@@ -1715,15 +1714,6 @@ def carve(L):
                             'lm': s['lm'], 'bake': s['bake'], 'lo': a, 'hi': b, 'block': s['block'], 'box': True})
         L.solids = new
     return cut
-
-
-def seg_boxes(a, b, half, z0, z1):
-    """axis-aligned box along a segment a->b (2D), half-width half, from z0 to z1, ends extended by half."""
-    if abs(a[0] - b[0]) >= abs(a[1] - b[1]):
-        x0, x1 = min(a[0], b[0]) - half, max(a[0], b[0]) + half
-        return (x0, a[1] - half, z0), (x1, a[1] + half, z1)
-    y0, y1 = min(a[1], b[1]) - half, max(a[1], b[1]) + half
-    return (a[0] - half, y0, z0), (a[0] + half, y1, z1)
 
 
 def corridor(L, pts, z_from, W, tag, width=80, h=96, lights=True):
@@ -1867,9 +1857,7 @@ def manhole(L, ter, x, y, axis, sign, W, tag):
     for r in rect_minus(hr, [op]):
         L.box((r[0], r[1], g - SHELL - 16), (r[2], r[3], g), {'top': M['COBBLE'], 'side': M['COBBLE'], '-z': M['NODRAW']}, tag + '/pad')
     # curb: 24 tall round the opening, open at the top end (where you step in)
-    o0, o1 = op[:2], op[2:]
     if axis == 'x':
-        top_end = op[0] if sign > 0 else op[2]
         L.box((op[0], op[1] - 8, g), (op[2], op[1], g + 24), M['COBBLE'], tag + '/curb')
         L.box((op[0], op[3], g), (op[2], op[3] + 8, g + 24), M['COBBLE'], tag + '/curb')
         far = op[2] if sign > 0 else op[0] - 8
@@ -2062,7 +2050,6 @@ def build_layout():
         ((-260, -820), [('oak', 0, 0, 0.75), ('sumac', 90, 80, 0.9)], 2),
         ((1150, 560), [('poplar', 0, 0, 0.8), ('poplar_s', -60, -120, 1.0)], 2),
         ((40, -1150), [('poplar_s', 0, 0, 1.2), ('sumac', 120, 40, 1.0)], 3),
-        # build 3: more clusters
         ((-700, 120), [('poplar', 0, 0, 0.85), ('poplar_s', 80, 70, 1.1), ('sumac', -70, -60, 0.9)], 4),
         ((-150, 1180), [('maple2', 0, 0, 0.55), ('poplar_s', 140, 30, 1.0)], 3),
         ((760, 1180), [('poplar', 0, 0, 0.8), ('oak', -120, -20, 0.7)], 2),
@@ -2192,7 +2179,6 @@ def build_layout():
     hedge_run((-640, 120), (-640, -60))
     hedge_run((720, 400), (900, 400))
     hedge_run((40, -1150), (40, -880))
-    # build 3: more rows and corners
     hedge_run((-1000, -160), (-760, -160), gaps=(1,))
     hedge_run((-1240, 560), (-1240, 820))
     hedge_run((260, 1240), (560, 1240), gaps=(1,))

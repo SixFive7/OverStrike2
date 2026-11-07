@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""gg_glasspire - generates a CS2 gun game map: a square glass tower around an open atrium.
+"""gg_glasspire - generates an Arms Race map for CS2: a square glass tower around an open atrium.
 
 Writes the Hammer map source and the addon's own materials into the CS2 Workshop Tools' content folder:
 
@@ -7,7 +7,7 @@ Writes the Hammer map source and the addon's own materials into the CS2 Workshop
   content/csgo_addons/gg_glasspire/materials/gg_glasspire/*.vmat     the two tinted glass materials
   game/csgo_addons/gg_glasspire/addoninfo.txt
 
-and layout.json beside --layout (every box and pane, for the preview render and the checks in build.py).
+and layout.json beside --layout (every box and pane, the spawns and lights: for preview.py and the checks).
 
   python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
 
