@@ -323,6 +323,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         Check(Modes.All.All(m => lists[m.Id].List.Single(e => e.ConVar == "game_type").Value == $"{m.GameType}" && lists[m.Id].List.Single(e => e.ConVar == "game_mode").Value == $"{m.GameMode}"),
             "...each mode keeps its own game_type and game_mode");
         Check(lists.Where(kv => kv.Key != Modes.ArmsRaceId).All(kv => kv.Value.List.All(e => e.Value != null)), "...and only Arms Race keeps the server's own (*): the boot baseline is an Arms Race map's");
+        Check(Modes.All.All(m => lists[m.Id].List.Single(e => e.ConVar == "mp_death_drop_grenade").Value is null or "0" or "1" or "2"),
+            "...and every mode's grenade drop a value CS2 keeps (0 to 2): Wingman's 3, Valve's own, was refused and read back 2 on de_inferno");
     }
 }
 
@@ -528,6 +530,25 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     block2.Hold("ar_shoots", null, Modes.ArmsRace);
     Check(cvars2.Values["sv_cheats"] == "false" && cvars2.Values["sv_infinite_ammo"] == "1" && funs2.Chosen("sv_infinite_ammo") && notices2.SequenceEqual([Cheats]),
         $"cheats: a player's Infinite ammo, which the engine's revert took, comes back as they chose it ({cvars2.Values["sv_infinite_ammo"]}; {string.Join(" | ", notices2)})");
+
+    // A value the game will not take (live: Wingman's mp_death_drop_grenade 3, kept at 2): said once as refused, not tried again on that map, and no
+    // "again - 1 times" line after it, as there was.
+    var refusedLog = new ListLogger();
+    var clamped = new FakeConVars();
+    (clamped.Values["mp_death_drop_grenade"], clamped.Baselines["mp_death_drop_grenade"], clamped.Max["mp_death_drop_grenade"]) = ("2", "2", 2);
+    var wingDir = Path.Combine(dir, "refused");
+    Directory.CreateDirectory(wingDir);
+    File.WriteAllText(Path.Combine(wingDir, Modes.BlockFile), "mp_death_drop_grenade  *  0  3  // the grenade drops\n");
+    var refusedNotices = new List<string>();
+    var wingNow = t;
+    var wing = new GameChangerBlock(wingDir, refusedLog, clamped, new FunSwitches(clamped.Value, clamped.Write), refusedNotices.Add, () => wingNow);
+    wing.Read(Modes.Wingman);
+    wing.Hold("de_inferno", null, Modes.Wingman);
+    wingNow = t.AddSeconds(61);
+    wing.Hold("de_inferno", null, Modes.Wingman);
+    Check(refusedLog.Lines.Count(l => l.Contains("could not block mp_death_drop_grenade on de_inferno: 2 -> 3 refused, reads 2")) == 1 && !refusedLog.Lines.Any(l => l.Contains("again"))
+          && refusedNotices.Count == 0 && clamped.Values["mp_death_drop_grenade"] == "2",
+        $"block: a value the game refuses is said once and tried no more on that map, with no line that it was blocked again ({string.Join(" | ", refusedLog.Lines)})");
 
     var later = new CheatsRevert();
     later.CheatsOff(t, []);
@@ -803,6 +824,7 @@ sealed class FakeConVars : IConVars
     public readonly Dictionary<string, string> Baselines = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<string, string> CheatDefaults = new(StringComparer.OrdinalIgnoreCase);
     public bool RevertLater;
+    public readonly Dictionary<string, int> Max = new(StringComparer.OrdinalIgnoreCase); // the highest value the engine takes: more reads back as this
     bool revertDue;
 
     public bool Pending => false;
@@ -814,9 +836,9 @@ sealed class FakeConVars : IConVars
     public bool Write(string name, string value)
     {
         var cheatsOff = name.Equals("sv_cheats", StringComparison.OrdinalIgnoreCase) && Fun.Same(Values.GetValueOrDefault(name), "1") && !Fun.Same(value, "1");
-        Values[name] = value;
+        Values[name] = Max.TryGetValue(name, out var max) && int.TryParse(value, out var n) && n > max ? max.ToString(System.Globalization.CultureInfo.InvariantCulture) : value;
         if (cheatsOff) { if (RevertLater) revertDue = true; else Revert(); }
-        return true;
+        return Values[name] == value;
     }
 
     public void Frame()
@@ -827,6 +849,16 @@ sealed class FakeConVars : IConVars
     }
 
     void Revert() { foreach (var (name, value) in CheatDefaults) Values[name] = value; }
+}
+
+/// <summary>A logger that keeps every line it is given, for the checks on what a module said.</summary>
+sealed class ListLogger : Microsoft.Extensions.Logging.ILogger
+{
+    public readonly List<string> Lines = new();
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel level) => true;
+    public void Log<TState>(Microsoft.Extensions.Logging.LogLevel level, Microsoft.Extensions.Logging.EventId id, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+        Lines.Add($"{level}: {formatter(state, exception)}");
 }
 
 /// <summary>A Web API that answers at once, noting when each request started and ended, and who it said was asking.</summary>

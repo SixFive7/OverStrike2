@@ -50,6 +50,6 @@ bot_quota_mode                     *         normal      normal    // fill_with_
 // ---- weapons outside the ladder ----
 mp_weapons_allow_map_placed        *         0           1         // 19 items: guns lying on the map can be picked up - in Wingman, as Valve has it
 mp_death_drop_gun                  *         0           1         // 11 items: the dead drop their gun for anyone to pick up - in Wingman, as Valve has it
-mp_death_drop_grenade              *         0           3         // 2 items set 0 in Arms Race, which would stop the grenade drops; Deathmatch drops nothing, Wingman the grenades too
+mp_death_drop_grenade              *         0           2         // 2 items set 0 in Arms Race, which would stop the grenade drops; Deathmatch drops nothing; Wingman the held or best grenade - Valve's cfg asks 3 (all grenades in CS:GO), which this CS2 refuses and keeps at 2
 mp_buy_anywhere                    *         1           0         // 43 items: buying anywhere - Valve's Deathmatch buys anywhere, during the spawn protection, free of charge
 mp_buytime                         *         0           20        // 84 items: a buy window; Arms Race has none, Deathmatch buys during the spawn protection only, Wingman for Valve's 20 s at a round's start

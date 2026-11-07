@@ -105,7 +105,7 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
                 else if (seen.Count <= LogLines)
                     log.LogInformation("Over Strike 2 settings: blocked on {Map}{When}: {Name} {Was} -> {Want} ({Why})", map, when != null ? $" at the {when}" : "", entry.ConVar, was, want, entry.Why);
                 if (ok && seen.Count == 1) undone.Add(BlockList.Label(entry.ConVar));
-                else if ((now - seen.LastLine).TotalSeconds >= 60)
+                else if (ok && (now - seen.LastLine).TotalSeconds >= 60) // a refused one was said once, and is not tried again on this map
                 {
                     log.LogInformation("Over Strike 2 settings: blocked on {Map}: {Name} again - {Count} times on this map so far, the last {Was} -> {Want}", map, entry.ConVar, seen.Count, was, want);
                     seen.LastLine = now;
