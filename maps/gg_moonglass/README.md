@@ -79,7 +79,7 @@ in a black sky. Nothing else was taken - none of its files, its layout or its me
 ## Rebuild
 
 ```
-python maps\gg_moonglass\build.py --novis --layout <scratch>\layout.json --log <scratch>\compile.log
+python maps\gg_moonglass\build.py --layout <scratch>\layout.json --log <scratch>\compile.log
 python maps\gg_moonglass\preview.py <scratch>\layout.json <scratch>\preview.jpg --earth "<CS2>\content\csgo_addons\gg_moonglass\materials\gg_moonglass\earth_color.png"
 ```
 

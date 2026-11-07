@@ -14,8 +14,8 @@ they are never uploaded with it.
 review; the map inside keeps its name.
 --nolight skips the lighting bake: a quick check of the geometry, whose map renders unlit - do not ship it. The bake (vrad3)
 runs on the GPU through Vulkan ray tracing; --lightmap and --quality keep it small.
---vis adds the visibility build and --novis leaves it out; each map's build.py says which is its default. Without it the map
-draws whole.
+--vis adds the visibility build. Without it the map draws whole, which is how every published build was compiled: on
+gg_glasspire and gg_moonglass it ran for many minutes without finishing. --novis, the default, is still taken.
 --nogen compiles the map source as it is."""
 import argparse
 import os
@@ -58,9 +58,9 @@ def compile_to(log, cmd):
                               creationflags=BELOW_NORMAL_PRIORITY_CLASS, cwd=os.path.dirname(cmd[0]))
 
 
-def main(name, *, materials, vis, generator_options=()):
-    """Builds the map name: materials says whether its addon has materials of its own to compile first, vis whether the
-    visibility build is on by default, generator_options which other options of its generate.py build.py passes on."""
+def main(name, *, materials, generator_options=()):
+    """Builds the map name: materials says whether its addon has materials of its own to compile first, generator_options
+    which other options of its generate.py build.py passes on."""
     here = os.path.join(REPO, 'maps', name)
     ap = argparse.ArgumentParser()
     ap.add_argument('--cs2', default=cs2_dir())
@@ -68,8 +68,8 @@ def main(name, *, materials, vis, generator_options=()):
     ap.add_argument('--layout', default=None)
     ap.add_argument('--addon', default=name, help='addon folder to build into (content and game); the map stays ' + name)
     ap.add_argument('--nolight', action='store_true')
-    ap.add_argument('--vis', dest='vis', action='store_true', default=vis, help='add the visibility build')
-    ap.add_argument('--novis', dest='vis', action='store_false', help='skip the visibility build (the map then draws everything)')
+    ap.add_argument('--vis', dest='vis', action='store_true', default=False, help='add the visibility build')
+    ap.add_argument('--novis', dest='vis', action='store_false', help='no visibility build: the default (the map draws everything)')
     ap.add_argument('--lightmap', type=int, default=1024)
     ap.add_argument('--quality', type=int, default=0, choices=(0, 1, 2))
     ap.add_argument('--threads', type=int, default=4)
