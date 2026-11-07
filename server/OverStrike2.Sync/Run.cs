@@ -99,7 +99,7 @@ public sealed partial class SyncRun
     /// <summary>The keep set (core's, the restart watcher's too), with the config's rules, and never an exception: an input of a shape it does
     /// not read gives an empty set whose problems say why - nothing is handed over or deleted on it.</summary>
     public KeepSetResult SafeKeepSet(IReadOnlyDictionary<string, JsonNode?> inputs, double now, string hud = "") =>
-        KeepSet.Safe(inputs, SyncClock.At(now), hud, L, Cfg.KeepRules);
+        KeepSet.Safe(inputs, UnixTime.At(now), hud, L, Cfg.KeepRules);
 
     public Dictionary<string, JsonNode?> KeepInputs() => KeepSet.Inputs(Cfg.BridgeData);
 

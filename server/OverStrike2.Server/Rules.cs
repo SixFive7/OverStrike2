@@ -59,20 +59,18 @@ public static class Rules
     public const int DefaultBackIn = 30;          // announced "back in" until restarts were measured (container start -> A2S: 6-12 s)
     public const int SilentPolls = 3;             // consecutive failed polls, A2S and RCON each, before silence alone may kill
 
-    public static DateTimeOffset At(double t) => DateTimeOffset.UnixEpoch.AddTicks((long)Math.Round(t * TimeSpan.TicksPerSecond));
-
     /// <summary>A moment as local wall-clock time, HH:MM:SS. A gate names WHEN the restart or kill it waits on happened, never how long
     /// ago: an age changes every second, and LogOnce would take every line for a new one.</summary>
-    public static string AtClock(double t, TimeZoneInfo tz) => LocalTime.Clock(At(t), tz);
+    public static string AtClock(double t, TimeZoneInfo tz) => LocalTime.Clock(UnixTime.At(t), tz);
 
     public static double? NextSlot(double after, TimeOfDay? hhmm, TimeZoneInfo tz) =>
-        LocalTime.NextSlot(At(after), hhmm, tz) is { } s ? Watch.Seconds(s) : null;
+        LocalTime.NextSlot(UnixTime.At(after), hhmm, tz) is { } s ? UnixTime.Seconds(s) : null;
 
-    public static string LocalDay(double t, TimeZoneInfo tz) => LocalTime.Day(At(t), tz);
+    public static string LocalDay(double t, TimeZoneInfo tz) => LocalTime.Day(UnixTime.At(t), tz);
 
     /// <summary>Is the daily restart due now? From today's slot until DailyWindow after it, unless done that day.</summary>
     public static bool DailyDue(double now, TimeOfDay? hhmm, TimeZoneInfo tz, string doneDay) =>
-        LocalTime.DailyDue(At(now), hhmm, tz, doneDay, TimeSpan.FromSeconds(DailyWindow));
+        LocalTime.DailyDue(UnixTime.At(now), hhmm, tz, doneDay, TimeSpan.FromSeconds(DailyWindow));
 
     /// <summary>Path a: kill only on all of the error-map signature, continuous A2S silence that began no later than shortly after it and
     /// has lasted `grace`, a live engine process, and no other map load started since the signature.</summary>

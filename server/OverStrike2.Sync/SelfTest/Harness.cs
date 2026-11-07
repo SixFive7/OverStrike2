@@ -11,7 +11,7 @@ sealed class FakeClock(double t) : IClock
 {
     public double T { get; set; } = t;
     public List<double> Sleeps { get; } = [];
-    public DateTimeOffset Now => SyncClock.At(T);
+    public DateTimeOffset Now => UnixTime.At(T);
 
     public void Sleep(TimeSpan span)
     {
@@ -341,7 +341,7 @@ sealed class VoteApi(Dictionary<string, double> scores, int? stopAfter = null, D
 sealed class EndingClock(double t, double end) : IClock
 {
     public double T { get; private set; } = t;
-    public DateTimeOffset Now => SyncClock.At(T);
+    public DateTimeOffset Now => UnixTime.At(T);
 
     public void Sleep(TimeSpan span)
     {

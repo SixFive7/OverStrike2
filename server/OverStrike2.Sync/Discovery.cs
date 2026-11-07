@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -98,7 +99,7 @@ public static class Discovery
     /// <summary>The unix time of sync.changedSince's day (UTC midnight); with none, no listed map counts as changed at its first check.</summary>
     public static double ChangedSinceEpoch(string day) =>
         DateTime.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var d)
-            ? SyncClock.Seconds(new DateTimeOffset(d, TimeSpan.Zero))
+            ? UnixTime.Seconds(new DateTimeOffset(d, TimeSpan.Zero))
             : double.PositiveInfinity;
 
     /// <summary>The check's verdicts for the listed maps: {"removed": [(id, verdict)], "changed": [ids], "missing": n, "suspicious": bool}.

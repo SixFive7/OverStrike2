@@ -55,7 +55,7 @@ static class PureTests
 
         // ---- the daily window (a fixed summer-time offset, and the real zone across its clock change)
         var cest = TimeZoneInfo.CreateCustomTimeZone("CEST", Scenario.Cest, "CEST", "CEST");
-        double At(int d, int h, int m, int s) => Watch.Seconds(Scenario.At(2026, 10, d, h, m, s));
+        double At(int d, int h, int m, int s) => UnixTime.Seconds(Scenario.At(2026, 10, d, h, m, s));
         var seven = new TimeOfDay(7, 0);
         Check("daily: 07:00:00 due", Rules.DailyDue(At(4, 7, 0, 0), seven, cest, "2026-10-03"));
         Check("daily: 08:59 still due", Rules.DailyDue(At(4, 8, 59, 0), seven, cest, "2026-10-03"));
@@ -63,10 +63,10 @@ static class PureTests
         Check("daily: 06:59 not yet", !Rules.DailyDue(At(4, 6, 59, 59), seven, cest, "2026-10-03"));
         Check("daily: done today", !Rules.DailyDue(At(4, 7, 30, 0), seven, cest, "2026-10-04"));
         Check("daily: off", !Rules.DailyDue(At(4, 7, 30, 0), null, cest, ""));
-        var dstEnd = Watch.Seconds(new DateTimeOffset(2026, 10, 25, 7, 30, 0, TimeSpan.FromHours(1)));   // the morning summer time ends: 07:30 CET
+        var dstEnd = UnixTime.Seconds(new DateTimeOffset(2026, 10, 25, 7, 30, 0, TimeSpan.FromHours(1)));   // the morning summer time ends: 07:30 CET
         Check("daily: DST-end morning 07:30 CET is due", Rules.DailyDue(dstEnd, seven, Scenario.Paris, "2026-10-24"));
         Check("daily: a planned restart's day is its slot's, also for a slot near midnight (the day it began, not the day after)",
-              Rules.LocalDay(Rules.NextSlot(Watch.Seconds(new DateTimeOffset(2026, 10, 5, 0, 30, 0, Scenario.Cest)) - Rules.DailyWindow, new TimeOfDay(23, 30), cest)!.Value, cest) == "2026-10-04");
+              Rules.LocalDay(Rules.NextSlot(UnixTime.Seconds(new DateTimeOffset(2026, 10, 5, 0, 30, 0, Scenario.Cest)) - Rules.DailyWindow, new TimeOfDay(23, 30), cest)!.Value, cest) == "2026-10-04");
 
         // ---- the freeze decision (path a)
         Check("freeze: all conditions -> kill", Rules.FreezeConfirmed(1090, 1000, 999, true, false, 90));

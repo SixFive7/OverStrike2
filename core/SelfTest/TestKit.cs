@@ -105,7 +105,7 @@ sealed class FakeClock(DateTimeOffset start) : IClock
     public DateTimeOffset Now { get; set; } = start;
 
     /// <summary>Now in unix seconds.</summary>
-    public double T => (Now.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks) / (double)TimeSpan.TicksPerSecond;
+    public double T => UnixTime.Seconds(Now);
 
     public void Sleep(TimeSpan span)
     {

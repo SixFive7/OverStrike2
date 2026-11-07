@@ -38,12 +38,9 @@ public sealed class SyncClock(IClock clock, TimeZoneInfo zone)
     public IClock Clock { get; } = clock;
     public TimeZoneInfo Zone { get; } = zone;
 
-    public static double Seconds(DateTimeOffset t) => (t.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks) / (double)TimeSpan.TicksPerSecond;
-    public static DateTimeOffset At(double t) => DateTimeOffset.UnixEpoch.AddTicks((long)Math.Round(t * TimeSpan.TicksPerSecond));
+    public double Now() => UnixTime.Seconds(Clock.Now);
 
-    public double Now() => Seconds(Clock.Now);
-
-    public DateTimeOffset Local(double? ts = null) => TimeZoneInfo.ConvertTime(At(ts ?? Now()), Zone);
+    public DateTimeOffset Local(double? ts = null) => TimeZoneInfo.ConvertTime(UnixTime.At(ts ?? Now()), Zone);
 
     public string Day(double? ts = null) => Local(ts).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -56,7 +53,7 @@ public sealed class SyncClock(IClock clock, TimeZoneInfo zone)
     public double AtTime(TimeOfDay hhmm, double? ts = null)
     {
         var local = Local(ts);
-        return Seconds(LocalTime.At(DateOnly.FromDateTime(local.DateTime), hhmm, Zone));
+        return UnixTime.Seconds(LocalTime.At(DateOnly.FromDateTime(local.DateTime), hhmm, Zone));
     }
 
     public void Sleep(double seconds)

@@ -24,7 +24,7 @@ public sealed class Log(string prefix, IClock clock, TimeZoneInfo zone, Action<s
     /// <summary>Log when the wording changes, else again after `repeat` seconds.</summary>
     public void Once(string key, string message, double repeat = AlertRepeat)
     {
-        var now = Watch.Seconds(clock.Now);
+        var now = UnixTime.Seconds(clock.Now);
         if (lastSaid.TryGetValue(key, out var previous) && previous.Message == message && now - previous.At < repeat)
             return;
         lastSaid[key] = (message, now);

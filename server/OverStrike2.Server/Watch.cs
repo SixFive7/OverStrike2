@@ -160,8 +160,7 @@ public sealed partial class Watch
         Workshop = new WorkshopJobs(this);
     }
 
-    public static double Seconds(DateTimeOffset t) => (t.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks) / (double)TimeSpan.TicksPerSecond;
-    public double Now => Seconds(Clock.Now);
+    public double Now => UnixTime.Seconds(Clock.Now);
     void Sleep(double seconds) => Clock.Sleep(TimeSpan.FromSeconds(Math.Max(0, seconds)));
     string AtClock(double t) => Rules.AtClock(t, Zone);
 
@@ -380,6 +379,6 @@ public sealed partial class Watch
             Log.Line($"ALERT: RESTARTS ARE DISABLED - {blocked}. Observing only.");
         foreach (var (at, what) in new[] { (State.UpdateTripped, "update"), (State.FreezeTripped, "freeze") })
             if (at != 0)
-                Log.Line($"ALERT: the {what} breaker is latched since {LocalTime.Day(Rules.At(at), Zone)} {LocalTime.Clock(Rules.At(at), Zone)} - delete {Config.Paths.StateFile} to re-arm");
+                Log.Line($"ALERT: the {what} breaker is latched since {LocalTime.Day(UnixTime.At(at), Zone)} {LocalTime.Clock(UnixTime.At(at), Zone)} - delete {Config.Paths.StateFile} to re-arm");
     }
 }

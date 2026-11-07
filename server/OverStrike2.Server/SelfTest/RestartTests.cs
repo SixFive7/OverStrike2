@@ -1,5 +1,6 @@
 using OverStrike2.TestKit;
 using static OverStrike2.TestKit.T;
+using OverStrike2.Core;
 
 namespace OverStrike2.Server.SelfTest;
 
@@ -160,8 +161,8 @@ static class RestartTests
         Scenario.NewBridge = () => new FakeBridge { Reply = (what, body) => { order.Add($"{what}: {body}"); return what == "quitting" ? "ok: going down" : "ok"; } };
 
         // U6. after the restart: once the engine answers, the bridge hears what changed (the CS2 build)
-        var st = new WatchState { Restarts = [new Restart((long)Watch.Seconds(At(4, 15, 0, 0)) - 60, "update")],
-                                  Pending = new Pending("update", (long)Watch.Seconds(At(4, 15, 0, 0)) - 60, "1.41.8.7", 14188, null, null) };
+        var st = new WatchState { Restarts = [new Restart((long)UnixTime.Seconds(At(4, 15, 0, 0)) - 60, "update")],
+                                  Pending = new Pending("update", (long)UnixTime.Seconds(At(4, 15, 0, 0)) - 60, "1.41.8.7", 14188, null, null) };
         s = Scenario.Make(At(4, 15, 0, 0));
         s.Carry(st);
         s.Step(5);

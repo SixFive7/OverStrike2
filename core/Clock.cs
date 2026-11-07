@@ -20,6 +20,14 @@ public sealed class SystemClock : IClock
     }
 }
 
+/// <summary>Unix time in seconds, as the watcher's and the sync's state files and decisions count it.</summary>
+public static class UnixTime
+{
+    public static double Seconds(DateTimeOffset t) => (t.UtcTicks - DateTimeOffset.UnixEpoch.UtcTicks) / (double)TimeSpan.TicksPerSecond;
+
+    public static DateTimeOffset At(double t) => DateTimeOffset.UnixEpoch.AddTicks((long)Math.Round(t * TimeSpan.TicksPerSecond));
+}
+
 /// <summary>Local wall-clock time: the daily restart's slot, the local day, across the clock changes of summer time.</summary>
 public static class LocalTime
 {

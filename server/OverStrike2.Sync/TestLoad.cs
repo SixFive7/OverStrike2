@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
@@ -47,7 +48,7 @@ public static partial class TestLoad
                                   SyncClock clock)
     {
         var (mode, gt, gm) = ModeOf(tags);
-        var rec = new JsonObject { ["id"] = wid, ["mode"] = mode, ["utc"] = SyncClock.At(clock.Now()).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture) };
+        var rec = new JsonObject { ["id"] = wid, ["mode"] = mode, ["utc"] = UnixTime.At(clock.Now()).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture) };
         var levels = levelsIn.Select(l => l.ToLowerInvariant()).ToList();
         engine.Tail?.Lines();
         var t0 = clock.Now();
