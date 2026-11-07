@@ -28,7 +28,7 @@ public sealed partial class SyncRun
         }
         catch (ApiErrorException e)
         {
-            Report["discovery"] = new JsonObject { ["skipped"] = $"failed: {e.Message}" };
+            Report["discovery"] = new JsonObject { ["skipped"] = $"failed: {e.Message}", ["failed"] = true };
         }
         State.Save();
     }

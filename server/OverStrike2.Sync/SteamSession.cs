@@ -12,7 +12,7 @@ public sealed class SteamSession(ISteamCmd steam, DownloadBudget budget, Func<st
 
     /// <summary>Logged in for the next download - again when the step has waited over FreshAfter seconds. Null when it is, else the step's
     /// stop.</summary>
-    public string? Ready(double waited)
+    public Stop? Ready(double waited)
     {
         if (started && waited > FreshAfter)
             End();
@@ -27,7 +27,7 @@ public sealed class SteamSession(ISteamCmd steam, DownloadBudget budget, Func<st
         }
         if (SteamCmdWords.StopRx().IsMatch(why))
             budget.RefuseForToday($"SteamCMD answered '{why}'");
-        return $"SteamCMD did not log in anonymously: {why}";
+        return new Stop(Stop.SteamCmd, $"SteamCMD did not log in anonymously: {why}");
     }
 
     /// <summary>One `workshop_download_item`: (ok, reason, bytes).</summary>
@@ -37,7 +37,7 @@ public sealed class SteamSession(ISteamCmd steam, DownloadBudget budget, Func<st
     public void Worked() => (row, denied) = (0, 0);
 
     /// <summary>A download that failed, booked: the step's stop it means, or null to go on with the next map.</summary>
-    public string? Failed(string wid, string reason)
+    public Stop? Failed(string wid, string reason)
     {
         row++;
         budget.Fail();
@@ -46,19 +46,19 @@ public sealed class SteamSession(ISteamCmd steam, DownloadBudget budget, Func<st
         if (SteamCmdWords.StopRx().IsMatch(reason) || denied >= 2)
         {
             budget.RefuseForToday($"SteamCMD answered '{reason}'");
-            return $"SteamCMD answered '{reason}'{(denied >= 2 ? " twice in a row" : "")} - no more downloads today";
+            return new Stop(Stop.Pushback, $"SteamCMD answered '{reason}'{(denied >= 2 ? " twice in a row" : "")} - no more downloads today");
         }
         if (row >= 3)
-            return "3 downloads in a row failed - no more in this run";
+            return new Stop(Stop.InARow, "3 downloads in a row failed - no more in this run");
         if (reason.StartsWith(SteamCmdWords.Stall, StringComparison.Ordinal))
         {
             if (stalled(wid, reason, budget))
-                return $"SteamCMD stalled twice in this run ({reason}) - no more downloads in it";
+                return new Stop(Stop.Stalls, $"SteamCMD stalled twice in this run ({reason}) - no more downloads in it");
             End();                                       // a fresh session for the next map
             return null;
         }
         if (reason == SteamCmdWords.NotRunning || reason.StartsWith(SteamCmdWords.Stdin, StringComparison.Ordinal))
-            return $"SteamCMD stopped answering ({reason})";
+            return new Stop(Stop.SteamCmd, $"SteamCMD stopped answering ({reason})");
         return null;
     }
 

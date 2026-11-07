@@ -115,6 +115,18 @@ class FakeSteam(string installDir) : ISteamCmd
     }
 }
 
+/// <summary>A stand-in for SteamCMD that logs in, or not, as told.</summary>
+sealed class ScriptedSteam(bool login, string why = "logged in anonymously") : ISteamCmd
+{
+    public (bool Ok, string Why) Start() => (login, why);
+
+    public (bool Ok, string Reason, long Bytes) Download(string wid) => (false, "not asked", 0);
+
+    public void Stop()
+    {
+    }
+}
+
 /// <summary>A stand-in for the test engine: it starts, it stops, it counts both.</summary>
 class FakeEngine : ITestEngine
 {

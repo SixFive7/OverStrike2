@@ -69,7 +69,7 @@ public sealed partial class SyncRun
         }
         if (pending.Values.Sum() >= Handover.MaxBytes)
         {
-            rep["stop"] = $"{Text.Mb(pending.Values.Sum())} of hand-overs wait for the server already";
+            new Stop(Stop.HandOversWaiting, $"{Text.Mb(pending.Values.Sum())} of hand-overs wait for the server already").Into(rep);
             return;
         }
         try
@@ -118,7 +118,7 @@ public sealed partial class SyncRun
                 var (ok, why) = budget.Allows(wid);
                 if (!ok && budget.DayOver)
                 {
-                    rep["stop"] = why;
+                    new Stop(Stop.Pushback, why).Into(rep);
                     break;
                 }
                 if (!ok)
@@ -129,18 +129,18 @@ public sealed partial class SyncRun
                 OnMap(wid, step, want.Count);
                 if (Left() < 900)
                 {
-                    rep["stop"] = "the run's deadline";
+                    new Stop(Stop.Routine, "the run's deadline").Into(rep);
                     break;
                 }
                 var tWait = Clock.Now();
                 if (!WaitForNobody("serve", 900))
                 {
-                    rep["stop"] = "somebody was on the server until the deadline";
+                    new Stop(Stop.Routine, "somebody was on the server until the deadline").Into(rep);
                     break;
                 }
                 if (session.Ready(Clock.Now() - tWait) is { } noLogin)
                 {
-                    rep["stop"] = noLogin;
+                    noLogin.Into(rep);
                     break;
                 }
                 var t = Clock.Now();
@@ -186,7 +186,7 @@ public sealed partial class SyncRun
                     L($"serve: the download of {wid} failed: {reason}");
                     if (session.Failed(wid, reason) is { } stop)
                     {
-                        rep["stop"] = stop;
+                        stop.Into(rep);
                         break;
                     }
                 }

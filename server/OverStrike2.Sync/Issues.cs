@@ -16,7 +16,6 @@ public static partial class Issues
     [GeneratedRegex("HTTP (?:429|403|401)")] public static partial Regex PushbackRx();
     [GeneratedRegex("HTTP \\d+|server errors|network failures|cap of [\\d,]+")] private static partial Regex ShortRx();
     [GeneratedRegex("\\d+")] private static partial Regex DigitsRx();
-    [GeneratedRegex("deadline|somebody was on|game was updated")] private static partial Regex RoutineStopRx();
 
     static string S(JsonNode? v) => Node.Str(v);
     static string Get(JsonObject o, string key, string fallback) => o.ContainsKey(key) ? Node.Str(o[key]) : fallback;
@@ -45,17 +44,24 @@ public static partial class Issues
         JsonObject dl = Node.Obj(r["downloads"]), sv = Node.Obj(r["serve"]), t = Node.Obj(r["tests"]);
         foreach (var (name, part) in new[] { ("the test downloads", dl), ("the hand-over downloads", sv) })
         {
-            var stop = Node.Truthy(part["stop"]) ? Node.Str(part["stop"]) : "";
-            if (stop.Contains("SteamCMD answered", StringComparison.Ordinal) || stop.Contains("no more downloads today", StringComparison.Ordinal))
-                Add("steamcmd-pushback", $"SteamCMD pushed back during {name}: {Text.Clean(stop, 220)}.", "No more downloads today; they resume tomorrow by themselves.");
-            else if (stop.Contains("in a row failed", StringComparison.Ordinal))
-                Add("downloads-in-a-row", $"3 downloads in a row failed during {name}.",
-                    "This run downloaded nothing more; the next run tries again, and a map is tried 3 times at most.");
-            else if (stop.Contains("did not log in", StringComparison.Ordinal) || stop.Contains("stopped answering", StringComparison.Ordinal))
-                Add("steamcmd", $"SteamCMD failed during {name}: {Text.Clean(stop, 220)}.", "This run's downloads stopped; the next run starts SteamCMD again.");
-            else if (stop.Contains("hand-overs wait", StringComparison.Ordinal))
-                Add("handovers-waiting", $"The game server has not taken in its hand-overs: {Text.Clean(stop, 160)}.",
-                    "No more hand-overs until it does; its next engine start takes them in.");
+            var stop = Node.StrOr(part["stop"]);
+            switch (Node.StrOr(part["stop_kind"]))
+            {
+                case Stop.Pushback:
+                    Add("steamcmd-pushback", $"SteamCMD pushed back during {name}: {Text.Clean(stop, 220)}.", "No more downloads today; they resume tomorrow by themselves.");
+                    break;
+                case Stop.InARow:
+                    Add("downloads-in-a-row", $"3 downloads in a row failed during {name}.",
+                        "This run downloaded nothing more; the next run tries again, and a map is tried 3 times at most.");
+                    break;
+                case Stop.SteamCmd:
+                    Add("steamcmd", $"SteamCMD failed during {name}: {Text.Clean(stop, 220)}.", "This run's downloads stopped; the next run starts SteamCMD again.");
+                    break;
+                case Stop.HandOversWaiting:
+                    Add("handovers-waiting", $"The game server has not taken in its hand-overs: {Text.Clean(stop, 160)}.",
+                        "No more hand-overs until it does; its next engine start takes them in.");
+                    break;
+            }
         }
         var stalls = Node.Arr(r["stalls"]).OfType<JsonArray>().Where(s => s.Count == 2).Select(s => (Id: Node.Str(s[0]), N: Node.Float(s[1]), Text: Node.Str(s[1]))).ToList();
         var again = stalls.Where(s => s.N >= 2).ToList();
@@ -63,20 +69,15 @@ public static partial class Issues
             Add("steamcmd-stalls", $"SteamCMD stalled {(stalls.Count >= 2 ? "twice in this run" : "on the same map twice today")}: {string.Join(", ", stalls.Take(6).Select(s => $"{s.Id} ({s.Text} today)"))}.",
                 stalls.Count >= 2 ? "This run's downloads stopped at the second stall; a map is tried 3 times at most, and the next run starts SteamCMD afresh."
                     : "The next map got a fresh session; that map is tried again later, 3 times at most.");
-        if (Node.Truthy(t["engine_failed"]))
-            Add("test-engine", $"The test engine did not start: {Text.Clean(Node.Str(t["engine_failed"]), 220)}.",
+        if (Node.StrOr(t["stop_kind"]) == Stop.TestEngine)
+            Add("test-engine", $"The test engine did not start: {Text.Clean(Node.Str(t["stop"]), 220)}.",
                 "This run's tests stopped; the downloaded maps wait in the staging folder for the next run.");
-        else if (Node.Truthy(t["stop"]) && !RoutineStopRx().IsMatch(Node.Str(t["stop"])))
+        else if (Node.Truthy(t["stop"]) && Node.StrOr(t["stop_kind"]) != Stop.Routine)
             Add("tests-stopped", $"The tests stopped early: {Text.Clean(Node.Str(t["stop"]), 220)}.", "The maps without a verdict wait for the next run.");
-        foreach (var name in new[] { "discovery", "ratings" })
-        {
-            var skipped = Node.Truthy(Node.Get(r[name], "skipped")) ? Node.Str(Node.Get(r[name], "skipped")) : "";
-            if (skipped.StartsWith("failed", StringComparison.Ordinal))
-                Add($"{name}-failed", $"The {name} step failed: {Text.Clean(skipped, 200)}.", "The run went on without it; the next one tries again.");
-        }
-        var verdicts = Node.Truthy(Node.Get(r["published"], "verdicts")) ? Node.Str(Node.Get(r["published"], "verdicts")) : "";
-        if (verdicts.StartsWith("the report failed", StringComparison.Ordinal) || verdicts.StartsWith("not reported", StringComparison.Ordinal))
-            Add("verdicts-not-reported", $"The Workshop check's verdicts did not reach the bridge: {Text.Clean(verdicts, 220)}.",
+        if (Node.Truthy(Node.Get(r["discovery"], "failed")))
+            Add("discovery-failed", $"The discovery step failed: {Text.Clean(Node.Str(Node.Get(r["discovery"], "skipped")), 200)}.", "The run went on without it; the next one tries again.");
+        if (Node.Truthy(Node.Get(r["published"], "verdicts_failed")))
+            Add("verdicts-not-reported", $"The Workshop check's verdicts did not reach the bridge: {Text.Clean(Node.Str(Node.Get(r["published"], "verdicts")), 220)}.",
                 "Maps gone from the Workshop are not blocked until a check reaches it; the next check (every sync.apiEveryHours) reports again.");
         if (Node.Truthy(Node.Get(r["check"], "suspicious")))
             Add("check-not-believed", "More than 10% of the listed maps came back gone from the Workshop - not believed.",

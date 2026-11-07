@@ -49,7 +49,7 @@ public sealed partial class SyncRun
         {
             var version = Seams.PatchVersion(Cfg.GameDir);
             if (!WaitForNobody("tests", 600))
-                t["stop"] = "somebody was on the server until the deadline";
+                new Stop(Stop.Routine, "somebody was on the server until the deadline").Into(t);
             else
             {
                 var stale = Seams.KillStaleEngines(Path.Combine(Cfg.WorkDir, "farm"), Clock);
@@ -61,8 +61,7 @@ public sealed partial class SyncRun
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    t["stop"] = $"the test tree could not be built: {e.Message}";
-                    Errors.Add(Node.Str(t["stop"]));
+                    new Stop(Stop.TestTree, $"the test tree could not be built: {e.Message}").Into(t);
                     toLoad = [];
                 }
                 Engine = Seams.TestEngine(Cfg, Cfg.WorkDir, Cfg.Home, Clock, L);
@@ -83,17 +82,17 @@ public sealed partial class SyncRun
                                 break;
                             if (Left() < 300)
                             {
-                                t["stop"] = "the run's deadline";
+                                new Stop(Stop.Routine, "the run's deadline").Into(t);
                                 break;
                             }
                             if (Seams.PatchVersion(Cfg.GameDir) != version)
                             {
-                                t["stop"] = $"the game was updated during the tests (steam.inf {version ?? "None"} -> {Seams.PatchVersion(Cfg.GameDir) ?? "None"})";
+                                new Stop(Stop.Routine, $"the game was updated during the tests (steam.inf {version ?? "None"} -> {Seams.PatchVersion(Cfg.GameDir) ?? "None"})").Into(t);
                                 break;
                             }
                             if (!WaitForNobody("tests", 300))
                             {
-                                t["stop"] = "somebody was on the server until the deadline";
+                                new Stop(Stop.Routine, "somebody was on the server until the deadline").Into(t);
                                 break;
                             }
                             if (needStart || !Engine.Alive())
@@ -102,8 +101,7 @@ public sealed partial class SyncRun
                                 L(why);
                                 if (!ok)
                                 {
-                                    t["stop"] = why;
-                                    t["engine_failed"] = why;
+                                    new Stop(Stop.TestEngine, why).Into(t);
                                     break;
                                 }
                                 needStart = false;

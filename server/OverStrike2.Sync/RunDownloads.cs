@@ -29,7 +29,7 @@ public sealed partial class SyncRun
         var (allowed, why) = budget.Allows();
         if (!allowed)
         {
-            dl["stop"] = why;
+            new Stop(Stop.Pushback, why).Into(dl);
             dl["queued_left"] = todo.Count;
             Limits(budget);
             return 0;
@@ -48,7 +48,7 @@ public sealed partial class SyncRun
                 (allowed, why) = budget.Allows(wid);
                 if (!allowed && budget.DayOver)
                 {
-                    dl["stop"] = why;
+                    new Stop(Stop.Pushback, why).Into(dl);
                     break;
                 }
                 if (!allowed)
@@ -58,18 +58,18 @@ public sealed partial class SyncRun
                 }
                 if (Left() < 600 + 25 * (got + 1))
                 {
-                    dl["stop"] = "the run's deadline (time is kept for this batch's tests)";
+                    new Stop(Stop.Routine, "the run's deadline (time is kept for this batch's tests)").Into(dl);
                     break;
                 }
                 var tWait = Clock.Now();
                 if (!WaitForNobody("downloads", 600))
                 {
-                    dl["stop"] = "somebody was on the server until the deadline";
+                    new Stop(Stop.Routine, "somebody was on the server until the deadline").Into(dl);
                     break;
                 }
                 if (session.Ready(Clock.Now() - tWait) is { } noLogin)
                 {
-                    dl["stop"] = noLogin;
+                    noLogin.Into(dl);
                     break;
                 }
                 var t = Clock.Now();
@@ -104,7 +104,7 @@ public sealed partial class SyncRun
                         rec["status"] = "failed";              // this item, for now; Steam will not hand it out
                     if (session.Failed(wid, reason) is { } stop)
                     {
-                        dl["stop"] = stop;
+                        stop.Into(dl);
                         break;
                     }
                 }

@@ -43,7 +43,10 @@ public sealed partial class SyncRun
         }
         if (verdicts.Count > 0)
         {
-            pub["verdicts"] = ReportVerdicts(verdicts);
+            var (reached, said) = ReportVerdicts(verdicts);
+            pub["verdicts"] = said;
+            if (!reached)
+                pub["verdicts_failed"] = true;
             L($"Workshop verdicts of {verdicts.Count} listed map(s) to the bridge: {Node.Str(pub["verdicts"])}");
         }
         if (texts.Count == 0)
@@ -145,21 +148,21 @@ public sealed partial class SyncRun
     /// bridge keeps them in removed.json, blocks a map that is gone at once (and unblocks one that came back), and applies its own rule - more
     /// than 10% of 50+ gone is not believed. A report that does not arrive is a problem for the mail: nothing else tells the bridge; the next
     /// check reports again.</summary>
-    public string ReportVerdicts(IEnumerable<(string Id, string Verdict)> verdicts)
+    public (bool Reached, string Words) ReportVerdicts(IEnumerable<(string Id, string Verdict)> verdicts)
     {
         if (Cfg.BridgeUrl.Length == 0 || Cfg.BridgeSecret.Length == 0)
-            return "not reported (no bridge.url / bridge.secret) - nothing else tells the bridge";
+            return (false, "not reported (no bridge.url / bridge.secret) - nothing else tells the bridge");
         try
         {
             var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/removed/{Cfg.BridgeSecret}", VerdictsBody(verdicts), "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
-                return $"the report failed (HTTP Error {status}) - the next check reports again";
+                return (false, $"the report failed (HTTP Error {status}) - the next check reports again");
             var said = Text.Cut(text.Trim(), 300);
-            return said.Length > 0 ? said : $"HTTP {status}";
+            return (true, said.Length > 0 ? said : $"HTTP {status}");
         }
         catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or OperationCanceledException or System.Net.Sockets.SocketException)
         {
-            return $"the report failed ({e.Message.Replace(Cfg.BridgeSecret, "<secret>")}) - the next check reports again";
+            return (false, $"the report failed ({e.Message.Replace(Cfg.BridgeSecret, "<secret>")}) - the next check reports again");
         }
     }
 

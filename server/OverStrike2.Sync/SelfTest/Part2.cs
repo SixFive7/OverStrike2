@@ -59,10 +59,10 @@ static class Part2
         using var srv = new MiniHttp();
         (BridgeUrl, BridgeSecret) = ($"http://127.0.0.1:{srv.Port}", "s3cr3t");
         var one = W.Run(Cfg(), new FakeClock(1793500000.0));
-        var ans = one.ReportVerdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")]);
+        var (reached, ans) = one.ReportVerdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")]);
         Check("bridge: the verdicts go to POST /removed/<secret> in the plugin's format (magic line, id TAB verdict)",
               srv.Got[0].Path == "/removed/s3cr3t" && srv.Got[0].Body == "gg-removed\t1\n111\tok\n222\tremoved\n333\thidden\n" && (srv.Got[0].ContentType ?? "").StartsWith("text/plain", StringComparison.Ordinal));
-        Check("bridge: its answer is kept for the mail", ans.StartsWith("3 checked", StringComparison.Ordinal));
+        Check("bridge: its answer is kept for the report, and it arrived", reached && ans.StartsWith("3 checked", StringComparison.Ordinal));
         Check("bridge: POST /reload/<secret> after a publish", one.Reload() == "reload: maps: 9 maps" && srv.Got[1].Path == "/reload/s3cr3t");
         var data = Data;
         Directory.CreateDirectory(data);
@@ -255,8 +255,10 @@ static class Part2
     }
 
     public static readonly JsonObject Quiet = O("""
-        {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00", "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)"},
-         "tests": {"stop": "somebody was on the server until the deadline"}, "serve": {"stop": "the run's deadline"}, "errors": []}
+        {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00",
+         "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)", "stop_kind": "routine"},
+         "tests": {"stop": "somebody was on the server until the deadline", "stop_kind": "routine"}, "serve": {"stop": "the run's deadline", "stop_kind": "routine"},
+         "errors": []}
         """);
 
     public static JsonObject QuietWith(params (string Key, JsonNode? Value)[] fields)
@@ -271,19 +273,41 @@ static class Part2
     static void ProblemMail(string root)
     {
         Check("issues: a run that ended at its deadline, or waited for players, is no problem", Issues.Of(Quiet).Count == 0);
+        // the downloading steps' stops come from SteamSession itself, so a stop reworded keeps its problem: the mail goes by their kinds
+        Stop? Failing(params string[] reasons)
+        {
+            var session = new SteamSession(new ScriptedSteam(true), new DownloadBudget(new SyncState(Path.Combine(root, "issues-session.json")), "2026-11-01"),
+                                           (_, _, _) => true, _ => { });
+            return reasons.Select(r => session.Failed("1", r)).LastOrDefault(s => s is not null);
+        }
+        var noLogin = new SteamSession(new ScriptedSteam(false, "no answer"), new DownloadBudget(new SyncState(Path.Combine(root, "issues-session.json")), "2026-11-01"),
+                                       (_, _, _) => true, _ => { }).Ready(0);
+        var stops = new (string Step, Stop? Stop, string Key)[]
+        {
+            ("downloads", Failing("Rate Limit Exceeded"), "steamcmd-pushback"),
+            ("serve", Failing("Access Denied", "Access Denied"), "steamcmd-pushback"),
+            ("downloads", Failing("Failure", "Failure", "Failure"), "downloads-in-a-row"),
+            ("downloads", noLogin, "steamcmd"),
+            ("serve", Failing(SteamCmdWords.NotRunning), "steamcmd"),
+            ("serve", new Stop(Stop.HandOversWaiting, "205.0 GB of hand-overs wait for the server already"), "handovers-waiting"),
+            ("tests", new Stop(Stop.TestEngine, "test engine did not answer in 90 s"), "test-engine"),
+            ("tests", new Stop(Stop.TestTree, "the test tree could not be built: disk full"), "tests-stopped"),
+        };
+        foreach (var (step, stop, key) in stops)
+        {
+            var part = new JsonObject();
+            stop?.Into(part);
+            var got = Issues.Of(QuietWith((step, part)));
+            Check($"issues: {key} counts, by its stop's kind {stop?.Kind ?? "none"} ({(got.Count > 0 ? Text.Cut(got[0].What, 70) : "nothing")})",
+                  stop is not null && got.Count == 1 && got[0].Key == key && got[0].Did.Length > 0);
+        }
         var cases = new (string Extra, string Key)[]
         {
             ("""{"api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day"}""", "steam-webapi"),
-            ("""{"downloads": {"stop": "SteamCMD answered 'Rate Limit Exceeded' - no more downloads today"}}""", "steamcmd-pushback"),
-            ("""{"serve": {"stop": "SteamCMD answered 'Access Denied' twice in a row - no more downloads today"}}""", "steamcmd-pushback"),
-            ("""{"downloads": {"stop": "3 downloads in a row failed - no more in this run"}}""", "downloads-in-a-row"),
-            ("""{"downloads": {"stop": "SteamCMD did not log in anonymously: no answer"}}""", "steamcmd"),
-            ("""{"tests": {"stop": "test engine did not answer in 90 s", "engine_failed": "test engine did not answer in 90 s"}}""", "test-engine"),
-            ("""{"tests": {"stop": "the test tree could not be built: disk full"}}""", "tests-stopped"),
-            ("""{"discovery": {"skipped": "failed: HTTP 500"}}""", "discovery-failed"),
+            ("""{"discovery": {"skipped": "failed: HTTP 500", "failed": true}}""", "discovery-failed"),
+            ("""{"published": {"verdicts": "the report failed (HTTP Error 502) - the next check reports again", "verdicts_failed": true}}""", "verdicts-not-reported"),
             ("""{"check": {"suspicious": true}}""", "check-not-believed"),
             ("""{"serve": {"handover_failed": [["305", "its folder is empty"]]}}""", "handover-failed"),
-            ("""{"serve": {"stop": "205.0 GB of hand-overs wait for the server already"}}""", "handovers-waiting"),
             ("""{"disk": {"low": "80.0 GB free on the game's volume (the mark is 100.0 GB)"}}""", "disk-low"),
             ("""{"watcher_keep": {"computed": "the next morning", "problems": ["ratings.json is 80 h old (at most 72 h)"]}}""", "deletion-refused:"),
             ("""{"errors": ["the bridge's data cannot be read (x) - nothing done in this run"]}""", "error:"),
