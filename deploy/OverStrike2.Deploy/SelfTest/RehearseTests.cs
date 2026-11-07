@@ -120,6 +120,22 @@ services:
               Json.Str(s, "maps", "delete") == "dryrun" && Json.Str(s, "restarts", "daily") == "05:30" && Json.AsBool(Json.At(s, "hud", "itemPage")) == false);
         check("production's maps folder left alone: maps.layout off, so the start's organize returns before it moves, links, takes in or deletes a map and before any acf write",
               Json.Str(s, "maps", "layout") == "off");
+        check("the candidate watcher's background downloads off by default: nothing fetched into production's Workshop store and acf",
+              Json.At(s, "maps", "backgroundDownloads") is JsonValue off && off.TryGetValue<bool>(out var on) && !on);
+        var (_, keptText) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "05:30", 27216, false, "/unused", downloads: true);
+        var kept = Json.Parse(keptText);
+        check("--downloads: maps.backgroundDownloads as production has it (absent there: absent here, core's default, on), every other override as without it",
+              !((JsonObject)Json.At(kept, "maps")!).ContainsKey("backgroundDownloads") && Json.Str(kept, "maps", "layout") == "off" && Json.Str(kept, "maps", "delete") == "dryrun"
+              && Json.Str(kept, "paths", "handover") == Json.Str(s, "paths", "handover"));
+        var prodValues = new[] { "false", "true" }.Select(v =>
+        {
+            var named = Compose.Replace("\"schema\": 1,", $"\"schema\": 1, \"maps\": {{ \"backgroundDownloads\": {v} }},", StringComparison.Ordinal);
+            var (_, withOwn) = Rehearse.ComposeText(named, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused", downloads: true);
+            var (_, withoutOpt) = Rehearse.ComposeText(named, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused");
+            return (Kept: Json.Dumps(Json.At(Json.Parse(withOwn), "maps", "backgroundDownloads")), Default: Json.Dumps(Json.At(Json.Parse(withoutOpt), "maps", "backgroundDownloads")));
+        }).ToList();
+        check("--downloads keeps production's own value, false or true; without it the rehearsal's is false either way",
+              prodValues[0] == ("false", "false") && prodValues[1] == ("true", "false"));
         check("nothing points at production's hand-over folder: paths.handover is the rehearsal's own, the game server's view of its sync's work copy",
               Json.Str(s, "paths", "handover") == "/home/steam/cs2-dedicated/workshop-sync/rehearsal/handover" && Json.Str(s, "paths", "handover") != Rehearse.HandoverAt
               && Rehearse.RehearsalHandover("/srv/game/workshop-sync/handover/") == "/srv/game/workshop-sync/rehearsal/handover"

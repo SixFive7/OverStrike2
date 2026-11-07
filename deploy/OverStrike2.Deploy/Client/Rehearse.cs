@@ -18,12 +18,14 @@ namespace OverStrike2.Deploy;
 ///                                     the plugin (plugin build's), a copy of the bridge's data - without the maintenance flag prep set, unless
 ///                                     --keep-flag: the candidate bridge then starts under it (no start roll, no match-end change, no crash
 ///                                     count) until it goes; the sync's state copied and its work folder made, with an empty hand-over folder
-///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE]
+///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
 ///                                     settings: maps.delete dryrun, restarts.daily, hud.itemPage off, production's maps folder left alone -
-///                                     maps.layout off and paths.handover the rehearsal's own - and the sync isolated - paths.syncState and
-///                                     paths.syncWork on copies, sync.testPort, sync.handover and sync.publish off, no mail
+///                                     maps.layout off and paths.handover the rehearsal's own, maps.backgroundDownloads off (--downloads: as
+///                                     production has it, the candidate watcher's downloads into production's Workshop store, as production's
+///                                     would make them) - and the sync isolated - paths.syncState and paths.syncWork on copies, sync.testPort,
+///                                     sync.handover and sync.publish off, no mail
 ///     rehearse compose [...]          read-only: what up would create, written to the harness's state folder, its changes named
 ///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label)
 ///     rehearse restore                records back, production's three containers back (testcopy's checks: its endpoint, its own plugins)
@@ -327,7 +329,8 @@ sealed class Rehearse
     }
 
     public static (string Compose, string Settings) ComposeText(string text, Dictionary<string, string> replace, string secret, string network, string bridgeImage,
-                                                               Dictionary<string, string> labels, string daily, int testPort, bool viaFile, string settingsFile)
+                                                               Dictionary<string, string> labels, string daily, int testPort, bool viaFile, string settingsFile,
+                                                               bool downloads = false)
     {
         var stream = new YamlStream();
         stream.Load(new StringReader(text));
@@ -362,6 +365,10 @@ sealed class Rehearse
         // nothing points at production's.
         Section(settings, "maps")["delete"] = "dryrun";
         Section(settings, "maps")["layout"] = "off";
+        // the candidate watcher's background downloads: the engine fetches the queued maps into production's Workshop store and Steam's acf, in
+        // the game tree the rehearsal shares - off, unless --downloads keeps production's value (absent: core's default, on)
+        if (!downloads)
+            Section(settings, "maps")["backgroundDownloads"] = false;
         Section(settings, "restarts")["daily"] = daily;
         Section(settings, "hud")["itemPage"] = false;
         var sync = Section(settings, "sync");
@@ -489,7 +496,7 @@ sealed class Rehearse
     }
 
     /// <summary>What up creates: (compose text, settings text, the rehearsal's folder). Both texts hold secrets and are never printed.</summary>
-    (string Compose, string Settings, string Dir) Build(JsonObject game, JsonObject bridge, string daily, string via, string tag, string? composePath)
+    (string Compose, string Settings, string Dir) Build(JsonObject game, JsonObject bridge, string daily, string via, string tag, string? composePath, bool downloads)
     {
         var path = composePath ?? Path.Combine([h.Cfg.Str("stack.repo", required: true), .. h.Cfg.Str("stack.file", required: true).Replace('\\', '/').Split('/')]);
         if (!File.Exists(secretFile))
@@ -502,15 +509,15 @@ sealed class Rehearse
         var dir = Dir(bridge);
         var (compose, settings) = ComposeText(File.ReadAllText(path, Encoding.UTF8), Replacements(game, bridge), secret, network, $"{tc.BridgeRepo}:{tag}",
                                               new Dictionary<string, string>(tc.ExtraLabels), daily, ConfigExtensions.Int(h.Cfg.Get("rehearse.test_port", 27216L), 27216),
-                                              via == "file", dir + "/settings/overstrike2.jsonc");
+                                              via == "file", dir + "/settings/overstrike2.jsonc", downloads);
         return (compose, settings, dir);
     }
 
     /// <summary>A dry run of up: the compose file it would create, written to the harness's state folder, and what it changes, named.</summary>
-    void ComposeDry(string daily, string via, string tag, string? composePath)
+    void ComposeDry(string daily, string via, string tag, string? composePath, bool downloads)
     {
         var (game, bridge) = Production();
-        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath);
+        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads);
         var file = Path.Combine(tc.State, "rehearsal-compose.yml");
         File.WriteAllText(file, compose);
         Log($"the compose file up would create: {file} (secrets inside: never printed)");
@@ -518,19 +525,20 @@ sealed class Rehearse
             Log($"  {from} -> {to}");
         var s = Json.Parse(settings);
         Log($"  settings: maps.delete {Json.Str(s, "maps", "delete")}, maps.layout {Json.Str(s, "maps", "layout")}, paths.handover {Json.Str(s, "paths", "handover")}, "
+            + $"maps.backgroundDownloads {(Json.At(s, "maps", "backgroundDownloads") is { } bd ? Json.Dumps(bd) : "as production has it (core's default, on)")}, "
             + $"restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
             + $"sync.publish {Json.PyStr(Json.At(s, "sync", "publish"))}, sync.handover {Json.PyStr(Json.At(s, "sync", "handover"))}, sync.testPort {Json.PyStr(Json.At(s, "sync", "testPort"))}, "
             + $"sync.mail.smtpHost {Py.Repr(Json.Str(s, "sync", "mail", "smtpHost"))}, paths.syncState {Json.Str(s, "paths", "syncState")}, paths.syncWork {Json.Str(s, "paths", "syncWork")}");
         Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}");
     }
 
-    void Up(string daily, string via, string tag, string? composePath)
+    void Up(string daily, string via, string tag, string? composePath, bool downloads)
     {
         h.NeedLock();
         if (tc.Inspect(tc.Aside) is null || tc.Inspect(tc.BridgeAside) is null)
             throw Out.Stop("REFUSED: production is not aside - prep first");
         var (game, bridge) = (Game(), BridgeInspect());
-        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath);
+        var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads);
         if (via == "file")
         {
             var (code, output) = StageHelper([$"{dir[..dir.LastIndexOf('/')]}:/r"], new() { ["settings/overstrike2.jsonc"] = Encoding.UTF8.GetBytes(settings) },
@@ -678,7 +686,7 @@ sealed class Rehearse
         }
     }
 
-    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] | compose (the same options) | down | restore | clean | "
+    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] | compose (the same options) | down | restore | clean | "
                               + "logs <cs2|bridge|sync> <seconds> [regex] | sh <cs2|bridge|sync> \"<cmd>\" [user] | rcon \"<cmd>\"... | ship <file> [name] | status";
 
     /// <summary>prep's and stage's one option: --keep-flag, and nothing else.</summary>
@@ -712,9 +720,9 @@ sealed class Rehearse
                 if (via is not ("env" or "file"))
                     throw Out.Stop("usage: --via env|file");
                 if (args[0] == "up")
-                    r.Up(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null));
+                    r.Up(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"));
                 else
-                    r.ComposeDry(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null));
+                    r.ComposeDry(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"));
                 break;
             case "down": r.Down(); break;
             case "restore": r.Restore(); break;
