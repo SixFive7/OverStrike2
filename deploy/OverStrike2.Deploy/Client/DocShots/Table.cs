@@ -336,9 +336,9 @@ static partial class DocShots
           when: "about 3 s after the typed line", crop: CTop, win: Win.None, names: TopNamed, renamed: true, wordsFrom: ("bridge/Fun.cs", "DefaultLine"));
         R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any other", pick: "Catch-up or grenade drops switched", today: "the top line 4d, the catalogue's FunChanged, 10 s; chat and the board too", steps: [Con("say !catchup off"), Pause(1.5), Shoot()], cleanup: [ResetFun],
           when: "about 3 s after the typed line", crop: CTop, win: Win.None, names: TopNamed, renamed: true);
-        R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick: "Catch-up's boost", today: "the card 3d, as picked, 5 s; that player's chat and board", steps: [Rb($"gg_catchup show {Account} 5", "catchup: showed"), Pause(2.4), Shoot()],
-          when: "about 1.6 s after the command has run in the background: gg_catchup show sends what a real spawn's boost sends", crop: CCard, win: Win.None);
-        R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick: "The leader's bounty", today: "the card 3d, as picked, 5 s; that player's chat", steps: [Rb($"gg_catchup show {Account} lead 4", "catchup: showed"), Pause(2.4), Shoot()],
+        R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick: "Catch-up's boost", today: "the card 3d, as picked, 5 s; that player's chat and board", steps: [Rb($"os_catchup show {Account} 5", "catchup: showed"), Pause(2.4), Shoot()],
+          when: "about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop: CCard, win: Win.None);
+        R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick: "The leader's bounty", today: "the card 3d, as picked, 5 s; that player's chat", steps: [Rb($"os_catchup show {Account} lead 4", "catchup: showed"), Pause(2.4), Shoot()],
           when: "as catchup-boost", crop: CCard, win: Win.None);
         R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section: SWindow, steps: [Show("start"), Press("gg_tab_server"), Pause(1), Shoot()],
           when: "1 s after the click returns", masks: [MPlayer1], names: Players, @volatile: [VOnFor]);

@@ -179,7 +179,7 @@ static partial class DocShots
 
     static readonly string[] PostVerbs = ["restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "check"];
     static readonly string[] RconAllowed = ["ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ",
-        "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "gg_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
+        "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "os_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
     static readonly string[] ChangelevelAllowed = ["ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno"];   // official maps: no download dialog
     static readonly Regex ConAllowed = new(@"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$");
     static readonly Regex BridgeButtons = new(@"^(gg_b_next|gg_b_vup|gg_b_vdown|gg_btn_up|gg_btn_down|gg_m\d+_(play|up|down)|gg_why_\d+|gg_set_time_\d+|gg_v_random|gg_v_browse|gg_v_back)$");

@@ -64,7 +64,7 @@ static partial class DocShots
                     _ when r.StartsWith("gg_notice", StringComparison.Ordinal) => "gg_notice: shown for 10 s: words",
                     _ when r.StartsWith("gg_fun reset", StringComparison.Ordinal) => "fun: reset - done",
                     _ when r.StartsWith("gg_fun", StringComparison.Ordinal) => "fun: gravity moon by Bob: sv_gravity 200",
-                    _ when r.StartsWith("gg_catchup", StringComparison.Ordinal) => $"catchup: showed {name}: words",
+                    _ when r.StartsWith("os_catchup", StringComparison.Ordinal) => $"catchup: showed {name}: words",
                     _ when r.StartsWith("os_mode", StringComparison.Ordinal) => "os_mode: mode deathmatch: kept",
                     _ => $"ok, /log/{Env("FAKE_TOKEN")} rcon_password hunter2",
                 });
