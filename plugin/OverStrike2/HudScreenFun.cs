@@ -3,7 +3,7 @@ using CounterStrikeSharp.API.Core;
 
 namespace OverStrike2;
 
-/// <summary>The Fun page on screen: what it shows every frame (../../bridge/Shared/HudMenu.cs: FunPage, FunWhy), what a click on it comes to (../../bridge/Shared/FunClicks.cs), the same
+/// <summary>The Fun page's clicks: what it shows every frame is HudFrame's (../../bridge/Shared/HudMenu.cs: FunPage, FunWhy), what a click on it comes to FunClicks' (../../bridge/Shared/FunClicks.cs), the same
 /// change typed in chat, and Random and Default. The settings module makes every change, in process, a frame after the click or the line (FunSet, FunReset; gg_fun does the same from the
 /// console): it owns the server's settings - the baseline, the put-back at the map's end and the block a player's change is exempt from; the grenade drops and catch-up are fun settings like
 /// the rest, its effects. Once the value is there one message says who switched what, the same for every setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB
@@ -12,8 +12,7 @@ namespace OverStrike2;
 sealed partial class HudScreen
 {
     readonly Random dice = new();                         // the Fun page's Random
-    readonly FunClicks funClicks = new();                 // which choices are grey since when, and each player's refused click
-    List<(string Name, string Text)> funWhy = [];         // what the page's bubbles say, as of this frame
+    readonly FunClicks funClicks = new();                 // which choices are grey since when, and each player's refused click (HudFrame draws both)
 
     /// <summary>Where the fun page's values come from: the settings module (convars and its effects). Set at the plugin's load.</summary>
     public Func<string, string?>? FunSource { get; set; }
@@ -30,33 +29,6 @@ sealed partial class HudScreen
 
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
     string? FunValue(string name) => FunSource?.Invoke(name);
-
-    /// <summary>Every frame, the same for everybody: the page as the live values have it - the settings, who set them, what is grey - and the fixed rows of the contents before v4.6.0, worded and lit.</summary>
-    void FunFrame(DateTime now)
-    {
-        var (texts, classes) = HudMenu.FunPage(FunValue, mode.ArmsRace, FunSetBy);
-        foreach (var (id, text) in texts) Text(id, text);
-        foreach (var (id, cls, on) in classes)
-        {
-            Class(id, cls, on);
-            if (cls == "off") funClicks.Grey(id, on, now);
-        }
-        funWhy = HudMenu.FunWhy(FunValue);
-        foreach (var (name, words) in HudMenu.FixedRowWords(FunValue, FunSetBy)) Var(HudView.Global, name, words);
-        foreach (var (id, cls, on) in HudVote.FixedRowClasses(FunValue, mode.ArmsRace)) Class(id, cls, on);
-    }
-
-    /// <summary>Every frame, for a player with the window open: what the page's bubbles say for them, as variables on gg_screen that the bubbles inherit, and their refused click. One player's
-    /// word on a refusal is not everybody's, so all of it goes per player, and only what changed goes out.</summary>
-    void FunBubbles(CCSPlayerController p, DateTime now)
-    {
-        foreach (var (name, words) in funClicks.Words(p.Slot, funWhy, now))
-        {
-            Var(HudView.Screen, name, words, p);
-            Class(HudMenu.FunRowOf(name), "clash", words != "", p); // the reason is the row's second line while it has one
-        }
-        foreach (var (id, cls, on) in funClicks.Classes(p.Slot, now)) Class(id, cls, on, p);
-    }
 
     /// <summary>A click in the window, if it is one on the Fun page: Random, Default, or a choice - of the grid, or of an older content's fixed rows. Nothing else is asked of a choice that is lit, or
     /// that has been grey long enough to be seen: its look and its bubble have said it.</summary>

@@ -29,7 +29,7 @@ sealed partial class HudScreen
                 Bridge(action);
                 return;
             case ChatCommands.Kind.Top:
-                var sorted = Browser(player.Slot);
+                var sorted = Player(player.Slot).Browser;
                 sorted.Find("");
                 (sorted.Sort, sorted.Descending) = (HudBrowser.SortBy.Votes, false);
                 ShowFor(account, cmd.Arg);

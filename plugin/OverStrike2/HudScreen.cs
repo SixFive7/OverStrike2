@@ -9,8 +9,9 @@ using Microsoft.Extensions.Logging;
 
 namespace OverStrike2;
 
-/// <summary>The HUD on screen: one custom_hud_layout entity per map, driven from ../../bridge/Shared/Hud.cs. What to show is decided there (HudView for
-/// the words, HudSlots for who has the window or a toast); this class owns the entity and sends the engine only what changed.
+/// <summary>The HUD on screen: one custom_hud_layout entity per map, driven from ../../bridge/Shared/. What to show is decided there - HudFrame composes each frame
+/// out of HudView's words, HudSlots' windows and toasts and the menu's pages, and the bridge's --selftest runs it; this class takes the bridge's state, runs the
+/// HUD check, keeps a record per slot (HudPlayer) and owns the entity, which it sends only what changed.
 ///
 /// A server without the HUD does not exist: the settings require the addon, and os2-server refuses to start without it. A Steam hold (RequireAddon) keeps playing: who is on
 /// keeps the HUD on the map that is on, with the banner; at the next map change they lose it too, and new players join without it.
@@ -48,31 +49,18 @@ sealed partial class HudScreen
 
     HudState? stateRaw, state;                        // the bridge's newest state as it came (end times), and as of this frame (its countdowns worked out); null until the first answer
     VoteState voteRaw = new(), vote = new();          // the vote and the modes, off the same text (MapVote.cs): as it came, and as of this frame
-    readonly Dictionary<int, long> voteShown = new(); // slot -> the vote round whose window was opened for it (once a round; negative while mid-match)
-    readonly Dictionary<int, (long Round, int Page, bool Browse)> voteView = new(); // slot -> that player's page of the ballot, and whether the map browser (MAPS, Browse) is open on the vote
-    readonly Dictionary<int, (long Round, int Page, int[] Now, int[] Before, DateTime ChangedAt)> drawnOrder = new(); // slot -> the ballot's cards as last drawn for that player, and before the last re-sort (HudVote.Click)
+    readonly Dictionary<int, HudPlayer> players = new(); // slot -> everything the HUD keeps for that slot's player (HudPlayer.cs): new with every player, gone when they leave
+    readonly HudFrame frame = new();                  // what a frame shows (../../bridge/Shared/HudFrame.cs): this class takes the state, runs the check and sends
     Modes.Mode mode = Modes.ArmsRace;                 // the mode the map that is on was loaded in (the settings module, os_mode)
     readonly JoinTimes joins = new();                 // each account's last real join: the version banner of v4.0.0 to v4.5.0 for a while, and the Players page's time on
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
-    readonly Dictionary<int, WorkshopCard> cards = new(); // slot -> that player's card for an unlisted Workshop id
     (string Text, DateTime Until) localNews = ("", default);  // the older contents' news line from here, not the bridge: the restart watcher, the block's notices, the item check
-    readonly Dictionary<int, (string Text, DateTime Until, string Cat)> localNotes = new(); // slot -> a note from here: no line to the bridge
-    readonly Dictionary<int, HudBrowser> browsers = new();   // slot -> that player's map browser (sort, filters, page)
-    readonly Dictionary<int, DateTime> restartArmed = new(); // slot -> the restart button's second click counts until then
-    readonly Dictionary<(int Slot, string Panel), HashSet<string>> thumbs = new(); // the picture classes a card has on for a player
     HudDash? dash;                                           // the Sync page's block: every word of it the bridge's, fetched when its version moves
-    readonly Dictionary<int, Dictionary<string, int>> dashPages = new(); // slot -> that player's page of each of its lists
     DateTime stateAt;
     string lastStateText = "";
-    readonly Dictionary<int, bool> captured = new();
-    readonly Dictionary<int, DateTime> resendAt = new(); // slot -> forget what it has (and send it again) at this time
 
-    // Every content on the layout path (HudVersion.Content) is sent the same: what this content has. An older content simply lacks what it lacks - a panel
-    // a game does not have takes nothing in it - and v4.5.0, the oldest still drawn for (HudVersion.Oldest), keeps what it needs for its own pages
-    // (HudView.StaticClasses' c31 and c32, the svge/svlt version classes and vjoin).
-    int latestSent;                                      // the level of the latest-N class on gg_global (HudVersion.LatestClass): turned off when it moves
     bool addonRequired;                                  // what the install step set at start: mm_extra_addons <addon> - a server-side addon, which survives every map change - so every joiner downloads it
     HudCheck.Cause droppedCause;                         // why it was last dropped, for the words players get
     readonly HashSet<long> toldNoMenu = new();           // accounts told in chat why they have no menu, since it was dropped
@@ -91,7 +79,7 @@ sealed partial class HudScreen
         log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");
         plugin.RegisterListener<Listeners.OnCustomHudClicked>(OnClicked);
-        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); resendAt.Clear(); gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
+        plugin.RegisterListener<Listeners.OnMapStart>(_ => { slots.MapStarted(); foreach (var p in players.Values) p.ResendAt = null; gate.MapStarted(); tab.MapStarted(); checkHigh = HudCheck.Mode.Off; keptMenu.Clear(); });
         plugin.RegisterListener<Listeners.OnPlayerButtonsChanged>(OnButtons);
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
@@ -113,7 +101,8 @@ sealed partial class HudScreen
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
                      typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(FunClicks), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
-                     typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan), typeof(JoinTimes) })
+                     typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan), typeof(JoinTimes), typeof(HudFrame), typeof(HudPlayer), typeof(MapVote), typeof(VoteState),
+                     typeof(MapTags), typeof(Modes) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;
@@ -157,13 +146,15 @@ sealed partial class HudScreen
     public void Menu(CCSPlayerController player, string? find = null)
     {
         worldReady = true;
-        if (find != null) Browser(player.Slot).Find(find);
-        if (find != null && vote is { Open: true, Round: > 0 }) { voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, true); Busy(player, Account(player)); } // a search during the vote: the map browser that adds to it
+        var me = Player(player.Slot);
+        if (find != null) me.Browser.Find(find);
+        if (find != null && vote is { Open: true, Round: > 0 }) { me.VoteView = (vote.Round, VoteView(player.Slot).Page, true); Busy(player, Account(player)); } // a search during the vote: the map browser that adds to it
         slots.Show(player.Slot, HudSlots.Page.Maps, DateTime.UtcNow);
         Server.NextFrame(() => { EnsureEntity(); Frame(); }); // not inside the player's own chat command (see the class summary)
     }
 
-    HudBrowser Browser(int slot) => browsers.TryGetValue(slot, out var b) ? b : browsers[slot] = new HudBrowser();
+    /// <summary>The record of the player in this slot: a new one for a new player (Leave drops the last one's).</summary>
+    HudPlayer Player(int slot) => players.TryGetValue(slot, out var p) ? p : players[slot] = new HudPlayer();
 
     /// <summary>A Workshop link or id pasted in chat: the menu on Maps, searching for it - its card if it is not on the list.</summary>
     public void OpenWorkshop(CCSPlayerController player, long id) => Menu(player, id.ToString());
@@ -182,7 +173,7 @@ sealed partial class HudScreen
         slots.Spawned(player.Slot, DateTime.UtcNow);
         Forget(player.Slot);
         captured.Remove(player.Slot); // the window's mouse is sent again: a death or a respawn never costs an open window its clicks
-        resendAt[player.Slot] = DateTime.UtcNow.AddSeconds(2);
+        Player(player.Slot).ResendAt = DateTime.UtcNow.AddSeconds(2);
         // The HUD check: the first spawn on a map of a player not seen clicking since their last real join opens the window, "Click to play" on
         // its gold button, and starts their clock (HudGate). Cheap bookkeeping only; the chat line goes out a frame later.
         var account = Account(player);
@@ -227,28 +218,25 @@ sealed partial class HudScreen
     /// <summary>The settings module's mode went on (os_mode, a map start): the HUD's classes follow it.</summary>
     public void SetMode(Modes.Mode m) { mode = m; Server.NextFrame(Frame); }
 
+    /// <summary>A player left (a map change's reconnect too): their slot forgets them (Leave), and the HUD their game showed is forgotten here too, not only at
+    /// css_guide's real join - through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read.</summary>
     public void Gone(int slot)
     {
-        // The HUD this player's game showed is forgotten here too, not only at css_guide's real join: a real leave
-        // forgets it, and through a map change's reconnect the bridge keeps its own (the live state's ok lines), which Verified and VersionOf read.
         if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } leaving) hudSeen.Remove(Account(leaving));
+        Leave(slot);
+        captured.Remove(slot);
+    }
+
+    /// <summary>Everything the HUD kept for the player in this slot goes, in one place: their record (HudPlayer) and their part of the window, the check, TAB and the
+    /// Fun page's bubbles, and what was sent to them (sent again). What a player keeps through a reconnect is kept by account (the HUD their game showed, their time on).</summary>
+    void Leave(int slot)
+    {
+        players.Remove(slot);
         slots.Gone(slot);
-        voteShown.Remove(slot);
-        voteView.Remove(slot);
-        drawnOrder.Remove(slot);
         gate.Gone(slot);
         tab.Gone(slot);
-        browsers.Remove(slot);
-        cards.Remove(slot);
-        localNotes.Remove(slot);
         funClicks.Gone(slot);
-        restartArmed.Remove(slot);
-        rematchArmed.Remove(slot);
-        cuCards.Remove(slot);
-        dashPages.Remove(slot);
         Forget(slot);
-        captured.Remove(slot);
-        resendAt.Remove(slot);
     }
 
     public string Status() =>
@@ -276,19 +264,7 @@ sealed partial class HudScreen
     /// <summary>A new player in a slot: whatever the last occupant had open is closed for them, before anything else is sent.</summary>
     void OnPutInServer(int slot)
     {
-        slots.Gone(slot);
-        gate.Gone(slot);
-        tab.Gone(slot);
-        browsers.Remove(slot);
-        cards.Remove(slot);
-        localNotes.Remove(slot);
-        funClicks.Gone(slot);
-        restartArmed.Remove(slot);
-        rematchArmed.Remove(slot);
-        cuCards.Remove(slot);
-        dashPages.Remove(slot);
-        drawnOrder.Remove(slot);
-        Forget(slot);
+        Leave(slot);
         if (Live && Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p)
         {
             foreach (var cls in new[] { "win", "win-in", "draining", "pinned", "toast-1", "toast-in", "why", "why-run", "cu", "cu-in", "cu-run", "wl", "wback" }.Concat(Enum.GetValues<HudSlots.Page>().Select(page => "page-" + page.ToString().ToLowerInvariant())))
@@ -309,8 +285,6 @@ sealed partial class HudScreen
 
     /// <summary>The vote as the bridge last said it: the freeze reads it (VoteFreeze.cs).</summary>
     public VoteState Vote => vote;
-
-    readonly HashSet<int> voteOpened = new(); // the slots whose window the vote that is on opened: closed together when the freeze ends
 
     /// <summary>Whether this slot has the window open now (the spawn cloak reads it).</summary>
     public bool WindowOpen(int slot) => slots.WindowOpen(slot);

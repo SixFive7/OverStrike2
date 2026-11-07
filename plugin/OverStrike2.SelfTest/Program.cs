@@ -396,8 +396,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     if (screen.Count > 0)
     {
         var code = string.Join("\n", screen.Select(File.ReadAllText)); // the class, in all its files
-        Check(code.Contains("joins.Joined(Account(player), ", StringComparison.Ordinal) && Regex.Matches(code, @"joins\.Since\(account, now\)").Count == 2,
-            "time on: the HUD takes it by account at css_guide, and reads it so for the join banner and the Players page");
+        Check(code.Contains("joins.Joined(Account(player), ", StringComparison.Ordinal) && Regex.Matches(code, @"joins\.Since\(account, now\)").Count == 1,
+            "time on: the HUD takes it by account at css_guide, and hands it so to the frame, whose join banner and Players page read it (the bridge's --selftest runs the frame)");
     }
     else Console.WriteLine("(no HudScreen*.cs beside this project: where the HUD's time on comes from is not checked)");
 }

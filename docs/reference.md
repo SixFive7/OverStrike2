@@ -599,7 +599,7 @@ commit runs.
 
 | Test | What it holds |
 |---|---|
-| `dotnet run -- --selftest` in `bridge/` | Hundreds of checks on a handed clock, with no server: the log parser, the votes, the ballot, the dice, the stock, the tags, the HUD's words and wiring, every panel id and class against the layout, the older HUD contents against the panels sent to them, the rules below, and the chat table above |
+| `dotnet run -- --selftest` in `bridge/` | Hundreds of checks on a handed clock, with no server: the log parser, the votes, the ballot, the dice, the stock, the tags, the HUD's words and wiring, the frame the plugin draws (HudFrame, against a recorded screen), every panel id and class against the layout, the older HUD contents against the panels sent to them, the rules below, and the chat table above |
 | `plugin/OverStrike2.SelfTest` | The freeze, the spawn cloak, where the plugin's settings come from, the block file, the Web API's one door |
 | `plugin/CatchUp/SelfTest` | The catch-up rules, replayed against real matches' logs |
 | `core/SelfTest` | The settings file and what the parts share; it holds [settings.md](settings.md)'s tables to the code (`-- --write` makes them) |

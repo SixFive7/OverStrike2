@@ -42,23 +42,24 @@ sealed partial class HudScreen
         if (!slots.WindowOpen(player.Slot)) return;
         if (buttonId == HudView.ButtonClose && VoteLocked) { LocalNote(player.Slot, ChatReply.VoteWindowStays); Server.NextFrame(Frame); return; } // the vote's window stays
         slots.Click(player.Slot, buttonId, now);
-        if (HudDash.Click(dash, buttonId, DashPages(player.Slot))) { Server.NextFrame(Frame); return; } // the Sync page's pagers
-        if (buttonId == HudView.TabMaps && vote.Round > 0) { voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, false); Server.NextFrame(Frame); return; } // MAPS opens on its first page: the ballot while a vote is on
+        var me = Player(player.Slot);
+        if (HudDash.Click(dash, buttonId, me.DashPages)) { Server.NextFrame(Frame); return; } // the Sync page's pagers
+        if (buttonId == HudView.TabMaps && vote.Round > 0) { me.VoteView = (vote.Round, VoteView(player.Slot).Page, false); Server.NextFrame(Frame); return; } // MAPS opens on its first page: the ballot while a vote is on
         var account = Account(player);
-        var browser = Browser(player.Slot);
+        var browser = me.Browser;
         if (buttonId == HudView.ButtonAct && HudView.Command(buttonId, state, vote) == HudView.OpenVote) { slots.Show(player.Slot, HudSlots.Page.Maps, now); Server.NextFrame(Frame); return; } // the vote is on: the Maps page shows it
         if (vote.Round > 0 && slots.PageOf(player.Slot) == HudSlots.Page.Maps)
         {
             var view = VoteView(player.Slot);
-            if (buttonId == HudVote.BrowseButton && vote.Open) { voteView[player.Slot] = (vote.Round, view.Page, true); Busy(player, account); Server.NextFrame(Frame); return; } // the map browser adds to the vote
-            if (buttonId == HudVote.BackButton) { voteView[player.Slot] = (vote.Round, view.Page, false); Busy(player, account); Server.NextFrame(Frame); return; }
+            if (buttonId == HudVote.BrowseButton && vote.Open) { me.VoteView = (vote.Round, view.Page, true); Busy(player, account); Server.NextFrame(Frame); return; } // the map browser adds to the vote
+            if (buttonId == HudVote.BackButton) { me.VoteView = (vote.Round, view.Page, false); Busy(player, account); Server.NextFrame(Frame); return; }
             if (!(view.Browse && vote.Open))
             {
                 // The vote is on the Maps page's cards (HudVote.cs), a page of ten: a card's Play is a vote - on the card this player's vote is on, it
                 // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer). A card names the map this player saw on
                 // it: the cards re-sort as votes come in, and a click made on the order before a re-sort arrives after it (SeenOrder).
-                if (HudVote.PageClick(vote, buttonId, view.Page, BallotCards(player.Slot)) is { } page) { voteView[player.Slot] = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
-                if (HudVote.Click(vote, buttonId, view.Page, account, SeenOrder(player.Slot, view.Page, now), BallotCards(player.Slot)) is { } cast)
+                if (HudVote.PageClick(vote, buttonId, view.Page, BallotCards(player.Slot)) is { } page) { me.VoteView = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
+                if (HudVote.Click(vote, buttonId, view.Page, account, HudFrame.SeenOrder(me, vote.Round, view.Page, now), BallotCards(player.Slot)) is { } cast)
                 {
                     Act(player, account, cast); // chat and the board say it: the bridge's line of who voted and who has yet to
                 }
@@ -67,13 +68,13 @@ sealed partial class HudScreen
             }
             // The map browser while the vote is on: its own controls as ever; a card's Play puts the map on the vote, with this player's vote (the bridge's
             // !map during a vote; its line says so in chat), and goes back to the ballot's last page, where the map appears for everybody.
-            var browsing = Browser(player.Slot);
+            var browsing = me.Browser;
             if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account, search).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
             if (buttonId.StartsWith("gg_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
                 && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
                 Act(player, account, add);
-                if (browsing.ConfirmKey == "") voteView[player.Slot] = (vote.Round, int.MaxValue, false); // a risky map's first click only arms its confirmation: the second one adds it
+                if (browsing.ConfirmKey == "") me.VoteView = (vote.Round, int.MaxValue, false); // a risky map's first click only arms its confirmation: the second one adds it
                 Server.NextFrame(Frame);
                 return;
             }
@@ -102,7 +103,8 @@ sealed partial class HudScreen
     /// (now, or after the one that runs) - the pick follows once it is installed (WorkshopCards).</summary>
     void Download(CCSPlayerController player)
     {
-        if (!cards.TryGetValue(player.Slot, out var card) || card.Item is not { Refusal: null } item || card.At is not (WorkshopCard.Step.Ready or WorkshopCard.Step.Failed)) return;
+        var card = Player(player.Slot).Card;
+        if (card.Item is not { Refusal: null } item || card.At is not (WorkshopCard.Step.Ready or WorkshopCard.Step.Failed)) return;
         if (plays.Installed(item.Id)) { card.Installed(); return; }
         card.Started(queued: !plays.Start(item.Id, item.Bytes));
     }
@@ -114,7 +116,8 @@ sealed partial class HudScreen
         plays.Tick(now); // the queue moves on whoever still looks at a card
         foreach (var p in humans)
         {
-            if (!cards.TryGetValue(p.Slot, out var card) || card.At == WorkshopCard.Step.None) continue;
+            var card = Player(p.Slot).Card;
+            if (card.At == WorkshopCard.Step.None) continue;
             switch (card.At)
             {
                 case WorkshopCard.Step.Checking:

@@ -13,8 +13,6 @@ sealed partial class HudScreen
     /// <summary>CCSGameRules.GamePhase while the match-end screen is up (GAMEPHASE_MATCH_ENDED).</summary>
     const int MatchEndedPhase = 5;
 
-    readonly Dictionary<int, DateTime> rematchArmed = new(); // slot -> Restart match's second click counts until then
-
     void MatchLoad() => plugin.AddCommand(MatchLength.Command, "Over Strike 2: the match length, for the match that is on too: os_matchlength <minutes> (the bridge's !time)", OnMatchLengthCommand);
 
     /// <summary>A click on one of the restart buttons: its first click arms it (the bridge counts the same window), its second lets go - unless the state says the bridge will refuse it,
@@ -22,15 +20,11 @@ sealed partial class HudScreen
     void ArmGameButtons(CCSPlayerController player, string buttonId, DateTime now)
     {
         if (buttonId is not (HudMenu.Restart or HudMenu.Rematch) || HudMenu.RestartRefused(buttonId, state, vote)) return;
-        var armed = buttonId == HudMenu.Restart ? restartArmed : rematchArmed;
-        if (armed.TryGetValue(player.Slot, out var until) && now < until) armed.Remove(player.Slot); else armed[player.Slot] = now.AddSeconds(HudBrowser.ConfirmSeconds);
+        var me = Player(player.Slot);
+        var until = buttonId == HudMenu.Restart ? me.RestartArmed : me.RematchArmed;
+        until = now < until ? default : now.AddSeconds(HudBrowser.ConfirmSeconds); // the second click lets go of it (HudFrame shows the Game page's two-click state)
+        if (buttonId == HudMenu.Restart) me.RestartArmed = until; else me.RematchArmed = until;
     }
-
-    static int ArmedSeconds(Dictionary<int, DateTime> armed, int slot, DateTime now) => armed.TryGetValue(slot, out var until) && now < until ? (int)Math.Ceiling((until - now).TotalSeconds) : 0;
-
-    /// <summary>The Game page for this player: their buttons' two-click state.</summary>
-    (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) GamePage(CCSPlayerController p, HudState shown, DateTime now) =>
-        HudMenu.Game(shown, ArmedSeconds(restartArmed, p.Slot, now), ArmedSeconds(rematchArmed, p.Slot, now));
 
     void OnMatchLengthCommand(CCSPlayerController? caller, CommandInfo command)
     {

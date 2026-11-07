@@ -51,7 +51,7 @@ sealed partial class HudScreen
         if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is not { } player) return $"no player [U:1:{account}] on the server";
         if (sub != "" && vote.Round <= 0) return "no vote is on: vote and browse need one (Start a vote first: css_gghud press <account> gg_b_next)";
         worldReady = true;
-        if (sub != "") voteView[player.Slot] = (vote.Round, VoteView(player.Slot).Page, sub == "browse" && vote.Open);
+        if (sub != "") Player(player.Slot).VoteView = (vote.Round, VoteView(player.Slot).Page, sub == "browse" && vote.Open);
         slots.Show(player.Slot, p, DateTime.UtcNow);
         Server.NextFrame(() => { EnsureEntity(); Frame(); });
         return $"window on {p}{(sub != "" ? $" ({sub})" : "")} for {player.PlayerName}";

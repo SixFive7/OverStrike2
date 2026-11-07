@@ -345,6 +345,7 @@ static partial class Program
         Check("The menu's words name only real chat commands (ChatCommands.cs: they are back since Over Strike 2)",
             Regex.Matches(menuWords, @"![a-z]+").All(m => ChatCommands.Find(m.Value) != null));
         HudSelfTest(Check);
+        FrameSelfTest(Check); // SelfTestFrame.cs: the HUD's frame as the plugin draws it, run against a recorded screen
         CheckSelfTest(Check);
         Os2SelfTest(Check); // SelfTestOS2.cs: reasons, player crashes, our maps
         SettingsSelfTest(Check); // SelfTestSettings.cs: the settings file, else the environment, and the line that says which

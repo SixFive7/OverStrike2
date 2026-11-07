@@ -35,7 +35,7 @@ sealed partial class HudScreen
             switch (kind.Surface)
             {
                 case Surface.Top: localTop = (m.Plain, kind.Cat.Id, nowMs, nowMs + (long)(m.Seconds * 1000)); break;
-                case Surface.Line: if (PlayerOf(on) is { } p) localNotes[p.Slot] = (m.Plain, now.AddSeconds(m.Seconds), kind.Cat.Id); break;
+                case Surface.Line: if (PlayerOf(on) is { } p) Player(p.Slot).Note = (m.Plain, now.AddSeconds(m.Seconds), kind.Cat.Id); break;
                 case Surface.Plain or Surface.Alert: localCentres.Add((on, kind.Surface == Surface.Alert, Hud.Clean(m.Text, Messages.CentreMax), now.AddSeconds(m.Seconds))); break;
             }
         if (kind.News) localNews = (m.Plain, now.AddSeconds(m.Seconds));
@@ -73,9 +73,7 @@ sealed partial class HudScreen
         Post(Messages.WorkshopDownload, Messages.WorkshopLine(p.PlayerName, item.Title, percent, done, item.Bytes), Account(p), key: $"workshop:{item.Id}", chat: said);
     }
 
-    // ---- catch-up's card: chat and the board through Post, the rows here ----
-
-    readonly Dictionary<int, (string Head, string[] Rows, bool Bad, DateTime From, DateTime Until)> cuCards = new();
+    // ---- catch-up's card: chat and the board through Post, the rows in the player's record (HudFrame draws them) ----
 
     /// <summary>Whether this player's game holds a content with the catch-up card: known by its version button (HudCheck), and not older. Any other gets the centre panel.</summary>
     public bool HasCards(CCSPlayerController p) => VersionOf(Account(p)) is var v && v != "" && v != HudVersion.Unknown && !HudVersion.IsBefore(v, HudVote.CardsLevel);
@@ -83,33 +81,11 @@ sealed partial class HudScreen
     /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds, a row per item, green for a boost and red for a bounty; the same in that player's chat.</summary>
     public void ShowCatchUp(CCSPlayerController player, string head, IReadOnlyList<string> items, bool bad, double seconds)
     {
-        var rows = items.Select(Messages.Capital).Take(CatchUpRows).ToArray();
+        var rows = items.Select(Messages.Capital).Take(HudFrame.CatchUpRows).ToArray();
         var now = DateTime.UtcNow;
-        cuCards[player.Slot] = (head, rows, bad, now, now.AddSeconds(seconds));
+        Player(player.Slot).CatchUp = (head, rows, bad, now, now.AddSeconds(seconds));
         var line = $"{head}: {string.Join("  ·  ", rows)}";
         Post(bad ? Messages.Bounty : Messages.CatchUpBoost, bad ? M.Refused(line) : M.Done(line), Account(player), seconds: seconds);
-    }
-
-    const int CatchUpRows = 6;
-
-    void CatchUpFrame(CCSPlayerController p, DateTime now)
-    {
-        var has = cuCards.TryGetValue(p.Slot, out var c);
-        var on = has && now < c.Until.AddSeconds(HudSlots.FadeSeconds);
-        if (has && !on) cuCards.Remove(p.Slot);
-        var shown = on && now >= c.From.AddSeconds(HudSlots.FadeSeconds) && now < c.Until;
-        Class(HudView.Screen, "cu", on, p);
-        Class(HudView.Screen, "cu-in", shown, p);
-        Class(HudView.Screen, "cu-run", shown, p);
-        Text("gg_cu_head", on ? c.Head : "", p);
-        for (var k = 1; k <= CatchUpRows; k++)
-        {
-            var row = on && k <= c.Rows.Length ? c.Rows[k - 1] : "";
-            Text($"gg_cu_{k}", row, p);
-            Class($"gg_cu_{k}", "used", row != "", p);
-            Class($"gg_cu_{k}", "good", row != "" && !c.Bad, p);
-            Class($"gg_cu_{k}", "bad", row != "" && c.Bad, p);
-        }
     }
 
     /// <summary>css_gghud centre: how CS2's plain centre text holds, for the client harness: that text for that many seconds, sent again every so many seconds.</summary>
