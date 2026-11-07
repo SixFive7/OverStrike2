@@ -12,7 +12,9 @@ public interface IDownloader
     void Download(string url, string path);
 }
 
-public sealed class HttpDownloader(IClock clock, TimeSpan? noData = null, TimeSpan? atMost = null) : IDownloader
+/// <summary>The real downloader: HTTP with two deadlines of its own. Their timers run on <c>timers</c>, the system's unless a self-test
+/// gives timers it moves by hand.</summary>
+public sealed class HttpDownloader(IClock clock, TimeSpan? noData = null, TimeSpan? atMost = null, TimeProvider? timers = null) : IDownloader
 {
     /// <summary>No byte for this long is a stalled download, before the headers as much as after them.</summary>
     public static readonly TimeSpan NoData = TimeSpan.FromSeconds(60);
@@ -45,31 +47,32 @@ public sealed class HttpDownloader(IClock clock, TimeSpan? noData = null, TimeSp
     {
         var quietFor = noData ?? NoData;
         var whole = atMost ?? AtMost;
-        using var deadline = new CancellationTokenSource(whole);
-        using var quiet = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
-        quiet.CancelAfter(quietFor);
+        var time = timers ?? TimeProvider.System;
+        using var deadline = new CancellationTokenSource(whole, time);
+        using var quiet = new CancellationTokenSource(quietFor, time);
+        using var either = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, quiet.Token);
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.UserAgent.ParseAdd(HttpBridge.UserAgent);
-            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, quiet.Token);
+            using var resp = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, either.Token);
             var code = (int)resp.StatusCode;
             if (attempt < 3 && (code is 408 or 429 || code >= 500))
                 throw new HttpRequestException($"HTTP {code}");
             resp.EnsureSuccessStatusCode();
-            await using var s = await resp.Content.ReadAsStreamAsync(quiet.Token);
+            await using var s = await resp.Content.ReadAsStreamAsync(either.Token);
             await using var f = File.Create(path);
             var buffer = new byte[81920];
             while (true)
             {
                 quiet.CancelAfter(quietFor);
-                var n = await s.ReadAsync(buffer, quiet.Token);
+                var n = await s.ReadAsync(buffer, either.Token);
                 if (n == 0)
                     return;
                 await f.WriteAsync(buffer.AsMemory(0, n));
             }
         }
-        catch (OperationCanceledException) when (quiet.IsCancellationRequested)
+        catch (OperationCanceledException) when (either.IsCancellationRequested)
         {
             static string Seconds(TimeSpan t) => t.TotalSeconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
             throw new IOException(deadline.IsCancellationRequested ? $"not done after {Seconds(whole)} s" : $"no data for {Seconds(quietFor)} s");

@@ -24,6 +24,76 @@ sealed class LocalDownloads : IDownloader
     }
 }
 
+/// <summary>Timers on a clock the test moves by hand (Advance): a CancellationTokenSource made with them is cancelled by an Advance past its
+/// time and by nothing else - never by a busy machine. Arms counts every time a timer is set, so that the test can wait until one is. A timer
+/// fires once: no period is kept, as a CancellationTokenSource never asks for one.</summary>
+sealed class ManualTimers : TimeProvider
+{
+    readonly object gate = new();
+    readonly List<Alarm> set = [];
+    long now;
+    int arms;
+
+    public TimeSpan Elapsed { get { lock (gate) return TimeSpan.FromTicks(now); } }
+
+    public int Arms { get { lock (gate) return arms; } }
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        var alarm = new Alarm(this, callback, state);
+        alarm.Change(dueTime, period);
+        return alarm;
+    }
+
+    /// <summary>Moves the clock on and fires, on this thread, every timer whose time has come.</summary>
+    public void Advance(TimeSpan by)
+    {
+        List<Alarm> due;
+        lock (gate)
+        {
+            now += by.Ticks;
+            due = set.Where(a => a.Due <= now).ToList();
+            set.RemoveAll(due.Contains);
+        }
+        foreach (var alarm in due)
+            alarm.Fire();
+    }
+
+    sealed class Alarm(ManualTimers owner, TimerCallback callback, object? state) : ITimer
+    {
+        public long Due;
+
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            lock (owner.gate)
+            {
+                owner.set.Remove(this);
+                owner.arms++;
+                if (dueTime != Timeout.InfiniteTimeSpan)
+                {
+                    Due = owner.now + dueTime.Ticks;
+                    owner.set.Add(this);
+                }
+            }
+            return true;
+        }
+
+        public void Fire() => callback(state);
+
+        public void Dispose()
+        {
+            lock (owner.gate)
+                owner.set.Remove(this);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
+}
+
 /// <summary>THE PLUGIN LAYER's install (what pre.sh hands over to), the record of what it put in place, the bridge over real HTTP, and
 /// the launcher.</summary>
 static class InstallTests
@@ -268,7 +338,7 @@ static class InstallTests
     }
 
     /// <summary>The real downloader against a stand-in server over real HTTP: a stall after the headers or before them ends, and a slow download
-    /// that keeps moving does not.</summary>
+    /// that keeps moving does not - that one on timers the test moves by hand, so that a busy machine cannot make its gaps look like stalls.</summary>
     static void Downloader(Log log, List<string> lines, ServerConfig config)
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);
@@ -316,13 +386,13 @@ static class InstallTests
         static void Say(NetworkStream s, string text) => s.Write(Encoding.ASCII.GetBytes(text));
         var clock = new FakeClock(Scenario.At(2026, 10, 4, 15, 0, 0));
         var file = Path.Combine(Dir("downloader"), "archive");
-        (string? Failed, int Tries, TimeSpan Took) Fetch(TimeSpan noData, TimeSpan? atMost = null)
+        (string? Failed, int Tries, TimeSpan Took) Fetch(TimeSpan noData, TimeSpan? atMost = null, TimeProvider? timers = null)
         {
             connections = 0;
             var took = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                new HttpDownloader(clock, noData, atMost).Download(url, file);
+                new HttpDownloader(clock, noData, atMost, timers).Download(url, file);
                 return (null, connections, took.Elapsed);
             }
             catch (IOException e)
@@ -333,7 +403,7 @@ static class InstallTests
         var longEnough = TimeSpan.FromSeconds(30);           // far under the default deadlines, far over what the short ones here should take
 
         behave = s => { Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello"); s.Close(); };
-        var whole = Fetch(TimeSpan.FromSeconds(5));
+        var whole = Fetch(longEnough);
         Check("download: a whole answer lands in the file, in one try", whole.Failed is null && whole.Tries == 1 && File.ReadAllText(file) == "hello");
 
         behave = s => Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\npart of it");
@@ -346,19 +416,41 @@ static class InstallTests
         Check($"download: a server that takes the request and never answers ends the same way ({silent.Failed}, {silent.Tries} tries)",
               silent.Failed == "no data for 0.3 s" && silent.Tries == 4 && silent.Took < longEnough);
 
+        // On timers the test moves by hand: a gap starts once the downloader has set its quiet timer again for the next byte, and lasts what
+        // the test says, however slow the machine is.
+        void Gap(ManualTimers time, int armsBefore, TimeSpan gap)
+        {
+            SpinWait.SpinUntil(() => time.Arms > armsBefore, longEnough);
+            time.Advance(gap);
+        }
+        var moving = new ManualTimers();
         behave = s =>
         {
+            var arms = moving.Arms;
             Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\n");
             foreach (var c in "slowy")
             {
-                Thread.Sleep(200);
+                Gap(moving, arms, TimeSpan.FromMilliseconds(600));
+                arms = moving.Arms;
                 Say(s, c.ToString());
             }
             s.Close();
         };
-        var slow = Fetch(TimeSpan.FromMilliseconds(800));
-        Check($"download: a slow one that keeps moving is no stall ({slow.Took.TotalSeconds:0.0} s, longer than the 0.8 s it may be quiet)",
-              slow.Failed is null && slow.Tries == 1 && File.ReadAllText(file) == "slowy" && slow.Took > TimeSpan.FromMilliseconds(800));
+        var slow = Fetch(TimeSpan.FromMilliseconds(800), timers: moving);
+        Check($"download: a slow one that keeps moving is no stall (a byte every 0.6 s, {moving.Elapsed.TotalSeconds:0.0} s in all, longer than the 0.8 s it may be quiet)",
+              slow.Failed is null && slow.Tries == 1 && File.ReadAllText(file) == "slowy" && moving.Elapsed > TimeSpan.FromMilliseconds(800)
+              && moving.Arms > 2); // its quiet timer, set again for every read, is on these timers
+
+        var still = new ManualTimers();
+        behave = s =>
+        {
+            var arms = still.Arms;
+            Say(s, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\n");
+            Gap(still, arms, TimeSpan.FromMilliseconds(800));
+        };
+        var gapped = Fetch(TimeSpan.FromMilliseconds(800), timers: still);
+        Check($"download: ... and on the same timers a gap as long as the 0.8 s is a stall, four tries ({gapped.Failed}, {gapped.Tries} tries)",
+              gapped.Failed == "no data for 0.8 s" && gapped.Tries == 4 && still.Arms > 0);
 
         behave = s =>
         {
