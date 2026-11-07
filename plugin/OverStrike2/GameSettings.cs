@@ -75,23 +75,57 @@ sealed partial class GameSettings
     /// <summary>Who set a fun setting that is off its default, or null: the HUD's fun page says it.</summary>
     public string? SetBy(string settingId) => fun.SetBy(settingId);
 
-    /// <summary>A change of a fun setting, made now: what os_fun &lt;setting&gt; &lt;choice&gt; does, and what the HUD does in process for a player's
-    /// click on the Fun page or their chat command (HudScreen.FunSet), a frame after it. Its convars or its effect written, who set it kept while
-    /// it is off its default; a Clash refused (the page and chat say it before they get here). Returns what was done, in os_fun's words.</summary>
-    public string ChangeFun(Fun.Setting setting, Fun.Choice choice, string by)
+    /// <summary>A change of a fun setting - the Fun page's or a bot setting (Bots.cs) - made now: what os_fun &lt;setting&gt; &lt;choice&gt; does, and what the
+    /// HUD does in process for a player's click on the Fun or the Bots page or their chat command (HudScreen.FunSet), a frame after it. Its convars or its
+    /// effect written, who set it kept while it is off its default; a Clash refused (the page and chat say it before they get here), and a choice that names
+    /// its player (Copycats) with none named - the console's. A bot setting the bots take as they join has the bots that play join again (RejoinBots).
+    /// Returns what was done, in os_fun's words.</summary>
+    public string ChangeFun(Fun.Setting setting, Fun.Choice choice, string by) => Change(setting, choice, by, rejoin: true);
+
+    /// <summary>The same for one bot setting of a preset: the bots join again once, after the whole preset (HudScreen.BotsSet, then RejoinBots).</summary>
+    public string ChangeBot(Fun.Setting setting, Fun.Choice choice, string by) => Change(setting, choice, by, rejoin: false);
+
+    string Change(Fun.Setting setting, Fun.Choice choice, string by, bool rejoin)
     {
-        if (Fun.Refusal(setting, choice, fun.Value) is { } why)
+        var why = Bots.NeedsPlayer(choice) ? "it copies the player who switches it on: click it on the Bots page" : Fun.Refusal(setting, choice, fun.Value);
+        if (why != null)
         {
             log.LogInformation("Over Strike 2 settings: fun on {Map}: {Setting} {Choice} by {By} refused - {Why}", map, setting.Id, choice.Id, by, why);
             return $"refused - {why}";
         }
         var line = fun.Apply(setting, choice, by, DateTime.Now);
         log.LogInformation("Over Strike 2 settings: fun on {Map}: {Line}", map, line);
+        if (rejoin && Bots.Rejoins(setting)) RejoinBots();
         return line;
     }
 
-    /// <summary>The Fun page's Default, made now: every player change undone and every effect at its default, as os_fun reset does
-    /// (HudScreen.FunReset).</summary>
+    /// <summary>The bots that play join again, to take what a bot takes as it joins - difficulty, the weapon rules, the name tag (Bots.Rejoins): bot_kick, then
+    /// the count again, in one console line so the count comes after the kick whatever the kick does to it. Nothing while no bot plays.</summary>
+    public void RejoinBots()
+    {
+        var n = Bots.Quota(fun.Value);
+        if (n <= 0) return;
+        Server.ExecuteCommand($"bot_kick; bot_quota {n}");
+        log.LogInformation("Over Strike 2 settings: the bots on {Map} join again, to take what they take as they join: bot_kick; bot_quota {Count}", map, n);
+    }
+
+    /// <summary>The Bots page's Kick all bots (Bots.KickWord: every bot leaves, Bots and Fill to back to Off) or Default (every bot setting back to normal), made
+    /// now in the name of who asked (HudScreen.BotsReset); then bot_kick, so a bot the count no longer holds leaves at once. The Fun page's settings stay.</summary>
+    public string ResetBots(string which, string by)
+    {
+        var line = which == Bots.KickWord
+            ? string.Join("; ", Bots.Settings.Where(Bots.IsCount).Select(s => fun.Apply(s, s.Normal, by, DateTime.Now)))
+            : UndoFun($"bot default by {by}", Bots.Settings);
+        Server.ExecuteCommand("bot_kick");
+        log.LogInformation("Over Strike 2 settings: bots on {Map}: {Which} by {By} - {Line}; bot_kick", map, which, by, line);
+        return line;
+    }
+
+    /// <summary>The Fun page's Default, made now: every player change of the Fun page's undone and its effects at their defaults (HudScreen.FunReset). The bots stay:
+    /// the Bots page's Default is theirs.</summary>
+    public string ResetFunPage(string by) => UndoFun($"reset by {by}", Fun.Settings);
+
+    /// <summary>Every player change undone and every effect at its default, the bots' too: os_fun reset - the bridge's reset after 10 minutes with nobody on, and the console.</summary>
     public string ResetFun(string by) => UndoFun($"reset by {by}");
 
     public void Load(bool hotReload)
@@ -257,9 +291,9 @@ sealed partial class GameSettings
     /// <summary>Every player change undone (a map's end, the bridge's reset after nobody has been on, the page's Default): each changed convar
     /// back to what it was before the first player change on this map, and every effect back at its default - the grenade drops and catch-up
     /// on. What it says for the console.</summary>
-    string UndoFun(string when)
+    string UndoFun(string when, IReadOnlyCollection<Fun.Setting>? only = null)
     {
-        var done = fun.Undo(when, DateTime.Now);
+        var done = fun.Undo(when, DateTime.Now, only);
         if (done.Count == 0) return "no player changes to undo";
         log.LogInformation("Over Strike 2 settings: fun settings undone at {When}: {List}", when, string.Join(", ", done));
         return $"undone {string.Join(", ", done)}";

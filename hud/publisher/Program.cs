@@ -43,7 +43,7 @@ static class Program
         "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look. Search names, tags and Workshop ids on an on-screen keyboard; sort by " +
         "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id to play a map that is not on the list: the server " +
         "downloads it first, with the progress on its card. While a vote is on, this tab holds its ballot.\n" +
-        "[*][b]Fun[/b]: the fun settings, with Random and Default; every change says who made it.\n" +
+        "[*][b]Fun[/b]: the fun settings, with Random and Default, and Bots: bots for everybody, with presets from a zombie horde to a sniper duel; every change says who made it.\n" +
         "[*][b]Server[/b]: who is on and which HUD they have; the match length and the two restarts, of the match or the whole server; what the server's map sync is doing, what waits for it, and its " +
         "history.\n" +
         "[*][b]Help[/b]: where everything is, and how it works: every rule of the vote and every chance in a map pick.\n" +
@@ -70,7 +70,12 @@ static class Program
         "Anybody can switch them until the map changes, each with its own word (!gravity low, !vampire on): gravity, super jump, bunny hopping, fall damage, ice floor, Laser " +
         "guns, infinite ammo, headshots only, Vampire, Ghost, big grenades, double damage and free-for-all. Arms Race has five more: friendly fire, Instakill, grenades x10, the " +
         "grenade drops - every player spawns with a grenade, dropped where they die (!drops off) - and catch-up (!catchup off). Random sets them all at once (!fun random), " +
-        "Default puts everything back (!fun default).\n\n" +
+        "Default puts them all back (!fun default).\n\n" +
+        "[h1]Bots[/h1]\n" +
+        "There are none unless somebody puts them in, from FUN, Bots: how many, on which side, how good, what they may fight with and how they talk - and what no match allows: " +
+        "bots that hold their fire, crouch everywhere, stand frozen, copy your every move or leave you alone to fight each other. Presets set several at once: Zombie horde, Sniper " +
+        "duel, Target practice, Copycats, Bot war and Pistol party. Like the fun settings they last until the map changes, and say who set them. In Arms Race the bots climb the " +
+        "ladder like everybody, and can win.\n\n" +
         "[h1]Catch-up boosts[/h1]\n" +
         "Fall 2 or more kills behind the leader in Arms Race and you spawn with a boost that grows with every kill of the gap, up to 8 and more: more health, lifesteal and " +
         "regeneration; from 3 behind less damage taken and more damage dealt; from 4 a second chance and longer spawn protection; from 7 infinite ammo and a one-hit knife and " +

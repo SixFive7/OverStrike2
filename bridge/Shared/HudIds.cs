@@ -35,27 +35,33 @@ public static class HudIds
     /// <summary>A content's id as ours: what a click from a shipped content names, made ours before the click is read.</summary>
     public static string ToOurs(string id) => id.StartsWith(Shipped, StringComparison.Ordinal) ? Ours + id[Shipped.Length..] : id;
 
+    /// <summary>A panel no shipped content has - one of v4.8.0's own, the Bots page's (HudBots.Owns): it goes out under our name alone, never under a shipped
+    /// content's, which would hold nothing under it; and a variable only such a panel's labels read (HudBots.OwnsVar) the same.</summary>
+    public static bool OursOnly(string id) => HudBots.Owns(id);
+
+    static bool Skip(string id, string prefix) => prefix != Ours && OursOnly(id);
+
     /// <summary>The screen the frame draws on (HudFrame.IScreen): each text, class, variable and picture goes to the screen under it once for
-    /// every prefix prefixesFor(slot) gives - for everybody every content still drawn for, for a player the content their HUD check learned.
-    /// A class counts as sent only once it went out under every name, so one cut off by the frame's budget goes again in the next frame, and the
-    /// screen under it sends no name twice.</summary>
+    /// every prefix prefixesFor(slot) gives - for everybody every content still drawn for, for a player the content their HUD check learned -
+    /// but a panel of ours alone (OursOnly), which goes out under ours only. A class counts as sent only once it went out under every name it
+    /// goes under, so one cut off by the frame's budget goes again in the next frame, and the screen under it sends no name twice.</summary>
     public sealed class Names(HudFrame.IScreen screen, Func<int, string[]> prefixesFor) : HudFrame.IScreen
     {
         public void Text(string id, string text, int slot = HudFrame.Everybody)
         {
-            foreach (var prefix in prefixesFor(slot)) screen.Text(As(id, prefix), text, slot);
+            foreach (var prefix in prefixesFor(slot)) if (!Skip(id, prefix)) screen.Text(As(id, prefix), text, slot);
         }
 
         public bool Class(string id, string cls, bool on, int slot = HudFrame.Everybody)
         {
             var all = true;
-            foreach (var prefix in prefixesFor(slot)) all &= screen.Class(As(id, prefix), cls, on, slot);
+            foreach (var prefix in prefixesFor(slot)) if (!Skip(id, prefix)) all &= screen.Class(As(id, prefix), cls, on, slot);
             return all;
         }
 
         public void Var(string id, string name, string text, int slot = HudFrame.Everybody)
         {
-            foreach (var prefix in prefixesFor(slot)) screen.Var(As(id, prefix), name, text, slot);
+            foreach (var prefix in prefixesFor(slot)) if (prefix == Ours || !HudBots.OwnsVar(name)) screen.Var(As(id, prefix), name, text, slot);
         }
 
         public void Pictures(int slot, List<(string Panel, string[] Classes)> wanted)

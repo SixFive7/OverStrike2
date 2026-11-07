@@ -65,6 +65,9 @@ public static class Messages
         FunDefault = new("fundefault", "Fun: Default", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunRefused = new("funno", "A Fun click refused: its bubble at the button (FunClicks), so no line on the window's page", Surface.None, Who.Nobody, Who.Player, Who.Player, You, 8, false),
         GameChanger = new("blocked", "A map's game-changer undone", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
+        // the Bots page: a row's change is FunChanged's, as any fun setting's
+        BotsPreset = new("botpreset", "Bots: a preset started, and what it set", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
+        BotsOff = new("botsoff", "Bots: Kick all bots, or Default", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         // catch-up
         CatchUpBoost = new("boost", "Catch-up's boost", Surface.Card, Who.Player, Who.Player, Who.Player, CatchUp, 5, false),
         Bounty = new("bounty", "The leader's bounty", Surface.Card, Who.Player, Who.Player, Who.Nobody, CatchUp, 5, false),
@@ -97,7 +100,7 @@ public static class Messages
     public static readonly Kind[] All =
     [
         Welcome, Tagline, WelcomeBack, NowPlaying, Joined, Outdated, Newer, Hold, HoldBack, HoldNoMenu, CheckClick, CheckWarning, VoteWindow, VoteStarted, VoteInactivity, VoteLimit,
-        VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, FunRefused, GameChanger, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
+        VoteWaiting, VoteDecided, VoteKept, VoteRefused, VoteRefusedYou, FunChanged, FunRandom, FunDefault, FunRefused, GameChanger, BotsPreset, BotsOff, CatchUpBoost, Bounty, MapCountdown, ServerDownload, BackgroundFirst,
         DownloadFailed, WorkshopDownload, PlayAsksFirst, WhyDislike, RestartAfterMatch, RestartCountdown, GameUpdate, Updated, UpdatedJoiner, PlayerRestart, MatchRestart, News,
         ServerDown, CrashNote, Answer, CommandReply, VoteClick,
     ];

@@ -9,11 +9,12 @@ namespace OverStrike2;
 /// and os_settings and os_block, an operator's look at the put-back and the block.</summary>
 sealed partial class GameSettings
 {
-    /// <summary>os_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a change from the console, as the HUD makes a player's in process (ChangeFun).
-    /// os_fun reset ["who"]: every player change undone and every effect at its default - the bridge's reset after 10 minutes with nobody on
-    /// (ResetFun). Bare os_fun: what each setting shows now. Server only: no chat trigger reaches it.</summary>
-    [ConsoleCommand(Fun.Command, "Fun settings: os_fun <setting> <choice> [who] | os_fun reset [who] | os_fun")]
-    [CommandHelper(minArgs: 0, usage: "[<setting> <choice> | reset] [who]", whoCanExecute: CommandUsage.SERVER_ONLY)]
+    /// <summary>os_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a change from the console, as the HUD makes a player's in process (ChangeFun) - a bot setting's too
+    /// (os_fun bots 4). os_fun reset ["who"]: every player change undone and every effect at its default, the bots' too - the bridge's reset after 10 minutes
+    /// with nobody on (ResetFun). os_fun kickbots|botdefault ["who"]: the Bots page's Kick all bots and Default (ResetBots). Bare os_fun: what each setting
+    /// shows now. Server only: no chat trigger reaches it; the console's changes post no message.</summary>
+    [ConsoleCommand(Fun.Command, "Fun settings: os_fun <setting> <choice> [who] | os_fun reset [who] | os_fun kickbots|botdefault [who] | os_fun")]
+    [CommandHelper(minArgs: 0, usage: "[<setting> <choice> | reset | kickbots | botdefault] [who]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnFun(CCSPlayerController? player, CommandInfo command)
     {
         var verb = command.ArgCount > 1 ? command.GetArg(1).ToLowerInvariant() : "";
@@ -27,9 +28,14 @@ sealed partial class GameSettings
             command.ReplyToCommand($"fun: reset - {ResetFun(command.ArgCount > 2 ? command.GetArg(2) : "Console")}");
             return;
         }
-        if (Fun.Find(verb) is not { } setting || command.ArgCount < 3 || Fun.Find(setting, command.GetArg(2)) is not { } choice)
+        if (verb is "kickbots" or "botdefault")
         {
-            command.ReplyToCommand("fun: os_fun <setting> <choice> [who] - " + string.Join("; ", Fun.Settings.Select(s => $"{s.Id} {string.Join("|", s.Choices.Select(c => c.Id))}")));
+            command.ReplyToCommand($"fun: {verb} - {ResetBots(verb == "kickbots" ? Bots.KickWord : Bots.DefaultWord, command.ArgCount > 2 ? command.GetArg(2) : "Console")}");
+            return;
+        }
+        if ((Fun.Find(verb) ?? Bots.Find(verb)) is not { } setting || command.ArgCount < 3 || Fun.Find(setting, command.GetArg(2)) is not { } choice) // a bot setting too (os_fun bots 4)
+        {
+            command.ReplyToCommand("fun: os_fun <setting> <choice> [who] - " + string.Join("; ", Fun.Settings.Concat(Bots.Settings).Select(s => $"{s.Id} {string.Join("|", s.Choices.Select(c => c.Id))}")));
             return;
         }
         command.ReplyToCommand($"fun: {ChangeFun(setting, choice, command.ArgCount > 3 ? command.GetArg(3) : "Console")}");

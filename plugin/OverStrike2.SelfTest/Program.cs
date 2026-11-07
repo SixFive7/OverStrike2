@@ -701,6 +701,79 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         $"fun: ...what it undid, said, and nothing a second time ({string.Join(", ", undone)})");
 }
 
+// ---- the Bots page's settings (Bots.cs) on the fun page's switches (FunSwitches.cs): a player's bots are a choice like any fun setting's - who set them, the block
+// leaving them alone, undone at the map's end - and each page's Default leaves the other page's alone. Copycats is made for the player who clicks it ----
+{
+    var dir = Path.Combine(Path.GetTempPath(), $"os2-bots-selftest-{Environment.ProcessId}");
+    Directory.CreateDirectory(dir);
+    File.WriteAllText(Path.Combine(dir, Modes.BlockFile), "bot_quota  *  0  0  // bots\nbot_quota_mode  *  normal  normal  // bots\n");
+    var cvars = new FakeConVars();
+    foreach (var (name, value) in new[] { ("bot_quota", "0"), ("bot_quota_mode", "fill"), ("bot_difficulty", "1"), ("bot_mimic", "0"), ("sv_gravity", "800") })
+        cvars.Values[name] = cvars.Baselines[name] = value;
+    var said = new List<string>();
+    var switches = new FunSwitches(cvars.Value, cvars.Write);
+    var block = new GameChangerBlock(dir, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, cvars, switches, said.Add);
+    block.Read(Modes.ArmsRace);
+    var at = new DateTime(2026, 11, 7, 21, 30, 0);
+    Fun.Setting B(string id) => Bots.Find(id)!;
+    Fun.Choice C(string id, string choice) => Fun.Find(B(id), choice)!;
+
+    var line = switches.Apply(B("bots"), C("bots", "4"), "Remy", at);
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(cvars.Values["bot_quota"] == "4" && cvars.Values["bot_quota_mode"] == "normal" && switches.SetBy("bots") == "Remy" && switches.Chosen("bot_quota") && said.Count == 0,
+        $"bots: 4 beside the players, set by Remy - and the block, which keeps bot_quota at the server's 0, leaves a player's choice alone, saying nothing ({line})");
+    switches.Apply(B("botlevel"), C("botlevel", "expert"), "Cara", at);
+    switches.Apply(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "moon")!, "Bob", at);
+    Check(switches.Describe() == "gravity moon, bots 4, botlevel expert" && switches.Showing().Contains("bots 4, botfill off, botteam any, botlevel expert"),
+        $"bots: the console says the bots' after the Fun page's ({switches.Describe()})");
+    var funDefault = switches.Undo("reset by Dan", at, Fun.Settings);
+    Check(cvars.Values["sv_gravity"] == "800" && cvars.Values["bot_quota"] == "4" && cvars.Values["bot_difficulty"] == "3" && switches.SetBy("bots") == "Remy" && switches.SetBy("gravity") == null,
+        $"bots: the Fun page's Default leaves the bots alone ({string.Join(", ", funDefault)})");
+    switches.Apply(Fun.Find("gravity")!, Fun.Find(Fun.Find("gravity")!, "low")!, "Bob", at);
+    var botDefault = switches.Undo("bot default by Dan", at, Bots.Settings);
+    Check(cvars.Values["bot_quota"] == "0" && cvars.Values["bot_quota_mode"] == "fill" && cvars.Values["bot_difficulty"] == "1" && cvars.Values["sv_gravity"] == "400"
+          && switches.SetBy("bots") == null && switches.SetBy("gravity") == "Bob" && !switches.Chosen("bot_quota"),
+        $"bots: ...and the Bots page's Default leaves the Fun page alone: Arms Race's own fill back, nobody's bots ({string.Join(", ", botDefault)})");
+    switches.Apply(B("botfill"), C("botfill", "8"), "Remy", at);
+    switches.Apply(B("bots"), C("bots", "2"), "Cara", at);
+    Check(cvars.Values["bot_quota"] == "2" && cvars.Values["bot_quota_mode"] == "normal" && Fun.Showing(B("botfill"), switches.Value).Id == "off" && Fun.Showing(B("bots"), switches.Value).Id == "2",
+        "bots: Fill to 8, then Bots 2: one count at a time, the last one's");
+    var mine = Bots.For(C("botmimic", "on"), 6);
+    switches.Apply(B("botmimic"), mine, "Remy", at);
+    Check(cvars.Values["bot_mimic"] == "7" && Fun.Showing(B("botmimic"), switches.Value).Id == "on" && switches.SetBy("botmimic") == "Remy",
+        "bots: Copycats made for the player in slot 6 copies entity 7, and shows On");
+    var end = switches.Undo("the end of the map", at);
+    block.Hold("de_dust2", null, Modes.ArmsRace);
+    Check(cvars.Values["bot_quota"] == "0" && cvars.Values["bot_quota_mode"] == "fill" && cvars.Values["bot_mimic"] == "0" && cvars.Values["sv_gravity"] == "800" && said.Count == 0
+          && Bots.Settings.All(s => switches.SetBy(s.Id) == null),
+        $"bots: the map's end undoes them with every fun change, and nothing is said ({string.Join(", ", end)})");
+    cvars.Values["bot_quota"] = "5"; // a map's own bots
+    block.Hold("de_dust2", null, Modes.ArmsRace);
+    Check(cvars.Values["bot_quota"] == "0" && said.SequenceEqual(["This map tried to change bots - Undone: the server keeps its own rules."]), "bots: a map's own bots are blocked and said, as ever");
+    Directory.Delete(dir, true);
+
+    // The settings module's side, read from its source: a console's Copycats refused (no player), the bots joining again after a setting they take as they join
+    // (bot_kick, then the count, in one line), Kick all bots and Default with bot_kick after them, the Fun page's Default on its own settings, os_fun's bot settings.
+    var settingsCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettings.cs");
+    var consoleCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettingsConsole.cs");
+    var hostCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "OverStrike2.cs");
+    if (File.Exists(settingsCs) && File.Exists(consoleCs) && File.Exists(hostCs))
+    {
+        var code = File.ReadAllText(settingsCs);
+        Check(code.Contains("Bots.NeedsPlayer(choice) ? \"it copies the player who switches it on: click it on the Bots page\"", StringComparison.Ordinal)
+              && code.Contains("if (rejoin && Bots.Rejoins(setting)) RejoinBots();", StringComparison.Ordinal)
+              && code.Contains("Server.ExecuteCommand($\"bot_kick; bot_quota {n}\");", StringComparison.Ordinal)
+              && code.IndexOf("Server.ExecuteCommand(\"bot_kick\");", StringComparison.Ordinal) > code.IndexOf("public string ResetBots(", StringComparison.Ordinal)
+              && code.Contains("public string ResetFunPage(string by) => UndoFun($\"reset by {by}\", Fun.Settings);", StringComparison.Ordinal),
+            "bots: the settings module refuses the console's Copycats, has the bots join again in one line (bot_kick; bot_quota n), kicks after Kick all bots and Default, and the Fun page's Default is its own settings'");
+        Check(File.ReadAllText(consoleCs).Contains("(Fun.Find(verb) ?? Bots.Find(verb))", StringComparison.Ordinal)
+              && File.ReadAllText(hostCs).Contains("(hud.FunSetBy, hud.FunSet, hud.FunReset) = (settings.SetBy, settings.ChangeFun, settings.ResetFunPage);", StringComparison.Ordinal)
+              && File.ReadAllText(hostCs).Contains("(hud.BotsSet, hud.BotsRejoin, hud.BotsReset) = (settings.ChangeBot, settings.RejoinBots, settings.ResetBots);", StringComparison.Ordinal),
+            "bots: os_fun takes a bot setting, and the HUD's Fun page Default, the presets, their joining again and the Bots page's two buttons are the settings module's");
+    }
+    else Check(false, "bots: the settings module, its console and the host are read from their source");
+}
+
 // ---- a reload ends every fun change (FunHandover.cs, GameSettings.Unload and Ready): the instance that goes knows what each convar was before and
 // undoes them all - Vampire's health and the rest of the effects with them - and hands the next instance word of it; that one tells everybody, so
 // nobody takes a blocked choice put back for the map's doing ----

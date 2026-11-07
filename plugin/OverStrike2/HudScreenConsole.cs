@@ -40,7 +40,7 @@ sealed partial class HudScreen
     }
 
     /// <summary>os_hud show &lt;account&gt; &lt;page&gt;: the window on that page for that account, as if they had clicked their way there - for
-    /// the client test harness, whose CS2 never has focus and so cannot click. Pages: start, maps, fun, players, game, sync, help, how; and while a
+    /// the client test harness, whose CS2 never has focus and so cannot click. Pages: start, maps, fun, bots, players, game, sync, help, how; and while a
     /// vote is on, vote (MAPS on its ballot) and browse (MAPS on the map browser that adds to the vote).</summary>
     public string ShowFor(long account, string page)
     {

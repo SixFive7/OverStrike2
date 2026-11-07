@@ -100,7 +100,8 @@ public class OverStrike2Plugin : BasePlugin
         };
         settings.Ready(); // a load while a Deathmatch or Wingman map is on: the modules follow that map's mode now, as from its start
         hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects - the grenade drops and catch-up among them - included
-        (hud.FunSetBy, hud.FunSet, hud.FunReset) = (settings.SetBy, settings.ChangeFun, settings.ResetFun); // ...who set each setting off its default, and the module makes the page's changes in process
+        (hud.FunSetBy, hud.FunSet, hud.FunReset) = (settings.SetBy, settings.ChangeFun, settings.ResetFunPage); // ...who set each setting off its default, and the module makes the page's changes in process
+        (hud.BotsSet, hud.BotsRejoin, hud.BotsReset) = (settings.ChangeBot, settings.RejoinBots, settings.ResetBots); // the Bots page's: a preset's settings, its bots joining again once, Kick all bots and Default
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
         catchUp.Show = (player, boost, html) =>
         {

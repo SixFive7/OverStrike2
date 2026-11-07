@@ -46,17 +46,22 @@ public sealed class FunState
 
     /// <summary>Every player change undone: each changed convar back to its value from before (the bridge's reset after 10 minutes with
     /// nobody on, and the map's end, before anything else is put back).</summary>
-    public List<(string ConVar, string Value)> Reset(Func<string, string?> value)
+    public List<(string ConVar, string Value)> Reset(Func<string, string?> value) => Reset(value, _ => true);
+
+    /// <summary>The same for the convars which says: one page's (the Fun page's Default leaves the bots alone, the Bots page's leaves the rest).</summary>
+    public List<(string ConVar, string Value)> Reset(Func<string, string?> value, Func<string, bool> which)
     {
-        var writes = before.Where(kv => !Fun.Same(value(kv.Key), kv.Value)).Select(kv => (kv.Key, kv.Value)).ToList();
-        before.Clear();
+        var mine = before.Where(kv => which(kv.Key)).ToList();
+        var writes = mine.Where(kv => !Fun.Same(value(kv.Key), kv.Value)).Select(kv => (kv.Key, kv.Value)).ToList();
+        foreach (var kv in mine) before.Remove(kv.Key);
         return writes;
     }
 
-    /// <summary>The settings a player changed, as "gravity low, bhop on" - for the console and the log.</summary>
+    /// <summary>The settings a player changed, as "gravity low, bhop on, bots 4" - for the console and the log: those with a player's value that show another choice
+    /// than Normal (Bots and Fill to share their convars, and one of them shows Off).</summary>
     public string Describe(Func<string, string?> value)
     {
-        var changed = Fun.Settings.Where(s => Fun.ConVarsOf(s).Any(Chosen)).Select(s => $"{s.Id} {Fun.Showing(s, value).Id}").ToList();
+        var changed = Fun.Settings.Concat(Bots.Settings).Where(s => Fun.ConVarsOf(s).Any(Chosen) && Fun.Showing(s, value) != s.Normal).Select(s => $"{s.Id} {Fun.Showing(s, value).Id}").ToList();
         return changed.Count == 0 ? "no player changes" : string.Join(", ", changed);
     }
 }

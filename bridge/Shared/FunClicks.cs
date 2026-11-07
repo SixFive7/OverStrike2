@@ -35,9 +35,14 @@ public sealed class FunClicks
         : greySince.TryGetValue(button, out var since) && (now - since).TotalSeconds >= SeenSeconds ? Verdict.Seen : Verdict.Refused;
 
     /// <summary>This player's click on this button of this setting is refused: the bubble says so for RefusedSeconds; a newer refusal replaces it. words may carry marks: a bubble has plain words.</summary>
-    public void Refuse(int slot, string button, Fun.Setting s, string words, DateTime now)
+    public void Refuse(int slot, string button, Fun.Setting s, string words, DateTime now) =>
+        Refuse(slot, button, HudMenu.FunWhyVar(Array.IndexOf(Fun.Settings, s) + 1), words, now);
+
+    /// <summary>The same, its words in the row variable whyVar (the Bots page's osbw: HudBots.WhyVar); "" for a button with no row - a preset, a top button - whose class
+    /// refused alone shows it.</summary>
+    public void Refuse(int slot, string button, string whyVar, string words, DateTime now)
     {
-        refused[slot] = (button, HudMenu.FunWhyVar(Array.IndexOf(Fun.Settings, s) + 1), M.Plain(words), now.AddSeconds(RefusedSeconds));
+        refused[slot] = (button, whyVar, M.Plain(words), now.AddSeconds(RefusedSeconds));
         (touched.TryGetValue(slot, out var mine) ? mine : touched[slot] = new(StringComparer.Ordinal)).Add(button);
     }
 

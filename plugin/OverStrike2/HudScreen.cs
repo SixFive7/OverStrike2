@@ -236,6 +236,7 @@ sealed partial class HudScreen
         gate.Gone(slot);
         tab.Gone(slot);
         funClicks.Gone(slot);
+        botClicks.Gone(slot);
         Forget(slot);
     }
 

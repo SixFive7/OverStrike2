@@ -18,13 +18,14 @@ public static class HudView
     public const string TabHow = "os_tab_how", TabFun = "os_tab_fun", TabGame = "os_tab_game", TabMaps = "os_tab_maps";
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
-    /// BrowseButton), FUN, SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
+    /// BrowseButton), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
     /// tabs of the contents before v4.6.0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
     /// Rules tab opens How it works, where its words went; its Queue tab does nothing (there is no queue).</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
         [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
          (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("os_tab_server", HudSlots.Page.Players),
-         ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help), ("os_tab_rules", HudSlots.Page.How)];
+         ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help), ("os_tab_rules", HudSlots.Page.How),
+         (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots)];
 
     /// <summary>The caption beside the sub-tabs, per page (a variable on os_screen, SubCaptionVar): what the page is for; the Maps page's says
     /// whether a Play adds to the vote that is on.</summary>
@@ -36,6 +37,7 @@ public static class HudView
         HudSlots.Page.Maps => ballot ? "Click a map to vote, yours again to take it back" : browsingVote ? "Browse: Play puts a map on this vote, with your vote"
             : "Every map: Play puts it to the vote",
         HudSlots.Page.Fun => "Anybody, at any time, for everybody",
+        HudSlots.Page.Bots => "Bots for everybody: a preset sets several at once",
         HudSlots.Page.Players => "Who is on, and which HUD their game shows",
         HudSlots.Page.Game => "The match length, and the two restarts: the match or the whole server",
         HudSlots.Page.Sync => "The Workshop sync: what it does now, its queue, its history",

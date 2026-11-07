@@ -38,8 +38,8 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
     /// <summary>The settings a player changed, as "gravity low, bhop on".</summary>
     public string Describe() => fun.Describe(Value);
 
-    /// <summary>Every setting and the choice it shows now, as "gravity normal, jump high, ...".</summary>
-    public string Showing() => string.Join(", ", Fun.Settings.Select(s => $"{s.Id} {Fun.Showing(s, Value).Id}"));
+    /// <summary>Every setting and the choice it shows now, the bots' after the Fun page's, as "gravity normal, jump high, ..., bots 4, ...".</summary>
+    public string Showing() => string.Join(", ", Fun.Settings.Concat(Bots.Settings).Select(s => $"{s.Id} {Fun.Showing(s, Value).Id}"));
 
     /// <summary>An effect's default: on for those of Fun.EffectsOn (the grenade drops, catch-up), off for every other.</summary>
     static string EffectDefault(string name) => Fun.EffectsOn.FirstOrDefault(e => e.Effect.Equals(name, StringComparison.OrdinalIgnoreCase)).Value ?? "0";
@@ -74,11 +74,16 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
     /// <summary>Every player change undone (a map's end, the reset after nobody has been on, the page's Default, the plugin's unload): each
     /// changed convar back to what it was before the first player change on this map, then every effect back at its default, whatever left
     /// it elsewhere. What it changed, as "sv_gravity -> 800"; empty when there was nothing to undo.</summary>
-    public List<string> Undo(string when, DateTime now)
+    public List<string> Undo(string when, DateTime now) => Undo(when, now, null);
+
+    /// <summary>The same for these settings alone (a page's Default: the Fun page's, or the Bots page's), or every one for null.</summary>
+    public List<string> Undo(string when, DateTime now, IReadOnlyCollection<Fun.Setting>? only)
     {
-        setBy.Clear(); // every setting goes back to its default: nobody set any
-        var done = fun.Reset(Value).Select(w => $"{w.ConVar} -> {w.Value}{(Write(w.ConVar, w.Value) ? "" : " (refused)")}").ToList();
-        foreach (var name in EffectNames)
+        var convars = only?.SelectMany(Fun.ConVarsOf).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (only == null) setBy.Clear(); // every setting goes back to its default: nobody set any
+        else foreach (var s in only) setBy.Remove(s.Id);
+        var done = fun.Reset(Value, c => convars == null || convars.Contains(c)).Select(w => $"{w.ConVar} -> {w.Value}{(Write(w.ConVar, w.Value) ? "" : " (refused)")}").ToList();
+        foreach (var name in EffectNames.Where(e => convars == null || convars.Contains(e)))
         {
             var want = EffectDefault(name);
             if (Fun.Same(Value(name), want)) continue;

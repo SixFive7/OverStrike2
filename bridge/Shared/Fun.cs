@@ -178,9 +178,11 @@ public static class Fun
 
     /// <summary>The choice the live values show: of the choices that set something, the most specific one whose every convar has its
     /// value (Turbo over On when both match); otherwise Normal. A map that sets a value of its own that no choice has reads as Normal -
-    /// it is how the map is, and no player changed it.</summary>
+    /// it is how the map is, and no player changed it. A value that names its player (Bots.ThePlayer: Copycats) is any player's, 0 none.</summary>
     public static Choice Showing(Setting s, Func<string, string?> value) =>
-        s.Choices.Where(c => c.Sets.Length > 0 && c.Sets.All(x => Same(value(x.ConVar), x.Value))).OrderByDescending(c => c.Sets.Length).FirstOrDefault() ?? s.Normal;
+        s.Choices.Where(c => c.Sets.Length > 0 && c.Sets.All(x => Holds(value(x.ConVar), x.Value))).OrderByDescending(c => c.Sets.Length).FirstOrDefault() ?? s.Normal;
+
+    static bool Holds(string? now, string set) => set == Bots.ThePlayer ? !string.IsNullOrWhiteSpace(now) && !Same(now, "0") : Same(now, set);
 
     /// <summary>The convars of a setting whose live value is not the server's own: what the page calls "this map's own" while Normal shows.</summary>
     public static List<(string ConVar, string Now)> OwnValues(Setting s, Func<string, string?> value) =>

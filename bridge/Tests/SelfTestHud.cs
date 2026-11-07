@@ -190,11 +190,12 @@ static partial class Program
             card.Show(3232901690);
             var stock = Fun.Settings.SelectMany(s => s.Stock).GroupBy(x => x.ConVar).ToDictionary(g => g.Key, g => g.First().Value);
             var funPage = HudMenu.FunPage(cv => stock.GetValueOrDefault(cv));
+            var botsPage = HudBots.Page(cv => stock.GetValueOrDefault(cv), Modes.Deathmatch);
             var sentTexts = HudView.StaticTexts().Concat(HudView.Texts(full)).Concat(HudView.PlayerTexts(full, 1, "x", true)).Concat(menuMaps.Texts).Concat(menuQueue.Texts)
-                .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("os_rst_secs").Append("os_cu_head")
+                .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(botsPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("os_rst_secs").Append("os_cu_head")
                 .Concat(Enumerable.Range(1, 6).Select(k => $"os_cu_{k}")).ToList();
             List<(string Id, string Class, bool On)> sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
-                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
+                .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(botsPage.Classes).Concat(HudMenu.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true)).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
                 .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"os_cu_{k}", "used", true), ($"os_cu_{k}", "good", true), ($"os_cu_{k}", "bad", false) })).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
@@ -207,6 +208,8 @@ static partial class Program
                 .Concat(Enumerable.Range(1, DownReasons.All.Length).Select(HudVote.WhyButton))
                 .Concat(HudBrowser.ModeButtons.Select(b => b.Id)).Concat(HudDash.LayoutButtons)
                 .Concat(Enumerable.Range(1, Fun.Rows).SelectMany(r => Enumerable.Range(1, Fun.ChoicesPerRow).Select(c => HudMenu.FunButton(r, c))))
+                .Concat(Enumerable.Range(1, Bots.Rows).SelectMany(r => Enumerable.Range(1, Bots.ChoicesPerRow).Select(c => HudBots.Button(r, c))))
+                .Concat(Enumerable.Range(1, Bots.PresetCount).Select(HudBots.Preset)).Concat([HudBots.Kick, HudBots.Default])
                 .Concat(HudBrowser.SortButtons.Select(x => x.Id)).Concat(HudBrowser.BandButtons.Select(x => x.Id))
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
@@ -278,8 +281,13 @@ static partial class Program
                 Check($"Content {HudVersion.Content}: what the plugin sends a panel the retired ones are not among, and the Previous button stays (on the Maps page) - nothing goes to a panel this content lacks but the older contents' own",
                     !sent.Any(id => retired.Contains(id) && !olderPanels.Contains(id)) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}",
-                    added.SetEquals([HudVersion.Button(HudVersion.Content)]) && addedIdle.Count == 0);
+                // ...and the Bots page (FUN, Bots): its two sub-tabs, its note and two buttons, its twelve rows of five and its six presets, every part of each.
+                var botsPanels = new HashSet<string> { HudBots.SubFun, HudBots.Tab, HudBots.Note, HudBots.Kick, HudBots.Default };
+                botsPanels.UnionWith(Enumerable.Range(1, Bots.Rows).SelectMany(r => new[] { HudBots.Row(r), $"{HudBots.Row(r)}_title", $"{HudBots.Row(r)}_txt" }
+                    .Concat(Enumerable.Range(1, Bots.ChoicesPerRow).SelectMany(k => new[] { HudBots.Button(r, k), $"{HudBots.Button(r, k)}_txt" }))));
+                botsPanels.UnionWith(Enumerable.Range(1, Bots.PresetCount).SelectMany(p => new[] { HudBots.Preset(p), $"{HudBots.Preset(p)}_title", $"{HudBots.Preset(p)}_txt" }));
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the Bots page ({botsPanels.Count}) - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(botsPanels.Append(HudVersion.Button(HudVersion.Content))) ? "" : ": unexpected " + string.Join(" ", added.Except(botsPanels).Where(x => x != HudVersion.Button(HudVersion.Content)).Concat(botsPanels.Except(added).Select(x => "-" + x))))}",
+                    added.SetEquals(botsPanels.Append(HudVersion.Button(HudVersion.Content))) && addedIdle.Count == 0);
                 // Every content still drawn for keeps what its pages need: the page classes, which every one has a rule for under their old names; c31 and
                 // c32, on for everybody; and the svge/svlt of its join banner. What it lacks - the Players page, the ballot's ten cards, the sub-tabs - it simply lacks.
                 var olderPages = new[] { "page-start", "page-maps", "page-game", "page-help", "page-fun" };
@@ -467,6 +475,7 @@ static partial class Program
             static int Px(Match m, int g) => int.Parse(m.Groups[g].Value, System.Globalization.CultureInfo.InvariantCulture);
             var funParsed = funPad.Success && funNote.Success && funRowCss.Success && funTop.Success && funTitle.Success && funTxt.Success && funButton.Success && funTopCss.Success && funAllCss.Success;
             var funXml = xml[xml.IndexOf("os-page-fun", StringComparison.Ordinal)..];
+            funXml = funXml[..(funXml.IndexOf("os-page-bots", StringComparison.Ordinal) is > 0 and var funEnd ? funEnd : funXml.Length)]; // the Bots page comes after it, with rows of its own
             var funSplit = funXml.IndexOf("os-fcol-right", StringComparison.Ordinal);
             var perColumn = Math.Max(Regex.Matches(funXml[..funSplit], @"class=""os-frow[ ""]").Count, Regex.Matches(funXml[funSplit..], @"class=""os-frow[ ""]").Count);
             // the note's line: the taller of the note and Random's and Default's buttons, and its row's margin (a real client showed the
@@ -476,6 +485,21 @@ static partial class Program
             var rowNeeds = funParsed ? Math.Max(Px(funTop, 1), Math.Max((int)Math.Ceiling(Px(funTitle, 1) * 1.3), Px(funButton, 1))) + Px(funTxt, 1) + (int)Math.Ceiling(Px(funTxt, 2) * 1.3) : int.MaxValue;
             Check($"Fun page fits the window: about {funHeight} px of the pages' {PagesHeight} for its {Fun.Rows} rows ({perColumn} in the longer column), and a row's {(funParsed ? Px(funRowCss, 1) : 0)} px hold its title line and words (about {rowNeeds} px)",
                 funHeight <= PagesHeight && funParsed && rowNeeds <= Px(funRowCss, 1) && perColumn == Fun.Rows / 2 && funTopLine <= (int)Math.Ceiling(Px(funNote, 2) * 1.3) + 8);
+            // The Bots page's height (content v4.8.0: twelve rows in two columns of six, as the Fun page's rows, and the presets under them): its padding, the same
+            // top line, a column's rows, the presets' head and their cards with their margins. Its five buttons a row fit a column beside the row's title.
+            var botsPad = Regex.Match(rules, @"\.os-page-bots\s*\{[^}]*padding:\s*(\d+)px \d+px (\d+)px");
+            var presetsHead = Regex.Match(rules, @"\.os-bpresets-head\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
+            var presetsRow = Regex.Match(rules, @"\.os-bpresets\s*\{[^}]*height:\s*(\d+)px;[^}]*margin-top:\s*(\d+)px;");
+            var botButton = Regex.Match(rules, @"\.os-botb\s*\{[^}]*width:\s*(\d+)px;");
+            var funButtonMargin = Regex.Match(rules, @"\.os-setb\s*\{[^}]*margin-right:\s*(\d+)px;");
+            var botsXml = xml[xml.IndexOf("os-page-bots", StringComparison.Ordinal)..];
+            var botsSplit = botsXml.IndexOf("os-fcol-right", StringComparison.Ordinal);
+            var botsPerColumn = Math.Max(Regex.Matches(botsXml[..botsSplit], @"class=""os-frow[ ""]").Count, Regex.Matches(botsXml[botsSplit..botsXml.IndexOf("os-bpresets-head", StringComparison.Ordinal)], @"class=""os-frow[ ""]").Count);
+            var botsParsed = funParsed && botsPad.Success && presetsHead.Success && presetsRow.Success && botButton.Success && funButtonMargin.Success;
+            var botsHeight = botsParsed ? Px(botsPad, 1) + Px(botsPad, 2) + funTopLine + botsPerColumn * (Px(funRowCss, 1) + Px(funRowCss, 2)) + Px(presetsHead, 1) + Px(presetsHead, 2) + Px(presetsRow, 1) + Px(presetsRow, 2) : int.MaxValue;
+            var botsButtons = botsParsed ? Bots.ChoicesPerRow * (Px(botButton, 1) + Px(funButtonMargin, 1)) : int.MaxValue; // a column: (1240 - 68) / 2 - 14 = 572 px, the title the rest
+            Check($"Bots page fits the window: about {botsHeight} px of the pages' {PagesHeight} for its {Bots.Rows} rows ({botsPerColumn} in the longer column) and its presets; a row's {Bots.ChoicesPerRow} buttons take {botsButtons} px of a column's 572",
+                botsHeight <= PagesHeight && botsParsed && botsPerColumn == Bots.Rows / 2 && botsButtons <= 572 - 140);
             // ---- content v4.4.0: the Maps page while the vote is open - a Play adds to it - and every card's mode; Our maps' glow ----
             var voteCat = new HudCatalog { Version = 1 };
             voteCat.Maps.Add(new HudCatalog.Entry("3084291314", "1", 1, 3084291314, "AIM Map", 20, false, -1, 0, 0, 0));

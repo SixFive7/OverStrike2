@@ -20,14 +20,14 @@ public sealed class HudSlots
     public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (a click restarts it after FadeSeconds)
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
-    /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun; SERVER: Players, Game, Sync;
-    /// HELP: Help, How. Players is v4.6.0's: an older content has no rule for its page class and shows an empty page there.</summary>
-    public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players }
+    /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun, Bots; SERVER: Players, Game, Sync;
+    /// HELP: Help, How. Players is v4.6.0's and Bots v4.8.0's: an older content has no rule for its page class, and no button that opens it.</summary>
+    public enum Page { Start, Maps, Game, Help, How, Fun, Sync, Players, Bots }
 
     /// <summary>The main tab a page belongs to, as the layout groups them.</summary>
     public static string GroupOf(Page page) => page switch
     {
-        Page.Maps => "maps", Page.Fun => "fun", Page.Players or Page.Game or Page.Sync => "server", Page.Help or Page.How => "help", _ => "start",
+        Page.Maps => "maps", Page.Fun or Page.Bots => "fun", Page.Players or Page.Game or Page.Sync => "server", Page.Help or Page.How => "help", _ => "start",
     };
 
     /// <summary>What one slot should see now. Window/Toast: visible at all (fading included); WindowIn/ToastIn: fully shown. Toast: 0 none, 1 now playing.

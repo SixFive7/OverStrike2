@@ -95,7 +95,7 @@ sealed partial class HudScreen
         Server.NextFrame(() =>
         {
             FunSet?.Invoke(setting, choice, who);
-            if (Fun.Showing(setting, FunValue) == choice) Post(Messages.FunChanged, Fun.ChangedLine(who, setting, choice));
+            if (Fun.Showing(setting, FunValue).Id == choice.Id) Post(Messages.FunChanged, Fun.ChangedLine(who, setting, choice)); // by id: a choice made for its player (Bots.For) is a copy
             else refused(Fun.RefusedJust(setting, choice, FunValue, FunSetBy) ?? ChatReply.DidNotSwitch(setting));
             Frame();
         });

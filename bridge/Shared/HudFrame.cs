@@ -41,12 +41,15 @@ public sealed class HudFrame
     /// <summary>A new entity has nothing on it yet: every class goes out again.</summary>
     public void Forget() => latestSent = 0;
 
-    public void Draw(World w, IReadOnlyList<Human> humans, HudSlots slots, Func<int, HudPlayer> playerOf, FunClicks funClicks, IScreen screen)
+    /// <summary>botClicks: the Bots page's refused clicks, as funClicks holds the Fun page's; none, none drawn (a test about something else).</summary>
+    public void Draw(World w, IReadOnlyList<Human> humans, HudSlots slots, Func<int, HudPlayer> playerOf, FunClicks funClicks, IScreen screen, FunClicks? botClicks = null)
     {
         var (s, vote, now) = (w.State, w.Vote, w.Now);
+        botClicks ??= new FunClicks();
         foreach (var (id, text) in HudView.StaticTexts()) screen.Text(id, id == "os_b_cmds" ? HudTab.BoardLine(w.TabMode) : text);
         foreach (var (id, cls, on) in HudView.StaticClasses()) screen.Class(id, cls, on);
         var funWhy = FunPage(w, funClicks, screen);
+        var botWhy = BotsPage(w, botClicks, screen);
         var ownNews = now < w.LocalNews.Until; // the news line of the older contents: the plugin's own line wins while it lasts
         foreach (var (id, text) in HudView.Texts(s, vote)) if (!(ownNews && id == "os_news_text")) screen.Text(id, text);
         foreach (var (id, cls, on) in HudView.Classes(s, vote)) if (!(ownNews && cls == "news")) screen.Class(id, cls, on);
@@ -85,11 +88,12 @@ public sealed class HudFrame
         screen.Var(HudView.Global, HudVote.ModeVar, w.Mode.Name);
         foreach (var (name, words) in HudVote.WhyWords()) screen.Var(HudView.Global, name, words); // the popup's words
         var views = slots.Frame(now).ToDictionary(v => v.Slot, v => v.View);
-        foreach (var h in humans) Player(w, h, playerOf(h.Slot), views.GetValueOrDefault(h.Slot), funClicks, funWhy, screen);
+        foreach (var h in humans) Player(w, h, playerOf(h.Slot), views.GetValueOrDefault(h.Slot), funClicks, funWhy, screen, botClicks, botWhy);
     }
 
     /// <summary>One player's part of the frame: their own words and marks, their window and its page, the menu page they have open.</summary>
-    static void Player(World w, Human h, HudPlayer p, HudSlots.View view, FunClicks funClicks, List<(string Name, string Text)> funWhy, IScreen screen)
+    static void Player(World w, Human h, HudPlayer p, HudSlots.View view, FunClicks funClicks, List<(string Name, string Text)> funWhy, IScreen screen,
+        FunClicks botClicks, List<(string Name, string Text)> botWhy)
     {
         var (s, vote, now, slot, account) = (w.State, w.Vote, w.Now, h.Slot, h.Account);
         if (p.Note is { } note && now < note.Until) { s.Notes[account] = (note.Text, (int)Math.Ceiling((note.Until - now).TotalSeconds)); s.NoteCats[account] = note.Cat; }
@@ -132,6 +136,13 @@ public sealed class HudFrame
                 screen.Class(HudMenu.FunRowOf(name), "clash", words2 != "", slot); // the reason is the row's second line while it has one
             }
             foreach (var (id, cls, on) in funClicks.Classes(slot, now)) screen.Class(id, cls, on, slot);
+            foreach (var (name, words3) in botClicks.Words(slot, botWhy, now)) // the Bots page's: what this mode cannot make, or this player's refused click
+                if (name != "")
+                {
+                    screen.Var(HudView.Screen, name, words3, slot);
+                    screen.Class(HudBots.RowOf(name), "clash", words3 != "", slot);
+                }
+            foreach (var (id, cls, on) in botClicks.Classes(slot, now)) screen.Class(id, cls, on, slot);
         }
         // The window's cursor, or the board's while TAB is held. During a hold a player who joined has no HUD, so no window to close: nothing takes their mouse.
         screen.Capture(slot, (view.Capture || h.TabCursor) && (w.AddonRequired || h.KeptMenu));
@@ -204,6 +215,20 @@ public sealed class HudFrame
         foreach (var (name, words) in HudMenu.FixedRowWords(w.FunValue, w.FunSetBy)) screen.Var(HudView.Global, name, words);
         foreach (var (id, cls, on) in HudMenu.FixedRowClasses(w.FunValue, w.Mode.ArmsRace)) screen.Class(id, cls, on);
         return HudMenu.FunWhy(w.FunValue);
+    }
+
+    /// <summary>The Bots page, the same for everybody: as the live values have it in the mode that is on - the rows, who set them, what the mode greys, the presets, and
+    /// Kick all bots greyed while no bot plays. Returns what its rows' second lines say this frame.</summary>
+    static List<(string Name, string Text)> BotsPage(World w, FunClicks botClicks, IScreen screen)
+    {
+        var (texts, classes) = HudBots.Page(w.FunValue, w.Mode, w.FunSetBy);
+        foreach (var (id, text) in texts) screen.Text(id, text);
+        foreach (var (id, cls, on) in classes)
+        {
+            screen.Class(id, cls, on);
+            if (cls == "off") botClicks.Grey(id, on, w.Now);
+        }
+        return HudBots.Why(w.FunValue, w.Mode);
     }
 
     /// <summary>Catch-up's card under the crosshair for this player: a row per item, green for a boost and red for a bounty, shown in two steps (HudSlots.FadeSeconds).</summary>

@@ -72,6 +72,8 @@ runs it, its run folder is what `release.py publish --client-test` asks for. Wha
 7. **Dislike** a map: the reasons in one small dialog at the centre, shown only while you have a cursor, the window's or TAB's; a dislike typed in chat with the window closed shows it once TAB is held.
 8. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity greying Super jump
    High with the reason on hover, and a click made just as the other setting changed refused with a bubble at the button. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
+   **FUN, Bots:** the sub-tabs Settings and Bots; every row with its choices, bots joining as set, who set a row; the presets lit when they show; Kick all bots and Default;
+   Arms Race greying the Weapons row and Wingman the counts past its room, each with its reason.
 9. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
    (`bridge/Shared/HudDash.cs`).
 10. **HELP:** Help and How it works, every row filled.

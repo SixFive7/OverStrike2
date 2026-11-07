@@ -101,6 +101,13 @@ static partial class Program
             && named.T("gg_m1_name", 3) == "z" && named.T("os_m1_name", 3) == "" && named.C("os_global", "news") && named.C("gg_global", "news")
             && named.V("gg_global", HudVersion.Var) == "v4.8.0" && named.V("os_global", HudVersion.Var) == "v4.8.0"
             && named.Pictured.ContainsKey((HudFrame.Everybody, "gg_t_thumb")) && named.Pictured.ContainsKey((HudFrame.Everybody, "os_t_thumb")));
+        names.Text(HudBots.Note, "n"); names.Text("os_b3_2_txt", "T"); names.Class(HudBots.Row(3), "used", true); names.Class(HudBots.Preset(1), "on", true);
+        names.Class(HudBots.Tab, "x", true); names.Var(HudView.Screen, HudBots.WhyVar(5), "why", 3); names.Var(HudView.Screen, HudBots.WhyVar(5), "why");
+        Check("HudIds.Names: the Bots page - v4.8.0's own panels, which no shipped content has - goes out under our name alone, its rows' variables too; a v4.6.0 game gets none of it",
+            named.T("os_bots_note") == "n" && named.T("gg_bots_note") == "" && named.T("os_b3_2_txt") == "T" && named.T("gg_b3_2_txt") == "" && named.C("os_b3", "used") && !named.C("gg_b3", "used")
+            && named.C("os_bp1", "on") && !named.C("gg_bp1", "on") && named.C("os_tab_bots", "x") && !named.C("gg_tab_bots", "x")
+            && named.V("os_screen", "osbw5") == "why" && named.V("gg_screen", "osbw5") == "" && named.V("gg_screen", "osbw5", 3) == ""
+            && HudIds.OursOnly("os_b12_5") && HudIds.OursOnly(HudBots.SubFun) && !HudIds.OursOnly("os_b_queue") && !HudIds.OursOnly("os_b_vup") && !HudIds.OursOnly("os_btn_close") && !HudIds.OursOnly("os_m1_name"));
 
         // ---- the version classes: one latest-N, the old one off when the level moves (os_hud level) ----
         var levels = new RecordedScreen();

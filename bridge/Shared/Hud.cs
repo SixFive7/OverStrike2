@@ -100,7 +100,7 @@ public static class Hud
             new("Maps  ·  Arrows", "Like or dislike any map's card: up likes, down dislikes"),
             new("Sort  ·  Likes", "The most liked maps first")]),
         new("Game", [
-            new("Fun", "Gravity, friendly fire, grenade drops, catch-up and more"),
+            new("Fun", "Gravity, friendly fire, grenade drops, catch-up, bots"),
             new("Server  ·  Game", "Match length: 10 or 60 minutes, this match too"),
             new("Restart", "Server  ·  Game: the match or the whole server - Click twice to confirm")]),
         new("The board", [

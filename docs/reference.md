@@ -113,8 +113,9 @@ the window's page. The **centre text** and the **alert** are CS2's own.
 | The vote decided, and the change counting down | The window's header | Everybody | Until the map changes | Everybody | Everybody |
 | The vote kept the map | The window's header | Everybody | 8 s | Everybody | Everybody |
 | A vote cannot be called now | A window line, in the player's own words | The player who tried | 8 s | Everybody, naming them | Everybody, naming them |
-| A fun setting changed, catch-up and the grenade drops among them; Random; Default | The top line | Everybody | 10 s | Everybody | Everybody |
+| A fun setting changed, catch-up and the grenade drops among them, a bot setting too; Random; Default | The top line | Everybody | 10 s | Everybody | Everybody |
 | A map's game-changer undone | The top line | Everybody | 10 s | Everybody | Everybody |
+| [Bots](#bots): a preset started, and what it set; Kick all bots; Default | The top line | Everybody | 10 s | Everybody | Everybody |
 | A Fun click refused | A bubble at the button | That player | 8 s | That player | That player |
 | Catch-up's boost | The card, a green row per item | That player | 5 s | That player | That player |
 | The leader's bounty | The card, a red row per item | That player | 5 s | That player | |
@@ -414,8 +415,8 @@ switched. Ghost hides a player the way the [spawn cloak](#in-game-hud) does (`Cl
 like convars, so they are undone like one.
 
 **Random** (`!fun random`) sets every setting the page shows in the mode that is on to one of its own choices, each equally likely, and catch-up on three times in four - never a
-combination the page would not make. **Default** (`!fun default`) is what 10 minutes with nobody on does: everything back to its default. Either is one message like a single change:
-who did it and what changed.
+combination the page would not make. **Default** (`!fun default`) puts every setting of the page back to its default - the bots stay, the [Bots page](#bots) has a Default of
+its own - and 10 minutes with nobody on puts back everything, the bots too. Either is one message like a single change: who did it and what changed.
 
 **Every combination works together:** the fun settings touch no convar twice, so any mix of them is simply each one's own values, and `--selftest` walks every combination there
 is - 884,736 in Arms Race, 27,648 in Deathmatch and Wingman - checking that each reads back as made, that the page calls idle exactly what does nothing then, and that Random hands
@@ -423,6 +424,43 @@ out each allowed one. One combination is refused: **Moon gravity with Super jump
 page greys the second of the two, and the mouse on it shows the reason beside it ("Super jump cannot be High while Gravity is Moon: together they throw players out of most maps"); a
 click on it does nothing. A click made just as the other setting changed, before the grey could be seen, is refused at that button for 8 seconds, saying who changed what ("Cara just
 set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. Chat and `os_fun` refuse it with the reason too, and Random keeps super jump normal on moon gravity. The one-hit knife and the Zeus keep working under headshots only.
+
+### Bots
+
+FUN has two sub-tabs: **Settings**, the page above, and **Bots**, where anybody puts bots in the game for everybody (`bridge/Shared/Bots.cs`, the page
+`bridge/Shared/HudBots.cs`). There are none unless somebody puts them in: the server's cfgs set `bot_quota 0` at every map load, as they always have. Every row
+works as the Fun page's: a change lasts until the map changes, the page says who set it, a plugin reload undoes it and says so, the bridge's reset after
+10 minutes with nobody on puts it back, and a player's value is a choice, never a map's - the game-changers block, which keeps `bot_quota` and
+`bot_quota_mode` where the server has them, leaves a player's alone. `os_fun` takes the rows too (`os_fun bots 4`, `os_fun botlevel expert`).
+
+| Row | Choices | What |
+|---|---|---|
+| Bots | Off, 1, 2, 4, 8 | That many bots beside the players (`bot_quota`, `bot_quota_mode normal`) |
+| Fill to | Off, 4, 8, 12, 16 | Bots fill the game up to that many players, and make room as players join (`bot_quota_mode fill`) |
+| Side | Any, T, CT | Which side the bots join (`bot_join_team`) |
+| Difficulty | Normal, Easy, Hard, Expert | How well they aim, react and think (`bot_difficulty`) |
+| Weapons | Any, Knives, Pistols, Shotguns, Snipers | What they may fight with (`bot_allow_*`; Knives: none of them) |
+| Chatter | Normal, Radio, Quiet | What they say on the radio (`bot_chatter`) |
+| Hold fire | Off, On | They never pull the trigger (`bot_dont_shoot`) |
+| Crouch | Off, On | They crouch wherever they go (`bot_crouch`) |
+| Movement | Normal, Walk, Frozen | They only walk, or stay where they stand (`bot_walk`, `bot_freeze`) |
+| Copycats | Off, On | They copy every move of the player who switched it on (`bot_mimic`, that player's entity index) |
+| Bot war | Off, On | They leave the players alone and fight each other (`bot_ignore_players`) |
+| Name tag | None, Bot, Zombie | A word before every bot's name (`bot_prefix`) |
+
+Bots and Fill to both set the count, so one of them shows a number at a time. Difficulty, the weapon rules and the name tag are what a bot gets as it joins,
+so a change of one while bots play has them join again (`bot_kick`, then the count again).
+
+**Presets** set every bot setting at once - their picks, the rest back to normal: **Zombie horde** (8 expert bots with knives, tagged ZOMBIE, quiet),
+**Sniper duel** (1 expert bot with snipers), **Target practice** (8 easy bots, frozen, holding their fire), **Copycats** (4 bots copying the player who
+clicked, holding their fire), **Bot war** (8 hard bots fighting each other, tagged BOT) and **Pistol party** (4 bots with pistols). A preset is lit while
+the live values show it. **Kick all bots** sends every bot away and puts both counts back to Off; **Default** puts every bot setting back to normal. One
+message for everybody says each: a row's change like a fun setting's, a preset's with what it set, Kick all bots and Default with who.
+
+What a mode cannot make is greyed, its reason the row's second line: in **Arms Race** the bots climb the ladder like everybody and get each rung's weapon,
+so the Weapons row is greyed there and a preset leaves its weapon rule out (Zombie horde is 8 expert zombies with the ladder's guns) - a bot can win the
+match. **Wingman**, with room for 4 players, greys Bots past 3, Fill to past 4 and every preset with more bots than that: Sniper duel alone fits. The Fun
+page's Default leaves the bots alone, and the Bots page's leaves the Fun page alone; the map's end, a reload and the bridge's reset put back both.
 
 ## Catch-up
 

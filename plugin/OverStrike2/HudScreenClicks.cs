@@ -82,6 +82,7 @@ sealed partial class HudScreen
         }
         if (catalog != null && browser.Click(buttonId, browser.Matches(catalog, account, search).Count)) { Server.NextFrame(Frame); return; }
         if (FunClicked(player, buttonId, now)) return; // the Fun page (HudScreenFun.cs)
+        if (BotsClicked(player, buttonId, now)) return; // the Bots page (HudScreenBots.cs)
         if (buttonId == WorkshopCard.Play) { Download(player); Server.NextFrame(Frame); return; }
         ArmGameButtons(player, buttonId, now);
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);

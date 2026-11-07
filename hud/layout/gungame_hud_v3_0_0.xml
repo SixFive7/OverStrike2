@@ -15,7 +15,7 @@
   On one full-screen root, in drawing order:
     1. the board  - beside the scoreboard while TAB is held (the client's own HUD_SCOREBOARD_VISIBLE class shows it): your like on the map that
        is on, Start a vote, the vote in one line, the full menu, and at its foot Lately, the last three lines marked for the board;
-    2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN, SERVER (Players, Game, Sync) and HELP (Help, How
+    2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
        each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
        tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.8.0): its id tells the server which
@@ -131,7 +131,7 @@
 					</Panel>
 
 					<!-- The sub-tabs of the tab that is on, and what the page is for. MAPS: Vote (only while a vote is on) and Browse - the vote's own
-					     buttons, os_v_back and os_v_browse; SERVER: Players, Game, Sync; HELP: Help, How it works. -->
+					     buttons, os_v_back and os_v_browse; FUN: Settings and Bots; SERVER: Players, Game, Sync; HELP: Help, How it works. -->
 					<Panel class="os-subs">
 						<Panel class="os-subs-group os-subs-maps">
 							<Button id="os_v_back" class="os-stab os-stab-vote"><Label class="os-stab-text" text="{s:osvtab}" /></Button>
@@ -141,6 +141,10 @@
 							<Button id="os_sub_players" class="os-stab"><Label class="os-stab-text" text="Players" /></Button>
 							<Button id="os_tab_game" class="os-stab"><Label class="os-stab-text" text="Game" /></Button>
 							<Button id="os_tab_sync" class="os-stab"><Label class="os-stab-text" text="Sync" /></Button>
+						</Panel>
+						<Panel class="os-subs-group os-subs-fun">
+							<Button id="os_sub_fun" class="os-stab"><Label class="os-stab-text" text="Settings" /></Button>
+							<Button id="os_tab_bots" class="os-stab"><Label class="os-stab-text" text="Bots" /></Button>
 						</Panel>
 						<Panel class="os-subs-group os-subs-help">
 							<Button id="os_sub_help" class="os-stab"><Label class="os-stab-text" text="Help" /></Button>
@@ -903,6 +907,198 @@
 											<Label class="os-fwhy" text="{s:osfw18}" />
 										</Panel>
 									</Panel>
+								</Panel>
+							</Panel>
+
+							<!-- FUN, Bots: bots for everybody, set by anybody (Bots.cs, HudBots.cs), across the whole window: the note and the page's two buttons, twelve rows of up
+							     to five choices in two columns of six as the Fun page draws its own (os-frow), and the presets under them. A choice the mode cannot make is greyed
+							     (off), its reason the row's second line (osbw, class clash); a preset whose bots do not fit is greyed, its reason in its words -->
+							<Panel class="os-page os-page-bots">
+								<Panel class="os-funtop">
+									<Label id="os_bots_note" class="os-fun-note" text="{s:text}" />
+									<Button id="os_bots_kick" class="os-setb os-funallb os-botkick"><Label class="os-setb-text" text="Kick all bots" /></Button>
+									<Button id="os_bots_default" class="os-setb os-funallb"><Label class="os-setb-text" text="Default" /></Button>
+								</Panel>
+								<Panel class="os-fcols">
+									<Panel class="os-fcol">
+										<Panel id="os_b1" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b1_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b1_1" class="os-setb os-funb os-botb"><Label id="os_b1_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b1_2" class="os-setb os-funb os-botb"><Label id="os_b1_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b1_3" class="os-setb os-funb os-botb"><Label id="os_b1_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b1_4" class="os-setb os-funb os-botb"><Label id="os_b1_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b1_5" class="os-setb os-funb os-botb"><Label id="os_b1_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b1_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw1}" />
+										</Panel>
+										<Panel id="os_b2" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b2_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b2_1" class="os-setb os-funb os-botb"><Label id="os_b2_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b2_2" class="os-setb os-funb os-botb"><Label id="os_b2_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b2_3" class="os-setb os-funb os-botb"><Label id="os_b2_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b2_4" class="os-setb os-funb os-botb"><Label id="os_b2_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b2_5" class="os-setb os-funb os-botb"><Label id="os_b2_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b2_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw2}" />
+										</Panel>
+										<Panel id="os_b3" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b3_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b3_1" class="os-setb os-funb os-botb"><Label id="os_b3_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b3_2" class="os-setb os-funb os-botb"><Label id="os_b3_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b3_3" class="os-setb os-funb os-botb"><Label id="os_b3_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b3_4" class="os-setb os-funb os-botb"><Label id="os_b3_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b3_5" class="os-setb os-funb os-botb"><Label id="os_b3_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b3_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw3}" />
+										</Panel>
+										<Panel id="os_b4" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b4_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b4_1" class="os-setb os-funb os-botb"><Label id="os_b4_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b4_2" class="os-setb os-funb os-botb"><Label id="os_b4_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b4_3" class="os-setb os-funb os-botb"><Label id="os_b4_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b4_4" class="os-setb os-funb os-botb"><Label id="os_b4_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b4_5" class="os-setb os-funb os-botb"><Label id="os_b4_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b4_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw4}" />
+										</Panel>
+										<Panel id="os_b5" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b5_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b5_1" class="os-setb os-funb os-botb"><Label id="os_b5_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b5_2" class="os-setb os-funb os-botb"><Label id="os_b5_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b5_3" class="os-setb os-funb os-botb"><Label id="os_b5_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b5_4" class="os-setb os-funb os-botb"><Label id="os_b5_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b5_5" class="os-setb os-funb os-botb"><Label id="os_b5_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b5_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw5}" />
+										</Panel>
+										<Panel id="os_b6" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b6_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b6_1" class="os-setb os-funb os-botb"><Label id="os_b6_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b6_2" class="os-setb os-funb os-botb"><Label id="os_b6_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b6_3" class="os-setb os-funb os-botb"><Label id="os_b6_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b6_4" class="os-setb os-funb os-botb"><Label id="os_b6_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b6_5" class="os-setb os-funb os-botb"><Label id="os_b6_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b6_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw6}" />
+										</Panel>
+									</Panel>
+									<Panel class="os-fcol os-fcol-right">
+										<Panel id="os_b7" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b7_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b7_1" class="os-setb os-funb os-botb"><Label id="os_b7_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b7_2" class="os-setb os-funb os-botb"><Label id="os_b7_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b7_3" class="os-setb os-funb os-botb"><Label id="os_b7_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b7_4" class="os-setb os-funb os-botb"><Label id="os_b7_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b7_5" class="os-setb os-funb os-botb"><Label id="os_b7_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b7_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw7}" />
+										</Panel>
+										<Panel id="os_b8" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b8_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b8_1" class="os-setb os-funb os-botb"><Label id="os_b8_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b8_2" class="os-setb os-funb os-botb"><Label id="os_b8_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b8_3" class="os-setb os-funb os-botb"><Label id="os_b8_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b8_4" class="os-setb os-funb os-botb"><Label id="os_b8_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b8_5" class="os-setb os-funb os-botb"><Label id="os_b8_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b8_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw8}" />
+										</Panel>
+										<Panel id="os_b9" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b9_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b9_1" class="os-setb os-funb os-botb"><Label id="os_b9_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b9_2" class="os-setb os-funb os-botb"><Label id="os_b9_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b9_3" class="os-setb os-funb os-botb"><Label id="os_b9_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b9_4" class="os-setb os-funb os-botb"><Label id="os_b9_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b9_5" class="os-setb os-funb os-botb"><Label id="os_b9_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b9_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw9}" />
+										</Panel>
+										<Panel id="os_b10" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b10_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b10_1" class="os-setb os-funb os-botb"><Label id="os_b10_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b10_2" class="os-setb os-funb os-botb"><Label id="os_b10_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b10_3" class="os-setb os-funb os-botb"><Label id="os_b10_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b10_4" class="os-setb os-funb os-botb"><Label id="os_b10_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b10_5" class="os-setb os-funb os-botb"><Label id="os_b10_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b10_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw10}" />
+										</Panel>
+										<Panel id="os_b11" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b11_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b11_1" class="os-setb os-funb os-botb"><Label id="os_b11_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b11_2" class="os-setb os-funb os-botb"><Label id="os_b11_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b11_3" class="os-setb os-funb os-botb"><Label id="os_b11_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b11_4" class="os-setb os-funb os-botb"><Label id="os_b11_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b11_5" class="os-setb os-funb os-botb"><Label id="os_b11_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b11_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw11}" />
+										</Panel>
+										<Panel id="os_b12" class="os-frow os-brow">
+											<Panel class="os-frow-top">
+												<Label id="os_b12_title" class="os-frow-title" text="{s:text}" /><Panel class="os-frow-dot" />
+												<Button id="os_b12_1" class="os-setb os-funb os-botb"><Label id="os_b12_1_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b12_2" class="os-setb os-funb os-botb"><Label id="os_b12_2_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b12_3" class="os-setb os-funb os-botb"><Label id="os_b12_3_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b12_4" class="os-setb os-funb os-botb"><Label id="os_b12_4_txt" class="os-setb-text" text="{s:text}" /></Button>
+												<Button id="os_b12_5" class="os-setb os-funb os-botb"><Label id="os_b12_5_txt" class="os-setb-text" text="{s:text}" /></Button>
+											</Panel>
+											<Label id="os_b12_txt" class="os-frow-txt" text="{s:text}" />
+											<Label class="os-fwhy" text="{s:osbw12}" />
+										</Panel>
+									</Panel>
+								</Panel>
+								<Panel class="os-bpresets-head">
+									<Panel class="os-rule-mark" />
+									<Label class="os-bpresets-title" text="Presets" />
+									<Label class="os-bpresets-hint" text="Several at once - every other bot setting goes back to normal" />
+								</Panel>
+								<Panel class="os-bpresets">
+									<Button id="os_bp1" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp1_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp1_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
+									<Button id="os_bp2" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp2_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp2_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
+									<Button id="os_bp3" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp3_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp3_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
+									<Button id="os_bp4" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp4_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp4_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
+									<Button id="os_bp5" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp5_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp5_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
+									<Button id="os_bp6" class="os-bpreset">
+										<Panel class="os-bpreset-top"><Label id="os_bp6_title" class="os-bpreset-title" text="{s:text}" /><Panel class="os-frow-dot" /></Panel>
+										<Label id="os_bp6_txt" class="os-bpreset-txt" text="{s:text}" />
+									</Button>
 								</Panel>
 							</Panel>
 
