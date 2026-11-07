@@ -15,7 +15,6 @@ static partial class Program
 {
     sealed record Stamp(long Length, DateTime Written);
 
-    const string ReloadPath = "/reload/";
     const int WatchSeconds = 5;
     static readonly List<(string Path, Func<string> Reload)> Watched = new();
     static readonly Dictionary<string, Stamp?> ReadStamp = new(), LookStamp = new(); // per file: the version last read / last looked at
@@ -91,7 +90,7 @@ static partial class Program
         catch (Exception e) { return $"maps: {path} unreadable ({Clip(e.Message, 120)}) - kept the {Maps.Count} maps loaded"; }
         if (list is not { Count: > 0 }) return $"maps: {path} holds no maps - kept the {Maps.Count} maps loaded";
         if (!force && list.Count * 2 < Maps.Count)
-            return $"maps: {path} has {list.Count} maps, less than half of the {Maps.Count} loaded - kept them (POST {ReloadPath}<secret>?force takes it)";
+            return $"maps: {path} has {list.Count} maps, less than half of the {Maps.Count} loaded - kept them (POST {BridgeWire.Route(BridgeWire.Reload)}<secret>?force takes it)";
         var (was, now) = (Maps.Select(m => m.Id).ToHashSet(), list.Select(m => m.Id).ToHashSet());
         var (added, gone) = (now.Count(id => !was.Contains(id)), was.Count(id => !now.Contains(id)));
         var count = Maps.Count;

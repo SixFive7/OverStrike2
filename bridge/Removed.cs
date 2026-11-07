@@ -1,11 +1,11 @@
 // Maps gone from the Workshop (Workshop.cs): which ones, where that comes from, and what the bridge does about one.
 //
-// One source: the Workshop sync asks the Steam Web API every 4 hours and posts its verdicts to /removed/<secret>; they are kept in
-// /data/removed.json.
+// One source: the Workshop sync asks the Steam Web API every 4 hours and posts its verdicts to /removed/<secret> (BridgeWire.RemovedBody: "id\tverdict"
+// a line after "gg-removed\t1"); they are kept in /data/removed.json.
 // A removed map is refused (Play, chat), never rolled, leaves an open ballot, stops a countdown to it, and the HUD's browser shows it as
 // unavailable. If the map that is ON is removed, nobody new could download it, so the dice roll another at once (AutoRoll).
+using System.Globalization;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 
 sealed class RemovedFile
@@ -47,11 +47,23 @@ static partial class Program
 
     static void RecomputeRemoved() => Removed = Checked.Verdicts.Where(kv => kv.Value != Workshop.Ok).ToDictionary(kv => kv.Key, kv => kv.Value);
 
+    /// <summary>The sync's report out of its body: lines with a positive id and a known verdict (Workshop.cs), the last one per id; anything else is
+    /// dropped, and a body that is no report in version 1 has none.</summary>
+    static List<(long Id, string Verdict)> DecodeRemovedReport(string? body)
+    {
+        var lines = (body ?? "").Replace("\r", "").Split('\n');
+        if (lines[0] != BridgeWire.Head(BridgeWire.RemovedWord)) return [];
+        var by = new Dictionary<long, string>();
+        foreach (var f in lines.Skip(1).Select(l => l.Split('\t')))
+            if (f.Length == 2 && long.TryParse(f[0], NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0 && Workshop.IsVerdict(f[1])) by[id] = f[1];
+        return by.Select(x => (x.Key, x.Value)).ToList();
+    }
+
     /// <summary>A report from the Workshop sync, on the event loop: keep it, log every change, and act on maps that just went (AfterListChange).
     /// Returns a line for the sync's log.</summary>
     static string ApplyRemovedReport(string body)
     {
-        var report = Workshop.DecodeReport(body);
+        var report = DecodeRemovedReport(body);
         if (report.Count == 0) { Log("workshop check: an empty or unreadable report - ignored"); return "ignored: no verdicts"; }
         var gone = report.Count(r => r.Verdict != Workshop.Ok);
         if (report.Count >= 50 && gone * 100 > report.Count * ImplausiblePercent)

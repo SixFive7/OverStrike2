@@ -37,7 +37,6 @@ static partial class Program
     static DateTime CrashNoticeUntil;      // ...until then (the reconnect burst after a crash); in memory only, so a restarted bridge says nothing old
     static DateTime GoingDownAt;           // when the bridge last heard that the server is quitting on purpose (ServerGoingDown)
     const int GoingDownSeconds = 120;      // an echo or a notice within this long after that is the same quit
-    const string QuittingPath = "/quitting/";
     const int SpawnCheckDelayMs = 5000, SpawnCheckRetryMs = 10000, SpawnBaselineDelayMs = 15000, CrashNoticeMinutes = 10;
     const int SpawnCheckTries = 8; // 5 s, then every 10 s: 75 s covers the longest loads (up to 2.9 GB); a start without a reading is judged with the next one
 
@@ -51,8 +50,8 @@ static partial class Program
     }
 
     /// <summary>POST /quitting/&lt;secret&gt;: the restart watcher, right before it sends a planned quit - "gg-quit\t1\t&lt;kind&gt;" (daily,
-    /// update, workshop) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;". The
-    /// notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
+    /// update, version, workshop: BridgeWire.QuitBody) - and once more if that quit could not be delivered after all - "gg-quit\t1\tcancel\t&lt;kind&gt;".
+    /// The notice is the echo: the process is going down cleanly (ServerGoingDown). The watcher sends no planned quit the bridge has not taken;
     /// a freeze kill it sends no notice for, so a freeze still counts as the crash it is. Runs on the event loop.</summary>
     static void QuitNoticeRequest(HttpListenerContext c) => OnLoop(c, ApplyQuitNotice, "quitting");
 
@@ -66,12 +65,11 @@ static partial class Program
 
     static string ApplyQuitNotice(string body)
     {
-        var f = body.Replace("\r", "").Split('\n')[0].Split('\t');
-        if (f.Length < 3 || f[0] != "gg-quit" || f[1] != "1" || f[2].Trim() == "") return "refused: not a gg-quit 1 notice";
-        var kind = Clip(f[2].Trim(), 20);
-        if (kind == "cancel")
+        if (BridgeWire.Fields(body, BridgeWire.QuitWord) is not [var first, ..] f || first == "") return $"refused: not a {BridgeWire.QuitWord} {BridgeWire.Version} notice";
+        var kind = Clip(first, 20);
+        if (kind == BridgeWire.Cancel)
         {
-            var what = Clip(f.Length > 3 ? f[3].Trim() : "planned", 20);
+            var what = Clip(f.Length > 1 ? f[1] : "planned", 20);
             if (!S.CleanShutdown) return "ok: nothing was announced";
             S.CleanShutdown = false; GoingDownAt = default;
             if (BeforeQuit is { } was)

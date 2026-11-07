@@ -1,4 +1,5 @@
 // The bridge: hears the game server's log and the plugin's clicks, decides, and sends the server its orders over RCON. See docs/reference.md.
+global using BridgeWire = OverStrike2.Core.BridgeWire; // what the other programs say to the bridge, and where (core/BridgeWire.cs)
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;

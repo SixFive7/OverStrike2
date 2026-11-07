@@ -84,7 +84,8 @@ but not changed is the same version. `os2-server doctor` shows both versions and
 ## The bridge's side
 
 The watcher posts plain text to the bridge at `<bridge.url>/<path>/<bridge.secret>` (else the address in the image's
-`CS2_LOG_HTTP_URL`). An answer that starts with `ok` means taken.
+`CS2_LOG_HTTP_URL`). An answer that starts with `ok` means taken. Every path and body here comes from one file both ends compile,
+[`core/BridgeWire.cs`](../core/BridgeWire.cs), and core's self-test holds them to the words below.
 
 | Path | Body | When |
 |---|---|---|

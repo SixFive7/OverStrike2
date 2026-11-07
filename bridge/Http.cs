@@ -28,14 +28,15 @@ static partial class Program
         if (c.Request.HttpMethod == "GET" && path == Hud.SearchPath + LogSecret) { Reply(c, SearchText); return; }          // the search index, when its version moved
         if (c.Request.HttpMethod == "GET" && path == Hud.DashPath + LogSecret) { Reply(c, DashText); return; }            // the Sync page's block, when its version moved (SyncDash.cs)
         if (c.Request.HttpMethod == "POST" && path == Hud.ActPath + LogSecret) { HudClick(c); return; }               // a click on the HUD
-        if (c.Request.HttpMethod == "POST" && path == Workshop.ReportPath + LogSecret) { RemovedReport(c); return; }      // the Workshop sync: what Steam says about the listed maps
-        if (c.Request.HttpMethod == "POST" && path == ReloadPath + LogSecret) { ReloadRequest(c); return; }              // read the data files again now (Reload.cs)
-        if (c.Request.HttpMethod == "POST" && path == ReadyPath + LogSecret) { ReadyReport(c); return; }                // the restart watcher: the queued maps on disk (RandomQueue.cs)
-        if (c.Request.HttpMethod == "POST" && path == QuittingPath + LogSecret) { QuitNoticeRequest(c); return; }       // the restart watcher, right before its planned quit (CrashWatch.cs)
-        if (c.Request.HttpMethod == "POST" && path == RestartNoticePath + LogSecret) { RestartNoticeRequest(c); return; } // the restart watcher: a restart coming, or not after all (Restarts.cs)
-        if (c.Request.HttpMethod == "POST" && path == UpdatedPath + LogSecret) { UpdatedRequest(c); return; }          // the restart watcher: the new engine is up, and what it is (Restarts.cs)
-        if (c.Request.HttpMethod == "GET" && path == HealthPath + LogSecret) { HealthRequest(c); return; }               // is it up, and hearing the server
-        var ok = c.Request.HttpMethod == "POST" && path == "/log/" + LogSecret;
+        // The other programs' words to the bridge, each address from core's BridgeWire.cs, as they send them:
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Removed) + LogSecret) { RemovedReport(c); return; }      // the Workshop sync: what Steam says about the listed maps
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Reload) + LogSecret) { ReloadRequest(c); return; }       // read the data files again now (Reload.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Ready) + LogSecret) { ReadyReport(c); return; }          // the restart watcher: the queued maps on disk (RandomQueue.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Quitting) + LogSecret) { QuitNoticeRequest(c); return; } // the restart watcher, right before its planned quit (CrashWatch.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.RestartNotice) + LogSecret) { RestartNoticeRequest(c); return; } // the restart watcher: a restart coming, or not after all (Restarts.cs)
+        if (c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Updated) + LogSecret) { UpdatedRequest(c); return; }     // the restart watcher: the new engine is up, and what it is (Restarts.cs)
+        if (c.Request.HttpMethod == "GET" && path == BridgeWire.Route(BridgeWire.Health) + LogSecret) { HealthRequest(c); return; }        // is it up, and hearing the server
+        var ok = c.Request.HttpMethod == "POST" && path == BridgeWire.Route(BridgeWire.Log) + LogSecret;
         var body = ok ? new StreamReader(c.Request.InputStream, Encoding.UTF8).ReadToEnd() : "";
         var token = c.Request.Headers["X-Server-Instance-Token"]; // constant across changelevel, new per server process (see README)
         var gameMap = c.Request.Headers["X-Game-Map"];
@@ -50,8 +51,7 @@ static partial class Program
         });
     }
 
-    // ---- GET /health/<LOG_SECRET>: what a deploy (deploy/bridge.py) and the data work need to see - up, hearing the server, what it loaded ----
-    const string HealthPath = "/health/";
+    // ---- GET /health/<LOG_SECRET>: what a deploy (os2-deploy's bridge and check) and the data work need to see - up, hearing the server, what it loaded ----
     static long logPosts, lastLogTicks;                 // log pushes received (HTTP thread)
     static readonly DateTime StartedUtc = DateTime.UtcNow;
 
@@ -59,7 +59,7 @@ static partial class Program
     {
         var last = Interlocked.Read(ref lastLogTicks);
         return string.Join("\n",
-            "gg-health",
+            BridgeWire.HealthWord,
             $"started {StartedUtc:yyyy-MM-ddTHH:mm:ssZ}",
             $"log pushes {Interlocked.Read(ref logPosts)}" + (last == 0 ? ", none yet" : $", the last {(DateTime.UtcNow - new DateTime(last, DateTimeKind.Utc)).TotalSeconds:0} s ago"),
             $"maps {Maps.Count} + {Officials.Count} official; broken {Broken.Count}, non-maps {Packs.Count}, gone from the Workshop {Removed.Count}, blocked {Blocked.Count}",

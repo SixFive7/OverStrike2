@@ -121,9 +121,9 @@ public static class Kinds
 
     public static string Wire(string kind) => kind switch
     {
-        "update" => "game-update",
-        "version" => "our-update",
-        "workshop" => "downloads",
+        "update" => BridgeWire.GameUpdate,
+        "version" => BridgeWire.OurUpdate,
+        "workshop" => BridgeWire.Downloads,
         _ => kind,
     };
 }

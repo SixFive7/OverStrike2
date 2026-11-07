@@ -17,7 +17,7 @@
 //    maps on the open ballot, the most votes first - the watcher downloads those before anything else; "random", the lanes under the keys the watcher
 //    and the keep set read: Arms Race's under both "armsrace-new" and "armsrace-original" (the keep set wants each of its four at least 10 long),
 //    "deathmatch" and "wingman". Written atomically, only on change.
-//  - The watcher's report (POST /ready/<secret>): "gg-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
+//  - The watcher's report (POST /ready/<secret>, BridgeWire.ReadyBody): "gg-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
 //    downloads - "current\t<id>\t<percent>\t<title>" (a whole percent 0-100, or "-" before any progress; the title last, the rest of the line): the
 //    background download, which the Sync page and the website show. No fresh report for ReadyFreshMinutes: no stock entry counts as on the disk,
 //    the kept maps still do. Its answer says "; hold: <why>" while a change counts down or a map loads - Steam's client runs one Workshop download
@@ -33,13 +33,12 @@ static partial class Program
     /// The keep set wants each of queues.json's four lanes at least 10 long before it deletes anything, so below 10 nothing is deleted.</summary>
     public static int StockSize = BridgeConfig.Values.DiscoveryStock; // bridge.discoveryStock in the settings file
 
-    /// <summary>The keys of queues.json's "random", each with the mode whose lane it carries: the four the watcher and the keep set read.</summary>
-    public static readonly (string Key, string Mode)[] QueueKeys =
-        [("armsrace-new", Modes.ArmsRaceId), ("armsrace-original", Modes.ArmsRaceId), (Modes.DeathmatchId, Modes.DeathmatchId), (Modes.WingmanId, Modes.WingmanId)];
+    /// <summary>The keys of queues.json's "random", each with the mode whose lane it carries: the keep set's four (core's KeepSet.QueueNames), which
+    /// the watcher reads too, each named for its mode before any "-".</summary>
+    public static readonly (string Key, string Mode)[] QueueKeys = [.. OverStrike2.Core.KeepSet.QueueNames.Select(name => (name, name.Split('-')[0]))];
 
     public const int ReadyFreshMinutes = 5;  // the watcher's report counts this long; it sends one at least every 2 minutes
     public const int NotReadyDropHours = 2;  // an entry that has not reached the disk in this long, while the reports keep coming, is dropped
-    const string ReadyPath = "/ready/";
     static string QueuesPath => Path.Combine(StateDir, "queues.json");
 
     static HashSet<string> ReadyIds = new();    // the maps queues.json names that are on the server's disk, by the watcher's last report
@@ -220,7 +219,7 @@ static partial class Program
     static Download? ParseCurrent(string line, DateTime now)
     {
         var f = line.Split('\t', 4);
-        if (f.Length < 3 || f[0] != "current" || f[1].Trim() is not { Length: > 0 } id || !id.All(char.IsAsciiDigit)) return null;
+        if (f.Length < 3 || f[0] != BridgeWire.Current || f[1].Trim() is not { Length: > 0 } id || !id.All(char.IsAsciiDigit)) return null;
         int? percent = int.TryParse(f[2].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var p) ? Math.Clamp(p, 0, 100) : null;
         return new Download(id, percent, Hud.Clean(f.Length > 3 ? f[3] : "", 60), now);
     }
@@ -228,7 +227,7 @@ static partial class Program
     static string ApplyReady(string body)
     {
         var lines = body.Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length == 0 || lines[0].Trim() != "gg-ready\t1") return "refused: not a gg-ready 1 report";
+        if (lines.Length == 0 || lines[0].Trim() != BridgeWire.Head(BridgeWire.ReadyWord)) return $"refused: not a {BridgeWire.ReadyWord} {BridgeWire.Version} report";
         var now = Now();
         var ids = lines.Skip(1).Select(l => l.Trim()).Where(l => l.Length > 0 && l.All(char.IsAsciiDigit)).ToHashSet();
         var current = lines.Skip(1).Select(l => ParseCurrent(l, now)).FirstOrDefault(d => d != null);

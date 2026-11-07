@@ -200,7 +200,7 @@ public sealed class HttpBridge((string Base, string Secret)? endpoint) : IBridge
             return ("none", null);
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Post, $"{e.Base}/{what}/{e.Secret}")
+            using var req = new HttpRequestMessage(HttpMethod.Post, BridgeWire.Url(e.Base, what, e.Secret))
             {
                 Content = new StringContent(body, Encoding.UTF8, "text/plain"),
             };

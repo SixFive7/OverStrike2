@@ -256,7 +256,7 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
     string Health(JsonObject bridge)
     {
         var game = D.Inspect("containers", Game);
-        return D.ExecIn(Game, ["python3", "-c", InnerGet, $"http://{Name}:{InspectOf.BridgePort(game, bridge)}/health/{InspectOf.BridgeSecret(game, bridge)}"]);
+        return D.ExecIn(Game, ["python3", "-c", InnerGet, Core.BridgeWire.Url($"http://{Name}:{InspectOf.BridgePort(game, bridge)}", Core.BridgeWire.Health, InspectOf.BridgeSecret(game, bridge))]);
     }
 
     static int Pushes(string text)
@@ -288,7 +288,7 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
         else
             Out.Log($"{Game} untouched: container {Py.Slice(Json.Str(game, "Id"), 0, 12)}, started {Py.Slice(Json.Str(game, "State", "StartedAt"), 0, 19)}Z");
         var h = Health(fresh);
-        if (!h.StartsWith("gg-health", StringComparison.Ordinal))
+        if (!h.StartsWith(Core.BridgeWire.HealthWord, StringComparison.Ordinal))
             return [.. problems, "GET /health from the game container: " + Py.Slice(Py.Strip(h), 0, 200)];
         if (Pushes(h) == 0)   // say something, so the server has a line to push
         {

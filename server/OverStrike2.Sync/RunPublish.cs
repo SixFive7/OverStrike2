@@ -142,7 +142,7 @@ public sealed partial class SyncRun
 
     static bool SameBytes(byte[]? a, byte[]? b) => a is null || b is null ? a is null && b is null : a.AsSpan().SequenceEqual(b);
 
-    static string VerdictsBody(IEnumerable<(string Id, string Verdict)> verdicts) => "gg-removed\t1\n" + string.Concat(verdicts.Select(v => $"{v.Id}\t{v.Verdict}\n"));
+    static string VerdictsBody(IEnumerable<(string Id, string Verdict)> verdicts) => BridgeWire.RemovedBody(verdicts);
 
     /// <summary>This run's check of the listed maps, handed to the bridge (POST /removed/&lt;secret&gt;) - the only Workshop check it hears: the
     /// bridge keeps them in removed.json, blocks a map that is gone at once (and unblocks one that came back), and applies its own rule - more
@@ -154,7 +154,7 @@ public sealed partial class SyncRun
             return (false, "not reported (no bridge.url / bridge.secret) - nothing else tells the bridge");
         try
         {
-            var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/removed/{Cfg.BridgeSecret}", VerdictsBody(verdicts), "text/plain; charset=utf-8");
+            var (status, text) = Seams.BridgePost(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Removed, Cfg.BridgeSecret), VerdictsBody(verdicts), "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return (false, $"the report failed (HTTP Error {status}) - the next check reports again");
             var said = Text.Cut(text.Trim(), 300);
@@ -245,7 +245,7 @@ public sealed partial class SyncRun
             return "not asked (no bridge.url / bridge.secret): it reads the files again within about 10 s";
         try
         {
-            var (status, text) = Seams.BridgePost($"{Cfg.BridgeUrl}/reload/{Cfg.BridgeSecret}", "", "text/plain; charset=utf-8");
+            var (status, text) = Seams.BridgePost(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Reload, Cfg.BridgeSecret), "", "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the reload request failed (HTTP Error {status}): the bridge reads the files again by itself within about 10 s";
             var said = Text.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);

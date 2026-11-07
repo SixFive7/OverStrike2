@@ -306,9 +306,9 @@ public sealed partial class Watch
         if (pending.Kind != "freeze")
         {
             if (pending.From is not null && nowVersion is not null && nowVersion != pending.From)
-                updated.Add(($"gg-updated\t1\tgame-update\t{pending.From}\t{nowVersion}\n", 0, now));
+                updated.Add((BridgeWire.UpdatedBody(BridgeWire.GameUpdate, pending.From, nowVersion), 0, now));
             if (pending.Installed is not null && InstalledNow is { } i2 && i2.Fingerprint != pending.Installed)
-                updated.Add(($"gg-updated\t1\tour-update\t{pending.Installed}\t{i2.Fingerprint}\n", 0, now));
+                updated.Add((BridgeWire.UpdatedBody(BridgeWire.OurUpdate, pending.Installed, i2.Fingerprint), 0, now));
         }
         Save();
     }
@@ -321,7 +321,7 @@ public sealed partial class Watch
             var (body, tries, next) = updated[i];
             if (now < next)
                 continue;
-            var (told, reply) = Bridge.Post("updated", body, NoticeTimeout);
+            var (told, reply) = Bridge.Post(BridgeWire.Updated, body, NoticeTimeout);
             if (told == "ok" || told == "none" || tries + 1 >= UpdatedTries)
             {
                 Log.Line(told == "ok" ? $"the bridge took the after-restart note ({body.Split('\t')[2]})" : told == "none" ? "no bridge to tell what the restart changed"
@@ -572,11 +572,11 @@ public sealed partial class Watch
     /// seconds left before the quit. True when the bridge took it (it shows the players; it holds its own map change).</summary>
     bool Announce(string kind, string when, int seconds)
     {
-        var (told, reply) = Bridge.Post("restart-notice", $"gg-restart\t1\t{Kinds.Wire(kind)}\t{when}\t{seconds}\n", NoticeTimeout);
+        var (told, reply) = Bridge.Post(BridgeWire.RestartNotice, BridgeWire.RestartBody(Kinds.Wire(kind), when, seconds), NoticeTimeout);
         if (told == "ok")
         {
             announced = kind;
-            Log.Once("announce", $"the bridge took the {kind} restart's notice ({when}{(when == "now" ? $", {seconds} s" : "")})", 60);
+            Log.Once("announce", $"the bridge took the {kind} restart's notice ({when}{(when == BridgeWire.AtOnce ? $", {seconds} s" : "")})", 60);
             return true;
         }
         if (told == "failed")
@@ -589,7 +589,7 @@ public sealed partial class Watch
         if (announced is not { } kind)
             return;
         announced = null;
-        Bridge.Post("restart-notice", $"gg-restart\t1\tcancel\t{Kinds.Wire(kind)}\n", NoticeTimeout);
+        Bridge.Post(BridgeWire.RestartNotice, BridgeWire.RestartCancelBody(Kinds.Wire(kind)), NoticeTimeout);
         Log.Line($"the bridge was told that the {kind} restart is off");
     }
 
@@ -632,7 +632,7 @@ public sealed partial class Watch
                 CountdownUntil = null;
                 if (Deploying(now) || !Quit(kind, now, null))   // the bridge showed the countdown and the last line
                 {
-                    Announce(kind, "match-end", RestartCountdown);   // it did not go: it waits for the next match end again
+                    Announce(kind, BridgeWire.AtMatchEnd, RestartCountdown);   // it did not go: it waits for the next match end again
                     announceTried = now;
                 }
             }
@@ -658,7 +658,7 @@ public sealed partial class Watch
             var humans = RconHumans();
             if (humans == 0)
             {
-                Announce(kind, "now", 0);
+                Announce(kind, BridgeWire.AtOnce, 0);
                 Quit(kind, now, final);
             }
             else
@@ -672,19 +672,19 @@ public sealed partial class Watch
         }
         if (!warned)
         {
-            Announce(kind, "match-end", RestartCountdown);   // a bridge that does not take it: nobody is warned
+            Announce(kind, BridgeWire.AtMatchEnd, RestartCountdown);   // a bridge that does not take it: nobody is warned
             (warned, announceTried) = (true, now);
         }
         else if (now - announceTried >= AnnounceRefresh)
         {
-            Announce(kind, "match-end", RestartCountdown);       // again: a bridge swapped (or back) since knows it too
+            Announce(kind, BridgeWire.AtMatchEnd, RestartCountdown);       // again: a bridge swapped (or back) since knows it too
             announceTried = now;
         }
         var since = Due!.Value.Since;
         if (matchEnds.Any(t => t >= since) && matchEnds[^1] >= now - 20 && matchEnds[^1] > usedMatchEnd)
         {
             usedMatchEnd = matchEnds[^1];
-            if (Announce(kind, "now", RestartCountdown))
+            if (Announce(kind, BridgeWire.AtOnce, RestartCountdown))
             {
                 CountdownUntil = now + RestartCountdown;
                 Log.Line($"{kind} restart: the match is over - the bridge counts down {RestartCountdown} s, then the quit");
@@ -716,7 +716,7 @@ public sealed partial class Watch
     }
 
     (string Told, string? Why) QuitNotice(string kind, bool cancel = false) =>
-        Bridge.Post("quitting", $"gg-quit\t1\t{(cancel ? "cancel\t" + kind : kind)}\n", NoticeTimeout);
+        Bridge.Post(BridgeWire.Quitting, cancel ? BridgeWire.QuitCancelBody(kind) : BridgeWire.QuitBody(kind), NoticeTimeout);
 
     /// <summary>The only place a planned restart happens. The bridge hears of it first: before the counters, so a notice it does not take
     /// costs no restart, and a restart that does not happen after it is taken back. True when the quit went out.</summary>

@@ -374,7 +374,10 @@ static partial class Program
                 && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
                 && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
                 && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6 - Welcome back");
-            Check("The first spellings are taken too: update, ours, matchend", ApplyRestartNotice("gg-restart\t1\tours\tmatchend\t0").StartsWith("ok: our-update restart") && RestartDue is { Kind: "our-update", When: "match-end" });
+            Check("The watcher's words alone (core's BridgeWire): no other spelling of a kind or a when is taken",
+                ApplyRestartNotice("gg-restart\t1\tours\tmatchend\t0").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tupdate\tnow\t5").StartsWith("refused")
+                && ApplyRestartNotice("gg-restart\t1\tour-update\tmatchend\t0").StartsWith("refused")
+                && ApplyRestartNotice(BridgeWire.RestartBody(BridgeWire.OurUpdate, BridgeWire.AtMatchEnd, 0)).StartsWith("ok: our-update restart") && RestartDue is { Kind: "our-update", When: "match-end" });
             Check("A cancel takes it back, and says so", ApplyRestartNotice("gg-restart\t1\tcancel\tdaily").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tcancel\tour-update") == "ok: cancelled"
                 && RestartDue == null && NewsNow.Text.Contains("no restart after all"));
             StartVote(players[0].Item1, players[0].Item2);

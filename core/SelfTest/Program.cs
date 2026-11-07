@@ -21,6 +21,7 @@ try
     KeepSetTests.Run();
     FilesTests.Run();
     SearchTextTests.Run();
+    BridgeWireTests.Run();
 }
 finally
 {

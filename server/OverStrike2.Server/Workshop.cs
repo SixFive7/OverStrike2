@@ -372,9 +372,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         if (Current is not { } c)
             return null;
         var (done, total) = ws.Line.Progress(c.Id, now);
-        var percent = done > 0 && total > 0 ? DownloadLine.Percent(done, total).ToString(CultureInfo.InvariantCulture) : "-";
-        var title = ws.Line.Title(c.Id, now).Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
-        return $"current\t{c.Id}\t{percent}\t{title}";
+        return BridgeWire.CurrentLine(c.Id, done > 0 && total > 0 ? DownloadLine.Percent(done, total) : null, ws.Line.Title(c.Id, now));
     }
 
     /// <summary>POST /ready to the bridge when what is on disk or the current download changed, every ReportEvery, or when forced (right
@@ -391,8 +389,7 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         var key = string.Join("\n", ready.OrderBy(x => x, StringComparer.Ordinal)) + "\n#" + (current ?? "");
         if (!force && reported is { } r && r.Key == key && now - r.At < ReportEvery)
             return null;
-        var body = "gg-ready\t1\n" + string.Concat(ready.OrderBy(x => x, StringComparer.Ordinal).Select(x => x + "\n")) + (current is null ? "" : current + "\n");
-        var (told, reply) = ws.Watch.Bridge.Post("ready", body, 3);
+        var (told, reply) = ws.Watch.Bridge.Post(BridgeWire.Ready, BridgeWire.ReadyBody(ready.OrderBy(x => x, StringComparer.Ordinal), current), 3);
         if (told != "ok")
         {
             Log.Once("ready-report", $"WARNING: the ready report to the bridge failed ({reply}) - it counts every queued map as on disk", 3600);

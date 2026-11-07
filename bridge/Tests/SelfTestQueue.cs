@@ -678,7 +678,7 @@ static partial class Program
             Checked = new() { Verdicts = new() { [goneId] = Workshop.Removed } }; RecomputeRemoved();
 
             // the sync's report (the one Workshop checker): a map coming back, a map on an open ballot going, the map that is on going
-            var answer = ApplyRemovedReport(Workshop.EncodeReport([(goneMap.Id, Workshop.Ok)]));
+            var answer = ApplyRemovedReport(RemovedBody([(goneMap.Id, Workshop.Ok)]));
             Check("A map the sync finds downloadable again is unblocked, and the report says so",
                 !IsRemoved(goneMap) && answer.Contains("1 unblocked") && File.Exists(Path.Combine(StateDir, "removed.json")));
             Quiet();
@@ -688,7 +688,7 @@ static partial class Program
             Talk(bob, $"!map {Rank(5)}"); Talk(cara, $"!map {Rank(6)}");
             Check("(Bob's and Cara's picks are on the open ballot)", Ballot is { Open: true } ob && ob.Options.Any(o => o.Map == m[5]) && ob.Options.Any(o => o.Map == m[6]));
             Quiet();
-            answer = ApplyRemovedReport(Workshop.EncodeReport([(m[5].Id, Workshop.Removed), (m[6].Id, Workshop.Ok)]));
+            answer = ApplyRemovedReport(RemovedBody([(m[5].Id, Workshop.Removed), (m[6].Id, Workshop.Ok)]));
             var ob2 = Ballot;
             Check("A map on an open ballot that the sync finds gone leaves it, the votes on it with it (one playable check)",
                 ob2 is { Open: true } && ob2.Options.All(o => o.Map != m[5]) && ob2.Options.Any(o => o.Map == m[6]) && !ob2.Choices.ContainsKey("[U:1:1002]") && answer.Contains("1 newly blocked"));
@@ -697,12 +697,12 @@ static partial class Program
             VoteFor(alice, sixN); VoteFor(bob, sixN);
             var landing = Pending?.Map;
             Land(); Run(30); Quiet();
-            answer = ApplyRemovedReport(Workshop.EncodeReport([(landing!.Id, Workshop.Hidden)]));
+            answer = ApplyRemovedReport(RemovedBody([(landing!.Id, Workshop.Hidden)]));
             Check("The map that is ON going private makes way at once: the dice roll another, and the news line says why",
                 landing == m[6] && Pending is { Auto: true } rolled && rolled.Map != landing && !IsRemoved(rolled.Map) && Said("is no longer public on the Workshop - Nobody new can download it - Rolling the dice"));
             Land(); Run(30);
             var before = Removed.Count;
-            answer = ApplyRemovedReport(Workshop.EncodeReport(Maps.Take(200).Select((x, i) => (x.Id, i < 30 ? Workshop.Removed : Workshop.Ok))));
+            answer = ApplyRemovedReport(RemovedBody(Maps.Take(200).Select((x, i) => (x.Id, i < 30 ? Workshop.Removed : Workshop.Ok))));
             Check("A report calling 30 of 200 maps gone (more than 10%) is not believed: nothing changes",
                 answer.StartsWith("ignored") && Removed.Count == before);
             Check("An empty or garbled report changes nothing either", ApplyRemovedReport("not a report").StartsWith("ignored") && Removed.Count == before);
@@ -713,7 +713,7 @@ static partial class Program
             Checked = new(); RecomputeRemoved();
 
             Check("The report survives its codec, and keeps only well-formed lines",
-                Workshop.DecodeReport(Workshop.EncodeReport([(5, Workshop.Ok), (7, Workshop.Banned)]) + "x\tok\n9\tmaybe\n-1\tok\n") is [(5, "ok"), (7, "banned")]);
+                DecodeRemovedReport(RemovedBody([(5, Workshop.Ok), (7, Workshop.Banned)]) + "x\tok\n9\tmaybe\n-1\tok\n") is [(5, "ok"), (7, "banned")]);
 
             // ---- blocked for good, with its own reason (Blocked.cs): glassbox kicked every player off the server on 2026-10-20 ----
             Fresh();
@@ -818,7 +818,7 @@ static partial class Program
             Maps = keepMaps;
             var removedReads = 0;
             WatchStart(new List<(string, Func<string>)> { (RemovedPath, () => { removedReads++; return ReloadRemoved(); }) });
-            ApplyRemovedReport(Workshop.EncodeReport([(m[3].Id, Workshop.Removed)])); WatchFiles(); WatchFiles();
+            ApplyRemovedReport(RemovedBody([(m[3].Id, Workshop.Removed)])); WatchFiles(); WatchFiles();
             Check("The bridge's own write of removed.json is not read back", removedReads == 0 && IsRemoved(m[3]));
             File.WriteAllText(RemovedPath, JsonSerializer.Serialize(new RemovedFile { Checked = "2026-10-20T00:00:00Z" }, Ctx.Default.RemovedFile));
             File.SetLastWriteTimeUtc(RemovedPath, DateTime.UtcNow.AddMinutes(5));
