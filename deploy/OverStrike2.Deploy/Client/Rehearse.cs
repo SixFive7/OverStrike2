@@ -24,7 +24,8 @@ namespace OverStrike2.Deploy;
 ///     rehearse compose [...]          read-only: what up would create, written to the harness's state folder, its changes named
 ///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label)
 ///     rehearse restore                records back, production's three containers back (testcopy's checks: its endpoint, its own plugins)
-///     rehearse clean                  only at the very end: the rehearsal folder, the sync's copies and the backup gone
+///     rehearse clean                  only at the very end, the stack down (after restore too): the rehearsal folder, the sync's copies and the
+///                                     backup gone
 ///     rehearse logs &lt;cs2|bridge|sync&gt; &lt;seconds&gt; [regex] | sh &lt;cs2|bridge|sync&gt; "&lt;cmd&gt;" [user] | rcon "&lt;cmd&gt;"... | ship &lt;file&gt; [name] | status
 ///
 /// Where things are comes from production's own inspects, saved at prep: the game's tree (its bind at paths.gameDir), the bridge's data
@@ -66,6 +67,16 @@ sealed class Rehearse
     JsonObject Game() => Saved(tc.ProdSaved, "production's game server inspect");
     JsonObject BridgeInspect() => Saved(tc.BridgeSaved, "production's bridge inspect");
     JsonObject? SyncInspect() => syncName.Length > 0 ? Saved(SyncSaved, "production's sync inspect") : null;
+
+    /// <summary>Production's container where clean needs it: the inspect saved at prep while production is aside; once restore has put
+    /// production back - and deleted the saved inspects, which hold secrets - the container itself as it runs now. Never the rehearsal's.</summary>
+    JsonObject Production(string saved, string name, string what)
+    {
+        if (File.Exists(saved))
+            return Saved(saved, what);
+        var live = tc.Inspect(name) ?? throw Out.Stop($"REFUSED: {what} was not saved and {name} does not exist - look");
+        return TestCopy.IsTest(live) ? throw Out.Stop($"REFUSED: {name} is the rehearsal's - down and restore first") : live;
+    }
 
     string Need(string? value, string what) => !string.IsNullOrEmpty(value) ? value : throw Out.Stop($"REFUSED: production has no bind for {what}");
 
@@ -560,21 +571,27 @@ sealed class Rehearse
         }
     }
 
-    void Clean()
+    /// <summary>The rehearsal's folder, the records' backup and the sync's two copies gone, with the stack down: after restore (which deletes
+    /// the saved inspects) where things are comes from production's own containers, before it from the saved inspects.</summary>
+    public void Clean()
     {
         h.NeedLock();
-        var (game, bridge) = (Game(), BridgeInspect());
+        foreach (var name in Names.Values.Where(n => n.Length > 0))
+            if (tc.Inspect(name) is { } d && TestCopy.IsTest(d))
+                throw Out.Stop($"REFUSED: {name} is the rehearsal's - down first: the folders are its mounts");
+        var game = Production(tc.ProdSaved, tc.Game, "production's game server inspect");
+        var bridge = Production(tc.BridgeSaved, tc.Bridge, "production's bridge inspect");
         var dir = Dir(bridge);
         var binds = new List<string> { $"{dir[..dir.LastIndexOf('/')]}:/p", $"{GameTree(game)}:/g" };
         var script = $"rm -rf -- '/p/{dir[(dir.LastIndexOf('/') + 1)..]}' /g/update-watch/rehearsal-backup; ";
-        var sync = File.Exists(SyncSaved) ? SyncInspect() : null;
+        var sync = syncName.Length > 0 ? Production(SyncSaved, syncName, "production's sync inspect") : null;
         if (sync is not null)
         {
-            binds.Add($"{TestCopy.BindSource(sync, SettingPath(sync, "syncState", SyncStateAt))}:/s");
-            binds.Add($"{TestCopy.BindSource(sync, SettingPath(sync, "syncWork", SyncWorkAt))}:/w");
+            binds.Add($"{Need(TestCopy.BindSource(sync, SettingPath(sync, "syncState", SyncStateAt)), "the sync's state")}:/s");
+            binds.Add($"{Need(TestCopy.BindSource(sync, SettingPath(sync, "syncWork", SyncWorkAt)), "the sync's work folder")}:/w");
             script += "rm -rf /s/rehearsal /w/rehearsal; ";
         }
-        var (code, output) = tc.Helper($"{tc.Game}-rehearsal-clean", binds, script + "echo cleaned");
+        var (code, output) = tc.Helper($"{tc.Game}-rehearsal-clean", binds, script + "echo cleaned", image: Json.Str(game, "Image"));
         Log("clean:", code, Py.Slice(output.Replace("\n", " "), 0, 400));
         File.Delete(secretFile);
     }

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Nodes;
 using YamlDotNet.RepresentationModel;
 
@@ -5,7 +6,7 @@ namespace OverStrike2.Deploy;
 
 /// <summary>The release rehearsal's compose file, offline (rehearse.py had no tests): a made-up stack shaped like a real one - its anchors in an
 /// x- block, the settings as one variable, the mode cfgs as single files, the program folder and the launcher - made a rehearsal, and read
-/// back. The verbs that act on the server are proven at the next rehearsal.</summary>
+/// back; and clean against an in-memory Docker. The other verbs that act on the server are proven at the next rehearsal.</summary>
 static class RehearseTests
 {
     const string Old = "theOldBridgeValue", New = "theNewBridgeValue";
@@ -144,5 +145,91 @@ services:
         var noUrl = Compose.Replace("      CS2_LOG_HTTP_URL: http://bridge:8080/log/theOldBridgeValue\n", "", StringComparison.Ordinal);
         var refusal = SelfTest.Refusal(() => Rehearse.ComposeText(noUrl, Replace, New, "game", "x:y", labels, "off", 27216, false, "/unused"));
         check("a compose file whose game server pushes its log nowhere is refused: no test secret could take the bridge's place", refusal is not null && refusal.Contains("CS2_LOG_HTTP_URL"));
+        Clean();
+    }
+
+    static JsonObject Container(string image, bool test, params string[] binds) => new()
+    {
+        ["Id"] = image + "-id", ["Image"] = image, ["State"] = new JsonObject { ["Status"] = "running" },
+        ["Config"] = new JsonObject { ["Labels"] = test ? new JsonObject { [TestCopy.TestLabel] = "the release rehearsal" } : new JsonObject() },
+        ["HostConfig"] = new JsonObject { ["Binds"] = new JsonArray(binds.Select(b => (JsonNode?)b).ToArray()) },
+    };
+
+    /// <summary>clean against an in-memory Docker: restore deletes the inspects prep saved, so after it the folders come from production's own
+    /// containers; before it from the saved inspects; never while the rehearsal's stack is up, and never from a container that is not there.</summary>
+    static void Clean()
+    {
+        var check = SelfTest.Check;
+        var (tmp, config, oldState) = SimConfig.Make("rehearse-sim-");
+        try
+        {
+            File.WriteAllText(config, File.ReadAllText(config).Replace("game_container = \"cs2\"\n", "game_container = \"cs2\"\nsync_container = \"sync\"\n", StringComparison.Ordinal));
+            var containers = new Dictionary<string, JsonObject>();
+            var helpers = new List<JsonObject>();
+            Reply Req(string path, string method, JsonNode? body, byte[]? raw, string ctype, double timeout)
+            {
+                var parts = path.Split('?')[0].Split('/');
+                if (method == "GET" && parts[1] == "containers" && parts[^1] == "json")
+                    return containers.TryGetValue(parts[2], out var c) ? Reply.Of(200, c) : throw new DockerError("HTTP Error 404: Not Found");
+                if (method == "POST" && path.StartsWith("/containers/create", StringComparison.Ordinal))
+                {
+                    helpers.Add((JsonObject)body!.DeepClone());
+                    return Reply.Of(201, new JsonObject { ["Id"] = "helper-id" });
+                }
+                if (method == "POST" && parts[^1] == "start")
+                    return Reply.Of(204, "");
+                if (method == "POST" && parts[^1] == "wait")
+                    return Reply.Of(200, new JsonObject { ["StatusCode"] = 0 });
+                if (method == "GET" && parts[^1] == "logs")
+                    return new Reply(200, [1, 0, 0, 0, 0, 0, 0, 8, .. Encoding.ASCII.GetBytes("cleaned\n")]);
+                if (method == "DELETE")
+                    return Reply.Of(204, "");
+                throw new InvalidOperationException($"unexpected call {method} {path}");
+            }
+            var tc = new TestCopy(new Harness(config) { Req = Req, NeedLock = () => { }, Rcon = _ => "", Sleep = _ => { } });
+            var r = new Rehearse(tc);
+            Directory.CreateDirectory(tc.State);   // prep made it, and restore leaves it
+            JsonObject Game(bool test = false) => Container("sha256:gameimg", test, "/srv/game:/home/steam/cs2-dedicated", "/srv/os2/plugins:/home/steam/cs2-plugins:ro");
+            JsonObject Bridge(bool test = false) => Container("sha256:bridgeimg", test, "/srv/os2/bridge:/data");
+            JsonObject Sync(bool test = false) => Container("sha256:gameimg", test, "/srv/game:/home/steam/cs2-dedicated:ro", "/srv/os2/sync-state:/home/steam/sync-state",
+                                                            "/srv/os2/workshop-sync:/home/steam/workshop-sync");
+            const string Script = "rm -rf -- '/p/rehearsal' /g/update-watch/rehearsal-backup; rm -rf /s/rehearsal /w/rehearsal; echo cleaned";
+            string[] binds = ["/srv/os2:/p", "/srv/game:/g", "/srv/os2/sync-state:/s", "/srv/os2/workshop-sync:/w"];
+            bool Helped(JsonObject? body) => body is not null && Json.Str(body, "Image") == "sha256:gameimg"
+                                             && Json.Arr(body, "HostConfig", "Binds").Select(Json.PyStr).SequenceEqual(binds)
+                                             && Json.Arr(body, "Cmd").Select(Json.PyStr).SequenceEqual([Script]) && Json.Str(body, "HostConfig", "NetworkMode") == "none";
+
+            // after restore: production is itself again and nothing is saved any more
+            (containers["cs2"], containers["bridge"], containers["sync"]) = (Game(), Bridge(), Sync());
+            var refused = SelfTest.Refusal(r.Clean);
+            check("clean after restore: the rehearsal folder, the records' backup and the sync's two copies, found through production's own containers",
+                  refused is null && helpers.Count == 1 && Helped(helpers[0]));
+
+            // the stack still up: its containers carry the test label, and the folders are their mounts
+            helpers.Clear();
+            (containers["cs2"], containers["bridge"], containers["sync"]) = (Game(true), Bridge(true), Sync(true));
+            refused = SelfTest.Refusal(r.Clean);
+            check("clean while the rehearsal's stack is up is refused, and nothing runs", refused is not null && refused.Contains("down first") && helpers.Count == 0);
+
+            // before restore: production aside, the stack down - the saved inspects say where things are
+            containers.Clear();
+            File.WriteAllText(tc.ProdSaved, Game().ToJsonString());
+            File.WriteAllText(tc.BridgeSaved, Bridge().ToJsonString());
+            File.WriteAllText(Path.Combine(tc.State, "sync-inspect.json"), Sync().ToJsonString());
+            refused = SelfTest.Refusal(r.Clean);
+            check("clean before restore: the same folders, from the inspects prep saved", refused is null && helpers.Count == 1 && Helped(helpers[0]));
+
+            // nothing saved and nothing there: no guess
+            helpers.Clear();
+            foreach (var f in new[] { tc.ProdSaved, tc.BridgeSaved, Path.Combine(tc.State, "sync-inspect.json") })
+                File.Delete(f);
+            refused = SelfTest.Refusal(r.Clean);
+            check("clean with no saved inspect and no production container is refused, and nothing runs",
+                  refused is not null && refused.Contains("was not saved and cs2 does not exist") && helpers.Count == 0);
+        }
+        finally
+        {
+            SimConfig.Done(tmp, oldState);
+        }
     }
 }
