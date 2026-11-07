@@ -47,7 +47,6 @@ static partial class Program
     static Dictionary<string, List<string>> RatingTrend = new();                // ...and each mode's trend order, Most Popular first
     static long RatingsFetched;                                                  // ...and when the sync fetched them (unix seconds)
     static Dictionary<string, WorkshopEntry> WorkshopInfo = new();               // workshop.json: Workshop id -> its numbers and its last passing test
-    static long WorkshopWritten;                                                 // ...and when the sync wrote it
     static int NumbersStamp;                                                     // moves whenever either file is taken: the tables below start again
 
     static string RatingsFile => Path.Combine(DataDir, "ratings.json");
@@ -116,7 +115,7 @@ static partial class Program
     static string ReloadWorkshop(string path)
     {
         if (!File.Exists(path)) return WorkshopInfo.Count > 0 ? $"workshop: {path} is gone - kept what was read" : $"workshop: {path} not found - no map is fresh, and no map is known to have passed a test: the stock waits";
-        try { (WorkshopInfo, WorkshopWritten) = ParseWorkshop(File.ReadAllText(path)); }
+        try { (WorkshopInfo, _) = ParseWorkshop(File.ReadAllText(path)); }
         catch (Exception e) { return $"workshop: {path} unreadable ({Clip(e.Message, 120)}) - kept {WorkshopInfo.Count} maps"; }
         NumbersStamp++; CatalogVersion++;
         return $"workshop: {WorkshopInfo.Count} maps from {path}, {WorkshopInfo.Values.Count(w => w.ContentPassed)} with their current content tested";

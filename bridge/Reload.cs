@@ -143,8 +143,7 @@ static partial class Program
     }
 
     /// <summary>Everything at once, whether it changed or not: POST /reload/&lt;secret&gt;, for whoever does not want to wait for the watch.
-    /// Every file the watch covers (DataFiles) - search.json was once left out here but marked as read, so a new one waited
-    /// for a restart (the sync's find).</summary>
+    /// Every file the watch covers (DataFiles), each marked as read only once it was: a file marked but not read would wait for a restart.</summary>
     static string ReloadAll(bool force) => ReloadFiles(DataFiles(force));
 
     /// <summary>Reads each of these files now, and marks as read for the watch only the files it read.</summary>

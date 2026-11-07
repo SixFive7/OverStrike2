@@ -57,15 +57,14 @@ static partial class Program
         Log(ReloadWorkshop(WorkshopFile));          // Popularity.cs: the Workshop's numbers and the sync's last passing tests
         var statePath = Path.Combine(StateDir, "state.json");
         if (File.Exists(statePath)) S = JsonSerializer.Deserialize(File.ReadAllText(statePath), Ctx.Default.State) ?? new();
-        if (S.Met.Count == 0) S.Met.UnionWith(S.History.Select(Key)); // a state.json from before the stock: the maps played are no longer new to us
         ExpireMarks();                              // CrashWatch.cs: marks whose maps got a Workshop update while the bridge was down
         LoadVotes();
         ModeProbing = true;                         // ModeSwitch.cs: ask the server which mode it is in, once RCON answers
         Rc = new Rcon(RconHost, RconPort, RconPassword);
         foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT })
             Signals.Add(PosixSignalRegistration.Create(sig, c => { c.Cancel = true; Post(() => { Save(); Log("stopped"); Environment.Exit(0); }); }));
-        // A clean quit is the server's, seen by this bridge. Older bridges also set it when they themselves were stopped, which
-        // would let the first crash after a bridge-only restart pass for a quit; the crash watch reads the running process at start instead.
+        // A clean quit is the server's, seen by this bridge - never the bridge's own stop, which would let the first crash after a bridge-only
+        // restart pass for a quit; the crash watch reads the running process at start instead.
         S.CleanShutdown = false;
         FillStock();                                // RandomQueue.cs: the discovery stock rolled ahead, so the watcher fetches it in the background
         BridgeStart();

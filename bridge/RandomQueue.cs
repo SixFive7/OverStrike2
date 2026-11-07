@@ -24,7 +24,6 @@
 //    at a time and one already running cannot be stopped - so the map players wait for is never queued behind a background one that started then.
 using System.Globalization;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 
 static partial class Program
@@ -49,7 +48,7 @@ static partial class Program
     static DateTime QueueTickAt;
 
     /// <summary>The background download running now, by the watcher's last report: the map, its progress (null before any) and its title.</summary>
-    public sealed record Download(string Id, int? Percent, string Title, DateTime At);
+    public sealed record Download(string Id, int? Percent, string Title);
     static Download? Background;
 
     static List<StockEntry> LaneOf(Modes.Mode mode) => S.Stock.TryGetValue(mode.Id, out var l) ? l : S.Stock[mode.Id] = new();
@@ -221,7 +220,7 @@ static partial class Program
         var f = line.Split('\t', 4);
         if (f.Length < 3 || f[0] != BridgeWire.Current || f[1].Trim() is not { Length: > 0 } id || !id.All(char.IsAsciiDigit)) return null;
         int? percent = int.TryParse(f[2].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var p) ? Math.Clamp(p, 0, 100) : null;
-        return new Download(id, percent, Hud.Clean(f.Length > 3 ? f[3] : "", 60), now);
+        return new Download(id, percent, Hud.Clean(f.Length > 3 ? f[3] : "", 60));
     }
 
     static string ApplyReady(string body)

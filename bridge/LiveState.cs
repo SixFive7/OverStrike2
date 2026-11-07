@@ -65,7 +65,7 @@ static partial class Program
             var (up, down) = Tally(key);
             c.Maps.Add(new HudCatalog.Entry(key, ArgOf(m), m.Rank, m.Id, m.Name, m.SizeMb, m.Official, Broken.TryGetValue(key, out var b) ? b : S.PlayerCrashes.ContainsKey(key) ? 0 : -1,
                 S.Crashes.GetValueOrDefault(key), up, down, IsRemoved(m), TooBig(m), SizeClass(m) ?? "", AreaOf(m) ?? 0, TooBigVotes(key), AdsVotes(key),
-                IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs; an older plugin reads up to 18, 4.3 up to 20, 4.5 up to 23)
+                IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs) - read by place, so a new field only ever goes at the end
         }
         foreach (var (key, votes) in Votes)
             foreach (var (sid, value) in votes)

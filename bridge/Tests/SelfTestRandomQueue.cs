@@ -141,7 +141,7 @@ static partial class Program
             S.Crashes[head] = 1; FillStock();
             Check("An entry that crashed the server since its roll is dropped", Lane(Modes.ArmsRace).All(e => e.Key != head));
             head = Lane(Modes.ArmsRace)[0].Key;
-            Sizes[head] = new SizeEntry(20000, "XL", "nav"); FillStock();
+            Sizes[head] = new SizeEntry(20000, "XL"); FillStock();
             Check("An entry whose too-big mark changed since its roll is dropped: the 1-in-100 group was not what rolled it (the map may come back only as a new roll of that group)", Lane(Modes.ArmsRace).All(e => e.Key != head || e.Big));
             Sizes = new();
             head = Lane(Modes.ArmsRace)[0].Key;

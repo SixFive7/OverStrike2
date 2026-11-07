@@ -26,8 +26,8 @@ static partial class Program
     /// the bridge's own !restart as it sends the quit, or the echo of an RCON quit or _restart in the log stream (an admin; and the backup
     /// of the other two, since the echo dies with the process when the engine segfaults on quit). Whatever was counting down or loading dies
     /// with it - left standing, a countdown would fire into the dead server and the boot's start map would be taken for the map it had asked
-    /// for, which is how restarts used to end on ar_shoots. Once per quit: an echo or a notice that follows one within GoingDownSeconds
-    /// changes nothing.</summary>
+    /// for, and the restart would end on the start map. Once per quit: an echo or a notice that follows one within GoingDownSeconds changes
+    /// nothing.</summary>
     static void ServerGoingDown(string source)
     {
         var now = Now();

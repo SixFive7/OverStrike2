@@ -20,9 +20,9 @@ static partial class Program
 
     // ---- sizes.json: the size tool's verdict on each map (contract version 1, written by the size tool beside maps.json) ----
 
-    /// <summary>One map's measurement: its walkable area (null when it could not be measured), its class (S, M, L, XL - null when
-    /// unmeasured) and how it was measured (nav, walk, none).</summary>
-    public sealed record SizeEntry(int? M2, string? Class, string Method);
+    /// <summary>One map's measurement: its walkable area (null when it could not be measured) and its class (S, M, L, XL - null when
+    /// unmeasured).</summary>
+    public sealed record SizeEntry(int? M2, string? Class);
 
     static Dictionary<string, SizeEntry> Sizes = new();                                      // map key -> its measurement
     static (int S, int M, int L) SizeBounds;                                                 // the classes' upper bounds in m², for the health page
@@ -48,8 +48,7 @@ static partial class Program
                 if (p.Value.ValueKind != JsonValueKind.Object || p.Name.Trim() == "") continue;
                 int? m2 = p.Value.TryGetProperty("m2", out var a) && a.ValueKind == JsonValueKind.Number && a.TryGetDouble(out var n) ? (int)Math.Round(n) : null;
                 var cls = p.Value.TryGetProperty("class", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
-                var method = p.Value.TryGetProperty("method", out var md) && md.ValueKind == JsonValueKind.String ? md.GetString() ?? "" : "";
-                d[p.Name.Trim()] = new SizeEntry(m2, cls is "S" or "M" or "L" or "XL" ? cls : null, method);
+                d[p.Name.Trim()] = new SizeEntry(m2, cls is "S" or "M" or "L" or "XL" ? cls : null);
             }
         return (d, bounds);
     }

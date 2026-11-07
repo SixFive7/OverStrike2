@@ -21,12 +21,11 @@
 // update: the lists carry each map's time_updated ("updated", written by the Workshop sync), every mark keeps the one it was
 // set under (S.CrashStamps), and a newer one lifts it (ExpireMarks, at start and whenever a list is read again).
 using System.Net;
-using System.Text;
 using System.Text.RegularExpressions;
 
 static partial class Program
 {
-    sealed record SpawnStart(int Number, string Name, string? Before, bool Clean, bool Maintenance);
+    sealed record SpawnStart(string? Before, bool Clean, bool Maintenance); // what a map start would blame, and whether that may count
 
     static int? SpawnSeen;                 // the spawn counter of the last reading; null until the first since the bridge started
     static int SpawnSeenStarts;            // how many map starts the bridge had seen when that reading was taken
@@ -91,7 +90,7 @@ static partial class Program
     {
         var number = ++MapStarts;
         LastStartName = name;
-        SpawnStarts.Add(new(number, name, before, clean, maintenance));
+        SpawnStarts.Add(new(before, clean, maintenance));
         if (SpawnStarts.Count > 50) SpawnStarts.RemoveAt(0);
         After(SpawnCheckDelayMs, () => ReadSpawn(number, 1));
     }

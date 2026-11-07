@@ -818,7 +818,7 @@ static partial class Program
             File.Delete(dmFile);
 
             Fresh();
-            PicturesBridgeSelfTest(Check, alice); // SelfTestPictures.cs: a Play in a mode, a name only another mode has
+            PicturesBridgeSelfTest(Check); // SelfTestPictures.cs: a Play in a mode, a name only another mode has
 
             // ---- the weights and the exclusions outside Arms Race ----
             Fresh();

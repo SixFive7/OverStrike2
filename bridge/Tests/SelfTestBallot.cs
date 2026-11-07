@@ -135,7 +135,7 @@ static partial class Program
             Check("...the wire: known ids only, each once, in precedence order; the first why tag in words, a player's pick left out where the line names the player; two chips a card",
                 MapTags.Join(["newtous", "zzz", "big", "liked", "big"]) == "big,liked,newtous" && MapTags.Clean("trending, liked;x") == "trending" && MapTags.FirstWhy("big,picked,liked")?.Id == "picked"
                 && MapTags.WhyWords("big,picked,liked", picked: false) == "liked by us" && MapTags.WhyWords("big,ads") == "" && MapTags.Chips("big,liked,trending").Select(t => t.Id).SequenceEqual(["big", "liked"]));
-            Sizes[Key(Ar(1))] = new SizeEntry(20000, "XL", "nav"); Votes[Key(Ar(1))] = new() { ["[U:1:1]"] = 1 };
+            Sizes[Key(Ar(1))] = new SizeEntry(20000, "XL"); Votes[Key(Ar(1))] = new() { ["[U:1:1]"] = 1 };
             Check("A map's tags: too big, liked, the Workshop's three lists, new to us - in that order; a recent upload, a tested recent update; officials are no discovery",
                 TagsOf(Ar(1)) == "big,liked,trending,toprated,popular,newtous" && TagsOf(Ar(5)).StartsWith("upload,") && TagsOf(Ar(7)).StartsWith("updated,") && TagsOf(Ar(310)) == "upload,newtous"
                 && TagsOf(Ar(400)) == "newtous" && TagsOf(PoolOf(Modes.Deathmatch).First(m => m.Official)) == "" && TagsOf(Ar(400), picked: true) == "picked,newtous");

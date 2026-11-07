@@ -95,7 +95,7 @@ static partial class Program
     }
 
     /// <summary>The bridge's own half, on a server with mode lists: a Play in a mode, a name only another mode has, and the player limit of a mode.</summary>
-    static void PicturesBridgeSelfTest(Action<string, bool> Check, (string Name, string Id) player)
+    static void PicturesBridgeSelfTest(Action<string, bool> Check)
     {
         var inDm = Modes.Find(Modes.DeathmatchId)!;
         var ar = Maps[0];

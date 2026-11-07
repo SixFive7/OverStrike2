@@ -41,7 +41,7 @@ static partial class Program
     }
 
     /// <summary>The confirmation gate in front of a pick: the first click arms a window for that player alone, and only that
-    /// player repeating the same map inside PickConfirmSeconds gets through - another player's pick no longer clears it. Returns the note that
+    /// player repeating the same map inside PickConfirmSeconds gets through - another player's pick leaves it standing. Returns the note that
     /// holds the pick back, or null to let it through. The ballot card shows the same record to everybody (HudVote.Cards).</summary>
     static string? ConfirmGate(MapInfo map, string steamId, DateTime now, string again = "Play")
     {

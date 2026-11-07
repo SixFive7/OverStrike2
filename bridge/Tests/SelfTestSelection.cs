@@ -21,8 +21,8 @@ static partial class Program
         var line = ReloadSizes(sizesPath);
         Console.WriteLine("sizes: " + line);
         Check("sizes.json (version 1) loads: every object entry, its class, its area rounded, its method; the boundaries; a class outside S-XL reads as unmeasured",
-            Sizes.Count == 5 && Sizes["7001017"] == new SizeEntry(15000, "XL", "nav") && Sizes["7001018"] == new SizeEntry(3301, "M", "walk")
-            && Sizes["7001019"] == new SizeEntry(null, null, "none") && Sizes["ar_baggage"].Class == "S" && Sizes["7001020"].Class == null
+            Sizes.Count == 5 && Sizes["7001017"] == new SizeEntry(15000, "XL") && Sizes["7001018"] == new SizeEntry(3301, "M")
+            && Sizes["7001019"] == new SizeEntry(null, null) && Sizes["ar_baggage"].Class == "S" && Sizes["7001020"].Class == null
             && SizeBounds == (2700, 4900, 9000) && line.Contains("1 too big (XL above 9000 m²)"));
         File.WriteAllText(sizesPath, """{"version": 2, "maps": {"7001017": {"class": "XL"}}}""");
         Check("Another version of the contract: nothing is too big by its size", ReloadSizes(sizesPath).Contains("unreadable") && Sizes.Count == 0);
@@ -51,15 +51,15 @@ static partial class Program
 
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----
         var xl = Maps.Take(4).ToList();
-        Sizes = xl.ToDictionary(Key, _ => new SizeEntry(20000, "XL", "nav"));
-        Sizes[Key(Maps[14])] = new SizeEntry(4000, "M", "nav");
+        Sizes = xl.ToDictionary(Key, _ => new SizeEntry(20000, "XL"));
+        Sizes[Key(Maps[14])] = new SizeEntry(4000, "M");
         Check("Too big: measured XL; a measured M or an unmeasured map is not", xl.All(TooBig) && !TooBig(Maps[14]) && !TooBig(Maps[19]));
         var rolls = Rolls(60000);
         var bigShare = rolls.Count(TooBig) / 60000.0;
         Check($"1 random pick in 100 is a too-big map: {bigShare:P2} of 60000 (4 too big among 24 maps)", bigShare is > 0.0075 and < 0.0125);
         var winners = rolls.Where(TooBig).GroupBy(x => x).ToDictionary(g => g.Key, g => g.Count());
         Check($"...spread over all {xl.Count} too-big maps", xl.All(winners.ContainsKey));
-        Sizes = Maps.ToDictionary(Key, _ => new SizeEntry(20000, "XL", "nav"));
+        Sizes = Maps.ToDictionary(Key, _ => new SizeEntry(20000, "XL"));
         Check("Every eligible map too big: the too-big group rolls every time (the other group is empty)", Rolls(500).All(TooBig));
         S.Crashes[Key(Maps[4])] = 1;
         Votes = new() { [Key(Maps[5])] = new() { ["[U:1:1]"] = 1 } };
@@ -86,7 +86,7 @@ static partial class Program
         var adsRolls = Rolls(5000);
         Check($"A map with an ads vote is never a random pick: 5000 rolls over the {Maps.Count} maps, every other one came up, that one never",
             adsRolls.All(x => x != marked) && Maps.Where(x => x != marked).All(adsRolls.Contains));
-        Sizes = new() { [Key(marked)] = new SizeEntry(20000, "XL", "nav") };
+        Sizes = new() { [Key(marked)] = new SizeEntry(20000, "XL") };
         Check("...not even in the too-big group, where it would be the only map", Rolls(20000).All(x => x != marked));
         Sizes = new();
         Check("An ads vote counts as that player's dislike everywhere a vote counts, and does not make a map too big",

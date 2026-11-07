@@ -18,7 +18,7 @@ static partial class Program
         // the lists, as the run loaded them, and what is worked out of them
         Maps = SelfTestMaps; ModeMaps.Clear(); Broken = new(); BrokenReasons = new(); Packs = new(); BlockedOwn = new(); BlockedInBroken = new(); Blocked = new();
         Checked = new(); Removed = new(); Sizes = new(); SizeBounds = default; Ours = new(); Search = new(); SearchText = Search.Encode();
-        RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); WorkshopWritten = 0; NumbersStamp++;
+        RatingScores = new(); RatingTrend = new(); RatingsFetched = 0; WorkshopInfo = new(); NumbersStamp++;
         knownFor = null; knownByKey = new(); updatedByKey = new(); popularityFor = null; popularity.Clear(); keptFor = null; kept = new();
         CatalogVersion++; // the menu's map list is made again
         // what the bridge keeps (state.json, votes.json), and who is on
