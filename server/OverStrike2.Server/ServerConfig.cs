@@ -22,9 +22,9 @@ public sealed record ServerPaths
     public string SnapshotDir => Path.Combine(StateDir, "steamlogs");
     public string Csgo => Path.Combine(GameDir, "game", "csgo");
     public string SteamInf => Path.Combine(Csgo, "steam.inf");
-    public string WorkshopDir => Path.Combine(GameDir, "game", "bin", "linuxsteamrt64", "steamapps", "workshop");
-    public string WorkshopAcf => Path.Combine(WorkshopDir, "appworkshop_730.acf");
-    public string Content => Path.Combine(WorkshopDir, "content", "730");
+    public string WorkshopDir => WorkshopPaths.OfGame(GameDir);
+    public string WorkshopAcf => WorkshopPaths.Acf(WorkshopDir);
+    public string Content => WorkshopPaths.Content(WorkshopDir);
     public string MapsDir => Path.Combine(GameDir, "maps");
     public string SteamLogs => Logs ?? Path.Combine(Path.GetDirectoryName(Depotcache.TrimEnd('/', '\\')) ?? Depotcache, "logs");
     public string WorkshopLog => Path.Combine(SteamLogs, "workshop_log.txt");

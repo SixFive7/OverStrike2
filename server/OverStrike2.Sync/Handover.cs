@@ -10,8 +10,6 @@ public static class Handover
 {
     public const long MaxBytes = 200L << 30;         // hand-overs the server has not taken in yet: past this much, no more until it does
 
-    public static string WorkshopDir(string root) => Path.Combine(root, "steamapps", "workshop");
-
     /// <summary>{id: timeupdated} of a workshop acf; {} when there is none or it does not parse.</summary>
     public static Dictionary<string, long> AcfItems(string path)
     {
@@ -50,8 +48,8 @@ public static class Handover
     /// relative links resolve on this read-only mount of the same tree).</summary>
     public static Dictionary<string, long> ServerMaps(string gameDir)
     {
-        var ws = Path.Combine(gameDir, "game", "bin", "linuxsteamrt64", "steamapps", "workshop");
-        return AcfItems(Path.Combine(ws, "appworkshop_730.acf")).Where(kv => Directory.Exists(Path.Combine(ws, "content", "730", kv.Key)))
+        var ws = WorkshopPaths.OfGame(gameDir);
+        return AcfItems(WorkshopPaths.Acf(ws)).Where(kv => Directory.Exists(Path.Combine(WorkshopPaths.Content(ws), kv.Key)))
             .ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
@@ -119,9 +117,9 @@ public static class Handover
     public static (bool Ok, string Words) HandOver(string staging, string folder, string wid, string? title, string depotcache, double now,
                                                    Action<string> log)
     {
-        var root = WorkshopDir(staging);
-        var content = Path.Combine(root, "content", "730", wid);
-        var acf = Path.Combine(root, "appworkshop_730.acf");
+        var root = WorkshopPaths.OfSteamCmd(staging);
+        var content = Path.Combine(WorkshopPaths.Content(root), wid);
+        var acf = WorkshopPaths.Acf(root);
         var entries = AcfEntries(acf, wid);
         if (entries is not { } e || !new[] { "size", "timeupdated", "manifest" }.All(k => Text.Digits(e.Installed.GetValueOrDefault(k))))
             return (false, "SteamCMD's acf has no complete entry for it");
@@ -174,9 +172,9 @@ public static class Handover
     /// FormatException when the acf cannot be edited.</summary>
     public static (int Forgotten, int Dropped) TidyStaging(string staging, string handoverDir, JsonObject items, Action<string> log)
     {
-        var root = WorkshopDir(staging);
-        var acf = Path.Combine(root, "appworkshop_730.acf");
-        var content = Path.Combine(root, "content", "730");
+        var root = WorkshopPaths.OfSteamCmd(staging);
+        var acf = WorkshopPaths.Acf(root);
+        var content = WorkshopPaths.Content(root);
         if (!File.Exists(acf))
             return (0, 0);
         var named = AcfItems(acf);

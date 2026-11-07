@@ -93,8 +93,8 @@ public sealed partial class SyncRun
     }
 
     string Staging => Path.Combine(Cfg.WorkDir, "staging");
-    string Content => Path.Combine(Staging, "steamapps", "workshop", "content", "730");
-    string StagingAcf => Path.Combine(Staging, "steamapps", "workshop", "appworkshop_730.acf");
+    string Content => WorkshopPaths.Content(WorkshopPaths.OfSteamCmd(Staging));
+    string StagingAcf => WorkshopPaths.Acf(WorkshopPaths.OfSteamCmd(Staging));
 
     /// <summary>The keep set (core's, the restart watcher's too), with the config's rules, and never an exception: an input of a shape it does
     /// not read gives an empty set whose problems say why - nothing is handed over or deleted on it.</summary>
