@@ -70,7 +70,7 @@ static partial class DocShots
     public static string Account = MadeUpAccount;
     public static string ContentName = "?";
     public static int Level;
-    public static bool Renamed;              // --renamed: the client goes by Me on the server (GgDocName), so no mask is needed for a name
+    public static bool Renamed;              // --renamed: the client goes by Me on the server (OsDocName), so no mask is needed for a name
     public static string Built = "";         // --built: the commit the build under test came from, when HEAD is later by documentation only
     public static string? ConfigPath;        // --config: handed on to bridgepost
     public static List<Row> Rows = [];
@@ -178,13 +178,13 @@ static partial class DocShots
     // ---------------------------------------------------------------- the checks every invocation runs
 
     static readonly string[] PostVerbs = ["restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check"];
-    static readonly string[] RconAllowed = ["ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ",
-        "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "os_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
+    static readonly string[] RconAllowed = ["osd_name", "mp_restartgame 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ",
+        "os_hud centre ", "os_hud release", "css_guide ", "os_notice ", "os_fun ", "os_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
     static readonly string[] ChangelevelAllowed = ["ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno"];   // official maps: no download dialog
     static readonly Regex ConAllowed = new(@"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$");
-    static readonly Regex BridgeButtons = new(@"^(gg_b_next|gg_b_vup|gg_b_vdown|gg_btn_up|gg_btn_down|gg_m\d+_(play|up|down)|gg_why_\d+|gg_set_time_\d+|gg_v_random|gg_v_browse|gg_v_back)$");
+    static readonly Regex BridgeButtons = new(@"^(os_b_next|os_b_vup|os_b_vdown|os_btn_up|os_btn_down|os_m\d+_(play|up|down)|os_why_\d+|os_set_time_\d+|os_v_random|os_v_browse|os_v_back)$");
     static readonly Regex BridgeSays = new(@"^say !(play|up|down|next|map)\b");
-    static readonly string[] NeverButtons = ["gg_ws_play"];   // downloads to the server
+    static readonly string[] NeverButtons = ["os_ws_play"];   // downloads to the server
 
     static bool RealNameIn(string text)
     {
@@ -267,7 +267,7 @@ static partial class DocShots
                         errors.Add($"{r.Id}: {s.Button} leaves state on the server");
                     if (BridgeButtons.IsMatch(s.Button) && r.Bridge.Length == 0)
                         errors.Add($"{r.Id}: {s.Button} writes the bridge's data or opens a vote, and the row does not say so");
-                    if (s.Button == "gg_set_restart")
+                    if (s.Button == "os_set_restart")
                         restarts++;
                 }
                 if (s.Kind is "rcon" or "rcon_bg")
@@ -278,9 +278,9 @@ static partial class DocShots
                         errors.Add($"{r.Id}: changelevel to {Words(s.Text)[1]}");
                     if (s.Text.Length > 500)
                         errors.Add($"{r.Id}: an RCON line of {s.Text.Length} characters: one line carries about 512 (HARNESS.md)");
-                    var hit = Regex.Match(s.Text, @"^gg_notice \d+ ""(.*)""$");
-                    if (s.Text.StartsWith("gg_notice", StringComparison.Ordinal) && (!hit.Success || hit.Groups[1].Value.Contains('"') || hit.Groups[1].Value.Length > 240))
-                        errors.Add($"{r.Id}: a gg_notice line the plugin would cut or misread");
+                    var hit = Regex.Match(s.Text, @"^os_notice \d+ ""(.*)""$");
+                    if (s.Text.StartsWith("os_notice", StringComparison.Ordinal) && (!hit.Success || hit.Groups[1].Value.Contains('"') || hit.Groups[1].Value.Length > 240))
+                        errors.Add($"{r.Id}: a os_notice line the plugin would cut or misread");
                 }
                 if (s.Kind == "con")
                 {
@@ -316,9 +316,9 @@ static partial class DocShots
                     errors.Add($"{r.Id}: a player's restart, and no quit-notice in its cleanup: the second click quits the server");
             }
             if (restarts > 1)
-                errors.Add($"{r.Id}: gg_set_restart twice: the second click quits the server");
+                errors.Add($"{r.Id}: os_set_restart twice: the second click quits the server");
             if (restarts > 0 && !r.Steps.Take(1).Any(s => s.Kind == "pause" && s.Seconds >= 31))
-                errors.Add($"{r.Id}: gg_set_restart without the 31 s first");
+                errors.Add($"{r.Id}: os_set_restart without the 31 s first");
             if (r.WordsFrom is var (wpath, wwords) && !WordsAtHead(wpath, wwords))
                 errors.Add($"{r.Id}: the words {Py.Repr(wwords)} are no longer in the committed code under {wpath.Split('/')[0]}/: the stand-in or the row is out of date");
         }
@@ -326,8 +326,8 @@ static partial class DocShots
             errors.Add("the test name is a real name");
         if (ContentName == "?" || Level <= 0)
             errors.Add("bridge/Shared/HudVersion.cs's Contents cannot be read: the rows fake the versions around its last line");
-        if (!buttons.Any(b => b.StartsWith("gg_hudver_", StringComparison.Ordinal)))
-            errors.Add("no version button (gg_hudver_...) in the committed layout");
+        if (!buttons.Any(b => b.StartsWith("os_hudver_", StringComparison.Ordinal)))
+            errors.Add("no version button (os_hudver_...) in the committed layout");
         return new Info
         {
             Picks = picks, ByName = byName, Buttons = buttons, Named = named, Commit = HeadCommit(), Content = ContentName,
@@ -445,7 +445,7 @@ static partial class DocShots
     static string StartCommand(string res) =>
         $"pwsh -NoProfile -File {HarnessPath} start -Connect default -HudLocal -IncludeThumbs -AllowServerLock -Console -Resolution {res} -MaxMinutes 120 -Purpose \"docshots {res}\"";
 
-    static string[] FinalCommands => ["css_gghud release", "css_gghud level 0", $"css_gghud content {Account} {Level}", $"gg_fun reset \"{Me}\""];
+    static string[] FinalCommands => ["os_hud release", "os_hud level 0", $"os_hud content {Account} {Level}", $"os_fun reset \"{Me}\""];
 
     // ---------------------------------------------------------------- the index
 
@@ -459,7 +459,7 @@ static partial class DocShots
         if (row.Pick.Length > 0)
             words += $"<br><small>Message: {Py.HtmlEscape(row.Pick)}. Today: {Py.HtmlEscape(row.Today)}. Picked: {Py.HtmlEscape(byName[row.Pick].Surfaces)}</small>";
         if (row.StandIn)
-            words += "<br><small>STAND-IN: the message's real words on its panel, sent with gg_notice; its real trigger would leave something behind.</small>";
+            words += "<br><small>STAND-IN: the message's real words on its panel, sent with os_notice; its real trigger would leave something behind.</small>";
         if (row.Names != NoName)
             words += $"<br><small>Names: {Py.HtmlEscape(row.Names)}</small>";
         return words;
@@ -588,15 +588,15 @@ static partial class DocShots
             Say($"GATE (the run refuses otherwise): {LockPath ?? "None"} exists and starts with '{OwnerLine}'; A2S on {Host}:{Port} says VAC off, at most 1 human, map {StartMap}");
             if (Renamed)
             {
-                Say($"  $ {Cmdline(RconArgv("ggd_name"))}    --renamed: must say the client goes by {Me}, and is");
+                Say($"  $ {Cmdline(RconArgv("osd_name"))}    --renamed: must say the client goes by {Me}, and is");
                 Clock += TRcon;
             }
             Say($"PREFLIGHT: the client started by hand: {StartCommand(Res)}");
             Say($"  $ {Cmdline(ConArgv("status", 2000))}    must name {Host}:{Port} and insecure");
             Say($"  $ {Cmdline(ShotArgv("_probe", Raw))}    the frame must be {Res}, not scaled");
-            Say($"  $ {Cmdline(RconArgv("css_gghud"))}    must have an entity, the bridge ok, no vote on");
+            Say($"  $ {Cmdline(RconArgv("os_hud"))}    must have an entity, the bridge ok, no vote on");
             Say($"  $ {Cmdline(ConArgv("jointeam 2 1", 1500))}");
-            Say($"  $ {Cmdline(RconArgv($"css_gghud content {Account} {Level}"))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)");
+            Say($"  $ {Cmdline(RconArgv($"os_hud content {Account} {Level}"))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)");
             Say($"  $ {Cmdline(RconArgv("mp_restartgame 1"))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run");
             Clock += TCon + TShot + TRcon + TCon + TRcon + TRcon;
         }
@@ -1004,17 +1004,17 @@ static partial class DocShots
                 throw Out.Stop($"REFUSED: the client's frame is not {res}: {Py.Slice(Scrub(Py.Strip(text)), 0, 200)}\nStart it at that size:\n  " + StartCommand(res));
             if (Renamed)
             {
-                text = RunVerb(RconArgv("ggd_name"), 60, "rcon ggd_name");
+                text = RunVerb(RconArgv("osd_name"), 60, "rcon osd_name");
                 if (!text.Contains($"{Account} goes by {Me}", StringComparison.Ordinal) || !text.Contains($"{Account} is {Me}", StringComparison.Ordinal))
-                    throw Out.Stop($"REFUSED: --renamed, and the server does not call the client {Me} (GgDocName on the test copy, ggd_name {Account} {Me}): {Py.Slice(Scrub(Py.Strip(text)), 0, 200)}");
+                    throw Out.Stop($"REFUSED: --renamed, and the server does not call the client {Me} (OsDocName on the test copy, osd_name {Account} {Me}): {Py.Slice(Scrub(Py.Strip(text)), 0, 200)}");
             }
-            text = RunVerb(RconArgv("css_gghud"), 60, "rcon css_gghud");
+            text = RunVerb(RconArgv("os_hud"), 60, "rcon os_hud");
             if (!Regex.IsMatch(text, @"entity \d+") || !text.Contains("bridge ok", StringComparison.Ordinal))
                 throw Out.Stop($"REFUSED: the HUD is not up on the server: {Py.Slice(Scrub(Py.Strip(text)), 0, 400)}");
             if (Regex.IsMatch(text, @"vote round \d+ open"))
                 throw Out.Stop("REFUSED: a vote is open");
             RunVerb(ConArgv("jointeam 2 1", 1500), 30, "cmd jointeam");
-            RunVerb(RconArgv($"css_gghud content {Account} {Level}"), 60, "rcon css_gghud content");
+            RunVerb(RconArgv($"os_hud content {Account} {Level}"), 60, "rcon os_hud content");
             RunVerb(RconArgv("mp_restartgame 1"), 60, "rcon mp_restartgame 1");
         }
 
@@ -1309,7 +1309,7 @@ static partial class DocShots
         }
         Out.Print($"The {picks.Count} picks: " + string.Join(", ", Statuses.Select(st => $"{pickStatus.Values.Count(v => v == st)} {st}")) + "; every pick has a row.");
         var ready = Rows.Where(r => r.Status == Ready).ToList();
-        Out.Print($"Of the {counts[Ready]} ready rows: {ready.Count(r => r.Bridge.Length > 0)} need --bridge-copy, {ready.Count(r => r.StandIn)} are stand-ins by gg_notice, "
+        Out.Print($"Of the {counts[Ready]} ready rows: {ready.Count(r => r.Bridge.Length > 0)} need --bridge-copy, {ready.Count(r => r.StandIn)} are stand-ins by os_notice, "
                   + $"{ready.Count(r => r.Names.StartsWith("real name", StringComparison.Ordinal))} would show a real name and mask it, {ready.Count(r => r.Pick.Length > 0)} show a pick on today's surface: retake those when the message system lands.");
         Out.Print($"Every ready frame also gets the avatar and, but for {ready.Count(r => r.Chat)} chat rows, the chat zone blurred.");
     }

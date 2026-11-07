@@ -10,13 +10,13 @@ So what these verbs change lands in the candidate's copy of the data, and goes w
 free text body from the command line. The calls go from inside the game container, the way the game server's own log push does, to the bridge's container name
 (bridge.container in the private config), which the checks above make the candidate. The secret travels in the exec's environment and is never printed.
 
-    python bridgepost.py restart <kind> <when> <seconds>    /restart-notice: gg-restart 1 <kind> <when> <seconds>
+    python bridgepost.py restart <kind> <when> <seconds>    /restart-notice: os2-restart 1 <kind> <when> <seconds>
                                                             kind: game-update, our-update, daily, downloads; when: match-end, now
-    python bridgepost.py restart-cancel <kind>              /restart-notice: gg-restart 1 cancel <kind>
-    python bridgepost.py updated <kind> <words...>          /updated: gg-updated 1 <kind> <words> ("CS2 1.41.9.6")
-    python bridgepost.py quit-notice                        /quitting: gg-quit 1 daily: the bridge takes the server for going down: a player's !restart counting down sends no quit after it
+    python bridgepost.py restart-cancel <kind>              /restart-notice: os2-restart 1 cancel <kind>
+    python bridgepost.py updated <kind> <words...>          /updated: os2-updated 1 <kind> <words> ("CS2 1.41.9.6")
+    python bridgepost.py quit-notice                        /quitting: os2-quit 1 daily: the bridge takes the server for going down: a player's !restart counting down sends no quit after it
     python bridgepost.py fake-on [n]                        /log: n of the fake players (1-4: Test A to Test D) connect and enter the game
-    python bridgepost.py fake-off                           /log: all of them leave, and HUDtest, whom css_gghud click makes present
+    python bridgepost.py fake-off                           /log: all of them leave, and HUDtest, whom os_hud click makes present
     python bridgepost.py fake-crash                         /log: the first three time out, which marks the map they are on and rolls the dice: a map change counting down. Call it off in time: quit-notice
     python bridgepost.py client-off <account>               /log: the bridge takes that real player for gone: its lines stop naming them; the game still shows them everything
     python bridgepost.py client-on <account>                /log: a chat line under the test name: the bridge has them back, under that name, until their next click
@@ -43,7 +43,7 @@ import testcopy  # noqa: E402  (what a test copy and a candidate are)
 FAKES = [("Test A", "[U:1:42424251]"), ("Test B", "[U:1:42424252]"), ("Test C", "[U:1:42424253]"), ("Test D", "[U:1:42424254]")]   # test names only: the pictures are public
 CLIENT_NAME = "Alice"                         # docshots.py's test name for the real client, in what the bridge says about them
 ACTS = {"next": "!next", "random": "!next random", "previous": "!previous", "restart": "!restart", "rematch": "!rematch", "time10": "!time 10", "time60": "!time 60"}   # bridge/Hud.cs's Actions, those a picture needs
-HUDTEST = ("HUDtest", "[U:1:42424243]")       # plugin/OverStrike2's css_gghud click for docshots.py's account that is not on the server
+HUDTEST = ("HUDtest", "[U:1:42424243]")       # plugin/OverStrike2's os_hud click for docshots.py's account that is not on the server
 KINDS = ("game-update", "our-update", "daily", "downloads")
 WHEN = ("match-end", "now")
 ROUND_TRIES, ROUND_WAIT = 5, 2.0
@@ -150,7 +150,7 @@ def main(argv):
     if verb == "check":
         print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside")
     elif verb == "names-check":
-        # The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (GgDocName) reaches the
+        # The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (OsDocName) reaches the
         # bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before a picture.
         secret, port = route(b)
         lines = exec_in_copy(f"http://{testcopy.BRIDGE}:{port}/hud/{secret}", ["python3", "-c", GET_VOTE_LINES], secret).splitlines()
@@ -164,15 +164,15 @@ def main(argv):
     elif verb == "restart":
         if len(args) != 3 or args[0] not in KINDS or args[1] not in WHEN or not args[2].isdigit():
             sys.exit(f"usage: restart <{'|'.join(KINDS)}> <{'|'.join(WHEN)}> <seconds>")
-        post(b, "restart-notice", "\t".join(["gg-restart", "1", *args]))
+        post(b, "restart-notice", "\t".join(["os2-restart", "1", *args]))
     elif verb == "restart-cancel":
         if len(args) != 1 or args[0] not in KINDS:
             sys.exit(f"usage: restart-cancel <{'|'.join(KINDS)}>")
-        post(b, "restart-notice", "\t".join(["gg-restart", "1", "cancel", args[0]]))
+        post(b, "restart-notice", "\t".join(["os2-restart", "1", "cancel", args[0]]))
     elif verb == "updated":
         if len(args) < 2 or args[0] not in KINDS or not re.fullmatch(r"[\w .-]{1,60}", " ".join(args[1:])):
             sys.exit(f"usage: updated <{'|'.join(KINDS)}> <words>")
-        post(b, "updated", "\t".join(["gg-updated", "1", args[0], " ".join(args[1:])]))
+        post(b, "updated", "\t".join(["os2-updated", "1", args[0], " ".join(args[1:])]))
     elif verb == "fake-on":
         n = int(args[0]) if args and args[0].isdigit() else len(FAKES) if not args else 0
         if not 1 <= n <= len(FAKES):
@@ -185,7 +185,7 @@ def main(argv):
     elif verb == "fake-crash":
         post(b, "log", log_lines(f'"{name}<9{i}><{sid}><CT>" disconnected (reason "NETWORK_DISCONNECT_TIMEDOUT")' for i, (name, sid) in enumerate(FAKES[:3])), answers=False)
     elif verb == "quit-notice":
-        post(b, "quitting", "gg-quit\t1\tdaily")
+        post(b, "quitting", "os2-quit\t1\tdaily")
     elif verb in ("client-off", "client-on"):
         if len(args) != 1 or not args[0].isdigit():
             sys.exit(f"usage: {verb} <account>")

@@ -404,7 +404,7 @@ static partial class DocShots
     static HashSet<string> BrowserRows => [.. Rows.Where(r => r.Section == SMaps).Select(r => r.Id), "why-card", "play-asks-first", "vote-browse"];
 
     /// <summary>The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars) and those over a
-    /// name the bridge has from the game's log (Mask.Keep): GgDocName renames the client on the server, but the bridge learned its name at the connect.</summary>
+    /// name the bridge has from the game's log (Mask.Keep): OsDocName renames the client on the server, but the bridge learned its name at the connect.</summary>
     static IEnumerable<Mask> KeptMasks(Row row) => row.Masks.Where(m => !Renamed || m == BlurScoreboard || m.Keep);
 
     /// <summary>The frame as it may be published: the avatar, chat (or what the row's chat mask says), the row's own; under --renamed the avatar and

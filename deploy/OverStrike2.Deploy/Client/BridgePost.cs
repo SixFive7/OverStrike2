@@ -12,10 +12,10 @@ namespace OverStrike2.Deploy;
 /// body from the command line. The calls go from inside the game container to the bridge's container name; the secret travels in the
 /// exec's environment and is never printed.
 ///
-///     bridgepost restart &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;    /restart-notice: gg-restart 1 &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;
-///     bridgepost restart-cancel &lt;kind&gt;              /restart-notice: gg-restart 1 cancel &lt;kind&gt;
-///     bridgepost updated &lt;kind&gt; &lt;words...&gt;          /updated: gg-updated 1 &lt;kind&gt; &lt;words&gt;
-///     bridgepost quit-notice                        /quitting: gg-quit 1 daily
+///     bridgepost restart &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;    /restart-notice: os2-restart 1 &lt;kind&gt; &lt;when&gt; &lt;seconds&gt;
+///     bridgepost restart-cancel &lt;kind&gt;              /restart-notice: os2-restart 1 cancel &lt;kind&gt;
+///     bridgepost updated &lt;kind&gt; &lt;words...&gt;          /updated: os2-updated 1 &lt;kind&gt; &lt;words&gt;
+///     bridgepost quit-notice                        /quitting: os2-quit 1 daily
 ///     bridgepost fake-on [n]                        /log: n of the fake players (1-4: Test A to Test D) connect and enter the game
 ///     bridgepost fake-off                           /log: all of them leave, and HUDtest
 ///     bridgepost fake-crash                         /log: the first three time out (marks the map, rolls the dice)
@@ -172,7 +172,7 @@ sealed class BridgePost(TestCopy tc)
                 Out.Print("all checks hold: a test copy, the candidate on its copy of the data, production and its bridge aside");
                 break;
             case "names-check":
-                // The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (GgDocName) reaches
+                // The bridge knows a player by the name the game's log gave it at the connect; a test name the server goes by (OsDocName) reaches
                 // the bridge only with that player's next chat line or click. So a ballot can name the client by its own Steam name: refuse before
                 // a picture.
                 var (secret, port) = Route(b);
@@ -188,17 +188,17 @@ sealed class BridgePost(TestCopy tc)
             case "restart":
                 if (args.Count != 3 || !Kinds.Contains(args[0]) || !When.Contains(args[1]) || !Py.IsDigits(args[2]))
                     throw Out.Stop($"usage: restart <{string.Join('|', Kinds)}> <{string.Join('|', When)}> <seconds>");
-                Send(b, "restart-notice", string.Join("\t", ["gg-restart", "1", .. args]));
+                Send(b, "restart-notice", string.Join("\t", ["os2-restart", "1", .. args]));
                 break;
             case "restart-cancel":
                 if (args.Count != 1 || !Kinds.Contains(args[0]))
                     throw Out.Stop($"usage: restart-cancel <{string.Join('|', Kinds)}>");
-                Send(b, "restart-notice", string.Join("\t", "gg-restart", "1", "cancel", args[0]));
+                Send(b, "restart-notice", string.Join("\t", "os2-restart", "1", "cancel", args[0]));
                 break;
             case "updated":
                 if (args.Count < 2 || !Kinds.Contains(args[0]) || !Regex.IsMatch(string.Join(" ", args.Skip(1)), @"^[\w .-]{1,60}$"))
                     throw Out.Stop($"usage: updated <{string.Join('|', Kinds)}> <words>");
-                Send(b, "updated", string.Join("\t", "gg-updated", "1", args[0], string.Join(" ", args.Skip(1))));
+                Send(b, "updated", string.Join("\t", "os2-updated", "1", args[0], string.Join(" ", args.Skip(1))));
                 break;
             case "fake-on":
                 var n = args.Count > 0 && Py.IsDigits(args[0]) ? int.Parse(args[0], CultureInfo.InvariantCulture) : args.Count == 0 ? Fakes.Length : 0;
@@ -215,7 +215,7 @@ sealed class BridgePost(TestCopy tc)
                 Send(b, "log", LogLines(Fakes.Take(3).Select((f, i) => $"\"{f.Name}<9{i}><{f.Sid}><CT>\" disconnected (reason \"NETWORK_DISCONNECT_TIMEDOUT\")")), answers: false);
                 break;
             case "quit-notice":
-                Send(b, "quitting", "gg-quit\t1\tdaily");
+                Send(b, "quitting", "os2-quit\t1\tdaily");
                 break;
             case "client-off":
             case "client-on":

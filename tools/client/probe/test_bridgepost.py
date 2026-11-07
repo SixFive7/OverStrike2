@@ -60,7 +60,7 @@ def req(path, method="GET", body=None, ctype=None, timeout=None):
         if "/log/" in url:
             return 200, b"200 \n"
         if "/act/" in url:
-            return 200, b"200 gg-hud\tHUD holds Secret Name\n"
+            return 200, b"200 os2-hud\tHUD holds Secret Name\n"
         return 200, ("200 " + state["answer"].format(url=url)).encode()    # a bridge that echoes its URL: the scrub must catch it
     raise AssertionError(f"unexpected call {method} {path}")
 
@@ -128,7 +128,7 @@ execs.clear()
 code, out = run("restart", "our-update", "match-end", "0")
 e = execs[-1]
 check(code is None, "restart: sent")
-check(e["Cmd"][0] == "python3" and e["Cmd"][3] == "gg-restart\t1\tour-update\tmatch-end\t0", f"restart: the bridge's own body: {e['Cmd'][3:]!r}")
+check(e["Cmd"][0] == "python3" and e["Cmd"][3] == "os2-restart\t1\tour-update\tmatch-end\t0", f"restart: the bridge's own body: {e['Cmd'][3:]!r}")
 check(e["Env"] == [f"OS2_BRIDGE_URL=http://bridge:8081/restart-notice/{SECRET}"], "restart: the candidate's name, port, route and secret, in the exec's environment")
 check(SECRET not in " ".join(e["Cmd"]), "the secret is not on the exec's command line")
 check(SECRET not in out and "<secret>" in out, "the secret never reaches the output, even when the answer holds it")
@@ -139,9 +139,9 @@ for answer in ("refused: the kind is daily", "busy: the bridge did not get to it
 state["answer"] = "ok: taken at {url}"
 
 run("restart-cancel", "daily")
-check(execs[-1]["Cmd"][3] == "gg-restart\t1\tcancel\tdaily", "restart-cancel: its body")
+check(execs[-1]["Cmd"][3] == "os2-restart\t1\tcancel\tdaily", "restart-cancel: its body")
 run("updated", "game-update", "CS2", "1.41.9.6")
-check(execs[-1]["Cmd"][3] == "gg-updated\t1\tgame-update\tCS2 1.41.9.6" and "/updated/" in execs[-1]["Env"][0], "updated: its body and route")
+check(execs[-1]["Cmd"][3] == "os2-updated\t1\tgame-update\tCS2 1.41.9.6" and "/updated/" in execs[-1]["Env"][0], "updated: its body and route")
 
 code, out = run("fake-on", "2")
 lines = execs[-1]["Cmd"][3].split("\n")
@@ -161,7 +161,7 @@ run("fake-crash")
 crash = execs[-1]["Cmd"][3].split("\n")
 check(len(crash) == 3 and all("NETWORK_DISCONNECT_TIMEDOUT" in l for l in crash), "fake-crash: three players time out (BrokenWhy.cs: the third marks the map)")
 run("quit-notice")
-check(execs[-1]["Cmd"][3] == "gg-quit\t1\tdaily" and "/quitting/" in execs[-1]["Env"][0], "quit-notice: its body and route")
+check(execs[-1]["Cmd"][3] == "os2-quit\t1\tdaily" and "/quitting/" in execs[-1]["Env"][0], "quit-notice: its body and route")
 run("client-off", CLIENT)
 off = execs[-1]["Cmd"][3]
 check(player.match(off) and player.match(off).group(1) == "Alice" and player.match(off).group(3) == f"[U:1:{CLIENT}]" and "disconnected (reason" in off and "SHUTDOWN" not in off, f"client-off: a real departure, under the test name: {off}")
@@ -241,7 +241,7 @@ class Bridge(http.server.BaseHTTPRequestHandler):
         self.answer("ok: heard" if "notice" in self.path else "")
 
     def do_GET(self):
-        self.answer("gg-hud\tname\nmvo\t1\tHUDtest\nmv\t77\topen\t50\n" + "x" * 200000 + "\n")
+        self.answer("os2-hud\tname\nmvo\t1\tHUDtest\nmv\t77\topen\t50\n" + "x" * 200000 + "\n")
 
     def log_message(self, *a):
         pass
@@ -257,8 +257,8 @@ def inner(path, *cmd):
     return r.returncode, r.stdout, r.stderr
 
 
-code, out, err = inner("/restart-notice/x", bp.POST, "gg-restart\t1\tcancel\tdaily")
-check(code == 0 and out.strip() == "200 ok: heard" and Bridge.got[-1] == ("/restart-notice/x", "gg-restart\t1\tcancel\tdaily"), f"POST runs and passes the answer on: {out!r} {err[-200:]!r}")
+code, out, err = inner("/restart-notice/x", bp.POST, "os2-restart\t1\tcancel\tdaily")
+check(code == 0 and out.strip() == "200 ok: heard" and Bridge.got[-1] == ("/restart-notice/x", "os2-restart\t1\tcancel\tdaily"), f"POST runs and passes the answer on: {out!r} {err[-200:]!r}")
 code, out, err = inner("/log/x", bp.POST, "line one\nline two")
 check(code == 0 and out.strip() == "200" and Bridge.got[-1][1] == "line one\nline two", f"POST with an empty answer, and a body of two lines: {out!r} {err[-200:]!r}")
 code, out, err = inner("/hud/x", bp.GET_VOTE)

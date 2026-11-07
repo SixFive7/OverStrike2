@@ -67,7 +67,7 @@ static class BridgePostTests
                     if (url.Contains("/log/"))
                         return Reply.Of(200, "200 \n");
                     if (url.Contains("/act/"))
-                        return Reply.Of(200, "200 gg-hud\tHUD holds Secret Name\n");
+                        return Reply.Of(200, "200 os2-hud\tHUD holds Secret Name\n");
                     return Reply.Of(200, "200 " + answer.Replace("{url}", url, StringComparison.Ordinal));   // a bridge that echoes its URL: the scrub must catch it
                 }
                 throw new InvalidOperationException($"unexpected call {method} {path}");
@@ -142,7 +142,7 @@ static class BridgePostTests
             var e = execs[^1];
             check("restart: sent", code is null);
             check($"restart: the bridge's own body: {Py.Repr(Json.Arr(e, "Cmd").Skip(3).Select(Json.PyStr).ToList())}",
-                  Json.PyStr(Json.Arr(e, "Cmd")[0]) == "python3" && Cmd3(e) == "gg-restart\t1\tour-update\tmatch-end\t0");
+                  Json.PyStr(Json.Arr(e, "Cmd")[0]) == "python3" && Cmd3(e) == "os2-restart\t1\tour-update\tmatch-end\t0");
             check("restart: the candidate's name, port, route and secret, in the exec's environment",
                   Json.Arr(e, "Env").Select(Json.PyStr).SequenceEqual([$"OS2_BRIDGE_URL=http://bridge:8081/restart-notice/{Secret}"]));
             check("the secret is not on the exec's command line", !string.Join(" ", Json.Arr(e, "Cmd").Select(Json.PyStr)).Contains(Secret));
@@ -156,9 +156,9 @@ static class BridgePostTests
             answer = "ok: taken at {url}";
 
             RunBp("restart-cancel", "daily");
-            check("restart-cancel: its body", Cmd3(execs[^1]) == "gg-restart\t1\tcancel\tdaily");
+            check("restart-cancel: its body", Cmd3(execs[^1]) == "os2-restart\t1\tcancel\tdaily");
             RunBp("updated", "game-update", "CS2", "1.41.9.6");
-            check("updated: its body and route", Cmd3(execs[^1]) == "gg-updated\t1\tgame-update\tCS2 1.41.9.6" && Env0(execs[^1]).Contains("/updated/"));
+            check("updated: its body and route", Cmd3(execs[^1]) == "os2-updated\t1\tgame-update\tCS2 1.41.9.6" && Env0(execs[^1]).Contains("/updated/"));
 
             (code, output) = RunBp("fake-on", "2");
             var lines = Cmd3(execs[^1]).Split('\n');
@@ -181,7 +181,7 @@ static class BridgePostTests
             var crash = Cmd3(execs[^1]).Split('\n');
             check("fake-crash: three players time out (BrokenWhy.cs: the third marks the map)", crash.Length == 3 && crash.All(l => l.Contains("NETWORK_DISCONNECT_TIMEDOUT")));
             RunBp("quit-notice");
-            check("quit-notice: its body and route", Cmd3(execs[^1]) == "gg-quit\t1\tdaily" && Env0(execs[^1]).Contains("/quitting/"));
+            check("quit-notice: its body and route", Cmd3(execs[^1]) == "os2-quit\t1\tdaily" && Env0(execs[^1]).Contains("/quitting/"));
             RunBp("client-off", Client);
             var off = Cmd3(execs[^1]);
             var mOff = player.Match(off);
@@ -309,7 +309,7 @@ static class BridgePostTests
                         text = path.Contains("notice") ? "ok: heard" : "";
                     }
                     else
-                        text = "gg-hud\tname\nmvo\t1\tHUDtest\nmv\t77\topen\t50\n" + new string('x', 200000) + "\n";
+                        text = "os2-hud\tname\nmvo\t1\tHUDtest\nmv\t77\topen\t50\n" + new string('x', 200000) + "\n";
                     var bytes = Encoding.UTF8.GetBytes(text);
                     await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Length: {bytes.Length}\r\nConnection: close\r\n\r\n"));
                     await stream.WriteAsync(bytes);
@@ -333,7 +333,7 @@ static class BridgePostTests
         }
         try
         {
-            var post = Inner("/restart-notice/x", BridgePost.Post, "gg-restart\t1\tcancel\tdaily");
+            var post = Inner("/restart-notice/x", BridgePost.Post, "os2-restart\t1\tcancel\tdaily");
             if (post is null)
             {
                 SelfTest.Skip("the inner programs: no Python on this PC to run them with (4 checks)", 4);
@@ -341,7 +341,7 @@ static class BridgePostTests
             }
             var (code, output, err) = post.Value;
             check($"POST runs and passes the answer on: {Py.Repr(output)} {Py.Repr(Py.Slice(err, -200))}",
-                  code == 0 && Py.Strip(output) == "200 ok: heard" && got.Count > 0 && got[^1] == ("/restart-notice/x", "gg-restart\t1\tcancel\tdaily"));
+                  code == 0 && Py.Strip(output) == "200 ok: heard" && got.Count > 0 && got[^1] == ("/restart-notice/x", "os2-restart\t1\tcancel\tdaily"));
             (code, output, err) = Inner("/log/x", BridgePost.Post, "line one\nline two")!.Value;
             check($"POST with an empty answer, and a body of two lines: {Py.Repr(output)} {Py.Repr(Py.Slice(err, -200))}",
                   code == 0 && Py.Strip(output) == "200" && got[^1].Body == "line one\nline two");

@@ -32,8 +32,8 @@ background (rb, press(bg=True), note) with its shots behind it, and no second RC
 once. A picture that depends on how long ago something happened, not on the call just before it, waits for that moment itself (until): the HUD check's
 warning from the join, the vote's clocks and words from its opening or its close, a card or a line gone from a spawn or from the rows before.
 
-NAMES: the pictures are public, so test names only. Best of all the client plays under the test name: GgDocName (this folder), a throwaway plugin on the test copy
-only, makes the server call it Alice, and --renamed says so (the run checks it with ggd_name): then no mask is needed for a name, only the avatar is blurred (and CS2's
+NAMES: the pictures are public, so test names only. Best of all the client plays under the test name: OsDocName (this folder), a throwaway plugin on the test copy
+only, makes the server call it Alice, and --renamed says so (the run checks it with osd_name): then no mask is needed for a name, only the avatar is blurred (and CS2's
 scoreboard, for its avatars), and the rows whose own words name the client - a fun change typed in chat - can run. The bridge is another matter: it knows
 the client by the name of the game log's connect line, the Steam name, until the client's next chat line or click under the test name. So the ballots' waiting
 names keep their paint under --renamed (Mask.keep), HUDtest's vote tells the bridge the test name first (bridgepost.py client-on), and every row that opens a
@@ -42,7 +42,7 @@ avatar and the chat zone blurred (the player's own chat lines carry the name) be
 Where a row would show the client's own name, the row says so in its names field and paints a test name over it, by a box at 1080p scaled by the height (words
 drift up to 5 % in width between resolutions, so a mask takes a whole label, or blurs where a label's words change). The boxes marked UNSEEN come from the
 committed stylesheet: no shot of this content exists yet, so the FIRST run of a content takes --keep-raw, its pictures are checked, a wrong box is corrected here
-and --remask redoes them with no game. Everything else is sent under a test name: gg_notice's words, css_gghud centre's, gg_fun's who, css_gghud click for an
+and --remask redoes them with no game. Everything else is sent under a test name: os_notice's words, os_hud centre's, os_fun's who, os_hud click for an
 account not on the server (HUDtest). Raw frames are deleted once masked, unless --keep-raw. Review every picture before it goes into the public docs:
 tools/scan/allow.txt takes its hash, nothing here reads text in a picture.
 
@@ -101,10 +101,10 @@ def deployment():
 HOST, PORT, LOCK, STEAM_ACCOUNT, REAL_NAMES = deployment()   # REAL_NAMES: never in a command, a mask or a row's words; scrubbed from the run's log
 START_MAP = "ar_shoots"
 ACCOUNT = STEAM_ACCOUNT or MADE_UP_ACCOUNT   # the client's account
-FAKE_ACCOUNT = "42424243"       # no such player on the server: css_gghud click acts as HUDtest for it (HudScreen.SimulateClick)
+FAKE_ACCOUNT = "42424243"       # no such player on the server: os_hud click acts as HUDtest for it (HudScreen.SimulateClick)
 ME = "Alice"                    # the test name painted over the client's own name, and the who of what the run itself changes
 BUILT = ""                      # --built: the commit the build under test came from, when HEAD is later by documentation only
-RENAMED = False                 # --renamed: the client goes by ME on the server (GgDocName), so no mask is needed for a name
+RENAMED = False                 # --renamed: the client goes by ME on the server (OsDocName), so no mask is needed for a name
 RESOLUTIONS = ("1920x1080", "1280x720", "1680x1050", "1600x1200", "2560x1080", "2560x1440", "3840x2160")  # the docs' 1920x1080, then the review set's six
 ALL_VERBS = ("rcon", "cmd", "shot", "log")
 
@@ -159,7 +159,7 @@ def head_version(path, pattern):
 
 
 _CONTENTS = re.findall(r'\("(v[\d.]+)", (\d+)\),', head_file("bridge/HudVersion.cs") or "")   # HudVersion.Contents: its last line is the committed content; the rows fake the versions around it
-CONTENT, LEVEL = (_CONTENTS[-1][0], int(_CONTENTS[-1][1])) if _CONTENTS else ("?", 0)      # 46 is v4.6.0: css_gghud level and css_gghud content take this number
+CONTENT, LEVEL = (_CONTENTS[-1][0], int(_CONTENTS[-1][1])) if _CONTENTS else ("?", 0)      # 46 is v4.6.0: os_hud level and os_hud content take this number
 
 
 @dataclass(frozen=True)
@@ -174,7 +174,7 @@ class Box:
 
 
 def place(b, w, h):
-    """Anchors c, l, r as above; v: the big vote window, centred both ways, its ui-scale 92 % at 16:10 and 80 % at 4:3 (.AspectRatio16x10 .gg-screen.voting .gg-win)."""
+    """Anchors c, l, r as above; v: the big vote window, centred both ways, its ui-scale 92 % at 16:10 and 80 % at 4:3 (.AspectRatio16x10 .os-screen.voting .os-win)."""
     s = h / 1080
     fy = lambda y: y * s
     if b.anchor == "c":
@@ -210,7 +210,7 @@ class Mask:
     y1: float = 975
     bold: bool = True
     drift: bool = False      # the box's left edge follows WORD_DRIFT: words before it on the line are narrower at the small resolutions
-    keep: bool = False       # kept under --renamed too: a name the bridge has from the game's log (a connect line), which GgDocName does not change
+    keep: bool = False       # kept under --renamed too: a name the bridge has from the game's log (a connect line), which OsDocName does not change
 
 
 def paint(x0, y0, x1, y1, text, color=(245, 245, 245), size=13, spacing=0, align="l", anchor="c", bold=True, drift=False, keep=False):
@@ -261,7 +261,7 @@ BLUR_VWAIT_TAIL = blur(905, 304, 1048, 334, "v")                                
 BLUR_VSTART = blur(400, 262, 1040, 292, "v")                                           # osvstart: empty on main, "Started by <own>" once branch wt/votedata lands
 M_VSTART = paint(348, 264, 1040, 290, f"Started by {ME}", (245, 245, 245), 13, anchor="v")   # osvstart, the whole label, from x 350 (seen at 1080p, 2026-11-05): a vote the client started
 M_VRESET = paint(1583, 314, 1806, 340, f"Reset by {ME}", (255, 255, 255), 14, anchor="v")  # the inactivity clock's words, the whole label, from x 1587 (seen at 1080p, 2026-11-05)
-BLUR_TILE1_NAMES = blur(118, 492, 334, 544, "v")                                       # the first tile: who voted for it, at the foot of its picture (.gg-mnames; 30 px higher on a broken or crashed card)
+BLUR_TILE1_NAMES = blur(118, 492, 334, 544, "v")                                       # the first tile: who voted for it, at the foot of its picture (.os-mnames; 30 px higher on a broken or crashed card)
 BLUR_TILE1_WHO = blur(120, 568, 444, 592, "v")                                         # the first tile: picked by <own>
 
 C_TOP = Box(470, 140, 1450, 240)
@@ -302,7 +302,7 @@ V_START_WAIT = Box(1312, 506, 1500, 528)                # START's live column in
 V_STRIP_NAMES = Box(296, 302, 1040, 336, "v")           # the ballot's strip: a segment per card with votes, named after the card's map - rolled at random
 V_RESTART_SECONDS = Box(400, 494, 600, 512)             # SERVER, Game: the restart armed, "PRESS AGAIN WITHIN 25 S" - its seconds, and its words pulse
 V_TOP_EDGE = Box(470, 126, 1450, 140)                   # the top line above the window reaches into its frame: its words follow the match's age ("This match too", "ends in 60 s")
-V_VOTE_PAGER_NEXT = Box(1024, 914, 1096, 956, "v")      # the ballot's pager: Next pulses while more pages follow (.gg-pgb-glow, 1.6 s)
+V_VOTE_PAGER_NEXT = Box(1024, 914, 1096, 956, "v")      # the ballot's pager: Next pulses while more pages follow (.os-pgb-glow, 1.6 s)
 V_WHY_BAR = Box(740, 632, 1185, 642)                     # the reasons dialog's bar, which drains for its 15 s
 V_BANNER_MAP = Box(800, 184, 1203, 206)                  # the map change banner's map: rolled at random (its picture beside it is left of the banner's panel)
 
@@ -333,22 +333,22 @@ def rb(cmd, expect=""):
 
 
 def show(page, bg=False):
-    return Step("rcon_bg" if bg else "rcon", f"css_gghud show {ACCOUNT} {page}", expect=r"window on ")
+    return Step("rcon_bg" if bg else "rcon", f"os_hud show {ACCOUNT} {page}", expect=r"window on ")
 
 
 def press(button, bg=False):
     """A click through the real click path (HudScreen.Press)."""
-    return Step("rcon_bg" if bg else "rcon", f"css_gghud press {ACCOUNT} {button}", expect=r"pressed ", button=button)
+    return Step("rcon_bg" if bg else "rcon", f"os_hud press {ACCOUNT} {button}", expect=r"pressed ", button=button)
 
 
 def click(button, who=ACCOUNT, bg=False):
     """What a button sends the bridge, for that account (HudScreen.SimulateClick): under the player's own name, or HUDtest for an account not on the server."""
-    return Step("rcon_bg" if bg else "rcon", f"css_gghud click {who} {button}", expect=r"sent !", button=button)
+    return Step("rcon_bg" if bg else "rcon", f"os_hud click {who} {button}", expect=r"sent !", button=button)
 
 
 def note(seconds, text, bg=True):
-    """gg_notice: the news line, for everybody: the plugin's own line wins over the bridge's while it lasts (HudScreen.Frame's ownNews)."""
-    return Step("rcon_bg" if bg else "rcon", f'gg_notice {seconds} "{text}"', expect=r"gg_notice: shown")
+    """os_notice: the news line, for everybody: the plugin's own line wins over the bridge's while it lasts (HudScreen.Frame's ownNews)."""
+    return Step("rcon_bg" if bg else "rcon", f'os_notice {seconds} "{text}"', expect=r"os_notice: shown")
 
 
 def con(cmd, wait_ms=300):
@@ -410,12 +410,12 @@ def post(*args):
     return Step("post", " ".join(args))
 
 
-RELEASE = rc("css_gghud release", expect=r"released:")
-RESET_FUN = rc(f'gg_fun reset "{ME}"', expect=r"fun: reset")
+RELEASE = rc("os_hud release", expect=r"released:")
+RESET_FUN = rc(f'os_fun reset "{ME}"', expect=r"fun: reset")
 
 
 def content(level):
-    return rc(f"css_gghud content {ACCOUNT} {level}", expect=r"account \d+: HUD")
+    return rc(f"os_hud content {ACCOUNT} {level}", expect=r"account \d+: HUD")
 
 
 # ---------------------------------------------------------------- the table ----------------------------------------------------------------------------
@@ -431,7 +431,7 @@ def real(how):
 GREETING = real("START's greeting: a test name is painted over it")
 UNSEEN = " (its box from the stylesheet, never yet seen on a shot: check it on the first run)"
 PLAYERS = real("the Players page's first row: a test name is painted over it")
-TOP_NAMED = real("the top line starts with who did it, typed by the client: only GgDocName's test name may reach this row, no mask covers it") + UNSEEN
+TOP_NAMED = real("the top line starts with who did it, typed by the client: only OsDocName's test name may reach this row, no mask covers it") + UNSEEN
 NEWS_VOTE = real("the top line above the window names who started the vote: blurred (vote-started-line shows it under a test name)")
 
 # what a row writes in the bridge's data: such a row runs only with --bridge-copy
@@ -471,7 +471,7 @@ class Row:
     win: object = True                          # the window is open in its frames, True, or the big vote window, "vote": the chat zone stops at its edge
     avatar: Box = BLUR_AVATAR.box               # where the team counter's avatar shows in its frames (never blurred through words drawn over it)
     today: str = ""                             # the surface today's committed code uses
-    stand_in: bool = False                      # the message's real words on its real panel, sent with gg_notice
+    stand_in: bool = False                      # the message's real words on its real panel, sent with os_notice
     words_from: tuple = ()                      # (path at HEAD, words that must still be there)
     renamed: bool = False                       # its own words name the client, where no mask can go: only with --renamed
     volatile: tuple = ()                        # boxes that differ on every shot beyond those of its window's kind (volatile_boxes)
@@ -489,7 +489,7 @@ def R(id, shows="", **kw):
 # ---- a fresh, real join first: any click ends the HUD check -------------------------------------------------------------------------------------------
 
 R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick="HUD check: Click to play",
-  today="the window's X (gg_hudver_v4.6.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+  today="the window's X (os_hudver_v4.8.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
   steps=[con("disconnect"), pause(3), mark(), con(f"connect {HOST}:{PORT}"), wait_ingame(), pause(4), con("jointeam 2 1", 1500), pause(5), shoot()],
   when="5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
   crop=C_X, masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
@@ -499,14 +499,14 @@ R("players-check", "SERVER > Players while the check waits: HUD check: N s left 
 R("check-warning", "The warning before the disconnect, in CS2's alert box; under HUD_CHECK warn its words say to close the window", pick="HUD check: the disconnect warning",
   today="CS2's alert text 10b, 15 s, and its chat lines (the words of enforce take HUD_CHECK=enforce, which no verb sets)",
   after="players-check", steps=[RELEASE, until("join", 78), shoot(n=2)],
-  when="from about 80 s after the team is joined, the first spawn a second after it: the warning comes 15 s before the check's 90 s (HudCheck.GraceSeconds, WarnSeconds), so 4-7 s into it; the window closed by css_gghud release, which is no click, since it hides the box",
+  when="from about 80 s after the team is joined, the first spawn a second after it: the warning comes 15 s before the check's 90 s (HudCheck.GraceSeconds, WarnSeconds), so 4-7 s into it; the window closed by os_hud release, which is no click, since it hides the box",
   crop=C_ALERT, win=False, words_from=("bridge/HudCheck.cs", "HUD check: No click yet"))
 R("joined-hud-version", "CS2's plain centre text: who joined with which HUD", pick='"Erik joined with HUD v4_6_0"', today="CS2's plain centre text 9a, 8 s, held by sending it again, with its chat and board copies",
-  stand_in=True, words_from=("bridge/Program.cs", "joined with"), after="check-warning", steps=[rb(f'css_gghud centre 3 8 "Erik joined with HUD {CONTENT}"', expect=r"sent again"), pause(3.5), shoot(n=2)], cleanup=[content(LEVEL)],
-  when="from about 5 s after the send. css_gghud centre sends the real text verb's words under a test name; the cleanup says which HUD this game holds without a click, whose news names the client",
+  stand_in=True, words_from=("bridge/Program.cs", "joined with"), after="check-warning", steps=[rb(f'os_hud centre 3 8 "Erik joined with HUD {CONTENT}"', expect=r"sent again"), pause(3.5), shoot(n=2)], cleanup=[content(LEVEL)],
+  when="from about 5 s after the send. os_hud centre sends the real text verb's words under a test name; the cleanup says which HUD this game holds without a click, whose news names the client",
   crop=C_PLAIN, win=False, names=TEST_NAME + ": the real one names the client")
 
-# ---- the top line, window closed: gg_notice is the real sender of the download lines; the other lines' real words on their real panel --------------------------
+# ---- the top line, window closed: os_notice is the real sender of the download lines; the other lines' real words on their real panel --------------------------
 
 
 def top(id, pick, text, words_from, today="the top line 4d, as picked", **kw):
@@ -520,21 +520,21 @@ R("top-plain", "The top line: a plain news item, the match length set by a fake 
 top("top-server-down", "The server went down on a map", "The server crashed on #1809 bigjoe_water and has restarted - That map no longer comes up at random, and voting for it takes a second click",
     ("bridge/CrashWatch.cs", "The server crashed on"), today="the top line 4d, 30 s; a real one records a crash mark")
 top("top-downloading", "The server downloading a map", "Server is downloading Assembly: 61 percent (438 MB of 711 MB) - The map changes when it is ready",
-    ("server/OverStrike2.Server/Workshop.cs", "the map changes when it is ready"), today="the top line 4d by gg_notice, the real sender's own verb; a real one leaves a map on the server")
+    ("server/OverStrike2.Server/Workshop.cs", "the map changes when it is ready"), today="the top line 4d by os_notice, the real sender's own verb; a real one leaves a map on the server")
 top("top-background-first", "Finishing a background download first", "Server is finishing the background download of Lake Aim first (63%) - Then Assembly, the map changes when it is ready",
-    ("server/OverStrike2.Server/Workshop.cs", "Server is finishing the background download"), today="the top line 4d by gg_notice, the real sender's own verb")
+    ("server/OverStrike2.Server/Workshop.cs", "Server is finishing the background download"), today="the top line 4d by os_notice, the real sender's own verb")
 top("top-download-failed", "A download failed", "The server could not download Assembly: No connection - Pick another map", ("server/OverStrike2.Server/Workshop.cs", "The server could not download"),
-    today="the top line 4d by gg_notice, the real sender's own verb, 10 s")
+    today="the top line 4d by os_notice, the real sender's own verb, 10 s")
 R("game-changer-undone", "The top line: a map's game-changer undone, the real thing", pick="A map's game-changer undone", today="the top line 4d, 10 s, as picked",
   steps=[rb("sv_allow_votes 1"), pause(3), shoot(n=2)], cleanup=[rc("sv_allow_votes")], when="from about 4.5 s after the send: the plugin puts the convar back within a second and says so, once per setting and map, so a setting not blocked yet on this map; the cleanup reads it back into the log",
   crop=C_TOP, win=False, words_from=("bridge/BlockList.cs", "Undone: the server keeps its own rules"))
 
 # ---- the version banners: this content's own words --------------------------------------------------------------------------------------------------------
 
-R("hud-outdated", "The status banner: your HUD is out of date, the server's version faked", pick="Your HUD is out of date: the banner that stays", today="the status banner 4e, top centre, as picked; css_gghud level fakes the server's version",
-  steps=[rc(f"css_gghud level {LEVEL + 1} {ACCOUNT}", expect=r"join banner"), pause(1), shoot()], cleanup=[rc("css_gghud level 0", expect=r"server level real")], when="1 s after the call returns: it stays", crop=C_BAN, win=False)
+R("hud-outdated", "The status banner: your HUD is out of date, the server's version faked", pick="Your HUD is out of date: the banner that stays", today="the status banner 4e, top centre, as picked; os_hud level fakes the server's version",
+  steps=[rc(f"os_hud level {LEVEL + 1} {ACCOUNT}", expect=r"join banner"), pause(1), shoot()], cleanup=[rc("os_hud level 0", expect=r"server level real")], when="1 s after the call returns: it stays", crop=C_BAN, win=False)
 R("hud-newer", "The status banner: your HUD is newer than the server's", pick="Your HUD is newer than the server's", today="the status banner 4e, red as the owner's note asks, 15 s from the join (vjoin)",
-  steps=[rc(f"css_gghud level {LEVEL - 1} {ACCOUNT}", expect=r"join banner"), pause(1), shoot()], cleanup=[rc("css_gghud level 0", expect=r"server level real")], when="1 s after the call returns, inside the 15 s that css_gghud level's join starts", crop=C_BAN, win=False)
+  steps=[rc(f"os_hud level {LEVEL - 1} {ACCOUNT}", expect=r"join banner"), pause(1), shoot()], cleanup=[rc("os_hud level 0", expect=r"server level real")], when="1 s after the call returns, inside the 15 s that os_hud level's join starts", crop=C_BAN, win=False)
 
 # ---- the welcome window, in both forms --------------------------------------------------------------------------------------------------------------------
 
@@ -557,38 +557,38 @@ R("chat-alias-help", "Chat: an alias taught, !help's list, and the Help page it 
   today="private chat lines beside the window, which covers chat from x 340", steps=[con("say !commands"), pause(1.5), shoot()], cleanup=[RELEASE],
   when="about 1.5 s after the line: the teach line and five lines of the list", crop=C_CHAT, chat=True, masks=(chat_above(6),), names=_CHAT, words_from=("bridge/ChatCommands.cs", "You typed"))
 R("chat-refused", "Chat: a refusal with its reason", pick="The answer to your own click: refused, click again, already set", today="a private chat line, as picked",
-  steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), pause(CHAT_GONE), con("say !jump high"), pause(1), shoot()], cleanup=[RESET_FUN],
+  steps=[rc('os_fun gravity moon "Bob"', expect=r"fun: "), pause(CHAT_GONE), con("say !jump high"), pause(1), shoot()], cleanup=[RESET_FUN],
   when="about 1 s after the line, the lines of !commands gone first", crop=C_CHAT, chat=True, win=False,
   masks=(chat_above(1),), names=_CHAT, words_from=("bridge/Fun.cs", "together they throw players out of most maps"))
 
 # ---- the window's pages, each by its tab through the real click path: a press on a closed window does nothing and still says pressed, so each opens it first ----
 
-R("page-start", "START: the logo and the large text, the steps, the live column, the gold Start a vote", section=S_WINDOW, steps=[show("start"), press("gg_tab_start"), pause(1), shoot()], when="1 s after the click returns", masks=(M_GREET,), names=GREETING + UNSEEN)
+R("page-start", "START: the logo and the large text, the steps, the live column, the gold Start a vote", section=S_WINDOW, steps=[show("start"), press("os_tab_start"), pause(1), shoot()], when="1 s after the click returns", masks=(M_GREET,), names=GREETING + UNSEEN)
 R("top-over-window", "The top line above the open window: one line, 84 px from the top", section=S_WINDOW, after="page-start", stand_in=True,
   steps=[note(10, "Bob set the match length to 10 minutes - From the next match"), pause(2.5), shoot()], cleanup=[pause(6)],
   when="about 4 s after the send; the cleanup waits out the note's 10 s, which the next page's frame would show above its window", crop=C_TOP_WIN, masks=(M_GREET,), names=GREETING + UNSEEN, avatar=AVATAR_OVER_NEWS,
   words_from=("bridge/Program.cs", "set the match length to"))
-R("page-fun", "FUN: every setting at its default, the note, Random and Default", section=S_WINDOW, steps=[show("start"), press("gg_tab_fun"), pause(1), shoot()], when="1 s after the click returns")
+R("page-fun", "FUN: every setting at its default, the note, Random and Default", section=S_WINDOW, steps=[show("start"), press("os_tab_fun"), pause(1), shoot()], when="1 s after the click returns")
 R("fun-set-by", "FUN: Gravity Moon, its row marked: Moon - set by Bob", pick='"set by <name>" on settings that are not default', today="a line on the Fun page's row, as picked; no chat or board copy yet",
-  after="page-fun", steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], when="1 s after the show returns", names=TEST_NAME + ": gg_fun's who")
+  after="page-fun", steps=[rc('os_fun gravity moon "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], when="1 s after the show returns", names=TEST_NAME + ": os_fun's who")
 R("fun-refused", "FUN: Super jump High clicked just as Moon gravity greys it: the bubble at the button says why", pick="The answer to your own click: refused, click again, already set",
   today="the bubble at the button (FunClicks), as the owner's note asks; only a click within 2 s of the grey gets one, later ones nothing: the grey has said it", after="fun-set-by",
-  steps=[pause(4), rc('gg_fun gravity normal "Bob"', expect=r"fun: "), rb(f'gg_fun gravity moon "Bob"; css_gghud press {ACCOUNT} gg_f2_2', expect=r"fun: "), pause(3.5), shoot()],
+  steps=[pause(4), rc('os_fun gravity normal "Bob"', expect=r"fun: "), rb(f'os_fun gravity moon "Bob"; os_hud press {ACCOUNT} os_f2_2', expect=r"fun: "), pause(3.5), shoot()],
   when="about 5 s after the send, one line for both so the click comes within the 2 s: the bubble stands 8 s. The 4 s first: the chat box has faded since top-over-window's line, so fun-already's chat holds this row's lines alone",
-  names=TEST_NAME + ": gg_fun's who", words_from=("bridge/Fun.cs", "together they throw players out of most maps"))
-R("fun-refused-tip", "FUN: a greyed choice, and a refused click answered at its button", section=S_WINDOW, today="the layout's gg-ftip with the page's bubble words, .off and .refused", after="fun-refused", steps=[shoot()], when="the next frame, inside the bubble's 8 s", names=TEST_NAME + ": gg_fun's who")
+  names=TEST_NAME + ": os_fun's who", words_from=("bridge/Fun.cs", "together they throw players out of most maps"))
+R("fun-refused-tip", "FUN: a greyed choice, and a refused click answered at its button", section=S_WINDOW, today="the layout's os-ftip with the page's bubble words, .off and .refused", after="fun-refused", steps=[shoot()], when="the next frame, inside the bubble's 8 s", names=TEST_NAME + ": os_fun's who")
 R("fun-already", "Chat: a setting typed that is on already: the reply says so", pick="The answer to your own click: refused, click again, already set", today="a private chat line; a click on a lit choice says nothing on this content: its look says it",
   after="fun-refused-tip", steps=[con("say !gravity moon"), pause(1), shoot()], when="about 1 s after the line", crop=C_CHAT, chat=True, masks=(chat_above(1),), names=_CHAT, words_from=("bridge/ChatCommands.cs", "already"))
 R("fun-idle", "FUN: friendly fire off: Instakill and Grenades x10 dimmed, Does nothing while friendly fire is off", section=S_WINDOW, after="fun-already",
-  steps=[rc('gg_fun ff off "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], when="1 s after the show returns", names=TEST_NAME + ": gg_fun's who")
+  steps=[rc('os_fun ff off "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], when="1 s after the show returns", names=TEST_NAME + ": os_fun's who")
 R("fun-many", "FUN: several rows off their default, free-for-all idling friendly fire's three", section=S_WINDOW, after="fun-idle",
-  steps=[rc('gg_fun bhop turbo "Bob"; gg_fun ice on "Bob"; gg_fun vampire on "Bob"; gg_fun ffa on "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], cleanup=[RESET_FUN, RELEASE], when="1 s after the show returns",
-  names=TEST_NAME + ": gg_fun's who")
+  steps=[rc('os_fun bhop turbo "Bob"; os_fun ice on "Bob"; os_fun vampire on "Bob"; os_fun ffa on "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], cleanup=[RESET_FUN, RELEASE], when="1 s after the show returns",
+  names=TEST_NAME + ": os_fun's who")
 R("fun-one-setting", "The top line: one fun setting changed, and who", pick="Fun: one setting changed", today="the top line 4d, as picked, 10 s; chat and the board too", steps=[con("say !gravity moon"), pause(1.5), shoot()], cleanup=[RESET_FUN],
   when="about 3 s after the typed line: the change is made a frame later and said 0.5 s after that", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True, words_from=("bridge/Fun.cs", "ChangedLine"))
 R("fun-random", "The top line: Fun's Random, who, and what it rolled", pick="Fun: Random", today="the top line 4d, as picked, 10 s; chat and the board too", steps=[con("say !fun random"), pause(1.5), shoot()], cleanup=[RESET_FUN],
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True, words_from=("bridge/Fun.cs", "RandomLine"))
-R("fun-default", "The top line: Fun's Default, and who", pick="Fun: Default", today="the top line 4d, as picked, 10 s; chat and the board too", steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), con("say !fun default"), pause(1.5), shoot()],
+R("fun-default", "The top line: Fun's Default, and who", pick="Fun: Default", today="the top line 4d, as picked, 10 s; chat and the board too", steps=[rc('os_fun gravity moon "Bob"', expect=r"fun: "), con("say !fun default"), pause(1.5), shoot()],
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True, words_from=("bridge/Fun.cs", "DefaultLine"))
 R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any other", pick="Catch-up or grenade drops switched", today="the top line 4d, the catalogue's FunChanged, 10 s; chat and the board too", steps=[con("say !catchup off"), pause(1.5), shoot()], cleanup=[RESET_FUN],
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True)
@@ -596,14 +596,14 @@ R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair"
   when="about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop=C_CARD, win=False)
 R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick="The leader's bounty", today="the card 3d, as picked, 5 s; that player's chat", steps=[rb(f"os_catchup show {ACCOUNT} lead 4", expect=r"catchup: showed"), pause(2.4), shoot()],
   when="as catchup-boost", crop=C_CARD, win=False)
-R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section=S_WINDOW, steps=[show("start"), press("gg_tab_server"), pause(1), shoot()],
+R("page-players", "SERVER > Players: the player, the team, the HUD of the check's click, how long on", section=S_WINDOW, steps=[show("start"), press("os_tab_server"), pause(1), shoot()],
   when="1 s after the click returns", masks=(M_PLAYER1,), names=PLAYERS, volatile=(V_ONFOR,))
-R("players-older", "SERVER > Players: an older HUD: older - restart CS2 (css_gghud content 1)", section=S_WINDOW, steps=[content(1), show("players"), pause(1), shoot()], cleanup=[content(LEVEL)],
+R("players-older", "SERVER > Players: an older HUD: older - restart CS2 (os_hud content 1)", section=S_WINDOW, steps=[content(1), show("players"), pause(1), shoot()], cleanup=[content(LEVEL)],
   when="1 s after the show returns", masks=(M_PLAYER1,), names=PLAYERS, volatile=(V_ONFOR,))
-R("page-game", "SERVER > Game: the match length, the two restarts", section=S_WINDOW, steps=[show("players"), press("gg_tab_game"), pause(1), shoot()], when="1 s after the click returns",
+R("page-game", "SERVER > Game: the match length, the two restarts", section=S_WINDOW, steps=[show("players"), press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns",
   crop=C_SETROW, masks=(BLUR_SETBY,), names=real("a bridge state that carries a set-by: that place is blurred"))
 R("game-restart-armed", "SERVER > Game: the restart after its first click, Press again; the line says click again", pick="The answer to your own click: refused, click again, already set",
-  today="a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps=[pause(31), show("game"), press("gg_set_restart", bg=True), pressed(), pause(3.5), shoot()],
+  today="a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps=[pause(31), show("game"), press("os_set_restart", bg=True), pressed(), pause(3.5), shoot()],
   when="about 5 s after the one click. The 31 s first: a click within 30 s of an earlier one would be the second", crop=C_LINE, words_from=("bridge/Restarts.cs", "A restart kicks everyone"), volatile=(V_RESTART_SECONDS,))
 R("game-time-10", "SERVER > Game: Matches last 10 minutes - Set by, the lit button", section=S_WINDOW, bridge=W_TIME,
   steps=[show("game"), post("act", "0", "time10"), pause(2), shoot()], cleanup=[post("act", "0", "time60"), pause(NEWS_GONE), post("fake-off"), RELEASE, until("press", 33)],
@@ -611,59 +611,59 @@ R("game-time-10", "SERVER > Game: Matches last 10 minutes - Set by, the lit butt
   avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudBrowser.cs", "Matches last"), volatile=(V_RESTART_SECONDS, V_TOP_EDGE))
 R("page-sync", "SERVER > Sync: what the map sync does, its queue, its history", section=S_WINDOW, steps=[show("sync"), pause(1), shoot()], when="1 s after the show returns. Live numbers and Workshop map names; no player name in the block (bridge/SyncDash.cs)",
   volatile=(V_SYNC_BODY,))
-for _id, _b, _w in (("sync-queue-next", "gg_osdq_next", "the queue's next page"), ("sync-history-next", "gg_osdr_next", "the history's next page"), ("sync-maps-next", "gg_osdm_next", "the map events' next page"),
-                    ("sync-maps-last", "gg_osdm_last", "the map events' last page")):
+for _id, _b, _w in (("sync-queue-next", "os_osdq_next", "the queue's next page"), ("sync-history-next", "os_osdr_next", "the history's next page"), ("sync-maps-next", "os_osdm_next", "the map events' next page"),
+                    ("sync-maps-last", "os_osdm_last", "the map events' last page")):
     R(_id, f"SERVER > Sync: {_w}", section=S_WINDOW, after="page-sync", steps=[press(_b), pause(1), shoot()], when="1 s after the click returns", volatile=(V_SYNC_BODY,))
-R("page-help", "HELP > Help: where everything is", section=S_WINDOW, after="page-sync", steps=[press("gg_tab_help"), pause(1), shoot()], when="1 s after the click returns")
-R("page-how", "HELP > How it works: every rule and chance of a map pick", section=S_WINDOW, after="page-help", steps=[press("gg_tab_how"), pause(1), shoot()], cleanup=[press("gg_sub_help")], when="1 s after the click returns")
+R("page-help", "HELP > Help: where everything is", section=S_WINDOW, after="page-sync", steps=[press("os_tab_help"), pause(1), shoot()], when="1 s after the click returns")
+R("page-how", "HELP > How it works: every rule and chance of a map pick", section=S_WINDOW, after="page-help", steps=[press("os_tab_how"), pause(1), shoot()], cleanup=[press("os_sub_help")], when="1 s after the click returns")
 
 # ---- the map browser ------------------------------------------------------------------------------------------------------------------------------------
 
-R("page-maps", "MAPS > Browse: eight cards by rank, sort, mode, size, search, Previous, pager", section=S_MAPS, steps=[show("maps"), press("gg_tab_maps"), pause(1), shoot()], when="1 s after the click returns")
+R("page-maps", "MAPS > Browse: eight cards by rank, sort, mode, size, search, Previous, pager", section=S_MAPS, steps=[show("maps"), press("os_tab_maps"), pause(1), shoot()], when="1 s after the click returns")
 
 
 def browser(id, button, shows, cleanup=(), after="page-maps"):
     R(id, f"MAPS > Browse: {shows}", section=S_MAPS, after=after, steps=[press(button), pause(1), shoot()], cleanup=list(cleanup), when="1 s after the click returns")
 
 
-browser("maps-sort-votes", "gg_sort_votes", "sorted by likes")
-browser("maps-sort-name", "gg_sort_name", "sorted by name")
-browser("maps-sort-size", "gg_sort_size", "sorted by size")
-browser("maps-sort-size-desc", "gg_sort_size", "sorted by size, the other way (a second click)", cleanup=[press("gg_sort_rank")], after="maps-sort-size")
-browser("maps-mode-armsrace", "gg_fm_ar", "the mode filter on Arms Race")
-browser("maps-mode-deathmatch", "gg_fm_dm", "the mode filter on Deathmatch")
-browser("maps-mode-wingman", "gg_fm_wm", "the mode filter on Wingman", cleanup=[press("gg_fm_all")])
-browser("maps-size-tiny", "gg_fl_tiny", "the size chip under 25 MB")
-browser("maps-size-small", "gg_fl_small", "the size chip 25-120")
-browser("maps-size-mid", "gg_fl_mid", "the size chip 120-400")
-browser("maps-size-large", "gg_fl_large", "the size chip 400 MB and up", cleanup=[press("gg_fl_all")])
-browser("maps-liked", "gg_fl_liked", "Liked by me", cleanup=[press("gg_fl_liked")])
-browser("maps-official", "gg_fl_official", "Official", cleanup=[press("gg_fl_official")])
-browser("maps-ours", "gg_fl_ours", "Our maps", cleanup=[press("gg_fl_ours")])
-browser("maps-page-2", "gg_pg_next", "the second page")
-browser("maps-page-last", "gg_pg_last", "the last page", cleanup=[press("gg_pg_first")])
-browser("maps-keyboard", "gg_q_kbd", "the on-screen keyboard, four cards left showing", cleanup=[press("gg_kb_done")])
+browser("maps-sort-votes", "os_sort_votes", "sorted by likes")
+browser("maps-sort-name", "os_sort_name", "sorted by name")
+browser("maps-sort-size", "os_sort_size", "sorted by size")
+browser("maps-sort-size-desc", "os_sort_size", "sorted by size, the other way (a second click)", cleanup=[press("os_sort_rank")], after="maps-sort-size")
+browser("maps-mode-armsrace", "os_fm_ar", "the mode filter on Arms Race")
+browser("maps-mode-deathmatch", "os_fm_dm", "the mode filter on Deathmatch")
+browser("maps-mode-wingman", "os_fm_wm", "the mode filter on Wingman", cleanup=[press("os_fm_all")])
+browser("maps-size-tiny", "os_fl_tiny", "the size chip under 25 MB")
+browser("maps-size-small", "os_fl_small", "the size chip 25-120")
+browser("maps-size-mid", "os_fl_mid", "the size chip 120-400")
+browser("maps-size-large", "os_fl_large", "the size chip 400 MB and up", cleanup=[press("os_fl_all")])
+browser("maps-liked", "os_fl_liked", "Liked by me", cleanup=[press("os_fl_liked")])
+browser("maps-official", "os_fl_official", "Official", cleanup=[press("os_fl_official")])
+browser("maps-ours", "os_fl_ours", "Our maps", cleanup=[press("os_fl_ours")])
+browser("maps-page-2", "os_pg_next", "the second page")
+browser("maps-page-last", "os_pg_last", "the last page", cleanup=[press("os_pg_first")])
+browser("maps-keyboard", "os_q_kbd", "the on-screen keyboard, four cards left showing", cleanup=[press("os_kb_done")])
 R("maps-search", "MAPS > Browse: a search: its best matches first", section=S_MAPS, after="page-maps", steps=[con("say !find lake"), pause(2), shoot()], when="2 s after the line")
-browser("maps-search-keyboard", "gg_q_kbd", "the keyboard over a search that is on", cleanup=[press("gg_kb_done"), press("gg_q_clear")], after="maps-search")
-R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section=S_MAPS, after="page-maps", steps=[con("say !find zzqqzz"), pause(2), shoot()], cleanup=[press("gg_q_clear")], when="2 s after the line")
+browser("maps-search-keyboard", "os_q_kbd", "the keyboard over a search that is on", cleanup=[press("os_kb_done"), press("os_q_clear")], after="maps-search")
+R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section=S_MAPS, after="page-maps", steps=[con("say !find zzqqzz"), pause(2), shoot()], cleanup=[press("os_q_clear")], when="2 s after the line")
 R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section=S_MAPS, after="page-maps",
-  steps=[con("say 3369214545"), pause(3), shoot()], cleanup=[press("gg_q_clear")], when="3 s after the line: the server's own no needs no Workshop question", words_from=("bridge/broken.json", "3369214545"))
+  steps=[con("say 3369214545"), pause(3), shoot()], cleanup=[press("os_q_clear")], when="3 s after the line: the server's own no needs no Workshop question", words_from=("bridge/broken.json", "3369214545"))
 # A public CS2 map that stays off the list: Aim Botz - Aim Training (CS2), tagged Cs2, Map and Custom - no Armsrace, Deathmatch or Wingman tag, which
 # is all the sync's discovery searches (sync.tags), so it is never taken in, and with millions of subscribers it stays public. Not the HUD's own item:
 # the server refuses that one as no map (WorkshopCard.ServerRefusal, 49901da).
 UNLISTED_MAP = "3070244462"
 R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: Asking the Workshop, then Download and play. NEVER clicked: it downloads to the server", section=S_MAPS, after="page-maps",
-  steps=[con(f"say {UNLISTED_MAP}"), pause(0.3), shoot(n=3)], cleanup=[press("gg_q_clear")],
+  steps=[con(f"say {UNLISTED_MAP}"), pause(0.3), shoot(n=3)], cleanup=[press("os_q_clear")],
   when="from about 2 s after the line, serially: the Web API answers within a few seconds (Aim Botz, a public CS2 map on none of the lists)")
-R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section=S_MAPS, after="page-maps", bridge=W_LIKE, steps=[press("gg_m2_up", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m2_down")],
+R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section=S_MAPS, after="page-maps", bridge=W_LIKE, steps=[press("os_m2_up", bg=True), pause(3.5), shoot()], cleanup=[press("os_m2_down")],
   when="about 5 s after the click: the line lasts 8 s")
 R("why-card", "Why the dislike?: the small dialog at the centre", pick="Why the dislike? (the reasons)", today="one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after="page-maps",
-  bridge=W_LIKE, steps=[press("gg_m3_down", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m3_up"), pause(NEWS_GONE)],
+  bridge=W_LIKE, steps=[press("os_m3_down", bg=True), pause(3.5), shoot()], cleanup=[press("os_m3_up"), pause(NEWS_GONE)],
   when="about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop=C_WHY, volatile=(V_WHY_BAR,))
 R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section=S_MAPS, after="page-maps", bridge=W_GUARD, steps=[con("say !find jb_moti2"), pause(2), shoot()],
   when="2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", words_from=("bridge/broken.json", '"jb_moti2"'))
 R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick="Play asks first (a broken or crashed map)",
-  today="the card's button and a line on the window's page, 30 s, as picked", after="maps-risky-card", bridge=W_GUARD, steps=[press("gg_m1_play", bg=True), pause(3.5), shoot()], cleanup=[press("gg_q_clear"), RELEASE],
+  today="the card's button and a line on the window's page, 30 s, as picked", after="maps-risky-card", bridge=W_GUARD, steps=[press("os_m1_play", bg=True), pause(3.5), shoot()], cleanup=[press("os_q_clear"), RELEASE],
   when="about 5 s after the one click", crop=C_LINE, words_from=("bridge/Program.cs", "to vote anyway"))
 
 # ---- the board: +showscores from the client's console, which holds TAB down for the hidden client. Three lines first: Lately keeps real names otherwise ----
@@ -672,14 +672,14 @@ _BOARD = real("CS2's own scoreboard beside it, the name and the avatar: its rows
 _LATELY = [note(10, "Bob set the match length to 10 minutes - From the next match", bg=False), note(10, "Cara set the match length to 60 minutes - From the next match", bg=False), note(10, "Erik set the match length to 10 minutes - From the next match", bg=False)]
 R("board-default", "The board beside the scoreboard: your like, Start a vote, the vote line, the full menu, Lately", section=S_BOARD, steps=[RELEASE, *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
   when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
-R("board-liked", "The board with your like on the map that is on", section=S_BOARD, bridge=W_LIKE, steps=[press("gg_b_vup"), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vdown")],
+R("board-liked", "The board with your like on the map that is on", section=S_BOARD, bridge=W_LIKE, steps=[press("os_b_vup"), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("os_b_vdown")],
   when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
 R("board-why", "Why the dislike? under the TAB cursor", pick="Why the dislike? (the reasons)", today="the same small dialog, under the board's cursor", bridge=W_LIKE,
-  steps=[press("gg_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
+  steps=[press("os_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()], cleanup=[con("-showscores", 1500), press("os_b_vup")],
   when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_WHY_BAR,))
 
-for _id, _b, _w in (("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)")):
-    R(_id, f"The board with my mark: {_w}", section=S_BOARD, bridge=W_LIKE, steps=[press(_b), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
+for _id, _b, _w in (("board-big", "os_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "os_why_3", "You marked this map: ads (the dislike's reason)")):
+    R(_id, f"The board with my mark: {_w}", section=S_BOARD, bridge=W_LIKE, steps=[press(_b), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("os_b_vup")],
       when="2 s after +showscores; the opposite vote takes the mark back", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
 
 # ---- the vote. Solo first (nobody but the client present, so everybody has voted once it does), the fake's last: HUDtest stays present in the bridge's memory --
@@ -689,51 +689,51 @@ _V1_VOTED = (BLUR_NEWS_WIN, M_VSTART, M_VRESET, BLUR_TILE1_NAMES)   # the strip 
 _V1_NAMES = real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + UNSEEN
 _V1_NAMES_VOTED = real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + UNSEEN
 R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick="The vote: everybody's window opens and freezes", today="the big vote window, as picked; its feeds still move",
-  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("gg_b_next"), vote_opened(), show("vote", bg=True), post("names-check"), until("vote", 7.5), shoot()],
+  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("os_b_next"), vote_opened(), show("vote", bg=True), post("names-check"), until("vote", 7.5), shoot()],
   when="about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
   masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick="The 60 s limit", today="a line on the window's page, as picked", after="vote-open", bridge=W_VOTE, steps=[shoot()], when="the next frame",
   crop=C_CLOCKS, masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section=S_VOTE, after="vote-limit", bridge=W_VOTE, steps=[press("gg_m1_play", bg=True), pressed(), pause(2.5), shoot()],
+R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section=S_VOTE, after="vote-limit", bridge=W_VOTE, steps=[press("os_m1_play", bg=True), pressed(), pause(2.5), shoot()],
   when="about 4 s after the click, Keep (tile 1): the inactivity timer runs 5 s from the vote", crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-inactivity", "The inactivity timer, and who reset it", pick="Inactivity timer, and who reset it", today="a line on the window's page, as picked", after="vote-my-vote", bridge=W_VOTE, steps=[shoot()], when="the next frame, about 6.5 s after the click",
   crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick="The vote kept the map", today="a line on the window's page, as picked, 8 s; chat and the board too", after="vote-inactivity", bridge=W_VOTE, steps=[until("press", 8), shoot(n=2), until("press", 10), vote_closed()],
   when="from 8 s after the click: decided about 7 s after it (the command, then the inactivity timer's 5 s), the window stays 8 s", crop=C_VHEAD, masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES), names=real("who started it, the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudVote.cs", "The vote kept"))
 R("vote-cannot-call", "The answer to a Start a vote in the wait after a vote: when the next one can start", pick="You cannot call a vote yet", today="a line on the window's page, as picked, 8 s; chat and the board name who tried",
-  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), until("closed", 23), click("gg_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE],
+  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), until("closed", 23), click("os_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE],
   when="about 5 s after the click, which goes out 25 s after the vote closed, so the line says 1 min 35 s; inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
   crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN, words_from=("bridge/VoteRound.cs", "You can call a vote again in"), volatile=(V_LINE_WAIT, V_START_WAIT))
 R("board-wait", "The board in the wait after a vote: Start a vote off, its words say how long", section=S_BOARD, after="vote-cannot-call", bridge=W_VOTE,
   steps=[*_LATELY, guard(100), until("closed", 55), con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
   when="2 s after +showscores, about 61 s after the vote closed, so its words say 59 s; inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
   crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT, *V_BOARD_WAIT))
-R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("gg_b_next"), vote_opened(), press("gg_v_browse", bg=True), post("names-check"), until("vote", 9), shoot()],
+R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("os_b_next"), vote_opened(), press("os_v_browse", bg=True), post("names-check"), until("vote", 9), shoot()],
   when="about 11 s into the vote: the sub-tab says 49 s, the top line that says who started it (8 s) gone", masks=(BLUR_NEWS_WIN,), names=NEWS_VOTE + UNSEEN, avatar=AVATAR_OVER_NEWS)
-R("vote-picked-card", "The ballot with a map a player put on it: PICKED, picked by, their vote on it", section=S_VOTE, after="vote-browse", bridge=W_VOTE, steps=[press("gg_v_back", bg=True), pause(3), con("say !play ar_baggage"), pause(0.3), shoot()],
+R("vote-picked-card", "The ballot with a map a player put on it: PICKED, picked by, their vote on it", section=S_VOTE, after="vote-browse", bridge=W_VOTE, steps=[press("os_v_back", bg=True), pause(3), con("say !play ar_baggage"), pause(0.3), shoot()],
   when="about 2 s after the line, inside the 5 s of the inactivity timer. An official map, so the client loads it without a dialog", masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO, M_VRESET),
   names=real("the first tile's voter and picked by, the header's reset by and the top line: blurred; the clock's reset by: a test name is painted over it") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-decided", "The vote decided: NEXT MAP, The vote chose ... changing in N s, the top line, everybody still frozen", pick="The vote decided, and the change counting down", today="the ballot's words and the top line 4d; the countdown banner stays hidden under the window",
   after="vote-picked-card", bridge=W_VOTE + "; " + W_MAP, steps=[pause(2.5), shoot(n=3), vote_closed()], when="from about 7 s after the line: decided at 5 s, the change goes out at 13 s; the vote counts as closed after the frames", crop=C_VHEAD, masks=(M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO),
   names=real("the first tile's voter and picked by: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/VoteRound.cs", "Everybody has voted:"))
 R("now-playing", "The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn", pick="Now-playing card, at each map's first spawn", today="the card 3c, as picked, 8 s; picked by the vote: a Change's by is only ever the vote or the dice",
-  after="vote-decided", bridge=W_VOTE + "; " + W_MAP, steps=[wait_ingame(), pause(3), con("jointeam 2 1", 1000), rb("css_gghud release", expect=r"released:"), pause(6), shoot(n=3)], cleanup=[content(LEVEL)],
+  after="vote-decided", bridge=W_VOTE + "; " + W_MAP, steps=[wait_ingame(), pause(3), con("jointeam 2 1", 1000), rb("os_hud release", expect=r"released:"), pause(6), shoot(n=3)], cleanup=[content(LEVEL)],
   when="three frames from about 9 s after the team is joined: CS2 restarts the match after a map change (Match restarting in 3, 2, 1), the spawn after it, and the card comes 1.5 s after the spawn, for 8 s", crop=C_CARD, win=False)
 R("vote-started-line", "The ballot's header: Started by HUDtest, the real line under a test name", pick="The vote started: the line for everybody", today="NOT SHOWN on a surface of its own: the header of the window that opens, as the owner's note asks; chat and the board keep the line",
-  bridge=W_VOTE, steps=[vote_gap(), post("client-on", ACCOUNT), click("gg_b_next", who=FAKE_ACCOUNT, bg=True), vote_opened(), until("vote", 2.5), post("names-check"), shoot()],
+  bridge=W_VOTE, steps=[vote_gap(), post("client-on", ACCOUNT), click("os_b_next", who=FAKE_ACCOUNT, bg=True), vote_opened(), until("vote", 2.5), post("names-check"), shoot()],
   when="about 6 s after the click goes out. The bridge is told the client's test name first: the map change before reconnected it under its Steam name, and the waiting names are the bridge's",
   crop=C_VHEAD, masks=(M_VWAIT2,),
   names=real("the waiting line after HUDtest: a test name is painted over it") + UNSEEN, words_from=("bridge/VoteRound.cs", "started a vote for the next map"), win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-random-lit", "The ballot: my vote on Random, its button lit", section=S_VOTE, after="vote-started-line", bridge=W_VOTE, steps=[press("gg_v_random", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m1_play", bg=True)],
+R("vote-random-lit", "The ballot: my vote on Random, its button lit", section=S_VOTE, after="vote-started-line", bridge=W_VOTE, steps=[press("os_v_random", bg=True), pause(3.5), shoot()], cleanup=[press("os_m1_play", bg=True)],
   when="about 5 s after the click. The cleanup moves the vote to Keep at once, also after a failure: Random winning would roll a Workshop map, and the client would hang in CS2's download dialog", names=TEST_NAME + ": Waiting for: HUDtest", win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-waiting", "The ballot: Waiting for: HUDtest, my vote on Keep, 1 of 2 voted", pick="Waiting for: the players who have not voted", today="a line on the window's page, as picked; no chat or board copy yet", after="vote-random-lit", bridge=W_VOTE, steps=[pause(3.5), shoot()],
   when="about 5 s after the cleanup's click", crop=C_VHEAD, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred; Waiting for: HUDtest stays") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-pager", "The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)", section=S_VOTE, after="vote-waiting", bridge=W_VOTE, steps=[rb(f"css_gghud content {ACCOUNT} {LEVEL - 1}", expect=r"account \d+: HUD"), pause(3.5), shoot()],
+R("vote-pager", "The ballot's pager: Page 1 of 2, the hint for the other page (os_hud content fakes an older game's pages of eight)", section=S_VOTE, after="vote-waiting", bridge=W_VOTE, steps=[rb(f"os_hud content {ACCOUNT} {LEVEL - 1}", expect=r"account \d+: HUD"), pause(3.5), shoot()],
   when="about 5 s after the send", masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS,
   volatile=(V_VOTE_PAGER_NEXT,))
 R("vote-players", "SERVER > Players during a vote: who has voted", section=S_WINDOW, after="vote-pager", bridge=W_VOTE, steps=[show("players", bg=True), pause(3.5), shoot()], when="about 5 s after the send, about 45 s into the vote",
   masks=(M_PLAYER1_VOTE,), names=PLAYERS + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), until("vote", 50.5), shoot()], cleanup=[content(LEVEL), until("vote", 72), vote_closed()],
+R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .os-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), until("vote", 50.5), shoot()], cleanup=[content(LEVEL), until("vote", 72), vote_closed()],
   when="about 51 s into the vote, 9 s left; the cleanup waits for its 60 s to end, and for its window, which stays 8 s after", crop=C_CLOCKS, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 
 # ---- what only the bridge's own callers can say: bridgepost.py, to a candidate bridge on a test copy and nothing else. The real senders' notices, fake players' clicks ------------
@@ -744,7 +744,7 @@ R("restart-after-match", "The status banner: the server restarts after this matc
 R("restart-counting", "The countdown banner with the logo: the restart", pick="The restart counting down (10 s)", today="the countdown 6b with the logo, from the bridge's RestartDue, as the owner's note asks; chat and the board too", bridge=W_NOTICE,
   steps=[post("restart", "daily", "now", "12"), pause(2), shoot(n=2)], cleanup=[post("restart-cancel", "daily"), pause(NEWS_GONE)],
   when="about 4 s and 6.5 s into 12 s: the real one counts 10 (Watch.RestartCountdown), a little more here so that a slow call still shows digits; only the restart watcher would quit, and a test copy has none", crop=C_BAN, win=False, words_from=("bridge/Restarts.cs", "the server restarts in"))
-R("window-restart-strip", "The window's foot: a restart coming, its words and its countdown", section=S_WINDOW, today="gg-rstrip, from HudState.RestartKind", bridge=W_NOTICE,
+R("window-restart-strip", "The window's foot: a restart coming, its words and its countdown", section=S_WINDOW, today="os-rstrip, from HudState.RestartKind", bridge=W_NOTICE,
   steps=[post("restart", "daily", "now", "30"), show("start", bg=True), pause(3.5), shoot()], cleanup=[post("restart-cancel", "daily"), RELEASE], when="about 5 s after the show goes out, of 30 s; the release outlasts the line that takes it back", crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN,
   volatile=(V_START_WAIT,))
 R("top-cs2-update", "The top line: a CS2 update: the server restarts at this match's end, and restart CS2 afterwards", pick="A CS2 update: update your game", today="the top line 4d, as picked, until the restart: the watcher's own notice; chat and the board too", bridge=W_NOTICE,
@@ -776,9 +776,9 @@ def to_mode(mode, game_type, game_mode, map_name):
 
 
 R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section=S_MODES, bridge=W_MAP, steps=[*to_mode("deathmatch", 1, 2, "de_dust2"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
-R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section=S_MODES, after="mode-deathmatch-fun", bridge=W_MAP, steps=[press("gg_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
+R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section=S_MODES, after="mode-deathmatch-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
 R("mode-wingman-fun", "FUN in Wingman", section=S_MODES, after="mode-deathmatch-game", bridge=W_MAP, steps=[*to_mode("wingman", 0, 2, "de_inferno"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
-R("mode-wingman-game", "SERVER > Game in Wingman", section=S_MODES, after="mode-wingman-fun", bridge=W_MAP, steps=[press("gg_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
+R("mode-wingman-game", "SERVER > Game in Wingman", section=S_MODES, after="mode-wingman-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
 R("mode-armsrace-back", "START, back on Arms Race: the run's last frame", section=S_MODES, after="mode-wingman-game", bridge=W_MAP, steps=[*to_mode("armsrace", 1, 0, START_MAP), show("start"), pause(1), shoot()], cleanup=[RELEASE], when="1 s after the show returns",
   masks=(M_GREET,), names=GREETING + UNSEEN)
 
@@ -788,22 +788,22 @@ R("top-player-restart", "The countdown banner: a player's restart, naming who", 
   steps=[post("act", "0", "restart"), post("act", "0", "restart"), pause(1), shoot()], cleanup=[post("quit-notice"), post("fake-off"), *to_mode("armsrace", 1, 0, START_MAP)],
   when="about 3.5 s after a fake player's second click, of 10 s: the cleanup's quit notice must reach the bridge before the 10 s are up", crop=C_BAN, win=False, words_from=("bridge/Restarts.cs", "is restarting the server in"))
 R("map-change-banner", "The countdown banner with the map's picture", pick="Map change counting down", today="the countdown 6b, as picked; a vote's change keeps everybody's window over it, so this is the dice's own: three players timing out on a map mark it and roll, called off in time. Marks the map in the candidate's data: once per copy and map (ar_pool_day, then ar_shoots_night on 2026-11-05)", bridge=W_MAP + "; state.json: the map's player-crash mark; " + W_FAKES,
-  steps=[*to_mode("armsrace", 1, 0, "ar_shoots_night"), post("fake-off"), post("fake-on", "3"), rb("css_gghud release", expect=r"released:"), pause(3), post("fake-crash"), pause(1.5), shoot()], cleanup=[post("quit-notice"), post("fake-off"), *to_mode("armsrace", 1, 0, START_MAP)],
+  steps=[*to_mode("armsrace", 1, 0, "ar_shoots_night"), post("fake-off"), post("fake-on", "3"), rb("os_hud release", expect=r"released:"), pause(3), post("fake-crash"), pause(1.5), shoot()], cleanup=[post("quit-notice"), post("fake-off"), *to_mode("armsrace", 1, 0, START_MAP)],
   when="about 3.5 s after the third time-out, of 8 s: the cleanup's quit notice must reach the bridge before the 8 s are up: the change would hang the client in CS2's download dialog", crop=C_BAN, win=False, names=TEST_NAME,
   volatile=(V_BANNER_MAP,))
 
 # ---- what cannot be shot yet ------------------------------------------------------------------------------------------------------------------------------
 
 R("hud-hold", "The status banner: Steam is not showing the HUD, and back", pick="The HUD not shown by Steam, and back", status=NOT, today="the status banner 4e, set by the plugin's own PostBanner only",
-  reason="Its trigger is Steam hiding the item, and no verb sets the banner: gg_notice goes to the top line now. A test verb like css_gghud centre would make it a row.")
+  reason="Its trigger is Steam hiding the item, and no verb sets the banner: os_notice goes to the top line now. A test verb like os_hud centre would make it a row.")
 R("hud-join-warning", "The join's version banner", pick="Your HUD is out of date: the warning at the join", status=NOT, today="none: the catalogue has no kind for it, a row that went",
   reason="The committed content has no panel for it (only the contents before v4_6_0 read svge/svlt); a game holding one is a published item, not committed code. The picks drop it: NOT SHOWN.")
 R("vote-line-closed-window", "The vote's line for a closed window", pick="The vote line for a closed window", status=NOT, today="none: the panel's feed is gone (9685f17), a row that went",
   reason="Removed from the plugin: the window is held open while the vote freezes. The picks drop it: NOT SHOWN; the owner's note says it should not be possible.")
 R("picture-on-request", "A map's picture, on request", pick="A map's picture, on request", status=NOT, today="none: the picture buttons and HudPreview's plugin half are gone (9685f17), a row that went",
   reason="Removed, as the owner's note asks: the picture belongs in the window and the browser, and the cards' pictures are not clickable. The picks: NOT SHOWN.")
-R("workshop-card-downloading", "A Workshop card's progress", pick="A Workshop card downloading to the server", status=NOT, today="the gg_ws card's bar, with chat and board copies",
-  reason="Its progress needs gg_ws_play, which downloads the map into the server's Workshop cache: a map left on production's volume. No verb fakes the step. maps-workshop-ready shows the card up to the click.")
+R("workshop-card-downloading", "A Workshop card's progress", pick="A Workshop card downloading to the server", status=NOT, today="the os_ws card's bar, with chat and board copies",
+  reason="Its progress needs os_ws_play, which downloads the map into the server's Workshop cache: a map left on production's volume. No verb fakes the step. maps-workshop-ready shows the card up to the click.")
 R("crash-note", "The joiner's crash note", pick="The joiner's crash note", status=NOT, today="the welcome page's crash line, for 10 minutes after a crash",
   reason="Needs a real crash of the server the client is on, which records a crash mark on the map (CrashWatch.RecordCrash); no verb sends its words. top-server-down shows the crash's other line.")
 R("no-hud-alert", "This server uses the menu", pick='"This server uses the menu: press TAB" (only without our HUD)', status=NOT, today="none: the words are gone, a row that went",
@@ -814,11 +814,11 @@ R("vote-second-page", "A real second page of the ballot", section=S_VOTE, status
   reason="One player's picks replace the rolled cards and leave when they lose their vote, so a solo run never holds more than ten; several players' picks would. vote-pager shows the pager's look under pages of eight.")
 R("hold-no-menu", "The chat line for a player without the HUD during a hold (the catalogue's HoldNoMenu; no row of its own in the picks)", section=S_WINDOW, status=NOT, today="a chat line, from the plugin's own hold",
   reason="As hud-hold: only a real hold by Steam sets it, and the client, which holds the HUD by its loose files, is not who it is for.")
-R("hover-only", "What only a mouse hover shows: who voted on a tile (gg-mpop), a greyed Fun choice's tip (gg-ftip), the buttons' hover looks", section=S_VOTE, status=NOT, today="the stylesheet's :hover rules",
-  reason="css_gghud press clicks through the server; nothing moves the hidden client's mouse, whose CS2 never has focus (HARNESS.md). vote-my-vote shows the names at the foot of a tile, which need no hover.")
+R("hover-only", "What only a mouse hover shows: who voted on a tile (os-mpop), a greyed Fun choice's tip (os-ftip), the buttons' hover looks", section=S_VOTE, status=NOT, today="the stylesheet's :hover rules",
+  reason="os_hud press clicks through the server; nothing moves the hidden client's mouse, whose CS2 never has focus (HARNESS.md). vote-my-vote shows the names at the foot of a tile, which need no hover.")
 R("sync-looks", "SERVER > Sync in its other looks: running with a progress bar, waiting, stopped, old or no word from the sync, a background download", section=S_WINDOW, status=NOT, today="the real sync's own status (SyncDash): page-sync shows whichever it is in at that moment",
   reason="Only the sync's status file sets them. No verb fakes one, and writing that file is state on production's volume.")
-R("loading-dot", "The Live dot gold while a new map's announcement is pending", section=S_BOARD, status=NOT, today="the stylesheet's .gg-global.loading .gg-live-dot, off LoadPending",
+R("loading-dot", "The Live dot gold while a new map's announcement is pending", section=S_BOARD, status=NOT, today="the stylesheet's .os-global.loading .os-live-dot, off LoadPending",
   reason="It stands from a change until the map is announced, nearly all of it while the client is on its loading screen; no verb holds it.")
 
 
@@ -877,13 +877,13 @@ def section_of(row, by_name):
 # ---------------------------------------------------------------- the checks every invocation runs -----------------------------------------------------
 
 POST_VERBS = ("restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check")   # bridgepost.py's
-RCON_ALLOWED = ("ggd_name", "mp_restartgame 1", "sv_allow_votes", "css_gghud show ", "css_gghud press ", "css_gghud click ", "css_gghud level ", "css_gghud content ", "css_gghud centre ", "css_gghud release", "css_guide ", "gg_notice ", "gg_fun ", "os_catchup ",
+RCON_ALLOWED = ("osd_name", "mp_restartgame 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ", "os_hud centre ", "os_hud release", "css_guide ", "os_notice ", "os_fun ", "os_catchup ",
                 "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel ")
 CHANGELEVEL_ALLOWED = ("ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno")   # official maps: the client loads them without CS2's download dialog
 CON_ALLOWED = re.compile(r"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$")
-BRIDGE_BUTTONS = re.compile(r"^(gg_b_next|gg_b_vup|gg_b_vdown|gg_btn_up|gg_btn_down|gg_m\d+_(play|up|down)|gg_why_\d+|gg_set_time_\d+|gg_v_random|gg_v_browse|gg_v_back)$")
+BRIDGE_BUTTONS = re.compile(r"^(os_b_next|os_b_vup|os_b_vdown|os_btn_up|os_btn_down|os_m\d+_(play|up|down)|os_why_\d+|os_set_time_\d+|os_v_random|os_v_browse|os_v_back)$")
 BRIDGE_SAYS = re.compile(r"^say !(play|up|down|next|map)\b")
-NEVER_BUTTONS = ("gg_ws_play",)  # downloads to the server
+NEVER_BUTTONS = ("os_ws_play",)  # downloads to the server
 
 
 def real_name_in(text):
@@ -957,7 +957,7 @@ def validate():
                     errors.append(f"{r.id}: {s.button} leaves state on the server")
                 if BRIDGE_BUTTONS.match(s.button) and not r.bridge:
                     errors.append(f"{r.id}: {s.button} writes the bridge's data or opens a vote, and the row does not say so")
-                if s.button == "gg_set_restart":
+                if s.button == "os_set_restart":
                     restarts += 1
             if s.kind in ("rcon", "rcon_bg"):
                 if not s.text.startswith(RCON_ALLOWED):
@@ -966,9 +966,9 @@ def validate():
                     errors.append(f"{r.id}: changelevel to {s.text.split()[1]}")
                 if len(s.text) > 500:
                     errors.append(f"{r.id}: an RCON line of {len(s.text)} characters: one line carries about 512 (HARNESS.md)")
-                hit = re.match(r'gg_notice \d+ "(.*)"$', s.text)
-                if s.text.startswith("gg_notice") and (not hit or '"' in hit.group(1) or len(hit.group(1)) > 240):
-                    errors.append(f"{r.id}: a gg_notice line the plugin would cut or misread")
+                hit = re.match(r'os_notice \d+ "(.*)"$', s.text)
+                if s.text.startswith("os_notice") and (not hit or '"' in hit.group(1) or len(hit.group(1)) > 240):
+                    errors.append(f"{r.id}: a os_notice line the plugin would cut or misread")
             if s.kind == "con":
                 if not CON_ALLOWED.match(s.text):
                     errors.append(f"{r.id}: a console command outside the allowed set: {s.text[:60]}")
@@ -995,9 +995,9 @@ def validate():
             if said[:1] == ["act"] and said[2] == "restart" and ["quit-notice"] not in later:
                 errors.append(f"{r.id}: a player's restart, and no quit-notice in its cleanup: the second click quits the server")
         if restarts > 1:
-            errors.append(f"{r.id}: gg_set_restart twice: the second click quits the server")
+            errors.append(f"{r.id}: os_set_restart twice: the second click quits the server")
         if restarts and not any(s.kind == "pause" and s.seconds >= 31 for s in r.steps[:1]):
-            errors.append(f"{r.id}: gg_set_restart without the 31 s first")
+            errors.append(f"{r.id}: os_set_restart without the 31 s first")
         if r.words_from and not words_at_head(*r.words_from):
             errors.append(f"{r.id}: the words {r.words_from[1]!r} are no longer in the committed code under {r.words_from[0].split('/')[0]}/: the stand-in or the row is out of date")
     if real_name_in(ME):
@@ -1005,8 +1005,8 @@ def validate():
     content_level = CONTENT
     if CONTENT == "?" or LEVEL <= 0:
         errors.append("bridge/Shared/HudVersion.cs's Contents cannot be read: the rows fake the versions around its last line")
-    if not any(b.startswith("gg_hudver_") for b in buttons):
-        errors.append("no version button (gg_hudver_...) in the committed layout")
+    if not any(b.startswith("os_hudver_") for b in buttons):
+        errors.append("no version button (os_hudver_...) in the committed layout")
     info = {"picks": picks, "by_name": by_name, "buttons": buttons, "named": named, "commit": head_commit(), "content": content_level,
             "plugin": head_version("plugin/OverStrike2/OverStrike2.cs", r'Version = "([\d.]+)"'), "problems": errors}
     return info
@@ -1319,7 +1319,7 @@ def same_picture(new, old, region, volatile=(), panel=None):
 
 def kept_masks(row):
     """The row's masks for this run: under --renamed only those that hide more than a name (CS2's scoreboard: its avatars) and those over a name the
-    bridge has from the game's log (Mask.keep): GgDocName renames the client on the server, but the bridge learned its name at the connect."""
+    bridge has from the game's log (Mask.keep): OsDocName renames the client on the server, but the bridge learned its name at the connect."""
     return [m for m in row.masks if not RENAMED or m == BLUR_SCOREBOARD or m.keep]
 
 
@@ -1385,7 +1385,7 @@ def caption(row, by_name, res):
     if row.pick:
         words += f"<br><small>Message: {html.escape(row.pick)}. Today: {html.escape(row.today)}. Picked: {html.escape(by_name[row.pick].surfaces)}</small>"
     if row.stand_in:
-        words += "<br><small>STAND-IN: the message's real words on its panel, sent with gg_notice; its real trigger would leave something behind.</small>"
+        words += "<br><small>STAND-IN: the message's real words on its panel, sent with os_notice; its real trigger would leave something behind.</small>"
     if row.names != NO_NAME:
         words += f"<br><small>Names: {html.escape(row.names)}</small>"
     return words
@@ -1466,14 +1466,14 @@ class Printer:
     def preflight(self):
         self.say(f"GATE (the run refuses otherwise): {LOCK} exists and starts with '{OWNER_LINE}'; A2S on {HOST}:{PORT} says VAC off, at most 1 human, map {START_MAP}")
         if RENAMED:
-            self.say(f"  $ {self.cmdline(rcon_argv('ggd_name'))}    --renamed: must say the client goes by {ME}, and is")
+            self.say(f"  $ {self.cmdline(rcon_argv('osd_name'))}    --renamed: must say the client goes by {ME}, and is")
             self.clock += T_RCON
         self.say(f"PREFLIGHT: the client started by hand: {START_COMMAND.format(h=HARNESS, res=self.res)}")
         self.say(f"  $ {self.cmdline(con_argv('status', 2000))}    must name {HOST}:{PORT} and insecure")
         self.say(f"  $ {self.cmdline(shot_argv('_probe', self.raw))}    the frame must be {self.res}, not scaled")
-        self.say(f"  $ {self.cmdline(rcon_argv('css_gghud'))}    must have an entity, the bridge ok, no vote on")
+        self.say(f"  $ {self.cmdline(rcon_argv('os_hud'))}    must have an entity, the bridge ok, no vote on")
         self.say(f"  $ {self.cmdline(con_argv('jointeam 2 1', 1500))}")
-        self.say(f"  $ {self.cmdline(rcon_argv(f'css_gghud content {ACCOUNT} {LEVEL}'))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)")
+        self.say(f"  $ {self.cmdline(rcon_argv(f'os_hud content {ACCOUNT} {LEVEL}'))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)")
         self.say(f"  $ {self.cmdline(rcon_argv('mp_restartgame 1'))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run")
         self.clock += T_CON + T_SHOT + T_RCON + T_CON + T_RCON + T_RCON
 
@@ -1569,7 +1569,7 @@ class Printer:
         self.say(f"  $ {self.cmdline(con_argv('-showscores', 500))}")
 
 
-FINAL_COMMANDS = ("css_gghud release", "css_gghud level 0", f"css_gghud content {ACCOUNT} {LEVEL}", f'gg_fun reset "{ME}"')
+FINAL_COMMANDS = ("os_hud release", "os_hud level 0", f"os_hud content {ACCOUNT} {LEVEL}", f'os_fun reset "{ME}"')
 
 
 SECRETISH = (re.compile(r"(/log/|/hud/|/act/|/health/|/dash/|/search/|/catalog/|/restart-notice/|/updated/)[0-9A-Za-z_-]{8,}"),
@@ -1785,16 +1785,16 @@ class Doer:
         if not m or f"{m.group(1)}x{m.group(2)}" != self.res or f"{m.group(3)}x{m.group(4)}" != self.res:
             raise SystemExit(f"REFUSED: the client's frame is not {self.res}: {scrub(text.strip())[:200]}\nStart it at that size:\n  " + START_COMMAND.format(h=HARNESS, res=self.res))
         if RENAMED:
-            text = self.run_verb(rcon_argv("ggd_name"), 60, "rcon ggd_name")
+            text = self.run_verb(rcon_argv("osd_name"), 60, "rcon osd_name")
             if f"{ACCOUNT} goes by {ME}" not in text or f"{ACCOUNT} is {ME}" not in text:
-                raise SystemExit(f"REFUSED: --renamed, and the server does not call the client {ME} (GgDocName on the test copy, ggd_name {ACCOUNT} {ME}): {scrub(text.strip())[:200]}")
-        text = self.run_verb(rcon_argv("css_gghud"), 60, "rcon css_gghud")
+                raise SystemExit(f"REFUSED: --renamed, and the server does not call the client {ME} (OsDocName on the test copy, osd_name {ACCOUNT} {ME}): {scrub(text.strip())[:200]}")
+        text = self.run_verb(rcon_argv("os_hud"), 60, "rcon os_hud")
         if not re.search(r"entity \d+", text) or "bridge ok" not in text:
             raise SystemExit(f"REFUSED: the HUD is not up on the server: {scrub(text.strip())[:400]}")
         if re.search(r"vote round \d+ open", text):
             raise SystemExit("REFUSED: a vote is open")
         self.run_verb(con_argv("jointeam 2 1", 1500), 30, "cmd jointeam")
-        self.run_verb(rcon_argv(f"css_gghud content {ACCOUNT} {LEVEL}"), 60, "rcon css_gghud content")
+        self.run_verb(rcon_argv(f"os_hud content {ACCOUNT} {LEVEL}"), 60, "rcon os_hud content")
         self.run_verb(rcon_argv("mp_restartgame 1"), 60, "rcon mp_restartgame 1")
 
     def final(self):
@@ -2011,7 +2011,7 @@ def print_counts(info):
         pick_status[p.name] = READY if READY in states else sorted(states)[0]
     print(f"The {len(picks)} picks: " + ", ".join(f"{sum(1 for v in pick_status.values() if v == st)} {st}" for st in STATUSES) + "; every pick has a row.")
     ready = [r for r in ROWS if r.status == READY]
-    print(f"Of the {counts[READY]} ready rows: {sum(1 for r in ready if r.bridge)} need --bridge-copy, {sum(1 for r in ready if r.stand_in)} are stand-ins by gg_notice, "
+    print(f"Of the {counts[READY]} ready rows: {sum(1 for r in ready if r.bridge)} need --bridge-copy, {sum(1 for r in ready if r.stand_in)} are stand-ins by os_notice, "
           f"{sum(1 for r in ready if r.names.startswith('real name'))} would show a real name and mask it, {sum(1 for r in ready if r.pick)} show a pick on today's surface: retake those when the message system lands.")
     print(f"Every ready frame also gets the avatar and, but for {sum(1 for r in ready if r.chat)} chat rows, the chat zone blurred.")
 
@@ -2146,35 +2146,35 @@ elif verb == "cmd":
 elif verb == "rcon":
     c = arg("-Rcon")
     print(f"> {c}")
-    if c == "ggd_name":
-        print(f"ggd_name: {os.environ['FAKE_ACCOUNT']} goes by Alice; on the server: {os.environ['FAKE_ACCOUNT']} is Alice")
+    if c == "osd_name":
+        print(f"osd_name: {os.environ['FAKE_ACCOUNT']} goes by Alice; on the server: {os.environ['FAKE_ACCOUNT']} is Alice")
     elif fail and fail in c:
-        print("gghud: no vote is on: vote and browse need one")
-    elif c == "css_gghud":
-        print(f"gghud: addon 3823993566, nobody frozen, entity 123, world ready, state 1s old: ar_shoots by , vote none, bridge ok, window open for [{name}]")
-    elif c.startswith("css_gghud show"):
-        print(f"gghud: window on {c.split()[-1]} for {name}")
-    elif c.startswith("css_gghud press"):
-        print(f"gghud: pressed {c.split()[-1]} for {name}")
-    elif c.startswith("css_gghud click"):
-        print(f"gghud: sent !next for account {c.split()[2]}; the bridge's answer arrives with the next frame")
-    elif c.startswith("css_gghud centre"):
-        print('gghud: "words" for 8 s, sent again every 3 s')
-    elif c.startswith("css_gghud release"):
-        print("gghud: released: 1 window(s), 0 TAB cursor(s); capture off for everybody next frame")
-    elif c == "css_gghud level 0":
-        print("gghud: server level real")
-    elif c.startswith("css_gghud level"):
-        print(f"gghud: join banner for {name} for 15 s (server level 47)")
-    elif c.startswith("css_gghud content"):
-        print(f"gghud: account {c.split()[2]}: HUD v4.6.0")
+        print("os_hud: no vote is on: vote and browse need one")
+    elif c == "os_hud":
+        print(f"os_hud: addon 3823993566, nobody frozen, entity 123, world ready, state 1s old: ar_shoots by , vote none, bridge ok, window open for [{name}]")
+    elif c.startswith("os_hud show"):
+        print(f"os_hud: window on {c.split()[-1]} for {name}")
+    elif c.startswith("os_hud press"):
+        print(f"os_hud: pressed {c.split()[-1]} for {name}")
+    elif c.startswith("os_hud click"):
+        print(f"os_hud: sent !next for account {c.split()[2]}; the bridge's answer arrives with the next frame")
+    elif c.startswith("os_hud centre"):
+        print('os_hud: "words" for 8 s, sent again every 3 s')
+    elif c.startswith("os_hud release"):
+        print("os_hud: released: 1 window(s), 0 TAB cursor(s); capture off for everybody next frame")
+    elif c == "os_hud level 0":
+        print("os_hud: server level real")
+    elif c.startswith("os_hud level"):
+        print(f"os_hud: join banner for {name} for 15 s (server level 47)")
+    elif c.startswith("os_hud content"):
+        print(f"os_hud: account {c.split()[2]}: HUD v4.6.0")
     elif c.startswith("css_guide"):
         print(f"guide: showing to {name}")
-    elif c.startswith("gg_notice"):
-        print("gg_notice: shown for 10 s: words")
-    elif c.startswith("gg_fun reset"):
+    elif c.startswith("os_notice"):
+        print("os_notice: shown for 10 s: words")
+    elif c.startswith("os_fun reset"):
         print("fun: reset - done")
-    elif c.startswith("gg_fun"):
+    elif c.startswith("os_fun"):
         print("fun: gravity moon by Bob: sv_gravity 200")
     elif c.startswith("os_catchup"):
         print(f"catchup: showed {name}: words")
@@ -2239,9 +2239,9 @@ def deep_check(info, check):
         check(all(c[0] in (*ALL_VERBS, "post") for c in launched), "deep check: a verb outside the four and bridgepost.py")
         check(all(c[1] in POST_VERBS for c in launched if c[0] == "post"), "deep check: a bridgepost.py verb that is not one")
         check(all("-MaxWidth" in c and c[c.index("-MaxWidth") + 1] == "0" for c in launched if c[0] == "shot"), "deep check: a shot not at full size")
-        check(sum(1 for c in launched if c[0] == "rcon" and "gg_set_restart" in c[2]) == 1, "deep check: the restart's button is not clicked exactly once")
-        check(not any(c[0] == "rcon" and "gg_hudver_" in c[2] for c in launched), "deep check: the version button was clicked: its real news names the client")
-        check(not any(c[0] == "rcon" and re.search(r"\b(quit|exit|gg_ws_play|mm_extra_addons|mm_client_extra_addons|host_workshop_map)\b", c[2]) for c in launched), "deep check: a forbidden command went out")
+        check(sum(1 for c in launched if c[0] == "rcon" and "os_set_restart" in c[2]) == 1, "deep check: the restart's button is not clicked exactly once")
+        check(not any(c[0] == "rcon" and "os_hudver_" in c[2] for c in launched), "deep check: the version button was clicked: its real news names the client")
+        check(not any(c[0] == "rcon" and re.search(r"\b(quit|exit|os_ws_play|mm_extra_addons|mm_client_extra_addons|host_workshop_map)\b", c[2]) for c in launched), "deep check: a forbidden command went out")
         man = json.loads((work / "out" / res / "manifest.json").read_text(encoding="utf-8"))
         shoot_rows = [e.row for e in plan if e.mode == "shoot"]
         for r in shoot_rows:
@@ -2274,7 +2274,7 @@ def deep_check(info, check):
         shutil.rmtree(work / "out", ignore_errors=True)
         shutil.rmtree(calls)
         calls.mkdir()
-        os.environ["FAKE_FAIL"] = f"css_gghud show {ACCOUNT} vote"
+        os.environ["FAKE_FAIL"] = f"os_hud show {ACCOUNT} vote"
         plan, _ = build_plan(["vote-kept"], True)
         sys.stdout = io.StringIO()
         doer = Doer(res, work / "out", False)
@@ -2283,7 +2283,7 @@ def deep_check(info, check):
         sys.stdout = real_stdout
         launched = [json.loads(f.read_text(encoding="utf-8")) for f in calls.iterdir()]
         check("vote-kept" in failed, f"deep check: a vote that did not open did not stop its chain: {sorted(failed)}")
-        check(not any(c[0] == "rcon" and "gg_m1_play" in c[2] for c in launched), "deep check: a card was clicked in a vote that did not open")
+        check(not any(c[0] == "rcon" and "os_m1_play" in c[2] for c in launched), "deep check: a card was clicked in a vote that did not open")
 
         # a run that keeps its raw frames, and --remask on them: no verb, the same files, and without the raw frames it refuses
         os.environ.pop("FAKE_FAIL", None)
@@ -2603,7 +2603,7 @@ def main():
     ap.add_argument("--bridge-copy", action="store_true", help="a candidate bridge on a copy of the bridge's data is up: rows that write it may run")
     ap.add_argument("--built", default="", help="the commit the plugin, the bridge and the HUD under test were built from, when not HEAD (only documentation after it)")
     ap.add_argument("--picks", help="the message list to hold the rows to, in messages.txt's format (default: messages.txt beside this file)")
-    ap.add_argument("--renamed", action="store_true", help="the client goes by the test name on the server (GgDocName on the test copy, checked with ggd_name): no name masks, and the rows whose words name it run")
+    ap.add_argument("--renamed", action="store_true", help="the client goes by the test name on the server (OsDocName on the test copy, checked with osd_name): no name masks, and the rows whose words name it run")
     ap.add_argument("--keep-raw", action="store_true", help="keep the frames from before the masks: they hold the real name; the first run of a new content needs them, for --remask")
     ap.add_argument("--remask", action="store_true", help="with --res and --out: the masks and crops again, from a --keep-raw run's raw frames, after the boxes were corrected: no game, no server")
     ap.add_argument("--mask-file", nargs=2, metavar=("IN", "OUT"))

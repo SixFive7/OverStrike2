@@ -20,7 +20,7 @@ sealed record Reply(int Status, byte[] Body)
 }
 
 /// <summary>The server half of the CS2 client test harness (tools/client/README.md; tools/client/probe/probe.py, ported): the server lock,
-/// the Docker API and RCON that the harness's verbs and the test copy use, and the test-only GgClientProbe plugin, loaded into the game
+/// the Docker API and RCON that the harness's verbs and the test copy use, and the test-only OsClientProbe plugin, loaded into the game
 /// container for one test and taken out again.
 ///
 /// Nothing here knows a deployment. Everything comes from the private config: the server's query address (server.address), the lock file
@@ -32,14 +32,14 @@ sealed record Reply(int Status, byte[] Body)
 ///     probe lock "&lt;purpose&gt;"                 take the server lock (refuses if anyone holds it)
 ///     probe purpose &lt;minutes&gt; "&lt;purpose&gt;"    the lock's since, expected end and purpose anew, its owner line kept (the harness's lock only)
 ///     probe unlock                           release it, if it is the harness's
-///     probe load                             build if needed, copy the DLL to /tmp/ggprobe in the game container, css_plugins load it
+///     probe load                             build if needed, copy the DLL to /tmp/osprobe in the game container, css_plugins load it
 ///     probe players                          who is on (slot, name, account id)
 ///     probe html &lt;account|*&gt; &lt;seconds&gt; &lt;html or @file&gt;   centre-screen HTML to that player only, re-sent every tick
 ///     probe htmlfile &lt;account|*&gt; &lt;seconds&gt; &lt;file&gt;         the same from a file of any length
 ///     probe stop                             clear the probe's messages
 ///     probe clientcmd &lt;account&gt; &lt;command&gt;    ExecuteClientCommand (only FCVAR_CLIENT_CAN_EXECUTE commands run)
 ///     probe rcon "&lt;command&gt;" ["&lt;command&gt;" ...]   server console commands, each one's answer printed
-///     probe unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock - kept while
+///     probe unload                           css_plugins unload, delete /tmp/osprobe, verify both, release the lock - kept while
 ///                                            the game server is a test copy (testcopy restore first)
 ///     probe status                           the probe's state on the server and the lock
 ///     probe config                           what the harness reads from the private config, as JSON (no credential in it)
@@ -47,11 +47,11 @@ sealed record Reply(int Status, byte[] Body)
 sealed class Harness
 {
     public const string Owner = "cs2 client test harness (tools/client)";   // the lock's first line is "owner: " and this
-    public const string RemoteDir = "/tmp/ggprobe";
-    public const string RemoteDll = RemoteDir + "/GgClientProbe.dll";
+    public const string RemoteDir = "/tmp/osprobe";
+    public const string RemoteDll = RemoteDir + "/OsClientProbe.dll";
     const int GameUid = 1000;                                                // the game image's user: the files it is handed are its own
-    public static string ProbeProject => Repo.P("tools", "client", "probe", "GgClientProbe");
-    static string ProbeDll => Path.Combine(ProbeProject, "bin", "Release", "net10.0", "GgClientProbe.dll");
+    public static string ProbeProject => Repo.P("tools", "client", "probe", "OsClientProbe");
+    static string ProbeDll => Path.Combine(ProbeProject, "bin", "Release", "net10.0", "OsClientProbe.dll");
 
     /// <summary>RCON from inside the game container, the way the game server's own tools reach it: no RCON port needs to reach this PC. The
     /// password and the port come from the exec's environment, the commands from its arguments; an answer in several packets is read whole.</summary>
@@ -340,7 +340,7 @@ for k,c in enumerate(sys.argv[1:]):
     // ------------------------------------------------------------------------------------------------------- the probe plugin
 
     /// <summary>files: {name: bytes} -> one tar into the game container's /tmp/&lt;folder&gt; (world-readable, owned by the game's user).</summary>
-    public int Upload(Dictionary<string, byte[]> files, string folder = "ggprobe")
+    public int Upload(Dictionary<string, byte[]> files, string folder = "osprobe")
     {
         var now = DateTimeOffset.FromUnixTimeSeconds((long)Now());
         var buf = new MemoryStream();
@@ -364,32 +364,32 @@ for k,c in enumerate(sys.argv[1:]):
         NeedLock();
         var build = Proc.Run(["dotnet", "build", "-c", "Release", "-nologo", "-v", "q", "-nodeReuse:false", "-p:UseSharedCompilation=false"], cwd: ProbeProject, below: true);
         if (build != 0)
-            throw new Exit(1, $"dotnet build of GgClientProbe: exit {build}");
-        var loaded = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("GgClientProbe", StringComparison.Ordinal)).ToList();
+            throw new Exit(1, $"dotnet build of OsClientProbe: exit {build}");
+        var loaded = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("OsClientProbe", StringComparison.Ordinal)).ToList();
         if (loaded.Count > 0)   // a newer build replaces the loaded one
-            Out.Print(Py.Strip(Rcon(["css_plugins unload GgClientProbe"])));
+            Out.Print(Py.Strip(Rcon(["css_plugins unload OsClientProbe"])));
         var data = File.ReadAllBytes(ProbeDll);
-        var st = Upload(new() { ["GgClientProbe.dll"] = data });
+        var st = Upload(new() { ["OsClientProbe.dll"] = data });
         Out.Print($"copied {data.Length} bytes to {Game}:{RemoteDll} (HTTP {st})");
         Out.Print(Py.Strip(Rcon([$"css_plugins load {RemoteDll}"])));
         Sleep(1);
-        var line = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("GgClientProbe", StringComparison.Ordinal)).ToList();
-        Out.Print("css_plugins list: " + (line.Count > 0 ? Py.Repr(line) : "GgClientProbe NOT LISTED"));
+        var line = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("OsClientProbe", StringComparison.Ordinal)).ToList();
+        Out.Print("css_plugins list: " + (line.Count > 0 ? Py.Repr(line) : "OsClientProbe NOT LISTED"));
         if (line.Count == 0)
             throw new Exit(1);
     }
 
     public void CmdUnload()
     {
-        Out.Print(Py.Strip(Rcon(["css_plugins unload GgClientProbe"])));
+        Out.Print(Py.Strip(Rcon(["css_plugins unload OsClientProbe"])));
         var removed = Py.Strip(ExecInGame(["rm", "-rf", RemoteDir]));
         Out.Print(removed.Length > 0 ? removed : $"removed {RemoteDir}");
         var left = Rcon(["css_plugins list"]);
         // CounterStrikeSharp keeps an unloaded plugin in its list as [#n:UNLOADED] until the server restarts: inert, its DLL gone.
-        var still = Py.SplitLines(left).Where(l => l.Contains("GgClientProbe", StringComparison.Ordinal) && !l.Contains("UNLOADED", StringComparison.Ordinal)).ToList();
+        var still = Py.SplitLines(left).Where(l => l.Contains("OsClientProbe", StringComparison.Ordinal) && !l.Contains("UNLOADED", StringComparison.Ordinal)).ToList();
         var files = Py.Strip(ExecInGame(["sh", "-c", $"ls -la {RemoteDir} 2>&1 || true"]));
-        var listed = Py.SplitLines(left).Where(l => l.Contains("GgClientProbe", StringComparison.Ordinal)).Select(Py.Strip).ToList();
-        Out.Print("css_plugins list: " + (still.Count > 0 ? Py.Repr(still) : listed.Count > 0 ? Py.Repr(listed) : "GgClientProbe gone"));
+        var listed = Py.SplitLines(left).Where(l => l.Contains("OsClientProbe", StringComparison.Ordinal)).Select(Py.Strip).ToList();
+        Out.Print("css_plugins list: " + (still.Count > 0 ? Py.Repr(still) : listed.Count > 0 ? Py.Repr(listed) : "OsClientProbe gone"));
         Out.Print($"{Game}:{RemoteDir}: {files}");
         if (still.Count > 0 || !files.Contains("No such file", StringComparison.Ordinal))
             throw Out.Stop("the probe is NOT fully gone - check by hand before releasing the lock");
@@ -406,21 +406,21 @@ for k,c in enumerate(sys.argv[1:]):
         if (html.StartsWith('@'))
             html = Py.Strip(File.ReadAllText(html[1..], Encoding.UTF8));
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(html)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-        Out.Print(Py.Strip(Rcon([$"ggprobe_html64 {who} {(int)double.Parse(seconds, CultureInfo.InvariantCulture)} {b64}"])));
+        Out.Print(Py.Strip(Rcon([$"osprobe_html64 {who} {(int)double.Parse(seconds, CultureInfo.InvariantCulture)} {b64}"])));
     }
 
-    /// <summary>A message of any length: uploaded as /tmp/ggprobe/msg.html, then ggprobe_htmlfile.</summary>
+    /// <summary>A message of any length: uploaded as /tmp/osprobe/msg.html, then osprobe_htmlfile.</summary>
     void CmdHtmlFile(string who, string seconds, string path)
     {
         Upload(new() { ["msg.html"] = File.ReadAllBytes(path) });
-        Out.Print(Py.Strip(Rcon([$"ggprobe_htmlfile {who} {(int)double.Parse(seconds, CultureInfo.InvariantCulture)} {RemoteDir}/msg.html"])));
+        Out.Print(Py.Strip(Rcon([$"osprobe_htmlfile {who} {(int)double.Parse(seconds, CultureInfo.InvariantCulture)} {RemoteDir}/msg.html"])));
     }
 
     void CmdStatus()
     {
         Out.Print("lock: " + (LockText() is { Length: > 0 } t ? t : "free"));
-        var listed = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("GgClientProbe", StringComparison.Ordinal)).Select(Py.Strip).ToList();
-        Out.Print("css_plugins list: " + (listed.Count > 0 ? Py.Repr(listed) : "GgClientProbe not loaded"));
+        var listed = Py.SplitLines(Rcon(["css_plugins list"])).Where(l => l.Contains("OsClientProbe", StringComparison.Ordinal)).Select(Py.Strip).ToList();
+        Out.Print("css_plugins list: " + (listed.Count > 0 ? Py.Repr(listed) : "OsClientProbe not loaded"));
         Out.Print($"{Game}:{RemoteDir}: {Py.Strip(ExecInGame(["sh", "-c", $"ls -la {RemoteDir} 2>&1 || true"]))}");
     }
 
@@ -488,7 +488,7 @@ probe lock "<purpose>" | purpose <minutes> "<purpose>" | unlock | load | players
                 h.CmdUnload();
                 break;
             case "players":
-                Out.Print(Py.Strip(h.Rcon(["ggprobe_players"])));
+                Out.Print(Py.Strip(h.Rcon(["osprobe_players"])));
                 break;
             case "html":
                 h.NeedLock();
@@ -499,11 +499,11 @@ probe lock "<purpose>" | purpose <minutes> "<purpose>" | unlock | load | players
                 h.CmdHtmlFile(rest[0], rest[1], rest[2]);
                 break;
             case "stop":
-                Out.Print(Py.Strip(h.Rcon(["ggprobe_stop"])));
+                Out.Print(Py.Strip(h.Rcon(["osprobe_stop"])));
                 break;
             case "clientcmd":
                 h.NeedLock();
-                Out.Print(Py.Strip(h.Rcon([$"ggprobe_clientcmd {rest[0]} {string.Join(" ", rest.Skip(1))}"])));
+                Out.Print(Py.Strip(h.Rcon([$"osprobe_clientcmd {rest[0]} {string.Join(" ", rest.Skip(1))}"])));
                 break;
             case "rcon":
                 if (rest.Count == 0)

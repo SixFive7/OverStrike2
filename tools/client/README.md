@@ -86,7 +86,7 @@ Valve's own.
      production (compare with what you expect, not with an earlier run).
    - say in your report which server each run hit.
 3. **Production actions need the server lock**: loading the probe plugin, RCON commands that change anything (`css_guide`,
-   `gg_notice`, ...). Read-only RCON (`status`, `css_gghud`, `css_plugins list`) does not. `probe\probe.py lock|unlock` takes and
+   `os_notice`, ...). Read-only RCON (`status`, `os_hud`, `css_plugins list`) does not. `probe\probe.py lock|unlock` takes and
    releases it with this harness as the owner.
 4. Do not set archived convars (`volume`, `fps_max`, binds, ...) with `-Cmd` unless you need to: the files are restored at the
    end, but the cloud copy of the user convars is uploaded by CS2 itself while the session runs (see "Settings").
@@ -166,8 +166,8 @@ so the files must be in place **before** CS2 starts - the harness installs them 
 7. **The window**: `cs2client.ps1 rcon -Rcon "css_guide <account> first"` opens it on its Start page for this account only (what a
    first-time player sees), then `shot -Name window` after 2-3 s. `<account>` is the n of the client's `[U:1:n]`, the account Steam is
    logged in with. While the server waits for this game's first click the window's X is the version button, so
-   `css_gghud press <account> <its id>` closes it as a player would (the id is `HudVersion.Button`'s, in the layout beside
-   `gg_btn_close`), and `css_gghud release` ends it at once. `gg_notice <seconds> <text>` puts a line on everybody's top line, in chat and
+   `os_hud press <account> <its id>` closes it as a player would (the id is `HudVersion.Button`'s, in the layout beside
+   `os_btn_close`), and `os_hud release` ends it at once. `os_notice <seconds> <text>` puts a line on everybody's top line, in chat and
    on the board's Lately list.
 8. **Stop the client**: `cs2client.ps1 stop`. Check `loose HUD files: removed N loose HUD file(s) ...`; `cs2client.ps1 check` must say
    OK afterwards (it finds any loose file left).
@@ -180,11 +180,11 @@ so the files must be in place **before** CS2 starts - the harness installs them 
 Workshop Download** dialog: joining a server that is on a Workshop map this PC does not have, the client asks before fetching it, nobody
 answers, and the session sits at `SIGNONSTATE_CONNECTED` until the server times it out (about 2 minutes, `NETWORK_DISCONNECT_TIMEDOUT`).
 Test on an official map or one the PC already has (`steamapps\workshop\content\730\<id>`). The hidden client never has input focus, so
-nothing that needs a click or a key can be screenshotted unless the server can show it. The server can, through the plugin's `css_gghud`
-(`plugin/OverStrike2`): `css_gghud show <account> <page>` opens the window on a page, `css_gghud press <account> <button>` clicks a button
-through the real click path (a tab, a filter, a Fun choice, a vote card), `css_gghud content <account> <level>` says which content that
-game holds, as if it had clicked, and `css_gghud level <n> <account>` fakes the server's content level for the version banner.
-`css_gghud click <account> <button>` only replays a button's bridge command (Start a vote, a like, ...) for that account. In an insecure
+nothing that needs a click or a key can be screenshotted unless the server can show it. The server can, through the plugin's `os_hud`
+(`plugin/OverStrike2`): `os_hud show <account> <page>` opens the window on a page, `os_hud press <account> <button>` clicks a button
+through the real click path (a tab, a filter, a Fun choice, a vote card), `os_hud content <account> <level>` says which content that
+game holds, as if it had clicked, and `os_hud level <n> <account>` fakes the server's content level for the version banner.
+`os_hud click <account> <button>` only replays a button's bridge command (Start a vote, a like, ...) for that account. In an insecure
 session with `-Console`, the client console types chat too: `cmd -Cmd "say !help"`.
 
 **What only the bridge's own callers say: `probe\bridgepost.py`.** The restart watcher's notices - a restart announced or taken back
@@ -198,7 +198,7 @@ in the exec's environment, never printed. A notice counting down (`restart ... n
 player's second `act restart` quits the server 10 s later unless `quit-notice` comes first.
 
 **Three traps on the test copy:** `css_plugins reload OverStrike2` leaves the old instance's listeners running: one chat line gets several
-answers, and the instances remove each other's layout entity (`gghud: no HUD entity`), so test a new plugin on a fresh copy
+answers, and the instances remove each other's layout entity (`os_hud: no HUD entity`), so test a new plugin on a fresh copy
 (`testcopy.py rm`, `testcopy.py plugin <commit>`, `testcopy.py run`). Removing the maintenance flag rolls the dice within a second, and the
 roll is usually a Workshop map, which puts the client in the dialog above; `changelevel <official map>`, then `disconnect` and `connect` in
 the client's console, gets it back. A press's RCON call returns some seconds after the press has happened, so start a burst of
@@ -240,17 +240,17 @@ never has focus:
 | `exec_async` + `sleep` (a polling script) | Queued, never run: async scripts need cheats (`perftest.cfg` says so; measured at the main menu). |
 
 What does reach a running client: **the server**, through what the server can show it. `rcon` runs any server command (one RCON
-line carries about 512 characters - longer ones vanish without an error); `probe\probe.py` loads a tiny test plugin (GgClientProbe,
+line carries about 512 characters - longer ones vanish without an error); `probe\probe.py` loads a tiny test plugin (OsClientProbe,
 from `/tmp` in the game container, never the plugins folder) that sends centre-screen HTML to one account only (`html`, or `htmlfile` for
 any length). The server cannot run client commands: `ExecuteClientCommand` of `toggleconsole` or `exec` is refused by the client
 (`Cannot execute concommand 'exec', missing required FCVAR flag`, measured).
 
 ```
 python -I tools\client\probe\probe.py lock "<purpose>"                  # the server lock, this harness as owner
-python -I tools\client\probe\probe.py load                              # build, copy to <game>:/tmp/ggprobe, css_plugins load
+python -I tools\client\probe\probe.py load                              # build, copy to <game>:/tmp/osprobe, css_plugins load
 python -I tools\client\probe\probe.py html <account> 20 "<b>hello</b>"  # or "@file.html"; re-sent every tick for 20 s
 python -I tools\client\probe\probe.py htmlfile <account> 20 long.html
-python -I tools\client\probe\probe.py unload                            # unload, delete /tmp/ggprobe, verify, release the lock (kept on a test copy)
+python -I tools\client\probe\probe.py unload                            # unload, delete /tmp/osprobe, verify, release the lock (kept on a test copy)
 ```
 
 What centre-screen HTML can do: pictures from URLs show; one message holds about 1,500 bytes; the panel has a fixed size.
@@ -313,7 +313,7 @@ DirectX swap chain last presented; the game keeps rendering on a desktop nobody 
 one table of rows - every page, tab and state of the HUD, and every message of `docshots\messages.txt` - each with the exact commands that
 reach it, held to the committed code (its button ids, its words, its content version) before anything runs. It drives only the verbs
 `rcon`, `cmd`, `shot` and `log`, and `bridgepost.py`; it masks the client's avatar, chat and own name before a picture is written
-(`--renamed`: the client plays under a test name, through GgDocName); `--selfcheck` holds the whole run to its dry run offline. Its
+(`--renamed`: the client plays under a test name, through OsDocName); `--selfcheck` holds the whole run to its dry run offline. Its
 docstring has every option. A session:
 
 1. **The build under test**, from a clean checkout of the commit the pictures show: `OUT=<session folder> docshots/build_docs.sh <checkout> <map pictures>`
@@ -341,8 +341,8 @@ docstring has every option. A session:
 | `Cs2Client.psm1` | Everything they do: launch, waits, log, shots, settings backup and restore, loose HUD files, stop and clean-up. |
 | `watchdog.ps1` | The guard (above). |
 | `Cs2Native.cs` | The Win32 side, compiled by the module with `Add-Type` into the state folder's `bin\` (keyed by its hash). |
-| `probe\probe.py`, `probe\GgClientProbe\` | The server half: the private config, the server lock, the Docker API and RCON for the verbs; and the probe plugin for tests that need the server to show this client something. |
+| `probe\probe.py`, `probe\OsClientProbe\` | The server half: the private config, the server lock, the Docker API and RCON for the verbs; and the probe plugin for tests that need the server to show this client something. |
 | `probe\testcopy.py` | The insecure test copy of production for loose-file and console tests (`prep`, `run [--env K=V] [--downloads]`, `status`, `rm`, `restore`), a candidate bridge beside it - a new bridge image on a copy of the bridge's data, production's bridge set aside and its state never written, the copy reading the candidate's data (`bridge-prep`, `bridge-run <tag>`, `bridge-rm`, `bridge-restore`; the order is in its docstring) - and the plugin of a commit of main on the copy, production's plugins folder never written (`plugin <commit>`, `plugin-rm`). `run` sets the watcher's automatic actions, the deletion and the HUD item's page off in the copy's `OVERSTRIKE2_SETTINGS_CONTENT`, and `maps.layout` off, so the copy's start organizes nothing in production's maps folder (no hand-over taken in, no map moved or deleted, no write of Steam's `appworkshop_730.acf`) (a production without that text gets no copy: nothing else turns the watcher off), and a candidate bridge has production's text in its environment; `--env` reaches only the image's own variables. `--downloads` keeps the stock's background downloads production's, so the watcher stays up for them and sends the bridge its ready reports (a bridge check: the Sync page's stock on disk, a background download); refused while production's watcher has a restart of its own to judge. |
 | `probe\bridgepost.py` | What only the restart watcher or other players say to the bridge, to a candidate bridge on a test copy only. |
 | `probe\test_*.py`, `probe\simconfig.py` | The offline tests: an in-memory Docker, a made-up private config, no server (AGENTS.md runs them). |
-| `docshots\` | The documentation's screenshots: `docshots.py` and its `messages.txt`, `publish.py`, the session's scripts, GgDocName. |
+| `docshots\` | The documentation's screenshots: `docshots.py` and its `messages.txt`, `publish.py`, the session's scripts, OsDocName. |

@@ -483,7 +483,7 @@ static class TestCopyTests
                   calls.Any(c => c[0] == "exec" && c[1] == "cs2" && c[2].StartsWith("cd /home/steam/cs2-plugins", StringComparison.Ordinal)));
 
             // 12. probe unload on a test copy keeps the server lock: production is still aside; on production it releases it
-            h.Exec = (container, cmd, env, timeout) => "ls: cannot access '/tmp/ggprobe': No such file or directory";
+            h.Exec = (container, cmd, env, timeout) => "ls: cannot access '/tmp/osprobe': No such file or directory";
             foreach (var (test, kept, what) in new[] { (true, true, "a test copy: the lock kept"), (false, false, "production: the lock released") })
             {
                 state.Clear();

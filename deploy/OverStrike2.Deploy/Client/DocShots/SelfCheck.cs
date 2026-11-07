@@ -54,21 +54,21 @@ static partial class DocShots
                 var account = Env("FAKE_ACCOUNT");
                 Print(r switch
                 {
-                    "ggd_name" => $"ggd_name: {account} goes by Alice; on the server: {account} is Alice",
-                    _ when fail.Length > 0 && r.Contains(fail, StringComparison.Ordinal) => "gghud: no vote is on: vote and browse need one",
-                    "css_gghud" => $"gghud: addon 3823993566, nobody frozen, entity 123, world ready, state 1s old: ar_shoots by , vote none, bridge ok, window open for [{name}]",
-                    _ when r.StartsWith("css_gghud show", StringComparison.Ordinal) => $"gghud: window on {Words(r)[^1]} for {name}",
-                    _ when r.StartsWith("css_gghud press", StringComparison.Ordinal) => $"gghud: pressed {Words(r)[^1]} for {name}",
-                    _ when r.StartsWith("css_gghud click", StringComparison.Ordinal) => $"gghud: sent !next for account {Words(r)[2]}; the bridge's answer arrives with the next frame",
-                    _ when r.StartsWith("css_gghud centre", StringComparison.Ordinal) => "gghud: \"words\" for 8 s, sent again every 3 s",
-                    _ when r.StartsWith("css_gghud release", StringComparison.Ordinal) => "gghud: released: 1 window(s), 0 TAB cursor(s); capture off for everybody next frame",
-                    "css_gghud level 0" => "gghud: server level real",
-                    _ when r.StartsWith("css_gghud level", StringComparison.Ordinal) => $"gghud: join banner for {name} for 15 s (server level 47)",
-                    _ when r.StartsWith("css_gghud content", StringComparison.Ordinal) => $"gghud: account {Words(r)[2]}: HUD v4.6.0",
+                    "osd_name" => $"osd_name: {account} goes by Alice; on the server: {account} is Alice",
+                    _ when fail.Length > 0 && r.Contains(fail, StringComparison.Ordinal) => "os_hud: no vote is on: vote and browse need one",
+                    "os_hud" => $"os_hud: addon 3823993566, nobody frozen, entity 123, world ready, state 1s old: ar_shoots by , vote none, bridge ok, window open for [{name}]",
+                    _ when r.StartsWith("os_hud show", StringComparison.Ordinal) => $"os_hud: window on {Words(r)[^1]} for {name}",
+                    _ when r.StartsWith("os_hud press", StringComparison.Ordinal) => $"os_hud: pressed {Words(r)[^1]} for {name}",
+                    _ when r.StartsWith("os_hud click", StringComparison.Ordinal) => $"os_hud: sent !next for account {Words(r)[2]}; the bridge's answer arrives with the next frame",
+                    _ when r.StartsWith("os_hud centre", StringComparison.Ordinal) => "os_hud: \"words\" for 8 s, sent again every 3 s",
+                    _ when r.StartsWith("os_hud release", StringComparison.Ordinal) => "os_hud: released: 1 window(s), 0 TAB cursor(s); capture off for everybody next frame",
+                    "os_hud level 0" => "os_hud: server level real",
+                    _ when r.StartsWith("os_hud level", StringComparison.Ordinal) => $"os_hud: join banner for {name} for 15 s (server level 47)",
+                    _ when r.StartsWith("os_hud content", StringComparison.Ordinal) => $"os_hud: account {Words(r)[2]}: HUD v4.6.0",
                     _ when r.StartsWith("css_guide", StringComparison.Ordinal) => $"guide: showing to {name}",
-                    _ when r.StartsWith("gg_notice", StringComparison.Ordinal) => "gg_notice: shown for 10 s: words",
-                    _ when r.StartsWith("gg_fun reset", StringComparison.Ordinal) => "fun: reset - done",
-                    _ when r.StartsWith("gg_fun", StringComparison.Ordinal) => "fun: gravity moon by Bob: sv_gravity 200",
+                    _ when r.StartsWith("os_notice", StringComparison.Ordinal) => "os_notice: shown for 10 s: words",
+                    _ when r.StartsWith("os_fun reset", StringComparison.Ordinal) => "fun: reset - done",
+                    _ when r.StartsWith("os_fun", StringComparison.Ordinal) => "fun: gravity moon by Bob: sv_gravity 200",
                     _ when r.StartsWith("os_catchup", StringComparison.Ordinal) => $"catchup: showed {name}: words",
                     _ when r.StartsWith("os_mode", StringComparison.Ordinal) => "os_mode: mode deathmatch: kept",
                     _ => $"ok, /log/{Env("FAKE_TOKEN")} rcon_password hunter2",
@@ -158,9 +158,9 @@ static partial class DocShots
             check(launched.All(c => AllVerbs.Contains(c[0]) || c[0] == "post"), "deep check: a verb outside the four and bridgepost");
             check(launched.Where(c => c[0] == "post").All(c => PostVerbs.Contains(c[1])), "deep check: a bridgepost verb that is not one");
             check(launched.Where(c => c[0] == "shot").All(c => c.Contains("-MaxWidth") && c[c.IndexOf("-MaxWidth") + 1] == "0"), "deep check: a shot not at full size");
-            check(launched.Count(c => c[0] == "rcon" && c[2].Contains("gg_set_restart", StringComparison.Ordinal)) == 1, "deep check: the restart's button is not clicked exactly once");
-            check(!launched.Any(c => c[0] == "rcon" && c[2].Contains("gg_hudver_", StringComparison.Ordinal)), "deep check: the version button was clicked: its real news names the client");
-            check(!launched.Any(c => c[0] == "rcon" && Regex.IsMatch(c[2], @"\b(quit|exit|gg_ws_play|mm_extra_addons|mm_client_extra_addons|host_workshop_map)\b")), "deep check: a forbidden command went out");
+            check(launched.Count(c => c[0] == "rcon" && c[2].Contains("os_set_restart", StringComparison.Ordinal)) == 1, "deep check: the restart's button is not clicked exactly once");
+            check(!launched.Any(c => c[0] == "rcon" && c[2].Contains("os_hudver_", StringComparison.Ordinal)), "deep check: the version button was clicked: its real news names the client");
+            check(!launched.Any(c => c[0] == "rcon" && Regex.IsMatch(c[2], @"\b(quit|exit|os_ws_play|mm_extra_addons|mm_client_extra_addons|host_workshop_map)\b")), "deep check: a forbidden command went out");
             var man = Json.Parse(File.ReadAllText(Path.Combine(output, res, "manifest.json"), Encoding.UTF8));
             foreach (var r in plan.Where(e => e.Mode == "shoot").Select(e => e.Row))
             {
@@ -197,7 +197,7 @@ static partial class DocShots
             Directory.Delete(output, true);
             Directory.Delete(calls, true);
             Directory.CreateDirectory(calls);
-            Environment.SetEnvironmentVariable("FAKE_FAIL", $"css_gghud show {Account} vote");
+            Environment.SetEnvironmentVariable("FAKE_FAIL", $"os_hud show {Account} vote");
             (plan, _) = BuildPlan(["vote-kept"], true);
             Console.SetOut(new StringWriter());
             using (var doer = new Doer(res, output, false))
@@ -208,7 +208,7 @@ static partial class DocShots
             Console.SetOut(realOut);
             launched = Launched(calls);
             check(failed.Contains("vote-kept"), $"deep check: a vote that did not open did not stop its chain: {string.Join(", ", failed.Order(StringComparer.Ordinal))}");
-            check(!launched.Any(c => c[0] == "rcon" && c[2].Contains("gg_m1_play", StringComparison.Ordinal)), "deep check: a card was clicked in a vote that did not open");
+            check(!launched.Any(c => c[0] == "rcon" && c[2].Contains("os_m1_play", StringComparison.Ordinal)), "deep check: a card was clicked in a vote that did not open");
 
             // a run that keeps its raw frames, and --remask on them: no verb, the same files, and without the raw frames it refuses
             Environment.SetEnvironmentVariable("FAKE_FAIL", null);

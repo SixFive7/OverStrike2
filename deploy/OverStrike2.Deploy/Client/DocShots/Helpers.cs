@@ -9,16 +9,16 @@ namespace OverStrike2.Deploy;
 static partial class DocShots
 {
     const string DocNameUsage = """
-The throwaway GgDocName (tools/client/docshots/GgDocName) on the test copy: copied to /tmp/ggdocname in the game container and loaded, and the client named;
+The throwaway OsDocName (tools/client/docshots/OsDocName) on the test copy: copied to /tmp/osdocname in the game container and loaded, and the client named;
 refuses unless the game server's container is the test copy and the harness holds the server lock. unload removes it. The pictures are public,
 so the client plays under a test name: docshots --renamed then needs no mask for a name.
 
     os2-deploy docshots name load [<account> <name>]     build, copy, load, and name that account (default: this PC's Steam login, Alice)
-    os2-deploy docshots name status                      what ggd_name says
-    os2-deploy docshots name unload                      unload and remove /tmp/ggdocname
+    os2-deploy docshots name status                      what osd_name says
+    os2-deploy docshots name unload                      unload and remove /tmp/osdocname
 """;
 
-    /// <summary>docname.py: GgDocName on the test copy, under the harness's lock.</summary>
+    /// <summary>docname.py: OsDocName on the test copy, under the harness's lock.</summary>
     static int DocName(string[] argv, string? config)
     {
         var verb = argv.Length > 0 ? argv[0] : "status";
@@ -35,23 +35,23 @@ so the client plays under a test name: docshots --renamed then needs no mask for
             var (account, name) = argv.Length > 2 ? (argv[1], argv[2]) : (Harness.SteamAccount() is var a && a != 0 ? a.ToString(System.Globalization.CultureInfo.InvariantCulture) : "", Me);
             if (!Py.IsDigits(account) || Py.Strip(name).Length == 0)
                 throw Out.Stop("load: no account - Steam names no logged-in account on this PC; give <account> <name>");
-            var project = Path.Combine(Here, "GgDocName");
+            var project = Path.Combine(Here, "OsDocName");
             if (Proc.Run(["dotnet", "build", "-c", "Release", "-nologo", "-v", "q"], cwd: project) != 0)
-                throw new Exit(1, "dotnet build of GgDocName failed");
-            var data = File.ReadAllBytes(Path.Combine(project, "bin", "Release", "net10.0", "GgDocName.dll"));
-            Out.Print($"copied {data.Length} bytes, HTTP {h.Upload(new() { ["GgDocName.dll"] = data }, folder: "ggdocname")}");
-            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins load /tmp/ggdocname/GgDocName.dll")), 0, 300));
+                throw new Exit(1, "dotnet build of OsDocName failed");
+            var data = File.ReadAllBytes(Path.Combine(project, "bin", "Release", "net10.0", "OsDocName.dll"));
+            Out.Print($"copied {data.Length} bytes, HTTP {h.Upload(new() { ["OsDocName.dll"] = data }, folder: "osdocname")}");
+            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins load /tmp/osdocname/OsDocName.dll")), 0, 300));
             Thread.Sleep(1000);
             Out.Print(Py.Repr(Py.SplitLines(Rcon("css_plugins list")).Where(l => l.Contains("LOADED", StringComparison.Ordinal)).Select(Py.Strip).ToList()));
-            Out.Print(Py.Slice(Py.Strip(Rcon($"ggd_name {account} {name}")), 0, 300));
+            Out.Print(Py.Slice(Py.Strip(Rcon($"osd_name {account} {name}")), 0, 300));
         }
         else if (verb == "status")
-            Out.Print(Py.Slice(Py.Strip(Rcon("ggd_name")), 0, 300));
+            Out.Print(Py.Slice(Py.Strip(Rcon("osd_name")), 0, 300));
         else
         {
-            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins unload GgDocName")), 0, 300));
-            var gone = Py.Strip(h.ExecInGame(["rm", "-rf", "/tmp/ggdocname"]));
-            Out.Print(gone.Length > 0 ? gone : "removed /tmp/ggdocname");
+            Out.Print(Py.Slice(Py.Strip(Rcon("css_plugins unload OsDocName")), 0, 300));
+            var gone = Py.Strip(h.ExecInGame(["rm", "-rf", "/tmp/osdocname"]));
+            Out.Print(gone.Length > 0 ? gone : "removed /tmp/osdocname");
         }
         return 0;
     }

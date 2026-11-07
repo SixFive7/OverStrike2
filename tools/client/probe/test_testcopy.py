@@ -367,7 +367,7 @@ check("restore: the plugins compared in production itself, its plugins folder ag
       any(c[0] == "exec" and c[1] == "cs2" and c[2].startswith("cd /home/steam/cs2-plugins") for c in calls))
 
 # 12. probe.py unload on a test copy keeps the server lock: production is still aside; on production it releases it
-probe.exec_in_game = lambda cmd: "ls: cannot access '/tmp/ggprobe': No such file or directory"
+probe.exec_in_game = lambda cmd: "ls: cannot access '/tmp/osprobe': No such file or directory"
 for test, kept, what in ((True, True, "a test copy: the lock kept"), (False, False, "production: the lock released")):
     state.clear()
     state["cs2"] = [ins("running", test=test)]

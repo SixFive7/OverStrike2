@@ -1,5 +1,5 @@
 """The server half of the CS2 client test harness (../README.md): the server lock, the Docker API and RCON that the harness's verbs and
-testcopy.py use, and the test-only GgClientProbe plugin, loaded into the game container for one test and taken out again.
+testcopy.py use, and the test-only OsClientProbe plugin, loaded into the game container for one test and taken out again.
 
 Nothing here knows a deployment. Everything comes from the private config through deploy/os2.py's Config ($OVERSTRIKE2_CONFIG, else
 .private/config.toml): the server's query address (server.address), the lock file (server.lock_file), the game server's and the
@@ -13,14 +13,14 @@ is ever written to the plugins folder, and a restart drops the probe anyway: it 
   python -I probe.py lock "<purpose>"                 take the server lock (refuses if anyone holds it)
   python -I probe.py purpose <minutes> "<purpose>"    the lock's since, expected end and purpose anew, its owner line kept (the harness's lock only)
   python -I probe.py unlock                           release it, if it is the harness's
-  python -I probe.py load                             build if needed, copy the DLL to /tmp/ggprobe in the game container, css_plugins load it
+  python -I probe.py load                             build if needed, copy the DLL to /tmp/osprobe in the game container, css_plugins load it
   python -I probe.py players                          who is on (slot, name, account id)
   python -I probe.py html <account|*> <seconds> <html or @file>   centre-screen HTML to that player only, re-sent every tick
   python -I probe.py htmlfile <account|*> <seconds> <file>         the same from a file of any length (a console line holds ~500 chars)
   python -I probe.py stop                             clear the probe's messages
   python -I probe.py clientcmd <account> <command>    ExecuteClientCommand (only FCVAR_CLIENT_CAN_EXECUTE commands run)
   python -I probe.py rcon "<command>" ["<command>" ...]   server console commands, each one's answer printed
-  python -I probe.py unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock - kept while
+  python -I probe.py unload                           css_plugins unload, delete /tmp/osprobe, verify both, release the lock - kept while
                                                       the game server is a test copy (testcopy.py restore first)
   python -I probe.py status                           the probe's state on the server and the lock
   python -I probe.py config                           what the harness reads from the private config, as JSON (no credential in it)
@@ -44,10 +44,10 @@ from check import jsonc  # noqa: E402,F401  (deploy/check.py's: the settings tex
 
 OWNER = "cs2 client test harness (tools/client)"   # the lock's first line is "owner: " and this
 TEST_LABEL = "cs2.test-config"               # the label of every container testcopy.py makes: a test copy, never production
-PROJECT = HERE / "GgClientProbe"
-DLL = PROJECT / "bin" / "Release" / "net10.0" / "GgClientProbe.dll"
-REMOTE_DIR = "/tmp/ggprobe"
-REMOTE_DLL = REMOTE_DIR + "/GgClientProbe.dll"
+PROJECT = HERE / "OsClientProbe"
+DLL = PROJECT / "bin" / "Release" / "net10.0" / "OsClientProbe.dll"
+REMOTE_DIR = "/tmp/osprobe"
+REMOTE_DLL = REMOTE_DIR + "/OsClientProbe.dll"
 GAME_UID = 1000                              # the game image's user: the files it is handed are its own
 
 # RCON from inside the game container, the way the game server's own tools reach it: no RCON port needs to reach this PC. The password
@@ -312,7 +312,7 @@ def cmd_unlock():
 
 # ------------------------------------------------------------------------------------------------------- the probe plugin
 
-def upload(files, folder="ggprobe"):
+def upload(files, folder="osprobe"):
     """files: {name: bytes} -> one tar into the game container's /tmp/<folder> (world-readable, owned by the game's user)."""
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w") as tar:
@@ -328,30 +328,30 @@ def upload(files, folder="ggprobe"):
 def cmd_load():
     need_lock()
     subprocess.run(["dotnet", "build", "-c", "Release", "-nologo", "-v", "q"], cwd=PROJECT, check=True)
-    loaded = [l for l in rcon("css_plugins list").splitlines() if "GgClientProbe" in l]
+    loaded = [l for l in rcon("css_plugins list").splitlines() if "OsClientProbe" in l]
     if loaded:  # a newer build replaces the loaded one
-        print(rcon("css_plugins unload GgClientProbe").strip())
+        print(rcon("css_plugins unload OsClientProbe").strip())
     data = DLL.read_bytes()
-    st = upload({"GgClientProbe.dll": data})
+    st = upload({"OsClientProbe.dll": data})
     print(f"copied {len(data)} bytes to {game()}:{REMOTE_DLL} (HTTP {st})")
     print(rcon(f"css_plugins load {REMOTE_DLL}").strip())
     time.sleep(1)
     out = rcon("css_plugins list")
-    line = [l for l in out.splitlines() if "GgClientProbe" in l]
-    print("css_plugins list:", line or "GgClientProbe NOT LISTED")
+    line = [l for l in out.splitlines() if "OsClientProbe" in l]
+    print("css_plugins list:", line or "OsClientProbe NOT LISTED")
     if not line:
         sys.exit(1)
 
 
 def cmd_unload():
-    out = rcon("css_plugins unload GgClientProbe")
+    out = rcon("css_plugins unload OsClientProbe")
     print(out.strip())
     print(exec_in_game(["rm", "-rf", REMOTE_DIR]).strip() or f"removed {REMOTE_DIR}")
     left = rcon("css_plugins list")
     # CounterStrikeSharp keeps an unloaded plugin in its list as [#n:UNLOADED] until the server restarts: inert, its DLL gone.
-    still = [l for l in left.splitlines() if "GgClientProbe" in l and "UNLOADED" not in l]
+    still = [l for l in left.splitlines() if "OsClientProbe" in l and "UNLOADED" not in l]
     files = exec_in_game(["sh", "-c", f"ls -la {REMOTE_DIR} 2>&1 || true"]).strip()
-    print("css_plugins list:", still or [l.strip() for l in left.splitlines() if "GgClientProbe" in l] or "GgClientProbe gone")
+    print("css_plugins list:", still or [l.strip() for l in left.splitlines() if "OsClientProbe" in l] or "OsClientProbe gone")
     print(f"{game()}:{REMOTE_DIR}:", files)
     if still or "No such file" not in files:
         sys.exit("the probe is NOT fully gone - check by hand before releasing the lock")
@@ -366,19 +366,19 @@ def cmd_html(who, seconds, html):
     if html.startswith("@"):
         html = Path(html[1:]).read_text(encoding="utf-8").strip()
     b64 = base64.urlsafe_b64encode(html.encode("utf-8")).decode().rstrip("=")
-    print(rcon(f"ggprobe_html64 {who} {int(seconds)} {b64}").strip())
+    print(rcon(f"osprobe_html64 {who} {int(seconds)} {b64}").strip())
 
 
 def cmd_htmlfile(who, seconds, path):
-    """A message of any length: uploaded as /tmp/ggprobe/msg.html, then ggprobe_htmlfile."""
+    """A message of any length: uploaded as /tmp/osprobe/msg.html, then osprobe_htmlfile."""
     upload({"msg.html": Path(path).read_bytes()})
-    print(rcon(f"ggprobe_htmlfile {who} {int(seconds)} {REMOTE_DIR}/msg.html").strip())
+    print(rcon(f"osprobe_htmlfile {who} {int(seconds)} {REMOTE_DIR}/msg.html").strip())
 
 
 def cmd_status():
     print("lock:", lock_text() or "free")
     out = rcon("css_plugins list")
-    print("css_plugins list:", [l.strip() for l in out.splitlines() if "GgClientProbe" in l] or "GgClientProbe not loaded")
+    print("css_plugins list:", [l.strip() for l in out.splitlines() if "OsClientProbe" in l] or "OsClientProbe not loaded")
     print(f"{game()}:{REMOTE_DIR}:", exec_in_game(["sh", "-c", f"ls -la {REMOTE_DIR} 2>&1 || true"]).strip())
 
 
@@ -423,7 +423,7 @@ def main(argv):
     elif verb == "unload":
         cmd_unload()
     elif verb == "players":
-        print(rcon("ggprobe_players").strip())
+        print(rcon("osprobe_players").strip())
     elif verb == "html":
         need_lock()
         cmd_html(rest[0], rest[1], " ".join(rest[2:]))
@@ -431,10 +431,10 @@ def main(argv):
         need_lock()
         cmd_htmlfile(rest[0], rest[1], rest[2])
     elif verb == "stop":
-        print(rcon("ggprobe_stop").strip())
+        print(rcon("osprobe_stop").strip())
     elif verb == "clientcmd":
         need_lock()
-        print(rcon(f"ggprobe_clientcmd {rest[0]} {' '.join(rest[1:])}").strip())
+        print(rcon(f"osprobe_clientcmd {rest[0]} {' '.join(rest[1:])}").strip())
     elif verb == "rcon":
         if not rest:
             sys.exit('usage: probe.py rcon "<command>" ["<command>" ...]')
