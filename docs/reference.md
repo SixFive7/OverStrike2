@@ -376,7 +376,8 @@ dislike. The health page counts the marks per reason. The answer to a plain Disl
 ## Fun settings
 
 Anybody switches them, at any time, a vote open or not, for everybody, until the map changes; a map that sets its own value of a setting keeps it until a player changes
-it, and gets it back. After 10 minutes with nobody on they all go back to their defaults, like at every map end. A change is one message for everybody, the same for every setting: the top line,
+it, and gets it back. After 10 minutes with nobody on they all go back to their defaults, like at every map end, and so do they when the server's plugin is
+reloaded, which says so to everybody ("A plugin reload put every fun setting back to normal"). A change is one message for everybody, the same for every setting: the top line,
 chat and the TAB board's Lately list say who made it and that it lasts until the map changes. A setting off its default stands out on the page, and its row names who set it.
 
 | Word | Setting | Choices |

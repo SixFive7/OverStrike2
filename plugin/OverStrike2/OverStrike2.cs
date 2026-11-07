@@ -113,6 +113,8 @@ public class OverStrike2Plugin : BasePlugin
 
     public override void Unload(bool hotReload)
     {
+        settings?.Unload(); // every player's fun change ends with this instance, and the next one says so (GameSettings.Unload)
+        effects?.Unload();  // ...Vampire's health cut now, not on a frame after the instance has gone
         cloak?.Unload(); // nobody stays hidden by an instance that is gone
         freeze?.Unload();
         hud?.Unload();

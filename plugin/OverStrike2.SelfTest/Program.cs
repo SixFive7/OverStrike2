@@ -17,7 +17,8 @@ using OverStrike2;
 //   - which game mode the settings module acts in (ModePlan.cs): at a map start, at os_mode, and at a load while a map is on, which ends where a
 //     plugin loaded before that map is;
 //   - the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar, what the block leaves to a
-//     player, and the undo that puts a map's own value back;
+//     player, and the undo that puts a map's own value back; and a reload (FunHandover): the instance that goes undoes every change, the next
+//     one says so;
 //   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
@@ -427,6 +428,45 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         && !switches.Chosen("sv_airaccelerate"), $"fun: ...every effect back at its default, each change told, nobody's name left ({string.Join(", ", told)})");
     Check(undone.Contains("sv_airaccelerate -> 20") && undone.Contains($"{Fun.Vampire} -> 0") && switches.Last.StartsWith("21:04:11 the end of the map: undone ") && switches.Undo("again", at).Count == 0,
         $"fun: ...what it undid, said, and nothing a second time ({string.Join(", ", undone)})");
+}
+
+// ---- a reload ends every fun change (FunHandover.cs, GameSettings.Unload and Ready): the instance that goes knows what each convar was before and
+// undoes them all - Vampire's health and the rest of the effects with them - and hands the next instance word of it; that one tells everybody, so
+// nobody takes a blocked choice put back for the map's doing ----
+{
+    var t = new DateTime(2026, 11, 7, 20, 0, 0, DateTimeKind.Utc);
+    FunHandover.Put("gg_glasspire", t, ["sv_gravity -> 800", $"{Fun.Vampire} -> 0"]);
+    var heard = FunHandover.Take("gg_glasspire", t.AddSeconds(2));
+    Check(heard is ["sv_gravity -> 800", var v] && v == $"{Fun.Vampire} -> 0" && FunHandover.Take("gg_glasspire", t.AddSeconds(3)) == null,
+        "reload: the next instance on the same map hears what the one before undid, once");
+    FunHandover.Put("gg_glasspire", t, ["sv_gravity -> 800"]);
+    Check(FunHandover.Take("de_dust2", t.AddSeconds(2)) == null && FunHandover.Take("gg_glasspire", t.AddSeconds(3)) == null,
+        "reload: ...on another map it says nothing - a map change puts every fun setting back anyway - and the word is gone");
+    FunHandover.Put("gg_glasspire", t, ["sv_gravity -> 800"]);
+    Check(FunHandover.Take("gg_glasspire", t + FunHandover.Fresh + TimeSpan.FromSeconds(1)) == null, $"reload: ...nor a load more than {FunHandover.Fresh.TotalMinutes:0} minutes later");
+    Check(M.Plain(Fun.DefaultLine(FunHandover.Who)) == "A plugin reload put every fun setting back to normal" && Messages.FunDefault is { Surface: Surface.Top, On: Who.Everybody, Chat: Who.Everybody },
+        "reload: the message is Default's, on the top line and in chat for everybody, naming the reload as who put them back");
+    var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
+    var settingsCs = Path.Combine(plugin, "GameSettings.cs");
+    var hostCs = Path.Combine(plugin, "OverStrike2.cs");
+    Check(File.Exists(settingsCs) && File.Exists(hostCs), "reload: the settings module and the host are read from their source");
+    if (File.Exists(settingsCs) && File.Exists(hostCs))
+    {
+        var code = File.ReadAllText(settingsCs);
+        var unload = code[code.IndexOf("public void Unload()", StringComparison.Ordinal)..];
+        unload = unload[..unload.IndexOf("\n    }\n", StringComparison.Ordinal)];
+        var host = File.ReadAllText(hostCs);
+        var hostUnload = host[host.IndexOf("public override void Unload(", StringComparison.Ordinal)..];
+        hostUnload = hostUnload[..hostUnload.IndexOf("\n    }\n", StringComparison.Ordinal)];
+        Check(unload.IndexOf("Ending = true;", StringComparison.Ordinal) is >= 0 and var ending && ending < unload.IndexOf("fun.Undo(", StringComparison.Ordinal)
+            && unload.IndexOf("fun.Undo(", StringComparison.Ordinal) < unload.IndexOf("FunHandover.Put(", StringComparison.Ordinal)
+            && code.Contains("undoneByReload = FunHandover.Take(map, ", StringComparison.Ordinal),
+            "reload: the unload undoes every change, handing nothing out, before it hands word on; the load takes the word");
+        Check(hostUnload.IndexOf("settings?.Unload();", StringComparison.Ordinal) is >= 0 and var first && first < hostUnload.IndexOf("effects?.Unload();", StringComparison.Ordinal)
+            && hostUnload.IndexOf("effects?.Unload();", StringComparison.Ordinal) < hostUnload.IndexOf("cloak?.Unload();", StringComparison.Ordinal)
+            && host.Contains("else effects?.Switched(effect, on);", StringComparison.Ordinal),
+            "reload: the plugin's unload starts with the settings module's undo, whose Vampire switch the effects then cut at once, before the cloak lets go");
+    }
 }
 
 // ---- the Players page's time on (JoinTimes.cs): by account. A map change disconnects everybody, and a player's time goes on through it whatever

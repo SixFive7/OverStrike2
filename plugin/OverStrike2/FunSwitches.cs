@@ -17,8 +17,8 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
     /// <summary>The last change or undo, for the console: "21:04:11 gravity moon by Remy: sv_gravity 200".</summary>
     public string Last { get; private set; } = "none yet";
 
-    /// <summary>An effect changed (a player's change, the undo at a map's end, the reset): its name and whether it is on now. The plugin hands
-    /// it to the modules that act on them.</summary>
+    /// <summary>An effect changed (a player's change, the undo at a map's end, the reset, the plugin's unload): its name and whether it is on
+    /// now. The plugin hands it to the modules that act on them.</summary>
     public event Action<string, bool>? EffectChanged;
 
     /// <summary>What a fun setting's convar or effect holds now: the HUD's fun page reads it, the modules ask whether an effect is on.</summary>
@@ -71,7 +71,7 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
         return line;
     }
 
-    /// <summary>Every player change undone (a map's end, the reset after nobody has been on, the page's Default): each
+    /// <summary>Every player change undone (a map's end, the reset after nobody has been on, the page's Default, the plugin's unload): each
     /// changed convar back to what it was before the first player change on this map, then every effect back at its default, whatever left
     /// it elsewhere. What it changed, as "sv_gravity -> 800"; empty when there was nothing to undo.</summary>
     public List<string> Undo(string when, DateTime now)
@@ -87,5 +87,33 @@ public sealed class FunSwitches(Func<string, string?> convar, Func<string, strin
         }
         if (done.Count > 0) Last = $"{now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)} {when}: undone {string.Join(", ", done)}";
         return done;
+    }
+}
+
+/// <summary>What a plugin instance that unloads hands the next one in the same server process: the fun changes it undid on its way out,
+/// on which map and when, so the next one tells the players why their changes are gone (GameSettings.Unload and Ready). Kept in the process's
+/// AppDomain data, which outlives the plugin's own load context; text only, so it holds nothing of the instance that is gone.</summary>
+public static class FunHandover
+{
+    const string Key = "OverStrike2.FunUndone";
+
+    /// <summary>Who the next instance's message says put the fun settings back (Messages.FunDefault, Fun.DefaultLine): "A plugin reload put every
+    /// fun setting back to normal".</summary>
+    public const string Who = "A plugin reload";
+
+    /// <summary>How long the word stays good: a load later than this, or on another map, has nothing to say about it.</summary>
+    public static readonly TimeSpan Fresh = TimeSpan.FromMinutes(10);
+
+    public static void Put(string map, DateTime at, IEnumerable<string> undone) =>
+        AppDomain.CurrentDomain.SetData(Key, string.Join('\n', new[] { map, at.ToString("o", CultureInfo.InvariantCulture) }.Concat(undone)));
+
+    /// <summary>Taken once: what the instance before this one undid, when it was on this map at most Fresh ago; else null.</summary>
+    public static List<string>? Take(string map, DateTime now)
+    {
+        var text = AppDomain.CurrentDomain.GetData(Key) as string;
+        AppDomain.CurrentDomain.SetData(Key, null);
+        if (text?.Split('\n') is not [var on, var when, .. var undone] || on != map || undone.Length == 0) return null;
+        if (!DateTime.TryParse(when, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at) || now < at || now - at > Fresh) return null;
+        return undone.ToList();
     }
 }

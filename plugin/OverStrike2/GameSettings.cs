@@ -18,7 +18,8 @@ namespace OverStrike2;
 /// again by the engine and is left to it here.
 ///
 /// A map keeps its own settings for as long as it is on - except the blocked ones - and they are undone at its end (OnMapEnd), before the
-/// next map's cfgs and entities run: the players' changes first, then the put-back.</summary>
+/// next map's cfgs and entities run: the players' changes first, then the put-back. The players' changes end with the plugin too: an
+/// unload undoes them, and the next instance says so (Unload, Ready).</summary>
 sealed partial class GameSettings
 {
     const float ReportDelay = 15f;       // after a map start: long enough for its OnMapSpawn commands to have run
@@ -27,19 +28,23 @@ sealed partial class GameSettings
 
     readonly BasePlugin plugin;
     readonly ILogger log;
+    readonly Action<Messages.Kind, string> post;
     readonly ConVarKeeper keeper;
     readonly GameChangerBlock block;
     readonly FunSwitches fun;
     readonly ModePlan modes = new(); // os_mode's mode, the one the map that is on was loaded in, and whose block list is on (ModePlan.cs)
     Modes.Mode? modeAtLoad;          // a load while a map is on found that map in another mode than Arms Race: the modules hear of it in Ready
+    List<string>? undoneByReload;    // a load right after an unload on this map: what that unload put back, said in Ready (FunHandover)
     string map = "";
     bool endSeenSinceStart = true;   // the first start after a load restores nothing
 
-    /// <summary>post: how a message reaches the players (the HUD's Post) - the block's notice of a map's game-changer undone.</summary>
+    /// <summary>post: how a message reaches the players (the HUD's Post) - the block's notice of a map's game-changer undone, and a reload's
+    /// fun changes put back.</summary>
     public GameSettings(BasePlugin plugin, ILogger log, Action<Messages.Kind, string> post)
     {
         this.plugin = plugin;
         this.log = log;
+        this.post = post;
         keeper = new ConVarKeeper(plugin.ModuleDirectory, log);
         fun = new FunSwitches(keeper.Value, keeper.Write);
         fun.EffectChanged += (effect, on) => EffectChanged?.Invoke(effect, on);
@@ -57,8 +62,8 @@ sealed partial class GameSettings
     /// through it.</summary>
     public event Action<string, bool>? EffectChanged;
 
-    /// <summary>The map is ending (from its OnMapEnd to the next map's start): an effect put back now must not act on the players of the map
-    /// that goes - no grenade is handed out then.</summary>
+    /// <summary>The map or the plugin is ending (from a map's OnMapEnd to the next map's start, and in Unload): an effect put back now hands
+    /// the players nothing - no grenade is handed out then.</summary>
     public bool Ending { get; private set; }
 
     /// <summary>What a fun setting's convar or effect holds now: the HUD's fun page reads it, the modules ask whether an effect is on.</summary>
@@ -100,6 +105,7 @@ sealed partial class GameSettings
         if (midMap) modeAtLoad = MapMode();
         block.Read(modes.On);
         keeper.Load(midMap, map, Extras, fun.Before, modes.Told);
+        if (midMap) undoneByReload = FunHandover.Take(map, DateTime.UtcNow);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => block.Hold(map, "round start", modes.Told), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
@@ -109,13 +115,39 @@ sealed partial class GameSettings
         if (modeAtLoad is { } m) log.LogInformation("Over Strike 2 settings: mode {Mode} (loaded while {Map} is on, which was loaded in it) - {Blocked}", m.Name, map, block.From);
     }
 
-    /// <summary>The host has wired its modules to ModeApplied: a load while a map in another mode than Arms Race is on tells them that mode
-    /// now - the grenade drops, catch-up and the HUD follow it as they did from that map's start - not at the next map start.</summary>
+    /// <summary>The host has wired its modules to ModeApplied and its HUD to the messages: a load while a map in another mode than Arms Race is
+    /// on tells the modules that mode now - the grenade drops, catch-up and the HUD follow it as they did from that map's start - and a load
+    /// right after an unload that put the players' fun changes back tells everybody so, rather than leave them to guess.</summary>
     public void Ready()
     {
-        if (modeAtLoad is not { } m) return;
-        modeAtLoad = null;
-        ModeApplied?.Invoke(m);
+        if (modeAtLoad is { } m)
+        {
+            modeAtLoad = null;
+            ModeApplied?.Invoke(m);
+        }
+        if (undoneByReload is { } undone)
+        {
+            undoneByReload = null;
+            post(Messages.FunDefault, Fun.DefaultLine(FunHandover.Who));
+            log.LogInformation("Over Strike 2 settings: loaded on {Map} right after an unload that put back {List} - said to everybody", map, string.Join(", ", undone));
+        }
+    }
+
+    /// <summary>The plugin unloads (a reload, css_plugins unload, a new build): every player's fun change ends with the instance that made it.
+    /// Undone now, by the one that knows the value each convar had before: the next instance knows none of them, so it would keep the
+    /// unblocked ones without a word on the page and take the blocked ones for the map's own. The effects go back to their defaults with them
+    /// (Vampire's health cut at once). The next instance in this server process is told, to say so (FunHandover).</summary>
+    public void Unload()
+    {
+        Ending = true;
+        try
+        {
+            var undone = fun.Undo("the plugin's unload", DateTime.Now);
+            if (undone.Count == 0) return;
+            log.LogInformation("Over Strike 2 settings: fun settings undone at the plugin's unload: {List}", string.Join(", ", undone));
+            FunHandover.Put(map, DateTime.UtcNow, undone);
+        }
+        catch (Exception e) { log.LogError("Over Strike 2 settings: unload failed: {Error}", e); }
     }
 
     /// <summary>The convars the keeper watches besides the game convars: the block list's and the fun page's.</summary>

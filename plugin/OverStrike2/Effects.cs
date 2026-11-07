@@ -27,6 +27,7 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
     readonly Dictionary<int, int> ghosts = new(); // slot -> the kill that made them a ghost: a newer kill takes over, and only its own timer ends it
     int kills;                                     // every ghost's kill counted, never reset - so no timer of an older kill, or life, ends a newer one
     bool vampire, ghost;                           // as last switched
+    bool cutWaiting;                               // Vampire was switched off, and its cut waits for the next frame
 
     public void Load()
     {
@@ -51,9 +52,11 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
         if (effect.Equals(Fun.Vampire, StringComparison.OrdinalIgnoreCase) && isOn != vampire)
         {
             vampire = isOn;
+            cutWaiting = !isOn;
             Server.NextFrame(() =>
             {
-                foreach (var (_, pawn) in Alive()) SetHealth(pawn, isOn ? Math.Max(pawn.Health, Fun.VampireHealth) : Math.Min(pawn.Health, 100), isOn ? Fun.VampireCap : 100);
+                cutWaiting = false;
+                VampireHealth(isOn);
             });
             log.LogInformation("Over Strike 2 effects: Vampire {State}", isOn ? "on" : "off");
         }
@@ -68,6 +71,21 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
             }
             log.LogInformation("Over Strike 2 effects: Ghost {State}", g ? "on" : "off");
         }
+    }
+
+    /// <summary>Everybody alive gets Vampire's health and ceiling (on), or keeps no more than 100 (off).</summary>
+    static void VampireHealth(bool isOn)
+    {
+        foreach (var (_, pawn) in Alive()) SetHealth(pawn, isOn ? Math.Max(pawn.Health, Fun.VampireHealth) : Math.Min(pawn.Health, 100), isOn ? Fun.VampireCap : 100);
+    }
+
+    /// <summary>The plugin unloads (GameSettings.Unload switched Vampire off with every other fun change): its cut is made now, since the frame
+    /// it waits for may come after this instance has gone - nobody keeps Vampire's health past the instance that gave it.</summary>
+    public void Unload()
+    {
+        if (!cutWaiting) return;
+        cutWaiting = false;
+        VampireHealth(false);
     }
 
     HookResult OnHurt(EventPlayerHurt ev, GameEventInfo info)
