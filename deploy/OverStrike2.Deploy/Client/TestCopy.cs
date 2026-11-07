@@ -54,11 +54,14 @@ sealed class TestCopy
     public const string BridgeTag = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data";
     public const string Content = Check.Content;
     /// <summary>The copy's overrides of the settings text: with restarts and these maps keys off the watcher exits at once (run --downloads keeps
-    /// maps.backgroundDownloads production's: the watcher then stays up for it); no visit to the HUD item's page from a copy. No program reads
-    /// anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
+    /// maps.backgroundDownloads production's: the watcher then stays up for it); maps.layout off: the start's organize (os2-server's MapsFolder)
+    /// returns before it touches production's maps folder, the sync's hand-overs and Steam's appworkshop_730.acf - no take-in, no map moved, linked or
+    /// deleted, no acf written and no backup beside it - which are production's, in the game's tree the copy shares (a copy took them in early once,
+    /// and a candidate os2-server would have edited them with untested code); production's paths stay as they are; no visit to the HUD item's page
+    /// from a copy. No program reads anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
     public static JsonObject SettingsOff => Json.O("""
 {"restarts": {"updates": false, "newVersions": false, "freezeRecovery": false, "daily": "off", "downloadRestart": false},
- "maps": {"delete": "off", "backgroundDownloads": false, "downloadLine": false},
+ "maps": {"delete": "off", "backgroundDownloads": false, "downloadLine": false, "layout": "off"},
  "hud": {"itemPage": false}}
 """);
 
