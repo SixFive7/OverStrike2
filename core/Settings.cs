@@ -514,6 +514,8 @@ public sealed class Settings
         // plugin: the game server's own layer
         Bool("plugin.enabled", S, true, "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
             s => s.Plugin.Enabled, (s, v) => s.Plugin.Enabled = v),
+        Bool("plugin.testBots", P, false, "A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON (bot_add), so the live lab has a second player to look with. Off on production, which keeps its bots off.",
+            s => s.Plugin.TestBots, (s, v) => s.Plugin.TestBots = v),
 
         // restarts: the restart watcher
         Time("restarts.daily", S | Y, "07:00", "The daily restart, local time, only while nobody is on; \"off\" for none. The sync keeps clear of it.",
@@ -658,6 +660,7 @@ public sealed class HudSection
 public sealed class PluginSection
 {
     public bool Enabled { get; set; } = true;
+    public bool TestBots { get; set; }
 }
 
 public sealed class RestartsSection

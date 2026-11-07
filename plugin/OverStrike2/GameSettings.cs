@@ -40,8 +40,8 @@ sealed partial class GameSettings
     bool endSeenSinceStart = true;   // the first start after a load restores nothing
 
     /// <summary>post: how a message reaches the players (the HUD's Post) - the block's notice of a map's game-changer undone, and a reload's
-    /// fun changes put back.</summary>
-    public GameSettings(BasePlugin plugin, ILogger log, Action<Messages.Kind, string> post)
+    /// fun changes put back. testBots: plugin.testBots, a test copy's - the block leaves the bots' convars to RCON (GameChangerBlock.TestBots).</summary>
+    public GameSettings(BasePlugin plugin, ILogger log, Action<Messages.Kind, string> post, bool testBots = false)
     {
         this.plugin = plugin;
         this.log = log;
@@ -49,7 +49,7 @@ sealed partial class GameSettings
         keeper = new ConVarKeeper(plugin.ModuleDirectory, log);
         fun = new FunSwitches(keeper.Value, keeper.Write);
         fun.EffectChanged += (effect, on) => EffectChanged?.Invoke(effect, on);
-        block = new GameChangerBlock(plugin.ModuleDirectory, log, keeper, fun, line => post(Messages.GameChanger, line));
+        block = new GameChangerBlock(plugin.ModuleDirectory, log, keeper, fun, line => post(Messages.GameChanger, line), leftAlone: testBots ? GameChangerBlock.TestBots : null);
     }
 
     /// <summary>The mode in force for the features: the one the map that is on was loaded in.</summary>

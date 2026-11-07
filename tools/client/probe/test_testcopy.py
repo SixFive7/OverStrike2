@@ -210,6 +210,8 @@ copy_settings = json.loads(texts[0].split("=", 1)[1])
 check("run, settings text: the watcher's automatic actions off, the deletion off, no visits to the HUD item's page",
       copy_settings["restarts"] == {"daily": "off", "updates": False, "newVersions": False, "freezeRecovery": False, "downloadRestart": False}
       and copy_settings["maps"] == {"delete": "off", "backgroundDownloads": False, "downloadLine": False, "layout": "off"} and copy_settings["hud"]["itemPage"] is False)
+check("run, settings text: the copy's bots allowed (plugin.testBots), production's own plugin keys kept beside it",
+      copy_settings["plugin"]["testBots"] is True and set(copy_settings["plugin"]) >= {"testBots"})
 check("run, settings text: the maps folder left alone (maps.layout off: no take-in, no move, no deletion, no acf write), and production's paths untouched",
       copy_settings["maps"]["layout"] == "off" and "paths" not in copy_settings)
 WITH_PATHS = TEXT.replace('"schema": 1,', '"schema": 1, "paths": { "gameDir": "/srv/game", "handover": "/srv/game/workshop-sync/handover" }, "maps": { "layout": "folders" },')
@@ -281,7 +283,7 @@ check("run --downloads: maps.backgroundDownloads left as production has it (abse
       and copy_settings["restarts"] == {"daily": "off", "updates": False, "newVersions": False, "freezeRecovery": False, "downloadRestart": False}
       and copy_settings["hud"]["itemPage"] is False)
 check("run --downloads: says so, and the overridden keys it names leave it out",
-      "maps.backgroundDownloads at production's value (on)" in said and "maps.delete, maps.downloadLine, maps.layout, hud.itemPage overridden" in said and "theBridgeSecret" not in said)
+      "maps.backgroundDownloads at production's value (on)" in said and "maps.delete, maps.downloadLine, maps.layout, hud.itemPage, plugin.testBots overridden" in said and "theBridgeSecret" not in said)
 check("run --downloads: production's watcher state read by a helper with the game's tree read-only, before anything is created",
       [(n, b) for n, b, _ in helped] == [("cs2-watch-read", ["/srv/game:/g:ro"])] and "update-watch/state.json" in helped[0][2])
 OFF_IN_PROD = dict(DL, Config=dict(DL["Config"], Env=[e if not e.startswith(tc.CONTENT + "=") else tc.CONTENT + "=" + TEXT.replace('"schema": 1,', '"schema": 1, "maps": { "backgroundDownloads": false },') for e in DL["Config"]["Env"]]))

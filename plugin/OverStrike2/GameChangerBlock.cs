@@ -33,8 +33,13 @@ public interface IConVars
 /// since the last look, or CS2 brought back the mode it saved before the Workshop maps with a map change - live on 2026-11-07, both told
 /// everybody "This map tried to change the game mode" at an operator's switch.
 /// No CounterStrikeSharp type in it: the self-test drives it with fake convars and a handed clock.</summary>
-public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVars convars, FunSwitches fun, Action<string> notice, Func<DateTime>? clock = null)
+public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVars convars, FunSwitches fun, Action<string> notice, Func<DateTime>? clock = null,
+    IReadOnlyCollection<string>? leftAlone = null)
 {
+    /// <summary>The bots' convars on the list, which a test copy's plugin.testBots leaves to RCON (leftAlone): bot_quota, and bot_quota_mode, whose
+    /// fill and competitive modes add bots of their own - so the live lab can add a second player (bot_add) there. Production lists both.</summary>
+    public static readonly string[] TestBots = ["bot_quota", "bot_quota_mode"];
+
     const int LogLines = 3; // per convar per map; past it, one summary line a minute and one at the map's end
     const string GameType = "game_type", GameMode = "game_mode";
 
@@ -68,9 +73,12 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
         {
             blocked = Modes.Blocked(File.ReadAllText(BlockedFile), mode, out var errors);
             foreach (var error in errors) log.LogWarning("Over Strike 2 settings: {File}: {Error}", Modes.BlockFile, error);
+            var left = blocked.Where(b => leftAlone?.Contains(b.ConVar, StringComparer.OrdinalIgnoreCase) == true).Select(b => b.ConVar).ToList();
+            blocked = blocked.Where(b => !left.Contains(b.ConVar, StringComparer.OrdinalIgnoreCase)).ToList();
             var unknown = blocked.Where(b => !convars.Known(b.ConVar)).Select(b => b.ConVar).ToList();
             if (unknown.Count > 0) log.LogWarning("Over Strike 2 settings: {File}: unknown to this build, not blocked: {List}", Modes.BlockFile, string.Join(", ", unknown));
-            From = $"{blocked.Count - unknown.Count} game-changers blocked ({Modes.BlockFile}, {mode.Name}'s values{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})";
+            From = $"{blocked.Count - unknown.Count} game-changers blocked ({Modes.BlockFile}, {mode.Name}'s values{(errors.Count + unknown.Count > 0 ? $", {errors.Count} bad line(s), {unknown.Count} unknown" : "")})"
+                + (left.Count > 0 ? $"; {string.Join(" and ", left)} left to RCON (plugin.testBots: a test copy's bots)" : "");
         }
         catch (Exception e)
         {

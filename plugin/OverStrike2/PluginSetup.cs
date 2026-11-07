@@ -3,7 +3,7 @@ using CoreSettings = OverStrike2.Core.Settings;
 namespace OverStrike2;
 
 /// <summary>THE PLUGIN'S OWN SETTINGS, read once at its load: the keys whose readers include the plugin - hud.addon, bridge.url and
-/// bridge.secret, hud.itemPage, steam.apiGapSeconds. Settings it cannot use, or none at all, stop the plugin (OverStrike2.Load). No
+/// bridge.secret, hud.itemPage, steam.apiGapSeconds, plugin.testBots. Settings it cannot use, or none at all, stop the plugin (OverStrike2.Load). No
 /// CounterStrikeSharp type in it: the self-test runs it as it is.</summary>
 public sealed record PluginSetup
 {
@@ -23,6 +23,9 @@ public sealed record PluginSetup
     /// <summary>The least time between two Steam Web API requests (SteamWebApi.Gap): steam.apiGapSeconds.</summary>
     public double ApiGapSeconds { get; init; } = SteamWebApi.MinGapSeconds;
 
+    /// <summary>plugin.testBots, a test copy's: the block leaves the bots' convars to RCON (GameChangerBlock.TestBots), so bots can play there.</summary>
+    public bool TestBots { get; init; }
+
     /// <summary>The settings' values.</summary>
     public static PluginSetup FromFile(CoreSettings s) => new()
     {
@@ -33,5 +36,6 @@ public sealed record PluginSetup
         ItemPage = s.Hud.ItemPage,
         ItemPageSwitch = "hud.itemPage",
         ApiGapSeconds = s.Steam.ApiGapSeconds,
+        TestBots = s.Plugin.TestBots,
     };
 }

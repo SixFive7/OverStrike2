@@ -63,7 +63,7 @@ public class OverStrike2Plugin : BasePlugin
         AddCommandListener("say_team", OnSay);
         // The settings module posts through the HUD (the block's notice); its console commands are gg_fun, which the HUD and the bridge's reset
         // send, and os_settings and os_block, an operator's.
-        settings = new GameSettings(this, Logger, (kind, text) => hud?.Post(kind, text));
+        settings = new GameSettings(this, Logger, (kind, text) => hud?.Post(kind, text), setup.TestBots);
         settings.Load(hotReload);
         RegisterConsoleCommandAttributeHandlers(settings);
         drops = new GrenadeDrops(this, Logger, () => settings.EffectOn(Fun.Drops));

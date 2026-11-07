@@ -16,7 +16,8 @@ namespace OverStrike2.Deploy;
 ///     testcopy prep             refuses with a human on A2S or without the harness's server lock; maintenance flag on; production's
 ///                               inspect saved; a Docker stop (no RCON quit), renamed aside to &lt;game&gt;-prod-aside only once it is exited
 ///     testcopy run [--env K=V] [--downloads]
-///                               the test copy: production's inspect with -insecure, the restart watcher's automatic actions off, restart
+///                               the test copy: production's inspect with -insecure, the restart watcher's automatic actions off, bots
+///                               allowed (plugin.testBots: RCON's bot_add stays), restart
 ///                               policy "no", the test labels, production's network endpoint; waits until A2S answers with VAC off. --env K=V
 ///                               (repeatable) sets one more of the image's variables for this copy alone, never a credential. --downloads keeps
 ///                               maps.backgroundDownloads at production's value: the restart watcher stays up for the stock's background
@@ -58,11 +59,13 @@ sealed class TestCopy
     /// returns before it touches production's maps folder, the sync's hand-overs and Steam's appworkshop_730.acf - no take-in, no map moved, linked or
     /// deleted, no acf written and no backup beside it - which are production's, in the game's tree the copy shares (a copy took them in early once,
     /// and a candidate os2-server would have edited them with untested code); production's paths stay as they are; no visit to the HUD item's page
-    /// from a copy. No program reads anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
+    /// from a copy; plugin.testBots: the copy's bots are left to RCON (bot_add), a second player for the live lab - production never sets it. No
+    /// program reads anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
     public static JsonObject SettingsOff => Json.O("""
 {"restarts": {"updates": false, "newVersions": false, "freezeRecovery": false, "daily": "off", "downloadRestart": false},
  "maps": {"delete": "off", "backgroundDownloads": false, "downloadLine": false, "layout": "off"},
- "hud": {"itemPage": false}}
+ "hud": {"itemPage": false},
+ "plugin": {"testBots": true}}
 """);
 
     public readonly Harness H;

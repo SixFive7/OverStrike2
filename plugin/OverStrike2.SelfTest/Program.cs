@@ -271,8 +271,11 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var file = Load(Env(vars), p => p == standard ? text : NoFile(p));
     var f = PluginSetup.FromFile(file);
     Check(file.Fatal == null && !file.Troubled && f is { Addon: "3823993566", Bridge: "http://file-bridge:8081", BridgeSecret: "filesecret42",
-        BridgeWhy: "http://file-bridge:8081", ItemPage: false, ItemPageSwitch: "hud.itemPage" } && f.ApiGapSeconds == 5,
-        "settings: a file that can be used - its values, the secret by reference; CS2_LOG_HTTP_URL and the addon variable do not count");
+        BridgeWhy: "http://file-bridge:8081", ItemPage: false, ItemPageSwitch: "hud.itemPage" } && f.ApiGapSeconds == 5 && !f.TestBots,
+        "settings: a file that can be used - its values, the secret by reference; CS2_LOG_HTTP_URL and the addon variable do not count; no bots (plugin.testBots off)");
+    var copyText = Load(Env(new() { ["OVERSTRIKE2_SETTINGS_CONTENT"] = """{ "schema": 1, "hud": { "addon": "3823993566" }, "plugin": { "testBots": true } }""" }), NoFile);
+    Check(copyText.Fatal == null && !copyText.Troubled && PluginSetup.FromFile(copyText).TestBots,
+        "settings: a test copy's plugin.testBots - the plugin reads it (GameChangerBlock.TestBots: the bots' convars left to RCON)");
     Check(file.StartLine == $"settings: the settings file {standard}" && new[] { "filesecret42", "file-bridge", "3823993566", "envsecret41" }.All(x => !file.StartLine.Contains(x)),
         "settings: ...the line names the file and nothing it holds");
     var inline = Load(Env(new() { ["OVERSTRIKE2_SETTINGS_CONTENT"] = """{ "schema": 1, "hud": { "addon": "3823993566" }, "bridge": { "url": "http://inline:8080", "secret": "abc" } }""" }), NoFile);
@@ -809,6 +812,35 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(refusedLog.Lines.Count(l => l.Contains("could not block mp_death_drop_grenade on de_inferno: 2 -> 3 refused, reads 2")) == 1 && !refusedLog.Lines.Any(l => l.Contains("again"))
           && refusedNotices.Count == 0 && clamped.Values["mp_death_drop_grenade"] == "2",
         $"block: a value the game refuses is said once and tried no more on that map, with no line that it was blocked again ({string.Join(" | ", refusedLog.Lines)})");
+
+    // A test copy's plugin.testBots: the bots' convars are left to RCON, so the live lab can add a second player; production blocks them as ever.
+    var botsDir = Path.Combine(dir, "bots");
+    Directory.CreateDirectory(botsDir);
+    File.WriteAllText(Path.Combine(botsDir, Modes.BlockFile), "bot_quota  *  0  0  // bots\nbot_quota_mode  *  normal  normal  // bots\nsv_infinite_ammo  *  2  0  // the ammo\n");
+    (FakeConVars Engine, GameChangerBlock Block, List<string> Notices) Bots(bool testBots)
+    {
+        var engine = new FakeConVars();
+        foreach (var (name, value) in new[] { ("bot_quota", "0"), ("bot_quota_mode", "fill"), ("sv_infinite_ammo", "2") }) engine.Values[name] = engine.Baselines[name] = value;
+        var said = new List<string>();
+        var b = new GameChangerBlock(botsDir, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, engine, new FunSwitches(engine.Value, engine.Write), said.Add, () => t,
+            leftAlone: testBots ? GameChangerBlock.TestBots : null);
+        b.Read(Modes.ArmsRace);
+        return (engine, b, said);
+    }
+    var (copyEngine, copyBlock, copySaid) = Bots(testBots: true);
+    (copyEngine.Values["bot_quota"], copyEngine.Values["bot_quota_mode"]) = ("2", "normal"); // RCON: bot_quota_mode normal; bot_add_ct, bot_add_t
+    copyBlock.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(copyEngine.Values["bot_quota"] == "2" && copyEngine.Values["bot_quota_mode"] == "normal" && copySaid.Count == 0
+          && copyBlock.From.EndsWith("; bot_quota and bot_quota_mode left to RCON (plugin.testBots: a test copy's bots)") && !copyBlock.ConVars.Contains("bot_quota"),
+        $"block: a test copy's plugin.testBots leaves bot_quota and bot_quota_mode to RCON - bots stay, nothing said ({copyBlock.From})");
+    copyEngine.Values["sv_infinite_ammo"] = "1";
+    copyBlock.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(copyEngine.Values["sv_infinite_ammo"] == "2" && copySaid.Count == 1, "block: ...the rest of the list as ever there");
+    var (prodEngine, prodBlock, prodSaid) = Bots(testBots: false);
+    prodEngine.Values["bot_quota"] = "2";
+    prodBlock.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(prodEngine.Values["bot_quota"] == "0" && prodSaid.SequenceEqual(["This map tried to change bots - Undone: the server keeps its own rules."]) && !prodBlock.From.Contains("testBots"),
+        $"block: without it, as on production, bots are blocked and said ({string.Join(" | ", prodSaid)})");
 
     var later = new CheatsRevert();
     later.CheatsOff(t, []);

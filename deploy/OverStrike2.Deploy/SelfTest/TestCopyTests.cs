@@ -286,6 +286,7 @@ static class TestCopyTests
             check("run, settings text: the watcher's automatic actions off, the deletion off, no visits to the HUD item's page",
                   Json.Same(Json.At(copySettings, "restarts"), Json.O("""{"daily": "off", "updates": false, "newVersions": false, "freezeRecovery": false, "downloadRestart": false}"""))
                   && Json.Same(Json.At(copySettings, "maps"), Json.O("""{"delete": "off", "backgroundDownloads": false, "downloadLine": false, "layout": "off"}""")) && Json.AsBool(Json.At(copySettings, "hud", "itemPage")) == false);
+            check("run, settings text: the copy's bots allowed (plugin.testBots)", Json.AsBool(Json.At(copySettings, "plugin", "testBots")) == true);
             check("run, settings text: the maps folder left alone (maps.layout off: no take-in, no move, no deletion, no acf write), and production's paths untouched",
                   Json.Str(copySettings, "maps", "layout") == "off" && !((JsonObject)copySettings!).ContainsKey("paths"));
             var withPaths = text.Replace("\"schema\": 1,", "\"schema\": 1, \"paths\": { \"gameDir\": \"/srv/game\", \"handover\": \"/srv/game/workshop-sync/handover\" }, \"maps\": { \"layout\": \"folders\" },");
@@ -371,7 +372,7 @@ static class TestCopyTests
                   && Json.Same(Json.At(cs, "restarts"), Json.O("""{"daily": "off", "updates": false, "newVersions": false, "freezeRecovery": false, "downloadRestart": false}"""))
                   && Json.AsBool(Json.At(cs, "hud", "itemPage")) == false);
             check("run --downloads: says so, and the overridden keys it names leave it out",
-                  said.Contains("maps.backgroundDownloads at production's value (on)") && said.Contains("maps.delete, maps.downloadLine, maps.layout, hud.itemPage overridden") && !said.Contains("theBridgeSecret"));
+                  said.Contains("maps.backgroundDownloads at production's value (on)") && said.Contains("maps.delete, maps.downloadLine, maps.layout, hud.itemPage, plugin.testBots overridden") && !said.Contains("theBridgeSecret"));
             check("run --downloads: production's watcher state read by a helper with the game's tree read-only, before anything is created",
                   helped.Count == 1 && helped[0].Name == "cs2-watch-read" && helped[0].Binds.SequenceEqual(["/srv/game:/g:ro"]) && helped[0].Script.Contains("update-watch/state.json"));
             var offInProd = WithText(dl, text.Replace("\"schema\": 1,", "\"schema\": 1, \"maps\": { \"backgroundDownloads\": false },"));

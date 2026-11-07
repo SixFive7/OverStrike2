@@ -136,6 +136,7 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | Key | Type | Default | Read by | What |
 |---|---|---|---|---|
 | `plugin.enabled` | boolean | `true` | server | Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla. |
+| `plugin.testBots` | boolean | `false` | plugin | A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON (bot_add), so the live lab has a second player to look with. Off on production, which keeps its bots off. |
 
 ### `restarts`
 

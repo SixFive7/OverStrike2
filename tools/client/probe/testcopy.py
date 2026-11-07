@@ -19,7 +19,8 @@ game, so the stop ends it with SIGKILL after the grace period, as every redeploy
                                          quit), renamed aside to <game>-prod-aside only once it is exited
   python -I testcopy.py run [--env K=V] [--downloads]
                                          the test copy: production's inspect, the same image, plugins and HUD addon, with -insecure added to
-                                         CS2_ADDITIONAL_ARGS, the restart watcher's automatic actions off, restart policy "no", the labels
+                                         CS2_ADDITIONAL_ARGS, the restart watcher's automatic actions off, bots allowed (plugin.testBots: RCON's
+                                         bot_add stays), restart policy "no", the labels
                                          cs2.test-config + client.test_labels + a poisoned compose config-hash, production's network endpoint;
                                          waits until A2S answers with VAC off. --env K=V (repeatable) sets one more of the image's variables for
                                          this copy alone - CS2_MAPGROUP=mg_ar_shoots, say; never a password, secret or token. --downloads keeps
@@ -73,7 +74,8 @@ plugin back; restore checks that it did. Any time under the lock, before prep to
 
 THE SETTINGS TEXT. The watcher and the plugin read the settings text, production's environment variable OVERSTRIKE2_SETTINGS_CONTENT. So
 run sets SETTINGS_OFF on that text in the copy's environment: the watcher's automatic actions, the deletion and the Workshop page visits
-off, and the maps folder left alone - maps.layout off, so the copy's start organizes nothing: no hand-over of the sync's taken in, no map
+off, bots allowed (plugin.testBots: the plugin's block leaves bot_quota and bot_quota_mode to RCON, so bot_add gives the live lab a second
+player), and the maps folder left alone - maps.layout off, so the copy's start organizes nothing: no hand-over of the sync's taken in, no map
 moved, linked or deleted, no write of Steam's appworkshop_730.acf and no backup beside it. Those are production's, in the game's tree the copy
 shares; a copy took them in early once, and a candidate os2-server would have edited them with untested code. Every other value is
 production's. A text that cannot be read stops the copy before it is created, because a copy without its
@@ -116,10 +118,13 @@ BRIDGE_TAG = "candidate bridge (tools/client/probe/testcopy.py): a new image on 
 CONTENT = "OVERSTRIKE2_SETTINGS_CONTENT"           # the settings text in every container's environment
 SETTINGS_OFF = {"restarts": {"updates": False, "newVersions": False, "freezeRecovery": False, "daily": "off", "downloadRestart": False},
                 "maps": {"delete": "off", "backgroundDownloads": False, "downloadLine": False, "layout": "off"},
-                "hud": {"itemPage": False}}   # with restarts and these maps keys off the watcher exits at once (run --downloads keeps
+                "hud": {"itemPage": False},
+                "plugin": {"testBots": True}}   # with restarts and these maps keys off the watcher exits at once (run --downloads keeps
                                                 # maps.backgroundDownloads production's: the watcher then stays up for it); maps.layout off:
                                                 # the start's organize (os2-server's MapsFolder) returns before it touches production's maps
-                                                # folder, hand-overs and acf; no visit to the HUD item's page from a copy
+                                                # folder, hand-overs and acf; no visit to the HUD item's page from a copy; plugin.testBots:
+                                                # the copy's bots are left to RCON (bot_add), a second player for the live lab - production
+                                                # never sets it
 
 
 def log(*a):
