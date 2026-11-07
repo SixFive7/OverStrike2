@@ -39,7 +39,8 @@ sealed record Reply(int Status, byte[] Body)
 ///     probe stop                             clear the probe's messages
 ///     probe clientcmd &lt;account&gt; &lt;command&gt;    ExecuteClientCommand (only FCVAR_CLIENT_CAN_EXECUTE commands run)
 ///     probe rcon "&lt;command&gt;" ["&lt;command&gt;" ...]   server console commands, each one's answer printed
-///     probe unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock
+///     probe unload                           css_plugins unload, delete /tmp/ggprobe, verify both, release the lock - kept while
+///                                            the game server is a test copy (testcopy restore first)
 ///     probe status                           the probe's state on the server and the lock
 ///     probe config                           what the harness reads from the private config, as JSON (no credential in it)
 ///     probe server                           the running containers that publish the server's port, and the game container, as JSON</summary>
@@ -376,7 +377,7 @@ for k,c in enumerate(sys.argv[1:]):
             throw new Exit(1);
     }
 
-    void CmdUnload()
+    public void CmdUnload()
     {
         Out.Print(Py.Strip(Rcon(["css_plugins unload GgClientProbe"])));
         var removed = Py.Strip(ExecInGame(["rm", "-rf", RemoteDir]));
@@ -390,6 +391,11 @@ for k,c in enumerate(sys.argv[1:]):
         Out.Print($"{Game}:{RemoteDir}: {files}");
         if (still.Count > 0 || !files.Contains("No such file", StringComparison.Ordinal))
             throw Out.Stop("the probe is NOT fully gone - check by hand before releasing the lock");
+        if (TestCopy.IsTest(Inspect(Game)))
+        {
+            Out.Print("server lock kept: the game server is a test copy, and production is back only after testcopy rm and restore (then probe unlock)");
+            return;
+        }
         CmdUnlock();
     }
 

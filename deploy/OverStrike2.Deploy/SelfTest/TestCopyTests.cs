@@ -31,9 +31,10 @@ static class SimConfig
 }
 
 /// <summary>tools/client/probe/test_testcopy.py, ported: prep, rm and run against an in-memory Docker - no RCON quit, the rename only once
-/// production has exited, never a credential as an override; the copy on production's own network endpoint; without a settings text in
-/// production run works on the variables, with one the copy's environment holds production's text with the automatic actions off, or there
-/// is no copy.</summary>
+/// production has exited, never a credential as an override; the copy on production's own network endpoint; the copy's environment holds
+/// production's settings text with the automatic actions off, or there is no copy - none without the text either; run --downloads keeps the
+/// background downloads production's only while production's watcher has nothing of its own to judge; beside a candidate bridge the copy
+/// reads the candidate's copy of the bridge's data; probe unload keeps the lock while the game server is a test copy.</summary>
 static class TestCopyTests
 {
     static readonly string Id = string.Concat(Enumerable.Repeat("c0ffee", 10)) + "c0ff";
@@ -212,7 +213,11 @@ static class TestCopyTests
 
             // 7. run --env: one more image variable for the copy alone, never a credential
             Directory.CreateDirectory(Path.GetDirectoryName(tc.ProdSaved)!);
-            File.WriteAllText(tc.ProdSaved, """{"Image": "sha256:img", "Config": {"Env": ["CS2_MAPGROUP=mg_armsrace", "CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug"], "Labels": {}}, "HostConfig": {"RestartPolicy": {"Name": "always"}}}""");
+            File.WriteAllText(tc.ProdSaved, Json.Dumps(new JsonObject
+            {
+                ["Image"] = "sha256:img", ["Config"] = new JsonObject { ["Env"] = new JsonArray("CS2_MAPGROUP=mg_armsrace", "CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug", TestCopy.Content + "={}"), ["Labels"] = new JsonObject() },
+                ["HostConfig"] = Json.O("""{"RestartPolicy": {"Name": "always"}}"""),
+            }));
             var b = tc.Body(TestCopy.EnvOverrides(["--env", "CS2_MAPGROUP=mg_ar_shoots"]));
             var env = Json.Arr(b, "Env").Select(Json.PyStr).ToList();
             check("run --env: the copy gets CS2_MAPGROUP=mg_ar_shoots instead of production's, and -insecure",
@@ -228,12 +233,12 @@ static class TestCopyTests
 
             // 7b. the copy on production's own network endpoint, from production's inspect: its networks, pinned IP, MAC and aliases
             var net = new JsonObject { ["game"] = new JsonObject { ["IPAMConfig"] = new JsonObject { ["IPv4Address"] = "192.0.2.100" }, ["MacAddress"] = Mac64, ["Aliases"] = new JsonArray("cs2", "game"), ["IPAddress"] = "192.0.2.100" } };
-            File.WriteAllText(tc.ProdSaved, Json.Dumps(new JsonObject { ["Image"] = "sha256:img", ["Config"] = Json.O("""{"Env": [], "Labels": {}}"""), ["HostConfig"] = new JsonObject(), ["NetworkSettings"] = new JsonObject { ["Networks"] = net.DeepClone() } }));
+            File.WriteAllText(tc.ProdSaved, Json.Dumps(new JsonObject { ["Image"] = "sha256:img", ["Config"] = new JsonObject { ["Env"] = new JsonArray(TestCopy.Content + "={}"), ["Labels"] = new JsonObject() }, ["HostConfig"] = new JsonObject(), ["NetworkSettings"] = new JsonObject { ["Networks"] = net.DeepClone() } }));
             check("run: the copy's endpoint is production's - network, IP, MAC and aliases from its inspect",
                   Json.Same(Json.At(tc.Body(), "NetworkingConfig", "EndpointsConfig"), new JsonObject { ["game"] = new JsonObject { ["IPAMConfig"] = new JsonObject { ["IPv4Address"] = "192.0.2.100" }, ["MacAddress"] = Mac64, ["Aliases"] = new JsonArray("cs2", "game") } }));
             check("pinned: (network, IP, MAC)", TestCopy.Pinned(new JsonObject { ["NetworkSettings"] = new JsonObject { ["Networks"] = net.DeepClone() } }).SequenceEqual([new NetAddress("game", "192.0.2.100", Mac64)]));
 
-            // 8. run against a production without the settings text: the variables do the work, nothing else is touched
+            // 8. a production without the settings text gets no copy: no program reads anything else that turns the watcher off
             tc.WaitA2s = (want, limit) => (new A2sAnswer("srv", "m", 0, want), 1);
             const string prod = """{"Image": "sha256:img", "Config": {"Env": ["CS2_RCONPW=pw", "CS2_ADDITIONAL_ARGS=-condebug"], "Labels": {}}, "HostConfig": {"RestartPolicy": {"Name": "always"}}}""";
             void RunCopy(string saved)
@@ -244,12 +249,12 @@ static class TestCopyTests
             }
             List<string> Steps() => calls.Where(c => c[0] is "POST" or "PUT" or "DELETE").Select(c => c[1].Split('?')[0]).ToList();
             RunCopy(prod);
-            Quiet(() => tc.CmdRun([]));
-            check("run, no settings text in production: create and start as ever", Steps().SequenceEqual(["/containers/create", "/containers/cs2/start"]));
-            var createdEnv = Json.Arr(createdBody, "Env").Select(Json.PyStr).ToList();
-            check("run, no settings text in production: the variables that do the work are in the copy's environment, and nothing else is added",
-                  TestCopy.Off.All(kv => createdEnv.Contains($"{kv.Key}={kv.Value}")) && createdEnv.Contains("CS2_ADDITIONAL_ARGS=-condebug -insecure")
-                  && !createdEnv.Any(e => e.StartsWith(TestCopy.Content, StringComparison.Ordinal)));
+            refusal = Refusal(() => tc.CmdRun([]));
+            check("run, no settings text in production: refused, nothing created", refusal is not null && refusal.Contains("REFUSED") && refusal.Contains("no settings text") && Steps().Count == 0);
+            check("the older programs' variables are gone: a copy's environment is production's but for -insecure and --env",
+                  typeof(TestCopy).GetMember("Off", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static
+                                                    | System.Reflection.BindingFlags.Instance).Length == 0);
+            List<string> createdEnv;
 
             // 9. run against a production on the settings text: its text, with the automatic actions off, in the copy's environment
             const string text = """
@@ -307,6 +312,135 @@ static class TestCopyTests
             }
             check("run --env refuses the settings text: it holds secrets", Exits(() => TestCopy.EnvOverrides(["--env", TestCopy.Content + "=x"])) is not null);
 
+            // 10b. run --downloads: maps.backgroundDownloads production's, so the watcher stays up for it alone; never while production's watcher
+            // has a restart of its own to judge (its state's pending record), never without the settings text
+            var helped = new List<(string Name, List<string> Binds, string Script)>();
+            var (watchText, watchCode) = ("{\"schema\": 1, \"pending\": null}\n", 0);
+            tc.HelperRun = (name, binds, script) =>
+            {
+                helped.Add((name, binds.ToList(), script));
+                return (watchCode, watchText);
+            };
+            var gameDir = Json.O("""{"Binds": ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata:/data:ro"], "RestartPolicy": {"Name": "always"}}""");
+            JsonObject With(JsonObject d, string key, JsonNode value)
+            {
+                var o = (JsonObject)d.DeepClone();
+                o[key] = value.DeepClone();
+                return o;
+            }
+            JsonObject WithText(JsonObject d, string newText)
+            {
+                var o = (JsonObject)d.DeepClone();
+                var e = new JsonArray(Json.Arr(d, "Config", "Env").Select(x => (JsonNode?)(Json.PyStr(x).StartsWith(TestCopy.Content + "=", StringComparison.Ordinal) ? TestCopy.Content + "=" + newText : Json.PyStr(x))).ToArray());
+                o["Config"]!["Env"] = e;
+                return o;
+            }
+            (string? Refused, string Said) RunOut(JsonObject saved, string[] argv)
+            {
+                RunCopy(Json.Dumps(saved));
+                helped.Clear();
+                var was = Console.Out;
+                var sw = new StringWriter();
+                Console.SetOut(sw);
+                try
+                {
+                    tc.CmdRun(argv);
+                    return (null, sw.ToString());
+                }
+                catch (Exit e)
+                {
+                    return (e.Message, sw.ToString());
+                }
+                finally
+                {
+                    Console.SetOut(was);
+                }
+            }
+            JsonNode? CopySettings() => Json.Parse(Json.Arr(createdBody, "Env").Select(Json.PyStr).First(e => e.StartsWith(TestCopy.Content + "=", StringComparison.Ordinal)).Split('=', 2)[1]);
+            var dl = With(switched, "HostConfig", gameDir);
+            var (refused, said) = RunOut(dl, ["--downloads"]);
+            var cs = CopySettings();
+            check("run --downloads: maps.backgroundDownloads left as production has it (absent: core's default, on), every other switch still off",
+                  refused is null && Json.Same(Json.At(cs, "maps"), Json.O("""{"delete": "off", "downloadLine": false}"""))
+                  && Json.Same(Json.At(cs, "restarts"), Json.O("""{"daily": "off", "updates": false, "newVersions": false, "freezeRecovery": false, "downloadRestart": false}"""))
+                  && Json.AsBool(Json.At(cs, "hud", "itemPage")) == false);
+            check("run --downloads: says so, and the overridden keys it names leave it out",
+                  said.Contains("maps.backgroundDownloads at production's value (on)") && said.Contains("maps.delete, maps.downloadLine, hud.itemPage overridden") && !said.Contains("theBridgeSecret"));
+            check("run --downloads: production's watcher state read by a helper with the game's tree read-only, before anything is created",
+                  helped.Count == 1 && helped[0].Name == "cs2-watch-read" && helped[0].Binds.SequenceEqual(["/srv/game:/g:ro"]) && helped[0].Script.Contains("update-watch/state.json"));
+            var offInProd = WithText(dl, text.Replace("\"schema\": 1,", "\"schema\": 1, \"maps\": { \"backgroundDownloads\": false },"));
+            (refused, said) = RunOut(offInProd, ["--downloads"]);
+            check("run --downloads, production has it off: the copy too, and it says the watcher still exits",
+                  refused is null && Json.AsBool(Json.At(CopySettings(), "maps", "backgroundDownloads")) == false && said.Contains("still has nothing to do"));
+            foreach (var (wText, wCode, why) in new[] { ("{\"schema\": 1, \"pending\": {\"kind\": \"version\", \"at\": 1}}\n", 0, "a restart of its own to judge"), ("not json", 0, "cannot be read"), ("", 1, "cannot be read") })
+            {
+                (watchText, watchCode) = (wText, wCode);
+                (refused, said) = RunOut(dl, ["--downloads"]);
+                check($"run --downloads refuses when production's watcher state has {why}, nothing created", refused is not null && refused.Contains("REFUSED") && refused.Contains(why) && Steps().Count == 0);
+            }
+            (watchText, watchCode) = ("{}\n", 0);
+            (refused, said) = RunOut(dl, ["--downloads"]);
+            check("run --downloads with no watcher state yet: taken", refused is null && Steps().SequenceEqual(["/containers/create", "/containers/cs2/start"]));
+            (refused, said) = RunOut(With(Json.O(prod), "HostConfig", gameDir), ["--downloads"]);
+            check("run --downloads refuses a production without the settings text, nothing created", refused is not null && refused.Contains("has none") && Steps().Count == 0);
+            (refused, said) = RunOut(dl, ["--downloads", "--env", "CS2_MAPGROUP=mg_ar_shoots"]);
+            check("run --downloads with --env: both taken", refused is null && Json.Arr(createdBody, "Env").Select(Json.PyStr).Contains("CS2_MAPGROUP=mg_ar_shoots"));
+            (refused, said) = RunOut(dl, []);
+            check("run without --downloads: no helper, the downloads off as ever", helped.Count == 0 && Json.AsBool(Json.At(CopySettings(), "maps", "backgroundDownloads")) == false);
+
+            // 10c. beside a candidate bridge the copy reads the candidate's copy of the bridge's data, read-only as production reads production's
+            var cand = new JsonObject
+            {
+                ["Id"] = "cand", ["Config"] = new JsonObject { ["Labels"] = new JsonObject { [TestCopy.TestLabel] = TestCopy.BridgeTag } },
+                ["HostConfig"] = Json.O("""{"Binds": ["/srv/bdata-candidate:/data"]}"""), ["State"] = Json.O("""{"Status": "running"}"""),
+            };
+            (string? Refused, List<string>? Binds, string Said) BindsBeside(JsonObject? candidate, JsonObject? saved = null)
+            {
+                var (r, s) = (default(string), "");
+                RunCopy(Json.Dumps(saved ?? dl));
+                if (candidate is not null)
+                    state["bridge"] = [candidate];
+                var was = Console.Out;
+                var sw = new StringWriter();
+                Console.SetOut(sw);
+                try
+                {
+                    tc.CmdRun([]);
+                }
+                catch (Exit e)
+                {
+                    r = e.Message;
+                }
+                finally
+                {
+                    Console.SetOut(was);
+                    s = sw.ToString();
+                }
+                return (r, r is null ? Json.Arr(createdBody, "HostConfig", "Binds").Select(Json.PyStr).ToList() : null, s);
+            }
+            var gameBinds = Json.Arr(gameDir, "Binds").Select(Json.PyStr).ToList();
+            var (refusedB, binds, saidB) = BindsBeside(cand);
+            check("run beside a candidate: the bridge data at /data is the candidate's copy, its read-only kept; the game's tree as it is",
+                  refusedB is null && binds!.SequenceEqual(["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata-candidate:/data:ro"]) && saidB.Contains("<data>-candidate") && !saidB.Contains("/srv/"));
+            (refusedB, binds, saidB) = BindsBeside(null);
+            check("run without a candidate: production's bridge data", refusedB is null && binds!.SequenceEqual(gameBinds) && !saidB.Contains("candidate"));
+            (refusedB, binds, saidB) = BindsBeside(With(cand, "Config", Json.O("""{"Labels": {}}""")));
+            check("run beside production's own bridge: production's bridge data", refusedB is null && binds!.SequenceEqual(gameBinds));
+            (refusedB, binds, saidB) = BindsBeside(With(cand, "HostConfig", Json.O("""{"Binds": ["/elsewhere:/data"]}""")));
+            check("run beside a candidate whose data is not the copy beside production's: refused, nothing created", refusedB is not null && refusedB.Contains("REFUSED") && Steps().Count == 0);
+            (refusedB, binds, saidB) = BindsBeside(With(cand, "HostConfig", Json.O("""{"Binds": []}""")));
+            check("run beside a candidate without a /data bind: refused, nothing created", refusedB is not null && refusedB.Contains("REFUSED") && Steps().Count == 0);
+            var moved = WithText(With(dl, "HostConfig", Json.O("""{"Binds": ["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata:/bridge:ro"]}""")),
+                                 text.Replace("\"schema\": 1,", "\"schema\": 1, \"paths\": { \"bridgeData\": \"/bridge\" },"));
+            (refusedB, binds, saidB) = BindsBeside(cand, moved);
+            check("run beside a candidate, paths.bridgeData elsewhere: the bind there is the one swapped",
+                  refusedB is null && binds!.SequenceEqual(["/srv/game:/home/steam/cs2-dedicated", "/srv/bdata-candidate:/bridge:ro"]));
+            (refusedB, binds, saidB) = BindsBeside(cand, With(dl, "HostConfig", Json.O("""{"Binds": ["/srv/game:/home/steam/cs2-dedicated"]}""")));
+            check("run beside a candidate, production reads no bridge data: nothing to swap, and it says so",
+                  refusedB is null && binds!.SequenceEqual(["/srv/game:/home/steam/cs2-dedicated"]) && saidB.Contains("reads no bridge data"));
+            state.Remove("bridge");
+            tc.HelperRun = (name, bnds, script) => tc.Helper(name, bnds, script);
+
             // 11. restore: production back on the endpoint saved at prep, running what its plugins folder holds, or the flag stays on
             var up = Ins("running");
             up["NetworkSettings"] = new JsonObject { ["Networks"] = net.DeepClone() };
@@ -340,6 +474,22 @@ static class TestCopyTests
             }
             check("restore: the plugins compared in production itself, its plugins folder against the game's tree",
                   calls.Any(c => c[0] == "exec" && c[1] == "cs2" && c[2].StartsWith("cd /home/steam/cs2-plugins", StringComparison.Ordinal)));
+
+            // 12. probe unload on a test copy keeps the server lock: production is still aside; on production it releases it
+            h.Exec = (container, cmd, env, timeout) => "ls: cannot access '/tmp/ggprobe': No such file or directory";
+            foreach (var (test, kept, what) in new[] { (true, true, "a test copy: the lock kept"), (false, false, "production: the lock released") })
+            {
+                state.Clear();
+                state["cs2"] = [Ins("running", test: test)];
+                File.Delete(h.LockPath);
+                Quiet(() =>
+                {
+                    h.CmdLock("unload test");
+                    h.CmdUnload();
+                });
+                check($"probe unload on {what}", File.Exists(h.LockPath) == kept);
+            }
+            File.Delete(h.LockPath);
         }
         finally
         {

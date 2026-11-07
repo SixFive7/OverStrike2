@@ -15,8 +15,14 @@ namespace OverStrike2.Deploy;
 ///
 ///     testcopy prep             refuses with a human on A2S or without the harness's server lock; maintenance flag on; production's
 ///                               inspect saved; a Docker stop (no RCON quit), renamed aside to &lt;game&gt;-prod-aside only once it is exited
-///     testcopy run [--env K=V]  the test copy: production's inspect with -insecure, the restart watcher's automatic actions off, restart
-///                               policy "no", the test labels, production's network endpoint; waits until A2S answers with VAC off
+///     testcopy run [--env K=V] [--downloads]
+///                               the test copy: production's inspect with -insecure, the restart watcher's automatic actions off, restart
+///                               policy "no", the test labels, production's network endpoint; waits until A2S answers with VAC off. --env K=V
+///                               (repeatable) sets one more of the image's variables for this copy alone, never a credential. --downloads keeps
+///                               maps.backgroundDownloads at production's value: the restart watcher stays up for the stock's background
+///                               downloads alone, into the game's tree, and sends the bridge its ready reports; refused while production's
+///                               watcher has a restart of its own to judge (its state's pending record), which the copy's would judge instead.
+///                               Production without the settings text gets no copy: nothing else turns the copy's watcher off
 ///     testcopy status           A2S (VAC flag), which container is the game server, whether production is aside
 ///     testcopy rm               a Docker stop (no RCON quit) and delete the test copy (refuses a game container without the test label)
 ///     testcopy restore          production renamed back and started; waits for A2S with VAC ON and a map; checks its network endpoint
@@ -28,6 +34,9 @@ namespace OverStrike2.Deploy;
 ///                               production's data read-only) in &lt;data dir&gt;-candidate; then the candidate on &lt;bridge.image&gt;:&lt;tag&gt;
 ///     testcopy bridge-rm        a Docker stop and delete the candidate (refuses a bridge without the candidate's label), then the copy
 ///     testcopy bridge-restore   production's bridge renamed back and started; checks it is the same container, on its IP and MAC
+/// A test copy run beside a candidate reads the candidate's copy of the bridge's data, read-only as production's game server reads
+/// production's (paths.bridgeData): the queues the watcher downloads and the lists the copy reads are what the candidate writes. A candidate
+/// started after run leaves the copy on production's data.
 ///
 /// THE PLUGIN OF A COMMIT OF MAIN on the test copy: the copy mounts a staged plugins folder in place of production's, and production's own
 /// plugins folder is never written. Production's start copies its own plugins into the game's tree, which restore checks.
@@ -43,14 +52,10 @@ sealed class TestCopy
     public const string TestLabel = "cs2.test-config";
     public const string Tag = "insecure client-test copy (tools/client/probe/testcopy.py): -insecure, restart watcher off";
     public const string BridgeTag = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data";
-    public static readonly Dictionary<string, string> Off = new()
-    {
-        ["CS2_FREEZE_RECOVERY"] = "0", ["CS2_AUTOUPDATE"] = "0", ["CS2_RESTART_AT"] = "off", ["CS2_WARMUP"] = "0", ["CS2_PREFETCH_AT"] = "off",
-        ["CS2_PREFETCH_RESTART"] = "0",
-        ["HUD_ITEM_PAGE"] = "off",   // the plugin never visits the HUD item's page from a test copy: a copy's restarts must not add visits
-    };
     public const string Content = Check.Content;
-    /// <summary>OFF's work in the settings text: with restarts and these two maps keys off the watcher exits at once.</summary>
+    /// <summary>The copy's overrides of the settings text: with restarts and these maps keys off the watcher exits at once (run --downloads keeps
+    /// maps.backgroundDownloads production's: the watcher then stays up for it); no visit to the HUD item's page from a copy. No program reads
+    /// anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
     public static JsonObject SettingsOff => Json.O("""
 {"restarts": {"updates": false, "newVersions": false, "freezeRecovery": false, "daily": "off", "downloadRestart": false},
  "maps": {"delete": "off", "backgroundDownloads": false, "downloadLine": false},
@@ -65,6 +70,9 @@ sealed class TestCopy
     public const string PluginName = "OverStrike2";                   // the plugin's folder, DLL and name
     public const string PluginsAt = "/home/steam/cs2-plugins";        // paths.plugins' default: where the game server reads the plugins to install
     public const string GameDirAt = "/home/steam/cs2-dedicated";      // paths.gameDir's default: the game's install
+    public const string BridgeDataAt = "/data";                       // paths.bridgeData's default: the bridge's data, read-only in the game server
+    /// <summary>run --downloads: the one switch of SettingsOff a copy may keep at production's value.</summary>
+    public static readonly (string Section, string Key) Downloads = ("maps", "backgroundDownloads");
 
     /// <summary>git -C &lt;repository&gt; args: (exit code, stdout).</summary>
     public Func<string[], (int Code, string Out)> Git = args =>
@@ -78,6 +86,9 @@ sealed class TestCopy
 
     public Func<double, A2sAnswer?> A2sAsk;
     public Func<int, double, (A2sAnswer? Answer, double Waited)> WaitA2s;
+
+    /// <summary>The helper container run --downloads reads production's watcher state with: Helper, unless a test puts its own here.</summary>
+    public Func<string, IReadOnlyList<string>, string, (int Code, string Output)> HelperRun;
 
     public TestCopy(Harness h)
     {
@@ -98,6 +109,7 @@ sealed class TestCopy
         BuildPlugin = RealBuildPlugin;
         A2sAsk = timeout => A2s.Full(Host, Port, timeout);
         WaitA2s = RealWaitA2s;
+        HelperRun = (name, binds, script) => Helper(name, binds, script);
     }
 
     static void Log(params object?[] parts) => Out.Log(parts);
@@ -211,9 +223,10 @@ sealed class TestCopy
         Log($"production renamed to {Aside} ->", renamed, StatusOf(Inspect(Aside)));
     }
 
-    /// <summary>Production's settings text, an entry of its Env, with SettingsOff set on it. Its comments go, if it has any; references (env:,
-    /// file:) stay for the copy to read. A text that cannot be read stops here: a copy without its overrides is production.</summary>
-    public static string SettingsForCopy(string entry)
+    /// <summary>Production's settings text, an entry of its Env, with SettingsOff set on it - but the (section, key) pairs in keep, which stay
+    /// production's. Its comments go, if it has any; references (env:, file:) stay for the copy to read. A text that cannot be read stops here:
+    /// a copy without its overrides is production.</summary>
+    public static string SettingsForCopy(string entry, IReadOnlyCollection<(string Section, string Key)>? keep = null)
     {
         JsonNode? settings;
         try
@@ -236,12 +249,15 @@ sealed class TestCopy
                     throw Out.Stop("REFUSED: production's settings text cannot be read - no test copy without its overrides");
             }
             foreach (var (k, v) in (JsonObject)values!)
-                target[k] = v?.DeepClone();
+                if (keep is null || !keep.Contains((section, k)))
+                    target[k] = v?.DeepClone();
         }
         return $"{Content}={Json.Dumps(s)}";
     }
 
-    public JsonObject Body(Dictionary<string, string>? extra = null)
+    /// <summary>The test copy's create body. downloads: maps.backgroundDownloads stays production's (run --downloads). bridgeCopy: a candidate
+    /// bridge's data folder, which the copy reads in the place of production's bridge data.</summary>
+    public JsonObject Body(Dictionary<string, string>? extra = null, bool downloads = false, string? bridgeCopy = null)
     {
         var d = Json.Parse(File.ReadAllText(ProdSaved, Encoding.UTF8)) as JsonObject ?? [];
         var c = Json.Obj(d, "Config");
@@ -254,13 +270,22 @@ sealed class TestCopy
                 throw Out.Stop($"REFUSED: the staged plugin cannot take the place of production's plugins folder at {at} - no copy, which would run "
                                + "production's plugin (plugin-rm, then plugin <commit> again)");
         }
-        var over = new Dictionary<string, string>(Off);
-        foreach (var (k, v) in extra ?? [])
-            over[k] = v;
+        if (bridgeCopy is not null)   // beside a candidate bridge: the candidate's copy of the bridge's data in the place of production's, read-only as it is
+        {
+            var at = BridgeDataAtOf(d);
+            var src = BindSource(d, at);
+            if (!string.IsNullOrEmpty(src) && (CopyDir(src) != bridgeCopy || SwapBind(h, at, src, bridgeCopy) != 1))
+                throw Out.Stop($"REFUSED: the candidate bridge's data is not the copy beside the bridge data production's game server reads at {at} - "
+                               + "no copy, which would read production's bridge data beside a candidate");
+        }
+        if (!Json.Arr(c, "Env").Any(e => Json.PyStr(e).StartsWith(Content + "=", StringComparison.Ordinal)))
+            throw Out.Stop("REFUSED: production has no settings text - nothing would turn the copy's restart watcher off, so no copy");
+        var over = new Dictionary<string, string>(extra ?? []);
+        (string, string)[] keep = downloads ? [Downloads] : [];
         var env = new List<string>();
         foreach (var e in Json.Arr(c, "Env").Select(Json.PyStr))
             if (!over.ContainsKey(e.Split('=', 2)[0]) && !e.StartsWith("CS2_ADDITIONAL_ARGS=", StringComparison.Ordinal))
-                env.Add(e.StartsWith(Content + "=", StringComparison.Ordinal) ? SettingsForCopy(e) : e);
+                env.Add(e.StartsWith(Content + "=", StringComparison.Ordinal) ? SettingsForCopy(e, keep) : e);
         var args = Json.Arr(c, "Env").Select(Json.PyStr).FirstOrDefault(e => e.StartsWith("CS2_ADDITIONAL_ARGS=", StringComparison.Ordinal))?.Split('=', 2)[1] ?? "";
         env.AddRange(over.Select(kv => $"{kv.Key}={kv.Value}"));
         env.Add($"CS2_ADDITIONAL_ARGS={Py.Strip(args + " -insecure")}");
@@ -300,19 +325,89 @@ sealed class TestCopy
         return output;
     }
 
+    /// <summary>Where the game server reads the bridge's data (paths.bridgeData).</summary>
+    public static string BridgeDataAtOf(JsonNode? d) => SettingPath(d, "bridgeData", BridgeDataAt);
+
+    /// <summary>Whether production's restart watcher has a restart of its own recorded - update-watch/state.json's "pending", which the next
+    /// watcher to start judges: true, false (no record, or no state yet), null when it cannot be read. Read by a helper, the game's tree
+    /// read-only.</summary>
+    public bool? WatcherPending(JsonNode? d)
+    {
+        var src = BindSource(d, SettingPath(d, "gameDir", GameDirAt, "STEAMAPPDIR"));
+        if (string.IsNullOrEmpty(src))
+            return null;
+        var (code, output) = HelperRun($"{Game}-watch-read", [$"{src}:/g:ro"], "cat /g/update-watch/state.json 2>/dev/null || echo '{}'");
+        JsonNode? state;
+        try
+        {
+            state = code == 0 ? Json.Parse(output) : null;
+        }
+        catch (Exception e) when (e is JsonSyntaxError or System.Text.Json.JsonException)
+        {
+            state = null;
+        }
+        return state is JsonObject o ? o.TryGetPropertyValue("pending", out var p) && p is not null : null;
+    }
+
+    /// <summary>run --downloads: production's own maps.backgroundDownloads, in words. Stops when a copy cannot keep it: no settings text, or a
+    /// restart of production's watcher still to be judged (the copy's watcher would judge it in its place, with the copy's versions).</summary>
+    public string DownloadsWords(JsonNode? d)
+    {
+        var text = InspectOf.EnvOrNull(d, Content) ?? throw Out.Stop("REFUSED: --downloads keeps a value of production's settings text, and production has none");
+        const string unreadable = "REFUSED: production's settings text cannot be read - no test copy without its overrides";
+        JsonNode? settings;
+        try
+        {
+            settings = Json.Jsonc(text);
+        }
+        catch (JsonSyntaxError)
+        {
+            throw Out.Stop(unreadable);
+        }
+        // as Python reads ((settings or {}).get("maps") or {}).get("backgroundDownloads", True): an empty value counts as none, any other
+        // that is no object cannot be read
+        var maps = !Json.Truthy(settings) ? null : settings is JsonObject so ? so["maps"] : throw Out.Stop(unreadable);
+        var value = !Json.Truthy(maps) ? JsonValue.Create(true)
+                    : maps is JsonObject mo ? (mo.TryGetPropertyValue("backgroundDownloads", out var v) ? v : JsonValue.Create(true))
+                    : throw Out.Stop(unreadable);
+        var pending = WatcherPending(d);
+        if (pending is null)
+            throw Out.Stop("REFUSED: --downloads: production's restart watcher state (update-watch/state.json) cannot be read - no watcher on the copy");
+        if (pending == true)
+            throw Out.Stop("REFUSED: --downloads: production's restart watcher has a restart of its own to judge (update-watch/state.json, pending) - "
+                           + "a copy's watcher would judge it in its place; run the copy without --downloads");
+        if (value is JsonValue jv && jv.TryGetValue<bool>(out var on) && on)
+            return "maps.backgroundDownloads at production's value (on): the restart watcher stays up for the background downloads alone and reports to the bridge";
+        return $"maps.backgroundDownloads is {Json.Dumps(value)} in production too: the copy's restart watcher still has nothing to do and exits";
+    }
+
     public void CmdRun(IReadOnlyList<string> argv)
     {
         H.NeedLock();
-        var extra = EnvOverrides(argv);
+        var downloads = argv.Contains("--downloads");
+        var extra = EnvOverrides(argv.Where(a => a != "--downloads").ToList());
         if (Inspect(Aside) is null)
             throw Out.Stop("REFUSED: production is not aside - run prep first");
         if (Inspect(Game) is not null)
             throw Out.Stop($"REFUSED: a {Game} container exists");
+        var prod = Json.Parse(File.ReadAllText(ProdSaved, Encoding.UTF8));
+        var cand = Inspect(Bridge);
+        var bridgeCopy = IsTest(cand) ? DataMount(cand) : null;
+        if (IsTest(cand) && string.IsNullOrEmpty(bridgeCopy))
+            throw Out.Stop("REFUSED: the candidate bridge has no bind at /data - no copy beside it");
+        var said = downloads ? DownloadsWords(prod) : null;
         if (extra.Count > 0)
             Log("for this copy alone:", string.Join(", ", extra.Select(kv => $"{kv.Key}={kv.Value}")));
-        var body = Body(extra);
+        var body = Body(extra, downloads, bridgeCopy);
         if (Json.Arr(body, "Env").Any(e => Json.PyStr(e).StartsWith(Content + "=", StringComparison.Ordinal)))
-            Log("production holds the settings text: the copy has it with", string.Join(", ", SettingsOff.SelectMany(s => ((JsonObject)s.Value!).Select(k => $"{s.Key}.{k.Key}"))), "overridden");
+            Log("production holds the settings text: the copy has it with",
+                string.Join(", ", SettingsOff.SelectMany(s => ((JsonObject)s.Value!).Where(k => !(downloads && (s.Key, k.Key) == Downloads)).Select(k => $"{s.Key}.{k.Key}"))), "overridden");
+        if (said is not null)
+            Log(said);
+        if (bridgeCopy is not null)
+            Log(!string.IsNullOrEmpty(BindSource(prod, BridgeDataAtOf(prod)))
+                ? "beside the candidate bridge: the copy reads its copy of the bridge's data (<data>-candidate) in the place of production's"
+                : "beside the candidate bridge: production's game server reads no bridge data, nor does the copy");
         var stagedNow = StagedPlugin();
         Log(stagedNow is not null ? $"plugin: the build of {Py.Slice(Json.Str(stagedNow, "commit"), 0, 12)}, staged, in the place of production's plugins folder" : "plugin: production's");
         var created = H.Call($"/containers/create?name={Game}", "POST", body);
@@ -905,7 +1000,7 @@ sealed class TestCopy
     }
 
 
-    public const string Doc = "testcopy prep | run [--env K=V] | status | rm | restore | bridge-prep | bridge-run <tag> [--keep-flag] | bridge-rm | bridge-restore"
+    public const string Doc = "testcopy prep | run [--env K=V] [--downloads] | status | rm | restore | bridge-prep | bridge-run <tag> [--keep-flag] | bridge-rm | bridge-restore"
                               + " | plugin <commit of main> | plugin-rm";
 
     public static int Command(string[] argv)

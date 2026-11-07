@@ -23,7 +23,7 @@ static class TestCopyPluginTests
 
     static string Sha(byte[] b) => Repo.Sha256(b);
 
-    static JsonObject Production(string status = "running", string? text = null, bool mounts = false)
+    static JsonObject Production(string status = "running", string? text = "{ \"schema\": 1 }", bool mounts = false)
     {
         var env = new JsonArray("CS2_RCONPW=pw");
         if (text is not null)
