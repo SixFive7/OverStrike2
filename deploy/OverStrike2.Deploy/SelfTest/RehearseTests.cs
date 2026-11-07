@@ -104,20 +104,40 @@ services:
     {
         var check = SelfTest.Check;
         var labels = new Dictionary<string, string> { ["monitor.mute"] = "true" };
-        var (compose, settings) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "05:30", 27216, false, "/unused");
+        var (compose, settings) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "05:30", 27216, false, "/unused",
+                                                       previewDir: "/srv/os2/rehearsal/preview");
         var root = Load(compose);
         check("the old secret is gone, the test secret is in the log push address and the settings",
               !compose.Contains(Old) && Scalar(root, "services", "cs2", "environment", "CS2_LOG_HTTP_URL") == "http://bridge:8080/log/" + New && settings.Contains(New));
         check("every service's volumes: production's bridge data, plugins, program folder, launcher and cfgs replaced by the rehearsal's, the game's tree kept, the options kept",
               Volumes(root, "cs2").SequenceEqual(["/srv/game:/home/steam/cs2-dedicated", "/srv/os2/rehearsal/cfg/gamemode_armsrace_server.cfg:/home/steam/cs2-dedicated/game/csgo/cfg/gamemode_armsrace_server.cfg:ro",
                                                   "/srv/os2/rehearsal/overstrike2/pre.sh:/home/steam/cs2-dedicated/pre.sh:ro", "/srv/os2/rehearsal/overstrike2:/home/steam/overstrike2:ro",
-                                                  "/srv/os2/rehearsal/plugins:/home/steam/cs2-plugins:ro", "/srv/os2/rehearsal/bridge:/data:ro"])
+                                                  "/srv/os2/rehearsal/plugins:/home/steam/cs2-plugins:ro", "/srv/os2/rehearsal/bridge:/data:ro", "/srv/os2/rehearsal/preview:/home/steam/rehearsal-preview"])
               && Volumes(root, "bridge").SequenceEqual(["/srv/os2/rehearsal/bridge:/data"])
               && Volumes(root, "sync").SequenceEqual(["/srv/game:/home/steam/cs2-dedicated:ro", "/srv/os2/rehearsal/overstrike2:/home/steam/overstrike2:ro", "/srv/os2/rehearsal/bridge:/data",
                                                       "/srv/os2/rehearsal/cfg/gamemode_armsrace_server.cfg:/home/steam/sync-cfg/gamemode_armsrace_server.cfg:ro"]));
         var s = Json.Parse(Scalar(root, "services", "sync", "environment", Check.Content) ?? "{}");
-        check("the settings: maps.delete dryrun, the daily restart given, no HUD item page visits",
-              Json.Str(s, "maps", "delete") == "dryrun" && Json.Str(s, "restarts", "daily") == "05:30" && Json.AsBool(Json.At(s, "hud", "itemPage")) == false);
+        check("the settings: maps.delete as production has it (the preview says what a start would do with it), the daily restart given, no HUD item page visits",
+              Json.At(s, "maps", "delete") is null && Json.Str(s, "restarts", "daily") == "05:30" && Json.AsBool(Json.At(s, "hud", "itemPage")) == false);
+        check("the preview: maps.preview on, paths.preview the rehearsal's own folder in the game server - keep-preview.json and the would-delete list land there, not in production's update-watch",
+              Json.At(s, "maps", "preview") is JsonValue pv && pv.TryGetValue<bool>(out var previewOn) && previewOn && Json.Str(s, "paths", "preview") == Rehearse.PreviewAt
+              && Rehearse.PreviewAt.StartsWith('/') && !Rehearse.PreviewAt.StartsWith("/home/steam/cs2-dedicated", StringComparison.Ordinal));
+        check("the preview's folder mounted writable in the game server alone: the rehearsal folder's preview/, at paths.preview, no other service has it",
+              Volumes(root, "cs2").Count(v => v == $"/srv/os2/rehearsal/preview:{Rehearse.PreviewAt}") == 1
+              && !Volumes(root, "bridge").Concat(Volumes(root, "sync")).Any(v => v.Contains(Rehearse.PreviewAt, StringComparison.Ordinal)));
+        var schema = Json.Obj(Json.Parse(File.ReadAllText(Repo.P("docs", "settings.schema.json"))), "properties");
+        (string Section, string Key)[] setKeys = [("maps", "layout"), ("maps", "preview"), ("maps", "backgroundDownloads"), ("paths", "preview"), ("paths", "handover"),
+                                                  ("paths", "syncState"), ("paths", "syncWork"), ("restarts", "daily"), ("hud", "itemPage"), ("sync", "publish"), ("sync", "handover"),
+                                                  ("sync", "testPort"), ("sync", "mail")];
+        check("every key the rehearsal sets is a real one (docs/settings.schema.json), and the rehearsal sets them all",
+              setKeys.All(k => Json.Obj(schema, k.Section, "properties").ContainsKey(k.Key)) && setKeys.All(k => Json.At(s, k.Section, k.Key) is not null));
+        var preset = Compose.Replace("\"schema\": 1,", "\"schema\": 1, \"maps\": { \"layout\": \"preview\", \"delete\": \"on\", \"preview\": false }, \"paths\": { \"preview\": \"/srv/game/update-watch/preview\" },", StringComparison.Ordinal);
+        var (presetCompose, presetText) = Rehearse.ComposeText(preset, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "off", 27216, false, "/unused");
+        var ps = Json.Parse(presetText);
+        check("never \"preview\" as a layout: a production with layout preview, delete on and a preview of its own gets layout off, its delete on, the preview on in the rehearsal's folder",
+              Json.Str(ps, "maps", "layout") == "off" && Json.Str(ps, "maps", "delete") == "on" && Json.AsBool(Json.At(ps, "maps", "preview")) == true
+              && Json.Str(ps, "paths", "preview") == Rehearse.PreviewAt && !presetText.Contains("\"layout\": \"preview\"", StringComparison.Ordinal)
+              && !presetCompose.Contains("\"layout\": \"preview\"", StringComparison.Ordinal));
         check("production's maps folder left alone: maps.layout off, so the start's organize returns before it moves, links, takes in or deletes a map and before any acf write",
               Json.Str(s, "maps", "layout") == "off");
         check("the candidate watcher's background downloads off by default: nothing fetched into production's Workshop store and acf",
@@ -125,7 +145,7 @@ services:
         var (_, keptText) = Rehearse.ComposeText(Compose, Replace, New, "game", "localhost/overstrike2-bridge:rel", labels, "05:30", 27216, false, "/unused", downloads: true);
         var kept = Json.Parse(keptText);
         check("--downloads: maps.backgroundDownloads as production has it (absent there: absent here, core's default, on), every other override as without it",
-              !((JsonObject)Json.At(kept, "maps")!).ContainsKey("backgroundDownloads") && Json.Str(kept, "maps", "layout") == "off" && Json.Str(kept, "maps", "delete") == "dryrun"
+              !((JsonObject)Json.At(kept, "maps")!).ContainsKey("backgroundDownloads") && Json.Str(kept, "maps", "layout") == "off" && Json.At(kept, "maps", "delete") is null
               && Json.Str(kept, "paths", "handover") == Json.Str(s, "paths", "handover"));
         var prodValues = new[] { "false", "true" }.Select(v =>
         {
@@ -152,6 +172,9 @@ services:
         check("stage --keep-flag: the flag stays in the copy, the copy made all the same - the candidate starts under it",
               !stageFlagKept.Contains("maintenance", StringComparison.Ordinal) && stageFlagKept.Contains("cp -a /b/. $R/bridge/", StringComparison.Ordinal)
               && stageFlagKept.Replace(" ", "", StringComparison.Ordinal) == stageFlagOff.Replace("rm -f $R/bridge/maintenance; ", "", StringComparison.Ordinal).Replace(" ", "", StringComparison.Ordinal));
+        check("stage: the preview's folder made in the rehearsal folder, emptied and writable for the game server's user",
+              stageFlagOff.StartsWith("set -e; R=/r/rehearsal; mkdir -p $R/bridge $R/preview; find $R/bridge $R/preview -mindepth 1 -delete; chmod 777 $R/preview; ", StringComparison.Ordinal)
+              && stageFlagKept.Contains("chmod 777 $R/preview", StringComparison.Ordinal));
         check("stage: the sync's work copy gets an empty hand-over folder of its own, and production's hand-overs are never copied into it",
               Rehearse.SyncCopies.Contains("mkdir -p /w/rehearsal/handover;", StringComparison.Ordinal) && Rehearse.SyncCopies.Contains("rehearsal|handover|farm) ;;", StringComparison.Ordinal)
               && stageFlagOff.EndsWith(Rehearse.SyncCopies + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90", StringComparison.Ordinal));

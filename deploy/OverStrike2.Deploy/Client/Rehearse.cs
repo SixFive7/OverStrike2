@@ -21,8 +21,10 @@ namespace OverStrike2.Deploy;
 ///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
-///                                     settings: maps.delete dryrun, restarts.daily, hud.itemPage off, production's maps folder left alone -
-///                                     maps.layout off and paths.handover the rehearsal's own, maps.backgroundDownloads off (--downloads: as
+///                                     settings: restarts.daily, hud.itemPage off, production's maps folder left alone - maps.layout off,
+///                                     maps.preview on with paths.preview the rehearsal's own folder (preview/ in it, mounted writable in the
+///                                     game server: keep-preview.json and deleted-&lt;time&gt;-preview.tsv, what a start would do with production's
+///                                     maps.delete, which stays as it is), paths.handover the rehearsal's own, maps.backgroundDownloads off (--downloads: as
 ///                                     production has it, the candidate watcher's downloads into production's Workshop store, as production's
 ///                                     would make them) - and the sync isolated - paths.syncState and paths.syncWork on copies, sync.testPort,
 ///                                     sync.handover and sync.publish off, no mail
@@ -30,13 +32,24 @@ namespace OverStrike2.Deploy;
 ///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label)
 ///     rehearse restore                records back, production's three containers back (testcopy's checks: its endpoint, its own plugins)
 ///     rehearse clean                  only at the very end, the stack down (after restore too): the rehearsal folder, the sync's copies and the
-///                                     backup gone
+///                                     backup gone - the preview with the folder (preview/keep-preview.json, deleted-&lt;time&gt;-preview.tsv):
+///                                     read or keep it first
 ///     rehearse logs &lt;cs2|bridge|sync&gt; &lt;seconds&gt; [regex] | sh &lt;cs2|bridge|sync&gt; "&lt;cmd&gt;" [user] | rcon "&lt;cmd&gt;"... | ship &lt;file&gt; [name] | status
 ///
 /// Where things are comes from production's own inspects, saved at prep: the game's tree (its bind at paths.gameDir), the bridge's data
 /// (its /data), the plugins folder (paths.plugins), the program folder and pre.sh, the mode cfgs, the sync's state and work folders, the
 /// network. The rehearsal folder is &lt;the bridge's data folder's parent&gt;/rehearsal unless rehearse.dir names another; the stack manager is
-/// rehearse.manager and rehearse.endpoint.</summary>
+/// rehearse.manager and rehearse.endpoint.
+///
+/// WHAT A REHEARSAL STILL WRITES on production's volume, outside the maps folder its settings keep it off (os2-server's organize with maps.layout off
+/// and maps.preview on moves, links, takes in and deletes nothing, writes no INDEX.tsv and no acf, and its preview goes to the rehearsal's own folder):
+///   - the rest of install, in the game's tree: the plugin layer under game/csgo/addons, the gameinfo.gi edit, MultiAddonManager's cfg,
+///     update-watch/installed.json, the console log's rotation - production's own install puts its own back at the start restore gives it, and
+///     installed.json comes back from prep's backup;
+///   - the watcher's update-watch state.json, lock and steamlogs - state.json comes back from the backup, the steamlogs folders the rehearsal added go,
+///     production's watcher takes the lock at its start;
+///   - the engine's own Steam downloads into content/730 and Steam's acf: background downloads are off unless --downloads, but a change to a map the
+///     server lacks still downloads it. Those stay, as any download of production's would.</summary>
 sealed class Rehearse
 {
     const string Purpose = "the release rehearsal";
@@ -192,7 +205,8 @@ sealed class Rehearse
     /// read-only): production's bridge data copied in - the maintenance flag prep set on it deleted from the copy unless keepFlag - production's
     /// other plugins beside the staged one, the owners set, then the sync's copies.</summary>
     public static string StageScript(string name, bool plugins, bool keepFlag, string syncCopies) =>
-        $"set -e; R=/r/{name}; mkdir -p $R/bridge; find $R/bridge -mindepth 1 -delete; cp -a /b/. $R/bridge/; " + (keepFlag ? "" : "rm -f $R/bridge/maintenance; ")
+        $"set -e; R=/r/{name}; mkdir -p $R/bridge $R/preview; find $R/bridge $R/preview -mindepth 1 -delete; chmod 777 $R/preview; cp -a /b/. $R/bridge/; "
+        + (keepFlag ? "" : "rm -f $R/bridge/maintenance; ")
         + (plugins ? $"for f in /pl/*; do [ \"$(basename \"$f\")\" = {Plugin.Name} ] || cp -a \"$f\" $R/plugins/; done; " : "")
         + "chown -R --reference=/b $R/bridge; chown --reference=/r $R $R/overstrike2 $R/plugins $R/cfg; " + syncCopies
         + "echo bridge copy: $(find $R/bridge -type f | wc -l) files; ls -la $R/overstrike2 | cut -c1-90";
@@ -318,6 +332,7 @@ sealed class Rehearse
     /// of the bridge's, the bridge on its tag, the test labels, production's network as an external one, and the settings with the
     /// rehearsal's values. (compose text, settings text); the settings text holds secrets, and neither is ever printed.</summary>
     public const string HandoverAt = "/home/steam/cs2-dedicated/workshop-sync/handover";   // paths.handover's default: <paths.syncWork>/handover as the game server sees it
+    public const string PreviewAt = "/home/steam/rehearsal-preview";   // paths.preview in the rehearsal's game server: the rehearsal folder's preview/, mounted writable
 
     /// <summary>The rehearsal's paths.handover: production's (or the default) one folder up, then rehearsal/handover - in the game server's view the
     /// hand-over folder of the sync's work copy (paths.syncWork/rehearsal), which stage makes empty.</summary>
@@ -330,7 +345,7 @@ sealed class Rehearse
 
     public static (string Compose, string Settings) ComposeText(string text, Dictionary<string, string> replace, string secret, string network, string bridgeImage,
                                                                Dictionary<string, string> labels, string daily, int testPort, bool viaFile, string settingsFile,
-                                                               bool downloads = false)
+                                                               bool downloads = false, string previewDir = "/unused/preview")
     {
         var stream = new YamlStream();
         stream.Load(new StringReader(text));
@@ -360,11 +375,13 @@ sealed class Rehearse
         // production's maps folder left alone: the rehearsal's game server shares production's game tree, and its start's organize (os2-server's
         // MapsFolder) moves, links and renames maps there, writes maps/INDEX.tsv and takes hand-overs in - Steam's acf rewritten, its backup beside
         // it - whatever maps.delete says, so dryrun alone does not keep the candidate's untested code off it. maps.layout off returns before any of
-        // it; the cost: no deletion list of what the release's first start would delete (maps.delete dryrun stays, inert while the layout is off).
-        // And the hand-over folder is the rehearsal's own, empty (stage), beside its sync's work copy as production's is beside production's:
-        // nothing points at production's.
-        Section(settings, "maps")["delete"] = "dryrun";
+        // it. maps.preview on gives back what a start would do - the keep set and what production's maps.delete, left as it is, would do with
+        // it - written only into paths.preview, the rehearsal's own folder (PreviewAt, mounted writable in the game server). Never "preview" as a
+        // layout: a build from before maps.preview would take an unknown layout for its default, folders, and organize for real; with off and the
+        // new key an older build only writes no preview. And the hand-over folder is the rehearsal's own, empty (stage), beside its sync's work
+        // copy as production's is beside production's: nothing points at production's.
         Section(settings, "maps")["layout"] = "off";
+        Section(settings, "maps")["preview"] = true;
         // the candidate watcher's background downloads: the engine fetches the queued maps into production's Workshop store and Steam's acf, in
         // the game tree the rehearsal shares - off, unless --downloads keeps production's value (absent: core's default, on)
         if (!downloads)
@@ -380,6 +397,7 @@ sealed class Rehearse
         paths["syncState"] = (Json.AsStr(paths["syncState"]) is { Length: > 0 } st && st.StartsWith('/') ? st.TrimEnd('/') : SyncStateAt) + "/rehearsal";
         paths["syncWork"] = (Json.AsStr(paths["syncWork"]) is { Length: > 0 } wk && wk.StartsWith('/') ? wk.TrimEnd('/') : SyncWorkAt) + "/rehearsal";
         paths["handover"] = RehearsalHandover(Json.AsStr(paths["handover"]));
+        paths["preview"] = PreviewAt;
         var settingsOut = Json.Dumps(settings, indent: 1);
 
         foreach (var key in root.Children.Keys.OfType<YamlScalarNode>().Where(k => k.Value is { } v && (v == "configs" || v.StartsWith("x-", StringComparison.Ordinal))).ToList())
@@ -420,6 +438,8 @@ sealed class Rehearse
                 else
                     env.Children[new YamlScalarNode(Check.Content)] = new YamlScalarNode(settingsOut) { Style = YamlDotNet.Core.ScalarStyle.Literal };
             }
+            if (EnvValue(svc, "CS2_LOG_HTTP_URL") is not null)   // the game server: the preview's folder, writable, the rehearsal's own
+                newVolumes.Add(new YamlScalarNode($"{previewDir}:{PreviewAt}"));
             if (volumes is not null || newVolumes.Children.Count > 0)
                 svc.Children[new YamlScalarNode("volumes")] = newVolumes;
             if (key is YamlScalarNode { Value: "bridge" })
@@ -509,7 +529,7 @@ sealed class Rehearse
         var dir = Dir(bridge);
         var (compose, settings) = ComposeText(File.ReadAllText(path, Encoding.UTF8), Replacements(game, bridge), secret, network, $"{tc.BridgeRepo}:{tag}",
                                               new Dictionary<string, string>(tc.ExtraLabels), daily, ConfigExtensions.Int(h.Cfg.Get("rehearse.test_port", 27216L), 27216),
-                                              via == "file", dir + "/settings/overstrike2.jsonc", downloads);
+                                              via == "file", dir + "/settings/overstrike2.jsonc", downloads, dir + "/preview");
         return (compose, settings, dir);
     }
 
@@ -524,7 +544,8 @@ sealed class Rehearse
         foreach (var (from, to) in Replacements(game, bridge))
             Log($"  {from} -> {to}");
         var s = Json.Parse(settings);
-        Log($"  settings: maps.delete {Json.Str(s, "maps", "delete")}, maps.layout {Json.Str(s, "maps", "layout")}, paths.handover {Json.Str(s, "paths", "handover")}, "
+        Log($"  settings: maps.layout {Json.Str(s, "maps", "layout")}, maps.preview {Json.PyStr(Json.At(s, "maps", "preview"))} into paths.preview {Json.Str(s, "paths", "preview")} "
+            + $"({dir}/preview), maps.delete {Json.Str(s, "maps", "delete") ?? "as production has it (core's default)"}, paths.handover {Json.Str(s, "paths", "handover")}, "
             + $"maps.backgroundDownloads {(Json.At(s, "maps", "backgroundDownloads") is { } bd ? Json.Dumps(bd) : "as production has it (core's default, on)")}, "
             + $"restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
             + $"sync.publish {Json.PyStr(Json.At(s, "sync", "publish"))}, sync.handover {Json.PyStr(Json.At(s, "sync", "handover"))}, sync.testPort {Json.PyStr(Json.At(s, "sync", "testPort"))}, "
