@@ -169,14 +169,14 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                     seen = clock.Now();
                 var minutes = (long)(cfg.Quiet / 60);
                 if (why is null && h is null)
-                    (why, words) = ("the game server does not answer A2S", "The game server does not answer, so the sync waits.");
+                    (why, words) = ("the game server does not answer A2S", Text.WhyWaiting(h, flag, cfg.Quiet));
                 else if (why is null && h > 0)
-                    (why, words) = ($"{h} human(s) on the game server", $"Somebody is playing: the sync waits until the server has been empty for {minutes} minutes.");
+                    (why, words) = ($"{h} human(s) on the game server", Text.WhyWaiting(h, flag, cfg.Quiet));
                 else if (why is null && clock.Now() - seen < cfg.Quiet)
                     (why, words) = seen == started
                         ? ($"the service started {Text.Hms(clock.Now() - started)} ago, and it cannot know who just left", $"The sync has just started: it waits until the server has been empty for {minutes} minutes.")
                         : ($"somebody was on the server {Text.Hms(clock.Now() - seen)} ago (or the maintenance flag)",
-                           flag ? "The server is in maintenance, so the sync waits." : $"Somebody played a moment ago: the sync waits until the server has been empty for {minutes} minutes.");
+                           Text.WhyWaiting(0, flag, cfg.Quiet));
                 var st = Node.ReadJson(Path.Combine(cfg.StateDir, "state.json")) as JsonObject ?? [];
                 if (why is null && !WorkWaits(cfg, clock, st))
                 {

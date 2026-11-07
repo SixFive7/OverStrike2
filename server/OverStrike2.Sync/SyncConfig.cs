@@ -7,32 +7,32 @@ namespace OverStrike2.Sync;
 /// <summary>What the sync reads from the settings file (sync.*, paths.*, server.*, bridge.*, hud.addon, restarts.daily,
 /// steam.apiGapSeconds), with the image's own variables where the image needs them (HOME). Hard limits clamp in the settings reader and
 /// here: at most 10,000 Web API calls in 24 hours, a run's cap never above that, never less than 2 s between two calls, never less than
-/// 2 s between two downloads. A test builds one by hand; a run-now may only lower a limit (<see cref="Lower"/>).</summary>
+/// 2 s between two downloads. Made by From alone - a test's too, from its own settings text - so the defaults are the settings file's; a run-now may only lower a limit (<see cref="Lower"/>).</summary>
 public sealed class SyncConfig
 {
     public const int HardApiDayCap = 10000;
     public const double HardApiGap = WebApiDoor.MinimumGap;
 
-    public bool Enabled { get; set; } = true;                      // sync.enabled
-    public bool Publish { get; set; } = true;                      // sync.publish
-    public TimeOfDay? DailyRestart { get; set; } = new TimeOfDay(7, 0);   // restarts.daily: no run 15 min before to 10 after; null: none
-    public int RunHours { get; set; } = 3;                         // sync.runHours
-    public double ApiEvery { get; set; } = 4 * 3600;               // sync.apiEveryHours, in seconds
-    public List<string> Tags { get; set; } = ["Armsrace", "Deathmatch", "Wingman"];
+    public bool Enabled { get; set; }                              // sync.enabled
+    public bool Publish { get; set; }                              // sync.publish
+    public TimeOfDay? DailyRestart { get; set; }                   // restarts.daily: no run 15 min before to 10 after; null: none
+    public int RunHours { get; set; }                              // sync.runHours
+    public double ApiEvery { get; set; }                           // sync.apiEveryHours, in seconds
+    public List<string> Tags { get; set; } = [];                   // sync.tags
     public HashSet<string> Exclude { get; set; } = [];             // sync.excludeIds and hud.addon: never candidates
     public HashSet<string> ExcludeCreators { get; set; } = [];     // sync.excludeCreators: listed by hand
     public string ChangedSince { get; set; } = "";                 // sync.changedSince (YYYY-MM-DD); empty: no map counts as changed at its first check
-    public bool ModeBackfill { get; set; }
-    public int ApiDayCap { get; set; } = HardApiDayCap;
-    public int ApiRunCap { get; set; } = 500;
-    public double ApiGap { get; set; } = HardApiGap;               // steam.apiGapSeconds
-    public int MaxPages { get; set; } = 200;
-    public double DownloadPause { get; set; } = 2;
-    public int Batch { get; set; } = 100;
-    public double Quiet { get; set; } = 600;                       // sync.quietMinutes, in seconds
-    public int Hold { get; set; } = 20;
-    public int TestPort { get; set; } = 27215;
-    public int EngineStartsMax { get; set; } = 200;
+    public bool ModeBackfill { get; set; }                         // sync.modeBackfill
+    public int ApiDayCap { get; set; }                             // sync.apiDayCap
+    public int ApiRunCap { get; set; }                             // sync.apiRunCap
+    public double ApiGap { get; set; }                             // steam.apiGapSeconds
+    public int MaxPages { get; set; }                              // sync.maxPages
+    public double DownloadPause { get; set; }                      // sync.downloadPauseSeconds
+    public int Batch { get; set; }                                 // sync.batch
+    public double Quiet { get; set; }                              // sync.quietMinutes, in seconds
+    public int Hold { get; set; }                                  // sync.holdSeconds
+    public int TestPort { get; set; }                              // sync.testPort
+    public int EngineStartsMax { get; set; }                       // sync.engineStartsMax
     public required string StateDir { get; set; }                  // paths.syncState
     public required string WorkDir { get; set; }                   // paths.syncWork
     public required string GameDir { get; set; }                   // paths.gameDir, read-only here
@@ -40,24 +40,24 @@ public sealed class SyncConfig
     public string BridgeUrl { get; set; } = "";                    // bridge.url
     public string BridgeSecret { get; set; } = "";                 // bridge.secret
     public string GameHost { get; set; } = "";                     // server.host: empty asks nobody (a test's)
-    public int GamePort { get; set; } = 27015;                     // server.port
+    public int GamePort { get; set; }                              // server.port
     public string CfgDir { get; set; } = "";                       // paths.syncCfg
     public string WebApiKey { get; set; } = "";                    // sync.webApiKey (read through its reference); "" none
-    public string SmtpHost { get; set; } = "";
-    public int SmtpPort { get; set; } = 25;
+    public string SmtpHost { get; set; } = "";                    // sync.mail.*
+    public int SmtpPort { get; set; }
     public string MailFrom { get; set; } = "";
     public List<string> MailTo { get; set; } = [];
     public string DashboardUrl { get; set; } = "";
-    public string SteamCmd { get; set; } = "/home/steam/steamcmd/steamcmd.sh";   // paths.steamCmd
-    public bool Ratings { get; set; } = true;
+    public string SteamCmd { get; set; } = "";                    // paths.steamCmd
+    public bool Ratings { get; set; }                              // sync.ratings
     public bool ForceApi { get; set; }                             // a run-now's {"api": true}
     public bool SkipApi { get; set; }                              // a run-now's {"api": false}
-    public long DiskLow { get; set; } = 100L << 30;                // sync.diskLowGb, in bytes
-    public bool Handover { get; set; } = true;                     // sync.handover
-    public string Depotcache { get; set; } = "/home/steam/Steam/depotcache";
-    public string ServerName { get; set; } = "CS2 server";         // server.name
+    public long DiskLow { get; set; }                              // sync.diskLowGb, in bytes
+    public bool Handover { get; set; }                             // sync.handover
+    public string Depotcache { get; set; } = "";                  // paths.depotcache
+    public string ServerName { get; set; } = "";                  // server.name, else "CS2 server"
     public string HudAddon { get; set; } = "";                     // hud.addon: the HUD item, for the dashboard's keep set
-    public string Home { get; set; } = "/home/steam";              // the image's HOME: SteamCMD's and the test engine's
+    public string Home { get; set; } = "";                        // the image's HOME, else /home/steam: SteamCMD's and the test engine's
     public List<string>? OnlyIds { get; set; }                     // a run-now's {"only_ids": [...]}
     public KeepRules KeepRules { get; set; } = KeepRules.Default;  // the keep set's limits: its queues as long as bridge.discoveryStock, the restart watcher's too
     public List<string> BootWarnings { get; } = [];

@@ -104,6 +104,14 @@ public static partial class Text
         return "ok";
     }
 
+    /// <summary>Why the sync waits for an empty server, for the status file: the game server does not answer, somebody plays, it is in
+    /// maintenance, or somebody played less than `quiet` seconds ago.</summary>
+    public static string WhyWaiting(int? humans, bool maintenance, double quiet) =>
+        humans is null ? "The game server does not answer, so the sync waits."
+        : humans > 0 ? $"Somebody is playing: the sync waits until the server has been empty for {(long)(quiet / 60)} minutes."
+        : maintenance ? "The server is in maintenance, so the sync waits."
+        : $"Somebody played a moment ago: the sync waits until the server has been empty for {(long)(quiet / 60)} minutes.";
+
     /// <summary>"1h05m", "5m03s", "42s".</summary>
     public static string Hms(double seconds) => OverStrike2.Core.Words.Duration(seconds);
 

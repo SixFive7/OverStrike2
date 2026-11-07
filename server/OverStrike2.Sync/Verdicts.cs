@@ -5,16 +5,12 @@ namespace OverStrike2.Sync;
 /// <summary>Verdicts: from the scan and the test loads to an item's outcome; and the backlog - its order and how long it takes.</summary>
 public static class Verdicts
 {
-    public static readonly Dictionary<string, string> AdvertReason = new()
+    /// <summary>The adverts the scan tells apart: each one's reason, as broken.json gives it, and how the map makes it.</summary>
+    static readonly Dictionary<string, (string Reason, string How)> Adverts = new()
     {
-        ["gambling ad"] = "posts a gambling ad", ["chat advert"] = "advertises another server", ["client connect"] = "sends players to another server",
-    };
-
-    static readonly Dictionary<string, string> AdvertEvidence = new()
-    {
-        ["gambling ad"] = "posts a gambling ad - a case-site promo code in the map (scan of the map, {0})",
-        ["chat advert"] = "advertises another server - the map tells everyone in chat to connect to it (scan of the map, {0})",
-        ["client connect"] = "sends players to another server - the map makes their game run a connect command (scan of the map, {0})",
+        ["gambling ad"] = ("posts a gambling ad", "a case-site promo code in the map"),
+        ["chat advert"] = ("advertises another server", "the map tells everyone in chat to connect to it"),
+        ["client connect"] = ("sends players to another server", "the map makes their game run a connect command"),
     };
 
     public const double PaceDefault = 31.0;   // seconds a map takes, download and test, until a run has measured it: 7 s + 24 s
@@ -48,16 +44,16 @@ public static class Verdicts
         {
             var first = loads[passAt];
             var advert = scan["advert"] is null ? null : Node.Str(scan["advert"]);
-            if (advert is not null && AdvertReason.TryGetValue(advert, out var reason))
+            if (advert is not null && Adverts.TryGetValue(advert, out var a))
                 return ("advert", new JsonObject
                 {
-                    ["reason"] = reason, ["sample"] = scan["advert_sample"]?.DeepClone(), ["evidence"] = string.Format(AdvertEvidence[advert], day),
+                    ["reason"] = a.Reason, ["sample"] = scan["advert_sample"]?.DeepClone(), ["evidence"] = $"{a.Reason} - {a.How} (scan of the map, {day})",
                 });
             var chat = loads.SelectMany(l => Node.StrList(l["chat"])).Where(c => Scan.AdRx().IsMatch(c) || Scan.SayConnectRx().IsMatch("say " + c)).ToList();
             if (chat.Count > 0)
                 return ("advert", new JsonObject
                 {
-                    ["reason"] = Scan.AdRx().IsMatch(chat[0]) ? "posts a gambling ad" : "advertises another server", ["sample"] = chat[0],
+                    ["reason"] = Adverts[Scan.AdRx().IsMatch(chat[0]) ? "gambling ad" : "chat advert"].Reason, ["sample"] = chat[0],
                     ["evidence"] = $"showed an advert in chat on a test load: {Text.Cut(chat[0], 80)} (workshop sync {day})",
                 });
             return ("pass", new JsonObject

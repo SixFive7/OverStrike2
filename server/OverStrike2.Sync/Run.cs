@@ -188,14 +188,10 @@ public sealed partial class SyncRun
             }
             if (!said)
             {
-                var minutes = (long)(Cfg.Quiet / 60);
                 L($"{what}: waiting - " + (h is null ? "the game server does not answer A2S" : h > 0 ? $"{h} human(s) on the game server"
                     : flag ? "the bridge's maintenance flag is set" : $"somebody was on the server {Text.Hms(Clock.Now() - HumanAt!.Value)} ago"));
                 said = true;
-                Status.Set(("state", "waiting"), ("why", h is null ? "The game server does not answer, so the sync waits."
-                    : h > 0 ? $"Somebody is playing: the sync waits until the server has been empty for {minutes} minutes."
-                    : flag ? "The server is in maintenance, so the sync waits."
-                    : $"Somebody played a moment ago: the sync waits until the server has been empty for {minutes} minutes."));
+                Status.Set(("state", "waiting"), ("why", Text.WhyWaiting(h, flag, Cfg.Quiet)));
                 Status.Write();
             }
             if (Left() <= margin + 60)

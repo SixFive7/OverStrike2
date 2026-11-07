@@ -31,12 +31,14 @@ static class W
     public static readonly SyncLog Log = new(new SyncClock(new FakeClock(0), Paris)) { Echo = false };
     public static readonly Seams Hooks = new();
 
-    /// <summary>A new config: the defaults, on the paths of the moment.</summary>
-    public static SyncConfig Cfg() => new()
+    /// <summary>A new config, as production reads one: the settings file's defaults, on the paths of the moment, asking no game server.</summary>
+    public static SyncConfig Cfg()
     {
-        StateDir = State, WorkDir = Work, GameDir = GameRoot, BridgeData = Data, BridgeUrl = BridgeUrl, BridgeSecret = BridgeSecret, Depotcache = Depotcache,
-        ChangedSince = "2026-10-25", GameHost = "", Home = Path.Combine(T.Root, "home"),
-    };
+        var c = SyncConfig.From(Settings.Parse("""{ "schema": 1, "sync": { "changedSince": "2026-10-25" } }""", Part.Sync, _ => null), _ => null);
+        (c.StateDir, c.WorkDir, c.GameDir, c.BridgeData, c.BridgeUrl, c.BridgeSecret, c.Depotcache) = (State, Work, GameRoot, Data, BridgeUrl, BridgeSecret, Depotcache);
+        (c.GameHost, c.Home) = ("", Path.Combine(T.Root, "home"));
+        return c;
+    }
 
     public static SyncClock C(FakeClock f) => new(f, Paris);
 
