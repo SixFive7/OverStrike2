@@ -38,7 +38,7 @@
          (its last line gives the count) and keep the name of every line whose second column is not cmd and whose flags column has sv, sorted. -->
     <EmbeddedResource Include="convars.txt" LogicalName="convars.txt" />
     <!-- The block list, every game mode's in one file, is a config file beside the DLL (deploy both): editing it needs no rebuild,
-         "mapreset_block reload" reads it. -->
+         "os_block reload" reads it. -->
     <None Include="blocked.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

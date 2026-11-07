@@ -16,6 +16,8 @@ using OverStrike2;
 //   - the block file (bridge/Shared/Modes.cs, Modes.Blocked): every game mode's value in one file, and the plugin's own file held to it;
 //   - which game mode the settings module acts in (ModePlan.cs): at a map start, at os_mode, and at a load while a map is on, which ends where a
 //     plugin loaded before that map is;
+//   - the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar, what the block leaves to a
+//     player, and the undo that puts a map's own value back;
 //   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
@@ -320,8 +322,8 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
 }
 
 // ---- the game mode (ModePlan.cs): whose block list and Arms Race-only features are on. A plugin loaded while a map is on (a reload, css_plugins
-// load) decides at its load as one loaded before that map decided at its start; it used to stay in Arms Race until the next map start - Arms
-// Race's list forced onto a Deathmatch or Wingman map, the grenade drops and catch-up on ----
+// load) decides at its load as one loaded before that map decided at its start, so Arms Race's list is never forced onto a Deathmatch or
+// Wingman map, nor the grenade drops and catch-up left on there ----
 {
     var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
     var file = File.Exists(Path.Combine(plugin, Modes.BlockFile)) ? File.ReadAllText(Path.Combine(plugin, Modes.BlockFile)) : null;
@@ -338,7 +340,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         var fresh = FromStart(m);
         var load = new ModePlan(); // a reload's new instance, on that map
         var before = load.On;
-        var switched = load.Started(m.GameType, m.GameMode); // what Settings.Load asks while a map is on
+        var switched = load.Started(m.GameType, m.GameMode); // what GameSettings.Load asks while a map is on
         Check(before == Modes.ArmsRace && load.On == m && fresh.On == m && load.LoadedIn == fresh.LoadedIn && load.Told == fresh.Told,
             $"mode: a plugin loaded while a {m.Name} map is on acts in {m.Name}, as one loaded before that map does (on {load.On.Name}, told {load.Told?.Name})");
         Check(switched == (m.ArmsRace ? null : m), $"...and switches the list and the features over from Arms Race, where every load starts, only for another mode ({m.Name})");
@@ -359,21 +361,72 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     back.Tell(Modes.Deathmatch);
     Check(back.Started(Modes.ArmsRace.GameType, Modes.ArmsRace.GameMode) == Modes.ArmsRace && back.Told == Modes.Deathmatch,
         "mode: a map told Deathmatch that comes up in Arms Race (a changelevel's saved convars) gets Arms Race's list until the bridge loads it again");
-    // The plan's caller: Settings.Load asks it before it reads the block list, the way OnMapStart does, and the host lets the modules hear of it.
-    var settingsCs = Path.Combine(plugin, "Settings.cs");
+    // The plan's caller: GameSettings.Load asks it before it reads the block list, the way OnMapStart does, and the host lets the modules hear of it.
+    var settingsCs = Path.Combine(plugin, "GameSettings.cs");
     var hostCs = Path.Combine(plugin, "OverStrike2.cs");
+    Check(File.Exists(settingsCs) && File.Exists(hostCs), $"mode: the settings module and the host are read from their source ({settingsCs})");
     if (File.Exists(settingsCs) && File.Exists(hostCs))
     {
         var code = File.ReadAllText(settingsCs);
         var load = code[code.IndexOf("public void Load(bool hotReload)", StringComparison.Ordinal)..];
         load = load[..load.IndexOf("\n    }\n", StringComparison.Ordinal)];
         var host = File.ReadAllText(hostCs);
-        Check(load.IndexOf("modeAtLoad = MapMode();", StringComparison.Ordinal) is >= 0 and var at && at < load.IndexOf("ReadBlocked();", StringComparison.Ordinal)
-            && code.Contains("if (MapMode() is { } m)", StringComparison.Ordinal), "mode: Settings.Load decides by the map that is on, as OnMapStart does, before it reads the block list");
+        Check(load.IndexOf("modeAtLoad = MapMode();", StringComparison.Ordinal) is >= 0 and var at && at < load.IndexOf("block.Read(", StringComparison.Ordinal)
+            && code.Contains("if (MapMode() is { } m)", StringComparison.Ordinal), "mode: GameSettings.Load decides by the map that is on, as OnMapStart does, before it reads the block list");
         Check(host.IndexOf("settings.Ready();", StringComparison.Ordinal) > host.IndexOf("settings.ModeApplied +=", StringComparison.Ordinal),
             "mode: the plugin tells its modules a load's mode once they follow ModeApplied");
     }
-    else Console.WriteLine($"(no {settingsCs}: the settings module's use of the mode is not checked)");
+}
+
+// ---- the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar - kept like convars - what the
+// block leaves to a player, and the undo, which puts back what a convar was before the first change on this map, a map's own value included ----
+{
+    var live = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["sv_gravity"] = "800", ["sv_jump_impulse"] = "301.993",
+        ["sv_airaccelerate"] = "20", // this map's own: fs_highsky runs 20, the server 12
+        ["sv_enablebunnyhopping"] = "0", ["sv_autobunnyhopping"] = "0", ["sv_staminajumpcost"] = "0.08", ["sv_staminalandcost"] = "0.05", ["sv_staminamax"] = "80",
+        ["weapon_accuracy_nospread"] = "0", ["weapon_air_spread_scale"] = "1",
+    };
+    var refuse = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var switches = new FunSwitches(name => live.GetValueOrDefault(name), (name, value) => { if (refuse.Contains(name)) return false; live[name] = value; return true; });
+    var told = new List<string>();
+    switches.EffectChanged += (effect, on) => told.Add($"{effect} {(on ? "on" : "off")}");
+    var at = new DateTime(2026, 11, 7, 21, 4, 11);
+    static Fun.Setting S(string id) => Fun.Find(id)!;
+    static Fun.Choice C(string id, string choice) => Fun.Find(S(id), choice)!;
+
+    Check(switches.EffectOn(Fun.Drops) && switches.EffectOn(Fun.CatchUp) && !switches.EffectOn(Fun.Vampire) && !switches.EffectOn(Fun.Ghost) && !switches.EffectOn(Fun.NoRecoil),
+        "fun: the grenade drops and catch-up start on, Vampire, Ghost and no recoil off");
+    var line = switches.Apply(S("gravity"), C("gravity", "moon"), "Remy", at);
+    Check(line == "gravity moon by Remy: sv_gravity 200" && live["sv_gravity"] == "200" && switches.SetBy("gravity") == "Remy" && switches.Chosen("sv_gravity")
+        && switches.Before["sv_gravity"] == "800" && switches.Last == "21:04:11 gravity moon by Remy: sv_gravity 200",
+        $"fun: a change is made, who made it kept, the value from before remembered ({line})");
+    switches.Apply(S("bhop"), C("bhop", "turbo"), "Cara", at);
+    Check(live["sv_airaccelerate"] == "100" && live["sv_enablebunnyhopping"] == "1" && live["sv_staminamax"] == "0", "fun: Turbo bunny hopping sets its five convars and the air acceleration");
+    switches.Apply(S("vampire"), C("vampire", "on"), "Remy", at);
+    switches.Apply(S("drops"), C("drops", "off"), "Bob", at);
+    Check(told.SequenceEqual([$"{Fun.Vampire} on", $"{Fun.Drops} off"]) && switches.EffectOn(Fun.Vampire) && !switches.EffectOn(Fun.Drops) && switches.SetBy("drops") == "Bob",
+        $"fun: an effect is kept like a convar, and its change told once ({string.Join(", ", told)})");
+    switches.Apply(S("aim"), C("aim", "on"), "Dan", at);
+    var onTheList = new[] { new BlockList.Entry("weapon_accuracy_nospread", "0", "no spread"), new BlockList.Entry("weapon_air_spread_scale", "1", "accurate jumping") };
+    Check(BlockList.Due(onTheList, switches.Value, _ => null, switches.Chosen).Count == 0 && switches.EffectOn(Fun.NoRecoil) && live["weapon_accuracy_nospread"] == "1",
+        "fun: Laser guns' blocked convars hold a player's choice, so the block leaves them alone; its no-recoil half is an effect");
+    refuse.Add("sv_jump_impulse");
+    var no = switches.Apply(S("jump"), C("jump", "high"), "Eve", at);
+    Check(no.EndsWith("; refused sv_jump_impulse") && switches.SetBy("jump") == null && live["sv_jump_impulse"] == "301.993", $"fun: a change the game refuses names nobody as its setter ({no})");
+    switches.Apply(S("gravity"), C("gravity", "normal"), "Remy", at);
+    Check(live["sv_gravity"] == "800" && switches.SetBy("gravity") == null && !switches.Chosen("sv_gravity"), "fun: Normal puts the value from before back, and nobody set it");
+    Check(switches.Describe().EndsWith("bhop turbo, aim on, vampire on, drops off") && switches.Showing().StartsWith("gravity normal, jump normal, bhop turbo,"),
+        $"fun: what the console says of them ({switches.Describe()})");
+    told.Clear();
+    var undone = switches.Undo("the end of the map", at);
+    Check(live["sv_airaccelerate"] == "20" && live["sv_enablebunnyhopping"] == "0" && live["weapon_accuracy_nospread"] == "0" && live["weapon_air_spread_scale"] == "1",
+        "fun: the undo puts every changed convar back as it was before the first change - the map's own air acceleration, 20, not the server's 12");
+    Check(!switches.EffectOn(Fun.Vampire) && switches.EffectOn(Fun.Drops) && !switches.EffectOn(Fun.NoRecoil) && told.Count == 3 && Fun.Settings.All(s => switches.SetBy(s.Id) == null)
+        && !switches.Chosen("sv_airaccelerate"), $"fun: ...every effect back at its default, each change told, nobody's name left ({string.Join(", ", told)})");
+    Check(undone.Contains("sv_airaccelerate -> 20") && undone.Contains($"{Fun.Vampire} -> 0") && switches.Last.StartsWith("21:04:11 the end of the map: undone ") && switches.Undo("again", at).Count == 0,
+        $"fun: ...what it undid, said, and nothing a second time ({string.Join(", ", undone)})");
 }
 
 // ---- the Players page's time on (JoinTimes.cs): by account. A map change disconnects everybody, and a player's time goes on through it whatever
@@ -595,12 +648,6 @@ Console.WriteLine(failures == 0
     ? $"Over Strike 2 plugin self-test: {checks} checks passed."
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");
 return failures == 0 ? 0 : 1;
-
-/// <summary>BlockList.Due's comparison of two values, which these checks do not reach: the real Fun.Same is the bridge's (bridge/Shared/Fun.cs), tested there.</summary>
-static class Fun
-{
-    public static bool Same(string? a, string? b) => string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
-}
 
 /// <summary>A Web API that answers at once, noting when each request started and ended, and who it said was asking.</summary>
 sealed class Recorder(System.Collections.Concurrent.ConcurrentQueue<(DateTime, DateTime)> seen, System.Collections.Concurrent.ConcurrentQueue<string> agents, Action enter, Action leave) : HttpMessageHandler

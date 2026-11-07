@@ -8,7 +8,7 @@
 // Race uses it. Deathmatch's values are Valve's gamemode_deathmatch.cfg plus server/gamemode_deathmatch_server.cfg, Wingman's Valve's
 // gamemode_competitive2v2.cfg plus server/gamemode_competitive2v2_server.cfg. Counts are Workshop items setting it in the 2026-10-22 scan of
 // all ~3,600 cached items. Deploy beside OverStrike2.dll; the plugin reads it at load, at the first map start in another mode, and on
-// "mapreset_block reload".
+// "os_block reload".
 //
 // convar                          armsrace  deathmatch  wingman   // why
 

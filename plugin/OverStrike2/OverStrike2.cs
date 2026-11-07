@@ -28,15 +28,13 @@ public class OverStrike2Plugin : BasePlugin
 
     HudScreen? hud;
     Nades? nades;            // the grenade drops
-    Settings? settings;      // a map's settings put back, the game-changers block, the fun page's changes and effects
+    GameSettings? settings;  // a map's settings put back, the game-changers block, the fun page's changes and effects
     Effects? effects;        // the fun page's effects Vampire, Ghost and no recoil
     Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), gg_cloak's
     CatchUp.CatchUpModule? catchUp; // the Arms Race catch-up boosts
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race
 
-    /// <summary>The HUD: the modules post their lines through it (the message system, HudScreenMessages.cs), the game-changers block's notices too.</summary>
-    internal HudScreen? Screen => hud;
     string addon = "";
     readonly Dictionary<int, (string Html, DateTime Until)> boosts = new();     // slot -> its catch-up message on the centre panel, for a game not known to hold the card: sent every tick until then
 
@@ -63,8 +61,9 @@ public class OverStrike2Plugin : BasePlugin
         RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
         AddCommandListener("say", OnSay);
         AddCommandListener("say_team", OnSay);
-        // The bridge and the restart watcher talk to the modules by their console commands (gg_fun, mapreset_*).
-        settings = new Settings(this, Logger);
+        // The settings module posts through the HUD (the block's notice); its console commands are gg_fun, which the HUD and the bridge's reset
+        // send, and os_settings and os_block, an operator's.
+        settings = new GameSettings(this, Logger, (kind, text) => hud?.Post(kind, text));
         settings.Load(hotReload);
         RegisterConsoleCommandAttributeHandlers(settings);
         nades = new Nades(this, Logger, () => settings.EffectOn(Fun.Drops));
@@ -93,13 +92,14 @@ public class OverStrike2Plugin : BasePlugin
         {
             if (effect.Equals(Fun.Drops, StringComparison.OrdinalIgnoreCase))
             {
-                if (!settings.MapEnding) nades.Switched(on); // the undo at a map's end hands nothing to the players of the map that goes
+                if (!settings.Ending) nades.Switched(on); // the undo at a map's end hands nothing to the players of the map that goes
                 Logger.LogInformation("Over Strike 2: grenade drops {State} (the fun setting){Mode}", on ? "on" : "off", settings.Mode.ArmsRace ? "" : $" - Arms Race's own, so off in {settings.Mode.Name} anyway");
             }
             else if (effect.Equals(Fun.CatchUp, StringComparison.OrdinalIgnoreCase)) CatchUpFollows($"its fun setting {(on ? "on" : "off")}");
         };
         settings.Ready(); // a load while a Deathmatch or Wingman map is on: the modules follow that map's mode now, as from its start
         hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects - the grenade drops and catch-up among them - included
+        (hud.FunSetBy, hud.FunSet, hud.FunReset) = (settings.SetBy, settings.ChangeFun, settings.ResetFun); // ...who set each setting off its default, and the module makes the page's changes in process
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
         catchUp.Show = (player, boost, html) =>
         {

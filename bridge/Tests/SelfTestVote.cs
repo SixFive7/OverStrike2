@@ -738,8 +738,8 @@ static partial class Program
 
             // ---- the same with the plugin on, as on the live server: its block has the told values back in the convars before the bridge asks,
             // so only its reply to os_mode tells (seen on 2026-11-01: cs_office told Deathmatch stayed in Arms Race, with no second load) ----
-            const string settingsFile = "../plugin/OverStrike2/Settings.cs";
-            Check("The plugin's reply to os_mode has the words the bridge looks for when a map did not load in the told mode (Settings.SetMode)",
+            const string settingsFile = "../plugin/OverStrike2/GameSettings.cs";
+            Check("The plugin's reply to os_mode has the words the bridge looks for when a map did not load in the told mode (GameSettings.SetMode)",
                 !File.Exists(settingsFile) || File.ReadAllText(settingsFile).Contains($"kept; its block list and features {ModeNotLoadedWords}\"", StringComparison.Ordinal));
             Fresh();
             fakePlugin = true;

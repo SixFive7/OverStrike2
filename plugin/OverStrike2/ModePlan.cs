@@ -1,8 +1,8 @@
 namespace OverStrike2;
 
-/// <summary>Which game mode the settings module acts in (Settings.cs; ../../bridge/Shared/Modes.cs): the mode the bridge told (os_mode), the
+/// <summary>Which game mode the settings module acts in (GameSettings.cs; ../../bridge/Shared/Modes.cs): the mode the bridge told (os_mode), the
 /// mode the map that is on was loaded in, and whose block list and Arms Race-only features are on. No CounterStrikeSharp type in it: the
-/// self-test drives it; Settings.cs reads the convars and does what it says.
+/// self-test drives it; GameSettings.cs reads the convars and does what it says.
 ///
 /// A map's start decides by the mode that map was loaded in - its live game_type and game_mode - not by the one told: a changelevel from a
 /// Workshop map to an official one can bring back the convars CS2 saved before, the mode included (measured 2026-11-01: de_dust2 told

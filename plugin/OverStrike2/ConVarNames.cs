@@ -1,8 +1,8 @@
 namespace OverStrike2;
 
 /// <summary>The game convars the running build of CS2 has, asked of the build itself at every start: a setting Valve adds is watched from its
-/// first start on, without a new convars.txt (Settings.cs). convars.txt stays the floor: whatever goes wrong here, the plugin watches what
-/// that list names, as it always has, and says why in its log and in mapreset_check.
+/// first start on, without a new convars.txt (ConVarKeeper.cs). convars.txt stays the floor: whatever goes wrong here, the plugin watches what
+/// that list names, as it always has, and says why in its log and in os_settings.
 ///
 /// How: a convar of the game DLL has its name as a plain string in that DLL, so the candidates are read from the file (libserver.so) and the
 /// engine is asked about each one by name - ConVar.Find, as the plugin always did for its list, then the flags and the type of what it found.
@@ -52,7 +52,7 @@ static class ConVarNames
     /// <param name="Refused">Why nothing from the file is used, or null.</param>
     public sealed record Found(IReadOnlyList<string> New, int Listed, int Strings, int Seen, int OddType, string? Refused)
     {
-        /// <summary>The line for the log and for mapreset_check.</summary>
+        /// <summary>The line for the log and for os_settings.</summary>
         public string Describe(long milliseconds) => Refused != null
             ? $"convars.txt only ({Listed} names), the game DLL not used: {Refused}"
             : $"convars.txt ({Listed} names) and the game DLL ({Strings} strings, {Seen} of the names among them): " +
