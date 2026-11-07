@@ -9,6 +9,27 @@ namespace OverStrike2.Core.SelfTest;
 /// committed files to, and what --write writes. Only the self-test makes them, so none of the programs that read the settings carries them.</summary>
 static class SettingsDocs
 {
+    public const string Begin = "<!-- keys:begin (made from core/Settings.cs: dotnet run --project core/SelfTest -- --write) -->";
+    public const string End = "<!-- keys:end -->";
+
+    /// <summary>docs/settings.md with the block between the markers replaced by `keys`.</summary>
+    public static string WithKeys(string md, string keys)
+    {
+        var i = md.IndexOf(Begin, StringComparison.Ordinal);
+        var j = md.IndexOf(End, StringComparison.Ordinal);
+        if (i < 0 || j < i)
+            throw new InvalidOperationException("docs/settings.md has no keys markers");
+        return md[..(i + Begin.Length)] + "\n" + keys + "\n" + md[j..];
+    }
+
+    /// <summary>The block between the markers.</summary>
+    public static string KeysBlock(string md)
+    {
+        var i = md.IndexOf(Begin, StringComparison.Ordinal);
+        var j = md.IndexOf(End, StringComparison.Ordinal);
+        return i < 0 || j < i ? "" : md[(i + Begin.Length)..j].Trim('\n');
+    }
+
     /// <summary>docs/settings.schema.json, made from <see cref="Settings.Keys"/>: what the self-test compares the committed file with.</summary>
     public static string JsonSchema()
     {

@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using static OverStrike2.Core.SelfTest.T;
+using static OverStrike2.TestKit.T;
 
 namespace OverStrike2.Core.SelfTest;
 
@@ -242,7 +242,7 @@ static class SettingsTests
               File.Exists(schemaFile) && File.ReadAllText(schemaFile).ReplaceLineEndings("\n") == SettingsDocs.JsonSchema());
         var mdFile = Path.Combine(root, "docs", "settings.md");
         Check("settings: docs/settings.md's key tables are the ones the table makes",
-              File.Exists(mdFile) && KeysBlock(File.ReadAllText(mdFile).ReplaceLineEndings("\n")) == SettingsDocs.KeysMarkdown().Trim('\n'));
+              File.Exists(mdFile) && SettingsDocs.KeysBlock(File.ReadAllText(mdFile).ReplaceLineEndings("\n")) == SettingsDocs.KeysMarkdown().Trim('\n'));
         var schema = JsonNode.Parse(SettingsDocs.JsonSchema())!;
         Check("settings: the schema holds every key of the table, and its default (a required key has none)", Settings.Keys.All(k =>
         {

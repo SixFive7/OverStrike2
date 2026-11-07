@@ -7,6 +7,7 @@
 //   dotnet publish server/OverStrike2.Server/SelfTest -c Release -r linux-x64 -o <dir>, then run <dir>/OverStrike2.Server.SelfTest
 //   inside the image (it needs nothing of the game).
 using OverStrike2.Server.SelfTest;
+using OverStrike2.TestKit;
 
 var root = T.Root();
 try
@@ -22,90 +23,5 @@ finally
 {
     T.Clean();
 }
-Console.WriteLine($"\n{T.Fails} failure(s) of {T.Checks} checks{(T.Skips > 0 ? $", {T.Skips} skipped (Linux only)" : "")}");
+Console.WriteLine(T.Summary);
 return T.Fails;
-
-namespace OverStrike2.Server.SelfTest
-{
-    static class T
-    {
-        public static int Fails, Checks, Skips;
-
-        public static void Check(string name, bool ok)
-        {
-            Checks++;
-            Console.WriteLine((ok ? "PASS " : "FAIL ") + name);
-            if (!ok)
-                Fails++;
-        }
-
-        public static void Check(string name, Func<bool> ok)
-        {
-            bool r;
-            try
-            {
-                r = ok();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"     ({name}: {e.GetType().Name}: {e.Message})");
-                r = false;
-            }
-            Check(name, r);
-        }
-
-        /// <summary>A check that needs Linux: SKIP elsewhere.</summary>
-        public static void Linux(string name, Func<bool> ok)
-        {
-            if (OperatingSystem.IsLinux())
-                Check(name, ok);
-            else
-            {
-                Skips++;
-                Console.WriteLine("SKIP " + name);
-            }
-        }
-
-        /// <summary>The repository's root: the folder above this program's that holds core/ and server/.</summary>
-        public static string Root()
-        {
-            foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-                for (var d = new DirectoryInfo(start); d != null; d = d.Parent)
-                    if (File.Exists(Path.Combine(d.FullName, "core", "OverStrike2.Core.csproj")))
-                        return d.FullName;
-            return "";   // in the game image, run from a copy: the checks that read the repository say so
-        }
-
-        static readonly string Base = Path.Combine(Path.GetTempPath(), "os2-server-selftest-" + Environment.ProcessId);
-
-        /// <summary>A fresh folder of the test's own.</summary>
-        public static string Dir(string name)
-        {
-            var d = Path.Combine(Base, name);
-            if (Directory.Exists(d))
-                Directory.Delete(d, true);
-            Directory.CreateDirectory(d);
-            return d;
-        }
-
-        public static void Clean()
-        {
-            try
-            {
-                if (Directory.Exists(Base))
-                    Directory.Delete(Base, true);
-            }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-            {
-            }
-        }
-
-        public static void Put(string path, string text)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, text);
-        }
-
-        public static string Show<TItem>(IEnumerable<TItem> items) => "[" + string.Join(", ", items) + "]";
-    }
-}

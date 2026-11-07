@@ -1,21 +1,7 @@
 using OverStrike2.Core;
+using OverStrike2.TestKit;
 
 namespace OverStrike2.Server.SelfTest;
-
-/// <summary>A clock the tests move by hand: Sleep advances it.</summary>
-sealed class FakeClock(DateTimeOffset start) : IClock
-{
-    public DateTimeOffset Now { get; set; } = start;
-    public double T => Watch.Seconds(Now);
-
-    public void Sleep(TimeSpan span)
-    {
-        if (span > TimeSpan.Zero)
-            Now += span;
-    }
-
-    public void Sleep(double seconds) => Sleep(TimeSpan.FromSeconds(seconds));
-}
 
 /// <summary>The engine as the scenarios need it: A2S and RCON that answer or not, a console.log the echo probe proves, a process that
 /// quits or is killed. The hooks stand in other behaviour.</summary>

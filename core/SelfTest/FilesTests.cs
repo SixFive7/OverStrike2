@@ -1,4 +1,4 @@
-using static OverStrike2.Core.SelfTest.T;
+using static OverStrike2.TestKit.T;
 
 namespace OverStrike2.Core.SelfTest;
 
