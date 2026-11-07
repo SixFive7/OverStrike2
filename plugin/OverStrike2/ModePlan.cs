@@ -16,7 +16,9 @@ namespace OverStrike2;
 /// Such a map is loaded once more, official to official, in the told mode (Again): by the bridge for a change it made, a few seconds after the
 /// start (../../bridge/ModeSwitch.cs, SyncMode), and by the plugin for any change, an operator's included, AgainAfterSeconds after the start
 /// (GameSettings.LoadAgain), unless a load came first and ended the wait with the map. A start right after an official map is never one, so the
-/// second load is the last.
+/// second load is the last. The block, which keeps game_type and game_mode at the told mode's values, puts back what CS2 brought back without
+/// blaming the map (Saved, CanBringBack): live on 2026-11-07 it did so a second before the old map ended, and the map then loaded in the told
+/// mode at once - the second load is for when CS2's values land after the start.
 ///
 /// A plugin loaded while a map is on (a reload, css_plugins load) takes the plan of the instance before it (ModeHandover), when that one
 /// unloaded on this very map; else it decides with that map's live convars, as its start did, and so ends where a plugin loaded before the map
@@ -51,6 +53,16 @@ public sealed class ModePlan
     /// <summary>The mode the second load went out in (Loading), until the next map start; null while none has.</summary>
     public Modes.Mode? LoadingIn { get; private set; }
 
+    /// <summary>The game_type and game_mode CS2 saved when the server last went from an official map to a Workshop map - what a changelevel
+    /// from a Workshop map to an official one brings back - as the Workshop map started with them (host_workshop_map brings nothing back, so
+    /// they are the ones set right before it); null until this instance has seen such a change.</summary>
+    public (int Type, int Mode)? Saved { get; private set; }
+
+    /// <summary>What CS2 brings back now, for the block to put back without blaming the map (GameChangerBlock.Hold): Saved while a Workshop map
+    /// is on (a map change from it to an official map brings them back, live on 2026-11-07 a second before the old map ended), and on an official
+    /// map right after one (brought back under it); null on an official map after an official one, which brings nothing back.</summary>
+    public (int Type, int Mode)? CanBringBack => Map != "" && (!Official || Restored) ? Saved : null;
+
     /// <summary>The mode the map that is on is to be loaded in once more, or null: CS2 brought another mode back under it than the one told.
     /// Asked at the map start, and again when the time comes: an os_mode since may have told the mode the map is in.</summary>
     public Modes.Mode? Again => Restored && LoadingIn == null && Told is { } t && LoadedIn?.Id != t.Id ? t : null;
@@ -60,6 +72,7 @@ public sealed class ModePlan
     public Modes.Mode? Started(string map, bool official, int gameType, int gameMode)
     {
         Restored = official && Map != "" && !Official; // the first start an instance sees follows no map it knows of
+        if (!official && Map != "" && Official) Saved = (gameType, gameMode); // official to Workshop: what CS2 saved on the way
         (Map, Official, LoadingIn) = (map, official, null);
         LoadedIn = Modes.FromConVars(gameType, gameMode);
         Told ??= LoadedIn;
@@ -99,17 +112,20 @@ public sealed class ModePlan
     }
 
     /// <summary>The plan in one line, for the next instance (ModeHandover); Parse reads it back.</summary>
-    public string Save() => string.Join(' ', Map == "" ? "-" : Map, Official ? "1" : "0", Restored ? "1" : "0", LoadingIn?.Id ?? "-", Told?.Id ?? "-", LoadedIn?.Id ?? "-", On.Id);
+    public string Save() => string.Join(' ', Map == "" ? "-" : Map, Official ? "1" : "0", Restored ? "1" : "0", LoadingIn?.Id ?? "-", Told?.Id ?? "-", LoadedIn?.Id ?? "-", On.Id,
+        Saved is { } s ? $"{s.Type}/{s.Mode}" : "-");
 
     /// <summary>A plan Save wrote, or null when the text is not one.</summary>
     public static ModePlan? Parse(string text)
     {
-        if (text.Split(' ') is not [var map, var official, var restored, var loading, var told, var loadedIn, var on] || Modes.Find(on) is not { } inForce) return null;
+        if (text.Split(' ') is not [var map, var official, var restored, var loading, var told, var loadedIn, var on, var saved] || Modes.Find(on) is not { } inForce) return null;
         static Modes.Mode? ModeOf(string id) => id == "-" ? null : Modes.All.FirstOrDefault(m => m.Id == id);
+        (int, int)? pair = saved.Split('/') is [var t, var g] && int.TryParse(t, out var type) && int.TryParse(g, out var mode) ? (type, mode) : null;
+        if (pair == null && saved != "-") return null;
         return new ModePlan
         {
             Map = map == "-" ? "" : map, Official = official == "1", Restored = restored == "1",
-            LoadingIn = ModeOf(loading), Told = ModeOf(told), LoadedIn = ModeOf(loadedIn), On = inForce,
+            LoadingIn = ModeOf(loading), Told = ModeOf(told), LoadedIn = ModeOf(loadedIn), On = inForce, Saved = pair,
         };
     }
 }

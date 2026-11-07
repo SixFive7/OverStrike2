@@ -29,14 +29,19 @@ public interface IConVars
 /// (FunSwitches.Chosen). The first lines per convar per map are logged one by one, a map that keeps trying is summed up, and players are
 /// told once per setting per map what the map tried to change (notice). When the block turns a map's cheats off, the engine's revert of every
 /// cheat-flagged setting that follows is part of that one undo (CheatsRevert): put back, a player's choice too, with no notice of its own.
+/// game_type and game_mode are put back without a notice, logged only, when no map changed them (ModeMoved): an os_mode told another mode
+/// since the last look, or CS2 brought back the mode it saved before the Workshop maps with a map change - live on 2026-11-07, both told
+/// everybody "This map tried to change the game mode" at an operator's switch.
 /// No CounterStrikeSharp type in it: the self-test drives it with fake convars and a handed clock.</summary>
 public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVars convars, FunSwitches fun, Action<string> notice, Func<DateTime>? clock = null)
 {
     const int LogLines = 3; // per convar per map; past it, one summary line a minute and one at the map's end
+    const string GameType = "game_type", GameMode = "game_mode";
 
     List<BlockList.Entry> blocked = new();
     readonly Dictionary<string, (int Count, DateTime LastLine)> thisMap = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> refused = new(StringComparer.OrdinalIgnoreCase); // a put-back the game refused on this map: logged once
+    readonly Dictionary<string, (string? Seen, string? Want)> modeHeld = new(StringComparer.OrdinalIgnoreCase); // game_type, game_mode: what the last look left and wanted
     readonly CheatsRevert revert = new();
     int total;
     string last = "none yet";
@@ -82,17 +87,22 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
             : e.ConVar.Equals("game_mode", StringComparison.OrdinalIgnoreCase) ? e with { Value = m.GameMode.ToString() } : e);
 
     /// <summary>Every listed convar that a map changed goes back to what it must keep, unless a player chose it on the fun page. when: what
-    /// prompted this look ("round start"), or null for the look every second.</summary>
-    public void Hold(string map, string? when, Modes.Mode? told)
+    /// prompted this look ("round start"), or null for the look every second. restored: the game_type and game_mode CS2 brings back with a
+    /// map change from the Workshop map that is on to an official one, or brought back under the official map that is on (ModePlan.CanBringBack);
+    /// null when it brings none back.</summary>
+    public void Hold(string map, string? when, Modes.Mode? told, (int Type, int Mode)? restored = null)
     {
         if (convars.Pending || blocked.Count == 0) return;
         try
         {
             var now = clock?.Invoke() ?? DateTime.UtcNow;
             var undone = new List<string>();
+            // CS2 brings game_type and game_mode back together: read both before this look writes either.
+            var brought = restored is { } r && Fun.Same(convars.Value(GameType), r.Type.ToString()) && Fun.Same(convars.Value(GameMode), r.Mode.ToString()) ? restored : null;
             foreach (var (entry, was, want) in BlockList.Due(Now(told), convars.Value, convars.Baseline, fun.Chosen))
             {
                 if (refused.Contains(entry.ConVar)) continue;
+                if (ModeMoved(entry.ConVar, was, want, told, brought) is { } cause) { ModePutBack(map, entry.ConVar, was, want, cause); continue; }
                 if (revert.Covers(entry.ConVar, convars.Cheat(entry.ConVar), now)) { Reverted(map, entry.ConVar, was, want, "on the list"); continue; }
                 var cheatsOff = entry.ConVar.Equals(CheatsRevert.ConVar, StringComparison.OrdinalIgnoreCase) ? PlayersCheatChoices() : null; // before the write: the revert comes with it
                 var seen = thisMap.GetValueOrDefault(entry.ConVar);
@@ -123,8 +133,32 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
             }
             // Players are told what the map tried to change and that it was undone - once per setting per map.
             if (undone.Count > 0) notice(BlockList.Notice(undone.Distinct().ToList()));
+            foreach (var entry in Now(told).Where(e => IsMode(e.ConVar))) modeHeld[entry.ConVar] = (convars.Value(entry.ConVar), entry.Value ?? convars.Baseline(entry.ConVar));
         }
         catch (Exception e) { log.LogWarning("Over Strike 2 settings: block failed: {Error}", e.Message); }
+    }
+
+    static bool IsMode(string name) => name.Equals(GameType, StringComparison.OrdinalIgnoreCase) || name.Equals(GameMode, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Why game_type or game_mode is off what the block keeps with no map having changed it, or null when a map did (or it is another
+    /// convar): the value is where the last look left it and only the mode told moved (os_mode, an operator's or the bridge's), or the two read
+    /// together, at the look's start, what CS2 brings back from before the Workshop maps with a map change (brought) - also when that lands
+    /// after the next map's start. A map's own change of the mode is neither, and is said as every other.</summary>
+    string? ModeMoved(string name, string was, string want, Modes.Mode? told, (int Type, int Mode)? brought)
+    {
+        if (!IsMode(name)) return null;
+        if (modeHeld.TryGetValue(name, out var held) && Fun.Same(was, held.Seen) && !Fun.Same(want, held.Want))
+            return $"os_mode told {told?.Name ?? "another mode"}, and nothing changed it since the last look";
+        if (brought is { } b) return $"CS2 brought back the mode it saved before the Workshop maps (game_type {b.Type}, game_mode {b.Mode}) with a map change";
+        return null;
+    }
+
+    /// <summary>game_type or game_mode put back where no map changed it (ModeMoved): logged, no notice, and no try of the map's - a later
+    /// change of the map's own is still said.</summary>
+    void ModePutBack(string map, string name, string was, string want, string cause)
+    {
+        if (convars.Write(name, want)) log.LogInformation("Over Strike 2 settings: put back on {Map}: {Name} {Was} -> {Want} - {Cause}; no map's doing, so not said to the players", map, name, was, want, cause);
+        else if (refused.Add(name)) log.LogWarning("Over Strike 2 settings: could not put back {Name} on {Map}: {Was} -> {Want} refused, reads {Now}", name, map, was, want, convars.Value(name));
     }
 
     /// <summary>The players' cheat-flagged fun choices as they are now (Infinite ammo on is one): what the engine's revert takes when cheats go off.</summary>

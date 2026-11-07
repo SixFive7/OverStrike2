@@ -110,8 +110,10 @@ sealed partial class GameSettings
         if (midMap) undoneByReload = FunHandover.Take(map, DateTime.UtcNow);
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
-        plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => block.Hold(map, "round start", modes.Told), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
-        plugin.AddTimer(BlockEvery, () => block.Hold(map, null, modes.Told), TimerFlags.REPEAT);
+        // The block keeps game_type and game_mode at the told mode's values, and puts them back without blaming the map when CS2 brought back
+        // the ones it saved before the Workshop maps (ModePlan.CanBringBack) or an os_mode moved them (GameChangerBlock.ModeMoved).
+        plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => block.Hold(map, "round start", modes.Told, modes.CanBringBack), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
+        plugin.AddTimer(BlockEvery, () => block.Hold(map, null, modes.Told, modes.CanBringBack), TimerFlags.REPEAT);
         log.LogInformation("Over Strike 2 settings {Version}: {Counts}; {Blocked}; {Fun} fun settings ({FunVars} convars and effects; {On} on by default); baseline {From}.",
             OverStrike2Plugin.Version, keeper.Counts, block.From, Fun.Settings.Length, Fun.AllConVars.Count(), string.Join(", ", Fun.EffectsOn.Select(e => e.Effect)), keeper.BaselineFrom);
         if (handedOver) log.LogInformation("Over Strike 2 settings: mode {Mode} (loaded while {Map} is on, as the instance before had it: {Plan}) - {Blocked}", modes.On.Name, map, modes.Describe(), block.From);

@@ -466,6 +466,8 @@ Thousands of community maps include some that break things, so every broken map 
   calling more than 10% of 50 or more ids gone is not believed. Without the sync nothing is ever marked gone.
 - **What a map changes** in the game's settings is put back when it ends: `host_workshop_map` resets no game convar by itself. **The game-changers** no map may set at all (no spread, radar off, a mode
   switch, cheats: `plugin/OverStrike2/blocked.txt`, a value per game mode) are put back within a second, and the players are told. A player's choice on the Fun page is never blocked.
+  The mode's `game_type` and `game_mode` are put back without a word to the players when no map changed them: after an `os_mode`, and when CS2 brings
+  back the mode it saved before the Workshop maps with a map change.
 
 ## The HUD's version and the HUD check
 

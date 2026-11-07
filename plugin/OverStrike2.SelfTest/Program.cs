@@ -565,6 +565,86 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     }
 }
 
+// ---- the block's word on game_type and game_mode (GameChangerBlock.ModeMoved, ModePlan.Saved and CanBringBack): put back without a word to the
+// players when no map changed them - an os_mode told another mode, or CS2 brought back the mode it saved before the Workshop maps - and said as
+// ever when a map did. Live on 2026-11-07, an operator's switch told everybody "This map tried to change the game mode": on aim_deagle after
+// os_mode wingman (game_type 1 -> 0, game_mode 0 -> 2), and on gg_vinceville when changelevel de_inferno brought Arms Race's back (game_mode 0 -> 2) ----
+{
+    var dir = Path.Combine(Path.GetTempPath(), $"os2-modeword-selftest-{Environment.ProcessId}");
+    Directory.CreateDirectory(dir);
+    File.WriteAllText(Path.Combine(dir, Modes.BlockFile), "game_type  1  1  0  // the game mode\ngame_mode  0  2  2  // the game mode\nsv_infinite_ammo  *  2  0  // the ammo\n");
+    const string modeNotice = "This map tried to change the game mode - Undone: the server keeps its own rules.";
+    (FakeConVars Cvars, GameChangerBlock Block, List<string> Notices, ListLogger Log, ModePlan Plan) Server((string Map, bool Official)[] maps, (int Type, int Mode) mode)
+    {
+        var cvars = new FakeConVars();
+        (cvars.Values["game_type"], cvars.Values["game_mode"], cvars.Values["sv_infinite_ammo"]) = (mode.Type.ToString(), mode.Mode.ToString(), "2");
+        cvars.Baselines["sv_infinite_ammo"] = "2";
+        var notices = new List<string>();
+        var logged = new ListLogger();
+        var block = new GameChangerBlock(dir, logged, cvars, new FunSwitches(cvars.Value, cvars.Write), notices.Add);
+        var plan = new ModePlan();
+        foreach (var (name, official) in maps) plan.Started(name, official, mode.Type, mode.Mode);
+        block.Read(plan.On);
+        block.Hold(maps[^1].Map, null, plan.Told, plan.CanBringBack); // a look that finds all as it must be
+        return (cvars, block, notices, logged, plan);
+    }
+    string ModeOf(FakeConVars c) => $"{c.Values["game_type"]}/{c.Values["game_mode"]}";
+
+    // An os_mode on an official map: the convars are Arms Race's, where the last look left them; only the mode told moved.
+    var (cv, block, notices, logged, plan) = Server([("ar_baggage", true), ("de_dust2", true)], (1, 0));
+    Check(plan.CanBringBack == null && notices.Count == 0, "word: an official map after an official one: CS2 brings nothing back");
+    plan.Tell(Modes.Wingman);
+    block.Hold("de_dust2", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.Count == 0 && logged.Lines.Any(l => l.Contains("put back on de_dust2: game_type 1 -> 0 - os_mode told Wingman")) && logged.Lines.Any(l => l.Contains("game_mode 0 -> 2 - os_mode told Wingman")),
+        $"word: os_mode wingman, then the block's look: game_type 1 -> 0 and game_mode 0 -> 2 put back, logged, not said ({string.Join(" | ", notices)})");
+    (cv, block, notices, logged, plan) = Server([("ar_baggage", true), ("de_dust2", true)], (1, 0));
+    plan.Tell(Modes.Wingman);
+    cv.Values["game_type"] = "0"; // the operator's game_type 0 before the look
+    block.Hold("de_dust2", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.Count == 0, "word: ...also when the operator's game_type 0 came before the look: game_mode alone, not said");
+    cv.Values["game_mode"] = "0"; // later, the map's own
+    block.Hold("de_dust2", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.SequenceEqual([modeNotice]), $"word: ...and a change of the map's own after it on the same map is still said ({string.Join(" | ", notices)})");
+
+    // CS2's own: on a Workshop map loaded from an official one, CS2 saved Arms Race; a changelevel from it to an official map brings that back,
+    // a second before the old map ends (gg_vinceville) - or under the official map, after its start (R3).
+    (cv, block, notices, logged, plan) = Server([("ar_baggage", true), ("gg_vinceville", false)], (1, 0));
+    Check(plan.Saved == (1, 0) && plan.CanBringBack == (1, 0), "word: CS2 saved Arms Race on the way to the Workshop map, and brings it back with a change to an official map");
+    plan.Tell(Modes.Wingman);
+    block.Hold("gg_vinceville", null, plan.Told, plan.CanBringBack);
+    (cv.Values["game_type"], cv.Values["game_mode"]) = ("1", "0"); // changelevel de_inferno: CS2 brings back what it saved
+    block.Hold("gg_vinceville", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.Count == 0 && logged.Lines.Any(l => l.Contains("put back on gg_vinceville: game_mode 0 -> 2 - CS2 brought back the mode it saved before the Workshop maps")),
+        $"word: CS2's values a second before the old map ends: put back, logged, not said ({string.Join(" | ", notices)})");
+    plan.Started("de_inferno", true, 1, 0); // R3: they land after the start instead
+    (cv.Values["game_type"], cv.Values["game_mode"]) = ("1", "0");
+    block.Hold("de_inferno", null, plan.Told, plan.CanBringBack);
+    Check(plan.Restored && plan.CanBringBack == (1, 0) && ModeOf(cv) == "0/2" && notices.Count == 0, "word: ...and under the official map, after its start: not said either");
+    plan.Started("de_inferno", true, 0, 2); // the second load: official to official
+    Check(plan.CanBringBack == null && plan.Saved == (1, 0), "word: after the second load nothing more is brought back; what CS2 saved stays until the next official map to a Workshop map");
+    (cv.Values["game_type"], cv.Values["game_mode"]) = ("1", "0"); // now a map's own, with no map change and no os_mode
+    block.Hold("de_inferno", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.SequenceEqual([modeNotice]), $"word: the same values set by a map, with no os_mode and nothing CS2 brings back: said ({string.Join(" | ", notices)})");
+
+    // A map's own attempt on a Workshop map, told Wingman there: its values are not what CS2 saved (Arms Race's), so it is said.
+    (cv, block, notices, logged, plan) = Server([("ar_baggage", true), ("aim_deagle", false)], (1, 0));
+    plan.Tell(Modes.Wingman);
+    block.Hold("aim_deagle", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.Count == 0, "word: os_mode wingman on a Workshop map (live on aim_deagle): game_type 1 -> 0, game_mode 0 -> 2, not said");
+    cv.Values["game_type"] = "1"; // the map's own: Deathmatch's pair, not the saved Arms Race
+    block.Hold("aim_deagle", null, plan.Told, plan.CanBringBack);
+    cv.Values["sv_infinite_ammo"] = "1";
+    block.Hold("aim_deagle", null, plan.Told, plan.CanBringBack);
+    Check(ModeOf(cv) == "0/2" && notices.SequenceEqual([modeNotice, "This map tried to change the ammo - Undone: the server keeps its own rules."]),
+        $"word: a map's own change of the mode there is said, and the rest of the list as ever ({string.Join(" | ", notices)})");
+
+    // What CS2 saved goes with the plan to the next instance, and an older plan's text (without it) is none.
+    var withSaved = ModePlan.Parse(plan.Save());
+    Check(withSaved is { Saved: (1, 0) } && withSaved.CanBringBack == (1, 0) && ModePlan.Parse("aim_deagle 0 0 - wingman armsrace armsrace") == null,
+        $"word: what CS2 saved is handed over with the plan; a plan's text from before it is none ({plan.Save()})");
+    Directory.Delete(dir, true);
+}
+
 // ---- the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar - kept like convars - what the
 // block leaves to a player, and the undo, which puts back what a convar was before the first change on this map, a map's own value included ----
 {
