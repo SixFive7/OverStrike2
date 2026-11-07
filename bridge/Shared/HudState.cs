@@ -128,7 +128,7 @@ public sealed class HudState
         if (BanHead != "") Raw("ban", Hud.Clean(BanTone, 12), BanUntilMs, Hud.Clean(BanHead, 80), Hud.Clean(BanLine, Messages.TopMax));
         foreach (var (account, cat) in NoteCats) if (Notes.ContainsKey(account)) Raw("notec", account, Hud.Clean(cat, 12));
         foreach (var l in Lately) Raw("late", l.AtMs, l.Account, Hud.Clean(l.Key, 40), Hud.Clean(l.Text, Messages.TopMax));
-        foreach (var (seq, account, text) in Says) Raw("say", seq, account, Hud.Clean(text, 400));
+        foreach (var (seq, account, text) in Says) Raw("say", seq, account, Hud.Clean(text, Messages.ChatMax));
         foreach (var (seq, account, alert, until, text) in Centres) Raw("ctr", seq, account, alert ? 1 : 0, until, Hud.Clean(text, Messages.CentreMax));
         if (CrashNote != "") Raw("crashn", Hud.Clean(CrashNote, Messages.TopMax));
         if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));

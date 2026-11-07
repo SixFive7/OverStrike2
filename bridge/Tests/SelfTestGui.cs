@@ -268,8 +268,8 @@ static partial class Program
             var h = new HudState();
             PutNotices(h, Now());
             Check("Tell is a note for that player alone, Announce the news line for all; both carry their seconds left",
-                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)NoteSeconds && h.News == "Everybody" && h.NewsFor > 0);
-            PutNotices(h = new HudState(), Now().AddSeconds(NoteSeconds + 1));
+                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)Messages.DefaultSeconds && h.News == "Everybody" && h.NewsFor > 0);
+            PutNotices(h = new HudState(), Now().AddSeconds(Messages.DefaultSeconds + 1));
             Check("...and both are gone once their time is up", h.Notes.Count == 0 && h.News == "" && NoteFor.Count == 0);
         }
         finally { S = savedS; Pending = savedPending; ClearNotices(); }

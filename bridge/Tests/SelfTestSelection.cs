@@ -47,7 +47,7 @@ static partial class Program
         Join(alice); Quiet();
         OnMatchEnd();
         HudActive = hudWas;
-        Check("...end to end: the dice's news line names the map, and fits", Pending is { Auto: true } && NewsNow.Text.StartsWith("Match over - Rolling the dice: ") && NewsNow.Text.Length <= NewsLength);
+        Check("...end to end: the dice's news line names the map, and fits", Pending is { Auto: true } && NewsNow.Text.StartsWith("Match over - Rolling the dice: ") && NewsNow.Text.Length <= Messages.TopMax);
         Fresh();
 
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----
@@ -253,7 +253,7 @@ static partial class Program
             ChatCommands.Parse("!down big") is { Kind: ChatCommands.Kind.Bridge, Arg: "!down big" } && ChatCommands.Parse("!down 12 big") is { Arg: "!down 12 big" } && chatDown is { Kind: ChatCommands.Kind.Bridge, Arg: "!down 12 ads" }
             && ChatCommands.Parse("!down rubbish") is { Kind: ChatCommands.Kind.Usage, Name: "!down" } && Hud.IsAction(chatDown.Arg) && ChatCommands.UsageOf("!down").Contains(DownReasons.Words));
         var fullNote = $"You disliked {Clip(new string('w', 64), PlainVoteLabel)}, now +99 -99 (99 too big, 99 ads). Why? !down {DownReasons.Words}";
-        Check($"The plain downvote's note fits the note line with a long name and a long tally ({fullNote.Length} of {NoticeLength})", fullNote.Length <= NoticeLength);
+        Check($"The plain downvote's note fits the note line with a long name and a long tally ({fullNote.Length} of {Messages.LineMax})", fullNote.Length <= Messages.LineMax);
         Votes = new();
 
         // ---- the popup: a plain Dislike opens it, a reason, its time or a map change closes it; the vote counted all along ----

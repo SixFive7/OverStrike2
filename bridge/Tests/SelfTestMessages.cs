@@ -16,6 +16,34 @@ static partial class Program
             Messages.FunChanged.Surface == Surface.Top && Messages.MapCountdown.Surface == Surface.Countdown && Messages.RestartAfterMatch.Surface == Surface.Banner && Messages.Joined.Surface == Surface.Plain
             && Messages.CheckWarning.Surface == Surface.Alert && Messages.NowPlaying.Surface == Surface.Card && Messages.Welcome.Surface == Surface.Window && Messages.Answer.Surface == Surface.Line
             && Messages.CatchUpBoost is { Chat: Who.Player, On: Who.Player } && Messages.Bounty is { Chat: Who.Player, Board: Who.Nobody } && Messages.VoteRefused is { On: Who.Player, Chat: Who.Everybody, Board: Who.Everybody });
+        // Every kind is either posted - through the bridge's Post or the plugin's, both Messages.Route - or drawn by the live state, never both: a drawn kind's row
+        // decides nothing, and a posted kind's row decides everything. Read from the sources, the plugin's too: the catalogue's own OfNotice posts the watcher's three.
+        var catalogue = File.Exists("Shared/Messages.cs") ? File.ReadAllText("Shared/Messages.cs") : null;
+        var posters = new[] { ".", "Shared", "../plugin/OverStrike2" }.Where(Directory.Exists).SelectMany(d => Directory.GetFiles(d, "*.cs"))
+            .Where(f => Path.GetFileName(f) != "Messages.cs").Select(File.ReadAllText).ToList();
+        if (catalogue != null && posters.Count > 0)
+        {
+            var named = Regex.Matches(catalogue, @"(?m)^\s+(\w+) = new\(""(\w+)"", ""(?:[^""\\]|\\.)*"", Surface\.").Select(x => (Name: x.Groups[1].Value, Kind: Messages.Find(x.Groups[2].Value)!)).ToList();
+            var ofNotice = catalogue[catalogue.IndexOf("OfNotice(string", StringComparison.Ordinal)..]; // the watcher's lines: the catalogue routes those three itself
+            bool Posted(string name) => posters.Any(s => Regex.IsMatch(s, $@"\bMessages\.{name}\b")) || Regex.IsMatch(ofNotice, $@"\({name},");
+            var notPosted = named.Where(n => !n.Kind.Drawn && !Posted(n.Name)).Select(n => n.Name).ToList();
+            var drawnPosted = named.Where(n => n.Kind.Drawn && Posted(n.Name)).Select(n => n.Name).ToList();
+            Check($"Catalogue: every kind is posted somewhere ({named.Count(n => !n.Kind.Drawn)}) or drawn by the live state, which only its row describes ({named.Count(n => n.Kind.Drawn)}: {string.Join(", ", named.Where(n => n.Kind.Drawn).Select(n => n.Name))}){(notPosted.Count + drawnPosted.Count > 0 ? $": posted by nothing {string.Join(" ", notPosted)}; drawn but posted {string.Join(" ", drawnPosted)}" : "")}",
+                named.Count == Messages.All.Length && notPosted.Count == 0 && drawnPosted.Count == 0 && named.Count(n => n.Kind.Drawn) == 10);
+        }
+        else Console.WriteLine("skip the catalogue's posters: no sources beside the selftest");
+        // ---- the routing: Messages.Route, the one decision of the bridge's Post and the plugin's ----
+        var routedTop = Messages.Route(Messages.FunChanged, $"{M.N("Remy")} set {M.A("gravity")} to {M.V("Moon")} - until the map changes", 7);
+        var routedLine = Messages.Route(Messages.Answer, M.Refused(new string('x', 300)), 7);
+        var routedNobody = Messages.Route(Messages.Answer, "Done", 0);
+        var routedAlert = Messages.Route(Messages.CheckWarning, M.Lines("HUD check: No click yet", "Close the window with its X"), 7, chat: false);
+        Check("Routing: the top line for everybody, its copies to chat and the board for everybody, its seconds the kind's, the sections capitalised, the marks for chat alone",
+            routedTop is { On: 0, Chat: 0, Board: 0, Seconds: 10 } && routedTop.Text.EndsWith("- Until the map changes", StringComparison.Ordinal) && routedTop.Plain == "Remy set gravity to Moon - Until the map changes");
+        Check("Routing: a player's line goes to that player alone and fits a window line; with no player known, to nobody; an alert to its player, chat left out this once",
+            routedLine is { On: 7, Chat: 7, Board: 7, Seconds: Messages.DefaultSeconds } && routedLine.Plain.Length == Messages.LineMax && routedNobody is { On: null, Chat: null, Board: null }
+            && routedAlert is { On: 7, Chat: null, Board: null, Seconds: 15 } && Messages.Route(Messages.Answer, "x", 7, seconds: 30).Seconds == 30);
+        Check("Routing: a kind the live state draws, or a window line for everybody (the vote's header), gets no surface from a post: only its copies",
+            Messages.Route(Messages.VoteStarted, "x", 0) is { On: null, Chat: 0, Board: 0 } && Messages.Route(Messages.Welcome, "x", 7).On == null && Messages.Route(Messages.MapCountdown, "x").On == null);
 
         // ---- the marks ----
         var palette = new M.Palette('P', 'C', 'A', 'V', 'R', 'D', name => name == "Remy" ? 'T' : null);

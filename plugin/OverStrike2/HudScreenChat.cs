@@ -16,7 +16,7 @@ sealed partial class HudScreen
     public void Chat(CCSPlayerController player, ChatCommands.Parsed cmd)
     {
         var account = Account(player);
-        void Say(string line) => Post(Messages.CommandReply, Hud.Clean(line, 400), account);
+        void Say(string line) => Post(Messages.CommandReply, Hud.Clean(line, Messages.ChatMax), account);
         void Bridge(string command) { Typed(account); Act(player, account, command); }
         if (ChatCommands.Teach(cmd) is { } taught) Say(taught);
         switch (cmd.Kind)

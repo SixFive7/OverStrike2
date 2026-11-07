@@ -130,9 +130,8 @@ sealed partial class HudScreen
             var account = Account(p);
             switch (act)
             {
-                case HudGate.Act.Warn:
-                    Post(Messages.CheckWarning, HudCheck.Alert(seconds, checkMode != HudCheck.Mode.Enforce), account, chat: false);
-                    foreach (var line in HudCheck.Warning(addon, seconds, checkMode != HudCheck.Mode.Enforce)) Say(line, account);
+                case HudGate.Act.Warn: // the alert's two short lines on screen, and in chat what to do about it
+                    Post(Messages.CheckWarning, HudCheck.Alert(seconds, checkMode != HudCheck.Mode.Enforce), account, chatLines: HudCheck.Warning(addon, seconds, checkMode != HudCheck.Mode.Enforce));
                     log.LogInformation("Over Strike 2 HUD check: warned {Name} [U:1:{Account}] ({Mode}, {Seconds} s left)", p.PlayerName, account, HudCheck.Name(checkMode), seconds);
                     break;
                 case HudGate.Act.WouldKick:

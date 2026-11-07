@@ -22,34 +22,25 @@ sealed partial class HudScreen
     /// <summary>How often a held centre text is sent again: one send lasts about 3.7 s (measured 2026-11-05, t4/facts.md).</summary>
     public double CentreResendSeconds { get; set; } = 3;
 
-    /// <summary>A message of the plugin's own, routed by the catalogue. text may carry marks (M). account: the player it is for or about, when the kind goes to a player;
-    /// key: a line that replaces its own older version on the board; seconds: how long, when not the kind's; chat: false leaves chat out this once (a refreshed line says it
-    /// only at its steps). Safe in any callback: chat goes out a frame later.</summary>
-    public void Post(Messages.Kind kind, string text, long account = 0, string key = "", double? seconds = null, bool chat = true)
+    /// <summary>A message of the plugin's own, where the catalogue routes it (Messages.Route, as the bridge's are). text may carry marks (M). account: the player it is for
+    /// or about, when the kind goes to a player; key: a line that replaces its own older version on the board; seconds: how long, when not the kind's; chat: false leaves
+    /// chat out this once (a refreshed line says it only at its steps); chatLines: chat's own lines, when they are not the surface's words (the HUD check's alert and
+    /// its warning). Safe in any callback: chat goes out a frame later.</summary>
+    public void Post(Messages.Kind kind, string text, long account = 0, string key = "", double? seconds = null, bool chat = true, IReadOnlyList<string>? chatLines = null)
     {
-        text = Sections.Capitalize(text);
+        var m = Messages.Route(kind, text, account, seconds, chat);
         var now = DateTime.UtcNow;
         var nowMs = bridge?.BridgeNowMs(now) ?? HudState.Ms(now);
-        var plain = Hud.Clean(M.Plain(text), kind.Surface == Surface.Line ? Messages.LineMax : Messages.TopMax);
-        var secs = seconds ?? (kind.Seconds > 0 ? kind.Seconds : Messages.DefaultSeconds);
-        switch (kind.Surface)
-        {
-            case Surface.Top: localTop = (plain, kind.Cat.Id, nowMs, nowMs + (long)(secs * 1000)); break;
-            case Surface.Line when kind.On == Who.Player && account > 0:
-                if (PlayerOf(account) is { } p) localNotes[p.Slot] = (plain, now.AddSeconds(secs), kind.Cat.Id);
-                break;
-            case Surface.Plain or Surface.Alert:
-                localCentres.Add((kind.On == Who.Player ? account : 0, kind.Surface == Surface.Alert, Hud.Clean(text, Messages.CentreMax), now.AddSeconds(secs)));
-                break;
-        }
-        if (kind.News) localNews = (plain, now.AddSeconds(secs));
-        if (kind.Board == Who.Everybody || (kind.Board == Who.Player && account > 0))
-            Messages.AddLately(localLately, new Messages.LatelyLine(nowMs, kind.Board == Who.Player ? account : 0, key, plain));
-        if (chat && (kind.Chat == Who.Everybody || (kind.Chat == Who.Player && account > 0)))
-        {
-            var to = kind.Chat == Who.Player ? account : 0;
-            Server.NextFrame(() => Say(text, to));
-        }
+        if (m.On is { } on)
+            switch (kind.Surface)
+            {
+                case Surface.Top: localTop = (m.Plain, kind.Cat.Id, nowMs, nowMs + (long)(m.Seconds * 1000)); break;
+                case Surface.Line: if (PlayerOf(on) is { } p) localNotes[p.Slot] = (m.Plain, now.AddSeconds(m.Seconds), kind.Cat.Id); break;
+                case Surface.Plain or Surface.Alert: localCentres.Add((on, kind.Surface == Surface.Alert, Hud.Clean(m.Text, Messages.CentreMax), now.AddSeconds(m.Seconds))); break;
+            }
+        if (kind.News) localNews = (m.Plain, now.AddSeconds(m.Seconds));
+        if (m.Board is { } board) Messages.AddLately(localLately, new Messages.LatelyLine(nowMs, board, key, m.Plain));
+        if (m.Chat is { } to) Server.NextFrame(() => { foreach (var line in chatLines ?? [m.Text]) Say(line, to); });
         Server.NextFrame(Frame);
     }
 

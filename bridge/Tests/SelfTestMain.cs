@@ -176,7 +176,7 @@ static partial class Program
                 ask is { } w && w.Contains(Label(bad)[..Math.Min(34, Label(bad).Length)]) && w.Contains("crashed 3 of 3 test loads and may restart the server")
                     && M.Plain(w).Contains($"Click again within {PickConfirmSeconds} s to vote anyway"));
             var notes = Maps.Select(m => { Broken = new Dictionary<string, int> { [Key(m)] = 3 }; return PickConfirmNote(m, RecordWords(m)!, "Previous"); }).ToList();
-            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => M.Plain(n).Length)})", notes.All(n => M.Plain(n).Length <= NoticeLength));
+            Check($"The note fits the HUD's note line untrimmed for all {notes.Count} maps, Previous's longer button word too (longest {notes.Max(n => M.Plain(n).Length)})", notes.All(n => M.Plain(n).Length <= Messages.LineMax));
             Broken = new Dictionary<string, int> { [Key(bad)] = 3, [Key(bad2)] = 3 };
             PickConfirms.Clear(); ConfirmGate(bad, p1, clock);
             Check("Per player: another player's click arms their own confirm and leaves the first player's standing, so the first player's repeat goes through",
@@ -291,7 +291,7 @@ static partial class Program
             Packs = new Dictionary<string, string> { [$"{hole}"] = new string('W', 200) };
             refusals.Add(PackRefusal(new MapInfo(0, hole, "", 0)));
             Check($"The refusal fits the note line untrimmed for every listed name and a 200-character one (longest {refusals.Max(l => l.Length)})",
-                refusals.All(l => l.Length <= NoticeLength));
+                refusals.All(l => l.Length <= Messages.LineMax));
             Packs = new Dictionary<string, string> { [$"{hole}"] = """Jo"ri; quit""" };
             Pick($"{hole}");
             Check("A pack name full of quotes and semicolons reaches nothing but the note: the server gets no command at all", Told.Count == 1 && sent.Count == 0);
@@ -316,12 +316,12 @@ static partial class Program
                 Packs = cp;
                 var lines = cp.Keys.Select(k => PackRefusal(new MapInfo(0, long.Parse(k), "", 0))).ToList();
                 Check($"Every committed non-map's refusal fits the note line untrimmed and claims only that it is no playable map (longest {lines.Max(l => l.Length)})",
-                    lines.All(l => l.Length <= NoticeLength && l.EndsWith(NotAMap) && !l.Contains("skin pack")));
+                    lines.All(l => l.Length <= Messages.LineMax && l.EndsWith(NotAMap) && !l.Contains("skin pack")));
                 Packs = new(); Broken = cb; S = new State(); PickConfirms.Clear();
                 var listedCrashers = Maps.Where(m => cb.ContainsKey(Key(m))).Select(m => (Map: m, Line: PickConfirmNote(m, RecordWords(m)!))).ToList();
                 Console.WriteLine("broken.json confirm notes: " + string.Join(" | ", listedCrashers.Select(c => c.Line)));
                 Check($"Every committed broken map on the list ({listedCrashers.Count}) gets a confirm note that fits: 'crashed N of N' and 'may restart the server' only when the file says crashes > 0, its reason otherwise",
-                    listedCrashers.All(c => M.Plain(c.Line).Length <= NoticeLength && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
+                    listedCrashers.All(c => M.Plain(c.Line).Length <= Messages.LineMax && (cb[Key(c.Map)] > 0 ? c.Line.Contains($"crashed {cb[Key(c.Map)]} of {cb[Key(c.Map)]} test loads") && c.Line.Contains("may restart the server")
                         : !c.Line.Contains("restart the server") && (BrokenReasons.TryGetValue(Key(c.Map), out var rw) ? c.Line.Contains($"is broken: {rw}") : c.Line.Contains("is on the broken list")))));
                 var offList = cb.Keys.Where(k => long.TryParse(k, out var id) && Maps.All(m => m.Id != id)).ToList();
                 Check($"A committed crasher that is not on the list ({offList.Count}) still asks to confirm when its bare id is picked",

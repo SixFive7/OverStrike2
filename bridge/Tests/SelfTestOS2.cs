@@ -25,7 +25,7 @@ static partial class Program
             crasher == "crashed 3 of 3 test loads and may restart the server" && ads == "is broken: advertises another server" && bare == "is on the broken list"
             && !ads!.Contains("restart") && !bare!.Contains("restart") && RecordWords(M(9)) == null);
         var longest = global::M.Plain(PickConfirmNote(new MapInfo(1, 1, new string('w', 60), 1), $"is broken: {new string('r', ReasonMax)}"));
-        Check($"The confirm note with the longest label and the longest reason fits the HUD's note line ({longest.Length} of {NoticeLength})", longest.Length <= NoticeLength);
+        Check($"The confirm note with the longest label and the longest reason fits the HUD's note line ({longest.Length} of {Messages.LineMax})", longest.Length <= Messages.LineMax);
 
         // ---- #6: three players timing out within 60 s of entering the map mark it ----
         var on = Maps.Count > 0 ? Maps[^1] : M(7); // a listed map, so the catalog carries its mark

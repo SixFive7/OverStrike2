@@ -1,6 +1,6 @@
 // THE MESSAGE CATALOGUE: every message a player can get, one line each - which surface it goes on, who sees it there, whether chat and the TAB board
 // carry a copy and for whom, its category and how long it stays. A change of mind about a message is one line here. The bridge posts through
-// Program.Post (Notices.cs), the plugin through HudScreen.Post; both read this table, so one message cannot go two ways.
+// Program.Post (Notices.cs), the plugin through HudScreen.Post; both take the one decision of where a message goes from Route, so one message cannot go two ways.
 //
 // A message's text is written once, with its functional parts marked (M): chat renders the marks in the chat's functional colours, every other surface
 // takes the plain words (M.Plain). Every section of a message starts with a capital - after " - ", after " · " and on a second line - and --selftest holds
@@ -27,8 +27,11 @@ public sealed record Category(string Id, string Name)
 public static class Messages
 {
     public const int ChatLineMax = 120; // characters a chat line holds on a 1920x1080 screen
-    public const double DefaultSeconds = 8;
-    public const int TopMax = 240, LineMax = 140, CentreMax = 80, LatelyRows = 3, LatelyKeep = 12, SayKeepSeconds = 20;
+    public const double DefaultSeconds = 8; // a kind with no seconds of its own (0: as long as its state lasts) stays this long when posted
+    /// <summary>The most characters each surface takes: the top line (and the older contents' news line), a line on the window's page (a note), CS2's centre
+    /// text, and a message's text in chat, which chat itself cuts into lines of ChatLineMax.</summary>
+    public const int TopMax = 240, LineMax = 140, CentreMax = 80, ChatMax = 400;
+    public const int LatelyRows = 3, LatelyKeep = 12, SayKeepSeconds = 20;
 
     public static readonly Category Join = new("join", "Join"), YourHud = new("hud", "Your HUD"), Vote = new("vote", "Vote"), Fun = new("fun", "Fun"),
         Maps = new("maps", "Maps"), Server = new("server", "Server"), CatchUp = new("catchup", "Catch-up"), You = new("you", "You");
@@ -38,32 +41,34 @@ public static class Messages
     public static Category? CategoryOf(string id) => Categories.FirstOrDefault(c => c.Id == id);
 
     /// <summary>A kind of message: what it is, its surface and who sees it there, who gets a chat copy and a board copy, its category and how long it
-    /// stays (0: as long as its state lasts). News: whether the news line of the contents before v4.6.0 carries it as well.</summary>
-    public sealed record Kind(string Id, string Row, Surface Surface, Who On, Who Chat, Who Board, Category Cat, double Seconds, bool News = true);
+    /// stays (0: as long as its state lasts). News: whether the news line of the contents before v4.6.0 carries it as well. Drawn: nothing posts it - the
+    /// live state draws its surface (the window, the ballot's header, a banner), and its row only says what players see there: changing the row changes
+    /// nothing on screen (--selftest holds that every other kind is posted somewhere, and no drawn one is).</summary>
+    public sealed record Kind(string Id, string Row, Surface Surface, Who On, Who Chat, Who Board, Category Cat, double Seconds, bool News = true, bool Drawn = false);
 
     // ---- the catalogue. A message that went has no kind ----
 
     public static readonly Kind
         // joining
-        Welcome = new("welcome", "Welcome window, at every login", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false),
+        Welcome = new("welcome", "Welcome window, at every login", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false, Drawn: true),
         Tagline = new("tagline", "Join tagline: the welcome window's large text, and this chat line", Surface.None, Who.Nobody, Who.Player, Who.Nobody, Join, 0, false),
-        WelcomeBack = new("back", "Welcome-back card", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Join, 8, false),
+        WelcomeBack = new("back", "Welcome-back card", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Join, 8, false, Drawn: true),
         NowPlaying = new("playing", "Now-playing card, at each map's first spawn", Surface.Card, Who.Everybody, Who.Nobody, Who.Everybody, Join, 8, false),
         Joined = new("joined", "A player joined with a HUD version", Surface.Plain, Who.Everybody, Who.Everybody, Who.Everybody, Join, 8),
         // your HUD and its version
-        Outdated = new("outdated", "Your HUD is out of date: the banner that stays", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 0, false),
-        Newer = new("newer", "Your HUD is newer than the server's", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 15, false),
+        Outdated = new("outdated", "Your HUD is out of date: the banner that stays", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 0, false, Drawn: true),
+        Newer = new("newer", "Your HUD is newer than the server's", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 15, false, Drawn: true),
         Hold = new("hold", "The HUD not shown by Steam", Surface.Banner, Who.Everybody, Who.Nobody, Who.Nobody, YourHud, 45),
         HoldBack = new("holdback", "The HUD not shown by Steam: back", Surface.Banner, Who.Everybody, Who.Nobody, Who.Nobody, YourHud, 30),
         HoldNoMenu = new("nomenu", "A player without the HUD during a hold", Surface.None, Who.Nobody, Who.Player, Who.Nobody, YourHud, 0, false),
-        CheckClick = new("check", "HUD check: Click to play", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false),
+        CheckClick = new("check", "HUD check: Click to play", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false, Drawn: true),
         CheckWarning = new("checkwarn", "HUD check: the disconnect warning", Surface.Alert, Who.Player, Who.Player, Who.Nobody, YourHud, 15, false),
         // the vote
-        VoteWindow = new("votewin", "The vote: everybody's window opens and freezes", Surface.Window, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
+        VoteWindow = new("votewin", "The vote: everybody's window opens and freezes", Surface.Window, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
         VoteStarted = new("votestart", "The vote started: the line for everybody", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
-        VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
-        VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
-        VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false),
+        VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
+        VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
+        VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
         VoteDecided = new("votedone", "The vote decided, and the change counting down", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
         VoteKept = new("votekept", "The vote kept the map", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 8),
         VoteRefused = new("voteno", "You cannot call a vote yet", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Vote, 8, false),
@@ -84,7 +89,7 @@ public static class Messages
         DownloadFailed = new("dlfailed", "A download failed", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.None, Who.Player, Who.Everybody, Who.Everybody, Maps, 0, false),
         PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map): chat too, the only answer a typed !play has", Surface.Line, Who.Player, Who.Player, Who.Nobody, You, 30, false),
-        WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, false),
+        WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, false, Drawn: true),
         // restarts and updates
         RestartAfterMatch = new("restartend", "The server restarts after this match", Surface.Banner, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         RestartCountdown = new("restart", "The restart counting down (10 s)", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
@@ -112,6 +117,31 @@ public static class Messages
     ];
 
     public static Kind? Find(string id) => All.FirstOrDefault(k => k.Id == id);
+
+    // ---- where one message goes: the one decision of both posters, the bridge's Program.Post (Notices.cs) and the plugin's HudScreen.Post ----
+
+    /// <summary>One message of a kind as the catalogue routes it. Text: with its marks and every section's capital (chat, CS2's centre text); Plain: its words
+    /// alone, clipped to its surface's room (the top line, a window line, the board); Seconds: how long. Who gets it, 0 for everybody or a player's account,
+    /// null for nobody: On, its own surface - the top line, a player's window line, the centre text or the alert (a line for a player not known gets none; every
+    /// other surface the live state draws); Chat and Board, those copies.</summary>
+    public sealed record Routed(Kind Kind, string Text, string Plain, double Seconds, long? On, long? Chat, long? Board);
+
+    /// <summary>Where a message of this kind goes. account: the player it is for or about, when its kind goes to a player (0: none); seconds: how long, when
+    /// not the kind's; chat: false leaves chat out this once (a refreshed line says it only at its steps).</summary>
+    public static Routed Route(Kind kind, string text, long account = 0, double? seconds = null, bool chat = true)
+    {
+        text = Sections.Capitalize(text);
+        long? To(Who who) => who == Who.Everybody ? 0 : who == Who.Player && account > 0 ? account : null;
+        var on = kind.Drawn ? null : kind.Surface switch
+        {
+            Surface.Top => 0,
+            Surface.Line => kind.On == Who.Player ? To(Who.Player) : null, // a line for everybody is the window's own, which the live state draws
+            Surface.Plain or Surface.Alert => To(kind.On),
+            _ => (long?)null,
+        };
+        return new(kind, text, Hud.Clean(M.Plain(text), kind.Surface == Surface.Line ? LineMax : TopMax), seconds ?? (kind.Seconds > 0 ? kind.Seconds : DefaultSeconds),
+            on, chat ? To(kind.Chat) : null, To(kind.Board));
+    }
 
     // ---- the words the catalogue's helpers make ----
 
