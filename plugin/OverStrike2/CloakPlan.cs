@@ -12,7 +12,7 @@ public enum CloakWhy
     None = 0,
     Ghost = 1, // the fun page's Ghost: a kill (Effects.cs)
     Spawn = 2, // the spawn cloak: the menu window open on the spawn (SpawnCloakPlan)
-    Test = 4,  // gg_cloak hide, from the console: to look at the hide from another player's game
+    Test = 4,  // os_cloak hide, from the console: to look at the hide from another player's game
 }
 
 /// <summary>The spawn cloak, per player and per life: a player whose menu window is open while they are on their spawn is hidden for as long as it
@@ -195,7 +195,4 @@ public sealed class CloakBook<T>
 
     /// <summary>The looks from before of every entity a slot's hidden player holds, for the log.</summary>
     public IEnumerable<T> Held(int slot) => entries.Values.Where(e => e.Slot == slot).Select(e => e.Before);
-
-    /// <summary>The handles of every entity a slot's hidden player holds, for the log.</summary>
-    public HashSet<uint> Handles(int slot) => entries.Where(kv => kv.Value.Slot == slot).Select(kv => kv.Key).ToHashSet();
 }

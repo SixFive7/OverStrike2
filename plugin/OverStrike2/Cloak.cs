@@ -12,11 +12,11 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The cloak: a player hidden from everybody else, all of them, and put back exactly as they were. The fun page's Ghost (Effects.cs),
-/// the spawn cloak (SpawnCloak, below) and gg_cloak hide use it, each with its own reason (CloakWhy); a player is seen again once none holds.
+/// the spawn cloak (SpawnCloak, below) and os_cloak hide use it, each with its own reason (CloakWhy); a player is seen again once none holds.
 ///
 /// What other players see of a player, and what hides it (CounterStrikeSharp 1.0.379; every field below is networked on CS2 1.41.9.x, by
 /// Valve's network dump):
-///   - the player model, the pawn: m_nRenderMode kRenderTransAlpha and m_clrRender's alpha 0, the way Ghost hid it before. The world-model
+///   - the player model, the pawn: m_nRenderMode kRenderTransAlpha and m_clrRender's alpha 0. The world-model
 ///     gloves (C_WorldModelGloves) and an agent's patches are the client's own, drawn on the pawn's model from the pawn's fields - no entity of
 ///     the server's - and should go with it;
 ///   - every weapon the pawn carries, m_hMyWeapons: the one in the hand and every other - the knife, the pistol, the grenades, the C4, the Zeus.
@@ -37,10 +37,9 @@ namespace OverStrike2;
 ///
 /// Not used: m_fEffects' EF_NODRAW, which Valve documents as keeping the entity from every client - its own player's too, who would lose
 /// their own gun - and which the game's own weapon code may set and clear; and keeping the entities out of the others' snapshots
-/// (Listeners.CheckTransmit), which can make a client error out. Two more ways are there to try from the console (gg_cloak method), should a
-/// real game show something still drawn: EF_NODRAW_BUT_TRANSMIT (drawn by no client, still sent) and kRenderNone. A weapon's charm, for one,
-/// is a client-side model of the weapon's (C_KeychainModule), and whether it follows the weapon's alpha is not known; nor whether the carried
-/// C4's light (a particle) does.
+/// (Listeners.CheckTransmit), which can make a client error out. Two more ways remain, should a real game show something still drawn:
+/// EF_NODRAW_BUT_TRANSMIT (drawn by no client, still sent) and kRenderNone. A weapon's charm, for one, is a client-side model of the
+/// weapon's (C_KeychainModule), and whether it follows the weapon's alpha is not known; nor whether the carried C4's light (a particle) does.
 /// Never hidden: what is no model - the radar's dot while an enemy sees the player, the name over them when aimed at (mp_playerid), sounds,
 /// muzzle flashes, tracers, blood.
 ///
@@ -49,26 +48,20 @@ namespace OverStrike2;
 /// plugin's unload puts everything back.</summary>
 sealed class Cloak(BasePlugin plugin, ILogger log)
 {
-    public const string Command = "gg_cloak";
+    public const string Command = "os_cloak";
 
-    /// <summary>How a hidden entity is kept from being drawn: Alpha is the one in use, the others are to try from the console (gg_cloak method).</summary>
-    public enum Method { Alpha, None, NoDraw }
+    const double TestSeconds = 10;         // os_cloak hide without a time
 
-    const uint NoDrawButTransmit = 1024;   // EF_NODRAW_BUT_TRANSMIT (EntityEffects_t, CS2 1.41.9.x): drawn by no client, still sent to every one
-    const double TestSeconds = 10;         // gg_cloak hide without a time
-    const int AttachedLook = 32;           // scene nodes looked at under a pawn for the log, at most
-
-    /// <summary>An entity as the cloak found it, to put back: its render mode, colour and shadow, whether it had EF_NODRAW_BUT_TRANSMIT of its
-    /// own, and for the pawn the spawn protection's colour.</summary>
-    sealed record Painted(CBaseModelEntity Entity, string Name, RenderMode_t Mode, int Colour, float Shadow, bool NoDraw, bool Pawn, int Immunity);
+    /// <summary>An entity as the cloak found it, to put back: its render mode, colour and shadow, and for the pawn the spawn protection's
+    /// colour.</summary>
+    sealed record Painted(CBaseModelEntity Entity, string Name, RenderMode_t Mode, int Colour, float Shadow, bool Pawn, int Immunity);
 
     readonly CloakBook<Painted> book = new();
     readonly Dictionary<int, CloakWhy> why = new();       // slot -> why that player is hidden
     readonly Dictionary<int, string> fresh = new();       // slots hidden since the last pass, and what hid them: logged once the pass has held them
-    readonly Dictionary<int, int> tests = new();          // slot -> the gg_cloak hide that runs for it (a newer one replaces it)
+    readonly Dictionary<int, int> tests = new();          // slot -> the os_cloak hide that runs for it (a newer one replaces it)
     readonly Dictionary<string, bool> networked = new();  // "class.field" -> networked (looked up once)
     readonly List<int> slots = new();
-    Method method = Method.Alpha;
     int testSerial;
     int faults;                                           // errors in the pass on this map, for the log
     long passes;                                          // passes run, for the watch on the listener (Load)
@@ -86,18 +79,13 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         // the same tick can show for one snapshot. Never the whole plugin down for it, and never a cloak that silently does nothing.
         try { plugin.RegisterListener<Listeners.OnServerPostEntityThink>(Pass); }
         catch (Exception e) { OnTickInstead($"no listener after the entities' think ({e.Message})"); }
-        CounterStrikeSharp.API.Modules.Timers.Timer? watch = null;
-        watch = plugin.AddTimer(5f, () =>
-        {
-            if (passes == 0 && !onTick) OnTickInstead("the listener after the entities' think never ran");
-            watch?.Kill();
-        }, TimerFlags.REPEAT);
+        plugin.AddTimer(5f, () => { if (passes == 0 && !onTick) OnTickInstead("the listener after the entities' think never ran"); });
         plugin.RegisterEventHandler<EventPlayerSpawn>((ev, _) => { if (ev.Userid is { IsValid: true } p) End(p, "a new life"); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventPlayerDeath>((ev, _) => { if (ev.Userid is { IsValid: true } p) End(p, "died"); return HookResult.Continue; });
         plugin.RegisterEventHandler<EventPlayerDisconnect>((ev, _) => { if (ev.Userid is { IsValid: true } p) End(p, "left the server"); return HookResult.Continue; });
         plugin.RegisterListener<Listeners.OnMapEnd>(Forget);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => Forget());
-        plugin.AddCommand(Command, "Over Strike 2 cloak: status | hide <account | #slot> [seconds] | show <account | #slot> | method alpha|none|nodraw", OnCommand);
+        plugin.AddCommand(Command, "Over Strike 2 cloak: status | hide <account | #slot> [seconds] | show <account | #slot>", OnCommand);
         WarmUp();
     }
 
@@ -198,7 +186,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
                     Hold(slot, weapons.ActiveWeapon.Value, null);
                 }
                 foreach (var wearable in pawn.MyWearables) Hold(slot, wearable.Value, null);
-                if (fresh.Remove(slot, out var because)) LogHidden(slot, pawn, because);
+                if (fresh.Remove(slot, out var because)) LogHidden(slot, because);
             }
             catch (Exception e)
             {
@@ -227,19 +215,17 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         var handle = entity.EntityHandle.Raw;
         if (!book.Hold(handle, slot))
             book.Add(handle, slot, new Painted(entity, entity.DesignerName ?? "?", entity.RenderMode, entity.Render.ToArgb(), entity.ShadowStrength,
-                (entity.Effects & NoDrawButTransmit) != 0, pawn != null, pawn?.GunGameImmunityColor.ToArgb() ?? 0));
+                pawn != null, pawn?.GunGameImmunityColor.ToArgb() ?? 0));
         Hide(entity, pawn);
     }
 
     /// <summary>One entity hidden: only what is not hidden yet is written, so a pass that finds everything in place writes nothing.</summary>
     void Hide(CBaseModelEntity e, CCSPlayerPawn? pawn)
     {
-        var mode = method == Method.None ? RenderMode_t.kRenderNone : RenderMode_t.kRenderTransAlpha;
-        if (e.RenderMode != mode) { e.RenderMode = mode; Changed(e, "CBaseModelEntity", "m_nRenderMode"); }
+        if (e.RenderMode != RenderMode_t.kRenderTransAlpha) { e.RenderMode = RenderMode_t.kRenderTransAlpha; Changed(e, "CBaseModelEntity", "m_nRenderMode"); }
         var colour = e.Render;
         if (colour.A != 0) { e.Render = Color.FromArgb(0, colour.R, colour.G, colour.B); Changed(e, "CBaseModelEntity", "m_clrRender"); }
         if (e.ShadowStrength != 0) { e.ShadowStrength = 0; Changed(e, "CBaseModelEntity", "m_flShadowStrength"); }
-        if (method == Method.NoDraw && (e.Effects & NoDrawButTransmit) == 0) { e.Effects |= NoDrawButTransmit; Changed(e, "CBaseEntity", "m_fEffects"); }
         if (pawn == null) return;
         var immunity = pawn.GunGameImmunityColor;
         if (immunity.A != 0) { pawn.GunGameImmunityColor = Color.FromArgb(0, immunity.R, immunity.G, immunity.B); Changed(pawn, "CCSPlayerPawn", "m_GunGameImmunityColor"); }
@@ -253,7 +239,6 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         if (e.RenderMode != p.Mode) { e.RenderMode = p.Mode; Changed(e, "CBaseModelEntity", "m_nRenderMode"); }
         if (e.Render.ToArgb() != p.Colour) { e.Render = Color.FromArgb(p.Colour); Changed(e, "CBaseModelEntity", "m_clrRender"); }
         if (e.ShadowStrength != p.Shadow) { e.ShadowStrength = p.Shadow; Changed(e, "CBaseModelEntity", "m_flShadowStrength"); }
-        if (!p.NoDraw && (e.Effects & NoDrawButTransmit) != 0) { e.Effects &= ~NoDrawButTransmit; Changed(e, "CBaseEntity", "m_fEffects"); }
         if (p.Pawn && e is CCSPlayerPawn pawn && pawn.GunGameImmunityColor.ToArgb() != p.Immunity)
         {
             pawn.GunGameImmunityColor = Color.FromArgb(p.Immunity);
@@ -275,42 +260,15 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         if (yes) Utilities.SetStateChanged(entity, className, field);
     }
 
-    /// <summary>The log line of a player just hidden: what was hidden, and whatever else hangs under the pawn in the scene that the cloak does not
-    /// paint (expected: nothing) - a real game's answer to what else could still be drawn.</summary>
-    void LogHidden(int slot, CCSPlayerPawn pawn, string because)
+    /// <summary>The log line of a player just hidden: why, and what was hidden.</summary>
+    void LogHidden(int slot, string because)
     {
         var held = book.Held(slot).Select(p => p.Name).ToList();
-        log.LogInformation("Over Strike 2 cloak: {Name} hidden ({Why}: {Because}) - {Count} entities: {Held}; under the pawn besides: {Attached} (method {Method})",
-            Utilities.GetPlayerFromSlot(slot)?.PlayerName ?? $"slot {slot}", Why(slot), because, held.Count, string.Join(", ", held), Attached(pawn, slot), Name(method));
+        log.LogInformation("Over Strike 2 cloak: {Name} hidden ({Why}: {Because}) - {Count} entities: {Held}",
+            Utilities.GetPlayerFromSlot(slot)?.PlayerName ?? $"slot {slot}", Why(slot), because, held.Count, string.Join(", ", held));
     }
 
-    /// <summary>The entities whose scene nodes hang under the pawn's that the cloak does not paint, by designer name - read only, at most
-    /// AttachedLook nodes deep and wide.</summary>
-    string Attached(CCSPlayerPawn pawn, int slot)
-    {
-        try
-        {
-            var mine = book.Handles(slot);
-            var names = new List<string>();
-            var todo = new Stack<CGameSceneNode>();
-            if (pawn.CBodyComponent?.SceneNode?.Child is { } first) todo.Push(first);
-            var seen = 0;
-            while (todo.Count > 0 && seen++ < AttachedLook)
-            {
-                var node = todo.Pop();
-                if (node.NextSibling is { } next) todo.Push(next);
-                if (node.Child is { } child) todo.Push(child);
-                if (node.Owner is { IsValid: true } owner && !mine.Contains(owner.EntityHandle.Raw) && owner.EntityHandle.Raw != pawn.EntityHandle.Raw)
-                    names.Add(owner.DesignerName ?? "?");
-            }
-            return names.Count == 0 ? "nothing" : string.Join(", ", names.Distinct());
-        }
-        catch (Exception e) { return $"not read ({e.Message})"; }
-    }
-
-    static string Name(Method m) => m switch { Method.None => "none", Method.NoDraw => "nodraw", _ => "alpha" };
-
-    // ---- gg_cloak: the console's look at the cloak, and a hide to look at from another player's game (the client harness cannot shoot, so
+    // ---- os_cloak: the console's look at the cloak, and a hide to look at from another player's game (the client harness cannot shoot, so
     // it cannot make a ghost) ----
 
     void OnCommand(CCSPlayerController? caller, CommandInfo command)
@@ -332,7 +290,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
                     tests.Remove(slot);
                     Want(slot, CloakWhy.Test, false, $"{Command} hide's {seconds:0} s are over");
                 }, TimerFlags.STOP_ON_MAPCHANGE);
-                command.ReplyToCommand($"{Command}: {player.PlayerName} hidden for {seconds:0} s (method {Name(method)})");
+                command.ReplyToCommand($"{Command}: {player.PlayerName} hidden for {seconds:0} s");
                 return;
             }
             case "show":
@@ -341,15 +299,6 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
                 tests.Remove(player.Slot);
                 Want(player.Slot, CloakWhy.Test, false, $"{Command} show");
                 command.ReplyToCommand($"{Command}: {player.PlayerName} - {(Why(player.Slot) == CloakWhy.None ? "seen" : $"still hidden ({Why(player.Slot)})")}");
-                return;
-            }
-            case "method":
-            {
-                var arg = command.ArgCount > 2 ? command.GetArg(2).ToLowerInvariant() : "";
-                Method? m = arg switch { "alpha" => Method.Alpha, "none" => Method.None, "nodraw" => Method.NoDraw, _ => null };
-                if (m == null) { command.ReplyToCommand($"{Command}: method alpha | none | nodraw (now {Name(method)})"); return; }
-                method = m.Value;
-                command.ReplyToCommand($"{Command}: method {Name(method)} until the plugin reloads - the hidden take it at the next tick");
                 return;
             }
             default:
@@ -369,7 +318,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
 
     string Status()
     {
-        var lines = new List<string> { $"{Command}: method {Name(method)}; {why.Count} hidden, {book.Count} entities painted" };
+        var lines = new List<string> { $"{Command}: {why.Count} hidden, {book.Count} entities painted" };
         foreach (var p in Utilities.GetPlayers().Where(p => p is { IsValid: true, IsHLTV: false }))
             lines.Add($"  #{p.Slot} {p.PlayerName}: {(Why(p.Slot) == CloakWhy.None ? "seen" : $"hidden ({Why(p.Slot)}), {book.Of(p.Slot)} entities")}{(About?.Invoke(p) is { Length: > 0 } a ? $"; spawn cloak: {a}" : "")}");
         return string.Join("\n", lines);

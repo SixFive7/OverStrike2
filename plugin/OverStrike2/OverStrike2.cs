@@ -30,7 +30,7 @@ public class OverStrike2Plugin : BasePlugin
     Nades? nades;            // the grenade drops
     GameSettings? settings;  // a map's settings put back, the game-changers block, the fun page's changes and effects
     Effects? effects;        // the fun page's effects Vampire, Ghost and no recoil
-    Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), gg_cloak's
+    Cloak? cloak;            // a player hidden from everybody else, all of them: Ghost's, the spawn cloak's (SpawnCloak), os_cloak's
     CatchUp.CatchUpModule? catchUp; // the Arms Race catch-up boosts
     VoteFreeze? freeze;      // nobody moves, shoots or takes damage while a vote freezes everybody
     bool catchUpOn = true;   // what catch-up was last switched to: on while its fun setting is on and the map is Arms Race

@@ -227,7 +227,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     book.Hold(10, 1);
     Check(!book.Hold(10 | 1u << 15, 1), "cloak book: the same index with another serial is another entity");
     book.Add(10 | 1u << 15, 1, "new entity seen");
-    Check(book.Handles(1).SetEquals([10u, 10 | 1u << 15]), "cloak book: the handles a slot holds");
+    Check(book.Of(1) == 2 && book.Held(1).Order().SequenceEqual(["new entity seen", "pawn seen"]), "cloak book: ...and is held besides it");
     Check(book.Clear().Count == 2 && book.Count == 0, "cloak book: the unload puts everything back");
     book.Add(30, 3, "x");
     book.Forget();
