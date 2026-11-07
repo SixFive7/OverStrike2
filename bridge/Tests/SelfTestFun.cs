@@ -116,7 +116,7 @@ static partial class Program
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")
             && HudVote.FixedRowClasses(c => c == Fun.Drops ? "0" : "1", true) is var fr && fr.Single(x => x.Class == "nd-off").On && fr.Single(x => x.Class == "cu-on").On
             && HudVote.FixedRowClasses(c => "1", false).All(x => !x.On)
-            && HudMenu.FunClick(HudMenu.NadesOff) is { Setting.Id: "drops", Choice.Id: "off" } && HudMenu.FunClick(HudMenu.CatchUpOn) is { Setting.Id: "catchup", Choice.Id: "on" }
+            && HudMenu.FunClick(HudMenu.DropsOff) is { Setting.Id: "drops", Choice.Id: "off" } && HudMenu.FunClick(HudMenu.CatchUpOn) is { Setting.Id: "catchup", Choice.Id: "on" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 1)) is { Setting.Id: "drops", Choice.Id: "on" } && HudMenu.FunClick(HudMenu.FunButton(18, 2)) is { Setting.Id: "catchup", Choice.Id: "off" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 3)) == null && HudMenu.FunClick(HudMenu.FunButton(19, 1)) == null);
         FunPageSelfTest(Check);

@@ -220,7 +220,7 @@ static partial class Program
             && HudView.VoteLine(waiting) == "The next vote can start in 1 min 20 s" && LT("gg_b_queue") == HudView.VoteLine(leading)
             && LT("gg_w_n1") == "#44 aim_aim" && LT("gg_w_nw1") == "2 votes" && LT("gg_w_n2") == "Keep playing this map" && LT("gg_w_nw2") == "1 vote" && LT("gg_w_n3") == ""
             && lc.Contains(("gg_w_row_n2", "used", true)) && lc.Contains(("gg_w_row_n3", "used", false)) && lc.Contains(("gg_w_nempty", "used", false))
-            && HudView.Classes(free).Contains(("gg_w_nempty", "used", true)) && HudView.VoteLine(leading).Length <= HudView.QueueLineMax);
+            && HudView.Classes(free).Contains(("gg_w_nempty", "used", true)) && HudView.VoteLine(leading).Length <= HudView.VoteLineMax);
 
         // ---- every chat command, and where the menu has it now (the README's checklist says the same) ----
         var live = new HudState { Map = "#1 AIM Map", Key = "3084291314", PrevArg = "7", PrevLabel = "#7 Claim the hill" };

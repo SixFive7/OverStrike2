@@ -34,7 +34,7 @@ sealed partial class HudScreen
         log.LogInformation("Over Strike 2 HUD check: {Name} [U:1:{Account}] clicked in the HUD ({Version})", player.PlayerName, account, version == HudVersion.Unknown ? "which content not known" : version);
     }
 
-    /// <summary>The check's mode now: what the bridge says (HUD_CHECK: off, warn, enforce), off without a fresh state, and never more than warn
+    /// <summary>The check's mode now: what the bridge says (hud.check: off, warn, enforce), off without a fresh state, and never more than warn
     /// while Steam does not show the item to everybody - a player whose game cannot download it would be thrown out for nothing. A stricter mode
     /// gives everybody still waiting a fresh grace period and the window.</summary>
     void UpdateCheck(DateTime now)
@@ -47,7 +47,7 @@ sealed partial class HudScreen
         if (mode == HudCheck.Mode.Enforce && !item.Public(now)) mode = HudCheck.Mode.Warn;
         if (!addonRequired) mode = HudCheck.Mode.Off; // nobody is made to download it now, so nobody may be asked for it either
         if (mode == checkMode) return;
-        log.LogInformation("Over Strike 2 HUD check: {From} -> {To} (HUD_CHECK {Configured}, item {Item})", HudCheck.Name(checkMode), HudCheck.Name(mode),
+        log.LogInformation("Over Strike 2 HUD check: {From} -> {To} (hud.check {Configured}, item {Item})", HudCheck.Name(checkMode), HudCheck.Name(mode),
             HudCheck.Name(configured), item.Describe(now));
         if (mode > checkHigh) // once per step up on a map, never on a flap - and never for a player the bridge knows (a spawn before its first answer)
         {

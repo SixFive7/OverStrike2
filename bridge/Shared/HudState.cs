@@ -21,9 +21,9 @@ public sealed class HudState
     public int RoundMinutes;                            // the match length !time set
     public string RoundBy = "";                         // ...and who set it, while it is not the default
     public long CatalogVersion;                         // the map catalog's version: the plugin fetches it again when this moves
-    public string CheckMode = "";                       // the HUD check as configured (HUD_CHECK: off, warn - "dryrun" on the wire - or enforce); empty from an older bridge
+    public string CheckMode = "";                       // the HUD check as configured (hud.check: off, warn or enforce)
     public Dictionary<long, string> Verified = new();   // account id -> the HUD its game showed at the check's click since its last real join (HudCheck.VersionWord), players on the server only
-    public string TabMode = "";                         // the TAB chord (HUD_TAB: off, menu, on); empty from an older bridge
+    public string TabMode = "";                         // the TAB chord (hud.tab: down or off)
     public string News = "";                            // the news line of the contents before v4.6.0, which everybody sees...
     public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left

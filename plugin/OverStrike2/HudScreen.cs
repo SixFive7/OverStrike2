@@ -42,7 +42,7 @@ sealed partial class HudScreen
     HudCheck.Mode checkMode;                          // the check in force as of the last frame
     HudCheck.Mode checkHigh;                          // the strictest it has been on this map: only a stricter one re-arms the waiting players
     readonly HudTab tab = new();                      // TAB (HudTab.cs): the board's cursor while it is held
-    HudTab.Mode tabMode;                              // down or off, as of the last frame (HUD_TAB, or css_gghud tab)
+    HudTab.Mode tabMode;                              // down or off, as of the last frame (hud.tab, or css_gghud tab)
     HudTab.Mode? tabOverride;                         // css_gghud tab off|down: until the plugin reloads
     CCSCustomHudLayout? entity;
     bool worldReady;
@@ -244,7 +244,7 @@ sealed partial class HudScreen
         $"state {(state == null ? "none" : $"{(DateTime.UtcNow - stateAt).TotalSeconds:0}s old: {state.Map} by {state.By}")}, vote {(vote.Round > 0 ? $"round {vote.Round} {(vote.Open ? "open" : "decided")}{(vote.Freeze ? ", everybody frozen" : "")}" : "none")}, " +
         $"bridge {(bridge == null ? "off" : bridge.Failures == 0 ? "ok" : $"{bridge.Failures} failures ({bridge.LastError})")}, " +
         $"window open for [{string.Join(", ", Utilities.GetPlayers().Where(p => slots.WindowOpen(p.Slot)).Select(p => p.PlayerName))}], " +
-        $"check {HudCheck.Name(checkMode)} (HUD_CHECK {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, item {item.Describe(DateTime.UtcNow)}), " +
+        $"check {HudCheck.Name(checkMode)} (hud.check {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, item {item.Describe(DateTime.UtcNow)}), " +
         $"waiting for a click from [{string.Join(", ", Utilities.GetPlayers().Where(p => gate.Checking(p.Slot)).Select(p => p.PlayerName))}], " +
         $"TAB {HudTab.Name(tabMode)}{(tabOverride != null ? " (css_gghud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
         $"search index {search.Count} maps (version {search.Version}), sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +

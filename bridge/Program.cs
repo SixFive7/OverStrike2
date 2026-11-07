@@ -14,7 +14,7 @@ static partial class Program
         StartMap = BridgeConfig.Values.StartMap; // the cs2 service's CS2_STARTMAP: what a booting server loads, and what a nameless lone map start is taken for
     static readonly int RconPort = BridgeConfig.Values.RconPort, HttpPort = BridgeConfig.Values.HttpPort,
         ChangeDelay = BridgeConfig.Values.ChangeDelay, RestartCooldown = BridgeConfig.Values.RestartCooldown;
-    static HudTab.Mode HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held), hold, window, on, menu, off
+    static HudTab.Mode HudTabMode = HudTab.Parse(BridgeConfig.Values.Tab); // the TAB chord (HudTab.cs): down (the default: the board's cursor while TAB is held) or off, menu, off
     static HudCheck.Mode HudCheckMode = HudCheck.Parse(BridgeConfig.Values.Check); // the HUD check (HudCheck.cs): off, warn or enforce; warn by default, so every player's HUD version is learned at their first click
     static readonly List<MapInfo> Officials = BridgeConfig.Values.OfficialMaps // installed on the server, loaded with changelevel
         .Select(n => new MapInfo(0, 0, n, 0, true)).ToList();

@@ -9,17 +9,15 @@ static partial class Program
         var t0 = new DateTime(2026, 10, 7, 22, 0, 0, DateTimeKind.Utc);
 
         // ---- the modes: one setting, off, warn or enforce ----
-        Check("HUD check: the mode reads off, warn and enforce - dryrun, the word the plugins before v4.6.0 know, as warn - and anything else as off",
-            HudCheck.Parse("warn") == HudCheck.Mode.Warn && HudCheck.Parse("dryrun") == HudCheck.Mode.Warn && HudCheck.Parse(" Enforce ") == HudCheck.Mode.Enforce
-            && HudCheck.Parse("off") == HudCheck.Mode.Off && HudCheck.Parse("") == HudCheck.Mode.Off && HudCheck.Parse(null) == HudCheck.Mode.Off && HudCheck.Parse("kick") == HudCheck.Mode.Off);
-        Check("HUD check: the live state carries warn as dryrun (an older plugin's dry run, which without a proof never disconnects), the others as they are",
-            HudCheck.WireName(HudCheck.Mode.Warn) == "dryrun" && HudCheck.WireName(HudCheck.Mode.Enforce) == "enforce" && HudCheck.WireName(HudCheck.Mode.Off) == "off"
-            && Enum.GetValues<HudCheck.Mode>().All(m => HudCheck.Parse(HudCheck.WireName(m)) == m && HudCheck.Parse(HudCheck.Name(m)) == m));
+        Check("HUD check: the mode reads off, warn and enforce, in the settings and on the wire alike, and anything else - an old word like dryrun too - as off",
+            HudCheck.Parse("warn") == HudCheck.Mode.Warn && HudCheck.Parse(" Enforce ") == HudCheck.Mode.Enforce && HudCheck.Parse("dryrun") == HudCheck.Mode.Off
+            && HudCheck.Parse("off") == HudCheck.Mode.Off && HudCheck.Parse("") == HudCheck.Mode.Off && HudCheck.Parse(null) == HudCheck.Mode.Off && HudCheck.Parse("kick") == HudCheck.Mode.Off
+            && Enum.GetValues<HudCheck.Mode>().All(m => HudCheck.Parse(HudCheck.Name(m)) == m));
         var live = new HudState { CheckMode = "enforce" };
         Check($"HUD check: no state, or no answer for {HudCheck.StaleSeconds:0} s (an idle long poll answers every {Hud.LongPollSeconds} s), means off - a silent bridge never gets anybody disconnected; a fresh one says the mode, no proof needed",
             HudCheck.ModeOf(null, 0) == HudCheck.Mode.Off && HudCheck.ModeOf(live, HudCheck.StaleSeconds + 1) == HudCheck.Mode.Off && HudCheck.ModeOf(live, Hud.LongPollSeconds + 1) == HudCheck.Mode.Enforce
             && HudCheck.ModeOf(live, 1) == HudCheck.Mode.Enforce
-            && HudCheck.ModeOf(new HudState { CheckMode = "dryrun" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
+            && HudCheck.ModeOf(new HudState { CheckMode = "warn" }, 1) == HudCheck.Mode.Warn && HudCheck.ModeOf(new HudState(), 1) == HudCheck.Mode.Off);
 
         // ---- the version button: its id names the content that has it ----
         Check("HUD check: the version button's id names its content, gg_hudver_v4.7.0; any other button names none, and a malformed one or the old form gg_hudver_v4_7_0 is no version button",
@@ -233,10 +231,10 @@ static partial class Program
             && clockGate.SecondsLeft(7, t0.AddSeconds(30)) == (int)HudCheck.GraceSeconds - 30 && clockGate.SecondsLeft(8, t0) == 0);
 
         // ---- the codec: the mode and the verifications reach the plugin; no proof lines any more ----
-        var sent = new HudState { CheckMode = "dryrun", Verified = { [201] = HudVersion.Content, [202] = HudVersion.Older, [203] = HudVersion.Unknown } };
+        var sent = new HudState { CheckMode = "warn", Verified = { [201] = HudVersion.Content, [202] = HudVersion.Older, [203] = HudVersion.Unknown } };
         var got = HudState.Decode(sent.Encode() + "proof\tv2.1.1\tx\nok\tx\tv2.1.1\nok\t204\tnewer\nok\t205\tv4_5_0\n")!;
         Check("HUD check: the state carries the mode and the verifications with their HUDs, and drops malformed ones and the old form (an old bridge's proof lines are skipped)",
-            got.CheckMode == "dryrun" && got.Verified.Count == 3 && got.Verified[201] == HudVersion.Content && got.Verified[202] == HudVersion.Older && got.Verified[203] == HudVersion.Unknown && !got.Verified.ContainsKey(205)
+            got.CheckMode == "warn" && got.Verified.Count == 3 && got.Verified[201] == HudVersion.Content && got.Verified[202] == HudVersion.Older && got.Verified[203] == HudVersion.Unknown && !got.Verified.ContainsKey(205)
             && !sent.Encode().Contains("proof\t"));
 
         // ---- the bridge: only a click verifies, in memory, for the players on the server, forgotten at a real join or a real departure ----
@@ -266,7 +264,7 @@ static partial class Program
             var served = HudState.Decode(BuildHud(clock).Encode())!;
             var joinNews = NewsNow.Text;
             Check("HUD check: a click verifies its player with the HUD it proved (the version button's content, an older content's gold button, or unknown), and a known one is kept",
-                served.CheckMode == "dryrun" && served.Verified.GetValueOrDefault(5001) == HudVersion.Content && served.Verified.GetValueOrDefault(5002) == HudVersion.Older
+                served.CheckMode == "warn" && served.Verified.GetValueOrDefault(5001) == HudVersion.Content && served.Verified.GetValueOrDefault(5002) == HudVersion.Older
                 && served.Verified.GetValueOrDefault(5003) == HudVersion.Unknown && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn
                 && !served.Verified.ContainsKey(5005) && !served.Verified.ContainsKey(5006) && !HudSeen.ContainsKey("[U:1:5006]"));
             Check("HUD check: the first click with a known HUD says for everybody which one the player brought, in CS2's plain centre text, chat and on the board; an outdated one gets no note, its own banner says it",
@@ -300,7 +298,7 @@ static partial class Program
         Check("TAB: the bits are CounterStrikeSharp's (IN_SCORE 1<<33, IN_USE 1<<5)", HudTab.Scoreboard == 0x200000000UL && HudTab.Use == 0x20UL);
         Check("TAB: the mode flag reads down and off; the names of the modes TAB had before read as down, anything else as off - and every name reads back",
             HudTab.Parse("down") == HudTab.Mode.Down && HudTab.Parse(" Down ") == HudTab.Mode.Down && HudTab.Parse("off") == HudTab.Mode.Off
-            && new[] { "hold", "window", "on", "chord", "board", "menu" }.All(old => HudTab.Parse(old) == HudTab.Mode.Down)
+            && new[] { "hold", "window", "on", "chord", "board", "menu" }.All(old => HudTab.Parse(old) == HudTab.Mode.Off)
             && HudTab.Parse(null) == HudTab.Mode.Off && HudTab.Parse("") == HudTab.Mode.Off && HudTab.Parse("yes") == HudTab.Mode.Off
             && Enum.GetValues<HudTab.Mode>().All(m => HudTab.Parse(HudTab.Name(m)) == m));
         var lines = Enum.GetValues<HudTab.Mode>().Select(HudTab.BoardLine).ToList();

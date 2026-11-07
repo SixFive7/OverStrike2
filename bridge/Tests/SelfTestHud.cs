@@ -200,7 +200,7 @@ static partial class Program
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has: v4.5.0's own (its Rules tab, the new-maps setting's) are not looked for here
             string[] olderButtons = ["gg_tab_rules", HudMenu.NewAlways, HudMenu.NewHalf, HudMenu.NewNever];
-            var olderPanels = new[] { HudMenu.NadesOn, HudMenu.NadesOff, HudMenu.CatchUpOn, HudMenu.CatchUpOff }.Concat(HudView.OlderContentTexts).ToHashSet(); // the fixed Fun rows, the news line, the note, the lede
+            var olderPanels = new[] { HudMenu.DropsOn, HudMenu.DropsOff, HudMenu.CatchUpOn, HudMenu.CatchUpOff }.Concat(HudView.OlderContentTexts).ToHashSet(); // the fixed Fun rows, the news line, the note, the lede
             var buttons = HudView.Tabs.Select(t => t.Id).Where(id => !olderButtons.Contains(id)).Concat([HudView.ButtonClose, HudView.ButtonUp, HudView.ButtonDown, HudView.ButtonAct])
                 .Concat([HudVersion.Button(HudVersion.Content), HudVote.RandomButton, HudVote.BrowseButton, HudVote.BackButton, HudMenu.FunRandom, HudMenu.FunDefault,
                     HudBrowser.OursButton])
@@ -355,12 +355,12 @@ static partial class Program
             var dropsRow = Array.FindIndex(Fun.Settings, s => s.Id == "drops") + 1;
             var catchUpRow = Array.FindIndex(Fun.Settings, s => s.Id == "catchup") + 1;
             Check("The grenade drops and catch-up are rows of the grid like any other, gg_f17 and gg_f18, Arms Race's alone; the layout has no fixed row left",
-                (dropsRow, catchUpRow) == (17, 18) && !noComments.Contains(HudMenu.NadesOn) && !noComments.Contains(HudMenu.CatchUpOn) && !noComments.Contains($"{{s:{HudMenu.DropsWordsVar}}}") && !noComments.Contains($"{{s:{HudMenu.CatchUpWordsVar}}}")
+                (dropsRow, catchUpRow) == (17, 18) && !noComments.Contains(HudMenu.DropsOn) && !noComments.Contains(HudMenu.CatchUpOn) && !noComments.Contains($"{{s:{HudMenu.DropsWordsVar}}}") && !noComments.Contains($"{{s:{HudMenu.CatchUpWordsVar}}}")
                 && !Regex.IsMatch(rules, @"\.nd-on|\.nd-off|\.cu-on|\.cu-off|gg-set-nades|gg-set-catchup")
                 && new[] { dropsRow, catchUpRow }.All(r => HudMenu.FunPage(cv => stock.GetValueOrDefault(cv)).Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "used").On
                     && !HudMenu.FunPage(cv => stock.GetValueOrDefault(cv), armsRace: false).Classes.Single(x => x.Id == HudMenu.FunRow(r) && x.Class == "used").On));
             Check("...and a content before v4.6.0 keeps its fixed rows, one plugin driving them: their buttons are the same settings, lit from gg_global, which every content has - on is one class, off the other, and outside Arms Race neither",
-                HudMenu.FunClick(HudMenu.NadesOn) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.NadesOff) is ({ Id: "drops" }, { Id: "off" })
+                HudMenu.FunClick(HudMenu.DropsOn) is ({ Id: "drops" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.DropsOff) is ({ Id: "drops" }, { Id: "off" })
                 && HudMenu.FunClick(HudMenu.CatchUpOn) is ({ Id: "catchup" }, { Id: "on" }) && HudMenu.FunClick(HudMenu.CatchUpOff) is ({ Id: "catchup" }, { Id: "off" })
                 && HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-on").On && !HudVote.FixedRowClasses(cv => stock.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On
                 && HudVote.FixedRowClasses(cv => dropsOff.GetValueOrDefault(cv), true).Single(x => x.Class == "nd-off").On

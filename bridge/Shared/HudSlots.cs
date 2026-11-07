@@ -112,15 +112,12 @@ public sealed class HudSlots
         s.OpenAt = now.AddSeconds(SpawnDelaySeconds);
     }
 
-    /// <summary>The window on its start page (the HUD check, css_guide), or closed with "off" (TAB coming up on the TAB window, the TAB chord
-    /// switched off, css_gghud release).</summary>
-    public void Info(int slot, string arg, DateTime now)
+    /// <summary>The window closed, the welcome too (css_gghud release, the way out if a window ever sticks).</summary>
+    public void Close(int slot, DateTime now)
     {
         var s = Of(slot);
         s.WaitingSince = null;
-        if (arg.Trim().ToLowerInvariant() is "off" or "close" or "stop" or "0") { Close(s, now); return; }
-        s.Page = Page.Start;
-        if (!s.Open) Open(s, now); else Touch(s, now);
+        Close(s, now);
     }
 
     /// <summary>A vote's freeze is over: the window it held closes, unless it is the welcome, which goes back to its start page and waits for its X.</summary>

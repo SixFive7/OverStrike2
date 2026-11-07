@@ -9,7 +9,7 @@ public static class HudMenu
     public const int Cards = MapVote.PageCards > HudBrowser.PerPage ? MapVote.PageCards : HudBrowser.PerPage;
 
     /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4.6.0).</summary>
-    public const string NadesOn = "gg_set_nades_on", NadesOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
+    public const string DropsOn = "gg_set_nades_on", DropsOff = "gg_set_nades_off", Time10 = "gg_set_time_10", Time60 = "gg_set_time_60",
         Restart = "gg_set_restart", Rematch = "gg_set_rematch", Previous = "gg_q_prev", BoardOpen = HudView.BoardOpen;
 
     /// <summary>The Fun page's Random and Default (!fun random, !fun default).</summary>
@@ -232,7 +232,7 @@ public static class HudMenu
     /// rows, and the grenade drops' and catch-up's fixed rows of the contents before v4.6.0, which are the same settings.</summary>
     public static (Fun.Setting Setting, Fun.Choice Choice)? FunClick(string buttonId)
     {
-        var fixedRow = buttonId switch { NadesOn => ("drops", "on"), NadesOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };
+        var fixedRow = buttonId switch { DropsOn => ("drops", "on"), DropsOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };
         if (fixedRow.Item1 != "" && Fun.Find(fixedRow.Item1) is { } fs && Fun.Find(fs, fixedRow.Item2) is { } fc) return (fs, fc);
         var parts = buttonId.StartsWith("gg_f", StringComparison.Ordinal) ? buttonId[4..].Split('_') : [];
         if (parts.Length != 2 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var r)

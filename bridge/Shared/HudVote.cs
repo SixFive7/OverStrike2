@@ -160,7 +160,7 @@ public static class HudVote
 
     /// <summary>The ballot's cards a page for a game holding this HUD (HudVersion.IsWord): a content before v4.6.0 has eight cards
     /// (HudBrowser.PerPage), so a game known to hold one gets pages of eight and reaches every option on its pager; any other - this content, a newer
-    /// one, or one not known (no HUD check's click yet, or HUD_CHECK off) - pages of MapVote.PageCards.</summary>
+    /// one, or one not known (no HUD check's click yet, or hud.check off) - pages of MapVote.PageCards.</summary>
     public static int CardsFor(string version) => HudVersion.IsBefore(version, CardsLevel) ? HudBrowser.PerPage : MapVote.PageCards;
 
     /// <summary>The first content with the ballot's ten cards and catch-up's card under the crosshair: a game on an older one gets eight cards a page and the centre panel.</summary>

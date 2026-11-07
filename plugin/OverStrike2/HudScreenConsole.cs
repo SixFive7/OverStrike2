@@ -5,12 +5,12 @@ namespace OverStrike2;
 
 sealed partial class HudScreen
 {
-    /// <summary>css_gghud tab off|down: TAB's mode until the plugin reloads (null: back to HUD_TAB from the bridge).</summary>
+    /// <summary>css_gghud tab off|down: TAB's mode until the plugin reloads (null: back to hud.tab from the bridge).</summary>
     public string SetTab(string? mode)
     {
         tabOverride = mode == null ? null : HudTab.Parse(mode);
         Server.NextFrame(Frame);
-        return tabOverride == null ? "TAB: back to HUD_TAB from the bridge" : $"TAB: {HudTab.Name(tabOverride.Value)} until the plugin reloads";
+        return tabOverride == null ? "TAB: back to hud.tab from the bridge" : $"TAB: {HudTab.Name(tabOverride.Value)} until the plugin reloads";
     }
 
     /// <summary>css_gghud release: every window closed and every cursor given back - the way out if one ever sticks.</summary>
@@ -20,7 +20,7 @@ sealed partial class HudScreen
         var cursors = tab.ReleaseAll();
         var windows = 0;
         foreach (var p in Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false }))
-            if (slots.WindowOpen(p.Slot)) { slots.Info(p.Slot, "off", now); windows++; }
+            if (slots.WindowOpen(p.Slot)) { slots.Close(p.Slot, now); windows++; }
         foreach (var slot in captured.Keys.ToList()) captured[slot] = true; // force the next frame to send capture off to everybody
         Server.NextFrame(Frame);
         return $"released: {windows} window(s), {cursors.Count} TAB cursor(s); capture off for everybody next frame";

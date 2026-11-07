@@ -5,7 +5,7 @@
 #   powershell -File ...\build.ps1 -Local                                    # also copy the result into your own client, to try it before publishing
 #   powershell -File ...\build.ps1 -MarkShipped                              # after a publish: this build's pictures are the shipped set now
 #
-# The pictures guard (2026-10-24): every picture of a map the last release shipped must be the very JPEG it shipped (thumbs-shipped.txt:
+# The pictures guard: every picture of a map the last release shipped must be the very JPEG it shipped (thumbs-shipped.txt:
 # id, sha1, bytes), unless that map is listed in thumbs-regenerated.txt - regenerated on purpose, one id per line with // and why. So a
 # stale or remade picture cannot slip into a release unseen (on 2026-10-22 a stale hud/thumbs folder nearly put the black bars back on
 # 196 maps). Pictures of maps not in thumbs-shipped.txt are new and pass. After the publish, -MarkShipped rewrites thumbs-shipped.txt
@@ -13,7 +13,7 @@
 #
 # Copies layout\, styles\, images\ and the map thumbnails (thumbs\, made by thumbs.py) into content\csgo_addons\gungame_hud\ and
 # compiles them with the Workshop Tools' resource compiler into game\csgo_addons\gungame_hud\ - the folder publish.ps1 uploads
-# (PUBLISH.md). Compiling gungame_hud_thumbs.css builds every thumbnail it names, about a thousand small JPEG textures.
+# (PUBLISH.md). Compiling the pictures' stylesheet (gungame_hud_thumbs_<ReleaseFile>.css) builds every picture it names, about nine thousand small textures.
 #
 # Adapted from CS2UIKit's kit\build.ps1 (MIT, github.com/nvmxre/cs2-ui-kit), including its two hard-won details: fresh
 # timestamps plus -f, because the compiler otherwise answers "skipped" and leaves an old layout in the addon while reporting
@@ -95,12 +95,10 @@ $content = Join-Path $Cs2 "content\csgo_addons\$Addon"
 $game = Join-Path $Cs2 "game\csgo_addons\$Addon"
 $layoutDir = Join-Path $content "panorama\layout\custom_game"
 $styleDir = Join-Path $content "panorama\styles\custom_game"
-$imageDir = Join-Path $styleDir $Addon
-$thumbDir = Join-Path $content "panorama\images\custom_game\$Addon\thumbs"
+$named = "gungame_hud"   # where the stylesheets and the .vtex files name the pictures, whatever the addon's folder is called (-Addon)
+$imageDir = Join-Path $styleDir $named
+$thumbDir = Join-Path $content "panorama\images\custom_game\$named\thumbs"
 New-Item -ItemType Directory -Force -Path $layoutDir, $styleDir, $imageDir, $thumbDir, $game | Out-Null
-
-
-
 
 # Only this release's layout and stylesheets: an earlier release's files (other names, Hud.ReleaseFile) would be compiled into the addon too.
 Remove-Item (Join-Path $layoutDir "*.xml"), (Join-Path $styleDir "*.css") -Force -ErrorAction SilentlyContinue
@@ -131,7 +129,7 @@ foreach ($f in Get-ChildItem $styleDir -Filter *.css) { & $compiler -i $f.FullNa
 
 $expected = @(Get-ChildItem (Join-Path $src "layout") -Filter *.xml | ForEach-Object { "panorama\layout\custom_game\$($_.BaseName).vxml_c" }) +
     @(Get-ChildItem (Join-Path $src "styles") -Filter *.css | Where-Object { -not ($NoThumbs -and $_.Name -like "gungame_hud_thumbs_*") } | ForEach-Object { "panorama\styles\custom_game\$($_.BaseName).vcss_c" }) +
-    @("panorama\styles\custom_game\$Addon\knife.vtex_c", "panorama\styles\custom_game\$Addon\logo.vtex_c", "panorama\styles\custom_game\$Addon\lock_shut.vtex_c", "panorama\styles\custom_game\$Addon\lock_open.vtex_c")
+    @("panorama\styles\custom_game\$named\knife.vtex_c", "panorama\styles\custom_game\$named\logo.vtex_c", "panorama\styles\custom_game\$named\lock_shut.vtex_c", "panorama\styles\custom_game\$named\lock_open.vtex_c")
 $missing = 0
 foreach ($rel in $expected) {
     $f = Join-Path $game $rel
@@ -139,13 +137,13 @@ foreach ($rel in $expected) {
     else { Write-Output "MISSING $rel - read the compiler output above"; $missing++ }
 }
 $want = if ($NoThumbs) { 0 } else { (Get-ChildItem $thumbs -Filter *.jpg).Count }
-$built = @(Get-ChildItem (Join-Path $game "panorama\images\custom_game\$Addon\thumbs") -Filter *_jpg.vtex_c -ErrorAction SilentlyContinue)
+$built = @(Get-ChildItem (Join-Path $game "panorama\images\custom_game\$named\thumbs") -Filter *_jpg.vtex_c -ErrorAction SilentlyContinue)
 $bytes = ($built | Measure-Object -Property Length -Sum).Sum
 if ($built.Count -eq $want) { Write-Output ("OK      {0} map thumbnails ({1:0.0} MB)" -f $built.Count, ($bytes / 1MB)) }
 else { Write-Output "MISSING thumbnails: $($built.Count) of $want built - read the compiler output above"; $missing++ }
 if ($missing -gt 0) { exit 1 }
 Write-Output ""
-Write-Output "Built into $game - publish that addon with the Workshop Manager (PUBLISH.md)."
+Write-Output "Built into $game - publish.ps1 uploads it, with the owner's go (PUBLISH.md)."
 
 if ($Local) {
     # Your own client loads loose compiled files from game\csgo\panorama\..., so the HUD can be tried on the server before it is

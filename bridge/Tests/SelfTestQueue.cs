@@ -870,16 +870,16 @@ static partial class Program
             Check($"Left alone {HudSlots.IdleCloseSeconds} s after the last click it closes itself: the mouse is let go at once, the window fades out",
                 At(idle, 1, 10 + HudSlots.IdleCloseSeconds - 0.1).Capture && At(idle, 1, 10 + HudSlots.IdleCloseSeconds + 0.1) is { Capture: false, WindowIn: false, Window: true }
                 && !At(idle, 1, 10 + HudSlots.IdleCloseSeconds + 0.5).Window);
-            idle.Info(1, "", t0.AddSeconds(60));
-            Check("!info opens it again, on the start page, visible first and fully in a moment later (Panorama cannot fade what turns visible)",
+            idle.Show(1, HudSlots.Page.Start, t0.AddSeconds(60));
+            Check("Opened again (TAB + E, a pasted link), on its page, visible first and fully in a moment later (Panorama cannot fade what turns visible)",
                 At(idle, 1, 60.1) is { Window: true, WindowIn: false, Page: HudSlots.Page.Start } && At(idle, 1, 60.4).WindowIn);
             idle.Click(1, HudView.ButtonClose, t0.AddSeconds(61));
             Check("The close button closes it", At(idle, 1, 61.1) is { Capture: false, WindowIn: false } && !At(idle, 1, 61.5).Window);
-            idle.Info(1, "", t0.AddSeconds(62)); idle.Info(1, "off", t0.AddSeconds(63));
-            Check("!info off closes it too", !At(idle, 1, 63.5).Window && idle.Idle);
+            idle.Show(1, HudSlots.Page.Start, t0.AddSeconds(62)); idle.Close(1, t0.AddSeconds(63));
+            Check("css_gghud release closes it too", !At(idle, 1, 63.5).Window && idle.Idle);
             idle.Click(1, HudView.ButtonUp, t0.AddSeconds(64));
             Check("A click from a player without the window open does nothing", !At(idle, 1, 64.1).Window);
-            idle.Info(1, "", t0.AddSeconds(70));
+            idle.Show(1, HudSlots.Page.Start, t0.AddSeconds(70));
             var reading = At(idle, 1, 70.5).Capture;
             Check("Shot while reading: damage never closes the window (there is no close on a hit; only the vote's freeze protects anybody)",
                 reading && typeof(HudSlots).GetMethod("Hurt") == null && At(idle, 1, 75.1).Capture && At(idle, 1, 75.5).Window);

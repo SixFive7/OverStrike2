@@ -110,7 +110,7 @@ static partial class Program
         h.RoundMinutes = S.RoundMinutes;
         h.RoundBy = S.RoundMinutes == DefaultRoundMinutes ? "" : S.RoundBy ?? "";
         h.CatalogVersion = CatalogVersion;
-        h.CheckMode = HudCheck.WireName(HudCheckMode);
+        h.CheckMode = HudCheck.Name(HudCheckMode);
         h.TabMode = HudTab.Name(HudTabMode);
         h.Verified = HudVerifiedNow(now); // Program.cs: the HUD check, for the players on the server
         h.SearchVersion = Search.Version;

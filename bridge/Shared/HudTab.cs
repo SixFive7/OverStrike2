@@ -1,4 +1,4 @@
-// Clicks from the TAB screen (HUD_TAB on the bridge, css_gghud tab <mode> live) - server side only, on the published layout: no new
+// Clicks from the TAB screen (hud.tab in the settings, css_gghud tab <mode> live) - server side only, on the published layout: no new
 // Workshop item or version.
 //
 // While TAB is held the client shows the board beside the scoreboard by itself (the layout's HUD_SCOREBOARD_VISIBLE rule). A custom HUD
@@ -21,15 +21,10 @@ public sealed class HudTab
     public enum Act { OpenMenu, CursorOn, CursorOff }
 
     public const ulong Scoreboard = 1UL << 33, Use = 1UL << 5; // CounterStrikeSharp's PlayerButtons: IN_SCORE, IN_USE
-    public const Mode Default = Mode.Down; // HUD_TAB unset
+    public const Mode Default = Mode.Down; // hud.tab unset
 
-    /// <summary>HUD_TAB's value: down, or off. The names of the modes TAB had before (hold, window, on, menu) all mean TAB on, so they read as
-    /// down; anything else - a typo, an empty value from an older bridge - reads as off, so nothing takes a mouse by mistake.</summary>
-    public static Mode Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
-    {
-        "down" or "hold" or "window" or "on" or "chord" or "board" or "menu" => Mode.Down,
-        _ => Mode.Off,
-    };
+    /// <summary>hud.tab, and the live state's word for it: down, or off; anything else reads as off, so nothing takes a mouse by mistake.</summary>
+    public static Mode Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() == "down" ? Mode.Down : Mode.Off;
 
     public static string Name(Mode mode) => mode == Mode.Down ? "down" : "off";
 

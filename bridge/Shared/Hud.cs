@@ -35,8 +35,8 @@ public static class Hud
     /// the words stay the same while they count down; a plugin that long-polls no version gets them filled in by the bridge.</summary>
     public const string LeftToken = "{left}";
 
-    /// <summary>The query the plugin adds to its GET of the live state: whether it draws the HUD (draw=1) or runs undrawn (draw=0, no addon). Only
-    /// a drawing plugin makes the bridge open votes (the bridge's HudActive); a poll without it is an older plugin's, which counts as drawing.</summary>
+    /// <summary>The query the plugin adds to its GET of the live state: whether it draws the HUD (draw=1), or draws nothing a vote may count on (draw=0,
+    /// during a hold, while Steam does not show the HUD item: HudScreen.RequireAddon). Only a drawing plugin makes the bridge open votes (the bridge's HudActive).</summary>
     public const string DrawQuery = "draw";
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and

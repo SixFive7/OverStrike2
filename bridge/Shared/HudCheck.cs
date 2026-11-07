@@ -5,7 +5,7 @@
 // with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (HudVersion.Button: gg_hudver_v4.6.0), so its
 // click proves the exact version; an older content's gold button is the live column's action button, whose click counts as older; any other
 // button verifies the HUD without saying which (HudVersion.Older, Unknown). One who has not clicked GraceSeconds after their first spawn on a map is
-// told in chat what to do, and with HUD_CHECK=enforce disconnected; with warn only told.
+// told in chat what to do, and with hud.check enforce disconnected; with warn only told.
 //
 // A verification lives in memory, per connection: the plugin keeps it, the bridge keeps it for the players on the server and serves only those,
 // and both forget it at the player's next real join (a reconnecting player may have a new HUD). Nothing of it is written to a file.
@@ -29,19 +29,15 @@ public static class HudCheck
     /// the server); from v4.6.0 on, the version button's own fixed words are the same.</summary>
     public const string ActText = "Click to play", ActSub = "One click shows the server your HUD works";
 
-    /// <summary>HUD_CHECK: off, warn (tell, never disconnect) or enforce. "dryrun", the word the plugins before v4.6.0 know for warn, reads as warn.</summary>
+    /// <summary>hud.check, and the live state's word for it: off, warn (tell, never disconnect) or enforce; anything else is off.</summary>
     public static Mode Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
     {
-        "warn" or "dryrun" or "dry-run" or "dry" or "test" => Mode.Warn,
-        "enforce" or "on" => Mode.Enforce,
+        "warn" => Mode.Warn,
+        "enforce" => Mode.Enforce,
         _ => Mode.Off,
     };
 
     public static string Name(Mode mode) => mode switch { Mode.Warn => "warn", Mode.Enforce => "enforce", _ => "off" };
-
-    /// <summary>The mode as the live state carries it: warn as "dryrun", which a plugin before v4.6.0 reads as its dry run - and without a release's
-    /// proof, which no bridge serves any more, a dry run never disconnects anybody either.</summary>
-    public static string WireName(Mode mode) => mode == Mode.Warn ? "dryrun" : Name(mode);
 
     /// <summary>The plugin's view: the mode the bridge serves, or off while it has no fresh state from the bridge. "Fresh" is the age of the bridge's
     /// last answer, not of the last change in it: on a quiet server nothing changes for minutes.</summary>
@@ -132,7 +128,7 @@ public static class HudCheck
     /// <summary>The disconnect reason, at most ReasonMax characters with a ten-digit item id.</summary>
     public static string Reason(string addon) => $"HUD missing: 1) subscribe {ItemUrl(addon)} 2) quit CS2 3) let Steam update 4) rejoin";
 
-    /// <summary>How a player opens the window again: TAB + E opens the menu in every HUD_TAB mode but off (HudTab.cs).</summary>
+    /// <summary>How a player opens the window again: TAB + E opens the menu unless hud.tab is off (HudTab.cs).</summary>
     public const string Reopen = "hold TAB, press E";
 
     /// <summary>The warning before the disconnect (warn: the same, saying nobody is disconnected).</summary>
