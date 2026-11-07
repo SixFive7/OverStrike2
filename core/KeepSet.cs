@@ -43,7 +43,7 @@ public sealed class KeepSetResult
 ///            "rated", the best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current
 ///            subscriptions (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order;
 ///   own, hud ours.json's maps and the HUD item;
-///   queues   the bridge's random queues and the maps players have queued (queues.json).
+///   queues   the bridge's random queues, its discovery stock, and the open ballot's maps (queues.json's "requested").
 /// Problems: why the set is not to be trusted with a deletion - an input missing or unreadable, ratings older than RatingsMaxAge,
 /// scores or subscriptions for under RatedShare of a list, no Most Popular order for a mode, any of a mode's three lists under MinTop,
 /// a queue under MinQueue, no own map, no HUD item. Pure: the same inputs give the same set. The game server deletes what is outside
