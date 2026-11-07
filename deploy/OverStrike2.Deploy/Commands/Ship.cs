@@ -66,7 +66,7 @@ static class Data
 
 /// <summary>The game server's plugin (plugin/OverStrike2): build it, test it, ship the DLL to the server's plugin folder (deploy/plugin.py).
 ///
-///     plugin build             dotnet build -c Release, then the plugin's own self-test (below normal priority)
+///     plugin build             dotnet build -c Release, then the plugin's own self-test and catch-up's (below normal priority)
 ///     plugin ship              show what would change in &lt;server.plugins_dir&gt;/OverStrike2/
 ///     plugin ship --apply      copy it there, verified byte for byte
 ///
@@ -79,6 +79,7 @@ static class Plugin
     public const string Name = "OverStrike2";
     public static string Project => Repo.P("plugin", Name);
     public static string SelfTest => Repo.P("plugin", Name + ".SelfTest");
+    public static string CatchUpSelfTest => Repo.P("plugin", "CatchUp", "SelfTest");   // the CatchUp module the plugin compiles in: its decisions and real matches
     public static string OutDir => Path.Combine(Project, "bin", "Release", "net10.0");
 
     /// <summary>The config files the project copies beside the DLL - its None items with CopyToOutputDirectory, by the name they get there
@@ -120,6 +121,10 @@ static class Plugin
         Out.Log("self-test: " + LastLine(output));
         if (code != 0)
             throw Out.Fail("the plugin's self-test failed:\n" + Py.Slice(output, -2000));
+        (code, output) = Proc.Dotnet(["run", "-c", "Release"], CatchUpSelfTest);
+        Out.Log("catch-up's self-test: " + LastLine(output));
+        if (code != 0)
+            throw Out.Fail("catch-up's self-test failed:\n" + Py.Slice(output, -2000));
         return commit;
     }
 

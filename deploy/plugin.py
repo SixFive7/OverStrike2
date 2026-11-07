@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The game server's plugin (plugin/OverStrike2): build it, test it, ship the DLL to the server's plugin folder.
 
-    python deploy/plugin.py build             dotnet build -c Release, then the plugin's own self-test (below normal priority)
+    python deploy/plugin.py build             dotnet build -c Release, then the plugin's own self-test and catch-up's (below normal priority)
     python deploy/plugin.py ship              show what would change in <server.plugins_dir>/OverStrike2/
     python deploy/plugin.py ship --apply      copy it there, verified byte for byte
 
@@ -23,6 +23,7 @@ import os2  # noqa: E402
 NAME = "OverStrike2"
 PROJECT = os.path.join(os2.REPO, "plugin", NAME)
 SELFTEST = os.path.join(os2.REPO, "plugin", NAME + ".SelfTest")
+CATCHUP_SELFTEST = os.path.join(os2.REPO, "plugin", "CatchUp", "SelfTest")   # the CatchUp module the plugin compiles in: its decisions and real matches
 OUT = os.path.join(PROJECT, "bin", "Release", "net10.0")
 
 
@@ -65,6 +66,10 @@ def build():
     os2.log("self-test: " + (out.strip().splitlines() or ["(no output)"])[-1])
     if code != 0:
         os2.fail("the plugin's self-test failed:\n" + out[-2000:])
+    code, out = dotnet(["run", "-c", "Release"], CATCHUP_SELFTEST)
+    os2.log("catch-up's self-test: " + (out.strip().splitlines() or ["(no output)"])[-1])
+    if code != 0:
+        os2.fail("catch-up's self-test failed:\n" + out[-2000:])
     return commit
 
 

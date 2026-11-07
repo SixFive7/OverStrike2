@@ -393,6 +393,27 @@ static class DeployTests
         }
         check($"plugin: the project compiles core/ in, and a build refuses uncommitted changes there too ({string.Join(", ", seen)})",
               compilesCore && new[] { "plugin", "bridge", "core" }.All(seen.Contains));
+        var ran = new List<(string, string)>();
+        int? catchupFailed = null;
+        (savedClean, savedDotnet) = (Repo.CleanTree, Proc.Dotnet);
+        try
+        {
+            Repo.CleanTree = _ => "c0ffee";
+            Proc.Dotnet = (args, cwd) =>
+            {
+                ran.Add((args[0], Path.GetRelativePath(Repo.Root, cwd).Replace('\\', '/')));
+                return (0, "passed\n");
+            };
+            SelfTest.Capture(Plugin.Build);
+            Proc.Dotnet = (_, cwd) => cwd == Plugin.CatchUpSelfTest ? (1, "CatchUp self-test: 1 of 9 checks FAILED\n") : (0, "passed\n");
+            catchupFailed = SelfTest.Capture(Plugin.Build).Exit;
+        }
+        finally
+        {
+            (Repo.CleanTree, Proc.Dotnet) = (savedClean, savedDotnet);
+        }
+        check($"plugin: a build runs the plugin's self-test and catch-up's, and catch-up's failing fails the build ([{string.Join(", ", ran.Select(r => Py.Repr(r)))}])",
+              ran.SequenceEqual([("build", "plugin/OverStrike2"), ("run", "plugin/OverStrike2.SelfTest"), ("run", "plugin/CatchUp/SelfTest")]) && catchupFailed == 1);
 
         // ---- server: what ships where, only what the build made, renamed into place
         check("server: the launcher pre.sh and the three mode cfgs it ships are in the checkout",

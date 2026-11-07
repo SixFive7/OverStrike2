@@ -8,7 +8,9 @@ makes. What it checks: a running bridge and a stopped one are swapped onto the I
 has no runtime address, so a swap that checked the runtime address put the old one back), a failed swap puts it back as it was,
 and data.py ships the hand-made files but never a list the Workshop sync writes on the server (one writer per file).
 """
+import contextlib
 import copy
+import io
 import os
 import sys
 import tempfile
@@ -285,6 +287,22 @@ try:
 finally:
     os2.clean_tree, P.dotnet = saved
 check("plugin: the project compiles core/ in, and a build refuses uncommitted changes there too (%s)" % ", ".join(seen), compiles_core and {"plugin", "bridge", "core"} <= set(seen))
+ran, catchup_failed = [], None
+saved = (os2.clean_tree, P.dotnet)
+try:
+    os2.clean_tree = lambda paths: "c0ffee"
+    P.dotnet = lambda args, cwd: ran.append((args[0], os.path.relpath(cwd, os2.REPO).replace("\\", "/"))) or (0, "passed\n")
+    P.build()
+    P.dotnet = lambda args, cwd: (1, "CatchUp self-test: 1 of 9 checks FAILED\n") if cwd == P.CATCHUP_SELFTEST else (0, "passed\n")
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            P.build()
+    except SystemExit as e:
+        catchup_failed = e.code
+finally:
+    os2.clean_tree, P.dotnet = saved
+check("plugin: a build runs the plugin's self-test and catch-up's, and catch-up's failing fails the build (%s)" % ran,
+      ran == [("build", "plugin/OverStrike2"), ("run", "plugin/OverStrike2.SelfTest"), ("run", "plugin/CatchUp/SelfTest")] and catchup_failed == 1)
 
 # ---- server.py: what ships where, only what the build made, renamed into place
 import json  # noqa: E402
