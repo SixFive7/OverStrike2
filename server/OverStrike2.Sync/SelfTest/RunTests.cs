@@ -1,4 +1,4 @@
-using System.Diagnostics;
+// The sync's self-test: whole runs on stand-ins for SteamCMD and the test engine.
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
 using static OverStrike2.Sync.SelfTest.T;
@@ -6,20 +6,9 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>The exception the tests raise for a crashed run: its name is what the mail says.</summary>
-sealed class ValueError(string message) : Exception(message);
-
-/// <summary>An engine the tests count the instances of.</summary>
-sealed class SpyEngine : FakeEngine
-{
-    public static readonly List<SpyEngine> All = [];
-    public SpyEngine() => All.Add(this);
-}
-
-/// <summary>The second part: the bridge's two posts, a run's publish and finish on a bridge folder of its own, the test engine's
-/// stop with real processes, whole runs in batches on stand-ins for SteamCMD and the test engine, the problem mail, the status file, a join
-/// during the tests, Steam's push-back, the stalls, a map gone from the Workshop, and the run's clock.</summary>
-static class Part2
+/// <summary>Whole runs in batches on stand-ins for SteamCMD and the test engine: the status file, a join during the tests, Steam's
+/// push-back, the stalls, a map gone from the Workshop, workshop.json.</summary>
+static class RunTests
 {
     public const double T0 = 1793540000.0;           // an afternoon
     public static JsonObject StateAfter = [];
@@ -35,151 +24,6 @@ static class Part2
         if (stopCheck())
             return O($"{{\"id\": \"{wid}\", \"verdict\": \"abort\", \"reason\": \"somebody came on the game server\"}}");
         return O($"{{\"id\": \"{wid}\", \"verdict\": \"pass\", \"reason\": \"loads\", \"level\": \"lvl\", \"load_s\": 1.0, \"mode\": \"wingman\", \"bots\": 0}}");
-    }
-
-    public static void Run()
-    {
-        var root = T.Root;
-        Bridge(root);
-        Engines();
-        WholeRun(root);
-        ProblemMail(root);
-        StatusFile();
-        Join();
-        Stops();
-        Stalls();
-        Gone();
-        WorkshopJson();
-        Clock();
-    }
-
-    // ---- the bridge: the verdicts report and the reload, against a stand-in bridge on localhost; a run's publish and finish end to end
-    static void Bridge(string root)
-    {
-        using var srv = new MiniHttp();
-        (BridgeUrl, BridgeSecret) = ($"http://127.0.0.1:{srv.Port}", "s3cr3t");
-        var one = W.Run(Cfg(), new FakeClock(1793500000.0));
-        var (reached, ans) = one.ReportVerdicts([("111", "ok"), ("222", "removed"), ("333", "hidden")]);
-        Check("bridge: the verdicts go to POST /removed/<secret> in the plugin's format (magic line, id TAB verdict)",
-              srv.Got[0].Path == "/removed/s3cr3t" && srv.Got[0].Body == "gg-removed\t1\n111\tok\n222\tremoved\n333\thidden\n" && (srv.Got[0].ContentType ?? "").StartsWith("text/plain", StringComparison.Ordinal));
-        Check("bridge: its answer is kept for the report, and it arrived", reached && ans.StartsWith("3 checked", StringComparison.Ordinal));
-        Check("bridge: POST /reload/<secret> after a publish", one.Reload() == "reload: maps: 9 maps" && srv.Got[1].Path == "/reload/s3cr3t");
-        var data = Data;
-        Directory.CreateDirectory(data);
-        const string liveMaps = "[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}, {\"rank\": 2, \"id\": 222, \"name\": \"b\", \"sizeMb\": 7}]";
-        const string liveBroken = "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [{\"id\": 3659287341}], \"blocked\": []}";
-        File.WriteAllText(Path.Combine(data, "maps.json"), Node.File(A(liveMaps), 1));
-        File.WriteAllText(Path.Combine(data, "broken.json"), Node.File(O(liveBroken), 2));
-        File.WriteAllText(Path.Combine(data, "search.json"), Node.File(O("{\"111\": \"a 111\", \"222\": \"b 222\"}"), 0));
-        var nt = W.Run(Cfg(), new FakeClock(1793500000.0));
-        nt.Ledger.Load();
-        nt.State.Load();
-        nt.VerdictsToReport = [("111", "ok"), ("222", "removed")];
-        var passRec = O("{\"title\": \"new map\", \"tags\": [\"Armsrace\", \"Wingman\"], \"size\": 20971520, \"subs\": 3, \"lifetime\": 3, \"description\": \"d\", \"status\": \"tested\", \"verdict\": \"pass\", \"updated\": 1793400000}");
-        var packRec = O("{\"title\": \"a pack\", \"tags\": [\"Armsrace\"], \"size\": 1048576, \"status\": \"tested\", \"verdict\": \"nonmap\", \"preview\": \"\", \"description\": \"\"}");
-        nt.State.Data["items"] = new JsonObject { ["901"] = passRec, ["902"] = packRec };
-        lock (srv.Got)
-            srv.Got.Clear();
-        var files0 = BridgeData.Read(nt.Cfg.BridgeData);
-        Check("blocked.json: none in the bridge's folder - none blocked, and no problem", files0.Blocked.Count == 0);
-        File.WriteAllText(Path.Combine(data, "blocked.json"), "[{\"id\": 3076804331, \"name\": \"x\", \"map\": \"x\", \"reason\": \"r\"}]");
-        Check("blocked.json: read when it is there", BridgeData.Read(nt.Cfg.BridgeData).BlockedIds().SetEquals(["3076804331"]));
-        File.WriteAllText(Path.Combine(data, "blocked.json"), "{\"blocked\": 5}");
-        try
-        {
-            BridgeData.Read(nt.Cfg.BridgeData);
-            Check("blocked.json: one that is no list stops the publish (ValueError)", false);
-        }
-        catch (BadDataException e)
-        {
-            Check("blocked.json: one that is no list stops the publish (ValueError)", e.Message.Contains("blocked.json"));
-        }
-        File.Delete(Path.Combine(data, "blocked.json"));
-        nt.Publish([new("901", "pass", O("{\"level\": \"x\"}"), passRec), new("902", "nonmap", O("{\"kind\": \"pack\", \"detail\": \"models\"}"), packRec)],
-                   [("222", "removed")], new Dictionary<string, JsonObject>());
-        var after = (JsonArray)Read(Path.Combine(data, "maps.json"))!;
-        Check("run: the pass is appended to the live maps.json as #3",
-              Node.Eq(new JsonArray(after.Take(2).Select(e => e?.DeepClone()).ToArray()), A(liveMaps)) && Node.Int(after[2]!["id"]) == 901 && Node.Int(after[2]!["rank"]) == 3);
-        var brokenNow = Read(Path.Combine(data, "broken.json"))!;
-        Check("run: the pack joined broken.json's packs, the removed seed untouched",
-              Node.Arr(brokenNow["packs"]).Select(p => Node.Int(p!["id"])).SequenceEqual([902L]) && Node.Eq(brokenNow["removed"], A("[{\"id\": 3659287341}]")));
-        Check("run: the Wingman list is created with the pass", Node.Arr(Read(Path.Combine(data, "maps-wingman.json"))).Select(e => Node.Int(e!["id"])).SequenceEqual([901L]));
-        Check("run: the verdicts went to /removed, then the files were reloaded",
-              srv.Got.Select(g => g.Path).SequenceEqual(["/removed/s3cr3t", "/reload/s3cr3t"]) && srv.Got[0].Body.Contains("222\tremoved"));
-        Check("run: the old files are backed up", Directory.GetDirectories(Path.Combine(nt.Cfg.StateDir, "backups")).Length == 1);
-        Check("run: search.json, written after the reload (the reload does not read it), holds the new map",
-              ((JsonObject)Read(Path.Combine(data, "search.json"))!).ContainsKey("901") && Node.StrList(Node.Get(nt.Report["published"], "files")).Contains("search.json"));
-        Check("run: both items are marked published", Node.Str(passRec["status"]) == "published" && Node.Str(packRec["status"]) == "published");
-        // a file that changed under the plan is planned again; a result that is not the live files plus additions is refused
-        var nt2 = W.Run(Cfg(), new FakeClock(1793500100.0));
-        nt2.Ledger.Load();
-        nt2.State.Load();
-        var rec3 = O("{\"title\": \"third\", \"tags\": [\"Armsrace\"], \"size\": 1048576, \"subs\": 1, \"status\": \"tested\", \"verdict\": \"pass\", \"updated\": 1}");
-        var grown = (JsonArray)after.DeepClone();
-        grown.Add(O("{\"rank\": 4, \"id\": 950, \"name\": \"added by the release\", \"sizeMb\": 1}"));
-        File.WriteAllText(Path.Combine(data, "maps.json"), Node.File(grown, 1));
-        nt2.Publish([new("903", "pass", O("{\"level\": \"y\"}"), rec3)], [], new Dictionary<string, JsonObject>());
-        var nowMaps = (JsonArray)Read(Path.Combine(data, "maps.json"))!;
-        Check("run: a maps.json that grew meanwhile is merged into, never written from the older copy",
-              Node.Eq(new JsonArray(nowMaps.Take(4).Select(e => e?.DeepClone()).ToArray()), grown) && Node.Int(nowMaps[4]!["id"]) == 903 && Node.Int(nowMaps[4]!["rank"]) == 5);
-        nt.Finish();
-        var repTxt = Directory.GetFiles(Path.Combine(nt.Cfg.StateDir, "reports"), "*.txt");
-        Check("run: the report and its text are written; a run without a problem mails nothing",
-              repTxt.Length > 0 && Node.Str(nt.Report["mail"]).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && Node.Arr(nt.Report["issues"]).Count == 0);
-        (BridgeUrl, BridgeSecret) = ("", "");
-    }
-
-    // ---- the test engine's stop, with real processes: a wrapper that dies at the SIGTERM over an engine that does not
-    static void Engines()
-    {
-        if (!OperatingSystem.IsLinux())
-        {
-            foreach (var name in new[] { "engine stop: the group is up before the stop", "engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group",
-                                         "engine stop under a SIGTERM: the signals still go, and no frozen engine stays", "engine stop under a SIGTERM: ... and the stop goes on up",
-                                         "engine start: nothing answering is a refusal (not run)", "engine start: an engine still running from the test tree is killed first",
-                                         "engine start: its own attempt is gone again" })
-                Linux(name, () => false);
-            return;
-        }
-        var stopRoot = Dir("engine-stop");
-        var real = new SyncClock(SystemClock.Instance, Paris);
-        var te = new TestEngine(Cfg(), stopRoot, stopRoot, real, Log.Line) { QuitWait = 0, StopWait = 1 };
-        var wrapper = Native.StartSession(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
-        te.Adopt(wrapper);
-        Thread.Sleep(1000);
-        var stopPgid = wrapper.Id;
-        Check("engine stop: the group is up before the stop", Native.GroupAlive(stopPgid));
-        te.Stop();
-        Check("engine stop: a frozen engine goes with its wrapper, by SIGKILL on the group", !Native.GroupAlive(stopPgid) && !te.HasProcess);
-        var going = new TestEngine(Cfg(), stopRoot, stopRoot, new SyncClock(new EndingClock(T0, T0), Paris), Log.Line);   // every wait of this clock throws at once
-        var frozen = Native.StartSession(["bash", "-c", "bash -c 'trap \"\" TERM; exec sleep 300' & wait"], stopRoot, null, false);
-        going.Adopt(frozen);
-        Thread.Sleep(1000);
-        var frozenPgid = frozen.Id;
-        var wentUp = false;
-        try
-        {
-            going.Stop();
-        }
-        catch (StopRequested)
-        {
-            wentUp = true;
-        }
-        for (var i = 0; i < 30 && Native.GroupAlive(frozenPgid); i++)
-            Thread.Sleep(100);
-        Check("engine stop under a SIGTERM: the signals still go, and no frozen engine stays", !Native.GroupAlive(frozenPgid) && !going.HasProcess);
-        Check("engine stop under a SIGTERM: ... and the stop goes on up", wentUp);
-        var treeBin = Path.Combine(stopRoot, "farm", "game", "bin");
-        Directory.CreateDirectory(treeBin);
-        File.Copy("/bin/sleep", Path.Combine(treeBin, "cs2"));
-        var stale = Process.Start(Path.Combine(treeBin, "cs2"), "300");
-        File.WriteAllText(Path.Combine(stopRoot, "farm", "game", "cs2.sh"), "#!/bin/bash\nsleep 300\n");
-        File.SetUnixFileMode(Path.Combine(stopRoot, "farm", "game", "cs2.sh"), (UnixFileMode)0b111_101_101);
-        Thread.Sleep(300);
-        var (okStart, whyStart) = te.Start(2);
-        Check($"engine start: nothing answering is a refusal ({whyStart})", !okStart && whyStart.Contains("did not answer"));
-        Check("engine start: an engine still running from the test tree is killed first", stale.WaitForExit(5000) && stale.ExitCode == 137);
-        Check("engine start: its own attempt is gone again", !te.HasProcess);
     }
 
     public static void FakeWorld()
@@ -211,7 +55,7 @@ static class Part2
     static string StateFile => Path.Combine(RunRoot, "state", "state.json");
 
     // ---- a whole run in batches, on stand-ins for SteamCMD and the test engine
-    static void WholeRun(string root)
+    internal static void WholeRun(string root)
     {
         FakeWorld();
         RunRoot = Path.Combine(root, "run");
@@ -232,7 +76,7 @@ static class Part2
         RunCfg = cfg;
         var fc = new FakeClock(T0);
         var nr = W.Run(cfg, fc);
-        FakeSteam.Answers = new() { ["1002"] = "Rate Limit Exceeded" };   // Steam pushes back at the sixth: no daily cap ends a run any more, that does
+        FakeSteam.Answers = new() { ["1002"] = "Rate Limit Exceeded" };   // Steam pushes back at the sixth, and that ends the run's downloads
         var rep = nr.Run();
         FakeSteam.Answers = [];
         Check("run: a new upload first, then strictly by subscribers", FakeSteam.Asked.Take(5).SequenceEqual(["2000", "1006", "1005", "1004", "1003"]));
@@ -252,112 +96,6 @@ static class Part2
         Check("run: the estimate counts on the day without the restarts' stretches", Node.Float(Node.Get(rep["backlog"], "hours")) == 22);
         Check("run: Steam's push-back is a problem the mail names (not sent here: no SMTP host)",
               Node.StrList(rep["issues"]).Any(i => i.Contains("SteamCMD pushed back")) && Node.Str(rep["mail"]).StartsWith("NOT sent: no SMTP host", StringComparison.Ordinal));
-    }
-
-    public static readonly JsonObject Quiet = O("""
-        {"day": "2026-11-03", "started_hm": "12:00", "ended_hm": "15:00",
-         "downloads": {"stop": "the run's deadline (time is kept for this batch's tests)", "stop_kind": "routine"},
-         "tests": {"stop": "somebody was on the server until the deadline", "stop_kind": "routine"}, "serve": {"stop": "the run's deadline", "stop_kind": "routine"},
-         "errors": []}
-        """);
-
-    public static JsonObject QuietWith(params (string Key, JsonNode? Value)[] fields)
-    {
-        var c = (JsonObject)Quiet.DeepClone();
-        foreach (var (k, v) in fields)
-            c[k] = v?.DeepClone();
-        return c;
-    }
-
-    // ---- the issues-only mail: what counts, what does not, the words, once a day per problem
-    static void ProblemMail(string root)
-    {
-        Check("issues: a run that ended at its deadline, or waited for players, is no problem", Issues.Of(Quiet).Count == 0);
-        // the downloading steps' stops come from SteamSession itself, so a stop reworded keeps its problem: the mail goes by their kinds
-        Stop? Failing(params string[] reasons)
-        {
-            var session = new SteamSession(new ScriptedSteam(true), new DownloadBudget(new SyncState(Path.Combine(root, "issues-session.json")), "2026-11-01"),
-                                           (_, _, _) => true, _ => { });
-            return reasons.Select(r => session.Failed("1", r)).LastOrDefault(s => s is not null);
-        }
-        var noLogin = new SteamSession(new ScriptedSteam(false, "no answer"), new DownloadBudget(new SyncState(Path.Combine(root, "issues-session.json")), "2026-11-01"),
-                                       (_, _, _) => true, _ => { }).Ready(0);
-        var stops = new (string Step, Stop? Stop, string Key)[]
-        {
-            ("downloads", Failing("Rate Limit Exceeded"), "steamcmd-pushback"),
-            ("serve", Failing("Access Denied", "Access Denied"), "steamcmd-pushback"),
-            ("downloads", Failing("Failure", "Failure", "Failure"), "downloads-in-a-row"),
-            ("downloads", noLogin, "steamcmd"),
-            ("serve", Failing(SteamCmdWords.NotRunning), "steamcmd"),
-            ("serve", new Stop(Stop.HandOversWaiting, "205.0 GB of hand-overs wait for the server already"), "handovers-waiting"),
-            ("tests", new Stop(Stop.TestEngine, "test engine did not answer in 90 s"), "test-engine"),
-            ("tests", new Stop(Stop.TestTree, "the test tree could not be built: disk full"), "tests-stopped"),
-        };
-        foreach (var (step, stop, key) in stops)
-        {
-            var part = new JsonObject();
-            stop?.Into(part);
-            var got = Issues.Of(QuietWith((step, part)));
-            Check($"issues: {key} counts, by its stop's kind {stop?.Kind ?? "none"} ({(got.Count > 0 ? Text.Cut(got[0].What, 70) : "nothing")})",
-                  stop is not null && got.Count == 1 && got[0].Key == key && got[0].Did.Length > 0);
-        }
-        var cases = new (string Extra, string Key)[]
-        {
-            ("""{"api_stop": "Steam's Web API answered HTTP 429 to QueryFiles - every API step stops for the rest of the day"}""", "steam-webapi"),
-            ("""{"discovery": {"skipped": "failed: HTTP 500", "failed": true}}""", "discovery-failed"),
-            ("""{"published": {"verdicts": "the report failed (HTTP Error 502) - the next check reports again", "verdicts_failed": true}}""", "verdicts-not-reported"),
-            ("""{"check": {"suspicious": true}}""", "check-not-believed"),
-            ("""{"serve": {"handover_failed": [["305", "its folder is empty"]]}}""", "handover-failed"),
-            ("""{"disk": {"low": "80.0 GB free on the game's volume (the mark is 100.0 GB)"}}""", "disk-low"),
-            ("""{"watcher_keep": {"computed": "the next morning", "problems": ["ratings.json is 80 h old (at most 72 h)"]}}""", "deletion-refused:"),
-            ("""{"errors": ["the bridge's data cannot be read (x) - nothing done in this run"]}""", "error:"),
-        };
-        foreach (var (extra, key) in cases)
-        {
-            var got = Issues.Of(QuietWith(O(extra).Select(kv => (kv.Key, kv.Value)).ToArray()));
-            Check($"issues: {key} counts ({(got.Count > 0 ? Text.Cut(got[0].What, 70) : "nothing")})", got.Count == 1 && got[0].Key.StartsWith(key, StringComparison.Ordinal) && got[0].Did.Length > 0);
-        }
-        var sentMails = new List<(string Subject, string Body)>();
-        var realSend = Hooks.SendMail;
-        Hooks.SendMail = (_, subject, body) =>
-        {
-            sentMails.Add((subject, body));
-            return null;
-        };
-        var icfg = Cfg();
-        icfg.StateDir = Path.Combine(root, "issues-state");
-        Directory.CreateDirectory(icfg.StateDir);
-        File.WriteAllText(Path.Combine(icfg.StateDir, "dashboard-url"), "https://dash.example/\n");
-        // the dashboard's address is a settings key now (sync.mail.dashboardUrl): a file in the state folder means nothing
-        var withFile = new JsonObject { ["schema"] = 1, ["paths"] = new JsonObject { ["syncState"] = "/" + icfg.StateDir.Replace('\\', '/').TrimStart('/') } }.ToJsonString();
-        Check("issues: the dashboard's address is SYNC_DASHBOARD_URL alone - a <state>/dashboard-url file means nothing",
-              SyncConfig.From(Settings.Parse(withFile, Part.Sync, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "");
-        var withKey = """{ "schema": 1, "sync": { "mail": { "dashboardUrl": "https://dash.example/" } } }""";
-        Check("issues: ... and set there, it is the one the mails point to",
-              SyncConfig.From(Settings.Parse(withKey, Part.Sync, _ => null, _ => throw new FileNotFoundException()), _ => null).DashboardUrl == "https://dash.example/");
-        icfg.DashboardUrl = "https://dash.example/";
-        var ic = new FakeClock(T0);
-        var probs = Issues.Of(QuietWith(("api_stop", "Steam's Web API answered HTTP 429 to QueryFiles"), ("report_path", "/x/r.json")));
-        var out1 = Issues.Mail(icfg, C(ic), probs, QuietWith(("report_path", "/x/r.json")), Hooks.SendMail, Log.Line);
-        Check("issues: a problem is mailed - what went wrong, what the sync did, the dashboard, the report",
-              out1.StartsWith("sent", StringComparison.Ordinal) && sentMails.Count == 1 && sentMails[0].Body.Contains("What went wrong: Steam's Web API pushed back")
-              && sentMails[0].Body.Contains("What the sync did: Every Web API step stopped") && sentMails[0].Body.Contains("The dashboard: https://dash.example/")
-              && sentMails[0].Body.Contains("/x/r.txt") && sentMails[0].Subject.Contains("pushed back"));
-        ic.T += 3600;
-        var out2 = Issues.Mail(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
-        Check("issues: the same problem an hour later is not mailed again", out2.StartsWith("NOT sent: every problem", StringComparison.Ordinal) && sentMails.Count == 1);
-        var probs2 = probs.Concat(Issues.Of(QuietWith(("disk", O("{\"low\": \"50 GB free\"}"))))).ToList();
-        var out3 = Issues.Mail(icfg, C(ic), probs2, Quiet, Hooks.SendMail, Log.Line);
-        Check("issues: a new problem is mailed, the ongoing one named as still going on", out3.StartsWith("sent", StringComparison.Ordinal) && sentMails.Count == 2
-              && sentMails[1].Body.Contains("disk is running low") && sentMails[1].Body.Contains("Still going on, mailed already in the last day: Steam's Web API"));
-        ic.T += 21 * 3600;
-        Issues.Mail(icfg, C(ic), probs, Quiet, Hooks.SendMail, Log.Line);
-        Check("issues: a problem that persists is mailed again once a day", sentMails.Count == 3);
-        Check("issues: no problem, no mail", Issues.Mail(icfg, C(ic), [], Quiet, Hooks.SendMail, Log.Line).StartsWith("NOT sent: no problem", StringComparison.Ordinal) && sentMails.Count == 3);
-        var crash = Issues.MailCrash(icfg, C(ic), new ValueError("boom"), false, Hooks.SendMail, Log.Line);
-        Check("issues: a run that crashed is mailed from the service", crash.StartsWith("sent", StringComparison.Ordinal) && sentMails[^1].Body.Contains("The run failed: ValueError('boom')"));
-        Check("issues: ...once a day too", Issues.MailCrash(icfg, C(ic), new ValueError("boom 2"), false, Hooks.SendMail, Log.Line).StartsWith("NOT sent: every problem", StringComparison.Ordinal));
-        Hooks.SendMail = realSend;
     }
 
     /// <summary>What in `doc` breaks schema 1 (the dashboard's contract: fields may be added, never renamed or dropped).</summary>
@@ -455,7 +193,7 @@ static class Part2
     }
 
     // ---- the status file for the in-game dashboard (schema 1): written by the run into the bridge's data, atomically
-    static void StatusFile()
+    internal static void StatusFile()
     {
         var sp = Path.Combine(RunData, "sync-status.json");
         var sdoc = Read(sp)!;
@@ -493,7 +231,7 @@ static class Part2
     }
 
     // ---- somebody joins during a test: the engine stops at once, nothing runs until the quiet time is over
-    static void Join()
+    internal static void Join()
     {
         Loads.Clear();
         FakeSteam.Logins = 0;
@@ -535,7 +273,7 @@ static class Part2
     }
 
     // ---- a rate limit: no more downloads that day, also for a later run; one access-denied item is that item
-    static void Stops()
+    internal static void Stops()
     {
         AddItems(("3001", 5000, "denied"), ("3002", 4000, "fine"), ("3003", 3000, "limited"), ("3004", 2000, "never reached"));
         FakeSteam.Answers = new() { ["3001"] = "Access Denied", ["3003"] = "Rate Limit Exceeded" };
@@ -553,7 +291,7 @@ static class Part2
 
     // ---- a SteamCMD stall: one is routine - a fresh session takes the next map and the downloads go on, nothing to mail; a second stall
     // in a run ends its downloads, and that, or one map stalling twice in a day, is a problem for the mail
-    static void Stalls()
+    internal static void Stalls()
     {
         HumansNow[0] = 0;
         var cfg3 = Cfg();
@@ -581,7 +319,7 @@ static class Part2
 
     // ---- a listed map gone from the Workshop: the run's check has it, its event comes once - when the bridge's removed.json does not hold
     // that verdict yet - and verdicts that do not reach the bridge are a problem (the only check)
-    static void Gone()
+    internal static void Gone()
     {
         File.WriteAllText(Path.Combine(RunData, "removed.json"), "{\"checked\": \"x\", \"verdicts\": {\"11\": \"ok\"}}");
         Hooks.Check = (_, _, _, _, _) => (new Dictionary<string, JsonObject> { ["11"] = O("{\"publishedfileid\": \"11\", \"result\": 9}") }, []);
@@ -621,7 +359,7 @@ static class Part2
     // ---- workshop.json (the bridge's discovery stock reads it, bridge/Popularity.cs): every listed map with the Workshop's numbers as the
     // check saw them, and "passed", the time_updated of the content the sync accepts - the baseline, our own maps' newest; a passing test of
     // new content moves it up to it. The export carries the random queues as queues.json holds them
-    static void WorkshopJson()
+    internal static void WorkshopJson()
     {
         var wroot = Path.Combine(T.Root, "wsj");
         var wdata = Path.Combine(wroot, "data");
@@ -674,34 +412,5 @@ static class Part2
         });
         (State, Work, Data) = saved;
         Hooks.Check = (_, _, _, _, _) => ([], []);
-    }
-
-    // ---- no time windows: a run lasts sync.runHours, cut short before the restarts; the service starts one whenever nobody plays and work waits
-    static void Clock()
-    {
-        var fcd = new FakeClock(T0 + 3 * 86400);
-        var c = C(fcd);
-        var day0 = c.AtTime(new TimeOfDay(0, 0));
-        string Hm(double ts) => c.Hm(ts);
-        fcd.T = day0 + 12 * 3600;
-        Check("run: at noon a run lasts 3 h", Hm(W.Run(Cfg(), fcd).Deadline) == "15:00");
-        fcd.T = day0 + 5 * 3600;
-        Check("run: at 05:00 it ends at 06:45, before the 07:00 restart", Hm(W.Run(Cfg(), fcd).Deadline) == "06:45");
-        fcd.T = day0 + 2 * 3600;
-        Check("run: at 02:00 it runs its 3 h - no prefetch to keep clear of", Hm(W.Run(Cfg(), fcd).Deadline) == "05:00");
-        var cfgs = Cfg();
-        Check("service: no start in the daily restart's stretch (06:45-07:10)", Service.StartBlocked(cfgs, c, day0 + 6.9 * 3600) is not null && Service.StartBlocked(cfgs, c, day0 + 7.2 * 3600) is null);
-        Check("service: the night is the sync's - a run may start at 03:10 and at 03:30, nothing waits for a prefetch",
-              Service.StartBlocked(cfgs, c, day0 + (3 * 60 + 10) * 60) is null && Service.StartBlocked(cfgs, c, day0 + 3.5 * 3600) is null
-              && typeof(Service).GetMethods().All(m => !m.Name.Contains("Prefetch", StringComparison.Ordinal)) && typeof(SyncRun).GetMethods().All(m => !m.Name.Contains("Prefetch", StringComparison.Ordinal)));
-        var at0630 = Service.StartBlocked(cfgs, c, day0 + 6.5 * 3600);
-        Check($"service: no run with under 20 minutes before the daily restart's cut: at 06:30 it would end at 06:45 ({at0630 ?? "None"}) - at 06:20 one starts",
-              (at0630 ?? "").Contains("daily restart") && Service.StartBlocked(cfgs, c, day0 + (6 * 60 + 20) * 60) is null);
-        fcd.T = day0 + 12 * 3600;
-        Check("service: work waits while maps are queued, unless Steam stopped today's downloads; or when the API steps are due",
-              Service.WorkWaits(cfgs, c, new JsonObject { ["items"] = O("{\"1\": {\"status\": \"queued\"}}"), ["last_api"] = fcd.T })
-              && !Service.WorkWaits(cfgs, c, new JsonObject { ["items"] = O("{\"1\": {\"status\": \"queued\"}}"), ["last_api"] = fcd.T, ["downloads"] = new JsonObject { [c.Day()] = O("{\"stop\": \"x\"}") } })
-              && Service.WorkWaits(cfgs, c, new JsonObject { ["items"] = new JsonObject(), ["last_api"] = fcd.T - 5 * 3600 })
-              && !Service.WorkWaits(cfgs, c, new JsonObject { ["items"] = new JsonObject(), ["last_api"] = fcd.T }));
     }
 }

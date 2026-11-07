@@ -1,3 +1,4 @@
+// The sync's self-test: a map's record and the state folder over days.
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
 using static OverStrike2.Sync.SelfTest.T;
@@ -5,31 +6,16 @@ using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>A clock for a whole service loop: Sleep moves it on, and past the end it says stop, as the service's own clock does at a SIGTERM.</summary>
-sealed class EndingClock(double t, double end) : IClock
+/// <summary>A map's record and the state folder over days: what a run cut short leaves, a new version that fails its test, the tries per
+/// content version, what the state folder keeps.</summary>
+static class LifetimeTests
 {
-    public double T { get; private set; } = t;
-    public DateTimeOffset Now => SyncClock.At(T);
-
-    public void Sleep(TimeSpan span)
-    {
-        if (span > TimeSpan.Zero)
-            T += span.TotalSeconds;
-        if (T >= end)
-            throw new StopRequested();
-    }
-}
-
-/// <summary>A map's record and the state folder over days: a new version that fails its test, the download tries per content version, and
-/// what the state folder keeps.</summary>
-static class Lifetimes
-{
-    const double T0 = Part2.T0;                       // an afternoon
+    const double T0 = RunTests.T0;                       // an afternoon
     const double Hour = 3600;
     const long U0 = 1793000000, U1 = U0 + 1000, U2 = U0 + 2000;
     const string Fails = "ERROR! Download item failed (Failure).";
 
-    public static void Run()
+    internal static void Run()
     {
         LeftBehind();
         FailedVersion();
@@ -66,8 +52,8 @@ static class Lifetimes
     /// <summary>A fresh world: the listed maps on the bridge's list, a state with these records, the API steps due.</summary>
     static SyncConfig World(string name, JsonObject items, JsonObject baseline, double lastApi, IReadOnlySet<string>? unlisted = null)
     {
-        Part2.FakeWorld();
-        Part2.HumansNow[0] = 0;
+        RunTests.FakeWorld();
+        RunTests.HumansNow[0] = 0;
         (FakeSteam.Asked, FakeSteam.Answers) = ([], []);
         var root = Dir(name);
         (W.State, Work, Data, GameRoot, Depotcache, BridgeUrl, BridgeSecret) =

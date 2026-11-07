@@ -225,3 +225,127 @@ sealed class MiniHttp : IDisposable
         listener.Stop();
     }
 }
+
+/// <summary>The exception the tests raise for a crashed run: its name is what the mail says.</summary>
+sealed class TestFailure(string message) : Exception(message);
+
+/// <summary>An engine the tests count the instances of.</summary>
+sealed class SpyEngine : FakeEngine
+{
+    public static readonly List<SpyEngine> All = [];
+    public SpyEngine() => All.Add(this);
+}
+
+/// <summary>SteamCMD that writes an acf naming the item it just downloaded (alone), and once it quits every item of its session still staged, as
+/// the real one's acf is complete by then. A hand-over that could not read the acf at once waits for that quit; on Windows a read can be refused
+/// for a moment when something else has the new file open, and on this clock the 20 s the run waits for the entry take no time at all.</summary>
+sealed class AcfSteam(string installDir) : FakeSteam(installDir)
+{
+    readonly List<string> session = [];
+
+    string Acf => Path.Combine(InstallDir, "steamapps", "workshop", "appworkshop_730.acf");
+
+    void WriteAcf(IEnumerable<string> wids) =>
+        File.WriteAllText(Acf, "\"AppWorkshop\"\n{\n\t\"WorkshopItemsInstalled\"\n\t{\n"
+                               + string.Concat(wids.Select(w => $"\t\t\"{w}\"\n\t\t{{\n\t\t\t\"size\"\t\t\"1\"\n\t\t\t\"timeupdated\"\t\t\"9\"\n\t\t\t\"manifest\"\t\t\"4{w}\"\n\t\t}}\n")) + "\t}\n}\n");
+
+    public override (bool Ok, string Reason, long Bytes) Download(string wid)
+    {
+        var ok = base.Download(wid);
+        session.Add(wid);
+        WriteAcf([wid]);
+        return ok;
+    }
+
+    public override void Stop()
+    {
+        var staged = session.Where(w => Directory.Exists(Path.Combine(InstallDir, "steamapps", "workshop", "content", "730", w))).ToList();
+        if (staged.Count > 0)
+            WriteAcf(staged);
+        session.Clear();
+    }
+}
+
+/// <summary>SteamCMD at its worst: its acf names the downloads only once it quits.</summary>
+sealed class LateAcfSteam(string installDir) : FakeSteam(installDir)
+{
+    public static readonly List<string> Got = [];
+    public static Action<Dictionary<string, string>> WriteAcf = _ => { };
+
+    public override (bool Ok, string Reason, long Bytes) Download(string wid)
+    {
+        Got.Add(wid);
+        return base.Download(wid);
+    }
+
+    public override void Stop()
+    {
+        if (Got.Count > 0)
+            WriteAcf(Got.ToDictionary(w => w, _ => "200"));
+    }
+}
+
+/// <summary>A test-engine stand-in that is gone the moment it is asked: the real test load runs its first steps and says crash.</summary>
+sealed class DownEngine : ITestEngine
+{
+    public static readonly List<string> Sent = [];
+    sealed class NoLines : ILines
+    {
+        public List<string> Lines() => [];
+    }
+    public int Starts { get; set; }
+    public ILines? Tail { get; } = new NoLines();
+    public bool Alive() => false;
+    public (bool Ok, string Why) Start() => (false, "no");
+    public void Stop()
+    {
+    }
+    public string? Rcon(string command)
+    {
+        Sent.Add(command);
+        return "";
+    }
+    public EngineInfo? A2s() => null;
+}
+
+/// <summary>A ratings API stand-in: scores for some ids, Most Popular orders per tag, a stop after some calls.</summary>
+sealed class VoteApi(Dictionary<string, double> scores, int? stopAfter = null, Dictionary<string, List<string>>? trends = null) : IWorkshopApi
+{
+    public Dictionary<string, int> ByApi { get; } = [];
+    public readonly List<string> Asked = [];
+    public readonly List<(string Tag, int Days)> Tags = [];
+
+    public Dictionary<string, JsonArray> Votes(IReadOnlyList<string> ids)
+    {
+        ByApi["GetDetails"] = ByApi.GetValueOrDefault("GetDetails") + 1;
+        if (stopAfter is { } n && ByApi["GetDetails"] > n)
+            throw new StopApiException("HTTP 429");
+        Asked.AddRange(ids);
+        return ids.Where(scores.ContainsKey).ToDictionary(w => w, w => new JsonArray(scores[w], 1, 0, 5));
+    }
+
+    public (List<string> Ids, string NextCursor, long Total) Trend(string tag, string cursor, int days, int perPage = 100)
+    {
+        Tags.Add((tag, days));
+        var list = trends?.GetValueOrDefault(tag) ?? [];
+        return ([.. list], "", list.Count);
+    }
+
+    public (List<JsonObject> Items, string NextCursor, long Total) QueryFiles(IReadOnlyList<string> tags, string cursor, int perPage) => throw new NotSupportedException();
+    public Dictionary<string, JsonObject> Details(IReadOnlyList<string> ids) => throw new NotSupportedException();
+}
+
+/// <summary>A clock for a whole service loop: Sleep moves it on, and past the end it says stop, as the service's own clock does at a SIGTERM.</summary>
+sealed class EndingClock(double t, double end) : IClock
+{
+    public double T { get; private set; } = t;
+    public DateTimeOffset Now => SyncClock.At(T);
+
+    public void Sleep(TimeSpan span)
+    {
+        if (span > TimeSpan.Zero)
+            T += span.TotalSeconds;
+        if (T >= end)
+            throw new StopRequested();
+    }
+}

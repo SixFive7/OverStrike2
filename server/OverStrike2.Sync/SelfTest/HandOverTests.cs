@@ -1,137 +1,24 @@
-using System.Reflection;
+// The sync's self-test: the keep set, the scores and the hand-over to the game server.
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
 using MapsFolder = OverStrike2.Server.MapsFolder;
+using ServerConfig = OverStrike2.Server.ServerConfig;
+using ServerLog = OverStrike2.Server.Log;
+using ServerPaths = OverStrike2.Server.ServerPaths;
 using static OverStrike2.Sync.SelfTest.T;
 using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
 
-/// <summary>SteamCMD that writes an acf naming the item it just downloaded (alone), and once it quits every item of its session still staged, as
-/// the real one's acf is complete by then. A hand-over that could not read the acf at once waits for that quit; on Windows a read can be refused
-/// for a moment when something else has the new file open, and on this clock the 20 s the run waits for the entry take no time at all.</summary>
-sealed class AcfSteam(string installDir) : FakeSteam(installDir)
+/// <summary>The acf, the keep set (core's), the scores and the ratings, the queue, the hand-over and its marker, serve, the staging
+/// folder's clean-up and tidy, reshaped inputs, and the hand-over taken in by the restart watcher's own code.</summary>
+static class HandOverTests
 {
-    readonly List<string> session = [];
-
-    string Acf => Path.Combine(InstallDir, "steamapps", "workshop", "appworkshop_730.acf");
-
-    void WriteAcf(IEnumerable<string> wids) =>
-        File.WriteAllText(Acf, "\"AppWorkshop\"\n{\n\t\"WorkshopItemsInstalled\"\n\t{\n"
-                               + string.Concat(wids.Select(w => $"\t\t\"{w}\"\n\t\t{{\n\t\t\t\"size\"\t\t\"1\"\n\t\t\t\"timeupdated\"\t\t\"9\"\n\t\t\t\"manifest\"\t\t\"4{w}\"\n\t\t}}\n")) + "\t}\n}\n");
-
-    public override (bool Ok, string Reason, long Bytes) Download(string wid)
-    {
-        var ok = base.Download(wid);
-        session.Add(wid);
-        WriteAcf([wid]);
-        return ok;
-    }
-
-    public override void Stop()
-    {
-        var staged = session.Where(w => Directory.Exists(Path.Combine(InstallDir, "steamapps", "workshop", "content", "730", w))).ToList();
-        if (staged.Count > 0)
-            WriteAcf(staged);
-        session.Clear();
-    }
-}
-
-/// <summary>SteamCMD at its worst: its acf names the downloads only once it quits.</summary>
-sealed class LateAcfSteam(string installDir) : FakeSteam(installDir)
-{
-    public static readonly List<string> Got = [];
-    public static Action<Dictionary<string, string>> WriteAcf = _ => { };
-
-    public override (bool Ok, string Reason, long Bytes) Download(string wid)
-    {
-        Got.Add(wid);
-        return base.Download(wid);
-    }
-
-    public override void Stop()
-    {
-        if (Got.Count > 0)
-            WriteAcf(Got.ToDictionary(w => w, _ => "200"));
-    }
-}
-
-/// <summary>A test-engine stand-in that is gone the moment it is asked: the real test load runs its first steps and says crash.</summary>
-sealed class DownEngine : ITestEngine
-{
-    public static readonly List<string> Sent = [];
-    sealed class NoLines : ILines
-    {
-        public List<string> Lines() => [];
-    }
-    public int Starts { get; set; }
-    public ILines? Tail { get; } = new NoLines();
-    public bool Alive() => false;
-    public (bool Ok, string Why) Start() => (false, "no");
-    public void Stop()
-    {
-    }
-    public string? Rcon(string command)
-    {
-        Sent.Add(command);
-        return "";
-    }
-    public EngineInfo? A2s() => null;
-}
-
-/// <summary>A ratings API stand-in: scores for some ids, Most Popular orders per tag, a stop after some calls.</summary>
-sealed class VoteApi(Dictionary<string, double> scores, int? stopAfter = null, Dictionary<string, List<string>>? trends = null) : IWorkshopApi
-{
-    public Dictionary<string, int> ByApi { get; } = [];
-    public readonly List<string> Asked = [];
-    public readonly List<(string Tag, int Days)> Tags = [];
-
-    public Dictionary<string, JsonArray> Votes(IReadOnlyList<string> ids)
-    {
-        ByApi["GetDetails"] = ByApi.GetValueOrDefault("GetDetails") + 1;
-        if (stopAfter is { } n && ByApi["GetDetails"] > n)
-            throw new StopApiException("HTTP 429");
-        Asked.AddRange(ids);
-        return ids.Where(scores.ContainsKey).ToDictionary(w => w, w => new JsonArray(scores[w], 1, 0, 5));
-    }
-
-    public (List<string> Ids, string NextCursor, long Total) Trend(string tag, string cursor, int days, int perPage = 100)
-    {
-        Tags.Add((tag, days));
-        var list = trends?.GetValueOrDefault(tag) ?? [];
-        return ([.. list], "", list.Count);
-    }
-
-    public (List<JsonObject> Items, string NextCursor, long Total) QueryFiles(IReadOnlyList<string> tags, string cursor, int perPage) => throw new NotSupportedException();
-    public Dictionary<string, JsonObject> Details(IReadOnlyList<string> ids) => throw new NotSupportedException();
-}
-
-/// <summary>The third part: acf editing, the keep set (Core's, the restart watcher's too), the scores, the 223, the ratings, the
-/// queue, the hand-over and the watcher reading it, serve, the clean-up, the tidy step, one definition per name, the real test load, and
-/// reshaped inputs.</summary>
-static class Part3
-{
-    const double KT = 1793700000.0;
+    internal const double KT = 1793700000.0;
     static string srv = "", sdata = "", sstate = "", swork = "", sgame = "", gws = "", stg = "", hdir = "";
     static List<string> missing = [];
 
-    public static void Run()
-    {
-        var root = T.Root;
-        Acf(root);
-        var kdata = KData();
-        KeepSetChecks(kdata);
-        Votes(root);
-        RunSteps(root, kdata);
-        HandOver();
-        Serve();
-        Staged();
-        Tidy();
-        Definitions();
-        Reshaped(root);
-    }
-
-    static void Acf(string root)
+    internal static void Acf(string root)
     {
         var acf = Path.Combine(root, "appworkshop_730.acf");
         File.WriteAllText(acf, "\"AppWorkshop\"\n{\n\t\"appid\"\t\t\"730\"\n\t\"WorkshopItemsInstalled\"\n\t{\n\t\t\"1\"\n\t\t{\n\t\t\t\"timeupdated\"\t\t\"5\"\n\t\t}\n"
@@ -142,7 +29,7 @@ static class Part3
         Check("acf: an item is forgotten in both sections, the rest kept", Handover.AcfItems(acf) is { Count: 1 } left && left["2"] == 6 && !File.ReadAllText(acf).Contains("\"1\""));
     }
 
-    public static JsonObject KData()
+    internal static JsonObject KData()
     {
         var maps = new JsonArray(Enumerable.Range(1, 129).Select(r => (JsonNode?)new JsonObject { ["rank"] = r, ["id"] = 100 + r, ["name"] = $"a{r}", ["sizeMb"] = 1 }).ToArray());
         var dm = new JsonArray(Enumerable.Range(1, 29).Select(r => (JsonNode?)new JsonObject { ["rank"] = r, ["id"] = 300 + r, ["name"] = $"d{r}", ["sizeMb"] = 1 }).ToArray());
@@ -170,7 +57,7 @@ static class Part3
     public static Dictionary<string, JsonNode?> Inputs(JsonObject data) => data.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
 
     // ---- the keep set: Core's KeepSet, shared with the restart watcher
-    static void KeepSetChecks(JsonObject kdata)
+    internal static void KeepSetChecks(JsonObject kdata)
     {
         var probe = W.Run(Cfg(), new FakeClock(KT));
         var withBlocked = (JsonObject)kdata.DeepClone();
@@ -185,7 +72,7 @@ static class Part3
     }
 
     // ---- the scores: IPublishedFileService/GetDetails with includevotes, with the key; a removed item is no score
-    static void Votes(string root)
+    internal static void Votes(string root)
     {
         var (led, clock) = W.Ledger(Path.Combine(root, "votes-ledger.json"));
         var (api, sent, _) = ApiWith(led, clock, [J("""
@@ -204,7 +91,7 @@ static class Part3
     static SyncConfig ncfg2 = null!;
 
     // ---- a run's own steps, on a folder of their own
-    static void RunSteps(string root, JsonObject kdata)
+    internal static void RunSteps(string root, JsonObject kdata)
     {
         srv = Path.Combine(root, "srv");
         (sdata, sstate, swork, sgame) = (Path.Combine(srv, "data"), Path.Combine(srv, "state"), Path.Combine(srv, "work"), Path.Combine(srv, "game"));
@@ -238,7 +125,7 @@ static class Part3
               Node.Eq(rj["trend"], O("{\"armsrace\": [\"999\", \"105\", \"106\"], \"deathmatch\": [\"301\"], \"wingman\": []}")) && Node.Int(rj["trend_days"]) == 30
               && vapi.Tags.OrderBy(x => x.Tag, StringComparer.Ordinal).SequenceEqual([("Armsrace", 30), ("Deathmatch", 30), ("Wingman", 30)]));
         nn.Ratings(new VoteApi([]), ["105"]);
-        Check("ratings: once a day - not again within RATINGS_EVERY", Node.Str(Node.Get(nn.Report["ratings"], "skipped")).Contains("fetched"));
+        Check("ratings: once a day - not again within SyncRun.RatingsEvery", Node.Str(Node.Get(nn.Report["ratings"], "skipped")).Contains("fetched"));
         ((JsonObject)nn.State.Data["ratings"]!)["fetched"] = KT - 2 * 86400;
         nn.Report.Remove("ratings");
         nn.Ratings(new VoteApi(new() { ["105"] = 0.1 }, stopAfter: 0), ["105"]);
@@ -286,7 +173,7 @@ static class Part3
     }
 
     // ---- the hand-over: a staged download moved, its manifest copied, its marker last; the staging acf forgets it; the watcher reads it
-    static void HandOver()
+    internal static void HandOver()
     {
         stg = Path.Combine(swork, "staging", "steamapps", "workshop");
         Directory.CreateDirectory(Path.Combine(stg, "content", "730", "305"));
@@ -313,7 +200,7 @@ static class Part3
     }
 
     // ---- serve: the keep set's maps the server does not store are fetched and handed over; what it stores, or waits, is not
-    static void Serve()
+    internal static void Serve()
     {
         foreach (var wid in new[] { "110", "120", "150", "301", "900" })
         {
@@ -402,7 +289,7 @@ static class Part3
     // ---- serve after a run that could not hand over (it looked before SteamCMD had written its acf): what is staged with SteamCMD's entry
     // goes without a download, an older staged version is downloaded again, a late acf is handed over once SteamCMD has quit, and the
     // clean-up keeps a keep-set pass whose hand-over failed
-    static void Staged()
+    internal static void Staged()
     {
         var (sa, sb, sc, sd) = (missing[0], missing[1], missing[2], missing[3]);
         foreach (var w in new[] { sa, sb, sc, sd })
@@ -483,7 +370,7 @@ static class Part3
     }
 
     // ---- tidy: SteamCMD would download again by itself what its acf names without a folder
-    static void Tidy()
+    internal static void Tidy()
     {
         var tg = Path.Combine(srv, "tidy");
         var tstg = Path.Combine(tg, "steamapps", "workshop");
@@ -505,31 +392,8 @@ static class Part3
         Hooks.HumansOn = new Seams().HumansOn;
     }
 
-    /// <summary>Methods declared twice with one signature in a program's types: what the compiler refuses (the Python sync once crashed
-    /// every test load on a second module-level definition of one name).</summary>
-    static List<string> Twice(Assembly assembly) =>
-        assembly.GetTypes().SelectMany(t => t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                                             .Select(m => $"{t.FullName}.{m.Name}({string.Join(",", m.GetParameters().Select(p => p.ParameterType.FullName))})"))
-            .GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-
-    // ---- one definition per name, and the real test load's first steps
-    static void Definitions()
-    {
-        foreach (var (program, assembly) in new[] { ("os2-sync", typeof(SyncRun).Assembly), ("os2-server", typeof(MapsFolder).Assembly) })
-        {
-            var twice = Twice(assembly);
-            Check($"one definition per name in {program} (twice: {T.Show(twice)})", twice.Count == 0);
-        }
-        Check("mode_of is test_load's: (mode, game_type, game_mode) from the tags",
-              TestLoad.ModeOf(["Wingman"]) == ("wingman", 0, 2) && TestLoad.ModeOf([]) == ("armsrace", 1, 0) && Status.ListMode(O("{\"tags\": [\"Deathmatch\"]}")) == "deathmatch");
-        DownEngine.Sent.Clear();
-        var got = TestLoad.Load(new DownEngine(), "4242", ["de_x"], ["Wingman"], 20, () => false, C(new FakeClock(KT)));
-        Check($"test_load (the real one): the map asked for in its mode, a crash reported - no exception ({Node.StrOr(got["verdict"], "None")})",
-              Node.Str(got["verdict"]) == "crash" && DownEngine.Sent.SequenceEqual(["game_type 0; game_mode 2; host_workshop_map 4242"]));
-    }
-
     // ---- a reshaped input (a list where an object is read, a string, an object of the wrong things) is logged and counted, never a crash
-    static void Reshaped(string root)
+    internal static void Reshaped(string root)
     {
         var shp = Path.Combine(root, "reshaped");
         Directory.CreateDirectory(shp);
@@ -555,5 +419,56 @@ static class Part3
         Check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
               Node.StrOr(Node.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Node.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
         File.WriteAllText(votesPath, votes);
+    }
+
+    // ---- the whole hand-over: what the sync hands over, the restart watcher's own code takes in, and the sync then sees the map as stored
+    internal static void TakenIn(string root)
+    {
+        const string name = "hand-over: the restart watcher's organize takes in what the sync handed over - its folder, its link, its acf entries, its manifest - and the sync then sees it stored";
+        if (!OperatingSystem.IsLinux())
+        {
+            Linux(name, () => false);
+            return;
+        }
+        var game = Path.Combine(root, "ti-game");
+        var data = Path.Combine(root, "ti-data");
+        var work = Path.Combine(root, "ti-work");
+        var serverWs = Path.Combine(game, "game", "bin", "linuxsteamrt64", "steamapps", "workshop");
+        Directory.CreateDirectory(Path.Combine(serverWs, "content", "730"));
+        var acf = new List<Kv>
+        {
+            Kv.Of("AppWorkshop", [Kv.Text("appid", "730"), Kv.Text("SizeOnDisk", "0"), Kv.Of("WorkshopItemsInstalled", []), Kv.Of("WorkshopItemDetails", [])]),
+        };
+        File.WriteAllText(Path.Combine(serverWs, "appworkshop_730.acf"), KeyValues.Dump(acf));
+        Put(Path.Combine(data, "maps.json"), "[{\"rank\": 1, \"id\": 4100, \"name\": \"Taken In\", \"sizeMb\": 1}]");
+        var staging = Path.Combine(work, "staging");
+        var stagingWs = Path.Combine(staging, "steamapps", "workshop");
+        Put(Path.Combine(stagingWs, "content", "730", "4100", "4100_dir.vpk"), "a map");
+        Put(Path.Combine(stagingWs, "content", "730", "4100", "maps", "inner.txt"), "more");
+        Put(Path.Combine(stagingWs, "appworkshop_730.acf"), KeyValues.Dump(
+        [
+            Kv.Of("AppWorkshop", [Kv.Of("WorkshopItemsInstalled", [Kv.Of("4100", [Kv.Text("size", "9"), Kv.Text("timeupdated", "1790000000"), Kv.Text("manifest", "424242")])]),
+                                  Kv.Of("WorkshopItemDetails", [Kv.Of("4100", [Kv.Text("manifest", "424242"), Kv.Text("timeupdated", "1790000000"), Kv.Text("timetouched", "1790000001")])])]),
+        ]));
+        var depot = Path.Combine(root, "ti-depot");
+        Put(Path.Combine(depot, "730_424242.manifest"), "manifest bytes");
+        var handover = Path.Combine(game, "workshop-sync", "handover");
+        var (ok, words) = Handover.HandOver(staging, handover, "4100", "Taken In", depot, RunTests.T0, Log.Line);
+        var serverDepot = Path.Combine(root, "ti-server-depot");
+        Directory.CreateDirectory(serverDepot);
+        var config = ServerConfig.From(new OverStrike2.Core.Settings(), _ => null) with
+        {
+            Paths = new ServerPaths { GameDir = game, BridgeData = data, Handover = handover, Depotcache = serverDepot, Plugins = Path.Combine(root, "ti-plugins") },
+            MapsDelete = "off",
+        };
+        var clock = new FakeClock(RunTests.T0);
+        var log = new ServerLog("test", clock, Paris, _ => { });
+        var said = new MapsFolder(config, log, clock, Paris).Organize();
+        var stored = Handover.ServerMaps(game);
+        var link = Path.Combine(serverWs, "content", "730", "4100");
+        Check(name, () => ok && stored.TryGetValue("4100", out var t) && t == 1790000000 && Handover.IsLink(link)
+                          && File.Exists(Path.Combine(link, "maps", "inner.txt")) && File.Exists(Path.Combine(serverDepot, "730_424242.manifest"))
+                          && !File.Exists(Path.Combine(handover, "4100.json")) && KeyValues.Entries(File.ReadAllText(Path.Combine(serverWs, "appworkshop_730.acf")), "4100") is { } e
+                          && e.Details.GetValueOrDefault("timetouched") == "1790000001" && words.StartsWith("handed over", StringComparison.Ordinal) && said.Length > 0);
     }
 }
