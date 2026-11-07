@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
@@ -19,21 +18,8 @@ public static partial class TestTree
 
         """;
 
-    [GeneratedRegex("^PatchVersion=(\\S+)", RegexOptions.Multiline)] private static partial Regex PatchRx();
-
-    /// <summary>The game's PatchVersion (game/csgo/steam.inf), or null.</summary>
-    public static string? PatchVersion(string gameDir)
-    {
-        try
-        {
-            var m = PatchRx().Match(File.ReadAllText(Path.Combine(gameDir, "game", "csgo", "steam.inf")));
-            return m.Success ? m.Groups[1].Value : null;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
+    /// <summary>The game's PatchVersion (game/csgo/steam.inf, read by core's SteamInf as os2-server reads it), or null.</summary>
+    public static string? PatchVersion(string gameDir) => SteamInf.ReadPatchVersion(Path.Combine(gameDir, "game", "csgo", "steam.inf"));
 
     static void CopyTree(string src, string dst)
     {

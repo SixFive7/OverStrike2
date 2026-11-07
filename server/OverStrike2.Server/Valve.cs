@@ -10,7 +10,7 @@ namespace OverStrike2.Server;
 /// <summary>THE VERSION TRAP. Valve's UpToDateCheck does a numeric >= against required_version and reports "up to date" for almost any
 /// number (measured: version=14186 -> up_to_date false, required 14188; 14188 -> true; 2000919, steam.inf's ServerVersion of a build
 /// known to be stale -> true). The only correct input is steam.inf's dotted PatchVersion with the dots removed (1.41.8.8 -> 14188):
-/// PatchVersion reads that field and nothing else, and VersionInt rejects anything without a dot.</summary>
+/// core's SteamInf.PatchVersion reads that field and nothing else, and VersionInt rejects anything without a dot.</summary>
 public static partial class Versions
 {
     [GeneratedRegex(@"^[0-9]+(?:\.[0-9]+)+$")] private static partial Regex Dotted();   // at least one dot: rejects ServerVersion
@@ -28,36 +28,6 @@ public static partial class Versions
             ? (int)v : null;
     }
 
-    /// <summary>The PatchVersion field of steam.inf, and only that field (never ServerVersion or ClientVersion).</summary>
-    public static string? PatchVersion(string steamInf)
-    {
-        foreach (var line in steamInf.Split('\n'))
-        {
-            var i = line.IndexOf('=');
-            var key = i < 0 ? line : line[..i];
-            if (key.Trim() == "PatchVersion")
-            {
-                var value = i < 0 ? "" : line[(i + 1)..].Trim();
-                return value.Length > 0 ? value : null;
-            }
-        }
-        return null;
-    }
-
-    public static string? ReadPatchVersion(string steamInfPath)
-    {
-        try
-        {
-            using var f = File.OpenRead(steamInfPath);
-            var buf = new byte[65536];
-            var n = f.Read(buf, 0, buf.Length);
-            return PatchVersion(System.Text.Encoding.UTF8.GetString(buf, 0, n));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
 
     /// <summary>An UpToDateCheck reply for build `vint`: ("current", null), ("stale", required) or ("unknown", why). Every field is
     /// type-checked; required_version must be strictly newer than ours.</summary>

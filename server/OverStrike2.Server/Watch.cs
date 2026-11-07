@@ -198,7 +198,7 @@ public sealed partial class Watch
         return m.Success ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : null;
     }
 
-    string? PatchVersion() => Versions.ReadPatchVersion(Config.Paths.SteamInf);
+    string? PatchVersion() => SteamInf.ReadPatchVersion(Config.Paths.SteamInf);
 
     // ------------------------------------------------------------------------------------------------------------ state
 

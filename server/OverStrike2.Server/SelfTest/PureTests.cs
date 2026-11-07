@@ -13,15 +13,15 @@ static class PureTests
         Scenario.Setup();
         var inf = Scenario.SteamInf;
         // ---- the version trap (the real steam.inf of a running server, ServerVersion FIRST on purpose)
-        Check("trap: PatchVersion is the field read", Versions.PatchVersion(inf) == "1.41.8.8");
-        Check("trap: dots removed -> 14188", Versions.VersionInt(Versions.PatchVersion(inf)) == 14188);
-        var url = string.Format(System.Globalization.CultureInfo.InvariantCulture, Versions.ValveUrl, Versions.VersionInt(Versions.PatchVersion(inf)));
+        Check("trap: PatchVersion is the field read", SteamInf.PatchVersion(inf) == "1.41.8.8");
+        Check("trap: dots removed -> 14188", Versions.VersionInt(SteamInf.PatchVersion(inf)) == 14188);
+        var url = string.Format(System.Globalization.CultureInfo.InvariantCulture, Versions.ValveUrl, Versions.VersionInt(SteamInf.PatchVersion(inf)));
         Check("trap: the Valve URL carries 14188, never ServerVersion 2000924", url.Contains("version=14188") && !url.Contains("2000924"));
         Check("trap: ServerVersion itself is rejected (no dots)", Versions.VersionInt("2000924") is null);
         Check("trap: a dotless 14188 is rejected too", Versions.VersionInt("14188") is null);
-        Check("trap: steam.inf without PatchVersion -> None", Versions.PatchVersion("ServerVersion=2000924\n") is null);
-        Check("trap: 'PatchVersionX=' is not PatchVersion", Versions.PatchVersion("PatchVersionX=9.9\n") is null);
-        Check("trap: Versions.ReadPatchVersion reads the volume's steam.inf", Versions.ReadPatchVersion(Path.Combine(Scenario.Root, "game", "csgo", "steam.inf")) == "1.41.8.8");
+        Check("trap: steam.inf without PatchVersion -> None", SteamInf.PatchVersion("ServerVersion=2000924\n") is null);
+        Check("trap: 'PatchVersionX=' is not PatchVersion", SteamInf.PatchVersion("PatchVersionX=9.9\n") is null);
+        Check("trap: SteamInf.ReadPatchVersion reads the volume's steam.inf", SteamInf.ReadPatchVersion(Path.Combine(Scenario.Root, "game", "csgo", "steam.inf")) == "1.41.8.8");
 
         // ---- Valve's replies (their shapes as measured)
         const string stale = "{\"response\":{\"success\":true,\"up_to_date\":false,\"version_is_listable\":false,\"required_version\":14188,\"message\":\"Your server is out of date, please upgrade\"}}";
