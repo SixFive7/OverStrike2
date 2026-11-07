@@ -6,15 +6,15 @@ Each folder holds `generate.py` (writes the Hammer map source into the CS2 Works
 the generated layout), `workshop.json` (the Workshop item's title, description and tags, and the addon folder its build is in: the
 publisher uploads that folder, and refuses another) and `workshop_id.txt` (the item).
 `vmapkit.py` holds what the generators share: the ids and the writer of the Hammer map source. `build_map.py` is what every `build.py`
-runs, with the map's own settings, and `previewkit.py` the renderer every `preview.py` draws with. [gg_glasspire](gg_glasspire/README.md)
-and [gg_moonglass](gg_moonglass/README.md) have a README of their own: what the script builds, how the shipped build was compiled and
-checked, and its known gaps.
+runs, with the map's own settings, and `previewkit.py` the renderer every `preview.py` draws with. Each map has a README of its own -
+[gg_glasspire](gg_glasspire/README.md), [gg_moonglass](gg_moonglass/README.md), [gg_vinceville](gg_vinceville/README.md): what the
+script builds, how the shipped build was compiled and checked, and its known gaps.
 
 | Map | Workshop item | What it is |
 |---|---|---|
 | `gg_glasspire` | 3831189574 | A square glass tower around an open atrium: four floors and a roof deck joined by ramps that spiral up the outer walls, 292 panes of breakable glass. |
 | `gg_moonglass` | 3831231522 | A moon base under a faceted glass dome: modules, bridges and tunnels, most of it glass that breaks. |
-| `gg_vinceville` | 3831242232 | Small houses scattered over a big grassy field, with trees, ponds deep enough to swim in, and a sewer under the field that links every house. |
+| `gg_vinceville` | 3831242232 | A village of small houses scattered over a grassy field, with a barn and its hay loft, two houses with an upper floor, two ponds, haystacks and low stone walls. |
 
 ## Building
 
@@ -26,13 +26,9 @@ python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Glob
 ```
 
 Each compile waits until no other `resourcecompiler.exe` runs on the PC. `--addon <folder>` builds into another addon folder - a
-staging copy, say, while the published build is under review - and leaves the published one as it is. gg_vinceville keeps the
-published build's spawn points, from [gg_vinceville/spawns.json](gg_vinceville/spawns.json), so a rebuild writes the published map's
-source again, byte for byte.
+staging copy, say, while the published build is under review - and leaves the published one as it is.
 
-The maps use only the game's own materials and models, by reference. Where a map needs one of the game's files in its addon
-(gg_vinceville's underwater look, from `ar_pool_day`'s map package), the generator reads it from the local installation at
-build time and writes it into the build output, never into this repository.
+The maps use only the game's own materials and models, by reference, and nothing of the game goes into this repository.
 
 ## Checking
 
@@ -44,9 +40,9 @@ python -I maps\selfcheck.py                    # each generate.py's files agains
 ```
 
 It regenerates every map into a scratch folder and compares each file it writes with the sha256 recorded in `selfcheck.json`,
-then renders every preview from that layout and compares it with the committed `workshop_preview.jpg`, byte for byte (Valve's
-underwater look is read out of a stand-in package, so gg_vinceville needs no CS2 either). A change that should leave the maps
-as they are must leave all of it as committed. A change that is meant to alter a map is recorded with
+then renders every preview from that layout and compares it with the committed `workshop_preview.jpg`, byte for byte, and runs
+gg_vinceville's own `checks.py` (no holes, no overlapping faces, spawns that work) and `walkcheck.py` on its layout. A change that
+should leave the maps as they are must leave all of it as committed. A change that is meant to alter a map is recorded with
 `python -I maps\selfcheck.py --record`, and its preview is rendered anew with the map's `preview.py` and committed with its line
 in `tools/scan/allow.txt`; `--keep <folder>` keeps what a run wrote. The recorded hashes hold for the Python, numpy and Pillow
 named in `selfcheck.json`: another version can write other bytes without any change to a map.

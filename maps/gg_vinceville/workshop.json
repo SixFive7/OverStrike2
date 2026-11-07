@@ -1,11 +1,11 @@
 {
   "title": "gg_vinceville",
   "map": "gg_vinceville",
-  "addon": "gg_vinceville_v3stage",
+  "addon": "gg_vinceville_v4",
   "tags": [
     "Cs2",
     "Map",
     "Armsrace"
   ],
-  "description": "An original map made for Arms Race on the Over Strike 2 server: small houses scattered over a big grassy field, with clusters of trees and deep ponds you can swim in, and a sewer under the field that links every house - close-range ambushes in and around every house."
+  "description": "An original map made for Arms Race on the Over Strike 2 server: a village of small houses scattered over a big grassy field, with a barn and its hay loft, two houses with an upper floor, two ponds, haystacks, low stone walls and clusters of trees - close-range ambushes in and around every house. Rebuilt from scratch: one solid ground with no holes, every building one closed shape, no overlapping faces."
 }

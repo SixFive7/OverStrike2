@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Checks that our maps come out as committed: runs each map's generate.py into a scratch folder and compares every file it
 writes with the hashes in selfcheck.json, then renders each preview.py from the layout it wrote and compares the picture with
-the committed workshop_preview.jpg, byte for byte. Needs no CS2: gg_vinceville's generator reads Valve's underwater look out
-of ar_pool_day's map package, and here reads it out of a stand-in package written for the run.
+the committed workshop_preview.jpg, byte for byte, and runs the checks a map has of its own on its layout (gg_vinceville's
+checks.py and walkcheck.py: no holes, no overlapping faces, spawns that work, every floor reached on foot). Needs no CS2.
 
-  python -I maps/selfcheck.py                  exit 0 when everything is as committed, 1 when something differs
+  python -I maps/selfcheck.py                  exit 0 when everything is as committed, 1 when something differs or a check fails
   python -I maps/selfcheck.py --record         after an intended change to a map: write selfcheck.json anew
   python -I maps/selfcheck.py --keep <folder>  keep what the run wrote there, to look at what differs
 
@@ -16,7 +16,6 @@ import hashlib
 import json
 import os
 import platform
-import struct
 import subprocess
 import sys
 import tempfile
@@ -26,29 +25,18 @@ import PIL
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAPS = ('gg_glasspire', 'gg_moonglass', 'gg_vinceville')
+CHECKS = {'gg_vinceville': ('checks.py', 'walkcheck.py')}     # a map's own checks, run on the layout its generator wrote
 RECORD = os.path.join(HERE, 'selfcheck.json')
-STAND_IN = b'not the game\'s file: a stand-in written by maps/selfcheck.py\n'
 
 
-def stand_in_vpk(path, name):
-    """A one-file VPK (version 1) holding name, for generate.py to read as if it were the game's map package."""
-    folder, file = name.rsplit('/', 1)
-    base, ext = file.rsplit('.', 1)
-    entry = struct.pack('<IHHIIH', 0, 0, 0x7FFF, 0, len(STAND_IN), 0xFFFF)
-    tree = ext.encode() + b'\0' + folder.encode() + b'\0' + base.encode() + b'\0' + entry + b'\0\0\0'
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'wb') as f:
-        f.write(struct.pack('<III', 0x55AA1234, 1, len(tree)) + tree + STAND_IN)
-
-
-def hashes(root, skip):
+def hashes(root):
     out = {}
     for dp, dns, fns in os.walk(root):
         dns.sort()
         for fn in sorted(fns):
-            p = os.path.join(dp, fn)
-            if os.path.normcase(p) == os.path.normcase(skip) or fn.endswith('.jpg'):
+            if fn.endswith('.jpg'):
                 continue
+            p = os.path.join(dp, fn)
             with open(p, 'rb') as f:
                 out[os.path.relpath(p, root).replace(os.sep, '/')] = hashlib.sha256(f.read()).hexdigest()
     return out
@@ -71,11 +59,9 @@ def main():
     with tempfile.TemporaryDirectory(prefix='maps-selfcheck-') as tmp:
         work = os.path.abspath(args.keep) if args.keep else tmp
         roots = {m: os.path.join(work, m) for m in MAPS}
-        package = os.path.join(roots['gg_vinceville'], 'cs2', 'game', 'csgo', 'maps', 'ar_pool_day.vpk')
         for m, root in roots.items():
             if os.path.exists(root):
                 sys.exit(f'{root} is there already: --keep takes a new folder')
-        stand_in_vpk(package, 'postprocess/postprocess_filmic_underwater.vpost_c')
         done = run_all({m: [sys.executable, '-I', os.path.join(HERE, m, 'generate.py'), '--cs2', os.path.join(root, 'cs2'),
                             '--layout', os.path.join(root, 'layout.json')] for m, root in roots.items()})
         failed = [m for m, (code, _) in done.items() if code]
@@ -83,13 +69,17 @@ def main():
             print(f'{m}: generate.py failed (exit {done[m][0]}):\n{done[m][1]}')
         if failed:
             return 2
-        got = {m: hashes(root, package) for m, root in roots.items()}
+        got = {m: hashes(root) for m, root in roots.items()}
         earth = os.path.join(roots['gg_moonglass'], 'cs2', 'content', 'csgo_addons', 'gg_moonglass', 'materials', 'gg_moonglass',
                              'earth_color.png')
-        done = run_all({m: [sys.executable, '-I', os.path.join(HERE, m, 'preview.py'), os.path.join(root, 'layout.json'),
-                            os.path.join(root, 'preview.jpg')] + (['--earth', earth] if m == 'gg_moonglass' else [])
-                        for m, root in roots.items()})
-        failed = [m for m, (code, _) in done.items() if code]
+        cmds = {m: [sys.executable, '-I', os.path.join(HERE, m, 'preview.py'), os.path.join(root, 'layout.json'),
+                    os.path.join(root, 'preview.jpg')] + (['--earth', earth] if m == 'gg_moonglass' else [])
+                for m, root in roots.items()}
+        for m, scripts in CHECKS.items():
+            for s in scripts:
+                cmds[(m, s)] = [sys.executable, '-I', os.path.join(HERE, m, s), os.path.join(roots[m], 'layout.json')]
+        done = run_all(cmds)
+        failed = [m for m in MAPS if done[m][0]]
         for m in failed:
             print(f'{m}: preview.py failed (exit {done[m][0]}):\n{done[m][1]}')
         if failed:
@@ -111,7 +101,14 @@ def main():
                 same_picture = a.read() == b.read()
             files = (f'{len(got[m])} files as recorded' if not changed else
                      f'{len(changed)} of {len(set(want) | set(got[m]))} files not as recorded: ' + ', '.join(changed))
-            print(f'{m}: {files}; ' + ('the preview as committed' if same_picture else 'the preview NOT as committed'))
+            own = ''
+            for s in CHECKS.get(m, ()):
+                code, out = done[(m, s)]
+                own += f'; {s} ' + ('passes' if code == 0 else 'FAILS')
+                if code:
+                    print(out)
+                    bad += 1
+            print(f'{m}: {files}; ' + ('the preview as committed' if same_picture else 'the preview NOT as committed') + own)
             bad += bool(changed) + (not same_picture)
         if bad and record.get('recorded_with') != versions:
             print(f'recorded with {record.get("recorded_with")}, run with {versions}: other versions can write other bytes')

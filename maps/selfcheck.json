@@ -33,10 +33,9 @@
       "cs2/game/csgo_addons/gg_moonglass/addoninfo.txt": "c37451cc9e9f3abb024a29f94942b58bc284c9a1573f77c73939d1707c5754d1"
     },
     "gg_vinceville": {
-      "layout.json": "5f7405d6f7cc0f6e67c10e74f1f2db2225354a2035b6d2e2efbd278fdd4e000c",
-      "cs2/content/csgo_addons/gg_vinceville/maps/gg_vinceville.vmap": "8c3054d5883d8e6e2f7d0b434af532e38473b73ab3fda3c05a512caaf96f2a7b",
-      "cs2/game/csgo_addons/gg_vinceville/addoninfo.txt": "234fbde436a0ecf37b824adfcc1fdb5c9b6cad797aad1687aa183a466b37ec98",
-      "cs2/game/csgo_addons/gg_vinceville/postprocess/postprocess_filmic_underwater.vpost_c": "a0ef43327c2afab9a854d4ad85bb5a08f1349ae4f57984547f874cd107749604"
+      "layout.json": "9af7f084dc921fb3aad4f182654027d05bafb7d8ecb4e204fd33d8b8a64087f4",
+      "cs2/content/csgo_addons/gg_vinceville/maps/gg_vinceville.vmap": "0dc615cdcec095170455b04ed484a6c1f9a13bd5af826c970c9a49b1a71cec54",
+      "cs2/game/csgo_addons/gg_vinceville/addoninfo.txt": "234fbde436a0ecf37b824adfcc1fdb5c9b6cad797aad1687aa183a466b37ec98"
     }
   }
 }
