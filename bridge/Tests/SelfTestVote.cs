@@ -1,6 +1,6 @@
 // --selftest, the vote for the next map (the only way a player changes the map) and the game modes:
-// VoteRound.cs, ModeSwitch.cs, MapVote.cs, Modes.cs. The vote runs on a handed clock with a fake timer wheel and a fake game server that
-// remembers game_type and game_mode, like part two's tests; every rule docs/reference.md states has a check here - the ballot's shape and
+// VoteRound.cs, ModeSwitch.cs, MapVote.cs, Modes.cs. The vote runs in the harness (SelfTestHarness.cs), with a fake game server that
+// remembers game_type and game_mode; every rule docs/reference.md states has a check here - the ballot's shape and
 // its page, the picks while it is open, everybody voting, the timer, ties, no votes, Keep and Play this map again, the wait after a vote, a
 // Wingman map with five on, the modes' map loads, the defaults after a restart and after 10 minutes with nobody on, the per-mode lists,
 // weights, block lists and server cfgs.
@@ -57,26 +57,16 @@ static partial class Program
             Modes.Deathmatch.Official.Length == 15 && Modes.Wingman.Official.Length == 7 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
             && Modes.ArmsRace.Official.Order().SequenceEqual(Officials.Select(o => o.Name).Order()));
 
-        // ---- the harness: a clock that moves only when told, a timer wheel, a fake server ----
-        var (realSend, realAfter, realNow, realStateDir, realHud, realProbe) = (Send, After, Now, StateDir, HudActive, ModeProbeEnabled);
-        string dir;
-        try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-vote-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-vote-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        StateDir = dir; ModeMapsDir = dir;
-        var clock = new DateTime(2026, 11, 1, 20, 0, 0, DateTimeKind.Utc);
-        Now = () => clock;
-        var timers = new List<(DateTime Due, long Seq, Action Work)>();
-        long seq = 0;
-        After = (ms, work) => timers.Add((clock.AddMilliseconds(ms), seq++, work));
-        var sent = new List<string>();
+        // ---- the harness (SelfTestHarness.cs), and a fake server that remembers game_type and game_mode ----
+        var h = new Harness("vote", new DateTime(2026, 11, 1, 20, 0, 0, DateTimeKind.Utc));
+        ModeMapsDir = h.Dir;
         int gameType = 1, gameMode = 0, statusHumans = 0;
         var onOfficial = true;            // the fake server's map: official (the boot map) or a Workshop map
         (int, int) snapshot = (1, 0);     // what CS2 saved when it last went from an official map to a Workshop map
         var fakePlugin = false;           // the plugin on the fake server too: it answers os_mode (Settings.SetMode), and its block has the told values back in the convars at once
         Modes.Mode? fakeTold = null, fakeLoaded = Modes.ArmsRace, fakeLoadsAs = null; // what os_mode said last; the mode the map on loaded in (the convars at its start); a load that ignores its convars
-        Send = command =>
+        h.Server = command =>
         {
-            sent.Add(command);
             foreach (var part in command.Split(';'))
                 switch (part.Trim().Split(' '))
                 {
@@ -96,57 +86,17 @@ static partial class Program
             return command == "game_type" ? $"game_type = {gameType}" : command == "game_mode" ? $"game_mode = {gameMode}"
                 : command == "status" ? $"hostname : test\nspawn    : 2\nplayers  : {statusHumans} humans, 0 bots (0 max)\n#end" : "";
         };
-        HudActive = () => true; // the plugin draws the vote, unless a test says otherwise
         var loads = 0;
         try
         {
-            void Run(double seconds)
+            void Land() => h.Land(() => S.Map is { Official: true } o ? o.Name : $"vote_bsp_{++loads}", settle: 2); // an official map loads by its name
+            void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the vote, on a fake server in Arms Race on its boot map
             {
-                var end = clock.AddSeconds(seconds);
-                while (clock < end)
-                {
-                    var step = clock.AddSeconds(1) < end ? clock.AddSeconds(1) : end;
-                    while (timers.Where(t => t.Due <= step).OrderBy(t => t.Due).ThenBy(t => t.Seq).FirstOrDefault() is { Work: not null } t)
-                    {
-                        timers.Remove(t);
-                        if (t.Due > clock) clock = t.Due;
-                        t.Work();
-                    }
-                    clock = step;
-                    Tick(); AfterWork(); // what the event loop does with each tick
-                }
-            }
-            void Line(string ev) => Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - {ev}", null);
-            void Join((string Name, string Id) p) { Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.1:27005\""); Line($"\"{p.Name}<2><{p.Id}><>\" entered the game"); }
-            void Leave((string Name, string Id) p, string reason = "NETWORK_DISCONNECT_DISCONNECT_BY_USER") => Line($"\"{p.Name}<2><{p.Id}><CT>\" disconnected (reason \"{reason}\")");
-            void MatchEnd() => Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
-            void Land() // the countdown runs out, the server logs everyone out with reason SHUTDOWN, loads the map, and everyone reconnects
-            {
-                Run(ChangeDelay);
-                var stay = Players.Where(kv => kv.Value.GoneSince == null).Select(kv => (kv.Value.Name, kv.Key)).ToList();
-                foreach (var p in stay) Leave(p, "NETWORK_DISCONNECT_SHUTDOWN");
-                Line($"Loading map \"{(S.Map is { Official: true } o ? o.Name : $"vote_bsp_{++loads}")}\""); Line("Started:  \"\"");
-                foreach (var p in stay) Join(p);
-                Run(2);
-            }
-            void Fresh()
-            {
-                S = new State(); Broken = new(); Packs = new(); Votes = new(); PickConfirms.Clear();
-                Checked = new(); Removed = new(); Blocked = new();
-                Players.Clear();
-                Pending = null; AnnouncePending = false; AnnounceDeadline = default; MatchEndUntil = default;
-                StartRollOwed = false; StartMapAt = default; StartRollRetryAt = default; LastNamedMapStart = default;
-                ResetCrashWatch(); WatchStop(); ClearNotices(); RestartDue = null; RematchDue = null; RestartConfirmBy = ""; RestartConfirmUntil = default; RestartCooldownUntil = default; StartRollNeedsProof = false;
-                Sizes = new(); SizeBounds = (0, 0, 0); NobodySince = null; ResetDone = false; ResetProbeAt = default; WhyOpen.Clear();
-                Ballot = null; VoteWaitUntil = default; ModeBeforeChange = null; ModeProbing = false; ModeProbeEnabled = false; ModeProbeAt = default; ModeResetRetryAt = default; ModeMaps.Clear();
-                HudActive = () => true;
-                timers.Clear(); sent.Clear(); (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0)); ModeVerifyDue = false; ModeReloads = 0;
+                h.Fresh();
+                HudActive = () => true; ModeProbeEnabled = false;
+                (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0));
                 (fakePlugin, fakeTold, fakeLoaded, fakeLoadsAs) = (false, null, Modes.ArmsRace, null);
-                if (File.Exists(MaintenanceFile)) File.Delete(MaintenanceFile);
-                InMaintenance();
-                clock = clock.AddHours(1);
             }
-            bool Said(string fragment) => Told.Any(t => t.Contains(fragment));
             void Settle() => VoteWaitUntil = default; // the 2 minutes after a vote, waived for the tests that are not about them
             void Click((string Name, string Id) p, int n, long? round = null) => HudAct($"{p.Id}\t{p.Name}\t{MapVote.Click(round ?? Ballot?.Round ?? 1, n)}");
             void Pick((string Name, string Id) p, MapInfo map) => Command(p.Name, p.Id, $"!map {ArgOf(map)}");
@@ -156,7 +106,7 @@ static partial class Program
                 Settle();
                 Pick(p, map);
                 if (Ballot is { Open: true } b && b.Options.FirstOrDefault(x => x.Map != null && Key(x.Map) == Key(map)) is { } card)
-                    foreach (var id in PresentIds(clock).Where(x => !b.Choices.ContainsKey(x)).ToList()) CastBallot(Players[id].Name, id, $"{b.Round} {card.N}");
+                    foreach (var id in PresentIds(h.Clock).Where(x => !b.Choices.ContainsKey(x)).ToList()) CastBallot(Players[id].Name, id, $"{b.Round} {card.N}");
             }
             BallotOption Opt(int n) => Ballot!.Options.First(o => o.N == n); // by its number
             int OptOf(Func<BallotOption, bool> pick) => Ballot!.Options.First(pick).N;
@@ -168,25 +118,25 @@ static partial class Program
             // ---- no plugin that draws the vote: a match end rolls the dice, as on a vanilla server ----
             Fresh();
             HudActive = () => false;
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
-            MatchEnd();
-            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Pending is { Auto: true, By: "the dice" } && Said("Match over - Rolling the dice"));
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            h.MatchEnd();
+            Check("No plugin draws the vote: a match end rolls the dice", Ballot is null && Pending is { Auto: true, By: "the dice" } && h.Said("Match over - Rolling the dice"));
 
             // ---- the ballot at a match end: Play this map again, the server's mode to a page, one map of each other mode, Random ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[0]); Land(); // the map that is on
             var pageMaps = Maps.Skip(1040).Take(MapVote.PageCards).ToList();
             foreach (var x in Maps.Except(pageMaps).Where(x => x != m[0])) S.Crashes[Key(x)] = 1; // every other map has crashed: the dice can only take these
             var dmLeft = Modes.Deathmatch.Official.Take(2).ToHashSet();
             foreach (var name in Modes.Deathmatch.Official.Skip(2)) Broken[name] = 3; // and Deathmatch can only take two
-            MatchEnd();
+            h.MatchEnd();
             Console.WriteLine("ballot: " + string.Join(" | ", Ballot?.Options.Select(o => $"{o.N}. {OptionLabel(Ballot, o)} ({o.Source}, {o.Mode.Id})") ?? []));
             var fill = MapVote.PageCards - 3; // the server's own mode fills what Keep and the two other modes leave of the page
             Check($"A match end with the plugin drawing it opens the vote at once, the wait after the last vote notwithstanding: a page of {MapVote.PageCards} cards numbered 1 to {MapVote.PageCards} and Random (option {MapVote.RandomOption}), {MapVote.Seconds} s, in chat and on the board",
                 Ballot is { Open: true, MatchEnded: true } b1 && b1.Options.Count == MapVote.PageCards + 1 && b1.Options[^1] is { Source: VoteSource.Random, Map: null, N: MapVote.RandomOption }
                 && (b1.Ends - b1.Opened).TotalSeconds == MapVote.Seconds && b1.Options.SkipLast(1).Select(o => o.N).SequenceEqual(Enumerable.Range(1, MapVote.PageCards))
-                && Pending is null && Said($"Match over - Vote for the next map: {MapVote.Seconds} s, or until all 3 have voted"));
+                && Pending is null && h.Said($"Match over - Vote for the next map: {MapVote.Seconds} s, or until all 3 have voted"));
             Check($"...Play this map again first, then {fill} Arms Race maps, then one Deathmatch and one Wingman map (3 on: Wingman suits)",
                 Opt(1) is { Source: VoteSource.Keep } k1 && k1.Map == m[0]
                 && Ballot!.Options.Skip(1).Take(MapVote.PageCards - 1).Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", fill).Concat(["deathmatch", "wingman"]))
@@ -205,42 +155,42 @@ static partial class Program
 
             // ---- fewer maps eligible than a page: the ballot holds what the dice find, never a map twice ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             var three = Maps.Skip(1040).Take(3).ToList();
             foreach (var x in Maps.Except(three)) S.Crashes[Key(x)] = 1; // three Arms Race maps left on either list
-            MatchEnd();
+            h.MatchEnd();
             Check("Only three Arms Race maps may roll: the three, one Deathmatch, one Wingman map and Random - no repeat to make up the number; no map known to be on, so no Keep card",
                 Ballot!.Options.Where(o => o.Mode == Modes.ArmsRace && o.Map != null).Select(o => o.Map!).ToHashSet().SetEquals(three) && Ballot.Options.Count(o => o.Map != null) == 5
                 && Ballot.Options[^1].Source == VoteSource.Random && Ballot.Options.All(o => o.Source != VoteSource.Keep));
 
             // ---- five on: Wingman (Valve's maxplayers 4) is no card, no pick, and no winner ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara, dan, eve }) Join(p);
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
+            h.MatchEnd();
             Check($"Five on: no Wingman card - {MapVote.PageCards - 1} Arms Race maps, one Deathmatch map, Random",
                 Ballot!.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", MapVote.PageCards - 1).Concat(["deathmatch", "armsrace"]))
                 && LiveVote().Options.All(o => o.Mode != Modes.WingmanId));
             var wing = PoolOf(Modes.Wingman).First(x => x.Official);
             ClearNotices(); Command(alice.Item1, alice.Item2, $"!map {wing.Name} wingman");
-            Check("...a Wingman map cannot be picked with five on, during a vote or not", Said("Wingman takes 4 players") && Ballot!.Options.All(o => o.Mode != Modes.Wingman));
+            Check("...a Wingman map cannot be picked with five on, during a vote or not", h.Said("Wingman takes 4 players") && Ballot!.Options.All(o => o.Mode != Modes.Wingman));
             Fresh();
-            foreach (var p in new[] { alice, bob, cara, dan }) Join(p); // four on: Wingman suits
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara, dan }) h.Join(p); // four on: Wingman suits
+            h.MatchEnd();
             var wn = OptOf(o => o.Mode == Modes.Wingman);
             var arN = OptOf(o => o.Mode == Modes.ArmsRace && o.Source == VoteSource.Rolled);
-            Join(eve); // a fifth joins during the vote: counted, and waited for
+            h.Join(eve); // a fifth joins during the vote: counted, and waited for
             Click(alice, wn); Click(bob, wn); Click(cara, wn); Click(dan, arN); Click(eve, arN);
             Check("...nor can its card win once five are on: the next most votes do", Ballot is { Open: false } && Pending?.Map == Opt(arN).Map && ModeOf(Pending!.Map) != Modes.Wingman);
 
             // ---- alone, one vote ends it at once ----
             Fresh();
-            Join(alice);
-            MatchEnd(); Click(alice, 1);
+            h.Join(alice);
+            h.MatchEnd(); Click(alice, 1);
             Check("Alone, one vote ends it at once", Ballot is { Open: false, Result.How: "all" } && Pending is { By: "the vote" });
 
             // ---- votes change and go back as often as a player likes; a picked map without votes leaves; the settle time ----
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
+            foreach (var p in new[] { alice, bob }) h.Join(p);
             var solo = m[5];
             Pick(alice, solo);
             Click(alice, 0);
@@ -255,17 +205,17 @@ static partial class Program
                 Click(alice, r1);
                 Check($"The inactivity timer ({MapVote.InactivitySeconds} s): everybody has voted, the vote stays open, the screen counts it down and names who reset it",
                     Ballot is { Open: true } && LiveVote() is { Inactivity: 5, Waiting.Count: 0, ResetBy: "Alice" } st && HudVote.WaitLine(st) == "Everybody has voted" && HudVote.Clocks(st) is { IdleNum: "5 s", Idle: "Reset by Alice" } && HudVote.InactivityLine(st) == "Inactivity timer 5 s - Reset by Alice");
-                Run(3); Click(alice, r2);
-                Run(3);
+                h.Run(3); Click(alice, r2);
+                h.Run(3);
                 Check("...a change starts it again: 3 s after the change, still open", Ballot is { Open: true });
-                Run(1); HudAct($"{bob.Item2}	{bob.Item1}	{MapVote.Busy(Ballot!.Round)}");
+                h.Run(1); HudAct($"{bob.Item2}	{bob.Item1}	{MapVote.Busy(Ballot!.Round)}");
                 Check("...and so does work in the map browser that reaches the server (!mvb <round>, a page, a sort, a filter, a search): now Bob reset it",
                     Ballot is { Open: true } && LiveVote() is { Inactivity: 5, ResetBy: "Bob" } && MapVote.IsAction(MapVote.Busy(17)) && !MapVote.IsAction("!mvb") && !MapVote.IsAction("!mvb 1 2"));
                 HudAct($"{alice.Item2}	{alice.Item1}	{MapVote.Busy(Ballot!.Round - 1)}");
                 Check("...a stale round's activity is no activity", LiveVote().ResetBy == "Bob");
-                Run(4);
+                h.Run(4);
                 Check("...still open 4 s after it", Ballot is { Open: true });
-                Run(1);
+                h.Run(1);
                 Check($"...and {MapVote.InactivitySeconds} s after the last activity it closes", Ballot is { Open: false } && Pending is { By: "the vote" });
             }
             finally { MapVote.InactivitySeconds = 0; }
@@ -287,7 +237,7 @@ static partial class Program
             {
                 MapVote.InactivitySeconds = 0;
                 Fresh();
-                foreach (var p in six) Join(p);
+                foreach (var p in six) h.Join(p);
                 Ask(dan, m[7]); Land(); Settle(); ClearNotices();
                 MapVote.InactivitySeconds = inactivity;
             }
@@ -299,7 +249,7 @@ static partial class Program
             Check("A match end's vote has nobody to name; an open vote's last 10 s are vlow, one second before them not; the browser's page takes vdone and vlow off",
                 HudVote.StartLine(VoteState.Decode("mv\t9\topen\t8\t3\t0\tend\t0\t1\n")) == "Match over" && ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow")
                 && !ClassOn(VoteState.Decode($"mv\t9\topen\t{HudVote.LowSeconds + 1}\t3\t0\tmid\t0\t1\n"), HudView.Screen, "vlow") && !ClassOn(VoteState.Decode(VoteState1("mid", "all", 2)), HudView.Screen, "vlow")
-                && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, clock).Classes is var browserPage && browserPage.Contains((HudView.Screen, "vdone", false)) && browserPage.Contains((HudView.Screen, "vlow", false)));
+                && HudMenu.Maps(null, new HudState(), new HudBrowser(), 1, h.Clock).Classes is var browserPage && browserPage.Contains((HudView.Screen, "vdone", false)) && browserPage.Contains((HudView.Screen, "vlow", false)));
             Check("A risky card's lock, with its capitals: Locked - Click to unlock, then Click again - Vote anyway",
                 HudMenu.Locked == "Locked - Click to unlock" && HudMenu.Unlocked == "Click again - Vote anyway" && Capitals([HudMenu.Locked, HudMenu.Unlocked]));
             Check("The capitals rule leaves a map's own words alone: the dash in a marked title ends no section; everybody's run-end check reads every line of the vote's (MessagesCapitalsCheck)",
@@ -309,7 +259,7 @@ static partial class Program
 
             WinStart(5);
             StartVote(alice.Item1, alice.Item2);
-            var startedHud = BuildHud(clock);
+            var startedHud = BuildHud(h.Clock);
             Check("The vote started: who started it stands in the window nobody can close; the line for everybody goes to chat and the board, no top line over the window",
                 VarOf(WinState(), HudVote.StartVar) == "Started by Alice" && startedHud.TopText == "" && startedHud.Says.Count == 1
                 && M.Plain(startedHud.Says[0].Text) == $"Alice started a vote for the next map: {MapVote.Seconds} s, or until all 6 have voted" && startedHud.Says[0].Text.Contains(M.N("Alice")) && startedHud.Says[0].Text.Contains(M.V($"{MapVote.Seconds} s"))
@@ -317,25 +267,25 @@ static partial class Program
             var (winA, winB) = (Ballot!.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(0).N, Ballot.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(1).N);
             try
             {
-                Run(22);
+                h.Run(22);
                 Click(alice, winA); Click(bob, winA); Click(cara, winA); Click(dan, winB);
                 var w1 = WinState();
                 Check("Voting: who has not voted, the limit's digits and how many have, the inactivity row waiting; votes/present on the tiles; the limit's bar at its step",
                     Header(w1) == "Started by Alice | Waiting for: Eve, Fay | 38 s | 4 of 6 voted | Inactivity timer |  | Starts when everybody has voted"
                     && ClassOn(w1, HudView.Screen, "voting") && !ClassOn(w1, HudView.Screen, "vdone") && !ClassOn(w1, HudView.Screen, "vlow")
                     && StepOf(w1, HudVote.LimitBar) == "w6" && StepOf(w1, HudVote.IdleBar) == "w0" && TextOf(w1, "gg_m1_score") == "3/6" && TextOf(w1, "gg_m2_score") == "1/6" && TextOf(w1, "gg_m3_score") == "0/6");
-                Run(11);
+                h.Run(11);
                 Click(eve, winA); Click(fay, winB);
                 var w2 = WinState();
                 Check("Everybody voted: the limit runs on, the inactivity timer counts and names who reset it; a reset jumps its bar to full",
                     Header(w2) == "Started by Alice | Everybody has voted | 27 s | 6 of 6 voted | Inactivity timer | 5 s | Reset by Fay" && StepOf(w2, HudVote.LimitBar) == "w4" && StepOf(w2, HudVote.IdleBar) == "w10");
-                Run(2);
+                h.Run(2);
                 var w3 = WinState();
                 Check("...its bar a step a second", VarOf(w3, HudVote.IdleNumVar) == "3 s" && StepOf(w3, HudVote.IdleBar) == "w6");
-                Run(3);
+                h.Run(3);
                 var won = Clip(Label(Opt(winA).Map!), 40);
                 var w4d = WinState();
-                var decidedHud = BuildHud(clock);
+                var decidedHud = BuildHud(h.Clock);
                 Check("Decided, the change counting down: who won and how, the second row counts down on its own bar, vdone, the winner lit, Next map; everybody frozen",
                     Header(w4d) == $"Started by Alice | {won} won (4 of 6) - Picked by the vote |  |  | Changing in | {ChangeDelay} s | " && w4d is { Open: false, Freeze: true, Kept: false } && w4d.DoneSeconds == ChangeDelay
                     && ClassOn(w4d, HudView.Screen, "vdone") && !ClassOn(w4d, HudView.Screen, "vlow") && ClassOn(w4d, "gg_m1", "now") && TextOf(w4d, "gg_m1_play_text") == "Next map" && TextOf(w4d, "gg_m2_play_text") == ""
@@ -343,7 +293,7 @@ static partial class Program
                 Check("...chat and the board say it, once, with its count of everybody present; no top line over the window, no second line for the change",
                     M.Plain(decidedHud.Says[^1].Text) is var decidedLine && decidedLine.StartsWith("Everybody has voted: ") && decidedLine.EndsWith($"(4 of 6) - Changing in {ChangeDelay} s") && decidedHud.TopText == ""
                     && decidedHud.Lately.Count(l => l.Text == decidedLine) == 1 && decidedHud.Says.Count(l => M.Plain(l.Text).Contains("Changing in")) == 1 && decidedHud.Says[^1].Text.Contains(M.V($"{ChangeDelay} s")));
-                Run(ChangeDelay / 2);
+                h.Run(ChangeDelay / 2);
                 var w5 = WinState();
                 Check("...and its bar goes down with its seconds", VarOf(w5, HudVote.IdleNumVar) == $"{ChangeDelay - ChangeDelay / 2} s" && StepOf(w5, HudVote.IdleBar) == HudVote.Share(ChangeDelay - ChangeDelay / 2, ChangeDelay) && w5.Freeze);
 
@@ -355,20 +305,20 @@ static partial class Program
                 var otherN = OptOf(o => o.Source == VoteSource.Rolled);
                 foreach (var p in new[] { alice, bob, cara, dan }) Click(p, keepN);
                 foreach (var p in new[] { eve, fay }) Click(p, otherN);
-                Run(5);
+                h.Run(5);
                 var w6 = WinState();
-                var keptHud = BuildHud(clock);
+                var keptHud = BuildHud(h.Clock);
                 Check($"Kept the map: for {MapVote.KeptSeconds} s the window says so and closes in that time, vdone, the card lit, everybody frozen; no change, no top line; chat and the board say it",
                     Header(w6) == $"Started by Bob | The vote kept {keptLabel} (4 of 6) |  |  | Closes in | {MapVote.KeptSeconds} s | " && w6 is { Open: false, Freeze: true, Kept: true, DoneSeconds: MapVote.KeptSeconds }
                     && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "gg_m1", "now") && TextOf(w6, "gg_m1_score") == "4/6" && TextOf(w6, "gg_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == "w10"
                     && Pending is null && S.Map == keptMap && keptHud.TopText == "" && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)")
                     && HudView.VoteLine(w6) == Hud.Clean($"The vote kept {keptLabel}", HudView.VoteLineMax));
-                Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(clock).Encode(endTimes: true)).AsOf(HudState.Ms(clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);
+                Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(h.Clock).Encode(endTimes: true)).AsOf(HudState.Ms(h.Clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);
                 ClearNotices(); StartVote(cara.Item1, cara.Item2);
-                Check("...a vote cannot be called meanwhile: the wait after a vote has begun", Ballot is { KeptUntil: not null } && Said("You can call a vote again in"));
-                Run(MapVote.KeptSeconds - 1);
+                Check("...a vote cannot be called meanwhile: the wait after a vote has begun", Ballot is { KeptUntil: not null } && h.Said("You can call a vote again in"));
+                h.Run(MapVote.KeptSeconds - 1);
                 Check("...still frozen a second before the end", WinState() is { Freeze: true, SecondsLeft: 1 } kept1 && VarOf(kept1, HudVote.IdleNumVar) == "1 s");
-                Run(1);
+                h.Run(1);
                 Check("...then everybody unfreezes and every window closes at the same moment: no vote, the wait before the next one", Ballot is null && WinState() is { Round: 0, Freeze: false, WaitFor: > 0 });
             }
             finally { MapVote.InactivitySeconds = 0; }
@@ -380,15 +330,15 @@ static partial class Program
             var (lineA, lineB, lineKeep) = (Ballot!.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(0).N, Ballot.Options.Where(o => o.Source == VoteSource.Rolled).ElementAt(1).N, OptOf(o => o.Source == VoteSource.Keep));
             var (mapA, mapB) = (Clip(Label(Opt(lineA).Map!), 32), Clip(Label(Opt(lineB).Map!), 32));
             var lineKey = VoteLineKey(Ballot);
-            string Last() => M.Plain(BuildHud(clock).Says[^1].Text);
+            string Last() => M.Plain(BuildHud(h.Clock).Says[^1].Text);
             Click(bob, lineA);
-            var said1 = BuildHud(clock);
+            var said1 = BuildHud(h.Clock);
             Check("A vote clicked on a card: one line in chat and on the board, who did it and on what, who has voted and who still has to, in chat's colours and plain on the board, no top line",
                 said1.Says.Count == 1 && M.Plain(said1.Says[0].Text) == $"Bob voted for {mapA} - 1 of 6 voted: Bob - Waiting for: Alice, Cara, Dan, Eve, Fay"
                 && said1.Says[0].Text.Contains(M.N("Bob")) && said1.Says[0].Text.Contains(M.N("Alice")) && said1.Says[0].Text.Contains(M.A(mapA)) && said1.Says[0].Text.Contains(M.V("1 of 6"))
                 && said1.Lately.Single(l => l.Key == lineKey) is { Account: 0 } late1 && late1.Text == M.Plain(said1.Says[0].Text) && said1.TopText == "");
             Click(cara, lineA);
-            var said2 = BuildHud(clock);
+            var said2 = BuildHud(h.Clock);
             Check("...every vote again: a line each in chat, the board keeps the newest",
                 said2.Says.Count == 2 && said2.Lately.Single(l => l.Key == lineKey).Text == $"Cara voted for {mapA} - 2 of 6 voted: Bob, Cara - Waiting for: Alice, Dan, Eve, Fay");
             Click(bob, lineB);
@@ -397,21 +347,21 @@ static partial class Program
             Check("...a vote taken back too: he is waited for again", Last() == "Bob took their vote back - 1 of 6 voted: Cara - Waiting for: Alice, Bob, Dan, Eve, Fay");
             Click(cara, 0);
             Check("...and with nobody left: Nobody has voted", Last() == "Cara took their vote back - Nobody has voted - Waiting for: Alice, Bob, Cara, Dan, Eve, Fay");
-            var saidBefore = BuildHud(clock).Says.Count;
+            var saidBefore = BuildHud(h.Clock).Says.Count;
             Click(cara, 0); Click(bob, lineA); Click(bob, lineA);
-            Check("...a click that changes nothing says nothing", BuildHud(clock).Says.Count == saidBefore + 1);
+            Check("...a click that changes nothing says nothing", BuildHud(h.Clock).Says.Count == saidBefore + 1);
             Click(dan, lineKeep);
             Check("...Keep and Random in their own words", Last().StartsWith($"Dan voted to keep {Clip(CurrentLabel(), 32)} - 2 of 6 voted: Bob, Dan - "));
             Click(eve, MapVote.RandomOption);
             Check("......", Last().StartsWith("Eve voted for Random - 3 of 6 voted: Bob, Dan, Eve - "));
             Click(alice, lineA); Click(cara, lineA); Click(fay, lineA);
-            Check("...and the last one: Everybody has voted, with every name; then the result", M.Plain(BuildHud(clock).Says[^2].Text) == $"Fay voted for {mapA} - Everybody has voted: Alice, Bob, Cara, Dan, Eve, Fay" && Last().StartsWith("Everybody has voted: "));
+            Check("...and the last one: Everybody has voted, with every name; then the result", M.Plain(BuildHud(h.Clock).Says[^2].Text) == $"Fay voted for {mapA} - Everybody has voted: Alice, Bob, Cara, Dan, Eve, Fay" && Last().StartsWith("Everybody has voted: "));
             foreach (var (names, cut) in new[] { ("Longer Player Name No ", false), ("P", true) })
             {
                 Fresh();
                 var sixteen = Enumerable.Range(1, 16).Select(i => ($"{names}{i:00}", $"[U:1:{3000 + i}]")).ToArray();
-                foreach (var p in sixteen) Join(p);
-                MatchEnd();
+                foreach (var p in sixteen) h.Join(p);
+                h.MatchEnd();
                 var card = Ballot!.Options.First(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace).N;
                 foreach (var p in sixteen.Take(8)) Click(p, card);
                 Check($"Sixteen on, names of {names.Length + 2} characters: the line stays within {Messages.ChatLineMax} characters, both lists as far as they fit and +N or a number after them ({Last().Length}: {Last()})",
@@ -420,58 +370,58 @@ static partial class Program
 
             // ---- a player who tries to call a vote when none may be called: their own line says why, chat and the board name them, for everybody ----
             Fresh();
-            foreach (var p in six) Join(p);
+            foreach (var p in six) h.Join(p);
             Ask(dan, m[7]); Land(); ClearNotices(); // a vote just held: the wait runs
-            var leftNow = MapVote.Left((int)Math.Ceiling((VoteWaitUntil - clock).TotalSeconds));
+            var leftNow = MapVote.Left((int)Math.Ceiling((VoteWaitUntil - h.Clock).TotalSeconds));
             Command(bob.Item1, bob.Item2, "!next");
-            var no1 = BuildHud(clock);
+            var no1 = BuildHud(h.Clock);
             var named = $"Bob tried to start another vote - The next one can start in {leftNow}";
             Check("You cannot call a vote yet: the player's own line says when, chat and the board name who tried, for everybody, in the refusal's colour; no top line",
                 no1.Notes.Count == 1 && no1.Notes[2002].Text == $"You can call a vote again in {leftNow}" && no1.NoteCats[2002] == Messages.Vote.Id
                 && no1.Says.Count == 1 && no1.Says[0].Account == 0 && M.Plain(no1.Says[0].Text) == named && no1.Says[0].Text.StartsWith(M.Refused("")) && no1.Says[0].Text.Contains(M.N("Bob")) && no1.Says[0].Text.Contains(M.V(leftNow))
                 && no1.Lately.Count == 1 && no1.Lately[0].Account == 0 && no1.Lately[0].Text == named && no1.TopText == "" && Ballot is null);
-            Run(1); Command(bob.Item1, bob.Item2, "!next");
-            var no2 = BuildHud(clock);
+            h.Run(1); Command(bob.Item1, bob.Item2, "!next");
+            var no2 = BuildHud(h.Clock);
             Check($"...a player who keeps trying: their line and their row stay current, chat names them once in {RefusedQuietSeconds} s", no2.Says.Count == 1 && no2.Lately.Count == 1 && no2.Lately[0].Text != named && no2.Notes[2002].Text != $"You can call a vote again in {leftNow}");
-            Run(RefusedQuietSeconds); Command(bob.Item1, bob.Item2, "!next");
-            Check("...and again after that", BuildHud(clock) is { Says.Count: 2, Lately.Count: 1 });
+            h.Run(RefusedQuietSeconds); Command(bob.Item1, bob.Item2, "!next");
+            Check("...and again after that", BuildHud(h.Clock) is { Says.Count: 2, Lately.Count: 1 });
             Pick(cara, m[3]);
-            Check("...a card's Play in the wait is such a try too: Cara is named beside Bob", BuildHud(clock) is { Says.Count: 3, Lately.Count: 2 } no3 && M.Plain(no3.Says[^1].Text).StartsWith("Cara tried to start another vote - The next one can start in ") && no3.Notes.ContainsKey(2003));
+            Check("...a card's Play in the wait is such a try too: Cara is named beside Bob", BuildHud(h.Clock) is { Says.Count: 3, Lately.Count: 2 } no3 && M.Plain(no3.Says[^1].Text).StartsWith("Cara tried to start another vote - The next one can start in ") && no3.Notes.ContainsKey(2003));
             Fresh();
-            foreach (var p in six) Join(p);
+            foreach (var p in six) h.Join(p);
             Ask(dan, m[7]); ClearNotices(); // the change counts down
             Command(bob.Item1, bob.Item2, "!next");
-            var no4 = BuildHud(clock);
+            var no4 = BuildHud(h.Clock);
             var changing = Clip(Label(m[7]), 40);
             Check("...and while a change counts down: the same two lines, in their words", no4.Notes[2002].Text == $"Already changing to {changing} - Wait for it" && M.Plain(no4.Says[^1].Text) == $"Bob tried to start a vote - Already changing to {changing}" && Pending is { });
 
             // ---- the top line: one line, a newer one replaces it ----
             Fresh();
-            Announce("A long one", 60); Run(1);
+            Announce("A long one", 60); h.Run(1);
             Announce("A short one", 5);
-            Check("The top line: a newer line replaces the one that is on", BuildHud(clock) is { News: "A short one", TopText: "A short one", TopCat: "server" });
-            Run(6);
-            Check("...and nothing comes back when its time is up", BuildHud(clock) is { News: "", TopText: "" });
+            Check("The top line: a newer line replaces the one that is on", BuildHud(h.Clock) is { News: "A short one", TopText: "A short one", TopCat: "server" });
+            h.Run(6);
+            Check("...and nothing comes back when its time is up", BuildHud(h.Clock) is { News: "", TopText: "" });
 
             // ---- the transport (HudTransport.cs): countdowns as end times, so a state that only counts down does not change ----
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
+            foreach (var p in new[] { alice, bob }) h.Join(p);
             Announce("A line", 60); Tell(alice.Item2, "A note", 30);
-            MatchEnd();
+            h.MatchEnd();
             Click(alice, Ballot!.Options.First(o => o.Source == VoteSource.Rolled).N); // a vote open, Bob still to vote: its clock runs
-            string EndTimesText() => BuildHud(clock).Encode(endTimes: true) + BuildVoteState(clock).Encode(endTimes: true);
-            string SecondsText() => BuildHud(clock).Encode() + BuildVoteState(clock).Encode();
+            string EndTimesText() => BuildHud(h.Clock).Encode(endTimes: true) + BuildVoteState(h.Clock).Encode(endTimes: true);
+            string SecondsText() => BuildHud(h.Clock).Encode() + BuildVoteState(h.Clock).Encode();
             var (t1, l1) = (EndTimesText(), SecondsText());
-            Run(1);
+            h.Run(1);
             var (t2, l2) = (EndTimesText(), SecondsText());
             Check("The change-driven text: a second of countdown changes nothing in it - its end times stand - while the seconds' text changes", t1 == t2 && l1 != l2);
-            var asOf = HudState.Decode(t2)!.AsOf(HudState.Ms(clock));
+            var asOf = HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock));
             var bySeconds = HudState.Decode(l2)!;
             Check("...counted down from its end times it says what the seconds' text says: the news, the note, the vote's clock",
                 asOf.News == bySeconds.News && asOf.NewsFor == bySeconds.NewsFor && asOf.Notes[2001] == bySeconds.Notes[2001]
-                && VoteState.Decode(t2).AsOf(HudState.Ms(clock)).SecondsLeft == VoteState.Decode(l2).SecondsLeft && VoteState.Decode(t2).Round == Ballot!.Round);
-            Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(61))).News == ""
-                && !HudState.Decode(t2)!.AsOf(HudState.Ms(clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(clock.AddSeconds(90))).SecondsLeft == 0);
+                && VoteState.Decode(t2).AsOf(HudState.Ms(h.Clock)).SecondsLeft == VoteState.Decode(l2).SecondsLeft && VoteState.Decode(t2).Round == Ballot!.Round);
+            Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock.AddSeconds(61))).News == ""
+                && !HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(h.Clock.AddSeconds(90))).SecondsLeft == 0);
             PublishHud(); var published = HudTextVersion; PublishHud();
             Check("A state published again unchanged keeps its version", HudTextVersion == published);
             Announce("Another line", 10); PublishHud();
@@ -481,24 +431,24 @@ static partial class Program
 
             // ---- during the vote: picks go on it, a click changes or takes back a vote ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara, dan }) Join(p); // four on: the vote stays open while three of them vote
+            foreach (var p in new[] { alice, bob, cara, dan }) h.Join(p); // four on: the vote stays open while three of them vote
             Ask(dan, m[9]); Land(); // a map on, so Keep is on the ballot
-            MatchEnd();
+            h.MatchEnd();
             var round = Ballot!.Round;
             ClearNotices(); StartVote(bob.Item1, bob.Item2);
-            Check("Start a vote while one is open: one vote at a time - it says the vote is on", Pending is null && Ballot!.Round == round && Ballot.Open && Said("The vote for the next map is on"));
+            Check("Start a vote while one is open: one vote at a time - it says the vote is on", Pending is null && Ballot!.Round == round && Ballot.Open && h.Said("The vote for the next map is on"));
             ClearNotices();
-            Check("A click on Start a vote (!next) the same, nothing changes", HudAct($"{bob.Item2}\t{bob.Item1}\t!next") && Pending is null && Ballot!.Open && Ballot.Round == round && Said("The vote for the next map is on"));
+            Check("A click on Start a vote (!next) the same, nothing changes", HudAct($"{bob.Item2}\t{bob.Item1}\t!next") && Pending is null && Ballot!.Open && Ballot.Round == round && h.Said("The vote for the next map is on"));
             ClearNotices(); HudAct($"{alice.Item2}\t{alice.Item1}\t!up");
-            Check("...what does not touch the map goes on as ever", Said("You liked"));
+            Check("...what does not touch the map goes on as ever", h.Said("You liked"));
             Click(alice, 2); Click(alice, 3);
             Check("A second click changes the vote", Ballot!.Choices[alice.Item2] == 3 && Ballot.Choices.Count == 1);
             Click(alice, 0);
             Check("...and 0 takes it back", Ballot!.Choices.Count == 0);
             ClearNotices(); Click(bob, 60);
-            Check("A card the ballot does not have: a note, nothing cast", Said("not on this ballot") && Ballot!.Choices.Count == 0);
+            Check("A card the ballot does not have: a note, nothing cast", h.Said("not on this ballot") && Ballot!.Choices.Count == 0);
             ClearNotices(); Click(bob, 1, round - 1);
-            Check("A click for another round: a note, nothing cast", Said("That vote is over") && Ballot!.Choices.Count == 0);
+            Check("A click for another round: a note, nothing cast", h.Said("That vote is over") && Ballot!.Choices.Count == 0);
             Check("A click must be one: !mv without a round is refused at the door", !HudAct($"{bob.Item2}\tBob\t!mv 1") && Ballot!.Choices.Count == 0);
             var lastFill = Ballot!.Options.Where(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace).MaxBy(o => o.Order)!;
             var offBallot = m.Where(x => x != m[9] && Ballot.Options.All(o => o.Map != x)).ToList(); // maps of ours the dice did not put on it
@@ -506,7 +456,7 @@ static partial class Program
             ClearNotices(); Pick(alice, p6);
             Check("A pick while the vote is open goes on the ballot for everybody with her vote, in the place and number of a random card nobody voted for; nothing changes",
                 Pending is null && Ballot!.Open && Ballot.Options.Count == MapVote.PageCards + 1 && Ballot.Options.Single(o => o.Map == p6) is { Source: VoteSource.Picked } added
-                && added.N == lastFill.N && !Ballot.Options.Contains(lastFill) && Ballot.Choices[alice.Item2] == added.N && Said("Alice added"));
+                && added.N == lastFill.N && !Ballot.Options.Contains(lastFill) && Ballot.Choices[alice.Item2] == added.N && h.Said("Alice added"));
             var shownAdd = LiveVote();
             var addedN = Ballot!.Options.FirstOrDefault(o => o.Map == p6)?.N ?? -1;
             Check("...the live state shows it first (the most votes), with who picked it, her vote lit", shownAdd.Options[0] is { Source: VoteSource.Picked, Who: "Alice" } a1 && a1.N == addedN && shownAdd.ChoiceOf(2001) == addedN);
@@ -521,12 +471,12 @@ static partial class Program
                 && HudVote.Click(p7Card, HudVote.RandomButton, 0, 2001) == MapVote.Click(p7Card.Round, MapVote.RandomOption));
             var two0 = Opt(2).Map!;
             ClearNotices(); Pick(bob, two0);
-            Check("...a map the ballot holds already gets the player's vote alone", Ballot!.Choices[bob.Item2] == 2 && Said("is on the vote already"));
+            Check("...a map the ballot holds already gets the player's vote alone", Ballot!.Choices[bob.Item2] == 2 && h.Said("is on the vote already"));
             ClearNotices(); Pick(cara, m[9]);
-            Check("...the map that is on is the Keep card: a pick of it is a vote to keep it", Ballot!.Choices[cara.Item2] == OptOf(o => o.Source == VoteSource.Keep) && Said("is on the vote - Your vote is on it"));
+            Check("...the map that is on is the Keep card: a pick of it is a vote to keep it", Ballot!.Choices[cara.Item2] == OptOf(o => o.Source == VoteSource.Keep) && h.Said("is on the vote - Your vote is on it"));
             Check("Three of four have voted: still open, waiting for Dan, everybody frozen", Ballot!.Open && LiveVote() is { Freeze: true } w4 && w4.Waiting.SequenceEqual(["Dan"]));
-            Leave(bob); Run(1);
-            Check("A voter who leaves takes their vote along, and the base shrinks to the 3 still on", !Ballot!.Choices.ContainsKey(bob.Item2) && Ballot.Choices.Count == 2 && VotePresent(Ballot, clock) == 3);
+            h.Leave(bob); h.Run(1);
+            Check("A voter who leaves takes their vote along, and the base shrinks to the 3 still on", !Ballot!.Choices.ContainsKey(bob.Item2) && Ballot.Choices.Count == 2 && VotePresent(Ballot, h.Clock) == 3);
             var sevenN = Ballot.Options.Single(o => o.Map == p7).N;
             Click(cara, sevenN);
             Check("...two of three on one card is no early end: Dan has not voted", Ballot!.Open);
@@ -535,12 +485,12 @@ static partial class Program
 
             // ---- a risky pick asks that player twice, during a vote too ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Broken = new() { [Key(m[3])] = 3 }; // crashed 3 of 3 test loads: the dice skip it, a pick asks twice
-            MatchEnd();
+            h.MatchEnd();
             var bobs = m.Skip(4).First(x => Ballot!.Options.All(o => o.Map != x));
             ClearNotices(); Pick(alice, m[3]);
-            Check("A risky pick during a vote asks that player a second time first", Said($"Click again within {PickConfirmSeconds} s to vote anyway") && Ballot!.Options.All(o => o.Map != m[3]) && !Ballot.Choices.ContainsKey(alice.Item2));
+            Check("A risky pick during a vote asks that player a second time first", h.Said($"Click again within {PickConfirmSeconds} s to vote anyway") && Ballot!.Options.All(o => o.Map != m[3]) && !Ballot.Choices.ContainsKey(alice.Item2));
             Pick(bob, bobs); Pick(alice, m[3]);
             Check("...another player's pick between leaves her confirm standing: her second click puts it on the ballot, with her vote",
                 Ballot is { Open: true } rb && rb.Options.Single(o => o.Map == m[3]).N == rb.Choices[alice.Item2] && rb.Options.Any(o => o.Map == bobs));
@@ -548,14 +498,14 @@ static partial class Program
 
             // ---- the timer: the most votes win at 60 s, not before ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara, dan, eve }) Join(p);
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
+            h.MatchEnd();
             Click(alice, 2); Click(bob, 2); Click(cara, 4); Click(dan, 1);
-            Run(MapVote.Seconds - 1);
+            h.Run(MapVote.Seconds - 1);
             Check($"Not everybody (4 of 5): after {MapVote.Seconds - 1} s it is still open", Ballot is { Open: true } && Pending is null);
             var two = Opt(2).Map;
-            Run(1);
-            Check($"At {MapVote.Seconds} s it is decided: the most votes win", Ballot is { Open: false, Result: { N: 2, How: "most" } } && Pending?.Map == two && Said("(2 of 5)"));
+            h.Run(1);
+            Check($"At {MapVote.Seconds} s it is decided: the most votes win", Ballot is { Open: false, Result: { N: 2, How: "most" } } && Pending?.Map == two && h.Said("(2 of 5)"));
             Land();
             Check("The winner is the vote's: picked by 'the vote', the vote over, and the next one waits", S.PickedBy == "the vote" && Ballot is null && LiveVote().WaitFor > 0);
 
@@ -564,110 +514,110 @@ static partial class Program
             for (var trial = 0; trial < 120; trial++)
             {
                 Fresh();
-                foreach (var p in new[] { alice, bob, cara }) Join(p);
-                MatchEnd();
+                foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+                h.MatchEnd();
                 Click(alice, 1); Click(bob, 3); // 1 and 1 of 3: a tie at the timer
-                Run(MapVote.Seconds);
+                h.Run(MapVote.Seconds);
                 if (Ballot?.Result is { } r) wins[r.N] = wins.GetValueOrDefault(r.N) + 1;
             }
             Check($"A tie is drawn at random among the tied (120 ties: card 1 won {wins.GetValueOrDefault(1)}, card 3 {wins.GetValueOrDefault(3)}, the others {wins.Where(w => w.Key is not (1 or 3)).Sum(w => w.Value)})",
                 wins.GetValueOrDefault(1) >= 35 && wins.GetValueOrDefault(3) >= 35 && wins.Keys.All(k => k is 1 or 3) && wins.Values.Sum() == 120);
-            Check("...and says so", Said("A tie at 1 vote each, drawn by the dice"));
+            Check("...and says so", h.Said("A tie at 1 vote each, drawn by the dice"));
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
-            MatchEnd();
-            Run(MapVote.Seconds);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            h.MatchEnd();
+            h.Run(MapVote.Seconds);
             Check("No votes at all at a match end: Random - the dice roll a map of the server's mode",
-                Ballot is { Result: { How: "none" } nr } && nr.N == MapVote.RandomOption && Pending is { By: "the vote" } nv && InArmsRace(nv.Map) && Said("Nobody voted - Rolling the dice"));
+                Ballot is { Result: { How: "none" } nr } && nr.N == MapVote.RandomOption && Pending is { By: "the vote" } nv && InArmsRace(nv.Map) && h.Said("Nobody voted - Rolling the dice"));
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            h.MatchEnd();
             Click(alice, MapVote.RandomOption); Click(bob, MapVote.RandomOption); Click(cara, 1);
-            Check("Random can win like any card: 2 of 3 once everybody has voted, and the dice roll after the vote", Ballot is { Result: { How: "all" } rr } && rr.N == MapVote.RandomOption && Pending is { By: "the vote" } && Said("The vote chose Random"));
+            Check("Random can win like any card: 2 of 3 once everybody has voted, and the dice roll after the vote", Ballot is { Result: { How: "all" } rr } && rr.N == MapVote.RandomOption && Pending is { By: "the vote" } && h.Said("The vote chose Random"));
 
             // ---- a vote a player starts: Keep playing, the wait after every vote, !random, a match end overtaking it, Play this map again ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land(); Settle();
             ClearNotices(); StartVote(bob.Item1, bob.Item2);
             Check("Start a vote while a match runs: Keep playing this map first, nobody's vote cast, everybody frozen", Ballot is { Open: true, MatchEnded: false } kv && kv.Starter == bob.Item2
                 && kv.Options[0] is { Source: VoteSource.Keep, N: 1 } && LiveVote() is { Freeze: true, StarterName: "Bob" } ks && ks.Options[0].Label == "Keep playing this map" && Pending is null
-                && Said("Bob started a vote for the next map"));
+                && h.Said("Bob started a vote for the next map"));
             Click(alice, 1); Click(cara, 1); Click(bob, 2);
             Check($"Keep wins once everybody has voted, 2 of 3: no change, the window says so for {MapVote.KeptSeconds} s, everybody still frozen",
-                Ballot is { Open: false, KeptUntil: not null } && Pending is null && S.Map == m[4] && LiveVote() is { Freeze: true, Kept: true } && Said("The vote kept"));
-            Run(MapVote.KeptSeconds);
+                Ballot is { Open: false, KeptUntil: not null } && Pending is null && S.Map == m[4] && LiveVote() is { Freeze: true, Kept: true } && h.Said("The vote kept"));
+            h.Run(MapVote.KeptSeconds);
             Check("...then the vote is gone and everybody unfreezes at the same moment", Ballot is null && Pending is null && !LiveVote().Freeze);
             ClearNotices(); StartVote(cara.Item1, cara.Item2);
-            Check($"...and for {MapVote.WaitSeconds / 60} minutes nobody may start another - the wait after every vote", Ballot is null && Said("You can call a vote again in") && Said("Cara tried to start another vote - The next one can start in"));
-            Run(MapVote.WaitSeconds + 1);
+            Check($"...and for {MapVote.WaitSeconds / 60} minutes nobody may start another - the wait after every vote", Ballot is null && h.Said("You can call a vote again in") && h.Said("Cara tried to start another vote - The next one can start in"));
+            h.Run(MapVote.WaitSeconds + 1);
             ClearNotices(); StartVote(cara.Item1, cara.Item2);
             Check("...then anybody may", Ballot is { Open: true } kc && kc.Starter == cara.Item2);
-            Run(MapVote.Seconds);
-            Check("Nobody votes on a vote a player started: the map stays", Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && Said("Nobody voted -") && Said("stays"));
-            Run(MapVote.WaitSeconds + 1);
+            h.Run(MapVote.Seconds);
+            Check("Nobody votes on a vote a player started: the map stays", Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && h.Said("Nobody voted -") && h.Said("stays"));
+            h.Run(MapVote.WaitSeconds + 1);
             ClearNotices(); StartVote(bob.Item1, bob.Item2);
             var rolledN = OptOf(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace);
             var rolledMap = Opt(rolledN).Map!;
             Click(bob, rolledN); Click(cara, rolledN); Click(alice, 1);
-            Check("Another card winning the vote changes the map", Pending is { By: "the vote" } rep && rep.Map == rolledMap && Said("Everybody has voted"));
+            Check("Another card winning the vote changes the map", Pending is { By: "the vote" } rep && rep.Map == rolledMap && h.Said("Everybody has voted"));
             Land();
             Check("...landed: the vote's map", S.Map == rolledMap && S.PickedBy == "the vote");
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land(); Settle();
             ClearNotices(); Command(bob.Item1, bob.Item2, "!next random");
             Check("!random starts the vote with its player's vote on Random", Ballot is { Open: true, MatchEnded: false } rv && rv.Choices[bob.Item2] == MapVote.RandomOption);
             Command(cara.Item1, cara.Item2, "!next random"); Command(alice.Item1, alice.Item2, "!next random");
-            Check("...and while it is open puts that player's vote on Random: all three on it decide, and the dice roll", Ballot is { Open: false, Result.How: "all" } && Pending is { By: "the vote" } && Said("The vote chose Random"));
+            Check("...and while it is open puts that player's vote on Random: all three on it decide, and the dice roll", Ballot is { Open: false, Result.How: "all" } && Pending is { By: "the vote" } && h.Said("The vote chose Random"));
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land(); Settle();
             StartVote(bob.Item1, bob.Item2);
-            MatchEnd();
+            h.MatchEnd();
             Check("A match that ends during a vote a player started: it runs on as a match end's - its Keep card is Play this map again",
                 Ballot is { Open: true, MatchEnded: true } && LiveVote() is { MatchEnded: true } me && me.Options.Single(o => o.Source == VoteSource.Keep).Label == "Play this map again");
-            Run(MapVote.Seconds);
-            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && Said("Nobody voted - Rolling the dice"));
+            h.Run(MapVote.Seconds);
+            Check("...and nobody voting is Random then, not Keep", Pending is { By: "the vote" } && h.Said("Nobody voted - Rolling the dice"));
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[4]); Land();
-            MatchEnd();
+            h.MatchEnd();
             var again = OptOf(o => o.Source == VoteSource.Keep);
             Click(alice, again); Click(bob, again); Click(cara, again);
             Check("Play this map again wins at a match end: no change - the server's next match is on the same map (mp_match_end_restart)",
-                Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && Said("again") && Said("Its next match"));
+                Ballot is { KeptUntil: not null } && Pending is null && S.Map == m[4] && h.Said("again") && h.Said("Its next match"));
 
             // ---- the vote is dropped by a map start, the maintenance flag, everybody leaving, a restart ----
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
-            MatchEnd();
-            Line("Loading map \"de_somewhere\"");
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.MatchEnd();
+            h.Line("Loading map \"de_somewhere\"");
             Check("A map start nobody asked for drops the vote without a change", Ballot is null && Pending is null);
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
-            MatchEnd(); Click(alice, 1);
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.MatchEnd(); Click(alice, 1);
             File.WriteAllText(MaintenanceFile, "");
-            Run(MapVote.Seconds);
+            h.Run(MapVote.Seconds);
             Check("The maintenance flag at the decision: no change", Ballot is null && Pending is null);
             File.Delete(MaintenanceFile); InMaintenance();
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
-            MatchEnd();
-            Leave(alice); Leave(bob); Run(1);
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.MatchEnd();
+            h.Leave(alice); h.Leave(bob); h.Run(1);
             Check("Everybody leaves during the vote: it is dropped, no change", Ballot is null && Pending is null);
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
-            MatchEnd(); Line("rcon from \"192.0.2.9:5000\": command \"quit\"");
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.MatchEnd(); h.Line("rcon from \"192.0.2.9:5000\": command \"quit\"");
             Check("A restart drops it too", Ballot is null && Pending is null);
 
             // ---- more picks than a page: a random card makes room while one nobody voted for is left, then a second page ----
             Fresh();
             var nine = new[] { alice, bob, cara, dan, eve, ("Fay", "[U:1:2006]"), ("Gus", "[U:1:2007]"), ("Hal", "[U:1:2008]"), ("Ida", "[U:1:2009]") };
-            foreach (var p in nine) Join(p);
-            Join(("Joe", "[U:1:2010]")); // ten on: Joe does not vote, so the vote stays open
+            foreach (var p in nine) h.Join(p);
+            h.Join(("Joe", "[U:1:2010]")); // ten on: Joe does not vote, so the vote stays open
             Ask(nine[0], m[11]); Land();
-            MatchEnd();
+            h.MatchEnd();
             var many = small.Skip(200).Where(x => x != m[11] && Ballot!.Options.All(o => o.Map != x)).Where((x, i) => i % 7 == 0).Take(9).ToList();
             for (var i = 0; i < 9; i++) Pick(nine[i], many[i]);
             var big9 = LiveVote();
@@ -680,25 +630,25 @@ static partial class Program
 
             // ---- a Deathmatch map wins: it loads in Deathmatch ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             S.RoundMinutes = ShortRoundMinutes; // a match length the players set, which is Arms Race's alone
-            MatchEnd();
+            h.MatchEnd();
             var dmOpt = OptOf(o => o.Mode == Modes.Deathmatch);
             var dmMap = Opt(dmOpt).Map!;
             Click(alice, dmOpt); Click(bob, dmOpt); Click(cara, dmOpt);
-            Check("All three vote for the Deathmatch map: decided", Pending?.Map == dmMap && Said("- Deathmatch"));
-            sent.Clear();
-            Run(ChangeDelay);
-            var prep = sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2");
-            Check($"The map loads in its mode: os_mode, game_type and game_mode first, then the map command ({string.Join(" | ", sent)})",
-                prep >= 0 && sent.IndexOf($"changelevel {dmMap.Name}") == prep + 1 && (gameType, gameMode) == (1, 2) && S.Mode == "deathmatch" && CurrentMode == Modes.Deathmatch);
+            Check("All three vote for the Deathmatch map: decided", Pending?.Map == dmMap && h.Said("- Deathmatch"));
+            h.Sent.Clear();
+            h.Run(ChangeDelay);
+            var prep = h.Sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2");
+            Check($"The map loads in its mode: os_mode, game_type and game_mode first, then the map command ({string.Join(" | ", h.Sent)})",
+                prep >= 0 && h.Sent.IndexOf($"changelevel {dmMap.Name}") == prep + 1 && (gameType, gameMode) == (1, 2) && S.Mode == "deathmatch" && CurrentMode == Modes.Deathmatch);
             Land();
             Check("Landed in Deathmatch: the plugin hears the mode again after the map start (os_mode: the plugin's own mode, which the HUD shows)",
-                sent.Contains("os_mode deathmatch") && CurrentMode == Modes.Deathmatch && S.Map == dmMap);
-            Check("...and the match length is not applied outside Arms Race", !sent.Any(c => c.StartsWith("mp_roundtime")));
+                h.Sent.Contains("os_mode deathmatch") && CurrentMode == Modes.Deathmatch && S.Map == dmMap);
+            Check("...and the match length is not applied outside Arms Race", !h.Sent.Any(c => c.StartsWith("mp_roundtime")));
             ClearNotices(); Command(alice.Item1, alice.Item2, "!time 60");
-            Check("...nor can it be set there", Said("The match length is Arms Race's") && S.RoundMinutes == ShortRoundMinutes);
-            Settle(); MatchEnd();
+            Check("...nor can it be set there", h.Said("The match length is Arms Race's") && S.RoundMinutes == ShortRoundMinutes);
+            Settle(); h.MatchEnd();
             Check($"The next vote in Deathmatch: Play this map again, {MapVote.PageCards - 3} Deathmatch maps, then Arms Race and Wingman, and Random in Deathmatch",
                 Ballot!.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("deathmatch", MapVote.PageCards - 2).Concat(["armsrace", "wingman", "deathmatch"]))
                 && Ballot.Options[0].Source == VoteSource.Keep && Ballot.Options.Skip(1).Take(MapVote.PageCards - 3).All(o => o.Map!.Official && o.Map != dmMap) && Ballot.FillMode == Modes.Deathmatch);
@@ -706,34 +656,34 @@ static partial class Program
             Check("...and the ballot shows another mode's map with its mode after it", OptionLabel(Ballot, Opt(arOpt)).EndsWith(" - Arms Race") && !OptionLabel(Ballot, Opt(2)).Contains(" - "));
             var arMap = Opt(arOpt).Map!;
             Click(alice, arOpt); Click(bob, arOpt); Click(cara, arOpt);
-            sent.Clear(); Run(ChangeDelay);
-            var back1 = sent.IndexOf("os_mode armsrace;game_type 1;game_mode 0");
+            h.Sent.Clear(); h.Run(ChangeDelay);
+            var back1 = h.Sent.IndexOf("os_mode armsrace;game_type 1;game_mode 0");
             Check("Back to Arms Race by the vote: os_mode armsrace;game_type 1;game_mode 0, then the Workshop map",
-                back1 >= 0 && sent.IndexOf($"host_workshop_map {arMap.Id}") == back1 + 1 && S.Mode == "armsrace");
+                back1 >= 0 && h.Sent.IndexOf($"host_workshop_map {arMap.Id}") == back1 + 1 && S.Mode == "armsrace");
             Land();
-            Check("...where the match length the players set applies again", sent.Contains($"mp_roundtime {ShortRoundMinutes}"));
+            Check("...where the match length the players set applies again", h.Sent.Contains($"mp_roundtime {ShortRoundMinutes}"));
 
             // ---- a Workshop map, then an official map of another mode: CS2's snapshot puts the old mode back, so it loads once more ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[2]); Land(); Settle(); // an Arms Race Workshop map: CS2 saved its convars (Arms Race) on the way there
             Check("The fake server went to a Workshop map and saved Arms Race", !onOfficial && snapshot == (1, 0));
-            MatchEnd();
+            h.MatchEnd();
             var dmn = OptOf(o => o.Mode == Modes.Deathmatch);
             var dmo = Opt(dmn).Map!;
             Click(alice, dmn); Click(bob, dmn); Click(cara, dmn);
-            Run(ChangeDelay);
-            Check("The Deathmatch official map goes out with its mode, and CS2 restores Arms Race under it", sent.Contains($"changelevel {dmo.Name}") && (gameType, gameMode) == (1, 0) && S.Mode == "deathmatch");
-            sent.Clear();
+            h.Run(ChangeDelay);
+            Check("The Deathmatch official map goes out with its mode, and CS2 restores Arms Race under it", h.Sent.Contains($"changelevel {dmo.Name}") && (gameType, gameMode) == (1, 0) && S.Mode == "deathmatch");
+            h.Sent.Clear();
             Land();
             Check("After it lands the bridge reads the mode, finds Arms Race, and loads the map once more in Deathmatch",
-                sent.Contains("game_type") && sent.Contains("os_mode deathmatch;game_type 1;game_mode 2") && sent.IndexOf($"changelevel {dmo.Name}") == sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1
-                && AnnouncePending && Said($"{Label(dmo)} loads once more, in Deathmatch") && ModeReloads == 1);
+                h.Sent.Contains("game_type") && h.Sent.Contains("os_mode deathmatch;game_type 1;game_mode 2") && h.Sent.IndexOf($"changelevel {dmo.Name}") == h.Sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1
+                && AnnouncePending && h.Said($"{Label(dmo)} loads once more, in Deathmatch") && ModeReloads == 1);
             Check("...official to official, so this time nothing is restored: the server is in Deathmatch", (gameType, gameMode) == (1, 2));
-            sent.Clear(); Run(1); // an empty server loads an official map again within seconds (3 s, live on 2026-11-01)
-            Line($"Loading map \"{dmo.Name}\""); Line("Started:  \"\"");
-            Run(2);
-            Check("The second load lands, the mode is right, and nothing loads a third time", !AnnouncePending && S.Map == dmo && sent.Contains("game_type") && !sent.Any(c => c.StartsWith("changelevel")));
+            h.Sent.Clear(); h.Run(1); // an empty server loads an official map again within seconds (3 s, live on 2026-11-01)
+            h.Line($"Loading map \"{dmo.Name}\""); h.Line("Started:  \"\"");
+            h.Run(2);
+            Check("The second load lands, the mode is right, and nothing loads a third time", !AnnouncePending && S.Map == dmo && h.Sent.Contains("game_type") && !h.Sent.Any(c => c.StartsWith("changelevel")));
             Check("...and it is still the vote's map", S.PickedBy == "the vote");
 
             // ---- the same with the plugin on, as on the live server: its block has the told values back in the convars before the bridge asks,
@@ -743,96 +693,96 @@ static partial class Program
                 !File.Exists(settingsFile) || File.ReadAllText(settingsFile).Contains($"kept; its block list and features {ModeNotLoadedWords}\"", StringComparison.Ordinal));
             Fresh();
             fakePlugin = true;
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[2]); Land(); Settle();
-            Check("With the plugin: an Arms Race Workshop map says on already and loads once", ModeReloads == 0 && fakeLoaded == Modes.ArmsRace && sent.Count(c => c.StartsWith("host_workshop_map")) == 1);
-            MatchEnd();
+            Check("With the plugin: an Arms Race Workshop map says on already and loads once", ModeReloads == 0 && fakeLoaded == Modes.ArmsRace && h.Sent.Count(c => c.StartsWith("host_workshop_map")) == 1);
+            h.MatchEnd();
             var dmpn = OptOf(o => o.Mode == Modes.Deathmatch);
             var dmp = Opt(dmpn).Map!;
             Click(alice, dmpn); Click(bob, dmpn); Click(cara, dmpn);
-            Run(ChangeDelay);
+            h.Run(ChangeDelay);
             Check("With the plugin: CS2 restored Arms Race under the Deathmatch official map, and the convars read Deathmatch again", fakeLoaded == Modes.ArmsRace && (gameType, gameMode) == (1, 2) && S.Mode == "deathmatch");
-            sent.Clear();
+            h.Sent.Clear();
             Land();
-            Check($"...the plugin's reply alone has it load once more in Deathmatch ({string.Join(" | ", sent)})",
-                sent.Contains("os_mode deathmatch") && sent.IndexOf($"changelevel {dmp.Name}") == sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1 && sent.Contains($"changelevel {dmp.Name}")
-                && AnnouncePending && Said($"{Label(dmp)} loads once more, in Deathmatch") && ModeReloads == 1 && S.Mode == "deathmatch");
-            sent.Clear(); Run(1);
-            Line($"Loading map \"{dmp.Name}\""); Line("Started:  \"\"");
-            Run(2);
+            Check($"...the plugin's reply alone has it load once more in Deathmatch ({string.Join(" | ", h.Sent)})",
+                h.Sent.Contains("os_mode deathmatch") && h.Sent.IndexOf($"changelevel {dmp.Name}") == h.Sent.IndexOf("os_mode deathmatch;game_type 1;game_mode 2") + 1 && h.Sent.Contains($"changelevel {dmp.Name}")
+                && AnnouncePending && h.Said($"{Label(dmp)} loads once more, in Deathmatch") && ModeReloads == 1 && S.Mode == "deathmatch");
+            h.Sent.Clear(); h.Run(1);
+            h.Line($"Loading map \"{dmp.Name}\""); h.Line("Started:  \"\"");
+            h.Run(2);
             Check("...the second load is in Deathmatch: the plugin says on already, and nothing loads a third time",
-                fakeLoaded == Modes.Deathmatch && !AnnouncePending && S.Map == dmp && sent.Contains("os_mode deathmatch") && !sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 1);
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
-            Settle(); MatchEnd();
+                fakeLoaded == Modes.Deathmatch && !AnnouncePending && S.Map == dmp && h.Sent.Contains("os_mode deathmatch") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 1);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            Settle(); h.MatchEnd();
             var wgn = OptOf(o => o.Mode == Modes.Wingman);
             var wgm = Opt(wgn).Map!;
             Click(alice, wgn); Click(bob, wgn); Click(cara, wgn);
-            Run(ChangeDelay);
-            sent.Clear();
+            h.Run(ChangeDelay);
+            h.Sent.Clear();
             Land();
             Check("Official to official in another mode restores nothing: the plugin says on already, and it loads once",
-                wgm.Official && fakeLoaded == Modes.Wingman && S.Mode == "wingman" && S.Map == wgm && sent.Contains("os_mode wingman") && !sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 0 && !AnnouncePending);
+                wgm.Official && fakeLoaded == Modes.Wingman && S.Mode == "wingman" && S.Map == wgm && h.Sent.Contains("os_mode wingman") && !h.Sent.Any(c => c.StartsWith("changelevel")) && ModeReloads == 0 && !AnnouncePending);
             Fresh();
             fakePlugin = true; fakeLoadsAs = Modes.Deathmatch;
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
             Ask(alice, m[2]); Land();
             Check("A Workshop map the plugin says came up in another mode is left as it is: one load, and the mode as told",
-                sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !AnnouncePending);
+                h.Sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !AnnouncePending);
 
             // ---- the defaults: Arms Race after a restart, and after 10 minutes with nobody on ----
             Fresh();
             S.Mode = "deathmatch"; (gameType, gameMode) = (1, 2);
-            foreach (var p in new[] { alice, bob }) Join(p);
-            Line("rcon from \"192.0.2.9:5000\": command \"quit\"");
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.Line("rcon from \"192.0.2.9:5000\": command \"quit\"");
             Check("A server restart: back to Arms Race", S.Mode == "armsrace");
             Fresh();
             S.Mode = "wingman"; (gameType, gameMode) = (0, 2);
-            Line("Loading map \"ar_shoots\""); Line("Started:  \"\"");
+            h.Line("Loading map \"ar_shoots\""); h.Line("Started:  \"\"");
             Check("A start of the start map nobody asked for (a server start): Arms Race", S.Mode == "armsrace");
             Fresh();
             S.Mode = "deathmatch"; (gameType, gameMode) = (1, 2);
-            foreach (var p in new[] { alice, bob }) Join(p);
-            Leave(alice); Leave(bob);
-            Run(ResetEmptyMinutes * 60 - 5);
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.Leave(alice); h.Leave(bob);
+            h.Run(ResetEmptyMinutes * 60 - 5);
             Check($"Nobody on for just under {ResetEmptyMinutes} minutes in Deathmatch: it stays", S.Mode == "deathmatch" && Pending is null);
-            Run(70);
+            h.Run(70);
             Check($"...past {ResetEmptyMinutes} minutes: a random Arms Race map, announced, and loaded in Arms Race",
-                Said("Back to Arms Race") && sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && sent.Any(c => c.StartsWith("host_workshop_map"))
+                h.Said("Back to Arms Race") && h.Sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && h.Sent.Any(c => c.StartsWith("host_workshop_map"))
                 && S.Mode == "armsrace" && (gameType, gameMode) == (1, 0) && S.Map is { } backOn && InArmsRace(backOn) && !backOn.Official);
             Fresh();
-            foreach (var p in new[] { alice, bob }) Join(p);
-            Leave(alice); Leave(bob);
-            Run(ResetEmptyMinutes * 60 + 70);
-            Check("An empty server in Arms Race already: no map change for the reset", Pending is null && !sent.Any(c => c.StartsWith("os_mode")));
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            h.Leave(alice); h.Leave(bob);
+            h.Run(ResetEmptyMinutes * 60 + 70);
+            Check("An empty server in Arms Race already: no map change for the reset", Pending is null && !h.Sent.Any(c => c.StartsWith("os_mode")));
 
             // ---- a change that never lands gives the old mode back ----
             Fresh();
-            foreach (var p in new[] { alice, bob, cara }) Join(p);
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            h.MatchEnd();
             var wOpt = OptOf(o => o.Mode == Modes.Wingman);
             Click(alice, wOpt); Click(bob, wOpt); Click(cara, wOpt);
-            Run(ChangeDelay);
+            h.Run(ChangeDelay);
             Check("A Wingman change goes out", S.Mode == "wingman" && (gameType, gameMode) == (0, 2) && AnnouncePending);
-            sent.Clear(); Run(600);
+            h.Sent.Clear(); h.Run(600);
             Check("...and never logs its map start: after the load timeout the server is told Arms Race again",
-                S.Mode == "armsrace" && sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && (gameType, gameMode) == (1, 0));
+                S.Mode == "armsrace" && h.Sent.Contains("os_mode armsrace;game_type 1;game_mode 0") && (gameType, gameMode) == (1, 0));
 
             // ---- a bridge that starts asks the server which mode it is in ----
             Fresh();
             (gameType, gameMode) = (0, 2);
             ModeProbeEnabled = true; ModeProbing = true;
-            Run(1);
+            h.Run(1);
             Check("A bridge that starts reads game_type and game_mode over RCON: the server is in Wingman", S.Mode == "wingman" && !ModeProbing);
             (gameType, gameMode) = (0, 0);
-            ModeProbing = true; Run(11);
+            ModeProbing = true; h.Run(11);
             Check("...convars that are none of our modes (Casual) leave the recorded mode, and the probe stops", S.Mode == "wingman" && !ModeProbing);
             ModeProbeEnabled = false;
 
             // ---- Wingman with five on: the ballot's own maps and Random come from Arms Race ----
             Fresh();
             S.Mode = "wingman";
-            foreach (var p in new[] { alice, bob, cara, dan, eve }) Join(p);
-            MatchEnd();
+            foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
+            h.MatchEnd();
             Check($"In Wingman with five on: {MapVote.PageCards - 1} Arms Race maps, a Deathmatch map, Random in Arms Race - no Wingman",
                 Ballot!.FillMode == Modes.ArmsRace && Ballot.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", MapVote.PageCards - 1).Concat(["deathmatch", "armsrace"])));
 
@@ -942,13 +892,6 @@ static partial class Program
                 && RuleNumbers().Contains($"{MapVote.WaitSeconds / 60} minutes after a vote") && RuleNumbers().Contains($"takes {Modes.Wingman.MaxPlayers} players at most"));
 
         }
-        finally
-        {
-            (Send, After, Now, StateDir, HudActive, ModeProbeEnabled) = (realSend, realAfter, realNow, realStateDir, realHud, realProbe);
-            S = new State(); Votes = new(); Broken = new(); Blocked = new(); Players.Clear(); Pending = null; AnnouncePending = false;
-            MaintenanceOn = false; WatchStop(); ResetCrashWatch(); ClearNotices(); PickConfirms.Clear();
-            Ballot = null; VoteWaitUntil = default; ModeBeforeChange = null; ModeProbing = false; ModeMaps.Clear(); ModeMapsDir = null;
-            try { Directory.Delete(dir, true); } catch (Exception e) { Console.WriteLine($"selftest: could not remove {dir}: {e.Message}"); }
-        }
+        finally { h.Dispose(); ModeMapsDir = null; ModeProbeEnabled = false; }
     }
 }

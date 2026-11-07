@@ -1,68 +1,26 @@
 // --selftest, the ballot's recipe and what it stands on: the Workshop's numbers (ratings.json, workshop.json), each map's popularity, the kept
 // maps, the points with the step back of a card shown, the tags (MapTags) on the catalog and the vote's cards, the recipe itself - Keep, the
 // picks, the other modes, the fresh card, the surprise and the favourites, every card but a pick on the server's disk - and what it remembers,
-// both timers on the wire, the restart notices before and after a restart, and the background download. Runs on a handed clock with a fake
-// timer wheel and a fake game server, like the vote's own test (SelfTestVote.cs); everything it touches is put back.
+// both timers on the wire, the restart notices before and after a restart, and the background download. Runs in the harness (SelfTestHarness.cs),
+// on its own lists.
 
 static partial class Program
 {
     static void BallotSelfTest(Action<string, bool> Check)
     {
-        var saved = (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, After, Now, StateDir, ReadyIds, ReadyAt, HudActive, CoveredIds, ExportedIds, Background, Ours, ModeProbeEnabled);
-        var savedNumbers = (RatingScores, RatingTrend, RatingsFetched, WorkshopInfo, WorkshopWritten, StockSize, MapsLoadedFrom: ModeMapsDir);
-        var savedModes = ModeMaps.ToDictionary(kv => kv.Key, kv => kv.Value);
-        string dir;
-        try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-ballot-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-ballot-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        var clock = new DateTime(2026, 11, 5, 18, 0, 0, DateTimeKind.Utc);
-        var timers = new List<(DateTime Due, long Seq, Action Work)>();
-        long seq = 0;
-        var sent = new List<string>();
+        var h = new Harness("ballot", new DateTime(2026, 11, 5, 18, 0, 0, DateTimeKind.Utc));
         var statusHumans = 0;
+        h.Server = command => command == "status" ? $"hostname : test\nspawn    : 2\nplayers  : {statusHumans} humans, 0 bots (0 max)\n#end" : "";
         try
         {
-            Now = () => clock;
             long Unix(DateTime t) => new DateTimeOffset(t).ToUnixTimeSeconds();
-            StateDir = dir;
-            After = (ms, work) => timers.Add((clock.AddMilliseconds(ms), seq++, work));
-            Send = command => { sent.Add(command); return command == "status" ? $"hostname : test\nspawn    : 2\nplayers  : {statusHumans} humans, 0 bots (0 max)\n#end" : ""; };
-            HudActive = () => true;
-            ModeProbeEnabled = false;
-            void Run(double seconds)
-            {
-                var end = clock.AddSeconds(seconds);
-                while (clock < end)
-                {
-                    var step = clock.AddSeconds(1) < end ? clock.AddSeconds(1) : end;
-                    while (timers.Where(t => t.Due <= step).OrderBy(t => t.Due).ThenBy(t => t.Seq).FirstOrDefault() is { Work: not null } t)
-                    {
-                        timers.Remove(t);
-                        if (t.Due > clock) clock = t.Due;
-                        t.Work();
-                    }
-                    clock = step;
-                    Tick(); AfterWork(); // what the event loop does with each tick
-                }
-            }
-            void Line(string ev) => Ingest($"{clock:MM/dd/yyyy - HH:mm:ss}.000 - {ev}", null);
-            void Join((string Name, string Id) p) { Line($"\"{p.Name}<2><{p.Id}><>\" connected, address \"192.0.2.1:27005\""); Line($"\"{p.Name}<2><{p.Id}><>\" entered the game"); }
-            void MatchEnd() => Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
-            bool Said(string fragment) => Told.Any(t => t.Contains(fragment));
             // Arms Race: 400 maps, the Workshop's favourites #1-#150 by score, subscribers and trend (#1 the best), so #1-#100 are kept; #5 uploaded
             // three days ago and #7 updated five days ago and tested (both kept and fresh); #300-#320 uploaded two days ago (fresh, not kept: the stock's
             // fresh half). Deathmatch and Wingman: 60 maps each, #1-#40 rated.
-            void Fresh()
+            void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the vote, on the lists below
             {
-                S = new State(); Broken = new(); Packs = new(); Votes = new(); Removed = new(); Blocked = new(); Sizes = new(); Ours = new(); PickConfirms.Clear();
-                Checked = new(); Players.Clear(); Ballot = null; Pending = null; AnnouncePending = false; AnnounceDeadline = default; VoteWaitUntil = default; LastRound = 0;
-                MatchEndUntil = default; StartRollOwed = false; StartMapAt = default; ResetCrashWatch(); WatchStop(); ClearNotices(); WhyOpen.Clear();
-                NobodySince = null; ResetDone = false; ResetProbeAt = default; ModeBeforeChange = null; ModeProbing = false; ModeResetRetryAt = default;
-                ReadyIds = new(); CoveredIds = new(); ExportedIds = new(); ReadyAt = default; Background = null; QueuesWritten = ""; StockSize = 10;
-                RestartDue = null; UpdatedNotice = ""; UpdatedNoticeUntil = default;
-                timers.Clear(); sent.Clear(); statusHumans = 0;
-                if (File.Exists(MaintenanceFile)) File.Delete(MaintenanceFile);
-                InMaintenance();
-                clock = clock.AddHours(1);
+                h.Fresh();
+                HudActive = () => true; StockSize = 10; statusHumans = 0;
                 Maps = Enumerable.Range(1, 400).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 ModeMaps[Modes.DeathmatchId] = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_100_000 + r, $"dm_{r}", 10, false, Modes.DeathmatchId)).ToList();
@@ -71,15 +29,15 @@ static partial class Program
                     .Concat(ModeMaps.Values.SelectMany(l => l.Take(40).Select((m, i) => (Key(m), (double?)(0.95 - i * 0.01), (long?)(50_000 - i * 100)))))
                     .ToDictionary(x => x.Item1, x => (x.Item2, x.Item3));
                 RatingTrend = new() { [Modes.ArmsRaceId] = Maps.Take(150).Select(Key).ToList() };
-                RatingsFetched = Unix(clock.AddHours(-3));
-                var old = Unix(clock.AddDays(-400));
+                RatingsFetched = Unix(h.Clock.AddHours(-3));
+                var old = Unix(h.Clock.AddDays(-400));
                 WorkshopInfo = AllKnown.Where(m => !m.Official).GroupBy(Key).Select(g => g.First()).ToDictionary(Key, m =>
                 {
                     var subs = Math.Max(1, 100_000 - m.Rank * 200);
                     return new WorkshopEntry(old, old, "", subs, subs * 2, subs / 10, subs / 5, subs * 10, old);
                 });
                 void MakeFresh(int rank, double createdDaysAgo, double updatedDaysAgo) =>
-                    WorkshopInfo[Key(Maps[rank - 1])] = WorkshopInfo[Key(Maps[rank - 1])] with { Created = Unix(clock.AddDays(-createdDaysAgo)), Updated = Unix(clock.AddDays(-updatedDaysAgo)), Passed = Unix(clock.AddDays(-updatedDaysAgo)) };
+                    WorkshopInfo[Key(Maps[rank - 1])] = WorkshopInfo[Key(Maps[rank - 1])] with { Created = Unix(h.Clock.AddDays(-createdDaysAgo)), Updated = Unix(h.Clock.AddDays(-updatedDaysAgo)), Passed = Unix(h.Clock.AddDays(-updatedDaysAgo)) };
                 MakeFresh(5, 3, 3);
                 MakeFresh(7, 400, 5);
                 for (var r = 300; r <= 320; r++) MakeFresh(r, 2, 2);
@@ -104,7 +62,7 @@ static partial class Program
             Check("Both are read beside maps.json, and watched like every data file (a new one is read within seconds)",
                 RatingsFile == Path.Combine(Path.GetDirectoryName(Path.GetFullPath(MapsFile))!, "ratings.json") && WorkshopFile.EndsWith("workshop.json")
                 && DataFiles().Any(f => f.Item1 == RatingsFile) && DataFiles().Any(f => f.Item1 == WorkshopFile));
-            var ratingsPath = Path.Combine(dir, "ratings-test.json");
+            var ratingsPath = Path.Combine(h.Dir, "ratings-test.json");
             File.WriteAllText(ratingsPath, """{"version": 1, "fetched": 1, "scores": {"1": [0.5, 1, 1, 10]}, "trend": {}}""");
             var keptRatings = (RatingScores, RatingTrend, RatingsFetched);
             var tookGood = ReloadRatings(ratingsPath).StartsWith("ratings: 1 scores") && RatingScores.Count == 1;
@@ -141,7 +99,7 @@ static partial class Program
             var disliked = Weight(Ar(50));
             Votes = new();
             Check($"The points: a like is a point (twice the odds), a dislike takes {DislikePoints} (a quarter)", Math.Abs(liked / w0 - 2) < 1e-9 && Math.Abs(disliked / w0 - 0.25) < 1e-9);
-            var now = Unix(clock);
+            var now = Unix(h.Clock);
             S.Shown[Key(Ar(50))] = [now];
             var once = Weight(Ar(50));
             S.Shown[Key(Ar(50))] = [now, now - 3600];
@@ -184,9 +142,9 @@ static partial class Program
             Votes[Key(Ar(1))]["[U:1:2]"] = -1; Votes[Key(Ar(1))]["[U:1:3]"] = AdsVote;
             Check("...liked only with more likes than dislikes; an ads mark is a caution", TagsOf(Ar(1)) == "big,ads,trending,toprated,popular,newtous");
             Sizes = new(); Votes = new();
-            WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(clock.AddDays(-9)) }; NumbersStamp++;
+            WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(h.Clock.AddDays(-9)) }; NumbersStamp++;
             Check("...a recent update the sync has not tested is no UPDATED (and the map is not on the disk at its current version)", !TagsOf(Ar(7)).Contains("updated") && !KeptOnDisk(Ar(7)));
-            WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(clock.AddDays(-5)) }; NumbersStamp++;
+            WorkshopInfo[Key(Ar(7))] = WorkshopInfo[Key(Ar(7))] with { Passed = Unix(h.Clock.AddDays(-5)) }; NumbersStamp++;
             S.Met.Add(Key(Ar(400)));
             Check("...a map shown or played here is no longer new to us", TagsOf(Ar(400)) == "");
             S.Met.Clear();
@@ -200,7 +158,7 @@ static partial class Program
 
             // ---- the recipe: four on, a map on, nobody's pick: Keep, the other modes, a fresh map, a surprise, the favourites ----
             Fresh();
-            foreach (var p in players.Take(4)) Join(p);
+            foreach (var p in players.Take(4)) h.Join(p);
             ReportAllStock();
             var laneBefore = LaneOf(Modes.ArmsRace).Select(e => e.Key).ToList();
             ClearNotices();
@@ -234,16 +192,16 @@ static partial class Program
             var chosen = favourites[0];
             var chosenPoints = Points(chosen.Map!);
             var notChosen = favourites[1];
-            var before = ShownPenalty(Key(notChosen.Map!), Unix(clock));
+            var before = ShownPenalty(Key(notChosen.Map!), Unix(h.Clock));
             foreach (var p in players.Take(4)) Command(p.Item1, p.Item2, MapVote.Click(b.Round, chosen.N));
             Check("Decided: the chosen card's showing is taken back (it was chosen), a card not chosen keeps its step back",
-                b.Result?.N == chosen.N && !S.Shown.ContainsKey(Key(chosen.Map!)) && ShownPenalty(Key(notChosen.Map!), Unix(clock)) == before && before == ShownPoints
+                b.Result?.N == chosen.N && !S.Shown.ContainsKey(Key(chosen.Map!)) && ShownPenalty(Key(notChosen.Map!), Unix(h.Clock)) == before && before == ShownPoints
                 && Math.Abs(Points(chosen.Map!) - chosenPoints - ShownPoints) < 1e-9);
-            Check("...and the news line says why the winner was on it: \"(NN MB, trending on the Workshop)\" and the like", Said(MapTags.WhyWords(TagsOf(chosen.Map!), picked: false)));
+            Check("...and the news line says why the winner was on it: \"(NN MB, trending on the Workshop)\" and the like", h.Said(MapTags.WhyWords(TagsOf(chosen.Map!), picked: false)));
 
             // ---- a fresh pick: no second fresh card; a pick's tags start with PICKED; the news line says why the map is good ----
             Fresh();
-            foreach (var p in players.Take(4)) Join(p);
+            foreach (var p in players.Take(4)) h.Join(p);
             ReportAllStock();
             ClearNotices();
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(5))}");
@@ -251,12 +209,12 @@ static partial class Program
             Check($"A pick of a fresh map: no second fresh card - Keep, the pick, a surprise, {MapVote.PageCards - 5} favourites and the other modes",
                 b.Options.All(o => o.Order != FreshOrder) && b.Options.Count(o => o.Order == SurpriseOrder) == 1 && b.Options.Count(o => o.Order >= FavouriteOrder && o.Order < OtherOrder) == MapVote.PageCards - 5
                 && b.Options.Single(o => o.Source == VoteSource.Picked).Tags.StartsWith("picked,upload"));
-            Check("...and the news line says who put it on and why it is there: \"P1 put #5 ar_5 (a recent Workshop upload) to the vote\"", Said($"P1 put {Label(Ar(5))} (a recent Workshop upload) to the vote"));
+            Check("...and the news line says who put it on and why it is there: \"P1 put #5 ar_5 (a recent Workshop upload) to the vote\"", h.Said($"P1 put {Label(Ar(5))} (a recent Workshop upload) to the vote"));
 
             // ---- nothing fresh on the disk, the stock not downloaded: favourites fill the page ----
             Fresh();
-            foreach (var p in players.Take(4)) Join(p);
-            foreach (var r in new[] { 5, 7 }) WorkshopInfo[Key(Ar(r))] = WorkshopInfo[Key(Ar(r))] with { Created = Unix(clock.AddDays(-400)), Updated = Unix(clock.AddDays(-400)), Passed = Unix(clock.AddDays(-400)) };
+            foreach (var p in players.Take(4)) h.Join(p);
+            foreach (var r in new[] { 5, 7 }) WorkshopInfo[Key(Ar(r))] = WorkshopInfo[Key(Ar(r))] with { Created = Unix(h.Clock.AddDays(-400)), Updated = Unix(h.Clock.AddDays(-400)), Passed = Unix(h.Clock.AddDays(-400)) };
             NumbersStamp++;
             FillStock(); // the stock rolled, but no report says any of it is on the disk
             StartVote(players[0].Item1, players[0].Item2);
@@ -267,7 +225,7 @@ static partial class Program
 
             // ---- picks while the vote is open: the favourites make room first, then the surprise, the fresh card last; the other modes keep their place ----
             Fresh();
-            foreach (var p in players) Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open whoever votes
+            foreach (var p in players) h.Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open whoever votes
             ReportAllStock();
             StartVote(players[8].Item1, players[8].Item2);
             b = Ballot!;
@@ -290,16 +248,16 @@ static partial class Program
 
             // ---- Random takes a map on the disk ----
             Fresh();
-            foreach (var p in players.Take(3)) Join(p);
+            foreach (var p in players.Take(3)) h.Join(p);
             ReportAllStock();
-            MatchEnd();
+            h.MatchEnd();
             foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, MapVote.RandomOption));
             Check("Random wins: the dice take a map on the server's disk - a kept one, or a downloaded stock entry - so it loads at once",
-                Pending is { By: "the vote" } pr && (KeptOnDisk(pr.Map) || S.Met.Contains(Key(pr.Map))) && Said("The vote chose Random"));
+                Pending is { By: "the vote" } pr && (KeptOnDisk(pr.Map) || S.Met.Contains(Key(pr.Map))) && h.Said("The vote chose Random"));
 
             // ---- both timers on the wire ----
             Fresh();
-            foreach (var p in players.Take(3)) Join(p);
+            foreach (var p in players.Take(3)) h.Join(p);
             var inactivity = MapVote.InactivitySeconds;
             MapVote.InactivitySeconds = 5;
             try
@@ -308,69 +266,69 @@ static partial class Program
                 var v1 = LiveVote();
                 Check("Both timers on the wire: while somebody has not voted, the vote's limit counts (SecondsLeft) and the inactivity timer does not",
                     v1.Open && v1.SecondsLeft == MapVote.Seconds && v1.Inactivity == 0 && v1.ResetBy == "");
-                Run(20);
+                h.Run(20);
                 foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, 1));
                 var v2 = LiveVote();
                 Check("...once everybody has voted, both: the inactivity timer with who reset it, and the limit's seconds left",
                     v2.Open && v2.Inactivity == MapVote.InactivitySeconds && v2.ResetBy == "P3" && v2.SecondsLeft == MapVote.Seconds - 20);
                 Fresh();
-                foreach (var p in players.Take(3)) Join(p);
+                foreach (var p in players.Take(3)) h.Join(p);
                 StartVote(players[0].Item1, players[0].Item2);
-                Run(MapVote.Seconds - 3);
+                h.Run(MapVote.Seconds - 3);
                 foreach (var p in players.Take(3)) Command(p.Item1, p.Item2, MapVote.Click(Ballot!.Round, 1));
                 var v3 = LiveVote();
                 Check("...near the limit the inactivity timer shows no more than the limit leaves: the limit closes it first",
                     v3.Open && v3.SecondsLeft == 3 && v3.Inactivity == 3 && v3.ResetBy == "P3");
-                Run(3);
+                h.Run(3);
                 Check("...and closes it", Ballot is not { Open: true });
             }
             finally { MapVote.InactivitySeconds = inactivity; }
 
             // ---- the restart notices, as the server program's watcher sends them ----
             Fresh();
-            foreach (var p in players.Take(3)) Join(p);
+            foreach (var p in players.Take(3)) h.Join(p);
             Check("A restart notice: refused unless it is gg-restart 1 with a known kind, match-end or now, and whole seconds",
                 ApplyRestartNotice("hello").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\thud\tnow\t5").StartsWith("refused") && ApplyRestartNotice("gg-restart\t1\tgame-update\tlater\t5").StartsWith("refused")
                 && ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\tsoon").StartsWith("refused") && RestartDue == null);
             Check("...a CS2 update due at the match's end: taken", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0\n").StartsWith("ok: game-update restart at the end of this match"));
-            var h1 = HudState.Decode(BuildHud(clock).Encode())!;
+            var h1 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("...the warning stands on the news line, and the live state has it in its parts: kind, when, no countdown yet (-1), the words - which tell players to restart CS2 afterwards",
                 h1.News == "A CS2 update: the server restarts at the end of this match - Restart CS2 afterwards, and Steam updates it" && h1.RestartKind == "game-update" && h1.RestartWhen == "match-end"
                 && h1.RestartIn == -1 && h1.RestartAt == 0 && h1.RestartWords == h1.News);
             Announce("P1 turned Vampire on", 5);
-            var covered = BuildHud(clock).FillLeft(BuildHud(clock).News) == "P1 turned Vampire on";
-            Run(6);
-            Check("...a newer line covers it while it lasts, and it comes back", covered && BuildHud(clock).FillLeft(BuildHud(clock).News).StartsWith("A CS2 update"));
-            Run(30);
+            var covered = BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News) == "P1 turned Vampire on";
+            h.Run(6);
+            Check("...a newer line covers it while it lasts, and it comes back", covered && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).StartsWith("A CS2 update"));
+            h.Run(30);
             ClearNotices();
             Check("...the watcher's reminder changes nothing and says nothing new", ApplyRestartNotice("gg-restart\t1\tgame-update\tmatch-end\t0").StartsWith("ok") && Told.Count == 0 && RestartDue is { GoesAt: null });
-            Check("...a vote may still be called before the match's end", CannotCall(clock) == null);
-            MatchEnd();
-            var h2 = HudState.Decode(BuildHud(clock).Encode())!;
+            Check("...a vote may still be called before the match's end", CannotCall(h.Clock) == null);
+            h.MatchEnd();
+            var h2 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("At the match's end: no vote opens - the server goes down under it - nobody may call one, and the warning says in a moment until the watcher's countdown comes",
-                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards, and Steam updates it" && CannotCall(clock) is { } refusal && refusal.StartsWith("The server restarts now"));
+                Ballot == null && h2.RestartIn == 0 && h2.News == "A CS2 update: the server restarts in a moment - Restart CS2 afterwards, and Steam updates it" && CannotCall(h.Clock) is { } refusal && refusal.StartsWith("The server restarts now"));
             Check("...the watcher's countdown: seconds left and the moment it goes, on the news line and in the live state",
-                ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
-                && hn.RestartAt == Unix(clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards, and Steam updates it");
-            Run(5);
-            Check("...counting down, the news line with it", HudState.Decode(BuildHud(clock).Encode())!.RestartIn == 25 && BuildHud(clock).FillLeft(BuildHud(clock).News).Contains("restarts in 25 s"));
+                ApplyRestartNotice("gg-restart\t1\tgame-update\tnow\t30").StartsWith("ok: game-update restart in 30 s") && HudState.Decode(BuildHud(h.Clock).Encode()) is { RestartIn: 30, RestartWhen: "now" } hn
+                && hn.RestartAt == Unix(h.Clock) + 30 && hn.News == "A CS2 update: the server restarts in 30 s - Restart CS2 afterwards, and Steam updates it");
+            h.Run(5);
+            Check("...counting down, the news line with it", HudState.Decode(BuildHud(h.Clock).Encode())!.RestartIn == 25 && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).Contains("restarts in 25 s"));
             Check("...and in the change-driven text its words stand still while it counts down - the HUD fills the countdown in from the end time",
-                BuildHud(clock).Encode(endTimes: true) == BuildHud(clock.AddSeconds(1)).Encode(endTimes: true)
-                && HudState.Decode(BuildHud(clock).Encode(endTimes: true))!.AsOf(HudState.Ms(clock)).News.Contains("restarts in 25 s")
-                && HudState.Decode(BuildHud(clock).Encode(endTimes: true))!.AsOf(HudState.Ms(clock.AddSeconds(30))).RestartWords.Contains("restarts in a moment")); // the news line itself ends at the restart's moment
+                BuildHud(h.Clock).Encode(endTimes: true) == BuildHud(h.Clock.AddSeconds(1)).Encode(endTimes: true)
+                && HudState.Decode(BuildHud(h.Clock).Encode(endTimes: true))!.AsOf(HudState.Ms(h.Clock)).News.Contains("restarts in 25 s")
+                && HudState.Decode(BuildHud(h.Clock).Encode(endTimes: true))!.AsOf(HudState.Ms(h.Clock.AddSeconds(30))).RestartWords.Contains("restarts in a moment")); // the news line itself ends at the restart's moment
             ApplyQuitNotice("gg-quit\t1\tupdate");
-            Check("The quit's notice: the restart is happening - the warning goes", RestartDue == null && HudState.Decode(BuildHud(clock).Encode())!.RestartKind == "");
+            Check("The quit's notice: the restart is happening - the warning goes", RestartDue == null && HudState.Decode(BuildHud(h.Clock).Encode())!.RestartKind == "");
             Check("After the reconnect: \"Updated to ...\" on the news line - CS2's new version from what was installed and what is now",
                 ApplyUpdated("gg-updated\t1\tgame-update\t1.41.9.4\t1.41.9.5\n") == "ok: Updated to CS2 1.41.9.5 - Welcome back" && NewsNow.Text == "Updated to CS2 1.41.9.5 - Welcome back");
             ClearNotices();
-            Run(60);
-            Join(players[5]);
-            Check($"...and every player who joins in the next {UpdatedNoticeMinutes} minutes hears it", Said("Updated to CS2 1.41.9.5"));
-            Run(UpdatedNoticeMinutes * 60);
-            ClearNotices(); Join(players[6]);
-            Check("...not later", !Said("Updated to"));
+            h.Run(60);
+            h.Join(players[5]);
+            Check($"...and every player who joins in the next {UpdatedNoticeMinutes} minutes hears it", h.Said("Updated to CS2 1.41.9.5"));
+            h.Run(UpdatedNoticeMinutes * 60);
+            ClearNotices(); h.Join(players[6]);
+            Check("...not later", !h.Said("Updated to"));
             Check("An update of ours: back in a minute; afterwards no fingerprint on the screen; the words as sent work too; a refused gg-updated changes nothing",
-                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(clock).FillLeft(BuildHud(clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
+                ApplyRestartNotice("gg-restart\t1\tour-update\tnow\t30").StartsWith("ok") && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News) == "An Over Strike 2 update: the server restarts in 30 s - Back in a minute"
                 && ApplyUpdated("gg-updated\t2\tour-update\tx").StartsWith("refused") && RestartDue != null
                 && ApplyUpdated("gg-updated\t1\tour-update\t3fa9c2\t77be01") == "ok: Over Strike 2 is updated - Welcome back"
                 && ApplyUpdated("gg-updated\t1\tgame-update\tCS2 1.41.9.6") == "ok: Updated to CS2 1.41.9.6 - Welcome back");
@@ -382,9 +340,9 @@ static partial class Program
                 && RestartDue == null && NewsNow.Text.Contains("no restart after all"));
             StartVote(players[0].Item1, players[0].Item2);
             Check("A restart now while a vote is open drops the vote", Ballot is { Open: true } && ApplyRestartNotice("gg-restart\t1\tdaily\tnow\t45").StartsWith("ok") && Ballot == null
-                && BuildHud(clock).FillLeft(BuildHud(clock).News).StartsWith("The daily restart: the server restarts in 45 s"));
-            Run(RestartStaleMinutes * 60 + 60);
-            Check($"A countdown {RestartStaleMinutes} minutes past its end without the server going down is over", RestartDue == null && BuildHud(clock).RestartKind == "");
+                && BuildHud(h.Clock).FillLeft(BuildHud(h.Clock).News).StartsWith("The daily restart: the server restarts in 45 s"));
+            h.Run(RestartStaleMinutes * 60 + 60);
+            Check($"A countdown {RestartStaleMinutes} minutes past its end without the server going down is over", RestartDue == null && BuildHud(h.Clock).RestartKind == "");
             Check("The live state's restart and background lines read back, and a state without them has none",
                 HudState.Decode(new HudState { RestartKind = "downloads", RestartWhen = "now", RestartIn = 7, RestartAt = 1793000000, RestartWords = "x\ty", BgId = 3001, BgPercent = 42, BgTitle = "Lake" }.Encode())
                     is { RestartKind: "downloads", RestartWhen: "now", RestartIn: 7, RestartAt: 1793000000, RestartWords: "x y", BgId: 3001, BgPercent: 42, BgTitle: "Lake" }
@@ -392,29 +350,29 @@ static partial class Program
 
             // ---- the background download: the live state carries it, a load behind it waits longer ----
             Fresh();
-            foreach (var p in players.Take(2)) Join(p);
+            foreach (var p in players.Take(2)) h.Join(p);
             FillStock();
             var bgMap = LaneOf(Modes.ArmsRace)[0].Key;
             ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t40\tA long title\n");
-            var h3 = HudState.Decode(BuildHud(clock).Encode())!;
+            var h3 = HudState.Decode(BuildHud(h.Clock).Encode())!;
             Check("While the watcher downloads in the background the live state says what and how far (bgdl), and nothing goes on the news line",
                 h3.BgId.ToString() == bgMap && h3.BgPercent == 40 && h3.BgTitle == "A long title" && h3.News == "");
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
-            Run(ChangeDelay);
+            h.Run(ChangeDelay);
             Check("A change goes out while a background download runs: the hold keeps the watcher from starting another meanwhile", AnnouncePending && ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t45\tA long title\n").EndsWith("; hold: a map is loading"));
-            for (var t = 0; t < LoadMinutes * 60 + 30; t += 60) { Run(60); ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t50\tA long title\n"); }
+            for (var t = 0; t < LoadMinutes * 60 + 30; t += 60) { h.Run(60); ApplyReady($"gg-ready\t1\ncurrent\t{bgMap}\t50\tA long title\n"); }
             Check($"...its load is not given up after {LoadMinutes} minutes when the watcher reported a background download it may wait behind", AnnouncePending);
             ApplyReady("gg-ready\t1\n");
-            Run((LoadBehindDownloadMinutes - LoadMinutes - 3) * 60);
+            h.Run((LoadBehindDownloadMinutes - LoadMinutes - 3) * 60);
             Check($"...nor once that download is over: the map's own download follows it - up to {LoadBehindDownloadMinutes} minutes after the change went out", AnnouncePending);
-            Run(4 * 60);
+            h.Run(4 * 60);
             Check("...then a load that still has not come is given up, as ever", !AnnouncePending);
             Fresh();
-            foreach (var p in players.Take(2)) Join(p);
+            foreach (var p in players.Take(2)) h.Join(p);
             Command(players[0].Item1, players[0].Item2, $"!map {ArgOf(Ar(250))}");
             Command(players[1].Item1, players[1].Item2, MapVote.Click(Ballot!.Round, Ballot.Options.Single(o => o.Map == Ar(250)).N));
-            Run(ChangeDelay + LoadMinutes * 60 + 5);
+            h.Run(ChangeDelay + LoadMinutes * 60 + 5);
             Check($"Without a background download a load that never comes is given up after {LoadMinutes} minutes, as before", !AnnouncePending);
 
             // ---- the words: How it works and Help say what the code does ----
@@ -444,36 +402,36 @@ static partial class Program
             // ---- a vote always ends: with no Keep card and no votes, whatever its timer runs into, whatever another step of the tick runs into ----
             Fresh();
             S.Map = null; S.LogName = null; // the bridge does not know which map is on
-            Join(players[0]); Join(players[1]);
+            h.Join(players[0]); h.Join(players[1]);
             Check("A vote called while no map is known to be on has no Keep card",
-                OpenBallot(clock, 2, players[0].Item2, players[0].Item1) && Ballot is { } noKeep && noKeep.Options.All(o => o.Source != VoteSource.Keep));
-            Run(MapVote.Seconds - 1);
-            Check("...nobody voting, it stays open until its limit", Ballot is { Open: true } && BuildVoteState(clock).Freeze);
-            Run(2);
+                OpenBallot(h.Clock, 2, players[0].Item2, players[0].Item1) && Ballot is { } noKeep && noKeep.Options.All(o => o.Source != VoteSource.Keep));
+            h.Run(MapVote.Seconds - 1);
+            Check("...nobody voting, it stays open until its limit", Ballot is { Open: true } && BuildVoteState(h.Clock).Freeze);
+            h.Run(2);
             Check($"...and ends cleanly at {MapVote.Seconds} s: nobody frozen, no change, the next vote waits, and the words name no map",
-                Ballot == null && !BuildVoteState(clock).Freeze && Pending == null && VoteWaitUntil > clock && Said("Nobody voted - The map stays"));
+                Ballot == null && !BuildVoteState(h.Clock).Freeze && Pending == null && VoteWaitUntil > h.Clock && h.Said("Nobody voted - The map stays"));
 
             Fresh();
-            Join(players[0]); Join(players[1]);
-            OpenBallot(clock, 2);
+            h.Join(players[0]); h.Join(players[1]);
+            OpenBallot(h.Clock, 2);
             var roundShown = LiveVote().Round;
             Ballot!.Options[1].N = Ballot.Options[0].N; // two cards under one number: counting the votes at the vote's end throws
-            QueueTickAt = clock.AddSeconds(MapVote.Seconds); // the stock is due in the very tick the vote's limit is: a step after the vote's timer
-            Run(MapVote.Seconds);
-            Check("A vote whose timer throws is dropped: nobody stays frozen", Ballot == null && !BuildVoteState(clock).Freeze);
+            QueueTickAt = h.Clock.AddSeconds(MapVote.Seconds); // the stock is due in the very tick the vote's limit is: a step after the vote's timer
+            h.Run(MapVote.Seconds);
+            Check("A vote whose timer throws is dropped: nobody stays frozen", Ballot == null && !BuildVoteState(h.Clock).Freeze);
             Check("...and the rest of that tick ran: the stock is looked at after the vote's timer, and the live state says no vote is on",
-                roundShown > 0 && QueueTickAt > clock && LiveVote().Round == 0);
+                roundShown > 0 && QueueTickAt > h.Clock && LiveVote().Round == 0);
 
             Fresh();
-            Join(players[0]); Join(players[1]);
-            OpenBallot(clock, 2);
+            h.Join(players[0]); h.Join(players[1]);
+            OpenBallot(h.Clock, 2);
             var sendBefore = Send;
             Send = command => command.Contains("game_type") ? throw new InvalidOperationException("a step before the vote's timer fails") : sendBefore(command);
             (ModeProbeEnabled, ModeProbing, ModeProbeAt) = (true, true, default);
-            Run(MapVote.Seconds + MapVote.KeptSeconds + 1);
+            h.Run(MapVote.Seconds + MapVote.KeptSeconds + 1);
             Send = sendBefore;
             (ModeProbeEnabled, ModeProbing) = (false, false);
-            Check("A step of the tick that throws before the vote's timer costs that step only: the vote still ends at its limit", Ballot == null && Said("Nobody voted"));
+            Check("A step of the tick that throws before the vote's timer costs that step only: the vote still ends at its limit", Ballot == null && h.Said("Nobody voted"));
 
             // ---- the board's Most liked names a map of any mode ----
             Fresh();
@@ -482,7 +440,7 @@ static partial class Program
             Check("Most liked names a map only Deathmatch or Wingman lists by its name, not as \"workshop <id>\"", TopRows() is [{ Map: { Name: "dm_1" } }]);
 
             // ---- a plugin on a quiet server: its long poll counts when it arrives, and the bridge then holds it up to Hud.LongPollSeconds ----
-            var realHudActive = saved.HudActive;
+            var realHudActive = h.BridgeHudActive;
             var (polledBefore, heldBefore) = (Interlocked.Read(ref hudPolledTicks), Interlocked.Exchange(ref hudHeldTicks, 0));
             void PolledAgo(double seconds) => Interlocked.Exchange(ref hudPolledTicks, DateTime.UtcNow.AddSeconds(-seconds).Ticks);
             PolledAgo(Hud.LongPollSeconds + 1);
@@ -490,26 +448,16 @@ static partial class Program
             PolledAgo(Hud.LongPollSeconds + 20);
             Check("...one gone for longer than that and a margin does not", !realHudActive());
             Fresh();
-            Join(players[0]); Join(players[1]);
+            h.Join(players[0]); h.Join(players[1]);
             HudActive = realHudActive;
             PolledAgo(Hud.LongPollSeconds - 1);
-            MatchEnd();
+            h.MatchEnd();
             HudActive = () => true;
             Interlocked.Exchange(ref hudPolledTicks, polledBefore); Interlocked.Exchange(ref hudHeldTicks, heldBefore);
             Check("...so a match end in a quiet stretch opens the vote, and the dice do not change the map without one", Ballot is { Open: true, MatchEnded: true } && Pending == null);
             EndBallot("the test goes on");
 
         }
-        finally
-        {
-            (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, After, Now, StateDir, ReadyIds, ReadyAt, HudActive, CoveredIds, ExportedIds, Background, Ours, ModeProbeEnabled) = saved;
-            (RatingScores, RatingTrend, RatingsFetched, WorkshopInfo, WorkshopWritten, StockSize, ModeMapsDir) = savedNumbers;
-            NumbersStamp++;
-            ModeMaps.Clear();
-            foreach (var (k, v) in savedModes) ModeMaps[k] = v;
-            Players.Clear(); Ballot = null; Pending = null; AnnouncePending = false; VoteWaitUntil = default; QueuesWritten = ""; PickConfirms.Clear();
-            RestartDue = null; UpdatedNotice = ""; UpdatedNoticeUntil = default; ClearNotices(); WatchStop(); ResetCrashWatch(); MaintenanceOn = false;
-            try { Directory.Delete(dir, true); } catch (Exception) { }
-        }
+        finally { h.Dispose(); }
     }
 }

@@ -77,7 +77,7 @@ static partial class Program
         Check("AccountId forms agree", AccountId("[U:1:12345]") == 12345 && AccountId("12345") == 12345 && AccountId("76561197960278073") == 12345 && AccountId("x") == -1);
         if (File.Exists(MapsFile))
         {
-            Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new();
+            SelfTestMaps = Maps = JsonSerializer.Deserialize(File.ReadAllText(MapsFile), Ctx.Default.ListMapInfo) ?? new(); // what every reset puts back (SelfTestHarness.cs)
             Check($"maps.json ranks are 1..N with no gaps ({Maps.Count} maps)", Maps.Count > 0 && Maps.Select((m, i) => m.Rank == i + 1).All(x => x));
             Check($"Find resolves the LAST rank, not just low ones (#{Maps.Count})", Find(Maps.Count.ToString()) is [{ } last] && last.Rank == Maps.Count);
             Check("A rank above the list is not silently treated as a workshop id", Find((Maps.Count + 1).ToString()).Count == 0);
@@ -363,6 +363,7 @@ static partial class Program
         FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
         MapVote.InactivitySeconds = inactivity;
         Check($"The inactivity timer is {MapVote.InactivitySeconds} s", MapVote.InactivitySeconds == 5);
+        StaticsSelfTest(Check); // SelfTestHarness.cs: every static is reset by ResetAll or kept by name
         MessagesCapitalsCheck(Check); // last: every message this whole run posted holds the capitals rule
         Console.WriteLine($"local time zone: {TimeZoneInfo.Local.Id} ({DateTime.Now:HH:mm})");
         Console.WriteLine(failed == 0 ? "SELFTEST PASSED" : $"SELFTEST FAILED ({failed})");

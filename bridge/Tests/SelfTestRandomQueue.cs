@@ -1,47 +1,36 @@
 // --selftest, the disk and the discovery stock (RandomQueue.cs): what counts as on the server's disk, the stock's lanes - rolled from the maps
 // new to us whose content the sync tested, half fresh, used up when shown or played, re-checked, kept in state.json - queues.json for the
-// restart watcher, and its report with the background download. Self-contained: its own lists, Workshop numbers, clock, state directory and
-// RCON stub, all put back afterwards.
+// restart watcher, and its report with the background download. Runs in the harness (SelfTestHarness.cs), on its own lists and Workshop
+// numbers.
 using System.Text.Json;
 
 static partial class Program
 {
     static void RandomQueueSelfTest(Action<string, bool> Check)
     {
-        var saved = (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, Now, StateDir, ReadyIds, ReadyAt, HudActive, CoveredIds, ExportedIds, Background, Ours);
-        var savedNumbers = (RatingScores, RatingTrend, RatingsFetched, WorkshopInfo, WorkshopWritten, StockSize);
-        var savedModes = ModeMaps.ToDictionary(kv => kv.Key, kv => kv.Value);
-        string dir;
-        try { dir = Path.Combine(AppContext.BaseDirectory, $"selftest-rq-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
-        catch (Exception) { dir = Path.Combine(Path.GetTempPath(), $"os2-bridge-rq-{Environment.ProcessId}"); Directory.CreateDirectory(dir); }
+        var h = new Harness("rq", new DateTime(2026, 11, 3, 18, 0, 0, DateTimeKind.Utc));
         try
         {
-            var clock = new DateTime(2026, 11, 3, 18, 0, 0, DateTimeKind.Utc);
-            Now = () => clock;
             long Unix(DateTime t) => new DateTimeOffset(t).ToUnixTimeSeconds();
-            StateDir = dir;
-            Send = _ => "";
-            HudActive = () => false;
             // Arms Race: 1,100 maps, #1-#100 the Workshop's favourites (kept), #1050 and up uploaded in the last days (fresh), #500-#509 updated on the
             // Workshop since the sync tested them. Deathmatch and Wingman: 60 maps each, the first 30 kept.
-            void Fresh()
+            void Fresh() // a bridge that has just started (ResetAll), with no HUD plugin polling, on the lists below
             {
-                S = new State(); Broken = new(); Packs = new(); Votes = new(); Removed = new(); Blocked = new(); Sizes = new(); Ours = new();
-                ReadyIds = new(); CoveredIds = new(); ExportedIds = new(); ReadyAt = default; Background = null;
-                Pending = null; AnnouncePending = false; Ballot = null; VoteWaitUntil = default; QueuesWritten = ""; StockSize = 10;
+                h.Fresh();
+                HudActive = () => false; StockSize = 10;
                 Maps = Enumerable.Range(1, 1100).Select(r => new MapInfo(r, 8_000_000 + r, $"q_{r}", 10)).ToList();
                 ModeMaps.Clear();
                 ModeMaps[Modes.DeathmatchId] = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 8_100_000 + r, $"dm_{r}", 10, false, Modes.DeathmatchId)).ToList();
                 ModeMaps[Modes.WingmanId] = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 8_200_000 + r, $"wm_{r}", 10, false, Modes.WingmanId)).ToList();
-                var old = Unix(clock.AddDays(-400));
+                var old = Unix(h.Clock.AddDays(-400));
                 RatingScores = Maps.Take(100).Select((m, i) => (Key(m), (double?)(0.99 - i * 0.001), (long?)(100_000 - i)))
                     .Concat(ModeMaps.Values.SelectMany(l => l.Take(30)).Select((m, i) => (Key(m), (double?)0.9, (long?)(50_000 - i))))
                     .ToDictionary(x => x.Item1, x => (x.Item2, x.Item3));
                 RatingTrend = new() { [Modes.ArmsRaceId] = Maps.Take(100).Select(Key).ToList() };
-                RatingsFetched = Unix(clock.AddHours(-3));
+                RatingsFetched = Unix(h.Clock.AddHours(-3));
                 WorkshopInfo = AllKnown.Where(m => !m.Official).Select(Key).Distinct().ToDictionary(k => k, k => new WorkshopEntry(old, old, "", 10, 20, 1, 2, 100, old));
-                foreach (var m in Maps.Skip(1049)) WorkshopInfo[Key(m)] = WorkshopInfo[Key(m)] with { Created = Unix(clock.AddDays(-3)), Updated = Unix(clock.AddDays(-3)), Passed = Unix(clock.AddDays(-3)) };
-                foreach (var m in Maps.Skip(499).Take(10)) WorkshopInfo[Key(m)] = WorkshopInfo[Key(m)] with { Updated = Unix(clock.AddDays(-1)) };
+                foreach (var m in Maps.Skip(1049)) WorkshopInfo[Key(m)] = WorkshopInfo[Key(m)] with { Created = Unix(h.Clock.AddDays(-3)), Updated = Unix(h.Clock.AddDays(-3)), Passed = Unix(h.Clock.AddDays(-3)) };
+                foreach (var m in Maps.Skip(499).Take(10)) WorkshopInfo[Key(m)] = WorkshopInfo[Key(m)] with { Updated = Unix(h.Clock.AddDays(-1)) };
                 NumbersStamp++;
             }
             MapInfo Ar(int rank) => Maps[rank - 1];
@@ -96,7 +85,7 @@ static partial class Program
                 !ApplyReady("gg-ready\t1\n").Contains("hold") && (Pending = new Change(Maps[0], "test")) != null && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map change is counting down")
                 && (Pending = null) == null && (AnnouncePending = true) && ApplyReady("gg-ready\t1\n").EndsWith("; hold: a map is loading") && !(AnnouncePending = false));
             ApplyReady($"gg-ready\t1\n{ar[2]}\ncurrent\t{ar[0]}\t10\tx\n");
-            clock = clock.AddMinutes(ReadyFreshMinutes + 1);
+            h.Clock = h.Clock.AddMinutes(ReadyFreshMinutes + 1);
             Check($"A report older than {ReadyFreshMinutes} minutes counts for nothing: no stock entry is on the disk, the background download is not said, the kept maps still count",
                 !ReadyKnown && !Downloaded(ar[2]) && BackgroundNow() == null && KeptOnDisk(Ar(1)) && StockOnDisk(Modes.ArmsRace, null).Count == 0);
 
@@ -108,7 +97,7 @@ static partial class Program
             Votes[Key(Ar(300))] = new() { ["[U:1:7]"] = 1 }; Ours = [Ar(301).Id];
             Check("...a liked map and our own map are kept and on the disk, whatever the lists say", IsKept(Ar(300)) && KeptOnDisk(Ar(300)) && IsKept(Ar(301)) && KeptOnDisk(Ar(301)));
             Votes = new(); Ours = new();
-            WorkshopInfo[Key(Ar(5))] = WorkshopInfo[Key(Ar(5))] with { Updated = Unix(clock.AddHours(-2)) }; NumbersStamp++;
+            WorkshopInfo[Key(Ar(5))] = WorkshopInfo[Key(Ar(5))] with { Updated = Unix(h.Clock.AddHours(-2)) }; NumbersStamp++;
             Check("...a kept map whose Workshop content changed since its tested version is not: loading it would download the update first", !KeptOnDisk(Ar(5)) && IsKept(Ar(5)));
             ExportQueues();
             var lane = Lane(Modes.ArmsRace).Select(e => e.Key).ToList();
@@ -153,14 +142,14 @@ static partial class Program
             Check("An entry that crashed the server since its roll is dropped", Lane(Modes.ArmsRace).All(e => e.Key != head));
             head = Lane(Modes.ArmsRace)[0].Key;
             Sizes[head] = new SizeEntry(20000, "XL", "nav"); FillStock();
-            Check("An entry whose too-big mark changed since its roll is dropped: the 1-in-100 group was not what rolled it", Lane(Modes.ArmsRace).All(e => e.Key != head));
+            Check("An entry whose too-big mark changed since its roll is dropped: the 1-in-100 group was not what rolled it (the map may come back only as a new roll of that group)", Lane(Modes.ArmsRace).All(e => e.Key != head || e.Big));
             Sizes = new();
             head = Lane(Modes.ArmsRace)[0].Key;
-            WorkshopInfo[head] = WorkshopInfo[head] with { Updated = Unix(clock) }; NumbersStamp++; FillStock();
+            WorkshopInfo[head] = WorkshopInfo[head] with { Updated = Unix(h.Clock) }; NumbersStamp++; FillStock();
             Check("An entry whose Workshop content changed since its roll is dropped until the sync has tested it", Lane(Modes.ArmsRace).All(e => e.Key != head));
             ExportQueues();
             var (stale, young) = (Lane(Modes.ArmsRace)[0], Lane(Modes.ArmsRace)[1]);
-            Lane(Modes.ArmsRace)[0] = stale with { At = clock.AddHours(-NotReadyDropHours - 1) };
+            Lane(Modes.ArmsRace)[0] = stale with { At = h.Clock.AddHours(-NotReadyDropHours - 1) };
             ApplyReady("gg-ready\t1\n");
             FillStock();
             Check($"An entry still not on the disk after {NotReadyDropHours} h, while the reports keep coming, is dropped; a younger one waits its turn",
@@ -191,7 +180,7 @@ static partial class Program
             // ---- the open ballot's maps go first in queues.json: the watcher starts on them the moment the vote opens ----
             Fresh(); FillStock();
             ApplyReady($"gg-ready\t1\n{string.Join("\n", Lane(Modes.ArmsRace).Select(e => e.Key))}\n");
-            Check($"A vote opens with a page of {MapVote.PageCards} cards (no map known to be on: no Keep card)", OpenBallot(clock, 2) && Ballot is { } b && b.Options.Count(o => o.Source == VoteSource.Rolled) == MapVote.PageCards);
+            Check($"A vote opens with a page of {MapVote.PageCards} cards (no map known to be on: no Keep card)", OpenBallot(h.Clock, 2) && Ballot is { } b && b.Options.Count(o => o.Source == VoteSource.Rolled) == MapVote.PageCards);
             var rolled = Ballot!.Options.Where(o => o.Map is { Official: false }).ToList();
             var voted = rolled.Skip(2).First();
             Ballot.Choices["[U:1:9]"] = voted.N;
@@ -207,15 +196,6 @@ static partial class Program
             ReadyAt = default;
             Check("...and that no report came yet", QueueHealth().Contains("no report from the restart watcher yet"));
         }
-        finally
-        {
-            (Maps, S, Broken, Packs, Votes, Removed, Blocked, Sizes, Send, Now, StateDir, ReadyIds, ReadyAt, HudActive, CoveredIds, ExportedIds, Background, Ours) = saved;
-            (RatingScores, RatingTrend, RatingsFetched, WorkshopInfo, WorkshopWritten, StockSize) = savedNumbers;
-            NumbersStamp++;
-            ModeMaps.Clear();
-            foreach (var (k, v) in savedModes) ModeMaps[k] = v;
-            Ballot = null; Pending = null; VoteWaitUntil = default; QueuesWritten = "";
-            try { Directory.Delete(dir, true); } catch (Exception) { }
-        }
+        finally { h.Dispose(); }
     }
 }
