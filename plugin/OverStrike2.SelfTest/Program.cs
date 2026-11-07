@@ -447,6 +447,12 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         $"operator: changelevel de_inferno, a Workshop map to an official one: CS2 brings Arms Race back, and the map keeps Arms Race's list, the game it runs ({ModeNow()})");
     Check(plan.Again == Modes.Wingman && plan.Describe() == "in Arms Race (Wingman told: de_inferno came up in Arms Race right after a Workshop map, and loads once more in Wingman)",
         $"operator: ...and it is to be loaded once more in Wingman, as os_settings says ({plan.Describe()})");
+    // The bridge's question after a start it did not ask for (bare os_mode, GameSettings.ModeState): asked now - the race, before the first frame
+    // has the told values back in the convars - the answer is the plan's, Wingman told, where the convars still say Arms Race.
+    var answer = Modes.StateLine(plan.Told, plan.LoadedIn, plan.On, plan.Describe());
+    Check(ModeNow() == "1/0" && Modes.ParseState(answer) == (Modes.Wingman, Modes.ArmsRace)
+          && answer.StartsWith("os_mode: told wingman, loaded in armsrace, on armsrace; in Arms Race (Wingman told: ", StringComparison.Ordinal),
+        $"operator: bare os_mode before the first frame's write says Wingman told, Arms Race loaded in - the plan's, not the convars' ({answer})");
     block.Hold("de_inferno", null, plan.Told);
     Check(ModeNow() == "0/2" && block.ListFor(plan.Told) == "game_type 0, game_mode 2" && block.ListFor(null) == "game_type 1, game_mode 0",
         "operator: the block holds Wingman's game_type and game_mode meanwhile - the convars name Wingman, not the game played - and os_block shows them as it holds them");
@@ -545,6 +551,17 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         var life = File.ReadAllText(serverLifeCs);
         Check(life.Contains("After(1500, SyncMode);", StringComparison.Ordinal) && ModePlan.AgainAfterSeconds >= 1.5 + 5,
             $"operator: the plugin waits {ModePlan.AgainAfterSeconds} s, well past the bridge's own second load of a change it made (1.5 s after the start it sees, and a few RCON answers)");
+        var hostCs = Path.Combine(plugin, "OverStrike2.cs");
+        var host = File.Exists(hostCs) ? File.ReadAllText(hostCs) : "";
+        var at = host.IndexOf("public void OnModeCommand(", StringComparison.Ordinal);
+        var modeCmd = at >= 0 ? host[at..] : "";
+        modeCmd = modeCmd.Contains("\n    }\n", StringComparison.Ordinal) ? modeCmd[..modeCmd.IndexOf("\n    }\n", StringComparison.Ordinal)] : "";
+        var attributes = at >= 0 ? host[Math.Max(0, at - 400)..at] : "";
+        Check(attributes.Contains("[CommandHelper(minArgs: 0, ", StringComparison.Ordinal)
+              && modeCmd.IndexOf("if (id == \"\") { command.ReplyToCommand(settings == null ? \"os_mode: no settings module\" : settings.ModeState()); return; }", StringComparison.Ordinal) is >= 0 and var bare
+              && bare < modeCmd.IndexOf("settings.SetMode(mode)", StringComparison.Ordinal)
+              && code.Contains("public string ModeState() => Modes.StateLine(modes.Told, modes.LoadedIn, modes.On, modes.Describe());", StringComparison.Ordinal),
+            "operator: bare os_mode reaches the plugin (no argument needed) and answers from the plan before anything could change it - the bridge's question after a start it did not ask for");
     }
 }
 

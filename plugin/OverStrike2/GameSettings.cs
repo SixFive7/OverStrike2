@@ -188,6 +188,11 @@ sealed partial class GameSettings
         return $"mode {m.Id}: game_type {m.GameType}, game_mode {m.GameMode} kept; its block list and features at the next map start";
     }
 
+    /// <summary>Bare os_mode (the bridge after a map start it did not ask for; an operator): the mode told and the one the map that is on loaded
+    /// in, as the plan holds them - never the convars, which the block holds at the told mode's values and CS2 can bring another mode back
+    /// into - and what is to come. Changes nothing.</summary>
+    public string ModeState() => Modes.StateLine(modes.Told, modes.LoadedIn, modes.On, modes.Describe());
+
     /// <summary>The plan switched to m: its block list read, and the modules told.</summary>
     void UseMode(Modes.Mode m, Modes.Mode was, string why)
     {

@@ -112,7 +112,7 @@ static partial class Program
         AllReloading(now); MatchEndUntil = default; RematchDue = null; // fresh map: everyone reconnects into it, and it has a match of its own
         WhyOpen.Clear(); // Likes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
-        if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the server say which mode it is in
+        if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the plugin say which mode it was told (else the convars)
         else { ModeBeforeChange = null; ModeVerifyDue = true; } // the change landed: SyncMode checks the mode it came up in
         if (S.RoundMinutes != DefaultRoundMinutes && CurrentMode.ArmsRace) After(2000, ApplyMatchLength); // the mode cfg just reset mp_roundtime; put the chosen value back (Arms Race only)
         if (ours && S.Map != null) // the change we asked for has loaded (ours implies S.Map; repeated for the null analysis)
@@ -134,7 +134,7 @@ static partial class Program
         S.CleanShutdown = false;
         Save();
         if (S.Map != null || S.LogName != null) Post(Messages.NowPlaying, NowPlayingLine(), key: "playing"); // the board's copy of the card everybody gets at their spawn
-        After(1500, SyncMode); // ModeSwitch.cs: the plugin hears the mode again, in case it reloaded
+        After(1500, SyncMode); // ModeSwitch.cs: the plugin hears the mode again after the bridge's own change, in case it reloaded; is asked after any other
     }
 
     /// <summary>The now-playing card's words: what is on, how big, who picked it.</summary>

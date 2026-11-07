@@ -207,12 +207,15 @@ public class OverStrike2Plugin : BasePlugin
     }
 
     /// <summary>The bridge, before every map change and after every map start: os_mode &lt;id&gt; - the mode the next map loads in (Modes.cs;
-    /// docs/reference.md). Server only.</summary>
-    [ConsoleCommand(Modes.Command, "Over Strike 2: the game mode the next map loads in: os_mode armsrace|deathmatch|wingman")]
-    [CommandHelper(minArgs: 1, usage: "<mode id>", whoCanExecute: CommandUsage.SERVER_ONLY)]
+    /// docs/reference.md). Bare os_mode - the bridge's question after a map start it did not ask for, an operator's look - says which mode was
+    /// told and which one the map that is on loaded in (Modes.StateLine), and changes nothing. Server only.</summary>
+    [ConsoleCommand(Modes.Command, "Over Strike 2: the game mode the next map loads in: os_mode armsrace|deathmatch|wingman; bare os_mode says which mode was told and which one the map loaded in")]
+    [CommandHelper(minArgs: 0, usage: "[<mode id>]", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnModeCommand(CCSPlayerController? caller, CommandInfo command)
     {
-        if (Modes.Find(command.GetArg(1)) is not { } mode || command.GetArg(1).Trim() == "") { command.ReplyToCommand($"os_mode: no mode {command.GetArg(1)} ({string.Join(", ", Modes.All.Select(m => m.Id))})"); return; }
+        var id = command.ArgCount > 1 ? command.GetArg(1).Trim() : "";
+        if (id == "") { command.ReplyToCommand(settings == null ? "os_mode: no settings module" : settings.ModeState()); return; }
+        if (Modes.Find(id) is not { } mode) { command.ReplyToCommand($"os_mode: no mode {id} ({string.Join(", ", Modes.All.Select(m => m.Id))})"); return; }
         command.ReplyToCommand(settings == null ? "os_mode: no settings module" : $"os_mode: {settings.SetMode(mode)}");
     }
 

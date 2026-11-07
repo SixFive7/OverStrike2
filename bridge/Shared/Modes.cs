@@ -6,7 +6,8 @@
 // the plugin with the server command os_mode <id> (Command), so the plugin's settings module neither puts game_type/game_mode back to the
 // boot values at the old map's end nor blocks the new mode's own settings; the plugin switches to the mode's values of its block list
 // (BlockFile) and the Arms Race-only features (the grenade drops, the weapon ladder and catch-up, friendly fire's defaults) at the next
-// map start.
+// map start. After a map start the bridge did not ask for, it asks the plugin which mode it was told (AskLine, StateLine) rather than tell
+// it the one on its own record.
 //
 // Shared like Hud.cs: the bridge compiles it (the vote, the map loads, the per-mode lists, --selftest) and the OverStrike2 plugin links it
 // in (os_mode, the per-mode features and the block file). Plain BCL only. The official pools are Valve's online map groups (mapgroupsMP)
@@ -70,6 +71,35 @@ public static class Modes
 
     /// <summary>What the bridge sends after every map start, so a plugin that reloaded knows the mode again.</summary>
     public static string SyncLine(Mode mode) => $"{Command} {mode.Id}";
+
+    /// <summary>What the bridge asks after a map start it did not ask for: os_mode without a mode. The plugin answers with StateLine and
+    /// changes nothing; a plugin from before the question answers otherwise - CounterStrikeSharp's usage line, os_mode taking one argument
+    /// there - and changes nothing either, so ParseState gives null and the bridge reads the convars as it always did.</summary>
+    public static string AskLine => Command;
+
+    /// <summary>The plugin's answer to AskLine: the mode it was told - an operator's os_mode before a map command included - the mode the map
+    /// that is on loaded in, and whose list is on, each an id or "none"; after "; " the plugin's own words.</summary>
+    public static string StateLine(Mode? told, Mode? loadedIn, Mode on, string words = "") =>
+        $"{Command}: told {told?.Id ?? "none"}, loaded in {loadedIn?.Id ?? "none"}, on {on.Id}{(words == "" ? "" : $"; {words}")}";
+
+    /// <summary>StateLine read back out of an RCON answer, which may hold other lines: the told mode and the one the map loaded in (null for
+    /// "none"); null when the answer holds no such line, or names a mode that is none of ours.</summary>
+    public static (Mode? Told, Mode? LoadedIn)? ParseState(string? reply)
+    {
+        if (reply == null) return null;
+        var head = $"{Command}: told ";
+        foreach (var raw in reply.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (!line.StartsWith(head, StringComparison.Ordinal)) continue;
+            if (line[head.Length..].Split(';')[0].Split(", ") is not [var told, var loadedIn, var on] || !loadedIn.StartsWith("loaded in ", StringComparison.Ordinal)
+                || !on.StartsWith("on ", StringComparison.Ordinal)) return null;
+            static (bool Ok, Mode? Mode) Of(string id) => id == "none" ? (true, null) : All.FirstOrDefault(m => m.Id == id) is { } m ? (true, m) : (false, null);
+            var (t, l, o) = (Of(told), Of(loadedIn["loaded in ".Length..]), Of(on["on ".Length..]));
+            return t.Ok && l.Ok && o is { Ok: true, Mode: not null } ? (t.Mode, l.Mode) : null;
+        }
+        return null;
+    }
 
     /// <summary>The game-changers no map may set (BlockList.cs), every mode's in one file beside the plugin's DLL: a convar a line with the
     /// value it keeps in each mode, in the order of All (armsrace deathmatch wingman), then // and why. Baseline in a mode's place keeps the

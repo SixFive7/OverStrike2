@@ -53,6 +53,15 @@ static partial class Program
             Modes.Wingman.MaxPlayers == 4 && Modes.Wingman.Suits(4) && !Modes.Wingman.Suits(5) && Modes.Deathmatch.Suits(10)
             && Modes.PrepareLine(Modes.Deathmatch) == "os_mode deathmatch;game_type 1;game_mode 2" && Modes.SyncLine(Modes.Wingman) == "os_mode wingman"
             && Modes.Deathmatch.MapsFile == "maps-deathmatch.json" && Modes.ArmsRace.MapsFile == "maps.json" && Modes.BlockFile == "blocked.txt");
+        Check("Modes: bare os_mode asks the plugin, whose answer reads back - the mode told and the one the map loaded in, \"none\" for no mode, its own words after \"; \", other lines around it",
+            Modes.AskLine == "os_mode" && Modes.StateLine(Modes.Wingman, Modes.ArmsRace, Modes.ArmsRace, "in Arms Race") == "os_mode: told wingman, loaded in armsrace, on armsrace; in Arms Race"
+            && Modes.All.All(t => Modes.All.All(l => Modes.ParseState(Modes.StateLine(t, l, l, "x, y; z")) == (t, l)))
+            && Modes.ParseState(Modes.StateLine(null, null, Modes.ArmsRace)) == (null, null)
+            && Modes.ParseState($"server_cvar: \"sv_cheats\" \"false\"\n{Modes.StateLine(Modes.Deathmatch, Modes.Wingman, Modes.Wingman)}\n") == (Modes.Deathmatch, Modes.Wingman));
+        Check("Modes: ...and a plugin from before the question gives no answer: CounterStrikeSharp's usage line (5.0.0 and 5.1.0: os_mode takes one argument), its own no-mode line, no command, nothing, or a mode none of ours",
+            Modes.ParseState("[CSS] Expected usage: \"!os_mode <mode id>\".") is null && Modes.ParseState("os_mode: no mode  (armsrace, deathmatch, wingman)") is null
+            && Modes.ParseState("Unknown command \"os_mode\"!") is null && Modes.ParseState("") is null && Modes.ParseState(null) is null
+            && Modes.ParseState("os_mode: told casual, loaded in armsrace, on armsrace") is null && Modes.ParseState("os_mode: told wingman, loaded in armsrace") is null);
         Check($"Modes: Valve's official pools - Deathmatch {Modes.Deathmatch.Official.Length} maps, Wingman {Modes.Wingman.Official.Length}, Arms Race {Modes.ArmsRace.Official.Length} - each map once, Arms Race's the bridge's OFFICIAL_MAPS",
             Modes.Deathmatch.Official.Length == 15 && Modes.Wingman.Official.Length == 7 && Modes.All.All(m => m.Official.Distinct().Count() == m.Official.Length)
             && Modes.ArmsRace.Official.Order().SequenceEqual(Officials.Select(o => o.Name).Order()));
@@ -64,6 +73,9 @@ static partial class Program
         var onOfficial = true;            // the fake server's map: official (the boot map) or a Workshop map
         (int, int) snapshot = (1, 0);     // what CS2 saved when it last went from an official map to a Workshop map
         var fakePlugin = false;           // the plugin on the fake server too: it answers os_mode (Settings.SetMode), and its block has the told values back in the convars at once
+        var fakeAnswers = true;           // ...and answers bare os_mode with the mode it was told (Modes.StateLine); false: a plugin from before the question (5.0.0, 5.1.0)
+        var fakeBlockLate = false;        // ...its block has not put the told values back yet: what the convars say is the mode CS2 brought back (the race)
+        const string usageLine = "[CSS] Expected usage: \"!os_mode <mode id>\"."; // CounterStrikeSharp's answer for a plugin whose os_mode takes one argument
         Modes.Mode? fakeTold = null, fakeLoaded = Modes.ArmsRace, fakeLoadsAs = null; // what os_mode said last; the mode the map on loaded in (the convars at its start); a load that ignores its convars
         h.Server = command =>
         {
@@ -76,9 +88,11 @@ static partial class Program
                     case ["host_workshop_map", _]: if (onOfficial) snapshot = (gameType, gameMode); onOfficial = false; fakeLoaded = fakeLoadsAs ?? Modes.FromConVars(gameType, gameMode); break; // official -> Workshop: CS2 saves every convar
                     case ["changelevel", _]: if (!onOfficial) (gameType, gameMode) = snapshot; onOfficial = true; fakeLoaded = fakeLoadsAs ?? Modes.FromConVars(gameType, gameMode); break;      // Workshop -> official: ...and restores them
                 }
+            if (fakePlugin && command.Trim() == Modes.AskLine)
+                return fakeAnswers ? Modes.StateLine(fakeTold, fakeLoaded, fakeLoaded ?? fakeTold ?? Modes.ArmsRace, "its own words") : usageLine;
             if (fakePlugin && fakeTold is { } toldNow)
             {
-                (gameType, gameMode) = (toldNow.GameType, toldNow.GameMode);
+                if (!fakeBlockLate) (gameType, gameMode) = (toldNow.GameType, toldNow.GameMode);
                 if (command == Modes.SyncLine(toldNow))
                     return fakeLoaded == toldNow ? $"os_mode: mode {toldNow.Id}: on already"
                         : $"os_mode: mode {toldNow.Id}: game_type {toldNow.GameType}, game_mode {toldNow.GameMode} kept; its block list and features at the next map start";
@@ -95,7 +109,7 @@ static partial class Program
                 h.Fresh();
                 HudActive = () => true; ModeProbeEnabled = false;
                 (gameType, gameMode, statusHumans) = (1, 0, 0); (onOfficial, snapshot) = (true, (1, 0));
-                (fakePlugin, fakeTold, fakeLoaded, fakeLoadsAs) = (false, null, Modes.ArmsRace, null);
+                (fakePlugin, fakeTold, fakeLoaded, fakeLoadsAs, fakeAnswers, fakeBlockLate) = (false, null, Modes.ArmsRace, null, true, false);
             }
             void Settle() => VoteWaitUntil = default; // the 2 minutes after a vote, waived for the tests that are not about them
             void Click((string Name, string Id) p, int n, long? round = null) => HudAct($"{p.Id}\t{p.Name}\t{MapVote.Click(round ?? Ballot?.Round ?? 1, n)}");
@@ -728,6 +742,61 @@ static partial class Program
             Ask(alice, m[2]); Land();
             Check("A Workshop map the plugin says came up in another mode is left as it is: one load, and the mode as told",
                 h.Sent.Count(c => c.StartsWith("host_workshop_map")) == 1 && ModeReloads == 0 && S.Mode == "armsrace" && !LoadPending);
+            Check("...and the bridge's own changes never ask the plugin: it told the mode itself", !h.Sent.Contains(Modes.AskLine));
+
+            // ---- an operator's os_mode wingman, game_type 0, game_mode 2 and changelevel de_inferno, past the bridge, from an Arms Race Workshop map:
+            // CS2 brings Arms Race back under the official map, and the start is one the bridge did not ask for. Its probe can read the convars
+            // before the plugin has put the told values back on the map's first frame (the race); told the mode on the bridge's record then, the
+            // plugin drops the operator's os_mode and its own second load (live 2026-11-07 on plugin 5.1.0, where the block won the race). The
+            // bridge asks the plugin instead, and reads the convars only when the plugin cannot say ----
+            void OperatorSwitch(bool answers, bool blockLate)
+            {
+                Fresh();
+                fakePlugin = true; fakeAnswers = answers; fakeBlockLate = blockLate;
+                foreach (var p in new[] { alice, bob }) h.Join(p);
+                Ask(alice, m[3]); Land(); Settle(); // an Arms Race Workshop map, loaded from the boot map: CS2 saves Arms Race on the way
+                h.Quiet();
+                ModeProbeEnabled = true;
+                foreach (var c in new[] { "os_mode wingman", "game_type 0", "game_mode 2", "changelevel de_inferno" }) h.Server(c); // the operator's RCON
+                foreach (var p in new[] { alice, bob }) h.Leave(p, "NETWORK_DISCONNECT_SHUTDOWN");
+                h.Line("Loading map \"de_inferno\""); h.Line("Started:  \"\"");
+                foreach (var p in new[] { alice, bob }) h.Join(p);
+            }
+            OperatorSwitch(answers: true, blockLate: true);
+            Check("Race: CS2 brought Arms Race back under de_inferno, and the plugin's block has not put Wingman's values back yet",
+                fakeTold == Modes.Wingman && fakeLoaded == Modes.ArmsRace && (gameType, gameMode) == (1, 0) && S.Mode == "armsrace" && ModeProbing);
+            h.Run(3);
+            Check($"...the bridge asks the plugin, which was told Wingman, and takes its word over the convars, which say Arms Race ({string.Join(" | ", h.Sent)})",
+                h.Sent.FirstOrDefault() == Modes.AskLine && S.Mode == "wingman" && !ModeProbing && !h.Sent.Contains("game_type"));
+            Check("...and tells the plugin no mode, then or at the re-tell after the start: nothing calls off the operator's os_mode, nor the plugin's own second load",
+                !h.Sent.Any(c => c.StartsWith("os_mode ")) && fakeTold == Modes.Wingman);
+            h.Run(5); // the plugin's wait, ModePlan.AgainAfterSeconds after the start
+            h.Server("game_type 0;game_mode 2;changelevel de_inferno"); fakeBlockLate = false;
+            h.Line("Loading map \"de_inferno\""); h.Line("Started:  \"\"");
+            h.Run(3);
+            Check("...the plugin's second load, official to official, comes up in Wingman; the bridge keeps Wingman and loads nothing itself",
+                fakeLoaded == Modes.Wingman && (gameType, gameMode) == (0, 2) && S.Mode == "wingman" && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("os_mode ")));
+
+            OperatorSwitch(answers: false, blockLate: true);
+            h.Run(3);
+            Check($"A plugin from before the question (5.0.0, 5.1.0): CounterStrikeSharp's usage line, so the convars and the re-tell as ever - the race lost as before this bridge, the server in Arms Race throughout ({string.Join(" | ", h.Sent)})",
+                h.Sent.FirstOrDefault() == Modes.AskLine && h.Sent.Contains("game_type") && h.Sent.Contains("os_mode armsrace") && S.Mode == "armsrace" && fakeTold == Modes.ArmsRace);
+            OperatorSwitch(answers: false, blockLate: false);
+            h.Run(3);
+            Check("...and with its block in time, as live: the convars say Wingman, which the bridge takes and tells, as ever",
+                h.Sent.Contains("game_type") && h.Sent.Contains("os_mode wingman") && !h.Sent.Contains("os_mode armsrace") && S.Mode == "wingman" && fakeTold == Modes.Wingman);
+
+            Fresh();
+            fakePlugin = true; fakeTold = Modes.Deathmatch; (gameType, gameMode) = (1, 0); fakeBlockLate = true;
+            ModeProbeEnabled = true; ModeProbing = true;
+            h.Run(1);
+            Check("A bridge that starts asks the plugin first: told Deathmatch, on the record, with no convar read", S.Mode == "deathmatch" && !ModeProbing && !h.Sent.Contains("game_type"));
+            Fresh();
+            fakePlugin = true; (gameType, gameMode) = (0, 2);
+            ModeProbeEnabled = true; ModeProbing = true;
+            h.Run(1);
+            Check("...a plugin told no mode yet says none, and the convars decide: Wingman", h.Sent.Contains(Modes.AskLine) && h.Sent.Contains("game_type") && S.Mode == "wingman" && !ModeProbing);
+            ModeProbeEnabled = false;
 
             // ---- the defaults: Arms Race after a restart, and after 10 minutes with nobody on ----
             Fresh();

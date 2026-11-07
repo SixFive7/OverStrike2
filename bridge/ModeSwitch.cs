@@ -3,11 +3,13 @@
 //
 //  - S.Mode (state.json) is the mode the server was last told to load in. Every server start is Arms Race (the cs2 service's
 //    CS2_GAMETYPE/CS2_GAMEMODE and its start map), and so is a server that has had nobody on for ResetEmptyMinutes (EmptyServer.cs): it is
-//    put on a random Arms Race map. A bridge that starts, and every map start the bridge did not ask for, reads game_type and game_mode
-//    over RCON instead of guessing.
+//    put on a random Arms Race map. A bridge that starts, and every map start the bridge did not ask for, asks the plugin which mode it was
+//    told (bare os_mode, Modes.AskLine) and takes its word; a plugin that cannot say (one from before the question) has game_type and
+//    game_mode read over RCON instead of guessing.
 //  - A map carries its mode (MapInfo.Mode, "" = Arms Race). FireChange sends Modes.PrepareLine (os_mode, game_type, game_mode) and then
-//    the map command; after every map start the bridge sends os_mode again, for a plugin that reloaded, and the reply says whether the map
-//    loaded in that mode (SyncMode). A change that never loads gives the old mode back (the load timeout in Tick).
+//    the map command; after the start of its own change the bridge sends os_mode again, for a plugin that reloaded, and the reply says
+//    whether the map loaded in that mode (SyncMode); after a start it did not ask for it asks instead, and tells only a plugin that cannot
+//    say. A change that never loads gives the old mode back (the load timeout in Tick).
 //  - The pools: Arms Race is maps.json (MAPS_FILE) as it always was. Deathmatch and Wingman are Valve's official maps for the mode plus
 //    the Workshop maps of maps-<mode>.json beside maps.json (the sync's output, same entry shape as maps.json; docs/reference.md).
 //    Missing or empty, a mode has its official maps only. Read again when it changes, like maps.json (Reload.cs).
@@ -105,12 +107,36 @@ static partial class Program
         return type is { } t && mode is { } g ? (t, g) : null;
     }
 
-    /// <summary>From Tick: the mode probe, when one is due - every 10 s until RCON answers. Convars that select none of our modes (a map
-    /// switched to Casual) leave the mode as recorded: the next change sets them again.</summary>
+    /// <summary>The plugin's word on the mode (Modes.AskLine, StateLine): the mode it was told and the one the map that is on loaded in, or
+    /// null when it gives none - a plugin from before the question (it answers with CounterStrikeSharp's usage line), one with no told mode
+    /// yet, no plugin, or no RCON.</summary>
+    static (Modes.Mode Told, Modes.Mode? LoadedIn)? AskPluginMode()
+    {
+        var reply = Send(Modes.AskLine);
+        Log($"{Modes.AskLine} -> {reply ?? "(rcon failed)"}");
+        return Modes.ParseState(reply) is { Told: { } told } said ? (told, said.LoadedIn) : null;
+    }
+
+    /// <summary>The plugin's told mode becomes the one on record: it heard every os_mode, an operator's before a changelevel included, while
+    /// the convars can hold the mode CS2 brought back under an official map. The convar probe is not needed after it.</summary>
+    static void TakePluginMode(Modes.Mode told, Modes.Mode? loadedIn)
+    {
+        ModeProbing = false;
+        if (told.Id == CurrentMode.Id) return;
+        var came = loadedIn is { } l && l.Id != told.Id ? $" (the map that is on loaded in {l.Name})" : "";
+        Log($"mode: the plugin was told {told.Name}{came}, not {CurrentMode.Name} as last recorded - taking the plugin's");
+        S.Mode = told.Id; Save();
+    }
+
+    /// <summary>From Tick: the mode probe, when one is due - every 10 s until RCON answers. The plugin's word first (AskPluginMode); without it,
+    /// the convars. Convars that select none of our modes (a map switched to Casual) leave the mode as recorded: the next change sets them again.
+    /// The convars alone can mislead after an operator's change: read before the plugin has put the told values back on the map's first frame,
+    /// they say the mode CS2 brought back.</summary>
     static void ProbeModeIfDue(DateTime now)
     {
         if (!ModeProbeEnabled || !ModeProbing || now < ModeProbeAt) return;
         ModeProbeAt = now.AddSeconds(10);
+        if (AskPluginMode() is { } said) { TakePluginMode(said.Told, said.LoadedIn); return; }
         if (ProbeConVars() is not { } cv) { Log("mode: RCON did not say which mode the server is in - asking again in 10 s"); return; }
         ModeProbing = false;
         if (Modes.FromConVars(cv.Type, cv.Mode) is not { } on) { Log($"mode: game_type {cv.Type}, game_mode {cv.Mode} is none of ours - keeping {CurrentMode.Name}"); return; }
@@ -133,9 +159,14 @@ static partial class Program
     /// loads once more - official to official, which restores nothing. A Workshop map is not loaded again: nothing restores there.
     /// The plugin's reply is what tells. It read the mode at the map start, and the convars cannot say any more by now: its block, which
     /// looks every second, has put the told values back before this runs, 1.5 s after the start (cs_office told Deathmatch stayed in Arms
-    /// Race on 2026-11-01 with both convars reading Deathmatch). The convars still count, for a plugin that does not answer.</summary>
+    /// Race on 2026-11-01 with both convars reading Deathmatch). The convars still count, for a plugin that does not answer.
+    /// After a map start the bridge did not ask for (an operator's os_mode and changelevel), the mode on its record can be the one CS2 brought
+    /// back, read by the probe before the plugin put the told values back: told again, it would undo the operator's os_mode and call off the
+    /// plugin's own second load of the map (live 2026-11-07, plugin 5.1.0). So it asks the plugin instead and takes its word (AskPluginMode);
+    /// a plugin from before the question gives none, and is told as it always was.</summary>
     static void SyncMode()
     {
+        if (!ModeVerifyDue && AskPluginMode() is { } said) { TakePluginMode(said.Told, said.LoadedIn); return; }
         var told = Send(Modes.SyncLine(CurrentMode));
         Log($"{Modes.SyncLine(CurrentMode)} -> {told ?? "(rcon failed)"}");
         if (!ModeVerifyDue) return;

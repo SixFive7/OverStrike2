@@ -296,7 +296,9 @@ playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for t
 with `os_mode armsrace|deathmatch|wingman` and sets the mode's convars right before the map command, and an operator switches the same way, `os_mode`
 first. A `changelevel` from a Workshop map to an official one brings back the mode CS2 saved on the way to the Workshop maps (`host_workshop_map` and a
 change from an official map bring back nothing), so such a map can come up in the old mode: it is then loaded once more in its own, by the bridge a few
-seconds after the start of a change it made, and by the plugin 8 s after the start of any other (`plugin/OverStrike2/ModePlan.cs`). A map several
+seconds after the start of a change it made, and by the plugin 8 s after the start of any other (`plugin/OverStrike2/ModePlan.cs`). Bare `os_mode`
+says which mode the plugin was told and which one the map loaded in, and changes nothing; after a map start it did not ask for, the bridge asks
+that and takes the told mode, and reads `game_type` and `game_mode` only when the plugin cannot say (a plugin older than bare `os_mode`). A map several
 modes list plays in the mode the map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode
 that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`).
 The grenade drops, the match length, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere.
