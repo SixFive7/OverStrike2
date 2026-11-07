@@ -202,8 +202,8 @@ binary docs/hud/img/maps-sort-name.jpg 67ff31c6c993be4229ecbf42010ea3af648a184c5
 binary docs/hud/img/maps-sort-size-desc.jpg a747cae383d5236cb17d7da34de974bd5588f5adbe0e2256207c4792d61d9419  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-sort-size.jpg 77f8ecd3992865dd732d2133589d7f94bc8919350c1b0b8fa1d0190e212baa8c  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-sort-votes.jpg 86b70b5e2efd5335b2972833f3f43a3b94c9fac315d3d1a397fdf0ef1046530c  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
-binary docs/hud/img/maps-workshop-ready-01.jpg e25cf5e7bda13cbf63e46a3e3be240f68d36544d5d2fb2ade82a7704e5e7b0fd  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
-binary docs/hud/img/maps-workshop-ready-03.jpg 6001c91087004b0f4b242fb26ede37b4c92a033791a1a8a3a3b90ac3d0781233  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
+binary docs/hud/img/maps-workshop-ready-01.jpg ce6404efbc3999c0c7a60f01bc43c29f82ee3097d39699621a0f656182d3daa3  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
+binary docs/hud/img/maps-workshop-ready-03.jpg e40b026ac2d2bd3413591e359b5630df0b91ab9d289c037e537ae7e60d81d3b6  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-workshop-refused.jpg b9db231c8f4cbf3ec4ca6bc415b1b515c9ec11e96b1d99589642b877aac9dc47  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/mode-armsrace-back.jpg 1d4ead3de66d6acc67b336d7f6301666a8ebd51bdf2b76ac524023496dbe0afe  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/mode-deathmatch-fun.jpg 2b456381c00a6b2ad4c2f293e7dffdd412e198e8883e9cdd534b9d387b661d59  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
