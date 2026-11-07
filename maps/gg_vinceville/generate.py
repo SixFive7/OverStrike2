@@ -14,7 +14,8 @@ Writes the Hammer map source into the CS2 Workshop Tools' content folder:
 
 and layout.json beside --layout (every mesh, prop, pond and spawn, for the preview render and the checks).
 
-  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>]
+  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
+                     [--spawns-from <an earlier layout.json>]
 
 Only stock CS2 materials and models are used, so the addon needs no materials folder of its own. World geometry is closed
 CMapMesh solids (boxes, prisms, a height-field terrain in chunks); the trees, bushes, hedges, cars and some furniture are
@@ -30,7 +31,7 @@ import random
 
 NAME = 'gg_vinceville'
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vmapkit import El, data_array, fnum, node_ids, use_name, write_el  # noqa: E402 (maps/vmapkit.py: the ids and the DMX writer the generators share)
+from vmapkit import El, cs2_dir, data_array, entity, fnum, node_ids, stream, transform_tail, use_name, write_el  # noqa: E402 (maps/vmapkit.py: what the generators share)
 
 use_name(NAME)
 
@@ -188,13 +189,6 @@ def smooth(t):
 
 
 # ---------------------------------------------------------------- polygon mesh (half-edge CDmePolygonMesh)
-def stream(sem, typ, data, flags, std=None, loc=0):
-    return El('CDmePolygonMeshDataStream', [
-        ('name', 'string', f'{sem}:0'), ('standardAttributeName', 'string', sem if std is None else std),
-        ('semanticName', 'string', sem), ('semanticIndex', 'int', 0), ('vertexBufferLocation', 'int', loc),
-        ('dataStateFlags', 'int', flags), ('subdivisionBinding', 'element', None), ('data', typ, data)])
-
-
 def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0, wind='centroid', vn=None, smooth_faces=None):
     """verts: local positions; faces: vertex index loops; face_mats: material per face.
     wind 'centroid': faces are turned to point away from the mesh centre (convex solids); 'given': loops are already
@@ -287,11 +281,6 @@ def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0, wind='centroid', vn
     ])
 
 
-def transform_tail(origin, angles=(0, 0, 0), scales=(1, 1, 1)):
-    return [('origin', 'vector3', origin), ('angles', 'qangle', angles), ('scales', 'vector3', scales),
-            ('transformLocked', 'bool', False), ('force_hidden', 'bool', False), ('editorOnly', 'bool', False)]
-
-
 def map_mesh(s):
     """A CMapMesh from a layout solid {'verts' (world), 'faces', 'mats', ...}."""
     vw = s['verts']
@@ -316,20 +305,6 @@ def map_mesh(s):
                                               s.get('vn'), s.get('smooth'))),
         ('physicsSimplificationOverride', 'bool', False), ('physicsSimplificationError', 'float', 0.0),
     ] + transform_tail(o))
-
-
-def entity(classname, origin, props, children=(), angles=(0, 0, 0), scales=(1, 1, 1)):
-    nid, ref = node_ids()
-    ep = El('EditGameClassProps', [('classname', 'string', classname)] + [(k, 'string', str(v)) for k, v in props.items()])
-    return El('CMapEntity', [
-        ('nodeID', 'int', nid), ('referenceID', 'uint64', ref), ('children', 'element_array', list(children)),
-        ('variableTargetKeys', 'string_array', []), ('variableNames', 'string_array', []),
-        ('relayPlugData', 'element', El('DmePlugList', [('names', 'string_array', []), ('dataTypes', 'int_array', []),
-                                                         ('plugTypes', 'int_array', []), ('descriptions', 'string_array', [])])),
-        ('connectionsData', 'element_array', []),
-        ('entity_properties', 'element', ep),
-        ('hitNormal', 'vector3', (0, 0, 1)), ('isProceduralEntity', 'bool', False),
-    ] + transform_tail(origin, angles, scales))
 
 
 # ---------------------------------------------------------------- geometry primitives
@@ -2728,7 +2703,7 @@ def vpk_read(path, name):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--cs2', default=os.environ.get('CS2_DIR') or r'C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive')
+    ap.add_argument('--cs2', default=cs2_dir())
     ap.add_argument('--layout', default=None, help='where to write layout.json (default: next to the vmap)')
     ap.add_argument('--addon', default=NAME, help='addon folder to write into (content and game); the map stays ' + NAME)
     ap.add_argument('--spawns-from', default=None, help="keep the spawn points of an earlier build's layout.json")

@@ -1,12 +1,20 @@
-"""What the map generators share: ids that depend only on the map's name and the order of the calls, and the keyvalues2 DMX writer
-a Hammer map source is written in. The same inputs write the same bytes, whatever the Python hash seed."""
+"""What the map generators share: ids that depend only on the map's name and the order of the calls, the keyvalues2 DMX writer
+a Hammer map source is written in and the elements every map has (a mesh's data streams, an entity, where a node is), and
+where CS2 is when --cs2 is not given (build_map.py's default too). The same inputs write the same bytes, whatever the Python
+hash seed."""
 import hashlib
 import numbers
+import os
 import uuid
 
 _name = ''
 _counter = [0]
 _node = [1]
+
+
+def cs2_dir():
+    """The 'Counter-Strike Global Offensive' folder when --cs2 is not given: CS2_DIR, else Steam's default library."""
+    return os.environ.get('CS2_DIR') or r'C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive'
 
 
 def use_name(name):
@@ -88,3 +96,31 @@ def write_el(out, el, ind, name=None):
 
 def data_array(size, streams):
     return El('CDmePolygonMeshDataArray', [('size', 'int', size), ('streams', 'element_array', streams)])
+
+
+def stream(sem, typ, data, flags, std=None, loc=0):
+    """One stream of a mesh's data array: positions, texture coordinates, normals, face flags and the like."""
+    return El('CDmePolygonMeshDataStream', [
+        ('name', 'string', f'{sem}:0'), ('standardAttributeName', 'string', sem if std is None else std),
+        ('semanticName', 'string', sem), ('semanticIndex', 'int', 0), ('vertexBufferLocation', 'int', loc),
+        ('dataStateFlags', 'int', flags), ('subdivisionBinding', 'element', None), ('data', typ, data)])
+
+
+def transform_tail(origin, angles=(0, 0, 0), scales=(1, 1, 1)):
+    """The attributes every map node ends with: where it is, how it is turned and how it is scaled."""
+    return [('origin', 'vector3', tuple(origin)), ('angles', 'qangle', angles), ('scales', 'vector3', scales),
+            ('transformLocked', 'bool', False), ('force_hidden', 'bool', False), ('editorOnly', 'bool', False)]
+
+
+def entity(classname, origin, props, children=(), angles=(0, 0, 0), scales=(1, 1, 1)):
+    """An entity: its class, its keyvalues (each written as a string), its children (a brush entity's meshes) and where it is."""
+    nid, ref = node_ids()
+    ep = El('EditGameClassProps', [('classname', 'string', classname)] + [(k, 'string', str(v)) for k, v in props.items()])
+    return El('CMapEntity', [
+        ('nodeID', 'int', nid), ('referenceID', 'uint64', ref), ('children', 'element_array', list(children)),
+        ('variableTargetKeys', 'string_array', []), ('variableNames', 'string_array', []),
+        ('relayPlugData', 'element', El('DmePlugList', [('names', 'string_array', []), ('dataTypes', 'int_array', []),
+                                                         ('plugTypes', 'int_array', []), ('descriptions', 'string_array', [])])),
+        ('connectionsData', 'element_array', []), ('entity_properties', 'element', ep),
+        ('hitNormal', 'vector3', (0, 0, 1)), ('isProceduralEntity', 'bool', False),
+    ] + transform_tail(origin, angles, scales))

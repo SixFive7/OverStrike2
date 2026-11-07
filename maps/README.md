@@ -4,7 +4,8 @@ Three Arms Race maps, each generated from a script: the geometry, the props, the
 Each folder holds `generate.py` (writes the Hammer map source into the CS2 Workshop Tools' content folder), `build.py`
 (generates, then compiles, lights and packs the map with the Workshop Tools), `preview.py` (renders the Workshop preview from
 the generated layout), `workshop.json` (the Workshop item's title, description and tags) and `workshop_id.txt` (the item).
-`vmapkit.py` holds what the generators share: the ids and the writer of the Hammer map source. [gg_glasspire](gg_glasspire/README.md)
+`vmapkit.py` holds what the generators share: the ids and the writer of the Hammer map source. `build_map.py` is what every `build.py`
+runs, with the map's own settings, and `previewkit.py` the renderer every `preview.py` draws with. [gg_glasspire](gg_glasspire/README.md)
 and [gg_moonglass](gg_moonglass/README.md) have a README of their own: what the script builds, how the shipped build was compiled and
 checked, and its known gaps.
 
@@ -22,6 +23,9 @@ previews):
 ```powershell
 python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Global Offensive'>, or CS2_DIR, or Steam's default folder
 ```
+
+Each compile waits until no other `resourcecompiler.exe` runs on the PC. `--addon <folder>` builds into another addon folder - a
+staging copy, say, while the published build is under review - and leaves the published one as it is.
 
 The maps use only the game's own materials and models, by reference. Where a map needs one of the game's files in its addon
 (gg_vinceville's underwater look, from `ar_pool_day`'s map package), the generator reads it from the local installation at

@@ -9,7 +9,7 @@ Writes the Hammer map source and the addon's own materials into the CS2 Workshop
 
 and layout.json beside --layout (every box and pane, for the preview render and the checks in build.py).
 
-  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>]
+  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
 
 Everything is boxes and wedges: each world piece is one closed CMapMesh, each pane of glass one func_breakable (material
 Glass, 1 health) with one CMapMesh child. Units are Hammer units (1 unit = 1 inch).
@@ -22,7 +22,7 @@ import sys
 
 NAME = 'gg_glasspire'
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vmapkit import El, data_array, node_ids, use_name, write_el  # noqa: E402 (maps/vmapkit.py: the ids and the DMX writer the generators share)
+from vmapkit import El, cs2_dir, data_array, entity, node_ids, stream, transform_tail, use_name, write_el  # noqa: E402 (maps/vmapkit.py: what the generators share)
 
 use_name(NAME)
 
@@ -127,13 +127,6 @@ def uv_axes(n):
 
 
 # ---------------------------------------------------------------- polygon mesh (half-edge CDmePolygonMesh)
-def stream(sem, typ, data, flags, std=None, loc=0):
-    return El('CDmePolygonMeshDataStream', [
-        ('name', 'string', f'{sem}:0'), ('standardAttributeName', 'string', sem if std is None else std),
-        ('semanticName', 'string', sem), ('semanticIndex', 'int', 0), ('vertexBufferLocation', 'int', loc),
-        ('dataStateFlags', 'int', flags), ('subdivisionBinding', 'element', None), ('data', typ, data)])
-
-
 def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0):
     """verts: local positions; faces: vertex index loops (wound outward here); face_mats: material path per face."""
     c = tuple(sum(v[i] for v in verts) / len(verts) for i in range(3))
@@ -222,11 +215,6 @@ def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0):
     return mesh
 
 
-def transform_tail(origin):
-    return [('origin', 'vector3', origin), ('angles', 'qangle', (0, 0, 0)), ('scales', 'vector3', (1, 1, 1)),
-            ('transformLocked', 'bool', False), ('force_hidden', 'bool', False), ('editorOnly', 'bool', False)]
-
-
 def map_mesh(verts_world, faces, face_mats, lm_bias=0, bake=True):
     lo = [min(v[i] for v in verts_world) for i in range(3)]
     hi = [max(v[i] for v in verts_world) for i in range(3)]
@@ -269,22 +257,6 @@ def role_mats(faces, verts, mats):
         n = norm(n)
         out.append(mats['top'] if n[2] > 0.5 else mats['bottom'] if n[2] < -0.5 else mats['side'])
     return out
-
-
-def entity(classname, origin, props, children=(), angles=(0, 0, 0)):
-    nid, ref = node_ids()
-    ep = El('EditGameClassProps', [('classname', 'string', classname)] + [(k, 'string', str(v)) for k, v in props.items()])
-    tail = transform_tail(origin)
-    tail[1] = ('angles', 'qangle', angles)
-    return El('CMapEntity', [
-        ('nodeID', 'int', nid), ('referenceID', 'uint64', ref), ('children', 'element_array', list(children)),
-        ('variableTargetKeys', 'string_array', []), ('variableNames', 'string_array', []),
-        ('relayPlugData', 'element', El('DmePlugList', [('names', 'string_array', []), ('dataTypes', 'int_array', []),
-                                                         ('plugTypes', 'int_array', []), ('descriptions', 'string_array', [])])),
-        ('connectionsData', 'element_array', []),
-        ('entity_properties', 'element', ep),
-        ('hitNormal', 'vector3', (0, 0, 1)), ('isProceduralEntity', 'bool', False),
-    ] + tail)
 
 
 # ---------------------------------------------------------------- layout
@@ -775,11 +747,12 @@ def build_vmap(L, path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--cs2', default=os.environ.get('CS2_DIR') or r'C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive')
+    ap.add_argument('--cs2', default=cs2_dir())
     ap.add_argument('--layout', default=None, help='where to write layout.json (default: next to the vmap)')
+    ap.add_argument('--addon', default=NAME, help='addon folder to write into (content and game); the map stays ' + NAME)
     args = ap.parse_args()
-    content = os.path.join(args.cs2, 'content', 'csgo_addons', NAME)
-    game = os.path.join(args.cs2, 'game', 'csgo_addons', NAME)
+    content = os.path.join(args.cs2, 'content', 'csgo_addons', args.addon)
+    game = os.path.join(args.cs2, 'game', 'csgo_addons', args.addon)
     os.makedirs(os.path.join(content, 'maps'), exist_ok=True)
     os.makedirs(os.path.join(content, 'materials', NAME), exist_ok=True)
     os.makedirs(game, exist_ok=True)

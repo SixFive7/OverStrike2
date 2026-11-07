@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Renders the Workshop preview of gg_vinceville from layout.json (written by generate.py): a CPU z-buffer rasterizer in
-numpy. World meshes are shaded by the map's sun in a colour per material; the stock props are stand-ins (trees as trunk
-and canopy, bushes and hedges as green blobs and boxes, vehicles as boxes); ponds are blended in blue. The near edge of
-the forest is cut away so the field can be seen.
+"""Renders the Workshop preview of gg_vinceville from layout.json (written by generate.py) with maps/previewkit.py. World
+meshes are shaded by the map's sun in a colour per material; the stock props are stand-ins (trees as trunk and canopy, bushes
+and hedges as green blobs and boxes, vehicles as boxes); ponds are blended in blue. The near edge of the forest is cut away so
+the field can be seen.
 
   python preview.py <layout.json> <out.jpg> [--size 1280x720] [--ss 2]
 """
-import argparse
-import json
 import math
+import os
+import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from previewkit import Canvas, box, colour, lit, load, normal, parser, sun  # noqa: E402 (maps/previewkit.py: the renderer the previews share)
 
 COL = {
     'wild_grass_1': (104, 142, 62), 'wild_grass_2': (88, 124, 58), 'ground_mud': (98, 84, 62), 'ground_dirt': (156, 126, 88),
@@ -30,13 +32,6 @@ TREE = {  # canopy shape: (bottom fraction of the height, colour)
     'maple2': (0.28, (90, 122, 52)), 'oak': (0.3, (76, 108, 46)), 'sumac': (0.3, (110, 120, 50)),
     'cypress': (0.12, (54, 84, 46)),
 }
-
-
-def colour(mat):
-    for k, v in COL.items():
-        if k in mat:
-            return v
-    return (170, 170, 170)
 
 
 def icosphere():
@@ -69,29 +64,16 @@ def icosphere():
 SPHERE = icosphere()
 
 
-def box_tris(lo, hi):
-    v = np.array([[hi[0] if i & 1 else lo[0], hi[1] if i & 2 else lo[1], hi[2] if i & 4 else lo[2]] for i in range(8)], float)
-    quads = [[4, 5, 7, 6], [0, 2, 3, 1], [1, 3, 7, 5], [0, 4, 6, 2], [2, 6, 7, 3], [0, 1, 5, 4]]
-    return v, quads
-
-
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('layout')
-    ap.add_argument('out')
-    ap.add_argument('--size', default='1280x720')
-    ap.add_argument('--ss', type=int, default=2)
-    args = ap.parse_args()
-    W0, H0 = map(int, args.size.split('x'))
-    W, H = W0 * args.ss, H0 * args.ss
-    lay = json.load(open(args.layout))
+    args = parser(__doc__).parse_args()
+    lay = load(args.layout)
     half = lay['half']
 
     def cut(x, y):
         """the near band of the border (south and east, towards the camera) is left out."""
         return y < -half - 40 or x > half + 40
 
-    tris = []      # (3x3 array, rgb, face id, centroid of the solid, alpha)
+    tris = []      # (triangle, colour, face id, middle of the solid or None for terrain)
     fid = 0
     for s in lay['solids']:
         vs = np.array(s['verts'], float)
@@ -105,9 +87,9 @@ def main():
                 if cut(cx, cy):
                     continue
             fid += 1
-            col = colour(m)
+            col = colour(COL, m)
             for k in range(1, len(f) - 1):
-                tris.append((pts[[0, k, k + 1]], col, fid, c if s['tag'] != 'terrain' else None, 1.0))
+                tris.append((pts[[0, k, k + 1]], col, fid, c if s['tag'] != 'terrain' else None))
     # stand-ins for the stock props
     sv, sf = SPHERE
     rng = np.random.RandomState(7)
@@ -122,11 +104,11 @@ def main():
             frac, col = TREE.get(key, (0.3, (80, 112, 50)))
             rad = max(rx1 - rx0, ry1 - ry0) * s / 2 * (0.85 if 'poplar' in key or key == 'cypress' else 0.95)
             tr = max(5.0, rad * 0.07)
-            v, q = box_tris((x - tr, y - tr, z), (x + tr, y + tr, z + h * 0.6))
+            v, q = box((x - tr, y - tr, z), (x + tr, y + tr, z + h * 0.6))
             fid += 1
             for qq in q:
                 for k in (1, 2):
-                    tris.append((v[[qq[0], qq[k], qq[k + 1]]], (92, 72, 52), fid, np.array([x, y, z + h * 0.3]), 1.0))
+                    tris.append((v[[qq[0], qq[k], qq[k + 1]]], (92, 72, 52), fid, np.array([x, y, z + h * 0.3])))
             zc = z + h * (frac + (1 - frac) / 2)
             rz = h * (1 - frac) / 2
             cen = np.array([x, y, zc])
@@ -135,7 +117,7 @@ def main():
             fid += 1
             shade = np.array(col) * rng.uniform(0.9, 1.1)
             for f in sf:
-                tris.append((vv[f], tuple(shade), fid, cen, 1.0))
+                tris.append((vv[f], tuple(shade), fid, cen))
         elif p['tag'] == 'card':
             h = (rz1 - rz0) * s
             w = (rx1 - rx0) * s / 2
@@ -143,7 +125,7 @@ def main():
             vv = sv * np.array([w, w, h * 0.45]) + cen
             fid += 1
             for f in sf:
-                tris.append((vv[f], (64, 96, 50), fid, cen, 1.0))
+                tris.append((vv[f], (64, 96, 50), fid, cen))
         elif p['tag'] == 'bush':
             rad = max(rx1 - rx0, ry1 - ry0) * s / 2
             h = (rz1 - rz0) * s
@@ -151,12 +133,12 @@ def main():
             vv = sv * np.array([rad, rad * 0.8, h * 0.55]) + cen
             fid += 1
             for f in sf:
-                tris.append((vv[f], (72, 110, 52), fid, cen, 1.0))
+                tris.append((vv[f], (72, 110, 52), fid, cen))
         else:
             # boxes in the model's frame, turned by its yaw
             yaw = math.radians(p['yaw'])
             cy_, sy_ = math.cos(yaw), math.sin(yaw)
-            v, q = box_tris((rx0 * s, ry0 * s, rz0 * s), (rx1 * s, ry1 * s, rz1 * s))
+            v, q = box((rx0 * s, ry0 * s, rz0 * s), (rx1 * s, ry1 * s, rz1 * s))
             v = np.stack([x + cy_ * v[:, 0] - sy_ * v[:, 1], y + sy_ * v[:, 0] + cy_ * v[:, 1], z + v[:, 2]], -1)
             col = {'hedge': (60, 96, 46), 'vehicle': (120, 50, 46)}.get(p['tag'], (130, 100, 70))
             if p['key'] == 'van':
@@ -169,7 +151,7 @@ def main():
             cen = v.mean(0)
             for qq in q:
                 for k in (1, 2):
-                    tris.append((v[[qq[0], qq[k], qq[k + 1]]], col, fid, cen, 1.0))
+                    tris.append((v[[qq[0], qq[k], qq[k + 1]]], col, fid, cen))
     # ponds
     water = []
     for w in lay['waters']:
@@ -181,106 +163,20 @@ def main():
             water.append(np.array([cen, ring[k], ring[(k + 1) % n]]))
 
     # camera: from the south-east, high, looking at the middle of the field
-    eye = np.array([2050.0, -2350.0, 1650.0])
-    at = np.array([-60.0, 120.0, -40.0])
-    fwd = at - eye
-    fwd /= np.linalg.norm(fwd)
-    right = np.cross(fwd, [0, 0, 1.0])
-    right /= np.linalg.norm(right)
-    up = np.cross(right, fwd)
-    fov = math.radians(52)
-    f = (W / 2) / math.tan(fov / 2)
-
-    def project(P):
-        d = P - eye
-        x, y, z = d @ right, d @ up, d @ fwd
-        return np.stack([W / 2 + f * x / z, H / 2 - f * y / z, z], -1)
-
-    pitch, yaw = math.radians(50), math.radians(135)
-    sun_dir = -np.array([math.cos(pitch) * math.cos(yaw), math.cos(pitch) * math.sin(yaw), -math.sin(pitch)])
-    zbuf = np.full((H, W), np.inf)
-    img = np.zeros((H, W, 3))
-    ids = np.zeros((H, W), np.int64)
-    t = np.linspace(0, 1, H)[:, None]
-    img[:] = (np.array([92, 146, 212]) * (1 - t) + np.array([214, 230, 242]) * t)[:, None, :].reshape(H, 1, 3)
-
-    def raster(tri, cb):
-        q = project(tri)
-        if (q[:, 2] <= 10).any():
-            return
-        x0, x1 = int(max(0, np.floor(q[:, 0].min()))), int(min(W - 1, np.ceil(q[:, 0].max())))
-        y0, y1 = int(max(0, np.floor(q[:, 1].min()))), int(min(H - 1, np.ceil(q[:, 1].max())))
-        if x1 < x0 or y1 < y0:
-            return
-        xs, ys = np.meshgrid(np.arange(x0, x1 + 1) + 0.5, np.arange(y0, y1 + 1) + 0.5)
-        (ax, ay, az), (bx, by, bz), (cx, cy, cz) = q
-        den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
-        if abs(den) < 1e-9:
-            return
-        w0 = ((by - cy) * (xs - cx) + (cx - bx) * (ys - cy)) / den
-        w1 = ((cy - ay) * (xs - cx) + (ax - cx) * (ys - cy)) / den
-        w2 = 1 - w0 - w1
-        m = (w0 >= -1e-6) & (w1 >= -1e-6) & (w2 >= -1e-6)
-        if not m.any():
-            return
-        iz = w0 / az + w1 / bz + w2 / cz
-        z = 1 / np.where(m, iz, 1)
-        cb(slice(y0, y1 + 1), slice(x0, x1 + 1), m, z)
-
-    for tri, col, i, c, _ in tris:
-        n = np.cross(tri[1] - tri[0], tri[2] - tri[0])
-        ln = np.linalg.norm(n)
-        if ln < 1e-9:
-            continue
-        n /= ln
-        if c is None:
-            if n[2] < 0:
-                n = -n
-        elif np.dot(n, tri.mean(0) - c) < 0:
-            n = -n
-        if np.dot(n, eye - tri.mean(0)) <= 0:
-            continue
-        lam = max(0.0, float(np.dot(n, sun_dir)))
-        amb = 0.46 + 0.14 * n[2]
-        shade = np.array(col) * min(1.25, amb + 0.66 * lam)
-
-        def put(sy, sx, m, z, shade=shade, i=i):
-            zb = zbuf[sy, sx]
-            w = m & (z < zb)
-            zb[w] = z[w]
-            img[sy, sx][w] = shade
-            ids[sy, sx][w] = i
-        raster(tri, put)
-
-    edge = np.zeros((H, W), bool)
-    edge[:, 1:] |= ids[:, 1:] != ids[:, :-1]
-    edge[1:, :] |= ids[1:, :] != ids[:-1, :]
-    img[edge & (ids > 0)] *= 0.62
+    cv = Canvas(args.size, args.ss, eye=(2050.0, -2350.0, 1650.0), at=(-60.0, 120.0, -40.0), fov=52)
+    light = sun(50, 135)
+    cv.sky((92, 146, 212), (214, 230, 242))
+    for tri, col, i, c in tris:
+        n = normal(tri, c)
+        if n is not None and cv.faces_camera(n, tri):
+            cv.fill(tri, lit(col, n, light, 0.46, 0.14, 0.66, 1.25), i)
+    cv.outline(0.62)
     for tri in water:
-        def blend(sy, sx, m, z):
-            w = m & (z < zbuf[sy, sx])
-            reg = img[sy, sx]
-            reg[w] = reg[w] * 0.35 + np.array([84, 138, 164]) * 0.65
-            img[sy, sx] = reg
-        raster(tri, blend)
-    zf = np.where(np.isinf(zbuf), 0, np.clip((zbuf - 2600) / 4200, 0, 0.45))[..., None]
-    img = img * (1 - zf) + np.array([206, 224, 238]) * zf
-
-    out = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).resize((W0, H0), Image.LANCZOS)
-    out = out.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
-    d = ImageDraw.Draw(out)
-    try:
-        big = ImageFont.truetype('segoeuib.ttf', 66)
-        small = ImageFont.truetype('segoeui.ttf', 26)
-    except OSError:
-        big = small = ImageFont.load_default()
-    d.text((44, 30), 'VINCEVILLE', font=big, fill=(255, 255, 255), stroke_width=3, stroke_fill=(40, 70, 30))
+        cv.blend(tri, np.array([84, 138, 164]), 0.65)
+    cv.haze(2600, 4200, 0.45, (206, 224, 238))
     nh = sum(1 for h in lay['houses'] if h['name'].startswith('H'))
     sewer = ' and a sewer under it all' if lay.get('junctions') else ' in a field full of ambushes'
-    d.text((48, 110), f'gg_vinceville  -  {nh} houses, two barns, three ponds{sewer}', font=small,
-           fill=(255, 255, 255), stroke_width=2, stroke_fill=(40, 70, 30))
-    out.save(args.out, quality=92)
-    print('wrote', args.out, out.size)
+    cv.save(args.out, 'VINCEVILLE', f'gg_vinceville  -  {nh} houses, two barns, three ponds{sewer}', (40, 70, 30))
 
 
 if __name__ == '__main__':

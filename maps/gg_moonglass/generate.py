@@ -15,7 +15,7 @@ folder:
 
 and layout.json beside --layout (every piece and pane as polygons, the spawns and lights: for preview.py and the checks).
 
-  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>]
+  python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
 
 Every world piece is one closed convex CMapMesh; every pane of glass is one func_breakable (material Glass) with one mesh
 child. The design is original: a moon base theme (dome, white modules, greenhouse, tanks, Earth in a black sky), its own
@@ -33,7 +33,7 @@ from PIL import Image
 
 NAME = 'gg_moonglass'
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vmapkit import El, data_array, node_ids, use_name, write_el  # noqa: E402 (maps/vmapkit.py: the ids and the DMX writer the generators share)
+from vmapkit import El, cs2_dir, data_array, entity, node_ids, stream, transform_tail, use_name, write_el  # noqa: E402 (maps/vmapkit.py: what the generators share)
 
 use_name(NAME)
 
@@ -239,13 +239,6 @@ def oriented(verts, faces):
 
 
 # ---------------------------------------------------------------- polygon mesh (half-edge CDmePolygonMesh)
-def stream(sem, typ, data, flags):
-    return El('CDmePolygonMeshDataStream', [
-        ('name', 'string', f'{sem}:0'), ('standardAttributeName', 'string', sem), ('semanticName', 'string', sem),
-        ('semanticIndex', 'int', 0), ('vertexBufferLocation', 'int', 0), ('dataStateFlags', 'int', flags),
-        ('subdivisionBinding', 'element', None), ('data', typ, data)])
-
-
 def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0, uv_fn=None):
     of = oriented(verts, faces)
     materials = []
@@ -325,11 +318,6 @@ def polygon_mesh(verts, faces, face_mats, origin, lm_bias=0, uv_fn=None):
     ])
 
 
-def transform_tail(origin, angles=(0, 0, 0)):
-    return [('origin', 'vector3', tuple(origin)), ('angles', 'qangle', angles), ('scales', 'vector3', (1, 1, 1)),
-            ('transformLocked', 'bool', False), ('force_hidden', 'bool', False), ('editorOnly', 'bool', False)]
-
-
 def map_mesh(verts, faces, face_mats, lm=0, bake=True, tint=(255, 255, 255), shadows=True, uv_fn=None):
     verts = [np.asarray(v, float) for v in verts]
     lo, hi = np.min(verts, 0), np.max(verts, 0)
@@ -350,19 +338,6 @@ def map_mesh(verts, faces, face_mats, lm=0, bake=True, tint=(255, 255, 255), sha
         ('meshData', 'element', polygon_mesh(local, faces, face_mats, o, lm, uv_fn)),
         ('physicsSimplificationOverride', 'bool', False), ('physicsSimplificationError', 'float', 0.0),
     ] + transform_tail(o))
-
-
-def entity(classname, origin, props, children=(), angles=(0, 0, 0)):
-    nid, ref = node_ids()
-    ep = El('EditGameClassProps', [('classname', 'string', classname)] + [(k, 'string', str(v)) for k, v in props.items()])
-    return El('CMapEntity', [
-        ('nodeID', 'int', nid), ('referenceID', 'uint64', ref), ('children', 'element_array', list(children)),
-        ('variableTargetKeys', 'string_array', []), ('variableNames', 'string_array', []),
-        ('relayPlugData', 'element', El('DmePlugList', [('names', 'string_array', []), ('dataTypes', 'int_array', []),
-                                                         ('plugTypes', 'int_array', []), ('descriptions', 'string_array', [])])),
-        ('connectionsData', 'element_array', []), ('entity_properties', 'element', ep),
-        ('hitNormal', 'vector3', (0, 0, 1)), ('isProceduralEntity', 'bool', False),
-    ] + transform_tail(origin, angles))
 
 
 # ---------------------------------------------------------------- convex shapes (verts, faces)
@@ -1215,11 +1190,12 @@ def build_vmap(L, path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--cs2', default=os.environ.get('CS2_DIR') or r'C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive')
-    ap.add_argument('--layout', default=None)
+    ap.add_argument('--cs2', default=cs2_dir())
+    ap.add_argument('--layout', default=None, help='where to write layout.json (default: next to the vmap)')
+    ap.add_argument('--addon', default=NAME, help='addon folder to write into (content and game); the map stays ' + NAME)
     args = ap.parse_args()
-    content = os.path.join(args.cs2, 'content', 'csgo_addons', NAME)
-    game = os.path.join(args.cs2, 'game', 'csgo_addons', NAME)
+    content = os.path.join(args.cs2, 'content', 'csgo_addons', args.addon)
+    game = os.path.join(args.cs2, 'game', 'csgo_addons', args.addon)
     mats = os.path.join(content, 'materials', NAME)
     os.makedirs(os.path.join(content, 'maps'), exist_ok=True)
     os.makedirs(mats, exist_ok=True)
