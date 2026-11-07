@@ -96,6 +96,7 @@ public class OverStrike2Plugin : BasePlugin
                 Logger.LogInformation("Over Strike 2: grenade drops {State} (the fun setting){Mode}", on ? "on" : "off", settings.Mode.ArmsRace ? "" : $" - Arms Race's own, so off in {settings.Mode.Name} anyway");
             }
             else if (effect.Equals(Fun.CatchUp, StringComparison.OrdinalIgnoreCase)) CatchUpFollows($"its fun setting {(on ? "on" : "off")}");
+            else effects?.Switched(effect, on); // Vampire and Ghost
         };
         settings.Ready(); // a load while a Deathmatch or Wingman map is on: the modules follow that map's mode now, as from its start
         hud.FunSource = settings.FunValue; // the fun page shows the settings module's values, its effects - the grenade drops and catch-up among them - included

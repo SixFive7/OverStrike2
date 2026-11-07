@@ -7,8 +7,8 @@ namespace OverStrike2;
 
 /// <summary>Three of the fun page's effects that are no game convar (Fun.cs: Fun.Vampire, Fun.Ghost, Fun.NoRecoil); the grenade drops and catch-up,
 /// the other two, are the grenades module's and the catch-up module's.
-/// The settings module keeps their switches like convars (a player's change, its undo at the map's end and in the reset); this module
-/// does what they say, from game events. Nothing heavy inside an event: every write waits for the next frame, the way the HUD's work does, or
+/// The settings module keeps their switches like convars (a player's change, its undo at the map's end and in the reset) and tells this
+/// module of every switch (Switched, from its EffectChanged); this module does what they say, from game events. Nothing heavy inside an event: every write waits for the next frame, the way the HUD's work does, or
 /// for the cloak's pass after the entities' think.
 ///
 ///   - Vampire: every player spawns with Fun.VampireHealth health while it is on, and the damage they deal heals them up to Fun.VampireCap
@@ -26,7 +26,7 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
 {
     readonly Dictionary<int, int> ghosts = new(); // slot -> the kill that made them a ghost: a newer kill takes over, and only its own timer ends it
     int kills;                                     // every ghost's kill counted, never reset - so no timer of an older kill, or life, ends a newer one
-    bool vampire, ghost;                           // as of the last look, to act on a switch
+    bool vampire, ghost;                           // as last switched
 
     public void Load()
     {
@@ -35,7 +35,8 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
         plugin.RegisterEventHandler<EventPlayerDeath>(OnDeath);
         plugin.RegisterEventHandler<EventWeaponFire>(OnFire);
         plugin.RegisterListener<Listeners.OnMapStart>(_ => ghosts.Clear()); // the cloak forgets the old map's too
-        plugin.AddTimer(0.5f, Look, TimerFlags.REPEAT);
+        Switched(Fun.Vampire, on(Fun.Vampire));                          // what the switches already say when the plugin loads
+        Switched(Fun.Ghost, on(Fun.Ghost));
         log.LogInformation("Over Strike 2 effects: Vampire ({Health} at spawn, up to {Cap}), Ghost ({Seconds} s after a kill), no recoil - off until a player switches one on",
             Fun.VampireHealth, Fun.VampireCap, Fun.GhostSeconds);
     }
@@ -43,19 +44,22 @@ sealed class Effects(BasePlugin plugin, ILogger log, Func<string, bool> on, Cloa
     static IEnumerable<(CCSPlayerController Player, CCSPlayerPawn Pawn)> Alive() =>
         Utilities.GetPlayers().Where(p => p is { IsValid: true, PawnIsAlive: true }).Select(p => (p, p.PlayerPawn.Value)).Where(x => x.Item2 is { IsValid: true }).Select(x => (x.p, x.Item2!));
 
-    /// <summary>Twice a second: a switch of Vampire or Ghost acts on everybody alive at once.</summary>
-    void Look()
+    /// <summary>An effect was switched (the settings module's EffectChanged): Vampire and Ghost act on everybody alive at once - the health
+    /// on the next frame, like every write of this module. The other effects are other modules'.</summary>
+    public void Switched(string effect, bool isOn)
     {
-        var v = on(Fun.Vampire);
-        if (v != vampire)
+        if (effect.Equals(Fun.Vampire, StringComparison.OrdinalIgnoreCase) && isOn != vampire)
         {
-            vampire = v;
-            foreach (var (_, pawn) in Alive()) SetHealth(pawn, v ? Math.Max(pawn.Health, Fun.VampireHealth) : Math.Min(pawn.Health, 100), v ? Fun.VampireCap : 100);
-            log.LogInformation("Over Strike 2 effects: Vampire {State}", v ? "on" : "off");
+            vampire = isOn;
+            Server.NextFrame(() =>
+            {
+                foreach (var (_, pawn) in Alive()) SetHealth(pawn, isOn ? Math.Max(pawn.Health, Fun.VampireHealth) : Math.Min(pawn.Health, 100), isOn ? Fun.VampireCap : 100);
+            });
+            log.LogInformation("Over Strike 2 effects: Vampire {State}", isOn ? "on" : "off");
         }
-        var g = on(Fun.Ghost);
-        if (g != ghost)
+        if (effect.Equals(Fun.Ghost, StringComparison.OrdinalIgnoreCase) && isOn != ghost)
         {
+            var g = isOn;
             ghost = g;
             if (!g)
             {
