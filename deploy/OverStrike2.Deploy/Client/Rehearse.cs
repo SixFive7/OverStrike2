@@ -594,7 +594,7 @@ sealed class Rehearse
         Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}");
     }
 
-    void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false)
+    internal void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false)
     {
         h.NeedLock();
         if (tc.Inspect(tc.Aside) is null || tc.Inspect(tc.BridgeAside) is null)
@@ -618,7 +618,7 @@ sealed class Rehearse
             var d = tc.Inspect(name);
             Log(name, "->", d is null ? "None" : $"{Json.Str(d, "State", "Status")} {Py.Slice(Json.Str(d, "Image"), 7, 19)} {Py.Repr(TestCopy.Pinned(d))}");
         }
-        var (i, waited) = tc.WaitA2s(1, 480);
+        var (i, waited) = tc.WaitA2s(insecure ? 0 : 1, 480);   // the answer this stack gives: VAC-secured as production, or VAC off with -insecure
         Log($"A2S after {Fmt.Fixed(waited, 0)} s more:", Py.Repr(i));
     }
 

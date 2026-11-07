@@ -233,6 +233,7 @@ services:
         var refusal = SelfTest.Refusal(() => Rehearse.ComposeText(noUrl, Replace, New, "game", "x:y", labels, "off", 27216, false, "/unused"));
         check("a compose file whose game server pushes its log nowhere is refused: no test secret could take the bridge's place", refusal is not null && refusal.Contains("CS2_LOG_HTTP_URL"));
         Clean();
+        UpWaits();
     }
 
     static JsonObject Container(string image, bool test, params string[] binds) => new()
@@ -313,6 +314,62 @@ services:
             refused = SelfTest.Refusal(r.Clean);
             check("clean with no saved inspect and no production container is refused, and nothing runs",
                   refused is not null && refused.Contains("was not saved and cs2 does not exist") && helpers.Count == 0);
+        }
+        finally
+        {
+            SimConfig.Done(tmp, oldState);
+        }
+    }
+
+    /// <summary>up against an in-memory Docker and stack manager: it waits for the answer its stack gives - VAC-secured as production, VAC off
+    /// with --insecure. A wait for the other one runs its whole 480 s before up returns.</summary>
+    static void UpWaits()
+    {
+        var check = SelfTest.Check;
+        var (tmp, config, oldState) = SimConfig.Make("rehearse-up-sim-");
+        try
+        {
+            File.AppendAllText(config, "\n[rehearse]\nmanager = \"https://manager.example.com/api\"\nendpoint = \"3\"\n");
+            var containers = new Dictionary<string, JsonObject>();
+            Reply Req(string path, string method, JsonNode? body, byte[]? raw, string ctype, double timeout)
+            {
+                var parts = path.Split('?')[0].Split('/');
+                if (method == "GET" && parts[1] == "containers" && parts[^1] == "json")
+                    return containers.TryGetValue(parts[2], out var c) ? Reply.Of(200, c) : throw new DockerError("HTTP Error 404: Not Found");
+                throw new InvalidOperationException($"unexpected call {method} {path}");
+            }
+            var tc = new TestCopy(new Harness(config) { Req = Req, NeedLock = () => { }, Rcon = _ => "", Sleep = _ => { } });
+            var wanted = new List<int>();
+            var created = new List<string>();
+            tc.WaitA2s = (want, limit) =>
+            {
+                wanted.Add(want);
+                return (new A2sAnswer("srv", "ar_shoots", 0, want), 1);
+            };
+            var r = new Rehearse(tc)
+            {
+                ManagerCall = (method, path, body) =>
+                {
+                    created.Add($"{method} {path.Split('?')[0]}");
+                    return (200, new JsonObject());
+                },
+            };
+            Directory.CreateDirectory(tc.State);
+            var game = Container("sha256:gameimg", false, "/srv/game:/home/steam/cs2-dedicated", "/srv/os2/plugins:/home/steam/cs2-plugins:ro");
+            game["NetworkSettings"] = new JsonObject { ["Networks"] = new JsonObject { ["game"] = new JsonObject() } };
+            File.WriteAllText(tc.ProdSaved, game.ToJsonString());
+            File.WriteAllText(tc.BridgeSaved, Container("sha256:bridgeimg", false, "/srv/os2/bridge:/data").ToJsonString());
+            (containers["cs2-prod-aside"], containers["bridge-prod-aside"]) = (Container("sha256:gameimg", false), Container("sha256:bridgeimg", false));
+            var compose = Path.Combine(tmp, "compose.yml");
+            File.WriteAllText(compose, Compose);
+            SelfTest.Capture(() =>
+            {
+                r.Up("off", "env", "rel", compose, false);
+                r.Up("off", "env", "rel", compose, false, insecure: true);
+                return 0;
+            });
+            check($"up waits for the answer its stack gives: VAC-secured as production, VAC off with --insecure ({string.Join(", ", wanted)})",
+                  wanted.SequenceEqual([1, 0]) && created.SequenceEqual(["POST /stacks/create/standalone/string", "POST /stacks/create/standalone/string"]));
         }
         finally
         {
