@@ -87,14 +87,57 @@ static class Pictures
         return (byte)(((tmp >> 8) + tmp) >> 8);
     }
 
-    /// <summary>The picture as a baseline JPEG of this quality (4:2:0, as Pillow writes one by default).</summary>
-    public static byte[] Jpeg(Rgb im, int quality)
+    /// <summary>The picture as a baseline JPEG of this quality (4:2:0, as Pillow writes one by default; full: no chroma subsampling, Pillow's
+    /// subsampling=0).</summary>
+    public static byte[] Jpeg(Rgb im, int quality, bool full = false)
     {
         using var bitmap = ToBitmap(im);
         using var pixmap = bitmap.PeekPixels();
-        using var data = pixmap.Encode(new SKJpegEncoderOptions(quality, SKJpegEncoderDownsample.Downsample420, SKJpegEncoderAlphaOption.Ignore))
+        using var data = pixmap.Encode(new SKJpegEncoderOptions(quality, full ? SKJpegEncoderDownsample.Downsample444 : SKJpegEncoderDownsample.Downsample420,
+                                                                SKJpegEncoderAlphaOption.Ignore))
                          ?? throw new InvalidOperationException("the JPEG encoder gave nothing");
         return data.ToArray();
+    }
+
+    /// <summary>A picture file as RGB, as Pillow's open(...).convert("RGB") reads it: an alpha band dropped, not laid on anything. null when
+    /// the bytes are no picture SkiaSharp reads.</summary>
+    public static Rgb? DecodeRgb(byte[] data)
+    {
+        using var stream = new SKMemoryStream(data);
+        using var codec = SKCodec.Create(stream);
+        if (codec is null)
+            return null;
+        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+        using var bitmap = new SKBitmap(info);
+        var result = codec.GetPixels(info, bitmap.GetPixels());
+        if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+            return null;
+        return FromBitmap(bitmap);
+    }
+
+    /// <summary>A file read as RGB, or the end of the command with what is wrong with it.</summary>
+    public static Rgb Open(string path) => DecodeRgb(File.ReadAllBytes(path)) ?? throw Out.Stop($"{path}: not a picture this can read");
+
+    /// <summary>The picture in the format its file name says: .jpg or .jpeg a JPEG (Pillow's default quality 75), anything else a PNG.</summary>
+    public static void Save(Rgb im, string path, int quality = 75)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        File.WriteAllBytes(path, ext is ".jpg" or ".jpeg" ? Jpeg(im, quality) : Png(im));
+    }
+
+    /// <summary>An SKBitmap's RGB, its alpha dropped.</summary>
+    public static Rgb FromBitmap(SKBitmap bitmap)
+    {
+        var rgba = bitmap.Bytes;
+        var output = new Rgb(bitmap.Width, bitmap.Height);
+        var o = output.Pixels;
+        for (int i = 0, j = 0; j < o.Length; i += 4, j += 3)
+        {
+            o[j] = rgba[i];
+            o[j + 1] = rgba[i + 1];
+            o[j + 2] = rgba[i + 2];
+        }
+        return output;
     }
 
     /// <summary>The picture as a PNG: lossless, every pixel as made.</summary>
@@ -106,7 +149,7 @@ static class Pictures
         return data.ToArray();
     }
 
-    static SKBitmap ToBitmap(Rgb im)
+    public static SKBitmap ToBitmap(Rgb im)
     {
         var bitmap = new SKBitmap(new SKImageInfo(im.Width, im.Height, SKColorType.Rgba8888, SKAlphaType.Opaque));
         var rgba = new byte[im.Width * im.Height * 4];
@@ -125,6 +168,9 @@ static class Pictures
 
     const int PrecisionBits = 32 - 8 - 2;
 
+    /// <summary>Pillow's resampling filters this tool uses: BOX, BICUBIC and LANCZOS, each with its support.</summary>
+    public enum Filter { Box, Bicubic, Lanczos }
+
     static double Sinc(double x)
     {
         if (x == 0.0)
@@ -135,12 +181,33 @@ static class Pictures
 
     static double Lanczos(double x) => -3.0 <= x && x < 3.0 ? Sinc(x) * Sinc(x / 3) : 0.0;
 
+    static double Bicubic(double x)
+    {
+        const double a = -0.5;
+        if (x < 0.0)
+            x = -x;
+        if (x < 1.0)
+            return ((a + 2.0) * x - (a + 3.0)) * x * x + 1;
+        if (x < 2.0)
+            return (((x - 5) * x + 8) * x - 4) * a;
+        return 0.0;
+    }
+
+    static double Weight(Filter f, double x) => f switch
+    {
+        Filter.Box => x > -0.5 && x <= 0.5 ? 1.0 : 0.0,
+        Filter.Bicubic => Bicubic(x),
+        _ => Lanczos(x),
+    };
+
+    static double Support(Filter f) => f switch { Filter.Box => 0.5, Filter.Bicubic => 2.0, _ => 3.0 };
+
     /// <summary>Pillow's precompute_coeffs and normalize_coeffs_8bpc for one axis: per output pixel its first input, how many, and the
     /// weights in fixed point.</summary>
-    static (int[] Bounds, int[] Kk, int KSize) Coefficients(int inSize, int outSize)
+    static (int[] Bounds, int[] Kk, int KSize) Coefficients(int inSize, int outSize, Filter f)
     {
         double scale = (double)inSize / outSize, filterscale = Math.Max(1.0, scale);
-        var support = 3.0 * filterscale;
+        var support = Support(f) * filterscale;
         var ksize = (int)Math.Ceiling(support) * 2 + 1;
         var bounds = new int[outSize * 2];
         var kk = new int[outSize * ksize];
@@ -159,7 +226,7 @@ static class Pictures
             xmax -= xmin;
             for (var x = 0; x < xmax; x++)
             {
-                var w = Lanczos((x + xmin - center + 0.5) * ss);
+                var w = Weight(f, (x + xmin - center + 0.5) * ss);
                 k[x] = w;
                 ww += w;
             }
@@ -176,66 +243,79 @@ static class Pictures
 
     static byte Clip8(int v) => v >= (1 << PrecisionBits << 8) ? (byte)255 : v <= 0 ? (byte)0 : (byte)(v >> PrecisionBits);
 
-    /// <summary>Pillow's resize with LANCZOS: the horizontal pass first, then the vertical, each only when that size changes; the same size
-    /// is a copy.</summary>
-    public static Rgb Resize(Rgb im, int width, int height)
+    /// <summary>Pillow's resize with LANCZOS, each pass only when that size changes; the same size is a copy.</summary>
+    public static Rgb Resize(Rgb im, int width, int height) => Resize(im, width, height, Filter.Lanczos);
+
+    public static Rgb Resize(Rgb im, int width, int height, Filter f) =>
+        new(width, height, Resample(im.Pixels, im.Width, im.Height, 3, width, height, f));
+
+    /// <summary>Pillow's ImagingResample (13.0) on 8-bit bands, interleaved (3 for RGB, 1 for L): the horizontal pass, then the vertical - but
+    /// the vertical first when the height shrinks by more than twice what the width does (Pillow's ImagingResampleInner, to make the horizontal
+    /// pass faster). The order shows in the result: each pass rounds to whole values.</summary>
+    public static byte[] Resample(byte[] pixels, int width, int height, int bands, int outWidth, int outHeight, Filter f)
     {
-        if (width == im.Width && height == im.Height)
-            return new Rgb(width, height, (byte[])im.Pixels.Clone());
-        var cur = im;
-        if (width != im.Width)
+        if (outWidth == width && outHeight == height)
+            return (byte[])pixels.Clone();
+        var horizontalFirst = !(height - outHeight > 0 && height - outHeight > (width - outWidth) * 2);
+        if (horizontalFirst)
         {
-            var (bounds, kk, ksize) = Coefficients(im.Width, width);
-            var output = new Rgb(width, im.Height);
-            for (var y = 0; y < im.Height; y++)
-            {
-                for (var xx = 0; xx < width; xx++)
-                {
-                    int xmin = bounds[xx * 2], xmax = bounds[xx * 2 + 1];
-                    int s0 = 1 << (PrecisionBits - 1), s1 = s0, s2 = s0;
-                    for (var x = 0; x < xmax; x++)
-                    {
-                        var p = (y * im.Width + x + xmin) * 3;
-                        var w = kk[xx * ksize + x];
-                        s0 += cur.Pixels[p] * w;
-                        s1 += cur.Pixels[p + 1] * w;
-                        s2 += cur.Pixels[p + 2] * w;
-                    }
-                    var q = (y * width + xx) * 3;
-                    output.Pixels[q] = Clip8(s0);
-                    output.Pixels[q + 1] = Clip8(s1);
-                    output.Pixels[q + 2] = Clip8(s2);
-                }
-            }
-            cur = output;
+            var mid = outWidth != width ? Horizontal(pixels, width, height, bands, outWidth, f) : pixels;
+            return outHeight != height ? Vertical(mid, outWidth, height, bands, outHeight, f) : mid;
         }
-        if (height != im.Height)
+        var first = outHeight != height ? Vertical(pixels, width, height, bands, outHeight, f) : pixels;
+        return outWidth != width ? Horizontal(first, width, outHeight, bands, outWidth, f) : first;
+    }
+
+    static byte[] Horizontal(byte[] cur, int width, int height, int bands, int outWidth, Filter f)
+    {
+        var (bounds, kk, ksize) = Coefficients(width, outWidth, f);
+        var output = new byte[outWidth * height * bands];
+        var sums = new int[bands];
+        for (var y = 0; y < height; y++)
         {
-            var (bounds, kk, ksize) = Coefficients(im.Height, height);
-            var output = new Rgb(cur.Width, height);
-            for (var yy = 0; yy < height; yy++)
+            for (var xx = 0; xx < outWidth; xx++)
             {
-                int ymin = bounds[yy * 2], ymax = bounds[yy * 2 + 1];
-                for (var x = 0; x < cur.Width; x++)
+                int xmin = bounds[xx * 2], xmax = bounds[xx * 2 + 1];
+                Array.Fill(sums, 1 << (PrecisionBits - 1));
+                for (var x = 0; x < xmax; x++)
                 {
-                    int s0 = 1 << (PrecisionBits - 1), s1 = s0, s2 = s0;
-                    for (var y = 0; y < ymax; y++)
-                    {
-                        var p = ((y + ymin) * cur.Width + x) * 3;
-                        var w = kk[yy * ksize + y];
-                        s0 += cur.Pixels[p] * w;
-                        s1 += cur.Pixels[p + 1] * w;
-                        s2 += cur.Pixels[p + 2] * w;
-                    }
-                    var q = (yy * cur.Width + x) * 3;
-                    output.Pixels[q] = Clip8(s0);
-                    output.Pixels[q + 1] = Clip8(s1);
-                    output.Pixels[q + 2] = Clip8(s2);
+                    var p = (y * width + x + xmin) * bands;
+                    var w = kk[xx * ksize + x];
+                    for (var b = 0; b < bands; b++)
+                        sums[b] += cur[p + b] * w;
                 }
+                var q = (y * outWidth + xx) * bands;
+                for (var b = 0; b < bands; b++)
+                    output[q + b] = Clip8(sums[b]);
             }
-            cur = output;
         }
-        return cur;
+        return output;
+    }
+
+    static byte[] Vertical(byte[] cur, int width, int height, int bands, int outHeight, Filter f)
+    {
+        var (bounds, kk, ksize) = Coefficients(height, outHeight, f);
+        var output = new byte[width * outHeight * bands];
+        var sums = new int[bands];
+        for (var yy = 0; yy < outHeight; yy++)
+        {
+            int ymin = bounds[yy * 2], ymax = bounds[yy * 2 + 1];
+            for (var x = 0; x < width; x++)
+            {
+                Array.Fill(sums, 1 << (PrecisionBits - 1));
+                for (var y = 0; y < ymax; y++)
+                {
+                    var p = ((y + ymin) * width + x) * bands;
+                    var w = kk[yy * ksize + y];
+                    for (var b = 0; b < bands; b++)
+                        sums[b] += cur[p + b] * w;
+                }
+                var q = (yy * width + x) * bands;
+                for (var b = 0; b < bands; b++)
+                    output[q + b] = Clip8(sums[b]);
+            }
+        }
+        return output;
     }
 
     // ------------------------------------------------------------------------------------- Pillow's luma, blur and blend

@@ -226,6 +226,70 @@ static class Py
 
     /// <summary>str.isdigit() for the ASCII digits the scripts meant.</summary>
     public static bool IsDigits(string? s) => !string.IsNullOrEmpty(s) && s.All(char.IsAsciiDigit);
+
+    /// <summary>subprocess.list2cmdline: the command line Windows' CreateProcess takes for these arguments, quoted by the MS C runtime's rules
+    /// (an argument with a space or a tab, or an empty one, in double quotes; a quote escaped, the backslashes before it doubled).</summary>
+    public static string List2CmdLine(IEnumerable<string> argv)
+    {
+        var result = new StringBuilder();
+        foreach (var arg in argv)
+        {
+            var backslashes = 0;
+            if (result.Length > 0)
+                result.Append(' ');
+            var quote = arg.Contains(' ') || arg.Contains('\t') || arg.Length == 0;
+            if (quote)
+                result.Append('"');
+            foreach (var c in arg)
+            {
+                if (c == '\\')
+                    backslashes++;
+                else if (c == '"')
+                {
+                    result.Append('\\', backslashes * 2);
+                    backslashes = 0;
+                    result.Append("\\\"");
+                }
+                else
+                {
+                    result.Append('\\', backslashes);
+                    backslashes = 0;
+                    result.Append(c);
+                }
+            }
+            result.Append('\\', backslashes);
+            if (quote)
+            {
+                result.Append('\\', backslashes);
+                result.Append('"');
+            }
+        }
+        return result.ToString();
+    }
+
+    /// <summary>Python's round() of a float to an int: halves to even.</summary>
+    public static int Round(double v) => (int)Math.Round(v, MidpointRounding.ToEven);
+
+    /// <summary>Python's format(v, 'g'): six significant digits, no trailing zeros.</summary>
+    public static string G(double v)
+    {
+        if (v == Math.Floor(v) && Math.Abs(v) < 1e6)
+            return ((long)v).ToString(CultureInfo.InvariantCulture);
+        return v.ToString("G6", CultureInfo.InvariantCulture).Replace("E", "e", StringComparison.Ordinal);
+    }
+
+    /// <summary>Python's format(v, '.0f'): the nearest whole number, halves to even.</summary>
+    public static string F0(double v) => Math.Round(v, MidpointRounding.ToEven).ToString("F0", CultureInfo.InvariantCulture);
+
+    /// <summary>html.escape(s, quote): &amp;, &lt;, &gt;, and with quote the two quotes.</summary>
+    public static string HtmlEscape(string s, bool quote = true)
+    {
+        s = s.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal);
+        return quote ? s.Replace("\"", "&quot;", StringComparison.Ordinal).Replace("'", "&#x27;", StringComparison.Ordinal) : s;
+    }
+
+    /// <summary>A tuple of ints as Python prints one: (1, 2, 3, 4).</summary>
+    public static string Tuple(params int[] items) => "(" + string.Join(", ", items.Select(i => i.ToString(CultureInfo.InvariantCulture))) + ")";
 }
 
 /// <summary>A tuple, for repr.</summary>

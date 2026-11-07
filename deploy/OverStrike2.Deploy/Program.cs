@@ -21,6 +21,7 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
   testcopy <verb> ...                                 the insecure test copy of the game server and the candidate bridge
   bridgepost <verb> ...                               what only the watcher or other players send a candidate bridge
   rehearse <verb> ...                                 the release rehearsal: production aside, the candidate as a throwaway stack
+  docshots --list|--dry-run|--selfcheck|--res WxH --out DIR ...   the documentation's screenshots (also: publish, name, merge, maskview, sheets)
   --selftest [suite...]                               every offline check (deploy, release, check, testcopy, testcopy-bridge, bridgepost, ...)
 
   every command takes --config FILE (default: $OVERSTRIKE2_CONFIG, else .private/config.toml)
@@ -85,6 +86,8 @@ usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Depl
                 return BridgePost.Command(rest);
             case "rehearse":
                 return Rehearse.Command(rest);
+            case "docshots":
+                return DocShots.Command(rest);
             case "--selftest":
                 return SelfTest.Command(rest);
             default:
