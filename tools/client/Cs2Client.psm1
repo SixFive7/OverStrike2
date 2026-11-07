@@ -744,6 +744,29 @@ function Wait-Cs2Log([string]$Pattern, [int]$TimeoutSec = 60, [int]$FromLine = 0
     throw "timed out after $TimeoutSec s waiting for /$Pattern/"
 }
 
+# The run's own shots: a shot with -OutDir lands elsewhere, and the run keeps a line for it (shots-elsewhere.txt), so a run whose shots all
+# went elsewhere says so at its end - a HUD release's client test is a run folder with its own shots\ (release.py publish --client-test).
+function Add-Cs2ShotElsewhere($s, [string]$Path) {
+    Add-Content -LiteralPath (Join-Path $s.runDir 'shots-elsewhere.txt') -Value "$((Get-Date).ToString('s'))`t$Path" -Encoding utf8
+}
+
+function Get-Cs2ShotCounts([string]$RunDir) {
+    $own = Join-Path $RunDir 'shots'
+    $list = Join-Path $RunDir 'shots-elsewhere.txt'
+    $lines = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list -Encoding utf8 | Where-Object { $_ } })
+    [ordered]@{
+        run       = if (Test-Path -LiteralPath $own) { @(Get-ChildItem -LiteralPath $own -Filter '*.png' -File).Count } else { 0 }
+        elsewhere = $lines.Count
+        dir       = if ($lines.Count) { Split-Path -Parent (($lines[0] -split "`t", 2)[-1]) } else { '' }
+    }
+}
+
+function Get-Cs2ShotWarning($Shots, [string]$RunDir) {
+    if (-not $Shots -or $Shots.run -gt 0 -or $Shots.elsewhere -eq 0) { return }
+    "WARNING: no shots\ in this run - its $($Shots.elsewhere) shot(s) went to -OutDir ($($Shots.dir)). A HUD release's client test is a run with its own shots\ " +
+    "(release.py publish --client-test <run>): take them without -OutDir, or copy this run's own frames into $(Join-Path $RunDir 'shots') with a note of where they came from"
+}
+
 function Save-Cs2Screenshot([string]$Name, [int]$MaxWidth = 1920, [string]$OutDir) {
     Update-Cs2Lease
     $s = Read-Cs2Session
@@ -752,10 +775,12 @@ function Save-Cs2Screenshot([string]$Name, [int]$MaxWidth = 1920, [string]$OutDi
     if (-not $w) { throw "no CS2 window on desktop $($s.desktop) (still booting?)" }
     if (-not $Name) { $Name = 'shot-' + (Get-Date -Format 'HHmmss') }
     if (-not $Name.EndsWith('.png')) { $Name += '.png' }
-    if (-not $OutDir) { $OutDir = Join-Path $s.runDir 'shots' }
+    $own = Join-Path $s.runDir 'shots'
+    if (-not $OutDir) { $OutDir = $own }
     $path = Join-Path $OutDir $Name
     $r = [Cs2Harness.Native]::CaptureWindow($s.desktop, $w.Handle, $path, $MaxWidth)
     if (-not $r.StartsWith('ok')) { throw "capture failed: $r" }
+    if ([IO.Path]::GetFullPath($OutDir).TrimEnd('\') -ne [IO.Path]::GetFullPath($own).TrimEnd('\')) { Add-Cs2ShotElsewhere $s $path }
     "$path  $r"
     if (($r -match 'mean=([\d.,]+)') -and [double]($Matches[1] -replace ',', '.') -le 3) { 'WARNING: a black frame - the game is loading a map (or quitting); take the shot again in a few seconds' }
 }
@@ -773,6 +798,7 @@ function Get-Cs2ClientStatus([switch]$Brief) {
             if ($r.guard) { "guard: $($r.guard.samples) audio samples, max peak $($r.guard.maxPeak), foreground ours $($r.guard.fgOurs) of $($r.guard.fgSamples)" }
         }
         "run dir: $($s.runDir)"
+        if ($r) { Get-Cs2ShotWarning $r.shots $s.runDir }
         if ($lock) { "server lock: HELD - $($lock -split "`n" | Select-Object -First 1)" } else { 'server lock: free' }
         $live = @(Get-Cs2Processes)
         "cs2.exe running now: $(if ($live.Count) { "pid $($live.Pid -join ', ') (not a harness session)" } else { 'none' })"
@@ -848,7 +874,8 @@ function Invoke-Cs2PostExit($s, [string]$Why) {
         $hud = if (Test-Path -LiteralPath (Get-HudLocalMarker)) { Remove-Cs2HudLocal } else { 'none installed' }
         $settings = @(Restore-Cs2Settings $Env (Join-Path $s.runDir 'backup'))
         $guard = Read-Json (Join-Path $s.runDir 'guard.json')
-        $result = [ordered]@{ session = $s.id; purpose = $s.purpose; reason = $reason; ended = (Get-Date).ToString('s'); hudLocal = $hud; guard = $guard; settings = $settings }
+        $result = [ordered]@{ session = $s.id; purpose = $s.purpose; reason = $reason; ended = (Get-Date).ToString('s'); hudLocal = $hud; guard = $guard; settings = $settings
+                              shots = (Get-Cs2ShotCounts $s.runDir) }
         Write-Json (Join-Path $s.runDir 'result.json') $result
         $s.state = 'done'
         Write-Cs2Session $s
@@ -877,6 +904,7 @@ function Stop-Cs2Client([string]$Reason = 'stop requested', [int]$GraceSec = 30)
         "loose HUD files: $($r.hudLocal)"
         foreach ($x in @($r.settings)) { if ($x.state -ne 'unchanged') { "settings: [$($x.set)] $($x.file): $($x.state)$(if ($x.diff) { " ($($x.diff))" })" } }
         if ($r.guard) { "guard: $($r.guard.samples) audio samples, max peak $($r.guard.maxPeak), foreground ours $($r.guard.fgOurs) of $($r.guard.fgSamples); events: $(@($r.guard.events) -join '; ')" }
+        Get-Cs2ShotWarning $r.shots $s.runDir
     }
     "run dir: $($s.runDir)"
 }
