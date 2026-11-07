@@ -113,6 +113,10 @@ resourcecompiler.exe -threads 4 -fshallow -unbufferedio -i "<CS2>\content\csgo_a
 - **The checks catch what they are for:** each defect planted in a copy of the layout failed its check - a ground triangle taken out
   (closed, ground), a face laid over another (overlaps), a floor tile taken out (closed, floors), a spawn moved into a wall (spawns),
   a house's doors walled up (walkcheck: its floor and spawns not reached) and a beam over a stair (walkcheck: headroom).
+- **Published** on 2026-11-07 as a new version of the item, with `publish.ps1 -Update` (the upload took 7 s). Right after it a visitor
+  got Steam's error page (HTTP 200, "Steam Community :: Error"), and a minute later the item again, but with the previous build's
+  description, picture and size. Valve's review ended about 15 minutes after the upload, when the item's `time_updated` moved, and
+  the page then showed build 4 (5.806 MB).
 
 ## In game
 
