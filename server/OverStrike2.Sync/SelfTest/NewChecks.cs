@@ -28,7 +28,6 @@ static class NewChecks
         DoorAndLedger(root);
         Cli(root);
         SmtpClient();
-        TailLines(root);
         SteamCmdDriver(root);
         TreeBuild(root);
         TakenIn(root);
@@ -328,22 +327,6 @@ static class NewChecks
         Check($"mail: a long subject beyond ASCII is encoded words that fit their lines, each whole characters, and read back the same ({folded.Length} words)",
               folded.Length > 1 && folded.All(w => w.StartsWith("=?utf-8?B?", StringComparison.Ordinal) && w.EndsWith("?=", StringComparison.Ordinal) && w.Length + "Subject: ".Length <= 76)
               && words.All(b => !Encoding.UTF8.GetString(b).Contains('\uFFFD')) && string.Concat(words.Select(Encoding.UTF8.GetString)) == longName);
-    }
-
-    // ---- the console's tail: new lines only, a line cut short kept for later, a truncated file read again from its start
-    static void TailLines(string root)
-    {
-        var path = Path.Combine(root, "console.log");
-        File.WriteAllText(path, "old line\n");
-        var tail = new Tail(path);
-        File.AppendAllText(path, "one\ntw");
-        var first = tail.Lines();
-        File.AppendAllText(path, "o\r\nthree\n");
-        var second = tail.Lines();
-        File.WriteAllText(path, "fresh\n");
-        var third = tail.Lines();
-        Check("tail: new lines only, a line cut short kept for later, a truncated log read from its start",
-              first is ["one"] && second is ["two", "three"] && third is ["fresh"] && tail.Lines().Count == 0);
     }
 
     // ---- SteamCMD's driver: a stand-in steamcmd.sh that answers as SteamCMD does, in a session of its own

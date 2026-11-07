@@ -27,6 +27,7 @@ try
     FilesTests.Run();
     SearchTextTests.Run();
     BridgeWireTests.Run();
+    TailTests.Run();
 }
 finally
 {

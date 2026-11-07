@@ -22,7 +22,7 @@ public sealed class TestEngine : ITestEngine
     readonly string password = RandomNumberGenerator.GetHexString(32, true);
     Process? proc;
     public int Starts { get; set; }
-    public ILines? Tail { get; private set; }
+    public Core.ILines? Tail { get; private set; }
     public bool HasProcess => proc is not null;
 
     public TestEngine(SyncConfig cfg, string workDir, string home, SyncClock clock, Action<string> log)
@@ -114,7 +114,7 @@ public sealed class TestEngine : ITestEngine
             var info = A2s();
             if (info is not null && info.Map == startMap && Rcon("echo ok") is not null)
             {
-                Tail = new Tail(Console);
+                Tail = new Core.Tail(Console, 8 << 20);   // 8 MiB a look at most
                 var listing = Rcon("logaddress_list_http") ?? "";
                 if (Regex.IsMatch(listing, "https?://"))
                 {
