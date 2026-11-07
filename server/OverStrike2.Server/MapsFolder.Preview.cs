@@ -69,7 +69,8 @@ public sealed partial class MapsFolder
                                          Mb: sizes.GetValueOrDefault(g.Id) / 1000000)).ToList();
             var volume = gone.Sum(g => (double)sizes.GetValueOrDefault(g.Id));
             var byType = string.Join(", ", DeleteTypes.Where(k => rows.Any(r => r.Kind == k)).Select(k => $"{k} {rows.Count(r => r.Kind == k)}"));
-            var would = gone.Count == 0 ? "nothing to delete"
+            // what a start would do, as the end of "it would ...": keep-preview.json's "would" says the same
+            var would = gone.Count == 0 ? "have nothing to delete"
                 : config.MapsDelete == "dryrun" ? "list them only (maps.delete dryrun)"
                 : config.MapsDelete != "on" ? $"keep them (maps.delete {config.MapsDelete})"
                 : keep.Problems.Count > 0 ? "REFUSE to delete them: " + string.Join("; ", keep.Problems)

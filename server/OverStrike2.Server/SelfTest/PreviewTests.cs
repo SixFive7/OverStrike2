@@ -89,6 +89,28 @@ static class PreviewTests
         var dry = Organize(config with { MapsDelete = "dryrun" });
         Check($"preview: with maps.delete dryrun a start would list them only, and the tree is still as it was ({dry})",
               dry.Contains("it would list them only (maps.delete dryrun)") && Snapshot(tree) == before);
+        // every other ending of "it would ...": keep them with maps.delete off, refuse with a keep set that cannot be trusted (ratings five days
+        // old), and with nothing outside the keep set have nothing to delete
+        var kept = Organize(config with { MapsDelete = "off" });
+        var stale = Dir("preview-stale");
+        foreach (var f in Directory.GetFiles(data))
+            File.Copy(f, Path.Combine(stale, Path.GetFileName(f)));
+        var oldRatings = (JsonObject)ratings.DeepClone();
+        oldRatings["fetched"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 5 * 86400;
+        File.WriteAllText(Path.Combine(stale, "ratings.json"), oldRatings.ToJsonString());
+        var refused = Organize(Config(tree, stale, Dir("preview-stale-out")));
+        Check($"preview: with maps.delete off a start would keep them, with a keep set it cannot trust it would refuse, and the tree is still as it was ({kept}; {refused})",
+              kept.Contains(" - it would keep them (maps.delete off); ") && refused.Contains(" - it would REFUSE to delete them: ") && Snapshot(tree) == before);
+        var bare = Dir("preview-bare");
+        var bareWs = Path.Combine(bare, "game", "bin", "linuxsteamrt64", "steamapps", "workshop");
+        Directory.CreateDirectory(bareWs);
+        File.WriteAllText(Path.Combine(bareWs, "appworkshop_730.acf"), "\"AppWorkshop\"\n{\n\t\"appid\"\t\t\"730\"\n\t\"WorkshopItemsInstalled\"\n\t{\n\t}\n\t\"WorkshopItemDetails\"\n\t{\n\t}\n}\n");
+        var bareOut = Dir("preview-bare-out");
+        var none = Organize(Config(bare, data, bareOut));
+        var bareLists = Directory.GetFiles(bareOut, "deleted-*-preview.tsv");
+        Check($"preview: with nothing outside the keep set a start would have nothing to delete - the line, keep-preview.json, and a list of its header alone ({none})",
+              none.Contains("find 0 map(s) outside the keep set - it would have nothing to delete; ") && Node.Str(Read(Path.Combine(bareOut, "keep-preview.json"))?["would"]) == "have nothing to delete"
+              && bareLists.Length == 1 && File.ReadAllText(bareLists[0]) == "type\tid\ttitle\tMB\n");
         // paths.preview empty: preview/ in the game's update-watch, and nothing else
         var home = Organize(config with { Paths = config.Paths with { Preview = "" } });
         var homeDir = Path.Combine(tree, "update-watch", "preview");
