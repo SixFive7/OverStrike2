@@ -46,29 +46,13 @@ sealed class Nades(BasePlugin plugin, ILogger log, Func<bool> dropsOn)
     static void GiveGrenade(CCSPlayerController? player)
     {
         if (player is not { IsValid: true, PawnIsAlive: true }) return;
-        if (Carried(player).Contains(Grenade)) return; // Already carrying one (picked up from a body or not thrown yet).
+        if (Carries(player, Grenade)) return; // Already carrying one (picked up from a body or not thrown yet).
         player.GiveNamedItem(Grenade);
     }
 
-    /// <summary>The weapons a player is holding, as designer names. MyWeapons is a vector of CHandle, which is the one element type
-    /// CounterStrikeSharp's NetworkedVector can actually read.</summary>
-    static List<string> Carried(CCSPlayerController player)
-    {
-        var carried = new List<string>();
-        var weapons = player.PlayerPawn.Value?.WeaponServices?.MyWeapons;
-        if (weapons is null) return carried;
-        foreach (var w in weapons)
-        {
-            var name = Canonical(w.Value?.DesignerName);
-            if (name.Length > 0) carried.Add(name);
-        }
-        return carried;
-    }
-
-    /// <summary>One spelling for every comparison: weapon_ak47, also for a name that arrives without the prefix or cased differently.</summary>
-    static string Canonical(string? name)
-    {
-        var s = (name ?? "").Trim().ToLowerInvariant();
-        return s.Length == 0 ? "" : s.StartsWith("weapon_", StringComparison.Ordinal) ? s : "weapon_" + s;
-    }
+    /// <summary>Whether a player holds a weapon, by designer name - also one that arrives without the prefix or cased differently. MyWeapons
+    /// is a vector of CHandle, which is the one element type CounterStrikeSharp's NetworkedVector can actually read.</summary>
+    static bool Carries(CCSPlayerController player, string weapon) =>
+        player.PlayerPawn.Value?.WeaponServices?.MyWeapons.Any(w => w.Value?.DesignerName?.Trim().ToLowerInvariant() is { Length: > 0 } n
+            && (n.StartsWith("weapon_", StringComparison.Ordinal) ? n : "weapon_" + n) == weapon) == true;
 }
