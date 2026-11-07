@@ -36,9 +36,17 @@
     <Compile Include="..\..\core\SearchText.cs" Link="Core\SearchText.cs" />
     <!-- The fun page's switches: a player's change, the effects, the undo. -->
     <Compile Include="..\OverStrike2\FunSwitches.cs" Link="FunSwitches.cs" />
+    <!-- The game-changers block, on fake convars and a handed clock, and the engine's revert of cheat-flagged settings when cheats go off. -->
+    <Compile Include="..\OverStrike2\GameChangerBlock.cs" Link="GameChangerBlock.cs" />
+    <Compile Include="..\OverStrike2\CheatsRevert.cs" Link="CheatsRevert.cs" />
     <!-- Which game mode the settings module acts in, at a map start, at os_mode and at a load while a map is on. -->
     <Compile Include="..\OverStrike2\ModePlan.cs" Link="ModePlan.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The block logs through ILogger, as every module of the plugin does: the abstractions alone, the version CounterStrikeSharp brings. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

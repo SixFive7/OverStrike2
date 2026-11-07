@@ -16,7 +16,7 @@ namespace OverStrike2;
 /// plugin is loaded while a map is on, the baseline saved earlier by this same server process is used (else the live values). game_type and
 /// game_mode always want the mode's own values (KeepMode). The block's and the fun page's convars this leaves out get a baseline the same
 /// way, cfg-named or not (Extra). Nothing outside them is ever touched (hostname, passwords, CSTV, MultiAddonManager).</summary>
-sealed class ConVarKeeper(string moduleDirectory, ILogger log)
+sealed class ConVarKeeper(string moduleDirectory, ILogger log) : IConVars
 {
     /// <summary>Never touched: engine bookkeeping that changes by itself between maps, and the bridge's own runtime setting.</summary>
     static readonly HashSet<string> Never = new(StringComparer.OrdinalIgnoreCase)
@@ -186,6 +186,19 @@ sealed class ConVarKeeper(string moduleDirectory, ILogger log)
 
     /// <summary>A convar by name, or null: this build has none of that name.</summary>
     public static ConVar? Find(string name) { try { return ConVar.Find(name); } catch { return null; } }
+
+    public bool Known(string name) => Find(name) != null;
+
+    readonly Dictionary<string, bool> cheat = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether a convar is cheat-flagged (FCVAR_CHEAT), asked of the engine once: the engine reverts it to its own default when sv_cheats
+    /// goes off (CheatsRevert).</summary>
+    public bool Cheat(string name)
+    {
+        if (cheat.TryGetValue(name, out var flagged)) return flagged;
+        try { flagged = Var(name) is { } cv && cv.Flags.HasFlag(ConVarFlags.FCVAR_CHEAT); } catch { flagged = false; }
+        return cheat[name] = flagged;
+    }
 
     /// <summary>A convar's live value, or null.</summary>
     public string? Value(string name)

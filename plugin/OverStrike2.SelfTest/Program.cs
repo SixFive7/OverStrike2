@@ -19,6 +19,8 @@ using OverStrike2;
 //   - the fun page's switches (FunSwitches.cs): a player's change and who made it, the effects that are no convar, what the block leaves to a
 //     player, and the undo that puts a map's own value back; and a reload (FunHandover): the instance that goes undoes every change, the next
 //     one says so;
+//   - the game-changers block when a map turns cheats on (GameChangerBlock.cs, CheatsRevert.cs): the engine's revert of every cheat-flagged
+//     setting is part of the block's one undo, said once, naming cheats;
 //   - whose time on the Players page shows (JoinTimes.cs): an account's own, through a map change, never the player's before in a slot;
 //   - the settings module's question to the running build (ConVarNames.cs), with the engine faked: what it may add to convars.txt, and that
 //     anything wrong leaves convars.txt alone;
@@ -471,6 +473,68 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     }
 }
 
+// ---- a map turns cheats on (GameChangerBlock.cs, CheatsRevert.cs): the block turns them off, and the engine reverts every cheat-flagged setting with
+// it - sv_infinite_ammo to 0, under Arms Race's 2. The block puts those back as part of that one undo, so the players read one notice, naming cheats,
+// and a later change of the map's own is still said; a player's cheat-flagged fun choice comes back as they chose it. Live on ar_shoots, RCON sv_cheats 1
+// put cheats back and then "This map tried to change the ammo", which replaced the notice of cheats within a second ----
+{
+    var dir = Path.Combine(Path.GetTempPath(), $"os2-block-selftest-{Environment.ProcessId}");
+    Directory.CreateDirectory(dir);
+    File.WriteAllText(Path.Combine(dir, Modes.BlockFile), "sv_cheats  *  0  0  // cheats\nsv_infinite_ammo  *  2  0  // the ammo\nmp_damage_headshot_only  *  0  0  // headshots only\n");
+    var t = new DateTime(2026, 11, 7, 3, 30, 5, DateTimeKind.Utc);
+    (FakeConVars Engine, FunSwitches Fun, GameChangerBlock Block, List<string> Notices, Func<DateTime, DateTime> At) Server(bool revertLater)
+    {
+        var cvars = new FakeConVars { RevertLater = revertLater };
+        foreach (var (name, value) in new[] { ("sv_cheats", "false"), ("sv_infinite_ammo", "2"), ("mp_damage_headshot_only", "false") }) cvars.Values[name] = cvars.Baselines[name] = value;
+        cvars.CheatDefaults["sv_infinite_ammo"] = "0"; // cheat-flagged, the engine's own default 0; Arms Race's cfg sets 2
+        var notices = new List<string>();
+        var now = t;
+        var funs = new FunSwitches(cvars.Value, cvars.Write);
+        var block = new GameChangerBlock(dir, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, cvars, funs, notices.Add, () => now);
+        block.Read(Modes.ArmsRace);
+        return (cvars, funs, block, notices, at => now = at);
+    }
+    const string Cheats = "This map tried to change cheats - Undone: the server keeps its own rules.";
+
+    var (cvars, _, block, notices, at) = Server(revertLater: false);
+    cvars.Values["sv_cheats"] = "true"; // RCON sv_cheats 1, as a map's point_servercommand would
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(cvars.Values["sv_cheats"] == "false" && cvars.Values["sv_infinite_ammo"] == "2" && notices.SequenceEqual([Cheats]),
+        $"cheats: turned off, the ammo the engine reverted with them put back in the same look, and one notice, naming cheats ({string.Join(" | ", notices)})");
+    at(t.AddSeconds(1));
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(notices.Count == 1, "cheats: ...and the next look has nothing to say");
+
+    (cvars, _, block, notices, at) = Server(revertLater: true);
+    cvars.Values["sv_cheats"] = "true";
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    cvars.Frame(); // the engine's revert lands after the block's write
+    Check(cvars.Values["sv_infinite_ammo"] == "0", "cheats: (the fake engine's revert, a frame after the write)");
+    at(t.AddSeconds(1));
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(cvars.Values["sv_infinite_ammo"] == "2" && notices.SequenceEqual([Cheats]),
+        $"cheats: a revert that lands after the write is put back by the next look, part of the same undo - still one notice, naming cheats ({string.Join(" | ", notices)})");
+    at(t.AddSeconds(10));
+    cvars.Values["sv_infinite_ammo"] = "1"; // the map's own change, later
+    block.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(cvars.Values["sv_infinite_ammo"] == "2" && notices.Count == 2 && notices[1] == "This map tried to change the ammo - Undone: the server keeps its own rules.",
+        "cheats: a change of the map's own after the revert is still undone and said: the revert counted as no try of the map's");
+
+    var (cvars2, funs2, block2, notices2, _) = Server(revertLater: false);
+    funs2.Apply(Fun.Find("ammo")!, Fun.Find(Fun.Find("ammo")!, "on")!, "Remy", t); // Infinite ammo on: sv_infinite_ammo 1, a player's choice
+    cvars2.Values["sv_cheats"] = "true";
+    block2.Hold("ar_shoots", null, Modes.ArmsRace);
+    Check(cvars2.Values["sv_cheats"] == "false" && cvars2.Values["sv_infinite_ammo"] == "1" && funs2.Chosen("sv_infinite_ammo") && notices2.SequenceEqual([Cheats]),
+        $"cheats: a player's Infinite ammo, which the engine's revert took, comes back as they chose it ({cvars2.Values["sv_infinite_ammo"]}; {string.Join(" | ", notices2)})");
+
+    var later = new CheatsRevert();
+    later.CheatsOff(t, []);
+    Check(later.Covers("sv_infinite_ammo", true, t.AddSeconds(2)) && !later.Covers("sv_infinite_ammo", true, t + CheatsRevert.Window + TimeSpan.FromSeconds(1))
+          && !later.Covers("mp_damage_headshot_only", false, t.AddSeconds(1)) && !later.Covers("sv_cheats", true, t.AddSeconds(1)) && !new CheatsRevert().Open(t),
+        "cheats: only cheat-flagged settings, only within the revert's window after the block turned cheats off");
+    Directory.Delete(dir, true);
+}
+
 // ---- the Players page's time on (JoinTimes.cs): by account. A map change disconnects everybody, and a player's time goes on through it whatever
 // slot they come back in; kept by slot, a player who took a slot somebody else left showed that player's time until their own real join ----
 {
@@ -690,6 +754,40 @@ Console.WriteLine(failures == 0
     ? $"Over Strike 2 plugin self-test: {checks} checks passed."
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");
 return failures == 0 ? 0 : 1;
+
+/// <summary>The game convars as the engine keeps them, for the block's checks: values, the baseline, which are cheat-flagged and their own defaults.
+/// sv_cheats going off reverts every cheat-flagged one to its default, with the write or - RevertLater - at the next Frame().</summary>
+sealed class FakeConVars : IConVars
+{
+    public readonly Dictionary<string, string> Values = new(StringComparer.OrdinalIgnoreCase);
+    public readonly Dictionary<string, string> Baselines = new(StringComparer.OrdinalIgnoreCase);
+    public readonly Dictionary<string, string> CheatDefaults = new(StringComparer.OrdinalIgnoreCase);
+    public bool RevertLater;
+    bool revertDue;
+
+    public bool Pending => false;
+    public string? Value(string name) => Values.GetValueOrDefault(name);
+    public string? Baseline(string name) => Baselines.GetValueOrDefault(name);
+    public bool Known(string name) => Values.ContainsKey(name);
+    public bool Cheat(string name) => CheatDefaults.ContainsKey(name);
+
+    public bool Write(string name, string value)
+    {
+        var cheatsOff = name.Equals("sv_cheats", StringComparison.OrdinalIgnoreCase) && Fun.Same(Values.GetValueOrDefault(name), "1") && !Fun.Same(value, "1");
+        Values[name] = value;
+        if (cheatsOff) { if (RevertLater) revertDue = true; else Revert(); }
+        return true;
+    }
+
+    public void Frame()
+    {
+        if (!revertDue) return;
+        revertDue = false;
+        Revert();
+    }
+
+    void Revert() { foreach (var (name, value) in CheatDefaults) Values[name] = value; }
+}
 
 /// <summary>A Web API that answers at once, noting when each request started and ended, and who it said was asking.</summary>
 sealed class Recorder(System.Collections.Concurrent.ConcurrentQueue<(DateTime, DateTime)> seen, System.Collections.Concurrent.ConcurrentQueue<string> agents, Action enter, Action leave) : HttpMessageHandler
