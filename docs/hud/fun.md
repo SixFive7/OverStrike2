@@ -2,7 +2,7 @@
 
 The fun settings: every one at its default, set by somebody, greyed when impossible, idle in a mode, and the rows of the other modes.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 e6cb595 (HUD content v4.6.0, plugin 5.0.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 0dee310 (HUD content v4.7.0, plugin 5.1.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## FUN: every setting at its default, the note, Random and Default
 
@@ -36,11 +36,11 @@ The message: The answer to your own click: refused, click again, already set. Wh
 
 ## FUN: several rows off their default, free-for-all idling friendly fire's three
 
-![FUN: several rows off their default, free-for-all idling friendly fire&#x27;s three](img/fun-many.jpg)
+![FUN: several rows off their default, free-for-all idling friendly fire's three](img/fun-many.jpg)
 
 ## FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone
 
-![FUN in Deathmatch: friendly fire&#x27;s rows, the grenade drops and catch-up gone](img/mode-deathmatch-fun.jpg)
+![FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone](img/mode-deathmatch-fun.jpg)
 
 ## FUN in Wingman
 

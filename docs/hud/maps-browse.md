@@ -2,7 +2,7 @@
 
 The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card, a risky map's card.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 e6cb595 (HUD content v4.6.0, plugin 5.0.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 0dee310 (HUD content v4.7.0, plugin 5.1.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## MAPS > Browse: eight cards by rank, sort, mode, size, search, Previous, pager
 
@@ -86,7 +86,7 @@ A real game client draws every picture here against a test copy of the server, t
 
 ## MAPS > Browse: a search with no match, the empty page's words
 
-![MAPS &gt; Browse: a search with no match, the empty page&#x27;s words](img/maps-search-empty.jpg)
+![MAPS &gt; Browse: a search with no match, the empty page's words](img/maps-search-empty.jpg)
 
 ## MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)
 
@@ -110,7 +110,7 @@ The message: Why the dislike? (the reasons). Where it goes: 7a the window, its o
 
 ## MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?
 
-![MAPS &gt; Browse: a risky map&#x27;s card: the red strip with its record, Vote anyway?](img/maps-risky-card.jpg)
+![MAPS &gt; Browse: a risky map's card: the red strip with its record, Vote anyway?](img/maps-risky-card.jpg)
 
 ## Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote
 

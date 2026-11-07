@@ -2,17 +2,17 @@
 
 The vote for the next map: everybody's window opens on the ballot, frozen, until it is decided.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 e6cb595 (HUD content v4.6.0, plugin 5.0.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 0dee310 (HUD content v4.7.0, plugin 5.1.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for
 
-![The ballot: everybody&#x27;s window big, open and frozen, ten tiles, Random, the clocks, Waiting for](img/vote-open.jpg)
+![The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for](img/vote-open.jpg)
 
 The message: The vote: everybody's window opens and freezes. Where it goes: 7a the window, its own page (Centre-centre (needs an answer)).
 
 ## The ballot's limit clock: its seconds left, how many have voted
 
-![The ballot&#x27;s limit clock: its seconds left, how many have voted](img/vote-limit.jpg)
+![The ballot's limit clock: its seconds left, how many have voted](img/vote-limit.jpg)
 
 The message: The 60 s limit. Where it goes: a line on the window's page (Inside the window).
 
@@ -28,9 +28,9 @@ The message: Inactivity timer, and who reset it. Where it goes: a line on the wi
 
 ## The ballot's header: the vote kept the map, Closes in, everybody still frozen
 
-![The ballot&#x27;s header: the vote kept the map, Closes in, everybody still frozen](img/vote-kept-01.jpg)
+![The ballot's header: the vote kept the map, Closes in, everybody still frozen](img/vote-kept-01.jpg)
 
-![The ballot&#x27;s header: the vote kept the map, Closes in, everybody still frozen](img/vote-kept-02.jpg)
+![The ballot's header: the vote kept the map, Closes in, everybody still frozen](img/vote-kept-02.jpg)
 
 The message: The vote kept the map. Where it goes: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
 
@@ -42,7 +42,7 @@ The message: You cannot call a vote yet. Where it goes: a line on the window's p
 
 ## The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote
 
-![The vote&#x27;s Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote](img/vote-browse.jpg)
+![The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote](img/vote-browse.jpg)
 
 ## The ballot with a map a player put on it: PICKED, picked by, their vote on it
 
@@ -58,15 +58,15 @@ The message: The vote decided, and the change counting down. Where it goes: a li
 
 ## The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn
 
-![The card under the crosshair: Now playing, the map&#x27;s own picture, at the new map&#x27;s first spawn](img/now-playing-03.jpg)
+![The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn](img/now-playing-01.jpg)
 
-![The card under the crosshair: Now playing, the map&#x27;s own picture, at the new map&#x27;s first spawn](img/now-playing-06.jpg)
+![The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn](img/now-playing-03.jpg)
 
 The message: Now-playing card, at each map's first spawn. Where it goes: 3c the map's own picture (Our card: centre, under the crosshair); also listed on the TAB board.
 
 ## The ballot's header: Started by HUDtest, the real line under a test name
 
-![The ballot&#x27;s header: Started by HUDtest, the real line under a test name](img/vote-started-line.jpg)
+![The ballot's header: Started by HUDtest, the real line under a test name](img/vote-started-line.jpg)
 
 The message: The vote started: the line for everybody. Where it goes: NOT SHOWN; also a line in chat; also listed on the TAB board.
 
@@ -82,7 +82,7 @@ The message: Waiting for: the players who have not voted. Where it goes: a line 
 
 ## The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)
 
-![The ballot&#x27;s pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game&#x27;s pages of eight)](img/vote-pager.jpg)
+![The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)](img/vote-pager.jpg)
 
 ## The limit clock red and pulsing in its last 10 seconds
 
@@ -90,9 +90,9 @@ The message: Waiting for: the players who have not voted. Where it goes: a line 
 
 ## The ballot with several voters: TIE on three cards, then LEADING with its voters' names and the strip in parts
 
-![The ballot with several voters: TIE on three cards, then LEADING with its voters&#x27; names and the strip in parts](img/vote-tie-lead-01.jpg)
+![The ballot with several voters: TIE on three cards, then LEADING with its voters' names and the strip in parts](img/vote-tie-lead-01.jpg)
 
-![The ballot with several voters: TIE on three cards, then LEADING with its voters&#x27; names and the strip in parts](img/vote-tie-lead-02.jpg)
+![The ballot with several voters: TIE on three cards, then LEADING with its voters' names and the strip in parts](img/vote-tie-lead-02.jpg)
 
 ## A vote clicked on a card, in chat: who voted, and who still has to
 

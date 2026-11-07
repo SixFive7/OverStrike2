@@ -218,7 +218,7 @@ def main():
             for f in (got if len(got) <= 2 else [got[0], got[-1]]):      # a page takes a row's first and last frame: the gallery and the owner's review have them all
                 stem = Path(f["file"]).stem
                 link = pics.put(IMG / f"{stem}.jpg", picture(res_dir / f["file"]), 85, d.compare_region(r, w, h), d.volatile_boxes(r, w, h))
-                lines += [f"![{html.escape(r.shows, quote=True)}]({link})", ""]
+                lines += [f"![{html.escape(r.shows, quote=False)}]({link})", ""]   # Markdown alt text: < > & escaped, quotes as they are
             if r.pick:
                 lines += [f"The message: {by_name[r.pick].name}. Where it goes: {by_name[r.pick].surfaces}", ""]
         (repo / DOCS / f"{slug}.md").write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8", newline="\n")

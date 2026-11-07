@@ -2,11 +2,11 @@
 
 Who is on, and which HUD their game shows.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 e6cb595 (HUD content v4.6.0, plugin 5.0.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 0dee310 (HUD content v4.7.0, plugin 5.1.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## SERVER > Players: the player, the team, the HUD of the check's click, how long on
 
-![SERVER &gt; Players: the player, the team, the HUD of the check&#x27;s click, how long on](img/page-players.jpg)
+![SERVER &gt; Players: the player, the team, the HUD of the check's click, how long on](img/page-players.jpg)
 
 ## SERVER > Players: an older HUD: older - restart CS2 (css_gghud content 1)
 
