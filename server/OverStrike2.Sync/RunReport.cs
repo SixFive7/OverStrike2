@@ -75,8 +75,8 @@ public static class RunReport
         var manual = Node.Truthy(r["manual"]);
         var subject = $"{cfg.ServerName} Workshop sync {S(r["day"])}{(manual ? " (manual run)" : $" (the run of {Get(r, "started_hm", "?")})")}: "
                       + $"{(head.Count > 0 ? string.Join(", ", head) : "nothing new")}{(stop is not null ? $" - STOPPED: {Issues.ShortStop(stop)}" : "")}";
-        W($"{cfg.ServerName} - the Workshop sync, a run of {S(r["day"])} ({Get(r, "started_hm", "?")} to {Get(r, "ended_hm", "?")}). It runs whenever nobody plays; one mail a day, the reports of every run in");
-        W("its reports folder.");
+        W($"{cfg.ServerName} - the Workshop sync, a run of {S(r["day"])} ({Get(r, "started_hm", "?")} to {Get(r, "ended_hm", "?")}). It runs whenever nobody plays and mails problems only;");
+        W("every run leaves a report like this one in its reports folder.");
         W("");
         if (stop is not null)
         {
@@ -208,10 +208,10 @@ public static class RunReport
         }
         var lim = Node.Obj(r["limits"]);
         W("");
-        W($"Limits: Web API calls this run {Get(lim, "api_run", "None")} of {Get(lim, "api_run_cap", "None")}, last 24 h {Get(lim, "api_24h", "None")} of {Get(lim, "api_day_cap", "None")} "
+        W($"Limits: Web API calls this run {Get(lim, "api_run", "?")} of {Get(lim, "api_run_cap", "?")}, last 24 h {Get(lim, "api_24h", "?")} of {Get(lim, "api_day_cap", "?")} "
           + $"(10% of Valve's 100,000), at least {Text.Fixed(lim.ContainsKey("api_gap") ? Node.Float(lim["api_gap"]) : 2, 0)} s apart;");
-        W($"downloads today {Get(lim, "dl_items", "None")}, {Text.Mb(Node.Int(lim["dl_bytes"]))}{(Node.Truthy(lim["dl_engine"]) ? $" (with {I(lim["dl_engine"])} copies the test engine fetched itself)" : "")} "
-          + $"- no daily cap: only Steam's push-back stops them; test-engine starts {Get(lim, "engine_starts", "None")} of {Get(lim, "engine_starts_max", "None")}.");
+        W($"downloads today {Get(lim, "dl_items", "?")}, {Text.Mb(Node.Int(lim["dl_bytes"]))}{(Node.Truthy(lim["dl_engine"]) ? $" (with {I(lim["dl_engine"])} copies the test engine fetched itself)" : "")} "
+          + $"- only Steam's push-back stops them; test-engine starts {Get(lim, "engine_starts", "?")} of {Get(lim, "engine_starts_max", "?")}.");
         var bl = Node.Obj(r["backlog"]);
         if (Node.Truthy(bl["items"]))
         {
@@ -219,8 +219,8 @@ public static class RunReport
             var byMode = Node.Obj(bl["by_mode"]);
             W($"Backlog: {I(bl["items"])} item(s) waiting, {Text.Mb(Node.Int(bl["bytes"]))} (Deathmatch {N(byMode, "deathmatch")}, Wingman {N(byMode, "wingman")}, Arms Race {N(byMode, "armsrace")} - one item can carry several tags), taken");
             W($"the ones the keep set wants first, new uploads next, then strictly by subscribers. About {N(bl, "days")} more day(s){eta}: {Text.Fixed(bl.ContainsKey("pace") ? Node.Float(bl["pace"]) : Verdicts.PaceDefault, 0)} s a map");
-            W($"(download and test), about {Text.Fixed(Node.Float(bl["hours"]), 0)} h a day while nobody plays (no time windows), so about {(Node.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day; every hour somebody");
-            W("plays comes off it. No daily download cap: only time and the test speed set it.");
+            W($"(download and test), about {Text.Fixed(Node.Float(bl["hours"]), 0)} h a day while nobody plays, so about {(Node.Integer(bl["per_day"]) is { } pd ? pd : 0)} a day: only time and the test speed set");
+            W("it, and every hour somebody plays comes off it.");
         }
         if (Node.Truthy(r["waited"]))
             W($"Waited: {string.Join("; ", Node.StrList(r["waited"]))}.");
