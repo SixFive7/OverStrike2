@@ -8,7 +8,7 @@ Writes the Hammer map source into the CS2 Workshop Tools' content folder:
   game/csgo_addons/gg_vinceville/addoninfo.txt
 
 and layout.json beside --layout: every mesh of the world (vertices, faces, materials), every prop, the ponds, the buildings'
-floors and stairs, and the spawns - for checks.py, walkcheck.py and preview.py.
+floors with their holes, stairs and doors, and the spawns with the way they face - for checks.py, walkcheck.py and preview.py.
 
   python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
 
@@ -56,6 +56,8 @@ DOOR_W, DOOR_H = 72, 104
 WIN_SILL, WIN_HEAD = 34, 94   # 60 tall: a crouching player (54) gets through
 PAD = 128            # flat ground round a building's base, at its level: two grid cells, so no terrain triangle reaches under it
 BLEND = 160          # and the distance over which the field rises or falls to it
+HULL_W, HULL_H = 32, 72   # a standing player's box: 32 x 32, 72 tall
+HEADROOM = HULL_H + 8     # what a standing player needs over a tread, with 8 to spare
 
 # ---------------------------------------------------------------- materials (all stock CS2)
 M = dict(
@@ -77,7 +79,6 @@ M = dict(
     PLASTER='materials/de_train/hr_train_s2/plaster/hrts2_plaster_01.vmat',
     FLOOR='materials/de_inferno/wood/inferno_wood_floor_01.vmat',
     FLOOR2='materials/de_train/hr_train_s2/wood/hrts2_wood_floor_boards_01.vmat',
-    CEIL='materials/plaster/plasterceiling_int_01.vmat',
     CEILWOOD='materials/de_ancient/hr_ancient_ceiling_wood_01_base.vmat',
     TILE='materials/cs_italy/tileroof01.vmat',
     METALROOF='materials/de_train/hr_train_s2/roof/hrts2_roof_metal_01.vmat',
@@ -97,7 +98,7 @@ SKY = 'materials/skybox/sky_de_overpass_01.vmat'
 TILE = {M['GRASS']: 512, M['GRASS2']: 512, M['MUD']: 512, M['DIRT']: 512, M['BRICK']: 512, M['BRICK2']: 512,
         M['STUCCO']: 512, M['GREEN']: 512, M['RED']: 512, M['PLANKS']: 512, M['STONE']: 512, M['STONE2']: 512,
         M['COBBLE']: 384, M['WALLPAPER1']: 512, M['WALLPAPER2']: 512, M['PLASTER']: 512, M['FLOOR']: 512, M['FLOOR2']: 512,
-        M['CEIL']: 128, M['CEILWOOD']: 512, M['TILE']: 128, M['METALROOF']: 512, M['THATCH']: 512, M['CORR']: 256,
+        M['CEILWOOD']: 512, M['TILE']: 128, M['METALROOF']: 512, M['THATCH']: 512, M['CORR']: 256,
         M['TRIM']: 256, M['STRAW']: 128, M['POOLWATER']: 512}
 TOOLS = {M['NODRAW'], M['SKYBOX'], M['CLIP'], M['LMRES'], M['POST']}
 
@@ -390,6 +391,27 @@ class Terrain:
                     return M['DIRT']
         return M['GRASS']
 
+    def triangles(self, i, j):
+        """The cell's two triangles, as grid corners."""
+        a, b, c, d = (i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)
+        return [(a, b, c), (a, c, d)] if self.diag(i, j) else [(a, b, d), (b, c, d)]
+
+    def border(self, mat):
+        """The middle of every triangle edge in the play area with mat on one side and another material on the other."""
+        sides = {}
+        for i in range(self.n):
+            for j in range(self.n):
+                for t in self.triangles(i, j):
+                    x = sum(-OUTER + q[0] * GRID for q in t) / 3
+                    y = sum(-OUTER + q[1] * GRID for q in t) / 3
+                    if max(abs(x), abs(y)) > HALF:
+                        continue
+                    m = self.material(x, y) == mat
+                    for e in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+                        sides.setdefault(tuple(sorted(e)), []).append(m)
+        return sorted(((-OUTER + (p[0] + q[0]) * GRID / 2, -OUTER + (p[1] + q[1]) * GRID / 2))
+                      for (p, q), ms in sides.items() if len(ms) == 2 and ms[0] != ms[1])
+
     def build(self, L):
         n = self.n
         vnorm = {}
@@ -441,6 +463,17 @@ def cuts(values):
     return sorted(set(values))
 
 
+def stair_hole(x0, y0, y1, n, under):
+    """The hole in an upper floor, of underside `under`, over a stair of n steps rising along +x from x0 between y0 (the room
+    side) and y1 (a wall). A player is a box, not a point: from the first tread with less than HEADROOM under the floor, the
+    floor is gone over that tread and over the box's width behind it, where the box still stands when it steps up onto that
+    tread, with 8 to spare; and it is gone a box's width past the room side, where a box still standing on the stair's edge
+    overhangs it by almost that much, with 8 to spare. Reaching past the stair's side also keeps a tread and the floor's
+    underside from touching along one edge only, which no closed mesh can hold."""
+    first = next(i for i in range(n) if FZ + (i + 1) * RISE + HEADROOM > under)
+    return (x0 + first * RUN - HULL_W - 8, y0 - HULL_W - 8, x0 + n * RUN, y1)
+
+
 class Building:
     """A building in its own frame: x along W, y along D, z up from its pad; rot quarter turns about its centre (cx, cy).
     Boxes: pos (kind) adds, neg cuts out, late adds again over the cuts (stairs through a stair hole)."""
@@ -451,8 +484,9 @@ class Building:
         self.wall_top = wall_top or (FZ + 128 if storeys == 1 else FZ + SH + 120)
         self.pos, self.neg, self.late = [], [], []
         self.floors = []          # (z top, (x0, y0, x1, y1)) in the building's frame
+        self.holes = {}           # z top of a floor -> the holes in it, (x0, y0, x1, y1)
         self.steps = []           # (lo, hi) of every step
-        self.lights = []
+        self.doors = []           # (wall, centre along it, width, height, sill)
         # the base: a slab reaching FOUND into the ground and standing out PL from the walls
         self.pos.append(((-PL, -PL, -FOUND), (W + PL, D + PL, FZ), 'slab'))
         # the four walls, corner to corner
@@ -465,6 +499,7 @@ class Building:
 
     def door(self, wall, c, w=DOOR_W, h=DOOR_H, z=FZ):
         self.opening(wall, c, w, z, z + h)
+        self.doors.append((wall, c, w, h, z))
 
     def window(self, wall, c, w=56, storey=0):
         z = FZ + storey * SH
@@ -481,14 +516,14 @@ class Building:
         else:
             self.neg.append(((W - T, c - w / 2, z0), (W, c + w / 2, z1)))
 
-    def upper(self, z_top, rect, hole, stair):
-        """An upper floor of top z_top over rect, with a stair hole; stair = (x0, y0, y1, n): n steps of RISE and RUN rising
-        along +x from x0, between y0 and y1, from the ground floor up to z_top. The hole reaches 8 past the stair's room side:
-        where a tread meets the floor's underside, a hole flush with the stair would leave the two touching along one edge
-        only, which no closed mesh can hold."""
+    def upper(self, z_top, rect, stair):
+        """An upper floor of top z_top over rect, with a hole for its stair; stair = (x0, y0, y1, n): n steps of RISE and RUN
+        rising along +x from x0, between y0 (the room side) and y1 (a wall), from the ground floor up to z_top."""
         self.pos.append(((rect[0], rect[1], z_top - SLAB), (rect[2], rect[3], z_top), 'upper'))
-        self.neg.append(((hole[0], hole[1], z_top - SLAB), (hole[2], hole[3], z_top)))
         x0, y0, y1, n = stair
+        hole = stair_hole(x0, y0, y1, n, z_top - SLAB)
+        self.neg.append(((hole[0], hole[1], z_top - SLAB), (hole[2], hole[3], z_top)))
+        self.holes.setdefault(z_top, []).append(hole)
         assert n * RISE == z_top - FZ, 'the stairs must end at the floor they lead to'
         for i in range(n):
             lo, hi = (x0 + i * RUN, y0, FZ - 1), (x0 + (i + 1) * RUN, y1, FZ + (i + 1) * RISE)
@@ -600,7 +635,7 @@ class Building:
             if n[2] > 0:
                 return st['floor2']
             if n[2] < 0:
-                return st['ceil']
+                return M['CEILWOOD']      # dark wood, as under every roof: a white ceiling near a light glares
             return M['TRIM']
         if kind == 'step':
             return st['floor'] if n[2] > 0 else M['TRIM']
@@ -702,19 +737,19 @@ class Layout:
 
 
 STYLES = {
-    'brick': dict(ext=M['BRICK'], int=M['WALLPAPER1'], floor=M['FLOOR'], floor2=M['FLOOR2'], ceil=M['CEIL'], base=M['STONE'],
+    'brick': dict(ext=M['BRICK'], int=M['WALLPAPER1'], floor=M['FLOOR'], floor2=M['FLOOR2'], base=M['STONE'],
                   roof=M['TILE'], gable=M['BRICK']),
-    'stucco': dict(ext=M['STUCCO'], int=M['PLASTER'], floor=M['FLOOR2'], floor2=M['FLOOR'], ceil=M['CEIL'], base=M['STONE2'],
+    'stucco': dict(ext=M['STUCCO'], int=M['PLASTER'], floor=M['FLOOR2'], floor2=M['FLOOR'], base=M['STONE2'],
                    roof=M['THATCH'], gable=M['TRIM']),
-    'green': dict(ext=M['GREEN'], int=M['WALLPAPER2'], floor=M['FLOOR'], floor2=M['FLOOR2'], ceil=M['CEIL'], base=M['COBBLE'],
+    'green': dict(ext=M['GREEN'], int=M['WALLPAPER2'], floor=M['FLOOR'], floor2=M['FLOOR2'], base=M['COBBLE'],
                   roof=M['METALROOF'], gable=M['TRIM']),
-    'stone': dict(ext=M['STONE'], int=M['PLASTER'], floor=M['FLOOR2'], floor2=M['FLOOR'], ceil=M['CEILWOOD'], base=M['STONE2'],
+    'stone': dict(ext=M['STONE'], int=M['PLASTER'], floor=M['FLOOR2'], floor2=M['FLOOR'], base=M['STONE2'],
                   roof=M['TILE'], gable=M['STONE']),
-    'red': dict(ext=M['RED'], int=M['WALLPAPER1'], floor=M['FLOOR'], floor2=M['FLOOR2'], ceil=M['CEIL'], base=M['BRICK2'],
+    'red': dict(ext=M['RED'], int=M['WALLPAPER1'], floor=M['FLOOR'], floor2=M['FLOOR2'], base=M['BRICK2'],
                 roof=M['TILE'], gable=M['TRIM']),
-    'barn': dict(ext=M['PLANKS'], int=M['PLANKS'], floor=M['FLOOR2'], floor2=M['FLOOR2'], ceil=M['CEILWOOD'], base=M['COBBLE'],
+    'barn': dict(ext=M['PLANKS'], int=M['PLANKS'], floor=M['FLOOR2'], floor2=M['FLOOR2'], base=M['COBBLE'],
                  roof=M['CORR'], gable=M['PLANKS']),
-    'shed': dict(ext=M['PLANKS'], int=M['PLANKS'], floor=M['FLOOR'], floor2=M['FLOOR'], ceil=M['CEILWOOD'], base=M['STONE2'],
+    'shed': dict(ext=M['PLANKS'], int=M['PLANKS'], floor=M['FLOOR'], floor2=M['FLOOR'], base=M['STONE2'],
                  roof=M['CORR'], gable=M['PLANKS']),
 }
 
@@ -735,7 +770,7 @@ def buildings():
     b.window('W', 112)
     b.window('W', 220, storey=1)
     b.window('E', 80, storey=1)
-    b.upper(FZ + SH, (0, 0, 448, 320), (T + 24 + 4 * RUN, 320 - T - 72, T + 24 + 12 * RUN, 320 - T), (T + 24, 320 - T - 64, 320 - T, 12))
+    b.upper(FZ + SH, (0, 0, 448, 320), (T + 24, 320 - T - 64, 320 - T, 12))
     out.append(b)
     # H2: a cottage of stucco under thatch
     b = Building('H2 cottage', -40, 900, 320, 256, 1, STYLES['stucco'])
@@ -776,12 +811,13 @@ def buildings():
     b.window('E', 96)
     b.window('E', 192, storey=1)
     b.window('N', 320, storey=1)
-    b.upper(FZ + SH, (0, 0, 384, 288), (T + 24 + 4 * RUN, 288 - T - 72, T + 24 + 12 * RUN, 288 - T), (T + 24, 288 - T - 64, 288 - T, 12))
+    b.upper(FZ + SH, (0, 0, 384, 288), (T + 24, 288 - T - 64, 288 - T, 12))
     out.append(b)
-    # the barn: one tall storey with a hay loft over its west end, up a stair against the north wall; wide doors both sides
+    # the barn: one tall storey with a hay loft over its west end, up a stair against the north wall; wide doors both sides,
+    # the north one east of the stair's foot (x 352), so the stair stands in none of it
     b = Building('B1 barn', -780, -620, 512, 320, 0, STYLES['barn'], wall_top=FZ + 232)
     b.door('S', 320, w=160, h=168)
-    b.door('N', 320, w=160, h=168)
+    b.door('N', 432, w=128, h=168)
     b.door('E', 160)
     b.window('W', 160)
     loft, x_loft = FZ + 11 * RISE, T + 168
@@ -810,7 +846,7 @@ def buildings():
 
 
 # ---------------------------------------------------------------- outdoor pieces
-def stone_wall(L, ter, a, b, h=40, w=20, gap=None):
+def stone_wall(L, ter, a, b, h=40, w=20):
     """A low dry-stone wall from a to b (axis-aligned): one box, its foot below the lowest ground under it."""
     (x0, y0), (x1, y1) = a, b
     lo = (min(x0, x1) - (w / 2 if x0 == x1 else 0), min(y0, y1) - (w / 2 if y0 == y1 else 0))
@@ -865,8 +901,12 @@ def build_layout():
         tops = sorted(z for z, _ in b.floors)
         for (z, r) in b.floors:
             ceiling = min([t - SLAB for t in tops if t > z] + [b.wall_top - 2])
+            mx, my = (r[0] + r[2]) / 2, (r[1] + r[3]) / 2
+            # under an upper floor the light hangs 40 under its underside: at 20 it burns a white circle into it
+            under = any(t > z and u[0] <= mx <= u[2] and u[1] <= my <= u[3] for t, u in b.floors)
             cr = b.world_rect(r)
-            L.lights.append({'origin': ((cr[0] + cr[2]) / 2, (cr[1] + cr[3]) / 2, b.level + ceiling - 20), 'lumens': 1600, 'range': 420})
+            L.lights.append({'origin': ((cr[0] + cr[2]) / 2, (cr[1] + cr[3]) / 2, b.level + ceiling - (40 if under else 20)),
+                             'lumens': 1600, 'range': 420})
         L.probes.append({'lo': (fp[0] - 8, fp[1] - 8, b.level - 8), 'hi': (fp[2] + 8, fp[3] + 8, b.level + b.wall_top + 8),
                          'voxel': 24, 'priority': 1})
         L.buildings.append(b)
@@ -883,17 +923,17 @@ def build_layout():
             mats = [M['POOLWATER']] + [M['NODRAW']] * (len(fs) - 1)
             L.waters.append({'verts': [tuple(float(c) for c in v) for v in vs], 'faces': fs, 'mats': mats, 'pond': (cx, cy, R),
                              'z1': w})
-    # low stone walls and haystacks: cover in the open
-    for a, b in [((-300, -360), (-60, -360)), ((300, 600), (300, 800)), ((920, -420), (1120, -420)), ((-500, -1100), (-260, -1100)),
-                 ((420, 1100), (640, 1100)), ((-1140, 300), (-1140, 360)), ((60, -560), (60, -380))]:
+    # low stone walls and haystacks: cover in the open; the wall at y -360 leaves a gap for the north-south path
+    for a, b in [((-300, -360), (-238, -360)), ((-142, -360), (-60, -360)), ((300, 600), (300, 800)), ((920, -420), (1120, -420)),
+                 ((-500, -1100), (-260, -1100)), ((420, 1100), (640, 1100)), ((-1140, 300), (-1140, 360)), ((60, -560), (60, -380))]:
         stone_wall(L, ter, a, b)
     for (x, y, ax, st) in [(-200, 480, True, True), (-130, 540, False, False), (640, 80, True, False), (1000, -600, False, True),
                            (-480, -980, True, False), (-1080, 520, False, True), (120, 1160, True, False), (1100, 1100, False, False),
                            (-1060, -1100, True, True), (820, -1100, False, False)]:
         hay_bale(L, ter, x, y, ax, st)
-    # props: cars and crates (solid), foliage (none: nobody gets stuck in it)
+    # props: cars and crates (solid), clear of the paths; foliage (none: nobody gets stuck in it)
     rnd = random.Random(7)
-    for (key, x, y, yaw) in [('sedan1', -360, 300, 20), ('hatch', 120, -60, 95), ('van', -1080, -260, 0), ('sedan2', 640, -330, 160),
+    for (key, x, y, yaw) in [('sedan1', -370, 300, 100), ('hatch', 120, -68, 167), ('van', -1080, -260, 90), ('sedan2', 640, -340, 180),
                              ('crate_big', -960, 340, 0), ('crate_big', 1150, -320, 30), ('barrel', -560, 900, 0),
                              ('barrel', 470, -380, 0), ('wheelbarrow', -560, -280, 70)]:
         L.prop(key, (x, y, ter.zrange(x, y, 24)[0] - 2), yaw, 1.0, 'cover')
@@ -939,6 +979,12 @@ def build_layout():
         key = rnd.choice(['poplar', 'maple2', 'oak', 'cypress', 'card1', 'card2', 'card3'])
         L.prop(key, (x, y, ter.zrange(x, y, 16)[0] - 6), rnd.uniform(0, 360), rnd.uniform(0.9, 1.2),
                'card' if key.startswith('card') else 'tree')
+    # tall grass where the ponds' mud meets the grass: the ground's triangles give that edge straight lines, the tufts break them
+    tufts = random.Random(11)
+    for x, y in ter.border(M['MUD']):
+        for _ in range(2):
+            px, py = x + tufts.uniform(-12, 12), y + tufts.uniform(-12, 12)
+            L.prop('tallgrass', (px, py, ter.zrange(px, py, 8)[0] - 1), tufts.uniform(0, 360), tufts.uniform(1.0, 1.4), 'grass')
     # the player clip at the edge of the field, and the skybox shell round everything
     c = HALF
     for lo, hi in [((-c - 16, -c - 16), (c + 16, -c)), ((-c - 16, c), (c + 16, c + 16)), ((-c - 16, -c), (-c, c)), ((c, -c), (c + 16, c))]:
@@ -1035,9 +1081,64 @@ def pick_spawns(L):
     ct_in = farthest([p for p in indoor if p[0] > 150], 3, 96, cap=1)
     taken += ct_in
     ct_out = farthest([p for p in outdoor if p[0] > 150], 7, 160)
-    L.spawns = [('info_deathmatch_spawn', p) for p in dm_in + dm_out] + [('info_player_terrorist', p) for p in t_in + t_out] + \
-               [('info_player_counterterrorist', p) for p in ct_in + ct_out]
+    picked = [('info_deathmatch_spawn', p) for p in dm_in + dm_out] + [('info_player_terrorist', p) for p in t_in + t_out] + \
+             [('info_player_counterterrorist', p) for p in ct_in + ct_out]
+    L.spawns = [(cls, p, spawn_yaw(L, *p)) for cls, p in picked]
     L.spawn_candidates = (len(outdoor), len(indoor))
+
+
+def solid_point(L, x, y, z):
+    """True when the point is in the ground, a building, a roof, a solid box or a solid prop."""
+    if L.ter.z(x, y) > z:
+        return True
+    for b in L.buildings:
+        if rect_dist(x, y, b.footprint()) < 48 and b.solid_at((x, y, z)):
+            return True
+    for s in L.solids:
+        if s['tag'] in ('stonewall', 'bale'):
+            if all(min(v[i] for v in s['verts']) < (x, y, z)[i] < max(v[i] for v in s['verts']) for i in range(3)):
+                return True
+    for p in L.props:
+        if p['tag'] == 'cover':
+            (x0, y0, z0), (x1, y1, z1) = p['phys']
+            a = math.radians(p['yaw'])
+            dx, dy = x - p['origin'][0], y - p['origin'][1]
+            u, v = dx * math.cos(a) + dy * math.sin(a), -dx * math.sin(a) + dy * math.cos(a)
+            if x0 <= u <= x1 and y0 <= v <= y1 and p['origin'][2] + z0 <= z <= p['origin'][2] + z1:
+                return True
+    return False
+
+
+def eye_clear(L, x, y, z, yaw, reach=128):
+    """How far a player standing on the floor at (x, y, z) sees straight ahead at eye height (64) before anything solid,
+    looked at every 8 units up to reach."""
+    a = math.radians(yaw)
+    for d in range(16, reach + 1, 8):
+        if solid_point(L, x + d * math.cos(a), y + d * math.sin(a), z + 64):
+            return d
+    return reach
+
+
+def spawn_yaw(L, x, y, z, where):
+    """Which way a spawn faces: outside, the middle of the field give or take 40 degrees; inside, the middle of its room give
+    or take 15, or its first door when it stands in the middle. When something solid stands closer than 128 that way, it
+    turns to the most open way within 90 degrees of it."""
+    rnd = random.Random(int(x * 31 + y))
+    if where == 'out':
+        want = math.degrees(math.atan2(-y, -x)) + rnd.uniform(-40, 40)
+    else:
+        b = next(b for b in L.buildings if b.name.split()[0] == where)
+        r = b.world_rect(min(b.floors, key=lambda f: abs(b.level + f[0] - z))[1])
+        cx, cy = (r[0] + r[2]) / 2, (r[1] + r[3]) / 2
+        if math.hypot(cx - x, cy - y) < 48:
+            wall, c, w, h, sill = b.doors[0]
+            cx, cy = {'S': b.to_world((c, 0, 0)), 'N': b.to_world((c, b.D, 0)), 'W': b.to_world((0, c, 0)),
+                      'E': b.to_world((b.W, c, 0))}[wall][:2]
+        want = math.degrees(math.atan2(cy - y, cx - x)) + rnd.uniform(-15, 15)
+    if eye_clear(L, x, y, z, want) >= 128:
+        return round(want, 2)
+    turn = max(range(-90, 91, 10), key=lambda d: (eye_clear(L, x, y, z, want + d), -abs(d)))
+    return round(want + turn, 2)
 
 
 # ---------------------------------------------------------------- the map source
@@ -1103,9 +1204,8 @@ def build_vmap(L, path):
         'StartDisabled': 0, 'spawnflags': 4097, 'postprocessing': '', 'master': 1, 'minexposure': '0.8',
         'maxexposure': '2.0', 'enableexposure': 1, 'fadetime': '1.0', 'exposurespeedup': '1', 'exposurespeeddown': '1',
     }, [map_mesh({'verts': pv, 'faces': BOX_FACES, 'mats': [M['POST']] * 6, 'bake': False, 'wind': 'centroid'})]))
-    # spawns: 8 above the floor, facing the middle of the field give or take 40 degrees
-    for cls, (x, y, z, where) in L.spawns:
-        yaw = math.degrees(math.atan2(-y, -x)) + random.Random(int(x * 31 + y)).uniform(-40, 40)
+    # spawns: 8 above the floor, facing the way spawn_yaw picked
+    for cls, (x, y, z, where), yaw in L.spawns:
         props = {'targetname': '', 'enabled': 1} if cls == 'info_deathmatch_spawn' else {'targetname': '', 'priority': 0, 'enabled': 1}
         world_children.append(entity(cls, (x, y, z + 8), props, angles=(0, yaw, 0)))
 
@@ -1154,16 +1254,26 @@ def build_vmap(L, path):
 
 def layout_json(L):
     """What checks.py, walkcheck.py and preview.py read: every world mesh, the ponds' water, the props, the buildings' floors
-    and steps (world coordinates), the spawns."""
+    with their holes, steps and doors (world coordinates), the spawns with the way they face."""
     def solid(s):
         return {'verts': [[round(c, 4) for c in v] for v in s['verts']], 'faces': s['faces'], 'mats': s['mats'], 'tag': s['tag'],
                 'wind': s.get('wind', 'given'), 'name': s.get('name', '')}
+    def door(b, wall, c, w, h, sill):
+        """A door in world terms: the opening through the wall, its sill and head, and the way into the building."""
+        W, D = b.W, b.D
+        rect, inward = {'S': ((c - w / 2, 0, c + w / 2, T), (0, 1)), 'N': ((c - w / 2, D - T, c + w / 2, D), (0, -1)),
+                        'W': ((0, c - w / 2, T, c + w / 2), (1, 0)), 'E': ((W - T, c - w / 2, W, c + w / 2), (-1, 0))}[wall]
+        for _ in range(b.rot % 4):
+            inward = (-inward[1], inward[0])
+        return {'wall': wall, 'rect': b.world_rect(rect), 'z0': b.level + sill, 'z1': b.level + sill + h, 'inward': inward}
     bl = []
     for b in L.buildings:
         bl.append({'name': b.name, 'level': b.level, 'footprint': b.footprint(), 'wall_top': b.level + b.wall_top,
-                   'floors': [{'z': b.level + z, 'rect': b.world_rect(r)} for z, r in b.floors],
+                   'floors': [{'z': b.level + z, 'rect': b.world_rect(r), 'holes': [b.world_rect(h) for h in b.holes.get(z, [])]}
+                              for z, r in b.floors],
                    'steps': [{'lo': b.world_rect((lo[0], lo[1], hi[0], hi[1]))[:2] + (b.level + lo[2],),
-                              'hi': b.world_rect((lo[0], lo[1], hi[0], hi[1]))[2:] + (b.level + hi[2],)} for lo, hi in b.steps]})
+                              'hi': b.world_rect((lo[0], lo[1], hi[0], hi[1]))[2:] + (b.level + hi[2],)} for lo, hi in b.steps],
+                   'doors': [door(b, *d) for d in b.doors]})
     return {
         'half': HALF, 'outer': OUTER, 'grid': GRID, 'tools': sorted(TOOLS),
         'solids': [solid(s) for s in L.solids],
@@ -1171,7 +1281,7 @@ def layout_json(L):
         'ponds': PONDS, 'paths': PATHS,
         'props': L.props,
         'buildings': bl,
-        'spawns': [{'class': cls, 'x': p[0], 'y': p[1], 'z': p[2], 'where': p[3]} for cls, p in L.spawns],
+        'spawns': [{'class': cls, 'x': p[0], 'y': p[1], 'z': p[2], 'where': p[3], 'yaw': yaw} for cls, p, yaw in L.spawns],
     }
 
 
@@ -1194,7 +1304,7 @@ def main():
     with open(lp, 'w', encoding='utf-8') as f:
         json.dump(layout_json(L), f)
     sp = {}
-    for cls, p in L.spawns:
+    for cls, p, _ in L.spawns:
         sp[cls + '/' + p[3]] = sp.get(cls + '/' + p[3], 0) + 1
     tags = {}
     for p in L.props:

@@ -8,12 +8,16 @@ faces, spawns that work. Exit status 0 when everything passes.
   3. Ground: a vertical ray every 16 units over the whole terrain meets its top exactly once: no hole, nothing doubled.
   4. From above: over the play area a ray every 16 units from the sky first meets a face that looks up - never the inside of a
      solid through a gap - and always meets something.
-  5. Floors: inside every building, on every floor, a ray every 8 units from under the next ceiling first meets that
-     building's own floor, looking up: no hole in a floor, no ground showing through one; and every step's tread is there.
+  5. Floors: inside every building, on every floor outside its stair holes, a ray every 8 units from under the next ceiling
+     first meets that building's own floor at that floor's height, looking up: no hole in a floor, no lower floor or ground
+     showing through one; and every step's tread is there.
   6. Spawns: each stands on a floor or the ground (a face looking up, at most a step of 18 under its feet; the entity is 8
      higher and the game drops the player), in a player's box (32 x 32 x 72) that is inside no solid and no solid prop, out
-     of the water, at least 96 from every other spawn; and there are enough for every mode (Arms Race and Deathmatch spawn
-     anywhere: 16 deathmatch spawns for 16 players; a team mode: 8 a side).
+     of the water, at least 96 from every other spawn, and looks at 96 or more of open space at eye height (64) the way it
+     faces; and there are enough for every mode (Arms Race and Deathmatch spawn anywhere: 16 deathmatch spawns for 16
+     players; a team mode: 8 a side).
+  7. Paths: every path's middle, looked at every 8 units, is at least 24 (half a player's box and 8) from every solid prop,
+     stone wall and haystack, so a player walks it end to end.
 
   python -I checks.py <layout.json>"""
 import collections
@@ -145,18 +149,22 @@ for bld in lay['buildings']:
         z, r = fl['z'], fl['rect']
         ceiling = min([t - 12 for t in tops if t > z] + [bld['wall_top'] - 2])
         xs, ys = [], []
+        holes = fl.get('holes', [])
         for x in np.arange(r[0] + 3, r[2] - 2, 8):
             for y in np.arange(r[1] + 5, r[3] - 2, 8):
-                if not any(lo[0] - 1 < x < hi[0] + 1 and lo[1] - 1 < y < hi[1] + 1 for lo, hi in steps):   # stairs: below
-                    xs.append(float(x))
-                    ys.append(float(y))
+                if any(lo[0] - 1 < x < hi[0] + 1 and lo[1] - 1 < y < hi[1] + 1 for lo, hi in steps):      # stairs: below
+                    continue
+                if any(hr[0] - 1 < x < hr[2] + 1 and hr[1] - 1 < y < hr[3] + 1 for hr in holes):           # its stair holes
+                    continue
+                xs.append(float(x))
+                ys.append(float(y))
         for x, y, h in zip(xs, ys, world.hits(xs, ys)):
             below = [(zz, t) for zz, t in h if zz < ceiling - 1 and (TDRAWN[t] or TTAG[t] == 'water')]
             if not below:
                 fail('floors', f"{bld['name']} floor {z}: nothing under ({x}, {y})")
                 continue
             zz, t = below[-1]
-            if TN[t] <= 0 or TTAG[t] != 'building' or NAME[t] != bld['name'] or zz < bld['level'] + 7.5:
+            if TN[t] <= 0 or TTAG[t] != 'building' or NAME[t] != bld['name'] or abs(zz - z) > 0.5:
                 fail('floors', f"{bld['name']} floor {z}: at ({x}, {y}) the first face is {TTAG[t]} at {zz:.1f}, looking "
                                f"{'up' if TN[t] > 0 else 'down'}")
         floor_rays += len(xs)
@@ -174,11 +182,45 @@ for bld in lay['buildings']:
 
 
 # ---------------------------------------------------------------- 6. spawns
-def inside_solid(p):
+def inside_solid(p, which=lambda ts: TTAG[ts] != 'water'):
     """True when p lies inside a closed solid other than water: an odd number of crossings straight up."""
-    h = world.hits([p[0]], [p[1]], lambda ts: TTAG[ts] != 'water')[0]
+    h = world.hits([p[0]], [p[1]], which)[0]
     per = collections.Counter(TS[t] for z, t in h if z > p[2])
     return any(c % 2 for c in per.values())
+
+
+def seg_dist(x, y, a, b):
+    ax, ay = b[0] - a[0], b[1] - a[1]
+    t = max(0.0, min(1.0, ((x - a[0]) * ax + (y - a[1]) * ay) / (ax * ax + ay * ay))) if ax or ay else 0.0
+    return math.hypot(x - a[0] - t * ax, y - a[1] - t * ay)
+
+
+def poly_dist(x, y, pts):
+    """Distance from (x, y) to a convex polygon on the ground: 0 inside it."""
+    sides = [(pts[(k + 1) % len(pts)][0] - pts[k][0]) * (y - pts[k][1]) - (pts[(k + 1) % len(pts)][1] - pts[k][1]) * (x - pts[k][0])
+             for k in range(len(pts))]
+    if all(v >= 0 for v in sides) or all(v <= 0 for v in sides):
+        return 0.0
+    return min(seg_dist(x, y, pts[k], pts[(k + 1) % len(pts)]) for k in range(len(pts)))
+
+
+VEG = ('tree', 'bush', 'hedge', 'grass', 'card')     # props with no collision
+OBSTACLES = []   # (what, corners on the ground, z0, z1): every solid prop's collision box, every stone wall and haystack
+for p in lay['props']:
+    if p['phys'] is None or p['tag'] in VEG:
+        continue
+    (x0, y0, z0), (x1, y1, z1) = p['phys']
+    sc, a, (ox, oy, oz) = p['scale'], math.radians(p['yaw']), p['origin']
+    OBSTACLES.append((f"the prop {p['key']} at ({ox:.0f}, {oy:.0f})",
+                      [(ox + sc * (u * math.cos(a) - v * math.sin(a)), oy + sc * (u * math.sin(a) + v * math.cos(a)))
+                       for u, v in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))], oz + sc * z0, oz + sc * z1))
+for s_ in solids:
+    if s_['tag'] in ('stonewall', 'bale'):
+        lo = [min(v[i] for v in s_['verts']) for i in range(3)]
+        hi = [max(v[i] for v in s_['verts']) for i in range(3)]
+        OBSTACLES.append((f"a {'stone wall' if s_['tag'] == 'stonewall' else 'haystack'} at ({(lo[0] + hi[0]) / 2:.0f}, "
+                          f"{(lo[1] + hi[1]) / 2:.0f})", [(lo[0], lo[1]), (hi[0], lo[1]), (hi[0], hi[1]), (lo[0], hi[1])], lo[2], hi[2]))
+VIEW = lambda ts: (TTAG[ts] != 'water') & (TTAG[ts] != 'clip') & (TTAG[ts] != 'skybox')  # noqa: E731 - what blocks the view
 
 
 spawns = lay['spawns']
@@ -204,6 +246,17 @@ for s in spawns:
     for (cx, cy, R, _) in lay['ponds']:
         if math.hypot(x - cx, y - cy) < R:
             fail('spawns', f"{s['class']} at ({x}, {y}): in a pond")
+    if 'yaw' not in s:
+        fail('spawns', f"{s['class']} at ({x}, {y}): the layout does not say which way it faces")
+        continue
+    a = math.radians(s['yaw'])
+    for d in range(8, 97, 4):
+        ex, ey, ez = x + d * math.cos(a) + 0.13, y + d * math.sin(a) + 0.29, z + 64
+        what = 'a solid' if inside_solid((ex, ey, ez), VIEW) else next(
+            (w for w, pts, z0, z1 in OBSTACLES if z0 <= ez <= z1 and poly_dist(ex, ey, pts) == 0), None)
+        if what:
+            fail('spawns', f"{s['class']} at ({x}, {y}, {z}): faces {what} {d} away at eye height (yaw {s['yaw']})")
+            break
 for i, a in enumerate(spawns):
     for b in spawns[i + 1:]:
         if math.hypot(a['x'] - b['x'], a['y'] - b['y']) < 96 and abs(a['z'] - b['z']) < 72:
@@ -214,13 +267,31 @@ if by['info_deathmatch_spawn'] < 16:
 if by['info_player_terrorist'] < 8 or by['info_player_counterterrorist'] < 8:
     fail('spawns', f"{by['info_player_terrorist']} T and {by['info_player_counterterrorist']} CT spawns: a team mode takes 8 a side")
 
+# ---------------------------------------------------------------- 7. paths: a player's box clear along every one
+path_points = 0
+for k, path in enumerate(lay['paths']):
+    for a, b in zip(path, path[1:]):
+        n = max(1, int(math.hypot(b[0] - a[0], b[1] - a[1]) // 8))
+        for i in range(n + 1):
+            x, y = a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n
+            if abs(x) > HALF - 16 or abs(y) > HALF - 16:
+                continue                    # past the player clip
+            path_points += 1
+            for what, pts, _, _ in OBSTACLES:
+                d = poly_dist(x, y, pts)
+                if d < 24:
+                    fail('paths', f'path {k + 1} at ({x:.0f}, {y:.0f}): {what} is {d:.0f} from its middle')
+
 print(f'1. closed: {len(solids)} meshes and water pieces' + (f', {problems["closed"]} bad edges' if problems['closed'] else ', every edge once each way'))
 print(f'2. overlaps: {len(drawn)} drawn faces in {len(groups)} planes' + (f', {overlap_pairs} overlapping pairs' if overlap_pairs else ', none over another'))
 print(f'3. ground: {ground_rays} rays' + (f', {problems["ground"]} wrong' if problems['ground'] else ', the terrain top met once by each'))
 print(f'4. from above: {above_rays} rays' + (f', {problems["from above"]} wrong' if problems['from above'] else ', each first meets a face looking up'))
 print(f'5. floors: {floor_rays} rays in {len(lay["buildings"])} buildings' + (f', {problems["floors"]} wrong' if problems['floors'] else ', each meets its own floor or tread'))
 print(f'6. spawns: {len(spawns)} ({by["info_deathmatch_spawn"]} deathmatch, {by["info_player_terrorist"]} T, '
-      f'{by["info_player_counterterrorist"]} CT)' + (f', {problems["spawns"]} wrong' if problems['spawns'] else ', each on a floor, clear and apart'))
+      f'{by["info_player_counterterrorist"]} CT)' + (f', {problems["spawns"]} wrong' if problems['spawns'] else
+                                                     ', each on a floor, clear, apart and facing open space'))
+print(f"7. paths: {len(lay['paths'])} paths, {path_points} points" + (f', {problems["paths"]} too near an obstacle' if problems['paths'] else
+      ', each 24 or more from every solid prop, stone wall and haystack'))
 for line in report:
     print(line)
 print('checks: PASS' if not problems else f'checks: FAIL {dict(problems)}')

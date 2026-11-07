@@ -24,7 +24,7 @@ host-path tools/scan/scan.py /mnt/\.|/boot/config|/var/lib/docker  # the pattern
 # Reviewed binaries
 binary maps/gg_glasspire/workshop_preview.jpg 3e94b021f87260d1dc0b033a88413deb9bdb67d2fdc9c56b61efa0408bc531c7  # a render of our own generated map (preview.py), no game assets
 binary maps/gg_moonglass/workshop_preview.jpg 0816cb0637bdf8bde2d6c0715f11a7f5abae74f5d712dca4b582f57ee7e917b7  # a render of our own generated map (preview.py), no game assets
-binary maps/gg_vinceville/workshop_preview.jpg d49244501e380185bca0df8c6029cc115f939368f41dfc66ba0db937fa7dde10  # a render of our own generated map (preview.py), no game assets
+binary maps/gg_vinceville/workshop_preview.jpg 89b1c6a758973a575275d15cb96638826caba424130d57d0b771a0df16709979  # a render of our own generated map (preview.py), no game assets
 binary hud/images/knife.png d2c519bfbb23433de5ba8541071db7860fd8af8bdb47f98ba2913577a4953d3f  # the HUD's knife icon: an original drawing, no game art
 binary hud/images/logo.png 55056ebf521dc6df10801af6626242e91a95cfc9851ba67b1e094ae14ec03a42  # the project's logo: a hexagon with OS2 in it, drawn for the HUD
 binary hud/images/lock_shut.png a4ba06f484b91571d02e763858b803449ee6b14ec798be5b2e39b601fd46662e  # a padlock, drawn for the HUD: Play asks first
