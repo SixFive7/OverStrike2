@@ -25,7 +25,8 @@ public sealed partial class SyncRun
     {
         var entry = Handover.AcfEntries(StagingAcf, wid);
         return entry is { } e && new[] { "size", "timeupdated", "manifest" }.All(k => Text.Digits(e.Installed.GetValueOrDefault(k)))
-               && long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) >= Node.Int(rec["updated"]);
+               && Handover.Holds(long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture), e.Installed["manifest"], Node.Int(rec["updated"]),
+                                 Handover.WorkshopContent(State.Data, wid));
     }
 
     /// <summary>THE HAND-OVER, for what is missing or outdated (Handover.ServeWants): the keep set's maps the game server does not store - the
@@ -51,7 +52,7 @@ public sealed partial class SyncRun
         }
         var has = Handover.ServerMaps(Cfg.GameDir);
         var pending = Handover.Pending(Cfg.HandoverDir);
-        var (missing, outdated) = Handover.ServeWants(keep, has, pending, State.Data, Cfg);
+        var (missing, outdated) = Handover.ServeWants(keep, has, pending, State.Data, Cfg, Handover.ServerManifests(Cfg.GameDir));
         var want = missing.Concat(outdated).ToList();
         var newer = new HashSet<string>(outdated);
         rep["missing"] = missing.Count;
@@ -91,7 +92,8 @@ public sealed partial class SyncRun
             var rec = State.Item(wid) ?? [];
             var entry = Handover.AcfEntries(StagingAcf, wid);
             if (entry is not { } e || !Text.Digits(e.Installed.GetValueOrDefault("timeupdated"))
-                || long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture) < Node.Int(rec["updated"]))
+                || !Handover.Holds(long.Parse(e.Installed["timeupdated"], CultureInfo.InvariantCulture), e.Installed.GetValueOrDefault("manifest"),
+                                   Node.Int(rec["updated"]), Handover.WorkshopContent(State.Data, wid)))
                 continue;                                  // no entry in SteamCMD's acf, or an older version: downloaded again below
             var bytes = Files.FolderStats(Path.Combine(Content, wid)).Bytes;
             var (done, words) = HandOverSafe(wid, Node.StrOr(rec["title"]));

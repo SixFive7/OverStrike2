@@ -17,6 +17,8 @@ static class KeyValuesTests
         Check("kv: Installed reads the ids and their timeupdated", KeyValues.Installed(Acf) is var inst && inst.Count == 2 && inst["111"] == 1000 && inst["222"] == 2000);
         Check("kv: Sizes reads the installed sizes", KeyValues.Sizes(Acf) is var sz && sz["111"] == 10 && sz["222"] == 20);
         Check("kv: Sizes of a text that does not parse is empty", KeyValues.Sizes("\"a\" {").Count == 0);
+        Check("kv: Manifests reads the installed manifests, and nothing of a text that does not parse",
+              KeyValues.Manifests(Acf) is var mf && mf.Count == 2 && mf["111"] == "7" && mf["222"] == "8" && KeyValues.Manifests("\"a\" {").Count == 0);
         Check("kv: a block without a key is refused", () => Throws(() => KeyValues.Parse("{ \"a\" \"b\" }")));
         Check("kv: a key without a value is refused", () => Throws(() => KeyValues.Parse("\"a\"")));
         Check("kv: an unbalanced block is refused", () => Throws(() => KeyValues.Parse("\"a\" { \"b\" \"c\" } }")));

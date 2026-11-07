@@ -53,6 +53,30 @@ public static class Handover
             .ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
+    /// <summary>{id: manifest} of the maps in the game server's acf: the content each holds, the Workshop's hcontent_file.</summary>
+    public static Dictionary<string, string> ServerManifests(string gameDir)
+    {
+        try
+        {
+            return KeyValues.Manifests(File.ReadAllText(WorkshopPaths.Acf(WorkshopPaths.OfGame(gameDir))));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Whether an acf entry - the game server's, or SteamCMD's of a download - dated `timeupdated` with content `manifest` holds the
+    /// Workshop's version `updated` (a time_updated) whose content is `content` (its hcontent_file as the check saw it, "" when unknown).
+    /// Steam's acf dates a map by its content, the Workshop by its page, and the two can differ for the very same content: a map published a
+    /// few minutes after its content was uploaded stays dated earlier in the acf than on the Workshop, for good. So the same content is the
+    /// same version, whatever the dates; else the date decides.</summary>
+    public static bool Holds(long timeupdated, string? manifest, long updated, string? content) =>
+        timeupdated >= updated || (!string.IsNullOrEmpty(content) && manifest == content);
+
+    /// <summary>The Workshop's content of a map as the check last saw it (its hcontent_file); "" when unknown.</summary>
+    public static string WorkshopContent(JsonObject state, string wid) => Node.StrOr(Node.Obj(Node.Obj(state["workshop"])[wid])["content"]);
+
     /// <summary>{id: bytes} of the complete hand-overs the game server has not taken in yet (their markers).</summary>
     public static Dictionary<string, long> Pending(string folder)
     {
@@ -75,10 +99,12 @@ public static class Handover
     /// <summary>What serve fetches for the game server, in order: (missing, outdated). missing: the keep set's maps it does not store - the
     /// upvoted maps, each mode's best, the own maps. outdated: the ones it stores in an older version than the one this sync accepted -
     /// state.json's baseline, the version a test passed (or one unchanged since sync.changedSince); for our own maps, listed by hand and never
-    /// tested here, the newest the check saw. Never what waits as a hand-over, an excluded id, a map whose new version waits for its test
-    /// (once it passes, the staging clean-up hands that one over) or one whose last test failed.</summary>
+    /// tested here, the newest the check saw - unless it stores the Workshop's own content of the map (`manifests`, its acf's: Holds), which
+    /// a download would only bring again. Never what waits as a hand-over, an excluded id, a map whose new version waits for its test (once
+    /// it passes, the staging clean-up hands that one over) or one whose last test failed.</summary>
     public static (List<string> Missing, List<string> Outdated) ServeWants(KeepSetResult keep, IReadOnlyDictionary<string, long> has,
-                                                                           IReadOnlyDictionary<string, long> pending, JsonObject state, SyncConfig cfg)
+                                                                           IReadOnlyDictionary<string, long> pending, JsonObject state, SyncConfig cfg,
+                                                                           IReadOnlyDictionary<string, string>? manifests = null)
     {
         var baseline = Node.Obj(state["baseline"]);
         var items = Node.Obj(state["items"]);
@@ -103,7 +129,7 @@ public static class Handover
             var accepted = Node.Int(baseline[wid]);
             if (own.Contains(wid))
                 accepted = Math.Max(accepted, Node.Int(rec["updated"]));
-            if (accepted > stored)
+            if (!Holds(stored, manifests?.GetValueOrDefault(wid), accepted, WorkshopContent(state, wid)))
                 outdated.Add(wid);
         }
         return (missing, outdated);

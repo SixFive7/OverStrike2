@@ -115,6 +115,23 @@ public static partial class KeyValues
         return out_;
     }
 
+    /// <summary>{workshop id: installed manifest} - the content each map holds, which the Workshop calls its hcontent_file; empty when the
+    /// text does not parse.</summary>
+    public static Dictionary<string, string> Manifests(string acfText)
+    {
+        var out_ = new Dictionary<string, string>();
+        try
+        {
+            foreach (var e in Get(Get(Parse(acfText), "AppWorkshop")?.Block, "WorkshopItemsInstalled")?.Block ?? [])
+                if (e.Block != null && Get(e.Block, "manifest")?.Value is { } m && Digits(m))
+                    out_[e.Key] = m;
+        }
+        catch (FormatException)
+        {
+        }
+        return out_;
+    }
+
     /// <summary>(WorkshopItemsInstalled, WorkshopItemDetails) values of one item, or null when the acf has no installed entry for it.</summary>
     public static (Dictionary<string, string> Installed, Dictionary<string, string> Details)? Entries(string acfText, string id)
     {

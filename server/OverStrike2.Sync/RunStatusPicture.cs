@@ -89,7 +89,7 @@ public sealed partial class SyncRun
         var keep = SafeKeepSet(KeepInputs(), Clock.Now(), hud);
         var has = Handover.ServerMaps(Cfg.GameDir);
         var pending = Handover.Pending(Cfg.HandoverDir);
-        var (want, outdated) = Handover.ServeWants(keep, has, pending, State.Data, Cfg);
+        var (want, outdated) = Handover.ServeWants(keep, has, pending, State.Data, Cfg, Handover.ServerManifests(Cfg.GameDir));
         queue["serve"] = new JsonObject
         {
             ["missing"] = want.Count, ["bytes"] = want.Sum(SizeOf), ["outdated"] = outdated.Count, ["outdatedBytes"] = outdated.Sum(SizeOf),

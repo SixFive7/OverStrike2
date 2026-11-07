@@ -277,6 +277,35 @@ static class HandOverTests
         File.WriteAllText(stateFile, savedState);
         foreach (var w in new[] { "110", "900" })
             Unhand(w);
+        // the same content is the same version: Steam's acf dates a map by its content, the Workshop by its page, and a map published a few
+        // minutes after its upload stays dated earlier in the acf, for good. 110 below: the server's acf says 1, its tested version 50, but
+        // the server holds the Workshop's own content (8110) - nothing to fetch, where the dates alone fetched it and handed it over twice a
+        // day, for the server to drop it as not needed
+        Check("serve: Holds - a later or equal date holds a version; an earlier one only with the Workshop's own content",
+              Handover.Holds(50, "1", 50, "2") && Handover.Holds(51, null, 50, "") && Handover.Holds(1, "8110", 50, "8110")
+              && !Handover.Holds(1, "8110", 50, "8111") && !Handover.Holds(1, "8110", 50, "") && !Handover.Holds(1, "", 50, ""));
+        var serverAcf = Path.Combine(gws, "appworkshop_730.acf");
+        var savedAcf = File.ReadAllText(serverAcf);
+        File.WriteAllText(serverAcf, savedAcf.Replace("\t\t\"110\"\n\t\t{\n\t\t\t\"timeupdated\"\t\t\"1\"\n",
+                                                      "\t\t\"110\"\n\t\t{\n\t\t\t\"timeupdated\"\t\t\"1\"\n\t\t\t\"manifest\"\t\t\"8110\"\n"));
+        FakeSteam.Asked = [];
+        var ns10 = W.Run(ncfg2, new FakeClock(KT + 110));
+        ns10.State.Load();
+        ns10.State.Baseline["110"] = 50;
+        ns10.State.Workshop["110"] = O("{\"updated\": 50, \"content\": \"8110\"}");
+        var keep10 = ns10.SafeKeepSet(ns10.KeepInputs(), KT);
+        var same = Handover.ServeWants(keep10, Handover.ServerMaps(sgame), Handover.Pending(hdir), ns10.State.Data, ncfg2, Handover.ServerManifests(sgame)).Outdated;
+        var other = (JsonObject)ns10.State.Data.DeepClone();
+        other["workshop"]!["110"]!["content"] = "8111";
+        var moved = Handover.ServeWants(keep10, Handover.ServerMaps(sgame), Handover.Pending(hdir), other, ncfg2, Handover.ServerManifests(sgame)).Outdated;
+        Check($"serve: a stored map dated in its acf before its tested version, with the Workshop's own content, is not outdated (110); with other content it is ({T.Show(same)}, {T.Show(moved)})",
+              Handover.ServerManifests(sgame).GetValueOrDefault("110") == "8110" && !same.Contains("110") && moved.Contains("110"));
+        ns10.Serve();
+        Check($"serve: ...so it is neither downloaded nor handed over ({T.Show(FakeSteam.Asked)})",
+              !FakeSteam.Asked.Contains("110") && !Handover.Pending(hdir).ContainsKey("110") && Node.Int(ns10.Report["serve"]!["outdated"]) == 0);
+        File.WriteAllText(serverAcf, savedAcf);
+        File.WriteAllText(stateFile, savedState);
+        Unhand("110");                                     // nothing to undo when the check passes; when it fails, the later checks stay as they were
     }
 
     static JsonObject Merged(JsonObject? rec, params (string Key, JsonNode Value)[] fields)
