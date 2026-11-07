@@ -8,10 +8,11 @@ picture reviewed into tools/scan/allow.txt with its hash. Writes the working tre
 
 The history keeps every picture forever, so a retake commits only the pictures that really changed. Each picture is compared with the committed one at
 its path (docshots.same_picture): on what it is about - its window, the big vote window, or its crop - and all but what differs on every shot - the
-clocks, timers, counters and random tiles docshots.volatile_boxes names, JPEG's noise, the game world dimmed behind a translucent panel. Not the game
-world a crop shows around a panel: the board, the top line's messages, the banners and their gallery pictures are cut with a margin of the game
-around them, which differs in every run, so a retake flags them even when the panel is the same - look at each beside the committed one, and keep the
-committed file when only the world changed. A picture that shows the same keeps its committed bytes; only one that differs is written anew. --all writes every picture anew (a change to the HUD's whole look, say). Pictures no page and no message uses
+clocks, timers, counters and random tiles docshots.volatile_boxes names, JPEG's noise, the game world dimmed behind a translucent panel, and the
+game a crop takes in around its panel: the top line's pill, the banners, the board and the reasons dialog are compared on the panel alone
+(docshots.panel_of), and a panel found at another width is a change. Over the game a gallery's where picture, which shows its look's crop
+smaller, goes as its look goes. A picture that shows
+the same keeps its committed bytes; only one that differs is written anew. --all writes every picture anew (a change to the HUD's whole look, say). Pictures no page and no message uses
 any more are removed.
 
 It refuses unless <out>/<res>/reviewed.txt names every picture the run wrote, one file name a line: the review is by eye, for names, ids and addresses, and
@@ -98,23 +99,31 @@ class Pictures:
     def __init__(self, repo, all_anew):
         self.repo, self.all_anew = repo, all_anew
         self.used, self.kept, self.changed, self.new = set(), [], [], []
+        self.last = ""      # what the last put did: kept, changed or new
 
-    def put(self, rel, im, quality, region, volatile=()):
-        """rel: the path under the repository; im: the picture to publish; region and volatile: what a comparison looks at and leaves out, in im's
-        pixels. Returns the path relative to docs/hud/, for a link."""
+    def put(self, rel, im, quality, region, volatile=(), panel=None, follow=None):
+        """rel: the path under the repository; im: the picture to publish; region, volatile and panel (docshots.panel_of): what a comparison looks
+        at and leaves out, in im's pixels. follow: the verdict of the picture this one shows smaller (a gallery's where, its look's: True kept, False
+        written), which decides instead of a comparison at the small size. Returns the path relative to docs/hud/, for a link."""
         path = self.repo / rel
         self.used.add(rel.as_posix())
         if path.exists() and not self.all_anew:
-            from PIL import Image
-            with Image.open(path) as opened:
-                old = opened.convert("RGB")
-            same, why = d.same_picture(im, old, region, volatile)
+            if follow is None:
+                from PIL import Image
+                with Image.open(path) as opened:
+                    old = opened.convert("RGB")
+                same, why = d.same_picture(im, old, region, volatile, panel)
+            else:
+                same, why = follow, "as its look"
             if same:
                 self.kept.append(rel.as_posix())
+                self.last = "kept"
                 return rel.relative_to(DOCS).as_posix()
             self.changed.append(f"{rel.as_posix()} ({why})")
+            self.last = "changed"
         else:
             self.new.append(rel.as_posix())
+            self.last = "new"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(encode(im, quality))
         return rel.relative_to(DOCS).as_posix()
@@ -219,7 +228,7 @@ def main():
             lines += [f"## {r.shows}", ""]
             for f in (got if len(got) <= 2 else [got[0], got[-1]]):      # a page takes a row's first and last frame: the gallery and the owner's review have them all
                 stem = Path(f["file"]).stem
-                link = pics.put(IMG / f"{stem}.jpg", picture(res_dir / f["file"]), 85, d.compare_region(r, w, h), d.volatile_boxes(r, w, h))
+                link = pics.put(IMG / f"{stem}.jpg", picture(res_dir / f["file"]), 85, d.compare_region(r, w, h), d.volatile_boxes(r, w, h), d.panel_of(r, w, h))
                 lines += [f"![{html.escape(r.shows, quote=False)}]({link})", ""]   # Markdown alt text: < > & escaped, quotes as they are
             if r.pick:
                 lines += [f"The message: {by_name[r.pick].name}. Where it goes: {by_name[r.pick].surfaces}", ""]
@@ -248,12 +257,17 @@ def main():
                 stem = Path(f["file"]).stem
                 full = res_dir / f["file"]
                 box = d.place(r.crop, w, h) if r.crop else None
+                follow = None
                 if f.get("crop"):
                     look = picture(res_dir / f["crop"])
-                    link = pics.put(GALLERY_IMG / f"{stem}-look.jpg", look, 85, d.compare_region(r, w, h, crop=True), d.volatile_boxes(r, w, h, crop=True))
+                    link = pics.put(GALLERY_IMG / f"{stem}-look.jpg", look, 85, d.compare_region(r, w, h, crop=True), d.volatile_boxes(r, w, h, crop=True),
+                                    d.panel_of(r, w, h, crop=True))
+                    if d.panel_of(r, w, h):   # over the game the where shows the look's crop, smaller: it goes as its look goes (a window's shows the window)
+                        follow = {"kept": True, "changed": False}.get(pics.last)
                     parts.append(f'<figure><img src="{html.escape(link, quote=True)}" alt="{html.escape(stem, quote=True)}"><figcaption>How it looks: {html.escape(r.shows)}</figcaption></figure>')
                 where = picture(full, WHERE_WIDTH, box)
-                link = pics.put(GALLERY_IMG / f"{stem}-where.jpg", where, 75, scaled(d.compare_region(r, w, h), f_where), [scaled(v, f_where) for v in d.volatile_boxes(r, w, h)])
+                link = pics.put(GALLERY_IMG / f"{stem}-where.jpg", where, 75, scaled(d.compare_region(r, w, h), f_where), [scaled(v, f_where) for v in d.volatile_boxes(r, w, h)],
+                                follow=follow)
                 parts.append(f'<figure><img class="where" src="{html.escape(link, quote=True)}" alt="{html.escape(stem, quote=True)} on the screen"><figcaption>Where: {html.escape(r.shows)}</figcaption></figure>')
                 pictured = True
                 break      # one frame a row is enough for the gallery; the pages have them all

@@ -303,6 +303,8 @@ V_STRIP_NAMES = Box(296, 302, 1040, 336, "v")           # the ballot's strip: a 
 V_RESTART_SECONDS = Box(400, 494, 600, 512)             # SERVER, Game: the restart armed, "PRESS AGAIN WITHIN 25 S" - its seconds, and its words pulse
 V_TOP_EDGE = Box(470, 126, 1450, 140)                   # the top line above the window reaches into its frame: its words follow the match's age ("This match too", "ends in 60 s")
 V_VOTE_PAGER_NEXT = Box(1024, 914, 1096, 956, "v")      # the ballot's pager: Next pulses while more pages follow (.gg-pgb-glow, 1.6 s)
+V_WHY_BAR = Box(740, 632, 1185, 642)                     # the reasons dialog's bar, which drains for its 15 s
+V_BANNER_MAP = Box(800, 184, 1203, 206)                  # the map change banner's map: rolled at random (its picture beside it is left of the banner's panel)
 
 
 # ---------------------------------------------------------------- the steps: what a row does, in order ---------------------------------------------------
@@ -657,7 +659,7 @@ R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", se
   when="about 5 s after the click: the line lasts 8 s")
 R("why-card", "Why the dislike?: the small dialog at the centre", pick="Why the dislike? (the reasons)", today="one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after="page-maps",
   bridge=W_LIKE, steps=[press("gg_m3_down", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m3_up"), pause(NEWS_GONE)],
-  when="about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop=C_WHY)
+  when="about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop=C_WHY, volatile=(V_WHY_BAR,))
 R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section=S_MAPS, after="page-maps", bridge=W_GUARD, steps=[con("say !find jb_moti2"), pause(2), shoot()],
   when="2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", words_from=("bridge/broken.json", '"jb_moti2"'))
 R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick="Play asks first (a broken or crashed map)",
@@ -674,7 +676,7 @@ R("board-liked", "The board with your like on the map that is on", section=S_BOA
   when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
 R("board-why", "Why the dislike? under the TAB cursor", pick="Why the dislike? (the reasons)", today="the same small dialog, under the board's cursor", bridge=W_LIKE,
   steps=[press("gg_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
-  when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
+  when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_WHY_BAR,))
 
 for _id, _b, _w in (("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)")):
     R(_id, f"The board with my mark: {_w}", section=S_BOARD, bridge=W_LIKE, steps=[press(_b), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
@@ -787,7 +789,8 @@ R("top-player-restart", "The countdown banner: a player's restart, naming who", 
   when="about 3.5 s after a fake player's second click, of 10 s: the cleanup's quit notice must reach the bridge before the 10 s are up", crop=C_BAN, win=False, words_from=("bridge/Restarts.cs", "is restarting the server in"))
 R("map-change-banner", "The countdown banner with the map's picture", pick="Map change counting down", today="the countdown 6b, as picked; a vote's change keeps everybody's window over it, so this is the dice's own: three players timing out on a map mark it and roll, called off in time. Marks the map in the candidate's data: once per copy and map (ar_pool_day, then ar_shoots_night on 2026-11-05)", bridge=W_MAP + "; state.json: the map's player-crash mark; " + W_FAKES,
   steps=[*to_mode("armsrace", 1, 0, "ar_shoots_night"), post("fake-off"), post("fake-on", "3"), rb("css_gghud release", expect=r"released:"), pause(3), post("fake-crash"), pause(1.5), shoot()], cleanup=[post("quit-notice"), post("fake-off"), *to_mode("armsrace", 1, 0, START_MAP)],
-  when="about 3.5 s after the third time-out, of 8 s: the cleanup's quit notice must reach the bridge before the 8 s are up: the change would hang the client in CS2's download dialog", crop=C_BAN, win=False, names=TEST_NAME)
+  when="about 3.5 s after the third time-out, of 8 s: the cleanup's quit notice must reach the bridge before the 8 s are up: the change would hang the client in CS2's download dialog", crop=C_BAN, win=False, names=TEST_NAME,
+  volatile=(V_BANNER_MAP,))
 
 # ---- what cannot be shot yet ------------------------------------------------------------------------------------------------------------------------------
 
@@ -1212,14 +1215,93 @@ def volatile_boxes(row, w, h, crop=False):
 
 SAME_LEVEL, SAME_BLOCK = 48, 8    # a pixel differs by more than 48 of 255 in a channel; an 8x8 block counts when 8 of its 64 pixels do
 
+# A crop's panel, for a retake's comparison: a crop over the game takes in a margin of the game around its panel, and the game differs in every run,
+# so a retake compares the panel alone (same_picture's panel). PANEL_CENTRED: a box centred on the screen's middle - the top line's pill, the banners
+# - found in each picture from a point of its flat background: its half-width where that colour ends on both sides (the nearer end, so a dark game
+# beyond one side does not widen it), its top and bottom where the colour ends just inside both its ends; an end is PANEL_GAP pixels off the colour
+# in a row, so a committed JPEG's noise does not end it early. A box of another width in the two pictures is a change; the rows compared are those
+# both pictures' boxes cover (a banner's draining bar, a translucent edge). Where none is found at that point, the whole region decides.
+# PANEL_FIXED: the panel's own rectangle where it never moves (the board, the reasons dialog). Only rows over the game: a window's crop is inside
+# the window, where no game shows.
+PANEL_CENTRED = ((C_TOP, Box(960, 156, 961, 157)), (C_BAN, Box(960, 156, 961, 157)))
+PANEL_FIXED = ((C_BOARD, Box(1462, 241, 1851, 832)), (C_WHY, Box(742, 429, 1178, 648)))   # the board's last 16 px left out: its foot's height moved
+PANEL_TOL, PANEL_INSET, PANEL_COLOUR, PANEL_MIN, PANEL_GAP = 4, 4, 36, 12, 4   # px at 1080: width difference allowed, the edge left out; a colour's spread;
+                                                                                 # the least half-width; the pixels off the colour that end it
 
-def same_picture(new, old, region, volatile=()):
+
+def panel_of(row, w, h, crop=False):
+    """What a picture of this row is compared on inside its region: ("centred", (x, y), tol, inset) or ("fixed", box, tol, inset) in the picture's
+    pixels (a crop file's from the crop's corner), or None: the whole region."""
+    if row.crop is None or row.win:
+        return None
+    ox, oy = place(row.crop, w, h)[:2] if crop else (0, 0)
+    s = h / 1080
+    tol, inset = max(1, round(PANEL_TOL * s)), max(1, round(PANEL_INSET * s))
+    for c, probe in PANEL_CENTRED:
+        if row.crop == c:
+            x, y = place(probe, w, h)[:2]
+            return ("centred", (x - ox, y - oy), tol, inset)
+    for c, box in PANEL_FIXED:
+        if row.crop == c:
+            b = place(box, w, h)
+            return ("fixed", (b[0] - ox, b[1] - oy, b[2] - ox, b[3] - oy), tol, inset)
+    return None
+
+
+def find_panel(im, panel):
+    """The panel's rectangle in a picture, or None when its point is not on a flat box: see PANEL_CENTRED."""
+    kind, geo, tol, inset = panel
+    if kind == "fixed":
+        return geo
+    pix = im.convert("RGB").load()
+    w, h = im.size
+    px, py = geo
+    if not (0 <= px < w and 0 <= py < h):
+        return None
+    c = pix[px, py]
+    same = lambda v: max(abs(v[0] - c[0]), abs(v[1] - c[1]), abs(v[2] - c[2])) <= PANEL_COLOUR
+
+    def reach(x, y, dx, dy):
+        """The last pixel of the colour from (x, y) on, stepping (dx, dy), before PANEL_GAP pixels in a row are off it."""
+        last, off = (x, y), 0
+        while 0 <= x + dx < w and 0 <= y + dy < h and off < PANEL_GAP:
+            x, y = x + dx, y + dy
+            if same(pix[x, y]):
+                last, off = (x, y), 0
+            else:
+                off += 1
+        return last
+    left, right = reach(px, py, -1, 0)[0], reach(px, py, 1, 0)[0]
+    half = min(px - left, right - px)
+    if half < PANEL_MIN:
+        return None
+    x0, x1 = px - half, px + half + 1
+    tops, bottoms = [], []
+    for xv in (x0 + inset, x1 - 1 - inset):
+        tops.append(reach(xv, py, 0, -1)[1])
+        bottoms.append(reach(xv, py, 0, 1)[1])
+    return (x0, max(tops), x1, min(bottoms) + 1)
+
+
+def same_picture(new, old, region, volatile=(), panel=None):
     """Whether two pictures show the same within region, all but the volatile boxes: (True, words) or (False, where they differ). JPEG's noise and a
-    translucent panel over a game world that differs behind it stay under SAME_LEVEL; a changed word, style or layout moves whole blocks. The game world
-    a crop shows around a panel, at full strength, does not: a region that takes in a margin of the game is flagged in every retake."""
+    translucent panel over a game world that differs behind it stay under SAME_LEVEL; a changed word, style or layout moves whole blocks. The game a
+    crop shows around its panel, at full strength, does not: with a panel (panel_of) only the panel is compared, when both pictures have it at one
+    place and size, else the whole region."""
     from PIL import Image, ImageChops, ImageDraw
     if new.size != old.size:
         return False, f"size {new.size[0]}x{new.size[1]}, committed {old.size[0]}x{old.size[1]}"
+    inside = ""
+    if panel:
+        ra, rb = find_panel(new, panel), find_panel(old, panel)
+        if ra and rb:
+            if abs(ra[0] - rb[0]) > panel[2] or abs(ra[2] - rb[2]) > panel[2]:
+                return False, f"the panel's width: {ra[0]} - {ra[2]}, committed {rb[0]} - {rb[2]}"
+            ins = panel[3]
+            r = (max(region[0], ra[0] + ins, rb[0] + ins), max(region[1], ra[1] + ins, rb[1] + ins),
+                 min(region[2], ra[2] - ins, rb[2] - ins), min(region[3], ra[3] - ins, rb[3] - ins))
+            if r[2] > r[0] and r[3] > r[1]:
+                region, inside = r, " inside its panel"
     diff = ImageChops.difference(new.convert("RGB"), old.convert("RGB")).crop(region)
     level = diff.split()
     mask = ImageChops.lighter(ImageChops.lighter(level[0], level[1]), level[2]).point(lambda v: 255 if v > SAME_LEVEL else 0)
@@ -1231,8 +1313,8 @@ def same_picture(new, old, region, volatile=()):
     blocks = mask.resize((max(1, w // SAME_BLOCK), max(1, h // SAME_BLOCK)), Image.BOX)   # each block's share of differing pixels, 0-255
     hot = blocks.point(lambda v: 255 if v * 64 >= SAME_BLOCK * 255 else 0).getbbox()
     if hot is None:
-        return True, "the same, all but what differs on every shot"
-    return False, f"differs at {region[0] + hot[0] * SAME_BLOCK},{region[1] + hot[1] * SAME_BLOCK} - {region[0] + hot[2] * SAME_BLOCK},{region[1] + hot[3] * SAME_BLOCK}"
+        return True, f"the same{inside}, all but what differs on every shot"
+    return False, f"differs{inside} at {region[0] + hot[0] * SAME_BLOCK},{region[1] + hot[1] * SAME_BLOCK} - {region[0] + hot[2] * SAME_BLOCK},{region[1] + hot[3] * SAME_BLOCK}"
 
 
 def kept_masks(row):
@@ -2359,6 +2441,32 @@ def _selfcheck(info):
           and not same_picture(painted(look_again, (20, 20, 80, 32)), look, compare_region(crop_row, w, h, crop=True), volatile_boxes(crop_row, w, h, crop=True))[0],
           "same_picture: a crop compared whole")
 
+    # a crop over the game: the top line's pill on two different games - its panel alone compared, its width a change, no pill the whole region
+    from PIL import ImageDraw
+    top_row = rows["top-plain"]
+    other_game = Image.effect_noise((w, h), 30).convert("RGB")
+
+    def pill(base, half=230, word=None):
+        im = base.copy()
+        dr = ImageDraw.Draw(im)
+        dr.rectangle((960 - half, 150, 960 + half, 186), fill=(37, 43, 45))
+        dr.rectangle((960 - half + 8, 158, 960 - half + 70, 178), fill=(233, 182, 79))   # its tag
+        dr.rectangle((960 - half + 90, 165, 960 + half - 40, 172), fill=(235, 235, 235))  # its words
+        if word:
+            dr.rectangle(word, fill=(37, 43, 45))
+        return im
+    tp, tr, tv = panel_of(top_row, w, h), compare_region(top_row, w, h), volatile_boxes(top_row, w, h)
+    check(not same_picture(pill(other_game), pill(shot), tr, tv)[0], "same_picture: the game around a pill, without its panel, counts as a change (the old rule)")
+    check(same_picture(pill(other_game), pill(shot), tr, tv, tp)[0], "same_picture: the same pill over another game counts as changed")
+    check(not same_picture(pill(other_game, word=(1000, 165, 1040, 172)), pill(shot), tr, tv, tp)[0], "same_picture: a changed word in the pill counts as the same")
+    check(not same_picture(pill(other_game, half=260), pill(shot), tr, tv, tp)[0], "same_picture: a wider pill counts as the same")
+    check(not same_picture(other_game, pill(shot), tr, tv, tp)[0], "same_picture: a pill gone counts as the same")
+    cb = place(top_row.crop, w, h)
+    check(same_picture(pill(other_game).crop(cb), pill(shot).crop(cb), compare_region(top_row, w, h, crop=True), volatile_boxes(top_row, w, h, crop=True),
+                       panel_of(top_row, w, h, crop=True))[0], "same_picture: a crop file's pill over another game counts as changed")
+    check(panel_of(rows["page-help"], w, h) is None and panel_of(rows["chat-unknown"], w, h) is None and panel_of(rows["why-card"], w, h) is None,
+          "panel_of: a window's crop, a chat crop or a frame without a crop gets a panel")
+
     # the --only chain: a row's ancestors run first, as setup, and take no picture
     plan, _ = build_plan(["vote-kept"], True)
     check([e.row.id for e in plan] == ["vote-open", "vote-limit", "vote-my-vote", "vote-inactivity", "vote-kept"], f"--only vote-kept plans {[e.row.id for e in plan]}")
@@ -2476,7 +2584,7 @@ def _selfcheck(info):
     print(f"  --dry-run at {len(RESOLUTIONS)} resolutions, with and without --bridge-copy: only the verbs {ALL_VERBS} and, with the copy, bridgepost.py's, every shot -MaxWidth 0, no real name; estimated minutes with the copy: "
           + ", ".join(f"{k} {v}" for k, v in estimates.items()))
     print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only")
-    print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter or the world dimmed behind a panel; changed by a word anywhere else")
+    print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else")
     print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb")
     print("  NOT checked, and not checkable offline: anything against a real client or server")
     return 0

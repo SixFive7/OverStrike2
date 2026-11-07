@@ -111,6 +111,29 @@ check(code == 0 and "docs/hud/img/vote-open.jpg" not in h4 and "vote-open.jpg" n
 code, out = run({rid: frame(i) for i, rid in enumerate(picked)}, ["--all"])
 check(code == 0 and "0 kept as committed" in out, "--all writes every picture anew")
 
+# a message over the game: the top line's pill, retaken over another game - its look and where kept; a changed word in it - both written anew
+def pill_frame(world, word=None):
+    im = world.copy()
+    dr = ImageDraw.Draw(im)
+    dr.rectangle((730, 150, 1190, 186), fill=(37, 43, 45))
+    dr.rectangle((738, 158, 800, 178), fill=(233, 182, 79))
+    dr.rectangle((820, 165, 1150, 172), fill=(235, 235, 235))
+    if word:
+        dr.rectangle(word, fill=(37, 43, 45))
+    return im
+
+
+game_a, game_b = Image.effect_noise((W, H), 25).convert("RGB"), Image.effect_noise((W, H), 25).convert("RGB")
+code, out = run({"top-plain": pill_frame(game_a)})
+t1 = hashes()
+code, out = run({"top-plain": pill_frame(game_b)})
+t2 = hashes()
+look, where = "docs/hud/img/gallery/top-plain-look.jpg", "docs/hud/img/gallery/top-plain-where.jpg"
+check(code == 0 and look in t1 and t2[look] == t1[look] and t2[where] == t1[where], "a pill retaken over another game: its look and where keep their committed bytes")
+code, out = run({"top-plain": pill_frame(game_b, word=(1000, 165, 1040, 172))})
+t3 = hashes()
+check(code == 0 and t3[look] != t1[look] and t3[where] != t1[where], "a changed word in the pill: its look and its where written anew")
+
 shutil.rmtree(tmp)
 print("failures:", fails)
 sys.exit(1 if fails else 0)
