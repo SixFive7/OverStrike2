@@ -17,7 +17,7 @@ THE DEPLOYMENT comes from the private config (../probe/probe.py, deploy/os2.py):
 adds names that must never reach a picture, a command or the log. Without a private config the offline modes use a made-up deployment; a real run refuses.
 
 BEFORE A REAL RUN (not done here; ../README.md, "The documentation's screenshots"): the server lock (probe.py lock), the insecure test copy (testcopy.py prep,
-then for --bridge-copy bridge-prep and bridge-run <tag> --keep-flag, then run), the addon lists emptied, the HUD built from the commit under test, and a client
+then for --bridge-copy bridge-prep and bridge-run <tag> --keep-flag, then run), the addon lists emptied with a map load (../README.md, step 4), the HUD built from the commit under test, and a client
 per resolution, which the run refuses without:
 
     pwsh -NoProfile -File tools/client/cs2client.ps1 start -Connect default -HudLocal -IncludeThumbs -AllowServerLock -Console -Resolution <WxH> -MaxMinutes 120 -Purpose "docshots <WxH>"
@@ -26,10 +26,11 @@ The run refuses to start unless the server lock exists and starts with the harne
 client is on, and the map is the start map. Rows that write the bridge's data (a vote, a like) or need its word run only with --bridge-copy, which says that a
 candidate bridge on a copy of its data is up (testcopy.py bridge-run): the run holds that to the facts with bridgepost.py check before its first verb.
 
-TIMING (the earlier runs' logs): the rows were tuned to an RCON call whose command ran about 2.5 s after the call was launched and which returned about
-8 s after that; the real run keeps that pace (RCON_DELAY), though the harness's rcon verb is faster now. A shot takes about 2.5 s, its frame about 1.7 s
-after its launch. So a message of a few seconds goes out in the background (rb, press(bg=True), note) with its shots behind it, and no second RCON call
-starts before the first has returned: nobody has measured two at once.
+TIMING: the harness's rcon verb runs its command about 1.4 s after its launch and returns at about 1.7 s; a shot takes 1-3 s, its frame about
+1.7 s after its launch. A waited RCON call (rc, show, press, click) is followed at once by the next step; a message of a few seconds goes out in the
+background (rb, press(bg=True), note) with its shots behind it, and no second RCON call starts before the first has returned: nobody has measured two at
+once. A picture that depends on how long ago something happened, not on the call just before it, waits for that moment itself (until): the HUD check's
+warning from the join, the vote's clocks and words from its opening or its close, a card or a line gone from a spawn or from the rows before.
 
 NAMES: the pictures are public, so test names only. Best of all the client plays under the test name: GgDocName (this folder), a throwaway plugin on the test copy
 only, makes the server call it Alice, and --renamed says so (the run checks it with ggd_name): then no mask is needed for a name, only the avatar is blurred (and CS2's
@@ -108,16 +109,14 @@ READY, NEEDS, NOT = "ready", "needs-message-system", "not-triggerable"
 STATUSES = (READY, NEEDS, NOT)
 INGAME = "CSGO_GAME_UI_STATE_LOADINGSCREEN -> CSGO_GAME_UI_STATE_INGAME"
 
-# what the estimate counts (seconds), as the earlier runs' logs have it
-T_RCON, T_SHOT, T_CON, T_LOG, T_WAIT_LOG = 10.5, 2.5, 1.7, 2.0, 40.0
-# The rows' waits were tuned to an RCON call whose command ran about 2.5 s after its launch and which returned after about 10.5 s. The harness's
-# rcon verb (RCON inside the game container) runs its command about 1.4 s after the launch and returns in under 2 s, so the real run keeps the
-# tuned pace: each RCON call starts RCON_DELAY late, and a waited one returns no sooner than T_RCON after its step began. Retune the rows and
-# drop these two together, never one alone: a vote's rows, the HUD check's warning and the short messages' shots are timed against them.
-RCON_DELAY = 1.1
+# what the estimate counts (seconds), as the harness's verbs take them: rcon (RCON inside the game container) 1.7 s, its command about T_CMD after
+# the launch (measured 2026-11-06); a shot 2.5 s, its frame T_FRAME after the launch
+T_RCON, T_SHOT, T_CON, T_LOG, T_WAIT_LOG = 1.7, 2.5, 1.7, 2.0, 40.0
+T_CMD, T_FRAME = 1.4, 1.7
 T_POST = 2.0       # a bridgepost.py call: not timed yet, a guess; a vote is two execs
 VOTE_GAP = 125     # MapVote.WaitSeconds, 120, and a little
 NEWS_GONE = 9      # Notices.NewsSeconds, 8, and a little: the line that says a notice was taken back
+CHAT_GONE = 20     # CS2's chat box fades 16-19 s after its last line, older lines with it (measured 2026-11-07): a chat row waits out the rows before it
 
 
 # ---------------------------------------------------------------- geometry: boxes at 1080p, placed by the height ----------------------------------------
@@ -286,11 +285,20 @@ VOTE_WINDOW = Box(80, 80, 1840, 1000, "v")             # the big vote window
 V_MAPCOUNT = Box(548, 179, 770, 199)                    # the window's header: "3751 WORKSHOP MAPS", a count the sync moves
 V_IDLE = Box(1248, 914, 1558, 942)                      # the window's foot: "CLOSES WHEN IDLE" and its draining bar
 V_VOTE_MAPCOUNT = Box(296, 130, 470, 147, "v")          # the big window's header count
-V_VOTE_SUBTAB = Box(112, 216, 312, 237, "v")            # "VOTE - 51 S", the vote's seconds on its sub-tab, and BROWSE beside it, which moves as the seconds' words narrow
+V_VOTE_SUBTAB = Box(112, 214, 322, 242, "v")            # "VOTE - 51 S", the vote's seconds on its sub-tab, and BROWSE beside it, which moves as the seconds' words narrow
 V_VOTE_TILES = Box(110, 352, 1810, 918, "v")            # the ballot's tiles: rolled at random for every vote - their maps, pictures, names, votes
 V_ONFOR = Box(1470, 362, 1558, 382)                     # SERVER, Players: the first row's ON FOR, a timer
 V_HUD_COLUMN = Box(748, 362, 1110, 382)                 # SERVER, Players: the first row's HUD column, where the check counts its seconds
 V_SYNC_BODY = Box(362, 298, 1558, 908)                  # SERVER, Sync: the sync's own live status, queue and history - every word a value of the moment
+V_BOARD_MAPCOUNT = Box(1476, 654, 1560, 671)            # the board's foot: "3731 maps", the count the sync moves (V_MAPCOUNT's on the board)
+V_BOARD_WAIT = (Box(1596, 488, 1646, 504), Box(1603, 551, 1652, 567))   # board-wait: the seconds of "The next one can start in 59 s" and of the vote's line
+V_LINE_WAIT = Box(590, 876, 625, 898)                   # vote-cannot-call: the seconds of "You can call a vote again in 1 min 35 s"
+V_BROWSER_HEAD = Box(1176, 352, 1560, 390)              # the map browser's Previous: <the map before> and its "8129 maps": the history and the count the sync moves
+V_START_WAIT = Box(1312, 506, 1500, 528)                # START's live column in the wait after a vote: "The next one can start in 1 min 16 s"
+V_STRIP_NAMES = Box(296, 302, 1040, 336, "v")           # the ballot's strip: a segment per card with votes, named after the card's map - rolled at random
+V_RESTART_SECONDS = Box(400, 494, 600, 512)             # SERVER, Game: the restart armed, "PRESS AGAIN WITHIN 25 S" - its seconds, and its words pulse
+V_TOP_EDGE = Box(470, 126, 1450, 140)                   # the top line above the window reaches into its frame: its words follow the match's age ("This match too", "ends in 60 s")
+V_VOTE_PAGER_NEXT = Box(1024, 914, 1096, 956, "v")      # the ballot's pager: Next pulses while more pages follow (.gg-pgb-glow, 1.6 s)
 
 
 # ---------------------------------------------------------------- the steps: what a row does, in order ---------------------------------------------------
@@ -309,7 +317,7 @@ class Step:
 
 
 def rc(cmd, expect=""):
-    """An RCON command, waited for (about 10.5 s)."""
+    """An RCON command, waited for (about 1.7 s); the next step follows at once."""
     return Step("rcon", cmd, expect=expect)
 
 
@@ -364,6 +372,27 @@ def vote_gap():
 
 def vote_closed():
     return Step("vote_closed")
+
+
+def vote_opened():
+    """Right after the step that opens a vote: from here the vote's clocks count (until("vote", ...))."""
+    return Step("vote_opened")
+
+
+ANCHORS = {"join": "the client's last jointeam returned", "vote": "the vote opened (vote_opened)", "closed": "the last vote closed (vote_closed)",
+           "press": "the last marked press (pressed)"}
+
+
+def pressed():
+    """Right after a press whose effect comes later or lasts a while (a card's vote and its inactivity timer, a dislike and its 15 s dialog)."""
+    return Step("pressed")
+
+
+def until(anchor, seconds):
+    """Sleep until `seconds` after the anchor (ANCHORS), at once if that has passed: for a picture that depends on how long ago it happened, not
+    on how fast the calls before it were."""
+    assert anchor in ANCHORS, anchor
+    return Step("until", anchor, seconds=seconds)
 
 
 def guard(max_age):
@@ -463,7 +492,8 @@ R("players-check", "SERVER > Players while the check waits: HUD check: N s left 
   volatile=(V_ONFOR, V_HUD_COLUMN))
 R("check-warning", "The warning before the disconnect, in CS2's alert box; under HUD_CHECK warn its words say to close the window", pick="HUD check: the disconnect warning",
   today="CS2's alert text 10b, 15 s, and its chat lines (the words of enforce take HUD_CHECK=enforce, which no verb sets)",
-  after="players-check", steps=[RELEASE, pause(50), shoot(n=2)], when="about 80 s after the first spawn, 5 s into the 15 s; the window closed by css_gghud release, which is no click, since it hides the box",
+  after="players-check", steps=[RELEASE, until("join", 78), shoot(n=2)],
+  when="from about 80 s after the team is joined, the first spawn a second after it: the warning comes 15 s before the check's 90 s (HudCheck.GraceSeconds, WarnSeconds), so 4-7 s into it; the window closed by css_gghud release, which is no click, since it hides the box",
   crop=C_ALERT, win=False, words_from=("bridge/HudCheck.cs", "HUD check: No click yet"))
 R("joined-hud-version", "CS2's plain centre text: who joined with which HUD", pick='"Erik joined with HUD v4_6_0"', today="CS2's plain centre text 9a, 8 s, held by sending it again, with its chat and board copies",
   stand_in=True, words_from=("bridge/Program.cs", "joined with"), after="check-warning", steps=[rb(f'css_gghud centre 3 8 "Erik joined with HUD {CONTENT}"', expect=r"sent again"), pause(3.5), shoot(n=2)], cleanup=[content(LEVEL)],
@@ -503,37 +533,42 @@ R("hud-newer", "The status banner: your HUD is newer than the server's", pick="Y
 # ---- the welcome window, in both forms --------------------------------------------------------------------------------------------------------------------
 
 R("join-tagline", "The welcome window at a return: the tagline's line at the foot of its page, for 3 s", pick="Join tagline", today="a line on the window's page, as picked, and a chat copy; the same words are the page's large text",
-  steps=[RELEASE, rb(f"css_guide {ACCOUNT} back", expect=r"guide: showing"), pause(2.4), shoot()], when="about 4 s after the send: the window opens 1.5 s after the command, the line ends 3 s after it",
+  steps=[RELEASE, rb(f"css_guide {ACCOUNT} back", expect=r"guide: showing"), pause(4.5), shoot()],
+  when="about 6 s after the send: the window opens about 2.5 s after the command (HudSlots.SpawnDelaySeconds 1.5, then the HUD's next frame; 4-4.5 s after the verb's launch, measured 2026-11-07)",
   crop=C_LINE, masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
 R("welcome-back", "The welcome window at a return: Welcome back, the map that is on, its likes, the hint", pick="Welcome-back card", today="the window's page, the wback panel, as picked",
   after="join-tagline", steps=[pause(0.5), shoot()], cleanup=[RELEASE], when="the next frame, about 7 s after the send: it stands until the X", masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
 R("welcome-first", "The welcome window at a first login: until its X", pick="Welcome window, at every login", today="7a, as picked: every login, until its X",
-  steps=[rc(f"css_guide {ACCOUNT} first", expect=r"guide: showing"), pause(1), shoot()], cleanup=[RELEASE], when="1 s after the call returns: the window opens 1.5 s after the command", masks=(M_GREET,), names=GREETING + UNSEEN)
+  steps=[rc(f"css_guide {ACCOUNT} first", expect=r"guide: showing"), pause(3.5), shoot()], cleanup=[RELEASE],
+  when="3.5 s after the call returns: the window opens about 2.5 s after the command (join-tagline)", masks=(M_GREET,), names=GREETING + UNSEEN)
 
 # ---- chat -----------------------------------------------------------------------------------------------------------------------------------------------
 
 _CHAT = real("the player's own typed line above the reply (its team colour): blurred")
 R("chat-unknown", "Chat: an unknown command", pick="Command replies: unknown command, an alias taught, !help's list", today="a private chat line, as picked",
-  steps=[con("say !foo"), pause(1), shoot()], when="about 1 s after the line", crop=C_CHAT, chat=True, win=False, masks=(chat_above(1),), names=_CHAT, words_from=("bridge/ChatCommands.cs", "Unknown command"))
+  steps=[pause(CHAT_GONE), con("say !foo"), pause(1), shoot()], when="about 1 s after the line", crop=C_CHAT, chat=True, win=False, masks=(chat_above(1),), names=_CHAT, words_from=("bridge/ChatCommands.cs", "Unknown command"))
 R("chat-alias-help", "Chat: an alias taught, !help's list, and the Help page it opens", pick="Command replies: unknown command, an alias taught, !help's list",
   today="private chat lines beside the window, which covers chat from x 340", steps=[con("say !commands"), pause(1.5), shoot()], cleanup=[RELEASE],
   when="about 1.5 s after the line: the teach line and five lines of the list", crop=C_CHAT, chat=True, masks=(chat_above(6),), names=_CHAT, words_from=("bridge/ChatCommands.cs", "You typed"))
 R("chat-refused", "Chat: a refusal with its reason", pick="The answer to your own click: refused, click again, already set", today="a private chat line, as picked",
-  steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), con("say !jump high"), pause(1), shoot()], cleanup=[RESET_FUN], when="about 1 s after the line", crop=C_CHAT, chat=True, win=False,
+  steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), pause(CHAT_GONE), con("say !jump high"), pause(1), shoot()], cleanup=[RESET_FUN],
+  when="about 1 s after the line, the lines of !commands gone first", crop=C_CHAT, chat=True, win=False,
   masks=(chat_above(1),), names=_CHAT, words_from=("bridge/Fun.cs", "together they throw players out of most maps"))
 
 # ---- the window's pages, each by its tab through the real click path: a press on a closed window does nothing and still says pressed, so each opens it first ----
 
 R("page-start", "START: the logo and the large text, the steps, the live column, the gold Start a vote", section=S_WINDOW, steps=[show("start"), press("gg_tab_start"), pause(1), shoot()], when="1 s after the click returns", masks=(M_GREET,), names=GREETING + UNSEEN)
 R("top-over-window", "The top line above the open window: one line, 84 px from the top", section=S_WINDOW, after="page-start", stand_in=True,
-  steps=[note(10, "Bob set the match length to 10 minutes - From the next match"), pause(2.5), shoot()], when="about 4 s after the send", crop=C_TOP_WIN, masks=(M_GREET,), names=GREETING + UNSEEN, avatar=AVATAR_OVER_NEWS,
+  steps=[note(10, "Bob set the match length to 10 minutes - From the next match"), pause(2.5), shoot()], cleanup=[pause(6)],
+  when="about 4 s after the send; the cleanup waits out the note's 10 s, which the next page's frame would show above its window", crop=C_TOP_WIN, masks=(M_GREET,), names=GREETING + UNSEEN, avatar=AVATAR_OVER_NEWS,
   words_from=("bridge/Program.cs", "set the match length to"))
 R("page-fun", "FUN: every setting at its default, the note, Random and Default", section=S_WINDOW, steps=[show("start"), press("gg_tab_fun"), pause(1), shoot()], when="1 s after the click returns")
 R("fun-set-by", "FUN: Gravity Moon, its row marked: Moon - set by Bob", pick='"set by <name>" on settings that are not default', today="a line on the Fun page's row, as picked; no chat or board copy yet",
   after="page-fun", steps=[rc('gg_fun gravity moon "Bob"', expect=r"fun: "), show("fun"), pause(1), shoot()], when="1 s after the show returns", names=TEST_NAME + ": gg_fun's who")
 R("fun-refused", "FUN: Super jump High clicked just as Moon gravity greys it: the bubble at the button says why", pick="The answer to your own click: refused, click again, already set",
   today="the bubble at the button (FunClicks), as the owner's note asks; only a click within 2 s of the grey gets one, later ones nothing: the grey has said it", after="fun-set-by",
-  steps=[rc('gg_fun gravity normal "Bob"', expect=r"fun: "), rb(f'gg_fun gravity moon "Bob"; css_gghud press {ACCOUNT} gg_f2_2', expect=r"fun: "), pause(3.5), shoot()], when="about 5 s after the send, one line for both so the click comes within the 2 s: the bubble stands 8 s",
+  steps=[pause(4), rc('gg_fun gravity normal "Bob"', expect=r"fun: "), rb(f'gg_fun gravity moon "Bob"; css_gghud press {ACCOUNT} gg_f2_2', expect=r"fun: "), pause(3.5), shoot()],
+  when="about 5 s after the send, one line for both so the click comes within the 2 s: the bubble stands 8 s. The 4 s first: the chat box has faded since top-over-window's line, so fun-already's chat holds this row's lines alone",
   names=TEST_NAME + ": gg_fun's who", words_from=("bridge/Fun.cs", "together they throw players out of most maps"))
 R("fun-refused-tip", "FUN: a greyed choice, and a refused click answered at its button", section=S_WINDOW, today="the layout's gg-ftip with the page's bubble words, .off and .refused", after="fun-refused", steps=[shoot()], when="the next frame, inside the bubble's 8 s", names=TEST_NAME + ": gg_fun's who")
 R("fun-already", "Chat: a setting typed that is on already: the reply says so", pick="The answer to your own click: refused, click again, already set", today="a private chat line; a click on a lit choice says nothing on this content: its look says it",
@@ -562,11 +597,12 @@ R("players-older", "SERVER > Players: an older HUD: older - restart CS2 (css_ggh
 R("page-game", "SERVER > Game: the match length, the two restarts", section=S_WINDOW, steps=[show("players"), press("gg_tab_game"), pause(1), shoot()], when="1 s after the click returns",
   crop=C_SETROW, masks=(BLUR_SETBY,), names=real("a bridge state that carries a set-by: that place is blurred"))
 R("game-restart-armed", "SERVER > Game: the restart after its first click, Press again; the line says click again", pick="The answer to your own click: refused, click again, already set",
-  today="a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps=[pause(31), show("game"), press("gg_set_restart", bg=True), pause(3.5), shoot()],
-  when="about 5 s after the one click. The 31 s first: a click within 30 s of an earlier one would be the second", crop=C_LINE, words_from=("bridge/Restarts.cs", "A restart kicks everyone"))
+  today="a line on the window's page, as picked, and the button's own words; NEVER a second click: it quits the server", steps=[pause(31), show("game"), press("gg_set_restart", bg=True), pressed(), pause(3.5), shoot()],
+  when="about 5 s after the one click. The 31 s first: a click within 30 s of an earlier one would be the second", crop=C_LINE, words_from=("bridge/Restarts.cs", "A restart kicks everyone"), volatile=(V_RESTART_SECONDS,))
 R("game-time-10", "SERVER > Game: Matches last 10 minutes - Set by, the lit button", section=S_WINDOW, bridge=W_TIME,
-  steps=[show("game"), post("act", "0", "time10"), pause(2), shoot()], cleanup=[post("act", "0", "time60"), pause(NEWS_GONE), post("fake-off"), RELEASE], when="about 4 s after a fake player's click, so the page and the top line name a test name; the cleanup waits out the line that puts it back", crop=C_SETROW, names=TEST_NAME,
-  avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudBrowser.cs", "Matches last"))
+  steps=[show("game"), post("act", "0", "time10"), pause(2), shoot()], cleanup=[post("act", "0", "time60"), pause(NEWS_GONE), post("fake-off"), RELEASE, until("press", 33)],
+  when="about 4 s after a fake player's click, so the page and the top line name a test name; the cleanup waits out the line that puts it back, and the restart's armed line (30 s), which the next page's foot would show", crop=C_SETROW, names=TEST_NAME,
+  avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudBrowser.cs", "Matches last"), volatile=(V_RESTART_SECONDS, V_TOP_EDGE))
 R("page-sync", "SERVER > Sync: what the map sync does, its queue, its history", section=S_WINDOW, steps=[show("sync"), pause(1), shoot()], when="1 s after the show returns. Live numbers and Workshop map names; no player name in the block (bridge/SyncDash.cs)",
   volatile=(V_SYNC_BODY,))
 for _id, _b, _w in (("sync-queue-next", "gg_osdq_next", "the queue's next page"), ("sync-history-next", "gg_osdr_next", "the history's next page"), ("sync-maps-next", "gg_osdm_next", "the map events' next page"),
@@ -611,7 +647,8 @@ R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: A
 R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section=S_MAPS, after="page-maps", bridge=W_LIKE, steps=[press("gg_m2_up", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m2_down")],
   when="about 5 s after the click: the line lasts 8 s")
 R("why-card", "Why the dislike?: the small dialog at the centre", pick="Why the dislike? (the reasons)", today="one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after="page-maps",
-  bridge=W_LIKE, steps=[press("gg_m3_down", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m3_up")], when="about 5 s after the click: it stands 15 s", crop=C_WHY)
+  bridge=W_LIKE, steps=[press("gg_m3_down", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m3_up"), pause(NEWS_GONE)],
+  when="about 5 s after the click: it stands 15 s. The cleanup waits out the line its click leaves on the window's foot (8 s)", crop=C_WHY)
 R("maps-risky-card", "MAPS > Browse: a risky map's card: the red strip with its record, Vote anyway?", section=S_MAPS, after="page-maps", bridge=W_GUARD, steps=[con("say !find jb_moti2"), pause(2), shoot()],
   when="2 s after the line (a map on the committed broken.json, 3 of 3 test loads)", words_from=("bridge/broken.json", '"jb_moti2"'))
 R("play-asks-first", "Play on a risky map, the first click: Click again, the padlock, and the line says why. NEVER a second click: it would put the map to the vote", pick="Play asks first (a broken or crashed map)",
@@ -623,15 +660,16 @@ R("play-asks-first", "Play on a risky map, the first click: Click again, the pad
 _BOARD = real("CS2's own scoreboard beside it, the name and the avatar: its rows are blurred; Lately is filled with test names first, because real lines stay on it")
 _LATELY = [note(10, "Bob set the match length to 10 minutes - From the next match", bg=False), note(10, "Cara set the match length to 60 minutes - From the next match", bg=False), note(10, "Erik set the match length to 10 minutes - From the next match", bg=False)]
 R("board-default", "The board beside the scoreboard: your like, Start a vote, the vote line, the full menu, Lately", section=S_BOARD, steps=[RELEASE, *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
-  when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
+  when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
 R("board-liked", "The board with your like on the map that is on", section=S_BOARD, bridge=W_LIKE, steps=[press("gg_b_vup"), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vdown")],
-  when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
-R("board-why", "Why the dislike? under the TAB cursor", pick="Why the dislike? (the reasons)", today="the same small dialog, under the board's cursor", bridge=W_LIKE, steps=[press("gg_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()],
-  cleanup=[con("-showscores", 1500), press("gg_b_vup")], when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
+  when="2 s after +showscores", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
+R("board-why", "Why the dislike? under the TAB cursor", pick="Why the dislike? (the reasons)", today="the same small dialog, under the board's cursor", bridge=W_LIKE,
+  steps=[press("gg_b_vdown", bg=True), con("+showscores", 1000), pause(1), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
+  when="about 4.5 s after the click: it stands 15 s", crop=C_WHY, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
 
 for _id, _b, _w in (("board-big", "gg_why_2", "You marked this map too big (the dislike's reason)"), ("board-ads", "gg_why_3", "You marked this map: ads (the dislike's reason)")):
     R(_id, f"The board with my mark: {_w}", section=S_BOARD, bridge=W_LIKE, steps=[press(_b), *_LATELY, con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500), press("gg_b_vup")],
-      when="2 s after +showscores; the opposite vote takes the mark back", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
+      when="2 s after +showscores; the opposite vote takes the mark back", crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT,))
 
 # ---- the vote. Solo first (nobody but the client present, so everybody has voted once it does), the fake's last: HUDtest stays present in the bridge's memory --
 
@@ -640,24 +678,27 @@ _V1_VOTED = (BLUR_NEWS_WIN, M_VSTART, M_VRESET, BLUR_TILE1_NAMES)   # the strip 
 _V1_NAMES = real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + UNSEEN
 _V1_NAMES_VOTED = real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + UNSEEN
 R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick="The vote: everybody's window opens and freezes", today="the big vote window, as picked; its feeds still move",
-  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(3), click("gg_b_next"), show("vote", bg=True), pause(0.5), shoot()], when="about 10 s into the vote; the show's reply says whether a vote opened. A fresh match first: the run's second half must not meet the 60-minute match end",
+  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("gg_b_next"), vote_opened(), show("vote", bg=True), until("vote", 7.5), shoot()],
+  when="about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
   masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick="The 60 s limit", today="a line on the window's page, as picked", after="vote-open", bridge=W_VOTE, steps=[shoot()], when="the next frame",
   crop=C_CLOCKS, masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section=S_VOTE, after="vote-limit", bridge=W_VOTE, steps=[press("gg_m1_play", bg=True), pause(2.5), shoot()],
+R("vote-my-vote", "The ballot: my vote lit, LEADING, the strip, Everyone has voted", section=S_VOTE, after="vote-limit", bridge=W_VOTE, steps=[press("gg_m1_play", bg=True), pressed(), pause(2.5), shoot()],
   when="about 4 s after the click, Keep (tile 1): the inactivity timer runs 5 s from the vote", crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-inactivity", "The inactivity timer, and who reset it", pick="Inactivity timer, and who reset it", today="a line on the window's page, as picked", after="vote-my-vote", bridge=W_VOTE, steps=[shoot()], when="the next frame, about 6.5 s after the click",
   crop=C_VHEAD, masks=_V1_VOTED, names=_V1_NAMES_VOTED, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick="The vote kept the map", today="a line on the window's page, as picked, 8 s; chat and the board too", after="vote-inactivity", bridge=W_VOTE, steps=[vote_closed(), pause(1), shoot(n=2)],
-  when="the next frames: decided about 7.5 s after the click, the window stays 8 s", crop=C_VHEAD, masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES), names=real("who started it, the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudVote.cs", "The vote kept"))
+R("vote-kept", "The ballot's header: the vote kept the map, Closes in, everybody still frozen", pick="The vote kept the map", today="a line on the window's page, as picked, 8 s; chat and the board too", after="vote-inactivity", bridge=W_VOTE, steps=[until("press", 7), vote_closed(), until("press", 8), shoot(n=2)],
+  when="from 8 s after the click: decided about 7 s after it (the command, then the inactivity timer's 5 s), the window stays 8 s", crop=C_VHEAD, masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES), names=real("who started it, the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/HudVote.cs", "The vote kept"))
 R("vote-cannot-call", "The answer to a Start a vote in the wait after a vote: when the next one can start", pick="You cannot call a vote yet", today="a line on the window's page, as picked, 8 s; chat and the board name who tried",
-  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), click("gg_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE], when="about 5 s after the click, inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
-  crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN, words_from=("bridge/VoteRound.cs", "You can call a vote again in"))
+  after="vote-kept", bridge=W_VOTE, steps=[pause(8), show("start"), guard(100), until("closed", 26.5), click("gg_b_next", bg=True), pause(3.5), shoot()], cleanup=[RELEASE],
+  when="about 5 s after the click, which goes out 25 s after the vote closed, so the line says 1 min 35 s; inside the 2 minutes (the guard refuses the click otherwise: it would open a vote)",
+  crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN, words_from=("bridge/VoteRound.cs", "You can call a vote again in"), volatile=(V_LINE_WAIT, V_START_WAIT))
 R("board-wait", "The board in the wait after a vote: Start a vote off, its words say how long", section=S_BOARD, after="vote-cannot-call", bridge=W_VOTE,
-  steps=[*_LATELY, guard(100), con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)], when="2 s after +showscores, inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
-  crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD)
-R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("gg_b_next"), press("gg_v_browse", bg=True), pause(3.5), shoot()],
-  when="about 5 s after the click", masks=(BLUR_NEWS_WIN,), names=NEWS_VOTE + UNSEEN, avatar=AVATAR_OVER_NEWS)
+  steps=[*_LATELY, guard(100), until("closed", 58), con("+showscores", 1500), pause(2), shoot()], cleanup=[con("-showscores", 1500)],
+  when="2 s after +showscores, about 61 s after the vote closed, so its words say 59 s; inside the 2 minutes; the three lines first, because the vote's own lines on Lately name the client",
+  crop=C_BOARD, win=False, masks=(BLUR_SCOREBOARD,), names=_BOARD, volatile=(V_BOARD_MAPCOUNT, *V_BOARD_WAIT))
+R("vote-browse", "The vote's Browse sub-tab: the map browser that adds to the vote: Add to the vote, On the vote", section=S_VOTE, bridge=W_VOTE, steps=[mark(), vote_gap(), click("gg_b_next"), vote_opened(), press("gg_v_browse", bg=True), until("vote", 9), shoot()],
+  when="about 11 s into the vote: the sub-tab says 49 s, the top line that says who started it (8 s) gone", masks=(BLUR_NEWS_WIN,), names=NEWS_VOTE + UNSEEN, avatar=AVATAR_OVER_NEWS)
 R("vote-picked-card", "The ballot with a map a player put on it: PICKED, picked by, their vote on it", section=S_VOTE, after="vote-browse", bridge=W_VOTE, steps=[press("gg_v_back", bg=True), pause(3), con("say !play ar_baggage"), pause(0.3), shoot()],
   when="about 2 s after the line, inside the 5 s of the inactivity timer. An official map, so the client loads it without a dialog", masks=(BLUR_NEWS_WIN, M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO, M_VRESET),
   names=real("the first tile's voter and picked by, the header's reset by and the top line: blurred; the clock's reset by: a test name is painted over it") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
@@ -665,20 +706,22 @@ R("vote-decided", "The vote decided: NEXT MAP, The vote chose ... changing in N 
   after="vote-picked-card", bridge=W_VOTE + "; " + W_MAP, steps=[vote_closed(), pause(2.5), shoot(n=3)], when="from about 7 s after the line: decided at 5 s, the change goes out at 13 s", crop=C_VHEAD, masks=(M_VSTART, BLUR_TILE1_NAMES, BLUR_TILE1_WHO),
   names=real("the first tile's voter and picked by: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS, words_from=("bridge/VoteRound.cs", "Everybody has voted:"))
 R("now-playing", "The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn", pick="Now-playing card, at each map's first spawn", today="the card 3c, as picked, 8 s; picked by the vote: a Change's by is only ever the vote or the dice",
-  after="vote-decided", bridge=W_VOTE + "; " + W_MAP, steps=[wait_ingame(), pause(3), con("jointeam 2 1", 1000), rb("css_gghud release", expect=r"released:"), pause(3), shoot(n=3)], cleanup=[content(LEVEL)], when="six frames from the moment the client is in game: the card comes 1.5 s after the spawn, for 8 s", crop=C_CARD, win=False)
+  after="vote-decided", bridge=W_VOTE + "; " + W_MAP, steps=[wait_ingame(), pause(3), con("jointeam 2 1", 1000), rb("css_gghud release", expect=r"released:"), pause(6), shoot(n=3)], cleanup=[content(LEVEL)],
+  when="three frames from about 9 s after the team is joined: CS2 restarts the match after a map change (Match restarting in 3, 2, 1), the spawn after it, and the card comes 1.5 s after the spawn, for 8 s", crop=C_CARD, win=False)
 R("vote-started-line", "The ballot's header: Started by HUDtest, the real line under a test name", pick="The vote started: the line for everybody", today="NOT SHOWN on a surface of its own: the header of the window that opens, as the owner's note asks; chat and the board keep the line",
-  bridge=W_VOTE, steps=[vote_gap(), click("gg_b_next", who=FAKE_ACCOUNT, bg=True), pause(3.5), shoot()], when="about 5 s after the click goes out", crop=C_VHEAD, masks=(M_VWAIT2,),
+  bridge=W_VOTE, steps=[vote_gap(), click("gg_b_next", who=FAKE_ACCOUNT, bg=True), vote_opened(), pause(3.5), shoot()], when="about 5 s after the click goes out", crop=C_VHEAD, masks=(M_VWAIT2,),
   names=real("the waiting line after HUDtest: a test name is painted over it") + UNSEEN, words_from=("bridge/VoteRound.cs", "started a vote for the next map"), win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-random-lit", "The ballot: my vote on Random, its button lit", section=S_VOTE, after="vote-started-line", bridge=W_VOTE, steps=[press("gg_v_random", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m1_play", bg=True)],
   when="about 5 s after the click. The cleanup moves the vote to Keep at once, also after a failure: Random winning would roll a Workshop map, and the client would hang in CS2's download dialog", names=TEST_NAME + ": Waiting for: HUDtest", win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-waiting", "The ballot: Waiting for: HUDtest, my vote on Keep, 1 of 2 voted", pick="Waiting for: the players who have not voted", today="a line on the window's page, as picked; no chat or board copy yet", after="vote-random-lit", bridge=W_VOTE, steps=[pause(3.5), shoot()],
   when="about 5 s after the cleanup's click", crop=C_VHEAD, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred; Waiting for: HUDtest stays") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-pager", "The ballot's pager: Page 1 of 2, the hint for the other page (css_gghud content fakes an older game's pages of eight)", section=S_VOTE, after="vote-waiting", bridge=W_VOTE, steps=[rb(f"css_gghud content {ACCOUNT} {LEVEL - 1}", expect=r"account \d+: HUD"), pause(3.5), shoot()],
-  when="about 5 s after the send", masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
+  when="about 5 s after the send", masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS,
+  volatile=(V_VOTE_PAGER_NEXT,))
 R("vote-players", "SERVER > Players during a vote: who has voted", section=S_WINDOW, after="vote-pager", bridge=W_VOTE, steps=[show("players", bg=True), pause(3.5), shoot()], when="about 5 s after the send, about 45 s into the vote",
   masks=(M_PLAYER1_VOTE,), names=PLAYERS + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
-R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), pause(6), shoot()], cleanup=[content(LEVEL), pause(3), vote_closed()],
-  when="about 55 s into the vote; the cleanup waits for its 60 s to end", crop=C_CLOCKS, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
+R("vote-limit-low", "The limit clock red and pulsing in its last 10 seconds", section=S_VOTE, today="the stylesheet's .gg-screen.vlow, HudVote.LowSeconds", after="vote-players", bridge=W_VOTE, steps=[show("vote", bg=True), until("vote", 50.5), shoot()], cleanup=[content(LEVEL), until("vote", 62), vote_closed(), until("vote", 72)],
+  when="about 51 s into the vote, 9 s left; the cleanup waits for its 60 s to end, and for its window, which stays 8 s after", crop=C_CLOCKS, masks=(BLUR_TILE1_NAMES,), names=real("the voter's name on the first tile: blurred") + UNSEEN, win="vote", avatar=AVATAR_OVER_NEWS)
 
 # ---- what only the bridge's own callers can say: bridgepost.py, to a candidate bridge on a test copy and nothing else. The real senders' notices, fake players' clicks ------------
 
@@ -689,7 +732,8 @@ R("restart-counting", "The countdown banner with the logo: the restart", pick="T
   steps=[post("restart", "daily", "now", "12"), pause(2), shoot(n=2)], cleanup=[post("restart-cancel", "daily"), pause(NEWS_GONE)],
   when="about 4 s and 6.5 s into 12 s: the real one counts 10 (Watch.RestartCountdown), a little more here so that a slow call still shows digits; only the restart watcher would quit, and a test copy has none", crop=C_BAN, win=False, words_from=("bridge/Restarts.cs", "the server restarts in"))
 R("window-restart-strip", "The window's foot: a restart coming, its words and its countdown", section=S_WINDOW, today="gg-rstrip, from HudState.RestartKind", bridge=W_NOTICE,
-  steps=[post("restart", "daily", "now", "30"), show("start", bg=True), pause(3.5), shoot()], cleanup=[post("restart-cancel", "daily"), RELEASE], when="about 5 s after the show goes out, of 30 s; the release outlasts the line that takes it back", crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN)
+  steps=[post("restart", "daily", "now", "30"), show("start", bg=True), pause(3.5), shoot()], cleanup=[post("restart-cancel", "daily"), RELEASE], when="about 5 s after the show goes out, of 30 s; the release outlasts the line that takes it back", crop=C_LINE, masks=(M_GREET,), names=GREETING + UNSEEN,
+  volatile=(V_START_WAIT,))
 R("top-cs2-update", "The top line: a CS2 update: the server restarts at this match's end, and restart CS2 afterwards", pick="A CS2 update: update your game", today="the top line 4d, as picked, until the restart: the watcher's own notice; chat and the board too", bridge=W_NOTICE,
   steps=[post("restart", "game-update", "match-end", "0"), pause(2), shoot()], cleanup=[post("restart-cancel", "game-update"), pause(NEWS_GONE)], when="about 4 s after the notice; the cleanup takes it back and waits out the line that says so", crop=C_TOP, win=False, words_from=("bridge/Restarts.cs", "A CS2 update"))
 R("top-updated", "The top line: Updated to CS2 1.41.9.6 - Welcome back", pick='"Updated to vX" after the reconnect', today="the top line 4d, as picked, 60 s: the watcher's own notice; chat and the board too", bridge=W_NOTICE,
@@ -702,7 +746,7 @@ R("vote-tie-lead", "The ballot with several voters: TIE on three cards, then LEA
   steps=[vote_gap(), post("fake-off"), post("fake-on", "4"), post("client-off", ACCOUNT), post("act", "0", "next"), post("vote", "0", "1"), post("vote", "1", "2"), post("vote", "2", "3"), pause(1), shoot(), post("vote", "2", "1"), pause(1), shoot()],
   cleanup=[post("vote", "0", "1"), post("vote", "1", "1"), post("vote", "2", "1"), post("vote", "3", "1")],
   when="a second after the third vote, and a second after one more moves to Keep (card 1). The fourth fake does not vote, so the inactivity timer does not run; the bridge takes the client for gone, so only test names are in its lines. The cleanup moves every vote to Keep: a tie is drawn by the dice, and a rolled Workshop map would hang the client in CS2's download dialog",
-  crop=C_VHEAD, names=TEST_NAME + ": the client is out of the bridge's lists", win="vote", avatar=AVATAR_OVER_NEWS)
+  crop=C_VHEAD, names=TEST_NAME + ": the client is out of the bridge's lists", win="vote", avatar=AVATAR_OVER_NEWS, volatile=(V_STRIP_NAMES,))
 R("chat-vote-clicked", "A vote clicked on a card, in chat: who voted, and who still has to", pick="Lines for everybody: a vote clicked on a card", today="NOT SHOWN on a surface of its own: chat and the board", after="vote-tie-lead", bridge=W_VOTE + "; " + W_NOTICE,
   steps=[post("restart", "daily", "now", "30"), pause(1), shoot()], cleanup=[post("restart-cancel", "daily"), pause(NEWS_GONE), vote_closed(), post("client-on", ACCOUNT), post("fake-off")],
   when="a second after a restart's notice has ended the vote: the big window covers chat, which comes back with the lines still there. The cleanup takes the notice back and has the client present again", crop=C_CHAT, chat=True, win=False, masks=(chat_above(6),), names=TEST_NAME + ": the client is out of the bridge's lists", words_from=("bridge/VoteRound.cs", "voted to keep"))
@@ -713,7 +757,9 @@ R("rematch-countdown", "Restart match: the countdown banner, naming who", sectio
 
 
 def to_mode(mode, game_type, game_mode, map_name):
-    return [RELEASE, rc(f"os_mode {mode}", expect=r"os_mode: "), rc(f"game_type {game_type}"), rc(f"game_mode {game_mode}"), mark(), rc(f"changelevel {map_name}"), wait_ingame(), pause(6), con("jointeam 2 1", 1500), content(LEVEL)]
+    """On a map of that mode, the team joined, and the new map's card under the crosshair gone (it comes 1.5 s after the spawn, for 8 s)."""
+    return [RELEASE, rc(f"os_mode {mode}", expect=r"os_mode: "), rc(f"game_type {game_type}"), rc(f"game_mode {game_mode}"), mark(), rc(f"changelevel {map_name}"), wait_ingame(), pause(6),
+            con("jointeam 2 1", 1500), content(LEVEL), until("join", 12)]
 
 
 R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section=S_MODES, bridge=W_MAP, steps=[*to_mode("deathmatch", 1, 2, "de_dust2"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
@@ -761,6 +807,9 @@ R("sync-looks", "SERVER > Sync in its other looks: running with a progress bar, 
 R("loading-dot", "The Live dot gold while a new map's announcement is pending", section=S_BOARD, status=NOT, today="the stylesheet's .gg-global.loading .gg-live-dot, off AnnouncePending",
   reason="It stands from a change until the map is announced, nearly all of it while the client is on its loading screen; no verb holds it.")
 
+
+# The rows that show the map browser: its Previous and its count differ on every shot (V_BROWSER_HEAD)
+BROWSER = {r.id for r in ROWS if r.section == S_MAPS} | {"why-card", "play-asks-first", "vote-browse"}
 
 # The other six resolutions, for the owner's review only (never committed: the docs take 1920x1080): every page and one of each surface.
 REVIEW_SET = ("page-start", "page-fun", "page-players", "page-game", "page-sync", "page-help", "page-how", "page-maps", "maps-keyboard", "maps-search", "board-default", "welcome-first",
@@ -1138,7 +1187,7 @@ def compare_region(row, w, h, crop=False):
 def volatile_boxes(row, w, h, crop=False):
     """What differs on every shot in a picture of this row, in its pixels: its window kind's clocks and counters, and the row's own boxes. In a crop
     file the boxes are moved to the crop's corner and cut to it."""
-    boxes = list(row.volatile)
+    boxes = list(row.volatile) + ([V_BROWSER_HEAD] if row.id in BROWSER else [])
     if row.win == "vote":
         boxes += [V_VOTE_MAPCOUNT, V_VOTE_SUBTAB, C_CLOCKS, V_VOTE_TILES]
     elif row.win:
@@ -1310,6 +1359,7 @@ class Printer:
         self.clock = 0.0
         self.busy = 0.0
         self.closed_at = 0.0
+        self.at = {"join": None, "vote": None, "closed": None, "press": None}
         self.frames = 0
 
     def say(self, text=""):
@@ -1347,11 +1397,27 @@ class Printer:
 
     def con(self, s):
         self.clock += T_CON + s.wait_ms / 1000
+        if s.text.startswith("jointeam"):
+            self.at["join"] = self.clock
         self.say(f"  $ {self.cmdline(con_argv(s.text, s.wait_ms))}")
 
     def post(self, s):
         self.clock += T_POST
         self.say(f"  $ {self.cmdline(post_argv(s.text))}    a candidate bridge on a test copy or it refuses; a refusal fails the row")
+
+    def until(self, s):
+        at = self.at[s.text]
+        if at is not None:
+            self.clock = max(self.clock, at + s.seconds)
+        self.say(f"  sleep until {s.seconds:g} s after {ANCHORS[s.text]}" + ("" if at is not None else " (not yet in this plan: the row fails)"))
+
+    def vote_opened(self):
+        self.at["vote"] = self.clock
+        self.say("  (the vote has opened: its clocks count from here)")
+
+    def pressed(self):
+        self.at["press"] = self.clock
+        self.say("  (the press is marked: what it starts counts from here)")
 
     def pause(self, seconds):
         self.clock += seconds
@@ -1371,7 +1437,7 @@ class Printer:
         self.say(f"  sleep until {VOTE_GAP} s after the last vote closed (MapVote.WaitSeconds, about {wait:.0f} s here)")
 
     def vote_closed(self):
-        self.closed_at = self.clock
+        self.closed_at = self.at["closed"] = self.clock
         self.say("  (the vote has closed: the wait starts)")
 
     def guard(self, s):
@@ -1451,6 +1517,7 @@ class Doer:
         self.bg = None
         self.mark_line = 0
         self.closed_at = time.time()      # a run may follow another's vote: the first vote_gap waits it out
+        self.at = {"join": None, "vote": None, "closed": None, "press": None}   # the anchors of until (ANCHORS), as this run met them
         self.vote_seen = False
         self.frames: dict = {}
         self.failed: dict = {}
@@ -1499,25 +1566,38 @@ class Doer:
 
     def rcon(self, s):
         self.join_bg()
-        began = time.time()
-        time.sleep(RCON_DELAY)           # the pace the rows were tuned to (RCON_DELAY above)
         text = self.run_verb(rcon_argv(s.text), 60, f"rcon {s.text}")
         if s.expect and not re.search(s.expect, text):
             raise RowFailed(f"rcon {s.text}: the reply does not say /{s.expect}/: {scrub(text.strip())[:300]}")
-        time.sleep(max(0.0, began + T_RCON - time.time()))
         return text
 
     def rcon_bg(self, s):
         self.join_bg()
-        time.sleep(RCON_DELAY)
         p, path = self.launch(rcon_argv(s.text))
         self.bg = (p, path, f"rcon {s.text}", s.expect)
 
     def con(self, s):
-        return self.run_verb(con_argv(s.text, s.wait_ms), 30, f"cmd {s.text}")
+        text = self.run_verb(con_argv(s.text, s.wait_ms), 30, f"cmd {s.text}")
+        if s.text.startswith("jointeam"):
+            self.at["join"] = time.time()
+        return text
 
     def post(self, s):
         return self.run_verb(post_argv(s.text), 60, f"post {s.text}")
+
+    def until(self, s):
+        at = self.at[s.text]
+        if at is None:
+            raise RowFailed(f"until: {ANCHORS[s.text]} has not happened in this run")
+        wait = at + s.seconds - time.time()
+        if wait > 0:
+            time.sleep(wait)
+
+    def vote_opened(self):
+        self.at["vote"] = time.time()
+
+    def pressed(self):
+        self.at["press"] = time.time()
 
     def pause(self, seconds):
         time.sleep(seconds)
@@ -1544,7 +1624,7 @@ class Doer:
             time.sleep(wait)
 
     def vote_closed(self):
-        self.closed_at = time.time()
+        self.closed_at = self.at["closed"] = time.time()
         self.vote_seen = True
 
     def guard(self, s):
@@ -1681,6 +1761,12 @@ def run_step(runner, s, row, mode, names):
         runner.vote_gap()
     elif s.kind == "vote_closed":
         runner.vote_closed()
+    elif s.kind == "vote_opened":
+        runner.vote_opened()
+    elif s.kind == "pressed":
+        runner.pressed()
+    elif s.kind == "until":
+        runner.until(s)
     elif s.kind == "guard":
         runner.guard(s)
     elif s.kind == "shoot":
@@ -1816,7 +1902,8 @@ def cmd_list(info):
 def step_words(s):
     return {"rcon": lambda: f"rcon {s.text}", "rcon_bg": lambda: f"rcon in the background {s.text}", "con": lambda: f"cmd {s.text}", "post": lambda: f"bridgepost.py {s.text}", "pause": lambda: f"sleep {s.seconds:g}",
             "shoot": lambda: f"shot x{s.n}" + (" side by side" if s.parallel else ""), "mark": lambda: "mark the client's log", "wait_log": lambda: "wait for in game in the log",
-            "vote_gap": lambda: f"wait out the {VOTE_GAP} s after a vote", "vote_closed": lambda: "(the vote has closed)", "guard": lambda: f"refuse unless a vote closed under {s.seconds:g} s ago"}[s.kind]()
+            "vote_gap": lambda: f"wait out the {VOTE_GAP} s after a vote", "vote_closed": lambda: "(the vote has closed)", "guard": lambda: f"refuse unless a vote closed under {s.seconds:g} s ago",
+            "vote_opened": lambda: "(the vote has opened)", "pressed": lambda: "(the press is marked)", "until": lambda: f"sleep until {s.seconds:g} s after {ANCHORS[s.text]}"}[s.kind]()
 
 
 def print_counts(info):
@@ -1850,7 +1937,7 @@ def cmd_dry_run(res_list, only, bridge_copy, out, stream=None):
             continue
         p = Printer(res, out, stream)
         walk(p, plan)
-        print(f"-------- {res}: {len([e for e in plan if e.mode == 'shoot'])} rows, {p.frames} frames at full size, about {p.clock / 60:.0f} min by the earlier runs' timings "
+        print(f"-------- {res}: {len([e for e in plan if e.mode == 'shoot'])} rows, {p.frames} frames at full size, about {p.clock / 60:.0f} min by the verbs' timings (T_RCON, T_SHOT, ...) "
               f"(-MaxMinutes in the start command: 120), {len(notes)} not run.", file=stream)
 
 
