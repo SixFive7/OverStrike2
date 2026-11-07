@@ -4,8 +4,9 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Server;
 
-/// <summary>THE PREVIEW (maps.layout preview): what a start with these settings would do to the maps folder, and nothing else - for a
-/// rehearsal that runs on production's volume. It reads the maps folder, content/730, the hand-overs, the acf and the bridge's lists as they
+/// <summary>THE PREVIEW (maps.preview): what a start with these settings and maps.layout folders would do to the maps folder, and nothing
+/// else - for a rehearsal that runs on production's volume, which sets maps.layout off beside it, so that a build that predates the key
+/// leaves the maps alone. It reads the maps folder, content/730, the hand-overs, the acf and the bridge's lists as they
 /// are; it works out, in memory only, where a start would put every map (each new download Steam left in content/730 moved into its type's
 /// folder, each complete hand-over taken in, as Organize and TakeIn decide); it computes the keep set as a start does; and it writes
 /// keep-preview.json and deleted-&lt;local time&gt;-preview.tsv - the maps a start would delete, the rows its own list would have - into
@@ -13,7 +14,7 @@ namespace OverStrike2.Server;
 /// the maps folder, no INDEX.tsv, no acf, no acf backup, no marker or manifest touched.</summary>
 public sealed partial class MapsFolder
 {
-    public const string PreviewWords = "PREVIEW (maps.layout preview) - nothing moved, linked, taken in or deleted";
+    public const string PreviewWords = "PREVIEW (maps.preview) - nothing moved, linked, taken in or deleted";
 
     /// <summary>THE PREVIEW; a line for the log. Never throws, like Organize.</summary>
     string Preview(string content, string mapsDir)

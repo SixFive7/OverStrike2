@@ -153,8 +153,9 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 
 | Key | Type | Default | Read by | What |
 |---|---|---|---|---|
-| `maps.layout` | folders \| off \| preview | `folders` | server | Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone; preview changes nothing and only writes what a start would delete, into paths.preview. |
+| `maps.layout` | folders \| off | `folders` | server | Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone. |
 | `maps.delete` | on \| dryrun \| off | `on` | server | At every engine start, delete the maps outside the keep set; dryrun lists them only. |
+| `maps.preview` | boolean | `false` | server | Change nothing and only write what a start would do - the keep set and the maps it would delete - into paths.preview, for a rehearsal on production's volume. Set maps.layout off beside it: a build that predates this key ignores it and then leaves the maps alone. |
 | `maps.backgroundDownloads` | boolean | `true` | server | Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play. |
 | `maps.downloadLine` | boolean | `true` | server | Say on the HUD's top line what the server downloads for a waiting player, with its progress. |
 
@@ -209,6 +210,6 @@ some of them before any of our code runs: `CS2_SERVERNAME`, `CS2_PORT`, `CS2_RCO
 | `paths.steamCmd` | string | `/home/steam/steamcmd/steamcmd.sh` | sync | SteamCMD in the sync's container (the image's own). |
 | `paths.depotcache` | string | `/home/steam/Steam/depotcache` | server, sync | Where the Steam client keeps the manifests it verified; on a volume, so a new container re-checks nothing. |
 | `paths.plugins` | string | `/home/steam/cs2-plugins` | server | The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start. |
-| `paths.preview` | string | (empty) | server | Where maps.layout preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch. |
+| `paths.preview` | string | (empty) | server | Where maps.preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch. |
 
 <!-- keys:end -->

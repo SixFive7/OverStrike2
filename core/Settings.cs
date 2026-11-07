@@ -532,10 +532,12 @@ public sealed class Settings
             s => s.Restarts.DownloadRestart, (s, v) => s.Restarts.DownloadRestart = v),
 
         // maps: the server's own Workshop maps
-        Choice("maps.layout", S, "folders", ["folders", "off", "preview"], "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone; preview changes nothing and only writes what a start would delete, into paths.preview.",
+        Choice("maps.layout", S, "folders", ["folders", "off"], "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
             s => s.Maps.Layout, (s, v) => s.Maps.Layout = v),
         Choice("maps.delete", S, "on", ["on", "dryrun", "off"], "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
             s => s.Maps.Delete, (s, v) => s.Maps.Delete = v),
+        Bool("maps.preview", S, false, "Change nothing and only write what a start would do - the keep set and the maps it would delete - into paths.preview, for a rehearsal on production's volume. Set maps.layout off beside it: a build that predates this key ignores it and then leaves the maps alone.",
+            s => s.Maps.Preview, (s, v) => s.Maps.Preview = v),
         Bool("maps.backgroundDownloads", S, true, "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
             s => s.Maps.BackgroundDownloads, (s, v) => s.Maps.BackgroundDownloads = v),
         Bool("maps.downloadLine", S, true, "Say on the HUD's top line what the server downloads for a waiting player, with its progress.",
@@ -620,7 +622,7 @@ public sealed class Settings
             s => s.Paths.Depotcache, (s, v) => s.Paths.Depotcache = v, v => v.StartsWith('/'), "an absolute path"),
         Str("paths.plugins", S, "/home/steam/cs2-plugins", "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
             s => s.Paths.Plugins, (s, v) => s.Paths.Plugins = v, v => v.StartsWith('/'), "an absolute path"),
-        Str("paths.preview", S, "", "Where maps.layout preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
+        Str("paths.preview", S, "", "Where maps.preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
             s => s.Paths.Preview, (s, v) => s.Paths.Preview = v, v => v.Length == 0 || v.StartsWith('/'), "an absolute path"),
     ];
 }
@@ -673,6 +675,7 @@ public sealed class MapsSection
 {
     public string Layout { get; set; } = "folders";
     public string Delete { get; set; } = "on";
+    public bool Preview { get; set; }
     public bool BackgroundDownloads { get; set; } = true;
     public bool DownloadLine { get; set; } = true;
 }

@@ -7,9 +7,9 @@ using static OverStrike2.TestKit.T;
 
 namespace OverStrike2.Server.SelfTest;
 
-/// <summary>THE PREVIEW (maps.layout preview): the list of what a start would delete and its keep set, written to a folder of its own - and
-/// the maps folder, content/730, the hand-overs and the acf byte for byte and date for date as they were. It needs no links, so it runs
-/// everywhere.</summary>
+/// <summary>THE PREVIEW (maps.preview): the list of what a start would delete and its keep set, written to a folder of its own - and the maps
+/// folder, content/730, the hand-overs and the acf byte for byte and date for date as they were. It needs no links, so it runs everywhere.
+/// The tree is set up as a rehearsal sets it, maps.layout off beside maps.preview.</summary>
 static class PreviewTests
 {
     const string Marker150 = """
@@ -95,13 +95,18 @@ static class PreviewTests
         Check($"preview: with paths.preview empty its two files go to update-watch/preview, and the rest of the tree is as it was ({home})",
               Snapshot(tree, "update-watch") == before && File.Exists(Path.Combine(homeDir, "keep-preview.json"))
               && Directory.GetFiles(homeDir, "deleted-*-preview.tsv").Length == 1 && Directory.GetFileSystemEntries(Path.Combine(tree, "update-watch")).Length == 1);
-        // the switch: maps.layout preview and paths.preview, from the settings file
-        var s = Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"500\" }, \"maps\": { \"layout\": \"preview\" }, \"paths\": { \"preview\": \"/rehearsal/maps-preview\" } }", Part.Server, _ => null);
+        // a build that predates maps.preview sees only maps.layout off: it leaves everything alone, so a rehearsal of it previews nothing and
+        // changes nothing
+        var old = Organize(config with { MapsPreview = false });
+        Check($"preview: maps.layout off without maps.preview - what a build that predates the key does - changes nothing either ({old})",
+              old.StartsWith("maps folder: off", StringComparison.Ordinal) && Snapshot(tree, "update-watch") == before);
+        // the switch: maps.preview and paths.preview, from the settings file
+        var s = Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"500\" }, \"maps\": { \"layout\": \"off\", \"preview\": true }, \"paths\": { \"preview\": \"/rehearsal/maps-preview\" } }", Part.Server, _ => null);
         var fromFile = ServerConfig.From(s, _ => null);
         var plain = ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"hud\": { \"addon\": \"500\" } }", Part.Server, _ => null), _ => null);
-        Check("preview: the settings - maps.layout preview and paths.preview; by default the layout is folders and the preview's folder update-watch/preview",
-              s.Problems.Count == 0 && fromFile.MapsLayout == "preview" && fromFile.Paths.PreviewDir == "/rehearsal/maps-preview"
-              && plain.MapsLayout == "folders" && plain.Paths.PreviewDir == Path.Combine(plain.Paths.StateDir, "preview"));
+        Check("preview: the settings - maps.preview and paths.preview; by default no preview, the layout folders, the preview's folder update-watch/preview",
+              s.Problems.Count == 0 && fromFile.MapsPreview && fromFile.MapsLayout == "off" && fromFile.Paths.PreviewDir == "/rehearsal/maps-preview"
+              && !plain.MapsPreview && plain.MapsLayout == "folders" && plain.Paths.PreviewDir == Path.Combine(plain.Paths.StateDir, "preview"));
     }
 
     static ServerConfig Config(string root, string data, string preview) => Scenario.Template with
@@ -116,7 +121,8 @@ static class PreviewTests
             Preview = preview,
         },
         HudAddon = "500",
-        MapsLayout = "preview",
+        MapsLayout = "off",
+        MapsPreview = true,
         MapsDelete = "on",
         KeepRules = new KeepRules { Top = 1, MinTop = 1, MinQueue = 1 },
     };

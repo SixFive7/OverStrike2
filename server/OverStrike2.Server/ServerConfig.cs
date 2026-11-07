@@ -13,7 +13,7 @@ public sealed record ServerPaths
     public required string Depotcache { get; init; }       // the Steam client's verified manifests (~/Steam/depotcache)
     public required string Plugins { get; init; }          // the CounterStrikeSharp plugins to install, one folder each (read-only)
     public string? Logs { get; init; }                     // the Steam client's logs, when they are not beside the depotcache
-    public string Preview { get; init; } = "";             // where maps.layout preview writes; empty: PreviewDir's default
+    public string Preview { get; init; } = "";             // paths.preview, where maps.preview writes; empty: PreviewDir's default
 
     public string StateDir => Path.Combine(GameDir, "update-watch");   // the counters, the records, the lists of deletions
     public string StateFile => Path.Combine(StateDir, "state.json");
@@ -73,6 +73,7 @@ public sealed record ServerConfig
     public bool DownloadRestart { get; init; }                 // restarts.downloadRestart
     public string MapsLayout { get; init; } = "";              // maps.layout
     public string MapsDelete { get; init; } = "";              // maps.delete
+    public bool MapsPreview { get; init; }                     // maps.preview: THE PREVIEW only, whatever maps.layout says
     public bool BackgroundDownloads { get; init; }             // maps.backgroundDownloads
     public bool DownloadLine { get; init; }                    // maps.downloadLine
     public string HudAddon { get; init; } = "";                // hud.addon, which the settings require: the program never runs without it
@@ -100,6 +101,7 @@ public sealed record ServerConfig
             DownloadRestart = s.Restarts.DownloadRestart,
             MapsLayout = s.Maps.Layout,
             MapsDelete = s.Maps.Delete,
+            MapsPreview = s.Maps.Preview,
             BackgroundDownloads = s.Maps.BackgroundDownloads,
             DownloadLine = s.Maps.DownloadLine,
             HudAddon = s.Hud.Addon,

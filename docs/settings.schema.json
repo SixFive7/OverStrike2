@@ -204,13 +204,12 @@
       "type": "object",
       "properties": {
         "layout": {
-          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone; preview changes nothing and only writes what a start would delete, into paths.preview.",
+          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
           "type": "string",
           "default": "folders",
           "enum": [
             "folders",
-            "off",
-            "preview"
+            "off"
           ]
         },
         "delete": {
@@ -222,6 +221,11 @@
             "dryrun",
             "off"
           ]
+        },
+        "preview": {
+          "description": "Change nothing and only write what a start would do - the keep set and the maps it would delete - into paths.preview, for a rehearsal on production's volume. Set maps.layout off beside it: a build that predates this key ignores it and then leaves the maps alone.",
+          "type": "boolean",
+          "default": false
         },
         "backgroundDownloads": {
           "description": "Download the maps of the bridge's discovery stock (queues.json) in the background, also while people play.",
@@ -487,7 +491,7 @@
           "default": "/home/steam/cs2-plugins"
         },
         "preview": {
-          "description": "Where maps.layout preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
+          "description": "Where maps.preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
           "type": "string",
           "default": ""
         }
