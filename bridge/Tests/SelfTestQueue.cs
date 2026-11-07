@@ -519,7 +519,7 @@ static partial class Program
             LoadVotes();
             Check("Votes persist: votes.json reads back exactly, and no .tmp is left behind",
                 Votes.Count == saved.Count && saved.All(kv => Votes[kv.Key].Count == kv.Value.Count && kv.Value.All(x => Votes[kv.Key][x.Key] == x.Value))
-                && !File.Exists(VotesPath + ".tmp"));
+                && !Directory.EnumerateFiles(Path.GetDirectoryName(Path.GetFullPath(VotesPath))!).Any(f => Path.GetFileName(f).Contains(".tmp")));
             var top = TopRows();
             Console.WriteLine("top: " + string.Join(" | ", top.Select(r => $"{Label(r.Map)} +{r.Up} -{r.Down}")));
             Check("The most liked list (the board's live column; the menu's Likes sort shows them all): most likes first, fewer dislikes breaking the tie",
