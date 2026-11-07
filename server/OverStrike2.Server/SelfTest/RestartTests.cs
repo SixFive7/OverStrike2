@@ -95,7 +95,7 @@ static class RestartTests
             var s = Scenario.Make(start, verdict, installed: installed);
             s.Eng.OnRcon = (c, r) =>
             {
-                if (c is ["quit"])
+                if (c == "quit")
                     order.Add("quit");
                 return s.Eng.BaseRcon(c, r);
             };
@@ -227,7 +227,7 @@ static class RestartTests
         s = Scenario.Make(At(4, 15, 0, 0), installed: v1);
         s.Eng.OnRcon = (c, r) =>
         {
-            if (c is ["quit"])
+            if (c == "quit")
                 order.Add("quit");
             return s.Eng.BaseRcon(c, r);
         };

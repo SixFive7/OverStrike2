@@ -237,7 +237,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             var why = f.Why.Replace("%", "").Trim();
             var text = Core.Words.ChatSafe($"The server could not download {Title(f.Id, now)}: {(why.Length > 0 ? why : "no reason given")} - Pick another map", 240);
             log.Line($"hud: {text}");
-            engine.Rcon([$"gg_notice 10 \"{text}\""]);
+            engine.Rcon($"gg_notice 10 \"{text}\"");
             sent = now;
             return;
         }
@@ -251,7 +251,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         if (told.Add(newest))
             log.Line($"hud: {line}");
         sent = now;
-        engine.Rcon([$"gg_notice {Hold} \"{line}\""]);
+        engine.Rcon($"gg_notice {Hold} \"{line}\"");
     }
 }
 
@@ -465,12 +465,11 @@ public sealed class ReadyMaps(WorkshopJobs ws)
             return;
         }
         var id = todo[0];
-        var replies = ws.Watch.Engine.Rcon([$"mm_download_addon {id}"]);
-        if (replies is null || replies.Count == 0 || replies[0] is null)
+        if (ws.Watch.Engine.Rcon($"mm_download_addon {id}").Reply is not { } answer)
             return;
-        if (replies[0]!.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
+        if (answer.Contains("unknown command", StringComparison.OrdinalIgnoreCase))
         {
-            Log.Once("ready-mam", "ready: mm_download_addon is not loaded (MultiAddonManager runs only while the HUD is on) - no background downloads", 21600);
+            Log.Once("ready-mam", "ready: mm_download_addon is not loaded (MultiAddonManager is not running) - no background downloads", 21600);
             return;
         }
         Current = (id, now);

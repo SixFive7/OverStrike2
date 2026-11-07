@@ -167,7 +167,7 @@ public sealed partial class Watch
     public bool Say(string text)
     {
         var line = Words.ChatSafe(text);
-        var ok = Engine.Rcon([$"say \"{line}\""]) is not null;
+        var ok = Engine.Rcon($"say \"{line}\"").Opened;
         Log.Line(ok ? $"chat: {line}" : $"WARNING: could not say: {line}");
         return ok;
     }
@@ -179,8 +179,7 @@ public sealed partial class Watch
         var line = Words.ChatSafe(text, 240);
         if (line.Length == 0)
             return true;
-        var replies = Engine.Rcon([$"gg_notice {seconds} \"{line}\""]);
-        var reply = (replies?.FirstOrDefault() ?? "").Trim();
+        var reply = (Engine.Rcon($"gg_notice {seconds} \"{line}\"").Reply ?? "").Trim();
         if (reply.StartsWith("gg_notice: shown", StringComparison.Ordinal))
         {
             Log.Line($"hud: {line} ({seconds} s)");
@@ -191,8 +190,7 @@ public sealed partial class Watch
 
     public int? RconHumans()
     {
-        var replies = Engine.Rcon(["status"]);
-        if (replies is null || replies.Count == 0 || replies[0] is not { } status)
+        if (Engine.Rcon("status").Reply is not { } status)
             return null;
         var m = PlayersRx().Match(status);
         return m.Success ? int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture) : null;
@@ -415,7 +413,7 @@ public sealed partial class Watch
         probeNext = now + ProbeRetry;
         probeToken = "os2-watch-probe-" + RandomNumberGenerator.GetHexString(12, true);
         probeSent = now;
-        if (Engine.Rcon(["echo " + probeToken]) is null)
+        if (!Engine.Rcon("echo " + probeToken).Opened)
         {
             probeToken = null;
             // The session never opened, so nothing was echoed: that says nothing about console.log. At boot the first probe lands about a
@@ -764,7 +762,7 @@ public sealed partial class Watch
         Log.Line($"RESTARTING NOW ({kind}): RCON quit, so the image's entry script ends and Docker runs it again (SteamCMD runs again). {planned} planned restart(s) in 24 h. {bridgeWords}");
         var pid = Engine.Pid();
         GoingDown = now;                               // from here on the silence is ours: the silence path must not "rescue" it
-        if (Engine.Rcon(["quit"], expectReply: false) is null)
+        if (!Engine.Rcon("quit", expectReply: false).Opened)
         {
             GoingDown = null;                          // never force an undelivered quit: the engine is not going down
             if (told == "ok")

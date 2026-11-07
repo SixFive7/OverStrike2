@@ -15,9 +15,9 @@ public interface IEngine
     /// <summary>One A2S_INFO. Null means "no answer" - which is never read as "empty".</summary>
     EngineInfo? Probe();
 
-    /// <summary>Commands over one authenticated RCON session: the replies (null for one whose reply did not come), or null when the session
-    /// could not be opened.</summary>
-    List<string?>? Rcon(IReadOnlyList<string> commands, bool expectReply = true);
+    /// <summary>One command over an authenticated RCON session of its own: whether the session opened, and the reply - null when none came
+    /// or none was asked for.</summary>
+    (bool Opened, string? Reply) Rcon(string command, bool expectReply = true);
 
     /// <summary>Does the engine answer RCON at all (accepted or refused)? Sends no command: nothing is echoed.</summary>
     bool RconAlive();
@@ -88,10 +88,10 @@ public sealed class LocalEngine(int port, string password, IClock clock, Log log
 
     public EngineInfo? Probe() => A2s.Ask("127.0.0.1", port, A2sTimeout) is { } a ? new EngineInfo(a.Version, a.Humans, a.Bots, a.Map) : null;
 
-    public List<string?>? Rcon(IReadOnlyList<string> commands, bool expectReply = true)
+    public (bool Opened, string? Reply) Rcon(string command, bool expectReply = true)
     {
         if (password.Length == 0)
-            return null;
+            return (false, null);
         Core.Rcon? r;
         try
         {
@@ -100,31 +100,25 @@ public sealed class LocalEngine(int port, string password, IClock clock, Log log
         catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or AggregateException or ObjectDisposedException)
         {
             log.Once("rcon", $"WARNING: RCON connect failed ({e.Message})");
-            return null;
+            return (false, null);
         }
         if (r is null)
         {
             log.Once("rcon", "WARNING: RCON authentication was refused");
-            return null;
+            return (false, null);
         }
-        var replies = new List<string?>();
         using (r)
         {
-            foreach (var c in commands)
+            try
             {
-                try
-                {
-                    replies.Add(r.Run(c, expectReply));
-                }
-                catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or ObjectDisposedException)
-                {
-                    log.Once("rcon", $"WARNING: RCON failed ({e.Message})");
-                    replies.Add(null);
-                    return replies;
-                }
+                return (true, r.Run(command, expectReply));
+            }
+            catch (Exception e) when (e is IOException or System.Net.Sockets.SocketException or ObjectDisposedException)
+            {
+                log.Once("rcon", $"WARNING: RCON failed ({e.Message})");
+                return (true, null);
             }
         }
-        return replies;
     }
 
     public bool RconAlive() => Core.Rcon.Alive("127.0.0.1", port, password, RconProbeTimeout);

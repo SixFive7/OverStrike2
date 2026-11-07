@@ -83,7 +83,7 @@ static class ScenarioTests
         b7.Eng.OnRcon = (c, r) =>            // the quit is delivered, and the engine goes silent but does not exit
         {
             var o = b7.Eng.BaseRcon(c, r);
-            if (c is ["quit"])
+            if (c == "quit")
             {
                 b7.Eng.PidValue = 4242;
                 b7.Eng.Freeze();
@@ -246,7 +246,7 @@ static class ScenarioTests
         // H. console.log never proven -> players on -> the daily restart waits for an empty server
         s = Scenario.Make(At(4, 6, 59, 0));
         var h = s;
-        h.Eng.OnRcon = (c, r) => h.Eng.BaseRcon(c.Where(x => !x.StartsWith("echo ", StringComparison.Ordinal)).ToList(), r);
+        h.Eng.OnRcon = (c, r) => c.StartsWith("echo ", StringComparison.Ordinal) ? (true, null) : h.Eng.BaseRcon(c, r);   // the echo never reaches console.log
         s.Eng.Humans = 2;
         s.Step(900);
         Check("H: no live console, players on -> no quit, no chat", !s.Has("quit") && s.W.Console is null);
@@ -255,7 +255,7 @@ static class ScenarioTests
         Check("H: ... and quits once they leave", s.Has("quit"));
         s = Scenario.Make(At(4, 15, 0, 0));
         var h2 = s;
-        h2.Eng.OnRcon = (c, r) => h2.Eng.BaseRcon(c.Where(x => !x.StartsWith("echo ", StringComparison.Ordinal)).ToList(), r);
+        h2.Eng.OnRcon = (c, r) => c.StartsWith("echo ", StringComparison.Ordinal) ? (true, null) : h2.Eng.BaseRcon(c, r);
         s.Step(20);
         s.Eng.Freeze();
         s.Step(600);
@@ -264,7 +264,7 @@ static class ScenarioTests
         // I. an undelivered quit is never forced (no quit echo would make the bridge book a false crash)
         s = Scenario.Make(At(4, 6, 59, 50));
         var iq = s;
-        iq.Eng.OnRcon = (c, r) => c is ["quit"] ? null : iq.Eng.BaseRcon(c, r);
+        iq.Eng.OnRcon = (c, r) => c == "quit" ? (false, null) : iq.Eng.BaseRcon(c, r);
         s.Step(120);
         Check("I: quit not delivered -> engine not killed, restart counted once",
               s.Eng.Killed.Count == 0 && s.Eng.PidValue == 4242 && s.W.State.Restarts.Count(r => r.Kind == "daily") == 1);
@@ -296,7 +296,7 @@ static class ScenarioTests
             var s = Scenario.Make(start, verdict);
             s.Eng.OnRcon = (c, r) =>
             {
-                if (c is ["quit"])
+                if (c == "quit")
                     order.Add("quit");
                 return s.Eng.BaseRcon(c, r);
             };
@@ -349,7 +349,7 @@ static class ScenarioTests
         order.Clear();
         s = Scenario.Make(At(4, 6, 59, 50));
         var q5 = s;
-        q5.Eng.OnRcon = (c, r) => c is ["quit"] ? null : q5.Eng.BaseRcon(c, r);
+        q5.Eng.OnRcon = (c, r) => c == "quit" ? (false, null) : q5.Eng.BaseRcon(c, r);
         s.Step(40);
         var quitBodies = order.Where(o => o.StartsWith("quitting: ", StringComparison.Ordinal)).Select(o => o["quitting: ".Length..]).Take(2).ToList();
         Check($"Q5: the bridge took the notice but the quit could not be delivered: the notice is taken back ({Show(quitBodies.Select(b => b.TrimEnd('\n').Replace('\t', ' ')))})",
@@ -384,7 +384,7 @@ static class ScenarioTests
             if (refused < 3)
             {
                 refused++;
-                return null;
+                return (false, null);
             }
             return j.Eng.BaseRcon(c, r);
         };
@@ -393,7 +393,7 @@ static class ScenarioTests
               s.W.Console is not null && s.W.ProbeTriesDone <= 1);
         // J2. RCON never comes up: the fast retries stop at the cap, then the ordinary tries run out into the ALERT
         s = Scenario.Make(At(4, 15, 0, 0));
-        s.Eng.OnRcon = (_, _) => null;
+        s.Eng.OnRcon = (_, _) => (false, null);
         s.Step(Watch.ProbeRconMisses * Watch.ProbeRconRetry + Watch.ProbeTries * Watch.ProbeRetry + 60);
         Check($"J2: a dead RCON is capped at {Watch.ProbeRconMisses} fast retries, then the {Watch.ProbeTries} ordinary tries run out",
               s.W.Console is null && s.W.ProbeRconMissesDone == Watch.ProbeRconMisses && s.W.ProbeTriesDone >= Watch.ProbeTries);

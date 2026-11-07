@@ -91,7 +91,7 @@ static class WorkshopTests
     static void Line()
     {
         var sent = new List<string>();
-        var eng = new FakeEngine(Path.Combine(Dir("line"), "console.log")) { OnRcon = (c, _) => { sent.AddRange(c); return ["gg_notice: shown"]; } };
+        var eng = new FakeEngine(Path.Combine(Dir("line"), "console.log")) { OnRcon = (c, _) => { sent.Add(c); return (true, "gg_notice: shown"); } };
         var data = Dir("bridge0");
         File.WriteAllText(Path.Combine(data, "maps-deathmatch.json"), "[{\"rank\": 1, \"id\": 900, \"name\": \"Bastion\", \"sizeMb\": 155}]");
         var config = Scenario.Copy(Scenario.Template, Scenario.Template.Paths with { BridgeData = data });

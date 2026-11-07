@@ -29,7 +29,7 @@ sealed class FakeEngine : IEngine
     public readonly List<(int Seconds, string Text)> Notices = [];
     public readonly string ConsolePath;
     public Func<EngineInfo?>? OnProbe;
-    public Func<IReadOnlyList<string>, bool, List<string?>?>? OnRcon;
+    public Func<string, bool, (bool Opened, string? Reply)>? OnRcon;
     public Func<bool>? OnAlive;
     public Action<int, string>? OnKill;
 
@@ -44,34 +44,28 @@ sealed class FakeEngine : IEngine
 
     public EngineInfo? BaseProbe() => A2s ? new EngineInfo(Version, Humans, 0, "ar_shoots") : null;
 
-    public List<string?> BaseRcon(IReadOnlyList<string> commands, bool expectReply = true)
+    public (bool Opened, string? Reply) BaseRcon(string c, bool expectReply = true)
     {
-        var replies = new List<string?>();
-        foreach (var c in commands)
+        Cmds.Add(c);
+        if (c.StartsWith("echo ", StringComparison.Ordinal))
+            Write($"L 10/04/2026 - 07:00:00: rcon from \"127.0.0.1:5555\": command \"{c}\"");
+        if (c.StartsWith("say ", StringComparison.Ordinal))
+            Chat.Add(c[5..^1]);
+        if (c.StartsWith("gg_notice ", StringComparison.Ordinal) && Hud)
         {
-            Cmds.Add(c);
-            if (c.StartsWith("echo ", StringComparison.Ordinal))
-                Write($"L 10/04/2026 - 07:00:00: rcon from \"127.0.0.1:5555\": command \"{c}\"");
-            if (c.StartsWith("say ", StringComparison.Ordinal))
-                Chat.Add(c[5..^1]);
-            if (c.StartsWith("gg_notice ", StringComparison.Ordinal) && Hud)
-            {
-                var rest = c["gg_notice ".Length..];
-                var space = rest.IndexOf(' ');
-                var text = rest[(space + 1)..].Trim('"');
-                Notices.Add((int.Parse(rest[..space]), text));
-                replies.Add($"gg_notice: shown for {rest[..space]} s: {text}");
-                continue;
-            }
-            if (c == "quit")
-                PidValue = null;
-            replies.Add(c == "status" ? $"players  : {Humans} humans, 0 bots (10 max) (not hibernating)" : "");
+            var rest = c["gg_notice ".Length..];
+            var space = rest.IndexOf(' ');
+            var text = rest[(space + 1)..].Trim('"');
+            Notices.Add((int.Parse(rest[..space]), text));
+            return (true, $"gg_notice: shown for {rest[..space]} s: {text}");
         }
-        return replies;
+        if (c == "quit")
+            PidValue = null;
+        return (true, c == "status" ? $"players  : {Humans} humans, 0 bots (10 max) (not hibernating)" : "");
     }
 
     public EngineInfo? Probe() => OnProbe is { } p ? p() : BaseProbe();
-    public List<string?>? Rcon(IReadOnlyList<string> commands, bool expectReply = true) => OnRcon is { } r ? r(commands, expectReply) : BaseRcon(commands, expectReply);
+    public (bool Opened, string? Reply) Rcon(string command, bool expectReply = true) => OnRcon is { } r ? r(command, expectReply) : BaseRcon(command, expectReply);
     public bool RconAlive() => OnAlive is { } a ? a() : BaseAlive();
     public bool BaseAlive()
     {
