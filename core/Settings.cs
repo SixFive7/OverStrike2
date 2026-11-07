@@ -532,7 +532,7 @@ public sealed class Settings
             s => s.Restarts.DownloadRestart, (s, v) => s.Restarts.DownloadRestart = v),
 
         // maps: the server's own Workshop maps
-        Choice("maps.layout", S, "folders", ["folders", "off"], "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
+        Choice("maps.layout", S, "folders", ["folders", "off", "preview"], "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone; preview changes nothing and only writes what a start would delete, into paths.preview.",
             s => s.Maps.Layout, (s, v) => s.Maps.Layout = v),
         Choice("maps.delete", S, "on", ["on", "dryrun", "off"], "At every engine start, delete the maps outside the keep set; dryrun lists them only.",
             s => s.Maps.Delete, (s, v) => s.Maps.Delete = v),
@@ -620,6 +620,8 @@ public sealed class Settings
             s => s.Paths.Depotcache, (s, v) => s.Paths.Depotcache = v, v => v.StartsWith('/'), "an absolute path"),
         Str("paths.plugins", S, "/home/steam/cs2-plugins", "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
             s => s.Paths.Plugins, (s, v) => s.Paths.Plugins = v, v => v.StartsWith('/'), "an absolute path"),
+        Str("paths.preview", S, "", "Where maps.layout preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
+            s => s.Paths.Preview, (s, v) => s.Paths.Preview = v, v => v.Length == 0 || v.StartsWith('/'), "an absolute path"),
     ];
 }
 
@@ -727,4 +729,5 @@ public sealed class PathsSection
     public string SteamCmd { get; set; } = "/home/steam/steamcmd/steamcmd.sh";
     public string Depotcache { get; set; } = "/home/steam/Steam/depotcache";
     public string Plugins { get; set; } = "/home/steam/cs2-plugins";
+    public string Preview { get; set; } = "";
 }

@@ -373,7 +373,12 @@ public sealed partial class Watch
                  + $"freeze kills >= {Rules.FreezeMinGap / 60:0} min apart and <= {Rules.FreezeMaxPerDay} per 24 h");
         Log.Line("workshop: download restart " + (Config.DownloadRestart ? $"on (only at 0 humans, <= 1 per {Words.Hm(Rules.WorkshopRestartGap)} and {Rules.WorkshopRestartMax} per 24 h)" : "off")
                  + ", the queued maps in the background " + (Config.BackgroundDownloads ? Bridge.Address is { } addr ? $"on, reported to the bridge at {addr}" : "on, no bridge address" : "off")
-                 + ", maps outside the keep set at engine start: " + Config.MapsDelete switch { "on" => "deleted", "dryrun" => "listed only (dry run)", _ => "kept" });
+                 + ", maps outside the keep set at engine start: " + Config.MapsLayout switch
+                 {
+                     "preview" => $"PREVIEWED only (maps.layout preview: nothing moved, taken in or deleted; the list in {Config.Paths.PreviewDir})",
+                     "off" => "kept (maps.layout off)",
+                     _ => Config.MapsDelete switch { "on" => "deleted", "dryrun" => "listed only (dry run)", _ => "kept" },
+                 });
         LogDepotcache();
         if (Blocked() is { } blocked)
             Log.Line($"ALERT: RESTARTS ARE DISABLED - {blocked}. Observing only.");

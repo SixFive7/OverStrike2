@@ -33,16 +33,19 @@ public sealed partial class MapsFolder
 
     string Stamp() => TimeZoneInfo.ConvertTime(clock.Now, zone).ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
 
-    /// <summary>update-watch/deleted-&lt;local time&gt;-&lt;what&gt;.tsv: type, id, title, MB - the record of a deletion or a dry run.</summary>
-    string? WriteList(List<(string Kind, string Id, string Title, long Mb)> rows, string what)
+    /// <summary>update-watch/deleted-&lt;local time&gt;-&lt;what&gt;.tsv: type, id, title, MB - the record of a deletion or a dry run; the newest
+    /// DeleteListsKeep are kept. THE PREVIEW writes its own into its folder, and keeps only its own there.</summary>
+    string? WriteList(List<(string Kind, string Id, string Title, long Mb)> rows, string what, string? folder = null)
     {
-        var path = Path.Combine(P.StateDir, $"deleted-{Stamp()}-{what}.tsv");
+        var dir = folder ?? P.StateDir;
+        var path = Path.Combine(dir, $"deleted-{Stamp()}-{what}.tsv");
         try
         {
-            Directory.CreateDirectory(P.StateDir);
+            Directory.CreateDirectory(dir);
             File.WriteAllText(path, "type\tid\ttitle\tMB\n" + string.Concat(rows.Select(r => $"{r.Kind}\t{r.Id}\t{r.Title}\t{r.Mb}\n")));
-            foreach (var old in Directory.EnumerateFiles(P.StateDir, "deleted-*.tsv").Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal).SkipLast(DeleteListsKeep).ToList())
-                File.Delete(Path.Combine(P.StateDir, old!));
+            var mine = folder is null ? "deleted-*.tsv" : $"deleted-*-{what}.tsv";
+            foreach (var old in Directory.EnumerateFiles(dir, mine).Select(Path.GetFileName).OrderBy(x => x, StringComparer.Ordinal).SkipLast(DeleteListsKeep).ToList())
+                File.Delete(Path.Combine(dir, old!));
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -108,7 +111,7 @@ public sealed partial class MapsFolder
 
     KeepSetResult KeepSetNow() => KeepSet.Safe(KeepSet.Inputs(P.BridgeData), clock.Now, config.HudAddon, log.Line, config.KeepRules);
 
-    void WriteKeepFile(KeepSetResult keep, JsonObject summary)
+    void WriteKeepFile(KeepSetResult keep, JsonObject summary, string? path = null, JsonObject? more = null)
     {
         var cutoff = new JsonObject();
         foreach (var (mode, (score, subs)) in keep.Cutoff)
@@ -125,19 +128,22 @@ public sealed partial class MapsFolder
             ["cutoff"] = cutoff,
             ["parts"] = parts,
         };
+        foreach (var (k, v) in more ?? [])
+            record[k] = v?.DeepClone();
+        path ??= P.KeepFile;
         try
         {
-            Directory.CreateDirectory(P.StateDir);
-            Files.WriteAtomic(P.KeepFile, record.ToJsonString(new JsonSerializerOptions { WriteIndented = true, NewLine = "\n" }) + "\n");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            Files.WriteAtomic(path, record.ToJsonString(new JsonSerializerOptions { WriteIndented = true, NewLine = "\n" }) + "\n");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            log.Line($"keep set: {P.KeepFile} not written ({e.Message})");
+            log.Line($"keep set: {path} not written ({e.Message})");
         }
     }
 
-    void LogKeep(KeepSetResult keep, JsonObject summary) =>
-        log.Line("keep set: " + string.Join(", ", summary.Select(kv => $"{kv.Key} {kv.Value!["maps"]} ({kv.Value["on_disk"]} on disk, "
+    void LogKeep(KeepSetResult keep, JsonObject summary, string label = "keep set") =>
+        log.Line($"{label}: " + string.Join(", ", summary.Select(kv => $"{kv.Key} {kv.Value!["maps"]} ({kv.Value["on_disk"]} on disk, "
             + $"{kv.Value["gb_on_disk"]!.GetValue<double>().ToString("0.0", CultureInfo.InvariantCulture)} GB)"))
             + $"; {keep.Scored} scored; problems: {(keep.Problems.Count > 0 ? string.Join("; ", keep.Problems) : "none")}");
 

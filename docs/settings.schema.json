@@ -204,12 +204,13 @@
       "type": "object",
       "properties": {
         "layout": {
-          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone.",
+          "description": "Keep the maps in folders per type, linked from Steam's folder; off leaves Steam's layout alone; preview changes nothing and only writes what a start would delete, into paths.preview.",
           "type": "string",
           "default": "folders",
           "enum": [
             "folders",
-            "off"
+            "off",
+            "preview"
           ]
         },
         "delete": {
@@ -484,6 +485,11 @@
           "description": "The CounterStrikeSharp plugins to install, one folder each (read-only): copied into the game before every engine start.",
           "type": "string",
           "default": "/home/steam/cs2-plugins"
+        },
+        "preview": {
+          "description": "Where maps.layout preview writes keep-preview.json and its list of what a start would delete - a rehearsal's own folder; empty: preview/ in the game's update-watch.",
+          "type": "string",
+          "default": ""
         }
       },
       "additionalProperties": false

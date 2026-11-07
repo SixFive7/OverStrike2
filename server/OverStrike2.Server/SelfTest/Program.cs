@@ -16,6 +16,7 @@ try
     ScenarioTests.Run();
     WorkshopTests.Run();
     OrganizeTests.Run();
+    PreviewTests.Run();
     RestartTests.Run();
     InstallTests.Run(root);
 }

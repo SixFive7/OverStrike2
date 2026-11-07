@@ -11,7 +11,8 @@ namespace OverStrike2.Server;
 /// volume, and Steam's steamapps/workshop/content/730/&lt;id&gt; is a relative link to its folder. Every step is one rename or one link on one
 /// file system, with no engine running. What Steam downloaded since the last run is a real folder in content/730 (a new map; an update may
 /// replace a link by a real folder too): it moves into its type's folder and gets its link; an older copy of it there goes. Moved between
-/// types when the lists say so, renamed when a title changes. maps.layout off leaves everything alone. Then, in the same run:
+/// types when the lists say so, renamed when a title changes. maps.layout off leaves everything alone; maps.layout preview changes nothing
+/// and only writes what a start would do (THE PREVIEW, MapsFolder.Preview.cs). Then, in the same run:
 ///
 /// THE HAND-OVER: the sync leaves each map it tested for the server in its hand-over folder: &lt;id&gt;/ (the content), &lt;id&gt;.manifest (the
 /// Steam client's verified manifest) and, written last, &lt;id&gt;.json (its acf entries as SteamCMD wrote them, and how many files and bytes
@@ -94,6 +95,8 @@ public sealed partial class MapsFolder(ServerConfig config, Log log, IClock cloc
     {
         content = Path.GetFullPath(content ?? P.Content);
         mapsDir = Path.GetFullPath(mapsDir ?? P.MapsDir);
+        if (config.MapsLayout == "preview")
+            return Preview(content, mapsDir);
         if (config.MapsLayout != "folders")
             return $"maps folder: off (maps.layout {config.MapsLayout})";
         var counts = new Dictionary<string, int> { ["moved"] = 0, ["renamed"] = 0, ["linked"] = 0, ["replaced"] = 0, ["broken"] = 0, ["errors"] = 0 };

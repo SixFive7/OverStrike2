@@ -157,7 +157,8 @@ public static class Program
         foreach (var b in config.BootWarnings.Where(b => !b.StartsWith("settings: ", StringComparison.Ordinal)))
             w.WriteLine($"warning: {b}");
         var p2 = config.Paths;
-        foreach (var (what, path) in new[] { ("game", p2.GameDir), ("bridge data", p2.BridgeData), ("hand-overs", p2.Handover), ("depotcache", p2.Depotcache), ("plugins", p2.Plugins), ("state", p2.StateDir) })
+        foreach (var (what, path) in new[] { ("game", p2.GameDir), ("bridge data", p2.BridgeData), ("hand-overs", p2.Handover), ("depotcache", p2.Depotcache), ("plugins", p2.Plugins), ("state", p2.StateDir) }
+                     .Concat(config.MapsLayout == "preview" ? [("preview (maps.layout preview)", p2.PreviewDir)] : []))
             w.WriteLine($"path {what}: {path} {(Directory.Exists(path) ? "(there)" : "(MISSING)")}");
         w.WriteLine($"bridge: {(config.Bridge is { } br ? br.Base : "none (bridge.secret is empty)")}");
         w.WriteLine($"RCON password: {(config.RconPassword.Length > 0 ? "set" : "EMPTY - no restart can happen")}");

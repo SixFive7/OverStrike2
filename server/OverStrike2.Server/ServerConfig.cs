@@ -13,6 +13,7 @@ public sealed record ServerPaths
     public required string Depotcache { get; init; }       // the Steam client's verified manifests (~/Steam/depotcache)
     public required string Plugins { get; init; }          // the CounterStrikeSharp plugins to install, one folder each (read-only)
     public string? Logs { get; init; }                     // the Steam client's logs, when they are not beside the depotcache
+    public string Preview { get; init; } = "";             // where maps.layout preview writes; empty: PreviewDir's default
 
     public string StateDir => Path.Combine(GameDir, "update-watch");   // the counters, the records, the lists of deletions
     public string StateFile => Path.Combine(StateDir, "state.json");
@@ -20,6 +21,7 @@ public sealed record ServerPaths
     public string InstalledFile => Path.Combine(GameDir, "update-watch", "installed.json");   // what `install` put in place for this engine
     public string KeepFile => Path.Combine(StateDir, "keep.json");
     public string SnapshotDir => Path.Combine(StateDir, "steamlogs");
+    public string PreviewDir => Preview.Length > 0 ? Preview : Path.Combine(StateDir, "preview");   // THE PREVIEW's keep set and lists
     public string Csgo => Path.Combine(GameDir, "game", "csgo");
     public string SteamInf => Path.Combine(Csgo, "steam.inf");
     public string WorkshopDir => WorkshopPaths.OfGame(GameDir);
@@ -48,6 +50,7 @@ public sealed record ServerPaths
         Handover = s.Paths.Handover,
         Depotcache = s.Paths.Depotcache,
         Plugins = s.Paths.Plugins,
+        Preview = s.Paths.Preview,
     };
 }
 

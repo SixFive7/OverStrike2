@@ -118,6 +118,11 @@ Workshop sync's complete hand-overs, and with `maps.delete` on deletes every sto
 the keep set names a problem. Each run writes `update-watch/keep.json` and
 `update-watch/deleted-<time>-<done, dryrun or refused>.tsv`.
 
+`maps.layout preview` is for a rehearsal on production's volume: it changes nothing - no map moved, linked or renamed, no hand-over taken
+in, no `INDEX.tsv`, no acf and no acf backup written, nothing deleted - and writes only what a start with the same settings would do:
+`keep-preview.json` (the keep set, what it would do with `maps.delete` as set, the hand-overs it would take in) and
+`deleted-<time>-preview.tsv` (the maps it would delete, as a start's own list would name them), into `paths.preview`, else `update-watch/preview/`.
+
 ## Build and test
 
 ```sh
