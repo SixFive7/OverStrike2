@@ -26,7 +26,9 @@ python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Glob
 ```
 
 Each compile waits until no other `resourcecompiler.exe` runs on the PC. `--addon <folder>` builds into another addon folder - a
-staging copy, say, while the published build is under review - and leaves the published one as it is.
+staging copy, say, while the published build is under review - and leaves the published one as it is. gg_vinceville keeps the
+published build's spawn points, from [gg_vinceville/spawns.json](gg_vinceville/spawns.json), so a rebuild writes the published map's
+source again, byte for byte.
 
 The maps use only the game's own materials and models, by reference. Where a map needs one of the game's files in its addon
 (gg_vinceville's underwater look, from `ar_pool_day`'s map package), the generator reads it from the local installation at

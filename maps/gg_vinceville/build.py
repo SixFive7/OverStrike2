@@ -6,7 +6,8 @@ there is nothing else to compile and no materials folder to ship.
   python build.py [--log <file>] [--layout <file>] [--cs2 <path>] [--addon <folder>] [--spawns-from <layout.json>]
                   [--nolight] [--vis] [--lightmap 1024] [--quality 0] [--threads 4] [--nogen]
 
---spawns-from keeps an earlier build's spawn points (generate.py's option).
+--spawns-from is generate.py's: the spawn points to keep - by default the published build's, from spawns.json; none picks
+new ones.
 --vis adds the visibility build; without it the map draws whole, which is how the published build was compiled.
 """
 import os

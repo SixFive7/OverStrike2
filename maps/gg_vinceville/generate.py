@@ -14,7 +14,11 @@ Writes the Hammer map source into the CS2 Workshop Tools' content folder:
 and layout.json beside --layout (every mesh, prop, pond and spawn, for the preview render and the checks).
 
   python generate.py [--cs2 <path to 'Counter-Strike Global Offensive'>] [--layout <file>] [--addon <folder>]
-                     [--spawns-from <an earlier layout.json>]
+                     [--spawns-from <layout.json> | none]
+
+The spawn points are the published build's, from spawns.json beside this script: each is checked to stand clear still (one
+that does not is moved), and three deathmatch spawns are added in the sewer. --spawns-from takes them from another
+layout.json instead; none picks new ones.
 
 Only stock CS2 materials and models are used, so the addon needs no materials folder of its own. World geometry is closed
 CMapMesh solids (boxes, prisms, a height-field terrain in chunks); the trees, bushes, hedges, cars and some furniture are
@@ -29,6 +33,7 @@ import sys
 import random
 
 NAME = 'gg_vinceville'
+SPAWNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'spawns.json')   # the published build's spawn points
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vmapkit import El, cs2_dir, data_array, entity, fnum, node_ids, stream, transform_tail, use_name, write_el  # noqa: E402 (maps/vmapkit.py: what the generators share)
 
@@ -2312,7 +2317,7 @@ def pick_spawns(L, fixed=None):
                     indoor.append((x, y, z, f['tag'].split('/')[0]))
 
     if fixed:
-        # keep an earlier build's spawn points (generate.py --spawns-from): each must still be clear here, and an indoor
+        # keep the given spawn points (spawns.json, or --spawns-from): each must still be clear here, and an indoor
         # one must still stand on floor; any that is not is replaced by the farthest valid point of its kind
         def on_floor(x, y, z):
             return any(abs(f['z'] - z) < 0.5 and f['rect'][0] + 16 <= x <= f['rect'][2] - 16 and
@@ -2692,7 +2697,8 @@ def main():
     ap.add_argument('--cs2', default=cs2_dir())
     ap.add_argument('--layout', default=None, help='where to write layout.json (default: next to the vmap)')
     ap.add_argument('--addon', default=NAME, help='addon folder to write into (content and game); the map stays ' + NAME)
-    ap.add_argument('--spawns-from', default=None, help="keep the spawn points of an earlier build's layout.json")
+    ap.add_argument('--spawns-from', default=SPAWNS,
+                    help="keep the spawn points of this layout.json (default: spawns.json, the published build's); none picks new ones")
     args = ap.parse_args()
     content = os.path.join(args.cs2, 'content', 'csgo_addons', args.addon)
     game = os.path.join(args.cs2, 'game', 'csgo_addons', args.addon)
@@ -2707,7 +2713,7 @@ def main():
     with open(os.path.join(game, UNDERWATER_VPOST + '_c'), 'wb') as f:
         f.write(data)
     L = build_layout()
-    if args.spawns_from:
+    if args.spawns_from != 'none':
         L.fixed_spawns = [tuple(s) for s in json.load(open(args.spawns_from, encoding='utf-8'))['spawns']]
     warns = audit(L)
     vmap = os.path.join(content, 'maps', NAME + '.vmap')
