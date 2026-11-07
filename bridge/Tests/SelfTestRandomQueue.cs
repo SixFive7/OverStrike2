@@ -152,8 +152,10 @@ static partial class Program
             Lane(Modes.ArmsRace)[0] = stale with { At = h.Clock.AddHours(-NotReadyDropHours - 1) };
             ApplyReady("gg-ready\t1\n");
             FillStock();
+            // The entry goes, not the map: the lane is topped up at its end, where the dice may roll the same map again (here 1 in the 935 maps of the
+            // long tail it came from).
             Check($"An entry still not on the disk after {NotReadyDropHours} h, while the reports keep coming, is dropped; a younger one waits its turn",
-                Lane(Modes.ArmsRace).All(e => e.Key != stale.Key) && Lane(Modes.ArmsRace).Any(e => e.Key == young.Key));
+                Lane(Modes.ArmsRace)[0] == young && Lane(Modes.ArmsRace).SkipLast(1).All(e => e.Key != stale.Key));
             ReadyAt = default;
             int kept = 0, trials = 2000;
             Fresh(); FillStock();
@@ -165,7 +167,7 @@ static partial class Program
                 Lane(Modes.ArmsRace).Insert(0, target with { Weight = Weight(targetMap) });
                 Votes[target.Key] = new() { ["[U:1:6]"] = DownReasons.Plain }; // a dislike: a quarter of the odds
                 FillStock();
-                if (Lane(Modes.ArmsRace).Any(e => e.Key == target.Key)) kept++;
+                if (Lane(Modes.ArmsRace)[0].Key == target.Key) kept++; // kept in its place: a new roll of the same map would come at the lane's end
                 Votes = new();
             }
             Check($"A dislike since its roll keeps an entry with the odds it left it: {kept} of {trials} kept, a quarter expected", kept is > 420 and < 580);
