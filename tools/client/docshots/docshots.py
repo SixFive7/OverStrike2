@@ -646,8 +646,13 @@ browser("maps-search-keyboard", "gg_q_kbd", "the keyboard over a search that is 
 R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section=S_MAPS, after="page-maps", steps=[con("say !find zzqqzz"), pause(2), shoot()], cleanup=[press("gg_q_clear")], when="2 s after the line")
 R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section=S_MAPS, after="page-maps",
   steps=[con("say 3369214545"), pause(3), shoot()], cleanup=[press("gg_q_clear")], when="3 s after the line: the server's own no needs no Workshop question", words_from=("bridge/broken.json", "3369214545"))
+# A public CS2 map that stays off the list: Aim Botz - Aim Training (CS2), tagged Cs2, Map and Custom - no Armsrace, Deathmatch or Wingman tag, which
+# is all the sync's discovery searches (sync.tags), so it is never taken in, and with millions of subscribers it stays public. Not the HUD's own item:
+# the server refuses that one as no map (WorkshopCard.ServerRefusal, 49901da).
+UNLISTED_MAP = "3070244462"
 R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: Asking the Workshop, then Download and play. NEVER clicked: it downloads to the server", section=S_MAPS, after="page-maps",
-  steps=[con("say 3823993566"), pause(0.3), shoot(n=3)], cleanup=[press("gg_q_clear")], when="from about 2 s after the line, serially: the Web API answers within a few seconds (the HUD item's public id)")
+  steps=[con(f"say {UNLISTED_MAP}"), pause(0.3), shoot(n=3)], cleanup=[press("gg_q_clear")],
+  when="from about 2 s after the line, serially: the Web API answers within a few seconds (Aim Botz, a public CS2 map on none of the lists)")
 R("maps-liked-card", "MAPS > Browse: a card I like: its arrow lit, the line", section=S_MAPS, after="page-maps", bridge=W_LIKE, steps=[press("gg_m2_up", bg=True), pause(3.5), shoot()], cleanup=[press("gg_m2_down")],
   when="about 5 s after the click: the line lasts 8 s")
 R("why-card", "Why the dislike?: the small dialog at the centre", pick="Why the dislike? (the reasons)", today="one small dialog at the centre, as the owner's note asks, 15 s; it shows only while the player has a cursor", after="page-maps",
