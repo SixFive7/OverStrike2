@@ -85,10 +85,6 @@ public static class RunReport
             W("server errors). The next day starts again from the ledger's counts.");
             W("");
         }
-        foreach (var line in Node.Arr(r["notes"]))
-            W($"NOTE: {S(line)}");
-        if (Node.Truthy(r["notes"]))
-            W("");
         var d = Node.Obj(r["discovery"]);
         W("1. Find new maps (IPublishedFileService/QueryFiles, the Web API key):");
         if (Node.Truthy(d["skipped"]))
@@ -122,20 +118,13 @@ public static class RunReport
               + $"{Node.Arr(sv["failed"]).Count} failed, {N(sv, "left")} still missing{(Node.Truthy(sv["stop"]) ? $"; stopped: {S(sv["stop"])}" : "")}.");
         var dl = Node.Obj(r["downloads"]);
         W("3. Downloads (SteamCMD, anonymous login):");
-        if (Node.Truthy(dl["skipped"]))
-            W($"   skipped: {S(dl["skipped"])}");
-        else
-        {
-            var failed = Node.Arr(dl["failed"]);
-            var firstFails = string.Join("; ", failed.Take(5).Select(f => $"{S(Node.Arr(f).ElementAtOrDefault(0))}: {S(Node.Arr(f).ElementAtOrDefault(1))}"));
-            W($"   {N(dl, "ok")} downloaded ({Text.Mb(N(dl, "bytes"))}), {failed.Count} failed{(failed.Count > 0 ? $" ({firstFails})" : "")}; {N(dl, "queued_left")} still queued for later runs.");
-            if (Node.Truthy(dl["stop"]))
-                W($"   stopped: {S(dl["stop"])}");
-        }
+        var failed = Node.Arr(dl["failed"]);
+        var firstFails = string.Join("; ", failed.Take(5).Select(f => $"{S(Node.Arr(f).ElementAtOrDefault(0))}: {S(Node.Arr(f).ElementAtOrDefault(1))}"));
+        W($"   {N(dl, "ok")} downloaded ({Text.Mb(N(dl, "bytes"))}), {failed.Count} failed{(failed.Count > 0 ? $" ({firstFails})" : "")}; {N(dl, "queued_left")} still queued for later runs.");
+        if (Node.Truthy(dl["stop"]))
+            W($"   stopped: {S(dl["stop"])}");
         var t = Node.Obj(r["tests"]);
         W("4. Scan and load test (a test copy of the server, no plugins, its own anonymous logon):");
-        if (Node.Truthy(t["skipped"]))
-            W($"   skipped: {S(t["skipped"])}");
         var rows = Node.StrList(t["rows"]);
         var passes = rows.Where(x => x.StartsWith("PASS", StringComparison.Ordinal)).ToList();
         if (rows.Count > RowsShown)                   // a long run: the counts, what did not pass, a taste of what did; the report has them all

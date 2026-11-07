@@ -51,10 +51,9 @@ public sealed partial class SyncRun
     readonly Action<double> sleep;
     readonly WebApiDoor door;
 
-    /// <param name="sleep">The waits for an empty server (a test's moves its clock).</param>
     /// <param name="door">The program's one Web API door; a test's run gets its own.</param>
-    public SyncRun(SyncConfig cfg, SyncClock clock, Seams seams, SyncLog log, bool manual = false, Action<double>? sleep = null, Status? status = null,
-                   WebApiDoor? door = null)
+    /// <param name="sleep">The waits for an empty server (a test's moves its clock).</param>
+    public SyncRun(SyncConfig cfg, SyncClock clock, Seams seams, SyncLog log, WebApiDoor door, bool manual = false, Action<double>? sleep = null, Status? status = null)
     {
         Cfg = cfg;
         Clock = clock;
@@ -62,7 +61,7 @@ public sealed partial class SyncRun
         Log = log;
         Manual = manual;
         this.sleep = sleep ?? (s => clock.Sleep(s));
-        this.door = door ?? new WebApiDoor(cfg.ApiGap, clock.Clock);
+        this.door = door;
         Status = status ?? new Status(cfg, clock, log.Line);
         Day0 = clock.Day();
         T0 = clock.Now();
@@ -73,7 +72,7 @@ public sealed partial class SyncRun
         Deadline = Service.RunDeadline(cfg, clock);
         Report = new JsonObject
         {
-            ["day"] = Day0, ["manual"] = manual, ["started"] = clock.Stamp(), ["started_hm"] = clock.Hm(), ["notes"] = new JsonArray(),
+            ["day"] = Day0, ["manual"] = manual, ["started"] = clock.Stamp(), ["started_hm"] = clock.Hm(),
             ["errors"] = new JsonArray(), ["waited"] = new JsonArray(),
         };
         Ledger = new ApiLedger(Path.Combine(cfg.StateDir, "api-ledger.json"), cfg.ApiDayCap, clock);
@@ -97,20 +96,10 @@ public sealed partial class SyncRun
     string Content => Path.Combine(Staging, "steamapps", "workshop", "content", "730");
     string StagingAcf => Path.Combine(Staging, "steamapps", "workshop", "appworkshop_730.acf");
 
-    /// <summary>The keep set, and never an exception: an input of a shape it does not read gives an empty set whose problems say why -
-    /// nothing is handed over or deleted on it.</summary>
-    public KeepSetResult SafeKeepSet(IReadOnlyDictionary<string, JsonNode?> inputs, double now, string hud = "")
-    {
-        try
-        {
-            return Seams.KeepSet(inputs, SyncClock.At(now), hud, Cfg.KeepRules);
-        }
-        catch (Exception e) when (e is not StopRequested)      // a reshaped bridge file must never crash a run
-        {
-            L($"keep set: not computed ({e.GetType().Name}: {e.Message}) - an input has a shape this code does not read; nothing is decided on it");
-            return KeepSet.Empty($"{e.GetType().Name}: {e.Message}");
-        }
-    }
+    /// <summary>The keep set (core's, the restart watcher's too), with the config's rules, and never an exception: an input of a shape it does
+    /// not read gives an empty set whose problems say why - nothing is handed over or deleted on it.</summary>
+    public KeepSetResult SafeKeepSet(IReadOnlyDictionary<string, JsonNode?> inputs, double now, string hud = "") =>
+        KeepSet.Safe(inputs, SyncClock.At(now), hud, L, Cfg.KeepRules);
 
     public Dictionary<string, JsonNode?> KeepInputs() => KeepSet.Inputs(Cfg.BridgeData);
 
@@ -276,7 +265,7 @@ public sealed partial class SyncRun
         var listed = files.Listed();
         L($"start: {listed.Count} listed map(s), {known.Count} id(s) known, {State.Items.Count} item(s) in the state, deadline {Clock.Hm(Deadline)}{(Manual ? " (manual run)" : "")}");
         var key = Cfg.WebApiKey.Length > 0 ? Cfg.WebApiKey : null;
-        var api = new SteamApi(Ledger, Day0, door, key, Seams.WebApi, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
+        var api = new SteamApi(Ledger, Day0, door, key, SteamApi.HttpSend, s => Clock.Sleep(s), L, Cfg.ApiRunCap);
         Api = api;
         var lastApi = Node.Float(State.Data["last_api"]);
         var apiDue = (Cfg.ForceApi || Clock.Now() - lastApi >= Cfg.ApiEvery || !Service.BacklogWaits(State.Data)) && !Cfg.SkipApi;
@@ -315,7 +304,7 @@ public sealed partial class SyncRun
         {
             var tBatch = Clock.Now();
             Phase("downloads");
-            var got = Download(known, details);
+            var got = Download(known);
             Phase("tests");
             var outcomes = ScanAndTest();
             Worked += Clock.Now() - tBatch;
@@ -422,7 +411,7 @@ public sealed partial class SyncRun
     {
         try
         {
-            Queue(new Dictionary<string, string>(), new Dictionary<string, JsonObject>());   // the backlog as it is at the end of the run, for the mail
+            Queue(new Dictionary<string, string>());   // the backlog as it is at the end of the run, for the mail
             Report["backlog"] = Backlog?.DeepClone();
             if (Backlog is not null && Node.Truthy(Backlog["days"]))
                 Report["backlog_until"] = $" (until about {Clock.Day(Clock.Now() + Node.Int(Backlog["days"]) * Day)})";
@@ -448,7 +437,6 @@ public sealed partial class SyncRun
         var path = Path.Combine(Cfg.StateDir, "reports", $"{Day0}-{Clock.Local(T0).ToString("HHmm", CultureInfo.InvariantCulture)}{(Manual ? "-manual" : "")}.json");
         Report["report_path"] = path;
         var (subject, body) = RunReport.Summary(Report, Cfg);
-        Report["mail_subject"] = subject;
         try
         {
             Files.WriteAtomic(path, Node.File(Report, 1), FileModes.Private);

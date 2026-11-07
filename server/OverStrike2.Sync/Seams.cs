@@ -4,9 +4,8 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Sync;
 
-/// <summary>The sync's outside world, each a seam a test replaces: SteamCMD,
-/// the test engine and its farm, the scan, a test load, A2S of the game server, the Workshop check, the mail, the keep set, the bridge's
-/// HTTP side and the Web API's. The defaults are the real ones.</summary>
+/// <summary>The sync's outside world, each a seam a test replaces: SteamCMD, the test engine and its farm, the scan, a test load, A2S of the
+/// game server, the Workshop check and the mail. The defaults are the real ones.</summary>
 public sealed class Seams
 {
     /// <summary>A SteamCMD session: (steamcmd.sh, the staging folder, its log, HOME).</summary>
@@ -33,17 +32,6 @@ public sealed class Seams
 
     /// <summary>A problem mail: (config, subject, body) - null when sent, else why not.</summary>
     public Func<SyncConfig, string, string, string?> SendMail { get; set; } = Smtp.Send;
-
-    /// <summary>THE KEEP SET (Core's KeepSet, the restart watcher's too), with the rules of the config (its queues as long as
-    /// bridge.discoveryStock, as the watcher's); the sync never trusts it with an exception.</summary>
-    public Func<IReadOnlyDictionary<string, JsonNode?>, DateTimeOffset, string, KeepRules, KeepSetResult> KeepSet { get; set; } =
-        (inputs, now, hud, rules) => Core.KeepSet.Compute(inputs, now, hud, rules);
-
-    /// <summary>A POST to the bridge: (URL, body, content type) - (status, the answer's text). Throws when there is no answer.</summary>
-    public Func<string, string, string, (int Status, string Text)> BridgePost { get; set; } = Game.Post;
-
-    /// <summary>One Web API request (the program's door and ledger are around it).</summary>
-    public Func<ApiRequest, ApiAnswer> WebApi { get; set; } = SteamApi.HttpSend;
 }
 
 /// <summary>The game server and the bridge, as the sync sees them from its own container.</summary>

@@ -58,7 +58,7 @@ public sealed partial class SyncRun
         };
         long SizeOf(string wid) => sizes.TryGetValue(wid, out var s) && s != 0 ? s : Node.Int(Node.Get(items[wid], "size"));
         // the queue, in the order the downloads take it
-        var order = Queue(files?.KnownIds(Cfg) ?? new Dictionary<string, string>(), new Dictionary<string, JsonObject>());
+        var order = Queue(files?.KnownIds(Cfg) ?? new Dictionary<string, string>());
         string Why(string wid)
         {
             if (QTop.Contains(wid))

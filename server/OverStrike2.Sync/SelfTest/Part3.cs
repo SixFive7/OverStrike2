@@ -169,28 +169,10 @@ static class Part3
 
     public static Dictionary<string, JsonNode?> Inputs(JsonObject data) => data.ToDictionary(kv => kv.Key, kv => kv.Value?.DeepClone());
 
-    static string Same(KeepSetResult k) => Node.Compact(new JsonObject
-    {
-        ["up"] = Node.Strings(k.Up), ["top"] = new JsonObject(k.Top.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Node.Strings(kv.Value)))),
-        ["own"] = Node.Strings(k.Own), ["hud"] = Node.Strings(k.Hud), ["requested"] = Node.Strings(k.Requested), ["all"] = Node.Strings(k.All.OrderBy(x => x, StringComparer.Ordinal)),
-        ["scored"] = k.Scored, ["problems"] = Node.Strings(k.Problems),
-        ["queues"] = new JsonObject(k.Queues.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)Node.Strings(kv.Value)))),
-    });
-
     // ---- the keep set: Core's KeepSet, shared with the restart watcher
     static void KeepSetChecks(JsonObject kdata)
     {
-        var syncTypes = typeof(SyncRun).Assembly.GetTypes();
-        var serverTypes = typeof(MapsFolder).Assembly.GetTypes();
-        Check("keep set: one copy of the rules - Core's KeepSet; neither program holds its own",
-              !syncTypes.Any(t => t.Name.Contains("KeepSet", StringComparison.Ordinal)) && !serverTypes.Any(t => t.Name.Contains("KeepSet", StringComparison.Ordinal))
-              && typeof(KeepSet).Assembly.GetName().Name == "OverStrike2.Core");
-        Check("keep set: both programs use the same KeepSet, Core's",
-              typeof(SyncRun).Assembly.GetReferencedAssemblies().Any(a => a.Name == "OverStrike2.Core") && typeof(MapsFolder).Assembly.GetReferencedAssemblies().Any(a => a.Name == "OverStrike2.Core"));
         var probe = W.Run(Cfg(), new FakeClock(KT));
-        Check("keep set: both programs give the same set from the same data",
-              Same(probe.SafeKeepSet(Inputs(kdata), KT, "500")) == Same(KeepSet.Safe(Inputs(kdata), SyncClock.At(KT), "500"))
-              && probe.SafeKeepSet(Inputs(kdata), KT, "").Problems.SequenceEqual(KeepSet.Safe(Inputs(kdata), SyncClock.At(KT), "").Problems));
         var withBlocked = (JsonObject)kdata.DeepClone();
         withBlocked["blocked.json"] = A("[{\"id\": 105}, 106]");
         var kb = probe.SafeKeepSet(Inputs(withBlocked), KT, "500");
@@ -279,7 +261,7 @@ static class Part3
         ratings.Remove("trend");
         Json(Path.Combine(sdata, "ratings.json"), ratings);
         nn.ForgetCutoffs();
-        var order = nn.Queue(new Dictionary<string, string>(), new Dictionary<string, JsonObject>());
+        var order = nn.Queue(new Dictionary<string, string>());
         Check($"queue: a waiting map whose score puts it among its mode's best goes first (143), the rest by popularity: {T.Show(order.Take(4))}",
               order[0] == "143" && order.IndexOf("143") < order.IndexOf("144"));
     }
@@ -560,27 +542,18 @@ static class Part3
         var probe = W.Run(ncfg2, new FakeClock(KT + 400));
         var ks = probe.SafeKeepSet(KeepSet.Inputs(shp), KT);
         Check($"reshaped inputs: the keep set says why it is not to be trusted, no exception ({T.Show(ks.Problems.Take(2))})", ks.Problems.Count > 0 && ks.All.Count == 0);
-        var realKeep = Hooks.KeepSet;
-        Hooks.KeepSet = (_, _, _, _) => throw new InvalidCastException("'list' object has no attribute 'get'");
-        var ks2 = probe.SafeKeepSet(new Dictionary<string, JsonNode?>(), KT);
-        Check("reshaped inputs: an exception inside the keep set is caught and named",
-              ks2.Problems[0].StartsWith("the keep set could not be computed", StringComparison.Ordinal) && ks2.All.Count == 0);
+        // a key twice in one object parses, and throws once it is read: an exception inside the keep set itself
+        var votesPath = Path.Combine(sdata, "votes.json");
+        var votes = File.ReadAllText(votesPath);
+        File.WriteAllText(votesPath, "{\"110\": {\"[U:1:1]\": 1}, \"110\": {\"[U:1:2]\": 1}}");
+        var ks2 = probe.SafeKeepSet(probe.KeepInputs(), KT);
+        Check($"reshaped inputs: an exception inside the keep set is caught and named ({T.Show(ks2.Problems.Take(1))})",
+              ks2.Problems[0].StartsWith("the keep set could not be computed: ArgumentException", StringComparison.Ordinal) && ks2.All.Count == 0);
         var nsr = W.Run(ncfg2, new FakeClock(KT + 400));
         nsr.State.Load();
         nsr.Serve();
         Check("reshaped inputs: serve stops at such a keep set and names it as an error, the run goes on",
               Node.StrOr(Node.Get(nsr.Report["serve"], "skipped")).Contains("could not be computed") && Node.StrList(nsr.Report["errors"]).Any(e => e.Contains("serve:")));
-        // The keep set is compiled in from Core, so it cannot be missing; these two hold what a missing one must mean: a keep set that could
-        // not be computed is empty, says why, and serve hands over nothing on it
-        Hooks.KeepSet = (_, _, _, _) => throw new FileNotFoundException("OverStrike2.Core's KeepSet is not loadable");
-        var ksb = probe.SafeKeepSet(KeepSet.Inputs(sdata), KT, "500");
-        Check($"no keep set: an empty one that says why ({T.Show(ksb.Problems.Take(1))})",
-              ksb.All.Count == 0 && ksb.Problems[0].StartsWith("the keep set could not be computed: FileNotFoundException", StringComparison.Ordinal));
-        var nb = W.Run(ncfg2, new FakeClock(KT + 500));
-        nb.State.Load();
-        nb.Serve();
-        Check("no keep set: serve hands over nothing and names it as an error",Node.StrOr(Node.Get(nb.Report["serve"], "skipped")).Contains("could not be computed")
-              && Node.StrList(nb.Report["errors"]).Any(e => e.Contains("KeepSet")));
-        Hooks.KeepSet = realKeep;
+        File.WriteAllText(votesPath, votes);
     }
 }

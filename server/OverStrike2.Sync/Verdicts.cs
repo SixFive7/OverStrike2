@@ -63,8 +63,7 @@ public static class Verdicts
                 });
             return ("pass", new JsonObject
             {
-                ["level"] = first["level"]?.DeepClone(), ["mode"] = first["mode"]?.DeepClone(), ["load_s"] = first["load_s"]?.DeepClone(), ["flaky"] = passAt > 0,
-                ["before"] = Node.Strings(verdicts.Take(passAt)),
+                ["level"] = first["level"]?.DeepClone(), ["mode"] = first["mode"]?.DeepClone(), ["load_s"] = first["load_s"]?.DeepClone(),
             });
         }
         if (verdicts.Contains("kick"))
@@ -190,7 +189,7 @@ public static class Verdicts
 
     /// <summary>What a publish writes. Pure: returns ({file name: new text}, summary); nothing is written here. outcomes: the items this run
     /// decided. removedNow: [(id, verdict)] of listed maps.</summary>
-    public static (Dictionary<string, string> Texts, JsonObject Summary) PlanPublish(BridgeData files, SyncState state, string day, IReadOnlyList<Outcome> outcomes,
+    public static (Dictionary<string, string> Texts, JsonObject Summary) PlanPublish(BridgeData files, SyncState state, IReadOnlyList<Outcome> outcomes,
                                                                                     IReadOnlyList<(string Id, string Verdict)> removedNow, bool modeBackfill,
                                                                                     IReadOnlyDictionary<string, JsonObject> listedDetails)
     {
@@ -209,7 +208,7 @@ public static class Verdicts
         var summary = new JsonObject
         {
             ["listed"] = new JsonArray(), ["modes"] = new JsonObject(), ["broken"] = new JsonArray(), ["packs"] = new JsonArray(), ["removed"] = new JsonArray(),
-            ["advert"] = new JsonArray(), ["back"] = new JsonArray(),
+            ["advert"] = new JsonArray(),
         };
         JsonArray S(string key) => (JsonArray)summary[key]!;
         JsonArray Section(string key)

@@ -41,7 +41,7 @@ static class W
     public static SyncClock C(FakeClock f) => new(f, Paris);
 
     public static SyncRun Run(SyncConfig cfg, FakeClock fc, bool manual = true, Action<double>? sleep = null) =>
-        new(cfg, C(fc), Hooks, Log, manual, sleep, door: new WebApiDoor(cfg.ApiGap, fc));
+        new(cfg, C(fc), Hooks, Log, new WebApiDoor(cfg.ApiGap, fc), manual, sleep);
 
     public static JsonNode J(string json) => JsonNode.Parse(json)!;
     public static JsonObject O(string json) => (JsonObject)JsonNode.Parse(json)!;

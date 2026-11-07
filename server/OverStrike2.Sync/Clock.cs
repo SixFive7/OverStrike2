@@ -68,12 +68,11 @@ public sealed class SyncClock(IClock clock, TimeZoneInfo zone)
     }
 }
 
-/// <summary>One line per event to the container log (stdout) and to &lt;state&gt;/sync.log (10 MB, then .1), each with the local time - and
-/// the same line to a test's list.</summary>
+/// <summary>One line per event to the container log (stdout) and to &lt;state&gt;/sync.log (10 MB, then .1), each with the local time; a
+/// test's says nothing.</summary>
 public sealed class SyncLog(SyncClock clock)
 {
     readonly object gate = new();
-    public List<string> Lines { get; } = [];
     public bool Echo { get; set; } = true;
     public string? File { get; set; }
 
@@ -81,9 +80,6 @@ public sealed class SyncLog(SyncClock clock)
     {
         lock (gate)
         {
-            Lines.Add(message);
-            if (Lines.Count > 20000)
-                Lines.RemoveRange(0, 10000);
             if (!Echo)
                 return;
             var line = $"os2-sync: {clock.Local().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} {message}";

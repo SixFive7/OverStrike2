@@ -22,7 +22,7 @@ public sealed partial class SyncRun
             pub["skipped"] = $"the bridge's data cannot be read ({e.Message})";
             return;
         }
-        var (texts, summary) = Verdicts.PlanPublish(files, State, Day0, outcomes, removedNow, Cfg.ModeBackfill, details);
+        var (texts, summary) = Verdicts.PlanPublish(files, State, outcomes, removedNow, Cfg.ModeBackfill, details);
         Merge(pub, summary);
         var verdicts = VerdictsToReport;
         if (texts.Count == 0 && verdicts.Count == 0)
@@ -67,7 +67,7 @@ public sealed partial class SyncRun
         }
         if (live.Raw.Keys.Union(files.Raw.Keys).Any(n => !SameBytes(live.Raw.GetValueOrDefault(n), files.Raw.GetValueOrDefault(n))))
         {
-            (texts, summary) = Verdicts.PlanPublish(live, State, Day0, outcomes, removedNow, Cfg.ModeBackfill, details);
+            (texts, summary) = Verdicts.PlanPublish(live, State, outcomes, removedNow, Cfg.ModeBackfill, details);
             Merge(pub, summary);
             files = live;
             L("publish: the bridge's data changed while it was planned - planned again on the live files");
@@ -154,7 +154,7 @@ public sealed partial class SyncRun
             return (false, "not reported (no bridge.url / bridge.secret) - nothing else tells the bridge");
         try
         {
-            var (status, text) = Seams.BridgePost(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Removed, Cfg.BridgeSecret), VerdictsBody(verdicts), "text/plain; charset=utf-8");
+            var (status, text) = Game.Post(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Removed, Cfg.BridgeSecret), VerdictsBody(verdicts), "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return (false, $"the report failed (HTTP Error {status}) - the next check reports again");
             var said = Text.Cut(text.Trim(), 300);
@@ -245,7 +245,7 @@ public sealed partial class SyncRun
             return "not asked (no bridge.url / bridge.secret): it reads the files again within about 10 s";
         try
         {
-            var (status, text) = Seams.BridgePost(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Reload, Cfg.BridgeSecret), "", "text/plain; charset=utf-8");
+            var (status, text) = Game.Post(BridgeWire.Url(Cfg.BridgeUrl, BridgeWire.Reload, Cfg.BridgeSecret), "", "text/plain; charset=utf-8");
             if (status is < 200 or >= 300)
                 return $"the reload request failed (HTTP Error {status}): the bridge reads the files again by itself within about 10 s";
             var said = Text.Cut(string.Join(" | ", text.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0)), 600);

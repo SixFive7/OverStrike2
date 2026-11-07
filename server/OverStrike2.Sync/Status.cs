@@ -64,15 +64,6 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         }
     }
 
-    public JsonObject Now
-    {
-        get
-        {
-            lock (gate)
-                return (JsonObject)now.DeepClone();
-        }
-    }
-
     public JsonObject Doc()
     {
         lock (gate)

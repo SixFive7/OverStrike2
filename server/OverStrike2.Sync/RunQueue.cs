@@ -10,7 +10,7 @@ public sealed partial class SyncRun
     /// them, then everything else we have seen (most subscribed first) - and before all of them, best score first, a waiting map whose
     /// Workshop score would put it among its mode's best (the keep set's top lists), so the maps that will stay on the server are tested
     /// before the rest.</summary>
-    public List<string> Queue(IReadOnlyDictionary<string, string> known, IReadOnlyDictionary<string, JsonObject> details)
+    public List<string> Queue(IReadOnlyDictionary<string, string> known)
     {
         var items = State.Items;
         var only = Cfg.OnlyIds;
@@ -63,7 +63,7 @@ public sealed partial class SyncRun
             var v = scores[wid];
             var s = v is JsonArray a ? a.Count > 0 ? a[0] : null : v;
             var n = v is JsonArray b && b.Count > 3 ? b[3] : null;
-            if (!(Node.IsNumber(s) || Node.IsBool(s)))
+            if (!Node.IsNumber(s))
                 return null;
             var score = Node.Float(s);
             var itemTags = Node.Get(items[wid], "tags");

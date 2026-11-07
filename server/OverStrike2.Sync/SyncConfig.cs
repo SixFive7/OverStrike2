@@ -54,7 +54,6 @@ public sealed class SyncConfig
     public bool SkipApi { get; set; }                              // a run-now's {"api": false}
     public long DiskLow { get; set; } = 100L << 30;                // sync.diskLowGb, in bytes
     public bool Handover { get; set; } = true;                     // sync.handover
-    public string? HandoverFolder { get; set; }                    // else <work>/handover: paths.handover in the game server
     public string Depotcache { get; set; } = "/home/steam/Steam/depotcache";
     public string ServerName { get; set; } = "CS2 server";         // server.name
     public string HudAddon { get; set; } = "";                     // hud.addon: the HUD item, for the dashboard's keep set
@@ -63,7 +62,7 @@ public sealed class SyncConfig
     public KeepRules KeepRules { get; set; } = KeepRules.Default;  // the keep set's limits: its queues as long as bridge.discoveryStock, the restart watcher's too
     public List<string> BootWarnings { get; } = [];
 
-    public string HandoverDir => HandoverFolder ?? Path.Combine(WorkDir, "handover");
+    public string HandoverDir => Path.Combine(WorkDir, "handover");   // paths.handover in the game server
     public string WatcherDir => Path.Combine(GameDir, "update-watch");   // the restart watcher's folder: keep.json, its last keep set
     /// <summary>The status file, in the bridge's data.</summary>
     public string StatusFile => Path.Combine(BridgeData, "sync-status.json");

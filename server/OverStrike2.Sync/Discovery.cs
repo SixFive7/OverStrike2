@@ -17,7 +17,7 @@ public static class Discovery
         var seen = 0L;
         var fresh = new List<string>();
         long? total = null;
-        string? stop = null;
+        string stop;
         var cursor = "*";
         while (true)
         {

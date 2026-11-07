@@ -27,7 +27,7 @@ public static partial class Native
     [LibraryImport("libc", EntryPoint = "statvfs", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static unsafe partial int StatVfs(string path, byte* buf);
 
-    public const int SigTerm = 15, SigKill = 9, Esrch = 3, Eperm = 1;
+    public const int SigTerm = 15, SigKill = 9, Eperm = 1;
 
     /// <summary>kill(2); false when it failed.</summary>
     public static bool Signal(int pid, int sig) => OperatingSystem.IsLinux() && KillCall(pid, sig) == 0;

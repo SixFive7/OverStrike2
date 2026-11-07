@@ -261,7 +261,7 @@ static class Lifetimes
         var fc = new FakeClock(T0);
         JsonObject? first = null;
         var status = new Status(cfg, C(fc), Log.Line) { Wrote = doc => first ??= doc };
-        new SyncRun(cfg, C(fc), Hooks, Log, true, status: status, door: new WebApiDoor(cfg.ApiGap, fc)).Run();
+        new SyncRun(cfg, C(fc), Hooks, Log, new WebApiDoor(cfg.ApiGap, fc), true, status: status).Run();
         Check($"status: a run's first picture already has the state's totals ({Node.Str(Node.Get(first?["totals"], "tested"))} tested)", Node.Int(Node.Get(first?["totals"], "tested")) == 1);
     }
 

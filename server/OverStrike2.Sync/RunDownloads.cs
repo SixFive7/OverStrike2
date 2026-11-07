@@ -6,7 +6,7 @@ namespace OverStrike2.Sync;
 public sealed partial class SyncRun
 {
     /// <summary>One batch: at most sync.batch downloads on one anonymous SteamCMD login. Returns how many it downloaded.</summary>
-    public int Download(IReadOnlyDictionary<string, string> known, IReadOnlyDictionary<string, JsonObject> details)
+    public int Download(IReadOnlyDictionary<string, string> known)
     {
         var budget = new DownloadBudget(State, Day0);
         var dl = Section("downloads", () => new JsonObject { ["ok"] = 0, ["bytes"] = 0, ["failed"] = new JsonArray(), ["braked"] = new JsonArray() });
@@ -19,7 +19,7 @@ public sealed partial class SyncRun
             L($"staging: not tidied ({e.Message})");
         }
         var stalled = new HashSet<string>(Stalls.Select(s => s.Id));          // a map that stalled in this run waits for the next one
-        var todo = Queue(known, details).Where(w => !Staged(w) && !stalled.Contains(w)).ToList();
+        var todo = Queue(known).Where(w => !Staged(w) && !stalled.Contains(w)).ToList();
         if (todo.Count == 0)
         {
             dl["queued_left"] = 0;

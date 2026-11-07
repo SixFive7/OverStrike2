@@ -172,14 +172,14 @@ public sealed class SteamApi : IWorkshopApi
 
     /// <param name="door">The program's one door (a test: one of its own on a fake clock).</param>
     /// <param name="sleep">The retry pauses (the door's clock: a test's moves).</param>
-    public SteamApi(ApiLedger ledger, string day, WebApiDoor door, string? key, Func<ApiRequest, ApiAnswer>? send, Action<double> sleep,
+    public SteamApi(ApiLedger ledger, string day, WebApiDoor door, string? key, Func<ApiRequest, ApiAnswer> send, Action<double> sleep,
                     Action<string> log, int? runCap = null)
     {
         this.ledger = ledger;
         this.day = day;
         this.door = door;
         Key = string.IsNullOrEmpty(key) ? null : key;
-        this.send = send ?? HttpSend;
+        this.send = send;
         this.sleep = sleep;
         this.log = log;
         RunCap = runCap;
@@ -228,15 +228,7 @@ public sealed class SteamApi : IWorkshopApi
         var keyed = KeyedApis.Contains(api);
         if (keyed && Key is null)
             throw new StopApiException("no Web API key");        // nothing reserved, nothing sent
-        var query = new List<(string, string)>();
-        foreach (var (k, v) in parameters ?? [])
-        {
-            var at = query.FindIndex(p => p.Item1 == k);           // dict(params): a repeated name keeps its first place, its last value
-            if (at >= 0)
-                query[at] = (k, v);
-            else
-                query.Add((k, v));
-        }
+        var query = new List<(string, string)>(parameters ?? []);
         if (keyed)
             query.Add(("key", Key!));
         var full = url + (query.Count > 0 ? "?" + UrlEncode(query) : "");
@@ -340,7 +332,7 @@ public sealed class SteamApi : IWorkshopApi
         {
             var wid = Node.StrOr(Node.Get(item, "publishedfileid"));
             var vote = Node.Get(item, "vote_data");
-            if (Text.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && (Node.IsNumber(v["score"]) || Node.IsBool(v["score"])))
+            if (Text.Digits(wid) && Node.Int(Node.Get(item, "result")) == 1 && vote is JsonObject v && Node.IsNumber(v["score"]))
                 out_[wid] = new JsonArray(Math.Round(Node.Float(v["score"]), 6), Node.Int(v["votes_up"]), Node.Int(v["votes_down"]), Node.Int(Node.Get(item, "subscriptions")));
         }
         return out_;

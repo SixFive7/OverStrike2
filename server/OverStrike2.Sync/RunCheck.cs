@@ -41,7 +41,7 @@ public sealed partial class SyncRun
                                                                                               IReadOnlyDictionary<string, string> known, List<string> listed)
     {
         var details = new Dictionary<string, JsonObject>();
-        var queueHead = Queue(known, details).Take(QueueCheck).ToList();
+        var queueHead = Queue(known).Take(QueueCheck).ToList();
         var ids = listed.Concat(queueHead).Distinct().ToList();
         var chk = new JsonObject { ["asked"] = ids.Count };
         try

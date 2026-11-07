@@ -83,7 +83,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
         return Math.Max(now + IdleWait, Math.Min(Node.Float(lastApi) + cfg.ApiEvery, clock.AtTime(new TimeOfDay(0, 0), now + 86400)));
     }
 
-    SyncRun NewRun(SyncConfig runCfg, bool manual, Status status) => new(runCfg, clock, seams, log, manual, status: status, door: door);
+    SyncRun NewRun(SyncConfig runCfg, bool manual, Status status) => new(runCfg, clock, seams, log, door, manual, status: status);
 
     /// <summary>The service's loop, until it is told to stop (StopRequested out of a wait).</summary>
     public void Serve()
