@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
+using OverStrike2.TestKit;
 
 namespace OverStrike2.Sync.SelfTest;
 
@@ -36,7 +37,7 @@ static class W
     {
         var c = SyncConfig.From(Settings.Parse("""{ "schema": 1, "sync": { "changedSince": "2026-10-25" } }""", Part.Sync, _ => null), _ => null);
         (c.StateDir, c.WorkDir, c.GameDir, c.BridgeData, c.BridgeUrl, c.BridgeSecret, c.Depotcache) = (State, Work, GameRoot, Data, BridgeUrl, BridgeSecret, Depotcache);
-        (c.GameHost, c.Home) = ("", Path.Combine(T.Root, "home"));
+        (c.GameHost, c.Home) = ("", T.Temp("home"));
         return c;
     }
 

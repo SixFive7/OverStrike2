@@ -1,6 +1,6 @@
 // The sync's self-test: discovery and the check.
 using System.Text.Json.Nodes;
-using static OverStrike2.Sync.SelfTest.T;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 using OverStrike2.Core;
 

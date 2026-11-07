@@ -1,7 +1,7 @@
 // The sync's self-test: the settings: what the sync reads of the settings file, its clamps, and a run-now that only lowers them.
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
-using static OverStrike2.Sync.SelfTest.T;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;

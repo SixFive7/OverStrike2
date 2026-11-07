@@ -1,7 +1,7 @@
 // The sync's self-test: the publish.
 using System.Text.Json.Nodes;
 using System.Text;
-using static OverStrike2.Sync.SelfTest.T;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 using OverStrike2.Core;
 

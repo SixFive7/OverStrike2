@@ -5,7 +5,8 @@ using MapsFolder = OverStrike2.Server.MapsFolder;
 using ServerConfig = OverStrike2.Server.ServerConfig;
 using ServerLog = OverStrike2.Server.Log;
 using ServerPaths = OverStrike2.Server.ServerPaths;
-using static OverStrike2.Sync.SelfTest.T;
+using OverStrike2.TestKit;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;

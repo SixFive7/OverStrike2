@@ -1,7 +1,8 @@
 // The sync's self-test: whole runs on stand-ins for SteamCMD and the test engine.
 using System.Text.Json.Nodes;
 using OverStrike2.Core;
-using static OverStrike2.Sync.SelfTest.T;
+using OverStrike2.TestKit;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;
@@ -361,7 +362,7 @@ static class RunTests
     // new content moves it up to it. The export carries the random queues as queues.json holds them
     internal static void WorkshopJson()
     {
-        var wroot = Path.Combine(T.Root, "wsj");
+        var wroot = T.Temp("wsj");
         var wdata = Path.Combine(wroot, "data");
         Directory.CreateDirectory(Path.Combine(wroot, "state"));
         Directory.CreateDirectory(wdata);

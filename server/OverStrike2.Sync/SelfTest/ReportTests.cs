@@ -4,7 +4,7 @@ using System.Net;
 using System.Text.Json.Nodes;
 using System.Text;
 using OverStrike2.Core;
-using static OverStrike2.Sync.SelfTest.T;
+using static OverStrike2.TestKit.T;
 using static OverStrike2.Sync.SelfTest.W;
 
 namespace OverStrike2.Sync.SelfTest;

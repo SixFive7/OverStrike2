@@ -1,5 +1,5 @@
-// What the self-tests of core and os2-server share, compiled into each as source: the checks and their counts, a scratch folder of the
-// run's own, and a clock moved by hand. Every check prints PASS, FAIL or SKIP; the program's exit code is the number of failures.
+// What the self-tests of core, os2-server and os2-sync share, compiled into each as source: the checks and their counts, a scratch folder
+// of the run's own, and a clock moved by hand. Every check prints PASS, FAIL or SKIP; the program's exit code is the number of failures.
 using OverStrike2.Core;
 
 namespace OverStrike2.TestKit;

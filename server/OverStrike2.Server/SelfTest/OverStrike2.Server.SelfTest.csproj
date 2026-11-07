@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OverStrike2.Server.csproj" />
-    <!-- The checks, the scratch folder and the hand-moved clock every self-test shares. -->
+    <!-- The checks, the scratch folder and the hand-moved clock that the self-tests of core, os2-server and os2-sync share. -->
     <Compile Include="..\..\..\core\SelfTest\TestKit.cs" Link="TestKit.cs" />
   </ItemGroup>
 
