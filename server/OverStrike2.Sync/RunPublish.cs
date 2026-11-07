@@ -22,7 +22,7 @@ public sealed partial class SyncRun
             pub["skipped"] = $"the bridge's data cannot be read ({e.Message})";
             return;
         }
-        var (texts, summary) = Verdicts.PlanPublish(files, State, outcomes, removedNow, Cfg.ModeBackfill, details);
+        var (texts, summary) = PublishPlan.Of(files, State, outcomes, removedNow, Cfg.ModeBackfill, details);
         Merge(pub, summary);
         var verdicts = VerdictsToReport;
         if (texts.Count == 0 && verdicts.Count == 0)
@@ -67,12 +67,12 @@ public sealed partial class SyncRun
         }
         if (live.Raw.Keys.Union(files.Raw.Keys).Any(n => !SameBytes(live.Raw.GetValueOrDefault(n), files.Raw.GetValueOrDefault(n))))
         {
-            (texts, summary) = Verdicts.PlanPublish(live, State, outcomes, removedNow, Cfg.ModeBackfill, details);
+            (texts, summary) = PublishPlan.Of(live, State, outcomes, removedNow, Cfg.ModeBackfill, details);
             Merge(pub, summary);
             files = live;
             L("publish: the bridge's data changed while it was planned - planned again on the live files");
         }
-        var problems = texts.SelectMany(kv => Verdicts.MergeProblems(kv.Key, files.Raw.GetValueOrDefault(kv.Key), kv.Value)).ToList();
+        var problems = texts.SelectMany(kv => PublishPlan.MergeProblems(kv.Key, files.Raw.GetValueOrDefault(kv.Key), kv.Value)).ToList();
         if (problems.Count > 0)
         {
             pub["skipped"] = $"NOT written - the result would not be the live files plus additions: {string.Join("; ", problems)}";
@@ -98,7 +98,7 @@ public sealed partial class SyncRun
             var back = File.ReadAllBytes(path);
             if (!SameBytes(back, System.Text.Encoding.UTF8.GetBytes(texts[name])))
                 Errors.Add($"{name} does not read back as written");
-            else if (Verdicts.MergeProblems(name, files.Raw.GetValueOrDefault(name), System.Text.Encoding.UTF8.GetString(back)).Count > 0)
+            else if (PublishPlan.MergeProblems(name, files.Raw.GetValueOrDefault(name), System.Text.Encoding.UTF8.GetString(back)).Count > 0)
                 Errors.Add($"{name}: the written file is not the old one plus additions");
             written.Add(name);
         }

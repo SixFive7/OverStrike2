@@ -34,7 +34,7 @@ static class FormatTests
         Check("words: Text.Clean and the search text - control characters, bidi overrides, a cut at a word, by code points",
               Text.Clean("  a\u0000b\u202Ec\t\td  " + string.Concat(Enumerable.Repeat("word ", 30)), 50) == "a bc d word word word word word word word word…"
               && Text.Clean(string.Concat(Enumerable.Repeat("\U0001F600", 30)) + " tail", 20) == string.Concat(Enumerable.Repeat("\U0001f600", 20)) + "…"
-              && Verdicts.SearchBlob("Big  Map!", "77", ["Arms Race", "Wingman"], "A <b>bold</b> map\nwith lines") == "big map! 77 arms race wingman a <b>bold</b> map with lines");
+              && PublishPlan.SearchBlob("Big  Map!", "77", ["Arms Race", "Wingman"], "A <b>bold</b> map\nwith lines") == "big map! 77 arms race wingman a <b>bold</b> map with lines");
     }
 
     // ---- search.json has two writers and one rule (core's SearchText): this sync, on a server, and the bridge's --search-index
@@ -51,9 +51,9 @@ static class FormatTests
         {
             var c = cp is >= 0xD800 and <= 0xDFFF ? ((char)cp).ToString() : char.ConvertFromUtf32(cp); // a lone surrogate too
             var word = "a" + c + "b";
-            var same = new[] { c, "A" + c, word }.All(t => Verdicts.SearchBlob(t, "1", [], "") == bridgeText(t, "1", []))
-                       && Verdicts.SearchBlob("x", "1", [word], "") == bridgeText("x", "1", [word])
-                       && bridgeText(Text.Clean(word), "1", []) == Verdicts.SearchBlob(word, "1", [], "");
+            var same = new[] { c, "A" + c, word }.All(t => PublishPlan.SearchBlob(t, "1", [], "") == bridgeText(t, "1", []))
+                       && PublishPlan.SearchBlob("x", "1", [word], "") == bridgeText("x", "1", [word])
+                       && bridgeText(Text.Clean(word), "1", []) == PublishPlan.SearchBlob(word, "1", [], "");
             if (!same)
                 differ.Add($"U+{cp:X4}");
         }

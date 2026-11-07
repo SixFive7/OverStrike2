@@ -24,7 +24,7 @@ try
     LimitTests.Downloads(root);
     ScanTests.ScanChecks(root);
     VerdictTests.VerdictChecks();
-    PublishTests.PublishPlan(root);
+    PublishTests.Plan(root);
     ReportTests.MailAndBacklog();
     PublishTests.MergeRule();
     PublishTests.Bridge(root);

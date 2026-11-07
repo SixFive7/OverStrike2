@@ -38,7 +38,7 @@ static class PublishTests
     };
 
     // ---- the publish plan
-    internal static void PublishPlan(string root)
+    internal static void Plan(string root)
     {
         const string maps = "[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}, {\"rank\": 2, \"id\": 222, \"name\": \"b\", \"sizeMb\": 7}]";
         const string broken = "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}";
@@ -46,7 +46,7 @@ static class PublishTests
         var files = Files(maps, broken, "[]", "[]", search);
         var st = new SyncState(Path.Combine(root, "st4.json"));
         var details = new Dictionary<string, JsonObject> { ["111"] = O("{\"publishedfileid\": \"111\", \"result\": 9, \"tags\": [{\"tag\": \"Wingman\"}], \"subscriptions\": 9}") };
-        var (texts, summary) = Verdicts.PlanPublish(files, st, Outcomes(), [("111", "removed")], true, details);
+        var (texts, summary) = PublishPlan.Of(files, st, Outcomes(), [("111", "removed")], true, details);
         var newmaps = A(texts["maps.json"]);
         Check("publish: Arms Race passes are appended, most subscribed first, ranks go on",
               newmaps.Skip(2).Select(e => (Node.Int(e!["rank"]), Node.Int(e["id"]))).SequenceEqual([(3L, 902L), (4L, 901L)]) && Node.Eq(new JsonArray(newmaps.Take(2).Select(e => e?.DeepClone()).ToArray()), A(maps)));
@@ -69,14 +69,14 @@ static class PublishTests
         Check("publish: the removed listed map is not backfilled into a mode list", wm.All(e => Node.Int(e!["id"]) != 111));
         var files2 = Files(maps, broken, "[{\"rank\": 1, \"id\": 7, \"name\": \"q\", \"sizeMb\": 1}, {\"name\": \"de_dust2\", \"official\": true}]", "[]", null);
         var details2 = new Dictionary<string, JsonObject> { ["111"] = O("{\"publishedfileid\": \"111\", \"result\": 1, \"tags\": [{\"tag\": \"Deathmatch\"}], \"subscriptions\": 9}") };
-        var (texts2, _) = Verdicts.PlanPublish(files2, st, [], [], true, details2);
+        var (texts2, _) = PublishPlan.Of(files2, st, [], [], true, details2);
         var dm2 = A(texts2["maps-deathmatch.json"]);
         Check("publish: backfill adds a listed map that carries the tag, keeps the old entries and the official one",
               dm2.Where(e => Node.Truthy(e!["id"])).Select(e => Node.Int(e!["id"])).SequenceEqual([111L, 7L]) && Node.Eq(dm2[^1], O("{\"name\": \"de_dust2\", \"official\": true}")));
-        Check("publish: nothing to write when nothing changed", Verdicts.PlanPublish(files2, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
+        Check("publish: nothing to write when nothing changed", PublishPlan.Of(files2, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
         // blocked.json: the maps blocked for good, a file of their own - known, never a candidate, never published by a test
         var fb = Files(maps, broken, "[]", "[]", search, "[{\"id\": 902, \"name\": \"b\", \"map\": \"b\", \"reason\": \"kicks everybody\"}, 905]");
-        var (tb, _) = Verdicts.PlanPublish(fb, st, Outcomes(), [], true, details);
+        var (tb, _) = PublishPlan.Of(fb, st, Outcomes(), [], true, details);
         Check("blocked.json: a blocked map that passed is not appended, a blocked crasher not added to broken.json",
               A(tb["maps.json"]).All(e => Node.Int(e!["id"]) != 902) && Node.Arr(O(tb["broken.json"])["maps"]).All(e => Node.Int(e!["id"]) != 905));
         Check("blocked.json: its ids are known, as broken:blocked; without the file nothing is",
@@ -86,26 +86,26 @@ static class PublishTests
               se.ContainsKey("903") && Node.Str(se["903"]).Contains("nice") && Node.Str(se["903"]).Contains("wingman") && texts["search.json"] == ExpectSearch);
         st.Items["7"] = O("{\"title\": \"q old\", \"tags\": [\"Deathmatch\"], \"description\": \"red walls\"}");
         var files3 = Files(maps, broken, "[{\"rank\": 1, \"id\": 7, \"name\": \"q\", \"sizeMb\": 1}, {\"name\": \"de_dust2\", \"official\": true}]", "[]", search);
-        var (texts3, _) = Verdicts.PlanPublish(files3, st, [], [], false, new Dictionary<string, JsonObject>());
+        var (texts3, _) = PublishPlan.Of(files3, st, [], [], false, new Dictionary<string, JsonObject>());
         Check("publish: a map on a mode list before search.json covered it gets its text from the state, the other texts stay, an official entry gets none",
               texts3.ContainsKey("search.json") && Node.Eq(O(texts3["search.json"]), O("{\"111\": \"a 111\", \"222\": \"b 222\", \"7\": \"q 7 deathmatch red walls\"}")) && texts3.Keys.SequenceEqual(["search.json"]));
         files3.Search = O(texts3["search.json"]);
-        Check("publish: ...and then there is nothing to write", Verdicts.PlanPublish(files3, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
+        Check("publish: ...and then there is nothing to write", PublishPlan.Of(files3, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
     }
 
     // ---- the merge check: a publish only ever adds to the live files
     internal static void MergeRule()
     {
         var old = Encoding.UTF8.GetBytes("[{\"rank\": 1, \"id\": 5, \"name\": \"a\", \"sizeMb\": 1}]");
-        Check("merge: an append passes", Verdicts.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"a\", \"sizeMb\": 1}, {\"rank\": 2, \"id\": 6, \"name\": \"b\", \"sizeMb\": 1}]").Count == 0);
-        Check("merge: a changed entry is refused", Verdicts.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"X\", \"sizeMb\": 1}]").Count > 0);
-        Check("merge: a rank given twice is refused", Verdicts.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"a\", \"sizeMb\": 1}, {\"rank\": 1, \"id\": 6, \"name\": \"b\", \"sizeMb\": 1}]").Count > 0);
+        Check("merge: an append passes", PublishPlan.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"a\", \"sizeMb\": 1}, {\"rank\": 2, \"id\": 6, \"name\": \"b\", \"sizeMb\": 1}]").Count == 0);
+        Check("merge: a changed entry is refused", PublishPlan.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"X\", \"sizeMb\": 1}]").Count > 0);
+        Check("merge: a rank given twice is refused", PublishPlan.MergeProblems("maps.json", old, "[{\"rank\": 1, \"id\": 5, \"name\": \"a\", \"sizeMb\": 1}, {\"rank\": 1, \"id\": 6, \"name\": \"b\", \"sizeMb\": 1}]").Count > 0);
         var ob = Encoding.UTF8.GetBytes("{\"schema\": \"x\", \"maps\": [{\"id\": 1}], \"packs\": []}");
-        Check("merge: broken.json with entries added passes", Verdicts.MergeProblems("broken.json", ob, "{\"schema\": \"x\", \"maps\": [{\"id\": 1}, {\"id\": 2}], \"packs\": [{\"id\": 3}]}").Count == 0);
-        Check("merge: broken.json losing an entry is refused", Verdicts.MergeProblems("broken.json", ob, "{\"schema\": \"x\", \"maps\": [], \"packs\": []}").Count > 0);
+        Check("merge: broken.json with entries added passes", PublishPlan.MergeProblems("broken.json", ob, "{\"schema\": \"x\", \"maps\": [{\"id\": 1}, {\"id\": 2}], \"packs\": [{\"id\": 3}]}").Count == 0);
+        Check("merge: broken.json losing an entry is refused", PublishPlan.MergeProblems("broken.json", ob, "{\"schema\": \"x\", \"maps\": [], \"packs\": []}").Count > 0);
         Check("merge: a mode list may re-rank but never lose a map",
-              Verdicts.MergeProblems("maps-wingman.json", "[{\"rank\": 1, \"id\": 7}]"u8.ToArray(), "[{\"rank\": 1, \"id\": 8}, {\"rank\": 2, \"id\": 7}]").Count == 0
-              && Verdicts.MergeProblems("maps-wingman.json", "[{\"rank\": 1, \"id\": 7}]"u8.ToArray(), "[{\"rank\": 1, \"id\": 8}]").Count > 0);
+              PublishPlan.MergeProblems("maps-wingman.json", "[{\"rank\": 1, \"id\": 7}]"u8.ToArray(), "[{\"rank\": 1, \"id\": 8}, {\"rank\": 2, \"id\": 7}]").Count == 0
+              && PublishPlan.MergeProblems("maps-wingman.json", "[{\"rank\": 1, \"id\": 7}]"u8.ToArray(), "[{\"rank\": 1, \"id\": 8}]").Count > 0);
     }
 
     // ---- the bridge: the verdicts report and the reload, against a stand-in bridge on localhost; a run's publish and finish end to end
