@@ -148,11 +148,6 @@ public sealed class Settings
         env ??= Environment.GetEnvironmentVariable;
         readFile ??= File.ReadAllText;
         var s = new Settings { Reader = reader, Source = "(text)" };
-        return Fill(s, text, reader, env, readFile);
-    }
-
-    static Settings Fill(Settings s, string text, Part reader, Func<string, string?> env, Func<string, string> readFile)
-    {
         JsonNode? root;
         try
         {
@@ -395,7 +390,7 @@ public sealed class Settings
             set(s, t);
         }, get);
 
-    /// <summary>A string the file cannot do without: <see cref="Fill"/> makes it fatal for its readers when it is missing or this throws. Its
+    /// <summary>A string the file cannot do without: <see cref="Parse"/> makes it fatal for its readers when it is missing or this throws. Its
     /// default is empty and passes nothing, and the words never quote the value: they end up in the parts' logs.</summary>
     static Key Must(string path, Part readers, string doc, string rule, string pattern, Func<Settings, string> get, Action<Settings, string> set,
                     Func<string, bool> valid, string what) =>

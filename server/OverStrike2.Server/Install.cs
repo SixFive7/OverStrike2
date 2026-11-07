@@ -174,7 +174,7 @@ public sealed partial class Install(ServerConfig config, Log log, IDownloader do
         {
             try
             {
-                new Installed(parts, clock.Now.ToUnixTimeSeconds(), serverFrom, settingsPath).Write(P.InstalledFile);
+                new Installed(parts, clock.Now.ToUnixTimeSeconds(), serverFrom).Write(P.InstalledFile);
                 log.Line($"installed version {parts.Total} recorded ({P.InstalledFile})");
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)

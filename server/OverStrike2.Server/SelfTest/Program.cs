@@ -10,7 +10,7 @@ using OverStrike2.Server.SelfTest;
 var root = T.Root();
 try
 {
-    PureTests.Run(root);
+    PureTests.Run();
     ScenarioTests.Run();
     WorkshopTests.Run();
     OrganizeTests.Run();

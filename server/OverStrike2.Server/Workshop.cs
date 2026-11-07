@@ -104,7 +104,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
         told.Remove(id);
     }
 
-    public void Failed(string id, string why, double now)
+    public void Failed(string id, string why)
     {
         if (ActiveDownloads.ContainsKey(id) || told.Contains(id))
             failure = (id, why);
@@ -156,7 +156,7 @@ public sealed partial class DownloadLine(ServerConfig config, IEngine engine, Lo
             return;
         }
         if (MamFailed().Match(line) is { Success: true } failed)
-            Failed(failed.Groups[1].Value, failed.Groups[2].Value, now);
+            Failed(failed.Groups[1].Value, failed.Groups[2].Value);
     }
 
     static double? Bytes(string value, string unit) =>
@@ -597,7 +597,7 @@ public sealed class WorkshopJobs
                 Line.Finished(e.Id);
             else
             {
-                Line.Failed(e.Id, e.Text, now);
+                Line.Failed(e.Id, e.Text);
                 if (Downloads.Stuck(e.Text, e.Cancel))
                     MarkBroken(now, $"a download for players ({e.Id}) came back '{e.Text}'");
             }

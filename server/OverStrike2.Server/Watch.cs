@@ -570,7 +570,7 @@ public sealed partial class Watch
 
     /// <summary>Tell the bridge of a restart: "match-end" when it becomes due (it waits for the end of the current match), "now" with the
     /// seconds left before the quit. True when the bridge took it (it shows the players; it holds its own map change).</summary>
-    bool Announce(string kind, string when, int seconds, double now)
+    bool Announce(string kind, string when, int seconds)
     {
         var (told, reply) = Bridge.Post("restart-notice", $"gg-restart\t1\t{Kinds.Wire(kind)}\t{when}\t{seconds}\n", NoticeTimeout);
         if (told == "ok")
@@ -632,7 +632,7 @@ public sealed partial class Watch
                 CountdownUntil = null;
                 if (Deploying(now) || !Quit(kind, now, null))   // the bridge showed the countdown and the last line
                 {
-                    Announce(kind, "match-end", RestartCountdown, now);   // it did not go: it waits for the next match end again
+                    Announce(kind, "match-end", RestartCountdown);   // it did not go: it waits for the next match end again
                     announceTried = now;
                 }
             }
@@ -658,7 +658,7 @@ public sealed partial class Watch
             var humans = RconHumans();
             if (humans == 0)
             {
-                Announce(kind, "now", 0, now);
+                Announce(kind, "now", 0);
                 Quit(kind, now, final);
             }
             else
@@ -672,19 +672,19 @@ public sealed partial class Watch
         }
         if (!warned)
         {
-            Announce(kind, "match-end", RestartCountdown, now);   // a bridge that does not take it: nobody is warned
+            Announce(kind, "match-end", RestartCountdown);   // a bridge that does not take it: nobody is warned
             (warned, announceTried) = (true, now);
         }
         else if (now - announceTried >= AnnounceRefresh)
         {
-            Announce(kind, "match-end", RestartCountdown, now);       // again: a bridge swapped (or back) since knows it too
+            Announce(kind, "match-end", RestartCountdown);       // again: a bridge swapped (or back) since knows it too
             announceTried = now;
         }
         var since = Due!.Value.Since;
         if (matchEnds.Any(t => t >= since) && matchEnds[^1] >= now - 20 && matchEnds[^1] > usedMatchEnd)
         {
             usedMatchEnd = matchEnds[^1];
-            if (Announce(kind, "now", RestartCountdown, now))
+            if (Announce(kind, "now", RestartCountdown))
             {
                 CountdownUntil = now + RestartCountdown;
                 Log.Line($"{kind} restart: the match is over - the bridge counts down {RestartCountdown} s, then the quit");

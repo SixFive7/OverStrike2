@@ -130,7 +130,7 @@ static class WorkshopTests
         Check("line: never about the watcher's own downloads", sent.Count == n);
         ln.Finished("902");
         ln.Started("900", 400.0);
-        ln.Failed("900", "No Connection", 401.0);
+        ln.Failed("900", "No Connection");
         ln.Step(402.0, 3);
         Check($"line: a failure says so once, and what to do ({sent[^1]})", sent[^1].StartsWith("gg_notice 10 ") && sent[^1].Contains("could not download Bastion: No Connection"));
         n = sent.Count;
@@ -220,7 +220,7 @@ static class WorkshopTests
         s.Eng.Humans = 0;
         BrokenDownload(s);
         s.Step(180);
-        var gate = s.Log.Lines.Where(l => l.Contains("NOT restarting")).ToList();
+        var gate = s.Lines.Where(l => l.Contains("NOT restarting")).ToList();
         Check($"R2b: a planned restart 1 min before the breakage -> the warning once in 3 min, naming when it was ({gate.Count} line(s): {Show(gate.Take(2))})",
               gate.Count == 1 && gate[0].Contains("planned restart was at ") && !s.Has("quit"));
         var z = Scenario.Paris;

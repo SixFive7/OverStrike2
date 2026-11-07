@@ -158,6 +158,7 @@ sealed class Scenario
     public required FakeBridge Bridge;
     public required FakeValve Valve;
     public required Log Log;
+    public required List<string> Lines;                       // every line the watcher logged
 
     public const string SteamInf = "ClientVersion=2000924\nServerVersion=2000924\nPatchVersion=1.41.8.8\nProductName=cs2\nappID=730\nServerAppID=2347773\n"
                                    + "SourceRevision=11076591\nVersionDate=Oct 02 2026\nVersionTime=14:45:21\n";
@@ -208,7 +209,8 @@ sealed class Scenario
         var valve = new FakeValve();
         if (verdict is { } v)
             valve.Answer = _ => v;
-        var log = new Log("test", clock, Paris, _ => { });
+        var lines = new List<string>();
+        var log = new Log("test", clock, Paris, lines.Add);
         var config = Copy(Template);
         tune?.Invoke(config);
         var w = new Watch(config, clock, Paris, log, eng, bridge, valve)
@@ -216,7 +218,7 @@ sealed class Scenario
             SettingsPath = Path.Combine(Root, "settings.jsonc"),
             Env = _ => null,
         };
-        return new Scenario { W = w, Clock = clock, Eng = eng, Bridge = bridge, Valve = valve, Log = log };
+        return new Scenario { W = w, Clock = clock, Eng = eng, Bridge = bridge, Valve = valve, Log = log, Lines = lines };
     }
 
     /// <summary>Run Watch.Run()'s own loop body, LoopOnce - one tick, paced - for `seconds` of fake time.</summary>

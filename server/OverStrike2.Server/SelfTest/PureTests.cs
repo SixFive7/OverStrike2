@@ -7,7 +7,7 @@ namespace OverStrike2.Server.SelfTest;
 /// the texts - the decisions on their own, as the old watcher's tests had them (same names).</summary>
 static class PureTests
 {
-    public static void Run(string root)
+    public static void Run()
     {
         Scenario.Setup();
         var inf = Scenario.SteamInf;
@@ -138,6 +138,5 @@ static class PureTests
         Check("back_in: measured 14 s -> 20", Rules.BackIn([14]) == 20);
         Check("chat_safe: quotes and semicolons", Words.ChatSafe("a \"b\"; quit") == "a 'b', quit");
         Check("the download restart's line says when it is back", Rules.WorkshopLine(30).EndsWith("Back in about 30 seconds."));
-        _ = root;
     }
 }

@@ -38,7 +38,7 @@ public sealed record VersionParts(string Plugin, string Server, string PreSh, st
 }
 
 /// <summary>What `install` put in place before this engine started: update-watch/installed.json.</summary>
-public sealed record Installed(VersionParts Parts, long At, string? ServerFrom, string? SettingsPath)
+public sealed record Installed(VersionParts Parts, long At, string? ServerFrom)
 {
     public string Fingerprint => Parts.Total;
 
@@ -47,8 +47,7 @@ public sealed record Installed(VersionParts Parts, long At, string? ServerFrom, 
         var n = Files.ReadJson(path) as JsonObject;
         if (n is null || KeepSet.Integer(n["version"]) != 1 || VersionParts.FromJson(n["parts"]) is not { } parts)
             return null;
-        return new Installed(parts, KeepSet.Integer(n["at"]) ?? 0, n["serverFrom"] is JsonValue sf ? sf.GetValue<string>() : null,
-                             n["settings"] is JsonValue st ? st.GetValue<string>() : null);
+        return new Installed(parts, KeepSet.Integer(n["at"]) ?? 0, n["serverFrom"] is JsonValue sf ? sf.GetValue<string>() : null);
     }
 
     public void Write(string path)
@@ -60,7 +59,6 @@ public sealed record Installed(VersionParts Parts, long At, string? ServerFrom, 
             ["fingerprint"] = Fingerprint,
             ["parts"] = Parts.ToJson(),
             ["serverFrom"] = ServerFrom,
-            ["settings"] = SettingsPath,
         };
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         Files.WriteAtomic(path, o.ToJsonString(new JsonSerializerOptions { WriteIndented = true, NewLine = "\n" }) + "\n");

@@ -26,7 +26,7 @@ static class RestartTests
     }
 
     static Installed Now(long at = 0) =>
-        new(Fingerprint.Compute(Scenario.Template.Paths, ServerFrom, SettingsFile, _ => null), at, ServerFrom, SettingsFile);
+        new(Fingerprint.Compute(Scenario.Template.Paths, ServerFrom, SettingsFile, _ => null), at, ServerFrom);
 
     static List<string> Notices(Scenario s) => s.Bridge.Bodies("restart-notice");
 
@@ -68,7 +68,7 @@ static class RestartTests
         File.Delete(Path.Combine(R, "game", "csgo", "cfg", "gamemode_armsrace_server.cfg"));
         Check("version: a part that is not there is 'none', the same way both times", Now().Parts.Cfgs == Fingerprint.None && Now().Parts == Now().Parts);
         var dir = Path.Combine(R, "update-watch-v");
-        new Installed(a, 42, ServerFrom, SettingsFile).Write(Path.Combine(dir, "installed.json"));
+        new Installed(a, 42, ServerFrom).Write(Path.Combine(dir, "installed.json"));
         Check("version: installed.json round-trips", Installed.Read(Path.Combine(dir, "installed.json")) is { At: 42 } i && i.Parts == a && i.ServerFrom == ServerFrom);
         Parts();
     }
@@ -190,7 +190,7 @@ static class RestartTests
         Put(PluginDll, "plugin v2");                         // a deploy writes the new plugin
         var v2 = Now(2);
         s.Step(100);
-        Check($"V1: a new version on disk is not due while it may still be being written ({Show(s.Log.Lines.Where(l => l.Contains("being written")).Take(1))})",
+        Check($"V1: a new version on disk is not due while it may still be being written ({Show(s.Lines.Where(l => l.Contains("being written")).Take(1))})",
               s.W.Due is null && !s.Has("quit"));
         s.Step(70);
         Check($"V1: ... once it has been still for {Watch.VersionSettle:0} s, a restart is due for it",
@@ -207,7 +207,7 @@ static class RestartTests
         s.Carry(st);
         s.Step(70);
         Check($"V2: after the version restart, once the engine answers: the bridge hears our parts' version it went from and to ({Show(s.Bridge.Bodies("updated").Select(b => b.TrimEnd().Replace("\t", " ")))})",
-              s.Bridge.Bodies("updated").SequenceEqual([$"gg-updated\t1\tour-update\t{v1.Fingerprint}\t{v2.Fingerprint}\n"]) && s.Log.Lines.Any(l => l.StartsWith("new version installed")));
+              s.Bridge.Bodies("updated").SequenceEqual([$"gg-updated\t1\tour-update\t{v1.Fingerprint}\t{v2.Fingerprint}\n"]) && s.Lines.Any(l => l.StartsWith("new version installed")));
         Check("V2: ... and no restart is due any more", s.W.Due is null && !s.Has("quit"));
 
         // V3. a version restart that did not install the new version: no restart for it again (no loop); a newer one re-arms
@@ -303,7 +303,7 @@ static class RestartTests
         Put(PluginDll, "plugin v2");
         s.Eng.Humans = 0;
         s.Step(30);
-        Check($"V10: a CS2 update restart with nobody on, a deploy being written: it waits ({Show(s.Log.Lines.Where(l => l.Contains("being written")).Take(1))})",
+        Check($"V10: a CS2 update restart with nobody on, a deploy being written: it waits ({Show(s.Lines.Where(l => l.Contains("being written")).Take(1))})",
               s.W.Due is { Kind: "update" } && !s.Has("quit"));
         s.Step(200);
         Check("V10: ... and goes once what is on disk is still", s.Has("quit"));
@@ -324,7 +324,7 @@ static class RestartTests
         s.W.Start();
         s.Step(20);
         Check("V7: no record of what install put in place: no new version detected, and the start says so",
-              s.W.InstalledNow is null && s.Log.Lines.Any(l => l.Contains("no record of what install put in place")));
+              s.W.InstalledNow is null && s.Lines.Any(l => l.Contains("no record of what install put in place")));
 
         // V8. a version restart counts against the same caps as every planned restart
         s = Scenario.Make(At(4, 15, 0, 0), installed: v1);
