@@ -3,14 +3,14 @@ using CounterStrikeSharp.API.Core;
 
 namespace OverStrike2;
 
-/// <summary>The Fun page on screen: what it shows every frame (../../bridge/Shared/HudBrowser.cs: HudMenu.FunPage, FunWhy), what a click on it comes to (../../bridge/Shared/Fun.cs: FunClicks), the same
-/// change typed in chat, and Random and Default. The settings module makes every change (gg_fun): it owns the server's settings - the baseline, the put-back at the map's end and the block a
-/// player's change is exempt from; the grenade drops and catch-up are fun settings like the rest, its effects. Once the value is there one message says who switched what, the same for every
-/// setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB board, for everybody). A setting's "Set by" stays on the page: the message said it. One plugin drives every
-/// content: a content before v4.6.0 has sixteen rows and two fixed ones, greys nothing and has no bubble, so its note says what this content's page shows.</summary>
+/// <summary>The Fun page on screen: what it shows every frame (../../bridge/Shared/HudMenu.cs: FunPage, FunWhy), what a click on it comes to (../../bridge/Shared/FunClicks.cs), the same
+/// change typed in chat, and Random and Default. The settings module makes every change, in process, a frame after the click or the line (FunSet, FunReset; gg_fun does the same from the
+/// console): it owns the server's settings - the baseline, the put-back at the map's end and the block a player's change is exempt from; the grenade drops and catch-up are fun settings like
+/// the rest, its effects. Once the value is there one message says who switched what, the same for every setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB
+/// board, for everybody). A setting's "Set by" stays on the page: the message said it. One plugin drives every content: a content before v4.6.0 has sixteen rows and two fixed ones, greys
+/// nothing and has no bubble, so its note says what this content's page shows.</summary>
 sealed partial class HudScreen
 {
-    const float FunCheckSeconds = 0.5f;                   // a fun change is made a frame after the click (gg_fun); looked at after this long
     readonly Random dice = new();                         // the Fun page's Random
     readonly FunClicks funClicks = new();                 // which choices are grey since when, and each player's refused click
     List<(string Name, string Text)> funWhy = [];         // what the page's bubbles say, as of this frame
@@ -21,6 +21,12 @@ sealed partial class HudScreen
     /// <summary>Who set each fun setting that is off its default, by the setting's id: the settings module's word (gg_fun's last argument); null
     /// while nobody is known. The settings module sets it at its load.</summary>
     public Func<string, string?>? FunSetBy { get; set; }
+
+    /// <summary>Makes a fun change now, in the name of who asked: the settings module's own (Settings.ChangeFun, which gg_fun runs too). Set at its load.</summary>
+    public Func<Fun.Setting, Fun.Choice, string, string>? FunSet { get; set; }
+
+    /// <summary>Every player change undone and every effect at its default, in the name of who asked: the settings module's (Settings.ResetFun). Set at its load.</summary>
+    public Func<string, string>? FunReset { get; set; }
 
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
     string? FunValue(string name) => FunSource?.Invoke(name);
@@ -108,14 +114,15 @@ sealed partial class HudScreen
         else FunChange(player, setting, choice, Reply);
     }
 
-    /// <summary>The change itself, clicked or typed: the settings module makes it a frame later; once the value is there, its message says who switched what. refused: what becomes of the
-    /// marked line when the value did not land - somebody's change a moment before it (a Clash the settings module refused), or the module itself.</summary>
+    /// <summary>The change itself, clicked or typed: the settings module makes it a frame later (not inside the player's own click or chat line: a change may hand out grenades or switch
+    /// catch-up - the class summary), and the message that says who switched what follows at once, once the value is there. refused: what becomes of the marked line when the value did
+    /// not land - somebody's change a moment before it (a Clash the settings module refused), or the module itself.</summary>
     void FunChange(CCSPlayerController player, Fun.Setting setting, Fun.Choice choice, Action<string> refused)
     {
         var who = Hud.Clean(player.PlayerName, 32);
-        Server.NextFrame(() => Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{Quoted(who)}\""));
-        plugin.AddTimer(FunCheckSeconds, () =>
+        Server.NextFrame(() =>
         {
+            FunSet?.Invoke(setting, choice, who);
             if (Fun.Showing(setting, FunValue) == choice) Post(Messages.FunChanged, Fun.ChangedLine(who, setting, choice));
             else refused(Fun.RefusedJust(setting, choice, FunValue, FunSetBy) ?? ChatReply.DidNotSwitch(setting));
             Frame();
@@ -123,8 +130,9 @@ sealed partial class HudScreen
     }
 
     /// <summary>The Fun page's Random or Default, from a click or from !fun random / !fun default: Random draws every setting the page shows in this
-    /// mode from its own choices (Fun.Randomized; catch-up on three times in four), Default puts every one back to its first choice - gg_fun reset,
-    /// the reset after 10 minutes with nobody on. The same commands a click on each row runs, a frame later; one message says who did it and what changed.</summary>
+    /// mode from its own choices (Fun.Randomized; catch-up on three times in four), back to Normal first so nothing Clashes on the way; Default puts
+    /// every one back to its first choice, as the reset after 10 minutes with nobody on does. Made a frame later, as a row's change is; one message
+    /// says who did it and what changed.</summary>
     void FunAll(CCSPlayerController player, string which)
     {
         var who = Hud.Clean(player.PlayerName, 32);
@@ -132,7 +140,7 @@ sealed partial class HudScreen
         {
             Server.NextFrame(() =>
             {
-                Server.ExecuteCommand($"{Fun.ResetCommand} \"{Quoted(who)}\"");
+                FunReset?.Invoke(who);
                 Post(Messages.FunDefault, Fun.DefaultLine(who));
             });
             return;
@@ -140,11 +148,8 @@ sealed partial class HudScreen
         var changed = Fun.Randomized(dice.Next, mode.ArmsRace).Where(x => Fun.Showing(x.Setting, FunValue) != x.Choice).ToList();
         Server.NextFrame(() =>
         {
-            foreach (var (setting, choice) in Fun.InSafeOrder(changed)) Server.ExecuteCommand($"{Fun.Command} {setting.Id} {choice.Id} \"{Quoted(who)}\""); // back to Normal first: no Clash on the way
-            Post(Messages.FunRandom, Fun.RandomLine(who, changed));
+            foreach (var (setting, choice) in Fun.InSafeOrder(changed)) FunSet?.Invoke(setting, choice, who);
+            Post(Messages.FunRandom, Fun.RandomLine(who, changed.Where(x => Fun.Showing(x.Setting, FunValue) == x.Choice).ToList())); // what landed
         });
     }
-
-    /// <summary>A player's name as gg_fun's last argument, inside its quotes.</summary>
-    static string Quoted(string who) => who.Replace("\"", "'");
 }

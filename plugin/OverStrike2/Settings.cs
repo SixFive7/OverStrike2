@@ -175,7 +175,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         else { baselinePending = true; baselineFrom = "pending: taken when the first map ends"; }
         plugin.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         plugin.RegisterListener<Listeners.OnMapStart>(OnMapStart);
-        if ((plugin as OverStrike2Plugin)?.Screen is { } hud) hud.FunSetBy = SetBy; // the Fun page says who set each setting off its default
+        if ((plugin as OverStrike2Plugin)?.Screen is { } hud) (hud.FunSetBy, hud.FunSet, hud.FunReset) = (SetBy, ChangeFun, ResetFun); // the Fun page says who set what, and makes its changes here
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => Block("round start"), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
         plugin.AddTimer(BlockEvery, () => Block(null), TimerFlags.REPEAT);
         log.LogInformation("Over Strike 2 settings {Version}: {Managed} settings watched ({Listed} game convars listed and {FromBuild} only this build has: {Cfg} left to the engine cfgs, " +
@@ -631,9 +631,7 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         }
         if (verb == "reset")
         {
-            var who = command.ArgCount > 2 ? command.GetArg(2) : "Console";
-            var said = UndoFun($"reset by {who}");
-            command.ReplyToCommand($"fun: reset - {said}");
+            command.ReplyToCommand($"fun: reset - {ResetFun(command.ArgCount > 2 ? command.GetArg(2) : "Console")}");
             return;
         }
         if (Fun.Find(verb) is not { } setting || command.ArgCount < 3 || Fun.Find(setting, command.GetArg(2)) is not { } choice)
@@ -641,13 +639,19 @@ sealed class Settings(BasePlugin plugin, ILogger log)
             command.ReplyToCommand("fun: gg_fun <setting> <choice> [who] - " + string.Join("; ", Fun.Settings.Select(s => $"{s.Id} {string.Join("|", s.Choices.Select(c => c.Id))}")));
             return;
         }
-        var by = command.ArgCount > 3 ? command.GetArg(3) : "Console";
-        if (mode == "off") { command.ReplyToCommand("fun: refused - mapreset_mode is off"); return; }
-        if (Fun.Refusal(setting, choice, Value) is { } why) // a Clash: the page and chat say it before they get here
+        command.ReplyToCommand($"fun: {ChangeFun(setting, choice, command.ArgCount > 3 ? command.GetArg(3) : "Console")}");
+    }
+
+    /// <summary>A change of a fun setting, made now: what gg_fun &lt;setting&gt; &lt;choice&gt; does, and what the HUD does in process for a player's click on the Fun page
+    /// or their chat command (HudScreen.FunSet), a frame after it. Its convars or its effect written, who set it kept while it is off its default; a Clash refused
+    /// (the page and chat say it before they get here). Returns what was done, in gg_fun's words.</summary>
+    public string ChangeFun(Fun.Setting setting, Fun.Choice choice, string by)
+    {
+        if (mode == "off") return "refused - mapreset_mode is off";
+        if (Fun.Refusal(setting, choice, Value) is { } why)
         {
             log.LogInformation("Over Strike 2 settings: fun on {Map}: {Setting} {Choice} by {By} refused - {Why}", map, setting.Id, choice.Id, by, why);
-            command.ReplyToCommand($"fun: refused - {why}");
-            return;
+            return $"refused - {why}";
         }
         var writes = fun.Apply(setting, choice, Value);
         var refused = writes.Where(w => !Write(w.ConVar, w.Value)).Select(w => w.ConVar).ToList();
@@ -655,8 +659,11 @@ sealed class Settings(BasePlugin plugin, ILogger log)
         var line = $"{setting.Id} {choice.Id} by {by}: {(writes.Count == 0 ? "nothing to change" : string.Join(", ", writes.Select(w => $"{w.ConVar} {w.Value}")))}{(refused.Count > 0 ? $"; refused {string.Join(", ", refused)}" : "")}";
         lastFun = $"{DateTime.Now:HH:mm:ss} {line}";
         log.LogInformation("Over Strike 2 settings: fun on {Map}: {Line}", map, line);
-        command.ReplyToCommand($"fun: {line}");
+        return line;
     }
+
+    /// <summary>The Fun page's Default, made now: every player change undone and every effect at its default, as gg_fun reset does (HudScreen.FunReset).</summary>
+    public string ResetFun(string by) => UndoFun($"reset by {by}");
 
     // ---- console (server only: RCON and the server console) ------------------------------------------------------------------
 

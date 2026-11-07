@@ -188,6 +188,8 @@ static partial class Program
                     && code.Contains("search, mode.Id, vote)"));
                 Check("A click on the map browser counts its matches with the search, as its page does", code.Contains("Matches(catalog, account, search).Count") && !code.Contains("Matches(catalog, account).Count"));
                 Check("The window held by a vote follows the freeze's own decision", code.Contains("bool VoteLocked => vote.Round > 0 && Frozen?.Invoke() == true") && !code.Contains("if (vote.Round > 0 && vote.Freeze)"));
+                Check("A fun change is made in process by the settings module, and its message follows at once: no console command and no timer between them",
+                    code.Contains("FunSet?.Invoke(setting, choice, who)") && code.Contains("FunReset?.Invoke(who)") && !code.Contains("ExecuteCommand($\"{Fun.") && !code.Contains("FunCheckSeconds"));
             }
             else Console.WriteLine($"skip the plugin's source checks: {screen} not found");
         }
