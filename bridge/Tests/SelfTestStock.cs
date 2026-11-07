@@ -56,15 +56,17 @@ static partial class Program
             Check("...and a state.json from before it reads: its random queues and the new-maps setting are left aside",
                 JsonSerializer.Deserialize("""{"newMaps": "half", "randomQueues": {"armsrace-new": [{"key": "1", "weight": 1, "big": false}]}, "roundMinutes": 60}""", Ctx.Default.State) is { Stock.Count: 0, RoundMinutes: 60 });
 
-            // ---- queues.json: the watcher reads "requested" first, then the lanes under the four keys it and the keep set know ----
+            // ---- queues.json, version 2: the watcher reads "ballot" first, then the stock's lanes, one per mode by its name ----
             var file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
-            Check("queues.json: version 1, the four keys the watcher and the keep set read - Arms Race's lane under both of its old keys - the length, a time, nothing requested without a vote",
-                file.Version == 1 && file.Length == StockSize && file.Random.Keys.SequenceEqual(["armsrace-new", "armsrace-original", "deathmatch", "wingman"])
-                && file.Random["armsrace-new"].SequenceEqual(Lane(Modes.ArmsRace).Select(e => e.Key)) && file.Random["armsrace-original"].SequenceEqual(file.Random["armsrace-new"])
-                && file.Random["deathmatch"].SequenceEqual(Lane(Modes.Deathmatch).Select(e => e.Key)) && file.Random["wingman"].SequenceEqual(Lane(Modes.Wingman).Select(e => e.Key))
-                && file.Random.Values.All(l => l.Count >= 10) && file.Written.EndsWith('Z') && file.Requested.Count == 0);
+            Check("queues.json: version 2, a lane per mode under its name - the keep set's lanes, each the mode's own - the length, a time, nothing on the ballot without a vote",
+                file.Version == OverStrike2.Core.KeepSet.QueuesVersion && file.Version == 2 && file.Length == StockSize
+                && file.Stock.Keys.SequenceEqual(OverStrike2.Core.KeepSet.StockLanes) && file.Stock.Keys.SequenceEqual(Modes.All.Select(m => m.Id))
+                && Modes.All.All(m => file.Stock[m.Id].SequenceEqual(Lane(m).Select(e => e.Key)))
+                && file.Stock.Values.All(l => l.Count >= 10) && file.Written.EndsWith('Z') && file.Ballot.Count == 0);
             var raw = File.ReadAllText(QueuesPath);
-            Check("...in the names the watcher reads (\"random\", \"requested\", \"version\")", raw.Contains("\"random\"") && raw.Contains("\"requested\"") && raw.Contains("\"version\": 1"));
+            Check("...in the names the readers take (\"version\": 2, \"ballot\", \"stock\") and none of version 1's (\"random\", \"requested\", \"armsrace-new\")",
+                raw.Contains("\"version\": 2") && raw.Contains("\"ballot\"") && raw.Contains("\"stock\"")
+                && !raw.Contains("\"random\"") && !raw.Contains("\"requested\"") && !raw.Contains("armsrace-new") && !raw.Contains("armsrace-original"));
 
             // ---- the watcher's report ----
             var ar = Lane(Modes.ArmsRace).Select(e => e.Key).ToList();
@@ -176,7 +178,7 @@ static partial class Program
             Fresh(); StockSize = 0; FillStock();
             file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
             Check("DISCOVERY_STOCK 0 turns the stock off: no lane holds anything, queues.json's lanes are empty (and the keep set then deletes nothing)",
-                Modes.All.All(m => Lane(m).Count == 0) && file.Random.Values.All(l => l.Count == 0) && file.Length == 0);
+                Modes.All.All(m => Lane(m).Count == 0) && file.Stock.Values.All(l => l.Count == 0) && file.Length == 0);
             StockSize = 10;
 
             // ---- the open ballot's maps go first in queues.json: the watcher starts on them the moment the vote opens ----
@@ -188,12 +190,12 @@ static partial class Program
             Ballot.Choices["[U:1:9]"] = voted.N;
             ExportQueues();
             file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
-            Check($"queues.json names the open ballot's {rolled.Count} Workshop maps as 'requested' (the watcher fetches those first), the one with votes first; no hold for the vote",
-                file.Requested.Count == rolled.Count && file.Requested[0] == Key(voted.Map!) && rolled.All(o => file.Requested.Contains(Key(o.Map!))) && HoldWhy() == null);
+            Check($"queues.json names the open ballot's {rolled.Count} Workshop maps under 'ballot' (the watcher fetches those first), the one with votes first; no hold for the vote",
+                file.Ballot.Count == rolled.Count && file.Ballot[0] == Key(voted.Map!) && rolled.All(o => file.Ballot.Contains(Key(o.Map!))) && HoldWhy() == null);
             Ballot = null;
             ExportQueues();
             file = JsonSerializer.Deserialize(File.ReadAllText(QueuesPath), Ctx.Default.QueuesFile)!;
-            Check("...and nothing once the vote is gone", file.Requested.Count == 0);
+            Check("...and nothing once the vote is gone", file.Ballot.Count == 0);
             Check("The health page says how many of each lane are on disk", StockHealth().StartsWith($"stock of {StockSize} per mode: ") && StockHealth().Contains("armsrace ") && StockHealth().Contains(" s ago"));
             ReadyAt = default;
             Check("...and that no report came yet", StockHealth().Contains("no report from the restart watcher yet"));

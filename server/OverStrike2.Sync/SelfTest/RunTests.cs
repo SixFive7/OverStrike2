@@ -168,7 +168,7 @@ static class RunTests
         var keep = Need(doc, "keep", "dict", "");
         foreach (var e in Node.Arr(Need(keep, "parts", "list", "keep")))
         {
-            if (Node.Str(Node.Get(e, "part")) is not ("up" or "rated" or "popular" or "subscribed" or "own" or "hud" or "queues"))
+            if (Node.Str(Node.Get(e, "part")) is not ("up" or "rated" or "popular" or "subscribed" or "own" or "hud" or "stock" or "ballot"))
                 result.Add($"keep.parts[].part is {Node.Str(Node.Get(e, "part"))}");
             foreach (var (f, kind) in new[] { ("mode", "str"), ("count", "int"), ("onDisk", "int"), ("gb", "int|float") })
                 Need(e, f, kind, "keep.parts[]");
@@ -370,7 +370,7 @@ static class RunTests
         Json(Path.Combine(wdata, "maps-deathmatch.json"), A("""[{"rank": 1, "id": 23, "name": "c", "sizeMb": 1}, {"name": "de_dust2", "official": true}]"""));
         Json(Path.Combine(wdata, "broken.json"), O("""{"schema": "x", "maps": [], "packs": []}"""));
         Json(Path.Combine(wdata, "ours.json"), O("""{"maps": [{"id": 23}]}"""));
-        var queues = O("""{"version": 1, "length": 10, "random": {"armsrace-new": ["21"], "armsrace-original": ["21"], "deathmatch": [], "wingman": []}, "requested": ["24"]}""");
+        var queues = O("""{"version": 2, "length": 10, "ballot": ["24"], "stock": {"armsrace": ["21"], "deathmatch": [], "wingman": []}}""");
         Json(Path.Combine(wdata, "queues.json"), queues);
         Json(Path.Combine(wroot, "state", "state.json"), O("""{"schema": 1, "items": {}, "baseline": {"21": 500, "22": 600, "23": 300, "24": 400}, "downloads": {}}"""));
         Hooks.Check = (_, _, _, _, _) => (new Dictionary<string, JsonObject>
@@ -397,7 +397,7 @@ static class RunTests
               (Node.Int(maps["22"]!["updated"]), Node.Int(maps["22"]!["passed"])) == (900, 900) && Loads.Contains("22"));
         var ex = O(new Service(cfgw, C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
         Check("export: the random queues as queues.json holds them - its lanes and the open ballot's requests",
-              Node.Eq(ex["queues"], queues) && Node.StrList(ex["queues"]!["random"]!["armsrace-new"]) is ["21"] && Node.StrList(ex["queues"]!["requested"]) is ["24"]);
+              Node.Eq(ex["queues"], queues) && Node.StrList(ex["queues"]!["stock"]!["armsrace"]) is ["21"] && Node.StrList(ex["queues"]!["ballot"]) is ["24"]);
         Check("workshop.json: the bridge's own reader (bridge/Popularity.cs) reads it as meant - every map, its numbers, whether its current content passed", () =>
         {
             var program = System.Reflection.Assembly.Load("os2-bridge").GetType("Program", true)!;

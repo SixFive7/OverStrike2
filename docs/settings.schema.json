@@ -82,7 +82,7 @@
           ]
         },
         "discoveryStock": {
-          "description": "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
+          "description": "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set wants each of the stock's lanes this long.",
           "type": "integer",
           "default": 10,
           "minimum": 0,

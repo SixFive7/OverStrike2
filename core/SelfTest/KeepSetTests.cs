@@ -42,15 +42,15 @@ static class KeepSetTests
             ["ratings.json"] = new JsonObject { ["version"] = 1, ["fetched"] = NowS - 3600, ["scores"] = scores, ["trend"] = trend, ["trend_days"] = 30 },
             ["queues.json"] = new JsonObject
             {
-                ["version"] = 1,
-                ["random"] = new JsonObject
+                ["version"] = 2,
+                ["ballot"] = Strs(["5001"]),
+                ["stock"] = new JsonObject
                 {
-                    ["armsrace-new"] = Strs(Enumerable.Range(0, 15).Select(i => (1100 + i).ToString(CultureInfo.InvariantCulture))),
-                    ["armsrace-original"] = Strs(Enumerable.Range(0, 15).Select(i => (1010 + i).ToString(CultureInfo.InvariantCulture))),
+                    ["armsrace"] = Strs(Enumerable.Range(0, 15).Select(i => (1100 + i).ToString(CultureInfo.InvariantCulture))
+                                        .Concat(Enumerable.Range(0, 15).Select(i => (1010 + i).ToString(CultureInfo.InvariantCulture)))),
                     ["deathmatch"] = Strs(Enumerable.Range(0, 14).Select(i => (2001 + i).ToString(CultureInfo.InvariantCulture)).Append("de_dust2")),
                     ["wingman"] = Strs(Enumerable.Range(0, 15).Select(i => (3001 + i).ToString(CultureInfo.InvariantCulture))),
                 },
-                ["requested"] = Strs(["5001"]),
             },
             ["state.json"] = JsonNode.Parse("""{"crashes": {"1006": 2, "1007": 0}, "playerCrashes": {"1008": "crashed 3 players' games"}}"""),
         };
@@ -78,8 +78,9 @@ static class KeepSetTests
               ks.Lists["deathmatch"].Rated[0] == "2120" && ks.Lists["deathmatch"].Rated.Count == 100
               && ks.Lists["wingman"].Rated.SequenceEqual(Enumerable.Range(1, 60).Select(r => (3000 + r).ToString(CultureInfo.InvariantCulture)))
               && ks.Cutoff["wingman"].Score is null && ks.Top["deathmatch"].Count == 120);
-        Check("keep: own maps, the HUD, the queues (official names left out) and the requests are in it; nothing is wrong",
-              ks.Own.SequenceEqual(["4001"]) && ks.Hud.SequenceEqual(["500"]) && !ks.Queues["deathmatch"].Contains("de_dust2") && ks.Queues["deathmatch"].Count == 14
+        Check("keep: own maps, the HUD, the stock's lanes (official names left out) and the ballot's maps are in it; nothing is wrong",
+              ks.Own.SequenceEqual(["4001"]) && ks.Hud.SequenceEqual(["500"]) && !ks.Stock["deathmatch"].Contains("de_dust2") && ks.Stock["deathmatch"].Count == 14
+              && ks.Stock.Keys.SequenceEqual(KeepSet.StockLanes) && KeepSet.StockLanes.SequenceEqual(["armsrace", "deathmatch", "wingman"]) && ks.Ballot.SequenceEqual(["5001"])
               && new[] { "4001", "500", "5001", "1100", "1010", "3015" }.All(ks.All.Contains) && ks.Problems.Count == 0);
         var again = KeepSet.Compute(Kin(), Now, "500");
         Check("keep: the same inputs, the same set", again.All.SetEquals(ks.All) && again.Top["armsrace"].SequenceEqual(ks.Top["armsrace"]) && again.Problems.Count == 0);
@@ -97,8 +98,13 @@ static class KeepSetTests
             ("no votes.json", d => d["votes.json"] = null, "500", "votes.json is missing or unreadable"),
             ("no maps.json", d => d["maps.json"] = null, "500", "maps.json is missing or unreadable"),
             ("an empty maps.json", d => d["maps.json"] = new JsonArray(), "500", "maps.json lists no map"),
-            ("a short queue", d => ((JsonObject)((JsonObject)d["queues.json"]!)["random"]!)["armsrace-new"] = Strs(["1100"]), "500", "the armsrace-new queue holds 1 entries"),
+            ("a short lane", d => ((JsonObject)((JsonObject)d["queues.json"]!)["stock"]!)["armsrace"] = Strs(["1100"]), "500", "the armsrace stock lane holds 1 entries"),
             ("no queues.json", d => d["queues.json"] = null, "500", "queues.json is missing or unreadable"),
+            ("an empty queues.json object", d => d["queues.json"] = new JsonObject(), "500", "queues.json is not version 2"),
+            ("a queues.json of a version this code does not know", d => d["queues.json"]!["version"] = 3, "500", "queues.json is not version 2"),
+            ("version 1, an older bridge's, under the new reader: full lanes, but not read", d => d["queues.json"] = OldQueues(15), "500", "queues.json is not version 2"),
+            ("version 1 with its version raised: still none of the lanes this code reads", d => { var q = OldQueues(15); q["version"] = 2; d["queues.json"] = q; }, "500",
+             "the armsrace stock lane holds 0 entries"),
             ("no own map", d => d["ours.json"] = JsonNode.Parse("""{"maps": []}"""), "500", "ours.json names no own map"),
             ("no HUD item", null, "", "no HUD item is set"),
             ("a tiny top list", d => d["ratings.json"] = new JsonObject { ["version"] = 1, ["fetched"] = NowS, ["scores"] = JsonNode.Parse("""{"1005": 1.0}"""), ["trend"] = Ratings(Kin())["trend"]!.DeepClone() },
@@ -116,6 +122,20 @@ static class KeepSetTests
             var got = KeepSet.Compute(Kin(over), Now, hud).Problems;
             Check($"keep: refused for {label} ({string.Join("; ", got).PadRight(1)[..Math.Min(150, Math.Max(1, string.Join("; ", got).Length))]})", got.Any(p => p.Contains(want, StringComparison.Ordinal)));
         }
+
+        // queues.json, both ways across release 191: the file of version 1 an older bridge writes is nothing to the new keep set (above: it refuses),
+        // and the new file is nothing to the old one - which wanted version 1 and the four lanes under "random", each at least MinQueue long
+        // (core/KeepSet.cs before release 191). OldReaderRefuses is that reader's gate, word for word; the new file fails it twice over.
+        var fresh = Kin();
+        Check("keep: queues.json version 2, as the bridge writes it, is the only one read: every lane and the ballot in the set, no problem",
+              KeepSet.Compute(fresh, Now, "500").Problems.Count == 0 && KeepSet.QueuesVersion == 2);
+        var oldFull = OldQueues(15);
+        Check("keep: version 1 with every lane full - a set an older keep set would trust - refuses under the new one, and nothing is in it for deleting",
+              KeepSet.Compute(Kin(d => d["queues.json"] = oldFull), Now, "500") is { Problems.Count: > 0 } r1 && r1.Problems.Contains("queues.json is not version 2")
+              && !OldReaderRefuses(oldFull));
+        Check("keep: the new file under the old reader's gate: not version 1, and none of its four lanes - refused, so an older os2-server or sync deletes nothing on it",
+              OldReaderRefuses(fresh["queues.json"]!.AsObject()) && OldReaderRefuses(fresh["queues.json"]!.AsObject(), minQueue: 0)
+              && fresh["queues.json"]!["version"]!.GetValue<int>() != 1 && fresh["queues.json"]!["random"] is null);
 
         // blocked.json: the maps blocked for good, in a file of their own - out of the top lists; without the file they are in
         var kdata = KData();
@@ -158,6 +178,35 @@ static class KeepSetTests
               topRated is ["b", "c"] && topSubscribed is ["d"] && topPopular is ["c", "a"]);
     }
 
+    /// <summary>queues.json as a bridge from before release 191 writes it: version 1, the lanes under "random" by the four old names (Arms Race's twice),
+    /// the open ballot's maps under "requested".</summary>
+    static JsonObject OldQueues(int each) => new()
+    {
+        ["version"] = 1, ["length"] = each,
+        ["random"] = new JsonObject
+        {
+            ["armsrace-new"] = Strs(Enumerable.Range(0, each).Select(i => (1100 + i).ToString(CultureInfo.InvariantCulture))),
+            ["armsrace-original"] = Strs(Enumerable.Range(0, each).Select(i => (1100 + i).ToString(CultureInfo.InvariantCulture))),
+            ["deathmatch"] = Strs(Enumerable.Range(0, each).Select(i => (2001 + i).ToString(CultureInfo.InvariantCulture))),
+            ["wingman"] = Strs(Enumerable.Range(0, each).Select(i => (3001 + i).ToString(CultureInfo.InvariantCulture))),
+        },
+        ["requested"] = Strs(["5001"]),
+    };
+
+    /// <summary>The keep set's gate on queues.json before release 191, word for word: a problem unless it was version 1, and one for each of the four
+    /// lanes under "random" shorter than MinQueue. True when that reader would have refused the file.</summary>
+    static bool OldReaderRefuses(JsonObject queues, int minQueue = 10)
+    {
+        var problems = new List<string>();
+        if (queues.Count > 0 && Node.Number(queues["version"]) != 1)
+            problems.Add("queues.json is not version 1");
+        var random = queues["random"] as JsonObject ?? [];
+        foreach (var name in new[] { "armsrace-new", "armsrace-original", "deathmatch", "wingman" })
+            if ((random[name] is JsonArray q ? q.Count : 0) < minQueue)
+                problems.Add($"the {name} queue is short");
+        return problems.Count > 0;
+    }
+
     /// <summary>The sync's smaller fixture: Arms Race 101-229, Deathmatch 301-329.</summary>
     static Dictionary<string, JsonNode?> KData()
     {
@@ -178,7 +227,7 @@ static class KeepSetTests
                 ["version"] = 1, ["fetched"] = NowS - 60, ["scores"] = scores,
                 ["trend"] = new JsonObject { ["armsrace"] = Strs(Enumerable.Range(60, 70).Select(r => (100 + r).ToString(CultureInfo.InvariantCulture))), ["deathmatch"] = Strs(["310", "311", "999"]), ["wingman"] = new JsonArray() },
             },
-            ["queues.json"] = JsonNode.Parse("""{"version": 1, "random": {"armsrace-new": ["120"], "deathmatch": ["301"]}, "requested": ["150"]}"""),
+            ["queues.json"] = JsonNode.Parse("""{"version": 2, "stock": {"armsrace": ["120"], "deathmatch": ["301"]}, "ballot": ["150"]}"""),
             ["state.json"] = JsonNode.Parse("""{"crashes": {"103": 1}}"""),
         };
     }

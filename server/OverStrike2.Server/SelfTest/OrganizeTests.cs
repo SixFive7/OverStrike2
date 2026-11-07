@@ -180,7 +180,7 @@ static class OrganizeTests
             ["ours.json"] = "{\"maps\": [{\"id\": 400, \"name\": \"Own\"}]}",
             ["state.json"] = "{\"crashes\": {}}",
             ["ratings.json"] = ratings.ToJsonString(),
-            ["queues.json"] = "{\"version\": 1, \"random\": {\"armsrace-new\": [\"102\"], \"armsrace-original\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"requested\": []}",
+            ["queues.json"] = "{\"version\": 2, \"stock\": {\"armsrace\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"ballot\": []}",
         };
         void WriteData(Dictionary<string, string>? over = null)
         {
@@ -189,7 +189,7 @@ static class OrganizeTests
         }
         WriteData();
         File.WriteAllText(Path.Combine(ws, "appworkshop_730.acf"), acf);
-        var config = Config(t4, data, "500") with { MapsDelete = "dryrun", KeepRules = new KeepRules { Top = 1, MinTop = 1, MinQueue = 1 } };
+        var config = Config(t4, data, "500") with { MapsDelete = "dryrun", KeepRules = new KeepRules { Top = 1, MinTop = 1, MinStock = 1 } };
         var log = new Log("test", SystemClock.Instance, Scenario.Paris, _ => { });
         MapsFolder Mf() => new(config, log, SystemClock.Instance, Scenario.Paris);
         var stateDir = config.Paths.StateDir;
@@ -256,10 +256,24 @@ static class OrganizeTests
         WriteData(new()
         {
             ["votes.json"] = "{}",
-            ["queues.json"] = "{\"version\": 1, \"random\": {\"armsrace-new\": [], \"armsrace-original\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"requested\": []}",
+            ["queues.json"] = "{\"version\": 2, \"stock\": {\"armsrace\": [], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"ballot\": []}",
         });
         line = Mf().Organize();
-        C($"organize: an empty queue is a reason to refuse: 100 and 102 stay ({line})", () => Stored().Contains("100") && Stored().Contains("102") && line.Contains("refused"));
+        C($"organize: an empty stock lane is a reason to refuse: 100 and 102 stay ({line})", () => Stored().Contains("100") && Stored().Contains("102") && line.Contains("refused"));
+        // queues.json as a bridge from before release 191 writes it - version 1, every lane full - while this organize runs: never a deletion on it
+        Put(Path.Combine(content, "170"), "170");
+        WriteData(new()
+        {
+            ["votes.json"] = "{}",
+            ["queues.json"] = "{\"version\": 1, \"random\": {\"armsrace-new\": [\"102\"], \"armsrace-original\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"requested\": []}",
+        });
+        var oldFile = KeepSet.Safe(KeepSet.Inputs(data), DateTimeOffset.UtcNow, "500", null, config.KeepRules);
+        line = Mf().Organize();
+        C($"organize: an older bridge's queues.json (version 1) is no stock this code reads: refused, nothing deleted - not 100, 102 or a new download ({line})",
+          () => oldFile.Problems.Contains("queues.json is not version 2") && new[] { "100", "102", "170" }.All(Stored().Contains) && line.Contains("refused"));
+        WriteData(new() { ["votes.json"] = "{}", ["queues.json"] = "{ not json" });
+        line = Mf().Organize();
+        C($"organize: a queues.json that does not parse: refused, nothing deleted ({line})", () => new[] { "100", "102", "170" }.All(Stored().Contains) && line.Contains("refused"));
         Put(Path.Combine(content, "180"), "180");
         Mf().Organize();
         C("organize: a refusal keeps a new download too", () => Stored().Contains("180"));

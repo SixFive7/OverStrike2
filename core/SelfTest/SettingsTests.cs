@@ -126,7 +126,7 @@ static class SettingsTests
               && sk.Hud.Tab == "down" && sk.Problems.Any(p => p.StartsWith("hud.tab: 'menu' is not one of off, down", StringComparison.Ordinal))
               && sk.Bridge.DiscoveryStock == 0 && sk.Warnings.Any(w => w.StartsWith("plugin.grenadeWin: no such setting", StringComparison.Ordinal)));
         Check("keep: the keep set's queues are as long as the discovery stock - 10 by default, shorter for a shorter stock, nothing for none",
-              KeepRules.ForStock(10).MinQueue == 10 && KeepRules.ForStock(40).MinQueue == 10 && KeepRules.ForStock(4).MinQueue == 4 && KeepRules.ForStock(0).MinQueue == 0
+              KeepRules.ForStock(10).MinStock == 10 && KeepRules.ForStock(40).MinStock == 10 && KeepRules.ForStock(4).MinStock == 4 && KeepRules.ForStock(0).MinStock == 0
               && KeepRules.ForStock(4).Top == KeepRules.Default.Top);
         var s4 = Read("""{ "schema": 1, "restarts": { "daily": "off" }, "hud": { "tab": "DOWN", "check": "sideways" }, "sync": { "excludeCreators": ["76561197960265728", "12"], "excludeIds": ["3823993566", "abc"], "mail": { "to": ["nobody"] }, "changedSince": "2026-13-01" } }""");
         Check("settings: off switches the daily restart off; a choice ignores case", s4.Restarts.Daily is null && s4.Hud.Tab == "down");

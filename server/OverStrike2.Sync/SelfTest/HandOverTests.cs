@@ -50,7 +50,7 @@ static class HandOverTests
                     ["armsrace"] = Node.Strings(Enumerable.Range(60, 70).Select(r => (100 + r).ToString())), ["deathmatch"] = Node.Strings(["310", "311", "999"]), ["wingman"] = new JsonArray(),
                 },
             },
-            ["queues.json"] = O("{\"version\": 1, \"random\": {\"armsrace-new\": [\"120\"], \"deathmatch\": [\"301\"]}, \"requested\": [\"150\"]}"),
+            ["queues.json"] = O("{\"version\": 2, \"stock\": {\"armsrace\": [\"120\"], \"deathmatch\": [\"301\"]}, \"ballot\": [\"150\"]}"),
             ["state.json"] = O("{\"crashes\": {\"103\": 1}}"),
         };
     }

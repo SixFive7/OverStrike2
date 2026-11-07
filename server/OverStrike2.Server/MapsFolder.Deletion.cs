@@ -69,9 +69,9 @@ public sealed partial class MapsFolder
         }
         parts.Add(("own", keep.Own));
         parts.Add(("hud", keep.Hud));
-        foreach (var name in KeepSet.QueueNames)
-            parts.Add(($"queue {name}", keep.Queues.TryGetValue(name, out var q) ? q : []));
-        parts.Add(("requested", keep.Requested));
+        foreach (var lane in KeepSet.StockLanes)
+            parts.Add(($"stock {lane}", keep.Stock.TryGetValue(lane, out var q) ? q : []));
+        parts.Add(("ballot", keep.Ballot));
         parts.Add(("all", keep.All.OrderBy(x => x, StringComparer.Ordinal).ToList()));
         return parts;
     }
@@ -173,7 +173,7 @@ public sealed partial class MapsFolder
         var sizes = KeyValues.Sizes(text);
         var (add, finish, counts) = TakeIn(content, mapsDir, types, where, installedNow);
         var keep = KeepSetNow();
-        var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Requested).Concat(keep.Queues.Values.SelectMany(q => q)));
+        var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Ballot).Concat(keep.Stock.Values.SelectMany(q => q)));
         protect.UnionWith(add.Keys);                                     // just handed over: the keep set asked for them
         var onDisk = where.Where(kv => kv.Value.Count > 0).ToDictionary(kv => kv.Key, kv => sizes.GetValueOrDefault(kv.Key));
         foreach (var (id, (inst, _)) in add)

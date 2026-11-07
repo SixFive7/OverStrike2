@@ -9,7 +9,7 @@ each at least 2 s after the last one ended, as every Web API caller of the proje
   --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list - Arms Race's maps.json
                   and the other modes' (its "modes") - each entry with its preview. Without it: bridge/maps.json, Arms Race's list as the
                   repository has it, with no previews, so every missing one is asked of the Web API
-  --queues FILE   the bridge's queues.json: the maps its random queues will put on the next ballots and the maps on an open ballot,
+  --queues FILE   the bridge's queues.json: the maps its stock will put on the next ballots and the maps on an open ballot,
                   first in line for a picture. An export that carries the queues itself ("queues") needs no --queues
   --ahead FILE    a JSON array of {"id", "preview"}: maps that are not listed yet but will be, most popular first, so their pictures can
                   ship before they are listed
@@ -233,12 +233,12 @@ def from_export(export):
 
 
 def from_queues(queues):
-    """The Workshop ids queues.json (version 1) names: the open ballot's first ("requested"), then every random queue in play order."""
-    if not isinstance(queues, dict) or queues.get("version", queues.get("Version")) != 1:
-        sys.exit("the queues are not queues.json version 1")
-    random = queues.get("random") or queues.get("Random") or {}
-    requested = queues.get("requested") or queues.get("Requested") or []
-    keys = list(requested) + [k for name in sorted(random) for k in random[name]]
+    """The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order."""
+    if not isinstance(queues, dict) or queues.get("version") != 2:
+        sys.exit("the queues are not queues.json version 2")
+    stock = queues.get("stock") or {}
+    ballot = queues.get("ballot") or []
+    keys = list(ballot) + [k for lane in sorted(stock) for k in stock[lane]]
     return [str(k) for k in keys if str(k).isdigit()]
 
 

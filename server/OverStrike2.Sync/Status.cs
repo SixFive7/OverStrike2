@@ -31,10 +31,6 @@ public sealed class Status(SyncConfig cfg, SyncClock clock, Action<string> log)
         ["tests"] = "Load-testing downloaded maps on a test copy of the server.",
         ["publish"] = "Putting the tested maps on the map lists.",
     };
-    public static readonly Dictionary<string, string> QueueMode = new()
-    {
-        ["armsrace-new"] = "armsrace", ["armsrace-original"] = "armsrace", ["deathmatch"] = "deathmatch", ["wingman"] = "wingman",
-    };
     public static readonly string[] BrokenKinds = ["advert", "crasher", "kick"];
 
     readonly object gate = new();

@@ -118,10 +118,10 @@ public sealed partial class SyncRun
         }
         Part("own", "", keep.Own);
         Part("hud", "", keep.Hud);
-        foreach (var (name, ids) in keep.Queues)
-            Part("queues", Status.QueueMode.GetValueOrDefault(name, ""), ids, name);
-        if (keep.Requested.Count > 0)
-            Part("queues", "", keep.Requested, "requested");
+        foreach (var (lane, ids) in keep.Stock)
+            Part("stock", lane, ids);
+        if (keep.Ballot.Count > 0)
+            Part("ballot", "", keep.Ballot);
         var keepOut = new JsonObject
         {
             ["parts"] = parts, ["totalGb"] = Math.Round(keep.All.Sum(w => (double)SizeOf(w)) / (1L << 30), 1), ["count"] = keep.All.Count,

@@ -243,8 +243,8 @@ static class InstallTests
         Check("hud: only the settings file names the item - the image's OS2_HUD_ADDON and GUNGAME_HUD_ADDON count for nothing",
               fromFile.HudAddon == "2222222222" && noneInFile.HudAddon == "" && !noneInFile.BootWarnings.Concat(fromFile.BootWarnings).Any(w => w.Contains("HUD_ADDON")));
         Check("keep: the watcher's keep set follows the bridge's discovery stock (bridge.discoveryStock)",
-              ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"bridge\": { \"discoveryStock\": 4 } }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 4
-              && ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), _ => null).KeepRules.MinQueue == 10);
+              ServerConfig.From(Settings.Parse("{ \"schema\": 1, \"bridge\": { \"discoveryStock\": 4 } }", Part.Server, _ => null), _ => null).KeepRules.MinStock == 4
+              && ServerConfig.From(Settings.Parse("{ \"schema\": 1 }", Part.Server, _ => null), _ => null).KeepRules.MinStock == 10);
         Refusal();
         Downloader(log, lines, config);
         Bridge();

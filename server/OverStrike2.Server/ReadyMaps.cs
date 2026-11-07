@@ -4,7 +4,7 @@ using OverStrike2.Core;
 
 namespace OverStrike2.Server;
 
-/// <summary>THE BACKGROUND DOWNLOADS: the maps the bridge's random queues and the open ballot play next (queues.json), on disk before
+/// <summary>THE BACKGROUND DOWNLOADS: the maps the bridge's stock and the open ballot play next (queues.json), on disk before
 /// anybody asks - downloaded with MultiAddonManager's mm_download_addon, one at a time, also while people play, and silently (the download
 /// line is for downloads somebody waits for). Never while a download somebody waits for runs, nor in a process whose downloads are broken
 /// (a stuck result marks it, for the download restart). Every look, and at least every ReportEvery, the bridge hears which of them are on disk (POST
@@ -37,8 +37,8 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         LookAt = 0;
     }
 
-    /// <summary>What queues.json names, in the order it is needed: the open ballot's maps ("requested"), then the queues' first entries,
-    /// their second ones, and so on.</summary>
+    /// <summary>What queues.json names, in the order it is needed: the open ballot's maps ("ballot"), then the stock lanes' first entries,
+    /// their second ones, and so on. A file of any version but KeepSet.QueuesVersion names nothing: an older bridge's is not read.</summary>
     public List<string> Wanted()
     {
         var path = Path.Combine(Config.Paths.BridgeData, "queues.json");
@@ -57,11 +57,13 @@ public sealed class ReadyMaps(WorkshopJobs ws)
         if (stamp != queuesStamp)
         {
             var data = Node.ReadJson(path) as JsonObject;
+            if (data is not null && Node.Number(data["version"]) != KeepSet.QueuesVersion)
+                data = null;
             var ids = new List<string>();
-            if (data?["requested"] is JsonArray req)
-                ids.AddRange(req.Select(Node.Str).Where(Digits));
-            var lanes = data?["random"] is JsonObject random
-                ? random.Select(kv => kv.Value is JsonArray a ? a.Select(Node.Str).Where(Digits).ToList() : null).Where(l => l != null).Select(l => l!).ToList()
+            if (data?["ballot"] is JsonArray ballot)
+                ids.AddRange(ballot.Select(Node.Str).Where(Digits));
+            var lanes = data?["stock"] is JsonObject stock
+                ? stock.Select(kv => kv.Value is JsonArray a ? a.Select(Node.Str).Where(Digits).ToList() : null).Where(l => l != null).Select(l => l!).ToList()
                 : [];
             for (var i = 0; i < (lanes.Count == 0 ? 0 : lanes.Max(l => l.Count)); i++)
                 ids.AddRange(lanes.Where(l => i < l.Count).Select(l => l[i]));

@@ -251,8 +251,9 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     }
 
     /// <summary>os2-sync export: what this sync has published, as entries a republish from the repo can merge (id, rank, name, subscriptions,
-    /// lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and state.json, and the random queues as queues.json
-    /// holds them ("queues": version 1, its lanes under "random" and "requested"; null without the file), which the HUD's pictures take first.
+    /// lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and state.json, and the stock as queues.json holds it
+    /// ("queues": version 2, the open ballot's maps under "ballot" and a lane per mode under "stock"; null without the file), which the HUD's
+    /// pictures take first.
     /// The server's data is ahead of the repo after a run that published; this is the way back.</summary>
     public string Export()
     {
@@ -280,7 +281,7 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
                 copy["section"] = section;
                 broken.Add(copy);
             }
-        var queues = Node.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the random queues, as the bridge wrote them
+        var queues = Node.ReadJson(Path.Combine(cfg.BridgeData, "queues.json")) as JsonObject;   // the stock and the ballot, as the bridge wrote them
         return Node.Indented(new JsonObject
         {
             ["generated"] = clock.Stamp(), ["maps.json"] = maps, ["modes"] = modes, ["broken.json"] = broken, ["queues"] = queues?.DeepClone(),

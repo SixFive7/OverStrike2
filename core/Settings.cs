@@ -494,7 +494,7 @@ public sealed class Settings
             s => s.Bridge.Secret, (s, v) => s.Bridge.Secret = v, v => v.Length == 0 || v.All(char.IsAsciiLetterOrDigit), "letters and digits", secret: true),
         List("bridge.officialMaps", B, "[\"ar_baggage\", \"ar_pool_day\", \"ar_shoots\", \"ar_shoots_night\"]", "The official maps the votes and the random picks may offer.",
             s => s.Bridge.OfficialMaps, (s, v) => s.Bridge.OfficialMaps = v, v => v.Length > 0, "a map name"),
-        Int("bridge.discoveryStock", B | S | Y, 10, 0, 40, "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set's queues are this long.",
+        Int("bridge.discoveryStock", B | S | Y, 10, 0, 40, "The discovery stock: per mode, how many maps new to the server the bridge rolls ahead (the vote's surprise, the automatic picks), which the game server downloads in the background; 0 turns it off. The keep set wants each of the stock's lanes this long.",
             s => s.Bridge.DiscoveryStock, (s, v) => s.Bridge.DiscoveryStock = v),
         Int("bridge.changeDelaySeconds", B, 8, 0, 120, "The countdown before a map change.",
             s => s.Bridge.ChangeDelaySeconds, (s, v) => s.Bridge.ChangeDelaySeconds = v),

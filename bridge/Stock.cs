@@ -13,10 +13,10 @@
 //    watcher downloads between votes. An entry no longer eligible, on its list, tested as it is now, or with its too-big mark changed is dropped;
 //    so is one not on the disk after NotReadyDropHours while the reports keep coming; one whose votes went down since its roll stays with the
 //    odds the vote left it (kept with probability weight now / weight then, once per drop).
-//  - queues.json (QueuesFile, version 1), for the watcher's background downloads, os2-server organize and the Workshop sync: "requested", the Workshop
-//    maps on the open ballot, the most votes first - the watcher downloads those before anything else; "random", the lanes under the keys the watcher
-//    and the keep set read: Arms Race's under both "armsrace-new" and "armsrace-original" (the keep set wants each of its four at least 10 long),
-//    "deathmatch" and "wingman". Written atomically, only on change.
+//  - queues.json (QueuesFile, version 2: KeepSet.QueuesVersion), for the watcher's background downloads, os2-server organize and the Workshop
+//    sync: "ballot", the Workshop maps on the open ballot, the most votes first - the watcher downloads those before anything else; "stock", a
+//    lane per mode by its name (KeepSet.StockLanes; the keep set wants each at least as long as the stock). A reader takes version 2 alone.
+//    Written atomically, only on change.
 //  - The watcher's report (POST /ready/<secret>, BridgeWire.ReadyBody): "os2-ready\t1", one id a line of the maps queues.json names that are on the disk, and - while a background download
 //    downloads - "current\t<id>\t<percent>\t<title>" (a whole percent 0-100, or "-" before any progress; the title last, the rest of the line): the
 //    background download, which the Sync page and the website show. No fresh report for ReadyFreshMinutes: no stock entry counts as on the disk,
@@ -29,12 +29,9 @@ using System.Text.Json;
 static partial class Program
 {
     /// <summary>Entries per lane of the stock: bridge.discoveryStock (DISCOVERY_STOCK without the settings file), 0 to 40, 10 when unset; 0 turns the stock off (the surprise is then a favourite).
-    /// The keep set wants each of queues.json's four lanes at least 10 long before it deletes anything, so below 10 nothing is deleted.</summary>
+    /// The keep set wants each of queues.json's lanes as long as the stock (at most 10) before it deletes anything.</summary>
     public static int StockSize = BridgeConfig.Values.DiscoveryStock; // bridge.discoveryStock in the settings file
 
-    /// <summary>The keys of queues.json's "random", each with the mode whose lane it carries: the keep set's four (core's KeepSet.QueueNames), which
-    /// the watcher reads too, each named for its mode before any "-".</summary>
-    public static readonly (string Key, string Mode)[] QueueKeys = [.. OverStrike2.Core.KeepSet.QueueNames.Select(name => (name, name.Split('-')[0]))];
 
     public const int ReadyFreshMinutes = 5;  // the watcher's report counts this long; it sends one at least every 2 minutes
     public const int NotReadyDropHours = 2;  // an entry that has not reached the disk in this long, while the reports keep coming, is dropped
@@ -181,18 +178,18 @@ static partial class Program
 
     // ---- queues.json ----
 
-    /// <summary>/data/queues.json: the Workshop maps on the open ballot as "requested", the most votes first - the watcher downloads those first, so they
-    /// start downloading the moment the vote opens - and the stock's lanes as "random", in the order the watcher takes them. Version 1; written atomically,
-    /// only on change.</summary>
+    /// <summary>/data/queues.json: the Workshop maps on the open ballot as "ballot", the most votes first - the watcher downloads those first, so they
+    /// start downloading the moment the vote opens - and the stock as "stock", a lane per mode in the order the watcher takes it. Version 2; written
+    /// atomically, only on change.</summary>
     static void ExportQueues()
     {
         var file = new QueuesFile
         {
-            Version = 1, Length = StockSize,
-            Random = QueueKeys.ToDictionary(q => q.Key, q => LaneOf(Modes.Of(q.Mode)).Select(e => e.Key).ToList()),
-            Requested = BallotMaps().Select(Key).Distinct().ToList(),
+            Version = OverStrike2.Core.KeepSet.QueuesVersion, Length = StockSize,
+            Ballot = BallotMaps().Select(Key).Distinct().ToList(),
+            Stock = OverStrike2.Core.KeepSet.StockLanes.ToDictionary(lane => lane, lane => LaneOf(Modes.Of(lane)).Select(e => e.Key).ToList()),
         };
-        ExportedIds = file.Requested.Concat(file.Random.Values.SelectMany(v => v)).ToHashSet();
+        ExportedIds = file.Ballot.Concat(file.Stock.Values.SelectMany(v => v)).ToHashSet();
         var text = JsonSerializer.Serialize(file, Ctx.Default.QueuesFile);
         if (text == QueuesWritten) return;
         file.Written = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
@@ -255,13 +252,13 @@ static partial class Program
 /// <summary>One entry of a stock lane (state.json): the map's key, its weight and too-big mark when it was rolled, whether it was fresh, and when.</summary>
 sealed record StockEntry(string Key, double Weight, bool Big, bool Fresh, DateTime At);
 
-/// <summary>/data/queues.json, version 1 (Stock.cs): the stock's lanes by the four keys the watcher and the keep set read - Workshop ids - and
-/// the Workshop ids on the open ballot ("requested", the name the watcher reads first).</summary>
+/// <summary>/data/queues.json, version 2 (Stock.cs): the Workshop ids on the open ballot ("ballot", which the watcher reads first) and the stock, a lane
+/// per mode by its name ("stock") - Workshop ids.</summary>
 sealed class QueuesFile
 {
     public int Version { get; set; }
     public string Written { get; set; } = "";
     public int Length { get; set; }
-    public Dictionary<string, List<string>> Random { get; set; } = new();
-    public List<string> Requested { get; set; } = new();
+    public List<string> Ballot { get; set; } = new();
+    public Dictionary<string, List<string>> Stock { get; set; } = new();
 }

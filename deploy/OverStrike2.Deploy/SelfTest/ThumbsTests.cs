@@ -53,7 +53,8 @@ static class ThumbsTests
         var (ids, previews) = Thumbs.FromExport(Json.O("""{"maps.json": [{"id": "1", "rank": 1, "preview": "p1"}], "modes": {"wingman": [{"id": "3"}], "deathmatch": [{"id": "2", "preview": "p2"}]}}"""));
         check("export: Arms Race's list first, then every mode's in their names' order, with their previews", ids.SequenceEqual(["1", "2", "3"]) && previews.Count == 2 && previews["2"] == "p2");
         check("queues: the open ballot's first, then every random queue in its name's order, numbers or text",
-              Thumbs.FromQueues(Json.O("""{"version": 1, "requested": ["9"], "random": {"b": ["7", 8], "a": ["6", "x"]}}""")).SequenceEqual(["9", "6", "7", "8"])
-              && SelfTest.Refusal(() => Thumbs.FromQueues(Json.O("""{"version": 2}"""))) is { } r && r.Contains("version 1"));
+              Thumbs.FromQueues(Json.O("""{"version": 2, "ballot": ["9"], "stock": {"b": ["7", 8], "a": ["6", "x"]}}""")).SequenceEqual(["9", "6", "7", "8"])
+              && SelfTest.Refusal(() => Thumbs.FromQueues(Json.O("""{"version": 1, "requested": ["9"], "random": {"a": ["6"]}}"""))) is { } r && r.Contains("version 2")
+              && SelfTest.Refusal(() => Thumbs.FromQueues(Json.O("""{"stock": {"a": ["6"]}}"""))) is { } r2 && r2.Contains("version 2"));
     }
 }

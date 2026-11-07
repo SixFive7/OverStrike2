@@ -11,12 +11,12 @@ public sealed record KeepRules
     public double RatingsMaxAge { get; init; } = 3 * 86400;      // ratings older than this (the sync fetches them daily): nothing deleted
     public double RatedShare { get; init; } = 0.9;               // the ratings must score this share of each mode's playable maps
     public int MinTop { get; init; } = 50;                       // a mode's list shorter than this, with more playable maps listed: refused
-    public int MinQueue { get; init; } = 10;                     // each random queue must hold this many entries (the bridge's stock lanes)
+    public int MinStock { get; init; } = 10;                     // each of the bridge's stock lanes must hold this many entries
     public static readonly KeepRules Default = new();
 
-    /// <summary>The rules for a bridge whose discovery stock (bridge.discoveryStock) is that long: its lanes are the queues, so a queue
-    /// need not be longer than the stock - and with the stock off (0) the queues are empty and that is no reason to refuse.</summary>
-    public static KeepRules ForStock(int discoveryStock) => Default with { MinQueue = Math.Min(Default.MinQueue, Math.Max(0, discoveryStock)) };
+    /// <summary>The rules for a bridge whose discovery stock (bridge.discoveryStock) is that long: a lane need not be longer than the stock -
+    /// and with the stock off (0) the lanes are empty and that is no reason to refuse.</summary>
+    public static KeepRules ForStock(int discoveryStock) => Default with { MinStock = Math.Min(Default.MinStock, Math.Max(0, discoveryStock)) };
 }
 
 /// <summary>What the keep set holds, and why it is not to be trusted with a deletion (Problems).</summary>
@@ -28,8 +28,8 @@ public sealed class KeepSetResult
     public Dictionary<string, (double? Score, long? Subscriptions)> Cutoff { get; init; } = [];
     public List<string> Own { get; init; } = [];
     public List<string> Hud { get; init; } = [];
-    public Dictionary<string, List<string>> Queues { get; init; } = [];
-    public List<string> Requested { get; init; } = [];
+    public Dictionary<string, List<string>> Stock { get; init; } = [];
+    public List<string> Ballot { get; init; } = [];
     public HashSet<string> All { get; init; } = [];
     public int Scored { get; init; }
     public List<string> Problems { get; init; } = [];
@@ -43,15 +43,20 @@ public sealed class KeepSetResult
 ///            "rated", the best Workshop score (vote_data.score, the Workshop's Top Rated order); "subscribed", the most current
 ///            subscriptions (Most Subscribed); "popular", Steam's trend order over the last 30 days (Most Popular). Ties by list order;
 ///   own, hud ours.json's maps and the HUD item;
-///   queues   the bridge's random queues, its discovery stock, and the open ballot's maps (queues.json's "requested").
+///   stock    the bridge's discovery stock, a lane per mode, and the open ballot's maps: queues.json, version 2, its "stock" and "ballot".
 /// Problems: why the set is not to be trusted with a deletion - an input missing or unreadable, ratings older than RatingsMaxAge,
 /// scores or subscriptions for under RatedShare of a list, no Most Popular order for a mode, any of a mode's three lists under MinTop,
-/// a queue under MinQueue, no own map, no HUD item. Pure: the same inputs give the same set. The game server deletes what is outside
+/// queues.json of any version but 2 (an older bridge's, or one this code does not know: no migration), a stock lane under MinStock, no own map,
+/// no HUD item. Pure: the same inputs give the same set. The game server deletes what is outside
 /// it; the sync hands over what is in it.</summary>
 public static class KeepSet
 {
     public static readonly (string Mode, string File)[] Modes = [("armsrace", "maps.json"), ("deathmatch", "maps-deathmatch.json"), ("wingman", "maps-wingman.json")];
-    public static readonly string[] QueueNames = ["armsrace-new", "armsrace-original", "deathmatch", "wingman"];
+    /// <summary>queues.json's version: the one this code reads, and the bridge writes.</summary>
+    public const int QueuesVersion = 2;
+
+    /// <summary>queues.json's stock lanes, one per mode, named as the modes are.</summary>
+    public static readonly string[] StockLanes = [.. Modes.Select(m => m.Mode)];
     public static readonly string[] InputFiles = ["maps.json", "maps-deathmatch.json", "maps-wingman.json", "broken.json", "blocked.json", "removed.json",
                                                   "votes.json", "ours.json", "ratings.json", "queues.json", "state.json"];
 
@@ -185,30 +190,30 @@ public static class KeepSet
         if (hudIds.Count == 0)
             problems.Add("no HUD item is set");
         var queues = NeedObject("queues.json");
-        if (queues.Count > 0 && Node.Number(queues["version"]) != 1)
-            problems.Add("queues.json is not version 1");
-        var random = queues["random"] as JsonObject ?? [];
-        var qs = new Dictionary<string, List<string>>();
-        foreach (var name in QueueNames)
+        if (inputs.GetValueOrDefault("queues.json") is JsonObject && Node.Number(queues["version"]) != QueuesVersion)
+            problems.Add($"queues.json is not version {QueuesVersion}");   // an older bridge's or an unknown one: nothing is decided on it
+        var lanes = queues["stock"] as JsonObject ?? [];
+        var stock = new Dictionary<string, List<string>>();
+        foreach (var lane in StockLanes)
         {
-            var entries = random[name] is JsonArray q ? q.Select(Node.Str).ToList() : [];
-            if (entries.Count < rules.MinQueue)
-                problems.Add($"the {name} queue holds {entries.Count} entries (at least {rules.MinQueue})");
-            qs[name] = entries.Where(IsDigits).ToList();
+            var entries = lanes[lane] is JsonArray q ? q.Select(Node.Str).ToList() : [];
+            if (entries.Count < rules.MinStock)
+                problems.Add($"the {lane} stock lane holds {entries.Count} entries (at least {rules.MinStock})");
+            stock[lane] = entries.Where(IsDigits).ToList();
         }
-        var requested = queues["requested"] is JsonArray req ? req.Select(Node.Id).OfType<string>().ToList() : [];
+        var ballot = queues["ballot"] is JsonArray onBallot ? onBallot.Select(Node.Id).OfType<string>().ToList() : [];
         var every = new HashSet<string>(up);
         every.UnionWith(own);
         every.UnionWith(hudIds);
-        every.UnionWith(requested);
-        foreach (var ids in top.Values.Concat(qs.Values))
+        every.UnionWith(ballot);
+        foreach (var ids in top.Values.Concat(stock.Values))
             every.UnionWith(ids);
         return new KeepSetResult
         {
             Up = up.OrderBy(x => x, StringComparer.Ordinal).ToList(), Top = top,
             Lists = three.ToDictionary(kv => kv.Key, kv => kv.Value), Cutoff = cutoff.ToDictionary(kv => kv.Key, kv => kv.Value),
-            Own = own.OrderBy(x => x, StringComparer.Ordinal).ToList(), Hud = hudIds.OrderBy(x => x, StringComparer.Ordinal).ToList(), Queues = qs,
-            Requested = requested, All = every, Scored = scores.Count, Problems = problems,
+            Own = own.OrderBy(x => x, StringComparer.Ordinal).ToList(), Hud = hudIds.OrderBy(x => x, StringComparer.Ordinal).ToList(), Stock = stock,
+            Ballot = ballot, All = every, Scored = scores.Count, Problems = problems,
         };
     }
 

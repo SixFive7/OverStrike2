@@ -136,7 +136,7 @@
 "use strict";
 const MODES = { armsrace: "Arms Race", deathmatch: "Deathmatch", wingman: "Wingman" };
 const EVENTS = { listed: ["Listed", "ok"], "handed-over": ["To the server", "ok"], changed: ["Updated", "hot"], broken: ["Broken", "bad"], failed: ["Failed", "bad"], removed: ["Removed", "dim"] };
-const PARTS = { up: "Liked by a player", rated: "Top rated", popular: "Most popular (30 days)", subscribed: "Most subscribed", own: "Our own maps", hud: "The HUD", queues: "The stock and the open vote's maps" };
+const PARTS = { up: "Liked by a player", rated: "Top rated", popular: "Most popular (30 days)", subscribed: "Most subscribed", own: "Our own maps", hud: "The HUD", stock: "The stock", ballot: "The open vote's maps" };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const num = n => (n == null || isNaN(n)) ? "-" : Math.round(n).toLocaleString("en-US");

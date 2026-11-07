@@ -285,16 +285,14 @@ static class HudThumbList
         return (ids, previews);
     }
 
-    /// <summary>The Workshop ids queues.json (version 1) names: the open ballot's first ("requested"), then every random queue in play order.</summary>
+    /// <summary>The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order.</summary>
     public static List<string> FromQueues(JsonNode? queues)
     {
-        var version = queues is JsonObject o && o.ContainsKey("version") ? o["version"] : Json.At(queues, "Version");
-        if (queues is not JsonObject || Json.AsLong(version) != 1)
-            throw Out.Stop("the queues are not queues.json version 1");
-        var random = Json.Truthy(Json.At(queues, "random")) ? Json.Obj(queues, "random") : Json.Obj(queues, "Random");
-        var requested = Json.Truthy(Json.At(queues, "requested")) ? Json.Arr(queues, "requested") : Json.Arr(queues, "Requested");
-        var keys = requested.Select(Json.PyStr).ToList();
-        foreach (var (_, list) in random.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        if (queues is not JsonObject o || !o.ContainsKey("version") || Json.AsLong(o["version"]) != 2)
+            throw Out.Stop("the queues are not queues.json version 2");
+        var stock = Json.Obj(queues, "stock");
+        var keys = Json.Arr(queues, "ballot").Select(Json.PyStr).ToList();
+        foreach (var (_, list) in stock.OrderBy(kv => kv.Key, StringComparer.Ordinal))
             keys.AddRange((list as JsonArray ?? []).Select(Json.PyStr));
         return keys.Where(Py.IsDigits).ToList();
     }

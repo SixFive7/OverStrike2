@@ -316,9 +316,29 @@ static class WorkshopTests
     /// one at a time; silent; never beside a download somebody waits for; the bridge told what is on disk.</summary>
     static void BackgroundDownloads()
     {
+        // an older bridge's queues.json (version 1), as the watcher of release 191 meets it for the seconds before the new bridge writes its own:
+        // no map in it to fetch, and nothing said to the bridge of it
+        var jOld = Dir("j9old");
+        File.WriteAllText(Path.Combine(jOld, "queues.json"), "{\"version\": 1, \"random\": {\"armsrace-new\": [\"901\", \"902\"], \"armsrace-original\": [\"903\"], "
+                                                             + "\"deathmatch\": [\"904\"], \"wingman\": [\"905\"]}, \"requested\": [\"900\"]}");
+        File.WriteAllText(Path.Combine(WsDir, "appworkshop_730.acf"), Acf);
+        Scenario.NewBridge = () => new FakeBridge { Reply = (what, _) => what == "ready" ? "ok: 0 on disk" : "ok" };
+        Scenario.Paths(p => p with { BridgeData = jOld });
+        var old = Scenario.Make(At(4, 15, 0, 0));
+        (old.Eng.Hud, old.Eng.Humans) = (true, 2);
+        old.Step(60);
+        Check($"background downloads: an older bridge's queues.json (version 1) names nothing to fetch - no download ({Show(Fetches(old))})",
+              Fetches(old).Count == 0 && old.Bridge.Posts.All(p => p.Item2 == "os2-ready\t1\n"));
+        File.WriteAllText(Path.Combine(jOld, "queues.json"), "{\"ballot\": [\"900\"], \"stock\": {\"armsrace\": [\"901\"]}}");
+        old = Scenario.Make(At(4, 15, 0, 0));
+        (old.Eng.Hud, old.Eng.Humans) = (true, 2);
+        old.Step(60);
+        Check($"background downloads: ... nor one that says no version ({Show(Fetches(old))})", Fetches(old).Count == 0);
+
         var j9 = Dir("j9data");
-        File.WriteAllText(Path.Combine(j9, "queues.json"), "{\"version\": 1, \"random\": {\"armsrace-new\": [\"901\", \"902\"], \"armsrace-original\": [\"903\"], "
-                                                           + "\"deathmatch\": [\"904\", \"de_dust2\"], \"wingman\": [\"905\"]}, \"requested\": [\"900\"]}");
+        // the ballot's 900 first, then the lanes in play order: 901 (on disk), 903, 904, then 905, 902 (de_dust2 is no Workshop map)
+        File.WriteAllText(Path.Combine(j9, "queues.json"), "{\"version\": 2, \"ballot\": [\"900\"], \"stock\": {\"armsrace\": [\"901\", \"905\"], "
+                                                           + "\"deathmatch\": [\"903\", \"902\", \"de_dust2\"], \"wingman\": [\"904\"]}}");
         File.WriteAllText(Path.Combine(WsDir, "appworkshop_730.acf"), Acf.Replace("\"111\"", "\"901\""));   // 901 installed, with its folder: on disk
         Directory.CreateDirectory(Path.Combine(WsDir, "content", "730", "901"));
         var hold = false;
@@ -395,7 +415,7 @@ static class WorkshopTests
             new { rank = 5, id = 950, name = "The Pick", sizeMb = 100 },
         }));
         void Queues(params string[] lane) => File.WriteAllText(Path.Combine(data, "queues.json"),
-            JsonSerializer.Serialize(new { version = 1, random = new Dictionary<string, string[]> { ["armsrace-new"] = lane }, requested = Array.Empty<string>() }));
+            JsonSerializer.Serialize(new { version = 2, ballot = Array.Empty<string>(), stock = new Dictionary<string, string[]> { ["armsrace"] = lane } }));
         File.WriteAllText(Path.Combine(WsDir, "appworkshop_730.acf"), Acf);
         var hold = (string?)null;
         Scenario.NewBridge = () => new FakeBridge { Reply = (what, _) => what == "ready" ? "ok: 0 on disk" + (hold is null ? "" : "; hold: " + hold) : "ok" };

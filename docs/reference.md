@@ -345,8 +345,10 @@ used up once it is shown or played, and its lane rolls the next at once, which t
 no longer eligible, whose content changed untested, whose too-big mark changed, or that has not reached the disk in 2 hours is dropped; one whose likes went
 down since its roll stays with the odds that left it. A liked surprise becomes a kept map.
 
-`queues.json` is what the watcher works from, version 1: `requested`, the Workshop maps on the open ballot, the most votes first, which it downloads before
-anything else; and `random`, the lanes under the keys `armsrace-new`, `armsrace-original` (both Arms Race's lane), `deathmatch` and `wingman`.
+`queues.json` is what the watcher works from, version 2: `ballot`, the Workshop maps on the open ballot, the most votes first, which it downloads before
+anything else; and `stock`, a lane per mode under its name, `armsrace`, `deathmatch` and `wingman`. Every reader takes version 2 alone: a file of another
+version - an older bridge's, for the seconds of a release before the new bridge writes its own - is nothing to fetch, and the keep set refuses it, so no
+map is deleted on it.
 
 ## Likes and dislikes
 

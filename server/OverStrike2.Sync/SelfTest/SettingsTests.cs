@@ -104,12 +104,12 @@ static class SettingsTests
             var data = HandOverTests.KData();
             data["queues.json"] = queues.DeepClone();
             return W.Run(cfg, new FakeClock(1793700000.0)).SafeKeepSet(HandOverTests.Inputs(data), 1793700000.0, "500").Problems
-                .Where(p => p.Contains(" queue holds ", StringComparison.Ordinal)).ToArray();
+                .Where(p => p.Contains(" stock lane holds ", StringComparison.Ordinal)).ToArray();
         }
-        var four = O("""{"version": 1, "random": {"armsrace-new": ["1", "2", "3", "4"], "armsrace-original": ["1", "2", "3", "4"], "deathmatch": ["5", "6", "7", "8"], "wingman": ["9", "10", "11", "12"]}, "requested": []}""");
-        var none = O("""{"version": 1, "random": {"armsrace-new": [], "armsrace-original": [], "deathmatch": [], "wingman": []}, "requested": []}""");
-        Check("keep set: the queue rule follows the discovery stock - lanes of 4 for a stock of 4, none for a stock that is off, 10 by default (KeepRules.ForStock, as the restart watcher's)",
-              c4.KeepRules.MinQueue == 4 && c0.KeepRules.MinQueue == 0 && c10.KeepRules.MinQueue == 10 && c4.KeepRules == KeepRules.ForStock(4)
-              && QueueProblems(c4, four).Length == 0 && QueueProblems(c0, none).Length == 0 && QueueProblems(c10, four).Length == 4);
+        var four = O("""{"version": 2, "stock": {"armsrace": ["1", "2", "3", "4"], "deathmatch": ["5", "6", "7", "8"], "wingman": ["9", "10", "11", "12"]}, "ballot": []}""");
+        var none = O("""{"version": 2, "stock": {"armsrace": [], "deathmatch": [], "wingman": []}, "ballot": []}""");
+        Check("keep set: the stock rule follows the discovery stock - lanes of 4 for a stock of 4, none for a stock that is off, 10 by default (KeepRules.ForStock, as the restart watcher's)",
+              c4.KeepRules.MinStock == 4 && c0.KeepRules.MinStock == 0 && c10.KeepRules.MinStock == 10 && c4.KeepRules == KeepRules.ForStock(4)
+              && QueueProblems(c4, four).Length == 0 && QueueProblems(c0, none).Length == 0 && QueueProblems(c10, four).Length == 3);
     }
 }

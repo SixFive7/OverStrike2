@@ -32,7 +32,7 @@ public sealed partial class SyncRun
     /// <summary>THE HAND-OVER, for what is missing or outdated (Handover.ServeWants): the keep set's maps the game server does not store - the
     /// upvoted maps, each mode's best, the own maps - and the ones it stores in an older version than the one this sync accepted, downloaded
     /// with SteamCMD (anonymous, with every push-back stop and the brake of the downloads) and handed over at once; never what waits in the
-    /// hand-over folder, nor the random queues and the requests (the server fetches those itself), nor an excluded id. Their version was
+    /// hand-over folder, nor the stock and the ballot's maps (the server fetches those itself), nor an excluded id. Their version was
     /// tested when they were listed or updated: no test again.</summary>
     public void Serve()
     {

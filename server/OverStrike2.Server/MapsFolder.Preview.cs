@@ -49,7 +49,7 @@ public sealed partial class MapsFolder
                 }
             var taken = WouldTakeIn(installedNow, holders);
             var keep = KeepSetNow();
-            var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Requested).Concat(keep.Queues.Values.SelectMany(q => q)));
+            var protect = new HashSet<string>(keep.Own.Concat(keep.Hud).Concat(keep.Ballot).Concat(keep.Stock.Values.SelectMany(q => q)));
             protect.UnionWith(taken.Keys);
             var onDisk = holders.Where(kv => kv.Value.Count > 0).ToDictionary(kv => kv.Key, kv => sizes.GetValueOrDefault(kv.Key));
             foreach (var (id, size) in taken)

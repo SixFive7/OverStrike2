@@ -56,7 +56,7 @@ static class PreviewTests
             ["ours.json"] = "{\"maps\": [{\"id\": 400, \"name\": \"Own\"}]}",
             ["state.json"] = "{\"crashes\": {}}",
             ["ratings.json"] = ratings.ToJsonString(),
-            ["queues.json"] = "{\"version\": 1, \"random\": {\"armsrace-new\": [\"102\"], \"armsrace-original\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"requested\": []}",
+            ["queues.json"] = "{\"version\": 2, \"stock\": {\"armsrace\": [\"102\"], \"deathmatch\": [\"150\"], \"wingman\": [\"de_debris\"]}, \"ballot\": []}",
         })
             File.WriteAllText(Path.Combine(data, name), text);
         var outDir = Dir("preview-out");
@@ -146,7 +146,7 @@ static class PreviewTests
         MapsLayout = "off",
         MapsPreview = true,
         MapsDelete = "on",
-        KeepRules = new KeepRules { Top = 1, MinTop = 1, MinQueue = 1 },
+        KeepRules = new KeepRules { Top = 1, MinTop = 1, MinStock = 1 },
     };
 
     static void Put(string folder, string id, string text = "x")

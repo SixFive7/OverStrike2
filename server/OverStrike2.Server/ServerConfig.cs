@@ -109,7 +109,7 @@ public sealed record ServerConfig
             Port = s.Server.Port,
             RconPassword = s.Server.RconPassword,
             ApiGap = s.Steam.ApiGapSeconds,
-            KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),   // the bridge's stock lanes are the keep set's queues
+            KeepRules = KeepRules.ForStock(s.Bridge.DiscoveryStock),   // the bridge's stock lanes, as long as the stock
             Bridge = s.Bridge.Secret.Length > 0 ? (s.Bridge.Url.TrimEnd('/'), s.Bridge.Secret) : null,
         };
         foreach (var p in s.Problems.Concat(s.Warnings))   // read as Part.Server: this program's own keys only
