@@ -5,16 +5,48 @@ hash seed."""
 import hashlib
 import numbers
 import os
+import re
 import uuid
 
 _name = ''
 _counter = [0]
 _node = [1]
+STEAM = r'C:\Program Files (x86)\Steam'   # Steam's usual place
+
+
+def find_cs2(needs=r'game\bin\win64\cs2.exe'):
+    """The first CS2 install Steam knows of that has needs, or '' for none: Steam's own folder from the registry
+    (HKCU\\Software\\Valve\\Steam, SteamPath) and its usual place, then every library folder its libraryfolders.vdf lists, in
+    that order - tools/workshop/FindCs2.ps1's lookup, which the PowerShell scripts use: keep the two alike."""
+    steams = []
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Valve\Steam') as key:
+            path = winreg.QueryValueEx(key, 'SteamPath')[0]
+        if path:
+            steams.append(path.replace('/', '\\'))
+    except (ImportError, OSError):
+        pass
+    steams.append(STEAM)
+    roots = []
+    for steam in steams:
+        roots.append(steam)
+        try:
+            with open(os.path.join(steam, 'steamapps', 'libraryfolders.vdf'), encoding='utf-8', errors='replace') as f:
+                roots += [p.replace('\\\\', '\\') for p in re.findall(r'"path"\s+"(.+?)"', f.read())]
+        except OSError:
+            pass
+    for root in roots:
+        candidate = os.path.join(root, 'steamapps', 'common', 'Counter-Strike Global Offensive')
+        if os.path.exists(os.path.join(candidate, needs)):
+            return candidate
+    return ''
 
 
 def cs2_dir():
-    """The 'Counter-Strike Global Offensive' folder when --cs2 is not given: CS2_DIR, else Steam's default library."""
-    return os.environ.get('CS2_DIR') or r'C:\Program Files (x86)\Steam\steamapps\common\Counter-Strike Global Offensive'
+    """The 'Counter-Strike Global Offensive' folder when --cs2 is not given: CS2_DIR, else the install find_cs2 finds, else
+    Steam's usual place (where a missing CS2 then shows)."""
+    return os.environ.get('CS2_DIR') or find_cs2() or os.path.join(STEAM, 'steamapps', 'common', 'Counter-Strike Global Offensive')
 
 
 def use_name(name):

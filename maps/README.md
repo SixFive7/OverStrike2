@@ -22,7 +22,7 @@ On Windows, with Counter-Strike 2 and its Workshop Tools installed (Python 3.12+
 previews):
 
 ```powershell
-python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Global Offensive'>, or CS2_DIR, or Steam's default folder
+python maps\gg_glasspire\build.py          # --cs2 <path to 'Counter-Strike Global Offensive'>, or CS2_DIR, or the install Steam knows of
 ```
 
 Each compile waits until no other `resourcecompiler.exe` runs on the PC. `--addon <folder>` builds into another addon folder - a

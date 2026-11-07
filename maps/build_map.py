@@ -6,7 +6,8 @@ frame rate. The result is game/csgo_addons/<addon>/maps/<map>.vpk.
   python build.py [--cs2 <path>] [--log <file>] [--layout <file>] [--addon <folder>] [--nolight] [--vis | --novis]
                   [--lightmap 1024] [--quality 0] [--threads 4] [--nogen]
 
---cs2 is the 'Counter-Strike Global Offensive' folder: CS2_DIR, else Steam's default library.
+--cs2 is the 'Counter-Strike Global Offensive' folder: CS2_DIR, else the install Steam knows of, in any of its library
+folders (vmapkit.find_cs2, the lookup of tools/workshop/FindCs2.ps1).
 --log is the compile log (default .work/<map>-build/build.log in this repository); the materials' log goes beside it, as
 <log>.materials.txt. The lighting bake's working files (about 50 MB) are moved beside it too, out of the addon folder, so
 they are never uploaded with it.
