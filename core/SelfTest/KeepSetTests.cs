@@ -152,6 +152,10 @@ static class KeepSetTests
         var inputs = KeepSet.Inputs(dir);
         Check("keep: Inputs reads every file by name; a missing or broken one is null", inputs.Count == KeepSet.InputFiles.Length && inputs["maps.json"] is JsonArray
               && inputs["votes.json"] is null && inputs["ratings.json"] is null);
+        var (topRated, topSubscribed, topPopular) = KeepSet.TopLists(["a", "b", "c", "d"], w => w switch { "a" => 1, "b" => 3, "c" => 3, _ => null },
+                                                            w => w == "d" ? 5 : null, ["c", "x", "c", "a", "b"], 2);
+        Check("keep: the top lists the keep set and the bridge share - by score, ties by place on the mode's list; by subscriptions; the trend order, each map once and only a listed one",
+              topRated is ["b", "c"] && topSubscribed is ["d"] && topPopular is ["c", "a"]);
     }
 
     /// <summary>The sync's smaller fixture: Arms Race 101-229, Deathmatch 301-329.</summary>

@@ -15,8 +15,8 @@
 // NeutralPopularity. Valve's official maps of Deathmatch and Wingman and our own maps are OfficialPopularity. The points make PopularityPoints
 // of it (Dice.cs): the most popular map has 16 times the odds of the least.
 //
-// The kept maps are the bridge's copy of the keep set (core/KeepSet.cs decides what the server stores): every liked map, our own maps, and per
-// mode the three lists of its KeepTop playable maps by score, by subscribers and in the trend order. A ballot fills from them: a kept map counts
+// The kept maps are the keep set as the bridge works it out (core/KeepSet.cs decides what the server stores): every liked map, our own maps,
+// and per mode the three lists of its KeepTop playable maps by score, by subscribers and in the trend order, which KeepSet.TopLists makes for both. A ballot fills from them: a kept map counts
 // as on the server's disk when it is liked, ours, or within the first KeepTop - KeptMargin of a list - the margin covers a list that moved since
 // the server last stored it - unless the restart watcher's report covers it and says it is not there, or workshop.json says its content changed
 // since the version the sync accepts (loading it would download the update first). Without ratings.json there is no keep set to go by, and
@@ -28,7 +28,7 @@ using System.Text.Json;
 
 static partial class Program
 {
-    public const int KeepTop = 100;      // each of a mode's three lists of maps the server keeps (the keep set's Top, core/KeepSet.cs)
+    public static readonly int KeepTop = OverStrike2.Core.KeepRules.Default.Top;   // each of a mode's three lists of maps the server keeps
     public const int KeptMargin = 10;    // a kept map counts as on the disk within the first KeepTop - KeptMargin of a list
     public const int FreshDays = 30;     // NEW UPLOAD and UPDATED: in the last this many days
     public const double NeutralPopularity = 0.5, OfficialPopularity = 0.75;
@@ -227,10 +227,8 @@ static partial class Program
             foreach (var mode in Modes.All)
             {
                 var playable = WorkshopOf(mode).Where(m => !Bad(m)).Select(Key).Distinct().ToList(); // MapStanding.cs: nothing against it
-                var place = playable.Select((key, i) => (key, i)).ToDictionary(x => x.key, x => x.i);
-                var rated = playable.Where(x => RatingScores.TryGetValue(x, out var s) && s.Score != null).OrderByDescending(x => RatingScores[x].Score).ThenBy(x => place[x]).Take(KeepTop).ToList();
-                var subscribed = playable.Where(x => RatingScores.TryGetValue(x, out var s) && s.Subs != null).OrderByDescending(x => RatingScores[x].Subs).ThenBy(x => place[x]).Take(KeepTop).ToList();
-                var trending = (RatingTrend.GetValueOrDefault(mode.Id) ?? []).Where(place.ContainsKey).Take(KeepTop).ToList();
+                var (rated, subscribed, trending) = OverStrike2.Core.KeepSet.TopLists(playable, x => RatingScores.TryGetValue(x, out var s) ? s.Score : null,
+                    x => RatingScores.TryGetValue(x, out var s) ? s.Subs : null, RatingTrend.GetValueOrDefault(mode.Id) ?? [], KeepTop);
                 (k.Rated[mode.Id], k.Subscribed[mode.Id], k.Trending[mode.Id]) = (rated, subscribed, trending);
                 k.TopRated.UnionWith(rated); k.MostSubscribed.UnionWith(subscribed); k.Trend.UnionWith(trending);
                 foreach (var list in new[] { rated, subscribed, trending })

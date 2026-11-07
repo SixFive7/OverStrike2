@@ -160,9 +160,6 @@ public static class KeepSet
         foreach (var (mode, _) in Modes)
         {
             var playable = lists[mode].Where(w => !bad.Contains(w)).ToList();
-            var place = new Dictionary<string, int>();
-            for (var i = 0; i < playable.Count; i++)
-                place[playable[i]] = i;
             var rated = playable.Where(scores.ContainsKey).ToList();
             var counted = playable.Where(subs.ContainsKey).ToList();
             foreach (var (what, have) in new[] { ("scores", rated), ("subscriptions", counted) })
@@ -171,9 +168,8 @@ public static class KeepSet
             var order = trend[mode] as JsonArray;
             if (order is null)
                 problems.Add($"ratings.json has no Most Popular order for {mode}");
-            var bestRated = rated.OrderBy(w => -scores[w]).ThenBy(w => place[w]).Take(rules.Top).ToList();
-            var bestSubscribed = counted.OrderBy(w => -subs[w]).ThenBy(w => place[w]).Take(rules.Top).ToList();
-            var bestPopular = (order ?? []).Select(PyStr).Distinct().Where(place.ContainsKey).Take(rules.Top).ToList();
+            var (bestRated, bestSubscribed, bestPopular) = TopLists(playable, w => scores.TryGetValue(w, out var d) ? d : null,
+                                                                    w => subs.TryGetValue(w, out var n) ? n : null, (order ?? []).Select(PyStr), rules.Top);
             three[mode] = (bestRated, bestSubscribed, bestPopular);
             top[mode] = bestRated.Concat(bestSubscribed).Concat(bestPopular).Distinct().ToList();
             cutoff[mode] = (bestRated.Count >= rules.Top ? scores[bestRated[^1]] : null, bestSubscribed.Count >= rules.Top ? subs[bestSubscribed[^1]] : null);
@@ -214,6 +210,21 @@ public static class KeepSet
             Own = own.OrderBy(x => x, StringComparer.Ordinal).ToList(), Hud = hudIds.OrderBy(x => x, StringComparer.Ordinal).ToList(), Queues = qs,
             Requested = requested, All = every, Scored = scores.Count, Problems = problems,
         };
+    }
+
+    /// <summary>A mode's three lists of its `top` best playable maps (playable: the mode's list in its order, nothing against them) as the
+    /// keep set keeps them: by Workshop score, by subscriptions - ties by their place on the mode's list - and in Steam's trend order. The
+    /// bridge's ballot works out the same lists from here.</summary>
+    public static (List<string> Rated, List<string> Subscribed, List<string> Popular) TopLists(IReadOnlyList<string> playable, Func<string, double?> score,
+                                                                                             Func<string, long?> subscriptions, IEnumerable<string> trend, int top)
+    {
+        var place = new Dictionary<string, int>();
+        for (var i = 0; i < playable.Count; i++)
+            place[playable[i]] = i;
+        var rated = playable.Where(w => score(w) is not null).OrderBy(w => -score(w)!.Value).ThenBy(w => place[w]).Take(top).ToList();
+        var subscribed = playable.Where(w => subscriptions(w) is not null).OrderBy(w => -subscriptions(w)!.Value).ThenBy(w => place[w]).Take(top).ToList();
+        var popular = trend.Distinct().Where(place.ContainsKey).Take(top).ToList();
+        return (rated, subscribed, popular);
     }
 
     // ---- JSON as the keep set reads it: an id is a string of digits or a positive whole number
