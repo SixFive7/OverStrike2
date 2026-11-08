@@ -42,7 +42,7 @@ the same way too. It refuses without
 content update; the item's preview image is `hud\workshop_preview.jpg`: the Fun page as a test client drew it, on a plain ground, with no other
 authors' pictures.
 
-`deploy/release.py publish` drives all of it with the private config: it asks for the real-client test's run first, checks that the live server
+`os2-deploy release publish` drives all of it with the private config: it asks for the real-client test's run first, checks that the live server
 recognises Steam's page for a held item, publishes, and waits for the upload and Valve's approval ([deploy/README.md](../deploy/README.md)).
 
 While an update waits for Valve, go easy on the item's page: nothing may risk the owner's address or Steam account. The Web API (`time_updated`,
@@ -58,7 +58,7 @@ has the server mount it, so every player who joins gets the addon (they do not s
 ## 4. What to look at in game
 
 The same list for every release, in a real client against a test copy of the server: [tools/client/](../tools/client/README.md#testing-an-unpublished-hud-build)
-runs it, its run folder is what `release.py publish --client-test` asks for. What the release brings goes in the change note and the Workshop description.
+runs it, its run folder is what `os2-deploy release publish --client-test` asks for. What the release brings goes in the change note and the Workshop description.
 
 1. **A join:** the welcome opens by itself on START and stays until its X, through damage, death and a respawn. The X has "Close this to play" beside it while the server waits for this
    game's first click, and that click shows the HUD's version on SERVER, Players.
@@ -98,7 +98,7 @@ and copies the layout it replaces into `reference/`, which `--selftest` holds th
 (`HudVersion.Oldest` on: v4.8.0 now, the first whose panels are named `os_`; raising it is what drops an older content, which then gets no live HUD until
 Steam updates it). `reference/` keeps those and no other, and `--selftest` fails on one missing: a layout no check reads any more leaves it, and git keeps
 it. Since release 193 nothing goes out under the `gg_` names of the contents before v4.8.0. Build, publish while nobody plays,
-wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players (`deploy/release.py live`): the plugin's level is what
+wait for Valve's approval, then ship the plugin built for it and restart the game server at 0 players (`os2-deploy release live`): the plugin's level is what
 tells a game holding the older content to update, so it never ships before the content does.
 
 **How far a content's outdated banner reaches.** The server names the newest content it knows as one class, `latest-<level>`, and a content's stylesheet has a rule for each level above its own up to `HudVersion.LatestLast`, now 99. A shipped stylesheet never changes, and every release takes a level, patches included. So v4.7.0 shows its banner for the next 52 releases, levels 48 to 99. A game still holding it at level 100 shows none, though it keeps working and the Players page still calls it older.

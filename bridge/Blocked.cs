@@ -1,4 +1,4 @@
-// Maps blocked for good, each for its own reason: blocked.json beside maps.json - written by hand, shipped by deploy/data.py, never by the
+// Maps blocked for good, each for its own reason: blocked.json beside maps.json - written by hand, shipped by os2-deploy data, never by the
 // Workshop sync (one writer per file) - and broken.json's own "blocked" list, which still counts. The other lists did not fit glassbox (3076804331, map
 // glassboxfinal, not on maps.json, loaded by id on 2026-10-20), which kicked every player off the server: a crasher only asks to be
 // confirmed, a non-map or a removed map says the wrong thing. A blocked map is refused by id, URL or its own name, from the HUD's Play

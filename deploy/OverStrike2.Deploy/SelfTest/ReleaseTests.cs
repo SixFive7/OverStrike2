@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace OverStrike2.Deploy;
 
-/// <summary>deploy/test_release.py, ported: both release commands against stand-ins - a Docker API whose RCON, exec and container starts are
+/// <summary>deploy/test_release.py, ported (the Python left in release 193): both release commands against stand-ins - a Docker API whose RCON, exec and container starts are
 /// canned, A2S, the commands a release runs, the lock and the maintenance flag in a scratch folder. Nothing reaches a server, Steam or a share.</summary>
 static class ReleaseTests
 {

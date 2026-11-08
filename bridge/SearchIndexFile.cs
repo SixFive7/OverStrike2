@@ -4,7 +4,7 @@
 // and its Workshop tags, lower case. Other authors' descriptions never enter it (AGENTS.md). The bridge reads it like maps.json
 // (SearchIndex.cs) and serves it to the plugin, and HudSearch.cs matches the typed words against the name first, then this text. On a server
 // the Workshop sync adds a text for every map it publishes, of every mode; this command keeps the repository's file in step with the
-// repository's maps.json (the Arms Race list: the other modes' maps get theirs on the server). deploy/data.py copies it to a server that has
+// repository's maps.json (the Arms Race list: the other modes' maps get theirs on the server). os2-deploy data copies it to a server that has
 // none yet.
 //
 // A new map's text follows core's SearchText, the one rule the sync follows when it adds a text on a server (the Python sync's: each part

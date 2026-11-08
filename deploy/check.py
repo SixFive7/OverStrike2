@@ -4,7 +4,7 @@
     python -I deploy/check.py guard                 before EVERY redeploy of the stack: exit 0 GO (nobody on), exit 3 NO
                                                     (somebody is on, or A2S did not answer)
     python -I deploy/check.py guard --allow-kick    only when the owner said so for this redeploy
-    python -I deploy/check.py verify                after a deploy or a release (release.py live runs it): exit 0 ALL GOOD,
+    python -I deploy/check.py verify                after a deploy or a release (os2-deploy release live runs its port): exit 0 ALL GOOD,
                                                     1 something to look at (printed)
     --config <file>   the private config (default: $OVERSTRIKE2_CONFIG, else .private/config.toml); exit 2 without a usable one
 

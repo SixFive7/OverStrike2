@@ -137,7 +137,7 @@ dotnet publish server/OverStrike2.Server/SelfTest -c Release -r linux-x64 -o <fo
 The self-test drives the watcher's own loop on a fake clock with a fake engine and a fake bridge: its rules, the restarts above,
 both download collisions, the install.
 
-`python deploy/server.py build` publishes both programs (this one and [os2-sync](#the-workshop-sync-os2-sync)) and runs both
+`os2-deploy server build` publishes both programs (this one and [os2-sync](#the-workshop-sync-os2-sync)) and runs both
 self-tests, with `--image` in the game image too; `ship --apply` puts `os2-server`, `os2-sync` and `pre.sh` in the server's program
 folder, which the containers mount read-only at `/home/steam/overstrike2` ([deploy/README.md](../deploy/README.md)).
 

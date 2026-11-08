@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace OverStrike2.Deploy;
 
 /// <summary>--selftest: every offline check of the deploy tooling - the Python tests' every case, ported (deploy/test_deploy.py,
-/// test_release.py, test_check.py; tools/client's test_testcopy.py, test_testcopy_bridge.py, test_bridgepost.py, test_publish.py) - with no
+/// test_release.py - gone with release.py in 193 -, test_check.py; tools/client's test_testcopy.py, test_testcopy_bridge.py, test_bridgepost.py, test_publish.py) - with no
 /// server, no Docker and no private config: stand-ins answer for them, in scratch folders under the repository's .work/.
 ///
 ///     os2-deploy --selftest              every suite; ends SELFTEST PASSED (exit 0) or SELFTEST FAILED (exit 1)

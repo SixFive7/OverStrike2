@@ -55,4 +55,4 @@ powershell -File maps\publisher\publish.ps1 -Map gg_glasspire -Update -Note "Wha
 ```
 
 A new version of a map item waits in Valve's moderation queue like the HUD's: update only with the owner's go, while nobody
-plays. `python deploy\workshop.py map ...` runs the same script with the CS2 folder from the private config.
+plays. `os2-deploy workshop map ...` runs the same script with the CS2 folder from the private config.

@@ -5,10 +5,10 @@
 # Paths on the left of a volume are the host's. Ship to them before the first start, because Docker makes a folder of a bind mount
 # whose source is missing:
 #
-#   <program dir>   os2-server, os2-sync and the launcher pre.sh: deploy/server.py ship (server.program_dir in the private config)
-#   <config dir>    the three mode cfgs: deploy/server.py ship (server.config_dir)
+#   <program dir>   os2-server, os2-sync and the launcher pre.sh: os2-deploy server ship (server.program_dir in the private config)
+#   <config dir>    the three mode cfgs: os2-deploy server ship (server.config_dir)
 #   <plugins dir>   one folder per plugin: deploy/plugin.py ship (server.plugins_dir)
-#   <data dir>      the bridge's data: deploy/data.py bridge (bridge.data_dir); from then on the sync writes the map lists there
+#   <data dir>      the bridge's data: os2-deploy data (bridge.data_dir); from then on the sync writes the map lists there
 #
 # The game server is joedwards32/cs2 (SteamCMD, anonymous download of app 730). Before every engine start its entry script sources the
 # launcher pre.sh, which copies os2-server out of the program folder and runs it: Metamod:Source, CounterStrikeSharp, MultiAddonManager

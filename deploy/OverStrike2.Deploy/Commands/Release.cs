@@ -9,7 +9,7 @@ namespace OverStrike2.Deploy;
 sealed class ReleaseStop(string message) : Exception(message);
 
 /// <summary>A release in two commands: `live` puts a new bridge and plugin on the server, `publish` makes a content update of the HUD item
-/// (deploy/release.py, ported). It drives the other commands with their private config, so it holds no credential of its own: the Docker
+/// (ported from deploy/release.py, gone since release 193). It drives the other commands with their private config, so it holds no credential of its own: the Docker
 /// API key comes from the environment, the RCON password from the game container's own environment (CS2_RCONPW), never printed.
 ///
 ///     release live &lt;bridge-tag&gt; [--no-plugin] [--under-lock] [--dry-run]

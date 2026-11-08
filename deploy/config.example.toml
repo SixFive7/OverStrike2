@@ -11,7 +11,7 @@ tls_verify = true                         # false only for a self-signed certifi
 [build]
 engine = "wslc"                           # the local image builder: "wslc" (WSL containers) or "docker"
 network_host = false                      # build-remote only: run the build steps in the host's network
-game_image = "docker.io/joedwards32/cs2"  # server.py build --image: the game server's image, where the programs' self-tests run in full
+game_image = "docker.io/joedwards32/cs2"  # server build --image: the game server's image, where the programs' self-tests run in full
 
 [bridge]
 image = "localhost/overstrike2-bridge"    # the image on the server; "localhost/" so that no pull can ever fetch it from a public registry
@@ -23,8 +23,8 @@ data_dir = ""                             # the bridge's /data on the server (a 
 [server]
 address = "play.example.com:27015"        # the game server's query address: is anybody playing?
 plugins_dir = ""                          # the folder the game server copies plugins from (one folder per plugin)
-config_dir = ""                           # where server.py ships the three mode cfgs ("" = not from here)
-program_dir = ""                          # where server.py ships os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 (server.py ship --apply refuses when this is empty: it would ship nothing)
+config_dir = ""                           # where server ship puts the three mode cfgs ("" = not from here)
+program_dir = ""                          # where server ship puts os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 (server ship --apply refuses when this is empty: it would ship nothing)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 
 [check]                                   # deploy/check.py: guard before a redeploy of the whole stack, verify after a deploy or a release
@@ -46,7 +46,7 @@ deployed_url = ""                         # an HTTP GET, with the docker.headers
 deployed_field = ""                       # that commit's dotted path in the JSON, e.g. "deployment.commit"
 
 [release]
-verify = []                               # optional: a check run after release.py live in place of deploy/check.py verify, a command - ["python", "-I", "<path>/check.py", "verify"]; exit 0 = all good
+verify = []                               # optional: a check run after release live in place of check verify, a command - ["python", "-I", "<path>/check.py", "verify"]; exit 0 = all good
 
 [workshop]
 cs2_dir = ""                              # the local "Counter-Strike Global Offensive" folder ("" = found through Steam)

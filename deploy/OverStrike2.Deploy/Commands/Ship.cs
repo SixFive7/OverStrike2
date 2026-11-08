@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace OverStrike2.Deploy;
 
-/// <summary>The bridge's hand-made data files: copy the committed ones to the server, verified (deploy/data.py, ported).
+/// <summary>The bridge's hand-made data files: copy the committed ones to the server, verified (ported from deploy/data.py, gone since release 193).
 ///
 ///     data [--apply] [--force]    ours.json, sizes.json, blocked.json -> &lt;bridge.data_dir&gt; (and the first lists, once)
 ///
@@ -160,7 +160,7 @@ static class Plugin
 }
 
 /// <summary>The server side: the server program os2-server, the sync program os2-sync, the launcher pre.sh and the mode cfgs - build and
-/// test them here, ship them to the server's folders (deploy/server.py, ported).
+/// test them here, ship them to the server's folders (ported from deploy/server.py, gone since release 193).
 ///
 ///     server build [--image]   both programs, one self-contained linux-x64 file each (dotnet publish), then both self-tests, at below normal
 ///                              priority, from committed sources only; --image runs both self-tests in the game server's image as well
@@ -433,7 +433,7 @@ static class ServerShip
     }
 }
 
-/// <summary>The Steam Workshop items: the HUD addon and our own maps, through the Steam client logged in on this PC (deploy/workshop.py).
+/// <summary>The Steam Workshop items: the HUD addon and our own maps, through the Steam client logged in on this PC (ported from deploy/workshop.py, gone since release 193).
 ///
 ///     workshop hud-thumbs [args...]     the menu's map pictures (the thumbs command, with these arguments)
 ///     workshop hud-build [--no-thumbs]  compile the addon with the CS2 Workshop Tools (hud/build.ps1)

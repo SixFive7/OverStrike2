@@ -42,8 +42,7 @@ dotnet run --project core/SelfTest                              # the settings f
 dotnet run --project server/OverStrike2.Server/SelfTest         # the server program; its Linux-only checks in the game image (docs/server.md)
 dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop sync's program; its Linux-only checks in the game image too
 (cd bridge && dotnet run -- --search-index --check)             # search.json in step with maps.json
-python -I deploy/test_deploy.py                                 # the deploy scripts, with no server and no Docker
-python -I deploy/test_release.py
+python -I deploy/test_deploy.py                                 # the Python deploy library the client tools import, with no server and no Docker
 python -I deploy/test_check.py                                  # the guard before a redeploy and the check after one, offline too
 python -I tools/client/probe/test_testcopy.py                   # the client harness's test copy of the server, offline
 python -I tools/client/probe/test_testcopy_bridge.py            # its candidate bridge
@@ -63,11 +62,11 @@ The rules are said in the menu's How it works and Help pages, and `--selftest` h
 
 ## Shipping
 
-Only through [deploy/](deploy/), with the private config, and only committed code. What restarts what: data files reload by
+Only through [deploy/](deploy/)'s `os2-deploy`, with the private config, and only committed code. What restarts what: data files reload by
 themselves; a bridge swap disconnects nobody; the plugin, `pre.sh` and the game server's settings need a game server restart,
 which disconnects everybody: by hand only at 0 players; the watcher's announced restart is exempt, at once with nobody on, at the end
 of the match with players on (docs/server.md). A redeploy of the whole stack may restart the game server whatever changed:
-`python -I deploy/check.py guard` right before every one (GO only with nobody on), `python -I deploy/check.py verify` after it.
+`os2-deploy check guard` right before every one (GO only with nobody on), `os2-deploy check verify` after it.
 
 ## cs2 in-game HUD — NEVER create another Workshop item
 

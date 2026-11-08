@@ -547,7 +547,7 @@ banner for 30 s says everybody gets the menu again at the next map change, or no
 ## Maintenance flag
 
 While the file `maintenance` exists in the bridge's data folder, the bridge makes no automatic map change: no start roll, no match-end vote, no way back to Arms Race, and a vote nobody called or nobody voted
-in changes nothing. A vote a player called still decides. No crash is recorded, and the sync waits. Remove the file and everything resumes. `deploy/release.py` sets it around its quit; a restart by hand should
+in changes nothing. A vote a player called still decides. No crash is recorded, and the sync waits. Remove the file and everything resumes. `os2-deploy release live` sets it around its quit; a restart by hand should
 too, or it counts as a crash.
 
 ## What the server keeps
@@ -621,7 +621,7 @@ In the bridge's data folder (`paths.bridgeData`, `/data` by default). One writer
 | `queues.json` | the bridge | What the restart watcher downloads and the keep set holds |
 | `maintenance` | whoever stops the server on purpose | [The flag](#maintenance-flag) |
 | `web/` | the bridge | The [website](#the-dashboard) |
-| `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`, `broken.json`, `search.json` | the sync | The lists. The repository's are the starting lists, which the installer and `deploy/data.py` put only on a server that has none yet |
+| `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`, `broken.json`, `search.json` | the sync | The lists. The repository's are the starting lists, which the installer and `os2-deploy data` put only on a server that has none yet |
 | `ratings.json`, `workshop.json`, `sync-status.json` | the sync | The Workshop's numbers; the sync's state |
 | `ours.json`, `sizes.json`, `blocked.json` | by hand: this repository | Our own maps; each map's measured walking area and size class; the maps blocked for good |
 

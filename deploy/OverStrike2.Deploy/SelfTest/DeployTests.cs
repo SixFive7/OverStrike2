@@ -364,7 +364,7 @@ static class DeployTests
                   Data.Plan("bridge", files, dest).SequenceEqual(files.Where(hand.Contains)) && hand.Contains("ours.json") && hand.Contains("sizes.json"));
             check("data: blocked.json ships when the checkout has it, and is skipped (said) when not",
                   Data.Plan("bridge", files, dest).Contains("blocked.json") == File.Exists(Repo.P("bridge", "blocked.json")));
-            check("data: the bridge's files are its only set - the server side ships with server.py", Data.Sets.Keys.SequenceEqual(["bridge"]));
+            check("data: the bridge's files are its only set - the server side ships with server ship", Data.Sets.Keys.SequenceEqual(["bridge"]));
         }
         finally
         {
@@ -565,7 +565,7 @@ static class DeployTests
                                      .SequenceEqual(new[] { Plugin.Name + ".dll", Plugin.Name + ".pdb" }.Concat(real).Order(StringComparer.Ordinal)));
         var handFiles = Regex.Match(install, @"for f in ([\w. ]+); do\s+put ""/payload/data");
         var firstFiles = Regex.Match(install, @"for f in ([\w. ]+); do\s+if \[ -e");
-        check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as data.py ships them",
+        check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as data ships them",
               handFiles.Success && firstFiles.Success
               && handFiles.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Union(firstFiles.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToHashSet().SetEquals(Data.Sets["bridge"].Files)
               && firstFiles.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet().SetEquals(Data.FirstOnly));

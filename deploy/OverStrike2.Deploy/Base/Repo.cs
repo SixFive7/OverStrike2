@@ -49,7 +49,7 @@ static class Repo
         return r.Code == 0 ? r.Out : null;
     }
 
-    /// <summary>data.py's committed_before: the commit (of the last `depth` that touched rel) whose copy of rel is exactly these bytes, or
+    /// <summary>committed_before (data.py's, which left in release 193): the commit (of the last `depth` that touched rel) whose copy of rel is exactly these bytes, or
     /// null - is a server copy one this repository ever held?</summary>
     public static Func<string, byte[], int, string?> CommittedBefore = (rel, data, depth) =>
     {

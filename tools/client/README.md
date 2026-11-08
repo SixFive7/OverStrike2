@@ -160,7 +160,7 @@ so the files must be in place **before** CS2 starts - the harness installs them 
    console (`cmd`).
 6. **What shows up by itself** after `start` returns (in game): the live HUD - the welcome window on its Start page (the bridge sends
    `css_guide` on a real join; it stays until its X), the top line, the countdown banner during a map change. `shot -Name live`.
-   **This run is the release's client test**: `release.py publish --client-test <run folder>` takes only a run folder with its own
+   **This run is the release's client test**: `os2-deploy release publish --client-test <run folder>` takes only a run folder with its own
    `shots\`, so take its shots **without `-OutDir`** (they land in `<run>\shots\`). A shot with `-OutDir` is noted in the run's
    `shots-elsewhere.txt`, and a run that ends with none in its `shots\` says so (`stop` and `status` print a WARNING).
 7. **The window**: `cs2client.ps1 rcon -Rcon "css_guide <account> first"` opens it on its Start page for this account only (what a

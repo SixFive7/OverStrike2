@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Offline tests for the deploy scripts: the bridge swap against a stand-in Docker API, and which data files data.py ships.
+"""Offline tests for what is left of the Python deploy scripts - the library the Python client tools (tools/client/probe) import, the
+release itself running on os2-deploy: the bridge swap against a stand-in Docker API, os2's secrets, plugin.py, the bridge's build
+context, compose.yml with its installer and compose.example.yml.
 
     python -I deploy/test_deploy.py
 
 No server, no Docker, no private config: the stand-in keeps containers and image tags in memory and answers the calls bridge.py
 makes. What it checks: a running bridge and a stopped one are swapped onto the IP and MAC they are configured with (a stopped one
-has no runtime address, so a swap that checked the runtime address put the old one back), a failed swap puts it back as it was,
-and data.py ships the hand-made files but never a list the Workshop sync writes on the server (one writer per file).
+has no runtime address, so a swap that checked the runtime address put the old one back) and a failed swap puts it back as it was.
 """
 import contextlib
 import copy
 import io
+import json
 import os
 import sys
 import tempfile
@@ -19,7 +21,6 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import bridge as B  # noqa: E402
-import data as D  # noqa: E402
 import os2  # noqa: E402
 
 FAILS = []
@@ -258,21 +259,6 @@ check("os2: the RCON password from the game container first, then the bridge's",
       os2.rcon_password(box("CS2_RCONPW=a"), box("RCON_PASSWORD=b")) == "a" and os2.rcon_password(box(), box("RCON_PASSWORD=b")) == "b"
       and os2.rcon_password(None, None) == "")
 
-# ---- data.py: what ships
-with tempfile.TemporaryDirectory() as dest:
-    hand = [f for f in ("ours.json", "sizes.json", "blocked.json") if os.path.isfile(os.path.join(os2.REPO, "bridge", f))]
-    first = [f for f in ("maps.json", "broken.json", "search.json") if os.path.isfile(os.path.join(os2.REPO, "bridge", f))]
-    files = D.SETS["bridge"][2]
-    check("data: a server with no lists yet gets the hand-made files and the first lists (%s)" % ", ".join(D.plan("bridge", files, dest)),
-          D.plan("bridge", files, dest) == [f for f in files if f in hand + first])
-    for f in ("maps.json", "broken.json", "search.json"):
-        open(os.path.join(dest, f), "w").write("{}")
-    check("data: once the server has its lists, only the hand-made files ship - the sync writes the rest there (77 a)",
-          D.plan("bridge", files, dest) == [f for f in files if f in hand] and "ours.json" in hand and "sizes.json" in hand)
-    check("data: blocked.json ships when the checkout has it, and is skipped (said) when not",
-          ("blocked.json" in D.plan("bridge", files, dest)) == os.path.isfile(os.path.join(os2.REPO, "bridge", "blocked.json")))
-    check("data: the bridge's files are its only set - the server side ships with server.py", list(D.SETS) == ["bridge"])
-
 import plugin as P  # noqa: E402
 import re  # noqa: E402
 csproj = ('<None Include="..\\CatchUp\\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />\n'
@@ -309,109 +295,6 @@ finally:
     os2.clean_tree, P.dotnet = saved
 check("plugin: a build runs the plugin's self-test and catch-up's, and catch-up's failing fails the build (%s)" % ran,
       ran == [("build", "plugin/OverStrike2"), ("run", "plugin/OverStrike2.SelfTest"), ("run", "plugin/CatchUp/SelfTest")] and catchup_failed == 1)
-
-# ---- server.py: what ships where, only what the build made, renamed into place
-import json  # noqa: E402
-import server as S  # noqa: E402
-
-
-class FakeConfig:
-    def __init__(self, **values):
-        self.values = values
-
-    def get(self, dotted, default=None, required=False):
-        return self.values.get(dotted, default)
-
-
-def exits(fn, *a, **kw):
-    try:
-        fn(*a, **kw)
-        return None
-    except SystemExit as e:
-        return e.code
-
-
-check("server: the launcher pre.sh and the three mode cfgs it ships are in the checkout",
-      all(os.path.isfile(os.path.join(os2.REPO, p)) for p in [S.LAUNCHER] + S.CFGS) and len(S.CFGS) == 3)
-saved = (S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before)
-with tempfile.TemporaryDirectory() as tmp:
-    try:
-        S.OUT, S.RECORD = os.path.join(tmp, "ship"), os.path.join(tmp, "ship", "build.json")
-        record = {"commit": "c0ffee", "programs": {}}
-        for name in S.PROGRAMS:
-            os.makedirs(os.path.join(S.OUT, name))
-            with open(os.path.join(S.OUT, name, name), "wb") as f:
-                f.write(b"ELF " + name.encode())
-            record["programs"][name] = {"sha256": os2.sha256(os.path.join(S.OUT, name, name))}
-        with open(S.RECORD, "w") as f:
-            json.dump(record, f)
-        diff = {"out": ""}
-        os2.git = lambda *a: diff["out"] if a[0] == "diff" else "c0ffee"
-        os2.clean_tree = lambda paths: "c0ffee"
-        D.committed_before = lambda rel, data, depth=50: None
-        prog, conf = os.path.join(tmp, "program"), os.path.join(tmp, "config")
-        cfg = FakeConfig(**{"server.program_dir": prog, "server.config_dir": conf})
-        targets = sorted(os.path.relpath(dst, tmp).replace(os.sep, "/") for _, dst in S.plan(cfg))
-        check("server: os2-server, os2-sync and pre.sh go to the program folder, the mode cfgs to the config folder (%s)" % ", ".join(targets),
-              targets == sorted(["program/os2-server", "program/os2-sync", "program/pre.sh"] + ["config/" + os.path.basename(c) for c in S.CFGS]))
-        check("server: an empty program folder in the config ships the cfgs alone",
-              [os.path.basename(d) for _, d in S.plan(FakeConfig(**{"server.config_dir": conf}))] == [os.path.basename(c) for c in S.CFGS])
-        S.ship(cfg, apply=False)
-        check("server: ship without --apply copies nothing", not os.path.exists(prog) and not os.path.exists(conf))
-        for empty, what in ((FakeConfig(), "a config that names no folder"), (FakeConfig(**{"server.config_dir": conf}), "a config with no program folder")):
-            check(f"server: --apply with {what} fails loudly, and copies nothing", exits(S.ship, empty, True) == 2 and not os.path.exists(conf) and not os.path.exists(prog))
-            check(f"server: a dry run with {what} just says so", exits(S.ship, empty, False) is None)
-        S.ship(cfg, apply=True)
-        landed = all(os.path.exists(dst) and open(dst, "rb").read() == open(src, "rb").read() for src, dst in S.plan(cfg))
-        check("server: ship --apply puts every file in place, byte for byte, and leaves no .new behind",
-              landed and not [f for d in (prog, conf) for f in os.listdir(d) if f.endswith(".new")])
-        for _src, dst in S.plan(cfg):      # the server has older copies of everything, the same files as before
-            with open(dst, "r+b") as old:
-                old.seek(0, os.SEEK_END)
-                old.write(b"\nan older copy\n")
-        before = {dst: os.stat(dst).st_ino for _src, dst in S.plan(cfg)}
-        S.ship(cfg, apply=True, force=True)
-        same = {os.path.basename(dst) for dst in before if os.stat(dst).st_ino == before[dst]}
-        check("server: pre.sh and the cfgs are written in place: a container's single-file mount stays on that file and sees the new one (%s)" % ", ".join(sorted(same)),
-              same == {"pre.sh", *(os.path.basename(c) for c in S.CFGS)})
-        check("server: the programs are renamed into place: what runs from the old file keeps it", not {"os2-server", "os2-sync"} & same)
-        check("server: both ways the bytes are the build's and the repository's", all(open(dst, "rb").read() == open(src, "rb").read() for src, dst in S.plan(cfg)))
-        locked = os.path.join(prog, "pre.sh")
-        with open(locked, "ab") as old:
-            old.write(b"\nan older copy\n")
-        os.chmod(locked, 0o444)
-        check("server: a pre.sh or cfg that cannot be written in place is a failure that says so, not a traceback", exits(S.ship, cfg, True, True) == 1)
-        os.chmod(locked, 0o666)
-        S.ship(cfg, apply=True, force=True)
-        with open(os.path.join(S.OUT, "os2-sync", "os2-sync"), "ab") as f:
-            f.write(b" changed")
-        check("server: a program that is not the file the build recorded is refused", exits(S.ship, cfg, True) == 1)
-        with open(os.path.join(S.OUT, "os2-sync", "os2-sync"), "wb") as f:
-            f.write(b"ELF os2-sync")
-        diff["out"] = "server/OverStrike2.Server/Watch.cs"
-        check("server: sources changed since the build - refused until it is built again", exits(S.ship, cfg, True) == 1)
-        diff["out"] = ""
-        with open(os.path.join(conf, os.path.basename(S.CFGS[0])), "w") as f:
-            f.write("sv_cheats 1 // made on the server\n")
-        check("server: a cfg changed on the server that no commit holds is DRIFT - refused", exits(S.ship, cfg, True) == 1)
-        S.ship(cfg, apply=True, force=True)
-        check("server: --force ships over it",
-              open(os.path.join(conf, os.path.basename(S.CFGS[0])), "rb").read() == open(os.path.join(os2.REPO, S.CFGS[0]), "rb").read())
-        one = os.path.join(tmp, "single")
-        os.makedirs(one)
-        for f in ("os2-server", "OverStrike2.Core.pdb"):
-            open(os.path.join(one, f), "w").close()
-        check("server: a published program with only debug symbols beside it is a single file", exits(S.single_file, one, "os2-server") is None)
-        open(os.path.join(one, "libSystem.Native.so"), "w").close()
-        check("server: a published program with a library beside it is refused - it would need that file too",
-              exits(S.single_file, one, "os2-server") == 1)
-        a, b = os.path.join(tmp, "a.bin"), os.path.join(tmp, "b.bin")
-        open(a, "wb").write(b"new")
-        open(b, "wb").write(b"old")
-        check("os2: an atomic copy replaces the file and leaves no .new",
-              os2.copy_verified(a, b, atomic=True) == "copied" and open(b, "rb").read() == b"new" and not os.path.exists(b + ".new"))
-    finally:
-        S.OUT, S.RECORD, os2.git, os2.clean_tree, D.committed_before = saved
 
 # ---- the bridge's build context: bridge/ and core/ as the repository lays them out, the Dockerfile at bridge/Dockerfile
 import io  # noqa: E402
@@ -451,17 +334,17 @@ plugin_files = re.search(r"COPY --from=build (/out/plugin/\S+(?: /out/plugin/\S+
 check("installer: the plugin's files are the ones deploy/plugin.py ships (%s)" % (plugin_files.group(1) if plugin_files else "none"),
       plugin_files and sorted(p.rsplit("/", 1)[1] for p in plugin_files.group(1).split()) == sorted([P.NAME + ".dll", P.NAME + ".pdb"] + real))
 hand, first = re.search(r"for f in ([\w. ]+); do\s+put \"/payload/data", install), re.search(r"for f in ([\w. ]+); do\s+if \[ -e", install)
-check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as data.py ships them",
-      hand and first and set(hand.group(1).split()) | set(first.group(1).split()) == set(D.SETS["bridge"][2])
-      and set(first.group(1).split()) == D.FIRST_ONLY)
+check("installer: the bridge's hand-made files always, the sync's lists only to a server without them - as os2-deploy data ships them",
+      hand and first and set(hand.group(1).split()) | set(first.group(1).split()) == {"ours.json", "sizes.json", "blocked.json", "maps.json", "broken.json", "search.json"}
+      and set(first.group(1).split()) == {"maps.json", "broken.json", "search.json"})
 check("installer: the programs and the launcher go to the program volume, pre.sh also to the top of the game's",
-      all(f"/overstrike2/{n}" in install for n in list(S.PROGRAMS) + ["pre.sh"]) and "/game/pre.sh" in install)
+      all(f"/overstrike2/{n}" in install for n in ["os2-server", "os2-sync", "pre.sh"]) and "/game/pre.sh" in install)
 mounts = {"/etc/overstrike2/overstrike2.jsonc": "the settings file", "program:/home/steam/overstrike2:ro": "pre.sh's OS2_SERVER",
           "plugins:/home/steam/cs2-plugins:ro": "paths.plugins", "data:/data": "paths.bridgeData",
           "target: /home/steam/workshop-sync": "paths.syncWork", "sync-state:/home/steam/sync-state": "paths.syncState"}
 check("compose: the settings file, the program volume and the data paths are where the defaults look (%s)"
       % ", ".join(v for k, v in mounts.items() if k not in compose), all(k in compose for k in mounts)
-      and "/home/steam/overstrike2/os2-server" in open(os.path.join(os2.REPO, S.LAUNCHER), encoding="utf-8").read())
+      and "/home/steam/overstrike2/os2-server" in open(os.path.join(os2.REPO, "server", "OverStrike2.Server", "pre.sh"), encoding="utf-8").read())
 
 
 # ---- compose.example.yml, the shape of a host the scripts ship to: nothing builds or runs it here, so this holds it to what the parts read

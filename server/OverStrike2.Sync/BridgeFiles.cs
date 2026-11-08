@@ -16,7 +16,7 @@ public static class GameModes
 
 /// <summary>The bridge's data as it is now: maps.json, broken.json, blocked.json, the mode lists, search.json, and the raw bytes of each
 /// file read (what a publish compares the live files with). blocked.json - the maps blocked for good, written by hand and shipped by
-/// deploy/data.py, never by this tool (one writer per file) - may be missing; broken.json's own "blocked" counts as well.</summary>
+/// os2-deploy data, never by this tool (one writer per file) - may be missing; broken.json's own "blocked" counts as well.</summary>
 public sealed class BridgeData
 {
     public JsonArray Maps { get; set; } = [];
