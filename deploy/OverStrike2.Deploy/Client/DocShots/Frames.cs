@@ -363,6 +363,85 @@ static partial class DocShots
     }
 
     /// <summary>A grey picture of Gaussian noise about 128 (Pillow's effect_noise, then RGB): the made-up game world of the offline checks.</summary>
+    /// <summary>Where the Steam overlay's Back to Game button is in a frame, or null (docshots.py's steam_overlay). In the top right corner (the right
+    /// 14 %, the top 12 %): a square of the button's grey (OverlayButton), 2 % to 8 % of the frame's height a side and at least half of it that grey,
+    /// with light pixels in it of which most lie along its two diagonals - the X.</summary>
+    public static Px? SteamOverlay(Rgb im)
+    {
+        int w = im.Width, h = im.Height;
+        int x0 = (int)(w * 0.86), y1 = (int)(h * 0.12);
+        int rw = w - x0, rh = y1;
+        bool Grey(int x, int y)
+        {
+            var p = (y * w + x0 + x) * 3;
+            return Math.Abs(im.Pixels[p] - OverlayButton.R) <= OverlayTol && Math.Abs(im.Pixels[p + 1] - OverlayButton.G) <= OverlayTol
+                   && Math.Abs(im.Pixels[p + 2] - OverlayButton.B) <= OverlayTol;
+        }
+        var mask = new bool[rw * rh];
+        for (var y = 0; y < rh; y++)
+            for (var x = 0; x < rw; x++)
+                mask[y * rw + x] = Grey(x, y);
+        var seen = new bool[mask.Length];
+        double lo = 0.02 * h, hi = 0.08 * h;
+        for (var start = 0; start < mask.Length; start++)
+        {
+            if (!mask[start] || seen[start])
+                continue;
+            var stack = new Stack<int>();
+            stack.Push(start);
+            seen[start] = true;
+            var n = 0;
+            int bx0 = start % rw, bx1 = bx0, by0 = start / rw, by1 = by0;
+            while (stack.Count > 0)     // the grey's 4-connected piece
+            {
+                var i = stack.Pop();
+                n++;
+                int x = i % rw, y = i / rw;
+                (bx0, bx1, by0, by1) = (Math.Min(bx0, x), Math.Max(bx1, x), Math.Min(by0, y), Math.Max(by1, y));
+                foreach (var (j, inside) in new[] { (i + 1, x + 1 < rw), (i - 1, x > 0), (i + rw, y + 1 < rh), (i - rw, y > 0) })
+                    if (inside && mask[j] && !seen[j])
+                    {
+                        seen[j] = true;
+                        stack.Push(j);
+                    }
+            }
+            int bw = bx1 - bx0 + 1, bh = by1 - by0 + 1;
+            if (!(lo <= bw && bw <= hi && lo <= bh && bh <= hi && 0.8 <= (double)bw / bh && (double)bw / bh <= 1.25 && n >= 0.5 * bw * bh))
+                continue;
+            var light = new List<(int X, int Y)>();
+            for (var y = by0; y <= by1; y++)
+                for (var x = bx0; x <= bx1; x++)
+                {
+                    var p = (y * w + x0 + x) * 3;
+                    if (Math.Min(Math.Min(im.Pixels[p], im.Pixels[p + 1]), im.Pixels[p + 2]) >= 170)
+                        light.Add((x, y));
+                }
+            if (light.Count < 0.03 * bw * bh)
+                continue;
+            double cx = (bx0 + bx1) / 2.0, cy = (by0 + by1) / 2.0;
+            if (light.Count(q => Math.Abs(Math.Abs(q.X - cx) - Math.Abs(q.Y - cy)) <= 0.12 * bw) >= 0.7 * light.Count)
+                return new Px(x0 + bx0, by0, x0 + bx1 + 1, by1 + 1);
+        }
+        return null;
+    }
+
+    /// <summary>A frame with the overlay's button drawn on it, as SteamOverlay looks for it: the self-check's (both ports draw it pixel for pixel alike).</summary>
+    public static Rgb FakeOverlay(Rgb b, int side, int margin, Rgb3? colour = null)
+    {
+        var c = colour ?? OverlayButton;
+        var im = new Rgb(b.Width, b.Height, (byte[])b.Pixels.Clone());
+        int left = im.Width - margin - side, top = margin, k = side / 3, t = Math.Max(1, side / 16);
+        for (var y = 0; y < side; y++)
+            for (var x = 0; x < side; x++)
+            {
+                double dx = x - (side - 1) / 2.0, dy = y - (side - 1) / 2.0;
+                var onX = k <= x && x < side - k && k <= y && y < side - k && Math.Abs(Math.Abs(dx) - Math.Abs(dy)) <= t;
+                var p = ((top + y) * im.Width + left + x) * 3;
+                (im.Pixels[p], im.Pixels[p + 1], im.Pixels[p + 2]) = onX ? ((byte)230, (byte)233, (byte)236) : ((byte)c.R, (byte)c.G, (byte)c.B);
+            }
+        return im;
+    }
+
     public static Rgb Noise(int w, int h, double sigma, int seed)
     {
         var random = new Random(seed);

@@ -1383,6 +1383,70 @@ def describe_post(row, w, h):
     return "; ".join(parts)
 
 
+# The Steam overlay over the game (Shift+Tab, or opened by Steam itself: once it came up with the client's start and stayed in every frame of a
+# session). It shows the account's own name and its store and community pages, so a frame with it is never kept. Steam's overlay of 2026 puts
+# its Back to Game button at the screen's top right: a flat square of its own grey with a light X, where neither CS2's HUD nor ours draws anything
+# like it. Tried on the 26 frames of a walk the overlay spoiled (all caught) and 624 clean frames of release 191's and 192's sessions (none taken).
+OVERLAY_BUTTON = (35, 38, 46)   # the button's grey, #23262E
+OVERLAY_TOL = 10                # per channel
+
+
+def steam_overlay(im):
+    """Where the Steam overlay's Back to Game button is in a frame, (x0, y0, x1, y1), or None. In the top right corner (the right 14 %, the top
+    12 %): a square of the button's grey, 2 % to 8 % of the frame's height a side and at least half of it that grey, with light pixels in it of
+    which most lie along its two diagonals - the X."""
+    w, h = im.size
+    x0, y1 = int(w * 0.86), int(h * 0.12)
+    region = im.convert("RGB").crop((x0, 0, w, y1))
+    rw, rh = region.size
+    buf = region.tobytes()
+    r, g, b = OVERLAY_BUTTON
+    mask = [abs(buf[i] - r) <= OVERLAY_TOL and abs(buf[i + 1] - g) <= OVERLAY_TOL and abs(buf[i + 2] - b) <= OVERLAY_TOL for i in range(0, len(buf), 3)]
+    seen = [False] * len(mask)
+    lo, hi = 0.02 * h, 0.08 * h
+    for start in range(len(mask)):
+        if not mask[start] or seen[start]:
+            continue
+        stack, n = [start], 0
+        seen[start] = True
+        bx0 = bx1 = start % rw
+        by0 = by1 = start // rw
+        while stack:           # the grey's 4-connected piece
+            i = stack.pop()
+            n += 1
+            x, y = i % rw, i // rw
+            bx0, bx1, by0, by1 = min(bx0, x), max(bx1, x), min(by0, y), max(by1, y)
+            for j, inside in ((i + 1, x + 1 < rw), (i - 1, x > 0), (i + rw, y + 1 < rh), (i - rw, y > 0)):
+                if inside and mask[j] and not seen[j]:
+                    seen[j] = True
+                    stack.append(j)
+        bw, bh = bx1 - bx0 + 1, by1 - by0 + 1
+        if not (lo <= bw <= hi and lo <= bh <= hi and 0.8 <= bw / bh <= 1.25 and n >= 0.5 * bw * bh):
+            continue
+        light = [(x, y) for y in range(by0, by1 + 1) for x in range(bx0, bx1 + 1) if min(buf[(y * rw + x) * 3:(y * rw + x) * 3 + 3]) >= 170]
+        if len(light) < 0.03 * bw * bh:
+            continue
+        cx, cy = (bx0 + bx1) / 2, (by0 + by1) / 2
+        if sum(1 for x, y in light if abs(abs(x - cx) - abs(y - cy)) <= 0.12 * bw) >= 0.7 * len(light):
+            return (x0 + bx0, by0, x0 + bx1 + 1, by1 + 1)
+    return None
+
+
+def fake_overlay(base, side, margin, colour=OVERLAY_BUTTON):
+    """A frame with the overlay's button drawn on it, as steam_overlay looks for it: the self-check's (both ports draw it pixel for pixel alike)."""
+    im = base.copy().convert("RGB")
+    w, h = im.size
+    px = im.load()
+    left, top = w - margin - side, margin
+    k, t = side // 3, max(1, side // 16)
+    for y in range(side):
+        for x in range(side):
+            dx, dy = x - (side - 1) / 2, y - (side - 1) / 2
+            on_x = k <= x < side - k and k <= y < side - k and abs(abs(dx) - abs(dy)) <= t
+            px[left + x, top + y] = (230, 233, 236) if on_x else colour
+    return im
+
+
 def post_frame(raw, row, out_dir):
     """Masks a raw frame, writes it and its crop at full size. Returns the file names."""
     from PIL import Image
@@ -1467,6 +1531,10 @@ def write_index(out, info):
 
 class RowFailed(Exception):
     pass
+
+
+class OverlayOpen(Exception):
+    """The Steam overlay in a frame (steam_overlay): the run stops, because it stays until the client starts again and every frame would show it."""
 
 
 class Printer:
@@ -1759,7 +1827,22 @@ class Doer:
         size = f"{m.group(1)}x{m.group(2)}"
         if size != self.res:
             raise RowFailed(f"shot {name}: stored at {size}, the run is at {self.res}: nothing may be scaled")
+        self.no_overlay(name)
         return "WARNING" in text
+
+    def no_overlay(self, name):
+        """A frame the Steam overlay covers is deleted at once - it shows the account's name - and the run stops (OverlayOpen)."""
+        from PIL import Image
+        path = self.raw / f"{name}.png"
+        if not path.exists():
+            return
+        with Image.open(path) as im:
+            box = steam_overlay(im)
+        if box:
+            path.unlink(missing_ok=True)
+            self.log(f"shot {name}: the Steam overlay's Back to Game button at {box} - the frame is deleted")
+            raise OverlayOpen(f"the Steam overlay is over the game in the frame {name} (its Back to Game button at {box}): that frame is deleted, it shows "
+                              f"the account. Stop the client, start it again (client.sh start {self.res}) and run the rows not done (--only)")
 
     def shoot(self, s, names, row):
         got = self.frames.setdefault(row.id, [])
@@ -1768,14 +1851,18 @@ class Doer:
             for name in names:
                 procs.append((name, *self.launch(shot_argv(name, self.raw))))
                 time.sleep(s.gap)
-            lost = 0
+            lost, overlay = 0, None
             for name, p, path in procs:
                 try:
                     self.check_frame(self.collect(p, path, 60, f"shot {name}"), name)
                     got.append(name)
+                except OverlayOpen as e:      # the others still collected, and each of their frames looked at, before the run stops
+                    overlay = overlay or e
                 except RowFailed as e:
                     lost += 1
                     self.log(f"a frame lost: {e}")
+            if overlay:
+                raise overlay
             if lost == len(names):
                 raise RowFailed("every side-by-side frame was lost")
             return
@@ -1810,6 +1897,7 @@ class Doer:
         m = re.search(r"ok (\d+)x(\d+) \(from (\d+)x(\d+)\)", text)
         if not m or f"{m.group(1)}x{m.group(2)}" != self.res or f"{m.group(3)}x{m.group(4)}" != self.res:
             raise SystemExit(f"REFUSED: the client's frame is not {self.res}: {scrub(text.strip())[:200]}\nStart it at that size:\n  " + START_COMMAND.format(h=HARNESS, res=self.res))
+        self.no_overlay("_probe")
         if RENAMED:
             text = self.run_verb(rcon_argv("osd_name"), 60, "rcon osd_name")
             if f"{ACCOUNT} goes by {ME}" not in text or f"{ACCOUNT} is {ME}" not in text:
@@ -2096,6 +2184,9 @@ def cmd_run(args, info):
     except KeyboardInterrupt:
         print("Interrupted: writing what there is.")
         failed = {"interrupted"}
+    except OverlayOpen as e:
+        print(f"STOPPED: {scrub(str(e))}\nWriting what there is.")
+        failed = {"the Steam overlay"}
     doer.write_pictures(plan, info)
     print(f"Done: {sum(len(v) for v in doer.frames.values())} frames; {len(failed)} rows failed or skipped{': ' + ', '.join(sorted(failed)) if failed else ''}. Index: {out / 'index.html'}")
     print("Nothing here reads a picture: review each one before it goes into the public docs.")
@@ -2155,7 +2246,8 @@ def arg(n):
 if verb == "shot":
     res = os.environ["FAKE_RES"]
     dst = os.path.join(arg("-OutDir"), arg("-Name") + ".png")
-    shutil.copyfile(os.environ["FAKE_PNG"], dst)
+    rows_png = os.environ.get("FAKE_PNG_ROWS", "")
+    shutil.copyfile(rows_png if rows_png and arg("-Name") != "_probe" else os.environ["FAKE_PNG"], dst)
     print(f"{dst}  ok {res} (from {res}) mean=72,7")
 elif verb == "post":
     if a[1:2] == ["names-check"] and fail == "names-check":
@@ -2335,6 +2427,40 @@ def deep_check(info, check):
         except SystemExit:
             pass
         sys.stdout = real_stdout
+
+        # the Steam overlay in the probe's frame: the run stops before anything is clicked, and the frame is gone
+        ow, oh = parse_res(res)
+        overlay_png = work / "overlay.png"
+        fake_overlay(Image.new("RGB", (ow, oh), (60, 70, 80)), round(oh * 0.044), round(oh * 0.02)).save(overlay_png)
+        for case, env in (("the probe", {"FAKE_PNG": str(overlay_png)}), ("a row's shot", {"FAKE_PNG_ROWS": str(overlay_png)})):
+            shutil.rmtree(work / "out", ignore_errors=True)
+            shutil.rmtree(calls)
+            calls.mkdir()
+            os.environ.update(env)
+            plan, _ = build_plan(["chat-unknown", "welcome-back"], True)
+            sys.stdout = io.StringIO()
+            doer = Doer(res, work / "out", True)
+            stopped = None
+            try:
+                walk(doer, plan)
+            except OverlayOpen as e:
+                stopped = str(e)
+            sys.stdout = real_stdout
+            os.environ.update(FAKE_PNG=str(png))
+            os.environ.pop("FAKE_PNG_ROWS", None)
+            launched = [json.loads(f.read_text(encoding="utf-8")) for f in calls.iterdir()]
+            shots = [c[c.index("-Name") + 1] for c in launched if c[0] == "shot"]
+            raw_left = sorted(x.name for x in (work / "out" / res / "_raw").glob("*.png"))
+            sys.stdout = io.StringIO()
+            doer.write_pictures(plan, info)            # as the run does after it stops: what there is, and its log closed
+            sys.stdout = real_stdout
+            check(stopped is not None and "Steam overlay" in stopped, f"deep check: the overlay in {case} did not stop the run")
+            if case == "the probe":
+                check(shots == ["_probe"] and not raw_left and not any(c[0] == "rcon" and "os_hud press" in c[2] for c in launched),
+                      f"deep check: the overlay in the probe: shots {shots}, raw frames left {raw_left}")
+            else:
+                first = next(frame_names(e.row)[0] for e in plan if e.mode == "shoot")   # the first row that shoots: the run stops at its frame, none after it
+                check(sorted(shots) == sorted(["_probe", first]) and raw_left == ["_probe.png"], f"deep check: the overlay at a row's shot: shots {shots}, raw frames left {raw_left}")
     finally:
         sys.stdout = real_stdout
         time.sleep = real_sleep
@@ -2493,6 +2619,26 @@ def _selfcheck(info):
     check(panel_of(rows["page-help"], w, h) is None and panel_of(rows["chat-unknown"], w, h) is None and panel_of(rows["why-card"], w, h) is None,
           "panel_of: a window's crop, a chat crop or a frame without a crop gets a panel")
 
+    # the Steam overlay: its button caught at every resolution over a dark or a busy game, nothing like it elsewhere taken for it
+    for ores in RESOLUTIONS:
+        ow, oh = parse_res(ores)
+        side, margin = round(oh * 0.044), round(oh * 0.02)
+        dark = Image.new("RGB", (ow, oh), (5, 5, 4))
+        busy = Image.effect_noise((ow, oh), 40).convert("RGB")
+        found = steam_overlay(fake_overlay(dark, side, margin))
+        check(found == (ow - margin - side, margin, ow - margin, margin + side), f"steam_overlay at {ores}: the button over a dark game found at {found}")
+        check(steam_overlay(fake_overlay(busy, side, margin)) is not None, f"steam_overlay at {ores}: the button over a busy game missed")
+        check(steam_overlay(busy) is None and steam_overlay(dark) is None, f"steam_overlay at {ores}: a frame without the overlay taken for it")
+    ow, oh = 1920, 1080
+    plain = Image.new("RGB", (ow, oh), (5, 5, 4))
+    no_x = plain.copy()
+    no_x.paste(OVERLAY_BUTTON, (ow - 22 - 48, 22, ow - 22, 70))
+    check(steam_overlay(no_x) is None, "steam_overlay: the button's grey without its X taken for the overlay")
+    check(steam_overlay(fake_overlay(plain, 48, 22, colour=(70, 75, 82))) is None, "steam_overlay: a square of another grey with an X taken for the overlay")
+    window_x = plain.copy()
+    window_x.paste(fake_overlay(Image.new("RGB", (120, 120), (5, 5, 4)), 48, 22), (1440, 120))   # our window's X, at its top right corner
+    check(steam_overlay(window_x) is None, "steam_overlay: a square with an X inside the HUD's window taken for the overlay")
+
     # the --only chain: a row's ancestors run first, as setup, and take no picture
     plan, _ = build_plan(["vote-kept"], True)
     check([e.row.id for e in plan] == ["vote-open", "vote-limit", "vote-my-vote", "vote-inactivity", "vote-kept"], f"--only vote-kept plans {[e.row.id for e in plan]}")
@@ -2612,6 +2758,7 @@ def _selfcheck(info):
     print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only")
     print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else")
     print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb")
+    print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click or at a row's shot")
     print("  NOT checked, and not checkable offline: anything against a real client or server")
     return 0
 

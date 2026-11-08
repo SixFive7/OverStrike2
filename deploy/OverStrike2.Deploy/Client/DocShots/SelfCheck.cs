@@ -28,7 +28,8 @@ static partial class DocShots
             case "shot":
                 var res = Env("FAKE_RES");
                 var dst = Path.Combine(Arg("-OutDir"), Arg("-Name") + ".png");
-                File.Copy(Env("FAKE_PNG"), dst, true);
+                var rowsPng = Env("FAKE_PNG_ROWS");    // the rows' frames from another picture when it says so; the probe keeps FAKE_PNG
+                File.Copy(rowsPng != "" && Arg("-Name") != "_probe" ? rowsPng : Env("FAKE_PNG"), dst, true);
                 Print($"{dst}  ok {res} (from {res}) mean=72,7");
                 break;
             case "post":
@@ -240,11 +241,58 @@ static partial class DocShots
             {
             }
             Console.SetOut(realOut);
+
+            // the Steam overlay in the probe's frame: the run stops before anything is clicked, and the frame is gone; at a row's shot, after the frames before it
+            var (ow, oh) = ParseRes(res);
+            var overlayPng = Path.Combine(work, "overlay.png");
+            File.WriteAllBytes(overlayPng, Pictures.Png(FakeOverlay(solid, Py.Round(oh * 0.044), Py.Round(oh * 0.02))));
+            foreach (var (overlayCase, variable) in new[] { ("the probe", "FAKE_PNG"), ("a row's shot", "FAKE_PNG_ROWS") })
+            {
+                if (Directory.Exists(output))
+                    Directory.Delete(output, true);
+                Directory.Delete(calls, true);
+                Directory.CreateDirectory(calls);
+                Environment.SetEnvironmentVariable(variable, overlayPng);
+                (plan, _) = BuildPlan(["chat-unknown", "welcome-back"], true);
+                Console.SetOut(new StringWriter());
+                string? stopped = null;
+                List<string> rawLeft;
+                using (var doer = new Doer(res, output, true))
+                {
+                    try
+                    {
+                        Walk(doer, plan);
+                    }
+                    catch (OverlayOpen e)
+                    {
+                        stopped = e.Message;
+                    }
+                    var rawDir = Path.Combine(output, res, "_raw");
+                    rawLeft = Directory.Exists(rawDir) ? Directory.GetFiles(rawDir, "*.png").Select(Path.GetFileName).Select(f => f!).Order(StringComparer.Ordinal).ToList() : [];
+                    doer.WritePictures(plan, info);          // as the run does after it stops: what there is, and its log closed
+                }
+                Console.SetOut(realOut);
+                Environment.SetEnvironmentVariable("FAKE_PNG", png);
+                Environment.SetEnvironmentVariable("FAKE_PNG_ROWS", null);
+                launched = Launched(calls);
+                var shots = launched.Where(c => c[0] == "shot").Select(c => c[c.IndexOf("-Name") + 1]).Order(StringComparer.Ordinal).ToList();
+                check(stopped is not null && stopped.Contains("Steam overlay", StringComparison.Ordinal), $"deep check: the overlay in {overlayCase} did not stop the run");
+                if (overlayCase == "the probe")
+                    check(shots.SequenceEqual(["_probe"]) && rawLeft.Count == 0 && !launched.Any(c => c[0] == "rcon" && c[2].Contains("os_hud press", StringComparison.Ordinal)),
+                          $"deep check: the overlay in the probe: shots [{string.Join(", ", shots)}], raw frames left [{string.Join(", ", rawLeft)}]");
+                else
+                {
+                    var first = FrameNames(plan.First(e => e.Mode == "shoot").Row)[0];   // the first row that shoots: the run stops at its frame, none after it
+                    check(shots.SequenceEqual(new[] { "_probe", first }.Order(StringComparer.Ordinal)) && rawLeft.SequenceEqual(["_probe.png"]),
+                          $"deep check: the overlay at a row's shot: shots [{string.Join(", ", shots)}], raw frames left [{string.Join(", ", rawLeft)}]");
+                }
+            }
         }
         finally
         {
             Console.SetOut(realOut);
             (HarnessArgv, PostArgv, Sleep) = (realArgv, realPost, realSleep);
+            Environment.SetEnvironmentVariable("FAKE_PNG_ROWS", null);
             Environment.SetEnvironmentVariable("FAKE_FAIL", null);
             if (Directory.Exists(work))
                 Directory.Delete(work, true);
@@ -434,6 +482,36 @@ static partial class DocShots
                   "panel_of: a window's crop, a chat crop or a frame without a crop gets a panel");
         }
 
+        // the Steam overlay: its button caught at every resolution over a dark or a busy game, nothing like it elsewhere taken for it
+        Rgb Solid(int sw, int sh, Rgb3 c)
+        {
+            var im = new Rgb(sw, sh);
+            for (var i = 0; i < im.Pixels.Length; i += 3)
+                (im.Pixels[i], im.Pixels[i + 1], im.Pixels[i + 2]) = ((byte)c.R, (byte)c.G, (byte)c.B);
+            return im;
+        }
+        foreach (var ores in Resolutions)
+        {
+            var (ow, oh) = ParseRes(ores);
+            int side = Py.Round(oh * 0.044), margin = Py.Round(oh * 0.02);
+            var dark = Solid(ow, oh, new Rgb3(5, 5, 4));
+            var busy = Noise(ow, oh, 40, 3);
+            var found = SteamOverlay(FakeOverlay(dark, side, margin));
+            Check(found == new Px(ow - margin - side, margin, ow - margin, margin + side), $"steam_overlay at {ores}: the button over a dark game found at {found}");
+            Check(SteamOverlay(FakeOverlay(busy, side, margin)) is not null, $"steam_overlay at {ores}: the button over a busy game missed");
+            Check(SteamOverlay(busy) is null && SteamOverlay(dark) is null, $"steam_overlay at {ores}: a frame without the overlay taken for it");
+        }
+        {
+            var plain = Solid(1920, 1080, new Rgb3(5, 5, 4));
+            var noX = Solid(1920, 1080, new Rgb3(5, 5, 4));
+            noX.Paste(Solid(48, 48, OverlayButton), 1920 - 22 - 48, 22);
+            Check(SteamOverlay(noX) is null, "steam_overlay: the button's grey without its X taken for the overlay");
+            Check(SteamOverlay(FakeOverlay(plain, 48, 22, new Rgb3(70, 75, 82))) is null, "steam_overlay: a square of another grey with an X taken for the overlay");
+            var windowX = Solid(1920, 1080, new Rgb3(5, 5, 4));
+            windowX.Paste(FakeOverlay(Solid(120, 120, new Rgb3(5, 5, 4)), 48, 22), 1440, 120);   // our window's X, at its top right corner
+            Check(SteamOverlay(windowX) is null, "steam_overlay: a square with an X inside the HUD's window taken for the overlay");
+        }
+
         // the --only chain: a row's ancestors run first, as setup, and take no picture
         var (plan, notes) = BuildPlan(["vote-kept"], true);
         Check(plan.Select(e => e.Row.Id).SequenceEqual(["vote-open", "vote-limit", "vote-my-vote", "vote-inactivity", "vote-kept"]), $"--only vote-kept plans [{string.Join(", ", plan.Select(e => e.Row.Id))}]");
@@ -585,6 +663,7 @@ static partial class DocShots
         Out.Print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only");
         Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else");
         Out.Print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb");
+        Out.Print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click or at a row's shot");
         Out.Print("  NOT checked, and not checkable offline: anything against a real client or server");
         return 0;
     }

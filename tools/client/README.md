@@ -315,8 +315,10 @@ DirectX swap chain last presented; the game keeps rendering on a desktop nobody 
 one table of rows - every page, tab and state of the HUD, and every message of `docshots\messages.txt` - each with the exact commands that
 reach it, held to the committed code (its button ids, its words, its content version) before anything runs. It drives only the verbs
 `rcon`, `cmd`, `shot` and `log`, and `bridgepost.py`; it masks the client's avatar, chat and own name before a picture is written
-(`--renamed`: the client plays under a test name, through OsDocName); `--selfcheck` holds the whole run to its dry run offline. Its
-docstring has every option. A session:
+(`--renamed`: the client plays under a test name, through OsDocName); `--selfcheck` holds the whole run to its dry run offline. It looks at
+every frame for the Steam overlay - its Back to Game button at the top right, which once came up with the client's start and stayed in every
+frame, showing the account: such a frame is deleted at once and the run stops, at the probe before any click or at a row's shot; stop the
+client, start it again and run the rows not done (`--only`). Its docstring has every option. A session:
 
 1. **The build under test**, from a clean checkout of the commit the pictures show: `OUT=<session folder> docshots/build_docs.sh <checkout> <map pictures>`
    - the plugin, the bridge's image `docs-<commit12>` (`deploy/bridge.py build`), the HUD into its own addon (`docshots\build_hud.ps1`,

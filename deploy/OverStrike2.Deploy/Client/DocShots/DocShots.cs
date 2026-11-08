@@ -35,6 +35,9 @@ sealed record Entry(Row Row, string Mode, bool Jump = false);
 
 sealed class RowFailed(string message) : Exception(message);
 
+/// <summary>The Steam overlay in a frame (SteamOverlay): the run stops, because it stays until the client starts again and every frame would show it.</summary>
+sealed class OverlayOpen(string message) : Exception(message);
+
 /// <summary>tools/client/docshots/docshots.py, ported: the documentation screenshots of Over Strike 2's HUD, from a real client on a test copy
 /// (AGENTS.md, "The documentation shows the whole HUD"). One table of rows (Table.cs): every page, tab and state of the HUD, and every message of the
 /// message list (messages.txt beside docshots.py, or --picks &lt;file&gt; in its format). It drives cs2client.ps1's verbs rcon, cmd, shot and log and,
@@ -935,7 +938,22 @@ static partial class DocShots
             var size = $"{m.Groups[1].Value}x{m.Groups[2].Value}";
             if (size != res)
                 throw new RowFailed($"shot {name}: stored at {size}, the run is at {res}: nothing may be scaled");
+            NoOverlay(name);
             return text.Contains("WARNING", StringComparison.Ordinal);
+        }
+
+        /// <summary>A frame the Steam overlay covers is deleted at once - it shows the account's name - and the run stops (OverlayOpen).</summary>
+        void NoOverlay(string name)
+        {
+            var path = Path.Combine(raw, name + ".png");
+            if (!File.Exists(path))
+                return;
+            if (SteamOverlay(Pictures.Open(path)) is not { } box)
+                return;
+            File.Delete(path);
+            Log($"shot {name}: the Steam overlay's Back to Game button at {box} - the frame is deleted");
+            throw new OverlayOpen($"the Steam overlay is over the game in the frame {name} (its Back to Game button at {box}): that frame is deleted, it shows "
+                                  + $"the account. Stop the client, start it again (client.sh start {res}) and run the rows not done (--only)");
         }
 
         public override void Shoot(Step s, List<string> names, Row row)
@@ -952,6 +970,7 @@ static partial class DocShots
                     Sleep(s.Gap);
                 }
                 var lost = 0;
+                OverlayOpen? overlay = null;
                 foreach (var (name, p, path) in procs)
                 {
                     try
@@ -959,12 +978,18 @@ static partial class DocShots
                         CheckFrame(Collect(p, path, 60, $"shot {name}"), name);
                         got.Add(name);
                     }
+                    catch (OverlayOpen e)        // the others still collected, and each of their frames looked at, before the run stops
+                    {
+                        overlay ??= e;
+                    }
                     catch (RowFailed e)
                     {
                         lost++;
                         Log($"a frame lost: {e.Message}");
                     }
                 }
+                if (overlay is not null)
+                    throw overlay;
                 if (lost == names.Count)
                     throw new RowFailed("every side-by-side frame was lost");
                 return;
@@ -1002,6 +1027,7 @@ static partial class DocShots
             var m = Regex.Match(text, @"ok (\d+)x(\d+) \(from (\d+)x(\d+)\)");
             if (!m.Success || $"{m.Groups[1].Value}x{m.Groups[2].Value}" != res || $"{m.Groups[3].Value}x{m.Groups[4].Value}" != res)
                 throw Out.Stop($"REFUSED: the client's frame is not {res}: {Py.Slice(Scrub(Py.Strip(text)), 0, 200)}\nStart it at that size:\n  " + StartCommand(res));
+            NoOverlay("_probe");
             if (Renamed)
             {
                 text = RunVerb(RconArgv("osd_name"), 60, "rcon osd_name");
@@ -1399,6 +1425,11 @@ static partial class DocShots
         try
         {
             failed = Walk(doer, plan);
+        }
+        catch (OverlayOpen e)
+        {
+            Out.Print($"STOPPED: {Scrub(e.Message)}\nWriting what there is.");
+            failed = ["the Steam overlay"];
         }
         finally
         {

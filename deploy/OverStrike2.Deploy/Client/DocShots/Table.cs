@@ -61,6 +61,14 @@ static partial class DocShots
     public const string Me = "Alice";                 // the test name painted over the client's own name, and the who of what the run itself changes
     public const string MadeUpAccount = "42424242";   // the offline modes' client when Steam names none: no such player
     public static readonly string[] Resolutions = ["1920x1080", "1280x720", "1680x1050", "1600x1200", "2560x1080", "2560x1440", "3840x2160"];
+
+    /// <summary>The Steam overlay over the game (Shift+Tab, or opened by Steam itself: once it came up with the client's start and stayed in every frame of
+    /// a session). It shows the account's own name and its store and community pages, so a frame with it is never kept (SteamOverlay). Steam's overlay
+    /// of 2026 puts its Back to Game button at the screen's top right: a flat square of its own grey with a light X, where neither CS2's HUD nor ours
+    /// draws anything like it. Tried on the 26 frames of a walk the overlay spoiled (all caught) and 624 clean frames of release 191's and 192's sessions
+    /// (none taken).</summary>
+    public static readonly Rgb3 OverlayButton = new(35, 38, 46);   // the button's grey, #23262E
+    public const int OverlayTol = 10;                               // per channel
     public static readonly string[] AllVerbs = ["rcon", "cmd", "shot", "log"];
 
     // what the estimate counts (seconds), as the harness's verbs take them: rcon (RCON inside the game container) 1.7 s, its command about TCmd after
