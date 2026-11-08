@@ -74,9 +74,10 @@ plugin back; restore checks that it did. Any time under the lock, before prep to
 
 THE SETTINGS TEXT. The watcher and the plugin read the settings text, production's environment variable OVERSTRIKE2_SETTINGS_CONTENT. So
 run sets SETTINGS_OFF on that text in the copy's environment: the watcher's automatic actions, the deletion and the Workshop page visits
-off, bots allowed (plugin.testBots: the plugin's block leaves bot_quota and bot_quota_mode to RCON, so bot_add gives the live lab a second
-player), and the maps folder left alone - maps.layout off, so the copy's start organizes nothing: no hand-over of the sync's taken in, no map
-moved, linked or deleted, no write of Steam's appworkshop_730.acf and no backup beside it. Those are production's, in the game's tree the copy
+off, bots allowed (plugin.testBots: the plugin's block leaves bot_quota and bot_quota_mode to RCON, so bot_add gives the live lab bots - one
+bot_add_ct gives two, one a side, and bot_quota 2: CS2's own), and the maps folder left alone - maps.layout off, so the copy's start
+organizes nothing: no hand-over of the sync's taken in, no map moved, linked or deleted, no write of Steam's appworkshop_730.acf and no
+backup beside it. Those are production's, in the game's tree the copy
 shares; a copy took them in early once, and a candidate os2-server would have edited them with untested code. Every other value is
 production's. A text that cannot be read stops the copy before it is created, because a copy without its
 overrides is production, and so does a production without the text: no program reads anything else that would turn the watcher off
@@ -123,7 +124,7 @@ SETTINGS_OFF = {"restarts": {"updates": False, "newVersions": False, "freezeReco
                                                 # maps.backgroundDownloads production's: the watcher then stays up for it); maps.layout off:
                                                 # the start's organize (os2-server's MapsFolder) returns before it touches production's maps
                                                 # folder, hand-overs and acf; no visit to the HUD item's page from a copy; plugin.testBots:
-                                                # the copy's bots are left to RCON (bot_add), a second player for the live lab - production
+                                                # the copy's bots are left to RCON (bot_add), bots for the live lab - production
                                                 # never sets it
 
 

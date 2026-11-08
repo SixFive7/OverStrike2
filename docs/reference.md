@@ -83,7 +83,9 @@ keeps its picture's number for good (`HudThumbList.cs`), so an older HUD never s
 long as it stays open (`CloakPlan.cs`): the model, every weapon they carry, wearables and shadows. Moving more than 64 units sideways or 72
 up or down, attacking, or a vote's freeze starting or ending spends it until the next spawn; closing the window only ends it until the
 window opens again. A player killed with the window open is hidden again at the respawn. What is no model - the radar's dot, the name when
-aimed at, sounds, muzzle flashes - still shows.
+aimed at, sounds, muzzle flashes - still shows. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
+so while it hides a player - the spawn cloak, Ghost, `os_cloak hide` - no bot's damage hurts them (`BotGuard.cs`), until their own first attack in that
+hide: a shot, a throw or a hit on somebody else ends that shield, though not the hide, and the next hide shields again. A player's damage lands as ever.
 
 **Messages.** Every message a player can get is one line of one catalogue (`bridge/Shared/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
 the board's Lately list, and how long it stays. The bridge and the plugin both post through it, so one message cannot go two ways. What happens for everybody shows for everybody;
@@ -451,12 +453,13 @@ works as the Fun page's: a change lasts until the map changes, the page says who
 Bots and Fill to both set the count, so one of them shows a number at a time. The side, difficulty, the weapon rules and the name tag are what a bot gets
 as it joins, so a change of one while bots play has them join again (`bot_kick`, then the count again).
 
-Two rows do more than their bot convar, because the game alone would break their promise. **Side**: the server's `mp_limitteams 1` lets a team hold one
+Two rows do more than their bot convar, which alone does not cover all they promise. **Side**: the server's `mp_limitteams 1` lets a team hold one
 player more than the other, so with Side T against one player on CT only two bots of four would join T, and `mp_autoteambalance` would move bots across at a
 round start; while a side is set both are off, and they come back with it - at Any, Default, the map's end and a reload. A map with too few spawn points
-for a side can still hold bots out ("Team is full"). **Bot war**: `bot_ignore_players` only keeps the players out of what the bots see ("Bots will not see
-non-bot players") - a bot never aims at one, but its shots at another bot, its grenades and its fire still hurt a player in the way. While it is on, the
-plugin's damage hook refuses a bot's damage to a player (`BotWarGuard.cs`, the rule `Bots.Spares`); a player's shots at the bots land as ever.
+for a side can still hold bots out ("Team is full"). **Bot war**: `bot_ignore_players` covers the bots' sight only - its help text is "Bots will not see
+non-bot players" - so a bot never aims at a player, while its shots at another bot, its grenades and its fire are not covered. While it is on, the plugin's
+damage hook refuses a bot's damage to a player (`BotGuard.cs`, the rule `Bots.Spares`), as it does for a player the cloak hides ([the spawn
+cloak](#in-game-hud)); a player's shots at the bots land as ever.
 
 **Presets** set every bot setting at once - their picks, the rest back to normal: **Zombie horde** (8 expert bots with knives, tagged ZOMBIE, quiet),
 **Sniper duel** (1 expert bot with snipers), **Target practice** (8 easy bots, frozen, holding their fire), **Copycats** (4 bots copying the player who

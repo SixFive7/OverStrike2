@@ -242,6 +242,76 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(((CloakWhy.Ghost | CloakWhy.Spawn) & ~CloakWhy.Ghost) == CloakWhy.Spawn, "cloak: one reason ends, the other still hides");
 }
 
+// ---- the cloak's shield against the bots (CloakPlan.cs, CloakShield; BotGuard.cs): the cloak hides a player from people, not from the bots - the live lab's
+// player fell to one bot's shot 19 s into the spawn cloak - so a bot's damage to a hidden player is refused, until the player's own first attack in that hide ----
+{
+    var shield = new CloakShield();
+    Check(shield.Shields(3, hide: 7) && !shield.Shields(3, hide: 0), "cloak shield: a hidden player is shielded from the bots, a seen one not");
+    shield.Attacked(3, 7);
+    Check(!shield.Shields(3, 7), "cloak shield: the player's own first attack in the hide ends its shield - a shot, a throw, a hit on somebody else");
+    shield.Attacked(3, 7); // still hidden and firing on: a Ghost's next kill keeps the same hide
+    Check(!shield.Shields(3, 7) && shield.Shields(3, 8),
+        "cloak shield: ...for the rest of that hide, however long the hide lasts (Ghost, os_cloak hide); seen and hidden anew, the next hide shields again");
+    shield.Attacked(4, 0);
+    Check(shield.Shields(4, 9), "cloak shield: an attack while seen spends nothing - the hide after it shields");
+    shield.Attacked(5, 10);
+    Check(shield.Shields(5, 11) && !shield.Shields(5, 10) && shield.Shields(6, 10), "cloak shield: an attack in an earlier hide never spends a later one, nor another player's");
+    Check(Bots.Spares(true, false, () => false, () => shield.Shields(5, 11)) == Bots.Spare.Cloak && Bots.Spares(false, false, () => false, () => shield.Shields(5, 11)) == Bots.Spare.None
+          && Bots.Spares(true, false, () => false, () => shield.Shields(5, 10)) == Bots.Spare.None,
+        "cloak shield: a bot's hit on a shielded player is refused; a player's lands, and so does a bot's once the player has attacked in that hide");
+    shield.Clear();
+    Check(shield.Shields(3, 7), "cloak shield: a new map forgets every spent hide");
+}
+
+// ---- the player damage hooks' order (VoteFreeze.cs, BotGuard.cs, catch-up's CatchUpModule.cs): CounterStrikeSharp 1.0.379 calls them in the order they were
+// registered and returns at the first Stop (src/core/managers/entity_manager.cpp, Hook_OnTakeDamage_Alive_Pre: Stop returns at once with no damage, Handled
+// is kept while the rest still run). The freeze comes first and answers Stop, so nothing after it runs; the bots' guard next, Stop too; catch-up last ----
+{
+    const int Continue = 0, Handled = 3, Stop = 4; // CounterStrikeSharp's HookResult
+    static (bool Lands, string Ran) Hit(params (string Name, Func<int> Answer)[] hooks)
+    {
+        var (ran, kept) = (new List<string>(), Continue);
+        foreach (var (name, answer) in hooks)
+        {
+            ran.Add(name);
+            var r = answer();
+            if (r >= Stop) return (false, string.Join(", ", ran));
+            if (r >= Handled) kept = r;
+        }
+        return (kept < Handled, string.Join(", ", ran));
+    }
+    (string, Func<int>) Freeze(bool frozen) => ("freeze", () => frozen ? Stop : Continue);
+    (string, Func<int>) Guard(bool spared) => ("guard", () => spared ? Stop : Continue);
+    var catchUp = ("catch-up", (Func<int>)(() => Continue));
+    Check(Hit(Freeze(true), Guard(true), catchUp) == (false, "freeze") && Hit(Freeze(true), Guard(false), catchUp) == (false, "freeze"),
+        "damage hooks: while everybody is frozen the freeze's Stop ends the hit there - neither the bots' guard nor catch-up runs");
+    Check(Hit(Freeze(false), Guard(true), catchUp) == (false, "freeze, guard") && Hit(Freeze(false), Guard(false), catchUp) == (true, "freeze, guard, catch-up"),
+        "damage hooks: a hit the bots' guard refuses ends there too, before catch-up; any other runs through all three and lands");
+    Check(Hit(("freeze", () => Handled), Guard(false), catchUp) == (false, "freeze, guard, catch-up"),
+        "damage hooks: Handled, the freeze's answer before, refused the hit but let catch-up see it - why it answers Stop now");
+
+    var src = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..");
+    string Read(params string[] path) => File.ReadAllText(Path.Combine([src, .. path]));
+    if (File.Exists(Path.Combine(src, "OverStrike2", "VoteFreeze.cs")) && File.Exists(Path.Combine(src, "CatchUp", "CatchUpModule.cs")))
+    {
+        const string hook = "RegisterListener<Listeners.OnPlayerTakeDamagePre>(";
+        var holders = Directory.GetFiles(Path.Combine(src, "OverStrike2"), "*.cs").Concat(Directory.GetFiles(Path.Combine(src, "CatchUp"), "*.cs"))
+            .Where(p => File.ReadAllText(p).Contains(hook, StringComparison.Ordinal)).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToList();
+        var host = Read("OverStrike2", "OverStrike2.cs");
+        int At(string text) => host.IndexOf(text, StringComparison.Ordinal);
+        Check(holders.SequenceEqual(["BotGuard.cs", "CatchUpModule.cs", "VoteFreeze.cs"]) && At("freeze.Load();") > 0
+              && At("freeze.Load();") < At("new BotGuard(this, Logger, () => Bots.War(settings.FunValue), cloak).Load();")
+              && At("new BotGuard(this, Logger, () => Bots.War(settings.FunValue), cloak).Load();") < At("catchUp.Load(hotReload);"),
+            $"damage hooks: three, registered freeze, bots' guard, catch-up - in that order ({string.Join(", ", holders)})");
+        var freeze = Read("OverStrike2", "VoteFreeze.cs");
+        Check(freeze.Contains("=> plan.Frozen ? HookResult.Stop : HookResult.Continue;", StringComparison.Ordinal) && !freeze.Contains("HookResult.Handled;", StringComparison.Ordinal),
+            "damage hooks: the freeze answers Stop while everybody is frozen");
+        Check(Read("OverStrike2", "OverStrike2.csproj").Contains("<PackageReference Include=\"CounterStrikeSharp.API\" Version=\"1.0.379\" />", StringComparison.Ordinal),
+            "damage hooks: the order above is CounterStrikeSharp 1.0.379's, the version the plugin is built against - another version's dispatch is to be read again");
+    }
+    else Check(false, "damage hooks: the freeze, the bots' guard, catch-up and the host are read from their source");
+}
+
 // ---- the plugin's settings (PluginSetup.cs, core/Settings.cs): the settings file or its text in OVERSTRIKE2_SETTINGS_CONTENT, and nothing else ----
 {
     const string standard = "/etc/overstrike2/overstrike2.jsonc";
@@ -772,23 +842,28 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var settingsCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettings.cs");
     var consoleCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "GameSettingsConsole.cs");
     var hostCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "OverStrike2.cs");
-    var guardCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "BotWarGuard.cs");
-    if (File.Exists(guardCs) && File.Exists(hostCs))
+    var guardCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "BotGuard.cs");
+    var cloakCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "Cloak.cs");
+    if (File.Exists(guardCs) && File.Exists(hostCs) && File.Exists(cloakCs))
     {
-        // Bot war: bot_ignore_players keeps the players out of what the bots see, and the damage hook keeps their stray shots, grenades and fire off the players
+        // The bots' damage guard: Bot war's stray shots, grenades and fire (bot_ignore_players covers the bots' sight only), and a player the cloak hides
         var guard = File.ReadAllText(guardCs);
-        var host = File.ReadAllText(hostCs);
-        int At(string text) => host.IndexOf(text, StringComparison.Ordinal);
+        var cloakCode = File.ReadAllText(cloakCs);
         Check(guard.Contains("plugin.RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnTakeDamage);", StringComparison.Ordinal)
-              && guard.Contains("if (!Bots.Spares(war, attacker.IsBot, victim.IsBot)) return HookResult.Continue;", StringComparison.Ordinal)
-              && guard.IndexOf("return HookResult.Stop;", StringComparison.Ordinal) > guard.IndexOf("if (!Bots.Spares(", StringComparison.Ordinal)
+              && guard.Contains("var spare = Bots.Spares(attacker.IsBot, victim.IsBot, war, () => shield.Shields(slot, cloak.Hide(slot)));", StringComparison.Ordinal)
+              && guard.Contains("if (spare == Bots.Spare.None) return HookResult.Continue;", StringComparison.Ordinal)
+              && guard.IndexOf("return HookResult.Stop;", StringComparison.Ordinal) > guard.IndexOf("if (spare == Bots.Spare.None)", StringComparison.Ordinal)
               && !guard.Contains("HookResult.Handled", StringComparison.Ordinal),
-            "bots: Bot war's damage hook refuses what Bots.Spares spares, with Stop - catch-up's hook after it never sees a hit that did not land");
-        Check(At("new BotWarGuard(this, Logger, () => Bots.War(settings.FunValue)).Load();") is var g && g > At("freeze.Load();") && At("freeze.Load();") > 0
-              && g < At("catchUp.Load(hotReload);"),
-            "bots: the plugin registers Bot war's damage hook after the vote's freeze, which keeps the first word, and before catch-up's");
+            "bots: the guard refuses what Bots.Spares spares - Bot war's case and the cloak's - with Stop, so catch-up's hook after it never sees a hit that did not land");
+        Check(guard.Contains("plugin.RegisterEventHandler<EventWeaponFire>((ev, _) => Attacked(ev.Userid));", StringComparison.Ordinal)
+              && guard.Contains("plugin.RegisterEventHandler<EventGrenadeThrown>((ev, _) => Attacked(ev.Userid));", StringComparison.Ordinal)
+              && guard.Contains("plugin.RegisterEventHandler<EventPlayerHurt>((ev, _) => ev.Attacker is { IsValid: true } a && ev.Userid is { IsValid: true } v && a.Slot != v.Slot ? Attacked(a) : HookResult.Continue);", StringComparison.Ordinal)
+              && guard.Contains("shield.Attacked(player.Slot, cloak.Hide(player.Slot));", StringComparison.Ordinal)
+              && cloakCode.Contains("if (was == CloakWhy.None) { fresh[slot] = because; hides[slot] = ++hideCount; }", StringComparison.Ordinal)
+              && cloakCode.Contains("public int Hide(int slot) => why.ContainsKey(slot) ? hides.GetValueOrDefault(slot) : 0;", StringComparison.Ordinal),
+            "bots: a hidden player's shot, throw or hit on somebody else ends the shield of the hide they are in, and the cloak numbers a hide anew each time a player goes from seen to hidden");
     }
-    else Check(false, "bots: Bot war's damage hook and the host are read from their source");
+    else Check(false, "bots: the bots' damage guard, the cloak and the host are read from their source");
     if (File.Exists(settingsCs) && File.Exists(consoleCs) && File.Exists(hostCs))
     {
         var code = File.ReadAllText(settingsCs);
@@ -918,7 +993,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && refusedNotices.Count == 0 && clamped.Values["mp_death_drop_grenade"] == "2",
         $"block: a value the game refuses is said once and tried no more on that map, with no line that it was blocked again ({string.Join(" | ", refusedLog.Lines)})");
 
-    // A test copy's plugin.testBots: the bots' convars are left to RCON, so the live lab can add a second player; production blocks them as ever.
+    // A test copy's plugin.testBots: the bots' convars are left to RCON, so the live lab can add bots there; production blocks them as ever.
     var botsDir = Path.Combine(dir, "bots");
     Directory.CreateDirectory(botsDir);
     File.WriteAllText(Path.Combine(botsDir, Modes.BlockFile), "bot_quota  *  0  0  // bots\nbot_quota_mode  *  normal  normal  // bots\nsv_infinite_ammo  *  2  0  // the ammo\n");
@@ -933,7 +1008,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
         return (engine, b, said);
     }
     var (copyEngine, copyBlock, copySaid) = Bots(testBots: true);
-    (copyEngine.Values["bot_quota"], copyEngine.Values["bot_quota_mode"]) = ("2", "normal"); // RCON: bot_quota_mode normal; bot_add_ct, bot_add_t
+    (copyEngine.Values["bot_quota"], copyEngine.Values["bot_quota_mode"]) = ("2", "normal"); // RCON: bot_quota_mode normal; bot_add_ct - CS2 adds a bot on each side, bot_quota 2
     copyBlock.Hold("ar_shoots", null, Modes.ArmsRace);
     Check(copyEngine.Values["bot_quota"] == "2" && copyEngine.Values["bot_quota_mode"] == "normal" && copySaid.Count == 0
           && copyBlock.From.EndsWith("; bot_quota and bot_quota_mode left to RCON (plugin.testBots: a test copy's bots)") && !copyBlock.ConVars.Contains("bot_quota"),

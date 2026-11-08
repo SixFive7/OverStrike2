@@ -14,12 +14,12 @@
 // knife its way up instead - and a number of bots the mode has no room for (Wingman's 4 players). The side, difficulty, the name tag and the
 // weapon rules are what a bot gets as it joins, so a change of one while bots play has them join again (Rejoins: bot_kick, then the count again).
 //
-// Two rows do more than their bot convar, because the game would otherwise break their promise. Side lifts the team-size limit and the team
-// balance while a side is set (mp_limitteams 0, mp_autoteambalance 0, put back with it): the server's mp_limitteams 1 lets a team hold one player
-// more than the other, so with Side T against a lone player on CT only two bots of four could join - the live lab saw it - and the balance would
-// move bots across at a round start. Bot war's bot_ignore_players keeps the players out of what the bots see ("Bots will not see non-bot
-// players"): a bot never aims at one, but its shots at another bot, its grenades and its fire still hurt a player in the way - the lab lost its
-// player to one within 25 seconds - so while it is on the plugin's damage hook refuses a bot's damage to a player (Spares).
+// Two rows do more than their bot convar, which alone does not cover all they promise. Side lifts the team-size limit and the team balance while
+// a side is set (mp_limitteams 0, mp_autoteambalance 0, put back with it): the server's mp_limitteams 1 lets a team hold one player more than the
+// other, so with Side T against a lone player on CT only two bots of four could join - the live lab saw it - and the balance would move bots
+// across at a round start. Bot war's bot_ignore_players covers the bots' sight only - its help text is "Bots will not see non-bot players" - so a
+// bot never aims at a player, while its shots at another bot, its grenades and its fire are not covered: while it is on, the plugin's damage hook
+// refuses a bot's damage to a player (Spares), as it does for a player the cloak hides.
 //
 // Shared like Fun.cs: the bridge's --selftest checks it, the plugin's HUD draws the page (HudBots.cs) and its settings module makes the changes.
 // Plain BCL only. Every convar here is one this CS2 build has (plugin/OverStrike2/convars.txt; --selftest holds them to it).
@@ -95,10 +95,15 @@ public static class Bots
     /// <summary>Whether Bot war is on: the bots see no player (bot_ignore_players), as the live values have it.</summary>
     public static bool War(Func<string, string?> value) => Find("botwar") is { } s && Fun.Showing(s, value).Id == "on";
 
-    /// <summary>Whether the plugin's damage hook refuses this damage (BotWarGuard): a bot's, to a player, while Bot war is on - bot_ignore_players only keeps the
-    /// players out of what the bots see, and their shots at each other, their grenades and their fire would still hurt a player in the way. A player's damage
-    /// to a bot, and a bot's to a bot, land as ever. botWar is asked only for a bot's damage to a player.</summary>
-    public static bool Spares(Func<bool> botWar, bool attackerIsBot, bool victimIsBot) => attackerIsBot && !victimIsBot && botWar();
+    /// <summary>Why the plugin's damage hook refuses a hit (BotGuard): None, it lands.</summary>
+    public enum Spare { None, BotWar, Cloak }
+
+    /// <summary>The plugin's damage hook's one rule (BotGuard): a bot's damage to a player is refused while Bot war is on - bot_ignore_players covers the bots'
+    /// sight only, not their shots at each other, their grenades or their fire - or while the cloak shields the player (CloakShield: hidden, the cloak hiding
+    /// them from people and not from the bots, and no attack of theirs in that hide). A player's damage lands on everybody, hidden or not, and a bot's on a
+    /// bot. botWar and shielded are asked only for a bot's damage to a player, Bot war first.</summary>
+    public static Spare Spares(bool attackerIsBot, bool victimIsBot, Func<bool> botWar, Func<bool> shielded) =>
+        !attackerIsBot || victimIsBot ? Spare.None : botWar() ? Spare.BotWar : shielded() ? Spare.Cloak : Spare.None;
 
     /// <summary>The bot settings a bot takes as it joins - the side it joins (bot_join_team), its difficulty, its weapon rules, its name: a change of one while
     /// bots play has them join again (bot_kick, then the count again), or the bots already in would keep the old one.</summary>

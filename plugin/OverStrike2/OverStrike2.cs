@@ -73,8 +73,8 @@ public class OverStrike2Plugin : BasePlugin
         effects = new FunEffects(this, Logger, settings.EffectOn, cloak);
         effects.Load();
         freeze = new VoteFreeze(this, Logger, () => hud);
-        freeze.Load(); // before catch-up: its damage hook has the first word while everybody is frozen
-        new BotWarGuard(this, Logger, () => Bots.War(settings.FunValue)).Load(); // Bot war (FUN, Bots): no bot's damage to a player - after the freeze's hook, before catch-up's
+        freeze.Load(); // first of the damage hooks: while everybody is frozen its Stop ends the hit there, before the bots' guard and catch-up see it
+        new BotGuard(this, Logger, () => Bots.War(settings.FunValue), cloak).Load(); // no bot's damage to a player while Bot war is on or the cloak hides them - after the freeze's hook, before catch-up's
         // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window and the vote's freeze. It lives on in the handlers it registers.
         new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));

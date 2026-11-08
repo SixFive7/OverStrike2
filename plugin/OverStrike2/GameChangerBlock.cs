@@ -37,7 +37,8 @@ public sealed class GameChangerBlock(string moduleDirectory, ILogger log, IConVa
     IReadOnlyCollection<string>? leftAlone = null)
 {
     /// <summary>The bots' convars on the list, which a test copy's plugin.testBots leaves to RCON (leftAlone): bot_quota, and bot_quota_mode, whose
-    /// fill and competitive modes add bots of their own - so the live lab can add a second player (bot_add) there. Production lists both.</summary>
+    /// fill and competitive modes add bots of their own - so the live lab can add bots by RCON there (one bot_add_ct gives two, one a side: CS2's own).
+    /// Production lists both.</summary>
     public static readonly string[] TestBots = ["bot_quota", "bot_quota_mode"];
 
     const int LogLines = 3; // per convar per map; past it, one summary line a minute and one at the map's end

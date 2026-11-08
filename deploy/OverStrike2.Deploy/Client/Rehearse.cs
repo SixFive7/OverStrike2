@@ -400,7 +400,7 @@ sealed class Rehearse
         // copy as production's is beside production's: nothing points at production's.
         Section(settings, "maps")["layout"] = "off";
         Section(settings, "maps")["preview"] = true;
-        if (testBots)   // a second player for the live lab's checks: the game-changers block leaves bot_quota and bot_quota_mode to RCON
+        if (testBots)   // bots for the live lab's checks: the game-changers block leaves bot_quota and bot_quota_mode to RCON
             Section(settings, "plugin")["testBots"] = true;
         // the candidate watcher's background downloads: the engine fetches the queued maps into production's Workshop store and Steam's acf, in
         // the game tree the rehearsal shares - off, unless --downloads keeps production's value (absent: core's default, on)

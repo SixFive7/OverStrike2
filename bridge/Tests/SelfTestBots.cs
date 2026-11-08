@@ -54,16 +54,21 @@ static partial class Program
                 side.Stock.Where(x => x.ConVar.StartsWith("mp_", StringComparison.Ordinal)).All(x => lines.TryGetValue(x.ConVar, out var v) && Fun.Same(v, x.Value)));
         }
 
-        // ---- Bot war: the bots see no player, and the plugin keeps their stray shots off the players (the live lab lost its player to one in 25 s) ----
+        // ---- the bots' damage guard (BotGuard): bot_ignore_players covers the bots' sight only, so Bot war's stray shots, grenades and fire are the guard's;
+        // and the cloak hides a player from people, not from the bots (the live lab: a bot's one shot killed a player 19 s into the spawn cloak) ----
         var asked = 0;
-        bool WarOn() { asked++; return true; }
-        bool WarOff() { asked++; return false; }
-        Check("Bots: while Bot war is on, a bot's damage to a player is refused; a player's to a bot, a bot's to a bot and a player's to a player land; with it off everything lands",
-            Bots.Spares(WarOn, attackerIsBot: true, victimIsBot: false) && !Bots.Spares(WarOn, false, true) && !Bots.Spares(WarOn, true, true) && !Bots.Spares(WarOn, false, false)
-            && !Bots.Spares(WarOff, true, false));
+        bool On() { asked++; return true; }
+        bool Off() { asked++; return false; }
+        Check("Bots: a bot's damage to a player is refused while Bot war is on, or while the cloak shields the player - Bot war's word first when both hold; with neither it lands",
+            Bots.Spares(attackerIsBot: true, victimIsBot: false, On, Off) == Bots.Spare.BotWar && Bots.Spares(true, false, Off, On) == Bots.Spare.Cloak
+            && Bots.Spares(true, false, On, On) == Bots.Spare.BotWar && Bots.Spares(true, false, Off, Off) == Bots.Spare.None);
+        Check("Bots: a player's damage lands on everybody, a hidden player too, and a bot's on a bot - whatever Bot war and the cloak say",
+            Bots.Spares(false, false, On, On) == Bots.Spare.None && Bots.Spares(false, true, On, On) == Bots.Spare.None && Bots.Spares(true, true, On, On) == Bots.Spare.None);
         asked = 0;
-        Bots.Spares(WarOn, false, true); Bots.Spares(WarOn, true, true); Bots.Spares(WarOn, false, false);
-        Check("Bots: the damage hook reads Bot war only for a bot's damage to a player", asked == 0);
+        Bots.Spares(false, true, On, On); Bots.Spares(true, true, On, On); Bots.Spares(false, false, On, On);
+        var firstOnly = asked == 0;
+        Bots.Spares(true, false, On, On);
+        Check("Bots: the guard reads Bot war and the cloak only for a bot's damage to a player, and the cloak only when Bot war is off", firstOnly && asked == 1);
         Check("Bots: Bot war is on while bot_ignore_players is, as the live values have it (1 or true), and off otherwise",
             Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "1" }.GetValueOrDefault) && Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "true" }.GetValueOrDefault)
             && !Bots.War(new Dictionary<string, string> { ["bot_ignore_players"] = "0" }.GetValueOrDefault) && !Bots.War(_ => null));

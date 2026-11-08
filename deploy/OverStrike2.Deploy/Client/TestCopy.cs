@@ -59,7 +59,7 @@ sealed class TestCopy
     /// returns before it touches production's maps folder, the sync's hand-overs and Steam's appworkshop_730.acf - no take-in, no map moved, linked or
     /// deleted, no acf written and no backup beside it - which are production's, in the game's tree the copy shares (a copy took them in early once,
     /// and a candidate os2-server would have edited them with untested code); production's paths stay as they are; no visit to the HUD item's page
-    /// from a copy; plugin.testBots: the copy's bots are left to RCON (bot_add), a second player for the live lab - production never sets it. No
+    /// from a copy; plugin.testBots: the copy's bots are left to RCON (bot_add), bots for the live lab - production never sets it. No
     /// program reads anything else that would turn the watcher off - the older programs' variables are read by none.</summary>
     public static JsonObject SettingsOff => Json.O("""
 {"restarts": {"updates": false, "newVersions": false, "freezeRecovery": false, "daily": "off", "downloadRestart": false},

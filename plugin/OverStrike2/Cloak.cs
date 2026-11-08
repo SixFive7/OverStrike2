@@ -60,6 +60,8 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     readonly Dictionary<int, CloakWhy> why = new();       // slot -> why that player is hidden
     readonly Dictionary<int, string> fresh = new();       // slots hidden since the last pass, and what hid them: logged once the pass has held them
     readonly Dictionary<int, int> tests = new();          // slot -> the os_cloak hide that runs for it (a newer one replaces it)
+    readonly Dictionary<int, int> hides = new();          // slot -> the hide they are in (Hide): a number new each time they go from seen to hidden
+    int hideCount;
     readonly Dictionary<string, bool> networked = new();  // "class.field" -> networked (looked up once)
     readonly List<int> slots = new();
     int testSerial;
@@ -110,6 +112,10 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     /// <summary>Why a player is hidden now (None: seen).</summary>
     public CloakWhy Why(int slot) => why.GetValueOrDefault(slot);
 
+    /// <summary>The hide a player is in: a number new each time they go from seen to hidden, whatever the reason, and 0 while seen. The bots' guard
+    /// (BotGuard, CloakShield) shields a hidden player from the bots until their own first attack in that hide.</summary>
+    public int Hide(int slot) => why.ContainsKey(slot) ? hides.GetValueOrDefault(slot) : 0;
+
     /// <summary>A reason to hide a player starts (on) or ends; because is what the log says. On needs the player alive: false when they are
     /// not, and nothing changes. The writes come in the pass after the entities' think: in this tick when called before it, an event's
     /// included.</summary>
@@ -121,7 +127,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
             if ((was & reason) != 0) return true;
             if (Alive(slot) == null) return false;
             why[slot] = was | reason;
-            if (was == CloakWhy.None) fresh[slot] = because;
+            if (was == CloakWhy.None) { fresh[slot] = because; hides[slot] = ++hideCount; } // seen until now: a new hide
             return true;
         }
         if ((was & reason) == 0) return true;
@@ -157,6 +163,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         why.Clear();
         fresh.Clear();
         tests.Clear();
+        hides.Clear();
         faults = 0;
     }
 

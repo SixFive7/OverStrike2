@@ -514,7 +514,7 @@ public sealed class Settings
         // plugin: the game server's own layer
         Bool("plugin.enabled", S, true, "Install Metamod:Source, CounterStrikeSharp and the plugin before every start; false runs the server vanilla.",
             s => s.Plugin.Enabled, (s, v) => s.Plugin.Enabled = v),
-        Bool("plugin.testBots", P, false, "A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON (bot_add), so the live lab has a second player to look with. Off on production, where the only bots are the players' own, from FUN, Bots.",
+        Bool("plugin.testBots", P, false, "A test copy's: bots may play - the plugin's block leaves bot_quota and bot_quota_mode to RCON, so the live lab has bots to look with (one bot_add_ct gives two, one a side, and bot_quota 2: CS2's own). Off on production, where the only bots are the players' own, from FUN, Bots.",
             s => s.Plugin.TestBots, (s, v) => s.Plugin.TestBots = v),
 
         // restarts: the restart watcher

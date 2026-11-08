@@ -1,8 +1,8 @@
 namespace OverStrike2;
 
 // The cloak's decisions, free of CounterStrikeSharp so the self-test drives them on handed ticks and positions: who the spawn cloak hides
-// (SpawnCloakPlan), and which entities the cloak has painted and how each looked before (CloakBook). Cloak.cs feeds them the game and does
-// what they say.
+// (SpawnCloakPlan), which entities the cloak has painted and how each looked before (CloakBook), and whom it shields from the bots
+// (CloakShield). Cloak.cs and BotGuard.cs feed them the game and do what they say.
 
 /// <summary>Why a player is hidden. Each reason holds on its own; the player is seen again once none holds, and every reason ends with the
 /// life (a death, a respawn, a disconnect, the map).</summary>
@@ -195,4 +195,28 @@ public sealed class CloakBook<T>
 
     /// <summary>The looks from before of every entity a slot's hidden player holds, for the log.</summary>
     public IEnumerable<T> Held(int slot) => entries.Values.Where(e => e.Slot == slot).Select(e => e.Before);
+}
+
+/// <summary>The cloak's shield against the bots (BotGuard.cs). The cloak hides a player from people - the game draws nothing of them - but a bot aims by what
+/// the server knows, and shoots a hidden player as readily as any: the live lab's player, on its spawn with the window open 19 s into the spawn cloak, fell to
+/// one shot from a bot about 1300 units away. So a bot's damage to a hidden player is refused - until the player's own first attack in that hide: a shot, a
+/// throw or a hit on somebody else ends the shield, though not the hide. The spawn cloak ends at such an attack anyway (SpawnCloakPlan.Attacked); Ghost keeps
+/// a killer hidden for its seconds whatever they do, and os_cloak hide for as long as it was told, so without this a hidden player could fight the bots from
+/// a cover the bots cannot answer. A hide is Cloak.Hide's number, new each time a player goes from seen to hidden: the next hide shields again, and an attack
+/// in an earlier one never spends it.</summary>
+public sealed class CloakShield
+{
+    readonly Dictionary<int, int> spent = new(); // slot -> the hide whose shield the player's own attack ended
+
+    /// <summary>The player attacked, while in this hide (0: seen, which has no shield to end).</summary>
+    public void Attacked(int slot, int hide)
+    {
+        if (hide != 0) spent[slot] = hide;
+    }
+
+    /// <summary>Whether a bot's damage to the player, in this hide, is refused: hidden, and no attack of theirs in it.</summary>
+    public bool Shields(int slot, int hide) => hide != 0 && spent.GetValueOrDefault(slot) != hide;
+
+    /// <summary>A map ends: every hide goes with it.</summary>
+    public void Clear() => spent.Clear();
 }

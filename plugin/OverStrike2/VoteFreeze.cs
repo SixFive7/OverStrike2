@@ -15,8 +15,10 @@ namespace OverStrike2;
 ///     who joins, a respawn) is frozen at the next tick; the type it had before (walking, a ladder, noclip) comes back when everybody is freed;
 ///   - shooting: the next primary and secondary attack tick of every weapon a pawn carries stays HoldTicks ahead of the server's tick - a bot
 ///     cannot fire either - and is put back to the current tick when everybody is freed;
-///   - damage: the player damage hook (Listeners.OnPlayerTakeDamagePre) answers Handled, so no hit, fall, fire or grenade thrown before the
-///     freeze hurts anybody. Registered before the catch-up module's own hook, so the freeze has the first word.
+///   - damage: the player damage hook (Listeners.OnPlayerTakeDamagePre) answers Stop, so no hit, fall, fire or grenade thrown before the
+///     freeze hurts anybody. Registered first, before the bots' guard (BotGuard) and catch-up's hook: CounterStrikeSharp 1.0.379 calls the hooks in
+///     the order registered and returns at the first Stop, so neither of them sees a hit the freeze refused - catch-up spends no second chance and
+///     ends no spawn protection on one. Handled, as it answered before, refused the hit too, but let the hooks after it run.
 ///
 /// Everybody is freed at the same tick. The freeze and the freeing are logged once each, with why.</summary>
 sealed class VoteFreeze(BasePlugin plugin, ILogger log, Func<HudScreen?> screen)
@@ -71,8 +73,8 @@ sealed class VoteFreeze(BasePlugin plugin, ILogger log, Func<HudScreen?> screen)
         if (plan.Frozen) HoldEverybody();
     }
 
-    /// <summary>Damage while everybody is frozen: none.</summary>
-    HookResult OnTakeDamage(CCSPlayerPawn pawn, CTakeDamageInfo info) => plan.Frozen ? HookResult.Handled : HookResult.Continue;
+    /// <summary>Damage while everybody is frozen: none, and no hook after this one sees it (Stop).</summary>
+    HookResult OnTakeDamage(CCSPlayerPawn pawn, CTakeDamageInfo info) => plan.Frozen ? HookResult.Stop : HookResult.Continue;
 
     void HoldEverybody()
     {
