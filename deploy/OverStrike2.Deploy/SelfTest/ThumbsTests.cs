@@ -51,8 +51,14 @@ static class ThumbsTests
         var ranked = Thumbs.ByRank(Json.Parse("""[{"id": "3", "rank": 2}, {"id": "1"}, {"id": "2", "rank": "1"}, {"id": "x", "rank": 0}, "not a map", {"id": 4, "rank": 1.7}]"""));
         check("by rank: most popular first, a rank as text or a float read as Python's int() reads it, no rank last, no id no entry",
               ranked.Select(e => Json.PyStr(e["id"])).SequenceEqual(["2", "4", "3", "1"]));
-        var (ids, previews) = Thumbs.FromExport(Json.O("""{"maps.json": [{"id": "1", "rank": 1, "preview": "p1"}], "modes": {"wingman": [{"id": "3"}], "deathmatch": [{"id": "2", "preview": "p2"}]}}"""));
-        check("export: Arms Race's list first, then every mode's in their names' order, with their previews", ids.SequenceEqual(["1", "2", "3"]) && previews.Count == 2 && previews["2"] == "p2");
+        var (exported, exportExit, exportSaid) = SelfTest.Capture(() => Thumbs.FromExport(Json.O("""{"maps.json": [{"id": "1", "rank": 1, "preview": "p1", "ws": "ok"}, {"id": "5", "rank": 2, "preview": "p5", "ws": "removed"}], "modes": {"wingman": [{"id": "3", "ws": "hidden"}, {"id": "7", "ws": null}], "deathmatch": [{"id": "2", "preview": "p2", "ws": "ok"}, {"id": "6", "preview": "p6", "ws": "banned"}]}}""")));
+        check("export: Arms Race's list first, then every mode's in their names' order, with their previews; a map whose sync verdict is not ok is left out and named, one without a verdict kept; nothing said",
+              exported.Ids.SequenceEqual(["1", "2", "7"]) && exported.Previews.Count == 2 && exported.Previews["1"] == "p1" && exported.Previews["2"] == "p2"
+              && exported.Gone.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} {kv.Value}").SequenceEqual(["3 hidden", "5 removed", "6 banned"]) && exportExit is null && exportSaid == "");
+        var (older, olderExit, olderSaid) = SelfTest.Capture(() => Thumbs.FromExport(Json.O("""{"maps.json": [{"id": "1", "rank": 1, "preview": "p1"}], "modes": {"wingman": [{"id": "3"}], "deathmatch": [{"id": "2", "preview": "p2"}]}}""")));
+        check("export: an older os2-sync's, with no verdicts - every map kept, and one line says so",
+              older.Ids.SequenceEqual(["1", "2", "3"]) && older.Previews.Count == 2 && older.Gone.Count == 0 && olderExit is null
+              && Py.SplitLines(olderSaid).Count == 1 && olderSaid.Contains("no map's Workshop verdict", StringComparison.Ordinal));
         var (v2, v2Exit, v2Said) = SelfTest.Capture(() => Thumbs.FromQueues(Json.O("""{"version": 2, "ballot": ["9"], "stock": {"b": ["7", 8], "a": ["6", "x"], "c": {"no": "lane"}}}""")));
         check("queues: the open ballot's first, then every lane of the stock in its name's order, numbers or text; a lane of another shape is empty; nothing said",
               v2 is { } got && got.SequenceEqual(["9", "6", "7", "8"]) && v2Exit is null && v2Said == "");

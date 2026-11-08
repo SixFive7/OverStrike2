@@ -13,7 +13,8 @@ Everything here runs on Windows, with Counter-Strike 2 installed and Steam runni
    start CS2, Settings, search for "Install Counter-Strike Workshop Tools", then let Steam download them.
 2. The map pictures: `python hud\thumbs.py --export export.json` (needs Pillow) makes one small JPEG per map in `hud\thumbs\`.
    `export.json` is what `os2-sync export` prints on the server: every mode's list with its previews, and the discovery stock, first in
-   line. Without `--export`: `bridge/maps.json`, with every preview asked of the Web API. `--ahead FILE` (a JSON array of `{"id", "preview"}`,
+   line. A map the sync's verdict says is gone from the Workshop (`ws`: removed, hidden, banned) gets no picture and nothing is asked for it:
+   its preview went with it. Without `--export`: `bridge/maps.json`, with every preview asked of the Web API. `--ahead FILE` (a JSON array of `{"id", "preview"}`,
    most popular first) adds maps that are not listed yet, so a map has its picture before it is listed. All from the maps' Workshop
    previews, on Steam's image CDN. They are other authors' pictures and are never committed. An official map's picture is the game's own
    screenshot. The addon holds 16,384 pictures at most; a release brings about 113 MB for 9,200 of them.

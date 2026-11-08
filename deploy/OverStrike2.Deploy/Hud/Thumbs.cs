@@ -15,8 +15,11 @@ namespace OverStrike2.Deploy;
 /// The pictures are the maps' own Workshop previews, from Steam's image CDN: the preview the Workshop sync's export or an --ahead file names,
 /// else the preview_url the public Web API gives for an item (no key) - one request at a time, each at least 2 s after the last one ended.
 ///
-///   --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list, each entry with its preview. Without it:
-///                   bridge/maps.json, Arms Race's list as the repository has it, with no previews
+///   --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list, each entry with its preview and the sync's
+///                   verdict on the map ("ws"). A map whose verdict is not ok - removed, hidden, banned - gets no picture, and nothing is asked
+///                   for it, whichever list names it: its preview went with it, and Steam's CDN answers 404. An export with no verdicts (an
+///                   older os2-sync's) leaves nothing out: one line says so. Without it: bridge/maps.json, Arms Race's list as the repository
+///                   has it, with no previews
 ///   --queues FILE   the bridge's queues.json: the maps its stock will put on the next ballots and the maps on an open ballot, first in line
 ///                   for a picture. An export that carries the queues itself ("queues") needs no --queues. Queues that are not queues.json
 ///                   version 2 (an older bridge's) count as none: one line says so, and the run goes on without the head start
@@ -266,24 +269,36 @@ static class HudThumbList
         return (entries as JsonArray ?? []).OfType<JsonObject>().Where(e => Py.IsDigits(Json.PyStr(e["id"]))).OrderBy(Rank).ToList();
     }
 
-    /// <summary>The export's maps, every mode's: (ids most popular first, Arms Race's list first; their previews).</summary>
-    public static (List<string> Ids, Dictionary<string, string> Previews) FromExport(JsonNode? export)
+    /// <summary>The export's maps, every mode's: (ids most popular first, Arms Race's list first; their previews; {id: verdict} of the maps it says
+    /// are gone). An entry's "ws" is the sync's verdict on its map: one that is not ok - removed, hidden, banned - leaves the map out, since its
+    /// preview went with it. An export with no verdict at all - an older os2-sync's - leaves nothing out: one line says so.</summary>
+    public static (List<string> Ids, Dictionary<string, string> Previews, Dictionary<string, string> Gone) FromExport(JsonNode? export)
     {
         var lists = new List<JsonNode?> { Json.At(export, "maps.json") };
         lists.AddRange(Json.Obj(export, "modes").OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Value));
         var ids = new List<string>();
         var previews = new Dictionary<string, string>();
+        var gone = new Dictionary<string, string>();
+        var said = false;
         foreach (var entries in lists)
         {
             foreach (var e in ByRank(entries))
             {
                 var id = Json.PyStr(e["id"]);
+                said |= e.ContainsKey("ws");
+                if (e["ws"] is JsonValue v && v.TryGetValue<string>(out var ws) && ws is not ("" or "ok"))
+                {
+                    gone[id] = ws;
+                    continue;
+                }
                 ids.Add(id);
                 if (Json.Truthy(e["preview"]))
                     previews[id] = Json.PyStr(e["preview"]);
             }
         }
-        return (ids, previews);
+        if ((ids.Count > 0 || gone.Count > 0) && !said)
+            Out.Print("the export says no map's Workshop verdict (an older os2-sync's?) - every listed map is taken as there");
+        return (ids, previews, gone);
     }
 
     /// <summary>The Workshop ids queues.json (version 2) names: the open ballot's first ("ballot"), then every lane of the stock in play order. Anything
@@ -358,10 +373,14 @@ static class HudThumbList
         var export = exportPath is not null ? ReadJson(exportPath) : null;
         List<string> listed;
         Dictionary<string, string> previews;
+        Dictionary<string, string> gone = [];
         if (export is not null)
         {
-            (listed, previews) = FromExport(export);
+            (listed, previews, gone) = FromExport(export);
             Out.Print($"the sync's export: {listed.Count} listed map(s) of every mode, {previews.Count} with their preview");
+            if (gone.Count > 0)
+                Out.Print($"{gone.Count} listed map(s) gone from the Workshop by the sync's verdict, so no picture is asked for: "
+                          + string.Join(", ", gone.Take(8).Select(kv => $"{kv.Key} {kv.Value}")) + (gone.Count > 8 ? " ..." : ""));
         }
         else
         {
@@ -382,7 +401,8 @@ static class HudThumbList
         if (number.Count != keys.Count)
             throw Out.Stop($"{Path.GetFileName(listFile)} names a map twice - fix it by hand before anything else");
         var official = Officials(modes);
-        var wanted = queued.Concat(listed).Concat(ahead.Select(e => Json.PyStr(Json.At(e, "id")))).Distinct().ToList();
+        // A map gone from the Workshop gets nothing, whichever list names it: its preview went with it. A picture it has stays
+        var wanted = queued.Concat(listed).Concat(ahead.Select(e => Json.PyStr(Json.At(e, "id")))).Distinct().Where(k => !gone.ContainsKey(k)).ToList();
         var urlOf = new ConcurrentDictionary<string, string>(previews);
         foreach (var e in ahead)
             if (Json.Truthy(Json.At(e, "preview")))
@@ -390,7 +410,7 @@ static class HudThumbList
         // Every numbered map keeps its picture; every map wanted gets one. Only a JPEG that is missing is fetched.
         var workshop = keys.Where(Py.IsDigits).Concat(wanted).Distinct().ToList();
         string Jpeg(string key) => Path.Combine(outDir, key + ".jpg");
-        var missing = workshop.Where(k => !File.Exists(Jpeg(k))).ToList();
+        var missing = workshop.Where(k => !File.Exists(Jpeg(k)) && !gone.ContainsKey(k)).ToList();
         var ask = missing.Where(k => !urlOf.TryGetValue(k, out var u) || u.Length == 0).ToList();
         if (ask.Count > 0)
         {
@@ -490,7 +510,7 @@ static class HudThumbList
             Out.Print($"black bars filled on {debarred.Count} new picture(s): {Path.Combine(outDir, "debarred.txt")}");
         }
         var jpegs = number.Keys.Count(k => Py.IsDigits(k) && File.Exists(Jpeg(k)));
-        Out.Print($"{rules.Count} rules: {jpegs} JPEGs, {Fmt.Fixed(total / 1e6, 1)} MB; {made.Count} new, {failed.Count} failed ({string.Join(", ", failed.Take(8))}); "
+        Out.Print($"{rules.Count} rules: {jpegs} JPEGs, {Fmt.Fixed(total / 1e6, 1)} MB; {made.Count} new, {failed.Count} failed ({string.Join(", ", failed.Take(8))}), {gone.Count} gone from the Workshop (not asked); "
                   + $"{number.Keys.Count(k => !Py.IsDigits(k))} official; {keys.Count} numbered ({added} new); {classes} class names; {Path.GetFileName(css)} and {Path.GetFileName(listFile)} written");
         return 0;
     }

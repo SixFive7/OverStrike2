@@ -253,19 +253,26 @@ public sealed class Service(SyncConfig cfg, SyncClock clock, Seams seams, SyncLo
     /// <summary>os2-sync export: what this sync has published, as entries a republish from the repo can merge (id, rank, name, subscriptions,
     /// lifetime, sizeMb, updated, tags, description, preview), from the bridge's files and state.json, and the stock as queues.json holds it
     /// ("queues": version 2, the open ballot's maps under "ballot" and a lane per mode under "stock"; null without the file), which the HUD's
-    /// pictures take first.
+    /// pictures take first. Every entry also says the sync's verdict on its map, "ws": ok, removed, hidden or banned - the last check's, as the
+    /// bridge keeps it (removed.json), else the one state.json noted when the sync last read the map, else null. The HUD's pictures skip a map
+    /// whose verdict is not ok: its preview went with it, and Steam's CDN answers 404.
     /// The server's data is ahead of the repo after a run that published; this is the way back.</summary>
     public string Export()
     {
         var st = new SyncState(Path.Combine(cfg.StateDir, "state.json")).Load();
         var files = BridgeData.Read(cfg.BridgeData);
         var mine = new HashSet<string>(st.Items.Where(kv => Node.Str(Node.Get(kv.Value, "status")) == "published").Select(kv => kv.Key));
+        // the check's verdicts (every 4 hours, on every listed map) as the bridge believed and keeps them: a map gone since it was published still
+        // has state.json's ok, which only a new look at the map's details writes again. Missing or unreadable: state.json's alone
+        var checkedNow = Node.Get(Node.ReadJson(Path.Combine(cfg.BridgeData, "removed.json")), "verdicts") as JsonObject ?? [];
+        static string? Said(JsonNode? v) => Node.IsString(v) && Node.Str(v).Length > 0 ? Node.Str(v) : null;
         JsonObject Entry(JsonObject m, JsonObject rec) => new()
         {
             ["id"] = Node.Int(m["id"]), ["rank"] = m["rank"]?.DeepClone(), ["name"] = m["name"]?.DeepClone(), ["sizeMb"] = m["sizeMb"]?.DeepClone(),
             ["subscriptions"] = rec["subs"]?.DeepClone(), ["lifetime"] = rec["lifetime"]?.DeepClone(),
             ["updated"] = DateTimeOffset.FromUnixTimeSeconds(Node.Int(rec["updated"])).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
             ["tags"] = Node.Truthy(rec["tags"]) ? rec["tags"]!.DeepClone() : new JsonArray(), ["description"] = Node.StrOr(rec["description"]), ["preview"] = Node.StrOr(rec["preview"]),
+            ["ws"] = Said(checkedNow[Node.Str(m["id"])]) ?? Said(rec["ws"]),
         };
         var maps = new JsonArray();
         foreach (var m in files.Maps.OfType<JsonObject>().Where(m => mine.Contains(Node.Str(m["id"]))))

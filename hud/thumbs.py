@@ -7,8 +7,11 @@ else the preview_url the public Web API gives for an item (ISteamRemoteStorage/G
 each at least 2 s after the last one ended, as every Web API caller of the project does. Reads:
 
   --export FILE   the Workshop sync's export (os2-sync export, on the server): every mode's list - Arms Race's maps.json
-                  and the other modes' (its "modes") - each entry with its preview. Without it: bridge/maps.json, Arms Race's list as the
-                  repository has it, with no previews, so every missing one is asked of the Web API
+                  and the other modes' (its "modes") - each entry with its preview and the sync's verdict on the map ("ws"). A map
+                  whose verdict is not ok - removed, hidden, banned - gets no picture, and nothing is asked for it, whichever list names
+                  it: its preview went with it, and Steam's CDN answers 404. An export with no verdicts (an older os2-sync's) leaves
+                  nothing out: one line says so. Without it: bridge/maps.json, Arms Race's list as the repository has it, with no
+                  previews, so every missing one is asked of the Web API
   --queues FILE   the bridge's queues.json: the maps its stock will put on the next ballots and the maps on an open ballot,
                   first in line for a picture. An export that carries the queues itself ("queues") needs no --queues. Queues that are
                   not queues.json version 2 (an older bridge's) count as none: one line says so, and the run goes on without the head start
@@ -222,15 +225,24 @@ def by_rank(entries):
 
 
 def from_export(export):
-    """The export's maps, every mode's: (ids most popular first, Arms Race's list first; their previews)."""
+    """The export's maps, every mode's: (ids most popular first, Arms Race's list first; their previews; {id: verdict} of the maps it says are
+    gone). An entry's "ws" is the sync's verdict on its map: one that is not ok - removed, hidden, banned - leaves the map out, since its preview
+    went with it. An export with no verdict at all - an older os2-sync's - leaves nothing out: one line says so, as in the port."""
     lists = [export.get("maps.json") or []] + [entries for _, entries in sorted((export.get("modes") or {}).items())]
-    ids, previews = [], {}
+    ids, previews, gone, said = [], {}, {}, False
     for entries in lists:
         for e in by_rank(entries):
-            ids.append(str(e["id"]))
+            key, ws = str(e["id"]), e.get("ws")
+            said = said or "ws" in e
+            if isinstance(ws, str) and ws not in ("", "ok"):
+                gone[key] = ws
+                continue
+            ids.append(key)
             if e.get("preview"):
-                previews[str(e["id"])] = e["preview"]
-    return ids, previews
+                previews[key] = e["preview"]
+    if (ids or gone) and not said:
+        print("the export says no map's Workshop verdict (an older os2-sync's?) - every listed map is taken as there", flush=True)
+    return ids, previews, gone
 
 
 def from_queues(queues):
@@ -274,10 +286,13 @@ def main():
     a = ap.parse_args()
     export = json.loads(Path(a.export).read_text(encoding="utf-8")) if a.export else None
     if export is not None:
-        listed, previews = from_export(export)
+        listed, previews, gone = from_export(export)
         print(f"the sync's export: {len(listed)} listed map(s) of every mode, {len(previews)} with their preview", flush=True)
+        if gone:
+            print(f"{len(gone)} listed map(s) gone from the Workshop by the sync's verdict, so no picture is asked for: "
+                  + ", ".join(f"{k} {v}" for k, v in list(gone.items())[:8]) + (" ..." if len(gone) > 8 else ""), flush=True)
     else:
-        listed, previews = [str(m["id"]) for m in by_rank(json.loads(MAPS.read_text(encoding="utf-8")))], {}
+        listed, previews, gone = [str(m["id"]) for m in by_rank(json.loads(MAPS.read_text(encoding="utf-8")))], {}, {}
         print(f"{MAPS.name}: {len(listed)} Arms Race map(s), no previews (--export gives every mode's, with them)", flush=True)
     queues = json.loads(Path(a.queues).read_text(encoding="utf-8")) if a.queues else (export or {}).get("queues")
     queued = from_queues(queues) if queues is not None else []
@@ -290,11 +305,12 @@ def main():
     if len(number) != len(keys):
         sys.exit(f"{LIST.name} names a map twice - fix it by hand before anything else")
     official = officials()
-    wanted = list(dict.fromkeys(queued + listed + [str(e["id"]) for e in ahead]))
+    # A map gone from the Workshop gets nothing, whichever list names it: its preview went with it. A picture it has stays
+    wanted = [k for k in dict.fromkeys(queued + listed + [str(e["id"]) for e in ahead]) if k not in gone]
     url_of = {**previews, **{str(e["id"]): e.get("preview") or "" for e in ahead if e.get("preview")}}
     # Every numbered map keeps its picture; every map wanted gets one. Only a JPEG that is missing is fetched.
     workshop = list(dict.fromkeys([k for k in keys if k.isdigit()] + wanted))
-    missing = [k for k in workshop if not (OUT / f"{k}.jpg").exists()]
+    missing = [k for k in workshop if not (OUT / f"{k}.jpg").exists() and k not in gone]
     ask = [k for k in missing if not url_of.get(k)]
     if ask:
         print(f"asking the Web API for {len(ask)} preview(s)", flush=True)
@@ -366,7 +382,7 @@ def main():
             f.write(NL.join(debarred) + NL)
         print(f"black bars filled on {len(debarred)} new picture(s): {OUT / 'debarred.txt'}")
     print(f"{len(rules)} rules: {sum(1 for k in number if k.isdigit() and (OUT / f'{k}.jpg').exists())} JPEGs, {total / 1e6:.1f} MB; {len(made)} new, {len(failed)} failed "
-          f"({', '.join(failed[:8])}); {sum(1 for k in number if not k.isdigit())} official; {len(keys)} numbered ({added} new); {classes} class names; {CSS.name} and {LIST.name} written")
+          f"({', '.join(failed[:8])}), {len(gone)} gone from the Workshop (not asked); {sum(1 for k in number if not k.isdigit())} official; {len(keys)} numbered ({added} new); {classes} class names; {CSS.name} and {LIST.name} written")
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ python -I tools/client/probe/test_bridgepost.py                 # what only the 
 python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
 python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)
 python -I tools/scan/test_scan.py                               # the scanner's rule against raw bidi control characters, offline
-python -I hud/test_thumbs.py                                    # the map pictures' reading of queues.json, offline (Pillow)
+python -I hud/test_thumbs.py                                    # the map pictures' reading of the sync's export and queues.json, offline (Pillow)
 dotnet run --project deploy/OverStrike2.Deploy -- --selftest    # os2-deploy, the C# port of deploy/ and tools/client's Python: every case of their tests
 dotnet run --project deploy/OverStrike2.Deploy -- docshots --selfcheck   # its docshots, held to its dry run as docshots.py is
 python -I maps/selfcheck.py                                     # only for changes under maps/: each map and its preview as committed (maps/README.md)

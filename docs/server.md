@@ -164,7 +164,7 @@ bridge's discovery stock takes only maps whose current content passed (`passed` 
 | `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; after a run nothing stopped and that had nothing it could do, it waits for the next check or a new day; `<state>/run-now` starts a manual run at once. |
 | `os2-sync once [JSON]` | One run now, then exit. JSON lowers its limits: `api_run_cap`, `max_pages`, `batch`; `publish` false; `discover` false; `api` true or false; `only_ids`. |
 | `os2-sync status` | The Web API ledger's counters and the state's totals. |
-| `os2-sync export` | What it has published, as entries a republish from the repository can merge, and the discovery stock as `queues.json` holds it (`queues`), which the HUD's pictures take first. |
+| `os2-sync export` | What it has published, as entries a republish from the repository can merge, each with the sync's verdict on its map (`ws`: ok, removed, hidden or banned - the last check's, as the bridge keeps it in `removed.json`), and the discovery stock as `queues.json` holds it (`queues`), which the HUD's pictures take first. The pictures skip a map whose verdict is not ok. |
 | `os2-sync doctor` | What it sees: the settings as read, the paths, whether there is a key, the bridge, the mail. |
 | `os2-sync version` | Its version. |
 

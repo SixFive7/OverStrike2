@@ -415,6 +415,50 @@ static class RunTests
         Hooks.Check = (_, _, _, _, _) => ([], []);
     }
 
+    // ---- the export's verdicts: every entry says the sync's verdict on its map ("ws") - the last check's as the bridge keeps it (removed.json),
+    // else state.json's from the sync's last look at the map, else null. The HUD's pictures skip a map whose verdict is not ok (hud/thumbs.py,
+    // os2-deploy thumbs): its preview went with it
+    internal static void ExportVerdicts()
+    {
+        var root = T.Temp("exv");
+        var data = Path.Combine(root, "data");
+        Directory.CreateDirectory(Path.Combine(root, "state"));
+        Directory.CreateDirectory(data);
+        Json(Path.Combine(data, "maps.json"), A("""[{"rank": 1, "id": 31, "name": "a", "sizeMb": 1}, {"rank": 2, "id": 32, "name": "b", "sizeMb": 1}, {"rank": 3, "id": 33, "name": "c", "sizeMb": 1}]"""));
+        Json(Path.Combine(data, "maps-wingman.json"), A("""[{"rank": 1, "id": 34, "name": "d", "sizeMb": 1}, {"rank": 2, "id": 35, "name": "e", "sizeMb": 1}, {"rank": 3, "id": 36, "name": "f", "sizeMb": 1}]"""));
+        Json(Path.Combine(data, "broken.json"), O("""{"schema": "x", "maps": [], "packs": []}"""));
+        var items = new JsonObject();
+        foreach (var (id, ws) in new[] { ("31", "ok"), ("32", "ok"), ("33", "hidden"), ("34", "ok"), ("35", "removed"), ("36", "") })
+        {
+            var rec = O("""{"status": "published", "subs": 5, "lifetime": 7, "updated": 500, "tags": [], "description": "", "preview": "p"}""");
+            if (ws != "")
+                rec["ws"] = ws;
+            items[id] = rec;
+        }
+        Json(Path.Combine(root, "state", "state.json"), new JsonObject { ["schema"] = 1, ["items"] = items, ["baseline"] = new JsonObject(), ["downloads"] = new JsonObject() });
+        static List<string?> Verdicts(JsonNode? list) =>
+            Node.Arr(list).OfType<JsonObject>().Select(e => e.TryGetPropertyValue("ws", out var v) ? v is null ? null : Node.Str(v) : "(no ws)").ToList();
+        var saved = (State, Work, Data);
+        (State, Work, Data) = (Path.Combine(root, "state"), Path.Combine(root, "work"), data);
+        try
+        {
+            var fc = new FakeClock(T0);
+            Json(Path.Combine(data, "removed.json"), O("""{"checked": "x", "verdicts": {"31": "ok", "32": "removed", "34": "hidden", "35": "ok"}}"""));
+            var ex = O(new Service(Cfg(), C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
+            Check("export: every entry says the sync's verdict on its map (ws) - the check's as the bridge keeps it first, over state.json's ok of a map gone "
+                  + "since and its removed of one back since; state.json's for a map the check has not answered; null with neither",
+                  Verdicts(ex["maps.json"]) is ["ok", "removed", "hidden"] && Verdicts(ex["modes"]!["wingman"]) is ["hidden", "ok", null]);
+            File.WriteAllText(Path.Combine(data, "removed.json"), "not json");
+            ex = O(new Service(Cfg(), C(fc), Hooks, Log, new WebApiDoor(2, fc)).Export());
+            Check("export: with the bridge's removed.json unreadable, state.json's verdicts alone - and the export goes on",
+                  Verdicts(ex["maps.json"]) is ["ok", "ok", "hidden"] && Verdicts(ex["modes"]!["wingman"]) is ["ok", "removed", null]);
+        }
+        finally
+        {
+            (State, Work, Data) = saved;
+        }
+    }
+
     // ---- the status picture only looks: the queue it shows leaves every item's status as it was; the queue of a run's step marks them
     internal static void PictureOnly()
     {
