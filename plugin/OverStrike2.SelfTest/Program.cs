@@ -196,38 +196,68 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
 }
 
 // ---- the restart guard (release 195): only our own code restarts the game. awp_lego_2 (3817962966) sets mp_restartgame 1 from its logic_auto's
-// OnMapSpawn, which fires again after every restart: from the first team join the match restarted every 3 s. Its value goes back to 0 unless it is
-// the bridge's Restart match around its moment or os_restart's, once each; quick round starts we did not cause are a loop ----
+// OnMapSpawn, which fires again after every restart: from the first team join the match restarted every 3 s. The convar's change callback only notes
+// a set - 5.4.2 wrote the 0 back right inside it, and the engine segfaulted 170-200 ms later, twice in two refusals - and the looks from the frame put
+// back a value that is not ours. A set the game took before any look escaped: one restart, then the convar is held for the rest of the map ----
 {
     var t0 = new DateTime(2026, 11, 8, 20, 0, 0, DateTimeKind.Utc);
     Check(RestartGuard.Restarts("1") && RestartGuard.Restarts(" 3 ") && RestartGuard.Restarts("2.5") && !RestartGuard.Restarts("0") && !RestartGuard.Restarts("0.5")
           && !RestartGuard.Restarts("") && !RestartGuard.Restarts(null) && !RestartGuard.Restarts("abc") && !RestartGuard.Restarts("-1"),
         "restart guard: a value restarts the game when it is a number of at least 1, as the game reads it");
+    // the look comes before the game reads it: the map's set goes back to 0, every time, and nothing restarts
     var map = new RestartGuard();
-    Check(map.Look("1", t0, 0, 0) == RestartGuard.Verdict.Refused && map.Look("0", t0.AddSeconds(0.1), 0, 0) == RestartGuard.Verdict.Quiet
-          && map.Look("1", t0.AddSeconds(3), 0, 0) == RestartGuard.Verdict.Refused && map.Refused == 2,
-        "restart guard: a map's mp_restartgame 1 is refused - at its spawn, and again at every round start its logic fires on");
+    map.Noted("1");
+    var first = map.Look("1", t0, 0, 0);
+    map.Noted("0"); // the put-back's own change
+    var quiet = map.Look("0", t0.AddSeconds(0.02), 0, 0);
+    map.Noted("1");
+    Check(first == RestartGuard.Verdict.Refused && quiet == RestartGuard.Verdict.Quiet && map.Look("1", t0.AddSeconds(3), 0, 0) == RestartGuard.Verdict.Refused
+          && map.Refused == 2 && map.Escaped == 0,
+        "restart guard: a map's mp_restartgame 1 seen by a look goes back to 0 - at its spawn, and at every round start its logic fires on; the put-back's own change notes nothing");
+    // the game reads it before any look: the set escaped - its one restart goes through, and the caller holds the convar
+    var escaped = new RestartGuard();
+    escaped.Noted("1");
+    escaped.Noted("0"); // the game's own reset, as it takes the value
+    Check(escaped.Look("0", t0, 0, 0) == RestartGuard.Verdict.Escaped && escaped.Escaped == 1 && escaped.Look("0", t0.AddSeconds(0.02), 0, 0) == RestartGuard.Verdict.Quiet,
+        "restart guard: a set the game took before any look escaped - its restart goes through once, the convar is held for the rest of the map, and the next look is quiet");
+    // os_restart: once, within its seconds, whether a look or the game sees it first
     map.Own(t0.AddSeconds(10));
+    map.Noted("1");
     Check(map.Look("1", t0.AddSeconds(10.1), 0, 0) == RestartGuard.Verdict.LetThrough && map.LastOurs == "os_restart"
           && map.Look("1", t0.AddSeconds(10.2), 0, 0) == RestartGuard.Verdict.Ours && map.Look("0", t0.AddSeconds(10.3), 0, 0) == RestartGuard.Verdict.Quiet
           && map.Look("1", t0.AddSeconds(10.5), 0, 0) == RestartGuard.Verdict.Refused,
         "restart guard: os_restart goes through once - its value stays ours until the game has taken it, and a set after that is refused again");
+    var ownTaken = new RestartGuard();
+    ownTaken.Own(t0);
+    ownTaken.Noted("3");
+    Check(ownTaken.Look("0", t0.AddSeconds(0.02), 0, 0) == RestartGuard.Verdict.LetThrough && ownTaken.Escaped == 0 && ownTaken.LastOurs == "os_restart",
+        "restart guard: os_restart's set that the game takes before any look is ours, not an escape: it restarts once, and nothing is held");
     map.Own(t0.AddSeconds(20));
     Check(map.Look("1", t0.AddSeconds(20 + RestartGuard.OwnSeconds + 0.1), 0, 0) == RestartGuard.Verdict.Refused,
         $"restart guard: os_restart's let-through lapses after {RestartGuard.OwnSeconds} s");
+    // the bridge's Restart match: around its moment on the bridge's clock, once per moment - in both orders
     const long at = 1_794_000_000_000;
     var rematch = new RestartGuard();
     Check(rematch.Look("1", t0, at, at - (long)(RestartGuard.AllowBeforeSeconds * 1000) - 1000) == RestartGuard.Verdict.Refused
           && rematch.Look("1", t0, at, at + (long)(RestartGuard.AllowAfterSeconds * 1000) + 1000) == RestartGuard.Verdict.Refused,
         "restart guard: a set long before or long after the Restart match's moment is no Restart match's");
-    Check(rematch.Look("1", t0, at, at + 200) == RestartGuard.Verdict.LetThrough && rematch.LastOurs == "Restart match"
-          && rematch.Look("0", t0, at, at + 300) == RestartGuard.Verdict.Quiet && rematch.Look("1", t0, at, at + 3000) == RestartGuard.Verdict.Refused,
-        "restart guard: the bridge's Restart match goes through once, around its moment - a map that sets it again after that restart is refused");
+    var lets = new List<RestartGuard.Verdict> { rematch.Look("1", t0, at, at + 200), rematch.Look("1", t0, at, at + 250), rematch.Look("0", t0, at, at + 300) };
+    rematch.Noted("1"); // the map's logic, at the round start of that restart
+    lets.Add(rematch.Look("1", t0, at, at + 3000));
+    Check(lets is [RestartGuard.Verdict.LetThrough, RestartGuard.Verdict.Ours, RestartGuard.Verdict.Quiet, RestartGuard.Verdict.Refused] && rematch.LastOurs == "Restart match",
+        "restart guard: the bridge's Restart match goes through exactly once, around its moment - and the map's set after its restart is refused");
+    var rematchTaken = new RestartGuard();
+    rematchTaken.Noted("1");
+    var taken = rematchTaken.Look("0", t0, at, at + 200);
+    rematchTaken.Noted("1");
+    Check(taken == RestartGuard.Verdict.LetThrough && rematchTaken.Look("0", t0, at, at + 3000) == RestartGuard.Verdict.Escaped,
+        "restart guard: a Restart match the game takes before any look is ours - one restart - and a map's set the game takes after it is an escape, held");
     Check(rematch.Look("1", t0, at + 600_000, at + 600_000) == RestartGuard.Verdict.LetThrough, "restart guard: the next Restart match is a moment of its own, and goes through");
+    // the loop the round starts show
     var loop = new RestartGuard();
     var starts = Enumerable.Range(0, 8).Select(i => loop.Started(t0.AddSeconds(i * 3.05), "1")).ToList();
     Check(starts.Count(s => s.Loop) == 2 && starts[RestartGuard.LoopStarts - 1] == (true, true) && !starts[RestartGuard.LoopStarts - 2].Loop && loop.Loops == 2,
-        $"restart guard: tonight's loop - a round start every 3.05 s that we did not cause - is caught at its {RestartGuard.LoopStarts}th start, logged with mp_restartgame put back, once per run");
+        $"restart guard: tonight's loop - a round start every 3.05 s that we did not cause - is caught at its {RestartGuard.LoopStarts}th start, put back and held, once per run");
     var calm = new RestartGuard();
     Check(Enumerable.Range(0, 10).All(i => calm.Started(t0.AddSeconds(i * (RestartGuard.LoopGapSeconds + 1)), "0") == (false, false)),
         $"restart guard: round starts more than {RestartGuard.LoopGapSeconds} s apart are no loop, however many");
@@ -238,15 +268,26 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var after = new[] { 1.5, 2.0, 2.5, 3.0 }.Select(x => ours.Started(t0.AddSeconds(x), "0")).ToList();
     Check(through == RestartGuard.Verdict.LetThrough && atRestart == (true, false) && after.All(a => a == (false, false)) && ours.Loops == 0,
         "restart guard: the round starts of a restart of ours count toward no loop, and a value it left in the convar goes back to 0 at its start");
+    loop.Noted("1");
     loop.MapStarted();
-    Check(loop.Refused == 0 && loop.Loops == 0 && loop.Started(t0.AddSeconds(100), "0") == (false, false), "restart guard: a new map starts its counts over");
+    Check(loop.Refused == 0 && loop.Escaped == 0 && loop.Loops == 0 && loop.Look("0", t0.AddSeconds(100), 0, 0) == RestartGuard.Verdict.Quiet,
+        "restart guard: a new map starts its counts over, and the old map's note goes with it");
+    // the wiring: the change callback notes and writes nothing; the looks come from the frame
     var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
     string Source(params string[] parts) => File.Exists(Path.Combine([root, .. parts])) ? File.ReadAllText(Path.Combine([root, .. parts])) : "";
-    var wiring = Source("plugin", "OverStrike2", "GameSettingsRestart.cs");
-    Check(wiring.Contains("RegisterListener<Listeners.OnConVarChanged>", StringComparison.Ordinal) && wiring.Contains("RegisterListener<Listeners.OnTick>", StringComparison.Ordinal)
+    var wiring = Source("plugin", "OverStrike2", "GameSettingsRestart.cs").Replace("\r\n", "\n");
+    var noteAt = wiring.IndexOf("    void NoteRestart(", StringComparison.Ordinal);
+    var noteEnd = noteAt < 0 ? -1 : wiring.IndexOf("\n    }", noteAt, StringComparison.Ordinal);
+    var callback = noteAt >= 0 && noteEnd > noteAt ? wiring[noteAt..noteEnd] : "";
+    Check(callback.Contains("restarts.Noted(", StringComparison.Ordinal)
+          && new[] { "StringValue =", "ValueAsString =", "Flags =", "Hold(", "Look", "Write(", "ExecuteCommand" }.All(w => !callback.Contains(w, StringComparison.Ordinal))
+          && wiring.Contains("RegisterListener<Listeners.OnConVarChanged>(NoteRestart)", StringComparison.Ordinal),
+        "restart guard: the convar's change callback only notes - no write of the convar or its flags in it, no look (5.4.2's write there crashed the engine)");
+    Check(new[] { "RegisterListener<Listeners.OnServerPreWorldUpdate>(_ => LookAtRestart(", "RegisterListener<Listeners.OnServerPreEntityThink>(() => LookAtRestart(",
+                  "RegisterListener<Listeners.OnTick>(() => LookAtRestart(" }.All(w => wiring.Contains(w, StringComparison.Ordinal))
           && wiring.Contains("[ConsoleCommand(\"os_restart\"", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "GameSettings.cs").Contains("LoadRestarts();", StringComparison.Ordinal)
           && Source("plugin", "OverStrike2", "OverStrike2.cs").Contains("settings.Rematch = ", StringComparison.Ordinal),
-        "restart guard: the settings module looks at every change of mp_restartgame and at every tick, hears of the bridge's Restart match, and has os_restart");
+        "restart guard: the put-back comes from the frame - before the world updates, before the entities think, at the tick - the bridge's Restart match is heard of, and os_restart is there");
     var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs"),
                           Source("tools", "client", "docshots", "docshots.py") };
     Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),

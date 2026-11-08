@@ -68,7 +68,7 @@ sealed partial class GameSettings
         command.ReplyToCommand(diffs.Count == 0 ? "os_settings: nothing differs from the baseline"
             : $"os_settings: {diffs.Count} differ: " + string.Join(", ", diffs.Select(d => $"{d.Name} {d.Now} (baseline {d.Want})")));
         command.ReplyToCommand($"os_settings: block {block.Describe}");
-        command.ReplyToCommand($"os_settings: restarts {restarts.Describe}");
+        command.ReplyToCommand($"os_settings: restarts {restarts.Describe}{(flagsBeforeHold != null ? "; held until the map ends" : "")}");
         command.ReplyToCommand($"os_settings: fun {fun.Describe()}; last {fun.Last}");
         if (keeper.Stubborn.Count > 0) command.ReplyToCommand("os_settings: refused a put-back: " + string.Join(", ", keeper.Stubborn));
     }

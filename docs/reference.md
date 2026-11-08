@@ -521,11 +521,14 @@ Thousands of community maps include some that break things, so every broken map 
   switch, cheats: `plugin/OverStrike2/blocked.txt`, a value per game mode) are put back within a second, and the players are told. A player's choice on the Fun page is never blocked.
   The mode's `game_type` and `game_mode` are put back without a word to the players when no map changed them: after an `os_mode`, and when CS2 brings
   back the mode it saved before the Workshop maps with a map change.
-- **Only our own code restarts the game** (`plugin/OverStrike2/RestartGuard.cs`). A map's `mp_restartgame` goes back to 0 the moment it is set, and at every tick
-  behind that: AWP Lego 2 (3817962966) sets it from a logic_auto's OnMapSpawn, which fires again after every restart, and on 2026-11-08 the match restarted every
-  3 s from the first team join until the server was quit. What goes through: the bridge's Restart match, once, around the moment its countdown ends (the live
-  state names it), and `os_restart [seconds]`, the console's and the tools' restart (the docs' harness uses it). Four round starts each within 5 s of the one before
-  that we did not cause are logged as a restart loop, and `mp_restartgame` is put back; `os_settings` says what was refused on the map.
+- **Only our own code restarts the game** (`plugin/OverStrike2/RestartGuard.cs`). AWP Lego 2 (3817962966) sets `mp_restartgame 1` from a logic_auto's OnMapSpawn,
+  which fires again after every restart: on 2026-11-08 the match restarted every 3 s from the first team join until the server was quit. A map's `mp_restartgame`
+  goes back to 0 from the server's frame - before the world updates, before the entities think, and at the tick - never inside the convar's own change callback,
+  which only notes the set (a write there crashed the engine, twice, in release 195's rehearsal). A set the game takes before any of those looks escapes: its one
+  restart goes through, and `mp_restartgame` is held until the map ends - flagged a cheat setting, which the game refuses to the map's next set. Four round starts
+  each within 5 s of the one before that we did not cause are a restart loop: logged, put back and held the same way. What goes through: the bridge's Restart match,
+  once, around the moment its countdown ends (the live state names it; not while the convar is held), and `os_restart [seconds]`, the console's and the tools'
+  restart (the docs' harness uses it; `os_restart hold` and `free` hold and free the convar by hand). `os_settings` says what was refused, escaped and held.
 
 ## The HUD's version and the HUD check
 

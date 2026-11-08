@@ -3,15 +3,21 @@ using System.Globalization;
 namespace OverStrike2;
 
 /// <summary>Only our own code restarts the game (release 195). awp_lego_2 (3817962966) sets <c>mp_restartgame 1</c> from a logic_auto's OnMapSpawn, which
-/// fires again after every restart: from the first team join the match restarted every 3 s, until the server was quit. So a value of mp_restartgame
-/// that would restart the game is put back to 0 the moment it is set (the settings module's OnConVarChanged, with its look every tick behind it),
-/// unless it is ours:
-/// - the bridge's Restart match (!rematch): the live state names its moment, and the bridge sends mp_restartgame over RCON when its countdown ends -
-///   let through once per moment, from AllowBeforeSeconds before it to AllowAfterSeconds after it, on the bridge's clock;
-/// - os_restart, the console's and the server's tools' restart: let through once, within OwnSeconds.
-/// A value let through stays ours until the game has taken it - it reads 0 again - or a round has started on it. Behind all that a guard: LoopStarts
-/// round starts, each within LoopGapSeconds of the one before and none of them the start of a restart of ours, are a loop we did not cause - logged,
-/// and mp_restartgame put back. No CounterStrikeSharp type in it: the self-test drives it with a handed clock.</summary>
+/// fires again after every restart: from the first team join the match restarted every 3 s, until the server was quit.
+///
+/// Nothing here writes the convar inside its own change callback: plugin 5.4.2 put it back to 0 right there, and the engine segfaulted some 170-200 ms
+/// later, twice in two refusals (release 195's rehearsal, 2026-11-08). The callback only notes a set (Noted); the looks the plugin makes at every frame -
+/// before the world updates, before the entities think, and at the tick - read the convar and put a value that is not ours back to 0 (Look).
+///
+/// What is ours: the bridge's Restart match (!rematch) - the live state names its moment, and the bridge sends mp_restartgame over RCON when its
+/// countdown ends - let through once per moment, from AllowBeforeSeconds before it to AllowAfterSeconds after it, on the bridge's clock; and os_restart,
+/// the console's and the server's tools' restart, let through once within OwnSeconds. A value let through stays ours until the game has taken it - it
+/// reads 0 again - or a round has started on it.
+///
+/// A set the game took before any look saw it (noted, gone at the next look, not ours) has escaped: its restart goes through - one - and the plugin then
+/// holds the convar for the rest of the map (a cheat setting: the game itself refuses the map's next set). The same hold follows a loop the round
+/// starts show: LoopStarts round starts, each within LoopGapSeconds of the one before and none of them the start of a restart of ours. No
+/// CounterStrikeSharp type in it: the self-test drives it with a handed clock.</summary>
 public sealed class RestartGuard
 {
     public const string ConVar = "mp_restartgame";
@@ -20,17 +26,20 @@ public sealed class RestartGuard
     public const int LoopStarts = 4;                                     // round starts...
     public const double LoopGapSeconds = 5;                              // ...each this close to the one before: no round of any mode is that short
 
-    /// <summary>Quiet: no restart in the value. LetThrough: a restart of ours, seen for the first time. Ours: the same, still waiting for the game.
-    /// Refused: not ours - it goes back to 0.</summary>
-    public enum Verdict { Quiet, LetThrough, Ours, Refused }
+    /// <summary>Quiet: no restart in the value, and none came and went. LetThrough: a restart of ours, seen for the first time (or taken by the game
+    /// already). Ours: the same, still waiting for the game. Refused: not ours - it goes back to 0 now. Escaped: not ours, and the game took it before
+    /// this look - its restart goes through, and the convar is to be held for the rest of the map.</summary>
+    public enum Verdict { Quiet, LetThrough, Ours, Refused, Escaped }
 
     DateTime ownUntil = DateTime.MinValue, oursAt = DateTime.MinValue;
     long usedRematchMs;  // the Restart match whose restart went through: one per moment
     bool letThrough;     // the value now is a restart of ours the game has not taken yet
+    string? noted;       // a restarting value the change callback saw since the last look
     readonly List<DateTime> starts = new();
 
-    /// <summary>On this map: the restarts refused, and the loops seen.</summary>
+    /// <summary>On this map: the restarts refused, those that escaped, and the loops seen.</summary>
     public int Refused { get; private set; }
+    public int Escaped { get; private set; }
     public int Loops { get; private set; }
 
     /// <summary>Whose the last restart let through was: "Restart match" or "os_restart".</summary>
@@ -44,42 +53,65 @@ public sealed class RestartGuard
     public static bool Restarts(string? value) =>
         double.TryParse(value?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v >= 1;
 
-    /// <summary>mp_restartgame reads value now - at a change, or at the look every tick. rematchAtMs: the bridge's Restart match moment (0: none heard
-    /// of); bridgeNowMs: the bridge's clock now. Every Refused counts.</summary>
+    /// <summary>The change callback's whole part: it notes a restarting value, and writes nothing. The game's own reset to 0 and the plugin's
+    /// put-back clear no note - the next look does.</summary>
+    public void Noted(string? value)
+    {
+        if (Restarts(value)) noted = value;
+    }
+
+    /// <summary>A look at mp_restartgame, which reads value now. rematchAtMs: the bridge's Restart match moment (0: none heard of); bridgeNowMs:
+    /// the bridge's clock now. Every Refused and Escaped counts.</summary>
     public Verdict Look(string? value, DateTime now, long rematchAtMs, long bridgeNowMs)
     {
+        var came = noted;
+        noted = null;
         if (!Restarts(value))
         {
             letThrough = false;
-            return Verdict.Quiet;
+            if (came == null) return Verdict.Quiet;
+            if (Allowed(now, rematchAtMs, bridgeNowMs)) return Verdict.LetThrough; // ours, and the game has taken it already
+            Escaped++;
+            return Verdict.Escaped;
         }
         if (letThrough) return Verdict.Ours;
-        if (now <= ownUntil)
+        if (Allowed(now, rematchAtMs, bridgeNowMs))
         {
-            ownUntil = DateTime.MinValue;
-            return Through(now, "os_restart");
-        }
-        if (rematchAtMs > 0 && rematchAtMs != usedRematchMs && bridgeNowMs >= rematchAtMs - (long)(AllowBeforeSeconds * 1000)
-            && bridgeNowMs <= rematchAtMs + (long)(AllowAfterSeconds * 1000))
-        {
-            usedRematchMs = rematchAtMs;
-            return Through(now, "Restart match");
+            letThrough = true;
+            return Verdict.LetThrough;
         }
         Refused++;
         return Verdict.Refused;
     }
 
-    Verdict Through(DateTime now, string whose)
+    /// <summary>Whether a restart now is ours - os_restart's within its seconds, or the Restart match's around its moment, each once: true takes it.</summary>
+    bool Allowed(DateTime now, long rematchAtMs, long bridgeNowMs)
     {
-        letThrough = true;
+        if (now <= ownUntil)
+        {
+            ownUntil = DateTime.MinValue;
+            return Ours(now, "os_restart");
+        }
+        if (rematchAtMs > 0 && rematchAtMs != usedRematchMs && bridgeNowMs >= rematchAtMs - (long)(AllowBeforeSeconds * 1000)
+            && bridgeNowMs <= rematchAtMs + (long)(AllowAfterSeconds * 1000))
+        {
+            usedRematchMs = rematchAtMs;
+            return Ours(now, "Restart match");
+        }
+        return false;
+    }
+
+    bool Ours(DateTime now, string whose)
+    {
         oursAt = now;
         LastOurs = whose;
         starts.Clear();
-        return Verdict.LetThrough;
+        return true;
     }
 
     /// <summary>A round start, with what mp_restartgame reads at it. PutBack: it still reads a restart - ours, which the game has carried out by now, or
-    /// one of the loop - and goes back to 0. Loop: true once per run of LoopStarts quick round starts we did not cause.</summary>
+    /// one of the loop - and goes back to 0 (from the round start's handler, never the change callback). Loop: true once per run of LoopStarts quick
+    /// round starts we did not cause - the convar is to be held for the rest of the map.</summary>
     public (bool PutBack, bool Loop) Started(DateTime now, string? value)
     {
         var lingering = letThrough && Restarts(value);
@@ -97,15 +129,16 @@ public sealed class RestartGuard
         return (lingering || Restarts(value), true);
     }
 
-    /// <summary>A new map: its counts start over; a restart of ours waiting for the game is the old map's.</summary>
+    /// <summary>A new map: its counts start over; a restart of ours waiting for the game, and a note, are the old map's.</summary>
     public void MapStarted()
     {
-        Refused = Loops = 0;
+        Refused = Escaped = Loops = 0;
         letThrough = false;
+        noted = null;
         ownUntil = DateTime.MinValue;
         starts.Clear();
     }
 
-    /// <summary>For os_settings: "refused 3 on this map, no loop; the last let through: Restart match".</summary>
-    public string Describe => $"refused {Refused} on this map, {(Loops == 0 ? "no loop" : $"{Loops} loop(s)")}; the last let through: {LastOurs}";
+    /// <summary>For os_settings: "refused 3, escaped 0 on this map, no loop; the last let through: Restart match".</summary>
+    public string Describe => $"refused {Refused}, escaped {Escaped} on this map, {(Loops == 0 ? "no loop" : $"{Loops} loop(s)")}; the last let through: {LastOurs}";
 }

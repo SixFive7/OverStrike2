@@ -194,6 +194,7 @@ sealed partial class GameSettings
     public void Unload()
     {
         Ending = true;
+        FreeRestarts("the plugin's unload"); // a held mp_restartgame is no next instance's to know about
         try { ModeHandover.Put(modes, Server.CurrentTime, DateTime.UtcNow); }
         catch (Exception e) { log.LogError("Over Strike 2 settings: handing the mode on failed: {Error}", e); }
         try
