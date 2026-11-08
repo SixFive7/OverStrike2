@@ -121,13 +121,17 @@ sealed partial class HudScreen
         return $"probing {other}'s Workshop page and the Web API - the answer goes to the server log as 'Over Strike 2 HUD item probe:'";
     }
 
-    /// <summary>What the check's clock says is due: the warning in chat, then the disconnect - with warn only a log line.</summary>
+    /// <summary>What the check's clock says is due: the warning in chat, then the disconnect - with warn a log line, and with the check off nothing said. At
+    /// the end of the grace with warn or with the check off the player's window closes (HudGate.ClosesWindow): the welcome pinned at their join waits for its X,
+    /// which a game that cannot draw our window never clicks - so the server held it open all map, and the spawn cloak hid that player at every spawn, from the
+    /// bots too (release 194). Closed, the cloak ends with "the menu window closed"; a player who clicks within the grace never gets here.</summary>
     void RunCheck(DateTime now)
     {
         foreach (var (slot, act, seconds) in gate.Frame(now, checkMode, Verified))
         {
             if (Utilities.GetPlayerFromSlot(slot) is not { IsValid: true, IsBot: false, IsHLTV: false } p) { gate.Gone(slot); continue; }
             var account = Account(p);
+            if (HudGate.ClosesWindow(act)) slots.Close(slot, now);
             switch (act)
             {
                 case HudGate.Act.Warn: // the alert's two short lines on screen, and in chat what to do about it
@@ -135,7 +139,11 @@ sealed partial class HudScreen
                     log.LogInformation("Over Strike 2 HUD check: warned {Name} [U:1:{Account}] ({Mode}, {Seconds} s left)", p.PlayerName, account, HudCheck.Name(checkMode), seconds);
                     break;
                 case HudGate.Act.WouldKick:
-                    log.LogInformation("Over Strike 2 HUD check (warn): would disconnect {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);
+                    log.LogInformation("Over Strike 2 HUD check (warn): would disconnect {Name} [U:1:{Account}] - no click from the HUD in {Grace} s; their window closes, and the spawn cloak with it",
+                        p.PlayerName, account, HudCheck.GraceSeconds);
+                    break;
+                case HudGate.Act.Lapse:
+                    log.LogInformation("Over Strike 2 HUD check (off): no click from {Name} [U:1:{Account}] in {Grace} s - their window closes, and the spawn cloak with it", p.PlayerName, account, HudCheck.GraceSeconds);
                     break;
                 case HudGate.Act.Kick:
                     log.LogWarning("Over Strike 2 HUD check: disconnecting {Name} [U:1:{Account}] - no click from the HUD in {Grace} s", p.PlayerName, account, HudCheck.GraceSeconds);

@@ -82,7 +82,10 @@ keeps its picture's number for good (`HudThumbList.cs`), so an older HUD never s
 **The spawn cloak.** A player whose window is open while they are on their spawn is hidden from everybody else, in every game mode, for as
 long as it stays open (`CloakPlan.cs`): the model, every weapon they carry, wearables and shadows. Moving more than 64 units sideways or 72
 up or down, attacking, or a vote's freeze starting or ending spends it until the next spawn; closing the window only ends it until the
-window opens again. A player killed with the window open is hidden again at the respawn. What is no model - the radar's dot, the name when
+window opens again. A player killed with the window open is hidden again at the respawn. The welcome a real join opens waits for its X, so a
+game that cannot draw our window - a content before v4.8.0, a download that failed, a joiner while the item is held - would keep it open on the
+server all map and be hidden at every spawn; the end of [the HUD check's](#the-huds-version-and-the-hud-check) 90 s closes it instead, with
+`warn` and with the check off, and the cloak ends with it ("the menu window closed"). What is no model - the radar's dot, the name when
 aimed at, sounds, muzzle flashes - still shows. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
 so while it hides a player - the spawn cloak, Ghost, `os_cloak hide` - no bot's damage hurts them (`BotGuard.cs`), until their own first attack in that
 hide: a shot, a throw or a hit on somebody else ends that shield, though not the hide, and the next hide shields again. A player's damage lands as ever.
@@ -534,8 +537,11 @@ banner stays and names both versions; a newer game's shows for 15 s at the join.
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
 (SERVER, Players) and closes the window. Any other button proves the HUD without saying which. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
-`hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. A verification lives in memory, per connection: a reconnecting player may have a new HUD. No fresh word
-from the bridge means off.
+`hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. With `warn` and with the check off, the end of the 90 s also closes that player's window - the
+welcome too, which otherwise waits for its X - so the [spawn cloak](#in-game-hud) cannot hide a game that cannot draw the window for longer than that (`HudGate.ClosesWindow`); a player who has not
+clicked by then sees the window close. A verification lives in memory, per connection: a reconnecting player may have a new HUD. No fresh word from the bridge for `HudCheck.StaleSeconds` means off
+(no state, no disconnects) - and the plugin asks the bridge only while a human is on, so the check reads off whenever the server is empty and its mode again from the first answer after a join; the
+clock's grace runs on through such a switch, and the step back up re-arms everybody still waiting with a full grace, at most once a map.
 
 **The item watch.** While Steam does not show the HUD's Workshop item to everybody - Valve reviews every new version, and a held item is an error page for everybody but its owner - the server must not make
 joiners download it, and nobody is disconnected. The plugin reads the Web API every minute, which says whether the item is gone, private or banned and when a new version went up, but not whether Valve

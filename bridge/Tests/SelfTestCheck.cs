@@ -218,7 +218,10 @@ static partial class Program
             rearmed.SequenceEqual([5]) && acts.Count == 2 && acts[0] is (5, HudGate.Act.Warn, 15, 175) && acts[1] is (5, HudGate.Act.Kick, 0, 190));
         gate = new HudGate();
         gate.Spawned(6, 106, false, t0);
-        Check("HUD check: switched off, nothing happens at all", Run(gate, HudCheck.Mode.Off, [], 0, 300).Count == 0);
+        acts = Run(gate, HudCheck.Mode.Off, [], 0, 300);
+        Check($"HUD check: switched off, nobody is warned or disconnected - the end of the grace ({HudCheck.GraceSeconds} s) is a Lapse, once, which only closes the window",
+            acts.Count == 1 && acts[0] is (6, HudGate.Act.Lapse, 0, 90) && HudGate.ClosesWindow(HudGate.Act.Lapse) && HudGate.ClosesWindow(HudGate.Act.WouldKick)
+            && !HudGate.ClosesWindow(HudGate.Act.Kick) && !HudGate.ClosesWindow(HudGate.Act.Warn));
         gate.MapStarted();
         Check("HUD check: a new map (everybody reconnects) starts the clock over", gate.Spawned(6, 106, false, t0.AddSeconds(400)) && gate.Checking(6));
         gate.Gone(6);
@@ -384,7 +387,8 @@ static partial class Program
             var mode = sec is >= 60 and < 120 ? HudCheck.Mode.Off : HudCheck.Mode.Enforce; // no word from the bridge from 60 to 120 s
             acts.AddRange(gate.Frame(t0.AddSeconds(sec), mode, _ => false).Select(a => (a.Slot, a.Act, a.Seconds, sec)));
         }
-        Check("HUD check: after a pause past the deadline the player still gets the warning, and 15 s to click, before the disconnect",
-            acts.Count == 2 && acts[0] is (11, HudGate.Act.Warn, 15, 120) && acts[1] is (11, HudGate.Act.Kick, 0, 135));
+        Check("HUD check: after a pause past the deadline the player still gets the warning, and 15 s to click, before the disconnect - the end of the "
+            + "grace during the pause only closed their window, once (a Lapse)",
+            acts.Count == 3 && acts[0] is (11, HudGate.Act.Lapse, 0, 90) && acts[1] is (11, HudGate.Act.Warn, 15, 120) && acts[2] is (11, HudGate.Act.Kick, 0, 135));
     }
 }

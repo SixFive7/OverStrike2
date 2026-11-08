@@ -354,7 +354,9 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
 /// respawn. While the window is open there is no other protection: the vote's freeze still protects everybody during a vote, and the game's own
 /// spawn protection runs as ever.
 ///
-/// The window is the HUD's (HudScreen.WindowOpen, handed in by the plugin) and the freeze the vote's (VoteFreeze.Frozen). The events only note (a
+/// The window is the HUD's (HudScreen.WindowOpen, handed in by the plugin): a window that is the server's word only - a game that cannot draw ours never
+/// clicks the welcome's X - closes at the end of the HUD check's grace (HudGate.ClosesWindow, release 194), and the hide with it. The freeze is the vote's
+/// (VoteFreeze.Frozen). The events only note (a
 /// spawn, a death, a shot, a throw, a hit); the look at every player still on their spawn is the cloak's pass, every tick after the entities'
 /// think, so the window's closing, a step off the spawn and an attack end the hide in the tick they happen.</summary>
 sealed class SpawnCloak(BasePlugin plugin, ILogger log, Cloak cloak, Func<int, bool> windowOpen, Func<bool> frozen)

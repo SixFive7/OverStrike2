@@ -195,6 +195,60 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(R >= 2 * 32 && R <= 4 * 32 && H >= 57, "spawn cloak: a few player widths (the hull is 32 units wide), and room for a jump on the spot");
 }
 
+// ---- the spawn cloak's cap (release 194): the welcome is pinned open at a real join until its X, and a game that cannot draw our window - a content
+// before v4.8.0, a download that failed, a joiner during a hold - never clicks it, so the server held that window open all map and the cloak hid the
+// player at every spawn. The end of the HUD check's grace closes it, with warn and with the check off (HudGate.ClosesWindow; RunCheck closes the slot's
+// window), and the cloak's next look sees the window shut: seen, and nothing hides them at the next spawn. With enforce the player is disconnected ----
+{
+    var t0 = new DateTime(2026, 11, 8, 18, 0, 0, DateTimeKind.Utc);
+    (bool HiddenAt60, bool HiddenAt89, bool SeenAt91, bool SeenNextLife, List<HudGate.Act> Acts) Life(Func<double, HudCheck.Mode> modeAt, bool clicksAt30, int seconds = 100)
+    {
+        var (slots, gate, plan, clicked, acts) = (new HudSlots(), new HudGate(), new SpawnCloakPlan(), new HashSet<long>(), new List<HudGate.Act>());
+        slots.Joined(4, first: true, alive: false, t0); // a real join before the first spawn: the welcome, pinned, at that spawn
+        slots.Spawned(4, t0);
+        gate.Spawned(4, 1004, verified: false, t0);
+        plan.Spawned(4, 0);
+        bool hidden60 = false, hidden89 = false, seen91 = false;
+        for (var q = 1; q <= 4 * seconds; q++) // the plugin's frames, four a second; the cloak looks at the same moments, a tick being 1/64 s
+        {
+            var now = t0.AddSeconds(q / 4.0);
+            if (clicksAt30 && q == 4 * 30) { clicked.Add(1004); slots.Click(4, HudView.ButtonClose, now); }
+            foreach (var (slot, act, _) in gate.Frame(now, modeAt(q / 4.0), clicked.Contains))
+            {
+                acts.Add(act);
+                if (HudGate.ClosesWindow(act)) slots.Close(slot, now); // RunCheck
+            }
+            slots.Frame(now);
+            var hides = plan.Hides(4, q * 16, 0, 0, 0, slots.WindowOpen(4), true);
+            if (q == 4 * 60) hidden60 = hides;
+            if (q == 4 * 89) hidden89 = hides;
+            if (q == 4 * 91) seen91 = !hides;
+        }
+        plan.Spawned(4, 100_000); // the next life, the window shut
+        plan.Hides(4, 100_001, 0, 0, 0, slots.WindowOpen(4), true);
+        var nextLife = !plan.Hides(4, 100_002, 0, 0, 0, slots.WindowOpen(4), true);
+        return (hidden60, hidden89, seen91, nextLife, acts);
+    }
+    var warn = Life(_ => HudCheck.Mode.Warn, false);
+    Check(warn.HiddenAt60 && warn.HiddenAt89 && warn.SeenAt91 && warn.SeenNextLife && warn.Acts.SequenceEqual([HudGate.Act.Warn, HudGate.Act.WouldKick]),
+        $"spawn cloak's cap: with warn, a player who never clicks is hidden on their spawn until the grace ends ({HudCheck.GraceSeconds} s), then their window closes and they are seen - at the next spawn too");
+    var off = Life(_ => HudCheck.Mode.Off, false);
+    Check(off.HiddenAt60 && off.HiddenAt89 && off.SeenAt91 && off.SeenNextLife && off.Acts.SequenceEqual([HudGate.Act.Lapse]),
+        "spawn cloak's cap: with the check off the same, nobody told anything - the end of the grace closes the window alone");
+    var clicker = Life(_ => HudCheck.Mode.Warn, true);
+    Check(!clicker.HiddenAt60 && clicker.SeenAt91 && clicker.Acts.Count == 0,
+        "spawn cloak's cap: a player who clicks the X in time is verified, and their window closed by their own click - the check's clock says nothing more");
+    var enforce = Life(_ => HudCheck.Mode.Enforce, false);
+    Check(enforce.Acts.SequenceEqual([HudGate.Act.Warn, HudGate.Act.Kick]) && !HudGate.ClosesWindow(HudGate.Act.Kick) && !HudGate.ClosesWindow(HudGate.Act.Warn),
+        "spawn cloak's cap: with enforce the end of the grace disconnects the player instead, and a warning closes nothing");
+    var paused = Life(s => s is >= 60 and < 120 ? HudCheck.Mode.Off : HudCheck.Mode.Enforce, false, 140); // no word from the bridge from 60 to 120 s
+    Check(paused.HiddenAt60 && paused.HiddenAt89 && paused.SeenAt91 && paused.Acts.SequenceEqual([HudGate.Act.Lapse, HudGate.Act.Warn, HudGate.Act.Kick]),
+        "spawn cloak's cap: the end of the grace during a pause (no word from the bridge) closes the window too, and the warning and the disconnect still come after it");
+    var checkCs = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2", "HudScreenCheck.cs");
+    Check(File.Exists(checkCs) && File.ReadAllText(checkCs).Contains("if (HudGate.ClosesWindow(act)) slots.Close(slot, now);", StringComparison.Ordinal),
+        "spawn cloak's cap: the plugin's check closes the slot's window for every act that ends it (RunCheck)");
+}
+
 // ---- what the cloak puts back (CloakPlan.cs, CloakBook): every entity that leaves a hidden player, as it looked before the cloak ----
 {
     var book = new CloakBook<string>();
