@@ -6,6 +6,20 @@
       "map": "glassboxfinal",
       "reason": "kicked every player off the server (2026-10-20)",
       "since": "2026-10-20"
+    },
+    {
+      "id": 3817962966,
+      "name": "AWP Lego 2",
+      "map": "awp_lego_2",
+      "reason": "restarted the match every 3 s (2026-11-08)",
+      "since": "2026-11-08"
+    },
+    {
+      "id": 3561288449,
+      "name": "aim_harkonnen",
+      "map": "harkonnen_arena",
+      "reason": "restarts the match from its script (2026-11-08)",
+      "since": "2026-11-08"
     }
   ]
 }
