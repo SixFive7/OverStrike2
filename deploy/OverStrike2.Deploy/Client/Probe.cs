@@ -43,7 +43,10 @@ sealed record Reply(int Status, byte[] Body)
 ///                                            the game server is a test copy (testcopy restore first)
 ///     probe status                           the probe's state on the server and the lock
 ///     probe config                           what the harness reads from the private config, as JSON (no credential in it)
-///     probe server                           the running containers that publish the server's port, and the game container, as JSON</summary>
+///     probe server                           the running containers that publish the server's port, and the game container, as JSON
+///     probe exec &lt;game|bridge|sync&gt; "&lt;cmd&gt;"   one command in production's container of that role (sh -c), for reading - a post-check, a
+///                                            status, an export; what it prints with every secret of production's three containers scrubbed
+///     probe logs &lt;game|bridge|sync&gt; &lt;seconds&gt; [regex]   that container's log lines of the last seconds, filtered, scrubbed the same way</summary>
 sealed class Harness
 {
     public const string Owner = "cs2 client test harness (tools/client)";   // the lock's first line is "owner: " and this
@@ -455,8 +458,86 @@ for k,c in enumerate(sys.argv[1:]):
 
     public const string Doc = """
 probe lock "<purpose>" | purpose <minutes> "<purpose>" | unlock | load | players | html <account|*> <seconds> <html or @file> |
-      htmlfile <account|*> <seconds> <file> | stop | clientcmd <account> <command> | rcon "<command>" [...] | unload | status | config | server
+      htmlfile <account|*> <seconds> <file> | stop | clientcmd <account> <command> | rcon "<command>" [...] | unload | status | config | server |
+      exec <game|bridge|sync> "<cmd>" | logs <game|bridge|sync> <seconds> [regex]
 """;
+
+    /// <summary>Production's container of a role, by the private config's names: game, bridge or sync.</summary>
+    public string RoleName(string role) => role switch
+    {
+        "game" => Game,
+        "bridge" => BridgeName,
+        "sync" => Cfg.Str("bridge.sync_container") is { Length: > 0 } s ? s : throw Out.Stop("no bridge.sync_container in the private config"),
+        _ => throw Out.Stop($"a role is game, bridge or sync, not {role}"),
+    };
+
+    static readonly Regex SecretName = new("PASS|SECRET|TOKEN|KEY|RCONPW|_PW$", RegexOptions.IgnoreCase);
+    static readonly Regex SecretKey = new("secret|password|key|token", RegexOptions.IgnoreCase);
+
+    /// <summary>Every secret a container's inspect holds, to scrub from what it prints: the values of its variables named like one (PASS, SECRET, TOKEN,
+    /// KEY, RCONPW, _PW), the last part of its log push address (the bridge's secret), and every string its settings text has under a key named like one
+    /// (secret, password, key, token) - an env: reference by the variable's value. Four characters and up.</summary>
+    public static List<string> Secrets(JsonNode? inspect)
+    {
+        var env = Json.Arr(inspect, "Config", "Env").Select(Json.PyStr).Select(e => e.Split('=', 2)).Where(kv => kv.Length == 2).GroupBy(kv => kv[0])
+                      .ToDictionary(g => g.Key, g => g.First()[1], StringComparer.Ordinal);
+        var found = env.Where(kv => SecretName.IsMatch(kv.Key)).Select(kv => kv.Value).ToList();
+        if (env.TryGetValue("CS2_LOG_HTTP_URL", out var push) && push.TrimEnd('/').LastIndexOf('/') is var at and > 0)
+            found.Add(push.TrimEnd('/')[(at + 1)..]);
+        if (env.TryGetValue(TestCopy.Content, out var text))
+        {
+            JsonNode? settings = null;
+            try
+            {
+                settings = Json.Jsonc(text);
+            }
+            catch (JsonSyntaxError)
+            {
+            }
+            void Walk(JsonNode? n, string key)
+            {
+                if (n is JsonObject o)
+                    foreach (var (k, v) in o)
+                        Walk(v, k);
+                else if (n is JsonArray a)
+                    foreach (var v in a)
+                        Walk(v, key);
+                else if (n is JsonValue && SecretKey.IsMatch(key) && Json.PyStr(n) is var s && s.Length > 0)
+                    found.Add(s.StartsWith("env:", StringComparison.Ordinal) ? env.GetValueOrDefault(s[4..], "") : s);
+            }
+            Walk(settings, "");
+        }
+        return [.. found.Where(s => s.Length >= 4).Distinct().OrderByDescending(s => s.Length)];
+    }
+
+    static string Scrub(string text, List<string> secrets) => secrets.Aggregate(text, (t, s) => t.Replace(s, "<secret>", StringComparison.Ordinal));
+
+    /// <summary>Every secret production's three containers hold (Secrets of each that is there): what any of them prints is scrubbed of all of them.</summary>
+    List<string> AllSecrets() =>
+        [.. new[] { "game", "bridge", "sync" }.Select(r => r == "sync" && Cfg.Str("bridge.sync_container").Length == 0 ? null : Inspect(RoleName(r)))
+                .SelectMany(Secrets).Distinct().OrderByDescending(x => x.Length)];
+
+    /// <summary>probe exec: one command (sh -c) in production's container of a role, what it prints scrubbed.</summary>
+    public void CmdExec(string role, string cmd)
+    {
+        var name = RoleName(role);
+        _ = Inspect(name) ?? throw Out.Stop($"no container {name}");
+        Out.Print(Scrub(Py.Strip(ExecIn(name, ["sh", "-c", cmd], timeout: 300)), AllSecrets()));
+    }
+
+    /// <summary>probe logs: production's container of a role, its log lines of the last seconds, those matching the regex, scrubbed.</summary>
+    public void CmdLogs(string role, string seconds, string? rx)
+    {
+        var name = RoleName(role);
+        _ = Inspect(name) ?? throw Out.Stop($"no container {name}");
+        if (!double.TryParse(seconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var back) || back <= 0)
+            throw Out.Stop("usage: os2-deploy probe logs <game|bridge|sync> <seconds> [regex]");
+        var since = (long)(Now() - back);
+        var secrets = AllSecrets();
+        foreach (var line in Py.SplitLines(Demux(Call($"/containers/{name}/logs?stdout=1&stderr=1&since={since}").Body)))
+            if (rx is null || Regex.IsMatch(line, rx))
+                Out.Print(Py.Slice(Scrub(line, secrets), 0, 400));
+    }
 
     public static int Command(string[] argv)
     {
@@ -518,6 +599,16 @@ probe lock "<purpose>" | purpose <minutes> "<purpose>" | unlock | load | players
                 break;
             case "server":
                 h.CmdServer();
+                break;
+            case "exec":
+                if (rest.Count != 2)
+                    throw Out.Stop("usage: os2-deploy probe exec <game|bridge|sync> \"<cmd>\"");
+                h.CmdExec(rest[0], rest[1]);
+                break;
+            case "logs":
+                if (rest.Count is < 2 or > 3)
+                    throw Out.Stop("usage: os2-deploy probe logs <game|bridge|sync> <seconds> [regex]");
+                h.CmdLogs(rest[0], rest[1], rest.Count > 2 ? rest[2] : null);
                 break;
             default:
                 throw Out.Stop($"unknown verb {verb}\nusage: os2-deploy {Doc.TrimEnd()}");

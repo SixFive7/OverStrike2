@@ -109,6 +109,7 @@ static partial class SelfTest
         ("thumbs", ThumbsTests.Run),
         ("rehearse", RehearseTests.Run),
         ("publish", PublishTests.Run),
+        ("ops", OpsTests.Run),
     ];
 
     public static int Command(string[] args)

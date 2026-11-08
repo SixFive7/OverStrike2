@@ -15,6 +15,10 @@ namespace OverStrike2.Deploy;
 ///     bridge swap                  recreate the bridge container on &lt;image&gt;:candidate, verified; the game keeps running
 ///     bridge update                check, build, swap
 ///     bridge rollback              swap back to &lt;image&gt;:previous
+///     bridge prune [--apply]       the image's old tags off the server - a dry run unless --apply: the images :latest, :previous and
+///                                  :candidate point at stay, with their commit tags (a lab- tag on one of them goes), and any image a
+///                                  container uses; every other tag of the repository goes, and with its last tag its image. Refused
+///                                  without :latest and :previous - nothing goes without the image a rollback needs; nothing is forced
 ///
 /// Tags on the server: &lt;image&gt;:&lt;commit&gt; for every build (immutable), :candidate (the newest build, not yet running), :latest (what
 /// the compose file names and the container runs), :previous (what the last swap replaced). --tag builds &lt;image&gt;:&lt;T&gt; instead and
@@ -193,6 +197,68 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
             Out.Log($"{Py.Slice(Json.Str(i, "Id"), 7, 19)}  {string.Join(", ", Json.Arr(i, "RepoTags").Select(Json.PyStr))}  {Fmt.Fixed((Json.AsLong(i["Size"]) ?? 0) / 1e6, 0)} MB  "
                     + $"created {created.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}");
         }
+    }
+
+    /// <summary>bridge prune: see the class's summary. Returns 1 when a removal failed.</summary>
+    public int Prune(bool apply)
+    {
+        var r = D.Call("GET", "/images/json?filters=" + Fmt.Quote(Json.Dumps(new JsonObject { ["reference"] = new JsonArray(RepoName) })));
+        if (r.Status != 200 || r.Json is not JsonArray list)
+            throw Out.Fail($"images: HTTP {r.Status}");
+        var cs = D.Call("GET", "/containers/json?all=1");
+        if (cs.Status != 200 || cs.Json is not JsonArray containers)
+            throw Out.Fail($"containers: HTTP {cs.Status}");
+        var used = containers.OfType<JsonObject>().Select(c => Json.Str(c, "ImageID")).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var images = list.OfType<JsonObject>().ToList();
+        List<string> TagsOf(JsonObject i) => [.. Json.Arr(i, "RepoTags").Select(Json.PyStr).Where(t => t.StartsWith(RepoName + ":", StringComparison.Ordinal))
+                                                   .Select(t => t[(RepoName.Length + 1)..]).Order(StringComparer.Ordinal)];
+        string? IdOf(string tag) => images.FirstOrDefault(i => TagsOf(i).Contains(tag)) is { } i ? Json.Str(i, "Id") : null;
+        foreach (var t in new[] { "latest", "previous" })
+            if (IdOf(t) is null)
+                throw Out.Stop($"REFUSED: no :{t} - nothing is removed without the image a rollback needs");
+        var keep = new Dictionary<string, string>(StringComparer.Ordinal);   // image id -> the tags that keep it
+        foreach (var t in new[] { "latest", "previous", "candidate" })
+            if (IdOf(t) is { } id)
+                keep[id] = keep.TryGetValue(id, out var k) ? $"{k}, :{t}" : $":{t}";
+        List<string> removed = [], kept = [], failed = [];
+        foreach (var i in images.OrderByDescending(i => Json.AsLong(i["Created"]) ?? 0))
+        {
+            var id = Json.Str(i, "Id") ?? "";
+            var tags = TagsOf(i);
+            var shortId = Py.Slice(id.Split(':')[^1], 0, 12);
+            var go = tags;
+            if (keep.ContainsKey(id) || used.Contains(id))
+            {
+                go = [.. tags.Where(t => t.StartsWith("lab-", StringComparison.Ordinal))];
+                kept.Add($"{shortId} ({(keep.TryGetValue(id, out var why) ? why : "used by a container")}): keeps {string.Join(", ", tags.Except(go))}"
+                         + (go.Count > 0 ? $"; untags {string.Join(", ", go)}" : ""));
+            }
+            foreach (var t in go)
+            {
+                if (!apply)
+                {
+                    removed.Add($"{shortId} :{t}");
+                    continue;
+                }
+                var del = D.Call("DELETE", $"/images/{RepoName}:{t}");
+                (del.Status == 200 ? removed : failed).Add($"{shortId} :{t}" + (del.Status == 200 ? "" : $" -> HTTP {del.Status} {Py.Slice(del.Shown, 0, 160)}"));
+            }
+        }
+        Out.Print($"{(apply ? "removed" : "would remove")} {removed.Count} tag(s):");
+        foreach (var x in removed)
+            Out.Print("  " + x);
+        Out.Print("kept:");
+        foreach (var x in kept)
+            Out.Print("  " + x);
+        if (failed.Count > 0)
+        {
+            Out.Print($"FAILED {failed.Count}:");
+            foreach (var x in failed)
+                Out.Print("  " + x);
+        }
+        if (!apply)
+            Out.Print("dry run - add --apply to remove them");
+        return failed.Count > 0 ? 1 : 0;
     }
 
     // ---- swap
@@ -410,8 +476,9 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
 
     public static int Command(string[] args)
     {
-        var a = new Args(args, "bridge check|build|images|swap|update|rollback [--tag T] [--config FILE]", options: ["--tag", "--config"]);
-        var command = a.Choice(["check", "build", "images", "swap", "update", "rollback"]);
+        var a = new Args(args, "bridge check|build|images|swap|update|rollback [--tag T] | bridge prune [--apply] [--config FILE]", flags: ["--apply"],
+                         options: ["--tag", "--config"]);
+        var command = a.Choice(["check", "build", "images", "swap", "update", "rollback", "prune"]);
         a.Done();
         var b = new Bridge(new Config(a.Opt("--config")));
         switch (command)
@@ -433,6 +500,8 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
                 return b.Swap("candidate", "previous");
             case "rollback":
                 return b.Swap("previous", "undone");
+            case "prune":
+                return b.Prune(a.Flag("--apply"));
         }
         return 0;
     }

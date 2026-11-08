@@ -168,6 +168,9 @@ static class Plugin
 ///     server ship --apply      copy them there, verified byte for byte: the programs written beside their targets and renamed over them,
 ///                              pre.sh and the cfgs written in place (a container mounts each as a single file, which stays on the old file
 ///                              when another is renamed over it). --apply with no server.program_dir in the config fails: nothing would ship.
+///     server restart-sync      the Workshop sync's container restarted, so it starts the os2-sync on disk (its entrypoint copies the program
+///                              folder's into /tmp): only production's and only while it runs no run (its sync-status.json says idle or
+///                              stopped, with no run), then seen through - a new start, /tmp/os2-sync the program folder's byte for byte
 ///
 /// What ships is what `build` built - refused once the programs' sources changed since - and the committed pre.sh and cfgs. A pre.sh or
 /// cfg on the server that no commit of this repository ever held was changed there: that is DRIFT, and nothing ships until the change is
@@ -360,11 +363,65 @@ static class ServerShip
         return 0;
     }
 
+    /// <summary>server restart-sync: see the class's summary. The program folder as the sync sees it, and where its entrypoint puts the copy it runs.</summary>
+    public const string SyncProgram = "/home/steam/overstrike2/os2-sync", SyncRunning = "/tmp/os2-sync";
+
+    public static int RestartSync(IDocker d, IConfig cfg, Action<double>? sleep = null)
+    {
+        sleep ??= s => Thread.Sleep(TimeSpan.FromSeconds(s));
+        var name = cfg.Str("bridge.sync_container");
+        if (name.Length == 0)
+            throw Out.Stop("REFUSED: no bridge.sync_container in the private config - no sync to restart");
+        var before = d.Inspect("containers", name) ?? throw Out.Stop($"REFUSED: no container {name}");
+        if (Json.Truthy(InspectOf.Labels(before)[TestCopy.TestLabel]))
+            throw Out.Stop($"REFUSED: {name} carries the test label - not production's sync");
+        if (Json.Str(before, "State", "Status") != "running")
+            throw Out.Stop($"REFUSED: {name} is {Json.Str(before, "State", "Status") ?? "?"} - a restart is for a running sync");
+        JsonNode? status = null;
+        try
+        {
+            status = Json.Parse(d.ExecIn(name, ["sh", "-c", "cat /data/sync-status.json"], 60));
+        }
+        catch (JsonSyntaxError)
+        {
+        }
+        if (status is not JsonObject so || so["now"] is not JsonObject now)
+            throw Out.Stop($"REFUSED: {name}'s sync-status.json does not say what it does now - whether a run is going cannot be told");
+        var state = Json.Str(now, "state") ?? "";
+        if (now["run"] is not null || state is not ("idle" or "stopped"))
+            throw Out.Stop($"REFUSED: a run is going ({state}) - restart the sync once it has ended");
+        var startedBefore = Json.Str(before, "State", "StartedAt") ?? "";
+        var r = d.Call("POST", $"/containers/{name}/restart?t=30", timeout: 120);
+        if (r.Status != 204)
+            throw Out.Fail($"restart of {name}: HTTP {r.Status} {Py.Slice(r.Shown, 0, 200)}");
+        var startedAfter = Json.Str(d.Inspect("containers", name), "State", "StartedAt") ?? "";
+        if (startedAfter == startedBefore)
+            throw Out.Fail($"{name} did not start anew - look");
+        Out.Log($"{name}: idle ({state}), restarted - started {Py.Slice(startedAfter, 0, 19)}Z, was {Py.Slice(startedBefore, 0, 19)}Z");
+        for (var i = 0; i < 10; i++)
+        {
+            var sums = Py.SplitLines(d.ExecIn(name, ["sh", "-c", $"sha256sum {SyncRunning} {SyncProgram} 2>/dev/null"], 60)).Select(l => l.Split(' ')[0]).ToList();
+            if (sums.Count == 2 && sums[0].Length == 64 && sums[0] == sums[1])
+            {
+                Out.Log($"{name}: {SyncRunning} is the program folder's os2-sync, sha256 {sums[0][..16]}");
+                return 0;
+            }
+            sleep(3);
+        }
+        throw Out.Fail($"{SyncRunning} is not the program folder's os2-sync 30 s after the start - look at {name}'s log");
+    }
+
     public static int Command(string[] args)
     {
-        var a = new Args(args, "server build [--image] | server ship [--apply] [--force] [--config FILE]", flags: ["--apply", "--force", "--image"], options: ["--config"]);
-        var command = a.Choice(["build", "ship"]);
+        var a = new Args(args, "server build [--image] | server ship [--apply] [--force] | server restart-sync [--config FILE]", flags: ["--apply", "--force", "--image"],
+                         options: ["--config"]);
+        var command = a.Choice(["build", "ship", "restart-sync"]);
         a.Done();
+        if (command == "restart-sync")
+        {
+            var cfg = new Config(a.Opt("--config"));
+            return RestartSync(new Docker(cfg), cfg);
+        }
         if (command == "build")
         {
             var useConfig = a.Flag("--image") && (a.Opt("--config") is not null || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OVERSTRIKE2_CONFIG"))

@@ -9,15 +9,18 @@ static class Program
 usage: os2-deploy <command> ...    (dotnet run --project deploy/OverStrike2.Deploy -- <command> ..., from the repository's root)
 
   bridge check|build|images|swap|update|rollback [--tag T]   the bridge's image and container
+  bridge prune [--apply]                              its old tags off the server: a dry run unless --apply
   data [--apply] [--force]                            the bridge's hand-made data files
   plugin build|ship [--apply]                         the game server's plugin
   server build [--image] | ship [--apply] [--force]   os2-server, os2-sync, pre.sh and the mode cfgs
+  server restart-sync                                 the sync restarted between runs, onto the os2-sync shipped
   workshop hud-thumbs|hud-build|hud-query|hud-public|hud-publish|map ...   the Workshop items
   thumbs [--export F] [--queues F] [--ahead F] [--workers N]                 the HUD's map pictures
   release live <tag> [--no-plugin] [--under-lock] [--dry-run]               a release on the server
   release publish --note N --client-test RUN [--under-lock] [--dry-run]     a content update of the HUD item
   check guard [--allow-kick] | verify                 before and after a redeploy of the whole stack (read-only)
-  probe <verb> ...                                    the client harness's server half: the lock, RCON, the probe plugin
+  probe <verb> ...                                    the client harness's server half: the lock, RCON, the probe plugin;
+                                                      probe exec|logs <game|bridge|sync>: production's containers, read, scrubbed
   testcopy <verb> ...                                 the insecure test copy of the game server and the candidate bridge
   bridgepost <verb> ...                               what only the watcher or other players send a candidate bridge
   rehearse <verb> ...                                 the release rehearsal: production aside, the candidate as a throwaway stack
