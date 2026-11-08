@@ -41,6 +41,8 @@
     <Compile Include="..\OverStrike2\CheatsRevert.cs" Link="CheatsRevert.cs" />
     <!-- Which game mode the settings module acts in, at a map start, at os_mode and at a load while a map is on. -->
     <Compile Include="..\OverStrike2\ModePlan.cs" Link="ModePlan.cs" />
+    <!-- Who may restart the game: our own Restart match and os_restart, never a map; and the loop of restarts we did not cause. -->
+    <Compile Include="..\OverStrike2\RestartGuard.cs" Link="RestartGuard.cs" />
     <EmbeddedResource Include="..\OverStrike2\convars.txt" LogicalName="convars.txt" />
   </ItemGroup>
 

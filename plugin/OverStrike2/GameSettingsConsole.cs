@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The settings module's console commands, server only (RCON and the server console): os_fun, which the HUD and the bridge send,
-/// and os_settings and os_block, an operator's look at the put-back and the block.</summary>
+/// and os_settings and os_block, an operator's look at the put-back and the block. os_restart, the match's restart that goes through, is in
+/// GameSettingsRestart.cs.</summary>
 sealed partial class GameSettings
 {
     /// <summary>os_fun &lt;setting&gt; &lt;choice&gt; ["who"]: a change from the console, as the HUD makes a player's in process (ChangeFun) - a bot setting's too
@@ -67,6 +68,7 @@ sealed partial class GameSettings
         command.ReplyToCommand(diffs.Count == 0 ? "os_settings: nothing differs from the baseline"
             : $"os_settings: {diffs.Count} differ: " + string.Join(", ", diffs.Select(d => $"{d.Name} {d.Now} (baseline {d.Want})")));
         command.ReplyToCommand($"os_settings: block {block.Describe}");
+        command.ReplyToCommand($"os_settings: restarts {restarts.Describe}");
         command.ReplyToCommand($"os_settings: fun {fun.Describe()}; last {fun.Last}");
         if (keeper.Stubborn.Count > 0) command.ReplyToCommand("os_settings: refused a put-back: " + string.Join(", ", keeper.Stubborn));
     }

@@ -710,7 +710,7 @@ _V1_VOTED = (BLUR_NEWS_WIN, M_VSTART, M_VRESET, BLUR_TILE1_NAMES)   # the strip 
 _V1_NAMES = real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + UNSEEN
 _V1_NAMES_VOTED = real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + UNSEEN
 R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick="The vote: everybody's window opens and freezes", today="the big vote window, as picked; its feeds still move",
-  bridge=W_VOTE, steps=[vote_gap(), rc("mp_restartgame 1"), pause(5), click("os_b_next"), vote_opened(), show("vote", bg=True), post("names-check"), until("vote", 7.5), shoot()],
+  bridge=W_VOTE, steps=[vote_gap(), rc("os_restart 1"), pause(5), click("os_b_next"), vote_opened(), show("vote", bg=True), post("names-check"), until("vote", 7.5), shoot()],
   when="about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
   masks=_V1_MASKS, names=_V1_NAMES, win="vote", avatar=AVATAR_OVER_NEWS)
 R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick="The 60 s limit", today="a line on the window's page, as picked", after="vote-open", bridge=W_VOTE, steps=[shoot()], when="the next frame",
@@ -903,7 +903,7 @@ def section_of(row, by_name):
 # ---------------------------------------------------------------- the checks every invocation runs -----------------------------------------------------
 
 POST_VERBS = ("restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check")   # bridgepost.py's
-RCON_ALLOWED = ("osd_name", "mp_restartgame 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ", "os_hud centre ", "os_hud release", "css_guide ", "os_notice ", "os_fun ", "os_catchup ",
+RCON_ALLOWED = ("osd_name", "os_restart 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ", "os_hud centre ", "os_hud release", "css_guide ", "os_notice ", "os_fun ", "os_catchup ",
                 "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel ")
 CHANGELEVEL_ALLOWED = ("ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno")   # official maps: the client loads them without CS2's download dialog
 CON_ALLOWED = re.compile(r"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$")
@@ -1568,7 +1568,7 @@ class Printer:
         self.say(f"  $ {self.cmdline(rcon_argv('os_hud'))}    must have an entity, the bridge ok, no vote on")
         self.say(f"  $ {self.cmdline(con_argv('jointeam 2 1', 1500))}")
         self.say(f"  $ {self.cmdline(rcon_argv(f'os_hud content {ACCOUNT} {LEVEL}'))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)")
-        self.say(f"  $ {self.cmdline(rcon_argv('mp_restartgame 1'))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run")
+        self.say(f"  $ {self.cmdline(rcon_argv('os_restart 1'))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run")
         self.clock += T_CON + T_SHOT + T_RCON + T_CON + T_RCON + T_RCON
 
     def begin(self, entry):
@@ -1911,7 +1911,7 @@ class Doer:
             raise SystemExit("REFUSED: a vote is open")
         self.run_verb(con_argv("jointeam 2 1", 1500), 30, "cmd jointeam")
         self.run_verb(rcon_argv(f"os_hud content {ACCOUNT} {LEVEL}"), 60, "rcon os_hud content")
-        self.run_verb(rcon_argv("mp_restartgame 1"), 60, "rcon mp_restartgame 1")
+        self.run_verb(rcon_argv("os_restart 1"), 60, "rcon os_restart 1")
 
     def final(self):
         self.say("== back to neutral")

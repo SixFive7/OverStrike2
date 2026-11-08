@@ -195,6 +195,64 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(R >= 2 * 32 && R <= 4 * 32 && H >= 57, "spawn cloak: a few player widths (the hull is 32 units wide), and room for a jump on the spot");
 }
 
+// ---- the restart guard (release 195): only our own code restarts the game. awp_lego_2 (3817962966) sets mp_restartgame 1 from its logic_auto's
+// OnMapSpawn, which fires again after every restart: from the first team join the match restarted every 3 s. Its value goes back to 0 unless it is
+// the bridge's Restart match around its moment or os_restart's, once each; quick round starts we did not cause are a loop ----
+{
+    var t0 = new DateTime(2026, 11, 8, 20, 0, 0, DateTimeKind.Utc);
+    Check(RestartGuard.Restarts("1") && RestartGuard.Restarts(" 3 ") && RestartGuard.Restarts("2.5") && !RestartGuard.Restarts("0") && !RestartGuard.Restarts("0.5")
+          && !RestartGuard.Restarts("") && !RestartGuard.Restarts(null) && !RestartGuard.Restarts("abc") && !RestartGuard.Restarts("-1"),
+        "restart guard: a value restarts the game when it is a number of at least 1, as the game reads it");
+    var map = new RestartGuard();
+    Check(map.Look("1", t0, 0, 0) == RestartGuard.Verdict.Refused && map.Look("0", t0.AddSeconds(0.1), 0, 0) == RestartGuard.Verdict.Quiet
+          && map.Look("1", t0.AddSeconds(3), 0, 0) == RestartGuard.Verdict.Refused && map.Refused == 2,
+        "restart guard: a map's mp_restartgame 1 is refused - at its spawn, and again at every round start its logic fires on");
+    map.Own(t0.AddSeconds(10));
+    Check(map.Look("1", t0.AddSeconds(10.1), 0, 0) == RestartGuard.Verdict.LetThrough && map.LastOurs == "os_restart"
+          && map.Look("1", t0.AddSeconds(10.2), 0, 0) == RestartGuard.Verdict.Ours && map.Look("0", t0.AddSeconds(10.3), 0, 0) == RestartGuard.Verdict.Quiet
+          && map.Look("1", t0.AddSeconds(10.5), 0, 0) == RestartGuard.Verdict.Refused,
+        "restart guard: os_restart goes through once - its value stays ours until the game has taken it, and a set after that is refused again");
+    map.Own(t0.AddSeconds(20));
+    Check(map.Look("1", t0.AddSeconds(20 + RestartGuard.OwnSeconds + 0.1), 0, 0) == RestartGuard.Verdict.Refused,
+        $"restart guard: os_restart's let-through lapses after {RestartGuard.OwnSeconds} s");
+    const long at = 1_794_000_000_000;
+    var rematch = new RestartGuard();
+    Check(rematch.Look("1", t0, at, at - (long)(RestartGuard.AllowBeforeSeconds * 1000) - 1000) == RestartGuard.Verdict.Refused
+          && rematch.Look("1", t0, at, at + (long)(RestartGuard.AllowAfterSeconds * 1000) + 1000) == RestartGuard.Verdict.Refused,
+        "restart guard: a set long before or long after the Restart match's moment is no Restart match's");
+    Check(rematch.Look("1", t0, at, at + 200) == RestartGuard.Verdict.LetThrough && rematch.LastOurs == "Restart match"
+          && rematch.Look("0", t0, at, at + 300) == RestartGuard.Verdict.Quiet && rematch.Look("1", t0, at, at + 3000) == RestartGuard.Verdict.Refused,
+        "restart guard: the bridge's Restart match goes through once, around its moment - a map that sets it again after that restart is refused");
+    Check(rematch.Look("1", t0, at + 600_000, at + 600_000) == RestartGuard.Verdict.LetThrough, "restart guard: the next Restart match is a moment of its own, and goes through");
+    var loop = new RestartGuard();
+    var starts = Enumerable.Range(0, 8).Select(i => loop.Started(t0.AddSeconds(i * 3.05), "1")).ToList();
+    Check(starts.Count(s => s.Loop) == 2 && starts[RestartGuard.LoopStarts - 1] == (true, true) && !starts[RestartGuard.LoopStarts - 2].Loop && loop.Loops == 2,
+        $"restart guard: tonight's loop - a round start every 3.05 s that we did not cause - is caught at its {RestartGuard.LoopStarts}th start, logged with mp_restartgame put back, once per run");
+    var calm = new RestartGuard();
+    Check(Enumerable.Range(0, 10).All(i => calm.Started(t0.AddSeconds(i * (RestartGuard.LoopGapSeconds + 1)), "0") == (false, false)),
+        $"restart guard: round starts more than {RestartGuard.LoopGapSeconds} s apart are no loop, however many");
+    var ours = new RestartGuard();
+    ours.Own(t0);
+    var through = ours.Look("1", t0.AddSeconds(0.05), 0, 0);
+    var atRestart = ours.Started(t0.AddSeconds(1), "1");
+    var after = new[] { 1.5, 2.0, 2.5, 3.0 }.Select(x => ours.Started(t0.AddSeconds(x), "0")).ToList();
+    Check(through == RestartGuard.Verdict.LetThrough && atRestart == (true, false) && after.All(a => a == (false, false)) && ours.Loops == 0,
+        "restart guard: the round starts of a restart of ours count toward no loop, and a value it left in the convar goes back to 0 at its start");
+    loop.MapStarted();
+    Check(loop.Refused == 0 && loop.Loops == 0 && loop.Started(t0.AddSeconds(100), "0") == (false, false), "restart guard: a new map starts its counts over");
+    var root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
+    string Source(params string[] parts) => File.Exists(Path.Combine([root, .. parts])) ? File.ReadAllText(Path.Combine([root, .. parts])) : "";
+    var wiring = Source("plugin", "OverStrike2", "GameSettingsRestart.cs");
+    Check(wiring.Contains("RegisterListener<Listeners.OnConVarChanged>", StringComparison.Ordinal) && wiring.Contains("RegisterListener<Listeners.OnTick>", StringComparison.Ordinal)
+          && wiring.Contains("[ConsoleCommand(\"os_restart\"", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "GameSettings.cs").Contains("LoadRestarts();", StringComparison.Ordinal)
+          && Source("plugin", "OverStrike2", "OverStrike2.cs").Contains("settings.Rematch = ", StringComparison.Ordinal),
+        "restart guard: the settings module looks at every change of mp_restartgame and at every tick, hears of the bridge's Restart match, and has os_restart");
+    var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs"),
+                          Source("tools", "client", "docshots", "docshots.py") };
+    Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),
+        "restart guard: the docs' harness restarts the match with os_restart, which goes through - never with a bare mp_restartgame, which is refused");
+}
+
 // ---- the spawn cloak's cap (release 194): the welcome is pinned open at a real join until its X, and a game that cannot draw our window - a content
 // before v4.8.0, a download that failed, a joiner during a hold - never clicks it, so the server held that window open all map and the cloak hid the
 // player at every spawn. The end of the HUD check's grace closes it, with warn and with the check off (HudGate.ClosesWindow; RunCheck closes the slot's

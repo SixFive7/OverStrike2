@@ -17,7 +17,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "5.4.1";
+    public const string Version = "5.4.2";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
@@ -104,6 +104,7 @@ public class OverStrike2Plugin : BasePlugin
         (hud.FunSetBy, hud.FunSet, hud.FunReset) = (settings.SetBy, settings.ChangeFun, settings.ResetFunPage); // ...who set each setting off its default, and the module makes the page's changes in process
         (hud.BotsSet, hud.BotsRejoin, hud.BotsReset) = (settings.ChangeBot, settings.RejoinBots, settings.ResetBots); // the Bots page's: a preset's settings, its bots joining again once, Kick all bots and Default
         hud.Frozen = () => freeze?.Frozen == true; // the window held by a vote follows the freeze's decision
+        settings.Rematch = now => hud?.Rematch(now) ?? (0, 0); // the bridge's Restart match goes through the restart guard around its moment (RestartGuard)
         catchUp.Show = (player, boost, html) =>
         {
             // The card under the crosshair, or CS2's centre panel for a game that shows no card (HudScreen.HasCards); the same line in that player's chat either way.

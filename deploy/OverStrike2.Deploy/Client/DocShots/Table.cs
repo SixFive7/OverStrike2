@@ -488,7 +488,7 @@ static partial class DocShots
         var v1Names = Real("the waiting line: a test name is painted over it; the top line, which names who started the vote: blurred (vote-started-line shows it under a test name)") + Unseen;
         var v1NamesVoted = Real("reset by: a test name on the clock, the header's blurred; the top line and the voter's name on the first tile: blurred") + Unseen;
         R("vote-open", "The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for", pick: "The vote: everybody's window opens and freezes", today: "the big vote window, as picked; its feeds still move",
-          bridge: WVote, steps: [VoteGapStep(), Rc("mp_restartgame 1"), Pause(5), Click("os_b_next"), VoteOpened(), Show("vote", bg: true), Post("names-check"), Until("vote", 7.5), Shoot()],
+          bridge: WVote, steps: [VoteGapStep(), Rc("os_restart 1"), Pause(5), Click("os_b_next"), VoteOpened(), Show("vote", bg: true), Post("names-check"), Until("vote", 7.5), Shoot()],
           when: "about 9 s into the vote, its clocks at 51 s, the top line that says who started it (8 s) gone; the show's reply says whether a vote opened. A fresh match first, restarted 4 s before the click: the run's second half must not meet the 60-minute match end",
           masks: v1Masks, names: v1Names, win: Win.Vote, avatar: AvatarOverNews);
         R("vote-limit", "The ballot's limit clock: its seconds left, how many have voted", pick: "The 60 s limit", today: "a line on the window's page, as picked", after: "vote-open", bridge: WVote, steps: [Shoot()], when: "the next frame",

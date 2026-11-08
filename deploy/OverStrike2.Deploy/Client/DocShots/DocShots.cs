@@ -181,7 +181,7 @@ static partial class DocShots
     // ---------------------------------------------------------------- the checks every invocation runs
 
     static readonly string[] PostVerbs = ["restart", "restart-cancel", "updated", "quit-notice", "fake-on", "fake-off", "fake-crash", "client-off", "client-on", "act", "vote", "names-check", "check"];
-    static readonly string[] RconAllowed = ["osd_name", "mp_restartgame 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ",
+    static readonly string[] RconAllowed = ["osd_name", "os_restart 1", "sv_allow_votes", "os_hud show ", "os_hud press ", "os_hud click ", "os_hud level ", "os_hud content ",
         "os_hud centre ", "os_hud release", "css_guide ", "os_notice ", "os_fun ", "os_catchup ", "sv_disable_radar", "os_mode ", "game_type ", "game_mode ", "changelevel "];
     static readonly string[] ChangelevelAllowed = ["ar_shoots", "ar_pool_day", "ar_shoots_night", "de_dust2", "de_inferno"];   // official maps: no download dialog
     static readonly Regex ConAllowed = new(@"^(say !?[\w !]+|say \d{7,12}|jointeam [123] 1|[+-]showscores|disconnect|connect \S+|status)$");
@@ -600,7 +600,7 @@ static partial class DocShots
             Say($"  $ {Cmdline(RconArgv("os_hud"))}    must have an entity, the bridge ok, no vote on");
             Say($"  $ {Cmdline(ConArgv("jointeam 2 1", 1500))}");
             Say($"  $ {Cmdline(RconArgv($"os_hud content {Account} {Level}"))}    which HUD this game holds, so the window's X is the plain close (a real join forgets it: the first row)");
-            Say($"  $ {Cmdline(RconArgv("mp_restartgame 1"))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run");
+            Say($"  $ {Cmdline(RconArgv("os_restart 1"))}    a fresh match: an Arms Race match ends after 60 minutes, and its end reloads the map under the run");
             Clock += TCon + TShot + TRcon + TCon + TRcon + TRcon;
         }
 
@@ -1043,7 +1043,7 @@ static partial class DocShots
                 throw Out.Stop("REFUSED: a vote is open");
             RunVerb(ConArgv("jointeam 2 1", 1500), 30, "cmd jointeam");
             RunVerb(RconArgv($"os_hud content {Account} {Level}"), 60, "rcon os_hud content");
-            RunVerb(RconArgv("mp_restartgame 1"), 60, "rcon mp_restartgame 1");
+            RunVerb(RconArgv("os_restart 1"), 60, "rcon os_restart 1");
         }
 
         public override void Final()

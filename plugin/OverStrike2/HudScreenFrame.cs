@@ -20,6 +20,7 @@ sealed partial class HudScreen
             stateRaw = fresh;
             voteRaw = VoteState.Decode(text);
             stateAt = now;
+            if (fresh.RematchAtMs > 0) rematchAtMs = fresh.RematchAtMs; // kept after the countdown leaves the state: the restart it sends comes then
         }
         // The countdowns, worked out here every frame from the state's end times (BridgeLink, the bridge's HudTransport.cs): the bridge sends a
         // new state only when something changes.

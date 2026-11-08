@@ -47,6 +47,7 @@ sealed partial class HudScreen
     CCSCustomHudLayout? entity;
     bool worldReady;
 
+    long rematchAtMs;                                 // the last Restart match's moment the bridge named (RematchAtMs, its clock): Rematch
     HudState? stateRaw, state;                        // the bridge's newest state as it came (end times), and as of this frame (its countdowns worked out); null until the first answer
     VoteState voteRaw = new(), vote = new();          // the vote and the modes, off the same text (MapVote.cs): as it came, and as of this frame
     readonly Dictionary<int, HudPlayer> players = new(); // slot -> everything the HUD keeps for that slot's player (HudPlayer.cs): new with every player, gone when they leave
@@ -288,4 +289,9 @@ sealed partial class HudScreen
 
     /// <summary>Whether this slot has the window open now (the spawn cloak reads it).</summary>
     public bool WindowOpen(int slot) => slots.WindowOpen(slot);
+
+    /// <summary>The bridge's Restart match as the plugin last heard of it - its moment on the bridge's clock (the live state's RematchAtMs, kept after
+    /// the countdown has left the state; 0: none yet) - and the bridge's clock now. The settings module lets mp_restartgame through around that
+    /// moment, and only then (RestartGuard).</summary>
+    public (long AtMs, long NowMs) Rematch(DateTime now) => (rematchAtMs, bridge?.BridgeNowMs(now) ?? HudState.Ms(now));
 }

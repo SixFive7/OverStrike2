@@ -6,8 +6,9 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The steward of the server's game settings: it puts back, when a map ends, every game setting the map changed (ConVarKeeper.cs);
-/// it blocks the game-changers no map may set at all (GameChangerBlock.cs); and it makes the players' changes from the menu's fun page
-/// (FunSwitches.cs, os_fun), which last until the map changes and never become the baseline nor get blocked. It acts in the game mode the map
+/// it blocks the game-changers no map may set at all (GameChangerBlock.cs); it lets no map restart the game (GameSettingsRestart.cs, RestartGuard.cs);
+/// and it makes the players' changes from the menu's fun page (FunSwitches.cs, os_fun), which last until the map changes and never become the baseline
+/// nor get blocked. It acts in the game mode the map
 /// that is on was loaded in (ModePlan.cs), and its console commands are in GameSettingsConsole.cs.
 ///
 /// Why it is needed (measured live on 2026-10-22, CS2 1.41.9.1/14191): <c>host_workshop_map</c> - how the bridge loads every Workshop map -
@@ -148,6 +149,7 @@ sealed partial class GameSettings
         // the ones it saved before the Workshop maps (ModePlan.CanBringBack) or an os_mode moved them (GameChangerBlock.ModeMoved).
         plugin.RegisterEventHandler<EventRoundStart>((_, _) => { plugin.AddTimer(AfterRoundStart, () => block.Hold(map, "round start", modes.Told, modes.CanBringBack), TimerFlags.STOP_ON_MAPCHANGE); return HookResult.Continue; });
         plugin.AddTimer(BlockEvery, () => block.Hold(map, null, modes.Told, modes.CanBringBack), TimerFlags.REPEAT);
+        LoadRestarts();
         log.LogInformation("Over Strike 2 settings {Version}: {Counts}; {Blocked}; {Fun} fun settings ({FunVars} convars and effects; {On} on by default); baseline {From}.",
             OverStrike2Plugin.Version, keeper.Counts, block.From, Fun.Settings.Length, Fun.AllConVars.Count(), string.Join(", ", Fun.EffectsOn.Select(e => e.Effect)), keeper.BaselineFrom);
         if (handedOver) log.LogInformation("Over Strike 2 settings: mode {Mode} (loaded while {Map} is on, as the instance before had it: {Plan}) - {Blocked}", modes.On.Name, map, modes.Describe(), block.From);
@@ -307,6 +309,7 @@ sealed partial class GameSettings
         {
             UndoFun($"end of {map}"); // the players' changes first: they last until the map changes, and are never part of the baseline
             block.MapEnded(map);
+            RestartsAtMapEnd(map);
             if (keeper.Pending) keeper.FirstMapEnded(map, fun.Before, modes.Told);
             else keeper.Restore($"end of {map}");
         }
@@ -331,6 +334,8 @@ sealed partial class GameSettings
         endSeenSinceStart = false;
         var before = map;
         map = name;
+        if (missedEnd) RestartsAtMapEnd(before);
+        restarts.MapStarted();
         try
         {
             // Only if no map end was seen since the last start: then this is the last moment before this map's own commands run.
