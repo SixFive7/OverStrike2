@@ -592,6 +592,26 @@ R("fun-default", "The top line: Fun's Default, and who", pick="Fun: Default", to
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True, words_from=("bridge/Fun.cs", "DefaultLine"))
 R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any other", pick="Catch-up or grenade drops switched", today="the top line 4d, the catalogue's FunChanged, 10 s; chat and the board too", steps=[con("say !catchup off"), pause(1.5), shoot()], cleanup=[RESET_FUN],
   when="about 3 s after the typed line", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True)
+# ---- FUN, Bots (content v4.8.0): the page, a row set by somebody, a click Arms Race refuses, and the two lines everybody gets; Wingman's greying is with the modes.
+# Bots join for real on the copy: each row that puts some in takes them out again in its cleanup (os_fun reset undoes the Bots page's rows too).
+R("page-bots", "FUN > Bots: every row at its default, the note, Kick all bots greyed, Default and the six presets", section=S_WINDOW,
+  steps=[show("start"), press("os_tab_fun"), press("os_tab_bots"), pause(1), shoot()], when="1 s after the click returns",
+  words_from=("bridge/Shared/Bots.cs", "Bots for everybody, set by anybody, until the map changes"))
+R("bots-set-by", "FUN > Bots: Bots 2 set by Bob, its row marked: 2 - Set by Bob, Kick all bots no longer greyed", section=S_WINDOW, after="page-bots",
+  steps=[rc('os_fun bots 2 "Bob"', expect=r"fun: "), show("bots"), pause(2), shoot()], cleanup=[RESET_FUN], when="2 s after the show returns: the two bots have joined",
+  names=TEST_NAME + ": os_fun's who")
+R("bots-refused", "FUN > Bots in Arms Race: Weapons greyed with the ladder's reason, and a click on Knives answered on its row", section=S_WINDOW, after="bots-set-by",
+  steps=[show("bots"), pause(1), press("os_b5_2"), pause(1), shoot()], when="1 s after the click returns: the row says why the choice cannot be made here",
+  words_from=("bridge/Shared/Bots.cs", "Arms Race's ladder hands out the weapons, to the bots too"))
+R("bots-preset", "The top line: a Bots preset started, who, and what it set", pick="Bots: a preset started, and what it set",
+  today="the top line 4d, the catalogue's BotsPreset, 10 s; chat and the board too",
+  steps=[show("bots"), pause(1), press("os_bp2"), pause(0.5), RELEASE, pause(1), shoot()], cleanup=[RESET_FUN],
+  when="about 1.5 s after the click: Sniper duel, one bot; the window closed first so the line stands alone", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True,
+  words_from=("bridge/Shared/Bots.cs", "PresetLine"))
+R("bots-kicked", "The top line: Kick all bots, and who", pick="Bots: Kick all bots, or Default", today="the top line 4d, the catalogue's BotsOff, 10 s; chat and the board too",
+  steps=[rc('os_fun bots 1 "Bob"', expect=r"fun: "), pause(2), show("bots"), pause(1), press("os_bots_kick"), pause(0.5), RELEASE, pause(1), shoot()], cleanup=[RESET_FUN],
+  when="about 1.5 s after the click: the window closed first so the line stands alone", crop=C_TOP, win=False, names=TOP_NAMED, renamed=True,
+  words_from=("bridge/Shared/Bots.cs", "kicked every bot"))
 R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick="Catch-up's boost", today="the card 3d, as picked, 5 s; that player's chat and board", steps=[rb(f"os_catchup show {ACCOUNT} 5", expect=r"catchup: showed"), pause(2.4), shoot()],
   when="about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop=C_CARD, win=False)
 R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick="The leader's bounty", today="the card 3d, as picked, 5 s; that player's chat", steps=[rb(f"os_catchup show {ACCOUNT} lead 4", expect=r"catchup: showed"), pause(2.4), shoot()],
@@ -778,7 +798,9 @@ def to_mode(mode, game_type, game_mode, map_name):
 R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section=S_MODES, bridge=W_MAP, steps=[*to_mode("deathmatch", 1, 2, "de_dust2"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
 R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section=S_MODES, after="mode-deathmatch-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
 R("mode-wingman-fun", "FUN in Wingman", section=S_MODES, after="mode-deathmatch-game", bridge=W_MAP, steps=[*to_mode("wingman", 0, 2, "de_inferno"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
-R("mode-wingman-game", "SERVER > Game in Wingman", section=S_MODES, after="mode-wingman-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
+R("mode-wingman-bots", "FUN > Bots in Wingman: the counts past its room for 4 players greyed, and every preset but Sniper duel", section=S_MODES, after="mode-wingman-fun",
+  bridge=W_MAP, steps=[show("bots"), pause(1), shoot()], when="1 s after the show returns", words_from=("bridge/Shared/Bots.cs", "has room for"))
+R("mode-wingman-game", "SERVER > Game in Wingman", section=S_MODES, after="mode-wingman-bots", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
 R("mode-armsrace-back", "START, back on Arms Race: the run's last frame", section=S_MODES, after="mode-wingman-game", bridge=W_MAP, steps=[*to_mode("armsrace", 1, 0, START_MAP), show("start"), pause(1), shoot()], cleanup=[RELEASE], when="1 s after the show returns",
   masks=(M_GREET,), names=GREETING + UNSEEN)
 

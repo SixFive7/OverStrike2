@@ -376,6 +376,26 @@ static partial class DocShots
           when: "about 3 s after the typed line", crop: CTop, win: Win.None, names: TopNamed, renamed: true, wordsFrom: ("bridge/Fun.cs", "DefaultLine"));
         R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any other", pick: "Catch-up or grenade drops switched", today: "the top line 4d, the catalogue's FunChanged, 10 s; chat and the board too", steps: [Con("say !catchup off"), Pause(1.5), Shoot()], cleanup: [ResetFun],
           when: "about 3 s after the typed line", crop: CTop, win: Win.None, names: TopNamed, renamed: true);
+        // ---- FUN, Bots (content v4.8.0): the page, a row set by somebody, a click Arms Race refuses, and the two lines everybody gets; Wingman's greying is with the modes.
+        // Bots join for real on the copy: each row that puts some in takes them out again in its cleanup (os_fun reset undoes the Bots page's rows too).
+        R("page-bots", "FUN > Bots: every row at its default, the note, Kick all bots greyed, Default and the six presets", section: SWindow,
+          steps: [Show("start"), Press("os_tab_fun"), Press("os_tab_bots"), Pause(1), Shoot()], when: "1 s after the click returns",
+          wordsFrom: ("bridge/Shared/Bots.cs", "Bots for everybody, set by anybody, until the map changes"));
+        R("bots-set-by", "FUN > Bots: Bots 2 set by Bob, its row marked: 2 - Set by Bob, Kick all bots no longer greyed", section: SWindow, after: "page-bots",
+          steps: [Rc("os_fun bots 2 \"Bob\"", "fun: "), Show("bots"), Pause(2), Shoot()], cleanup: [ResetFun], when: "2 s after the show returns: the two bots have joined",
+          names: TestName + ": os_fun's who");
+        R("bots-refused", "FUN > Bots in Arms Race: Weapons greyed with the ladder's reason, and a click on Knives answered on its row", section: SWindow, after: "bots-set-by",
+          steps: [Show("bots"), Pause(1), Press("os_b5_2"), Pause(1), Shoot()], when: "1 s after the click returns: the row says why the choice cannot be made here",
+          wordsFrom: ("bridge/Shared/Bots.cs", "Arms Race's ladder hands out the weapons, to the bots too"));
+        R("bots-preset", "The top line: a Bots preset started, who, and what it set", pick: "Bots: a preset started, and what it set",
+          today: "the top line 4d, the catalogue's BotsPreset, 10 s; chat and the board too",
+          steps: [Show("bots"), Pause(1), Press("os_bp2"), Pause(0.5), Release, Pause(1), Shoot()], cleanup: [ResetFun],
+          when: "about 1.5 s after the click: Sniper duel, one bot; the window closed first so the line stands alone", crop: CTop, win: Win.None, names: TopNamed, renamed: true,
+          wordsFrom: ("bridge/Shared/Bots.cs", "PresetLine"));
+        R("bots-kicked", "The top line: Kick all bots, and who", pick: "Bots: Kick all bots, or Default", today: "the top line 4d, the catalogue's BotsOff, 10 s; chat and the board too",
+          steps: [Rc("os_fun bots 1 \"Bob\"", "fun: "), Pause(2), Show("bots"), Pause(1), Press("os_bots_kick"), Pause(0.5), Release, Pause(1), Shoot()], cleanup: [ResetFun],
+          when: "about 1.5 s after the click: the window closed first so the line stands alone", crop: CTop, win: Win.None, names: TopNamed, renamed: true,
+          wordsFrom: ("bridge/Shared/Bots.cs", "kicked every bot"));
         R("catchup-boost", "Catch-up's boost: the card's green rows under the crosshair", pick: "Catch-up's boost", today: "the card 3d, as picked, 5 s; that player's chat and board", steps: [Rb($"os_catchup show {Account} 5", "catchup: showed"), Pause(2.4), Shoot()],
           when: "about 1.6 s after the command has run in the background: os_catchup show sends what a real spawn's boost sends", crop: CCard, win: Win.None);
         R("catchup-bounty", "The leader's bounty: the card's red rows under the crosshair", pick: "The leader's bounty", today: "the card 3d, as picked, 5 s; that player's chat", steps: [Rb($"os_catchup show {Account} lead 4", "catchup: showed"), Pause(2.4), Shoot()],
@@ -539,7 +559,9 @@ static partial class DocShots
         R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section: SModes, bridge: WMap, steps: [.. ToMode("deathmatch", 1, 2, "de_dust2"), Show("fun"), Pause(1), Shoot()], when: "1 s after the show returns");
         R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section: SModes, after: "mode-deathmatch-fun", bridge: WMap, steps: [Press("os_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [BlurSetBy], names: Real("a set-by in the bridge's state: blurred"));
         R("mode-wingman-fun", "FUN in Wingman", section: SModes, after: "mode-deathmatch-game", bridge: WMap, steps: [.. ToMode("wingman", 0, 2, "de_inferno"), Show("fun"), Pause(1), Shoot()], when: "1 s after the show returns");
-        R("mode-wingman-game", "SERVER > Game in Wingman", section: SModes, after: "mode-wingman-fun", bridge: WMap, steps: [Press("os_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [BlurSetBy], names: Real("a set-by in the bridge's state: blurred"));
+        R("mode-wingman-bots", "FUN > Bots in Wingman: the counts past its room for 4 players greyed, and every preset but Sniper duel", section: SModes, after: "mode-wingman-fun",
+          bridge: WMap, steps: [Show("bots"), Pause(1), Shoot()], when: "1 s after the show returns", wordsFrom: ("bridge/Shared/Bots.cs", "has room for"));
+        R("mode-wingman-game", "SERVER > Game in Wingman", section: SModes, after: "mode-wingman-bots", bridge: WMap, steps: [Press("os_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [BlurSetBy], names: Real("a set-by in the bridge's state: blurred"));
         R("mode-armsrace-back", "START, back on Arms Race: the run's last frame", section: SModes, after: "mode-wingman-game", bridge: WMap, steps: [.. ToMode("armsrace", 1, 0, StartMap), Show("start"), Pause(1), Shoot()], cleanup: [Release], when: "1 s after the show returns",
           masks: [MGreet], names: Greeting + Unseen);
 

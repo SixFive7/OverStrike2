@@ -432,7 +432,8 @@ set Gravity to Moon, so Super jump cannot be High"), and in that player's chat. 
 FUN has two sub-tabs: **Settings**, the page above, and **Bots**, where anybody puts bots in the game for everybody (`bridge/Shared/Bots.cs`, the page
 `bridge/Shared/HudBots.cs`). There are none unless somebody puts them in: the server's cfgs set `bot_quota 0` at every map load, as they always have. Every row
 works as the Fun page's: a change lasts until the map changes, the page says who set it, a plugin reload undoes it and says so, the bridge's reset after
-10 minutes with nobody on puts it back, and a player's value is a choice, never a map's - the game-changers block, which keeps `bot_quota` and
+10 minutes with nobody on puts it back (and like a fun setting it outlives the player who set it: with nobody on, CS2 takes the bots out within
+seconds, and they come back with the next player while the row still says so), and a player's value is a choice, never a map's - the game-changers block, which keeps `bot_quota` and
 `bot_quota_mode` where the server has them, leaves a player's alone. `os_fun` takes the rows too (`os_fun bots 4`, `os_fun botlevel expert`).
 
 | Row | Choices | What |

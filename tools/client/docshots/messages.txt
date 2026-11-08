@@ -3,7 +3,7 @@ how long in brackets, then the surface it goes on. docshots.py holds its table o
 publish.py's gallery (docs/hud/messages.html) takes its headings and its words from it; a message NOT SHOWN has a row that says why.
 A change to the message system changes this list, the table and the pictures together.
 
-MESSAGES (48)
+MESSAGES (50)
 
 JOINING
 
@@ -42,6 +42,8 @@ FUN AND GAME SETTINGS
 - Catch-up or grenade drops switched [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
 - "set by <name>" on settings that are not default [everybody; while set]: a line on the window's page (Inside the window); also a line in chat; also listed on the TAB board.
 - A map's game-changer undone [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Bots: a preset started, and what it set [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
+- Bots: Kick all bots, or Default [everybody; 10 s]: 4d top line with a category tab (Top centre); also a line in chat; also listed on the TAB board.
 - Catch-up's boost [one player; 5 s (was 2 s)]: 3d a stack of slim rows (Our card: centre, under the crosshair); also a line in chat; also listed on the TAB board.
 - The leader's bounty [one player; 5 s]: 3d a stack of slim rows (Our card: centre, under the crosshair); also a line in chat.
 

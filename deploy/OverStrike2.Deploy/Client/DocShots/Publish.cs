@@ -38,6 +38,8 @@ static class Publish
           "vote-random-lit", "vote-waiting", "vote-pager", "vote-limit-low", "vote-tie-lead", "chat-vote-clicked"]),
         ("fun", "FUN", "The fun settings: every one at its default, set by somebody, greyed when impossible, idle in a mode, and the rows of the other modes.",
          ["page-fun", "fun-set-by", "fun-refused", "fun-refused-tip", "fun-already", "fun-idle", "fun-many", "mode-deathmatch-fun", "mode-wingman-fun"]),
+        ("fun-bots", "FUN, Bots", "Bots for everybody, set by anybody: the twelve rows and six presets at their default, a row set by somebody, a choice Arms Race refuses, Wingman's greying, and the lines everybody gets. Like the fun settings, a row lasts until the map changes - also after the player who set it has left - or until 10 minutes with nobody on.",
+         ["page-bots", "bots-set-by", "bots-refused", "bots-preset", "bots-kicked", "mode-wingman-bots"]),
         ("server-players", "SERVER, Players", "Who is on, and which HUD their game shows.", ["page-players", "players-older", "players-check", "vote-players"]),
         ("server-game", "SERVER, Game", "The match length, and the two restarts: the match or the whole server.",
          ["page-game", "game-time-10", "game-restart-armed", "rematch-countdown", "mode-deathmatch-game", "mode-wingman-game"]),
