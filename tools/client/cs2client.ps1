@@ -18,7 +18,7 @@ CS2 client test harness - the user's own CS2 client with no window on their scre
   rcon     -Rcon "<server console command>"   (a production action: anything that changes the server needs the server lock)
   cleanup  finish a session whose watchdog died; remove leftover boot cfg / loose HUD files
 
-Exit codes: 0 ok, 1 error, 2 refused (CS2 or the harness busy, server lock held), 3 timed out.
+Exit codes: 0 ok, 1 error, 2 refused (CS2 or the harness busy, server lock held), 3 timed out, 4 the Steam overlay over the game (the frame not written).
 #>
 param(
     [Parameter(Position = 0)][string]$Verb = 'help',
@@ -127,5 +127,6 @@ catch {
     Write-Output "ERROR: $m"
     if ($m -match 'already running|in use|server lock is held') { exit 2 }
     if ($m -match 'timed out') { exit 3 }
+    if ($m -match 'the Steam overlay is over the game') { exit 4 }
     exit 1
 }

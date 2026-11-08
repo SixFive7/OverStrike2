@@ -1737,6 +1737,8 @@ class Doer:
         text = path.read_bytes().decode("utf-8", "replace").replace("\0", "")
         path.unlink(missing_ok=True)
         self.log(f"{label} -> exit {code}: {text.strip()[:600]}")
+        if "the Steam overlay is over the game" in text:   # the harness's shot found it first and wrote no frame (cs2client.ps1, exit 4): the run stops all the same
+            raise OverlayOpen(f"{label}: {scrub(text.strip())[:300]}. Stop the client, start it again (client.sh start {self.res}) and run the rows not done (--only)")
         if code != 0 or text.lstrip().startswith("ERROR:"):
             raise RowFailed(f"{label}: exit {code}: {scrub(text.strip())[:300]}")
         return text
@@ -2244,6 +2246,9 @@ verb = a[0]
 def arg(n):
     return a[a.index(n) + 1]
 if verb == "shot":
+    if fail == "overlay" and arg("-Name") != "_probe":     # the real harness's answer when it finds the overlay: no frame, exit 4
+        print("ERROR: the Steam overlay is over the game (its Back to Game button at 1828,22,1876,70): the frame was not written - it shows the account. Stop the client and start it again: the overlay stays until then")
+        sys.exit(4)
     res = os.environ["FAKE_RES"]
     dst = os.path.join(arg("-OutDir"), arg("-Name") + ".png")
     rows_png = os.environ.get("FAKE_PNG_ROWS", "")
@@ -2432,7 +2437,7 @@ def deep_check(info, check):
         ow, oh = parse_res(res)
         overlay_png = work / "overlay.png"
         fake_overlay(Image.new("RGB", (ow, oh), (60, 70, 80)), round(oh * 0.044), round(oh * 0.02)).save(overlay_png)
-        for case, env in (("the probe", {"FAKE_PNG": str(overlay_png)}), ("a row's shot", {"FAKE_PNG_ROWS": str(overlay_png)})):
+        for case, env in (("the probe", {"FAKE_PNG": str(overlay_png)}), ("a row's shot", {"FAKE_PNG_ROWS": str(overlay_png)}), ("the harness's answer", {"FAKE_FAIL": "overlay"})):
             shutil.rmtree(work / "out", ignore_errors=True)
             shutil.rmtree(calls)
             calls.mkdir()
@@ -2448,6 +2453,7 @@ def deep_check(info, check):
             sys.stdout = real_stdout
             os.environ.update(FAKE_PNG=str(png))
             os.environ.pop("FAKE_PNG_ROWS", None)
+            os.environ.pop("FAKE_FAIL", None)
             launched = [json.loads(f.read_text(encoding="utf-8")) for f in calls.iterdir()]
             shots = [c[c.index("-Name") + 1] for c in launched if c[0] == "shot"]
             raw_left = sorted(x.name for x in (work / "out" / res / "_raw").glob("*.png"))
@@ -2758,7 +2764,7 @@ def _selfcheck(info):
     print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only")
     print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else")
     print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb")
-    print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click or at a row's shot")
+    print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click, at a row's shot, or on the harness's own answer (cs2client.ps1 exit 4, no frame written)")
     print("  NOT checked, and not checkable offline: anything against a real client or server")
     return 0
 

@@ -826,6 +826,8 @@ static partial class DocShots
                 var text = Encoding.UTF8.GetString(File.ReadAllBytes(path)).Replace("\0", "", StringComparison.Ordinal);
                 File.Delete(path);
                 Log($"{label} -> exit {code}: {Py.Slice(Py.Strip(text), 0, 600)}");
+                if (text.Contains("the Steam overlay is over the game", StringComparison.Ordinal))   // the harness's shot found it first and wrote no frame (cs2client.ps1, exit 4): the run stops all the same
+                    throw new OverlayOpen($"{label}: {Py.Slice(Scrub(Py.Strip(text)), 0, 300)}. Stop the client, start it again (client.sh start {res}) and run the rows not done (--only)");
                 if (code != 0 || text.TrimStart().StartsWith("ERROR:", StringComparison.Ordinal))
                     throw new RowFailed($"{label}: exit {code}: {Py.Slice(Scrub(Py.Strip(text)), 0, 300)}");
                 return text;

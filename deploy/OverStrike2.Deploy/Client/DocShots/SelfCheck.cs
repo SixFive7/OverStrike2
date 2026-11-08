@@ -26,6 +26,11 @@ static partial class DocShots
         switch (verb)
         {
             case "shot":
+                if (fail == "overlay" && Arg("-Name") != "_probe")      // the real harness's answer when it finds the overlay: no frame, exit 4
+                {
+                    Print("ERROR: the Steam overlay is over the game (its Back to Game button at 1828,22,1876,70): the frame was not written - it shows the account. Stop the client and start it again: the overlay stays until then");
+                    return 4;
+                }
                 var res = Env("FAKE_RES");
                 var dst = Path.Combine(Arg("-OutDir"), Arg("-Name") + ".png");
                 var rowsPng = Env("FAKE_PNG_ROWS");    // the rows' frames from another picture when it says so; the probe keeps FAKE_PNG
@@ -246,13 +251,13 @@ static partial class DocShots
             var (ow, oh) = ParseRes(res);
             var overlayPng = Path.Combine(work, "overlay.png");
             File.WriteAllBytes(overlayPng, Pictures.Png(FakeOverlay(solid, Py.Round(oh * 0.044), Py.Round(oh * 0.02))));
-            foreach (var (overlayCase, variable) in new[] { ("the probe", "FAKE_PNG"), ("a row's shot", "FAKE_PNG_ROWS") })
+            foreach (var (overlayCase, variable) in new[] { ("the probe", "FAKE_PNG"), ("a row's shot", "FAKE_PNG_ROWS"), ("the harness's answer", "FAKE_FAIL") })
             {
                 if (Directory.Exists(output))
                     Directory.Delete(output, true);
                 Directory.Delete(calls, true);
                 Directory.CreateDirectory(calls);
-                Environment.SetEnvironmentVariable(variable, overlayPng);
+                Environment.SetEnvironmentVariable(variable, variable == "FAKE_FAIL" ? "overlay" : overlayPng);
                 (plan, _) = BuildPlan(["chat-unknown", "welcome-back"], true);
                 Console.SetOut(new StringWriter());
                 string? stopped = null;
@@ -274,6 +279,7 @@ static partial class DocShots
                 Console.SetOut(realOut);
                 Environment.SetEnvironmentVariable("FAKE_PNG", png);
                 Environment.SetEnvironmentVariable("FAKE_PNG_ROWS", null);
+                Environment.SetEnvironmentVariable("FAKE_FAIL", null);
                 launched = Launched(calls);
                 var shots = launched.Where(c => c[0] == "shot").Select(c => c[c.IndexOf("-Name") + 1]).Order(StringComparer.Ordinal).ToList();
                 check(stopped is not null && stopped.Contains("Steam overlay", StringComparison.Ordinal), $"deep check: the overlay in {overlayCase} did not stop the run");
@@ -663,7 +669,7 @@ static partial class DocShots
         Out.Print("  the gate refuses in all eight bad cases without a packet, and the run's own door with it, no folder made; pictures keep their full size at every resolution; the index holds relative links only");
         Out.Print("  a retake's picture against the committed one: the same through JPEG's noise, a clock, a counter, the world dimmed behind a panel or the game around a crop's panel; changed by a word anywhere else");
         Out.Print("  the real run's own code against a fake harness: it launches exactly what the dry run prints, its log holds no secret or name, a vote that does not open stops its chain, --remask redoes the pictures with no verb");
-        Out.Print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click or at a row's shot");
+        Out.Print("  the Steam overlay: its button found at every resolution over a dark or a busy game, nothing else taken for it; a frame with it is deleted and the run stops, at the probe before any click, at a row's shot, or on the harness's own answer (cs2client.ps1 exit 4, no frame written)");
         Out.Print("  NOT checked, and not checkable offline: anything against a real client or server");
         return 0;
     }

@@ -297,6 +297,8 @@ namespace Cs2Harness
                         g.ReleaseHdc(hdc);
                         if (!ok) { result = "PrintWindow failed: " + Marshal.GetLastWin32Error(); return; }
                     }
+                    var overlay = SteamOverlay(bmp);     // at full size, before any scaling: such a frame is never written
+                    if (overlay != null) { result = $"overlay {overlay} (from {w}x{ht})"; return; }
                     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)));
                     if (maxWidth > 0 && w > maxWidth)
                     {
@@ -343,6 +345,75 @@ namespace Cs2Harness
                     return $"ok {ow}x{oh}";
                 }
             }
+        }
+
+        // ---------------------------------------------------------------- the Steam overlay
+
+        /// <summary>Where the Steam overlay's Back to Game button is in a frame, "x0,y0,x1,y1", or null - tools/client/docshots/docshots.py's
+        /// steam_overlay, number for number. In the top right corner (the right 14 %, the top 12 %): a square of the button's grey (#23262E,
+        /// within 10 a channel), 2 % to 8 % of the frame's height a side and at least half of it that grey, with light pixels in it (every channel
+        /// at least 170) of which at least 70 % lie along its two diagonals - the X. The overlay (Shift+Tab, or opened by Steam itself: once it came
+        /// up with the client's start and stayed in every frame) shows the account's own name: CaptureWindow never writes a frame with it.</summary>
+        public static string SteamOverlay(Bitmap bmp)
+        {
+            int w = bmp.Width, h = bmp.Height;
+            int x0 = (int)(w * 0.86), rh = (int)(h * 0.12), rw = w - x0;
+            if (rw <= 0 || rh <= 0) return null;
+            var data = bmp.LockBits(new Rectangle(x0, 0, rw, rh), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            int stride = data.Stride;
+            var buf = new byte[stride * rh];
+            try { Marshal.Copy(data.Scan0, buf, 0, buf.Length); }
+            finally { bmp.UnlockBits(data); }
+            // BGRA in memory
+            var mask = new bool[rw * rh];
+            for (int y = 0; y < rh; y++)
+                for (int x = 0; x < rw; x++)
+                {
+                    int p = y * stride + x * 4;
+                    mask[y * rw + x] = Math.Abs(buf[p + 2] - 35) <= 10 && Math.Abs(buf[p + 1] - 38) <= 10 && Math.Abs(buf[p] - 46) <= 10;
+                }
+            var seen = new bool[mask.Length];
+            double lo = 0.02 * h, hi = 0.08 * h;
+            var stack = new Stack<int>();
+            for (int start = 0; start < mask.Length; start++)
+            {
+                if (!mask[start] || seen[start]) continue;
+                stack.Push(start);
+                seen[start] = true;
+                int n = 0, bx0 = start % rw, bx1 = bx0, by0 = start / rw, by1 = by0;
+                while (stack.Count > 0)         // the grey's 4-connected piece
+                {
+                    int i = stack.Pop();
+                    n++;
+                    int x = i % rw, y = i / rw;
+                    bx0 = Math.Min(bx0, x); bx1 = Math.Max(bx1, x); by0 = Math.Min(by0, y); by1 = Math.Max(by1, y);
+                    if (x + 1 < rw && mask[i + 1] && !seen[i + 1]) { seen[i + 1] = true; stack.Push(i + 1); }
+                    if (x > 0 && mask[i - 1] && !seen[i - 1]) { seen[i - 1] = true; stack.Push(i - 1); }
+                    if (y + 1 < rh && mask[i + rw] && !seen[i + rw]) { seen[i + rw] = true; stack.Push(i + rw); }
+                    if (y > 0 && mask[i - rw] && !seen[i - rw]) { seen[i - rw] = true; stack.Push(i - rw); }
+                }
+                int bw = bx1 - bx0 + 1, bh = by1 - by0 + 1;
+                if (!(lo <= bw && bw <= hi && lo <= bh && bh <= hi && 0.8 <= (double)bw / bh && (double)bw / bh <= 1.25 && n >= 0.5 * bw * bh)) continue;
+                double cx = (bx0 + bx1) / 2.0, cy = (by0 + by1) / 2.0;
+                int light = 0, on = 0;
+                for (int y = by0; y <= by1; y++)
+                    for (int x = bx0; x <= bx1; x++)
+                    {
+                        int p = y * stride + x * 4;
+                        if (Math.Min(Math.Min(buf[p], buf[p + 1]), buf[p + 2]) < 170) continue;
+                        light++;
+                        if (Math.Abs(Math.Abs(x - cx) - Math.Abs(y - cy)) <= 0.12 * bw) on++;
+                    }
+                if (light < 0.03 * bw * bh) continue;
+                if (on >= 0.7 * light) return $"{x0 + bx0},{by0},{x0 + bx1 + 1},{by1 + 1}";
+            }
+            return null;
+        }
+
+        /// <summary>SteamOverlay of a picture on disk (a PNG the harness or docshots wrote), for a check after the fact.</summary>
+        public static string SteamOverlayIn(string path)
+        {
+            using (var bmp = new Bitmap(path)) return SteamOverlay(bmp);
         }
 
         static double MeanLuma(Bitmap bmp)

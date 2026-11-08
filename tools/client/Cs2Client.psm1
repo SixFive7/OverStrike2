@@ -754,15 +754,22 @@ function Get-Cs2ShotCounts([string]$RunDir) {
     $own = Join-Path $RunDir 'shots'
     $list = Join-Path $RunDir 'shots-elsewhere.txt'
     $lines = @(if (Test-Path -LiteralPath $list) { Get-Content -LiteralPath $list -Encoding utf8 | Where-Object { $_ } })
+    $over = Join-Path $RunDir 'shots-overlay.txt'
     [ordered]@{
         run       = if (Test-Path -LiteralPath $own) { @(Get-ChildItem -LiteralPath $own -Filter '*.png' -File).Count } else { 0 }
         elsewhere = $lines.Count
         dir       = if ($lines.Count) { Split-Path -Parent (($lines[0] -split "`t", 2)[-1]) } else { '' }
+        overlay   = @(if (Test-Path -LiteralPath $over) { Get-Content -LiteralPath $over -Encoding utf8 | Where-Object { $_ } }).Count
     }
 }
 
 function Get-Cs2ShotWarning($Shots, [string]$RunDir) {
-    if (-not $Shots -or $Shots.run -gt 0 -or $Shots.elsewhere -eq 0) { return }
+    if (-not $Shots) { return }
+    if ($Shots.overlay -gt 0) {
+        "WARNING: the Steam overlay was over the game in $($Shots.overlay) shot(s) of this run - none of those frames was written " +
+        "($(Join-Path $RunDir 'shots-overlay.txt')). The frames that were written are clean"
+    }
+    if ($Shots.run -gt 0 -or $Shots.elsewhere -eq 0) { return }
     "WARNING: no shots\ in this run - its $($Shots.elsewhere) shot(s) went to -OutDir ($($Shots.dir)). A HUD release's client test is a run with its own shots\ " +
     "(release.py publish --client-test <run>): take them without -OutDir, or copy this run's own frames into $(Join-Path $RunDir 'shots') with a note of where they came from"
 }
@@ -779,6 +786,11 @@ function Save-Cs2Screenshot([string]$Name, [int]$MaxWidth = 1920, [string]$OutDi
     if (-not $OutDir) { $OutDir = $own }
     $path = Join-Path $OutDir $Name
     $r = [Cs2Harness.Native]::CaptureWindow($s.desktop, $w.Handle, $path, $MaxWidth)
+    if ($r.StartsWith('overlay ')) {
+        # Steam's overlay over the game shows the account: the frame is never written (Cs2Native's SteamOverlay), the run notes it, and the shot fails
+        Add-Content -LiteralPath (Join-Path $s.runDir 'shots-overlay.txt') -Value "$((Get-Date).ToString('s'))`t$Name`t$($r.Substring(8))" -Encoding utf8
+        throw "the Steam overlay is over the game (its Back to Game button at $($r.Substring(8))): the frame was not written - it shows the account. Stop the client and start it again: the overlay stays until then"
+    }
     if (-not $r.StartsWith('ok')) { throw "capture failed: $r" }
     if ([IO.Path]::GetFullPath($OutDir).TrimEnd('\') -ne [IO.Path]::GetFullPath($own).TrimEnd('\')) { Add-Cs2ShotElsewhere $s $path }
     "$path  $r"
