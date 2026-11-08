@@ -379,7 +379,8 @@ static partial class DocShots
         // ---- FUN, Bots (content v4.8.0): the page, a row set by somebody, a click Arms Race refuses, and the two lines everybody gets; Wingman's greying is with the modes.
         // Bots join for real on the copy: each row that puts some in takes them out again in its cleanup (os_fun reset undoes the Bots page's rows too).
         R("page-bots", "FUN > Bots: every row at its default, the note, Kick all bots greyed, Default and the six presets", section: SWindow,
-          steps: [Show("start"), Press("os_tab_fun"), Press("os_tab_bots"), Pause(1), Shoot()], when: "1 s after the click returns",
+          steps: [Pause(9), Show("start"), Press("os_tab_fun"), Press("os_tab_bots"), Pause(1), Shoot()],
+          when: "1 s after the click returns; the 9 s first let the top line of the row before (a fun change, 10 s) go",
           wordsFrom: ("bridge/Shared/Bots.cs", "Bots for everybody, set by anybody, until the map changes"));
         R("bots-set-by", "FUN > Bots: Bots 2 set by Bob, its row marked: 2 - Set by Bob, Kick all bots no longer greyed", section: SWindow, after: "page-bots",
           steps: [Rc("os_fun bots 2 \"Bob\"", "fun: "), Show("bots"), Pause(2), Shoot()], cleanup: [ResetFun], when: "2 s after the show returns: the two bots have joined",

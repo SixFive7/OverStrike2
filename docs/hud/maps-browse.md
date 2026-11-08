@@ -2,7 +2,7 @@
 
 The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card, a risky map's card.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 0dee310 (HUD content v4.7.0, plugin 5.1.0). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 868d9ca (HUD content v4.8.0, plugin 5.3.1). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## MAPS > Browse: eight cards by rank, sort, mode, size, search, Previous, pager
 

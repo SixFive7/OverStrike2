@@ -54,7 +54,7 @@ Every part of the interface, as a real game client draws it against a test copy 
 | MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | [maps-browse](docs/hud/maps-browse.md) |
 | MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | [maps-vote](docs/hud/maps-vote.md) |
 | FUN | The fun settings, off their default, idle, refused | [fun](docs/hud/fun.md) |
-| FUN, Bots | Bots for everybody: twelve rows, six presets, Kick all bots and Default, greyed where a mode has no room | (the next retake) |
+| FUN, Bots | Bots for everybody: twelve rows, six presets, Kick all bots and Default, greyed where a mode has no room | [fun-bots](docs/hud/fun-bots.md) |
 | SERVER, Players | Who is on, and which HUD their game shows | [server-players](docs/hud/server-players.md) |
 | SERVER, Game | The match length, and the two restarts: the match or the whole server | [server-game](docs/hud/server-game.md) |
 | SERVER, Sync | The Workshop sync's dashboard: now, the queue, the history | [server-sync](docs/hud/server-sync.md) |

@@ -595,7 +595,8 @@ R("fun-catchup-off", "The top line: catch-up switched, a fun setting like any ot
 # ---- FUN, Bots (content v4.8.0): the page, a row set by somebody, a click Arms Race refuses, and the two lines everybody gets; Wingman's greying is with the modes.
 # Bots join for real on the copy: each row that puts some in takes them out again in its cleanup (os_fun reset undoes the Bots page's rows too).
 R("page-bots", "FUN > Bots: every row at its default, the note, Kick all bots greyed, Default and the six presets", section=S_WINDOW,
-  steps=[show("start"), press("os_tab_fun"), press("os_tab_bots"), pause(1), shoot()], when="1 s after the click returns",
+  steps=[pause(9), show("start"), press("os_tab_fun"), press("os_tab_bots"), pause(1), shoot()],
+  when="1 s after the click returns; the 9 s first let the top line of the row before (a fun change, 10 s) go",
   words_from=("bridge/Shared/Bots.cs", "Bots for everybody, set by anybody, until the map changes"))
 R("bots-set-by", "FUN > Bots: Bots 2 set by Bob, its row marked: 2 - Set by Bob, Kick all bots no longer greyed", section=S_WINDOW, after="page-bots",
   steps=[rc('os_fun bots 2 "Bob"', expect=r"fun: "), show("bots"), pause(2), shoot()], cleanup=[RESET_FUN], when="2 s after the show returns: the two bots have joined",
