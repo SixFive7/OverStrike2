@@ -68,6 +68,6 @@ dotnet run --project deploy/OverStrike2.Deploy -- <command> ...      # from the 
 | `release live\|publish ...`, `check guard\|verify` | `release.py`, `check.py` |
 | `probe`, `testcopy`, `bridgepost` | `tools/client/probe/`'s three |
 | `docshots ...` (and `docshots publish\|name\|merge\|maskview\|sheets`) | `tools/client/docshots/`'s docshots.py, publish.py, docname.py, merge_fix.py, maskview.py, review_sheet.py |
-| `rehearse prep\|backup\|stage\|up\|compose\|down\|restore\|clean\|logs\|sh\|rcon\|ship\|status` | the release rehearsal: production's game server, bridge and sync set aside under the server lock with nobody on, this checkout's builds run as a throwaway stack (`[rehearse]` in the config), everything put back |
+| `rehearse prep\|backup\|stage\|up\|compose\|hold\|down\|restore\|clean\|logs\|sh\|rcon\|ship\|status` | the release rehearsal: production's game server, bridge and sync set aside under the server lock with nobody on, this checkout's builds run as a throwaway stack (`[rehearse]` in the config), everything put back. `hold on\|off` (or `up --hold`) keeps the rehearsal's bridge on its map for the live lab - the bridge's maintenance flag in the rehearsal's copy of its data, never production's; `down` and `restore` lift it |
 
 `os2-deploy --selftest` runs every case of the Python tests, ported under the same names (`--selftest <suite>` one of them).

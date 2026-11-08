@@ -18,7 +18,7 @@ namespace OverStrike2.Deploy;
 ///                                     the plugin (plugin build's), a copy of the bridge's data - without the maintenance flag prep set, unless
 ///                                     --keep-flag: the candidate bridge then starts under it (no start roll, no match-end change, no crash
 ///                                     count) until it goes; the sync's state copied and its work folder made, with an empty hand-over folder
-///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots]
+///     rehearse up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold]
 ///                                     the stack: the compose file (stack.repo/stack.file, or FILE) with production's folders replaced by the
 ///                                     rehearsal's, a fresh test secret, the bridge on &lt;bridge.image&gt;:T (candidate), the test labels, and the
 ///                                     settings: restarts.daily, hud.itemPage off, production's maps folder left alone - maps.layout off,
@@ -29,10 +29,19 @@ namespace OverStrike2.Deploy;
 ///                                     would make them) - and the sync isolated - paths.syncState and paths.syncWork on copies, sync.testPort,
 ///                                     sync.handover and sync.publish off, no mail. For a rehearsal held for the live lab's client: --insecure
 ///                                     adds -insecure to the game server's CS2_ADDITIONAL_ARGS (a client with an unpublished HUD build joins no
-///                                     VAC-secured server), --test-bots sets plugin.testBots (RCON's bot_add keeps its bots); both off by default
+///                                     VAC-secured server), --test-bots sets plugin.testBots (RCON's bot_add keeps its bots); both off by default.
+///                                     --hold: the hold on (below) before the stack starts, so not even its first start rolls
 ///     rehearse compose [...]          read-only: what up would create, written to the harness's state folder, its changes named
-///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label)
-///     rehearse restore                records back, production's three containers back (testcopy's checks: its endpoint, its own plugins)
+///     rehearse hold on|off|status     the hold, for the live lab: the bridge's maintenance flag in the rehearsal folder's copy of its data (never
+///                                     production's), so the rehearsal's bridge keeps whatever map is on - a change to the start map is no server
+///                                     start to it that owes the start roll, and the HUD item is not handed out again by a roll. The flag is the
+///                                     bridge's one switch for it, and it stops all the bridge does by itself: the start roll, a match end's vote and
+///                                     the dice (a vote a player calls still decides), the mode's way back to Arms Race, and the crash watch's counting
+///                                     and notice - so hold off for a check of any of those. A start of the start map while the hold is on leaves the
+///                                     start roll owed: hold off after leaving the start map, or the bridge rolls then
+///     rehearse down                   the stack gone (a container it leaves behind removed only if it carries the test label), and the hold lifted
+///     rehearse restore                the hold lifted, records back, production's three containers back (testcopy's checks: its endpoint, its own
+///                                     plugins)
 ///     rehearse clean                  only at the very end, the stack down (after restore too): the rehearsal folder, the sync's copies and the
 ///                                     backup gone - the preview with the folder (preview/keep-preview.json, deleted-&lt;time&gt;-preview.tsv):
 ///                                     read or keep it first
@@ -574,7 +583,7 @@ sealed class Rehearse
     }
 
     /// <summary>A dry run of up: the compose file it would create, written to the harness's state folder, and what it changes, named.</summary>
-    void ComposeDry(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false)
+    void ComposeDry(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false)
     {
         var (game, bridge) = Production();
         var (compose, settings, dir) = Build(game, bridge, daily, via, tag, composePath, downloads, insecure, testBots);
@@ -591,10 +600,10 @@ sealed class Rehearse
             + $"restarts.daily {Json.Str(s, "restarts", "daily")}, hud.itemPage {Json.PyStr(Json.At(s, "hud", "itemPage"))}, "
             + $"sync.publish {Json.PyStr(Json.At(s, "sync", "publish"))}, sync.handover {Json.PyStr(Json.At(s, "sync", "handover"))}, sync.testPort {Json.PyStr(Json.At(s, "sync", "testPort"))}, "
             + $"sync.mail.smtpHost {Py.Repr(Json.Str(s, "sync", "mail", "smtpHost"))}, paths.syncState {Json.Str(s, "paths", "syncState")}, paths.syncWork {Json.Str(s, "paths", "syncWork")}");
-        Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}");
+        Log($"  the stack {StackName} on {tc.BridgeRepo}:{tag}, in {dir}" + (hold ? "; the hold on before it starts (the maintenance flag in its copy of the bridge data)" : ""));
     }
 
-    internal void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false)
+    internal void Up(string daily, string via, string tag, string? composePath, bool downloads, bool insecure = false, bool testBots = false, bool hold = false)
     {
         h.NeedLock();
         if (tc.Inspect(tc.Aside) is null || tc.Inspect(tc.BridgeAside) is null)
@@ -608,6 +617,13 @@ sealed class Rehearse
             Log("settings file:", code, output.Replace("\n", " | "));
         }
         File.WriteAllText(Path.Combine(tc.State, "rehearsal-compose.yml"), compose);   // secrets inside: the harness's state folder, never printed
+        if (hold)   // before the stack starts: its first start rolls no map either
+        {
+            var (code, output) = HoldHelper("on", game, bridge);
+            Log("hold on:", code, output.Replace("\n", " | "));
+            if (code != 0)
+                throw Out.Stop("REFUSED: the hold could not be set - nothing created");
+        }
         var t0 = h.Now();
         var (_, endpoint) = Manager();
         var (status, made) = ManagerCall("POST", $"/stacks/create/standalone/string?endpointId={endpoint}",
@@ -622,7 +638,55 @@ sealed class Rehearse
         Log($"A2S after {Fmt.Fixed(waited, 0)} s more:", Py.Repr(i));
     }
 
-    void Down()
+    /// <summary>The hold's flag in the rehearsal folder's copy of the bridge data: on, off or the state, by a helper from the game image with the
+    /// rehearsal folder's parent at /p (the parent always exists, so no bind makes a folder) - a path under the rehearsal folder alone, which
+    /// Folder keeps off production's data folder. "on" refuses where there is no copy yet. (code, the helper's word.)</summary>
+    (int Code, string Output) HoldHelper(string what, JsonObject game, JsonObject bridge)
+    {
+        var dir = Dir(bridge);
+        var flag = $"/p/{dir[(dir.LastIndexOf('/') + 1)..]}/bridge/maintenance";
+        return tc.Helper($"{tc.Game}-rehearsal-hold", [$"{dir[..dir.LastIndexOf('/')]}:/p"], HoldScript(what, flag), image: Json.Str(game, "Image"));
+    }
+
+    /// <summary>The hold helper's script for on, off and status, on the flag's path as the helper sees it.</summary>
+    public static string HoldScript(string what, string flag) => what switch
+    {
+        "on" => $"[ -d '{flag[..flag.LastIndexOf('/')]}' ] || {{ echo 'no copy of the bridge data - stage first'; exit 3; }}; touch '{flag}' && echo on",
+        "off" => $"if [ -e '{flag}' ]; then rm -f '{flag}' && echo lifted; else echo none; fi",
+        _ => $"[ -e '{flag}' ] && echo on || echo off",
+    };
+
+    /// <summary>rehearse hold on|off|status, under the lock, with production aside.</summary>
+    internal void Hold(string what)
+    {
+        h.NeedLock();
+        var (game, bridge) = (Game(), BridgeInspect());
+        var (code, output) = HoldHelper(what, game, bridge);
+        Log($"hold {what}:", code, output.Replace("\n", " | "));
+        if (code != 0)
+            throw Out.Stop($"REFUSED: the hold's helper ended {code} - look");
+        if (what == "on")
+            Log("  the rehearsal's bridge keeps its map: no start roll, no match end's vote or dice, no mode reset, no crash counted - hold off for a check of those");
+    }
+
+    /// <summary>down's and restore's last word on the hold: the flag gone from the rehearsal's copy, if it is there - where the folder is comes from the
+    /// inspects prep saved, or from production's own containers once restore has deleted them. Never fatal: a rehearsal that was never staged has none.</summary>
+    void DropHold(string who)
+    {
+        try
+        {
+            var game = Production(tc.ProdSaved, tc.Game, "production's game server inspect");
+            var bridge = Production(tc.BridgeSaved, tc.Bridge, "production's bridge inspect");
+            var (code, output) = HoldHelper("off", game, bridge);
+            Log($"{who}: the hold -", code == 0 ? output.Replace("\n", " | ") : $"its helper ended {code}: {Py.Slice(output, 0, 200)}");
+        }
+        catch (Exit e)
+        {
+            Log($"{who}: the hold - not looked at: {e.Message}");
+        }
+    }
+
+    internal void Down()
     {
         h.NeedLock();
         var (_, endpoint) = Manager();
@@ -645,13 +709,15 @@ sealed class Rehearse
                 throw Out.Stop($"REFUSED: {name} exists and is not a rehearsal container - look");
             Log(name, "left behind; removing ->", h.Call($"/containers/{name}?force=true", "DELETE").Status);
         }
+        DropHold("down");
     }
 
-    void Restore()
+    internal void Restore()
     {
         h.NeedLock();
         if (Names.Values.Where(x => x.Length > 0).Any(n => tc.Inspect(n) is not null))
             throw Out.Stop("REFUSED: a stack container exists - down first");
+        DropHold("restore");
         var game = Game();
         var gameTree = GameTree(game);
         var (code, output) = tc.Helper($"{tc.Game}-rehearsal-restore", [$"{gameTree}:/g"],
@@ -748,7 +814,7 @@ sealed class Rehearse
         }
     }
 
-    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] | compose (the same options) | down | restore | clean | "
+    public const string Doc = "rehearse prep [--keep-flag] | backup | stage [--keep-flag] | up [--daily HH:MM] [--via env|file] [--tag T] [--compose FILE] [--downloads] [--insecure] [--test-bots] [--hold] | compose (the same options) | hold on|off|status | down | restore | clean | "
                               + "logs <cs2|bridge|sync> <seconds> [regex] | sh <cs2|bridge|sync> \"<cmd>\" [user] | rcon \"<cmd>\"... | ship <file> [name] | status";
 
     /// <summary>prep's and stage's one option: --keep-flag, and nothing else.</summary>
@@ -783,11 +849,12 @@ sealed class Rehearse
                     throw Out.Stop("usage: --via env|file");
                 if (args[0] == "up")
                     r.Up(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"), args.Contains("--insecure"),
-                         args.Contains("--test-bots"));
+                         args.Contains("--test-bots"), args.Contains("--hold"));
                 else
                     r.ComposeDry(Opt("--daily", "off")!, via, Opt("--tag", "candidate")!, Opt("--compose", null), args.Contains("--downloads"), args.Contains("--insecure"),
-                                 args.Contains("--test-bots"));
+                                 args.Contains("--test-bots"), args.Contains("--hold"));
                 break;
+            case "hold": r.Hold(args.Count == 2 && args[1] is "on" or "off" or "status" ? args[1] : throw Out.Stop("usage: os2-deploy rehearse hold on|off|status")); break;
             case "down": r.Down(); break;
             case "restore": r.Restore(); break;
             case "clean": r.Clean(); break;

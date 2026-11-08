@@ -234,6 +234,7 @@ services:
         check("a compose file whose game server pushes its log nowhere is refused: no test secret could take the bridge's place", refusal is not null && refusal.Contains("CS2_LOG_HTTP_URL"));
         Clean();
         UpWaits();
+        Hold();
     }
 
     static JsonObject Container(string image, bool test, params string[] binds) => new()
@@ -370,6 +371,132 @@ services:
             });
             check($"up waits for the answer its stack gives: VAC-secured as production, VAC off with --insecure ({string.Join(", ", wanted)})",
                   wanted.SequenceEqual([1, 0]) && created.SequenceEqual(["POST /stacks/create/standalone/string", "POST /stacks/create/standalone/string"]));
+        }
+        finally
+        {
+            SimConfig.Done(tmp, oldState);
+        }
+    }
+
+    /// <summary>The hold against an in-memory Docker and stack manager: the maintenance flag in the rehearsal folder's copy of the bridge data alone,
+    /// by one helper each - on, off, status; up --hold sets it before the stack's create; down lifts it after the stack is gone, restore before it
+    /// touches anything of production's; without prep there is no hold to set.</summary>
+    static void Hold()
+    {
+        var check = SelfTest.Check;
+        var (tmp, config, oldState) = SimConfig.Make("rehearse-hold-sim-");
+        try
+        {
+            File.AppendAllText(config, "\n[rehearse]\nmanager = \"https://manager.example.com/api\"\nendpoint = \"3\"\n");
+            var containers = new Dictionary<string, JsonObject>();
+            var events = new List<string>();
+            var helpers = new List<JsonObject>();
+            var exitCode = 0;
+            Reply Req(string path, string method, JsonNode? body, byte[]? raw, string ctype, double timeout)
+            {
+                var parts = path.Split('?')[0].Split('/');
+                if (method == "GET" && parts[1] == "containers" && parts[^1] == "json")
+                    return containers.TryGetValue(parts[2], out var c) ? Reply.Of(200, c) : throw new DockerError("HTTP Error 404: Not Found");
+                if (method == "POST" && path.StartsWith("/containers/create", StringComparison.Ordinal))
+                {
+                    helpers.Add((JsonObject)body!.DeepClone());
+                    events.Add("helper: " + Json.PyStr(Json.Arr(body, "Cmd")[0]));
+                    return Reply.Of(201, new JsonObject { ["Id"] = "helper-id" });
+                }
+                if (method == "POST" && parts[^1] == "start")
+                    return Reply.Of(204, "");
+                if (method == "POST" && parts[^1] == "wait")
+                    return Reply.Of(200, new JsonObject { ["StatusCode"] = exitCode });
+                if (method == "GET" && parts[^1] == "logs")
+                    return new Reply(200, [1, 0, 0, 0, 0, 0, 0, 3, .. Encoding.ASCII.GetBytes("ok\n")]);
+                if (method == "DELETE")
+                    return Reply.Of(204, "");
+                throw new InvalidOperationException($"unexpected call {method} {path}");
+            }
+            var tc = new TestCopy(new Harness(config) { Req = Req, NeedLock = () => { }, Rcon = _ => "", Sleep = _ => { } });
+            tc.WaitA2s = (want, limit) => (new A2sAnswer("srv", "ar_shoots", 0, want), 1);
+            var stackUp = false;
+            var r = new Rehearse(tc)
+            {
+                ManagerCall = (method, path, body) =>
+                {
+                    events.Add($"{method} {path.Split('?')[0]}");
+                    if (method == "POST")
+                        stackUp = true;
+                    if (method == "DELETE")
+                        stackUp = false;
+                    return method == "GET"
+                        ? (200, stackUp ? new JsonArray(new JsonObject { ["Name"] = "cs2-rehearsal", ["Id"] = 7 }) : new JsonArray())
+                        : (200, new JsonObject());
+                },
+            };
+            Directory.CreateDirectory(tc.State);
+            var game = Container("sha256:gameimg", false, "/srv/game:/home/steam/cs2-dedicated", "/srv/os2/plugins:/home/steam/cs2-plugins:ro");
+            game["NetworkSettings"] = new JsonObject { ["Networks"] = new JsonObject { ["game"] = new JsonObject() } };
+            File.WriteAllText(tc.ProdSaved, game.ToJsonString());
+            File.WriteAllText(tc.BridgeSaved, Container("sha256:bridgeimg", false, "/srv/os2/bridge:/data").ToJsonString());
+            (containers["cs2-prod-aside"], containers["bridge-prod-aside"]) = (Container("sha256:gameimg", false), Container("sha256:bridgeimg", false));
+            const string Flag = "/p/rehearsal/bridge/maintenance";   // the rehearsal folder /srv/os2/rehearsal, beside production's data folder /srv/os2/bridge
+            bool OnTheCopy(JsonObject body, string what) => Json.Str(body, "Image") == "sha256:gameimg" && Json.Str(body, "HostConfig", "NetworkMode") == "none"
+                                                           && Json.Arr(body, "HostConfig", "Binds").Select(Json.PyStr).SequenceEqual(["/srv/os2:/p"])
+                                                           && Json.Arr(body, "Cmd").Select(Json.PyStr).SequenceEqual([Rehearse.HoldScript(what, Flag)]);
+            void Reset()
+            {
+                events.Clear();
+                helpers.Clear();
+                exitCode = 0;
+            }
+
+            check("the hold sets the file the bridge reads: its state folder's maintenance (bridge/ServerLife.cs), at /data in the rehearsal's bridge",
+                  File.ReadAllText(Repo.P("bridge", "ServerLife.cs")).Contains("Path.Combine(StateDir, \"maintenance\")", StringComparison.Ordinal)
+                  && Rehearse.HoldScript("on", Flag).Contains($"touch '{Flag}'", StringComparison.Ordinal) && !Rehearse.HoldScript("on", Flag).Contains("/p/bridge/", StringComparison.Ordinal));
+            var refused = SelfTest.Refusal(() => r.Hold("on"));
+            check("hold on: one helper from the game image, the rehearsal folder's parent at /p, the flag in the rehearsal's copy alone - never production's data folder",
+                  refused is null && helpers.Count == 1 && OnTheCopy(helpers[0], "on"));
+            Reset();
+            exitCode = 3;
+            var noCopy = SelfTest.Refusal(() => r.Hold("on"));
+            check("hold on where there is no copy of the bridge data: the helper refuses (exit 3) rather than make a folder, and hold says so",
+                  Rehearse.HoldScript("on", Flag).StartsWith("[ -d '/p/rehearsal/bridge' ] || {", StringComparison.Ordinal)
+                  && Rehearse.HoldScript("on", Flag).Contains("exit 3", StringComparison.Ordinal) && noCopy is not null && noCopy.Contains("REFUSED", StringComparison.Ordinal));
+            Reset();
+            refused = SelfTest.Refusal(() => r.Hold("off"));
+            var off = refused is null && helpers.Count == 1 && OnTheCopy(helpers[0], "off") && Rehearse.HoldScript("off", Flag).Contains($"rm -f '{Flag}'", StringComparison.Ordinal);
+            Reset();
+            refused = SelfTest.Refusal(() => r.Hold("status"));
+            check("hold off and hold status: one helper each on the same flag - off removes that file alone, status only looks",
+                  off && refused is null && helpers.Count == 1 && OnTheCopy(helpers[0], "status") && !Rehearse.HoldScript("status", Flag).Contains("rm ", StringComparison.Ordinal)
+                  && !Rehearse.HoldScript("status", Flag).Contains("touch", StringComparison.Ordinal));
+
+            var compose = Path.Combine(tmp, "compose.yml");
+            File.WriteAllText(compose, Compose);
+            Reset();
+            SelfTest.Capture(() => { r.Up("off", "env", "rel", compose, false, insecure: true, testBots: true, hold: true); return 0; });
+            check($"up --hold: the hold on before the stack's create, so not even its first start rolls ({string.Join(" > ", events.Select(e => e.Split(':')[0]))})",
+                  events.Count == 2 && events[0] == "helper: " + Rehearse.HoldScript("on", Flag) && events[1] == "POST /stacks/create/standalone/string");
+            Reset();
+            SelfTest.Capture(() => { r.Down(); return 0; });
+            check($"down: the stack gone, then the hold lifted - the flag removed from the rehearsal's copy ({string.Join(" > ", events.Select(e => e.Split(':')[0]))})",
+                  events.SequenceEqual(["GET /stacks", "DELETE /stacks/7", "helper: " + Rehearse.HoldScript("off", Flag)]));
+            Reset();
+            SelfTest.Capture(() => { r.Up("off", "env", "rel", compose, false); return 0; });
+            check("up without --hold: no hold helper, the stack's create alone", events.SequenceEqual(["POST /stacks/create/standalone/string"]));
+            SelfTest.Capture(() => { r.Down(); return 0; });
+            Reset();
+            exitCode = 1;   // the records' helper fails, so restore stops before production: what ran before it is all there is to see
+            refused = SelfTest.Refusal(r.Restore);
+            check("restore: the hold lifted first, before the records and before anything of production's",
+                  refused is not null && refused.Contains("records were not restored", StringComparison.Ordinal) && helpers.Count == 2 && OnTheCopy(helpers[0], "off")
+                  && Json.PyStr(Json.Arr(helpers[1], "Cmd")[0]).StartsWith("set -e; U=/g/update-watch", StringComparison.Ordinal));
+
+            Reset();
+            foreach (var f in new[] { tc.ProdSaved, tc.BridgeSaved })
+                File.Delete(f);
+            refused = SelfTest.Refusal(() => r.Hold("on"));
+            var noPrep = refused is not null && refused.Contains("prep first", StringComparison.Ordinal) && helpers.Count == 0;
+            refused = SelfTest.Refusal(r.Down);
+            check("without prep there is no hold to set, and down still ends: nothing saved and no production container to say where the folder is - no helper",
+                  noPrep && refused is null && helpers.Count == 0);
         }
         finally
         {
