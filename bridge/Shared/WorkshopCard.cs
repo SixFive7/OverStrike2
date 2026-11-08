@@ -1,4 +1,4 @@
-// Playing a Workshop map that is not on the list: a player types its id on the menu's keyboard, or pastes a link in chat,
+// Playing a Workshop map that is not on the list: a player types its id in chat (!play <id>, or the bare id), or pastes a link there,
 // and the map browser shows a card for it instead of an empty page. The server's own refusals come first (ServerRefusal: the catalog's, and
 // our own HUD's item); then the plugin asks the Steam Web API about the item (the game server reaches Steam; the bridge stays off the internet)
 // and refuses one that is gone, private, banned or not for CS2, saying so. Otherwise one click downloads

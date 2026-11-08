@@ -821,12 +821,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 49 up it is newer than this one (v4.8.0), and the banner stays while it is. */
-.os-global.latest-49 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 50 up it is newer than this one (v4.9.0), and the banner stays while it is. */
 .os-global.latest-50 .os-outdated
 {
 	visibility: visible;
@@ -1077,7 +1072,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 47 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 48 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1114,6 +1109,11 @@ Label
 }
 
 .os-global.latest-47 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-48 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2567,13 +2567,23 @@ Label
 	white-space: nowrap;
 }
 
-/* ---- the search box: one button that opens the keyboard, and the clear button ------------------------------------------ */
+/* ---- the search area (content v4.9.0): the hint, a button whose click says it in chat - typing is chat's (!s) - and the clear button ---- */
 
-#os_q_kbd
+#os_q_how
 {
 	height: 100%;
 	flow-children: right;
 	padding: 0px 4px 0px 0px;
+}
+
+#os_q_how:hover
+{
+	sound: "UIPanorama.generic_button_rollover";
+}
+
+#os_q_how:hover .os-search-label
+{
+	color: os-gold;
 }
 
 .os-search-key
@@ -2585,113 +2595,6 @@ Label
 	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: os-gold;
-}
-
-.os-screen.kbd .os-search
-{
-	border: 1px solid os-gold;
-	background-color: #E9B44C1F;
-}
-
-.os-screen.kbd .os-search-text
-{
-	visibility: visible;
-}
-
-/* ---- the keyboard: four rows of keys between the toolbar and the cards; while it is open, one row of cards ------------- */
-
-.os-kbd
-{
-	visibility: collapse;
-	horizontal-align: center;
-	flow-children: down;
-	margin-bottom: 12px;
-	padding: 10px 12px 4px 12px;
-	background-color: #00000059;
-	border-radius: 4px;
-}
-
-.os-screen.kbd .os-kbd
-{
-	visibility: visible;
-}
-
-.os-screen.kbd #os_m5
-{
-	visibility: collapse;
-}
-
-.os-screen.kbd #os_m6
-{
-	visibility: collapse;
-}
-
-.os-screen.kbd #os_m7
-{
-	visibility: collapse;
-}
-
-.os-screen.kbd #os_m8
-{
-	visibility: collapse;
-}
-
-.os-kbd-row
-{
-	horizontal-align: center;
-	flow-children: right;
-	margin-bottom: 6px;
-}
-
-.os-key
-{
-	width: 76px;
-	height: 40px;
-	margin: 0px 3px;
-	border-radius: 4px;
-	border: 1px solid #FFFFFF1F;
-	background-color: #FFFFFF0F;
-	transition-property: background-color, border;
-	transition-duration: 0.08s;
-}
-
-.os-key:hover
-{
-	background-color: #FFFFFF24;
-	border: 1px solid #FFFFFF59;
-	sound: "UIPanorama.generic_button_rollover";
-}
-
-.os-key:active
-{
-	background-color: #E9B44C40;
-	sound: "UIPanorama.generic_button_press";
-}
-
-.os-key-wide
-{
-	width: 120px;
-}
-
-#os_kb_space
-{
-	width: 200px;
-}
-
-.os-key-done
-{
-	width: 200px;
-	border: 1px solid #E9B44C99;
-	background-color: #E9B44C24;
-}
-
-.os-key-text
-{
-	horizontal-align: center;
-	vertical-align: center;
-	font-size: 16px;
-	font-weight: bold;
-	color: #FFFFFF;
 }
 
 /* ---- the card for a Workshop id that is not on the list -------------------------------------------------------------------- */

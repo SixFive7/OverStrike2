@@ -112,15 +112,11 @@ static partial class Program
         Check("First and Prev stop at the first page, Last jumps to the end", pb.Page == 0 && pb.Click(HudBrowser.LastButton, 20) && pb.Page == 2);
         pb.Page = 9;
         Check("A page past the end (the list shrank under a filter) is clamped to the last one", pb.PageOf(all).Count == 4 && pb.Page == 2);
-        var kb = new HudBrowser();
-        kb.Click("os_pg_next", all.Count);
-        kb.Click(HudKeyboard.Open, all.Count);
-        Check("The keyboard open: pages of the four cards it leaves showing, the first card shown staying first (page 2 of 3 -> 3 of 5)",
-            kb.PageSize == 4 && kb.Page == 2 && kb.PageOf(all).Select(m => m.Arg).SequenceEqual(["9", "10", "11", "12"]) && kb.PagesFor(all.Count) == 5);
-        kb.Click("os_pg_last", all.Count);
-        kb.Click(HudKeyboard.Done, all.Count);
-        Check("...and closed again: pages of eight, on the page that holds the card that was first (17 -> page 3 of 3)",
-            kb.PageSize == 8 && kb.Page == 2 && kb.PageOf(all).First().Arg == "17");
+        var hint = new HudBrowser();
+        hint.Click("os_pg_next", all.Count);
+        Check("Pages of eight always: the search hint, and v4.8.0's search box and keys, move no page and change no page size (no keyboard covers a row any more)",
+            !hint.Click(HudBrowser.HintButton, all.Count) && !hint.Click(HudBrowser.OldSearchBox, all.Count) && !hint.Click("os_kb_done", all.Count)
+            && hint.Page == 1 && hint.PagesFor(all.Count) == 3 && hint.PageOf(all).Select(m => m.Arg).SequenceEqual(["9", "10", "11", "12", "13", "14", "15", "16"]));
         Check("Any sort or filter starts again on the first page", pb.Click("os_sort_name", 20) && pb.Page == 0);
 
         // ---- the menu's pages and its clicks ----
@@ -212,7 +208,7 @@ static partial class Program
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
-                .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudKeyboard.Open, WorkshopCard.Play]).Concat(HudKeyboard.Keys()).ToList();
+                .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play]).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -270,20 +266,23 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panel v4.8.0 retires: v4.7.0's version button, whose place this content's own takes. Every other panel keeps its id, os_ for gg_.
-                var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
-                Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
+                // The panels v4.9.0 retires: v4.8.0's version button, whose place this content's own takes, and the on-screen keyboard (release 196) - its forty
+                // keys and the search box that opened it (os_q_kbd), whose place the search hint takes. Every other panel keeps its id.
+                var expectedRetired = new HashSet<string> { HudVersion.Button(replaced), HudBrowser.OldSearchBox };
+                expectedRetired.UnionWith(Enumerable.Range('0', 10).Concat(Enumerable.Range('a', 26)).Select(ch => $"os_kb_{(char)ch}").Concat(["os_kb_space", "os_kb_back", "os_kb_clear", "os_kb_done"]));
+                Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}, the keyboard's 40 keys and its search box){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                // ...and the Bots page (FUN, Bots): its two sub-tabs, its note and two buttons, its twelve rows of five and its six presets, every part of each.
-                var botsPanels = new HashSet<string> { HudBots.SubFun, HudBots.Tab, HudBots.Note, HudBots.Kick, HudBots.Default };
-                botsPanels.UnionWith(Enumerable.Range(1, Bots.Rows).SelectMany(r => new[] { HudBots.Row(r), $"{HudBots.Row(r)}_title", $"{HudBots.Row(r)}_txt" }
-                    .Concat(Enumerable.Range(1, Bots.ChoicesPerRow).SelectMany(k => new[] { HudBots.Button(r, k), $"{HudBots.Button(r, k)}_txt" }))));
-                botsPanels.UnionWith(Enumerable.Range(1, Bots.PresetCount).SelectMany(p => new[] { HudBots.Preset(p), $"{HudBots.Preset(p)}_title", $"{HudBots.Preset(p)}_txt" }));
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the Bots page ({botsPanels.Count}) - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(botsPanels.Append(HudVersion.Button(HudVersion.Content))) ? "" : ": unexpected " + string.Join(" ", added.Except(botsPanels).Where(x => x != HudVersion.Button(HudVersion.Content)).Concat(botsPanels.Except(added).Select(x => "-" + x))))}",
-                    added.SetEquals(botsPanels.Append(HudVersion.Button(HudVersion.Content))) && addedIdle.Count == 0);
+                // ...its own version button, and the search hint in the keyboard's search box's place.
+                var expectedAdded = new HashSet<string> { HudVersion.Button(HudVersion.Content), HudBrowser.HintButton };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the search hint - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                    added.SetEquals(expectedAdded) && addedIdle.Count == 0);
+                Check($"Content {HudVersion.Content}: no on-screen keyboard - no key, no panel or rule of one, and no class for it on the player's screen - and the search area is the hint and the clear button",
+                    !ids.Any(id => id.StartsWith("os_kb_", StringComparison.Ordinal)) && !ids.Contains(HudBrowser.OldSearchBox) && !Regex.IsMatch(xml + css, @"os-kbd|os-key\b|\.kbd\b")
+                    && Regex.IsMatch(xml, @"<Panel id=""os_q_search"" class=""os-search"">\s*<Button id=""os_q_how"">") && ids.Contains(HudBrowser.ClearButton)
+                    && !sentClasses.Any(c => c.Class == "kbd"));
             }
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----

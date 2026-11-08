@@ -1,4 +1,4 @@
-// --selftest, part six: the menu that replaced the chat commands. The search index and its scoring, the on-screen keyboard,
+// --selftest, part six: the menu that replaced the chat commands. The search index and its scoring, the search hint (no on-screen keyboard since release 196),
 // the card for a Workshop id that is not on the list, the news line and the notes, the board's buttons - and, command by command, the
 // place in the menu that does what the command did.
 using System.Text.Json;
@@ -35,16 +35,18 @@ static partial class Program
             && turkish.Score("5", "", HudSearch.Words("AİM")) > 0 && HudSearch.Words("ΟΔΥΣ") is ["οδυσ"] && turkish.Score("6", "ΟΔΥΣΣΕΑΣ", HudSearch.Words("ΟΔΥΣ")) >= 100
             && turkish.Score("6", "", HudSearch.Words("οδυσσεασ")) > 0);
 
-        // ---- the keyboard (HudKeyboard) ----
-        var keys = HudKeyboard.Keys().ToList();
-        Check($"Keyboard: 26 letters, 10 digits, space, backspace, clear and done - {keys.Count} keys, each its own button", keys.Count == 40 && keys.Distinct().Count() == 40);
-        Check("Keyboard: a key types its character; backspace, clear and space edit; space never first or twice; nothing past the limit",
-            HudKeyboard.Press("", "os_kb_g") == "g" && HudKeyboard.Press("g", "os_kb_7") == "g7" && HudKeyboard.Press("ab", HudKeyboard.Back) == "a" && HudKeyboard.Press("", HudKeyboard.Back) == ""
-            && HudKeyboard.Press("abc", HudKeyboard.Clear) == "" && HudKeyboard.Press("", HudKeyboard.Space) == "" && HudKeyboard.Press("ab ", HudKeyboard.Space) == "ab "
-            && HudKeyboard.Press("ab", HudKeyboard.Space) == "ab " && HudKeyboard.Press(new string('x', HudSearch.MaxQuery), "os_kb_y") == new string('x', HudSearch.MaxQuery)
-            && HudKeyboard.Press("ab", "os_m1_play") == null && HudKeyboard.CharOf("os_kb_Q") == null && HudKeyboard.CharOf("os_kb_q") == 'q');
+        // ---- the search hint (release 196): no on-screen keyboard - typing is chat's (!s); v4.8.0's search box and keys only ask how ----
+        Check("Search hint: its click, and v4.8.0's search box and its forty keys, ask how to search - nothing else does",
+            HudBrowser.AsksHowToSearch(HudBrowser.HintButton) && HudBrowser.AsksHowToSearch(HudBrowser.OldSearchBox)
+            && Enumerable.Range('0', 10).Concat(Enumerable.Range('a', 26)).All(ch => HudBrowser.AsksHowToSearch($"os_kb_{(char)ch}")) && new[] { "os_kb_space", "os_kb_back", "os_kb_clear", "os_kb_done" }.All(HudBrowser.AsksHowToSearch)
+            && !HudBrowser.AsksHowToSearch(HudBrowser.ClearButton) && !HudBrowser.AsksHowToSearch("os_m1_play") && !HudBrowser.AsksHowToSearch("os_q_search"));
+        var asked = new HudBrowser { Query = "lake", Page = 2 };
+        Check("...and those clicks change nothing in the browser: no query typed, no page moved, nothing to open",
+            new[] { HudBrowser.HintButton, HudBrowser.OldSearchBox, "os_kb_a", "os_kb_done" }.All(id => !asked.Click(id, 40)) && asked.Query == "lake" && asked.Page == 2);
+        Check("...the answer in chat names !s: a few words in chat - a name, a tag or a Workshop ID",
+            ChatReply.HowToSearch.Contains("!s", StringComparison.Ordinal) && M.Plain(ChatReply.HowToSearch).Length <= Messages.ChatMax);
 
-        // ---- the map browser with full-text search and the keyboard ----
+        // ---- the map browser with full-text search ----
         var catalog = new HudCatalog
         {
             Version = 1,
@@ -60,20 +62,18 @@ static partial class Program
         index.Set("3681294731", "fy glass 3681294731 classic custom a simple map with glass floors");
         index.Set("123", "claim the hill deathmatch");
         var b = new HudBrowser();
-        foreach (var k in new[] { HudKeyboard.Open, "os_kb_f", "os_kb_l", "os_kb_o", "os_kb_o", "os_kb_r", "os_kb_s" }) b.Click(k, 0);
-        Check("Keyboard in the browser: the search box opens it, keys type the query, the page goes back to the first",
-            b.Keyboard && b.Query == "floors" && b.Matches(catalog, 1, index) is [{ Name: "Fy_glass" }]);
-        b.Page = 3; b.Click(HudKeyboard.Back, 4);
-        Check("...a key press starts from page one again, and Done closes the keyboard but keeps the query",
-            b.Page == 0 && b.Query == "floor" && b.Click(HudKeyboard.Done, 4) && !b.Keyboard && b.Query == "floor");
+        b.Find("floors");
+        Check("Search in the browser: !find's words are the query, and they find by the text", b.Query == "floors" && b.Page == 0 && b.Matches(catalog, 1, index) is [{ Name: "Fy_glass" }]);
+        b.Page = 3; b.Find("floor");
+        Check("...a new search starts from the first page", b.Page == 0 && b.Query == "floor");
         b.Query = "aim";
         Check("A search finds by description too, best match first under the default sort: AIM Map before Claim the hill",
             b.Matches(catalog, 1, index).Select(m => m.Name).SequenceEqual(["AIM Map", "Claim the hill"]));
         var withAim = new HudCatalog { Version = 2, Maps = [.. catalog.Maps, new("3600000001", "16", 16, 3600000001, "FUN GAME AİM", 12, false, -1, 0, 0, 0)] };
         index.Set("3600000001", OverStrike2.Core.SearchText.Of("FUN GAME AİM", "3600000001", []));
         var typing = new HudBrowser();
-        foreach (var k in new[] { HudKeyboard.Open, "os_kb_a", "os_kb_i", "os_kb_m" }) typing.Click(k, 0);
-        Check("The keyboard's \"aim\" finds FUN GAME AİM with the other aim maps: its name and its text are lowered as search.json's are",
+        typing.Find("aim");
+        Check("!s aim finds FUN GAME AİM with the other aim maps: its name and its text are lowered as search.json's are",
             typing.Matches(withAim, 1, index).Select(m => m.Name).Order(StringComparer.Ordinal).SequenceEqual(["AIM Map", "Claim the hill", "FUN GAME AİM"]));
         b.Query = "1015";
         Check("A number is also a rank", b.Matches(catalog, 1, index) is [{ Rank: 1015 }]);
@@ -89,10 +89,13 @@ static partial class Program
         Check($"The card remembers when its id was typed (the plugin asks the Workshop only {WorkshopCard.Settle.TotalSeconds} s later): the same id again keeps that time, a longer one starts again",
             settle.Since == typedAt && WorkshopCard.Settle > TimeSpan.Zero && Retyped(settle, typedAt.AddSeconds(6)) == typedAt.AddSeconds(6));
         static DateTime Retyped(WorkshopCard c, DateTime at) { c.Show(32329016, at); return c.Since; }
-        b.Query = "glass"; b.Keyboard = true;
+        b.Query = "glass";
         var (kt, kc) = HudMenu.Maps(catalog, new HudState(), b, 1, DateTime.UtcNow, index);
-        Check("The search box shows the query with a caret while the keyboard is open, and the keyboard's class is on the player's screen",
-            kt.Single(t => t.Id == "os_q_text").Text == "glass|" && kc.Contains((HudView.Screen, "kbd", true)) && kc.Contains(("os_q_search", "used", true)));
+        var idle = HudMenu.Maps(catalog, new HudState(), new HudBrowser(), 1, DateTime.UtcNow, index);
+        Check("The search area shows the query as it is, with no caret and no keyboard's class; with no search on, the hint says to type !s in chat - in v4.8.0's search box too",
+            kt.Single(t => t.Id == "os_q_text").Text == "glass" && kt.Single(t => t.Id == "os_q_hint").Text == "" && kc.Contains(("os_q_search", "used", true)) && !kc.Any(c => c.Class == "kbd")
+            && idle.Texts.Single(t => t.Id == "os_q_hint").Text == HudMenu.SearchHint && HudMenu.SearchHint.Contains("!s", StringComparison.Ordinal)
+            && idle.Classes.Contains(("os_q_search", "used", false)));
 
         // ---- the card for a Workshop id that is not on the list (WorkshopCard) ----
         Check("Workshop ids: 7 to 12 digits; a shorter number is a rank, anything else is no id",
@@ -247,10 +250,10 @@ static partial class Program
         var rows = new (string Chat, string Where, string? Sends, string Expected)[]
         {
             ("!map <number|name|id>", "Maps: a card's Play, to the vote", Card(claim, "play"), "!map 7"),
-            ("!map <unlisted Workshop id>", "Maps: the keyboard's digits, the item's card", WorkshopCard.IdOf("3232901690")?.ToString(), "3232901690"),
+            ("!map <unlisted Workshop id>", "Chat: the id, or a link pasted - the item's card", WorkshopCard.IdOf("3232901690")?.ToString(), "3232901690"),
             ("!next", "Board or menu: Start a vote", HudView.Command(HudView.BoardNext, new HudState { Map = "x" }), "!next"),
             ("!previous !prev !back", "Previous", HudMenu.Command(HudMenu.Previous, catalog, live, mine, 1, DateTime.UtcNow), "!previous"),
-            ("!find <words>", "Maps: Search and the keyboard", HudKeyboard.Press("", "os_kb_a"), "a"),
+            ("!find <words>", "Maps: the search hint - typing is chat's", HudBrowser.AsksHowToSearch(HudBrowser.HintButton) ? HudBrowser.HintButton : null, "os_q_how"),
             ("!up", "Board or menu: Like", HudView.Command(HudView.BoardUp, live), "!up"),
             ("!down", "Board or menu: Dislike", HudView.Command(HudView.ButtonDown, live), "!down"),
             ("!up <map>", "Maps: a card's up arrow", Card(claim, "up"), "!up 7"),

@@ -100,7 +100,7 @@ sealed partial class HudScreen
         var count = 0;
         foreach (var type in new[] { plugin.GetType(), typeof(HudScreen), typeof(BridgeLink), typeof(Hud), typeof(HudView), typeof(HudSlots), typeof(HudState),
                      typeof(HudCatalog), typeof(HudBrowser), typeof(HudMenu), typeof(HudThumbs), typeof(HudCheck), typeof(HudGate), typeof(ItemWatch), typeof(HudTab),
-                     typeof(HudSearch), typeof(HudKeyboard), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(FunClicks), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
+                     typeof(HudSearch), typeof(WorkshopCard), typeof(WorkshopItem), typeof(WorkshopPlay), typeof(Fun), typeof(FunClicks), typeof(ChatCommands), typeof(DownReasons), typeof(HudVote), typeof(Messages), typeof(M), typeof(Sections),
                      typeof(HudDash), typeof(VoteFreeze), typeof(FreezePlan), typeof(JoinTimes), typeof(HudFrame), typeof(HudPlayer), typeof(MapVote), typeof(VoteState),
                      typeof(MapTags), typeof(Modes) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))

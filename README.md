@@ -51,7 +51,7 @@ Every part of the interface, as a real game client draws it against a test copy 
 |---|---|---|
 | The board | Hold TAB: the map that is on, Like and Dislike, Start a vote, the way into the menu, Lately | [board](docs/hud/board.md) |
 | START | The welcome, at every join until its X | [start](docs/hud/start.md) |
-| MAPS, Browse | The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card | [maps-browse](docs/hud/maps-browse.md) |
+| MAPS, Browse | The map browser: cards, search from chat, sorting, filters, a Workshop map's card | [maps-browse](docs/hud/maps-browse.md) |
 | MAPS, Vote | The ballot and its states: open, everybody voted, decided, with its pages | [maps-vote](docs/hud/maps-vote.md) |
 | FUN | The fun settings, off their default, idle, refused | [fun](docs/hud/fun.md) |
 | FUN, Bots | Bots for everybody: twelve rows, six presets, Kick all bots and Default, greyed where a mode has no room | [fun-bots](docs/hud/fun-bots.md) |

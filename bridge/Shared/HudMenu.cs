@@ -54,6 +54,9 @@ public static class HudMenu
         return m.Risky ? Locked : "Put to the vote";
     }
 
+    /// <summary>The search area's words while no search is on - in content v4.8.0's search box too, whose keyboard never opens since release 196.</summary>
+    public const string SearchHint = "Type !s and a few words in chat";
+
     static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
 
     /// <summary>The red strip across a card's picture - the map browser's and the ballot's: why the map is unavailable or broken
@@ -61,7 +64,7 @@ public static class HudMenu
     public static string Record(HudCatalog.Entry m) => m.Removed ? "Removed from the Workshop" : m.Broken > 0 ? $"Broken: crashed {m.Broken}/{m.Broken} test loads"
         : m.Broken == 0 ? (m.Reason != "" ? $"Broken: {m.Reason}" : "On the broken list") : m.Crashes > 0 ? $"Crashed the server {m.Crashes}x" : "";
 
-    /// <summary>The maps page for one player: the toolbar's state, the search box and keyboard, the count, the page counter and the
+    /// <summary>The maps page for one player: the toolbar's state, the search area (the query from chat, or the hint), the count, the page counter and the
     /// eight cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
     /// empty message: the plugin shows that item's card there. The cards past the eighth are the ballot's: empty here.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
@@ -75,13 +78,12 @@ public static class HudMenu
         var workshop = b.WorkshopQuery(catalog) != null;
         t.Add(("os_m_count", catalog == null ? "Loading the map list..." : matches.Count == total ? $"{total} maps" : $"{matches.Count} of {total} maps"));
         t.Add(("os_pg_text", $"Page {b.Page + 1} of {b.PagesFor(matches.Count)}"));
-        t.Add(("os_q_text", b.Keyboard ? b.Query + "|" : b.Query));
-        t.Add(("os_q_hint", b.Query == "" && !b.Keyboard ? "name, tag, description or Workshop ID" : ""));
+        t.Add(("os_q_text", b.Query));
+        t.Add(("os_q_hint", b.Query == "" ? SearchHint : ""));
         t.Add(("os_m_empty", catalog == null || workshop ? "" : b.Query != "" ? $"No map matches \"{b.Query}\" - Other words, or a Workshop ID."
             : b.Liked ? "You have not liked a map yet: the up arrow on a card likes it." : b.Ours ? "No map of ours on the list yet." : "No map matches these filters."));
         c.Add(("os_m_empty", "used", catalog != null && matches.Count == 0 && !workshop));
         c.Add(("os_q_search", "used", b.Query != ""));
-        c.Add((HudView.Screen, "kbd", b.Keyboard));
         c.Add((HudView.Screen, "vdone", false)); // the vote's, still on from the last one: they would dim these cards (HudVote.Cards)
         c.Add((HudView.Screen, "vlow", false));
         foreach (var (id, sort) in HudBrowser.SortButtons) c.Add((id, "on", b.Sort == sort));

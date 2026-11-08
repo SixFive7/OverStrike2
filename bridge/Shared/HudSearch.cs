@@ -1,4 +1,4 @@
-// Full-text search in the HUD's map browser: the on-screen keyboard edits a query, and every listed map is matched on its
+// Full-text search in the HUD's map browser: !find (!s) in chat sets a query, and every listed map is matched on its
 // name, its Workshop tags and its Workshop description - not only on its name, as !find did. Shared like Hud.cs: the bridge reads the
 // index (search.json beside maps.json: the bridge's --search-index keeps it in step with maps.json, the sync adds to it), serves it on
 // /search/<secret> and tests the matching; the plugin fetches it when its version moves and filters locally on every key press.
@@ -10,7 +10,7 @@ using OverStrike2.Core;
 public sealed class HudSearch
 {
     public const string Magic = "os2-search\t1";
-    public const int MaxQuery = 40;          // the keyboard stops there; the query box shows it whole
+    public const int MaxQuery = 40;          // a query is cut there; the search area shows it whole
     public const int MaxText = 2000;         // per map, after normalising: name, tags and the description's start
 
     public long Version;
@@ -49,7 +49,7 @@ public sealed class HudSearch
     const int FinalSigma = 0x3C2;
     const string Sigma = "σ";
 
-    /// <summary>The query as words: what the keyboard typed, normalised; empty for none.</summary>
+    /// <summary>The query as words: what !find asked for, normalised; empty for none.</summary>
     public static string[] Words(string? query) => Normal(query).Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>Every word somewhere in the map's name or its indexed text (name, tags, description). Word starts count most, so

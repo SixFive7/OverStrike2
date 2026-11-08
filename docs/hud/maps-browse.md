@@ -1,6 +1,6 @@
 # The HUD: MAPS, Browse
 
-The map browser: cards, search and keyboard, sorting, filters, a Workshop map's card, a risky map's card.
+The map browser: cards, search from chat, sorting, filters, a Workshop map's card, a risky map's card.
 
 A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 868d9ca (HUD content v4.8.0, plugin 5.3.1). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
@@ -72,17 +72,9 @@ A real game client draws every picture here against a test copy of the server, t
 
 ![MAPS &gt; Browse: the last page](img/maps-page-last.jpg)
 
-## MAPS > Browse: the on-screen keyboard, four cards left showing
-
-![MAPS &gt; Browse: the on-screen keyboard, four cards left showing](img/maps-keyboard.jpg)
-
 ## MAPS > Browse: a search: its best matches first
 
 ![MAPS &gt; Browse: a search: its best matches first](img/maps-search.jpg)
-
-## MAPS > Browse: the keyboard over a search that is on
-
-![MAPS &gt; Browse: the keyboard over a search that is on](img/maps-search-keyboard.jpg)
 
 ## MAPS > Browse: a search with no match, the empty page's words
 

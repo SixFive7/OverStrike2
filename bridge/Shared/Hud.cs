@@ -1,5 +1,5 @@
 // The in-game HUD - the server's interface, with the chat commands beside it (ChatCommands.cs): one
-// custom_hud_layout window (the menu: maps with full-text search and an on-screen keyboard, the vote, game settings, help and how it works,
+// custom_hud_layout window (the menu: maps with full-text search from chat (!s), the vote, game settings, help and how it works,
 // beside the live map state), the board beside the scoreboard while TAB is held (the click action panel: Start a vote, likes, the menu), a
 // now-playing card, a map-change banner, the top line everybody sees and the line only its player sees. Shared like Guide.cs: the bridge
 // compiles this file (it builds the live state, and --selftest drives everything here on a handed clock), and the OverStrike2 plugin links it
@@ -82,7 +82,7 @@ public static class Hud
     [
         new("Maps", [
             new("Maps  ·  Play", "Put any map to the vote: a vote opens, your vote on that map"),
-            new("Search", "The keyboard on the Maps page: name, tags or a Workshop ID"),
+            new("Search  ·  !find", "Type !find and a few words in chat, or a Workshop ID"),
             new("Start a vote", "On the board or in the menu: a vote for the next map"),
             new("Previous  ·  !back", "On the Maps page: the map before this one, to the vote")]),
         new("The vote", [

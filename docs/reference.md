@@ -60,7 +60,7 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 | Tab | Page | What is on it |
 |---|---|---|
 | START | | The welcome: the greeting ("Welcome, Bob", "Welcome back, Bob") as its large text, three steps and how to reach the menu; for a player seen before, the map that is on, who picked it, its likes and how to mark it. The window's head carries the logo, the title and, beside it, the tagline. |
-| MAPS | Browse | The map browser: eight cards a page, each with the map's picture, its place on its list, size, likes and tags, its Play button and like arrows, and the mode it plays in, as a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search on an on-screen keyboard over names, tags and Workshop ids, whatever the case ("aim" finds FUN GAME AİM); sorting by place on the list, likes, name or size; filters by size (under 25 MB, 25-120, 120-400, 400 and up), by the player's own likes, by official maps, by Our maps and by game mode. Previous puts the map before this one to the vote. |
+| MAPS | Browse | The map browser: eight cards a page, each with the map's picture, its place on its list, size, likes and tags, its Play button and like arrows, and the mode it plays in, as a label on its picture and the card's colour (Arms Race gold, Deathmatch red, Wingman blue). Full-text search over names, tags and Workshop ids, whatever the case ("aim" finds FUN GAME AİM), typed in chat: `!s` and a few words (or `!find`, `!search`, `!maps <words>`) opens the browser on the matches - the HUD has no text entry, so its search area is a hint that says so, and a click on it says it in chat; its cross clears a search that is on; sorting by place on the list, likes, name or size; filters by size (under 25 MB, 25-120, 120-400, 400 and up), by the player's own likes, by official maps, by Our maps and by game mode. Previous puts the map before this one to the vote. |
 | MAPS | Vote | While a vote is on, the ballot ([below](#the-ballot)); Browse then adds to the vote. |
 | FUN | | The [fun settings](#fun-settings), with Random and Default. |
 | SERVER | Players | Who is on, their team, the HUD their game showed, the HUD check's clock, their vote while one is open, and how long they have been on. |
@@ -69,7 +69,7 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 | HELP | Help | Where everything is. |
 | HELP | How it works | Every rule of the vote and every chance of a random pick: the one set of rule texts in the game ([Keeping the rules in sync](#keeping-the-rules-in-sync)). |
 
-**A map that is not listed.** Any Workshop map can be played by its id, typed on the keyboard or pasted in chat: its card asks the
+**A map that is not listed.** Any Workshop map can be played by its id, typed in chat (`!play <id>`, or the bare id) or pasted there as a link: its card asks the
 Workshop about it (the plugin, through the public Web API), and **Download and play** fetches it into the server's own Workshop cache,
 with the progress on the card, while nobody's game is interrupted (`WorkshopCard.cs`, `WorkshopPlay.cs`). Once it is installed it is
 selected like any map: to the vote. What the server refuses anyway is refused on the card before the Workshop is asked: a non-map, a
@@ -283,7 +283,8 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
   `mp_roundtime`. Outside Arms Race the row is gone and `!time` is refused: Deathmatch keeps Valve's 10-minute round, and a Wingman match is a whole match of rounds, where a round's time of
   10 minutes would only make one round long.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
-  and the bridge sends `mp_restartgame 1`. In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
+  and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
+  `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
   mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
   the last one was pressed; a match end, a map start or the server going down during its countdown ends it.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms, then the same 10 s countdown with the player's name, and the bridge quits the game process

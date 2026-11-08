@@ -252,7 +252,7 @@ static partial class DocShots
     public static readonly string[] Sections = [SBoard, SWindow, SMaps, SVote, SModes];   // then "Messages: ...", one per heading of the picks file
 
     /// <summary>The other six resolutions, for the owner's review only (never committed: the docs take 1920x1080): every page and one of each surface.</summary>
-    public static readonly string[] ReviewSet = ["page-start", "page-fun", "page-players", "page-game", "page-sync", "page-help", "page-how", "page-maps", "maps-keyboard",
+    public static readonly string[] ReviewSet = ["page-start", "page-fun", "page-players", "page-game", "page-sync", "page-help", "page-how", "page-maps",
         "maps-search", "board-default", "welcome-first", "join-tagline", "top-plain", "top-over-window", "hud-outdated", "restart-counting", "catchup-boost", "check-warning",
         "joined-hud-version", "chat-unknown", "why-card", "fun-refused", "vote-open", "vote-my-vote", "vote-kept", "vote-tie-lead", "window-restart-strip", "game-time-10"];
 
@@ -292,7 +292,7 @@ static partial class DocShots
 
         // ---- a fresh, real join first: any click ends the HUD check
         R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick: "HUD check: Click to play",
-          today: "the window's X (os_hudver_v4.8.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+          today: "the window's X (os_hudver_v4.9.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
           steps: [Con("disconnect"), Pause(3), Mark(), Con($"connect {Host}:{Port}"), WaitIngame(), Pause(4), Con("jointeam 2 1", 1500), Pause(5), Shoot()],
           when: "5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
           crop: CX, masks: [MGreetBack], names: Greeting + Unseen);
@@ -448,9 +448,7 @@ static partial class DocShots
         Browser("maps-ours", "os_fl_ours", "Our maps", cleanup: [Press("os_fl_ours")]);
         Browser("maps-page-2", "os_pg_next", "the second page");
         Browser("maps-page-last", "os_pg_last", "the last page", cleanup: [Press("os_pg_first")]);
-        Browser("maps-keyboard", "os_q_kbd", "the on-screen keyboard, four cards left showing", cleanup: [Press("os_kb_done")]);
         R("maps-search", "MAPS > Browse: a search: its best matches first", section: SMaps, after: "page-maps", steps: [Con("say !find lake"), Pause(2), Shoot()], when: "2 s after the line");
-        Browser("maps-search-keyboard", "os_q_kbd", "the keyboard over a search that is on", cleanup: [Press("os_kb_done"), Press("os_q_clear")], after: "maps-search");
         R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section: SMaps, after: "page-maps", steps: [Con("say !find zzqqzz"), Pause(2), Shoot()], cleanup: [Press("os_q_clear")], when: "2 s after the line");
         R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section: SMaps, after: "page-maps",
           steps: [Con("say 3369214545"), Pause(3), Shoot()], cleanup: [Press("os_q_clear")], when: "3 s after the line: the server's own no needs no Workshop question", wordsFrom: ("bridge/broken.json", "3369214545"));

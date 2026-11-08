@@ -188,7 +188,6 @@ binary docs/hud/img/gallery/why-card-where.jpg 91925ec16f18e4bb9c7c89f6f3a97c845
 binary docs/hud/img/game-restart-armed.jpg e3486a3070133abc7c00ea739c70ac47f7fe7f4c0b889e359007361012697cc9  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/game-time-10.jpg 21b16686ee5cb5adbd48a856f87cb257fc54d60bfc00849ae14b1f4ba0cd4b6d  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/join-tagline.jpg f04e283f19437a0177a794c1b70270ca8c730664a6f1e79283009c474fc6fdbc  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
-binary docs/hud/img/maps-keyboard.jpg af9035a88371f75e8f14a2b60948253da612e1033f56c820bcbf15bd5278cb44  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-liked-card.jpg 7cd34529301fa18c28869506573ca585f073aa73bdb17066a3aeb72ede1b3798  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-liked.jpg 1a354988e4f06446c87cf4490ce30a00bc5ec2fed3f75f2144beaf08ccdfaf8b  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-mode-armsrace.jpg 7dda161961f6a8e284732a48ff344e34d7ec2b96facdcd69f9d86d9884734d15  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
@@ -200,7 +199,6 @@ binary docs/hud/img/maps-page-2.jpg bd711a0defe41abe749a231a375d614bc5afe47bd47f
 binary docs/hud/img/maps-page-last.jpg 964f892f2a4c1e8e542ffa3ee18c1d64b94029a1b0b15eecc67c241ff0cfef64  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-risky-card.jpg 0a248fe5471687eaa4ee5ad24599c4924aac6ebbe0182880f2285a950db8d245  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-search-empty.jpg 36dd5c78919194f1c85e1d1abdd1df53b63e6a2e1af7fe5508f04591d7f244ed  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
-binary docs/hud/img/maps-search-keyboard.jpg 6db81d39b6b7016aeb959037a144c1ee18f79d2b523af61ec1af519505f859d2  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-search.jpg a4fb8c5fc391b8f585dc5e3dac14f650435e85798eb8c47faa839af0584efe1e  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-size-large.jpg ca279f96d143e47bf0b5fb4cf96ec0282c9c5009452520a2a7a3a0368b94275d  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/maps-size-mid.jpg 6038144c9cac8d4d1c0faed04fb71fe14832ab4987864b588eeb82bce7c64682  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only

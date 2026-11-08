@@ -1,5 +1,5 @@
 // --selftest, the restarts a player can press and the match length (Restarts.cs, MatchLength.cs, Program.SetMatchLength, HudMenu.Game): the second click of Restart the server counts
-// down on the countdown banner, naming who pressed it, then quits; Restart match counts down the same way, then sends mp_restartgame; what either refuses and what ends them; and a new match
+// down on the countdown banner, naming who pressed it, then quits; Restart match counts down the same way, then sends os_restart; what either refuses and what ends them; and a new match
 // length for the match that is on, in Arms Race alone. Runs in the harness (SelfTestHarness.cs), on its own lists, with a
 // fake game server whose RCON may fall silent. What only a real server can show - that mp_restartgame resets the ladder and that the round's time reaches the clients - is the client test's.
 static partial class Program
@@ -12,8 +12,10 @@ static partial class Program
         var (alice, bob) = (("Alice", "[U:1:4001]"), ("Bob", "[U:1:4002]"));
         var said = new List<string>(); // this test's own lines, for the capitals below
         var toldAll = ToldAll;
+        string? restartReply = "os_restart: the match restarts in 1 s", bareReply = ""; // the plugin's answers to os_restart and to a bare mp_restartgame
         h.Server = command => rconDown ? null : command.StartsWith(MatchLength.Command, StringComparison.Ordinal) ? lengthReply
-            : command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end" : "";
+            : command == "status" ? "hostname : test\nspawn    : 2\nplayers  : 2 humans, 0 bots (0 max)\n#end"
+            : command == RematchCommand ? restartReply : command == RematchFallback ? bareReply : "";
         try
         {
             ToldAll = said;
@@ -25,7 +27,7 @@ static partial class Program
             void Fresh() // a bridge that has just started (ResetAll), with the plugin drawing the HUD, on the lists below, Alice and Bob on
             {
                 h.Fresh();
-                HudActive = () => true; rconDown = false; lengthReply = null;
+                HudActive = () => true; rconDown = false; lengthReply = null; (restartReply, bareReply) = ("os_restart: the match restarts in 1 s", "");
                 Maps = Enumerable.Range(1, 60).Select(r => new MapInfo(r, 9_000_000 + r, $"ar_{r}", 10 + r % 40)).ToList();
                 ModeMaps.Clear();
                 S.Map = Maps[20]; S.LogName = Maps[20].Name; S.Mode = Modes.ArmsRaceId;
@@ -137,7 +139,7 @@ static partial class Program
             TellUpdated(alice.Item2);
             Check("...and a joiner gets it as a line of their own, in their chat and on their board", NoteFor.ContainsKey(4001) && !NoteFor.ContainsKey(4002) && SaysNow.Single().Account == 4001 && LatelyNow.Single().Account == 4001);
 
-            // ---- Restart match: the second click, the countdown, mp_restartgame ----
+            // ---- Restart match: the second click, the countdown, os_restart ----
             Fresh();
             var onMap = S.Map;
             Click(alice, "!rematch");
@@ -145,7 +147,7 @@ static partial class Program
             Click(alice, "!rematch");
             var rematch = Live();
             Check("...the second click starts its countdown, on the wire and in the banner: the logo, who pressed it, the seconds",
-                rematch is { RematchBy: "Alice", RematchIn: PressedSeconds } && rematch.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(PressedSeconds)) && !h.Sent.Contains("mp_restartgame 1")
+                rematch is { RematchBy: "Alice", RematchIn: PressedSeconds } && rematch.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(PressedSeconds)) && !h.Sent.Contains(RematchCommand)
                 && HudView.CountdownOf(rematch) is { Eyebrow: "Match", Title: "Alice is restarting the match", Line: "The whole match starts over", Logo: true, Seconds: PressedSeconds });
             var rematchLine = $"Alice is restarting the match in {PressedSeconds} s - The ladder, the time and catch-up start over";
             Check($"...and chat and the board say it for everybody, naming what starts over: {rematchLine}", InChat(rematchLine) && OnBoard(rematchLine) && SaysNow.Any(l => l.Account == 0 && l.Text.StartsWith(M.N("Alice"), StringComparison.Ordinal)));
@@ -155,9 +157,10 @@ static partial class Program
             Click(bob, "!rematch");
             Check("...another click says who pressed it and how long is left", h.Said($"Alice is restarting the match already - It goes in {PressedSeconds} s") && RematchDue is { By: "Alice" });
             h.Run(PressedSeconds - 1);
-            Check("...nothing goes out before its end, and the banner counts", !h.Sent.Contains("mp_restartgame 1") && Live().RematchIn == 1);
+            Check("...nothing goes out before its end, and the banner counts", !h.Sent.Contains(RematchCommand) && Live().RematchIn == 1);
             h.Run(1.5);
-            Check("...then mp_restartgame 1 over RCON, and the countdown is over", h.Sent.Contains("mp_restartgame 1") && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
+            Check("...then os_restart 1 over RCON - the plugin's restart, which its guard lets through - and nothing else; the countdown is over",
+                h.Sent.Contains(RematchCommand) && !h.Sent.Contains(RematchFallback) && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
             Check("...the map, its picker, the mode and a clean state stay: this is no restart of the server, and no map change", S.Map == onMap && !S.CleanShutdown && !h.Sent.Contains("quit") && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("host_workshop_map")) && !LoadPending);
             ClearNotices();
             Click(bob, "!rematch");
@@ -198,25 +201,25 @@ static partial class Program
             h.Line("Game Over: gungameprogressive mg_armsrace somemap score 0:0 after 9 min");
             var overBy = RematchDue;
             h.Run(PressedSeconds + 1);
-            Check("A match end while it counts down ends it: the match has ended by itself, and the vote opens as ever", overBy == null && !h.Sent.Contains("mp_restartgame 1") && Ballot != null);
+            Check("A match end while it counts down ends it: the match has ended by itself, and the vote opens as ever", overBy == null && !h.Sent.Contains(RematchCommand) && Ballot != null);
             Fresh();
             Twice(alice, "!rematch");
             h.Line("Loading map \"ar_other\"");
             var mapBy = RematchDue;
             h.Run(PressedSeconds + 1);
-            Check("A map start while it counts down ends it", mapBy == null && !h.Sent.Contains("mp_restartgame 1"));
+            Check("A map start while it counts down ends it", mapBy == null && !h.Sent.Contains(RematchCommand));
             Fresh();
             Twice(alice, "!rematch");
             ServerGoingDown("a test");
             var downBy = RematchDue;
             h.Run(PressedSeconds + 1);
-            Check("The server going down ends it", downBy == null && !h.Sent.Contains("mp_restartgame 1"));
+            Check("The server going down ends it", downBy == null && !h.Sent.Contains(RematchCommand));
             Fresh();
             Twice(alice, "!rematch");
             Click(bob, "!restart"); Click(bob, "!restart");
             var pressedOver = RematchDue;
             h.Run(PressedSeconds + 1);
-            Check("A restart of the server pressed while it counts down ends it", pressedOver == null && !h.Sent.Contains("mp_restartgame 1") && h.Sent.Contains("quit"));
+            Check("A restart of the server pressed while it counts down ends it", pressedOver == null && !h.Sent.Contains(RematchCommand) && h.Sent.Contains("quit"));
             Fresh();
             Twice(alice, "!rematch");
             rconDown = true;
@@ -224,6 +227,26 @@ static partial class Program
             h.Run(PressedSeconds + 1);
             rconDown = false;
             Check("RCON not answering: the line for everybody says it did not restart", h.Said("The server did not answer - The match did not restart") && RematchDue == null);
+
+            // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
+            Fresh();
+            restartReply = "Unknown command 'os_restart'!";
+            Twice(alice, "!rematch");
+            h.Run(PressedSeconds + 1);
+            Check("A plugin that has no os_restart (5.4.1 and older): its Unknown command, then mp_restartgame 1 as before - and nobody is told of a failure",
+                h.Sent.Where(c => c == RematchCommand || c == RematchFallback).SequenceEqual([RematchCommand, RematchFallback]) && !h.Said("The match did not restart"));
+            Fresh();
+            (restartReply, bareReply) = ("Unknown command 'os_restart'!", "SV: Convar 'mp_restartgame' is cheat protected, change ignored.");
+            Twice(alice, "!rematch");
+            h.Run(PressedSeconds + 1);
+            Check("A restart the game ignores (mp_restartgame cheat protected): everybody is told it did not restart, not left with a countdown that came to nothing",
+                h.Sent.Contains(RematchFallback) && h.Said("The server refused the restart - The match did not restart"));
+            Fresh();
+            Twice(alice, "!rematch");
+            rconDown = true;
+            h.Run(PressedSeconds + 1);
+            Check("No answer at all: everybody is told the server did not answer", h.Said("The server did not answer - The match did not restart"));
+            rconDown = false;
 
             // ---- in the other modes ----
             foreach (var (mode, words) in new[] { (Modes.WingmanId, "The rounds and the scores start over"), (Modes.DeathmatchId, "The time and the scores start over") })
@@ -233,7 +256,7 @@ static partial class Program
                 Twice(alice, "!rematch");
                 var line = $"Alice is restarting the match in {PressedSeconds} s - {words}";
                 h.Run(PressedSeconds + 1);
-                Check($"{mode}: Restart match works there too, in that mode's words, and the same command goes out", OnBoard(line) && h.Sent.Contains("mp_restartgame 1"));
+                Check($"{mode}: Restart match works there too, in that mode's words, and the same command goes out", OnBoard(line) && h.Sent.Contains(RematchCommand));
                 h.Sent.Clear(); ClearNotices();
                 S.RoundMinutes = DefaultRoundMinutes;
                 Click(alice, $"!time {ShortRoundMinutes}");

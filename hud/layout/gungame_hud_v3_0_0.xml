@@ -1,12 +1,13 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.8.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.9.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
   open, page, card, votes) is a class the plugin sets - for everybody on os_global, per player on os_screen. The bridge's selftest checks that
-  every id and class the plugin sends exists here and in the stylesheet, and that every {s:text} label here is fed. From this content on every
-  id begins os_ and every class os-; the contents shipped before it have theirs with gg_ and gg-, and the plugin sends a panel under the name
-  of every content still drawn for (bridge/Shared/HudIds.cs).
+  every id and class the plugin sends exists here and in the stylesheet, and that every {s:text} label here is fed. Every id begins os_ and
+  every class os-, as in v4.8.0, the first content named so; the plugin draws for v4.8.0 and newer (bridge/Shared/HudVersion.cs, Oldest).
+  A custom HUD has no text entry: the map browser's search is chat's (!s and a few words), and its search area a hint whose click says so in
+  chat. v4.8.0 typed on an on-screen keyboard, which this content removes (release 196).
 
   Rules from CS2UIKit's GOTCHAS (MIT) that this file obeys, because each one makes CS2 drop the whole layout without a word: the root panel has
   no id; only Panel, Label, Image and Button, each with only Valve's attributes; no inline style; no scaling attribute; no scripts; pictures are
@@ -18,7 +19,7 @@
     2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
        each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
-       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.8.0): its id tells the server which
+       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.9.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -116,7 +117,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.8.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.9.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -224,7 +225,7 @@
 									<Button id="os_fm_wm" class="os-chipb os-chipm-wingman"><Label class="os-chipb-text" text="Wingman" /></Button>
 									<Panel class="os-mbar-fill" />
 									<Panel id="os_q_search" class="os-search">
-										<Button id="os_q_kbd">
+										<Button id="os_q_how">
 											<Label class="os-search-key" text="Search" />
 											<Label id="os_q_hint" class="os-search-label" text="{s:text}" />
 											<Label id="os_q_text" class="os-search-text" text="{s:text}" />
@@ -246,13 +247,6 @@
 									<Panel class="os-mbar-fill" />
 									<Button id="os_q_prev" class="os-qprev"><Label id="os_q_prev_text" text="{s:text}" /></Button>
 									<Label id="os_m_count" text="{s:text}" />
-								</Panel>
-								<!-- The keyboard: a custom HUD has no text entry, so each key is a button; the plugin edits the query and filters live -->
-								<Panel class="os-kbd">
-									<Panel class="os-kbd-row"><Button id="os_kb_1" class="os-key"><Label class="os-key-text" text="1" /></Button><Button id="os_kb_2" class="os-key"><Label class="os-key-text" text="2" /></Button><Button id="os_kb_3" class="os-key"><Label class="os-key-text" text="3" /></Button><Button id="os_kb_4" class="os-key"><Label class="os-key-text" text="4" /></Button><Button id="os_kb_5" class="os-key"><Label class="os-key-text" text="5" /></Button><Button id="os_kb_6" class="os-key"><Label class="os-key-text" text="6" /></Button><Button id="os_kb_7" class="os-key"><Label class="os-key-text" text="7" /></Button><Button id="os_kb_8" class="os-key"><Label class="os-key-text" text="8" /></Button><Button id="os_kb_9" class="os-key"><Label class="os-key-text" text="9" /></Button><Button id="os_kb_0" class="os-key"><Label class="os-key-text" text="0" /></Button><Button id="os_kb_back" class="os-key os-key-wide"><Label class="os-key-text" text="Back" /></Button></Panel>
-									<Panel class="os-kbd-row"><Button id="os_kb_q" class="os-key"><Label class="os-key-text" text="Q" /></Button><Button id="os_kb_w" class="os-key"><Label class="os-key-text" text="W" /></Button><Button id="os_kb_e" class="os-key"><Label class="os-key-text" text="E" /></Button><Button id="os_kb_r" class="os-key"><Label class="os-key-text" text="R" /></Button><Button id="os_kb_t" class="os-key"><Label class="os-key-text" text="T" /></Button><Button id="os_kb_y" class="os-key"><Label class="os-key-text" text="Y" /></Button><Button id="os_kb_u" class="os-key"><Label class="os-key-text" text="U" /></Button><Button id="os_kb_i" class="os-key"><Label class="os-key-text" text="I" /></Button><Button id="os_kb_o" class="os-key"><Label class="os-key-text" text="O" /></Button><Button id="os_kb_p" class="os-key"><Label class="os-key-text" text="P" /></Button><Button id="os_kb_clear" class="os-key os-key-wide"><Label class="os-key-text" text="Clear" /></Button></Panel>
-									<Panel class="os-kbd-row"><Button id="os_kb_a" class="os-key"><Label class="os-key-text" text="A" /></Button><Button id="os_kb_s" class="os-key"><Label class="os-key-text" text="S" /></Button><Button id="os_kb_d" class="os-key"><Label class="os-key-text" text="D" /></Button><Button id="os_kb_f" class="os-key"><Label class="os-key-text" text="F" /></Button><Button id="os_kb_g" class="os-key"><Label class="os-key-text" text="G" /></Button><Button id="os_kb_h" class="os-key"><Label class="os-key-text" text="H" /></Button><Button id="os_kb_j" class="os-key"><Label class="os-key-text" text="J" /></Button><Button id="os_kb_k" class="os-key"><Label class="os-key-text" text="K" /></Button><Button id="os_kb_l" class="os-key"><Label class="os-key-text" text="L" /></Button><Button id="os_kb_space" class="os-key"><Label class="os-key-text" text="Space" /></Button></Panel>
-									<Panel class="os-kbd-row"><Button id="os_kb_z" class="os-key"><Label class="os-key-text" text="Z" /></Button><Button id="os_kb_x" class="os-key"><Label class="os-key-text" text="X" /></Button><Button id="os_kb_c" class="os-key"><Label class="os-key-text" text="C" /></Button><Button id="os_kb_v" class="os-key"><Label class="os-key-text" text="V" /></Button><Button id="os_kb_b" class="os-key"><Label class="os-key-text" text="B" /></Button><Button id="os_kb_n" class="os-key"><Label class="os-key-text" text="N" /></Button><Button id="os_kb_m" class="os-key"><Label class="os-key-text" text="M" /></Button><Button id="os_kb_done" class="os-key os-key-done"><Label class="os-key-text" text="Done" /></Button></Panel>
 								</Panel>
 								<!-- A Workshop id that is not on the list: the item, checked with Steam, downloaded to the server first, then played -->
 								<Panel id="os_ws" class="os-ws">
@@ -1284,7 +1278,7 @@
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.8.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.9.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1340,7 +1334,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.8.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.9.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

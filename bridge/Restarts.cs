@@ -25,8 +25,8 @@
 //
 // The two restarts a player can press (the Game page, !restart and !rematch) live here too. Anyone may press them, and a second click within 30 s confirms; then PressedSeconds count down
 // on the same countdown banner, naming who pressed. Restart the server is a restart of the kind "player": at the end of its countdown ServerGoingDown and the quit. Restart match has its
-// own countdown (HudState's rematch line) and then mp_restartgame: the same map, the same mode and the fun settings stay, and the game's round start reads mp_roundtime and starts the
-// ladder and catch-up's count over.
+// own countdown (HudState's rematch line) and then the plugin's os_restart (mp_restartgame 1 to a plugin that has none): the same map, the same mode and the fun settings stay, and the
+// game's round start reads mp_roundtime and starts the ladder and catch-up's count over.
 using System.Globalization;
 using System.Net;
 
@@ -266,7 +266,7 @@ static partial class Program
         RematchWaitUntil = now.AddSeconds(RematchWaitSeconds);
         var due = new Rematch(Clip(by, 32), now.AddSeconds(PressedSeconds));
         RematchDue = due;
-        Log($"rematch: {by} presses Restart match - mp_restartgame goes in {PressedSeconds} s");
+        Log($"rematch: {by} presses Restart match - the restart goes in {PressedSeconds} s");
         Post(Messages.MatchRestart, $"{M.N(due.By)} is restarting the match in {M.V(MapVote.Left(PressedSeconds))} - {RematchWords()}", seconds: PressedSeconds);
         After(PressedSeconds * 1000, () => FireRematch(due));
     }
@@ -279,16 +279,37 @@ static partial class Program
         _ => "The time and the scores start over",
     };
 
-    /// <summary>The countdown is over: mp_restartgame goes out, unless something ended it first. The game restarts the match a second later.</summary>
+    /// <summary>The countdown is over: the restart goes out, unless something ended it first. The game restarts the match a second later.</summary>
     static void FireRematch(Rematch due)
     {
         if (RematchDue != due) return; // a match end, a map start, the server going down
         RematchDue = null;
         if (Pending != null || LoadPending) { Log($"rematch: a map change came first - {due.By}'s restart of the match does not go out"); return; }
-        var reply = Send("mp_restartgame 1");
-        Log($"rematch by {due.By}: mp_restartgame 1 -> {reply ?? "(rcon failed)"}");
-        if (reply == null) Post(Messages.News, M.Refused("The server did not answer - The match did not restart"));
+        var (sent, reply) = RematchSend(Send);
+        Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
+        if (RematchRefused(reply) is { } why) Post(Messages.News, M.Refused(why));
     }
+
+    /// <summary>What the Restart match sends: the plugin's os_restart (release 196), which its restart guard lets through as ours - also while it holds
+    /// mp_restartgame after a map's escaped restart or a loop, when a bare mp_restartgame is cheat protected and the game ignores it.</summary>
+    public const string RematchCommand = "os_restart 1";
+    /// <summary>...and to a plugin that has no os_restart (5.4.1 and older: "Unknown command"), mp_restartgame 1 as before.</summary>
+    public const string RematchFallback = "mp_restartgame 1";
+
+    /// <summary>The restart's RCON: what went out last, and the game's answer to it (null: none).</summary>
+    static (string Sent, string? Reply) RematchSend(Func<string, string?> send)
+    {
+        var reply = send(RematchCommand);
+        return reply != null && reply.Contains("Unknown command", StringComparison.OrdinalIgnoreCase) ? (RematchFallback, send(RematchFallback)) : (RematchCommand, reply);
+    }
+
+    /// <summary>Why the match did not restart, as everybody is told, or null when it does: no answer, or a change the game ignored ("SV: Convar
+    /// 'mp_restartgame' is cheat protected, change ignored.").</summary>
+    static string? RematchRefused(string? reply) =>
+        reply == null ? "The server did not answer - The match did not restart"
+        : reply.Contains("change ignored", StringComparison.OrdinalIgnoreCase) || reply.Contains("cheat protected", StringComparison.OrdinalIgnoreCase)
+            ? "The server refused the restart - The match did not restart"
+        : null;
 
     /// <summary>From Tick: a countdown long past its end without the server going down, or a match's end that never came, is over.</summary>
     static void RestartTick(DateTime now)

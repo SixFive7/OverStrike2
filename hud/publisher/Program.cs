@@ -40,8 +40,8 @@ static class Program
         "The menu opens by itself at every join, with a welcome, and stays until you close it with its X. Hold TAB for the live board beside the scoreboard: the map that is on and " +
         "who picked it, Like and Dislike, Start a vote and the latest messages - with the mouse, for as long as TAB is down. TAB + E opens the full menu, which closes by itself when idle.\n" +
         "[list]\n" +
-        "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look. Search names, tags and Workshop ids on an on-screen keyboard; sort by " +
-        "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id to play a map that is not on the list: the server " +
+        "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look. Search names, tags and Workshop ids from chat (!s and a few words); sort by " +
+        "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id in chat to play a map that is not on the list: the server " +
         "downloads it first, with the progress on its card. While a vote is on, this tab holds its ballot.\n" +
         "[*][b]Fun[/b]: the fun settings, with Random and Default, and Bots: bots for everybody, with presets from a zombie horde to a sniper duel; every change says who made it.\n" +
         "[*][b]Server[/b]: who is on and which HUD they have; the match length and the two restarts, of the match or the whole server; what the server's map sync is doing, what waits for it, and its " +

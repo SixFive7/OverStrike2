@@ -11,7 +11,8 @@ public static class ChatReply
         NoVote = M.Refused($"No vote is on - {M.A("Start a vote")}, or put a map to the vote with {M.C("!play")}"),
         CardOpen = M.Done($"Its card is open in the menu: {M.A("Download and play")}"),
         ListLoading = M.Refused("The map list is not loaded yet - Try again in a moment"),
-        NoLine = M.Refused("The menu has no line to the server right now - Try again in a moment");
+        NoLine = M.Refused("The menu has no line to the server right now - Try again in a moment"),
+        HowToSearch = $"Search in chat: {M.C("!s")} and a few words - A name, a tag or a Workshop ID";
 
     public static string MenuOn(string page) => M.Done($"The menu is open on {M.A(page)}");
 

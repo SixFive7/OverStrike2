@@ -15,7 +15,6 @@ public sealed class HudBrowser
     public enum Band { All, Tiny, Small, Mid, Large }
 
     public const int PerPage = 8;            // the browser's cards: two columns of four (the ballot's page is MapVote.PageCards)
-    public const int PerPageTyping = 4;      // ...and the keyboard covers the second row of them while it is open
     public const double ConfirmSeconds = 30; // the bridge's own window for confirming a broken or crashed map
 
     /// <summary>The size chips: under 25 MB, 25-120, 120-400, 400 MB and up.</summary>
@@ -26,8 +25,7 @@ public sealed class HudBrowser
     public Band Size = Band.All;
     public bool Liked, Official, Ours;        // Ours: the server's own maps (ours.json; Over Strike 2's Our maps)
     public string Mode = "";                 // the mode filter (content v4.2.0): a mode's id, or "" for every mode's maps
-    public string Query = "";                // what the on-screen keyboard typed (HudKeyboard), or a Workshop link pasted in chat
-    public bool Keyboard;                    // the keyboard is open on the Maps page
+    public string Query = "";                // what !find (!s) asked for in chat, or a Workshop link or id pasted there
     public int Page;                         // zero-based; clamped whenever the matches are counted
     public string ConfirmKey = "";           // a risky map whose Play was clicked once...
     public DateTime ConfirmUntil;            // ...and until when the second click confirms it
@@ -46,6 +44,16 @@ public sealed class HudBrowser
 
     public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
+
+    /// <summary>The search area's hint (content v4.9.0): "Search  Type !s and a few words in chat", a button whose click says the same in the
+    /// player's chat - typing is chat's, and the HUD cannot open the chat box. Content v4.8.0 typed on an on-screen keyboard: its search box
+    /// (OldSearchBox) opened it, and its forty keys were os_kb_*. Release 196 removed it: the keyboard never opens since, and a
+    /// click on that box, or on any key, asks the same as the hint's own and changes nothing.</summary>
+    public const string HintButton = "os_q_how", OldSearchBox = "os_q_kbd";
+
+    /// <summary>A click that asks how to search: the hint's, or v4.8.0's search box or keys.</summary>
+    public static bool AsksHowToSearch(string buttonId) =>
+        buttonId == HintButton || buttonId == OldSearchBox || buttonId.StartsWith("os_kb_", StringComparison.Ordinal);
     // (the pager's Next pulses while more pages follow, Prev while this is not the first page: the stylesheet's, off the buttons' "off" class)
 
     /// <summary>The maps this player's filters and search let through, in this player's order. Officials have no rank: they sort after
@@ -110,44 +118,24 @@ public sealed class HudBrowser
 
     public static int Pages(int count, int perPage = PerPage) => Math.Max(1, (count + perPage - 1) / perPage);
 
-    /// <summary>Cards on this player's page: eight, or the four the keyboard leaves showing while it is open.</summary>
-    public int PageSize => Keyboard ? PerPageTyping : PerPage;
+    /// <summary>This player's pages for that many matches.</summary>
+    public int PagesFor(int count) => Pages(count, PerPage);
 
-    /// <summary>This player's pages for that many matches, at this player's page size.</summary>
-    public int PagesFor(int count) => Pages(count, PageSize);
-
-    /// <summary>This player's page: the entries on it (eight, four while typing; fewer on the last) after clamping the page number to
-    /// what exists.</summary>
+    /// <summary>This player's page: the entries on it (eight; fewer on the last) after clamping the page number to what exists.</summary>
     public List<HudCatalog.Entry> PageOf(List<HudCatalog.Entry> matches)
     {
         Page = Math.Clamp(Page, 0, PagesFor(matches.Count) - 1);
-        return matches.Skip(Page * PageSize).Take(PageSize).ToList();
-    }
-
-    /// <summary>The keyboard opens or closes, and the page follows so the first card shown stays the first card shown (a page of eight
-    /// is two pages of four).</summary>
-    void SetKeyboard(bool open)
-    {
-        if (open == Keyboard) return;
-        Page = open ? Page * (PerPage / PerPageTyping) : Page / (PerPage / PerPageTyping);
-        Keyboard = open;
+        return matches.Skip(Page * PerPage).Take(PerPage).ToList();
     }
 
     /// <summary>The Workshop id the query is, when no map in the catalog has it: the menu then shows that item's card (WorkshopCard).</summary>
     public long? WorkshopQuery(HudCatalog? catalog) =>
         WorkshopCard.IdOf(Query) is { } id && catalog != null && !catalog.Maps.Any(m => m.Id == id) ? id : null;
 
-    /// <summary>A click on one of the browser's own controls or the keyboard's keys. True when it was one (the page then has to be
-    /// worked out again).</summary>
+    /// <summary>A click on one of the browser's own controls. True when it was one (the page then has to be worked out again). The search hint and
+    /// v4.8.0's typing controls are none: the plugin answers them in chat (AsksHowToSearch).</summary>
     public bool Click(string buttonId, int matchCount)
     {
-        if (buttonId == HudKeyboard.Open) { SetKeyboard(!Keyboard); return true; }
-        if (buttonId == HudKeyboard.Done) { SetKeyboard(false); return true; }
-        if (HudKeyboard.Press(Query, buttonId) is { } typed)
-        {
-            if (typed != Query) { Query = typed; Page = 0; }
-            return true;
-        }
         foreach (var (id, sort) in SortButtons)
             if (buttonId == id)
             {

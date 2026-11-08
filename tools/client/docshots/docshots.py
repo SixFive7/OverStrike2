@@ -489,7 +489,7 @@ def R(id, shows="", **kw):
 # ---- a fresh, real join first: any click ends the HUD check -------------------------------------------------------------------------------------------
 
 R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick="HUD check: Click to play",
-  today="the window's X (os_hudver_v4.8.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+  today="the window's X (os_hudver_v4.9.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
   steps=[con("disconnect"), pause(3), mark(), con(f"connect {HOST}:{PORT}"), wait_ingame(), pause(4), con("jointeam 2 1", 1500), pause(5), shoot()],
   when="5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
   crop=C_X, masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
@@ -663,9 +663,7 @@ browser("maps-official", "os_fl_official", "Official", cleanup=[press("os_fl_off
 browser("maps-ours", "os_fl_ours", "Our maps", cleanup=[press("os_fl_ours")])
 browser("maps-page-2", "os_pg_next", "the second page")
 browser("maps-page-last", "os_pg_last", "the last page", cleanup=[press("os_pg_first")])
-browser("maps-keyboard", "os_q_kbd", "the on-screen keyboard, four cards left showing", cleanup=[press("os_kb_done")])
 R("maps-search", "MAPS > Browse: a search: its best matches first", section=S_MAPS, after="page-maps", steps=[con("say !find lake"), pause(2), shoot()], when="2 s after the line")
-browser("maps-search-keyboard", "os_q_kbd", "the keyboard over a search that is on", cleanup=[press("os_kb_done"), press("os_q_clear")], after="maps-search")
 R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section=S_MAPS, after="page-maps", steps=[con("say !find zzqqzz"), pause(2), shoot()], cleanup=[press("os_q_clear")], when="2 s after the line")
 R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section=S_MAPS, after="page-maps",
   steps=[con("say 3369214545"), pause(3), shoot()], cleanup=[press("os_q_clear")], when="3 s after the line: the server's own no needs no Workshop question", words_from=("bridge/broken.json", "3369214545"))
@@ -852,7 +850,7 @@ R("loading-dot", "The Live dot gold while a new map's announcement is pending", 
 BROWSER = {r.id for r in ROWS if r.section == S_MAPS} | {"why-card", "play-asks-first", "vote-browse"}
 
 # The other six resolutions, for the owner's review only (never committed: the docs take 1920x1080): every page and one of each surface.
-REVIEW_SET = ("page-start", "page-fun", "page-players", "page-game", "page-sync", "page-help", "page-how", "page-maps", "maps-keyboard", "maps-search", "board-default", "welcome-first",
+REVIEW_SET = ("page-start", "page-fun", "page-players", "page-game", "page-sync", "page-help", "page-how", "page-maps", "maps-search", "board-default", "welcome-first",
               "join-tagline", "top-plain", "top-over-window", "hud-outdated", "restart-counting", "catchup-boost", "check-warning", "joined-hud-version", "chat-unknown", "why-card",
               "fun-refused", "vote-open", "vote-my-vote", "vote-kept", "vote-tie-lead", "window-restart-strip", "game-time-10")
 
