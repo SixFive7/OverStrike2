@@ -383,7 +383,7 @@ check("verify: a bridge outside the game server's compose project - look", code 
 code, out, *_ = run_verify(grouped(after()), health="os2-health 1\nlog pushes 0\n")
 check("verify: no log push reaching the bridge - look", code == 1 and "LOOK  log pushes reaching the bridge: 0" in out)
 code, out, *_ = run_verify(grouped(after()), health="gg-health 1\nlog pushes 3\n")
-check("verify: a bridge from before release 191 (gg-health, after a rollback) - its health is as good as any other's", "LOOK  bridge /health" not in out and "ok    bridge /health" in out)
+check("verify: a bridge from before release 191 (gg-health) - no bridge's /health: look", code == 1 and "LOOK  bridge /health" in out)
 code, out, *_ = run_verify(grouped(after()), health="Traceback: refused at /health/" + BS)
 check("verify: a failed health request - look, and the secret in its words is not printed", code == 1 and "LOOK  bridge /health" in out and BS not in out)
 code, out, *_ = run_verify(grouped(after()), a2s=None)

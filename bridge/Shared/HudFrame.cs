@@ -29,12 +29,11 @@ public sealed class HudFrame
         bool TabCursor = false, bool KeptMenu = false);
 
     /// <summary>What the frame draws from: the live state as of this frame (its countdowns worked out) and the vote; the map list, the search index and the Sync
-    /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (os_hud level fakes it); the older
-    /// contents' news line of the plugin's own; whether a vote holds everybody's window (its freeze) and whether joiners get the HUD (no hold); the Fun page's
-    /// values and who set them; now, by the plugin's clock and the bridge's.</summary>
+    /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (os_hud level fakes it); whether a vote
+    /// holds everybody's window (its freeze) and whether joiners get the HUD (no hold); the Fun page's values and who set them; now, by the plugin's clock and
+    /// the bridge's.</summary>
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
-        (string Text, DateTime Until) LocalNews, bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy,
-        DateTime Now, long BridgeNowMs);
+        bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs);
 
     int latestSent; // the level of the latest-N class on os_global: turned off when it moves
 
@@ -50,10 +49,8 @@ public sealed class HudFrame
         foreach (var (id, cls, on) in HudView.StaticClasses()) screen.Class(id, cls, on);
         var funWhy = FunPage(w, funClicks, screen);
         var botWhy = BotsPage(w, botClicks, screen);
-        var ownNews = now < w.LocalNews.Until; // the news line of the older contents: the plugin's own line wins while it lasts
-        foreach (var (id, text) in HudView.Texts(s, vote)) if (!(ownNews && id == "os_news_text")) screen.Text(id, text);
-        foreach (var (id, cls, on) in HudView.Classes(s, vote)) if (!(ownNews && cls == "news")) screen.Class(id, cls, on);
-        if (ownNews) { screen.Text("os_news_text", w.LocalNews.Text); screen.Class(HudView.Global, "news", true); }
+        foreach (var (id, text) in HudView.Texts(s, vote)) screen.Text(id, text);
+        foreach (var (id, cls, on) in HudView.Classes(s, vote)) screen.Class(id, cls, on);
         var (prevTexts, prevClasses) = HudMenu.PreviousButton(s); // the Maps page's Previous
         foreach (var (id, text) in prevTexts) screen.Text(id, text);
         foreach (var (id, cls, on) in prevClasses) screen.Class(id, cls, on);
@@ -103,7 +100,7 @@ public sealed class HudFrame
         foreach (var (id, cls, on) in HudView.PlayerClasses(s, account, vote)) screen.Class(id, cls, on && !(h.Checking && cls == "act-off"), slot);
         foreach (var (id, text) in HudView.LatelyTexts(s, account, w.BridgeNowMs)) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in HudView.LatelyClasses(s, account)) screen.Class(id, cls, on, slot);
-        screen.Class(HudView.Screen, "vcheck", h.Version is "" or HudVersion.Unknown, slot); // the window's X is the version button (an older content keeps its "Click to play")
+        screen.Class(HudView.Screen, "vcheck", h.Version is "" or HudVersion.Unknown, slot); // the window's X is the version button
         screen.Class(HudView.Screen, "wback", view.Window && view.Returning, slot);           // the welcome page's line about the map that is on
         CatchUp(p, now, slot, screen);
         if (s.Why.TryGetValue(account, out var asked)) screen.Var(HudView.Screen, HudVote.WhyVar, asked.Map, slot); // the map the popup asks about: its label inherits it
@@ -113,8 +110,8 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "pinned", view.Window && view.Pinned, slot); // the welcome closes only by its X: its foot has no idle bar
         screen.Class(HudView.Screen, "toast-1", view.Toast == 1, slot);
         screen.Class(HudView.Screen, "toast-in", view.ToastIn, slot);
-        screen.Class(HudView.Screen, "vjoin", h.JoinedFor is { } joined && joined.TotalSeconds < HudVersion.JoinSeconds, slot); // the join banner of v4.0.0 to v4.5.0 (svge/svlt)
-        var perPage = HudVote.CardsFor(h.Version);
+        screen.Class(HudView.Screen, "vjoin", h.JoinedFor is { } joined && joined.TotalSeconds < HudVersion.JoinSeconds, slot); // a newer content's banner, for a while after a join
+        var perPage = MapVote.PageCards;
         var vv = VoteView(p, vote, perPage);
         var browsing = vote is { Round: > 0, Open: true } && vv.Browse;
         if (vote.Round <= 0 || browsing) screen.Class(HudView.Screen, "voting", false, slot);
@@ -186,7 +183,7 @@ public sealed class HudFrame
         return (texts, classes);
     }
 
-    /// <summary>A player's view of the vote that is on: their page of the ballot, kept on the pages there are (perPage cards a page: HudVote.CardsFor), and whether
+    /// <summary>A player's view of the vote that is on: their page of the ballot, kept on the pages there are (perPage cards a page), and whether
     /// the map browser is open on it; a new round starts on its first page, on the ballot.</summary>
     public static (int Page, bool Browse) VoteView(HudPlayer p, VoteState vote, int perPage)
     {
@@ -201,8 +198,8 @@ public sealed class HudFrame
     public static int[]? SeenOrder(HudPlayer p, long round, int page, DateTime now) =>
         p.Drawn.Round == round && p.Drawn.Page == page && p.Drawn.Now.Length > 0 ? ((now - p.Drawn.ChangedAt).TotalSeconds < HudVote.ReSortSeconds ? p.Drawn.Before : p.Drawn.Now) : null;
 
-    /// <summary>The Fun page, the same for everybody: as the live values have it - the settings, who set them, what is grey - and the fixed rows of the contents
-    /// before v4.6.0, worded and lit. Returns what its bubbles say this frame.</summary>
+    /// <summary>The Fun page, the same for everybody: as the live values have it - the settings, who set them, what is grey. Returns what its bubbles say this
+    /// frame.</summary>
     static List<(string Name, string Text)> FunPage(World w, FunClicks funClicks, IScreen screen)
     {
         var (texts, classes) = HudMenu.FunPage(w.FunValue, w.Mode.ArmsRace, w.FunSetBy);
@@ -212,8 +209,6 @@ public sealed class HudFrame
             screen.Class(id, cls, on);
             if (cls == "off") funClicks.Grey(id, on, w.Now);
         }
-        foreach (var (name, words) in HudMenu.FixedRowWords(w.FunValue, w.FunSetBy)) screen.Var(HudView.Global, name, words);
-        foreach (var (id, cls, on) in HudMenu.FixedRowClasses(w.FunValue, w.Mode.ArmsRace)) screen.Class(id, cls, on);
         return HudMenu.FunWhy(w.FunValue);
     }
 

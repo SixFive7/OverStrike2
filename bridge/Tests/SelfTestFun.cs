@@ -111,12 +111,10 @@ static partial class Program
         Check("Random makes its changes back to Normal first, so os_fun meets no clash on the way (Super jump down before the gravity goes to Moon)",
             jumpBack[0].Setting.Id == "jump" && jumpBack[1].Setting.Id == "gravity");
         Check("The first choice of the grenade drops and of catch-up is On", Fun.Find("drops")!.Normal.Id == "on" && Fun.Find("catchup")!.Normal.Id == "on");
-        Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, rows of the page like any other; an older content's fixed rows lit from them, its buttons the same choices",
+        Check("The grenade drops and catch-up are fun settings of their own: effects on by default, Arms Race's alone, rows of the page like any other; an older content's fixed rows are no buttons of ours",
             Fun.Find("drops") is { } dr && Fun.ArmsRaceOnly(dr) && Fun.IsEffect(Fun.Drops) && Fun.Find("catchup") is { } cu && Fun.ArmsRaceOnly(cu) && Fun.IsEffect(Fun.CatchUp)
             && Fun.EffectsOn.Any(e => e.Effect == Fun.Drops && e.Value == "1") && Fun.EffectsOn.Any(e => e.Effect == Fun.CatchUp && e.Value == "1")
-            && HudMenu.FixedRowClasses(c => c == Fun.Drops ? "0" : "1", true) is var fr && fr.Single(x => x.Class == "nd-off").On && fr.Single(x => x.Class == "cu-on").On
-            && HudMenu.FixedRowClasses(c => "1", false).All(x => !x.On)
-            && HudMenu.FunClick(HudMenu.DropsOff) is { Setting.Id: "drops", Choice.Id: "off" } && HudMenu.FunClick(HudMenu.CatchUpOn) is { Setting.Id: "catchup", Choice.Id: "on" }
+            && HudMenu.FunClick("os_set_nades_off") == null && HudMenu.FunClick("os_set_catchup_on") == null && HudMenu.FunClick("gg_f17_1") == null
             && HudMenu.FunClick(HudMenu.FunButton(17, 1)) is { Setting.Id: "drops", Choice.Id: "on" } && HudMenu.FunClick(HudMenu.FunButton(18, 2)) is { Setting.Id: "catchup", Choice.Id: "off" }
             && HudMenu.FunClick(HudMenu.FunButton(17, 3)) == null && HudMenu.FunClick(HudMenu.FunButton(19, 1)) == null);
         FunPageSelfTest(Check);
@@ -154,7 +152,7 @@ static partial class Program
                 == "Bob rolled: gravity low, bunny hopping on, ice floor on, infinite ammo on");
         Check("The fun lines' kinds in the catalogue: the top line, chat and the board, for everybody, in Fun's colour; a refused click has no line of its own on the page - chat and the board, for that player alone",
             new[] { Messages.FunChanged, Messages.FunRandom, Messages.FunDefault }.All(k => k is { Surface: Surface.Top, On: Who.Everybody, Chat: Who.Everybody, Board: Who.Everybody } && k.Cat == Messages.Fun && Messages.All.Contains(k))
-            && Messages.FunRefused is { Surface: Surface.None, On: Who.Nobody, Chat: Who.Player, Board: Who.Player, News: false } && Messages.All.Contains(Messages.FunRefused));
+            && Messages.FunRefused is { Surface: Surface.None, On: Who.Nobody, Chat: Who.Player, Board: Who.Player } && Messages.All.Contains(Messages.FunRefused));
 
         // ---- every section starts with a capital ----
         var words = new List<string>();
@@ -164,7 +162,6 @@ static partial class Program
                 var values = With(c.Sets);
                 words.Add(Fun.ChangedLine("Bob", s, c));
                 words.AddRange(HudMenu.FunPage(values, true, _ => "Bob").Texts.Where(x => x.Id.EndsWith("_txt", StringComparison.Ordinal)).Select(x => x.Text));
-                words.AddRange(HudMenu.FixedRowWords(values, _ => "Bob").Select(x => x.Text));
             }
         words.AddRange([Fun.RandomLine("Bob", []), Fun.DefaultLine("Bob"), HudMenu.FunPage(With(("sv_airaccelerate", "2000"))).Texts.Single(x => x.Id == $"{HudMenu.FunRow(3)}_txt").Text, HudMenu.FunNoteText,
             Fun.Refusal(jump, high, moonValues)!, Fun.Refusal(gravity, moon, highValues)!, Fun.RefusedJust(jump, high, moonValues, _ => "Cara")!, Fun.RefusedJust(gravity, moon, highValues, null)!]);
@@ -223,9 +220,6 @@ static partial class Program
         bubbles.Gone(later);
         Check("A newer refusal moves the bubble; a player who leaves takes theirs along, and the next one in the slot gets the class off and the row's words emptied; a variable that never had words is not sent",
             replaced && theirs && bubbles.Classes(later, at).SequenceEqual([(highButton, "refused", false)]) && bubbles.Words(later, HudMenu.FunWhy(stockValues), at).SequenceEqual([(jumpVar, "")]));
-
-        Check("A game on a content before v4.6.0 has neither grey nor bubble, so its note says it; v4.6.0 and a game whose content is not known do have them",
-            HudVersion.IsBefore("v4.5.0", FunClicks.BubbleLevel) && HudVersion.IsBefore(HudVersion.Older, FunClicks.BubbleLevel) && !HudVersion.IsBefore("v4.6.0", FunClicks.BubbleLevel) && !HudVersion.IsBefore(HudVersion.Unknown, FunClicks.BubbleLevel) && !HudVersion.IsBefore("", FunClicks.BubbleLevel));
 
         // ---- what the layout holds for it ----
         if (File.Exists(HudLayoutFile) && File.Exists(HudStyleFile))

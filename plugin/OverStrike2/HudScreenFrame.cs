@@ -47,9 +47,9 @@ sealed partial class HudScreen
 
         drawing.Clear();
         foreach (var p in humans) drawing[p.Slot] = p;
-        var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, localNews, VoteLocked, addonRequired,
+        var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
             FunValue, FunSetBy, now, bridgeNow);
-        frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, names ??= new HudIds.Names(this, PrefixesFor), botClicks); // every panel under each content's name
+        frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
         MarkChanged();
     }
 
@@ -62,10 +62,6 @@ sealed partial class HudScreen
             checking, checking ? gate.SecondsLeft(p.Slot, now) : 0, joins.Since(account, now), tab.Cursor(p.Slot), keptMenu.Contains(account));
     }
 
-    /// <summary>This player's view of the vote that is on (HudFrame.VoteView), in pages of the cards their game has (BallotCards).</summary>
-    (int Page, bool Browse) VoteView(int slot) => HudFrame.VoteView(Player(slot), vote, BallotCards(slot));
-
-    /// <summary>The ballot's cards a page for this slot's player: eight for a game known to hold a content before v4.6.0, which has no more cards -
-    /// its pager then reaches every option - and MapVote.PageCards for any other (HudVote.CardsFor).</summary>
-    int BallotCards(int slot) => Utilities.GetPlayerFromSlot(slot) is { IsValid: true, IsBot: false } p ? HudVote.CardsFor(VersionOf(Account(p))) : MapVote.PageCards;
+    /// <summary>This player's view of the vote that is on (HudFrame.VoteView), in pages of the ballot's cards (MapVote.PageCards).</summary>
+    (int Page, bool Browse) VoteView(int slot) => HudFrame.VoteView(Player(slot), vote, MapVote.PageCards);
 }

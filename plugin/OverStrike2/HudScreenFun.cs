@@ -7,8 +7,7 @@ namespace OverStrike2;
 /// change typed in chat, and Random and Default. The settings module makes every change, in process, a frame after the click or the line (FunSet, FunReset; os_fun does the same from the
 /// console): it owns the server's settings - the baseline, the put-back at the map's end and the block a player's change is exempt from; the grenade drops and catch-up are fun settings like
 /// the rest, its effects. Once the value is there one message says who switched what, the same for every setting (Messages.FunChanged, FunRandom, FunDefault: the top line, chat and the TAB
-/// board, for everybody). A setting's "Set by" stays on the page: the message said it. One plugin drives every content: a content before v4.6.0 has sixteen rows and two fixed ones, greys
-/// nothing and has no bubble, so its note says what this content's page shows.</summary>
+/// board, for everybody). A setting's "Set by" stays on the page: the message said it.</summary>
 sealed partial class HudScreen
 {
     readonly Random dice = new();                         // the Fun page's Random
@@ -30,8 +29,8 @@ sealed partial class HudScreen
     /// <summary>A fun setting's convar (or effect) as the server has it now (Fun.cs), for the page and for checking a change landed.</summary>
     string? FunValue(string name) => FunSource?.Invoke(name);
 
-    /// <summary>A click in the window, if it is one on the Fun page: Random, Default, or a choice - of the grid, or of an older content's fixed rows. Nothing else is asked of a choice that is lit, or
-    /// that has been grey long enough to be seen: its look and its bubble have said it.</summary>
+    /// <summary>A click in the window, if it is one on the Fun page: Random, Default, or a choice of the grid. Nothing else is asked of a choice that is lit, or that has been grey long enough to
+    /// be seen: its look and its bubble have said it.</summary>
     bool FunClicked(CCSPlayerController player, string buttonId, DateTime now)
     {
         if (buttonId is HudMenu.FunRandom or HudMenu.FunDefault)
@@ -43,7 +42,6 @@ sealed partial class HudScreen
         if (HudMenu.FunClick(buttonId) is not { } fun) return false;
         var (setting, choice) = fun;
         var (slot, account) = (player.Slot, Account(player));
-        var older = HudVersion.IsBefore(VersionOf(account), FunClicks.BubbleLevel);
         if (!mode.ArmsRace && Fun.ArmsRaceOnly(setting)) FunRefuse(slot, account, buttonId, setting, ChatReply.NotInMode(setting, mode.Name)); // a page from before the mode changed: its row is gone now
         else
             switch (funClicks.Click(buttonId, setting, choice, FunValue, now))
@@ -54,21 +52,14 @@ sealed partial class HudScreen
                 case FunClicks.Verdict.Refused:
                     FunRefuse(slot, account, buttonId, setting, Fun.RefusedJust(setting, choice, FunValue, FunSetBy)!);
                     break;
-                case FunClicks.Verdict.Seen when older:
-                    FunRefuse(slot, account, buttonId, setting, Fun.RefusalLine(setting, choice, FunValue)!);
-                    break;
-                case FunClicks.Verdict.Lit when older:
-                    Post(Messages.Answer, ChatReply.Already(setting, choice), account);
-                    break;
             }
         Server.NextFrame(Frame);
         return true;
     }
 
-    /// <summary>A click refused: the bubble at that button says why for a while, and that player's chat and board. A content before v4.6.0 has no bubble: the answer's own line, its note. line: marked (M).</summary>
+    /// <summary>A click refused: the bubble at that button says why for a while, and that player's chat and board. line: marked (M).</summary>
     void FunRefuse(int slot, long account, string button, Fun.Setting setting, string line)
     {
-        if (HudVersion.IsBefore(VersionOf(account), FunClicks.BubbleLevel)) { Post(Messages.Answer, line, account); return; }
         funClicks.Refuse(slot, button, setting, line, DateTime.UtcNow);
         Post(Messages.FunRefused, line, account);
     }

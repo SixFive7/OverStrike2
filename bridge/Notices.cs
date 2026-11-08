@@ -3,11 +3,9 @@
 //     surface drops. It rides the live state to the plugin (HudState: the top line, the note, the Lately lines, the chat lines, the centre lines);
 //   Tell(steamId, text): the answer to what that player clicked (Messages.Answer): the line in their window, their chat, their board;
 //   Announce(text): a plain news item (Messages.News): the top line, chat and the board for everybody.
-// The contents before v4.6.0 keep their news line and note: the same words on HudState's news and note lines, which this content has no panel for.
 static partial class Program
 {
     static readonly Dictionary<long, (string Text, DateTime Until, string Cat)> NoteFor = new();
-    static (string Text, DateTime Until) NewsNow = ("", default);
     static (string Text, string Cat, DateTime At, DateTime Until) TopNow = ("", "", default, default);
     static readonly List<Messages.LatelyLine> LatelyNow = new();
     static readonly List<(long Seq, long Account, string Text, DateTime At)> SaysNow = new();
@@ -38,7 +36,6 @@ static partial class Program
                 case Surface.Line: NoteFor[on] = (m.Plain, until, kind.Cat.Id); break;
                 case Surface.Plain or Surface.Alert: CentresNow.Add((++SaySeq, on, kind.Surface == Surface.Alert, Hud.Clean(m.Text, Messages.CentreMax), until)); break;
             }
-        if (kind.News) NewsNow = (m.Plain, until);
         if (m.Chat is { } to) SaysNow.Add((++SaySeq, to, Hud.Clean(m.Text, Messages.ChatMax), now));
         if (m.Board is { } board) Messages.AddLately(LatelyNow, new Messages.LatelyLine(HudState.Ms(now), board, key, m.Plain));
     }
@@ -58,7 +55,6 @@ static partial class Program
     /// <summary>The messages still on, into the live state; what has run out goes.</summary>
     static void PutNotices(HudState h, DateTime now)
     {
-        if (now < NewsNow.Until && NewsNow.Text != "") (h.News, h.NewsFor, h.NewsUntilMs) = (NewsNow.Text, (int)Math.Ceiling((NewsNow.Until - now).TotalSeconds), HudState.Ms(NewsNow.Until));
         if (now < TopNow.Until && TopNow.Text != "") (h.TopText, h.TopCat, h.TopAtMs, h.TopUntilMs) = (TopNow.Text, TopNow.Cat, HudState.Ms(TopNow.At), HudState.Ms(TopNow.Until));
         foreach (var (account, (text, until, cat)) in NoteFor.ToList())
         {
@@ -76,6 +72,6 @@ static partial class Program
 
     static void ClearNotices()
     {
-        NoteFor.Clear(); NewsNow = ("", default); TopNow = ("", "", default, default); LatelyNow.Clear(); SaysNow.Clear(); CentresNow.Clear(); Told.Clear();
+        NoteFor.Clear(); TopNow = ("", "", default, default); LatelyNow.Clear(); SaysNow.Clear(); CentresNow.Clear(); Told.Clear();
     }
 }

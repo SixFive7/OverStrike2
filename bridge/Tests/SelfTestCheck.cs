@@ -28,7 +28,7 @@ static partial class Program
             && !Hud.IsAction("!hudok v2.1.1 x") && !Hud.IsAction("!hudok v2.1.1; quit") && !Hud.IsAction("!hudok v2_1_1 x") && !Hud.IsAction("!hudok v2_1_1; quit") && !Hud.IsAction("!hudok v2_1.1") && !Hud.IsAction("!hudok newer"));
         Check($"HUD check: a version as a level, an older one outdated, the server's own or a newer one not; the Players page's words for each",
             HudVersion.LevelOf("v4.5.0") == 45 && HudVersion.LevelOf("v4.6.0") == 46 && HudVersion.LevelOf("older") == 0 && HudVersion.IsOutdated("v4.5.0") && HudVersion.IsOutdated(HudVersion.Older)
-            && !HudVersion.IsBefore("v4.6.0", HudVote.CardsLevel) && HudVersion.IsBefore("v4.5.0", HudVote.CardsLevel) && !HudVersion.IsOutdated(HudVersion.Content) && !HudVersion.IsOutdated("v9.0.0") && !HudVersion.IsOutdated(HudVersion.Unknown) && !HudVersion.IsOutdated("")
+            && !HudVersion.IsBefore(HudVersion.Content, HudVersion.Oldest) && HudVersion.IsBefore("v4.7.0", HudVersion.Oldest) && !HudVersion.IsOutdated(HudVersion.Content) && !HudVersion.IsOutdated("v9.0.0") && !HudVersion.IsOutdated(HudVersion.Unknown) && !HudVersion.IsOutdated("")
             && HudVersion.Words("v4.5.0") == "v4.5.0 - Restart CS2" && HudVersion.Words(HudVersion.Older) == "older - Restart CS2" && HudVersion.Words(HudVersion.Unknown) == "version unknown"
             && HudVersion.Words("") == "not seen yet" && HudVersion.Words("v9.0.0") == "v9.0.0");
         Check("HUD check: a level is a content's line in the table, never its digits: a version with no line - a patch, v4.10.0, v5.0.0, v14.5.27 - is newer than this code knows, and a word that is no version stays refused",
@@ -262,7 +262,7 @@ static partial class Program
             HudAct("[U:1:5005]\tEd\t!hudok v3_0_0"); // the old form, which no plugin since 5.0.0 sends: refused at the door
             HudAct("[U:1:5006]\tFay\t!hudok v4_5_0");
             var served = HudState.Decode(BuildHud(clock).Encode())!;
-            var joinNews = NewsNow.Text;
+            var joinNews = string.Join("\n", Told);
             Check("HUD check: a click verifies its player with the HUD it proved (the version button's content, an older content's gold button, or unknown), and a known one is kept",
                 served.CheckMode == "warn" && served.Verified.GetValueOrDefault(5001) == HudVersion.Content && served.Verified.GetValueOrDefault(5002) == HudVersion.Older
                 && served.Verified.GetValueOrDefault(5003) == HudVersion.Unknown && !served.Verified.ContainsKey(5009) && HudCheck.ModeOf(served, 0) == HudCheck.Mode.Warn

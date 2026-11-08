@@ -158,21 +158,13 @@ public static class HudVote
     /// <summary>The Vote sub-tab's label: Vote and the limit's seconds left while it is open.</summary>
     public static string TabLabel(VoteState v) => v.Open ? $"Vote  ·  {v.SecondsLeft} s" : "Vote";
 
-    /// <summary>The ballot's cards a page for a game holding this HUD (HudVersion.IsWord): a content before v4.6.0 has eight cards
-    /// (HudBrowser.PerPage), so a game known to hold one gets pages of eight and reaches every option on its pager; any other - this content, a newer
-    /// one, or one not known (no HUD check's click yet, or hud.check off) - pages of MapVote.PageCards.</summary>
-    public static int CardsFor(string version) => HudVersion.IsBefore(version, CardsLevel) ? HudBrowser.PerPage : MapVote.PageCards;
-
-    /// <summary>The first content with the ballot's ten cards and catch-up's card under the crosshair: a game on an older one gets eight cards a page and the centre panel.</summary>
-    public const int CardsLevel = 46;
-
     /// <summary>Whether a game shows catch-up's card under the crosshair, or needs CS2's own centre panel (HudVersion.IsWord): the panel for a game known to
-    /// hold a content before v4.6.0, and for one that may hold no HUD at all - a player who joined while Steam does not hand the item out (mayHaveNoHud) and
-    /// has not clicked in it ("": not seen). Any other game - this content, a newer one, or one whose content no click has named yet - shows the card, as the
-    /// ballot takes it (CardsFor); a game the window's X has not been clicked in is one of those. The card's chat line reaches every one of them.</summary>
-    public static bool CatchUpCard(string version, bool mayHaveNoHud) => !HudVersion.IsBefore(version, CardsLevel) && !(mayHaveNoHud && version == "");
+    /// hold a content the plugin does not draw for (before HudVersion.Oldest), and for one that may hold no HUD at all - a player who joined while Steam does
+    /// not hand the item out (mayHaveNoHud) and has not clicked in it ("": not seen). Any other game - this content, a newer one, or one whose content no
+    /// click has named yet - shows the card; a game the window's X has not been clicked in is one of those. The card's chat line reaches every one of them.</summary>
+    public static bool CatchUpCard(string version, bool mayHaveNoHud) => !HudVersion.IsBefore(version, HudVersion.Oldest) && !(mayHaveNoHud && version == "");
 
-    /// <summary>The ballot's pages: perPage cards a page (CardsFor). Random is a button of its own, not a card.</summary>
+    /// <summary>The ballot's pages: perPage cards a page. Random is a button of its own, not a card.</summary>
     public static int Pages(VoteState v, int perPage = MapVote.PageCards) => Math.Max(1, (v.Maps.Count + perPage - 1) / perPage);
 
     /// <summary>The options on a page of the ballot, in screen order (the most votes first, as the bridge sends them).</summary>
@@ -189,7 +181,7 @@ public static class HudVote
     /// <summary>The vote on the Maps page's cards, a page of them, the most votes first: option k of this page on card k, each with its mode (a label on
     /// the picture and the card's colour), its map, its votes and who picked it, every tag that applies, its record when it is risky; this player's
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
-    /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size (CardsFor).</summary>
+    /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
         VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards)
     {
@@ -357,7 +349,7 @@ public static class HudVote
     /// card (or Random) this player's vote is on takes it back, !mv &lt;round&gt; 0; null for anything else (the card's arrows do nothing then).
     /// account: the player's; -1 when not known, which never takes a vote back. order: the option numbers this player's cards showed (Order), so a
     /// click counts for the map that player saw on the card - an option the vote no longer has counts for nothing; null: the newest order, in pages
-    /// of perPage (CardsFor).</summary>
+    /// of perPage.</summary>
     public static string? Click(VoteState v, string buttonId, int page = 0, long account = -1, IReadOnlyList<int>? order = null, int perPage = MapVote.PageCards)
     {
         if (!v.Open || v.Round <= 0) return null;

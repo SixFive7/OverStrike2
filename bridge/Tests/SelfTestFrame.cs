@@ -19,6 +19,9 @@ static partial class Program
         public bool C(string id, string cls, int slot = HudFrame.Everybody) => classes.GetValueOrDefault((slot, id, cls));
         public bool Sent(string id, string cls, int slot = HudFrame.Everybody) => classes.ContainsKey((slot, id, cls));
         public string V(string id, string name, int slot = HudFrame.Everybody) => vars.GetValueOrDefault((slot, id, name), "");
+
+        /// <summary>Every panel anything went to.</summary>
+        public HashSet<string> Ids => [.. texts.Keys.Select(k => k.Item2), .. classes.Keys.Select(k => k.Item2), .. vars.Keys.Select(k => k.Item2), .. Pictured.Keys.Select(k => k.Panel)];
     }
 
     static void FrameSelfTest(Action<string, bool> Check)
@@ -30,7 +33,7 @@ static partial class Program
         var funClicks = new FunClicks();
         var frame = new HudFrame();
         HudFrame.World World(HudState s, VoteState v, DateTime now, bool locked = false, bool addon = true, int? level = null) =>
-            new(s, v, null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, level ?? HudVersion.Level, ("", default), locked, addon, _ => null, null, now, HudState.Ms(now));
+            new(s, v, null, new HudSearch(), null, Modes.ArmsRace, HudTab.Mode.Down, level ?? HudVersion.Level, locked, addon, _ => null, null, now, HudState.Ms(now));
         HudFrame.Human Alice(TimeSpan? on = null, bool checking = false, string version = "", bool kept = false) =>
             new(1, 1001, "Alice", "CT", version == "" ? HudVersion.Content : version, checking, checking ? 40 : 0, on, false, kept);
         var live = new HudState { Map = "#12 aim_x", By = "the vote", Key = "3084291312", PrevArg = "11", PrevLabel = "#11 aim_y", Maps = 3 };
@@ -68,10 +71,10 @@ static partial class Program
         slots.Click(2, HudView.ButtonClose, t0.AddSeconds(3)); // Bob closed his welcome: no window
         HudFrame.Human Bob() => new(2, 1002, "Bob", "T", "v4.5.0", false, 0, TimeSpan.FromMinutes(5));
         frame.Draw(World(live, open, t0.AddSeconds(40), locked: true), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
-        Check("Frame: a vote that freezes everybody opens every window on MAPS, the ballot, held and with no close button; a game on v4.5.0 gets pages of eight",
+        Check("Frame: a vote that freezes everybody opens every window on MAPS, the ballot, held and with no close button",
             slots.WindowOpen(1) && slots.WindowOpen(2) && slots.PageOf(2) == HudSlots.Page.Maps && players[2].VoteOpened && screen.C(HudView.Screen, "vlock", 2) && screen.C(HudView.Screen, "voting", 2)
             && screen.T("os_m1_name", 2) == "#12 aim_x" && screen.V(HudView.Global, $"{HudView.PlayersVar}2d") == "waiting" && screen.V(HudView.Global, $"{HudView.PlayersVar}1d") == "voted"
-            && players[2].Drawn.Round == 1793900000 && HudFrame.SeenOrder(players[2], 1793900000, 0, t0.AddSeconds(40)) is [1] && HudVote.CardsFor(Bob().Version) == HudBrowser.PerPage);
+            && players[2].Drawn.Round == 1793900000 && HudFrame.SeenOrder(players[2], 1793900000, 0, t0.AddSeconds(40)) is [1]);
         frame.Draw(World(live, new VoteState { WaitFor = 120 }, t0.AddSeconds(50)), [Alice(), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
@@ -81,33 +84,21 @@ static partial class Program
         frame.Draw(World(live, new VoteState(), t0.AddSeconds(52), addon: false), [Alice(kept: true), Bob()], slots, PlayerOf, funClicks, screen);
         Check("Frame: during a hold the window takes the mouse only of a player who was on when it began (they keep the HUD on this map)", screen.Captured[1] && !screen.Captured[2]);
 
-        // ---- a panel under every name it has (HudIds): ours, os_, in content v4.8.0 on; gg_ in the contents shipped before it ----
-        Check("HudIds: an id of ours as a shipped content names it, and a click from one made ours - its version button too; what is no id stays as it is",
-            HudIds.As("os_m1_play", HudIds.Shipped) == "gg_m1_play" && HudIds.As("os_m1_play", HudIds.Ours) == "os_m1_play" && HudIds.As("text", HudIds.Shipped) == "text"
-            && HudIds.ToOurs("gg_m1_play") == "os_m1_play" && HudIds.ToOurs("os_m1_play") == "os_m1_play" && HudIds.ToOurs("bogus") == "bogus"
-            && HudVersion.OfButton(HudIds.ToOurs("gg_hudver_v4.7.0")) == "v4.7.0" && HudVersion.OfButton(HudVersion.Button("v4.8.0")) == "v4.8.0"
-            && HudVersion.Button("v4.8.0") == "os_hudver_v4.8.0");
-        Check("HudIds: a game's names by what its HUD check said - v4.7.0 and older gg_, v4.8.0 and newer os_, both while it has not said; both for everybody while v4.5.0 to v4.7.0 are drawn for",
-            HudIds.Of("v4.7.0").SequenceEqual([HudIds.Shipped]) && HudIds.Of("v4.5.0").SequenceEqual([HudIds.Shipped]) && HudIds.Of(HudVersion.Older).SequenceEqual([HudIds.Shipped])
-            && HudIds.Of("v4.8.0").SequenceEqual([HudIds.Ours]) && HudIds.Of("v9.1.0").SequenceEqual([HudIds.Ours])
-            && HudIds.Of("").SequenceEqual(HudIds.Drawn) && HudIds.Of(HudVersion.Unknown).SequenceEqual(HudIds.Drawn) && HudIds.Drawn.SequenceEqual([HudIds.Ours, HudIds.Shipped])
-            && HudIds.PrefixOf(HudVersion.LevelOf("v4.7.0")) == HudIds.Shipped && HudIds.PrefixOf(HudVersion.Level) == HudIds.Ours);
-        var named = new RecordedScreen();
-        var names = new HudIds.Names(named, slot => slot == 2 ? HudIds.Of("v4.8.0") : slot == 3 ? HudIds.Of("v4.6.0") : HudIds.Drawn);
-        names.Text("os_b_queue", "x"); names.Text("os_m1_name", "y", 2); names.Text("os_m1_name", "z", 3);
-        names.Class(HudView.Global, "news", true); names.Var(HudView.Global, HudVersion.Var, "v4.8.0"); names.Pictures(HudFrame.Everybody, [("os_t_thumb", ["th1", "tl2"])]);
-        Check("HudIds.Names: a panel for everybody goes out under both names, a player's under their content's alone - texts, classes, variables and pictures alike",
-            named.T("os_b_queue") == "x" && named.T("gg_b_queue") == "x" && named.T("os_m1_name", 2) == "y" && named.T("gg_m1_name", 2) == ""
-            && named.T("gg_m1_name", 3) == "z" && named.T("os_m1_name", 3) == "" && named.C("os_global", "news") && named.C("gg_global", "news")
-            && named.V("gg_global", HudVersion.Var) == "v4.8.0" && named.V("os_global", HudVersion.Var) == "v4.8.0"
-            && named.Pictured.ContainsKey((HudFrame.Everybody, "gg_t_thumb")) && named.Pictured.ContainsKey((HudFrame.Everybody, "os_t_thumb")));
-        names.Text(HudBots.Note, "n"); names.Text("os_b3_2_txt", "T"); names.Class(HudBots.Row(3), "used", true); names.Class(HudBots.Preset(1), "on", true);
-        names.Class(HudBots.Tab, "x", true); names.Var(HudView.Screen, HudBots.WhyVar(5), "why", 3); names.Var(HudView.Screen, HudBots.WhyVar(5), "why");
-        Check("HudIds.Names: the Bots page - v4.8.0's own panels, which no shipped content has - goes out under our name alone, its rows' variables too; a v4.6.0 game gets none of it",
-            named.T("os_bots_note") == "n" && named.T("gg_bots_note") == "" && named.T("os_b3_2_txt") == "T" && named.T("gg_b3_2_txt") == "" && named.C("os_b3", "used") && !named.C("gg_b3", "used")
-            && named.C("os_bp1", "on") && !named.C("gg_bp1", "on") && named.C("os_tab_bots", "x") && !named.C("gg_tab_bots", "x")
-            && named.V("os_screen", "osbw5") == "why" && named.V("gg_screen", "osbw5") == "" && named.V("gg_screen", "osbw5", 3) == ""
-            && HudIds.OursOnly("os_b12_5") && HudIds.OursOnly(HudBots.SubFun) && !HudIds.OursOnly("os_b_queue") && !HudIds.OursOnly("os_b_vup") && !HudIds.OursOnly("os_btn_close") && !HudIds.OursOnly("os_m1_name"));
+        // ---- every panel by its one name, os_ (HudVersion.Oldest): a game on a content before v4.8.0, whose layout names its panels gg_, gets nothing ----
+        Check("Frame: every panel the frame sent - texts, classes, variables and pictures, for everybody and for each player, a game on v4.5.0 too - went out by its one name, os_",
+            screen.Ids.Count > 100 && screen.Ids.All(id => id.StartsWith("os_", StringComparison.Ordinal)));
+        if (File.Exists(HudLayoutFile))
+        {
+            var layoutIds = System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(HudLayoutFile), @"\bid=""([^""]+)""").Select(m => m.Groups[1].Value).ToHashSet();
+            var lacking = screen.Ids.Where(id => !layoutIds.Contains(id)).Order(StringComparer.Ordinal).ToList();
+            Check($"Frame: every panel the frame sent is one content {HudVersion.Content} has, so a game holding it logs no \"Unable to find panel\"{(lacking.Count > 0 ? ": not " + string.Join(" ", lacking) : "")}",
+                lacking.Count == 0);
+        }
+        Check("A click from a content before v4.8.0 names a gg_ button, which is none of ours: no version proved, no command, no choice of the Fun or Bots page, no tab, no reason",
+            HudVersion.OfButton("gg_hudver_v4.7.0") == null && HudVersion.OfButton(HudVersion.Button("v4.8.0")) == "v4.8.0" && HudVersion.Button("v4.8.0") == "os_hudver_v4.8.0"
+            && HudView.Command("gg_btn_up", new HudState()) == null && HudView.Command(HudView.ButtonUp, new HudState()) == "!up" && HudMenu.FunClick("gg_f1_1") == null
+            && HudBots.Clicked("gg_b1_2") == null && HudVote.WhyClick("gg_why_1") == null && HudView.Tabs.All(t => t.Id.StartsWith("os_", StringComparison.Ordinal))
+            && HudMenu.Command("gg_set_restart", null, new HudState(), new HudBrowser(), 1, t0) == null && HudMenu.Command(HudMenu.Restart, null, new HudState(), new HudBrowser(), 1, t0) == "!restart");
 
         // ---- the version classes: one latest-N, the old one off when the level moves (os_hud level) ----
         var levels = new RecordedScreen();

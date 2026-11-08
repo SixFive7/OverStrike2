@@ -46,7 +46,7 @@ static partial class Program
         h.Join(alice); h.Quiet();
         OnMatchEnd();
         HudActive = hudWas;
-        Check("...end to end: the dice's news line names the map, and fits", Pending is { Auto: true } && NewsNow.Text.StartsWith("Match over - Rolling the dice: ") && NewsNow.Text.Length <= Messages.TopMax);
+        Check("...end to end: the dice's line names the map, and fits", Pending is { Auto: true } && Told.Any(t => t.StartsWith("Match over - Rolling the dice: ", StringComparison.Ordinal) && t.Length <= Messages.TopMax));
         Fresh(); Maps = fixtures;
 
         // ---- too big: XL in sizes.json, or a too-big vote; 1 random pick in 100 ----
@@ -133,9 +133,9 @@ static partial class Program
         h.Talk(bob, $"!down {small[30].Rank} big");
         var state = HudState.Decode(BuildHud(Now()).Encode())!;
         Check("The live state says each player's own vote on the map that is on, a too-big one as -2", state.MyVotes[1002] == TooBigVote && state.Down == 1);
-        Check("A click may send the too-big mark - and an older content's new-maps buttons their three words - and nothing like them that is free-form; !toobig is no click any more",
-            new[] { "!down big", "!down 12 big", "!down ar_baggage big", "!newmaps always", "!newmaps half", "!newmaps never" }.All(Hud.IsAction)
-            && new[] { "!toobig", "!toobig 12", "!down aim big", "!down 12 13 big", "!newmaps", "!newmaps sometimes", "!newmaps always; quit", "!newmaps ALWAYS" }.All(x => !Hud.IsAction(x)));
+        Check("A click may send the too-big mark, and nothing like it that is free-form; !toobig is no click any more, nor the gone new-maps setting's words (an older content's buttons)",
+            new[] { "!down big", "!down 12 big", "!down ar_baggage big" }.All(Hud.IsAction)
+            && new[] { "!toobig", "!toobig 12", "!down aim big", "!down 12 13 big", "!newmaps", "!newmaps always", "!newmaps half", "!newmaps never", "!newmaps always; quit" }.All(x => !Hud.IsAction(x)));
         Likes = new();
 
         // ---- the ads mark from the board and the cards (!down ads, !down <map> ads) ----
@@ -325,15 +325,9 @@ static partial class Program
         Check("A map change closes it: nothing on screen survives one, and the vote stays", !Live().Why.ContainsKey(1001) && Likes[Key(askOn)][aliceId] == DownReasons.Plain);
         Likes = new();
 
-        // ---- the new-maps setting is gone: an older content's three buttons answer so, and change nothing ----
+        // ---- the reset: nobody on for more than 10 minutes, and the fun settings (the grenade drops and catch-up among them) go back ----
         Fresh();
         h.Join(alice);
-        h.Quiet(); h.Talk(alice, "!newmaps half");
-        Check("The new-maps setting is gone: an older content's button answers what took its place, says nothing on the news line, and the live state carries no setting",
-            h.Said(NewMapsGoneNote) && NewsNow.Text == "" && !BuildHud(Now()).Encode().Contains("newmaps")
-            && HudMenu.Command(HudMenu.NewHalf, null, new HudState(), new HudBrowser(), 1, Now()) == "!newmaps half");
-
-        // ---- the reset: nobody on for more than 10 minutes, and the fun settings (the grenade drops and catch-up among them) go back ----
         h.Quiet();
         h.Leave(alice, "NETWORK_DISCONNECT_DISCONNECT_BY_USER");
         h.Run(ResetEmptyMinutes * 60 - 5);

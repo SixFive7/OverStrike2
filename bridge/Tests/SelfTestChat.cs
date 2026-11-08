@@ -205,10 +205,10 @@ static partial class Program
             && HudVote.Cards(ballot, 1002, null).Texts.Single(x => x.Id == "os_pg_text").Text == "Click a card's Vote");
 
         // ---- a command that opens a page: its words are on it at once, as for everybody (no content has to prove anything first) ----
-        Check("A command that opens How, Fun, Help or Sync opens that page of the menu; its words go to every game alike, and the older contents' c31 and c32 are on for everybody",
+        Check("A command that opens How, Fun, Help or Sync opens that page of the menu; its words go to every game alike",
             ChatCommands.Parse("!fun") is { Kind: ChatCommands.Kind.Page, Arg: "Fun" } && ChatCommands.Parse("!how") is { Kind: ChatCommands.Kind.Page, Arg: "How" }
             && ChatCommands.Parse("!help") is { Kind: ChatCommands.Kind.Commands, Arg: "Help" } && ChatCommands.Parse("!rules") is { Kind: ChatCommands.Kind.Page, Arg: "How" }
-            && HudView.StaticClasses().Contains((HudView.Screen, "c31", true)) && HudView.StaticClasses().Contains((HudView.Screen, "c32", true))
+            && !HudView.StaticClasses().Any(x => x.Class is "c31" or "c32")
             && HudView.StaticTexts().Any(x => x.Id == "os_h1_title") && HudView.StaticTexts().Any(x => x.Id == HudMenu.FunNote));
 
         // ---- the words are the same wherever they are said ----
@@ -335,7 +335,7 @@ static partial class Program
         lines.AddRange([ChatReply.ChangeUnderWay, ChatReply.VoteOn, ChatReply.VoteWindowStays, ChatReply.NoVote, ChatReply.CardOpen, ChatReply.ListLoading, ChatReply.NoLine,
             ChatReply.MenuOn("Maps"), ChatReply.Searching("dust"), ChatReply.Searching(new string('x', 200)), ChatReply.NoMatch("dust"), ChatReply.NoMatch(new string('x', 200)), ChatReply.Matches(3), ChatReply.YourVote("#12 aim_x"), ChatReply.YourVote(new string('x', 200))]);
         var longMap = new MapInfo(0, 7, "aim_" + new string('w', 96), 0);
-        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(Modes.Wingman, 5), M.Refused(NewMapsGoneNote)]);
+        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(Modes.Wingman, 5)]);
 
         var capitals = lines.Where(l => Sections.Lower(l) != null).Select(l => Sections.Lower(l)!).Distinct().ToList();
         Check($"All {lines.Count} chat lines: every section starts with a capital{(capitals.Count > 0 ? "; not: " + string.Join(" | ", capitals.Take(6)) : "")}", capitals.Count == 0);

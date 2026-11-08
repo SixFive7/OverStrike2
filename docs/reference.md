@@ -137,8 +137,7 @@ the window's page. The **centre text** and the **alert** are CS2's own.
 | The answer to your own click: refused, click again, already set | A window line | That player | 8 s | That player | That player |
 | Command replies: an unknown command, an alias taught, `!help`'s list | Chat alone | | | That player | |
 
-The top line holds 240 characters at most, a window line 140 and the centre text 80. A game holding a content before v4.6.0 lacks what it lacks: its own news line and note still get
-the words.
+The top line holds 240 characters at most, a window line 140 and the centre text 80.
 
 **Tags.** Every card says why it is there: every tag that applies, in this order, everywhere a map appears (`MapTags`, one table for the
 cards, the lines on screen and in chat, the website and the Sync page; a line carries the first "why" tag, in words).
@@ -249,8 +248,7 @@ both timers, then what came of it and the countdown. Every vote - cast, changed 
 
 ### The ballot
 
-One page of ten cards, a second only when what must be on it does not fit (48 at the most); a game known to hold a content before v4.6.0 pages
-it in eights. In this order (`OpenBallot`, `VoteRound.cs`):
+One page of ten cards, a second only when what must be on it does not fit (48 at the most). In this order (`OpenBallot`, `VoteRound.cs`):
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;
 2. **every map a player selected**, tagged PICKED;
@@ -476,9 +474,9 @@ page's Default leaves the bots alone, and the Bots page's leaves the Fun page al
 ## Catch-up
 
 In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a card under the crosshair says what it is and how many kills behind they are, a
-green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game known to hold a content before v4.6.0, which has no
-such card, gets CS2's centre panel instead, as does a player who joined while Steam does not hand the HUD out and has not clicked in it; the chat line comes either way. A game
-[the window's X](#the-huds-version-and-the-hud-check) has not said anything about yet gets the card, as the ballot takes it. The numbers are `plugin/CatchUp/catchup.json`, and its self-test holds this table and the bounty's sentence below to it; the module is
+green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game known to hold a content the plugin no longer draws for
+(before v4.8.0) gets CS2's centre panel instead, as does a player who joined while Steam does not hand the HUD out and has not clicked in it; the chat line comes either way. A game
+[the window's X](#the-huds-version-and-the-hud-check) has not said anything about yet gets the card. The numbers are `plugin/CatchUp/catchup.json`, and its self-test holds this table and the bounty's sentence below to it; the module is
 [`plugin/CatchUp/`](../plugin/CatchUp/).
 
 | Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
@@ -523,19 +521,18 @@ Thousands of community maps include some that break things, so every broken map 
 
 ## The HUD's version and the HUD check
 
-A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it, so one plugin drives them all: it sends what the newest content has, and an older one simply lacks what it
-lacks. What v4.5.0, the content before it, needs for its own pages keeps coming (`HudVersion.Oldest`); nothing comes for what only an older content reads but its red "yours is older" at a join
-(from v4.0.0 on, `HudVersion.JoinBannerFirst`), so a game holding one of those runs on what it shares with v4.5.0 and is told to update, and its Too big and Ads buttons (up to v4.3.0) do nothing. `hud/reference/`
-keeps the shipped layouts `--selftest` reads - those still drawn for and the one this content replaced - and the self-test holds the new one to them.
-From content v4.8.0 on every panel's id begins `os_` and every class `os-`; the contents shipped before it have theirs baked in with `gg_` and `gg-`,
-so the plugin sends a panel for everybody under both names, and a player's under the name of the content their HUD check learned (both while it has not),
-and a click from an older content is read by its id with our prefix (`bridge/Shared/HudIds.cs`). The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
+A game keeps the HUD content it last downloaded, and Steam takes up to about an hour to update it - at the player's next start of CS2. The plugin draws for content v4.8.0 and newer
+(`HudVersion.Oldest`): every panel's id begins `os_` and every class `os-`, and each goes out by that one name. The contents shipped before v4.8.0 have theirs baked in with `gg_` and `gg-`;
+since release 193 nothing goes out under those names, so a game still holding one gets no live HUD at all - no window, no board, no banner - until Steam has updated it, and a click from
+one names a `gg_` button, which is none of ours. Such a game has the HUD check's chat lines and CS2's own alert, which tell its player to quit CS2 and let Steam update the HUD.
+`hud/reference/` keeps the one shipped layout `--selftest` reads, the one this content replaced, and the self-test holds the new one to it panel by panel.
+The HUD itself says when a player's game holds an older or a newer content than the server's, by comparing
 its own level with the server's - a number each release takes in turn, whatever its version says - and an older game is told how to update: quit CS2 and start it again, and Steam updates it. An older game's
 banner stays and names both versions; a newer game's shows for 15 s at the join.
 
 **The HUD check.** MultiAddonManager makes everybody download the addon, but whether the layout loaded the server cannot see. The only proof is a click, and it comes from [the welcome](#in-game-hud): until the
 server knows which content a game holds, the window's X is the version button, its id naming the content, with "Close this to play" beside it. Its click proves the game shows the HUD, says which content it holds
-(SERVER, Players) and closes the window. Any other button proves the HUD without saying which, and a content before v4.6.0 keeps its gold "Click to play" button, whose click counts as an older HUD. A player not
+(SERVER, Players) and closes the window. Any other button proves the HUD without saying which. A player not
 seen clicking since their last real join gets the window at their first spawn on a map, and has 90 s from that spawn. 15 s before the end one who has not clicked gets CS2's alert text and the steps in chat. With
 `hud.check` `warn`, the default, that is all; `enforce` disconnects them at the end; `off` asks nothing. A verification lives in memory, per connection: a reconnecting player may have a new HUD. No fresh word
 from the bridge means off.

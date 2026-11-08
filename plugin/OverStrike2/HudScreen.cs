@@ -56,7 +56,6 @@ sealed partial class HudScreen
     HudCatalog? catalog;                              // the menu's map list, fetched again whenever the state's version moves
     HudSearch search = new();                         // the search index (names, tags, descriptions), fetched again when its version moves
     readonly WorkshopPlay plays;                      // unlisted Workshop ids: the Web API and the downloads (WorkshopPlay.cs)
-    (string Text, DateTime Until) localNews = ("", default);  // the older contents' news line from here, not the bridge: the restart watcher, the block's notices, the item check
     HudDash? dash;                                           // the Sync page's block: every word of it the bridge's, fetched when its version moves
     DateTime stateAt;
     string lastStateText = "";

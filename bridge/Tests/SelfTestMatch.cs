@@ -46,8 +46,8 @@ static partial class Program
             var chatLine = $"Alice is restarting the server in {PressedSeconds} s - Back in a minute, reconnect then (console: retry)";
             Check($"...chat and the board keep the real seconds, the mark never: {chatLine}", InChat(chatLine) && OnBoard(chatLine) && !SaysNow.Any(l => l.Text.Contains(Hud.LeftToken)) && !LatelyNow.Any(l => l.Text.Contains(Hud.LeftToken)));
             Check("...its name in chat is marked for its team's colour, its seconds as a value", SaysNow.Any(l => l.Text == $"{M.N("Alice")} is restarting the server in {M.V($"{PressedSeconds} s")} - Back in a minute, reconnect then (console: retry)"));
-            Check("...and the news line of the older contents and the window's foot count down from the end time, unchanged in the change-driven text",
-                pressed.News.StartsWith($"Alice is restarting the server in {PressedSeconds} s") && pressed.RestartWords == pressed.News
+            Check("...and the window's foot counts down from the end time, unchanged in the change-driven text",
+                pressed.RestartWords.StartsWith($"Alice is restarting the server in {PressedSeconds} s")
                 && BuildHud(h.Clock).Encode(endTimes: true) == BuildHud(h.Clock.AddSeconds(1)).Encode(endTimes: true));
             Check("...nobody can call a vote while it counts down", CannotCall(h.Clock) is { } noVote && noVote.StartsWith($"The server restarts in {PressedSeconds} s - No vote"));
             ClearNotices();

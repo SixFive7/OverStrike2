@@ -74,8 +74,7 @@ public static class Fun
     public const string Command = "os_fun";
     public const string ResetCommand = Command + " reset";
 
-    public const int Rows = 18, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons; the contents before v4.6.0 have sixteen,
-                                                   // and the grenade drops and catch-up, the 17th and 18th setting, as fixed rows of their own (HudMenu.FunClick)
+    public const int Rows = 18, ChoicesPerRow = 3; // the page's layout has exactly this many rows of this many buttons; the grenade drops and catch-up are the 17th and 18th
 
     static (string, string)[] Set(params (string, string)[] sets) => sets;
 

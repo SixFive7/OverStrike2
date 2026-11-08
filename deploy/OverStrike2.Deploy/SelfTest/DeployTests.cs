@@ -326,9 +326,9 @@ static class DeployTests
         check("swap, a game container without them: the bridge's own LOG_SECRET, HTTP_PORT and RCON_PASSWORD, as before",
               Is(r, 0) && gets.Count > 0 && gets.All(g => g == "http://bridge:8080/health/s") && says.Count > 0 && says[0][3] == "p");
 
-        // a rollback to a bridge from before release 191: its /health begins gg-health, and the swap takes it as up; anything else is no bridge's
+        // a bridge from before release 191: its /health begins gg-health, which is no bridge's any more - the swap puts the old bridge back
         f = new FakeDocker(health: "gg-health 1\nlog pushes 3\n");
-        check("swap, a bridge from before release 191 (gg-health): up, as any other - a rollback to one goes through", Is(Swap(f), 0));
+        check("swap, a bridge from before release 191 (gg-health): no bridge's /health - not up, the old bridge put back", Is(Swap(f), 1));
         f = new FakeDocker(health: "Not Found\n");
         check("swap, a /health that is no bridge's: not up - the old bridge put back", Is(Swap(f), 1));
 

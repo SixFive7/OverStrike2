@@ -2,10 +2,11 @@
 // but whether the layout loaded the server cannot see - a game that kept an older copy shows nothing and says nothing - and a layout cannot send
 // anything by itself (CS2 drops a layout with scripts in it). The only proof is a click: a Button press in the window reaches the server
 // (OnCustomHudClicked) only from a game that has the layout and shows it. So a player not seen clicking since their last real join gets the window
-// with one gold button, "Click to play". From content v4.6.0 on that button's id carries the content (HudVersion.Button: os_hudver_v4.6.0), so its
-// click proves the exact version; an older content's gold button is the live column's action button, whose click counts as older; any other
-// button verifies the HUD without saying which (HudVersion.Older, Unknown). One who has not clicked GraceSeconds after their first spawn on a map is
-// told in chat what to do, and with hud.check enforce disconnected; with warn only told.
+// with one gold button, "Click to play". That button's id carries the content (HudVersion.Button: os_hudver_v4.8.0), so its click proves the exact
+// version; any other button verifies the HUD without saying which (HudVersion.Unknown). A game holding a content before v4.8.0 gets no window - the
+// plugin draws for v4.8.0 and newer alone (HudVersion.Oldest) - so it cannot click, and is told what every game without the HUD is told. One who
+// has not clicked GraceSeconds after their first spawn on a map is told in chat what to do, and with hud.check enforce disconnected; with warn only
+// told.
 //
 // A verification lives in memory, per connection: the plugin keeps it, the bridge keeps it for the players on the server and serves only those,
 // and both forget it at the player's next real join (a reconnecting player may have a new HUD). Nothing of it is written to a file.
@@ -25,8 +26,8 @@ public static class HudCheck
     public const int ReasonMax = 127;       // a disconnect reason travels as SteamNetworkingSockets' close reason: 128 bytes with its NUL
     public const int LineMax = 127;         // what a private chat line may take here
 
-    /// <summary>The gold button's words while a player is being checked: the live column's action button of the contents before v4.6.0 (set from
-    /// the server); from v4.6.0 on, the version button's own fixed words are the same.</summary>
+    /// <summary>The words of the live column's action button while a player is being checked: the same as the version button's own fixed words, so either
+    /// click is the check.</summary>
     public const string ActText = "Click to play", ActSub = "One click shows the server your HUD works";
 
     /// <summary>hud.check, and the live state's word for it: off, warn (tell, never disconnect) or enforce; anything else is off.</summary>

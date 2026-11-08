@@ -26,11 +26,11 @@ sealed partial class HudScreen
         return $"released: {windows} window(s), {cursors.Count} TAB cursor(s); capture off for everybody next frame";
     }
 
-    /// <summary>os_hud level &lt;n&gt;: the server's content level as the version classes show it - latest-N, which from v4.6.0 on lights the
-    /// outdated banner of every content below N, and the svge/svlt of the join banners of v4.0.0 to v4.5.0 (the client harness); null is the real one.</summary>
+    /// <summary>os_hud level &lt;n&gt;: the server's content level as the version class shows it - latest-N, which lights the outdated banner of every content
+    /// below N (the client harness); null is the real one.</summary>
     public int? TestLevel { get; set; }
 
-    /// <summary>os_hud level: a real join again for that account's slot, so the join banner of v4.0.0 to v4.5.0 shows for a while (the client harness).</summary>
+    /// <summary>os_hud level: a real join again for that account's slot, so a newer content's banner (vjoin) shows for a while (the client harness).</summary>
     public string Rejoin(long account)
     {
         if (Utilities.GetPlayers().FirstOrDefault(x => x is { IsValid: true, IsBot: false } && Account(x) == account) is not { } p) return $"no player [U:1:{account}]";
@@ -58,7 +58,8 @@ sealed partial class HudScreen
     }
 
     /// <summary>os_hud content &lt;account&gt; &lt;level&gt;: the HUD that account's game showed at the HUD check's click, as if it had clicked - for the
-    /// client harness, which cannot click: 46 is v4.6.0, any level a content; 1 an older content (its gold button); 0 forgets it. It lasts until that
+    /// client harness, which cannot click: 48 is v4.8.0, any level a content; 1 an older HUD as a plugin before release 193 knew it (HudVersion.Older), for
+    /// the Players page's words; 0 forgets it. It lasts until that
     /// player's next disconnect, a map change's included (Gone): the bridge never hears of it.</summary>
     public string SetContent(long account, int level)
     {
@@ -83,7 +84,6 @@ sealed partial class HudScreen
     /// from the button to the bridge. Returns what happened, for the console.</summary>
     public string SimulateClick(long account, string buttonId)
     {
-        buttonId = HudIds.ToOurs(buttonId);
         var command = HudView.Command(buttonId, state, vote);
         if (command == null) return $"button {buttonId} sends nothing for account {account} (state {(state == null ? "unknown" : "known")})";
         if (bridge == null) return "no bridge link";

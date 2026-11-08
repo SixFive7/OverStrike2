@@ -12,15 +12,15 @@ sealed partial class HudScreen
     void OnClicked(CCSPlayerController player, CCSCustomHudLayout layout, string buttonId)
     {
         if (!Live || player is not { IsValid: true, IsBot: false } || layout is not { IsValid: true } || layout.Index != entity!.Index) return;
-        buttonId = HudIds.ToOurs(buttonId); // a shipped content's button has its own id (HudIds): ours from here on
         var now = DateTime.UtcNow;
-        // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the gold button said
-        // "Click to play": from v4.6.0 on its id names the content (HudVersion.Button), an older content's is the live column's action button,
-        // which counts as an older HUD. That click is the check and closes the window - it must not roll a map as !next would.
+        // Any click at all proves this player's game shows the HUD (the check, HudCheck.cs). While they were being checked, the window's X is the version
+        // button, whose id names the content (HudVersion.Button), and the live column's action button says "Click to play" too: either click is the check
+        // and closes the window - the action button's must not roll a map as !next would. A click from a content before v4.8.0 names its button gg_, which
+        // no button of ours is: it proves the HUD, which content not said, and asks for nothing.
         var who = Account(player);
         var wasChecked = gate.Checking(player.Slot);
         var proved = HudVersion.OfButton(buttonId);
-        var version = proved ?? (wasChecked && buttonId == HudView.ButtonAct ? HudVersion.Older : HudVersion.Unknown);
+        var version = proved ?? HudVersion.Unknown;
         if (!Verified(who) || (version != HudVersion.Unknown && VersionOf(who) != version)) Verify(player, who, wasChecked, version);
         if ((wasChecked && buttonId == HudView.ButtonAct) || proved != null) { slots.Click(player.Slot, HudView.ButtonClose, now); Server.NextFrame(Frame); return; }
         if (HudVote.WhyClick(buttonId) is { } reason)
@@ -59,8 +59,8 @@ sealed partial class HudScreen
                 // The vote is on the Maps page's cards (HudVote.cs), a page of ten: a card's Play is a vote - on the card this player's vote is on, it
                 // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer). A card names the map this player saw on
                 // it: the cards re-sort as votes come in, and a click made on the order before a re-sort arrives after it (SeenOrder).
-                if (HudVote.PageClick(vote, buttonId, view.Page, BallotCards(player.Slot)) is { } page) { me.VoteView = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
-                if (HudVote.Click(vote, buttonId, view.Page, account, HudFrame.SeenOrder(me, vote.Round, view.Page, now), BallotCards(player.Slot)) is { } cast)
+                if (HudVote.PageClick(vote, buttonId, view.Page, MapVote.PageCards) is { } page) { me.VoteView = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
+                if (HudVote.Click(vote, buttonId, view.Page, account, HudFrame.SeenOrder(me, vote.Round, view.Page, now), MapVote.PageCards) is { } cast)
                 {
                     Act(player, account, cast); // chat and the board say it: the bridge's line of who voted and who has yet to
                 }

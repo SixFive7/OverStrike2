@@ -43,15 +43,11 @@ public static class Hud
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
     public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time 10", "!time 60"];
 
-    /// <summary>The "new maps in random picks" setting's old words: an older content's Game page still has its buttons, which hear that it is gone
-    /// (the bridge's Clicks.cs).</summary>
-    public static readonly string[] NewMapsActions = ["!newmaps always", "!newmaps half", "!newmaps never"];
-
     /// <summary>Whether a click may ask for this. The bridge refuses anything else on its /act path, so the menu can never reach a server
     /// command, a name search or anything free-form: a map is named by its rank, an official map's name or a Workshop id.</summary>
     public static bool IsAction(string command)
     {
-        if (Actions.Contains(command) || NewMapsActions.Contains(command)) return true;
+        if (Actions.Contains(command)) return true;
         if (command.StartsWith("!hudok ", StringComparison.Ordinal)) return HudVersion.IsWord(command[7..]); // the HUD check's click (HudCheck)
         var space = command.IndexOf(' ');
         if (space < 0) return false;

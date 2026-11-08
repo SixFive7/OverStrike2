@@ -36,9 +36,8 @@ static partial class Program
     /// server only; nothing of it is written to a file.</summary>
     static readonly Dictionary<string, string> HudSeen = new();
 
-    /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4.6.0), Older (an
-    /// older content's gold button), or HudVersion.Unknown (which one not known: a click on another button). A
-    /// known version is never forgotten for an unknown one. The first click after a real join that names the version says which HUD the player brought
+    /// <summary>The HUD check's click (HudCheck.cs): that player's game shows the HUD, and which content - a version button's (v4.8.0), or HudVersion.Unknown
+    /// (which one not known: a click on another button); Older only from a plugin before release 193. A known version is never forgotten for an unknown one. The first click after a real join that names the version says which HUD the player brought
     /// (Messages.Joined: the centre text, chat and the board); an outdated HUD shows its own banner. Only the plugin's OnCustomHudClicked sends it - typing it
     /// in chat does nothing.</summary>
     static void HudVerify(string steamId, string name, string version)
@@ -74,20 +73,7 @@ static partial class Program
         else if (cmd == "!previous") Previous(name, steamId);
         else if (cmd == "!up") Like(name, steamId, arg, +1);
         else if (cmd == "!down") { var (map, why) = DownReasons.Split(arg); Like(name, steamId, map, why?.Value ?? DownReasons.Plain, why != null); } // Likes.cs: with its reason, if it names one
-        else if (cmd == "!newmaps") NewMapsGone(name, steamId);           // NewMapsGone: the setting is gone; an older content's buttons hear so
         else if (cmd == MapVote.Verb) CastBallot(name, steamId, arg);    // VoteRound.cs: a vote on the ballot (a click only)
         else if (cmd == MapVote.BusyVerb) VoteBusy(name, steamId, arg);  // VoteRound.cs: the map browser at work during the vote: the inactivity timer starts again
-    }
-
-    /// <summary>What the new-maps buttons and !newmaps answer: the setting is gone, and what took its place.</summary>
-    public const string NewMapsGoneNote = "The new-maps setting is gone: every vote now has a fresh Workshop map and a surprise new to us";
-
-    // ---- the new-maps setting is gone: a content that still has its buttons sends !newmaps always|half|never ----
-
-    /// <summary>!newmaps from one of the Game page's old buttons: it changes nothing, and that player hears what took its place.</summary>
-    static void NewMapsGone(string by, string steamId)
-    {
-        Log($"selection: {by} {steamId} clicked a new-maps button - the setting is gone");
-        Tell(steamId, M.Refused(NewMapsGoneNote));
     }
 }

@@ -24,8 +24,6 @@ public sealed class HudState
     public string CheckMode = "";                       // the HUD check as configured (hud.check: off, warn or enforce)
     public Dictionary<long, string> Verified = new();   // account id -> the HUD its game showed at the check's click since its last real join (HudCheck.VersionWord), players on the server only
     public string TabMode = "";                         // the TAB chord (hud.tab: down or off)
-    public string News = "";                            // the news line of the contents before v4.6.0, which everybody sees...
-    public int NewsFor;                                 // ...and for how many more seconds
     public Dictionary<long, (string Text, int For)> Notes = new(); // account id -> the note only that player sees, and its seconds left
     public Dictionary<long, (string Map, int For)> Why = new();    // account id -> the map a Dislike's popup asks about, and its seconds left (Likes.cs)
     public string PrevLabel = "", PrevArg = "";         // the map before this one, for the Previous button
@@ -54,7 +52,7 @@ public sealed class HudState
 
     /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
     /// carries these instead of the seconds, which would change it every second; the plugin counts down from them itself (AsOf).</summary>
-    public long ChangeAtMs, NewsUntilMs;
+    public long ChangeAtMs;
     public Dictionary<long, long> NoteUntilMs = new(), WhyUntilMs = new();
 
     /// <summary>Unix milliseconds of a moment, as the end times carry it.</summary>
@@ -67,7 +65,6 @@ public sealed class HudState
         var h = (HudState)MemberwiseClone();
         int Secs(long until) => (int)Math.Ceiling((until - nowMs) / 1000.0);
         if (ChangeAtMs > 0) h.ChangeIn = Math.Max(0, Secs(ChangeAtMs));
-        if (NewsUntilMs > 0 && Secs(NewsUntilMs) is var news) (h.News, h.NewsFor) = news > 0 ? (News, news) : ("", 0);
         h.Notes = new(Notes);
         h.NoteCats = new(NoteCats);
         foreach (var (account, until) in NoteUntilMs)
@@ -79,7 +76,7 @@ public sealed class HudState
         if (TopUntilMs > 0 && nowMs >= TopUntilMs) (h.TopText, h.TopCat, h.TopAtMs, h.TopUntilMs) = ("", "", 0, 0);
         if (BanUntilMs > 0 && nowMs >= BanUntilMs) (h.BanTone, h.BanHead, h.BanLine, h.BanUntilMs) = ("", "", "", 0);
         h.RematchIn = RematchAtMs > 0 ? Math.Max(0, Secs(RematchAtMs)) : -1;
-        (h.News, h.RestartWords) = (h.FillLeft(h.News), h.FillLeft(h.RestartWords));
+        h.RestartWords = h.FillLeft(h.RestartWords);
         return h;
     }
 
@@ -89,7 +86,7 @@ public sealed class HudState
 
     public string Encode(bool endTimes = false)
     {
-        var (news, restartWords) = endTimes ? (News, RestartWords) : (FillLeft(News), FillLeft(RestartWords)); // counted down by the HUD itself, or filled in now
+        var restartWords = endTimes ? RestartWords : FillLeft(RestartWords); // counted down by the HUD itself, or filled in now
         var s = new StringBuilder(Magic).Append('\n');
         void Line(params object[] fields) => s.Append(string.Join('\t', fields.Select(f => f is string t ? Hud.Clean(t) : Convert.ToString(f, CultureInfo.InvariantCulture)))).Append('\n');
         Line("maps", Maps);
@@ -104,8 +101,6 @@ public sealed class HudState
         if (CheckMode != "") Line("chk", CheckMode);
         foreach (var (account, version) in Verified) Line("ok", account, version);
         if (TabMode != "") Line("tab", TabMode);
-        if (news != "" && NewsFor > 0)
-            s.Append(endTimes ? "newsat\t" : "news\t").Append((endTimes ? NewsUntilMs : NewsFor).ToString(CultureInfo.InvariantCulture)).Append('\t').Append(Hud.Clean(news, 240)).Append('\n');
         foreach (var (account, (text, secs)) in Notes)
             if (text != "" && secs > 0)
                 s.Append(endTimes ? "noteat\t" : "note\t").Append(account.ToString(CultureInfo.InvariantCulture)).Append('\t')
@@ -152,14 +147,12 @@ public sealed class HudState
                 case "top": if (s.Top.Count < ListLength) s.Top.Add((Str(f, 1), Int(f, 2), Int(f, 3))); break;
                 case "change": (s.ChangeMap, s.ChangeBy, s.ChangeIn) = (Str(f, 1), Str(f, 2), Int(f, 3)); break;
                 case "changeat" when Long(f, 3) > 0: (s.ChangeMap, s.ChangeBy, s.ChangeIn, s.ChangeAtMs) = (Str(f, 1), Str(f, 2), 0, Long(f, 3)); break;
-                case "newsat" when Long(f, 1) > 0: (s.NewsFor, s.News, s.NewsUntilMs) = (1, Str(f, 2), Long(f, 1)); break;
                 case "noteat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Notes[Long(f, 1)] = (Str(f, 3), 1); s.NoteUntilMs[Long(f, 1)] = Long(f, 2); break;
                 case "whyat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), 1); s.WhyUntilMs[Long(f, 1)] = Long(f, 2); break;
                 case "set": (s.RoundMinutes, s.RoundBy) = (Int(f, 1), Str(f, 2)); break;
                 case "cat": s.CatalogVersion = Long(f, 1); break;
                 case "chk": s.CheckMode = Str(f, 1); break;
                 case "tab": s.TabMode = Str(f, 1); break;
-                case "news": (s.NewsFor, s.News) = (Int(f, 1), Str(f, 2)); break;
                 case "note" when Long(f, 1) >= 0 && Int(f, 2) > 0: s.Notes[Long(f, 1)] = (Str(f, 3), Int(f, 2)); break;
                 case "why" when Long(f, 1) >= 0 && Int(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), Int(f, 2)); break;
                 case "prev": (s.PrevArg, s.PrevLabel) = (Str(f, 1), Str(f, 2)); break;

@@ -18,13 +18,11 @@ public static class HudView
     public const string TabHow = "os_tab_how", TabFun = "os_tab_fun", TabGame = "os_tab_game", TabMaps = "os_tab_maps";
 
     /// <summary>The window's tabs and sub-tabs: START, MAPS (Browse and, while a vote is on, Vote - the vote's own buttons, HudVote.BackButton and
-    /// BrowseButton), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own. The
-    /// tabs of the contents before v4.6.0 keep working under their ids - Start, Maps, Game, Fun, Help, How it works, Sync - and an older content's
-    /// Rules tab opens How it works, where its words went; its Queue tab does nothing (there is no queue).</summary>
+    /// BrowseButton), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How it works). A main tab opens its first page; a sub-tab its own.</summary>
     public static readonly (string Id, HudSlots.Page Page)[] Tabs =
         [("os_tab_start", HudSlots.Page.Start), (TabMaps, HudSlots.Page.Maps), (TabGame, HudSlots.Page.Game), ("os_tab_help", HudSlots.Page.Help),
          (TabHow, HudSlots.Page.How), (TabFun, HudSlots.Page.Fun), (HudDash.Tab, HudSlots.Page.Sync), ("os_tab_server", HudSlots.Page.Players),
-         ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help), ("os_tab_rules", HudSlots.Page.How),
+         ("os_sub_players", HudSlots.Page.Players), ("os_sub_help", HudSlots.Page.Help),
          (HudBots.SubFun, HudSlots.Page.Fun), (HudBots.Tab, HudSlots.Page.Bots)];
 
     /// <summary>The caption beside the sub-tabs, per page (a variable on os_screen, SubCaptionVar): what the page is for; the Maps page's says
@@ -81,24 +79,16 @@ public static class HudView
         return t;
     }
 
-    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest. And c31 and c32 on os_screen, for
-    /// everybody: the contents before v4.6.0 show their How it works, Fun and Help rows only under them, and every content in use holds those panels.</summary>
+    /// <summary>Rows of the help and how-it-works pages that hold something: the layout collapses the rest.</summary>
     public static List<(string Id, string Class, bool On)> StaticClasses()
     {
-        var c = new List<(string, string, bool)> { (Screen, "c31", true), (Screen, "c32", true) };
+        var c = new List<(string, string, bool)>();
         for (var g = 0; g < Hud.Help.Length; g++)
             for (var r = 0; r < Hud.RowsPerGroup; r++) c.Add(($"os_c{g + 1}_{r + 1}", "used", r < Hud.Help[g].Rows.Length));
         for (var s = 0; s < Hud.HowSections; s++)
             for (var l = 0; l < Hud.HowLines; l++) c.Add(($"os_h{s + 1}_{l + 1}", "used", s < Hud.How.Length && l < Hud.How[s].Lines.Length));
         return c;
     }
-
-    /// <summary>The classes the plugin sends only for v4.5.0, which this content's stylesheet has no rule for: c31 and c32 (StaticClasses), its news line and
-    /// note (news, note), and its fixed Fun rows' marks (nd-on, nd-off, cu-on, cu-off: HudMenu.FixedRowClasses).</summary>
-    public static readonly string[] OlderContentClasses = ["c31", "c32", "news", "note", "nd-on", "nd-off", "cu-on", "cu-off"];
-
-    /// <summary>The panels only v4.5.0 has of the contents still drawn for: its news line, its note, its lede.</summary>
-    public static readonly string[] OlderContentTexts = ["os_news_text", "os_note_text", "os_w_lede"];
 
     public const string LikeHint = "Like it? Hold TAB and click Like or Dislike.";
 
@@ -142,9 +132,7 @@ public static class HudView
         t.Add(("os_w_tempty", "No likes yet. Like a map: its card's up arrow."));
         t.Add(("os_b_queue", VoteLine(v)));
         t.Add(("os_rst_text", s.RestartKind == "" ? "" : s.RestartWords)); // a restart coming: its words in the window's foot (its countdown: RestartCountdown)
-        t.Add(("os_news_text", s.NewsFor > 0 ? s.News : ""));
         t.Add(("os_b_count", s.Maps > 0 ? $"{s.Maps} maps" : ""));
-        t.Add(("os_w_lede", ""));
         t.Add(("os_w_back", string.Join("  ·  ", new[] { map, byline, Hud.Tally(s.Up, s.Down) }.Where(x => x != ""))));
         t.Add(("os_w_crash", s.CrashNote));
         t.Add(("os_top_tab", Messages.CategoryOf(s.TopCat)?.Name ?? ""));
@@ -172,7 +160,7 @@ public static class HudView
         var c = new List<(string, string, bool)>
         {
             (Global, "ready", true), (Global, "changing", CountdownOf(s) != null), (Global, "cd-logo", CountdownOf(s)?.Logo == true), (Global, "loading", s.Loading),
-            (Global, "news", s.NewsFor > 0 && s.News != ""), (Global, "rst", s.RestartKind != ""), (Global, "top", s.TopText != ""), (Global, "ban", s.BanHead != ""), (Global, "crash", s.CrashNote != ""),
+            (Global, "rst", s.RestartKind != ""), (Global, "top", s.TopText != ""), (Global, "ban", s.BanHead != ""), (Global, "crash", s.CrashNote != ""),
         };
         foreach (var cat in Messages.Categories) c.Add((TopPanel, cat.Class, cat.Id == s.TopCat));
         foreach (var tone in Tones) c.Add((BannerPanel, "tone-" + tone, tone == s.BanTone));
@@ -297,7 +285,6 @@ public static class HudView
             ("os_btn_act_sub", sub),
             ("os_b_next_text", text),
             ("os_b_next_sub", sub),
-            ("os_note_text", NoteOf(s, account)),
         ];
     }
 
@@ -310,7 +297,7 @@ public static class HudView
         var cat = s.NoteCats.GetValueOrDefault(account, Messages.You.Id);
         var note = NoteOf(s, account) != "";
         List<(string Id, string Class, bool On)> c = [(Screen, "voted-up", mine > 0), (Screen, "voted-down", mine < 0), (Screen, "act-off", command == null),
-            (Screen, "note", note), (Screen, "wl", note), (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
+            (Screen, "wl", note), (Screen, "why", asked > 0), (Screen, "why-run", asked is > 0 and < (int)DownReasons.PopupSeconds)];
         foreach (var k in Messages.Categories) c.Add((LinePanel, k.Class, note && k.Id == cat));
         return c;
     }

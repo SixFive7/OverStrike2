@@ -11,9 +11,6 @@ public sealed class FunClicks
     /// <summary>The grey is on the player's screen, and seen, this long after the change: a frame (a quarter of a second), the network, a hand already on its way.</summary>
     public const double SeenSeconds = 2;
 
-    /// <summary>The first content with the grey and the bubbles: a game on an older one has neither, and its note says what they say.</summary>
-    public const int BubbleLevel = 46;
-
     /// <summary>Go: ask the settings module. Lit: the choice that shows already. Seen: greyed for long enough, ignored. Refused: refuse it now, saying who changed what.</summary>
     public enum Verdict { Go, Lit, Seen, Refused }
 

@@ -238,14 +238,14 @@ static partial class Program
             NonMaps = new Dictionary<string, string> { [Key(listed)] = listed.Name, [$"{hole}"] = $"Zebra Skins | Test Pack {Maps.Count + 1}" };
 
             Pick(fine.Rank.ToString());
-            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so on the older contents' news line, so the silence below means something",
-                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing in") && NewsNow.Text == Told[1] && sent.Count == 0);
+            Check($"Control: an ordinary pick opens the vote and, the picker alone, starts the change and says so, so the silence below means something",
+                Pending is { } go && go.Map == fine && Told.Count == 2 && Told[0].Contains("put") && Told[1].Contains("Changing in") && sent.Count == 0);
             Pick(listed.Rank.ToString());
             Console.WriteLine("refusal: " + string.Join(" | ", Told));
             Check($"A pack maps.json still lists is refused by its rank ({listed.Rank}), in the neutral words, in the player's own note",
                 Told is [var byRank] && byRank == M.Plain(NonMapRefusal(listed)) && byRank.Contains($"{listed.Name} {NotAMap}") && NoteFor.ContainsKey(111));
             Check("The refusal sends the server nothing at all: no chat, no host_workshop_map, no changelevel, no vote, nothing pending",
-                sent.Count == 0 && Pending is null && Ballot is null && NewsNow.Text == "");
+                sent.Count == 0 && Pending is null && Ballot is null && TopNow.Text == "");
             Pick(listed.Id.ToString());
             var byId = Told.ToList();
             Pick($"https://steamcommunity.com/sharedfiles/filedetails/?id={listed.Id}");

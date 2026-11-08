@@ -1031,18 +1031,18 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
 }
 
 // ---- catch-up's card or CS2's centre panel (HudVote.CatchUpCard, HudScreen.HasCards, the plugin's Show): a game the window's X has not been clicked in
-// yet takes the card, as the ballot takes it - live, a v4.7.0 game 14 s after its join got the centre panel, and no chat line. The centre panel is for a
-// game known to hold a content before v4.6.0, and for one that may hold no HUD (a joiner while Steam does not hand the item out, not seen clicking); the
-// chat line comes either way ----
+// yet takes the card - live, a v4.7.0 game 14 s after its join got the centre panel, and no chat line. The centre panel is for a game known to hold a
+// content the plugin does not draw for (before HudVersion.Oldest, v4.8.0), and for one that may hold no HUD (a joiner while Steam does not hand the item
+// out, not seen clicking); the chat line comes either way ----
 {
     var now = HudVersion.OfLevel(HudVersion.Level);
-    Check(HudVote.CatchUpCard("", false) && HudVote.CatchUpCard(HudVersion.Unknown, false) && HudVote.CatchUpCard(now, false) && HudVote.CatchUpCard(HudVersion.OfLevel(HudVote.CardsLevel), false),
-        $"catch-up: the card for a game not seen clicking yet, one whose click named no content, this content ({now}) and the first with the card");
-    Check(!HudVote.CatchUpCard(HudVersion.OfLevel(HudVote.CardsLevel - 1), false) && !HudVote.CatchUpCard(HudVersion.Older, false),
-        "catch-up: CS2's centre panel for a game known to hold a content before v4.6.0 (its click said which, or that it is older)");
+    Check(HudVote.CatchUpCard("", false) && HudVote.CatchUpCard(HudVersion.Unknown, false) && HudVote.CatchUpCard(now, false) && HudVote.CatchUpCard(HudVersion.OfLevel(HudVersion.Oldest), false),
+        $"catch-up: the card for a game not seen clicking yet, one whose click named no content, this content ({now}) and the oldest drawn for");
+    Check(!HudVote.CatchUpCard(HudVersion.OfLevel(HudVersion.Oldest - 1), false) && !HudVote.CatchUpCard("v4.6.0", false) && !HudVote.CatchUpCard(HudVersion.Older, false),
+        "catch-up: CS2's centre panel for a game known to hold a content the plugin does not draw for - v4.7.0 and older, or older as an older plugin said it - which gets no card");
     Check(!HudVote.CatchUpCard("", true) && HudVote.CatchUpCard(now, true) && HudVote.CatchUpCard(HudVersion.Unknown, true),
         "catch-up: ...and for a joiner while Steam does not hand the item out who has not clicked in it - one who has, has a HUD");
-    Check(HudVote.CardsFor("") == MapVote.PageCards && HudVote.CatchUpCard("", false), "catch-up: a game not seen yet takes the card as the ballot takes its ten cards");
+    Check(HudVote.CatchUpCard("", false), "catch-up: a game not seen yet takes the card");
     string[] boost7 = ["+95% health", "-35% damage taken", "+35% damage", "25% lifesteal", "Regeneration", "A second chance", "+3 s spawn protection", "Infinite ammo", "One-hit knife and Zeus"];
     var rows7 = HudFrame.CatchUpRowsOf(boost7);
     Check(rows7.Length == HudFrame.CatchUpRows && string.Join("  ·  ", rows7) == string.Join("  ·  ", boost7) && rows7[^1] == "Infinite ammo  ·  One-hit knife and Zeus" && rows7.All(r => r.Length <= 50),

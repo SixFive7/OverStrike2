@@ -295,18 +295,9 @@ try:
     T = Test()
     T.d.old_plugin = True
     r, out = go(T, lambda: T.release(fetch=fetches([100, 100, 200, 200, 200, 300])).publish("v9: what changed", run_dir, False, 120))
-    sent = [c for c, _p, _f in T.d.rcon_sent]
-    check("publish: a live plugin from before release 191 answers os_hud as unknown - the held-item check asks it by its old word, and reads NOT shown",
-          r == 0 and "os_hud page " + R.NO_SUCH_ITEM in sent and "css_gghud page " + R.NO_SUCH_ITEM in sent and sent.index("os_hud page " + R.NO_SUCH_ITEM) < sent.index("css_gghud page " + R.NO_SUCH_ITEM)
-          and "held-item check: css_gghud page" in out)
-    T = Test()
-    T.d.old_plugin, T.d.unknown_says = True, ""
-    r, out = go(T, lambda: T.release(fetch=fetches([100, 100, 200, 200, 200, 300])).publish("v9: what changed", run_dir, False, 120))
     sent = [c for c, _p, _f in T.d.rcon_sent if " page " in c]
-    check("publish: a plugin from before release 191 behind an RCON that answers an unknown command with nothing - no os_hud: answer, so the "
-          "held-item check asks css_gghud too, and reads NOT shown in the log",
-          r == 0 and sent == ["os_hud page " + R.NO_SUCH_ITEM, "css_gghud page " + R.NO_SUCH_ITEM] and "(no answer) - not the plugin's os_hud: answer" in out
-          and "held-item check: css_gghud page " + R.NO_SUCH_ITEM + " -> gghud: probing" in out and "-> NOT shown" in out)
+    check("publish: a live plugin from before release 191 knows only css_gghud - it is asked os_hud alone, writes no verdict, and the held-item check refuses",
+          r != 0 and "the held-item check's answer did not reach the plugin's log" in str(r) and sent == ["os_hud page " + R.NO_SUCH_ITEM] and "css_gghud" not in out)
     T = Test()
     T.d.probe = "page HTTP 200, title 'Steam Workshop :: x' -> shown to everybody"
     r, out = go(T, lambda: T.release(fetch=fetches([100])).publish("note", run_dir, False, 120))

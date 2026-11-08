@@ -14,7 +14,7 @@ public static class Messages
 {
     public const int ChatLineMax = 120; // characters a chat line holds on a 1920x1080 screen
     public const double DefaultSeconds = 8; // a kind with no seconds of its own (0: as long as its state lasts) stays this long when posted
-    /// <summary>The most characters each surface takes: the top line (and the older contents' news line), a line on the window's page (a note), CS2's centre
+    /// <summary>The most characters each surface takes: the top line, a line on the window's page (a note), CS2's centre
     /// text, and a message's text in chat, which chat itself cuts into lines of ChatLineMax.</summary>
     public const int TopMax = 240, LineMax = 140, CentreMax = 80, ChatMax = 400;
     public const int LatelyRows = 3, LatelyKeep = 12, SayKeepSeconds = 20;
@@ -27,75 +27,75 @@ public static class Messages
     public static Category? CategoryOf(string id) => Categories.FirstOrDefault(c => c.Id == id);
 
     /// <summary>A kind of message: what it is, its surface and who sees it there, who gets a chat copy and a board copy, its category and how long it
-    /// stays (0: as long as its state lasts). News: whether the news line of the contents before v4.6.0 carries it as well. Drawn: nothing posts it - the
+    /// stays (0: as long as its state lasts). Drawn: nothing posts it - the
     /// live state draws its surface (the window, the ballot's header, a banner), and its row only says what players see there: changing the row changes
     /// nothing on screen (--selftest holds that every other kind is posted somewhere, and no drawn one is).</summary>
-    public sealed record Kind(string Id, string Row, Surface Surface, Who On, Who Chat, Who Board, Category Cat, double Seconds, bool News = true, bool Drawn = false);
+    public sealed record Kind(string Id, string Row, Surface Surface, Who On, Who Chat, Who Board, Category Cat, double Seconds, bool Drawn = false);
 
     // ---- the catalogue. A message that went has no kind ----
 
     public static readonly Kind
         // joining
-        Welcome = new("welcome", "Welcome window, at every login", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false, Drawn: true),
-        Tagline = new("tagline", "Join tagline: the welcome window's large text, and this chat line", Surface.None, Who.Nobody, Who.Player, Who.Nobody, Join, 0, false),
-        WelcomeBack = new("back", "Welcome-back card", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Join, 8, false, Drawn: true),
-        NowPlaying = new("playing", "Now-playing card, at each map's first spawn", Surface.Card, Who.Everybody, Who.Nobody, Who.Everybody, Join, 8, false),
+        Welcome = new("welcome", "Welcome window, at every login", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, Drawn: true),
+        Tagline = new("tagline", "Join tagline: the welcome window's large text, and this chat line", Surface.None, Who.Nobody, Who.Player, Who.Nobody, Join, 0),
+        WelcomeBack = new("back", "Welcome-back card", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Join, 8, Drawn: true),
+        NowPlaying = new("playing", "Now-playing card, at each map's first spawn", Surface.Card, Who.Everybody, Who.Nobody, Who.Everybody, Join, 8),
         Joined = new("joined", "A player joined with a HUD version", Surface.Plain, Who.Everybody, Who.Everybody, Who.Everybody, Join, 8),
         // your HUD and its version
-        Outdated = new("outdated", "Your HUD is out of date: the banner that stays", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 0, false, Drawn: true),
-        Newer = new("newer", "Your HUD is newer than the server's", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 15, false, Drawn: true),
+        Outdated = new("outdated", "Your HUD is out of date: the banner that stays", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 0, Drawn: true),
+        Newer = new("newer", "Your HUD is newer than the server's", Surface.Banner, Who.Player, Who.Nobody, Who.Nobody, YourHud, 15, Drawn: true),
         Hold = new("hold", "The HUD not shown by Steam", Surface.Banner, Who.Everybody, Who.Nobody, Who.Nobody, YourHud, 45),
         HoldBack = new("holdback", "The HUD not shown by Steam: back", Surface.Banner, Who.Everybody, Who.Nobody, Who.Nobody, YourHud, 30),
-        HoldNoMenu = new("nomenu", "A player without the HUD during a hold", Surface.None, Who.Nobody, Who.Player, Who.Nobody, YourHud, 0, false),
-        CheckClick = new("check", "HUD check: Click to play", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, false, Drawn: true),
-        CheckWarning = new("checkwarn", "HUD check: the disconnect warning", Surface.Alert, Who.Player, Who.Player, Who.Nobody, YourHud, 15, false),
+        HoldNoMenu = new("nomenu", "A player without the HUD during a hold", Surface.None, Who.Nobody, Who.Player, Who.Nobody, YourHud, 0),
+        CheckClick = new("check", "HUD check: Click to play", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, Join, 0, Drawn: true),
+        CheckWarning = new("checkwarn", "HUD check: the disconnect warning", Surface.Alert, Who.Player, Who.Player, Who.Nobody, YourHud, 15),
         // the vote
-        VoteWindow = new("votewin", "The vote: everybody's window opens and freezes", Surface.Window, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
+        VoteWindow = new("votewin", "The vote: everybody's window opens and freezes", Surface.Window, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
         VoteStarted = new("votestart", "The vote started: the line for everybody", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
-        VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
-        VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
-        VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, false, Drawn: true),
+        VoteInactivity = new("voteidle", "Inactivity timer, and who reset it", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
+        VoteLimit = new("votelimit", "The 60 s limit", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
+        VoteWaiting = new("votewait", "Waiting for: the players who have not voted (chat and the board: VoteClick's line says it)", Surface.Line, Who.Everybody, Who.Nobody, Who.Nobody, Vote, 0, Drawn: true),
         VoteDecided = new("votedone", "The vote decided, and the change counting down", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 0),
         VoteKept = new("votekept", "The vote kept the map", Surface.Line, Who.Everybody, Who.Everybody, Who.Everybody, Vote, 8),
-        VoteRefused = new("voteno", "You cannot call a vote yet", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Vote, 8, false),
-        VoteRefusedYou = new("votenoyou", "You cannot call a vote yet: the player's own line, in their own words", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Vote, 8, false),
+        VoteRefused = new("voteno", "You cannot call a vote yet", Surface.Line, Who.Player, Who.Everybody, Who.Everybody, Vote, 8),
+        VoteRefusedYou = new("votenoyou", "You cannot call a vote yet: the player's own line, in their own words", Surface.Line, Who.Player, Who.Nobody, Who.Nobody, Vote, 8),
         // fun and game settings
         FunChanged = new("fun", "Fun: one setting changed (catch-up and the grenade drops the same)", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunRandom = new("funrandom", "Fun: Random", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         FunDefault = new("fundefault", "Fun: Default", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
-        FunRefused = new("funno", "A Fun click refused: its bubble at the button (FunClicks), so no line on the window's page", Surface.None, Who.Nobody, Who.Player, Who.Player, You, 8, false),
+        FunRefused = new("funno", "A Fun click refused: its bubble at the button (FunClicks), so no line on the window's page", Surface.None, Who.Nobody, Who.Player, Who.Player, You, 8),
         GameChanger = new("blocked", "A map's game-changer undone", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         // the Bots page: a row's change is FunChanged's, as any fun setting's
         BotsPreset = new("botpreset", "Bots: a preset started, and what it set", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         BotsOff = new("botsoff", "Bots: Kick all bots, or Default", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Fun, 10),
         // catch-up
-        CatchUpBoost = new("boost", "Catch-up's boost", Surface.Card, Who.Player, Who.Player, Who.Player, CatchUp, 5, false),
-        Bounty = new("bounty", "The leader's bounty", Surface.Card, Who.Player, Who.Player, Who.Nobody, CatchUp, 5, false),
+        CatchUpBoost = new("boost", "Catch-up's boost", Surface.Card, Who.Player, Who.Player, Who.Player, CatchUp, 5),
+        Bounty = new("bounty", "The leader's bounty", Surface.Card, Who.Player, Who.Player, Who.Nobody, CatchUp, 5),
         // maps, pictures and downloads
         MapCountdown = new("change", "Map change counting down", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 0),
         ServerDownload = new("download", "The server downloading a map", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         BackgroundFirst = new("background", "Finishing a background download first", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
         DownloadFailed = new("dlfailed", "A download failed", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Maps, 10),
-        WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.None, Who.Player, Who.Everybody, Who.Everybody, Maps, 0, false),
-        PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map): chat too, the only answer a typed !play has", Surface.Line, Who.Player, Who.Player, Who.Nobody, You, 30, false),
-        WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, false, Drawn: true),
+        WorkshopDownload = new("workshop", "A Workshop card downloading to the server", Surface.None, Who.Player, Who.Everybody, Who.Everybody, Maps, 0),
+        PlayAsksFirst = new("asks", "Play asks first (a broken or crashed map): chat too, the only answer a typed !play has", Surface.Line, Who.Player, Who.Player, Who.Nobody, You, 30),
+        WhyDislike = new("why", "Why the dislike? (the reasons)", Surface.Window, Who.Player, Who.Nobody, Who.Nobody, You, 15, Drawn: true),
         // restarts and updates
         RestartAfterMatch = new("restartend", "The server restarts after this match", Surface.Banner, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         RestartCountdown = new("restart", "The restart counting down (10 s)", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         GameUpdate = new("cs2update", "A CS2 update: update your game", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         Updated = new("updated", "\"Updated to vX\" after the reconnect", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 60),
-        UpdatedJoiner = new("updatedjoin", "\"Updated to vX\": a player who joins within 10 minutes", Surface.Line, Who.Player, Who.Player, Who.Player, Server, 15, false),
+        UpdatedJoiner = new("updatedjoin", "\"Updated to vX\": a player who joins within 10 minutes", Surface.Line, Who.Player, Who.Player, Who.Player, Server, 15),
         PlayerRestart = new("playerrestart", "A player's !restart", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         MatchRestart = new("rematch", "Restart match", Surface.Countdown, Who.Everybody, Who.Everybody, Who.Everybody, Server, 0),
         // server news and health
         News = new("news", "A plain news item", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 8),
         ServerDown = new("down", "The server went down on a map", Surface.Top, Who.Everybody, Who.Everybody, Who.Everybody, Server, 30),
-        CrashNote = new("crash", "The joiner's crash note", Surface.Line, Who.Player, Who.Player, Who.Player, Server, 30, false),
+        CrashNote = new("crash", "The joiner's crash note", Surface.Line, Who.Player, Who.Player, Who.Player, Server, 30),
         // answers to your own clicks
-        Answer = new("answer", "The answer to your own click: refused, click again, already set", Surface.Line, Who.Player, Who.Player, Who.Player, You, 8, false),
+        Answer = new("answer", "The answer to your own click: refused, click again, already set", Surface.Line, Who.Player, Who.Player, Who.Player, You, 8),
         // the chat interface
-        CommandReply = new("reply", "Command replies: unknown command, an alias taught, !help's list", Surface.None, Who.Nobody, Who.Player, Who.Nobody, You, 0, false),
-        VoteClick = new("voteclick", "Lines for everybody: a vote clicked on a card, with who voted and who still has to", Surface.None, Who.Nobody, Who.Everybody, Who.Everybody, Vote, 0, false);
+        CommandReply = new("reply", "Command replies: unknown command, an alias taught, !help's list", Surface.None, Who.Nobody, Who.Player, Who.Nobody, You, 0),
+        VoteClick = new("voteclick", "Lines for everybody: a vote clicked on a card, with who voted and who still has to", Surface.None, Who.Nobody, Who.Everybody, Who.Everybody, Vote, 0);
 
     public static readonly Kind[] All =
     [

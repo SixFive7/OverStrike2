@@ -416,8 +416,7 @@ static class CheckTests
             (code, output, _, _) = RunVerify(Grouped(After()), health: "os2-health 1\nlog pushes 0\n");
             check("verify: no log push reaching the bridge - look", code is 1 && output.Contains("LOOK  log pushes reaching the bridge: 0"));
             (code, output, _, _) = RunVerify(Grouped(After()), health: "gg-health 1\nlog pushes 3\n");
-            check("verify: a bridge from before release 191 (gg-health, after a rollback) - its health is as good as any other's",
-                  !output.Contains("LOOK  bridge /health") && output.Contains("ok    bridge /health"));
+            check("verify: a bridge from before release 191 (gg-health) - no bridge's /health: look", code is 1 && output.Contains("LOOK  bridge /health"));
             (code, output, _, _) = RunVerify(Grouped(After()), health: "Traceback: refused at /health/" + BS);
             check("verify: a failed health request - look, and the secret in its words is not printed", code is 1 && output.Contains("LOOK  bridge /health") && !output.Contains(BS));
             (code, output, _, _) = RunVerify(Grouped(After()), noA2s: true);

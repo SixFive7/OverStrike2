@@ -201,17 +201,17 @@ static partial class Program
             finally { (NonMaps, Blocked, Removed) = (nonMaps, blocked, removed); }
         }
 
-        // ---- the live state's new lines: the news, the notes, the previous map, the search index's version ----
-        var st = new HudState { News = new string('n', 230), NewsFor = 6, PrevArg = "12", PrevLabel = "#12 aim_redline", SearchVersion = 77 };
+        // ---- the live state's new lines: the notes, the previous map, the search index's version ----
+        var st = new HudState { PrevArg = "12", PrevLabel = "#12 aim_redline", SearchVersion = 77 };
         st.Notes[1001] = ("You voted already - 1/2, 1 more needed", 5);
         st.Notes[1002] = ("expired", 0);
         var back2 = HudState.Decode(st.Encode())!;
-        Check("State: the news line (up to 240 characters), the notes per player, the previous map and the search version survive the codec; an expired note is not sent",
-            back2.News.Length == 230 && back2.NewsFor == 6 && back2.Notes.Count == 1 && back2.Notes[1001] == ("You voted already - 1/2, 1 more needed", 5)
+        Check("State: the notes per player, the previous map and the search version survive the codec; an expired note is not sent; an older bridge's news line is read as nothing",
+            HudState.Decode(st.Encode() + "news\t6\tan older bridge's line\nnewsat\t1793000000\tand its end time\n") is { } older && older.Notes.Count == 1 && back2.Notes.Count == 1 && back2.Notes[1001] == ("You voted already - 1/2, 1 more needed", 5)
             && (back2.PrevArg, back2.PrevLabel) == ("12", "#12 aim_redline") && back2.SearchVersion == 77);
-        Check("...the note only its player sees: on their screen, nobody else's",
-            HudView.NoteOf(back2, 1001) != "" && HudView.NoteOf(back2, 1003) == "" && HudView.PlayerClasses(back2, 1001).Contains((HudView.Screen, "note", true))
-            && HudView.PlayerClasses(back2, 1003).Contains((HudView.Screen, "note", false)) && HudView.Classes(back2).Contains((HudView.Global, "news", true)));
+        Check("...the note only its player sees: on their screen, nobody else's - the window's line",
+            HudView.NoteOf(back2, 1001) != "" && HudView.NoteOf(back2, 1003) == "" && HudView.PlayerClasses(back2, 1001).Contains((HudView.Screen, "wl", true))
+            && HudView.PlayerClasses(back2, 1003).Contains((HudView.Screen, "wl", false)) && !HudView.Classes(back2).Any(x => x.Class == "news"));
 
         // ---- the board: a click action panel ----
         var free = new HudState { Map = "#5 x" };
@@ -283,10 +283,10 @@ static partial class Program
             Tell("[U:1:1001]", "only Alice"); Announce("Everybody");
             var h = new HudState();
             PutNotices(h, Now());
-            Check("Tell is a note for that player alone, Announce the news line for all; both carry their seconds left",
-                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)Messages.DefaultSeconds && h.News == "Everybody" && h.NewsFor > 0);
+            Check("Tell is a note for that player alone, Announce the top line for all; both carry their end",
+                h.Notes.Keys.SequenceEqual([1001L]) && h.Notes[1001].Text == "only Alice" && h.Notes[1001].For is > 0 and <= (int)Messages.DefaultSeconds && h.TopText == "Everybody" && h.TopUntilMs > 0);
             PutNotices(h = new HudState(), Now().AddSeconds(Messages.DefaultSeconds + 1));
-            Check("...and both are gone once their time is up", h.Notes.Count == 0 && h.News == "" && NoteFor.Count == 0);
+            Check("...and both are gone once their time is up", h.Notes.Count == 0 && h.TopText == "" && NoteFor.Count == 0);
         }
         finally { S = savedS; Pending = savedPending; ClearNotices(); }
 

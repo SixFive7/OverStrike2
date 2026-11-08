@@ -26,7 +26,6 @@ static class ReleaseTests
         public readonly Dictionary<string, string> Hashes = new(Files);
         public string ProbeAnswer = "page HTTP 500, title 'Steam Workshop' -> NOT shown; Web API ok";
         public bool OldPlugin;   // a plugin from before release 191, which knows os_hud by its old word only
-        public string? UnknownSays;   // what RCON answers to an unknown command: null the engine's words, "" nothing at all
         public readonly List<string> Log = [];
         public Dictionary<string, string> Lists = new() { ["mm_extra_addons"] = "", ["mm_client_extra_addons"] = Hud };
         public string[] Env = ["CS2_RCONPW=pw-secret", "RCON_PORT=27015"];
@@ -73,7 +72,7 @@ static class ReleaseTests
                     return (OldPlugin ? "gghud: " : "os_hud: ") + "probing ... the answer goes to the server log";
                 }
                 if (command.StartsWith(OldPlugin ? "os_hud " : "css_gghud ", StringComparison.Ordinal))
-                    return UnknownSays ?? $"Unknown command '{command.Split(' ')[0]}'!";
+                    return $"Unknown command '{command.Split(' ')[0]}'!";
                 return "";
             }
             if (argv[2] == Release.InnerSha)
@@ -353,18 +352,9 @@ static class ReleaseTests
             t = new Test();
             t.D.OldPlugin = true;
             (r, output) = Go(() => t.Release(fetch: Fetches(t, 100, 100, 200, 200, 200, 300)).Publish("v9: what changed", runDir, false, 120));
-            var asked = Sent(t);
-            check("publish: a live plugin from before release 191 answers os_hud as unknown - the held-item check asks it by its old word, and reads NOT shown",
-                  r == "0" && asked.Contains("os_hud page " + Release.NoSuchItem) && asked.Contains("css_gghud page " + Release.NoSuchItem)
-                  && asked.IndexOf("os_hud page " + Release.NoSuchItem) < asked.IndexOf("css_gghud page " + Release.NoSuchItem) && output.Contains("held-item check: css_gghud page"));
-            t = new Test();
-            (t.D.OldPlugin, t.D.UnknownSays) = (true, "");
-            (r, output) = Go(() => t.Release(fetch: Fetches(t, 100, 100, 200, 200, 200, 300)).Publish("v9: what changed", runDir, false, 120));
-            check("publish: a plugin from before release 191 behind an RCON that answers an unknown command with nothing - no os_hud: answer, so the "
-                  + "held-item check asks css_gghud too, and reads NOT shown in the log",
-                  r == "0" && Sent(t).Where(c => c.Contains(" page ", StringComparison.Ordinal)).SequenceEqual(["os_hud page " + Release.NoSuchItem, "css_gghud page " + Release.NoSuchItem])
-                  && output.Contains("(no answer) - not the plugin's os_hud: answer") && output.Contains($"held-item check: css_gghud page {Release.NoSuchItem} -> gghud: probing")
-                  && output.Contains("-> NOT shown"));
+            check("publish: a live plugin from before release 191 knows only css_gghud - it is asked os_hud alone, writes no verdict, and the held-item check refuses",
+                  r != "0" && Sent(t).Where(c => c.Contains(" page ", StringComparison.Ordinal)).SequenceEqual(["os_hud page " + Release.NoSuchItem])
+                  && $"{r}".Contains("the held-item check's answer did not reach the plugin's log", StringComparison.Ordinal) && !output.Contains("css_gghud", StringComparison.Ordinal));
             t = new Test();
             t.D.ProbeAnswer = "page HTTP 200, title 'Steam Workshop :: x' -> shown to everybody";
             (r, output) = Go(() => t.Release(fetch: Fetches(t, 100)).Publish("note", runDir, false, 120));

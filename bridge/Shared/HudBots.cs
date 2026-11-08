@@ -22,16 +22,6 @@ public static class HudBots
     /// <summary>The variable a row's second line reads: why its greyed choices cannot be made in this mode.</summary>
     public static string WhyVar(int r) => $"osbw{r}";
 
-    /// <summary>Whether a panel is the Bots page's - content v4.8.0's own, which no shipped content has, so it goes out under our name alone (HudIds.OursOnly):
-    /// its sub-tabs, its note and two buttons, its rows with their parts, its presets with theirs.</summary>
-    public static bool Owns(string id) =>
-        id is SubFun or Tab or Note or Kick or Default
-        || (id.StartsWith("os_bp", StringComparison.Ordinal) && id.Length > 5 && char.IsDigit(id[5]))
-        || (id.StartsWith("os_b", StringComparison.Ordinal) && id.Length > 4 && char.IsDigit(id[4]));
-
-    /// <summary>A variable only the Bots page's labels read: a row's second line (WhyVar).</summary>
-    public static bool OwnsVar(string name) => name.StartsWith("osbw", StringComparison.Ordinal);
-
     /// <summary>The page as the live values have it, in this mode. setBy: who set a setting, by its id (the settings module's word); null: nobody known.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Page(Func<string, string?> value, Modes.Mode mode,
         Func<string, string?>? setBy = null)

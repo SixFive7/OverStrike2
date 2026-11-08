@@ -552,7 +552,7 @@ static partial class Program
             HudActive = () => true;
             h.Quiet();
             Go(alice, 1);
-            Check("The pick and its vote are on the news line, the result with the countdown's length", Told.Any(t => t.Contains("Alice put")) && NewsNow.Text.Contains("Everybody has voted") && NewsNow.Text.Contains("Changing in"));
+            Check("The pick and its vote are said, the result with the countdown's length", Told.Any(t => t.Contains("Alice put")) && Told.Any(t => t.Contains("Everybody has voted") && t.Contains("Changing in")));
             Land(); h.Run(20);
             Check("The map changes, and nothing at all went to chat: no countdown, no after-load line", h.Sent.Contains($"host_workshop_map {m[1].Id}") && !h.Sent.Any(c => c.StartsWith("say ")));
             HudActive = () => false;

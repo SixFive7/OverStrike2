@@ -8,19 +8,12 @@ public static class HudMenu
 {
     public const int Cards = MapVote.PageCards > HudBrowser.PerPage ? MapVote.PageCards : HudBrowser.PerPage;
 
-    /// <summary>Previous: the map before this one, to the vote - on the Maps page (on the Queue page of the contents before v4.6.0).</summary>
-    public const string DropsOn = "os_set_nades_on", DropsOff = "os_set_nades_off", Time10 = "os_set_time_10", Time60 = "os_set_time_60",
-        Restart = "os_set_restart", Rematch = "os_set_rematch", Previous = "os_q_prev", BoardOpen = HudView.BoardOpen;
+    /// <summary>Previous: the map before this one, to the vote - on the Maps page.</summary>
+    public const string Time10 = "os_set_time_10", Time60 = "os_set_time_60", Restart = "os_set_restart", Rematch = "os_set_rematch", Previous = "os_q_prev",
+        BoardOpen = HudView.BoardOpen;
 
     /// <summary>The Fun page's Random and Default (!fun random, !fun default).</summary>
     public const string FunRandom = "os_fun_random", FunDefault = "os_fun_default";
-
-    /// <summary>The Fun page's Catch-up on and off (!catchup on|off). Arms Race only, like the boosts.</summary>
-    public const string CatchUpOn = "os_set_catchup_on", CatchUpOff = "os_set_catchup_off";
-
-    /// <summary>The new-maps setting's three buttons, which the Game page of the contents before v4.6.0 still has. The setting is gone - every ballot
-    /// has a fresh map and a surprise instead - so the buttons only answer that (the bridge's !newmaps, Clicks.cs).</summary>
-    public const string NewAlways = "os_set_new_always", NewHalf = "os_set_new_half", NewNever = "os_set_new_never";
 
     /// <summary>Card k's panel id (k from 1); its parts are this plus "_name", "_thumb", "_play" and so on.</summary>
     public static string Card(int k) => $"os_m{k}";
@@ -147,8 +140,7 @@ public static class HudMenu
         return Enumerable.Range(1, Cards).Select(k => ($"{Card(k)}_thumb", k <= page.Count ? HudThumbs.Classes(page[k - 1]) : [])).ToList();
     }
 
-    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; the contents before v4.6.0 have it, under the
-    /// same ids, on their Queue page.</summary>
+    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
         ([("os_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
 
@@ -178,7 +170,7 @@ public static class HudMenu
         var c = new List<(string, string, bool)>();
         for (var r = 1; r <= Fun.Rows; r++)
         {
-            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null; // the grenade drops and catch-up are the last two, like any other: a content before v4.6.0 lacks those rows, and has fixed ones of its own
+            var s = r <= Fun.Settings.Length ? Fun.Settings[r - 1] : null; // the grenade drops and catch-up are the last two, like any other
             var showing = s == null ? null : Fun.Showing(s, value);
             var because = s == null ? null : Fun.IdleBecause(s, value);
             var idle = because != null;
@@ -212,37 +204,9 @@ public static class HudMenu
     public static List<(string Name, string Text)> FunWhy(Func<string, string?> value) =>
         Fun.Settings.Take(Fun.Rows).Select((s, i) => (FunWhyVar(i + 1), s.Choices.Where(c => Fun.Impossible(s, c, value)).Select(c => Fun.Refusal(s, c, value)).FirstOrDefault() ?? "")).ToList();
 
-    /// <summary>The words of the two fixed rows of the contents before v4.6.0 - the grenade drops and catch-up, which this content has as rows os_f17 and os_f18 - as
-    /// variables on os_global that their labels inherit (osfdrops, osfcatch), with who set one that is off its default. One plugin drives every content.</summary>
-    public const string DropsWordsVar = "osfdrops", CatchUpWordsVar = "osfcatch";
-
-    public static List<(string Name, string Text)> FixedRowWords(Func<string, string?> value, Func<string, string?>? setBy = null)
-    {
-        string Words(string id, string words)
-        {
-            if (Fun.Find(id) is not { } s) return words;
-            var who = SetByWords(s, Fun.Showing(s, value), setBy?.Invoke(s.Id));
-            return who == "" ? words : $"{who}  ·  {words}";
-        }
-        return [(DropsWordsVar, Words("drops", "A grenade for every player at each spawn")),
-            (CatchUpWordsVar, Words("catchup", "Boosts for players behind the leader, a bounty on a runaway one"))];
-    }
-
-    /// <summary>The grenade drops' and catch-up's fixed rows on the Fun page of the contents before v4.6.0, lit by classes on os_global - nd-on/off and cu-on/off - from their fun
-    /// settings, in Arms Race only (the rows are Arms Race's own). This content has them as rows of the grid (HudMenu.FunPage) and no rule for these classes.</summary>
-    public static List<(string Id, string Class, bool On)> FixedRowClasses(Func<string, string?> value, bool armsRace)
-    {
-        bool? On(string id) => !armsRace || Fun.Find(id) is not { } s ? null : Fun.Showing(s, value).Id == "on";
-        var (drops, catchUp) = (On("drops"), On("catchup"));
-        return [(HudView.Global, "nd-on", drops == true), (HudView.Global, "nd-off", drops == false), (HudView.Global, "cu-on", catchUp == true), (HudView.Global, "cu-off", catchUp == false)];
-    }
-
-    /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing - the grid's
-    /// rows, and the grenade drops' and catch-up's fixed rows of the contents before v4.6.0, which are the same settings.</summary>
+    /// <summary>A click on the Fun page as the setting and the choice it asks for, or null when it is no Fun button or names nothing.</summary>
     public static (Fun.Setting Setting, Fun.Choice Choice)? FunClick(string buttonId)
     {
-        var fixedRow = buttonId switch { DropsOn => ("drops", "on"), DropsOff => ("drops", "off"), CatchUpOn => ("catchup", "on"), CatchUpOff => ("catchup", "off"), _ => ("", "") };
-        if (fixedRow.Item1 != "" && Fun.Find(fixedRow.Item1) is { } fs && Fun.Find(fs, fixedRow.Item2) is { } fc) return (fs, fc);
         var parts = buttonId.StartsWith("os_f", StringComparison.Ordinal) ? buttonId[4..].Split('_') : [];
         if (parts.Length != 2 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var r)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var k)) return null; // os_fl_* are the size chips, os_fun_note a label
@@ -325,9 +289,6 @@ public static class HudMenu
             Time60 => "!time 60",
             Restart => "!restart",
             Rematch => "!rematch",
-            NewAlways => "!newmaps always",
-            NewHalf => "!newmaps half",
-            NewNever => "!newmaps never",
             _ => null,
         };
     }

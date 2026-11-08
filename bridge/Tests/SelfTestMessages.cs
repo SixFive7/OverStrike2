@@ -114,15 +114,15 @@ static partial class Program
             ClearNotices();
             Post(Messages.FunChanged, $"{M.N("Bob")} set {M.A("gravity")} to {M.V("Moon")} - Until the map changes");
             var h = BuildHud(at);
-            Check("Post, the top line: the plain words, its category, its seconds; the marked words in chat for everybody; the board's Lately; the older contents' news line",
-                h is { TopText: "Bob set gravity to Moon - Until the map changes", TopCat: "fun", News: "Bob set gravity to Moon - Until the map changes" } && h.TopUntilMs - h.TopAtMs == 10000
+            Check("Post, the top line: the plain words, its category, its seconds; the marked words in chat for everybody; the board's Lately",
+                h is { TopText: "Bob set gravity to Moon - Until the map changes", TopCat: "fun" } && h.TopUntilMs - h.TopAtMs == 10000
                 && h.Says is [(_, 0, var said)] && said.Contains('') && h.Lately is [{ Account: 0, Text: "Bob set gravity to Moon - Until the map changes" }]);
             const string me = "[U:1:777]";
             ClearNotices();
             Tell(me, M.Refused("Gravity is Moon already"));
             h = BuildHud(at);
-            Check("Post, an answer: the line in that player's window, their chat, their board; nobody else's; no top line and no news line",
-                h is { TopText: "", News: "" } && HudView.NoteOf(h, 777) == "Gravity is Moon already" && h.NoteCats[777] == "you" && h.Says is [(_, 777, _)] && h.Lately is [{ Account: 777 }]
+            Check("Post, an answer: the line in that player's window, their chat, their board; nobody else's; no top line",
+                h is { TopText: "" } && HudView.NoteOf(h, 777) == "Gravity is Moon already" && h.NoteCats[777] == "you" && h.Says is [(_, 777, _)] && h.Lately is [{ Account: 777 }]
                 && Messages.LatelyFor(h.Lately, 888).Count == 0 && Messages.LatelyFor(h.Lately, 777).Count == 1);
             ClearNotices();
             Post(Messages.VoteRefused, $"{M.N("Bob")} tried to start a vote: The next one can start in {M.V("1 min 20 s")}", me);

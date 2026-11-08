@@ -38,7 +38,6 @@ sealed partial class HudScreen
                 case Surface.Line: if (PlayerOf(on) is { } p) Player(p.Slot).Note = (m.Plain, now.AddSeconds(m.Seconds), kind.Cat.Id); break;
                 case Surface.Plain or Surface.Alert: localCentres.Add((on, kind.Surface == Surface.Alert, Hud.Clean(m.Text, Messages.CentreMax), now.AddSeconds(m.Seconds))); break;
             }
-        if (kind.News) localNews = (m.Plain, now.AddSeconds(m.Seconds));
         if (m.Board is { } board) Messages.AddLately(localLately, new Messages.LatelyLine(nowMs, board, key, m.Plain));
         if (m.Chat is { } to) Server.NextFrame(() => { foreach (var line in chatLines ?? [m.Text]) Say(line, to); });
         Server.NextFrame(Frame);
@@ -75,8 +74,8 @@ sealed partial class HudScreen
 
     // ---- catch-up's card: chat and the board through Post, the rows in the player's record (HudFrame draws them) ----
 
-    /// <summary>Whether this player's game shows the catch-up card (HudVote.CatchUpCard): any game but one known to hold a content before v4.6.0, and one that may hold
-    /// no HUD at all - joined while Steam does not hand the item out, and not seen clicking in it. Those get CS2's centre panel.</summary>
+    /// <summary>Whether this player's game shows the catch-up card (HudVote.CatchUpCard): any game but one known to hold a content the plugin does not draw for, and one
+    /// that may hold no HUD at all - joined while Steam does not hand the item out, and not seen clicking in it. Those get CS2's centre panel.</summary>
     public bool HasCards(CCSPlayerController p) => HudVote.CatchUpCard(VersionOf(Account(p)), !addonRequired && !keptMenu.Contains(Account(p)));
 
     /// <summary>Catch-up's boost or a leader's bounty: under the crosshair for these seconds (card: the player's game shows the card - else the plugin sends CS2's centre

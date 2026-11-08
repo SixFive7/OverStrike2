@@ -413,9 +413,9 @@ static partial class Program
             Fresh();
             Announce("A long one", 60); h.Run(1);
             Announce("A short one", 5);
-            Check("The top line: a newer line replaces the one that is on", BuildHud(h.Clock) is { News: "A short one", TopText: "A short one", TopCat: "server" });
+            Check("The top line: a newer line replaces the one that is on", BuildHud(h.Clock) is { TopText: "A short one", TopCat: "server" });
             h.Run(6);
-            Check("...and nothing comes back when its time is up", BuildHud(h.Clock) is { News: "", TopText: "" });
+            Check("...and nothing comes back when its time is up", BuildHud(h.Clock) is { TopText: "" });
 
             // ---- the transport (HudTransport.cs): countdowns as end times, so a state that only counts down does not change ----
             Fresh();
@@ -431,17 +431,17 @@ static partial class Program
             Check("The change-driven text: a second of countdown changes nothing in it - its end times stand - while the seconds' text changes", t1 == t2 && l1 != l2);
             var asOf = HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock));
             var bySeconds = HudState.Decode(l2)!;
-            Check("...counted down from its end times it says what the seconds' text says: the news, the note, the vote's clock",
-                asOf.News == bySeconds.News && asOf.NewsFor == bySeconds.NewsFor && asOf.Notes[2001] == bySeconds.Notes[2001]
+            Check("...counted down from its end times it says what the seconds' text says: the top line, the note, the vote's clock",
+                asOf.TopText == bySeconds.TopText && asOf.Notes[2001] == bySeconds.Notes[2001]
                 && VoteState.Decode(t2).AsOf(HudState.Ms(h.Clock)).SecondsLeft == VoteState.Decode(l2).SecondsLeft && VoteState.Decode(t2).Round == Ballot!.Round);
-            Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock.AddSeconds(61))).News == ""
+            Check("...and a countdown that has run out is gone", HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock.AddSeconds(61))).TopText == ""
                 && !HudState.Decode(t2)!.AsOf(HudState.Ms(h.Clock.AddSeconds(31))).Notes.ContainsKey(2001) && VoteState.Decode(t2).AsOf(HudState.Ms(h.Clock.AddSeconds(90))).SecondsLeft == 0);
             PublishHud(); var published = HudTextVersion; PublishHud();
             Check("A state published again unchanged keeps its version", HudTextVersion == published);
             Announce("Another line", 10); PublishHud();
             Check("...a change takes the next one; every answer starts with it and the bridge's clock, and a poll without a change gets a few bytes",
                 HudTextVersion == published + 1 && StateAnswer().Split('\n')[1].StartsWith($"{Hud.VersionLine}\t{HudTextVersion}\t") && UnchangedAnswer().EndsWith($"{Hud.Unchanged}\n") && UnchangedAnswer().Length < 80
-                && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.News == "Another line");
+                && HudVersionAsked("?v=17&draw=1") == 17 && HudVersionAsked("?draw=1") == null && HudState.Decode(StateAnswer())?.TopText == "Another line");
 
             // ---- during the vote: picks go on it, a click changes or takes back a vote ----
             Fresh();

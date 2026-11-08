@@ -263,9 +263,9 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
 
     // ---- swap
 
-    /// <summary>GET /health's first words: the bridge's own (core/BridgeWire.cs), and a bridge's from before release 191 (gg-health), which a rollback
-    /// goes back to - so a rollback's bridge is seen to be up as any other.</summary>
-    public static readonly string[] HealthWords = [Core.BridgeWire.HealthWord, "gg-health"];
+    /// <summary>GET /health's first words: the bridge's own (core/BridgeWire.cs, since release 191). A bridge from before it, which answered gg-health, is no
+    /// longer taken for one.</summary>
+    public static readonly string[] HealthWords = [Core.BridgeWire.HealthWord];
 
     /// <summary>Whether an answer of GET /health is a bridge's (HealthWords).</summary>
     public static bool IsHealth(string answer) => HealthWords.Any(w => answer.StartsWith(w, StringComparison.Ordinal));

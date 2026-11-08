@@ -144,16 +144,15 @@ static partial class Program
             && HudVote.PageClick(twelve, HudBrowser.NextButton, 0) == 1 && HudVote.PageClick(twelve, HudBrowser.NextButton, 1) == 1 && HudVote.PageClick(twelve, HudBrowser.FirstButton, 1) == 0
             && HudVote.PageClick(twelve, HudBrowser.LastButton, 0) == 1 && HudVote.PageClick(twelve, "os_m1_play", 0) == null && HudVote.PageOf(twelve, 12) == 0 && HudVote.PageOf(twelve, 11) == 1
             && HudVote.Click(twelve, HudVote.RandomButton) == $"!mv 1793600000 {MapVote.RandomOption}" && HudVote.BrowseLine(twelve).Contains("30 s left"));
-        // ---- a game known to hold a content before v4.6.0 has eight cards: its pages are of eight, so its pager reaches every option ----
-        var old8 = HudVote.CardsFor(HudVersion.Older);
-        var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: old8);
-        var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: old8);
-        Check($"An older HUD's ballot: pages of {HudBrowser.PerPage} for a game known to hold a content before {HudVersion.Content} (older, or v4.5.0), pages of {MapVote.PageCards} for this one, a newer one or one not known",
-            old8 == HudBrowser.PerPage && HudVote.CardsFor("v4.5.0") == HudBrowser.PerPage && new[] { HudVersion.Content, "v4.6.0", "v4.7.0", HudVersion.Unknown, "" }.All(x => HudVote.CardsFor(x) == MapVote.PageCards)
-            && HudVote.Pages(twelve, old8) == 2 && !C(oldFirst, "os_m9", "used") && C(oldFirst, "os_m8", "used") && P(oldFirst.Texts, "os_m9_name") == ""
+        // ---- pages of another size: perPage is the frame's to choose; the ballot's own is MapVote.PageCards for every game drawn for ----
+        const int eight = 8;
+        var oldFirst = HudVote.Cards(twelve, 1001, null, page: 0, perPage: eight);
+        var oldSecond = HudVote.Cards(twelve, 1001, null, page: 1, perPage: eight);
+        Check($"A ballot in pages of eight: its pager reaches every option, card k of a page that page's option - as in pages of {MapVote.PageCards}",
+            HudVote.Pages(twelve, eight) == 2 && !C(oldFirst, "os_m9", "used") && C(oldFirst, "os_m8", "used") && P(oldFirst.Texts, "os_m9_name") == ""
             && P(oldFirst.Texts, "os_pg_text") == "Page 1 of 2  ·  12 maps: 4 more on the next page" && P(oldSecond.Texts, "os_m1_name") == P(first.Texts, "os_m9_name")
-            && HudVote.Click(twelve, "os_m1_play", 1, -1, null, old8) == MapVote.Click(twelve.Round, twelve.Maps[old8].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, old8) == 1
-            && HudVote.Order(twelve, 1, old8).Length == 12 - old8 && HudVote.PageOf(twelve, twelve.Maps[old8].N, old8) == 1 && HudVote.Thumbs(twelve, null, 1, old8).Count(x => x.Classes.Length > 0) == 0);
+            && HudVote.Click(twelve, "os_m1_play", 1, -1, null, eight) == MapVote.Click(twelve.Round, twelve.Maps[eight].N) && HudVote.PageClick(twelve, HudBrowser.LastButton, 0, eight) == 1
+            && HudVote.Order(twelve, 1, eight).Length == 12 - eight && HudVote.PageOf(twelve, twelve.Maps[eight].N, eight) == 1 && HudVote.Thumbs(twelve, null, 1, eight).Count(x => x.Classes.Length > 0) == 0);
         // ---- a click counts against the order that player saw: the cards re-sort as votes come in ----
         var before = HudVote.Order(twelve, 0);
         var resorted = VoteState.Decode(big.ToString());
@@ -217,17 +216,10 @@ static partial class Program
             VoteState.Decode("mvwait\t75\n") is { WaitFor: 75, Round: 0, Freeze: false } && VoteState.Decode("mvo\t1\tarmsrace\tpicked\t1\t1\tx\t\t0\t\n") is { Options.Count: 0, Freeze: false }
             && new VoteState { WaitFor = 9 }.Encode().Contains("mvwait\t9"));
         var levels = HudVersion.Classes();
-        var bannered = HudVersion.Contents.Where(c => c.Level >= HudVersion.JoinBannerFirst && c.Level <= HudVersion.Oldest).ToList(); // the contents with a join banner: v4.0.0 ... v4.5.0
-        bool Lit(List<(string Id, string Class, bool On)> classes, string name) => classes.Single(x => x.Class == name).On;
-        Check($"The version classes: content {HudVersion.Content} is level {HudVersion.Level}; the newest content the server knows is one class, {HudVersion.LatestClass(HudVersion.Level)}; every content with a join banner ({bannered[0].Version} to {bannered[^1].Version}) gets its red \"yours is older\", svge(its level + 1), the older ones too; \"yours is newer\" only v4.5.0's, svlt45",
-            HudVersion.LevelOf(HudVersion.Content) == HudVersion.Level && HudVersion.OfLevel(HudVersion.Level) == HudVersion.Content
-            && levels.Count(x => x.Class.StartsWith("latest-") && x.On) == 1 && levels.Single(x => x.Class.StartsWith("latest-")).Class == $"latest-{HudVersion.Level}"
-            && HudVersion.Oldest == HudVersion.LevelOf("v4.5.0") && HudVersion.JoinBannerFirst == HudVersion.LevelOf("v4.0.0") && bannered.Count == 6
-            && bannered.All(c => Lit(levels, $"svge{c.Level + 1}")) && levels.Count(x => x.Class.StartsWith("svge", StringComparison.Ordinal)) == bannered.Count
-            && levels.Where(x => x.Class.StartsWith("svlt", StringComparison.Ordinal)).Select(x => x.Class).SequenceEqual(["svlt45"]) && !Lit(levels, "svlt45") && levels.Count == bannered.Count + 2
-            && !Lit(HudVersion.Classes(HudVersion.Oldest), "svge46") && !Lit(HudVersion.Classes(HudVersion.Oldest), "svlt45") && Lit(HudVersion.Classes(HudVersion.Oldest), "svge45") // a server at v4.5.0: nothing for v4.5.0, "older" for v4.4.0
-            && Lit(HudVersion.Classes(HudVersion.Oldest - 1), "svlt45") && !Lit(HudVersion.Classes(HudVersion.Oldest - 1), "svge45")                                                       // ...at v4.4.0: "newer" for v4.5.0, nothing for v4.4.0
-            && levels.All(x => x.Id == HudView.Global));
+        Check($"The version classes: content {HudVersion.Content} is level {HudVersion.Level}, the oldest content drawn for ({HudVersion.OfLevel(HudVersion.Oldest)}); the newest content the server knows is one class, {HudVersion.LatestClass(HudVersion.Level)}, and no other goes out - the join banners' svge/svlt went with the contents before v4.8.0",
+            HudVersion.LevelOf(HudVersion.Content) == HudVersion.Level && HudVersion.OfLevel(HudVersion.Level) == HudVersion.Content && HudVersion.Oldest == HudVersion.LevelOf("v4.8.0")
+            && levels.Count == 1 && levels.Single().Class == $"latest-{HudVersion.Level}" && levels.Single().On && levels.All(x => x.Id == HudView.Global)
+            && HudVersion.Classes(HudVersion.Level - 1).SequenceEqual([(HudView.Global, $"latest-{HudVersion.Level - 1}", true)]));
         var table = HudVersion.Contents;
         var byOne = HudVersion.LevelOf("v4.0.0"); // the levels before v4.0.0 skip; from it on each release is the next number
         Check($"The table of contents: {table.Length} lines, the last this content ({HudVersion.Content}, level {HudVersion.Level}); every version readable and there once; the levels rise, by one from level {byOne} on, so the next release is {HudVersion.Level + 1} whatever its digits; the shipped ones keep their numbers",

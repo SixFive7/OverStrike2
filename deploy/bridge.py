@@ -68,7 +68,7 @@ s.sendall(pkt(2,2,sys.argv[2])); print(read()[2])
 """
 
 
-HEALTH_WORDS = ("os2-health", "gg-health")   # GET /health's first word: the bridge's, and a bridge's from before release 191, which a rollback goes back to
+HEALTH_WORDS = ("os2-health",)   # GET /health's first word: the bridge's (since release 191; a bridge before it, gg-health, is no longer taken for one)
 
 class Bridge:
     def __init__(self, cfg):

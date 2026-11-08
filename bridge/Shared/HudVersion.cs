@@ -3,19 +3,19 @@
 // keeps the versions its players' games showed and tests all of it in --selftest; the plugin draws it.
 //
 // A version is "v4.6.0". A content's level is its line in Contents, never its digits, so a patch, v4.10.0 or v14.5.27 each take the next
-// number. A game's HUD is known by the HUD check's click (HudCheck.cs): the version button's id names its content (Button), an older content's
-// gold button says Older, and any other button says Unknown.
+// number. A game's HUD is known by the HUD check's click (HudCheck.cs): the version button's id names its content (Button), and any other
+// button says Unknown.
 //
-// The classes need no click: latest-N on os_global names the newest content the server knows, and every content from v4.6.0 on shows its
-// outdated banner for an N above its own. v4.5.0, the one content before it still drawn for (Oldest), reads svge46 (the server's level is
-// above its own) and svlt45 (below it) at a join instead, and the contents from v4.0.0 to v4.4.0 still get their svge41 ... svge45: their
-// red "yours is older" banner. The server's version name rides in the dialog variable osver on os_global, which the labels inherit.
+// The plugin draws for content v4.8.0 and newer alone (Oldest): their panels are named os_, and a content before it - whose panels its layout
+// named gg_ - gets nothing (release 193). The classes need no click: latest-N on os_global names the newest content the server knows, and a
+// content shows its outdated banner for an N above its own. The server's version name rides in the dialog variable osver on os_global, which
+// the labels inherit.
 using System.Globalization;
 
 public static class HudVersion
 {
     /// <summary>Every HUD content that has shipped, and on the last line the one this code is for: its version and its level. The level is the number the layouts
-    /// and the version classes know a content by (svge/svlt, latest-N). It is a release's place in line and says nothing about the version's digits: a shipped
+    /// and the version classes know a content by (latest-N). It is a release's place in line and says nothing about the version's digits: a shipped
     /// content keeps its number for good, because its layout and stylesheet hold it, and a release adds one line with the next number, whatever its version says
     /// (hud/PUBLISH.md). Content and Level read the last line. A version with no line is newer than this code knows (LevelOf).</summary>
     public static readonly (string Version, int Level)[] Contents =
@@ -33,29 +33,21 @@ public static class HudVersion
         ("v4.8.0", 48),
     ];
 
-    /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so games holding older contents
-    /// stay in use - during Valve's review and until a player's Steam has downloaded the update - and one plugin drives them all: it sends what this content has,
-    /// and an older content simply lacks what it lacks (a panel a game does not have takes nothing in it). What v4.5.0, the oldest content still drawn for (Oldest),
-    /// needs to show its own pages keeps coming: its page classes, c31 and c32 (it holds the panels those two uncover) and the svge/svlt classes its join banner
-    /// reads; nothing comes for what only a content before it reads but its red "yours is older" class (JoinBannerFirst). hud/reference/ keeps the layouts
-    /// --selftest holds this one to: the contents still drawn for and the one this content replaces.</summary>
+    /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
+    /// content stays in use - during Valve's review and until the player's Steam has downloaded the update - and the plugin sends what this content has: a
+    /// content from Oldest on that lacks a panel simply takes nothing in it. hud/reference/ keeps the one layout --selftest holds this one to: the content it
+    /// replaces.</summary>
     public static string Content => Contents[^1].Version;
 
     /// <summary>The server's content as a number: the level on Contents' last line.</summary>
     public static int Level => Contents[^1].Level;
 
-    /// <summary>The oldest content the plugin still draws for, by its level: v4.5.0. Nothing is sent for what only an older content reads - the marks, counts and
-    /// clicks of the Too big and Ads buttons the contents up to v4.3.0 show, the "yours is newer" half of their join banners - but their red "yours is older"
-    /// (JoinBannerFirst), so a game holding one runs on what it shares with v4.5.0 and is told at a join to update. v4.5.0 is also the last content whose
-    /// banner reads svge/svlt (Classes).</summary>
-    public const int Oldest = 45;
+    /// <summary>The oldest content the plugin draws for, by its level: v4.8.0, the first whose panels are named os_. Every panel goes out under that name alone;
+    /// a game still holding an older content, whose panels its layout named gg_, gets nothing - no window, no board, no banner - until Steam has updated it at
+    /// the player's next start of CS2 (release 193).</summary>
+    public const int Oldest = 48;
 
-    /// <summary>The first content with a join banner, v4.0.0: each content from it to v4.5.0, of level L, shows "yours is older" in red under svge(L + 1) - sent
-    /// for every one of them, so a game still holding an older content than Oldest is told to quit CS2 and let Steam update it - and "yours is newer" under
-    /// svlt(L), sent for v4.5.0 alone (no server this plugin runs is older than the contents below it).</summary>
-    public const int JoinBannerFirst = 40;
-
-    /// <summary>How long after a real join the version banner of a content from v4.0.0 to v4.5.0 shows (vjoin).</summary>
+    /// <summary>How long after a real join vjoin stays on os_screen: a content's "yours is newer" banner shows for that long.</summary>
     public const double JoinSeconds = 15;
 
     /// <summary>The newest HUD content the server knows, as one class on os_global: latest-N. Every content from v4.6.0 on shows its outdated banner by
@@ -67,15 +59,12 @@ public static class HudVersion
     /// <summary>The dialog variable on os_global that the layouts' labels inherit for the server's HUD version.</summary>
     public const string Var = "osver";
 
-    /// <summary>The version classes on os_global for everybody: the newest content the server knows (latest-N), and what the banners of v4.0.0 to v4.5.0 read
-    /// at a join (vjoin on os_screen, for JoinSeconds) - svge41 ... svge46 while the server's level is above that content's, its red "yours is older", and
-    /// svlt45 while it is below v4.5.0's, "yours is newer". The plugin turns the latest class it sent before off itself when the level moves.</summary>
+    /// <summary>The version class on os_global for everybody: the newest content the server knows (latest-N). The plugin turns the latest class it sent before off
+    /// itself when the level moves.</summary>
     public static List<(string Id, string Class, bool On)> Classes() => Classes(Level);
 
     /// <summary>The same at a level os_hud level fakes.</summary>
-    public static List<(string Id, string Class, bool On)> Classes(int level) =>
-        [.. Enumerable.Range(JoinBannerFirst + 1, Oldest + 1 - JoinBannerFirst).Select(k => (HudView.Global, $"svge{k}", level >= k)), // "yours is older": v4.0.0's svge41 ... v4.5.0's svge46
-         (HudView.Global, $"svlt{Oldest}", level < Oldest), (HudView.Global, LatestClass(level), true)];
+    public static List<(string Id, string Class, bool On)> Classes(int level) => [(HudView.Global, LatestClass(level), true)];
 
     /// <summary>A content's name for its level, as the banner says it: its line in Contents. os_hud level and content also ask for levels no line has. Above the
     /// last line that is a name no content has, which reads as newer: the last version's next minors (49 is v4.9.0 while v4.8.0 is the last line). Between two lines
@@ -90,7 +79,8 @@ public static class HudVersion
 
     // ---- a version word: what the HUD check's click says a game's HUD is ----
 
-    /// <summary>A game's HUD as known by an older content's gold button: older than v4.6.0, which content not said.</summary>
+    /// <summary>A game's HUD as an older plugin knew it by the gold button of a content before v4.6.0: older, which content not said. This plugin never says it any
+    /// more; the word is still read - the bridge's saved state and an older plugin's !hudok may carry it - and stands for a content older than every one there is.</summary>
     public const string Older = "older";
 
     /// <summary>A game that showed the HUD by a click on a button that names no content: verified, which content not known. On the wire it is the layout
@@ -133,8 +123,8 @@ public static class HudVersion
 
     // ---- the version button: the gold "Click to play" of the HUD check, whose id names the content that has it ----
 
-    /// <summary>The prefix of a version button's id, ours (a shipped content's begins gg_hudver_, made ours by HudIds before a click is read). The layout may put
-    /// the button anywhere (it is the welcome window's X): any button with this prefix proves its content.</summary>
+    /// <summary>The prefix of a version button's id. The layout may put the button anywhere (it is the welcome window's X): any button with this prefix proves its
+    /// content.</summary>
     public const string ButtonPrefix = "os_hudver_";
 
     /// <summary>A content's version button: os_hudver_v4.8.0, the one place that says the id's form; --selftest holds the layout's one id to it. v4.6.0's layout,

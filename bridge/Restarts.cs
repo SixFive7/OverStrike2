@@ -161,8 +161,6 @@ static partial class Program
         }
         else if (r.GoesAt == null) (h.BanTone, h.BanHead, h.BanLine) = ("warning", "The server restarts after this match", $"{k.Why} - {k.After}");
         if (r.GoesAt is { } at) (h.RestartIn, h.RestartAt) = (Math.Max(0, (int)Math.Ceiling((at - now).TotalSeconds)), HudState.Ms(at) / 1000); // on the same clock as every other end time (HudState.Ms)
-        if (h.News == "" || h.News.StartsWith(RestartStem(r, k), StringComparison.Ordinal)) // refreshed every tick while it stands
-            (h.News, h.NewsFor, h.NewsUntilMs) = (line, Math.Max(h.NewsFor, 2), HudState.Ms(r.GoesAt ?? r.NoticeAt.AddHours(3))); // a fixed end: the state stays the same
     }
 
     /// <summary>A match ended (OnMatchEnd): a restart waiting for it starts its countdown, and no vote opens - an open one is dropped. A restart counting down already opens none
