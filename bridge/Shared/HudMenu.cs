@@ -233,7 +233,7 @@ public static class HudMenu
         var (armed, rearmed) = (restartSeconds > 0, rematchSeconds > 0);
         var t = new List<(string, string)>
         {
-            ("os_set_time_now", s.RoundMinutes <= 0 ? "Match length" : $"Matches last {s.RoundMinutes} minutes{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
+            ("os_set_time_now", Length(s) is not { Length: > 0 } length ? "Match length" : $"Matches last {length}{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
             ("os_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
             ("os_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),
@@ -242,10 +242,14 @@ public static class HudMenu
         };
         var c = new List<(string, string, bool)>
         {
-            (Time10, "on", s.RoundMinutes == 10), (Time60, "on", s.RoundMinutes == 60), (Restart, "armed", armed), (Rematch, "armed", rearmed),
+            (Time10, "on", s.Rounds > 0 ? s.Rounds == MatchLength.ShortRounds : s.RoundMinutes == MatchLength.ShortMinutes),
+            (Time60, "on", s.Rounds > 0 ? s.Rounds == MatchLength.LongRounds : s.RoundMinutes == MatchLength.LongMinutes), (Restart, "armed", armed), (Rematch, "armed", rearmed),
         };
         return (t, c);
     }
+
+    /// <summary>The match length the state says, in its mode's words: "60 minutes", "16 rounds" (Wingman's, release 199); "" when it says none.</summary>
+    static string Length(HudState s) => s.Rounds > 0 ? $"{s.Rounds} rounds" : s.RoundMinutes > 0 ? $"{s.RoundMinutes} minutes" : "";
 
     /// <summary>What a card's Play names: the map, and the mode it plays in when that is not the first mode that has it - the one the filter
     /// shows it in, else the one the server is in when that mode has it too.</summary>
@@ -287,8 +291,8 @@ public static class HudMenu
         return buttonId switch
         {
             Previous => s?.PrevArg is { Length: > 0 } ? "!previous" : null,
-            Time10 => "!time 10",
-            Time60 => "!time 60",
+            Time10 => $"!time {MatchLength.Choices(serverMode).Short}", // the short one, in the mode's own count: Wingman's 8 rounds (release 199)
+            Time60 => $"!time {MatchLength.Choices(serverMode).Long}",
             Restart => "!restart",
             Rematch => "!rematch",
             _ => null,

@@ -6,14 +6,17 @@ using Microsoft.Extensions.Logging;
 namespace OverStrike2;
 
 /// <summary>The Game page's game-side half: the two restart buttons' second click, and the match length for the match that is on (../../bridge/Shared/MatchLength.cs says what it does;
-/// the bridge's Restarts.cs and Program.SetMatchLength decide). Restart match itself needs nothing here: the bridge counts it down and sends os_restart (GameSettingsRestart.cs), and the game's next
+/// the bridge's Restarts.cs and Program.SetMatchLength decide): the one round's time in Arms Race and Deathmatch, Wingman's count of rounds (release 199). Restart match itself needs nothing here: the bridge counts it down and sends os_restart (GameSettingsRestart.cs), and the game's next
 /// round start reads mp_roundtime and starts the ladder, and catch-up's count, over.</summary>
 sealed partial class HudScreen
 {
     /// <summary>CCSGameRules.GamePhase while the match-end screen is up (GAMEPHASE_MATCH_ENDED).</summary>
     const int MatchEndedPhase = 5;
 
-    void MatchLoad() => plugin.AddCommand(MatchLength.Command, "Over Strike 2: the match length, for the match that is on too: os_matchlength <minutes> (the bridge's !time)", OnMatchLengthCommand);
+    void MatchLoad() => plugin.AddCommand(MatchLength.Command, "Over Strike 2: the match length, for the match that is on too: os_matchlength <minutes, or Wingman's rounds> (the bridge's !time)", OnMatchLengthCommand);
+
+    /// <summary>Wingman's match length (release 199): how many rounds its match has.</summary>
+    const string MaxRounds = "mp_maxrounds";
 
     /// <summary>A click on one of the restart buttons: its first click arms it (the bridge counts the same window), its second lets go - unless the state says the bridge will refuse it,
     /// when there is nothing to arm and the player's note says why.</summary>
@@ -29,8 +32,8 @@ sealed partial class HudScreen
     void OnMatchLengthCommand(CCSPlayerController? caller, CommandInfo command)
     {
         if (caller != null) return; // the server console and RCON only
-        if (!int.TryParse(command.GetArg(1), out var minutes) || minutes <= 0) { command.ReplyToCommand($"{MatchLength.Command}: <minutes>"); return; }
-        var reply = SetRoundTime(minutes);
+        if (!int.TryParse(command.GetArg(1), out var length) || length <= 0) { command.ReplyToCommand($"{MatchLength.Command}: <minutes, or Wingman's rounds>"); return; }
+        var reply = MatchLength.InRounds(mode.Id) ? SetMaxRounds(length) : SetRoundTime(length);
         log.LogInformation("Over Strike 2: {Reply}", reply);
         command.ReplyToCommand(reply);
     }
@@ -40,7 +43,7 @@ sealed partial class HudScreen
     /// start reads mp_roundtime, which the bridge has set by now.</summary>
     string SetRoundTime(int minutes)
     {
-        if (!MatchLength.Applies(mode.Id)) return MatchLength.Reply(MatchLength.Result.NotHere, $"{mode.Name} plays a match of rounds, nothing set");
+        if (!MatchLength.OneRound(mode.Id)) return MatchLength.Reply(MatchLength.Result.NotHere, $"{mode.Name} has no one round, nothing set");
         if (!worldReady) return MatchLength.Reply(MatchLength.Result.NoMatch, "no round has started on this map"); // no entity before the first round start (the class summary)
         var proxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
         if (proxy is not { IsValid: true } || proxy.GameRules is not { } rules) return MatchLength.Reply(MatchLength.Result.NoMatch, "no game rules");
@@ -51,6 +54,27 @@ sealed partial class HudScreen
         rules.RoundTime = seconds;
         NetworkGameRules(proxy);
         return MatchLength.Reply(MatchLength.Of(minutes, played), $"the round's time goes from {before} s to {seconds} s, {played:0} s played, {minutes} minutes asked");
+    }
+
+    /// <summary>Wingman's count of rounds for the match that is on (release 199). Its sides switch at half the count, so the match takes the new one only while neither
+    /// count's halftime has come (MatchLength.ThisMatch); otherwise nothing is set here, and the bridge sets it when the next match starts. With no match on - warmup, the
+    /// match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
+    string SetMaxRounds(int rounds)
+    {
+        if (ConVarKeeper.Find(MaxRounds) is not { } cv) return MatchLength.Reply(MatchLength.Result.NotHere, $"this build has no {MaxRounds}, nothing set");
+        var current = int.TryParse(cv.StringValue, out var n) ? n : 0;
+        string Take(MatchLength.Result result, string why)
+        {
+            cv.StringValue = rounds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return MatchLength.Reply(result, $"{MaxRounds} {current} -> {rounds}: {why}");
+        }
+        if (!worldReady) return Take(MatchLength.Result.NoMatch, "no round has started on this map");
+        var proxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
+        if (proxy is not { IsValid: true } || proxy.GameRules is not { } rules) return Take(MatchLength.Result.NoMatch, "no game rules");
+        if (rules.WarmupPeriod || rules.GamePhase == MatchEndedPhase) return Take(MatchLength.Result.NoMatch, rules.WarmupPeriod ? "warmup" : "the match has ended");
+        var played = rules.TotalRoundsPlayed;
+        if (MatchLength.ThisMatch(played, current, rounds)) return Take(MatchLength.Result.Set, $"{played} round(s) played, before the halftime of either count");
+        return MatchLength.Reply(MatchLength.Result.Later, $"{played} round(s) played, a halftime of {current} or {rounds} has come: {MaxRounds} stays {current} for this match");
     }
 
     /// <summary>A field written here reaches the clients only when it is marked: the round timer on everybody's screen goes by it. The server's own round end reads the field as it is, so a

@@ -18,7 +18,8 @@ public sealed class HudState
     public List<(string Map, int Up, int Down)> Top = new();
     public string ChangeMap = "", ChangeBy = "";        // a change counting down...
     public int ChangeIn = -1;                           // ...and the seconds until it goes out; -1 when none is
-    public int RoundMinutes;                            // the match length !time set
+    public int RoundMinutes;                            // the match length !time set: Arms Race's or Deathmatch's minutes...
+    public int Rounds;                                  // ...or Wingman's rounds (release 199)
     public string RoundBy = "";                         // ...and who set it, while it is not the default
     public long CatalogVersion;                         // the map catalog's version: the plugin fetches it again when this moves
     public string CheckMode = "";                       // the HUD check as configured (hud.check: off, warn or enforce)
@@ -97,6 +98,7 @@ public sealed class HudState
         if (ChangeIn >= 0 && endTimes) Line("changeat", ChangeMap, ChangeBy, ChangeAtMs);
         else if (ChangeIn >= 0) Line("change", ChangeMap, ChangeBy, ChangeIn);
         if (RoundMinutes > 0) Line("set", RoundMinutes, RoundBy); // an older plugin reads the first field
+        if (Rounds > 0) Line("rounds", Rounds, RoundBy);          // ...and has no line for this one: its Game page shows the row in Arms Race and Deathmatch alone
         if (CatalogVersion > 0) Line("cat", CatalogVersion);
         if (CheckMode != "") Line("chk", CheckMode);
         foreach (var (account, version) in Verified) Line("ok", account, version);
@@ -150,6 +152,7 @@ public sealed class HudState
                 case "noteat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Notes[Long(f, 1)] = (Str(f, 3), 1); s.NoteUntilMs[Long(f, 1)] = Long(f, 2); break;
                 case "whyat" when Long(f, 1) >= 0 && Long(f, 2) > 0: s.Why[Long(f, 1)] = (Str(f, 3), 1); s.WhyUntilMs[Long(f, 1)] = Long(f, 2); break;
                 case "set": (s.RoundMinutes, s.RoundBy) = (Int(f, 1), Str(f, 2)); break;
+                case "rounds": (s.Rounds, s.RoundBy) = (Int(f, 1), Str(f, 2)); break;
                 case "cat": s.CatalogVersion = Long(f, 1); break;
                 case "chk": s.CheckMode = Str(f, 1); break;
                 case "tab": s.TabMode = Str(f, 1); break;

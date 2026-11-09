@@ -18,6 +18,8 @@ sealed class State
     public string? RoundBy { get; set; }              // who set a match length that is not the default
     public int DmRoundMinutes { get; set; } = Program.DefaultRoundMinutes; // Deathmatch's (release 197): 60, as Arms Race's, until somebody chooses 10
     public string? DmRoundBy { get; set; }            // ...and who did
+    public int WmRounds { get; set; } = MatchLength.LongRounds; // Wingman's (release 199), in rounds: 16, Valve's, until somebody chooses 8
+    public string? WmRoundsBy { get; set; }           // ...and who did
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
     public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (BrokenWhy.cs)
     public Dictionary<string, List<StockEntry>> Stock { get; set; } = new(); // the discovery stock, a lane per mode (Stock.cs)

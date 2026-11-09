@@ -185,6 +185,7 @@ static partial class Program
         var now = Now();
         if (now < MatchEndUntil) return;
         MatchEndUntil = now.AddSeconds(30);
+        MatchLengthAtMatchEnd(); // MatchTime.cs: Wingman's next match plays the chosen rounds - a kept map's starts without a load
         if (RestartAtMatchEnd(now)) return; // Restarts.cs: a restart was waiting for this match's end - no vote, the server goes down
         if (Pending != null) { Log($"match end: a change to {Label(Pending.Map)} is already counting down"); return; }
         if (LoadPending) { Log("match end: the next map is still loading - that was the old map's match"); return; }

@@ -285,6 +285,7 @@ static partial class Program
         if (RematchDue != due) return; // a match end, a map start, the server going down
         RematchDue = null;
         if (Pending != null || LoadPending) { Log($"rematch: a map change came first - {due.By}'s restart of the match does not go out"); return; }
+        if (MatchLength.InRounds(CurrentMode.Id)) ApplyMatchLength(); // MatchTime.cs: the match starts over, its rounds too - Wingman's chosen count takes it whole
         var (sent, reply) = RematchSend(Send);
         Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
         if (RematchRefused(reply) is { } why) Post(Messages.News, M.Refused(why));

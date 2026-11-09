@@ -64,7 +64,7 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 | MAPS | Vote | While a vote is on, the ballot ([below](#the-ballot)); Browse then adds to the vote. |
 | FUN | | The [fun settings](#fun-settings), with Random and Default. |
 | SERVER | Players | Who is on, their team, the HUD their game showed, the HUD check's clock, their vote while one is open, and how long they have been on. |
-| SERVER | Game | The match length, 10 or 60 minutes (Arms Race's own), and who set it; Restart the server, for a stuck one, and Restart the match, each twice to confirm ([below](#the-match-length-and-the-two-restarts)). |
+| SERVER | Game | The match length - 10 or 60 minutes in Arms Race and Deathmatch, 8 or 16 rounds in Wingman - and who set it; Restart the server, for a stuck one, and Restart the match, each twice to confirm ([below](#the-match-length-and-the-two-restarts)). |
 | SERVER | Sync | The [Workshop sync's dashboard](#the-dashboard). |
 | HELP | Help | Where everything is. |
 | HELP | How it works | Every rule of the vote and every chance of a random pick: the one set of rule texts in the game ([Keeping the rules in sync](#keeping-the-rules-in-sync)). |
@@ -186,7 +186,7 @@ in which only `!help` is Lime. Every section of a line starts with a capital, an
 | `!fun` | The Fun page, and each setting's own word; `!fun random` and `!fun default` | `!set` `!settings` `!toggle` `!mode` `!randomize` `!funrandom` `!defaults` `!fundefault` |
 | `!nades <on\|off>` | Grenade drops on or off (`!drops on\|off` is the setting's own word) | `!grenades` `!nade` `!he` `!boom` |
 | `!catchup <on\|off>` | Catch-up boosts on or off, until the map changes | `!catch` `!boost` `!boosts` `!comeback` |
-| `!time [10\|60]` | Match length in minutes, this match too - Alone it switches | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
+| `!time [10\|60]` | Match length in minutes, this match too - Wingman's in rounds, 8 or 16 - Alone it switches | `!length` `!minutes` `!timelimit` `!roundtime` `!duration` |
 | `!restart` | Restart a stuck server - Twice to confirm | `!reboot` `!fix` `!unstuck` `!stuck` `!reset` |
 | `!rematch` | Restart the match - Twice to confirm | `!restartmatch` `!matchrestart` `!restartgame` `!rr` |
 | `!menu` | Open the full menu | `!gg` `!hud` `!os` `!os2` `!open` |
@@ -281,8 +281,13 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
 - **The match length** (`!time 10`, `!time 60`, or a bare `!time` for the other one; Arms Race's and Deathmatch's, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: each of the two modes is one long
   round, so the plugin (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
   `mp_roundtime`. Each mode keeps its own length, and both start at 60 minutes, which each mode's cfg sets at every load (Valve's Deathmatch has 10); the bridge puts a chosen 10 back 2 s
-  later - in Deathmatch it puts the length back after every load, by the mode it knows 2 s after the start, also after an operator's switch (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race). In Wingman the row is gone and `!time` is refused: a Wingman match is a whole
-  match of rounds, where a round's time of 10 minutes would only make one round long.
+  later - in Deathmatch it puts the length back after every load, by the mode it knows 2 s after the start, also after an operator's switch (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race).
+  **Wingman** plays a match of rounds, where a round's time of 10 minutes would only make one round long, so its length is how many rounds (release 199): `!time 8` or `!time 16`
+  (a bare `!time` the other one; minutes are refused there), 16 to begin with - Valve's, first to 9, the sides switching after 8 - which its cfg sets at every load; 8 is first to 5,
+  switching after 4. The sides switch at half the count, so a new count takes the match that is on only while neither count's halftime has come: fewer rounds played than half
+  the shorter (`MatchLength.ThisMatch`; the plugin's `os_matchlength <rounds>` decides, and sets `mp_maxrounds` itself). Otherwise it starts with the next match: the bridge sets
+  `mp_maxrounds` when a match ends - a kept map's next match starts without a load -, right before its Restart match, and 2 s after every Wingman load. The Game page shows
+  Wingman's row from the next HUD content on: the contents up to v4.10.0 collapse it there, and their buttons say minutes.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
@@ -307,7 +312,8 @@ says which mode the plugin was told and which one the map loaded in, and changes
 that and takes the told mode, and reads `game_type` and `game_mode` only when the plugin cannot say (a plugin older than bare `os_mode`). A map several
 modes list plays in the mode the map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode
 that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`).
-The grenade drops, the match length, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere.
+The grenade drops, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere; the match length is every mode's, each its own
+([above](#the-match-length-and-the-two-restarts)): minutes in Arms Race and Deathmatch, rounds in Wingman.
 
 ## Random picks
 

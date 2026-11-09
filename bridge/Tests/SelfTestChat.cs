@@ -270,7 +270,7 @@ static partial class Program
         Check("...and !top's words after its command are words", T("!top") == "You typed κ!topπ - Ran κ!mapsπ, sorted by likes" && T("!status") == "You typed κ!statusπ - Ran κ!syncπ");
 
         Check("A usage line: the command Lime; what it needs LightBlue, the few it can be Gold; a command or a reason its words name likewise",
-            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν[10|60]π: Match length in minutes, this match too - Alone it switches"
+            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν[10|60]π: Match length in minutes, this match too - Wingman's in rounds, 8 or 16 - Alone it switches"
             && U("!gravity") == $"κ!gravityπ νnormal|low|moonπ: {Fun.Find("gravity")!.Words}" && U("!down") == $"κ!downπ α[number] [reason]π: Dislike it, and why: ν{DownReasons.Words}π"
             && U("!fun") == "κ!funπ: The Fun page, each setting's own word (κ!gravityπ νlowπ), κ!funπ νrandomπ and κ!funπ νdefaultπ"
             && U("!nades") == $"κ!nadesπ νon|offπ: Grenade drops on or off  ·  κ!nadesπ νnormal|big|hugeπ: {Fun.Find("nades")!.Words}");

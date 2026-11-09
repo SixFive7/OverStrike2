@@ -1,6 +1,6 @@
 // --selftest, the restarts a player can press and the match length (Restarts.cs, MatchLength.cs, Program.SetMatchLength, HudMenu.Game): the second click of Restart the server counts
 // down on the countdown banner, naming who pressed it, then quits; Restart match counts down the same way, then sends os_restart; what either refuses and what ends them; and a new match
-// length for the match that is on, in Arms Race alone. Runs in the harness (SelfTestHarness.cs), on its own lists, with a
+// length, each mode's own - minutes in Arms Race and Deathmatch, rounds in Wingman (release 199). Runs in the harness (SelfTestHarness.cs), on its own lists, with a
 // fake game server whose RCON may fall silent. What only a real server can show - that mp_restartgame resets the ladder and that the round's time reaches the clients - is the client test's.
 static partial class Program
 {
@@ -257,19 +257,57 @@ static partial class Program
                 var line = $"Alice is restarting the match in {PressedSeconds} s - {words}";
                 h.Run(PressedSeconds + 1);
                 Check($"{mode}: Restart match works there too, in that mode's words, and the same command goes out", OnBoard(line) && h.Sent.Contains(RematchCommand));
+                if (mode == Modes.WingmanId)
+                    Check($"{mode}: ...with Wingman's count of rounds right before it: the match it starts over plays the chosen count whole",
+                        h.Sent.IndexOf($"mp_maxrounds {MatchLength.LongRounds}") is >= 0 and var maxAt && h.Sent.IndexOf(RematchCommand) == maxAt + 1);
                 h.Sent.Clear(); ClearNotices();
-                (S.RoundMinutes, S.DmRoundMinutes) = (DefaultRoundMinutes, DefaultRoundMinutes);
+                (S.RoundMinutes, S.DmRoundMinutes, S.WmRounds) = (DefaultRoundMinutes, DefaultRoundMinutes, MatchLength.LongRounds);
                 if (mode == Modes.WingmanId)
                 {
+                    // Wingman (release 199): a match of rounds, whose length is how many - its own, 16 (Valve's) to begin with, 8 the short one
+                    var (shortRounds, longRounds) = (MatchLength.ShortRounds, MatchLength.LongRounds);
+                    Check($"{mode}: its own match length in rounds, {longRounds} until a player chooses, on the wire as rounds and with nobody named",
+                        Live().Rounds == longRounds && Live().RoundMinutes == 0 && Live().RoundBy == "" && MatchLength.Default(mode) == longRounds && MatchLength.InRounds(mode)
+                        && !MatchLength.OneRound(mode) && new State().WmRounds == longRounds && MatchLength.Choices(mode) == (shortRounds, longRounds));
+                    Click(alice, $"!time {longRounds}");
+                    Check($"{mode}: !time {longRounds} there is no change", h.Said($"Matches are already {longRounds} rounds") && h.Sent.Count == 0);
                     Click(alice, $"!time {ShortRoundMinutes}");
-                    Check($"{mode}: the match length stays out of it - refused, nothing sent, nothing stored: a round's time is not a match's there",
-                        h.Said("The match length is Arms Race's and Deathmatch's - Wingman plays a match of rounds") && h.Sent.Count == 0
-                        && (S.RoundMinutes, S.DmRoundMinutes) == (DefaultRoundMinutes, DefaultRoundMinutes) && Live().RoundMinutes == 0);
+                    Check($"{mode}: minutes are no length there - refused in its own count, nothing sent, nothing stored",
+                        h.Said($"Wingman's matches are {shortRounds} or {longRounds} rounds") && h.Sent.Count == 0 && S.WmRounds == longRounds);
+                    foreach (var (result, effect) in new (MatchLength.Result?, string)[] { (MatchLength.Result.Set, "This match too"), (MatchLength.Result.NoMatch, "From this match on"),
+                                 (MatchLength.Result.Later, "From the next match"), (MatchLength.Result.NotHere, "From the next match"), (null, "From the next match") })
+                    {
+                        h.Sent.Clear(); ClearNotices();
+                        (S.WmRounds, S.WmRoundsBy) = (longRounds, null);
+                        lengthReply = result is { } r ? MatchLength.Reply(r, "details") : "Unknown command";
+                        Click(alice, $"!time {shortRounds}");
+                        var wmWords = $"Alice set the match length to {shortRounds} rounds - {effect}";
+                        Check($"{mode}: !time {shortRounds}, the plugin answering {result?.ToString() ?? "nothing it knows"}: only the plugin is asked - it sets mp_maxrounds where no halftime is at stake - and it is Wingman's own, named; for everybody: {wmWords}",
+                            h.Sent.Contains($"{MatchLength.Command} {shortRounds}") && !h.Sent.Any(x => x.StartsWith("mp_maxrounds", StringComparison.Ordinal)) && !h.Sent.Any(x => x.StartsWith("mp_roundtime", StringComparison.Ordinal))
+                            && S.WmRounds == shortRounds && S.WmRoundsBy == "Alice" && (S.RoundMinutes, S.DmRoundMinutes) == (DefaultRoundMinutes, DefaultRoundMinutes)
+                            && Live().Rounds == shortRounds && Live().RoundBy == "Alice" && Live().TopText == wmWords);
+                    }
+                    lengthReply = null;
+                    h.Sent.Clear();
+                    h.MatchEnd();
+                    Check($"{mode}: a match's end sends the chosen {shortRounds}: the next match - a kept map's starts without a load - plays it from its first round",
+                        h.Sent.Contains($"mp_maxrounds {shortRounds}"));
+                    h.Sent.Clear();
+                    h.Line($"Loading map \"{S.Map!.Name}\"");
+                    h.Run(3);
+                    Check($"{mode}: a new map gets the chosen {shortRounds} 2 s after its start, after the mode's cfg has set its {longRounds}", h.Sent.Contains($"mp_maxrounds {shortRounds}"));
+                    Click(alice, "!time");
+                    Check($"{mode}: a bare !time flips it back to {longRounds}, its own, and the Game page names nobody again",
+                        S.WmRounds == longRounds && S.WmRoundsBy == null && Live().RoundBy == "" && Live().Rounds == longRounds);
+                    h.Sent.Clear();
+                    h.Line($"Loading map \"{Maps[22].Name}\"");
+                    h.Run(3);
+                    Check($"{mode}: ...and with its own {longRounds} on, a load sends no count: the mode's cfg has set it", !h.Sent.Any(x => x.StartsWith("mp_maxrounds", StringComparison.Ordinal)));
                     continue;
                 }
                 // Deathmatch (release 197): one long round, as Arms Race - its own length, 60 minutes to begin with, as Arms Race's (Valve's is 10)
                 Check($"{mode}: its own match length, {DefaultRoundMinutes} minutes until a player chooses, on the wire and with nobody named",
-                    Live().RoundMinutes == DefaultRoundMinutes && Live().RoundBy == "" && MatchLength.DefaultMinutes(mode) == DefaultRoundMinutes && MatchLength.Applies(mode)
+                    Live().RoundMinutes == DefaultRoundMinutes && Live().RoundBy == "" && MatchLength.Default(mode) == DefaultRoundMinutes && MatchLength.OneRound(mode) && Live().Rounds == 0
                     && new State().DmRoundMinutes == DefaultRoundMinutes);
                 Click(alice, $"!time {DefaultRoundMinutes}");
                 Check($"{mode}: !time {DefaultRoundMinutes} there is no change", h.Said($"Matches are already {DefaultRoundMinutes} minutes") && h.Sent.Count == 0);
@@ -300,7 +338,10 @@ static partial class Program
             Check("...which is the match that is on as asked, or ending soon",
                 MatchLength.Of(10, 0) == MatchLength.Result.Set && MatchLength.Of(60, 900) == MatchLength.Result.Set && MatchLength.Of(10, 540) == MatchLength.Result.Set
                 && MatchLength.Of(10, 541) == MatchLength.Result.EndsSoon && MatchLength.Of(10, 900) == MatchLength.Result.EndsSoon);
-            var results = new[] { MatchLength.Result.Set, MatchLength.Result.EndsSoon, MatchLength.Result.NoMatch, MatchLength.Result.NotHere };
+            Check("Wingman's count takes the match that is on only before the halftime of either count: fewer rounds played than half the shorter one; a count of 0 has none",
+                MatchLength.ThisMatch(0, 16, 8) && MatchLength.ThisMatch(3, 16, 8) && !MatchLength.ThisMatch(4, 16, 8) && MatchLength.ThisMatch(3, 8, 16) && !MatchLength.ThisMatch(4, 8, 16)
+                && !MatchLength.ThisMatch(9, 16, 8) && MatchLength.ThisMatch(7, 0, 16) && !MatchLength.ThisMatch(8, 0, 16));
+            var results = new[] { MatchLength.Result.Set, MatchLength.Result.EndsSoon, MatchLength.Result.NoMatch, MatchLength.Result.NotHere, MatchLength.Result.Later };
             Check("The plugin's reply says what it did, and is read back; anything else is no word of its", results.All(r => MatchLength.Read("noise\n" + MatchLength.Reply(r, "details") + "\n") == r)
                 && MatchLength.Read(null) == null && MatchLength.Read("") == null && MatchLength.Read("Unknown command") == null);
             foreach (var (result, effect) in new (MatchLength.Result?, string)[] { (MatchLength.Result.Set, "This match too"), (MatchLength.Result.EndsSoon, $"This match ends in {MatchLength.LeastSeconds} s"), (MatchLength.Result.NoMatch, "From this match on"), (null, "From the next match") })
@@ -336,6 +377,13 @@ static partial class Program
             page = HudMenu.Game(new HudState(), 0, 7);
             Check("...Restart match after its first click: press again, its seconds, armed; the other button is not",
                 T("os_set_rematch_text") == "Press again within 7 s" && page.Classes.Single(x => x.Id == HudMenu.Rematch && x.Class == "armed").On && T("os_set_restart_text") == "Restart the server" && !page.Classes.Single(x => x.Id == HudMenu.Restart && x.Class == "armed").On);
+            var wingman = HudMenu.Game(new HudState { Rounds = 8, RoundBy = "Bob" }, 0, 0);
+            Check("Game page in Wingman (release 199): its length in rounds and who set it, the short button lit; the two buttons send Wingman's counts, which the bridge takes from a click",
+                wingman.Texts.Single(x => x.Id == "os_set_time_now").Text == "Matches last 8 rounds - Set by Bob" && wingman.Classes.Contains((HudMenu.Time10, "on", true)) && wingman.Classes.Contains((HudMenu.Time60, "on", false))
+                && HudMenu.Game(new HudState { Rounds = 16 }, 0, 0).Texts.Single(x => x.Id == "os_set_time_now").Text == "Matches last 16 rounds"
+                && HudMenu.Command(HudMenu.Time10, null, new HudState(), browser, 1, h.Clock, null, Modes.WingmanId) == "!time 8" && HudMenu.Command(HudMenu.Time60, null, new HudState(), browser, 1, h.Clock, null, Modes.WingmanId) == "!time 16"
+                && HudMenu.Command(HudMenu.Time10, null, new HudState(), browser, 1, h.Clock) == "!time 10" && HudMenu.Command(HudMenu.Time60, null, new HudState(), browser, 1, h.Clock, null, Modes.DeathmatchId) == "!time 60"
+                && Hud.IsAction("!time 8") && Hud.IsAction("!time 16") && HudAct("[U:1:4003]\tCara\t!time 16"));
             Check("...the button sends !rematch, which the bridge takes from a click", HudMenu.Command(HudMenu.Rematch, null, new HudState(), browser, 1, h.Clock) == "!rematch" && Hud.IsAction("!rematch") && HudAct("[U:1:4003]\tCara\t!rematch"));
             Check("...the chat command is the same click, and teaches its aliases", ChatCommands.Parse("!rematch") is { Kind: ChatCommands.Kind.Bridge, Arg: "!rematch", Typed: "" } && M.Plain(ChatCommands.Teach(ChatCommands.Parse("!rr"))) == "You typed !rr - Ran !rematch");
             var vote = new VoteState { Round = 3 };
@@ -346,7 +394,8 @@ static partial class Program
                 && HudMenu.RestartRefused(HudMenu.Restart, new HudState { RestartWhen = "now" }, null) && !HudMenu.RestartRefused(HudMenu.Restart, new HudState { RematchIn = 4 }, vote));
 
             // ---- capitals: everything this test made the bridge say but the vote's own lines, the menu's words too ----
-            var words2 = said.Where(t => !M.Plain(t).Contains("the next map", StringComparison.Ordinal)).Concat(HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 12, 12).Texts.Select(x => x.Text)).Concat(HudMenu.Game(new HudState(), 0, 0).Texts.Select(x => x.Text)).Distinct().ToList();
+            var words2 = said.Where(t => !M.Plain(t).Contains("the next map", StringComparison.Ordinal)).Concat(HudMenu.Game(new HudState { RoundMinutes = 10, RoundBy = "Bob" }, 12, 12).Texts.Select(x => x.Text)).Concat(HudMenu.Game(new HudState(), 0, 0).Texts.Select(x => x.Text))
+                .Concat(HudMenu.Game(new HudState { Rounds = 8, RoundBy = "Bob" }, 0, 0).Texts.Select(x => x.Text)).Distinct().ToList();
             var lower = words2.Where(t => Sections.Lower(t, ["Alice", "Bob", "Cara"]) != null).Select(t => $"\"{Sections.Lower(t, ["Alice", "Bob", "Cara"])}\" in \"{M.Plain(t)}\"").ToList();
             Check($"Capitals: every section of the {words2.Count} lines said here starts with one{(lower.Count > 0 ? ": " + string.Join("; ", lower.Take(8)) : "")}", lower.Count == 0);
         }

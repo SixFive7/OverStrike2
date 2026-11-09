@@ -26,7 +26,7 @@ static partial class Program
             $"{ResetEmptyMinutes} minutes with nobody on", $"the last {RecentCount} maps played", $"up to {UpvoteCap} Likes", $"(max {UpvoteCap})",
             $"up to {PopularityPoints:0} points", $"takes {DislikePoints:0}", $"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most", $"over {ShownFadeDays} days", // the points (Dice.cs)
             $"the last {FreshDays} days", // the fresh card (Popularity.cs)
-            $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes",
+            $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes", $"{MatchLength.ShortRounds} or {MatchLength.LongRounds} rounds", // the match length (MatchLength.cs)
             $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page
             $"Spawn with {Fun.VampireHealth} health", $"up to {Fun.VampireCap}", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost
             $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"takes {Modes.Wingman.MaxPlayers} players at most", $"up to {Modes.Wingman.MaxPlayers} players", // the vote (VoteRound.cs), the modes (Modes.cs)
