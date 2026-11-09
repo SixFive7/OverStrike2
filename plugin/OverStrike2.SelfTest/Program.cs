@@ -291,6 +291,17 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs") };
     Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),
         "restart guard: the docs' harness restarts the match with os_restart, which goes through - never with a bare mp_restartgame, which is refused");
+    // the fairness restart (EarlyJoinWatch.cs; its plan, ../../bridge/Shared/EarlyJoin.cs, is the bridge's --selftest's): the game fed in, the bridge asked
+    var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
+    var fair = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
+    Check(host.Contains("new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);", StringComparison.Ordinal)
+          && fair.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal)
+          && Source("plugin", "OverStrike2", "HudScreenFair.cs").Contains("bridge.Act(account, name, EarlyJoin.Command);", StringComparison.Ordinal),
+        "fairness restart: wired with the reload's flag (a plugin loaded mid-map does nothing on that map), the mode the settings module has, and its ask the plugin's own word on /act");
+    Check(fair.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal) && fair.Contains("if (Warmup()) return HookResult.Continue;", StringComparison.Ordinal)
+          && fair.Contains("name.Contains(\"SHUTDOWN\", StringComparison.Ordinal) || name.StartsWith(\"NETWORK_DISCONNECT_LOOP\", StringComparison.Ordinal)", StringComparison.Ordinal)
+          && fair.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
+        "fairness restart: humans only - no bot, no TV - no round start in a warmup, and a map change's or the addon download's reconnect is no leaving");
 }
 
 // ---- the spawn cloak's cap (release 194): the welcome is pinned open at a real join until its X, and a game that cannot draw our window - a content

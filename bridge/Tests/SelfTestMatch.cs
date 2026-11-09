@@ -228,6 +228,53 @@ static partial class Program
             rconDown = false;
             Check("RCON not answering: the line for everybody says it did not restart", h.Said("The server did not answer - The match did not restart") && RematchDue == null);
 
+            // ---- the fairness restart (EarlyJoin.cs): the plugin's ask on /act, the countdown, os_restart; once per map; Restart match's refusals ----
+            void Fair((string Name, string Id) p) => HudAct($"{p.Id}\t{p.Name}\t{EarlyJoin.Command}");
+            Fresh();
+            Fair(bob);
+            var fair = Live();
+            Check($"The fairness restart: the plugin's ask for Bob counts down {EarlyJoin.CountdownSeconds} s on the countdown banner - the logo, who came in, the seconds - and nothing goes out before",
+                fair is { RematchBy: "Bob", RematchFair: true, RematchIn: EarlyJoin.CountdownSeconds } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds)) && !h.Sent.Contains(RematchCommand)
+                && HudView.CountdownOf(fair) is { Eyebrow: "Match", Title: "The match restarts for fairness - Bob is in", Line: "The whole match starts over", Logo: true, Seconds: EarlyJoin.CountdownSeconds });
+            var fairLine = $"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob is in";
+            Check($"...chat and the board say it for everybody: {fairLine}", InChat(fairLine) && OnBoard(fairLine));
+            Click(alice, "!rematch");
+            Click(alice, "!rematch");
+            Check("...a player's Restart match meanwhile says the fairness restart comes already", h.Said($"The match restarts for fairness already - It goes in {EarlyJoin.CountdownSeconds} s") && RematchDue is { Fair: true });
+            h.Run(EarlyJoin.CountdownSeconds + 1);
+            Check("...then the plugin's os_restart goes out, as Restart match's does, and the banner is gone",
+                h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
+            h.Sent.Clear();
+            h.Run(RematchWaitSeconds);
+            Fair(alice);
+            h.Run(EarlyJoin.CountdownSeconds + 1);
+            Check("...once per map: a second ask on the same map, a minute on, changes nothing", RematchDue == null && !h.Sent.Contains(RematchCommand));
+            h.Line("Loading map \"ar_other\"");
+            ClearNotices(); h.Sent.Clear();
+            Fair(alice);
+            Check("...and a new map may ask again", RematchDue is { Fair: true, By: "Alice" });
+            Fresh();
+            StartVote(bob.Item1, bob.Item2);
+            ClearNotices();
+            Fair(alice);
+            Check("The fairness restart: none while a vote is on - nobody is told, and the map does not ask again", Ballot is { Open: true } && RematchDue == null && !SaysNow.Any() && FairAsked);
+            Fresh();
+            Twice(alice, "!rematch");
+            h.Run(PressedSeconds + 1);
+            ClearNotices(); h.Sent.Clear();
+            Fair(bob);
+            Check($"...none within {RematchWaitSeconds} s of a Restart match: that match is young already", RematchDue == null && !SaysNow.Any());
+            Fresh();
+            S.Mode = Modes.WingmanId; S.Map = new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId);
+            Fair(bob);
+            Check("...none in Wingman, which keeps its warmup", RematchDue == null && !FairAsked);
+            Fresh();
+            Fair(bob);
+            var older = string.Join('\n', BuildHud(h.Clock).Encode(endTimes: true).Split('\n').Select(l => l.StartsWith("rematch\t", StringComparison.Ordinal) ? l[..l.LastIndexOf('\t')] : l));
+            var olderPlugin = HudState.Decode(older)!;
+            Check("The fairness restart on the wire: the rematch line's third field - a line without it (an older bridge) is a player's Restart match",
+                Live().RematchFair && olderPlugin is { RematchFair: false, RematchBy: "Bob" } && olderPlugin.RematchAtMs > 0);
+
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();
             restartReply = "Unknown command 'os_restart'!";

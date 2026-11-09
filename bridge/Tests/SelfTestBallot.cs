@@ -152,8 +152,8 @@ static partial class Program
             var catText = catalog.Encode();
             var catBack = HudCatalog.Decode(catText)!;
             var line5 = catText.Split('\n').First(l => l.StartsWith($"m\t{Key(Ar(5))}\t"));
-            Check("The catalog carries each map's tags as field 24, which an older plugin does not read (it stops at 23)",
-                catBack.Find(Key(Ar(5)))!.Tags == TagsOf(Ar(5)) && line5.Split('\t').Length == 24 && line5.Split('\t')[23] == TagsOf(Ar(5))
+            Check("The catalog carries each map's tags as field 24, which an older plugin does not read (it stops at 23), and a Wingman map's spawn points per side as field 25",
+                catBack.Find(Key(Ar(5)))!.Tags == TagsOf(Ar(5)) && line5.Split('\t').Length == 25 && line5.Split('\t')[23] == TagsOf(Ar(5))
                 && HudCatalog.Decode(HudCatalog.Magic + "\n" + string.Join('\t', line5.Split('\t').Take(23)))!.Maps.Single().Tags == "");
 
             // ---- the recipe: four on, a map on, nobody's pick: Keep, the other modes, a fresh map, a surprise, the favourites ----
@@ -225,6 +225,7 @@ static partial class Program
 
             // ---- picks while the vote is open: the favourites make room first, then the surprise, the fresh card last; the other modes keep their place ----
             Fresh();
+            foreach (var off in OfficialsOf(Modes.Wingman)) S.Crashes[Key(off)] = 1; // Valve's Wingman maps take 4 a side and more: out of the dice, no Wingman map takes nine
             foreach (var p in players) h.Join(p); // nine on: no Wingman card; the clock stands still, so the vote stays open whoever votes
             ReportAllStock();
             StartVote(players[8].Item1, players[8].Item2);
@@ -393,7 +394,7 @@ static partial class Program
                 ($"each Dislike or Too big takes {DislikePoints:0}", DislikePoints == 2 && TooBigVote < 0), ($"loses {ShownPoints:0} point, {ShownMaxPoints:0} at most, fading to nothing over {ShownFadeDays} days", true),
                 ("each one doubles the odds", true), ($"the last {RecentCount} maps played (while others are left)", true), ("a map's download size never makes it more or less likely", true),
                 ($"{MapVote.Seconds} s at the most", true), ($"{MapVote.WaitSeconds / 60} minutes before the next one can be called", MapVote.WaitSeconds % 60 == 0),
-                ($"Wingman takes {Modes.Wingman.MaxPlayers} players at most", true), ("a second page only when needed", true), ("A risky map shows its record", true),
+                ("A Wingman map takes as many a side as it has spawn points", true), ("a second page only when needed", true), ("A risky map shows its record", true),
                 ("putting it to the vote takes a second click", PickConfirmSeconds > 0), ("No votes: mid-match the map stays, at a match end Random", true), ("A Workshop update lifts a crash mark", true),
                 ($"{ResetEmptyMinutes} minutes with nobody on", true),
             };

@@ -48,7 +48,9 @@ public sealed class HudState
     public string RestartBy = "";                       // the player who pressed a restart counting down
     public string RestartAfter = "";                    // what players do afterwards, as the countdown's second line says it
     public long RematchAtMs;                            // Restart match counting down: the moment it goes...
-    public string RematchBy = "";                       // ...and who pressed it
+    public string RematchBy = "";                       // ...and who pressed it - or, a fairness restart's, who came in late
+    public bool RematchFair;                            // ...the fairness restart (EarlyJoin): the countdown banner says so
+    public int Humans;                                  // the humans on, as the bridge counts them: a Wingman map's Play says when it takes fewer (Modes.WingmanFits); 0 unknown
     public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
 
     /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
@@ -124,7 +126,8 @@ public sealed class HudState
         if (CrashNote != "") Raw("crashn", Hud.Clean(CrashNote, Messages.TopMax));
         if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));
         if (RestartKind != "") Raw("rstby", Hud.Clean(RestartBy, 32), Hud.Clean(RestartAfter, 80));
-        if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 32));
+        if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 32), RematchFair ? 1 : 0); // an older plugin reads the first two
+        if (Humans > 0) Raw("hum", Humans); // an older plugin skips it
         return s.ToString();
     }
 
@@ -172,7 +175,8 @@ public sealed class HudState
                 case "crashn": s.CrashNote = Str(f, 1); break;
                 case "chgkey": s.ChangeKey = Str(f, 1); break;
                 case "rstby": (s.RestartBy, s.RestartAfter) = (Str(f, 1), Str(f, 2)); break;
-                case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy) = (Long(f, 1), Str(f, 2)); break;
+                case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy, s.RematchFair) = (Long(f, 1), Str(f, 2), Int(f, 3) == 1); break;
+                case "hum": s.Humans = Math.Max(0, Int(f, 1)); break;
             }
         }
         return s;

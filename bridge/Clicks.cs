@@ -27,6 +27,7 @@ static partial class Program
         Log($"hud: {name} {f[0]} clicked {f[2]}");
         Present(f[0], name);
         if (f[2].StartsWith("!hudok ", StringComparison.Ordinal)) { HudVerify(f[0], name, f[2][7..]); return true; } // never a chat command: only a click says it
+        if (f[2] == EarlyJoin.Command) { FairRestart(f[0], name); return true; } // never a chat command nor a click: the plugin's own ask (EarlyJoin.cs)
         Command(name, f[0], f[2]);
         return true;
     }

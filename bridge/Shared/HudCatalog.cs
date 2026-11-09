@@ -14,10 +14,11 @@ public sealed class HudCatalog
     /// Broken: crashes on the swept broken list (0 = listed without a count), -1 when not on it. Removed: gone from the Workshop
     /// (Workshop.cs) - nobody can download it, so it is refused rather than confirmed. RankAr, RankDm, RankWm: the map's place in that mode's
     /// list, 0 for an official map of that mode, -1 when that mode does not have it; Rank is the place in the first mode that has it.
-    /// Tags: its tags' ids in precedence order, comma-separated (MapTags) - field 24; an older plugin reads up to field 23.</summary>
+    /// Tags: its tags' ids in precedence order, comma-separated (MapTags) - field 24; an older plugin reads up to field 23. Side: a Wingman map's spawn points per side
+    /// (field 25), 0 while nobody has counted them or for a map Wingman does not have - Modes.WingmanFits says what it takes.</summary>
     public sealed record Entry(string Key, string Arg, int Rank, long Id, string Name, int SizeMb, bool Official, int Broken, int Crashes, int Up, int Down,
         bool Removed = false, bool TooBig = false, string SizeClass = "", int M2 = 0, int Big = 0, int Ads = 0, bool Ours = false, string Reason = "",
-        int? RankAr = null, int RankDm = -1, int RankWm = -1, string Tags = "")
+        int? RankAr = null, int RankDm = -1, int RankWm = -1, string Tags = "", int Side = 0)
     {
         public bool Risky => !Removed && (Broken >= 0 || Crashes > 0);
 
@@ -73,7 +74,7 @@ public sealed class HudCatalog
         foreach (var m in Maps)
             s.Append(string.Join('\t', "m", Hud.Clean(m.Key, 40), Hud.Clean(m.Arg, 40), I(m.Rank), I(m.Id), Hud.Clean(m.Name, 64), I(m.SizeMb), m.Official ? "1" : "0",
                 I(m.Broken), I(m.Crashes), I(m.Up), I(m.Down), m.Removed ? "1" : "0", m.TooBig ? "1" : "0", Hud.Clean(m.SizeClass, 2), I(m.M2), I(m.Big), I(m.Ads), m.Ours ? "1" : "0", Hud.Clean(m.Reason, 64), I(m.RankIn(Modes.ArmsRaceId)), I(m.RankDm), I(m.RankWm),
-                MapTags.Clean(m.Tags))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen, 4.3: twenty, 4.5: twenty-three)
+                MapTags.Clean(m.Tags), I(m.Side))).Append('\n'); // an older plugin reads the first twelve (3.1.0: seventeen, 3.2: eighteen, 4.3: twenty, 4.5: twenty-three, 5.8: twenty-four)
         foreach (var (account, mine) in Votes)
             foreach (var (key, value) in mine)
                 s.Append(string.Join('\t', "v", I(account), Hud.Clean(key, 40), I(Carried(value)))).Append('\n'); // an older plugin takes the sign (3.1.0 keeps -2 and takes the sign of -3)
@@ -100,7 +101,7 @@ public sealed class HudCatalog
                     c.Maps.Add(new Entry(f[1], f[2], (int)L(f, 3), L(f, 4), f[5], (int)L(f, 6), f[7] == "1", (int)L(f, 8), (int)L(f, 9), (int)L(f, 10), (int)L(f, 11),
                         f.Length > 12 && f[12] == "1", f.Length > 13 && f[13] == "1", f.Length > 14 ? f[14] : "", (int)L(f, 15), (int)L(f, 16), (int)L(f, 17),
                         f.Length > 18 && f[18] == "1", f.Length > 19 ? f[19] : "", f.Length > 22 ? (int)L(f, 20) : (int)L(f, 3), f.Length > 22 ? (int)L(f, 21) : -1, f.Length > 22 ? (int)L(f, 22) : -1,
-                        f.Length > 23 ? MapTags.Clean(f[23]) : ""));
+                        f.Length > 23 ? MapTags.Clean(f[23]) : "", (int)L(f, 24)));
                     break;
                 case "v" when f.Length >= 4 && L(f, 1) > 0 && f[2] != "" && L(f, 3) != 0:
                     var account = L(f, 1);

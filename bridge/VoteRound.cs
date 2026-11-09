@@ -190,26 +190,26 @@ static partial class Program
 
     /// <summary>One draw of the dice for a card: a map of the mode from the kept maps on the server's disk (KeptOnDisk), by points, never one already
     /// taken - and taken by it. Null: none is left.</summary>
-    static MapInfo? DrawKept(Modes.Mode mode, HashSet<string> taken)
+    static MapInfo? DrawKept(Modes.Mode mode, HashSet<string> taken, int players = 0)
     {
-        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && KeptOnDisk(m)).ToList();
+        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && KeptOnDisk(m) && (players == 0 || Fits(m, players))).ToList();
         if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 
     /// <summary>The fresh card's draw: a fresh map of the mode on the server's disk - kept, or a downloaded stock entry - by points. Null: none.</summary>
-    static MapInfo? DrawFresh(Modes.Mode mode, HashSet<string> taken)
+    static MapInfo? DrawFresh(Modes.Mode mode, HashSet<string> taken, int players = 0)
     {
-        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && IsFresh(m) && KeptOnDisk(m)).ToList();
+        var pool = PoolOf(mode).Where(m => CanRoll(m, taken) && IsFresh(m) && KeptOnDisk(m) && (players == 0 || Fits(m, players))).ToList();
         var have = pool.Select(Key).ToHashSet();
-        pool.AddRange(StockOnDisk(mode, taken).Where(m => IsFresh(m) && have.Add(Key(m))));
+        pool.AddRange(StockOnDisk(mode, taken).Where(m => IsFresh(m) && (players == 0 || Fits(m, players)) && have.Add(Key(m))));
         if (RollIn(pool) is not { } r || !taken.Add(Key(r.Pick))) return null;
         return r.Pick;
     }
 
     /// <summary>The surprise: the first of the mode's stock entries on the server's disk that may be shown. Null: none is downloaded yet.</summary>
-    static MapInfo? DrawSurprise(Modes.Mode mode, HashSet<string> taken) =>
-        StockOnDisk(mode, taken).FirstOrDefault(m => CanRoll(m, taken)) is { } m && taken.Add(Key(m)) ? m : null;
+    static MapInfo? DrawSurprise(Modes.Mode mode, HashSet<string> taken, int players = 0) =>
+        StockOnDisk(mode, taken).FirstOrDefault(m => CanRoll(m, taken) && (players == 0 || Fits(m, players))) is { } m && taken.Add(Key(m)) ? m : null;
 
     /// <summary>A card shown: its map is no longer new to us, and a card the dice or a player put on it is remembered with the time, for the step back
     /// a card shown and not chosen takes in the points (Dice.cs: ShownPenalty). Showings older than ShownFadeDays are forgotten.</summary>
@@ -240,7 +240,7 @@ static partial class Program
         var round = Math.Max(new DateTimeOffset(now).ToUnixTimeSeconds(), LastRound + 1);
         var b = new BallotState { Round = round, Opened = now, Ends = now.AddSeconds(MapVote.Seconds), PresentAtOpen = present > 0 ? 0 : humans,
             Starter = starter, StarterName = starterName, MatchEnded = matchEnd, ServerStart = serverStart };
-        b.FillMode = CurrentMode.Suits(players) ? CurrentMode : Modes.Default; // Wingman with 5 on: its random cards and Random come from Arms Race
+        b.FillMode = ModeSuits(CurrentMode, players) ? CurrentMode : Modes.Default; // Wingman with more on than any of its maps takes: its random cards and Random come from Arms Race
         var taken = new HashSet<string>();
         if (CurrentKey != "") { b.Options.Add(new BallotOption(VoteSource.Keep, S.Map, CurrentMode, KeepOrder, S.Map is { } on ? TagsOf(on) : "")); taken.Add(CurrentKey); }
         if (pick != null && taken.Add(Key(pick)))
@@ -252,17 +252,17 @@ static partial class Program
         BallotOption Rolled(MapInfo map, Modes.Mode mode, int order) => new(VoteSource.Rolled, map, mode, order, TagsOf(map));
         // one map of each other mode that suits the players on - the pick stands for its own mode - from that mode's kept maps on the disk
         var others = new List<BallotOption>();
-        foreach (var mode in Modes.All.Where(m => m.Id != b.FillMode.Id && m.Suits(players)))
+        foreach (var mode in Modes.All.Where(m => m.Id != b.FillMode.Id && ModeSuits(m, players)))
         {
             if (pick != null && ModeOf(pick).Id == mode.Id) continue;
-            if (DrawKept(mode, taken) is { } map) others.Add(Rolled(map, mode, OtherOrder + others.Count));
+            if (DrawKept(mode, taken, players) is { } map) others.Add(Rolled(map, mode, OtherOrder + others.Count)); // a Wingman map with spawn points for them
         }
         // the server's own mode until the page is full: the fresh card, the surprise, the favourites
         var fill = new List<BallotOption>();
         var room = MapVote.PageCards - b.Options.Count - others.Count;
-        if (room > 0 && !b.Options.Concat(others).Any(o => o.Map is { } x && IsFresh(x)) && DrawFresh(b.FillMode, taken) is { } fresh) { fill.Add(Rolled(fresh, b.FillMode, FreshOrder)); room--; }
-        if (room > 0 && DrawSurprise(b.FillMode, taken) is { } surprise) { fill.Add(Rolled(surprise, b.FillMode, SurpriseOrder)); room--; }
-        while (room > 0 && DrawKept(b.FillMode, taken) is { } favourite) { fill.Add(Rolled(favourite, b.FillMode, FavouriteOrder + fill.Count)); room--; }
+        if (room > 0 && !b.Options.Concat(others).Any(o => o.Map is { } x && IsFresh(x)) && DrawFresh(b.FillMode, taken, players) is { } fresh) { fill.Add(Rolled(fresh, b.FillMode, FreshOrder)); room--; }
+        if (room > 0 && DrawSurprise(b.FillMode, taken, players) is { } surprise) { fill.Add(Rolled(surprise, b.FillMode, SurpriseOrder)); room--; }
+        while (room > 0 && DrawKept(b.FillMode, taken, players) is { } favourite) { fill.Add(Rolled(favourite, b.FillMode, FavouriteOrder + fill.Count)); room--; }
         b.Options.AddRange(fill);
         b.Options.AddRange(others);
         if (b.Options.Count(o => o.Source != VoteSource.Keep) == 0) { Log("vote: nothing to put on the ballot"); return false; }
@@ -469,11 +469,11 @@ static partial class Program
         else b.EverybodySince ??= now;
         if (now < VoteEnds(b) && (!everybody || now < SettleEnd(b))) return; // InactivitySeconds 0: the moment the last one votes
         var tally = b.Options.ToDictionary(o => o.N, o => b.Choices.Values.Count(n => n == o.N));
-        bool Fits(BallotOption o) => o.Source is VoteSource.Keep or VoteSource.Random || o.Mode.Suits(count); // no Wingman map with five or more on
-        var ranked = b.Options.Where(Fits).ToList();
+        bool Takes(BallotOption o) => o.Source is VoteSource.Keep or VoteSource.Random || o.Map is not { } map || Fits(map, count); // a Wingman map takes as many a side as it has spawn points
+        var ranked = b.Options.Where(Takes).ToList();
         var most = ranked.Max(o => tally[o.N]);
-        foreach (var o in b.Options.Where(o => !Fits(o) && tally[o.N] > 0 && tally[o.N] >= most))
-            Log($"vote: {OptionLabel(b, o)} has {tally[o.N]} vote(s), but {o.Mode.Name} takes {o.Mode.MaxPlayers} players and {count} are on - it cannot win");
+        foreach (var o in b.Options.Where(o => !Takes(o) && tally[o.N] > 0 && tally[o.N] >= most))
+            Log($"vote: {OptionLabel(b, o)} has {tally[o.N]} vote(s), but it takes {(o.Mode.Id == Modes.WingmanId && o.Map is { } m ? Modes.WingmanTakes(SpawnsPerSide(m)) : $"{o.Mode.MaxPlayers} players")} and {count} are on - it cannot win");
         if (most == 0)
         {
             // Nobody voted: Random at a match end and at a server start (the dice the start roll would have rolled). Mid-match the map stays - also when the bridge does

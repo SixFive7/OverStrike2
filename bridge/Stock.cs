@@ -157,6 +157,7 @@ static partial class Program
     {
         inMode ??= CurrentMode;
         var pool = OnDiskPool(inMode, exclude);
+        if (inMode.Id == Modes.WingmanId && Humans() is > 0 and var humans) pool = pool.Where(m => Fits(m, humans)).ToList(); // as many a side as it has spawn points (ModeSwitch.cs)
         if (RollIn(pool) is not { } r)
         {
             Log($"dice: nothing of {inMode.Name} on the server's disk is eligible - the dice roll over every eligible map");

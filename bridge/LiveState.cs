@@ -44,6 +44,7 @@ static partial class Program
         // Every mode's maps, one entry a map: its place in each mode that lists it (ModeSwitch.cs), Arms Race's first.
         var places = new Dictionary<string, (MapInfo First, int Ar, int Dm, int Wm)>();
         var order = new List<string>();
+        var sides = new Dictionary<string, int>(); // a Wingman map's spawn points per side (ModeSwitch.cs, SpawnsPerSide)
         void Place(MapInfo m, Modes.Mode mode)
         {
             var key = Key(m);
@@ -58,14 +59,18 @@ static partial class Program
         }
         foreach (var m in Maps.Where(m => !IsNonMap(m) && !IsBlocked(m)).Concat(Officials)) Place(m, Modes.ArmsRace);
         foreach (var mode in Modes.All.Where(x => !x.ArmsRace))
-            foreach (var m in PoolOf(mode).Where(m => !IsNonMap(m) && !IsBlocked(m))) Place(m, mode);
+            foreach (var m in PoolOf(mode).Where(m => !IsNonMap(m) && !IsBlocked(m)))
+            {
+                Place(m, mode);
+                if (mode.Id == Modes.WingmanId) sides[Key(m)] = SpawnsPerSide(m);
+            }
         foreach (var key in order)
         {
             var (m, ar, dm, wm) = places[key];
             var (up, down) = Tally(key);
             c.Maps.Add(new HudCatalog.Entry(key, ArgOf(m), m.Rank, m.Id, m.Name, m.SizeMb, m.Official, Broken.TryGetValue(key, out var b) ? b : S.PlayerCrashes.ContainsKey(key) ? 0 : -1,
                 S.Crashes.GetValueOrDefault(key), up, down, IsRemoved(m), TooBig(m), SizeClass(m) ?? "", AreaOf(m) ?? 0, TooBigVotes(key), AdsVotes(key),
-                IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs) - read by place, so a new field only ever goes at the end
+                IsOurs(m), ReasonOf(key), ar, dm, wm, TagsOf(m), sides.GetValueOrDefault(key))); // Ours.cs, BrokenWhy.cs: fields 19 and 20; the three places 21 to 23; the tags 24 (Popularity.cs); Wingman's spawns per side 25 - read by place, so a new field only ever goes at the end
         }
         foreach (var (key, votes) in Likes)
             foreach (var (sid, value) in votes)
@@ -99,6 +104,7 @@ static partial class Program
             Size = S.Map is { Official: false, Rank: > 0 } m ? Size(m) : "",
             Key = key,
             Loading = LoadPending,
+            Humans = Players.Values.Count(p => p.GoneSince == null && p.ReloadSince == null), // the stream's count, no RCON: Humans() asks status when it knows nobody
             Status = Pending is { } p ? $"Changing to {Clip(Label(p.Map), 32)}"
                 : Ballot is { Open: true } ? "Vote for the next map"
                 : "Plays until its match ends - Or start a vote",

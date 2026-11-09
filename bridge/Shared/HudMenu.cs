@@ -37,18 +37,22 @@ public static class HudMenu
 
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
     /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
-    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0)
+    static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0, string serverMode = "")
     {
+        // a Wingman map with spawn points for fewer than are on: what it takes, in place of Add to the vote or Put to the vote - the bridge refuses the click (ModeRefusal)
+        var unfit = PlayMode(m, b.Mode, serverMode) == Modes.WingmanId && s.Humans > 0 && !Modes.WingmanFits(m.Side, s.Humans);
         if (vote is { Open: true, Round: > 0 } v)
         {
             if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
                 return v.ChoiceOf(account) == on.N ? "Your vote" : "On the vote";
             if (m.Removed) return "Unavailable";
+            if (unfit) return $"Wingman: {Modes.WingmanTakes(m.Side)}";
             if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
             return m.Risky ? Locked : "Add to the vote";
         }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
+        if (unfit) return $"Wingman: {Modes.WingmanTakes(m.Side)}";
         if (vote?.WaitFor > 0) return $"Vote in {MapVote.Left(vote.WaitFor)}";
         if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
         return m.Risky ? Locked : "Put to the vote";
@@ -110,7 +114,7 @@ public static class HudMenu
             t.Add(($"{id}_who", ""));   // the ballot's line under the name
             t.Add(($"{id}_score", "")); // the ballot's count
             t.Add(($"{id}_warn", m == null ? "" : Record(m)));
-            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, vote, account)));
+            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, vote, account, serverMode)));
             c.Add((id, "used", m != null));
             c.Add((id, "official", m?.Official == true));
             c.Add((id, "risky", m?.Risky == true));

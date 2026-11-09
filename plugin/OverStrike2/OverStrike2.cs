@@ -77,6 +77,9 @@ public class OverStrike2Plugin : BasePlugin
         new BotGuard(this, Logger, () => Bots.War(settings.FunValue), cloak).Load(); // no bot's damage to a player while Bot war is on or the cloak hides them - after the freeze's hook, before catch-up's
         // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window and the vote's freeze. It lives on in the handlers it registers.
         new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
+        // The fairness restart (EarlyJoinWatch.cs): a player who comes into an Arms Race or Deathmatch match during its first minute starts it over, once per map,
+        // through the bridge's Restart match. It goes by the mode the map that is on was loaded in, as the settings module has it.
+        new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may

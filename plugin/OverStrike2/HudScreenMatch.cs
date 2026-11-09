@@ -39,15 +39,16 @@ sealed partial class HudScreen
     }
 
     /// <summary>The round that is on gets the new length, counted from its start; a length it is past, or nearly, ends it MatchLength.LeastSeconds from now. Only in Arms Race and
-    /// Deathmatch, whose one round is the match (release 197), and only while a match is on: warmup and the match-end screen have no round to set, and the next match's round
-    /// start reads mp_roundtime, which the bridge has set by now.</summary>
+    /// Deathmatch, whose one round is the match (release 197), and only while a match is on: the match-end screen has no round to set, and the next match's round start reads
+    /// mp_roundtime, which the bridge has set by now. Neither mode warms up (their cfgs' mp_warmup_online_enabled 0): the match is live from the first team pick, so !time takes
+    /// it at once - a warmup still answers NoMatch, should a cfg switch it back on.</summary>
     string SetRoundTime(int minutes)
     {
         if (!MatchLength.OneRound(mode.Id)) return MatchLength.Reply(MatchLength.Result.NotHere, $"{mode.Name} has no one round, nothing set");
         if (!worldReady) return MatchLength.Reply(MatchLength.Result.NoMatch, "no round has started on this map"); // no entity before the first round start (the class summary)
         var proxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
         if (proxy is not { IsValid: true } || proxy.GameRules is not { } rules) return MatchLength.Reply(MatchLength.Result.NoMatch, "no game rules");
-        if (rules.WarmupPeriod || rules.GamePhase == MatchEndedPhase) return MatchLength.Reply(MatchLength.Result.NoMatch, rules.WarmupPeriod ? "warmup" : "the match has ended");
+        if (rules.WarmupPeriod || rules.GamePhase == MatchEndedPhase) return MatchLength.Reply(MatchLength.Result.NoMatch, rules.WarmupPeriod ? "a warmup (the cfg switched it on)" : "the match has ended");
         var played = Server.CurrentTime - rules.RoundStartTime;
         var seconds = MatchLength.RoundSeconds(minutes, played);
         var before = rules.RoundTime;
@@ -57,8 +58,8 @@ sealed partial class HudScreen
     }
 
     /// <summary>Wingman's count of rounds for the match that is on (release 199). Its sides switch at half the count, so the match takes the new one only while neither
-    /// count's halftime has come (MatchLength.ThisMatch); otherwise nothing is set here, and the bridge sets it when the next match starts. With no match on - warmup, the
-    /// match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
+    /// count's halftime has come (MatchLength.ThisMatch); otherwise nothing is set here, and the bridge sets it when the next match starts. With no match on - Wingman's
+    /// warmup (the one mode that keeps one), the match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
     string SetMaxRounds(int rounds)
     {
         if (ConVarKeeper.Find(MaxRounds) is not { } cv) return MatchLength.Reply(MatchLength.Result.NotHere, $"this build has no {MaxRounds}, nothing set");

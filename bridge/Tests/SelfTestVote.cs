@@ -177,21 +177,45 @@ static partial class Program
                 Ballot!.Options.Where(o => o.Mode == Modes.ArmsRace && o.Map != null).Select(o => o.Map!).ToHashSet().SetEquals(three) && Ballot.Options.Count(o => o.Map != null) == 5
                 && Ballot.Options[^1].Source == VoteSource.Random && Ballot.Options.All(o => o.Source != VoteSource.Keep));
 
-            // ---- five on: Wingman (Valve's maxplayers 4) is no card, no pick, and no winner ----
+            // ---- five on: a Wingman map takes as many a side as it has spawn points (Modes.WingmanFits) - five need 3 a side ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
             h.MatchEnd();
-            Check($"Five on: no Wingman card - {MapVote.PageCards - 1} Arms Race maps, one Deathmatch map, Random",
-                Ballot!.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", MapVote.PageCards - 1).Concat(["deathmatch", "armsrace"]))
-                && LiveVote().Options.All(o => o.Mode != Modes.WingmanId));
-            var wing = PoolOf(Modes.Wingman).First(x => x.Official);
-            ClearNotices(); Command(alice.Item1, alice.Item2, $"!map {wing.Name} wingman");
-            Check("...a Wingman map cannot be picked with five on, during a vote or not", h.Said("Wingman takes 4 players") && Ballot!.Options.All(o => o.Mode != Modes.Wingman));
+            Check("Five on: the Wingman card is one of Valve's maps, with spawn points for 4 a side or more - the Workshop's, not counted, take 2",
+                Ballot!.Options.Single(o => o.Mode == Modes.Wingman) is { Map: { Official: true } wingFive } && Fits(wingFive, 5) && SpawnsPerSide(wingFive) >= 4);
+            var wingWs = new MapInfo(1, 9_500_001, "wm_duel", 30, Mode: Modes.WingmanId); // a Workshop Wingman map the sync has not counted: 2 a side
+            ModeMaps[Modes.WingmanId] = [wingWs];
+            ClearNotices(); Command(alice.Item1, alice.Item2, $"!map {ArgOf(wingWs)} wingman");
+            Check("...a Workshop Wingman map nobody counted (2 a side) cannot be picked with five on, and the line says what it takes",
+                h.Said($"has spawn points for {Modes.UnknownSpawnsPerSide} a side in Wingman, and 5 are on - Not this map now") && Ballot!.Options.All(o => o.Map != wingWs));
+            ClearNotices(); Command(bob.Item1, bob.Item2, "!map de_inferno wingman");
+            Check("...Valve's de_inferno, 4 a side, can", Ballot!.Options.Any(o => o.Map?.Name == "de_inferno" && o.Source == VoteSource.Picked) && !h.Said("Not this map now"));
+            ModeMaps[Modes.WingmanId] = ModeMaps[Modes.WingmanId].Select(x => x == wingWs ? x with { SpawnsT = 3, SpawnsCt = 5 } : x).ToList();
+            ClearNotices(); Command(cara.Item1, cara.Item2, $"!map {ArgOf(wingWs)} wingman");
+            Check("...and once the list counts its spawn points (3 T, 5 CT: 3 a side, the smaller), so can that one", Ballot!.Options.Any(o => o.Map != null && Key(o.Map) == Key(wingWs) && o.Source == VoteSource.Picked));
+            Check("...the rule: N players need the larger half of N a side; a map nobody counted takes 2 a side",
+                Modes.WingmanFits(2, 4) && !Modes.WingmanFits(2, 5) && Modes.WingmanFits(3, 5) && Modes.WingmanFits(3, 6) && !Modes.WingmanFits(3, 7) && Modes.WingmanFits(0, 4) && !Modes.WingmanFits(0, 5)
+                && Modes.WingmanOfficialSpawns.Count == Modes.Wingman.Official.Length && Modes.Wingman.Official.All(n => Modes.WingmanOfficialSpawns.GetValueOrDefault(n) >= 4));
+            // the map browser and the wire: the catalog's spawn points per side, the live state's humans, the Play text of a map that does not take them
+            var fitCat = HudCatalog.Decode(BuildCatalog().Encode())!;
+            var fitLive = HudState.Decode(BuildHud(h.Clock).Encode())!;
+            var wsEntry = fitCat.Find(Key(wingWs))!;
+            var infEntry = fitCat.Find("de_inferno")!;
+            Check("The catalog carries a Wingman map's spawn points per side - de_inferno's 4, the Workshop map's 3 now the list counts them - and the live state the humans on (5)",
+                infEntry.Side == 4 && wsEntry.Side == 3 && fitLive.Humans == 5);
+            var small2 = new HudCatalog { Maps = [wsEntry with { Side = 2, Key = "999001", Arg = "999001", Id = 999001 }, infEntry] };
+            var (fitTexts, _) = HudMenu.Maps(small2, fitLive, new HudBrowser { Mode = Modes.WingmanId }, 2001, h.Clock, serverMode: Modes.ArmsRaceId);
+            var plays = fitTexts.Where(x => x.Id.EndsWith("_play_text", StringComparison.Ordinal) && x.Text != "").Select(x => x.Text).ToList();
+            Check($"...a card's Play says what a Wingman map takes when it does not take the players on (Wingman: 2 a side), and Put to the vote when it does",
+                plays.Contains("Wingman: 2 a side") && plays.Contains("Put to the vote") && plays.Count == 2);
             Fresh();
-            foreach (var p in new[] { alice, bob, cara, dan }) h.Join(p); // four on: Wingman suits
+            foreach (var p in new[] { alice, bob, cara, dan }) h.Join(p); // four on: every Wingman map takes them
             h.MatchEnd();
-            var wn = OptOf(o => o.Mode == Modes.Wingman);
             var arN = OptOf(o => o.Mode == Modes.ArmsRace && o.Source == VoteSource.Rolled);
+            var wingPick = new MapInfo(1, 9_500_001, "wm_duel", 30, Mode: Modes.WingmanId);
+            ModeMaps[Modes.WingmanId] = [wingPick];
+            Command(alice.Item1, alice.Item2, $"!map {ArgOf(wingPick)} wingman"); // a Workshop Wingman map nobody counted: 2 a side
+            var wn = OptOf(o => o.Map != null && Key(o.Map) == Key(wingPick));
             h.Join(eve); // a fifth joins during the vote: counted, and waited for
             Click(alice, wn); Click(bob, wn); Click(cara, wn); Click(dan, arN); Click(eve, arN);
             Check("...nor can its card win once five are on: the next most votes do", Ballot is { Open: false } && Pending?.Map == Opt(arN).Map && ModeOf(Pending!.Map) != Modes.Wingman);
@@ -644,6 +668,7 @@ static partial class Program
 
             // ---- more picks than a page: a random card makes room while one nobody voted for is left, then a second page ----
             Fresh();
+            foreach (var off in OfficialsOf(Modes.Wingman)) S.Crashes[Key(off)] = 1; // Valve's Wingman maps out of the dice: no Wingman map takes ten
             var nine = new[] { alice, bob, cara, dan, eve, ("Fay", "[U:1:2006]"), ("Gus", "[U:1:2007]"), ("Hal", "[U:1:2008]"), ("Ida", "[U:1:2009]") };
             foreach (var p in nine) h.Join(p);
             h.Join(("Joe", "[U:1:2010]")); // ten on: Joe does not vote, so the vote stays open
@@ -885,12 +910,20 @@ static partial class Program
             Check("...convars that are none of our modes (Casual) leave the recorded mode, and the probe stops", S.Mode == "wingman" && !ModeProbing);
             ModeProbeEnabled = false;
 
-            // ---- Wingman with five on: the ballot's own maps and Random come from Arms Race ----
+            // ---- Wingman with five on: the ballot's own maps and Random come from the Wingman maps that take them, else from Arms Race ----
             Fresh();
             S.Mode = "wingman";
             foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
             h.MatchEnd();
-            Check($"In Wingman with five on: {MapVote.PageCards - 1} Arms Race maps, a Deathmatch map, Random in Arms Race - no Wingman",
+            Check("In Wingman with five on: its own maps fill the ballot - only those with spawn points for 3 a side, Valve's - and Random is Wingman's",
+                Ballot!.FillMode == Modes.Wingman && Ballot.Options.Where(o => o.Mode == Modes.Wingman && o.Map != null).All(o => Fits(o.Map!, 5) && o.Map!.Official)
+                && Ballot.Options.Any(o => o.Mode == Modes.Wingman && o.Source == VoteSource.Rolled));
+            Fresh();
+            S.Mode = "wingman";
+            foreach (var off in OfficialsOf(Modes.Wingman)) S.Crashes[Key(off)] = 1; // Valve's Wingman maps out of the dice: the Workshop's left, nobody counted them
+            foreach (var p in new[] { alice, bob, cara, dan, eve }) h.Join(p);
+            h.MatchEnd();
+            Check($"...and when no Wingman map the dice may take has spawn points for them: {MapVote.PageCards - 1} Arms Race maps, a Deathmatch map, Random in Arms Race - no Wingman",
                 Ballot!.FillMode == Modes.ArmsRace && Ballot.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("armsrace", MapVote.PageCards - 1).Concat(["deathmatch", "armsrace"])));
 
             // ---- the per-mode lists: maps-<mode>.json beside maps.json ----

@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 static partial class Program
 {
     /// <summary>!map: the map a click names (Find), refused when it is no playable map (Unplayable) or its mode does not suit the players on (B6: no
-    /// Wingman with five or more), asked about once more when it is risky (ConfirmGate, per player) - then selected: a vote with it on the ballot and
+    /// a Wingman map with spawn points for fewer than are on), asked about once more when it is risky (ConfirmGate, per player) - then selected: a vote with it on the ballot and
     /// this player's vote on it, or onto the vote that is open (VoteRound.cs).</summary>
     static void PickMap(string by, string steamId, string query, string inMode = "")
     {

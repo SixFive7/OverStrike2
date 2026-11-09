@@ -64,7 +64,7 @@ spawn. It stays until its X: no idle close, through damage, death and a respawn.
 | MAPS | Vote | While a vote is on, the ballot ([below](#the-ballot)); Browse then adds to the vote. |
 | FUN | | The [fun settings](#fun-settings), with Random and Default. |
 | SERVER | Players | Who is on, their team, the HUD their game showed, the HUD check's clock, their vote while one is open, and how long they have been on. |
-| SERVER | Game | The match length - 10 or 60 minutes in Arms Race and Deathmatch, 8 or 16 rounds in Wingman - and who set it; Restart the server, for a stuck one, and Restart the match, each twice to confirm ([below](#the-match-length-and-the-two-restarts)). |
+| SERVER | Game | The match length - 10 or 60 minutes in Arms Race and Deathmatch, 8 or 16 rounds in Wingman - and who set it; Restart the server, for a stuck one, and Restart the match, each twice to confirm ([below](#the-match-length-and-the-restarts)). |
 | SERVER | Sync | The [Workshop sync's dashboard](#the-dashboard). |
 | HELP | Help | Where everything is. |
 | HELP | How it works | Every rule of the vote and every chance of a random pick: the one set of rule texts in the game ([Keeping the rules in sync](#keeping-the-rules-in-sync)). |
@@ -228,7 +228,7 @@ server console.
 Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, while [Steam is not showing the HUD](#the-huds-version-and-the-hud-check),
 or for **2 minutes after the last vote**; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
 says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
-With more than four on a Wingman map cannot win, and one asked for from another mode is refused.
+A Wingman map takes as many a side as it has [spawn points](#wingman-and-its-spawn-points): with more on it cannot win, and it is refused when asked for.
 
 ### The freeze
 
@@ -258,7 +258,7 @@ the vote and every click given up is a line of the plugin's log (`Over Strike 2 
 Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast, changed or taken back, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
-end. A Wingman map cannot win with more than four on: the next most votes do. The window shows who started the vote, where the votes go, who has not voted yet and
+end. A Wingman map with spawn points for fewer a side than are on cannot win: the next most votes do. The window shows who started the vote, where the votes go, who has not voted yet and
 both timers, then what came of it and the countdown. Every vote - cast, changed or taken back - says in chat and on the board who voted and who still has to.
 
 ### The ballot
@@ -267,12 +267,12 @@ One page of ten cards, a second only when what must be on it does not fit (48 at
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;
 2. **every map a player selected**, tagged PICKED;
-3. **one map of each other game mode that suits the players on** (Wingman with four players or fewer), from that mode's kept maps on the server's
+3. **one map of each other game mode that suits the players on** (for Wingman a map with spawn points for them), from that mode's kept maps on the server's
    disk, unless a pick stands for that mode;
 4. **the server's own mode to fill the page:** one **fresh** map, unless a card above is fresh already; one **surprise** from the discovery stock,
    new to us; and **favourites**, the kept maps by points. An empty slot - no fresh map on the disk, the stock not downloaded yet - is a favourite.
 
-**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when Wingman does not suit the players on). While
+**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when no Wingman map has spawn points for the players on; in Wingman only a map that has). While
 the vote is open every card keeps its place, Keep first; once it is decided, the cards show with the most votes first. A map a player selects while
 the vote is open takes the place of a random card of the server's mode nobody voted for - its very place on the screen, with a number of its own -
 favourites first, then the surprise, the fresh card last; the other modes' cards keep their place; chat says which card it replaced ("Bob added
@@ -289,9 +289,9 @@ Race, when the map that is on has just gone from the Workshop, when it has just 
 [Steam is not showing it](#the-huds-version-and-the-hud-check), because a vote freezes everybody and not everybody would see the ballot. Without the bridge a finished match replays the same map: the Arms Race cfg sets
 `mp_match_end_restart 1` and `mp_match_end_changelevel 0`, and the bridge acts on the log's `Game Over:` line.
 
-### The match length and the two restarts
+### The match length and the restarts
 
-Anybody may change these, on the Game page or in chat; each says for everybody who did it.
+Anybody may change the length and press the two restarts, on the Game page or in chat; each says for everybody who did it. The fairness restart is the server's own.
 
 - **The match length** (`!time 10`, `!time 60`, or a bare `!time` for the other one; Arms Race's and Deathmatch's, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: each of the two modes is one long
   round, so the plugin (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
@@ -308,6 +308,16 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
   mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
   the last one was pressed; a match end, a map start or the server going down during its countdown ends it.
+- **The fairness restart** (`bridge/Shared/EarlyJoin.cs`, the owner's request of 2026-11-09): Arms Race and Deathmatch have no warmup - their cfgs set
+  `mp_warmup_online_enabled 0`, so a match is live the moment the first player picks a team - and a player who loads the map more slowly would come into a match that is
+  already on, at level 0 in Arms Race. So a player who comes into a match during its first **60 s** - their first spawn on the map, not on a team when it went live: a player of
+  the map before who took longer to load, or a new joiner; never a bot - starts it over, **once per map**. The plugin (`EarlyJoinWatch.cs`) waits until every player of the
+  map before has spawned (one who leaves for real is not waited for), at most until the 60 s are over, and then asks the bridge, naming the last one in; the bridge takes
+  Restart match's path and its refusals - none while a vote is on, a map change counts down or loads, the server's restart counts down, the match has just ended, or within
+  60 s of a Restart match - counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in", says it in chat and on the board, and sends
+  `os_restart 1`. What starts over is Restart match's. Wingman keeps its warmup (15 s) instead, and a player who comes in within 30 s of a round's start still plays it
+  (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's,
+  takes that moment as the match going live, so a lone test game's spawn is a late join.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms, then the same 10 s countdown with the player's name, and the bridge quits the game process
   (a clean quit, [below](#broken-maps)), which the container's restart policy starts again. A vote that is open and a map change counting down end at the second click. The least time
   between two is `bridge.restartCooldownSeconds`.
@@ -316,6 +326,11 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
 
 **Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match. It is the default,
 after every server restart and after 10 minutes with nobody on. **Deathmatch** and **Wingman** come in through the vote.
+
+Arms Race and Deathmatch have no warmup (`mp_warmup_online_enabled 0`): a match is live the moment the first player picks a team, and [the fairness
+restart](#the-match-length-and-the-restarts) starts it over once if somebody comes in during its first minute. Wingman warms up for 15 s, from the first team pick.
+Both deathmatch-style modes spawn players at random, each spawn point tested for line of sight to the enemies (`mp_randomspawn_los 1`): the game picks one that no
+enemy sees, where the map has one - Valve's Deathmatch cfg sets it, and ours sets it for Arms Race too (Valve's Arms Race cfg does not).
 
 Each mode has Valve's official maps for it (`bridge/Shared/Modes.cs`) and the Workshop maps of its list: `maps.json` for Arms Race (whose official maps are
 playable but never rolled), `maps-deathmatch.json` and `maps-wingman.json` for the others. A map loads in its own mode: the bridge tells the plugin
@@ -328,7 +343,19 @@ that and takes the told mode, and reads `game_type` and `game_mode` only when th
 modes list plays in the mode the map browser's filter shows it in, else in the mode the server is in when that mode lists it, else in the first mode
 that does. Each mode has its own server cfg (`server/gamemode_*_server.cfg`) and its own values in the block list (`plugin/OverStrike2/blocked.txt`).
 The grenade drops, catch-up and friendly fire's settings are Arms Race's own, and the menu leaves them out elsewhere; the match length is every mode's, each its own
-([above](#the-match-length-and-the-two-restarts)): minutes in Arms Race and Deathmatch, rounds in Wingman.
+([above](#the-match-length-and-the-restarts)): minutes in Arms Race and Deathmatch, rounds in Wingman.
+
+### Wingman and its spawn points
+
+Wingman is two teams of two in Valve's matchmaking, but the game takes more: it holds a side at its spawn points ("The Terrorist team is full"), and the
+cfgs keep the sides within one of each other (`mp_limitteams 1`), so N players need the larger half of N spawn points a side. A Wingman map takes as many a
+side as it has (`Modes.WingmanFits`): the bridge offers it on the ballot, lets it win, rolls it as Random and accepts it when asked for only while the players on
+fit; otherwise the line says what it takes ("de_inferno has spawn points for 4 a side in Wingman, and 9 are on - Not this map now"), and a card's Play in the map
+browser says it in place of Put to the vote ("Wingman: 2 a side"). Valve's maps take 4 a side or more - de_inferno, de_nuke and de_overpass their 2v2 sets of 4,
+de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09; `Modes.WingmanOfficialSpawns`), and 3v3 on de_inferno was
+tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and `spawnsCt` in its entry of `maps-wingman.json`, which the
+bridge reads and the Workshop sync is to write from the map's files - not yet: until it does, every Workshop map counts as 2 a side, Valve's 2v2, as before. Of the
+140 Workshop Wingman maps the server kept that day, 105 had 3 or more a side, 94 had 4 or more, and 35 had fewer than 3 - 9 of them 1v1 maps with one.
 
 ## Random picks
 

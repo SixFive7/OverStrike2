@@ -51,6 +51,31 @@ public static class Modes
     /// <summary>Every mode, in menu order; the first is the default.</summary>
     public static readonly Mode[] All = [ArmsRace, Deathmatch, Wingman];
 
+    // ---- how many a Wingman map takes: as many a side as it has spawn points (the owner's request of 2026-11-09). The game holds a side at its spawn points
+    // ("The Terrorist team is full"), and our cfgs keep the sides within one of each other (mp_limitteams 1), so N players need the larger half of N a side. ----
+
+    /// <summary>A Wingman map's spawn points per side while nobody has counted them (a Workshop map the sync has not read yet): Valve's 2v2, so Wingman's maxplayers.</summary>
+    public const int UnknownSpawnsPerSide = 2;
+
+    /// <summary>The spawn points per side of Valve's own Wingman maps, read from their entity lumps (2026-11-09): the 2v2 set ("spawnpoints.2v2") that Wingman
+    /// switches on where a map has one - inferno, nuke and overpass - else every team spawn. 3v3 on de_inferno was tried on a test copy that day: every player spawned.</summary>
+    public static readonly IReadOnlyDictionary<string, int> WingmanOfficialSpawns = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["de_debris"] = 9, ["de_eldorado"] = 10, ["de_poseidon"] = 5, ["de_overpass"] = 4, ["de_vertigo"] = 15, ["de_nuke"] = 4, ["de_inferno"] = 4,
+    };
+
+    /// <summary>The players the larger side holds with this many on.</summary>
+    public static int Side(int humans) => (Math.Max(0, humans) + 1) / 2;
+
+    /// <summary>A map's spawn points per side as the rule counts them: its own, or UnknownSpawnsPerSide when nobody has counted them (0).</summary>
+    public static int PerSide(int spawnsPerSide) => spawnsPerSide > 0 ? spawnsPerSide : UnknownSpawnsPerSide;
+
+    /// <summary>Whether a Wingman map with this many spawn points per side (0: not counted) takes this many players.</summary>
+    public static bool WingmanFits(int spawnsPerSide, int humans) => Side(humans) <= PerSide(spawnsPerSide);
+
+    /// <summary>How many a Wingman map takes, as the Play button and the refusals say it: "3 a side".</summary>
+    public static string WingmanTakes(int spawnsPerSide) => $"{PerSide(spawnsPerSide)} a side";
+
     public static Mode Default => ArmsRace;
 
     /// <summary>The mode with this id, or null. An empty id (a map entry from before the modes) is Arms Race.</summary>

@@ -1,7 +1,7 @@
 // What the bridge keeps across its restarts (state.json, written by Save) and the map list's entries, and the JSON code they are read and written with.
 using System.Text.Json.Serialization;
 
-record MapInfo(int Rank, long Id, string Name, int SizeMb, bool Official = false, string Mode = "", long Updated = 0); // Official: from OFFICIAL_MAPS or a mode's official pool, no rank or id; Rank 0 and not official: unlisted workshop map; Mode: the game mode it loads in (Modes.cs), "" for Arms Race; Updated: the Workshop's time_updated (unix seconds) when the list carries it, 0 unknown
+record MapInfo(int Rank, long Id, string Name, int SizeMb, bool Official = false, string Mode = "", long Updated = 0, int SpawnsT = 0, int SpawnsCt = 0); // Official: from OFFICIAL_MAPS or a mode's official pool, no rank or id; Rank 0 and not official: unlisted workshop map; Mode: the game mode it loads in (Modes.cs), "" for Arms Race; Updated: the Workshop's time_updated (unix seconds) when the list carries it, 0 unknown; SpawnsT, SpawnsCt: a Wingman map's spawn points per side, as the sync counts them in its files (maps-wingman.json), 0 not counted
 
 sealed class State
 {

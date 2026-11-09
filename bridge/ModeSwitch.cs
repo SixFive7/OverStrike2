@@ -75,17 +75,37 @@ static partial class Program
     static MapInfo? OfficialElsewhere(string name) =>
         Modes.All.Where(m => !m.ArmsRace).SelectMany(OfficialsOf).FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than Valve's maxplayers for it (B6: no Wingman map with five
-    /// or more on), the rule the ballot and its result follow too (VoteRound.cs).</summary>
+    /// <summary>Why a pick cannot load in its mode right now, or null: more humans on than the map takes - a Wingman map as many a side as it has spawn
+    /// points (Fits), Deathmatch Valve's maxplayers - the rule the ballot and its result follow too (VoteRound.cs). A Deathmatch map is never refused in
+    /// Deathmatch: whoever is on plays it already.</summary>
     static string? ModeRefusal(MapInfo map)
     {
         var mode = ModeOf(map);
-        if (mode.Id == CurrentMode.Id || mode.ArmsRace) return null;
+        if (mode.ArmsRace || (mode.Id == CurrentMode.Id && mode.Id != Modes.WingmanId)) return null;
         var humans = Humans();
-        return mode.Suits(humans) ? null : ModeFullLine(mode, humans);
+        return Fits(map, humans) ? null : ModeFullLine(map, humans);
     }
 
-    static string ModeFullLine(Modes.Mode mode, int humans) => M.Refused($"{M.V(mode.Name)} takes {M.V($"{mode.MaxPlayers} players")}, and {M.V($"{humans}")} are on - Not this map now");
+    static string ModeFullLine(MapInfo map, int humans) => ModeOf(map) is { Id: Modes.WingmanId } wingman
+        ? M.Refused($"{M.V(Clip(Label(map), 40))} has spawn points for {M.V(Modes.WingmanTakes(SpawnsPerSide(map)))} in {wingman.Name}, and {M.V($"{humans}")} are on - Not this map now")
+        : M.Refused($"{M.V(ModeOf(map).Name)} takes {M.V($"{ModeOf(map).MaxPlayers} players")}, and {M.V($"{humans}")} are on - Not this map now");
+
+    /// <summary>A Wingman map's spawn points per side as the bridge knows them: Valve's maps' own (Modes.WingmanOfficialSpawns), a Workshop map's as the sync
+    /// counted them in its files (maps-wingman.json's spawnsT and spawnsCt, the smaller of the two), 0 while nobody has (Modes.PerSide takes 2 then).</summary>
+    static int SpawnsPerSide(MapInfo map)
+    {
+        if (map.Official) return Modes.WingmanOfficialSpawns.GetValueOrDefault(map.Name);
+        var listed = ListedIn(Modes.Wingman, map) ?? map;
+        return listed.SpawnsT > 0 && listed.SpawnsCt > 0 ? Math.Min(listed.SpawnsT, listed.SpawnsCt) : 0;
+    }
+
+    /// <summary>Whether a map takes this many humans in its own mode: a Wingman map as many a side as it has spawn points; the others Valve's maxplayers.</summary>
+    static bool Fits(MapInfo map, int humans) => ModeOf(map) is { Id: Modes.WingmanId } ? Modes.WingmanFits(SpawnsPerSide(map), humans) : ModeOf(map).Suits(humans);
+
+    /// <summary>Whether a mode takes this many humans at all: Wingman when one of its maps the dice may take - an official one, or one on the server's disk -
+    /// has spawn points for them; the others by Valve's maxplayers.</summary>
+    static bool ModeSuits(Modes.Mode mode, int humans) =>
+        mode.Id != Modes.WingmanId ? mode.Suits(humans) : PoolOf(mode).Any(m => Fits(m, humans) && CanRoll(m) && (m.Official || KeptOnDisk(m) || InStock(m)));
 
     /// <summary>A listed map of another mode by its Workshop id (a pasted link), or null.</summary>
     static MapInfo? ModeMapById(long id) => Modes.All.Where(m => !m.ArmsRace).SelectMany(ModeWorkshop).FirstOrDefault(m => m.Id == id);

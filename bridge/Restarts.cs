@@ -60,8 +60,12 @@ static partial class Program
         public DateTime? GoesAt;
     }
 
-    /// <summary>Restart match counting down: who pressed it, and the moment it goes.</summary>
-    sealed record Rematch(string By, DateTime At);
+    /// <summary>Restart match counting down: who pressed it, and the moment it goes. Fair: the fairness restart's (EarlyJoin, FairRestart) - By is then the player
+    /// who came in late, not who pressed it.</summary>
+    sealed record Rematch(string By, DateTime At, bool Fair = false);
+
+    /// <summary>The fairness restart has been asked for on the map that is on (the plugin asks once per map; this holds it once too). A map start clears it.</summary>
+    static bool FairAsked;
 
     static RestartNotice? RestartDue;
     static Rematch? RematchDue;
@@ -150,7 +154,7 @@ static partial class Program
     /// countdown of this moment, also where the line on is the warning as it was announced.</summary>
     static void PutRestart(HudState h, DateTime now)
     {
-        if (RematchDue is { } rematch) (h.RematchAtMs, h.RematchBy) = (HudState.Ms(rematch.At), rematch.By);
+        if (RematchDue is { } rematch) (h.RematchAtMs, h.RematchBy, h.RematchFair) = (HudState.Ms(rematch.At), rematch.By, rematch.Fair);
         if (RestartDue is not { } r || RestartLine(r, Hud.LeftToken) is not { } marked || RestartKind(r.Kind) is not { } k) return;
         var line = M.Plain(marked);
         h.RestartKind = r.Kind; h.RestartWhen = r.When; h.RestartWords = line; h.RestartBy = r.By;
@@ -240,7 +244,8 @@ static partial class Program
     /// has just ended by itself, or it was just pressed.</summary>
     static string? RematchRefusal(DateTime now)
     {
-        if (RematchDue is { } rematch) return $"{rematch.By} is restarting the match already - It goes in {LeftWords(rematch.At, now)}";
+        if (RematchDue is { } rematch) return rematch.Fair ? $"The match restarts for fairness already - It goes in {LeftWords(rematch.At, now)}"
+            : $"{rematch.By} is restarting the match already - It goes in {LeftWords(rematch.At, now)}";
         if (RestartDue is { GoesAt: { } at } && at > now.AddSeconds(-RestartStaleMinutes * 60)) return $"The server restarts {(at > now ? $"in {LeftWords(at, now)}" : "now")} - No restart of the match";
         if (Pending is { } p) return $"Already changing to {Clip(Label(p.Map), 40)} - Wait for it";
         if (LoadPending) return "The next map is still loading - Wait for it";
@@ -289,6 +294,25 @@ static partial class Program
         var (sent, reply) = RematchSend(Send);
         Log($"rematch by {due.By}: {sent} -> {reply ?? "(rcon failed)"}");
         if (RematchRefused(reply) is { } why) Post(Messages.News, M.Refused(why));
+    }
+
+    /// <summary>The fairness restart (EarlyJoin.cs): the plugin's ask, once per map, that a player came into an Arms Race or Deathmatch match during its first minute
+    /// and the map before's players are in (or the minute is up). The Restart match's path with its refusals - none while a vote is on, a map change counts down or
+    /// loads, the server's restart counts down, the match has just ended or was restarted in the last RematchWaitSeconds - then EarlyJoin.CountdownSeconds on the
+    /// countdown banner, naming who came in, and the plugin's os_restart (FireRematch). Refused, it is not asked again on this map.</summary>
+    static void FairRestart(string steamId, string name)
+    {
+        var now = Now();
+        if (!EarlyJoin.Applies(CurrentMode.Id)) { Log($"fair: {name} came in late, but {CurrentMode.Name} keeps its warmup - no restart"); return; }
+        if (FairAsked) { Log($"fair: {name} came in late - the fairness restart was asked for on this map already"); return; }
+        FairAsked = true;
+        if (RematchRefusal(now) is { } no) { Log($"fair: {name} came in late - no restart: {M.Plain(no)}"); return; }
+        RematchWaitUntil = now.AddSeconds(RematchWaitSeconds);
+        var due = new Rematch(Clip(name, 32), now.AddSeconds(EarlyJoin.CountdownSeconds), Fair: true);
+        RematchDue = due;
+        Log($"fair: {name} {steamId} came in late - the match restarts for fairness in {EarlyJoin.CountdownSeconds} s");
+        Post(Messages.MatchRestart, EarlyJoin.Line(due.By), seconds: EarlyJoin.CountdownSeconds);
+        After(EarlyJoin.CountdownSeconds * 1000, () => FireRematch(due));
     }
 
     /// <summary>What the Restart match sends: the plugin's os_restart (release 196), which its restart guard lets through as ours - also while it holds

@@ -290,7 +290,8 @@ static partial class Program
             && Coloured(ChatReply.Already(jump, Fun.Find(jump, "high")!)) == "αSuper jumpπ: νHighπ already" && Coloured(ChatReply.Matches(3)) == "ν3π maps match - The menu shows them: click αPlayπ on one");
         Check("The bridge's refusals of a map are LightRed too, the map an argument and a mode's limits values",
             Coloured(BlockedRefusal(new MapInfo(0, 5, "x", 0))) == "ραxρ (5) is on the blocked list - It is blocked." && Coloured(NonMapRefusal(new MapInfo(0, 6, "y", 0))) == $"ραyρ {NotAMap}"
-            && Coloured(ModeFullLine(Modes.Wingman, 5)).StartsWith($"ρνWingmanρ takes ν{Modes.Wingman.MaxPlayers} playersρ, and ν5ρ are on - Not this map now"));
+            && Coloured(ModeFullLine(new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId), 9)) == $"ρνde_inferno (official)ρ has spawn points for ν{Modes.WingmanOfficialSpawns["de_inferno"]} a sideρ in Wingman, and ν9ρ are on - Not this map now"
+            && Coloured(ModeFullLine(new MapInfo(0, 0, "de_dust2", 0, true, Modes.DeathmatchId), 17)) == $"ρνDeathmatchρ takes ν{Modes.Deathmatch.MaxPlayers} playersρ, and ν17ρ are on - Not this map now");
 
         var wire = new HudState();
         wire.Says.Add((7, 1001, ChatCommands.UnknownLine("!foo")));
@@ -351,7 +352,7 @@ static partial class Program
         lines.AddRange([ChatReply.ChangeUnderWay, ChatReply.VoteOn, ChatReply.VoteWindowStays, ChatReply.NoVote, ChatReply.CardOpen, ChatReply.ListLoading, ChatReply.NoLine,
             ChatReply.MenuOn("Maps"), ChatReply.ChatSearchNone("dust"), ChatReply.ChatSearchNone(new string('x', 200)), ChatReply.HowToSearch, ChatReply.Searching("dust"), ChatReply.Searching(new string('x', 200)), ChatReply.NoMatch("dust"), ChatReply.NoMatch(new string('x', 200)), ChatReply.Matches(3), ChatReply.YourVote("#12 aim_x"), ChatReply.YourVote(new string('x', 200))]);
         var longMap = new MapInfo(0, 7, "aim_" + new string('w', 96), 0);
-        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(Modes.Wingman, 5)]);
+        lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(longMap with { Mode = Modes.WingmanId }, 5), ModeFullLine(new MapInfo(0, 0, "de_dust2", 0, true, Modes.DeathmatchId), 17)]);
 
         var capitals = lines.Where(l => Sections.Lower(l) != null).Select(l => Sections.Lower(l)!).Distinct().ToList();
         Check($"All {lines.Count} chat lines: every section starts with a capital{(capitals.Count > 0 ? "; not: " + string.Join(" | ", capitals.Take(6)) : "")}", capitals.Count == 0);
