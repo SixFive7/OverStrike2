@@ -315,7 +315,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   the shorter (`MatchLength.ThisMatch`; the plugin's `os_matchlength <rounds>` decides, and sets `mp_maxrounds` itself). Otherwise it starts with the next match: the bridge sets
   `mp_maxrounds` when a match ends - a kept map's next match starts without a load -, right before its Restart match, and 2 s after every Wingman load. The Game page shows
   Wingman's row from HUD content v4.11.0 on, its buttons saying 8 and 16 rounds: the contents up to v4.10.0 collapse it there, and their buttons say minutes.
-- **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
+- **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms - 0.5 s or more after the click before it, so a double
+  click never does (`HudBrowser.DoubleClick`, as for a risky map's Play) - then 10 s count down on the countdown banner with the player's name,
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
   mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
@@ -330,7 +331,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   `os_restart 1`. What starts over is Restart match's. Wingman keeps its warmup (15 s) instead, and a player who comes in within 30 s of a round's start still plays it
   (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's,
   takes that moment as the match going live, so a lone test game's spawn is a late join.
-- **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms, then the same 10 s countdown with the player's name, and the bridge quits the game process
+- **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
+  same 10 s countdown with the player's name, and the bridge quits the game process
   (a clean quit, [below](#broken-maps)), which the container's restart policy starts again. A vote that is open and a map change counting down end at the second click. The least time
   between two is `bridge.restartCooldownSeconds`.
 

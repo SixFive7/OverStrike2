@@ -302,9 +302,10 @@ public static class HudMenu
         filter != "" && m.RankIn(filter) >= 0 ? filter : serverMode != "" && m.RankIn(serverMode) >= 0 ? serverMode : m.FirstMode;
 
     /// <summary>A click on a menu button as the action it asks the bridge for (null: nothing to send). Card buttons name the map shown on
-    /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick. A Play or Previous within
-    /// HudVote.DoubleClickSeconds of this player's click before it on the same is the second click of a double click, and sends nothing (HudBrowser.DoubleClick):
-    /// only the plugin sees when a click was made - the bridge gets the clicks one after another, as its loop takes them.</summary>
+    /// that card for this player; a risky map's Play arms a confirmation first, exactly like the bridge's own two-step pick. A Play, Previous, Restart the
+    /// server or Restart the match within HudVote.DoubleClickSeconds of this player's click before it on the same is the second click of a double click, and
+    /// sends nothing (HudBrowser.DoubleClick) - never the confirming second click: only the plugin sees when a click was made, the bridge gets the clicks one
+    /// after another, as its loop takes them.</summary>
     public static string? Command(string buttonId, HudCatalog? catalog, HudState? s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null)
     {
         if (buttonId.StartsWith("os_m") && buttonId.Length > 5 && char.IsDigit(buttonId[4]) && catalog != null && s != null)
@@ -333,8 +334,8 @@ public static class HudMenu
             Previous => s?.PrevArg is { Length: > 0 } && !b.DoubleClick(Previous, now) ? "!previous" : null, // a double click's second counts for nothing: never the confirmation of a risky previous map
             Time10 => $"!time {MatchLength.Choices(serverMode).Short}", // the short one, in the mode's own count: Wingman's 8 rounds (release 199)
             Time60 => $"!time {MatchLength.Choices(serverMode).Long}",
-            Restart => "!restart",
-            Rematch => "!rematch",
+            Restart => b.DoubleClick(Restart, now) ? null : "!restart", // the same: a double click never confirms a restart (the bridge's second click within 30 s)
+            Rematch => b.DoubleClick(Rematch, now) ? null : "!rematch",
             _ => null,
         };
     }

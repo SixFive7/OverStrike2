@@ -167,6 +167,12 @@ static partial class Program
             && HudMenu.Command("os_m2_play", back, live, plain, 1001, now.AddSeconds(0.3)) == "!map 2"
             && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now) == "!previous" && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now.AddSeconds(0.2)) == null
             && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now.AddSeconds(0.8)) == "!previous");
+        var rs = new HudBrowser();
+        Check($"Restart the server and Restart the match: a click within {HudVote.DoubleClickSeconds} s of the one before on the same sends nothing - a double click never confirms a restart; after a pause that long it does, and the other button within it counts as ever",
+            HudMenu.Command(HudMenu.Rematch, back, live, rs, 1001, now) == "!rematch" && HudMenu.Command(HudMenu.Rematch, back, live, rs, 1001, now.AddSeconds(0.2)) == null && rs.DoubledAt == now.AddSeconds(0.2)
+            && HudMenu.Command(HudMenu.Rematch, back, live, rs, 1001, now.AddSeconds(0.8)) == "!rematch"
+            && HudMenu.Command(HudMenu.Restart, back, live, rs, 1001, now.AddSeconds(1)) == "!restart" && HudMenu.Command(HudMenu.Restart, back, live, rs, 1001, now.AddSeconds(1.3)) == null
+            && HudMenu.Command(HudMenu.Rematch, back, live, rs, 1001, now.AddSeconds(1.4)) == "!rematch" && HudMenu.Command(HudMenu.Restart, back, live, rs, 1001, now.AddSeconds(2)) == "!restart");
         var (qt, qc) = HudMenu.PreviousButton(live);
         Check("Previous: the map before this one on its button, which puts it to the vote; off while there is none",
             qt.Single(x => x.Id == "os_q_prev_text").Text == "Previous: #2 Zebra" && !qc.Single(x => x.Id == HudMenu.Previous && x.Class == "off").On

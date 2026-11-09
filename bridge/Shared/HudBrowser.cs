@@ -29,13 +29,13 @@ public sealed class HudBrowser
     public int Page;                         // zero-based; clamped whenever the matches are counted
     public string ConfirmKey = "";           // a risky map whose Play was clicked once...
     public DateTime ConfirmUntil;            // ...and until when the second click confirms it
-    public (string What, DateTime At) LastPick = ("", default); // this player's last click on a card's Play (the map's key) or on Previous, and when (DoubleClick)
+    public (string What, DateTime At) LastPick = ("", default); // this player's last click on a card's Play (the map's key), Previous or a restart, and when (DoubleClick)
     public DateTime DoubledAt;               // when DoubleClick last held a click back: the plugin's log says so
 
-    /// <summary>Whether this click on a card's Play (what: the map's key) or on Previous comes within HudVote.DoubleClickSeconds of this player's click before it
-    /// on the same: the second click of a double click, which counts for nothing - never the confirmation a risky map's first click asks for (HudMenu.Unlocked,
-    /// the bridge's "Click again within 30 s to vote anyway"), nor the same pick sent twice. Every click is noted, so a burst of clicks counts once, and a
-    /// confirmation only after a pause that long.</summary>
+    /// <summary>Whether this click on a card's Play (what: the map's key), on Previous or on a restart button (their ids) comes within HudVote.DoubleClickSeconds of
+    /// this player's click before it on the same: the second click of a double click, which counts for nothing - never the confirmation a risky map's first click
+    /// asks for (HudMenu.Unlocked, the bridge's "Click again within 30 s to vote anyway"), nor a restart's ("Click or type it again within 30 s to confirm"), nor
+    /// the same pick sent twice. Every click is noted, so a burst of clicks counts once, and a confirmation only after a pause that long.</summary>
     public bool DoubleClick(string what, DateTime now)
     {
         var again = LastPick.What == what && now >= LastPick.At && (now - LastPick.At).TotalSeconds < HudVote.DoubleClickSeconds;

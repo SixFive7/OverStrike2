@@ -18,8 +18,9 @@ sealed partial class HudScreen
     /// <summary>Wingman's match length (release 199): how many rounds its match has.</summary>
     const string MaxRounds = "mp_maxrounds";
 
-    /// <summary>A click on one of the restart buttons: its first click arms it (the bridge counts the same window), its second lets go - unless the state says the bridge will refuse it,
-    /// when there is nothing to arm and the player's note says why.</summary>
+    /// <summary>A click on one of the restart buttons that goes out to the bridge: its first click arms it (the bridge counts the same window), its second lets go - unless the state says
+    /// the bridge will refuse it, when there is nothing to arm and the player's note says why. The second click of a double click goes nowhere (HudBrowser.DoubleClick) and changes
+    /// nothing here either: the button stays armed, as the bridge's own confirmation does.</summary>
     void ArmGameButtons(CCSPlayerController player, string buttonId, DateTime now)
     {
         if (buttonId is not (HudMenu.Restart or HudMenu.Rematch) || HudMenu.RestartRefused(buttonId, state, vote)) return;

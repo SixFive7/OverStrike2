@@ -114,10 +114,13 @@ sealed partial class HudScreen
         if (FunClicked(player, buttonId, now)) return; // the Fun page (HudScreenFun.cs)
         if (BotsClicked(player, buttonId, now)) return; // the Bots page (HudScreenBots.cs)
         if (buttonId == WorkshopCard.Play) { Download(player); Server.NextFrame(Frame); return; }
-        ArmGameButtons(player, buttonId, now);
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
-        if (command != null) Act(player, account, command);
-        else if (browser.DoubledAt == now) // a Play or Previous within HudVote.DoubleClickSeconds of the click before it (HudBrowser.DoubleClick): never a risky map's confirmation
+        if (command != null)
+        {
+            ArmGameButtons(player, buttonId, now); // a restart's click that goes out arms or lets go of its button, as the bridge counts it
+            Act(player, account, command);
+        }
+        else if (browser.DoubledAt == now) // a Play, Previous or restart within HudVote.DoubleClickSeconds of the click before it (HudBrowser.DoubleClick): never the confirming second click
             LogVote(player, account, $"{buttonId}: within {HudVote.DoubleClickSeconds} s of the click before it - the second click of a double click, nothing sent");
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
     }
