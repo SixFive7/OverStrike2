@@ -13,16 +13,23 @@ public sealed class CatchUpConfig
 {
     public const string FileName = "catchup.json";
 
-    /// <summary>The boosts by kills behind the leader, lowest first. A player gets the last tier whose MinBehind they reach.</summary>
+    /// <summary>The most of a hit's damage that heals its attacker: a tier's lifesteal is clamped to it, and Vampire (bridge/Shared/Vampire.cs,
+    /// HealCapPercent, the same 50%) takes only what lifesteal leaves of it - so no fight between two players heals faster than it hurts.</summary>
+    public const double MaxLifesteal = 0.5;
+
+    /// <summary>The boosts by kills between two players, lowest first, and each player's own extras by their kills behind the leader. A hit
+    /// takes the last tier whose MinBehind the gap between its two players reaches (Rules.PairFor); a player's regeneration, extra spawn
+    /// protection and infinite ammo come from the last tier their own gap to the leader reaches (Rules.Decide).</summary>
     public List<TierConfig> Tiers { get; set; } = DefaultTiers();
 
     public BountyConfig Bounty { get; set; } = new();
 
-    /// <summary>Curve B: one tier per gap from 2 to 8+, little boost near the top and much more far behind.
-    /// The own factor of each, (1 + health + lifesteal) x (1 + damage dealt) / (1 + damage taken), follows the steep quadratic 1 + 0.10 x
-    /// (gap - 1)^2 in whole 5% steps: 1.10, 1.40, 1.89, 2.56, 3.48, 4.57 and 5.95. The extras keep their bands: regeneration 3%/s after 4 s
-    /// at 2-3 behind, 5%/s after 3 s at 4-6, 8%/s after 2 s from 7; a second chance and 2 s more spawn protection from 4; 3 s more, infinite
-    /// ammo and the one-hit knife and Zeus from 7.</summary>
+    /// <summary>Curve B: one tier per gap from 2 to 8+, little boost between players close on the ladder and much more far apart. Since plugin
+    /// 5.8.0 each fight looks its own gap up, so two players within a kill of each other play plain Counter-Strike whatever their gap to the
+    /// leader. The own factor of each, (1 + health + lifesteal) x (1 + damage dealt) / (1 + damage taken), follows the steep quadratic
+    /// 1 + 0.10 x (gap - 1)^2 in whole 5% steps: 1.10, 1.40, 1.89, 2.56, 3.48, 4.57 and 5.95. The extras keep their bands: regeneration 3%/s
+    /// after 4 s at 2-3 behind the leader, 5%/s after 3 s at 4-6, 8%/s after 2 s from 7; a second chance from 4 kills between, 2 s more spawn
+    /// protection from 4 behind; 3 s more and infinite ammo from 7 behind, the one-hit knife and Zeus from 7 between.</summary>
     public static List<TierConfig> DefaultTiers() =>
     [
         new() { MinBehind = 2, Health = 0.05, DamageTaken = 0.00, DamageDealt = 0.00, Lifesteal = 0.05, RegenPerSecond = 0.03, RegenDelaySeconds = 4 },
@@ -108,40 +115,43 @@ public sealed class CatchUpConfig
     }
 }
 
-/// <summary>One step of the boost table. Fractions are relative: Health 0.40 is 40% more than the health the player spawned with
-/// (100 normally, 1,000 under a mode that gives that), DamageTaken -0.20 is 20% less damage from enemies.</summary>
+/// <summary>One step of the boost table. The first six values are a fight's, between a player and one this many kills ahead of them; the
+/// last three the player's own, by how far they are behind the leader. Fractions are relative: DamageTaken -0.20 is 20% less damage, and
+/// Health 0.40 counts as 40% more health against the player ahead - the hits on the player do (1 + DamageTaken) / (1 + Health) of their
+/// damage, since a pool of health could not tell one attacker from the next (Rules.Taken).</summary>
 public sealed class TierConfig
 {
-    /// <summary>From this many kills behind the leader (the leader's progress minus the player's).</summary>
+    /// <summary>From this many kills between the two players (the one ahead's progress minus the one behind's); for the player's own three,
+    /// from this many kills behind the leader.</summary>
     public int MinBehind { get; set; }
 
-    /// <summary>Extra health at spawn, a fraction of the spawn health.</summary>
+    /// <summary>Against the player ahead: counted as extra health, a fraction of the spawn health, in the damage their hits do.</summary>
     public double Health { get; set; }
 
-    /// <summary>Change in damage taken from enemies: negative is less (-0.20 = 20% less).</summary>
+    /// <summary>Against the player ahead: change in the damage their hits do: negative is less (-0.20 = 20% less).</summary>
     public double DamageTaken { get; set; }
 
-    /// <summary>Extra damage dealt to enemies (0.20 = 20% more).</summary>
+    /// <summary>Against the player ahead: extra damage dealt to them (0.20 = 20% more).</summary>
     public double DamageDealt { get; set; }
 
-    /// <summary>Health gained per hit on an enemy, a fraction of the health they lost to it.</summary>
+    /// <summary>Against the player ahead: health gained per hit on them, a fraction of the health they lost to it; at most MaxLifesteal.</summary>
     public double Lifesteal { get; set; }
 
-    /// <summary>Regeneration per second, a fraction of the spawn health, once RegenDelaySeconds have passed without being hurt.</summary>
+    /// <summary>The player's own: regeneration per second, a fraction of the spawn health, once RegenDelaySeconds have passed without being hurt.</summary>
     public double RegenPerSecond { get; set; }
 
     public double RegenDelaySeconds { get; set; } = 5;
 
-    /// <summary>Survive one killing hit from an enemy with 1 health, once per life.</summary>
+    /// <summary>Against the player ahead: survive one killing hit from them with 1 health, once per life.</summary>
     public bool SecondChance { get; set; }
 
-    /// <summary>Seconds of spawn protection on top of the game's own (mp_respawn_immunitytime). Ends at the player's first attack.</summary>
+    /// <summary>The player's own: seconds of spawn protection on top of the game's own (mp_respawn_immunitytime). Ends at the player's first attack.</summary>
     public double ExtraSpawnProtectionSeconds { get; set; }
 
-    /// <summary>The gun in hand is refilled after every shot: no reloads.</summary>
+    /// <summary>The player's own: the gun in hand is refilled after every shot: no reloads.</summary>
     public bool InfiniteAmmo { get; set; }
 
-    /// <summary>A knife or Zeus hit on an enemy kills.</summary>
+    /// <summary>Against the player ahead: a knife or Zeus hit on them kills.</summary>
     public bool OneHitKnifeAndTaser { get; set; }
 
     internal void Normalize(List<string> notes)
@@ -151,7 +161,7 @@ public sealed class TierConfig
         Health = CatchUpConfig.Clamp(Health, 0, 5, $"{at} Health", notes);
         DamageTaken = CatchUpConfig.Clamp(DamageTaken, -0.9, 0, $"{at} DamageTaken", notes);
         DamageDealt = CatchUpConfig.Clamp(DamageDealt, 0, 5, $"{at} DamageDealt", notes);
-        Lifesteal = CatchUpConfig.Clamp(Lifesteal, 0, 1, $"{at} Lifesteal", notes);
+        Lifesteal = CatchUpConfig.Clamp(Lifesteal, 0, CatchUpConfig.MaxLifesteal, $"{at} Lifesteal", notes);
         RegenPerSecond = CatchUpConfig.Clamp(RegenPerSecond, 0, 1, $"{at} RegenPerSecond", notes);
         RegenDelaySeconds = CatchUpConfig.Clamp(RegenDelaySeconds, 0, 60, $"{at} RegenDelaySeconds", notes);
         ExtraSpawnProtectionSeconds = CatchUpConfig.Clamp(ExtraSpawnProtectionSeconds, 0, 30, $"{at} ExtraSpawnProtectionSeconds", notes);

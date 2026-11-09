@@ -32,7 +32,8 @@ that learn from what the players like. Players install nothing: the server hands
   A map shown and not chosen steps back for a while. ([Random picks](docs/reference.md#random-picks), [Likes and dislikes](docs/reference.md#likes-and-dislikes))
 - **Fun settings.** Eighteen switches anybody can flip for everybody, until the map changes: gravity, bunny hopping, Vampire, Ghost, Laser guns and more,
   with Random and Default. Every combination but one works together, and the self-test walks all 884,736. ([Fun settings](docs/reference.md#fun-settings))
-- **Catch-up.** In Arms Race a player who falls behind gets a boost that grows with every kill of the gap, and a runaway leader a bounty.
+- **Catch-up.** In Arms Race a player behind gets a boost against every player ahead of them, more the further ahead, while two players
+  within a kill of each other fight as in plain Counter-Strike; a runaway leader gets a bounty.
   ([Catch-up](docs/reference.md#catch-up))
 - **Maps that break things say why.** A map that crashed the server or players' games shows its record and asks for a second click, and the dice skip it;
   non-maps, blocked maps and maps gone from the Workshop are refused. ([Broken maps](docs/reference.md#broken-maps))

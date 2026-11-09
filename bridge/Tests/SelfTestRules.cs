@@ -28,7 +28,7 @@ static partial class Program
             $"the last {FreshDays} days", // the fresh card (Popularity.cs)
             $"{ShortRoundMinutes} or {DefaultRoundMinutes} minutes", $"{MatchLength.ShortRounds} or {MatchLength.LongRounds} rounds", // the match length (MatchLength.cs)
             $"Grenades x{Fun.GrenadeShare}", $"does {Fun.GrenadeShare} times the damage", // friendly fire's grenades, on the Fun page
-            $"Spawn with {Fun.VampireHealth} health", $"up to {Fun.VampireCap}", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost
+            $"heals {Vampire.HitPercent}% of its damage", $"every kill {Vampire.KillHeal} more", $"up to {Vampire.Cap} health", $"Invisible for {Fun.GhostSeconds:0} seconds", // Vampire and Ghost
             $"{MapVote.Seconds} seconds", $"{MapVote.Seconds} s", $"takes {Modes.Wingman.MaxPlayers} players at most", $"up to {Modes.Wingman.MaxPlayers} players", // the vote (VoteRound.cs), the modes (Modes.cs)
             $"{MapVote.WaitSeconds / 60} minutes after a vote", $"{MapVote.WaitSeconds / 60} minutes before the next", // the wait before the next vote
         ];

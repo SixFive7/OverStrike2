@@ -410,7 +410,7 @@ chat and the TAB board's Lately list say who made it and that it lasts until the
 | `!aim` | Laser guns: no spread and no recoil | off, on |
 | `!ammo` | Infinite ammo: no reloads | off, on |
 | `!hs` | Headshots only | off, on |
-| `!vampire` | Vampire: spawn with 1,000 health, the damage you deal heals you up to 2,000 | off, on |
+| `!vampire` | Vampire: every hit on an enemy heals 10% of its damage, every kill of one 40 more, up to 150 health | off, on |
 | `!ghost` | Ghost: hidden for 2 seconds after every kill | off, on |
 | `!nades` | Big grenades, a wider blast | normal, big, huge |
 | `!damage` | Double damage | off, on |
@@ -484,29 +484,49 @@ page's Default leaves the bots alone, and the Bots page's leaves the Fun page al
 
 ## Catch-up
 
-In Arms Race a player who falls behind the leader gets a boost at spawn, more the further behind, and a card under the crosshair says what it is and how many kills behind they are, a
-green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game known to hold a content the plugin no longer draws for
-(before v4.8.0) gets CS2's centre panel instead, as does a player who joined while Steam does not hand the HUD out and has not clicked in it; the chat line comes either way. A game
-[the window's X](#the-huds-version-and-the-hud-check) has not said anything about yet gets the card. The numbers are `plugin/CatchUp/catchup.json`, and its self-test holds this table and the bounty's sentence below to it; the module is
-[`plugin/CatchUp/`](../plugin/CatchUp/).
+In Arms Race a player behind gets a boost against every player ahead of them, more the further ahead that player is, while two players within a kill of each other fight
+as in plain Counter-Strike - whatever either's gap to the leader. Every enemy hit looks the gap up between its two players on the ladder at that moment: the one behind hits
+harder and takes less from the one ahead. A card under the crosshair says it at every spawn - how many kills behind the leader, and what they get against the players ahead, the
+most against the leader - a green row per item for 5 s, with the same line in their chat; a leader's bounty gets the same card in red. A game known to hold a content the plugin
+no longer draws for (before v4.8.0) gets CS2's centre panel instead, as does a player who joined while Steam does not hand the HUD out and has not clicked in it; the chat line
+comes either way. A game [the window's X](#the-huds-version-and-the-hud-check) has not said anything about yet gets the card. The numbers are `plugin/CatchUp/catchup.json`,
+and its self-test holds these two tables and the bounty's sentence below to it; the module is [`plugin/CatchUp/`](../plugin/CatchUp/).
 
-| Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |
-|---|---|---|---|---|---|---|
-| 2 | +5% | | | 5% | 3% a second, after 4 s unhurt | |
-| 3 | +15% | -10% | +5% | 5% | 3% a second, after 4 s | |
-| 4 | +35% | -15% | +15% | 5% | 5% a second, after 3 s | a second chance once per life, 2 s more spawn protection |
-| 5 | +50% | -25% | +20% | 10% | 5% a second, after 3 s | the same |
-| 6 | +75% | -30% | +25% | 20% | 5% a second, after 3 s | the same |
-| 7 | +95% | -35% | +35% | 25% | 8% a second, after 2 s | a second chance, 3 s more spawn protection, infinite ammo, a one-hit knife and Zeus |
-| 8 and more | +120% | -40% | +40% | 35% | 8% a second, after 2 s | the same |
+The fight, by the kills between the two players - the one ahead's place on the ladder minus the one behind's:
 
-The health is a share of what the life spawned with: 1,000 under Vampire, never Vampire's 2,000 ceiling. The boost is decided again a frame after every change to the ladder - a kill,
-a team kill, a demotion, a player leaving - silently, so it shrinks as soon as its gap closes and grows when the leader pulls away. Within a life health only goes up, and when the
-boost shrinks the other values take the cut. A leader 2 kills or more ahead of second place takes more damage from enemies: 10% for every 2 kills of lead, up to 30%.
+| Kills between you | Your damage on them | Their damage on you | Lifesteal on them | Also, against them |
+|---|---|---|---|---|
+| 2 | | -5% | 5% | |
+| 3 | +5% | -22% | 5% | |
+| 4 | +15% | -37% | 5% | a second chance once per life |
+| 5 | +20% | -50% | 10% | the same |
+| 6 | +25% | -60% | 20% | the same |
+| 7 | +35% | -67% | 25% | a second chance, a one-hit knife and Zeus |
+| 8 and more | +40% | -73% | 35% | the same |
+
+Nobody's health changes: what earlier versions gave as extra health is part of the damage the player ahead does, beside the damage taken (+120% health and -40% damage
+taken are 27% of the damage, -73%), since a pool of health could not tell one attacker from the next. Two players who are both far behind the leader but close to each
+other - teammates of a runaway leader and the other team, often - fight with normal damage, no lifesteal and no second chance; until plugin 5.8.0 two players 8 or more behind needed 2.6 times the damage
+to kill each other, and more with the second chance and lifesteal.
+
+Each player's own, by their kills behind the leader, whoever they fight:
+
+| Kills behind the leader | Regeneration | Also |
+|---|---|---|
+| 2-3 | 3% a second, after 4 s unhurt | |
+| 4-6 | 5% a second, after 3 s | 2 s more spawn protection |
+| 7 and more | 8% a second, after 2 s | 3 s more spawn protection, infinite ammo |
+
+Regeneration and lifesteal heal up to the health the life spawned with, never past it. These three are decided again a frame after every change to the ladder - a kill, a team
+kill, a demotion, a player leaving - silently, and the fight needs no deciding: each hit looks its own gap up, so a boost shrinks as soon as a gap closes and grows when the other
+pulls away. A leader 2 kills or more ahead of second place takes more damage from enemies: 10% for every 2 kills of lead, up to 30%.
 
 The module counts the ladder from the match's kills, since the game exposes no ladder position, by CS2's own rules as real matches show them: a team kill under friendly fire takes the
-killer down a level, and every kill goes to the plugin's log as `CatchUp: kill:` with both teams and both counts after it. Its self-test replays real match logs against them. `!catchup off`
-switches it off for everybody until the map changes; `os_catchup` is the console's word.
+killer down a level, and every kill goes to the plugin's log as `CatchUp: kill:` with both teams and both counts after it. Its self-test replays real match logs against them. A gun
+kill on a rung the counter did not expect places the player on that rung with the count nearest the one they had, so a count a kill off (a kill the log never shows) is right again from
+that kill on. Every life's end goes to the log as `CatchUp: life:` - every enemy's hits on it, how many to the head, the health and armour they took and catch-up's multiplier on
+them, its own shots, its heals and how it ended - so a fight can be checked afterwards. `!catchup off` switches it off for everybody until the map changes; `os_catchup` is the
+console's word.
 
 ## Broken maps
 

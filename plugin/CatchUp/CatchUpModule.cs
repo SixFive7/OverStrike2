@@ -14,11 +14,13 @@ using Microsoft.Extensions.Logging;
 
 namespace CatchUp;
 
-/// <summary>Arms Race catch-up: players behind the leader get a boost, the leader a bounty, and each of them a private message at spawn
-/// saying what and why (Show). Every living player's boost is decided again a frame after each change to the ladder, silently, by the
-/// mid-life rules (Rules.Recalculate). Construct it in the host plugin's Load and call Load(hotReload); the
-/// host's own unload removes everything it registered. Nothing heavy runs inside a player's own callback (spawn, hit, kill, shot): those
-/// only count and queue, and the work is done a frame later or on a timer, so a player is never dropped for overflow.</summary>
+/// <summary>Arms Race catch-up: every enemy hit takes its boost from the gap between its two players on the ladder (Rules.PairFor) - the one
+/// behind hits harder and takes less from the one ahead, two players within a kill of each other play plain Counter-Strike - and each player
+/// gets their own extras by their gap to the leader, the leader a bounty, with a private message at spawn saying what and why (Show). Every
+/// living player's own boost is decided again a frame after each change to the ladder, silently (Rules.Recalculate). Every life's end goes to
+/// the log with what it took (LifeTally). Construct it in the host plugin's Load and call Load(hotReload); the host's own unload removes
+/// everything it registered. Nothing heavy runs inside a player's own callback (spawn, hit, kill, shot): those only count and queue, and the
+/// work is done a frame later or on a timer, so a player is never dropped for overflow.</summary>
 public sealed class CatchUpModule
 {
     /// <summary>The server command (console and RCON only): status, reload, on, off, show, give.</summary>
@@ -28,12 +30,12 @@ public sealed class CatchUpModule
     {
         public int Serial;
         public uint Pawn;
-        public Boost Boost = Boost.None;
-        public double ProtectedUntil, LastHurtAt, RegenCarry;
+        public Boost Boost = Boost.None; // this player's own decision, by their gap to the leader: regeneration, protection, ammo, the bounty, the message
+        public double SpawnedAt, ProtectedUntil, LastHurtAt, RegenCarry;
         public bool Attacked, SecondChanceUsed;
-        public int BaseHealth, MaxHealth;
-        public double Health; // the health this life holds, a fraction of BaseHealth: never lowered within the life
-        public bool Given;    // a boost given from the console: kept until death, not decided again
+        public int BaseHealth;           // the health this life spawned with: catch-up heals no higher (Vampire's own ceiling is its own)
+        public int? Given;               // a boost given from the console: this player fights as that many kills behind everybody, until death
+        public readonly LifeTally Tally = new();
     }
 
     readonly BasePlugin plugin;
@@ -42,7 +44,6 @@ public sealed class CatchUpModule
     CatchUpConfig config = new();
     readonly Ladder ladder;
     readonly Dictionary<int, Life> lives = new();
-    readonly Dictionary<int, (int Base, int Set)> healthSet = new(); // what this module set a slot's pawn to: undone at an unboosted spawn
     readonly HashSet<int> fresh = new();                            // joined, not yet spawned on a team
     readonly HashSet<int> boostedLastLife = new();
     bool switchedOn = true;
@@ -60,6 +61,7 @@ public sealed class CatchUpModule
     const double FaultWindowMinutes = 10;
     const float ApplyDelaySeconds = 0.1f;  // after a spawn, before the boost is decided and applied: the game sets the spawn health and loadout first
     const float RegenTickSeconds = 0.5f;   // how often regeneration is applied
+    const int HeadGroup = 1;               // the head's hit group
 
     public CatchUpModule(BasePlugin plugin, ILogger log, string configPath)
     {
@@ -107,6 +109,37 @@ public sealed class CatchUpModule
     /// <summary>The boost of a slot's current life.</summary>
     Boost BoostOf(int slot) => lives.TryGetValue(slot, out var life) ? life.Boost : Boost.None;
 
+    // ---- what the host's other modules ask ----
+
+    /// <summary>Two players are enemies on different teams, and everybody is under free-for-all (mp_teammates_are_enemies, read every second).</summary>
+    public bool Enemies(CCSPlayerController a, CCSPlayerController b) => ffa || a.Team != b.Team;
+
+    /// <summary>The share of the health the victim loses to this attacker's hit that catch-up's lifesteal gives the attacker back: the pair's,
+    /// while catch-up is on, 0 otherwise. Vampire takes no more than what it leaves of the half a hit may heal (FunEffects.OtherShare).</summary>
+    public double LifestealShare(CCSPlayerController attacker, CCSPlayerController victim)
+    {
+        if (!Active || attacker.Slot == victim.Slot || !Enemies(attacker, victim)) return 0;
+        if (!lives.TryGetValue(attacker.Slot, out var al) || !lives.TryGetValue(victim.Slot, out var vl)) return 0;
+        return PairOf(attacker, al, victim, vl).Lifesteal;
+    }
+
+    /// <summary>A heal another module gave (Vampire), for the life's line in the log.</summary>
+    public void NoteHeal(int slot, int amount)
+    {
+        if (amount > 0 && lives.TryGetValue(slot, out var life)) life.Tally.Vampire += amount;
+    }
+
+    /// <summary>The boost of one enemy hit, from the gap between its two players on the ladder now. A boost given from the console counts as
+    /// its gap to everybody; outside a counted match (warmup, loaded mid-match) nothing but that.</summary>
+    Pair PairOf(CCSPlayerController attacker, Life? al, CCSPlayerController victim, Life vl)
+    {
+        int gap;
+        if (al?.Given is not null || vl.Given is not null) gap = (al?.Given ?? 0) - (vl.Given ?? 0);
+        else if (ladder.Tracking) gap = ladder.Progress(IdOf(victim)) - ladder.Progress(IdOf(attacker));
+        else return Pair.Even;
+        return Rules.PairFor(config, gap, vl.Boost.Bounty);
+    }
+
     // ---- the match ----
 
     HookResult OnRoundStart(EventRoundStart ev, GameEventInfo info)
@@ -132,7 +165,6 @@ public sealed class CatchUpModule
     {
         ladder.Stop();
         lives.Clear();
-        healthSet.Clear();
         fresh.Clear();
         boostedLastLife.Clear();
         recalculation = false; // a frame queued before the map change may never come
@@ -140,11 +172,7 @@ public sealed class CatchUpModule
         nextCvarRead = 0; // the game's clock starts over with a map: an old map's deadline would leave its rules (free-for-all, headshots only) in force for as long as it ran
     }
 
-    void OnPutInServer(int slot)
-    {
-        fresh.Add(slot);
-        healthSet.Remove(slot);
-    }
+    void OnPutInServer(int slot) => fresh.Add(slot);
 
     HookResult OnDisconnect(EventPlayerDisconnect ev, GameEventInfo info)
     {
@@ -152,7 +180,6 @@ public sealed class CatchUpModule
         var slot = player.Slot;
         ladder.Leave(IdOf(player)); // CS2 starts a returning player at the bottom; if it does not, their next gun kill places them
         lives.Remove(slot);
-        healthSet.Remove(slot);
         fresh.Remove(slot);
         boostedLastLife.Remove(slot);
         QueueRecalculation(); // the standings lose a player: the leader may be gone
@@ -167,16 +194,22 @@ public sealed class CatchUpModule
         return HookResult.Continue;
     }
 
-    // ---- kills: the ladder ----
+    // ---- kills: the ladder, and the life's line ----
 
     HookResult OnDeath(EventPlayerDeath ev, GameEventInfo info)
     {
         try
         {
             if (ev.Userid is not { IsValid: true } victim) return HookResult.Continue;
-            lives.Remove(victim.Slot); // the life is over, its boost with it
-            if (!ladder.Tracking || !Playing(victim)) return HookResult.Continue;
             var attacker = ev.Attacker;
+            var enemyKill = attacker is { IsValid: true } && attacker.Slot != victim.Slot && Enemies(attacker, victim);
+            if (lives.Remove(victim.Slot, out var ended)) // the life is over, its boost with it; its line in the log
+            {
+                var line = Words.Life(victim.PlayerName, TeamName(victim), Server.CurrentTime - ended.SpawnedAt, ended.Boost, ended.Tally,
+                    attacker is { IsValid: true } && attacker.Slot != victim.Slot ? attacker.PlayerName : null, Weapons.Name(ev.Weapon), enemyKill);
+                Server.NextFrame(() => log.LogInformation("CatchUp: life: {Line}", line));
+            }
+            if (!ladder.Tracking || !Playing(victim)) return HookResult.Continue;
             string kill;
             if (attacker is { IsValid: true } && attacker.Slot != victim.Slot && Playing(attacker))
             {
@@ -201,7 +234,7 @@ public sealed class CatchUpModule
                 kill = $"{victim.PlayerName} ({TeamName(victim)}, {Where(victim)}) died without an enemy ({Weapons.Name(ev.Weapon)})";
             }
             Server.NextFrame(() => log.LogInformation("CatchUp: kill: {Kill}", kill)); // every kill, with the ladder after it, for the next look at the counts
-            QueueRecalculation(); // the ladder changed: every living player's boost again, a frame later
+            QueueRecalculation(); // the ladder changed: every living player's own boost again, a frame later
         }
         catch (Exception e) { Fault("counting a kill", e); }
         return HookResult.Continue;
@@ -228,7 +261,7 @@ public sealed class CatchUpModule
         return false;
     }
 
-    // ---- spawns: the decision, the health, the message ----
+    // ---- spawns: the decision, the message ----
 
     HookResult OnSpawn(EventPlayerSpawn ev, GameEventInfo info)
     {
@@ -254,14 +287,6 @@ public sealed class CatchUpModule
             var now = Server.CurrentTime;
             var id = IdOf(player);
 
-            // The base is the health this life spawned with - the game's 100, or a fun setting's own (Vampire's 1,000) - never the maximum:
-            // Vampire raises that to its 2,000 cap, and a boost of it gave 2,300 to 2,900 at a spawn.
-            // The pawn lives on across respawns: if it still holds what this module set last life, the base is the one under it.
-            var baseHealth = Math.Max(1, pawn.Health);
-            var stale = healthSet.TryGetValue(slot, out var set) && pawn.MaxHealth == set.Set;
-            if (stale) baseHealth = set.Base;
-            healthSet.Remove(slot);
-
             Standings? standings = null;
             var boost = Boost.None;
             if (Active && ladder.Tracking && !Warmup())
@@ -273,21 +298,12 @@ public sealed class CatchUpModule
                 boost = Rules.Decide(config, standings, id, leader != null && leader.Slot != player.Slot && !Enemies(player, leader)); // the leader's teammate: no bounty in their duel factor
             }
 
-            var spawnHealth = baseHealth;
-            if (boost.IsBoost && boost.Health > 0)
-            {
-                spawnHealth = Rules.SpawnHealth(baseHealth, boost);
-                SetHealth(pawn, spawnHealth, spawnHealth);
-                healthSet[slot] = (baseHealth, spawnHealth);
-            }
-            else if (stale) SetHealth(pawn, baseHealth, baseHealth);
-
+            // The base is the health this life spawned with - the game's 100, or a map's own: catch-up's heals go no higher. Nobody's health is
+            // raised: the tiers' extra health is part of the damage a player ahead does to them (Rules.Taken).
             lives[slot] = new Life
             {
-                Serial = s, Pawn = pawn.Index, Boost = boost, LastHurtAt = now,
-                ProtectedUntil = Rules.ProtectedUntil(spawnedAt, gameProtection, boost),
-                BaseHealth = baseHealth, MaxHealth = Math.Max(spawnHealth, pawn.MaxHealth),
-                Health = boost.IsBoost && boost.Health > 0 ? boost.Health : 0,
+                Serial = s, Pawn = pawn.Index, Boost = boost, SpawnedAt = spawnedAt, LastHurtAt = now,
+                ProtectedUntil = Rules.ProtectedUntil(spawnedAt, gameProtection, boost), BaseHealth = Math.Max(1, pawn.Health),
             };
 
             if (standings != null)
@@ -295,10 +311,10 @@ public sealed class CatchUpModule
                 if (boost.IsBoost || boost.IsBounty)
                 {
                     boostedLastLife.Add(slot);
-                    log.LogInformation("CatchUp: {Line}", Words.Decision(player.PlayerName, boost, standings, LeaderName(standings), baseHealth, spawnHealth));
+                    log.LogInformation("CatchUp: {Line}", Words.Decision(player.PlayerName, boost, standings, LeaderName(standings)));
                 }
                 else if (boostedLastLife.Remove(slot))
-                    log.LogInformation("CatchUp: {Line}", Words.Decision(player.PlayerName, boost, standings, LeaderName(standings), baseHealth, spawnHealth));
+                    log.LogInformation("CatchUp: {Line}", Words.Decision(player.PlayerName, boost, standings, LeaderName(standings)));
             }
 
             var lines = Words.Lines(boost);
@@ -316,15 +332,7 @@ public sealed class CatchUpModule
         Show?.Invoke(player, boost, Words.Html(lines, boost));
     }
 
-    static void SetHealth(CCSPlayerPawn pawn, int health, int max)
-    {
-        pawn.MaxHealth = max;
-        pawn.Health = health;
-        Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iMaxHealth");
-        Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
-    }
-
-    // ---- the ladder changed: every living player's boost again ----
+    // ---- the ladder changed: every living player's own boost again ----
 
     /// <summary>Once per frame however many kills it had (a grenade can take several): the work is done the next frame, never inside the
     /// death event.</summary>
@@ -335,10 +343,9 @@ public sealed class CatchUpModule
         Server.NextFrame(Recalculate);
     }
 
-    /// <summary>Decides every living player's boost again by the standings now, and applies it to the life by the mid-life rules: damage,
-    /// resistance, lifesteal, regeneration, the second chance (still once a life), infinite ammo, the one-hit knife and Zeus and the
-    /// bounty follow the new decision both ways; health only goes up, as a higher maximum - the current health is never touched; the spawn
-    /// protection and the message stay the spawn's. One log line when a player's tier or bounty step changes, none otherwise.</summary>
+    /// <summary>Decides every living player's own boost again by the standings now: regeneration, infinite ammo and the bounty follow the new
+    /// decision both ways; the spawn protection and the message stay the spawn's. The hits need nothing of it, each looks its own gap up. One
+    /// log line when a player's tier or bounty step changes, none otherwise.</summary>
     void Recalculate()
     {
         recalculation = false;
@@ -350,33 +357,20 @@ public sealed class CatchUpModule
             var leader = standings.Leader == 0 ? null : present.FirstOrDefault(p => IdOf(p) == standings.Leader);
             foreach (var (slot, life) in lives)
             {
-                if (life.Given) continue;
+                if (life.Given != null) continue;
                 var player = present.FirstOrDefault(p => p.Slot == slot);
                 if (player is not { PawnIsAlive: true } || player.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) continue;
                 var mate = leader != null && leader.Slot != slot && !Enemies(player, leader); // the leader's teammate: no bounty in their duel factor
-                FollowMaximum(life, pawn);
-                var r = Rules.Recalculate(config, standings, IdOf(player), mate, life.Boost, life.Health, life.BaseHealth, life.MaxHealth);
-                if (r.MaxHealth > life.MaxHealth)
-                {
-                    if (r.MaxHealth > pawn.MaxHealth) // a higher ceiling only: a mode's own higher maximum stays
-                    {
-                        pawn.MaxHealth = r.MaxHealth;
-                        Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iMaxHealth");
-                        healthSet[slot] = (life.BaseHealth, r.MaxHealth); // the next spawn finds the base under it, as after a spawn boost
-                    }
-                    life.MaxHealth = r.MaxHealth;
-                }
+                var (next, changed) = Rules.Recalculate(config, standings, IdOf(player), mate, life.Boost);
                 var before = life.Boost;
-                life.Boost = r.Boost;
-                life.Health = r.Health;
-                if (r.TierChanged)
-                    log.LogInformation("CatchUp: {Line}", Words.Change(player.PlayerName, before, r.Boost, standings, leader?.PlayerName, life.BaseHealth, life.MaxHealth));
+                life.Boost = next;
+                if (changed) log.LogInformation("CatchUp: {Line}", Words.Change(player.PlayerName, before, next, standings, leader?.PlayerName));
             }
         }
         catch (Exception e) { Fault("recalculating the boosts", e); }
     }
 
-    // ---- hits: resistance, damage, the bounty, the one-hit knife, the second chance, the protection ----
+    // ---- hits: the pair's boost, the bounty, the one-hit knife, the second chance, the protection ----
 
     HookResult OnTakeDamage(CCSPlayerPawn pawn, CTakeDamageInfo info)
     {
@@ -393,29 +387,33 @@ public sealed class CatchUpModule
 
             lives.TryGetValue(attacker.Slot, out var al);
             if (al != null) al.Attacked = true; // hitting somebody ends your own extra spawn protection
+            var pair = PairOf(attacker, al, victim, vl);
             var bits = info.BitsDamageType;
-            var melee = al is { Boost.OneHitMelee: true }
+            var melee = pair.OneHitMelee
                 ? Rules.MeleeOf(info.Ability.Value?.DesignerName, attackerPawn.WeaponServices?.ActiveWeapon.Value?.DesignerName,
                     (bits & (DamageTypes_t.DMG_BLAST | DamageTypes_t.DMG_BURN)) != 0)
                 : Melee.None;
             var zeroed = headshotsOnly && Rules.GameZeroes(true, (bits & DamageTypes_t.DMG_BULLET) != 0, (uint)info.HitGroupId);
             var now = Server.CurrentTime;
-            var hit = Rules.Hit(new HitInput(info.Damage, al?.Boost ?? Boost.None, vl.Boost, pawn.Health, pawn.ArmorValue, melee,
+            var hit = Rules.Hit(new HitInput(info.Damage, pair, pawn.Health, pawn.ArmorValue, melee,
                 VictimProtected: vl.ProtectedUntil > now && !vl.Attacked, SecondChanceLeft: !vl.SecondChanceUsed, GameZeroesIt: zeroed));
             if (hit.Block) return HookResult.Handled;
             if (hit.Damage != info.Damage) info.Damage = hit.Damage;
             if (hit.SecondChanceUsed)
             {
                 vl.SecondChanceUsed = true;
+                vl.Tally.SecondChance = true;
                 var name = victim.PlayerName;
-                Server.NextFrame(() => log.LogInformation("CatchUp: {Name} survived a killing hit on their second chance", name));
+                var by = attacker.PlayerName;
+                var gap = pair.Gap;
+                Server.NextFrame(() => log.LogInformation("CatchUp: {Name} survived a killing hit from {By}, {Gap} kills ahead, on their second chance", name, by, -gap));
             }
         }
         catch (Exception e) { Fault("in the damage hook", e); }
         return HookResult.Continue;
     }
 
-    // ---- after a hit: lifesteal, and the regeneration clock ----
+    // ---- after a hit: the life's tally, lifesteal, and the regeneration clock ----
 
     HookResult OnHurt(EventPlayerHurt ev, GameEventInfo info)
     {
@@ -428,9 +426,13 @@ public sealed class CatchUpModule
                 vl.LastHurtAt = Server.CurrentTime; // any damage, a fall too, restarts the wait before regeneration
                 vl.RegenCarry = 0;
             }
-            if (!Active || ev.Attacker is not { IsValid: true } attacker || attacker.Slot == victim.Slot) return HookResult.Continue;
-            if (!lives.TryGetValue(attacker.Slot, out var al) || al.Boost.Lifesteal <= 0 || !Enemies(attacker, victim)) return HookResult.Continue;
-            var heal = Rules.Lifesteal(al.Boost, ev.DmgHealth, vl?.MaxHealth ?? 100);
+            if (ev.Attacker is not { IsValid: true } attacker || attacker.Slot == victim.Slot || !Enemies(attacker, victim)) return HookResult.Continue;
+            lives.TryGetValue(attacker.Slot, out var al);
+            var pair = vl != null && Active ? PairOf(attacker, al, victim, vl) : Pair.Even;
+            vl?.Tally.Took(attacker.Slot, attacker.PlayerName, ev.Hitgroup == HeadGroup, ev.DmgHealth, ev.DmgArmor, pair.Multiplier);
+            if (al != null) al.Tally.HitsLanded++;
+            if (!Active || al == null || pair.Lifesteal <= 0) return HookResult.Continue;
+            var heal = Rules.Lifesteal(pair.Lifesteal, ev.DmgHealth, victim.PlayerPawn.Value?.MaxHealth ?? 100);
             if (heal <= 0) return HookResult.Continue;
             var slot = attacker.Slot;
             var s = al.Serial;
@@ -440,19 +442,17 @@ public sealed class CatchUpModule
         return HookResult.Continue;
     }
 
-    /// <summary>The life follows a pawn whose maximum something else has cut (Rules.AfterMaximumCut).</summary>
-    static void FollowMaximum(Life life, CCSPlayerPawn pawn) =>
-        (life.BaseHealth, life.MaxHealth) = Rules.AfterMaximumCut(life.BaseHealth, life.MaxHealth, pawn.MaxHealth);
-
+    /// <summary>Lifesteal: health back, up to what the life spawned with.</summary>
     void Heal(int slot, int s, int amount)
     {
         try
         {
             if (!lives.TryGetValue(slot, out var life) || life.Serial != s) return;
             if (Utilities.GetPlayerFromSlot(slot)?.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) return;
-            FollowMaximum(life, pawn);
-            if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.MaxHealth) return;
-            pawn.Health = Math.Min(life.MaxHealth, pawn.Health + amount);
+            if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.BaseHealth) return;
+            var to = Math.Min(life.BaseHealth, pawn.Health + amount);
+            life.Tally.Lifesteal += to - pawn.Health;
+            pawn.Health = to;
             Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
         }
         catch (Exception e) { Fault("healing", e); }
@@ -464,7 +464,9 @@ public sealed class CatchUpModule
     {
         if (ev.Userid is not { IsValid: true } player || !lives.TryGetValue(player.Slot, out var life)) return HookResult.Continue;
         life.Attacked = true; // attacking ends the extra spawn protection
-        if (!Active || !life.Boost.InfiniteAmmo || Weapons.Kind(ev.Weapon) != WeaponKind.Gun) return HookResult.Continue;
+        var gun = Weapons.Kind(ev.Weapon) == WeaponKind.Gun;
+        if (gun) life.Tally.Shots++;
+        if (!Active || !life.Boost.InfiniteAmmo || !gun) return HookResult.Continue;
         var slot = player.Slot;
         var s = life.Serial;
         Server.NextFrame(() => Refill(slot, s)); // after the game has taken the round out of the clip
@@ -507,9 +509,10 @@ public sealed class CatchUpModule
                 var add = Rules.Regen(life.Boost, now - life.LastHurtAt, RegenTickSeconds, life.BaseHealth, ref life.RegenCarry);
                 if (add <= 0) continue;
                 if (Utilities.GetPlayerFromSlot(slot)?.PlayerPawn.Value is not { IsValid: true } pawn || pawn.Index != life.Pawn) continue;
-                FollowMaximum(life, pawn);
-                if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.MaxHealth) continue;
-                pawn.Health = Math.Min(life.MaxHealth, pawn.Health + add);
+                if (pawn.LifeState != (byte)LifeState_t.LIFE_ALIVE || pawn.Health >= life.BaseHealth) continue;
+                var to = Math.Min(life.BaseHealth, pawn.Health + add);
+                life.Tally.Regen += to - pawn.Health;
+                pawn.Health = to;
                 Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
             }
         }
@@ -533,9 +536,6 @@ public sealed class CatchUpModule
     static bool Truthy(string? value) => (value ?? "").Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";
 
     // ---- who ----
-
-    /// <summary>Two players are enemies on different teams, and everybody is under free-for-all (mp_teammates_are_enemies).</summary>
-    bool Enemies(CCSPlayerController a, CCSPlayerController b) => ffa || a.Team != b.Team;
 
     static bool Playing(CCSPlayerController p) => p is { IsValid: true, IsHLTV: false } && p.Team is CsTeam.Terrorist or CsTeam.CounterTerrorist;
 
@@ -571,7 +571,7 @@ public sealed class CatchUpModule
                 return;
             case "off":
                 switchedOn = false;
-                command.ReplyToCommand("catchup: off until the plugin reloads (lives already boosted keep their health)");
+                command.ReplyToCommand("catchup: off until the plugin reloads");
                 return;
             case "show" or "give":
                 command.ReplyToCommand($"catchup: {Try(command, verb == "give")}");
@@ -582,8 +582,9 @@ public sealed class CatchUpModule
         }
     }
 
-    /// <summary>show: that player sees the message a gap (or a lead) would give, now. give: their current life gets that boost too
-    /// (health, protection from now, every effect), to try the effects with two players; kept until they die, not decided again.</summary>
+    /// <summary>show: that player sees the message a gap (or a lead) would give, now. give: their current life gets that boost too - the
+    /// extras, protection from now, and in every fight the boost of a player that many kills behind the other (a lead: the bounty) - to try the
+    /// effects with two players; kept until they die, not decided again.</summary>
     string Try(CommandInfo command, bool give)
     {
         if (command.ArgCount < 4) return "show|give <#slot | account id | [U:1:n] | SteamID64> <kills behind | lead N>";
@@ -597,20 +598,12 @@ public sealed class CatchUpModule
         if (lines.Length == 0) return $"{(lead ? $"a lead of {n}" : $"{n} behind")} gives nothing";
         if (give)
         {
-            if (!lives.TryGetValue(player.Slot, out var life) || player.PlayerPawn.Value is not { IsValid: true } pawn) return $"{player.PlayerName} is not alive";
+            if (!lives.TryGetValue(player.Slot, out var life) || player.PlayerPawn.Value is not { IsValid: true }) return $"{player.PlayerName} is not alive";
             life.Boost = boost;
-            life.Given = true;
+            life.Given = lead ? -n : n;
             life.ProtectedUntil = Server.CurrentTime + boost.ExtraProtection;
             life.Attacked = false;
             life.SecondChanceUsed = false;
-            if (boost.Health > 0)
-            {
-                var hp = Rules.SpawnHealth(life.BaseHealth, boost);
-                SetHealth(pawn, hp, hp);
-                life.MaxHealth = hp;
-                life.Health = boost.Health;
-                healthSet[player.Slot] = (life.BaseHealth, hp);
-            }
             log.LogInformation("CatchUp: given by the console to {Name}: {Sentence}", player.PlayerName, Words.Sentence(boost));
         }
         if (!player.IsBot) Show?.Invoke(player, boost, Words.Html(lines, boost)); // what a real boost shows: the card under the crosshair, or an older HUD's centre panel
@@ -630,7 +623,7 @@ public sealed class CatchUpModule
     public string Status()
     {
         var state = !switchedOn ? "off (switched off: catch-up's fun setting, a mode other than Arms Race, or the console)" : stopped ? $"off after {FaultsToStop} errors in {FaultWindowMinutes} minutes" : "on";
-        var lines = new List<string> { $"catchup: {state}; {(ladder.Tracking ? $"counting this match, {ladder.Rungs} rungs learned, {ladder.Notes} placements" : "waiting for a match start")}; free-for-all {(ffa ? "on" : "off")}, headshots only {(headshotsOnly ? "on" : "off")}, game spawn protection {gameProtection.ToString(CultureInfo.InvariantCulture)} s" };
+        var lines = new List<string> { $"catchup: {state}; {(ladder.Tracking ? $"counting this match, {ladder.Rungs} rungs learned, {ladder.Notes} placements" : "waiting for a match start")}; free-for-all {(ffa ? "on" : "off")}, headshots only {(headshotsOnly ? "on" : "off")}, game spawn protection {gameProtection.ToString(CultureInfo.InvariantCulture)} s; every hit by the gap between its two players" };
         if (!ladder.Tracking) return string.Join("\n", lines);
         var present = Players();
         var s = ladder.Standings(present.Select(IdOf));
@@ -641,8 +634,7 @@ public sealed class CatchUpModule
             var (level, kills, trusted) = ladder.State(id);
             var held = ladder.Held(id);
             var boost = BoostOf(p.Slot);
-            var kept = boost.Health > 0 && !boost.IsBoost ? $", +{boost.Health * 100:0}% health held" : "";
-            var now = (boost.IsBounty ? $"bounty +{boost.Bounty * 100:0}%" : boost.IsBoost ? Words.Sentence(boost) : "no boost") + kept;
+            var now = boost.IsBounty ? $"bounty +{boost.Bounty * 100:0}%" : boost.IsBoost ? Words.Sentence(boost) : "no boost";
             lines.Add($"  {p.PlayerName}: {s.Of(id)} (level {level} + {kills}{(held != level ? $", the level-{held} gun in hand" : "")}{(trusted ? "" : ", placed by guns")}), {s.Behind(id)} behind - {now}");
         }
         return string.Join("\n", lines);
@@ -654,7 +646,7 @@ public sealed class CatchUpModule
         config = CatchUpConfig.Load(configPath, notes);
         foreach (var note in notes) log.LogWarning("CatchUp config: {Note}", note);
         var tiers = string.Join(", ", config.Tiers.Select(t => $"{t.MinBehind}+"));
-        var summary = $"{config.Tiers.Count} tiers ({tiers} behind), bounty from {config.Bounty.MinLead} ahead, decided again after every kill";
+        var summary = $"{config.Tiers.Count} tiers ({tiers} kills between two players, their own extras by the gap to the leader), bounty from {config.Bounty.MinLead} ahead, decided again after every kill";
         return notes.Count == 0 ? summary : $"{summary} ({notes.Count} config note(s) in the log)";
     }
 
@@ -682,7 +674,7 @@ public sealed class CatchUpModule
     {
         var clock = Stopwatch.StartNew();
         var count = 0;
-        foreach (var type in new[] { typeof(CatchUpModule), typeof(Rules), typeof(Ladder), typeof(Standings), typeof(Boost), typeof(Words), typeof(Weapons), typeof(CatchUpConfig) })
+        foreach (var type in new[] { typeof(CatchUpModule), typeof(Rules), typeof(Ladder), typeof(Standings), typeof(Boost), typeof(Words), typeof(Weapons), typeof(CatchUpConfig), typeof(LifeTally) })
             foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (method.IsAbstract || method.ContainsGenericParameters) continue;

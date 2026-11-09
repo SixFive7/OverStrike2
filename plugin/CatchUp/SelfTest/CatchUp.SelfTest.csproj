@@ -19,12 +19,17 @@
     <Compile Include="..\CatchUpRules.cs" Link="CatchUpRules.cs" />
     <Compile Include="..\Ladder.cs" Link="Ladder.cs" />
     <Compile Include="..\CatchUpWords.cs" Link="CatchUpWords.cs" />
-    <!-- The shipped config, checked against the built-in defaults; and five real matches, replayed through the kill counter. -->
+    <!-- Vampire's numbers and heal (shared with the bridge and the plugin), for the hits a fight takes with it; and the test's own model of
+         CS2's armour, which counts those hits. -->
+    <Compile Include="..\..\..\bridge\Shared\Vampire.cs" Link="Vampire.cs" />
+    <Compile Include="Cs2Hits.cs" />
+    <!-- The shipped config, checked against the built-in defaults; and six real matches, replayed through the kill counter. -->
     <None Include="..\catchup.json" Link="catchup.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The players' copy of the tiers (docs/reference.md, Catch-up), held to catchup.json number by number. -->
     <None Include="..\..\..\docs\reference.md" Link="reference.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="armsrace-2026-09-19.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="armsrace-2026-11-04.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="armsrace-2026-11-08.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

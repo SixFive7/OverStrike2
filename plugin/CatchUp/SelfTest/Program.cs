@@ -3,12 +3,14 @@ using System.Text.Json;
 using CatchUp;
 
 // CatchUp.SelfTest - every decision of the catch-up module, without a game server: the config and its file (and the players' copy of its
-// numbers in docs/reference.md), the tiers and the bounty, the duel factor, each hit, the healing, the Arms Race kill counter (its rules
-// case by case, nine real players' runs, and five whole real matches replayed), the boost decided again in the middle of a life, the
-// message and its timing. CatchUpConfig.cs, CatchUpRules.cs, Ladder.cs and CatchUpWords.cs are compiled in as source; CatchUpModule.cs
-// (the game half) is not: the plugin's build compiles it.
+// numbers in docs/reference.md), a hit's boost from the gap between its two players and plain Counter-Strike between equals, each player's
+// own extras and the leader's bounty, the duel factor, each hit, the healing, the worked examples of 2026-11-08 and Vampire's numbers in hits
+// to kill (Cs2Hits, a model of CS2's armour), the Arms Race kill counter (its rules case by case, nine real players' runs, five whole real
+// matches replayed, and a sixth whose count goes wrong and comes back), the boost decided again after every kill, the message and its
+// timing, and a life's line in the log. CatchUpConfig.cs, CatchUpRules.cs, Ladder.cs, CatchUpWords.cs and bridge/Shared/Vampire.cs are
+// compiled in as source; CatchUpModule.cs (the game half) is not: the plugin's build compiles it.
 //
-// Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the tier table, the panels and the mid-life cut.
+// Run with `dotnet run -c Release`; exit code 0 means every check passed. `--table` also prints the pair table, the panels and the cards.
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
@@ -169,8 +171,8 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     o.Normalize(older);
     Check(older.Count == 0 && o.ToJson() == d.ToJson(), "an older file still loads: its switches, the counter's rules, the message's timing and the cap mean nothing now");
 
-    // ---- the players' table in docs/reference.md (Catch-up) holds the code's tiers, and its bounty sentence the code's bounty: read back
-    // number by number, so the page cannot drift from catchup.json. Its words may change; its numbers may not ----
+    // ---- the players' tables in docs/reference.md (Catch-up) hold the code's tiers, and its bounty sentence the code's bounty: read back
+    // number by number, so the page cannot drift from catchup.json. Their words may change; their numbers may not ----
     var docs = Path.Combine(here, "reference.md");
     Check(File.Exists(docs), "docs/reference.md is copied beside the test");
     if (File.Exists(docs))
@@ -178,41 +180,65 @@ void Run(string what, string[] ladder, string start, params string[] steps)
         var text = File.ReadAllText(docs).Replace("\r", "");
         var section = text.IndexOf("\n## Catch-up\n", StringComparison.Ordinal) is >= 0 and var s0 ? text[s0..] : "";
         section = section.IndexOf("\n## ", 5, StringComparison.Ordinal) is > 0 and var s1 ? section[..s1] : section;
-        var lines = section.Split('\n');
-        var rows = lines.Where(l => l.StartsWith("| ", StringComparison.Ordinal) && l.Length > 2 && char.IsDigit(l[2])).ToList();
-        Eq(lines.FirstOrDefault(l => l.StartsWith("| Kills behind", StringComparison.Ordinal)) ?? "", "| Kills behind | Health | Damage taken | Damage dealt | Lifesteal | Regeneration | Also |",
-            "docs: the catch-up table's columns");
-        static double Pct(string cell) => cell == "" ? 0 : double.Parse(cell.TrimStart('+', '-').TrimEnd('%'), CultureInfo.InvariantCulture) / 100;
-        var read = new List<TierConfig>();
-        var also = (Second: false, Protection: 0.0, Ammo: false, Knife: false);
-        foreach (var row in rows)
+        var lines = section.Split('\n').ToList();
+        static double Pct(string cell) => cell == "" ? 0 : double.Parse(cell.TrimStart('+', '-', '\u2212').TrimEnd('%'), CultureInfo.InvariantCulture) / 100;
+        // The table rows under a header, until the first line that is no table row.
+        List<string[]> Rows(string header)
         {
-            var cells = row.Trim().Trim('|').Split('|').Select(c => c.Trim()).ToArray();
-            if (cells.Length != 7) { Check(false, $"docs: a catch-up row has 7 cells ({row})"); continue; }
-            var regen = System.Text.RegularExpressions.Regex.Match(cells[5], @"^(\d+)% a second, after (\d+) s");
-            if (cells[6] != "the same") // the same extras as the row above
-            {
-                var protection = System.Text.RegularExpressions.Regex.Match(cells[6], @"(\d+) s more spawn protection");
-                also = (cells[6].Contains("a second chance"), protection.Success ? double.Parse(protection.Groups[1].Value, CultureInfo.InvariantCulture) : 0,
-                        cells[6].Contains("infinite ammo"), cells[6].Contains("a one-hit knife and Zeus"));
-            }
-            read.Add(new TierConfig
-            {
-                MinBehind = int.Parse(cells[0].Split(' ')[0], CultureInfo.InvariantCulture), Health = Pct(cells[1]), DamageTaken = 0.0 - Pct(cells[2]), DamageDealt = Pct(cells[3]),
-                Lifesteal = Pct(cells[4]), RegenPerSecond = regen.Success ? double.Parse(regen.Groups[1].Value, CultureInfo.InvariantCulture) / 100 : 0,
-                RegenDelaySeconds = regen.Success ? double.Parse(regen.Groups[2].Value, CultureInfo.InvariantCulture) : 0,
-                SecondChance = also.Second, ExtraSpawnProtectionSeconds = also.Protection, InfiniteAmmo = also.Ammo, OneHitKnifeAndTaser = also.Knife,
-            });
+            var at = lines.FindIndex(l => l == header);
+            Check(at >= 0, $"docs: the catch-up section has the table '{header}'");
+            var rows = new List<string[]>();
+            for (var i = at + 2; at >= 0 && i < lines.Count && lines[i].StartsWith("| ", StringComparison.Ordinal); i++)
+                rows.Add(lines[i].Trim().Trim('|').Split('|').Select(c => c.Trim()).ToArray());
+            return rows;
         }
-        string Table(List<TierConfig> tiers) => string.Join("\n", tiers.Select(t =>
-            $"{t.MinBehind} | {t.Health:0.00} | {t.DamageTaken:0.00} | {t.DamageDealt:0.00} | {t.Lifesteal:0.00} | {t.RegenPerSecond:0.00}/{t.RegenDelaySeconds:0} | {t.SecondChance} {t.ExtraSpawnProtectionSeconds:0} {t.InfiniteAmmo} {t.OneHitKnifeAndTaser}"));
-        Eq(Table(read), Table(f.Tiers), "docs: the catch-up table holds catchup.json's tiers, number by number - kills behind, health, damage taken and dealt, lifesteal, regeneration and its wait, the extras");
-        Check(rows.Count > 0 && rows[^1].StartsWith($"| {f.Tiers[^1].MinBehind} and more |", StringComparison.Ordinal) && rows.SkipLast(1).All(r => !r.Contains(" and more |", StringComparison.Ordinal)),
-            "docs: ...the last tier, and only it, reads 'and more'");
+        // The fight's table: one row a gap between the two players, from 2, the last "and more".
+        var fight = Rows("| Kills between you | Your damage on them | Their damage on you | Lifesteal on them | Also, against them |");
+        var tiers = f.Tiers;
+        Eq(fight.Count, tiers.Count, "docs: the fight's table has a row a tier");
+        var also = (Second: false, Knife: false);
+        for (var i = 0; i < Math.Min(fight.Count, tiers.Count); i++)
+        {
+            var (cells, t) = (fight[i], tiers[i]);
+            if (cells.Length != 5) { Check(false, $"docs: a fight row has 5 cells ({string.Join("|", cells)})"); continue; }
+            if (cells[4] != "the same") also = (cells[4].Contains("a second chance"), cells[4].Contains("a one-hit knife and Zeus"));
+            var gap = int.Parse(cells[0].Split(' ')[0], CultureInfo.InvariantCulture);
+            var taken = (int)Math.Round((Rules.Taken(t) - 1) * 100);
+            Check(gap == t.MinBehind && Math.Abs(Pct(cells[1]) - t.DamageDealt) < 1e-9 && (int)Math.Round(-Pct(cells[2]) * 100) == taken
+                  && Math.Abs(Pct(cells[3]) - t.Lifesteal) < 1e-9 && also == (t.SecondChance, t.OneHitKnifeAndTaser),
+                $"docs: the fight's row for {t.MinBehind} holds catchup.json's - its damage +{t.DamageDealt * 100:0}%, theirs {taken}%, lifesteal {t.Lifesteal * 100:0}%, the second chance and the one-hit knife ({string.Join(" | ", cells)})");
+        }
+        Check(fight.Count > 0 && fight[^1][0] == $"{tiers[^1].MinBehind} and more" && fight.SkipLast(1).All(r => !r[0].Contains("and more")),
+            "docs: ...the last row, and only it, reads 'and more'");
+        // The player's own table: one row a band of tiers alike, by kills behind the leader ("2-3", "7 and more").
+        var own = Rows("| Kills behind the leader | Regeneration | Also |");
+        var covered = new List<int>();
+        foreach (var cells in own)
+        {
+            if (cells.Length != 3) { Check(false, $"docs: an own row has 3 cells ({string.Join("|", cells)})"); continue; }
+            var range = System.Text.RegularExpressions.Regex.Match(cells[0], @"^(\d+)(?:-(\d+)| and more)?$");
+            var lo = int.Parse(range.Groups[1].Value, CultureInfo.InvariantCulture);
+            var hi = range.Groups[2].Success ? int.Parse(range.Groups[2].Value, CultureInfo.InvariantCulture) : cells[0].EndsWith("and more") ? int.MaxValue : lo;
+            var regen = System.Text.RegularExpressions.Regex.Match(cells[1], @"^(\d+)% a second, after (\d+) s");
+            var protection = System.Text.RegularExpressions.Regex.Match(cells[2], @"(\d+) s more spawn protection");
+            foreach (var t in tiers.Where(t => t.MinBehind >= lo && t.MinBehind <= hi))
+            {
+                covered.Add(t.MinBehind);
+                Check(regen.Success && Math.Abs(double.Parse(regen.Groups[1].Value, CultureInfo.InvariantCulture) / 100 - t.RegenPerSecond) < 1e-9
+                      && Math.Abs(double.Parse(regen.Groups[2].Value, CultureInfo.InvariantCulture) - t.RegenDelaySeconds) < 1e-9
+                      && Math.Abs((protection.Success ? double.Parse(protection.Groups[1].Value, CultureInfo.InvariantCulture) : 0) - t.ExtraSpawnProtectionSeconds) < 1e-9
+                      && cells[2].Contains("infinite ammo") == t.InfiniteAmmo,
+                    $"docs: the own row '{cells[0]}' holds tier {t.MinBehind}+'s regeneration, spawn protection and infinite ammo");
+            }
+        }
+        Eq(string.Join(",", covered), string.Join(",", tiers.Select(t => t.MinBehind)), "docs: the own table's bands cover every tier once, in order");
         var bounty = System.Text.RegularExpressions.Regex.Match(section, @"A leader (\d+) kills or more ahead of second place takes more damage from enemies: (\d+)% for every (\d+) kills of lead, up to (\d+)%");
         Check(bounty.Success && int.Parse(bounty.Groups[1].Value) == f.Bounty.MinLead && Math.Abs(int.Parse(bounty.Groups[2].Value) / 100.0 - f.Bounty.PerStep) < 1e-9
               && int.Parse(bounty.Groups[3].Value) == f.Bounty.StepKills && Math.Abs(int.Parse(bounty.Groups[4].Value) / 100.0 - f.Bounty.Max) < 1e-9,
             "docs: the bounty's sentence holds catchup.json's bounty - from what lead, how much for how many kills of lead, the most");
+        var vampire = System.Text.RegularExpressions.Regex.Match(text, @"\| `!vampire` \| Vampire: every hit on an enemy heals (\d+)% of its damage, every kill of one (\d+) more, up to (\d+) health \|");
+        Check(vampire.Success && int.Parse(vampire.Groups[1].Value) == Vampire.HitPercent && int.Parse(vampire.Groups[2].Value) == Vampire.KillHeal
+              && int.Parse(vampire.Groups[3].Value) == Vampire.Cap, "docs: the Fun table's Vampire row holds Vampire's numbers");
     }
 
     var missing = new List<string>();
@@ -283,22 +309,22 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     Check(!Rules.Decide(c, Stand((1, 9)), 1).IsBounty, "alone on the server: nothing");
     Check(!Rules.Decide(c, Stand((1, 9), (2, 8)), 2).IsBoost, "1 behind: nothing");
 
-    // The table as configured: every value reaches the boost.
+    // The table as configured: every value reaches the boost - the fight's part as against a player the whole gap ahead, the leader.
     foreach (var t in c.Tiers)
     {
         var bo = Rules.ForGap(c, t.MinBehind, 0);
-        Check(bo.Tier == t.MinBehind && bo.Health == t.Health && bo.DamageTaken == t.DamageTaken && bo.DamageDealt == t.DamageDealt
-              && bo.Lifesteal == t.Lifesteal && bo.RegenPerSecond == t.RegenPerSecond && bo.SecondChance == t.SecondChance
-              && bo.ExtraProtection == t.ExtraSpawnProtectionSeconds && bo.InfiniteAmmo == t.InfiniteAmmo && bo.OneHitMelee == t.OneHitKnifeAndTaser,
+        Check(bo.Tier == t.MinBehind && bo.DamageDealt == t.DamageDealt && Math.Abs(bo.DamageTaken - (Rules.Taken(t) - 1)) < 1e-12 && bo.Lifesteal == t.Lifesteal
+              && bo.RegenPerSecond == t.RegenPerSecond && bo.SecondChance == t.SecondChance && bo.ExtraProtection == t.ExtraSpawnProtectionSeconds
+              && bo.InfiniteAmmo == t.InfiniteAmmo && bo.OneHitMelee == t.OneHitKnifeAndTaser,
             $"tier {t.MinBehind}+: the table's values");
     }
-    // A whole sentence, word for word, on these numbers.
+    // A whole sentence, word for word, on these numbers: tier 4+'s health and damage taken together, 0.80 / 1.40, 43% less.
     Eq(Words.Sentence(Rules.ForGap(c, 5, 0)),
-        "You are 5 kills behind the leader: +40% health, -20% damage taken, +20% damage, 20% lifesteal, regeneration, a second chance, +2 s spawn protection.",
+        "You are 5 kills behind the leader: against players ahead of you, up to +20% damage, -43% damage taken, 20% lifesteal, a second chance; regeneration, +2 s spawn protection.",
         "the whole sentence");
-    // ...and on the defaults: curve B's 5+ tier
+    // ...and on the defaults: curve B's 5+ tier, 0.75 / 1.50 = half the damage from the players ahead
     Eq(Words.Sentence(Rules.ForGap(Defaults(), 5, 0)),
-        "You are 5 kills behind the leader: +50% health, -25% damage taken, +20% damage, 10% lifesteal, regeneration, a second chance, +2 s spawn protection.",
+        "You are 5 kills behind the leader: against players ahead of you, up to +20% damage, -50% damage taken, 10% lifesteal, a second chance; regeneration, +2 s spawn protection.",
         "the same sentence on today's numbers");
     Eq(Words.Sentence(new Boost { Lead = 4, Bounty = 0.2 }), "You lead by 4 kills: +20% damage taken (a bounty).", "the leader's sentence");
     Eq(Words.Sentence(Boost.None), "", "nothing to say without a boost");
@@ -323,26 +349,27 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     Near(asMate.Factor, 2.55 * 1.4 / 0.6, "...the teammate's without it: 5.95");
     Check(Rules.Decide(d, standings, 1, teammateOfLeader: true) is { IsBounty: true, Bounty: 0.30 }, "the leader's own bounty does not depend on the flag");
 
-    // Every enemy's hit on the leader gets his whole bounty, however strong their own boost.
-    var t7 = Rules.ForGap(c, 7, 0.3); // own factor 3.81
-    Near(Rules.Multiplier(t7, new Boost { Lead = 6, Bounty = 0.3 }), 1.3 * 1.3, "a 7+ hit on the leader: +30% damage and the whole 30% bounty", 1e-5);
-    Near(t7.Factor, 2.05 * 1.3 / 0.7 * 1.3, "...and the duel factor the log shows counts it all: 3.81 x 1.3");
+    // Every enemy's hit on the leader gets his whole bounty on top of the pair's own boost.
+    Near(Rules.PairFor(c, 7, 0.3).Multiplier, 1.3 * 1.3, "a hit by a player 7 behind the leader: +30% damage and the whole 30% bounty", 1e-9);
+    Near(Rules.ForGap(c, 7, 0.3).Factor, 2.05 * 1.3 / 0.7 * 1.3, "...and the duel factor the log shows counts it all: 3.81 x 1.3");
 
     // Curve B, the defaults: seven tiers.
     Check(d.Bounty is { MinLead: 2, StepKills: 2, PerStep: 0.10, Max: 0.30 }, "the defaults: the bounty, +10% per 2 kills of lead from 2, up to 30%");
     Check(d.Tiers.Select(t => (t.MinBehind, t.Health, t.DamageTaken, t.DamageDealt, t.Lifesteal)).SequenceEqual(
         [(2, 0.05, 0.00, 0.00, 0.05), (3, 0.15, -0.10, 0.05, 0.05), (4, 0.35, -0.15, 0.15, 0.05), (5, 0.50, -0.25, 0.20, 0.10),
          (6, 0.75, -0.30, 0.25, 0.20), (7, 0.95, -0.35, 0.35, 0.25), (8, 1.20, -0.40, 0.40, 0.35)]),
-        "curve B's health, damage taken, damage dealt and lifesteal for 2, 3, 4, 5, 6, 7 and 8+ behind");
-    var ownB = d.Tiers.Select(t => Math.Round(Rules.Own(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken), 2)).ToList();
+        "curve B's health, damage taken, damage dealt and lifesteal for 2, 3, 4, 5, 6, 7 and 8+ between two players");
+    var ownB = d.Tiers.Select(t => Math.Round(Rules.Own(t), 2)).ToList();
     Eq(string.Join(" ", ownB.Select(x => x.ToString("0.00"))), "1.10 1.40 1.89 2.56 3.48 4.57 5.95", "...their own factors, the steep quadratic 1 + 0.10 (gap - 1)^2 in 5% steps");
+    Eq(string.Join(" ", d.Tiers.Select(t => Math.Round((Rules.Taken(t) - 1) * 100).ToString("0"))), "-5 -22 -37 -50 -60 -67 -73",
+        "...the damage a player ahead does to them, health and damage taken together: 5% less at 2 kills, 73% less at 8 and more");
     Check(d.Tiers.Select(t => (t.RegenPerSecond, t.RegenDelaySeconds)).SequenceEqual([(0.03, 4.0), (0.03, 4.0), (0.05, 3.0), (0.05, 3.0), (0.05, 3.0), (0.08, 2.0), (0.08, 2.0)]),
-        "...regeneration 3%/s after 4 s at 2-3 behind, 5%/s after 3 s at 4-6, 8%/s after 2 s from 7");
+        "...regeneration 3%/s after 4 s at 2-3 behind the leader, 5%/s after 3 s at 4-6, 8%/s after 2 s from 7");
     Check(d.Tiers.Select(t => (t.SecondChance, t.ExtraSpawnProtectionSeconds, t.InfiniteAmmo, t.OneHitKnifeAndTaser)).SequenceEqual(
         [(false, 0.0, false, false), (false, 0.0, false, false), (true, 2.0, false, false), (true, 2.0, false, false), (true, 2.0, false, false),
          (true, 3.0, true, true), (true, 3.0, true, true)]),
-        "...a second chance and 2 s more spawn protection from 4 behind; 3 s more, infinite ammo and the one-hit knife and Zeus from 7");
-    // Every gap gives exactly its tier's row, as the leader's enemy or his teammate.
+        "...a second chance from 4 kills between, 2 s more spawn protection from 4 behind; 3 s more and infinite ammo from 7 behind, the one-hit knife and Zeus from 7 between");
+    // Every gap to the leader gives exactly its tier's row, as the leader's enemy or his teammate.
     var notTable = 0;
     for (var behind = 2; behind <= 60; behind++)
         for (var lead = 0; lead <= 12; lead++)
@@ -350,51 +377,115 @@ void Run(string what, string[] ladder, string start, params string[] steps)
             {
                 var b = Rules.ForGap(d, behind, mate ? 0 : Rules.BountyFor(d.Bounty, lead));
                 var t = Rules.TierFor(d.Tiers, behind)!;
-                if (b.Health != t.Health || b.DamageTaken != t.DamageTaken || b.DamageDealt != t.DamageDealt || b.Lifesteal != t.Lifesteal) notTable++;
+                if (b.DamageDealt != t.DamageDealt || Math.Abs(b.DamageTaken - (Rules.Taken(t) - 1)) > 1e-12 || b.Lifesteal != t.Lifesteal || b.RegenPerSecond != t.RegenPerSecond) notTable++;
             }
     Eq(notTable, 0, "with curve B every gap gives exactly its tier's row, as the leader's enemy or his teammate");
+}
+
+// ---- a hit's boost from the gap between its two players (curve B) ----
+
+{
+    var d = Defaults();
+    // Within a kill of each other: plain Counter-Strike, whatever either's gap to the leader.
+    foreach (var gap in new[] { -1, 0, 1 })
+        Eq(Rules.PairFor(d, gap, 0), Pair.Even with { Gap = gap }, $"{gap} kills between them: plain Counter-Strike");
+    // The one behind hits harder: their row's damage, its lifesteal, the one-hit knife and Zeus from 7 - and no second chance on that side.
+    foreach (var (gap, mult, ls, knife) in new[] { (2, 1.00, 0.05, false), (3, 1.05, 0.05, false), (4, 1.15, 0.05, false), (5, 1.20, 0.10, false),
+                                                  (6, 1.25, 0.20, false), (7, 1.35, 0.25, true), (8, 1.40, 0.35, true), (20, 1.40, 0.35, true) })
+    {
+        var p = Rules.PairFor(d, gap, 0);
+        Check(Math.Abs(p.Multiplier - mult) < 1e-9 && Math.Abs(p.Lifesteal - ls) < 1e-9 && p.OneHitMelee == knife && !p.SecondChance && p.Row == Math.Min(gap, 8),
+            $"the attacker {gap} behind: x{mult:0.00}, {ls * 100:0}% lifesteal{(knife ? ", the one-hit knife" : "")} ({p})");
+    }
+    // The one ahead hits softer: the row's health and damage taken together; the one behind keeps a second chance from 4 kills.
+    foreach (var (gap, mult, second) in new[] { (2, 1 / 1.05, false), (3, 0.90 / 1.15, false), (4, 0.85 / 1.35, true), (5, 0.75 / 1.50, true),
+                                               (6, 0.70 / 1.75, true), (7, 0.65 / 1.95, true), (8, 0.60 / 2.20, true), (20, 0.60 / 2.20, true) })
+    {
+        var p = Rules.PairFor(d, -gap, 0);
+        Check(Math.Abs(p.Multiplier - mult) < 1e-9 && p.Lifesteal == 0 && !p.OneHitMelee && p.SecondChance == second && p.Row == -Math.Min(gap, 8),
+            $"the attacker {gap} ahead: x{mult:0.000}{(second ? ", the victim's second chance" : "")} ({p})");
+    }
+    // A duel between two players g kills apart is their tier's own factor: the one behind's hits over the one ahead's, lifesteal counted as health.
+    foreach (var t in d.Tiers)
+    {
+        var (up, down) = (Rules.PairFor(d, t.MinBehind, 0), Rules.PairFor(d, -t.MinBehind, 0));
+        Near(up.Multiplier / down.Multiplier * (1 + t.Lifesteal / (1 + t.Health)), Rules.Own(t), $"{t.MinBehind} kills between: the duel is the tier's own factor {Rules.Own(t):0.00}", 1e-9);
+    }
+    // The leader's bounty: on every enemy hit on him, on top of the pair.
+    Near(Rules.PairFor(d, 8, 0.3).Multiplier, 1.4 * 1.3, "a player 8 behind on the leader with a 30% bounty: x1.82", 1e-9);
+    Near(Rules.PairFor(d, 2, 0.1).Multiplier, 1.1, "...2 behind on a leader with 10%: the bounty alone", 1e-9);
+    Check(Enumerable.Range(-30, 61).All(g => !(Rules.PairFor(d, g, 0) is { OneHitMelee: true, SecondChance: true })), "no pair has both the one-hit knife and a second chance: one is behind the other");
+}
+
+// ---- equal ranks: plain Counter-Strike between any two players within a kill of each other ----
+
+{
+    var d = Defaults();
+    var rng = new Random(229);
+    int pairs = 0, near = 0, wrong = 0;
+    for (var run = 0; run < 3000; run++)
+    {
+        var count = rng.Next(2, 9);
+        var progress = Enumerable.Range(1, count).ToDictionary(i => (ulong)i, _ => rng.Next(0, 33));
+        var s = new Standings(progress);
+        foreach (var a in progress.Keys)
+            foreach (var v in progress.Keys)
+            {
+                if (a == v) continue;
+                pairs++;
+                var bounty = v == s.Leader ? Rules.BountyFor(d.Bounty, s.Lead) : 0;
+                var gap = progress[v] - progress[a];
+                var p = Rules.PairFor(d, gap, bounty);
+                if (Math.Abs(gap) > 1) continue;
+                near++;
+                var lethal = Rules.Hit(new HitInput(250, p, 40, 100, Melee.Knife, false, true, false));
+                var plain = Rules.Hit(new HitInput(27, p, 100, 100, Melee.None, false, true, false));
+                if (p.Multiplier != 1 || p.Lifesteal != 0 || p.OneHitMelee || p.SecondChance || lethal.Damage != 250 || lethal.SecondChanceUsed || lethal.OneHit || plain.Damage != 27) wrong++;
+            }
+    }
+    Eq(wrong, 0, $"{near} of {pairs} pairs in random standings within a kill of each other: every hit exactly as the game made it - no boost, no bounty, no second chance, no one-hit knife");
 }
 
 // ---- one hit ----
 
 {
     var c = Reference();
-    var t2 = Rules.ForGap(c, 2, 0);
-    var t4 = Rules.ForGap(c, 4, 0);
-    var t7 = Rules.ForGap(c, 7, 0);
-    var leader = new Boost { Lead = 4, Bounty = 0.2 };
-    HitInput H(float damage, Boost attacker, Boost victim, int health = 100, int armor = 0, Melee melee = Melee.None, bool prot = false, bool left = true, bool zero = false) =>
-        new(damage, attacker, victim, health, armor, melee, prot, left, zero);
+    var even = Pair.Even;
+    var up4 = Rules.PairFor(c, 4, 0);    // the attacker 4 behind the victim: tier 4+'s +20% damage, 20% lifesteal
+    var up7 = Rules.PairFor(c, 7, 0);    // 7 behind: +30% damage, the one-hit knife and Zeus
+    var down4 = Rules.PairFor(c, -4, 0); // the attacker 4 ahead: x0.80 / 1.40, and the victim's second chance
+    var down2 = Rules.PairFor(c, -2, 0); // 2 ahead: x0.90 / 1.20, no second chance
+    HitInput H(float damage, Pair pair, int health = 100, int armor = 0, Melee melee = Melee.None, bool prot = false, bool left = true, bool zero = false) =>
+        new(damage, pair, health, armor, melee, prot, left, zero);
 
-    var plain = Rules.Hit(H(37, Boost.None, Boost.None));
-    Check(!plain.Block && plain.Damage == 37 && !plain.SecondChanceUsed && !plain.OneHit, "no boosts: the hit as the game made it");
-    Near(Rules.Hit(H(100, t4, Boost.None)).Damage, 120, "+20% damage dealt", 1e-3);
-    Near(Rules.Hit(H(100, Boost.None, t7, health: 500)).Damage, 70, "-30% damage taken", 1e-3);
-    Near(Rules.Hit(H(100, Boost.None, leader)).Damage, 120, "the leader's +20% bounty", 1e-3);
-    Near(Rules.Hit(H(100, t4, leader)).Damage, 144, "boosted damage on the leader with a bounty", 1e-3);
-    Near(Rules.Hit(H(100, t2, t7, health: 500)).Damage, 100 * 1.1 * 0.7, "both boosted", 1e-3);
-    Check(Rules.Hit(H(50, Boost.None, t4, prot: true)).Block, "extra spawn protection blocks the hit");
+    var plain = Rules.Hit(H(37, even));
+    Check(!plain.Block && plain.Damage == 37 && !plain.SecondChanceUsed && !plain.OneHit, "no gap: the hit as the game made it");
+    Near(Rules.Hit(H(100, up4)).Damage, 120, "+20% damage by the one 4 behind", 1e-3);
+    Near(Rules.Hit(H(100, down4, health: 500)).Damage, 100 * 0.8 / 1.4, "the one 4 ahead: the tier's health and damage taken together", 1e-3);
+    Near(Rules.Hit(H(100, Rules.PairFor(c, 4, 0.2))).Damage, 144, "the one 4 behind on the leader with a +20% bounty", 1e-3);
+    Near(Rules.Hit(H(100, Rules.PairFor(c, 1, 0))).Damage, 100, "a kill apart: as the game made it", 1e-3);
+    Check(Rules.Hit(H(50, down4, prot: true)).Block, "extra spawn protection blocks the hit");
 
-    var knife = Rules.Hit(H(40, t7, Boost.None, health: 100, armor: 100, melee: Melee.Knife));
-    Check(knife.OneHit && knife.Damage >= 4 * 200, "a 7+ knife kills through armour");
-    var zeusOnVampire = Rules.Hit(H(40, t7, Boost.None, health: 1000, armor: 100, melee: Melee.Taser));
-    Check(zeusOnVampire.OneHit && zeusOnVampire.Damage >= 4 * 1100, "a 7+ Zeus kills a 1,000-health player");
-    Check(!Rules.Hit(H(40, t4, Boost.None, melee: Melee.Knife)).OneHit, "a 4+ knife is a normal knife");
-    Check(!Rules.Hit(H(40, t7, Boost.None, melee: Melee.None)).OneHit, "a 7+ gun is not one-hit");
+    var knife = Rules.Hit(H(40, up7, health: 100, armor: 100, melee: Melee.Knife));
+    Check(knife.OneHit && knife.Damage >= 4 * 200, "a knife 7 behind kills through armour");
+    var zeus = Rules.Hit(H(40, up7, health: 1000, armor: 100, melee: Melee.Taser));
+    Check(zeus.OneHit && zeus.Damage >= 4 * 1100, "a Zeus 7 behind kills a player with a map's own 1,000 health");
+    Check(!Rules.Hit(H(40, up4, melee: Melee.Knife)).OneHit, "a knife 4 behind is a normal knife");
+    Check(!Rules.Hit(H(40, Rules.PairFor(c, -7, 0), melee: Melee.Knife)).OneHit, "the one 7 ahead has no one-hit knife on the one behind");
+    Check(!Rules.Hit(H(40, up7, melee: Melee.None)).OneHit, "a gun 7 behind is not one-hit");
 
-    var saved = Rules.Hit(H(80, Boost.None, t4, health: 50));
-    Check(saved.SecondChanceUsed && saved.Damage == 49, "second chance: a lethal hit leaves 1 health");
-    var notLethal = Rules.Hit(H(30, Boost.None, t4, health: 50));
-    Check(!notLethal.SecondChanceUsed && Math.Abs(notLethal.Damage - 30 * 0.8) < 1e-3, "second chance: not spent on a hit that does not kill");
-    Check(!Rules.Hit(H(80, Boost.None, t4, health: 50, left: false)).SecondChanceUsed, "second chance: once per life");
-    Check(!Rules.Hit(H(80, Boost.None, t2, health: 50)).SecondChanceUsed, "second chance: not below 4 behind");
-    var one = Rules.Hit(H(5, Boost.None, t4, health: 1));
+    var saved = Rules.Hit(H(200, down4, health: 50));
+    Check(saved.SecondChanceUsed && saved.Damage == 49, "second chance: a lethal hit by a player 4 ahead leaves 1 health");
+    var notLethal = Rules.Hit(H(30, down4, health: 50));
+    Check(!notLethal.SecondChanceUsed && Math.Abs(notLethal.Damage - 30 * 0.8 / 1.4) < 1e-3, "second chance: not spent on a hit that does not kill");
+    Check(!Rules.Hit(H(200, down4, health: 50, left: false)).SecondChanceUsed, "second chance: once per life");
+    Check(!Rules.Hit(H(200, down2, health: 50)).SecondChanceUsed, "second chance: not against a player only 2 ahead");
+    Check(!Rules.Hit(H(200, up4, health: 50)).SecondChanceUsed, "second chance: never for the one ahead");
+    var one = Rules.Hit(H(5, down4, health: 1));
     Check(one.SecondChanceUsed && one.Damage == 0, "second chance at 1 health: the hit does nothing");
-    var duel = Rules.Hit(H(40, t7, t7, health: 175, melee: Melee.Knife));
-    Check(duel.OneHit && duel.SecondChanceUsed && Math.Abs(duel.Damage - 174) < 1e-3, "a one-hit knife against a second chance: they survive at 1");
-    var zeroed = Rules.Hit(H(200, t7, t4, health: 50, zero: true));
-    Check(!zeroed.SecondChanceUsed && !zeroed.Block && zeroed.Damage == 200, "headshots only: a body bullet is the game's to zero, no second chance spent");
-    Check(Rules.Hit(H(0, t7, t4, melee: Melee.Knife)).Damage == 0, "a hit the game already zeroed stays zero, even a one-hit knife");
+    var zeroed = Rules.Hit(H(200, up7, health: 50, zero: true));
+    Check(!zeroed.SecondChanceUsed && !zeroed.Block && zeroed.Damage == 200, "headshots only: a body bullet is the game's to zero, untouched");
+    Check(Rules.Hit(H(0, up7, melee: Melee.Knife)).Damage == 0, "a hit the game already zeroed stays zero, even a one-hit knife");
 
     Eq(Rules.MeleeOf("weapon_knife_t", null, false), Melee.Knife, "melee: the damage names a knife");
     Eq(Rules.MeleeOf(null, "weapon_taser", false), Melee.Taser, "melee: a Zeus in hand");
@@ -410,27 +501,24 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     Eq(Rules.GameZeroes(true, false, 2), false, "headshots only: not a bullet");
     Eq(Rules.GameZeroes(false, true, 2), false, "headshots only off");
 
-    Eq(Rules.SpawnHealth(100, t4), 140, "+40% on 100");
-    Eq(Rules.SpawnHealth(100, t7), 175, "+75% on 100");
-    Eq(Rules.SpawnHealth(1000, t4), 1400, "+40% on a 1,000 base (Vampire)");
-    Eq(Rules.SpawnHealth(100, Boost.None), 100, "no boost: the base");
-    Eq(Rules.AfterMaximumCut(1000, 1400, 100), (100, 100), "Vampire off mid-life: the life's base and ceiling follow the pawn's 100, so nothing heals past it");
-    Eq(Rules.AfterMaximumCut(100, 140, 140), (100, 140), "a pawn at the life's own ceiling changes nothing");
-    Eq(Rules.AfterMaximumCut(100, 140, 2000), (100, 140), "nor does a higher maximum: Vampire on mid-life, a mode's own");
-    Eq(Rules.Lifesteal(t4, 50, 100), 10, "20% lifesteal of 50");
-    Eq(Rules.Lifesteal(t4, 400, 100), 20, "lifesteal never more than the victim's whole health");
-    Eq(Rules.Lifesteal(Boost.None, 50, 100), 0, "no lifesteal without the boost");
-    Eq(Rules.Lifesteal(t7, 1000, 1000), 300, "30% lifesteal of a 1,000-health victim");
+    Eq(Rules.Lifesteal(up4.Lifesteal, 50, 100), 10, "20% lifesteal of 50");
+    Eq(Rules.Lifesteal(up4.Lifesteal, 400, 100), 20, "lifesteal never more than the victim's whole health");
+    Eq(Rules.Lifesteal(down4.Lifesteal, 50, 100), 0, "no lifesteal for the one ahead");
+    Eq(Rules.Lifesteal(0.3, 1000, 1000), 300, "30% lifesteal of a 1,000-health victim");
+    Near(Rules.PairFor(CatchUpConfig.Parse("{ \"Tiers\": [ { \"MinBehind\": 2, \"Lifesteal\": 0.5 } ] }"), 2, 0).Lifesteal, 0.5, "a tier's lifesteal up to half the damage");
 
+    var t2 = Rules.ForGap(c, 2, 0);
+    var t4 = Rules.ForGap(c, 4, 0);
+    var t7 = Rules.ForGap(c, 7, 0);
     double carry = 0;
-    Eq(Rules.Regen(t2, 4.9, 0.5, 100, ref carry), 0, "regeneration waits 5 s at 2+");
+    Eq(Rules.Regen(t2, 4.9, 0.5, 100, ref carry), 0, "regeneration waits 5 s at 2+ behind the leader");
     var healed = 0;
     for (var i = 0; i < 4; i++) healed += Rules.Regen(t2, 5 + i * 0.5, 0.5, 100, ref carry);
     Eq(healed, 4, "2+: 2% of 100 a second is 4 in 2 s");
     carry = 0;
     healed = 0;
     for (var i = 0; i < 2; i++) healed += Rules.Regen(t7, 3 + i * 0.5, 0.5, 1000, ref carry);
-    Eq(healed, 60, "7+: 6% of 1,000 a second is 60 in 1 s");
+    Eq(healed, 60, "7+: 6% of a map's own 1,000 a second is 60 in 1 s");
     carry = 0.7;
     Eq(Rules.Regen(t4, 1, 0.5, 100, ref carry), 0, "hurt again: nothing");
     Near(carry, 0, "hurt again: the fraction is dropped");
@@ -438,6 +526,65 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     Near(Rules.ProtectedUntil(100, 5, t4), 107, "4+: the game's 5 s and 2 s more");
     Near(Rules.ProtectedUntil(100, 5, t7), 108, "7+: 3 s more");
     Near(Rules.ProtectedUntil(100, 5, t2), 100, "2+: no extra protection");
+}
+
+// ---- the worked examples of 2026-11-08 (E1-E5): hits to kill from full health under the pair rule (Cs2Hits: armour and helmet on) ----
+
+{
+    var d = Defaults();
+    void Example(string what, int killer, int victim, double victimBounty, string gun, int body, int head, bool secondChance = false)
+    {
+        var pair = Rules.PairFor(d, victim - killer, victimBounty);
+        Eq((Cs2Hits.ToKill(gun, false, pair, secondChance: secondChance && pair.SecondChance), Cs2Hits.ToKill(gun, true, pair, secondChance: secondChance && pair.SecondChance)),
+            (body, head), $"{what}: hits to the body and to the head");
+    }
+    // Two players far behind the leader and level with each other: until 5.8.0 each carried 220 health, took and dealt x0.84 and had a second
+    // chance and 35% lifesteal - 12 M4A4 hits to the body and 4 to the head, 18 and 5 with a Glock. Now plain Counter-Strike.
+    Example("E1 Ann and Ben, both 10 behind the leader, level (7 and 7): an M4A4 as in plain Counter-Strike", 7, 7, 0, "m4a4", 5, 2);
+    Example("E2 Ben 8 behind on Cal 9 behind (23 and 22): a Glock as in plain Counter-Strike", 23, 22, 0, "glock", 8, 2);
+    Example("E5 Dee 7 behind on Cal 9 behind (8 and 6): Cal's row 2 - a twentieth less - and a Galil still takes 5 and 2", 8, 6, 0, "galilar", 5, 2);
+    // The leader and a player 8 behind him: as until 5.8.0 - the one behind is hard for the leader to kill, the leader easy for them.
+    Example("E3 the leader, 7 ahead of second place (a 30% bounty), on Eve 8 behind (16 and 8): Eve's row 8 and her second chance, a UMP-45", 16, 8, 0, "ump45", 17, 5, secondChance: true);
+    Example("E4 Dee 8 behind on the leader (9 and 17, his 30% bounty): her row 8, a Galil", 9, 17, 0.30, "galilar", 3, 1);
+}
+
+// ---- Vampire's numbers (bridge/Shared/Vampire.cs): its heal, and hits to kill with it, alone and with the pair rule ----
+
+{
+    var d = Defaults();
+    Near(Vampire.ShareBeside(0), 0.10, "Vampire: a tenth of every hit");
+    Near(Vampire.ShareBeside(0.35), 0.10, "...beside catch-up's 35% lifesteal still a tenth: 45% together");
+    Near(Vampire.ShareBeside(0.45), 0.05, "...beside 45%, what is left of half");
+    Near(Vampire.ShareBeside(0.5), 0, "...beside half, nothing");
+    Near(Vampire.ShareBeside(0.7), 0, "...nothing below zero");
+    Near(CatchUpConfig.MaxLifesteal, Vampire.HealCap, "catch-up's lifesteal has the same ceiling as the two together: half a hit");
+    double carry = 0;
+    var h = 50;
+    for (var i = 0; i < 10; i++) h = Vampire.Hit(h, 14, Vampire.HitShare, ref carry);
+    Eq(h, 64, "ten hits that each take 14 heal 14: the fractions carried");
+    carry = 0;
+    Eq(Vampire.Hit(145, 100, Vampire.HitShare, ref carry), 150, "never above the ceiling");
+    Eq(Vampire.Hit(160, 100, Vampire.HitShare, ref carry), 160, "never a cut of a health above it");
+    Eq((Vampire.Kill(100), Vampire.Kill(130), Vampire.Kill(150), Vampire.Kill(170)), (140, 150, 150, 170), "a kill: 40 more, up to 150, never a cut");
+    Check(Vampire.SpawnHealth == 100 && Vampire.Cap == 150 && Vampire.HitPercent == 10 && Vampire.KillHeal == 40 && Vampire.HealCapPercent == 50,
+        "Vampire: the game's 100 at spawn, a tenth of every hit, 40 a kill, up to 150, half a hit at most with lifesteal");
+
+    (int, int, int, int) Four(Func<string, bool, int> hits) => (hits("ak47", false), hits("ak47", true), hits("glock", false), hits("glock", true));
+    Cs2Hits.Fighter Fresh(bool vampire) => new() { Vampire = vampire };
+    // A fresh player dies as in plain Counter-Strike: the AK-47 4 to the body or 1 to the head, the Glock 8 or 2. Until 5.8.0: 34, 9, 40 and 11.
+    Eq(Four((gun, head) => Cs2Hits.ToKill(gun, head, Pair.Even)), (4, 1, 8, 2), "Vampire: a fresh player, AK body/head, Glock body/head");
+    // Two players trading hits evenly: still 4, 1, 8, 2 - a tenth back does not save a life. Until 5.8.0 that fight never ended.
+    Eq(Four((gun, head) => Cs2Hits.Trade(Fresh(true), Fresh(true), gun, head, Pair.Even, Pair.Even)), (4, 1, 8, 2), "Vampire: an even trade, both on Vampire");
+    // A player Vampire fed to its ceiling lives through one headshot: 6, 2, 11, 3.
+    Eq(Four((gun, head) => Cs2Hits.ToKill(gun, head, Pair.Even, health: Vampire.Cap)), (6, 2, 11, 3), "Vampire: a player fed to 150");
+    // With the pair rule, the leader 8 ahead with a 30% bounty: he needs 14, 5, 27, 7 on the player behind (her row 8 and second chance), she 2, 1, 4, 1 on him.
+    // (The fifth AK headshot is her second chance's: the third does 39 before armour against her 40 whole points, so it does not count as lethal
+    // and the fourth is the one it saves - an analysis that compared fractions of a point counted 4.)
+    Eq(Four((gun, head) => Cs2Hits.ToKill(gun, head, Rules.PairFor(d, -8, 0), secondChance: true)), (14, 5, 27, 7), "Vampire with catch-up: the leader on a player 8 behind");
+    Eq(Four((gun, head) => Cs2Hits.ToKill(gun, head, Rules.PairFor(d, 8, 0.3))), (2, 1, 4, 1), "...the player 8 behind on the leader");
+    // ...and in their trade, her 35% lifesteal and Vampire's tenth together stay within half a hit.
+    var her = Rules.PairFor(d, 8, 0.3);
+    Check(her.Lifesteal + Vampire.ShareBeside(her.Lifesteal) <= Vampire.HealCap + 1e-12, "...her heals together: 45%, within half");
 }
 
 // ---- weapons ----
@@ -539,7 +686,7 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     var tkSame = g.TeamKill(9, 1, "aug");
     Check(tkSame.Line.StartsWith("team-killed with aug") && tkSame.Note == null, $"a team kill's gun on the rung in hand places nobody ({tkSame})");
     var tkPlaced = g.TeamKill(7, 1, "awp"); // 7 joined late, counted 0, holds the awp of rung 1
-    Eq(tkPlaced, ("team-killed with awp: down from level 1 + 0 to level 0 + 0, the level-1 gun in hand until death", "placed on level 1 by a awp kill (counted 0)"),
+    Eq(tkPlaced, ("team-killed with awp: down from level 1 + 0 to level 0 + 0, the level-1 gun in hand until death", "placed on level 1 by a awp kill (counted 0 + 0)"),
         "a late joiner's team kill with a known gun places them, then takes them down - the note apart from the line, as the log writes them");
     Eq(Place(g, 7), "0+0@1 placed", "...holding that gun until death");
     g.Untrust(1);
@@ -560,6 +707,45 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     Eq(twice.RungOf("ak47"), -1, "...and that gun is forgotten");
     Eq(twice.Kill(8, 2, "ak47", true), null, "...and places nobody else this match");
     Eq(twice.State(8).Level, 0, "...so a late joiner who uses it stays where counted");
+}
+
+// ---- the counter's placement: the count nearest the one it had, and a rung counted players confirmed ----
+
+{
+    string[] gun = ["g3sg1", "awp", "aug", "ak47", "famas", "m4a1_silencer", "negev", "mp5sd", "mp7", "mp9", "revolver", "hkp2000", "glock", "elite", "sawedoff", "mag7"];
+    Eq((Ladder.Place(5, 4), Ladder.Place(13, 4), Ladder.Place(8, 4), Ladder.Place(9, 4)), (0, 1, 0, 1),
+        "placed on rung 4: none on it when counted below (2 + 1), the last before the level-up when above (6 + 1), the count's own when on it");
+    var l = new Ladder();
+    l.StartMatch(new ulong[] { 1, 2 });
+    for (var i = 0; i < 10; i++) l.Kill(1, 2, gun[l.Held(1)], true); // 1 teaches rungs 0 to 4
+    for (var i = 0; i < 5; i++) l.Kill(9, 2, "hegrenade", true);      // 9 joined late: counted 2 + 1
+    var below = l.Kill(9, 2, gun[4], true);
+    Check(below == "placed on level 4 by a famas kill (counted 2 + 1)" && Place(l, 9) == "4+1@4 placed",
+        $"counted a kill below the game: placed on level 4 with none, then the kill counts - 4 + 1 ({below}; {Place(l, 9)})");
+    for (var i = 0; i < 6; i++) l.Kill(8, 2, "hegrenade", true);      // 8 joined late: counted 3 + 0
+    l.Kill(8, 2, "hegrenade", true);
+    for (var i = 0; i < 6; i++) l.Kill(8, 2, "hegrenade", true);      // ...6 + 1
+    var above = l.Kill(8, 2, gun[4], true);
+    Check(above == "placed on level 4 by a famas kill (counted 6 + 1)" && Place(l, 8) == "5+0@5 placed",
+        $"counted a kill above the game: placed on 4 with one, the kill finishing it - 5 + 0 ({above}; {Place(l, 8)})");
+
+    // A gun counted players used twice on its rung: a counted player's kill with it on another rung is their count being off.
+    var cf = new Ladder();
+    cf.StartMatch(new ulong[] { 1, 2, 3 });
+    for (var i = 0; i < 4; i++) cf.Kill(1, 2, gun[cf.Held(1)], true); // 1: rung 0's gun twice, rung 1's twice
+    cf.Kill(3, 2, gun[0], true);                                       // 3 counted at 0 + 1 - and the game gives them a kill the log never shows
+    var off = cf.Kill(3, 2, gun[1], true);                             // 3 kills with rung 1's gun: the game has them on rung 1
+    Check(off != null && off.StartsWith("placed on level 1 by a awp kill, a rung 2 counted kills confirmed (counted 0 + 1)") && Place(cf, 3) == "1+1@1 placed" && cf.RungOf(gun[1]) == 1,
+        $"...placed on that rung, the rung kept ({off}; {Place(cf, 3)})");
+    // With one kill on it only, the rung and the count weigh the same: the gun is forgotten, as before (see 'A gun on two rungs').
+    var one = new Ladder();
+    one.StartMatch(new ulong[] { 1, 2, 3 });
+    one.Kill(1, 2, gun[0], true);
+    one.Kill(1, 2, gun[0], true);
+    one.Kill(1, 2, gun[1], true);                                      // rung 1's gun learned on one kill
+    one.Kill(3, 2, gun[0], true);
+    var clash = one.Kill(3, 2, gun[1], true);
+    Check(clash != null && clash.Contains("two rungs") && one.RungOf(gun[1]) == -1 && Place(one, 3) == "1+0@1 placed", $"...one kill on the rung: forgotten ({clash})");
 }
 
 // ---- the kill counter: nine real players' runs (the sequences that prove each rule, from the matches below) ----
@@ -688,212 +874,177 @@ void Run(string what, string[] ladder, string start, params string[] steps)
         }
 }
 
-// ---- the boost decided again after every kill ----
+// ---- the counter against the match of 2026-11-08 (armsrace-2026-11-08.txt): one player's count a kill short from early on, brought back ----
+
+{
+    var lines = File.ReadAllLines(Path.Combine(here, "armsrace-2026-11-08.txt")).Where(x => x.Length > 0 && !x.StartsWith('#')).Select(x => x.Split(' ')).ToList();
+    var head = lines[0];
+    var events = lines.Skip(1).ToList();
+    Check(head[0] == "match" && head[1] == "cs2_mansion", "2026-11-08: one match");
+    var ladder = head[2].Split(',');
+    var counted = head[3].Split(',');
+    Eq(events.Count, 246, "2026-11-08: 246 kills");
+    Check(events.All(e => e.Length == 5 && e[0] is "P1" or "P2" or "P3" or "P4" or "P5" or "P6" && e[2] is "P1" or "P2" or "P3" or "P4" or "P5" or "P6"),
+        "the fixture names nobody: players are P1-P6");
+    Eq(events.Count(e => e[1] == e[3]), 14, "...with 14 team kills");
+    foreach (var everybody in new[] { false, true })
+    {
+        var names = events.SelectMany(e => new[] { e[0], e[2] }).Distinct().ToList();
+        ulong Id(string n) => (ulong)(names.IndexOf(n) + 1);
+        var counter = new Ladder();
+        counter.StartMatch(names.Where(n => everybody || counted.Contains(n)).Select(Id));
+        int guns = 0, onRung = 0, firstOff = -1, lastOff = -1;
+        string? firstOffBy = null;
+        for (var i = 0; i < events.Count; i++)
+        {
+            var e = events[i];
+            ulong killer = Id(e[0]), victim = Id(e[2]);
+            var kind = Weapons.Kind(e[4]);
+            var held = counter.Held(killer);
+            if (kind == WeaponKind.Gun)
+            {
+                guns++;
+                if (Array.IndexOf(ladder, e[4]) == held) onRung++;
+                else
+                {
+                    if (firstOff < 0) (firstOff, firstOffBy) = (i, e[0]);
+                    lastOff = i;
+                }
+            }
+            if (e[1] == e[3]) counter.TeamKill(killer, victim, e[4]);
+            else counter.Kill(killer, victim, e[4], held < GoldenKnife);
+        }
+        var how = everybody ? "everybody counted from the start" : "as the plugin followed them";
+        Eq(guns, 223, $"2026-11-08: its gun kills ({how})");
+        // The one gun kill off its rung is the one that shows the kill the log lacks: P3's awp kill, the counter still at level 0. Every gun kill after
+        // it lands, where keeping the kills on the level put 30 of them a rung off, half too low and half too high.
+        Eq(onRung, 222, $"2026-11-08: 222 of 223 gun kills made with the gun the counter has in the killer's hands ({how})");
+        Check(firstOff == lastOff && firstOffBy == "P3" && events[firstOff][4] == "awp", $"...the one that is not: P3's awp kill that shows the missing kill ({how}; event {firstOff + 1})");
+        var standings = counter.Standings(names.Select(Id));
+        Check(events[^1][0] == head[4] && events[^1][4].StartsWith("knife") && standings.Leader == Id(head[4]) && standings.Top == 2 * (GoldenKnife + 1),
+            $"...and the match ends on {head[4]}'s knife kill on the golden knife, the counter one level past it ({how})");
+    }
+}
+
+// ---- each player's own boost decided again after every kill ----
 
 {
     var c = Defaults();
-    bool Same(Boost a, Boost b) =>
-        a.Tier == b.Tier && a.Health == b.Health && a.DamageTaken == b.DamageTaken && a.DamageDealt == b.DamageDealt && a.Lifesteal == b.Lifesteal
-        && a.RegenPerSecond == b.RegenPerSecond && a.RegenDelaySeconds == b.RegenDelaySeconds && a.SecondChance == b.SecondChance
-        && a.InfiniteAmmo == b.InfiniteAmmo && a.OneHitMelee == b.OneHitMelee && a.Bounty == b.Bounty;
-    string Values(Boost b) =>
-        string.Create(CultureInfo.InvariantCulture, $"{b.Health:0.00} {b.DamageTaken:0.00} {b.DamageDealt:0.00} {b.Lifesteal:0.00}");
-
-    // A life of player 3 that spawned 8 behind (leader 1 at 20): curve B's 8+ tier, +120% health (100 -> 220).
+    // A life that spawned 8 behind (leader 1 at 20, 5 ahead of second: a 20% bounty): curve B's 8+.
     var spawn = Rules.Decide(c, Stand((1, 20), (2, 15), (3, 12), (4, 10)), 3);
-    Check(spawn is { Tier: 8, InfiniteAmmo: true, ExtraProtection: 3 } && Values(spawn) == "1.20 -0.40 0.40 0.35", $"spawned 8 behind: tier 8+ ({Values(spawn)})");
-    var life = new MidLife(spawn, spawn.Health, Rules.SpawnHealth(100, spawn), false);
-    Eq(life.MaxHealth, 220, "...220 health");
-
-    // It shrinks after the player's own kill: 7 behind. The health stays +120%; damage taken, damage dealt and lifesteal are cut so that
-    // the own factor is tier 7+'s 4.57: (1 + 1.20 + 0.25) x 1.30 / 0.70 = 4.55, and one more 5% step of any of them would pass it.
-    life = Rules.Recalculate(c, Stand((1, 20), (2, 15), (3, 13), (4, 10)), 3, false, life.Boost, life.Health, 100, life.MaxHealth);
-    var b7 = life.Boost;
-    var own7 = Rules.Own(Rules.Decide(c, Stand((1, 20), (3, 13)), 3));
-    Check(b7 is { Tier: 7, HealthHeld: true } && life.TierChanged && life.Health == 1.20 && life.MaxHealth == 220,
-        $"their own kill, 7 behind: tier 7+, the +120% health held, 220 kept ({Values(b7)})");
-    Eq(Values(b7), "1.20 -0.30 0.30 0.25", "...the other three cut: -30% damage taken, +30% damage, 25% lifesteal");
-    Check(Rules.Own(b7) <= own7 + 1e-9 && Math.Abs(own7 - 4.569) < 1e-3,
-        $"...the own factor {Rules.Own(b7):0.000} within tier 7+'s {own7:0.000}");
-    var t7 = c.Tiers.Single(t => t.MinBehind == 7);
-    Check(Rules.Own(1.20, b7.Lifesteal, b7.DamageDealt, b7.DamageTaken - 0.05) > own7 && Rules.Own(1.20, b7.Lifesteal, b7.DamageDealt + 0.05, b7.DamageTaken) > own7
-          && (b7.Lifesteal + 0.05 > t7.Lifesteal + 1e-9 || Rules.Own(1.20, b7.Lifesteal + 0.05, b7.DamageDealt, b7.DamageTaken) > own7),
-        "...and no 5% step of them left unused");
-    Check(b7 is { SecondChance: true, InfiniteAmmo: true, OneHitMelee: true, RegenPerSecond: 0.08, RegenDelaySeconds: 2, ExtraProtection: 3 },
-        "...the extras are tier 7+'s; the spawn protection stays the spawn's");
-
-    // More kills: 5 behind (the own factor 2.56: the held health is 2.20 of it), then 2 behind (1.10: the health alone is past it).
-    life = Rules.Recalculate(c, Stand((1, 20), (3, 15)), 3, false, life.Boost, life.Health, 100, life.MaxHealth);
-    Check(life.Boost is { Tier: 5, HealthHeld: true, SecondChance: true, InfiniteAmmo: false, OneHitMelee: false, RegenPerSecond: 0.05 } && Values(life.Boost) == "1.20 -0.05 0.10 0.00",
-        $"5 behind: tier 5+, the health held, -5% damage taken and +10% damage beside it, no lifesteal; no infinite ammo, no one-hit knife ({Values(life.Boost)})");
-    Check(Rules.Own(life.Boost) <= 2.56 + 1e-9, $"...the own factor {Rules.Own(life.Boost):0.000} within 2.56");
-    life = Rules.Recalculate(c, Stand((1, 20), (3, 18)), 3, false, life.Boost, life.Health, 100, life.MaxHealth);
-    Check(life.Boost is { Tier: 2, HealthHeld: true, SecondChance: false, RegenPerSecond: 0.03, RegenDelaySeconds: 4 } && Values(life.Boost) == "1.20 0.00 0.00 0.00" && life.MaxHealth == 220,
-        $"2 behind: the held health alone is past tier 2+'s 1.10 - the other three zero, regeneration 3%/s after 4 s, no second chance ({Values(life.Boost)})");
-    // ...it takes the lead by 2 (a 10% bounty), then 1 catches up to a tie at the top
-    life = Rules.Recalculate(c, Stand((1, 20), (3, 22)), 3, false, life.Boost, life.Health, 100, life.MaxHealth);
-    Check(life.Boost is { IsBounty: true, Bounty: 0.10, Lead: 2, Tier: 0, HealthHeld: true, SecondChance: false, RegenPerSecond: 0 } && Values(life.Boost) == "1.20 0.00 0.00 0.00"
-          && life.TierChanged && life.Boost.Step == "bounty +10%",
-        "the lead by 2: the leader's +10% bounty, the +120% health still held, nothing else");
-    Near(Rules.Multiplier(Boost.None, life.Boost), 1.1, "...hits on them take the bounty", 1e-5);
-    var asLeader = life.Boost;
-    life = Rules.Recalculate(c, Stand((1, 22), (3, 22)), 3, false, life.Boost, life.Health, 100, life.MaxHealth);
-    Check(life.Boost is { IsBounty: false, IsBoost: false, Tier: 0, HealthHeld: true } && life.Boost.Health == 1.20 && life.Boost.Step == "no boost" && life.TierChanged,
-        "a tie at the top: no boost, no bounty, the health held");
-
-    // It grows after the leader's kill: a life that spawned 4 behind (+35%, 135 health) is now 5 behind, then 8.
-    var s4 = Rules.Decide(c, Stand((1, 10), (2, 6)), 2);
-    var grow = new MidLife(s4, s4.Health, Rules.SpawnHealth(100, s4), false);
-    Eq(grow.MaxHealth, 135, "spawned 4 behind: 135 health");
-    grow = Rules.Recalculate(c, Stand((1, 11), (2, 6)), 2, false, grow.Boost, grow.Health, 100, grow.MaxHealth);
-    var d5 = Rules.Decide(c, Stand((1, 11), (2, 6)), 2);
-    Check(Same(grow.Boost, d5) && !grow.Boost.HealthHeld && grow.Health == 0.50 && grow.MaxHealth == 150 && grow.TierChanged,
-        $"the leader's kill, 5 behind: tier 5+ exactly, the maximum raised to 150 (the current health left alone) ({Values(grow.Boost)})");
-    grow = Rules.Recalculate(c, Stand((1, 14), (2, 6)), 2, false, grow.Boost, grow.Health, 100, grow.MaxHealth);
-    Check(grow.Boost.Tier == 8 && grow.Health == 1.20 && grow.MaxHealth == 220 && !grow.Boost.HealthHeld, "8 behind: tier 8+, the maximum up to 220");
-    var same = Rules.Recalculate(c, Stand((1, 15), (2, 6)), 2, false, grow.Boost, grow.Health, 100, grow.MaxHealth);
-    Check(!same.TierChanged && same.MaxHealth == 220, "9 behind: still tier 8+, nothing to log");
-    var back = Rules.Recalculate(c, Stand((1, 15), (2, 9)), 2, false, same.Boost, same.Health, 100, same.MaxHealth);
-    Check(back.Boost is { Tier: 6, HealthHeld: true } && back.MaxHealth == 220 && back.Health == 1.20, "back to 6 behind: the 220 kept, the rest cut");
-    var vampire = Rules.Recalculate(c, Stand((1, 14), (2, 6)), 2, false, s4, 0.35, 1000, 2000);
-    Eq(vampire.MaxHealth, 2200, "under Vampire (1,000 at spawn, at most 2,000): +120% raises the maximum to 2,200");
-    var vampireLow = Rules.Recalculate(c, Stand((1, 11), (2, 6)), 2, false, s4, 0.35, 1000, 2000);
-    Eq(vampireLow.MaxHealth, 2000, "...+50% (1,500) leaves Vampire's own 2,000 alone");
-
-    // The second chance: granted when the gap reaches 4 and the life has none used, taken back when it closes below 4, once a life.
-    var s3 = Rules.Decide(c, Stand((1, 10), (2, 7)), 2);
-    Check(!s3.SecondChance, "3 behind: no second chance");
-    var at4 = Rules.Recalculate(c, Stand((1, 11), (2, 7)), 2, false, s3, s3.Health, 100, Rules.SpawnHealth(100, s3)).Boost;
-    var lethal = new HitInput(80, Boost.None, at4, 50, 0, Melee.None, false, true, false);
-    Check(at4.SecondChance && Rules.Hit(lethal).SecondChanceUsed, "4 behind mid-life: the second chance granted, and it saves");
-    Check(!Rules.Hit(lethal with { SecondChanceLeft = false }).SecondChanceUsed, "...but not when the life used one already");
-    var at3 = Rules.Recalculate(c, Stand((1, 11), (2, 8)), 2, false, at4, at4.Health, 100, 135).Boost;
-    Check(!at3.SecondChance && !Rules.Hit(lethal with { Victim = at3 }).SecondChanceUsed, "back to 3 behind: an unused second chance taken back");
-    Check(at3.ExtraProtection == 0 && at4.ExtraProtection == 0 && Rules.Decide(c, Stand((1, 11), (2, 7)), 2).ExtraProtection == 2,
-        "the spawn protection stays the spawn's: none here, though 4 behind at a spawn gives 2 s");
-
-    // Everything follows the new decision both ways, per hit and per tick: damage, resistance, lifesteal, regeneration, ammo, the one-hit knife.
-    Near(Rules.Multiplier(b7, Boost.None), 1.30, "the cut damage applies at once", 1e-5);
-    Eq(Rules.Lifesteal(b7, 100, 100), 25, "...the cut lifesteal");
+    Check(spawn is { Tier: 8, InfiniteAmmo: true, ExtraProtection: 3, RegenPerSecond: 0.08, RegenDelaySeconds: 2, SecondChance: true, OneHitMelee: true },
+        "spawned 8 behind: tier 8+, its extras and, against the leader, its fight");
+    // It shrinks after the player's own kill: 7 behind. Their own extras follow; the spawn protection stays the spawn's.
+    var (b7, ch7) = Rules.Recalculate(c, Stand((1, 20), (2, 15), (3, 13), (4, 10)), 3, false, spawn);
+    Check(b7 is { Tier: 7, InfiniteAmmo: true, ExtraProtection: 3, RegenPerSecond: 0.08 } && ch7, "their own kill, 7 behind: tier 7+, logged");
+    var (b5, ch5) = Rules.Recalculate(c, Stand((1, 20), (3, 15)), 3, false, b7);
+    Check(b5 is { Tier: 5, InfiniteAmmo: false, ExtraProtection: 3, RegenPerSecond: 0.05, RegenDelaySeconds: 3 } && ch5,
+        "5 behind: tier 5+, no infinite ammo, regeneration 5%/s after 3 s, the spawn's protection kept");
+    var (lead2, chl) = Rules.Recalculate(c, Stand((1, 20), (3, 22)), 3, false, b5);
+    Check(lead2 is { IsBounty: true, Bounty: 0.10, Lead: 2, Tier: 0, RegenPerSecond: 0, InfiniteAmmo: false } && chl && lead2.Step == "bounty +10%",
+        "the lead by 2: the leader's +10% bounty, nothing else");
+    var (tie, cht) = Rules.Recalculate(c, Stand((1, 22), (3, 22)), 3, false, lead2);
+    Check(!tie.IsBounty && !tie.IsBoost && tie.Step == "no boost" && cht, "a tie at the top: no boost, no bounty, logged");
+    var grow = Rules.Decide(c, Stand((1, 14), (2, 6)), 2);
+    var (same, chs) = Rules.Recalculate(c, Stand((1, 15), (2, 6)), 2, false, grow);
+    Check(grow.Tier == 8 && same.Tier == 8 && !chs, "9 behind after 8: still tier 8+, nothing to log");
     double carry = 0;
-    Eq(Rules.Regen(asLeader, 10, 1, 100, ref carry), 0, "the leader regenerates nothing");
+    Eq(Rules.Regen(lead2, 10, 1, 100, ref carry), 0, "the leader regenerates nothing");
     Eq(Rules.Regen(b7, 10, 1, 100, ref carry), 8, "...7 behind, 8% a second of the spawn health");
-    Check(!Rules.Hit(new HitInput(40, at3, Boost.None, 100, 0, Melee.Knife, false, true, false)).OneHit, "a 3-behind knife is a normal knife");
 
-    // The log's one line, only at a change of tier or of the bounty's step.
-    Eq(Words.Change("P3", spawn, b7, Stand((1, 20), (2, 15), (3, 13), (4, 10)), "P1", 100, 220),
-        "P3's boost changes mid-life, tier 8+ -> tier 7+: +120% health held (100, at most 220), -30% damage taken, +30% damage, 25% lifesteal, regeneration 8%/s after 2 s, second chance, infinite ammo, one-hit knife and Zeus; duel factor 5.46 - 7 kills behind (leader P1 20, them 13, 4 players)",
-        "the line for a boost that shrinks (the duel factor with the leader's 20% bounty: 4.55 x 1.2)");
-    Eq(Words.Change("P2", s4, d5, Stand((1, 11), (2, 6)), "P1", 100, 150),
-        "P2's boost changes mid-life, tier 4+ -> tier 5+: +50% health (100, at most 150), -25% damage taken, +20% damage, 10% lifesteal, regeneration 5%/s after 3 s, second chance; duel factor 3.07 - 5 kills behind (leader P1 11, them 6, 2 players)",
-        "...for one that grows (2.56 x 1.2)");
-    var lead4 = Rules.Recalculate(c, Stand((1, 20), (3, 24)), 3, false, b7, 1.20, 100, 220).Boost;
-    Eq(Words.Change("P3", b7, lead4, Stand((1, 20), (3, 24)), null, 100, 220),
-        "P3's boost changes mid-life, tier 7+ -> bounty +20%: +120% health held (100, at most 220), bounty +20% damage taken from enemies - leads by 4 kills (24 to 20, 2 players)",
+    // The log's lines: a spawn's, and one only at a change of tier or of the bounty's step.
+    Eq(Words.Decision("P3", spawn, Stand((1, 20), (2, 15), (3, 12), (4, 10)), "P1"),
+        "P3 spawns 8 kills behind (leader P1 20, them 12, 4 players): tier 8+: against players ahead up to +40% damage, -73% damage taken, 35% lifesteal, second chance, one-hit knife and Zeus; regeneration 8%/s after 2 s, +3 s spawn protection, infinite ammo; duel factor 7.14",
+        "a spawn's line: the fight against the players ahead, the player's own extras, and the duel factor with the leader's 20% bounty (5.95 x 1.2)");
+    Eq(Words.Change("P3", spawn, b7, Stand((1, 20), (2, 15), (3, 13), (4, 10)), "P1"),
+        "P3's boost changes mid-life, tier 8+ -> tier 7+: against players ahead up to +35% damage, -67% damage taken, 25% lifesteal, second chance, one-hit knife and Zeus; regeneration 8%/s after 2 s, infinite ammo; duel factor 5.48 - 7 kills behind (leader P1 20, them 13, 4 players)",
+        "the line for a boost that shrinks (4.57 x 1.2)");
+    var lead4 = Rules.Recalculate(c, Stand((1, 20), (3, 24)), 3, false, b7).Boost;
+    Eq(Words.Change("P3", b7, lead4, Stand((1, 20), (3, 24)), null),
+        "P3's boost changes mid-life, tier 7+ -> bounty +20%: bounty +20% damage taken from enemies - leads by 4 kills (24 to 20, 2 players)",
         "...for a boosted player who takes the lead");
-    var plainLeader = Rules.Recalculate(c, Stand((1, 20), (3, 24)), 3, false, Boost.None, 0, 100, 100).Boost;
-    Eq(Words.Change("P3", Boost.None, plainLeader, Stand((1, 20), (3, 24)), null, 100, 100),
+    Eq(Words.Change("P3", Boost.None, lead4, Stand((1, 20), (3, 24)), null),
         "P3's boost changes mid-life, no boost -> bounty +20%: bounty +20% damage taken from enemies - leads by 4 kills (24 to 20, 2 players)",
-        "...and for one with nothing held: the standing last, never the shape of a spawn's line");
-    Eq(Words.Decision("P3", spawn, Stand((1, 20), (2, 15), (3, 12), (4, 10)), "P1", 100, 220),
-        "P3 spawns 8 kills behind (leader P1 20, them 12, 4 players): tier 8+: +120% health (100 -> 220), -40% damage taken, +40% damage, 35% lifesteal, regeneration 8%/s after 2 s, second chance, +3 s spawn protection, infinite ammo, one-hit knife and Zeus; duel factor 7.14",
-        "a spawn's line: the tier's own values, and the duel factor with the leader's 20% bounty (5.95 x 1.2)");
-    var lead5 = Rules.Recalculate(c, Stand((1, 20), (3, 25)), 3, false, lead4, 1.20, 100, 220);
+        "...and for one with nothing before: the standing last, never the shape of a spawn's line");
+    var lead5 = Rules.Recalculate(c, Stand((1, 20), (3, 25)), 3, false, lead4);
     Check(!lead5.TierChanged, "a lead of 5: still +20%, nothing to log");
-    Check(Rules.Recalculate(c, Stand((1, 20), (3, 26)), 3, false, lead5.Boost, 1.20, 100, 220).TierChanged, "a lead of 6: +30%, logged");
-
-    // Random lives: whatever the standings do, health and its maximum never go down, an unheld boost is exactly the decision, a held one
-    // never gives more of the other three than the decision and never more than the decision's own factor beside the held health.
-    var rng = new Random(70);
-    int lives = 0, changes = 0, held = 0, broken = 0;
-    for (var run = 0; run < 2000; run++)
-    {
-        var progress = new Dictionary<ulong, int> { [1] = rng.Next(0, 30), [2] = rng.Next(0, 30), [3] = rng.Next(0, 30), [4] = rng.Next(0, 30) };
-        var mate = rng.Next(4) == 0;
-        var first = Rules.Decide(c, new Standings(progress), 2, mate);
-        var now = new MidLife(first, first.IsBoost ? first.Health : 0, Rules.SpawnHealth(100, first.IsBoost ? first : Boost.None), false);
-        lives++;
-        for (var k = 0; k < 12; k++)
-        {
-            var who = (ulong)rng.Next(1, 5);
-            progress[who] = Math.Max(0, progress[who] + (rng.Next(5) == 0 ? -2 : 1));
-            var s = new Standings(progress);
-            var next = Rules.Recalculate(c, s, 2, mate, now.Boost, now.Health, 100, now.MaxHealth);
-            var decided = Rules.Decide(c, s, 2, mate);
-            changes++;
-            var ok = next.Health >= now.Health - 1e-12 && next.MaxHealth >= now.MaxHealth && next.Boost.ExtraProtection == first.ExtraProtection
-                     && next.TierChanged == (now.Boost.Step != next.Boost.Step) && Math.Abs(next.Boost.Health - next.Health) < 1e-9
-                     && next.MaxHealth >= Rules.SpawnHealth(100, next.Boost);
-            if (next.Boost.HealthHeld)
-            {
-                held++;
-                ok &= Math.Abs(next.Boost.Health - now.Health) < 1e-12 && next.Boost.Health > decided.Health
-                      && -next.Boost.DamageTaken <= -decided.DamageTaken + 1e-9 && next.Boost.DamageDealt <= decided.DamageDealt + 1e-9 && next.Boost.Lifesteal <= decided.Lifesteal + 1e-9
-                      && Rules.Own(next.Boost) <= Math.Max(Rules.Own(decided), 1 + next.Boost.Health) + 1e-9
-                      && next.Boost.SecondChance == decided.SecondChance && next.Boost.InfiniteAmmo == decided.InfiniteAmmo && next.Boost.OneHitMelee == decided.OneHitMelee
-                      && next.Boost.RegenPerSecond == decided.RegenPerSecond && next.Boost.Bounty == decided.Bounty && next.Boost.Tier == decided.Tier;
-            }
-            else ok &= Same(next.Boost, decided);
-            if (!ok)
-            {
-                broken++;
-                if (broken <= 5) Console.WriteLine($"      broken: run {run} step {k}: {Values(now.Boost)} -> {Values(next.Boost)} (decided {Values(decided)}, held {now.Health:0.00})");
-            }
-            now = next;
-        }
-    }
-    Eq(broken, 0, $"{lives} random lives, {changes} recalculations ({held} with the health held): health and its maximum only ever up, the rest the decision's");
+    Check(Rules.Recalculate(c, Stand((1, 20), (3, 26)), 3, false, lead5.Boost).TierChanged, "a lead of 6: +30%, logged");
 }
 
-// ---- the message ----
+// ---- the message: the card's rows, and the centre panel of an older HUD ----
 
 {
     var c = Reference();
+    var d = Defaults();
     var worstLines = 0;
     var worstWidth = 0;
-    foreach (var cfg in new[] { c, Defaults() })
+    foreach (var cfg in new[] { c, d })
         for (var behind = 2; behind <= 60; behind++)
         {
             var b = Rules.ForGap(cfg, behind, 0);
             var ls = Words.Lines(b);
-            if (!b.IsBoost) { Eq(ls.Length, 0, "no boost: no message"); continue; }
+            var card = Words.Card(b);
+            if (!b.IsBoost) { Check(ls.Length == 0 && card.Length == 0, "no boost: no message"); continue; }
             worstLines = Math.Max(worstLines, ls.Length);
             worstWidth = Math.Max(worstWidth, ls.Max(x => x.Length));
             Check(ls.Length <= Words.MaxLines && ls.All(x => x.Length <= Words.LineWidth),
-                $"{behind} behind: fits {Words.MaxLines} lines of {Words.LineWidth}: {string.Join(" | ", ls)}");
-            Check(ls[0].StartsWith($"{behind} kill"), $"{behind} behind: says how many kills behind first");
+                $"{behind} behind: the panel fits {Words.MaxLines} lines of {Words.LineWidth}: {string.Join(" | ", ls)}");
+            Check(ls[0].StartsWith($"{behind} "), $"{behind} behind: the panel says how many kills behind first");
+            Check(card.Length is > 0 and <= Words.CardRows && card.All(x => x.Length <= Words.CardWidth) && card[0] == Words.Against,
+                $"{behind} behind: the card fits {Words.CardRows} rows of {Words.CardWidth}, against the players ahead first: {string.Join(" | ", card)}");
         }
-    Check(worstLines <= 5 && worstWidth <= 28, $"the tallest message {worstLines} lines, the widest line {worstWidth}");
+    Check(worstLines <= 5 && worstWidth <= 28, $"the tallest panel {worstLines} lines, the widest line {worstWidth}");
     for (var lead = 2; lead <= 30; lead++)
     {
-        var ls = Words.Lines(new Boost { Lead = lead, Bounty = Rules.BountyFor(c.Bounty, lead) });
-        Check(ls.Length is >= 1 and <= 5 && ls.All(x => x.Length <= 28) && ls[0] == $"You lead by {lead} kills:", $"the leader's message at a lead of {lead}");
+        var boost = new Boost { Lead = lead, Bounty = Rules.BountyFor(c.Bounty, lead) };
+        var ls = Words.Lines(boost);
+        Check(ls.Length is >= 1 and <= 5 && ls.All(x => x.Length <= 28) && ls[0] == $"You lead by {lead} kills:" && Words.Card(boost).Length == 1,
+            $"the leader's message at a lead of {lead}");
     }
 
-    var five = Words.Lines(Rules.ForGap(c, 5, 0));
-    Eq(string.Join(" | ", five), "5 kills behind the leader: | +40% HP, -20% dmg taken, | +20% dmg, 20% lifesteal, | regen, 2nd chance, | +2s protection",
-        "5 behind: the panel");
-    var two = Words.Lines(Rules.ForGap(c, 2, 0));
-    Eq(string.Join(" | ", two), "2 kills behind the leader: | +20% health, | -10% damage taken, | +10% damage, 10% lifesteal, | regeneration",
-        "2 behind: the panel in long words");
-    var seven = Words.Lines(Rules.ForGap(c, 7, 0));
-    Eq(string.Join(" | ", seven), "7 kills behind: +75% HP, | -30% dmg taken, +30% dmg, | 30% lifesteal, regen, | 2nd chance, +3s protection, | no reloads, 1-hit knife/zeus",
-        "7 behind: the panel, short words, the reason inline");
+    Eq(string.Join(" | ", Words.Card(Rules.ForGap(d, 8, 0))),
+        "Against players ahead of you, up to: | +40% damage, -73% damage taken | 35% lifesteal, a second chance | One-hit knife and Zeus | Regeneration, +3 s spawn protection | Infinite ammo",
+        "curve B, 8 behind: the card");
+    Eq(string.Join(" | ", Words.Card(Rules.ForGap(d, 2, 0))), "Against players ahead of you, up to: | -5% damage taken, 5% lifesteal | Regeneration",
+        "curve B, 2 behind: the card");
+    Eq(string.Join(" | ", Words.Card(new Boost { Lead = 6, Bounty = 0.3 })), "+30% damage taken (a bounty)", "the leader's card");
+    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 8, 0))), "8 behind, vs players ahead: | +40% dmg, -73% dmg taken, | 35% lifesteal, 2nd chance, | 1-hit knife/zeus, regen, | +3s protection, no reloads",
+        "curve B, 8 behind: the panel, short words, the reason inline");
+    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 2, 0))), "2 kills behind the leader: | against players ahead: | -5% damage taken, | 5% lifesteal, regeneration",
+        "curve B, 2 behind: the panel in long words");
     Eq(string.Join(" | ", Words.Lines(new Boost { Lead = 4, Bounty = 0.2 })), "You lead by 4 kills: | +20% damage taken (a bounty)", "the leader's panel");
-    var d = Defaults();
-    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 2, 0))), "2 kills behind the leader: | +5% health, 5% lifesteal, | regeneration",
-        "curve B, 2 behind: the panel");
-    Eq(string.Join(" | ", Words.Lines(Rules.ForGap(d, 8, 0))), "8 kills behind: +120% HP, | -40% dmg taken, +40% dmg, | 35% lifesteal, regen, | 2nd chance, +3s protection, | no reloads, 1-hit knife/zeus",
-        "curve B, 8 behind: the panel");
 
-    var html = Words.Html(five, Rules.ForGap(c, 5, 0));
-    Check(html.StartsWith("<font color='#FFD700'><b>5 kills behind the leader:</b></font><br>"), "the reason gold and bold");
-    Eq(html.Split("<br>").Length, five.Length, "one <br> between lines");
-    var inline = Words.Html(seven, Rules.ForGap(c, 7, 0));
-    Check(inline.StartsWith("<font color='#FFD700'><b>7 kills behind:</b></font> +75% HP,"), "an inline reason is gold and bold too");
+    var two = Words.Lines(Rules.ForGap(d, 2, 0));
+    var html = Words.Html(two, Rules.ForGap(d, 2, 0));
+    Check(html.StartsWith("<font color='#FFD700'><b>2 kills behind the leader:</b></font><br>"), "the reason gold and bold");
+    Eq(html.Split("<br>").Length, two.Length, "one <br> between lines");
+    var inline = Words.Html(Words.Lines(Rules.ForGap(d, 8, 0)), Rules.ForGap(d, 8, 0));
+    Check(inline.StartsWith("<font color='#FFD700'><b>8 behind, vs players ahead:</b></font><br>+40% dmg,"), "an inline reason is gold and bold too");
     var leader = Words.Html(Words.Lines(new Boost { Lead = 6, Bounty = 0.3 }), new Boost { Lead = 6, Bounty = 0.3 });
     Check(leader.StartsWith("<font color='#FF6347'><b>You lead by 6 kills:</b></font>"), "the leader's message in red");
     Check(!html.Contains('&') && !html.Contains("<script"), "nothing in it to escape");
+}
+
+// ---- a life's line in the log, so the next fight can be checked ----
+
+{
+    var d = Defaults();
+    var t = new LifeTally { Shots = 12, HitsLanded = 5, Lifesteal = 10, Regen = 4, Vampire = 8, SecondChance = true };
+    t.Took(3, "Ann", true, 47, 7, 1.0);
+    t.Took(3, "Ann", false, 14, 8, 1.0);
+    t.Took(5, "Ben", false, 23, 4, 0.27);
+    Eq(Words.Life("Cat", "CT", 34.2, Rules.ForGap(d, 8, 0), t, "Ann", "glock", true),
+        "Cat (CT, 34.2 s, tier 8+, 12 shots, 5 hits on enemies) took 3 hits (1 to the head): 84 health and 19 armour - Ann 2 hits (1 to the head), 61 health and 15 armour, x1.00; Ben 1 hit, 23 health and 4 armour, x0.27; healed 22 (lifesteal 10, regeneration 4, Vampire 8); second chance used; killed by Ann with glock",
+        "a life's line: every attacker's hits, head, health and armour, catch-up's multiplier; the heals; how it ended");
+    var moved = new LifeTally();
+    moved.Took(7, "Dee", false, 20, 5, 1.0);
+    moved.Took(7, "Dee", false, 27, 0, 1.4);
+    Eq(Words.Life("Eve", "T", 2.0, Boost.None, moved, null, "world", false),
+        "Eve (T, 2.0 s, 0 shots, 0 hits on enemies) took 2 hits: 47 health and 5 armour - Dee 2 hits, 47 health and 5 armour, x1.00-1.40; died without an enemy (world)",
+        "...a multiplier that moved during the life, and a death without an enemy");
+    Eq(Words.Life("Eve", "T", 1.5, new Boost { Lead = 4, Bounty = 0.2 }, new LifeTally(), "Fay", "awp", false),
+        "Eve (T, 1.5 s, bounty +20%, 0 shots, 0 hits on enemies) took 0 hits: 0 health and 0 armour; team-killed by Fay with awp",
+        "...a leader's life, ended by a teammate");
 }
 
 // ---- when the message comes ----
@@ -908,19 +1059,22 @@ void Run(string what, string[] ladder, string start, params string[] steps)
 if (printTable)
 {
     var c = Defaults();
-    Console.WriteLine("Tier table (catchup.json):");
-    Console.WriteLine("  behind | health | dmg taken | dmg dealt | lifesteal | regen        | 2nd chance | +protection | inf. ammo | 1-hit knife/zeus | duel factor");
+    Console.WriteLine("The fight between two players g kills apart (catchup.json): the one behind's hits, the one ahead's, lifesteal, the extras");
+    Console.WriteLine("  gap | behind on ahead | ahead on behind | lifesteal | 2nd chance | 1-hit knife/zeus | duel factor");
     foreach (var t in c.Tiers)
-        Console.WriteLine($"  {t.MinBehind,4}+  | +{t.Health * 100,3:0}%  | {t.DamageTaken * 100,5:0}%    | +{t.DamageDealt * 100,3:0}%     | {t.Lifesteal * 100,3:0}%      | {t.RegenPerSecond * 100:0}%/s after {t.RegenDelaySeconds:0}s | {(t.SecondChance ? "yes" : "no"),-10} | {t.ExtraSpawnProtectionSeconds,2:0} s        | {(t.InfiniteAmmo ? "yes" : "no"),-9} | {(t.OneHitKnifeAndTaser ? "yes" : "no"),-16} | {Rules.DuelFactor(t.Health, t.Lifesteal, t.DamageDealt, t.DamageTaken, 0):0.00}");
-    Console.WriteLine("Bounty: lead 0-1 none, " + string.Join(", ", new[] { 2, 4, 6 }.Select(l => $"{l}+ +{Rules.BountyFor(c.Bounty, l) * 100:0}%")));
-    Console.WriteLine("The panel per tier:");
-    foreach (var t in c.Tiers)
-        Console.WriteLine($"  {t.MinBehind}+: \"{string.Join(" | ", Words.Lines(Rules.ForGap(c, t.MinBehind, 0)))}\"");
-    Console.WriteLine("Mid-life, a life that holds +120% health (spawned 8+ behind) as its gap closes:");
-    foreach (var gap in new[] { 8, 7, 6, 5, 4, 3, 2, 1 })
     {
-        var b = Rules.Redecide(c, Stand((1, 20), (2, 20 - gap)), 2, false, 1.20, 3);
-        Console.WriteLine($"  {gap} behind: +{b.Health * 100:0}% / {b.DamageTaken * 100:0}% / +{b.DamageDealt * 100:0}% / {b.Lifesteal * 100:0}%, own factor {Rules.Own(b):0.00} (the tier's {Rules.Own(Rules.Decide(c, Stand((1, 20), (2, 20 - gap)), 2)):0.00})");
+        var (up, down) = (Rules.PairFor(c, t.MinBehind, 0), Rules.PairFor(c, -t.MinBehind, 0));
+        Console.WriteLine($"  {t.MinBehind,2}+ | x{up.Multiplier:0.00}           | x{down.Multiplier:0.000}          | {up.Lifesteal * 100,3:0}%      | {(down.SecondChance ? "yes" : "no"),-10} | {(up.OneHitMelee ? "yes" : "no"),-16} | {Rules.Own(t):0.00}");
+    }
+    Console.WriteLine("Each player's own, by kills behind the leader: regeneration, extra spawn protection, infinite ammo");
+    foreach (var t in c.Tiers)
+        Console.WriteLine($"  {t.MinBehind,2}+ | {t.RegenPerSecond * 100:0}%/s after {t.RegenDelaySeconds:0} s | +{t.ExtraSpawnProtectionSeconds:0} s | {(t.InfiniteAmmo ? "infinite ammo" : "")}");
+    Console.WriteLine("Bounty: lead 0-1 none, " + string.Join(", ", new[] { 2, 4, 6 }.Select(l => $"{l}+ +{Rules.BountyFor(c.Bounty, l) * 100:0}%")));
+    Console.WriteLine("The card and the panel per tier:");
+    foreach (var t in c.Tiers)
+    {
+        Console.WriteLine($"  {t.MinBehind}+ card: \"{string.Join(" | ", Words.Card(Rules.ForGap(c, t.MinBehind, 0)))}\"");
+        Console.WriteLine($"  {t.MinBehind}+ panel: \"{string.Join(" | ", Words.Lines(Rules.ForGap(c, t.MinBehind, 0)))}\"");
     }
 }
 

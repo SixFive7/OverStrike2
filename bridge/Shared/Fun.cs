@@ -59,15 +59,8 @@ public static class Fun
     /// competitive friendly fire, so the Fun page leaves them out there; the grenade drops and catch-up are Arms Race's too (its ladder).</summary>
     public static bool ArmsRaceOnly(Setting s) => s.Id is "ff" or "instakill" or "ffnades" or "drops" or "catchup";
 
-    /// <summary>Vampire's numbers: every player spawns with this much health while it is
-    /// on, and the damage they deal heals them up to the cap.</summary>
-    public const int VampireHealth = 1000, VampireCap = 2000;
-
     /// <summary>Ghost: invisible for this long after a kill.</summary>
     public const double GhostSeconds = 2;
-
-    /// <summary>Vampire's heal: what a hit worth that much damage leaves the attacker with.</summary>
-    public static int Heal(int health, int damage) => Math.Clamp(health + Math.Max(0, damage), 0, VampireCap) is var h && h > health ? h : health;
 
     /// <summary>The server command the settings module registers: os_fun &lt;setting&gt; &lt;choice&gt; ["who"] | os_fun reset ["who"] | os_fun.
     /// Server only: the bridge runs it for its reset after nobody has been on for 10 minutes (the plugin's own clicks apply in-process).</summary>
@@ -121,7 +114,7 @@ public static class Fun
         new("hs", "Headshots only", "Only a hit to the head does damage - Aim high",
             [new("off", "Off", []), new("on", "On", Set(("mp_damage_headshot_only", "1")))],
             Set(("mp_damage_headshot_only", "0"))),
-        new("vampire", "Vampire", $"Spawn with {VampireHealth} health; the damage you deal heals you, up to {VampireCap}",
+        new("vampire", "Vampire", $"Every hit heals {(global::Vampire.HitPercent)}% of its damage, every kill {(global::Vampire.KillHeal)} more, up to {(global::Vampire.Cap)} health",
             [new("off", "Off", []), new("on", "On", Set((Vampire, "1")))],
             Set((Vampire, "0"))),
         new("ghost", "Ghost", $"Invisible for {GhostSeconds:0} seconds after every kill",
@@ -149,7 +142,7 @@ public static class Fun
         new("drops", "Grenade drops", "Every player spawns with a grenade, dropped where they die; off: the ladder's weapons only",
             [new("on", "On", Set((Drops, "1"))), new("off", "Off", Set((Drops, "0")))],
             Set((Drops, "1"))),
-        new("catchup", "Catch-up", "Players behind the leader get boosts, the leader a bounty; off: everybody plays even",
+        new("catchup", "Catch-up", "Boosts against players ahead of you, more the further; off: everybody plays even",
             [new("on", "On", Set((CatchUp, "1"))), new("off", "Off", Set((CatchUp, "0")))],
             Set((CatchUp, "1"))),
     ];

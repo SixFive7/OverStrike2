@@ -58,7 +58,13 @@ public static class Weapons
 ///
 /// It also learns the ladder as the match goes: a gun kill by a player counted from the match's start names the rung that gun is on,
 /// and a gun kill by anybody else (joined late, came back, changed team, died to the world above level 0) puts them on that rung. So
-/// the count of a player it could not follow is right again from their next gun kill on a rung somebody reached before.</summary>
+/// the count of a player it could not follow is right again from their next gun kill on a rung somebody reached before.
+///
+/// Placed, a player gets the count on that rung nearest the one they had: no kills on it when they were counted below it, one when above.
+/// A count off by a single kill - a kill the plugin never saw - is then right from that kill on, where keeping the kills on the level would
+/// flip it to a kill too many and back at every placement (2026-11-08: one player's count, 30 of the match's 223 gun kills). And a gun
+/// counted players have used on its rung twice or more is taken as right: a counted player's kill with it on another rung is their count
+/// being off, so they are placed, not the gun forgotten.</summary>
 public sealed class Ladder
 {
     sealed class Rec { public int Level, Kills, Held; public bool Trusted; }
@@ -66,6 +72,10 @@ public sealed class Ladder
     readonly Dictionary<ulong, Rec> players = new();
     readonly Dictionary<string, int> rungOf = new(StringComparer.Ordinal);
     readonly HashSet<string> ambiguous = new(StringComparer.Ordinal); // a gun seen on two rungs this match: it places nobody
+    readonly Dictionary<string, int> seenOnRung = new(StringComparer.Ordinal); // how many kills by counted players a gun's rung rests on
+
+    /// <summary>Kills by counted players on its rung that make a gun's rung outweigh one counted player's count.</summary>
+    public const int ConfirmedKills = 2;
 
     /// <summary>Kills a gun level takes, as Arms Race counts them.</summary>
     public const int KillsPerLevel = 2;
@@ -84,6 +94,7 @@ public sealed class Ladder
         players.Clear();
         rungOf.Clear();
         ambiguous.Clear();
+        seenOnRung.Clear();
         Notes = 0;
         foreach (var id in present) players[id] = new Rec { Trusted = true };
         Tracking = true;
@@ -95,6 +106,7 @@ public sealed class Ladder
         players.Clear();
         rungOf.Clear();
         ambiguous.Clear();
+        seenOnRung.Clear();
         Notes = 0;
         Tracking = false;
     }
@@ -213,7 +225,8 @@ public sealed class Ladder
     }
 
     /// <summary>What a gun kill says about the rung in the killer's hands: a counted player's teaches it, anybody else's places them on a
-    /// rung learned before. Null when it says nothing new.</summary>
+    /// rung learned before, and so does a counted player's on a rung that counted players' kills confirmed (ConfirmedKills): their count is
+    /// off, not the rung. Null when it says nothing new.</summary>
     string? Learn(Rec k, string? weapon, WeaponKind kind)
     {
         if (kind != WeaponKind.Gun) return null;
@@ -221,12 +234,20 @@ public sealed class Ladder
         if (ambiguous.Contains(name)) return null;
         if (!rungOf.TryGetValue(name, out var rung))
         {
-            if (k.Trusted) rungOf[name] = k.Held;
+            if (k.Trusted)
+            {
+                rungOf[name] = k.Held;
+                seenOnRung[name] = 1;
+            }
             return null;
         }
-        if (rung == k.Held) return null;
+        if (rung == k.Held)
+        {
+            if (k.Trusted) seenOnRung[name] = seenOnRung.GetValueOrDefault(name) + 1;
+            return null;
+        }
         Notes++;
-        if (k.Trusted)
+        if (k.Trusted && seenOnRung.GetValueOrDefault(name) < ConfirmedKills)
         {
             rungOf.Remove(name);
             ambiguous.Add(name);
@@ -234,12 +255,20 @@ public sealed class Ladder
             return $"made a {name} kill on level {k.Held}, learned on level {rung}: two rungs with one gun, or the count is off - {name} places nobody this match"
                    + (k.Held != k.Level ? $" (counted level {k.Level} + {k.Kills}, holding the level-{k.Held} gun)" : "");
         }
-        var placed = $"placed on level {rung} by a {name} kill (counted {k.Level})";
+        var was = (k.Level, k.Kills, k.Trusted);
+        k.Trusted = false;
+        k.Kills = Place(k.Level * KillsPerLevel + k.Kills, rung);
         k.Level = rung;
         k.Held = rung;
-        k.Kills = Math.Min(k.Kills, KillsPerLevel - 1);
-        return placed;
+        return was.Trusted
+            ? $"placed on level {rung} by a {name} kill, a rung {seenOnRung[name]} counted kills confirmed (counted {was.Level} + {was.Kills})"
+            : $"placed on level {rung} by a {name} kill (counted {was.Level} + {was.Kills})";
     }
+
+    /// <summary>The kills on a rung for a player placed on it: the count on that rung nearest the one they had - none when they were counted below
+    /// it, the last one before the level-up when above, and the kills they had when the count was on that level already.</summary>
+    public static int Place(int counted, int rung) =>
+        counted < rung * KillsPerLevel ? 0 : counted >= (rung + 1) * KillsPerLevel ? KillsPerLevel - 1 : counted - rung * KillsPerLevel;
 
     /// <summary>The standings among the players on a team now.</summary>
     public Standings Standings(IEnumerable<ulong> present)

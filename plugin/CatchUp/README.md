@@ -1,19 +1,21 @@
 # CatchUp - the Arms Race catch-up boosts
 
-The module behind [catch-up](../../docs/reference.md#catch-up): players behind the leader get a boost that grows with the gap, the
-leader a bounty. The reference has the rules as players meet them and the tier table; this page is how the module does it. It is not
+The module behind [catch-up](../../docs/reference.md#catch-up): every enemy hit takes its boost from the gap between its two players on the
+ladder - the one behind hits harder and takes less from the one ahead, two players within a kill of each other play plain Counter-Strike -
+each player gets their own extras by their gap to the leader, and the leader a bounty. The reference has the rules as players meet them and
+the tables; this page is how the module does it. It is not
 a plugin: the OverStrike2 plugin compiles these files in as source and constructs the module in its `Load`. Nothing here is deployed
 or loaded on its own.
 
 | File | What |
 |---|---|
-| `CatchUpRules.cs` | The decisions, free of CounterStrikeSharp: the tier and the bounty (`Rules.Decide`), the boost decided again in the middle of a life (`Rules.Recalculate`), one hit (`Rules.Hit`), the healing and the timing. |
+| `CatchUpRules.cs` | The decisions, free of CounterStrikeSharp: a hit's boost from the gap between its two players (`Rules.PairFor`), each player's own boost and the bounty (`Rules.Decide`), decided again in the middle of a life (`Rules.Recalculate`), one hit (`Rules.Hit`), the healing, the timing, and what one life took (`LifeTally`). |
 | `Ladder.cs` | The kill counter (`Ladder`), the standings and the weapon names, free of CounterStrikeSharp too. |
-| `CatchUpWords.cs` | The words: the message's lines, one sentence for chat and the log, the log's lines. |
+| `CatchUpWords.cs` | The words: the card's rows, the centre panel's lines, one sentence for chat and the log, the log's lines - a spawn's decision, a change mid-life, a life's end. |
 | `CatchUpConfig.cs` | The settings and their defaults; reads `catchup.json` and never throws: a missing or unreadable file means the defaults, and the log says so. |
 | `CatchUpModule.cs` | The game half: registers the events through the host, applies what the rules decide, the `os_catchup` command. |
 | `catchup.json` | The tuned numbers - the boost table and the bounty - equal to the built-in defaults (the self-test fails when they drift apart). It ships beside the plugin's DLL. |
-| `SelfTest/` | `dotnet run`: every decision without a game server, and the kill counter against five whole real matches (`armsrace-*.txt`, anonymised). `-- --table` also prints the tier table, the panels and the mid-life cut. |
+| `SelfTest/` | `dotnet run`: every decision without a game server; hits to kill with a model of CS2's armour (`Cs2Hits.cs`) for the worked examples of 2026-11-08 and Vampire's numbers (`bridge/Shared/Vampire.cs`, linked in); and the kill counter against six whole real matches (`armsrace-*.txt`, anonymised). `-- --table` also prints the pair table, the cards and the panels. |
 
 ## How the plugin hosts it
 
@@ -41,9 +43,9 @@ or loaded on its own.
 |---|---|
 | `os_catchup` | The status: on or off and why, counting this match (rungs learned, placements) or waiting for a match start, free-for-all, headshots only and the game's spawn protection; then top, second, leader, lead and bounty, and per player their progress, level, kills behind and what this life has. |
 | `os_catchup reload` | Reads `catchup.json` again; the next spawns use it. |
-| `os_catchup on` / `off` | Until the plugin reloads, or catch-up's fun setting switches it. `on` also clears a stop after errors. Lives already boosted keep their health. |
+| `os_catchup on` / `off` | Until the plugin reloads, or catch-up's fun setting switches it. `on` also clears a stop after errors. |
 | `os_catchup show <player> <behind>` or `<player> lead <n>` | Shows that player, now, what a gap (or a lead) gives. Changes nothing. |
-| `os_catchup give <player> <behind>` or `<player> lead <n>` | Also gives their current life that boost - health, protection from now on, every effect - kept until they die and not decided again: to try the effects with two players. |
+| `os_catchup give <player> <behind>` or `<player> lead <n>` | Also gives their current life that boost - their own extras, protection from now on, and in every fight the boost of a player that many kills behind (a lead: that many ahead, with the bounty) - kept until they die and not decided again: to try the effects with two players. |
 
 `<player>` is `#<slot>`, an account id, `[U:1:<id>]` or a SteamID64.
 
@@ -51,33 +53,39 @@ or loaded on its own.
 
 | Boost | How |
 |---|---|
-| Health | `Health` and `MaxHealth` = the spawn health x (1 + bonus), 0.1 s after `player_spawn`, once the game has set the spawn health and loadout. The base is the health the life spawned with, never the maximum. In the middle of a life only the maximum goes up, never the current health. The next spawn without a boost puts the base back when the pawn still holds what the module set. |
-| Damage taken, damage dealt, the bounty | `OnPlayerTakeDamagePre`: the damage x (1 + the attacker's damage dealt) x (1 + the victim's damage taken) x (1 + the victim's bounty), on enemy hits only, before the game applies armour. |
-| Regeneration | Every 0.5 s, once `RegenDelaySeconds` have passed since the player was last hurt by anything (a fall too): a share of the spawn health per second, the fractions carried over, up to the life's maximum. |
-| Second chance | A hit that would kill (damage at least the health) is cut to leave 1 health, once per life. Armour, which the game applies after, only leaves more. |
-| Extra spawn protection | Enemy hits are blocked until the spawn + the game's own protection (`mp_respawn_immunitytime`) + the extra seconds, ended by the player's first shot or hit. The game's protection is left alone, and the extra seconds show nothing to attackers. |
-| Lifesteal | On `player_hurt` by an enemy: the share of the health the victim lost (at most their maximum health), a frame later, up to the attacker's maximum. |
-| One-hit knife and Zeus | A knife or Zeus hit - by the weapon the damage names, else the one in hand; never a blast or a fire - is raised to 4 x (health + armour) + 100. |
-| Infinite ammo | After every shot of a gun, a frame later, the clip is refilled to the gun's `MaxClip1`. Not grenades, the knife or the Zeus. |
+| The pair | `OnPlayerTakeDamagePre`, on enemy hits only, before the game applies armour: the gap g = the victim's progress minus the attacker's, from the counter at that moment (`Rules.PairFor`). g of 2 or more: the attacker's row's damage dealt, x (1 + damage dealt). -2 or less: the victim's row, x (1 + damage taken) / (1 + health) - a tier's health counts as resistance against the player ahead, so nobody's health is raised. Within one kill: x1. Then x (1 + the victim's bounty). |
+| Regeneration | The player's own, by their gap to the leader. Every 0.5 s, once `RegenDelaySeconds` have passed since the player was last hurt by anything (a fall too): a share of the spawn health per second, the fractions carried over, up to the health the life spawned with. |
+| Second chance | The pair's: a hit by a player at least the second chance's row ahead (4 by default) that would kill (damage at least the health) is cut to leave 1 health, once per life. Armour, which the game applies after, only leaves more. |
+| Extra spawn protection | The player's own, decided at the spawn. Enemy hits are blocked until the spawn + the game's own protection (`mp_respawn_immunitytime`) + the extra seconds, ended by the player's first shot or hit. The game's protection is left alone, and the extra seconds show nothing to attackers. |
+| Lifesteal | The pair's: on `player_hurt` by an enemy at least 2 ahead, the row's share of the health the victim lost (at most their maximum health), a frame later, up to the health the attacker's life spawned with. At most half a hit (`CatchUpConfig.MaxLifesteal`); Vampire takes only what it leaves of that half. |
+| One-hit knife and Zeus | The pair's: a knife or Zeus hit on a player at least the row ahead (7 by default) - by the weapon the damage names, else the one in hand; never a blast or a fire - is raised to 4 x (health + armour) + 100. |
+| Infinite ammo | The player's own, by their gap to the leader. After every shot of a gun, a frame later, the clip is refilled to the gun's `MaxClip1`. Not grenades, the knife or the Zeus. |
 
 **The message** comes 0.25 s after the spawn, or 3 s after it at the first spawn after joining. A message whose player died first is
 dropped: the next spawn says its own. A boost decided again in the middle of a life is silent.
 
-**In the middle of a life** - a frame after every change to the ladder - every living player's boost is decided again. Health only goes
-up, as a higher maximum. When the boost shrinks and the life keeps more health than the new tier gives, damage taken, damage dealt and
-lifesteal share what is left of the tier's own factor - (1 + health + lifesteal) x (1 + damage dealt) / (1 + damage taken) - rounded
-down to whole 5% steps (`Rules.HoldHealth`). The log's lines show each boost's duel factor, that own factor times (1 + the leader's
-bounty): 1 is an even fight.
+**In the middle of a life** - a frame after every change to the ladder - every living player's own boost is decided again: regeneration,
+infinite ammo and the bounty follow it; the spawn protection stays the spawn's. The fight needs no deciding: every hit looks its own gap up.
+The log's lines show each boost's duel factor against the leader, its row's own factor - (1 + health + lifesteal) x (1 + damage dealt) /
+(1 + damage taken) - times (1 + the leader's bounty): 1 is an even fight. Between any two players g kills apart the duel is that row's own
+factor.
+
+**A life's end** goes to the log as one `CatchUp: life:` line, in every mode: every enemy's hits on it - how many, how many to the head, the
+health and armour they took, the multiplier catch-up put on them (x1.00 when it was off) - its own shots and hits on enemies, its heals by
+kind (lifesteal, regeneration, Vampire's, which the host reports through `NoteHeal`), its second chance, and how it ended.
 
 ## Together with the other settings
 
-- **Vampire:** the health is a share of what the life spawned with (1,000), and when the maximum is cut in the middle of a life (Vampire
-  switched off), the life follows it: regeneration, lifesteal and a later boost count from there.
+- **Vampire** (`plugin/OverStrike2/FunEffects.cs`, `bridge/Shared/Vampire.cs`): catch-up raises nobody's health, so Vampire's own numbers
+  stand - the game's 100 at spawn, a tenth of every hit on an enemy and 40 a kill, up to 150. Catch-up's regeneration and lifesteal fill only up
+  to the health the life spawned with, and Vampire takes only what catch-up's lifesteal leaves of half a hit (`LifestealShare`).
 - **Headshots only** (`mp_damage_headshot_only`, read every second): every multiplier works on the damage the game passes, and a body
   bullet the game zeroes (hit groups 2-7) never spends a second chance.
 - **Falls:** fall damage is being hurt, so it restarts the wait before regeneration; a fall death is a death without an enemy on the ladder.
-- **Friendly fire:** the module never touches a teammate's hit - no boost, bounty, second chance, lifesteal or protection. On the ladder
-  a team kill takes the killer down a level.
+- **Friendly fire:** the module never touches a teammate's hit - no boost, bounty, second chance, lifesteal or protection - and its rule of who
+  is an enemy (`Enemies`) is the one Vampire heals by. On the ladder a team kill takes the killer down a level.
+- **Teams:** a gap is between two players, so the leader's own teammates, who never fight him, get no boost against the other team's players
+  unless those are ahead of them.
 - **Free-for-all** (`mp_teammates_are_enemies`, read every second): everybody is an enemy, so every effect applies to everybody and every
   kill counts on the ladder.
 - **The grenade drops:** infinite ammo leaves grenades alone, and a grenade kill counts on the ladder, as in CS2.
@@ -99,11 +107,16 @@ the player's. The rules are CS2's as real matches show them - the game's, so non
   0 CS2 was never seen doing it, so CS:GO's rule stands - down a level, its kills gone - and the player's next gun kill places them.
 
 **It corrects itself.** A gun kill by a player counted since the match began names the rung that gun is on. Anybody else - joined late,
-came back, changed team, died to the world above level 0 - is placed on the rung of their next gun kill. A counted player is never moved;
-if one of them kills on another rung with a learned gun, that gun places nobody for the rest of the match. Warmup counts for nothing.
+came back, changed team, died to the world above level 0 - is placed on the rung of their next gun kill, with the count on that rung nearest
+the one they had: no kills on it when they were counted below it, the last one before the level-up when above (`Ladder.Place`). A counted
+player whose kill with a learned gun lands on another rung is placed the same way when counted players' kills confirmed that rung twice
+(`Ladder.ConfirmedKills`): their count is off, not the rung. With fewer the two weigh the same, and that gun places nobody for the rest of
+the match. Warmup counts for nothing.
 
 **The evidence:** the self-test replays five whole real matches through the counter, and every gun kill in them, 543 of 543, was made with
-the gun the counter puts in the killer's hands.
+the gun the counter puts in the killer's hands. A sixth, of 2026-11-08, shows a count going wrong: the game counted one player a kill the log
+does not show, and from that player's next gun kill on, 222 of its 223 gun kills land - where keeping the kills on the level when placing
+left 30 a rung off, half too low and half too high.
 
 ## Errors and the log
 
@@ -113,16 +126,17 @@ off until `os_catchup on` or a plugin reload, rather than repeating a throw at e
 Every log line starts `CatchUp:` - at load (the tiers, the methods compiled ahead), at each match start, every kill with both players'
 teams and counts after it (`CatchUp: kill:`), a team kill's demotion, a placement or a gun seen on two rungs, every spawn that gets a boost
 or a bounty (and the first spawn after a boost that gets none), a tier or bounty step that changes in the middle of a life, a second
-chance used, a boost given from the console, the settings file's notes (`CatchUp config:`) and errors.
+chance used (who dealt the hit, how far ahead), every life's end with what it took (`CatchUp: life:`), a boost given from the console, the
+settings file's notes (`CatchUp config:`) and errors.
 
 ## `catchup.json`
 
-What is tuned: the boost table and the leader's bounty. Everything else - how the ladder counts, the mid-life cut, the message's
-timing and lines - is the code's.
+What is tuned: the boost table and the leader's bounty. Everything else - how the ladder counts, which of a tier's values are the fight's
+and which the player's own, the message's timing and lines - is the code's.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Tiers[]` | seven tiers, 2 to 8 and more behind ([the table](../../docs/reference.md#catch-up)) | `MinBehind`, `Health`, `DamageTaken` (negative: less), `DamageDealt`, `Lifesteal`, `RegenPerSecond`, `RegenDelaySeconds`, `SecondChance`, `ExtraSpawnProtectionSeconds`, `InfiniteAmmo`, `OneHitKnifeAndTaser`. The tier with the highest `MinBehind` reached applies; any number of tiers. |
+| `Tiers[]` | seven tiers, 2 to 8 and more ([the tables](../../docs/reference.md#catch-up)) | `MinBehind`, `Health`, `DamageTaken` (negative: less), `DamageDealt`, `Lifesteal` (at most 0.5), `SecondChance`, `OneHitKnifeAndTaser` - the fight's, by the kills between its two players, `Health` taken as resistance against the player ahead; `RegenPerSecond`, `RegenDelaySeconds`, `ExtraSpawnProtectionSeconds`, `InfiniteAmmo` - the player's own, by their kills behind the leader. The tier with the highest `MinBehind` reached applies; any number of tiers. |
 | `Bounty` | `MinLead 2`, `StepKills 2`, `PerStep 0.10`, `Max 0.30` | The leader's extra damage taken from enemies. |
 
 Out-of-range values are clamped and logged (`CatchUp config: ...`); names in any case; `//` comments and trailing commas are accepted; a

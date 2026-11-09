@@ -17,7 +17,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "5.7.0";
+    public const string Version = "5.8.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
@@ -79,6 +79,9 @@ public class OverStrike2Plugin : BasePlugin
         new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
+        // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may
+        // heal; and tells catch-up of every heal, for the life's line in its log.
+        (effects.Enemies, effects.OtherShare, effects.Healed) = (catchUp.Enemies, catchUp.LifestealShare, catchUp.NoteHeal);
         // The Arms Race-only features follow the mode the map that is on was loaded in (os_mode; docs/reference.md) and, the grenade drops and
         // catch-up, their fun settings: each runs while its setting is on and the map is Arms Race.
         settings.ModeApplied += mode =>
@@ -109,7 +112,7 @@ public class OverStrike2Plugin : BasePlugin
         {
             // The card under the crosshair, or CS2's centre panel for a game that shows no card (HudScreen.HasCards); the same line in that player's chat either way.
             var card = hud.HasCards(player);
-            hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Items(boost, false), boost.IsBounty, CatchUpMessageSeconds, card);
+            hud.ShowCatchUp(player, CatchUp.Words.Why(boost, false).TrimEnd(':'), CatchUp.Words.Card(boost), boost.IsBounty, CatchUpMessageSeconds, card);
             if (card) return;
             boosts[player.Slot] = (html, DateTime.UtcNow.AddSeconds(CatchUpMessageSeconds)); // sent every tick for its seconds (OnTick)
             player.PrintToCenterHtml(html);
