@@ -694,7 +694,7 @@ commit runs.
 **A real client.** A layout cannot be fully tested without the game, so a new HUD is also tried in a real CS2 client before a release: the harness in [tools/client/](../tools/client/README.md) starts the client of whoever works at that PC with no window on
 screen, no sound and no focus, joins a test copy of the server, loads the local HUD build there with VAC off, takes screenshots, and drives the menu through server-side clicks.
 On the live server only the published HUD ever runs, in a plain client. It reads the server from the private config, as the deploy scripts do, and takes the
-documentation's screenshots by script ([tools/client/docshots/](../tools/client/docshots/docshots.py)); its offline tests are in AGENTS.md's list.
+documentation's screenshots by script ([tools/client/docshots/](../tools/client/docshots/), `os2-deploy docshots`); its offline tests are in AGENTS.md's list.
 
 **The bridge alone.** Native AOT does not cross-compile between operating systems, so the image's build stage is the Linux publish: `docker build -t localhost/overstrike2-bridge -f bridge/Dockerfile .` from the repository root. To run the bridge on Windows against a local
 server: start the server with `+log on +logaddress_add_http "http://127.0.0.1:8080/log/dev"`, write a settings file with `server.host` 127.0.0.1, `server.rconPassword`, `bridge.secret` dev and

@@ -42,18 +42,10 @@ dotnet run --project core/SelfTest                              # the settings f
 dotnet run --project server/OverStrike2.Server/SelfTest         # the server program; its Linux-only checks in the game image (docs/server.md)
 dotnet run --project server/OverStrike2.Sync/SelfTest           # the Workshop sync's program; its Linux-only checks in the game image too
 (cd bridge && dotnet run -- --search-index --check)             # search.json in step with maps.json
-python -I deploy/test_deploy.py                                 # the Python deploy library the client tools import, with no server and no Docker
-python -I deploy/test_check.py                                  # the guard before a redeploy and the check after one, offline too
-python -I tools/client/probe/test_testcopy.py                   # the client harness's test copy of the server, offline
-python -I tools/client/probe/test_testcopy_bridge.py            # its candidate bridge
-python -I tools/client/probe/test_testcopy_plugin.py            # the plugin of a commit of main on it
-python -I tools/client/probe/test_bridgepost.py                 # what only the watcher or other players say to a candidate bridge
-python -I tools/client/docshots/docshots.py --selfcheck         # the documentation's screenshots: the run held to its dry run (Pillow)
-python -I tools/client/docshots/test_publish.py                # their publish: a retake writes only the pictures that changed (Pillow)
 python -I tools/scan/test_scan.py                               # the scanner's rule against raw bidi control characters, offline
 python -I hud/test_thumbs.py                                    # the map pictures' reading of the sync's export and queues.json, offline (Pillow)
-dotnet run --project deploy/OverStrike2.Deploy -- --selftest    # os2-deploy, the C# port of deploy/ and tools/client's Python: every case of their tests
-dotnet run --project deploy/OverStrike2.Deploy -- docshots --selfcheck   # its docshots, held to its dry run as docshots.py is
+dotnet run --project deploy/OverStrike2.Deploy -- --selftest    # os2-deploy offline: the release tool and the client harness's server half (every case of the retired Python tests)
+dotnet run --project deploy/OverStrike2.Deploy -- docshots --selfcheck   # the documentation's screenshots: the run held to its dry run, every resolution
 python -I maps/selfcheck.py                                     # only for changes under maps/: each map and its preview as committed (maps/README.md)
 ```
 
@@ -99,7 +91,7 @@ everything and match the code:
 - **Updated in the same change:** a change that alters what players see updates the affected screenshots and text in the same
   release. It is not done until its documentation matches.
 - **Only the pictures that changed:** the history keeps every picture forever, so a retake commits only those that really show something
-  else. `tools/client/docshots/publish.py` compares each with the committed one, all but what differs on every shot - clocks, timers,
+  else. `os2-deploy docshots publish` compares each with the committed one, all but what differs on every shot - clocks, timers,
   counters, a ballot's random maps, the game world behind a panel - and leaves the committed bytes of the rest untouched.
 - **Taken by script, on a test copy:** screenshots come from a real game client against a test copy of the server, never
   production, driven by script so every page and state can be reached without anybody playing

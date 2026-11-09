@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Test-only probe for the CS2 client test harness (../../README.md). Never copied to the server's plugins folder: probe.py loads it
+  <!-- Test-only probe for the CS2 client test harness (../../README.md). Never copied to the server's plugins folder: os2-deploy probe loads it
        from /tmp in the game container for one test and removes it after. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

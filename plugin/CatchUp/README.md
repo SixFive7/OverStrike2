@@ -130,5 +130,5 @@ section or a value the file leaves out keeps its default, and a key the module d
 
 **A number changed on a running server** needs no build and no restart: edit the `catchup.json` beside the plugin's DLL in the game's
 plugin folder - the file the module reads - and run `os_catchup reload`. The plugin's folder is copied into the game before every engine
-start, so make the same change to this folder's `catchup.json` and ship it with the plugin (`deploy/plugin.py`), or the next start puts
+start, so make the same change to this folder's `catchup.json` and ship it with the plugin (`os2-deploy plugin ship`), or the next start puts
 the old one back.

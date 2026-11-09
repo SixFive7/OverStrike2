@@ -52,7 +52,7 @@ static class Publish
     const string Img = Docs + "/img";
     const string GalleryImg = Img + "/gallery";       // the gallery's own pictures: <frame>-look.jpg (the crop), <frame>-where.jpg (the frame, its place marked)
     const int WhereWidth = 800;
-    const string AllowHead = "# The documentation's screenshots (docshots.py, a real client against a test copy): each looked at for names, Steam ids and addresses; test names only";
+    const string AllowHead = "# The documentation's screenshots (os2-deploy docshots, a real client against a test copy): each looked at for names, Steam ids and addresses; test names only";
     static readonly HashSet<string> Dropped = [];   // <res>/dropped.txt: frames the review threw out; they go nowhere
 
     /// <summary>A frame or a crop as it is published: RGB, the gallery's place marked in gold, at most width pixels wide.</summary>

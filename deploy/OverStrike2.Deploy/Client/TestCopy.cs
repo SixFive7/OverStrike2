@@ -51,8 +51,8 @@ namespace OverStrike2.Deploy;
 sealed class TestCopy
 {
     public const string TestLabel = "cs2.test-config";
-    public const string Tag = "insecure client-test copy (tools/client/probe/testcopy.py): -insecure, restart watcher off";
-    public const string BridgeTag = "candidate bridge (tools/client/probe/testcopy.py): a new image on a copy of the bridge's data";
+    public const string Tag = "insecure client-test copy (os2-deploy testcopy): -insecure, restart watcher off";
+    public const string BridgeTag = "candidate bridge (os2-deploy testcopy): a new image on a copy of the bridge's data";
     public const string Content = Check.Content;
     /// <summary>The copy's overrides of the settings text: with restarts and these maps keys off the watcher exits at once (run --downloads keeps
     /// maps.backgroundDownloads production's: the watcher then stays up for it); maps.layout off: the start's organize (os2-server's MapsFolder)

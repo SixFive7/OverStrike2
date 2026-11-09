@@ -17,7 +17,7 @@ game_image = "docker.io/joedwards32/cs2"  # server build --image: the game serve
 image = "localhost/overstrike2-bridge"    # the image on the server; "localhost/" so that no pull can ever fetch it from a public registry
 container = "bridge"                      # the bridge's container name
 game_container = "cs2"                    # the game server's container name (health checks run from inside it)
-sync_container = "sync"                   # the Workshop sync's container name; "" when the stack has none (check.py verify)
+sync_container = "sync"                   # the Workshop sync's container name; "" when the stack has none (os2-deploy check verify)
 data_dir = ""                             # the bridge's /data on the server (a share or a path): maps.json, broken.json, ...
 
 [server]
@@ -27,18 +27,18 @@ config_dir = ""                           # where server ship puts the three mod
 program_dir = ""                          # where server ship puts os2-server, os2-sync and the launcher pre.sh: the game and sync containers mount it read-only at /home/steam/overstrike2 (server ship --apply refuses when this is empty: it would ship nothing)
 lock_file = ""                            # optional: a lock file whose holder is working on the server; shown before every change
 
-[check]                                   # deploy/check.py: guard before a redeploy of the whole stack, verify after a deploy or a release
+[check]                                   # os2-deploy check: guard before a redeploy of the whole stack, verify after a deploy or a release
 mapgroup = "mg_ar_shoots"                 # the CS2_MAPGROUP the game server must start on ("" = not checked)
 test_label = ""                           # a label that marks a container as a test copy, never production ("" = not checked)
 aside = []                                # containers that exist only while production is set aside for a test, e.g. ["cs2-aside"]
 # [[check.audit]]                         # optional, any number: the deployment's own read-only audits, each a command verify runs
 # name = "IP/MAC audit"
-# argv = ["python", "-I", "<path>/audit.py"]             # "python" first: the Python that runs check.py
+# argv = ["python", "-I", "<path>/audit.py"]             # "python" first: the Python on the PATH
 # env = { AUDIT_KEY = "env:OVERSTRIKE2_DOCKER_API_KEY" }  # variables it needs; "env:NAME" from this environment, never printed
 # done = '^audit: (OK|\d+ drift)'                        # a line that says it ran to its end; without one, a look
 # look = 'DRIFT (cs2|bridge|sync):'                      # a line about this stack is a look; without look the exit code decides (0 = good)
 
-[stack]                                   # optional: where the stack is deployed from, for check.py's information and roll-call
+[stack]                                   # optional: where the stack is deployed from, for os2-deploy check's information and roll-call
 repo = ""                                 # a local git checkout of the repository the stack is deployed from
 file = ""                                 # the compose file in it, e.g. "compose.yml": verify's roll-call of its container_name lines
 ref = "origin/main"                       # what a redeploy takes (fetched first): guard compares the game server's service there with the deployed one
@@ -46,7 +46,7 @@ deployed_url = ""                         # an HTTP GET, with the docker.headers
 deployed_field = ""                       # that commit's dotted path in the JSON, e.g. "deployment.commit"
 
 [release]
-verify = []                               # optional: a check run after release live in place of check verify, a command - ["python", "-I", "<path>/check.py", "verify"]; exit 0 = all good
+verify = []                               # optional: a check run after release live in place of check verify, a command - ["python", "-I", "<path>/verify.py"]; exit 0 = all good
 
 [workshop]
 cs2_dir = ""                              # the local "Counter-Strike Global Offensive" folder ("" = found through Steam)

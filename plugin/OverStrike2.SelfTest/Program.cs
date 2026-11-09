@@ -288,8 +288,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && wiring.Contains("[ConsoleCommand(\"os_restart\"", StringComparison.Ordinal) && Source("plugin", "OverStrike2", "GameSettings.cs").Contains("LoadRestarts();", StringComparison.Ordinal)
           && Source("plugin", "OverStrike2", "OverStrike2.cs").Contains("settings.Rematch = ", StringComparison.Ordinal),
         "restart guard: the put-back comes from the frame - before the world updates, before the entities think, at the tick - the bridge's Restart match is heard of, and os_restart is there");
-    var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs"),
-                          Source("tools", "client", "docshots", "docshots.py") };
+    var harness = new[] { Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "DocShots.cs"), Source("deploy", "OverStrike2.Deploy", "Client", "DocShots", "Table.cs") };
     Check(harness.All(t => t.Contains("os_restart 1", StringComparison.Ordinal) && !t.Contains("mp_restartgame", StringComparison.Ordinal)),
         "restart guard: the docs' harness restarts the match with os_restart, which goes through - never with a bare mp_restartgame, which is refused");
 }

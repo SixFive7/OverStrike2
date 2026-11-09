@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Throwaway test plugin for the documentation's screenshots (docname.py): loaded from /tmp on the insecure test copy only, never copied to
+  <!-- Throwaway test plugin for the documentation's screenshots (os2-deploy docshots name): loaded from /tmp on the insecure test copy only, never copied to
        the plugins folder. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

@@ -38,8 +38,7 @@ token server/OverStrike2.Sync/SelfTest/*.cs 0123456789ABCDEF0123456789ABCDEF  # 
 
 # Made-up values in the self-tests
 hex16 bridge/*.cs 5e1f0c2ab7d94a36  # a made-up server instance token (the self-tests and a comment); the real one stays private
-steamid tools/client/* \[U:1:424242\d\d\]  # the client test harness's made-up accounts: the test copy's fake players and HUDtest (bridgepost.py) and its tests' client; test names only, no such players
-steamid deploy/OverStrike2.Deploy/* \[U:1:424242\d\d\]  # the same made-up accounts in the deploy tool's port of the harness's server half (bridgepost and its self-test): test names only, no such players
+steamid deploy/OverStrike2.Deploy/* \[U:1:424242\d\d\]  # the client test harness's made-up accounts in the deploy tool's harness server half: the test copy's fake players and HUDtest (bridgepost), docshots' client and their self-tests; test names only, no such players
 mac tools/client/probe/test_*.py 02:00:00:00:00:\d\d  # made-up, locally administered MACs: a container's pinned endpoint in the harness's offline tests
 
 # The zone the tests run in
@@ -75,7 +74,7 @@ owner-ref AGENTS.md the owner's 94 b  # a decision reference in an older AGENTS.
 bidi server/workshop-sync.py BIDI_RX = re\.compile\("\[\u202a-\u202e\u2066-\u2069\]"\)  # the Python sync's pattern of the bidi controls it took out of titles, its characters written raw; the file left at the C# port
 bidi server/OverStrike2.Sync/SelfTest/NewChecks.cs .*(?:\x5cu007f\xe9\u202e(?:\U0001f600|\x5cU0001f600)|a\x5cu0000b\u202ec\x5ct\x5ctd).*  # the sync self-test's fixtures of a right-to-left override in its older versions, the character written raw; escapes since
 
-# The documentation's screenshots (docshots.py, a real client against a test copy): each looked at for names, Steam ids and addresses; test names only
+# The documentation's screenshots (os2-deploy docshots, a real client against a test copy): each looked at for names, Steam ids and addresses; test names only
 binary docs/hud/img/board-ads.jpg 1fadfc0a3c29a694a334456428a660ad5636bc767c23679b88aef39e2361e37e  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/board-big.jpg bca5229b3262deb7d81b53aa3f190efa1ed2f887dcd350647de4ecd8b0518795  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only
 binary docs/hud/img/board-default.jpg 54399dc6ad4d5209f97b047b0f3ae52be1c6f11616e78a3b5007da155dc77673  # a documentation screenshot: the HUD as a test client drew it on a test copy, test names only

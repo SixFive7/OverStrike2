@@ -241,7 +241,7 @@ static partial class DocShots
     const string WTime = "state.json: the match length";
     const string WMap = "state.json: the map and its history";
     const string WGuard = "nothing by the code on a first click; but a card that is not risky after all would open a vote";
-    const string WNotice = "nothing it keeps: a restart announced is in its memory; but no bridge but a candidate may hear it (bridgepost.py refuses)";
+    const string WNotice = "nothing it keeps: a restart announced is in its memory; but no bridge but a candidate may hear it (os2-deploy bridgepost refuses)";
     const string WFakes = "state.json: the fake players, as seen (S.Seen)";
 
     public const string SBoard = "The board (TAB)";

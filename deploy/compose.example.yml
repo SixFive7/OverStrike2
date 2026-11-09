@@ -7,7 +7,7 @@
 #
 #   <program dir>   os2-server, os2-sync and the launcher pre.sh: os2-deploy server ship (server.program_dir in the private config)
 #   <config dir>    the three mode cfgs: os2-deploy server ship (server.config_dir)
-#   <plugins dir>   one folder per plugin: deploy/plugin.py ship (server.plugins_dir)
+#   <plugins dir>   one folder per plugin: os2-deploy plugin ship (server.plugins_dir)
 #   <data dir>      the bridge's data: os2-deploy data (bridge.data_dir); from then on the sync writes the map lists there
 #
 # The game server is joedwards32/cs2 (SteamCMD, anonymous download of app 730). Before every engine start its entry script sources the
@@ -113,7 +113,7 @@ services:
       TV_DELAY: "" # empty on purpose: with a value the image appends a line to every gamemode cfg, and one of Valve's has no final newline
 
   bridge:
-    image: localhost/overstrike2-bridge # built and loaded by deploy/bridge.py; "localhost/": never fetched from a public registry
+    image: localhost/overstrike2-bridge # built and loaded by os2-deploy bridge build; "localhost/": never fetched from a public registry
     pull_policy: never # the image exists only in this Docker
     restart: always
     depends_on:

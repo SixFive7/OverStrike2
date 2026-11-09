@@ -485,7 +485,7 @@ static partial class DocShots
             head = "no run yet";
         var parts = new List<string> { "<!doctype html><meta charset=utf-8><title>Over Strike 2 - the whole HUD, documentation screenshots</title>", Style,
             $"<h1>Over Strike 2 - the whole HUD: real-client screenshots, insecure test copy, loose HUD files ({Py.HtmlEscape(head)})</h1>",
-            "<p>Taken by docshots.py. Test names only: the avatar and chat are blurred on every frame, and the client's own name is painted over where a row says so. "
+            "<p>Taken by os2-deploy docshots. Test names only: the avatar and chat are blurred on every frame, and the client's own name is painted over where a row says so. "
             + "Review every picture before it goes into the public docs.</p>" };
         var order = new List<string>(Sections);
         foreach (var p in info.Picks)
@@ -1310,7 +1310,7 @@ static partial class DocShots
         "rcon" => $"rcon {s.Text}",
         "rcon_bg" => $"rcon in the background {s.Text}",
         "con" => $"cmd {s.Text}",
-        "post" => $"bridgepost.py {s.Text}",
+        "post" => $"bridgepost {s.Text}",
         "pause" => $"sleep {Py.G(s.Seconds)}",
         "shoot" => $"shot x{s.N}" + (s.Parallel ? " side by side" : ""),
         "mark" => "mark the client's log",
@@ -1604,6 +1604,10 @@ static partial class DocShots
         if (remask)
             return CmdRemask(options, info);
         RequireValid(info);
+        // the harness's server half is this same program (cs2client.ps1 runs os2-deploy probe): it runs this build, never one it builds
+        // anew while this one runs from the same folder
+        var self = Proc.Self();
+        Environment.SetEnvironmentVariable("OS2_DEPLOY", self[^1]);
         return CmdRun(options, info);
     }
 }

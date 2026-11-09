@@ -6,7 +6,7 @@ using CounterStrikeSharp.API.Modules.Timers;
 
 namespace OsDocName;
 
-/// <summary>Throwaway test plugin for the documentation's screenshots (docname.py): loaded from /tmp on the INSECURE TEST COPY only, never copied to the plugins folder and gone with the copy.
+/// <summary>Throwaway test plugin for the documentation's screenshots (os2-deploy docshots name): loaded from /tmp on the INSECURE TEST COPY only, never copied to the plugins folder and gone with the copy.
 /// The pictures are public, so the test client plays under a test name: the server's own record of that player's name, every quarter of a second, so that what the game shows - the scoreboard, chat -
 /// and what Over Strike 2 reads and says says that name. It changes nothing on the client and nothing of the game's rules. Server console only:
 ///

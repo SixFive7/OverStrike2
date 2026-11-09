@@ -349,7 +349,7 @@ namespace Cs2Harness
 
         // ---------------------------------------------------------------- the Steam overlay
 
-        /// <summary>Where the Steam overlay's Back to Game button is in a frame, "x0,y0,x1,y1", or null - tools/client/docshots/docshots.py's
+        /// <summary>Where the Steam overlay's Back to Game button is in a frame, "x0,y0,x1,y1", or null - os2-deploy docshots' (Client/DocShots/Frames.cs)
         /// steam_overlay, number for number. In the top right corner (the right 14 %, the top 12 %): a square of the button's grey (#23262E,
         /// within 10 a channel), 2 % to 8 % of the frame's height a side and at least half of it that grey, with light pixels in it (every channel
         /// at least 170) of which at least 70 % lie along its two diagonals - the X. The overlay (Shift+Tab, or opened by Steam itself: once it came

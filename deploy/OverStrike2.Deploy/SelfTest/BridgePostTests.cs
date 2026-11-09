@@ -258,9 +258,7 @@ static class BridgePostTests
             containers = World();
 
             // the release rehearsal's own stack: taken as the candidate is, and refused wherever its bridge could be production's or reach production's data
-            var bridgepostPy = File.ReadAllText(Repo.P("tools", "client", "probe", "bridgepost.py"));
-            check("the rehearsal's label is os2-deploy rehearse's own (Rehearse.cs's Purpose)",
-                  Rehearse.Purpose == "the release rehearsal" && bridgepostPy.Contains($"REHEARSAL_TAG = \"{Rehearse.Purpose}\"", StringComparison.Ordinal));
+            check("the rehearsal's label is os2-deploy rehearse's own (Rehearse.cs's Purpose)", Rehearse.Purpose == "the release rehearsal");
             containers = RehearsalWorld();
             before = execs.Count;
             (code, output) = RunBp("check");

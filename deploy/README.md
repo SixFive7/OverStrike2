@@ -44,9 +44,9 @@ The compose file names the image under `localhost/`, a registry no pull can reac
     pull_policy: never
 ```
 
-`bridge.py build` makes `localhost/overstrike2-bridge:<commit>` (immutable) and points `:candidate` at it; `bridge.py swap` points
+`os2-deploy bridge build` makes `localhost/overstrike2-bridge:<commit>` (immutable) and points `:candidate` at it; `bridge swap` points
 `:latest` - the tag the compose file means - at the candidate and recreates the container from its own configuration, so a
-later redeploy of the stack runs the same image. `:previous` is what the last swap replaced (`bridge.py rollback`).
+later redeploy of the stack runs the same image. `:previous` is what the last swap replaced (`bridge rollback`).
 
 The scripts take the bridge's secret from the game container's `CS2_LOG_HTTP_URL` and the RCON password from its `CS2_RCONPW`, the image's own
 variables, and fall back on the bridge's `LOG_SECRET` and `RCON_PASSWORD`. The settings of a deployment like `compose.example.yml` are an environment
@@ -57,8 +57,10 @@ from its inspect. Compose's inline `configs: content:` would not do: a read-only
 
 [`OverStrike2.Deploy/`](OverStrike2.Deploy/) is one program, `os2-deploy`, ported from the Python deploy scripts and
 [tools/client/](../tools/client/README.md)'s Python - the same commands, private config, words and exit codes. Since release 193 it is the
-only release tool: `data.py`, `release.py`, `server.py` and `workshop.py` left `deploy/` then. `os2.py`, `bridge.py`, `plugin.py` and `check.py`
-stay, with `test_deploy.py` and `test_check.py`, as the library the Python client harness (`tools/client/probe/`, `tools/client/docshots/`) imports.
+only release tool: `data.py`, `release.py`, `server.py` and `workshop.py` left `deploy/` then. Since 2026-11-09 it is the
+client harness's only server half too: `tools/client/probe/`'s and `tools/client/docshots/`'s Python left the repository, and with them the
+library they imported (`os2.py`, `bridge.py`, `plugin.py`, `check.py`, `test_deploy.py`, `test_check.py`). The harness (`cs2client.ps1`) runs
+`os2-deploy probe` from a build of this program (its own newest, or the one `$OS2_DEPLOY` names), never through `dotnet run`.
 
 ```sh
 dotnet run --project deploy/OverStrike2.Deploy -- <command> ...      # from the repository's root; or build once and run bin/.../os2-deploy
@@ -66,12 +68,12 @@ dotnet run --project deploy/OverStrike2.Deploy -- <command> ...      # from the 
 
 | Command | Ported from |
 |---|---|
-| `bridge check\|build\|images\|swap\|update\|rollback [--tag T]`, `bridge prune [--apply]` | `bridge.py` (no `build-remote` or `promote`: nothing used them); `prune` is new here: the old tags off the server, a dry run unless `--apply` |
-| `data [--apply] [--force]`, `plugin build\|ship`, `server build\|ship\|restart-sync`, `workshop ...` | `data.py bridge`, `plugin.py`, `server.py`, `workshop.py` (all but `plugin.py` gone since 193); `server restart-sync` is new here: the sync restarted between runs, so it starts the os2-sync shipped |
+| `bridge check\|build\|images\|swap\|update\|rollback [--tag T]`, `bridge prune [--apply]` | `bridge.py`, gone since 2026-11-09 (no `build-remote` or `promote`: nothing used them); `prune` is new here: the old tags off the server, a dry run unless `--apply` |
+| `data [--apply] [--force]`, `plugin build\|ship`, `server build\|ship\|restart-sync`, `workshop ...` | `data.py bridge`, `plugin.py`, `server.py`, `workshop.py` (`plugin.py` gone since 2026-11-09, the rest since 193); `server restart-sync` is new here: the sync restarted between runs, so it starts the os2-sync shipped |
 | `thumbs ...` | `hud/thumbs.py`, its pictures pixel for pixel |
-| `release live\|publish ...`, `check guard\|verify` | `release.py` (gone since 193), `check.py` |
-| `probe`, `testcopy`, `bridgepost` | `tools/client/probe/`'s three; `probe exec\|logs <game\|bridge\|sync>` is new here: production's containers read for a post-check, every secret scrubbed |
-| `docshots ...` (and `docshots publish\|name\|merge\|maskview\|sheets`) | `tools/client/docshots/`'s docshots.py, publish.py, docname.py, merge_fix.py, maskview.py, review_sheet.py |
+| `release live\|publish ...`, `check guard\|verify` | `release.py` (gone since 193), `check.py` (gone since 2026-11-09) |
+| `probe`, `testcopy`, `bridgepost` | `tools/client/probe/`'s three, gone since 2026-11-09; `probe exec\|logs <game\|bridge\|sync>` is new here: production's containers read for a post-check, every secret scrubbed |
+| `docshots ...` (and `docshots publish\|name\|merge\|maskview\|sheets`) | `tools/client/docshots/`'s docshots.py, publish.py, docname.py, merge_fix.py, maskview.py, review_sheet.py, gone since 2026-11-09 |
 | `rehearse prep\|backup\|stage\|up\|compose\|hold\|down\|restore\|clean\|logs\|sh\|rcon\|ship\|status` | the release rehearsal: production's game server, bridge and sync set aside under the server lock with nobody on, this checkout's builds run as a throwaway stack (`[rehearse]` in the config), everything put back. `hold on\|off` (or `up --hold`) keeps the rehearsal's bridge on its map for the live lab - the bridge's maintenance flag in the rehearsal's copy of its data, never production's; `down` and `restore` lift it |
 
-`os2-deploy --selftest` runs every case of the Python tests, ported under the same names (`--selftest <suite>` one of them).
+`os2-deploy --selftest` runs every case of the retired Python tests, ported under the same names (`--selftest <suite>` one of them).

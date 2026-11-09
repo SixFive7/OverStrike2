@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace OsClientProbe;
 
 /// <summary>Test-only server half of the CS2 client test harness (tools/client/README.md). It is never one of the server's
-/// plugins: probe.py copies the DLL to /tmp/osprobe in the game container, loads it with `css_plugins load` for one test, then unloads
+/// plugins: os2-deploy probe copies the DLL to /tmp/osprobe in the game container, loads it with `css_plugins load` for one test, then unloads
 /// it and deletes it. Every command is server console / RCON only and acts on the players named, nobody else.
 ///
 ///   osprobe_players                                   who is on: slot, name, account id, alive, team
@@ -88,7 +88,7 @@ public class OsClientProbe : BasePlugin
         Logger.LogInformation("osprobe_html64: {Length} chars to {Who} for {Seconds} s: {Html}", html.Length, command.GetArg(1), seconds, html);
     }
 
-    /// <summary>The same from a file in the container (probe.py htmlfile uploads it): a message longer than a console line can carry.</summary>
+    /// <summary>The same from a file in the container (os2-deploy probe htmlfile uploads it): a message longer than a console line can carry.</summary>
     [ConsoleCommand("osprobe_htmlfile", "OsClientProbe: osprobe_htmlfile <account|*> <seconds> <path in the container>")]
     [CommandHelper(minArgs: 3, usage: "<account|*> <seconds> <path>", whoCanExecute: CommandUsage.SERVER_ONLY)]
     public void OnHtmlFile(CCSPlayerController? caller, CommandInfo command)

@@ -14,12 +14,15 @@
 
 $script:Here = $PSScriptRoot
 $script:RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-# The server half: the private config, the server lock, the Docker API and RCON (probe\probe.py, through deploy\os2.py). It holds every
-# deployment detail - the address, the lock file, the containers - and reads the credentials from the environment; it never prints one.
-$script:ProbePy = Join-Path $PSScriptRoot 'probe\probe.py'
+# The server half: the private config, the server lock, the Docker API and RCON - os2-deploy's probe (deploy\OverStrike2.Deploy\Client\Probe.cs).
+# It holds every deployment detail - the address, the lock file, the containers - and reads the credentials from the environment; it never prints
+# one. It runs from a build, never through dotnet run: os2-deploy's own docshots spawns this harness, and a build under a running os2-deploy would
+# write over its own files.
+$script:DeployProject = Join-Path $script:RepoRoot 'deploy\OverStrike2.Deploy'
+$script:Deploy = $null
 
 # The repository's main working tree: a worktree's .git file names <main>\.git\worktrees\<name>, so every worktree shares one state
-# (probe.py's main_checkout, alike).
+# (os2-deploy's Harness.MainCheckout in Probe.cs, alike).
 function Get-Cs2MainCheckout([string]$Root) {
     $dotgit = Join-Path $Root '.git'
     if (Test-Path -LiteralPath $dotgit -PathType Leaf) {
@@ -43,18 +46,50 @@ $script:Config = $null
 function Set-Cs2StateDir([string]$Path) { if ($Path) { $script:StateDir = $Path } }
 function Get-Cs2StateDir { $script:StateDir }
 
-# The server half, a process of its own: its output as text, and whether it ended well.
+# The os2-deploy build the server half runs from, as a command line: $env:OS2_DEPLOY when it is set (os2-deploy's docshots sets it to
+# itself, a .exe or a .dll), else this checkout's newest build (bin\Release or bin\Debug), built anew with dotnet build -c Release when
+# none is there or one of the program's sources is newer than it. A build that cannot be redone (one of its files in use) is run as it is.
+function Get-Cs2Deploy {
+    if ($script:Deploy) { return $script:Deploy }
+    $set = $env:OS2_DEPLOY
+    if ($set -and (Test-Path -LiteralPath $set)) {
+        $script:Deploy = if ($set -like '*.dll') { @('dotnet', $set) } else { @($set) }
+        return $script:Deploy
+    }
+    $builds = @('Release', 'Debug') | ForEach-Object { Join-Path $script:DeployProject "bin\$_\net10.0\os2-deploy.exe" } |
+        Where-Object { Test-Path -LiteralPath $_ } | Sort-Object { (Get-Item -LiteralPath $_).LastWriteTimeUtc } -Descending
+    $newest = $null
+    foreach ($dir in @($script:DeployProject, (Join-Path $script:RepoRoot 'core'))) {
+        $f = Get-ChildItem -LiteralPath $dir -Recurse -File -Include '*.cs', '*.csproj' -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        if ($f -and (-not $newest -or $f.LastWriteTimeUtc -gt $newest)) { $newest = $f.LastWriteTimeUtc }
+    }
+    $stale = -not $builds -or ($newest -and (Get-Item -LiteralPath @($builds)[0]).LastWriteTimeUtc -lt $newest)
+    if ($stale) {
+        $null = & dotnet build $script:DeployProject -c Release --nologo -v q 2>&1
+        $release = Join-Path $script:DeployProject 'bin\Release\net10.0\os2-deploy.exe'
+        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $release)) { $builds = @($release) }
+        elseif (-not $builds) { throw "os2-deploy did not build (dotnet build $script:DeployProject -c Release)" }
+        else { Write-Warning "os2-deploy could not be built anew; running $(@($builds)[0]) as it is" }
+    }
+    $script:Deploy = @(@($builds)[0])
+    $script:Deploy
+}
+
+# The server half, a process of its own (os2-deploy probe ...): its output as text, and whether it ended well.
 function Invoke-Cs2Probe([string[]]$ProbeArgs) {
-    $out = & python -I $script:ProbePy @ProbeArgs 2>&1 | Out-String
+    $cmd = @(Get-Cs2Deploy)
+    $rest = @($cmd | Select-Object -Skip 1) + @('probe') + $ProbeArgs
+    $out = & $cmd[0] @rest 2>&1 | Out-String
     [pscustomobject]@{ Ok = ($LASTEXITCODE -eq 0); Text = ($out -replace "`0", '') }
 }
 
-# What the harness reads from the private config (probe.py config): the server's address, the lock file, the containers. Read once a
+# What the harness reads from the private config (os2-deploy probe config): the server's address, the lock file, the containers. Read once a
 # process, and only by the verbs that need it - a shot or a log line never waits for it.
 function Get-Cs2Config {
     if ($script:Config) { return $script:Config }
     $r = Invoke-Cs2Probe @('config')
-    if (-not $r.Ok) { throw "the private config cannot be read (tools\client\probe\probe.py config): $($r.Text.Trim())" }
+    if (-not $r.Ok) { throw "the private config cannot be read (os2-deploy probe config): $($r.Text.Trim())" }
     $script:Config = $r.Text | ConvertFrom-Json
     $script:Config
 }
@@ -526,7 +561,7 @@ function Start-Cs2Client {
         if ($Insecure) {
             $info = Get-Cs2A2S $Connect
             if (-not $info) { throw "$Connect does not answer A2S: refusing an insecure join that cannot be proven to be to a server without VAC" }
-            if ($info.Vac -ne 0) { throw "$Connect ('$($info.Name)', $($info.Map)) is VAC-secured: an insecure client (loose files, console) never joins it - start the insecure test copy first (probe\testcopy.py, README.md)" }
+            if ($info.Vac -ne 0) { throw "$Connect ('$($info.Name)', $($info.Map)) is VAC-secured: an insecure client (loose files, console) never joins it - start the insecure test copy first (os2-deploy testcopy, README.md)" }
             Write-Host "server $Connect ('$($info.Name)', $($info.Map), $($info.Humans) human(s)) is not VAC-secured - an insecure join is allowed"
         }
     }
@@ -745,7 +780,7 @@ function Wait-Cs2Log([string]$Pattern, [int]$TimeoutSec = 60, [int]$FromLine = 0
 }
 
 # The run's own shots: a shot with -OutDir lands elsewhere, and the run keeps a line for it (shots-elsewhere.txt), so a run whose shots all
-# went elsewhere says so at its end - a HUD release's client test is a run folder with its own shots\ (release.py publish --client-test).
+# went elsewhere says so at its end - a HUD release's client test is a run folder with its own shots\ (os2-deploy release publish --client-test).
 function Add-Cs2ShotElsewhere($s, [string]$Path) {
     Add-Content -LiteralPath (Join-Path $s.runDir 'shots-elsewhere.txt') -Value "$((Get-Date).ToString('s'))`t$Path" -Encoding utf8
 }
@@ -771,7 +806,7 @@ function Get-Cs2ShotWarning($Shots, [string]$RunDir) {
     }
     if ($Shots.run -gt 0 -or $Shots.elsewhere -eq 0) { return }
     "WARNING: no shots\ in this run - its $($Shots.elsewhere) shot(s) went to -OutDir ($($Shots.dir)). A HUD release's client test is a run with its own shots\ " +
-    "(release.py publish --client-test <run>): take them without -OutDir, or copy this run's own frames into $(Join-Path $RunDir 'shots') with a note of where they came from"
+    "(os2-deploy release publish --client-test <run>): take them without -OutDir, or copy this run's own frames into $(Join-Path $RunDir 'shots') with a note of where they came from"
 }
 
 function Save-Cs2Screenshot([string]$Name, [int]$MaxWidth = 1920, [string]$OutDir) {

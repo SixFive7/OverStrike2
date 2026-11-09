@@ -1,6 +1,6 @@
 #!/bin/bash
 # The build under test for a docshots session, from a clean checkout of the commit the pictures show: the plugin (dotnet build), the bridge's image
-# docs-<commit12> on the server (deploy/bridge.py build, with the private config and the Docker API key in the environment, never printed), the HUD in
+# docs-<commit12> on the server (os2-deploy bridge build, with the private config and the Docker API key in the environment, never printed), the HUD in
 # its own addon with its map pictures (build_hud.ps1). The three run side by side; their logs go to $OUT/logs/build-<commit12>/.
 #   OUT=<session folder> build_docs.sh <clean checkout> <folder of the map pictures (hud/thumbs.py's)>
 : "${OUT:?set OUT to the output folder of the session}"
@@ -13,7 +13,7 @@ L="$OUT/logs/build-$S"
 mkdir -p "$L"
 echo "commit $S $(date +%T)"
 ( dotnet build plugin/OverStrike2 -c Release -nodeReuse:false -p:UseSharedCompilation=false > "$L/plugin.log" 2>&1 && echo "plugin OK $(date +%T)" || echo "plugin FAILED $(date +%T)" ) &
-( python -I deploy/bridge.py build --tag "docs-$S" > "$L/bridge.log" 2>&1 && echo "bridge OK $(date +%T)" || echo "bridge FAILED $(date +%T)" ) &
+( dotnet run --project deploy/OverStrike2.Deploy --verbosity quiet -- bridge build --tag "docs-$S" > "$L/bridge.log" 2>&1 && echo "bridge OK $(date +%T)" || echo "bridge FAILED $(date +%T)" ) &
 ( powershell -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "$D/build_hud.ps1" 2>/dev/null || echo "$D/build_hud.ps1")" -Src "$(cygpath -w "$W/hud" 2>/dev/null || echo "$W/hud")" -Thumbs "$(cygpath -w "$T" 2>/dev/null || echo "$T")" > "$L/hud.log" 2>&1 && echo "hud OK $(date +%T)" || echo "hud FAILED $(date +%T)" ) &
 wait
 grep -E 'Warning\(s\)|Error\(s\)' "$L/plugin.log"

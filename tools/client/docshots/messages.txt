@@ -1,6 +1,6 @@
 The on-screen messages of Over Strike 2's HUD, as the message system has them: one line each, under its heading - who sees it and for
-how long in brackets, then the surface it goes on. docshots.py holds its table of screenshots to this list (every message has a row) and
-publish.py's gallery (docs/hud/messages.html) takes its headings and its words from it; a message NOT SHOWN has a row that says why.
+how long in brackets, then the surface it goes on. os2-deploy docshots holds its table of screenshots to this list (every message has a row) and
+its publish's gallery (docs/hud/messages.html) takes its headings and its words from it; a message NOT SHOWN has a row that says why.
 A change to the message system changes this list, the table and the pictures together.
 
 MESSAGES (50)
