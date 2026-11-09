@@ -140,7 +140,7 @@ static partial class Program
             && PT(1002, waitVote, 1) == "Vote in 45 s" && PT(1002, waitVote, 3) == "On now");
         Check("Card buttons say what the chat would: likes and Play by the map's rank or official name; the map that is on is Keep's vote while one is open, nothing outside one",
             HudMenu.Command("os_m1_up", back, live, mb, 1001, now) == "!up 1" && HudMenu.Command("os_m4_down", back, live, mb, 1001, now) == "!down ar_shoots"
-            && HudMenu.Command("os_m1_play", back, live, mb, 1001, now) == "!map 1" && HudMenu.Command("os_m1_play", back, live, mb, 1002, now) == "!map 1"
+            && HudMenu.Command("os_m1_play", back, live, mb, 1001, now) == "!map 1" && HudMenu.Command("os_m1_play", back, live, new HudBrowser(), 1002, now) == "!map 1"
             && HudMenu.Command("os_m3_play", back, live, mb, 1001, now) == null && HudMenu.Command("os_m3_play", back, live, mb, 1001, now, vote: inVote) == "!map 3"
             && HudMenu.Command("os_m5_play", back, live, mb, 1001, now) == null && HudMenu.Command("os_m9_play", back, live, mb, 1001, now) == null);
         var first = HudMenu.Command("os_m2_play", back, live, mb, 1001, now);
@@ -151,6 +151,22 @@ static partial class Program
             && second == "!map 2" && mb.ConfirmKey == "");
         HudMenu.Command("os_m2_play", back, live, mb, 1001, now);
         Check("...and after 30 s the next click asks again", HudMenu.Command("os_m2_play", back, live, mb, 1001, now.AddSeconds(31)) == "!map 2" && mb.ConfirmKey == "3070208661");
+        var dc = new HudBrowser();
+        var dc1 = HudMenu.Command("os_m2_play", back, live, dc, 1001, now);
+        var dc2 = HudMenu.Command("os_m2_play", back, live, dc, 1001, now.AddSeconds(0.2));
+        var stillAsks = dc.ConfirmKey == "3070208661" && dc.DoubledAt == now.AddSeconds(0.2)
+            && HudMenu.Maps(back, live, dc, 1001, now.AddSeconds(0.3)).Texts.Single(x => x.Id == "os_m2_play_text").Text == HudMenu.Unlocked;
+        var dc3 = HudMenu.Command("os_m2_play", back, live, dc, 1001, now.AddSeconds(0.6)); // 0.4 s after the click before it: the burst goes on
+        var dc4 = HudMenu.Command("os_m2_play", back, live, dc, 1001, now.AddSeconds(1.2)); // after a pause of 0.6 s: the confirmation
+        Check($"A broken map's double click opens the padlock and nothing more: a click within {HudVote.DoubleClickSeconds} s of the one before sends nothing and leaves the first click's ask standing, a burst too; a click after a pause that long puts it to the vote",
+            dc1 == "!map 2" && dc2 == null && stillAsks && dc3 == null && dc4 == "!map 2" && dc.ConfirmKey == "");
+        var plain = new HudBrowser();
+        var prev = new HudBrowser();
+        Check("...a plain map's double click sends its pick once, and a click on another card within it counts as ever; Previous's double click sends it once - never the confirmation of a risky previous map",
+            HudMenu.Command("os_m1_play", back, live, plain, 1001, now) == "!map 1" && HudMenu.Command("os_m1_play", back, live, plain, 1001, now.AddSeconds(0.2)) == null
+            && HudMenu.Command("os_m2_play", back, live, plain, 1001, now.AddSeconds(0.3)) == "!map 2"
+            && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now) == "!previous" && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now.AddSeconds(0.2)) == null
+            && HudMenu.Command(HudMenu.Previous, back, live, prev, 1001, now.AddSeconds(0.8)) == "!previous");
         var (qt, qc) = HudMenu.PreviousButton(live);
         Check("Previous: the map before this one on its button, which puts it to the vote; off while there is none",
             qt.Single(x => x.Id == "os_q_prev_text").Text == "Previous: #2 Zebra" && !qc.Single(x => x.Id == HudMenu.Previous && x.Class == "off").On

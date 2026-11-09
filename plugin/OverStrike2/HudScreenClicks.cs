@@ -67,9 +67,10 @@ sealed partial class HudScreen
                 if (HudVote.PageClick(vote, buttonId, view.Page, MapVote.PageCards) is { } page) { me.VoteView = (vote.Round, page, false); me.Follow = default; Busy(player, account); Server.NextFrame(Frame); return; }
                 var seen = HudFrame.SeenOrder(me, vote.Round, view.Page, now);
                 var target = Seen(vote, buttonId, view.Page, seen);
+                var sinceClick = now - me.Added.At;
                 if (HudFrame.SecondClick(me, vote, buttonId, now))
                 {
-                    LogVote(player, account, $"round {vote.Round}, {target}: {(now - me.Added.At).TotalSeconds:0.00} s after the Add from that very Play - the second click of a double click, nothing sent");
+                    LogVote(player, account, $"round {vote.Round}, {target}: {sinceClick.TotalSeconds:0.00} s after the click before it on that very Play, the Add's - the second click of a double click, nothing sent");
                     Server.NextFrame(Frame);
                     return;
                 }
@@ -116,6 +117,8 @@ sealed partial class HudScreen
         ArmGameButtons(player, buttonId, now);
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
         if (command != null) Act(player, account, command);
+        else if (browser.DoubledAt == now) // a Play or Previous within HudVote.DoubleClickSeconds of the click before it (HudBrowser.DoubleClick): never a risky map's confirmation
+            LogVote(player, account, $"{buttonId}: within {HudVote.DoubleClickSeconds} s of the click before it - the second click of a double click, nothing sent");
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
     }
 

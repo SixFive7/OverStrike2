@@ -228,6 +228,8 @@ server console.
 Nobody can call a vote while a map change counts down or a map loads, while a restart of the server or the match counts down, while [Steam is not showing the HUD](#the-huds-version-and-the-hud-check),
 or for **2 minutes after the last vote**; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
 says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
+That second click counts only 0.5 s or more after the click before it (`HudBrowser.DoubleClick`): a double click opens the padlock and nothing more, so the warning is
+read before the map goes on; the same holds for Previous, and a double click on any Play or on Previous sends its pick once.
 A Wingman map takes as many a side as it has [spawn points](#wingman-and-its-spawn-points): with more on it cannot win, and it is refused when asked for.
 
 ### The freeze
@@ -251,8 +253,8 @@ and says "That map left the vote - Click again", never a vote for the map in its
 place where the card their Add just put on stands, made before their game drew it there (the plugin's grace after a change, `HudVote.OwnCardNow`;
 or with the old card's number, which the bridge matches to the card that took its place), says "Your vote is on this map" and changes nothing -
 as does a click on the card their vote is on that the bridge gets before that player's game showed the vote there. The second click of a double
-click on the map browser's Play counts for nothing (`HudFrame.SecondClick`, within 0.5 s): the Add turns that card into the ballot's card in its
-place, and the click would otherwise take the vote off the map just added.
+click on the map browser's Play counts for nothing (`HudFrame.SecondClick`, within 0.5 s of the click before it, a burst too): the Add turns that card
+into the ballot's card in its place, and the click would otherwise take the vote off the map just added.
 
 **No vote click is lost on the way:** the plugin keeps at most 8 clicks on their way to the bridge at once (`BridgeLink.cs`); while that is full, a
 vote, a map put to the vote, a vote started and the HUD check's click wait - one a player and kind, a newer one taking its place - and go out as

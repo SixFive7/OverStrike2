@@ -264,10 +264,16 @@ public sealed class HudFrame
     }
 
     /// <summary>Whether a click on the ballot is the second click of a double click on the map browser's Play that added a map a moment ago: the same button, within
-    /// HudVote.DoubleClickSeconds. The Add turned that card into the ballot's card in its place, before the bridge's answer put the map there - so the click would
-    /// count for whatever stood there, and take the player's vote off the map they just added. It counts for nothing; the Add's own answer speaks.</summary>
-    public static bool SecondClick(HudPlayer p, VoteState vote, string buttonId, DateTime now) =>
-        p.Added.Round == vote.Round && vote.Round > 0 && p.Added.Button != "" && p.Added.Button == buttonId && (now - p.Added.At).TotalSeconds < HudVote.DoubleClickSeconds;
+    /// HudVote.DoubleClickSeconds of the click before it - each such click is noted, so a burst counts once, like HudBrowser.DoubleClick. The Add turned that card
+    /// into the ballot's card in its place, before the bridge's answer put the map there - so the click would count for whatever stood there, and take the
+    /// player's vote off the map they just added. It counts for nothing; the Add's own answer speaks.</summary>
+    public static bool SecondClick(HudPlayer p, VoteState vote, string buttonId, DateTime now)
+    {
+        if (!(p.Added.Round == vote.Round && vote.Round > 0 && p.Added.Button != "" && p.Added.Button == buttonId && now >= p.Added.At
+            && (now - p.Added.At).TotalSeconds < HudVote.DoubleClickSeconds)) return false;
+        p.Added = (p.Added.Round, p.Added.Button, now);
+        return true;
+    }
 
     /// <summary>The Fun page, the same for everybody: as the live values have it - the settings, who set them, what is grey. Returns what its bubbles say this
     /// frame.</summary>

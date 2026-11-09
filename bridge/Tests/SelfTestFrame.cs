@@ -145,11 +145,13 @@ static partial class Program
         var doubler = new HudPlayer();
         HudFrame.AddedToVote(doubler, twelve, 1001, at, MapVote.PageCards, "os_m3_play");
         var nextRound = new VoteState { Round = r + 1, Open = true, Options = twelve.Options };
-        Check($"Add to the vote by card 3's Play: a click on that very button within {HudVote.DoubleClickSeconds} s is the second click of a double click - the ballot's card 3 now - and counts for nothing; another card, a later click, another round, or no Add, count as ever",
-            doubler.Added == (r, "os_m3_play", at) && HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(0.3))
-            && !HudFrame.SecondClick(doubler, twelve, "os_m4_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(HudVote.DoubleClickSeconds))
-            && !HudFrame.SecondClick(doubler, nextRound, "os_m3_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(new HudPlayer(), twelve, "os_m3_play", at.AddSeconds(0.3))
-            && late.Added == (r, "", at) && !HudFrame.SecondClick(late, twelve, "", at.AddSeconds(0.1)));
+        var addedBy = doubler.Added;
+        var asEver = !HudFrame.SecondClick(doubler, twelve, "os_m4_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(doubler, nextRound, "os_m3_play", at.AddSeconds(0.3))
+            && !HudFrame.SecondClick(new HudPlayer(), twelve, "os_m3_play", at.AddSeconds(0.3)) && late.Added == (r, "", at) && !HudFrame.SecondClick(late, twelve, "", at.AddSeconds(0.1));
+        var burst = HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(0.3)) && HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(0.7)); // 0.4 s after the one before
+        var paused = !HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(1.3)); // 0.6 s after the one before
+        Check($"Add to the vote by card 3's Play: a click on that very button within {HudVote.DoubleClickSeconds} s of the click before it is the second click of a double click - the ballot's card 3 now - and counts for nothing, a burst of them too; after a pause that long, and on another card, in another round or with no Add, a click counts as ever",
+            addedBy == (r, "os_m3_play", at) && asEver && burst && paused);
 
         // ---- the mouse during a hold: a player who joined without the HUD has no window to close ----
         slots.Show(2, HudSlots.Page.Maps, t0.AddSeconds(51));
