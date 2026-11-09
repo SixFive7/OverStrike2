@@ -45,6 +45,18 @@ public static class RunReport
                     merged[mode] = Node.Int(merged[mode]) + Node.Int(n);
                 result["backfill"] = merged;
             }
+            else if (key == "spawns" && value is JsonObject spawns)
+            {
+                // the Wingman maps counted from their files (RunPublish.CountSpawns): the batches' counts add up; what is left, and a stop, are the last batch's
+                var merged = Node.Obj(result["spawns"]?.DeepClone());
+                foreach (var k in new[] { "counted", "failed" })
+                    merged[k] = Node.Int(merged[k]) + Node.Int(spawns[k]);
+                merged["not_on_disk"] = Node.Int(spawns["not_on_disk"]);
+                merged.Remove("stopped");
+                if (spawns["stopped"] is { } why)
+                    merged["stopped"] = why.DeepClone();
+                result["spawns"] = merged;
+            }
             else if (!(value is null || (Node.IsString(value) && value.GetValue<string>().Length == 0) || (value is JsonObject o && o.Count == 0)))
                 result[key] = value.DeepClone();
         }

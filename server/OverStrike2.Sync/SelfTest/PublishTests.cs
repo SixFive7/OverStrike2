@@ -239,6 +239,12 @@ static class PublishTests
             nt2.Ledger.Load();
             nt2.State.Load();
             nt2.Publish([], [], new Dictionary<string, JsonObject>());
+            Check("run: a run's batches add their counts up in its report; what is left, and a stop, are the last batch's",
+                  Node.Eq(RunReport.MergePublished(O("{\"spawns\": {\"counted\": 2, \"failed\": 1, \"not_on_disk\": 5, \"stopped\": \"x\"}}"),
+                                                   O("{\"spawns\": {\"counted\": 3, \"failed\": 0, \"not_on_disk\": 4}}"))!["spawns"],
+                          O("{\"counted\": 5, \"failed\": 1, \"not_on_disk\": 4}"))
+                  && Node.Eq(RunReport.MergePublished(O("{\"spawns\": {\"counted\": 2, \"failed\": 0, \"not_on_disk\": 5}}"), O("{\"files\": []}"))!["spawns"],
+                             O("{\"counted\": 2, \"failed\": 0, \"not_on_disk\": 5}")));
             Check("run: the next run reads only the map whose files failed to read, writes nothing and reports no count",
                   scanned.Count == 7 && scanned[^1] == Path.Combine(game, "47") && Node.Get(nt2.Report["published"], "spawns") is null
                   && Node.Get(nt2.Report["published"], "files") is null);
