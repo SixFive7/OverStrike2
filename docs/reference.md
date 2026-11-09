@@ -356,7 +356,8 @@ Wingman is two teams of two in Valve's matchmaking, but the game takes more: it 
 cfgs keep the sides within one of each other (`mp_limitteams 1`), so N players need the larger half of N spawn points a side. A Wingman map takes as many a
 side as it has (`Modes.WingmanFits`): the bridge offers it on the ballot, lets it win, rolls it as Random and accepts it when asked for only while the players on
 fit; otherwise the line says what it takes ("de_inferno has spawn points for 4 a side in Wingman, and 9 are on - Not this map now"), and a card's Play in the map
-browser says it in place of Put to the vote ("Wingman: 2 a side"). Valve's maps take 4 a side or more - de_inferno, de_nuke and de_overpass their 2v2 sets of 4,
+browser says it in place of Put to the vote ("Wingman: 2 a side"), greyed (class `unfit`). The ballot's cards are drawn to fit; one that no longer takes the players
+present, because more came in during the vote, cannot win, and its Vote says what it takes, greyed. Valve's maps take 4 a side or more - de_inferno, de_nuke and de_overpass their 2v2 sets of 4,
 de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09; `Modes.WingmanOfficialSpawns`), and 3v3 on de_inferno was
 tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and `spawnsCt` in its entry of `maps-wingman.json`, which the
 bridge reads and the Workshop sync is to write from the map's files - not yet: until it does, every Workshop map counts as 2 a side, Valve's 2v2, as before. Of the

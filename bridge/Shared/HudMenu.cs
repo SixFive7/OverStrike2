@@ -35,6 +35,10 @@ public static class HudMenu
     /// HudBrowser.ConfirmSeconds, the padlock open with the second word (confirm): that click puts it to the vote. When the time is up the class goes and it shuts again.</summary>
     public const string Locked = "Locked - Click to unlock", Unlocked = "Click again - Vote anyway";
 
+    /// <summary>The Play of a Wingman map with spawn points for fewer a side than are on: what it takes, in place of Add to the vote, Put to the vote or Vote. The
+    /// card has class unfit while its Play says it (content v4.11.0 greys the button), in the browser and on the ballot.</summary>
+    public static string UnfitText(int spawnsPerSide) => $"Wingman: {Modes.WingmanTakes(spawnsPerSide)}";
+
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
     /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
     static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0, string serverMode = "")
@@ -46,13 +50,13 @@ public static class HudMenu
             if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
                 return v.ChoiceOf(account) == on.N ? "Your vote" : "On the vote";
             if (m.Removed) return "Unavailable";
-            if (unfit) return $"Wingman: {Modes.WingmanTakes(m.Side)}";
+            if (unfit) return UnfitText(m.Side);
             if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
             return m.Risky ? Locked : "Add to the vote";
         }
         if (m.Key == s.Key && s.Key != "") return "On now";
         if (m.Removed) return "Unavailable";
-        if (unfit) return $"Wingman: {Modes.WingmanTakes(m.Side)}";
+        if (unfit) return UnfitText(m.Side);
         if (vote?.WaitFor > 0) return $"Vote in {MapVote.Left(vote.WaitFor)}";
         if (b.ConfirmKey == m.Key && now < b.ConfirmUntil) return Unlocked;
         return m.Risky ? Locked : "Put to the vote";
@@ -140,7 +144,8 @@ public static class HudMenu
             t.Add(($"{id}_who", ""));   // the ballot's line under the name
             t.Add(($"{id}_score", "")); // the ballot's count
             t.Add(($"{id}_warn", m == null ? "" : Record(m)));
-            t.Add(($"{id}_play_text", m == null ? "" : PlayText(m, s, b, now, vote, account, serverMode)));
+            var play = m == null ? "" : PlayText(m, s, b, now, vote, account, serverMode);
+            t.Add(($"{id}_play_text", play));
             c.Add((id, "used", m != null));
             c.Add((id, "official", m?.Official == true));
             c.Add((id, "risky", m?.Risky == true));
@@ -151,6 +156,7 @@ public static class HudMenu
             c.Add((id, "liked", mine > 0));
             c.Add((id, "disliked", mine < 0));
             c.Add((id, "confirm", m != null && b.ConfirmKey == m.Key && now < b.ConfirmUntil));
+            c.Add((id, "unfit", m != null && play == UnfitText(m.Side)));    // its Play greyed, with the words that say why
             c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag
             c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag
             c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
