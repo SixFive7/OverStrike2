@@ -50,6 +50,28 @@ public sealed class HudSearch
     const int FinalSigma = 0x3C2;
     const string Sigma = "σ";
 
+    /// <summary>Words that say nothing of a map, kept out of the popular words: the game's, the Workshop's and the mapper's own.</summary>
+    static readonly HashSet<string> Plain = new(StringComparer.Ordinal)
+    {
+        "map", "maps", "the", "and", "for", "with", "from", "wip", "port", "ported", "test", "beta", "alpha", "version", "final", "fix", "fixed", "new", "online", "free",
+        "models", "custom", "workshop", "update", "updated", "edition", "counter", "strike", "csgo", "remake", "remastered", "server",
+    };
+
+    /// <summary>The words most map names share, as the search's popular words (content v4.11.0): each name's words once (Words), counted over the names, the most first,
+    /// ties in the alphabet's order. A word of 3 letters or more; never a chat word (ChatCommands.ChatWords) or one that says nothing of a map (Plain); and never one with
+    /// a digit in it but a duel's 1v1 or 2v2.</summary>
+    public static List<string> Popular(IEnumerable<string> names, int count)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var name in names)
+            foreach (var w in Words(name).Distinct())
+                if (w.Length >= 3 && !Plain.Contains(w) && !ChatCommands.ChatWords.Contains(w) && (!w.Any(char.IsDigit) || Duel(w)))
+                    counts[w] = counts.GetValueOrDefault(w) + 1;
+        return counts.OrderByDescending(c => c.Value).ThenBy(c => c.Key, StringComparer.Ordinal).Take(count).Select(c => c.Key).ToList();
+    }
+
+    static bool Duel(string w) => w.IndexOf('v') is > 0 and var v && v < w.Length - 1 && w[..v].All(char.IsAsciiDigit) && w[(v + 1)..].All(char.IsAsciiDigit);
+
     /// <summary>The query as words: what !find asked for, normalised; empty for none.</summary>
     public static string[] Words(string? query) => Normal(query).Split(' ', StringSplitOptions.RemoveEmptyEntries);
 

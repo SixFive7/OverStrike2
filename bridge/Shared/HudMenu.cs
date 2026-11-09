@@ -62,6 +62,32 @@ public static class HudMenu
     /// text input there is, and a chat line typed on MAPS > Browse searches it (233).</summary>
     public const string SearchHint = "Press Y and type a map name";
 
+    /// <summary>The search's words row (content v4.11.0), this player's part: their last searches, newest first, a word on each button and used on the ones that have one
+    /// (HudBrowser.RecentButtons), and qrecent on os_screen while there is one - its label and separator show only then.</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) RecentWords(IReadOnlyList<string> recent)
+    {
+        var (t, c) = Words(HudBrowser.RecentButtons, recent.Select(r => Hud.Clean(r, HudBrowser.WordShown)).ToList());
+        c.Add((HudView.Screen, "qrecent", recent.Count > 0));
+        return (t, c);
+    }
+
+    /// <summary>...and everybody's: the words most map names share (HudFrame.PopularOf), on HudBrowser.PopularButtons.</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PopularWords(IReadOnlyList<string> popular) =>
+        Words(HudBrowser.PopularButtons, popular);
+
+    static (List<(string Id, string Text)>, List<(string Id, string Class, bool On)>) Words(string[] buttons, IReadOnlyList<string> words)
+    {
+        var t = new List<(string, string)>();
+        var c = new List<(string, string, bool)>();
+        for (var k = 0; k < buttons.Length; k++)
+        {
+            var word = k < words.Count ? words[k] : "";
+            t.Add(($"{buttons[k]}_text", word));
+            c.Add((buttons[k], "used", word != ""));
+        }
+        return (t, c);
+    }
+
     static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
 
     /// <summary>The red strip across a card's picture - the map browser's and the ballot's: why the map is unavailable or broken

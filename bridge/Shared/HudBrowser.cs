@@ -51,6 +51,35 @@ public sealed class HudBrowser
     /// click on that box, or on any key, asks the same as the hint's own and changes nothing.</summary>
     public const string HintButton = "os_q_how", OldSearchBox = "os_q_kbd";
 
+    /// <summary>The search's words (content v4.11.0), in the filters' row while the search is helped: this player's last searches, newest first, and the words most map
+    /// names share (HudSearch.Popular). A click searches one; each button's label is its id and "_text".</summary>
+    public static readonly string[] RecentButtons = ["os_q_r1", "os_q_r2", "os_q_r3"], PopularButtons = ["os_q_p1", "os_q_p2", "os_q_p3", "os_q_p4", "os_q_p5", "os_q_p6"];
+
+    /// <summary>What a recent search's button shows of it: the search area shows it whole.</summary>
+    public const int WordShown = 18;
+
+    /// <summary>How long a click on the search area keeps the search helped (qhelp on os_screen) - the box lit, the words row, the window lifted, the pointer at the
+    /// chat line - unless a search comes first, or a second click on it.</summary>
+    public const double HelpSeconds = 20;
+
+    /// <summary>A click on one of the search's words: a recent one or a popular one, and which; null for any other button.</summary>
+    public static (bool Recent, int Index)? WordButton(string buttonId)
+    {
+        var r = Array.IndexOf(RecentButtons, buttonId);
+        if (r >= 0) return (true, r);
+        var p = Array.IndexOf(PopularButtons, buttonId);
+        return p >= 0 ? (false, p) : null;
+    }
+
+    /// <summary>A player's searches with a new one: newest first, the same words once (as the search compares them), at most as many as there are buttons.</summary>
+    public static List<string> Remember(IReadOnlyList<string>? recent, string words)
+    {
+        var w = Hud.Clean(words, HudSearch.MaxQuery);
+        var list = new List<string> { w };
+        foreach (var old in recent ?? []) if (HudSearch.Normal(old) != HudSearch.Normal(w) && list.Count < RecentButtons.Length) list.Add(old);
+        return list;
+    }
+
     /// <summary>A click that asks how to search: the hint's, or v4.8.0's search box or keys.</summary>
     public static bool AsksHowToSearch(string buttonId) =>
         buttonId == HintButton || buttonId == OldSearchBox || buttonId.StartsWith("os_kb_", StringComparison.Ordinal);

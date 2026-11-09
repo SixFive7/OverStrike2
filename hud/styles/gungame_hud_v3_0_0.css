@@ -821,12 +821,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 51 up it is newer than this one (v4.10.0), and the banner stays while it is. */
-.os-global.latest-51 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 52 up it is newer than this one (v4.11.0), and the banner stays while it is. */
 .os-global.latest-52 .os-outdated
 {
 	visibility: visible;
@@ -1067,7 +1062,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 49 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 50 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1114,6 +1109,11 @@ Label
 }
 
 .os-global.latest-49 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-50 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2597,6 +2597,203 @@ Label
 	color: os-gold;
 }
 
+/* ---- the search, helped (content v4.11.0) ----
+   Chat is the search's one text input, and the server cannot open it: so the HUD shows what to type and where. Helped after a click on the search area,
+   for HudBrowser.HelpSeconds or until a search (qhelp on os_screen, the server's), and while the player's chat is open (HUD_CHAT_VISIBLE, the client's own
+   class on the HUD root: no incoming chat line lights it, measured 2026-11-09). Only on MAPS > Browse: never on the ballot (voting), and qhelp never there.
+   The box lit; while the chat is open, what to type in its place; the words row in the filters' place; the window lifted; a pointer beside Valve's chat line. */
+.os-screen.qhelp .os-search
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-search
+{
+	border: 1px solid os-gold;
+	background-color: #E9B44C26;
+}
+
+.os-search-typing
+{
+	visibility: collapse;
+	vertical-align: center;
+	margin-left: 10px;
+	font-size: 13px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-search-typing
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-search .os-search-label
+{
+	visibility: collapse;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-search.used .os-search-text
+{
+	visibility: collapse;
+}
+
+/* the words row: the filters give it their place, row for row */
+.os-mbar-words
+{
+	visibility: collapse;
+	margin-bottom: 10px;
+}
+
+.os-screen.qhelp .os-mbar-filters
+{
+	visibility: collapse;
+}
+
+.os-screen.qhelp .os-mbar-words
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-mbar-filters
+{
+	visibility: collapse;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-mbar-words
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps.voting .os-mbar-words
+{
+	visibility: collapse;
+}
+
+.os-qlabel
+{
+	width: 76px;
+}
+
+.os-qlabel-recent
+{
+	visibility: collapse;
+}
+
+.os-screen.qrecent .os-qlabel-recent
+{
+	visibility: visible;
+}
+
+.os-qsep
+{
+	visibility: collapse;
+}
+
+.os-screen.qrecent .os-qsep
+{
+	visibility: visible;
+}
+
+.os-qchip
+{
+	visibility: collapse;
+}
+
+.os-qchip.used
+{
+	visibility: visible;
+}
+
+.os-qchip .os-chipb-text
+{
+	max-width: 150px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: os-text;
+}
+
+/* the window lifted, so Valve's chat line has room under it (its open state's transform, moved 40 px up; the ballot's window never) */
+.os-screen.win-in.qhelp .os-win
+{
+	transform: translateY( -40px );
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win-in.page-maps .os-win
+{
+	transform: translateY( -40px );
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win-in.page-maps.voting .os-win
+{
+	transform: none;
+}
+
+/* the pointer: beside Valve's chat line, which runs from x 18 to 571 at y 952-1000 at 1080 high (styles/hud/hudchat.css), pointing left at it */
+.os-chatptr
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 84px 584px;
+	flow-children: right;
+	padding: 8px 16px 8px 12px;
+	border-radius: 4px;
+	border: 1px solid #E9B44C99;
+	background-color: #0A0D11EB;
+	box-shadow: #000000b3 0px 6px 18px 0px;
+}
+
+.os-screen.win.qhelp .os-chatptr
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win.page-maps .os-chatptr
+{
+	visibility: visible;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.win.page-maps.voting .os-chatptr
+{
+	visibility: collapse;
+}
+
+.os-chatptr-arrow
+{
+	width: 12px;
+	height: 12px;
+	vertical-align: center;
+	margin: 0px 10px 0px 6px;
+	border-left: 3px solid os-gold;
+	border-bottom: 3px solid os-gold;
+	transform: rotateZ( 45deg );
+}
+
+.os-chatptr-text
+{
+	vertical-align: center;
+	font-size: 15px;
+	font-weight: bold;
+	color: #FFFFFF;
+}
+
+.os-chatptr-type
+{
+	visibility: collapse;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-chatptr-press
+{
+	visibility: collapse;
+}
+
+.HUD_CHAT_VISIBLE .os-screen.page-maps .os-chatptr-type
+{
+	visibility: visible;
+}
+
 /* ---- the card for a Workshop id that is not on the list -------------------------------------------------------------------- */
 
 .os-ws
@@ -3395,10 +3592,21 @@ Label
 	color: #000000;
 }
 
-/* The match length is Arms Race's and Deathmatch's (content v4.10.0): each is one long round. Wingman plays a match of rounds. */
-.os-global.mode-wingman .os-set-time
+/* The match length is every mode's (content v4.11.0): Arms Race's and Deathmatch's in minutes, each one long round; Wingman's in rounds, 8 or 16 (MatchLength.cs) -
+   its buttons say so. Content v4.10.0 collapsed the row in Wingman. */
+.os-setb-rounds
 {
 	visibility: collapse;
+}
+
+.os-global.mode-wingman .os-setb-min
+{
+	visibility: collapse;
+}
+
+.os-global.mode-wingman .os-setb-rounds
+{
+	visibility: visible;
 }
 
 /* Content v4.1.0: why the dislike. The reasons of a Dislike, for 15 s (DownReasons.PopupSeconds), for its player alone: one small dialog at the centre, over the crosshair on purpose,
@@ -4861,8 +5069,30 @@ Label
 
 .os-screen.vrandom .os-vrandom
 {
-	border: 2px solid os-gold;
-	background-color: #E9B44C40;
+	border: 3px solid #FFFFFF;
+	background-color: #FFFFFF1F;
+	box-shadow: #FFFFFF59 0px 0px 12px 0px;
+}
+
+.os-screen.vrandom .os-vrandom .os-vbtn-text
+{
+	color: #FFFFFF;
+}
+
+/* Random's check: white on the dark button, at its left, while the player's vote is on Random. */
+#os_v_random .os-mtick
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: center;
+	margin: -3px 0px 0px 12px;
+	border-right: 3px solid #FFFFFF;
+	border-bottom: 3px solid #FFFFFF;
+}
+
+.os-screen.vrandom #os_v_random .os-mtick
+{
+	visibility: visible;
 }
 
 .os-screen.voting .os-ours-wrap
@@ -5224,16 +5454,6 @@ Label
 .os-screen.voting .os-mcard.vtie .os-mtag-tie
 {
 	visibility: visible;
-}
-
-.os-screen.voting .os-mcard.vlead
-{
-	border: 1px solid #E9B44C80;
-}
-
-.os-screen.voting .os-mcard.vtie
-{
-	border: 2px solid #FFB547;
 }
 
 .os-screen.vlock .os-close
@@ -6083,6 +6303,20 @@ Label
 	color: os-dim;
 }
 
+/* A map that does not fit the players on (content v4.11.0): a Wingman map whose spawn points take fewer a side than are on. Its Play greys, as the map
+   that is on does; its words say why (the bridge's "Wingman: N a side at most"). The bridge sets unfit on the card, in the browser and on the ballot. */
+.os-mcard.unfit .os-mplay
+{
+	opacity: 0.4;
+	border: 1px solid #FFFFFF1F;
+	background-color: #FFFFFF08;
+}
+
+.os-mcard.unfit .os-mplay-text
+{
+	color: os-dim;
+}
+
 .os-mscore
 {
 	visibility: collapse;
@@ -6209,7 +6443,7 @@ Label
 	horizontal-align: center;
 }
 
-/* -- the ballot (voting on os_screen): a bigger window, its header with the two clocks, then ten upright tiles, five across and two down, the most votes first.
+/* -- the ballot (voting on os_screen): a bigger window, its header with the two clocks, then ten upright tiles, five across and two down, each in its place while the vote is open, the most votes first once it is decided.
    The header and the tile words are the server's in every state: voting, everybody voted, decided or kept (vdone), the last 10 s (vlow) -- */
 
 .os-screen.voting .os-win
@@ -6692,20 +6926,92 @@ Label
 	color: os-text;
 }
 
+/* The player's own vote: a 3 px white frame with a white glow and a white tint - white is no other state's (gold is Arms Race's, LEADING's,
+   TIE's and NEXT MAP's), and it reads by its brightness, not its hue, so a colour-blind player sees it as clearly - and the badge on the
+   picture (os-mmine), which says it in words and with a check. The small YOUR VOTE above the count goes: the badge says it. */
 .os-screen.voting .os-mcard.confirm
 {
-	border: 2px solid os-gold;
-	background-color: #E9B44C2E;
+	border: 3px solid #FFFFFF;
+	background-color: #FFFFFF14;
+	box-shadow: #FFFFFF59 0px 0px 18px 0px;
 }
 
 .os-screen.voting .os-mcard.confirm .os-mscore
 {
-	color: os-gold-hi;
+	color: #FFFFFF;
 }
 
 .os-screen.voting .os-mcard.confirm .os-mplay-text
 {
-	color: os-gold-hi;
+	visibility: collapse;
+}
+
+/* The badge: white, at the picture's top right (the mode's label is at its top left), a check and YOUR VOTE in near-black at 14 px. The mouse on
+   the card turns it into what a click there does, CLICK TO TAKE BACK, as it shows who voted for the card (os-mpop, under the badge). */
+.os-mmine
+{
+	visibility: collapse;
+	horizontal-align: right;
+	vertical-align: top;
+	height: 26px;
+	margin: 10px 10px 0px 0px;
+	padding: 0px 10px 0px 8px;
+	flow-children: right;
+	border-radius: 4px;
+	background-color: #FFFFFF;
+	box-shadow: #000000A6 0px 2px 8px 0px;
+}
+
+.os-screen.voting .os-mcard.confirm .os-mmine
+{
+	visibility: visible;
+}
+
+/* A check: an L of two borders turned 45 degrees, as the chevrons are drawn. */
+.os-mtick
+{
+	width: 6px;
+	height: 12px;
+	margin: 4px 9px 0px 4px;
+	border-right: 3px solid #0A0D11;
+	border-bottom: 3px solid #0A0D11;
+	transform: rotateZ( 45deg );
+}
+
+.os-mmine-text
+{
+	vertical-align: center;
+	font-size: 14px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+	color: #0A0D11;
+}
+
+.os-mmine-back
+{
+	visibility: collapse;
+	vertical-align: center;
+	font-size: 13px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #0A0D11;
+}
+
+.os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mtick
+{
+	visibility: collapse;
+}
+
+.os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mmine-text
+{
+	visibility: collapse;
+}
+
+.os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mmine-back
+{
+	visibility: visible;
 }
 
 .os-screen.voting .os-mcard.now .os-mplay-text

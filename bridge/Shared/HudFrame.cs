@@ -26,7 +26,8 @@ public sealed class HudFrame
     /// (HudVersion.IsWord; "" not seen yet), whether the check waits for their click and its seconds left, how long they have been on since their last real
     /// join (null: not known), whether TAB's board has their cursor, and whether they were on when a hold began (they keep the HUD until the map changes).</summary>
     public sealed record Human(int Slot, long Account, string Name, string Team, string Version, bool Checking, int CheckSeconds, TimeSpan? JoinedFor,
-        bool TabCursor = false, bool KeptMenu = false);
+        bool TabCursor = false, bool KeptMenu = false, IReadOnlyList<string>? Recent = null);
+    // Recent: this player's last searches, newest first (HudBrowser.Remember): the search's words row shows them.
 
     /// <summary>What the frame draws from: the live state as of this frame (its countdowns worked out) and the vote; the map list, the search index and the Sync
     /// page's block; the mode the map that is on was loaded in; TAB's mode; the content level the version classes say (os_hud level fakes it); whether a vote
@@ -56,6 +57,9 @@ public sealed class HudFrame
         foreach (var (id, cls, on) in prevClasses) screen.Class(id, cls, on);
         screen.Pictures(Everybody, [("os_t_thumb", ThumbOf(w.Catalog, s.Key)), ("os_k_thumb", ThumbOf(w.Catalog, s.ChangeKey))]); // the now-playing card's and the countdown's
         screen.Text("os_rst_secs", HudView.RestartCountdown(s, now)); // a restart coming: its countdown from its end time, by our own clock
+        var (popularTexts, popularClasses) = HudMenu.PopularWords(PopularOf(w.Catalog)); // the search's words row: the words most map names share, the same for everybody
+        foreach (var (id, text) in popularTexts) screen.Text(id, text);
+        foreach (var (id, cls, on) in popularClasses) screen.Class(id, cls, on);
 
         // Every vote opens everybody's window on the ballot - a player who joins meanwhile too - and holds it while everybody is frozen: while it is open, and
         // while its result counts down to a map change. Nothing closes it then (the plugin's VoteLocked). When the freeze ends, the windows it opened close for
@@ -111,6 +115,7 @@ public sealed class HudFrame
         screen.Class(HudView.Screen, "toast-1", view.Toast == 1, slot);
         screen.Class(HudView.Screen, "toast-in", view.ToastIn, slot);
         screen.Class(HudView.Screen, "vjoin", h.JoinedFor is { } joined && joined.TotalSeconds < HudVersion.JoinSeconds, slot); // a newer content's banner, for a while after a join
+        screen.Class(HudView.Screen, "qhelp", view.Window && view.Page == HudSlots.Page.Maps && now < p.SearchHelpUntil && !OnBallot(p, vote), slot); // the search helped, after a click on its area
         var perPage = MapVote.PageCards;
         SeeVote(p, vote, account, now);
         FollowVote(p, vote, account, now, perPage);
@@ -165,6 +170,9 @@ public sealed class HudFrame
         foreach (var (id, cls, on) in classes) screen.Class(id, cls, on, slot);
         if (page != HudSlots.Page.Maps) return;
         if (ballot) { screen.Pictures(slot, HudVote.Thumbs(vote, w.Catalog, p.VoteView.Page, perPage)); return; }
+        var (recentTexts, recentClasses) = HudMenu.RecentWords(h.Recent ?? []); // the search's words row: this player's last searches
+        foreach (var (id, text) in recentTexts) screen.Text(id, text, slot);
+        foreach (var (id, cls, on) in recentClasses) screen.Class(id, cls, on, slot);
         p.Card.Show(p.Browser.WorkshopQuery(w.Catalog), now); // a typed Workshop id that no listed map has: its card, asked about once it holds still
         foreach (var (id, text) in p.Card.Texts()) screen.Text(id, text, slot);
         foreach (var (id, cls, on) in p.Card.Classes()) screen.Class(id, cls, on, slot);
@@ -183,6 +191,17 @@ public sealed class HudFrame
         if (p.Drawn.Round != vote.Round || p.Drawn.Page != page) p.Drawn = (vote.Round, page, order, order, DateTime.MinValue);
         else if (!p.Drawn.Now.SequenceEqual(order)) p.Drawn = (vote.Round, page, order, p.Drawn.Now, w.Now);
         return (texts, classes);
+    }
+
+    static HudCatalog? popularFor;
+    static List<string> popular = [];
+
+    /// <summary>The search's popular words for this map list (HudSearch.Popular), worked out once a list: the frame shows them, and a click on one searches the same word.</summary>
+    public static IReadOnlyList<string> PopularOf(HudCatalog? catalog)
+    {
+        if (catalog == null) return [];
+        if (!ReferenceEquals(catalog, popularFor)) (popular, popularFor) = (HudSearch.Popular(catalog.Maps.Select(m => m.Name), HudBrowser.PopularButtons.Length), catalog);
+        return popular;
     }
 
     /// <summary>Whether MAPS shows this player the ballot rather than the map browser: a vote is on, and they are not on its Browse - which VoteView keeps to its round.</summary>

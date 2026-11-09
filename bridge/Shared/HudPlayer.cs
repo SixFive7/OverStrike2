@@ -42,6 +42,10 @@ public sealed class HudPlayer
     /// <summary>A note of the plugin's own for this player (no line to the bridge): its words, until when, its category.</summary>
     public (string Text, DateTime Until, string Cat)? Note;
 
+    /// <summary>Until when this player's search is helped, after a click on the search area (qhelp on os_screen, content v4.11.0): a search ends it sooner, as does a
+    /// second click.</summary>
+    public DateTime SearchHelpUntil;
+
     /// <summary>When everything this player was sent is sent again: a class set while the client is still loading the layout never lands (HudScreen).</summary>
     public DateTime? ResendAt;
 

@@ -60,7 +60,7 @@ sealed partial class HudScreen
         var account = Account(p);
         var checking = checkMode != HudCheck.Mode.Off && gate.Checking(p.Slot);
         return new(p.Slot, account, p.PlayerName, p.Team switch { CsTeam.CounterTerrorist => "CT", CsTeam.Terrorist => "T", _ => "SPEC" }, VersionOf(account),
-            checking, checking ? gate.SecondsLeft(p.Slot, now) : 0, joins.Since(account, now), tab.Cursor(p.Slot), keptMenu.Contains(account));
+            checking, checking ? gate.SecondsLeft(p.Slot, now) : 0, joins.Since(account, now), tab.Cursor(p.Slot), keptMenu.Contains(account), recentSearches.GetValueOrDefault(account));
     }
 
     /// <summary>This player's view of the vote that is on (HudFrame.VoteView), in pages of the ballot's cards (MapVote.PageCards).</summary>

@@ -292,7 +292,7 @@ static partial class DocShots
 
         // ---- a fresh, real join first: any click ends the HUD check
         R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick: "HUD check: Click to play",
-          today: "the window's X (os_hudver_v4.10.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+          today: "the window's X (os_hudver_v4.11.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
           steps: [Con("disconnect"), Pause(3), Mark(), Con($"connect {Host}:{Port}"), WaitIngame(), Pause(4), Con("jointeam 2 1", 1500), Pause(5), Shoot()],
           when: "5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
           crop: CX, masks: [MGreetBack], names: Greeting + Unseen);
@@ -450,6 +450,10 @@ static partial class DocShots
         Browser("maps-page-last", "os_pg_last", "the last page", cleanup: [Press("os_pg_first")]);
         R("maps-search", "MAPS > Browse: a search: its best matches first", section: SMaps, after: "page-maps", steps: [Con("say !find lake"), Pause(2), Shoot()], when: "2 s after the line");
         R("maps-search-empty", "MAPS > Browse: a search with no match, the empty page's words", section: SMaps, after: "page-maps", steps: [Con("say !find zzqqzz"), Pause(2), Shoot()], cleanup: [Press("os_q_clear")], when: "2 s after the line");
+        R("maps-search-help", "MAPS > Browse: a click on the search area helps the search - the box lit, the words row in the filters' place, the window lifted, the pointer beside the chat line", section: SMaps, after: "page-maps",
+          steps: [Press("os_q_how"), Pause(1), Shoot()], cleanup: [Press("os_q_how")], when: "1 s after the click returns: the help lasts 20 s, and the cleanup's second click ends it");
+        R("maps-search-chat", "MAPS > Browse: a chat line on Browse searches it - the words in the search area, its line in chat as typed", section: SMaps, after: "page-maps",
+          steps: [Con("say lake"), Pause(2), Shoot()], cleanup: [Press("os_q_clear")], when: "2 s after the line");
         R("maps-workshop-refused", "MAPS > Browse: a pasted Workshop id the server refuses: the card says why (a non-map of the committed broken.json)", section: SMaps, after: "page-maps",
           steps: [Con("say 3369214545"), Pause(3), Shoot()], cleanup: [Press("os_q_clear")], when: "3 s after the line: the server's own no needs no Workshop question", wordsFrom: ("bridge/broken.json", "3369214545"));
         R("maps-workshop-ready", "MAPS > Browse: a pasted Workshop id not on the list: Asking the Workshop, then Download and play. NEVER clicked: it downloads to the server", section: SMaps, after: "page-maps",

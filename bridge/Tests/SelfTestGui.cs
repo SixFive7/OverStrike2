@@ -60,6 +60,31 @@ static partial class Program
             && !HudFrame.BrowserOpen(true, maps, viewer, voteDecided, true) && !HudFrame.BrowserOpen(true, maps, viewer, new VoteState { Round = 6, Open = true }, true)
             && HudFrame.OnBallot(new HudPlayer(), voteOpen) && !HudFrame.OnBallot(new HudPlayer(), noVote));
 
+        // ---- the search helped (content v4.11.0): its words row - this player's last searches and the words most map names share; a click searches one ----
+        var names = System.Text.Json.JsonDocument.Parse(File.ReadAllText("maps.json")).RootElement.EnumerateArray().Select(e => e.GetProperty("name").GetString() ?? "").ToList();
+        var popularWords = HudSearch.Popular(names, HudBrowser.PopularButtons.Length);
+        Check($"The words row's popular words, out of the committed list's {names.Count} names: {string.Join(" ", popularWords)} - aim and awp among them, each of 3 letters or more, no chat word, none that says nothing of a map, no digit but a duel's",
+            popularWords.Count == HudBrowser.PopularButtons.Length && popularWords.Contains("aim") && popularWords.Contains("awp") && popularWords.All(w => w.Length >= 3)
+            && !popularWords.Any(w => ChatCommands.ChatWords.Contains(w) || w is "map" or "cs2" or "port" or "wip" or "the") && popularWords.All(w => !w.Any(char.IsDigit) || System.Text.RegularExpressions.Regex.IsMatch(w, @"^\d+v\d+$"))
+            && HudSearch.Popular(["de_dust2 remake", "aim_map", "Aim Arena", "awp_lego 1v1", "AWP Arena"], 3).SequenceEqual(["aim", "arena", "awp"])
+            && HudSearch.Popular(["gg_one", "GG two", "wip map 2"], 3).Count == 2);
+        Check("...a click on one is that word: three recent and six popular buttons, nothing else is one of them",
+            HudBrowser.WordButton("os_q_r1") == (true, 0) && HudBrowser.WordButton("os_q_r3") == (true, 2) && HudBrowser.WordButton("os_q_p6") == (false, 5)
+            && HudBrowser.WordButton("os_q_how") == null && HudBrowser.WordButton("os_q_clear") == null && HudBrowser.WordButton("os_q_r4") == null);
+        var kept = HudBrowser.Remember(null, "dust");
+        kept = HudBrowser.Remember(kept, "aim");
+        kept = HudBrowser.Remember(kept, "Dust!");
+        kept = HudBrowser.Remember(kept, "lake");
+        kept = HudBrowser.Remember(kept, "office");
+        Check("...a player's recent searches: the newest first, the same words once whatever their case, at most three",
+            kept.SequenceEqual(["office", "lake", "Dust!"]) && HudBrowser.Remember(["a", "b", "c"], "b").SequenceEqual(["b", "a", "c"]));
+        var (rt, rc) = HudMenu.RecentWords(["a long search for maps of glass and lakes", "dust"]);
+        var (pt, pc) = HudMenu.PopularWords(["aim", "awp"]);
+        Check("...the row: a word on each button that has one and used on it, the rest empty and not used; qrecent while this player has searched",
+            rt.Single(x => x.Id == "os_q_r1_text").Text.Length <= HudBrowser.WordShown && rt.Single(x => x.Id == "os_q_r2_text").Text == "dust" && rt.Single(x => x.Id == "os_q_r3_text").Text == ""
+            && rc.Contains(("os_q_r2", "used", true)) && rc.Contains(("os_q_r3", "used", false)) && rc.Contains((HudView.Screen, "qrecent", true))
+            && HudMenu.RecentWords([]).Classes.Contains((HudView.Screen, "qrecent", false)) && pt.Single(x => x.Id == "os_q_p2_text").Text == "awp" && pc.Contains(("os_q_p3", "used", false)));
+
         // ---- the map browser with full-text search ----
         var catalog = new HudCatalog
         {

@@ -1,13 +1,16 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.10.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.11.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
   open, page, card, votes) is a class the plugin sets - for everybody on os_global, per player on os_screen. The bridge's selftest checks that
   every id and class the plugin sends exists here and in the stylesheet, and that every {s:text} label here is fed. Every id begins os_ and
   every class os-, as in v4.8.0, the first content named so; the plugin draws for v4.8.0 and newer (bridge/Shared/HudVersion.cs, Oldest).
-  A custom HUD has no text entry: the map browser's search is chat's (!s and a few words), and its search area a hint whose click says so in
-  chat. v4.8.0 typed on an on-screen keyboard, which this content removes (release 196).
+  A custom HUD has no text entry, and the server cannot open a player's chat: the map browser's search is typed in chat - on MAPS > Browse a chat line
+  searches it, and !s and a few words do anywhere - and its search area a hint whose click says how. From content v4.11.0 the search is helped after
+  that click, and while the player's chat is open (the client's HUD_CHAT_VISIBLE): the box lit, the words row in the filters' place (this player's
+  last searches, the words most map names share), the window lifted, and a pointer beside Valve's chat line. v4.8.0 typed on an on-screen keyboard,
+  which v4.9.0 removed (release 196).
 
   Rules from CS2UIKit's GOTCHAS (MIT) that this file obeys, because each one makes CS2 drop the whole layout without a word: the root panel has
   no id; only Panel, Label, Image and Button, each with only Valve's attributes; no inline style; no scaling attribute; no scripts; pictures are
@@ -19,7 +22,7 @@
     2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
        each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
-       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.10.0): its id tells the server which
+       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.11.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -117,7 +120,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.10.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.11.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -200,7 +203,7 @@
 									<Panel class="os-vhead-main">
 										<Panel class="os-vhead-top"><Label class="os-vote-title" text="Vote for the next map" /><Label class="os-vwait" text="{s:osvstart}" /></Panel>
 										<Panel class="os-vhead-row">
-											<Button id="os_v_random" class="os-vbtn os-vrandom"><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
+											<Button id="os_v_random" class="os-vbtn os-vrandom"><Panel class="os-mtick" /><Label class="os-vbtn-text" text="{s:osvrand}" /></Button>
 											<Panel class="os-vstrip"><Panel id="os_vs1" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs1}" /></Panel><Panel id="os_vs2" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs2}" /></Panel><Panel id="os_vs3" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs3}" /></Panel><Panel id="os_vs4" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs4}" /></Panel><Panel id="os_vs5" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs5}" /></Panel><Panel id="os_vs6" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs6}" /></Panel><Panel id="os_vs7" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs7}" /></Panel><Panel id="os_vs8" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs8}" /></Panel><Panel id="os_vs9" class="os-vseg"><Label class="os-vseg-text" text="{s:osvs9}" /></Panel></Panel>
 											<Label class="os-vwait" text="{s:osvwait}" />
 										</Panel>
@@ -229,6 +232,7 @@
 											<Label class="os-search-key" text="Search" />
 											<Label id="os_q_hint" class="os-search-label" text="{s:text}" />
 											<Label id="os_q_text" class="os-search-text" text="{s:text}" />
+											<Label class="os-search-typing" text="Type a map name, then press Enter" />
 										</Button>
 										<Button id="os_q_clear" class="os-search-clear"><Panel class="os-x os-x-a" /><Panel class="os-x os-x-b" /></Button>
 									</Panel>
@@ -247,6 +251,22 @@
 									<Panel class="os-mbar-fill" />
 									<Button id="os_q_prev" class="os-qprev"><Label id="os_q_prev_text" text="{s:text}" /></Button>
 									<Label id="os_m_count" text="{s:text}" />
+								</Panel>
+								<!-- The search's words (content v4.11.0), in the filters' place while the search is helped: this player's last three searches and the words
+								     most map names share (HudSearch.Popular); a click searches one -->
+								<Panel class="os-mbar os-mbar-words">
+									<Label class="os-mbar-label os-qlabel os-qlabel-recent" text="Recent" />
+									<Button id="os_q_r1" class="os-chipb os-qchip"><Label id="os_q_r1_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_r2" class="os-chipb os-qchip"><Label id="os_q_r2_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_r3" class="os-chipb os-qchip"><Label id="os_q_r3_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Panel class="os-mbar-sep os-qsep" />
+									<Label class="os-mbar-label os-qlabel" text="Popular" />
+									<Button id="os_q_p1" class="os-chipb os-qchip"><Label id="os_q_p1_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_p2" class="os-chipb os-qchip"><Label id="os_q_p2_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_p3" class="os-chipb os-qchip"><Label id="os_q_p3_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_p4" class="os-chipb os-qchip"><Label id="os_q_p4_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_p5" class="os-chipb os-qchip"><Label id="os_q_p5_text" class="os-chipb-text" text="{s:text}" /></Button>
+									<Button id="os_q_p6" class="os-chipb os-qchip"><Label id="os_q_p6_text" class="os-chipb-text" text="{s:text}" /></Button>
 								</Panel>
 								<!-- A Workshop id that is not on the list: the item, checked with Steam, downloaded to the server first, then played -->
 								<Panel id="os_ws" class="os-ws">
@@ -286,6 +306,7 @@
 													<Label id="os_m1_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m1_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh1}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m1_votes" class="os-mvotes" text="{s:text}" />
@@ -318,6 +339,7 @@
 													<Label id="os_m2_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m2_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh2}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m2_votes" class="os-mvotes" text="{s:text}" />
@@ -350,6 +372,7 @@
 													<Label id="os_m3_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m3_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh3}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m3_votes" class="os-mvotes" text="{s:text}" />
@@ -382,6 +405,7 @@
 													<Label id="os_m4_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m4_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh4}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m4_votes" class="os-mvotes" text="{s:text}" />
@@ -414,6 +438,7 @@
 													<Label id="os_m5_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m5_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh5}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m5_votes" class="os-mvotes" text="{s:text}" />
@@ -446,6 +471,7 @@
 													<Label id="os_m6_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m6_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh6}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m6_votes" class="os-mvotes" text="{s:text}" />
@@ -478,6 +504,7 @@
 													<Label id="os_m7_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m7_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh7}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m7_votes" class="os-mvotes" text="{s:text}" />
@@ -510,6 +537,7 @@
 													<Label id="os_m8_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m8_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh8}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m8_votes" class="os-mvotes" text="{s:text}" />
@@ -542,6 +570,7 @@
 													<Label id="os_m9_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m9_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh9}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m9_votes" class="os-mvotes" text="{s:text}" />
@@ -574,6 +603,7 @@
 													<Label id="os_m10_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m10_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh10}" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
 													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
 												</Button>
 												<Label id="os_m10_votes" class="os-mvotes" text="{s:text}" />
@@ -600,8 +630,8 @@
 									<Panel class="os-set-head"><Panel class="os-rule-mark" /><Label class="os-set-title" text="Match length" /></Panel>
 									<Label id="os_set_time_now" text="{s:text}" />
 									<Panel class="os-set-btns">
-										<Button id="os_set_time_10" class="os-setb"><Label class="os-setb-text" text="10 minutes" /></Button>
-										<Button id="os_set_time_60" class="os-setb"><Label class="os-setb-text" text="60 minutes" /></Button>
+										<Button id="os_set_time_10" class="os-setb"><Label class="os-setb-text os-setb-min" text="10 minutes" /><Label class="os-setb-text os-setb-rounds" text="8 rounds" /></Button>
+										<Button id="os_set_time_60" class="os-setb"><Label class="os-setb-text os-setb-min" text="60 minutes" /><Label class="os-setb-text os-setb-rounds" text="16 rounds" /></Button>
 									</Panel>
 								</Panel>
 								<Panel class="os-set os-set-last">
@@ -1278,12 +1308,20 @@
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.10.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.11.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
 						</Panel>
 					</Panel>
+				</Panel>
+
+				<!-- After the window: where the search is typed (content v4.11.0) - beside Valve's chat line at the bottom left, pointing at it, while the search
+				     is helped. It takes no mouse -->
+				<Panel class="os-chatptr" hittest="false">
+					<Panel class="os-chatptr-arrow" hittest="false" />
+					<Label class="os-chatptr-text os-chatptr-press" hittest="false" text="Press Y: type a map name here, then Enter" />
+					<Label class="os-chatptr-text os-chatptr-type" hittest="false" text="Type a map name here, then press Enter" />
 				</Panel>
 
 				<!-- After the window, so it draws above the dim layer and the window. Why the dislike - the reasons of a Dislike, for its player (why on os_screen), at the
@@ -1334,7 +1372,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.10.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.11.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

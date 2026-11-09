@@ -67,16 +67,18 @@ runs it, its run folder is what `os2-deploy release publish --client-test` asks 
 3. **TAB + E:** the window, on its five tabs and their sub-tabs, closing by itself after 30 s without a click.
 4. **MAPS, Browse:** eight cards with their pictures, the mode's label and colour, size, likes and every tag. The sorts and the filters; the search area's hint, Press Y and type a map name, whose
    click says how on the window's line and in chat; a chat line typed on Browse searches it when its words find a map (gg and the like do not), and says so on the window's line when
-   they find none; `!s` and a few words in chat open the browser on the matches from anywhere; a Workshop id typed in chat gets its card, with Download and play.
+   they find none; the click helps the search for 20 s - the box lit, the words row (your last searches, the popular words) in the filters' place, the window lifted, the
+   pointer beside the chat line - and so does chat while it is open; `!s` and a few words in chat open the browser on the matches from anywhere; a Workshop id typed in chat gets its card, with Download and play.
 5. **Start a vote:** everybody's window opens on MAPS, Vote, and nobody can move, shoot or close it. Ten cards, Keep playing first; Random's button; where the votes go, who has
-   not voted yet and both timers. A click votes, another moves the vote, a click on your own takes it back. Browse puts a map on the vote, with your vote.
+   not voted yet and both timers. A click votes, another moves the vote, a click on your own takes it back; your own card white-framed with its YOUR VOTE badge
+   (CLICK TO TAKE BACK under the mouse), Random white while your vote is on it, LEADING and TIE without frames. Browse puts a map on the vote, with your vote.
 6. **The vote's end:** Keep says so for 8 s, Closes in counting down, then everybody unfreezes; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.
 7. **Dislike** a map: the reasons in one small dialog at the centre, shown only while you have a cursor, the window's or TAB's; a dislike typed in chat with the window closed shows it once TAB is held.
 8. **FUN:** every row with its choices, a setting off its default standing out with who set it, every change said for everybody; Random and Default; Moon gravity greying Super jump
    High with the reason on hover, and a click made just as the other setting changed refused with a bubble at the button. In Deathmatch and Wingman the rows that are Arms Race's own are gone.
    **FUN, Bots:** the sub-tabs Settings and Bots; every row with its choices, bots joining as set, who set a row; the presets lit when they show; Kick all bots and Default;
    Arms Race greying the Weapons row and Wingman the counts past its room, each with its reason.
-9. **SERVER:** Players with everybody's HUD version; Game with the match length and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
+9. **SERVER:** Players with everybody's HUD version; Game with the match length (in Wingman 8 or 16 rounds) and both restarts, the server's and the match's; Sync - now, the queue, the history, the pagers. Every word on Sync is the bridge's
    (`bridge/Shared/HudDash.cs`).
 10. **HELP:** Help and How it works, every row filled.
 11. **`!help`** in chat: the chat commands; a pasted Workshop link opens that item's card.

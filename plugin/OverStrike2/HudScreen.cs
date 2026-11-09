@@ -148,7 +148,7 @@ sealed partial class HudScreen
     {
         worldReady = true;
         var me = Player(player.Slot);
-        if (find != null) me.Browser.Find(find);
+        if (find != null) { me.Browser.Find(find); me.SearchHelpUntil = DateTime.MinValue; } // a search: the help has done its part
         if (find != null && vote is { Open: true, Round: > 0 }) { me.VoteView = (vote.Round, VoteView(player.Slot).Page, true); Busy(player, Account(player)); } // a search during the vote: the map browser that adds to it
         slots.Show(player.Slot, HudSlots.Page.Maps, DateTime.UtcNow);
         Server.NextFrame(() => { EnsureEntity(); Frame(); }); // not inside the player's own chat command (see the class summary)

@@ -45,7 +45,8 @@ sealed partial class HudScreen
         slots.Click(player.Slot, buttonId, now);
         var me = Player(player.Slot);
         if (HudDash.Click(dash, buttonId, me.DashPages)) { Server.NextFrame(Frame); return; } // the Sync page's pagers
-        if (HudBrowser.AsksHowToSearch(buttonId)) { LocalNote(player.Slot, ChatReply.HowToSearch); Server.NextFrame(Frame); return; } // the search hint, or v4.8.0's search box and keys: typing is chat's
+        if (HudBrowser.AsksHowToSearch(buttonId)) { AskedHowToSearch(player, now); Server.NextFrame(Frame); return; } // the search hint, or v4.8.0's search box and keys: typing is chat's - how, and the search helped
+        if (HudBrowser.WordButton(buttonId) is { } word) { WordClicked(player, word); Server.NextFrame(Frame); return; } // one of the search's words (content v4.11.0)
         if (buttonId == HudView.TabMaps && vote.Round > 0) { me.VoteView = (vote.Round, VoteView(player.Slot).Page, false); Server.NextFrame(Frame); return; } // MAPS opens on its first page: the ballot while a vote is on
         var account = Account(player);
         var browser = me.Browser;

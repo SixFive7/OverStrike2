@@ -189,10 +189,11 @@ static partial class Program
             var botsPage = HudBots.Page(cv => stock.GetValueOrDefault(cv), Modes.Deathmatch);
             var sentTexts = HudView.StaticTexts().Concat(HudView.Texts(full)).Concat(HudView.PlayerTexts(full, 1, "x", true)).Concat(menuMaps.Texts).Concat(menuQueue.Texts)
                 .Concat(menuGame.Texts).Concat(card.Texts()).Concat(funPage.Texts).Concat(botsPage.Texts).Concat(ballotView.Texts).Concat(HudView.LatelyTexts(full, 1, 0)).Select(t => t.Id).Append("os_rst_secs").Append("os_cu_head")
-                .Concat(Enumerable.Range(1, 6).Select(k => $"os_cu_{k}")).ToList();
+                .Concat(Enumerable.Range(1, 6).Select(k => $"os_cu_{k}")).Concat(HudMenu.RecentWords(["dust"]).Texts.Concat(HudMenu.PopularWords(["aim"]).Texts).Select(t => t.Id)).ToList();
             List<(string Id, string Class, bool On)> sentClasses = HudView.StaticClasses().Concat(HudView.Classes(full)).Concat(HudView.PlayerClasses(full, 1)).Concat(menuMaps.Classes).Concat(menuQueue.Classes)
                 .Concat(menuGame.Classes).Concat(card.Classes()).Concat(funPage.Classes).Concat(botsPage.Classes).Concat(ballotView.Classes).Concat(HudView.LatelyClasses(full, 1))
-                .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"os_cu_{k}", "used", true), ($"os_cu_{k}", "good", true), ($"os_cu_{k}", "bad", false) })).ToList();
+                .Concat(Enumerable.Range(1, 6).SelectMany(k => new[] { ($"os_cu_{k}", "used", true), ($"os_cu_{k}", "good", true), ($"os_cu_{k}", "bad", false) }))
+                .Concat(HudMenu.RecentWords(["dust"]).Classes).Concat(HudMenu.PopularWords(["aim"]).Classes).Append((HudView.Screen, "qhelp", true)).ToList();
             string[] screenClasses = ["win", "win-in", "draining", "toast-1", "toast-in", "vcheck", "vjoin", "vbrowse", "vlock", "wback", "cu", "cu-in", "cu-run",
                 .. Enum.GetValues<HudSlots.Page>().Select(p => "page-" + p.ToString().ToLowerInvariant())];
             // the buttons this content has, every one the plugin listens to
@@ -208,7 +209,8 @@ static partial class Program
                 .Concat([HudBrowser.LikedButton, HudBrowser.OfficialButton, HudBrowser.ClearButton, HudBrowser.FirstButton, HudBrowser.PrevButton, HudBrowser.NextButton, HudBrowser.LastButton])
                 .Concat(Enumerable.Range(1, HudMenu.Cards).SelectMany(k => new[] { $"os_m{k}_play", $"os_m{k}_up", $"os_m{k}_down" }))
                 .Concat([HudMenu.Previous, HudMenu.Time10, HudMenu.Time60, HudMenu.Restart, HudMenu.BoardOpen])
-                .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play]).ToList();
+                .Concat([HudView.BoardUp, HudView.BoardDown, HudView.BoardNext, HudBrowser.HintButton, WorkshopCard.Play])
+                .Concat(HudBrowser.RecentButtons).Concat(HudBrowser.PopularButtons).ToList();
             var thumbPanels = HudMenu.Thumbs(back, new HudBrowser(), 1001).Select(x => x.Panel).ToList();
             Check($"Layout: the eight cards' pictures exist ({thumbPanels.Count})", thumbPanels.Count == HudMenu.Cards && thumbPanels.All(ids.Contains));
             Check($"Layout: no id twice ({ids.Count} ids), and the root panel has none (the resource compiler refuses it)",
@@ -266,24 +268,44 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panel v4.10.0 retires: v4.9.0's version button, whose place this content's own takes. Every other panel keeps its id.
+                // The panel v4.11.0 retires: v4.10.0's version button, whose place this content's own takes. Every other panel keeps its id.
                 var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                // ...its own version button alone: the match length's row shows in Deathmatch by the stylesheet, with no panel of its own.
-                var expectedAdded = new HashSet<string> { HudVersion.Button(HudVersion.Content) };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                // ...its own version button, and the search's words row: nine buttons and their labels. Your own vote, Wingman's row in rounds, a map that does not fit and
+                // the search's typing look, its lifted window and its pointer are the stylesheet's and static labels, with no panel id of their own.
+                var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
+                var expectedAdded = new HashSet<string>(wordButtons.Concat(wordButtons.Select(b => $"{b}_text"))) { HudVersion.Button(HudVersion.Content) };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the search's {wordButtons.Count} words with their labels - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 Check($"Content {HudVersion.Content}: no on-screen keyboard - no key, no panel or rule of one, and no class for it on the player's screen - and the search area is the hint and the clear button",
                     !ids.Any(id => id.StartsWith("os_kb_", StringComparison.Ordinal)) && !ids.Contains(HudBrowser.OldSearchBox) && !Regex.IsMatch(xml + css, @"os-kbd|os-key\b|\.kbd\b")
                     && Regex.IsMatch(xml, @"<Panel id=""os_q_search"" class=""os-search"">\s*<Button id=""os_q_how"">") && ids.Contains(HudBrowser.ClearButton)
                     && !sentClasses.Any(c => c.Class == "kbd"));
-                Check($"Content {HudVersion.Content}: the match length's row (SERVER, Game) shows in Arms Race and Deathmatch - each one long round - and only Wingman, a match of rounds, collapses it",
-                    Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-set-time\s*\{\s*visibility:\s*collapse;") && !css.Contains(".os-global.mode-deathmatch .os-set-time", StringComparison.Ordinal)
-                    && !css.Contains(".os-global.mode-armsrace .os-set-time", StringComparison.Ordinal) && Regex.IsMatch(xml, @"<Panel class=""os-set os-set-time"">"));
+                Check($"Content {HudVersion.Content}: the match length's row (SERVER, Game) shows in every mode, and its buttons say the mode's own count: minutes, in Wingman rounds ({MatchLength.ShortRounds} and {MatchLength.LongRounds})",
+                    !Regex.IsMatch(css, @"\.os-global\.mode-[a-z]+ \.os-set-time\s*\{") && Regex.IsMatch(xml, @"<Panel class=""os-set os-set-time"">")
+                    && xml.Contains($"<Label class=\"os-setb-text os-setb-min\" text=\"{MatchLength.ShortMinutes} minutes\" /><Label class=\"os-setb-text os-setb-rounds\" text=\"{MatchLength.ShortRounds} rounds\" />", StringComparison.Ordinal)
+                    && xml.Contains($"<Label class=\"os-setb-text os-setb-min\" text=\"{MatchLength.LongMinutes} minutes\" /><Label class=\"os-setb-text os-setb-rounds\" text=\"{MatchLength.LongRounds} rounds\" />", StringComparison.Ordinal)
+                    && Regex.IsMatch(css, @"(?m)^\.os-setb-rounds\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-setb-min\s*\{\s*visibility:\s*collapse;")
+                    && Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-setb-rounds\s*\{\s*visibility:\s*visible;"));
+                var noCommentsXml = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
+                Check($"Content {HudVersion.Content}: your own vote on the ballot - a badge on every card's Play, white on the card your vote is on (confirm); a map that does not fit greys its Play (unfit)",
+                    Regex.Matches(noCommentsXml, @"<Panel class=""os-mmine"" hittest=""false""><Panel class=""os-mtick"" />").Count == HudMenu.Cards
+                    && Regex.IsMatch(css, @"\.os-screen\.voting \.os-mcard\.confirm \.os-mmine\s*\{") && Regex.IsMatch(css, @"\.os-mcard\.unfit \.os-mplay\s*\{[^}]*opacity:\s*0\.4;")
+                    && Regex.IsMatch(css, @"\.os-mcard\.unfit \.os-mplay-text\s*\{"));
+                string[] helped = [".os-search", ".os-mbar-words", ".os-mbar-filters"];
+                Check($"Content {HudVersion.Content}: the search helped - after a click on its area (qhelp) and while the player's chat is open (HUD_CHAT_VISIBLE), on MAPS > Browse alone: the box lit, the words row in the filters' place, the window lifted, a pointer beside the chat line, and nothing of it on the ballot",
+                    helped.All(x => css.Contains($".os-screen.qhelp {x}", StringComparison.Ordinal) && css.Contains($".HUD_CHAT_VISIBLE .os-screen.page-maps {x}", StringComparison.Ordinal))
+                    && css.Contains(".os-screen.win-in.qhelp .os-win", StringComparison.Ordinal) && css.Contains(".HUD_CHAT_VISIBLE .os-screen.win-in.page-maps .os-win", StringComparison.Ordinal)
+                    && Regex.IsMatch(css, @"\.HUD_CHAT_VISIBLE \.os-screen\.win-in\.page-maps\.voting \.os-win\s*\{\s*transform:\s*none;")
+                    && Regex.IsMatch(css, @"\.HUD_CHAT_VISIBLE \.os-screen\.page-maps\.voting \.os-mbar-words\s*\{\s*visibility:\s*collapse;")
+                    && Regex.IsMatch(css, @"\.HUD_CHAT_VISIBLE \.os-screen\.win\.page-maps\.voting \.os-chatptr\s*\{\s*visibility:\s*collapse;")
+                    && css.Contains(".os-screen.win.qhelp .os-chatptr", StringComparison.Ordinal) && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-chatptr"" hittest=""false"">")
+                    && Regex.IsMatch(noCommentsXml, @"<Panel class=""os-mbar os-mbar-words"">") && wordButtons.All(b => Regex.IsMatch(noCommentsXml, $@"<Button id=""{b}"" class=""os-chipb os-qchip""><Label id=""{b}_text"" class=""os-chipb-text"" text=""\{{s:text\}}"" /></Button>"))
+                    && noCommentsXml.Contains("<Label class=\"os-search-typing\" text=\"Type a map name, then press Enter\" />", StringComparison.Ordinal));
             }
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----

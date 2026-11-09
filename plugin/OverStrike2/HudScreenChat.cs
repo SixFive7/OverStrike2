@@ -41,6 +41,7 @@ sealed partial class HudScreen
                 else if (cmd.Typed == "") Say(ChatReply.MenuOn(cmd.Arg));
                 return;
             case ChatCommands.Kind.Find:
+                if (Finds(account, cmd.Arg)) Searched(account, cmd.Arg); // the words row's recent searches: the ones that found maps
                 Menu(player, cmd.Arg);
                 Say(ChatReply.Searching(cmd.Arg));
                 return;
@@ -82,20 +83,56 @@ sealed partial class HudScreen
     public string? SearchOf(CCSPlayerController player, string line) =>
         ChatCommands.SearchOf(line, HudFrame.BrowserOpen(slots.WindowOpen(player.Slot), slots.PageOf(player.Slot), Player(player.Slot), vote, HasCards(player)), VoteOpen);
 
-    /// <summary>The words of a chat line SearchOf took, which shows in chat as it was typed. When they find a map they become the browser's search, as !s's do - the words in
-    /// its search area with its cross, the best matches first, from its first page. When they find none the cards stay as they are, and the window's line alone says so.</summary>
+    /// <summary>The words of a chat line SearchOf took, which shows in chat as it was typed: the browser's search when they find a map (SearchFor).</summary>
     public void ChatSearch(CCSPlayerController player, string words)
     {
-        if (catalog == null) return; // no list yet: nothing to find in, and the line was chat anyway
+        if (SearchFor(player, words)) chatSearches++;
+    }
+
+    /// <summary>Words a player searches the browser for - a chat line's, or a click on one of the search's words: when they find a map they become its search, as !s's do -
+    /// the words in its search area with its cross, the best matches first, from its first page - and the newest of this player's searches; when they find none the
+    /// cards stay as they are, and the window's line alone says so. False then, and with no map list yet (the line was chat anyway).</summary>
+    bool SearchFor(CCSPlayerController player, string words)
+    {
+        if (catalog == null) return false;
         var account = Account(player);
-        var probe = new HudBrowser();
-        probe.Find(words);
-        if (probe.Matches(catalog, account, search).Count == 0) { WindowNote(player.Slot, ChatReply.ChatSearchNone(words)); return; }
+        if (!Finds(account, words)) { WindowNote(player.Slot, ChatReply.ChatSearchNone(words)); return false; }
         var browser = Player(player.Slot).Browser;
         (browser.Sort, browser.Descending) = (HudBrowser.SortBy.Rank, false); // the default order, which puts the best matches first
         Menu(player, words);
-        chatSearches++;
-        log.LogInformation("Over Strike 2 HUD: {Name} searched the map browser from chat: {Words}", player.PlayerName, Hud.Clean(words, HudSearch.MaxQuery));
+        Searched(account, words);
+        log.LogInformation("Over Strike 2 HUD: {Name} searched the map browser: {Words}", player.PlayerName, Hud.Clean(words, HudSearch.MaxQuery));
+        return true;
+    }
+
+    /// <summary>Whether these words find a map on the list, with no filter: what a search for them would show.</summary>
+    bool Finds(long account, string words)
+    {
+        if (catalog == null) return false;
+        var probe = new HudBrowser();
+        probe.Find(words);
+        return probe.Matches(catalog, account, search).Count > 0;
+    }
+
+    readonly Dictionary<long, List<string>> recentSearches = new(); // account -> its last searches, newest first: the search's words row (content v4.11.0)
+
+    /// <summary>A search that found maps, as this player's newest (HudBrowser.Remember): by account, through a map change's reconnect.</summary>
+    void Searched(long account, string words) => recentSearches[account] = HudBrowser.Remember(recentSearches.GetValueOrDefault(account), words);
+
+    /// <summary>A click on the search area: how searching works, on the window's line and in chat, and the search helped for HudBrowser.HelpSeconds - the words row, the
+    /// box lit, the window lifted, a pointer at the chat line (content v4.11.0) - or no longer, at a second click.</summary>
+    void AskedHowToSearch(CCSPlayerController player, DateTime now)
+    {
+        LocalNote(player.Slot, ChatReply.HowToSearch);
+        var me = Player(player.Slot);
+        me.SearchHelpUntil = now < me.SearchHelpUntil ? DateTime.MinValue : now.AddSeconds(HudBrowser.HelpSeconds);
+    }
+
+    /// <summary>A click on one of the search's words: that word searched, as a chat line's would be.</summary>
+    void WordClicked(CCSPlayerController player, (bool Recent, int Index) word)
+    {
+        var list = word.Recent ? (IReadOnlyList<string>)(recentSearches.GetValueOrDefault(Account(player)) ?? []) : HudFrame.PopularOf(catalog);
+        if (word.Index < list.Count) SearchFor(player, list[word.Index]);
     }
 
     /// <summary>!play &lt;map&gt;: a number is a map's rank (its !map); a Workshop id no listed map has opens its card (the menu's download);
