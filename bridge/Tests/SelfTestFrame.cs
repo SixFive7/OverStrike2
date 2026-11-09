@@ -79,6 +79,52 @@ static partial class Program
         Check("Frame: when the freeze ends, the windows it opened close together - but the welcome, which goes back to its start page and waits for its X",
             !slots.WindowOpen(2) && !players[2].VoteOpened && slots.WindowOpen(1) && slots.PageOf(1) == HudSlots.Page.Start);
 
+        // ---- the ballot's clicks: a card that left counts for nothing; a click on her own card right after her vote landed keeps it; Add to the vote
+        // follows her vote to its page ----
+        const long r = 1793950000;
+        VoteState BallotOf(IEnumerable<int> cards, Dictionary<long, int>? choices = null)
+        {
+            var v = new VoteState { Round = r, Open = true, SecondsLeft = 30, Present = 2 };
+            foreach (var n in cards) v.Options.Add(new VoteState.Option(n, "armsrace", VoteSource.Rolled, $"30700000{n:00}", $"map {n}", "", 0, ""));
+            v.Options.Add(new VoteState.Option(MapVote.RandomOption, "armsrace", VoteSource.Random, "", "Random", "", 0, ""));
+            foreach (var (a, n) in choices ?? new()) v.Choices[a] = n;
+            return v;
+        }
+        var tenBefore = BallotOf(Enumerable.Range(1, 10));
+        var tenAfter = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10]); // a pick, card 11, took the place of card 2: no other card moved
+        int[] seenBefore = [.. HudVote.Order(tenBefore, 0)];
+        Check("Ballot: a click on a card whose map left the vote since the player saw it counts for nothing and is said (Gone) - never a vote for the map in its place; a card still there counts as ever, and the newest order names the new card",
+            HudVote.Click(tenAfter, "os_m2_play", 0, 1001, seenBefore) == null && HudVote.Gone(tenAfter, "os_m2_play", 0, seenBefore)
+            && HudVote.Click(tenAfter, "os_m3_play", 0, 1001, seenBefore) == MapVote.Click(r, 3) && !HudVote.Gone(tenAfter, "os_m3_play", 0, seenBefore)
+            && HudVote.Click(tenAfter, "os_m2_play", 0, 1001) == MapVote.Click(r, 11) && !HudVote.Gone(tenAfter, "os_m2_play", 0) && !HudVote.Gone(tenAfter, HudVote.RandomButton, 0, seenBefore)
+            && !HudVote.Gone(new VoteState { Round = r, Open = false, Options = tenAfter.Options }, "os_m2_play", 0, seenBefore)
+            && HudVote.CardOf("os_m10_play") == 10 && HudVote.CardOf("os_m11_play") == 0 && HudVote.CardOf("os_m1_up") == 0 && HudVote.CardOf(HudVote.RandomButton) == 0 && HudVote.CardOf("os_m_play") == 0);
+        var at = t0.AddMinutes(5);
+        var her = new HudPlayer();
+        var hers = BallotOf(Enumerable.Range(1, 10), new() { [1001] = 4 });
+        HudFrame.SeeVote(her, tenBefore, 1001, at);
+        HudFrame.SeeVote(her, hers, 1001, at.AddSeconds(1)); // her vote lands on card 4
+        HudFrame.SeeVote(her, hers, 1001, at.AddSeconds(1.5)); // ...and stays: its clock does not start again
+        var takeBack = HudVote.Click(hers, "os_m4_play", 0, 1001);
+        Check($"Ballot: a click on the card her vote landed on less than {HudVote.KeepSeconds} s ago keeps the vote (a double click, a click to make sure); after that it takes it back, and a click on another card is never held",
+            takeBack == MapVote.Click(r, 0) && her.Mine == (r, 4, at.AddSeconds(1)) && HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(2.5))
+            && !HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(1 + HudVote.KeepSeconds)) && !HudFrame.KeepsVote(her, hers, MapVote.Click(r, 5), at.AddSeconds(1.5))
+            && !HudFrame.KeepsVote(her, hers, MapVote.Click(r - 1, 0), at.AddSeconds(1.5)) && !HudFrame.KeepsVote(new HudPlayer(), hers, takeBack, at.AddSeconds(1.5)));
+        HudFrame.SeeVote(her, BallotOf(Enumerable.Range(1, 10)), 1001, at.AddSeconds(3));
+        Check("...her vote taken back: nothing of hers to keep", her.Mine.N == 0 && !HudFrame.KeepsVote(her, hers, takeBack, at.AddSeconds(3.5)));
+        var twelve = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 2 }); // two pages; her vote on card 2, the first page
+        var follower = new HudPlayer();
+        HudFrame.AddedToVote(follower, twelve, 1001, at, MapVote.PageCards);
+        Check("Add to the vote: back to the ballot, on the page of her vote now, following it", follower.VoteView == (r, 0, false) && follower.Follow.Round == r && follower.Follow.From == 2);
+        var landed = BallotOf(Enumerable.Range(1, 12), new() { [1001] = 12 }); // the bridge's answer: her vote on the map she added, card 12, the second page
+        HudFrame.FollowVote(follower, landed, 1001, at.AddSeconds(0.5), MapVote.PageCards);
+        Check("...once her vote moves to the map she added: the page that card is on (HudVote.PageOf) - the second of two here - and the following ends",
+            follower.VoteView == (r, 1, false) && follower.Follow.Round == 0);
+        var late = new HudPlayer();
+        HudFrame.AddedToVote(late, twelve, 1001, at, MapVote.PageCards);
+        HudFrame.FollowVote(late, landed, 1001, at.AddSeconds(HudVote.FollowSeconds + 1), MapVote.PageCards);
+        Check($"...but not after {HudVote.FollowSeconds} s (a refused pick moves nothing): the page stays", late.VoteView == (r, 0, false) && late.Follow.Round == 0);
+
         // ---- the mouse during a hold: a player who joined without the HUD has no window to close ----
         slots.Show(2, HudSlots.Page.Maps, t0.AddSeconds(51));
         frame.Draw(World(live, new VoteState(), t0.AddSeconds(52), addon: false), [Alice(kept: true), Bob()], slots, PlayerOf, funClicks, screen);

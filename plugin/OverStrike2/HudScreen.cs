@@ -75,6 +75,7 @@ sealed partial class HudScreen
         item = new ItemWatch(addon, setup.ItemPage, setup.ItemPageSwitch);
         plays = new WorkshopPlay(log);
         bridge = setup.Bridge is { } root ? BridgeLink.At(root, setup.BridgeSecret) : null;
+        if (bridge != null) bridge.Dropped = ClickDropped; // a click the line could not take: on record, and its player told (HudScreenClicks.cs)
         if (addon == "") log.LogError("Over Strike 2 HUD: no Workshop item for the HUD: a server without the HUD cannot exist - hud.addon must be set");
         log.LogInformation("Over Strike 2 HUD: {Layout}, live state {Source}", $"layout {Hud.Layout} from Workshop item {addon}",
             bridge != null ? $"from the bridge at {setup.BridgeWhy}" : $"OFF - {setup.BridgeWhy}");

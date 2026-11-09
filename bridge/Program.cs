@@ -42,6 +42,7 @@ static partial class Program
     {
         if (args is ["--selftest"]) return SelfTest();
         if (args is ["--search-index", .. var rest]) return SearchIndexFile.Command(rest); // SearchIndexFile.cs: the committed search.json, written or checked
+        Files = new LogFile(Path.Combine(StateDir, "logs")); // LogFile.cs: the log's day files under the data folder, from the first line on
         Log(BridgeConfig.Settings.StartLine);       // where the settings came from - no value in it
         if (BridgeConfig.StopCode(BridgeConfig.Settings) is { } refused) return refused; // settings it cannot use, or none: its line said why
         if (RconPassword == "" || LogSecret == "") { Log("server.rconPassword and bridge.secret must be set"); return 2; }
@@ -62,7 +63,7 @@ static partial class Program
         ModeProbing = true;                         // ModeSwitch.cs: ask the server which mode it is in, once RCON answers
         Rc = new Rcon(RconHost, RconPort, RconPassword);
         foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT })
-            Signals.Add(PosixSignalRegistration.Create(sig, c => { c.Cancel = true; Post(() => { Save(); Log("stopped"); Environment.Exit(0); }); }));
+            Signals.Add(PosixSignalRegistration.Create(sig, c => { c.Cancel = true; Post(() => { Save(); Log("stopped"); Files?.Close(); Environment.Exit(0); }); }));
         // A clean quit is the server's, seen by this bridge - never the bridge's own stop, which would let the first crash after a bridge-only
         // restart pass for a quit; the crash watch reads the running process at start instead.
         S.CleanShutdown = false;
@@ -82,7 +83,16 @@ static partial class Program
         return 0;
     }
 
-    static void Log(string message) => Console.WriteLine($"{DateTime.Now:HH:mm:ss} {message}");
+    /// <summary>A line of the bridge's log: on the console, which the container keeps, and in the day's file under the data folder (LogFile.cs), which
+    /// outlives the container - a swap of the bridge removes the old one with its log.</summary>
+    static void Log(string message)
+    {
+        var now = DateTime.Now;
+        Console.WriteLine($"{now:HH:mm:ss} {message}");
+        Files?.Write(now, message);
+    }
+
+    static LogFile? Files; // the day files: set by Main (never by --selftest, which tests LogFile on its own folder)
     static void Post(Action work) => Loop.Add(work);
 
     /// <summary>After every piece of work on the event loop, what changed goes to the plugin at once: the menu's map list first, when its version

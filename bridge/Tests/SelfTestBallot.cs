@@ -231,20 +231,26 @@ static partial class Program
             b = Ballot!;
             var order = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).OrderByDescending(o => o.Order).Select(o => o.Order).ToList();
             var dm = b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled);
+            var dmPlace = LiveVote().Maps.FindIndex(o => o.N == dm.N);
             var replaced = new List<int>();
             var picks = MapVote.PageCards - 1; // one more than the random cards of the mode: the last one opens a second page
             var extra = Maps.Skip(150).Where(x => b.Options.All(o => o.Map != x)).Take(picks).ToList();
+            VoteState? openNow = null;
             for (var i = 0; i < picks; i++)
             {
                 var room = b.Options.Where(o => o.Source == VoteSource.Rolled && o.Order < OtherOrder).Select(o => o.Order).ToHashSet();
                 Command(players[i].Item1, players[i].Item2, $"!map {ArgOf(extra[i])}");
                 replaced.AddRange(room.Where(r => b.Options.All(o => o.Order != r)));
+                if (i == picks - 2) openNow = LiveVote(); // eight of nine have voted, still open: every card in its place (the ninth vote decides it, and the cards sort)
             }
             Check($"{picks} picks during the vote: each takes the place of a random card nobody voted for - the favourites first (the last rolled first), then the surprise, the fresh card last ({string.Join(", ", replaced)})",
                 order.Count == MapVote.PageCards - 2 && replaced.SequenceEqual(order) && order[^2] == SurpriseOrder && order[^1] == FreshOrder);
-            Check("...the Deathmatch card keeps its place and number; the last pick, with no random card of the mode left, opens a second page",
-                b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && b.Options.Count(o => o.Source == VoteSource.Picked) == picks
-                && b.Options.Max(o => o.Source == VoteSource.Random ? 0 : o.N) == MapVote.PageCards + 1 && HudVote.Pages(LiveVote()) == 2);
+            Console.WriteLine($"picks' ballot, eight in (the Deathmatch card {dm.N} was at {dmPlace}): " + string.Join(" | ", openNow!.Maps.Select(o => $"{o.N}. {o.Label} ({o.Source}, {o.Mode})")));
+            Check("...the Deathmatch card keeps its place and number - Keep first, the picks in the random cards' places, then it; each pick has a number of its own, none a card had before; the last pick, with no random card of the mode left, opens a second page",
+                b.Options.Contains(dm) && b.Options.Single(o => o.Order >= OtherOrder && o.Source == VoteSource.Rolled).N == dm.N && dmPlace == MapVote.PageCards - 1
+                && openNow is { Open: true } && openNow.Maps[dmPlace].N == dm.N && openNow.Maps[0].Source == VoteSource.Keep && openNow.Maps.Skip(1).Take(MapVote.PageCards - 2).All(o => o.Source == VoteSource.Picked)
+                && b.Options.Count(o => o.Source == VoteSource.Picked) == picks && b.Options.Where(o => o.Source == VoteSource.Picked).Select(o => o.N).Order().SequenceEqual(Enumerable.Range(MapVote.PageCards + 1, picks))
+                && HudVote.Pages(LiveVote()) == 2);
 
             // ---- Random takes a map on the disk ----
             Fresh();

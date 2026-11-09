@@ -50,7 +50,7 @@ static partial class Program
         nameof(Send), nameof(After), nameof(Now), nameof(HudActive), nameof(HudHeld), nameof(Rc), nameof(Loop), nameof(Signals), nameof(Clock), nameof(Dice),
         nameof(SelfTesting), nameof(SyncOn), nameof(DashZone), nameof(ModeProbeEnabled), nameof(ToldAll), nameof(SelfTestMaps), nameof(FakeColours),
         nameof(CatalogText), nameof(catalogBuilt), nameof(DashText), nameof(DashVersion), nameof(SaySeq), nameof(HudTextNow), nameof(HudTextVersion), nameof(HudLock), nameof(HudWaiting),
-        nameof(logPosts), nameof(lastLogTicks),
+        nameof(logPosts), nameof(lastLogTicks), nameof(Files),
     ];
 
     /// <summary>Every static field of the bridge that can change is named once: reset by ResetAll - itself, or by a helper it calls (ResetCrashWatch,

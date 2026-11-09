@@ -241,7 +241,19 @@ never leaves anybody frozen.
 ### Voting
 
 A vote is a click on a card, changed or taken back as often as the player likes: a click on another card moves it, a click on their own takes
-it back. A voter who leaves takes their vote along.
+it back - except in the first 2 s after their vote landed there (`HudVote.KeepSeconds`): a double click, or a click to make sure, keeps the vote
+and says "Your vote is on this map". A voter who leaves takes their vote along.
+
+**No card moves while the vote is open:** each keeps the place it went on in, so a click lands on the map the player aimed at; once the vote is
+decided, the cards show with the most votes first. A click counts for the map the player saw on the card. Each card has a number of its own that the
+vote never gives again, so a click on a card that has just left - a pick that lost its votes, a card a pick took the place of - counts for nothing
+and says "That map left the vote - Click again", never a vote for the map in its place.
+
+**No vote click is lost on the way:** the plugin keeps at most 8 clicks on their way to the bridge at once (`BridgeLink.cs`); while that is full, a
+vote, a map put to the vote, a vote started and the HUD check's click wait - one a player and kind, a newer one taking its place - and go out as
+room comes; any other click is given up and its player told "The server did not get that click - Click again". Every vote click, every map put to
+the vote and every click given up is a line of the plugin's log (`Over Strike 2 vote: ...`), and the bridge's log keeps the same in its day files
+([The data files](#the-data-files)), which outlive a swap of the bridge.
 
 Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast, changed or taken back, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
@@ -260,12 +272,15 @@ One page of ten cards, a second only when what must be on it does not fit (48 at
 4. **the server's own mode to fill the page:** one **fresh** map, unless a card above is fresh already; one **surprise** from the discovery stock,
    new to us; and **favourites**, the kept maps by points. An empty slot - no fresh map on the disk, the stock not downloaded yet - is a favourite.
 
-**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when Wingman does not suit the players on). The
-cards show the most votes first. A map a player selects while the vote is open takes the place of a random card of the server's mode nobody voted
-for - favourites first, then the surprise, the fresh card last; the other modes' cards keep their place. A map a player put on the ballot that has no
-votes left leaves it, until somebody puts it on again. A map selected that is on the ballot already only gets that player's vote. Every card but a
-player's pick is on the server's disk, so it loads at once. A card whose map has become unplayable meanwhile leaves the ballot; a winner that became
-unplayable hands over to the dice.
+**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when Wingman does not suit the players on). While
+the vote is open every card keeps its place, Keep first; once it is decided, the cards show with the most votes first. A map a player selects while
+the vote is open takes the place of a random card of the server's mode nobody voted for - its very place on the screen, with a number of its own -
+favourites first, then the surprise, the fresh card last; the other modes' cards keep their place; chat says which card it replaced ("Bob added
+Lake to the vote in place of Poseidon"). The window of a player who added it from the map browser goes back to the ballot, on the page of that
+card. A map a player put on the ballot that has no votes left leaves it, until somebody puts it on again: the random card it replaced comes back in
+its place, with its own number, and whoever put it on is told. A map selected that is on the ballot already only gets that player's vote. Every card but a
+player's pick is on the server's disk, so it loads at once. A card whose map has become unplayable meanwhile leaves the ballot (a pick gives the card
+it replaced its place back); a winner that became unplayable hands over to the dice.
 
 ### The automatic changes
 
@@ -664,6 +679,7 @@ In the bridge's data folder (`paths.bridgeData`, `/data` by default). One writer
 | `queues.json` | the bridge | What the restart watcher downloads and the keep set holds |
 | `maintenance` | whoever stops the server on purpose | [The flag](#maintenance-flag) |
 | `web/` | the bridge | The [website](#the-dashboard) |
+| `logs/bridge-<YYYY-MM-DD>.log` | the bridge | Its own log, a file a day, every line with its date and time, the last 14 days kept (`LogFile.cs`): the console's log goes with the bridge's container at every swap, these stay. GET /health names today's file, or why it is not written |
 | `maps.json`, `maps-deathmatch.json`, `maps-wingman.json`, `broken.json`, `search.json` | the sync | The lists. The repository's are the starting lists, which the installer and `os2-deploy data` put only on a server that has none yet |
 | `ratings.json`, `workshop.json`, `sync-status.json` | the sync | The Workshop's numbers; the sync's state |
 | `ours.json`, `sizes.json`, `blocked.json` | by hand: this repository | Our own maps; each map's measured walking area and size class; the maps blocked for good |

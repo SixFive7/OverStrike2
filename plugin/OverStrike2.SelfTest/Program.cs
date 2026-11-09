@@ -1435,6 +1435,47 @@ else
         $"...each with an honest User-Agent naming the project, never a browser's ({string.Join(" | ", agents.Distinct())})");
 }
 
+// ---- the line to the bridge (BridgeLink.cs): while it is full, a vote, a map put to the vote or the HUD check's click waits - one a player and kind, a
+// newer one taking its place - and goes out as room comes; any other click is given up, and every click given up is said (Dropped) ----
+{
+    var sent = new List<string>();
+    var answers = new List<TaskCompletionSource<string?>>();
+    var link = BridgeLink.ForTest(body => { sent.Add(body); var t = new TaskCompletionSource<string?>(); answers.Add(t); return t.Task; });
+    var dropped = new List<(long Account, string Command, string Why)>();
+    link.Dropped = (account, _, command, why) => dropped.Add((account, command, why));
+    var t0 = new DateTime(2026, 11, 9, 21, 0, 0, DateTimeKind.Utc);
+    for (var i = 0; i < BridgeLink.InFlight; i++) link.Act(1000 + i, $"P{i}", "!up", t0);
+    Check(sent.Count == BridgeLink.InFlight && dropped.Count == 0 && sent[0] == "[U:1:1000]\tP0\t!up", $"bridge link: {BridgeLink.InFlight} clicks on their way at once, each as the bridge reads it");
+    link.Act(2001, "Alice", "!mv 7 3", t0);
+    link.Act(2002, "Bob", "!map 12", t0);
+    link.Act(2003, "Cara", "!up", t0);
+    link.Act(2004, "Dan", "!mvb 7", t0);
+    Check(sent.Count == BridgeLink.InFlight && link.WaitingCount == 2 && dropped.Select(d => (d.Account, d.Command)).SequenceEqual([(2003L, "!up"), (2004L, "!mvb 7")])
+        && dropped.All(d => d.Why == $"{BridgeLink.InFlight} clicks on their way to the server already"),
+        "bridge link: the line full, a vote and a map put to the vote wait; a like and the browser's activity are given up, and said");
+    link.Act(2001, "Alice", "!mv 7 5", t0.AddSeconds(1));
+    Check(link.WaitingCount == 2 && dropped[^1] == (2001L, "!mv 7 3", BridgeLink.Replaced), "bridge link: a newer vote of the same player takes her waiting one's place, which it supersedes: one a player");
+    link.Act(2001, "Alice", "!hudok v4.10.0", t0.AddSeconds(1));
+    Check(link.WaitingCount == 3, "bridge link: the HUD check's click waits too, in a slot of its own");
+    answers[0].SetResult(null);
+    answers[1].SetResult(null);
+    link.Take(t0.AddSeconds(2), wanted: false);
+    Check(sent.Count == BridgeLink.InFlight + 2 && sent[^2] == "[U:1:2001]\tAlice\t!mv 7 5" && sent[^1] == "[U:1:2002]\tBob\t!map 12" && link.WaitingCount == 1,
+        "bridge link: as room comes the waiting clicks go out, oldest first - Alice's newest vote in her first one's place, then Bob's pick");
+    link.Act(2005, "Eve", "!next random", t0.AddSeconds(3));
+    Check(link.WaitingCount == 2 && sent.Count == BridgeLink.InFlight + 2, "bridge link: a vote started waits behind them");
+    link.Take(t0.AddSeconds(1 + BridgeLink.WaitSeconds), wanted: false);
+    Check(link.WaitingCount == 1 && dropped[^1].Account == 2001 && dropped[^1].Command == "!hudok v4.10.0" && dropped[^1].Why.Contains("waited", StringComparison.Ordinal),
+        $"bridge link: a click that waited {BridgeLink.WaitSeconds:0} s is given up too, and said");
+    foreach (var a in answers.Where(a => !a.Task.IsCompleted)) a.SetResult(null);
+    link.Take(t0.AddSeconds(12), wanted: false);
+    Check(link.WaitingCount == 0 && sent[^1] == "[U:1:2005]\tEve\t!next random", "bridge link: ...and the rest goes out once the line is free");
+    Check(BridgeLink.IsVote("!mv 7 3") && BridgeLink.IsVote("!mv 7 0") && BridgeLink.IsVote("!map 12 deathmatch") && BridgeLink.IsVote("!previous") && BridgeLink.IsVote("!next")
+        && BridgeLink.IsVote("!next random") && !BridgeLink.IsVote("!mvb 7") && !BridgeLink.IsVote("!up") && !BridgeLink.IsVote("!nextmap") && !BridgeLink.IsVote("!mapx")
+        && BridgeLink.Kind("!hudok v4.10.0") == "check" && BridgeLink.Kind("!mv 7 3") == "vote" && BridgeLink.Kind("!time 10") == null,
+        "bridge link: what must arrive - a vote, a map put to the vote, a vote started (each \"vote\"), and the HUD check's click (\"check\")");
+}
+
 Console.WriteLine(failures == 0
     ? $"Over Strike 2 plugin self-test: {checks} checks passed."
     : $"Over Strike 2 plugin self-test: {failures} of {checks} checks FAILED.");

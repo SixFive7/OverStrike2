@@ -32,4 +32,16 @@ public static class ChatReply
     public static string Already(Fun.Setting s, Fun.Choice c) => $"{M.A(s.Title)}: {M.V(c.Label)} already";
 
     public static string DidNotSwitch(Fun.Setting s) => M.Refused($"{M.A(s.Title)} did not switch: the server's settings module did not take it");
+
+    // ---- the ballot's clicks (HudVote, BridgeLink) ----
+
+    /// <summary>A click on a ballot card whose map has left the vote since the player saw it - a pick that lost its votes, a card a pick took the place of: it
+    /// counts for nothing. The plugin says it when it knows, the bridge when the click reached it first (CastBallot).</summary>
+    public static readonly string CardGone = M.Refused("That map left the vote - Click again");
+
+    /// <summary>A click on the card this player's vote landed on a moment ago (HudVote.KeepSeconds): the vote stays there - a double click, or a click to make sure.</summary>
+    public static readonly string VoteStays = M.Done("Your vote is on this map");
+
+    /// <summary>A click the plugin could not hand to the server: its line was full, or a vote waited too long for room (BridgeLink).</summary>
+    public static readonly string ClickLost = M.Refused("The server did not get that click - Click again");
 }

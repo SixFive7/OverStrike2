@@ -115,12 +115,12 @@ public static class Hud
         new("The vote", [
             "Play on a card puts its map to the vote, with your vote on it. While a vote is on, it goes on that ballot. Start a vote calls one without a map.",
             "A vote freezes everybody (no moving, shooting or closing it) until all have voted, 60 s at the most. Most votes win; a tie is drawn.",
-            "Click a card to vote, another to change it, your own to take it back. A map a player put on the ballot leaves it once it has no votes.",
+            "Click a card to vote, another to change it, your own to take it back. A map put on it leaves once it has no votes, and the card it replaced comes back.",
             "A match end opens a vote by itself. After any vote, 2 minutes before the next one can be called. No votes: mid-match the map stays, at a match end Random."]),
         new("The ballot", [
             "Keep playing this map while the match is on, Play this map again after it, every map a player put on it, and one map of each other mode.",
             "Then this mode: a fresh map (a Workshop upload or update of the last 30 days), a surprise new to us, and favourites the server keeps fill the page.",
-            "Wingman takes 4 players at most: with more on, no Wingman map is on it or can win. The most votes first; a second page only when needed.",
+            "Wingman takes 4 players at most: with more on, no Wingman map is on it or can win. No card moves while the vote is open; a second page only when needed.",
             "Every card but a player's pick is on the server's disk, so it loads at once. A risky map shows its record, and putting it to the vote takes a second click."]),
         new("The dice", [
             "Random is the dice after the vote. Like every card the dice pick, it is a map on the server's disk: a favourite it keeps, or one of a small stock new to us.",

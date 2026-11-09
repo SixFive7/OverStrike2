@@ -362,6 +362,7 @@ static partial class Program
         RulesSelfTest(Check); // SelfTestRules.cs: the fun page, the game-changers block, and How it works and Help against the code
         FunCombosSelfTest(Check); // SelfTestFun.cs: every combination of the fun settings
         BotsSelfTest(Check); // SelfTestBots.cs: the Bots page - its rows and convars, what a mode cannot make, the presets, the page and its clicks
+        LogFileSelfTest(Check); // SelfTestLogFile.cs: the log's day files under the data folder, which outlive the bridge's container
         MapVote.InactivitySeconds = inactivity;
         Check($"The inactivity timer is {MapVote.InactivitySeconds} s", MapVote.InactivitySeconds == 5);
         StaticsSelfTest(Check); // SelfTestHarness.cs: every static is reset by ResetAll or kept by name

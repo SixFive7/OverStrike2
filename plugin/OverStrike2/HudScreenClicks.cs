@@ -58,25 +58,39 @@ sealed partial class HudScreen
             if (!(view.Browse && vote.Open))
             {
                 // The vote is on the Maps page's cards (HudVote.cs), a page of ten: a card's Play is a vote - on the card this player's vote is on, it
-                // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer). A card names the map this player saw on
-                // it: the cards re-sort as votes come in, and a click made on the order before a re-sort arrives after it (SeenOrder).
-                if (HudVote.PageClick(vote, buttonId, view.Page, MapVote.PageCards) is { } page) { me.VoteView = (vote.Round, page, false); Busy(player, account); Server.NextFrame(Frame); return; }
-                if (HudVote.Click(vote, buttonId, view.Page, account, HudFrame.SeenOrder(me, vote.Round, view.Page, now), MapVote.PageCards) is { } cast)
+                // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer). No card moves while the vote is open, and a
+                // card names the map this player saw on it (SeenOrder): a card that has left since counts for nothing and says so, and a click on the card
+                // their vote landed on a moment ago keeps the vote (KeepsVote) - a double click, or a click to make sure.
+                if (HudVote.PageClick(vote, buttonId, view.Page, MapVote.PageCards) is { } page) { me.VoteView = (vote.Round, page, false); me.Follow = default; Busy(player, account); Server.NextFrame(Frame); return; }
+                var seen = HudFrame.SeenOrder(me, vote.Round, view.Page, now);
+                var target = Seen(vote, buttonId, view.Page, seen);
+                if (HudVote.Click(vote, buttonId, view.Page, account, seen, MapVote.PageCards) is { } cast)
                 {
-                    Act(player, account, cast); // chat and the board say it: the bridge's line of who voted and who has yet to
+                    if (HudFrame.KeepsVote(me, vote, cast, now))
+                    {
+                        LocalNote(player.Slot, ChatReply.VoteStays, 4);
+                        LogVote(player, account, $"round {vote.Round}, {target}: its vote landed {(now - me.Mine.Since).TotalSeconds:0.0} s ago - kept, not taken back");
+                    }
+                    else Act(player, account, cast, $"round {vote.Round}, {target}"); // chat and the board say it: the bridge's line of who voted and who has yet to
+                }
+                else if (HudVote.Gone(vote, buttonId, view.Page, seen, MapVote.PageCards))
+                {
+                    LocalNote(player.Slot, ChatReply.CardGone);
+                    LogVote(player, account, $"round {vote.Round}, {target}: that map left the vote - nothing sent");
                 }
                 Server.NextFrame(Frame);
                 return;
             }
             // The map browser while the vote is on: its own controls as ever; a card's Play puts the map on the vote, with this player's vote (the bridge's
-            // !map during a vote; its line says so in chat), and goes back to the ballot's last page, where the map appears for everybody.
+            // !map during a vote; its line says so in chat), and goes back to the ballot on the page of this player's vote, following it to the page of
+            // the map they added once the bridge's answer comes (HudFrame.FollowVote).
             var browsing = me.Browser;
             if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account, search).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
             if (buttonId.StartsWith("os_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
                 && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
-                Act(player, account, add);
-                if (browsing.ConfirmKey == "") me.VoteView = (vote.Round, int.MaxValue, false); // a risky map's first click only arms its confirmation: the second one adds it
+                Act(player, account, add, $"round {vote.Round}, from the map browser");
+                if (browsing.ConfirmKey == "") HudFrame.AddedToVote(me, vote, account, now, MapVote.PageCards); // a risky map's first click only arms its confirmation: the second one adds it
                 Server.NextFrame(Frame);
                 return;
             }
@@ -95,11 +109,35 @@ sealed partial class HudScreen
     /// !mvb). Scrolling and hovering never reach the server, so they cannot count.</summary>
     void Busy(CCSPlayerController player, long account) { if (vote is { Open: true, Round: > 0 }) Act(player, account, MapVote.Busy(vote.Round)); }
 
-    /// <summary>Ask the bridge for what a click stands for; without a line to it, the player's note says so.</summary>
-    void Act(CCSPlayerController player, long account, string command)
+    /// <summary>Ask the bridge for what a click stands for; without a line to it, the player's note says so. A vote, a map put to the vote or a vote started
+    /// goes on record in the plugin's log (LogVote), with where: the record that outlives the bridge's own (the plugin's log files stay on the server).</summary>
+    void Act(CCSPlayerController player, long account, string command, string? where = null)
     {
-        if (bridge == null) LocalNote(player.Slot, ChatReply.NoLine);
-        else bridge.Act(account, player.PlayerName, command);
+        if (bridge == null) { LocalNote(player.Slot, ChatReply.NoLine); return; }
+        if (BridgeLink.IsVote(command)) LogVote(player, account, $"{(where != null ? where + ": " : "")}sends {command}");
+        bridge.Act(account, player.PlayerName, command);
+    }
+
+    /// <summary>A ballot button as the log names it: Random, or card k and the map this player saw on it - its number and label, or gone.</summary>
+    static string Seen(VoteState vote, string buttonId, int page, int[]? seen)
+    {
+        if (buttonId == HudVote.RandomButton) return "Random";
+        var k = HudVote.CardOf(buttonId);
+        var n = HudVote.SeenNumber(vote, k, page, seen, MapVote.PageCards);
+        return vote.Numbered(n) is { } o ? $"card {k} ({n}. {o.Label})" : $"card {k} ({n}, gone)";
+    }
+
+    /// <summary>One line in the plugin's log for a vote click, a map put to the vote, or a click the plugin could not hand to the bridge.</summary>
+    void LogVote(CCSPlayerController player, long account, string what) =>
+        log.LogInformation("Over Strike 2 vote: {Name} [U:1:{Account}] {What}", player.PlayerName, account, what);
+
+    /// <summary>A click BridgeLink could not hand to the bridge (BridgeLink.Dropped): on record, and the player told to click again - unless a newer click of
+    /// theirs took its place, or it was only the map browser's activity (!mvb), whose own click worked.</summary>
+    void ClickDropped(long account, string name, string command, string why)
+    {
+        log.LogInformation("Over Strike 2 vote: {Name} [U:1:{Account}] click dropped - {Why}: {Command}", name, account, why, command);
+        if (why == BridgeLink.Replaced || command.StartsWith(MapVote.BusyVerb + " ", StringComparison.Ordinal)) return;
+        if (Utilities.GetPlayers().FirstOrDefault(p => p is { IsValid: true, IsBot: false } && Account(p) == account) is { } player) LocalNote(player.Slot, ChatReply.ClickLost);
     }
 
     /// <summary>The card's Download and play: straight to the bridge when the item is in the server's cache already, otherwise its download

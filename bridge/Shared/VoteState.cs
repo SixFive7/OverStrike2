@@ -25,7 +25,7 @@ public sealed class VoteState
     public long EndsAtMs, InactivityAtMs, WaitUntilMs; // the end times behind SecondsLeft, Inactivity and WaitFor, unix milliseconds (0: none): the change-driven text carries these (AsOf)
     public string ResetBy = "";                       // ...and who reset it last (with Inactivity only)
     public string StarterName = "";                   // who called it, as the window says it ("" at a match end)
-    public List<Option> Options = new();              // in screen order - the most votes first - Random last
+    public List<Option> Options = new();              // in screen order - each card in its place while open, the most votes first once decided - Random last
     public Dictionary<long, int> Choices = new();     // account id -> the option it voted for
     public Dictionary<int, List<string>> Voters = new(); // option -> the names of the players whose vote is on it (the cards' chips; the fakes too)
     public List<string> Waiting = new();              // the players present who have not voted yet, by name

@@ -27,6 +27,34 @@ sealed class BridgeLink
     public long BridgeNowMs(DateTime now) => HudState.Ms(now) + ClockOffsetMs;
     readonly string stateUrl, actUrl, catalogUrl, searchUrl, dashUrl;
     readonly List<(Task<string?> Task, DateTime Sent)> acts = new();
+    readonly List<Waiting> waiting = new();             // clicks that must arrive and found the line full, oldest first: one a player and kind (Kind)
+    readonly Func<string, Task<string?>> post;           // the POST of a click: the bridge's /act, or the self-test's hand
+
+    /// <summary>A click waiting for room on the line: whose, which, and since when.</summary>
+    sealed record Waiting(long Account, string Name, string Command, DateTime Since);
+
+    /// <summary>Clicks on their way to the bridge at once, for all players together: a stuck bridge must not pile them up. The bridge answers them one
+    /// at a time (its HTTP thread), each after its event loop has done the work.</summary>
+    public const int InFlight = 8;
+
+    /// <summary>How long a click that must arrive waits for room, before it too is given up (Dropped).</summary>
+    public const double WaitSeconds = 10;
+
+    /// <summary>What Dropped says when a newer click of the same player and kind took a waiting one's place - it supersedes it, so nobody needs telling.</summary>
+    public const string Replaced = "a newer click of theirs took its place";
+
+    /// <summary>A click the line could not take, and why: the plugin puts it on record and tells the player (HudScreen.ClickDropped). On the game thread,
+    /// from Act or Take. Arguments: account, name, command, why.</summary>
+    public Action<long, string, string, string>? Dropped;
+
+    /// <summary>A vote (!mv &lt;round&gt; &lt;n&gt;), a map put to the vote (!map, !previous) or a vote started (!next, !next random): what the player's
+    /// say in the vote rides on. Never dropped while the line is full - it waits, one per player.</summary>
+    public static bool IsVote(string command) => MapVote.ParseClick(command) != null || command.StartsWith("!map ", StringComparison.Ordinal)
+        || command == "!previous" || command == "!next" || command.StartsWith("!next ", StringComparison.Ordinal);
+
+    /// <summary>The kind of waiting slot a click takes, or null for a click the line may drop: a vote (IsVote), or the HUD check's click (!hudok), without
+    /// which the check would warn a player whose HUD works. A newer click of the same kind replaces a player's waiting one.</summary>
+    public static string? Kind(string command) => IsVote(command) ? "vote" : command.StartsWith("!hudok ", StringComparison.Ordinal) ? "check" : null;
     Task<string?>? fetch, catalogFetch, searchFetch, dashFetch;
     DateTime nextFetch, nextCatalogTry, nextSearchTry, nextDashTry;
     long catalogHave, catalogAsked, searchHave, searchAsked, dashHave, dashAsked;
@@ -39,7 +67,14 @@ sealed class BridgeLink
     /// the latest - an answer asked for before a map change is the old map's, however late the game thread takes it. MinValue: none yet.</summary>
     public DateTime StateAsOf { get; private set; }
 
-    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl) { this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl; }
+    BridgeLink(string stateUrl, string actUrl, string catalogUrl, string searchUrl, string dashUrl, Func<string, Task<string?>>? post = null)
+    {
+        this.stateUrl = stateUrl; this.actUrl = actUrl; this.catalogUrl = catalogUrl; this.searchUrl = searchUrl; this.dashUrl = dashUrl;
+        this.post = post ?? Post;
+    }
+
+    /// <summary>A link whose clicks go to this hand instead of the bridge: the self-test's (plugin/OverStrike2.SelfTest).</summary>
+    public static BridgeLink ForTest(Func<string, Task<string?>> post) => new("", "", "", "", "", post);
 
     /// <summary>The link to the bridge at root (http://host:port) with the secret in its paths - both from PluginSetup.</summary>
     public static BridgeLink At(string root, string secret) =>
@@ -71,6 +106,7 @@ sealed class BridgeLink
             }
             acts.Remove(act);
         }
+        Flush(now); // the clicks waiting for room, oldest first
         if (fetch != null && sentDraws != null && sentDraws != draws)
         {
             // A hold begins or ends: the bridge hears it now, not when the long poll in flight comes back (up to Hud.LongPollSeconds) - in between a match end
@@ -145,12 +181,47 @@ sealed class BridgeLink
     }
 
     /// <summary>A click: the action it asks the bridge for (written like the chat command it replaced). The bridge answers with the state
-    /// after it, so the vote or the note shows on the HUD at once.</summary>
-    public void Act(long account, string name, string command)
+    /// after it, so the vote or the note shows on the HUD at once. While InFlight clicks are on their way, a vote or the HUD check's click (Kind) waits
+    /// for room - one a player and kind, a newer one taking its place - and any other click is given up (Dropped). now: the plugin's clock.</summary>
+    public void Act(long account, string name, string command, DateTime? now = null)
     {
-        if (acts.Count >= 8) return; // a stuck bridge must not pile up requests
-        acts.Add((Post($"[U:1:{account}]\t{Hud.Clean(name, 64)}\t{command}"), DateTime.UtcNow));
+        var at = now ?? DateTime.UtcNow;
+        Flush(at);
+        if (OnTheWay < InFlight) { Send(account, name, command); return; }
+        if (Kind(command) is not { } kind) { Dropped?.Invoke(account, name, command, $"{InFlight} clicks on their way to the server already"); return; }
+        if (waiting.FindIndex(w => w.Account == account && Kind(w.Command) == kind) is >= 0 and var mine)
+        {
+            var old = waiting[mine];
+            waiting[mine] = old with { Name = name, Command = command }; // its place in the queue and its age kept: the player has waited that long
+            Dropped?.Invoke(account, old.Name, old.Command, Replaced);
+            return;
+        }
+        waiting.Add(new Waiting(account, name, command, at));
     }
+
+    /// <summary>Clicks on their way: sent, not yet answered (an answered one waits for Take, and takes no room).</summary>
+    int OnTheWay => acts.Count(a => !a.Task.IsCompleted);
+
+    /// <summary>The clicks waiting for room, for the console and the self-test.</summary>
+    public int WaitingCount => waiting.Count;
+
+    /// <summary>The waiting clicks: given up after WaitSeconds, then sent oldest first while there is room.</summary>
+    void Flush(DateTime now)
+    {
+        foreach (var w in waiting.Where(w => (now - w.Since).TotalSeconds >= WaitSeconds).ToList())
+        {
+            waiting.Remove(w);
+            Dropped?.Invoke(w.Account, w.Name, w.Command, $"it waited {WaitSeconds:0} s for room on the line to the server");
+        }
+        while (waiting.Count > 0 && OnTheWay < InFlight)
+        {
+            var w = waiting[0];
+            waiting.RemoveAt(0);
+            Send(w.Account, w.Name, w.Command);
+        }
+    }
+
+    void Send(long account, string name, string command) => acts.Add((post($"[U:1:{account}]\t{Hud.Clean(name, 64)}\t{command}"), DateTime.UtcNow));
 
     static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
 
