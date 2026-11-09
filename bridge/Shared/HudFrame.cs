@@ -314,6 +314,17 @@ public sealed class HudFrame
     /// <summary>The rows catch-up's card has.</summary>
     public const int CatchUpRows = 6;
 
+    /// <summary>The card's rows as the chat line's items: a row that ends in a colon - catch-up's "Against players ahead of you, up to:" - runs on into
+    /// the next row with a space, the rest apart, so no separator follows the colon.</summary>
+    public static string CatchUpLine(IReadOnlyList<string> rows)
+    {
+        var parts = new List<string>();
+        foreach (var row in rows)
+            if (parts.Count > 0 && parts[^1].EndsWith(':')) parts[^1] += " " + row;
+            else parts.Add(row);
+        return string.Join("  ·  ", parts);
+    }
+
     /// <summary>A boost's items as the card's rows: one an item while they fit, else the last ones two to a row ("A second chance  ·  +3 s spawn protection"),
     /// so no item of up to twelve is lost - a 7+ boost has nine, its infinite ammo and one-hit knife among the last. A row holds about 50 characters (14 px
     /// on the card's 440 px).</summary>

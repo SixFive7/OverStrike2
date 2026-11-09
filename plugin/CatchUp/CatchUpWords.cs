@@ -215,15 +215,16 @@ public static class Words
     }
 
     /// <summary>The server log's line for a life's end, for example "Bob (CT, 34.2 s, tier 8+, 12 shots, 5 hits on enemies) took 7 hits (2 to
-    /// the head): 143 health and 31 armour - Alice 5 hits (1 to the head), 112 health and 24 armour, x0.84; Carol 2 hits (1 to the head), 31
-    /// health and 7 armour, x1.00; healed 22 (lifesteal 10, regeneration 4, Vampire 8); second chance used; killed by Alice with glock".</summary>
+    /// the head): 143 damage to health and 31 to armour - Alice 5 hits (1 to the head), 112 damage to health and 24 to armour, x0.84; Carol 2
+    /// hits (1 to the head), 31 damage to health and 7 to armour, x1.00; healed 22 (lifesteal 10, regeneration 4, Vampire 8); second chance used;
+    /// killed by Alice with glock". The damage is the hits' own, as the game reports it - a killing hit's past what the life had left.</summary>
     public static string Life(string who, string team, double seconds, Boost b, LifeTally t, string? killer, string weapon, bool enemyKill)
     {
         var sb = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"{who} ({team}, {seconds:0.0} s, "));
         sb.Append(b.IsBounty ? $"{b.Step}, " : b.Tier > 0 ? $"tier {b.Tier}+, " : "");
         sb.Append($"{t.Shots} shot{(t.Shots == 1 ? "" : "s")}, {t.HitsLanded} hit{(t.HitsLanded == 1 ? "" : "s")} on enemies) took {t.Hits} hit{(t.Hits == 1 ? "" : "s")}");
         if (t.Head > 0) sb.Append($" ({t.Head} to the head)");
-        sb.Append($": {t.Health} health and {t.Armor} armour");
+        sb.Append($": {t.Health} damage to health and {t.Armor} to armour");
         if (t.Attackers.Count > 0) sb.Append(" - ").Append(string.Join("; ", t.Attackers.Select(a => LifeTally.Part(a.From))));
         if (t.Healed > 0)
         {

@@ -1034,16 +1034,16 @@ void Run(string what, string[] ladder, string start, params string[] steps)
     t.Took(3, "Ann", false, 14, 8, 1.0);
     t.Took(5, "Ben", false, 23, 4, 0.27);
     Eq(Words.Life("Cat", "CT", 34.2, Rules.ForGap(d, 8, 0), t, "Ann", "glock", true),
-        "Cat (CT, 34.2 s, tier 8+, 12 shots, 5 hits on enemies) took 3 hits (1 to the head): 84 health and 19 armour - Ann 2 hits (1 to the head), 61 health and 15 armour, x1.00; Ben 1 hit, 23 health and 4 armour, x0.27; healed 22 (lifesteal 10, regeneration 4, Vampire 8); second chance used; killed by Ann with glock",
-        "a life's line: every attacker's hits, head, health and armour, catch-up's multiplier; the heals; how it ended");
+        "Cat (CT, 34.2 s, tier 8+, 12 shots, 5 hits on enemies) took 3 hits (1 to the head): 84 damage to health and 19 to armour - Ann 2 hits (1 to the head), 61 damage to health and 15 to armour, x1.00; Ben 1 hit, 23 damage to health and 4 to armour, x0.27; healed 22 (lifesteal 10, regeneration 4, Vampire 8); second chance used; killed by Ann with glock",
+        "a life's line: every attacker's hits, head, the damage to health and armour, catch-up's multiplier; the heals; how it ended");
     var moved = new LifeTally();
     moved.Took(7, "Dee", false, 20, 5, 1.0);
     moved.Took(7, "Dee", false, 27, 0, 1.4);
     Eq(Words.Life("Eve", "T", 2.0, Boost.None, moved, null, "world", false),
-        "Eve (T, 2.0 s, 0 shots, 0 hits on enemies) took 2 hits: 47 health and 5 armour - Dee 2 hits, 47 health and 5 armour, x1.00-1.40; died without an enemy (world)",
+        "Eve (T, 2.0 s, 0 shots, 0 hits on enemies) took 2 hits: 47 damage to health and 5 to armour - Dee 2 hits, 47 damage to health and 5 to armour, x1.00-1.40; died without an enemy (world)",
         "...a multiplier that moved during the life, and a death without an enemy");
     Eq(Words.Life("Eve", "T", 1.5, new Boost { Lead = 4, Bounty = 0.2 }, new LifeTally(), "Fay", "awp", false),
-        "Eve (T, 1.5 s, bounty +20%, 0 shots, 0 hits on enemies) took 0 hits: 0 health and 0 armour; team-killed by Fay with awp",
+        "Eve (T, 1.5 s, bounty +20%, 0 shots, 0 hits on enemies) took 0 hits: 0 damage to health and 0 to armour; team-killed by Fay with awp",
         "...a leader's life, ended by a teammate");
 }
 

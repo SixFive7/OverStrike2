@@ -71,7 +71,8 @@ The log's lines show each boost's duel factor against the leader, its row's own 
 factor.
 
 **A life's end** goes to the log as one `CatchUp: life:` line, in every mode: every enemy's hits on it - how many, how many to the head, the
-health and armour they took, the multiplier catch-up put on them (x1.00 when it was off) - its own shots and hits on enemies, its heals by
+damage they did to health and armour (as the game reports it: a killing hit's in full, past what the life had left), the multiplier catch-up
+put on them (x1.00 when it was off) - its own shots and hits on enemies, its heals by
 kind (lifesteal, regeneration, Vampire's, which the host reports through `NoteHeal`), its second chance, and how it ended.
 
 ## Together with the other settings

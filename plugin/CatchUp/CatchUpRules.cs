@@ -264,7 +264,8 @@ public sealed class LifeTally
     public int Armor => Attackers.Sum(a => a.From.Armor);
     public int Healed => Lifesteal + Regen + Vampire;
 
-    /// <summary>One attacker's part of the line: "Alice 5 hits (1 to the head), 112 health and 24 armour, x0.84" (x0.84-1.00 when it moved).</summary>
+    /// <summary>One attacker's part of the line: "Alice 5 hits (1 to the head), 112 damage to health and 24 to armour, x0.84" (x0.84-1.00 when it
+    /// moved). The damage is the hits' own, as the game reports it, past what the life had left on a killing one: an AWP headshot shows its 445.</summary>
     public static string Part(From f)
     {
         var mult = f.Hits == 0 ? "" : Math.Abs(f.MaxMultiplier - f.MinMultiplier) < 0.005
@@ -272,7 +273,7 @@ public sealed class LifeTally
             : string.Create(CultureInfo.InvariantCulture, $", x{f.MinMultiplier:0.00}-{f.MaxMultiplier:0.00}");
         var sb = new StringBuilder($"{f.Name} {f.Hits} hit{(f.Hits == 1 ? "" : "s")}");
         if (f.Head > 0) sb.Append($" ({f.Head} to the head)");
-        sb.Append($", {f.Health} health and {f.Armor} armour{mult}");
+        sb.Append($", {f.Health} damage to health and {f.Armor} to armour{mult}");
         return sb.ToString();
     }
 }

@@ -1213,6 +1213,10 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     string[] boost5 = ["+50% health", "-25% damage taken", "+20% damage", "10% lifesteal", "Regeneration", "A second chance", "+2 s spawn protection"];
     Check(HudFrame.CatchUpRowsOf(boost5) is { Length: 6 } rows5 && rows5[^1] == "A second chance  ·  +2 s spawn protection" && HudFrame.CatchUpRowsOf(boost5[..3]).SequenceEqual(boost5[..3])
           && HudFrame.CatchUpRowsOf(["+20% damage taken (a bounty)"]).Length == 1, "catch-up: a 5+ boost's seven items, its last two on one row; three items, or the bounty's one, a row each");
+    string[] card8 = ["Against players ahead of you, up to:", "+40% damage, -73% damage taken", "35% lifesteal, a second chance", "One-hit knife and Zeus", "Regeneration, +3 s spawn protection", "Infinite ammo"];
+    Check(HudFrame.CatchUpLine(HudFrame.CatchUpRowsOf(card8)) == "Against players ahead of you, up to: +40% damage, -73% damage taken  ·  35% lifesteal, a second chance  ·  One-hit knife and Zeus  ·  Regeneration, +3 s spawn protection  ·  Infinite ammo"
+          && HudFrame.CatchUpLine(["+30% damage taken (a bounty)"]) == "+30% damage taken (a bounty)",
+        "catch-up: the chat line runs the card's 'up to:' row on into its first values, no separator after the colon; a bounty's one row as it is");
     var plugin = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "OverStrike2");
     var hostCs = Path.Combine(plugin, "OverStrike2.cs");
     var messagesCs = Path.Combine(plugin, "HudScreenMessages.cs");

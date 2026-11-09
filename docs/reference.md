@@ -571,8 +571,8 @@ pulls away. A leader 2 kills or more ahead of second place takes more damage fro
 The module counts the ladder from the match's kills, since the game exposes no ladder position, by CS2's own rules as real matches show them: a team kill under friendly fire takes the
 killer down a level, and every kill goes to the plugin's log as `CatchUp: kill:` with both teams and both counts after it. Its self-test replays real match logs against them. A gun
 kill on a rung the counter did not expect places the player on that rung with the count nearest the one they had, so a count a kill off (a kill the log never shows) is right again from
-that kill on. Every life's end goes to the log as `CatchUp: life:` - every enemy's hits on it, how many to the head, the health and armour they took and catch-up's multiplier on
-them, its own shots, its heals and how it ended - so a fight can be checked afterwards. `!catchup off` switches it off for everybody until the map changes; `os_catchup` is the
+that kill on. Every life's end goes to the log as `CatchUp: life:` - every enemy's hits on it, how many to the head, the damage they did to health and armour (a killing hit's in full) and catch-up's
+multiplier on them, its own shots, its heals and how it ended - so a fight can be checked afterwards. `!catchup off` switches it off for everybody until the map changes; `os_catchup` is the
 console's word.
 
 ## Broken maps

@@ -93,7 +93,7 @@ sealed partial class HudScreen
         var rows = HudFrame.CatchUpRowsOf([.. items.Select(Messages.Capital)]);
         var now = DateTime.UtcNow;
         if (card) Player(player.Slot).CatchUp = (head, rows, bad, now, now.AddSeconds(seconds));
-        var line = $"{head}: {string.Join("  ·  ", rows)}";
+        var line = $"{head}: {HudFrame.CatchUpLine(rows)}";
         Post(bad ? Messages.Bounty : Messages.CatchUpBoost, bad ? M.Refused(line) : M.Done(line), Account(player), seconds: seconds);
     }
 
