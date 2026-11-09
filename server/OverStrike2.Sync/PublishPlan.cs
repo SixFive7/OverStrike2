@@ -65,6 +65,10 @@ public static class PublishPlan
         return problems;
     }
 
+    /// <summary>An item's spawn points per side as its scan counted them (Scan.Item's "spawns"), or null: no scan, none counted, or none on a side.</summary>
+    public static (int T, int Ct)? SpawnsOf(JsonObject? rec) =>
+        Node.Get(rec?["scan"], "spawns") is JsonObject s && Node.Int(s["t"]) is var t and > 0 && Node.Int(s["ct"]) is var ct and > 0 ? ((int)t, (int)ct) : null;
+
     /// <summary>What a publish writes. Pure: returns ({file name: new text}, summary); nothing is written here. outcomes: the items this run
     /// decided. removedNow: [(id, verdict)] of listed maps.</summary>
     public static (Dictionary<string, string> Texts, JsonObject Summary) Of(BridgeData files, SyncState state, IReadOnlyList<Verdicts.Outcome> outcomes,
@@ -181,6 +185,9 @@ public static class PublishPlan
                 outTexts["search.json"] = Node.File(search, 0);
         }
         // the mode lists: the maps.json entry shape, rank 1..N by popularity, never shrinking
+        var recs = new Dictionary<string, JsonObject>();      // an item this run decided has its record here, the rest in the state
+        foreach (var o in outcomes)
+            recs[o.Id] = o.Rec;
         foreach (var (mode, tag, _, _, fname) in GameModes.All.Skip(1))
         {
             var current = files.ModeLists.TryGetValue(mode, out var cur) ? cur : [];
@@ -241,10 +248,16 @@ public static class PublishPlan
             var ids = entries.Keys.Where(Text.Digits).OrderBy(w => (-Node.Int(pop[w]["subs"]), -Node.Int(pop[w]["lifetime"]), long.Parse(w))).ToList();
             var newList = new JsonArray();
             for (var k = 0; k < ids.Count; k++)
-                newList.Add(new JsonObject
+            {
+                var entry = new JsonObject
                 {
                     ["rank"] = k + 1, ["id"] = long.Parse(ids[k]), ["name"] = entries[ids[k]]["name"]?.DeepClone(), ["sizeMb"] = Node.Int(entries[ids[k]]["sizeMb"]),
-                });
+                };
+                // Wingman's: the map's spawn points per side, as the scan counted them in its files (Spawns.cs) - the bridge lets a map take as many a side
+                if (mode == "wingman" && SpawnsOf(recs.GetValueOrDefault(ids[k]) ?? state.Item(ids[k])) is var (t, ct))
+                    (entry["spawnsT"], entry["spawnsCt"]) = (t, ct);
+                newList.Add(entry);
+            }
             foreach (var key in entries.Keys.Where(k => !Text.Digits(k)))
                 newList.Add(entries[key].DeepClone());
             if (current.Count > 0 && newList.Count < current.Count)
@@ -265,9 +278,6 @@ public static class PublishPlan
         // from this run's outcome or the state, so this also brings the maps listed before it (old texts stay, MergeProblems)
         if (search is not null)
         {
-            var recs = new Dictionary<string, JsonObject>();
-            foreach (var o in outcomes)
-                recs[o.Id] = o.Rec;
             var missing = 0;
             foreach (var (mode, _, _, _, fname) in GameModes.All.Skip(1))
             {

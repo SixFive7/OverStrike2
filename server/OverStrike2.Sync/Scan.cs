@@ -480,6 +480,8 @@ public static partial class Scan
         }
         var commands = new List<string>();
         var clientCommand = false;
+        Spawns.Count? spawns = null;   // the map with the most team spawn points: the one played (a skybox's own map has none)
+        string? spawnError = null;
         var seen = false;
         foreach (var tree in trees)
         {
@@ -504,6 +506,7 @@ public static partial class Scan
                     if (innerBytes is not { Length: > 0 })
                         continue;
                     var inner = new Vpk(innerBytes);
+                    var entities = new List<Dictionary<string, object?>>();
                     foreach (var ie in inner.Entries)
                     {
                         var il = ie.Path.ToLowerInvariant();
@@ -517,12 +520,21 @@ public static partial class Scan
                             var raw = inner.Read(ie, 32L << 20);
                             if (raw is { Length: > 0 })
                             {
+                                if (il.EndsWith(".vents_c", StringComparison.Ordinal))
+                                {
+                                    // the count is the scan's extra: a lump it cannot read, whatever the error, leaves the counts at none and the verdict as ever
+                                    try { entities.AddRange(Spawns.Entities(raw)); }
+                                    catch (Exception e) when (e is not StopRequested) { spawnError ??= Text.Cut($"{e.GetType().Name}: {e.Message}", 120); }
+                                }
                                 var text = il.EndsWith(".vents_c", StringComparison.Ordinal) ? Kv3Strings(raw) : raw;
                                 clientCommand = clientCommand || Contains(text, "point_clientcommand"u8) || Contains(text, "point_broadcastclientcommand"u8);
                                 commands.AddRange(CommandsIn(text));
                             }
                         }
                     }
+                    var counted = Spawns.Of(entities);
+                    if (spawns is null || counted.T + counted.Ct > spawns.T + spawns.Ct)
+                        spawns = counted;
                 }
                 else if (low.EndsWith(".vmdl_c", StringComparison.Ordinal))
                     models++;
@@ -548,6 +560,9 @@ public static partial class Scan
         res["files"] = files;
         res["advert"] = advert;
         res["advert_sample"] = sample;
+        res["spawns"] = spawns is null ? null : new JsonObject { ["t"] = spawns.T, ["ct"] = spawns.Ct, ["set"] = spawns.TwoVersusTwo ? "2v2" : "all" };
+        if (spawnError is not null)
+            res["spawns_error"] = spawnError;
         return res;
     }
 }

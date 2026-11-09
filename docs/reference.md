@@ -356,12 +356,15 @@ Wingman is two teams of two in Valve's matchmaking, but the game takes more: it 
 cfgs keep the sides within one of each other (`mp_limitteams 1`), so N players need the larger half of N spawn points a side. A Wingman map takes as many a
 side as it has (`Modes.WingmanFits`): the bridge offers it on the ballot, lets it win, rolls it as Random and accepts it when asked for only while the players on
 fit; otherwise the line says what it takes ("de_inferno has spawn points for 4 a side in Wingman, and 9 are on - Not this map now"), and a card's Play in the map
-browser says it in place of Put to the vote ("Wingman: 2 a side"), greyed (class `unfit`). The ballot's cards are drawn to fit; one that no longer takes the players
-present, because more came in during the vote, cannot win, and its Vote says what it takes, greyed. Valve's maps take 4 a side or more - de_inferno, de_nuke and de_overpass their 2v2 sets of 4,
-de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09; `Modes.WingmanOfficialSpawns`), and 3v3 on de_inferno was
-tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and `spawnsCt` in its entry of `maps-wingman.json`, which the
-bridge reads and the Workshop sync is to write from the map's files - not yet: until it does, every Workshop map counts as 2 a side, Valve's 2v2, as before. Of the
-140 Workshop Wingman maps the server kept that day, 105 had 3 or more a side, 94 had 4 or more, and 35 had fewer than 3 - 9 of them 1v1 maps with one.
+browser says it in place of Put to the vote ("Wingman: 2 a side"), greyed (class `unfit`). The ballot's cards are drawn to fit; one that no longer takes the
+players present, because more came in during the vote, cannot win, and its Vote says what it takes, greyed. Valve's maps take 4 a side or more - de_inferno,
+de_nuke and de_overpass their 2v2 sets of 4, de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09;
+`Modes.WingmanOfficialSpawns`), and 3v3 on de_inferno was tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and
+`spawnsCt` in its entry of `maps-wingman.json`, which the Workshop sync writes and the bridge reads. The sync's scan counts them in the map's entity lumps
+(`Spawns.cs`, its `spawns`), the same way: the map's `spawnpoints.2v2` set where it has one, else every enabled team spawn. A listed map scanned before the
+scan counted them is read once from its files, the sync's own download or else the game server's copy, while nobody is on. A map not counted - on neither disk
+yet, or a lump the sync cannot read (`spawns_error`) - counts as 2 a side, Valve's 2v2. Of the 140 Workshop Wingman maps the server kept on 2026-11-09, 105 had 3 or more a side,
+94 had 4 or more, and 35 had fewer than 3 - 9 of them 1v1 maps with one.
 
 ## Random picks
 
@@ -675,7 +678,8 @@ left before that cut. Discovery, the check and the ratings run at most every `sy
 4. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
    else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted.
 5. **Scan and load-test:** read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any commands that advertise another server or post a gambling ad, in its
-   entity lumps - every KV3 format CS2's maps use: v5 and v4 with LZ4, and Zstandard - its cfgs and its map scripts, cs_script, since release 197), then load each map in a test copy of the server
+   entity lumps - every KV3 format CS2's maps use: v5 and v4 with LZ4, and Zstandard - its cfgs and its map scripts, cs_script, since release 197; and its team spawn points, which
+   Wingman's list carries), then load each map in a test copy of the server
    inside the container - its own port, passwords and Workshop folder, no plugins, no log push - and hold it `sync.holdSeconds` with two bots.
 6. **Publish** the passes into the bridge's data (Arms Race onto `maps.json` and `search.json`, the other modes onto their own lists, the failures onto `broken.json`), and ask the bridge to reload. The optional mail is for problems only:
    a run stopped early or a step that errored, Steam pushing back, the test engine failing to start, a safety check refusing, the disk running low (`sync.diskLowGb`), a failed hand-over, any other error. Each says what went wrong and what

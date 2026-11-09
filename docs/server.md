@@ -160,6 +160,9 @@ with the Workshop's numbers as the check saw them (`created`, `updated`, `conten
 and `passed`, the `time_updated` of the content the sync accepts - the version its last passing test was of; our own maps' newest. The
 bridge's discovery stock takes only maps whose current content passed (`passed` at least `updated`).
 
+The Wingman list's entries carry `spawnsT` and `spawnsCt` as well: the map's spawn points per side as the scan counted them in its entity
+lumps, read once from the files of a listed map scanned before the scan counted them ([Wingman and its spawn points](reference.md#wingman-and-its-spawn-points)).
+
 | Command | What it does |
 |---|---|
 | `os2-sync serve` | The service: a run whenever the game server has had nobody on for `sync.quietMinutes` and there is work, never around the daily restart; after a run nothing stopped and that had nothing it could do, it waits for the next check or a new day; `<state>/run-now` starts a manual run at once. |

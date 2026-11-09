@@ -1,5 +1,6 @@
 // The sync's self-test: the scan: what a download holds, and its advert rules.
 using System.Text;
+using System.Text.Json.Nodes;
 using static OverStrike2.TestKit.T;
 using OverStrike2.Core;
 
@@ -207,5 +208,128 @@ static class ScanTests
         Directory.CreateDirectory(legacyDir);
         File.WriteAllBytes(Path.Combine(legacyDir, "4_legacy.bin"), "x"u8.ToArray());
         Check("scan: only a _legacy.bin is a CS:GO-era upload", Node.Str(Scan.Item(legacyDir)["verdict"]) == "legacy");
+        SpawnChecks(root);
+    }
+
+    // ---- the spawn points (Kv3.cs, Spawns.cs): a KV3 entity lump read, the counts as Wingman takes them ----
+
+    /// <summary>A KV3 block of version 1, uncompressed, of a value - the encoder of what Kv3.Read reads, for the tests: objects (a list of keys and values),
+    /// arrays, strings, booleans, numbers and blobs, each byte in the stream the reader takes it from, in its order: a value's type in the types, then what it
+    /// holds - an object's count, then each member's type, its key's string number and its own bytes. A real lump (version 4 or 5, LZ4 or Zstandard) is never
+    /// committed: it is a game file; the port was held to ValveResourceFormat's reading of 450 Workshop maps instead (the release's note).</summary>
+    /// <summary>For the encoder: a typed array of nulls - its count among the 4-byte values, its element type once, no bytes per value.</summary>
+    sealed record TypedNulls(int Count);
+
+    static byte[] Kv3V1(object? root)
+    {
+        var strings = new List<string>();
+        var ids = new Dictionary<string, int>(StringComparer.Ordinal);
+        List<byte> b1 = [], b4 = [], b8 = [], types = [];
+        int Id(string str) { if (!ids.TryGetValue(str, out var i)) { i = strings.Count; strings.Add(str); ids[str] = i; } return i; }
+        static byte TypeOf(object? v) => v switch
+        {
+            null => 1, true => 13, false => 14, string => 6, long => 3, int => 11, double => 5, byte[] => 7, List<object?> => 8, List<(string, object?)> => 9, TypedNulls => 10,
+            _ => throw new ArgumentException($"no KV3 encoding for {v.GetType().Name}"),
+        };
+        void Emit(object? v) { types.Add(TypeOf(v)); Payload(v); }
+        void Payload(object? v)
+        {
+            switch (v)
+            {
+                case string str: b4.AddRange(BitConverter.GetBytes(Id(str))); break;
+                case long l: b8.AddRange(BitConverter.GetBytes(l)); break;
+                case int i: b4.AddRange(BitConverter.GetBytes(i)); break;
+                case double d: b8.AddRange(BitConverter.GetBytes(d)); break;
+                case byte[] blob: b4.AddRange(BitConverter.GetBytes(blob.Length)); b1.AddRange(blob); break;
+                case TypedNulls nulls: b4.AddRange(BitConverter.GetBytes(nulls.Count)); types.Add(1); break;
+                case List<object?> list:
+                    b4.AddRange(BitConverter.GetBytes(list.Count));
+                    foreach (var x in list) Emit(x);
+                    break;
+                case List<(string Key, object? Value)> obj:
+                    b4.AddRange(BitConverter.GetBytes(obj.Count));
+                    foreach (var (k, x) in obj)
+                    {
+                        types.Add(TypeOf(x));
+                        b4.AddRange(BitConverter.GetBytes(Id(k)));
+                        Payload(x);
+                    }
+                    break;
+            }
+        }
+        Emit(root);
+        var buffer = new List<byte>(b1);
+        while (buffer.Count % 4 != 0) buffer.Add(0);
+        buffer.AddRange(BitConverter.GetBytes(strings.Count)); // the strings count leads the 4-byte values
+        buffer.AddRange(b4);
+        while (buffer.Count % 8 != 0) buffer.Add(0);
+        buffer.AddRange(b8);
+        foreach (var str in strings) { buffer.AddRange(Encoding.UTF8.GetBytes(str)); buffer.Add(0); }
+        buffer.AddRange(types);
+        buffer.AddRange(U32(0xFFEEDD00));
+        return [.. U32(0x4B563301), .. new byte[16], .. U32(0), .. U32((uint)b1.Count), .. U32((uint)(1 + b4.Count / 4)), .. U32((uint)(b8.Count / 8)), .. U32((uint)buffer.Count), .. buffer];
+    }
+
+    static List<(string, object?)> Obj(params (string, object?)[] members) => [.. members];
+
+    /// <summary>An entity of the newer form: keyValues3Data, version 1, its values.</summary>
+    static List<(string, object?)> Ent(params (string, object?)[] values) => Obj(("keyValues3Data", Obj(("version", 1), ("values", Obj(values)))), ("m_connections", new List<object?>()));
+
+    /// <summary>An entity of the older form: m_keyValuesData, its keys MurmurHash2 hashes, here every value a CString.</summary>
+    static List<(string, object?)> OldEnt(params (string Key, string Value)[] values)
+    {
+        var blob = new List<byte>();
+        blob.AddRange(U32(1)); blob.AddRange(U32((uint)values.Length)); blob.AddRange(U32(0));
+        foreach (var (k, v) in values) { blob.AddRange(U32(Spawns.Murmur2(k))); blob.AddRange(U32(0x1e)); blob.AddRange(Encoding.UTF8.GetBytes(v)); blob.Add(0); }
+        return Obj(("m_keyValuesData", blob.ToArray()), ("m_connections", new List<object?>()));
+    }
+
+    static byte[] Lump(params List<(string, object?)>[] entities) => InResource(Kv3V1(Obj(("m_entityKeyValues", entities.Select(e => (object?)e).ToList()))));
+
+    static void SpawnChecks(string root)
+    {
+        var plain = Lump(Ent(("classname", "worldspawn")), Ent(("classname", "info_player_terrorist")), Ent(("classname", "info_player_terrorist")),
+            Ent(("classname", "info_player_counterterrorist"), ("enabled", true)), Ent(("classname", "info_player_counterterrorist"), ("enabled", false)),
+            Ent(("classname", "info_player_counterterrorist"), ("startdisabled", true)), Ent(("classname", "info_player_counterterrorist")));
+        var ents = Spawns.Entities(plain);
+        Check($"spawns: a KV3 entity lump read back - {ents.Count} entities, their keys and values", ents.Count == 7 && ents.All(e => e.ContainsKey("classname")));
+        Check("spawns: every enabled team spawn point counts - one with enabled false or startdisabled does not: 2 T, 2 CT", Spawns.Of(ents) is { T: 2, Ct: 2, TwoVersusTwo: false });
+        var twoVersusTwo = Lump(Ent(("classname", "info_player_terrorist")), Ent(("classname", "info_player_terrorist")), Ent(("classname", "info_player_terrorist")),
+            Ent(("classname", "info_player_counterterrorist")), Ent(("classname", "info_player_terrorist"), ("targetname", "[PR#]spawnpoints.2v2"), ("startdisabled", true)),
+            Ent(("classname", "info_player_counterterrorist"), ("targetname", "spawnpoints.2v2"), ("startdisabled", true)));
+        Check("spawns: a map with Wingman's own set (spawnpoints.2v2, a prefab's name in front or not) counts only that set, disabled at the start as Valve's are: 1 a side",
+              Spawns.Of(Spawns.Entities(twoVersusTwo)) is { T: 1, Ct: 1, TwoVersusTwo: true });
+        var old = Lump(OldEnt(("classname", "info_player_terrorist")), OldEnt(("classname", "info_player_counterterrorist"), ("targetname", "ct_a")), OldEnt(("classname", "light")));
+        Check("spawns: the older entity form (m_keyValuesData, its keys MurmurHash2 hashes) reads too: 1 T, 1 CT", Spawns.Of(Spawns.Entities(old)) is { T: 1, Ct: 1 });
+        Check("spawns: MurmurHash2 with Valve's seed names the older form's keys as ValveResourceFormat's StringToken does (its values, taken 2026-11-09), whatever the case",
+              Spawns.Murmur2("classname") == 3323665506 && Spawns.Murmur2("targetname") == 1094168427 && Spawns.Murmur2("startdisabled") == 2777094460
+              && Spawns.Murmur2("enabled") == 4052476635 && Spawns.Murmur2("ClassName") == 3323665506);
+        var threw = false;
+        try { Kv3.Read("not a KV3 block at all"u8.ToArray()); } catch (FormatException) { threw = true; }
+        Check("spawns: what is no KV3 block is refused as such, never read as one", threw);
+        Check("kv3: a typed array of constants reads, with no bytes per value", Kv3.Read(Kv3V1(new TypedNulls(3))) is List<object?> { Count: 3 } three && three.All(x => x is null));
+        static string? Refusal(byte[] block, long maxValues)
+        {
+            try { Kv3.Read(block, maxValues: maxValues); return null; }
+            catch (FormatException e) { return e.Message; }
+        }
+        var billions = Kv3V1(new TypedNulls(int.MaxValue));   // 2147483647 values in a block of a few dozen bytes
+        var refused = Refusal(billions, Kv3.MaxValues);
+        Check($"kv3: a block asking for more values than any lump holds (2147483647 nulls in {billions.Length} bytes) is refused at {Kv3.MaxValues}",
+              refused is not null && refused.Contains("values") && Refusal(billions, 1000) is { } small && small.Contains("1000"));
+
+        var dir = Path.Combine(root, "item8");
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "8_dir.vpk"), VpkOf(("maps/wm_duel.vpk", VpkOf(("maps/wm_duel/entities/default_ents.vents_c", plain))),
+            ("maps/wm_duel_skybox.vpk", VpkOf(("maps/wm_duel_skybox/entities/default_ents.vents_c", Lump(Ent(("classname", "worldspawn"))))))));
+        var item = Scan.Item(dir);
+        Check("spawns: an item's scan says its spawn points, of the map with the most - not its skybox's",
+              Node.Get(item, "spawns") is JsonObject s && Node.Int(s["t"]) == 2 && Node.Int(s["ct"]) == 2 && Node.Str(s["set"]) == "all" && item["spawns_error"] is null);
+        var broken = Path.Combine(root, "item9");
+        Directory.CreateDirectory(broken);
+        File.WriteAllBytes(Path.Combine(broken, "9_dir.vpk"), VpkOf(("maps/bad.vpk", VpkOf(("maps/bad/entities/default_ents.vents_c", Kv3Resource("classname\0worldspawn\0"u8.ToArray()))))));
+        var bad = Scan.Item(broken);
+        Check("spawns: a lump that does not read leaves the counts at none, and says why (spawns_error) - the rest of the scan as ever",
+              Node.Get(bad, "spawns") is JsonObject b && Node.Int(b["t"]) == 0 && Node.Int(b["ct"]) == 0 && bad["spawns_error"] is not null && Node.Str(bad["verdict"]) == "map");
     }
 }

@@ -8,6 +8,54 @@ namespace OverStrike2.Sync;
 
 public sealed partial class SyncRun
 {
+    /// <summary>The most listed Wingman maps a run counts spawn points of.</summary>
+    public const int SpawnCountsPerRun = 400;
+
+    /// <summary>A listed Wingman map scanned before the scan counted spawn points (Spawns.cs) has none in its scan: read once from its files - the sync's own
+    /// download, else the game server's copy (read-only) - so the list says what it takes. A map found nowhere, or whose files fail to read (a folder being
+    /// moved), waits for the next run; one whose lumps cannot be read, or whose files hold no map, is noted (spawns_error) and not tried again. Somebody on the
+    /// game server stops the reading, as it stops a test load: the rest waits for the next run.</summary>
+    void CountSpawns(BridgeData files, JsonObject pub)
+    {
+        if (!files.ModeLists.TryGetValue("wingman", out var list)) return;
+        var game = WorkshopPaths.Content(WorkshopPaths.OfGame(Cfg.GameDir));
+        int counted = 0, missing = 0, failed = 0;
+        var stopped = false;
+        foreach (var wid in list.OfType<JsonObject>().Select(e => Node.Str(e["id"])).Where(Text.Digits))
+        {
+            if (counted + failed >= SpawnCountsPerRun) break;
+            if (State.Item(wid) is not JsonObject rec || rec["scan"] is not JsonObject scan || scan.ContainsKey("spawns")) continue;
+            var folder = new[] { Path.Combine(Content, wid), Path.Combine(game, wid) }.FirstOrDefault(Directory.Exists);
+            if (folder is null) { missing++; continue; }
+            if ((Humans() ?? 0) > 0) { stopped = true; break; }
+            try
+            {
+                var fresh = Seams.ScanItem(folder);
+                scan["spawns"] = fresh["spawns"]?.DeepClone();
+                if (fresh["spawns_error"] is { } why) { scan["spawns_error"] = why.DeepClone(); failed++; }
+                else if (Node.Arr(fresh["maps"]).Count == 0) { scan["spawns_error"] = "no map in its files"; failed++; }
+                else counted++;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                missing++;      // a file that went while it was read: the next run looks again
+            }
+            catch (Exception e) when (e is not StopRequested)
+            {
+                scan["spawns"] = null;
+                scan["spawns_error"] = Text.Cut(Text.Of(e), 200);
+                failed++;
+            }
+        }
+        if (counted + failed > 0 || stopped)
+        {
+            State.Save();
+            pub["spawns"] = new JsonObject { ["counted"] = counted, ["failed"] = failed, ["not_on_disk"] = missing };
+            if (stopped) pub["spawns"]!["stopped"] = "somebody came on - the rest waits for the next run";
+            L($"spawn points: {counted} listed Wingman map(s) counted from their files, {failed} unreadable, {missing} not on the disk{(stopped ? " - stopped, somebody came on" : "")}");
+        }
+    }
+
     public void Publish(List<Verdicts.Outcome> outcomes, IReadOnlyList<(string Id, string Verdict)> removedNow, IReadOnlyDictionary<string, JsonObject> details)
     {
         var pub = new JsonObject();
@@ -22,6 +70,7 @@ public sealed partial class SyncRun
             pub["skipped"] = $"the bridge's data cannot be read ({e.Message})";
             return;
         }
+        CountSpawns(files, pub);
         var (texts, summary) = PublishPlan.Of(files, State, outcomes, removedNow, Cfg.ModeBackfill, details);
         Merge(pub, summary);
         var verdicts = VerdictsToReport;

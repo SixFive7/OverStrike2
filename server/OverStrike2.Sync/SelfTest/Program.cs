@@ -28,6 +28,7 @@ try
     ReportTests.MailAndBacklog();
     PublishTests.MergeRule();
     PublishTests.Bridge(root);
+    PublishTests.SpawnCounting(root);
     ProcessTests.Engines();
     RunTests.WholeRun(root);
     ReportTests.ProblemMail(root);

@@ -38,6 +38,55 @@ static class PublishTests
         Blocked = blocked is null ? [] : A(blocked),
     };
 
+    /// <summary>A mode-list entry's spawn fields as "T/CT", -1 for one that is not there.</summary>
+    static string Sp(JsonNode? e) => e is JsonObject o ? $"{(o.ContainsKey("spawnsT") ? Node.Int(o["spawnsT"]) : -1)}/{(o.ContainsKey("spawnsCt") ? Node.Int(o["spawnsCt"]) : -1)}" : "none";
+
+    static Dictionary<string, JsonObject> ById(string text) =>
+        A(text).OfType<JsonObject>().ToDictionary(e => Node.Truthy(e["id"]) ? Node.Str(e["id"]) : Node.Str(e["name"]));
+
+    /// <summary>The Wingman list carries each map's spawn points per side as its scan counted them (Spawns.cs) - the bridge lets a map take as many a
+    /// side; the other lists never carry them.</summary>
+    static void SpawnFields(string root)
+    {
+        const string wingList = "[{\"rank\": 1, \"id\": 31, \"name\": \"w31\", \"sizeMb\": 1}, {\"rank\": 2, \"id\": 32, \"name\": \"w32\", \"sizeMb\": 1}, "
+                                + "{\"rank\": 3, \"id\": 33, \"name\": \"w33\", \"sizeMb\": 1}, {\"rank\": 4, \"id\": 34, \"name\": \"w34\", \"sizeMb\": 1}, {\"name\": \"de_inferno\", \"official\": true}]";
+        var st = new SyncState(Path.Combine(root, "st4w.json"));
+        st.Items["31"] = O("{\"subs\": 4, \"scan\": {\"verdict\": \"map\", \"spawns\": {\"t\": 9, \"ct\": 10, \"set\": \"2v2\"}}}");
+        st.Items["32"] = O("{\"subs\": 3, \"scan\": {\"verdict\": \"map\", \"spawns\": null}}");
+        st.Items["33"] = O("{\"subs\": 2, \"scan\": {\"verdict\": \"map\", \"spawns\": {\"t\": 4, \"ct\": 0, \"set\": \"all\"}}}");
+        st.Items["34"] = O("{\"subs\": 1, \"scan\": {\"verdict\": \"map\"}}");
+        var wingPass = Rec("907", ["Wingman"], 0);
+        wingPass["scan"] = O("{\"verdict\": \"map\", \"spawns\": {\"t\": 3, \"ct\": 5, \"set\": \"all\"}}");
+        var bothPass = Rec("908", ["Armsrace", "Deathmatch"], 0);
+        bothPass["scan"] = O("{\"verdict\": \"map\", \"spawns\": {\"t\": 12, \"ct\": 12, \"set\": \"all\"}}");
+        var files = Files("[]", "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}", "[]", wingList, null);
+        var (texts, _) = PublishPlan.Of(files, st, [new("907", "pass", O("{\"level\": \"w\"}"), wingPass), new("908", "pass", O("{\"level\": \"b\"}"), bothPass)],
+                                        [], false, new Dictionary<string, JsonObject>());
+        var wl = ById(texts["maps-wingman.json"]);
+        Check("publish: a Wingman entry carries its spawn points per side as the scan counted them - a listed map's from the state, this run's pass from its record",
+              Sp(wl["31"]) == "9/10" && Sp(wl["907"]) == "3/5");
+        Check("publish: none counted, none on a side, or a scan from before the counting: no spawn fields (the bridge takes 2 a side then)",
+              Sp(wl["32"]) == "-1/-1" && Sp(wl["33"]) == "-1/-1" && Sp(wl["34"]) == "-1/-1");
+        Check("publish: the official Wingman entry is kept as it was, and the ranks stay by popularity",
+              Node.Eq(wl["de_inferno"], O("{\"name\": \"de_inferno\", \"official\": true}"))
+              && new[] { "31", "32", "33", "34", "907" }.Select(w => Node.Int(wl[w]["rank"])).SequenceEqual([1L, 2L, 3L, 4L, 5L]));
+        Check("publish: Arms Race's and Deathmatch's entries never carry spawn fields, counted or not",
+              A(texts["maps.json"]).OfType<JsonObject>().All(e => e.Select(kv => kv.Key).ToHashSet().SetEquals(["rank", "id", "name", "sizeMb"]))
+              && A(texts["maps-deathmatch.json"]).OfType<JsonObject>().All(e => e.Select(kv => kv.Key).ToHashSet().SetEquals(["rank", "id", "name", "sizeMb"])));
+        var (counted, _) = PublishPlan.Of(files, st, [], [], false, new Dictionary<string, JsonObject>());
+        Check("publish: a count the state gained (a listed map counted from its files) rewrites the Wingman list, nothing else",
+              counted.Keys.SequenceEqual(["maps-wingman.json"]) && Sp(ById(counted["maps-wingman.json"])["31"]) == "9/10"
+              && PublishPlan.MergeProblems("maps-wingman.json", Encoding.UTF8.GetBytes(Node.File(A(wingList), 1)), counted["maps-wingman.json"]).Count == 0);
+        var files2 = Files("[]", "{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}", "[]", counted["maps-wingman.json"], null);
+        Check("publish: a Wingman list that has its counts already is not written again", PublishPlan.Of(files2, st, [], [], false, new Dictionary<string, JsonObject>()).Texts.Count == 0);
+        st.Items["31"]!["scan"]!["spawns"] = O("{\"t\": 2, \"ct\": 6, \"set\": \"all\"}");
+        Check("publish: a map's new count (its update, scanned again) replaces the old one",
+              Sp(ById(PublishPlan.Of(files2, st, [], [], false, new Dictionary<string, JsonObject>()).Texts["maps-wingman.json"])["31"]) == "2/6");
+        Check("publish: SpawnsOf - both sides counted, else null",
+              PublishPlan.SpawnsOf(st.Item("31")) == (2, 6) && PublishPlan.SpawnsOf(st.Item("32")) is null && PublishPlan.SpawnsOf(st.Item("33")) is null
+              && PublishPlan.SpawnsOf(st.Item("34")) is null && PublishPlan.SpawnsOf(null) is null && PublishPlan.SpawnsOf(O("{\"scan\": \"x\"}")) is null);
+    }
+
     // ---- the publish plan
     internal static void Plan(string root)
     {
@@ -68,6 +117,7 @@ static class PublishTests
               dm.Select(e => Node.Int(e!["id"])).SequenceEqual([901L]) && ((JsonObject)dm[0]!).Select(kv => kv.Key).ToHashSet().SetEquals(["rank", "id", "name", "sizeMb"]));
         Check("publish: the Wingman list gets the Wingman pass (rank by popularity)", wm.Select(e => Node.Int(e!["id"])).SequenceEqual([903L]));
         Check("publish: the removed listed map is not backfilled into a mode list", wm.All(e => Node.Int(e!["id"]) != 111));
+        SpawnFields(root);
         var files2 = Files(maps, broken, "[{\"rank\": 1, \"id\": 7, \"name\": \"q\", \"sizeMb\": 1}, {\"name\": \"de_dust2\", \"official\": true}]", "[]", null);
         var details2 = new Dictionary<string, JsonObject> { ["111"] = O("{\"publishedfileid\": \"111\", \"result\": 1, \"tags\": [{\"tag\": \"Deathmatch\"}], \"subscriptions\": 9}") };
         var (texts2, _) = PublishPlan.Of(files2, st, [], [], true, details2);
@@ -110,6 +160,95 @@ static class PublishTests
     }
 
     // ---- the bridge: the verdicts report and the reload, against a stand-in bridge on localhost; a run's publish and finish end to end
+    /// <summary>A run counts the spawn points of the listed Wingman maps scanned before the scan counted them (RunPublish.CountSpawns): from the
+    /// sync's own download, else the game server's copy; a map on neither waits; one whose files fail is noted and not tried again; the list then
+    /// carries the counts.</summary>
+    internal static void SpawnCounting(string root)
+    {
+        var saved = (State, Work, Data, GameRoot, Hooks.ScanItem, Hooks.HumansOn);
+        var dir = Path.Combine(root, "spawncount");
+        (State, Work, Data, GameRoot) = (Path.Combine(dir, "state"), Path.Combine(dir, "work"), Path.Combine(dir, "data"), Path.Combine(dir, "game"));
+        try
+        {
+            Directory.CreateDirectory(Data);
+            File.WriteAllText(Path.Combine(Data, "maps.json"), Node.File(A("[{\"rank\": 1, \"id\": 111, \"name\": \"a\", \"sizeMb\": 5}]"), 1));
+            File.WriteAllText(Path.Combine(Data, "broken.json"), Node.File(O("{\"schema\": \"x\", \"maps\": [], \"packs\": [], \"removed\": [], \"blocked\": []}"), 2));
+            var list = new JsonArray();
+            for (var w = 41; w <= 48; w++)
+                list.Add(O($"{{\"rank\": {w - 40}, \"id\": {w}, \"name\": \"w{w}\", \"sizeMb\": 1}}"));
+            list.Add(O("{\"name\": \"de_inferno\", \"official\": true}"));
+            File.WriteAllText(Path.Combine(Data, "maps-wingman.json"), Node.File(list, 1));
+            var cfg = Cfg();
+            var own = WorkshopPaths.Content(WorkshopPaths.OfSteamCmd(Path.Combine(cfg.WorkDir, "staging")));
+            var game = WorkshopPaths.Content(WorkshopPaths.OfGame(cfg.GameDir));
+            foreach (var f in new[] { Path.Combine(own, "41"), Path.Combine(game, "41"), Path.Combine(game, "42"), Path.Combine(own, "45"), Path.Combine(game, "46"),
+                                      Path.Combine(game, "47"), Path.Combine(own, "48") })
+                Directory.CreateDirectory(f);
+            var scanned = new List<string>();
+            Hooks.ScanItem = folder =>
+            {
+                scanned.Add(folder);
+                return Path.GetFileName(folder) switch
+                {
+                    "45" => throw new InvalidDataException("a broken lump"),
+                    "46" => O("{\"verdict\": \"map\", \"maps\": [\"w46\"], \"spawns\": null, \"spawns_error\": \"bad KV3\"}"),
+                    "47" => throw new IOException("the folder went while it was read"),
+                    "48" => O("{\"verdict\": \"unknown\", \"maps\": [], \"spawns\": null}"),
+                    var w => O($"{{\"verdict\": \"map\", \"maps\": [\"w{w}\"], \"spawns\": {{\"t\": {w}, \"ct\": {long.Parse(w) + 1}, \"set\": \"2v2\"}}}}"),
+                };
+            };
+            var items = new JsonObject();
+            foreach (var w in new[] { "41", "42", "43", "45", "46", "47", "48" })
+                items[w] = O("{\"title\": \"w\", \"tags\": [\"Wingman\"], \"status\": \"published\", \"verdict\": \"pass\", \"scan\": {\"verdict\": \"map\", \"names\": []}}");
+            items["44"] = O("{\"title\": \"w\", \"tags\": [\"Wingman\"], \"status\": \"published\", \"verdict\": \"pass\", \"scan\": {\"verdict\": \"map\", \"spawns\": {\"t\": 7, \"ct\": 8, \"set\": \"all\"}}}");
+            Hooks.HumansOn = (_, _) => 1;
+            var busy = W.Run(cfg, new FakeClock(1793599000.0));
+            busy.Ledger.Load();
+            busy.State.Load();
+            busy.State.Data["items"] = items.DeepClone();
+            busy.Publish([], [], new Dictionary<string, JsonObject>());
+            Check("run: somebody on the game server stops the reading before the first map, as a test load stops - nothing read, and the report says so",
+                  scanned.Count == 0 && Node.Str(Node.Get(Node.Get(busy.Report["published"], "spawns"), "stopped")).StartsWith("somebody came on", StringComparison.Ordinal));
+            Hooks.HumansOn = (_, _) => 0;
+            var nt = W.Run(cfg, new FakeClock(1793600000.0));
+            nt.Ledger.Load();
+            nt.State.Load();
+            nt.State.Data["items"] = items;
+            nt.Publish([], [], new Dictionary<string, JsonObject>());
+            Check("run: a listed Wingman map scanned before the counting is read from its files - the sync's own download first, else the game server's copy; "
+                  + "one counted already, or on neither disk, is not read",
+                  scanned.SequenceEqual([Path.Combine(own, "41"), Path.Combine(game, "42"), Path.Combine(own, "45"), Path.Combine(game, "46"), Path.Combine(game, "47"),
+                      Path.Combine(own, "48")]));
+            JsonNode? Spawns(string w) => Node.Get(nt.State.Item(w)?["scan"], "spawns");
+            Check("run: the counts go into the state's scans; a map on no disk has none yet, nor one whose files failed to read - both wait for the next run",
+                  Node.Eq(Spawns("41"), O("{\"t\": 41, \"ct\": 42, \"set\": \"2v2\"}")) && Node.Eq(Spawns("42"), O("{\"t\": 42, \"ct\": 43, \"set\": \"2v2\"}"))
+                  && !Node.Obj(nt.State.Item("43")?["scan"]).ContainsKey("spawns") && !Node.Obj(nt.State.Item("47")?["scan"]).ContainsKey("spawns"));
+            Check("run: a map whose files cannot be read is noted (spawns null, spawns_error) and not read again - a throw as much as a lump the scan could not read, or files with no map",
+                  Node.Obj(nt.State.Item("45")?["scan"]) is var s45 && s45.ContainsKey("spawns") && s45["spawns"] is null && Node.Str(s45["spawns_error"]).Contains("a broken lump")
+                  && Node.Obj(nt.State.Item("46")?["scan"]) is var s46 && s46.ContainsKey("spawns") && s46["spawns"] is null && Node.Str(s46["spawns_error"]) == "bad KV3"
+                  && Node.Obj(nt.State.Item("48")?["scan"]) is var s48 && s48.ContainsKey("spawns") && Node.Str(s48["spawns_error"]) == "no map in its files");
+            var wl = ById(File.ReadAllText(Path.Combine(Data, "maps-wingman.json")));
+            Check("run: the Wingman list carries the counts at once; the rest of each entry, the order and the official entry stay as they were",
+                  Sp(wl["41"]) == "41/42" && Sp(wl["42"]) == "42/43" && Sp(wl["44"]) == "7/8" && new[] { "43", "45", "46", "47", "48" }.All(w => Sp(wl[w]) == "-1/-1")
+                  && Enumerable.Range(41, 8).All(w => Node.Int(wl[$"{w}"]["rank"]) == w - 40 && Node.Str(wl[$"{w}"]["name"]) == $"w{w}")
+                  && Node.Eq(wl["de_inferno"], O("{\"name\": \"de_inferno\", \"official\": true}")));
+            Check("run: the report says what was counted",
+                  Node.Eq(Node.Get(nt.Report["published"], "spawns"), O("{\"counted\": 2, \"failed\": 3, \"not_on_disk\": 2}"))
+                  && Node.StrList(Node.Get(nt.Report["published"], "files")).SequenceEqual(["maps-wingman.json"]));
+            var nt2 = W.Run(Cfg(), new FakeClock(1793600100.0));
+            nt2.Ledger.Load();
+            nt2.State.Load();
+            nt2.Publish([], [], new Dictionary<string, JsonObject>());
+            Check("run: the next run reads only the map whose files failed to read, writes nothing and reports no count",
+                  scanned.Count == 7 && scanned[^1] == Path.Combine(game, "47") && Node.Get(nt2.Report["published"], "spawns") is null
+                  && Node.Get(nt2.Report["published"], "files") is null);
+        }
+        finally
+        {
+            (State, Work, Data, GameRoot, Hooks.ScanItem, Hooks.HumansOn) = saved;
+        }
+    }
+
     internal static void Bridge(string root)
     {
         using var srv = new MiniHttp();
