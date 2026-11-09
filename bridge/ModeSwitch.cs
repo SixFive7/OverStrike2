@@ -95,8 +95,25 @@ static partial class Program
     static int SpawnsPerSide(MapInfo map)
     {
         if (map.Official) return Modes.WingmanOfficialSpawns.GetValueOrDefault(map.Name);
-        var listed = ListedIn(Modes.Wingman, map) ?? map;
+        var listed = WingmanEntry(map) ?? map;
         return listed.SpawnsT > 0 && listed.SpawnsCt > 0 ? Math.Min(listed.SpawnsT, listed.SpawnsCt) : 0;
+    }
+
+    static (List<MapInfo>? List, Dictionary<string, MapInfo> ByKey) wingmanIndex = (null, new());
+
+    /// <summary>maps-wingman.json's entry for a Workshop map, or null: the entry ListedIn(Modes.Wingman, map) finds, from an index of the list made again
+    /// whenever the list is read again (ReloadModeMaps puts a new one in its place). The menu's map list asks it for every map of the Wingman pool, and
+    /// a walk through the pool for each took the bridge's loop about 1.3 s of the list's 1.6 s with the server's 3,251 Wingman maps (2026-11-09).</summary>
+    static MapInfo? WingmanEntry(MapInfo map)
+    {
+        var list = ModeMaps.GetValueOrDefault(Modes.WingmanId);
+        if (!ReferenceEquals(list, wingmanIndex.List))
+        {
+            var byKey = new Dictionary<string, MapInfo>();
+            foreach (var m in list ?? []) if (!m.Official) byKey.TryAdd(Key(m), m); // the first entry of an id, as the pool takes it (PoolOf)
+            wingmanIndex = (list, byKey);
+        }
+        return wingmanIndex.ByKey.GetValueOrDefault(Key(map));
     }
 
     /// <summary>Whether a map takes this many humans in its own mode: a Wingman map as many a side as it has spawn points; the others Valve's maxplayers.</summary>

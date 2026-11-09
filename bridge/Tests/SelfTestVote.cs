@@ -198,6 +198,18 @@ static partial class Program
             Check("...the rule: N players need the larger half of N a side; a map nobody counted takes 2 a side",
                 Modes.WingmanFits(2, 4) && !Modes.WingmanFits(2, 5) && Modes.WingmanFits(3, 5) && Modes.WingmanFits(3, 6) && !Modes.WingmanFits(3, 7) && Modes.WingmanFits(0, 4) && !Modes.WingmanFits(0, 5)
                 && Modes.WingmanOfficialSpawns.Count == Modes.Wingman.Official.Length && Modes.Wingman.Official.All(n => Modes.WingmanOfficialSpawns.GetValueOrDefault(n) >= 4));
+            // the Wingman list's entry of a map comes from an index of the list (WingmanEntry): the menu's map list asks for it for every map of the pool,
+            // and a walk through the pool for each held the bridge's loop for 1.6 s with the server's 3,251 Wingman maps (hotfix 203)
+            var wingList = ModeMaps[Modes.WingmanId];
+            var twice = new MapInfo(2, 9_500_002, "wm_twice", 30, Mode: Modes.WingmanId, SpawnsT: 4, SpawnsCt: 4);
+            ModeMaps[Modes.WingmanId] = [.. wingList, twice, twice with { Rank = 3, SpawnsT = 1, SpawnsCt = 1 }];
+            var uncounted = twice with { Mode = "", SpawnsT = 0, SpawnsCt = 0 }; // the same map as another list carries it: no count of its own
+            Check("...a map's Wingman entry comes from an index made again with every new list: the very entry ListedIn finds, for a Workshop map of every list, and the first of an id listed twice",
+                Maps.Concat(ModeMaps.Values.SelectMany(l => l)).Append(uncounted).Where(m => !m.Official).All(m => ReferenceEquals(WingmanEntry(m), ListedIn(Modes.Wingman, m)))
+                && WingmanEntry(uncounted) is { Rank: 2 } && SpawnsPerSide(uncounted) == 4 && SpawnsPerSide(wingWs) == 3);
+            ModeMaps[Modes.WingmanId] = wingList;
+            Check("...and the list before it again, at once: that id is listed no more, so the map has only its own count (none), and the others keep theirs",
+                WingmanEntry(uncounted) == null && SpawnsPerSide(uncounted) == 0 && SpawnsPerSide(wingWs) == 3);
             // the map browser and the wire: the catalog's spawn points per side, the live state's humans, the Play text of a map that does not take them
             var fitCat = HudCatalog.Decode(BuildCatalog().Encode())!;
             var fitLive = HudState.Decode(BuildHud(h.Clock).Encode())!;
