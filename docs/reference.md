@@ -247,7 +247,12 @@ and says "Your vote is on this map". A voter who leaves takes their vote along.
 **No card moves while the vote is open:** each keeps the place it went on in, so a click lands on the map the player aimed at; once the vote is
 decided, the cards show with the most votes first. A click counts for the map the player saw on the card. Each card has a number of its own that the
 vote never gives again, so a click on a card that has just left - a pick that lost its votes, a card a pick took the place of - counts for nothing
-and says "That map left the vote - Click again", never a vote for the map in its place.
+and says "That map left the vote - Click again", never a vote for the map in its place. The one exception is a player's own Add: a click on the
+place where the card their Add just put on stands, made before their game drew it there (the plugin's grace after a change, `HudVote.OwnCardNow`;
+or with the old card's number, which the bridge matches to the card that took its place), says "Your vote is on this map" and changes nothing -
+as does a click on the card their vote is on that the bridge gets before that player's game showed the vote there. The second click of a double
+click on the map browser's Play counts for nothing (`HudFrame.SecondClick`, within 0.5 s): the Add turns that card into the ballot's card in its
+place, and the click would otherwise take the vote off the map just added.
 
 **No vote click is lost on the way:** the plugin keeps at most 8 clicks on their way to the bridge at once (`BridgeLink.cs`); while that is full, a
 vote, a map put to the vote, a vote started and the HUD check's click wait - one a player and kind, a newer one taking its place - and go out as

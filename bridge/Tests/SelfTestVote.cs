@@ -432,7 +432,9 @@ static partial class Program
             Check("...and with nobody left: Nobody has voted", Last() == "Cara took their vote back - Nobody has voted - Waiting for: Alice, Bob, Cara, Dan, Eve, Fay");
             var saidBefore = BuildHud(h.Clock).Says.Count;
             Click(cara, 0); Click(bob, lineA); Click(bob, lineA);
-            Check("...a click that changes nothing says nothing", BuildHud(h.Clock).Says.Count == saidBefore + 1);
+            var saidAfter = BuildHud(h.Clock).Says;
+            Check("...a click that changes nothing changes nothing: no vote to take back says nothing, and the card his vote is on again (sent before his game drew his vote there) tells him alone that his vote is on it",
+                saidAfter.Count == saidBefore + 2 && saidAfter[^1].Account == AccountId(bob.Item2) && M.Plain(saidAfter[^1].Text).Contains(M.Plain(ChatReply.VoteStays)) && Ballot!.Choices[bob.Item2] == lineA);
             Click(dan, lineKeep);
             Check("...Keep and Random in their own words", Last().StartsWith($"Dan voted to keep {Clip(CurrentLabel(), 32)} - 2 of 6 voted: Bob, Dan - "));
             Click(eve, MapVote.RandomOption);
@@ -552,6 +554,13 @@ static partial class Program
             ClearNotices();
             Check("A click sent for the card that made room - before the clicker saw it go - finds no card: a note, nothing cast; never a vote for the map in its place",
                 HudAct($"{bob.Item2}\t{bob.Item1}\t{MapVote.Click(round, lastFill.N)}") && !Ballot!.Choices.ContainsKey(bob.Item2) && h.Said(M.Plain(ChatReply.CardGone)));
+            ClearNotices();
+            Check("...the same click from her, whose own pick took that very place (sent before her game drew it there): her vote is on it and stays, and she is told so - never that the map left",
+                HudAct($"{alice.Item2}\t{alice.Item1}\t{MapVote.Click(round, lastFill.N)}") && Ballot!.Choices[alice.Item2] == addedN && h.Said(M.Plain(ChatReply.VoteStays)) && !h.Said(M.Plain(ChatReply.CardGone))
+                && Ballot.Options.Count(o => o.Map == p6) == 1 && !Ballot.Options.Contains(lastFill));
+            ClearNotices();
+            Check("...as does a click on her pick itself, sent before her game drew her vote on it: nothing moves, and she is told her vote is on it",
+                HudAct($"{alice.Item2}\t{alice.Item1}\t{MapVote.Click(round, addedN)}") && Ballot!.Choices[alice.Item2] == addedN && h.Said(M.Plain(ChatReply.VoteStays)));
             var secondFill = Ballot!.Options.Where(o => o.Source == VoteSource.Rolled && o.Mode == Modes.ArmsRace && !Ballot.Choices.ContainsValue(o.N)).MaxBy(o => o.Order)!;
             var secondPlace = LiveVote().Maps.FindIndex(o => o.N == secondFill.N);
             ClearNotices();

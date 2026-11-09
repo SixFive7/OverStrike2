@@ -26,6 +26,10 @@ public sealed class HudPlayer
     /// (HudFrame.FollowVote). Round 0: not following.</summary>
     public (long Round, int From, DateTime Until) Follow;
 
+    /// <summary>This player's last Add to the vote from the map browser: the round, the Play it came from and when - a click on that very button within
+    /// HudVote.DoubleClickSeconds is the second click of a double click (HudFrame.SecondClick). Round 0: none.</summary>
+    public (long Round, string Button, DateTime At) Added;
+
     /// <summary>The vote round whose window was opened for this player (once a round), and whether that vote's freeze holds it open now.</summary>
     public long VoteShown;
     public bool VoteOpened;

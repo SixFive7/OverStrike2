@@ -342,7 +342,20 @@ static partial class Program
             BallotTick(now);
             return;
         }
-        if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option) { Log($"vote: {by} {steamId} clicked {click.Option}, a card no longer on the ballot"); Tell(steamId, ChatReply.CardGone); return; }
+        if (b.Options.FirstOrDefault(o => o.N == click.Option) is not { } option)
+        {
+            // The number of a card that has left: the click was made on the ballot as the player's game drew it before. When the card that took its very place
+            // is the one their own vote is on - their own Add put it there a moment ago, and their game had not drawn it yet - the click is meant for it.
+            if (b.Options.FirstOrDefault(o => o.Replaced?.N == click.Option) is { } there && b.Choices.GetValueOrDefault(steamId) == there.N)
+            {
+                Log($"vote: {by} {steamId} clicked {click.Option}, whose place {there.N}. {OptionLabel(b, there)} took - their vote is on it, and stays");
+                Tell(steamId, ChatReply.VoteStays);
+                return;
+            }
+            Log($"vote: {by} {steamId} clicked {click.Option}, a card no longer on the ballot");
+            Tell(steamId, ChatReply.CardGone);
+            return;
+        }
         Present(steamId, by);
         var was = b.Choices.GetValueOrDefault(steamId);
         b.Choices[steamId] = click.Option;
@@ -352,6 +365,7 @@ static partial class Program
             (b.LastChange, b.LastBy) = (now, by);
             SayVote(b, VotedWords(b, by, option), now);
         }
+        else Tell(steamId, ChatReply.VoteStays); // a click on the card their vote is on, sent before their game had drawn the vote there (HudFrame.KeepsVote's words)
         BallotTick(now);
     }
 

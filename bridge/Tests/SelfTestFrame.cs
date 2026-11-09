@@ -124,6 +124,32 @@ static partial class Program
         HudFrame.AddedToVote(late, twelve, 1001, at, MapVote.PageCards);
         HudFrame.FollowVote(late, landed, 1001, at.AddSeconds(HudVote.FollowSeconds + 1), MapVote.PageCards);
         Check($"...but not after {HudVote.FollowSeconds} s (a refused pick moves nothing): the page stays", late.VoteView == (r, 0, false) && late.Follow.Round == 0);
+        // her own Add's card, drawn a moment ago in the place of another: a click there within the re-sort's grace counts against the order she saw before, whose
+        // card has left - it keeps her vote (OwnCardNow), where it said the map left the vote (the lab's rehearsal of 201, check 3)
+        var mineAfter = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 11, [1002] = 3 }); // her Add, card 11, in the place of card 2, with her vote
+        var closedMine = BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 11 });
+        closedMine.Open = false;
+        Check("Ballot: a click on her own Add's card, drawn a moment ago in the place of card 2, that counts against the order she saw before keeps her vote (OwnCardNow) - never that the map left; another player's says it left, a card still there is a vote as ever",
+            HudVote.Click(mineAfter, "os_m2_play", 0, 1001, seenBefore) == null && HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1001, seenBefore)
+            && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1002, seenBefore) && HudVote.Gone(mineAfter, "os_m2_play", 0, seenBefore)
+            && !HudVote.OwnCardNow(mineAfter, "os_m3_play", 0, 1002, seenBefore) && HudVote.Click(mineAfter, "os_m3_play", 0, 1002, seenBefore) == MapVote.Click(r, 0)
+            && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, 1001, null) && !HudVote.OwnCardNow(mineAfter, "os_m2_play", 0, -1, seenBefore)
+            && !HudVote.OwnCardNow(BallotOf([1, 11, 3, 4, 5, 6, 7, 8, 9, 10], new() { [1001] = 4 }), "os_m2_play", 0, 1001, seenBefore)
+            && !HudVote.OwnCardNow(closedMine, "os_m2_play", 0, 1001, seenBefore) && !HudVote.OwnCardNow(mineAfter, HudVote.RandomButton, 0, 1001, seenBefore));
+        int[] nineSeen = [.. HudVote.Order(BallotOf(Enumerable.Range(1, 9)), 0)];
+        var tenHers = BallotOf(Enumerable.Range(1, 10), new() { [1001] = 10 }); // her Add, card 10, after the last of nine
+        Check("...her Add's card after the last: a click on it within the grace keeps her vote too, where it did nothing at all",
+            HudVote.Click(tenHers, "os_m10_play", 0, 1001, nineSeen) == null && !HudVote.Gone(tenHers, "os_m10_play", 0, nineSeen) && HudVote.OwnCardNow(tenHers, "os_m10_play", 0, 1001, nineSeen)
+            && !HudVote.OwnCardNow(tenHers, "os_m10_play", 0, 1002, nineSeen));
+        // the second click of a double click on the map browser's Play: the Add made that card the ballot's card in its place
+        var doubler = new HudPlayer();
+        HudFrame.AddedToVote(doubler, twelve, 1001, at, MapVote.PageCards, "os_m3_play");
+        var nextRound = new VoteState { Round = r + 1, Open = true, Options = twelve.Options };
+        Check($"Add to the vote by card 3's Play: a click on that very button within {HudVote.DoubleClickSeconds} s is the second click of a double click - the ballot's card 3 now - and counts for nothing; another card, a later click, another round, or no Add, count as ever",
+            doubler.Added == (r, "os_m3_play", at) && HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(0.3))
+            && !HudFrame.SecondClick(doubler, twelve, "os_m4_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(doubler, twelve, "os_m3_play", at.AddSeconds(HudVote.DoubleClickSeconds))
+            && !HudFrame.SecondClick(doubler, nextRound, "os_m3_play", at.AddSeconds(0.3)) && !HudFrame.SecondClick(new HudPlayer(), twelve, "os_m3_play", at.AddSeconds(0.3))
+            && late.Added == (r, "", at) && !HudFrame.SecondClick(late, twelve, "", at.AddSeconds(0.1)));
 
         // ---- the mouse during a hold: a player who joined without the HUD has no window to close ----
         slots.Show(2, HudSlots.Page.Maps, t0.AddSeconds(51));

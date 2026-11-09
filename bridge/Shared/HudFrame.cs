@@ -252,15 +252,22 @@ public sealed class HudFrame
         p.Follow = default;
     }
 
-    /// <summary>A map browser's Add to the vote, from this player: back to the ballot, on the page of their vote now (if it is on a card), and following it
-    /// once it moves (FollowVote).</summary>
-    public static void AddedToVote(HudPlayer p, VoteState vote, long account, DateTime now, int perPage)
+    /// <summary>A map browser's Add to the vote, from this player, by the Play of button: back to the ballot, on the page of their vote now (if it is on a card),
+    /// and following it once it moves (FollowVote); the button and the moment kept for the second click of a double click (SecondClick).</summary>
+    public static void AddedToVote(HudPlayer p, VoteState vote, long account, DateTime now, int perPage, string button = "")
     {
         var n = vote.ChoiceOf(account);
         var page = n > 0 && vote.Random?.N != n && vote.Numbered(n) != null ? HudVote.PageOf(vote, n, perPage) : VoteView(p, vote, perPage).Page;
         p.VoteView = (vote.Round, page, false);
         p.Follow = (vote.Round, n, now.AddSeconds(HudVote.FollowSeconds));
+        p.Added = (vote.Round, button, now);
     }
+
+    /// <summary>Whether a click on the ballot is the second click of a double click on the map browser's Play that added a map a moment ago: the same button, within
+    /// HudVote.DoubleClickSeconds. The Add turned that card into the ballot's card in its place, before the bridge's answer put the map there - so the click would
+    /// count for whatever stood there, and take the player's vote off the map they just added. It counts for nothing; the Add's own answer speaks.</summary>
+    public static bool SecondClick(HudPlayer p, VoteState vote, string buttonId, DateTime now) =>
+        p.Added.Round == vote.Round && vote.Round > 0 && p.Added.Button != "" && p.Added.Button == buttonId && (now - p.Added.At).TotalSeconds < HudVote.DoubleClickSeconds;
 
     /// <summary>The Fun page, the same for everybody: as the live values have it - the settings, who set them, what is grey. Returns what its bubbles say this
     /// frame.</summary>

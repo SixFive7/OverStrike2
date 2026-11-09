@@ -61,10 +61,18 @@ sealed partial class HudScreen
                 // The vote is on the Maps page's cards (HudVote.cs), a page of ten: a card's Play is a vote - on the card this player's vote is on, it
                 // takes it back - Random's button too, the pager pages (activity: it resets the inactivity timer). No card moves while the vote is open, and a
                 // card names the map this player saw on it (SeenOrder): a card that has left since counts for nothing and says so, and a click on the card
-                // their vote landed on a moment ago keeps the vote (KeepsVote) - a double click, or a click to make sure.
+                // their vote landed on a moment ago keeps the vote (KeepsVote) - a double click, or a click to make sure - as does a click where their own
+                // Add's card has just taken the place of another (OwnCardNow). The second click of a double click on the map browser's Play counts for
+                // nothing (SecondClick): the card under it is the ballot's now.
                 if (HudVote.PageClick(vote, buttonId, view.Page, MapVote.PageCards) is { } page) { me.VoteView = (vote.Round, page, false); me.Follow = default; Busy(player, account); Server.NextFrame(Frame); return; }
                 var seen = HudFrame.SeenOrder(me, vote.Round, view.Page, now);
                 var target = Seen(vote, buttonId, view.Page, seen);
+                if (HudFrame.SecondClick(me, vote, buttonId, now))
+                {
+                    LogVote(player, account, $"round {vote.Round}, {target}: {(now - me.Added.At).TotalSeconds:0.00} s after the Add from that very Play - the second click of a double click, nothing sent");
+                    Server.NextFrame(Frame);
+                    return;
+                }
                 if (HudVote.Click(vote, buttonId, view.Page, account, seen, MapVote.PageCards) is { } cast)
                 {
                     if (HudFrame.KeepsVote(me, vote, cast, now))
@@ -73,6 +81,11 @@ sealed partial class HudScreen
                         LogVote(player, account, $"round {vote.Round}, {target}: its vote landed {(now - me.Mine.Since).TotalSeconds:0.0} s ago - kept, not taken back");
                     }
                     else Act(player, account, cast, $"round {vote.Round}, {target}"); // chat and the board say it: the bridge's line of who voted and who has yet to
+                }
+                else if (HudVote.OwnCardNow(vote, buttonId, view.Page, account, seen, MapVote.PageCards))
+                {
+                    LocalNote(player.Slot, ChatReply.VoteStays, 4);
+                    LogVote(player, account, $"round {vote.Round}, {target}: the card there now is the one their vote is on, {Seen(vote, buttonId, view.Page, null)} - kept, nothing sent");
                 }
                 else if (HudVote.Gone(vote, buttonId, view.Page, seen, MapVote.PageCards))
                 {
@@ -91,7 +104,7 @@ sealed partial class HudScreen
                 && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
             {
                 Act(player, account, add, $"round {vote.Round}, from the map browser");
-                if (browsing.ConfirmKey == "") HudFrame.AddedToVote(me, vote, account, now, MapVote.PageCards); // a risky map's first click only arms its confirmation: the second one adds it
+                if (browsing.ConfirmKey == "") HudFrame.AddedToVote(me, vote, account, now, MapVote.PageCards, buttonId); // a risky map's first click only arms its confirmation: the second one adds it
                 Server.NextFrame(Frame);
                 return;
             }
@@ -125,7 +138,7 @@ sealed partial class HudScreen
         if (buttonId == HudVote.RandomButton) return "Random";
         var k = HudVote.CardOf(buttonId);
         var n = HudVote.SeenNumber(vote, k, page, seen, MapVote.PageCards);
-        return vote.Numbered(n) is { } o ? $"card {k} ({n}. {o.Label})" : $"card {k} ({n}, gone)";
+        return vote.Numbered(n) is { } o ? $"card {k} ({n}. {o.Label})" : n == 0 ? $"card {k} (no card there)" : $"card {k} ({n}, gone)";
     }
 
     /// <summary>One line in the plugin's log for a vote click, a map put to the vote, or a click the plugin could not hand to the bridge.</summary>

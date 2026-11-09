@@ -383,6 +383,24 @@ public static class HudVote
     public static bool Gone(VoteState v, string buttonId, int page = 0, IReadOnlyList<int>? order = null, int perPage = MapVote.PageCards) =>
         v is { Open: true, Round: > 0 } && SeenNumber(v, CardOf(buttonId), page, order, perPage) is > 0 and var n && v.Numbered(n) == null;
 
+    /// <summary>Whether a click that counts against the order this player saw a moment ago (order: HudFrame.SeenOrder, within ReSortSeconds of a change)
+    /// lands where the card their own vote is on stands now, in the place of a card that has left - or where no card stood before: the card their own Add
+    /// put there, which their game had just drawn. The click is meant for it, and their vote stays (ChatReply.VoteStays), instead of "That map left the
+    /// vote" about their own map, or nothing at all. account: the player's; -1 when not known, which never matches.</summary>
+    public static bool OwnCardNow(VoteState v, string buttonId, int page, long account, IReadOnlyList<int>? order, int perPage = MapVote.PageCards)
+    {
+        if (v is not { Open: true, Round: > 0 } || account < 0 || order == null) return false;
+        var k = CardOf(buttonId);
+        var now = SeenNumber(v, k, page, null, perPage);
+        var then = SeenNumber(v, k, page, order, perPage);
+        return now > 0 && now != then && v.ChoiceOf(account) == now && (then == 0 || v.Numbered(then) == null);
+    }
+
+    /// <summary>How long after a map browser's Add to the vote a click on the very same card's Play is the second click of a double click (HudFrame.SecondClick):
+    /// the Add has turned that card into the ballot's card in its place, so the click would vote for whatever stands there - away from the map just added,
+    /// which then leaves the ballot unless somebody else votes for it. Windows' own double-click time is half a second.</summary>
+    public const double DoubleClickSeconds = 0.5;
+
     /// <summary>How long after a player's vote lands on a card a click there leaves it on, instead of taking it back (HudFrame.KeepsVote): a double click,
     /// or a click to make sure, keeps the vote.</summary>
     public const double KeepSeconds = 2.0;
