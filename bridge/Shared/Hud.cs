@@ -41,7 +41,7 @@ public static class Hud
 
     /// <summary>The actions a click may ask for without an argument. They are written like the chat commands, which is what the bridge and
     /// the plugin speak to each other on /act: a typed command arrives as the same click.</summary>
-    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time 10", "!time 60"];
+    public static readonly string[] Actions = ["!up", "!down", "!next", "!next random", "!previous", "!restart", "!rematch", "!time", "!time 10", "!time 60"];
 
     /// <summary>Whether a click may ask for this. The bridge refuses anything else on its /act path, so the menu can never reach a server
     /// command, a name search or anything free-form: a map is named by its rank, an official map's name or a Workshop id.</summary>

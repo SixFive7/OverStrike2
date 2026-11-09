@@ -249,6 +249,9 @@ static partial class Program
     {
         string T(string line) => Coloured(ChatCommands.Teach(ChatCommands.Parse(line))!);
         string U(string word) => Coloured(ChatCommands.UsageOf(word));
+        Check("Chat: a bare !time is the bridge's !time with no value, which switches the length (release 198) - its alias too; a value other than 10 or 60 shows the usage",
+            ChatCommands.Parse("!time") is { Kind: ChatCommands.Kind.Bridge, Arg: "!time" } && ChatCommands.Parse("!length") is { Kind: ChatCommands.Kind.Bridge, Arg: "!time" }
+            && ChatCommands.Parse("!time 30") is { Kind: ChatCommands.Kind.Usage } && ChatCommands.Parse("!time 60") is { Kind: ChatCommands.Kind.Bridge, Arg: "!time 60" } && Hud.IsAction("!time"));
 
         Check("Chat's colours: a whole line - a name in its team's colour, an argument, a value, the words between in the chat's own",
             Coloured($"{M.N("Alice")} set {M.A("gravity")} to {M.V("Moon")} - Until the map changes") == "τAliceπ set αgravityπ to νMoonπ - Until the map changes");
@@ -267,7 +270,7 @@ static partial class Program
         Check("...and !top's words after its command are words", T("!top") == "You typed κ!topπ - Ran κ!mapsπ, sorted by likes" && T("!status") == "You typed κ!statusπ - Ran κ!syncπ");
 
         Check("A usage line: the command Lime; what it needs LightBlue, the few it can be Gold; a command or a reason its words name likewise",
-            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν<10|60>π: Match length in minutes, this match too"
+            U("!play") == "κ!playπ α<number, name or Workshop ID>π: Put a map to the vote, with your vote on it" && U("!time") == "κ!timeπ ν[10|60]π: Match length in minutes, this match too - Alone it switches"
             && U("!gravity") == $"κ!gravityπ νnormal|low|moonπ: {Fun.Find("gravity")!.Words}" && U("!down") == $"κ!downπ α[number] [reason]π: Dislike it, and why: ν{DownReasons.Words}π"
             && U("!fun") == "κ!funπ: The Fun page, each setting's own word (κ!gravityπ νlowπ), κ!funπ νrandomπ and κ!funπ νdefaultπ"
             && U("!nades") == $"κ!nadesπ νon|offπ: Grenade drops on or off  ·  κ!nadesπ νnormal|big|hugeπ: {Fun.Find("nades")!.Words}");

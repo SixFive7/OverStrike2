@@ -16,6 +16,17 @@ static partial class Program
         if (minutes > 0) Log($"mp_roundtime {minutes} -> {Send($"mp_roundtime {minutes}") ?? "(rcon failed)"}");
     }
 
+    /// <summary>2 s after every map start - after the mode's cfg has set mp_roundtime to its own, and after the bridge has heard which mode the map is in
+    /// (SyncMode, 1.5 s after the start, takes the plugin's word at a start the bridge did not ask for): the mode that is on gets its length back - in
+    /// Deathmatch every time, so a server whose Deathmatch cfg is still Valve's 10 gets 60 all the same; in Arms Race a chosen 10; nothing in Wingman.
+    /// Decided here, by the mode on record now, not at the start: after an operator's switch the record still names the old mode then, and a Deathmatch
+    /// set to 10 ran the cfg's 60 (release 198).</summary>
+    static void MatchLengthAfterStart()
+    {
+        var mode = CurrentMode;
+        if (MatchLengthOf(mode) is { Minutes: > 0 } length && (length.Minutes != MatchLength.DefaultMinutes(mode.Id) || mode.Id == Modes.DeathmatchId)) ApplyMatchLength();
+    }
+
     /// <summary>!time: switch the match length between 10 and 60 minutes, for the match that is on too (MatchLength.cs), in the mode that is on. Stored in state and re-applied
     /// after every map load, because the mode's cfg sets mp_roundtime back to its own each time the mode is created. Wingman's match is rounds: refused there.</summary>
     static void SetMatchLength(string by, string steamId, string arg)

@@ -779,6 +779,24 @@ static partial class Program
             Check("...the plugin's second load, official to official, comes up in Wingman; the bridge keeps Wingman and loads nothing itself",
                 fakeLoaded == Modes.Wingman && (gameType, gameMode) == (0, 2) && S.Mode == "wingman" && !h.Sent.Any(c => c.StartsWith("changelevel") || c.StartsWith("os_mode ")));
 
+            // ---- release 198: the match length after such a start goes by the mode the bridge knows 2 s after it - the plugin's word, taken 1.5 s
+            //      after the start - not by the one on its record at the start: an operator's switch onto a Deathmatch map set to 10 ran the cfg's 60 ----
+            Fresh();
+            fakePlugin = true; fakeAnswers = true; fakeBlockLate = false;
+            foreach (var p in new[] { alice, bob }) h.Join(p);
+            Ask(alice, m[3]); Land(); Settle(); // an Arms Race Workshop map, as above
+            S.DmRoundMinutes = ShortRoundMinutes; // Deathmatch's length set to 10 earlier; Arms Race's is its own 60, which needs nothing put back
+            h.Quiet();
+            ModeProbeEnabled = true;
+            foreach (var c in new[] { "os_mode deathmatch", "game_type 1", "game_mode 2", "changelevel de_dust2" }) h.Server(c); // the operator's RCON
+            h.Line("Loading map \"de_dust2\""); h.Line("Started:  \"\"");
+            var recordAtStart = S.Mode;
+            h.Run(3);
+            Check($"An operator's switch onto a Deathmatch map set to {ShortRoundMinutes}: the record says Arms Race at the start, the plugin says Deathmatch, and 2 s after the start Deathmatch's {ShortRoundMinutes} goes out, not nothing ({string.Join(" | ", h.Sent)})",
+                recordAtStart == "armsrace" && S.Mode == "deathmatch" && h.Sent.Contains(Modes.AskLine) && h.Sent.Contains($"mp_roundtime {ShortRoundMinutes}")
+                && h.Sent.IndexOf(Modes.AskLine) < h.Sent.IndexOf($"mp_roundtime {ShortRoundMinutes}"));
+            S.DmRoundMinutes = DefaultRoundMinutes;
+
             OperatorSwitch(answers: false, blockLate: true);
             h.Run(3);
             Check($"A plugin from before the question (5.0.0, 5.1.0): CounterStrikeSharp's usage line, so the convars and the re-tell as ever - the race lost as before this bridge, the server in Arms Race throughout ({string.Join(" | ", h.Sent)})",
