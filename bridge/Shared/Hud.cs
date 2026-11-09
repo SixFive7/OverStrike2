@@ -82,7 +82,7 @@ public static class Hud
     [
         new("Maps", [
             new("Maps  ·  Play", "Put any map to the vote: a vote opens, your vote on that map"),
-            new("Search  ·  !find", "Type !find and a few words in chat, or a Workshop ID"),
+            new("Search  ·  !find", "On Browse, press Y and type a map name - Or !find anywhere"),
             new("Start a vote", "On the board or in the menu: a vote for the next map"),
             new("Previous  ·  !back", "On the Maps page: the map before this one, to the vote")]),
         new("The vote", [

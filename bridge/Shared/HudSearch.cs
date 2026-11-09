@@ -1,7 +1,8 @@
-// Full-text search in the HUD's map browser: !find (!s) in chat sets a query, and every listed map is matched on its
+// Full-text search in the HUD's map browser: !find (!s) in chat sets a query, as does a chat line typed on MAPS > Browse (233), and every listed map is matched on its
 // name, its Workshop tags and its Workshop description - not only on its name, as !find did. Shared like Hud.cs: the bridge reads the
 // index (search.json beside maps.json: the bridge's --search-index keeps it in step with maps.json, the sync adds to it), serves it on
-// /search/<secret> and tests the matching; the plugin fetches it when its version moves and filters locally on every key press.
+// /search/<secret> and tests the matching; the plugin fetches it when its version moves, and filters locally whenever a player's search changes - the HUD has no text
+// entry, so there is no key press to filter on: a search is a whole chat line.
 // Plain BCL only, and core's SearchText, the rule search.json's texts are written by (the plugin compiles it in as source).
 using System.Globalization;
 using System.Text;

@@ -248,7 +248,7 @@ sealed partial class HudScreen
         $"check {HudCheck.Name(checkMode)} (hud.check {(state == null ? "?" : HudCheck.Name(HudCheck.Parse(state.CheckMode)))}, item {item.Describe(DateTime.UtcNow)}), " +
         $"waiting for a click from [{string.Join(", ", Utilities.GetPlayers().Where(p => gate.Checking(p.Slot)).Select(p => p.PlayerName))}], " +
         $"TAB {HudTab.Name(tabMode)}{(tabOverride != null ? " (os_hud tab)" : "")}, board cursor for [{string.Join(", ", Utilities.GetPlayers().Where(p => tab.Cursor(p.Slot)).Select(p => p.PlayerName))}], " +
-        $"search index {search.Count} maps (version {search.Version}), sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +
+        $"search index {search.Count} maps (version {search.Version}), chat searches {chatSearches}, sync page {(dash == null ? "no block yet" : $"block {dash.Version}: {dash.Words.Count} words, {string.Join(", ", dash.Lists.Select(l => $"{l.Name} {l.Rows.Count}"))}")}, workshop {plays.Describe()}, " +
         $"addon {(addonRequired ? "required of joiners" : "NOT required (Steam does not show it to everybody)")}, HUDs seen: [{string.Join(", ", Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false }).Select(p => $"{p.PlayerName} {(VersionOf(Account(p)) is { Length: > 0 } v ? v : "-")}"))}], fun {string.Join(", ", Fun.Settings.Select(s => $"{s.Id} {Fun.Showing(s, FunValue).Id}"))}";
 
     void OnMapEnd()

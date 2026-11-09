@@ -232,6 +232,22 @@ public static class ChatCommands
     /// that fits beside the window, which stands open for the vote.</summary>
     public static string[] VoteOnlyLines() => [M.Refused("Vote now: click a card in the window")];
 
+    /// <summary>The words that are chat and nothing else: a line of only these is no search (233), whatever the case and the punctuation ("GG!", "gg wp").</summary>
+    public static readonly string[] ChatWords = ["gg", "gl", "hf", "glhf", "wp", "ty", "thx", "lol", "xd", "ok", "nice", "ns", "np", "ez"];
+
+    /// <summary>A chat line typed while that player's window is on MAPS > Browse (HudFrame.BrowserOpen), as the words it searches the browser for (233) - or null for a line
+    /// that is no search: a command (! or /: it runs as it does everywhere, and !s still searches), a Workshop link or id (it opens that item's card, as anywhere), a bare
+    /// number while a vote is open, a line of nothing but chat words (ChatWords) or with no letter or digit at all, and any line while the browser is not on the screen.
+    /// All chat and team chat alike, and the line still shows in chat as it was typed: this only reads it. The words become the search only when they find a map (HudScreen.ChatSearch).</summary>
+    public static string? SearchOf(string? line, bool browserOpen, bool voteOpen = false)
+    {
+        var text = (line ?? "").Trim();
+        if (!browserOpen || Parse(text, voteOpen).Kind != Kind.None || WorkshopCard.IdInChat(text) != null) return null;
+        var words = HudSearch.Words(text);
+        if (words.Length == 0 || words.All(w => ChatWords.Contains(w))) return null;
+        return voteOpen && text.All(char.IsAsciiDigit) ? null : text; // a bare number while a vote is open is chat: the cards have no numbers
+    }
+
     /// <summary>What chat says for a word that is no command of ours.</summary>
     public static string UnknownLine(string word) => M.Refused($"Unknown command {M.A(Hud.Clean(word, 40))} - {M.C("!help")} lists them (and the menu: hold TAB, press E)");
 

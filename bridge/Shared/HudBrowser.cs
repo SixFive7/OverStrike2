@@ -25,7 +25,7 @@ public sealed class HudBrowser
     public Band Size = Band.All;
     public bool Liked, Official, Ours;        // Ours: the server's own maps (ours.json; Over Strike 2's Our maps)
     public string Mode = "";                 // the mode filter (content v4.2.0): a mode's id, or "" for every mode's maps
-    public string Query = "";                // what !find (!s) asked for in chat, or a Workshop link or id pasted there
+    public string Query = "";                // what !find (!s) asked for in chat, a chat line typed on MAPS > Browse (233), or a Workshop link or id pasted there
     public int Page;                         // zero-based; clamped whenever the matches are counted
     public string ConfirmKey = "";           // a risky map whose Play was clicked once...
     public DateTime ConfirmUntil;            // ...and until when the second click confirms it
@@ -45,8 +45,8 @@ public sealed class HudBrowser
     public const string LikedButton = "os_fl_liked", OfficialButton = "os_fl_official", OursButton = "os_fl_ours", ClearButton = "os_q_clear",
         FirstButton = "os_pg_first", PrevButton = "os_pg_prev", NextButton = "os_pg_next", LastButton = "os_pg_last";
 
-    /// <summary>The search area's hint (content v4.9.0): "Search  Type !s and a few words in chat", a button whose click says the same in the
-    /// player's chat - typing is chat's, and the HUD cannot open the chat box. Content v4.8.0 typed on an on-screen keyboard: its search box
+    /// <summary>The search area's hint (content v4.9.0): "Search  Press Y and type a map name" (233), a button whose click says how on the window's line and in the
+    /// player's chat (ChatReply.HowToSearch) - typing is chat's, and neither the HUD nor the server can open the chat box (the client refuses messagemode from the server). Content v4.8.0 typed on an on-screen keyboard: its search box
     /// (OldSearchBox) opened it, and its forty keys were os_kb_*. Release 196 removed it: the keyboard never opens since, and a
     /// click on that box, or on any key, asks the same as the hint's own and changes nothing.</summary>
     public const string HintButton = "os_q_how", OldSearchBox = "os_q_kbd";

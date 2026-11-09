@@ -54,8 +54,9 @@ public static class HudMenu
         return m.Risky ? Locked : "Put to the vote";
     }
 
-    /// <summary>The search area's words while no search is on - in content v4.8.0's search box too, whose keyboard never opens since release 196.</summary>
-    public const string SearchHint = "Type !s and a few words in chat";
+    /// <summary>The search area's words while no search is on - in content v4.8.0's search box too, whose keyboard never opens since release 196: chat is the one
+    /// text input there is, and a chat line typed on MAPS > Browse searches it (233).</summary>
+    public const string SearchHint = "Press Y and type a map name";
 
     static string Likes(HudCatalog.Entry m) => m.Up + m.Down == 0 ? "no likes" : $"+{m.Up}{(m.Down > 0 ? $"  -{m.Down}" : "")}";
 

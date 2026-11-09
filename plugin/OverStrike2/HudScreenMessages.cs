@@ -43,6 +43,14 @@ sealed partial class HudScreen
         Server.NextFrame(Frame);
     }
 
+    /// <summary>A line on this player's window alone, for these seconds - not in chat, not on the board: where the player's own chat line has said enough (a chat search that
+    /// found no map, 233). The window's line of Post's Surface.Line, in the answers' category.</summary>
+    void WindowNote(int slot, string text, double seconds = 8)
+    {
+        Player(slot).Note = (Hud.Clean(M.Plain(text), Messages.LineMax), DateTime.UtcNow.AddSeconds(seconds), Messages.Answer.Cat.Id);
+        Server.NextFrame(Frame);
+    }
+
     /// <summary>os_notice from the restart watcher: a line for everybody, for this long. Its kind says its words: a download's line, or plain news. A download's refreshed line goes
     /// to chat only when it starts and at each quarter.</summary>
     public string Notice(string text, int seconds)

@@ -12,11 +12,14 @@ public static class ChatReply
         CardOpen = M.Done($"Its card is open in the menu: {M.A("Download and play")}"),
         ListLoading = M.Refused("The map list is not loaded yet - Try again in a moment"),
         NoLine = M.Refused("The menu has no line to the server right now - Try again in a moment"),
-        HowToSearch = $"Search in chat: {M.C("!s")} and a few words - A name, a tag or a Workshop ID";
+        HowToSearch = "Search with the chat: press Y, type part of a map name, then press Enter - The matching maps show here"; // a click on the search area (233)
 
     public static string MenuOn(string page) => M.Done($"The menu is open on {M.A(page)}");
 
     public static string Searching(string words) => M.Done($"The menu's map browser is searching for \"{M.A(Hud.Clean(words, 40))}\"");
+
+    /// <summary>A chat line on MAPS > Browse whose words find no map (233): the cards stay as they are, and the window's line says why.</summary>
+    public static string ChatSearchNone(string words) => M.Refused($"No map matches \"{M.A(Hud.Clean(words, 40))}\" - Try fewer letters or other words");
 
     public static string NoMatch(string words) => M.Refused($"No map matches \"{M.A(Hud.Clean(words, 40))}\" - Other words, a number, or a Workshop ID");
 

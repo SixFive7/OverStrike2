@@ -9,7 +9,7 @@ namespace OverStrike2;
 
 /// <summary>The server's one CounterStrikeSharp plugin: the HUD and the menu, the chat commands, the vote's freeze, the grenade drops, the
 /// settings module and the fun page, catch-up and the game modes. Its interface is the HUD: the full menu (maps with full-text search - !s in chat
-/// opens it on the matches - unlisted Workshop ids, the vote, settings, help), the board beside the scoreboard as a click action panel while TAB is held,
+/// opens it on the matches, and on MAPS > Browse a chat line searches it - unlisted Workshop ids, the vote, settings, help), the board beside the scoreboard as a click action panel while TAB is held,
 /// a now-playing card, the countdown banner, the top line, the status banner and the window's lines. See HudScreen and ../../bridge/Shared/Hud.cs;
 /// the layout is the Workshop addon in hud/, which MultiAddonManager hands out. A real join gets the welcome window, until its X.
 ///
@@ -191,8 +191,9 @@ public class OverStrike2Plugin : BasePlugin
     }
 
     /// <summary>A player's chat line. It always shows as they typed it: the plugin only reads it (a / line is CounterStrikeSharp's silent trigger,
-    /// which hides it). A line that starts with ! or / is a chat command, a bare number a vote while one is open; a Workshop
-    /// link or id opens that item in the menu: chat is where a player types, and pastes (the HUD has no text entry).</summary>
+    /// which hides it). A line that starts with ! or / is a chat command; a Workshop link or id opens that item in the menu; and with the window on
+    /// MAPS > Browse, any other line that is not just chat (gg, ty...) searches the browser, when its words find a map (233): chat is where a player
+    /// types, and pastes - the HUD has no text entry, and the server cannot open the chat box.</summary>
     HookResult OnSay(CCSPlayerController? player, CommandInfo info)
     {
         if (player is not { IsValid: true, IsBot: false } || hud == null) return HookResult.Continue;
@@ -206,6 +207,8 @@ public class OverStrike2Plugin : BasePlugin
             Server.NextFrame(() => { if (who.IsValid) screen.Chat(who, command); });
         else if (WorkshopCard.IdInChat(text) is { } id)
             Server.NextFrame(() => { if (who.IsValid) screen.OpenWorkshop(who, id); });
+        else if (screen.SearchOf(who, text) is { } words) // the window on MAPS > Browse: the line searches it too, when its words find a map (233)
+            Server.NextFrame(() => { if (who.IsValid) screen.ChatSearch(who, words); });
         return HookResult.Continue;
     }
 

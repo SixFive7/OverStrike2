@@ -65,8 +65,9 @@ runs it, its run folder is what `os2-deploy release publish --client-test` asks 
    game's first click, and that click shows the HUD's version on SERVER, Players.
 2. **Hold TAB:** the board beside the scoreboard takes clicks while TAB is down - Like, Dislike, Start a vote, the way into the menu - with Lately at its foot, and letting go gives the mouse back.
 3. **TAB + E:** the window, on its five tabs and their sub-tabs, closing by itself after 30 s without a click.
-4. **MAPS, Browse:** eight cards with their pictures, the mode's label and colour, size, likes and every tag. The sorts and the filters; the search area's hint, whose
-   click says `!s` in chat; `!s` and a few words in chat open the browser on the matches; a Workshop id typed in chat gets its card, with Download and play.
+4. **MAPS, Browse:** eight cards with their pictures, the mode's label and colour, size, likes and every tag. The sorts and the filters; the search area's hint, Press Y and type a map name, whose
+   click says how on the window's line and in chat; a chat line typed on Browse searches it when its words find a map (gg and the like do not), and says so on the window's line when
+   they find none; `!s` and a few words in chat open the browser on the matches from anywhere; a Workshop id typed in chat gets its card, with Download and play.
 5. **Start a vote:** everybody's window opens on MAPS, Vote, and nobody can move, shoot or close it. Ten cards, Keep playing first; Random's button; where the votes go, who has
    not voted yet and both timers. A click votes, another moves the vote, a click on your own takes it back. Browse puts a map on the vote, with your vote.
 6. **The vote's end:** Keep says so for 8 s, Closes in counting down, then everybody unfreezes; another map counts down with everybody frozen. At a match end Keep reads Play this map again, and nobody voting is Random.

@@ -43,8 +43,22 @@ static partial class Program
         var asked = new HudBrowser { Query = "lake", Page = 2 };
         Check("...and those clicks change nothing in the browser: no query typed, no page moved, nothing to open",
             new[] { HudBrowser.HintButton, HudBrowser.OldSearchBox, "os_kb_a", "os_kb_done" }.All(id => !asked.Click(id, 40)) && asked.Query == "lake" && asked.Page == 2);
-        Check("...the answer in chat names !s: a few words in chat - a name, a tag or a Workshop ID",
-            ChatReply.HowToSearch.Contains("!s", StringComparison.Ordinal) && M.Plain(ChatReply.HowToSearch).Length <= Messages.ChatMax);
+        Check("...the answer, on the window's line and in chat, says how: chat is the search's text input - press Y, type part of a map name, Enter (233)",
+            ChatReply.HowToSearch == "Search with the chat: press Y, type part of a map name, then press Enter - The matching maps show here"
+            && M.Plain(ChatReply.HowToSearch).Length <= Messages.LineMax && HudMenu.SearchHint == "Press Y and type a map name");
+
+        // ---- a chat line as the browser's search (233): only while the window is on MAPS > Browse, in a game that shows the HUD ----
+        var viewer = new HudPlayer();
+        var (noVote, voteOpen, voteDecided) = (new VoteState(), new VoteState { Round = 5, Open = true }, new VoteState { Round = 5, Open = false });
+        var maps = HudSlots.Page.Maps;
+        var beforeBrowse = HudFrame.BrowserOpen(true, maps, viewer, voteOpen, true);
+        viewer.VoteView = (5, 0, true); // the vote's Browse
+        Check("A chat line searches only on MAPS > Browse: in the window, on MAPS, in a game that shows the HUD, and not on the ballot - a vote's Browse is the browser, its ballot (a match end's gg) is chat",
+            HudFrame.BrowserOpen(true, maps, new HudPlayer(), noVote, true) && !HudFrame.BrowserOpen(false, maps, new HudPlayer(), noVote, true)
+            && !HudFrame.BrowserOpen(true, HudSlots.Page.Start, new HudPlayer(), noVote, true) && !HudFrame.BrowserOpen(true, HudSlots.Page.Fun, new HudPlayer(), noVote, true)
+            && !HudFrame.BrowserOpen(true, maps, new HudPlayer(), noVote, false) && !beforeBrowse && HudFrame.BrowserOpen(true, maps, viewer, voteOpen, true)
+            && !HudFrame.BrowserOpen(true, maps, viewer, voteDecided, true) && !HudFrame.BrowserOpen(true, maps, viewer, new VoteState { Round = 6, Open = true }, true)
+            && HudFrame.OnBallot(new HudPlayer(), voteOpen) && !HudFrame.OnBallot(new HudPlayer(), noVote));
 
         // ---- the map browser with full-text search ----
         var catalog = new HudCatalog
@@ -94,7 +108,7 @@ static partial class Program
         var idle = HudMenu.Maps(catalog, new HudState(), new HudBrowser(), 1, DateTime.UtcNow, index);
         Check("The search area shows the query as it is, with no caret and no keyboard's class; with no search on, the hint says to type !s in chat - in v4.8.0's search box too",
             kt.Single(t => t.Id == "os_q_text").Text == "glass" && kt.Single(t => t.Id == "os_q_hint").Text == "" && kc.Contains(("os_q_search", "used", true)) && !kc.Any(c => c.Class == "kbd")
-            && idle.Texts.Single(t => t.Id == "os_q_hint").Text == HudMenu.SearchHint && HudMenu.SearchHint.Contains("!s", StringComparison.Ordinal)
+            && idle.Texts.Single(t => t.Id == "os_q_hint").Text == HudMenu.SearchHint && HudMenu.SearchHint.Contains("Press Y", StringComparison.Ordinal)
             && idle.Classes.Contains(("os_q_search", "used", false)));
 
         // ---- the card for a Workshop id that is not on the list (WorkshopCard) ----

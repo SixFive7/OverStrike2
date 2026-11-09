@@ -1,5 +1,6 @@
 // The chat commands (ChatCommands.cs): what the menu's click would do, answered in chat.
 using CounterStrikeSharp.API.Core;
+using Microsoft.Extensions.Logging;
 using System.Globalization;
 
 namespace OverStrike2;
@@ -70,6 +71,31 @@ sealed partial class HudScreen
                 Say(ChatCommands.UnknownLine(cmd.Name));
                 return;
         }
+    }
+
+    // ---- a chat line typed on MAPS > Browse: its search, when its words find a map (233) ----
+
+    int chatSearches; // since the plugin's load: the chat lines that searched a player's browser (os_hud)
+
+    /// <summary>A chat line as the words it would search this player's browser for, or null (ChatCommands.SearchOf): only while their window is on MAPS > Browse in a game that
+    /// shows the HUD (HudFrame.BrowserOpen). Read inside the player's own chat message, so it only looks; the search waits for the next frame (ChatSearch).</summary>
+    public string? SearchOf(CCSPlayerController player, string line) =>
+        ChatCommands.SearchOf(line, HudFrame.BrowserOpen(slots.WindowOpen(player.Slot), slots.PageOf(player.Slot), Player(player.Slot), vote, HasCards(player)), VoteOpen);
+
+    /// <summary>The words of a chat line SearchOf took, which shows in chat as it was typed. When they find a map they become the browser's search, as !s's do - the words in
+    /// its search area with its cross, the best matches first, from its first page. When they find none the cards stay as they are, and the window's line alone says so.</summary>
+    public void ChatSearch(CCSPlayerController player, string words)
+    {
+        if (catalog == null) return; // no list yet: nothing to find in, and the line was chat anyway
+        var account = Account(player);
+        var probe = new HudBrowser();
+        probe.Find(words);
+        if (probe.Matches(catalog, account, search).Count == 0) { WindowNote(player.Slot, ChatReply.ChatSearchNone(words)); return; }
+        var browser = Player(player.Slot).Browser;
+        (browser.Sort, browser.Descending) = (HudBrowser.SortBy.Rank, false); // the default order, which puts the best matches first
+        Menu(player, words);
+        chatSearches++;
+        log.LogInformation("Over Strike 2 HUD: {Name} searched the map browser from chat: {Words}", player.PlayerName, Hud.Clean(words, HudSearch.MaxQuery));
     }
 
     /// <summary>!play &lt;map&gt;: a number is a map's rank (its !map); a Workshop id no listed map has opens its card (the menu's download);

@@ -150,7 +150,7 @@ public sealed class HudFrame
     static void Menu(World w, Human h, HudPlayer p, HudSlots.Page page, int perPage, IScreen screen)
     {
         var (vote, now, slot) = (w.Vote, w.Now, h.Slot);
-        var ballot = page == HudSlots.Page.Maps && vote.Round > 0 && !(vote.Open && p.VoteView.Browse);
+        var ballot = page == HudSlots.Page.Maps && OnBallot(p, vote);
         var (texts, classes) = page switch
         {
             HudSlots.Page.Maps when ballot => BallotPage(w, h, p, perPage, screen),
@@ -182,6 +182,14 @@ public sealed class HudFrame
         else if (!p.Drawn.Now.SequenceEqual(order)) p.Drawn = (vote.Round, page, order, p.Drawn.Now, w.Now);
         return (texts, classes);
     }
+
+    /// <summary>Whether MAPS shows this player the ballot rather than the map browser: a vote is on, and they are not on its Browse - which VoteView keeps to its round.</summary>
+    public static bool OnBallot(HudPlayer p, VoteState vote) => vote.Round > 0 && !(vote.Open && VoteView(p, vote, MapVote.PageCards).Browse);
+
+    /// <summary>Whether this player's window is on MAPS > Browse now - open, on MAPS, and the browser there, not the ballot - in a game that shows the HUD (showsHud: the rule of the
+    /// catch-up card, HudVote.CatchUpCard). A chat line of theirs that is no command searches it then (ChatCommands.SearchOf, 233); on any other page, or the ballot, chat is chat.</summary>
+    public static bool BrowserOpen(bool windowOpen, HudSlots.Page page, HudPlayer p, VoteState vote, bool showsHud) =>
+        showsHud && windowOpen && page == HudSlots.Page.Maps && !OnBallot(p, vote);
 
     /// <summary>A player's view of the vote that is on: their page of the ballot, kept on the pages there are (perPage cards a page), and whether
     /// the map browser is open on it; a new round starts on its first page, on the ballot.</summary>

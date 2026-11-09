@@ -305,6 +305,19 @@ static partial class Program
         Check("A line too long for chat is cut at a space, and the second part is still the refusal it was",
             cut.Count == 2 && cut.All(l => M.Plain(l).Length <= Messages.ChatLineMax) && cut.All(l => Coloured(l).StartsWith('ρ')) && string.Join(' ', cut.Select(M.Plain)) == M.Plain(longRefusal));
 
+        // ---- a chat line typed on MAPS > Browse: its search (233) ----
+        Check("On MAPS > Browse a chat line is its search, all chat and team chat alike: the line as typed",
+            ChatCommands.SearchOf("dust 2", true) == "dust 2" && ChatCommands.SearchOf("  aim map ", true) == "aim map" && ChatCommands.SearchOf("12", true) == "12"
+            && ChatCommands.SearchOf("dust", false) == null && ChatCommands.SearchOf("gg dust", true) == "gg dust");
+        Check("...but no command - !s still searches - no Workshop link or id (they open its card), no bare number while a vote is open, and no line of nothing but chat words or without a letter or a digit",
+            new[] { "!s dust", "!next", "/s dust", "https://steamcommunity.com/sharedfiles/filedetails/?id=3232901690", "3232901690" }.All(l => ChatCommands.SearchOf(l, true) == null)
+            && ChatCommands.SearchOf("12", true, voteOpen: true) == null && ChatCommands.SearchOf("12 dust", true, voteOpen: true) == "12 dust"
+            && ChatCommands.ChatWords.All(w => ChatCommands.SearchOf(w, true) == null) && new[] { "GG", "gg!", "Gg wp", "glhf", "ty gg", "xD", "nice!!", "ok ok" }.All(l => ChatCommands.SearchOf(l, true) == null)
+            && new[] { "", "   ", ":)", ":(", "?", "!", "...", null }.All(l => ChatCommands.SearchOf(l, true) == null)
+            && ChatCommands.ChatWords.SequenceEqual(["gg", "gl", "hf", "glhf", "wp", "ty", "thx", "lol", "xd", "ok", "nice", "ns", "np", "ez"]));
+        Check("...a line whose words find nothing says so on the window's line, in the words agreed",
+            M.Plain(ChatReply.ChatSearchNone("dsut2")) == "No map matches \"dsut2\" - Try fewer letters or other words" && M.Plain(ChatReply.ChatSearchNone(new string('x', 200))).Length <= Messages.LineMax);
+
         // ---- every line: its sections, its length, what is Lime ----
         var lines = new List<string>();
         lines.AddRange(ChatCommands.HelpLines());
@@ -336,7 +349,7 @@ static partial class Program
             lines.Add(Fun.RefusalLine(mine, Fun.Find(mine, x.Choice)!, c => theirSets.FirstOrDefault(v => v.ConVar == c).Value)!);
         }
         lines.AddRange([ChatReply.ChangeUnderWay, ChatReply.VoteOn, ChatReply.VoteWindowStays, ChatReply.NoVote, ChatReply.CardOpen, ChatReply.ListLoading, ChatReply.NoLine,
-            ChatReply.MenuOn("Maps"), ChatReply.Searching("dust"), ChatReply.Searching(new string('x', 200)), ChatReply.NoMatch("dust"), ChatReply.NoMatch(new string('x', 200)), ChatReply.Matches(3), ChatReply.YourVote("#12 aim_x"), ChatReply.YourVote(new string('x', 200))]);
+            ChatReply.MenuOn("Maps"), ChatReply.ChatSearchNone("dust"), ChatReply.ChatSearchNone(new string('x', 200)), ChatReply.HowToSearch, ChatReply.Searching("dust"), ChatReply.Searching(new string('x', 200)), ChatReply.NoMatch("dust"), ChatReply.NoMatch(new string('x', 200)), ChatReply.Matches(3), ChatReply.YourVote("#12 aim_x"), ChatReply.YourVote(new string('x', 200))]);
         var longMap = new MapInfo(0, 7, "aim_" + new string('w', 96), 0);
         lines.AddRange([BlockedRefusal(longMap), RemovedRefusal(longMap), NonMapRefusal(longMap), ModeFullLine(Modes.Wingman, 5)]);
 
