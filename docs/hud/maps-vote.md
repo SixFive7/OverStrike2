@@ -2,7 +2,7 @@
 
 The vote for the next map: everybody's window opens on the ballot, frozen, until it is decided.
 
-A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 868d9ca (HUD content v4.8.0, plugin 5.3.1). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
+A real game client draws every picture here against a test copy of the server, taken by script at 1920x1080, from OverStrike2 5d37792 (HUD content v4.10.0, plugin 5.6.1). Test names only: the avatar is blurred. The index of every part is in the [README](../../README.md#the-hud-page-by-page); every kind of on-screen message is in the [gallery](messages.html).
 
 ## The ballot: everybody's window big, open and frozen, ten tiles, Random, the clocks, Waiting for
 
@@ -60,7 +60,7 @@ The message: The vote decided, and the change counting down. Where it goes: a li
 
 ![The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn](img/now-playing-01.jpg)
 
-![The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn](img/now-playing-03.jpg)
+![The card under the crosshair: Now playing, the map's own picture, at the new map's first spawn](img/now-playing-02.jpg)
 
 The message: Now-playing card, at each map's first spawn. Where it goes: 3c the map's own picture (Our card: centre, under the crosshair); also listed on the TAB board.
 
