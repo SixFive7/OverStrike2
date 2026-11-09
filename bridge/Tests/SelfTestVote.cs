@@ -659,11 +659,11 @@ static partial class Program
             Land();
             Check("Landed in Deathmatch: the plugin hears the mode again after the map start (os_mode: the plugin's own mode, which the HUD shows)",
                 h.Sent.Contains("os_mode deathmatch") && CurrentMode == Modes.Deathmatch && S.Map == dmMap);
-            Check("...and Arms Race's match length is not carried into Deathmatch, which keeps its own (Valve's 10, the cfg's)", !h.Sent.Any(c => c.StartsWith("mp_roundtime")));
+            Check("...and Arms Race's match length is not carried into Deathmatch: its own, 60, goes out after the load, not Arms Race's 10",
+                h.Sent.Contains($"mp_roundtime {DefaultRoundMinutes}") && !h.Sent.Contains($"mp_roundtime {ShortRoundMinutes}"));
             ClearNotices(); Command(alice.Item1, alice.Item2, "!time 60");
-            Check("...where !time sets Deathmatch's own, and Arms Race's stays (release 197)",
-                h.Said("Alice set the match length to 60 minutes") && S.DmRoundMinutes == 60 && S.RoundMinutes == ShortRoundMinutes && h.Sent.Contains("mp_roundtime 60"));
-            S.DmRoundMinutes = ShortRoundMinutes; S.DmRoundBy = null;
+            Check("...where !time 60 is Deathmatch's already, and Arms Race's 10 stays (release 197)",
+                h.Said("Matches are already 60 minutes") && S.DmRoundMinutes == 60 && S.RoundMinutes == ShortRoundMinutes);
             Settle(); h.MatchEnd();
             Check($"The next vote in Deathmatch: Play this map again, {MapVote.PageCards - 3} Deathmatch maps, then Arms Race and Wingman, and Random in Deathmatch",
                 Ballot!.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("deathmatch", MapVote.PageCards - 2).Concat(["armsrace", "wingman", "deathmatch"]))

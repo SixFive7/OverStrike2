@@ -1,5 +1,5 @@
 // !time: the match length, 10 or 60 minutes, for the match that is on too - Arms Race and Deathmatch are each one long round (mp_roundtime), and each keeps its own length
-// (release 197): Arms Race's starts at 60, Deathmatch's at Valve's 10. Wingman plays a match of rounds, and keeps its own.
+// (release 197); both start at 60. Wingman plays a match of rounds, and keeps its own.
 
 static partial class Program
 {

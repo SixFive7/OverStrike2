@@ -280,8 +280,8 @@ Anybody may change these, on the Game page or in chat; each says for everybody w
 
 - **The match length** (`!time 10`, `!time 60`; Arms Race's and Deathmatch's, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: each of the two modes is one long
   round, so the plugin (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
-  `mp_roundtime`. Each mode keeps its own length, which its cfg sets at every load and the bridge puts back 2 s later when a player chose the other: Arms Race's starts at 60 minutes, Deathmatch's at
-  Valve's 10 (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race). In Wingman the row is gone and `!time` is refused: a Wingman match is a whole
+  `mp_roundtime`. Each mode keeps its own length, and both start at 60 minutes, which each mode's cfg sets at every load (Valve's Deathmatch has 10); the bridge puts a chosen 10 back 2 s
+  later - in Deathmatch it puts the length back after every load (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race). In Wingman the row is gone and `!time` is refused: a Wingman match is a whole
   match of rounds, where a round's time of 10 minutes would only make one round long.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no

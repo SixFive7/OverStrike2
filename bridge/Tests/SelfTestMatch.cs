@@ -258,39 +258,39 @@ static partial class Program
                 h.Run(PressedSeconds + 1);
                 Check($"{mode}: Restart match works there too, in that mode's words, and the same command goes out", OnBoard(line) && h.Sent.Contains(RematchCommand));
                 h.Sent.Clear(); ClearNotices();
-                (S.RoundMinutes, S.DmRoundMinutes) = (DefaultRoundMinutes, ShortRoundMinutes);
+                (S.RoundMinutes, S.DmRoundMinutes) = (DefaultRoundMinutes, DefaultRoundMinutes);
                 if (mode == Modes.WingmanId)
                 {
                     Click(alice, $"!time {ShortRoundMinutes}");
                     Check($"{mode}: the match length stays out of it - refused, nothing sent, nothing stored: a round's time is not a match's there",
                         h.Said("The match length is Arms Race's and Deathmatch's - Wingman plays a match of rounds") && h.Sent.Count == 0
-                        && (S.RoundMinutes, S.DmRoundMinutes) == (DefaultRoundMinutes, ShortRoundMinutes) && Live().RoundMinutes == 0);
+                        && (S.RoundMinutes, S.DmRoundMinutes) == (DefaultRoundMinutes, DefaultRoundMinutes) && Live().RoundMinutes == 0);
                     continue;
                 }
-                // Deathmatch (release 197): one long round, as Arms Race - its own length, Valve's 10 to begin with
-                Check($"{mode}: its own match length, Valve's 10 minutes until a player chooses, on the wire and with nobody named",
-                    Live().RoundMinutes == ShortRoundMinutes && Live().RoundBy == "" && MatchLength.DefaultMinutes(mode) == ShortRoundMinutes && MatchLength.Applies(mode));
-                Click(alice, $"!time {ShortRoundMinutes}");
-                Check($"{mode}: !time {ShortRoundMinutes} there is no change", h.Said($"Matches are already {ShortRoundMinutes} minutes") && h.Sent.Count == 0);
+                // Deathmatch (release 197): one long round, as Arms Race - its own length, 60 minutes to begin with, as Arms Race's (Valve's is 10)
+                Check($"{mode}: its own match length, {DefaultRoundMinutes} minutes until a player chooses, on the wire and with nobody named",
+                    Live().RoundMinutes == DefaultRoundMinutes && Live().RoundBy == "" && MatchLength.DefaultMinutes(mode) == DefaultRoundMinutes && MatchLength.Applies(mode)
+                    && new State().DmRoundMinutes == DefaultRoundMinutes);
                 Click(alice, $"!time {DefaultRoundMinutes}");
-                var dmWords = $"Alice set the match length to {DefaultRoundMinutes} minutes";
-                Check($"{mode}: !time {DefaultRoundMinutes} sets Deathmatch's own - mp_roundtime and the round that is on - named on the Game page; Arms Race's stays as it was",
-                    h.Sent.IndexOf($"mp_roundtime {DefaultRoundMinutes}") is var dmFirst and >= 0 && h.Sent.IndexOf($"{MatchLength.Command} {DefaultRoundMinutes}") == dmFirst + 1
-                    && S.DmRoundMinutes == DefaultRoundMinutes && S.DmRoundBy == "Alice" && S.RoundMinutes == DefaultRoundMinutes && S.RoundBy == null
-                    && Live().RoundMinutes == DefaultRoundMinutes && Live().RoundBy == "Alice" && h.Said(dmWords));
+                Check($"{mode}: !time {DefaultRoundMinutes} there is no change", h.Said($"Matches are already {DefaultRoundMinutes} minutes") && h.Sent.Count == 0);
+                Click(alice, $"!time {ShortRoundMinutes}");
+                var dmWords = $"Alice set the match length to {ShortRoundMinutes} minutes";
+                Check($"{mode}: !time {ShortRoundMinutes} sets Deathmatch's own - mp_roundtime and the round that is on - named on the Game page; Arms Race's stays as it was",
+                    h.Sent.IndexOf($"mp_roundtime {ShortRoundMinutes}") is var dmFirst and >= 0 && h.Sent.IndexOf($"{MatchLength.Command} {ShortRoundMinutes}") == dmFirst + 1
+                    && S.DmRoundMinutes == ShortRoundMinutes && S.DmRoundBy == "Alice" && S.RoundMinutes == DefaultRoundMinutes && S.RoundBy == null
+                    && Live().RoundMinutes == ShortRoundMinutes && Live().RoundBy == "Alice" && h.Said(dmWords));
+                h.Sent.Clear();
+                h.Line($"Loading map \"{S.Map!.Name}\"");
+                h.Run(3);
+                Check($"{mode}: a new map puts the chosen {ShortRoundMinutes} back after the mode's cfg has run, 2 s after its start", h.Sent.Contains($"mp_roundtime {ShortRoundMinutes}"));
                 Click(alice, "!time");
-                Check($"{mode}: a bare !time flips it back to {ShortRoundMinutes}, Valve's, and the Game page names nobody again",
-                    S.DmRoundMinutes == ShortRoundMinutes && S.DmRoundBy == null && Live().RoundBy == "" && h.Sent.Contains($"mp_roundtime {ShortRoundMinutes}"));
-                S.DmRoundMinutes = DefaultRoundMinutes;
+                Check($"{mode}: a bare !time flips it back to {DefaultRoundMinutes}, its own, and the Game page names nobody again",
+                    S.DmRoundMinutes == DefaultRoundMinutes && S.DmRoundBy == null && Live().RoundBy == "" && h.Sent.Contains($"mp_roundtime {DefaultRoundMinutes}"));
                 h.Sent.Clear();
-                h.Line($"Loading map \"{S.Map!.Name}\"");
+                h.Line($"Loading map \"{Maps[22].Name}\""); // another map: a second start of the same one at once is the same start
                 h.Run(3);
-                Check($"{mode}: a new map puts a chosen length back after the mode's cfg (Valve's mp_roundtime 10) has run, 2 s after its start", h.Sent.Contains($"mp_roundtime {DefaultRoundMinutes}"));
-                S.DmRoundMinutes = ShortRoundMinutes;
-                h.Sent.Clear();
-                h.Line($"Loading map \"{S.Map!.Name}\"");
-                h.Run(3);
-                Check($"{mode}: ...and leaves Valve's own alone", !h.Sent.Any(c => c.StartsWith("mp_roundtime", StringComparison.Ordinal)));
+                Check($"{mode}: ...and its own {DefaultRoundMinutes} goes out after every Deathmatch load too - a server whose Deathmatch cfg is still Valve's 10 gets 60 all the same",
+                    h.Sent.Contains($"mp_roundtime {DefaultRoundMinutes}"));
             }
 
             // ---- the match length, for the match that is on ----

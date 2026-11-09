@@ -16,7 +16,7 @@ sealed class State
     public int RoundMinutes { get; set; } = Program.DefaultRoundMinutes;   // Arms Race's match length; survives restarts; re-applied after every map load
     public List<MapInfo> History { get; set; } = new();  // maps played, oldest first, at most 20: !previous and the dice's recent-map rule
     public string? RoundBy { get; set; }              // who set a match length that is not the default
-    public int DmRoundMinutes { get; set; } = 10;     // Deathmatch's (release 197): Valve's 10 until somebody chooses 60 (MatchLength.DefaultMinutes)
+    public int DmRoundMinutes { get; set; } = Program.DefaultRoundMinutes; // Deathmatch's (release 197): 60, as Arms Race's, until somebody chooses 10
     public string? DmRoundBy { get; set; }            // ...and who did
     public string Mode { get; set; } = Modes.ArmsRaceId;              // the game mode the server was last told to load in (ModeSwitch.cs): Arms Race after every restart and after 10 min with nobody on
     public Dictionary<string, string> PlayerCrashes { get; set; } = new(); // crash key -> why: maps that crashed players' games (BrokenWhy.cs)
