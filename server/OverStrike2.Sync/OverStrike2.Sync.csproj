@@ -34,4 +34,9 @@
     <None Remove="SelfTest\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The scan reads map entity lumps in Zstandard (Scan.Kv3Strings, release 197), which .NET has no decoder for: a managed port, MIT (NOTICE). -->
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
+  </ItemGroup>
+
 </Project>

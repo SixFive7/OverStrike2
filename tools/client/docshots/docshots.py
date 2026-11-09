@@ -489,7 +489,7 @@ def R(id, shows="", **kw):
 # ---- a fresh, real join first: any click ends the HUD check -------------------------------------------------------------------------------------------
 
 R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick="HUD check: Click to play",
-  today="the window's X (os_hudver_v4.9.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+  today="the window's X (os_hudver_v4.10.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
   steps=[con("disconnect"), pause(3), mark(), con(f"connect {HOST}:{PORT}"), wait_ingame(), pause(4), con("jointeam 2 1", 1500), pause(5), shoot()],
   when="5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
   crop=C_X, masks=(M_GREET_BACK,), names=GREETING + UNSEEN)
@@ -798,7 +798,7 @@ def to_mode(mode, game_type, game_mode, map_name):
 
 
 R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section=S_MODES, bridge=W_MAP, steps=[*to_mode("deathmatch", 1, 2, "de_dust2"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
-R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section=S_MODES, after="mode-deathmatch-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
+R("mode-deathmatch-game", "SERVER > Game in Deathmatch: its own match length", section=S_MODES, after="mode-deathmatch-fun", bridge=W_MAP, steps=[press("os_tab_game"), pause(1), shoot()], when="1 s after the click returns", masks=(BLUR_SETBY,), names=real("a set-by in the bridge's state: blurred"))
 R("mode-wingman-fun", "FUN in Wingman", section=S_MODES, after="mode-deathmatch-game", bridge=W_MAP, steps=[*to_mode("wingman", 0, 2, "de_inferno"), show("fun"), pause(1), shoot()], when="1 s after the show returns")
 R("mode-wingman-bots", "FUN > Bots in Wingman: the counts past its room for 4 players greyed, and every preset but Sniper duel", section=S_MODES, after="mode-wingman-fun",
   bridge=W_MAP, steps=[show("bots"), pause(1), shoot()], when="1 s after the show returns", words_from=("bridge/Shared/Bots.cs", "has room for"))

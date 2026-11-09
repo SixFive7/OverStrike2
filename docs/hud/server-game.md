@@ -22,9 +22,9 @@ The message: The answer to your own click: refused, click again, already set. Wh
 
 ![Restart match: the countdown banner, naming who](img/rematch-countdown.jpg)
 
-## SERVER > Game in Deathmatch: no match length
+## SERVER > Game in Deathmatch: its own match length
 
-![SERVER &gt; Game in Deathmatch: no match length](img/mode-deathmatch-game.jpg)
+![SERVER &gt; Game in Deathmatch: its own match length](img/mode-deathmatch-game.jpg)
 
 ## SERVER > Game in Wingman
 

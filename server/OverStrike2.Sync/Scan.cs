@@ -150,7 +150,11 @@ public sealed partial class Vpk
 }
 
 /// <summary>THE SCAN: what a Workshop download holds - a map, a model pack, an empty upload or a CS:GO-era one - and the commands its
-/// entity lump and cfg files carry (connect &lt;ip&gt;, `say connect ...`, gambling promo codes).</summary>
+/// entity lumps, cfg files and map scripts carry (connect &lt;ip&gt;, `say connect ...`, gambling promo codes). An entity lump's text is read in
+/// every format found on the server's maps (release 197): KV3 v5 with LZ4, as CS2's compiler writes it now; v4 with LZ4 in chained frames, about
+/// a fifth of the lumps, which the scan read as raw bytes before; and Zstandard in either, a few in a hundred. A map script (cs_script, .vjs_c and
+/// .vts_c) keeps its source as plain text: aim_redline_fps and awp_lego_fps said a gambling advert in chat at every round start from one, unseen
+/// until then.</summary>
 public static partial class Scan
 {
     const string Ip = "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?";
@@ -214,6 +218,105 @@ public static partial class Scan
         return dst.ToArray();
     }
 
+    /// <summary>LZ4 as KV3 v4 keeps it: blocks of `frame` bytes of output each, chained - a later block may copy from an earlier one - and a block ends
+    /// where the output reaches a multiple of the frame after its literals. Decoded from `start` as far as it goes; a bad offset or a block cut short
+    /// ends it, and what came out so far is the answer.</summary>
+    public static byte[] Lz4Frames(byte[] src, int start, int frame, long limit)
+    {
+        var dst = new List<byte>();
+        int i = start, n = src.Length;
+        try
+        {
+            while (i < n)
+            {
+                var token = src[i++];
+                var lit = token >> 4;
+                if (lit == 15)
+                    while (true)
+                    {
+                        var b = src[i++];
+                        lit += b;
+                        if (b != 255)
+                            break;
+                    }
+                var take = Math.Max(0, Math.Min(lit, n - i));
+                dst.AddRange(src.AsSpan(i, take).ToArray());
+                i += lit;
+                if (i >= n || (frame > 0 && dst.Count > 0 && dst.Count % frame == 0))
+                    continue;
+                var off = src[i] | (src[i + 1] << 8);
+                i += 2;
+                if (off == 0 || off > dst.Count)
+                    break;
+                var ml = token & 15;
+                if (ml == 15)
+                    while (true)
+                    {
+                        var b = src[i++];
+                        ml += b;
+                        if (b != 255)
+                            break;
+                    }
+                ml += 4;
+                var at = dst.Count - off;
+                for (var k = 0; k < ml; k++)
+                    dst.Add(dst[at + k]);
+                if (dst.Count > limit)
+                    break;
+            }
+        }
+        catch (IndexOutOfRangeException)
+        {
+        }
+        return dst.ToArray();
+    }
+
+    /// <summary>Every Zstandard frame in a block, decompressed and joined, each to at most `limit` bytes; a frame that does not decode ends the list.</summary>
+    public static byte[] ZstdFrames(byte[] data, long limit)
+    {
+        var output = new List<byte>();
+        var pos = 0;
+        while (pos < data.Length)
+        {
+            var at = data.AsSpan(pos).IndexOf((ReadOnlySpan<byte>)[0x28, 0xB5, 0x2F, 0xFD]);
+            if (at < 0)
+                break;
+            pos += at;
+            try
+            {
+                using var unpack = new ZstdSharp.DecompressionStream(new MemoryStream(data, pos, data.Length - pos, false), leaveOpen: false);
+                var buffer = new byte[64 * 1024];
+                long got = 0;
+                int read;
+                while ((read = unpack.Read(buffer, 0, buffer.Length)) > 0 && got <= limit)
+                {
+                    output.AddRange(buffer.AsSpan(0, read).ToArray());
+                    got += read;
+                }
+                break; // the stream reads on through every frame after this one
+            }
+            catch (Exception e) when (e is ZstdSharp.ZstdException or IOException or InvalidDataException or ArgumentException)
+            {
+                pos += 4;
+            }
+        }
+        return output.ToArray();
+    }
+
+    /// <summary>How much an entity lump's decoded bytes look like one: its "classname" keys first, then the printable bytes of its start.</summary>
+    static int LumpScore(byte[] bytes)
+    {
+        var score = 0;
+        var key = "classname"u8;
+        for (var at = bytes.AsSpan().IndexOf(key); at >= 0; )
+        {
+            score += 1000;
+            var next = bytes.AsSpan(at + key.Length).IndexOf(key);
+            at = next < 0 ? -1 : at + key.Length + next;
+        }
+        return score + bytes.Take(4096).Count(TextByte);
+    }
+
     static byte[] Slice(byte[] b, long start, long end)
     {
         start = Math.Clamp(start, 0, b.Length);
@@ -229,8 +332,9 @@ public static partial class Scan
         return (BinaryPrimitives.ReadUInt32LittleEndian(s), BinaryPrimitives.ReadUInt32LittleEndian(s.AsSpan(4)));
     }
 
-    /// <summary>The text a compiled Source 2 resource (an entity lump, .vents_c) carries: the string table of its KV3 DATA block, decompressed
-    /// when it is KV3 v5 with LZ4 (the format CS2's compiler writes), else its raw bytes.</summary>
+    /// <summary>The text a compiled Source 2 resource (an entity lump, .vents_c) carries: its KV3 DATA block decompressed - v5 with LZ4 (the string
+    /// table, as CS2's compiler writes it now), v4 with LZ4 in chained frames (its data's start found by trying, the start that reads most like an
+    /// entity lump), or Zstandard in either - else its raw bytes.</summary>
     public static byte[] Kv3Strings(byte[] resource)
     {
         try
@@ -248,10 +352,25 @@ public static partial class Scan
             }
             if (data is null || data.Length < 120)
                 return resource;
-            if (data.AsSpan(0, 4).SequenceEqual("\u00053VK"u8) && BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(20)) == 1)
+            var method = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(20));
+            if (data.AsSpan(0, 4).SequenceEqual("\u00053VK"u8) && method == 1)
             {
                 var (u1, c1) = Two(data, 72);
                 return Lz4Block(Slice(data, 120, 120 + (long)c1), u1 + 16L);
+            }
+            if (method == 2)
+                return ZstdFrames(data, 64L << 20) is { Length: > 0 } unpacked ? unpacked : data;
+            if (method == 1)
+            {
+                var frame = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(26)) is var f and > 0 ? f : 16384;
+                byte[] best = [];
+                for (var start = 40; start <= Math.Min(200, data.Length - 1); start++)
+                {
+                    var tried = Lz4Frames(data, start, frame, 64L << 20);
+                    if (LumpScore(tried) > LumpScore(best))
+                        best = tried;
+                }
+                return best.Length > 0 ? best : data;
             }
             return data;
         }
@@ -336,6 +455,9 @@ public static partial class Scan
 
     static bool Contains(byte[] hay, ReadOnlySpan<byte> needle) => hay.AsSpan().IndexOf(needle) >= 0;
 
+    /// <summary>A map script (cs_script): compiled JavaScript or TypeScript, its source kept as plain text in the resource.</summary>
+    static bool IsScript(string lowerPath) => lowerPath.EndsWith(".vjs_c", StringComparison.Ordinal) || lowerPath.EndsWith(".vts_c", StringComparison.Ordinal);
+
     /// <summary>What one Workshop download holds. verdict: map | pack | empty | legacy | unknown, maps (the level names in it), models,
     /// files, bytes, names, advert (category) and advert_sample (the command that made it), or none.</summary>
     public static JsonObject Item(string folder)
@@ -385,7 +507,12 @@ public static partial class Scan
                     foreach (var ie in inner.Entries)
                     {
                         var il = ie.Path.ToLowerInvariant();
-                        if (il.EndsWith(".vents_c", StringComparison.Ordinal) || il.EndsWith(".cfg", StringComparison.Ordinal))
+                        if (IsScript(il))
+                        {
+                            if (inner.Read(ie, 8L << 20) is { Length: > 0 } script)
+                                commands.AddRange(CommandsIn(script));
+                        }
+                        else if (il.EndsWith(".vents_c", StringComparison.Ordinal) || il.EndsWith(".cfg", StringComparison.Ordinal))
                         {
                             var raw = inner.Read(ie, 32L << 20);
                             if (raw is { Length: > 0 })
@@ -399,6 +526,11 @@ public static partial class Scan
                 }
                 else if (low.EndsWith(".vmdl_c", StringComparison.Ordinal))
                     models++;
+                else if (IsScript(low))
+                {
+                    if (vpk.Read(entry, 8L << 20) is { Length: > 0 } script)
+                        commands.AddRange(CommandsIn(script));
+                }
                 else if (low.EndsWith(".cfg", StringComparison.Ordinal))
                 {
                     var raw = vpk.Read(entry, 4L << 20);

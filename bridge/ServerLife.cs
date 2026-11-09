@@ -114,7 +114,8 @@ static partial class Program
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
         if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the plugin say which mode it was told (else the convars)
         else { ModeBeforeChange = null; ModeVerifyDue = true; } // the change landed: SyncMode checks the mode it came up in
-        if (S.RoundMinutes != DefaultRoundMinutes && CurrentMode.ArmsRace) After(2000, ApplyMatchLength); // the mode cfg just reset mp_roundtime; put the chosen value back (Arms Race only)
+        if (MatchLengthOf(CurrentMode) is { Minutes: > 0 } length && length.Minutes != MatchLength.DefaultMinutes(CurrentMode.Id))
+            After(2000, ApplyMatchLength); // the mode's cfg just reset mp_roundtime to its own; put the chosen value back (Arms Race and Deathmatch)
         if (ours && S.Map != null) // the change we asked for has loaded (ours implies S.Map; repeated for the null analysis)
         {
             LoadPending = false;

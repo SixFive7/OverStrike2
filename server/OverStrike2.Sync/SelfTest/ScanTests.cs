@@ -102,6 +102,44 @@ static class ScanTests
         return [.. head, .. "DATA"u8, .. U32(8), .. U32(kv3.Length), .. kv3];
     }
 
+    /// <summary>A KV3 v4 entity lump the older way (release 197's formats): a header of `header` bytes, then LZ4 in chained frames of 16 KB - each
+    /// frame here a block of literals of its own, so a lump past 16 KB crosses a frame's end - inside a resource as Kv3Resource's.</summary>
+    public static byte[] Kv3ResourceV4(byte[] text, int header)
+    {
+        var body = new byte[header];
+        "\u00043VK"u8.CopyTo(body);
+        U32(1).CopyTo(body, 20);
+        U16(16384).CopyTo(body, 26);
+        var packed = new List<byte>();
+        for (var at = 0; at < text.Length; at += 16384)
+            packed.AddRange(Lz4Literals(text[at..Math.Min(text.Length, at + 16384)]));
+        return InResource([.. body, .. packed]);
+    }
+
+    /// <summary>A KV3 v5 entity lump in Zstandard: the 120-byte header, then one frame.</summary>
+    public static byte[] Kv3ResourceZstd(byte[] text)
+    {
+        var body = new byte[120];
+        "\u00053VK"u8.CopyTo(body);
+        U32(2).CopyTo(body, 20);
+        using var packer = new ZstdSharp.Compressor(3);
+        return InResource([.. body, .. packer.Wrap(text).ToArray()]);
+    }
+
+    static byte[] InResource(byte[] kv3)
+    {
+        var head = new byte[16];
+        U32(8).CopyTo(head, 8);
+        U32(1).CopyTo(head, 12);
+        return [.. head, .. "DATA"u8, .. U32(8), .. U32(kv3.Length), .. kv3];
+    }
+
+    /// <summary>A map script (cs_script) as the two advert maps of 2026-11-09 had theirs: compiled, its source kept as text in the resource, a promo
+    /// said in chat at every round start (the code made up).</summary>
+    static readonly byte[] AdvertScript = Encoding.UTF8.GetBytes("RED2\0DATA\0import { Instance } from \"cs_script/point_script\"\n"
+        + "const MESAJ = \"(18+) Claim 3 FREE CASES & 200% DEPOSIT BONUS at Clash.gg | Use code TESTCODE to claim!\"\n"
+        + "Instance.OnRoundStart(() => Instance.ServerCommand(`say ${MESAJ}`))\n");
+
     // ---- the scan: the advert rules
     internal static void ScanChecks(string root)
     {
@@ -141,6 +179,30 @@ static class ScanTests
         Directory.CreateDirectory(emptyDir);
         File.WriteAllBytes(Path.Combine(emptyDir, "3_dir.vpk"), VpkOf(("materials/a/b.vmat_c", "x"u8.ToArray())));
         Check("scan: no map and no models is empty", Node.Str(Scan.Item(emptyDir)["verdict"]) == "empty");
+        // ---- release 197: the older entity-lump formats, and map scripts ----
+        var filler = Enumerable.Range(0, 900).SelectMany(i => Encoding.UTF8.GetBytes($"classname\0info_target\0targetname\0t{i}\0origin\0{i}.0 0.0 0.0\0")).ToArray();
+        var lump = filler.Concat("Command\0say connect 203.0.113.9:27015\0point_servercommand\0"u8.ToArray()).ToArray();
+        Check($"scan: a KV3 v4 entity lump in chained LZ4 frames ({lump.Length} bytes, past one 16 KB frame), behind a header of 76 or of 98 bytes, reads whole",
+              new[] { 76, 98 }.All(h => Scan.Kv3Strings(Kv3ResourceV4(lump, h)).AsSpan().IndexOf("say connect 203.0.113.9:27015"u8) >= 0) && lump.Length > 16384);
+        Check("scan: a KV3 entity lump in Zstandard reads too", Encoding.UTF8.GetString(Scan.Kv3Strings(Kv3ResourceZstd(lump))).Contains("say connect 203.0.113.9:27015"));
+        Check("scan: the chained LZ4 reader stops at what it cannot decode, and keeps what it had", Scan.Lz4Frames([0x41, .. "abcd"u8, 9, 0], 0, 16384, 64).SequenceEqual("abcd"u8.ToArray()));
+        var v4Dir = Path.Combine(root, "item5");
+        Directory.CreateDirectory(v4Dir);
+        File.WriteAllBytes(Path.Combine(v4Dir, "5_dir.vpk"), VpkOf(("maps/older.vpk", VpkOf(("maps/older/entities/default_ents.vents_c", Kv3ResourceV4(lump, 76))))));
+        Check("scan: an older map's 'say connect' in a v4 lump is a chat advert now - before release 197 its lump was read as raw bytes", Node.Str(Scan.Item(v4Dir)["advert"]) == "chat advert");
+        var scriptDir = Path.Combine(root, "item6");
+        Directory.CreateDirectory(scriptDir);
+        File.WriteAllBytes(Path.Combine(scriptDir, "6_dir.vpk"), VpkOf(("maps/fpsmap.vpk", inner), ("scripts/mesaj.vjs_c", AdvertScript)));
+        var scripted = Scan.Item(scriptDir);
+        Check("scan: a map script's gambling promo is a gambling ad, over what the map's entity lump says (aim_redline_fps and awp_lego_fps, 2026-11-09)",
+              Node.Str(scripted["advert"]) == "gambling ad" && Node.Str(scripted["advert_sample"]).Contains("Clash.gg", StringComparison.Ordinal) && Node.StrList(scripted["maps"]) is ["fpsmap"]);
+        var nestedDir = Path.Combine(root, "item7");
+        Directory.CreateDirectory(nestedDir);
+        File.WriteAllBytes(Path.Combine(nestedDir, "7_dir.vpk"), VpkOf(("maps/fpsmap.vpk", VpkOf(("maps/fpsmap/entities/default_ents.vents_c", Kv3Resource("classname\0worldspawn\0"u8.ToArray())),
+            ("scripts/vscripts/mesaj.vts_c", AdvertScript)))));
+        Check("scan: so is one inside the map's own package, and a plain map with neither has none",
+              Node.Str(Scan.Item(nestedDir)["advert"]) == "gambling ad" && Scan.Item(packDir)["advert"] is null);
+
         var legacyDir = Path.Combine(root, "item4");
         Directory.CreateDirectory(legacyDir);
         File.WriteAllBytes(Path.Combine(legacyDir, "4_legacy.bin"), "x"u8.ToArray());

@@ -1,11 +1,12 @@
-// The match length on the game's side. Arms Race is one long round, so a match lasts as long as that round's time. The bridge's !time (Program.SetMatchLength) changes it for
+// The match length on the game's side. Arms Race and Deathmatch are each one long round, so a match lasts as long as that round's time. The bridge's !time (Program.SetMatchLength) changes it for
 // the match that is on as well as for the ones to come: it sets mp_roundtime, which every round start reads, and asks the plugin to set the round that is on (Command,
 // HudScreenMatch.cs): CCSGameRules.RoundTime, counted from the round's start, so the time already played counts. A length the match is already past, or has less than
 // LeastSeconds of, ends the match LeastSeconds from now, not at once. The next round start - a new match, Restart match, a new map - reads mp_roundtime again, so nothing here
 // outlives the round.
 //
-// Outside Arms Race it does not apply: Deathmatch runs Valve's 10-minute round, and a Wingman match is a whole match of rounds, where a round's time of 10 minutes would only
-// make one round long. The bridge refuses !time there, and the plugin's command sets nothing.
+// Each of the two keeps its own length (release 197): Arms Race's starts at 60 minutes, the engine's ceiling, Deathmatch's at Valve's 10 - what each mode's cfg sets at every load,
+// after which the bridge puts a chosen length back. A Wingman match is a whole match of rounds, where a round's time of 10 minutes would only make one round long: the bridge
+// refuses !time there, and the plugin's command sets nothing.
 //
 // Shared like Hud.cs: the bridge compiles it and tests it in --selftest, the plugin links it in. Plain BCL only.
 public static class MatchLength
@@ -16,8 +17,14 @@ public static class MatchLength
     /// <summary>A match the new length leaves less than this goes on for this long.</summary>
     public const int LeastSeconds = 60;
 
+    /// <summary>The modes whose match is one round, and so has a length: Arms Race and Deathmatch.</summary>
+    public static bool Applies(string modeId) => modeId is Modes.ArmsRaceId or Modes.DeathmatchId;
+
+    /// <summary>A mode's own length, which its cfg sets at every load: Arms Race's 60 minutes (server/gamemode_armsrace_server.cfg), Deathmatch's Valve's 10.</summary>
+    public static int DefaultMinutes(string modeId) => modeId == Modes.DeathmatchId ? 10 : 60;
+
     /// <summary>What the command did. Set: the match that is on lasts the new length. EndsSoon: it is past that, or nearly, and ends LeastSeconds from now. NoMatch: no match is on
-    /// (warmup, the match-end screen, a map still loading), so mp_roundtime starts the next one. NotHere: the map that is on is not in Arms Race, and nothing was set.</summary>
+    /// (warmup, the match-end screen, a map still loading), so mp_roundtime starts the next one. NotHere: the map that is on plays a match of rounds (Wingman), and nothing was set.</summary>
     public enum Result { Set, EndsSoon, NoMatch, NotHere }
 
     /// <summary>The round's time for a new length, whole seconds from the round's start, with this much of the round played.</summary>
@@ -26,7 +33,7 @@ public static class MatchLength
     /// <summary>Which of Set and EndsSoon that round's time is.</summary>
     public static Result Of(int minutes, double playedSeconds) => RoundSeconds(minutes, playedSeconds) > minutes * 60 ? Result.EndsSoon : Result.Set;
 
-    static string Word(Result result) => result switch { Result.Set => "set", Result.EndsSoon => "ends soon", Result.NoMatch => "no match on", _ => "not Arms Race" };
+    static string Word(Result result) => result switch { Result.Set => "set", Result.EndsSoon => "ends soon", Result.NoMatch => "no match on", _ => "not this mode" };
 
     /// <summary>The command's reply: the first words say what it did (Read), the rest is for the bridge's log.</summary>
     public static string Reply(Result result, string details) => $"{Command}: {Word(result)} - {details}";

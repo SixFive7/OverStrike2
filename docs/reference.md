@@ -278,10 +278,11 @@ Race, when the map that is on has just gone from the Workshop, when it has just 
 
 Anybody may change these, on the Game page or in chat; each says for everybody who did it.
 
-- **The match length** (`!time 10`, `!time 60`; Arms Race's own, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: Arms Race is one long round, so the plugin
-  (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
-  `mp_roundtime`. Outside Arms Race the row is gone and `!time` is refused: Deathmatch keeps Valve's 10-minute round, and a Wingman match is a whole match of rounds, where a round's time of
-  10 minutes would only make one round long.
+- **The match length** (`!time 10`, `!time 60`; Arms Race's and Deathmatch's, `bridge/Shared/MatchLength.cs`) applies to the match that is on, not only the next: each of the two modes is one long
+  round, so the plugin (`os_matchlength <minutes>`, from the bridge) sets that round's time, counted from its start. A match already past the new length, or with less than a minute of it left, ends **60 s from now**, not at once. The rounds to come read
+  `mp_roundtime`. Each mode keeps its own length, which its cfg sets at every load and the bridge puts back 2 s later when a player chose the other: Arms Race's starts at 60 minutes, Deathmatch's at
+  Valve's 10 (since release 197; HUD content v4.10.0 shows the row in Deathmatch, an older content only in Arms Race). In Wingman the row is gone and `!time` is refused: a Wingman match is a whole
+  match of rounds, where a round's time of 10 minutes would only make one round long.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms, then 10 s count down on the countdown banner with the player's name,
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
@@ -599,7 +600,8 @@ left before that cut. Discovery, the check and the ratings run at most every `sy
    goes without a new download.
 4. **Download** with SteamCMD's anonymous login, one item at a time, through everything that is queued: the maps whose score would make one of their mode's three lists first, then new uploads, listed maps that changed, and everything
    else strictly by subscribers, whatever the mode. Nothing is skipped for its size. A tested map the server keeps is handed over instead of deleted.
-5. **Scan and load-test:** read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any commands that advertise another server or post a gambling ad), then load each map in a test copy of the server
+5. **Scan and load-test:** read each download's packages (a map, a model pack, an empty upload, an old CS:GO upload; and any commands that advertise another server or post a gambling ad, in its
+   entity lumps - every KV3 format CS2's maps use: v5 and v4 with LZ4, and Zstandard - its cfgs and its map scripts, cs_script, since release 197), then load each map in a test copy of the server
    inside the container - its own port, passwords and Workshop folder, no plugins, no log push - and hold it `sync.holdSeconds` with two bots.
 6. **Publish** the passes into the bridge's data (Arms Race onto `maps.json` and `search.json`, the other modes onto their own lists, the failures onto `broken.json`), and ask the bridge to reload. The optional mail is for problems only:
    a run stopped early or a step that errored, Steam pushing back, the test engine failing to start, a safety check refusing, the disk running low (`sync.diskLowGb`), a failed hand-over, any other error. Each says what went wrong and what

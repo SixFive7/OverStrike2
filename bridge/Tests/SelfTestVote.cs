@@ -645,7 +645,7 @@ static partial class Program
             // ---- a Deathmatch map wins: it loads in Deathmatch ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);
-            S.RoundMinutes = ShortRoundMinutes; // a match length the players set, which is Arms Race's alone
+            S.RoundMinutes = ShortRoundMinutes; // a match length the players set in Arms Race, which is Arms Race's own
             h.MatchEnd();
             var dmOpt = OptOf(o => o.Mode == Modes.Deathmatch);
             var dmMap = Opt(dmOpt).Map!;
@@ -659,9 +659,11 @@ static partial class Program
             Land();
             Check("Landed in Deathmatch: the plugin hears the mode again after the map start (os_mode: the plugin's own mode, which the HUD shows)",
                 h.Sent.Contains("os_mode deathmatch") && CurrentMode == Modes.Deathmatch && S.Map == dmMap);
-            Check("...and the match length is not applied outside Arms Race", !h.Sent.Any(c => c.StartsWith("mp_roundtime")));
+            Check("...and Arms Race's match length is not carried into Deathmatch, which keeps its own (Valve's 10, the cfg's)", !h.Sent.Any(c => c.StartsWith("mp_roundtime")));
             ClearNotices(); Command(alice.Item1, alice.Item2, "!time 60");
-            Check("...nor can it be set there", h.Said("The match length is Arms Race's") && S.RoundMinutes == ShortRoundMinutes);
+            Check("...where !time sets Deathmatch's own, and Arms Race's stays (release 197)",
+                h.Said("Alice set the match length to 60 minutes") && S.DmRoundMinutes == 60 && S.RoundMinutes == ShortRoundMinutes && h.Sent.Contains("mp_roundtime 60"));
+            S.DmRoundMinutes = ShortRoundMinutes; S.DmRoundBy = null;
             Settle(); h.MatchEnd();
             Check($"The next vote in Deathmatch: Play this map again, {MapVote.PageCards - 3} Deathmatch maps, then Arms Race and Wingman, and Random in Deathmatch",
                 Ballot!.Options.Select(o => o.Mode.Id).SequenceEqual(Enumerable.Repeat("deathmatch", MapVote.PageCards - 2).Concat(["armsrace", "wingman", "deathmatch"]))

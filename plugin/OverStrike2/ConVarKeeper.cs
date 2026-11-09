@@ -23,7 +23,7 @@ sealed class ConVarKeeper(string moduleDirectory, ILogger log) : IConVars
     {
         "nextlevel", "nextmode", "mp_backup_round_file_last", "steamworks_sessionid_server", "sv_skirmish_id",
         "sv_versus_screen_scene_id", "logaddress_token_secret",
-        "mp_roundtime", // the bridge's match length (10 or 60 minutes), sent over RCON 2 s after every map start; also set by the mode cfg
+        "mp_roundtime", // the bridge's match length (10 or 60 minutes, Arms Race and Deathmatch), sent over RCON 2 s after a map start; also set by the mode cfg
     };
     static readonly string[] NeverPrefix = ["css_", "os_", "mm_", "tv_", "nav_"];
 

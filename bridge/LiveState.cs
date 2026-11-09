@@ -107,8 +107,9 @@ static partial class Program
         if (key != "" && Likes.TryGetValue(key, out var votes))
             foreach (var (id, value) in votes) if (AccountId(id) is >= 0 and var account) h.MyVotes[account] = value;
         h.Top = TopRows().Take(HudState.ListLength).Select(r => (Clip(Label(r.Map), 36), r.Up, r.Down)).ToList();
-        h.RoundMinutes = S.RoundMinutes;
-        h.RoundBy = S.RoundMinutes == DefaultRoundMinutes ? "" : S.RoundBy ?? "";
+        var (roundMinutes, roundBy) = MatchLengthOf(CurrentMode); // the mode that is on: Arms Race's or Deathmatch's length, none in Wingman
+        h.RoundMinutes = roundMinutes;
+        h.RoundBy = roundMinutes == MatchLength.DefaultMinutes(CurrentMode.Id) ? "" : roundBy ?? "";
         h.CatalogVersion = CatalogVersion;
         h.CheckMode = HudCheck.Name(HudCheckMode);
         h.TabMode = HudTab.Name(HudTabMode);

@@ -32,6 +32,7 @@ public static class HudVersion
         ("v4.7.0", 47),
         ("v4.8.0", 48),
         ("v4.9.0", 49), // the map browser without its on-screen keyboard: search is chat's (!s), and its area a hint (release 196)
+        ("v4.10.0", 50), // the match length's row in Deathmatch too (release 197)
     ];
 
     /// <summary>The layout's content on its path (Hud.Layout): the version on Contents' last line. A content update keeps the path, so a game holding an older
@@ -68,7 +69,7 @@ public static class HudVersion
     public static List<(string Id, string Class, bool On)> Classes(int level) => [(HudView.Global, LatestClass(level), true)];
 
     /// <summary>A content's name for its level, as the banner says it: its line in Contents. os_hud level and content also ask for levels no line has. Above the
-    /// last line that is a name no content has, which reads as newer: the last version's next minors (50 is v4.10.0 while v4.9.0 is the last line). Between two lines
+    /// last line that is a name no content has, which reads as newer: the last version's next minors (51 is v4.11.0 while v4.10.0 is the last line). Between two lines
     /// it is the older of them, and below the first line the first.</summary>
     public static string OfLevel(int level)
     {

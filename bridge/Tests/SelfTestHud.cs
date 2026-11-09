@@ -266,23 +266,24 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panels v4.9.0 retires: v4.8.0's version button, whose place this content's own takes, and the on-screen keyboard (release 196) - its forty
-                // keys and the search box that opened it (os_q_kbd), whose place the search hint takes. Every other panel keeps its id.
-                var expectedRetired = new HashSet<string> { HudVersion.Button(replaced), HudBrowser.OldSearchBox };
-                expectedRetired.UnionWith(Enumerable.Range('0', 10).Concat(Enumerable.Range('a', 26)).Select(ch => $"os_kb_{(char)ch}").Concat(["os_kb_space", "os_kb_back", "os_kb_clear", "os_kb_done"]));
-                Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}, the keyboard's 40 keys and its search box){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
+                // The panel v4.10.0 retires: v4.9.0's version button, whose place this content's own takes. Every other panel keeps its id.
+                var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
+                Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                // ...its own version button, and the search hint in the keyboard's search box's place.
-                var expectedAdded = new HashSet<string> { HudVersion.Button(HudVersion.Content), HudBrowser.HintButton };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the search hint - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                // ...its own version button alone: the match length's row shows in Deathmatch by the stylesheet, with no panel of its own.
+                var expectedAdded = new HashSet<string> { HudVersion.Button(HudVersion.Content) };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
                 Check($"Content {HudVersion.Content}: no on-screen keyboard - no key, no panel or rule of one, and no class for it on the player's screen - and the search area is the hint and the clear button",
                     !ids.Any(id => id.StartsWith("os_kb_", StringComparison.Ordinal)) && !ids.Contains(HudBrowser.OldSearchBox) && !Regex.IsMatch(xml + css, @"os-kbd|os-key\b|\.kbd\b")
                     && Regex.IsMatch(xml, @"<Panel id=""os_q_search"" class=""os-search"">\s*<Button id=""os_q_how"">") && ids.Contains(HudBrowser.ClearButton)
                     && !sentClasses.Any(c => c.Class == "kbd"));
+                Check($"Content {HudVersion.Content}: the match length's row (SERVER, Game) shows in Arms Race and Deathmatch - each one long round - and only Wingman, a match of rounds, collapses it",
+                    Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-set-time\s*\{\s*visibility:\s*collapse;") && !css.Contains(".os-global.mode-deathmatch .os-set-time", StringComparison.Ordinal)
+                    && !css.Contains(".os-global.mode-armsrace .os-set-time", StringComparison.Ordinal) && Regex.IsMatch(xml, @"<Panel class=""os-set os-set-time"">"));
             }
 
             // ---- content v4.1.0: the popup that asks why a player disliked a map, and the grenade drops on the Fun page ----

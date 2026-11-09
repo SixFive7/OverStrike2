@@ -292,7 +292,7 @@ static partial class DocShots
 
         // ---- a fresh, real join first: any click ends the HUD check
         R("check-click-to-play", "The welcome window at a real join, while the HUD check waits: the X is the version button, Close this to play beside it", pick: "HUD check: Click to play",
-          today: "the window's X (os_hudver_v4.9.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
+          today: "the window's X (os_hudver_v4.10.0, class vcheck) and its words beside it, as the picks' 7a; no chat copy",
           steps: [Con("disconnect"), Pause(3), Mark(), Con($"connect {Host}:{Port}"), WaitIngame(), Pause(4), Con("jointeam 2 1", 1500), Pause(5), Shoot()],
           when: "5 s after the team is joined: the window opens 1.5 s after the first spawn. The run's first row: any click ends the check, and only a real join brings it back",
           crop: CX, masks: [MGreetBack], names: Greeting + Unseen);
@@ -567,7 +567,7 @@ static partial class DocShots
 
         // ---- the other game modes: the header's mode, friendly fire's rows and the match length gone. The last rows: back on Arms Race, ready for the next resolution
         R("mode-deathmatch-fun", "FUN in Deathmatch: friendly fire's rows, the grenade drops and catch-up gone", section: SModes, bridge: WMap, steps: [.. ToMode("deathmatch", 1, 2, "de_dust2"), Show("fun"), Pause(1), Shoot()], when: "1 s after the show returns");
-        R("mode-deathmatch-game", "SERVER > Game in Deathmatch: no match length", section: SModes, after: "mode-deathmatch-fun", bridge: WMap, steps: [Press("os_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [BlurSetBy], names: Real("a set-by in the bridge's state: blurred"));
+        R("mode-deathmatch-game", "SERVER > Game in Deathmatch: its own match length", section: SModes, after: "mode-deathmatch-fun", bridge: WMap, steps: [Press("os_tab_game"), Pause(1), Shoot()], when: "1 s after the click returns", masks: [BlurSetBy], names: Real("a set-by in the bridge's state: blurred"));
         R("mode-wingman-fun", "FUN in Wingman", section: SModes, after: "mode-deathmatch-game", bridge: WMap, steps: [.. ToMode("wingman", 0, 2, "de_inferno"), Show("fun"), Pause(1), Shoot()], when: "1 s after the show returns");
         R("mode-wingman-bots", "FUN > Bots in Wingman: the counts past its room for 4 players greyed, and every preset but Sniper duel", section: SModes, after: "mode-wingman-fun",
           bridge: WMap, steps: [Show("bots"), Pause(1), Shoot()], when: "1 s after the show returns", wordsFrom: ("bridge/Shared/Bots.cs", "has room for"));

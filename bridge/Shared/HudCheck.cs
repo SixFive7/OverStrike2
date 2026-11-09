@@ -119,7 +119,10 @@ public static class HudCheck
         BackChat = "The menu is back: You get it at the next map change - Or now, by reconnecting (console: retry)";
 
     /// <summary>CS2's alert text before the disconnect, two short lines (warn: the same, saying nobody is disconnected).</summary>
-    public static string Alert(int seconds, bool warnOnly) => M.Lines("HUD check: No click yet", warnOnly ? "Close the window with its X" : $"Click any button within {seconds.ToString(CultureInfo.InvariantCulture)} s");
+    /// <summary>CS2's alert, 15 s before the end of the grace: two short lines (Messages.CentreMax), for a game with our window and one without - which has
+    /// no X to click, and whose HUD download Steam finishes at CS2's next start (release 197).</summary>
+    public static string Alert(int seconds, bool warnOnly) => M.Lines("HUD check: No click yet",
+        (warnOnly ? "Close the window with its X" : $"Click any button within {seconds.ToString(CultureInfo.InvariantCulture)} s") + " - No window? Restart CS2");
 
     /// <summary>The click's message to the bridge: verified, and which HUD (HudVersion.IsWord).</summary>
     public static string Command(string version) => "!hudok " + version;

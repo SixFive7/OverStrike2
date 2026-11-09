@@ -51,3 +51,5 @@ Used, not included (each under its own license; downloaded or referenced at buil
 - MultiAddonManager - https://github.com/Source2ZE/MultiAddonManager (installed by the server program)
 - The joedwards32/cs2 container image - https://github.com/joedwards32/CS2
 - The .NET SDK and runtime-deps container images - https://github.com/dotnet/dotnet-docker
+- ZstdSharp.Port - https://github.com/oleg-st/ZstdSharp (MIT License; the Workshop sync, server/OverStrike2.Sync, reads Zstandard-compressed
+  map entity lumps with it, and its published file carries it)

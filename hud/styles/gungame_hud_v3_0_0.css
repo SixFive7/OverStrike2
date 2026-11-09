@@ -821,12 +821,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 50 up it is newer than this one (v4.9.0), and the banner stays while it is. */
-.os-global.latest-50 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 51 up it is newer than this one (v4.10.0), and the banner stays while it is. */
 .os-global.latest-51 .os-outdated
 {
 	visibility: visible;
@@ -1072,7 +1067,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 48 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 49 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1114,6 +1109,11 @@ Label
 }
 
 .os-global.latest-48 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-49 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -3395,12 +3395,7 @@ Label
 	color: #000000;
 }
 
-/* The match length is Arms Race's own: Deathmatch runs Valve's 10 minutes and Wingman rounds. */
-.os-global.mode-deathmatch .os-set-time
-{
-	visibility: collapse;
-}
-
+/* The match length is Arms Race's and Deathmatch's (content v4.10.0): each is one long round. Wingman plays a match of rounds. */
 .os-global.mode-wingman .os-set-time
 {
 	visibility: collapse;

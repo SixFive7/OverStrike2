@@ -170,6 +170,10 @@ static partial class Program
         Check($"HUD check: every chat line fits {HudCheck.LineMax} characters (longest {lines.Max(l => l.Length)}), the warning names the seconds and the link",
             lines.All(l => l.Length <= HudCheck.LineMax) && HudCheck.Warning(Item, 15, false)[0].Contains("15 s") && HudCheck.Warning(Item, 15, false)[1].Contains(HudCheck.ItemUrl(Item))
             && HudCheck.Warning(Item, 15, true)[0].Contains("nobody is disconnected"));
+        var alerts = new[] { M.Centre(HudCheck.Alert(15, true)), M.Centre(HudCheck.Alert(15, false)) };
+        Check($"HUD check: CS2's alert is two short lines within {Messages.CentreMax} characters (longest {alerts.Max(a => a.Length)}), for a game with our window - its X, or any button with enforce - and for one without: restart CS2 (release 197)",
+            alerts.All(a => a.Length <= Messages.CentreMax && a.Split('\n') is [_, var second] && second.EndsWith(" - No window? Restart CS2", StringComparison.Ordinal))
+            && alerts[0].Contains("Close the window with its X", StringComparison.Ordinal) && alerts[1].Contains("Click any button within 15 s", StringComparison.Ordinal));
         Check("HUD check: the lines say how to open the window now (TAB + E) and never name a chat command",
             HudCheck.Warning(Item, 15, false)[0].Contains(HudCheck.Reopen) && HudCheck.Warning(Item, 15, true)[0].Contains(HudCheck.Reopen)
             && lines.Append(reason).All(l => !l.Contains("!gg") && !l.Contains("/gg") && !l.Contains("!info")));

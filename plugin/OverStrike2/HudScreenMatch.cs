@@ -35,12 +35,12 @@ sealed partial class HudScreen
         command.ReplyToCommand(reply);
     }
 
-    /// <summary>The round that is on gets the new length, counted from its start; a length it is past, or nearly, ends it MatchLength.LeastSeconds from now. Only in Arms Race, whose one
-    /// round is the match, and only while a match is on: warmup and the match-end screen have no round to set, and the next match's round start reads mp_roundtime, which the
-    /// bridge has set by now.</summary>
+    /// <summary>The round that is on gets the new length, counted from its start; a length it is past, or nearly, ends it MatchLength.LeastSeconds from now. Only in Arms Race and
+    /// Deathmatch, whose one round is the match (release 197), and only while a match is on: warmup and the match-end screen have no round to set, and the next match's round
+    /// start reads mp_roundtime, which the bridge has set by now.</summary>
     string SetRoundTime(int minutes)
     {
-        if (!mode.ArmsRace) return MatchLength.Reply(MatchLength.Result.NotHere, $"{mode.Name} keeps its own, nothing set");
+        if (!MatchLength.Applies(mode.Id)) return MatchLength.Reply(MatchLength.Result.NotHere, $"{mode.Name} plays a match of rounds, nothing set");
         if (!worldReady) return MatchLength.Reply(MatchLength.Result.NoMatch, "no round has started on this map"); // no entity before the first round start (the class summary)
         var proxy = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault();
         if (proxy is not { IsValid: true } || proxy.GameRules is not { } rules) return MatchLength.Reply(MatchLength.Result.NoMatch, "no game rules");
