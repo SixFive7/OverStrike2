@@ -368,7 +368,7 @@ de_nuke and de_overpass their 2v2 sets of 4, de_poseidon 5, de_debris 9, de_eldo
 `spawnsCt` in its entry of `maps-wingman.json`, which the Workshop sync writes and the bridge reads. The sync's scan counts them in the map's entity lumps
 (`Spawns.cs`, its `spawns`), the same way: the map's `spawnpoints.2v2` set where it has one, else every enabled team spawn. A listed map scanned before the
 scan counted them is read once from its files, the sync's own download or else the game server's copy, while nobody is on. A map not counted - on neither disk
-yet, or a lump the sync cannot read (`spawns_error`) - counts as 2 a side, Valve's 2v2. Of the 140 Workshop Wingman maps the server kept on 2026-11-09, 105 had 3 or more a side,
+yet, a lump the sync cannot read, or a map over 1 GiB, which the scan does not read (`spawns_error` says which) - counts as 2 a side, Valve's 2v2. Of the 140 Workshop Wingman maps the server kept on 2026-11-09, 105 had 3 or more a side,
 94 had 4 or more, and 35 had fewer than 3 - 9 of them 1v1 maps with one.
 
 ## Random picks

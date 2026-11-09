@@ -331,5 +331,31 @@ static class ScanTests
         var bad = Scan.Item(broken);
         Check("spawns: a lump that does not read leaves the counts at none, and says why (spawns_error) - the rest of the scan as ever",
               Node.Get(bad, "spawns") is JsonObject b && Node.Int(b["t"]) == 0 && Node.Int(b["ct"]) == 0 && bad["spawns_error"] is not null && Node.Str(bad["verdict"]) == "map");
+
+        // a map's own package the scan does not read: over InnerMapLimit (its directory says so - no gigabyte is written here), or not readable
+        JsonObject ItemOf(string name, byte[] vpk)
+        {
+            var folder = Path.Combine(root, name);
+            Directory.CreateDirectory(folder);
+            File.WriteAllBytes(Path.Combine(folder, "10_dir.vpk"), vpk);
+            return Scan.Item(folder);
+        }
+        var duel = VpkOf(("maps/wm_duel/entities/default_ents.vents_c", plain));
+        var huge = ItemOf("item10", Patched(VpkOf(("maps/wm_duel.vpk", duel), ("maps/wm_huge.vpk", duel)), "wm_huge", 12, (uint)(Scan.InnerMapLimit + 1)));
+        Check("spawns: a map over 1 GiB is not read, and the item gets no count - not even its other map's - with the reason: its map is over 1 GiB",
+              huge["spawns"] is null && Node.Str(huge["spawns_error"]) == "its map is over 1 GiB" && Node.StrList(huge["maps"]).SequenceEqual(["wm_duel", "wm_huge"]));
+        var lost = ItemOf("item11", Patched(VpkOf(("maps/wm_lost.vpk", duel)), "wm_lost", 6, 0));   // its bytes in a _000.vpk that is not there
+        Check("spawns: a map whose package cannot be read gets no count either, and says so", lost["spawns"] is null && Node.Str(lost["spawns_error"]) == "its map could not be read");
+    }
+
+    /// <summary>A VPK with one entry's directory field overwritten: at `field` bytes after its name (archive 6, length 12), `value`, the data as it was.</summary>
+    static byte[] Patched(byte[] vpk, string stem, int field, uint value)
+    {
+        var name = Encoding.UTF8.GetBytes(stem + "\0");
+        var at = vpk.AsSpan().IndexOf(name) + name.Length;
+        var copy = (byte[])vpk.Clone();
+        if (field == 6) System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(copy.AsSpan(at + 6), (ushort)value);
+        else System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(copy.AsSpan(at + field), value);
+        return copy;
     }
 }

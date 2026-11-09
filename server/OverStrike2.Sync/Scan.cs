@@ -458,8 +458,13 @@ public static partial class Scan
     /// <summary>A map script (cs_script): compiled JavaScript or TypeScript, its source kept as plain text in the resource.</summary>
     static bool IsScript(string lowerPath) => lowerPath.EndsWith(".vjs_c", StringComparison.Ordinal) || lowerPath.EndsWith(".vts_c", StringComparison.Ordinal);
 
+    /// <summary>The largest map package the scan reads, into memory: a map's own .vpk inside the item's. One over it is not read - its commands, its
+    /// entity lumps and its spawn points stay unknown (spawns_error "its map is over 1 GiB").</summary>
+    public const long InnerMapLimit = 1L << 30;
+
     /// <summary>What one Workshop download holds. verdict: map | pack | empty | legacy | unknown, maps (the level names in it), models,
-    /// files, bytes, names, advert (category) and advert_sample (the command that made it), or none.</summary>
+    /// files, bytes, names, advert (category) and advert_sample (the command that made it), or none; spawns (its team spawn points, t, ct and
+    /// set) and spawns_error (why they are not known, or not all read).</summary>
     public static JsonObject Item(string folder)
     {
         var maps = new List<string>();
@@ -482,6 +487,7 @@ public static partial class Scan
         var clientCommand = false;
         Spawns.Count? spawns = null;   // the map with the most team spawn points: the one played (a skybox's own map has none)
         string? spawnError = null;
+        string? unread = null;         // why a map's own package was not read: then the item's count is not known, so none is given
         var seen = false;
         foreach (var tree in trees)
         {
@@ -502,9 +508,17 @@ public static partial class Scan
                 if (low.StartsWith("maps/", StringComparison.Ordinal) && low.EndsWith(".vpk", StringComparison.Ordinal) && low.Count(c => c == '/') == 1)
                 {
                     maps.Add(entry.Path[5..^4]);                    // its ends checked above, both ASCII
-                    var innerBytes = vpk.Read(entry, 1L << 30);
-                    if (innerBytes is not { Length: > 0 })
+                    if (entry.Length > InnerMapLimit)
+                    {
+                        unread ??= "its map is over 1 GiB";
                         continue;
+                    }
+                    var innerBytes = vpk.Read(entry, InnerMapLimit);
+                    if (innerBytes is not { Length: > 0 })
+                    {
+                        unread ??= "its map could not be read";
+                        continue;
+                    }
                     var inner = new Vpk(innerBytes);
                     var entities = new List<Dictionary<string, object?>>();
                     foreach (var ie in inner.Entries)
@@ -560,9 +574,9 @@ public static partial class Scan
         res["files"] = files;
         res["advert"] = advert;
         res["advert_sample"] = sample;
-        res["spawns"] = spawns is null ? null : new JsonObject { ["t"] = spawns.T, ["ct"] = spawns.Ct, ["set"] = spawns.TwoVersusTwo ? "2v2" : "all" };
-        if (spawnError is not null)
-            res["spawns_error"] = spawnError;
+        res["spawns"] = spawns is null || unread is not null ? null : new JsonObject { ["t"] = spawns.T, ["ct"] = spawns.Ct, ["set"] = spawns.TwoVersusTwo ? "2v2" : "all" };
+        if ((unread ?? spawnError) is { } why)
+            res["spawns_error"] = why;
         return res;
     }
 }

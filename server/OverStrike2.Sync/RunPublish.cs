@@ -14,7 +14,8 @@ public sealed partial class SyncRun
     /// <summary>A listed Wingman map scanned before the scan counted spawn points (Spawns.cs) has none in its scan: read once from its files - the sync's own
     /// download, else the game server's copy (read-only) - so the list says what it takes. A map found nowhere, or whose files fail to read (a folder being
     /// moved), waits for the next run; one whose lumps cannot be read, or whose files hold no map, is noted (spawns_error) and not tried again. Somebody on the
-    /// game server stops the reading, as it stops a test load: the rest waits for the next run.</summary>
+    /// game server stops the reading, as it stops a test load: the rest waits for the next run. A scan that has no count and says no why (release 202's,
+    /// of a map over 1 GiB) is read once more, so it says why.</summary>
     void CountSpawns(BridgeData files, JsonObject pub)
     {
         if (!files.ModeLists.TryGetValue("wingman", out var list)) return;
@@ -24,7 +25,7 @@ public sealed partial class SyncRun
         foreach (var wid in list.OfType<JsonObject>().Select(e => Node.Str(e["id"])).Where(Text.Digits))
         {
             if (counted + failed >= SpawnCountsPerRun) break;
-            if (State.Item(wid) is not JsonObject rec || rec["scan"] is not JsonObject scan || scan.ContainsKey("spawns")) continue;
+            if (State.Item(wid) is not JsonObject rec || rec["scan"] is not JsonObject scan || Settled(scan)) continue;
             var folder = new[] { Path.Combine(Content, wid), Path.Combine(game, wid) }.FirstOrDefault(Directory.Exists);
             if (folder is null) { missing++; continue; }
             if ((Humans() ?? 0) > 0) { stopped = true; break; }
@@ -55,6 +56,9 @@ public sealed partial class SyncRun
             L($"spawn points: {counted} listed Wingman map(s) counted from their files, {failed} unreadable, {missing} not on the disk{(stopped ? " - stopped, somebody came on" : "")}");
         }
     }
+
+    /// <summary>Whether a scan says what a map's spawn points are, or why it cannot: its count, or a spawns_error.</summary>
+    static bool Settled(JsonObject scan) => scan.ContainsKey("spawns") && (scan["spawns"] is not null || scan.ContainsKey("spawns_error"));
 
     public void Publish(List<Verdicts.Outcome> outcomes, IReadOnlyList<(string Id, string Verdict)> removedNow, IReadOnlyDictionary<string, JsonObject> details)
     {
