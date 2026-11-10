@@ -32,7 +32,7 @@ static class Publish
         ("maps-browse", "MAPS, Browse", "The map browser: cards, search from chat, sorting, filters, a Workshop map's card, a risky map's card.",
          ["page-maps", "maps-sort-votes", "maps-sort-name", "maps-sort-size", "maps-sort-size-desc", "maps-mode-armsrace", "maps-mode-deathmatch", "maps-mode-wingman", "maps-size-tiny",
           "maps-size-small", "maps-size-mid", "maps-size-large", "maps-liked", "maps-official", "maps-ours", "maps-page-2", "maps-page-last", "maps-search",
-          "maps-search-empty", "maps-workshop-refused", "maps-workshop-ready", "maps-liked-card", "why-card", "maps-risky-card", "play-asks-first"]),
+          "maps-search-empty", "maps-search-help", "maps-search-chat", "maps-workshop-refused", "maps-workshop-ready", "maps-liked-card", "why-card", "maps-risky-card", "play-asks-first"]),
         ("maps-vote", "MAPS, Vote", "The vote for the next map: everybody's window opens on the ballot, frozen, until it is decided.",
          ["vote-open", "vote-limit", "vote-my-vote", "vote-inactivity", "vote-kept", "vote-cannot-call", "vote-browse", "vote-picked-card", "vote-decided", "now-playing", "vote-started-line",
           "vote-random-lit", "vote-waiting", "vote-pager", "vote-limit-low", "vote-tie-lead", "chat-vote-clicked"]),
