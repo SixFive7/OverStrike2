@@ -224,8 +224,6 @@ public static class HudVote
             var entry = o == null || o.Key == "" || catalog == null ? null : catalog.Find(o.Key);
             var record = keep ? null : entry; // its record, for a risky map
             var who = o == null || o.Who == "" ? "" : $"Picked by {o.Who}";
-            // a Wingman card with spawn points for fewer a side than are present: it cannot win (VoteRound's Takes), so its Vote says what it takes, greyed (unfit)
-            var unfit = o != null && !done && !keep && mine != o.N && o.Mode == Modes.WingmanId && entry != null && v.Present > 0 && !Modes.WingmanFits(entry.Side, v.Present);
             t.Add(($"{id}_rank", o == null ? "" : keep ? "Keep" : mode?.Name ?? "")); // the contents before v4.6.0 show it on the picture
             t.Add(($"{id}_name", o?.Label ?? ""));
             t.Add(($"{id}_size", o?.Size ?? ""));
@@ -233,8 +231,7 @@ public static class HudVote
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
-            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote"
-                : unfit ? HudMenu.UnfitText(entry!.Side) : keep ? "Keep" : "Vote"));
+            t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? "Keep" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));
             c.Add((id, "risky", record?.Risky == true));
@@ -245,7 +242,6 @@ public static class HudVote
             c.Add((id, "liked", false));
             c.Add((id, "disliked", false));
             c.Add((id, "confirm", o != null && mine == o.N && !done));
-            c.Add((id, "unfit", unfit));
             c.Add((id, "big", o != null && HasTag(o.Tags, MapTags.Big)));
             c.Add((id, "ads", o != null && HasTag(o.Tags, MapTags.Ads)));
             c.Add((id, "ours", o != null && (HasTag(o.Tags, MapTags.Ours) || catalog?.Find(o.Key) is { Ours: true })));

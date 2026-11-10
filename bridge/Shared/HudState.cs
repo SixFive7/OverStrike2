@@ -51,7 +51,6 @@ public sealed class HudState
     public string RematchBy = "";                       // ...and who pressed it - or, a fairness restart's, who came in (EarlyJoin.Names: "Bob and Cas")
     public bool RematchFair;                            // ...the fairness restart (EarlyJoin): the countdown banner says so
     public int RematchCount = 1;                        // ...and how many came in, for the banner's "is" or "are"
-    public int Humans;                                  // the humans on, as the bridge counts them: a Wingman map's Play says when it takes fewer (Modes.WingmanFits); 0 unknown
     public int RematchIn = -1;                          // ...its seconds left, -1 when none is (worked out by AsOf)
 
     /// <summary>The end times behind the seconds above, unix milliseconds (0: none). The bridge's change-driven text (EndTimes: true, HudTransport.cs)
@@ -128,7 +127,6 @@ public sealed class HudState
         if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));
         if (RestartKind != "") Raw("rstby", Hud.Clean(RestartBy, 32), Hud.Clean(RestartAfter, 80));
         if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 64), RematchFair ? 1 : 0, Math.Max(1, RematchCount)); // an older plugin reads the first two or three
-        if (Humans > 0) Raw("hum", Humans); // an older plugin skips it
         return s.ToString();
     }
 
@@ -177,7 +175,6 @@ public sealed class HudState
                 case "chgkey": s.ChangeKey = Str(f, 1); break;
                 case "rstby": (s.RestartBy, s.RestartAfter) = (Str(f, 1), Str(f, 2)); break;
                 case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy, s.RematchFair, s.RematchCount) = (Long(f, 1), Str(f, 2), Int(f, 3) == 1, Math.Max(1, Int(f, 4))); break;
-                case "hum": s.Humans = Math.Max(0, Int(f, 1)); break;
             }
         }
         return s;

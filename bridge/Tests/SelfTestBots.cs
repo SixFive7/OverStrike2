@@ -78,11 +78,8 @@ static partial class Program
         Check("Bots: Arms Race greys every weapon rule - its ladder hands out the weapons, to the bots too - and lets Any stand; Deathmatch and Wingman take them all",
             weapons.Choices.Skip(1).All(c => Bots.Unavailable(weapons, c, Modes.ArmsRace) == "Arms Race's ladder hands out the weapons, to the bots too")
             && Bots.Unavailable(weapons, weapons.Normal, Modes.ArmsRace) == null && weapons.Choices.All(c => Bots.Unavailable(weapons, c, Modes.Deathmatch) == null && Bots.Unavailable(weapons, c, Modes.Wingman) == null));
-        Check("Bots: Wingman's room for 4 players greys Bots past 3 and Fill to past 4; Arms Race and Deathmatch take every count",
-            bots.Choices.Where(c => Bots.Unavailable(bots, c, Modes.Wingman) != null).Select(c => c.Id).SequenceEqual(["4", "8"])
-            && fill.Choices.Where(c => Bots.Unavailable(fill, c, Modes.Wingman) != null).Select(c => c.Id).SequenceEqual(["8", "12", "16"])
-            && Bots.Unavailable(bots, Fun.Find(bots, "4")!, Modes.Wingman) == "Wingman has room for 4 players, one of them yours"
-            && new[] { Modes.ArmsRace, Modes.Deathmatch }.All(m => bots.Choices.Concat(fill.Choices).All(c => Bots.Unavailable(Bots.Settings.First(s => s.Choices.Contains(c)), c, m) == null)));
+        Check("Bots: every mode takes every count - Wingman as Arms Race and Deathmatch: any number plays on any Wingman map",
+            Modes.All.All(m => bots.Choices.Concat(fill.Choices).All(c => Bots.Unavailable(Bots.Settings.First(s => s.Choices.Contains(c)), c, m) == null)));
         Check("Bots: nothing else is greyed anywhere", Modes.All.All(m => Bots.Settings.Where(s => s != weapons && s != bots && s != fill).All(s => s.Choices.All(c => Bots.Unavailable(s, c, m) == null))));
 
         // ---- a choice that names its player ----
@@ -103,10 +100,10 @@ static partial class Program
         Check("Bots: a preset is every bot setting - its picks, the rest back to Normal - the Normals first and the count last, so the bots join with the rest set",
             dmPlan.Count == Bots.Rows && dmPlan[^1] is { Setting.Id: "bots", Choice.Id: "8" } && dmPlan.TakeWhile(x => x.Choice == x.Setting.Normal).Count() == Bots.Rows - zombies.Picks.Length
             && dmPlan.Single(x => x.Setting.Id == "botweapons").Choice.Id == "knives");
-        Check("Bots: in Arms Race a preset leaves its weapon rule out and stands (Zombie horde: eight expert zombies with the ladder's guns); in Wingman one whose bots do not fit is greyed, with its reason",
+        Check("Bots: in Arms Race a preset leaves its weapon rule out and stands (Zombie horde: eight expert zombies with the ladder's guns); every preset stands in Wingman too",
             arPlan.Single(x => x.Setting.Id == "botweapons").Choice == weapons.Normal && arPlan.Single(x => x.Setting.Id == "botlevel").Choice.Id == "expert"
-            && Bots.Plan(zombies, Modes.Wingman) == null && Bots.Unavailable(zombies, Modes.Wingman) == "Wingman has room for 4 players, one of them yours"
-            && Bots.Presets.Where(p => Bots.Plan(p, Modes.Wingman) != null).Select(p => p.Id).SequenceEqual(["duel"]) && Bots.Presets.All(p => Bots.Plan(p, Modes.ArmsRace) != null && Bots.Plan(p, Modes.Deathmatch) != null));
+            && Bots.Plan(zombies, Modes.Wingman) != null && Bots.Unavailable(zombies, Modes.Wingman) == null
+            && Bots.Presets.All(p => Bots.Plan(p, Modes.ArmsRace) != null && Bots.Plan(p, Modes.Deathmatch) != null && Bots.Plan(p, Modes.Wingman) != null));
         var asPlanned = dmPlan.SelectMany(x => x.Choice.Sets.Select(set => (set.ConVar, Value: set.Value))).GroupBy(x => x.ConVar).ToDictionary(g => g.Key, g => g.Last().Value);
         string? Live(string name) => asPlanned.TryGetValue(name, out var v) ? v : Bots.Settings.SelectMany(s => s.Stock).FirstOrDefault(x => x.ConVar == name).Value;
         Check("Bots: once made, the preset shows lit, and no other", Bots.Showing(Live, Modes.Deathmatch) == zombies);
@@ -118,9 +115,9 @@ static partial class Program
         Check("Bots page: the note, each row's title and words - who set a setting off its default - its choices, the one showing lit",
             Text(HudBots.Note) == Bots.Note && Text("os_b1_title") == "Bots" && Text("os_b1_txt") == $"4 - Set by Remy  ·  {bots.Words}" && Text("os_b1_4_txt") == "4"
             && Class("os_b1_4", "on") && !Class("os_b1_1", "on") && Class("os_b1", "changed") && !Class("os_b2", "changed") && Class("os_b1_5", "used") && !Class("os_b3_4", "used"));
-        Check("Bots page: what Wingman cannot make is greyed, the reason its row's second line; the presets whose bots do not fit greyed, their reason in their words; Kick all bots lit while bots play",
-            Class("os_b1_5", "off") && !Class("os_b1_2", "off") && HudBots.Why(live.GetValueOrDefault, Modes.Wingman).Single(w => w.Name == "osbw1").Text == "Wingman has room for 4 players, one of them yours"
-            && HudBots.Why(live.GetValueOrDefault, Modes.Deathmatch).All(w => w.Text == "") && Class("os_bp1", "off") && Text("os_bp1_txt") == "Wingman has room for 4 players, one of them yours"
+        Check("Bots page: nothing greyed in Wingman - every count and every preset - and no reason on a row; Kick all bots lit while bots play",
+            !Class("os_b1_5", "off") && !Class("os_b1_2", "off") && HudBots.Why(live.GetValueOrDefault, Modes.Wingman).All(w => w.Text == "")
+            && HudBots.Why(live.GetValueOrDefault, Modes.Deathmatch).All(w => w.Text == "") && !Class("os_bp1", "off") && Text("os_bp1_txt") == Bots.Presets[0].Words
             && !Class("os_bp2", "off") && Text("os_bp2_txt") == Bots.FindPreset("duel")!.Words && !Class(HudBots.Kick, "off")
             && HudBots.Page(_ => null, Modes.Deathmatch).Classes.Contains((HudBots.Kick, "off", true)));
         Check("Bots page: a click is a row's choice, a preset, Kick all bots or Default - and nothing else, not the board's buttons, not the page's labels",

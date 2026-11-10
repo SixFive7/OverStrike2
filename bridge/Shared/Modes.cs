@@ -15,7 +15,8 @@
 public static class Modes
 {
     /// <summary>A game mode: its id (on the wire, in state.json, in file names), its name for players, the two convars that select it,
-    /// Valve's maxplayers for it (gamemodes.txt; the vote offers a mode only while the humans on are at most this many), the server cfg
+    /// the most players it takes - Valve's maxplayers for Arms Race and Deathmatch (gamemodes.txt; the vote offers a mode only while the humans on are at most
+    /// this many), Wingman the same 16 (Valve's is 4: any number plays on any Wingman map here) - the server cfg
     /// the engine runs after Valve's own on every load of the mode (server/), and Valve's official maps for it.</summary>
     public sealed record Mode(string Id, string Name, int GameType, int GameMode, int MaxPlayers, string ValveCfg, string ServerCfg, string[] Official)
     {
@@ -45,16 +46,16 @@ public static class Modes
          "de_boulder", "de_fachwerk", "cs_shelter",                                 // mg_casualcharlie
          "cs_office", "cs_italy"]);                                                 // mg_hostage
 
-    public static readonly Mode Wingman = new(WingmanId, "Wingman", 0, 2, 4, "gamemode_competitive2v2.cfg", "gamemode_competitive2v2_server.cfg",
+    public static readonly Mode Wingman = new(WingmanId, "Wingman", 0, 2, 16, "gamemode_competitive2v2.cfg", "gamemode_competitive2v2_server.cfg",
         ["de_debris", "de_eldorado", "de_poseidon", "de_overpass", "de_vertigo", "de_nuke", "de_inferno"]); // the "2v2" template
 
     /// <summary>Every mode, in menu order; the first is the default.</summary>
     public static readonly Mode[] All = [ArmsRace, Deathmatch, Wingman];
 
-    // ---- how many a Wingman map takes: as many a side as it has spawn points (the owner's request of 2026-11-09). The game holds a side at its spawn points
-    // ("The Terrorist team is full"), and our cfgs keep the sides within one of each other (mp_limitteams 1), so N players need the larger half of N a side. ----
+    // ---- a Wingman map's spawn points per side: the map browser's recommended count ("3v3"), never a limit - any number plays on any Wingman map ----
 
-    /// <summary>A Wingman map's spawn points per side while nobody has counted them (a Workshop map the sync has not read yet): Valve's 2v2, so Wingman's maxplayers.</summary>
+    /// <summary>A Wingman map's spawn points per side while nobody has counted them (a Workshop map the sync has not read yet): Valve's 2v2. Only the
+    /// vote's log line still says it (VoteRound.cs, WingmanTakes).</summary>
     public const int UnknownSpawnsPerSide = 2;
 
     /// <summary>The spawn points per side of Valve's own Wingman maps, read from their entity lumps (2026-11-09): the 2v2 set ("spawnpoints.2v2") that Wingman
@@ -64,16 +65,10 @@ public static class Modes
         ["de_debris"] = 9, ["de_eldorado"] = 10, ["de_poseidon"] = 5, ["de_overpass"] = 4, ["de_vertigo"] = 15, ["de_nuke"] = 4, ["de_inferno"] = 4,
     };
 
-    /// <summary>The players the larger side holds with this many on.</summary>
-    public static int Side(int humans) => (Math.Max(0, humans) + 1) / 2;
-
     /// <summary>A map's spawn points per side as the rule counts them: its own, or UnknownSpawnsPerSide when nobody has counted them (0).</summary>
     public static int PerSide(int spawnsPerSide) => spawnsPerSide > 0 ? spawnsPerSide : UnknownSpawnsPerSide;
 
-    /// <summary>Whether a Wingman map with this many spawn points per side (0: not counted) takes this many players.</summary>
-    public static bool WingmanFits(int spawnsPerSide, int humans) => Side(humans) <= PerSide(spawnsPerSide);
-
-    /// <summary>How many a Wingman map takes, as the Play button and the refusals say it: "3 a side".</summary>
+    /// <summary>A Wingman map's spawn points per side as words: "3 a side".</summary>
     public static string WingmanTakes(int spawnsPerSide) => $"{PerSide(spawnsPerSide)} a side";
 
     public static Mode Default => ArmsRace;

@@ -15,7 +15,7 @@ public sealed class HudCatalog
     /// (Workshop.cs) - nobody can download it, so it is refused rather than confirmed. RankAr, RankDm, RankWm: the map's place in that mode's
     /// list, 0 for an official map of that mode, -1 when that mode does not have it; Rank is the place in the first mode that has it.
     /// Tags: its tags' ids in precedence order, comma-separated (MapTags) - field 24; an older plugin reads up to field 23. Side: a Wingman map's spawn points per side
-    /// (field 25), 0 while nobody has counted them or for a map Wingman does not have - Modes.WingmanFits says what it takes.</summary>
+    /// (field 25), 0 while nobody has counted them or for a map Wingman does not have: the map browser's recommended count, never a limit.</summary>
     public sealed record Entry(string Key, string Arg, int Rank, long Id, string Name, int SizeMb, bool Official, int Broken, int Crashes, int Up, int Down,
         bool Removed = false, bool TooBig = false, string SizeClass = "", int M2 = 0, int Big = 0, int Ads = 0, bool Ours = false, string Reason = "",
         int? RankAr = null, int RankDm = -1, int RankWm = -1, string Tags = "", int Side = 0)

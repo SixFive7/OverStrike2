@@ -11,7 +11,7 @@
 //
 // A choice that cannot apply in the mode that is on is greyed, with the reason on its row (Unavailable): the weapon rules in Arms Race, whose
 // ladder hands every player, bots too, each rung's weapon - a bot that may not use a pistol would leave the ladder's pistol rung holstered and
-// knife its way up instead - and a number of bots the mode has no room for (Wingman's 4 players). The side, difficulty, the name tag and the
+// knife its way up instead - and a number of bots the mode has no room for (16 players in every mode). The side, difficulty, the name tag and the
 // weapon rules are what a bot gets as it joins, so a change of one while bots play has them join again (Rejoins: bot_kick, then the count again).
 //
 // Two rows do more than their bot convar, which alone does not cover all they promise. Side lifts the team-size limit and the team balance while
@@ -165,7 +165,7 @@ public static class Bots
     public static Preset? FindPreset(string id) => Presets.FirstOrDefault(p => p.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>What a preset comes to in this mode: every bot setting with the choice it makes - its own picks, Normal for the rest - leaving out what this mode
-    /// cannot make (a weapon rule in Arms Race); null when its bots do not fit the mode at all (Wingman's room for 4 players). Ordered as Fun.InSafeOrder orders
+    /// cannot make (a weapon rule in Arms Race); null when its bots do not fit the mode at all (more than its room for 16 players). Ordered as Fun.InSafeOrder orders
     /// Random's changes, and with the count last, so the bots join with the rest already set and need not join again.</summary>
     public static List<(Fun.Setting Setting, Fun.Choice Choice)>? Plan(Preset p, Modes.Mode mode)
     {

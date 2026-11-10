@@ -121,7 +121,7 @@ public static class Hud
         new("The ballot", [
             "Keep playing this map while the match is on, Play this map again after it, every map a player put on it, and one map of each other mode.",
             "Then this mode: a fresh map (a Workshop upload or update of the last 30 days), a surprise new to us, and favourites the server keeps fill the page.",
-            $"A Wingman map takes as many a side as it has spawn points ({Modes.UnknownSpawnsPerSide} if not counted). No card moves while the vote is open; a second page only when needed.",
+            "No card moves while the vote is open; a second page only when needed.",
             "Every card but a player's pick is on the server's disk, so it loads at once. A risky map shows its record, and putting it to the vote takes a second click."]),
         new("The dice", [
             "Random is the dice after the vote. Like every card the dice pick, it is a map on the server's disk: a favourite it keeps, or one of a small stock new to us.",

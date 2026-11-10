@@ -290,7 +290,6 @@ static partial class Program
             && Coloured(ChatReply.Already(jump, Fun.Find(jump, "high")!)) == "αSuper jumpπ: νHighπ already" && Coloured(ChatReply.Matches(3)) == "ν3π maps match - The menu shows them: click αPlayπ on one");
         Check("The bridge's refusals of a map are LightRed too, the map an argument and a mode's limits values",
             Coloured(BlockedRefusal(new MapInfo(0, 5, "x", 0))) == "ραxρ (5) is on the blocked list - It is blocked." && Coloured(NonMapRefusal(new MapInfo(0, 6, "y", 0))) == $"ραyρ {NotAMap}"
-            && Coloured(ModeFullLine(new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId), 9)) == $"ρνde_inferno (official)ρ has spawn points for ν{Modes.WingmanOfficialSpawns["de_inferno"]} a sideρ in Wingman, and ν9ρ are on - Not this map now"
             && Coloured(ModeFullLine(new MapInfo(0, 0, "de_dust2", 0, true, Modes.DeathmatchId), 17)) == $"ρνDeathmatchρ takes ν{Modes.Deathmatch.MaxPlayers} playersρ, and ν17ρ are on - Not this map now");
 
         var wire = new HudState();

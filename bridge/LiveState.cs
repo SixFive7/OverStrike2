@@ -104,7 +104,6 @@ static partial class Program
             Size = S.Map is { Official: false, Rank: > 0 } m ? Size(m) : "",
             Key = key,
             Loading = LoadPending,
-            Humans = Players.Values.Count(p => p.GoneSince == null && p.ReloadSince == null), // the stream's count, no RCON: Humans() asks status when it knows nobody
             Status = Pending is { } p ? $"Changing to {Clip(Label(p.Map), 32)}"
                 : Ballot is { Open: true } ? "Vote for the next map"
                 : "Plays until its match ends - Or start a vote",

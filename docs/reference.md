@@ -230,7 +230,7 @@ or for **2 minutes after the last vote**; a match end opens its vote anyway, exc
 says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
 That second click counts only 0.5 s or more after the click before it (`HudBrowser.DoubleClick`): a double click opens the padlock and nothing more, so the warning is
 read before the map goes on; the same holds for Previous, and a double click on any Play or on Previous sends its pick once.
-A Wingman map takes as many a side as it has [spawn points](#wingman-and-its-spawn-points): with more on it cannot win, and it is refused when asked for.
+Any number of players plays on any Wingman map; its [spawn points](#wingman-and-its-spawn-points) per side are only the recommended count.
 
 ### The freeze
 
@@ -265,26 +265,25 @@ the vote and every click given up is a line of the plugin's log (`Over Strike 2 
 Once everybody present has voted, the **inactivity timer** closes the vote 5 s after the last activity - a vote cast, changed or taken back, a
 map put on the ballot, a page, a sort, a filter or a search in the map browser - and the screen names who reset it last. The vote's **limit is
 60 s**, whichever comes first. The most votes win, a tie is drawn at random, and nobody voting keeps the map mid-match and is Random at a match
-end. A Wingman map with spawn points for fewer a side than are on cannot win: the next most votes do. The window shows who started the vote, where the votes go, who has not voted yet and
+end. The window shows who started the vote, where the votes go, who has not voted yet and
 both timers, then what came of it and the countdown. Every vote - cast, changed or taken back - says in chat and on the board who voted and who still has to.
 
 ### The ballot
 
 **Your own vote** (HUD content v4.11.0): the card your vote is on has a white frame and glow and a white YOUR VOTE badge with a check at its picture's top right, which reads
 CLICK TO TAKE BACK under the mouse; LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white
-while your vote is on Random. White differs from every other state by brightness, not hue. A Wingman map whose spawn points take fewer a side than the players on greys its Play
-(class `unfit` on its card, from the bridge), in the browser and on the ballot alike.
+while your vote is on Random. White differs from every other state by brightness, not hue.
 
 One page of ten cards, a second only when what must be on it does not fit (48 at the most). In this order (`OpenBallot`, `VoteRound.cs`):
 
 1. **Keep**: Keep playing this map while the match is on, Play this map again once it is over;
 2. **every map a player selected**, tagged PICKED;
-3. **one map of each other game mode that suits the players on** (for Wingman a map with spawn points for them), from that mode's kept maps on the server's
+3. **one map of each other game mode that suits the players on** (Wingman any number), from that mode's kept maps on the server's
    disk, unless a pick stands for that mode;
 4. **the server's own mode to fill the page:** one **fresh** map, unless a card above is fresh already; one **surprise** from the discovery stock,
    new to us; and **favourites**, the kept maps by points. An empty slot - no fresh map on the disk, the stock not downloaded yet - is a favourite.
 
-**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when no Wingman map has spawn points for the players on; in Wingman only a map that has). While
+**Random** is a button of its own: the dice after the vote, in the mode the server is in (Arms Race when no Wingman map is left for the dice). While
 the vote is open every card keeps its place, Keep first; once it is decided, the cards show with the most votes first. A map a player selects while
 the vote is open takes the place of a random card of the server's mode nobody voted for - its very place on the screen, with a number of its own -
 favourites first, then the surprise, the fresh card last; the other modes' cards keep their place; chat says which card it replaced ("Bob added
@@ -366,19 +365,19 @@ The grenade drops, catch-up and friendly fire's settings are Arms Race's own, an
 
 ### Wingman and its spawn points
 
-Wingman is two teams of two in Valve's matchmaking, but the game takes more: it holds a side at its spawn points ("The Terrorist team is full"), and the
-cfgs keep the sides within one of each other (`mp_limitteams 1`), so N players need the larger half of N spawn points a side. A Wingman map takes as many a
-side as it has (`Modes.WingmanFits`): the bridge offers it on the ballot, lets it win, rolls it as Random and accepts it when asked for only while the players on
-fit; otherwise the line says what it takes ("de_inferno has spawn points for 4 a side in Wingman, and 9 are on - Not this map now"), and a card's Play in the map
-browser says it in place of Put to the vote ("Wingman: 2 a side"), greyed (class `unfit`). The ballot's cards are drawn to fit; one that no longer takes the
-players present, because more came in during the vote, cannot win, and its Vote says what it takes, greyed. Valve's maps take 4 a side or more - de_inferno,
-de_nuke and de_overpass their 2v2 sets of 4, de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09;
-`Modes.WingmanOfficialSpawns`), and 3v3 on de_inferno was tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and
-`spawnsCt` in its entry of `maps-wingman.json`, which the Workshop sync writes and the bridge reads. The sync's scan counts them in the map's entity lumps
-(`Spawns.cs`, its `spawns`), the same way: the map's `spawnpoints.2v2` set where it has one, else every enabled team spawn. A listed map scanned before the
-scan counted them is read once from its files, the sync's own download or else the game server's copy, while nobody is on. A map not counted - on neither disk
-yet, a lump the sync cannot read, or a map over 1 GiB, which the scan does not read (`spawns_error` says which) - counts as 2 a side, Valve's 2v2. Of the 140 Workshop Wingman maps the server kept on 2026-11-09, 105 had 3 or more a side,
-94 had 4 or more, and 35 had fewer than 3 - 9 of them 1v1 maps with one.
+Wingman is two teams of two in Valve's matchmaking; here any number of players plays on any Wingman map. Nothing limits it: the bridge offers every Wingman
+map on the ballot, lets it win, rolls it as Random and accepts it when asked for, whoever is on, and the Bots page takes every count in Wingman too. A map's
+spawn points per side are its recommended count, which the map browser shows on its card ("3v3", the catalog's Side; none for a map nobody has counted).
+The game itself holds a side at its spawn points ("The Terrorist team is full") and the cfgs keep the sides within one of each other (`mp_limitteams 1`);
+what it does with more players than spawn points is the live lab's to see. Valve's maps have 4 a side or more - de_inferno, de_nuke and de_overpass their
+2v2 sets of 4, de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09; `Modes.WingmanOfficialSpawns`), and 3v3
+on de_inferno was tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and `spawnsCt` in its entry of
+`maps-wingman.json`, the smaller of the two, which the Workshop sync writes and the bridge reads. The sync's scan counts them in the map's entity lumps
+(`Spawns.cs`, its `spawns`), the way CS2 places players in Wingman: the map's `spawnpoints.2v2` set where it has one, else every enabled team spawn. A listed
+map scanned before the scan counted them is read once from its files, the sync's own download or else the game server's copy, while nobody is on. A map
+not counted - on neither disk yet, a lump the sync cannot read, or a map over 1 GiB, which the scan does not read (`spawns_error` says which) - shows no
+count. Of the 140 Workshop Wingman maps the server kept on 2026-11-09, 105 had 3 or more a side, 94 had 4 or more, and 35 had fewer than 3 - 9 of them
+1v1 maps with one.
 
 ## Random picks
 
@@ -544,7 +543,7 @@ message for everybody says each: a row's change like a fun setting's, a preset's
 
 What a mode cannot make is greyed, its reason the row's second line: in **Arms Race** the bots climb the ladder like everybody and get each rung's weapon,
 so the Weapons row is greyed there and a preset leaves its weapon rule out (Zombie horde is 8 expert zombies with the ladder's guns) - a bot can win the
-match. **Wingman**, with room for 4 players, greys Bots past 3, Fill to past 4 and every preset with more bots than that: Sniper duel alone fits. The Fun
+match. **Wingman** takes every count and every preset, as the other two do: any number plays on any Wingman map. The Fun
 page's Default leaves the bots alone, and the Bots page's leaves the Fun page alone; the map's end, a reload and the bridge's reset put back both.
 
 ## Catch-up
