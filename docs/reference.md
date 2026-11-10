@@ -85,10 +85,24 @@ up or down, attacking, or a vote's freeze starting or ending spends it until the
 window opens again. A player killed with the window open is hidden again at the respawn. The welcome a real join opens waits for its X, so a
 game that cannot draw our window - a content before v4.8.0, a download that failed, a joiner while the item is held - would keep it open on the
 server all map and be hidden at every spawn; the end of [the HUD check's](#the-huds-version-and-the-hud-check) 90 s closes it instead, with
-`warn` and with the check off, and the cloak ends with it ("the menu window closed"). What is no model - the radar's dot, the name when
-aimed at, sounds, muzzle flashes - still shows. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
-so while it hides a player - the spawn cloak, Ghost, `os_cloak hide` - no bot's damage hurts them (`BotGuard.cs`), until their own first attack in that
-hide: a shot, a throw or a hit on somebody else ends that shield, though not the hide, and the next hide shields again. A player's damage lands as ever.
+`warn` and with the check off, and the cloak ends with it ("the menu window closed"). The radar's dot is no model: the game draws it while an
+enemy has the player spotted (`m_entitySpottedState`), so while the cloak hides a player it clears both of that state's fields for the clients, and no
+dot shows (the live lab, 2026-11-10: either field alone still drew it). The name when aimed at is the cfgs' `mp_playerid`: 1 in Arms Race and Wingman,
+no enemy's name under the crosshair, only a teammate's; 2 in Deathmatch, where everybody is an enemy, none at all. Sounds - footsteps too - muzzle flashes,
+tracers and blood still show. The cloak hides a player from people, not from the [bots](#bots), which aim by what the server knows:
+so while it hides a player - the spawn cloak, the spawn invisibility, Ghost, `os_cloak hide` - no bot's damage hurts them (`BotGuard.cs`), until their own
+first attack in that hide: a shot, a throw or a hit on somebody else ends that shield, though not the hide, and the next hide shields again. A player's
+damage lands as ever.
+
+**The spawn invisibility** (`ArrivalPlan.cs`, `ArrivalCloak.cs`). Every human who spawns on a team is hidden by the same cloak from that moment, in
+every mode, until the first of: the first moment no enemy has them spotted (in Deathmatch, no other player), by the game's own spotted state, the radar's;
+their first attack - a shot, a swing, a throw, damage dealt; leaving their spawn, the spawn cloak's 64 units sideways or 72 up or down; or 10 s. Once
+ended it does not come back before the next spawn. So a player who spawns where nobody looks is seen at once, and one who spawns in an enemy's view stays
+hidden until that enemy looks away. The game re-evaluates who has a player spotted about every half second (0 to 0.5 s after a turn of the view, 0.27 s
+on average, the live lab, 2026-11-10), and the cloak clears that state for the radar after each read, so "seen" holds 0.65 s after the last read that
+found an enemy, and the hide never ends that way in its first 0.65 s. Spotted is not the screen: an enemy at the edge of their view, or far off near the
+middle of it, may see a player the game does not count as spotted, and see them appear. Bots are never hidden by it. The hides and how they ended are
+counted and logged at each map's end; `os_arrival` says where every human's life stands.
 
 **Messages.** Every message a player can get is one line of one catalogue (`bridge/Shared/Messages.cs`): where it goes on screen and who sees it there, who gets a copy in chat and on
 the board's Lately list, and how long it stays. The bridge and the plugin both post through it, so one message cannot go two ways. What happens for everybody shows for everybody;
@@ -369,7 +383,12 @@ Wingman is two teams of two in Valve's matchmaking; here any number of players p
 map on the ballot, lets it win, rolls it as Random and accepts it when asked for, whoever is on, and the Bots page takes every count in Wingman too. A map's
 spawn points per side are its recommended count, which the map browser shows on its card ("3v3", the catalog's Side; none for a map nobody has counted).
 The game itself holds a side at its spawn points ("The Terrorist team is full") and the cfgs keep the sides within one of each other (`mp_limitteams 1`);
-what it does with more players than spawn points is the live lab's to see. Valve's maps have 4 a side or more - de_inferno, de_nuke and de_overpass their
+with more players than a side's spawn points, a bot gets "Team is full" and a joining human displaces a bot (the live lab, 2026-11-10, de_inferno at
+4 v 4). So on a Wingman map the plugin gives each side room for one more than it holds, before every round and again once it has started (the game counts
+a side's spawn points itself then), after every join and after a join the game refused (`SpawnRoom.cs`,
+`SpawnRoomPlan.cs`): the map's own spawn points that are off switched on first, the nearest to those on (Valve's maps switch their 5v5 set off in
+Wingman); then new ones, halfway between two that are on (two players apart at least, one floor); then, if still short, on a spawn point that is on; and
+the game's spawn point count raised to what is on. `os_room` says, per side, what the map has, what is on, the game's count and its spawn lists. Valve's maps have 4 a side or more - de_inferno, de_nuke and de_overpass their
 2v2 sets of 4, de_poseidon 5, de_debris 9, de_eldorado 10, de_vertigo 15 (read from their entity lumps, 2026-11-09; `Modes.WingmanOfficialSpawns`), and 3v3
 on de_inferno was tried on a test copy the same day: every player spawned. A Workshop map's own count is `spawnsT` and `spawnsCt` in its entry of
 `maps-wingman.json`, the smaller of the two, which the Workshop sync writes and the bridge reads. The sync's scan counts them in the map's entity lumps

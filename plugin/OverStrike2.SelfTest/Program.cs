@@ -114,6 +114,69 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     Check(FreezePlan.MaxSeconds >= 180 + 60 && FreezePlan.StaleSeconds >= Hud_LongPollSeconds + 5, "freeze: a word without an end time has room for the longest vote; staleness allows a long poll's silence");
 }
 
+// ---- the spawn invisibility (ArrivalPlan.cs): every human hidden from their spawn until no enemy sees them, their first attack, leaving the spawn
+// or 10 s; "seen" holds SeenHold after the last read that found an enemy, since the game evaluates its spotted state about twice a second ----
+{
+    var a = new ArrivalPlan();
+    a.Spawned(1, 100, 10.0);
+    Check(a.Hides(1, 100, 10.0, 0, 0, 0, false), "spawn invisibility: hidden in the spawn's own tick, before the game has placed the pawn");
+    Check(a.Hides(1, 101, 10.1, 0, 0, 0, false), "spawn invisibility: ...and through the first SeenHold, before the game has evaluated who sees them since the spawn");
+    Check(!a.Hides(1, 150, 10.0 + ArrivalPlan.SeenHold + 0.01, 0, 0, 0, false) && a.SpentBecause(1) == ArrivalPlan.Unseen,
+        "spawn invisibility: ...then no enemy has them spotted: seen again");
+    Check(!a.Hides(1, 151, 10.8, 0, 0, 0, true) && !a.Ready(1), "spawn invisibility: ...and an enemy's look after that does not hide them again before the next spawn");
+    var watched = new ArrivalPlan();
+    watched.Spawned(2, 200, 20.0);
+    watched.Hides(2, 201, 20.02, 0, 0, 0, true); // an enemy looks at the spawn
+    Check(watched.Hides(2, 240, 20.6, 0, 0, 0, false) && watched.Hides(2, 260, 20.02 + ArrivalPlan.SeenHold - 0.01, 0, 0, 0, false),
+        "spawn invisibility: an enemy's look holds the hide SeenHold, through the reads that find the state cleared between two evaluations");
+    Check(!watched.Hides(2, 270, 20.02 + ArrivalPlan.SeenHold + 0.02, 0, 0, 0, false) && watched.SpentBecause(2) == ArrivalPlan.Unseen,
+        "spawn invisibility: ...and no enemy after it: seen again");
+    var stared = new ArrivalPlan();
+    stared.Spawned(3, 300, 30.0);
+    for (var t = 30.01; t < 30.0 + ArrivalPlan.MaxSeconds; t += 0.25) stared.Hides(3, 301, t, 0, 0, 0, true);
+    Check(stared.Ready(3) && !stared.Hides(3, 302, 30.0 + ArrivalPlan.MaxSeconds, 0, 0, 0, true) && stared.SpentBecause(3) == ArrivalPlan.TimeUp,
+        $"spawn invisibility: watched all the while: hidden until {ArrivalPlan.MaxSeconds:0} s after the spawn, then seen");
+    var walker = new ArrivalPlan();
+    walker.Spawned(4, 400, 40.0);
+    walker.Hides(4, 401, 40.01, 100, 100, 0, true); // the first look after the spawn's tick takes the spawn point
+    Check(walker.Hides(4, 402, 40.02, 140, 140, 0, true) && !walker.Hides(4, 403, 40.03, 100 + SpawnCloakPlan.Radius + 1, 100, 0, true)
+        && walker.SpentBecause(4) == SpawnCloakPlan.Left, "spawn invisibility: a step aside is still the spawn; off it (the spawn cloak's notion), seen again");
+    var shooter = new ArrivalPlan();
+    shooter.Spawned(5, 500, 50.0);
+    shooter.Hides(5, 501, 50.01, 0, 0, 0, true);
+    Check(shooter.Spend(5, ArrivalPlan.Attacked) && !shooter.Hides(5, 502, 50.02, 0, 0, 0, true) && !shooter.Spend(5, ArrivalPlan.Hurt) && shooter.SpentBecause(5) == ArrivalPlan.Attacked,
+        "spawn invisibility: their first attack ends it, once");
+    shooter.Ended(5);
+    Check(!shooter.Hides(5, 503, 50.03, 0, 0, 0, true) && shooter.Describe(5, 50.03) == "no life", "spawn invisibility: a death ends the life");
+    shooter.Spawned(5, 600, 60.0);
+    Check(shooter.Hides(5, 601, 60.01, 0, 0, 0, true) && shooter.Ready(5), "spawn invisibility: the next spawn hides again");
+    shooter.MapStarted();
+    Check(!shooter.Ready(5), "spawn invisibility: a new map forgets every life");
+}
+
+// ---- room on a Wingman map (SpawnRoomPlan.cs): a side always has a spawn point more than it holds - the map's own that are off first, then new ones
+// halfway between two that are on, then on one that is on ----
+{
+    Check(SpawnRoomPlan.Needed(0, 10) == 1 && SpawnRoomPlan.Needed(2, 10) == 3 && SpawnRoomPlan.Needed(5, 10) == 6 && SpawnRoomPlan.Needed(9, 10) == 6,
+        "spawn room: one more than the side holds, at most half the server's slots and one");
+    var two = new[] { new SpawnSpot(10, true, 0, 0, 0, 90), new SpawnSpot(11, true, 200, 0, 0, 90) };
+    var enough = SpawnRoomPlan.Plan(two, 2);
+    Check(enough.Enable.Count == 0 && enough.Add.Count == 0, "spawn room: enough spawn points on: nothing done");
+    var third = SpawnRoomPlan.Plan(two, 3);
+    Check(third.Enable.Count == 0 && third.Add.Count == 1 && third.Add[0] == (100.0, 0.0, 0.0, 90.0), "spawn room: a third halfway between two that are on, facing as the first");
+    var fourth = SpawnRoomPlan.Plan(two, 4);
+    Check(fourth.Add.Count == 2 && fourth.Add[0] == (100.0, 0.0, 0.0, 90.0) && fourth.Add[1] == (0.0, 0.0, 0.0, 90.0),
+        "spawn room: no pair left: on a spawn point that is on, round the side's ones");
+    var valve = new[] { new SpawnSpot(1, true, 0, 0, 0, 0), new SpawnSpot(2, true, 64, 0, 0, 0), new SpawnSpot(3, false, 1000, 1000, 0, 0), new SpawnSpot(4, false, 100, 0, 0, 0) };
+    var own = SpawnRoomPlan.Plan(valve, 3);
+    Check(own.Enable.SequenceEqual([4]) && own.Add.Count == 0, "spawn room: the map's own spawn point that is off first, the nearest to those on (Valve's maps switch their 5v5 set off in Wingman)");
+    var floors = new[] { new SpawnSpot(1, true, 0, 0, 0, 0), new SpawnSpot(2, true, 200, 0, 100, 0) };
+    Check(SpawnRoomPlan.Plan(floors, 3).Add is [var up] && up == (0.0, 0.0, 0.0, 0.0), "spawn room: two on different floors have no halfway: on a spawn point instead");
+    var close = new[] { new SpawnSpot(1, true, 0, 0, 0, 0), new SpawnSpot(2, true, 40, 0, 0, 0) };
+    Check(SpawnRoomPlan.Plan(close, 3).Add is [var near] && near == (0.0, 0.0, 0.0, 0.0), $"spawn room: two closer than {SpawnRoomPlan.PairMin:0} units have no room halfway");
+    Check(SpawnRoomPlan.Plan([], 1).Add.Count == 0, "spawn room: a side with no spawn point at all gets none made (nowhere to put it)");
+}
+
 // ---- the spawn cloak (CloakPlan.cs, SpawnCloakPlan): the window open on the spawn hides its player; leaving it, an attack and a vote
 // freeze's start or end spend the cloak for the rest of the life ----
 {
@@ -310,6 +373,24 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpotted\", offset);", StringComparison.Ordinal)
           && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpottedByMask\", offset);", StringComparison.Ordinal),
         "lab probe: loaded, answering the server console and RCON only, and a cleared spotted state sent to the clients (m_bSpotted, m_bSpottedByMask)");
+    // the spawn invisibility and the room in the game: wired, the radar's dot cleared, humans only, the console's verbs
+    var hostNow = Source("plugin", "OverStrike2", "OverStrike2.cs");
+    var arrival = Source("plugin", "OverStrike2", "ArrivalCloak.cs");
+    var cloakSource = Source("plugin", "OverStrike2", "Cloak.cs");
+    var room = Source("plugin", "OverStrike2", "SpawnRoom.cs");
+    Check(hostNow.Contains("new ArrivalCloak(this, Logger, cloak).Load();", StringComparison.Ordinal) && hostNow.IndexOf("new ArrivalCloak(", StringComparison.Ordinal) > hostNow.IndexOf("cloak.Load();", StringComparison.Ordinal)
+          && hostNow.Contains("new SpawnRoom(this, Logger, () => settings.Mode.Id).Load();", StringComparison.Ordinal),
+        "spawn invisibility: loaded after the cloak (whose spawn handler ends the life first); the room by the mode the settings module has");
+    Check(arrival.Contains("ev.Userid is { IsValid: true, IsBot: false, IsHLTV: false } p && OnTeam(p)", StringComparison.Ordinal) && arrival.Contains("cloak.BeforePass += Pass;", StringComparison.Ordinal)
+          && arrival.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal),
+        "spawn invisibility: humans on a team only, read in the cloak's look before its pass, its verb the console's");
+    Check(cloakSource.IndexOf("Unspot(pawn);", StringComparison.Ordinal) is > 0 and var unspot && unspot < cloakSource.IndexOf("Hold(slot, pawn, pawn);", StringComparison.Ordinal)
+          && cloakSource.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpotted\", spottedOffset.Value);", StringComparison.Ordinal)
+          && cloakSource.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpottedByMask\", spottedOffset.Value);", StringComparison.Ordinal),
+        "cloak: a hidden player's spotted state cleared, both fields, for the clients - after the look has read it - so the radar shows no dot");
+    Check(room.Contains("if (!always && modeId() != Modes.WingmanId) return;", StringComparison.Ordinal) && room.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal),
+        "spawn room: Wingman only unless the console asks, its verb the console's");
+
 }
 
 // ---- the spawn cloak's cap (release 194): the welcome is pinned open at a real join until its X, and a game that cannot draw our window - a content
@@ -1030,7 +1111,7 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
               && guard.Contains("plugin.RegisterEventHandler<EventGrenadeThrown>((ev, _) => Attacked(ev.Userid));", StringComparison.Ordinal)
               && guard.Contains("plugin.RegisterEventHandler<EventPlayerHurt>((ev, _) => ev.Attacker is { IsValid: true } a && ev.Userid is { IsValid: true } v && a.Slot != v.Slot ? Attacked(a) : HookResult.Continue);", StringComparison.Ordinal)
               && guard.Contains("shield.Attacked(player.Slot, cloak.Hide(player.Slot));", StringComparison.Ordinal)
-              && cloakCode.Contains("if (was == CloakWhy.None) { fresh[slot] = because; hides[slot] = ++hideCount; }", StringComparison.Ordinal)
+              && cloakCode.Contains("if (was == CloakWhy.None) { if (!quiet) fresh[slot] = because; hides[slot] = ++hideCount; }", StringComparison.Ordinal)
               && cloakCode.Contains("public int Hide(int slot) => why.ContainsKey(slot) ? hides.GetValueOrDefault(slot) : 0;", StringComparison.Ordinal),
             "bots: a hidden player's shot, throw or hit on somebody else ends the shield of the hide they are in, and the cloak numbers a hide anew each time a player goes from seen to hidden");
     }

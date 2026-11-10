@@ -40,7 +40,9 @@ namespace OverStrike2;
 /// (Listeners.CheckTransmit), which can make a client error out. Two more ways remain, should a real game show something still drawn:
 /// EF_NODRAW_BUT_TRANSMIT (drawn by no client, still sent) and kRenderNone. A weapon's charm, for one, is a client-side model of the
 /// weapon's (C_KeychainModule), and whether it follows the weapon's alpha is not known; nor whether the carried C4's light (a particle) does.
-/// Never hidden: what is no model - the radar's dot while an enemy sees the player, the name over them when aimed at (mp_playerid), sounds,
+/// The radar's dot is no model: the game draws it while an enemy has the player spotted (m_entitySpottedState). So while a player is hidden the pass
+/// clears both its fields after the cloak's look has read them, and the clients see nobody spotted (the live lab, 2026-11-10: either field alone
+/// still drew the dot). The name over a player when aimed at is the cfgs' mp_playerid's (no enemy names). Never hidden: sounds - footsteps too -
 /// muzzle flashes, tracers, blood.
 ///
 /// Nothing heavy inside a player's callback: the events only change the reasons, and the pass makes every write. A death, a respawn and a
@@ -116,10 +118,10 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     /// (BotGuard, CloakShield) shields a hidden player from the bots until their own first attack in that hide.</summary>
     public int Hide(int slot) => why.ContainsKey(slot) ? hides.GetValueOrDefault(slot) : 0;
 
-    /// <summary>A reason to hide a player starts (on) or ends; because is what the log says. On needs the player alive: false when they are
-    /// not, and nothing changes. The writes come in the pass after the entities' think: in this tick when called before it, an event's
-    /// included.</summary>
-    public bool Want(int slot, CloakWhy reason, bool on, string because)
+    /// <summary>A reason to hide a player starts (on) or ends; because is what the log says - nothing when quiet (the spawn invisibility, whose hides come at
+    /// every spawn, counts them instead). On needs the player alive: false when they are not, and nothing changes. The writes come in the pass after the
+    /// entities' think: in this tick when called before it, an event's included.</summary>
+    public bool Want(int slot, CloakWhy reason, bool on, string because, bool quiet = false)
     {
         var was = Why(slot);
         if (on)
@@ -127,7 +129,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
             if ((was & reason) != 0) return true;
             if (Alive(slot) == null) return false;
             why[slot] = was | reason;
-            if (was == CloakWhy.None) { fresh[slot] = because; hides[slot] = ++hideCount; } // seen until now: a new hide
+            if (was == CloakWhy.None) { if (!quiet) fresh[slot] = because; hides[slot] = ++hideCount; } // seen until now: a new hide
             return true;
         }
         if ((was & reason) == 0) return true;
@@ -135,7 +137,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
         if (now != CloakWhy.None) { why[slot] = now; return true; }
         why.Remove(slot);
         fresh.Remove(slot);
-        log.LogInformation("Over Strike 2 cloak: {Name} seen again - {Because}", Utilities.GetPlayerFromSlot(slot)?.PlayerName ?? $"slot {slot}", because);
+        if (!quiet) log.LogInformation("Over Strike 2 cloak: {Name} seen again - {Because}", Utilities.GetPlayerFromSlot(slot)?.PlayerName ?? $"slot {slot}", because);
         return true;
     }
 
@@ -150,8 +152,9 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     void End(CCSPlayerController player, string because)
     {
         var slot = player.Slot;
-        if (!why.Remove(slot)) return;
+        if (!why.Remove(slot, out var was)) return;
         fresh.Remove(slot);
+        if ((was & ~CloakWhy.Arrival) == 0) return; // the spawn invisibility's own: counted, not logged
         var name = player.PlayerName;
         Server.NextFrame(() => log.LogInformation("Over Strike 2 cloak: {Name} seen again - {Because}", name, because));
     }
@@ -186,6 +189,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
             try
             {
                 if (Alive(slot) is not { } pawn) { why.Remove(slot); fresh.Remove(slot); continue; } // the life is over (its event ends it too)
+                Unspot(pawn);
                 Hold(slot, pawn, pawn);
                 if (pawn.WeaponServices is { } weapons)
                 {
@@ -225,6 +229,23 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
                 pawn != null, pawn?.GunGameImmunityColor.ToArgb() ?? 0));
         Hide(entity, pawn);
     }
+
+    /// <summary>A hidden player spotted by nobody, for the clients: m_bSpotted and m_bSpottedByMask cleared, both, once the look before the pass has read them -
+    /// the radar draws no dot for them. The game sets them again at its next evaluation (about twice a second), and the next pass clears them again.</summary>
+    void Unspot(CCSPlayerPawn pawn)
+    {
+        var state = pawn.EntitySpottedState;
+        var mask = state.SpottedByMask;
+        var any = false;
+        for (var i = 0; i < mask.Length; i++) if (mask[i] != 0) { mask[i] = 0; any = true; }
+        if (state.Spotted) { state.Spotted = false; any = true; }
+        if (!any) return;
+        spottedOffset ??= Schema.GetSchemaOffset("CCSPlayerPawn", "m_entitySpottedState");
+        Utilities.SetStateChanged(pawn, "EntitySpottedState_t", "m_bSpotted", spottedOffset.Value);
+        Utilities.SetStateChanged(pawn, "EntitySpottedState_t", "m_bSpottedByMask", spottedOffset.Value);
+    }
+
+    short? spottedOffset;
 
     /// <summary>One entity hidden: only what is not hidden yet is written, so a pass that finds everything in place writes nothing.</summary>
     void Hide(CBaseModelEntity e, CCSPlayerPawn? pawn)
@@ -336,7 +357,7 @@ sealed class Cloak(BasePlugin plugin, ILogger log)
     {
         var clock = Stopwatch.StartNew();
         var count = 0;
-        foreach (var type in new[] { typeof(Cloak), typeof(SpawnCloak), typeof(SpawnCloakPlan), book.GetType() })
+        foreach (var type in new[] { typeof(Cloak), typeof(SpawnCloak), typeof(SpawnCloakPlan), typeof(ArrivalCloak), typeof(ArrivalPlan), book.GetType() })
             foreach (var m in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 if (m.IsAbstract || m.ContainsGenericParameters) continue;

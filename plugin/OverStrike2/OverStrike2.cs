@@ -77,6 +77,11 @@ public class OverStrike2Plugin : BasePlugin
         new BotGuard(this, Logger, () => Bots.War(settings.FunValue), cloak).Load(); // no bot's damage to a player while Bot war is on or the cloak hides them - after the freeze's hook, before catch-up's
         // The spawn cloak (the menu window open on the spawn hides its player) goes by the HUD's window and the vote's freeze. It lives on in the handlers it registers.
         new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
+        // The spawn invisibility (ArrivalCloak.cs): every human hidden from their spawn until no enemy sees them, their first attack, leaving the spawn or 10 s -
+        // after the cloak and the spawn cloak, so the cloak's own spawn handler has ended the life before, and its look reads the spotted state before the pass clears it.
+        new ArrivalCloak(this, Logger, cloak).Load();
+        // Room for any number of players on any Wingman map (SpawnRoom.cs): each side has a spawn point more than it holds.
+        new SpawnRoom(this, Logger, () => settings.Mode.Id).Load();
         // The live lab's probe for the spawn invisibility (InvisProbe.cs, os_probe): inert until the console tells it what to watch.
         new InvisProbe(this, Logger).Load();
         // The fairness restart (EarlyJoinWatch.cs): every player who joins a match in its first minute while somebody else plays it starts it over, in every mode,

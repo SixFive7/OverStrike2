@@ -29,6 +29,8 @@
     <Compile Include="..\OverStrike2\PluginSetup.cs" Link="PluginSetup.cs" />
     <!-- Whom the spawn cloak hides, on handed ticks and positions, and which entities the cloak has painted and puts back. -->
     <Compile Include="..\OverStrike2\CloakPlan.cs" Link="CloakPlan.cs" />
+    <Compile Include="..\OverStrike2\ArrivalPlan.cs" Link="ArrivalPlan.cs" />
+    <Compile Include="..\OverStrike2\SpawnRoomPlan.cs" Link="SpawnRoomPlan.cs" />
     <!-- What the plugin shares with the bridge - the block file's format and every game mode's values (Modes.cs, BlockList.cs), the fun page's
          settings and the players' changes (Fun.cs, FunState.cs) - compiled in as the plugin compiles it, with core's rule the map browser's
          search takes: plain BCL all of it, tested by the bridge's own self-test as well. -->

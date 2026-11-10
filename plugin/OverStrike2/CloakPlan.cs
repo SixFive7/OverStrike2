@@ -13,6 +13,7 @@ public enum CloakWhy
     Ghost = 1, // the fun page's Ghost: a kill (FunEffects.cs)
     Spawn = 2, // the spawn cloak: the menu window open on the spawn (SpawnCloakPlan)
     Test = 4,  // os_cloak hide, from the console: to look at the hide from another player's game
+    Arrival = 8, // the spawn invisibility: every human's spawn, until no enemy sees them (ArrivalPlan.cs)
 }
 
 /// <summary>The spawn cloak, per player and per life: a player whose menu window is open while they are on their spawn is hidden for as long as it
