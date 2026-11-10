@@ -54,6 +54,10 @@ static partial class Program
         plan.Force(At(5));
         Check("Fairness: os_fair live - the match runs from now and the next join counts as joining somebody, so a lone test game's spawn asks",
             plan.Spawned(Ann, At(10), 0) && plan.Describe(At(10)).Contains("restarts it"));
+        plan = Map();
+        plan.Force(At(5));
+        plan.MatchStarted(At(8), 0); // the game commencing as the lone test game picks a team
+        Check("...and the game commencing as that lone game picks a team does not undo it", plan.Spawned(Ann, At(9), 0));
 
         plan = Map();
         plan.Skip("the plugin loaded during this map");

@@ -62,8 +62,9 @@ public sealed class EarlyJoin
     public void Left(long account) => joined.Remove(account);
 
     /// <summary>A round start out of warmup with no round played yet - the match starts, or starts over (a restart, the fairness one's too) - with this many
-    /// humans on a team. With any, the match runs from now; with none, from the first human's spawn.</summary>
-    public void MatchStarted(DateTime now, int humansOnTeam) => running = humansOnTeam > 0 ? now : null;
+    /// humans on a team. With any, the match runs from now; with none, from the first human's spawn - unless os_fair live's join is still to come: the game
+    /// commencing as a lone test game picks a team must not undo it.</summary>
+    public void MatchStarted(DateTime now, int humansOnTeam) => running = humansOnTeam > 0 || forced ? now : null;
 
     /// <summary>os_fair live, the client harness's: the match runs from now, and the next join counts as joining somebody - so a lone test game's spawn asks.</summary>
     public void Force(DateTime now) => (running, forced) = (now, true);

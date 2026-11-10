@@ -25,6 +25,8 @@ namespace OverStrike2;
 ///                                                                     the tick (think: after the entities' think, the default); "seen" is then
 ///                                                                     what the reads before each clear say, held SeenTicks after the last
 ///   os_probe footsteps &lt;#slot&gt; on | off                                  that player's footstep events logged
+///   os_probe respawn &lt;account | #slot&gt; [here]                           that player spawned again - a new life, as the game gives one - and with
+///                                                                     "here" put back where they stood, facing as they faced: a watched spawn, at will
 ///   os_probe status                                                     the watches, the field offsets, every watched player's state now
 ///
 /// Each line says "t=" milliseconds since the plugin loaded and the server tick, so a snap of the view (look) and the spotted state's change
@@ -56,7 +58,7 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
 
     public void Load()
     {
-        plugin.AddCommand(Command, "Over Strike 2 lab probe: place | look | spotted | clearspotted | footsteps | status (the console only)", OnCommand);
+        plugin.AddCommand(Command, "Over Strike 2 lab probe: place | look | spotted | clearspotted | footsteps | respawn | status (the console only)", OnCommand);
         plugin.RegisterListener<Listeners.OnTick>(() => Pass("tick"));
         plugin.RegisterListener<Listeners.OnServerPostEntityThink>(() => Pass("think"));
         plugin.RegisterListener<Listeners.CheckTransmit>(_ =>
@@ -190,6 +192,18 @@ sealed class InvisProbe(BasePlugin plugin, ILogger log)
                     else w.Steps = on;
                     Forget(who.Slot, w);
                     Reply($"#{who.Slot} {who.PlayerName}: {Arg(1).ToLowerInvariant()} {(on ? "logged" : "no longer logged")}");
+                    return;
+                }
+                case "respawn":
+                {
+                    if (Find(Arg(2)) is not { } who) { Reply("respawn <account | #slot> [here]: no such player"); return; }
+                    // where they stand now, copied: the pawn is the same entity after the respawn, and its position moves with it
+                    var here = Arg(3).Equals("here", StringComparison.OrdinalIgnoreCase) && Pawn(who.Slot) is { AbsOrigin: { } at } before
+                        ? (Pos: new Vector(at.X, at.Y, at.Z), Look: new QAngle(before.EyeAngles.X, before.EyeAngles.Y, 0)) : ((Vector Pos, QAngle Look)?)null;
+                    who.Respawn();
+                    // in the same tick, before any look at the new life: its spawn point is taken here
+                    if (here is { } h && who.PlayerPawn.Value is { IsValid: true } pawn) pawn.Teleport(h.Pos, h.Look, new Vector(0, 0, 0));
+                    Reply($"#{who.Slot} {who.PlayerName} spawned again{(here is { } w ? $", put back at {w.Pos.X:0} {w.Pos.Y:0} {w.Pos.Z:0}" : "")}");
                     return;
                 }
                 case "clearspotted":
