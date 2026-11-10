@@ -302,6 +302,12 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
           && fair.Contains("name.Contains(\"SHUTDOWN\", StringComparison.Ordinal) || name.StartsWith(\"NETWORK_DISCONNECT_LOOP\", StringComparison.Ordinal)", StringComparison.Ordinal)
           && fair.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
         "fairness restart: humans only - no bot, no TV - no round start in a warmup, and a map change's or the addon download's reconnect is no leaving");
+    // the live lab's probe for the spawn invisibility (InvisProbe.cs): loaded, the console's only, and the spotted state cleared through the state-changed path
+    var probe = Source("plugin", "OverStrike2", "InvisProbe.cs");
+    Check(host.Contains("new InvisProbe(this, Logger).Load();", StringComparison.Ordinal) && probe.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal)
+          && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpotted\", offset);", StringComparison.Ordinal)
+          && probe.Contains("Utilities.SetStateChanged(pawn, \"EntitySpottedState_t\", \"m_bSpottedByMask\", offset);", StringComparison.Ordinal),
+        "lab probe: loaded, answering the server console and RCON only, and a cleared spotted state sent to the clients (m_bSpotted, m_bSpottedByMask)");
 }
 
 // ---- the spawn cloak's cap (release 194): the welcome is pinned open at a real join until its X, and a game that cannot draw our window - a content
