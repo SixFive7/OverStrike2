@@ -35,10 +35,19 @@ public static class HudMenu
     /// HudBrowser.ConfirmSeconds, the padlock open with the second word (confirm): that click puts it to the vote. When the time is up the class goes and it shuts again.</summary>
     public const string Locked = "Locked - Click to unlock", Unlocked = "Click again - Vote anyway";
 
+    /// <summary>How long a confirmed action counts down in its button before it goes - Restart the server, Restart the match, a risky map's pick by its Play or by
+    /// Previous - so its Cancel has that window: a click on the button while it counts down stops it (the bridge's !cancel), whoever clicks. The bridge's
+    /// Restarts.PressedSeconds and Picks.PickCountdownSeconds are this.</summary>
+    public const int PendingSeconds = 10;
+
+    /// <summary>What a card's Play says while its confirmed pick counts down to the vote: the seconds left, and that a click cancels it.</summary>
+    public static string CardPending(int seconds) => $"In {seconds} s - Click to cancel";
+
     /// <summary>What a card's Play button says (a pick is a vote), and whether this player's click on it is the second, confirming
     /// one. While the vote is open (MAPS, Browse) a Play puts the map on the vote, with this player's vote; after a vote, the wait before the next one.</summary>
     static string PlayText(HudCatalog.Entry m, HudState s, HudBrowser b, DateTime now, VoteState? vote = null, long account = 0, string serverMode = "")
     {
+        if (s.PickIn(m.Key) is >= 0 and var due) return CardPending(due); // a confirmed pick of it counts down: its Cancel, for everybody
         if (vote is { Open: true, Round: > 0 } v)
         {
             if (v.Options.FirstOrDefault(o => o.Key == m.Key && o.Source != VoteSource.Random) is { } on)
@@ -95,7 +104,7 @@ public static class HudMenu
     /// eight cards with every tag that applies (MapTags; ON NOW on the map that is on). A query that is a Workshop id no map has hides the cards'
     /// empty message: the plugin shows that item's card there. The cards past the eighth are the ballot's: empty here.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Maps(
-        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null)
+        HudCatalog? catalog, HudState s, HudBrowser b, long account, DateTime now, HudSearch? search = null, string serverMode = "", VoteState? vote = null, HudState? bars = null)
     {
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
@@ -151,6 +160,9 @@ public static class HudMenu
             c.Add((id, "liked", mine > 0));
             c.Add((id, "disliked", mine < 0));
             c.Add((id, "confirm", m != null && b.ConfirmKey == m.Key && now < b.ConfirmUntil));
+            var due = m == null ? -1 : s.PickIn(m.Key);
+            c.Add((id, "pending", due >= 0)); // its confirmed pick counts down (content v4.12.0): the Play runs it, and a click cancels it
+            c.AddRange(HudVote.CountdownClasses($"{id}_play", due >= 0 && m != null ? (bars ?? s).PickIn(m.Key) : 0, PendingSeconds)); // the line at its foot, a step ahead (bars)
             c.Add((id, "big", m?.TooBig == true));                         // the TOO BIG tag
             c.Add((id, "ads", m?.Ads > 0));                                 // the ADS tag
             c.Add((id, "ours", m?.Ours == true));                           // the OUR MAP tag
@@ -173,9 +185,15 @@ public static class HudMenu
         return Enumerable.Range(1, Cards).Select(k => ($"{Card(k)}_thumb", k <= page.Count ? HudThumbs.Classes(page[k - 1]) : [])).ToList();
     }
 
-    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page.</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s) =>
-        ([("os_q_prev_text", s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], [(Previous, "off", s.PrevArg == "")]);
+    /// <summary>The Previous button (it puts the map before this one to the vote) - on the Maps page; while its confirmed pick counts down (a risky previous map),
+    /// the seconds left and its Cancel, the line at its foot a step ahead (bars: the state as of HudVote.BarLeadMs from now).</summary>
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) PreviousButton(HudState s, HudState? bars = null)
+    {
+        var due = s.PreviousPickIn();
+        var c = new List<(string, string, bool)> { (Previous, "off", s.PrevArg == "" && due < 0), (Previous, "pending", due >= 0) };
+        c.AddRange(HudVote.CountdownClasses(Previous, due >= 0 ? (bars ?? s).PreviousPickIn() : 0, PendingSeconds));
+        return ([("os_q_prev_text", due >= 0 ? $"Previous: {Hud.Clean(s.PrevLabel, 18)} in {due} s - Cancel" : s.PrevArg == "" ? "No previous map yet" : $"Previous: {Hud.Clean(s.PrevLabel, 26)}")], c);
+    }
 
     // ---- the Fun page: a row per setting of Fun.cs, a button per choice; the state is the server's, the same for all ----
 
@@ -259,23 +277,28 @@ public static class HudMenu
 
     /// <summary>The game page: the match length that is set (and who set it, while it is not the default), and the two restart buttons' two-click
     /// state - restartSeconds and rematchSeconds are what is left of each one's confirmation window after its first click (0: not armed).</summary>
-    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Game(HudState s, int restartSeconds, int rematchSeconds = 0)
+    public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes) Game(HudState s, int restartSeconds, int rematchSeconds = 0, HudState? bars = null)
     {
-        var (armed, rearmed) = (restartSeconds > 0, rematchSeconds > 0);
+        var (restartDue, rematchDue) = (s.PlayerRestartIn(), s.PlayerRematchIn()); // a player's restart counting down: its button runs it, and a click cancels it
+        var (armed, rearmed) = (restartDue < 0 && restartSeconds > 0, rematchDue < 0 && rematchSeconds > 0);
         var t = new List<(string, string)>
         {
             ("os_set_time_now", Length(s) is not { Length: > 0 } length ? "Match length" : $"Matches last {length}{(s.RoundBy != "" ? $" - Set by {Hud.Clean(s.RoundBy, 32)}" : "")}"),
-            ("os_set_restart_text", armed ? RestartAgain(restartSeconds) : "Restart the server"),
-            ("os_set_restart_sub", armed ? "Restarts the whole server: everybody is kicked for about a minute"
+            ("os_set_restart_text", restartDue >= 0 ? $"Restarting in {restartDue} s" : armed ? RestartAgain(restartSeconds) : "Restart the server"),
+            ("os_set_restart_sub", restartDue >= 0 ? $"Click to cancel - Pressed by {Hud.Clean(s.RestartBy, 24)}" : armed ? "Restarts the whole server: everybody is kicked for about a minute"
                 : "For a stuck server: the whole server, not the match. Asks to confirm."),
-            ("os_set_rematch_text", rearmed ? RestartAgain(rematchSeconds) : "Restart the match"),
-            ("os_set_rematch_sub", rearmed ? "Starts the match over for everybody, 10 s after your click" : "Starts this match over, for everybody. Asks to confirm."),
+            ("os_set_rematch_text", rematchDue >= 0 ? $"Match restarts in {rematchDue} s" : rearmed ? RestartAgain(rematchSeconds) : "Restart the match"),
+            ("os_set_rematch_sub", rematchDue >= 0 ? $"Click to cancel - Pressed by {Hud.Clean(s.RematchBy, 24)}"
+                : rearmed ? $"Starts the match over for everybody, {PendingSeconds} s after your click" : "Starts this match over, for everybody. Asks to confirm."),
         };
         var c = new List<(string, string, bool)>
         {
             (Time10, "on", s.Rounds > 0 ? s.Rounds == MatchLength.ShortRounds : s.RoundMinutes == MatchLength.ShortMinutes),
             (Time60, "on", s.Rounds > 0 ? s.Rounds == MatchLength.LongRounds : s.RoundMinutes == MatchLength.LongMinutes), (Restart, "armed", armed), (Rematch, "armed", rearmed),
+            (Restart, "pending", restartDue >= 0), (Rematch, "pending", rematchDue >= 0),
         };
+        c.AddRange(HudVote.CountdownClasses(Restart, restartDue >= 0 ? (bars ?? s).PlayerRestartIn() : 0, PendingSeconds)); // the line at its foot, a step ahead (bars)
+        c.AddRange(HudVote.CountdownClasses(Rematch, rematchDue >= 0 ? (bars ?? s).PlayerRematchIn() : 0, PendingSeconds));
         return (t, c);
     }
 
@@ -321,6 +344,7 @@ public static class HudMenu
                 case "play":
                     if (m.Key == s.Key && s.Key != "" && vote is not { Open: true, Round: > 0 }) return null; // the map that is on: Keep on the vote, nothing outside one
                     if (b.DoubleClick(m.Key, now)) return null; // the second click of a double click: nothing - never the confirmation of a risky map's first click
+                    if (s.PickIn(m.Key) >= 0) return $"!cancel pick {m.Key}"; // its confirmed pick counts down: the click is its Cancel, whoever clicks
                     if (m.Removed) return $"!map {PlayArg(m, b.Mode, serverMode)}"; // the bridge refuses it, saying why in the player's note - no confirmation to arm
                     if (m.Risky && !(b.ConfirmKey == m.Key && now < b.ConfirmUntil)) { b.ConfirmKey = m.Key; b.ConfirmUntil = now.AddSeconds(HudBrowser.ConfirmSeconds); }
                     else { b.ConfirmKey = ""; b.ConfirmUntil = default; }
@@ -330,11 +354,11 @@ public static class HudMenu
         }
         return buttonId switch
         {
-            Previous => s?.PrevArg is { Length: > 0 } && !b.DoubleClick(Previous, now) ? "!previous" : null, // a double click's second counts for nothing: never the confirmation of a risky previous map
+            Previous => s?.PrevArg is { Length: > 0 } && !b.DoubleClick(Previous, now) ? (s.PreviousPickIn() >= 0 ? "!cancel previous" : "!previous") : null, // a double click's second counts for nothing; while its pick counts down, a click is its Cancel
             Time10 => $"!time {MatchLength.Choices(serverMode).Short}", // the short one, in the mode's own count: Wingman's 8 rounds (release 199)
             Time60 => $"!time {MatchLength.Choices(serverMode).Long}",
-            Restart => b.DoubleClick(Restart, now) ? null : "!restart", // the same: a double click never confirms a restart (the bridge's second click within 30 s)
-            Rematch => b.DoubleClick(Rematch, now) ? null : "!rematch",
+            Restart => b.DoubleClick(Restart, now) ? null : s?.PlayerRestartIn() >= 0 ? "!cancel restart" : "!restart", // a double click never confirms a restart; while it counts down, a click is its Cancel
+            Rematch => b.DoubleClick(Rematch, now) ? null : s?.PlayerRematchIn() >= 0 ? "!cancel rematch" : "!rematch",
             _ => null,
         };
     }

@@ -567,8 +567,34 @@ static partial class Program
             ClearNotices(); Pick(alice, m[3]);
             Check("A risky pick during a vote asks that player a second time first", h.Said($"Click again within {PickConfirmSeconds} s to vote anyway") && Ballot!.Options.All(o => o.Map != m[3]) && !Ballot.Choices.ContainsKey(alice.Item2));
             Pick(bob, bobs); Pick(alice, m[3]);
-            Check("...another player's pick between leaves her confirm standing: her second click puts it on the ballot, with her vote",
-                Ballot is { Open: true } rb && rb.Options.Single(o => o.Map == m[3]).N == rb.Choices[alice.Item2] && rb.Options.Any(o => o.Map == bobs));
+            var hud3 = BuildHud(h.Clock);
+            Check($"...another player's pick between leaves her confirm standing: her second click confirms it - it counts down {PickCountdownSeconds} s to the vote, in the live state for everybody's button; not on the ballot yet",
+                PicksDue.TryGetValue(Key(m[3]), out var due3) && due3.SteamId == alice.Item2 && !due3.Previous && Ballot!.Options.All(o => o.Map != m[3]) && Ballot.Options.Any(o => o.Map == bobs)
+                && hud3.PicksDue is [var pd3] && pd3.Key == Key(m[3]) && pd3.By == "Alice" && !pd3.Previous && pd3.AtMs == HudState.Ms(h.Clock.AddSeconds(PickCountdownSeconds))
+                && HudState.Decode(hud3.Encode())!.PicksDue.SequenceEqual(hud3.PicksDue));
+            ClearNotices(); Pick(cara, m[3]);
+            Check("...a pick of it meanwhile, by anybody, says it counts down already, and how to cancel it", h.Said("goes to the vote in") && h.Said("Click its countdown to cancel") && PicksDue.ContainsKey(Key(m[3])));
+            h.Run(PickCountdownSeconds);
+            Check("...its countdown over, it goes on the ballot with her vote, as her own card", Ballot is { Open: true } rb && rb.Options.Single(o => o.Map == m[3]) is { } on3
+                && on3.N == rb.Choices[alice.Item2] && on3.Owner == alice.Item2 && PicksDue.Count == 0 && BuildHud(h.Clock).PicksDue.Count == 0);
+            // the countdown's Cancel: anybody who could press the button may, and the news line says who
+            var risky5 = m.Skip(5).First(x => Ballot!.Options.All(o => o.Map != x));
+            var risky6 = m.Skip(5).First(x => x != risky5 && Ballot!.Options.All(o => o.Map != x));
+            Broken = new() { [Key(m[3])] = 3, [Key(risky5)] = 3, [Key(risky6)] = 3 };
+            Pick(cara, risky5); Pick(cara, risky5);
+            ClearNotices();
+            Check("Cancel: Bob's click on its countdown (!cancel pick <key>) stops Cara's pick, and the news line says who cancelled whose",
+                PicksDue.ContainsKey(Key(risky5)) is var was5 && HudAct($"{bob.Item2}\t{bob.Item1}\t!cancel pick {Key(risky5)}") && was5 && !PicksDue.ContainsKey(Key(risky5)) && h.Said("Bob cancelled Cara's pick of"));
+            h.Run(PickCountdownSeconds + 1);
+            Check("...and it never goes to the vote; a Cancel with nothing counting down is answered and changes nothing",
+                Ballot!.Options.All(o => o.Map != risky5) && HudAct($"{bob.Item2}\t{bob.Item1}\t!cancel pick {Key(risky5)}") && h.Said("No pick counts down there any more"));
+            Pick(cara, risky5); Pick(cara, risky5); Pick(cara, risky6); Pick(cara, risky6);
+            Check("A player's newer confirmed pick takes the place of her older one counting down", !PicksDue.ContainsKey(Key(risky5)) && PicksDue[Key(risky6)].SteamId == cara.Item2);
+            h.Leave(cara); h.Run(PickCountdownSeconds + 1);
+            Check("...and a pick whose player left before its countdown ended does not go to the vote (the two left decided it meanwhile)", (Ballot == null || Ballot.Options.All(o => o.Map != risky6)) && PicksDue.Count == 0 && Pending?.Map != risky6);
+            Check("The click's words: !cancel restart, rematch, previous and pick <key> are clicks the bridge takes; nothing else after !cancel",
+                Hud.IsAction("!cancel restart") && Hud.IsAction("!cancel rematch") && Hud.IsAction("!cancel previous") && Hud.IsAction($"!cancel pick {Key(risky5)}") && Hud.IsAction("!cancel pick de_dust2")
+                && !Hud.IsAction("!cancel") && !Hud.IsAction("!cancel everything") && !Hud.IsAction("!cancel pick some name") && !Hud.IsAction("!cancel pick "));
             Broken = new();
 
             // ---- the timer: the most votes win at 60 s, not before ----

@@ -54,22 +54,12 @@ public static class Modes
 
     // ---- a Wingman map's spawn points per side: the map browser's recommended count ("3v3"), never a limit - any number plays on any Wingman map ----
 
-    /// <summary>A Wingman map's spawn points per side while nobody has counted them (a Workshop map the sync has not read yet): Valve's 2v2. Only the
-    /// vote's log line still says it (VoteRound.cs, WingmanTakes).</summary>
-    public const int UnknownSpawnsPerSide = 2;
-
     /// <summary>The spawn points per side of Valve's own Wingman maps, read from their entity lumps (2026-11-09): the 2v2 set ("spawnpoints.2v2") that Wingman
     /// switches on where a map has one - inferno, nuke and overpass - else every team spawn. 3v3 on de_inferno was tried on a test copy that day: every player spawned.</summary>
     public static readonly IReadOnlyDictionary<string, int> WingmanOfficialSpawns = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
         ["de_debris"] = 9, ["de_eldorado"] = 10, ["de_poseidon"] = 5, ["de_overpass"] = 4, ["de_vertigo"] = 15, ["de_nuke"] = 4, ["de_inferno"] = 4,
     };
-
-    /// <summary>A map's spawn points per side as the rule counts them: its own, or UnknownSpawnsPerSide when nobody has counted them (0).</summary>
-    public static int PerSide(int spawnsPerSide) => spawnsPerSide > 0 ? spawnsPerSide : UnknownSpawnsPerSide;
-
-    /// <summary>A Wingman map's spawn points per side as words: "3 a side".</summary>
-    public static string WingmanTakes(int spawnsPerSide) => $"{PerSide(spawnsPerSide)} a side";
 
     public static Mode Default => ArmsRace;
 

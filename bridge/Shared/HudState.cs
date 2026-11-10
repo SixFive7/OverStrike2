@@ -45,6 +45,7 @@ public sealed class HudState
     public List<(long Seq, long Account, bool Alert, long UntilMs, string Text)> Centres = new(); // CS2's plain centre text and alert, held until then
     public string CrashNote = "";                       // a crash within the last minutes, as the welcome page says it
     public string ChangeKey = "";                       // the key of the map a change counts down to: its picture
+    public List<(string Key, string By, long AtMs, bool Previous)> PicksDue = new(); // a risky map's confirmed pick counting down to the vote: its key, who, when it goes, by Previous
     public string RestartBy = "";                       // the player who pressed a restart counting down
     public string RestartAfter = "";                    // what players do afterwards, as the countdown's second line says it
     public long RematchAtMs;                            // Restart match counting down: the moment it goes...
@@ -63,9 +64,31 @@ public sealed class HudState
 
     /// <summary>The state as it stands at this moment (unix milliseconds on the bridge's clock): every countdown worked out from its end time, what has
     /// run out gone. A text without end times (an older bridge) is as it came.</summary>
+    /// <summary>The moment (unix milliseconds on the bridge's clock) this state is as of (AsOf); 0: as it came. The picks' countdowns count to it (PickIn).</summary>
+    public long AsOfMs;
+
+    /// <summary>The seconds left of the confirmed pick of this map counting down to the vote (PicksDue), -1 for none: what its card's button counts; a state as it
+    /// came (AsOfMs 0) says the whole countdown.</summary>
+    public int PickIn(string key) => PicksDue.FirstOrDefault(p => p.Key == key) is { AtMs: > 0 } p ? LeftTo(p.AtMs) : -1;
+
+    /// <summary>...and of the one that came by Previous, whose button counts it then; -1 for none.</summary>
+    public int PreviousPickIn() => PicksDue.FirstOrDefault(p => p.Previous) is { AtMs: > 0 } p ? LeftTo(p.AtMs) : -1;
+
+    /// <summary>The seconds left of a player's Restart the server counting down (its button counts them and cancels it), -1 for none - the watcher's restarts are not the players' to cancel.</summary>
+    public int PlayerRestartIn() => RestartKind == PlayerRestartKind && RestartWhen == "now" && RestartIn >= 0 && RestartBy != "" ? RestartIn : -1;
+
+    /// <summary>...and of a player's Restart match, -1 for none: the fairness restart is no button's.</summary>
+    public int PlayerRematchIn() => RematchIn >= 0 && !RematchFair ? RematchIn : -1;
+
+    /// <summary>The kind of a restart a player pressed, as the bridge's Restarts.cs names it on the wire.</summary>
+    public const string PlayerRestartKind = "player";
+
+    int LeftTo(long atMs) => AsOfMs > 0 ? Math.Max(0, (int)Math.Ceiling((atMs - AsOfMs) / 1000.0)) : HudMenu.PendingSeconds;
+
     public HudState AsOf(long nowMs)
     {
         var h = (HudState)MemberwiseClone();
+        h.AsOfMs = nowMs;
         int Secs(long until) => (int)Math.Ceiling((until - nowMs) / 1000.0);
         if (ChangeAtMs > 0) h.ChangeIn = Math.Max(0, Secs(ChangeAtMs));
         h.Notes = new(Notes);
@@ -125,6 +148,7 @@ public sealed class HudState
         foreach (var (seq, account, alert, until, text) in Centres) Raw("ctr", seq, account, alert ? 1 : 0, until, Hud.Clean(text, Messages.CentreMax));
         if (CrashNote != "") Raw("crashn", Hud.Clean(CrashNote, Messages.TopMax));
         if (ChangeKey != "") Raw("chgkey", Hud.Clean(ChangeKey, 40));
+        foreach (var p in PicksDue) Raw("pickdue", Hud.Clean(p.Key, 40), p.AtMs, Hud.Clean(p.By, 32), p.Previous ? 1 : 0); // an older plugin skips it
         if (RestartKind != "") Raw("rstby", Hud.Clean(RestartBy, 32), Hud.Clean(RestartAfter, 80));
         if (RematchAtMs > 0) Raw("rematch", RematchAtMs, Hud.Clean(RematchBy, 64), RematchFair ? 1 : 0, Math.Max(1, RematchCount)); // an older plugin reads the first two or three
         return s.ToString();
@@ -173,6 +197,7 @@ public sealed class HudState
                 case "ctr" when Long(f, 1) > 0: s.Centres.Add((Long(f, 1), Math.Max(0, Long(f, 2)), Int(f, 3) == 1, Long(f, 4), Str(f, 5))); break;
                 case "crashn": s.CrashNote = Str(f, 1); break;
                 case "chgkey": s.ChangeKey = Str(f, 1); break;
+                case "pickdue" when Str(f, 1) != "" && Long(f, 2) > 0 && s.PicksDue.Count < 64: s.PicksDue.Add((Str(f, 1), Str(f, 3), Long(f, 2), Int(f, 4) == 1)); break;
                 case "rstby": (s.RestartBy, s.RestartAfter) = (Str(f, 1), Str(f, 2)); break;
                 case "rematch" when Long(f, 1) > 0: (s.RematchAtMs, s.RematchBy, s.RematchFair, s.RematchCount) = (Long(f, 1), Str(f, 2), Int(f, 3) == 1, Math.Max(1, Int(f, 4))); break;
             }

@@ -35,9 +35,9 @@ static partial class Program
     public const int UpdatedNoticeMinutes = 10;   // a player who joins this long after the update hears what it was
     public const int RestartStaleMinutes = 5;     // a countdown this long past its end without the server going down is over
     public const int RestartMatchEndHours = 6;    // a restart waiting this long for a match's end is over too (the watcher sends it again)
-    public const int PressedSeconds = 10;         // Restart the server and Restart match count down this long after their second click
+    public const int PressedSeconds = HudMenu.PendingSeconds; // Restart the server and Restart match count down this long after their second click: their buttons count it
     public const int RematchWaitSeconds = 60;     // the least time between two Restart matches, from one's second click: anyone may press it
-    public const string PlayerKind = "player";    // Restart the server: the watcher has no such kind (RestartKinds), and may not name it
+    public const string PlayerKind = HudState.PlayerRestartKind; // Restart the server: the watcher has no such kind (RestartKinds), and may not name it
     const string GameUpdateKind = BridgeWire.GameUpdate;
     const string AtMatchEnd = BridgeWire.AtMatchEnd, AtOnce = BridgeWire.AtOnce; // a restart's when, as the watcher's notice says it and the live state carries it
 
@@ -299,6 +299,30 @@ static partial class Program
         Modes.WingmanId => "The rounds and the scores start over",
         _ => "The time and the scores start over",
     };
+
+    /// <summary>!cancel restart: Restart the server's countdown stops - a player's restart; the watcher's are not the players' to stop. Anybody may, as anybody may press the
+    /// button; the news line says who. Its cooldown goes with it: a restart that never happened. What its second click ended - an open vote, a change - stays ended.</summary>
+    static void CancelRestart(string by, string steamId)
+    {
+        var now = Now();
+        if (RestartDue is not { Kind: PlayerKind, GoesAt: { } goes } due || goes <= now) { Tell(steamId, M.Refused("No restart of the server counts down")); return; }
+        RestartDue = null;
+        RestartCooldownUntil = default;
+        Log($"restart: {by} {steamId} cancels {due.By}'s restart of the server, {LeftWords(goes, now)} before it went");
+        Announce($"{M.N(Clip(by, 24))} cancelled {(Clip(by, 32) == due.By ? "their" : $"{M.N(due.By)}'s")} restart of the server - It plays on");
+    }
+
+    /// <summary>!cancel rematch: Restart match's countdown stops - a player's; the fairness restart is no button's. Anybody may; the news line says who. Its wait goes with it,
+    /// so the next one can be pressed at once.</summary>
+    static void CancelRematch(string by, string steamId)
+    {
+        var now = Now();
+        if (RematchDue is not { Fair: false } due || due.At <= now) { Tell(steamId, M.Refused("No restart of the match counts down")); return; }
+        RematchDue = null;
+        RematchWaitUntil = default;
+        Log($"rematch: {by} {steamId} cancels {due.By}'s restart of the match, {LeftWords(due.At, now)} before it went");
+        Announce($"{M.N(Clip(by, 24))} cancelled {(Clip(by, 32) == due.By ? "their" : $"{M.N(due.By)}'s")} restart of the match - It plays on");
+    }
 
     /// <summary>The countdown is over: the restart goes out, unless something ended it first. The game restarts the match a second later.</summary>
     static void FireRematch(Rematch due)

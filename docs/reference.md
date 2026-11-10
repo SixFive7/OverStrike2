@@ -243,7 +243,11 @@ Nobody can call a vote while a map change counts down or a map loads, while a re
 or for **2 minutes after the last vote**; a match end opens its vote anyway, except while Steam is not showing the HUD. A player who tries reads why in their own line, and chat and the board name them for everybody; during the 2 minutes the button
 says how long is left. A risky map - a crash on record, on the broken list - is locked on its card: the first click opens the padlock, and a second click within 30 s puts it to the vote.
 That second click counts only 0.5 s or more after the click before it (`HudBrowser.DoubleClick`): a double click opens the padlock and nothing more, so the warning is
-read before the map goes on; the same holds for Previous, and a double click on any Play or on Previous sends its pick once.
+read before the map goes on; the same holds for Previous, and a double click on any Play or on Previous sends its pick once. The confirmed pick then **counts
+down 10 s in the button that confirmed it** - the card's Play, or Previous - for everybody, before it goes to the vote (`PicksDue`, `PickCountdownSeconds`: the
+restarts' own countdown, so that its Cancel has a window); a click on the button meanwhile, by anybody, cancels it (`!cancel pick <map>`, `!cancel previous`),
+and the news line says who cancelled whose pick. A pick refused at its confirmation (a vote may not be called now) is refused at once, with no countdown; one
+whose player leaves, or whose map stops being playable, during its countdown does not go on. A player has one pick counting down: a newer one takes its place.
 Any number of players plays on any Wingman map; its [spawn points](#wingman-and-its-spawn-points) per side are only the recommended count.
 
 ### The freeze
@@ -328,7 +332,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   `mp_maxrounds` when a match ends - a kept map's next match starts without a load -, right before its Restart match, and 2 s after every Wingman load. The Game page shows
   Wingman's row from HUD content v4.11.0 on, its buttons saying 8 and 16 rounds: the contents up to v4.10.0 collapse it there, and their buttons say minutes.
 - **Restart the match** (`!rematch`) starts the match that is on over, in any mode: a second click within 30 s confirms - 0.5 s or more after the click before it, so a double
-  click never does (`HudBrowser.DoubleClick`, as for a risky map's Play) - then 10 s count down on the countdown banner with the player's name,
+  click never does (`HudBrowser.DoubleClick`, as for a risky map's Play) - then 10 s count down on the countdown banner with the player's name and in the button
+  itself, where a click by anybody cancels it (`!cancel rematch`; the news line says who, and the next one may be pressed at once - the fairness restart has no button),
   and the bridge sends `os_restart 1`, the plugin's own restart, which its restart guard lets through also while it holds `mp_restartgame` (`mp_restartgame 1` to a plugin that has no
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
   mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
@@ -349,7 +354,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
   `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's, starts
   the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
-  same 10 s countdown with the player's name, and the bridge quits the game process
+  same 10 s countdown with the player's name - in its button too, where a click by anybody cancels it (`!cancel restart`, the news line says who, and its cooldown goes
+  with it; the watcher's restarts are not the players' to cancel) - and the bridge quits the game process
   (a clean quit, [below](#broken-maps)), which the container's restart policy starts again. A vote that is open and a map change counting down end at the second click. The least time
   between two is `bridge.restartCooldownSeconds`.
 

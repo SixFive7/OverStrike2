@@ -54,6 +54,7 @@ public static class Hud
         if (space < 0) return false;
         var (verb, arg) = (command[..space], command[(space + 1)..]);
         if (verb == "!down" && DownReasons.IsArg(arg)) return true; // a dislike's reason, with or without its map (the popup, the chat's !down big, !down 12 big)
+        if (verb == "!cancel") return arg is "restart" or "rematch" or "previous" || arg.StartsWith("pick ", StringComparison.Ordinal) && IsMapArg(arg[5..]); // a countdown's Cancel
         if (verb == "!map" && SplitMode(arg) is { Mode: not "" } inMode) return IsMapArg(inMode.Map); // a card's Play in another mode that also lists the map
         return verb is "!map" or "!up" or "!down" && IsMapArg(arg);
     }

@@ -111,7 +111,8 @@ static partial class Program
             cards.Texts.Single(x => x.Id == "os_m1_name").Text == "map 12" && cards.Texts.Single(x => x.Id == "os_m1_play_text").Text == "Your vote"
             && cards.Classes.Single(x => x.Id == "os_m1" && x.Class == "confirm").On && !cards.Classes.Single(x => x.Id == "os_m2" && x.Class == "confirm").On
             && cards.Texts.Single(x => x.Id == "os_m2_name").Text == "map 1" && HudVote.Thumbs(twelve, null, 0, MapVote.PageCards, 1001).Count == HudMenu.Cards
-            && !cards.Texts.Any(x => x.Text.Contains("take it back", StringComparison.OrdinalIgnoreCase)));
+            && !cards.Texts.Any(x => x.Text.Contains("take it back", StringComparison.OrdinalIgnoreCase))
+            && Enumerable.Range(1, HudMenu.Cards).All(k => !cards.Classes.Single(x => x.Id == HudMenu.Card(k) && x.Class == "pending").On)); // a ballot card has no countdown: the browser's, on the same panels, goes
         var at = t0.AddMinutes(5);
         var adder = new HudPlayer { VoteView = (r, 1, false) };
         HudFrame.AddedToVote(adder, twelve, at, "os_m3_play");

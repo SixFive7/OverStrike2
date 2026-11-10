@@ -176,8 +176,42 @@ static partial class Program
         var (qt, qc) = HudMenu.PreviousButton(live);
         Check("Previous: the map before this one on its button, which puts it to the vote; off while there is none",
             qt.Single(x => x.Id == "os_q_prev_text").Text == "Previous: #2 Zebra" && !qc.Single(x => x.Id == HudMenu.Previous && x.Class == "off").On
-            && HudMenu.Command(HudMenu.Previous, back, live, mb, 1001, now) == "!previous" && HudMenu.PreviousButton(new HudState()).Classes.Single(x => x.Id == HudMenu.Previous).On
+            && HudMenu.Command(HudMenu.Previous, back, live, mb, 1001, now) == "!previous" && HudMenu.PreviousButton(new HudState()).Classes.Single(x => x.Id == HudMenu.Previous && x.Class == "off").On
             && HudMenu.Command(HudMenu.Previous, back, new HudState(), mb, 1001, now) == null);
+        // ---- a confirmed action's countdown in its button, with its Cancel: the restarts, Previous, a risky map's Play ----
+        var t0Ms = HudState.Ms(now);
+        var dueState = new HudState { Map = live.Map, Key = live.Key, PrevArg = live.PrevArg, PrevLabel = live.PrevLabel,
+            RestartKind = HudState.PlayerRestartKind, RestartWhen = "now", RestartAt = t0Ms / 1000 + 7, RestartBy = "Alice", RematchAtMs = t0Ms + 4000, RematchBy = "Bob" };
+        dueState.PicksDue.Add(("3070208661", "Cara", t0Ms + 6000, false)); // card 2's map, the broken one
+        dueState.PicksDue.Add(("prev-map", "Dan", t0Ms + 9000, true));
+        var asNow = dueState.AsOf(t0Ms);
+        var asBars = dueState.AsOf(t0Ms + HudVote.BarLeadMs);
+        var (pgt, pgc) = HudMenu.Game(asNow, 0, 0, asBars);
+        string GT(string id) => pgt.Single(x => x.Id == id).Text;
+        bool GC(string id, string cls) => pgc.Single(x => x.Id == id && x.Class == cls).On;
+        Check($"A confirmed restart counts down in its button ({HudMenu.PendingSeconds} s, the bridge's PressedSeconds): the seconds left, Click to cancel and who pressed it, class pending, the line's step a little ahead; a click there is its Cancel",
+            GT("os_set_restart_text") == "Restarting in 7 s" && GT("os_set_restart_sub") == "Click to cancel - Pressed by Alice" && GC(HudMenu.Restart, "pending") && !GC(HudMenu.Restart, "armed")
+            && GT("os_set_rematch_text") == "Match restarts in 4 s" && GT("os_set_rematch_sub") == "Click to cancel - Pressed by Bob" && GC(HudMenu.Rematch, "pending")
+            && GC(HudMenu.Restart, HudVote.CountdownStep(asBars.PlayerRestartIn(), HudMenu.PendingSeconds)) && GC(HudMenu.Rematch, HudVote.CountdownStep(asBars.PlayerRematchIn(), HudMenu.PendingSeconds))
+            && HudMenu.PendingSeconds == PressedSeconds && PickCountdownSeconds == PressedSeconds
+            && HudMenu.Command(HudMenu.Restart, back, asNow, new HudBrowser(), 1, now) == "!cancel restart" && HudMenu.Command(HudMenu.Rematch, back, asNow, new HudBrowser(), 1, now) == "!cancel rematch");
+        var fair = new HudState { RematchAtMs = t0Ms + 4000, RematchBy = "Eve", RematchFair = true, RestartKind = "daily", RestartWhen = "now", RestartAt = t0Ms / 1000 + 30 }.AsOf(t0Ms);
+        var (fgt, fgc) = HudMenu.Game(fair, 0);
+        Check("...the fairness restart and the watcher's restart are no button's: no countdown in the buttons, and a click there asks as ever",
+            !fgc.Single(x => x.Id == HudMenu.Restart && x.Class == "pending").On && !fgc.Single(x => x.Id == HudMenu.Rematch && x.Class == "pending").On
+            && fgt.Single(x => x.Id == "os_set_rematch_text").Text == "Restart the match" && HudMenu.Command(HudMenu.Rematch, back, fair, new HudBrowser(), 1, now) == "!rematch");
+        var (pqt, pqc) = HudMenu.PreviousButton(asNow, asBars);
+        Check("...Previous's confirmed pick counts down on Previous: the map, the seconds, Cancel; pending and its step; a click there is its Cancel",
+            pqt.Single(x => x.Id == "os_q_prev_text").Text == "Previous: #2 Zebra in 9 s - Cancel" && pqc.Single(x => x.Id == HudMenu.Previous && x.Class == "pending").On
+            && pqc.Single(x => x.Id == HudMenu.Previous && x.Class == HudVote.CountdownStep(asBars.PreviousPickIn(), HudMenu.PendingSeconds)).On
+            && HudMenu.Command(HudMenu.Previous, back, asNow, new HudBrowser(), 1001, now) == "!cancel previous");
+        var pm = HudMenu.Maps(back, asNow, new HudBrowser(), 1001, now, bars: asBars);
+        Check("...a risky map's confirmed pick counts down on its card's Play, for everybody: the seconds and Cancel, pending on the card, the step on the Play; a click there is its Cancel - and no other card",
+            pm.Texts.Single(x => x.Id == "os_m2_play_text").Text == HudMenu.CardPending(6) && pm.Classes.Single(x => x.Id == "os_m2" && x.Class == "pending").On
+            && pm.Classes.Single(x => x.Id == "os_m2_play" && x.Class == HudVote.CountdownStep(asBars.PickIn("3070208661"), HudMenu.PendingSeconds)).On
+            && !pm.Classes.Single(x => x.Id == "os_m1" && x.Class == "pending").On && pm.Texts.Single(x => x.Id == "os_m1_play_text").Text != HudMenu.CardPending(6)
+            && HudMenu.Command("os_m2_play", back, asNow, new HudBrowser(), 1001, now) == "!cancel pick 3070208661" && HudMenu.Command("os_m1_play", back, asNow, new HudBrowser(), 1001, now) == "!map 1"
+            && HudState.Decode(dueState.Encode())!.PicksDue.SequenceEqual(dueState.PicksDue) && new HudState().PickIn("x") == -1 && dueState.PickIn("3070208661") == HudMenu.PendingSeconds);
         var (gt, gc) = HudMenu.Game(live, 0);
         Check("Game page: the match length that is set is lit, and the buttons say !time, !restart and !rematch",
             gc.Single(x => x.Id == HudMenu.Time10).On && !gc.Single(x => x.Id == HudMenu.Time60).On && HudMenu.Command(HudMenu.Time60, back, live, mb, 1, now) == "!time 60"
@@ -331,10 +365,9 @@ static partial class Program
                     && Regex.IsMatch(css, @"(?m)^\.os-setb-rounds\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-setb-min\s*\{\s*visibility:\s*collapse;")
                     && Regex.IsMatch(css, @"\.os-global\.mode-wingman \.os-setb-rounds\s*\{\s*visibility:\s*visible;"));
                 var noCommentsXml = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
-                Check($"Content {HudVersion.Content}: your own vote on the ballot - a badge on every card's Play, white on the card your vote is on (confirm); a map that does not fit greys its Play (unfit)",
+                Check($"Content {HudVersion.Content}: your own vote on the ballot - a badge on every card's Play, white on the card your vote is on (confirm); no grey for a map's fit (no player limit: unfit is gone)",
                     Regex.Matches(noCommentsXml, @"<Panel class=""os-mmine"" hittest=""false""><Panel class=""os-mtick"" />").Count == HudMenu.Cards
-                    && Regex.IsMatch(css, @"\.os-screen\.voting \.os-mcard\.confirm \.os-mmine\s*\{") && Regex.IsMatch(css, @"\.os-mcard\.unfit \.os-mplay\s*\{[^}]*opacity:\s*0\.4;")
-                    && Regex.IsMatch(css, @"\.os-mcard\.unfit \.os-mplay-text\s*\{"));
+                    && Regex.IsMatch(css, @"\.os-screen\.voting \.os-mcard\.confirm \.os-mmine\s*\{") && !css.Contains(".unfit", StringComparison.Ordinal));
                 string[] helped = [".os-search", ".os-mbar-words", ".os-mbar-filters"];
                 Check($"Content {HudVersion.Content}: the search helped - after a click on its area (qhelp) and while the player's chat is open (HUD_CHAT_VISIBLE), on MAPS > Browse alone: the box lit, the words row in the filters' place, the window lifted, a pointer beside the chat line, and nothing of it on the ballot",
                     helped.All(x => css.Contains($".os-screen.qhelp {x}", StringComparison.Ordinal) && css.Contains($".HUD_CHAT_VISIBLE .os-screen.page-maps {x}", StringComparison.Ordinal))

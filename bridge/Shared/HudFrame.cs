@@ -54,7 +54,7 @@ public sealed class HudFrame
         var botWhy = BotsPage(w, botClicks, screen);
         foreach (var (id, text) in HudView.Texts(s, vote)) screen.Text(id, text);
         foreach (var (id, cls, on) in HudView.Classes(s, vote)) screen.Class(id, cls, on);
-        var (prevTexts, prevClasses) = HudMenu.PreviousButton(s); // the Maps page's Previous
+        var (prevTexts, prevClasses) = HudMenu.PreviousButton(s, w.BarState); // the Maps page's Previous: its countdown's line a step ahead
         foreach (var (id, text) in prevTexts) screen.Text(id, text);
         foreach (var (id, cls, on) in prevClasses) screen.Class(id, cls, on);
         screen.Pictures(Everybody, [("os_t_thumb", ThumbOf(w.Catalog, s.Key)), ("os_k_thumb", ThumbOf(w.Catalog, s.ChangeKey))]); // the now-playing card's and the countdown's
@@ -161,8 +161,8 @@ public sealed class HudFrame
         var (texts, classes) = page switch
         {
             HudSlots.Page.Maps when ballot => BallotPage(w, h, p, perPage, screen),
-            HudSlots.Page.Maps => HudMenu.Maps(w.Catalog, w.State, p.Browser, h.Account, now, w.Search, w.Mode.Id, vote),
-            HudSlots.Page.Game => HudMenu.Game(w.State, HudPlayer.ArmedSeconds(p.RestartArmed, now), HudPlayer.ArmedSeconds(p.RematchArmed, now)),
+            HudSlots.Page.Maps => HudMenu.Maps(w.Catalog, w.State, p.Browser, h.Account, now, w.Search, w.Mode.Id, vote, w.BarState),
+            HudSlots.Page.Game => HudMenu.Game(w.State, HudPlayer.ArmedSeconds(p.RestartArmed, now), HudPlayer.ArmedSeconds(p.RematchArmed, now), w.BarState),
             _ => (null, null),
         };
         if (texts == null || classes == null) return;

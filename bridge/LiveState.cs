@@ -126,6 +126,7 @@ static partial class Program
         if (CrashNotice != "" && now < CrashNoticeUntil && !InMaintenance()) h.CrashNote = CrashNotice; // the welcome page's line
         PutWhy(h, now); // Likes.cs: the Dislike popups that are open
         PutRestart(h, now); // Restarts.cs: a restart coming, with its countdown
+        PutPicksDue(h, now); // Picks.cs: a risky map's confirmed pick counting down to the vote
         if (Pending is { } c)
         {
             h.ChangeMap = Clip(Label(c.Map), 40);

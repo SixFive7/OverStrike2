@@ -229,7 +229,7 @@ static partial class Program
             var sent = new List<string>();
             var door = Send;
             Send = command => { sent.Add(command); return ""; };
-            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; Ballot = null; VoteWaitUntil = default; PickMap(who, id, query); }
+            void Pick(string query, string who = "Remy", string id = p1) { sent.Clear(); ClearNotices(); Pending = null; Ballot = null; VoteWaitUntil = default; PicksDue.Clear(); PickMap(who, id, query); }
             static Dictionary<string, string> NonMapsOf(IEnumerable<MapInfo> ms) => ms.Where(m => !m.Official).GroupBy(Key).ToDictionary(g => g.Key, g => g.First().Name);
             S = new State(); Broken = new(); PickConfirms.Clear(); Players.Clear();
             var listed = Maps.Skip(200).First(); // a pack maps.json still lists, as the live list does today
@@ -277,8 +277,9 @@ static partial class Program
             Pick(bad.Rank.ToString());
             var asked = Told.ToList();
             sent.Clear(); ClearNotices(); PickMap("Remy", p1, bad.Rank.ToString()); // the same player again, well inside the 30 s window
-            Check("Beside a packs list a broken map still asks first, and the same player's repeat still goes through (to the vote, and alone the change)",
-                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to vote anyway") && Pending is { } conf && conf.Map == bad);
+            Check("Beside a packs list a broken map still asks first, and the same player's repeat confirms it: it counts down to the vote (PickCountdownSeconds), nothing changes yet",
+                asked is [var q1] && q1.Contains("may restart the server") && q1.Contains("to vote anyway") && PicksDue.TryGetValue(Key(bad), out var confirmed) && confirmed.SteamId == p1
+                && Pending is null && Ballot is null && Told.Any(t => t.Contains($"goes to the vote in {PickCountdownSeconds} s")));
             Pick(listed.Rank.ToString());
             Check("...while the pack beside it is still refused, with no confirm offered", Told is [var still] && still.Contains(NotAMap) && !still.Contains("again within") && Pending is null);
             NonMaps = new Dictionary<string, string> { [Key(bad)] = bad.Name };

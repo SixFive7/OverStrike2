@@ -13,7 +13,10 @@ static partial class Program
         if (inMode != "" && Modes.Find(inMode) is { } asked && ModeOf(map).Id != asked.Id && ListedIn(asked, map) is { } there) map = there; // a card's Play under the mode filter
         if (Unplayable(map) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(map) is { } full) { Tell(steamId, full); return; }
+        if (PicksDue.TryGetValue(Key(map), out var due)) { Tell(steamId, M.Refused($"{M.A(Clip(Label(map), 40))} goes to the vote in {LeftWords(due.At, now)} - Click its countdown to cancel")); return; }
+        var risky = RecordWords(map) != null;
         if (ConfirmGate(map, steamId, now) is { } warning) { Post(Messages.PlayAsksFirst, warning, steamId); return; }
+        if (risky && GoesThrough(map, now)) { CountPickDown(by, steamId, map, now, previous: false); return; }
         SelectMap(by, steamId, map, now);
     }
 
@@ -26,7 +29,10 @@ static partial class Program
         if (prev == null) { Tell(steamId, M.Refused("There is no previous map on record yet")); return; }
         if (Unplayable(prev) is { } no) { Tell(steamId, no); return; }
         if (ModeRefusal(prev) is { } full) { Tell(steamId, full); return; }
+        if (PicksDue.TryGetValue(Key(prev), out var due)) { Tell(steamId, M.Refused($"{M.A(Clip(Label(prev), 40))} goes to the vote in {LeftWords(due.At, now)} - Click its countdown to cancel")); return; }
+        var risky = RecordWords(prev) != null;
         if (ConfirmGate(prev, steamId, now, "Previous") is { } warning) { Post(Messages.PlayAsksFirst, warning, steamId); return; }
+        if (risky && GoesThrough(prev, now)) { CountPickDown(by, steamId, prev, now, previous: true); return; }
         SelectMap(by, steamId, prev, now);
     }
 
@@ -49,6 +55,69 @@ static partial class Program
         if (PickConfirms.TryGetValue(steamId, out var armed) && armed.Key == Key(map) && now <= armed.Until) { PickConfirms.Remove(steamId); return null; } // confirmed in time
         PickConfirms[steamId] = (Key(map), now.AddSeconds(PickConfirmSeconds));
         return PickConfirmNote(map, record, again);
+    }
+
+    // ---- a risky map's confirmed pick counts down first, in the button that confirmed it, and anybody may cancel it ----
+
+    /// <summary>How long a risky map's confirmed pick counts down before it goes to the vote: the restarts' own countdown, so its Cancel has the same window.</summary>
+    public const int PickCountdownSeconds = PressedSeconds;
+
+    /// <summary>A risky map's pick, confirmed (its second click), counting down to the vote: who, their SteamID, the map, when it goes, and whether it came by Previous - whose
+    /// button counts it down then, else the map's card.</summary>
+    sealed record PickDue(string By, string SteamId, MapInfo Map, DateTime At, bool Previous);
+
+    /// <summary>The picks counting down, by the map's key: one a map - a click on its countdown cancels it - and one a player - a newer one of theirs takes its place.</summary>
+    static readonly Dictionary<string, PickDue> PicksDue = new();
+
+    /// <summary>Whether a pick would go through now, so its countdown is worth starting: a vote is open, or one may be called with it (not the map that is on). Otherwise
+    /// SelectMap refuses it at once, saying why, and nobody waits ten seconds for that.</summary>
+    static bool GoesThrough(MapInfo map, DateTime now) => Ballot is { Open: true } || (!IsOn(map) && CallRefusal(now) == null);
+
+    /// <summary>A risky map's pick, confirmed: it goes to the vote PickCountdownSeconds from now (FirePick), its button counts it down for everybody (the live state's
+    /// PicksDue), and a click there cancels it (CancelPick). A pick of this player's counting down already gives way to it.</summary>
+    static void CountPickDown(string by, string steamId, MapInfo map, DateTime now, bool previous)
+    {
+        foreach (var (key, old) in PicksDue.Where(p => p.Value.SteamId == steamId).ToList())
+        {
+            PicksDue.Remove(key);
+            Log($"pick: {by} {steamId}'s pick of {Label(old.Map)} gives way to their pick of {Label(map)}");
+        }
+        var due = new PickDue(by, steamId, map, now.AddSeconds(PickCountdownSeconds), previous);
+        PicksDue[Key(map)] = due;
+        Log($"pick: {by} {steamId} confirms {Label(map)}{(previous ? " by Previous" : "")} - it goes to the vote in {PickCountdownSeconds} s, unless somebody cancels it");
+        Tell(steamId, M.Done($"{M.A(Clip(Label(map), 40))} goes to the vote in {M.V($"{PickCountdownSeconds} s")} - Click its countdown to cancel"), PickCountdownSeconds);
+        After(PickCountdownSeconds * 1000, () => FirePick(due));
+    }
+
+    /// <summary>A pick's countdown is over: it goes to the vote as any pick (SelectMap), with what refuses one now - unless it was cancelled, gave way to a newer one, or its
+    /// player left. A map that became unplayable or does not suit the players on any more says so to its player.</summary>
+    static void FirePick(PickDue due)
+    {
+        if (!PicksDue.TryGetValue(Key(due.Map), out var still) || still != due) return;
+        PicksDue.Remove(Key(due.Map));
+        var now = Now();
+        if (!PresentIds(now).Contains(due.SteamId)) { Log($"pick: {due.By} {due.SteamId} left before their pick of {Label(due.Map)} went to the vote - it does not"); return; }
+        if (Unplayable(due.Map) is { } no) { Tell(due.SteamId, no); return; }
+        if (ModeRefusal(due.Map) is { } full) { Tell(due.SteamId, full); return; }
+        Log($"pick: {due.By} {due.SteamId}'s pick of {Label(due.Map)} goes to the vote");
+        SelectMap(due.By, due.SteamId, due.Map, now);
+    }
+
+    /// <summary>!cancel pick &lt;key&gt; (the map's card) or !cancel previous: the pick counting down stops - anybody may, as anybody may press that button; the news line says who.</summary>
+    static void CancelPick(string by, string steamId, string what)
+    {
+        var now = Now();
+        var due = what == "previous" ? PicksDue.Values.FirstOrDefault(p => p.Previous) : PicksDue.GetValueOrDefault(what);
+        if (due == null || due.At <= now) { Tell(steamId, M.Refused("No pick counts down there any more")); return; }
+        PicksDue.Remove(Key(due.Map));
+        Log($"pick: {by} {steamId} cancels {due.By} {due.SteamId}'s pick of {Label(due.Map)}, {LeftWords(due.At, now)} before it went to the vote");
+        Announce($"{M.N(Clip(by, 24))} cancelled {(due.SteamId == steamId ? "their" : $"{M.N(Clip(due.By, 24))}'s")} pick of {M.A(Clip(Label(due.Map), 32))} - It does not go to the vote");
+    }
+
+    /// <summary>Into the live state: the picks counting down, so every player's button counts each one down - the map's card, or Previous.</summary>
+    static void PutPicksDue(HudState h, DateTime now)
+    {
+        foreach (var p in PicksDue.Values.Where(p => p.At > now).OrderBy(p => p.At)) h.PicksDue.Add((Key(p.Map), p.By, HudState.Ms(p.At), p.Previous));
     }
 
     [GeneratedRegex(@"^(?<id>\d+)$|[?&]id=(?<id>\d+)")] private static partial Regex IdRx(); // a bare number, or the id= of a pasted workshop URL

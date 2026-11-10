@@ -6526,20 +6526,6 @@ Label
 	color: os-dim;
 }
 
-/* A map that does not fit the players on (content v4.11.0): a Wingman map whose spawn points take fewer a side than are on. Its Play greys, as the map
-   that is on does; its words say why (the bridge's "Wingman: N a side at most"). The bridge sets unfit on the card, in the browser and on the ballot. */
-.os-mcard.unfit .os-mplay
-{
-	opacity: 0.4;
-	border: 1px solid #FFFFFF1F;
-	background-color: #FFFFFF08;
-}
-
-.os-mcard.unfit .os-mplay-text
-{
-	color: os-dim;
-}
-
 .os-mscore
 {
 	visibility: collapse;

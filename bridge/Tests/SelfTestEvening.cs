@@ -440,6 +440,25 @@ static partial class Program
             Check("During a vote, !previous puts that map on the ballot like any pick", Ballot is { Open: true } pv && pv.Options.FirstOrDefault(o => o.Map == m[1]) is { Source: VoteSource.Picked } pm
                 && pv.Choices["[U:1:1001]"] == pm.N);
 
+            // ---- a risky previous map: Previous asks first, its second click counts it down - in Previous's button - and its Cancel stops it ----
+            Fresh();
+            foreach (var p in new[] { alice, bob, cara }) h.Join(p);
+            h.MatchEnd(); var firstR = Pending!.Map; Land(); h.Run(70);
+            Go(alice, 1); Land(); h.Run(MapVote.WaitSeconds + 1);
+            Broken = new() { [Key(firstR)] = 3 };
+            h.Talk(bob, "!previous"); h.Talk(bob, "!previous");
+            Check($"A risky previous map: Previous asks first, its second click counts it down {PickCountdownSeconds} s, by Previous, in the live state; no vote yet",
+                PicksDue.TryGetValue(Key(firstR), out var dueP) && dueP.Previous && dueP.SteamId == bob.Item2 && Ballot == null && BuildHud(h.Clock).PicksDue is [{ Previous: true }]);
+            ClearNotices();
+            Check("...Cara's click on Previous's countdown (!cancel previous) stops it, and the news line says who",
+                HudAct($"{cara.Item2}	Cara	!cancel previous") && !PicksDue.ContainsKey(Key(firstR)) && h.Said("Cara cancelled Bob's pick of"));
+            h.Run(PickCountdownSeconds + 1);
+            Check("...and no vote opens", Ballot == null && Pending == null);
+            h.Talk(bob, "!previous"); h.Talk(bob, "!previous");
+            h.Run(PickCountdownSeconds);
+            Check("...uncancelled, its countdown over, the vote opens with it and his vote", Ballot is { } prevBallot && prevBallot.Options.FirstOrDefault(o => o.Map != null && Key(o.Map) == Key(firstR)) is { Owner: var prevOwner } && prevOwner == bob.Item2);
+            Broken = new();
+
             // ---- votes ----
             Fresh();
             foreach (var p in new[] { alice, bob, cara }) h.Join(p);

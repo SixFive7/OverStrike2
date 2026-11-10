@@ -83,6 +83,25 @@ static partial class Program
             h.Run(PressedSeconds + 1);
             Check("...and the quit still goes", h.Sent.Contains("quit"));
 
+            // ---- the countdown's Cancel (its button counts down, and anybody who could press it may stop it): Restart the server ----
+            Fresh();
+            Twice(alice, "!restart");
+            ClearNotices();
+            Click(bob, "!cancel restart");
+            Check("Cancel: Bob's click on the countdown (!cancel restart) stops Alice's restart of the server; the news line says who cancelled whose; the live state carries no restart",
+                RestartDue == null && h.Said("Bob cancelled Alice's restart of the server - It plays on") && Live().RestartKind == "" && HudView.CountdownOf(Live()) == null);
+            h.Run(PressedSeconds + 1);
+            Check("...and the quit never goes", !h.Sent.Contains("quit") && !S.CleanShutdown);
+            ClearNotices(); Twice(alice, "!restart");
+            Check("...its cooldown went with it: a restart that never happened holds up no other", RestartDue is { Kind: PlayerKind, By: "Alice" } && !h.Said("Just restarted"));
+            ClearNotices(); Click(alice, "!cancel restart");
+            Check("...the presser may cancel too, in her own words", RestartDue == null && h.Said("Alice cancelled their restart of the server"));
+            ClearNotices(); Click(bob, "!cancel restart");
+            Check("...a Cancel with nothing counting down is answered and changes nothing", h.Said("No restart of the server counts down") && RestartDue == null);
+            ApplyRestartNotice("os2-restart	1	daily	now	30");
+            ClearNotices(); Click(bob, "!cancel restart");
+            Check("...and the watcher's countdown is not the players' to cancel", RestartDue is { Kind: "daily" } && h.Said("No restart of the server counts down"));
+
             // ---- the watcher and a player's restart ----
             Fresh();
             Check("The watcher cannot name a player's restart", ApplyRestartNotice($"os2-restart\t1\t{PlayerKind}\tnow\t5").StartsWith("refused: the kind is") && ApplyUpdated($"os2-updated\t1\t{PlayerKind}\t").StartsWith("refused: the kind is") && RestartDue == null);
@@ -168,6 +187,21 @@ static partial class Program
             h.Run(RematchWaitSeconds);
             Click(bob, "!rematch");
             Check("...and then it may be pressed again, by anyone", RematchConfirmBy == bob.Item2);
+
+            // ---- the countdown's Cancel: Restart match ----
+            Fresh();
+            Twice(alice, "!rematch");
+            ClearNotices();
+            Click(bob, "!cancel rematch");
+            Check("Cancel: Bob's click on the countdown (!cancel rematch) stops Alice's restart of the match, and the news line says so; the live state carries none",
+                RematchDue == null && h.Said("Bob cancelled Alice's restart of the match - It plays on") && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
+            h.Run(PressedSeconds + 1);
+            Check("...nothing goes out, and its wait went with it: it may be pressed again at once", !h.Sent.Contains(RematchCommand) && RematchWaitUntil == default);
+            ClearNotices(); Twice(bob, "!rematch");
+            Check("...as Bob does", RematchDue is { By: "Bob" } && !h.Said("The match was just restarted"));
+            RematchDue = new Rematch("Cara", h.Clock.AddSeconds(5), Fair: true);
+            ClearNotices(); Click(alice, "!cancel rematch");
+            Check("...the fairness restart is no button's: a Cancel leaves it", RematchDue is { Fair: true } && h.Said("No restart of the match counts down"));
 
             // ---- what Restart match refuses, and what ends it ----
             Fresh();

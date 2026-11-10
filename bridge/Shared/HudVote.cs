@@ -254,6 +254,7 @@ public static class HudVote
             c.Add((id, "liked", false));
             c.Add((id, "disliked", false));
             c.Add((id, "confirm", o != null && mine == o.N && !done));
+            c.Add((id, "pending", false)); // the map browser's countdown of a confirmed pick (HudMenu.Maps): a ballot card has none - the panels are the same
             c.Add((id, "big", o != null && HasTag(o.Tags, MapTags.Big)));
             c.Add((id, "ads", o != null && HasTag(o.Tags, MapTags.Ads)));
             c.Add((id, "ours", o != null && (HasTag(o.Tags, MapTags.Ours) || catalog?.Find(o.Key) is { Ours: true })));

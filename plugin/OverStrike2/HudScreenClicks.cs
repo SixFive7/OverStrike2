@@ -81,10 +81,13 @@ sealed partial class HudScreen
             var browsing = me.Browser;
             if (catalog != null && browsing.Click(buttonId, browsing.Matches(catalog, account, search).Count)) { Busy(player, account); Server.NextFrame(Frame); return; } // a page, a sort, a filter: activity
             if (buttonId.StartsWith("os_m", StringComparison.Ordinal) && buttonId.EndsWith("_play", StringComparison.Ordinal)
-                && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add && add.StartsWith("!map ", StringComparison.Ordinal))
+                && HudMenu.Command(buttonId, catalog, state, browsing, account, now, search, mode.Id, vote) is { } add
+                && (add.StartsWith("!map ", StringComparison.Ordinal) || add.StartsWith(CancelVerb, StringComparison.Ordinal)))
             {
                 Act(player, account, add, $"round {vote.Round}, from the map browser");
-                if (browsing.ConfirmKey == "") HudFrame.AddedToVote(me, vote, now, buttonId); // a risky map's first click only arms its confirmation: the second one adds it
+                // a risky map's first click only arms its confirmation, and its second counts the pick down (the bridge's PicksDue): only a pick that goes at once adds it now;
+                // a click on a countdown is its Cancel
+                if (add.StartsWith("!map ", StringComparison.Ordinal) && browsing.ConfirmKey == "" && catalog?.Find(MapKeyOf(add)) is not { Risky: true }) HudFrame.AddedToVote(me, vote, now, buttonId);
                 Server.NextFrame(Frame);
                 return;
             }
@@ -96,12 +99,24 @@ sealed partial class HudScreen
         var command = HudView.Command(buttonId, state, vote) ?? HudMenu.Command(buttonId, catalog, state, browser, account, now, search, mode.Id, vote);
         if (command != null)
         {
-            ArmGameButtons(player, buttonId, now); // a restart's click that goes out arms or lets go of its button, as the bridge counts it
-            Act(player, account, command);
+            if (command is "!restart" or "!rematch") ArmGameButtons(player, buttonId, now); // a restart's click that goes out arms or lets go of its button, as the bridge counts it
+            Act(player, account, command);                                                // ...and a click on its countdown is its Cancel (!cancel restart, !cancel rematch)
         }
         else if (browser.DoubledAt == now) // a Play, Previous or restart within HudVote.DoubleClickSeconds of the click before it (HudBrowser.DoubleClick): never the confirming second click
             LogVote(player, account, $"{buttonId}: within {HudVote.DoubleClickSeconds} s of the click before it - the second click of a double click, nothing sent");
         Server.NextFrame(Frame); // not inside the player's own click message (see the class summary)
+    }
+
+    /// <summary>The verb of a click on a countdown's button: its Cancel (HudMenu.Command; the bridge's Clicks.Cancel).</summary>
+    const string CancelVerb = "!cancel ";
+
+    /// <summary>The map a card's !map names, as the catalog keys it: its rank or Workshop id, or an official name, the mode after a space left out (HudMenu.PlayArg).</summary>
+    string MapKeyOf(string command)
+    {
+        var arg = command[5..];
+        var at = arg.IndexOf(' ');
+        var map = at > 0 ? arg[..at] : arg;
+        return catalog?.Maps.FirstOrDefault(m => m.Arg == map)?.Key ?? map;
     }
 
     /// <summary>Work in the map browser while a vote is open - a page, a sort, a filter, a search - resets the vote's inactivity timer (the bridge's

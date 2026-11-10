@@ -60,6 +60,15 @@ static partial class Program
         return HudSeen.Where(kv => present.Contains(kv.Key) && AccountId(kv.Key) > 0).ToDictionary(kv => AccountId(kv.Key), kv => kv.Value);
     }
 
+    /// <summary>!cancel restart, !cancel rematch, !cancel previous or !cancel pick &lt;key&gt;: a click on a button whose countdown runs stops it (Restarts.cs, Picks.cs).</summary>
+    static void Cancel(string name, string steamId, string what)
+    {
+        if (what == "restart") CancelRestart(name, steamId);
+        else if (what == "rematch") CancelRematch(name, steamId);
+        else if (what == "previous") CancelPick(name, steamId, what);
+        else if (what.StartsWith("pick ", StringComparison.Ordinal)) CancelPick(name, steamId, what[5..]);
+    }
+
     // ---- the menu's actions: what a click asks for (HudAct), written like the chat commands they stand for ----
     static void Command(string name, string steamId, string text)
     {
@@ -69,6 +78,7 @@ static partial class Program
         if (cmd == "!map" && arg != "") { var (map, mode) = Hud.SplitMode(arg); PickMap(name, steamId, map, mode); }
         else if (cmd == "!restart") RestartServer(name, steamId);
         else if (cmd == "!rematch") RestartMatch(name, steamId);
+        else if (cmd == "!cancel") Cancel(name, steamId, arg); // a countdown a click started: its button's Cancel
         else if (cmd == "!time") SetMatchLength(name, steamId, arg);
         else if (cmd == "!next") StartVote(name, steamId, arg == "random"); // VoteRound.cs: Start a vote; "!next random" is !random's
         else if (cmd == "!previous") Previous(name, steamId);
