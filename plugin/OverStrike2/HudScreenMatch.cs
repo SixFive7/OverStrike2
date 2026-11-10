@@ -60,7 +60,7 @@ sealed partial class HudScreen
 
     /// <summary>Wingman's count of rounds for the match that is on (release 199). Its sides switch at half the count, so the match takes the new one only while neither
     /// count's halftime has come (MatchLength.ThisMatch); otherwise nothing is set here, and the bridge sets it when the next match starts. With no match on - Wingman's
-    /// warmup (the one mode that keeps one), the match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
+    /// warmup (should its cfg switch it on again), the match-end screen, a map with no round started yet - it is set now, for the match that comes.</summary>
     string SetMaxRounds(int rounds)
     {
         if (ConVarKeeper.Find(MaxRounds) is not { } cv) return MatchLength.Reply(MatchLength.Result.NotHere, $"this build has no {MaxRounds}, nothing set");

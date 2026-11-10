@@ -109,7 +109,7 @@ static partial class Program
             Pending = null; LoadPending = false;
             S.LogName = null; // attribution starts over below
         }
-        AllReloading(now); MatchEndUntil = default; RematchDue = null; FairAsked = false; // fresh map: everyone reconnects into it, and it has a match of its own
+        AllReloading(now); MatchEndUntil = default; RematchDue = null; FairNames.Clear(); FairSentAt = DateTime.MinValue; // fresh map: everyone reconnects into it, and it has a match of its own
         WhyOpen.Clear(); // Likes.cs: nothing on screen survives a map change; a Dislike nobody gave a reason for stays "I did not like the map"
         if (!ours && start) ModeAtServerStart();  // ModeSwitch.cs: a start of the start map nobody asked for is a server start, in Arms Race...
         if (!ours) ModeProbing = true; // ...and any map start nobody asked for has the plugin say which mode it was told (else the convars)

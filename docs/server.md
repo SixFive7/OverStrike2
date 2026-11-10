@@ -84,7 +84,7 @@ but not changed is the same version. `os2-server doctor` shows both versions and
 After the restart a new cfg brings, RCON reads what the cfgs set, with one exception to expect: `mp_warmuptime` reads 5 on Arms Race
 and Deathmatch, whose cfgs set 1 - the engine raises it to its floor of 5 s (seen after release 188's restart, 2026-11-07). It does nothing
 there: both cfgs switch the warmup off (`mp_warmup_online_enabled 0`), so a match is live the moment the first player picks a team (tried on
-a test copy, 2026-11-09). Wingman keeps its warmup (`mp_warmup_online_enabled 1`), and its 15 stands.
+a test copy, 2026-11-09). Wingman's cfg switches it off too, where its 15 does nothing either.
 
 ## The bridge's side
 

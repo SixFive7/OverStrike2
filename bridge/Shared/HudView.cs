@@ -184,7 +184,7 @@ public static class HudView
     public static CountdownWords? CountdownOf(HudState s)
     {
         if (s.ChangeIn >= 0) return new("Map change", s.ChangeMap, Hud.ByWords(s.ChangeBy), false, s.ChangeIn);
-        if (s.RematchIn >= 0) return new("Match", s.RematchFair ? EarlyJoin.BannerTitle(Hud.Clean(s.RematchBy, 32)) : $"{Hud.Clean(s.RematchBy, 32)} is restarting the match",
+        if (s.RematchIn >= 0) return new("Match", s.RematchFair ? EarlyJoin.BannerTitle(Hud.Clean(s.RematchBy, 64), s.RematchCount) : $"{Hud.Clean(s.RematchBy, 32)} is restarting the match",
             "The whole match starts over", true, s.RematchIn);
         if (s.RestartKind != "" && s.RestartWhen == "now" && s.RestartIn >= 0)
             return new("Server", s.RestartBy != "" ? $"{Hud.Clean(s.RestartBy, 32)} is restarting the server" : $"The server restarts in {MapVote.Left(s.RestartIn)}", s.RestartAfter, true, s.RestartIn);

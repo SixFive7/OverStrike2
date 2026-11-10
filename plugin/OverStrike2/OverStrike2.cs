@@ -17,7 +17,7 @@ namespace OverStrike2;
 /// ! or / is a chat command, one of the menu's actions (ChatCommands.cs; HudScreen.Chat); a pasted Workshop link opens its card.</summary>
 public class OverStrike2Plugin : BasePlugin
 {
-    public const string Version = "5.12.0";
+    public const string Version = "5.13.0";
     public override string ModuleName => "OverStrike2";
     public override string ModuleVersion => Version;
     public override string ModuleDescription => "Over Strike 2: the HUD and menu, the chat commands, the vote's freeze, the grenade drops, the map settings and the fun page, catch-up, the game modes";
@@ -79,9 +79,9 @@ public class OverStrike2Plugin : BasePlugin
         new SpawnCloak(this, Logger, cloak, slot => hud?.WindowOpen(slot) == true, () => freeze?.Frozen == true).Load();
         // The live lab's probe for the spawn invisibility (InvisProbe.cs, os_probe): inert until the console tells it what to watch.
         new InvisProbe(this, Logger).Load();
-        // The fairness restart (EarlyJoinWatch.cs): a player who comes into an Arms Race or Deathmatch match during its first minute starts it over, once per map,
-        // through the bridge's Restart match. It goes by the mode the map that is on was loaded in, as the settings module has it.
-        new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);
+        // The fairness restart (EarlyJoinWatch.cs): every player who joins a match in its first minute while somebody else plays it starts it over, in every mode,
+        // through the bridge's Restart match - a join while one counts down folds into it.
+        new EarlyJoinWatch(this, Logger, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);
         catchUp = new CatchUp.CatchUpModule(this, Logger, Path.Combine(ModuleDirectory, CatchUp.CatchUpConfig.FileName));
         catchUp.Load(hotReload);
         // Vampire heals only from enemies, by catch-up's rule of who is one; takes only what catch-up's lifesteal leaves of the half a hit may

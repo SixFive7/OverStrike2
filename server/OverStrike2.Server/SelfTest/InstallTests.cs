@@ -534,9 +534,9 @@ static class InstallTests
             Console.WriteLine("SKIP mode cfgs: the settings the three share (not run from the repository)");
             return;
         }
-        // Wingman warms up for 15 s, the other two not at all (mp_warmuptime 1, which the engine makes 5, does nothing then); a player who joins a Wingman
-        // round within 30 s still spawns in it, which the other two, with respawns, set back to CS2's 0
-        string[] onPurpose = ["mp_warmuptime", "mp_warmup_online_enabled", "mp_join_grace_time"];
+        // No mode warms up (mp_warmup_online_enabled 0 in all three), so each one's mp_warmuptime does nothing and may stay as it was; a player
+        // who joins a Wingman round within 30 s still spawns in it, which the other two, with respawns, set back to CS2's 0
+        string[] onPurpose = ["mp_warmuptime", "mp_join_grace_time"];
         var cfgs = files.Select(f => File.ReadAllLines(f).Select(l => l.Split("//")[0].Trim()).Where(l => l.Length > 0)
                                      .Select(l => l.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                                      .GroupBy(p => p[0]).ToDictionary(g => g.Key, g => g.Select(p => p.Length > 1 ? p[1] : "").ToList())).ToList();

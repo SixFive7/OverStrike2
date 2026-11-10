@@ -294,14 +294,16 @@ const int Hud_LongPollSeconds = 25; // Hud.LongPollSeconds: Hud.cs is not in thi
     // the fairness restart (EarlyJoinWatch.cs; its plan, ../../bridge/Shared/EarlyJoin.cs, is the bridge's --selftest's): the game fed in, the bridge asked
     var host = Source("plugin", "OverStrike2", "OverStrike2.cs");
     var fair = Source("plugin", "OverStrike2", "EarlyJoinWatch.cs").Replace("\r\n", "\n");
-    Check(host.Contains("new EarlyJoinWatch(this, Logger, () => settings.Mode.Id, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);", StringComparison.Ordinal)
+    Check(host.Contains("new EarlyJoinWatch(this, Logger, (account, name) => hud?.AskFairRestart(account, name) == true).Load(hotReload);", StringComparison.Ordinal)
           && fair.Contains("if (hotReload) plan.Skip(", StringComparison.Ordinal)
           && Source("plugin", "OverStrike2", "HudScreenFair.cs").Contains("bridge.Act(account, name, EarlyJoin.Command);", StringComparison.Ordinal),
-        "fairness restart: wired with the reload's flag (a plugin loaded mid-map does nothing on that map), the mode the settings module has, and its ask the plugin's own word on /act");
-    Check(fair.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal) && fair.Contains("if (Warmup()) return HookResult.Continue;", StringComparison.Ordinal)
+        "fairness restart: wired with the reload's flag (a plugin loaded mid-map does nothing on that map), in every mode, and its ask the plugin's own word on /act");
+    Check(fair.Contains("p is { IsValid: true, IsBot: false, IsHLTV: false }", StringComparison.Ordinal)
+          && fair.Contains("if (Rules() is not { } rules || rules.WarmupPeriod || rules.TotalRoundsPlayed != 0) return HookResult.Continue;", StringComparison.Ordinal)
+          && fair.Contains("var others = Utilities.GetPlayers().Count(o => o.Slot != slot && Human(o) && OnTeam(o));", StringComparison.Ordinal)
           && fair.Contains("name.Contains(\"SHUTDOWN\", StringComparison.Ordinal) || name.StartsWith(\"NETWORK_DISCONNECT_LOOP\", StringComparison.Ordinal)", StringComparison.Ordinal)
           && fair.Contains("!Reconnect(ev.Reason)) plan.Left(", StringComparison.Ordinal),
-        "fairness restart: humans only - no bot, no TV - no round start in a warmup, and a map change's or the addon download's reconnect is no leaving");
+        "fairness restart: humans only - no bot, no TV - a match's start only out of warmup with no round played, the others on a team counted at each spawn, and a map change's or the addon download's reconnect is no leaving");
     // the live lab's probe for the spawn invisibility (InvisProbe.cs): loaded, the console's only, and the spotted state cleared through the state-changed path
     var probe = Source("plugin", "OverStrike2", "InvisProbe.cs");
     Check(host.Contains("new InvisProbe(this, Logger).Load();", StringComparison.Ordinal) && probe.Contains("if (caller != null) return; // the server console and RCON only", StringComparison.Ordinal)

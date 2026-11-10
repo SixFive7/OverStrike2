@@ -228,52 +228,72 @@ static partial class Program
             rconDown = false;
             Check("RCON not answering: the line for everybody says it did not restart", h.Said("The server did not answer - The match did not restart") && RematchDue == null);
 
-            // ---- the fairness restart (EarlyJoin.cs): the plugin's ask on /act, the countdown, os_restart; once per map; Restart match's refusals ----
+            // ---- the fairness restart (EarlyJoin.cs): the plugin's ask on /act for every join, the countdown, os_restart; joins folding in; the refusals that hold ----
             void Fair((string Name, string Id) p) => HudAct($"{p.Id}\t{p.Name}\t{EarlyJoin.Command}");
+            var cara = ("Cara", "[U:1:2003]");
+            var dan = ("Dan", "[U:1:2004]");
             Fresh();
             Fair(bob);
             var fair = Live();
             Check($"The fairness restart: the plugin's ask for Bob counts down {EarlyJoin.CountdownSeconds} s on the countdown banner - the logo, who came in, the seconds - and nothing goes out before",
-                fair is { RematchBy: "Bob", RematchFair: true, RematchIn: EarlyJoin.CountdownSeconds } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds)) && !h.Sent.Contains(RematchCommand)
+                fair is { RematchBy: "Bob", RematchFair: true, RematchCount: 1, RematchIn: EarlyJoin.CountdownSeconds } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds))
+                && !h.Sent.Contains(RematchCommand)
                 && HudView.CountdownOf(fair) is { Eyebrow: "Match", Title: "The match restarts for fairness - Bob is in", Line: "The whole match starts over", Logo: true, Seconds: EarlyJoin.CountdownSeconds });
             var fairLine = $"The match restarts for fairness in {EarlyJoin.CountdownSeconds} s - Bob is in";
             Check($"...chat and the board say it for everybody: {fairLine}", InChat(fairLine) && OnBoard(fairLine));
+            h.Run(2);
+            ClearNotices();
+            Fair(cara);
+            Fair(cara); // the same join twice (a click repeated): named once
+            fair = Live();
+            Check("...Cara joining while it counts down folds into it: one restart, at the same moment, and the banner and a line name them both",
+                fair is { RematchBy: "Bob and Cara", RematchFair: true, RematchCount: 2 } && fair.RematchAtMs == HudState.Ms(h.Clock.AddSeconds(EarlyJoin.CountdownSeconds - 2))
+                && HudView.CountdownOf(fair) is { Title: "The match restarts for fairness - Bob and Cara are in" }
+                && InChat($"The match restarts for fairness in {EarlyJoin.CountdownSeconds - 2} s - Bob and Cara are in"));
             Click(alice, "!rematch");
             Click(alice, "!rematch");
-            Check("...a player's Restart match meanwhile says the fairness restart comes already", h.Said($"The match restarts for fairness already - It goes in {EarlyJoin.CountdownSeconds} s") && RematchDue is { Fair: true });
-            h.Run(EarlyJoin.CountdownSeconds + 1);
-            Check("...then the plugin's os_restart goes out, as Restart match's does, and the banner is gone",
+            Check("...a player's Restart match meanwhile says the fairness restart comes already", h.Said("The match restarts for fairness already - It goes in") && RematchDue is { Fair: true });
+            h.Run(EarlyJoin.CountdownSeconds);
+            Check("...then the plugin's os_restart goes out once, as Restart match's does, and the banner is gone",
                 h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null && Live().RematchIn == -1 && HudView.CountdownOf(Live()) == null);
             h.Sent.Clear();
-            h.Run(RematchWaitSeconds);
-            Fair(alice);
+            ClearNotices();
+            Fair(dan);
+            Check("...Dan joining as it goes out folds into it too: the game is starting everybody over, so nothing more counts down", RematchDue == null && !SaysNow.Any());
+            h.Run(5);
+            Fair(dan);
+            Check("...not once per map: the next join after that is a restart of its own, in the minute a player's Restart match would wait",
+                RematchDue is { Fair: true, By: "Dan" } && Live() is { RematchBy: "Dan", RematchCount: 1 });
             h.Run(EarlyJoin.CountdownSeconds + 1);
-            Check("...once per map: a second ask on the same map, a minute on, changes nothing", RematchDue == null && !h.Sent.Contains(RematchCommand));
-            h.Line("Loading map \"ar_other\"");
-            ClearNotices(); h.Sent.Clear();
-            Fair(alice);
-            Check("...and a new map may ask again", RematchDue is { Fair: true, By: "Alice" });
+            Check("...and goes out as the first did", h.Sent.Count(c => c == RematchCommand) == 1 && RematchDue == null);
             Fresh();
             StartVote(bob.Item1, bob.Item2);
             ClearNotices();
             Fair(alice);
-            Check("The fairness restart: none while a vote is on - nobody is told, and the map does not ask again", Ballot is { Open: true } && RematchDue == null && !SaysNow.Any() && FairAsked);
+            Check("The fairness restart: none while a vote is on - nobody is told", Ballot is { Open: true } && RematchDue == null && !SaysNow.Any());
             Fresh();
             Twice(alice, "!rematch");
-            h.Run(PressedSeconds + 1);
             ClearNotices(); h.Sent.Clear();
             Fair(bob);
-            Check($"...none within {RematchWaitSeconds} s of a Restart match: that match is young already", RematchDue == null && !SaysNow.Any());
+            Check("...a join while a player's Restart match counts down folds into that one: it starts Bob over too, and nothing else counts down",
+                RematchDue is { Fair: false } && !SaysNow.Any());
+            h.Run(PressedSeconds + 1);
+            ClearNotices(); h.Sent.Clear();
+            h.Run(5);
+            Fair(bob);
+            Check($"...but the minute after a Restart match, which a player's next Restart match waits, does not hold a join's: Bob restarts it", RematchDue is { Fair: true, By: "Bob" });
             Fresh();
             S.Mode = Modes.WingmanId; S.Map = new MapInfo(0, 0, "de_inferno", 0, true, Modes.WingmanId);
             Fair(bob);
-            Check("...none in Wingman, which keeps its warmup", RematchDue == null && !FairAsked);
+            Check("...in Wingman too, like Arms Race and Deathmatch", RematchDue is { Fair: true, By: "Bob" });
             Fresh();
             Fair(bob);
-            var older = string.Join('\n', BuildHud(h.Clock).Encode(endTimes: true).Split('\n').Select(l => l.StartsWith("rematch\t", StringComparison.Ordinal) ? l[..l.LastIndexOf('\t')] : l));
+            Fair(cara);
+            var older = string.Join('\n', BuildHud(h.Clock).Encode(endTimes: true).Split('\n').Select(l => l.StartsWith("rematch\t", StringComparison.Ordinal)
+                ? string.Join('\t', l.Split('\t').Take(3)) : l));
             var olderPlugin = HudState.Decode(older)!;
-            Check("The fairness restart on the wire: the rematch line's third field - a line without it (an older bridge) is a player's Restart match",
-                Live().RematchFair && olderPlugin is { RematchFair: false, RematchBy: "Bob" } && olderPlugin.RematchAtMs > 0);
+            Check("The fairness restart on the wire: the rematch line's third field, and its fourth, the count of names - a line without them (an older bridge) is a player's Restart match by one",
+                Live() is { RematchFair: true, RematchCount: 2 } && olderPlugin is { RematchFair: false, RematchBy: "Bob and Cara", RematchCount: 1 } && olderPlugin.RematchAtMs > 0);
 
             // ---- a plugin without os_restart, a restart the game ignores, no answer at all ----
             Fresh();

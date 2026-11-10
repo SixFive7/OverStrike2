@@ -321,16 +321,21 @@ Anybody may change the length and press the two restarts, on the Game page or in
   `os_restart`; a restart the game refuses is said to everybody). In Arms Race the ladder, the time and catch-up start over; in Deathmatch the time and the scores; in Wingman the rounds and the scores. The map, the
   mode and the fun settings stay. It is refused while the server's restart counts down, a map change counts down or loads, a vote is on or the match has just ended, and for 60 s after
   the last one was pressed; a match end, a map start or the server going down during its countdown ends it.
-- **The fairness restart** (`bridge/Shared/EarlyJoin.cs`, the owner's request of 2026-11-09): Arms Race and Deathmatch have no warmup - their cfgs set
-  `mp_warmup_online_enabled 0`, so a match is live the moment the first player picks a team - and a player who loads the map more slowly would come into a match that is
-  already on, at level 0 in Arms Race. So a player who comes into a match during its first **60 s** - their first spawn on the map, not on a team when it went live: a player of
-  the map before who took longer to load, or a new joiner; never a bot - starts it over, **once per map**. The plugin (`EarlyJoinWatch.cs`) waits until every player of the
-  map before has spawned (one who leaves for real is not waited for), at most until the 60 s are over, and then asks the bridge, naming the last one in; the bridge takes
-  Restart match's path and its refusals - none while a vote is on, a map change counts down or loads, the server's restart counts down, the match has just ended, or within
-  60 s of a Restart match - counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in", says it in chat and on the board, and sends
-  `os_restart 1`. What starts over is Restart match's. Wingman keeps its warmup (15 s) instead, and a player who comes in within 30 s of a round's start still plays it
-  (its cfg's `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's,
-  takes that moment as the match going live, so a lone test game's spawn is a late join.
+- **The fairness restart** (`bridge/Shared/EarlyJoin.cs`): no mode has a
+  warmup - every cfg sets `mp_warmup_online_enabled 0`, so a match is on the moment the first player is in - and a player who loads the map more slowly, or joins later, would
+  come into a match that is already on, at level 0 in Arms Race, a round in in Wingman. So **every** human who joins a match during its first **60 s** while somebody else
+  plays it starts it over, in Arms Race, Deathmatch and Wingman alike, as often as players join: up to 9 restarts in a 10-player match, known and desired. A join is a human's
+  first spawn on a team since they connected or the map loaded - not a respawn, a restart's spawn or a team switch, and the reconnect of a map change or of the HUD addon's
+  download is no new connect; never a bot. The match runs from its start (a round start out of warmup with no round played yet: the map's first, a restart, the game
+  commencing) when a human is on a team then, else from the first human's spawn - that first human starts the match and restarts nothing. The plugin
+  (`EarlyJoinWatch.cs`) asks the bridge at once, naming who came in; the bridge counts **5 s** down on the countdown banner, "The match restarts for fairness - Bob is in",
+  says it in chat and on the board, and sends `os_restart 1`. What starts over is Restart match's, and the restart's round start opens the 60 s again. A join while it counts
+  down folds into it - one restart, at the same moment, and the banner and a line name them all: "Bob and Cas are in", "Bob, Cas, Dee and 2 more are in" - and so does a join
+  in the 3 s after it went out, or while a player's Restart match counts down: each starts the newcomer over too. None while a vote is on, a map change counts down or loads,
+  the server's restart counts down or the match has just ended; the minute a player's Restart match waits after a restart does not hold it. A player's Restart match waits
+  60 s after a fairness restart, as after their own. In Wingman a player who comes in within 30 s of a round's start, after the 60 s too, still plays it (its cfg's
+  `mp_join_grace_time 30`). A plugin loaded during a map does nothing on that map; `os_fair` says where the map stands, and `os_fair live`, the client harness's, starts
+  the match running then and counts the next join as joining somebody, so a lone test game's spawn asks.
 - **Restart the server** (`!restart`) is for a stuck server: a second click within 30 s confirms - 0.5 s or more after the click before it, as for Restart the match - then the
   same 10 s countdown with the player's name, and the bridge quits the game process
   (a clean quit, [below](#broken-maps)), which the container's restart policy starts again. A vote that is open and a map change counting down end at the second click. The least time
@@ -341,8 +346,8 @@ Anybody may change the length and press the two restarts, on the Game page or in
 **Arms Race** is the server's game: a kill earns the next gun, and a kill with the golden knife on the last rung wins the match. It is the default,
 after every server restart and after 10 minutes with nobody on. **Deathmatch** and **Wingman** come in through the vote.
 
-Arms Race and Deathmatch have no warmup (`mp_warmup_online_enabled 0`): a match is live the moment the first player picks a team, and [the fairness
-restart](#the-match-length-and-the-restarts) starts it over once if somebody comes in during its first minute. Wingman warms up for 15 s, from the first team pick.
+No mode has a warmup (`mp_warmup_online_enabled 0`, Wingman's too): a match is on the moment the first player is in, and [the fairness
+restart](#the-match-length-and-the-restarts) starts it over every time somebody joins it during its first minute.
 Both deathmatch-style modes spawn players at random, each spawn point tested for line of sight to the enemies (`mp_randomspawn_los 1`): the game picks one that no
 enemy sees, where the map has one - Valve's Deathmatch cfg sets it, and ours sets it for Arms Race too (Valve's Arms Race cfg does not).
 
