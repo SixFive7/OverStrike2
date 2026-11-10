@@ -40,12 +40,13 @@ static class Program
         "The menu opens by itself at every join, with a welcome, and stays until you close it with its X. Hold TAB for the live board beside the scoreboard: the map that is on and " +
         "who picked it, Like and Dislike, Start a vote and the latest messages - with the mouse, for as long as TAB is down. TAB + E opens the full menu, which closes by itself when idle.\n" +
         "[list]\n" +
-        "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look. Search names, tags and Workshop ids from chat (!s and a few words); sort by " +
-        "place, likes, name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id in chat to play a map that is not on the list: the server " +
-        "downloads it first, with the progress on its card. While a vote is on, this tab holds its ballot.\n" +
+        "[*][b]Maps[/b]: every map with its picture, size, likes and tags that say why it is worth a look; a Wingman map also says how many a side its spawn points suit, 3v3 and " +
+        "the like. Search names, tags and Workshop ids by chat: with the map browser open, press Y and type part of a map name; anywhere, !s and a few words. Sort by place, likes, " +
+        "name or size; filter by size, your likes, official maps, Our maps or game mode. Type any Workshop id in chat to play a map that is not on the list: the server downloads it " +
+        "first, with the progress on its card. While a vote is on, this tab holds its ballot.\n" +
         "[*][b]Fun[/b]: the fun settings, with Random and Default, and Bots: bots for everybody, with presets from a zombie horde to a sniper duel; every change says who made it.\n" +
-        "[*][b]Server[/b]: who is on and which HUD they have; the match length and the two restarts, of the match or the whole server; what the server's map sync is doing, what waits for it, and its " +
-        "history.\n" +
+        "[*][b]Server[/b]: who is on and which HUD they have; the match length and the two restarts, of the match or the whole server - after the confirming click the button counts its " +
+        "10 seconds down, and a click on it cancels; what the server's map sync is doing, what waits for it, and its history.\n" +
         "[*][b]Help[/b]: where everything is, and how it works: every rule of the vote and every chance in a map pick.\n" +
         "[/list]\n\n" +
         "[h1]Chat commands[/h1]\n" +
@@ -55,11 +56,13 @@ static class Program
         "The vote is how a map is chosen. Play on a card puts that map to the vote, with your vote on it; while a vote is on, it goes on that ballot. Start a vote calls one " +
         "without a map, and a match's end opens one by itself. Every vote opens everybody's window and freezes everybody - nobody moves, shoots or takes damage - until all have " +
         "voted, 60 seconds at the most, and everybody unfreezes at the same moment.\n" +
-        "The ballot holds ten cards: Keep playing this map (Play this map again once the match is over), every map a player put on it, a map of each other game mode that suits " +
-        "the players on (Deathmatch, and Wingman up to 4 players), a fresh Workshop map, a surprise new to the server, and favourites to fill the page; Random is a button of its " +
-        "own. Every card shows its mode, its tags and its votes, and every card but a player's own pick is on the server's disk, so the winner loads at once.\n" +
-        "Click a card to vote, another to change it, your own to take it back; you see where the votes go and who still has to vote. The most votes win and a tie is drawn; no " +
-        "votes keeps the map mid-match and is Random at a match's end. After a vote, 2 minutes pass before the next can be called. The server is back on Arms Race after a restart " +
+        "The ballot holds ten cards a page, and pages more when it needs them: Keep playing this map (Play this map again once the match is over), a slot of its own for the map each " +
+        "player adds - it never takes another card's place, adding one votes for it, and adding another later swaps it -, a map of each other game mode (Deathmatch and Wingman), " +
+        "a fresh Workshop map, a surprise new to the server, and favourites to fill the page; Random is a button of its own. Every card shows its mode, its tags and its votes, and " +
+        "every card but a player's own pick is on the server's disk, so the winner loads at once.\n" +
+        "Click a card to vote, another to change it; once you have voted your vote stays, and moves only when you vote for another card. Your own card comes first in your view, " +
+        "with a white YOUR VOTE badge; the others sort by their votes as they come in, and you see who still has to vote. A confirmed Previous or risky map counts 10 seconds " +
+        "down in its button, and a click cancels it. The most votes win and a tie is drawn; no votes keeps the map mid-match and is Random at a match's end. After a vote, 2 minutes pass before the next can be called. The server is back on Arms Race after a restart " +
         "or 10 minutes with nobody on.\n\n" +
         "[h1]Your likes steer the dice[/h1]\n" +
         "Random maps lean on your likes: each Like doubles a map's odds, up to 5, and each Dislike quarters them. The Workshop's own numbers - rating, players, trend - are worth " +
