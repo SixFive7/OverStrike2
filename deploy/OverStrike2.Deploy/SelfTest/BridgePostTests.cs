@@ -189,6 +189,13 @@ static class BridgePostTests
             check("an /act answer, the live state with its names, is not printed", !output.Contains("Secret Name"));
             RunBp("act", "3", "time10");
             check("act: a word becomes the bridge's own command", Cmd3(execs[^1]) == "[U:1:42424254]\tTest D\t!time 10");
+            RunBp("act", "1", "cancel-rematch");
+            check("act: a countdown's Cancel - cancel-rematch, and likewise cancel-restart and cancel-previous", Cmd3(execs[^1]) == "[U:1:42424252]\tTest B\t!cancel rematch"
+                  && BridgePost.Acts["cancel-restart"] == "!cancel restart" && BridgePost.Acts["cancel-previous"] == "!cancel previous");
+            RunBp("add", "2", "17");
+            check("add: the fake's Play on a map's card, by its rank or Workshop id", Cmd3(execs[^1]) == "[U:1:42424253]\tTest C\t!map 17");
+            RunBp("cancel-pick", "0", "3084291314");
+            check("cancel-pick: the fake's click on a map's card whose confirmed pick counts down", Cmd3(execs[^1]) == "[U:1:42424251]\tTest A\t!cancel pick 3084291314");
             RunBp("fake-crash");
             var crash = Cmd3(execs[^1]).Split('\n');
             check("fake-crash: three players time out (BrokenWhy.cs: the third marks the map)", crash.Length == 3 && crash.All(l => l.Contains("NETWORK_DISCONNECT_TIMEDOUT")));
@@ -336,6 +343,7 @@ static class BridgePostTests
                          new[] { "restart", "nuke", "now", "5" }, ["restart", "daily", "soon", "5"], ["restart", "daily", "now", "x"], ["updated", "daily", "a;b"], ["fake-on", "9"],
                          ["fake-on", "x"], ["act", "0"], ["act", "7", "next"], ["act", "0", "quit"], ["act", "0", "!rcon x"], ["client-off"], ["client-on", "x"],
                          ["vote", "7", "1"], ["vote", "x", "1"], ["vote", "1", "x"], ["raw", "quitting", "x"],
+                         ["add", "0"], ["add", "0", "de dust"], ["add", "0", "!rcon x"], ["add", "9", "12"], ["cancel-pick", "0", "a b"], ["cancel-pick", "0", "!x"], ["cancel-pick", "0"],
                      })
             {
                 before = execs.Count;

@@ -23,8 +23,11 @@ namespace OverStrike2.Deploy;
 ///     bridgepost fake-crash                         /log: the first three time out (marks the map, rolls the dice)
 ///     bridgepost client-off &lt;account&gt;               /log: the bridge takes that real player for gone
 ///     bridgepost client-on &lt;account&gt;                /log: a chat line under the test name
-///     bridgepost act &lt;fake 0-3&gt; &lt;word&gt;              /act: that fake player's click: next, random, previous, restart, rematch, time10, time60
+///     bridgepost act &lt;fake 0-3&gt; &lt;word&gt;              /act: that fake player's click: next, random, previous, restart, rematch, time10, time60,
+///                                                   cancel-restart, cancel-rematch, cancel-previous (a click on that button's countdown: its Cancel)
 ///     bridgepost vote &lt;fake 0-3&gt; &lt;card&gt;             /act: that fake player's click on the open vote's card
+///     bridgepost add &lt;fake 0-3&gt; &lt;rank|id&gt;           /act: that fake player's Play on a map's card in the map browser (!map &lt;rank|id&gt;)
+///     bridgepost cancel-pick &lt;fake 0-3&gt; &lt;key&gt;       /act: that fake player's click on a map's card whose confirmed pick counts down (!cancel pick &lt;key&gt;)
 ///     bridgepost names-check                        the vote's lines of the bridge's state (who voted, who has not, who started it): refuses
 ///                                                   when a private name is among them - the client's own Steam name or client.private_names -
 ///                                                   printing none
@@ -38,6 +41,7 @@ sealed class BridgePost(TestCopy tc)
     {
         ["next"] = "!next", ["random"] = "!next random", ["previous"] = "!previous", ["restart"] = "!restart", ["rematch"] = "!rematch",
         ["time10"] = "!time 10", ["time60"] = "!time 60",
+        ["cancel-restart"] = "!cancel restart", ["cancel-rematch"] = "!cancel rematch", ["cancel-previous"] = "!cancel previous",
     };
     static readonly (string Name, string Sid) HudTest = ("HUDtest", "[U:1:42424243]");
     static readonly string[] Kinds = ["game-update", "our-update", "daily", "downloads"];
@@ -177,7 +181,8 @@ sealed class BridgePost(TestCopy tc)
         : throw Out.Stop($"a fake player is 0-{Fakes.Length - 1}, not {arg}");
 
     public const string Doc = "bridgepost restart <kind> <when> <seconds> | restart-cancel <kind> | updated <kind> <words...> | quit-notice | fake-on [n] | fake-off | "
-                              + "fake-crash | client-off <account> | client-on <account> | act <fake 0-3> <word> | vote <fake 0-3> <card> | names-check | check";
+                              + "fake-crash | client-off <account> | client-on <account> | act <fake 0-3> <word> | vote <fake 0-3> <card> | add <fake 0-3> <rank|id> | "
+                              + "cancel-pick <fake 0-3> <key> | names-check | check";
 
     public void Main(IReadOnlyList<string> argv)
     {
@@ -252,6 +257,18 @@ sealed class BridgePost(TestCopy tc)
                     throw Out.Stop($"usage: act <fake 0-{Fakes.Length - 1}> <{string.Join('|', Acts.Keys)}>");
                 var (name, sid) = Fake(args[0]);
                 Send(b, "act", $"{sid}\t{name}\t{Acts[args[1]]}", answers: false);
+                break;
+            case "add":
+                if (args.Count != 2 || !Py.IsDigits(args[1]) || args[1].Length > 12)
+                    throw Out.Stop($"usage: add <fake 0-{Fakes.Length - 1}> <rank|id>");
+                var (adder, adderSid) = Fake(args[0]);
+                Send(b, "act", $"{adderSid}\t{adder}\t!map {args[1]}", answers: false);
+                break;
+            case "cancel-pick":
+                if (args.Count != 2 || !Regex.IsMatch(args[1], "^[a-z0-9_]{1,32}$"))
+                    throw Out.Stop($"usage: cancel-pick <fake 0-{Fakes.Length - 1}> <key: a Workshop id, or an official map's name>");
+                var (canceller, cancellerSid) = Fake(args[0]);
+                Send(b, "act", $"{cancellerSid}\t{canceller}\t!cancel pick {args[1]}", answers: false);
                 break;
             case "vote":
                 if (args.Count != 2 || !Py.IsDigits(args[1]))
