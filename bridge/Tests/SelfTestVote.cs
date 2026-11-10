@@ -331,11 +331,11 @@ static partial class Program
                 h.Run(11);
                 Click(eve, winA); Click(fay, winB);
                 var w2 = WinState();
-                Check("Everybody voted: the limit runs on, the inactivity timer counts and names who reset it; a reset jumps its bar to full",
-                    Header(w2) == "Started by Alice | Everybody has voted | 27 s | 6 of 6 voted | Inactivity timer | 5 s | Reset by Fay" && StepOf(w2, HudVote.LimitBar) == "w4" && StepOf(w2, HudVote.IdleBar) == "w10");
+                Check("Everybody voted: the limit runs on, the inactivity timer counts and names who reset it; a reset sends its bar toward the second to come, a fifth down from full",
+                    Header(w2) == "Started by Alice | Everybody has voted | 27 s | 6 of 6 voted | Inactivity timer | 5 s | Reset by Fay" && StepOf(w2, HudVote.LimitBar) == "w4" && StepOf(w2, HudVote.IdleBar) == "w8");
                 h.Run(2);
                 var w3 = WinState();
-                Check("...its bar a step a second", VarOf(w3, HudVote.IdleNumVar) == "3 s" && StepOf(w3, HudVote.IdleBar) == "w6");
+                Check("...its bar a step a second, named for where it is going: at 3 s the two fifths left a second on", VarOf(w3, HudVote.IdleNumVar) == "3 s" && StepOf(w3, HudVote.IdleBar) == "w4");
                 h.Run(3);
                 var won = Clip(Label(Opt(winA).Map!), 40);
                 var w4d = WinState();
@@ -343,13 +343,13 @@ static partial class Program
                 Check("Decided, the change counting down: who won and how, the second row counts down on its own bar, vdone, the winner lit, Next map; everybody frozen",
                     Header(w4d) == $"Started by Alice | {won} won (4 of 6) - Picked by the vote |  |  | Changing in | {ChangeDelay} s | " && w4d is { Open: false, Freeze: true, Kept: false } && w4d.DoneSeconds == ChangeDelay
                     && ClassOn(w4d, HudView.Screen, "vdone") && !ClassOn(w4d, HudView.Screen, "vlow") && ClassOn(w4d, "os_m1", "now") && TextOf(w4d, "os_m1_play_text") == "Next map" && TextOf(w4d, "os_m2_play_text") == ""
-                    && StepOf(w4d, HudVote.IdleBar) == "w10" && StepOf(w4d, HudVote.LimitBar) == "w0");
+                    && StepOf(w4d, HudVote.IdleBar) == HudVote.CountdownStep(ChangeDelay, ChangeDelay) && StepOf(w4d, HudVote.LimitBar) == "w0");
                 Check("...chat and the board say it, once, with its count of everybody present; no top line over the window, no second line for the change",
                     M.Plain(decidedHud.Says[^1].Text) is var decidedLine && decidedLine.StartsWith("Everybody has voted: ") && decidedLine.EndsWith($"(4 of 6) - Changing in {ChangeDelay} s") && decidedHud.TopText == ""
                     && decidedHud.Lately.Count(l => l.Text == decidedLine) == 1 && decidedHud.Says.Count(l => M.Plain(l.Text).Contains("Changing in")) == 1 && decidedHud.Says[^1].Text.Contains(M.V($"{ChangeDelay} s")));
                 h.Run(ChangeDelay / 2);
                 var w5 = WinState();
-                Check("...and its bar goes down with its seconds", VarOf(w5, HudVote.IdleNumVar) == $"{ChangeDelay - ChangeDelay / 2} s" && StepOf(w5, HudVote.IdleBar) == HudVote.Share(ChangeDelay - ChangeDelay / 2, ChangeDelay) && w5.Freeze);
+                Check("...and its bar goes down with its seconds", VarOf(w5, HudVote.IdleNumVar) == $"{ChangeDelay - ChangeDelay / 2} s" && StepOf(w5, HudVote.IdleBar) == HudVote.CountdownStep(ChangeDelay - ChangeDelay / 2, ChangeDelay) && w5.Freeze);
 
                 WinStart(5);
                 var keptLabel = Clip(CurrentLabel(), 40);
@@ -364,7 +364,7 @@ static partial class Program
                 var keptHud = BuildHud(h.Clock);
                 Check($"Kept the map: for {MapVote.KeptSeconds} s the window says so and closes in that time, vdone, the card lit, everybody frozen; no change, no top line; chat and the board say it",
                     Header(w6) == $"Started by Bob | The vote kept {keptLabel} (4 of 6) |  |  | Closes in | {MapVote.KeptSeconds} s | " && w6 is { Open: false, Freeze: true, Kept: true, DoneSeconds: MapVote.KeptSeconds }
-                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "os_m1", "now") && TextOf(w6, "os_m1_score") == "4/6" && TextOf(w6, "os_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == "w10"
+                    && ClassOn(w6, HudView.Screen, "vdone") && ClassOn(w6, "os_m1", "now") && TextOf(w6, "os_m1_score") == "4/6" && TextOf(w6, "os_m1_play_text") == "Kept" && VarOf(w6, HudVote.NextVar) == "Kept" && StepOf(w6, HudVote.IdleBar) == HudVote.CountdownStep(MapVote.KeptSeconds, MapVote.KeptSeconds)
                     && Pending is null && S.Map == keptMap && keptHud.TopText == "" && M.Plain(keptHud.Says[^1].Text) == $"The vote kept {keptLabel} (4 of 6)" && keptHud.Lately.Any(l => l.Text == $"The vote kept {keptLabel} (4 of 6)")
                     && HudView.VoteLine(w6) == Hud.Clean($"The vote kept {keptLabel}", HudView.VoteLineMax));
                 Check("...its end time rides the change-driven text", VoteState.Decode(BuildVoteState(h.Clock).Encode(endTimes: true)).AsOf(HudState.Ms(h.Clock.AddSeconds(3))) is { Kept: true, DoneSeconds: MapVote.KeptSeconds } kept3 && kept3.SecondsLeft == MapVote.KeptSeconds - 3);

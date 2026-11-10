@@ -553,6 +553,7 @@ Label
 }
 
 /* Fills to empty over 5 s from the moment cu-run comes. Panorama takes a transition's length from the state it leaves: the 5 s here run the line out, the 0 s below put it back at once. */
+/* Catch-up's card stands 5 s; its line runs out half a second sooner, so it is empty when the card goes (content v4.12.0). */
 .os-cu-fill
 {
 	width: 100%;
@@ -562,7 +563,7 @@ Label
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
-	transition-duration: 5s;
+	transition-duration: 4.5s;
 	transition-timing-function: linear;
 }
 
@@ -1994,6 +1995,9 @@ Label
 }
 
 /* The idle close, drawn: a gold line that empties over 30 s (HudSlots.IdleCloseSeconds) and refills on every click. */
+/* The idle line runs out before the window closes (content v4.12.0): it starts up to HudSlots.DrainAfterOpenSeconds after the click or the open
+   that set the close 30 s ahead, and the class reaches the game a frame and a trip later, so its own 30 s left a stub when the window went (the live
+   lab's frames, 2026-11-10): 28.5 s (HudSlots.DrainSeconds). */
 .os-drain-fill
 {
 	width: 100%;
@@ -2003,7 +2007,7 @@ Label
 	transform-origin: 0% 50%;
 	transform: scaleX( 1 );
 	transition-property: transform;
-	transition-duration: 30s;
+	transition-duration: 28.5s;
 	transition-timing-function: linear;
 }
 
@@ -2600,8 +2604,9 @@ Label
 /* ---- a confirmed action's countdown, in its button (content v4.12.0) ----
    After the confirming click of Restart the server, Restart the match, Previous and a risky map's Play, the button runs the action's countdown, and a
    click on it cancels the action (pending, the plugin's, on the button - on the card for a Play); its words say how long, and who pressed it. The line
-   at its foot drains with the countdown in steps of a second, w0 ... w10 on the same panel (HudVote.CountdownStep): each names where the line is going
-   a second from now, so it is empty as the action goes, and right within a second for whoever opens the page partway. */
+   at its foot drains with the countdown in steps of a second, w0 ... w10 (HudVote.CountdownStep) - on the same panel for the three buttons, on the Play
+   for a card, whose own w-classes are its share of the votes: each names where the line is going a second from now, sent HudVote.BarLeadMs early, so it
+   is empty as the action goes, and right within a second for whoever opens the page partway. */
 .os-pend
 {
 	visibility: collapse;
@@ -2648,7 +2653,17 @@ Label
 	transform: scaleX( 1 );
 }
 
+.pending .os-mplay.w10 .os-pend-fill
+{
+	transform: scaleX( 1 );
+}
+
 .pending.w9 .os-pend-fill
+{
+	transform: scaleX( 0.9 );
+}
+
+.pending .os-mplay.w9 .os-pend-fill
 {
 	transform: scaleX( 0.9 );
 }
@@ -2658,7 +2673,17 @@ Label
 	transform: scaleX( 0.8 );
 }
 
+.pending .os-mplay.w8 .os-pend-fill
+{
+	transform: scaleX( 0.8 );
+}
+
 .pending.w7 .os-pend-fill
+{
+	transform: scaleX( 0.7 );
+}
+
+.pending .os-mplay.w7 .os-pend-fill
 {
 	transform: scaleX( 0.7 );
 }
@@ -2668,7 +2693,17 @@ Label
 	transform: scaleX( 0.6 );
 }
 
+.pending .os-mplay.w6 .os-pend-fill
+{
+	transform: scaleX( 0.6 );
+}
+
 .pending.w5 .os-pend-fill
+{
+	transform: scaleX( 0.5 );
+}
+
+.pending .os-mplay.w5 .os-pend-fill
 {
 	transform: scaleX( 0.5 );
 }
@@ -2678,7 +2713,17 @@ Label
 	transform: scaleX( 0.4 );
 }
 
+.pending .os-mplay.w4 .os-pend-fill
+{
+	transform: scaleX( 0.4 );
+}
+
 .pending.w3 .os-pend-fill
+{
+	transform: scaleX( 0.3 );
+}
+
+.pending .os-mplay.w3 .os-pend-fill
 {
 	transform: scaleX( 0.3 );
 }
@@ -2688,12 +2733,27 @@ Label
 	transform: scaleX( 0.2 );
 }
 
+.pending .os-mplay.w2 .os-pend-fill
+{
+	transform: scaleX( 0.2 );
+}
+
 .pending.w1 .os-pend-fill
 {
 	transform: scaleX( 0.1 );
 }
 
+.pending .os-mplay.w1 .os-pend-fill
+{
+	transform: scaleX( 0.1 );
+}
+
 .pending.w0 .os-pend-fill
+{
+	transform: scaleX( 0 );
+}
+
+.pending .os-mplay.w0 .os-pend-fill
 {
 	transform: scaleX( 0 );
 }
@@ -6777,8 +6837,10 @@ Label
 }
 
 /* The fill is a transform, which animates: the server only ever moves it to the next step (w0 ... w10), and each step's transition lasts as long as the step, so the bar moves
-   steadily, cannot drift, and is right at once for a late joiner. Limit: a step of 6 s; Inactivity: a step of 1 s. Panorama takes a transition's length from the state it leaves:
-   w0's 0 s make the next vote's first w10 full at once, and the inactivity timer's reset refills in its 1 s. */
+   steadily, cannot drift, and is right at once for a late joiner. Limit: a step of 6 s; Inactivity, and the decided countdown on the same bar: a step of 1 s. Every step
+   names where the bar is going, and goes out HudVote.BarLeadMs early, so the bar is empty when its countdown is (content v4.12.0: the inactivity bar named where it was,
+   and stopped a fifth short - the live lab's frames, 2026-11-10). Panorama takes a transition's length from the state it leaves: w0's 0 s make the next vote's first
+   step start from full, and the inactivity timer's reset refills in its 1 s. */
 .os-clock-fill
 {
 	width: 100%;
@@ -7320,7 +7382,8 @@ Label
 	visibility: collapse;
 }
 
-/* Panorama takes a transition's length from the state it leaves: the 30 s here run the line out, the 0 s below put it back at once. */
+/* Panorama takes a transition's length from the state it leaves: the 29.5 s here run the line out half a second before the confirmation's 30 s
+   (HudBrowser.ConfirmSeconds) end, so it is empty when they do (content v4.12.0); the 0 s below put it back at once. */
 .os-mlock-fill
 {
 	width: 100%;
@@ -7330,7 +7393,7 @@ Label
 	transform: scaleX( 1 );
 	transition-property: transform;
 	transition-timing-function: linear;
-	transition-duration: 30s;
+	transition-duration: 29.5s;
 }
 
 .os-mcard.confirm .os-mlock-fill

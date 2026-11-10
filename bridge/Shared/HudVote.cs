@@ -89,6 +89,11 @@ public static class HudVote
 
     public static IEnumerable<(string Id, string Class, bool On)> CountdownClasses(string id, int secondsLeft, int total) => StepClasses(id, CountdownStep(secondsLeft, total));
 
+    /// <summary>How far ahead of the clock a countdown's bar is drawn: its steps go out as of this much later (the frame's BarVote and BarState), so the frame's wait
+    /// of up to 250 ms and the trip to the game land each step on time and the bar is empty when its countdown is. The live lab's frames (2026-11-10): a step that
+    /// named where the bar was, and arrived late, left the inactivity bar a fifth short and the decided countdown's a tenth, now and then.</summary>
+    public const int BarLeadMs = 400;
+
     static IEnumerable<(string Id, string Class, bool On)> StepClasses(string id, string on)
     {
         for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
@@ -191,8 +196,9 @@ public static class HudVote
     /// choice lit (confirm), the winner once decided (now); the header's clocks and the page line where the other cards are. Random's button and the
     /// hint for the other pages are variables on os_screen, and the pager's classes on os_screen too. perPage: that player's page size.</summary>
     public static (List<(string Id, string Text)> Texts, List<(string Id, string Class, bool On)> Classes, List<(string Name, string Text)> Vars) Cards(
-        VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards)
+        VoteState v, long account, HudCatalog? catalog, int page = 0, int perPage = MapVote.PageCards, VoteState? bars = null)
     {
+        var b = bars ?? v; // the two clocks' bars: the vote as of HudVote.BarLeadMs from now (the frame's BarVote), its words as of now
         var t = new List<(string, string)>();
         var c = new List<(string, string, bool)>();
         var w = new List<(string, string)>();
@@ -292,9 +298,9 @@ public static class HudVote
         w.Add((IdleKeyVar, clocks.IdleKey));
         w.Add((IdleNumVar, clocks.IdleNum));
         w.Add((IdleVar, clocks.Idle));
-        c.AddRange(LimitClasses(LimitBar, v.Open ? v.SecondsLeft : 0));
-        c.AddRange(v.Open ? ShareClasses(IdleBar, v.Inactivity, Math.Max(1, MapVote.InactivitySeconds)) // a reset jumps to w10: the bar refills in a second, which is the visible reset
-            : ShareClasses(IdleBar, v.SecondsLeft, Math.Max(v.SecondsLeft, Math.Max(1, v.DoneSeconds))));    // decided: this bar counts down, not the limit's - leaving its state would take 6 s to refill
+        c.AddRange(LimitClasses(LimitBar, b.Open ? b.SecondsLeft : 0));
+        c.AddRange(b.Open ? CountdownClasses(IdleBar, b.Inactivity, Math.Max(1, MapVote.InactivitySeconds)) // where it is going: a reset refills it in a second, the last second empties it
+            : CountdownClasses(IdleBar, b.SecondsLeft, Math.Max(b.SecondsLeft, Math.Max(1, b.DoneSeconds))));    // decided: this bar counts down, not the limit's - leaving its state would take 6 s to refill
         return (t, c, w);
     }
 

@@ -263,8 +263,10 @@ static partial class Program
             Check("Stylesheet: every @keyframes name is quoted, and no comma selector (each silently kills the layout)",
                 !Regex.IsMatch(rules, @"@keyframes\s+[^'\s]") && !Regex.IsMatch(rules, @"[^{};]*,[^{};]*\{"));
             Check("Layout: it includes the compiled stylesheet by its s2r:// path", xml.Contains($"s2r://panorama/styles/custom_game/gungame_hud_{Hud.ReleaseFile}.vcss_c"));
-            Check($"Stylesheet: the drain bar empties in exactly the idle close ({HudSlots.IdleCloseSeconds} s)",
-                Regex.IsMatch(rules, $@"\.os-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.IdleCloseSeconds}s;") && Regex.IsMatch(rules, @"\.draining \.os-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;"));
+            Check($"Stylesheet: the drain bar runs out before the idle close ({HudSlots.IdleCloseSeconds} s): its {HudSlots.DrainSeconds} s, from up to {HudSlots.DrainAfterOpenSeconds} s after the open, with half a second to spare",
+                Regex.IsMatch(rules, $@"\.os-drain-fill\s*\{{[^}}]*transition-duration:\s*{HudSlots.DrainSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)}s;") && Regex.IsMatch(rules, @"\.draining \.os-drain-fill\s*\{[^}]*scaleX\( 0 \);[^}]*transition-duration:\s*0s;")
+                && HudSlots.DrainAfterOpenSeconds + HudSlots.DrainSeconds <= HudSlots.IdleCloseSeconds - 0.5 && Regex.IsMatch(rules, @"(?m)^\.os-cu-fill\s*\{[^}]*transition-duration:\s*4\.5s;")
+                && Regex.IsMatch(rules, @"(?m)^\.os-mlock-fill\s*\{[^}]*transition-duration:\s*29\.5s;") && HudBrowser.ConfirmSeconds - 29.5 >= 0.5);
 
             // ---- the shipped contents: the plugin draws for the contents from HudVersion.Oldest on, v4.8.0 - the first whose panels are named os_ - and newer;
             //      a game holding an older one, whose layout names its panels gg_, gets nothing. hud/reference/ keeps the shipped layouts these checks read and no

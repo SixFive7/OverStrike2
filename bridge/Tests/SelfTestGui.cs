@@ -94,6 +94,13 @@ static partial class Program
             HudVote.CountdownStep(10, 10) == "w9" && HudVote.CountdownStep(1, 10) == "w0" && HudVote.CountdownStep(0, 10) == "w0" && HudVote.CountdownStep(5, 5) == "w8"
             && HudVote.CountdownStep(1, 5) == "w0" && HudVote.CountdownStep(8, 8) == "w9" && HudVote.CountdownStep(3, 0) == "w10"
             && HudVote.CountdownClasses("os_set_restart", 6, 10).Count(c => c.On) == 1 && HudVote.CountdownClasses("os_set_restart", 6, 10).Single(c => c.On).Class == "w5");
+        var rawVote = new VoteState { Round = 9, Open = true, EndsAtMs = 100_000, InactivityAtMs = 51_000 };
+        var (nowVote, aheadVote) = (rawVote.AsOf(49_700), rawVote.AsOf(49_700 + HudVote.BarLeadMs));
+        static string IdleStep(List<(string Id, string Class, bool On)> classes) => classes.Single(x => x.Id == HudVote.IdleBar && x.On).Class;
+        Check($"...and the frame draws the ballot's bars {HudVote.BarLeadMs} ms ahead: 1.3 s before the inactivity timer ends its bar already names empty, its words still say 2 s (the live lab's frames, 2026-11-10: the bar stopped a fifth short)",
+            IdleStep(HudVote.Cards(nowVote, 1, null).Classes) == HudVote.CountdownStep(2, Math.Max(1, MapVote.InactivitySeconds)) && IdleStep(HudVote.Cards(nowVote, 1, null).Classes) != "w0"
+            && IdleStep(HudVote.Cards(nowVote, 1, null, bars: aheadVote).Classes) == "w0"
+            && HudVote.Cards(nowVote, 1, null, bars: aheadVote).Vars.Single(x => x.Name == HudVote.IdleNumVar).Text == HudVote.Cards(nowVote, 1, null).Vars.Single(x => x.Name == HudVote.IdleNumVar).Text);
 
         // ---- the map browser with full-text search ----
         var catalog = new HudCatalog

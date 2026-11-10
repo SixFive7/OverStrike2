@@ -34,7 +34,9 @@ public sealed class HudFrame
     /// holds everybody's window (its freeze) and whether joiners get the HUD (no hold); the Fun page's values and who set them; now, by the plugin's clock and
     /// the bridge's.</summary>
     public sealed record World(HudState State, VoteState Vote, HudCatalog? Catalog, HudSearch Search, HudDash? Dash, Modes.Mode Mode, HudTab.Mode TabMode, int Level,
-        bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs);
+        bool VoteLocked, bool AddonRequired, Func<string, string?> FunValue, Func<string, string?>? FunSetBy, DateTime Now, long BridgeNowMs,
+        VoteState? BarVote = null, HudState? BarState = null);
+    // BarVote, BarState: the vote and the state as of HudVote.BarLeadMs from now, for the countdowns' bars alone (their words stay as of now); null: as of now.
 
     int latestSent; // the level of the latest-N class on os_global: turned off when it moves
 
@@ -185,7 +187,7 @@ public sealed class HudFrame
     {
         var vote = w.Vote;
         var page = p.VoteView.Page;
-        var (texts, classes, vars) = HudVote.Cards(vote, h.Account, w.Catalog, page, perPage);
+        var (texts, classes, vars) = HudVote.Cards(vote, h.Account, w.Catalog, page, perPage, w.BarVote);
         foreach (var (name, text) in vars) screen.Var(HudView.Screen, name, text, h.Slot);
         var order = HudVote.Order(vote, page, perPage);
         if (p.Drawn.Round != vote.Round || p.Drawn.Page != page) p.Drawn = (vote.Round, page, order, order, DateTime.MinValue);

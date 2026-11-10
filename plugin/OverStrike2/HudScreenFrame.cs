@@ -49,7 +49,7 @@ sealed partial class HudScreen
         drawing.Clear();
         foreach (var p in humans) drawing[p.Slot] = p;
         var world = new HudFrame.World(state ?? new HudState(), vote, catalog, search, dash, mode, tabMode, TestLevel ?? HudVersion.Level, VoteLocked, addonRequired,
-            FunValue, FunSetBy, now, bridgeNow);
+            FunValue, FunSetBy, now, bridgeNow, voteRaw.AsOf(bridgeNow + HudVote.BarLeadMs), stateRaw?.AsOf(bridgeNow + HudVote.BarLeadMs)); // the bars a step ahead (HudVote.BarLeadMs)
         frame.Draw(world, humans.Select(p => Human(p, now)).ToList(), slots, Player, funClicks, this, botClicks); // every panel by its one name, os_ (HudVersion.Oldest)
         MarkChanged();
     }

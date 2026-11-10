@@ -18,6 +18,7 @@ public sealed class HudSlots
     public const double ToastSeconds = 8;
     public const double IdleCloseSeconds = 30;    // the window goes by itself after this long without a click; the drain bar shows it (gungame_hud.css: 30s)
     public const double DrainAfterOpenSeconds = 1; // the idle line starts this long after the window opens: a transition on a panel only just shown does not run (a click restarts it after FadeSeconds)
+    public const double DrainSeconds = IdleCloseSeconds - DrainAfterOpenSeconds - 0.5; // the idle line's run (gungame_hud.css): out before the close, the line's late start and its trip to the game counted
     public const double FadeSeconds = 0.3;        // between the two steps of showing or hiding; more than one plugin frame (0.25 s)
 
     /// <summary>The window's pages. START: Start; MAPS: Maps (its browser, and the ballot while a vote is on); FUN: Fun, Bots; SERVER: Players, Game, Sync;
