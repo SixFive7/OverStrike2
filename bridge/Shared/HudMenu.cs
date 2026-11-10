@@ -136,6 +136,9 @@ public static class HudMenu
             t.Add(($"{id}_who", ""));   // the ballot's line under the name
             t.Add(($"{id}_score", "")); // the ballot's count
             t.Add(($"{id}_warn", m == null ? "" : Record(m)));
+            var side = m == null ? "" : SideText(m, PlayMode(m, b.Mode, serverMode)); // Wingman's player count on its picture (content v4.12.0)
+            t.Add(($"{id}_side", side));
+            c.Add((id, "sided", side != ""));
             var play = m == null ? "" : PlayText(m, s, b, now, vote, account, serverMode);
             t.Add(($"{id}_play_text", play));
             c.Add((id, "used", m != null));
@@ -278,6 +281,11 @@ public static class HudMenu
 
     /// <summary>The match length the state says, in its mode's words: "60 minutes", "16 rounds" (Wingman's, release 199); "" when it says none.</summary>
     static string Length(HudState s) => s.Rounds > 0 ? $"{s.Rounds} rounds" : s.RoundMinutes > 0 ? $"{s.RoundMinutes} minutes" : "";
+
+    /// <summary>A Wingman card's player count, as the browser shows it on its picture (content v4.12.0): its spawn points as a side's players - "3v3" - a
+    /// recommendation, never a limit; "" in another mode, and for a map whose counts the sync does not know (Side 0).</summary>
+    public static string SideText(HudCatalog.Entry m, string playMode) =>
+        playMode == Modes.WingmanId && m.Side > 0 ? $"{m.Side.ToString(CultureInfo.InvariantCulture)}v{m.Side.ToString(CultureInfo.InvariantCulture)}" : "";
 
     /// <summary>What a card's Play names: the map, and the mode it plays in when that is not the first mode that has it - the one the filter
     /// shows it in, else the one the server is in when that mode has it too.</summary>

@@ -821,12 +821,7 @@ Label
 	color: #FFFFFFE0;
 }
 
-/* The outdated banner: latest-N on os_global names the newest content the server knows; from 52 up it is newer than this one (v4.11.0), and the banner stays while it is. */
-.os-global.latest-52 .os-outdated
-{
-	visibility: visible;
-}
-
+/* The outdated banner: latest-N on os_global names the newest content the server knows; from 53 up it is newer than this one (v4.12.0), and the banner stays while it is. */
 .os-global.latest-53 .os-outdated
 {
 	visibility: visible;
@@ -1062,7 +1057,7 @@ Label
 	visibility: visible;
 }
 
-/* The newer banner: up to 50 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
+/* The newer banner: up to 51 the server knows an older content than this one. For a while after a join only (vjoin on os_screen). */
 .os-global.latest-40 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
@@ -1114,6 +1109,11 @@ Label
 }
 
 .os-global.latest-50 .os-screen.vjoin .os-newer
+{
+	visibility: visible;
+}
+
+.os-global.latest-51 .os-screen.vjoin .os-newer
 {
 	visibility: visible;
 }
@@ -2595,6 +2595,141 @@ Label
 	letter-spacing: 2px;
 	text-transform: uppercase;
 	color: os-gold;
+}
+
+/* ---- a confirmed action's countdown, in its button (content v4.12.0) ----
+   After the confirming click of Restart the server, Restart the match, Previous and a risky map's Play, the button runs the action's countdown, and a
+   click on it cancels the action (pending, the plugin's, on the button - on the card for a Play); its words say how long, and who pressed it. The line
+   at its foot drains with the countdown in steps of a second, w0 ... w10 on the same panel (HudVote.CountdownStep): each names where the line is going
+   a second from now, so it is empty as the action goes, and right within a second for whoever opens the page partway. */
+.os-pend
+{
+	visibility: collapse;
+	width: 100%;
+	height: 3px;
+	vertical-align: bottom;
+	background-color: #FFFFFF1F;
+}
+
+.os-restart .os-pend
+{
+	margin-top: 6px;
+}
+
+.os-restart.pending .os-pend
+{
+	visibility: visible;
+}
+
+.os-qprev.pending .os-pend
+{
+	visibility: visible;
+}
+
+.os-mcard.pending .os-pend
+{
+	visibility: visible;
+}
+
+.os-pend-fill
+{
+	width: 100%;
+	height: 100%;
+	background-color: #FFB4A6;
+	transform-origin: 0% 50%;
+	transform: scaleX( 1 );
+	transition-property: transform;
+	transition-timing-function: linear;
+	transition-duration: 1s;
+}
+
+.pending.w10 .os-pend-fill
+{
+	transform: scaleX( 1 );
+}
+
+.pending.w9 .os-pend-fill
+{
+	transform: scaleX( 0.9 );
+}
+
+.pending.w8 .os-pend-fill
+{
+	transform: scaleX( 0.8 );
+}
+
+.pending.w7 .os-pend-fill
+{
+	transform: scaleX( 0.7 );
+}
+
+.pending.w6 .os-pend-fill
+{
+	transform: scaleX( 0.6 );
+}
+
+.pending.w5 .os-pend-fill
+{
+	transform: scaleX( 0.5 );
+}
+
+.pending.w4 .os-pend-fill
+{
+	transform: scaleX( 0.4 );
+}
+
+.pending.w3 .os-pend-fill
+{
+	transform: scaleX( 0.3 );
+}
+
+.pending.w2 .os-pend-fill
+{
+	transform: scaleX( 0.2 );
+}
+
+.pending.w1 .os-pend-fill
+{
+	transform: scaleX( 0.1 );
+}
+
+.pending.w0 .os-pend-fill
+{
+	transform: scaleX( 0 );
+}
+
+.os-restart.pending
+{
+	border: 1px solid #FF8A75;
+	background-color: #C2412F66;
+	box-shadow: #F07C6B59 0px 0px 16px 0px;
+}
+
+.os-restart.pending .os-restart-text
+{
+	color: #FFFFFF;
+}
+
+.os-qprev.pending
+{
+	border: 1px solid #FF8A75;
+	background-color: #C2412F40;
+}
+
+.os-qprev.pending #os_q_prev_text
+{
+	color: #FFFFFF;
+}
+
+.os-mcard.pending .os-mplay
+{
+	border: 1px solid #FF8A75;
+	background-color: #C2412F59;
+}
+
+.os-mcard.pending .os-mplay-text
+{
+	color: #FFFFFF;
 }
 
 /* ---- the search, helped (content v4.11.0) ----
@@ -5011,6 +5146,34 @@ Label
 	color: #FFFFFF;
 }
 
+/* Wingman's player count (content v4.12.0): the map's own spawn points as a side's players, "3v3", on its picture beside the mode's label - a
+   recommendation, not a limit; only a map whose counts the sync knows (sided, the plugin's). */
+.os-mside
+{
+	visibility: collapse;
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin: 0px 0px 8px 104px;
+	padding: 3px 8px;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1.5px;
+	color: #FFFFFF;
+	background-color: #0A0D11CC;
+	border: 1px solid #4C9BFFB3;
+}
+
+.os-mcard.sided .os-mside
+{
+	visibility: visible;
+}
+
+.os-screen.voting .os-mcard.sided .os-mside
+{
+	visibility: collapse;
+}
+
 .os-mcard.mode-wingman .os-mbody
 {
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #4C9BFF14 ), to( #4C9BFF05 ) );
@@ -6988,30 +7151,9 @@ Label
 	color: #0A0D11;
 }
 
-.os-mmine-back
-{
-	visibility: collapse;
-	vertical-align: center;
-	font-size: 13px;
-	font-weight: bold;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	color: #0A0D11;
-}
-
 .os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mtick
 {
 	visibility: collapse;
-}
-
-.os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mmine-text
-{
-	visibility: collapse;
-}
-
-.os-screen.voting .os-mcard.confirm .os-mplay:hover .os-mmine-back
-{
-	visibility: visible;
 }
 
 .os-screen.voting .os-mcard.now .os-mplay-text

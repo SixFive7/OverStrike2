@@ -1,5 +1,5 @@
 <!--
-  Over Strike 2 - the in-game HUD, content v4.11.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
+  Over Strike 2 - the in-game HUD, content v4.12.0 (custom_hud_layout; release v3_0_0's path, which stays the same for every content).
 
   Structure and style only: every word that can change comes from the OverStrike2 plugin as a dialog variable ({s:text} on a labelled panel, or
   a named variable on os_global or os_screen that a label inherits; the words live in bridge/Hud.cs and its siblings), and every state (window
@@ -22,7 +22,7 @@
     2. the window - the full menu: five tabs, START, MAPS (Browse; Vote while a vote is on), FUN (Settings, Bots), SERVER (Players, Game, Sync) and HELP (Help, How
        it works), with the live column beside the pages that leave it room. MAPS shows eight cards a page in the browser,
        each card on its side: the picture, then the name and every tag that applies in two lines at most; the ballot grows the window and shows ten upright
-       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.11.0): its id tells the server which
+       tiles, five across and two down. A line on any page lies over the foot of its body (os-wl). The window's X is the HUD check's version button while the check waits (os_hudver_v4.12.0): its id tells the server which
        content this game shows;
     3. why the dislike - the reasons of a Dislike, one small dialog at the centre, which shows only while the player has a cursor;
     4. the top stack  - top centre, each panel collapsed while it is not on: the countdown (os-banner), the status banner (os-ban), the outdated and
@@ -120,7 +120,7 @@
 							<Panel class="os-x os-x-b" />
 						</Button>
 						<!-- The HUD check's version button, in the X's place while the server waits for this game's first click (vcheck): its id names this content -->
-						<Button id="os_hudver_v4.11.0" class="os-close os-hudver">
+						<Button id="os_hudver_v4.12.0" class="os-close os-hudver">
 							<Panel class="os-x os-x-a" />
 							<Panel class="os-x os-x-b" />
 						</Button>
@@ -249,7 +249,7 @@
 									<Button id="os_fl_official" class="os-chipb"><Label class="os-chipb-text" text="Official" /></Button>
 									<Panel class="os-ours-wrap"><Panel class="os-ours-glow" /><Button id="os_fl_ours" class="os-chipb os-chipb-ours"><Label class="os-chipb-text" text="Our maps" /></Button></Panel>
 									<Panel class="os-mbar-fill" />
-									<Button id="os_q_prev" class="os-qprev"><Label id="os_q_prev_text" text="{s:text}" /></Button>
+									<Button id="os_q_prev" class="os-qprev"><Label id="os_q_prev_text" text="{s:text}" /><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel></Button>
 									<Label id="os_m_count" text="{s:text}" />
 								</Panel>
 								<!-- The search's words (content v4.11.0), in the filters' place while the search is helped: this player's last three searches and the words
@@ -291,7 +291,7 @@
 													<Label id="os_m1_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m1_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn1}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -306,8 +306,8 @@
 													<Label id="os_m1_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m1_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh1}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m1_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m1_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -324,7 +324,7 @@
 													<Label id="os_m2_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m2_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn2}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -339,8 +339,8 @@
 													<Label id="os_m2_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m2_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh2}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m2_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m2_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -357,7 +357,7 @@
 													<Label id="os_m3_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m3_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn3}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -372,8 +372,8 @@
 													<Label id="os_m3_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m3_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh3}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m3_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m3_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -390,7 +390,7 @@
 													<Label id="os_m4_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m4_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn4}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -405,8 +405,8 @@
 													<Label id="os_m4_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m4_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh4}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m4_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m4_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -423,7 +423,7 @@
 													<Label id="os_m5_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m5_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn5}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -438,8 +438,8 @@
 													<Label id="os_m5_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m5_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh5}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m5_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m5_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -456,7 +456,7 @@
 													<Label id="os_m6_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m6_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn6}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -471,8 +471,8 @@
 													<Label id="os_m6_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m6_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh6}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m6_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m6_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -489,7 +489,7 @@
 													<Label id="os_m7_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m7_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn7}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -504,8 +504,8 @@
 													<Label id="os_m7_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m7_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh7}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m7_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m7_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -522,7 +522,7 @@
 													<Label id="os_m8_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m8_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn8}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -537,8 +537,8 @@
 													<Label id="os_m8_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m8_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh8}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m8_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m8_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -555,7 +555,7 @@
 													<Label id="os_m9_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m9_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn9}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -570,8 +570,8 @@
 													<Label id="os_m9_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m9_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh9}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m9_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m9_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -588,7 +588,7 @@
 													<Label id="os_m10_warn" class="os-mwarn" text="{s:text}" />
 													<Label class="os-mmode os-mmode-armsrace" text="Arms Race" />
 													<Label class="os-mmode os-mmode-deathmatch" text="Deathmatch" />
-													<Label class="os-mmode os-mmode-wingman" text="Wingman" />
+													<Label class="os-mmode os-mmode-wingman" text="Wingman" /><Label id="os_m10_side" class="os-mside" text="{s:text}" />
 													<Label class="os-mnames" text="{s:osvn10}" />
 												</Panel>
 												<Panel class="os-mbody">
@@ -603,8 +603,8 @@
 													<Label id="os_m10_score" class="os-mscore" text="{s:text}" />
 													<Label id="os_m10_play_text" class="os-mplay-text" text="{s:text}" />
 													<Panel class="os-mpop"><Label class="os-mpop-title" text="Voted for it" /><Label class="os-mpop-none" text="No votes yet" /><Label class="os-mpop-names" text="{s:osvh10}" /></Panel>
-													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /><Label class="os-mmine-back" text="Click to take back" /></Panel>
-													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel>
+													<Panel class="os-mmine" hittest="false"><Panel class="os-mtick" /><Label class="os-mmine-text" text="Your vote" /></Panel>
+													<Panel class="os-mlock-line"><Panel class="os-mlock-fill" /></Panel><Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 												</Button>
 												<Label id="os_m10_votes" class="os-mvotes" text="{s:text}" />
 												<Button id="os_m10_up" class="os-mvote os-mvote-up"><Panel class="os-chev" /></Button>
@@ -640,10 +640,12 @@
 										<Button id="os_set_restart" class="os-restart">
 											<Label id="os_set_restart_text" class="os-restart-text" text="{s:text}" />
 											<Label id="os_set_restart_sub" class="os-restart-sub" text="{s:text}" />
+											<Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 										</Button>
 										<Button id="os_set_rematch" class="os-restart">
 											<Label id="os_set_rematch_text" class="os-restart-text" text="{s:text}" />
 											<Label id="os_set_rematch_sub" class="os-restart-sub" text="{s:text}" />
+											<Panel class="os-pend" hittest="false"><Panel class="os-pend-fill" /></Panel>
 										</Button>
 									</Panel>
 								</Panel>
@@ -1308,7 +1310,7 @@
 						<Panel class="os-rstrip"><Label id="os_rst_text" text="{s:text}" /><Label id="os_rst_secs" text="{s:text}" /></Panel>
 						<Label class="os-foot-frozen" text="Everybody is frozen until all have voted" />
 						<Panel class="os-mbar-fill" />
-						<Label class="os-foot-ver" text="HUD v4.11.0  ·  Server {s:osver}" />
+						<Label class="os-foot-ver" text="HUD v4.12.0  ·  Server {s:osver}" />
 						<Panel class="os-drain">
 							<Label class="os-drain-word" text="Closes when idle" />
 							<Panel class="os-drain-track"><Panel class="os-drain-fill" /></Panel>
@@ -1372,7 +1374,7 @@
 						<Panel class="os-sb-ic" hittest="false"><Label class="tone-problem" hittest="false" text="!" /></Panel>
 						<Panel class="os-titles" hittest="false">
 							<Label class="os-sb-head" hittest="false" text="Your HUD is out of date" />
-							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.11.0  ·  The server's {s:osver}" />
+							<Label class="os-sb-line" hittest="false" text="Quit CS2 and start it again - Steam updates it.  ·  Yours v4.12.0  ·  The server's {s:osver}" />
 						</Panel>
 					</Panel>
 					<!-- And up to 46 it is older than this one: for a while after a join (vjoin on os_screen) this banner says so -->

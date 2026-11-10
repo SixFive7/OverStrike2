@@ -85,6 +85,16 @@ static partial class Program
             && rc.Contains(("os_q_r2", "used", true)) && rc.Contains(("os_q_r3", "used", false)) && rc.Contains((HudView.Screen, "qrecent", true))
             && HudMenu.RecentWords([]).Classes.Contains((HudView.Screen, "qrecent", false)) && pt.Single(x => x.Id == "os_q_p2_text").Text == "awp" && pc.Contains(("os_q_p3", "used", false)));
 
+        // ---- content v4.12.0: Wingman's player count on a card, and a countdown's bar named for where it is going ----
+        var wingmanCard = new HudCatalog.Entry("3600000002", "17", 17, 3600000002, "wm_yard", 30, false, -1, 0, 0, 0, RankWm: 3, Side: 3);
+        Check("A Wingman card says its player count - its spawn points as a side's players - only where it plays in Wingman and the sync knows its counts",
+            HudMenu.SideText(wingmanCard, Modes.WingmanId) == "3v3" && HudMenu.SideText(wingmanCard, Modes.ArmsRaceId) == ""
+            && HudMenu.SideText(wingmanCard with { Side = 0 }, Modes.WingmanId) == "");
+        Check("A countdown's bar names where it is going: the share left a second from now - full only before it starts, empty in its last second",
+            HudVote.CountdownStep(10, 10) == "w9" && HudVote.CountdownStep(1, 10) == "w0" && HudVote.CountdownStep(0, 10) == "w0" && HudVote.CountdownStep(5, 5) == "w8"
+            && HudVote.CountdownStep(1, 5) == "w0" && HudVote.CountdownStep(8, 8) == "w9" && HudVote.CountdownStep(3, 0) == "w10"
+            && HudVote.CountdownClasses("os_set_restart", 6, 10).Count(c => c.On) == 1 && HudVote.CountdownClasses("os_set_restart", 6, 10).Single(c => c.On).Class == "w5");
+
         // ---- the map browser with full-text search ----
         var catalog = new HudCatalog
         {

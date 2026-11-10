@@ -290,19 +290,34 @@ static partial class Program
                 var sent = sentTexts.Concat(sentClasses.Select(c => c.Id)).Concat([HudView.Global, HudView.Screen]).Distinct().ToList();
                 var retired = last.Where(id => !ids.Contains(id)).ToHashSet();
                 var added = ids.Where(id => !last.Contains(id)).ToHashSet();
-                // The panel v4.11.0 retires: v4.10.0's version button, whose place this content's own takes. Every other panel keeps its id.
+                // The panel v4.12.0 retires: v4.11.0's version button, whose place this content's own takes. Every other panel keeps its id.
                 var expectedRetired = new HashSet<string> { HudVersion.Button(replaced) };
                 Check($"Content {HudVersion.Content}: it keeps every panel of {replaced} ({last.Count}), by its id, but the {retired.Count} it retires, each for a reason (the version button of {replaced}){(retired.SetEquals(expectedRetired) ? "" : ": unexpected " + string.Join(" ", retired.Except(expectedRetired).Concat(expectedRetired.Except(retired).Select(x => "-" + x))))}",
                     retired.SetEquals(expectedRetired));
                 Check($"Content {HudVersion.Content}: nothing the plugin sends goes to a panel this content lacks - the retired ones neither - and the Previous button stays (on the Maps page)",
                     sent.All(ids.Contains) && ids.Contains(HudMenu.Previous) && ids.Contains("os_q_prev_text"));
                 var addedIdle = added.Where(id => !(sent.Contains(id) || buttons.Contains(id) || id.EndsWith("_thumb") || id is "os_vidle" or "os_vlim")).ToList();
-                // ...its own version button, and the search's words row: nine buttons and their labels. Your own vote, Wingman's row in rounds, a map that does not fit and
-                // the search's typing look, its lifted window and its pointer are the stylesheet's and static labels, with no panel id of their own.
+                // ...its own version button, and Wingman's player count on each card (os_m{k}_side). A confirmed action's countdown in its button is the stylesheet's
+                // and a line with no panel id of its own; the take-back words go.
                 var wordButtons = HudBrowser.RecentButtons.Concat(HudBrowser.PopularButtons).ToList();
-                var expectedAdded = new HashSet<string>(wordButtons.Concat(wordButtons.Select(b => $"{b}_text"))) { HudVersion.Button(HudVersion.Content) };
-                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and the search's {wordButtons.Count} words with their labels - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
+                var expectedAdded = new HashSet<string>(Enumerable.Range(1, HudMenu.Cards).Select(k => $"{HudMenu.Card(k)}_side")) { HudVersion.Button(HudVersion.Content) };
+                Check($"Content {HudVersion.Content}: it adds {added.Count} panel(s) - its own version button and Wingman's player count on the {HudMenu.Cards} cards - and every one is fed or listened to{(addedIdle.Count > 0 ? ": not " + string.Join(" ", addedIdle) : "")}{(added.SetEquals(expectedAdded) ? "" : ": unexpected " + string.Join(" ", added.Except(expectedAdded).Concat(expectedAdded.Except(added).Select(x => "-" + x))))}",
                     added.SetEquals(expectedAdded) && addedIdle.Count == 0);
+                var noTakeBack = Regex.Replace(xml, "<!--.*?-->", "", RegexOptions.Singleline);
+                Check($"Content {HudVersion.Content}: a vote is never taken back - no CLICK TO TAKE BACK on your own card's badge, and no hover that swaps the badge's words",
+                    !noTakeBack.Contains("os-mmine-back", StringComparison.Ordinal) && !css.Contains("os-mmine-back", StringComparison.Ordinal) && !Regex.IsMatch(css, @":hover \.os-mmine")
+                    && Regex.Matches(noTakeBack, @"<Panel class=""os-mmine"" hittest=""false""><Panel class=""os-mtick"" /><Label class=""os-mmine-text"" text=""Your vote"" /></Panel>").Count == HudMenu.Cards);
+                Check($"Content {HudVersion.Content}: a confirmed action's countdown in its button - Restart the server, Restart the match, Previous and every card's Play hold a line that shows while pending and drains in steps w10 ... w0, a second each",
+                    new[] { "os_set_restart", "os_set_rematch" }.All(b => Regex.IsMatch(noTakeBack, $@"<Button id=""{b}"" class=""os-restart"">.*?<Panel class=""os-pend"" hittest=""false""><Panel class=""os-pend-fill"" /></Panel>\s*</Button>", RegexOptions.Singleline))
+                    && noTakeBack.Contains("<Button id=\"os_q_prev\" class=\"os-qprev\"><Label id=\"os_q_prev_text\" text=\"{s:text}\" /><Panel class=\"os-pend\" hittest=\"false\"><Panel class=\"os-pend-fill\" /></Panel></Button>", StringComparison.Ordinal)
+                    && Regex.Matches(noTakeBack, @"<Panel class=""os-mlock-line""><Panel class=""os-mlock-fill"" /></Panel><Panel class=""os-pend"" hittest=""false""><Panel class=""os-pend-fill"" /></Panel>").Count == HudMenu.Cards
+                    && new[] { ".os-restart.pending .os-pend", ".os-qprev.pending .os-pend", ".os-mcard.pending .os-pend" }.All(r => Regex.IsMatch(css, $@"(?m)^{Regex.Escape(r)}\s*\{{\s*visibility:\s*visible;"))
+                    && Enumerable.Range(0, 11).All(k => Regex.IsMatch(css, $@"(?m)^\.pending\.w{k} \.os-pend-fill\s*\{{\s*transform:\s*scaleX\(\s*{(k / 10.0).ToString(System.Globalization.CultureInfo.InvariantCulture)}\s*\);"))
+                    && Regex.IsMatch(css, @"(?m)^\.os-pend-fill\s*\{[^}]*transition-duration:\s*1s;"));
+                Check($"Content {HudVersion.Content}: Wingman's player count on every card's picture, beside its mode's label - only while the card says one (sided), and never on the ballot",
+                    Enumerable.Range(1, HudMenu.Cards).All(k => Regex.IsMatch(noTakeBack, $@"<Label class=""os-mmode os-mmode-wingman"" text=""Wingman"" /><Label id=""{HudMenu.Card(k)}_side"" class=""os-mside"" text=""\{{s:text\}}"" />"))
+                    && Regex.IsMatch(css, @"(?m)^\.os-mside\s*\{\s*visibility:\s*collapse;") && Regex.IsMatch(css, @"(?m)^\.os-mcard\.sided \.os-mside\s*\{\s*visibility:\s*visible;")
+                    && Regex.IsMatch(css, @"(?m)^\.os-screen\.voting \.os-mcard\.sided \.os-mside\s*\{\s*visibility:\s*collapse;"));
                 Check($"Content {HudVersion.Content}: no on-screen keyboard - no key, no panel or rule of one, and no class for it on the player's screen - and the search area is the hint and the clear button",
                     !ids.Any(id => id.StartsWith("os_kb_", StringComparison.Ordinal)) && !ids.Contains(HudBrowser.OldSearchBox) && !Regex.IsMatch(xml + css, @"os-kbd|os-key\b|\.kbd\b")
                     && Regex.IsMatch(xml, @"<Panel id=""os_q_search"" class=""os-search"">\s*<Button id=""os_q_how"">") && ids.Contains(HudBrowser.ClearButton)

@@ -82,6 +82,13 @@ public static class HudVote
 
     public static IEnumerable<(string Id, string Class, bool On)> LimitClasses(string id, int secondsLeft) => StepClasses(id, LimitStep(secondsLeft));
 
+    /// <summary>A countdown's bar in steps of a second, as the same eleven classes (content v4.12.0): named for where the bar is going - what will be left a second
+    /// from now, of the whole - so its 1 s transition arrives as the second does and the bar is empty when the countdown is. secondsLeft is the countdown's
+    /// seconds rounded up, as the frame counts them: its last second names w0. A confirmed action's countdown in its button (pending) runs on it.</summary>
+    public static string CountdownStep(int secondsLeft, int total) => Share(Math.Clamp(secondsLeft - 1, 0, Math.Max(1, total)), Math.Max(1, total));
+
+    public static IEnumerable<(string Id, string Class, bool On)> CountdownClasses(string id, int secondsLeft, int total) => StepClasses(id, CountdownStep(secondsLeft, total));
+
     static IEnumerable<(string Id, string Class, bool On)> StepClasses(string id, string on)
     {
         for (var s = 0; s <= 10; s++) yield return (id, $"w{s.ToString(CultureInfo.InvariantCulture)}", $"w{s.ToString(CultureInfo.InvariantCulture)}" == on);
@@ -231,6 +238,8 @@ public static class HudVote
             t.Add(($"{id}_who", o == null ? "" : string.Join("  ·  ", new[] { o.Size, who }.Where(x => x != ""))));
             t.Add(($"{id}_score", o == null ? "" : $"{o.Votes.ToString(CultureInfo.InvariantCulture)}/{v.Present.ToString(CultureInfo.InvariantCulture)}")); // votes/present, like the game-end screen
             t.Add(($"{id}_warn", record == null ? "" : HudMenu.Record(record)));
+            t.Add(($"{id}_side", "")); // the browser's Wingman player count: none on the ballot, whose cards share the browser's panels
+            c.Add((id, "sided", false));
             t.Add(($"{id}_play_text", o == null ? "" : done ? (v.Result!.N == o.N ? (keep ? "Kept" : "Next map") : "") : mine == o.N ? "Your vote" : keep ? "Keep" : "Vote"));
             c.Add((id, "used", o != null));
             c.Add((id, "official", false));

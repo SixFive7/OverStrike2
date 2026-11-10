@@ -284,9 +284,14 @@ both timers, then what came of it and the countdown. Every vote - cast, changed 
 
 ### The ballot
 
-**Your own vote** (HUD content v4.11.0): the card your vote is on has a white frame and glow and a white YOUR VOTE badge with a check at its picture's top right, which reads
-CLICK TO TAKE BACK under the mouse; LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white
-while your vote is on Random. White differs from every other state by brightness, not hue.
+**Your own vote** (HUD content v4.11.0): the card your vote is on has a white frame and glow and a white YOUR VOTE badge with a check at its picture's top right;
+LEADING and TIE keep their chips but no frame, so on an open ballot the only framed card is yours, and Random's button lights the same white while your vote is on
+Random. White differs from every other state by brightness, not hue. A vote is never taken back (HUD content v4.12.0 drops v4.11.0's CLICK TO TAKE BACK under the
+mouse): it moves only to another card. **Wingman's player count** (v4.12.0): a Wingman card in the map browser says on its picture, beside the mode's label, how many
+a side its own spawn points take - "3v3", the catalog's `Side` - a recommendation, never a limit; a map whose counts the sync does not know says none, and the
+ballot none. **A confirmed action's countdown** (v4.12.0): after the confirming click of Restart the server, Restart the match, Previous and a risky map's Play the
+button itself runs the countdown, lit red, with a line at its foot that drains a second at a time (`pending`, and `w0`-`w10` named for where the line is going,
+`HudVote.CountdownStep`), and a click on it cancels the action.
 
 One page of ten cards, a second only when what must be on it does not fit (48 at the most). In this order (`OpenBallot`, `VoteRound.cs`):
 
